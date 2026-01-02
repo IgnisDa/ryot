@@ -7,11 +7,11 @@ use async_trait::async_trait;
 use common_models::{BackendError, PersonSourceSpecifics};
 use common_utils::ryot_log;
 use database_models::metadata_group::MetadataGroupWithoutId;
-use database_utils::{check_token, deploy_job_to_mark_user_last_activity};
+use database_utils::check_token;
 use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
 use media_models::{
-    MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem, PartialMetadataWithoutId,
-    PeopleSearchItem,
+    EntityTranslationDetails, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
+    PartialMetadataWithoutId, PeopleSearchItem,
 };
 use supporting_service::SupportingService;
 
@@ -81,10 +81,41 @@ pub trait MediaProvider {
     async fn get_trending_media(&self) -> Result<Vec<PartialMetadataWithoutId>> {
         bail!("This provider does not support getting trending media")
     }
+
+    /// Translate metadata.
+    #[allow(unused_variables)]
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        bail!("This provider does not support translating metadata")
+    }
+
+    /// Translate metadata group.
+    #[allow(unused_variables)]
+    async fn translate_metadata_group(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        bail!("This provider does not support translating metadata groups")
+    }
+
+    /// Translate person.
+    #[allow(unused_variables)]
+    async fn translate_person(
+        &self,
+        identifier: &str,
+        target_language: &str,
+        source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<EntityTranslationDetails> {
+        bail!("This provider does not support translating person")
+    }
 }
 
 #[async_trait]
-pub trait AuthProvider {
+pub trait GraphqlDependencyInjector {
     #[allow(dead_code)]
     fn is_mutation(&self) -> bool {
         false
@@ -104,34 +135,32 @@ pub trait AuthProvider {
         if let Some(session_id) = &auth_ctx.session_id {
             check_token(session_id, self.is_mutation(), ss).await?;
         }
-        if let Some(user_id) = &auth_ctx.user_id {
-            deploy_job_to_mark_user_last_activity(user_id, ss).await?;
-        }
         auth_ctx
             .user_id
             .clone()
             .ok_or_else(|| Error::new(BackendError::NoUserId.to_string()))
     }
-}
 
-#[async_trait]
-pub trait GraphqlResolverSvc<T: Send + Sync + 'static>: AuthProvider {
-    fn svc<'a>(&self, ctx: &Context<'a>) -> &'a Arc<T> {
-        ctx.data_unchecked::<Arc<T>>()
+    fn dependency<'a>(&self, ctx: &Context<'a>) -> &'a Arc<SupportingService> {
+        ctx.data_unchecked::<Arc<SupportingService>>()
     }
 
-    async fn svc_and_maybe_user<'a>(
+    async fn dependency_and_maybe_user<'a>(
         &self,
         ctx: &Context<'a>,
-    ) -> GraphqlResult<(&'a Arc<T>, Option<String>)> {
-        let service = self.svc(ctx);
+    ) -> GraphqlResult<(&'a Arc<SupportingService>, Option<String>)> {
+        let service = self.dependency(ctx);
         let user_id = self.user_id_from_ctx(ctx).await.ok();
         Ok((service, user_id))
     }
 
-    async fn svc_and_user<'a>(&self, ctx: &Context<'a>) -> GraphqlResult<(&'a Arc<T>, String)> {
-        let (service, user_id) = self.svc_and_maybe_user(ctx).await?;
-        Ok((service, user_id.unwrap()))
+    async fn dependency_and_user<'a>(
+        &self,
+        ctx: &Context<'a>,
+    ) -> GraphqlResult<(&'a Arc<SupportingService>, String)> {
+        let (service, user_id) = self.dependency_and_maybe_user(ctx).await?;
+        let user_id = user_id.ok_or_else(|| Error::new(BackendError::NoUserId.to_string()))?;
+        Ok((service, user_id))
     }
 }
 

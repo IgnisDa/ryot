@@ -1,6 +1,5 @@
 import { Checkbox, Select } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
-import { produce } from "immer";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
@@ -24,11 +23,10 @@ export const ShowForm = (props: MediaFormProps) => {
 					value: s.seasonNumber.toString(),
 				}))}
 				onChange={(v) => {
-					updateMetadataToUpdate(
-						produce(metadataToUpdate, (draft) => {
-							draft.showSeasonNumber = Number(v);
-						}),
-					);
+					updateMetadataToUpdate({
+						...metadataToUpdate,
+						showSeasonNumber: Number(v),
+					});
 				}}
 			/>
 			<Select
@@ -39,11 +37,10 @@ export const ShowForm = (props: MediaFormProps) => {
 				label="Episode"
 				value={metadataToUpdate.showEpisodeNumber?.toString()}
 				onChange={(v) => {
-					updateMetadataToUpdate(
-						produce(metadataToUpdate, (draft) => {
-							draft.showEpisodeNumber = Number(v);
-						}),
-					);
+					updateMetadataToUpdate({
+						...metadataToUpdate,
+						showEpisodeNumber: Number(v),
+					});
 				}}
 				data={
 					props.metadataDetails.showSpecifics?.seasons
@@ -59,11 +56,10 @@ export const ShowForm = (props: MediaFormProps) => {
 				label="Mark all unseen episodes before this"
 				checked={metadataToUpdate.showAllEpisodesBefore || false}
 				onChange={(e) => {
-					updateMetadataToUpdate(
-						produce(metadataToUpdate, (draft) => {
-							draft.showAllEpisodesBefore = e.target.checked;
-						}),
-					);
+					updateMetadataToUpdate({
+						...metadataToUpdate,
+						showAllEpisodesBefore: e.target.checked,
+					});
 				}}
 			/>
 			<Checkbox
@@ -71,11 +67,10 @@ export const ShowForm = (props: MediaFormProps) => {
 				label="Mark all unseen episodes in this season before this"
 				checked={metadataToUpdate.showSeasonEpisodesBefore || false}
 				onChange={(e) => {
-					updateMetadataToUpdate(
-						produce(metadataToUpdate, (draft) => {
-							draft.showSeasonEpisodesBefore = e.target.checked;
-						}),
-					);
+					updateMetadataToUpdate({
+						...metadataToUpdate,
+						showSeasonEpisodesBefore: e.target.checked,
+					});
 				}}
 			/>
 		</>

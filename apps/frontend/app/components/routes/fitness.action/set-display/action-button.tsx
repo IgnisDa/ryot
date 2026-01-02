@@ -12,7 +12,7 @@ import {
 	useGetExerciseAtIndex,
 	useGetSetAtIndex,
 } from "~/lib/state/fitness";
-import { OnboardingTourStepTargets } from "~/lib/state/onboarding-tour";
+import { OnboardingTourStepTarget } from "~/lib/state/onboarding-tour";
 import { usePlayFitnessSound } from "../hooks";
 import type { FuncStartTimer } from "../types";
 import {
@@ -146,7 +146,7 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 						disabled={isSetConfirmationDisabled(exercise.lot, set.statistic)}
 						className={clsx(
 							props.isOnboardingTourStep &&
-								OnboardingTourStepTargets.ConfirmSetForExercise,
+								OnboardingTourStepTarget.ConfirmSetForExercise,
 						)}
 					>
 						<IconCheck />

@@ -10,9 +10,8 @@ use database_models::{
 };
 use database_utils::{
     entity_in_collections_with_details, item_reviews, schedule_user_for_workout_revision,
-    transform_entity_assets,
 };
-use dependent_models::{UpdateCustomExerciseInput, UserExerciseDetails};
+use dependent_models::UserExerciseDetails;
 use enum_models::{EntityLot, ExerciseLot, ExerciseSource};
 use fitness_models::{
     ExerciseCategory, GithubExercise, GithubExerciseAttributes, UpdateUserExerciseSettings,
@@ -20,8 +19,7 @@ use fitness_models::{
 };
 use futures::try_join;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
-    QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
 };
 use supporting_service::SupportingService;
 
@@ -31,14 +29,10 @@ pub async fn exercise_details(
     ss: &Arc<SupportingService>,
     exercise_id: String,
 ) -> Result<exercise::Model> {
-    let maybe_exercise = Exercise::find_by_id(exercise_id).one(&ss.db).await?;
-    match maybe_exercise {
-        None => bail!("Exercise with the given ID could not be found."),
-        Some(mut e) => {
-            transform_entity_assets(&mut e.assets, ss).await?;
-            Ok(e)
-        }
-    }
+    Exercise::find_by_id(exercise_id)
+        .one(&ss.db)
+        .await?
+        .ok_or(anyhow!("Exercise with the given ID could not be found."))
 }
 
 pub async fn user_exercise_details(
@@ -69,41 +63,6 @@ pub async fn user_exercise_details(
         resp.details = Some(association);
     }
     Ok(resp)
-}
-
-pub async fn update_custom_exercise(
-    ss: &Arc<SupportingService>,
-    user_id: String,
-    input: UpdateCustomExerciseInput,
-) -> Result<bool> {
-    let id = input.update.id.clone();
-    let mut update = input.update.clone();
-    let old_exercise = Exercise::find_by_id(&id).one(&ss.db).await?.unwrap();
-    for image in old_exercise.assets.s3_images.clone() {
-        file_storage_service::delete_object(ss, image).await?;
-    }
-    if input.should_delete.unwrap_or_default() {
-        let ute = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(&user_id))
-            .filter(user_to_entity::Column::ExerciseId.eq(&id))
-            .one(&ss.db)
-            .await?
-            .ok_or_else(|| anyhow!("Exercise does not exist"))?;
-        if let Some(exercise_extra_information) = ute.exercise_extra_information {
-            if !exercise_extra_information.history.is_empty() {
-                bail!("Exercise is associated with one or more workouts.",);
-            }
-        }
-        old_exercise.delete(&ss.db).await?;
-        return Ok(true);
-    }
-    update.source = ExerciseSource::Custom;
-    update.created_by_user_id = Some(user_id.clone());
-    let input = update.into_active_model();
-    let mut input = input.reset_all();
-    input.id = ActiveValue::Unchanged(id);
-    input.update(&ss.db).await?;
-    Ok(true)
 }
 
 pub async fn update_user_exercise_settings(
@@ -148,16 +107,17 @@ pub async fn merge_exercise(
         Exercise::find_by_id(merge_from.clone()).one(&ss.db),
         Exercise::find_by_id(merge_into.clone()).one(&ss.db)
     )?;
-    let old_exercise = old_exercise.ok_or_else(|| anyhow!("Exercise does not exist"))?;
-    let new_exercise = new_exercise.ok_or_else(|| anyhow!("Exercise does not exist"))?;
+    let old_exercise = old_exercise.ok_or_else(|| anyhow!("Old exercise does not exist"))?;
+    let new_exercise = new_exercise.ok_or_else(|| anyhow!("New exercise does not exist"))?;
     if old_exercise.id == new_exercise.id {
         bail!("Cannot merge exercise with itself");
     }
     if old_exercise.lot != new_exercise.lot {
-        bail!(format!(
+        bail!(
             "Exercises must be of the same lot, got from={:#?} and into={:#?}",
-            old_exercise.lot, new_exercise.lot
-        ));
+            old_exercise.lot,
+            new_exercise.lot
+        );
     }
     let old_entity = UserToEntity::find()
         .filter(user_to_entity::Column::UserId.eq(&user_id))
@@ -165,8 +125,10 @@ pub async fn merge_exercise(
         .one(&ss.db)
         .await?
         .ok_or_else(|| anyhow!("Exercise does not exist"))?;
-    change_exercise_id_in_history(ss, merge_into, old_entity).await?;
-    schedule_user_for_workout_revision(&user_id, ss).await?;
+    try_join!(
+        schedule_user_for_workout_revision(&user_id, ss),
+        change_exercise_id_in_history(ss, merge_into, old_entity),
+    )?;
     Ok(true)
 }
 
@@ -260,6 +222,7 @@ pub async fn update_github_exercise(ss: &Arc<SupportingService>, ex: GithubExerc
             level: ActiveValue::Set(ex.attributes.level),
             instructions: ActiveValue::Set(instructions),
             force: ActiveValue::Set(ex.attributes.force),
+            aggregated_instructions: ActiveValue::NotSet,
             source: ActiveValue::Set(ExerciseSource::Github),
             mechanic: ActiveValue::Set(ex.attributes.mechanic),
             equipment: ActiveValue::Set(ex.attributes.equipment),

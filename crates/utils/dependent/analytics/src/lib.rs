@@ -15,17 +15,14 @@ use database_models::{
 };
 use dependent_entity_list_utils::user_collections_list;
 use dependent_models::{ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput};
-use dependent_utility_utils::expire_user_collections_list_cache;
 use enum_models::{EntityLot, MediaLot, SeenState};
 use futures::{TryStreamExt, try_join};
 use media_models::{
-    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,
-    MusicSpecifics, PodcastSpecifics, SeenAnimeExtraInformation, SeenMangaExtraInformation,
+    AudioBookSpecifics, BookSpecifics, MovieSpecifics, MusicSpecifics, PodcastSpecifics,
     SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics,
     VisualNovelSpecifics,
 };
-use rust_decimal::{Decimal, prelude::ToPrimitive};
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec, prelude::ToPrimitive};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
     Order, QueryFilter, QueryOrder, QuerySelect,
@@ -43,25 +40,20 @@ pub async fn calculate_user_activities_and_summary(
     #[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
     struct SeenItem {
         seen_id: String,
-        show_extra_information: Option<SeenShowExtraInformation>,
-        podcast_extra_information: Option<SeenPodcastExtraInformation>,
-        anime_extra_information: Option<SeenAnimeExtraInformation>,
-        manga_extra_information: Option<SeenMangaExtraInformation>,
-        metadata_id: String,
-        finished_on: Option<DateTimeUtc>,
-        last_updated_on: DateTimeUtc,
         metadata_lot: MediaLot,
-        audio_book_specifics: Option<AudioBookSpecifics>,
+        last_updated_on: DateTimeUtc,
+        finished_on: Option<DateTimeUtc>,
+        manual_time_spent: Option<Decimal>,
+        show_specifics: Option<ShowSpecifics>,
         book_specifics: Option<BookSpecifics>,
         movie_specifics: Option<MovieSpecifics>,
         music_specifics: Option<MusicSpecifics>,
         podcast_specifics: Option<PodcastSpecifics>,
-        show_specifics: Option<ShowSpecifics>,
         video_game_specifics: Option<VideoGameSpecifics>,
-        manual_time_spent: Option<Decimal>,
+        audio_book_specifics: Option<AudioBookSpecifics>,
         visual_novel_specifics: Option<VisualNovelSpecifics>,
-        anime_specifics: Option<AnimeSpecifics>,
-        manga_specifics: Option<MangaSpecifics>,
+        show_extra_information: Option<SeenShowExtraInformation>,
+        podcast_extra_information: Option<SeenPodcastExtraInformation>,
     }
 
     let start_from = match calculate_from_beginning {
@@ -142,9 +134,6 @@ pub async fn calculate_user_activities_and_summary(
         .columns([
             seen::Column::ShowExtraInformation,
             seen::Column::PodcastExtraInformation,
-            seen::Column::AnimeExtraInformation,
-            seen::Column::MangaExtraInformation,
-            seen::Column::MetadataId,
             seen::Column::FinishedOn,
             seen::Column::LastUpdatedOn,
             seen::Column::ManualTimeSpent,
@@ -159,8 +148,6 @@ pub async fn calculate_user_activities_and_summary(
             metadata::Column::ShowSpecifics,
             metadata::Column::VideoGameSpecifics,
             metadata::Column::VisualNovelSpecifics,
-            metadata::Column::AnimeSpecifics,
-            metadata::Column::MangaSpecifics,
         ])
         .into_model::<SeenItem>()
         .stream(&ss.db)
@@ -214,11 +201,11 @@ pub async fn calculate_user_activities_and_summary(
             if let Some(runtime) = visual_novel_extra.length {
                 activity.visual_novel_duration += runtime;
             }
-        } else if let Some(_video_game_extra) = seen.video_game_specifics {
-            if let Some(manual_time_spent) = seen.manual_time_spent {
-                activity.video_game_duration +=
-                    (manual_time_spent / dec!(60)).to_i32().unwrap_or_default();
-            }
+        } else if let Some(_video_game_extra) = seen.video_game_specifics
+            && let Some(manual_time_spent) = seen.manual_time_spent
+        {
+            activity.video_game_duration +=
+                (manual_time_spent / dec!(60)).to_i32().unwrap_or_default();
         }
         match seen.metadata_lot {
             MediaLot::Book => activity.book_count += 1,
@@ -311,6 +298,12 @@ pub async fn calculate_user_activities_and_summary(
         .filter(review::Column::PostedOn.gte(start_from))
         .stream(&ss.db)
         .await?;
+    macro_rules! inc {
+        ($obj:ident, $field:ident) => {
+            $obj.$field += 1
+        };
+    }
+
     while let Some(review) = review_stream.try_next().await? {
         let activity = get_activity_count(
             &mut activities,
@@ -322,16 +315,15 @@ pub async fn calculate_user_activities_and_summary(
             review.posted_on,
         );
         match review.entity_lot {
-            EntityLot::Person => activity.person_review_count += 1,
-            EntityLot::Exercise => activity.exercise_review_count += 1,
-            EntityLot::Metadata => activity.metadata_review_count += 1,
-            EntityLot::Collection => activity.collection_review_count += 1,
-            EntityLot::MetadataGroup => activity.metadata_group_review_count += 1,
+            EntityLot::Person => inc!(activity, person_review_count),
+            EntityLot::Exercise => inc!(activity, exercise_review_count),
+            EntityLot::Metadata => inc!(activity, metadata_review_count),
+            EntityLot::Collection => inc!(activity, collection_review_count),
+            EntityLot::MetadataGroup => inc!(activity, metadata_group_review_count),
             _ => {}
         }
     }
 
-    expire_user_collections_list_cache(user_id, ss).await?;
     let collections_response = user_collections_list(user_id, ss).await?;
 
     let user_owned_collection_ids: Vec<String> = collections_response
@@ -359,9 +351,9 @@ pub async fn calculate_user_activities_and_summary(
         );
 
         match cte.entity_lot {
-            EntityLot::Metadata => activity.metadata_collection_count += 1,
-            EntityLot::Person => activity.person_collection_count += 1,
-            EntityLot::MetadataGroup => activity.metadata_group_collection_count += 1,
+            EntityLot::Person => inc!(activity, person_collection_count),
+            EntityLot::Metadata => inc!(activity, metadata_collection_count),
+            EntityLot::MetadataGroup => inc!(activity, metadata_group_collection_count),
             _ => {}
         }
     }

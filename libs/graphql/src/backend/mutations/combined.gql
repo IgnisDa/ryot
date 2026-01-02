@@ -53,6 +53,26 @@ mutation UpdateCustomMetadata($input: UpdateCustomMetadataInput!) {
 	updateCustomMetadata(input: $input)
 }
 
+mutation CreateCustomMetadataGroup($input: CreateCustomMetadataGroupInput!) {
+	createCustomMetadataGroup(input: $input) {
+		id
+	}
+}
+
+mutation UpdateCustomMetadataGroup($input: UpdateCustomMetadataGroupInput!) {
+	updateCustomMetadataGroup(input: $input)
+}
+
+mutation CreateCustomPerson($input: CreateCustomPersonInput!) {
+	createCustomPerson(input: $input) {
+		id
+	}
+}
+
+mutation UpdateCustomPerson($input: UpdateCustomPersonInput!) {
+	updateCustomPerson(input: $input)
+}
+
 mutation CreateOrUpdateCollection($input: CreateOrUpdateCollectionInput!) {
 	createOrUpdateCollection(input: $input) {
 		id
@@ -63,8 +83,8 @@ mutation CreateReviewComment($input: CreateReviewCommentInput!) {
 	createReviewComment(input: $input)
 }
 
-mutation CreateUserMeasurement($input: UserMeasurementInput!) {
-	createUserMeasurement(input: $input)
+mutation CreateOrUpdateUserMeasurement($input: UserMeasurementInput!) {
+	createOrUpdateUserMeasurement(input: $input)
 }
 
 mutation CreateUserNotificationPlatform(
@@ -151,11 +171,12 @@ mutation DeployImportJob($input: DeployImportJobInput!) {
 	deployImportJob(input: $input)
 }
 
-mutation DeployUpdateMediaEntityJob(
-	$entityId: String!
-	$entityLot: EntityLot!
-) {
-	deployUpdateMediaEntityJob(entityId: $entityId, entityLot: $entityLot)
+mutation DeployUpdateMediaTranslationsJob($input: EntityWithLotInput!) {
+	deployUpdateMediaTranslationsJob(input: $input)
+}
+
+mutation DeployUpdateMediaEntityJob($input: EntityWithLotInput!) {
+	deployUpdateMediaEntityJob(input: $input)
 }
 
 mutation UpdateSeenItem($input: UpdateSeenItemInput!) {
@@ -192,8 +213,8 @@ mutation CreateOrUpdateReview($input: CreateOrUpdateReviewInput!) {
 	}
 }
 
-mutation PresignedPutS3Url($input: PresignedPutUrlInput!) {
-	presignedPutS3Url(input: $input) {
+mutation PresignedPutS3Url($prefix: String!) {
+	presignedPutS3Url(prefix: $prefix) {
 		key
 		uploadUrl
 	}
@@ -255,7 +276,7 @@ mutation MergeExercise($mergeFrom: String!, $mergeInto: String!) {
 	mergeExercise(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
 }
 
-mutation MarkEntityAsPartial($input: MarkEntityAsPartialInput!) {
+mutation MarkEntityAsPartial($input: EntityWithLotInput!) {
 	markEntityAsPartial(input: $input)
 }
 
@@ -313,4 +334,22 @@ mutation GetPasswordChangeSession($input: GetPasswordChangeSessionInput!) {
 
 mutation SetPasswordViaSession($input: SetPasswordViaSessionInput!) {
 	setPasswordViaSession(input: $input)
+}
+
+mutation CreateFilterPreset($input: CreateFilterPresetInput!) {
+	createFilterPreset(input: $input) {
+		id
+	}
+}
+
+mutation DeleteFilterPreset($filterPresetId: UUID!) {
+	deleteFilterPreset(filterPresetId: $filterPresetId)
+}
+
+mutation UpdateFilterPresetLastUsed($filterPresetId: UUID!) {
+	updateFilterPresetLastUsed(filterPresetId: $filterPresetId)
+}
+
+mutation GenerateLogDownloadUrl {
+	generateLogDownloadUrl
 }

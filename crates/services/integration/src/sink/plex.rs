@@ -6,8 +6,7 @@ use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportRe
 use enum_models::{MediaLot, MediaSource};
 use media_models::ImportOrExportMetadataItemSeen;
 use regex::Regex;
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 
@@ -18,19 +17,19 @@ mod models {
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct PlexWebhookMetadataPayload {
+        pub duration: Decimal,
         #[serde(rename = "type")]
         pub item_type: String,
-        #[serde(rename = "viewOffset")]
-        pub view_offset: Option<Decimal>,
-        pub duration: Decimal,
         #[serde(rename = "grandparentTitle")]
         pub show_name: Option<String>,
         #[serde(rename = "parentIndex")]
         pub season_number: Option<i32>,
-        #[serde(rename = "index")]
-        pub episode_number: Option<i32>,
         #[serde(rename = "Guid")]
         pub guids: Vec<StringIdObject>,
+        #[serde(rename = "index")]
+        pub episode_number: Option<i32>,
+        #[serde(rename = "viewOffset")]
+        pub view_offset: Option<Decimal>,
     }
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct PlexWebhookAccount {
@@ -39,14 +38,14 @@ mod models {
     }
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct PlexWebhookPayload {
-        #[serde(rename = "event")]
-        pub event_type: String,
         pub user: bool,
         pub owner: bool,
-        #[serde(rename = "Metadata")]
-        pub metadata: PlexWebhookMetadataPayload,
+        #[serde(rename = "event")]
+        pub event_type: String,
         #[serde(rename = "Account")]
         pub account: PlexWebhookAccount,
+        #[serde(rename = "Metadata")]
+        pub metadata: PlexWebhookMetadataPayload,
     }
 }
 
@@ -98,10 +97,10 @@ pub async fn sink_progress(
 ) -> Result<Option<ImportResult>> {
     let payload = parse_payload(&payload)?;
 
-    if let Some(plex_user) = &plex_user {
-        if *plex_user != payload.account.plex_user {
-            return Ok(None);
-        }
+    if let Some(plex_user) = &plex_user
+        && *plex_user != payload.account.plex_user
+    {
+        return Ok(None);
     }
 
     match payload.event_type.as_str() {

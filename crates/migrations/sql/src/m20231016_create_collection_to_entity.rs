@@ -18,7 +18,6 @@ pub static UNIQUE_INDEX_4: &str = "collection_to_entity_uqi4";
 pub static UNIQUE_INDEX_5: &str = "collection_to_entity_uqi5";
 pub static UNIQUE_INDEX_6: &str = "collection_to_entity_uqi6";
 pub static RANK_INDEX: &str = "collection_to_entity_rank_idx";
-pub static ENTITY_ID_INDEX: &str = "collection_to_entity_entity_id_idx";
 pub static ENTITY_LOT_INDEX: &str = "collection_to_entity_entity_lot_idx";
 pub static ENTITY_ID_LOT_INDEX: &str = "collection_to_entity_entity_id_lot_idx";
 pub static CONSTRAINT_SQL: &str = indoc! { r#"
@@ -227,15 +226,6 @@ impl MigrationTrait for Migration {
                     .name(RANK_INDEX)
                     .table(CollectionToEntity::Table)
                     .col(CollectionToEntity::Rank)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name(ENTITY_ID_INDEX)
-                    .table(CollectionToEntity::Table)
-                    .col(CollectionToEntity::EntityId)
                     .to_owned(),
             )
             .await?;

@@ -17,6 +17,8 @@ import {
 import { useDisclosure, useInViewport } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	EntityLot,
+	FilterPresetContextType,
 	GraphqlSortOrder,
 	type UserTemplatesOrWorkoutsListInput,
 	UserTemplatesOrWorkoutsListSortBy,
@@ -28,32 +30,42 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, humanizeDuration, truncate } from "@ryot/ts-utils";
 import {
+	IconCheck,
 	IconChevronDown,
 	IconChevronUp,
 	IconClock,
 	IconFilter,
 	IconPlus,
 	IconRoad,
-	IconSortAscending,
-	IconSortDescending,
 	IconTrophy,
 	IconWeight,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import {
+	type inferParserType,
+	parseAsInteger,
+	parseAsString,
+	parseAsStringEnum,
+} from "nuqs";
 import type { ReactElement } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
 	DisplayListDetailsAndRefresh,
 	SkeletonLoader,
 } from "~/components/common";
+import { BulkCollectionEditingAffix } from "~/components/common/bulk-collection-editing-affix";
+import {
+	FilterPresetBar,
+	FilterPresetModalManager,
+} from "~/components/common/filter-presets";
 import {
 	DebouncedSearchInput,
 	FiltersModal,
+	SortOrderToggle,
 } from "~/components/common/filters";
 import { WorkoutRevisionScheduledAlert } from "~/components/fitness/display-items";
 import {
@@ -61,73 +73,100 @@ import {
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
 } from "~/components/fitness/utils";
+import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
+import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
+import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
+	useExerciseDetails,
 	useGetWorkoutStarter,
 	useUserUnitSystem,
 } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import { useBulkEditCollection } from "~/lib/state/collection";
+import { getDefaultWorkout } from "~/lib/state/fitness";
 import {
-	convertEnumToSelectData,
-	isFilterChanged,
-} from "~/lib/shared/ui-utils";
-import {
-	getDefaultWorkout,
-	getExerciseDetailsQuery,
-} from "~/lib/state/fitness";
-import {
-	OnboardingTourStepTargets,
+	OnboardingTourStepTarget,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
-import {
-	type FilterUpdateFunction,
-	FitnessAction,
-	FitnessEntity,
-} from "~/lib/types";
+import { FitnessAction, FitnessEntity } from "~/lib/types";
 
-interface FilterState {
-	page: number;
-	query: string;
-	orderBy: GraphqlSortOrder;
-	sortBy: UserTemplatesOrWorkoutsListSortBy;
-}
-
-const defaultFilterState: FilterState = {
-	page: 1,
-	query: "",
-	orderBy: GraphqlSortOrder.Desc,
-	sortBy: UserTemplatesOrWorkoutsListSortBy.Time,
+const defaultQueryState = {
+	page: parseAsInteger.withDefault(1),
+	query: parseAsString.withDefault(""),
+	orderBy: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(
+		GraphqlSortOrder.Desc,
+	),
+	sortBy: parseAsStringEnum(
+		Object.values(UserTemplatesOrWorkoutsListSortBy),
+	).withDefault(UserTemplatesOrWorkoutsListSortBy.Time),
 };
+
+type FilterState = inferParserType<typeof defaultQueryState>;
 
 export const meta = () => {
 	return [{ title: "Fitness Entity List | Ryot" }];
+};
+
+const useBulkEditingState = () => {
+	const bulkEditingCollection = useBulkEditCollection();
+	return bulkEditingCollection.state === false
+		? null
+		: bulkEditingCollection.state;
+};
+
+const buildQueryInput = (
+	filters: FilterState,
+	overrides?: Partial<UserTemplatesOrWorkoutsListInput>,
+): UserTemplatesOrWorkoutsListInput => {
+	const baseInput: UserTemplatesOrWorkoutsListInput = {
+		sort: { by: filters.sortBy, order: filters.orderBy },
+		search: { query: filters.query, page: filters.page },
+	};
+
+	if (overrides) {
+		return {
+			...baseInput,
+			...overrides,
+			search: { ...baseInput.search, ...overrides.search },
+		};
+	}
+
+	return baseInput;
 };
 
 export default function Page(props: { params: { entity: FitnessEntity } }) {
 	const { entity } = props.params;
 	invariant(entity);
 
-	const [filters, setFilters] = useLocalStorage(
-		`Fitness-${entity}-ListFilters`,
-		defaultFilterState,
-	);
 	const coreDetails = useCoreDetails();
 	const startWorkout = useGetWorkoutStarter();
+	const bulkEditingState = useBulkEditingState();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const { filters, resetFilters, updateFilters, haveFiltersChanged } =
+		useFiltersState(defaultQueryState);
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const [
+		presetModalOpened,
+		{ open: openPresetModal, close: closePresetModal },
+	] = useDisclosure(false);
 
-	const updateFilter: FilterUpdateFunction<FilterState> = (key, value) =>
-		setFilters((prev) => ({ ...prev, [key]: value }));
+	const input = buildQueryInput(filters);
 
-	const input: UserTemplatesOrWorkoutsListInput = {
-		sort: { by: filters.sortBy, order: filters.orderBy },
-		search: { query: filters.query, page: filters.page },
-	};
+	const listPresets = useFilterPresets({
+		filters,
+		updateFilters,
+		enabled: true,
+		contextInformation: { entity },
+		contextType: FilterPresetContextType.FitnessEntitiesList,
+	});
+
 	const { data: listData, refetch: refetchListData } = useQuery({
 		queryKey: queryFactory.fitness.entityList(entity, input).queryKey,
 		queryFn: () =>
@@ -153,101 +192,138 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 				.exhaustive(),
 	});
 
-	const areListFiltersActive = isFilterChanged(filters, defaultFilterState);
-
 	return (
-		<Container size="xs">
-			<Stack>
-				<WorkoutRevisionScheduledAlert />
-				<Flex align="center" gap="md">
-					<Title>{changeCase(entity)}</Title>
-					<ActionIcon
-						color="green"
-						variant="outline"
-						className={OnboardingTourStepTargets.AddNewWorkout}
-						onClick={async () => {
-							if (
-								!coreDetails.isServerKeyValidated &&
-								entity === FitnessEntity.Templates
-							) {
-								notifications.show({
-									color: "red",
-									message: PRO_REQUIRED_MESSAGE,
-								});
-								return;
-							}
-							const action = match(entity)
-								.with(FitnessEntity.Workouts, () => FitnessAction.LogWorkout)
-								.with(
-									FitnessEntity.Templates,
-									() => FitnessAction.CreateTemplate,
-								)
-								.exhaustive();
-							advanceOnboardingTourStep();
-							startWorkout(getDefaultWorkout(action), action);
-						}}
-					>
-						<IconPlus size={16} />
-					</ActionIcon>
-				</Flex>
-				<Group wrap="nowrap">
-					<DebouncedSearchInput
-						value={filters.query}
-						onChange={(value) => {
-							updateFilter("query", value);
-							updateFilter("page", 1);
-						}}
-						placeholder={`Search for ${entity}`}
-					/>
-					<ActionIcon
-						onClick={openFiltersModal}
-						color={areListFiltersActive ? "blue" : "gray"}
-					>
-						<IconFilter size={24} />
-					</ActionIcon>
-					<FiltersModal
-						opened={filtersModalOpened}
-						closeFiltersModal={closeFiltersModal}
-						resetFilters={() => setFilters(defaultFilterState)}
-					>
-						<FiltersModalForm filters={filters} updateFilter={updateFilter} />
-					</FiltersModal>
-				</Group>
-				<Stack gap="xs">
-					{listData ? (
-						<>
-							<DisplayListDetailsAndRefresh
-								cacheId={listData.cacheId}
-								onRefreshButtonClicked={refetchListData}
-								total={listData.details.totalItems}
-								isRandomSortOrderSelected={
-									filters.sortBy === UserTemplatesOrWorkoutsListSortBy.Random
+		<>
+			<FilterPresetModalManager
+				opened={presetModalOpened}
+				onClose={closePresetModal}
+				presetManager={listPresets}
+				placeholder="e.g., Quick HIIT Sessions"
+			/>
+			<BulkCollectionEditingAffix
+				bulkAddEntities={async () => {
+					if (bulkEditingState?.data.action !== "add") return [];
+
+					const queryInput = buildQueryInput(filters, {
+						search: { page: 1, take: Number.MAX_SAFE_INTEGER },
+					});
+
+					if (entity === FitnessEntity.Workouts) {
+						const { userWorkoutsList } = await clientGqlService.request(
+							UserWorkoutsListDocument,
+							{ input: queryInput },
+						);
+						return userWorkoutsList.response.items.map((workoutId) => ({
+							entityId: workoutId,
+							entityLot: EntityLot.Workout,
+						}));
+					}
+
+					const { userWorkoutTemplatesList } = await clientGqlService.request(
+						UserWorkoutTemplatesListDocument,
+						{ input: queryInput },
+					);
+					return userWorkoutTemplatesList.response.items.map((templateId) => ({
+						entityId: templateId,
+						entityLot: EntityLot.WorkoutTemplate,
+					}));
+				}}
+			/>
+			<Container size="xs">
+				<Stack>
+					<WorkoutRevisionScheduledAlert />
+					<Flex align="center" gap="md">
+						<Title>{changeCase(entity)}</Title>
+						<ActionIcon
+							color="green"
+							variant="outline"
+							className={OnboardingTourStepTarget.AddNewWorkout}
+							onClick={async () => {
+								if (
+									!coreDetails.isServerKeyValidated &&
+									entity === FitnessEntity.Templates
+								) {
+									notifications.show({
+										color: "red",
+										message: PRO_REQUIRED_MESSAGE,
+									});
+									return;
 								}
+								const action = match(entity)
+									.with(FitnessEntity.Workouts, () => FitnessAction.LogWorkout)
+									.with(
+										FitnessEntity.Templates,
+										() => FitnessAction.CreateTemplate,
+									)
+									.exhaustive();
+								advanceOnboardingTourStep();
+								startWorkout(getDefaultWorkout(action), action);
+							}}
+						>
+							<IconPlus size={16} />
+						</ActionIcon>
+					</Flex>
+					<Group wrap="nowrap">
+						<DebouncedSearchInput
+							value={filters.query}
+							placeholder={`Search for ${entity}`}
+							onChange={(query) => updateFilters({ query })}
+						/>
+						<ActionIcon
+							onClick={openFiltersModal}
+							color={haveFiltersChanged ? "blue" : "gray"}
+						>
+							<IconFilter size={24} />
+						</ActionIcon>
+						<FiltersModal
+							opened={filtersModalOpened}
+							resetFilters={resetFilters}
+							onSavePreset={openPresetModal}
+							closeFiltersModal={closeFiltersModal}
+						>
+							<FiltersModalForm
+								filters={filters}
+								updateFilter={(key, value) => updateFilters({ [key]: value })}
 							/>
-							{listData.items.length > 0 ? (
-								listData.items.map((entityId, index) => (
-									<DisplayFitnessEntity
-										index={index}
-										key={entityId}
-										entity={entity}
-										entityId={entityId}
-									/>
-								))
-							) : (
-								<Text>No {entity} found</Text>
-							)}
-							<ApplicationPagination
-								value={filters.page}
-								totalItems={listData.details.totalItems}
-								onChange={(v) => updateFilter("page", v)}
-							/>
-						</>
-					) : (
-						<SkeletonLoader />
-					)}
+						</FiltersModal>
+					</Group>
+					<FilterPresetBar presetManager={listPresets} />
+					<Stack gap="xs">
+						{listData ? (
+							<>
+								<DisplayListDetailsAndRefresh
+									cacheId={listData.cacheId}
+									total={listData.details.totalItems}
+									onRefreshButtonClicked={refetchListData}
+									isRandomSortOrderSelected={
+										filters.sortBy === UserTemplatesOrWorkoutsListSortBy.Random
+									}
+								/>
+								{listData.items.length > 0 ? (
+									listData.items.map((entityId, index) => (
+										<DisplayFitnessEntity
+											index={index}
+											key={entityId}
+											entity={entity}
+											entityId={entityId}
+										/>
+									))
+								) : (
+									<Text>No {entity} found</Text>
+								)}
+								<ApplicationPagination
+									value={filters.page}
+									totalItems={listData.details.totalItems}
+									onChange={(v) => updateFilters({ page: v })}
+								/>
+							</>
+						) : (
+							<SkeletonLoader />
+						)}
+					</Stack>
 				</Stack>
-			</Stack>
-		</Container>
+			</Container>
+		</>
 	);
 }
 
@@ -260,6 +336,15 @@ const DisplayFitnessEntity = (props: {
 	const { ref, inViewport } = useInViewport();
 	const [parent] = useAutoAnimate();
 	const [showDetails, setShowDetails] = useDisclosure(false);
+	const bulkEditingCollection = useBulkEditCollection();
+	const bulkEditingState = useBulkEditingState();
+	const entityLot =
+		props.entity === FitnessEntity.Workouts
+			? EntityLot.Workout
+			: EntityLot.WorkoutTemplate;
+	const becItem = { entityId: props.entityId, entityLot };
+	const isAlreadyPresent = bulkEditingCollection.isAlreadyPresent(becItem);
+	const isAdded = bulkEditingCollection.isAdded(becItem);
 
 	const { data: entityInformation } = useQuery({
 		enabled: inViewport,
@@ -269,14 +354,14 @@ const DisplayFitnessEntity = (props: {
 				.with(FitnessEntity.Workouts, () =>
 					clientGqlService
 						.request(UserWorkoutDetailsDocument, { workoutId: props.entityId })
-						.then(({ userWorkoutDetails }) => ({
-							name: userWorkoutDetails.details.name,
-							summary: userWorkoutDetails.details.summary,
-							timestamp: userWorkoutDetails.details.startTime,
-							information: userWorkoutDetails.details.information,
+						.then(({ userWorkoutDetails: { response } }) => ({
+							name: response.details.name,
+							summary: response.details.summary,
+							timestamp: response.details.startTime,
+							information: response.details.information,
 							detail: humanizeDuration(
 								dayjsLib
-									.duration(userWorkoutDetails.details.duration, "second")
+									.duration(response.details.duration, "second")
 									.asMilliseconds(),
 								{ round: true, units: ["h", "m"] },
 							),
@@ -287,12 +372,12 @@ const DisplayFitnessEntity = (props: {
 						.request(UserWorkoutTemplateDetailsDocument, {
 							workoutTemplateId: props.entityId,
 						})
-						.then(({ userWorkoutTemplateDetails }) => ({
-							name: userWorkoutTemplateDetails.details.name,
-							summary: userWorkoutTemplateDetails.details.summary,
-							timestamp: userWorkoutTemplateDetails.details.createdOn,
-							information: userWorkoutTemplateDetails.details.information,
-							detail: `${userWorkoutTemplateDetails.details.information.exercises.length} exercises`,
+						.then(({ userWorkoutTemplateDetails: { response } }) => ({
+							name: response.details.name,
+							summary: response.details.summary,
+							timestamp: response.details.createdOn,
+							information: response.details.information,
+							detail: `${response.details.information.exercises.length} exercises`,
 						})),
 				)
 				.exhaustive(),
@@ -378,13 +463,30 @@ const DisplayFitnessEntity = (props: {
 							) : null}
 						</Group>
 					</Box>
-					<ActionIcon onClick={() => setShowDetails.toggle()}>
-						{showDetails ? (
-							<IconChevronUp size={16} />
-						) : (
-							<IconChevronDown size={16} />
-						)}
-					</ActionIcon>
+					<Group wrap="nowrap" gap="xs">
+						{bulkEditingState &&
+						bulkEditingState.data.action === "add" &&
+						!isAlreadyPresent ? (
+							<ActionIcon
+								color="green"
+								variant={isAdded ? "filled" : "outline"}
+								disabled={bulkEditingState.data.isLoading}
+								onClick={() => {
+									if (isAdded) bulkEditingState.remove(becItem);
+									else bulkEditingState.add(becItem);
+								}}
+							>
+								<IconCheck size={16} />
+							</ActionIcon>
+						) : null}
+						<ActionIcon onClick={() => setShowDetails.toggle()}>
+							{showDetails ? (
+								<IconChevronUp size={16} />
+							) : (
+								<IconChevronDown size={16} />
+							)}
+						</ActionIcon>
+					</Group>
 				</Group>
 				{repsData.length >= 3 ? (
 					<Sparkline h="60" data={repsData} color="teal" />
@@ -424,9 +526,7 @@ const DisplayStat = (props: { icon: ReactElement; data: string }) => {
 const ExerciseDisplay = (props: {
 	exercise: WorkoutSummary["exercises"][number];
 }) => {
-	const { data: exerciseDetails } = useQuery(
-		getExerciseDetailsQuery(props.exercise.id),
-	);
+	const { data: exerciseDetails } = useExerciseDetails(props.exercise.id);
 	const stat = match(props.exercise.bestSet)
 		.with(undefined, null, () => {})
 		.otherwise((value) => {
@@ -455,30 +555,23 @@ const ExerciseDisplay = (props: {
 const FiltersModalForm = (props: {
 	filters: FilterState;
 	updateFilter: FilterUpdateFunction<FilterState>;
-}) => {
-	return (
-		<Flex gap="xs" align="center">
-			<Select
-				w="100%"
-				defaultValue={props.filters.sortBy}
-				data={convertEnumToSelectData(UserTemplatesOrWorkoutsListSortBy)}
-				onChange={(v) =>
-					props.updateFilter("sortBy", v as UserTemplatesOrWorkoutsListSortBy)
+}) => (
+	<Flex gap="xs" align="center">
+		<Select
+			w="100%"
+			value={props.filters.sortBy}
+			data={convertEnumToSelectData(UserTemplatesOrWorkoutsListSortBy)}
+			onChange={(v) => {
+				if (v) {
+					props.updateFilter("sortBy", v as UserTemplatesOrWorkoutsListSortBy);
 				}
+			}}
+		/>
+		{props.filters.sortBy !== UserTemplatesOrWorkoutsListSortBy.Random ? (
+			<SortOrderToggle
+				currentOrder={props.filters.orderBy}
+				onOrderChange={(order) => props.updateFilter("orderBy", order)}
 			/>
-			<ActionIcon
-				onClick={() => {
-					if (props.filters.orderBy === GraphqlSortOrder.Asc)
-						props.updateFilter("orderBy", GraphqlSortOrder.Desc);
-					else props.updateFilter("orderBy", GraphqlSortOrder.Asc);
-				}}
-			>
-				{props.filters.orderBy === GraphqlSortOrder.Asc ? (
-					<IconSortAscending />
-				) : (
-					<IconSortDescending />
-				)}
-			</ActionIcon>
-		</Flex>
-	);
-};
+		) : null}
+	</Flex>
+);

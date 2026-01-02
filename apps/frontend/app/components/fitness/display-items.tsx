@@ -1,122 +1,125 @@
 import { Alert, Avatar } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
-import { isNumber } from "@ryot/ts-utils";
+import { EntityLot } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase, isNumber, snakeCase } from "@ryot/ts-utils";
 import { IconBellRinging } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { $path } from "safe-routes";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import { useUserDetails } from "~/lib/shared/hooks";
-import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
 import {
-	getExerciseDetailsQuery,
-	getExerciseImages,
-	getUserExerciseDetailsQuery,
-	getWorkoutDetailsQuery,
-	getWorkoutTemplateDetailsQuery,
-} from "~/lib/state/fitness";
+	useExerciseDetails,
+	useUserDetails,
+	useUserExerciseDetails,
+	useUserWorkoutDetails,
+	useUserWorkoutTemplateDetails,
+} from "~/lib/shared/hooks";
+import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
+import { useExerciseImages } from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
 import { FitnessEntity } from "~/lib/types";
 import { BaseEntityDisplayItem } from "../common/entity-display";
 
 export const ExerciseDisplayItem = (props: {
 	exerciseId: string;
-	topLeft?: ReactNode;
-	topRight?: ReactNode;
-	rightLabel?: ReactNode;
+	centerElement?: ReactNode;
 }) => {
 	const { ref, inViewport } = useInViewport();
 	const { data: exerciseDetails, isLoading: isExerciseDetailsLoading } =
-		useQuery({
-			...getExerciseDetailsQuery(props.exerciseId),
-			enabled: inViewport,
-		});
-	const { data: userExerciseDetails } = useQuery({
-		...getUserExerciseDetailsQuery(props.exerciseId),
-		enabled: inViewport,
-	});
+		useExerciseDetails(props.exerciseId, inViewport);
+	const { data: userExerciseDetails } = useUserExerciseDetails(
+		props.exerciseId,
+		inViewport,
+	);
+	const images = useExerciseImages(exerciseDetails);
 	const times = userExerciseDetails?.details?.exerciseNumTimesInteracted;
-	const images = getExerciseImages(exerciseDetails);
 
 	return (
 		<BaseEntityDisplayItem
-			innerRef={ref}
-			imageUrl={images.at(0)}
-			name={exerciseDetails?.name}
-			isLoading={isExerciseDetailsLoading}
+			ref={ref}
+			image={images.at(0)}
+			entityId={props.exerciseId}
+			title={exerciseDetails?.name}
+			entityLot={EntityLot.Exercise}
+			interactionButtons={["collection"]}
+			centerElement={props.centerElement}
+			isDetailsLoading={isExerciseDetailsLoading}
 			onImageClickBehavior={[getExerciseDetailsPath(props.exerciseId)]}
-			labels={{
-				left: isNumber(times)
-					? `${times} time${times > 1 ? "s" : ""}`
-					: undefined,
-				right: props.rightLabel,
-			}}
-			imageOverlay={{ topLeft: props.topLeft, topRight: props.topRight }}
+			additionalInformation={[
+				isNumber(times) ? `${times} time${times > 1 ? "s" : ""}` : undefined,
+				changeCase(snakeCase(EntityLot.Exercise)),
+			]}
 		/>
 	);
 };
 
 export const WorkoutDisplayItem = (props: {
 	workoutId: string;
-	topLeft?: ReactNode;
-	topRight?: ReactNode;
-	rightLabel?: ReactNode;
+	centerElement?: ReactNode;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data: workoutDetails, isLoading: isWorkoutDetailsLoading } = useQuery(
-		{ ...getWorkoutDetailsQuery(props.workoutId), enabled: inViewport },
-	);
+	const { data: workoutDetails, isLoading: isWorkoutDetailsLoading } =
+		useUserWorkoutDetails(props.workoutId, inViewport);
+
+	const workoutDateText = workoutDetails?.details.startTime
+		? dayjsLib(workoutDetails.details.startTime).format("l")
+		: undefined;
 
 	return (
 		<BaseEntityDisplayItem
-			innerRef={ref}
-			name={workoutDetails?.details.name}
-			isLoading={isWorkoutDetailsLoading}
-			imageOverlay={{ topLeft: props.topLeft, topRight: props.topRight }}
+			ref={ref}
+			entityId={props.workoutId}
+			entityLot={EntityLot.Workout}
+			interactionButtons={["collection"]}
+			centerElement={props.centerElement}
+			title={workoutDetails?.details.name}
+			isDetailsLoading={isWorkoutDetailsLoading}
+			additionalInformation={[
+				workoutDateText,
+				changeCase(snakeCase(EntityLot.Workout)),
+			]}
 			onImageClickBehavior={[
 				$path("/fitness/:entity/:id", {
 					entity: "workouts",
 					id: props.workoutId,
 				}),
 			]}
-			labels={{
-				left: dayjsLib(workoutDetails?.details.startTime).format("l"),
-				right: props.rightLabel,
-			}}
 		/>
 	);
 };
 
 export const WorkoutTemplateDisplayItem = (props: {
-	topLeft?: ReactNode;
-	topRight?: ReactNode;
+	centerElement?: ReactNode;
 	workoutTemplateId: string;
 }) => {
 	const { ref, inViewport } = useInViewport();
 	const {
 		data: workoutTemplateDetails,
 		isLoading: isWorkoutTemplateDetailsLoading,
-	} = useQuery({
-		...getWorkoutTemplateDetailsQuery(props.workoutTemplateId),
-		enabled: inViewport,
-	});
+	} = useUserWorkoutTemplateDetails(props.workoutTemplateId, inViewport);
+
+	const createdDateText = workoutTemplateDetails?.details.createdOn
+		? dayjsLib(workoutTemplateDetails.details.createdOn).format("l")
+		: undefined;
 
 	return (
 		<BaseEntityDisplayItem
-			innerRef={ref}
-			name={workoutTemplateDetails?.details.name}
-			isLoading={isWorkoutTemplateDetailsLoading}
-			imageOverlay={{ topLeft: props.topLeft, topRight: props.topRight }}
+			ref={ref}
+			entityId={props.workoutTemplateId}
+			interactionButtons={["collection"]}
+			centerElement={props.centerElement}
+			entityLot={EntityLot.WorkoutTemplate}
+			title={workoutTemplateDetails?.details.name}
+			isDetailsLoading={isWorkoutTemplateDetailsLoading}
+			additionalInformation={[
+				createdDateText,
+				changeCase(snakeCase(EntityLot.WorkoutTemplate)),
+			]}
 			onImageClickBehavior={[
 				$path("/fitness/:entity/:id", {
 					id: props.workoutTemplateId,
 					entity: FitnessEntity.Templates,
 				}),
 			]}
-			labels={{
-				left: dayjsLib(workoutTemplateDetails?.details.createdOn).format("l"),
-				right: "Template",
-			}}
 		/>
 	);
 };

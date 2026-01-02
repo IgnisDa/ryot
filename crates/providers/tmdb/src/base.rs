@@ -1,9 +1,12 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, future::Future, sync::Arc};
 
 use anyhow::{Result, bail};
-use application_utils::get_base_http_client;
-use common_utils::{convert_date_to_year, ryot_log};
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TmdbLanguage, TmdbSettings};
+use common_models::MetadataLookupCacheInput;
+use common_utils::{convert_date_to_year, get_base_http_client, ryot_log};
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, ProviderSupportedLanguageInformation, TmdbLanguage,
+    TmdbSettings,
+};
 use enum_models::{MediaLot, MediaSource};
 use futures::{
     stream::{self, StreamExt},
@@ -18,11 +21,13 @@ use reqwest::{
 };
 use supporting_service::SupportingService;
 
-use crate::models::*;
+use crate::models::{
+    TmdbConfiguration, TmdbEntry, TmdbImagesResponse, TmdbListResponse, TmdbWatchProviderDetails,
+    TmdbWatchProviderResponse, URL,
+};
 
 pub struct TmdbService {
     pub client: Client,
-    pub language: String,
     pub settings: TmdbSettings,
 }
 
@@ -34,23 +39,26 @@ impl TmdbService {
             HeaderValue::from_str(&format!("Bearer {access_token}"))?,
         )]));
         let settings = get_settings(&client, &ss).await.unwrap_or_default();
-        Ok(Self {
-            client,
-            settings,
-            language: ss.config.movies_and_shows.tmdb.locale.clone(),
-        })
+        Ok(Self { client, settings })
     }
 
     pub fn get_image_url(&self, c: String) -> String {
         format!("{}{}{}", self.settings.image_url, "original", c)
     }
 
-    pub fn get_all_languages(&self) -> Vec<String> {
+    pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
         self.settings
             .languages
             .iter()
-            .map(|l| l.iso_639_1.clone())
+            .map(|l| ProviderSupportedLanguageInformation {
+                value: l.iso_639_1.clone(),
+                label: l.english_name.clone(),
+            })
             .collect()
+    }
+
+    pub fn get_default_language(&self) -> String {
+        "en".to_owned()
     }
 
     pub fn get_language_name(&self, iso: Option<String>) -> Option<String> {
@@ -135,7 +143,7 @@ impl TmdbService {
         let watch_providers_with_langs: TmdbWatchProviderResponse = self
             .client
             .get(format!("{URL}/{media_type}/{identifier}/watch/providers"))
-            .query(&[("language", self.language.as_str())])
+            .query(&[("language", self.get_default_language())])
             .send()
             .await?
             .json()
@@ -207,7 +215,7 @@ impl TmdbService {
     ) -> Result<Vec<T>>
     where
         F: Fn(TmdbEntry) -> Fut + Send + Sync + Clone,
-        Fut: std::future::Future<Output = Option<T>> + Send,
+        Fut: Future<Output = Option<T>> + Send,
         T: Send,
     {
         let first_page: TmdbListResponse = self
@@ -281,22 +289,22 @@ impl TmdbService {
         media_type: &str,
     ) -> Result<Vec<PartialMetadataWithoutId>> {
         let media_lot = match media_type {
-            "movie" => MediaLot::Movie,
             "tv" => MediaLot::Show,
+            "movie" => MediaLot::Movie,
             _ => bail!("Invalid media type"),
         };
 
         self.fetch_paginated_data(
             format!("{URL}/trending/{media_type}/day"),
-            &[("page", "1"), ("language", self.language.as_str())],
+            &[("page", "1"), ("language", &self.get_default_language())],
             Some(3),
             |entry| async move {
                 entry.title.map(|title| PartialMetadataWithoutId {
                     title,
+                    lot: media_lot,
                     source: MediaSource::Tmdb,
                     identifier: entry.id.to_string(),
                     image: entry.poster_path.map(|p| self.get_image_url(p)),
-                    lot: media_lot,
                     ..Default::default()
                 })
             },
@@ -304,41 +312,58 @@ impl TmdbService {
         .await
     }
 
-    pub async fn multi_search(&self, query: &str) -> Result<Vec<TmdbMetadataLookupResult>> {
-        ryot_log!(debug, "tmdb multi_search: query={}", query);
-        let response: TmdbListResponse = self
-            .client
-            .get(format!("{URL}/search/multi"))
-            .query(&[
-                ("page", "1"),
-                ("query", query),
-                ("language", self.language.as_str()),
-            ])
-            .send()
-            .await?
-            .json()
-            .await?;
+    pub async fn multi_search(
+        &self,
+        query: &str,
+        ss: &Arc<SupportingService>,
+    ) -> Result<Vec<TmdbMetadataLookupResult>> {
+        cache_service::get_or_set_with_callback(
+            ss,
+            ApplicationCacheKey::TmdbMultiSearch(MetadataLookupCacheInput {
+                title: query.to_owned(),
+                language: Some(self.get_default_language()),
+            }),
+            ApplicationCacheValue::TmdbMultiSearch,
+            move || async move {
+                ryot_log!(debug, "tmdb multi_search: query={}", query);
+                let response: TmdbListResponse = self
+                    .client
+                    .get(format!("{URL}/search/multi"))
+                    .query(&[
+                        ("page", "1"),
+                        ("query", query),
+                        ("include_adult", "true"),
+                        ("language", &self.get_default_language()),
+                    ])
+                    .send()
+                    .await?
+                    .json()
+                    .await?;
 
-        let results = response
-            .results
-            .into_iter()
-            .filter_map(|entry| {
-                let media_type = entry.media_type.as_deref()?;
-                let lot = match media_type {
-                    "tv" => MediaLot::Show,
-                    "movie" => MediaLot::Movie,
-                    _ => return None,
-                };
-                Some(TmdbMetadataLookupResult {
-                    lot,
-                    identifier: entry.id.to_string(),
-                    title: entry.title.unwrap_or_default(),
-                    publish_year: entry.release_date.and_then(|r| convert_date_to_year(&r)),
-                })
-            })
-            .collect();
+                let results = response
+                    .results
+                    .into_iter()
+                    .filter_map(|entry| {
+                        let media_type = entry.media_type.as_deref()?;
+                        let lot = match media_type {
+                            "tv" => MediaLot::Show,
+                            "movie" => MediaLot::Movie,
+                            _ => return None,
+                        };
+                        Some(TmdbMetadataLookupResult {
+                            lot,
+                            identifier: entry.id.to_string(),
+                            title: entry.title.unwrap_or_default(),
+                            publish_year: entry.release_date.and_then(|r| convert_date_to_year(&r)),
+                        })
+                    })
+                    .collect();
 
-        Ok(results)
+                Ok(results)
+            },
+        )
+        .await
+        .map(|c| c.response)
     }
 }
 
@@ -350,9 +375,12 @@ async fn get_settings(client: &Client, ss: &Arc<SupportingService>) -> Result<Tm
         || async {
             let config_future = client.get(format!("{URL}/configuration")).send();
             let languages_future = client.get(format!("{URL}/configuration/languages")).send();
-            let (config_resp, languages_resp) = try_join!(config_future, languages_future)?;
-            let configuration: TmdbConfiguration = config_resp.json().await?;
-            let languages: Vec<TmdbLanguage> = languages_resp.json().await?;
+            let (configuration_response, languages_resp) =
+                try_join!(config_future, languages_future)?;
+            let (languages, configuration) = try_join!(
+                languages_resp.json::<Vec<TmdbLanguage>>(),
+                configuration_response.json::<TmdbConfiguration>()
+            )?;
             let settings = TmdbSettings {
                 languages,
                 image_url: configuration.images.secure_base_url,

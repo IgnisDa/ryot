@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 rust_decimal = { workspace = true }
-rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 
@@ -15,6 +14,7 @@ common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { workspace = true }
 database-utils = { workspace = true }
+dependent-details-utils = { workspace = true }
 dependent-utility-utils = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }

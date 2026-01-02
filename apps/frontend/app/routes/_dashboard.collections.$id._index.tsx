@@ -22,6 +22,7 @@ import {
 	type CollectionRecommendationsInput,
 	EntityLot,
 	type EntityWithLot,
+	FilterPresetContextType,
 	GraphqlSortOrder,
 	MediaLot,
 	ReorderCollectionEntityDocument,
@@ -33,32 +34,43 @@ import {
 	IconEdit,
 	IconFilter,
 	IconMessageCircle2,
-	IconSortAscending,
-	IconSortDescending,
 	IconStar,
 	IconTrashFilled,
 	IconUser,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import {
+	type inferParserType,
+	parseAsInteger,
+	parseAsString,
+	parseAsStringEnum,
+} from "nuqs";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
-import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
-	BulkCollectionEditingAffix,
 	DisplayCollectionEntity,
 	DisplayListDetailsAndRefresh,
 	SkeletonLoader,
 } from "~/components/common";
+import { BulkCollectionEditingAffix } from "~/components/common/bulk-collection-editing-affix";
+import {
+	FilterPresetBar,
+	FilterPresetModalManager,
+} from "~/components/common/filter-presets";
 import {
 	DebouncedSearchInput,
 	FiltersModal,
+	SortOrderToggle,
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { ReviewItemDisplay } from "~/components/common/review";
 import { MetadataDisplayItem } from "~/components/media/display-items";
+import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
+import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
+import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
@@ -66,17 +78,17 @@ import {
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
-import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
-	convertEnumToSelectData,
-	isFilterChanged,
-} from "~/lib/shared/ui-utils";
+	clientGqlService,
+	queryClient,
+	queryFactory,
+} from "~/lib/shared/react-query";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	useBulkEditCollection,
 	useCreateOrUpdateCollectionModal,
 } from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
-import type { FilterUpdateFunction } from "~/lib/types";
 
 enum TabNames {
 	Actions = "actions",
@@ -87,58 +99,72 @@ enum TabNames {
 
 const DEFAULT_TAB = TabNames.Contents;
 
-interface FilterState {
-	page: number;
-	query: string;
-	entityLot?: EntityLot;
-	metadataLot?: MediaLot;
-	orderBy: GraphqlSortOrder;
-	sortBy: CollectionContentsSortBy;
-}
-
-const defaultFilters: FilterState = {
-	page: 1,
-	query: "",
-	entityLot: undefined,
-	metadataLot: undefined,
-	orderBy: GraphqlSortOrder.Desc,
-	sortBy: CollectionContentsSortBy.LastUpdatedOn,
+const defaultQueryState = {
+	page: parseAsInteger.withDefault(1),
+	query: parseAsString.withDefault(""),
+	entityLot: parseAsStringEnum(Object.values(EntityLot)),
+	metadataLot: parseAsStringEnum(Object.values(MediaLot)),
+	orderBy: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(
+		GraphqlSortOrder.Desc,
+	),
+	sortBy: parseAsStringEnum(
+		Object.values(CollectionContentsSortBy),
+	).withDefault(CollectionContentsSortBy.LastUpdatedOn),
 };
+
+type FilterState = inferParserType<typeof defaultQueryState>;
 
 export const meta = () => {
 	return [{ title: "Collection Details | Ryot" }];
 };
 
 export default function Page(props: { params: { id: string } }) {
+	const navigate = useNavigate();
+	const userDetails = useUserDetails();
+	const coreDetails = useCoreDetails();
 	const { id: collectionId } = props.params;
 	const userPreferences = useUserPreferences();
-	const userDetails = useUserDetails();
-	const navigate = useNavigate();
 	const userCollections = useUserCollections();
-	const coreDetails = useCoreDetails();
-
-	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
-	const [filters, setFilters] = useLocalStorage(
-		`CollectionFilters-${collectionId}`,
-		defaultFilters,
-	);
-	const [tab, setTab] = useState<string | null>(DEFAULT_TAB);
-	const [isReorderMode, setIsReorderMode] = useState(false);
 	const [_r, setEntityToReview] = useReviewEntity();
 	const bulkEditingCollection = useBulkEditCollection();
+	const [isReorderMode, setIsReorderMode] = useState(false);
+	const [tab, setTab] = useState<string | null>(DEFAULT_TAB);
+	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
+
+	const { filters, resetFilters, updateFilters, haveFiltersChanged } =
+		useFiltersState(defaultQueryState);
+
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const [
+		presetModalOpened,
+		{ open: openPresetModal, close: closePresetModal },
+	] = useDisclosure(false);
 
 	invariant(collectionId);
 
-	const queryInput: CollectionContentsInput = {
-		collectionId,
-		sort: { by: filters.sortBy, order: filters.orderBy },
-		search: { page: filters.page, query: filters.query },
-		filter: { entityLot: filters.entityLot, metadataLot: filters.metadataLot },
-	};
+	const contentsPresets = useFilterPresets({
+		filters,
+		updateFilters,
+		enabled: true,
+		contextInformation: { collectionId },
+		contextType: FilterPresetContextType.CollectionContents,
+	});
+
+	const queryInput: CollectionContentsInput = useMemo(
+		() => ({
+			collectionId,
+			sort: { by: filters.sortBy, order: filters.orderBy },
+			search: { page: filters.page, query: filters.query },
+			filter: {
+				entityLot: filters.entityLot,
+				metadataLot: filters.metadataLot,
+			},
+		}),
+		[collectionId, filters],
+	);
 
 	const { data: collectionContents, refetch: refreshCollectionContents } =
 		useQuery({
@@ -158,13 +184,14 @@ export default function Page(props: { params: { id: string } }) {
 	};
 	const thisCollection = userCollections.find((c) => c.id === collectionId);
 
-	const updateFilter: FilterUpdateFunction<FilterState> = (key, value) =>
-		setFilters((prev) => ({ ...prev, [key]: value }));
-
-	const areListFiltersActive = isFilterChanged(filters, defaultFilters);
-
 	return (
 		<>
+			<FilterPresetModalManager
+				opened={presetModalOpened}
+				onClose={closePresetModal}
+				presetManager={contentsPresets}
+				placeholder="e.g., Favorite Collection View"
+			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
 					const input = cloneDeep(queryInput);
@@ -234,35 +261,36 @@ export default function Page(props: { params: { id: string } }) {
 									) : null}
 								</Tabs.List>
 								<Tabs.Panel value={TabNames.Contents}>
-									<Stack gap="xs">
+									<Stack>
 										{!isReorderMode ? (
 											<>
 												<Group wrap="nowrap">
 													<DebouncedSearchInput
 														value={filters.query}
 														placeholder="Search in the collection"
-														onChange={(value) => {
-															updateFilter("query", value);
-															updateFilter("page", 1);
-														}}
+														onChange={(query) => updateFilters({ query })}
 													/>
 													<ActionIcon
 														onClick={() => openFiltersModal()}
-														color={areListFiltersActive ? "blue" : "gray"}
+														color={haveFiltersChanged ? "blue" : "gray"}
 													>
 														<IconFilter size={24} />
 													</ActionIcon>
 													<FiltersModal
 														opened={filtersModalOpened}
+														onSavePreset={openPresetModal}
 														closeFiltersModal={closeFiltersModal}
-														resetFilters={() => setFilters(defaultFilters)}
+														resetFilters={resetFilters}
 													>
 														<FiltersModalForm
 															filters={filters}
-															updateFilter={updateFilter}
+															updateFilter={(key, value) =>
+																updateFilters({ [key]: value })
+															}
 														/>
 													</FiltersModal>
 												</Group>
+												<FilterPresetBar presetManager={contentsPresets} />
 												<DisplayListDetailsAndRefresh
 													total={details.totalItems}
 													cacheId={collectionContents?.cacheId}
@@ -302,8 +330,8 @@ export default function Page(props: { params: { id: string } }) {
 										)}
 										<ApplicationPagination
 											value={filters.page}
-											onChange={(v) => updateFilter("page", v)}
 											totalItems={details.results.details.totalItems}
+											onChange={(page) => updateFilters({ page })}
 										/>
 									</Stack>
 								</Tabs.Panel>
@@ -334,7 +362,7 @@ export default function Page(props: { params: { id: string } }) {
 												navigate(
 													$path("/media/:action/:lot", {
 														action: "list",
-														lot: MediaLot.Movie,
+														lot: MediaLot.Movie.toLowerCase(),
 													}),
 												);
 											}}
@@ -371,6 +399,11 @@ export default function Page(props: { params: { id: string } }) {
 													});
 													return;
 												}
+												resetFilters();
+												updateFilters({
+													orderBy: GraphqlSortOrder.Asc,
+													sortBy: CollectionContentsSortBy.Rank,
+												});
 												setTab(TabNames.Contents);
 												setIsReorderMode(true);
 											}}
@@ -412,76 +445,77 @@ export default function Page(props: { params: { id: string } }) {
 const FiltersModalForm = (props: {
 	filters: FilterState;
 	updateFilter: FilterUpdateFunction<FilterState>;
-}) => {
-	return (
-		<>
-			<Flex gap="xs" align="center">
-				<Select
-					w="100%"
-					defaultValue={props.filters.sortBy}
-					onChange={(v) =>
-						props.updateFilter("sortBy", v as CollectionContentsSortBy)
-					}
-					data={[
-						{
-							group: "Sort by",
-							items: convertEnumToSelectData(CollectionContentsSortBy),
-						},
-					]}
-				/>
-				<ActionIcon
-					onClick={() => {
-						if (props.filters.orderBy === GraphqlSortOrder.Asc)
-							props.updateFilter("orderBy", GraphqlSortOrder.Desc);
-						else props.updateFilter("orderBy", GraphqlSortOrder.Asc);
-					}}
-				>
-					{props.filters.orderBy === GraphqlSortOrder.Asc ? (
-						<IconSortAscending />
-					) : (
-						<IconSortDescending />
-					)}
-				</ActionIcon>
-			</Flex>
+}) => (
+	<>
+		<Flex gap="xs" align="center">
 			<Select
-				clearable
-				placeholder="Select an entity type"
-				defaultValue={props.filters.entityLot}
-				onChange={(v) => props.updateFilter("entityLot", v as EntityLot)}
-				data={convertEnumToSelectData(
-					Object.values(EntityLot).filter(
-						(o) =>
-							![
-								EntityLot.Collection,
-								EntityLot.Review,
-								EntityLot.UserMeasurement,
-							].includes(o),
-					),
-				)}
+				w="100%"
+				value={props.filters.sortBy}
+				onChange={(v) =>
+					props.updateFilter("sortBy", v as CollectionContentsSortBy)
+				}
+				data={[
+					{
+						group: "Sort by",
+						items: convertEnumToSelectData(CollectionContentsSortBy),
+					},
+				]}
 			/>
-			{props.filters.entityLot === EntityLot.Metadata ||
-			props.filters.entityLot === EntityLot.MetadataGroup ? (
-				<Select
-					clearable
-					placeholder="Select a media type"
-					defaultValue={props.filters.metadataLot}
-					data={convertEnumToSelectData(MediaLot)}
-					onChange={(v) => props.updateFilter("metadataLot", v as MediaLot)}
+			{props.filters.sortBy !== CollectionContentsSortBy.Random ? (
+				<SortOrderToggle
+					currentOrder={props.filters.orderBy}
+					onOrderChange={(order) => props.updateFilter("orderBy", order)}
 				/>
 			) : null}
-		</>
-	);
+		</Flex>
+		<Select
+			clearable
+			value={props.filters.entityLot}
+			placeholder="Select an entity type"
+			onChange={(v) => props.updateFilter("entityLot", v as EntityLot)}
+			data={convertEnumToSelectData(
+				Object.values(EntityLot).filter(
+					(o) =>
+						![
+							EntityLot.Review,
+							EntityLot.Collection,
+							EntityLot.UserMeasurement,
+						].includes(o),
+				),
+			)}
+		/>
+		{props.filters.entityLot === EntityLot.Metadata ||
+		props.filters.entityLot === EntityLot.MetadataGroup ? (
+			<Select
+				clearable
+				placeholder="Select a media type"
+				defaultValue={props.filters.metadataLot}
+				data={convertEnumToSelectData(MediaLot)}
+				onChange={(v) => props.updateFilter("metadataLot", v as MediaLot)}
+			/>
+		) : null}
+	</>
+);
+
+const defaultRecommendationsState = {
+	recommendationsPage: parseAsInteger.withDefault(1),
+	recommendationsQuery: parseAsString.withDefault(""),
 };
 
-const RecommendationsSection = ({ collectionId }: { collectionId: string }) => {
-	const [search, setSearchInput] = useLocalStorage(
-		"CollectionRecommendationsSearchInput",
-		{ page: 1, query: "" },
+const RecommendationsSection = (props: { collectionId: string }) => {
+	const { filters: search, updateFilters } = useFiltersState(
+		defaultRecommendationsState,
 	);
 
-	const input: CollectionRecommendationsInput = { collectionId, search };
+	const input: CollectionRecommendationsInput = {
+		collectionId: props.collectionId,
+		search: {
+			page: search.recommendationsPage,
+			query: search.recommendationsQuery,
+		},
+	};
 
-	const recommendations = useQuery({
+	const { data: recommendations } = useQuery({
 		queryKey:
 			queryFactory.collections.collectionRecommendations(input).queryKey,
 		queryFn: () =>
@@ -491,16 +525,15 @@ const RecommendationsSection = ({ collectionId }: { collectionId: string }) => {
 	return (
 		<Stack gap="xs">
 			<DebouncedSearchInput
-				value={search.query}
+				value={search.recommendationsQuery}
 				placeholder="Search recommendations"
-				onChange={(query) => setSearchInput({ ...search, query })}
+				onChange={(query) => updateFilters({ recommendationsQuery: query })}
 			/>
-			{recommendations.data ? (
-				recommendations.data.collectionRecommendations.details.totalItems >
-				0 ? (
+			{recommendations ? (
+				recommendations.collectionRecommendations.details.totalItems > 0 ? (
 					<>
 						<ApplicationGrid>
-							{recommendations.data.collectionRecommendations.items.map((r) => (
+							{recommendations.collectionRecommendations.items.map((r) => (
 								<MetadataDisplayItem
 									key={r}
 									metadataId={r}
@@ -509,11 +542,10 @@ const RecommendationsSection = ({ collectionId }: { collectionId: string }) => {
 							))}
 						</ApplicationGrid>
 						<ApplicationPagination
-							value={search.page}
-							onChange={(v) => setSearchInput({ ...search, page: v })}
+							value={search.recommendationsPage}
+							onChange={(page) => updateFilters({ recommendationsPage: page })}
 							totalItems={
-								recommendations.data.collectionRecommendations.details
-									.totalItems
+								recommendations.collectionRecommendations.details.totalItems
 							}
 						/>
 					</>
@@ -539,9 +571,15 @@ const CollectionItem = (props: CollectionItemProps) => {
 	const bulkEditingCollection = useBulkEditCollection();
 	const state = bulkEditingCollection.state;
 	const isAdded = bulkEditingCollection.isAdded(props.item);
+
 	const reorderMutation = useMutation({
 		mutationFn: (input: ReorderCollectionEntityInput) =>
 			clientGqlService.request(ReorderCollectionEntityDocument, { input }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({
+				queryKey: queryFactory.collections.collectionContents._def,
+			});
+		},
 		onError: (_error) => {
 			notifications.show({
 				color: "red",
@@ -558,37 +596,27 @@ const CollectionItem = (props: CollectionItemProps) => {
 			`Enter new rank for this item (1-${props.totalItems}):`,
 		);
 		const rank = Number(newRank);
-		if (newRank && isNumber(rank)) {
-			if (rank >= 1 && rank <= props.totalItems) {
+		if (newRank && isNumber(rank))
+			if (rank >= 1 && rank <= props.totalItems)
 				reorderMutation.mutate({
 					newPosition: rank,
 					entityId: props.item.entityId,
 					collectionName: props.collectionName,
 				});
-			}
-		}
 	};
 
 	return (
 		<DisplayCollectionEntity
 			entityId={props.item.entityId}
 			entityLot={props.item.entityLot}
-			topLeft={
+			centerElement={
 				props.isReorderMode ? (
-					<ActionIcon
-						color="blue"
-						variant="filled"
-						onClick={handleRankClick}
-						style={{ cursor: "pointer" }}
-					>
+					<ActionIcon variant="filled" onClick={handleRankClick}>
 						<Text size="xs" fw={700} c="white">
 							{props.rankNumber}
 						</Text>
 					</ActionIcon>
-				) : null
-			}
-			topRight={
-				state && state.data.action === "remove" ? (
+				) : state && state.data.action === "remove" ? (
 					<ActionIcon
 						color="red"
 						variant={isAdded ? "filled" : "transparent"}

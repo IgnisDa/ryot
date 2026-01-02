@@ -1,5 +1,10 @@
 # Jellyfin
 
+::: info
+It is necessary to setup TMDB for this import to work. Please follow the configuration
+[guide](../configuration.md) for instructions.
+:::
+
 You can import your watched movies and shows from [Jellyfin](https://jellyfin.org).
 
 ::: info

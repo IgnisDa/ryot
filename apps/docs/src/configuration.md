@@ -26,7 +26,7 @@ The `/health` endpoint can be used for checking service healthiness. More inform
 
 ## All parameters
 
-Please refer to the `@envvar` annotations to know which environment variable to use for a
-given parameter.
+Please refer to the `@env` annotations to know which environment variable to use for a
+given configuration option.
 
 <<< @/includes/backend-config-schema.yaml

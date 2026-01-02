@@ -1,9 +1,15 @@
 import { Anchor, Avatar, Box, ScrollArea, Text } from "@mantine/core";
+import { useInViewport } from "@mantine/hooks";
 import type { ReactNode, Ref } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { MEDIA_DETAILS_HEIGHT } from "~/lib/shared/constants";
-import { useMetadataDetails, useUserMetadataDetails } from "~/lib/shared/hooks";
+import {
+	useMetadataDetails,
+	useS3PresignedUrls,
+	useUserMetadataDetails,
+} from "~/lib/shared/hooks";
+import classes from "~/styles/common.module.css";
 
 const WrapperComponent = (props: { link?: string; children: ReactNode }) =>
 	props.link ? (
@@ -21,6 +27,7 @@ export const BaseEntityDisplay = (props: {
 	extraText?: string;
 	hasInteracted?: boolean;
 	ref?: Ref<HTMLDivElement>;
+	isPartialStatusActive?: boolean;
 }) => {
 	return (
 		<WrapperComponent link={props.link}>
@@ -42,6 +49,7 @@ export const BaseEntityDisplay = (props: {
 				lineClamp={1}
 				ref={props.ref}
 				c={props.hasInteracted ? "yellow" : "dimmed"}
+				className={props.isPartialStatusActive ? classes.fadeInOut : undefined}
 			>
 				{props.title} {props.extraText}
 			</Text>
@@ -53,23 +61,32 @@ export const PartialMetadataDisplay = (props: {
 	metadataId: string;
 	extraText?: string;
 }) => {
-	const { data: metadataDetails } = useMetadataDetails(props.metadataId);
+	const { ref, inViewport } = useInViewport();
+	const [
+		{ data: metadataDetails },
+		isPartialStatusActive,
+		metadataTranslations,
+	] = useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
+		inViewport,
 	);
 
+	const s3PresignedUrls = useS3PresignedUrls(metadataDetails?.assets.s3Images);
 	const images = [
 		...(metadataDetails?.assets.remoteImages || []),
-		...(metadataDetails?.assets.s3Images || []),
+		...(s3PresignedUrls.data || []),
 	];
 
 	return (
 		<BaseEntityDisplay
-			image={images.at(0)}
+			ref={ref}
 			extraText={props.extraText}
-			title={metadataDetails?.title || undefined}
+			isPartialStatusActive={isPartialStatusActive}
 			hasInteracted={userMetadataDetails?.hasInteracted}
+			image={metadataTranslations?.image || images.at(0)}
 			link={$path("/media/item/:id", { id: props.metadataId })}
+			title={metadataTranslations?.title || metadataDetails?.title || undefined}
 		/>
 	);
 };

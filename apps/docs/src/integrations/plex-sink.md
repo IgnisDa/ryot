@@ -5,7 +5,7 @@ This will only import media that are in progress. Perform an
 [import](../importing/plex.md) if you want to import media that are finished.
 :::
 
-Automatically add [Plex](https://www.plex.tv/) show and movie plays to Ryot. It will
+Automatically add [Plex](https://www.plex.tv) show and movie plays to Ryot. It will
 work for all the media that have a valid TMDb ID attached to their metadata.
 
 1. Generate a slug in the integration settings page using the following settings:

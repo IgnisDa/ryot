@@ -1,6 +1,6 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use educe::Educe;
-use enum_models::{MediaLot, UserLot};
+use enum_models::{MediaLot, MediaSource, UserLot};
 use fitness_models::{SetRestTimersSettings, UserUnitSystem};
 use sea_orm::{FromJsonQueryResult, Iterable, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
@@ -254,26 +254,6 @@ pub struct UserFitnessPreferences {
     EnumString,
 )]
 #[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
-pub enum GridPacking {
-    Normal,
-    #[default]
-    Dense,
-}
-
-#[derive(
-    Debug,
-    Serialize,
-    Default,
-    Deserialize,
-    Enum,
-    Clone,
-    Eq,
-    PartialEq,
-    FromJsonQueryResult,
-    Copy,
-    EnumString,
-)]
-#[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum UserReviewScale {
     OutOfTen,
     OutOfFive,
@@ -313,7 +293,10 @@ pub enum DashboardElementLot {
 pub struct UserGeneralDashboardElement {
     pub hidden: bool,
     pub num_elements: Option<u64>,
+    /// Applies to only upcoming section
+    pub num_days_ahead: Option<u64>,
     pub section: DashboardElementLot,
+    /// Applies to only upcoming section
     pub deduplicate_media: Option<bool>,
 }
 
@@ -361,16 +344,12 @@ pub struct UserGeneralPreferences {
     pub disable_videos: bool,
     #[educe(Default = false)]
     pub disable_reviews: bool,
-    #[educe(Default = GridPacking::Dense)]
-    pub grid_packing: GridPacking,
     #[educe(Default = UserReviewScale::OutOfHundred)]
     pub review_scale: UserReviewScale,
     #[educe(Default = false)]
     pub disable_watch_providers: bool,
     #[educe(Default = false)]
     pub disable_integrations: bool,
-    #[educe(Default = false)]
-    pub show_spoilers_in_calendar: bool,
     #[educe(Default = false)]
     pub disable_navigation_animation: bool,
     #[educe(Default(expression = vec![UserGeneralWatchProvider {
@@ -415,6 +394,69 @@ pub struct UserGeneralPreferences {
     Eq,
     Clone,
     Debug,
+    Educe,
+    Serialize,
+    PartialEq,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "UserProviderLanguagePreferencesInput")]
+#[educe(Default)]
+pub struct UserProviderLanguagePreferences {
+    pub source: MediaSource,
+    pub preferred_language: String,
+}
+
+#[derive(
+    Eq,
+    Clone,
+    Debug,
+    Educe,
+    Serialize,
+    PartialEq,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "UserLanguagePreferencesInput")]
+#[educe(Default)]
+pub struct UserLanguagePreferences {
+    #[educe(Default(expression = vec![
+        UserProviderLanguagePreferences {
+            source: MediaSource::Anilist,
+            preferred_language: "user_preferred".to_owned(),
+        },
+        UserProviderLanguagePreferences {
+            source: MediaSource::Tvdb,
+            preferred_language: "eng".to_owned(),
+        },
+        UserProviderLanguagePreferences {
+            source: MediaSource::Audible,
+            preferred_language: "US".to_owned(),
+        },
+        UserProviderLanguagePreferences {
+            source: MediaSource::Itunes,
+            preferred_language: "en_us".to_owned(),
+        },
+        UserProviderLanguagePreferences {
+            source: MediaSource::Tmdb,
+            preferred_language: "en".to_owned(),
+        },
+        UserProviderLanguagePreferences {
+            source: MediaSource::YoutubeMusic,
+            preferred_language: "en".to_owned(),
+        },
+    ]))]
+    pub providers: Vec<UserProviderLanguagePreferences>,
+}
+
+#[derive(
+    Eq,
+    Clone,
+    Debug,
     Default,
     PartialEq,
     Serialize,
@@ -427,6 +469,7 @@ pub struct UserGeneralPreferences {
 pub struct UserPreferences {
     pub fitness: UserFitnessPreferences,
     pub general: UserGeneralPreferences,
+    pub languages: UserLanguagePreferences,
     pub features_enabled: UserFeaturesEnabledPreferences,
 }
 
@@ -480,6 +523,7 @@ pub enum NotificationPlatformSpecifics {
     FromJsonQueryResult,
 )]
 pub struct UserExtraInformation {
+    pub is_onboarding_tour_completed: bool,
     pub scheduled_for_workout_revision: bool,
 }
 
@@ -502,4 +546,5 @@ pub struct UpdateUserInput {
     pub username: Option<String>,
     pub is_disabled: Option<bool>,
     pub admin_access_token: Option<String>,
+    pub is_onboarding_tour_completed: Option<bool>,
 }

@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use database_models::{
-    access_link, integration, notification_platform,
-    prelude::{AccessLink, Integration, NotificationPlatform, User},
+    access_link,
+    prelude::{AccessLink, User},
     user,
 };
 use database_utils::{apply_columns_search, get_enabled_users_query};
@@ -48,29 +48,6 @@ pub async fn users_list(
         })
         .collect();
     Ok(users)
-}
-
-pub async fn user_integrations(
-    ss: &Arc<SupportingService>,
-    user_id: &String,
-) -> Result<Vec<integration::Model>> {
-    let integrations = Integration::find()
-        .filter(integration::Column::UserId.eq(user_id))
-        .order_by_desc(integration::Column::CreatedOn)
-        .all(&ss.db)
-        .await?;
-    Ok(integrations)
-}
-
-pub async fn user_notification_platforms(
-    ss: &Arc<SupportingService>,
-    user_id: &String,
-) -> Result<Vec<notification_platform::Model>> {
-    let all_notifications = NotificationPlatform::find()
-        .filter(notification_platform::Column::UserId.eq(user_id))
-        .all(&ss.db)
-        .await?;
-    Ok(all_notifications)
 }
 
 pub async fn user_by_oidc_issuer_id(

@@ -10,6 +10,7 @@ import {
 	Flex,
 	Group,
 	Image,
+	type MantineColorScheme,
 	ScrollArea,
 	Text,
 	Tooltip,
@@ -67,7 +68,7 @@ import {
 import { forcedDashboardPath } from "~/lib/shared/ui-utils";
 import { useOpenedSidebarLinks } from "~/lib/state/general";
 import {
-	OnboardingTourStepTargets,
+	OnboardingTourStepTarget,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
 import { FitnessAction } from "~/lib/types";
@@ -90,13 +91,8 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		desktopSidebarCollapsedCookie,
 	);
 
-	const currentColorScheme = await colorSchemeCookie.parse(
+	const currentColorScheme: MantineColorScheme = await colorSchemeCookie.parse(
 		request.headers.get("cookie") || "",
-	);
-	const onboardingTourCompletedCookie = "OnboardingCompleted";
-	const isOnboardingTourCompleted = getCookieValue(
-		request,
-		onboardingTourCompletedCookie,
 	);
 
 	const isAccessLinkSession = Boolean(userDetails.accessLinkId);
@@ -116,36 +112,35 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		currentColorScheme,
 		isAccessLinkSession,
 		desktopSidebarCollapsed,
-		isOnboardingTourCompleted,
-		onboardingTourCompletedCookie,
 		userPreferences: userDetails.preferences,
+		isOnboardingTourCompleted:
+			userDetails.extraInformation?.isOnboardingTourCompleted,
 	};
 };
 
 export default function Layout() {
-	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
-	const userDetails = useUserDetails();
+	const navigate = useNavigate();
+	const location = useLocation();
+	const theme = useMantineTheme();
 	const [parent] = useAutoAnimate();
-	const { revalidate } = useRevalidator();
 	const submit = useConfirmSubmit();
+	const userDetails = useUserDetails();
+	const revalidator = useRevalidator();
+	const userPreferences = useUserPreferences();
+	const loaderData = useLoaderData<typeof loader>();
+	const mediaLinks = getMediaLinks(userPreferences);
+	const settingsLinks = getSettingsLinks(userDetails);
+	const fitnessLinks = getFitnessLinks(userPreferences);
+	const Icon = getThemeIcon(loaderData.currentColorScheme);
 	const isFitnessActionActive = useIsFitnessActionActive();
 	const { openedSidebarLinks, setOpenedSidebarLinks } = useOpenedSidebarLinks();
 	const [mobileNavbarOpened, { toggle: toggleMobileNavbar }] =
 		useDisclosure(false);
-	const theme = useMantineTheme();
-	const navigate = useNavigate();
-	const location = useLocation();
 	const {
 		onboardingTourSteps,
 		isOnboardingTourInProgress,
 		currentOnboardingTourStepIndex,
 	} = useOnboardingTour();
-
-	const mediaLinks = getMediaLinks(userPreferences);
-	const Icon = getThemeIcon(loaderData.currentColorScheme);
-	const fitnessLinks = getFitnessLinks(userPreferences);
-	const settingsLinks = getSettingsLinks(userDetails);
 
 	return (
 		<>
@@ -232,7 +227,7 @@ export default function Layout() {
 						style={{ zIndex: 20 }}
 						onClick={() => {
 							Cookies.remove(desktopSidebarCollapsedCookie);
-							revalidate();
+							revalidator.revalidate();
 						}}
 					>
 						<IconChevronsRight size={30} />
@@ -255,14 +250,14 @@ export default function Layout() {
 							href={forcedDashboardPath}
 							toggle={toggleMobileNavbar}
 						/>
-						{loaderData.userPreferences.featuresEnabled.media.enabled ? (
+						{userPreferences.featuresEnabled.media.enabled ? (
 							<LinksGroup
 								label="Media"
 								links={mediaLinks}
 								icon={IconDeviceSpeaker}
 								toggle={toggleMobileNavbar}
 								opened={openedSidebarLinks.media || false}
-								tourControlTarget={OnboardingTourStepTargets.Welcome}
+								tourControlTarget={OnboardingTourStepTarget.Welcome}
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
 										produce(openedSidebarLinks, (draft) => {
@@ -272,14 +267,14 @@ export default function Layout() {
 								}
 							/>
 						) : null}
-						{loaderData.userPreferences.featuresEnabled.fitness.enabled ? (
+						{userPreferences.featuresEnabled.fitness.enabled ? (
 							<LinksGroup
 								label="Fitness"
 								links={fitnessLinks}
 								icon={IconStretching}
 								toggle={toggleMobileNavbar}
 								opened={openedSidebarLinks.fitness || false}
-								tourControlTarget={OnboardingTourStepTargets.OpenFitnessSidebar}
+								tourControlTarget={OnboardingTourStepTarget.OpenFitnessSidebar}
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
 										produce(openedSidebarLinks, (draft) => {
@@ -289,7 +284,7 @@ export default function Layout() {
 								}
 							/>
 						) : null}
-						{loaderData.userPreferences.featuresEnabled.analytics.enabled ? (
+						{userPreferences.featuresEnabled.analytics.enabled ? (
 							<LinksGroup
 								opened={false}
 								icon={IconGraph}
@@ -298,11 +293,11 @@ export default function Layout() {
 								toggle={toggleMobileNavbar}
 								href={$path("/analytics")}
 								tourControlTarget={
-									OnboardingTourStepTargets.ClickOnAnalyticsSidebarSection
+									OnboardingTourStepTarget.ClickOnAnalyticsSidebarSection
 								}
 							/>
 						) : null}
-						{loaderData.userPreferences.featuresEnabled.others.calendar ? (
+						{userPreferences.featuresEnabled.others.calendar ? (
 							<LinksGroup
 								opened={false}
 								label="Calendar"
@@ -312,7 +307,7 @@ export default function Layout() {
 								href={$path("/calendar")}
 							/>
 						) : null}
-						{loaderData.userPreferences.featuresEnabled.others.collections ? (
+						{userPreferences.featuresEnabled.others.collections ? (
 							<LinksGroup
 								opened={false}
 								icon={IconArchive}
@@ -321,7 +316,7 @@ export default function Layout() {
 								toggle={toggleMobileNavbar}
 								href={$path("/collections/list")}
 								tourControlTarget={
-									OnboardingTourStepTargets.ClickOnCollectionsSidebarSection
+									OnboardingTourStepTarget.ClickOnCollectionsSidebarSection
 								}
 							/>
 						) : null}
@@ -333,9 +328,7 @@ export default function Layout() {
 								links={settingsLinks}
 								toggle={toggleMobileNavbar}
 								opened={openedSidebarLinks.settings || false}
-								tourControlTarget={
-									OnboardingTourStepTargets.OpenSettingsSidebar
-								}
+								tourControlTarget={OnboardingTourStepTarget.OpenSettingsSidebar}
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
 										produce(openedSidebarLinks, (draft) => {
@@ -354,7 +347,7 @@ export default function Layout() {
 							leftSection={<IconChevronsLeft />}
 							onClick={() => {
 								Cookies.set(desktopSidebarCollapsedCookie, "true");
-								revalidate();
+								revalidator.revalidate();
 							}}
 						>
 							Collapse
@@ -440,7 +433,7 @@ export default function Layout() {
 							mih="90%"
 							style={{ flexGrow: 1 }}
 							ref={
-								loaderData.userPreferences.general.disableNavigationAnimation
+								userPreferences.general.disableNavigationAnimation
 									? undefined
 									: parent
 							}

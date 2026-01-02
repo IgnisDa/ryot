@@ -1,4 +1,3 @@
-import { ActionIcon, Group, Loader, ThemeIcon, Tooltip } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
 import {
 	EntityLot,
@@ -7,52 +6,43 @@ import {
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
-import {
-	IconBackpack,
-	IconBookmarks,
-	IconPlayerPlay,
-	IconRosetteDiscountCheck,
-} from "@tabler/icons-react";
 import { type ReactNode, useMemo } from "react";
 import { $path } from "safe-routes";
-import { match } from "ts-pattern";
 import {
 	useMetadataDetails,
 	useMetadataGroupDetails,
 	usePersonDetails,
+	useS3PresignedUrls,
+	useUserEntityRecentlyConsumed,
 	useUserMetadataDetails,
 	useUserMetadataGroupDetails,
 	useUserPersonDetails,
 } from "~/lib/shared/hooks";
-import { useMetadataProgressUpdate } from "~/lib/state/media";
-import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { BaseEntityDisplayItem } from "../common/entity-display";
-import { DisplayAverageRatingOverlay } from "./rating-overlay";
 
 export const MetadataDisplayItem = (props: {
-	name?: string;
-	altName?: string;
 	metadataId: string;
-	topLeft?: ReactNode;
-	topRight?: ReactNode;
-	noLeftLabel?: boolean;
-	rightLabel?: ReactNode;
-	rightLabelLot?: boolean;
+	isFirstItem?: boolean;
 	imageClassName?: string;
-	rightLabelHistory?: boolean;
+	centerElement?: ReactNode;
+	additionalInformation?: string;
 	shouldHighlightNameIfInteracted?: boolean;
-	bottomRightImageOverlayClassName?: string;
 	onImageClickBehavior?: () => Promise<void>;
 }) => {
-	const { initializeMetadataToUpdate, isMetadataToUpdateLoading } =
-		useMetadataProgressUpdate();
 	const { ref, inViewport } = useInViewport();
-	const { advanceOnboardingTourStep } = useOnboardingTour();
 
-	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
-		useMetadataDetails(props.metadataId, inViewport);
+	const [
+		{ data: metadataDetails, isLoading: isMetadataDetailsLoading },
+		isMetadataPartialStatusActive,
+		metadataTranslations,
+	] = useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
+		inViewport,
+	);
+	const { data: isMetadataRecentlyConsumed } = useUserEntityRecentlyConsumed(
+		props.metadataId,
+		EntityLot.Metadata,
 		inViewport,
 	);
 
@@ -64,63 +54,56 @@ export const MetadataDisplayItem = (props: {
 		(h) => h.state === SeenState.InProgress,
 	)?.progress;
 	const reasons = userMetadataDetails?.mediaReason?.filter((r) =>
-		[
-			UserToMediaReason.Finished,
-			UserToMediaReason.Watchlist,
-			UserToMediaReason.Owned,
-		].includes(r),
+		[UserToMediaReason.Finished, UserToMediaReason.Owned].includes(r),
 	);
 
-	const leftLabel = useMemo(() => {
-		if (props.noLeftLabel || !metadataDetails || !userMetadataDetails)
-			return null;
+	const extraInformation = useMemo(() => {
+		if (!metadataDetails || !userMetadataDetails) return "";
 
 		const inProgress = userMetadataDetails.inProgress;
 		if (inProgress) {
 			if (inProgress.podcastExtraInformation)
-				return `EP-${inProgress.podcastExtraInformation.episode}`;
+				return `Current: EP-${inProgress.podcastExtraInformation.episode}`;
 			if (inProgress.showExtraInformation)
-				return `S${inProgress.showExtraInformation.season}-E${inProgress.showExtraInformation.episode}`;
+				return `Current: S${inProgress.showExtraInformation.season}-E${inProgress.showExtraInformation.episode}`;
 		}
 
 		const nextEntry = userMetadataDetails.nextEntry;
 		if (nextEntry) {
 			if (metadataDetails.lot === MediaLot.Show)
-				return `S${nextEntry.season}-E${nextEntry.episode}`;
+				return `Next: S${nextEntry.season}-E${nextEntry.episode}`;
 			if (metadataDetails.lot === MediaLot.Podcast)
-				return `EP-${nextEntry.episode}`;
+				return `Next: EP-${nextEntry.episode}`;
 		}
 
-		return metadataDetails.publishYear;
+		return "";
 	}, [metadataDetails, userMetadataDetails]);
 
-	const surroundReason = (
-		idx: number,
-		data: readonly [UserToMediaReason, ReactNode],
-	) => (
-		<Tooltip label={changeCase(data[0])} key={idx}>
-			<ThemeIcon variant="transparent" size="sm" color="cyan">
-				{data[1]}
-			</ThemeIcon>
-		</Tooltip>
-	);
-
+	const s3PresignedUrls = useS3PresignedUrls(metadataDetails?.assets.s3Images);
 	const images = [
 		...(metadataDetails?.assets.remoteImages || []),
-		...(metadataDetails?.assets.s3Images || []),
+		...(s3PresignedUrls.data || []),
 	];
 
 	return (
 		<BaseEntityDisplayItem
-			innerRef={ref}
-			imageUrl={images.at(0)}
-			altName={props.altName}
+			ref={ref}
 			progress={currentProgress}
-			isLoading={isMetadataDetailsLoading}
+			entityId={props.metadataId}
+			userToMediaReasons={reasons}
+			entityLot={EntityLot.Metadata}
+			isFirstItem={props.isFirstItem}
+			mediaLot={metadataDetails?.lot}
+			rating={averageRating ?? undefined}
+			centerElement={props.centerElement}
 			imageClassName={props.imageClassName}
-			name={props.name ?? metadataDetails?.title}
-			highlightImage={userMetadataDetails?.isRecentlyConsumed}
-			highlightName={
+			isDetailsLoading={isMetadataDetailsLoading}
+			wasRecentlyConsumed={isMetadataRecentlyConsumed}
+			isPartialStatusActive={isMetadataPartialStatusActive}
+			image={metadataTranslations?.image || images.at(0)}
+			title={metadataTranslations?.title || metadataDetails?.title}
+			interactionButtons={["collection", "consume", "review", "watchlist"]}
+			hasInteracted={
 				props.shouldHighlightNameIfInteracted &&
 				userMetadataDetails?.hasInteracted
 			}
@@ -128,139 +111,85 @@ export const MetadataDisplayItem = (props: {
 				$path("/media/item/:id", { id: props.metadataId }),
 				props.onImageClickBehavior,
 			]}
-			labels={
-				metadataDetails
-					? {
-							left: leftLabel,
-							right:
-								props.rightLabel ||
-								(props.rightLabelLot
-									? changeCase(snakeCase(metadataDetails.lot))
-									: undefined) ||
-								(props.rightLabelHistory
-									? completedHistory.length > 0
-										? `${completedHistory.length} time${completedHistory.length === 1 ? "" : "s"}`
-										: null
-									: changeCase(snakeCase(metadataDetails.lot))),
-						}
-					: undefined
+			consumeButtonIndicatorLabel={
+				completedHistory.length > 0 ? `${completedHistory.length}` : undefined
 			}
-			imageOverlay={{
-				topLeft: props.topLeft,
-				topRight: props.topRight || (
-					<DisplayAverageRatingOverlay
-						entityId={props.metadataId}
-						averageRating={averageRating}
-						entityLot={EntityLot.Metadata}
-						metadataLot={metadataDetails?.lot}
-						entityTitle={metadataDetails?.title}
-					/>
-				),
-				bottomLeft:
-					reasons && reasons.length > 0 ? (
-						<Group gap={3}>
-							{reasons
-								.map((r) =>
-									match(r)
-										.with(
-											UserToMediaReason.Finished,
-											() => [r, <IconRosetteDiscountCheck key={r} />] as const,
-										)
-										.with(
-											UserToMediaReason.Watchlist,
-											() => [r, <IconBookmarks key={r} />] as const,
-										)
-										.with(
-											UserToMediaReason.Owned,
-											() => [r, <IconBackpack key={r} />] as const,
-										)
-										.run(),
-								)
-								.map((data, idx) => surroundReason(idx, data))}
-						</Group>
-					) : null,
-				bottomRight: isMetadataToUpdateLoading ? (
-					<Loader color="red" size="xs" m={2} />
-				) : (
-					<ActionIcon
-						color="blue"
-						size="compact-md"
-						variant="transparent"
-						className={props.bottomRightImageOverlayClassName}
-						onClick={async () => {
-							initializeMetadataToUpdate(
-								{ metadataId: props.metadataId },
-								true,
-							);
-
-							if (props.bottomRightImageOverlayClassName) {
-								advanceOnboardingTourStep();
-							}
-						}}
-					>
-						<IconPlayerPlay size={20} />
-					</ActionIcon>
-				),
-			}}
+			additionalInformation={[
+				extraInformation,
+				props.additionalInformation,
+				metadataDetails?.publishYear,
+			]}
 		/>
 	);
 };
 
 export const MetadataGroupDisplayItem = (props: {
-	topLeft?: ReactNode;
-	topRight?: ReactNode;
-	noLeftLabel?: boolean;
-	rightLabel?: ReactNode;
+	noEntityLot?: boolean;
 	metadataGroupId: string;
+	centerElement?: ReactNode;
 	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
-		useMetadataGroupDetails(props.metadataGroupId, inViewport);
+	const [
+		{ data: metadataGroupDetails, isLoading: isMetadataGroupDetailsLoading },
+		isMetadataGroupPartialStatusActive,
+		metadataGroupTranslations,
+	] = useMetadataGroupDetails(props.metadataGroupId, inViewport);
 	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
 		props.metadataGroupId,
 		inViewport,
 	);
+	const { data: isMetadataGroupRecentlyConsumed } =
+		useUserEntityRecentlyConsumed(
+			props.metadataGroupId,
+			EntityLot.MetadataGroup,
+			inViewport,
+		);
 
 	const averageRating = userMetadataGroupDetails?.averageRating;
 
+	const defaultAdditionalInformation = useMemo(() => {
+		const final = [];
+		if (!props.noEntityLot)
+			final.push(changeCase(snakeCase(EntityLot.MetadataGroup)));
+
+		if (metadataGroupDetails)
+			final.push(`${metadataGroupDetails.details.parts} items`);
+
+		return final;
+	}, [metadataGroupDetails, props.noEntityLot]);
+
+	const s3PresignedUrls = useS3PresignedUrls(
+		metadataGroupDetails?.details.assets.s3Images,
+	);
+	const images = [
+		...(metadataGroupDetails?.details.assets.remoteImages || []),
+		...(s3PresignedUrls.data || []),
+	];
+
 	return (
 		<BaseEntityDisplayItem
-			innerRef={ref}
-			isLoading={isMetadataDetailsLoading}
-			name={metadataDetails?.details.title}
-			imageUrl={metadataDetails?.details.assets.remoteImages.at(0)}
-			highlightImage={userMetadataGroupDetails?.isRecentlyConsumed}
+			ref={ref}
+			entityId={props.metadataGroupId}
+			rating={averageRating ?? undefined}
+			entityLot={EntityLot.MetadataGroup}
+			centerElement={props.centerElement}
+			mediaLot={metadataGroupDetails?.details.lot}
+			isDetailsLoading={isMetadataGroupDetailsLoading}
+			additionalInformation={defaultAdditionalInformation}
+			wasRecentlyConsumed={isMetadataGroupRecentlyConsumed}
+			interactionButtons={["collection", "review", "watchlist"]}
+			isPartialStatusActive={isMetadataGroupPartialStatusActive}
+			image={metadataGroupTranslations?.image || images.at(0)}
+			title={
+				metadataGroupTranslations?.title || metadataGroupDetails?.details.title
+			}
 			onImageClickBehavior={[
 				$path("/media/groups/item/:id", { id: props.metadataGroupId }),
 			]}
-			highlightName={
+			hasInteracted={
 				props.shouldHighlightNameIfInteracted &&
 				userMetadataGroupDetails?.hasInteracted
-			}
-			imageOverlay={{
-				topLeft: props.topLeft,
-				topRight: props.topRight || (
-					<DisplayAverageRatingOverlay
-						averageRating={averageRating}
-						entityId={props.metadataGroupId}
-						entityLot={EntityLot.MetadataGroup}
-						entityTitle={metadataDetails?.details.title}
-					/>
-				),
-			}}
-			labels={
-				metadataDetails
-					? {
-							left:
-								props.noLeftLabel !== true
-									? `${metadataDetails.details.parts} items`
-									: undefined,
-							right:
-								props.rightLabel ||
-								changeCase(snakeCase(metadataDetails.details.lot)),
-						}
-					: undefined
 			}
 		/>
 	);
@@ -268,52 +197,65 @@ export const MetadataGroupDisplayItem = (props: {
 
 export const PersonDisplayItem = (props: {
 	personId: string;
-	topLeft?: ReactNode;
-	topRight?: ReactNode;
-	rightLabel?: ReactNode;
+	centerElement?: ReactNode;
 	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data: personDetails, isLoading: isPersonDetailsLoading } =
-		usePersonDetails(props.personId, inViewport);
+	const [
+		{ data: personDetails, isLoading: isPersonDetailsLoading },
+		isPersonPartialStatusActive,
+		personTranslations,
+	] = usePersonDetails(props.personId, inViewport);
 	const { data: userPersonDetails } = useUserPersonDetails(
 		props.personId,
+		inViewport,
+	);
+	const { data: isPersonRecentlyConsumed } = useUserEntityRecentlyConsumed(
+		props.personId,
+		EntityLot.Person,
 		inViewport,
 	);
 
 	const averageRating = userPersonDetails?.averageRating;
 
+	const defaultAdditionalInformation = useMemo(() => {
+		const final = [];
+
+		if (personDetails)
+			final.push(`${personDetails.details.associatedEntityCount} items`);
+
+		return final;
+	}, [personDetails]);
+
+	const s3PresignedUrls = useS3PresignedUrls(
+		personDetails?.details.assets.s3Images,
+	);
+	const images = [
+		...(personDetails?.details.assets.remoteImages || []),
+		...(s3PresignedUrls.data || []),
+	];
+
 	return (
 		<BaseEntityDisplayItem
-			innerRef={ref}
-			name={personDetails?.details.name}
-			isLoading={isPersonDetailsLoading}
-			highlightImage={userPersonDetails?.isRecentlyConsumed}
-			imageUrl={personDetails?.details.assets.remoteImages.at(0)}
+			ref={ref}
+			entityId={props.personId}
+			entityLot={EntityLot.Person}
+			rating={averageRating ?? undefined}
+			centerElement={props.centerElement}
+			isDetailsLoading={isPersonDetailsLoading}
+			interactionButtons={["collection", "review"]}
+			wasRecentlyConsumed={isPersonRecentlyConsumed}
+			isPartialStatusActive={isPersonPartialStatusActive}
+			additionalInformation={defaultAdditionalInformation}
+			image={personTranslations?.image || images.at(0)}
+			title={personTranslations?.title || personDetails?.details.name}
 			onImageClickBehavior={[
 				$path("/media/people/item/:id", { id: props.personId }),
 			]}
-			highlightName={
+			hasInteracted={
 				props.shouldHighlightNameIfInteracted &&
 				userPersonDetails?.hasInteracted
 			}
-			imageOverlay={{
-				topLeft: props.topLeft,
-				topRight: props.topRight || (
-					<DisplayAverageRatingOverlay
-						entityId={props.personId}
-						entityLot={EntityLot.Person}
-						averageRating={averageRating}
-						entityTitle={personDetails?.details.name}
-					/>
-				),
-			}}
-			labels={{
-				right: props.rightLabel,
-				left: personDetails
-					? `${personDetails.details.associatedEntityCount} items`
-					: undefined,
-			}}
 		/>
 	);
 };

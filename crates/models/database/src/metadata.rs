@@ -50,6 +50,7 @@ pub struct Model {
     pub free_creators: Option<Vec<MetadataFreeCreator>>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
+    pub has_translations_for_languages: Option<Vec<String>>,
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
     #[sea_orm(column_type = "Json")]
     pub external_identifiers: Option<MetadataExternalIdentifiers>,

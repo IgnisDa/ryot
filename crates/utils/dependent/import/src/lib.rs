@@ -1,30 +1,43 @@
-use std::{collections::HashMap, future::Future, sync::Arc};
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, hash_map::Entry},
+    future::Future,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering as AtomicOrdering},
+    },
+};
 
 use anyhow::Result;
-use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput};
+use chrono::{Duration, NaiveDateTime, Offset, TimeZone, Utc};
+use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput, EntityWithLot};
 use common_utils::ryot_log;
+use database_models::{exercise, prelude::Exercise};
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
 use dependent_collection_utils::{add_entities_to_collection, create_or_update_collection};
 use dependent_entity_utils::{commit_metadata, commit_metadata_group, commit_person};
 use dependent_fitness_utils::{
-    create_custom_exercise, create_or_update_user_workout, create_user_measurement,
-    db_workout_to_workout_input,
+    create_custom_exercise, create_or_update_user_measurement, create_or_update_user_workout,
+    db_workout_to_workout_input, generate_exercise_id,
 };
-use dependent_jobs_utils::{deploy_update_metadata_group_job, deploy_update_person_job};
+use dependent_jobs_utils::deploy_update_media_entity_job;
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use dependent_progress_utils::commit_import_seen_item;
-use dependent_review_utils::{convert_review_into_input, post_review};
-use enum_models::{EntityLot, MediaLot, MediaSource};
+use dependent_review_utils::{convert_review_into_input, create_or_update_review};
+use enum_models::{EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource};
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
     PartialMetadataWithoutId, UniqueMediaIdentifier,
 };
 use rand::seq::SliceRandom;
-use rust_decimal::{Decimal, prelude::FromPrimitive};
-use rust_decimal_macros::dec;
-use std::collections::hash_map::Entry;
+use rust_decimal::{Decimal, dec, prelude::FromPrimitive};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
 use supporting_service::SupportingService;
+use uuid::Uuid;
+
+// TEMP(1611): debug instrumentation for duplicate seen records; remove after investigation completes
+static SEEN_PROCESSING_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 async fn create_collection_and_add_entity_to_it(
     user_id: &String,
@@ -106,9 +119,17 @@ where
                 match aggregated_metadata.entry(key) {
                     Entry::Occupied(mut entry) => {
                         let existing_metadata = entry.get_mut();
+                        let existing_seen_count = existing_metadata.seen_history.len();
                         existing_metadata
                             .seen_history
                             .append(&mut current_metadata.seen_history);
+                        ryot_log!(
+                            debug,
+                            "Aggregating duplicate metadata ({}): merged seen_history from {} to {} items",
+                            current_metadata.identifier,
+                            existing_seen_count,
+                            existing_metadata.seen_history.len()
+                        );
                         existing_metadata
                             .reviews
                             .append(&mut current_metadata.reviews);
@@ -117,6 +138,12 @@ where
                             .append(&mut current_metadata.collections);
                     }
                     Entry::Vacant(entry) => {
+                        ryot_log!(
+                            debug,
+                            "Adding new metadata ({}) with {} seen_history items",
+                            entry.key().1,
+                            current_metadata.seen_history.len()
+                        );
                         entry.insert(current_metadata);
                     }
                 }
@@ -134,11 +161,11 @@ where
         .collect();
 
     import.completed.retain(|i| match i {
+        ImportCompletedItem::Person(p) => !p.reviews.is_empty() || !p.collections.is_empty(),
+        ImportCompletedItem::MetadataGroup(m) => !m.reviews.is_empty() || !m.collections.is_empty(),
         ImportCompletedItem::Metadata(m) => {
             !m.seen_history.is_empty() || !m.reviews.is_empty() || !m.collections.is_empty()
         }
-        ImportCompletedItem::Person(p) => !p.reviews.is_empty() || !p.collections.is_empty(),
-        ImportCompletedItem::MetadataGroup(m) => !m.reviews.is_empty() || !m.collections.is_empty(),
         _ => true,
     });
 
@@ -157,16 +184,18 @@ where
     let mut need_to_schedule_user_for_workout_revision = false;
 
     for (idx, item) in import.completed.into_iter().enumerate() {
-        ryot_log!(
-            debug,
-            "Processing item ({}) {}/{}",
-            item.to_string(),
-            idx + 1,
-            total,
-        );
+        ryot_log!(debug, "Processing item ({:#}) {}/{}", item, idx + 1, total,);
         match item {
             ImportCompletedItem::Empty => {}
             ImportCompletedItem::Metadata(metadata) => {
+                let execution_id = Uuid::new_v4();
+                let metadata_ptr = format!("{:p}", &metadata as *const _);
+                ryot_log!(
+                    debug,
+                    "[1611 TRACE {}] Starting metadata processing, ptr={}",
+                    execution_id,
+                    metadata_ptr
+                );
                 let (db_metadata_id, was_updated_successfully) = match commit_metadata(
                     PartialMetadataWithoutId {
                         lot: metadata.lot,
@@ -180,8 +209,25 @@ where
                 )
                 .await
                 {
-                    Ok((metadata, success)) => (metadata.id, success),
+                    Ok((metadata, success)) => {
+                        ryot_log!(
+                            debug,
+                            "[1611 TRACE {}] commit_metadata succeeded: id={}, updated={}",
+                            execution_id,
+                            metadata.id,
+                            success
+                        );
+                        (metadata.id, success)
+                    }
                     Err(e) => {
+                        ryot_log!(
+                            debug,
+                            "[1611 TRACE {}] commit_metadata failed for source_id={}, lot={}: {}",
+                            execution_id,
+                            metadata.source_id,
+                            metadata.lot,
+                            e
+                        );
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata.lot),
                             error: Some(e.to_string()),
@@ -192,6 +238,12 @@ where
                     }
                 };
                 if !was_updated_successfully {
+                    ryot_log!(
+                        debug,
+                        "[1611 TRACE {}] commit_metadata marked as not updated for {}",
+                        execution_id,
+                        db_metadata_id
+                    );
                     import.failed.push(ImportFailedItem {
                         lot: Some(metadata.lot),
                         identifier: db_metadata_id.clone(),
@@ -199,10 +251,90 @@ where
                         error: Some("Progress update *might* be wrong".to_owned()),
                     });
                 }
-                for seen in metadata.seen_history {
+                let counter_value = SEEN_PROCESSING_COUNTER.fetch_add(1, AtomicOrdering::SeqCst);
+                ryot_log!(
+                    debug,
+                    "[1611 TRACE {}] [1611 COUNTER {}] Before seen_history processing, metadata.seen_history.len={}, ptr={}",
+                    execution_id,
+                    counter_value,
+                    metadata.seen_history.len(),
+                    metadata_ptr
+                );
+                ryot_log!(
+                    debug,
+                    "[1611 TRACE {}] Processing {} seen_history items for metadata: {}",
+                    execution_id,
+                    metadata.seen_history.len(),
+                    db_metadata_id
+                );
+                let seen_history_len = metadata.seen_history.len();
+                ryot_log!(
+                    debug,
+                    "[1611 TRACE {}] After seen_history log, about to enter loop with {} items",
+                    execution_id,
+                    seen_history_len
+                );
+
+                let mut sorted_seen_history = metadata.seen_history;
+                sorted_seen_history.sort_by(|a, b| {
+                    let end_date_cmp = a.ended_on.cmp(&b.ended_on);
+                    if end_date_cmp != Ordering::Equal {
+                        return end_date_cmp;
+                    }
+
+                    if let (Some(a_season), Some(a_episode), Some(b_season), Some(b_episode)) = (
+                        a.show_season_number,
+                        a.show_episode_number,
+                        b.show_season_number,
+                        b.show_episode_number,
+                    ) {
+                        a_season.cmp(&b_season).then(a_episode.cmp(&b_episode))
+                    } else if let (Some(a_episode), Some(b_episode)) =
+                        (a.anime_episode_number, b.anime_episode_number)
+                    {
+                        a_episode.cmp(&b_episode)
+                    } else if let (
+                        Some(a_volume),
+                        Some(a_chapter),
+                        Some(b_volume),
+                        Some(b_chapter),
+                    ) = (
+                        a.manga_volume_number,
+                        a.manga_chapter_number,
+                        b.manga_volume_number,
+                        b.manga_chapter_number,
+                    ) {
+                        a_volume.cmp(&b_volume).then(a_chapter.cmp(&b_chapter))
+                    } else if let (Some(a_episode), Some(b_episode)) =
+                        (a.podcast_episode_number, b.podcast_episode_number)
+                    {
+                        a_episode.cmp(&b_episode)
+                    } else {
+                        Ordering::Equal
+                    }
+                });
+
+                for (seen_idx, seen) in sorted_seen_history.into_iter().enumerate() {
+                    ryot_log!(
+                        debug,
+                        "[1611 TRACE {}] Processing seen item {}/{} for metadata: {}",
+                        execution_id,
+                        seen_idx + 1,
+                        seen_history_len,
+                        db_metadata_id
+                    );
                     if let Err(e) =
                         commit_import_seen_item(is_import, user_id, &db_metadata_id, ss, seen).await
                     {
+                        ryot_log!(
+                            debug,
+                            "[1611 TRACE {}] Failed to commit seen item {}/{} for {}: {}",
+                            execution_id,
+                            seen_idx + 1,
+                            seen_history_len,
+                            db_metadata_id,
+                            e
+                        );
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata.lot),
                             error: Some(e.to_string()),
@@ -211,22 +343,27 @@ where
                         });
                     };
                 }
+                ryot_log!(
+                    debug,
+                    "[1611 TRACE {}] Completed seen_history processing for metadata: {}",
+                    execution_id,
+                    db_metadata_id
+                );
                 for review in metadata.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
                         &preferences,
                         db_metadata_id.clone(),
                         EntityLot::Metadata,
-                    ) {
-                        if let Err(e) = post_review(user_id, input, ss).await {
-                            import.failed.push(ImportFailedItem {
-                                lot: Some(metadata.lot),
-                                error: Some(e.to_string()),
-                                step: ImportFailStep::DatabaseCommit,
-                                identifier: metadata.source_id.to_owned(),
-                            });
-                        };
-                    }
+                    ) && let Err(e) = create_or_update_review(user_id, input, ss).await
+                    {
+                        import.failed.push(ImportFailedItem {
+                            lot: Some(metadata.lot),
+                            error: Some(e.to_string()),
+                            step: ImportFailStep::DatabaseCommit,
+                            identifier: metadata.source_id.to_owned(),
+                        });
+                    };
                 }
                 for col in metadata.collections.into_iter() {
                     create_collection_and_add_entity_to_it(
@@ -267,23 +404,29 @@ where
                         continue;
                     }
                 };
-                deploy_update_metadata_group_job(&db_metadata_group_id, ss).await?;
+                deploy_update_media_entity_job(
+                    EntityWithLot {
+                        entity_id: db_metadata_group_id.clone(),
+                        entity_lot: EntityLot::MetadataGroup,
+                    },
+                    ss,
+                )
+                .await?;
                 for review in metadata_group.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
                         &preferences,
                         db_metadata_group_id.clone(),
                         EntityLot::MetadataGroup,
-                    ) {
-                        if let Err(e) = post_review(user_id, input, ss).await {
-                            import.failed.push(ImportFailedItem {
-                                error: Some(e.to_string()),
-                                lot: Some(metadata_group.lot),
-                                step: ImportFailStep::DatabaseCommit,
-                                identifier: metadata_group.title.to_owned(),
-                            });
-                        };
-                    }
+                    ) && let Err(e) = create_or_update_review(user_id, input, ss).await
+                    {
+                        import.failed.push(ImportFailedItem {
+                            error: Some(e.to_string()),
+                            lot: Some(metadata_group.lot),
+                            step: ImportFailStep::DatabaseCommit,
+                            identifier: metadata_group.title.to_owned(),
+                        });
+                    };
                 }
                 for col in metadata_group.collections.into_iter() {
                     create_collection_and_add_entity_to_it(
@@ -322,23 +465,29 @@ where
                         continue;
                     }
                 };
-                deploy_update_person_job(&db_person_id, ss).await?;
+                deploy_update_media_entity_job(
+                    EntityWithLot {
+                        entity_id: db_person_id.clone(),
+                        entity_lot: EntityLot::Person,
+                    },
+                    ss,
+                )
+                .await?;
                 for review in person.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
                         &preferences,
                         db_person_id.clone(),
                         EntityLot::Person,
-                    ) {
-                        if let Err(e) = post_review(user_id, input, ss).await {
-                            import.failed.push(ImportFailedItem {
-                                error: Some(e.to_string()),
-                                identifier: person.name.to_owned(),
-                                step: ImportFailStep::DatabaseCommit,
-                                ..Default::default()
-                            });
-                        };
-                    }
+                    ) && let Err(e) = create_or_update_review(user_id, input, ss).await
+                    {
+                        import.failed.push(ImportFailedItem {
+                            error: Some(e.to_string()),
+                            identifier: person.name.to_owned(),
+                            step: ImportFailStep::DatabaseCommit,
+                            ..Default::default()
+                        });
+                    };
                 }
                 for col in person.collections.into_iter() {
                     create_collection_and_add_entity_to_it(
@@ -415,7 +564,9 @@ where
                 }
             }
             ImportCompletedItem::Measurement(measurement) => {
-                if let Err(err) = create_user_measurement(user_id, measurement.clone(), ss).await {
+                if let Err(err) =
+                    create_or_update_user_measurement(user_id, measurement.clone(), ss).await
+                {
                     import.failed.push(ImportFailedItem {
                         error: Some(err.to_string()),
                         step: ImportFailStep::DatabaseCommit,
@@ -426,10 +577,13 @@ where
             }
         }
 
-        on_item_processed(
-            Decimal::from_usize(idx + 1).unwrap() / Decimal::from_usize(total).unwrap() * dec!(100),
-        )
-        .await?;
+        if idx % 10 == 0 || idx + 1 == total {
+            on_item_processed(
+                Decimal::from_usize(idx + 1).unwrap() / Decimal::from_usize(total).unwrap()
+                    * dec!(100),
+            )
+            .await?;
+        }
     }
 
     if need_to_schedule_user_for_workout_revision {
@@ -442,4 +596,52 @@ where
     };
 
     Ok((source_result, details))
+}
+
+pub fn get_date_time_with_offset(
+    date_time: NaiveDateTime,
+    timezone: &chrono_tz::Tz,
+) -> DateTimeUtc {
+    let offset = timezone
+        .offset_from_utc_datetime(&Utc::now().naive_utc())
+        .fix()
+        .local_minus_utc();
+    let offset = Duration::try_seconds(offset.into()).unwrap();
+    DateTimeUtc::from_naive_utc_and_offset(date_time, Utc) - offset
+}
+
+pub async fn associate_with_existing_or_new_exercise(
+    user_id: &str,
+    exercise_name: &String,
+    exercise_lot: ExerciseLot,
+    ss: &Arc<SupportingService>,
+    unique_exercises: &mut HashMap<String, exercise::Model>,
+) -> Result<String> {
+    let existing_exercise = Exercise::find()
+        .filter(exercise::Column::Lot.eq(exercise_lot))
+        .filter(exercise::Column::Name.eq(exercise_name))
+        .one(&ss.db)
+        .await?;
+    let generated_id = generate_exercise_id(exercise_name, exercise_lot, user_id);
+    let exercise_id = match existing_exercise {
+        Some(db_ex) if db_ex.source == ExerciseSource::Github || db_ex.id == generated_id => {
+            db_ex.id
+        }
+        _ => match unique_exercises.get(exercise_name) {
+            Some(mem_ex) => mem_ex.id.clone(),
+            None => {
+                unique_exercises.insert(
+                    exercise_name.clone(),
+                    exercise::Model {
+                        lot: exercise_lot,
+                        id: generated_id.clone(),
+                        name: exercise_name.to_owned(),
+                        ..Default::default()
+                    },
+                );
+                generated_id
+            }
+        },
+    };
+    Ok(exercise_id)
 }

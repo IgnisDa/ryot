@@ -32,8 +32,7 @@ see the authentication page anyway, you can visit
 `<FRONTEND_URL>/auth?autoOidcLaunch=false`.
 
 ::: warning
-A user can either have a username/password or it can use your OIDC provider to
-authenticate but not both.
+A user can either authenticate using local authentication or OIDC, but not both.
 :::
 
 ### Converting a local user to an OIDC user

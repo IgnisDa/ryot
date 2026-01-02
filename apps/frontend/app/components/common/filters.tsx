@@ -18,15 +18,19 @@ import {
 	useListState,
 } from "@mantine/hooks";
 import {
+	GraphqlSortOrder,
 	type MediaCollectionFilter,
 	MediaCollectionPresenceFilter,
 	MediaCollectionStrategyFilter,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import {
+	IconDeviceFloppy,
 	IconFilterOff,
 	IconPlus,
 	IconSearch,
+	IconSortAscending,
+	IconSortDescending,
 	IconX,
 } from "@tabler/icons-react";
 import { produce } from "immer";
@@ -35,26 +39,35 @@ import {
 	useCoreDetails,
 	useNonHiddenUserCollections,
 } from "~/lib/shared/hooks";
-import type { OnboardingTourStepTargets } from "~/lib/state/onboarding-tour";
+import type { OnboardingTourStepTarget } from "~/lib/state/onboarding-tour";
 import { ProRequiredAlert } from ".";
 
 export const FiltersModal = (props: {
-	title?: string;
 	opened: boolean;
-	children: ReactNode;
+	children?: ReactNode;
 	resetFilters: () => void;
+	onSavePreset: () => void;
 	closeFiltersModal: () => void;
-}) => {
-	return (
-		<Modal
-			centered
-			opened={props.opened}
-			withCloseButton={false}
-			onClose={props.closeFiltersModal}
-		>
-			<Stack>
-				<Group justify="space-between">
-					<Title order={3}>{props.title || "Filters"}</Title>
+}) => (
+	<Modal
+		centered
+		opened={props.opened}
+		withCloseButton={false}
+		onClose={props.closeFiltersModal}
+	>
+		<Stack>
+			<Group justify="space-between">
+				<Title order={3}>Filters</Title>
+				<Group wrap="nowrap">
+					<ActionIcon
+						color="blue"
+						onClick={() => {
+							props.onSavePreset();
+							props.closeFiltersModal();
+						}}
+					>
+						<IconDeviceFloppy />
+					</ActionIcon>
 					<ActionIcon
 						onClick={() => {
 							props.resetFilters();
@@ -64,11 +77,11 @@ export const FiltersModal = (props: {
 						<IconFilterOff size={24} />
 					</ActionIcon>
 				</Group>
-				{props.children}
-			</Stack>
-		</Modal>
-	);
-};
+			</Group>
+			{props.children}
+		</Stack>
+	</Modal>
+);
 
 export const CollectionsFilter = (props: {
 	applied: MediaCollectionFilter[];
@@ -119,8 +132,8 @@ export const CollectionsFilter = (props: {
 						<Group key={f.id} gap="xs" justify="space-between" wrap="nowrap">
 							{idx !== 0 ? (
 								<Button
-									size="compact-md"
 									w={rem(70)}
+									size="compact-md"
 									variant="default"
 									fz={{ base: 10, md: 12 }}
 									onClick={() => {
@@ -139,8 +152,8 @@ export const CollectionsFilter = (props: {
 								</Button>
 							) : null}
 							<Button
-								size="compact-md"
 								w={rem(170)}
+								size="compact-md"
 								variant="default"
 								fz={{ base: 10, md: 12 }}
 								onClick={() => {
@@ -200,7 +213,7 @@ export const DebouncedSearchInput = (props: {
 	placeholder: string;
 	onChange: (query: string) => void;
 	tourControl?: {
-		target: OnboardingTourStepTargets;
+		target: OnboardingTourStepTarget;
 		onQueryChange: (query: string) => void;
 	};
 }) => {
@@ -238,3 +251,22 @@ export const DebouncedSearchInput = (props: {
 		/>
 	);
 };
+
+export const SortOrderToggle = (props: {
+	currentOrder: GraphqlSortOrder;
+	onOrderChange: (order: GraphqlSortOrder) => void;
+}) => (
+	<ActionIcon
+		onClick={() => {
+			if (props.currentOrder === GraphqlSortOrder.Asc)
+				props.onOrderChange(GraphqlSortOrder.Desc);
+			else props.onOrderChange(GraphqlSortOrder.Asc);
+		}}
+	>
+		{props.currentOrder === GraphqlSortOrder.Asc ? (
+			<IconSortAscending />
+		) : (
+			<IconSortDescending />
+		)}
+	</ActionIcon>
+);

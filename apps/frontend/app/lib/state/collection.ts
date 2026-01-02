@@ -24,7 +24,7 @@ type BulkEditingCollectionData = {
 	alreadyPresentEntities: Array<Entity>;
 };
 
-export type BulkAddEntities = () => Promise<Array<Entity>>;
+export type BulkEditEntitiesToCollection = () => Promise<Array<Entity>>;
 
 const bulkEditingCollectionAtom = atom<BulkEditingCollectionData | null>(null);
 
@@ -66,20 +66,22 @@ export const useBulkEditCollection = () => {
 						setBec(null);
 						navigate(bec.locationStartedFrom);
 					},
-					bulkAdd: async (getEntities: BulkAddEntities) => {
+					bulkAdd: async (getEntities: BulkEditEntitiesToCollection) => {
 						setBec({ ...bec, isLoading: true });
 						const entities = await getEntities();
 						setBec({ ...bec, isLoading: false, targetEntities: entities });
 					},
 					remove: (toRemove: Entity) => {
+						const index = findIndex(toRemove, bec.targetEntities);
+						if (index === -1) return;
 						setBec(
 							produce(bec, (draft) => {
-								draft.targetEntities.splice(findIndex(toRemove), 1);
+								draft.targetEntities.splice(index, 1);
 							}),
 						);
 					},
 					add: (toAdd: Entity) => {
-						if (findIndex(toAdd) !== -1) return;
+						if (findIndex(toAdd, bec.targetEntities) !== -1) return;
 						setBec(
 							produce(bec, (draft) => {
 								draft.targetEntities.push(toAdd);
@@ -119,7 +121,7 @@ export const useCreateOrUpdateCollectionModal = () => {
 	};
 };
 
-export type EditEntityCollectionInformationData = {
+type EditEntityCollectionInformationData = {
 	entityId: string;
 	collectionId: string;
 	entityLot: EntityLot;

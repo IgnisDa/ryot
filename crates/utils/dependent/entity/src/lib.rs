@@ -3,7 +3,7 @@ use std::{collections::HashMap, iter::zip, sync::Arc};
 use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::Utc;
-use common_models::{EntityAssets, PersonSourceSpecifics, StringIdObject};
+use common_models::{EntityAssets, EntityWithLot, PersonSourceSpecifics, StringIdObject};
 use common_utils::{
     MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES, ryot_log, sleep_for_n_seconds,
 };
@@ -15,8 +15,7 @@ use database_models::{
         MetadataToMetadataGroup, MetadataToPerson, Person,
     },
 };
-use database_utils::transform_entity_assets;
-use dependent_jobs_utils::deploy_update_metadata_job;
+use dependent_jobs_utils::deploy_update_media_entity_job;
 use dependent_models::MetadataBaseData;
 use dependent_provider_utils::{
     details_from_provider, get_metadata_provider, get_non_metadata_provider,
@@ -24,7 +23,7 @@ use dependent_provider_utils::{
 use dependent_utility_utils::{
     expire_metadata_details_cache, expire_metadata_group_details_cache, expire_person_details_cache,
 };
-use enum_models::{MetadataToMetadataRelation, UserNotificationContent};
+use enum_models::{EntityLot, MetadataToMetadataRelation, UserNotificationContent};
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
@@ -37,7 +36,7 @@ use nanoid::nanoid;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
     ModelTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait,
-    sea_query::{Asterisk, Condition, Expr, JoinType},
+    sea_query::{Asterisk, Condition, Expr, JoinType, OnConflict},
 };
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -54,12 +53,20 @@ async fn ensure_metadata_updated(
                 let is_partial = Metadata::find_by_id(metadata_id)
                     .select_only()
                     .column(metadata::Column::IsPartial)
-                    .into_tuple::<bool>()
+                    .into_tuple::<Option<bool>>()
                     .one(&ss.db)
                     .await?
-                    .unwrap_or(true);
+                    .flatten()
+                    .unwrap_or(false);
                 if is_partial {
-                    deploy_update_metadata_job(metadata_id, ss).await?;
+                    deploy_update_media_entity_job(
+                        EntityWithLot {
+                            entity_id: metadata_id.to_owned(),
+                            entity_lot: EntityLot::Metadata,
+                        },
+                        ss,
+                    )
+                    .await?;
                     let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
                     ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
                     sleep_for_n_seconds(sleep_time).await;
@@ -124,20 +131,6 @@ pub async fn change_metadata_associations(
     people: Vec<PartialMetadataPerson>,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    MetadataToPerson::delete_many()
-        .filter(metadata_to_person::Column::MetadataId.eq(metadata_id))
-        .exec(&ss.db)
-        .await?;
-    MetadataToGenre::delete_many()
-        .filter(metadata_to_genre::Column::MetadataId.eq(metadata_id))
-        .exec(&ss.db)
-        .await?;
-    MetadataToMetadata::delete_many()
-        .filter(metadata_to_metadata::Column::FromMetadataId.eq(metadata_id))
-        .filter(metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion))
-        .exec(&ss.db)
-        .await?;
-
     for (index, person) in people.into_iter().enumerate() {
         let role = person.role.clone();
         let db_person = commit_person(
@@ -151,14 +144,17 @@ pub async fn change_metadata_associations(
             ss,
         )
         .await?;
-        let intermediate = metadata_to_person::ActiveModel {
-            role: ActiveValue::Set(role),
-            person_id: ActiveValue::Set(db_person.id),
-            character: ActiveValue::Set(person.character),
-            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
-            index: ActiveValue::Set(Some(index.try_into().unwrap())),
-        };
-        intermediate.insert(&ss.db).await.ok();
+        insert_metadata_person_links(
+            ss,
+            metadata_id,
+            vec![(
+                db_person.id,
+                role,
+                person.character,
+                Some(index.try_into().unwrap()),
+            )],
+        )
+        .await?;
     }
 
     for name in genres {
@@ -182,7 +178,10 @@ pub async fn change_metadata_associations(
             genre_id: ActiveValue::Set(genre.id),
             metadata_id: ActiveValue::Set(metadata_id.to_owned()),
         };
-        intermediate.insert(&ss.db).await.ok();
+        MetadataToGenre::insert(intermediate)
+            .on_conflict(OnConflict::new().do_nothing().to_owned())
+            .exec_without_returning(&ss.db)
+            .await?;
     }
 
     for data in suggestions {
@@ -193,106 +192,66 @@ pub async fn change_metadata_associations(
             relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
             ..Default::default()
         };
-        intermediate.insert(&ss.db).await.ok();
+        MetadataToMetadata::insert(intermediate)
+            .on_conflict(OnConflict::new().do_nothing().to_owned())
+            .exec_without_returning(&ss.db)
+            .await?;
     }
 
     for metadata_group in groups {
         let db_group = commit_metadata_group(metadata_group, ss).await?;
         let intermediate = metadata_to_metadata_group::ActiveModel {
-            part: ActiveValue::Set(0),
             metadata_group_id: ActiveValue::Set(db_group.id),
             metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+            ..Default::default()
         };
-        intermediate.insert(&ss.db).await.ok();
+        MetadataToMetadataGroup::insert(intermediate)
+            .on_conflict(OnConflict::new().do_nothing().to_owned())
+            .exec_without_returning(&ss.db)
+            .await?;
     }
 
     Ok(())
 }
 
-pub async fn update_metadata(
-    metadata_id: &String,
+pub async fn insert_metadata_person_links(
     ss: &Arc<SupportingService>,
-) -> Result<UpdateMediaEntityResult> {
-    let metadata = Metadata::find_by_id(metadata_id)
-        .one(&ss.db)
-        .await
-        .unwrap()
-        .unwrap();
-    if !metadata.is_partial.unwrap_or_default() {
-        return Ok(UpdateMediaEntityResult::default());
-    }
-    let mut result = UpdateMediaEntityResult::default();
-    ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
-    let maybe_details =
-        details_from_provider(metadata.lot, metadata.source, &metadata.identifier, ss).await;
-    match maybe_details {
-        Ok(details) => {
-            let meta = Metadata::find_by_id(metadata_id)
-                .one(&ss.db)
-                .await
-                .unwrap()
-                .unwrap();
-
-            let notifications = generate_metadata_update_notifications(&meta, &details, ss).await?;
-
-            let free_creators = (!details.creators.is_empty())
-                .then_some(())
-                .map(|_| details.creators);
-            let watch_providers = (!details.watch_providers.is_empty())
-                .then_some(())
-                .map(|_| details.watch_providers);
-
-            let mut meta = meta.into_active_model();
-            meta.title = ActiveValue::Set(details.title);
-            meta.assets = ActiveValue::Set(details.assets);
-            meta.is_partial = ActiveValue::Set(Some(false));
-            meta.is_nsfw = ActiveValue::Set(details.is_nsfw);
-            meta.last_updated_on = ActiveValue::Set(Utc::now());
-            meta.free_creators = ActiveValue::Set(free_creators);
-            meta.source_url = ActiveValue::Set(details.source_url);
-            meta.description = ActiveValue::Set(details.description);
-            meta.watch_providers = ActiveValue::Set(watch_providers);
-            meta.publish_year = ActiveValue::Set(details.publish_year);
-            meta.publish_date = ActiveValue::Set(details.publish_date);
-            meta.show_specifics = ActiveValue::Set(details.show_specifics);
-            meta.book_specifics = ActiveValue::Set(details.book_specifics);
-            meta.anime_specifics = ActiveValue::Set(details.anime_specifics);
-            meta.provider_rating = ActiveValue::Set(details.provider_rating);
-            meta.manga_specifics = ActiveValue::Set(details.manga_specifics);
-            meta.movie_specifics = ActiveValue::Set(details.movie_specifics);
-            meta.music_specifics = ActiveValue::Set(details.music_specifics);
-            meta.production_status = ActiveValue::Set(details.production_status);
-            meta.original_language = ActiveValue::Set(details.original_language);
-            meta.podcast_specifics = ActiveValue::Set(details.podcast_specifics);
-            meta.audio_book_specifics = ActiveValue::Set(details.audio_book_specifics);
-            meta.video_game_specifics = ActiveValue::Set(details.video_game_specifics);
-            meta.external_identifiers = ActiveValue::Set(details.external_identifiers);
-            meta.visual_novel_specifics = ActiveValue::Set(details.visual_novel_specifics);
-            let metadata = meta.update(&ss.db).await.unwrap();
-
-            change_metadata_associations(
-                &metadata.id,
-                details.genres,
-                details.suggestions,
-                details.groups,
-                details.people,
-                ss,
-            )
+    metadata_id: &str,
+    links: Vec<(String, String, Option<String>, Option<i32>)>,
+) -> Result<()> {
+    for (person_id, role, character, index) in links.into_iter() {
+        let intermediate = metadata_to_person::ActiveModel {
+            role: ActiveValue::Set(role),
+            index: ActiveValue::Set(index),
+            person_id: ActiveValue::Set(person_id),
+            character: ActiveValue::Set(character),
+            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+        };
+        MetadataToPerson::insert(intermediate)
+            .on_conflict(OnConflict::new().do_nothing().to_owned())
+            .exec_without_returning(&ss.db)
             .await?;
-            ryot_log!(debug, "Updated metadata for {:?}", metadata_id);
-            result.notifications.extend(notifications);
-        }
-        Err(e) => {
-            ryot_log!(
-                error,
-                "Error while updating metadata = {:?}: {:?}",
-                metadata_id,
-                e
-            );
-        }
-    };
-    expire_metadata_details_cache(metadata_id, ss).await?;
-    Ok(result)
+    }
+    Ok(())
+}
+
+pub async fn insert_metadata_group_links(
+    ss: &Arc<SupportingService>,
+    metadata_id: &str,
+    links: Vec<(String, Option<i32>)>,
+) -> Result<()> {
+    for (metadata_group_id, part) in links.into_iter() {
+        let intermediate = metadata_to_metadata_group::ActiveModel {
+            part: ActiveValue::Set(part),
+            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+            metadata_group_id: ActiveValue::Set(metadata_group_id),
+        };
+        MetadataToMetadataGroup::insert(intermediate)
+            .on_conflict(OnConflict::new().do_nothing().to_owned())
+            .exec_without_returning(&ss.db)
+            .await?;
+    }
+    Ok(())
 }
 
 async fn generate_metadata_update_notifications(
@@ -307,25 +266,25 @@ async fn generate_metadata_update_notifications(
     };
     let mut notifications = vec![];
 
-    if let (Some(p1), Some(p2)) = (&meta.production_status, &details.production_status) {
-        if p1 != p2 {
-            notifications.push(UserNotificationContent::MetadataStatusChanged {
-                old_status: format!("{p1:#?}"),
-                new_status: format!("{p2:#?}"),
-                entity_title: meta.title.clone(),
-            });
-        }
+    if let (Some(p1), Some(p2)) = (&meta.production_status, &details.production_status)
+        && p1 != p2
+    {
+        notifications.push(UserNotificationContent::MetadataStatusChanged {
+            old_status: format!("{p1:#?}"),
+            new_status: format!("{p2:#?}"),
+            entity_title: meta.title.clone(),
+        });
     }
-    if let (Some(p1), Some(p2)) = (meta.publish_year, details.publish_year) {
-        if p1 != p2 {
-            notifications.push(UserNotificationContent::MetadataReleaseDateChanged {
-                season_number: None,
-                episode_number: None,
-                old_date: format!("{p1:#?}"),
-                new_date: format!("{p2:#?}"),
-                entity_title: meta.title.clone(),
-            });
-        }
+    if let (Some(p1), Some(p2)) = (meta.publish_year, details.publish_year)
+        && p1 != p2
+    {
+        notifications.push(UserNotificationContent::MetadataReleaseDateChanged {
+            season_number: None,
+            episode_number: None,
+            old_date: format!("{p1:#?}"),
+            new_date: format!("{p2:#?}"),
+            entity_title: meta.title.clone(),
+        });
     }
     if let (Some(s1), Some(s2)) = (&meta.show_specifics, &details.show_specifics) {
         if s1.seasons.len() != s2.seasons.len() {
@@ -376,49 +335,46 @@ async fn generate_metadata_update_notifications(
                         }
                         if let (Some(pd1), Some(pd2)) =
                             (before_episode.publish_date, after_episode.publish_date)
+                            && pd1 != pd2
                         {
-                            if pd1 != pd2 {
-                                notifications.push(
-                                    UserNotificationContent::MetadataReleaseDateChanged {
-                                        old_date: format!("{:?}", pd1),
-                                        new_date: format!("{:?}", pd2),
-                                        entity_title: meta.title.clone(),
-                                        season_number: Some(s1.season_number),
-                                        episode_number: Some(before_episode.episode_number),
-                                    },
-                                );
-                            }
+                            notifications.push(
+                                UserNotificationContent::MetadataReleaseDateChanged {
+                                    old_date: format!("{:?}", pd1),
+                                    new_date: format!("{:?}", pd2),
+                                    entity_title: meta.title.clone(),
+                                    season_number: Some(s1.season_number),
+                                    episode_number: Some(before_episode.episode_number),
+                                },
+                            );
                         }
                     }
                 }
             }
         }
     }
-    if let (Some(a1), Some(a2)) = (&meta.anime_specifics, &details.anime_specifics) {
-        if let (Some(e1), Some(e2)) = (a1.episodes, a2.episodes) {
-            if e1 != e2 {
-                notifications.push(UserNotificationContent::MetadataChaptersOrEpisodesChanged {
-                    old_count: e1.into(),
-                    new_count: e2.into(),
-                    entity_title: meta.title.clone(),
-                    content_type: "episodes".to_string(),
-                });
-                make_eligible_for_smart_collection().await?;
-            }
-        }
+    if let (Some(a1), Some(a2)) = (&meta.anime_specifics, &details.anime_specifics)
+        && let (Some(e1), Some(e2)) = (a1.episodes, a2.episodes)
+        && e1 != e2
+    {
+        notifications.push(UserNotificationContent::MetadataChaptersOrEpisodesChanged {
+            old_count: e1.into(),
+            new_count: e2.into(),
+            entity_title: meta.title.clone(),
+            content_type: "episodes".to_string(),
+        });
+        make_eligible_for_smart_collection().await?;
     }
-    if let (Some(m1), Some(m2)) = (&meta.manga_specifics, &details.manga_specifics) {
-        if let (Some(c1), Some(c2)) = (m1.chapters, m2.chapters) {
-            if c1 != c2 {
-                notifications.push(UserNotificationContent::MetadataChaptersOrEpisodesChanged {
-                    old_count: c1,
-                    new_count: c2,
-                    entity_title: meta.title.clone(),
-                    content_type: "chapters".to_string(),
-                });
-                make_eligible_for_smart_collection().await?;
-            }
-        }
+    if let (Some(m1), Some(m2)) = (&meta.manga_specifics, &details.manga_specifics)
+        && let (Some(c1), Some(c2)) = (m1.chapters, m2.chapters)
+        && c1 != c2
+    {
+        notifications.push(UserNotificationContent::MetadataChaptersOrEpisodesChanged {
+            old_count: c1,
+            new_count: c2,
+            entity_title: meta.title.clone(),
+            content_type: "chapters".to_string(),
+        });
+        make_eligible_for_smart_collection().await?;
     }
     if let (Some(p1), Some(p2)) = (&meta.podcast_specifics, &details.podcast_specifics) {
         if p1.episodes.len() != p2.episodes.len() {
@@ -454,6 +410,86 @@ async fn generate_metadata_update_notifications(
     Ok(notifications)
 }
 
+pub async fn update_metadata(
+    metadata_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<UpdateMediaEntityResult> {
+    let meta = Metadata::find_by_id(metadata_id)
+        .one(&ss.db)
+        .await
+        .unwrap()
+        .unwrap();
+    if !meta.is_partial.unwrap_or_default() {
+        return Ok(UpdateMediaEntityResult::default());
+    }
+
+    let mut result = UpdateMediaEntityResult::default();
+    ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
+    let maybe_details = details_from_provider(meta.lot, meta.source, &meta.identifier, ss).await;
+    match maybe_details {
+        Ok(details) => {
+            let notifications = generate_metadata_update_notifications(&meta, &details, ss).await?;
+
+            let free_creators = (!details.creators.is_empty())
+                .then_some(())
+                .map(|_| details.creators);
+            let watch_providers = (!details.watch_providers.is_empty())
+                .then_some(())
+                .map(|_| details.watch_providers);
+
+            let mut meta = meta.into_active_model();
+            meta.is_partial = ActiveValue::Set(None);
+            meta.title = ActiveValue::Set(details.title);
+            meta.assets = ActiveValue::Set(details.assets);
+            meta.is_nsfw = ActiveValue::Set(details.is_nsfw);
+            meta.last_updated_on = ActiveValue::Set(Utc::now());
+            meta.free_creators = ActiveValue::Set(free_creators);
+            meta.source_url = ActiveValue::Set(details.source_url);
+            meta.description = ActiveValue::Set(details.description);
+            meta.watch_providers = ActiveValue::Set(watch_providers);
+            meta.publish_year = ActiveValue::Set(details.publish_year);
+            meta.publish_date = ActiveValue::Set(details.publish_date);
+            meta.show_specifics = ActiveValue::Set(details.show_specifics);
+            meta.book_specifics = ActiveValue::Set(details.book_specifics);
+            meta.anime_specifics = ActiveValue::Set(details.anime_specifics);
+            meta.provider_rating = ActiveValue::Set(details.provider_rating);
+            meta.manga_specifics = ActiveValue::Set(details.manga_specifics);
+            meta.movie_specifics = ActiveValue::Set(details.movie_specifics);
+            meta.music_specifics = ActiveValue::Set(details.music_specifics);
+            meta.production_status = ActiveValue::Set(details.production_status);
+            meta.original_language = ActiveValue::Set(details.original_language);
+            meta.podcast_specifics = ActiveValue::Set(details.podcast_specifics);
+            meta.audio_book_specifics = ActiveValue::Set(details.audio_book_specifics);
+            meta.video_game_specifics = ActiveValue::Set(details.video_game_specifics);
+            meta.external_identifiers = ActiveValue::Set(details.external_identifiers);
+            meta.visual_novel_specifics = ActiveValue::Set(details.visual_novel_specifics);
+            let metadata = meta.update(&ss.db).await.unwrap();
+
+            change_metadata_associations(
+                &metadata.id,
+                details.genres,
+                details.suggestions,
+                details.groups,
+                details.people,
+                ss,
+            )
+            .await?;
+            ryot_log!(debug, "Updated metadata for {:?}", metadata_id);
+            result.notifications.extend(notifications);
+        }
+        Err(e) => {
+            ryot_log!(
+                error,
+                "Error while updating metadata = {:?}: {:?}",
+                metadata_id,
+                e
+            );
+        }
+    };
+    expire_metadata_details_cache(metadata_id, ss).await?;
+    Ok(result)
+}
+
 pub async fn update_metadata_group(
     metadata_group_id: &String,
     ss: &Arc<SupportingService>,
@@ -465,6 +501,7 @@ pub async fn update_metadata_group(
     if !metadata_group.is_partial.unwrap_or_default() {
         return Ok(UpdateMediaEntityResult::default());
     }
+
     let provider = get_metadata_provider(metadata_group.lot, metadata_group.source, ss).await?;
     let (group_details, associated_items) = provider
         .metadata_group_details(&metadata_group.identifier)
@@ -473,6 +510,7 @@ pub async fn update_metadata_group(
     eg.is_partial = ActiveValue::Set(None);
     eg.title = ActiveValue::Set(group_details.title);
     eg.parts = ActiveValue::Set(group_details.parts);
+    eg.last_updated_on = ActiveValue::Set(Utc::now());
     eg.assets = ActiveValue::Set(group_details.assets);
     eg.source_url = ActiveValue::Set(group_details.source_url);
     eg.description = ActiveValue::Set(group_details.description);
@@ -488,7 +526,7 @@ pub async fn update_metadata_group(
         let intermediate = metadata_to_metadata_group::ActiveModel {
             metadata_group_id: ActiveValue::Set(eg.id.clone()),
             metadata_id: ActiveValue::Set(db_partial_metadata.id),
-            part: ActiveValue::Set((idx + 1).try_into().unwrap()),
+            part: ActiveValue::Set(Some((idx + 1).try_into().unwrap())),
         };
         intermediate.insert(&ss.db).await.ok();
     }
@@ -507,6 +545,7 @@ pub async fn update_person(
     if !person.is_partial.unwrap_or_default() {
         return Ok(UpdateMediaEntityResult::default());
     }
+
     let mut notifications = vec![];
     let provider = get_non_metadata_provider(person.source, ss).await?;
     let Some(provider_person) = provider
@@ -520,7 +559,7 @@ pub async fn update_person(
 
     let mut current_state_changes = person.clone().state_changes.unwrap_or_default();
     let mut to_update_person = person.clone().into_active_model();
-    to_update_person.is_partial = ActiveValue::Set(Some(false));
+    to_update_person.is_partial = ActiveValue::Set(None);
     to_update_person.name = ActiveValue::Set(provider_person.name);
     to_update_person.last_updated_on = ActiveValue::Set(Utc::now());
     to_update_person.place = ActiveValue::Set(provider_person.place);
@@ -732,7 +771,7 @@ pub async fn generic_metadata(
         role: String,
         character: Option<String>,
     }
-    let (genres, crts, suggestions, _) = try_join!(
+    let (genres, crts, suggestions) = try_join!(
         meta.find_related(Genre)
             .order_by_asc(genre::Column::Name)
             .into_model::<GenreListItem>()
@@ -766,7 +805,6 @@ pub async fn generic_metadata(
             .into_tuple::<String>()
             .all(&ss.db)
             .map_err(|_| anyhow!("Failed to fetch suggestions")),
-        transform_entity_assets(&mut meta.assets, ss),
     )?;
 
     let mut creators: HashMap<String, Vec<_>> = HashMap::new();

@@ -3,7 +3,6 @@ import { type FileUpload, parseFormData } from "@mjackson/form-data-parser";
 import {
 	BackendError,
 	CoreDetailsDocument,
-	PresignedPutS3UrlDocument,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { type SerializeOptions, parse, serialize } from "cookie";
@@ -22,15 +21,11 @@ import {
 } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
-import {
-	FRONTEND_AUTH_COOKIE_NAME,
-	redirectToQueryParam,
-	toastKey,
-} from "~/lib/shared/constants";
-import { queryClient } from "~/lib/shared/react-query";
+import { FRONTEND_AUTH_COOKIE_NAME, toastKey } from "~/lib/shared/constants";
+import { dayjsLib } from "~/lib/shared/date-utils";
+import { queryClient, queryFactory } from "~/lib/shared/react-query";
 
 export const API_URL = process.env.API_URL || "http://127.0.0.1:8000/backend";
 
@@ -105,9 +100,8 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 	try {
 		const userDetails = await getUserDetails(request);
 		if (!userDetails || userDetails.__typename === "UserDetailsError") {
-			const nextUrl = withoutHost(request.url);
 			throw redirect(
-				$path("/auth", { [redirectToQueryParam]: nextUrl }),
+				$path("/auth"),
 				await getResponseInit("You must be logged in to view this page"),
 			);
 		}
@@ -152,34 +146,20 @@ export const getCoreDetails = async () => {
 };
 
 const getUserDetails = async (request: Request) => {
-	const { userDetails } = await serverGqlService.authenticatedRequest(
-		request,
-		UserDetailsDocument,
-	);
-	return userDetails;
+	const cookie = getAuthorizationCookie(request);
+	return await queryClient.ensureQueryData({
+		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
+		queryKey: queryFactory.miscellaneous.userDetails(cookie).queryKey,
+		queryFn: () =>
+			serverGqlService
+				.authenticatedRequest(request, UserDetailsDocument)
+				.then((d) => d.userDetails),
+	});
 };
 
 export const getUserPreferences = async (request: Request) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	return userDetails.preferences;
-};
-
-const uploadFileAndGetKey = async (
-	fileName: string,
-	prefix: string,
-	contentType: string,
-	body: BodyInit,
-) => {
-	const { presignedPutS3Url } = await serverGqlService.request(
-		PresignedPutS3UrlDocument,
-		{ input: { fileName, prefix } },
-	);
-	await fetch(presignedPutS3Url.uploadUrl, {
-		body,
-		method: "PUT",
-		headers: { "Content-Type": contentType },
-	});
-	return presignedPutS3Url.key;
 };
 
 const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
@@ -191,19 +171,6 @@ const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
 	});
 	const data = await resp.json();
 	return data[0];
-};
-
-const createS3FileUploader = (prefix: string) => {
-	return async (fileUpload: FileUpload) => {
-		if (!fileUpload.name) return null;
-		const key = await uploadFileAndGetKey(
-			fileUpload.name,
-			prefix,
-			fileUpload.type,
-			await fileUpload.arrayBuffer(),
-		);
-		return key;
-	};
 };
 
 const toastSessionStorage = createCookieSessionStorage({
@@ -310,26 +277,11 @@ export const extendResponseHeaders = (
 		responseHeaders.append(key, value);
 };
 
-const parseFormDataWithFileSize = async (
-	request: Request,
-	uploader: (file: FileUpload) => Promise<string | null>,
-) => {
+export const parseFormDataWithTemporaryUpload = async (request: Request) => {
 	const coreDetails = await getCoreDetails();
 	return parseFormData(
 		request,
 		{ maxFileSize: coreDetails.maxFileSizeMb * 1024 * 1024 },
-		uploader,
+		temporaryFileUploadHandler,
 	);
-};
-
-export const parseFormDataWithTemporaryUpload = async (request: Request) => {
-	return parseFormDataWithFileSize(request, temporaryFileUploadHandler);
-};
-
-export const parseFormDataWithS3Upload = async (
-	request: Request,
-	prefix: string,
-) => {
-	const uploader = createS3FileUploader(prefix);
-	return parseFormDataWithFileSize(request, uploader);
 };

@@ -1,7 +1,7 @@
 use async_graphql::{Enum, InputObject, OneofObject, SimpleObject};
 use chrono::NaiveDate;
 use common_models::{ApplicationDateRange, SearchInput};
-use enum_models::{EntityLot, MediaLot, SeenState, UserNotificationContent, Visibility};
+use enum_models::{EntityLot, MediaSource, SeenState, UserNotificationContent, Visibility};
 use rust_decimal::Decimal;
 use sea_orm::{prelude::DateTimeUtc, strum::Display};
 use serde::{Deserialize, Serialize};
@@ -157,27 +157,30 @@ pub struct MediaCollectionFilter {
     pub presence: MediaCollectionPresenceFilter,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct MediaFilter {
+    pub source: Option<MediaSource>,
     pub general: Option<MediaGeneralFilter>,
     pub date_range: Option<ApplicationDateRange>,
     pub collections: Option<Vec<MediaCollectionFilter>>,
 }
 
-#[derive(SimpleObject, Debug)]
+#[derive(Clone, SimpleObject, Debug, PartialEq, Serialize, Deserialize, Eq)]
 pub struct UserMetadataDetailsEpisodeProgress {
     pub times_seen: usize,
     pub episode_number: i32,
 }
 
-#[derive(SimpleObject, Debug)]
+#[derive(Clone, SimpleObject, Debug, PartialEq, Serialize, Deserialize, Eq)]
 pub struct UserMetadataDetailsShowSeasonProgress {
     pub times_seen: usize,
     pub season_number: i32,
     pub episodes: Vec<UserMetadataDetailsEpisodeProgress>,
 }
 
-#[derive(SimpleObject, Debug, Clone, Default)]
+#[skip_serializing_none]
+#[derive(Clone, SimpleObject, Default, Debug, PartialEq, Serialize, Deserialize, Eq)]
 pub struct UserMediaNextEntry {
     pub season: Option<i32>,
     pub volume: Option<i32>,
@@ -196,12 +199,6 @@ pub struct UpdateSeenItemInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct MarkEntityAsPartialInput {
-    pub entity_id: String,
-    pub entity_lot: EntityLot,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateReviewCommentInput {
     /// The review this comment belongs to.
     pub review_id: String,
@@ -216,8 +213,6 @@ pub struct CreateReviewCommentInput {
 pub struct GraphqlCalendarEvent {
     pub date: NaiveDate,
     pub metadata_id: String,
-    pub metadata_text: String,
-    pub metadata_lot: MediaLot,
     pub calendar_event_id: String,
     pub metadata_image: Option<String>,
     pub show_extra_information: Option<SeenShowExtraInformation>,
@@ -237,12 +232,6 @@ pub enum UserUpcomingCalendarEventInput {
     NextDays(u64),
     /// The number of media to select
     NextMedia(u64),
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct PresignedPutUrlInput {
-    pub prefix: String,
-    pub file_name: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]

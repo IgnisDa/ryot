@@ -1,9 +1,8 @@
 use anyhow::Result;
-use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
-use common_utils::PAGE_SIZE;
+use common_utils::{PAGE_SIZE, compute_next_page, get_base_http_client};
 use dependent_models::{
     MetadataPersonRelated, MetadataSearchSourceSpecifics, PersonDetails, SearchResults,
 };
@@ -54,29 +53,29 @@ struct ItemCategory {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct ItemBirthday {
+    day: Option<u32>,
     year: Option<i32>,
     month: Option<u32>,
-    day: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct ItemAuthor {
-    author_id: Option<i128>,
-    name: Option<String>,
-    image: Option<ItemImage>,
     #[serde(rename = "type")]
     lot: Option<String>,
-    birthday: Option<ItemBirthday>,
-    birthplace: Option<String>,
+    name: Option<String>,
     gender: Option<String>,
+    author_id: Option<i128>,
+    image: Option<ItemImage>,
+    birthplace: Option<String>,
+    birthday: Option<ItemBirthday>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct ItemPublisher {
-    publisher_id: Option<i128>,
     name: Option<String>,
     info: Option<String>,
     site: Option<String>,
+    publisher_id: Option<i128>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -92,22 +91,22 @@ struct ItemPersonRelatedSeries {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct MetadataItemRecord {
-    series_id: Option<i128>,
-    related_series_id: Option<i128>,
-    title: Option<String>,
-    description: Option<String>,
-    image: Option<ItemImage>,
-    status: Option<String>,
     url: Option<String>,
-    authors: Option<Vec<ItemAuthor>>,
-    publishers: Option<Vec<ItemPublisher>>,
-    genres: Option<Vec<ItemGenre>>,
-    categories: Option<Vec<ItemCategory>>,
-    bayesian_rating: Option<Decimal>,
-    recommendations: Option<Vec<MetadataItemRecord>>,
-    related_series: Option<Vec<MetadataItemRecord>>,
-    latest_chapter: Option<i32>,
     year: Option<String>,
+    title: Option<String>,
+    status: Option<String>,
+    series_id: Option<i128>,
+    image: Option<ItemImage>,
+    latest_chapter: Option<i32>,
+    description: Option<String>,
+    genres: Option<Vec<ItemGenre>>,
+    related_series_id: Option<i128>,
+    bayesian_rating: Option<Decimal>,
+    authors: Option<Vec<ItemAuthor>>,
+    categories: Option<Vec<ItemCategory>>,
+    publishers: Option<Vec<ItemPublisher>>,
+    related_series: Option<Vec<MetadataItemRecord>>,
+    recommendations: Option<Vec<MetadataItemRecord>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -143,12 +142,9 @@ impl MangaUpdatesService {
         let parts: Vec<&str> = first_part.split_whitespace().collect();
 
         let volumes = parts.first().and_then(|s| s.parse::<i32>().ok());
-        let status = parts.get(2).and_then(|&s| {
-            if s.starts_with('(') && s.ends_with(')') {
-                Some(s[1..s.len() - 1].to_string())
-            } else {
-                None
-            }
+        let status = parts.get(2).and_then(|&s| match s {
+            s if s.starts_with('(') && s.ends_with(')') => Some(s[1..s.len() - 1].to_string()),
+            _ => None,
         });
 
         (volumes, status)
@@ -189,7 +185,7 @@ impl MediaProvider for MangaUpdatesService {
             items,
             details: SearchDetails {
                 total_items: data.total_hits,
-                next_page: (data.total_hits - (page * PAGE_SIZE) > 0).then(|| page + 1),
+                next_page: compute_next_page(page, data.total_hits),
             },
         })
     }
@@ -234,12 +230,9 @@ impl MediaProvider for MangaUpdatesService {
             gender: data.gender,
             place: data.birthplace,
             name: data.name.unwrap(),
-            birth_date: data.birthday.and_then(|b| {
-                if let (Some(y), Some(m), Some(d)) = (b.year, b.month, b.day) {
-                    NaiveDate::from_ymd_opt(y, m, d)
-                } else {
-                    None
-                }
+            birth_date: data.birthday.and_then(|b| match (b.year, b.month, b.day) {
+                (Some(y), Some(m), Some(d)) => NaiveDate::from_ymd_opt(y, m, d),
+                _ => None,
             }),
             assets: EntityAssets {
                 remote_images: Vec::from_iter(data.image.and_then(|i| i.url.original.clone())),
@@ -362,13 +355,13 @@ impl MediaProvider for MangaUpdatesService {
             .results
             .into_iter()
             .map(|s| MetadataSearchItem {
-                identifier: s.record.series_id.unwrap().to_string(),
                 title: s.hit_title,
                 image: s.record.image.unwrap().url.original,
+                identifier: s.record.series_id.unwrap().to_string(),
                 publish_year: s.record.year.and_then(|y| y.parse().ok()),
             })
             .collect();
-        let next_page = (search.total_hits - ((page) * PAGE_SIZE) > 0).then(|| page + 1);
+        let next_page = compute_next_page(page, search.total_hits);
         Ok(SearchResults {
             items,
             details: SearchDetails {

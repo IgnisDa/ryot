@@ -22,5 +22,8 @@ pub use media_specifics::*;
 mod metadata_models;
 pub use metadata_models::*;
 
+mod translation;
+pub use translation::*;
+
 pub use user_interactions::*;
 mod user_interactions;

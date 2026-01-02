@@ -8,20 +8,22 @@ use common_models::{
     ReorderCollectionEntityInput, StringIdObject,
 };
 use common_utils::ryot_log;
-use database_models::{collection, collection_to_entity, prelude::*, user_to_entity};
+use database_models::{
+    collection, collection_to_entity,
+    prelude::{Collection, CollectionToEntity, UserToEntity},
+    user_to_entity,
+};
 use database_utils::server_key_validation_guard;
 use dependent_core_utils::is_server_key_validated;
 use dependent_utility_utils::{
-    associate_user_with_entity, expire_user_collection_contents_cache,
-    expire_user_collections_list_cache, expire_user_metadata_list_cache,
-    mark_entity_as_recently_consumed,
+    associate_user_with_entity, expire_entity_details_cache, expire_user_collection_contents_cache,
+    expire_user_collections_list_cache,
 };
 use enum_models::EntityLot;
 use futures::try_join;
 use itertools::Itertools;
 use media_models::CreateOrUpdateCollectionInput;
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
     Iterable, QueryFilter, QueryOrder, QuerySelect, TransactionTrait, prelude::Expr,
@@ -86,17 +88,18 @@ async fn add_single_entity_to_collection(
                 ..Default::default()
             };
             let id = entity.entity_id.clone();
+            macro_rules! set_collection_id {
+                ($field:ident) => {
+                    created_collection.$field = ActiveValue::Set(Some(id))
+                };
+            }
             match entity.entity_lot {
-                EntityLot::Metadata => created_collection.metadata_id = ActiveValue::Set(Some(id)),
-                EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(id)),
-                EntityLot::MetadataGroup => {
-                    created_collection.metadata_group_id = ActiveValue::Set(Some(id))
-                }
-                EntityLot::Exercise => created_collection.exercise_id = ActiveValue::Set(Some(id)),
-                EntityLot::Workout => created_collection.workout_id = ActiveValue::Set(Some(id)),
-                EntityLot::WorkoutTemplate => {
-                    created_collection.workout_template_id = ActiveValue::Set(Some(id))
-                }
+                EntityLot::Person => set_collection_id!(person_id),
+                EntityLot::Workout => set_collection_id!(workout_id),
+                EntityLot::Metadata => set_collection_id!(metadata_id),
+                EntityLot::Exercise => set_collection_id!(exercise_id),
+                EntityLot::MetadataGroup => set_collection_id!(metadata_group_id),
+                EntityLot::WorkoutTemplate => set_collection_id!(workout_template_id),
                 EntityLot::Genre
                 | EntityLot::Review
                 | EntityLot::Collection
@@ -106,23 +109,13 @@ async fn add_single_entity_to_collection(
             }
             let created = created_collection.insert(&ss.db).await?;
             ryot_log!(debug, "Created collection to entity: {:?}", created);
-            match entity.entity_lot {
-                EntityLot::Workout
-                | EntityLot::WorkoutTemplate
-                | EntityLot::Review
-                | EntityLot::UserMeasurement => {}
-                _ => {
-                    associate_user_with_entity(user_id, &entity.entity_id, entity.entity_lot, ss)
-                        .await
-                        .ok();
-                }
-            }
+
             created
         }
     };
     try_join!(
+        associate_user_with_entity(user_id, &entity.entity_id, entity.entity_lot, ss),
         expire_user_collection_contents_cache(user_id, &collection.id, ss),
-        mark_entity_as_recently_consumed(user_id, &entity.entity_id, entity.entity_lot, ss),
         ss.perform_application_job(ApplicationJob::Lp(
             LpApplicationJob::HandleEntityAddedToCollectionEvent(resp.id),
         ))
@@ -138,10 +131,6 @@ pub async fn add_entities_to_collection(
     for entity in &input.entities {
         add_single_entity_to_collection(user_id, entity, &input.collection_name, ss).await?;
     }
-    try_join!(
-        expire_user_metadata_list_cache(user_id, ss),
-        expire_user_collections_list_cache(user_id, ss),
-    )?;
     Ok(true)
 }
 
@@ -265,8 +254,11 @@ async fn remove_single_entity_from_collection(
             .await
             .ok();
     }
-    expire_user_collections_list_cache(user_id, ss).await?;
-    expire_user_collection_contents_cache(user_id, &collect.id, ss).await?;
+    try_join!(
+        expire_user_collections_list_cache(user_id, ss),
+        expire_user_collection_contents_cache(user_id, &collect.id, ss),
+        expire_entity_details_cache(user_id, &entity.entity_id, entity.entity_lot, ss),
+    )?;
     Ok(true)
 }
 
@@ -346,6 +338,14 @@ pub async fn reorder_collection_entity(
         let next_rank = all_entities[input.new_position].rank;
         (prev_rank + next_rank) / dec!(2)
     };
+
+    ryot_log!(
+        debug,
+        "Reordering entity {} to position {} with new rank {}",
+        entity_to_reorder.entity_id,
+        input.new_position,
+        new_rank
+    );
 
     CollectionToEntity::update_many()
         .filter(collection_to_entity::Column::Id.eq(entity_to_reorder.id))

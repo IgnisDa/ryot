@@ -1,6 +1,6 @@
 # Emby
 
-Automatically add new [Emby](https://emby.media/) movie and show plays to Ryot. It
+Automatically add new [Emby](https://emby.media) movie and show plays to Ryot. It
 will work for all the media that have a valid TMDb ID attached to their metadata.
 
 1. Generate a slug in the integration settings page. Copy the newly generated

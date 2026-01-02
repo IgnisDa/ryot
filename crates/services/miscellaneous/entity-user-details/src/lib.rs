@@ -2,23 +2,29 @@ use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
 use application_utils::calculate_average_rating_for_user;
+use common_models::{EntityWithLot, UserLevelCacheKey};
 use database_models::{
     functions::get_user_to_entity_association,
     prelude::{Metadata, Seen},
     seen,
 };
-use database_utils::{entity_in_collections_with_details, item_reviews};
+use database_utils::{
+    entity_in_collections_with_details, item_reviews, server_key_validation_guard,
+};
+use dependent_core_utils::is_server_key_validated;
 use dependent_entity_utils::generic_metadata;
-use dependent_models::{UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails};
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EmptyCacheValue,
+    UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
+};
 use dependent_seen_utils::is_metadata_finished_by_user;
-use dependent_utility_utils::get_entity_recently_consumed;
 use enum_models::{EntityLot, SeenState};
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
 use media_models::{
     UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
-use rust_decimal_macros::dec;
+use rust_decimal::dec;
 use sea_orm::{ColumnTrait, EntityTrait, QuerySelect};
 use supporting_service::SupportingService;
 
@@ -26,218 +32,253 @@ pub async fn user_metadata_details(
     ss: &Arc<SupportingService>,
     user_id: String,
     metadata_id: String,
-) -> Result<UserMetadataDetails> {
-    let (
-        media_details,
-        collections,
-        reviews,
-        (_, history),
-        seen_by,
-        user_to_meta,
-        is_recently_consumed,
-    ) = try_join!(
-        generic_metadata(&metadata_id, ss, None),
-        entity_in_collections_with_details(&user_id, &metadata_id, EntityLot::Metadata, ss),
-        item_reviews(&user_id, &metadata_id, EntityLot::Metadata, true, ss),
-        is_metadata_finished_by_user(&user_id, &metadata_id, ss),
-        Metadata::find_by_id(&metadata_id)
-            .select_only()
-            .column_as(seen::Column::Id.count(), "num_times_seen")
-            .left_join(Seen)
-            .into_tuple::<(i64,)>()
-            .one(&ss.db)
-            .map_err(|_| anyhow!("Metadata not found")),
-        get_user_to_entity_association(&ss.db, &user_id, &metadata_id, EntityLot::Metadata),
-        get_entity_recently_consumed(&user_id, &metadata_id, EntityLot::Metadata, ss)
-    )?;
+) -> Result<CachedResponse<UserMetadataDetails>> {
+    cache_service::get_or_set_with_callback(
+        ss,
+        ApplicationCacheKey::UserMetadataDetails(UserLevelCacheKey {
+            user_id: user_id.clone(),
+            input: metadata_id.clone(),
+        }),
+        |f| ApplicationCacheValue::UserMetadataDetails(Box::new(f)),
+        || async {
+            let entity_lot = EntityLot::Metadata;
+            let (
+                media_details,
+                (_, history),
+                reviews,
+                collections,
+                user_to_meta,
+                seen_by,
+            ) = try_join!(
+                generic_metadata(&metadata_id, ss, None),
+                is_metadata_finished_by_user(&user_id, &metadata_id, ss),
+                item_reviews(&user_id, &metadata_id, entity_lot, true, ss),
+                entity_in_collections_with_details(&user_id, &metadata_id, entity_lot, ss),
+                get_user_to_entity_association(&ss.db, &user_id, &metadata_id, entity_lot),
+                Metadata::find_by_id(&metadata_id)
+                    .select_only()
+                    .column_as(seen::Column::Id.count(), "num_times_seen")
+                    .left_join(Seen)
+                    .into_tuple::<(i64,)>()
+                    .one(&ss.db)
+                    .map_err(|_| anyhow!("Metadata not found")),
+                )?;
 
-    let in_progress = history
-        .iter()
-        .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
-        .cloned();
-    let next_entry = history.first().and_then(|h| {
-        if let Some(s) = &media_details.model.show_specifics {
-            let all_episodes = s
-                .seasons
+            let in_progress = history
                 .iter()
-                .map(|s| (s.season_number, &s.episodes))
-                .collect_vec()
-                .into_iter()
-                .flat_map(|(s, e)| {
-                    e.iter().map(move |e| UserMediaNextEntry {
-                        season: Some(s),
-                        episode: Some(e.episode_number),
-                        ..Default::default()
-                    })
-                })
-                .collect_vec();
-            let next = all_episodes.iter().position(|e| {
-                e.season == Some(h.show_extra_information.as_ref().unwrap().season)
-                    && e.episode == Some(h.show_extra_information.as_ref().unwrap().episode)
-            });
-            Some(all_episodes.get(next? + 1)?.clone())
-        } else if let Some(p) = &media_details.model.podcast_specifics {
-            let all_episodes = p
-                .episodes
-                .iter()
-                .map(|e| UserMediaNextEntry {
-                    episode: Some(e.number),
-                    ..Default::default()
-                })
-                .collect_vec();
-            let next = all_episodes.iter().position(|e| {
-                e.episode == Some(h.podcast_extra_information.as_ref().unwrap().episode)
-            });
-            Some(all_episodes.get(next? + 1)?.clone())
-        } else if let Some(_anime_spec) = &media_details.model.anime_specifics {
-            h.anime_extra_information.as_ref().and_then(|hist| {
-                hist.episode.map(|e| UserMediaNextEntry {
-                    episode: Some(e + 1),
-                    ..Default::default()
-                })
-            })
-        } else if let Some(_manga_spec) = &media_details.model.manga_specifics {
-            h.manga_extra_information.as_ref().and_then(|hist| {
-                hist.chapter
-                    .map(|e| UserMediaNextEntry {
-                        chapter: Some(e.floor() + dec!(1)),
-                        ..Default::default()
-                    })
-                    .or(hist.volume.map(|e| UserMediaNextEntry {
-                        volume: Some(e + 1),
-                        ..Default::default()
-                    }))
-            })
-        } else {
-            None
-        }
-    });
-    let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
-    let seen_by_user_count = history.len();
-    let show_progress = if let Some(show_specifics) = media_details.model.show_specifics {
-        let mut seasons = vec![];
-        for season in show_specifics.seasons {
-            let mut episodes = vec![];
-            for episode in season.episodes {
-                let seen = history
-                    .iter()
-                    .filter(|h| {
-                        h.show_extra_information.as_ref().is_some_and(|s| {
-                            s.season == season.season_number && s.episode == episode.episode_number
+                .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
+                .cloned();
+            let next_entry = history.first().and_then(|h| {
+                if let Some(s) = &media_details.model.show_specifics {
+                    let all_episodes = s
+                        .seasons
+                        .iter()
+                        .map(|s| (s.season_number, &s.episodes))
+                        .collect_vec()
+                        .into_iter()
+                        .flat_map(|(s, e)| {
+                            e.iter().map(move |e| UserMediaNextEntry {
+                                season: Some(s),
+                                episode: Some(e.episode_number),
+                                ..Default::default()
+                            })
+                        })
+                        .collect_vec();
+                    let next = all_episodes.iter().position(|e| {
+                        e.season == Some(h.show_extra_information.as_ref().unwrap().season)
+                            && e.episode == Some(h.show_extra_information.as_ref().unwrap().episode)
+                    });
+                    Some(all_episodes.get(next? + 1)?.clone())
+                } else if let Some(p) = &media_details.model.podcast_specifics {
+                    let all_episodes = p
+                        .episodes
+                        .iter()
+                        .map(|e| UserMediaNextEntry {
+                            episode: Some(e.number),
+                            ..Default::default()
+                        })
+                        .collect_vec();
+                    let next = all_episodes.iter().position(|e| {
+                        e.episode == Some(h.podcast_extra_information.as_ref().unwrap().episode)
+                    });
+                    Some(all_episodes.get(next? + 1)?.clone())
+                } else if let Some(_anime_spec) = &media_details.model.anime_specifics {
+                    h.anime_extra_information.as_ref().and_then(|hist| {
+                        hist.episode.map(|e| UserMediaNextEntry {
+                            episode: Some(e + 1),
+                            ..Default::default()
                         })
                     })
-                    .collect_vec();
-                episodes.push(UserMetadataDetailsEpisodeProgress {
-                    episode_number: episode.episode_number,
-                    times_seen: seen.len(),
-                })
-            }
-            let times_season_seen = episodes
-                .iter()
-                .map(|e| e.times_seen)
-                .min()
-                .unwrap_or_default();
-            seasons.push(UserMetadataDetailsShowSeasonProgress {
-                episodes,
-                times_seen: times_season_seen,
-                season_number: season.season_number,
+                } else if let Some(_manga_spec) = &media_details.model.manga_specifics {
+                    h.manga_extra_information.as_ref().and_then(|hist| {
+                        hist.chapter
+                            .map(|e| UserMediaNextEntry {
+                                chapter: Some(e.floor() + dec!(1)),
+                                ..Default::default()
+                            })
+                            .or(hist.volume.map(|e| UserMediaNextEntry {
+                                volume: Some(e + 1),
+                                ..Default::default()
+                            }))
+                    })
+                } else {
+                    None
+                }
+            });
+            let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
+            let seen_by_user_count = history.len();
+            let show_progress = match media_details.model.show_specifics {
+                None => None,
+                Some(show_specifics) => {
+                    let mut seasons = vec![];
+                    for season in show_specifics.seasons {
+                        let mut episodes = vec![];
+                        for episode in season.episodes {
+                            let seen = history
+                                .iter()
+                                .filter(|h| {
+                                    h.show_extra_information.as_ref().is_some_and(|s| {
+                                        s.season == season.season_number
+                                            && s.episode == episode.episode_number
+                                    })
+                                })
+                                .collect_vec();
+                            episodes.push(UserMetadataDetailsEpisodeProgress {
+                                times_seen: seen.len(),
+                                episode_number: episode.episode_number,
+                            })
+                        }
+                        let times_season_seen = episodes
+                            .iter()
+                            .map(|e| e.times_seen)
+                            .min()
+                            .unwrap_or_default();
+                        seasons.push(UserMetadataDetailsShowSeasonProgress {
+                            episodes,
+                            times_seen: times_season_seen,
+                            season_number: season.season_number,
+                        })
+                    }
+                    Some(seasons)
+                }
+            };
+            let podcast_progress =
+                match media_details.model.podcast_specifics {
+                    None => None,
+                    Some(podcast_specifics) => {
+                        let mut episodes = vec![];
+                        for episode in podcast_specifics.episodes {
+                            let seen = history
+                                .iter()
+                                .filter(|h| {
+                                    h.podcast_extra_information
+                                        .as_ref()
+                                        .is_some_and(|s| s.episode == episode.number)
+                                })
+                                .collect_vec();
+                            episodes.push(UserMetadataDetailsEpisodeProgress {
+                                times_seen: seen.len(),
+                                episode_number: episode.number,
+                            })
+                        }
+                        Some(episodes)
+                    }
+                };
+            Ok(UserMetadataDetails {
+                reviews,
+                history,
+                next_entry,
+                collections,
+                in_progress,
+                show_progress,
+                average_rating,
+                podcast_progress,
+                seen_by_user_count,
+                has_interacted: user_to_meta.is_some(),
+                media_reason: user_to_meta.and_then(|n| n.media_reason),
+                seen_by_all_count: seen_by.map(|s| s.0).unwrap_or_default(),
             })
-        }
-        Some(seasons)
-    } else {
-        None
-    };
-    let podcast_progress = if let Some(podcast_specifics) = media_details.model.podcast_specifics {
-        let mut episodes = vec![];
-        for episode in podcast_specifics.episodes {
-            let seen = history
-                .iter()
-                .filter(|h| {
-                    h.podcast_extra_information
-                        .as_ref()
-                        .is_some_and(|s| s.episode == episode.number)
-                })
-                .collect_vec();
-            episodes.push(UserMetadataDetailsEpisodeProgress {
-                episode_number: episode.number,
-                times_seen: seen.len(),
-            })
-        }
-        Some(episodes)
-    } else {
-        None
-    };
-    Ok(UserMetadataDetails {
-        reviews,
-        history,
-        next_entry,
-        collections,
-        in_progress,
-        show_progress,
-        average_rating,
-        podcast_progress,
-        seen_by_user_count,
-        is_recently_consumed,
-        has_interacted: user_to_meta.is_some(),
-        media_reason: user_to_meta.and_then(|n| n.media_reason),
-        seen_by_all_count: seen_by.map(|s| s.0).unwrap_or_default(),
-    })
+        },
+    )
+    .await
 }
 
 pub async fn user_person_details(
     ss: &Arc<SupportingService>,
     user_id: String,
     person_id: String,
-) -> Result<UserPersonDetails> {
-    let (reviews, collections, is_recently_consumed, person_meta) = try_join!(
-        item_reviews(&user_id, &person_id, EntityLot::Person, true, ss),
-        entity_in_collections_with_details(&user_id, &person_id, EntityLot::Person, ss),
-        get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, ss),
-        get_user_to_entity_association(&ss.db, &user_id, &person_id, EntityLot::Person)
-    )?;
-    let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
-    Ok(UserPersonDetails {
-        reviews,
-        collections,
-        average_rating,
-        is_recently_consumed,
-        has_interacted: person_meta.is_some(),
-    })
+) -> Result<CachedResponse<UserPersonDetails>> {
+    cache_service::get_or_set_with_callback(
+        ss,
+        ApplicationCacheKey::UserPersonDetails(UserLevelCacheKey {
+            user_id: user_id.clone(),
+            input: person_id.clone(),
+        }),
+        |f| ApplicationCacheValue::UserPersonDetails(Box::new(f)),
+        || async {
+            let entity_lot = EntityLot::Person;
+            let (reviews, collections, person_association) = try_join!(
+                item_reviews(&user_id, &person_id, entity_lot, true, ss),
+                entity_in_collections_with_details(&user_id, &person_id, entity_lot, ss),
+                get_user_to_entity_association(&ss.db, &user_id, &person_id, entity_lot),
+            )?;
+            let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
+            Ok(UserPersonDetails {
+                reviews,
+                collections,
+                average_rating,
+                has_interacted: person_association.is_some(),
+            })
+        },
+    )
+    .await
 }
 
 pub async fn user_metadata_group_details(
     ss: &Arc<SupportingService>,
     user_id: String,
     metadata_group_id: String,
-) -> Result<UserMetadataGroupDetails> {
-    let (collections, reviews, is_recently_consumed, metadata_group_meta) = try_join!(
-        entity_in_collections_with_details(
-            &user_id,
-            &metadata_group_id,
-            EntityLot::MetadataGroup,
-            ss
-        ),
-        item_reviews(
-            &user_id,
-            &metadata_group_id,
-            EntityLot::MetadataGroup,
-            true,
-            ss,
-        ),
-        get_entity_recently_consumed(&user_id, &metadata_group_id, EntityLot::MetadataGroup, ss),
-        get_user_to_entity_association(
-            &ss.db,
-            &user_id,
-            &metadata_group_id,
-            EntityLot::MetadataGroup,
-        )
-    )?;
-    let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
-    Ok(UserMetadataGroupDetails {
-        reviews,
-        collections,
-        average_rating,
-        is_recently_consumed,
-        has_interacted: metadata_group_meta.is_some(),
-    })
+) -> Result<CachedResponse<UserMetadataGroupDetails>> {
+    cache_service::get_or_set_with_callback(
+        ss,
+        ApplicationCacheKey::UserMetadataGroupDetails(UserLevelCacheKey {
+            user_id: user_id.clone(),
+            input: metadata_group_id.clone(),
+        }),
+        |f| ApplicationCacheValue::UserMetadataGroupDetails(Box::new(f)),
+        || async {
+            let entity_lot = EntityLot::MetadataGroup;
+            let (reviews, metadata_group_association, collections) = try_join!(
+                item_reviews(&user_id, &metadata_group_id, entity_lot, true, ss),
+                get_user_to_entity_association(&ss.db, &user_id, &metadata_group_id, entity_lot),
+                entity_in_collections_with_details(&user_id, &metadata_group_id, entity_lot, ss),
+            )?;
+            let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
+            Ok(UserMetadataGroupDetails {
+                reviews,
+                collections,
+                average_rating,
+                has_interacted: metadata_group_association.is_some(),
+            })
+        },
+    )
+    .await
+}
+
+pub async fn get_entity_recently_consumed(
+    user_id: &String,
+    input: EntityWithLot,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    server_key_validation_guard(is_server_key_validated(ss).await?).await?;
+    let is_recently_consumed = cache_service::get_value::<EmptyCacheValue>(
+        ss,
+        ApplicationCacheKey::EntityRecentlyConsumed(UserLevelCacheKey {
+            input: input.clone(),
+            user_id: user_id.to_owned(),
+        }),
+    )
+    .await
+    .is_some();
+    Ok(is_recently_consumed)
 }

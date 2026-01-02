@@ -1,19 +1,19 @@
 # Contributing
 
 :::info
-CLAUDE.md is an excellent place to start reading on coding conventions followed in this project.
+`AGENTS.md` is an excellent place to start reading on coding conventions followed in this project.
 :::
 
 - Install [Rust](https://www.rust-lang.org), [Moon](https://moonrepo.dev) and
   [Caddy](https://caddyserver.com/) (>= 2.7).
 - Make sure you have PostgreSQL installed and running. I prefer using Docker e.g.
-`docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=postgres -p 5432:5432 postgres:16-alpine`
+`docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=postgres -p 5432:5432 postgres:18-alpine`
 - Create the following environment file in the root of the repository:
 
   ```bash title=".env"
+  APP_VERSION=v10.0.2
+  UNKEY_ROOT_KEY=dummy-root-key
   DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres
-  UNKEY_API_ID=dummy-api-id
-  APP_VERSION=v5.2.1
   ```
 
 - Run the following commands in separate terminals:

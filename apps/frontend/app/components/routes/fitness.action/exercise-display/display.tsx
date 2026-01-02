@@ -15,6 +15,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	ExerciseDurationUnit,
 	ExerciseLot,
 	SetLot,
 	UserUnitSystem,
@@ -29,7 +30,6 @@ import {
 	IconReplace,
 	IconTrash,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { produce } from "immer";
 import { useNavigate } from "react-router";
@@ -37,25 +37,27 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { v4 as randomUUID } from "uuid";
+import { getDurationUnitLabel } from "~/components/fitness/utils";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
-import { useCoreDetails, useUserPreferences } from "~/lib/shared/hooks";
-import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
-	getExerciseDetailsQuery,
+	useCoreDetails,
+	useExerciseDetails,
+	useUserExerciseDetails,
+	useUserPreferences,
+} from "~/lib/shared/hooks";
+import {
 	getRestTimerForSet,
-	getUserExerciseDetailsQuery,
 	useCurrentWorkout,
 	useCurrentWorkoutTimerAtom,
 	useGetExerciseAtIndex,
 } from "~/lib/state/fitness";
 import {
-	OnboardingTourStepTargets,
+	OnboardingTourStepTarget,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
 import { getProgressOfExercise, usePlayFitnessSound } from "../hooks";
 import { SetDisplay } from "../set-display/display";
 import type { FuncStartTimer } from "../types";
-import { deleteUploadedAsset } from "../utils";
 import { ExerciseDetailsModal } from "./details-modal";
 import { NoteInput } from "./note-input";
 import { DisplayExerciseSetRestTimer } from "./set-rest-timer";
@@ -65,12 +67,13 @@ export const ExerciseDisplay = (props: {
 	stopTimer: () => void;
 	isWorkoutPaused: boolean;
 	startTimer: FuncStartTimer;
-	isCreatingTemplate: boolean;
 	playCheckSound: () => void;
 	openTimerDrawer: () => void;
+	isCreatingTemplate: boolean;
 	openSupersetModal: (s: string) => void;
 	setOpenAssetsModal: (identifier: string) => void;
 	reorderDrawerToggle: (exerciseIdentifier: string | null) => void;
+	openBulkDeleteModal: (exerciseIdentifier: string | null) => void;
 }) => {
 	const theme = useMantineTheme();
 	const userPreferences = useUserPreferences();
@@ -82,12 +85,11 @@ export const ExerciseDisplay = (props: {
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const coreDetails = useCoreDetails();
-	const { data: exerciseDetails } = useQuery(
-		getExerciseDetailsQuery(exercise.exerciseId),
+	const { data: exerciseDetails } = useExerciseDetails(exercise.exerciseId);
+	const { data: userExerciseDetails } = useUserExerciseDetails(
+		exercise.exerciseId,
 	);
-	const { data: userExerciseDetails } = useQuery(
-		getUserExerciseDetailsQuery(exercise.exerciseId),
-	);
+
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const [
 		isDetailsModalOpen,
@@ -97,6 +99,9 @@ export const ExerciseDisplay = (props: {
 	const playAddSetSound = usePlayFitnessSound("add-set");
 
 	const selectedUnitSystem = exercise.unitSystem;
+	const durationUnit =
+		userExerciseDetails?.details?.exerciseExtraInformation?.settings
+			.defaultDurationUnit || ExerciseDurationUnit.Minutes;
 	const isOnboardingTourStep = props.exerciseIdx === 0;
 	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
 		.with(ExerciseLot.Reps, () => [false, false, false, true])
@@ -180,6 +185,7 @@ export const ExerciseDisplay = (props: {
 								) : null}
 								<ActionIcon
 									variant="transparent"
+									onClick={() => toggleExerciseCollapse()}
 									style={{
 										transition: "rotate 0.3s",
 										rotate: exercise.isCollapsed ? "180deg" : undefined,
@@ -188,7 +194,6 @@ export const ExerciseDisplay = (props: {
 										.with("complete", () => "green")
 										.with("in-progress", () => "blue")
 										.otherwise(() => undefined)}
-									onClick={() => toggleExerciseCollapse()}
 								>
 									<IconChevronUp />
 								</ActionIcon>
@@ -200,7 +205,7 @@ export const ExerciseDisplay = (props: {
 										}}
 										className={clsx(
 											isOnboardingTourStep &&
-												OnboardingTourStepTargets.OpenExerciseMenuDetails,
+												OnboardingTourStepTarget.OpenExerciseMenuDetails,
 										)}
 									>
 										<IconDotsVertical size={20} />
@@ -271,34 +276,7 @@ export const ExerciseDisplay = (props: {
 							<Menu.Item
 								color="red"
 								leftSection={<IconTrash size={14} />}
-								onClick={() => {
-									openConfirmationModal(
-										`This removes '${exerciseDetails?.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
-										() => {
-											const assets = [...exercise.images, ...exercise.videos];
-											for (const asset of assets) deleteUploadedAsset(asset);
-
-											setCurrentWorkout(
-												produce(currentWorkout, (draft) => {
-													const idx = draft.supersets.findIndex((s) =>
-														s.exercises.includes(exercise.identifier),
-													);
-													if (idx !== -1) {
-														if (draft.supersets[idx].exercises.length === 2)
-															draft.supersets.splice(idx, 1);
-														else
-															draft.supersets[idx].exercises = draft.supersets[
-																idx
-															].exercises.filter(
-																(e) => e !== exercise.identifier,
-															);
-													}
-													draft.exercises.splice(props.exerciseIdx, 1);
-												}),
-											);
-										},
-									);
-								}}
+								onClick={() => props.openBulkDeleteModal(exercise.identifier)}
 							>
 								Remove
 							</Menu.Item>
@@ -327,7 +305,7 @@ export const ExerciseDisplay = (props: {
 								</Text>
 								{durationCol ? (
 									<Text size="xs" flex={1} ta="center">
-										DURATION (MIN)
+										DURATION ({getDurationUnitLabel(durationUnit)})
 									</Text>
 								) : null}
 								{distanceCol ? (
@@ -369,6 +347,7 @@ export const ExerciseDisplay = (props: {
 									weightCol={weightCol}
 									distanceCol={distanceCol}
 									durationCol={durationCol}
+									durationUnit={durationUnit}
 									stopTimer={props.stopTimer}
 									startTimer={props.startTimer}
 									exerciseIdx={props.exerciseIdx}

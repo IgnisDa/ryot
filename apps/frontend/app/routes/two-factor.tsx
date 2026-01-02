@@ -15,14 +15,11 @@ import {
 	VerifyTwoFactorDocument,
 	VerifyTwoFactorErrorVariant,
 } from "@ryot/generated/graphql/backend/graphql";
-import { parseSearchQuery } from "@ryot/ts-utils";
 import { useState } from "react";
 import { Form, Link, data, redirect } from "react-router";
-import { safeRedirect } from "remix-utils/safe-redirect";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { redirectToQueryParam } from "~/lib/shared/constants";
 import {
 	combineHeaders,
 	createToastHeaders,
@@ -31,12 +28,6 @@ import {
 	twoFactorSessionStorage,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/two-factor";
-
-const searchParamsSchema = z.object({
-	[redirectToQueryParam]: z.string().optional(),
-});
-
-export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const session = await twoFactorSessionStorage.getSession(
@@ -61,7 +52,6 @@ export const meta = () => [{ title: "Two-Factor Authentication | Ryot" }];
 
 export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.formData();
-	const query = parseSearchQuery(request, searchParamsSchema);
 	const session = await twoFactorSessionStorage.getSession(
 		request.headers.get("cookie"),
 	);
@@ -105,8 +95,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		const destroySessionCookie =
 			await twoFactorSessionStorage.destroySession(session);
 		const authHeaders = await getCookiesForApplication(verifyTwoFactor.apiKey);
-		const redirectTo = query[redirectToQueryParam];
-		return redirect(redirectTo ? safeRedirect(redirectTo) : $path("/"), {
+		return redirect($path("/"), {
 			headers: combineHeaders(authHeaders, {
 				"set-cookie": destroySessionCookie,
 			}),

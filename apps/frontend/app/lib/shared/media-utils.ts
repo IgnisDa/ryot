@@ -1,11 +1,9 @@
 import type { MantineColor } from "@mantine/core";
 import {
-	DeployUpdateMediaEntityJobDocument,
-	EntityLot,
 	MediaLot,
-	MediaSource,
 	MetadataDetailsDocument,
 	SetLot,
+	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { inRange } from "@ryot/ts-utils";
 import {
@@ -116,10 +114,60 @@ export const convertDecimalToThreePointSmiley = (rating: number) =>
 			? ThreePointSmileyRating.Neutral
 			: ThreePointSmileyRating.Happy;
 
+export const convertRatingToUserScale = (
+	rating: string | null | undefined,
+	scale: UserReviewScale,
+) => {
+	if (rating == null) return null;
+	const value = Number(rating);
+	if (Number.isNaN(value)) return null;
+
+	const scaled = match(scale)
+		.with(UserReviewScale.OutOfHundred, () => value)
+		.with(UserReviewScale.OutOfTen, () => value / 10)
+		.with(UserReviewScale.OutOfFive, () => value / 20)
+		.with(UserReviewScale.ThreePointSmiley, () => value)
+		.exhaustive();
+	return scale === UserReviewScale.OutOfHundred ||
+		scale === UserReviewScale.ThreePointSmiley
+		? scaled
+		: Math.round(scaled * 10) / 10;
+};
+
+export const formatRatingForDisplay = (
+	rating: number,
+	scale: UserReviewScale,
+) =>
+	match(scale)
+		.with(UserReviewScale.OutOfHundred, () =>
+			Number.isInteger(rating)
+				? Math.round(rating).toString()
+				: rating.toFixed(1),
+		)
+		.with(UserReviewScale.OutOfTen, () => rating.toFixed(1))
+		.with(UserReviewScale.OutOfFive, () => rating.toFixed(1))
+		.with(UserReviewScale.ThreePointSmiley, () => rating.toFixed(2))
+		.exhaustive();
+
+export const getRatingUnitSuffix = (scale: UserReviewScale) =>
+	match(scale)
+		.with(UserReviewScale.OutOfHundred, () => "%")
+		.with(UserReviewScale.OutOfTen, () => "/10")
+		.otherwise(() => undefined);
+
 export const getExerciseDetailsPath = (exerciseId: string) =>
 	$path("/fitness/exercises/item/:id", {
 		id: encodeURIComponent(exerciseId),
 	});
+
+export const getPersonDetailsPath = (personId: string) =>
+	$path("/media/people/item/:id", { id: personId });
+
+export const getMetadataDetailsPath = (metadataId: string) =>
+	$path("/media/item/:id", { id: metadataId });
+
+export const getMetadataGroupDetailsPath = (groupId: string) =>
+	$path("/media/groups/item/:id", { id: groupId });
 
 type EntityColor = Record<MediaLot | (string & {}), MantineColor>;
 
@@ -143,52 +191,3 @@ export const getMetadataDetails = async (metadataId: string) =>
 	clientGqlService
 		.request(MetadataDetailsDocument, { metadataId })
 		.then((d) => d.metadataDetails.response);
-
-export const deployUpdateJobIfNeeded = async (
-	entityId: string,
-	entityLot: EntityLot,
-	externalLinkSource: MediaSource,
-) => {
-	if (externalLinkSource !== MediaSource.Custom) {
-		await clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
-			entityId,
-			entityLot,
-		});
-	}
-};
-
-const checkPartialStatus = async (metadataId: string): Promise<boolean> => {
-	const details = await getMetadataDetails(metadataId);
-	return details?.isPartial !== true;
-};
-
-export const executePartialStatusUpdate = async (props: {
-	metadataId: string;
-	externalLinkSource: MediaSource;
-}) => {
-	const { metadataId, externalLinkSource } = props;
-	const startTime = Date.now();
-
-	await deployUpdateJobIfNeeded(
-		metadataId,
-		EntityLot.Metadata,
-		externalLinkSource,
-	);
-
-	return new Promise<boolean>((resolve) => {
-		const checkAndWait = async () => {
-			const isNonPartial = await checkPartialStatus(metadataId);
-			if (isNonPartial) {
-				resolve(true);
-				return;
-			}
-			if (Date.now() - startTime >= 30000) {
-				resolve(false);
-				return;
-			}
-			setTimeout(checkAndWait, 1000);
-		};
-
-		checkAndWait();
-	});
-};

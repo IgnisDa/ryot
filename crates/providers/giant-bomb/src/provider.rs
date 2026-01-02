@@ -33,7 +33,7 @@ impl MediaProvider for GiantBombService {
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let offset = (page - 1) * PAGE_SIZE;
+        let offset = page.saturating_sub(1) * PAGE_SIZE;
 
         ryot_log!(debug, "Searching GiantBomb for: {}", query);
 
@@ -62,7 +62,7 @@ impl MediaProvider for GiantBombService {
             .await
             .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
 
-        self.process_search_response(search_response, |game| MetadataSearchItem {
+        self.process_search_response(page, search_response, |game| MetadataSearchItem {
             title: game.name.unwrap(),
             identifier: game.guid.unwrap(),
             image: game.image.and_then(|img| img.original_url),
@@ -214,7 +214,7 @@ impl MediaProvider for GiantBombService {
         _display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let offset = (page - 1) * PAGE_SIZE;
+        let offset = page.saturating_sub(1) * PAGE_SIZE;
 
         let search_type = match source_specifics {
             Some(PersonSourceSpecifics {
@@ -250,7 +250,7 @@ impl MediaProvider for GiantBombService {
             "company" => {
                 let search_response: GiantBombSearchResponse<GiantBombResource> =
                     response.json().await?;
-                self.process_search_response(search_response, |company| PeopleSearchItem {
+                self.process_search_response(page, search_response, |company| PeopleSearchItem {
                     name: company.name.unwrap(),
                     birth_year: company.founded,
                     identifier: company.guid.unwrap(),
@@ -260,7 +260,7 @@ impl MediaProvider for GiantBombService {
             "person" => {
                 let search_response: GiantBombSearchResponse<GiantBombResource> =
                     response.json().await?;
-                self.process_search_response(search_response, |person| PeopleSearchItem {
+                self.process_search_response(page, search_response, |person| PeopleSearchItem {
                     name: person.name.unwrap(),
                     identifier: person.guid.unwrap(),
                     image: person.image.and_then(|img| img.original_url),
@@ -397,7 +397,7 @@ impl MediaProvider for GiantBombService {
         query: &str,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
-        let offset = (page - 1) * PAGE_SIZE;
+        let offset = page.saturating_sub(1) * PAGE_SIZE;
 
         ryot_log!(debug, "Searching GiantBomb franchises for: {}", query);
 
@@ -426,7 +426,7 @@ impl MediaProvider for GiantBombService {
             .await
             .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
 
-        self.process_search_response(search_response, |franchise| MetadataGroupSearchItem {
+        self.process_search_response(page, search_response, |franchise| MetadataGroupSearchItem {
             name: franchise.name.unwrap(),
             identifier: franchise.guid.unwrap(),
             image: franchise.image.and_then(|img| img.original_url),
@@ -477,6 +477,7 @@ impl MediaProvider for GiantBombService {
                 .as_ref()
                 .map(|games| games.len())
                 .unwrap_or(0) as i32,
+            ..Default::default()
         };
 
         let mut games = vec![];

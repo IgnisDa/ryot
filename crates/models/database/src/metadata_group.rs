@@ -34,6 +34,10 @@ pub struct Model {
     pub is_partial: Option<bool>,
     pub source_url: Option<String>,
     pub description: Option<String>,
+    pub last_updated_on: DateTimeUtc,
+    #[boilermates(not_in("MetadataGroupWithoutId"))]
+    pub created_by_user_id: Option<String>,
+    pub has_translations_for_languages: Option<Vec<String>>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -46,6 +50,14 @@ pub enum Relation {
     MetadataToMetadataGroup,
     #[sea_orm(has_many = "super::review::Entity")]
     Review,
+    #[sea_orm(
+        belongs_to = "super::user::Entity",
+        from = "Column::CreatedByUserId",
+        to = "super::user::Column::Id",
+        on_update = "Cascade",
+        on_delete = "SetNull"
+    )]
+    User,
     #[sea_orm(has_many = "super::user_to_entity::Entity")]
     UserToEntity,
 }
@@ -71,6 +83,12 @@ impl Related<super::metadata_to_metadata_group::Entity> for Entity {
 impl Related<super::review::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Review.def()
+    }
+}
+
+impl Related<super::user::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::User.def()
     }
 }
 

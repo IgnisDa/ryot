@@ -11,8 +11,8 @@ use enum_models::MediaSource;
 use futures::stream::{self, StreamExt};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataExternalIdentifiers, MetadataSearchItem, PartialMetadataPerson,
-    ShowEpisode, ShowSeason, ShowSpecifics,
+    EntityTranslationDetails, MetadataDetails, MetadataExternalIdentifiers, MetadataSearchItem,
+    PartialMetadataPerson, ShowEpisode, ShowSeason, ShowSpecifics,
 };
 use supporting_service::SupportingService;
 use traits::MediaProvider;
@@ -22,15 +22,11 @@ use crate::{
     models::{TvdbSeasonExtendedResponse, TvdbShowExtendedResponse, URL},
 };
 
-pub struct TvdbShowService {
-    pub base: TvdbService,
-}
+pub struct TvdbShowService(TvdbService);
 
 impl TvdbShowService {
     pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
-        Ok(Self {
-            base: TvdbService::new(ss).await?,
-        })
+        Ok(Self(TvdbService::new(ss).await?))
     }
 }
 
@@ -43,12 +39,12 @@ impl MediaProvider for TvdbShowService {
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        self.base.trigger_search(page, query, "series").await
+        self.0.trigger_search(page, query, "series").await
     }
 
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let series_rsp = self
-            .base
+            .0
             .client
             .get(format!("{URL}/series/{identifier}/extended"))
             .send()
@@ -177,7 +173,7 @@ impl MediaProvider for TvdbShowService {
         let seasons: Vec<TvdbSeasonExtendedResponse> = stream::iter(season_ids)
             .map(|season_id| async move {
                 let rsp = self
-                    .base
+                    .0
                     .client
                     .get(format!("{URL}/seasons/{season_id}/extended"))
                     .send()
@@ -265,9 +261,7 @@ impl MediaProvider for TvdbShowService {
             title: title.clone(),
             external_identifiers,
             description: show_data.common.overview,
-            original_language: self
-                .base
-                .get_language_name(show_data.common.original_language),
+            original_language: self.0.get_language_name(show_data.common.original_language),
             assets: EntityAssets {
                 remote_images,
                 remote_videos,
@@ -281,5 +275,15 @@ impl MediaProvider for TvdbShowService {
             }),
             ..Default::default()
         })
+    }
+
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        self.0
+            .translate("series", identifier, target_language)
+            .await
     }
 }

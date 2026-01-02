@@ -2,7 +2,7 @@ use async_graphql::Enum;
 use enum_meta::{Meta, meta};
 use schematic::ConfigEnum;
 use sea_orm::{DeriveActiveEnum, EnumIter};
-use sea_orm_migration::prelude::*;
+use sea_orm_migration::prelude::StringLen;
 use serde::{Deserialize, Serialize};
 
 /// The different types of media that can be stored.

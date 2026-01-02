@@ -10,13 +10,13 @@ use super::{
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-pub static PERSON_FK_NAME: &str = "user_to_entity-fk4";
-pub static PERSON_INDEX_NAME: &str = "user_to_entity-uqi3";
-pub static METADATA_GROUP_FK_NAME: &str = "user_to_entity-fk5";
-pub static COLLECTION_FK_NAME: &str = "user_to_entity-fk6";
-pub static METADATA_GROUP_INDEX_NAME: &str = "user_to_entity-uqi4";
-pub static COLLECTION_INDEX_NAME: &str = "user_to_entity-uqi5";
-pub static CONSTRAINT_SQL: &str = indoc! { r#"
+pub static USER_TO_ENTITY_PERSON_FK_NAME: &str = "user_to_entity-fk4";
+pub static USER_TO_ENTITY_PERSON_INDEX_NAME: &str = "user_to_entity-uqi3";
+pub static USER_TO_ENTITY_COLLECTION_FK_NAME: &str = "user_to_entity-fk6";
+pub static USER_TO_ENTITY_COLLECTION_INDEX_NAME: &str = "user_to_entity-uqi5";
+pub static USER_TO_ENTITY_METADATA_GROUP_FK_NAME: &str = "user_to_entity-fk5";
+pub static USER_TO_ENTITY_METADATA_GROUP_INDEX_NAME: &str = "user_to_entity-uqi4";
+pub static USER_TO_ENTITY_CONSTRAINT_SQL: &str = indoc! { r#"
     ALTER TABLE "user_to_entity" DROP CONSTRAINT IF EXISTS "user_to_entity__ensure_one_entity";
     ALTER TABLE "user_to_entity"
     ADD CONSTRAINT "user_to_entity__ensure_one_entity"
@@ -116,16 +116,16 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::CollectionId).text())
                     .col(ColumnDef::new(UserToEntity::CollectionExtraInformation).json_binary())
                     .col(
-                        ColumnDef::new(UserToEntity::EntityLot)
-                            .text()
-                            .not_null()
-                            .extra(ENTITY_LOT_SQL),
-                    )
-                    .col(
                         ColumnDef::new(UserToEntity::EntityId)
                             .text()
                             .not_null()
                             .extra(ENTITY_ID_SQL),
+                    )
+                    .col(
+                        ColumnDef::new(UserToEntity::EntityLot)
+                            .text()
+                            .not_null()
+                            .extra(ENTITY_LOT_SQL),
                     )
                     .foreign_key(
                         ForeignKey::create()
@@ -153,7 +153,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name(PERSON_FK_NAME)
+                            .name(USER_TO_ENTITY_PERSON_FK_NAME)
                             .from(UserToEntity::Table, UserToEntity::PersonId)
                             .to(Person::Table, Person::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -161,7 +161,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name(METADATA_GROUP_FK_NAME)
+                            .name(USER_TO_ENTITY_METADATA_GROUP_FK_NAME)
                             .from(UserToEntity::Table, UserToEntity::MetadataGroupId)
                             .to(MetadataGroup::Table, MetadataGroup::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -169,7 +169,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name(COLLECTION_FK_NAME)
+                            .name(USER_TO_ENTITY_COLLECTION_FK_NAME)
                             .from(UserToEntity::Table, UserToEntity::CollectionId)
                             .to(Collection::Table, MetadataGroup::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -204,7 +204,7 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .unique()
-                    .name(PERSON_INDEX_NAME)
+                    .name(USER_TO_ENTITY_PERSON_INDEX_NAME)
                     .table(UserToEntity::Table)
                     .col(UserToEntity::UserId)
                     .col(UserToEntity::PersonId)
@@ -215,7 +215,7 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .unique()
-                    .name(METADATA_GROUP_INDEX_NAME)
+                    .name(USER_TO_ENTITY_METADATA_GROUP_INDEX_NAME)
                     .table(UserToEntity::Table)
                     .col(UserToEntity::UserId)
                     .col(UserToEntity::MetadataGroupId)
@@ -226,14 +226,14 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .unique()
-                    .name(COLLECTION_INDEX_NAME)
+                    .name(USER_TO_ENTITY_COLLECTION_INDEX_NAME)
                     .table(UserToEntity::Table)
                     .col(UserToEntity::UserId)
                     .col(UserToEntity::CollectionId)
                     .to_owned(),
             )
             .await?;
-        db.execute_unprepared(CONSTRAINT_SQL).await?;
+        db.execute_unprepared(USER_TO_ENTITY_CONSTRAINT_SQL).await?;
         Ok(())
     }
 

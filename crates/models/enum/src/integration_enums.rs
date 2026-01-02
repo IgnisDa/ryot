@@ -1,6 +1,6 @@
 use async_graphql::Enum;
 use sea_orm::{DeriveActiveEnum, EnumIter};
-use sea_orm_migration::prelude::*;
+use sea_orm_migration::prelude::StringLen;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 

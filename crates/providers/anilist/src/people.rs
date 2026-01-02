@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
-use common_utils::PAGE_SIZE;
+use common_utils::{PAGE_SIZE, compute_next_page};
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{PartialMetadataWithoutId, PeopleSearchItem};
@@ -13,20 +13,16 @@ use crate::{
     models::{
         GraphQLResponse, MediaSearchResponse, STUDIO_ROLE, StaffDetailsResponse,
         StudioDetailsResponse, URL, build_staff_details_query, build_staff_search_query,
-        build_studio_details_query, build_studio_search_query, get_in_preferred_language,
+        build_studio_details_query, build_studio_search_query,
     },
 };
 
 #[derive(Debug, Clone)]
-pub struct NonMediaAnilistService {
-    base: AnilistService,
-}
+pub struct NonMediaAnilistService(AnilistService);
 
 impl NonMediaAnilistService {
     pub async fn new(config: &config_definition::AnilistConfig) -> Result<Self> {
-        Ok(Self {
-            base: AnilistService::new(config).await?,
-        })
+        Ok(Self(AnilistService::new(config).await?))
     }
 }
 
@@ -49,7 +45,7 @@ impl MediaProvider for NonMediaAnilistService {
         let (items, total_items, next_page) = if is_studio {
             let body = build_studio_search_query(query, page, PAGE_SIZE);
             let search = self
-                .base
+                .0
                 .client
                 .post(URL)
                 .json(&body)
@@ -62,7 +58,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total = search.page_info.unwrap().total.unwrap();
-            let next_page = (total - (page * PAGE_SIZE) > 0).then(|| page + 1);
+            let next_page = compute_next_page(page, total);
             let items = search
                 .studios
                 .unwrap_or_default()
@@ -78,7 +74,7 @@ impl MediaProvider for NonMediaAnilistService {
         } else {
             let body = build_staff_search_query(query, page, PAGE_SIZE);
             let search = self
-                .base
+                .0
                 .client
                 .post(URL)
                 .json(&body)
@@ -91,7 +87,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total_items = search.page_info.unwrap().total.unwrap();
-            let next_page = (total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
+            let next_page = compute_next_page(page, total_items);
             let items = search
                 .staff
                 .unwrap_or_default()
@@ -130,7 +126,7 @@ impl MediaProvider for NonMediaAnilistService {
         let data = if is_studio {
             let body = build_studio_details_query(identity.parse::<i64>().unwrap());
             let details = self
-                .base
+                .0
                 .client
                 .post(URL)
                 .json(&body)
@@ -155,8 +151,8 @@ impl MediaProvider for NonMediaAnilistService {
                     metadata: PartialMetadataWithoutId {
                         source: MediaSource::Anilist,
                         identifier: data.id.to_string(),
-                        title: data.title.and_then(|t| t.native).unwrap_or_default(),
                         image: data.cover_image.and_then(|c| c.extra_large),
+                        title: data.title.map(|t| t.user_preferred).unwrap_or_default(),
                         lot: match data.media_type.as_deref() {
                             Some("ANIME") => MediaLot::Anime,
                             Some("MANGA") => MediaLot::Manga,
@@ -177,7 +173,7 @@ impl MediaProvider for NonMediaAnilistService {
         } else {
             let body = build_staff_details_query(identity.parse::<i64>().unwrap());
             let details = self
-                .base
+                .0
                 .client
                 .post(URL)
                 .json(&body)
@@ -213,17 +209,11 @@ impl MediaProvider for NonMediaAnilistService {
                 .for_each(|edge| {
                     let characters = edge.characters.unwrap_or_default();
                     if let Some(data) = edge.node {
-                        let title = data.title.as_ref();
-                        let title = if let Some(title) = title {
-                            get_in_preferred_language(
-                                title.native.clone(),
-                                title.english.clone(),
-                                title.romaji.clone(),
-                                &self.base.preferred_language,
-                            )
-                        } else {
-                            String::new()
-                        };
+                        let title = data
+                            .title
+                            .clone()
+                            .map(|s| s.user_preferred)
+                            .unwrap_or_default();
                         for character in characters {
                             if let Some(character) = character.and_then(|c| c.name) {
                                 related_metadata.push(MetadataPersonRelated {
@@ -259,17 +249,8 @@ impl MediaProvider for NonMediaAnilistService {
                     .filter_map(|edge| {
                         edge.and_then(|edge| {
                             edge.node.map(|data| {
-                                let title = data.title.as_ref();
-                                let title = if let Some(title) = title {
-                                    get_in_preferred_language(
-                                        title.native.clone(),
-                                        title.english.clone(),
-                                        title.romaji.clone(),
-                                        &self.base.preferred_language,
-                                    )
-                                } else {
-                                    String::new()
-                                };
+                                let title =
+                                    data.title.map(|t| t.user_preferred).unwrap_or_default();
                                 MetadataPersonRelated {
                                     role: edge
                                         .staff_role

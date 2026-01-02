@@ -1,26 +1,25 @@
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics};
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
-use media_models::{PartialMetadataWithoutId, PeopleSearchItem};
+use media_models::{EntityTranslationDetails, PartialMetadataWithoutId, PeopleSearchItem};
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
-use crate::{base::TvdbService, models::*};
+use crate::{
+    base::TvdbService,
+    models::{TvdbCompanyExtendedResponse, TvdbPersonExtendedResponse, URL},
+};
 
-pub struct NonMediaTvdbService {
-    pub base: TvdbService,
-}
+pub struct NonMediaTvdbService(TvdbService);
 
 impl NonMediaTvdbService {
     pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
-        Ok(Self {
-            base: TvdbService::new(ss).await?,
-        })
+        Ok(Self(TvdbService::new(ss).await?))
     }
 }
 
@@ -41,7 +40,7 @@ impl MediaProvider for NonMediaTvdbService {
             _ => "person",
         };
 
-        let metadata_results = self.base.trigger_search(page, query, search_type).await?;
+        let metadata_results = self.0.trigger_search(page, query, search_type).await?;
 
         let people_items = metadata_results
             .items
@@ -67,7 +66,7 @@ impl MediaProvider for NonMediaTvdbService {
     ) -> Result<PersonDetails> {
         if let Some(true) = source_specifics.as_ref().and_then(|s| s.is_tvdb_company) {
             let details: TvdbCompanyExtendedResponse = self
-                .base
+                .0
                 .client
                 .get(format!("{URL}/companies/{identifier}"))
                 .send()
@@ -99,7 +98,7 @@ impl MediaProvider for NonMediaTvdbService {
         }
 
         let details: TvdbPersonExtendedResponse = self
-            .base
+            .0
             .client
             .get(format!("{URL}/people/{identifier}/extended"))
             .send()
@@ -196,5 +195,20 @@ impl MediaProvider for NonMediaTvdbService {
             ..Default::default()
         };
         Ok(resp)
+    }
+
+    async fn translate_person(
+        &self,
+        identifier: &str,
+        target_language: &str,
+        source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<EntityTranslationDetails> {
+        if let Some(true) = source_specifics.as_ref().and_then(|s| s.is_tvdb_company) {
+            bail!("Companies do not have translations");
+        }
+
+        self.0
+            .translate("people", identifier, target_language)
+            .await
     }
 }

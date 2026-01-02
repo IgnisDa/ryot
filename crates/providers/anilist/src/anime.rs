@@ -3,33 +3,27 @@ use async_trait::async_trait;
 use common_models::SearchDetails;
 use common_utils::PAGE_SIZE;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use media_models::MetadataDetails;
-use media_models::MetadataSearchItem;
+use media_models::{EntityTranslationDetails, MetadataDetails, MetadataSearchItem};
 use traits::MediaProvider;
 
 use crate::{
     base::AnilistService,
-    models::{MediaType, media_details, search},
+    models::{MediaType, media_details, search, translate_media},
 };
 
 #[derive(Debug, Clone)]
-pub struct AnilistAnimeService {
-    base: AnilistService,
-}
+pub struct AnilistAnimeService(AnilistService);
 
 impl AnilistAnimeService {
     pub async fn new(config: &config_definition::AnilistConfig) -> Result<Self> {
-        Ok(Self {
-            base: AnilistService::new(config).await?,
-        })
+        Ok(Self(AnilistService::new(config).await?))
     }
 }
 
 #[async_trait]
 impl MediaProvider for AnilistAnimeService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        let details =
-            media_details(&self.base.client, identifier, &self.base.preferred_language).await?;
+        let details = media_details(&self.0.client, identifier).await?;
         Ok(details)
     }
 
@@ -41,13 +35,12 @@ impl MediaProvider for AnilistAnimeService {
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total_items, next_page) = search(
-            &self.base.client,
+            &self.0.client,
             MediaType::Anime,
             query,
             page,
             PAGE_SIZE,
             display_nsfw,
-            &self.base.preferred_language,
         )
         .await?;
         Ok(SearchResults {
@@ -57,5 +50,13 @@ impl MediaProvider for AnilistAnimeService {
                 total_items,
             },
         })
+    }
+
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        translate_media(&self.0.client, identifier, target_language).await
     }
 }

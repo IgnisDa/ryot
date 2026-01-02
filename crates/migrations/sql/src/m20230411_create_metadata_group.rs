@@ -1,26 +1,32 @@
 use migrations_utils::create_trigram_index_if_required;
 use sea_orm_migration::prelude::*;
 
+use super::m20230404_create_user::User;
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
 pub static METADATA_GROUP_TITLE_TRIGRAM_INDEX: &str = "metadata_group_title_trigram_idx";
+pub static METADATA_GROUP_TO_USER_FOREIGN_KEY: &str = "metadata_group_to_user_foreign_key";
 pub static METADATA_GROUP_DESCRIPTION_TRIGRAM_INDEX: &str =
     "metadata_group_description_trigram_idx";
 
 #[derive(Iden)]
 pub enum MetadataGroup {
-    Table,
     Id,
-    Parts,
-    Identifier,
-    Title,
-    Description,
-    Assets,
     Lot,
+    Table,
+    Parts,
+    Title,
+    Assets,
     Source,
     IsPartial,
     SourceUrl,
+    Identifier,
+    Description,
+    LastUpdatedOn,
+    CreatedByUserId,
+    HasTranslationsForLanguages,
 }
 
 #[async_trait::async_trait]
@@ -53,6 +59,25 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(MetadataGroup::Assets)
                             .json_binary()
                             .not_null(),
+                    )
+                    .col(ColumnDef::new(MetadataGroup::CreatedByUserId).text())
+                    .col(
+                        ColumnDef::new(MetadataGroup::LastUpdatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(MetadataGroup::HasTranslationsForLanguages)
+                            .array(ColumnType::Text),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name(METADATA_GROUP_TO_USER_FOREIGN_KEY)
+                            .from(MetadataGroup::Table, MetadataGroup::CreatedByUserId)
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::SetNull)
+                            .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )

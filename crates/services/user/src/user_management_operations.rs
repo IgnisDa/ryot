@@ -21,31 +21,31 @@ use sea_orm::{
 };
 use sea_orm::{IntoActiveModel, Iterable};
 use supporting_service::SupportingService;
-use user_models::UpdateUserInput;
-use user_models::UserPreferences;
+use user_models::{UpdateUserInput, UserPreferences};
 
-use crate::{password_change_operations, user_data_operations};
+use crate::{
+    password_change_operations::{build_password_change_url, generate_password_change_session},
+    user_data_operations::users_list,
+};
 
 pub async fn update_user(
+    input: UpdateUserInput,
     ss: &Arc<SupportingService>,
     requester_user_id: Option<String>,
-    input: UpdateUserInput,
 ) -> Result<StringIdObject> {
     if let Some(ref uid) = requester_user_id {
         if uid != &input.user_id
             && admin_account_guard(uid, ss).await.is_err()
             && input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token
         {
-            bail!("Admin access token required".to_owned());
+            bail!("Admin access token required");
         }
     } else if input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token {
-        bail!("Admin access token required".to_owned());
+        bail!("Admin access token required");
     }
-    let mut user_obj = User::find_by_id(input.user_id)
-        .one(&ss.db)
-        .await?
-        .unwrap()
-        .into_active_model();
+    let db_user = User::find_by_id(input.user_id).one(&ss.db).await?.unwrap();
+    let mut extra_information = db_user.extra_information.clone().unwrap_or_default();
+    let mut user_obj = db_user.into_active_model();
     if let Some(n) = input.username {
         user_obj.name = ActiveValue::Set(n);
     }
@@ -54,6 +54,10 @@ pub async fn update_user(
     }
     if let Some(d) = input.is_disabled {
         user_obj.is_disabled = ActiveValue::Set(Some(d));
+    }
+    if let Some(p) = input.is_onboarding_tour_completed {
+        extra_information.is_onboarding_tour_completed = p;
+        user_obj.extra_information = ActiveValue::Set(Some(extra_information));
     }
     let user_obj = user_obj.update(&ss.db).await?;
     ryot_log!(debug, "Updated user with id {:?}", user_obj.id);
@@ -70,7 +74,7 @@ pub async fn delete_user(
     let Some(u) = maybe_user else {
         return Ok(false);
     };
-    let admin_count = user_data_operations::users_list(ss, None)
+    let admin_count = users_list(ss, None)
         .await?
         .into_iter()
         .filter(|u| u.lot == UserLot::Admin)
@@ -127,12 +131,9 @@ pub async fn reset_user(
             let password_change_url = match original_oidc_issuer_id {
                 Some(_) => None,
                 None => {
-                    let session_id = password_change_operations::generate_password_change_session(
-                        ss,
-                        result.id.clone(),
-                    )
-                    .await?;
-                    Some(password_change_operations::build_password_change_url(
+                    let session_id =
+                        generate_password_change_session(ss, result.id.clone()).await?;
+                    Some(build_password_change_url(
                         &ss.config.frontend.url,
                         &session_id,
                     ))
@@ -197,11 +198,11 @@ pub async fn register_user(
         .user_id
         .unwrap_or_else(|| format!("usr_{}", nanoid!(12)));
     let user = user::ActiveModel {
+        lot: ActiveValue::Set(lot),
         id: ActiveValue::Set(user_id),
         name: ActiveValue::Set(username),
         password: ActiveValue::Set(password),
         oidc_issuer_id: ActiveValue::Set(oidc_issuer_id),
-        lot: ActiveValue::Set(lot),
         preferences: ActiveValue::Set(UserPreferences::default()),
         ..Default::default()
     };

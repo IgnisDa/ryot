@@ -3,6 +3,7 @@ use std::sync::Arc;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
+use common_utils::compute_next_page;
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use futures::{
@@ -10,21 +11,23 @@ use futures::{
     try_join,
 };
 use itertools::Itertools;
-use media_models::PeopleSearchItem;
+use media_models::{EntityTranslationDetails, PeopleSearchItem};
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
-use crate::{base::TmdbService, models::*};
+use crate::{
+    base::TmdbService,
+    models::{
+        TmdbCreditsResponse, TmdbFindByExternalSourceResponse, TmdbListResponse,
+        TmdbNonMediaEntity, URL, fetch_company_media_by_type,
+    },
+};
 
-pub struct NonMediaTmdbService {
-    pub base: TmdbService,
-}
+pub struct NonMediaTmdbService(TmdbService);
 
 impl NonMediaTmdbService {
     pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
-        Ok(Self {
-            base: TmdbService::new(ss).await?,
-        })
+        Ok(Self(TmdbService::new(ss).await?))
     }
 }
 
@@ -37,7 +40,7 @@ impl MediaProvider for NonMediaTmdbService {
         display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let language = &self.base.language;
+        let language = &self.0.get_default_language();
         let person_type = match source_specifics {
             Some(PersonSourceSpecifics {
                 is_tmdb_company: Some(true),
@@ -46,7 +49,7 @@ impl MediaProvider for NonMediaTmdbService {
             _ => "person",
         };
         let rsp = self
-            .base
+            .0
             .client
             .get(format!("{URL}/search/{person_type}"))
             .query(&[
@@ -64,11 +67,11 @@ impl MediaProvider for NonMediaTmdbService {
             .map(|d| PeopleSearchItem {
                 name: d.title.unwrap(),
                 identifier: d.id.to_string(),
-                image: d.poster_path.map(|p| self.base.get_image_url(p)),
+                image: d.poster_path.map(|p| self.0.get_image_url(p)),
                 ..Default::default()
             })
             .collect_vec();
-        let next_page = (page < search.total_pages).then(|| page + 1);
+        let next_page = compute_next_page(page, search.total_results);
         Ok(SearchResults {
             items,
             details: SearchDetails {
@@ -91,10 +94,10 @@ impl MediaProvider for NonMediaTmdbService {
             _ => "person",
         };
         let details: TmdbNonMediaEntity = self
-            .base
+            .0
             .client
             .get(format!("{URL}/{person_type}/{identifier}"))
-            .query(&[("language", self.base.language.as_str())])
+            .query(&[("language", &self.0.get_default_language())])
             .send()
             .await?
             .json()
@@ -104,14 +107,13 @@ impl MediaProvider for NonMediaTmdbService {
         let mut related_metadata = vec![];
         if person_type == "person" {
             let ((), cred_det) = try_join!(
-                self.base
-                    .save_all_images(person_type, identifier, &mut images),
+                self.0.save_all_images(person_type, identifier, &mut images),
                 async {
                     let resp = self
-                        .base
+                        .0
                         .client
                         .get(format!("{URL}/{person_type}/{identifier}/combined_credits"))
-                        .query(&[("language", self.base.language.as_str())])
+                        .query(&[("language", &self.0.get_default_language())])
                         .send()
                         .await?;
                     resp.json::<TmdbCreditsResponse>()
@@ -126,7 +128,7 @@ impl MediaProvider for NonMediaTmdbService {
                     source: MediaSource::Tmdb,
                     identifier: media.id.unwrap().to_string(),
                     title: media.title.or(media.name).unwrap_or_default(),
-                    image: media.poster_path.map(|p| self.base.get_image_url(p)),
+                    image: media.poster_path.map(|p| self.0.get_image_url(p)),
                     lot: match media.media_type.unwrap().as_ref() {
                         "tv" => MediaLot::Show,
                         "movie" => MediaLot::Movie,
@@ -143,7 +145,7 @@ impl MediaProvider for NonMediaTmdbService {
         } else {
             let media_types = vec!["movie".to_string(), "tv".to_string()];
             let company_results = stream::iter(media_types)
-                .map(|media_type| fetch_company_media_by_type(media_type, identifier, &self.base))
+                .map(|media_type| fetch_company_media_by_type(media_type, identifier, &self.0))
                 .buffer_unordered(5)
                 .collect::<Vec<_>>()
                 .await;
@@ -152,7 +154,7 @@ impl MediaProvider for NonMediaTmdbService {
                 related_metadata.extend(company_result?);
             }
 
-            self.base
+            self.0
                 .save_all_images(person_type, identifier, &mut images)
                 .await?;
         }
@@ -160,7 +162,7 @@ impl MediaProvider for NonMediaTmdbService {
         let images = images
             .into_iter()
             .unique()
-            .map(|p| self.base.get_image_url(p))
+            .map(|p| self.0.get_image_url(p))
             .collect();
 
         let name = details.name;
@@ -190,6 +192,34 @@ impl MediaProvider for NonMediaTmdbService {
         };
         Ok(resp)
     }
+
+    async fn translate_person(
+        &self,
+        identifier: &str,
+        target_language: &str,
+        source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<EntityTranslationDetails> {
+        let person_type = match source_specifics {
+            Some(PersonSourceSpecifics {
+                is_tmdb_company: Some(true),
+                ..
+            }) => "company",
+            _ => "person",
+        };
+        let rsp = self
+            .0
+            .client
+            .get(format!("{URL}/{person_type}/{identifier}"))
+            .query(&[("language", target_language)])
+            .send()
+            .await?;
+        let data: TmdbNonMediaEntity = rsp.json().await?;
+        Ok(EntityTranslationDetails {
+            title: Some(data.name),
+            description: data.biography.or(data.description),
+            ..Default::default()
+        })
+    }
 }
 
 impl NonMediaTmdbService {
@@ -199,12 +229,12 @@ impl NonMediaTmdbService {
         external_source: &str,
     ) -> Result<String> {
         let details: TmdbFindByExternalSourceResponse = self
-            .base
+            .0
             .client
             .get(format!("{URL}/find/{external_id}"))
             .query(&[
                 ("external_source", external_source),
-                ("language", self.base.language.as_str()),
+                ("language", &self.0.get_default_language()),
             ])
             .send()
             .await?

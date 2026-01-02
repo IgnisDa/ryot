@@ -10,8 +10,10 @@ use media_models::{
 };
 use nanoid::nanoid;
 use rust_decimal::Decimal;
-use sea_orm::prelude::DateTimeUtc;
-use sea_orm::{ActiveValue, entity::prelude::*};
+use sea_orm::{
+    prelude::DateTimeUtc,
+    {ActiveValue, entity::prelude::*},
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject, Educe)]
@@ -25,22 +27,21 @@ pub struct Model {
     pub state: SeenState,
     pub progress: Decimal,
     pub metadata_id: String,
-    pub started_on: Option<DateTimeUtc>,
-    pub finished_on: Option<DateTimeUtc>,
+    pub num_times_updated: i32,
+    pub review_id: Option<String>,
     #[graphql(skip)]
     #[serde(skip)]
     #[educe(Debug(ignore))]
     pub updated_at: Vec<DateTimeUtc>,
+    pub last_updated_on: DateTimeUtc,
+    pub started_on: Option<DateTimeUtc>,
+    pub finished_on: Option<DateTimeUtc>,
     pub manual_time_spent: Option<Decimal>,
     pub providers_consumed_on: Vec<String>,
     pub show_extra_information: Option<SeenShowExtraInformation>,
     pub anime_extra_information: Option<SeenAnimeExtraInformation>,
     pub manga_extra_information: Option<SeenMangaExtraInformation>,
     pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
-    // Generated columns
-    pub num_times_updated: i32,
-    pub review_id: Option<String>,
-    pub last_updated_on: DateTimeUtc,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

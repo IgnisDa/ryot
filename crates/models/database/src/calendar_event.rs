@@ -14,12 +14,12 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
-    pub timestamp: DateTime,
     pub date: NaiveDate,
+    pub timestamp: DateTime,
     pub metadata_id: Option<String>,
     pub metadata_show_extra_information: Option<SeenShowExtraInformation>,
-    pub metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
     pub metadata_anime_extra_information: Option<SeenAnimeExtraInformation>,
+    pub metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

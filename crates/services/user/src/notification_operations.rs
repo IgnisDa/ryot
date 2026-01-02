@@ -7,7 +7,7 @@ use media_models::{CreateUserNotificationPlatformInput, UpdateUserNotificationPl
 use notification_service::send_notification;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, Iterable, ModelTrait,
-    QueryFilter,
+    QueryFilter, QueryOrder,
 };
 use supporting_service::SupportingService;
 use user_models::NotificationPlatformSpecifics;
@@ -22,7 +22,7 @@ pub async fn update_user_notification_platform(
         .await?
         .ok_or_else(|| anyhow!("Notification platform with the given id does not exist"))?;
     if db_notification.user_id != user_id {
-        bail!("Notification platform does not belong to the user",);
+        bail!("Notification platform does not belong to the user");
     }
     let mut db_notification = db_notification.into_active_model();
     if let Some(s) = input.is_disabled {
@@ -45,7 +45,7 @@ pub async fn delete_user_notification_platform(
         .await?
         .ok_or_else(|| anyhow!("Notification platform with the given id does not exist"))?;
     if notification.user_id != user_id {
-        bail!("Notification platform does not belong to the user",);
+        bail!("Notification platform does not belong to the user");
     }
     notification.delete(&ss.db).await?;
     Ok(true)
@@ -146,4 +146,16 @@ pub async fn create_user_notification_platform(
     };
     let new_notification_id = notification.insert(&ss.db).await?.id;
     Ok(new_notification_id)
+}
+
+pub async fn user_notification_platforms(
+    ss: &Arc<SupportingService>,
+    user_id: &String,
+) -> Result<Vec<notification_platform::Model>> {
+    let all_notifications = NotificationPlatform::find()
+        .filter(notification_platform::Column::UserId.eq(user_id))
+        .order_by_desc(notification_platform::Column::CreatedOn)
+        .all(&ss.db)
+        .await?;
+    Ok(all_notifications)
 }

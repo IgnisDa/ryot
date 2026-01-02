@@ -5,14 +5,18 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
 rand = { workspace = true }
 rust_decimal = { workspace = true }
-rust_decimal_macros = { workspace = true }
+sea-orm = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
+uuid = { workspace = true } # TEMP(1611): remove once duplicate seen debug logging is no longer needed
 
 common-models = { workspace = true }
 common-utils = { workspace = true }
+database-models = { workspace = true }
 database-utils = { workspace = true }
 dependent-collection-utils = { workspace = true }
 dependent-fitness-utils = { workspace = true }

@@ -1,6 +1,6 @@
 # Goodreads
 
-Ryot translates [Goodreads](https://www.goodreads.com/) shelves in the
+Ryot translates [Goodreads](https://www.goodreads.com) shelves in the
 following manner:
 
 - Want To Read -> Watchlist

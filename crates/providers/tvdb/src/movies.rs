@@ -11,8 +11,8 @@ use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    CommitMetadataGroupInput, MetadataDetails, MetadataSearchItem, MovieSpecifics,
-    PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
+    CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails, MetadataSearchItem,
+    MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
 };
 use supporting_service::SupportingService;
 use traits::MediaProvider;
@@ -22,15 +22,11 @@ use crate::{
     models::{TvdbListDetailsResponse, TvdbMovieExtendedResponse, URL},
 };
 
-pub struct TvdbMovieService {
-    pub base: TvdbService,
-}
+pub struct TvdbMovieService(TvdbService);
 
 impl TvdbMovieService {
     pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
-        Ok(Self {
-            base: TvdbService::new(ss).await?,
-        })
+        Ok(Self(TvdbService::new(ss).await?))
     }
 }
 
@@ -43,12 +39,12 @@ impl MediaProvider for TvdbMovieService {
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        self.base.trigger_search(page, query, "movie").await
+        self.0.trigger_search(page, query, "movie").await
     }
 
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let rsp = self
-            .base
+            .0
             .client
             .get(format!("{URL}/movies/{identifier}/extended"))
             .send()
@@ -119,8 +115,8 @@ impl MediaProvider for TvdbMovieService {
             let all_companies = [
                 (companies.studio.as_ref(), "Studio"),
                 (companies.network.as_ref(), "Network"),
-                (companies.production.as_ref(), "Production Company"),
                 (companies.distributor.as_ref(), "Distributor"),
+                (companies.production.as_ref(), "Production Company"),
                 (companies.special_effects.as_ref(), "Special Effects"),
             ];
 
@@ -207,7 +203,7 @@ impl MediaProvider for TvdbMovieService {
                 runtime: movie_data.runtime,
             }),
             original_language: self
-                .base
+                .0
                 .get_language_name(movie_data.common.original_language),
             assets: EntityAssets {
                 remote_images,
@@ -223,7 +219,7 @@ impl MediaProvider for TvdbMovieService {
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
         let rsp = self
-            .base
+            .0
             .client
             .get(format!("{URL}/lists/{identifier}/extended"))
             .send()
@@ -271,8 +267,27 @@ impl MediaProvider for TvdbMovieService {
                     remote_images: images,
                     ..Default::default()
                 },
+                ..Default::default()
             },
             parts,
         ))
+    }
+
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        self.0
+            .translate("movies", identifier, target_language)
+            .await
+    }
+
+    async fn translate_metadata_group(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        self.0.translate("lists", identifier, target_language).await
     }
 }

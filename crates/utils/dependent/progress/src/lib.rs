@@ -5,13 +5,13 @@ use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::Utc;
 use common_models::UserLevelCacheKey;
 use common_utils::ryot_log;
-use database_models::{metadata, prelude::*, seen};
+use database_models::{prelude::Seen, seen};
+use dependent_details_utils::metadata_details;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, EmptyCacheValue, ExpireCacheKeyInput,
 };
 use dependent_seen_utils::handle_after_metadata_seen_tasks;
-use dependent_utility_utils::mark_entity_as_recently_consumed;
-use enum_models::{EntityLot, MediaLot, SeenState};
+use enum_models::{MediaLot, SeenState};
 use futures::{join, try_join};
 use media_models::{
     ImportOrExportMetadataItemSeen, MetadataProgressUpdateCacheInput, MetadataProgressUpdateChange,
@@ -21,15 +21,15 @@ use media_models::{
     MetadataProgressUpdateStartedOrFinishedOnDateInput, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
-use sea_orm::prelude::DateTimeUtc;
+use rust_decimal::{Decimal, dec};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
-    QueryOrder, QueryTrait,
+    QueryOrder, QueryTrait, prelude::DateTimeUtc,
 };
 use supporting_service::SupportingService;
+use uuid::Uuid;
 
+// TEMP(1611): debug instrumentation for duplicate seen records; remove after investigation completes
 pub async fn commit_import_seen_item(
     is_import: bool,
     user_id: &String,
@@ -37,6 +37,14 @@ pub async fn commit_import_seen_item(
     ss: &Arc<SupportingService>,
     input: ImportOrExportMetadataItemSeen,
 ) -> Result<()> {
+    let seen_execution_id = Uuid::new_v4();
+    ryot_log!(
+        debug,
+        "[1611 SEEN {}] Starting commit_import_seen_item for metadata: {}, user: {}",
+        seen_execution_id,
+        metadata_id,
+        user_id
+    );
     let common = MetadataProgressUpdateCommonInput {
         manual_time_spent: input.manual_time_spent,
         show_season_number: input.show_season_number,
@@ -81,6 +89,12 @@ pub async fn commit_import_seen_item(
             }
         };
         let change = MetadataProgressUpdateChange::CreateNewCompleted(change_inner);
+        ryot_log!(
+            debug,
+            "[1611 SEEN {}] Import path - calling metadata_progress_update for completed seen on {}",
+            seen_execution_id,
+            metadata_id
+        );
         metadata_progress_update(
             user_id,
             ss,
@@ -90,6 +104,12 @@ pub async fn commit_import_seen_item(
             },
         )
         .await?;
+        ryot_log!(
+            debug,
+            "[1611 SEEN {}] Import path - metadata_progress_update finished for {}",
+            seen_execution_id,
+            metadata_id
+        );
         return Ok(());
     }
 
@@ -104,23 +124,50 @@ pub async fn commit_import_seen_item(
         ApplicationCacheKey::MetadataProgressUpdateCompletedCache(common_input.clone());
     let in_progress_cache_key =
         ApplicationCacheKey::MetadataProgressUpdateInProgressCache(common_input);
+    ryot_log!(
+        debug,
+        "[1611 SEEN {}] Checking caches for metadata: {}",
+        seen_execution_id,
+        metadata_id
+    );
     let (in_progress_cache, completed_cache) = join!(
         cache_service::get_value::<EmptyCacheValue>(ss, in_progress_cache_key.clone()),
         cache_service::get_value::<EmptyCacheValue>(ss, completed_cache_key.clone()),
     );
+    ryot_log!(
+        debug,
+        "[1611 SEEN {}] Cache check results - in_progress: {}, completed: {}",
+        seen_execution_id,
+        in_progress_cache.is_some(),
+        completed_cache.is_some()
+    );
 
     if completed_cache.is_some() {
-        ryot_log!(debug, "Progress already completed for: {}", metadata_id);
+        ryot_log!(
+            debug,
+            "[1611 SEEN {}] Exiting early - progress already completed",
+            seen_execution_id
+        );
         return Ok(());
     }
 
     if in_progress_cache.is_none() {
-        ryot_log!(debug, "Creating new in-progress seen for: {}", metadata_id);
+        ryot_log!(
+            debug,
+            "[1611 SEEN {}] in_progress_cache is None, creating new in-progress seen",
+            seen_execution_id
+        );
         let change = MetadataProgressUpdateChange::CreateNewInProgress(
             MetadataProgressUpdateNewInProgressInput {
                 data: common,
                 started_on: Utc::now(),
             },
+        );
+        ryot_log!(
+            debug,
+            "[1611 SEEN {}] Calling metadata_progress_update for: {}",
+            seen_execution_id,
+            metadata_id
         );
         metadata_progress_update(
             user_id,
@@ -131,13 +178,31 @@ pub async fn commit_import_seen_item(
             },
         )
         .await?;
+        ryot_log!(
+            debug,
+            "[1611 SEEN {}] metadata_progress_update completed successfully for: {}",
+            seen_execution_id,
+            metadata_id
+        );
 
         cache_service::set_key(ss, in_progress_cache_key, ApplicationCacheValue::MetadataProgressUpdateInProgressCache(EmptyCacheValue::default())).await?;
+        ryot_log!(
+            debug,
+            "[1611 SEEN {}] Completed commit_import_seen_item for: {}",
+            seen_execution_id,
+            metadata_id
+        );
         return Ok(());
     }
 
     if let Some(progress) = input.progress {
-        ryot_log!(debug, "Updating in-progress seen for: {}", metadata_id);
+        ryot_log!(
+            debug,
+            "[1611 SEEN {}] Updating in-progress seen for: {} with progress {}",
+            seen_execution_id,
+            metadata_id,
+            progress
+        );
         let change = MetadataProgressUpdateChange::ChangeLatestInProgress(progress);
 
         metadata_progress_update(
@@ -151,6 +216,12 @@ pub async fn commit_import_seen_item(
         .await?;
 
         if progress >= dec!(100) {
+            ryot_log!(
+                debug,
+                "[1611 SEEN {}] Progress >= 100, expiring in-progress cache and setting completed cache for {}",
+                seen_execution_id,
+                metadata_id
+            );
             let _ = try_join!(
                 cache_service::expire_key(
                     ss,
@@ -164,7 +235,20 @@ pub async fn commit_import_seen_item(
                     ),
                 )
             );
+            ryot_log!(
+                debug,
+                "[1611 SEEN {}] Cache transition to completed finished for {}",
+                seen_execution_id,
+                metadata_id
+            );
         }
+    } else {
+        ryot_log!(
+            debug,
+            "[1611 SEEN {}] No progress provided; skipping in-progress update for {}",
+            seen_execution_id,
+            metadata_id
+        );
     }
 
     Ok(())
@@ -182,42 +266,42 @@ fn create_extra_information(
     media_lot: &MediaLot,
     payload: &MetadataProgressUpdateCommonInput,
 ) -> Result<ExtraInformation> {
-    let show_ei = if matches!(media_lot, MediaLot::Show) {
-        let season = payload
-            .show_season_number
-            .ok_or_else(|| anyhow!("Season number is required for show progress update"))?;
-        let episode = payload
-            .show_episode_number
-            .ok_or_else(|| anyhow!("Episode number is required for show progress update"))?;
-        Some(SeenShowExtraInformation { season, episode })
-    } else {
-        None
+    let show_ei = match media_lot {
+        MediaLot::Show => {
+            let season = payload
+                .show_season_number
+                .ok_or_else(|| anyhow!("Season number is required for show progress update"))?;
+            let episode = payload
+                .show_episode_number
+                .ok_or_else(|| anyhow!("Episode number is required for show progress update"))?;
+            Some(SeenShowExtraInformation { season, episode })
+        }
+        _ => None,
     };
 
-    let podcast_ei = if matches!(media_lot, MediaLot::Podcast) {
-        let episode = payload
-            .podcast_episode_number
-            .ok_or_else(|| anyhow!("Episode number is required for podcast progress update"))?;
-        Some(SeenPodcastExtraInformation { episode })
-    } else {
-        None
+    let podcast_ei = match media_lot {
+        MediaLot::Podcast => {
+            let episode = payload
+                .podcast_episode_number
+                .ok_or_else(|| anyhow!("Episode number is required for podcast progress update"))?;
+            Some(SeenPodcastExtraInformation { episode })
+        }
+        _ => None,
     };
 
-    let anime_ei = if matches!(media_lot, MediaLot::Anime) {
-        Some(SeenAnimeExtraInformation {
+    let anime_ei = match media_lot {
+        MediaLot::Anime => Some(SeenAnimeExtraInformation {
             episode: payload.anime_episode_number,
-        })
-    } else {
-        None
+        }),
+        _ => None,
     };
 
-    let manga_ei = if matches!(media_lot, MediaLot::Manga) {
-        Some(SeenMangaExtraInformation {
+    let manga_ei = match media_lot {
+        MediaLot::Manga => Some(SeenMangaExtraInformation {
             volume: payload.manga_volume_number,
             chapter: payload.manga_chapter_number,
-        })
-    } else {
-        None
+        }),
+        _ => None,
     };
 
     Ok(ExtraInformation {
@@ -232,15 +316,16 @@ struct CommitInput<'a> {
     state: SeenState,
     progress: Decimal,
     user_id: &'a String,
-    meta: metadata::Model,
+    metadata_lot: MediaLot,
+    metadata_id: &'a String,
+    ss: &'a Arc<SupportingService>,
     started_on: Option<DateTimeUtc>,
     finished_on: Option<DateTimeUtc>,
-    ss: &'a Arc<SupportingService>,
     payload: MetadataProgressUpdateCommonInput,
 }
 
 async fn commit(input: CommitInput<'_>) -> Result<seen::Model> {
-    let extra_info = create_extra_information(&input.meta.lot, &input.payload)?;
+    let extra_info = create_extra_information(&input.metadata_lot, &input.payload)?;
 
     let seen_insert = seen::ActiveModel {
         state: ActiveValue::Set(input.state),
@@ -248,7 +333,7 @@ async fn commit(input: CommitInput<'_>) -> Result<seen::Model> {
         started_on: ActiveValue::Set(input.started_on),
         finished_on: ActiveValue::Set(input.finished_on),
         user_id: ActiveValue::Set(input.user_id.to_owned()),
-        metadata_id: ActiveValue::Set(input.meta.id.clone()),
+        metadata_id: ActiveValue::Set(input.metadata_id.clone()),
         show_extra_information: ActiveValue::Set(extra_info.show_ei),
         anime_extra_information: ActiveValue::Set(extra_info.anime_ei),
         manga_extra_information: ActiveValue::Set(extra_info.manga_ei),
@@ -292,16 +377,32 @@ pub async fn metadata_progress_update(
     ss: &Arc<SupportingService>,
     input: MetadataProgressUpdateInput,
 ) -> Result<()> {
-    let meta = Metadata::find_by_id(&input.metadata_id)
-        .one(&ss.db)
-        .await?
-        .ok_or_else(|| anyhow!("Metadata not found"))?;
-    ryot_log!(debug, "Metadata progress update: {:?}", input);
+    let progress_update_exec_id = Uuid::new_v4();
+    ryot_log!(
+        debug,
+        "[1611 PROGRESS-UPD {}] Starting metadata_progress_update for {}, change={:?}",
+        progress_update_exec_id,
+        input.metadata_id,
+        input.change
+    );
+    let meta = metadata_details(ss, &input.metadata_id).await?.response;
+    ryot_log!(
+        debug,
+        "[1611 PROGRESS-UPD {}] metadata_progress_update input: {:?}",
+        progress_update_exec_id,
+        input
+    );
     let seen = match input.change {
         MetadataProgressUpdateChange::ChangeLatestInProgress(new_progress) => {
             let previous_seen_in_progress =
                 get_previous_seen_item(user_id, &input.metadata_id, false, ss).await?;
             let Some(previous_seen) = previous_seen_in_progress else {
+                ryot_log!(
+                    debug,
+                    "[1611 PROGRESS-UPD {}] No in-progress seen found for {} when trying to change progress",
+                    progress_update_exec_id,
+                    input.metadata_id
+                );
                 bail!("No in progress seen found");
             };
             let mut state;
@@ -310,7 +411,14 @@ pub async fn metadata_progress_update(
             let mut updated_at = previous_seen.updated_at.clone();
 
             if new_progress == progress {
-                bail!("No progress update required");
+                ryot_log!(
+                    debug,
+                    "[1611 PROGRESS-UPD {}] Incoming progress {} matches existing {}; aborting update",
+                    progress_update_exec_id,
+                    new_progress,
+                    progress
+                );
+                bail!("Update progress is the same as current progress");
             }
             progress = new_progress;
             state = SeenState::InProgress;
@@ -339,6 +447,12 @@ pub async fn metadata_progress_update(
             let previous_seen =
                 get_previous_seen_item(user_id, &input.metadata_id, true, ss).await?;
             let Some(previous_seen) = previous_seen else {
+                ryot_log!(
+                    debug,
+                    "[1611 PROGRESS-UPD {}] No in-progress seen found for {} when trying to change state",
+                    progress_update_exec_id,
+                    input.metadata_id
+                );
                 bail!("No in progress seen found");
             };
             let mut updated_at = previous_seen.updated_at.clone();
@@ -360,15 +474,22 @@ pub async fn metadata_progress_update(
             let previous_seen_in_progress =
                 get_previous_seen_item(user_id, &input.metadata_id, false, ss).await?;
             if previous_seen_in_progress.is_some() {
-                bail!("An in-progress record already exists for this metadata",);
+                ryot_log!(
+                    debug,
+                    "[1611 PROGRESS-UPD {}] In-progress record already exists for {}; refusing to create another",
+                    progress_update_exec_id,
+                    input.metadata_id
+                );
+                bail!("An in-progress record already exists for this metadata");
             };
             commit(CommitInput {
                 ss,
-                meta,
                 user_id,
                 progress: dec!(0),
                 finished_on: None,
+                metadata_lot: meta.lot,
                 state: SeenState::InProgress,
+                metadata_id: &input.metadata_id,
                 payload: create_new_in_progress.data,
                 started_on: Some(create_new_in_progress.started_on),
             })
@@ -395,20 +516,30 @@ pub async fn metadata_progress_update(
             };
             commit(CommitInput {
                 ss,
-                meta,
                 user_id,
                 payload,
                 started_on,
                 finished_on,
                 progress: dec!(100),
+                metadata_lot: meta.lot,
                 state: SeenState::Completed,
+                metadata_id: &input.metadata_id,
             })
             .await?
         }
     };
-    ryot_log!(debug, "Seen created: {:?}", seen);
-    mark_entity_as_recently_consumed(user_id, &input.metadata_id, EntityLot::Metadata, ss).await?;
+    ryot_log!(
+        debug,
+        "[1611 PROGRESS-UPD {}] Seen change committed: {:?}",
+        progress_update_exec_id,
+        seen
+    );
     handle_after_metadata_seen_tasks(seen, ss).await?;
-    ryot_log!(debug, "Progress update completed: {}", input.metadata_id);
+    ryot_log!(
+        debug,
+        "[1611 PROGRESS-UPD {}] Progress update completed for {}",
+        progress_update_exec_id,
+        input.metadata_id
+    );
     Ok(())
 }

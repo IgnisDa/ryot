@@ -1,8 +1,4 @@
-import {
-	CheckoutEventNames,
-	type Paddle,
-	initializePaddle,
-} from "@paddle/paddle-js";
+import { CheckoutEventNames, type Paddle } from "@paddle/paddle-js";
 import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
 import { changeCase, getActionIntent } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
@@ -26,7 +22,7 @@ import {
 	serverVariables,
 	websiteAuthCookie,
 } from "~/lib/config.server";
-import { startUrl } from "~/lib/constants";
+import { initializePaddleForApplication, startUrl } from "~/lib/general";
 import {
 	createUnkeyKey,
 	getCustomerWithActivePurchase,
@@ -112,9 +108,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				["active", "trialing"].includes(sub.status),
 			);
 
-			if (!activeSubscription) {
-				throw new Error("No active subscription found");
-			}
+			if (!activeSubscription) throw new Error("No active subscription found");
 
 			console.log("Active Subscription:", {
 				customerId: customer.id,
@@ -151,10 +145,11 @@ export default function Index() {
 
 	useEffect(() => {
 		if (!paddle)
-			initializePaddle({
-				token: loaderData.clientToken,
-				environment: loaderData.isSandbox ? "sandbox" : undefined,
-			}).then((paddleInstance) => {
+			initializePaddleForApplication(
+				loaderData.clientToken,
+				loaderData.isSandbox,
+				loaderData.customerDetails.paddleCustomerId,
+			).then((paddleInstance) => {
 				if (paddleInstance) {
 					paddleInstance.Update({
 						eventCallback: (data) => {

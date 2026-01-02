@@ -1,13 +1,13 @@
 use std::{collections::HashMap, env, sync::Arc};
 
 use anyhow::Result;
-use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{EntityAssets, IdAndNamedObject, SearchDetails};
-use common_utils::{PAGE_SIZE, convert_naive_to_utc};
-use dependent_models::MetadataSearchSourceSpecifics;
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, SearchResults};
+use common_utils::{PAGE_SIZE, convert_naive_to_utc, get_base_http_client};
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, MetadataSearchSourceSpecifics, SearchResults,
+};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
@@ -120,12 +120,12 @@ impl MediaProvider for ListennotesService {
         #[serde_as]
         #[derive(Serialize, Deserialize, Debug)]
         struct Podcast {
-            title_original: String,
             id: String,
+            image: Option<String>,
+            title_original: String,
             #[serde_as(as = "Option<TimestampMilliSeconds<i64, Flexible>>")]
             #[serde(rename = "earliest_pub_date_ms")]
             publish_date: Option<DateTimeUtc>,
-            image: Option<String>,
         }
         #[derive(Serialize, Deserialize, Debug)]
         struct SearchResponse {
@@ -140,7 +140,7 @@ impl MediaProvider for ListennotesService {
             .query(&[
                 ("q", query),
                 ("type", "podcast"),
-                ("offset", &((page - 1) * PAGE_SIZE).to_string()),
+                ("offset", &(page.saturating_sub(1) * PAGE_SIZE).to_string()),
             ])
             .send()
             .await?;
@@ -153,9 +153,9 @@ impl MediaProvider for ListennotesService {
             .results
             .into_iter()
             .map(|r| MetadataSearchItem {
+                image: r.image,
                 identifier: r.id,
                 title: r.title_original,
-                image: r.image,
                 publish_year: r.publish_date.map(|r| r.year()),
             })
             .collect_vec();
@@ -205,19 +205,19 @@ impl ListennotesService {
         #[serde_as]
         #[derive(Serialize, Deserialize, Debug)]
         struct Podcast {
-            title: String,
-            explicit_content: Option<bool>,
-            description: Option<String>,
-            listen_score: Option<Decimal>,
             id: String,
+            title: String,
+            genre_ids: Vec<i32>,
+            image: Option<String>,
+            total_episodes: usize,
+            publisher: Option<String>,
+            description: Option<String>,
+            episodes: Vec<PodcastEpisode>,
+            listen_score: Option<Decimal>,
+            explicit_content: Option<bool>,
             #[serde_as(as = "Option<TimestampMilliSeconds<i64, Flexible>>")]
             #[serde(rename = "earliest_pub_date_ms")]
             publish_date: Option<DateTimeUtc>,
-            publisher: Option<String>,
-            image: Option<String>,
-            episodes: Vec<PodcastEpisode>,
-            genre_ids: Vec<i32>,
-            total_episodes: usize,
         }
         let resp = self
             .client
@@ -248,7 +248,6 @@ impl ListennotesService {
             creators: Vec::from_iter(podcast_data.publisher.map(|p| MetadataFreeCreator {
                 name: p,
                 role: "Publishing".to_owned(),
-                ..Default::default()
             })),
             genres: podcast_data
                 .genre_ids

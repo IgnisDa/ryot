@@ -21,6 +21,7 @@ query PersonDetails($personId: String!) {
 				identifier
 				description
 				alternateNames
+				createdByUserId
 				associatedEntityCount
 				associatedMetadataCount
 				associatedMetadataGroupsCount

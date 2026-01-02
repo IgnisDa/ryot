@@ -1,30 +1,69 @@
 import { Text } from "@mantine/core";
+import type { Slug } from "@mjcdev/react-body-highlighter";
 import {
+	ExerciseDurationUnit,
 	ExerciseLot,
+	ExerciseMuscle,
 	UserUnitSystem,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
 import { match } from "ts-pattern";
 
+export const convertDurationFromMinutes = (
+	minutes: number | string | null | undefined,
+	targetUnit: ExerciseDurationUnit,
+) => {
+	const mins = Number(minutes || 0);
+	return targetUnit === ExerciseDurationUnit.Seconds ? mins * 60 : mins;
+};
+
+export const convertDurationToMinutes = (
+	value: number | string | null | undefined,
+	sourceUnit: ExerciseDurationUnit,
+) => {
+	const val = Number(value || 0);
+	return sourceUnit === ExerciseDurationUnit.Seconds ? val / 60 : val;
+};
+
+export const getDurationUnitLabel = (
+	unit: ExerciseDurationUnit,
+	format: "long" | "short" = "long",
+) => {
+	if (format === "short") {
+		return unit === ExerciseDurationUnit.Seconds ? "s" : "min";
+	}
+	return unit === ExerciseDurationUnit.Seconds ? "SEC" : "MIN";
+};
+
+export const formatDuration = (
+	minutes: number | string | null | undefined,
+	targetUnit: ExerciseDurationUnit,
+) => {
+	const converted = convertDurationFromMinutes(minutes, targetUnit);
+	return targetUnit === ExerciseDurationUnit.Seconds
+		? Math.round(converted).toString()
+		: Number(converted.toFixed(2)).toString();
+};
+
 export const getSetStatisticsTextToDisplay = (
 	lot: ExerciseLot,
 	statistic: WorkoutSetStatistic,
 	unit: UserUnitSystem,
+	durationUnit: ExerciseDurationUnit = ExerciseDurationUnit.Minutes,
 ) => {
+	const durationLabel = getDurationUnitLabel(durationUnit, "short");
 	return match(lot)
 		.with(ExerciseLot.Reps, () => [`${statistic.reps} reps`, undefined])
 		.with(ExerciseLot.RepsAndDuration, () => [
-			`${statistic.reps} reps for ${Number(statistic.duration).toFixed(2)} min`,
+			`${statistic.reps} reps for ${formatDuration(statistic.duration, durationUnit)} ${durationLabel}`,
 			undefined,
 		])
 		.with(ExerciseLot.DistanceAndDuration, () => [
-			`${displayDistanceWithUnit(unit, statistic.distance)} for ${Number(
-				statistic.duration,
-			).toFixed(2)} min`,
+			`${displayDistanceWithUnit(unit, statistic.distance)} for ${formatDuration(statistic.duration, durationUnit)} ${durationLabel}`,
 			`${displayDistanceWithUnit(unit, statistic.pace)}/min`,
 		])
 		.with(ExerciseLot.Duration, () => [
-			`${Number(statistic.duration).toFixed(2)} min`,
+			`${formatDuration(statistic.duration, durationUnit)} ${durationLabel}`,
 			undefined,
 		])
 		.with(ExerciseLot.RepsAndWeight, () => [
@@ -37,7 +76,7 @@ export const getSetStatisticsTextToDisplay = (
 		])
 		.with(ExerciseLot.RepsAndDurationAndDistance, () => [
 			`${displayDistanceWithUnit(unit, statistic.distance)} × ${statistic.reps}`,
-			`${Number(statistic.duration).toFixed(2)} min`,
+			`${formatDuration(statistic.duration, durationUnit)} ${durationLabel}`,
 		])
 		.exhaustive();
 };
@@ -72,11 +111,13 @@ export const DisplaySetStatistics = (props: {
 	centerText?: boolean;
 	unitSystem: UserUnitSystem;
 	statistic: WorkoutSetStatistic;
+	durationUnit: ExerciseDurationUnit;
 }) => {
 	const [first, second] = getSetStatisticsTextToDisplay(
 		props.lot,
 		props.statistic,
 		props.unitSystem,
+		props.durationUnit,
 	);
 
 	return (
@@ -98,4 +139,28 @@ export const DisplaySetStatistics = (props: {
 			) : null}
 		</>
 	);
+};
+
+export const mapMuscleToBodyPart = (muscle: ExerciseMuscle) => {
+	const muscleMap: Record<ExerciseMuscle, Slug | null> = {
+		[ExerciseMuscle.Neck]: "neck",
+		[ExerciseMuscle.Chest]: "chest",
+		[ExerciseMuscle.Abductors]: null,
+		[ExerciseMuscle.Biceps]: "biceps",
+		[ExerciseMuscle.Calves]: "calves",
+		[ExerciseMuscle.Abdominals]: "abs",
+		[ExerciseMuscle.Glutes]: "gluteal",
+		[ExerciseMuscle.Traps]: "trapezius",
+		[ExerciseMuscle.Triceps]: "triceps",
+		[ExerciseMuscle.Lats]: "upper-back",
+		[ExerciseMuscle.Forearms]: "forearm",
+		[ExerciseMuscle.Shoulders]: "deltoids",
+		[ExerciseMuscle.Adductors]: "adductors",
+		[ExerciseMuscle.Hamstrings]: "hamstring",
+		[ExerciseMuscle.LowerBack]: "lower-back",
+		[ExerciseMuscle.MiddleBack]: "upper-back",
+		[ExerciseMuscle.Quadriceps]: "quadriceps",
+	};
+
+	return muscleMap[muscle];
 };

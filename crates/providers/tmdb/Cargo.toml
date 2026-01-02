@@ -12,11 +12,9 @@ hashbag = { workspace = true }
 itertools = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
-rust_decimal_macros = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }
 
-application-utils = { workspace = true }
 cache-service = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }

@@ -59,7 +59,7 @@ pub async fn user_exports(ss: &Arc<SupportingService>, user_id: String) -> Resul
 
 pub async fn perform_export(ss: &Arc<SupportingService>, user_id: String) -> Result<()> {
     if !ss.config.file_storage.is_enabled() {
-        bail!("File storage needs to be enabled to perform an export.",);
+        bail!("File storage needs to be enabled to perform an export.");
     }
     let started_at = Utc::now();
     let export_path =
@@ -92,12 +92,6 @@ pub async fn perform_export(ss: &Arc<SupportingService>, user_id: String) -> Res
     let ended_at = Utc::now();
     let (_key, url) = file_storage_service::get_presigned_put_url(
         ss,
-        export_path
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string(),
         format!("exports/{user_id}"),
         false,
         Some(HashMap::from([

@@ -11,7 +11,6 @@ import { queryClient } from "~/lib/shared/react-query";
 import {
 	type InProgressWorkout,
 	getExerciseDetailsQuery,
-	getExerciseImages,
 	getUserExerciseDetailsQuery,
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
@@ -94,6 +93,15 @@ const getNextSetInWorkout = (
 type ExerciseDetails = ExerciseDetailsQuery["exerciseDetails"];
 type UserExerciseDetails = UserExerciseDetailsQuery["userExerciseDetails"];
 
+const getExerciseImages = (
+	exercise?: ExerciseDetailsQuery["exerciseDetails"],
+) => {
+	return [
+		...(exercise?.assets.s3Images || []),
+		...(exercise?.assets.remoteImages || []),
+	];
+};
+
 const exerciseHasDetailsToShow = (
 	details?: ExerciseDetails,
 	userDetails?: UserExerciseDetails,
@@ -128,9 +136,7 @@ export const usePerformTasksAfterSetConfirmed = () => {
 						const nextExerciseHasDetailsToShow =
 							nextExercise &&
 							exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
-						if (nextExerciseHasDetailsToShow) {
-							nextExercise.isCollapsed = false;
-						}
+						if (nextExerciseHasDetailsToShow) nextExercise.isCollapsed = false;
 					}
 				}
 			}),

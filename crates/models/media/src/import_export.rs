@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use async_graphql::{InputObject, OneofObject, SimpleObject};
 use common_models::StringIdAndNamedObject;
-use enum_models::{ImportSource, Visibility};
+use enum_models::{ImportSource, SeenState, Visibility};
 use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc};
@@ -14,6 +14,8 @@ use serde_with::skip_serializing_none;
 #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportMetadataItemSeen {
+    /// The state of the media item.
+    pub state: Option<SeenState>,
     /// The progress of media done. If none, it is considered as done.
     pub progress: Option<Decimal>,
     /// The timestamp when finished watching.
@@ -56,16 +58,16 @@ pub struct ImportOrExportItemReview {
 /// Comments left in replies to posted reviews.
 #[skip_serializing_none]
 #[derive(
+    Eq,
     Clone,
     Debug,
+    Default,
+    Schematic,
     PartialEq,
-    FromJsonQueryResult,
-    Eq,
     Serialize,
     Deserialize,
-    Default,
     SimpleObject,
-    Schematic,
+    FromJsonQueryResult,
 )]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportItemReviewComment {
@@ -102,33 +104,33 @@ pub struct ImportOrExportItemRating {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployGenericCsvImportInput {
-    // The file path of the uploaded CSV export file.
+    /// The file path of the uploaded CSV export file.
     pub csv_path: String,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployTraktImportListInput {
-    // The public url of the list in Trakt.
+    /// The public url of the list in Trakt.
     pub url: String,
-    // The name of the collection to import into.
+    /// The name of the collection to import into.
     pub collection: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
 pub enum DeployTraktImportInput {
-    // Import from a public Trakt user.
+    /// Import from a public Trakt user.
     User(String),
-    // Import from a public Trakt list.
+    /// Import from a public Trakt list.
     List(DeployTraktImportListInput),
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployMovaryImportInput {
-    // The file path of the uploaded CSV history file.
+    /// The file path of the uploaded CSV history file.
     pub history: String,
-    // The file path of the uploaded CSV ratings file.
+    /// The file path of the uploaded CSV ratings file.
     pub ratings: String,
-    // The file path of the uploaded CSV watchlist file.
+    /// The file path of the uploaded CSV watchlist file.
     pub watchlist: String,
 }
 
@@ -148,15 +150,22 @@ pub struct DeployStrongAppImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployIgdbImportInput {
-    // The path to the CSV file in the local file system.
+    /// The path to the CSV file in the local file system.
     pub csv_path: String,
     pub collection: String,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployJsonImportInput {
-    // The file path of the uploaded JSON export.
-    pub export: String,
+pub struct DeployPathImportInput {
+    /// The path of the uploaded artifact.
+    pub export_path: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployNetflixImportInput {
+    pub input: DeployPathImportInput,
+    /// Optional profile name to filter the import by.
+    pub profile_name: Option<String>,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -176,10 +185,11 @@ pub struct DeployJellyfinImportInput {
 pub struct DeployImportJobInput {
     pub source: ImportSource,
     pub mal: Option<DeployMalImportInput>,
+    pub path: Option<DeployPathImportInput>,
     pub igdb: Option<DeployIgdbImportInput>,
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
-    pub generic_json: Option<DeployJsonImportInput>,
+    pub netflix: Option<DeployNetflixImportInput>,
     pub jellyfin: Option<DeployJellyfinImportInput>,
     pub strong_app: Option<DeployStrongAppImportInput>,
     pub url_and_key: Option<DeployUrlAndKeyImportInput>,

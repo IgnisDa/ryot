@@ -1,3 +1,5 @@
+use std::{collections::HashMap, sync::Arc};
+
 use anyhow::{Result, anyhow, bail};
 use database_models::{
     exercise,
@@ -7,16 +9,18 @@ use database_models::{
 use database_utils::server_key_validation_guard;
 use dependent_core_utils::is_server_key_validated;
 use dependent_fitness_utils::get_focused_workout_summary_with_exercises;
-use dependent_utility_utils::expire_user_workout_templates_list_cache;
+use dependent_utility_utils::{
+    expire_user_workout_template_details_cache, expire_user_workout_templates_list_cache,
+};
 use fitness_models::{
     ProcessedExercise, UserWorkoutInput, WorkoutInformation, WorkoutSetRecord, WorkoutSummary,
     WorkoutSummaryExercise,
 };
+use futures::try_join;
 use nanoid::nanoid;
 use sea_orm::{
     ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, sea_query::OnConflict,
 };
-use std::{collections::HashMap, sync::Arc};
 use supporting_service::SupportingService;
 
 pub async fn create_or_update_user_workout_template(
@@ -105,7 +109,10 @@ pub async fn create_or_update_user_workout_template(
         )
         .exec_with_returning(&ss.db)
         .await?;
-    expire_user_workout_templates_list_cache(&user_id, ss).await?;
+    try_join!(
+        expire_user_workout_templates_list_cache(&user_id, ss),
+        expire_user_workout_template_details_cache(&user_id, &template.id, ss)
+    )?;
     Ok(template.id)
 }
 

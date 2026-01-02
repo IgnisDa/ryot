@@ -6,6 +6,7 @@ use enum_models::{EntityLot, MediaLot};
 use schematic::Schematic;
 use sea_orm::{FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
 #[derive(Debug, InputObject, Default, Clone, Serialize)]
 pub struct CreateOrUpdateCollectionInput {
@@ -33,6 +34,7 @@ pub struct CollectionContentsFilter {
     pub metadata_lot: Option<MediaLot>,
 }
 
+#[skip_serializing_none]
 #[derive(
     Eq,
     Debug,
@@ -44,21 +46,24 @@ pub struct CollectionContentsFilter {
     SimpleObject,
     FromJsonQueryResult,
 )]
+#[serde(rename_all = "snake_case")]
 pub struct CollectionItemCollaboratorInformation {
     pub collaborator: StringIdAndNamedObject,
     pub extra_information: Option<UserToCollectionExtraInformation>,
 }
 
+#[skip_serializing_none]
 #[derive(
     Debug, Clone, SimpleObject, FromQueryResult, PartialEq, Eq, Serialize, Deserialize, Schematic,
 )]
+#[serde(rename_all = "snake_case")]
 pub struct CollectionItem {
     pub id: String,
     pub count: i64,
     pub name: String,
     pub is_default: bool,
-    pub creator: StringIdAndNamedObject,
     pub description: Option<String>,
+    pub creator: StringIdAndNamedObject,
     pub collaborators: Vec<CollectionItemCollaboratorInformation>,
     pub information_template: Option<Vec<CollectionExtraInformation>>,
 }

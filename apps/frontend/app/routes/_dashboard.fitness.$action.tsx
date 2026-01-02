@@ -3,7 +3,7 @@ import { Button, Container, Group, Skeleton, Stack } from "@mantine/core";
 import { isNumber, isString, parseParameters } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLoaderData } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
@@ -32,10 +32,10 @@ import {
 import {
 	useCurrentWorkout,
 	useCurrentWorkoutTimerAtom,
-	useMeasurementsDrawerOpen,
+	useMeasurementsDrawer,
 } from "~/lib/state/fitness";
 import {
-	OnboardingTourStepTargets,
+	OnboardingTourStepTarget,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
 import { FitnessAction } from "~/lib/types";
@@ -58,31 +58,38 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
 	const [parent] = useAutoAnimate();
-	const [isSaveBtnLoading, setIsSaveBtnLoading] = useState(false);
+	const userPreferences = useUserPreferences();
+	const loaderData = useLoaderData<typeof loader>();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const playCheckSound = usePlayFitnessSound("check");
+	const [_, setMeasurementsDrawerData] = useMeasurementsDrawer();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
+	const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
+	const timerCompleteSound = usePlayFitnessSound("timer-completed");
+	const [isSaveBtnLoading, setIsSaveBtnLoading] = useState(false);
+	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const {
 		openTimerDrawer,
 		closeTimerDrawer,
+		exerciseToDelete,
 		toggleTimerDrawer,
 		openReorderDrawer,
 		timerDrawerOpened,
 		assetsModalOpened,
+		openBulkDeleteModal,
 		setAssetsModalOpened,
+		closeBulkDeleteModal,
 		isReorderDrawerOpened,
+		bulkDeleteModalOpened,
 		setSupersetModalOpened,
+		closeNotificationModal,
+		notificationModalOpened,
 		setIsReorderDrawerOpened,
 		supersetWithExerciseIdentifier,
 	} = useWorkoutModals();
-	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
-	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
-	const { advanceOnboardingTourStep } = useOnboardingTour();
-	const playCheckSound = usePlayFitnessSound("check");
-	const timerCompleteSound = usePlayFitnessSound("timer-completed");
 
 	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
 	const numberOfExercises = currentWorkout?.exercises.length || 0;
@@ -104,9 +111,9 @@ export default function Page() {
 		timerCompleteSound();
 		if (document.visibilityState === "visible") return;
 		sendNotificationToServiceWorker({
+			tag: "timer-completed",
 			title: "Timer completed",
 			body: "Let's get this done!",
-			tag: "timer-completed",
 			data: { event: "open-link", link: window.location.href },
 		});
 	};
@@ -151,6 +158,24 @@ export default function Page() {
 			);
 		}
 		setCurrentTimer(RESET);
+	};
+
+	const acquireWakeLock = async () => {
+		if ("wakeLock" in navigator)
+			try {
+				wakeLockRef.current = await navigator.wakeLock.request("screen");
+				wakeLockRef.current.addEventListener("release", () => {
+					wakeLockRef.current = null;
+				});
+			} catch {}
+	};
+
+	const releaseWakeLock = async () => {
+		if (wakeLockRef.current)
+			try {
+				await wakeLockRef.current.release();
+				wakeLockRef.current = null;
+			} catch {}
 	};
 
 	useInterval(() => {
@@ -224,6 +249,20 @@ export default function Page() {
 			}
 		}
 	}, 1000);
+	useEffect(() => {
+		acquireWakeLock();
+
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === "visible" && !wakeLockRef.current)
+				acquireWakeLock();
+		};
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+
+		return () => {
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+			releaseWakeLock();
+		};
+	}, []);
 
 	return (
 		<Container size="sm">
@@ -236,13 +275,18 @@ export default function Page() {
 								startTimer={startTimer}
 								openTimerDrawer={openTimerDrawer}
 								closeTimerDrawer={closeTimerDrawer}
+								exerciseToDelete={exerciseToDelete}
 								assetsModalOpened={assetsModalOpened}
 								timerDrawerOpened={timerDrawerOpened}
 								toggleTimerDrawer={toggleTimerDrawer}
 								pauseOrResumeTimer={pauseOrResumeTimer}
 								setAssetsModalOpened={setAssetsModalOpened}
+								closeBulkDeleteModal={closeBulkDeleteModal}
 								isReorderDrawerOpened={isReorderDrawerOpened}
+								bulkDeleteModalOpened={bulkDeleteModalOpened}
 								setSupersetModalOpened={setSupersetModalOpened}
+								closeNotificationModal={closeNotificationModal}
+								notificationModalOpened={notificationModalOpened}
 								currentWorkoutExercises={currentWorkout.exercises}
 								setIsReorderDrawerOpened={setIsReorderDrawerOpened}
 								supersetWithExerciseIdentifier={supersetWithExerciseIdentifier}
@@ -273,6 +317,7 @@ export default function Page() {
 										isWorkoutPaused={isWorkoutPaused}
 										openTimerDrawer={openTimerDrawer}
 										reorderDrawerToggle={openReorderDrawer}
+										openBulkDeleteModal={openBulkDeleteModal}
 										isCreatingTemplate={loaderData.isCreatingTemplate}
 										openSupersetModal={(s) => setSupersetModalOpened(s)}
 										setOpenAssetsModal={() =>
@@ -285,7 +330,7 @@ export default function Page() {
 										<Button
 											color="teal"
 											variant="subtle"
-											onClick={() => setMeasurementsDrawerOpen(true)}
+											onClick={() => setMeasurementsDrawerData(null)}
 											style={
 												loaderData.isCreatingTemplate
 													? { display: "none" }
@@ -298,11 +343,18 @@ export default function Page() {
 									<Button
 										component={Link}
 										variant="subtle"
-										onClick={() => advanceOnboardingTourStep()}
 										to={$path("/fitness/exercises/list")}
 										className={
-											OnboardingTourStepTargets.ClickOnAddAnExerciseButton
+											OnboardingTourStepTarget.ClickOnAddAnExerciseButton
 										}
+										onClick={() => {
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													draft.replacingExerciseIdx = undefined;
+												}),
+											);
+											advanceOnboardingTourStep();
+										}}
 									>
 										Add an exercise
 									</Button>

@@ -5,31 +5,31 @@ use async_trait::async_trait;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics, SearchDetails,
 };
-use common_utils::{convert_date_to_year, convert_string_to_date};
+use common_utils::{compute_next_page, convert_date_to_year, convert_string_to_date};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use futures::try_join;
 use itertools::Itertools;
 use media_models::{
-    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
-    MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
+    CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails, MetadataGroupSearchItem,
+    MetadataSearchItem, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+    UniqueMediaIdentifier,
 };
-use rust_decimal_macros::dec;
+use rust_decimal::dec;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
-use crate::{base::TmdbService, models::*};
+use crate::{
+    base::TmdbService,
+    models::{TmdbCollection, TmdbCreditsResponse, TmdbListResponse, TmdbMediaEntry, URL},
+};
 
-pub struct TmdbMovieService {
-    pub base: TmdbService,
-}
+pub struct TmdbMovieService(TmdbService);
 
 impl TmdbMovieService {
     pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
-        Ok(Self {
-            base: TmdbService::new(ss).await?,
-        })
+        Ok(Self(TmdbService::new(ss).await?))
     }
 }
 
@@ -43,13 +43,13 @@ impl MediaProvider for TmdbMovieService {
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let rsp = self
-            .base
+            .0
             .client
             .get(format!("{URL}/search/movie"))
             .query(&[
                 ("query", query),
                 ("page", &page.to_string()),
-                ("language", self.base.language.as_str()),
+                ("language", &self.0.get_default_language()),
                 ("include_adult", &display_nsfw.to_string()),
             ])
             .send()
@@ -62,11 +62,11 @@ impl MediaProvider for TmdbMovieService {
             .map(|d| MetadataSearchItem {
                 title: d.title.unwrap(),
                 identifier: d.id.to_string(),
-                image: d.poster_path.map(|p| self.base.get_image_url(p)),
+                image: d.poster_path.map(|p| self.0.get_image_url(p)),
                 publish_year: d.release_date.and_then(|r| convert_date_to_year(&r)),
             })
             .collect_vec();
-        let next_page = (page < search.total_pages).then(|| page + 1);
+        let next_page = compute_next_page(page, search.total_results);
         Ok(SearchResults {
             items: resp.to_vec(),
             details: SearchDetails {
@@ -78,12 +78,12 @@ impl MediaProvider for TmdbMovieService {
 
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let rsp = self
-            .base
+            .0
             .client
             .get(format!("{URL}/movie/{identifier}"))
             .query(&[
                 ("append_to_response", "videos"),
-                ("language", self.base.language.as_str()),
+                ("language", &self.0.get_default_language()),
             ])
             .send()
             .await?;
@@ -96,10 +96,10 @@ impl MediaProvider for TmdbMovieService {
             }))
         }
         let rsp = self
-            .base
+            .0
             .client
             .get(format!("{URL}/movie/{identifier}/credits"))
-            .query(&[("language", self.base.language.as_str())])
+            .query(&[("language", &self.0.get_default_language())])
             .send()
             .await?;
         let credits: TmdbCreditsResponse = rsp.json().await?;
@@ -161,16 +161,15 @@ impl MediaProvider for TmdbMovieService {
                 })
                 .collect_vec(),
         );
-        let mut image_ids = Vec::from_iter(data.poster_path.map(|p| self.base.get_image_url(p)));
+        let mut image_ids = Vec::from_iter(data.poster_path.map(|p| self.0.get_image_url(p)));
         if let Some(u) = data.backdrop_path {
-            image_ids.push(self.base.get_image_url(u));
+            image_ids.push(self.0.get_image_url(u));
         }
         let ((), suggestions, watch_providers, external_identifiers) = try_join!(
-            self.base
-                .save_all_images("movie", identifier, &mut image_ids),
-            self.base.get_all_suggestions("movie", identifier),
-            self.base.get_all_watch_providers("movie", identifier),
-            self.base.get_external_identifiers("movie", identifier)
+            self.0.save_all_images("movie", identifier, &mut image_ids),
+            self.0.get_all_suggestions("movie", identifier),
+            self.0.get_all_watch_providers("movie", identifier),
+            self.0.get_external_identifiers("movie", identifier)
         )?;
         let title = data.title.clone().unwrap();
 
@@ -185,7 +184,7 @@ impl MediaProvider for TmdbMovieService {
             description: data.overview,
             production_status: data.status.clone(),
             external_identifiers: Some(external_identifiers),
-            original_language: self.base.get_language_name(data.original_language.clone()),
+            original_language: self.0.get_language_name(data.original_language.clone()),
             publish_date: data
                 .release_date
                 .clone()
@@ -239,13 +238,13 @@ impl MediaProvider for TmdbMovieService {
         display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let rsp = self
-            .base
+            .0
             .client
             .get(format!("{URL}/search/collection"))
             .query(&[
                 ("query", query),
                 ("page", &page.to_string()),
-                ("language", self.base.language.as_str()),
+                ("language", &self.0.get_default_language()),
                 ("include_adult", &display_nsfw.to_string()),
             ])
             .send()
@@ -257,11 +256,11 @@ impl MediaProvider for TmdbMovieService {
             .map(|d| MetadataGroupSearchItem {
                 name: d.title.unwrap(),
                 identifier: d.id.to_string(),
-                image: d.poster_path.map(|p| self.base.get_image_url(p)),
+                image: d.poster_path.map(|p| self.0.get_image_url(p)),
                 ..Default::default()
             })
             .collect_vec();
-        let next_page = (page < search.total_pages).then(|| page + 1);
+        let next_page = compute_next_page(page, search.total_results);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {
@@ -276,22 +275,22 @@ impl MediaProvider for TmdbMovieService {
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
         let data: TmdbCollection = self
-            .base
+            .0
             .client
             .get(format!("{URL}/collection/{identifier}"))
-            .query(&[("language", self.base.language.as_str())])
+            .query(&[("language", &self.0.get_default_language())])
             .send()
             .await?
             .json()
             .await?;
         let mut images = vec![];
         if let Some(i) = data.poster_path {
-            images.push(self.base.get_image_url(i));
+            images.push(self.0.get_image_url(i));
         }
         if let Some(i) = data.backdrop_path {
-            images.push(self.base.get_image_url(i));
+            images.push(self.0.get_image_url(i));
         }
-        self.base
+        self.0
             .save_all_images("collection", identifier, &mut images)
             .await?;
         let parts = data
@@ -302,11 +301,15 @@ impl MediaProvider for TmdbMovieService {
                 title: p.title.unwrap(),
                 source: MediaSource::Tmdb,
                 identifier: p.id.to_string(),
-                image: p.poster_path.map(|p| self.base.get_image_url(p)),
+                image: p.poster_path.map(|p| self.0.get_image_url(p)),
                 ..Default::default()
             })
             .collect_vec();
-        let title = replace_from_end(data.name, " Collection", "");
+        let mut title = data.name;
+        if let Some(last_index) = title.rfind(" Collection") {
+            let end = last_index + " Collection".len();
+            title.replace_range(last_index..end, "");
+        }
         Ok((
             MetadataGroupWithoutId {
                 lot: MediaLot::Movie,
@@ -322,22 +325,53 @@ impl MediaProvider for TmdbMovieService {
                     remote_images: images,
                     ..Default::default()
                 },
+                ..Default::default()
             },
             parts,
         ))
     }
 
     async fn get_trending_media(&self) -> Result<Vec<PartialMetadataWithoutId>> {
-        self.base.get_trending_media("movie").await
+        self.0.get_trending_media("movie").await
     }
-}
 
-fn replace_from_end(input_string: String, search_string: &str, replace_string: &str) -> String {
-    if let Some(last_index) = input_string.rfind(search_string) {
-        let mut modified_string = input_string.clone();
-        let end = last_index + search_string.len();
-        modified_string.replace_range(last_index..end, replace_string);
-        return modified_string;
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let rsp = self
+            .0
+            .client
+            .get(format!("{URL}/movie/{identifier}"))
+            .query(&[("language", target_language)])
+            .send()
+            .await?;
+        let data: TmdbMediaEntry = rsp.json().await?;
+        Ok(EntityTranslationDetails {
+            title: data.title,
+            description: data.overview,
+            image: data.poster_path.map(|p| self.0.get_image_url(p)),
+        })
     }
-    input_string
+
+    async fn translate_metadata_group(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let rsp = self
+            .0
+            .client
+            .get(format!("{URL}/collection/{identifier}"))
+            .query(&[("language", target_language)])
+            .send()
+            .await?;
+        let data: TmdbCollection = rsp.json().await?;
+        Ok(EntityTranslationDetails {
+            title: Some(data.name),
+            description: data.overview,
+            image: data.poster_path.map(|p| self.0.get_image_url(p)),
+        })
+    }
 }

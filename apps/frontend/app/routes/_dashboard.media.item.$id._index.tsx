@@ -32,6 +32,7 @@ import {
 	formatQuantityWithCompactNotation,
 	getActionIntent,
 	humanizeDuration,
+	isNumber,
 	parseParameters,
 	parseSearchQuery,
 	processSubmission,
@@ -61,7 +62,11 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { DisplayCollectionToEntity, SkeletonLoader } from "~/components/common";
+import {
+	DisplayCollectionToEntity,
+	EditButton,
+	SkeletonLoader,
+} from "~/components/common";
 import { MediaDetailsLayout } from "~/components/common/layout";
 import {
 	DisplayThreePointReview,
@@ -95,11 +100,15 @@ import {
 	useDeployBulkMetadataProgressUpdateMutation,
 	useMetadataDetails,
 	useMetadataGroupDetails,
-	useUserDetails,
 	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
-import { getVerb } from "~/lib/shared/media-utils";
+import {
+	convertRatingToUserScale,
+	formatRatingForDisplay,
+	getRatingUnitSuffix,
+	getVerb,
+} from "~/lib/shared/media-utils";
 import {
 	getProviderSourceImage,
 	openConfirmationModal,
@@ -111,7 +120,7 @@ import {
 	useReviewEntity,
 } from "~/lib/state/media";
 import {
-	OnboardingTourStepTargets,
+	OnboardingTourStepTarget,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
 import { Verb } from "~/lib/types";
@@ -219,15 +228,26 @@ const editSeenItem = z.object({
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
-	const userDetails = useUserDetails();
 	const submit = useConfirmSubmit();
 
-	const metadataDetails = useMetadataDetails(loaderData.metadataId);
+	const [metadataDetails, isMetadataPartialStatusActive, metadataTranslations] =
+		useMetadataDetails(loaderData.metadataId);
 	const userMetadataDetails = useUserMetadataDetails(loaderData.metadataId);
+	const averageRatingValue = convertRatingToUserScale(
+		userMetadataDetails.data?.averageRating,
+		userPreferences.general.reviewScale,
+	);
+	const averageRatingDisplay =
+		averageRatingValue == null
+			? null
+			: formatRatingForDisplay(
+					averageRatingValue,
+					userPreferences.general.reviewScale,
+				);
+	const averageRatingSuffix = getRatingUnitSuffix(
+		userPreferences.general.reviewScale,
+	);
 
-	const canCurrentUserUpdate =
-		metadataDetails.data?.source === MediaSource.Custom &&
-		userDetails.id === metadataDetails.data?.createdByUserId;
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
 	);
@@ -258,13 +278,20 @@ export default function Page() {
 		[changeProgress],
 	);
 
-	const inProgress = userMetadataDetails.data?.inProgress;
+	const title =
+		metadataTranslations?.title || metadataDetails.data?.title || "";
+	const description =
+		metadataTranslations?.description || metadataDetails.data?.description;
 	const nextEntry = userMetadataDetails.data?.nextEntry;
+	const inProgress = userMetadataDetails.data?.inProgress;
 	const firstGroupAssociated = metadataDetails.data?.groups.at(0);
 	const videos = [...(metadataDetails.data?.assets.remoteVideos || [])];
-	const { data: groupDetails } = useMetadataGroupDetails(
-		firstGroupAssociated?.id,
-	);
+	const [{ data: metadataGroupDetails }, _, metadataGroupTranslations] =
+		useMetadataGroupDetails(
+			firstGroupAssociated?.id,
+			userPreferences.featuresEnabled.media.groups &&
+				!!firstGroupAssociated?.id,
+		);
 	const additionalMetadataDetails = [
 		userPreferences.featuresEnabled.media.groups && firstGroupAssociated && (
 			<Link
@@ -275,7 +302,12 @@ export default function Page() {
 				})}
 			>
 				<Text c="dimmed" fs="italic" span>
-					{groupDetails?.details.title} #{firstGroupAssociated.part}
+					{metadataGroupTranslations?.title ||
+						metadataGroupDetails?.details.title ||
+						"Group"}{" "}
+					{isNumber(firstGroupAssociated.part)
+						? `#${firstGroupAssociated.part}`
+						: null}
 				</Text>
 			</Link>
 		),
@@ -368,18 +400,14 @@ export default function Page() {
 						userMetadataDetails={userMetadataDetails.data}
 					/>
 					<MediaDetailsLayout
-						title={metadataDetails.data.title}
+						title={title}
 						assets={metadataDetails.data.assets}
+						extraImage={metadataTranslations?.image}
+						isPartialStatusActive={isMetadataPartialStatusActive}
 						externalLink={{
 							lot: metadataDetails.data.lot,
 							source: metadataDetails.data.source,
 							href: metadataDetails.data.sourceUrl,
-						}}
-						partialDetailsFetcher={{
-							fn: metadataDetails.refetch,
-							entityLot: EntityLot.Metadata,
-							entityId: metadataDetails.data.id,
-							partialStatus: metadataDetails.data.isPartial,
 						}}
 					>
 						{userMetadataDetails.data.collections.length > 0 ? (
@@ -402,7 +430,7 @@ export default function Page() {
 							</Text>
 						) : null}
 						{metadataDetails.data.providerRating ||
-						userMetadataDetails.data.averageRating ? (
+						averageRatingValue != null ? (
 							<Group>
 								{metadataDetails.data.providerRating ? (
 									<Paper
@@ -457,12 +485,12 @@ export default function Page() {
 										</Text>
 									</Paper>
 								) : null}
-								{userMetadataDetails.data.averageRating
+								{averageRatingValue != null
 									? match(userPreferences.general.reviewScale)
 											.with(UserReviewScale.ThreePointSmiley, () => (
 												<DisplayThreePointReview
 													size={40}
-													rating={userMetadataDetails.data.averageRating}
+													rating={averageRatingValue}
 												/>
 											))
 											.otherwise(() => (
@@ -480,17 +508,8 @@ export default function Page() {
 														style={{ color: reviewYellow }}
 													/>
 													<Text fz="sm">
-														{Number(
-															userMetadataDetails.data.averageRating,
-														).toFixed(1)}
-														{userPreferences.general.reviewScale ===
-														UserReviewScale.OutOfHundred
-															? "%"
-															: undefined}
-														{userPreferences.general.reviewScale ===
-														UserReviewScale.OutOfTen
-															? "/10"
-															: undefined}
+														{averageRatingDisplay}
+														{averageRatingSuffix}
 													</Text>
 												</Paper>
 											))
@@ -522,9 +541,7 @@ export default function Page() {
 									value="actions"
 									leftSection={<IconUser size={16} />}
 									onClick={() => advanceOnboardingTourStep()}
-									className={
-										OnboardingTourStepTargets.MetadataDetailsActionsTab
-									}
+									className={OnboardingTourStepTarget.MetadataDetailsActionsTab}
 								>
 									Actions
 								</Tabs.Tab>
@@ -598,13 +615,11 @@ export default function Page() {
 										<VideoGameSpecificsDisplay
 											specifics={metadataDetails.data.videoGameSpecifics}
 										/>
-										{metadataDetails.data.description ? (
+										{description ? (
 											<ScrollArea maw="600">
 												<div
 													// biome-ignore lint/security/noDangerouslySetInnerHtml: generated by the backend securely
-													dangerouslySetInnerHTML={{
-														__html: metadataDetails.data.description,
-													}}
+													dangerouslySetInnerHTML={{ __html: description }}
 												/>
 											</ScrollArea>
 										) : null}
@@ -835,7 +850,9 @@ export default function Page() {
 														entityLot: EntityLot.Metadata,
 														entityId: loaderData.metadataId,
 														metadataLot: metadataDetails.data.lot,
-														entityTitle: metadataDetails.data.title,
+														entityTitle:
+															metadataTranslations?.title ||
+															metadataDetails.data.title,
 														existingReview: {
 															showExtraInformation: {
 																episode:
@@ -884,11 +901,11 @@ export default function Page() {
 											</Menu.Target>
 											<Menu.Dropdown>
 												<ToggleMediaMonitorMenuItem
+													entityLot={EntityLot.Metadata}
+													formValue={loaderData.metadataId}
 													inCollections={userMetadataDetails.data.collections.map(
 														(c) => c.details.collectionName,
 													)}
-													formValue={loaderData.metadataId}
-													entityLot={EntityLot.Metadata}
 												/>
 												<Menu.Item onClick={mergeMetadataModalOpen}>
 													Merge media
@@ -922,19 +939,15 @@ export default function Page() {
 												/>
 											</Menu.Dropdown>
 										</Menu>
-										{canCurrentUserUpdate ? (
-											<Button
-												component={Link}
-												variant="outline"
-												to={$path(
-													"/media/update/:action",
-													{ action: "edit" },
-													{ id: metadataDetails.data.id },
-												)}
-											>
-												Edit metadata
-											</Button>
-										) : null}
+										{metadataDetails.data && (
+											<EditButton
+												editRouteType="media"
+												label="Edit metadata"
+												entityId={metadataDetails.data.id}
+												source={metadataDetails.data.source}
+												createdByUserId={metadataDetails.data.createdByUserId}
+											/>
+										)}
 									</SimpleGrid>
 								</MediaScrollArea>
 							</Tabs.Panel>
@@ -976,8 +989,7 @@ export default function Page() {
 								)}
 							</Tabs.Panel>
 							<Tabs.Panel value="showSeasons" h={MEDIA_DETAILS_HEIGHT}>
-								{metadataDetails.data.showSpecifics &&
-								userMetadataDetails.data.showProgress ? (
+								{metadataDetails.data.showSpecifics ? (
 									<Virtuoso
 										data={metadataDetails.data.showSpecifics.seasons}
 										itemContent={(seasonIdx, season) => (

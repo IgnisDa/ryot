@@ -1,40 +1,41 @@
 query UserMetadataDetails($metadataId: String!) {
 	userMetadataDetails(metadataId: $metadataId) {
-		mediaReason
-		hasInteracted
-		averageRating
-		seenByAllCount
-		seenByUserCount
-		isRecentlyConsumed
-		reviews {
-			...ReviewItemPart
-		}
-		history {
-			...SeenPart
-		}
-		nextEntry {
-			season
-			volume
-			episode
-			chapter
-		}
-		inProgress {
-			...SeenPart
-		}
-		collections {
-			...CollectionToEntityDetailsPart
-		}
-		showProgress {
-			timesSeen
-			seasonNumber
-			episodes {
+		response {
+			mediaReason
+			hasInteracted
+			averageRating
+			seenByAllCount
+			seenByUserCount
+			history {
+				...SeenPart
+			}
+			reviews {
+				...ReviewItemPart
+			}
+			nextEntry {
+				season
+				volume
+				episode
+				chapter
+			}
+			inProgress {
+				...SeenPart
+			}
+			collections {
+				...CollectionToEntityDetailsPart
+			}
+			showProgress {
+				timesSeen
+				seasonNumber
+				episodes {
+					episodeNumber
+					timesSeen
+				}
+			}
+			podcastProgress {
 				episodeNumber
 				timesSeen
 			}
-		}
-		podcastProgress {
-			episodeNumber
-			timesSeen
 		}
 	}
 }

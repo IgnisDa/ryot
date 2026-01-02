@@ -25,12 +25,16 @@ import {
 import { truncate } from "@ryot/ts-utils";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { parseAsBoolean, parseAsString } from "nuqs";
 import { Link } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
-import { useLocalStorage } from "usehooks-ts";
-import { ProRequiredAlert } from "~/components/common";
+import {
+	DisplayListDetailsAndRefresh,
+	ProRequiredAlert,
+} from "~/components/common";
 import { DebouncedSearchInput } from "~/components/common/filters";
+import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import {
 	useCoreDetails,
 	useFallbackImageUrl,
@@ -50,29 +54,17 @@ export const meta = () => {
 	return [{ title: "Your collections | Ryot" }];
 };
 
-interface SearchFilters {
-	query: string;
-	showHidden: boolean;
-}
-
-const defaultSearchFilters: SearchFilters = {
-	query: "",
-	showHidden: false,
+const defaultSearchFilters = {
+	query: parseAsString.withDefault(""),
+	showHidden: parseAsBoolean.withDefault(false),
 };
 
 export default function Page() {
 	const userDetails = useUserDetails();
 	const collections = useUserCollections();
 	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
-	const [searchFilters, setSearchFilters] = useLocalStorage(
-		"CollectionsListFilters",
-		defaultSearchFilters,
-	);
-
-	const updateFilter = (
-		key: keyof SearchFilters,
-		value: string | boolean | null,
-	) => setSearchFilters((prev) => ({ ...prev, [key]: value }));
+	const { filters: searchFilters, updateFilters } =
+		useFiltersState(defaultSearchFilters);
 
 	const query = searchFilters.query;
 	const showHidden = searchFilters.showHidden;
@@ -111,22 +103,17 @@ export default function Page() {
 				<DebouncedSearchInput
 					value={query}
 					placeholder="Search collections"
-					onChange={(value) => updateFilter("query", value)}
+					onChange={(value) => updateFilters({ query: value })}
 				/>
 				<Group justify="space-between" align="center">
-					<Box>
-						<Text display="inline" fw="bold">
-							{filteredCollections.length}
-						</Text>{" "}
-						items found
-					</Box>
+					<DisplayListDetailsAndRefresh total={filteredCollections.length} />
 					{hasHiddenCollections ? (
 						<Checkbox
 							size="sm"
 							name="showHidden"
 							label="Show hidden"
 							checked={showHidden}
-							onChange={(e) => updateFilter("showHidden", e.target.checked)}
+							onChange={(e) => updateFilters({ showHidden: e.target.checked })}
 						/>
 					) : null}
 				</Group>
@@ -252,9 +239,9 @@ const DisplayCollection = (props: {
 			<Flex gap="xs" direction={{ base: "column", md: "row" }}>
 				<Flex
 					h={180}
-					w={{ md: IMAGES_CONTAINER_WIDTH }}
 					pos="relative"
 					style={{ overflow: "hidden" }}
+					w={{ md: IMAGES_CONTAINER_WIDTH }}
 				>
 					{coreDetails.isServerKeyValidated ? (
 						collectionImages && collectionImages.length > 0 ? (

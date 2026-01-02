@@ -317,6 +317,7 @@ query MetadataGroupDetails($metadataGroupId: String!) {
 				sourceUrl
 				identifier
 				description
+				createdByUserId
 				assets {
 					...EntityAssetsPart
 				}
@@ -327,7 +328,6 @@ query MetadataGroupDetails($metadataGroupId: String!) {
 
 query MetadataGroupSearch($input: MetadataGroupSearchInput!) {
 	metadataGroupSearch(input: $input) {
-		cacheId
 		response {
 			items
 			details {
@@ -351,7 +351,6 @@ query UserMetadataList($input: UserMetadataListInput!) {
 
 query MetadataSearch($input: MetadataSearchInput!) {
 	metadataSearch(input: $input) {
-		cacheId
 		response {
 			items
 			details {
@@ -363,7 +362,6 @@ query MetadataSearch($input: MetadataSearchInput!) {
 
 query PeopleSearch($input: PeopleSearchInput!) {
 	peopleSearch(input: $input) {
-		cacheId
 		response {
 			items
 			details {
@@ -375,52 +373,56 @@ query PeopleSearch($input: PeopleSearchInput!) {
 
 query UserMetadataGroupDetails($metadataGroupId: String!) {
 	userMetadataGroupDetails(metadataGroupId: $metadataGroupId) {
-		hasInteracted
-		averageRating
-		isRecentlyConsumed
-		reviews {
-			...ReviewItemPart
-		}
-		collections {
-			...CollectionToEntityDetailsPart
+		response {
+			hasInteracted
+			averageRating
+			reviews {
+				...ReviewItemPart
+			}
+			collections {
+				...CollectionToEntityDetailsPart
+			}
 		}
 	}
 }
 
 query UserPersonDetails($personId: String!) {
 	userPersonDetails(personId: $personId) {
-		hasInteracted
-		averageRating
-		isRecentlyConsumed
-		collections {
-			...CollectionToEntityDetailsPart
-		}
-		reviews {
-			...ReviewItemPart
+		response {
+			hasInteracted
+			averageRating
+			reviews {
+				...ReviewItemPart
+			}
+			collections {
+				...CollectionToEntityDetailsPart
+			}
 		}
 	}
 }
 
 query UserWorkoutDetails($workoutId: String!) {
 	userWorkoutDetails(workoutId: $workoutId) {
-		metadataConsumed
-		collections {
-			...CollectionToEntityDetailsPart
-		}
-		details {
-			id
-			name
-			endTime
-			duration
-			startTime
-			templateId
-			repeatedFrom
-			caloriesBurnt
-			summary {
-				...WorkoutSummaryPart
+		response {
+			metadataConsumed
+			collections {
+				...CollectionToEntityDetailsPart
 			}
-			information {
-				...WorkoutInformationPart
+			details {
+				id
+				name
+				endTime
+				duration
+				startTime
+				templateId
+				repeatedFrom
+				caloriesBurnt
+				summary {
+					...WorkoutSummaryPart
+				}
+				information {
+					...WorkoutInformationPart
+				}
 			}
 		}
 	}
@@ -440,18 +442,20 @@ query UserWorkoutsList($input: UserTemplatesOrWorkoutsListInput!) {
 
 query UserWorkoutTemplateDetails($workoutTemplateId: String!) {
 	userWorkoutTemplateDetails(workoutTemplateId: $workoutTemplateId) {
-		collections {
-			...CollectionToEntityDetailsPart
-		}
-		details {
-			id
-			name
-			createdOn
-			summary {
-				...WorkoutSummaryPart
+		response {
+			collections {
+				...CollectionToEntityDetailsPart
 			}
-			information {
-				...WorkoutInformationPart
+			details {
+				id
+				name
+				createdOn
+				summary {
+					...WorkoutSummaryPart
+				}
+				information {
+					...WorkoutInformationPart
+				}
 			}
 		}
 	}
@@ -471,7 +475,6 @@ query UserWorkoutTemplatesList($input: UserTemplatesOrWorkoutsListInput!) {
 
 query UserAnalyticsParameters {
 	userAnalyticsParameters {
-		cacheId
 		response {
 			endDate
 			startDate
@@ -494,7 +497,6 @@ query CollectionRecommendations($input: CollectionRecommendationsInput!) {
 
 query MetadataLookup($title: String!) {
 	metadataLookup(title: $title) {
-		cacheId
 		response {
 			... on MetadataLookupFoundResult {
 				data {
@@ -510,6 +512,30 @@ query MetadataLookup($title: String!) {
 			... on MetadataLookupNotFound {
 				notFound
 			}
+		}
+	}
+}
+
+query UserEntityRecentlyConsumed($input: EntityWithLotInput!) {
+	userEntityRecentlyConsumed(input: $input)
+}
+
+query MediaTranslations($input: EntityWithLotInput!) {
+	mediaTranslations(input: $input) {
+		response {
+			title
+			image
+			description
+		}
+	}
+}
+
+query FilterPresets($input: FilterPresetQueryInput!) {
+	filterPresets(input: $input) {
+		response {
+			id
+			name
+			filters
 		}
 	}
 }

@@ -1,7 +1,5 @@
 import {
 	ActionIcon,
-	Box,
-	Button,
 	Checkbox,
 	Container,
 	Divider,
@@ -14,11 +12,10 @@ import {
 	Text,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
-import { useDisclosure } from "@mantine/hooks";
 import {
 	EntityLot,
+	FilterPresetContextType,
 	GraphqlSortOrder,
-	type MediaCollectionFilter,
 	MediaGeneralFilter,
 	MediaLot,
 	MediaSortBy,
@@ -34,81 +31,96 @@ import {
 	IconCheck,
 	IconFilter,
 	IconListCheck,
-	IconPhotoPlus,
 	IconSearch,
-	IconSortAscending,
-	IconSortDescending,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import {
+	type inferParserType,
+	parseAsArrayOf,
+	parseAsBoolean,
+	parseAsInteger,
+	parseAsString,
+	parseAsStringEnum,
+} from "nuqs";
 import { useMemo } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
-import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
-	BulkCollectionEditingAffix,
+	CreateButton,
 	DisplayListDetailsAndRefresh,
 	ProRequiredAlert,
 	SkeletonLoader,
 } from "~/components/common";
+import { BulkCollectionEditingAffix } from "~/components/common/bulk-collection-editing-affix";
+import {
+	FilterPresetBar,
+	FilterPresetModalManager,
+} from "~/components/common/filter-presets";
 import {
 	CollectionsFilter,
 	DebouncedSearchInput,
 	FiltersModal,
+	SortOrderToggle,
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
+import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
+import { useFilterModals } from "~/lib/hooks/filters/use-modals";
+import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
+import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
-import { useCoreDetails } from "~/lib/shared/hooks";
+import { useCoreDetails, useUserMetadataList } from "~/lib/shared/hooks";
 import { getLot } from "~/lib/shared/media-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
-import {
-	convertEnumToSelectData,
-	isFilterChanged,
-} from "~/lib/shared/ui-utils";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import { parseAsCollectionsFilter } from "~/lib/shared/validation";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
-	OnboardingTourStepTargets,
+	OnboardingTourStepTarget,
 	TOUR_METADATA_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
-import { ApplicationTimeRange, type FilterUpdateFunction } from "~/lib/types";
+import { ApplicationTimeRange } from "~/lib/types";
 
-interface ListFilterState {
-	page: number;
-	query: string;
-	sortBy: MediaSortBy;
-	endDateRange?: string;
-	startDateRange?: string;
-	sortOrder: GraphqlSortOrder;
-	dateRange: ApplicationTimeRange;
-	generalFilter: MediaGeneralFilter;
-	collections: MediaCollectionFilter[];
-}
-
-interface SearchFilterState {
-	page: number;
-	query: string;
-	source: MediaSource;
-	igdbThemeIds?: string[];
-	igdbGenreIds?: string[];
-	igdbPlatformIds?: string[];
-	igdbGameModeIds?: string[];
-	igdbGameTypeIds?: string[];
-	googleBooksPassRawQuery?: boolean;
-	igdbAllowGamesWithParent?: boolean;
-	igdbReleaseDateRegionIds?: string[];
-}
-
-const defaultListFilters: ListFilterState = {
-	page: 1,
-	query: "",
-	collections: [],
-	sortBy: MediaSortBy.LastUpdated,
-	sortOrder: GraphqlSortOrder.Desc,
-	generalFilter: MediaGeneralFilter.All,
-	dateRange: ApplicationTimeRange.AllTime,
+const defaultListQueryState = {
+	page: parseAsInteger.withDefault(1),
+	query: parseAsString.withDefault(""),
+	collections: parseAsCollectionsFilter.withDefault([]),
+	endDateRange: parseAsString.withDefault(""),
+	startDateRange: parseAsString.withDefault(""),
+	sortBy: parseAsStringEnum(Object.values(MediaSortBy)).withDefault(
+		MediaSortBy.LastUpdated,
+	),
+	generalFilter: parseAsStringEnum(
+		Object.values(MediaGeneralFilter),
+	).withDefault(MediaGeneralFilter.All),
+	sortOrder: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(
+		GraphqlSortOrder.Desc,
+	),
+	dateRange: parseAsStringEnum(Object.values(ApplicationTimeRange)).withDefault(
+		ApplicationTimeRange.AllTime,
+	),
 };
+
+const baseSearchQueryState = {
+	page: parseAsInteger.withDefault(1),
+	query: parseAsString.withDefault(""),
+	googleBooksPassRawQuery: parseAsBoolean.withDefault(false),
+	igdbAllowGamesWithParent: parseAsBoolean.withDefault(false),
+	igdbThemeIds: parseAsArrayOf(parseAsString).withDefault([]),
+	igdbGenreIds: parseAsArrayOf(parseAsString).withDefault([]),
+	igdbPlatformIds: parseAsArrayOf(parseAsString).withDefault([]),
+	igdbGameModeIds: parseAsArrayOf(parseAsString).withDefault([]),
+	igdbGameTypeIds: parseAsArrayOf(parseAsString).withDefault([]),
+	igdbReleaseDateRegionIds: parseAsArrayOf(parseAsString).withDefault([]),
+	source: parseAsStringEnum(Object.values(MediaSource)).withDefault(
+		MediaSource.Tmdb,
+	),
+};
+
+type ListFilterState = inferParserType<typeof defaultListQueryState>;
+type SearchFilterState = inferParserType<typeof baseSearchQueryState>;
 
 export const meta = () => {
 	return [{ title: "Media | Ryot" }];
@@ -117,48 +129,68 @@ export const meta = () => {
 export default function Page(props: {
 	params: { action: string; lot: string };
 }) {
-	const action = props.params.action;
-	const lot = getLot(props.params.lot) as MediaLot;
-	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
-	const [
-		filtersModalOpened,
-		{ open: openFiltersModal, close: closeFiltersModal },
-	] = useDisclosure(false);
-	const [
-		searchFiltersModalOpened,
-		{ open: openSearchFiltersModal, close: closeSearchFiltersModal },
-	] = useDisclosure(false);
+	const action = props.params.action;
+	const coreDetails = useCoreDetails();
+	const listModals = useFilterModals();
+	const searchModals = useFilterModals();
+	const lot = getLot(props.params.lot) as MediaLot;
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const metadataLotSourceMapping = coreDetails.metadataLotSourceMappings.find(
 		(m) => m.lot === lot,
 	);
 
-	const [listFilters, setListFilters] = useLocalStorage<ListFilterState>(
-		`MediaListFilters_${lot}`,
-		defaultListFilters,
+	const searchQueryState = useMemo(
+		() => ({
+			...baseSearchQueryState,
+			source: parseAsStringEnum(Object.values(MediaSource)).withDefault(
+				metadataLotSourceMapping?.sources[0] || MediaSource.Tmdb,
+			),
+		}),
+		[metadataLotSourceMapping],
 	);
-	const defaultSearchFilters: SearchFilterState = {
-		page: 1,
-		query: "",
-		source: metadataLotSourceMapping?.sources[0] || MediaSource.Tmdb,
-	};
-	const [searchFilters, setSearchFilters] = useLocalStorage<SearchFilterState>(
-		`MediaSearchFilters_${lot}`,
-		defaultSearchFilters,
-	);
+
+	const {
+		filters: listFilters,
+		resetFilters: resetListFilters,
+		updateFilters: updateListFilters,
+		haveFiltersChanged: haveListFiltersChanged,
+	} = useFiltersState(defaultListQueryState);
+
+	const {
+		filters: searchFilters,
+		resetFilters: resetSearchFilters,
+		updateFilters: updateSearchFilters,
+		haveFiltersChanged: haveSearchFiltersChanged,
+	} = useFiltersState(searchQueryState);
+
+	const listPresets = useFilterPresets({
+		filters: listFilters,
+		enabled: action === "list",
+		contextInformation: { lot },
+		updateFilters: updateListFilters,
+		contextType: FilterPresetContextType.MetadataList,
+	});
+
+	const searchPresets = useFilterPresets({
+		filters: searchFilters,
+		contextInformation: { lot },
+		enabled: action === "search",
+		updateFilters: updateSearchFilters,
+		contextType: FilterPresetContextType.MetadataSearch,
+	});
 
 	const listInput: UserMetadataListInput = useMemo(
 		() => ({
 			lot,
 			search: { page: listFilters.page, query: listFilters.query },
-			sort: { order: listFilters.sortOrder, by: listFilters.sortBy },
+			sort: { by: listFilters.sortBy, order: listFilters.sortOrder },
 			filter: {
 				general: listFilters.generalFilter,
 				collections: listFilters.collections,
 				dateRange: {
-					endDate: listFilters.endDateRange,
-					startDate: listFilters.startDateRange,
+					endDate: listFilters.endDateRange || undefined,
+					startDate: listFilters.startDateRange || undefined,
 				},
 			},
 		}),
@@ -171,16 +203,37 @@ export default function Page(props: {
 			source: searchFilters.source,
 			search: { page: searchFilters.page, query: searchFilters.query },
 			sourceSpecifics: {
-				googleBooks: { passRawQuery: searchFilters.googleBooksPassRawQuery },
+				googleBooks: {
+					passRawQuery: searchFilters.googleBooksPassRawQuery || undefined,
+				},
 				igdb: {
 					filters: {
-						themeIds: searchFilters.igdbThemeIds,
-						genreIds: searchFilters.igdbGenreIds,
-						platformIds: searchFilters.igdbPlatformIds,
-						gameModeIds: searchFilters.igdbGameModeIds,
-						gameTypeIds: searchFilters.igdbGameTypeIds,
-						releaseDateRegionIds: searchFilters.igdbReleaseDateRegionIds,
-						allowGamesWithParent: searchFilters.igdbAllowGamesWithParent,
+						themeIds:
+							searchFilters.igdbThemeIds.length > 0
+								? searchFilters.igdbThemeIds
+								: undefined,
+						genreIds:
+							searchFilters.igdbGenreIds.length > 0
+								? searchFilters.igdbGenreIds
+								: undefined,
+						platformIds:
+							searchFilters.igdbPlatformIds.length > 0
+								? searchFilters.igdbPlatformIds
+								: undefined,
+						gameModeIds:
+							searchFilters.igdbGameModeIds.length > 0
+								? searchFilters.igdbGameModeIds
+								: undefined,
+						gameTypeIds:
+							searchFilters.igdbGameTypeIds.length > 0
+								? searchFilters.igdbGameTypeIds
+								: undefined,
+						releaseDateRegionIds:
+							searchFilters.igdbReleaseDateRegionIds.length > 0
+								? searchFilters.igdbReleaseDateRegionIds
+								: undefined,
+						allowGamesWithParent:
+							searchFilters.igdbAllowGamesWithParent || undefined,
 					},
 				},
 			},
@@ -188,16 +241,8 @@ export default function Page(props: {
 		[lot, searchFilters],
 	);
 
-	const { data: userMetadataList, refetch: refetchUserMetadataList } = useQuery(
-		{
-			enabled: action === "list",
-			queryKey: queryFactory.media.userMetadataList(listInput).queryKey,
-			queryFn: () =>
-				clientGqlService
-					.request(UserMetadataListDocument, { input: listInput })
-					.then((data) => data.userMetadataList),
-		},
-	);
+	const { data: userMetadataList, refetch: refetchUserMetadataList } =
+		useUserMetadataList(listInput, action === "list");
 
 	const { data: metadataSearch } = useQuery({
 		enabled: action === "search",
@@ -208,22 +253,22 @@ export default function Page(props: {
 				.then((data) => data.metadataSearch),
 	});
 
-	const areListFiltersActive = isFilterChanged(listFilters, defaultListFilters);
-
-	const updateListFilters: FilterUpdateFunction<ListFilterState> = (
-		key,
-		value,
-	) => setListFilters((prev) => ({ ...prev, [key]: value }));
-
-	const updateSearchFilters: FilterUpdateFunction<SearchFilterState> = (
-		key,
-		value,
-	) => setSearchFilters((prev) => ({ ...prev, [key]: value }));
-
 	const isEligibleForNextTourStep = lot === MediaLot.AudioBook;
 
 	return (
 		<>
+			<FilterPresetModalManager
+				presetManager={listPresets}
+				placeholder="e.g., Unfinished Books"
+				opened={listModals.presetModal.opened}
+				onClose={listModals.presetModal.close}
+			/>
+			<FilterPresetModalManager
+				presetManager={searchPresets}
+				placeholder="e.g., RPG Games on PS5"
+				opened={searchModals.presetModal.opened}
+				onClose={searchModals.presetModal.close}
+			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
 					if (action !== "list") return [];
@@ -242,8 +287,8 @@ export default function Page(props: {
 			<Container>
 				<Tabs
 					mt="sm"
-					variant="default"
 					value={action}
+					variant="default"
 					onChange={(v) => {
 						if (v) {
 							navigate(
@@ -252,9 +297,7 @@ export default function Page(props: {
 									lot: lot.toLowerCase(),
 								}),
 							);
-							if (v === "search") {
-								advanceOnboardingTourStep();
-							}
+							if (v === "search") advanceOnboardingTourStep();
 						}
 					}}
 				>
@@ -265,24 +308,17 @@ export default function Page(props: {
 						<Tabs.Tab
 							value="search"
 							leftSection={<IconSearch size={24} />}
-							className={OnboardingTourStepTargets.GoToAudiobooksSection}
+							className={OnboardingTourStepTarget.GoToAudiobooksSection}
 						>
 							<Text>Search</Text>
 						</Tabs.Tab>
-						<Box ml="auto" visibleFrom="md">
-							<Button
-								component={Link}
-								variant="transparent"
-								leftSection={<IconPhotoPlus />}
-								to={$path(
-									"/media/update/:action",
-									{ action: "create" },
-									{ lot },
-								)}
-							>
-								Create
-							</Button>
-						</Box>
+						<CreateButton
+							to={$path(
+								"/media/item/update/:action",
+								{ action: "create" },
+								{ lot },
+							)}
+						/>
 					</Tabs.List>
 				</Tabs>
 
@@ -293,32 +329,33 @@ export default function Page(props: {
 								<Group wrap="nowrap">
 									<DebouncedSearchInput
 										value={listFilters.query}
+										onChange={(value) => updateListFilters({ query: value })}
 										placeholder={`Sift through your ${changeCase(
 											lot.toLowerCase(),
 										).toLowerCase()}s`}
-										onChange={(value) => {
-											updateListFilters("query", value);
-											updateListFilters("page", 1);
-										}}
 									/>
 									<ActionIcon
-										onClick={openFiltersModal}
-										color={areListFiltersActive ? "blue" : "gray"}
+										onClick={listModals.filtersModal.open}
+										color={haveListFiltersChanged ? "blue" : "gray"}
 									>
 										<IconFilter size={24} />
 									</ActionIcon>
 									<FiltersModal
-										opened={filtersModalOpened}
-										closeFiltersModal={closeFiltersModal}
-										resetFilters={() => setListFilters(defaultListFilters)}
+										resetFilters={resetListFilters}
+										opened={listModals.filtersModal.opened}
+										onSavePreset={listModals.presetModal.open}
+										closeFiltersModal={listModals.filtersModal.close}
 									>
 										<FiltersModalForm
 											lot={lot}
 											filters={listFilters}
-											onFiltersChange={updateListFilters}
+											onFiltersChange={(key, value) =>
+												updateListFilters({ [key]: value })
+											}
 										/>
 									</FiltersModal>
 								</Group>
+								<FilterPresetBar presetManager={listPresets} />
 								<DisplayListDetailsAndRefresh
 									cacheId={userMetadataList.cacheId}
 									onRefreshButtonClicked={refetchUserMetadataList}
@@ -332,7 +369,7 @@ export default function Page(props: {
 									<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
 								) : userMetadataList.response.details.totalItems > 0 ? (
 									<ApplicationGrid
-										className={OnboardingTourStepTargets.ShowAudiobooksListPage}
+										className={OnboardingTourStepTarget.ShowAudiobooksListPage}
 									>
 										{userMetadataList.response.items.map((item) => (
 											<MediaListItem key={item} item={item} />
@@ -343,7 +380,7 @@ export default function Page(props: {
 								)}
 								<ApplicationPagination
 									value={listFilters.page}
-									onChange={(v) => updateListFilters("page", v)}
+									onChange={(page) => updateListFilters({ page })}
 									totalItems={userMetadataList.response.details.totalItems}
 								/>
 							</>
@@ -354,22 +391,18 @@ export default function Page(props: {
 					{action === "search" ? (
 						metadataSearch ? (
 							<>
-								<Flex gap="xs" direction={{ base: "column", md: "row" }}>
+								<Group wrap="nowrap">
 									<DebouncedSearchInput
 										value={searchFilters.query}
+										onChange={(value) => updateSearchFilters({ query: value })}
 										placeholder={`Search for ${changeCase(
 											lot.toLowerCase(),
 										).toLowerCase()}s`}
-										onChange={(value) => {
-											updateSearchFilters("query", value);
-											updateSearchFilters("page", 1);
-										}}
 										tourControl={{
-											target: OnboardingTourStepTargets.SearchAudiobook,
+											target: OnboardingTourStepTarget.SearchAudiobook,
 											onQueryChange: (query) => {
-												if (query === TOUR_METADATA_TARGET_ID.toLowerCase()) {
-													advanceOnboardingTourStep();
-												}
+												if (query === TOUR_METADATA_TARGET_ID)
+													advanceOnboardingTourStep({ increaseWaitBy: 2000 });
 											},
 										}}
 									/>
@@ -378,7 +411,7 @@ export default function Page(props: {
 											<Select
 												value={searchFilters.source}
 												onChange={(v) =>
-													v && updateSearchFilters("source", v as MediaSource)
+													v && updateSearchFilters({ source: v as MediaSource })
 												}
 												data={metadataLotSourceMapping?.sources.map((o) => ({
 													value: o,
@@ -386,31 +419,33 @@ export default function Page(props: {
 												}))}
 											/>
 										) : null}
-										<ActionIcon onClick={openSearchFiltersModal} color="gray">
+										<ActionIcon
+											onClick={searchModals.filtersModal.open}
+											color={haveSearchFiltersChanged ? "blue" : "gray"}
+										>
 											<IconFilter size={24} />
 										</ActionIcon>
 										<FiltersModal
-											opened={searchFiltersModalOpened}
-											closeFiltersModal={closeSearchFiltersModal}
-											resetFilters={() =>
-												setSearchFilters(defaultSearchFilters)
-											}
+											resetFilters={resetSearchFilters}
+											opened={searchModals.filtersModal.opened}
+											onSavePreset={searchModals.presetModal.open}
+											closeFiltersModal={searchModals.filtersModal.close}
 										>
 											<SearchFiltersModalForm
 												filters={searchFilters}
-												onFiltersChange={updateSearchFilters}
+												onFiltersChange={(key, value) =>
+													updateSearchFilters({ [key]: value })
+												}
 											/>
 										</FiltersModal>
 									</Group>
-								</Flex>
+								</Group>
+								<FilterPresetBar presetManager={searchPresets} />
 								{metadataSearch.response.details.totalItems > 0 ? (
 									<>
-										<Box>
-											<Text display="inline" fw="bold">
-												{metadataSearch.response.details.totalItems}
-											</Text>{" "}
-											items found
-										</Box>
+										<DisplayListDetailsAndRefresh
+											total={metadataSearch.response.details.totalItems}
+										/>
 										<ApplicationGrid>
 											{metadataSearch.response.items.map((b, index) => (
 												<MediaSearchItem
@@ -427,7 +462,7 @@ export default function Page(props: {
 								)}
 								<ApplicationPagination
 									value={searchFilters.page}
-									onChange={(v) => updateSearchFilters("page", v)}
+									onChange={(page) => updateSearchFilters({ page })}
 									totalItems={metadataSearch.response.details.totalItems}
 								/>
 							</>
@@ -448,20 +483,16 @@ const MediaSearchItem = (props: {
 }) => {
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
-	const tourControlTwo = props.isFirstItem
-		? OnboardingTourStepTargets.OpenMetadataProgressForm
-		: undefined;
-
 	const tourControlThree = props.isFirstItem
-		? OnboardingTourStepTargets.GoToAudiobooksSectionAgain
+		? OnboardingTourStepTarget.GoToAudiobooksSectionAgain
 		: undefined;
 
 	return (
 		<MetadataDisplayItem
 			metadataId={props.item}
+			isFirstItem={props.isFirstItem}
 			shouldHighlightNameIfInteracted
-			bottomRightImageOverlayClassName={tourControlTwo}
-			imageClassName={OnboardingTourStepTargets.GoToAudiobooksSectionAgain}
+			imageClassName={OnboardingTourStepTarget.GoToAudiobooksSectionAgain}
 			onImageClickBehavior={async () => {
 				if (tourControlThree) advanceOnboardingTourStep();
 			}}
@@ -501,19 +532,12 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 						},
 					]}
 				/>
-				<ActionIcon
-					onClick={() => {
-						if (filters.sortOrder === GraphqlSortOrder.Asc)
-							onFiltersChange("sortOrder", GraphqlSortOrder.Desc);
-						else onFiltersChange("sortOrder", GraphqlSortOrder.Asc);
-					}}
-				>
-					{filters.sortOrder === GraphqlSortOrder.Asc ? (
-						<IconSortAscending />
-					) : (
-						<IconSortDescending />
-					)}
-				</ActionIcon>
+				{filters.sortBy !== MediaSortBy.Random ? (
+					<SortOrderToggle
+						currentOrder={filters.sortOrder}
+						onOrderChange={(order) => onFiltersChange("sortOrder", order)}
+					/>
+				) : null}
 			</Flex>
 			<Divider />
 			<CollectionsFilter
@@ -613,16 +637,12 @@ const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => {
 	const { filters, onFiltersChange } = props;
 	const coreDetails = useCoreDetails();
 
-	const handleIgdbFilterChange = (key: string, value: string[] | null) => {
-		onFiltersChange(key as keyof SearchFilterState, value);
-	};
-
 	return (
 		<Stack gap="xs">
 			{filters.source === MediaSource.GoogleBooks ? (
 				<Checkbox
 					label="Pass raw query"
-					checked={filters.googleBooksPassRawQuery || false}
+					checked={filters.googleBooksPassRawQuery}
 					onChange={(e) =>
 						onFiltersChange("googleBooksPassRawQuery", e.target.checked)
 					}
@@ -634,46 +654,58 @@ const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => {
 						valueKey="igdbThemeIds"
 						value={filters.igdbThemeIds}
 						data={coreDetails.providerSpecifics.igdb.themes}
-						onChange={handleIgdbFilterChange}
+						onChange={(key, value) =>
+							onFiltersChange(key as keyof SearchFilterState, value || [])
+						}
 					/>
 					<IgdbMultiselect
 						label="Select genres"
 						valueKey="igdbGenreIds"
 						value={filters.igdbGenreIds}
 						data={coreDetails.providerSpecifics.igdb.genres}
-						onChange={handleIgdbFilterChange}
+						onChange={(key, value) =>
+							onFiltersChange(key as keyof SearchFilterState, value || [])
+						}
 					/>
 					<IgdbMultiselect
 						label="Select platforms"
 						valueKey="igdbPlatformIds"
 						value={filters.igdbPlatformIds}
 						data={coreDetails.providerSpecifics.igdb.platforms}
-						onChange={handleIgdbFilterChange}
+						onChange={(key, value) =>
+							onFiltersChange(key as keyof SearchFilterState, value || [])
+						}
 					/>
 					<IgdbMultiselect
 						label="Select game types"
 						valueKey="igdbGameTypeIds"
 						value={filters.igdbGameTypeIds}
 						data={coreDetails.providerSpecifics.igdb.gameTypes}
-						onChange={handleIgdbFilterChange}
+						onChange={(key, value) =>
+							onFiltersChange(key as keyof SearchFilterState, value || [])
+						}
 					/>
 					<IgdbMultiselect
 						label="Select game modes"
 						valueKey="igdbGameModeIds"
 						value={filters.igdbGameModeIds}
 						data={coreDetails.providerSpecifics.igdb.gameModes}
-						onChange={handleIgdbFilterChange}
+						onChange={(key, value) =>
+							onFiltersChange(key as keyof SearchFilterState, value || [])
+						}
 					/>
 					<IgdbMultiselect
 						label="Select release regions"
 						valueKey="igdbReleaseDateRegionIds"
 						value={filters.igdbReleaseDateRegionIds}
 						data={coreDetails.providerSpecifics.igdb.releaseDateRegions}
-						onChange={handleIgdbFilterChange}
+						onChange={(key, value) =>
+							onFiltersChange(key as keyof SearchFilterState, value || [])
+						}
 					/>
 					<Checkbox
 						label="Allow games with parent"
-						checked={filters.igdbAllowGamesWithParent || false}
+						checked={filters.igdbAllowGamesWithParent}
 						onChange={(e) =>
 							onFiltersChange("igdbAllowGamesWithParent", e.target.checked)
 						}
@@ -700,9 +732,8 @@ const MediaListItem = (props: MediaListItemProps) => {
 
 	return (
 		<MetadataDisplayItem
-			rightLabelHistory
 			metadataId={props.item}
-			topRight={
+			centerElement={
 				bulkEditingState &&
 				bulkEditingState.data.action === "add" &&
 				!isAlreadyPresent ? (

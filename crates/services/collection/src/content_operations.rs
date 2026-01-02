@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use anyhow::{Result, bail};
 use application_utils::graphql_to_db_order;
-use common_models::{SearchDetails, UserLevelCacheKey};
+use common_models::{EntityWithLot, SearchDetails, UserLevelCacheKey};
 use database_models::{
-    collection_to_entity,
+    collection_to_entity, exercise, metadata, metadata_group, person,
     prelude::{Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, Workout},
 };
 use database_utils::{apply_columns_search, extract_pagination_params, item_reviews, user_by_id};
@@ -13,8 +13,7 @@ use dependent_models::{
     CollectionContents, CollectionContentsInput, CollectionContentsResponse, SearchResults,
 };
 use enum_models::EntityLot;
-use media_models::{CollectionContentsSortBy, EntityWithLot};
-use migrations_sql::{AliasedExercise, AliasedMetadata, AliasedMetadataGroup, AliasedPerson};
+use media_models::CollectionContentsSortBy;
 use sea_orm::{
     ColumnTrait, EntityTrait, ItemsAndPagesNumber, PaginatorTrait, QueryFilter, QueryOrder,
     QueryTrait,
@@ -57,17 +56,17 @@ pub async fn collection_contents(
                         &v,
                         query,
                         [
-                            Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)),
-                            Expr::col((AliasedMetadataGroup::Table, AliasedMetadataGroup::Title)),
-                            Expr::col((AliasedPerson::Table, AliasedPerson::Name)),
-                            Expr::col((AliasedExercise::Table, AliasedExercise::Id)),
+                            Expr::col((metadata::Entity, metadata::Column::Title)),
+                            Expr::col((metadata_group::Entity, metadata_group::Column::Title)),
+                            Expr::col((person::Entity, person::Column::Name)),
+                            Expr::col((exercise::Entity, exercise::Column::Id)),
                         ],
                     )
                 })
                 .apply_if(filter.metadata_lot, |query, v| {
                     query.filter(
                         Condition::any()
-                            .add(Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)).eq(v)),
+                            .add(Expr::col((metadata::Entity, metadata::Column::Lot)).eq(v)),
                     )
                 })
                 .apply_if(filter.entity_lot, |query, v| {
@@ -93,16 +92,15 @@ pub async fn collection_contents(
                             Expr::col(collection_to_entity::Column::LastUpdatedOn)
                         }
                         CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
-                            Expr::col((AliasedMetadata::Table, AliasedMetadata::PublishDate))
-                                .into(),
-                            Expr::col((AliasedPerson::Table, AliasedPerson::BirthDate)).into(),
+                            Expr::col((metadata::Entity, metadata::Column::PublishDate)).into(),
+                            Expr::col((person::Entity, person::Column::BirthDate)).into(),
                         ])),
                         CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
-                            Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)).into(),
-                            Expr::col((AliasedMetadataGroup::Table, AliasedMetadataGroup::Title))
+                            Expr::col((metadata::Entity, metadata::Column::Title)).into(),
+                            Expr::col((metadata_group::Entity, metadata_group::Column::Title))
                                 .into(),
-                            Expr::col((AliasedPerson::Table, AliasedPerson::Name)).into(),
-                            Expr::col((AliasedExercise::Table, AliasedExercise::Id)).into(),
+                            Expr::col((person::Entity, person::Column::Name)).into(),
+                            Expr::col((exercise::Entity, exercise::Column::Id)).into(),
                         ])),
                     },
                     graphql_to_db_order(sort.order),

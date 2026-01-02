@@ -1,7 +1,9 @@
+use std::collections::HashSet;
+
 use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
 use enum_meta::{Meta, meta};
-use enum_models::{EntityLot, MediaLot, MediaSource};
+use enum_models::{EntityLot, FilterPresetContextType, MediaLot, MediaSource};
 use schematic::{ConfigEnum, Schematic};
 use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc, sea_query::PgDateTruncUnit};
 use serde::{Deserialize, Serialize};
@@ -52,6 +54,15 @@ pub struct IdAndNamedObject {
 pub struct StringIdAndNamedObject {
     pub id: String,
     pub name: String,
+}
+
+#[derive(
+    Debug, InputObject, Hash, PartialEq, Eq, Default, SimpleObject, Serialize, Deserialize, Clone,
+)]
+#[graphql(input_name = "EntityWithLotInput")]
+pub struct EntityWithLot {
+    pub entity_id: String,
+    pub entity_lot: EntityLot,
 }
 
 #[derive(
@@ -125,6 +136,26 @@ pub struct EntityAssets {
     pub remote_videos: Vec<EntityRemoteVideo>,
 }
 
+impl EntityAssets {
+    pub fn removed_s3_objects(&self, updated: &EntityAssets) -> (Vec<String>, Vec<String>) {
+        let new_image_keys: HashSet<&String> = updated.s3_images.iter().collect();
+        let images_to_delete = self
+            .s3_images
+            .iter()
+            .filter(|image| !new_image_keys.contains(image))
+            .cloned()
+            .collect();
+        let new_video_keys: HashSet<&String> = updated.s3_videos.iter().collect();
+        let videos_to_delete = self
+            .s3_videos
+            .iter()
+            .filter(|video| !new_video_keys.contains(video))
+            .cloned()
+            .collect();
+        (images_to_delete, videos_to_delete)
+    }
+}
+
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Enum, ConfigEnum)]
 pub enum CollectionExtraInformationLot {
     Date,
@@ -136,6 +167,7 @@ pub enum CollectionExtraInformationLot {
     StringArray,
 }
 
+#[skip_serializing_none]
 #[derive(
     Eq,
     Clone,
@@ -144,11 +176,12 @@ pub enum CollectionExtraInformationLot {
     PartialEq,
     Serialize,
     Schematic,
+    InputObject,
     Deserialize,
     SimpleObject,
-    InputObject,
     FromJsonQueryResult,
 )]
+#[serde(rename_all = "snake_case")]
 #[graphql(input_name = "CollectionExtraInformationInput")]
 pub struct CollectionExtraInformation {
     pub name: String,
@@ -235,10 +268,11 @@ pub struct NamedObject {
     pub name: String,
 }
 
+#[skip_serializing_none]
 #[derive(
     Eq,
-    Clone,
     Hash,
+    Clone,
     Debug,
     Default,
     PartialEq,
@@ -278,6 +312,15 @@ pub struct ReorderCollectionEntityInput {
     pub entity_id: String,
     pub new_position: usize,
     pub collection_name: String,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, InputObject, Clone, Serialize, Deserialize)]
+pub struct CreateFilterPresetInput {
+    pub name: String,
+    pub filters: serde_json::Value,
+    pub context_type: FilterPresetContextType,
+    pub context_information: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -401,15 +444,9 @@ pub struct UserLevelCacheKey<T> {
 
 #[skip_serializing_none]
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MetadataRecentlyConsumedCacheInput {
-    pub entity_id: String,
-    pub entity_lot: EntityLot,
-}
-
-#[skip_serializing_none]
-#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MetadataLookupCacheInput {
     pub title: String,
+    pub language: Option<String>,
 }
 
 #[skip_serializing_none]
@@ -432,6 +469,7 @@ pub struct YoutubeMusicSongListened {
     SimpleObject,
     FromJsonQueryResult,
 )]
+#[serde(rename_all = "snake_case")]
 #[graphql(input_name = "UserToCollectionExtraInformationInput")]
 pub struct UserToCollectionExtraInformation {
     pub is_hidden: Option<bool>,
@@ -441,4 +479,11 @@ pub struct UserToCollectionExtraInformation {
 pub struct PresignedPutUrlResponse {
     pub key: String,
     pub upload_url: String,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize, InputObject)]
+pub struct FilterPresetQueryInput {
+    pub context_type: FilterPresetContextType,
+    pub context_information: Option<serde_json::Value>,
 }

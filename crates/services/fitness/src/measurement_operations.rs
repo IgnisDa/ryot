@@ -1,8 +1,9 @@
+use std::sync::Arc;
+
 use anyhow::{Result, anyhow};
 use database_models::prelude::UserMeasurement;
 use dependent_utility_utils::expire_user_measurements_list_cache;
 use sea_orm::{EntityTrait, ModelTrait, prelude::DateTimeUtc};
-use std::sync::Arc;
 use supporting_service::SupportingService;
 
 pub async fn delete_user_measurement(

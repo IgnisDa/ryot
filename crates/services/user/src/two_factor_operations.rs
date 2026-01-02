@@ -8,10 +8,7 @@ use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit, OsRng as AeadOsRng},
 };
 use anyhow::{Result, anyhow, bail};
-use argon2::{
-    Argon2, PasswordHash, PasswordHasher, PasswordVerifier,
-    password_hash::{SaltString, rand_core::OsRng},
-};
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_hash::SaltString};
 use chrono::Utc;
 use common_models::UserLevelCacheKey;
 use common_utils::TWO_FACTOR_BACKUP_CODES_COUNT;
@@ -26,7 +23,7 @@ use media_models::{
     UserTwoFactorSetupInput, UserTwoFactorVerifyInput, UserTwoFactorVerifyMethod,
     VerifyTwoFactorError, VerifyTwoFactorErrorVariant, VerifyTwoFactorResult,
 };
-use rand::TryRngCore;
+use rand::{TryRngCore, rngs::OsRng};
 use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
 use subtle::ConstantTimeEq;
 use supporting_service::SupportingService;
@@ -347,7 +344,7 @@ fn decrypt_totp_secret(encrypted_secret: &str, key: &str) -> Result<String> {
 }
 
 fn hash_backup_code(code: &str) -> String {
-    let salt = SaltString::try_from_rng(&mut OsRng).unwrap();
+    let salt = SaltString::generate();
     Argon2::default()
         .hash_password(code.as_bytes(), &salt)
         .unwrap()

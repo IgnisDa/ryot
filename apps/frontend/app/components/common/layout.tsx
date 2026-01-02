@@ -14,22 +14,15 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import {
-	type EntityAssets,
-	type EntityLot,
-	GridPacking,
-	type MediaLot,
-	type MediaSource,
+import type {
+	EntityAssets,
+	MediaLot,
+	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconExternalLink } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
-import { match } from "ts-pattern";
-import {
-	useFallbackImageUrl,
-	usePartialStatusMonitor,
-	useUserPreferences,
-} from "~/lib/shared/hooks";
+import { useFallbackImageUrl, useS3PresignedUrls } from "~/lib/shared/hooks";
 import {
 	getProviderSourceImage,
 	getSurroundingElements,
@@ -39,20 +32,16 @@ import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
 	className?: string;
-	children: ReactNode | Array<ReactNode>;
+	children: ReactNode;
 }) => {
-	const userPreferences = useUserPreferences();
 	const [parent] = useAutoAnimate();
 
 	return (
 		<SimpleGrid
-			spacing="lg"
 			ref={parent}
+			spacing="sm"
 			className={props.className}
-			cols={match(userPreferences.general.gridPacking)
-				.with(GridPacking.Normal, () => ({ base: 2, sm: 3, md: 4, lg: 5 }))
-				.with(GridPacking.Dense, () => ({ base: 3, sm: 4, md: 5, lg: 6 }))
-				.exhaustive()}
+			cols={{ base: 2, sm: 3, md: 5 }}
 		>
 			{props.children}
 		</SimpleGrid>
@@ -61,32 +50,25 @@ export const ApplicationGrid = (props: {
 
 export const MediaDetailsLayout = (props: {
 	title: string;
+	children: ReactNode;
 	assets: EntityAssets;
-	children: Array<ReactNode | (ReactNode | undefined)>;
+	extraImage?: string | null;
+	isPartialStatusActive: boolean;
 	externalLink: {
 		lot?: MediaLot;
 		source: MediaSource;
 		href?: string | null;
 	};
-	partialDetailsFetcher: {
-		entityId: string;
-		fn: () => unknown;
-		entityLot: EntityLot;
-		partialStatus?: boolean | null;
-	};
 }) => {
 	const [activeImageId, setActiveImageId] = useState(0);
 	const fallbackImageUrl = useFallbackImageUrl();
 
-	const { isPartialStatusActive } = usePartialStatusMonitor({
-		onUpdate: props.partialDetailsFetcher.fn,
-		externalLinkSource: props.externalLink.source,
-		entityId: props.partialDetailsFetcher.entityId,
-		entityLot: props.partialDetailsFetcher.entityLot,
-		partialStatus: props.partialDetailsFetcher.partialStatus,
-	});
-
-	const images = [...props.assets.remoteImages, ...props.assets.s3Images];
+	const s3PresignedUrls = useS3PresignedUrls(props.assets.s3Images);
+	const images = [
+		props.extraImage,
+		...props.assets.remoteImages,
+		...(s3PresignedUrls.data || []),
+	].filter(Boolean);
 
 	const providerImage = getProviderSourceImage(props.externalLink.source);
 
@@ -165,7 +147,7 @@ export const MediaDetailsLayout = (props: {
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
 				<Group wrap="nowrap">
-					{isPartialStatusActive ? <Loader size="sm" /> : null}
+					{props.isPartialStatusActive ? <Loader size="sm" /> : null}
 					<Title id="media-title">{props.title}</Title>
 				</Group>
 				{props.children}

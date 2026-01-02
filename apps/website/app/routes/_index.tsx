@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import TTLCache from "@isaacs/ttlcache";
+import { TTLCache } from "@isaacs/ttlcache";
 import ContactSubmissionEmail from "@ryot/transactional/emails/ContactSubmission";
 import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
 import {
@@ -25,7 +25,7 @@ import {
 	Zap,
 } from "lucide-react";
 import * as openidClient from "openid-client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
 	Form,
 	Link,
@@ -67,7 +67,11 @@ import {
 	serverVariables,
 	websiteAuthCookie,
 } from "~/lib/config.server";
-import { contactEmail, startUrl } from "~/lib/constants";
+import {
+	contactEmail,
+	initializePaddleForApplication,
+	startUrl,
+} from "~/lib/general";
 import {
 	getClientIp,
 	oauthConfig,
@@ -91,9 +95,16 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	return {
 		query,
 		prices,
+		isSandbox: !!serverVariables.PADDLE_SANDBOX,
+		clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
 		turnstileSiteKey: serverVariables.TURNSTILE_SITE_KEY,
 	};
 };
+
+export const headers = () => ({
+	"Cache-Control":
+		"public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+});
 
 const otpCodesCache = new TTLCache<string, string>({
 	ttl: dayjs.duration(5, "minutes").asMilliseconds(),
@@ -251,11 +262,17 @@ export default function Page() {
 	const [loginOtpTurnstileToken, setLoginOtpTurnstileToken] =
 		useState<string>("");
 
+	useEffect(() => {
+		initializePaddleForApplication(
+			loaderData.clientToken,
+			loaderData.isSandbox,
+		);
+	}, []);
+
 	return (
 		<>
-			{/* Hero Section */}
 			<section className="relative py-20 lg:py-32 overflow-hidden">
-				<div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+				<div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-accent/5" />
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
 					<div className="grid lg:grid-cols-2 gap-12 items-center">
 						<div className="max-w-2xl">
@@ -291,7 +308,7 @@ export default function Page() {
 							</div>
 						</div>
 						<div className="relative">
-							<div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 blur-3xl rounded-full" />
+							<div className="absolute inset-0 bg-linear-to-r from-primary/20 to-accent/20 blur-3xl rounded-full" />
 							<Image
 								src="/cta-image.png"
 								alt="Ryot Dashboard Interface showing media tracking capabilities"
@@ -301,7 +318,7 @@ export default function Page() {
 					</div>
 				</div>
 			</section>
-			{/* Features Section */}
+
 			<section className="py-20 bg-muted/30">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="text-center mb-16">
@@ -367,7 +384,7 @@ export default function Page() {
 					</div>
 				</div>
 			</section>
-			{/* Testimonials Section */}
+
 			<section className="py-20">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="text-center mb-16">
@@ -479,7 +496,7 @@ export default function Page() {
 					</div>
 				</div>
 			</section>
-			{/* Upgrade Section */}
+
 			<section id="start-here" className="py-20 bg-muted/30">
 				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
 					<Badge variant="outline" className="mb-4">
@@ -630,7 +647,7 @@ export default function Page() {
 				prices={loaderData.prices}
 				isLoggedIn={rootLoaderData?.isLoggedIn}
 			/>
-			{/* Contact Section */}
+
 			<section id="contact" className="py-20 bg-muted/30">
 				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="text-center mb-16">
@@ -721,7 +738,7 @@ export default function Page() {
 					)}
 				</div>
 			</section>
-			{/* Community Section */}
+
 			<section className="py-20">
 				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
 					<Badge variant="outline" className="mb-4">
@@ -740,7 +757,7 @@ export default function Page() {
 							target="_blank"
 							rel="noopener noreferrer"
 						>
-							<Button size="lg" className="min-w-[180px]">
+							<Button size="lg" className="min-w-45">
 								<MessageCircle className="w-5 h-5 mr-2" />
 								Join Discord
 							</Button>
@@ -750,7 +767,7 @@ export default function Page() {
 							target="_blank"
 							rel="noopener noreferrer"
 						>
-							<Button variant="outline" size="lg" className="min-w-[180px]">
+							<Button variant="outline" size="lg" className="min-w-45">
 								<Github className="w-5 h-5 mr-2" />
 								Follow on GitHub
 							</Button>
@@ -776,7 +793,7 @@ const Image = (props: ImageProps) => (
 		alt={props.alt}
 		className={cn(
 			props.className,
-			"mx-auto aspect-16/9 overflow-hidden rounded-xl object-cover",
+			"mx-auto aspect-video overflow-hidden rounded-xl object-cover",
 		)}
 	/>
 );

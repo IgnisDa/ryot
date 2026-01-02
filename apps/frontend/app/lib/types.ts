@@ -17,6 +17,18 @@ export enum ThreePointSmileyRating {
 	Sad = "Sad",
 }
 
+export const getThreePointSmileyEmoji = (
+	rating: ThreePointSmileyRating,
+): string => {
+	const emojiByRating = {
+		[ThreePointSmileyRating.Happy]: "😊",
+		[ThreePointSmileyRating.Neutral]: "😐",
+		[ThreePointSmileyRating.Sad]: "😞",
+	} satisfies Record<ThreePointSmileyRating, string>;
+
+	return emojiByRating[rating];
+};
+
 export enum FitnessAction {
 	LogWorkout = "log-workout",
 	UpdateWorkout = "update-workout",
@@ -61,8 +73,3 @@ export interface SendNotificationProps {
 export type TimestampToStringResult<T> = T extends Date | string
 	? string
 	: null;
-
-export type FilterUpdateFunction<T> = <K extends keyof T>(
-	key: K,
-	value: T[K] | null,
-) => void;

@@ -30,4 +30,4 @@ COPY --from=website-builder --chown=ryot:ryot /app/apps/website/node_modules ./n
 COPY --from=website-builder --chown=ryot:ryot /app/apps/website/package.json ./package.json
 COPY --from=website-builder --chown=ryot:ryot /app/apps/website/build ./build
 COPY --chown=ryot:ryot apps/website/app/drizzle/migrations app/drizzle/migrations
-CMD mkdir tmp && npx react-router-serve ./build/server/index.js
+CMD mkdir -p tmp && npx react-router-serve ./build/server/index.js

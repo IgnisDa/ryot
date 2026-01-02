@@ -6,8 +6,8 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 chrono = { workspace = true }
-itertools = { workspace = true }
 futures = { workspace = true }
+itertools = { workspace = true }
 markdown = { workspace = true }
 nanoid = { workspace = true }
 sea-orm = { workspace = true }
@@ -17,7 +17,6 @@ background-models = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { workspace = true }
-database-utils = { workspace = true }
 dependent-jobs-utils = { workspace = true }
 dependent-models = { workspace = true }
 dependent-provider-utils = { workspace = true }

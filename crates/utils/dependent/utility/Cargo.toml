@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 chrono = { workspace = true }
+futures = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 

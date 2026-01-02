@@ -1,4 +1,4 @@
-import { NumberInput, Progress, rem } from "@mantine/core";
+import { NumberInput, Progress, rem, useMantineTheme } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { produce } from "immer";
 import { type RefObject, useEffect, useRef } from "react";
@@ -62,17 +62,28 @@ export const DisplaySetRestTimer = (props: {
 	currentTimer: CurrentWorkoutTimer;
 }) => {
 	useForceUpdateEverySecond();
+	const theme = useMantineTheme();
+
+	const rawPercentage =
+		(dayjsLib(props.currentTimer.willEndAt).diff(dayjsLib(), "seconds") * 100) /
+		props.currentTimer.totalTime;
+	const progressPercentage = Math.max(0, Math.min(100, rawPercentage));
+
+	const getColorIndex = () => {
+		if (progressPercentage > 80) return 5;
+		if (progressPercentage > 60) return 6;
+		if (progressPercentage > 40) return 7;
+		if (progressPercentage > 20) return 8;
+		return 9;
+	};
 
 	return (
 		<Progress
 			onClick={props.onClick}
 			transitionDuration={300}
+			value={progressPercentage}
 			style={{ cursor: "pointer" }}
-			value={
-				(dayjsLib(props.currentTimer.willEndAt).diff(dayjsLib(), "seconds") *
-					100) /
-				props.currentTimer.totalTime
-			}
+			color={theme.colors.blue[getColorIndex()]}
 		/>
 	);
 };

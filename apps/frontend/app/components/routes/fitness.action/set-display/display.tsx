@@ -12,7 +12,10 @@ import {
 } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { SetLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	type ExerciseDurationUnit,
+	SetLot,
+} from "@ryot/generated/graphql/backend/graphql";
 import { isString, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconClipboard,
@@ -38,7 +41,7 @@ import {
 	useGetSetAtIndex,
 } from "~/lib/state/fitness";
 import {
-	OnboardingTourStepTargets,
+	OnboardingTourStepTarget,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
 import { StatInput } from "../stat-display-and-input";
@@ -63,6 +66,7 @@ export const SetDisplay = (props: {
 	isCreatingTemplate: boolean;
 	openTimerDrawer: () => void;
 	toBeDisplayedColumns: number;
+	durationUnit: ExerciseDurationUnit;
 }) => {
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
@@ -123,7 +127,7 @@ export const SetDisplay = (props: {
 								}}
 								className={clsx(
 									isOnboardingTourStep &&
-										OnboardingTourStepTargets.OpenSetMenuDetails,
+										OnboardingTourStepTarget.OpenSetMenuDetails,
 								)}
 							>
 								<Text mt={2} fw="bold" c={getSetColor(set.lot)} ta="center">
@@ -278,6 +282,7 @@ export const SetDisplay = (props: {
 									lot={exercise.lot}
 									statistic={previousSetData}
 									unitSystem={exercise.unitSystem}
+									durationUnit={props.durationUnit}
 								/>
 							</Box>
 						) : (
@@ -290,6 +295,7 @@ export const SetDisplay = (props: {
 							stat="duration"
 							setIdx={props.setIdx}
 							exerciseIdx={props.exerciseIdx}
+							durationUnit={props.durationUnit}
 						/>
 					) : null}
 					{props.distanceCol ? (

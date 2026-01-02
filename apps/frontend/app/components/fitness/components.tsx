@@ -4,27 +4,37 @@ import {
 	Anchor,
 	Badge,
 	Box,
+	Button,
+	Center,
 	Flex,
 	Group,
 	Image,
+	Modal,
+	NumberInput,
 	Paper,
 	Popover,
 	ScrollArea,
+	Select,
 	SimpleGrid,
 	Skeleton,
 	Stack,
+	Switch,
 	Text,
 	useMantineTheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
+import Body, { type ExtendedBodyPart } from "@mjcdev/react-body-highlighter";
 import {
-	type ExerciseLot,
+	ExerciseDurationUnit,
+	ExerciseLot,
 	SetLot,
+	UpdateUserExerciseSettingsDocument,
+	type UpdateUserExerciseSettingsMutationVariables,
 	type UserUnitSystem,
-	type UserWorkoutDetailsQuery,
 	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, startCase } from "@ryot/ts-utils";
+import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconArrowLeftToArc,
 	IconClock,
@@ -36,19 +46,27 @@ import {
 	IconWeight,
 	IconZzz,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
-import type { ComponentType } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import type { ComponentType, Dispatch, SetStateAction } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import { useGetRandomMantineColor } from "~/lib/shared/hooks";
-import { getExerciseDetailsPath, getSetColor } from "~/lib/shared/media-utils";
 import {
-	getExerciseDetailsQuery,
-	getExerciseImages,
+	useExerciseDetails,
+	useGetRandomMantineColor,
+	useS3PresignedUrls,
+	useUserExerciseDetails,
+} from "~/lib/shared/hooks";
+import { getExerciseDetailsPath, getSetColor } from "~/lib/shared/media-utils";
+import { clientGqlService } from "~/lib/shared/react-query";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import {
+	type TWorkoutDetails,
 	getWorkoutDetailsQuery,
 	getWorkoutTemplateDetailsQuery,
+	useExerciseImages,
 } from "~/lib/state/fitness";
 import { FitnessEntity } from "~/lib/types";
 import { ExerciseImagesList } from "./display-items";
@@ -56,17 +74,28 @@ import {
 	DisplaySetStatistics,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
+	formatDuration,
+	getDurationUnitLabel,
 } from "./utils";
 
-type Exercise =
-	UserWorkoutDetailsQuery["userWorkoutDetails"]["details"]["information"]["exercises"][number];
+type Exercise = TWorkoutDetails["details"]["information"]["exercises"][number];
 type Set = Exercise["sets"][number];
+
+const PersonalBestBadge = (props: { pb: string }) => {
+	const color = useGetRandomMantineColor(props.pb);
+	return (
+		<Badge size="xs" color={color} variant="light">
+			{startCase(props.pb)}
+		</Badge>
+	);
+};
 
 export const DisplaySet = (props: {
 	set: Set;
 	idx: number;
 	exerciseLot: ExerciseLot;
 	unitSystem: UserUnitSystem;
+	durationUnit: ExerciseDurationUnit;
 }) => {
 	const [opened, { close, open }] = useDisclosure(false);
 
@@ -98,14 +127,9 @@ export const DisplaySet = (props: {
 						</Popover.Target>
 						<Popover.Dropdown style={{ pointerEvents: "none" }} p={4}>
 							<Flex>
-								{props.set.personalBests.map((pb) => {
-									const color = useGetRandomMantineColor(pb);
-									return (
-										<Badge key={pb} size="xs" color={color} variant="light">
-											{startCase(pb)}
-										</Badge>
-									);
-								})}
+								{props.set.personalBests.map((pb) => (
+									<PersonalBestBadge key={pb} pb={pb} />
+								))}
 							</Flex>
 						</Popover.Dropdown>
 					</Popover>
@@ -114,6 +138,7 @@ export const DisplaySet = (props: {
 					lot={props.exerciseLot}
 					unitSystem={props.unitSystem}
 					statistic={props.set.statistic}
+					durationUnit={props.durationUnit}
 				/>
 			</Flex>
 			{props.set.note ? (
@@ -128,8 +153,8 @@ export const DisplaySet = (props: {
 export const ExerciseHistory = (props: {
 	entityId: string;
 	exerciseIdx: number;
-	entityType: FitnessEntity;
 	hideExerciseDetails?: boolean;
+	fitnessEntityType: FitnessEntity;
 	hideExtraDetailsButton?: boolean;
 	onCopyButtonClick?: () => Promise<void>;
 	supersetInformation?: WorkoutSupersetsInformation[];
@@ -138,8 +163,8 @@ export const ExerciseHistory = (props: {
 	const [opened, { toggle }] = useDisclosure(false);
 	const [parent] = useAutoAnimate();
 	const { data: workoutDetails } = useQuery(
-		// @ts-ignore: Too complicated to fix and it just works this way
-		match(props.entityType)
+		// @ts-expect-error: Too complicated to fix and it just works this way
+		match(props.fitnessEntityType)
 			.with(FitnessEntity.Workouts, () =>
 				getWorkoutDetailsQuery(props.entityId),
 			)
@@ -148,17 +173,36 @@ export const ExerciseHistory = (props: {
 			)
 			.exhaustive(),
 	);
-	const exercise =
-		workoutDetails?.details.information.exercises[props.exerciseIdx];
-	const { data: exerciseDetails } = useQuery(
-		getExerciseDetailsQuery(exercise?.id || ""),
+	const exercise = workoutDetails?.details.information.exercises.at(
+		props.exerciseIdx,
 	);
+	const { data: exerciseDetails } = useExerciseDetails(
+		exercise?.id,
+		!!exercise?.id,
+	);
+	const { data: userExerciseDetails } = useUserExerciseDetails(
+		exercise?.id,
+		!!exercise?.id,
+	);
+	const durationUnit =
+		userExerciseDetails?.details?.exerciseExtraInformation?.settings
+			.defaultDurationUnit || ExerciseDurationUnit.Minutes;
 	const isInSuperset = props.supersetInformation?.find((s) =>
 		s.exercises.includes(props.exerciseIdx),
 	);
 
-	const images = getExerciseImages(exerciseDetails);
+	const exerciseS3ImagesPresigned = useS3PresignedUrls(
+		exercise?.assets?.s3Images,
+	);
+	const exerciseImages = [
+		...(exercise?.assets?.remoteImages || []),
+		...(exerciseS3ImagesPresigned.data || []),
+	];
+
+	const images = useExerciseImages(exerciseDetails);
 	const hasExtraDetailsToShow = Boolean(images.length > 0 || exercise?.total);
+
+	const exerciseAttributeDurationValue = `${formatDuration(exercise?.total?.duration, durationUnit)} ${getDurationUnitLabel(durationUnit, "short")}`;
 
 	return (
 		<Paper
@@ -230,7 +274,7 @@ export const ExerciseHistory = (props: {
 												label="duration"
 												icon={IconClock}
 												quantity={exercise.total.duration}
-												value={`${exercise.total.duration} min`}
+												value={exerciseAttributeDurationValue}
 											/>
 											<DisplayExerciseAttributes
 												label="weight"
@@ -275,8 +319,8 @@ export const ExerciseHistory = (props: {
 								{exercise.notes.length === 1 ? undefined : `${idxN + 1})`} {n}
 							</Text>
 						))}
-						{exercise.assets && exercise.assets.s3Images.length > 0 ? (
-							<ExerciseImagesList images={exercise.assets.s3Images} />
+						{exerciseImages.length > 0 ? (
+							<ExerciseImagesList images={exerciseImages} />
 						) : null}
 					</Stack>
 					{exercise.sets.map((set, idx) => (
@@ -284,6 +328,7 @@ export const ExerciseHistory = (props: {
 							set={set}
 							idx={idx}
 							exerciseLot={exercise.lot}
+							durationUnit={durationUnit}
 							unitSystem={exercise.unitSystem}
 							key={`${set.confirmedAt}-${idx}`}
 						/>
@@ -311,3 +356,179 @@ const DisplayExerciseAttributes = (props: {
 		</Flex>
 	) : null;
 };
+
+type UpdateUserExerciseDetailsInput =
+	UpdateUserExerciseSettingsMutationVariables["input"]["change"];
+
+export const ExerciseUpdatePreferencesModal = (props: {
+	opened: boolean;
+	exerciseId: string;
+	onClose: () => void;
+	exerciseLot: ExerciseLot;
+}) => {
+	const { data: userExerciseDetails } = useUserExerciseDetails(
+		props.exerciseId,
+	);
+	const form = useSavedForm({
+		storageKeyPrefix: `ExerciseUpdatePreferencesModal-${props.exerciseId}`,
+		initialValues: {
+			excludeFromAnalytics:
+				userExerciseDetails?.details?.exerciseExtraInformation?.settings
+					.excludeFromAnalytics ?? false,
+			setRestTimers:
+				userExerciseDetails?.details?.exerciseExtraInformation?.settings
+					.setRestTimers ?? {},
+			defaultDurationUnit:
+				userExerciseDetails?.details?.exerciseExtraInformation?.settings
+					.defaultDurationUnit ?? ExerciseDurationUnit.Minutes,
+		},
+	});
+
+	const updateUserExerciseSettingsMutation = useMutation({
+		mutationFn: (values: UpdateUserExerciseDetailsInput) =>
+			clientGqlService.request(UpdateUserExerciseSettingsDocument, {
+				input: { change: values, exerciseId: props.exerciseId },
+			}),
+	});
+
+	return (
+		<Modal
+			centered
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+		>
+			<form
+				onSubmit={form.onSubmit(async (values) => {
+					await updateUserExerciseSettingsMutation.mutateAsync(values);
+					notifications.show({
+						color: "green",
+						title: "Settings updated",
+						message: "Settings for the exercise have been updated.",
+					});
+					form.clearSavedState();
+					props.onClose();
+				})}
+			>
+				<Stack>
+					<Box>
+						<Text size="sm">
+							When a new set is added, rest timers will be added automatically
+							according to the settings below.
+						</Text>
+						<Text mt={4} size="xs" c="dimmed">
+							Note: Default rest timer durations for all exercises can be
+							changed in the fitness preferences.
+						</Text>
+					</Box>
+					<SimpleGrid cols={2}>
+						{(["normal", "warmup", "drop", "failure"] as const).map((name) => (
+							<NumberInput
+								suffix="s"
+								key={name}
+								label={changeCase(snakeCase(name))}
+								{...form.getInputProps(`setRestTimers.${name}`)}
+							/>
+						))}
+					</SimpleGrid>
+					<Switch
+						label="Exclude from analytics"
+						{...form.getInputProps("excludeFromAnalytics", {
+							type: "checkbox",
+						})}
+					/>
+					{match(props.exerciseLot)
+						.with(
+							ExerciseLot.Duration,
+							ExerciseLot.RepsAndDuration,
+							ExerciseLot.DistanceAndDuration,
+							ExerciseLot.RepsAndDurationAndDistance,
+							() => (
+								<Select
+									size="sm"
+									label="Default duration unit"
+									data={convertEnumToSelectData(ExerciseDurationUnit)}
+									{...form.getInputProps("defaultDurationUnit")}
+								/>
+							),
+						)
+						.otherwise(() => null)}
+					<Button
+						type="submit"
+						loading={updateUserExerciseSettingsMutation.isPending}
+					>
+						Save settings
+					</Button>
+				</Stack>
+			</form>
+		</Modal>
+	);
+};
+
+export const ExerciseMusclesModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	bodyViewSide: "front" | "back";
+	bodyPartsData: ExtendedBodyPart[];
+	bodyViewGender: "male" | "female";
+	setBodyViewSide: Dispatch<SetStateAction<"front" | "back">>;
+	setBodyViewGender: Dispatch<SetStateAction<"male" | "female">>;
+}) => (
+	<Modal
+		centered
+		size="lg"
+		title="Muscles"
+		opened={props.opened}
+		onClose={props.onClose}
+	>
+		<Stack>
+			<Group justify="center" gap="lg">
+				<Group gap="xs">
+					<Text size="sm">Side:</Text>
+					<Button.Group>
+						<Button
+							size="xs"
+							onClick={() => props.setBodyViewSide("front")}
+							variant={props.bodyViewSide === "front" ? "filled" : "outline"}
+						>
+							Front
+						</Button>
+						<Button
+							size="xs"
+							onClick={() => props.setBodyViewSide("back")}
+							variant={props.bodyViewSide === "back" ? "filled" : "outline"}
+						>
+							Back
+						</Button>
+					</Button.Group>
+				</Group>
+				<Group gap="xs">
+					<Text size="sm">Gender:</Text>
+					<Button.Group>
+						<Button
+							size="xs"
+							onClick={() => props.setBodyViewGender("male")}
+							variant={props.bodyViewGender === "male" ? "filled" : "outline"}
+						>
+							Male
+						</Button>
+						<Button
+							size="xs"
+							onClick={() => props.setBodyViewGender("female")}
+							variant={props.bodyViewGender === "female" ? "filled" : "outline"}
+						>
+							Female
+						</Button>
+					</Button.Group>
+				</Group>
+			</Group>
+			<Center>
+				<Body
+					side={props.bodyViewSide}
+					data={props.bodyPartsData}
+					gender={props.bodyViewGender}
+				/>
+			</Center>
+		</Stack>
+	</Modal>
+);

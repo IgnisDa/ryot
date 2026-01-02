@@ -1,16 +1,20 @@
 import { FileText, Mail, MapPin, Scale } from "lucide-react";
 import { Badge } from "~/lib/components/ui/badge";
 import { Card, CardContent } from "~/lib/components/ui/card";
-import { contactEmail } from "~/lib/constants";
+import { contactEmail } from "~/lib/general";
 
 export const meta = () => {
 	return [{ title: "Terms and conditions | Ryot" }];
 };
 
+export const headers = () => ({
+	"Cache-Control":
+		"public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+});
+
 export default function Index() {
 	return (
 		<>
-			{/* Hero Section */}
 			<section className="py-10 lg:py-20 bg-muted/30">
 				<div className="max-w-4xl mx-auto px-4">
 					<div className="text-center mb-16">
@@ -30,12 +34,10 @@ export default function Index() {
 				</div>
 			</section>
 
-			{/* Terms Content */}
 			<section className="py-10">
 				<div className="max-w-4xl mx-auto px-4">
 					<Card className="mb-8">
 						<CardContent className="p-4 sm:p-8">
-							{/* Section 1: Introduction */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -52,7 +54,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 2: Company Information */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -82,7 +83,6 @@ export default function Index() {
 								</div>
 							</div>
 
-							{/* Section 3: User Eligibility */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -93,12 +93,14 @@ export default function Index() {
 									</h2>
 								</div>
 								<p className="text-muted-foreground leading-relaxed">
-									The Service is available to users worldwide with no specific
-									age or residency restrictions.
+									The Service is not directed to children. You may use the
+									Service only if you are at least 13 years old (or 16 where
+									required by local law). By using the Service, you represent
+									that you meet the minimum age requirement and have the
+									capacity to enter into these Terms.
 								</p>
 							</div>
 
-							{/* Section 4: User Accounts and Pro Key */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -117,7 +119,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 5: Subscription and Payments */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -135,7 +136,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 6: User Conduct */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -154,7 +154,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 7: Content Ownership */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -173,7 +172,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 8: Data Privacy */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -183,14 +181,124 @@ export default function Index() {
 										Data Privacy
 									</h2>
 								</div>
-								<p className="text-muted-foreground leading-relaxed">
-									Ryot is committed to protecting user data. We collect, store,
-									and use personal data in accordance with our Privacy Policy.
-									By using the Service, you consent to such collection and use.
-								</p>
+								<div className="space-y-4 text-muted-foreground leading-relaxed">
+									<p>
+										We care about your privacy and collect the minimum data
+										necessary to operate Ryot. We do not sell your data. This
+										section explains what we collect and how we use it.
+									</p>
+
+									<div className="bg-muted/50 p-4 sm:p-6 rounded-lg">
+										<h4 className="font-semibold text-foreground mb-3">
+											Self-hosted vs Cloud
+										</h4>
+										<ul className="space-y-2">
+											<li className="flex items-start">
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 flex-shrink-0" />
+												<span>
+													<strong className="text-foreground">
+														Self-hosted:
+													</strong>{" "}
+													Your data stays on your own infrastructure. We do not
+													receive your tracked content or activity from your
+													instance. For self-hosted purchases we store minimal
+													licensing and subscription metadata (e.g., email, plan
+													type, renewal dates) to issue and manage your Pro Key.
+												</span>
+											</li>
+											<li className="flex items-start">
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 flex-shrink-0" />
+												<span>
+													<strong className="text-foreground">
+														Ryot Cloud (hosted by us):
+													</strong>{" "}
+													We store account information (such as your email) and
+													the data you add to the service to provide and
+													maintain your account. You can request export or
+													deletion at any time by contacting
+													<a
+														href={`mailto:${contactEmail}`}
+														className="text-primary hover:underline"
+													>
+														{" "}
+														{contactEmail}
+													</a>
+													.
+												</span>
+											</li>
+										</ul>
+									</div>
+
+									<div className="bg-muted/50 p-4 sm:p-6 rounded-lg">
+										<h4 className="font-semibold text-foreground mb-3">
+											Website analytics
+										</h4>
+										<p>
+											We use Umami (a privacy-friendly analytics tool) on our
+											website to understand aggregate usage and improve the
+											site. It does not identify you personally. No behavioral
+											profiling or ad targeting is performed.
+										</p>
+									</div>
+
+									<div className="bg-muted/50 p-4 sm:p-6 rounded-lg">
+										<h4 className="font-semibold text-foreground mb-3">
+											Payments and processors
+										</h4>
+										<ul className="space-y-2">
+											<li className="flex items-start">
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 flex-shrink-0" />
+												<span>
+													Payments are processed by Paddle. We receive
+													transaction and subscription metadata from Paddle to
+													provision your purchase and manage renewals.
+												</span>
+											</li>
+											<li className="flex items-start">
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 flex-shrink-0" />
+												<span>
+													We use an email provider to send receipts and account
+													emails, and Unkey to issue and manage self-hosted Pro
+													keys. These providers receive only the data needed to
+													perform their services.
+												</span>
+											</li>
+										</ul>
+									</div>
+
+									<div className="bg-muted/50 p-4 sm:p-6 rounded-lg">
+										<h4 className="font-semibold text-foreground mb-3">
+											Cookies
+										</h4>
+										<p>
+											We use strictly necessary first-party cookies only where
+											required (for example, to authenticate customers in the
+											website portal). We do not use cookies for advertising.
+											Our analytics is cookie-free.
+										</p>
+									</div>
+
+									<p>
+										<strong className="text-foreground">Your choices:</strong>{" "}
+										You may request access, export, correction, or deletion of
+										your account data by emailing
+										<a
+											href={`mailto:${contactEmail}`}
+											className="text-primary hover:underline"
+										>
+											{" "}
+											{contactEmail}
+										</a>
+										.
+									</p>
+
+									<p>
+										If we make material changes to these privacy practices, we
+										will notify you via email or through the Service.
+									</p>
+								</div>
 							</div>
 
-							{/* Section 9: Dispute Resolution */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -207,7 +315,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 10: Changes to Terms */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -225,7 +332,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 11: Termination */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -243,7 +349,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 12: Cancellation and Refund Policies */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -304,7 +409,6 @@ export default function Index() {
 								</div>
 							</div>
 
-							{/* Final Agreement */}
 							<div className="border-t border-border pt-8">
 								<div className="bg-primary/5 p-6 rounded-lg">
 									<div className="flex items-start">

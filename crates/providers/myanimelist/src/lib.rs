@@ -1,8 +1,7 @@
 use anyhow::Result;
-use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{EntityAssets, NamedObject, SearchDetails};
-use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
+use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date, get_base_http_client};
 use convert_case::{Case, Casing};
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
 use enum_models::{MediaLot, MediaSource};
@@ -38,23 +37,19 @@ impl NonMediaMalService {
 impl MediaProvider for NonMediaMalService {}
 
 #[derive(Debug, Clone)]
-pub struct MalAnimeService {
-    base: MalService,
-}
+pub struct MalAnimeService(MalService);
 
 impl MalAnimeService {
     pub async fn new(config: &config_definition::MalConfig) -> Result<Self> {
         let client = get_client_config(&config.client_id).await;
-        Ok(Self {
-            base: MalService { client },
-        })
+        Ok(Self(MalService { client }))
     }
 }
 
 #[async_trait]
 impl MediaProvider for MalAnimeService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        let details = details(&self.base.client, "anime", identifier).await?;
+        let details = details(&self.0.client, "anime", identifier).await?;
         Ok(details)
     }
 
@@ -65,8 +60,7 @@ impl MediaProvider for MalAnimeService {
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let (items, total_items, next_page) =
-            search(&self.base.client, "anime", query, page).await?;
+        let (items, total_items, next_page) = search(&self.0.client, "anime", query, page).await?;
         Ok(SearchResults {
             items,
             details: SearchDetails {
@@ -78,23 +72,19 @@ impl MediaProvider for MalAnimeService {
 }
 
 #[derive(Debug, Clone)]
-pub struct MalMangaService {
-    base: MalService,
-}
+pub struct MalMangaService(MalService);
 
 impl MalMangaService {
     pub async fn new(config: &config_definition::MalConfig) -> Result<Self> {
         let client = get_client_config(&config.client_id).await;
-        Ok(Self {
-            base: MalService { client },
-        })
+        Ok(Self(MalService { client }))
     }
 }
 
 #[async_trait]
 impl MediaProvider for MalMangaService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        let details = details(&self.base.client, "manga", identifier).await?;
+        let details = details(&self.0.client, "manga", identifier).await?;
         Ok(details)
     }
 
@@ -105,8 +95,7 @@ impl MediaProvider for MalMangaService {
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let (items, total_items, next_page) =
-            search(&self.base.client, "manga", query, page).await?;
+        let (items, total_items, next_page) = search(&self.0.client, "manga", query, page).await?;
         Ok(SearchResults {
             items,
             details: SearchDetails {
@@ -130,7 +119,7 @@ async fn search(
     query: &str,
     page: u64,
 ) -> Result<(Vec<MetadataSearchItem>, u64, Option<u64>)> {
-    let offset = (page - 1) * PAGE_SIZE;
+    let offset = page.saturating_sub(1) * PAGE_SIZE;
     #[derive(Serialize, Deserialize, Debug)]
     struct SearchPaging {
         next: Option<String>,
@@ -156,10 +145,10 @@ async fn search(
         .data
         .into_iter()
         .map(|d| MetadataSearchItem {
-            identifier: d.node.id.to_string(),
             title: d.node.title,
-            publish_year: d.node.start_date.and_then(|d| convert_date_to_year(&d)),
+            identifier: d.node.id.to_string(),
             image: Some(d.node.main_picture.large),
+            publish_year: d.node.start_date.and_then(|d| convert_date_to_year(&d)),
         })
         .collect();
     Ok((items, 100, search.paging.next.map(|_| page + 1)))
@@ -174,17 +163,16 @@ struct ItemImage {
 struct ItemNode {
     id: i128,
     title: String,
-    main_picture: ItemImage,
     nsfw: Option<String>,
-    synopsis: Option<String>,
-    genres: Option<Vec<NamedObject>>,
-    studios: Option<Vec<NamedObject>>,
-    start_date: Option<String>,
     mean: Option<Decimal>,
     status: Option<String>,
+    main_picture: ItemImage,
+    num_volumes: Option<i32>,
+    synopsis: Option<String>,
     num_episodes: Option<i32>,
     num_chapters: Option<i32>,
-    num_volumes: Option<i32>,
+    start_date: Option<String>,
+    genres: Option<Vec<NamedObject>>,
     related_anime: Option<Vec<ItemData>>,
     related_manga: Option<Vec<ItemData>>,
     recommendations: Option<Vec<ItemData>>,

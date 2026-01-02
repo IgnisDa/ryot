@@ -1,6 +1,5 @@
 import {
 	ActionIcon,
-	Box,
 	Button,
 	Container,
 	Group,
@@ -9,27 +8,26 @@ import {
 	Title,
 } from "@mantine/core";
 import {
-	MediaLot,
 	UserCalendarEventsDocument,
 	type UserCalendarEventsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { match } from "ts-pattern";
-import { useLocalStorage } from "usehooks-ts";
-import { SkeletonLoader } from "~/components/common";
+import { parseAsString } from "nuqs";
+import { useMemo } from "react";
+import {
+	DisplayListDetailsAndRefresh,
+	SkeletonLoader,
+} from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
+import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 
-interface FilterState {
-	date: string;
-}
-
-const defaultFilterState: FilterState = {
-	date: new Date().toISOString(),
+const defaultFiltersState = {
+	date: parseAsString.withDefault(new Date().toISOString()),
 };
 
 export const meta = () => {
@@ -37,10 +35,7 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const [filters, setFilters] = useLocalStorage(
-		"CalendarFilters",
-		defaultFilterState,
-	);
+	const { filters, updateFilters } = useFiltersState(defaultFiltersState);
 
 	const date = dayjsLib(filters.date);
 
@@ -57,8 +52,7 @@ export default function Page() {
 				.then((data) => data.userCalendarEvents),
 	});
 
-	const updateDate = (newDate: string) =>
-		setFilters((prev) => ({ ...prev, date: newDate }));
+	const updateDate = (newDate: string) => updateFilters({ date: newDate });
 
 	return (
 		<Container>
@@ -92,14 +86,11 @@ export default function Page() {
 				{userCalendarEvents ? (
 					userCalendarEvents.length > 0 ? (
 						<Stack gap={4}>
-							<Box>
-								<Text display="inline" fw="bold">
-									{sum(userCalendarEvents.map((e) => e.events.length))}
-								</Text>{" "}
-								items found
-							</Box>
+							<DisplayListDetailsAndRefresh
+								total={sum(userCalendarEvents.map((e) => e.events.length))}
+							/>
 							{userCalendarEvents.map((ce) => (
-								<CalendarEvent key={ce.date} data={ce} />
+								<CalendarDate key={ce.date} data={ce} />
 							))}
 						</Stack>
 					) : (
@@ -113,8 +104,28 @@ export default function Page() {
 	);
 }
 
-const CalendarEvent = (props: {
-	data: UserCalendarEventsQuery["userCalendarEvents"][number];
+type CalendarDate = UserCalendarEventsQuery["userCalendarEvents"][number];
+
+const CalendarEventMetadata = (props: {
+	item: CalendarDate["events"][number];
+}) => {
+	const additionalInformation = useMemo(() => {
+		if (props.item.showExtraInformation)
+			return `Upcoming: S${props.item.showExtraInformation?.season}-E${props.item.showExtraInformation?.episode}`;
+		if (props.item.podcastExtraInformation)
+			return `Upcoming: EP-${props.item.podcastExtraInformation?.episode}`;
+	}, [props.item]);
+
+	return (
+		<MetadataDisplayItem
+			metadataId={props.item.metadataId}
+			additionalInformation={additionalInformation}
+		/>
+	);
+};
+
+const CalendarDate = (props: {
+	data: CalendarDate;
 }) => {
 	const date = dayjsLib(props.data.date);
 
@@ -135,22 +146,9 @@ const CalendarEvent = (props: {
 			</Group>
 			<ApplicationGrid>
 				{props.data.events.map((calEvent) => (
-					<MetadataDisplayItem
-						noLeftLabel
+					<CalendarEventMetadata
+						item={calEvent}
 						key={calEvent.calendarEventId}
-						altName={calEvent.metadataText}
-						metadataId={calEvent.metadataId}
-						rightLabel={`${match(calEvent.metadataLot)
-							.with(
-								MediaLot.Show,
-								() =>
-									`S${calEvent.showExtraInformation?.season}-E${calEvent.showExtraInformation?.episode}`,
-							)
-							.with(
-								MediaLot.Podcast,
-								() => `EP-${calEvent.podcastExtraInformation?.episode}`,
-							)
-							.otherwise(() => "")}`}
 					/>
 				))}
 			</ApplicationGrid>

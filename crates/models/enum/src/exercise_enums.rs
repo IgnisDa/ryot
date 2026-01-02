@@ -2,7 +2,7 @@ use async_graphql::Enum;
 use enum_meta::{Meta, meta};
 use schematic::ConfigEnum;
 use sea_orm::{DeriveActiveEnum, EnumIter, FromJsonQueryResult};
-use sea_orm_migration::prelude::*;
+use sea_orm_migration::prelude::StringLen;
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -282,4 +282,12 @@ pub enum WorkoutSetPersonalBest {
     #[default]
     Weight,
     Distance,
+}
+
+#[derive(Eq, Hash, Enum, Copy, Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExerciseDurationUnit {
+    Seconds,
+    #[default]
+    Minutes,
 }

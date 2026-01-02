@@ -4,9 +4,8 @@ use std::{
 };
 
 use anyhow::{Context, Result, anyhow, bail};
-use application_utils::get_base_http_client;
 use common_models::DefaultCollection;
-use common_utils::{ryot_log, sleep_for_n_seconds};
+use common_utils::{get_base_http_client, ryot_log, sleep_for_n_seconds};
 use database_models::{metadata, prelude::Metadata};
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
@@ -17,8 +16,7 @@ use futures::{StreamExt, stream};
 use itertools::Itertools;
 use media_models::{ImportOrExportMetadataItemSeen, UniqueMediaIdentifier};
 use reqwest::Url;
-use rust_decimal::{Decimal, prelude::FromPrimitive};
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec, prelude::FromPrimitive};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::Expr};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use supporting_service::SupportingService;
@@ -26,13 +24,6 @@ use tokio::sync::{mpsc, mpsc::UnboundedReceiver, mpsc::error::TryRecvError};
 
 mod komga_book {
     use super::*;
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct Link {
-        pub label: String,
-        pub url: String,
-    }
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -50,17 +41,13 @@ mod komga_book {
     #[serde(rename_all = "camelCase")]
     pub struct ReadProgress {
         pub page: i32,
-        pub completed: bool,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Item {
-        pub id: String,
-        pub name: String,
-        pub series_id: String,
         pub media: Media,
-        pub number: i32,
+        pub series_id: String,
         pub metadata: Metadata,
         pub read_progress: ReadProgress,
     }
@@ -72,8 +59,8 @@ mod komga_series {
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Link {
-        pub label: String,
         pub url: String,
+        pub label: String,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -134,11 +121,7 @@ mod komga_series {
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Item {
-        pub id: String,
         pub name: String,
-        pub books_count: Decimal,
-        pub books_read_count: Option<i32>,
-        pub books_unread_count: Decimal,
         pub metadata: Metadata,
     }
 
@@ -156,7 +139,6 @@ mod komga_events {
     #[serde(rename_all = "camelCase")]
     pub struct Data {
         pub book_id: String,
-        pub user_id: String,
     }
 }
 
@@ -235,11 +217,11 @@ async fn sse_listener(
                     }
                 }
             } else {
-                ryot_log!(trace, event_type = ?event.event, "Received unhandled event type");
+                ryot_log!(debug, event_type = ?event.event, "Received unhandled event type");
             }
         }
 
-        ryot_log!(trace, "SSE listener finished");
+        ryot_log!(debug, "SSE listener finished");
         sleep_for_n_seconds(30).await;
     }
 }
@@ -325,15 +307,15 @@ async fn process_events(
     base_url: &String,
     source: MediaSource,
     data: komga_events::Data,
+    client: &reqwest::Client,
     ss: &Arc<SupportingService>,
 ) -> Result<ProcessEventReturn> {
     let url = format!("{base_url}/api/v1");
-    let client = get_base_http_client(None);
 
     let book: komga_book::Item = fetch_api(
         username,
         password,
-        &client,
+        client,
         &format!("{}/books", &url),
         &data.book_id,
     )
@@ -341,7 +323,7 @@ async fn process_events(
     let series: komga_series::Item = fetch_api(
         username,
         password,
-        &client,
+        client,
         &format!("{}/series", &url),
         &book.series_id,
     )
@@ -414,7 +396,7 @@ pub async fn yank_progress(
         });
     }
 
-    // Use hashmap here so we don't dupe pulls for a single book
+    let client = get_base_http_client(None);
     let mut unique_media_items: HashMap<String, ProcessEventReturn> = HashMap::new();
 
     if let Some(mut recv) = receiver {
@@ -430,6 +412,7 @@ pub async fn yank_progress(
                                 &base_url,
                                 source,
                                 event.clone(),
+                                &client,
                                 ss,
                             )
                             .await

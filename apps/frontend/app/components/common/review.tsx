@@ -12,7 +12,6 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
-import { useForm } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
@@ -31,43 +30,45 @@ import {
 	IconArrowBigUp,
 	IconCheck,
 	IconEdit,
-	IconMoodEmpty,
-	IconMoodHappy,
-	IconMoodSad,
 	IconStarFilled,
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { match } from "ts-pattern";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { reviewYellow } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useUserDetails, useUserPreferences } from "~/lib/shared/hooks";
-import { convertDecimalToThreePointSmiley } from "~/lib/shared/media-utils";
+import {
+	convertDecimalToThreePointSmiley,
+	convertRatingToUserScale,
+	formatRatingForDisplay,
+	getRatingUnitSuffix,
+} from "~/lib/shared/media-utils";
 import {
 	clientGqlService,
 	refreshEntityDetails,
 } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useReviewEntity } from "~/lib/state/media";
-import { ThreePointSmileyRating } from "~/lib/types";
+import { getThreePointSmileyEmoji } from "~/lib/types";
 import classes from "~/styles/common.module.css";
 
 export const DisplayThreePointReview = (props: {
 	size?: number;
-	rating?: string | null;
-}) =>
-	match(convertDecimalToThreePointSmiley(Number(props.rating || "")))
-		.with(ThreePointSmileyRating.Happy, () => (
-			<IconMoodHappy size={props.size || 20} color={reviewYellow} />
-		))
-		.with(ThreePointSmileyRating.Neutral, () => (
-			<IconMoodEmpty size={props.size || 20} color={reviewYellow} />
-		))
-		.with(ThreePointSmileyRating.Sad, () => (
-			<IconMoodSad size={props.size || 20} color={reviewYellow} />
-		))
-		.exhaustive();
+	rating?: number | null;
+}) => {
+	if (props.rating == null) return null;
+	const smileyRating = convertDecimalToThreePointSmiley(props.rating);
+	const fontSize = props.size ? `${props.size}px` : "20px";
+
+	return (
+		<Text style={{ fontSize, lineHeight: 1 }} component="span">
+			{getThreePointSmileyEmoji(smileyRating)}
+		</Text>
+	);
+};
 
 export const ReviewItemDisplay = (props: {
 	title: string;
@@ -79,6 +80,15 @@ export const ReviewItemDisplay = (props: {
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
 	const reviewScale = userPreferences.general.reviewScale;
+	const ratingValue = convertRatingToUserScale(
+		props.review.rating,
+		reviewScale,
+	);
+	const ratingStringForScale =
+		ratingValue == null
+			? null
+			: formatRatingForDisplay(ratingValue, reviewScale);
+	const ratingSuffix = getRatingUnitSuffix(reviewScale);
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
 		useDisclosure(false);
@@ -113,7 +123,10 @@ export const ReviewItemDisplay = (props: {
 			notifications.show({ color: "red", message: "Failed to update comment" }),
 	});
 
-	const form = useForm({ initialValues: { comment: "" } });
+	const form = useSavedForm({
+		initialValues: { comment: "" },
+		storageKeyPrefix: `ReviewItem-${props.review.id}`,
+	});
 
 	const RenderedText = () =>
 		props.review.textRendered ? (
@@ -175,11 +188,11 @@ export const ReviewItemDisplay = (props: {
 					) : null}
 				</Group>
 				<Box ml="sm" mt="xs">
-					<Group>
-						{Number(props.review.rating) > 0
+					<Group mb="sm">
+						{ratingValue != null && ratingValue > 0
 							? match(userPreferences.general.reviewScale)
 									.with(UserReviewScale.ThreePointSmiley, () => (
-										<DisplayThreePointReview rating={props.review.rating} />
+										<DisplayThreePointReview rating={ratingValue} />
 									))
 									.otherwise(() => (
 										<Flex align="center" gap={4}>
@@ -188,13 +201,8 @@ export const ReviewItemDisplay = (props: {
 												style={{ color: reviewYellow }}
 											/>
 											<Text className={classes.text} fw="bold">
-												{props.review.rating}
-												{reviewScale === UserReviewScale.OutOfHundred
-													? "%"
-													: undefined}
-												{reviewScale === UserReviewScale.OutOfTen
-													? "/10"
-													: undefined}
+												{ratingStringForScale}
+												{ratingSuffix}
 											</Text>
 										</Flex>
 									))
@@ -251,7 +259,7 @@ export const ReviewItemDisplay = (props: {
 									text: values.comment,
 									reviewId: props.review.id,
 								});
-								form.reset();
+								form.clearSavedState();
 								toggleLeaveComment();
 							})}
 						>

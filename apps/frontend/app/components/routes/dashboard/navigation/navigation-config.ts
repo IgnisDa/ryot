@@ -5,17 +5,20 @@ import { IconMoon, IconSun } from "@tabler/icons-react";
 import { $path } from "safe-routes";
 import { joinURL } from "ufo";
 import type { useUserDetails } from "~/lib/shared/hooks";
-import { OnboardingTourStepTargets } from "~/lib/state/onboarding-tour";
+import { OnboardingTourStepTarget } from "~/lib/state/onboarding-tour";
 
 export const getMediaLinks = (userPreferences: UserPreferences) =>
 	[
 		...userPreferences.featuresEnabled.media.specific.map((f) => {
 			return {
 				label: changeCase(f),
-				link: $path("/media/:action/:lot", { action: "list", lot: f }),
+				link: $path("/media/:action/:lot", {
+					action: "list",
+					lot: f.toLowerCase(),
+				}),
 				tourControlTarget:
 					f === MediaLot.AudioBook
-						? `${OnboardingTourStepTargets.FirstSidebar} ${OnboardingTourStepTargets.GoBackToAudiobooksSection}`
+						? `${OnboardingTourStepTarget.FirstSidebar} ${OnboardingTourStepTarget.GoBackToAudiobooksSection}`
 						: undefined,
 			};
 		}),
@@ -50,11 +53,11 @@ export const getFitnessLinks = (userPreferences: UserPreferences) =>
 				link: joinURL("/fitness", f.name, "list"),
 				tourControlTarget:
 					f.name === "workouts"
-						? OnboardingTourStepTargets.OpenWorkoutsSection
+						? OnboardingTourStepTarget.OpenWorkoutsSection
 						: f.name === "templates"
-							? OnboardingTourStepTargets.ClickOnTemplatesSidebarSection
+							? OnboardingTourStepTarget.ClickOnTemplatesSidebarSection
 							: f.name === "measurements"
-								? OnboardingTourStepTargets.ClickOnMeasurementSidebarSection
+								? OnboardingTourStepTarget.ClickOnMeasurementSidebarSection
 								: undefined,
 			})) || []),
 		{ label: "Exercises", link: $path("/fitness/exercises/list") },
@@ -67,7 +70,7 @@ export const getSettingsLinks = (
 		{
 			label: "Preferences",
 			link: $path("/settings/preferences"),
-			tourControlTarget: OnboardingTourStepTargets.OpenSettingsPreferences,
+			tourControlTarget: OnboardingTourStepTarget.OpenSettingsPreferences,
 		},
 		{
 			label: "Imports and Exports",

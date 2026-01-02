@@ -1,27 +1,62 @@
-use anyhow::Result;
-use application_utils::get_base_http_client;
+use std::str::FromStr;
+
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use common_models::{EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails};
-use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
+use common_utils::{
+    PAGE_SIZE, compute_next_page, convert_date_to_year, convert_string_to_date,
+    get_base_http_client,
+};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
+use dependent_models::{
+    MetadataSearchSourceSpecifics, PersonDetails, ProviderSupportedLanguageInformation,
+    SearchResults,
+};
 use educe::Educe;
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    AudioBookSpecifics, CommitMetadataGroupInput, MetadataDetails, MetadataFreeCreator,
-    MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-    UniqueMediaIdentifier,
+    AudioBookSpecifics, CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails,
+    MetadataFreeCreator, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, UniqueMediaIdentifier,
 };
 use paginate::Pages;
 use reqwest::Client;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumIter, IntoEnumIterator};
+use strum::{Display, EnumIter, EnumString, IntoEnumIterator};
 use traits::MediaProvider;
 
 static AUDNEX_URL: &str = "https://api.audnex.us";
+
+#[derive(
+    Eq,
+    Copy,
+    Debug,
+    Clone,
+    Default,
+    Display,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    EnumString,
+    Deserialize,
+)]
+pub enum AudibleLocale {
+    AU,
+    CA,
+    FR,
+    DE,
+    GB,
+    IN,
+    IT,
+    JP,
+    ES,
+    UK,
+    #[default]
+    US,
+}
 
 #[derive(EnumIter, Display)]
 enum AudibleSimilarityType {
@@ -129,35 +164,46 @@ struct AudibleItemSimResponse {
 pub struct AudibleService {
     url: String,
     client: Client,
-    locale: String,
+}
+
+fn suffix_from_locale(locale: &AudibleLocale) -> &'static str {
+    match locale {
+        AudibleLocale::ES => "es",
+        AudibleLocale::IT => "it",
+        AudibleLocale::CA => "ca",
+        AudibleLocale::FR => "fr",
+        AudibleLocale::DE => "de",
+        AudibleLocale::US => "com",
+        AudibleLocale::JP => "co.jp",
+        AudibleLocale::IN => "co.in",
+        AudibleLocale::AU => "com.au",
+        AudibleLocale::GB | AudibleLocale::UK => "co.uk",
+    }
+}
+
+fn url_from_locale(locale: &AudibleLocale) -> String {
+    let suffix = suffix_from_locale(locale);
+    format!("https://api.audible.{suffix}/1.0/catalog/products")
+}
+
+fn locale_from_str(language: &str) -> Option<AudibleLocale> {
+    AudibleLocale::from_str(language).ok()
 }
 
 impl AudibleService {
-    fn url_from_locale(locale: &str) -> String {
-        let suffix = match locale {
-            "us" => "com",
-            "ca" => "ca",
-            "uk" => "co.uk",
-            "au" => "com.au",
-            "fr" => "fr",
-            "de" => "de",
-            "jp" => "co.jp",
-            "it" => "it",
-            "in" => "co.in",
-            "es" => "es",
-            _ => unreachable!(),
-        };
-        format!("https://api.audible.{suffix}/1.0/catalog/products")
+    pub async fn new(_config: &config_definition::AudibleConfig) -> Result<Self> {
+        let url = url_from_locale(&AudibleLocale::US);
+        let client = get_base_http_client(None);
+        Ok(Self { url, client })
     }
 
-    pub async fn new(config: &config_definition::AudibleConfig) -> Result<Self> {
-        let url = Self::url_from_locale(&config.locale);
-        let client = get_base_http_client(None);
-        Ok(Self {
-            url,
-            client,
-            locale: config.locale.clone(),
-        })
+    pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
+        AudibleLocale::iter()
+            .map(|l| ProviderSupportedLanguageInformation {
+                value: l.to_string(),
+                label: format!(r"{} (.{})", l, suffix_from_locale(&l)),
+            })
+            .collect()
     }
 }
 
@@ -171,11 +217,11 @@ impl MediaProvider for AudibleService {
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let internal_page: usize = page.try_into().unwrap();
-        let req_internal_page = internal_page - 1;
-        let client = Client::new();
-        let data: Vec<AudibleAuthor> = client
+        let req_internal_page = internal_page.saturating_sub(1);
+        let data: Vec<AudibleAuthor> = self
+            .client
             .get(format!("{AUDNEX_URL}/authors"))
-            .query(&[("region", self.locale.as_str()), ("name", query)])
+            .query(&[("name", query), ("region", "us")])
             .send()
             .await?
             .json()
@@ -207,10 +253,10 @@ impl MediaProvider for AudibleService {
         identity: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PersonDetails> {
-        let client = Client::new();
-        let data: AudnexResponse = client
+        let data: AudnexResponse = self
+            .client
             .get(format!("{AUDNEX_URL}/authors/{identity}"))
-            .query(&[("region", self.locale.as_str())])
+            .query(&[("region", "us")])
             .send()
             .await?
             .json()
@@ -292,8 +338,8 @@ impl MediaProvider for AudibleService {
             .await?;
         let data: AudibleItemResponse = rsp.json().await?;
         let mut item = self.audible_response_to_search_response(data.product.clone());
-        let mut suggestions = vec![];
         let mut groups = vec![];
+        let mut suggestions = vec![];
         for s in data.product.series.unwrap_or_default() {
             groups.push(CommitMetadataGroupInput {
                 name: s.title,
@@ -328,8 +374,8 @@ impl MediaProvider for AudibleService {
                 });
             }
         }
-        item.suggestions = suggestions.into_iter().unique().collect();
         item.groups = groups;
+        item.suggestions = suggestions.into_iter().unique().collect();
         Ok(item)
     }
 
@@ -349,11 +395,11 @@ impl MediaProvider for AudibleService {
             .client
             .get(&self.url)
             .query(&SearchQuery {
-                title: query.to_owned(),
                 num_results: PAGE_SIZE,
-                page: page - 1,
-                products_sort_by: "Relevance".to_owned(),
+                title: query.to_owned(),
+                page: page.saturating_sub(1),
                 primary: PrimaryQuery::default(),
+                products_sort_by: "Relevance".to_owned(),
             })
             .send()
             .await?;
@@ -371,7 +417,7 @@ impl MediaProvider for AudibleService {
                 }
             })
             .collect_vec();
-        let next_page = (search.total_results - (page * PAGE_SIZE) > 0).then(|| page + 1);
+        let next_page = compute_next_page(page, search.total_results);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {
@@ -380,11 +426,63 @@ impl MediaProvider for AudibleService {
             },
         })
     }
+
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let locale =
+            locale_from_str(target_language).ok_or_else(|| anyhow!("Unsupported language"))?;
+        let url = url_from_locale(&locale);
+        let data: AudibleItemResponse = self
+            .client
+            .get(format!("{url}/{identifier}"))
+            .query(&PrimaryQuery::default())
+            .send()
+            .await?
+            .json()
+            .await?;
+        Ok(EntityTranslationDetails {
+            title: Some(data.product.title),
+            description: data
+                .product
+                .publisher_summary
+                .or(data.product.merchandising_summary),
+            ..Default::default()
+        })
+    }
+
+    async fn translate_metadata_group(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let locale =
+            locale_from_str(target_language).ok_or_else(|| anyhow!("Unsupported language"))?;
+        let url = url_from_locale(&locale);
+        let data: AudibleItemResponse = self
+            .client
+            .get(format!("{url}/{identifier}"))
+            .query(&PrimaryQuery::default())
+            .send()
+            .await?
+            .json()
+            .await?;
+        Ok(EntityTranslationDetails {
+            title: Some(data.product.title),
+            description: data
+                .product
+                .publisher_summary
+                .or(data.product.merchandising_summary),
+            ..Default::default()
+        })
+    }
 }
 
 impl AudibleService {
     fn audible_response_to_search_response(&self, item: AudibleItem) -> MetadataDetails {
-        let images = Vec::from_iter(item.product_images.unwrap().image_2400);
+        let images = Vec::from_iter(item.product_images.and_then(|i| i.image_2400));
         let release_date = item.release_date.unwrap_or_default();
         let people = item
             .authors
@@ -407,7 +505,6 @@ impl AudibleService {
             .map(|a| MetadataFreeCreator {
                 name: a.name,
                 role: "Narrator".to_owned(),
-                ..Default::default()
             })
             .collect_vec();
         let description = item.publisher_summary.or(item.merchandising_summary);

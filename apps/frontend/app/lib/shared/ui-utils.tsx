@@ -4,7 +4,7 @@ import {
 	MediaSource,
 	PresignedPutS3UrlDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isEqual, startCase } from "@ryot/ts-utils";
+import { startCase } from "@ryot/ts-utils";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { clientGqlService } from "./react-query";
@@ -50,7 +50,7 @@ export const clientSideFileUpload = async (file: File, prefix: string) => {
 	const body = await file.arrayBuffer();
 	const { presignedPutS3Url } = await clientGqlService.request(
 		PresignedPutS3UrlDocument,
-		{ input: { fileName: file.name, prefix } },
+		{ prefix },
 	);
 	await fetch(presignedPutS3Url.uploadUrl, {
 		body,
@@ -68,15 +68,13 @@ export const convertEnumToSelectData = (value: {
 		label: startCase(v.toString().toLowerCase()),
 	}));
 
-export const isFilterChanged = <T extends object>(
-	current: T | undefined,
-	defaults: T,
-) => {
-	if (!current) return false;
-
-	return Object.keys(defaults)
-		.filter((key) => !["page", "query"].includes(key))
-		.some((key) => !isEqual(current[key as keyof T], defaults[key as keyof T]));
+export const triggerDownload = (url: string, filename: string) => {
+	const link = document.createElement("a");
+	link.href = url;
+	link.download = filename;
+	document.body.appendChild(link);
+	link.click();
+	document.body.removeChild(link);
 };
 
 export const getProviderSourceImage = (source: MediaSource) =>

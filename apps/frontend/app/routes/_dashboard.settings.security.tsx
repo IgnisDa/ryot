@@ -14,6 +14,7 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
+import { useForm } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
@@ -40,6 +41,7 @@ import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useDashboardLayoutData,
+	useInvalidateUserDetails,
 	useUserDetails,
 } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
@@ -96,11 +98,12 @@ export default function Page() {
 }
 
 const PasswordSection = () => {
+	const navigate = useNavigate();
 	const submit = useConfirmSubmit();
 	const userDetails = useUserDetails();
 	const dashboardData = useDashboardLayoutData();
-	const navigate = useNavigate();
 	const isEditDisabled = dashboardData.isDemoInstance;
+	const invalidateUserDetails = useInvalidateUserDetails();
 
 	const generatePasswordChangeSessionMutation = useMutation({
 		mutationFn: async () => {
@@ -157,7 +160,10 @@ const PasswordSection = () => {
 							e.preventDefault();
 							openConfirmationModal(
 								"Are you sure you want to update your profile?",
-								() => submit(form),
+								async () => {
+									submit(form);
+									await invalidateUserDetails();
+								},
 							);
 						}}
 					>
@@ -504,59 +510,66 @@ interface VerifyCodeStepProps {
 }
 
 const VerifyCodeStep = (props: VerifyCodeStepProps) => {
-	const [code, setCode] = useState("");
+	const form = useForm({
+		initialValues: { code: "" },
+		validate: {
+			code: (value) => (value.length !== 6 ? "Code must be 6 digits" : null),
+		},
+	});
 
 	const completeMutation = useMutation({
-		mutationFn: async () => {
+		mutationFn: async (values: { code: string }) => {
 			const { completeTwoFactorSetup } = await clientGqlService.request(
 				CompleteTwoFactorSetupDocument,
-				{ input: { totpCode: code } },
+				{ input: { totpCode: values.code } },
 			);
 			return completeTwoFactorSetup;
 		},
 		onSuccess: (data) => {
 			props.setBackupCodes(data.backupCodes);
+			form.reset();
 			props.onNext();
 		},
 	});
 
-	const handleVerify = () => {
-		if (code.length === 6) {
-			completeMutation.mutate();
-		}
+	const handleSubmit = (values: { code: string }) => {
+		completeMutation.mutate(values);
 	};
 
 	return (
-		<Stack>
-			<Text>
-				Enter the 6-digit code from your authenticator app to verify the setup.
-			</Text>
-			<Center>
-				<PinInput value={code} length={6} onChange={setCode} />
-			</Center>
-			{completeMutation.isError && (
-				<Text c="red" size="sm">
-					Invalid code. Please try again.
+		<form onSubmit={form.onSubmit(handleSubmit)}>
+			<Stack>
+				<Text>
+					Enter the 6-digit code from your authenticator app to verify the
+					setup.
 				</Text>
-			)}
-			<Group justify="space-between">
-				<Button
-					color="red"
-					variant="subtle"
-					onClick={props.onCancel}
-					disabled={completeMutation.isPending}
-				>
-					Cancel
-				</Button>
-				<Button
-					onClick={handleVerify}
-					disabled={code.length !== 6}
-					loading={completeMutation.isPending}
-				>
-					Verify & Enable
-				</Button>
-			</Group>
-		</Stack>
+				<Center>
+					<PinInput length={6} {...form.getInputProps("code")} />
+				</Center>
+				{completeMutation.isError && (
+					<Text c="red" size="sm">
+						Invalid code. Please try again.
+					</Text>
+				)}
+				<Group justify="space-between">
+					<Button
+						color="red"
+						variant="subtle"
+						onClick={props.onCancel}
+						disabled={completeMutation.isPending}
+					>
+						Cancel
+					</Button>
+					<Button
+						type="submit"
+						disabled={form.values.code.length !== 6}
+						loading={completeMutation.isPending}
+					>
+						Verify & Enable
+					</Button>
+				</Group>
+			</Stack>
+		</form>
 	);
 };
 

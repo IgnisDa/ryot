@@ -4,7 +4,7 @@ Ryot supports file storage and exporting using S3-compatible services.
 
 ## Cloudflare R2
 
-You can configure Ryot to use [Cloudflare R2](https://developers.cloudflare.com/r2/) for
+You can configure Ryot to use [Cloudflare R2](https://developers.cloudflare.com/r2) for
 file storage and exporting. R2 is S3-compatible and offers zero egress fees, making it a
 cost-effective solution for production use.
 
@@ -15,7 +15,7 @@ cost-effective solution for production use.
 
 ### Setup Instructions
 
-- Log into the [Cloudflare dashboard](https://dash.cloudflare.com/) and navigate to the R2
+- Log into the [Cloudflare dashboard](https://dash.cloudflare.com) and navigate to the R2
   section.
 - Click "Create bucket" and provide a name for your bucket (e.g., `ryot-storage`).
 - Go to "Manage R2 API tokens" and click "Create API token".
@@ -36,3 +36,30 @@ cost-effective solution for production use.
 
   Replace `<ACCOUNT_ID>` with your Cloudflare account ID. Use the actual values for your
   bucket name and API credentials.
+
+### CORS Configuration
+
+To allow your Ryot instance to upload files directly from the browser, you need to configure
+CORS settings for your R2 bucket:
+
+- In the Cloudflare R2 dashboard, select your bucket.
+- Navigate to the **Settings** tab.
+- Scroll to the **CORS Policy** section and click **Edit**.
+- Add the following configuration (adjust the origins to match your Ryot instance URLs):
+
+    ```json
+    [
+      {
+        "AllowedOrigins": [
+          "https://app.ryot.io",
+          "https://pro.ryot.io"
+        ],
+        "AllowedMethods": [
+          "PUT"
+        ],
+        "AllowedHeaders": [
+          "content-type"
+        ]
+      }
+    ]
+    ```

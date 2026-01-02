@@ -1,6 +1,5 @@
 /// <reference lib="WebWorker" />
 
-import { logger } from "@remix-pwa/sw";
 import { match } from "ts-pattern";
 import type {
 	AppServiceWorkerMessageData,
@@ -8,8 +7,12 @@ import type {
 	AppServiceWorkerNotificationTag,
 } from "~/lib/types";
 
-declare let self: ServiceWorkerGlobalScope;
 declare let clients: Clients;
+declare let self: ServiceWorkerGlobalScope;
+
+const logger = {
+	debug: (...args: unknown[]) => console.debug("[SW]", ...args),
+};
 
 self.addEventListener("install", (event) => {
 	event.waitUntil(self.skipWaiting());
@@ -34,13 +37,10 @@ self.addEventListener("notificationclick", (event) => {
 						.then((clientList) => {
 							for (let i = 0; i < clientList.length; i++) {
 								const client = clientList[i];
-								if (client.url === urlToOpen && "focus" in client) {
+								if (client.url === urlToOpen && "focus" in client)
 									return client.focus();
-								}
 							}
-							if (clients.openWindow) {
-								return clients.openWindow(urlToOpen);
-							}
+							if (clients.openWindow) return clients.openWindow(urlToOpen);
 						}),
 				);
 			})

@@ -25,11 +25,11 @@
 		"esModuleInterop": true,
 		"resolveJsonModule": true,
 		"moduleResolution": "bundler",
-		"lib": ["DOM", "DOM.Iterable", "ES2022"],
 		"forceConsistentCasingInFileNames": true,
 		"rootDirs": [".", "./.react-router/types"],
-		"types": ["@react-router/node", "vite/client"],
 		"outDir": "../../.moon/cache/types/apps/frontend",
+		"lib": ["DOM", "DOM.Iterable", "ES2022", "WebWorker"],
+		"types": ["@react-router/node", "vite/client", "vite-plugin-pwa/client"],
 		"paths": {
 			"~/*": ["./app/*"],
 			"@ryot/graphql/*": ["../../libs/graphql/src/*"],

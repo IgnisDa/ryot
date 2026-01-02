@@ -2,14 +2,19 @@ use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
 use anyhow::{Result, anyhow, bail};
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
-use common_utils::ryot_log;
-use database_models::{exercise, prelude::*, user_measurement, user_to_entity, workout};
-use database_utils::{schedule_user_for_workout_revision, user_by_id};
+use common_utils::{get_first_max_index_by, ryot_log};
+use database_models::{
+    exercise,
+    prelude::{Exercise, UserMeasurement, UserToEntity, Workout},
+    user_measurement, user_to_entity, workout,
+};
+use database_utils::schedule_user_for_workout_revision;
 use dependent_collection_utils::add_entities_to_collection;
+use dependent_models::UpdateCustomExerciseInput;
 use dependent_notification_utils::send_notification_for_user;
 use dependent_utility_utils::{
     expire_user_exercises_list_cache, expire_user_measurements_list_cache,
-    expire_user_workouts_list_cache,
+    expire_user_workout_details_cache, expire_user_workouts_list_cache,
 };
 use enum_meta::Meta;
 use enum_models::{
@@ -27,51 +32,29 @@ use fitness_models::{
 use futures::try_join;
 use itertools::Itertools;
 use nanoid::nanoid;
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
     QueryFilter, prelude::DateTimeUtc,
 };
 use supporting_service::SupportingService;
-use user_models::UserStatisticsMeasurement;
 
-pub async fn create_user_measurement(
+pub async fn create_or_update_user_measurement(
     user_id: &String,
     mut input: user_measurement::Model,
     ss: &Arc<SupportingService>,
 ) -> Result<DateTimeUtc> {
+    let existing = UserMeasurement::find()
+        .filter(user_measurement::Column::UserId.eq(user_id))
+        .filter(user_measurement::Column::Timestamp.eq(input.timestamp))
+        .one(&ss.db)
+        .await?;
+
+    if let Some(existing_measurement) = existing {
+        existing_measurement.delete(&ss.db).await?;
+    }
+
     input.user_id = user_id.to_owned();
-
-    let mut user = user_by_id(user_id, ss).await?;
-
-    let mut needs_to_update_preferences = false;
-    for measurement in input.information.statistics.iter() {
-        let already_in_preferences = user
-            .preferences
-            .fitness
-            .measurements
-            .statistics
-            .iter()
-            .any(|stat| stat.name == measurement.name);
-        if !already_in_preferences {
-            user.preferences
-                .fitness
-                .measurements
-                .statistics
-                .push(UserStatisticsMeasurement {
-                    name: measurement.name.clone(),
-                    ..Default::default()
-                });
-            needs_to_update_preferences = true;
-        }
-    }
-
-    if needs_to_update_preferences {
-        let mut user_model = user.clone().into_active_model();
-        user_model.preferences = ActiveValue::Set(user.preferences);
-        user_model.update(&ss.db).await?;
-    }
 
     let um = input.into_active_model();
     let um = um.insert(&ss.db).await?;
@@ -80,23 +63,28 @@ pub async fn create_user_measurement(
 }
 
 pub fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
-    let record = records.iter().enumerate().max_by_key(|(_, record)| {
-        record.statistic.duration.unwrap_or(dec!(0))
-            + record.statistic.distance.unwrap_or(dec!(0))
-            + record.statistic.reps.unwrap_or(dec!(0))
-            + record.statistic.weight.unwrap_or(dec!(0))
-    });
-    record.and_then(|(_, r)| records.iter().position(|l| l.statistic == r.statistic))
+    get_first_max_index_by(records, |a, b| {
+        let score_a = a.statistic.duration.unwrap_or(dec!(0))
+            + a.statistic.distance.unwrap_or(dec!(0))
+            + a.statistic.reps.unwrap_or(dec!(0))
+            + a.statistic.weight.unwrap_or(dec!(0));
+        let score_b = b.statistic.duration.unwrap_or(dec!(0))
+            + b.statistic.distance.unwrap_or(dec!(0))
+            + b.statistic.reps.unwrap_or(dec!(0))
+            + b.statistic.weight.unwrap_or(dec!(0));
+        score_a.cmp(&score_b)
+    })
 }
 
 pub fn get_index_of_highest_pb(
     records: &[WorkoutSetRecord],
     pb_type: &WorkoutSetPersonalBest,
 ) -> Option<usize> {
-    let record = records
-        .iter()
-        .max_by_key(|record| get_personal_best(record, pb_type).unwrap_or(dec!(0)));
-    record.and_then(|r| records.iter().position(|l| l.statistic == r.statistic))
+    get_first_max_index_by(records, |a, b| {
+        let pb_a = get_personal_best(a, pb_type).unwrap_or(dec!(0));
+        let pb_b = get_personal_best(b, pb_type).unwrap_or(dec!(0));
+        pb_a.cmp(&pb_b)
+    })
 }
 
 pub fn calculate_one_rm(value: &WorkoutSetRecord) -> Option<Decimal> {
@@ -106,7 +94,7 @@ pub fn calculate_one_rm(value: &WorkoutSetRecord) -> Option<Decimal> {
         true => (weight * dec!(36.0)).checked_div(dec!(37.0) - reps), // Brzycki
         false => weight.checked_mul((dec!(1).checked_add(reps.checked_div(dec!(30))?))?), // Epley
     };
-    val.filter(|v| v <= &dec!(0))
+    val.filter(|v| v >= &dec!(0))
 }
 
 pub fn calculate_volume(value: &WorkoutSetRecord) -> Option<Decimal> {
@@ -313,24 +301,26 @@ pub async fn create_custom_exercise(
     input.source = ExerciseSource::Custom;
     input.created_by_user_id = Some(user_id.clone());
     input.id = generate_exercise_id(&input.name, input.lot, user_id);
-    let input = input.into_active_model();
+    let mut input = input.into_active_model();
+    input.aggregated_instructions = ActiveValue::NotSet;
 
     let exercise = input.insert(&ss.db).await?;
     ryot_log!(debug, "Created custom exercise with id = {}", exercise.id);
     add_entities_to_collection(
         &user_id.clone(),
         ChangeCollectionToEntitiesInput {
+            creator_user_id: user_id.to_owned(),
+            collection_name: DefaultCollection::Custom.to_string(),
             entities: vec![EntityToCollectionInput {
                 information: None,
                 entity_id: exercise.id.clone(),
                 entity_lot: EntityLot::Exercise,
             }],
-            creator_user_id: user_id.to_owned(),
-            collection_name: DefaultCollection::Custom.to_string(),
         },
         ss,
     )
     .await?;
+    expire_user_exercises_list_cache(user_id, ss).await?;
     Ok(exercise.id)
 }
 
@@ -679,7 +669,60 @@ pub async fn create_or_update_user_workout(
     };
     try_join!(
         expire_user_workouts_list_cache(user_id, ss),
-        expire_user_exercises_list_cache(user_id, ss)
+        expire_user_exercises_list_cache(user_id, ss),
+        expire_user_workout_details_cache(user_id, &data.id, ss)
     )?;
     Ok(data.id)
+}
+
+pub async fn update_custom_exercise(
+    ss: &Arc<SupportingService>,
+    user_id: String,
+    input: UpdateCustomExerciseInput,
+) -> Result<bool> {
+    let UpdateCustomExerciseInput {
+        mut update,
+        should_delete,
+    } = input;
+    let id = update.id.clone();
+    let delete_entity = should_delete.unwrap_or_default();
+    let old_exercise = Exercise::find_by_id(&id).one(&ss.db).await?.unwrap();
+    let (images_to_delete, videos_to_delete) = if delete_entity {
+        (
+            old_exercise.assets.s3_images.clone(),
+            old_exercise.assets.s3_videos.clone(),
+        )
+    } else {
+        old_exercise.assets.removed_s3_objects(&update.assets)
+    };
+    for image in images_to_delete {
+        file_storage_service::delete_object(ss, image).await?;
+    }
+    for video in videos_to_delete {
+        file_storage_service::delete_object(ss, video).await?;
+    }
+    if delete_entity {
+        let ute = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(&user_id))
+            .filter(user_to_entity::Column::ExerciseId.eq(&id))
+            .one(&ss.db)
+            .await?
+            .ok_or_else(|| anyhow!("Exercise does not exist"))?;
+        if let Some(exercise_extra_information) = ute.exercise_extra_information
+            && !exercise_extra_information.history.is_empty()
+        {
+            bail!("Exercise is associated with one or more workouts.");
+        }
+        old_exercise.delete(&ss.db).await?;
+        return Ok(true);
+    }
+    update.source = ExerciseSource::Custom;
+    update.created_by_user_id = Some(user_id.clone());
+    let input = update.into_active_model();
+    let mut input = input.reset_all();
+    input.id = ActiveValue::Unchanged(id);
+    input.aggregated_instructions = ActiveValue::NotSet;
+    input.update(&ss.db).await?;
+    expire_user_exercises_list_cache(&user_id, ss).await?;
+    Ok(true)
 }

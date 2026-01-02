@@ -5,6 +5,7 @@ import "@mantine/carousel/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
 import "mantine-datatable/styles.layer.css";
+import { useRegisterSW } from "virtual:pwa-register/react";
 import {
 	ActionIcon,
 	Alert,
@@ -17,6 +18,7 @@ import {
 import { ModalsProvider } from "@mantine/modals";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
 import {
 	Links,
 	type LinksFunction,
@@ -100,16 +102,29 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const headers = new Headers();
 	const defaultColorScheme = colorScheme || "light";
 	if (toastHeaders) extendResponseHeaders(headers, toastHeaders);
-	return data({ toast, defaultColorScheme }, { headers });
+	return data(
+		{
+			toast,
+			defaultColorScheme,
+			isDevelopmentMode: process.env.NODE_ENV === "development",
+		},
+		{ headers },
+	);
 };
 
 export default function App() {
 	const navigation = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
+	useRegisterSW({
+		onNeedRefresh: () => location.reload(),
+	});
 
 	return (
 		<html lang="en">
 			<head>
+				{loaderData.isDevelopmentMode ? (
+					<script src="https://unpkg.com/react-scan/dist/auto.global.js" />
+				) : null}
 				<meta charSet="utf-8" />
 				<meta
 					name="viewport"
@@ -122,33 +137,35 @@ export default function App() {
 				<ColorSchemeScript forceColorScheme={loaderData.defaultColorScheme} />
 			</head>
 			<body>
-				<MantineProvider
-					theme={theme}
-					classNamesPrefix="mnt"
-					forceColorScheme={loaderData.defaultColorScheme}
-				>
-					<QueryClientProvider client={queryClient}>
-						<ModalsProvider>
-							{["loading", "submitting"].includes(navigation.state) ? (
-								<Loader
-									top={10}
-									size="sm"
-									right={10}
-									pos="fixed"
-									color="yellow"
-									style={{ zIndex: 10 }}
-								/>
-							) : null}
-							<Toaster toast={loaderData.toast} />
-							<Flex style={{ flexGrow: 1 }} mih="100vh">
-								<Outlet />
-							</Flex>
-							<ScrollRestoration />
-							<Scripts />
-						</ModalsProvider>
-						<ReactQueryDevtools buttonPosition="top-right" />
-					</QueryClientProvider>
-				</MantineProvider>
+				<NuqsAdapter>
+					<MantineProvider
+						theme={theme}
+						classNamesPrefix="mnt"
+						forceColorScheme={loaderData.defaultColorScheme}
+					>
+						<QueryClientProvider client={queryClient}>
+							<ModalsProvider>
+								{["loading", "submitting"].includes(navigation.state) ? (
+									<Loader
+										top={10}
+										size="sm"
+										right={10}
+										pos="fixed"
+										color="yellow"
+										style={{ zIndex: 10 }}
+									/>
+								) : null}
+								<Toaster toast={loaderData.toast} />
+								<Flex style={{ flexGrow: 1 }} mih="100vh">
+									<Outlet />
+								</Flex>
+								<ScrollRestoration />
+								<Scripts />
+							</ModalsProvider>
+							<ReactQueryDevtools buttonPosition="top-right" />
+						</QueryClientProvider>
+					</MantineProvider>
+				</NuqsAdapter>
 			</body>
 		</html>
 	);

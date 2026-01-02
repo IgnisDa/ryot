@@ -78,7 +78,7 @@ import {
 } from "~/lib/shared/hooks";
 import { MediaColors } from "~/lib/shared/media-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
-import { selectRandomElement } from "~/lib/shared/ui-utils";
+import { selectRandomElement, triggerDownload } from "~/lib/shared/ui-utils";
 import { ApplicationTimeRange } from "~/lib/types";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.analytics";
@@ -129,7 +129,7 @@ const useGetUserAnalytics = () => {
 	const { startDate, endDate } = useTimeSpanSettings();
 	const input = { dateRange: { startDate, endDate } };
 
-	const { data: userAnalytics } = useQuery({
+	const userAnalytics = useQuery({
 		queryKey: queryFactory.miscellaneous.userAnalytics(input).queryKey,
 		queryFn: async () => {
 			return await clientGqlService
@@ -144,11 +144,12 @@ const isCaptureLoadingAtom = atom(false);
 
 export default function Page() {
 	const coreDetails = useCoreDetails();
-	const [customRangeOpened, setCustomRangeOpened] = useState(false);
+	const userAnalytics = useGetUserAnalytics();
 	const toCaptureRef = useRef<HTMLDivElement>(null);
+	const [customRangeOpened, setCustomRangeOpened] = useState(false);
+	const [isCaptureLoading, setIsCaptureLoading] = useAtom(isCaptureLoadingAtom);
 	const { timeSpanSettings, setTimeSpanSettings, startDate, endDate } =
 		useTimeSpanSettings();
-	const [isCaptureLoading, setIsCaptureLoading] = useAtom(isCaptureLoadingAtom);
 
 	return (
 		<>
@@ -174,6 +175,7 @@ export default function Page() {
 											w={{ md: 200 }}
 											variant="default"
 											ml={{ md: "auto" }}
+											loading={userAnalytics.isFetching}
 										>
 											<Stack gap={0}>
 												<Text size="xs">{timeSpanSettings.range}</Text>
@@ -263,19 +265,25 @@ export default function Page() {
 							if (!current) return;
 							setIsCaptureLoading(true);
 							setTimeout(async () => {
+								let downloadUrl: string | undefined;
 								try {
-									const canvasPromise = await html2canvas(current);
-									const dataURL = canvasPromise.toDataURL("image/png");
-									const img = new Image();
-									img.setAttribute("src", dataURL);
-									img.setAttribute("download", dataURL);
-									const a = document.createElement("a");
-									a.setAttribute("download", dataURL);
-									a.setAttribute("href", img.src);
-									a.setAttribute("target", "_blank");
-									a.innerHTML = "DOWNLOAD";
-									document.body.appendChild(a);
-									a.click();
+									const canvas = await html2canvas(current);
+									const dataUrl = canvas.toDataURL("image/png");
+									let blob: Blob;
+									if (canvas.toBlob) {
+										blob = await new Promise<Blob>((resolve, reject) => {
+											canvas.toBlob((value) => {
+												if (value) return resolve(value);
+												reject(new Error("Failed to create canvas blob"));
+											}, "image/png");
+										});
+									} else {
+										blob = await fetch(dataUrl).then((response) =>
+											response.blob(),
+										);
+									}
+									downloadUrl = URL.createObjectURL(blob);
+									triggerDownload(downloadUrl, "download.png");
 								} catch {
 									notifications.show({
 										color: "red",
@@ -283,6 +291,7 @@ export default function Page() {
 										message: "Something went wrong while capturing the image",
 									});
 								} finally {
+									if (downloadUrl) URL.revokeObjectURL(downloadUrl);
 									setIsCaptureLoading(false);
 								}
 							}, 1500);
@@ -312,7 +321,7 @@ const DisplayStat = (props: {
 
 const ActivitySection = () => {
 	const userAnalytics = useGetUserAnalytics();
-	const dailyUserActivities = userAnalytics?.activities;
+	const dailyUserActivities = userAnalytics?.data?.activities;
 	const trackSeries = mapValues(MediaColors, () => false);
 
 	const data = dailyUserActivities?.items.map((d) => {
@@ -741,8 +750,8 @@ const ChartContainer = (props: ChartContainerProps) => {
 	);
 	const userAnalytics = useGetUserAnalytics();
 
-	const value = userAnalytics
-		? props.children(count, userAnalytics)
+	const value = userAnalytics.data
+		? props.children(count, userAnalytics.data)
 		: undefined;
 
 	return userPreferences.featuresEnabled.fitness.enabled ? (

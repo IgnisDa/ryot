@@ -1,12 +1,16 @@
 use migrations_utils::create_trigram_index_if_required;
 use sea_orm_migration::prelude::*;
 
-use super::{m20230410_create_metadata::Metadata, m20230411_create_metadata_group::MetadataGroup};
+use super::{
+    m20230404_create_user::User, m20230410_create_metadata::Metadata,
+    m20230411_create_metadata_group::MetadataGroup,
+};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
 pub static METADATA_TO_PERSON_PRIMARY_KEY: &str = "pk-media-item_person";
+pub static PERSON_TO_USER_FOREIGN_KEY: &str = "person_to_user_foreign_key";
 pub static PERSON_IDENTIFIER_UNIQUE_KEY: &str = "person-identifier-source__unique_index";
 pub static PERSON_ASSOCIATED_METADATA_COUNT_GENERATED_SQL: &str = r#"GENERATED ALWAYS AS (COALESCE(JSONB_ARRAY_LENGTH("state_changes"->'metadata_associated'), 0)) STORED"#;
 pub static PERSON_ASSOCIATED_METADATA_GROUPS_COUNT_GENERATED_SQL: &str = r#"GENERATED ALWAYS AS (COALESCE(JSONB_ARRAY_LENGTH("state_changes"->'metadata_groups_associated'), 0)) STORED"#;
@@ -34,9 +38,11 @@ pub enum Person {
     StateChanges,
     LastUpdatedOn,
     AlternateNames,
+    CreatedByUserId,
     SourceSpecifics,
     AssociatedEntityCount,
     AssociatedMetadataCount,
+    HasTranslationsForLanguages,
     AssociatedMetadataGroupsCount,
 }
 
@@ -113,6 +119,18 @@ impl MigrationTrait for Migration {
                             .extra(PERSON_ASSOCIATED_ENTITY_COUNT_GENERATED_SQL),
                     )
                     .col(ColumnDef::new(Person::Assets).json_binary().not_null())
+                    .col(ColumnDef::new(Person::CreatedByUserId).text())
+                    .col(
+                        ColumnDef::new(Person::HasTranslationsForLanguages).array(ColumnType::Text),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name(PERSON_TO_USER_FOREIGN_KEY)
+                            .from(Person::Table, Person::CreatedByUserId)
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::SetNull)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
                     .to_owned(),
             )
             .await?;

@@ -9,22 +9,28 @@ export const MetadataCreatorDisplay = (props: {
 	data: MetadataCreator;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data } = usePersonDetails(
-		props.data.idOrName,
-		inViewport && !props.data.isFree,
-	);
+	const [{ data: personDetails }, isPartialStatusActive, personTranslations] =
+		usePersonDetails(props.data.idOrName, inViewport && !props.data.isFree);
 
 	const title = useMemo(() => {
-		const name = data?.details.name || props.data.idOrName;
+		const name =
+			personTranslations?.title ||
+			personDetails?.details.name ||
+			props.data.idOrName;
 		const character = props.data.character ? ` as ${props.data.character}` : "";
 		return `${name}${character}`;
-	}, [data, props.data]);
+	}, [personDetails, props.data, personTranslations]);
 
 	return (
 		<BaseEntityDisplay
 			ref={ref}
 			title={title}
-			image={data?.details.assets.remoteImages.at(0) || undefined}
+			isPartialStatusActive={isPartialStatusActive}
+			image={
+				personTranslations?.image ||
+				personDetails?.details.assets.remoteImages.at(0) ||
+				undefined
+			}
 			link={
 				props.data.isFree
 					? undefined

@@ -4,23 +4,25 @@ use anyhow::{Result, bail};
 use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::StringIdObject;
 use common_utils::ryot_log;
-use database_models::review;
-use database_utils::user_by_id;
-use dependent_utility_utils::{
-    associate_user_with_entity, get_entity_title_from_id_and_lot, mark_entity_as_recently_consumed,
+use database_models::{
+    prelude::{Collection, Exercise, Genre, Workout, WorkoutTemplate},
+    review,
 };
+use database_utils::user_by_id;
+use dependent_details_utils::{metadata_details, metadata_group_details, person_details};
+use dependent_utility_utils::associate_user_with_entity;
 use enum_models::{EntityLot, Visibility};
 use media_models::{
     CreateOrUpdateReviewInput, ImportOrExportItemRating, ReviewPostedEvent,
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraOptionalInformation,
     SeenShowExtraOptionalInformation,
 };
-use rust_decimal_macros::dec;
-use sea_orm::{ActiveModelTrait, ActiveValue};
+use rust_decimal::dec;
+use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait};
 use supporting_service::SupportingService;
 use user_models::{UserPreferences, UserReviewScale};
 
-pub async fn post_review(
+pub async fn create_or_update_review(
     user_id: &String,
     input: CreateOrUpdateReviewInput,
     ss: &Arc<SupportingService>,
@@ -29,13 +31,9 @@ pub async fn post_review(
     if preferences.general.disable_reviews {
         bail!("Reviews are disabled");
     }
-    let show_ei = if input.show_season_number.is_some() || input.show_episode_number.is_some() {
-        Some(SeenShowExtraOptionalInformation {
-            season: input.show_season_number,
-            episode: input.show_episode_number,
-        })
-    } else {
-        None
+    let show_ei = match (input.show_season_number, input.show_episode_number) {
+        (None, None) => None,
+        (season, episode) => Some(SeenShowExtraOptionalInformation { season, episode }),
     };
     let podcast_ei =
         input
@@ -48,13 +46,9 @@ pub async fn post_review(
         .map(|episode| SeenAnimeExtraInformation {
             episode: Some(episode),
         });
-    let manga_ei = if input.manga_chapter_number.is_none() && input.manga_volume_number.is_none() {
-        None
-    } else {
-        Some(SeenMangaExtraInformation {
-            chapter: input.manga_chapter_number,
-            volume: input.manga_volume_number,
-        })
+    let manga_ei = match (input.manga_chapter_number, input.manga_volume_number) {
+        (None, None) => None,
+        (chapter, volume) => Some(SeenMangaExtraInformation { chapter, volume }),
     };
 
     if input.rating.is_none() && input.text.is_none() {
@@ -83,14 +77,17 @@ pub async fn post_review(
             ..Default::default()
         };
     let entity_id = input.entity_id.clone();
+    macro_rules! set_review_id {
+        ($field:ident) => {
+            review_obj.$field = ActiveValue::Set(Some(entity_id))
+        };
+    }
     match input.entity_lot {
-        EntityLot::Metadata => review_obj.metadata_id = ActiveValue::Set(Some(entity_id)),
-        EntityLot::Person => review_obj.person_id = ActiveValue::Set(Some(entity_id)),
-        EntityLot::MetadataGroup => {
-            review_obj.metadata_group_id = ActiveValue::Set(Some(entity_id))
-        }
-        EntityLot::Collection => review_obj.collection_id = ActiveValue::Set(Some(entity_id)),
-        EntityLot::Exercise => review_obj.exercise_id = ActiveValue::Set(Some(entity_id)),
+        EntityLot::Person => set_review_id!(person_id),
+        EntityLot::Metadata => set_review_id!(metadata_id),
+        EntityLot::Exercise => set_review_id!(exercise_id),
+        EntityLot::Collection => set_review_id!(collection_id),
+        EntityLot::MetadataGroup => set_review_id!(metadata_group_id),
         EntityLot::Genre
         | EntityLot::Review
         | EntityLot::Workout
@@ -126,7 +123,6 @@ pub async fn post_review(
             .await?;
         }
     }
-    mark_entity_as_recently_consumed(user_id, &input.entity_id, input.entity_lot, ss).await?;
     associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss).await?;
     Ok(StringIdObject {
         id: insert.id.unwrap(),
@@ -165,4 +161,31 @@ pub fn convert_review_into_input(
         visibility: review.review.clone().and_then(|r| r.visibility),
         ..Default::default()
     })
+}
+
+async fn get_entity_title_from_id_and_lot(
+    id: &String,
+    lot: EntityLot,
+    ss: &Arc<SupportingService>,
+) -> Result<String> {
+    let obj_title = match lot {
+        EntityLot::Genre => Genre::find_by_id(id).one(&ss.db).await?.unwrap().name,
+        EntityLot::Metadata => metadata_details(ss, id).await?.response.title,
+        EntityLot::MetadataGroup => metadata_group_details(ss, id).await?.response.details.title,
+        EntityLot::Person => person_details(id, ss).await?.response.details.name,
+        EntityLot::Collection => Collection::find_by_id(id).one(&ss.db).await?.unwrap().name,
+        EntityLot::Exercise => Exercise::find_by_id(id).one(&ss.db).await?.unwrap().name,
+        EntityLot::Workout => Workout::find_by_id(id).one(&ss.db).await?.unwrap().name,
+        EntityLot::WorkoutTemplate => {
+            WorkoutTemplate::find_by_id(id)
+                .one(&ss.db)
+                .await?
+                .unwrap()
+                .name
+        }
+        EntityLot::Review | EntityLot::UserMeasurement => {
+            unreachable!()
+        }
+    };
+    Ok(obj_title)
 }

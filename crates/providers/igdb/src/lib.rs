@@ -1,14 +1,13 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{Result, anyhow};
-use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdAndNamedObject, IdObject,
     NamedObject, PersonSourceSpecifics, SearchDetails,
 };
-use common_utils::PAGE_SIZE;
+use common_utils::{PAGE_SIZE, compute_next_page, get_base_http_client};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
@@ -33,7 +32,6 @@ use rust_decimal::Decimal;
 use rust_iso3166::from_numeric;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use serde_json::Value;
 use serde_with::{TimestampSeconds, formats::Flexible, serde_as};
 use slug::slugify;
 use supporting_service::SupportingService;
@@ -185,11 +183,11 @@ struct IgdbItemResponse {
     games: Option<Vec<IgdbItemResponse>>,
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
     first_release_date: Option<DateTimeUtc>,
-    #[serde(flatten)]
-    rest_data: Option<HashMap<String, Value>>,
     release_dates: Option<Vec<IgdbReleaseDate>>,
     similar_games: Option<Vec<IgdbItemResponse>>,
     involved_companies: Option<Vec<IgdbInvolvedCompany>>,
+    #[serde(flatten)]
+    rest_data: Option<HashMap<String, serde_json::Value>>,
 }
 
 #[derive(Clone)]
@@ -238,7 +236,7 @@ offset: {offset};
             query = query,
             limit = PAGE_SIZE,
             fields = COLLECTION_FIELDS,
-            offset = (page - 1) * PAGE_SIZE
+            offset = page.saturating_sub(1) * PAGE_SIZE
         );
         let rsp = client
             .post(format!("{URL}/collections"))
@@ -256,7 +254,7 @@ offset: {offset};
                 image: d.cover.map(|c| self.get_cover_image_url(c.image_id)),
             })
             .collect_vec();
-        let next_page = (total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
+        let next_page = compute_next_page(page, total_items);
         Ok(SearchResults {
             items: resp.clone(),
             details: SearchDetails {
@@ -341,7 +339,7 @@ offset: {offset};
             query = query,
             limit = PAGE_SIZE,
             fields = COMPANY_FIELDS,
-            offset = (page - 1) * PAGE_SIZE
+            offset = page.saturating_sub(1) * PAGE_SIZE
         );
         let rsp = client
             .post(format!("{URL}/companies"))
@@ -362,7 +360,7 @@ offset: {offset};
                 }
             })
             .collect_vec();
-        let next_page = (total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
+        let next_page = compute_next_page(page, total_items);
         Ok(SearchResults {
             items: resp.clone(),
             details: SearchDetails {
@@ -564,7 +562,7 @@ offset: {offset};
             limit = PAGE_SIZE,
             fields = GAME_FIELDS.trim(),
             where_clause = where_clause,
-            offset = (page - 1) * PAGE_SIZE
+            offset = page.saturating_sub(1) * PAGE_SIZE
         );
 
         let rsp = client
@@ -589,7 +587,7 @@ offset: {offset};
             })
             .collect_vec();
 
-        let next_page = (total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
+        let next_page = compute_next_page(page, total_items);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {

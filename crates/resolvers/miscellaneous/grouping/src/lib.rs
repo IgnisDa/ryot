@@ -6,14 +6,12 @@ use dependent_models::{
     UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
 };
 use media_models::GenreDetailsInput;
-use miscellaneous_service::MiscellaneousService;
-use traits::{AuthProvider, GraphqlResolverSvc};
+use traits::GraphqlDependencyInjector;
 
 #[derive(Default)]
 pub struct MiscellaneousGroupingQueryResolver;
 
-impl AuthProvider for MiscellaneousGroupingQueryResolver {}
-impl GraphqlResolverSvc<MiscellaneousService> for MiscellaneousGroupingQueryResolver {}
+impl GraphqlDependencyInjector for MiscellaneousGroupingQueryResolver {}
 
 #[Object]
 impl MiscellaneousGroupingQueryResolver {
@@ -23,8 +21,8 @@ impl MiscellaneousGroupingQueryResolver {
         gql_ctx: &Context<'_>,
         metadata_group_id: String,
     ) -> Result<CachedResponse<MetadataGroupDetails>> {
-        let service = self.svc(gql_ctx);
-        Ok(service.metadata_group_details(metadata_group_id).await?)
+        let service = self.dependency(gql_ctx);
+        Ok(dependent_details_utils::metadata_group_details(service, &metadata_group_id).await?)
     }
 
     /// Get paginated list of metadata groups.
@@ -33,8 +31,11 @@ impl MiscellaneousGroupingQueryResolver {
         gql_ctx: &Context<'_>,
         input: UserMetadataGroupsListInput,
     ) -> Result<CachedResponse<UserMetadataGroupsListResponse>> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.user_metadata_groups_list(user_id, input).await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(
+            dependent_entity_list_utils::user_metadata_groups_list(&user_id, service, input)
+                .await?,
+        )
     }
 
     /// Get details that can be displayed to a user for a metadata group.
@@ -42,11 +43,16 @@ impl MiscellaneousGroupingQueryResolver {
         &self,
         gql_ctx: &Context<'_>,
         metadata_group_id: String,
-    ) -> Result<UserMetadataGroupDetails> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service
-            .user_metadata_group_details(user_id, metadata_group_id)
-            .await?)
+    ) -> Result<CachedResponse<UserMetadataGroupDetails>> {
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(
+            miscellaneous_entity_user_details_service::user_metadata_group_details(
+                service,
+                user_id,
+                metadata_group_id,
+            )
+            .await?,
+        )
     }
 
     /// Get details about a genre present in the database.
@@ -55,8 +61,8 @@ impl MiscellaneousGroupingQueryResolver {
         gql_ctx: &Context<'_>,
         input: GenreDetailsInput,
     ) -> Result<CachedResponse<GenreDetails>> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.genre_details(user_id, input).await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(dependent_details_utils::genre_details(service, user_id, input).await?)
     }
 
     /// Get paginated list of genres for the user.
@@ -65,7 +71,7 @@ impl MiscellaneousGroupingQueryResolver {
         gql_ctx: &Context<'_>,
         input: Option<SearchInput>,
     ) -> Result<SearchResults<String>> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.user_genres_list(user_id, input).await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(dependent_entity_list_utils::user_genres_list(service, user_id, input).await?)
     }
 }

@@ -6,14 +6,13 @@ import { isString } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import { useUserPreferences } from "~/lib/shared/hooks";
+import { useUserExerciseDetails, useUserPreferences } from "~/lib/shared/hooks";
 import {
 	type CurrentWorkout,
 	type CurrentWorkoutTimer,
 	type Exercise,
 	type ExerciseSet,
 	type InProgressWorkout,
-	getUserExerciseDetailsQuery,
 	getWorkoutDetails,
 	useCurrentWorkout,
 	useCurrentWorkoutTimerAtom,
@@ -34,9 +33,8 @@ export const getGlobalSetIndex = (
 	let globalIndex = 0;
 	for (let i = 0; i < currentWorkout.exercises.length; i++) {
 		if (i === exerciseIdx) break;
-		if (currentWorkout.exercises[i].exerciseId === exerciseId) {
+		if (currentWorkout.exercises[i].exerciseId === exerciseId)
 			globalIndex += currentWorkout.exercises[i].sets.length;
-		}
 	}
 	globalIndex += setIdx;
 	return globalIndex;
@@ -48,8 +46,8 @@ export const usePreviousSetData = (input: {
 	exerciseIdx: number;
 	currentWorkout: InProgressWorkout;
 }) => {
-	const { data: userExerciseDetails } = useQuery(
-		getUserExerciseDetailsQuery(input.exerciseId),
+	const { data: userExerciseDetails } = useUserExerciseDetails(
+		input.exerciseId,
 	);
 
 	return useQuery({
@@ -153,9 +151,7 @@ export const handleSetConfirmation = async (params: {
 	const isOnboardingTourStep =
 		set?.confirmedAt === null && exerciseIdx === 0 && setIdx === 0;
 
-	if (isOnboardingTourStep && newConfirmed) {
-		advanceOnboardingTourStep();
-	}
+	if (isOnboardingTourStep && newConfirmed) advanceOnboardingTourStep();
 
 	if (
 		!newConfirmed &&
@@ -217,8 +213,8 @@ export const useSetConfirmationHandler = (props: {
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
-	return async () => {
-		await handleSetConfirmation({
+	return () =>
+		handleSetConfirmation({
 			set,
 			exercise,
 			currentTimer,
@@ -234,5 +230,4 @@ export const useSetConfirmationHandler = (props: {
 			playCheckSound: props.playCheckSound,
 			isWorkoutPaused: props.isWorkoutPaused,
 		});
-	};
 };

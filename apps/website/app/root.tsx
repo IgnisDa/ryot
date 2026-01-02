@@ -1,3 +1,4 @@
+import { cn } from "@ryot/ts-utils";
 import {
 	Link,
 	Links,
@@ -14,21 +15,22 @@ import {
 	useRouteError,
 } from "react-router";
 import { HoneypotProvider } from "remix-utils/honeypot/react";
-import "./tailwind.css";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
 import { Button } from "./lib/components/ui/button";
 import { Toaster } from "./lib/components/ui/sonner";
 import { honeypot } from "./lib/config.server";
-import { logoUrl, startUrl } from "./lib/constants";
+import { logoUrl, startUrl } from "./lib/general";
 import { getCustomerFromCookie } from "./lib/utilities.server";
+import "./tailwind.css";
 
 export const meta: MetaFunction = () => {
 	return [
-		{ title: "Ryot" },
+		{ title: "Ryot - The Only Self-Hosted Tracker You Will Ever Need" },
 		{
 			name: "description",
-			content: "The only self hosted tracker you will ever need.",
+			content:
+				"Self-hosted platform for tracking your media, fitness, and personal data. Complete privacy and control over your digital life.",
 		},
 	];
 };
@@ -36,20 +38,20 @@ export const meta: MetaFunction = () => {
 export const links: LinksFunction = () => {
 	return [
 		{
+			rel: "stylesheet",
+			href: "https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap",
+		},
+		{
 			rel: "icon",
-			type: "image/png",
 			sizes: "16x16",
+			type: "image/png",
 			href: "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/favicon-16x16.png",
 		},
 		{
 			rel: "icon",
-			type: "image/png",
 			sizes: "32x32",
+			type: "image/png",
 			href: "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/favicon-32x32.png",
-		},
-		{
-			rel: "stylesheet",
-			href: "https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap",
 		},
 	];
 };
@@ -63,12 +65,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function App() {
-	const loaderData = useLoaderData<typeof loader>();
 	const location = useLocation();
+	const loaderData = useLoaderData<typeof loader>();
 
 	const isActivePage = (path: string) => {
-		if (path === "/") return location.pathname === "/";
+		if (path === "/") return location.pathname === "/" && location.hash === "";
 		return location.pathname.startsWith(path);
+	};
+
+	const isActiveFragment = (fragment: string) => {
+		if (location.pathname !== "/") return false;
+		return location.hash === `#${fragment}`;
 	};
 
 	return (
@@ -107,45 +114,47 @@ export default function App() {
 								<nav className="hidden md:flex items-center space-x-8">
 									<Link
 										to={$path("/")}
-										className={`transition-colors ${
-											isActivePage("/") && location.pathname === "/"
+										className={cn(
+											"transition-colors",
+											isActivePage("/")
 												? "text-primary font-medium"
-												: "text-muted-foreground hover:text-foreground"
-										}`}
+												: "text-muted-foreground hover:text-foreground",
+										)}
 									>
 										Home
 									</Link>
 									<Link
 										to={$path("/features")}
-										className={`transition-colors ${
+										className={cn(
+											"transition-colors",
 											isActivePage("/features")
 												? "text-primary font-medium"
-												: "text-muted-foreground hover:text-foreground"
-										}`}
+												: "text-muted-foreground hover:text-foreground",
+										)}
 									>
 										Features
 									</Link>
 									<Link
 										to={withFragment($path("/"), "pricing")}
-										className="text-muted-foreground hover:text-foreground transition-colors"
+										className={cn(
+											"transition-colors",
+											isActiveFragment("pricing")
+												? "text-primary font-medium"
+												: "text-muted-foreground hover:text-foreground",
+										)}
 									>
 										Pricing
 									</Link>
 									<Link
 										to={withFragment($path("/"), "contact")}
-										className="text-muted-foreground hover:text-foreground transition-colors"
+										className={cn(
+											"transition-colors",
+											isActiveFragment("contact")
+												? "text-primary font-medium"
+												: "text-muted-foreground hover:text-foreground",
+										)}
 									>
 										Contact
-									</Link>
-									<Link
-										to={$path("/terms")}
-										className={`transition-colors ${
-											isActivePage("/terms")
-												? "text-primary font-medium"
-												: "text-muted-foreground hover:text-foreground"
-										}`}
-									>
-										Terms
 									</Link>
 									<a
 										target="_blank"

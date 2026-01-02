@@ -1,18 +1,21 @@
-use std::{convert::TryInto, fmt};
+use std::{cmp::Ordering, convert::TryInto, fmt, time::Duration};
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use data_encoding::BASE32;
 use enum_models::MediaSource;
 use env_utils::APP_VERSION;
 use rand::{RngCore, rng};
-use reqwest::header::HeaderValue;
+use reqwest::{
+    ClientBuilder,
+    header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
+};
 use sea_orm::{
     DatabaseBackend, Statement,
     prelude::DateTimeUtc,
     sea_query::{PostgresQueryBuilder, SelectStatement},
 };
 use serde::de;
-use tokio::time::{Duration, sleep};
+use tokio::time::sleep;
 
 pub const PAGE_SIZE: u64 = 20;
 pub const AUTHOR: &str = "ignisda";
@@ -21,6 +24,7 @@ pub const TWO_FACTOR_BACKUP_CODES_COUNT: u8 = 12;
 pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
 pub const BULK_APPLICATION_UPDATE_CHUNK_SIZE: usize = 5;
+pub const MAX_PRESET_FILTERS_FOR_NON_PRO_USERS: u64 = 5;
 pub const MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE: usize = 5;
 pub const BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE: usize = 2000;
 pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
@@ -37,6 +41,12 @@ pub const USER_AGENT_STR: &str = const_str::concat!(
     AUTHOR_EMAIL,
     ")"
 );
+
+pub fn compute_next_page(page: u64, total_items: u64) -> Option<u64> {
+    page.checked_mul(PAGE_SIZE)
+        .and_then(|count| (count < total_items).then(|| page.checked_add(1)))
+        .flatten()
+}
 
 pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 12] = [
     MediaSource::Vndb,
@@ -83,10 +93,10 @@ macro_rules! ryot_log {
 }
 
 pub fn get_temporary_directory() -> &'static str {
-    if cfg!(debug_assertions) {
-        return "/tmp";
+    match cfg!(debug_assertions) {
+        true => "/tmp",
+        false => "tmp",
     }
-    "tmp"
 }
 
 pub fn get_first_and_last_day_of_month(year: i32, month: u32) -> (NaiveDate, NaiveDate) {
@@ -166,4 +176,28 @@ pub fn generate_session_id(byte_length: Option<usize>) -> String {
 pub fn get_db_stmt(stmt: SelectStatement) -> Statement {
     let (sql, values) = stmt.build(PostgresQueryBuilder {});
     Statement::from_sql_and_values(DatabaseBackend::Postgres, sql, values)
+}
+
+pub fn get_first_max_index_by<T, F>(items: &[T], compare_fn: F) -> Option<usize>
+where
+    F: Fn(&T, &T) -> Ordering,
+{
+    items
+        .iter()
+        .enumerate()
+        .max_by(|(idx_a, a), (idx_b, b)| compare_fn(a, b).then_with(|| idx_b.cmp(idx_a)))
+        .map(|(idx, _)| idx)
+}
+
+pub fn get_base_http_client(headers: Option<Vec<(HeaderName, HeaderValue)>>) -> reqwest::Client {
+    let mut req_headers = HeaderMap::new();
+    req_headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
+    for (header, value) in headers.unwrap_or_default().into_iter() {
+        req_headers.insert(header, value);
+    }
+    ClientBuilder::new()
+        .default_headers(req_headers)
+        .timeout(Duration::from_secs(15))
+        .build()
+        .unwrap()
 }

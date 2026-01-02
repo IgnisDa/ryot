@@ -1,18 +1,24 @@
 use std::sync::Arc;
 
-use anyhow::Result;
-use application_utils::get_base_http_client;
+use anyhow::{Result, bail};
 use common_models::SearchDetails;
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, SearchResults, TvdbSettings};
+use common_utils::{PAGE_SIZE, get_base_http_client};
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, ProviderSupportedLanguageInformation,
+    SearchResults, TvdbSettings,
+};
 use itertools::Itertools;
-use media_models::MetadataSearchItem;
+use media_models::{EntityTranslationDetails, MetadataSearchItem};
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},
 };
 use supporting_service::SupportingService;
 
-use crate::models::{TvdbLanguagesApiResponse, TvdbLoginResponse, TvdbSearchResponse, URL};
+use crate::models::{
+    TvdbItemTranslationResponse, TvdbLanguagesApiResponse, TvdbLoginResponse, TvdbSearchResponse,
+    URL,
+};
 
 pub struct TvdbService {
     pub client: Client,
@@ -29,11 +35,14 @@ impl TvdbService {
         Ok(Self { client, settings })
     }
 
-    pub fn get_all_languages(&self) -> Vec<String> {
+    pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
         self.settings
             .languages
             .iter()
-            .map(|l| l.id.clone())
+            .map(|l| ProviderSupportedLanguageInformation {
+                value: l.id.clone(),
+                label: l.name.clone(),
+            })
             .collect()
     }
 
@@ -53,8 +62,7 @@ impl TvdbService {
         query: &str,
         search_type: &str,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let limit = 20;
-        let offset = (page - 1) * limit;
+        let offset = page.saturating_sub(1) * PAGE_SIZE;
 
         let rsp = self
             .client
@@ -62,8 +70,8 @@ impl TvdbService {
             .query(&[
                 ("query", query),
                 ("type", search_type),
-                ("limit", &limit.to_string()),
                 ("offset", &offset.to_string()),
+                ("limit", &PAGE_SIZE.to_string()),
             ])
             .send()
             .await?;
@@ -81,7 +89,7 @@ impl TvdbService {
             .and_then(|l| l.total_items)
             .unwrap_or(0);
 
-        let resp = search
+        let items = search
             .data
             .into_iter()
             .map(|d| MetadataSearchItem {
@@ -93,11 +101,38 @@ impl TvdbService {
             .collect_vec();
 
         Ok(SearchResults {
-            items: resp,
+            items,
             details: SearchDetails {
                 next_page,
                 total_items,
             },
+        })
+    }
+
+    pub async fn translate(
+        &self,
+        entity_type: &str,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let response = self
+            .client
+            .get(format!(
+                "{URL}/{entity_type}/{identifier}/translations/{target_language}",
+            ))
+            .send()
+            .await?
+            .json::<TvdbItemTranslationResponse>()
+            .await?;
+
+        if response.status != "success" {
+            bail!("Translation not found");
+        }
+
+        Ok(EntityTranslationDetails {
+            title: response.data.name,
+            description: response.data.overview,
+            ..Default::default()
         })
     }
 }

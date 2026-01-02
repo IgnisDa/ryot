@@ -1,8 +1,6 @@
-import type {
-	MediaCollectionFilter,
-	MediaCollectionPresenceFilter,
-} from "@ryot/generated/graphql/backend/graphql";
-import { isString } from "@ryot/ts-utils";
+import type { MediaCollectionFilter } from "@ryot/generated/graphql/backend/graphql";
+import { isEqual, isString } from "@ryot/ts-utils";
+import { createParser } from "nuqs";
 import { z } from "zod";
 import { convertTimestampToUtcString } from "./date-utils";
 
@@ -10,30 +8,6 @@ export const zodCommaDelimitedString = z
 	.string()
 	.optional()
 	.transform((v) => (isString(v) ? v.split(",") : undefined));
-
-export const zodEmptyNumberString = z
-	.any()
-	.transform((v) => (!v ? undefined : Number.parseInt(v)))
-	.nullable();
-
-export const zodEmptyDecimalString = z
-	.any()
-	.transform((v) => (!v ? undefined : Number.parseFloat(v).toString()))
-	.nullable();
-
-export const zodCollectionFilter = zodCommaDelimitedString.transform(
-	(v) =>
-		(v || [])
-			.map((s) => {
-				const [collectionId, presence] = s.split(":");
-				if (!collectionId || !presence) return undefined;
-				return {
-					collectionId,
-					presence: presence as MediaCollectionPresenceFilter,
-				};
-			})
-			.filter(Boolean) as MediaCollectionFilter[],
-);
 
 export const zodDateTimeString = z
 	.string()
@@ -50,3 +24,16 @@ export const passwordConfirmationSchema = z
 		error: "Passwords do not match",
 		path: ["confirm"],
 	});
+
+export const parseAsCollectionsFilter = createParser<MediaCollectionFilter[]>({
+	eq: (a, b) => isEqual(a, b),
+	serialize: (value) =>
+		value.map((v) => `${v.collectionId}|${v.presence}|${v.strategy}`).join(","),
+	parse: (value) =>
+		value.split(",").map((v) => {
+			const [collectionId, presence, strategy] = v.split("|");
+			if (!collectionId || !presence || !strategy)
+				throw new Error("Invalid collection filter format");
+			return { presence, strategy, collectionId } as MediaCollectionFilter;
+		}),
+});

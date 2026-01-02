@@ -74,7 +74,6 @@ pub struct Item<TId> {
     pub images: Option<Vec<ImageOrLink>>,
     pub alternate_names: Option<Vec<String>>,
     pub editions: Option<Vec<nest! { pub book: Option<Item<TId>> }>>,
-    pub recommendations: Option<Vec<nest! { pub item_book: Option<Item<TId>> }>>,
     pub cached_tags: Option<
         nest! {
           #[serde(rename = "Genre")]

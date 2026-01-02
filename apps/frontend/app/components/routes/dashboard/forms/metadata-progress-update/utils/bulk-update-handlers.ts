@@ -244,22 +244,19 @@ const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 			episodeB: EpisodeWithSeason,
 		) => {
 			if (episodeA.seasonNumber > episodeB.seasonNumber) return true;
-			if (episodeA.seasonNumber === episodeB.seasonNumber) {
+			if (episodeA.seasonNumber === episodeB.seasonNumber)
 				return episodeA.episodeNumber >= episodeB.episodeNumber;
-			}
 			return false;
 		};
 
 		const episodesToConsider = allEpisodesInShow.filter((episode) => {
 			if (episodeComesAfterOrIs(episode, selectedEpisode)) return false;
 
-			if (context.metadataToUpdate.showSeasonEpisodesBefore) {
+			if (context.metadataToUpdate.showSeasonEpisodesBefore)
 				if (episode.seasonNumber !== selectedEpisode.seasonNumber) return false;
-			}
 
-			if (episode.seasonNumber === 0 && selectedEpisode.seasonNumber !== 0) {
+			if (episode.seasonNumber === 0 && selectedEpisode.seasonNumber !== 0)
 				return false;
-			}
 
 			return true;
 		});

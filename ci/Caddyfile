@@ -32,5 +32,19 @@
 			{{ httpInclude "/backend/config" }}
 		TXT
 	}
+	@assets {
+		path /assets/*
+	}
+	handle @assets {
+		header Cache-Control "public, max-age=31536000, immutable"
+		reverse_proxy {vars.frontend_url}
+	}
+	@images {
+		path *.png *.jpg *.jpeg *.gif *.svg *.webp *.ico
+	}
+	handle @images {
+		header Cache-Control "public, max-age=604800"
+		reverse_proxy {vars.frontend_url}
+	}
 	reverse_proxy {vars.frontend_url}
 }

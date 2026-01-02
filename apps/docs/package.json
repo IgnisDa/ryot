@@ -3,6 +3,6 @@
 	"private": true,
 	"type": "module",
 	"devDependencies": {
-		"vitepress": "2.0.0-alpha.9"
+		"vitepress": "2.0.0-alpha.15"
 	}
 }

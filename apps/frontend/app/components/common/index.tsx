@@ -1,6 +1,5 @@
 import {
 	ActionIcon,
-	Affix,
 	Alert,
 	Anchor,
 	Badge,
@@ -12,61 +11,51 @@ import {
 	Flex,
 	Group,
 	Modal,
-	NumberInput,
 	Pagination,
-	Paper,
 	Select,
 	Skeleton,
 	Stack,
-	Switch,
 	Text,
 	TextInput,
 	Tooltip,
 	rem,
 } from "@mantine/core";
-import { DateInput, DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	type CollectionExtraInformation,
 	CollectionExtraInformationLot,
 	type CollectionToEntityDetailsPartFragment,
 	EntityLot,
-	type Scalars,
+	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, snakeCase } from "@ryot/ts-utils";
 import {
 	IconArrowsShuffle,
-	IconCancel,
 	IconCheck,
 	IconChevronLeft,
 	IconChevronRight,
 	IconCopy,
 	IconPencil,
+	IconPhotoPlus,
 	IconX,
 } from "@tabler/icons-react";
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useMemo } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
-	useAddEntitiesToCollectionMutation,
 	useCoreDetails,
 	useExpireCacheKeyMutation,
 	useGetRandomMantineColor,
 	useRemoveEntitiesFromCollectionMutation,
 	useUserCollections,
+	useUserDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
-import {
-	type BulkAddEntities,
-	useBulkEditCollection,
-	useEditEntityCollectionInformation,
-} from "~/lib/state/collection";
+import { useEditEntityCollectionInformation } from "~/lib/state/collection";
 import {
 	ExerciseDisplayItem,
 	WorkoutDisplayItem,
@@ -77,7 +66,6 @@ import {
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
 } from "../media/display-items";
-import { MultiSelectCreatable } from "./multi-select-creatable";
 
 export const SkeletonLoader = () => <Skeleton height={100} />;
 
@@ -99,56 +87,43 @@ export const ProRequiredAlert = (props: {
 export const DisplayCollectionEntity = (props: {
 	entityId: string;
 	entityLot: EntityLot;
-	topLeft?: ReactNode;
-	topRight?: ReactNode;
+	centerElement?: ReactNode;
 }) =>
 	match(props.entityLot)
 		.with(EntityLot.Metadata, () => (
 			<MetadataDisplayItem
-				rightLabelLot
-				topLeft={props.topLeft}
-				topRight={props.topRight}
 				metadataId={props.entityId}
+				centerElement={props.centerElement}
 			/>
 		))
 		.with(EntityLot.MetadataGroup, () => (
 			<MetadataGroupDisplayItem
-				noLeftLabel
-				topLeft={props.topLeft}
-				topRight={props.topRight}
 				metadataGroupId={props.entityId}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
+				centerElement={props.centerElement}
 			/>
 		))
 		.with(EntityLot.Person, () => (
 			<PersonDisplayItem
-				topLeft={props.topLeft}
 				personId={props.entityId}
-				topRight={props.topRight}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
+				centerElement={props.centerElement}
 			/>
 		))
 		.with(EntityLot.Exercise, () => (
 			<ExerciseDisplayItem
-				topLeft={props.topLeft}
-				topRight={props.topRight}
 				exerciseId={props.entityId}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
+				centerElement={props.centerElement}
 			/>
 		))
 		.with(EntityLot.Workout, () => (
 			<WorkoutDisplayItem
-				topLeft={props.topLeft}
-				topRight={props.topRight}
 				workoutId={props.entityId}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
+				centerElement={props.centerElement}
 			/>
 		))
 		.with(EntityLot.WorkoutTemplate, () => (
 			<WorkoutTemplateDisplayItem
-				topLeft={props.topLeft}
-				topRight={props.topRight}
 				workoutTemplateId={props.entityId}
+				centerElement={props.centerElement}
 			/>
 		))
 		.run();
@@ -169,6 +144,12 @@ export const DisplayCollectionToEntity = (props: {
 	const thisCollection = userCollections.find(
 		(c) => c.id === props.col.details.collectionId,
 	);
+	const hasExtraInformationFields =
+		!!thisCollection?.informationTemplate?.length;
+	const userAddedInfoCount = Object.keys(
+		props.col.details.information || {},
+	).length;
+	const hasUserAddedAdditionalInformation = userAddedInfoCount > 0;
 
 	const handleRemove = () => {
 		openConfirmationModal(
@@ -260,50 +241,55 @@ export const DisplayCollectionToEntity = (props: {
 							{dayjsLib(props.col.details.lastUpdatedOn).format("LLL")}
 						</Text>
 					</Group>
-					{Object.keys(props.col.details.information || {}).length > 0 && (
+					{hasExtraInformationFields ? (
 						<>
 							<Divider />
 							<Group justify="space-between">
-								<Text size="sm" fw={500}>
-									Additional Information:
+								<Text td="underline">
+									{hasUserAddedAdditionalInformation
+										? "Additional Information"
+										: "No Additional Information"}
 								</Text>
-								<ActionIcon size="sm" variant="subtle" onClick={handleEdit}>
+								<ActionIcon size="sm" variant="default" onClick={handleEdit}>
 									<IconPencil size={16} />
 								</ActionIcon>
 							</Group>
-							<Stack gap="xs">
-								{Object.entries(props.col.details.information).map(
-									([key, value]) => {
-										const stringValue = String(value);
-										const lot = thisCollection?.informationTemplate?.find(
-											(v) => v.name === key,
-										)?.lot;
-										return (
-											<Group key={key}>
-												<Text size="sm" c="dimmed">
-													{key}:
-												</Text>
-												<Text size="sm">
-													{match(lot)
-														.with(CollectionExtraInformationLot.DateTime, () =>
-															dayjsLib(stringValue).format("LLL"),
-														)
-														.with(CollectionExtraInformationLot.Date, () =>
-															dayjsLib(stringValue).format("LL"),
-														)
-														.with(
-															CollectionExtraInformationLot.StringArray,
-															() => (value as string[]).join(", "),
-														)
-														.otherwise(() => stringValue)}
-												</Text>
-											</Group>
-										);
-									},
-								)}
-							</Stack>
+							{hasUserAddedAdditionalInformation ? (
+								<Stack gap="xs">
+									{Object.entries(props.col.details.information).map(
+										([key, value]) => {
+											const stringValue = String(value);
+											const lot = thisCollection?.informationTemplate?.find(
+												(v) => v.name === key,
+											)?.lot;
+											return (
+												<Group key={key}>
+													<Text size="sm" c="dimmed">
+														{key}:
+													</Text>
+													<Text size="sm">
+														{match(lot)
+															.with(
+																CollectionExtraInformationLot.DateTime,
+																() => dayjsLib(stringValue).format("LLL"),
+															)
+															.with(CollectionExtraInformationLot.Date, () =>
+																dayjsLib(stringValue).format("LL"),
+															)
+															.with(
+																CollectionExtraInformationLot.StringArray,
+																() => (value as string[]).join(", "),
+															)
+															.otherwise(() => stringValue)}
+													</Text>
+												</Group>
+											);
+										},
+									)}
+								</Stack>
+							) : null}
 						</>
-					)}
+					) : null}
 				</Stack>
 			</Modal>
 		</>
@@ -342,176 +328,6 @@ export const DisplayListDetailsAndRefresh = (props: {
 				</Button>
 			) : null}
 		</Group>
-	);
-};
-
-export const BulkCollectionEditingAffix = (props: {
-	bulkAddEntities: BulkAddEntities;
-}) => {
-	const bulkEditingCollection = useBulkEditCollection();
-	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
-	const removeEntitiesFromCollection =
-		useRemoveEntitiesFromCollectionMutation();
-
-	const bulkEditingCollectionState = bulkEditingCollection.state;
-
-	if (!bulkEditingCollectionState) return null;
-
-	const handleBulkAction = async () => {
-		const { action, collection, targetEntities } =
-			bulkEditingCollectionState.data;
-
-		const isRemoving = action === "remove";
-		const mutation = isRemoving
-			? removeEntitiesFromCollection
-			: addEntitiesToCollection;
-		const actionText = isRemoving ? "Removing" : "Adding";
-
-		await mutation.mutateAsync({
-			entities: targetEntities,
-			collectionName: collection.name,
-			creatorUserId: collection.creatorUserId,
-		});
-
-		notifications.show({
-			color: "green",
-			title: "Success",
-			message: `${actionText} ${targetEntities.length} item${targetEntities.length === 1 ? "" : "s"} ${isRemoving ? "from" : "to"} collection`,
-		});
-
-		bulkEditingCollectionState.stop();
-	};
-
-	const handleConfirmBulkAction = () => {
-		const {
-			action,
-			collection,
-			targetEntities: entities,
-		} = bulkEditingCollectionState.data;
-		const actionText = action === "remove" ? "remove" : "add";
-		const itemCount = entities.length;
-		const message = `Are you sure you want to ${actionText} ${itemCount} item${itemCount === 1 ? "" : "s"} ${action === "remove" ? "from" : "to"} "${collection.name}"?`;
-
-		openConfirmationModal(message, handleBulkAction);
-	};
-
-	const isLoading =
-		addEntitiesToCollection.isPending || removeEntitiesFromCollection.isPending;
-
-	return (
-		<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
-			<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
-				<Group wrap="nowrap" justify="space-between">
-					<Text fz={{ base: "xs", md: "md" }}>
-						{bulkEditingCollectionState.data.targetEntities.length} items
-						selected
-					</Text>
-					<Group wrap="nowrap">
-						<ActionIcon
-							size="md"
-							onClick={() => bulkEditingCollectionState.stop()}
-						>
-							<IconCancel />
-						</ActionIcon>
-						<Button
-							size="xs"
-							color="blue"
-							loading={bulkEditingCollectionState.data.isLoading}
-							onClick={() =>
-								bulkEditingCollectionState.bulkAdd(props.bulkAddEntities)
-							}
-						>
-							Select all items
-						</Button>
-						<Button
-							size="xs"
-							loading={isLoading}
-							onClick={handleConfirmBulkAction}
-							disabled={
-								bulkEditingCollectionState.data.targetEntities.length === 0
-							}
-							color={
-								bulkEditingCollectionState.data.action === "remove"
-									? "red"
-									: "green"
-							}
-						>
-							{changeCase(bulkEditingCollectionState.data.action)}
-						</Button>
-					</Group>
-				</Group>
-			</Paper>
-		</Affix>
-	);
-};
-
-export const CollectionTemplateRenderer = (props: {
-	value: Scalars["JSON"]["input"];
-	template: CollectionExtraInformation;
-	onChange: (value: Scalars["JSON"]["input"]) => void;
-}) => {
-	return (
-		<>
-			{match(props.template.lot)
-				.with(CollectionExtraInformationLot.String, () => (
-					<TextInput
-						value={props.value || ""}
-						label={props.template.name}
-						required={!!props.template.required}
-						description={props.template.description}
-						onChange={(e) => props.onChange(e.currentTarget.value)}
-					/>
-				))
-				.with(CollectionExtraInformationLot.Boolean, () => (
-					<Switch
-						label={props.template.name}
-						checked={props.value === "true"}
-						required={!!props.template.required}
-						description={props.template.description}
-						onChange={(e) =>
-							props.onChange(e.currentTarget.checked ? "true" : "false")
-						}
-					/>
-				))
-				.with(CollectionExtraInformationLot.Number, () => (
-					<NumberInput
-						value={props.value}
-						label={props.template.name}
-						required={!!props.template.required}
-						description={props.template.description}
-						onChange={(v) => props.onChange(v)}
-					/>
-				))
-				.with(CollectionExtraInformationLot.Date, () => (
-					<DateInput
-						value={props.value}
-						label={props.template.name}
-						required={!!props.template.required}
-						description={props.template.description}
-						onChange={(v) => props.onChange(v)}
-					/>
-				))
-				.with(CollectionExtraInformationLot.DateTime, () => (
-					<DateTimePicker
-						value={props.value}
-						label={props.template.name}
-						required={!!props.template.required}
-						description={props.template.description}
-						onChange={(v) => props.onChange(dayjsLib(v).toISOString())}
-					/>
-				))
-				.with(CollectionExtraInformationLot.StringArray, () => (
-					<MultiSelectCreatable
-						values={props.value}
-						label={props.template.name}
-						required={!!props.template.required}
-						description={props.template.description}
-						data={props.template.possibleValues || []}
-						setValue={(newValue: string[]) => props.onChange(newValue)}
-					/>
-				))
-				.exhaustive()}
-		</>
 	);
 };
 
@@ -620,5 +436,66 @@ export const CopyableTextInput = (props: {
 				</CopyButton>
 			}
 		/>
+	);
+};
+
+export const CreateButton = (props: { to: string }) => (
+	<Box ml="auto" visibleFrom="md">
+		<Button
+			component={Link}
+			variant="transparent"
+			leftSection={<IconPhotoPlus />}
+			to={props.to}
+		>
+			Create
+		</Button>
+	</Box>
+);
+
+interface EditButtonProps {
+	label: string;
+	entityId: string;
+	source: MediaSource;
+	createdByUserId?: string | null;
+	editRouteType: "media" | "groups" | "people";
+}
+
+export const EditButton = (props: EditButtonProps) => {
+	const userDetails = useUserDetails();
+	const canCurrentUserUpdate =
+		props.source === MediaSource.Custom &&
+		userDetails.id === props.createdByUserId;
+
+	if (!canCurrentUserUpdate) return null;
+
+	const editPath = useMemo(() => {
+		switch (props.editRouteType) {
+			case "media":
+				return $path(
+					"/media/item/update/:action",
+					{ action: "edit" },
+					{ id: props.entityId },
+				);
+			case "groups":
+				return $path(
+					"/media/groups/update/:action",
+					{ action: "edit" },
+					{ id: props.entityId },
+				);
+			case "people":
+				return $path(
+					"/media/people/update/:action",
+					{ action: "edit" },
+					{ id: props.entityId },
+				);
+			default:
+				throw new Error(`Unknown edit route type: ${props.editRouteType}`);
+		}
+	}, [props.editRouteType, props.entityId]);
+
+	return (
+		<Button component={Link} variant="outline" to={editPath}>
+			{props.label}
+		</Button>
 	);
 };

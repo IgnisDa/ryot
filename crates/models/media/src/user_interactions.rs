@@ -79,6 +79,7 @@ pub struct SeenPodcastExtraOptionalInformation {
     pub episode: Option<i32>,
 }
 
+#[skip_serializing_none]
 #[derive(
     Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
 )]

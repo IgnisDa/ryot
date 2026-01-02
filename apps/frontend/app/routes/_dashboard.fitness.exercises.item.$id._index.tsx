@@ -11,42 +11,33 @@ import {
 	Group,
 	Image,
 	List,
-	Modal,
-	NumberInput,
 	Paper,
 	ScrollArea,
 	Select,
 	SimpleGrid,
 	Stack,
-	Switch,
 	Tabs,
 	Text,
 	Title,
 	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
+import type { ExtendedBodyPart } from "@mjcdev/react-body-highlighter";
 import {
 	EntityLot,
-	ExerciseDetailsDocument,
 	ExerciseSource,
-	UpdateUserExerciseSettingsDocument,
-	UserExerciseDetailsDocument,
 	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
-	isNumber,
 	parseParameters,
 	parseSearchQuery,
-	snakeCase,
 	sortBy,
 	startCase,
 } from "@ryot/ts-utils";
 import {
 	IconChartPie,
 	IconCheck,
-	IconExternalLink,
 	IconMessageCircle2,
 } from "@tabler/icons-react";
 import {
@@ -55,9 +46,7 @@ import {
 	IconTrophy,
 	IconUser,
 } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { produce } from "immer";
-import { Fragment, useState } from "react";
+import { Fragment } from "react";
 import { Link, useLoaderData, useNavigate } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
@@ -65,34 +54,43 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import { DisplayCollectionToEntity } from "~/components/common";
+import { DisplayCollectionToEntity, SkeletonLoader } from "~/components/common";
 import { ReviewItemDisplay } from "~/components/common/review";
-import { ExerciseHistory } from "~/components/fitness/components";
+import {
+	ExerciseHistory,
+	ExerciseMusclesModal,
+	ExerciseUpdatePreferencesModal,
+} from "~/components/fitness/components";
+import {
+	DisplayData,
+	DisplayLifetimeStatistic,
+	DisplayPersonalBest,
+} from "~/components/fitness/exercise-display-components";
 import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
+	mapMuscleToBodyPart,
 } from "~/components/fitness/utils";
 import { MediaScrollArea } from "~/components/media/base-display";
 import { dayjsLib, getDateFromTimeSpan } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
+	useExerciseDetails,
 	useIsFitnessActionActive,
 	useUserDetails,
+	useUserExerciseDetails,
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	addExerciseToCurrentWorkout,
-	getExerciseImages,
-	getWorkoutDetailsQuery,
 	useCurrentWorkout,
+	useExerciseImages,
 	useMergingExercise,
 } from "~/lib/state/fitness";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
 import { FitnessEntity, TimeSpan } from "~/lib/types";
-import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.item.$id._index";
 
 const searchParamsSchema = z.object({
@@ -107,15 +105,7 @@ export const loader = async ({ params, request }: Route.LoaderArgs) => {
 		z.object({ id: z.string() }),
 	);
 	const query = parseSearchQuery(request, searchParamsSchema);
-	const [{ exerciseDetails }, { userExerciseDetails }] = await Promise.all([
-		serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
-		serverGqlService.authenticatedRequest(
-			request,
-			UserExerciseDetailsDocument,
-			{ exerciseId },
-		),
-	]);
-	return { query, exerciseId, exerciseDetails, userExerciseDetails };
+	return { query, exerciseId };
 };
 
 export const meta = () => {
@@ -128,11 +118,20 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const userDetails = useUserDetails();
+
+	const exerciseDetailsQuery = useExerciseDetails(loaderData.exerciseId);
+	const userExerciseDetailsQuery = useUserExerciseDetails(
+		loaderData.exerciseId,
+	);
+
+	const exerciseDetails = exerciseDetailsQuery.data;
+	const userExerciseDetails = userExerciseDetailsQuery.data;
+
 	const canCurrentUserUpdate =
-		loaderData.exerciseDetails.source === ExerciseSource.Custom &&
-		userDetails.id === loaderData.exerciseDetails.createdByUserId;
+		exerciseDetails?.source === ExerciseSource.Custom &&
+		userDetails.id === exerciseDetails.createdByUserId;
 	const exerciseNumTimesInteracted =
-		loaderData.userExerciseDetails.details?.exerciseNumTimesInteracted || 0;
+		userExerciseDetails?.details?.exerciseNumTimesInteracted || 0;
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const navigate = useNavigate();
 	const isFitnessActionActive = useIsFitnessActionActive();
@@ -147,26 +146,21 @@ export default function Page() {
 		updatePreferencesModalOpened,
 		{ open: openUpdatePreferencesModal, close: closeUpdatePreferencesModal },
 	] = useDisclosure(false);
-	const [changingExerciseSettings, setChangingExerciseSettings] = useState({
-		isChanged: false,
-		value: loaderData.userExerciseDetails.details?.exerciseExtraInformation
-			?.settings || { excludeFromAnalytics: false, setRestTimers: {} },
-	});
-
-	const updateUserExerciseSettingsMutation = useMutation({
-		mutationFn: async () => {
-			await clientGqlService.request(UpdateUserExerciseSettingsDocument, {
-				input: {
-					exerciseId: loaderData.exerciseId,
-					change: changingExerciseSettings.value,
-				},
-			});
-		},
-	});
+	const [
+		musclesModalOpened,
+		{ open: openMusclesModal, close: closeMusclesModal },
+	] = useDisclosure(false);
+	const [bodyViewSide, setBodyViewSide] = useLocalStorage<"front" | "back">(
+		"ExerciseBodyViewSide",
+		"front",
+	);
+	const [bodyViewGender, setBodyViewGender] = useLocalStorage<
+		"male" | "female"
+	>("ExerciseBodyViewGender", "female");
 
 	const computedDateAfterForCharts = getDateFromTimeSpan(timeSpanForCharts);
 	const filteredHistoryForCharts = sortBy(
-		loaderData.userExerciseDetails.history || [],
+		userExerciseDetails?.history || [],
 		(e) => e.workoutEndOn,
 	).filter((h) => {
 		const workoutEndOn = dayjsLib(h.workoutEndOn);
@@ -176,96 +170,54 @@ export default function Page() {
 	});
 	const bestMappings =
 		coreDetails.exerciseParameters.lotMapping.find(
-			(lm) => lm.lot === loaderData.exerciseDetails.lot,
+			(lm) => lm.lot === exerciseDetails?.lot,
 		)?.bests || [];
-	const images = getExerciseImages(loaderData.exerciseDetails);
+	const images = useExerciseImages(exerciseDetails);
+
+	const bodyPartsData: ExtendedBodyPart[] =
+		exerciseDetails?.muscles
+			?.map((muscle) => {
+				const bodyPart = mapMuscleToBodyPart(muscle);
+				return bodyPart ? { slug: bodyPart } : null;
+			})
+			.filter((part) => part !== null) || [];
+
+	if (!exerciseDetails || !userExerciseDetails) {
+		return (
+			<Container size="xs" px="lg">
+				<SkeletonLoader />
+			</Container>
+		);
+	}
 
 	return (
 		<>
-			<Modal
-				centered
-				withCloseButton={false}
+			<ExerciseUpdatePreferencesModal
+				exerciseId={exerciseDetails.id}
+				exerciseLot={exerciseDetails.lot}
 				opened={updatePreferencesModalOpened}
-				onClose={() => closeUpdatePreferencesModal()}
-			>
-				<Stack>
-					<Switch
-						label="Exclude from analytics"
-						defaultChecked={
-							loaderData.userExerciseDetails.details?.exerciseExtraInformation
-								?.settings.excludeFromAnalytics
-						}
-						onChange={(ev) => {
-							setChangingExerciseSettings(
-								produce(changingExerciseSettings, (draft) => {
-									draft.isChanged = true;
-									draft.value.excludeFromAnalytics = ev.currentTarget.checked;
-								}),
-							);
-						}}
-					/>
-					<Text size="sm">
-						When a new set is added, rest timers will be added automatically
-						according to the settings below.
-						<Text size="xs" c="dimmed" span>
-							{" "}
-							Default rest timer durations for all exercises can be changed in
-							the fitness preferences.
-						</Text>
-					</Text>
-					<SimpleGrid cols={2}>
-						{(["normal", "warmup", "drop", "failure"] as const).map((name) => {
-							const value =
-								loaderData.userExerciseDetails.details?.exerciseExtraInformation
-									?.settings.setRestTimers[name];
-							return (
-								<NumberInput
-									suffix="s"
-									key={name}
-									label={changeCase(snakeCase(name))}
-									defaultValue={isNumber(value) ? value : undefined}
-									onChange={(val) => {
-										if (isNumber(val))
-											setChangingExerciseSettings(
-												produce(changingExerciseSettings, (draft) => {
-													draft.isChanged = true;
-													draft.value.setRestTimers[name] = val;
-												}),
-											);
-									}}
-								/>
-							);
-						})}
-					</SimpleGrid>
-					<Button
-						type="submit"
-						disabled={!changingExerciseSettings.isChanged}
-						loading={updateUserExerciseSettingsMutation.isPending}
-						onClick={async () => {
-							await updateUserExerciseSettingsMutation.mutateAsync();
-							notifications.show({
-								color: "green",
-								title: "Settings updated",
-								message: "Settings for the exercise have been updated.",
-							});
-							closeUpdatePreferencesModal();
-						}}
-					>
-						Save settings
-					</Button>
-				</Stack>
-			</Modal>
+				onClose={closeUpdatePreferencesModal}
+			/>
+			<ExerciseMusclesModal
+				opened={musclesModalOpened}
+				onClose={closeMusclesModal}
+				bodyViewSide={bodyViewSide}
+				bodyPartsData={bodyPartsData}
+				bodyViewGender={bodyViewGender}
+				setBodyViewSide={setBodyViewSide}
+				setBodyViewGender={setBodyViewGender}
+			/>
 			<Container size="xs" px="lg">
 				<Stack>
-					<Title id="exercise-title">{loaderData.exerciseDetails.name}</Title>
-					{loaderData.userExerciseDetails.collections.length > 0 ? (
+					<Title id="exercise-title">{exerciseDetails.name}</Title>
+					{userExerciseDetails.collections.length > 0 ? (
 						<Group id="entity-collections">
-							{loaderData.userExerciseDetails.collections.map((col) => (
+							{userExerciseDetails.collections.map((col) => (
 								<DisplayCollectionToEntity
 									col={col}
 									key={col.id}
+									entityId={exerciseDetails.id}
 									entityLot={EntityLot.Exercise}
-									entityId={loaderData.exerciseDetails.id}
 								/>
 							))}
 						</Group>
@@ -331,75 +283,71 @@ export default function Page() {
 									{(["level", "force", "mechanic", "equipment"] as const).map(
 										(f) => (
 											<Fragment key={f}>
-												{loaderData.exerciseDetails[f] ? (
-													<DisplayData
-														name={f}
-														data={loaderData.exerciseDetails[f]}
-													/>
+												{exerciseDetails[f] ? (
+													<DisplayData name={f} data={exerciseDetails[f]} />
 												) : null}
 											</Fragment>
 										),
 									)}
-									{loaderData.exerciseDetails.lot ? (
+									{exerciseDetails.lot ? (
 										<DisplayData
 											name="Type"
-											data={changeCase(loaderData.exerciseDetails.lot)}
+											data={changeCase(exerciseDetails.lot)}
 										/>
 									) : null}
 									{exerciseNumTimesInteracted > 0 ? (
 										<DisplayData
+											noCasing
 											name="Times done"
 											data={`${exerciseNumTimesInteracted} times`}
-											noCasing
 										/>
 									) : null}
-									{(loaderData.userExerciseDetails.history?.length || 0) > 0 ? (
+									{(userExerciseDetails.history?.length || 0) > 0 ? (
 										<>
-											{loaderData.userExerciseDetails.details?.createdOn ? (
+											{userExerciseDetails.details?.createdOn ? (
 												<DisplayData
+													noCasing
 													name="First done on"
 													data={dayjsLib(
-														loaderData.userExerciseDetails.details.createdOn,
+														userExerciseDetails.details.createdOn,
 													).format("ll")}
-													noCasing
 												/>
 											) : null}
-											{loaderData.userExerciseDetails.details?.lastUpdatedOn ? (
+											{userExerciseDetails.details?.lastUpdatedOn ? (
 												<DisplayData
+													noCasing
 													name="Last done on"
 													data={dayjsLib(
-														loaderData.userExerciseDetails.details
-															.lastUpdatedOn,
+														userExerciseDetails.details.lastUpdatedOn,
 													).format("ll")}
-													noCasing
 												/>
 											) : null}
 										</>
 									) : null}
 								</SimpleGrid>
-								{loaderData.exerciseDetails.muscles.length > 0 ? (
+								{exerciseDetails.muscles.length > 0 ? (
 									<>
 										<Divider />
 										<Group wrap="nowrap">
-											<Text c="dimmed" fz="sm">
+											<Anchor fz="sm" onClick={openMusclesModal}>
 												Muscles
-											</Text>
+											</Anchor>
 											<Text fz="sm">
-												{loaderData.exerciseDetails.muscles
+												{exerciseDetails.muscles
 													.map((s) => startCase(s.toLowerCase()))
 													.join(", ")}
 											</Text>
 										</Group>
 									</>
 								) : null}
-								{loaderData.exerciseDetails.instructions.length > 0 ? (
+								{exerciseDetails.instructions.length > 0 ? (
 									<>
 										<Divider />
 										<Text size="xl" fw="bold">
 											Instructions
 										</Text>
 										<List type="ordered" spacing="xs">
-											{loaderData.exerciseDetails.instructions.map((d) => (
+											{exerciseDetails.instructions.map((d) => (
 												<List.Item key={d}>{d}</List.Item>
 											))}
 										</List>
@@ -407,10 +355,10 @@ export default function Page() {
 								) : null}
 							</Stack>
 						</Tabs.Panel>
-						{loaderData.userExerciseDetails.history ? (
+						{userExerciseDetails.history ? (
 							<Tabs.Panel value="history" h="68vh">
 								<Virtuoso
-									data={loaderData.userExerciseDetails.history}
+									data={userExerciseDetails.history}
 									itemContent={(index, history) => (
 										<Box mt={index !== 0 ? "md" : undefined}>
 											<ExerciseHistory
@@ -418,15 +366,14 @@ export default function Page() {
 												key={history.workoutId}
 												exerciseIdx={history.idx}
 												entityId={history.workoutId}
-												entityType={FitnessEntity.Workouts}
+												fitnessEntityType={FitnessEntity.Workouts}
 											/>
 										</Box>
 									)}
 								/>
 							</Tabs.Panel>
 						) : null}
-						{loaderData.userExerciseDetails.details
-							?.exerciseExtraInformation ? (
+						{userExerciseDetails.details?.exerciseExtraInformation ? (
 							<>
 								<Tabs.Panel value="records">
 									<Stack gap="xl">
@@ -439,27 +386,27 @@ export default function Page() {
 													stat="weight"
 													val={displayWeightWithUnit(
 														unitSystem,
-														loaderData.userExerciseDetails.details
-															.exerciseExtraInformation.lifetimeStats.weight,
+														userExerciseDetails.details.exerciseExtraInformation
+															.lifetimeStats.weight,
 													)}
 												/>
 												<DisplayLifetimeStatistic
 													stat="distance"
 													val={displayDistanceWithUnit(
 														unitSystem,
-														loaderData.userExerciseDetails.details
-															.exerciseExtraInformation.lifetimeStats.distance,
+														userExerciseDetails.details.exerciseExtraInformation
+															.lifetimeStats.distance,
 													)}
 												/>
 												<DisplayLifetimeStatistic
 													stat="duration"
-													val={`${loaderData.userExerciseDetails.details.exerciseExtraInformation.lifetimeStats.duration} MIN`}
+													val={`${userExerciseDetails.details.exerciseExtraInformation.lifetimeStats.duration} MIN`}
 												/>
 												<DisplayLifetimeStatistic
 													stat="reps"
 													val={
-														loaderData.userExerciseDetails.details
-															.exerciseExtraInformation.lifetimeStats.reps
+														userExerciseDetails.details.exerciseExtraInformation
+															.lifetimeStats.reps
 													}
 												/>
 												<DisplayLifetimeStatistic
@@ -468,13 +415,13 @@ export default function Page() {
 												/>
 											</Box>
 										</Stack>
-										{loaderData.userExerciseDetails.details
-											.exerciseExtraInformation.personalBests.length > 0 ? (
+										{userExerciseDetails.details.exerciseExtraInformation
+											.personalBests.length > 0 ? (
 											<Stack gap="sm">
 												<Text size="lg" td="underline">
 													Personal Bests
 												</Text>
-												{loaderData.userExerciseDetails.details.exerciseExtraInformation.personalBests.map(
+												{userExerciseDetails.details.exerciseExtraInformation.personalBests.map(
 													(personalBest) => (
 														<Box key={personalBest.lot}>
 															<Text size="sm" c="dimmed">
@@ -485,6 +432,7 @@ export default function Page() {
 																	set={pbSet}
 																	key={pbSet.workoutId}
 																	personalBestLot={personalBest.lot}
+																	exerciseId={loaderData.exerciseId}
 																/>
 															))}
 														</Box>
@@ -572,8 +520,8 @@ export default function Page() {
 										variant="outline"
 										onClick={() => {
 											setAddEntityToCollectionsData({
-												entityId: loaderData.exerciseId,
 												entityLot: EntityLot.Exercise,
+												entityId: exerciseDetails.id,
 											});
 										}}
 									>
@@ -584,22 +532,33 @@ export default function Page() {
 										w="100%"
 										onClick={() => {
 											setEntityToReview({
-												entityId: loaderData.exerciseId,
 												entityLot: EntityLot.Exercise,
-												entityTitle: loaderData.exerciseDetails.name,
+												entityId: exerciseDetails.id,
+												entityTitle: exerciseDetails.name,
 											});
 										}}
 									>
 										Post a review
+									</Button>
+									<Button
+										component={Link}
+										variant="outline"
+										to={$path(
+											"/fitness/exercises/update/:action",
+											{ action: "create" },
+											{ duplicateId: exerciseDetails.id },
+										)}
+									>
+										Duplicate exercise
 									</Button>
 									{canCurrentUserUpdate ? (
 										<Button
 											variant="outline"
 											component={Link}
 											to={$path(
-												"/fitness/exercises/:action",
-												{ action: "update" },
-												{ id: loaderData.exerciseDetails.id },
+												"/fitness/exercises/update/:action",
+												{ action: "edit" },
+												{ id: exerciseDetails.id },
 											)}
 										>
 											Edit exercise
@@ -608,7 +567,7 @@ export default function Page() {
 									<Button
 										variant="outline"
 										onClick={() => {
-											setMergingExercise(loaderData.exerciseDetails.id);
+											setMergingExercise(exerciseDetails.id);
 											navigate($path("/fitness/exercises/list"));
 										}}
 									>
@@ -620,15 +579,15 @@ export default function Page() {
 						{!userPreferences.general.disableReviews ? (
 							<Tabs.Panel value="reviews">
 								<MediaScrollArea>
-									{loaderData.userExerciseDetails.reviews.length > 0 ? (
+									{userExerciseDetails.reviews.length > 0 ? (
 										<Stack>
-											{loaderData.userExerciseDetails.reviews.map((r) => (
+											{userExerciseDetails.reviews.map((r) => (
 												<ReviewItemDisplay
 													review={r}
 													key={r.id}
+													title={exerciseDetails.name}
+													entityId={exerciseDetails.id}
 													entityLot={EntityLot.Exercise}
-													entityId={loaderData.exerciseId}
-													title={loaderData.exerciseDetails.id}
 												/>
 											))}
 										</Stack>
@@ -643,22 +602,18 @@ export default function Page() {
 				{currentWorkout && isFitnessActionActive ? (
 					<Affix position={{ bottom: rem(40), right: rem(30) }}>
 						<ActionIcon
+							size="xl"
+							radius="xl"
 							color="blue"
 							variant="light"
-							radius="xl"
-							size="xl"
 							onClick={async () => {
+								setMergingExercise(null);
 								await addExerciseToCurrentWorkout(
 									navigate,
 									currentWorkout,
 									userPreferences.fitness,
 									setCurrentWorkout,
-									[
-										{
-											id: loaderData.exerciseDetails.id,
-											lot: loaderData.exerciseDetails.lot,
-										},
-									],
+									[{ id: exerciseDetails.id, lot: exerciseDetails.lot }],
 								);
 							}}
 						>
@@ -670,88 +625,3 @@ export default function Page() {
 		</>
 	);
 }
-
-const DisplayData = (props: {
-	name: string;
-	data?: string | null;
-	noCasing?: boolean;
-}) => {
-	return (
-		<Box>
-			<Text ta="center" c="dimmed" tt="capitalize" fz="xs">
-				{startCase(props.name)}
-			</Text>
-			<Text ta="center" fz={{ base: "sm", md: "md" }}>
-				{props.noCasing ? props.data : startCase(props.data?.toLowerCase())}
-			</Text>
-		</Box>
-	);
-};
-
-const DisplayLifetimeStatistic = (props: {
-	val: string | number;
-	stat: string;
-}) => {
-	return Number.parseFloat(props.val.toString()) !== 0 ? (
-		<Flex mt={6} align="center" justify="space-between">
-			<Text size="sm">Total {props.stat}</Text>
-			<Text size="sm">{props.val}</Text>
-		</Flex>
-	) : null;
-};
-
-const DisplayPersonalBest = (props: {
-	set: { workoutId: string; exerciseIdx: number; setIdx: number };
-	personalBestLot: WorkoutSetPersonalBest;
-}) => {
-	const unitSystem = useUserUnitSystem();
-	const { data } = useQuery(getWorkoutDetailsQuery(props.set.workoutId));
-	const set =
-		data?.details.information.exercises[props.set.exerciseIdx].sets[
-			props.set.setIdx
-		];
-	if (!set) return null;
-
-	return (
-		<Group
-			justify="space-between"
-			key={`${props.set.workoutId}-${props.set.setIdx}`}
-		>
-			<Text size="sm">
-				{match(props.personalBestLot)
-					.with(WorkoutSetPersonalBest.OneRm, () =>
-						Number(set.statistic.oneRm).toFixed(2),
-					)
-					.with(WorkoutSetPersonalBest.Reps, () => set.statistic.reps)
-					.with(
-						WorkoutSetPersonalBest.Time,
-						() => `${set.statistic.duration} min`,
-					)
-					.with(WorkoutSetPersonalBest.Volume, () =>
-						displayWeightWithUnit(unitSystem, set.statistic.volume),
-					)
-					.with(WorkoutSetPersonalBest.Weight, () =>
-						displayWeightWithUnit(unitSystem, set.statistic.weight),
-					)
-					.with(WorkoutSetPersonalBest.Pace, () => `${set.statistic.pace}/min`)
-					.with(WorkoutSetPersonalBest.Distance, () =>
-						displayDistanceWithUnit(unitSystem, set.statistic.distance),
-					)
-					.exhaustive()}
-			</Text>
-			<Group>
-				<Text size="sm">{dayjsLib(data.details.endTime).format("ll")}</Text>
-				<Anchor
-					component={Link}
-					to={$path("/fitness/:entity/:id", {
-						entity: "workouts",
-						id: props.set.workoutId,
-					})}
-					fw="bold"
-				>
-					<IconExternalLink size={16} />
-				</Anchor>
-			</Group>
-		</Group>
-	);
-};

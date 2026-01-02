@@ -2,8 +2,7 @@ use anyhow::{Result, anyhow};
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use media_models::ImportOrExportMetadataItemSeen;
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec};
 use serde::{Deserialize, Serialize};
 
 mod models {
@@ -88,7 +87,7 @@ pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
 
     seen_item.progress = Some(position / runtime * dec!(100));
 
-    Ok(Some(ImportResult {
+    let result = ImportResult {
         completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
             identifier,
@@ -97,5 +96,7 @@ pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
             ..Default::default()
         })],
         ..Default::default()
-    }))
+    };
+
+    Ok(Some(result))
 }

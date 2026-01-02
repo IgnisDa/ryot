@@ -11,6 +11,7 @@ tracing = { workspace = true }
 
 background-models = { workspace = true }
 common-models = { workspace = true }
+common-utils = { workspace = true }
 database-models = { workspace = true }
 database-utils = { workspace = true }
 supporting-service = { workspace = true }

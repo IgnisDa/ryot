@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
+use application_utils::get_podcast_episode_number_by_name;
 use common_models::DefaultCollection;
-use common_utils::ryot_log;
+use common_utils::{get_base_http_client, ryot_log};
 use dependent_entity_utils::commit_metadata;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
@@ -19,7 +19,7 @@ use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},
 };
-use rust_decimal_macros::dec;
+use rust_decimal::dec;
 use supporting_service::SupportingService;
 
 fn get_http_client(access_token: &String) -> Client {
@@ -93,17 +93,16 @@ pub async fn yank_progress(
                     ));
                 }
             };
-            if let Some(isbn) = metadata.isbn.clone() {
-                if let Some(id) = get_identifier_from_book_isbn(
+            if let Some(isbn) = metadata.isbn.clone()
+                && let Some(id) = get_identifier_from_book_isbn(
                     &isbn,
                     hardcover_service,
                     google_books_service,
                     open_library_service,
                 )
                 .await
-                {
-                    break 'ui Some((item.id.clone(), id.0, MediaLot::Book, id.1, None));
-                };
+            {
+                break 'ui Some((item.id.clone(), id.0, MediaLot::Book, id.1, None));
             };
             None
         };
@@ -132,10 +131,10 @@ pub async fn yank_progress(
                     resp
                 );
                 let mut progress = resp.progress;
-                if let Some(ebook_progress) = resp.ebook_progress {
-                    if ebook_progress > progress {
-                        progress = ebook_progress;
-                    }
+                if let Some(ebook_progress) = resp.ebook_progress
+                    && ebook_progress > progress
+                {
+                    progress = ebook_progress;
                 }
                 if progress == dec!(1) && resp.is_finished {
                     ryot_log!(debug, "Item {:?} is finished", item);

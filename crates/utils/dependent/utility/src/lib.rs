@@ -1,54 +1,19 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use chrono::Utc;
-use common_models::{MetadataRecentlyConsumedCacheInput, UserLevelCacheKey};
-use database_models::{
-    functions::get_user_to_entity_association,
-    prelude::{Collection, Genre, Metadata, MetadataGroup, Person, Workout, WorkoutTemplate},
-    user_to_entity,
-};
+use common_models::{EntityWithLot, UserLevelCacheKey};
+use database_models::{functions::get_user_to_entity_association, user_to_entity};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ApplicationCacheValue, EmptyCacheValue,
     ExpireCacheKeyInput,
 };
 use enum_models::EntityLot;
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel};
-use std::sync::Arc;
+use futures::try_join;
+use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
 use supporting_service::SupportingService;
 
-pub async fn get_entity_title_from_id_and_lot(
-    id: &String,
-    lot: EntityLot,
-    ss: &Arc<SupportingService>,
-) -> Result<String> {
-    let obj_title = match lot {
-        EntityLot::Genre => Genre::find_by_id(id).one(&ss.db).await?.unwrap().name,
-        EntityLot::Metadata => Metadata::find_by_id(id).one(&ss.db).await?.unwrap().title,
-        EntityLot::MetadataGroup => {
-            MetadataGroup::find_by_id(id)
-                .one(&ss.db)
-                .await?
-                .unwrap()
-                .title
-        }
-        EntityLot::Person => Person::find_by_id(id).one(&ss.db).await?.unwrap().name,
-        EntityLot::Collection => Collection::find_by_id(id).one(&ss.db).await?.unwrap().name,
-        EntityLot::Exercise => id.clone(),
-        EntityLot::Workout => Workout::find_by_id(id).one(&ss.db).await?.unwrap().name,
-        EntityLot::WorkoutTemplate => {
-            WorkoutTemplate::find_by_id(id)
-                .one(&ss.db)
-                .await?
-                .unwrap()
-                .name
-        }
-        EntityLot::Review | EntityLot::UserMeasurement => {
-            unreachable!()
-        }
-    };
-    Ok(obj_title)
-}
-
-pub async fn mark_entity_as_recently_consumed(
+async fn mark_entity_as_recently_consumed(
     user_id: &String,
     entity_id: &String,
     entity_lot: EntityLot,
@@ -56,16 +21,62 @@ pub async fn mark_entity_as_recently_consumed(
 ) -> Result<()> {
     cache_service::set_key(
         ss,
-        ApplicationCacheKey::MetadataRecentlyConsumed(UserLevelCacheKey {
+        ApplicationCacheKey::EntityRecentlyConsumed(UserLevelCacheKey {
             user_id: user_id.to_owned(),
-            input: MetadataRecentlyConsumedCacheInput {
+            input: EntityWithLot {
                 entity_lot,
                 entity_id: entity_id.to_owned(),
             },
         }),
-        ApplicationCacheValue::MetadataRecentlyConsumed(EmptyCacheValue::default()),
+        ApplicationCacheValue::EntityRecentlyConsumed(EmptyCacheValue::default()),
     )
     .await?;
+    Ok(())
+}
+
+pub async fn expire_user_entity_details_cache(
+    user_id: &String,
+    entity_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    try_join!(
+        expire_user_metadata_details_cache(user_id, entity_id, ss),
+        cache_service::expire_key(
+            ss,
+            ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::UserPersonDetails(
+                UserLevelCacheKey {
+                    user_id: user_id.to_owned(),
+                    input: entity_id.to_owned(),
+                }
+            )))
+        ),
+        cache_service::expire_key(
+            ss,
+            ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::UserMetadataGroupDetails(
+                UserLevelCacheKey {
+                    user_id: user_id.to_owned(),
+                    input: entity_id.to_owned(),
+                }
+            )))
+        )
+    )?;
+    Ok(())
+}
+
+pub async fn expire_entity_details_cache(
+    user_id: &String,
+    entity_id: &String,
+    entity_lot: EntityLot,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    try_join!(
+        expire_user_metadata_list_cache(user_id, ss),
+        expire_user_exercises_list_cache(user_id, ss),
+        expire_user_entity_details_cache(user_id, entity_id, ss),
+        expire_user_workout_details_cache(user_id, entity_id, ss),
+        expire_user_workout_template_details_cache(user_id, entity_id, ss),
+        mark_entity_as_recently_consumed(user_id, entity_id, entity_lot, ss),
+    )?;
     Ok(())
 }
 
@@ -75,74 +86,58 @@ pub async fn associate_user_with_entity(
     entity_lot: EntityLot,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    let user_to_entity_model =
-        get_user_to_entity_association(&ss.db, user_id, entity_id, entity_lot).await?;
+    if !matches!(
+        entity_lot,
+        EntityLot::Workout
+            | EntityLot::Review
+            | EntityLot::WorkoutTemplate
+            | EntityLot::UserMeasurement
+    ) {
+        let user_to_entity_model =
+            get_user_to_entity_association(&ss.db, user_id, entity_id, entity_lot).await?;
 
-    let entity_id_owned = entity_id.to_owned();
+        let entity_id_owned = entity_id.to_owned();
 
-    match user_to_entity_model {
-        Some(u) => {
-            let mut to_update = u.into_active_model();
-            to_update.last_updated_on = ActiveValue::Set(Utc::now());
-            to_update.needs_to_be_updated = ActiveValue::Set(Some(true));
-            to_update.update(&ss.db).await.unwrap();
-        }
-        None => {
-            let mut new_user_to_entity = user_to_entity::ActiveModel {
-                user_id: ActiveValue::Set(user_id.to_owned()),
-                last_updated_on: ActiveValue::Set(Utc::now()),
-                needs_to_be_updated: ActiveValue::Set(Some(true)),
-                ..Default::default()
-            };
-
-            match entity_lot {
-                EntityLot::Metadata => {
-                    new_user_to_entity.metadata_id = ActiveValue::Set(Some(entity_id_owned))
-                }
-                EntityLot::Person => {
-                    new_user_to_entity.person_id = ActiveValue::Set(Some(entity_id_owned))
-                }
-                EntityLot::Exercise => {
-                    new_user_to_entity.exercise_id = ActiveValue::Set(Some(entity_id_owned))
-                }
-                EntityLot::MetadataGroup => {
-                    new_user_to_entity.metadata_group_id = ActiveValue::Set(Some(entity_id_owned))
-                }
-                EntityLot::Genre
-                | EntityLot::Review
-                | EntityLot::Workout
-                | EntityLot::Collection
-                | EntityLot::WorkoutTemplate
-                | EntityLot::UserMeasurement => {
-                    unreachable!()
-                }
+        match user_to_entity_model {
+            Some(u) => {
+                let mut to_update = u.into_active_model();
+                to_update.last_updated_on = ActiveValue::Set(Utc::now());
+                to_update.needs_to_be_updated = ActiveValue::Set(Some(true));
+                to_update.update(&ss.db).await?;
             }
-            new_user_to_entity.insert(&ss.db).await.unwrap();
-        }
-    };
-    expire_user_metadata_list_cache(user_id, ss).await?;
-    Ok(())
-}
+            None => {
+                let mut new_user_to_entity = user_to_entity::ActiveModel {
+                    user_id: ActiveValue::Set(user_id.to_owned()),
+                    last_updated_on: ActiveValue::Set(Utc::now()),
+                    needs_to_be_updated: ActiveValue::Set(Some(true)),
+                    ..Default::default()
+                };
 
-pub async fn get_entity_recently_consumed(
-    user_id: &String,
-    entity_id: &String,
-    entity_lot: EntityLot,
-    ss: &Arc<SupportingService>,
-) -> Result<bool> {
-    let entity_value = cache_service::get_value::<EmptyCacheValue>(
-        ss,
-        ApplicationCacheKey::MetadataRecentlyConsumed(UserLevelCacheKey {
-            user_id: user_id.to_owned(),
-            input: MetadataRecentlyConsumedCacheInput {
-                entity_lot,
-                entity_id: entity_id.to_owned(),
-            },
-        }),
-    )
-    .await
-    .is_some();
-    Ok(entity_value)
+                macro_rules! set_ute_id {
+                    ($field:ident) => {
+                        new_user_to_entity.$field = ActiveValue::Set(Some(entity_id_owned))
+                    };
+                }
+
+                match entity_lot {
+                    EntityLot::Person => set_ute_id!(person_id),
+                    EntityLot::Metadata => set_ute_id!(metadata_id),
+                    EntityLot::Exercise => set_ute_id!(exercise_id),
+                    EntityLot::MetadataGroup => set_ute_id!(metadata_group_id),
+                    EntityLot::Genre
+                    | EntityLot::Review
+                    | EntityLot::Workout
+                    | EntityLot::Collection
+                    | EntityLot::WorkoutTemplate
+                    | EntityLot::UserMeasurement => {
+                        unreachable!()
+                    }
+                }
+                new_user_to_entity.insert(&ss.db).await?;
+            }
+        };
+    }
+    expire_entity_details_cache(user_id, entity_id, entity_lot, ss).await
 }
 
 pub async fn expire_user_collections_list_cache(
@@ -153,8 +148,24 @@ pub async fn expire_user_collections_list_cache(
         input: (),
         user_id: user_id.to_owned(),
     });
-    cache_service::expire_key(ss, ExpireCacheKeyInput::ByKey(Box::new(cache_key))).await?;
-    Ok(())
+    cache_service::expire_key(ss, ExpireCacheKeyInput::ByKey(Box::new(cache_key))).await
+}
+
+pub async fn expire_user_metadata_details_cache(
+    user_id: &String,
+    metadata_id: &str,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::UserMetadataDetails(
+            UserLevelCacheKey {
+                user_id: user_id.to_owned(),
+                input: metadata_id.to_owned(),
+            },
+        ))),
+    )
+    .await
 }
 
 pub async fn expire_user_collection_contents_cache(
@@ -169,8 +180,21 @@ pub async fn expire_user_collection_contents_cache(
             key: ApplicationCacheKeyDiscriminants::UserCollectionContents,
         },
     )
-    .await?;
-    Ok(())
+    .await
+}
+
+pub async fn expire_user_filter_presets_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserFilterPresets,
+        },
+    )
+    .await
 }
 
 pub async fn expire_user_workouts_list_cache(
@@ -184,8 +208,7 @@ pub async fn expire_user_workouts_list_cache(
             key: ApplicationCacheKeyDiscriminants::UserWorkoutsList,
         },
     )
-    .await?;
-    Ok(())
+    .await
 }
 
 pub async fn expire_user_measurements_list_cache(
@@ -199,8 +222,7 @@ pub async fn expire_user_measurements_list_cache(
             key: ApplicationCacheKeyDiscriminants::UserMeasurementsList,
         },
     )
-    .await?;
-    Ok(())
+    .await
 }
 
 pub async fn expire_user_workout_templates_list_cache(
@@ -214,23 +236,7 @@ pub async fn expire_user_workout_templates_list_cache(
             key: ApplicationCacheKeyDiscriminants::UserWorkoutTemplatesList,
         },
     )
-    .await?;
-    Ok(())
-}
-
-pub async fn expire_user_metadata_list_cache(
-    user_id: &String,
-    ss: &Arc<SupportingService>,
-) -> Result<()> {
-    cache_service::expire_key(
-        ss,
-        ExpireCacheKeyInput::BySanitizedKey {
-            user_id: Some(user_id.to_owned()),
-            key: ApplicationCacheKeyDiscriminants::UserMetadataList,
-        },
-    )
-    .await?;
-    Ok(())
+    .await
 }
 
 pub async fn expire_user_exercises_list_cache(
@@ -244,8 +250,49 @@ pub async fn expire_user_exercises_list_cache(
             key: ApplicationCacheKeyDiscriminants::UserExercisesList,
         },
     )
-    .await?;
-    Ok(())
+    .await
+}
+
+pub async fn expire_user_metadata_groups_list_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserMetadataGroupsList,
+        },
+    )
+    .await
+}
+
+pub async fn expire_user_people_list_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserPeopleList,
+        },
+    )
+    .await
+}
+
+pub async fn expire_user_metadata_list_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserMetadataList,
+        },
+    )
+    .await
 }
 
 pub async fn expire_person_details_cache(
@@ -258,8 +305,7 @@ pub async fn expire_person_details_cache(
             person_id.to_owned(),
         ))),
     )
-    .await?;
-    Ok(())
+    .await
 }
 
 pub async fn expire_metadata_group_details_cache(
@@ -272,8 +318,7 @@ pub async fn expire_metadata_group_details_cache(
             metadata_group_id.to_owned(),
         ))),
     )
-    .await?;
-    Ok(())
+    .await
 }
 
 pub async fn expire_metadata_details_cache(
@@ -286,6 +331,39 @@ pub async fn expire_metadata_details_cache(
             metadata_id.to_owned(),
         ))),
     )
-    .await?;
-    Ok(())
+    .await
+}
+
+pub async fn expire_user_workout_template_details_cache(
+    user_id: &String,
+    workout_template_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::UserWorkoutTemplateDetails(
+            UserLevelCacheKey {
+                user_id: user_id.to_owned(),
+                input: workout_template_id.to_owned(),
+            },
+        ))),
+    )
+    .await
+}
+
+pub async fn expire_user_workout_details_cache(
+    user_id: &String,
+    workout_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::UserWorkoutDetails(
+            UserLevelCacheKey {
+                user_id: user_id.to_owned(),
+                input: workout_id.to_owned(),
+            },
+        ))),
+    )
+    .await
 }

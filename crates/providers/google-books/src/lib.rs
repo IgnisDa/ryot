@@ -1,8 +1,7 @@
 use anyhow::Result;
-use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{EntityAssets, SearchDetails};
-use common_utils::{PAGE_SIZE, convert_date_to_year};
+use common_utils::{PAGE_SIZE, compute_next_page, convert_date_to_year, get_base_http_client};
 use convert_case::{Case, Casing};
 use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::SearchResults;
@@ -36,27 +35,27 @@ impl GoogleBooksService {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct ImageLinks {
-    extra_large: Option<String>,
+    small: Option<String>,
     large: Option<String>,
     medium: Option<String>,
-    small: Option<String>,
-    small_thumbnail: Option<String>,
     thumbnail: Option<String>,
+    extra_large: Option<String>,
+    small_thumbnail: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct ItemVolumeInfo {
     title: String,
-    average_rating: Option<Decimal>,
-    published_date: Option<String>,
-    image_links: Option<ImageLinks>,
+    page_count: Option<i32>,
+    publisher: Option<String>,
     description: Option<String>,
     authors: Option<Vec<String>>,
-    publisher: Option<String>,
     main_category: Option<String>,
+    published_date: Option<String>,
     categories: Option<Vec<String>>,
-    page_count: Option<i32>,
+    average_rating: Option<Decimal>,
+    image_links: Option<ImageLinks>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -93,7 +92,7 @@ impl MediaProvider for GoogleBooksService {
         _display_nsfw: bool,
         source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let index = (page - 1) * PAGE_SIZE;
+        let index = page.saturating_sub(1) * PAGE_SIZE;
         let pass_raw_query = source_specifics
             .as_ref()
             .and_then(|s| s.google_books.as_ref().and_then(|g| g.pass_raw_query))
@@ -136,7 +135,7 @@ impl MediaProvider for GoogleBooksService {
                 }
             })
             .collect();
-        let next_page = (search.total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
+        let next_page = compute_next_page(page, search.total_items);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {
@@ -182,14 +181,12 @@ impl GoogleBooksService {
             .map(|a| MetadataFreeCreator {
                 name: a,
                 role: "Author".to_owned(),
-                ..Default::default()
             })
             .collect_vec();
         if let Some(p) = item.publisher {
             creators.push(MetadataFreeCreator {
                 name: p,
                 role: "Publisher".to_owned(),
-                ..Default::default()
             });
         }
         let mut genres = item

@@ -1,24 +1,19 @@
+use std::collections::HashSet;
+
 use async_graphql::{InputObject, SimpleObject};
 use boilermates::boilermates;
 use chrono::NaiveDate;
 use common_models::{EntityAssets, PersonSourceSpecifics};
-use enum_models::{EntityLot, MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use rust_decimal::Decimal;
 use sea_orm::{FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use std::collections::HashSet;
 
 use crate::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,
     MusicSpecifics, PodcastSpecifics, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
 };
-
-#[derive(Debug, PartialEq, Eq, Default, SimpleObject, Serialize, Deserialize, Clone)]
-pub struct EntityWithLot {
-    pub entity_id: String,
-    pub entity_lot: EntityLot,
-}
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]
 pub struct GenreListItem {
@@ -186,16 +181,50 @@ pub struct CommitMetadataGroupInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct CreateCustomMetadataInput {
+pub struct CreateCustomMetadataGroupInput {
     pub title: String,
     pub lot: MediaLot,
+    pub assets: EntityAssets,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct CreateCustomPersonInput {
+    pub name: String,
+    pub assets: EntityAssets,
+    pub place: Option<String>,
+    pub gender: Option<String>,
+    pub website: Option<String>,
+    pub description: Option<String>,
+    pub birth_date: Option<NaiveDate>,
+    pub death_date: Option<NaiveDate>,
+    pub alternate_names: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct UpdateCustomMetadataGroupInput {
+    pub existing_metadata_group_id: String,
+    pub update: CreateCustomMetadataGroupInput,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct UpdateCustomPersonInput {
+    pub existing_person_id: String,
+    pub update: CreateCustomPersonInput,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct CreateCustomMetadataInput {
+    pub lot: MediaLot,
+    pub title: String,
     pub assets: EntityAssets,
     pub is_nsfw: Option<bool>,
     pub publish_year: Option<i32>,
     pub description: Option<String>,
     pub genres: Option<Vec<String>>,
-    pub creators: Option<Vec<String>>,
+    pub group_ids: Option<Vec<String>>,
     pub publish_date: Option<NaiveDate>,
+    pub creator_ids: Option<Vec<String>>,
     pub show_specifics: Option<ShowSpecifics>,
     pub book_specifics: Option<BookSpecifics>,
     pub music_specifics: Option<MusicSpecifics>,
@@ -237,8 +266,8 @@ pub struct MetadataCreatorsGroupedByRole {
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct GraphqlMetadataGroup {
-    pub part: i32,
     pub id: String,
+    pub part: Option<i32>,
 }
 
 #[skip_serializing_none]
@@ -275,4 +304,5 @@ pub struct GraphqlMetadataDetails {
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
+    pub external_identifiers: Option<MetadataExternalIdentifiers>,
 }

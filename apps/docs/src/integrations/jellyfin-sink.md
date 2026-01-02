@@ -1,6 +1,6 @@
 # Jellyfin Sink
 
-Automatically add new [Jellyfin](https://jellyfin.org/) movie and show plays to Ryot. It
+Automatically add new [Jellyfin](https://jellyfin.org) movie and show plays to Ryot. It
 will work for all the media that have a valid TMDb ID attached to their metadata.
 
 ::: info
