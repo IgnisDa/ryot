@@ -6254,39 +6254,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oslojs/asn1@npm:1.0.0":
-  version: 1.0.0
-  resolution: "@oslojs/asn1@npm:1.0.0"
-  dependencies:
-    "@oslojs/binary": "npm:1.0.0"
-  checksum: 10/2f10519a0fd3163cd5cbce8f611b9ae542fcbf176915c9a343aa86a8e36621ff4a74083a63765dd95c82a9899aefbe0ea533e757686fc6bf97f4edd1fa1867d2
-  languageName: node
-  linkType: hard
-
-"@oslojs/binary@npm:1.0.0":
-  version: 1.0.0
-  resolution: "@oslojs/binary@npm:1.0.0"
-  checksum: 10/f53aed66591512f5837b9091fae71df3076101db6b58d7095d6177a2f0e3548a5ed0b31063936c25749700b0f3b0139f71283ec7d34d7b56b1dc2b9884c3b323
-  languageName: node
-  linkType: hard
-
-"@oslojs/crypto@npm:1.0.1":
-  version: 1.0.1
-  resolution: "@oslojs/crypto@npm:1.0.1"
-  dependencies:
-    "@oslojs/asn1": "npm:1.0.0"
-    "@oslojs/binary": "npm:1.0.0"
-  checksum: 10/912822f906f1fa31fadecbe7a3ea2ab44aeea0eefaa8c619d9a43921f083c224053e23aaddda5209067ff5212fe4627955cb60648e0f6ef13091e556bf4e85bb
-  languageName: node
-  linkType: hard
-
-"@oslojs/encoding@npm:1.1.0":
-  version: 1.1.0
-  resolution: "@oslojs/encoding@npm:1.1.0"
-  checksum: 10/9122ad5fa5c3557c1205825b11ea51facbaf08153a47c349c6b1a613b6797e9b22f290d31f5b6faaa45ece39a2437ecdb866815c73beb182e2b203d1f2201e98
-  languageName: node
-  linkType: hard
-
 "@paddle/paddle-js@npm:1.6.1":
   version: 1.6.1
   resolution: "@paddle/paddle-js@npm:1.6.1"
@@ -7862,8 +7829,6 @@ __metadata:
     "@conform-to/zod": "npm:1.15.1"
     "@isaacs/ttlcache": "npm:2.1.4"
     "@marsidev/react-turnstile": "npm:1.4.1"
-    "@oslojs/crypto": "npm:1.0.1"
-    "@oslojs/encoding": "npm:1.1.0"
     "@paddle/paddle-js": "npm:1.6.1"
     "@paddle/paddle-node-sdk": "npm:3.5.0"
     "@radix-ui/react-label": "npm:2.1.8"
@@ -7905,7 +7870,6 @@ __metadata:
     react: "npm:19.2.3"
     react-dom: "npm:19.2.3"
     react-router: "npm:7.11.0"
-    remix-utils: "npm:9.0.0"
     safe-routes: "npm:1.0.18"
     sonner: "npm:2.0.7"
     tailwind-merge: "npm:3.4.0"

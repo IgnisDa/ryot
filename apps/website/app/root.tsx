@@ -11,16 +11,13 @@ import {
 	Outlet,
 	Scripts,
 	ScrollRestoration,
-	useLoaderData,
 	useLocation,
 	useRouteError,
 } from "react-router";
-import { HoneypotProvider } from "remix-utils/honeypot/react";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
 import { Button } from "./lib/components/ui/button";
 import { Toaster } from "./lib/components/ui/sonner";
-import { honeypot } from "./lib/config.server";
 import { logoUrl, queryClient, startUrl, useConfigData } from "./lib/general";
 import "./tailwind.css";
 
@@ -56,13 +53,8 @@ export const links: LinksFunction = () => {
 	];
 };
 
-export const loader = async () => {
-	return { honeypotInputProps: await honeypot.getInputProps() };
-};
-
 export default function App() {
 	const location = useLocation();
-	const loaderData = useLoaderData<typeof loader>();
 	const { data: configData } = useConfigData();
 
 	const isActivePage = (path: string) => {
@@ -180,12 +172,10 @@ export default function App() {
 						</div>
 					</header>
 					<main className="flex-1">
-						<HoneypotProvider {...loaderData.honeypotInputProps}>
-							<QueryClientProvider client={queryClient}>
-								<Outlet />
-								<ReactQueryDevtools buttonPosition="bottom-right" />
-							</QueryClientProvider>
-						</HoneypotProvider>
+						<QueryClientProvider client={queryClient}>
+							<Outlet />
+							<ReactQueryDevtools buttonPosition="bottom-right" />
+						</QueryClientProvider>
 					</main>
 					<footer className="border-t border-border/50 py-12 bg-muted/20">
 						<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

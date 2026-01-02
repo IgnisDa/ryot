@@ -2,7 +2,6 @@ import { zodBoolAsString } from "@ryot/ts-utils";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { GraphQLClient } from "graphql-request";
 import { createCookie } from "react-router";
-import { Honeypot } from "remix-utils/honeypot/server";
 import { z } from "zod";
 import * as schema from "~/drizzle/schema.server";
 import { PlanTypes, ProductTypes } from "~/drizzle/schema.server";
@@ -78,8 +77,6 @@ export const serverGqlService = new GraphQLClient(
 	`${serverVariables.RYOT_BASE_URL}/graphql`,
 	{ headers: { Connection: "keep-alive" } },
 );
-
-export const honeypot = new Honeypot();
 
 export const paddleCustomDataSchema = z.object({
 	customerId: z.string(),

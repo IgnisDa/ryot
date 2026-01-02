@@ -21,8 +21,6 @@ import {
 import * as openidClient from "openid-client";
 import { useEffect, useState } from "react";
 import { data, Form, Link, redirect, useSearchParams } from "react-router";
-import { HoneypotInputs } from "remix-utils/honeypot/react";
-import { SpamError } from "remix-utils/honeypot/server";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
@@ -46,12 +44,7 @@ import {
 } from "~/lib/components/ui/input-otp";
 import { Textarea } from "~/lib/components/ui/textarea";
 import { TurnstileWidget } from "~/lib/components/ui/turnstile";
-import {
-	db,
-	honeypot,
-	OAUTH_CALLBACK_URL,
-	websiteAuthCookie,
-} from "~/lib/config.server";
+import { db, OAUTH_CALLBACK_URL, websiteAuthCookie } from "~/lib/config.server";
 import {
 	contactEmail,
 	initializePaddleForApplication,
@@ -156,19 +149,13 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				);
 			}
 
-			let isSpam = false;
-			try {
-				await honeypot.check(formData);
-			} catch (e) {
-				if (e instanceof SpamError) isSpam = true;
-			}
 			const result = await db
 				.insert(contactSubmissions)
 				.values({
-					isSpam: isSpam,
+					isSpam: false,
 					email: submission.email,
 					message: submission.message,
-					ticketNumber: isSpam ? null : sql`nextval('ticket_number_seq')`,
+					ticketNumber: sql`nextval('ticket_number_seq')`,
 				})
 				.returning({
 					email: contactSubmissions.email,
@@ -176,7 +163,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					ticketNumber: contactSubmissions.ticketNumber,
 				});
 
-			if (!isSpam && result[0]?.ticketNumber) {
+			if (result[0]?.ticketNumber) {
 				const insertedSubmission = result[0];
 				await sendEmail({
 					cc: contactEmail,
@@ -679,7 +666,6 @@ export default function Page() {
 									action={withQuery(".?index", { intent: "contactSubmission" })}
 									className="space-y-6"
 								>
-									<HoneypotInputs />
 									<div>
 										<label
 											htmlFor="contact-email"
