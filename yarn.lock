@@ -7878,6 +7878,8 @@ __metadata:
     "@ryot/transactional": "workspace:*"
     "@ryot/ts-utils": "workspace:*"
     "@tailwindcss/vite": "npm:4.1.18"
+    "@tanstack/react-query": "npm:5.90.16"
+    "@tanstack/react-query-devtools": "npm:5.91.2"
     "@types/nodemailer": "npm:7.0.4"
     "@types/react": "npm:19.2.7"
     "@types/react-dom": "npm:19.2.3"
