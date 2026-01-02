@@ -10,9 +10,9 @@ import {
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
-	DEFAULT_USER_COLLECTIONS_COUNT,
 	addEntitiesToCollection,
 	createCollection,
+	DEFAULT_USER_COLLECTIONS_COUNT,
 	getCollectionContents,
 	getFirstExerciseId,
 	getGraphqlClient,

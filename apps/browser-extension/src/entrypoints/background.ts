@@ -77,9 +77,7 @@ export default defineBackground(() => {
 		}
 	});
 
-	async function handleMetadataLookup(data: {
-		title: string;
-	}) {
+	async function handleMetadataLookup(data: { title: string }) {
 		const integrationUrl = await storage.getItem<string>(
 			STORAGE_KEYS.INTEGRATION_URL,
 		);

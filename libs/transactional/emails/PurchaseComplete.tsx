@@ -55,9 +55,7 @@ const PurchaseCompleteEmail = (props: PurchaseCompleteEmailProps) =>
 				)}
 			</Text>
 		</Layout>
-	) : (
-		<></>
-	);
+	) : null;
 
 PurchaseCompleteEmail.subject = subject;
 

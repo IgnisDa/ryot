@@ -1,8 +1,8 @@
 import { Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { match } from "ts-pattern";
-import logo from "~/assets/icon.png";
 import { storage } from "#imports";
+import logo from "~/assets/icon.png";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../../lib/constants";
 import { ExtensionStatus, type FormState } from "../../lib/extension-types";
 import { logger } from "../../lib/logger";
@@ -150,7 +150,7 @@ const App = () => {
 
 	if (currentPage === "settings") {
 		return (
-			<div className="w-[300px] p-5 font-sans">
+			<div className="w-75 p-5 font-sans">
 				<div className="flex items-center justify-between mb-5">
 					<button
 						type="button"
@@ -201,7 +201,7 @@ const App = () => {
 	}
 
 	return (
-		<div className="w-[300px] p-5 font-sans">
+		<div className="w-75 p-5 font-sans">
 			<div className="flex items-center justify-between mb-5">
 				<div className="flex items-center gap-2">
 					<img src={logo} alt="Ryot Logo" className="w-8 h-8" />
@@ -246,7 +246,7 @@ const App = () => {
 					{formState.status !== "submitted" && (
 						<button
 							type="submit"
-							className="flex-[2] py-2.5 px-4 bg-blue-600 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+							className="flex-2 py-2.5 px-4 bg-blue-600 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
 							disabled={
 								formState.status === "submitting" ||
 								!url.trim() ||
