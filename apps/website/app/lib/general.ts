@@ -4,12 +4,10 @@ import { $path } from "safe-routes";
 import { withFragment } from "ufo";
 import type { TPrices } from "./config.server";
 
+export const contactEmail = "ignisda2001@gmail.com";
 export const startUrl = withFragment($path("/"), "start-here");
-
 export const logoUrl =
 	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
-
-export const contactEmail = "ignisda2001@gmail.com";
 
 export const initializePaddleForApplication = (
 	clientToken: string,
@@ -32,8 +30,8 @@ export const queryClient = new QueryClient({
 	},
 });
 
-export const useConfigData = () => {
-	return useQuery({
+export const useConfigData = () =>
+	useQuery({
 		staleTime: 1000 * 60 * 5,
 		queryKey: ["website-config"],
 		queryFn: async () => {
@@ -48,4 +46,3 @@ export const useConfigData = () => {
 			}>;
 		},
 	});
-};
