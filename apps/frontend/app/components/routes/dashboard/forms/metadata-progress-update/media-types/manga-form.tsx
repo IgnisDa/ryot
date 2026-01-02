@@ -1,4 +1,4 @@
-import { Checkbox, Group, Input, NumberInput, Text, rem } from "@mantine/core";
+import { Checkbox, Group, Input, NumberInput, rem, Text } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";

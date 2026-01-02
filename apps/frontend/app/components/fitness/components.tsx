@@ -63,9 +63,9 @@ import { getExerciseDetailsPath, getSetColor } from "~/lib/shared/media-utils";
 import { clientGqlService } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
-	type TWorkoutDetails,
 	getWorkoutDetailsQuery,
 	getWorkoutTemplateDetailsQuery,
+	type TWorkoutDetails,
 	useExerciseImages,
 } from "~/lib/state/fitness";
 import { FitnessEntity } from "~/lib/types";

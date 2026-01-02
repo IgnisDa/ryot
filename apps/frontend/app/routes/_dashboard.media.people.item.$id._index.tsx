@@ -377,9 +377,7 @@ const MetadataDisplay = (props: {
 	);
 };
 
-const MetadataGroupDisplay = (props: {
-	metadataGroupId: string;
-}) => {
+const MetadataGroupDisplay = (props: { metadataGroupId: string }) => {
 	const [
 		{ data: metadataGroupDetails },
 		isMetadataGroupPartialStatusActive,

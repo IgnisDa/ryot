@@ -29,9 +29,9 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
 import {
 	useFetcher,
+	useNavigate,
 	useRevalidator,
 	useRouteLoaderData,
 	useSubmit,
@@ -58,8 +58,6 @@ import {
 	getUserExerciseDetailsQuery,
 	getWorkoutDetailsQuery,
 	getWorkoutTemplateDetailsQuery,
-} from "~/lib/state/fitness";
-import {
 	type InProgressWorkout,
 	useCurrentWorkout,
 	useCurrentWorkoutStopwatchAtom,

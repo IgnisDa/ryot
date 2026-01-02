@@ -37,8 +37,11 @@ import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import { ProRequiredAlert, SkeletonLoader } from "~/components/common";
-import { DisplayCollectionEntity } from "~/components/common";
+import {
+	DisplayCollectionEntity,
+	ProRequiredAlert,
+	SkeletonLoader,
+} from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
 import { DisplaySummarySection } from "~/components/common/summary";
 import { MetadataDisplayItem } from "~/components/media/display-items";

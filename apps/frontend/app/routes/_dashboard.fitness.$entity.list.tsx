@@ -23,9 +23,9 @@ import {
 	type UserTemplatesOrWorkoutsListInput,
 	UserTemplatesOrWorkoutsListSortBy,
 	UserWorkoutDetailsDocument,
+	UserWorkoutsListDocument,
 	UserWorkoutTemplateDetailsDocument,
 	UserWorkoutTemplatesListDocument,
-	UserWorkoutsListDocument,
 	type WorkoutSummary,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, humanizeDuration, truncate } from "@ryot/ts-utils";
@@ -397,7 +397,7 @@ const DisplayFitnessEntity = (props: {
 	const personalBestsAchieved =
 		entityInformation.summary.total?.personalBestsAchieved || 0;
 	const repsData = (entityInformation.information.exercises || [])
-		.map((e) => Number.parseInt(e.total?.reps || "0"))
+		.map((e) => Number.parseInt(e.total?.reps || "0", 10))
 		.filter(Boolean);
 
 	return (

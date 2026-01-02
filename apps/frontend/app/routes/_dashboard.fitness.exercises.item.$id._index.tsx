@@ -12,6 +12,7 @@ import {
 	Image,
 	List,
 	Paper,
+	rem,
 	ScrollArea,
 	Select,
 	SimpleGrid,
@@ -19,7 +20,6 @@ import {
 	Tabs,
 	Text,
 	Title,
-	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import type { ExtendedBodyPart } from "@mjcdev/react-body-highlighter";
@@ -38,11 +38,9 @@ import {
 import {
 	IconChartPie,
 	IconCheck,
-	IconMessageCircle2,
-} from "@tabler/icons-react";
-import {
 	IconHistoryToggle,
 	IconInfoCircle,
+	IconMessageCircle2,
 	IconTrophy,
 	IconUser,
 } from "@tabler/icons-react";

@@ -4,9 +4,7 @@ import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { useGetRandomMantineColor } from "~/lib/shared/hooks";
 
-export function GenreItem(props: {
-	genre: GenreListItem;
-}) {
+export function GenreItem(props: { genre: GenreListItem }) {
 	const color = useGetRandomMantineColor(props.genre.name);
 
 	return (

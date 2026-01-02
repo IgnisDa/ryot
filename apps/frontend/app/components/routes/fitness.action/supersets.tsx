@@ -1,4 +1,4 @@
-import { Button, Group, Modal, Select, Stack, Text, rem } from "@mantine/core";
+import { Button, Group, Modal, rem, Select, Stack, Text } from "@mantine/core";
 import { type UseListStateHandlers, useListState } from "@mantine/hooks";
 import { changeCase, isString } from "@ryot/ts-utils";
 import { produce } from "immer";
@@ -16,7 +16,10 @@ import {
 export const DisplaySupersetModal = ({
 	onClose,
 	supersetWith,
-}: { onClose: () => void; supersetWith: string | null }) => {
+}: {
+	onClose: () => void;
+	supersetWith: string | null;
+}) => {
 	const [cw] = useCurrentWorkout();
 
 	const exerciseAlreadyInSuperset = useMemo(() => {
@@ -128,9 +131,7 @@ const CreateSupersetExerciseButton = (props: {
 	setExercisesHandle: UseListStateHandlers<string>;
 }) => {
 	const [cw] = useCurrentWorkout();
-	const index = props.exercises.findIndex(
-		(e) => e === props.exercise.identifier,
-	);
+	const index = props.exercises.indexOf(props.exercise.identifier);
 	invariant(cw);
 
 	const { data: exerciseDetails } = useExerciseDetails(
@@ -231,9 +232,7 @@ const EditSupersetExerciseButton = (props: {
 	setExercisesHandle: UseListStateHandlers<string>;
 }) => {
 	const [cw] = useCurrentWorkout();
-	const index = props.exercises.findIndex(
-		(e) => e === props.exercise.identifier,
-	);
+	const index = props.exercises.indexOf(props.exercise.identifier);
 	invariant(cw);
 
 	const { data: exerciseDetails } = useExerciseDetails(

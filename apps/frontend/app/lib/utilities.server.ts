@@ -5,7 +5,7 @@ import {
 	CoreDetailsDocument,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { type SerializeOptions, parse, serialize } from "cookie";
+import { parse, type SerializeOptions, serialize } from "cookie";
 import {
 	ClientError,
 	GraphQLClient,

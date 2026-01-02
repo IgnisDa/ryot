@@ -16,7 +16,7 @@ import {
 	VerifyTwoFactorErrorVariant,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useState } from "react";
-import { Form, Link, data, redirect } from "react-router";
+import { data, Form, Link, redirect } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { z } from "zod";

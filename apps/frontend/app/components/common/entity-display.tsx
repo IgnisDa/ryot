@@ -127,9 +127,7 @@ const formatBaseEntityDisplayItemRating = (
 	}
 };
 
-const BaseEntityDisplayItemReason = (props: {
-	reason: UserToMediaReason;
-}) => {
+const BaseEntityDisplayItemReason = (props: { reason: UserToMediaReason }) => {
 	const [Icon, color] = match(props.reason)
 		.with(
 			UserToMediaReason.Owned,

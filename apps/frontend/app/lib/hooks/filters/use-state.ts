@@ -1,4 +1,4 @@
-import { type ParserMap, type Values, useQueryStates } from "nuqs";
+import { type ParserMap, useQueryStates, type Values } from "nuqs";
 
 function isDefaultState<Parsers extends ParserMap>(
 	parsers: Parsers,

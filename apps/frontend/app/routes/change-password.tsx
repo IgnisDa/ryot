@@ -12,7 +12,7 @@ import {
 import { SetPasswordViaSessionDocument } from "@ryot/generated/graphql/backend/graphql";
 import { parseSearchQuery } from "@ryot/ts-utils";
 import { IconLock } from "@tabler/icons-react";
-import { Form, data, useActionData, useLoaderData } from "react-router";
+import { data, Form, useActionData, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { z } from "zod";
 import { passwordConfirmationSchema } from "~/lib/shared/validation";

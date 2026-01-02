@@ -1,5 +1,5 @@
-import { MediaLot, UserLot } from "@ryot/generated/graphql/backend/graphql";
 import type { UserPreferences } from "@ryot/generated/graphql/backend/graphql";
+import { MediaLot, UserLot } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconMoon, IconSun } from "@tabler/icons-react";
 import { $path } from "safe-routes";

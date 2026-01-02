@@ -80,7 +80,7 @@ export const TimerAndStopwatchDrawer = (props: {
 									else {
 										const input = prompt("Enter duration in seconds");
 										if (!input) return;
-										const intInput = Number.parseInt(input);
+										const intInput = Number.parseInt(input, 10);
 										if (intInput) props.startTimer({ duration: intInput });
 										else alert("Invalid input");
 									}

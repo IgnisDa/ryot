@@ -236,7 +236,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 		},
 	};
 	for (const exercise of currentWorkout.exercises) {
-		const sets = Array<UserWorkoutSetRecord>();
+		const sets: UserWorkoutSetRecord[] = [];
 		for (const set of exercise.sets)
 			if (isCreatingTemplate || set.confirmedAt) {
 				const note = isString(set.note) ? set.note : undefined;
@@ -255,7 +255,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 				});
 			}
 		if (!isCreatingTemplate && sets.length === 0) continue;
-		const notes = Array<string>();
+		const notes: string[] = [];
 		for (const note of exercise.notes) if (note) notes.push(note);
 		input.input.exercises.push({
 			sets,

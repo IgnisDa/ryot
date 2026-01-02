@@ -17,8 +17,8 @@ import {
 	usePlayFitnessSound,
 } from "~/components/routes/fitness.action/hooks";
 import {
-	WorkoutModals,
 	useWorkoutModals,
+	WorkoutModals,
 } from "~/components/routes/fitness.action/modals";
 import { handleSetConfirmation } from "~/components/routes/fitness.action/set-display/functions";
 import type { FuncStartTimer } from "~/components/routes/fitness.action/types";

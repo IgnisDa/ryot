@@ -10,8 +10,8 @@ import {
 	Select,
 	Stack,
 	TagsInput,
-	TextInput,
 	Textarea,
+	TextInput,
 	Title,
 	Tooltip,
 } from "@mantine/core";

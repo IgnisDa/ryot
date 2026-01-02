@@ -81,8 +81,8 @@ export const useOnboardingTour = () => {
 	const startOnboardingTour = async () => {
 		const newPreferences = produce(cloneDeep(userPreferences), (draft) => {
 			draft.featuresEnabled.media.enabled = true;
-			const isFeatureEnabled = draft.featuresEnabled.media.specific.findIndex(
-				(l) => l === MediaLot.AudioBook,
+			const isFeatureEnabled = draft.featuresEnabled.media.specific.indexOf(
+				MediaLot.AudioBook,
 			);
 			if (isFeatureEnabled === -1)
 				draft.featuresEnabled.media.specific.push(MediaLot.AudioBook);

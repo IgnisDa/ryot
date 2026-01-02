@@ -12,13 +12,13 @@ import {
 	Group,
 	Modal,
 	Pagination,
+	rem,
 	Select,
 	Skeleton,
 	Stack,
 	Text,
 	TextInput,
 	Tooltip,
-	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -466,8 +466,6 @@ export const EditButton = (props: EditButtonProps) => {
 		props.source === MediaSource.Custom &&
 		userDetails.id === props.createdByUserId;
 
-	if (!canCurrentUserUpdate) return null;
-
 	const editPath = useMemo(() => {
 		switch (props.editRouteType) {
 			case "media":
@@ -492,6 +490,8 @@ export const EditButton = (props: EditButtonProps) => {
 				throw new Error(`Unknown edit route type: ${props.editRouteType}`);
 		}
 	}, [props.editRouteType, props.entityId]);
+
+	if (!canCurrentUserUpdate) return null;
 
 	return (
 		<Button component={Link} variant="outline" to={editPath}>

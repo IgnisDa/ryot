@@ -20,8 +20,8 @@ import {
 	Table,
 	type TableData,
 	Text,
-	TextInput,
 	Textarea,
+	TextInput,
 	Title,
 	Tooltip,
 } from "@mantine/core";
@@ -50,14 +50,14 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
-import { Form, data, useActionData, useLoaderData } from "react-router";
+import { data, Form, useActionData, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { CopyableTextInput } from "~/components/common";
 import {
-	PRO_REQUIRED_MESSAGE,
 	applicationBaseUrl,
+	PRO_REQUIRED_MESSAGE,
 } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
@@ -388,7 +388,7 @@ const tagIdsTransform = (val: string | undefined) =>
 	val
 		? val
 				.split(",")
-				.map((id) => Number.parseInt(id.trim()))
+				.map((id) => Number.parseInt(id.trim(), 10))
 				.filter((id) => !Number.isNaN(id))
 		: undefined;
 
