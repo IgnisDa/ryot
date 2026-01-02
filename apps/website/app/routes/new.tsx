@@ -21,14 +21,7 @@ import {
 } from "lucide-react";
 import * as openidClient from "openid-client";
 import { useEffect, useState } from "react";
-import {
-	data,
-	Form,
-	Link,
-	redirect,
-	useRouteLoaderData,
-	useSearchParams,
-} from "react-router";
+import { data, Form, Link, redirect, useSearchParams } from "react-router";
 import { HoneypotInputs } from "remix-utils/honeypot/react";
 import { SpamError } from "remix-utils/honeypot/server";
 import { $path } from "safe-routes";
@@ -72,7 +65,6 @@ import {
 	sendEmail,
 	verifyTurnstileToken,
 } from "~/lib/utilities.server";
-import type { loader as rootLoader } from "../root";
 import type { Route } from "./+types/new";
 
 dayjs.extend(duration);
@@ -88,6 +80,7 @@ const useConfigData = () => {
 				prices: TPrices;
 				isSandbox: boolean;
 				clientToken: string;
+				isLoggedIn: boolean;
 				turnstileSiteKey: string;
 			}>;
 		},
@@ -247,8 +240,7 @@ const alexStars = Array.from({ length: 4 }, (_, i) => `alex-star-${i + 1}`);
 
 export default function Page() {
 	const [searchParams] = useSearchParams();
-	const { data: configData, isLoading, error } = useConfigData();
-	const rootLoaderData = useRouteLoaderData<typeof rootLoader>("root");
+	const { data: configData, isLoading } = useConfigData();
 
 	const query = {
 		email: searchParams.get("email") ?? undefined,
@@ -268,28 +260,6 @@ export default function Page() {
 			);
 		}
 	}, [configData]);
-
-	if (isLoading) {
-		return (
-			<div className="flex items-center justify-center min-h-screen">
-				<div className="text-center">
-					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-					<p className="text-muted-foreground">Loading...</p>
-				</div>
-			</div>
-		);
-	}
-
-	if (error || !configData) {
-		return (
-			<div className="flex items-center justify-center min-h-screen">
-				<div className="text-center">
-					<p className="text-destructive mb-4">Failed to load configuration</p>
-					<Button onClick={() => window.location.reload()}>Retry</Button>
-				</div>
-			</div>
-		);
-	}
 
 	return (
 		<>
@@ -533,7 +503,14 @@ export default function Page() {
 						difference Ryot can make.
 					</p>
 					<div className="max-w-sm mx-auto space-y-4">
-						{rootLoaderData?.isLoggedIn ? (
+						{isLoading || !configData ? (
+							<div className="text-center py-8">
+								<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
+								<p className="text-sm text-muted-foreground">
+									Loading registration form...
+								</p>
+							</div>
+						) : configData.isLoggedIn ? (
 							<Link to={$path("/me")}>
 								<Button size="lg" className="text-base px-8">
 									<PlayIcon size={16} className="mr-2" />
@@ -663,10 +640,19 @@ export default function Page() {
 					</div>
 				</div>
 			</section>
-			<Pricing
-				prices={configData.prices}
-				isLoggedIn={rootLoaderData?.isLoggedIn}
-			/>
+			{isLoading || !configData ? (
+				<section className="py-20">
+					<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+						<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+						<p className="text-muted-foreground">Loading pricing...</p>
+					</div>
+				</section>
+			) : (
+				<Pricing
+					prices={configData.prices}
+					isLoggedIn={configData.isLoggedIn}
+				/>
+			)}
 
 			<section id="contact" className="py-20 bg-muted/30">
 				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -692,6 +678,15 @@ export default function Page() {
 								</h3>
 								<p className="text-muted-foreground">
 									Your message has been submitted. We'll get back to you soon!
+								</p>
+							</CardContent>
+						</Card>
+					) : isLoading || !configData ? (
+						<Card className="max-w-2xl mx-auto border-2 rounded-xl">
+							<CardContent className="p-8 text-center">
+								<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
+								<p className="text-sm text-muted-foreground">
+									Loading contact form...
 								</p>
 							</CardContent>
 						</Card>
