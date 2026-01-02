@@ -199,7 +199,7 @@ export const UploadAssetsModal = (props: {
 	);
 
 	const exercise =
-		exerciseIdx && exerciseIdx !== -1
+		typeof exerciseIdx === "number" && exerciseIdx >= 0
 			? currentWorkout?.exercises[exerciseIdx]
 			: null;
 
