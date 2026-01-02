@@ -21,6 +21,26 @@ import { Toaster } from "./lib/components/ui/sonner";
 import { logoUrl, queryClient, startUrl, useConfigData } from "./lib/general";
 import "./tailwind.css";
 
+function HeaderActions() {
+	const { data: configData } = useConfigData();
+
+	return (
+		<div className="flex items-center space-x-4">
+			{configData?.isLoggedIn ? (
+				<Link to={$path("/me")}>
+					<Button variant="ghost" size="sm">
+						Dashboard
+					</Button>
+				</Link>
+			) : (
+				<Link to={startUrl}>
+					<Button size="sm">Get Started</Button>
+				</Link>
+			)}
+		</div>
+	);
+}
+
 export const meta: MetaFunction = () => {
 	return [
 		{ title: "Ryot - The Only Self-Hosted Tracker You Will Ever Need" },
@@ -55,7 +75,6 @@ export const links: LinksFunction = () => {
 
 export default function App() {
 	const location = useLocation();
-	const { data: configData } = useConfigData();
 
 	const isActivePage = (path: string) => {
 		if (path === "/") return location.pathname === "/" && location.hash === "";
@@ -155,19 +174,7 @@ export default function App() {
 									</a>
 								</nav>
 
-								<div className="flex items-center space-x-4">
-									{configData?.isLoggedIn ? (
-										<Link to={$path("/me")}>
-											<Button variant="ghost" size="sm">
-												Dashboard
-											</Button>
-										</Link>
-									) : (
-										<Link to={startUrl}>
-											<Button size="sm">Get Started</Button>
-										</Link>
-									)}
-								</div>
+								<HeaderActions />
 							</div>
 						</div>
 					</header>
