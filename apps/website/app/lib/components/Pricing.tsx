@@ -41,7 +41,7 @@ export default function Pricing(props: {
 
 	return (
 		<section id="pricing" className="py-20 relative overflow-hidden">
-			<div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+			<div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-accent/5" />
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
 				<div className="text-center mb-16">
 					<Badge variant="outline" className="mb-4">
@@ -111,13 +111,13 @@ export default function Pricing(props: {
 								className={cn(
 									"border-2 rounded-xl transition-all duration-300 hover:shadow-lg hover:-translate-y-1",
 									isPopular(p.name)
-										? "border-primary/50 relative hover:border-primary/70 hover:shadow-xl hover:-translate-y-2 bg-gradient-to-b from-primary/5 to-transparent"
+										? "border-primary/50 relative hover:border-primary/70 hover:shadow-xl hover:-translate-y-2 bg-linear-to-b from-primary/5 to-transparent"
 										: "hover:border-primary/30",
 								)}
 							>
 								{isPopular(p.name) && (
 									<div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-										<Badge className="bg-gradient-to-r from-orange-500 to-pink-500 text-white border-0">
+										<Badge className="bg-linear-to-r from-orange-500 to-pink-500 text-white border-0">
 											<Crown className="w-4 h-4 mr-1" />
 											Most Popular
 										</Badge>
@@ -230,7 +230,7 @@ export default function Pricing(props: {
 												"w-full",
 												!isThreeColumn && "text-sm",
 												isPopular(p.name) &&
-													"bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary",
+													"bg-linear-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary",
 											)}
 										>
 											<PlayIcon size={16} className="mr-2" />
@@ -249,8 +249,8 @@ export default function Pricing(props: {
 					className={cn(
 						"max-w-4xl mx-auto p-8 rounded-2xl border",
 						getColorThemeClasses(
-							"bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200",
-							"bg-gradient-to-r from-green-50 to-emerald-50 border-green-200",
+							"bg-linear-to-r from-blue-50 to-indigo-50 border-blue-200",
+							"bg-linear-to-r from-green-50 to-emerald-50 border-green-200",
 						),
 					)}
 				>
