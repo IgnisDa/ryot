@@ -1,4 +1,5 @@
 import { initializePaddle } from "@paddle/paddle-js";
+import { QueryClient } from "@tanstack/react-query";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
 
@@ -19,3 +20,13 @@ export const initializePaddleForApplication = (
 		environment: isSandbox ? "sandbox" : undefined,
 		pwCustomer: { id: paddleCustomerId || undefined },
 	});
+
+export const queryClient = new QueryClient({
+	defaultOptions: {
+		queries: {
+			retry: 2,
+			staleTime: 1000 * 60 * 5, // 5 minutes
+			placeholderData: (prev: unknown) => prev,
+		},
+	},
+});

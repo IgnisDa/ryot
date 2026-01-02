@@ -1,4 +1,6 @@
 import { cn } from "@ryot/ts-utils";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
 	isRouteErrorResponse,
 	Link,
@@ -20,7 +22,7 @@ import { withFragment } from "ufo";
 import { Button } from "./lib/components/ui/button";
 import { Toaster } from "./lib/components/ui/sonner";
 import { honeypot } from "./lib/config.server";
-import { logoUrl, startUrl } from "./lib/general";
+import { logoUrl, queryClient, startUrl } from "./lib/general";
 import { getCustomerFromCookie } from "./lib/utilities.server";
 import "./tailwind.css";
 
@@ -184,7 +186,10 @@ export default function App() {
 					</header>
 					<main className="flex-1">
 						<HoneypotProvider {...loaderData.honeypotInputProps}>
-							<Outlet />
+							<QueryClientProvider client={queryClient}>
+								<Outlet />
+								<ReactQueryDevtools buttonPosition="bottom-right" />
+							</QueryClientProvider>
 						</HoneypotProvider>
 					</main>
 					<footer className="border-t border-border/50 py-12 bg-muted/20">
