@@ -1,43 +1,37 @@
 {
-	"$schema": "node_modules/@biomejs/biome/configuration_schema.json",
-	"linter": {
-		"enabled": true,
-		"rules": {
-			"correctness": {
-				"noUnusedVariables": "error",
-				"useExhaustiveDependencies": "off"
-			},
-			"recommended": true,
-			"suspicious": {
-				"noArrayIndexKey": "warn",
-				"noExplicitAny": "warn"
-			},
-			"style": {
-				"noParameterAssign": "error",
-				"useAsConstAssertion": "error",
-				"useDefaultParameterLast": "error",
-				"useEnumInitializers": "error",
-				"useSelfClosingElements": "error",
-				"useSingleVarDeclarator": "error",
-				"noUnusedTemplateLiteral": "error",
-				"useNumberNamespace": "error",
-				"noInferrableTypes": "error",
-				"noUselessElse": "error"
-			}
-		}
-	},
+	"files": { "ignoreUnknown": true },
+	"json": { "parser": { "allowComments": true } },
 	"assist": { "actions": { "source": { "organizeImports": "on" } } },
-	"files": {
-		"ignoreUnknown": true
-	},
-	"json": {
-		"parser": {
-			"allowComments": true
-		}
-	},
+	"$schema": "node_modules/@biomejs/biome/configuration_schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
 		"useIgnoreFile": true
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"correctness": {
+				"noUnusedVariables": "error",
+				"useExhaustiveDependencies": "off"
+			},
+			"suspicious": {
+				"noExplicitAny": "warn",
+				"noArrayIndexKey": "warn"
+			},
+			"style": {
+				"noUselessElse": "error",
+				"noParameterAssign": "error",
+				"noInferrableTypes": "error",
+				"useNumberNamespace": "error",
+				"useAsConstAssertion": "error",
+				"useEnumInitializers": "error",
+				"useSingleVarDeclarator": "error",
+				"useSelfClosingElements": "error",
+				"useDefaultParameterLast": "error",
+				"noUnusedTemplateLiteral": "error"
+			}
+		}
 	}
 }
