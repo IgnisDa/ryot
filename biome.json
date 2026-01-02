@@ -1,6 +1,7 @@
 {
 	"files": { "ignoreUnknown": true },
 	"json": { "parser": { "allowComments": true } },
+	"css": { "parser": { "tailwindDirectives": true } },
 	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"$schema": "node_modules/@biomejs/biome/configuration_schema.json",
 	"vcs": {
