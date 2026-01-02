@@ -33,7 +33,7 @@ import {
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/shared/hooks";
-import { MediaColors, getMetadataIcon } from "~/lib/shared/media-utils";
+import { getMetadataIcon, MediaColors } from "~/lib/shared/media-utils";
 import { displayWeightWithUnit } from "../fitness/utils";
 
 export const DisplaySummarySection = ({

@@ -117,7 +117,7 @@ export const MetadataNewProgressUpdateForm = (
 					animeEpisodeNumber: metadataToUpdate.animeEpisodeNumber,
 					podcastEpisodeNumber: metadataToUpdate.podcastEpisodeNumber,
 				};
-				const updates = new Array<MetadataProgressUpdateInput>();
+				const updates: MetadataProgressUpdateInput[] = [];
 
 				processBulkUpdates({
 					common,

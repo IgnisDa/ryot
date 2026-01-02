@@ -17,47 +17,44 @@ export type PurchaseCompleteEmailProps = {
 
 const subject = "Thank you for buying Ryot!";
 
-const PurchaseCompleteEmail = (props: PurchaseCompleteEmailProps) =>
-	props.details ? (
-		<Layout headingText={subject}>
-			<Text>
-				You have successfully purchased a {props.planType} plan for Ryot Pro (
-				{props.details.__typename}).{" "}
-				{props.renewOn
-					? `Your subscription will renew on ${props.renewOn}.`
-					: null}
-			</Text>
-			<Text>
-				{props.details.__typename === "self_hosted" ? (
-					<>
-						Your Pro Key is <strong>{props.details.key}</strong>. Please follow{" "}
-						<Link href="https://docs.ryot.io#upgrading-to-pro">these</Link>{" "}
-						instructions to install/upgrade Ryot with your key.
-					</>
-				) : (
-					<>
-						Your account has been created on{" "}
-						<Link href={applicationLink}>{applicationLink}</Link> with{" "}
-						{isString(props.details.auth) ? (
-							`Google using the email ${props.details.auth}. Please login to get started`
-						) : (
-							<>
-								the username <strong>{props.details.auth.username}</strong>.
-								Please{" "}
-								<Link href={props.details.auth.passwordChangeUrl}>
-									click here to set your password
-								</Link>{" "}
-								and then login to get started
-							</>
-						)}
-						.
-					</>
-				)}
-			</Text>
-		</Layout>
-	) : (
-		<></>
-	);
+const PurchaseCompleteEmail = (props: PurchaseCompleteEmailProps) => (
+	<Layout headingText={subject}>
+		<Text>
+			You have successfully purchased a {props.planType} plan for Ryot Pro (
+			{props.details.__typename}).{" "}
+			{props.renewOn
+				? `Your subscription will renew on ${props.renewOn}.`
+				: null}
+		</Text>
+		<Text>
+			{props.details.__typename === "self_hosted" ? (
+				<>
+					Your Pro Key is <strong>{props.details.key}</strong>. Please follow{" "}
+					<Link href="https://docs.ryot.io#upgrading-to-pro">these</Link>{" "}
+					instructions to install/upgrade Ryot with your key.
+				</>
+			) : (
+				<>
+					Your account has been created on{" "}
+					<Link href={applicationLink}>{applicationLink}</Link> with{" "}
+					{isString(props.details.auth) ? (
+						`Google using the email ${props.details.auth}. Please login to get started`
+					) : (
+						<>
+							the username <strong>{props.details.auth.username}</strong>.
+							Please{" "}
+							<Link href={props.details.auth.passwordChangeUrl}>
+								click here to set your password
+							</Link>{" "}
+							and then login to get started
+						</>
+					)}
+					.
+				</>
+			)}
+		</Text>
+	</Layout>
+);
 
 PurchaseCompleteEmail.subject = subject;
 

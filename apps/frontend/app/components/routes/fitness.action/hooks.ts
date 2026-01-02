@@ -9,9 +9,9 @@ import { useMemo } from "react";
 import { useUserPreferences } from "~/lib/shared/hooks";
 import { queryClient } from "~/lib/shared/react-query";
 import {
-	type InProgressWorkout,
 	getExerciseDetailsQuery,
 	getUserExerciseDetailsQuery,
+	type InProgressWorkout,
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
 import { DEFAULT_SET_TIMEOUT_DELAY_MS } from "./utils";
@@ -122,7 +122,7 @@ export const usePerformTasksAfterSetConfirmed = () => {
 		const userExerciseDetails = await queryClient.ensureQueryData(
 			getUserExerciseDetailsQuery(exerciseId),
 		);
-		let exerciseIdxToFocusOn = undefined;
+		let exerciseIdxToFocusOn: number | undefined;
 		setCurrentWorkout((cw) =>
 			produce(cw, (draft) => {
 				if (!draft) return;

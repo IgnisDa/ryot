@@ -11,11 +11,11 @@ import {
 	Group,
 	Image,
 	type MantineColorScheme,
+	rem,
 	ScrollArea,
 	Text,
 	Tooltip,
 	UnstyledButton,
-	rem,
 	useMantineTheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -73,11 +73,11 @@ import {
 } from "~/lib/state/onboarding-tour";
 import { FitnessAction } from "~/lib/types";
 import {
+	colorSchemeCookie,
 	getCookieValue,
 	getCoreDetails,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
-import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 import type { Route } from "./+types/_dashboard";
 

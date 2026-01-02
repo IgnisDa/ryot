@@ -71,13 +71,7 @@ const InputOTPSeparator = forwardRef<
 	ComponentRef<"div">,
 	ComponentPropsWithoutRef<"div">
 >((props, ref) => (
-	<div
-		ref={ref}
-		aria-valuemax={0}
-		aria-valuemin={0}
-		aria-valuenow={0}
-		{...props}
-	>
+	<div ref={ref} {...props} aria-hidden>
 		<Dot />
 	</div>
 ));

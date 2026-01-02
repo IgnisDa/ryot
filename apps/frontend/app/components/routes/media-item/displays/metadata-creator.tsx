@@ -5,9 +5,7 @@ import { $path } from "safe-routes";
 import { BaseEntityDisplay } from "~/components/media/base-display";
 import { usePersonDetails } from "~/lib/shared/hooks";
 
-export const MetadataCreatorDisplay = (props: {
-	data: MetadataCreator;
-}) => {
+export const MetadataCreatorDisplay = (props: { data: MetadataCreator }) => {
 	const { ref, inViewport } = useInViewport();
 	const [{ data: personDetails }, isPartialStatusActive, personTranslations] =
 		usePersonDetails(props.data.idOrName, inViewport && !props.data.isFree);

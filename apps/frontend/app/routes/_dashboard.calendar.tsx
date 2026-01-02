@@ -124,9 +124,7 @@ const CalendarEventMetadata = (props: {
 	);
 };
 
-const CalendarDate = (props: {
-	data: CalendarDate;
-}) => {
+const CalendarDate = (props: { data: CalendarDate }) => {
 	const date = dayjsLib(props.data.date);
 
 	return (

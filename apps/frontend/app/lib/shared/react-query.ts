@@ -30,7 +30,7 @@ import {
 import { QueryClient, queryOptions, skipToken } from "@tanstack/react-query";
 import { GraphQLClient } from "graphql-request";
 import Cookies from "js-cookie";
-import { FRONTEND_AUTH_COOKIE_NAME, applicationBaseUrl } from "./constants";
+import { applicationBaseUrl, FRONTEND_AUTH_COOKIE_NAME } from "./constants";
 import { getMetadataDetails } from "./media-utils";
 
 export const queryClient = new QueryClient({

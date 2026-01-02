@@ -7,13 +7,13 @@ import {
 	Input,
 	NumberInput,
 	Rating,
+	rem,
 	SegmentedControl,
 	Select,
 	Stack,
 	Text,
 	Textarea,
 	ThemeIcon,
-	rem,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
@@ -44,7 +44,7 @@ import {
 	refreshEntityDetails,
 } from "~/lib/shared/react-query";
 import { useReviewEntity } from "~/lib/state/media";
-import { ThreePointSmileyRating, getThreePointSmileyEmoji } from "~/lib/types";
+import { getThreePointSmileyEmoji, ThreePointSmileyRating } from "~/lib/types";
 import { convertThreePointSmileyToDecimal } from "../utils";
 
 export const ReviewEntityForm = (props: {
@@ -344,33 +344,31 @@ export const ReviewEntityForm = (props: {
 					/>
 				) : null}
 				{entityToReview.metadataLot === MediaLot.Manga ? (
-					<>
-						<Group wrap="nowrap">
-							<NumberInput
-								hideControls
-								label="Chapter"
-								value={
-									form.values.mangaChapterNumber
-										? Number(form.values.mangaChapterNumber)
-										: undefined
-								}
-								onChange={(v) =>
-									form.setFieldValue("mangaChapterNumber", v?.toString())
-								}
-							/>
-							<Text ta="center" fw="bold" mt="sm">
-								OR
-							</Text>
-							<NumberInput
-								hideControls
-								label="Volume"
-								value={form.values.mangaVolumeNumber || undefined}
-								onChange={(v) =>
-									form.setFieldValue("mangaVolumeNumber", v as number)
-								}
-							/>
-						</Group>
-					</>
+					<Group wrap="nowrap">
+						<NumberInput
+							hideControls
+							label="Chapter"
+							value={
+								form.values.mangaChapterNumber
+									? Number(form.values.mangaChapterNumber)
+									: undefined
+							}
+							onChange={(v) =>
+								form.setFieldValue("mangaChapterNumber", v?.toString())
+							}
+						/>
+						<Text ta="center" fw="bold" mt="sm">
+							OR
+						</Text>
+						<NumberInput
+							hideControls
+							label="Volume"
+							value={form.values.mangaVolumeNumber || undefined}
+							onChange={(v) =>
+								form.setFieldValue("mangaVolumeNumber", v as number)
+							}
+						/>
+					</Group>
 				) : null}
 				<Textarea
 					autosize

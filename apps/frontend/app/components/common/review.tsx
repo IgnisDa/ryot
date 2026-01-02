@@ -15,16 +15,14 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	CreateReviewCommentDocument,
+	type CreateReviewCommentInput,
+	DeleteReviewDocument,
 	type EntityLot,
 	type MediaLot,
 	type ReviewItem,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	CreateReviewCommentDocument,
-	type CreateReviewCommentInput,
-} from "@ryot/generated/graphql/backend/graphql";
-import { DeleteReviewDocument } from "@ryot/generated/graphql/backend/graphql";
 import { getInitials, isNumber } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,

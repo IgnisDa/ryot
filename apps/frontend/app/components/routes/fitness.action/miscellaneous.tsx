@@ -10,8 +10,8 @@ import {
 	NumberInput,
 	Stack,
 	Text,
-	TextInput,
 	Textarea,
+	TextInput,
 } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -194,13 +194,21 @@ export const UploadAssetsModal = (props: {
 	const [isFileUploading, setIsFileUploading] = useState(false);
 	const deleteS3AssetMutation = useDeleteS3AssetMutation();
 
-	if (!currentWorkout) return null;
-
-	const exerciseIdx = currentWorkout.exercises.findIndex(
+	const exerciseIdx = currentWorkout?.exercises.findIndex(
 		(e) => e.identifier === props.modalOpenedBy,
 	);
+
 	const exercise =
-		exerciseIdx !== -1 ? currentWorkout.exercises[exerciseIdx] : null;
+		typeof exerciseIdx === "number" && exerciseIdx >= 0
+			? currentWorkout?.exercises[exerciseIdx]
+			: null;
+
+	const { data: exerciseDetails } = useExerciseDetails(
+		exercise?.exerciseId || "",
+		!!exercise?.exerciseId,
+	);
+
+	if (!currentWorkout) return null;
 
 	const afterFileSelected = async (
 		file: File | null,
@@ -219,6 +227,7 @@ export const UploadAssetsModal = (props: {
 			const key = await clientSideFileUpload(file, "workouts");
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
+					if (!exerciseIdx) return;
 					if (type === "image") {
 						if (exercise) draft.exercises[exerciseIdx].images.push(key);
 						else draft.images.push(key);
@@ -238,11 +247,6 @@ export const UploadAssetsModal = (props: {
 		}
 	};
 
-	const { data: exerciseDetails } = useExerciseDetails(
-		exercise?.exerciseId || "",
-		!!exercise?.exerciseId,
-	);
-
 	const imagesToDisplay = isString(props.modalOpenedBy)
 		? exercise?.images || []
 		: currentWorkout.images;
@@ -257,6 +261,7 @@ export const UploadAssetsModal = (props: {
 		deleteS3AssetMutation.mutate(key);
 		setCurrentWorkout(
 			produce(currentWorkout, (draft) => {
+				if (!exerciseIdx) return;
 				if (type === "image") {
 					if (exerciseIdx !== -1) {
 						draft.exercises[exerciseIdx].images = draft.exercises[

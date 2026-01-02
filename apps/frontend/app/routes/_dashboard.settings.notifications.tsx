@@ -36,7 +36,7 @@ import {
 	zodCheckboxAsString,
 } from "@ryot/ts-utils";
 import { IconPencil, IconTrash } from "@tabler/icons-react";
-import { Form, data, useLoaderData } from "react-router";
+import { data, Form, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";

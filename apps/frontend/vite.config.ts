@@ -9,7 +9,7 @@ export default defineConfig({
 	server: {
 		host: process.env.FRONTEND_HOST,
 		port: process.env.FRONTEND_PORT
-			? Number.parseInt(process.env.FRONTEND_PORT)
+			? Number.parseInt(process.env.FRONTEND_PORT, 10)
 			: undefined,
 	},
 	plugins: [

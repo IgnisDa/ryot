@@ -1,4 +1,4 @@
-import { Box, Flex, NumberInput, Text, rem } from "@mantine/core";
+import { Box, Flex, NumberInput, rem, Text } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import {
 	ExerciseDurationUnit,

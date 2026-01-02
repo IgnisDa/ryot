@@ -35,7 +35,7 @@ import union from "lodash/union";
 import type { Params } from "react-router";
 import { twMerge } from "tailwind-merge";
 import invariant from "tiny-invariant";
-import { type ZodTypeAny, type output, z } from "zod";
+import { type output, type ZodTypeAny, z } from "zod";
 
 export const zodBoolAsString = z
 	.string()

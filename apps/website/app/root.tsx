@@ -1,5 +1,6 @@
 import { cn } from "@ryot/ts-utils";
 import {
+	isRouteErrorResponse,
 	Link,
 	Links,
 	type LinksFunction,
@@ -9,7 +10,6 @@ import {
 	Outlet,
 	Scripts,
 	ScrollRestoration,
-	isRouteErrorResponse,
 	useLoaderData,
 	useLocation,
 	useRouteError,

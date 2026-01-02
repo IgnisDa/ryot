@@ -51,7 +51,7 @@ export const EditSetRestTimer = (props: {
 			value={props.defaultDuration}
 			onChange={(v) => {
 				if (!v) return;
-				setValue(Number.parseInt(v.toString()));
+				setValue(Number.parseInt(v.toString(), 10));
 			}}
 		/>
 	);

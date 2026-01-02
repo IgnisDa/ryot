@@ -17,14 +17,14 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { data } from "react-router";
 import { match } from "ts-pattern";
 import {
-	type TPlanTypes,
-	type TProductTypes,
 	customerPurchases,
 	customers,
+	type TPlanTypes,
+	type TProductTypes,
 } from "~/drizzle/schema.server";
 import {
-	GRACE_PERIOD,
 	db,
+	GRACE_PERIOD,
 	paddleCustomDataSchema,
 	serverGqlService,
 	serverVariables,
@@ -211,11 +211,7 @@ async function processNewPurchase(
 	await sendEmail({
 		recipient: customer.email,
 		subject: PurchaseCompleteEmail.subject,
-		element: PurchaseCompleteEmail({
-			planType,
-			renewOn,
-			details,
-		}),
+		element: PurchaseCompleteEmail({ renewOn, details, planType }),
 	});
 
 	await db.insert(customerPurchases).values({

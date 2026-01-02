@@ -3,8 +3,8 @@ import {
 	NumberInput,
 	SimpleGrid,
 	Stack,
-	TextInput,
 	Textarea,
+	TextInput,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";

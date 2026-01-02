@@ -1,5 +1,5 @@
 import { cn } from "@ryot/ts-utils";
-import { type TextareaHTMLAttributes, forwardRef } from "react";
+import { forwardRef, type TextareaHTMLAttributes } from "react";
 
 export interface TextareaProps
 	extends TextareaHTMLAttributes<HTMLTextAreaElement> {}

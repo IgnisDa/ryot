@@ -1,4 +1,4 @@
-import { Button, Group, Modal, Select, Stack, Text, rem } from "@mantine/core";
+import { Button, Group, Modal, rem, Select, Stack, Text } from "@mantine/core";
 import { type UseListStateHandlers, useListState } from "@mantine/hooks";
 import { changeCase, isString } from "@ryot/ts-utils";
 import { produce } from "immer";
@@ -13,37 +13,39 @@ import {
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
 
-export const DisplaySupersetModal = ({
-	onClose,
-	supersetWith,
-}: { onClose: () => void; supersetWith: string | null }) => {
+export const DisplaySupersetModal = (props: {
+	onClose: () => void;
+	supersetWith: string | null;
+}) => {
 	const [cw] = useCurrentWorkout();
 
 	const exerciseAlreadyInSuperset = useMemo(() => {
-		if (cw && supersetWith) {
-			const index = cw?.supersets.findIndex((s) =>
-				s.exercises.includes(supersetWith),
-			);
+		const sw = props.supersetWith;
+		if (cw && sw) {
+			const index = cw?.supersets.findIndex((s) => s.exercises.includes(sw));
 			if (index !== -1) return [index, cw.supersets[index]] as const;
 		}
 		return undefined;
-	}, [cw, supersetWith]);
+	}, [cw, props.supersetWith]);
 
 	return (
 		<Modal
-			onClose={onClose}
+			onClose={props.onClose}
 			withCloseButton={false}
-			opened={isString(supersetWith)}
+			opened={isString(props.supersetWith)}
 		>
-			{supersetWith ? (
+			{props.supersetWith ? (
 				exerciseAlreadyInSuperset ? (
 					<EditSupersetModal
-						onClose={onClose}
-						supersetWith={supersetWith}
+						onClose={props.onClose}
+						supersetWith={props.supersetWith}
 						superset={exerciseAlreadyInSuperset}
 					/>
 				) : (
-					<CreateSupersetModal onClose={onClose} supersetWith={supersetWith} />
+					<CreateSupersetModal
+						onClose={props.onClose}
+						supersetWith={props.supersetWith}
+					/>
 				)
 			) : null}
 		</Modal>
@@ -128,9 +130,7 @@ const CreateSupersetExerciseButton = (props: {
 	setExercisesHandle: UseListStateHandlers<string>;
 }) => {
 	const [cw] = useCurrentWorkout();
-	const index = props.exercises.findIndex(
-		(e) => e === props.exercise.identifier,
-	);
+	const index = props.exercises.indexOf(props.exercise.identifier);
 	invariant(cw);
 
 	const { data: exerciseDetails } = useExerciseDetails(
@@ -231,9 +231,7 @@ const EditSupersetExerciseButton = (props: {
 	setExercisesHandle: UseListStateHandlers<string>;
 }) => {
 	const [cw] = useCurrentWorkout();
-	const index = props.exercises.findIndex(
-		(e) => e === props.exercise.identifier,
-	);
+	const index = props.exercises.indexOf(props.exercise.identifier);
 	invariant(cw);
 
 	const { data: exerciseDetails } = useExerciseDetails(

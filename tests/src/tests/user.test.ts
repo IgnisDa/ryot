@@ -8,8 +8,8 @@ import {
 	UserWorkoutTemplatesListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
-	DEFAULT_USER_COLLECTIONS_COUNT,
 	createCollection,
+	DEFAULT_USER_COLLECTIONS_COUNT,
 	getGraphqlClient,
 	getUserCollectionsList,
 	getUserMeasurementsList,
