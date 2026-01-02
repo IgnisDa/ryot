@@ -19,8 +19,8 @@ import {
 	Target,
 	Users,
 } from "lucide-react";
-import { type ReactNode, useEffect } from "react";
-import { Link, useLoaderData } from "react-router";
+import type { ReactNode } from "react";
+import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
 import { Badge } from "~/lib/components/ui/badge";
@@ -32,30 +32,12 @@ import {
 	CarouselItem,
 } from "~/lib/components/ui/carousel";
 import { ProBadge } from "~/lib/components/ui/pro-badge";
-import { serverVariables } from "~/lib/config.server";
-import { initializePaddleForApplication } from "~/lib/general";
-import type { Route } from "./+types/features";
 
 export const meta = () => {
 	return [{ title: "Features | Ryot" }];
 };
 
-export const loader = async (_args: Route.LoaderArgs) => {
-	return {
-		isSandbox: !!serverVariables.PADDLE_SANDBOX,
-		clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
-	};
-};
-
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
-	useEffect(() => {
-		initializePaddleForApplication(
-			loaderData.clientToken,
-			loaderData.isSandbox,
-		);
-	}, []);
-
 	return (
 		<div className="min-h-screen">
 			<section className="py-20 lg:py-32">
