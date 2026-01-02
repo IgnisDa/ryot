@@ -253,6 +253,10 @@ const contactSubmissionSchema = z
 const FEATURE_CARD_STYLES =
 	"border-2 rounded-xl hover:border-primary/20 transition-all duration-300 hover:shadow-lg";
 
+const stars = Array.from({ length: 5 }, (_, i) => `star-${i + 1}`);
+const mikeStars = Array.from({ length: 4 }, (_, i) => `mike-star-${i + 1}`);
+const alexStars = Array.from({ length: 4 }, (_, i) => `alex-star-${i + 1}`);
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const rootLoaderData = useRouteLoaderData<typeof rootLoader>("root");
@@ -268,10 +272,6 @@ export default function Page() {
 			loaderData.isSandbox,
 		);
 	}, []);
-
-	const stars = Array.from({ length: 5 }, (_, i) => `star-${i + 1}`);
-	const mikeStars = Array.from({ length: 4 }, (_, i) => `mike-star-${i + 1}`);
-	const alexStars = Array.from({ length: 4 }, (_, i) => `alex-star-${i + 1}`);
 
 	return (
 		<>
