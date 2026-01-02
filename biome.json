@@ -13,13 +13,10 @@
 		"enabled": true,
 		"rules": {
 			"recommended": true,
+			"suspicious": { "noExplicitAny": "warn", "noArrayIndexKey": "warn" },
 			"correctness": {
 				"noUnusedVariables": "error",
 				"useExhaustiveDependencies": "off"
-			},
-			"suspicious": {
-				"noExplicitAny": "warn",
-				"noArrayIndexKey": "warn"
 			},
 			"style": {
 				"noUselessElse": "error",
