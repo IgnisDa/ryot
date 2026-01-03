@@ -301,11 +301,13 @@ driver("details", async function (context) {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: mediaEntities,
 				relationshipSchemaSlug: "person-to-video-game",
 			},
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: groupEntities,
 				relationshipSchemaSlug: "person-to-video-game-group",
 			},

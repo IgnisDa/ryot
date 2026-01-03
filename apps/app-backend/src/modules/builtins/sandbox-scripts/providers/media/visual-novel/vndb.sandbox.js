@@ -273,6 +273,7 @@ driver("details", async function (context) {
 		relatedEntityGroups: [
 			{
 				direction: "incoming",
+				synchronization: "authoritative",
 				entities: relatedEntities,
 				relationshipSchemaSlug: "company-to-visual-novel",
 			},

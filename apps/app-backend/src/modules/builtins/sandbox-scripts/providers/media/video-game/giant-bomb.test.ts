@@ -46,14 +46,21 @@ describe("video-game.giant-bomb sandbox script", () => {
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
 			expect(details.relatedEntityGroups).toEqual([
-				{ direction: "incoming", entities: [], relationshipSchemaSlug: "company-to-video-game" },
+				{
+					direction: "incoming",
+					synchronization: "additive",
+					entities: [],
+					relationshipSchemaSlug: "company-to-video-game",
+				},
 				{
 					entities: [],
 					direction: "incoming",
+					synchronization: "additive",
 					relationshipSchemaSlug: "video-game-group-to-video-game",
 				},
 				{
 					direction: "outgoing",
+					synchronization: "authoritative",
 					relationshipSchemaSlug: "media-suggestion",
 					entities: [
 						{ name: "Pick One", externalId: "3030-2", scriptSlug: "video-game.giant-bomb" },

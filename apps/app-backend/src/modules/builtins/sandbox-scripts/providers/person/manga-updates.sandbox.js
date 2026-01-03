@@ -205,6 +205,7 @@ driver("details", async function (context) {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: mediaEntities,
 				relationshipSchemaSlug: "person-to-manga",
 			},

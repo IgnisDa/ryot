@@ -2,9 +2,9 @@ import { Activity, Workflow } from "@effect/workflow";
 import { SandboxRunError, dieOnDbError } from "@ryot/contract/errors";
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { encodeEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
-import { DateTime, Effect, Schema } from "effect";
+import { Cause, DateTime, Effect, Schedule, Schema } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
+import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
@@ -27,6 +27,8 @@ const CHILD_ENTITY_SCHEMA_SLUGS: Readonly<Record<string, string>> = {
 	podcast: "podcast-episode",
 	"show-season": "show-episode",
 };
+
+const REDIS_RETRY_SCHEDULE = Schedule.spaced("30 seconds");
 
 type SynchronizeOptions = {
 	entitySchemaSlug?: string;
@@ -84,35 +86,6 @@ const validateEntityDetails = Effect.fn("validateEntityDetails")(function* (valu
 	});
 });
 
-const writePrimaryEntity = Effect.fn("writeProviderPrimaryEntity")(function* (
-	payload: EntityImportPayload,
-	details: ValidatedEntityDetails,
-	options: SynchronizeOptions,
-) {
-	const entities = yield* EntitiesService;
-
-	return yield* Activity.make({
-		success: ListedEntity,
-		error: SandboxRunError,
-		name: "write-primary-entity",
-		execute: entities
-			.save({
-				scope: "global",
-				populatedAt: null,
-				name: details.name,
-				onConflict: options.mode === "refresh" ? undefined : "replaceExisting",
-				externalId: payload.externalId,
-				properties: details.properties,
-				sandboxScriptId: payload.scriptId,
-				entitySchemaId: payload.entitySchemaId,
-			})
-			.pipe(
-				dieOnDbError,
-				Effect.mapError((error) => new SandboxRunError({ message: error.message })),
-			),
-	});
-});
-
 const writeRelatedEntities = Effect.fn("writeProviderRelatedEntities")(function* (
 	payload: EntityImportPayload,
 	entity: ListedEntity,
@@ -121,14 +94,10 @@ const writeRelatedEntities = Effect.fn("writeProviderRelatedEntities")(function*
 	yield* Effect.forEach(
 		groups,
 		(group) =>
-			Activity.make({
-				error: SandboxRunError,
-				name: `sync-related-group-${group.relationshipSchemaSlug}-${group.direction}`,
-				execute: syncRelatedEntityGroup({
-					group,
-					primaryEntityId: entity.id,
-					primaryEntitySchemaId: payload.entitySchemaId,
-				}),
+			syncRelatedEntityGroup({
+				group,
+				primaryEntityId: entity.id,
+				primaryEntitySchemaId: payload.entitySchemaId,
 			}),
 		{ discard: true },
 	);
@@ -157,21 +126,35 @@ const writeChildEntities = Effect.fn("writeProviderChildEntities")(function* (
 	});
 });
 
-const markPrimaryEntityPopulated = Effect.fn("markProviderPrimaryEntityPopulated")(function* (
+const writeEntityGraph = Effect.fn("writeProviderEntityGraph")(function* (
 	payload: EntityImportPayload,
 	details: ValidatedEntityDetails,
+	options: SynchronizeOptions,
 ) {
-	const redis = yield* RedisService;
 	const entities = yield* EntitiesService;
+	const runInTransaction = yield* TransactionRunner;
 
 	return yield* Activity.make({
 		success: ListedEntity,
 		error: SandboxRunError,
-		name: "mark-primary-entity-populated",
-		execute: Effect.gen(function* () {
-			const populatedAt = yield* DateTime.nowAsDate;
-			const saved = yield* entities
-				.save({
+		name: "write-entity-graph",
+		execute: runInTransaction(
+			Effect.gen(function* () {
+				const entity = yield* entities.save({
+					scope: "global",
+					populatedAt: null,
+					name: details.name,
+					externalId: payload.externalId,
+					properties: details.properties,
+					sandboxScriptId: payload.scriptId,
+					entitySchemaId: payload.entitySchemaId,
+					onConflict: options.mode === "refresh" ? undefined : "replaceExisting",
+				});
+				yield* writeRelatedEntities(payload, entity, details.relatedEntityGroups);
+				yield* writeChildEntities(payload, entity, details, options);
+
+				const populatedAt = yield* DateTime.nowAsDate;
+				return yield* entities.save({
 					populatedAt,
 					scope: "global",
 					name: details.name,
@@ -180,17 +163,34 @@ const markPrimaryEntityPopulated = Effect.fn("markProviderPrimaryEntityPopulated
 					externalId: payload.externalId,
 					sandboxScriptId: payload.scriptId,
 					entitySchemaId: payload.entitySchemaId,
-				})
-				.pipe(
-					dieOnDbError,
-					Effect.mapError((error) => new SandboxRunError({ message: error.message })),
-				);
-			yield* redis.publish(
-				redisKeys.entityUpdatedChannel,
-				encodeEntityUpdatedMessage(saved.id, "populated"),
-			);
-			return saved;
-		}),
+				});
+			}),
+		).pipe(
+			dieOnDbError,
+			Effect.mapError((error) => new SandboxRunError({ message: error.message })),
+		),
+	});
+});
+
+const publishPrimaryEntity = Effect.fn("publishProviderPrimaryEntity")(function* (
+	entity: ListedEntity,
+) {
+	const redis = yield* RedisService;
+
+	yield* Activity.make({
+		error: SandboxRunError,
+		name: "publish-primary-entity",
+		execute: redis
+			.publish(redisKeys.entityUpdatedChannel, encodeEntityUpdatedMessage(entity.id, "populated"))
+			.pipe(
+				Effect.asVoid,
+				Effect.sandbox,
+				Effect.retry({
+					schedule: REDIS_RETRY_SCHEDULE,
+					while: (cause) => !Cause.isInterrupted(cause),
+				}),
+				Effect.unsandbox,
+			),
 	});
 });
 
@@ -206,11 +206,9 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	}
 
 	const details = yield* validateEntityDetails(sandboxResult.value);
-	const entity = yield* writePrimaryEntity(payload, details, options);
-	yield* writeRelatedEntities(payload, entity, details.relatedEntityGroups);
-	yield* writeChildEntities(payload, entity, details, options);
-
-	return yield* markPrimaryEntityPopulated(payload, details);
+	const entity = yield* writeEntityGraph(payload, details, options);
+	yield* publishPrimaryEntity(entity);
+	return entity;
 });
 
 // `Workflow.make` requires a struct payload, so the ensure/refresh discriminator
