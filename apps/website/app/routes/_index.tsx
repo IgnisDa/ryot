@@ -221,12 +221,11 @@ export default function Page() {
 		useState<string>("");
 
 	useEffect(() => {
-		if (configData) {
+		if (configData)
 			initializePaddleForApplication(
 				configData.clientToken,
 				configData.isSandbox,
 			);
-		}
 	}, [configData]);
 
 	return (
