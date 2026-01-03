@@ -4,6 +4,7 @@ import { Effect, Exit, Layer } from "effect";
 import type { CurrentUserValue } from "#lib/auth";
 import { CurrentDb, DbRunner, TransactionRunner } from "#lib/db";
 import { BadRequest, NotFound } from "#lib/errors";
+import { QueryEngineService } from "#modules/query-engine/service";
 
 import { SavedViewsRepository } from "./repository";
 import type { ListedSavedView } from "./schemas";
@@ -85,12 +86,18 @@ const defaultRepository = () =>
 const makeRepository = (overrides: Partial<SavedViewsRepository> = {}) =>
 	Object.assign(Object.create(null), defaultRepository(), overrides);
 
+const queryEngineService = Object.assign(Object.create(null), {
+	validateSavedView: () => Effect.void,
+	execute: () => Effect.die("unused"),
+});
+
 const makeServiceLayer = (repository: SavedViewsRepository) =>
 	SavedViewsService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
+				Layer.succeed(QueryEngineService, queryEngineService),
 				Layer.succeed(SavedViewsRepository, repository),
 			),
 		),
