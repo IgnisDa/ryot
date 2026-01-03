@@ -32,6 +32,7 @@ import {
 	CarouselItem,
 } from "~/lib/components/ui/carousel";
 import { ProBadge } from "~/lib/components/ui/pro-badge";
+import { initializePaddleForApplication, useConfigData } from "~/lib/general";
 
 export const meta = () => {
 	return [{ title: "Features | Ryot" }];
