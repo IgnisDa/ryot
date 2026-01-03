@@ -123,7 +123,7 @@ it.effect("creates events inside workflow activities", () => {
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
 		Layer.mock(EventCreateWorkflowOperations, {
-			processGlobalReference: () => Effect.void,
+			ensureLibraryMembership: () => Effect.void,
 			processSandboxExecution: () => Effect.die("unused"),
 		}),
 		makeEntitiesRepository({
@@ -172,7 +172,7 @@ it.effect("skips event creation when a before-create trigger returns skip", () =
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
 		Layer.mock(EventCreateWorkflowOperations, {
-			processGlobalReference: () => Effect.void,
+			ensureLibraryMembership: () => Effect.void,
 			processSandboxExecution: () =>
 				Effect.succeed(completedSandboxResult({ action: "skip", reason: "not allowed" })),
 		}),
@@ -220,7 +220,7 @@ it.effect("applies a before-create trigger replace to the created event", () => 
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
 		Layer.mock(EventCreateWorkflowOperations, {
-			processGlobalReference: () => Effect.void,
+			ensureLibraryMembership: () => Effect.void,
 			processSandboxExecution: () =>
 				Effect.succeed(
 					completedSandboxResult({
@@ -276,7 +276,7 @@ it.effect("fails the workflow when a before-create trigger reports an error", ()
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
 		Layer.mock(EventCreateWorkflowOperations, {
-			processGlobalReference: () => Effect.void,
+			ensureLibraryMembership: () => Effect.void,
 			processSandboxExecution: () =>
 				Effect.succeed({ ...completedSandboxResult(null), error: "test_error" }),
 		}),
