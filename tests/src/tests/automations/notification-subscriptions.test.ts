@@ -114,7 +114,6 @@ describe("notification subscription catalog and rules", () => {
 		const { client } = await createAuthenticatedClient();
 		await createNotificationChannel(client, {
 			channel: "apprise",
-			configuredEvents: [],
 			channelSpecifics: { baseUrl: fakeApprise.url, key: "workout", kind: "apprise" },
 		});
 		const { schema } = await findBuiltinSchemaBySlug(client, "workout");

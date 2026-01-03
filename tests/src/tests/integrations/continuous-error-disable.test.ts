@@ -30,13 +30,11 @@ describe("integration auto-disable on continuous errors", () => {
 
 		await createNotificationChannel(client, {
 			channel: "apprise",
-			configuredEvents: [],
 			channelSpecifics: { baseUrl: fakeApprise.url, key: "enabled", kind: "apprise" },
 		});
 		await createNotificationChannel(client, {
 			isDisabled: true,
 			channel: "apprise",
-			configuredEvents: [],
 			channelSpecifics: { baseUrl: fakeApprise.url, key: "disabled", kind: "apprise" },
 		});
 
