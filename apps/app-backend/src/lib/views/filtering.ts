@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+import { createNullableOpenApiRefSchema } from "~/lib/openapi";
 import { viewExpressionSchema } from "./expression";
 
 export const canonicalComparisonFilterOperators = [
@@ -72,6 +73,11 @@ export const viewPredicateSchema: z.ZodType<ViewPredicate> = z
 		]);
 	})
 	.openapi("ViewPredicate");
+
+export const nullableViewPredicateSchema = createNullableOpenApiRefSchema(
+	viewPredicateSchema.nullable(),
+	{ ref: "ViewPredicate", name: "NullableViewPredicate" },
+);
 
 export type ViewPredicate =
 	| { type: "isNull"; expression: z.infer<typeof viewExpressionSchema> }
