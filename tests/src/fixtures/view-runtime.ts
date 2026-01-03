@@ -5,14 +5,9 @@ import { createTracker } from "./trackers";
 import {
 	type ExpressionInput,
 	entityField,
-	type LegacyFilter,
-	type LegacySort,
-	normalizeSort,
 	qualifyBuiltinFields,
-	toFilterPredicate,
 	toRequiredExpression,
 	type ViewExpression,
-	type ViewPredicate,
 } from "./view-language";
 
 type ExecuteViewRuntimeBody = NonNullable<
@@ -30,6 +25,10 @@ type RuntimeField = {
 	expression: ViewExpression;
 };
 
+export type RuntimeRequest = Omit<ExecuteViewRuntimeBody, "fields"> & {
+	fields: RuntimeField[];
+};
+
 type GridDisplayConfiguration = {
 	badgeProperty: ExpressionInput | null;
 	titleProperty: ExpressionInput | null;
@@ -42,8 +41,8 @@ type ListDisplayConfiguration = GridDisplayConfiguration;
 type TableDisplayConfiguration = {
 	columns: Array<{
 		label: string;
-		expression?: ExpressionInput;
 		property?: string[];
+		expression?: ExpressionInput;
 	}>;
 };
 
@@ -56,19 +55,6 @@ type RuntimeFieldsInput =
 			layout: "grid" | "list";
 			displayConfiguration: GridDisplayConfiguration | ListDisplayConfiguration;
 	  };
-
-type RuntimeRequest = Omit<
-	ExecuteViewRuntimeBody,
-	"displayConfiguration" | "fields" | "layout" | "sort" | "filter" | "filters"
-> & {
-	fields: RuntimeField[];
-	filters?: LegacyFilter[];
-	entitySchemaSlugs: string[];
-	filter?: ViewPredicate | null;
-	computedFields?: ComputedField[];
-	sort: LegacySort | ExecuteViewRuntimeBody["sort"];
-	eventJoins: NonNullable<ExecuteViewRuntimeBody["eventJoins"]>;
-};
 
 interface CreateEntityInput {
 	name: string;
@@ -176,9 +162,13 @@ function toRuntimeFields(input: RuntimeFieldsInput): RuntimeField[] {
 	];
 }
 
-const defaultSort = (schemaSlugs: string[]): RuntimeRequest["sort"] => ({
+const defaultSort = (
+	schemaSlugs: string[],
+): ExecuteViewRuntimeBody["sort"] => ({
 	direction: "asc",
-	fields: schemaSlugs.length ? qualifyBuiltinFields(schemaSlugs, "name") : [],
+	expression: toRequiredExpression(
+		schemaSlugs.length ? qualifyBuiltinFields(schemaSlugs, "name") : [],
+	),
 });
 
 const buildRuntimeRequest = (
@@ -188,7 +178,6 @@ const buildRuntimeRequest = (
 		sort?: RuntimeRequest["sort"];
 	},
 ): RuntimeRequest => ({
-	filters: [],
 	eventJoins: [],
 	computedFields: [],
 	pagination: { page: 1, limit: 10 },
@@ -299,15 +288,8 @@ export async function executeViewRuntime(
 	cookies: string,
 	body: RuntimeRequest,
 ) {
-	const normalizedBody = {
-		...body,
-		filter: toFilterPredicate(body.filters, body.filter),
-		sort: normalizeSort(body.sort),
-	};
-	const { filters: _filters, ...requestBody } = normalizedBody;
-
 	return client.POST("/view-runtime/execute", {
-		body: requestBody,
+		body,
 		headers: { Cookie: cookies },
 	});
 }

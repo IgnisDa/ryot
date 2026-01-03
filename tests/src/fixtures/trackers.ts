@@ -4,7 +4,6 @@ export interface CreateTrackerOptions {
 	icon?: string;
 	name?: string;
 	slug?: string;
-	enabled?: boolean;
 	accentColor?: string;
 	description?: string;
 }
@@ -15,7 +14,6 @@ export async function createTracker(
 	options: CreateTrackerOptions = {},
 ) {
 	const {
-		enabled = true,
 		icon = "rocket",
 		name = "Test Tracker",
 		accentColor = "#FF5733",
@@ -25,7 +23,7 @@ export async function createTracker(
 
 	const { data, response } = await client.POST("/trackers", {
 		headers: { Cookie: cookies },
-		body: { icon, name, slug, enabled, accentColor, description },
+		body: { icon, name, slug, accentColor, description },
 	});
 
 	if (response.status !== 200 || !data?.data?.id) {

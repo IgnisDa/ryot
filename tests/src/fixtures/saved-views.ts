@@ -2,12 +2,11 @@ import type { paths } from "@ryot/generated/openapi/app-backend";
 import type { Client } from "./auth";
 import {
 	type ExpressionInput,
+	entityColumnExpression,
 	entityField,
-	type LegacyFilter,
-	type LegacySort,
-	toFilterPredicate,
+	literalExpression,
+	schemaPropertyExpression,
 	toRequiredExpression,
-	type ViewPredicate,
 } from "./view-language";
 
 type CreateSavedViewBody = NonNullable<
@@ -26,26 +25,14 @@ type CreateSavedViewInput = Partial<
 	Omit<CreateSavedViewBody, "displayConfiguration" | "queryDefinition">
 > & {
 	displayConfiguration?: DisplayConfigurationInput;
-	queryDefinition?: QueryDefinition | LegacyQueryDefinition;
+	queryDefinition?: QueryDefinition;
 };
 
 type UpdateSavedViewInput = Partial<
 	Omit<UpdateSavedViewBody, "displayConfiguration" | "queryDefinition">
 > & {
+	queryDefinition?: QueryDefinition;
 	displayConfiguration?: DisplayConfigurationInput;
-	queryDefinition?:
-		| QueryDefinition
-		| LegacyQueryDefinition
-		| UpdateSavedViewBody["queryDefinition"];
-};
-
-type LegacyQueryDefinition = {
-	sort: LegacySort;
-	filters?: LegacyFilter[];
-	filter?: ViewPredicate | null;
-	eventJoins?: QueryDefinition["eventJoins"];
-	computedFields?: QueryDefinition["computedFields"];
-	entitySchemaSlugs: QueryDefinition["entitySchemaSlugs"];
 };
 
 type DisplayColumnInput = {
@@ -67,41 +54,6 @@ type DisplayConfigurationInput = {
 		titleProperty: ExpressionInput | null;
 		imageProperty: ExpressionInput | null;
 		subtitleProperty: ExpressionInput | null;
-	};
-};
-
-const isNormalizedQueryDefinition = (
-	input: QueryDefinition | LegacyQueryDefinition,
-): input is QueryDefinition => {
-	if (!input || typeof input !== "object") {
-		return false;
-	}
-
-	return (
-		"filter" in input &&
-		"sort" in input &&
-		!!input.sort &&
-		typeof input.sort === "object" &&
-		"expression" in input.sort
-	);
-};
-
-const normalizeQueryDefinition = (
-	input: QueryDefinition | LegacyQueryDefinition,
-): QueryDefinition => {
-	if (isNormalizedQueryDefinition(input)) {
-		return input;
-	}
-
-	return {
-		eventJoins: input.eventJoins ?? [],
-		entitySchemaSlugs: input.entitySchemaSlugs,
-		computedFields: input.computedFields ?? [],
-		filter: toFilterPredicate(input.filters, input.filter),
-		sort: {
-			direction: input.sort.direction,
-			expression: toRequiredExpression(input.sort.fields),
-		},
 	};
 };
 
@@ -184,6 +136,22 @@ const defaultDisplayConfiguration = {
 	},
 } satisfies DisplayConfigurationInput;
 
+const defaultUpdatedQueryDefinition: QueryDefinition = {
+	eventJoins: [],
+	computedFields: [],
+	entitySchemaSlugs: ["book", "anime"],
+	sort: {
+		direction: "desc",
+		expression: entityColumnExpression("book", "createdAt"),
+	},
+	filter: {
+		operator: "gte",
+		type: "comparison",
+		right: literalExpression(2020),
+		left: schemaPropertyExpression("book", "publishYear"),
+	},
+};
+
 export function buildSavedViewBody(
 	overrides: CreateSavedViewInput = {},
 ): CreateSavedViewBody {
@@ -202,9 +170,7 @@ export function buildSavedViewBody(
 		name: `Saved View ${crypto.randomUUID()}`,
 		...rest,
 		displayConfiguration,
-		queryDefinition: normalizeQueryDefinition(
-			queryDefinition ?? defaultQueryDefinition,
-		),
+		queryDefinition: queryDefinition ?? defaultQueryDefinition,
 	};
 }
 
@@ -245,20 +211,7 @@ export function buildUpdatedSavedViewBody(
 		accentColor: "#00AA88",
 		name: `Updated View ${crypto.randomUUID()}`,
 		...rest,
-		queryDefinition: normalizeQueryDefinition(
-			queryDefinition ?? {
-				eventJoins: [],
-				computedFields: [],
-				entitySchemaSlugs: ["book", "anime"],
-				filters: [
-					{ op: "gte", field: entityField("book", "publishYear"), value: 2020 },
-				],
-				sort: {
-					fields: [entityField("book", "createdAt")],
-					direction: "desc",
-				},
-			},
-		),
+		queryDefinition: queryDefinition ?? defaultUpdatedQueryDefinition,
 		displayConfiguration,
 	};
 }

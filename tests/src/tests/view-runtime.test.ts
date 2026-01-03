@@ -18,6 +18,7 @@ import {
 	entityField,
 	executeViewRuntime,
 	getRuntimeFieldOrThrow,
+	literalExpression,
 	schemaPropertyExpression,
 } from "../fixtures";
 import { registerViewRuntimePresentationAndErrorTests } from "../test-support/view-runtime-suite";
@@ -85,9 +86,11 @@ describe("View runtime E2E", () => {
 		const { data, response } = await executeViewRuntime(client, cookies, {
 			entitySchemaSlugs: [schema.slug],
 			eventJoins: [],
-			filters: [],
 			pagination: { page: 1, limit: 1 },
-			sort: { fields: [entityField(schema.slug, "name")], direction: "asc" },
+			sort: {
+				expression: entityColumnExpression(schema.slug, "name"),
+				direction: "asc",
+			},
 			fields: [
 				buildRuntimeField("label", { type: "literal", value: "Pinned" }),
 				buildRuntimeField("yearOrFallback", {
@@ -128,10 +131,12 @@ describe("View runtime E2E", () => {
 		});
 
 		const { data, response } = await executeViewRuntime(client, cookies, {
-			filters: [],
 			entitySchemaSlugs: [schema.slug],
 			pagination: { page: 1, limit: 5 },
-			sort: { fields: [entityField(schema.slug, "name")], direction: "asc" },
+			sort: {
+				expression: entityColumnExpression(schema.slug, "name"),
+				direction: "asc",
+			},
 			fields: [
 				buildRuntimeField("title", ["computed.entityLabel"]),
 				buildRuntimeField("badge", ["computed.reviewOrLabel"]),
@@ -469,91 +474,79 @@ describe("View runtime E2E", () => {
 		const scenarios = [
 			{
 				expected: ["Alpha Phone", "Gamma Phone"],
-				filters: [
-					{
-						value: "phone",
-						op: "eq" as const,
-						field: entityField(schema.slug, "category"),
-					},
-				],
+				filter: {
+					type: "comparison" as const,
+					operator: "eq" as const,
+					left: schemaPropertyExpression(schema.slug, "category"),
+					right: literalExpression("phone"),
+				},
 			},
 			{
 				expected: ["Beta Tablet", "Delta Watch"],
-				filters: [
-					{
-						value: "phone",
-						op: "neq" as const,
-						field: entityField(schema.slug, "category"),
-					},
-				],
+				filter: {
+					type: "comparison" as const,
+					operator: "neq" as const,
+					left: schemaPropertyExpression(schema.slug, "category"),
+					right: literalExpression("phone"),
+				},
 			},
 			{
 				expected: ["Delta Watch", "Gamma Phone"],
-				filters: [
-					{
-						value: 2019,
-						op: "gt" as const,
-						field: entityField(schema.slug, "year"),
-					},
-				],
+				filter: {
+					type: "comparison" as const,
+					operator: "gt" as const,
+					left: schemaPropertyExpression(schema.slug, "year"),
+					right: literalExpression(2019),
+				},
 			},
 			{
 				expected: ["Delta Watch", "Gamma Phone"],
-				filters: [
-					{
-						value: 2020,
-						op: "gte" as const,
-						field: entityField(schema.slug, "year"),
-					},
-				],
+				filter: {
+					type: "comparison" as const,
+					operator: "gte" as const,
+					left: schemaPropertyExpression(schema.slug, "year"),
+					right: literalExpression(2020),
+				},
 			},
 			{
 				expected: ["Alpha Phone", "Beta Tablet"],
-				filters: [
-					{
-						value: 2020,
-						op: "lt" as const,
-						field: entityField(schema.slug, "year"),
-					},
-				],
+				filter: {
+					type: "comparison" as const,
+					operator: "lt" as const,
+					left: schemaPropertyExpression(schema.slug, "year"),
+					right: literalExpression(2020),
+				},
 			},
 			{
 				expected: ["Alpha Phone", "Beta Tablet"],
-				filters: [
-					{
-						value: 2019,
-						op: "lte" as const,
-						field: entityField(schema.slug, "year"),
-					},
-				],
+				filter: {
+					type: "comparison" as const,
+					operator: "lte" as const,
+					left: schemaPropertyExpression(schema.slug, "year"),
+					right: literalExpression(2019),
+				},
 			},
 			{
 				expected: ["Beta Tablet", "Delta Watch"],
-				filters: [
-					{
-						op: "in" as const,
-						value: ["tablet", "wearable"],
-						field: entityField(schema.slug, "category"),
-					},
-				],
+				filter: {
+					type: "in" as const,
+					expression: schemaPropertyExpression(schema.slug, "category"),
+					values: [literalExpression("tablet"), literalExpression("wearable")],
+				},
 			},
 			{
 				expected: ["Omega Prototype"],
-				filters: [
-					{
-						op: "isNull" as const,
-						field: entityField(schema.slug, "category"),
-					},
-				],
+				filter: {
+					type: "isNull" as const,
+					expression: schemaPropertyExpression(schema.slug, "category"),
+				},
 			},
 			{
 				expected: ["Alpha Phone", "Beta Tablet", "Delta Watch", "Gamma Phone"],
-				filters: [
-					{
-						op: "isNotNull" as const,
-						field: entityField(schema.slug, "category"),
-					},
-				],
+				filter: {
+					type: "isNotNull" as const,
+					expression: schemaPropertyExpression(schema.slug, "category"),
+				},
 			},
 		];
 
@@ -562,7 +555,7 @@ describe("View runtime E2E", () => {
 				client,
 				cookies,
 				buildGridRequest({
-					filters: scenario.filters,
+					filter: scenario.filter,
 					entitySchemaSlugs: [schema.slug],
 				}),
 			);
@@ -582,14 +575,23 @@ describe("View runtime E2E", () => {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [
-					{ op: "gte", field: entityField(schema.slug, "year"), value: 2020 },
-					{
-						op: "eq",
-						value: "phone",
-						field: entityField(schema.slug, "category"),
-					},
-				],
+				filter: {
+					type: "and",
+					predicates: [
+						{
+							type: "comparison",
+							operator: "gte",
+							left: schemaPropertyExpression(schema.slug, "year"),
+							right: literalExpression(2020),
+						},
+						{
+							type: "comparison",
+							operator: "eq",
+							left: schemaPropertyExpression(schema.slug, "category"),
+							right: literalExpression("phone"),
+						},
+					],
+				},
 			}),
 		);
 
@@ -609,18 +611,27 @@ describe("View runtime E2E", () => {
 					badgeProperty: null,
 					subtitleProperty: null,
 				}),
-				filters: [
-					{
-						op: "in",
-						value: ["Alpha Phone", "Delta Tablet"],
-						field: entityField(smartphoneSlug, "name"),
-					},
-					{
-						op: "in",
-						value: ["Alpha Phone", "Delta Tablet"],
-						field: entityField(tabletSlug, "name"),
-					},
-				],
+				filter: {
+					type: "or",
+					predicates: [
+						{
+							type: "in",
+							expression: entityColumnExpression(smartphoneSlug, "name"),
+							values: [
+								literalExpression("Alpha Phone"),
+								literalExpression("Delta Tablet"),
+							],
+						},
+						{
+							type: "in",
+							expression: entityColumnExpression(tabletSlug, "name"),
+							values: [
+								literalExpression("Alpha Phone"),
+								literalExpression("Delta Tablet"),
+							],
+						},
+					],
+				},
 			}),
 		);
 
@@ -643,18 +654,23 @@ describe("View runtime E2E", () => {
 					badgeProperty: null,
 					subtitleProperty: null,
 				}),
-				filters: [
-					{
-						op: "gte",
-						value: 2020,
-						field: entityField(smartphoneSlug, "year"),
-					},
-					{
-						op: "gte",
-						value: 2021,
-						field: entityField(tabletSlug, "releaseYear"),
-					},
-				],
+				filter: {
+					type: "or",
+					predicates: [
+						{
+							type: "comparison",
+							operator: "gte",
+							left: schemaPropertyExpression(smartphoneSlug, "year"),
+							right: literalExpression(2020),
+						},
+						{
+							type: "comparison",
+							operator: "gte",
+							left: schemaPropertyExpression(tabletSlug, "releaseYear"),
+							right: literalExpression(2021),
+						},
+					],
+				},
 			}),
 		);
 
@@ -679,7 +695,10 @@ describe("View runtime E2E", () => {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				sort: { fields: [entityField(schema.slug, "name")], direction: "desc" },
+				sort: {
+					expression: entityColumnExpression(schema.slug, "name"),
+					direction: "desc",
+				},
 			}),
 		);
 		const yearResult = await executeViewRuntime(
@@ -687,7 +706,10 @@ describe("View runtime E2E", () => {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				sort: { fields: [entityField(schema.slug, "year")], direction: "asc" },
+				sort: {
+					expression: schemaPropertyExpression(schema.slug, "year"),
+					direction: "asc",
+				},
 			}),
 		);
 
@@ -727,18 +749,20 @@ describe("View runtime E2E", () => {
 			cookies,
 			buildTableRequest({
 				entitySchemaSlugs: [schema.slug],
-				sort: { fields: [entityField(schema.slug, "id")], direction: "asc" },
+				sort: {
+					expression: entityColumnExpression(schema.slug, "id"),
+					direction: "asc",
+				},
 				displayConfiguration: buildTableDisplayConfiguration([
 					{ label: "Id", property: [entityField(schema.slug, "id")] },
 					{ label: "Name", property: [entityField(schema.slug, "name")] },
 				]),
-				filters: [
-					{
-						op: "eq",
-						value: targetId,
-						field: entityField(schema.slug, "id"),
-					},
-				],
+				filter: {
+					type: "comparison",
+					operator: "eq",
+					left: entityColumnExpression(schema.slug, "id"),
+					right: literalExpression(targetId),
+				},
 			}),
 		);
 
@@ -772,13 +796,11 @@ describe("View runtime E2E", () => {
 					badgeProperty: [entityField(schema.slug, "id")],
 					subtitleProperty: null,
 				}),
-				filters: [
-					{
-						value: suffix,
-						op: "contains",
-						field: entityField(schema.slug, "id"),
-					},
-				],
+				filter: {
+					type: "contains",
+					expression: entityColumnExpression(schema.slug, "id"),
+					value: literalExpression(suffix),
+				},
 			}),
 		);
 
@@ -798,19 +820,23 @@ describe("View runtime E2E", () => {
 			badgeProperty: null,
 			subtitleProperty: null,
 		});
+		const coalesceSort = {
+			direction: "asc" as const,
+			expression: {
+				type: "coalesce" as const,
+				values: [
+					schemaPropertyExpression(smartphoneSlug, "year"),
+					schemaPropertyExpression(tabletSlug, "releaseYear"),
+				],
+			},
+		};
 		const coalesceResult = await executeViewRuntime(
 			client,
 			cookies,
 			buildGridRequest({
 				displayConfiguration: neutralDisplay,
 				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
-				sort: {
-					direction: "asc",
-					fields: [
-						entityField(smartphoneSlug, "year"),
-						entityField(tabletSlug, "releaseYear"),
-					],
-				},
+				sort: coalesceSort,
 			}),
 		);
 
@@ -828,13 +854,7 @@ describe("View runtime E2E", () => {
 			buildGridRequest({
 				displayConfiguration: neutralDisplay,
 				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
-				sort: {
-					direction: "asc",
-					fields: [
-						entityField(smartphoneSlug, "year"),
-						entityField(tabletSlug, "releaseYear"),
-					],
-				},
+				sort: coalesceSort,
 			}),
 		);
 
@@ -926,13 +946,12 @@ describe("View runtime E2E", () => {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [
-					{
-						op: "eq",
-						value: "console",
-						field: entityField(schema.slug, "category"),
-					},
-				],
+				filter: {
+					type: "comparison",
+					operator: "eq",
+					left: schemaPropertyExpression(schema.slug, "category"),
+					right: literalExpression("console"),
+				},
 			}),
 		);
 
@@ -968,13 +987,12 @@ describe("View runtime E2E", () => {
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
 				pagination: { page: 2, limit: 5 },
-				filters: [
-					{
-						op: "eq",
-						value: "phone",
-						field: entityField(schema.slug, "category"),
-					},
-				],
+				filter: {
+					type: "comparison",
+					operator: "eq",
+					left: schemaPropertyExpression(schema.slug, "category"),
+					right: literalExpression("phone"),
+				},
 			}),
 		);
 		const zeroResultsLaterPage = await executeViewRuntime(
@@ -983,13 +1001,12 @@ describe("View runtime E2E", () => {
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
 				pagination: { page: 3, limit: 2 },
-				filters: [
-					{
-						op: "eq",
-						value: "console",
-						field: entityField(schema.slug, "category"),
-					},
-				],
+				filter: {
+					type: "comparison",
+					operator: "eq",
+					left: schemaPropertyExpression(schema.slug, "category"),
+					right: literalExpression("console"),
+				},
 			}),
 		);
 
@@ -1024,7 +1041,7 @@ describe("View runtime E2E", () => {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				sort: { fields: [], direction: "asc" },
+				sort: { expression: literalExpression(null), direction: "asc" },
 			}),
 		);
 
@@ -1043,13 +1060,11 @@ describe("View runtime E2E", () => {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [
-					{
-						op: "contains",
-						value: "Phone",
-						field: entityField(schema.slug, "name"),
-					},
-				],
+				filter: {
+					type: "contains",
+					expression: entityColumnExpression(schema.slug, "name"),
+					value: literalExpression("Phone"),
+				},
 			}),
 		);
 		const categoryResult = await executeViewRuntime(
@@ -1057,13 +1072,11 @@ describe("View runtime E2E", () => {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [
-					{
-						op: "contains",
-						value: "phone",
-						field: entityField(schema.slug, "category"),
-					},
-				],
+				filter: {
+					type: "contains",
+					expression: schemaPropertyExpression(schema.slug, "category"),
+					value: literalExpression("phone"),
+				},
 			}),
 		);
 
@@ -1127,13 +1140,11 @@ describe("View runtime E2E", () => {
 					badgeProperty: null,
 					subtitleProperty: null,
 				}),
-				filters: [
-					{
-						op: "contains",
-						value: "action",
-						field: entityField(schema.slug, "tags"),
-					},
-				],
+				filter: {
+					type: "contains",
+					expression: schemaPropertyExpression(schema.slug, "tags"),
+					value: literalExpression("action"),
+				},
 			}),
 		);
 
@@ -1191,13 +1202,11 @@ describe("View runtime E2E", () => {
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
 				displayConfiguration: neutralDisplay,
-				filters: [
-					{
-						op: "contains",
-						field: entityField(schema.slug, "sku"),
-						value: "A%B",
-					},
-				],
+				filter: {
+					type: "contains",
+					expression: schemaPropertyExpression(schema.slug, "sku"),
+					value: literalExpression("A%B"),
+				},
 			}),
 		);
 		const underscoreResult = await executeViewRuntime(
@@ -1206,13 +1215,11 @@ describe("View runtime E2E", () => {
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
 				displayConfiguration: neutralDisplay,
-				filters: [
-					{
-						value: "A_B",
-						op: "contains",
-						field: entityField(schema.slug, "sku"),
-					},
-				],
+				filter: {
+					type: "contains",
+					expression: schemaPropertyExpression(schema.slug, "sku"),
+					value: literalExpression("A_B"),
+				},
 			}),
 		);
 
@@ -1249,13 +1256,11 @@ describe("View runtime E2E", () => {
 					badgeProperty: null,
 					subtitleProperty: null,
 				}),
-				filters: [
-					{
-						op: "contains",
-						value: ["sci-fi", "action"],
-						field: entityField(schema.slug, "tags"),
-					},
-				],
+				filter: {
+					type: "contains",
+					expression: schemaPropertyExpression(schema.slug, "tags"),
+					value: literalExpression(["sci-fi", "action"]),
+				},
 			}),
 		);
 
