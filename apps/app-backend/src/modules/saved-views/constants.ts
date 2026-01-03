@@ -1,13 +1,6 @@
 import type { ViewExpression } from "~/lib/views/expression";
 import type { DisplayConfiguration, SavedViewQueryDefinition } from "./schemas";
 
-export const buildEntityFieldReference = (
-	schemaSlug: string,
-	field: string,
-) => {
-	return `entity.${schemaSlug}.${field}`;
-};
-
 export const buildEntityReferenceExpression = (
 	schemaSlug: string,
 	field: string,
