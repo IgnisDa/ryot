@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
-import { getSafeRedirectTo } from "./redirect";
+import { getGateHref, getRedirectDestination, getSafeRedirectTo } from "./redirect";
 
 describe("getSafeRedirectTo", () => {
 	it.each(["/", "/(app)", "/library/123?tab=history#details"])(
@@ -30,5 +30,22 @@ describe("getSafeRedirectTo", () => {
 
 	it("rejects repeated parameters", () => {
 		expect(getSafeRedirectTo(["/library", "https://evil.example"])).toBeUndefined();
+	});
+});
+
+describe("redirect destinations", () => {
+	it("preserves safe destinations through gate routes", () => {
+		const redirectTo = getSafeRedirectTo("/library?tab=history");
+		assert(redirectTo);
+
+		expect(getGateHref("/auth", redirectTo)).toEqual({
+			pathname: "/auth",
+			params: { redirectTo: "/library?tab=history" },
+		});
+		expect(getRedirectDestination(redirectTo, "/")).toBe("/library?tab=history");
+	});
+
+	it("uses the fallback without a safe destination", () => {
+		expect(getRedirectDestination(undefined, "/(app)")).toBe("/(app)");
 	});
 });
