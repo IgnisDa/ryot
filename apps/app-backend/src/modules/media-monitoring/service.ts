@@ -138,7 +138,7 @@ export class MediaMonitoringService extends Effect.Service<MediaMonitoringServic
 				if (!libraryEntityId) {
 					return yield* Effect.die("Library entity not found for user");
 				}
-				yield* relationshipsService.create({
+				yield* relationshipsService.save({
 					scope: "user",
 					properties: {},
 					userId: user.id,
