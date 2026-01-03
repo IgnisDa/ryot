@@ -8,6 +8,7 @@ import {
 import {
 	builtinEventAutomationRuleLinks,
 	builtinEntityAutomationRuleLinks,
+	builtinRelationshipAutomationRuleLinks,
 	builtinSandboxScripts,
 	builtinSignalAutomationRuleLinks,
 } from "./registry";
@@ -321,6 +322,29 @@ describe("builtinSandboxScripts", () => {
 		expect(links.every(({ operation }) => operation === "update")).toBe(true);
 		expect(links.some(({ entitySchemaSlug }) => entitySchemaSlug === "show-episode")).toBe(true);
 		expect(links.some(({ entitySchemaSlug }) => entitySchemaSlug === "show-season")).toBe(false);
+	});
+
+	it("registers one relationship sync detector for every material operation", () => {
+		const links = builtinRelationshipAutomationRuleLinks();
+		const detector = builtinSandboxScripts().find(
+			({ slug }) => slug === "automation.media-relationship-sync",
+		);
+
+		assert(detector);
+		expect(detector.manifest.capabilities).toEqual(["emitSignal"]);
+		expect(links).toHaveLength(9);
+		expect(new Set(links.map(({ relationshipSchemaSlug }) => relationshipSchemaSlug))).toEqual(
+			new Set(["show-to-show-season", "show-season-to-show-episode", "podcast-to-podcast-episode"]),
+		);
+		for (const relationshipSchemaSlug of new Set(
+			links.map((link) => link.relationshipSchemaSlug),
+		)) {
+			expect(
+				links
+					.filter((link) => link.relationshipSchemaSlug === relationshipSchemaSlug)
+					.map(({ operation }) => operation),
+			).toEqual(["create", "update", "delete"]);
+		}
 	});
 
 	it("registers the shared notification script with only send-notification authority", () => {
