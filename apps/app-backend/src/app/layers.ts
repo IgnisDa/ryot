@@ -27,7 +27,10 @@ import { EventSchemasService } from "#modules/event-schemas/service";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
 import { EventCreateWorkflowDefinitionsLive } from "#modules/events/workflow-live";
-import { BuiltinEntityPreloaderLive } from "#modules/exercises/preload";
+import {
+	BuiltinEntityPreloaderLive,
+	BuiltinExercisePreloadWorkflowLive,
+} from "#modules/exercises/preload";
 import { GodModeService } from "#modules/god-mode/service";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
@@ -136,6 +139,7 @@ const RuntimeLive = Layer.mergeAll(
 	EventCreateWorkflowDefinitionsLive,
 	EntityImportWorkflowDefinitionsLive,
 	BuiltinEntityPreloaderLive,
+	BuiltinExercisePreloadWorkflowLive,
 	ImportWorkflowDefinitionsLive,
 	IntegrationWorkflowDefinitionsLive,
 	SandboxWorkflowDefinitionsLive,
