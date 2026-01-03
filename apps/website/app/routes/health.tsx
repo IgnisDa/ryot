@@ -6,20 +6,15 @@ import { db, serverVariables, TEMP_DIRECTORY } from "~/lib/config.server";
 let hasRunStartup = false;
 
 export const loader = async () => {
-	if (!hasRunStartup) {
-		migrate(db, { migrationsFolder: "app/drizzle/migrations" }).catch(
-			(error) => {
-				console.error("Database migrations failed", error);
-				process.exit(1);
-			},
-		);
-		writeFileSync(
-			`${TEMP_DIRECTORY}/website-config.json`,
-			JSON.stringify(serverVariables, null, 2),
-		);
-		hasRunStartup = true;
-	}
 	try {
+		if (!hasRunStartup) {
+			await migrate(db, { migrationsFolder: "app/drizzle/migrations" });
+			writeFileSync(
+				`${TEMP_DIRECTORY}/website-config.json`,
+				JSON.stringify(serverVariables, null, 2),
+			);
+			hasRunStartup = true;
+		}
 		await db.execute(sql`SELECT 1`);
 		return new Response("OK", { status: 200 });
 	} catch (error) {
