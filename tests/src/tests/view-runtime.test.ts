@@ -88,8 +88,8 @@ describe("View runtime E2E", () => {
 			eventJoins: [],
 			pagination: { page: 1, limit: 1 },
 			sort: {
-				expression: entityColumnExpression(schema.slug, "name"),
 				direction: "asc",
+				expression: entityColumnExpression(schema.slug, "name"),
 			},
 			fields: [
 				buildRuntimeField("label", { type: "literal", value: "Pinned" }),
@@ -100,9 +100,9 @@ describe("View runtime E2E", () => {
 						{
 							type: "reference",
 							reference: {
-								type: "schema-property",
-								slug: schema.slug,
 								property: "year",
+								slug: schema.slug,
+								type: "schema-property",
 							},
 						},
 						{ type: "literal", value: 0 },
