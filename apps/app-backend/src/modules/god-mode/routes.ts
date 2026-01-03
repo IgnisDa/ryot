@@ -42,11 +42,5 @@ export const GodModeRoutesLive = HttpApiBuilder.group(AppContract, "godMode", (h
 				const service = yield* GodModeService;
 				return yield* service.deleteUser(path.userId).pipe(dieOnDbError);
 			}),
-		)
-		.handle("triggerInfrequentCron", () =>
-			Effect.gen(function* () {
-				const service = yield* GodModeService;
-				return yield* service.triggerInfrequentCron();
-			}),
 		),
 );
