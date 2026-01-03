@@ -1,9 +1,15 @@
 import { entitySchemaScriptLinks } from "~/lib/db/seed/manifests";
 
-export const builtinMediaEntitySchemaSlugs = Array.from(
-	new Set(entitySchemaScriptLinks().map((link) => link.schemaSlug)),
+const builtinMediaEntitySchemaSlugValues = entitySchemaScriptLinks().map(
+	(link) => link.schemaSlug,
 );
 
-export const builtinMediaEntitySchemaSlugSet: ReadonlySet<string> = new Set(
-	builtinMediaEntitySchemaSlugs,
-);
+export type BuiltinMediaEntitySchemaSlug =
+	(typeof builtinMediaEntitySchemaSlugValues)[number];
+
+export const builtinMediaEntitySchemaSlugs = Array.from(
+	new Set(builtinMediaEntitySchemaSlugValues),
+) as BuiltinMediaEntitySchemaSlug[];
+
+export const builtinMediaEntitySchemaSlugSet: ReadonlySet<BuiltinMediaEntitySchemaSlug> =
+	new Set(builtinMediaEntitySchemaSlugs);

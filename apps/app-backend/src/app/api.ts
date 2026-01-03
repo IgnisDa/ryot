@@ -8,6 +8,7 @@ import { entitiesApi } from "~/modules/entities/routes";
 import { entitySchemasApi } from "~/modules/entity-schemas/routes";
 import { eventSchemasApi } from "~/modules/event-schemas/routes";
 import { eventsApi } from "~/modules/events/routes";
+import { mediaApi } from "~/modules/media/routes";
 import { sandboxApi } from "~/modules/sandbox/routes";
 import { savedViewsApi } from "~/modules/saved-views/routes";
 import { systemApi } from "~/modules/system/routes";
@@ -27,6 +28,11 @@ const openApiTags = [
 	{
 		name: "sandbox",
 		description: "Execute sandboxed JavaScript code for custom computations",
+	},
+	{
+		name: "media",
+		description:
+			"Built-in media overview and read-model endpoints for books, anime, and manga",
 	},
 	{
 		name: "trackers",
@@ -90,6 +96,7 @@ export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/system", systemApi)
 	.route("/authentication", authenticationApi)
 	.route("/sandbox", sandboxApi)
+	.route("/media", mediaApi)
 	.route("/trackers", trackersApi)
 	.route("/entity-schemas", entitySchemasApi)
 	.route("/entities", entitiesApi)

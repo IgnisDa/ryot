@@ -8,7 +8,7 @@
 
 ## What to build
 
-Replace the built-in media overview's placeholder data for `Continue`, `Up Next`, and `Rate These` with the new backend read-model response, keeping the frontend focused on fetching, rendering, and local timestamp formatting rather than lifecycle derivation.
+Replace the built-in media overview's placeholder data for `Continue`, `Up Next`, and `Rate These` with the new backend read-model response from `/media/overview`, keeping the frontend focused on fetching, rendering, and local timestamp formatting rather than lifecycle derivation.
 
 This slice should connect the real backend payload to the existing overview UI, preserve the current section scope, and avoid introducing saved-view builder work or client-side lifecycle logic. The resulting UI should render the backend-powered sections for built-in media while leaving out-of-scope sections unchanged.
 
