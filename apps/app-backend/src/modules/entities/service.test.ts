@@ -185,7 +185,7 @@ it.effect("returns existing entity when provenance already exists", () => {
 			entitySchemaId: "schema-id",
 			sandboxScriptId: "script-id",
 			properties: { title: "Existing" },
-			image: "https://example.com/cover.jpg",
+			image: { type: "remote", url: "https://example.com/cover.jpg" },
 		});
 
 		expect(entity.id).toBe("existing-entity");

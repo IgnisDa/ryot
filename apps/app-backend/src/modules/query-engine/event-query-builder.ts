@@ -4,6 +4,7 @@ import { Effect } from "effect";
 import type { EventsQueryRequest } from "#lib/query-language";
 
 import type { PreparedQueryContext } from "./context";
+import type { ResolvedDisplayValue } from "./display-builder";
 import { buildJoinedCte } from "./event-join-ctes";
 import { buildEventFirstCte } from "./event-query-ctes";
 import { executePaginatedQuery } from "./paginated-query-sql";
@@ -21,16 +22,13 @@ import { EVENT_FIRST_ENTITY_COLUMN_OVERRIDES, EVENT_CTE_ALIASES } from "./query-
 
 export const executeEventQuery = (input: {
 	userId: string;
-	context: PreparedQueryContext;
 	request: EventsQueryRequest;
+	context: PreparedQueryContext;
 }): QueryEngineExecutionEffect<{
 	mode: "events";
 	data: {
-		items: Readonly<Record<string, { kind: string; value: unknown }>>[];
-		meta: {
-			pagination: ReturnType<typeof calculatePagination>;
-			fieldOrder: string[];
-		};
+		items: Readonly<Record<string, ResolvedDisplayValue>>[];
+		meta: { fieldOrder: string[]; pagination: ReturnType<typeof calculatePagination> };
 	};
 }> =>
 	Effect.gen(function* () {
@@ -61,8 +59,8 @@ export const executeEventQuery = (input: {
 		const defaultSortExpression = sort
 			? buildQuerySortExpression({
 					runtime,
-					alias: EVENT_CTE_ALIASES.filtered,
 					expression: sort.expression,
+					alias: EVENT_CTE_ALIASES.filtered,
 					computedFields: input.request.computedFields,
 				})
 			: sql`${sql.raw(EVENT_CTE_ALIASES.filtered)}.occurred_at`;
@@ -85,8 +83,8 @@ export const executeEventQuery = (input: {
 			direction,
 			filterClause,
 			resolvedFields,
-			sortExpression: defaultSortExpression,
 			pagination: input.request.pagination,
+			sortExpression: defaultSortExpression,
 			withCtes: [baseEventsCte, ...latestEventJoinCtes, joinedEventsCte],
 			paginationConfig: {
 				rowIdColumn: "id",

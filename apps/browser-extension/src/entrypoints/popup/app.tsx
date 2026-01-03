@@ -1,3 +1,4 @@
+// TODO: Rewrite to the new backend later
 import { Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { match } from "ts-pattern";

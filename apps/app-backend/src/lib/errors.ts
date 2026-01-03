@@ -73,6 +73,11 @@ export class TimeoutError extends Schema.TaggedError<TimeoutError>()("TimeoutErr
 	message: Schema.String,
 }) {}
 
+export class HealthCheckFailedError extends Schema.TaggedError<HealthCheckFailedError>()(
+	"HealthCheckFailedError",
+	{ message: Schema.String },
+) {}
+
 export const conflict = (message: string) => new Conflict({ message });
 export const notFound = (message: string) => new NotFound({ message });
 export const badRequest = (message: string) => new BadRequest({ message });
@@ -80,6 +85,7 @@ export const rateLimited = (message: string) => new RateLimited({ message });
 export const unauthorized = () => new Unauthorized({ message: "Unauthorized" });
 export const internalError = (message: string) => new InternalError({ message });
 export const validationError = (message: string) => new ValidationError({ message });
+export const healthCheckFailed = (message: string) => new HealthCheckFailedError({ message });
 
 // Unexpected database failures are not part of any route contract; convert them to
 // defects so they surface as 500s without leaking PostgreSQL metadata to clients.
