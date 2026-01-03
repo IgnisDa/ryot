@@ -9,6 +9,7 @@ import type * as LayerTypes from "effect/Layer";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#modules/auth/service";
+import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { CollectionsRoutesLive } from "#modules/collections/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
 import { InterestRoutesLive } from "#modules/entity-interest/routes";
@@ -78,7 +79,7 @@ const buildWebhookForwardRequest = (request: Request, url: URL) =>
 	new Request(url.toString(), request);
 
 const ApiBaseLive = HttpApiBuilder.api(AppContract).pipe(
-	Layer.provide(SystemRoutesLive),
+	Layer.provide(Layer.mergeAll(SystemRoutesLive, AutomationsRoutesLive)),
 	Layer.provide(SandboxRoutesLive),
 	Layer.provide(TrackersRoutesLive),
 	Layer.provide(EntitySchemasRoutesLive),

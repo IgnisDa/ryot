@@ -12,6 +12,7 @@ import type { CurrentDb } from "#lib/infrastructure/db/service";
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { AuthService } from "#modules/auth/service";
+import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
@@ -72,12 +73,13 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
-		const runInTransaction = yield* TransactionRunner;
-		const repository = yield* GodModeRepository;
 		const engine = yield* WorkflowEngine;
 		const entities = yield* EntitiesService;
-		const savedViews = yield* SavedViewsService;
 		const trackers = yield* TrackersService;
+		const repository = yield* GodModeRepository;
+		const savedViews = yield* SavedViewsService;
+		const runInTransaction = yield* TransactionRunner;
+		const notificationSubscriptions = yield* NotificationSubscriptionsService;
 		const {
 			auth,
 			createAuthUser,
@@ -362,6 +364,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 					Effect.provideService(EntitiesService, entities),
 					Effect.provideService(SavedViewsService, savedViews),
 					Effect.provideService(TrackersService, trackers),
+					Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
 				);
 
 				return { snapshot: resetSnapshot, usesLocalAuth: resetUsesLocalAuth };

@@ -11,6 +11,7 @@ import { Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb } from "#lib/infrastructure/db/service";
+import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { TrackersService } from "#modules/trackers/service";
@@ -157,6 +158,7 @@ const makeServiceLayers = (
 	linkedSchemaIds: EntitySchemaId[],
 	createdViewSlugs: string[],
 	createdEntities: unknown[],
+	defaultRuleUserIds: UserId[],
 ) => {
 	const trackersLayer = Layer.mock(TrackersService)({
 		_tag: "TrackersService",
@@ -196,14 +198,27 @@ const makeServiceLayers = (
 				return makeEntity();
 			}),
 	});
+	const notificationSubscriptionsLayer = Layer.mock(NotificationSubscriptionsService)({
+		_tag: "NotificationSubscriptionsService",
+		ensureDefaultRules: (inputUserId) =>
+			Effect.sync(() => {
+				defaultRuleUserIds.push(inputUserId);
+			}),
+	});
 
-	return Layer.mergeAll(trackersLayer, savedViewsLayer, entitiesLayer);
+	return Layer.mergeAll(
+		trackersLayer,
+		entitiesLayer,
+		savedViewsLayer,
+		notificationSubscriptionsLayer,
+	);
 };
 
 it.effect("routes bootstrap writes through owning services and sets the completion marker", () => {
 	let markerUpdated = false;
 	const createdViewSlugs: string[] = [];
 	const createdEntities: unknown[] = [];
+	const defaultRuleUserIds: UserId[] = [];
 	const createdTrackerSlugs: string[] = [];
 	const linkedSchemaIds: EntitySchemaId[] = [];
 
@@ -214,12 +229,19 @@ it.effect("routes bootstrap writes through owning services and sets the completi
 		expect(linkedSchemaIds).toEqual([movieSchemaId, collectionSchemaId]);
 		expect(createdViewSlugs).toEqual(["collections", "all-movies"]);
 		expect(createdEntities).toHaveLength(1);
+		expect(defaultRuleUserIds).toEqual([userId]);
 		expect(markerUpdated).toBe(true);
 	}).pipe(
 		Effect.provide(
 			Layer.mergeAll(
 				Layer.succeed(CurrentDb, makeBootstrapDb({ onMarkComplete: () => (markerUpdated = true) })),
-				makeServiceLayers(createdTrackerSlugs, linkedSchemaIds, createdViewSlugs, createdEntities),
+				makeServiceLayers(
+					createdTrackerSlugs,
+					linkedSchemaIds,
+					createdViewSlugs,
+					createdEntities,
+					defaultRuleUserIds,
+				),
 			),
 		),
 	);
@@ -229,6 +251,7 @@ it.effect("short-circuits when the completion marker is already set", () => {
 	let markerUpdated = false;
 	const createdViewSlugs: string[] = [];
 	const createdEntities: unknown[] = [];
+	const defaultRuleUserIds: UserId[] = [];
 	const createdTrackerSlugs: string[] = [];
 	const linkedSchemaIds: EntitySchemaId[] = [];
 
@@ -239,6 +262,7 @@ it.effect("short-circuits when the completion marker is already set", () => {
 		expect(linkedSchemaIds).toEqual([]);
 		expect(createdViewSlugs).toEqual([]);
 		expect(createdEntities).toEqual([]);
+		expect(defaultRuleUserIds).toEqual([]);
 		expect(markerUpdated).toBe(false);
 	}).pipe(
 		Effect.provide(
@@ -250,7 +274,13 @@ it.effect("short-circuits when the completion marker is already set", () => {
 						onMarkComplete: () => (markerUpdated = true),
 					}),
 				),
-				makeServiceLayers(createdTrackerSlugs, linkedSchemaIds, createdViewSlugs, createdEntities),
+				makeServiceLayers(
+					createdTrackerSlugs,
+					linkedSchemaIds,
+					createdViewSlugs,
+					createdEntities,
+					defaultRuleUserIds,
+				),
 			),
 		),
 	);

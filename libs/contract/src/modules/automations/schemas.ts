@@ -1,7 +1,14 @@
 import type { JsonValue } from "@ryot/sandbox-sdk";
 import { Schema } from "effect";
 
-import { ImportRunId, IntegrationId, RelationshipSchemaId } from "../../schema/brands";
+import {
+	AutomationRuleId,
+	ImportRunId,
+	IntegrationId,
+	RelationshipSchemaId,
+	SignalSchemaId,
+} from "../../schema/brands";
+import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
 
 const JsonValueSchema: Schema.Schema<JsonValue, JsonValue> = Schema.suspend(() =>
@@ -90,6 +97,32 @@ export const SignalAudiencePolicy = Schema.Union(
 );
 
 export type SignalAudiencePolicy = typeof SignalAudiencePolicy.Type;
+
+export const CatalogSignalSchema = Schema.Struct({
+	id: SignalSchemaId,
+	name: Schema.String,
+	slug: Schema.String,
+	propertiesSchema: AppSchema,
+});
+
+export type CatalogSignalSchema = typeof CatalogSignalSchema.Type;
+
+export const InstalledNotificationRule = Schema.Struct({
+	name: Schema.String,
+	id: AutomationRuleId,
+	isActive: Schema.Boolean,
+	createdAt: Schema.String,
+	updatedAt: Schema.String,
+	signalSchema: CatalogSignalSchema,
+});
+
+export type InstalledNotificationRule = typeof InstalledNotificationRule.Type;
+
+export const InstallNotificationRuleBody = strictStruct({
+	signalSchemaId: SignalSchemaId,
+});
+
+export type InstallNotificationRuleBody = typeof InstallNotificationRuleBody.Type;
 
 export const AutomationOrigin = Schema.Union(
 	strictStruct({ kind: Schema.Literal("api") }),
