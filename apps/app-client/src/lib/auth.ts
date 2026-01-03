@@ -34,7 +34,7 @@ export type AuthClient = ReturnType<typeof createClient>;
 
 const clients = new Map<string, AuthClient>();
 
-export function getAuthClient(serverUrl: string) {
+function getAuthClient(serverUrl: string) {
 	const existing = clients.get(serverUrl);
 	if (existing) {
 		return existing;
