@@ -7,11 +7,6 @@ export const meta = () => {
 	return [{ title: "Terms and conditions | Ryot" }];
 };
 
-export const headers = () => ({
-	"Cache-Control":
-		"public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
-});
-
 export default function Index() {
 	return (
 		<>
@@ -194,7 +189,7 @@ export default function Index() {
 										</h4>
 										<ul className="space-y-2">
 											<li className="flex items-start">
-												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 flex-shrink-0" />
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 shrink-0" />
 												<span>
 													<strong className="text-foreground">
 														Self-hosted:
@@ -207,7 +202,7 @@ export default function Index() {
 												</span>
 											</li>
 											<li className="flex items-start">
-												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 flex-shrink-0" />
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 shrink-0" />
 												<span>
 													<strong className="text-foreground">
 														Ryot Cloud (hosted by us):
@@ -247,7 +242,7 @@ export default function Index() {
 										</h4>
 										<ul className="space-y-2">
 											<li className="flex items-start">
-												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 flex-shrink-0" />
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 shrink-0" />
 												<span>
 													Payments are processed by Paddle. We receive
 													transaction and subscription metadata from Paddle to
@@ -255,7 +250,7 @@ export default function Index() {
 												</span>
 											</li>
 											<li className="flex items-start">
-												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 flex-shrink-0" />
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 shrink-0" />
 												<span>
 													We use an email provider to send receipts and account
 													emails, and Unkey to issue and manage self-hosted Pro
@@ -378,21 +373,21 @@ export default function Index() {
 										</h4>
 										<ul className="space-y-2 text-muted-foreground">
 											<li className="flex items-start">
-												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 flex-shrink-0" />
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 shrink-0" />
 												<span>
 													Monthly subscriptions: Full refund if cancelled within
 													the first 14 days
 												</span>
 											</li>
 											<li className="flex items-start">
-												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 flex-shrink-0" />
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 shrink-0" />
 												<span>
 													Yearly subscriptions: Full refund if cancelled within
 													the first 30 days
 												</span>
 											</li>
 											<li className="flex items-start">
-												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 flex-shrink-0" />
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 shrink-0" />
 												<span>
 													After these periods, refunds will not be provided
 												</span>
@@ -412,7 +407,7 @@ export default function Index() {
 							<div className="border-t border-border pt-8">
 								<div className="bg-primary/5 p-6 rounded-lg">
 									<div className="flex items-start">
-										<FileText className="w-5 h-5 text-primary mr-3 mt-1 flex-shrink-0" />
+										<FileText className="w-5 h-5 text-primary mr-3 mt-1 shrink-0" />
 										<p className="text-foreground leading-relaxed">
 											<strong>
 												By using Ryot, you acknowledge that you have read,

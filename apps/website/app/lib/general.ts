@@ -1,13 +1,13 @@
 import { initializePaddle } from "@paddle/paddle-js";
+import { QueryClient, useQuery } from "@tanstack/react-query";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
-
-export const startUrl = withFragment($path("/"), "start-here");
-
-export const logoUrl =
-	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
+import type { TPrices } from "./config.server";
 
 export const contactEmail = "ignisda2001@gmail.com";
+export const startUrl = withFragment($path("/"), "start-here");
+export const logoUrl =
+	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
 
 export const initializePaddleForApplication = (
 	clientToken: string,
@@ -18,4 +18,24 @@ export const initializePaddleForApplication = (
 		token: clientToken,
 		environment: isSandbox ? "sandbox" : undefined,
 		pwCustomer: { id: paddleCustomerId || undefined },
+	});
+
+export const queryClient = new QueryClient({
+	defaultOptions: { queries: { placeholderData: (prev: unknown) => prev } },
+});
+
+export const useConfigData = () =>
+	useQuery({
+		queryKey: ["websiteConfig"],
+		queryFn: async () => {
+			const response = await fetch("/api/config");
+			if (!response.ok) throw new Error("Failed to fetch config");
+			return response.json() as Promise<{
+				prices: TPrices;
+				isSandbox: boolean;
+				clientToken: string;
+				isLoggedIn: boolean;
+				turnstileSiteKey: string;
+			}>;
+		},
 	});

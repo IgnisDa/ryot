@@ -4,14 +4,18 @@ import { redirect } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { customers } from "~/drizzle/schema.server";
-import { db, OAUTH_CALLBACK_URL, websiteAuthCookie } from "~/lib/config.server";
+import {
+	getDb,
+	getOauthCallbackUrl,
+	websiteAuthCookie,
+} from "~/lib/config.server";
 import { oauthConfig } from "~/lib/utilities.server";
 import type { Route } from "./+types/callback";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const config = await oauthConfig();
 	const requestUrl = new URL(request.url);
-	const callbackUrl = new URL(OAUTH_CALLBACK_URL);
+	const callbackUrl = new URL(getOauthCallbackUrl());
 	callbackUrl.search = requestUrl.search;
 	const tokenSet = await openidClient.authorizationCodeGrant(
 		config,
@@ -21,12 +25,12 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	if (!claims) throw new Error("No claims found in token set");
 	const email = claims.email?.toString();
 	if (!email || !claims.sub) throw new Error("Invalid claims");
-	const alreadyCustomer = await db.query.customers.findFirst({
+	const alreadyCustomer = await getDb().query.customers.findFirst({
 		where: eq(customers.email, email),
 	});
 	const customerId = await match(alreadyCustomer)
 		.with(undefined, async () => {
-			const dbCustomer = await db
+			const dbCustomer = await getDb()
 				.insert(customers)
 				.values({ email, oidcIssuerId: claims.sub })
 				.returning({ id: customers.id })

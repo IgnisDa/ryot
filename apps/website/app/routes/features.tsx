@@ -20,7 +20,7 @@ import {
 	Users,
 } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
-import { Link, useLoaderData } from "react-router";
+import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
 import { Badge } from "~/lib/components/ui/badge";
@@ -32,34 +32,22 @@ import {
 	CarouselItem,
 } from "~/lib/components/ui/carousel";
 import { ProBadge } from "~/lib/components/ui/pro-badge";
-import { serverVariables } from "~/lib/config.server";
-import { initializePaddleForApplication } from "~/lib/general";
-import type { Route } from "./+types/features";
+import { initializePaddleForApplication, useConfigData } from "~/lib/general";
 
 export const meta = () => {
 	return [{ title: "Features | Ryot" }];
 };
 
-export const headers = () => ({
-	"Cache-Control":
-		"public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
-});
-
-export const loader = async (_args: Route.LoaderArgs) => {
-	return {
-		isSandbox: !!serverVariables.PADDLE_SANDBOX,
-		clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
-	};
-};
-
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
+	const { data: configData } = useConfigData();
+
 	useEffect(() => {
-		initializePaddleForApplication(
-			loaderData.clientToken,
-			loaderData.isSandbox,
-		);
-	}, []);
+		if (configData)
+			initializePaddleForApplication(
+				configData.clientToken,
+				configData.isSandbox,
+			);
+	}, [configData]);
 
 	return (
 		<div className="min-h-screen">

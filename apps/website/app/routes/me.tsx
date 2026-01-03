@@ -15,11 +15,11 @@ import { Button } from "~/lib/components/ui/button";
 import { Card } from "~/lib/components/ui/card";
 import { Label } from "~/lib/components/ui/label";
 import {
-	db,
 	GRACE_PERIOD,
+	getDb,
+	getPrices,
+	getServerVariables,
 	type PaddleCustomData,
-	prices,
-	serverVariables,
 	websiteAuthCookie,
 } from "~/lib/config.server";
 import { initializePaddleForApplication, startUrl } from "~/lib/general";
@@ -34,9 +34,10 @@ import type { Route } from "./+types/me";
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const customerDetails = await getCustomerWithActivePurchase(request);
 	if (!customerDetails) return redirect(startUrl);
+	const serverVariables = getServerVariables();
 	return {
-		prices,
 		customerDetails,
+		prices: getPrices(),
 		renewOn: customerDetails.renewOn,
 		isSandbox: !!serverVariables.PADDLE_SANDBOX,
 		clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
@@ -64,6 +65,7 @@ const getAllSubscriptionsForCustomer = async (customerId: string) => {
 export const action = async ({ request }: Route.ActionArgs) => {
 	const intent = getActionIntent(request);
 	const customer = await getCustomerWithActivePurchase(request);
+	const serverVariables = getServerVariables();
 	return await match(intent)
 		.with("regenerateUnkeyKey", async () => {
 			if (!customer || !customer.planType) throw new Error("No customer found");
@@ -80,7 +82,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				customer,
 				renewOnDayjs ? renewOnDayjs.add(GRACE_PERIOD, "days") : undefined,
 			);
-			await db
+			await getDb()
 				.update(customers)
 				.set({ unkeyKeyId: created.keyId })
 				.where(eq(customers.id, customer.id));

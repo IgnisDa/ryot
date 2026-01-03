@@ -1,20 +1,17 @@
-import { zodBoolAsString } from "@ryot/ts-utils";
+import { memoize, zodBoolAsString } from "@ryot/ts-utils";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { GraphQLClient } from "graphql-request";
 import { createCookie } from "react-router";
-import { Honeypot } from "remix-utils/honeypot/server";
 import { z } from "zod";
 import * as schema from "~/drizzle/schema.server";
 import { PlanTypes, ProductTypes } from "~/drizzle/schema.server";
 
 // The number of days after a subscription expires that we allow access
 export const GRACE_PERIOD = 7;
-
 export const IS_DEVELOPMENT_ENV = process.env.NODE_ENV === "development";
-
 export const TEMP_DIRECTORY = IS_DEVELOPMENT_ENV ? "/tmp" : "tmp";
 
-export const serverVariablesSchema = z.object({
+const serverVariablesSchema = z.object({
 	FRONTEND_URL: z.string(),
 	UNKEY_API_ID: z.string(),
 	DATABASE_URL: z.string(),
@@ -39,9 +36,13 @@ export const serverVariablesSchema = z.object({
 	SERVER_SMTP_SECURE: zodBoolAsString.optional(),
 });
 
-export const serverVariables = serverVariablesSchema.parse(process.env);
+export const getServerVariables = memoize(() =>
+	serverVariablesSchema.parse(process.env),
+);
 
-export const OAUTH_CALLBACK_URL = `${serverVariables.FRONTEND_URL}/callback`;
+export const getOauthCallbackUrl = memoize(
+	() => `${getServerVariables().FRONTEND_URL}/callback`,
+);
 
 export const pricesSchema = z.array(
 	z.object({
@@ -60,26 +61,28 @@ export const pricesSchema = z.array(
 
 export type TPrices = z.infer<typeof pricesSchema>;
 
-export const prices = pricesSchema.parse(
-	JSON.parse(serverVariables.PADDLE_PRICE_IDS),
+export const getPrices = memoize(() =>
+	pricesSchema.parse(JSON.parse(getServerVariables().PADDLE_PRICE_IDS)),
 );
 
 export const websiteAuthCookie = createCookie("WebsiteAuth", {
-	maxAge: 60 * 60 * 24 * 365,
 	path: "/",
+	maxAge: 60 * 60 * 24 * 365,
 });
 
-export const db = drizzle(serverVariables.DATABASE_URL, {
-	schema,
-	logger: IS_DEVELOPMENT_ENV,
-});
-
-export const serverGqlService = new GraphQLClient(
-	`${serverVariables.RYOT_BASE_URL}/graphql`,
-	{ headers: { Connection: "keep-alive" } },
+export const getDb = memoize(() =>
+	drizzle(getServerVariables().DATABASE_URL, {
+		schema,
+		logger: IS_DEVELOPMENT_ENV,
+	}),
 );
 
-export const honeypot = new Honeypot();
+export const getServerGqlService = memoize(
+	() =>
+		new GraphQLClient(`${getServerVariables().RYOT_BASE_URL}/graphql`, {
+			headers: { Connection: "keep-alive" },
+		}),
+);
 
 export const paddleCustomDataSchema = z.object({
 	customerId: z.string(),

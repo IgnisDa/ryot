@@ -1,5 +1,3 @@
 import type { Config } from "@react-router/dev/config";
 
-export default {
-	ssr: true,
-} satisfies Config;
+export default { prerender: ["/", "/features", "/terms"] } satisfies Config;

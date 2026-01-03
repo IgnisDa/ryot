@@ -13,7 +13,7 @@ import PurchaseCompleteEmail, {
 } from "@ryot/transactional/emails/PurchaseComplete";
 import { formatDateToNaiveDate } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, type InferSelectModel, isNull } from "drizzle-orm";
 import { data } from "react-router";
 import { match } from "ts-pattern";
 import {
@@ -23,11 +23,11 @@ import {
 	type TProductTypes,
 } from "~/drizzle/schema.server";
 import {
-	db,
 	GRACE_PERIOD,
+	getDb,
+	getServerGqlService,
+	getServerVariables,
 	paddleCustomDataSchema,
-	serverGqlService,
-	serverVariables,
 } from "~/lib/config.server";
 import {
 	calculateRenewalDate,
@@ -38,7 +38,7 @@ import {
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/paddle-webhook";
 
-type Customer = Awaited<ReturnType<typeof db.query.customers.findFirst>>;
+type Customer = InferSelectModel<typeof customers> | undefined;
 
 interface WebhookResponse {
 	error?: string;
@@ -48,7 +48,7 @@ interface WebhookResponse {
 async function findCustomerByPaddleId(
 	paddleCustomerId: string,
 ): Promise<Customer | null> {
-	return await db.query.customers.findFirst({
+	return await getDb().query.customers.findFirst({
 		where: eq(customers.paddleCustomerId, paddleCustomerId),
 	});
 }
@@ -59,7 +59,7 @@ async function findCustomerByCustomData(
 	const parsed = paddleCustomDataSchema.safeParse(customData);
 	if (!parsed.success) return null;
 
-	return await db.query.customers.findFirst({
+	return await getDb().query.customers.findFirst({
 		where: eq(customers.id, parsed.data.customerId),
 	});
 }
@@ -77,7 +77,7 @@ async function findOrCreateCustomer(
 }
 
 async function getActivePurchase(customerId: string) {
-	return await db.query.customerPurchases.findFirst({
+	return await getDb().query.customerPurchases.findFirst({
 		where: and(
 			eq(customerPurchases.customerId, customerId),
 			isNull(customerPurchases.cancelledOn),
@@ -91,9 +91,10 @@ async function handleCloudPurchase(customer: NonNullable<Customer>): Promise<{
 	details: PurchaseCompleteEmailProps["details"];
 }> {
 	const { email, oidcIssuerId } = customer;
+	const serverVariables = getServerVariables();
 
 	if (customer.ryotUserId) {
-		await serverGqlService.request(UpdateUserDocument, {
+		await getServerGqlService().request(UpdateUserDocument, {
 			input: {
 				isDisabled: false,
 				userId: customer.ryotUserId,
@@ -110,7 +111,7 @@ async function handleCloudPurchase(customer: NonNullable<Customer>): Promise<{
 		};
 	}
 
-	const { registerUser } = await serverGqlService.request(
+	const { registerUser } = await getServerGqlService().request(
 		RegisterUserDocument,
 		{
 			input: {
@@ -128,7 +129,7 @@ async function handleCloudPurchase(customer: NonNullable<Customer>): Promise<{
 
 	const auth = oidcIssuerId
 		? email
-		: await serverGqlService
+		: await getServerGqlService()
 				.request(GetPasswordChangeSessionDocument, {
 					input: {
 						userId: registerUser.id,
@@ -155,6 +156,7 @@ async function handleSelfHostedPurchase(
 	unkeyKeyId: string;
 	details: PurchaseCompleteEmailProps["details"];
 }> {
+	const serverVariables = getServerVariables();
 	const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
 	const renewalDate = calculateRenewalDate(planType);
 
@@ -214,7 +216,7 @@ async function processNewPurchase(
 		element: PurchaseCompleteEmail({ renewOn, details, planType }),
 	});
 
-	await db.insert(customerPurchases).values({
+	await getDb().insert(customerPurchases).values({
 		planType,
 		productType,
 		customerId: customer.id,
@@ -235,7 +237,7 @@ async function processNewPurchase(
 		updateData.paddleCustomerId = paddleCustomerId;
 
 	if (Object.keys(updateData).length > 0) {
-		await db
+		await getDb()
 			.update(customers)
 			.set(updateData)
 			.where(eq(customers.id, customer.id));
@@ -246,10 +248,11 @@ async function processRenewal(
 	customer: NonNullable<Customer>,
 	planType: TPlanTypes,
 	productType: TProductTypes,
-	activePurchase: NonNullable<Awaited<ReturnType<typeof getActivePurchase>>>,
+	activePurchase: InferSelectModel<typeof customerPurchases>,
 ) {
+	const serverVariables = getServerVariables();
 	const renewalDate = calculateRenewalDate(planType);
-	await db
+	await getDb()
 		.update(customerPurchases)
 		.set({
 			planType,
@@ -260,7 +263,7 @@ async function processRenewal(
 		.where(eq(customerPurchases.id, activePurchase.id));
 
 	if (customer.ryotUserId) {
-		await serverGqlService.request(UpdateUserDocument, {
+		await getServerGqlService().request(UpdateUserDocument, {
 			input: {
 				isDisabled: false,
 				userId: customer.ryotUserId,
@@ -337,7 +340,7 @@ async function handleSubscriptionCancelled(
 	const customer = await findCustomerByPaddleId(customerId);
 	if (!customer) return { message: "No customer found" };
 
-	await db
+	await getDb()
 		.update(customerPurchases)
 		.set({
 			cancelledOn: new Date(),
@@ -351,7 +354,8 @@ async function handleSubscriptionCancelled(
 		);
 
 	if (customer.ryotUserId) {
-		await serverGqlService.request(UpdateUserDocument, {
+		const serverVariables = getServerVariables();
+		await getServerGqlService().request(UpdateUserDocument, {
 			input: {
 				isDisabled: true,
 				userId: customer.ryotUserId,
@@ -372,13 +376,13 @@ async function handleSubscriptionResumed(
 	const customer = await findCustomerByPaddleId(customerId);
 	if (!customer) return { message: "No customer found" };
 
-	const cancelledPurchase = await db.query.customerPurchases.findFirst({
+	const cancelledPurchase = await getDb().query.customerPurchases.findFirst({
 		where: and(eq(customerPurchases.customerId, customer.id)),
 		orderBy: [desc(customerPurchases.createdOn)],
 	});
 
 	if (cancelledPurchase) {
-		await db
+		await getDb()
 			.update(customerPurchases)
 			.set({
 				cancelledOn: null,
@@ -394,6 +398,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const paddleSignature = request.headers.get("paddle-signature");
 	if (!paddleSignature) return data({ error: "No paddle signature" });
 
+	const serverVariables = getServerVariables();
 	const paddleClient = getPaddleServerClient();
 	const requestBody = await request.text();
 	const eventData = await paddleClient.webhooks.unmarshal(

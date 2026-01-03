@@ -1,7 +1,5 @@
-import { writeFileSync } from "node:fs";
 import { PassThrough } from "node:stream";
 import { createReadableStreamFromReadable } from "@react-router/node";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { isbot } from "isbot";
 import { renderToPipeableStream } from "react-dom/server";
 import {
@@ -9,17 +7,6 @@ import {
 	type EntryContext,
 	ServerRouter,
 } from "react-router";
-import { db, serverVariables, TEMP_DIRECTORY } from "./lib/config.server";
-
-migrate(db, { migrationsFolder: "app/drizzle/migrations" }).catch((error) => {
-	console.error("Database migrations failed", error);
-	process.exit(1);
-});
-
-writeFileSync(
-	`${TEMP_DIRECTORY}/website-config.json`,
-	JSON.stringify(serverVariables, null, 2),
-);
 
 const ABORT_DELAY = 5_000;
 

@@ -12,10 +12,10 @@ import z from "zod";
 import type { TPlanTypes } from "~/drizzle/schema.server";
 import * as schema from "~/drizzle/schema.server";
 import {
-	db,
+	getDb,
+	getPrices,
+	getServerVariables,
 	IS_DEVELOPMENT_ENV,
-	prices,
-	serverVariables,
 	websiteAuthCookie,
 } from "./config.server";
 
@@ -33,7 +33,7 @@ export const getClientIp = (request: Request): string | undefined => {
 };
 
 export const getProductAndPlanTypeByPriceId = (priceId: string) => {
-	for (const product of prices)
+	for (const product of getPrices())
 		for (const price of product.prices)
 			if (price.priceId === priceId)
 				return { productType: product.type, planType: price.name };
@@ -41,6 +41,7 @@ export const getProductAndPlanTypeByPriceId = (priceId: string) => {
 };
 
 export const oauthConfig = async () => {
+	const serverVariables = getServerVariables();
 	const config = await openidClient.discovery(
 		new URL(serverVariables.SERVER_OIDC_ISSUER_URL),
 		serverVariables.SERVER_OIDC_CLIENT_ID,
@@ -49,12 +50,14 @@ export const oauthConfig = async () => {
 	return config;
 };
 
-export const getPaddleServerClient = () =>
-	new Paddle(serverVariables.PADDLE_SERVER_TOKEN, {
+export const getPaddleServerClient = () => {
+	const serverVariables = getServerVariables();
+	return new Paddle(serverVariables.PADDLE_SERVER_TOKEN, {
 		environment: serverVariables.PADDLE_SANDBOX
 			? Environment.sandbox
 			: undefined,
 	});
+};
 
 export const sendEmail = async (input: {
 	cc?: string;
@@ -66,6 +69,7 @@ export const sendEmail = async (input: {
 		console.warn("Email sending is disabled in development mode.");
 		return "dev-mode-email";
 	}
+	const serverVariables = getServerVariables();
 	const client = createTransport({
 		host: serverVariables.SERVER_SMTP_SERVER,
 		secure: serverVariables.SERVER_SMTP_SECURE,
@@ -114,7 +118,7 @@ export const getCustomerFromCookie = async (request: Request) => {
 	if (!cookie || Object.keys(cookie).length === 0) return null;
 	const customerId = z.string().parse(cookie);
 
-	return await db.query.customers.findFirst({
+	return await getDb().query.customers.findFirst({
 		where: eq(schema.customers.id, customerId),
 	});
 };
@@ -123,7 +127,7 @@ export const getCustomerWithActivePurchase = async (request: Request) => {
 	const customer = await getCustomerFromCookie(request);
 	if (!customer) return null;
 
-	const activePurchase = await db.query.customerPurchases.findFirst({
+	const activePurchase = await getDb().query.customerPurchases.findFirst({
 		orderBy: [desc(schema.customerPurchases.createdOn)],
 		where: and(
 			eq(schema.customerPurchases.customerId, customer.id),
@@ -153,6 +157,7 @@ export const createUnkeyKey = async (
 	customer: typeof schema.customers.$inferSelect,
 	renewOn?: Dayjs,
 ) => {
+	const serverVariables = getServerVariables();
 	const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
 	const created = await unkey.keys.createKey({
 		name: customer.email,
@@ -167,6 +172,7 @@ export const verifyTurnstileToken = async (input: {
 	token: string;
 	remoteIp?: string;
 }) => {
+	const serverVariables = getServerVariables();
 	try {
 		const response = await fetch(
 			"https://challenges.cloudflare.com/turnstile/v0/siteverify",

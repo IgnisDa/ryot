@@ -21,6 +21,7 @@ import isPlainObject from "lodash/isPlainObject";
 import isString from "lodash/isString";
 import kebabCase from "lodash/kebabCase";
 import mapValues from "lodash/mapValues";
+import memoize from "lodash/memoize";
 import mergeWith from "lodash/mergeWith";
 import omitBy from "lodash/omitBy";
 import pickBy from "lodash/pickBy";
@@ -153,6 +154,7 @@ export {
 	isString,
 	kebabCase,
 	mapValues,
+	memoize,
 	mergeWith,
 	omitBy,
 	pickBy,
