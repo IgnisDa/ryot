@@ -12,7 +12,9 @@ import type { QueryEngineEventJoinLike, QueryEngineEventSchemaLike } from "#lib/
 import type { LoadedRelationshipJoin } from "./context";
 import type { QueryEngineSchemaRow } from "./query-cte-shared";
 
-const tryQueryEngineSync = <T>(fn: () => T): Effect.Effect<T, NotFound | BadRequest> =>
+export type QueryEngineLoadEffect<A> = Effect.Effect<A, NotFound | BadRequest | DbError, CurrentDb>;
+
+export const tryQueryEngineSync = <T>(fn: () => T): Effect.Effect<T, NotFound | BadRequest> =>
 	Effect.try({
 		try: fn,
 		catch: (error) => {
@@ -204,7 +206,7 @@ export const validateVisibleRelationshipSchemaRows = (
 export const loadVisibleSchemas = (input: {
 	userId: string;
 	scope: ReadonlyArray<string>;
-}): Effect.Effect<QueryEngineSchemaRow[], NotFound | BadRequest | DbError, CurrentDb> =>
+}): QueryEngineLoadEffect<QueryEngineSchemaRow[]> =>
 	Effect.gen(function* () {
 		const uniqueSlugs = [...new Set(input.scope)];
 		const db = yield* CurrentDb;
@@ -244,7 +246,7 @@ export const loadVisibleEventJoins = (input: {
 	userId: string;
 	eventJoins: ReadonlyArray<QueryEventJoin>;
 	runtimeSchemas: QueryEngineSchemaRow[];
-}): Effect.Effect<QueryEngineEventJoinLike[], NotFound | BadRequest | DbError, CurrentDb> =>
+}): QueryEngineLoadEffect<QueryEngineEventJoinLike[]> =>
 	Effect.gen(function* () {
 		if (!input.eventJoins.length) {
 			return [];
@@ -265,7 +267,7 @@ export const loadVisibleRelationshipJoins = (input: {
 	userId: string;
 	runtimeSchemas?: QueryEngineSchemaRow[];
 	relationshipJoins: ReadonlyArray<QueryRelationshipJoin>;
-}): Effect.Effect<LoadedRelationshipJoin[], NotFound | BadRequest | DbError, CurrentDb> =>
+}): QueryEngineLoadEffect<LoadedRelationshipJoin[]> =>
 	Effect.gen(function* () {
 		if (!input.relationshipJoins.length) {
 			return [];
@@ -419,11 +421,7 @@ export const loadEventSchemasBySlug = (input: {
 	userId: string;
 	eventSchemaSlugs: ReadonlyArray<string>;
 	runtimeSchemas: QueryEngineSchemaRow[];
-}): Effect.Effect<
-	Map<string, QueryEngineEventSchemaLike[]>,
-	NotFound | BadRequest | DbError,
-	CurrentDb
-> =>
+}): QueryEngineLoadEffect<Map<string, QueryEngineEventSchemaLike[]>> =>
 	Effect.gen(function* () {
 		if (!input.eventSchemaSlugs.length || !input.runtimeSchemas.length) {
 			return new Map();

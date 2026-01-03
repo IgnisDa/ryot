@@ -54,6 +54,14 @@ type CreateEventsCoreServices = {
 	readonly eventSchemasRepository: EventSchemasRepository;
 };
 
+type EventValidationError = BadRequest | DbError | NotFound;
+
+type ValidateEventEffect = Effect.Effect<
+	void,
+	EventValidationError,
+	DbRunner | EntitiesRepository | EventSchemasRepository
+>;
+
 const resolveOccurredAt = (occurredAt?: string): Effect.Effect<Date, BadRequest> => {
 	if (!occurredAt) {
 		return DateTime.nowAsDate;
@@ -82,11 +90,7 @@ const requireReadableEntity = (userId: string, entityId: string, notFoundMessage
 const validateEventCreateItem = (input: {
 	readonly item: CreateEventItem;
 	readonly userId: string;
-}): Effect.Effect<
-	void,
-	BadRequest | DbError | NotFound,
-	DbRunner | EntitiesRepository | EventSchemasRepository
-> =>
+}): ValidateEventEffect =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const eventSchemasRepository = yield* EventSchemasRepository;
@@ -240,11 +244,7 @@ export const provideCreateEventsContext = <A, E, R>(
 export const validateEventCreateSubmission = (input: {
 	readonly userId: string;
 	readonly payload: ReadonlyArray<CreateEventItem>;
-}): Effect.Effect<
-	void,
-	BadRequest | DbError | NotFound,
-	DbRunner | EntitiesRepository | EventSchemasRepository
-> =>
+}): ValidateEventEffect =>
 	Effect.forEach(input.payload, (item) => validateEventCreateItem({ item, userId: input.userId }), {
 		discard: true,
 	});
@@ -259,7 +259,7 @@ export const createEventsForUser = (
 	},
 	runSandboxScript: RunSandboxScript,
 	onGlobalEntityReferenced?: OnGlobalEntityReferenced,
-): Effect.Effect<{ count: number }, BadRequest | NotFound | DbError, CreateEventsCoreContext> =>
+): Effect.Effect<{ count: number }, EventValidationError, CreateEventsCoreContext> =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const eventsRepository = yield* EventsRepository;

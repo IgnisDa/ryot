@@ -52,7 +52,7 @@ const resolveLiteralInput = (input: unknown, literalType: string | undefined) =>
 		return { value: input };
 	}
 	if ("value" in input && ("literalType" in input || "kind" in input || "type" in input)) {
-		return { literalType, value: (input as Record<string, unknown>).value };
+		return { literalType, value: input.value };
 	}
 	return { value: input };
 };

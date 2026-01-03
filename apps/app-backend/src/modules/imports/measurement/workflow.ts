@@ -13,7 +13,7 @@ import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 import { adaptOpenScaleCsv } from "../sources/open-scale/adapter";
 import {
 	type NonMediaItemOutcome,
-	type NonMediaPrepareResult,
+	type NonMediaPrepareWritesEffect,
 	loadNonMediaImportText,
 } from "../workflows-non-media";
 
@@ -47,9 +47,9 @@ export const loadOpenScaleAdapterResult = (payload: ImportRunJobData) =>
 
 export const prepareOpenScaleWrites = (
 	payload: ImportRunJobData,
-): Effect.Effect<
-	NonMediaPrepareResult<OpenScaleImportItem, EntitiesService | WorkflowEngine | WorkflowInstance>,
-	ImportRunError,
+): NonMediaPrepareWritesEffect<
+	OpenScaleImportItem,
+	EntitiesService | WorkflowEngine | WorkflowInstance,
 	DbRunner | EntitiesService | EntitySchemasRepository | WorkflowEngine | WorkflowInstance
 > =>
 	Effect.gen(function* () {

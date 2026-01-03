@@ -18,6 +18,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
+import type { ImportMediaEntityGroup } from "../../media/types";
 import { requestSourceJson } from "../../runtime/source-api";
 import { createSourceFetchFailure, isNotNullAdapterFailure } from "../shared/adapter-utils";
 
@@ -231,7 +232,7 @@ export const adaptMediaTrackerData = (input: MediaTrackerAdapterInput) =>
 		const headers = createHeaders(input.apiKey);
 		const host = new URL(input.apiUrl).host;
 		const failures: MediaImportAdapterFailure[] = [];
-		const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
+		const groupMap = new Map<string, ImportMediaEntityGroup>();
 		const baseUrl = input.apiUrl.endsWith("/api") ? input.apiUrl : `${input.apiUrl}/api`;
 
 		const fetchJson = (path: string, query?: Record<string, string | number>) =>

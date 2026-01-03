@@ -7,12 +7,6 @@ type CreateSandboxScriptBody = ContractPayload<"sandbox", "createScript">;
 
 type EnqueueSandboxBody = ContractPayload<"sandbox", "enqueue">;
 type SandboxResult = Exclude<ContractSuccess<"sandbox", "getResult">, { status: "pending" }> | null;
-type SandboxCompletedResult = Extract<NonNullable<SandboxResult>, { status: "completed" }>;
-type TypedSandboxResult =
-	| Exclude<NonNullable<SandboxResult>, { status: "completed" }>
-	| (Omit<SandboxCompletedResult, "timing"> & {
-			timing?: { totalMs?: number; executionMs?: number };
-	  });
 
 export async function createSandboxScript(
 	client: Client,
@@ -48,14 +42,12 @@ export async function pollSandboxResult(
 ) {
 	return pollUntil(
 		`sandbox job '${jobId}'`,
-		async () => {
+		async (): Promise<SandboxResult> => {
 			const result = await client.run((c) => c.sandbox.getResult({ path: { jobId } }), {
 				Cookie: cookies,
 			});
 
-			// TODO(Task 22): Remove this tests-only sandbox assertion once the public
-			// AppContract exposes typed sandbox timing details.
-			return result.status !== "pending" ? (result as TypedSandboxResult) : null;
+			return result.status !== "pending" ? result : null;
 		},
 		options,
 	);

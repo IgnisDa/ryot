@@ -22,6 +22,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
+import type { ImportMediaEntityGroup } from "../../media/types";
 import { parseCsvText } from "../../runtime/csv";
 
 export const adaptStorygraphCsv = (csvText: string): MediaImportAdapterResult => {
@@ -29,7 +30,7 @@ export const adaptStorygraphCsv = (csvText: string): MediaImportAdapterResult =>
 	assertRequiredHeaders(headers, ["Title", "ISBN/UID", "Read Status"], "StoryGraph");
 
 	const failures: MediaImportAdapterFailure[] = [];
-	const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
+	const groupMap = new Map<string, ImportMediaEntityGroup>();
 
 	for (let itemIndex = 0; itemIndex < rows.length; itemIndex++) {
 		const row = rows[itemIndex];

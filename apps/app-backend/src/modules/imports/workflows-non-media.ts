@@ -59,6 +59,12 @@ export type NonMediaPrepareResult<Item, R> =
 	| { _tag: "failed"; message: string }
 	| { _tag: "ready"; writeItem: NonMediaWriteItem<Item, R> };
 
+export type NonMediaPrepareWritesEffect<Item, RWrite, RPrepare> = Effect.Effect<
+	NonMediaPrepareResult<Item, RWrite>,
+	ImportRunError,
+	RPrepare
+>;
+
 export type NonMediaImportOperations<
 	Item extends NonMediaImportItem,
 	RLoad,
@@ -80,9 +86,7 @@ export type NonMediaImportOperations<
 		NonMediaLoadError,
 		RLoad
 	>;
-	prepareWrites: (
-		payload: ImportRunJobData,
-	) => Effect.Effect<NonMediaPrepareResult<Item, RWrite>, ImportRunError, RPrepare>;
+	prepareWrites: (payload: ImportRunJobData) => NonMediaPrepareWritesEffect<Item, RWrite, RPrepare>;
 };
 
 export const loadNonMediaImportText = (payload: ImportRunJobData) =>
