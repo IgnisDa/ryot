@@ -14,8 +14,109 @@ For concrete executable examples, also see:
 
 - You send query inputs plus ordered `fields`.
 - Query definitions can also declare reusable `computedFields`.
+- The same expression and predicate language is used by saved views under `queryDefinition`.
 - Each field has a `key` and a single `expression`.
 - The response returns entities plus resolved `fields` as `{ key, kind, value }`.
+
+## Saved View Shape
+
+Saved views persist the same query AST and then point display slots directly at expressions:
+
+```json
+{
+  "name": "Recent Favorites",
+  "queryDefinition": {
+    "sort": {
+      "direction": "desc",
+      "expression": {
+        "type": "reference",
+        "reference": { "type": "computed-field", "key": "nextYear" }
+      }
+    },
+    "computedFields": [
+      {
+        "key": "nextYear",
+        "expression": {
+          "type": "arithmetic",
+          "operator": "add",
+          "left": {
+            "type": "reference",
+            "reference": { "type": "schema-property", "slug": "book", "property": "publishYear" }
+          },
+          "right": { "type": "literal", "value": 1 }
+        }
+      },
+      {
+        "key": "label",
+        "expression": {
+          "type": "concat",
+          "values": [
+            { "type": "literal", "value": "Book: " },
+            {
+              "type": "reference",
+              "reference": { "type": "entity-column", "slug": "book", "column": "name" }
+            }
+          ]
+        }
+      }
+    ],
+    "eventJoins": [],
+    "filter": {
+      "type": "comparison",
+      "operator": "gte",
+      "left": {
+        "type": "reference",
+        "reference": { "type": "computed-field", "key": "nextYear" }
+      },
+      "right": { "type": "literal", "value": 2020 }
+    },
+    "entitySchemaSlugs": ["book"]
+  },
+  "displayConfiguration": {
+    "grid": {
+      "imageProperty": {
+        "type": "reference",
+        "reference": { "type": "entity-column", "slug": "book", "column": "image" }
+      },
+      "titleProperty": {
+        "type": "reference",
+        "reference": { "type": "computed-field", "key": "label" }
+      },
+      "subtitleProperty": null,
+      "badgeProperty": {
+        "type": "reference",
+        "reference": { "type": "computed-field", "key": "nextYear" }
+      }
+    },
+    "list": {
+      "imageProperty": {
+        "type": "reference",
+        "reference": { "type": "entity-column", "slug": "book", "column": "image" }
+      },
+      "titleProperty": {
+        "type": "reference",
+        "reference": { "type": "computed-field", "key": "label" }
+      },
+      "subtitleProperty": null,
+      "badgeProperty": {
+        "type": "reference",
+        "reference": { "type": "computed-field", "key": "nextYear" }
+      }
+    },
+    "table": {
+      "columns": [
+        {
+          "label": "Next Year",
+          "expression": {
+            "type": "reference",
+            "reference": { "type": "computed-field", "key": "nextYear" }
+          }
+        }
+      ]
+    }
+  }
+}
+```
 
 ## Request Shape
 
@@ -667,6 +768,15 @@ Use latest review rating when present, otherwise show publish year.
 - Sort/filter references must point to schemas included in `entitySchemaSlugs`.
 - `@image` is display-only, not filterable.
 - Duplicate field keys are rejected.
+
+## Validation Errors
+
+Common validation failures are reported with direct payload-oriented messages:
+
+- Missing computed field: `Computed field 'displayName' is not part of this runtime request`
+- Dependency cycle: `Computed field dependency cycle detected: first -> second -> first`
+- Type mismatch: `Filter operator 'eq' requires compatible expression types, received 'integer' and 'string'`
+- Non-display image usage: `Image expressions are display-only and cannot be used in sorting`
 
 ## Copy-Paste Starters
 
