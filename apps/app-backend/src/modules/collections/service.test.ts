@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest, NotFound } from "@ryot/contract/errors";
 import {
@@ -12,7 +13,13 @@ import {
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
-import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-support/effect";
+import {
+	type MockOverrides,
+	dbRunnerLayer,
+	makeWorkflowActivityEngine,
+	makeWorkflowEngine,
+	transactionLayer,
+} from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
@@ -21,6 +28,8 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
+import { AddEntityToCollectionWorkflow } from "./add-entity-to-collection-workflow";
+import { runAddEntityToCollectionWorkflow } from "./add-entity-to-collection-workflow-live";
 import { CollectionsRepository } from "./repository";
 import { CollectionsService } from "./service";
 
@@ -154,6 +163,7 @@ const makeQueryEngine = (overrides: MockOverrides<typeof mockQueryEngine> = {}) 
 const makeServiceLayer = (
 	options: {
 		eventsService?: ReturnType<typeof makeEventsService>;
+		workflowEngine?: WorkflowEngine["Type"];
 		entitiesRepository?: ReturnType<typeof makeEntitiesRepository>;
 		collectionsRepository?: ReturnType<typeof makeCollectionsRepository>;
 		relationshipsRepository?: ReturnType<typeof makeRelationshipsRepository>;
@@ -182,8 +192,42 @@ const makeServiceLayer = (
 				options.eventsService ?? makeEventsService(),
 				options.collectionsRepository ?? makeCollectionsRepository(),
 				options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
+				Layer.succeed(WorkflowEngine, options.workflowEngine ?? makeWorkflowEngine()),
 			),
 		),
+	);
+};
+
+type CapturedDispatch = { executionId: string; payload: unknown };
+
+// Runs AddEntityToCollectionWorkflow's body with the membership-write activity executing in-process,
+// mirroring how the HTTP route and media import dispatch it. `execute` is overridden so the
+// fire-and-forget EventCreateWorkflow dispatch from the workflow body can be asserted on.
+const runAddWorkflow = (input: {
+	entityId: EntityId;
+	collectionId: EntityId;
+	properties?: unknown;
+	dispatches?: CapturedDispatch[];
+	layer: Layer.Layer<CollectionsService>;
+}) => {
+	const executionId = "add-workflow-execution-id";
+	const instance = WorkflowInstance.initial(AddEntityToCollectionWorkflow, executionId);
+	const engine = makeWorkflowActivityEngine(instance, {
+		execute: (_workflow, options) => {
+			input.dispatches?.push({ executionId: options.executionId, payload: options.payload });
+			return Effect.succeed(options.executionId);
+		},
+	});
+	return runAddEntityToCollectionWorkflow({
+		executionId,
+		userId: user.id,
+		entityId: input.entityId,
+		properties: input.properties,
+		collectionId: input.collectionId,
+	}).pipe(
+		Effect.provideService(WorkflowEngine, engine),
+		Effect.provideService(WorkflowInstance, instance),
+		Effect.provide(input.layer),
 	);
 };
 
@@ -263,9 +307,9 @@ it.effect("rejects adding a collection to itself", () => {
 	const layer = makeServiceLayer();
 
 	return Effect.gen(function* () {
-		const service = yield* CollectionsService;
 		const exit = yield* Effect.exit(
-			service.addToCollection(user, {
+			runAddWorkflow({
+				layer,
 				entityId: EntityId.make("same-id"),
 				collectionId: EntityId.make("same-id"),
 			}),
@@ -274,7 +318,7 @@ it.effect("rejects adding a collection to itself", () => {
 		expect(exit).toEqual(
 			Exit.fail(new BadRequest({ message: "Cannot add a collection to itself" })),
 		);
-	}).pipe(Effect.provide(layer));
+	});
 });
 
 it.effect("returns not found when collection does not exist for user", () => {
@@ -285,16 +329,16 @@ it.effect("returns not found when collection does not exist for user", () => {
 	});
 
 	return Effect.gen(function* () {
-		const service = yield* CollectionsService;
 		const exit = yield* Effect.exit(
-			service.addToCollection(user, {
+			runAddWorkflow({
+				layer,
 				entityId: EntityId.make("entity-id"),
 				collectionId: EntityId.make("missing-id"),
 			}),
 		);
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Collection not found" })));
-	}).pipe(Effect.provide(layer));
+	});
 });
 
 it.effect("returns not found when entity does not exist", () => {
@@ -316,21 +360,20 @@ it.effect("returns not found when entity does not exist", () => {
 	});
 
 	return Effect.gen(function* () {
-		const service = yield* CollectionsService;
 		const exit = yield* Effect.exit(
-			service.addToCollection(user, {
+			runAddWorkflow({
+				layer,
 				entityId: EntityId.make("missing-id"),
 				collectionId: EntityId.make("coll-id"),
 			}),
 		);
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity not found" })));
-	}).pipe(Effect.provide(layer));
+	});
 });
 
-it.effect("creates membership event only on first add, not on upsert", () => {
-	let queuedEventCount = 0;
-	let capturedExecutionId: string | undefined;
+it.effect("dispatches EventCreateWorkflow only on first add, not on upsert", () => {
+	const dispatches: CapturedDispatch[] = [];
 
 	const membership = {
 		createdAt: now,
@@ -341,16 +384,8 @@ it.effect("creates membership event only on first add, not on upsert", () => {
 		sourceEntityId: EntityId.make("entity-id"),
 		relationshipSchemaId: RelationshipSchemaId.make("member-of-schema-id"),
 	};
-	const eventsService = makeEventsService({
-		create: (input) => {
-			queuedEventCount++;
-			capturedExecutionId = input.executionId;
-			return Effect.succeed({ count: 1 });
-		},
-	});
 
 	const layer = makeServiceLayer({
-		eventsService,
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
 				Effect.succeed({
@@ -376,19 +411,20 @@ it.effect("creates membership event only on first add, not on upsert", () => {
 	});
 
 	return Effect.gen(function* () {
-		const service = yield* CollectionsService;
-		yield* service.addToCollection(user, {
+		yield* runAddWorkflow({
+			layer,
+			dispatches,
 			entityId: EntityId.make("entity-id"),
 			collectionId: EntityId.make("coll-id"),
 		});
 
-		expect(queuedEventCount).toBe(1);
-		expect(capturedExecutionId).toBe("collection-membership-added-rel-id");
-	}).pipe(Effect.provide(layer));
+		expect(dispatches).toHaveLength(1);
+		expect(dispatches[0]?.executionId).toBe("collection-membership-added-rel-id");
+	});
 });
 
-it.effect("does not create membership event on upsert update", () => {
-	let queuedEventCount = 0;
+it.effect("does not dispatch EventCreateWorkflow on upsert update", () => {
+	const dispatches: CapturedDispatch[] = [];
 
 	const membership = {
 		createdAt: now,
@@ -399,15 +435,8 @@ it.effect("does not create membership event on upsert update", () => {
 		sourceEntityId: EntityId.make("entity-id"),
 		relationshipSchemaId: RelationshipSchemaId.make("member-of-schema-id"),
 	};
-	const eventsService = makeEventsService({
-		create: () => {
-			queuedEventCount++;
-			return Effect.succeed({ count: 1 });
-		},
-	});
 
 	const layer = makeServiceLayer({
-		eventsService,
 		relationshipsRepository: makeRelationshipsRepository({
 			saveRelationship: () => Effect.succeed(membership),
 		}),
@@ -433,14 +462,15 @@ it.effect("does not create membership event on upsert update", () => {
 	});
 
 	return Effect.gen(function* () {
-		const service = yield* CollectionsService;
-		yield* service.addToCollection(user, {
+		yield* runAddWorkflow({
+			layer,
+			dispatches,
 			entityId: EntityId.make("entity-id"),
 			collectionId: EntityId.make("coll-id"),
 		});
 
-		expect(queuedEventCount).toBe(0);
-	}).pipe(Effect.provide(layer));
+		expect(dispatches).toHaveLength(0);
+	});
 });
 
 it.effect("returns not found when removing entity not in collection", () => {
