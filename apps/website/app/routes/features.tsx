@@ -19,7 +19,7 @@ import {
 	Target,
 	Users,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
@@ -38,6 +38,16 @@ export const meta = () => {
 };
 
 export default function Page() {
+	const { data: configData } = useConfigData();
+
+	useEffect(() => {
+		if (configData)
+			initializePaddleForApplication(
+				configData.clientToken,
+				configData.isSandbox,
+			);
+	}, [configData]);
+
 	return (
 		<div className="min-h-screen">
 			<section className="py-20 lg:py-32">
