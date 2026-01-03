@@ -24,13 +24,12 @@ const seededExerciseName = "3/4 Sit-Up";
 const seededExerciseImageUrl =
 	"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/3_4_Sit-Up/0.jpg";
 
-const waitForSeededExercise = async (client: Client, cookies: string) => {
+const waitForSeededExercise = async (client: Client) => {
 	return pollUntil(
 		`exercise '${seededExerciseName}' to be queryable`,
 		async () => {
 			const { data } = await executeQueryEngine(
 				client,
-				cookies,
 				buildGridRequest({
 					scope: ["exercise"],
 					pagination: { page: 1, limit: 1 },
@@ -58,9 +57,9 @@ const waitForSeededExercise = async (client: Client, cookies: string) => {
 
 describe("Exercises E2E", () => {
 	it("links the built-in exercise schema to the fitness tracker", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const fitnessTracker = await findBuiltinTrackerBySlug(client, cookies, "fitness");
-		const schemas = await listEntitySchemas(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const fitnessTracker = await findBuiltinTrackerBySlug(client, "fitness");
+		const schemas = await listEntitySchemas(client, {
 			trackerId: fitnessTracker.id,
 		});
 		const exerciseSchema = schemas.find((schema) => schema.slug === "exercise");
@@ -91,9 +90,9 @@ describe("Exercises E2E", () => {
 	});
 
 	it("creates the built-in All Exercises saved view with exercise defaults", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const fitnessTracker = await findBuiltinTrackerBySlug(client, cookies, "fitness");
-		const views = await listSavedViews(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const fitnessTracker = await findBuiltinTrackerBySlug(client, "fitness");
+		const views = await listSavedViews(client, {
 			trackerId: fitnessTracker.id,
 		});
 		const allExercisesView = views.find((view) => view.name === "All Exercises");
@@ -174,8 +173,8 @@ describe("Exercises E2E", () => {
 	});
 
 	it("lists seeded built-in exercises through the query engine", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const exercise = await waitForSeededExercise(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const exercise = await waitForSeededExercise(client);
 
 		expect(getQueryEngineFieldOrThrow(exercise, "title")).toEqual({
 			key: "title",

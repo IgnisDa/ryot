@@ -23,7 +23,6 @@ export interface CreateEntitySchemaOptions {
 
 export async function createEntitySchema(
 	client: Client,
-	cookies: string,
 	options: CreateEntitySchemaOptions,
 ) {
 	const {
@@ -49,7 +48,6 @@ export async function createEntitySchema(
 					propertiesSchema,
 				},
 			}),
-		{ Cookie: cookies },
 	);
 
 	return {
@@ -61,31 +59,30 @@ export async function createEntitySchema(
 
 export async function listEntitySchemas(
 	client: Client,
-	cookies: string,
 	options: { slugs?: string[]; trackerId?: string },
 ) {
-	return client.run((c) => c.entitySchemas.list({ payload: options }), { Cookie: cookies });
+	return client.run((c) => c.entitySchemas.list({ payload: options }));
 }
 
-export async function getEntitySchema(client: Client, cookies: string, entitySchemaId: string) {
-	return client.run((c) => c.entitySchemas.get({ path: { entitySchemaId } }), { Cookie: cookies });
+export async function getEntitySchema(client: Client, entitySchemaId: string) {
+	return client.run((c) => c.entitySchemas.get({ path: { entitySchemaId } }));
 }
 
-export async function findBuiltinEntitySchema(client: Client, cookies: string) {
-	const { schemas, builtinTracker } = await listBuiltinEntitySchemas(client, cookies);
+export async function findBuiltinEntitySchema(client: Client) {
+	const { schemas, builtinTracker } = await listBuiltinEntitySchemas(client);
 	const firstSchema = schemas[0];
 
 	return { builtinTracker, schema: requirePresent(firstSchema, "No built-in entity schema found") };
 }
 
-export async function findBuiltinSchemaBySlug(client: Client, cookies: string, slug: string) {
-	const trackers = await listTrackers(client, cookies, {
+export async function findBuiltinSchemaBySlug(client: Client, slug: string) {
+	const trackers = await listTrackers(client, {
 		includeDisabled: true,
 	});
 	const builtinTrackers = trackers.filter((tracker) => tracker.isBuiltin);
 	const schemasByTracker = await Promise.all(
 		builtinTrackers.map(async (builtinTracker) => {
-			const schemas = await listEntitySchemas(client, cookies, {
+			const schemas = await listEntitySchemas(client, {
 				slugs: [slug],
 				trackerId: builtinTracker.id,
 			});
@@ -103,30 +100,27 @@ export async function findBuiltinSchemaBySlug(client: Client, cookies: string, s
 	throw new Error(`Built-in entity schema '${slug}' not found`);
 }
 
-export async function listBuiltinEntitySchemas(client: Client, cookies: string) {
-	const trackers = await listTrackers(client, cookies, {
+export async function listBuiltinEntitySchemas(client: Client) {
+	const trackers = await listTrackers(client, {
 		includeDisabled: true,
 	});
 	const builtinTracker = trackers.find((tracker) => tracker.isBuiltin);
 	assertPresent(builtinTracker, "Built-in tracker not found");
-	const schemas = await listEntitySchemas(client, cookies, {
+	const schemas = await listEntitySchemas(client, {
 		trackerId: builtinTracker.id,
 	});
 	return { schemas, builtinTracker };
 }
 
-export async function findBuiltinSchemaWithProviders(client: Client, cookies: string) {
-	return findBuiltinSchemaBySlug(client, cookies, "book");
+export async function findBuiltinSchemaWithProviders(client: Client) {
+	return findBuiltinSchemaBySlug(client, "book");
 }
 
 export async function enqueueEntitySearch(
 	client: Client,
-	cookies: string,
 	body: EnqueueEntitySearchBody,
 ) {
-	const result = await client.run((c) => c.entitySchemas.search({ payload: body }), {
-		Cookie: cookies,
-	});
+	const result = await client.run((c) => c.entitySchemas.search({ payload: body }));
 
 	return {
 		jobId: requirePresent(result.jobId, "Failed to enqueue entity search"),
@@ -135,16 +129,13 @@ export async function enqueueEntitySearch(
 
 export async function pollEntitySearchResult(
 	client: Client,
-	cookies: string,
 	jobId: string,
 	options: PollOptions = {},
 ) {
 	return pollUntil(
 		`entity search job '${jobId}'`,
 		async () => {
-			const result = await client.run((c) => c.entitySchemas.getSearchResult({ path: { jobId } }), {
-				Cookie: cookies,
-			});
+			const result = await client.run((c) => c.entitySchemas.getSearchResult({ path: { jobId } }));
 			return result.status !== "pending" ? result : null;
 		},
 		options,
@@ -153,12 +144,9 @@ export async function pollEntitySearchResult(
 
 export async function enqueueEntityImport(
 	client: Client,
-	cookies: string,
 	body: EnqueueEntityImportBody,
 ) {
-	const result = await client.run((c) => c.entities.import({ payload: body }), {
-		Cookie: cookies,
-	});
+	const result = await client.run((c) => c.entities.import({ payload: body }));
 
 	return {
 		jobId: requirePresent(result.jobId, "Failed to enqueue entity import"),
@@ -167,16 +155,13 @@ export async function enqueueEntityImport(
 
 export async function pollEntityImportResult(
 	client: Client,
-	cookies: string,
 	jobId: string,
 	options: PollOptions = {},
 ) {
 	return pollUntil(
 		`entity import job '${jobId}'`,
 		async () => {
-			const result = await client.run((c) => c.entities.getImportResult({ path: { jobId } }), {
-				Cookie: cookies,
-			});
+			const result = await client.run((c) => c.entities.getImportResult({ path: { jobId } }));
 			return result.status !== "pending" ? result : null;
 		},
 		options,
@@ -192,11 +177,10 @@ export function getFirstProviderScriptId(schema: {
 
 export async function createTrackerWithSchema(
 	client: Client,
-	cookies: string,
 	options: Partial<Omit<CreateEntitySchemaOptions, "trackerId">> = {},
 ) {
-	const { trackerId } = await createTracker(client, cookies);
-	const { schemaId } = await createEntitySchema(client, cookies, {
+	const { trackerId } = await createTracker(client);
+	const { schemaId } = await createEntitySchema(client, {
 		...options,
 		trackerId,
 	});

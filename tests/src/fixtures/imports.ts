@@ -30,28 +30,24 @@ export async function uploadTemporaryFile(
 
 export async function startOpenScaleImport(
 	client: Client,
-	cookies: string,
 	uploadToken: string,
 ): Promise<string> {
 	const result = await client.run(
 		(c) => c.imports.createRun({ payload: { source: "open_scale", uploadToken } }),
-		{ Cookie: cookies },
 	);
 
 	return requirePresent(result.id, "Import run id is missing");
 }
 
-export async function getImportRun(client: Client, cookies: string, runId: string) {
-	return client.run((c) => c.imports.getRun({ path: { runId }, urlParams: {} }), {
-		Cookie: cookies,
-	});
+export async function getImportRun(client: Client, runId: string) {
+	return client.run((c) => c.imports.getRun({ path: { runId }, urlParams: {} }));
 }
 
-export async function pollImportRunUntilTerminal(client: Client, cookies: string, runId: string) {
+export async function pollImportRunUntilTerminal(client: Client, runId: string) {
 	return pollUntil(
 		`Import run '${runId}' to complete`,
 		async () => {
-			const run = await getImportRun(client, cookies, runId);
+			const run = await getImportRun(client, runId);
 			if (run.status === "completed" || run.status === "failed") {
 				return run;
 			}
@@ -69,8 +65,8 @@ export async function runOpenScaleImportFixture(client: Client, cookies: string)
 		"text/csv",
 	);
 
-	const runId = await startOpenScaleImport(client, cookies, uploadToken);
-	const completedRun = await pollImportRunUntilTerminal(client, cookies, runId);
+	const runId = await startOpenScaleImport(client, uploadToken);
+	const completedRun = await pollImportRunUntilTerminal(client, runId);
 	return { runId, completedRun };
 }
 
@@ -90,10 +86,9 @@ export async function runHevyImportFixture(client: Client, cookies: string) {
 
 	const result = await client.run(
 		(c) => c.imports.createRun({ payload: { source: "hevy", uploadToken } }),
-		{ Cookie: cookies },
 	);
 	const runId = requirePresent(result.id, "Import run id is missing");
 
-	const completedRun = await pollImportRunUntilTerminal(client, cookies, runId);
+	const completedRun = await pollImportRunUntilTerminal(client, runId);
 	return { runId, completedRun };
 }

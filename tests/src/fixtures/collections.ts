@@ -10,7 +10,6 @@ export interface CreateCollectionOptions {
 
 export async function createCollection(
 	client: Client,
-	cookies: string,
 	options: CreateCollectionOptions = {},
 ) {
 	const {
@@ -28,7 +27,6 @@ export async function createCollection(
 					...(membershipPropertiesSchema && { membershipPropertiesSchema }),
 				},
 			}),
-		{ Cookie: cookies },
 	);
 
 	requirePresent(collection.id, `Failed to create collection '${name}'`);
