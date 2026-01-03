@@ -201,15 +201,3 @@ export const nullViewExpression = {
 	type: "literal",
 	value: null,
 } satisfies ViewExpression;
-
-export const stringifyRuntimeReference = (reference: RuntimeRef) => {
-	return reference.type === "entity-column"
-		? `entity.${reference.slug}.@${reference.column}`
-		: reference.type === "schema-property"
-			? `entity.${reference.slug}.${reference.property}`
-			: reference.type === "event-join-column"
-				? `event.${reference.joinKey}.@${reference.column}`
-				: reference.type === "event-join-property"
-					? `event.${reference.joinKey}.${reference.property}`
-					: `computed.${reference.key}`;
-};

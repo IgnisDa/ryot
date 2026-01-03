@@ -26,14 +26,12 @@ const eventJoinKeySchema = nonEmptyTrimmedStringSchema.regex(
 	"Event join keys must start with a letter or underscore and contain only letters, numbers, and underscores",
 );
 
-const displayExpressionSchema = nullableViewExpressionSchema;
-
 const createEntityCardDisplayConfigSchema = () =>
 	z.object({
-		imageProperty: displayExpressionSchema,
-		titleProperty: displayExpressionSchema,
-		badgeProperty: displayExpressionSchema,
-		subtitleProperty: displayExpressionSchema,
+		imageProperty: nullableViewExpressionSchema,
+		titleProperty: nullableViewExpressionSchema,
+		badgeProperty: nullableViewExpressionSchema,
+		subtitleProperty: nullableViewExpressionSchema,
 	});
 
 export const sortDefinitionSchema = z.object({
@@ -133,20 +131,14 @@ const savedViewMutableFields = {
 
 export const createSavedViewBody = z.object(savedViewMutableFields);
 
-const savedViewResponseSchema = itemDataSchema(listedSavedViewSchema);
-
-export const createSavedViewResponseSchema = savedViewResponseSchema;
+export const savedViewResponseSchema = itemDataSchema(listedSavedViewSchema);
 
 export const savedViewParams = createIdParamsSchema("viewId");
-
-export const deleteSavedViewParams = savedViewParams;
 
 export const updateSavedViewBody = z.object({
 	isDisabled: z.boolean(),
 	...savedViewMutableFields,
 });
-
-export const updateSavedViewResponseSchema = savedViewResponseSchema;
 
 export const reorderSavedViewsBody = z.object({
 	trackerId: nonEmptyTrimmedStringSchema.optional(),

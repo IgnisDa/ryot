@@ -1,5 +1,4 @@
 import { match } from "ts-pattern";
-import type { AppEntityImage } from "#/features/entities/model";
 import type {
 	ApiGetResponseData,
 	ApiPostRequestBody,
@@ -33,6 +32,25 @@ const entityColumnExpression = (
 	reference: { type: "entity-column", slug: schemaSlug, column },
 });
 
+const createRuntimeField = (key: string, expression: ViewExpression) => ({
+	key,
+	expression,
+});
+
+const buildCardFields = (input: {
+	image: ViewExpression | null;
+	title: ViewExpression | null;
+	badge: ViewExpression | null;
+	subtitle: ViewExpression | null;
+}) => {
+	return [
+		createRuntimeField("image", input.image ?? nullExpression),
+		createRuntimeField("title", input.title ?? nullExpression),
+		createRuntimeField("subtitle", input.subtitle ?? nullExpression),
+		createRuntimeField("badge", input.badge ?? nullExpression),
+	];
+};
+
 export function createViewRuntimeRequest(input: {
 	page: number;
 	limit: number;
@@ -40,82 +58,38 @@ export function createViewRuntimeRequest(input: {
 	layout: ViewLayout;
 }): ViewRuntimeRequest {
 	const base = {
+		filter: input.view.queryDefinition.filter ?? null,
 		sort: input.view.queryDefinition.sort,
 		eventJoins: input.view.queryDefinition.eventJoins,
 		pagination: { page: input.page, limit: input.limit },
 		computedFields: input.view.queryDefinition.computedFields,
 		entitySchemaSlugs: input.view.queryDefinition.entitySchemaSlugs,
-		...(input.view.queryDefinition.filter
-			? { filter: input.view.queryDefinition.filter }
-			: {}),
 	};
 
 	return match(input.layout)
 		.with("grid", () => ({
 			...base,
-			fields: [
-				{
-					key: "image",
-					expression:
-						input.view.displayConfiguration.grid.imageProperty ??
-						nullExpression,
-				},
-				{
-					key: "title",
-					expression:
-						input.view.displayConfiguration.grid.titleProperty ??
-						nullExpression,
-				},
-				{
-					key: "subtitle",
-					expression:
-						input.view.displayConfiguration.grid.subtitleProperty ??
-						nullExpression,
-				},
-				{
-					key: "badge",
-					expression:
-						input.view.displayConfiguration.grid.badgeProperty ??
-						nullExpression,
-				},
-			],
+			fields: buildCardFields({
+				image: input.view.displayConfiguration.grid.imageProperty,
+				title: input.view.displayConfiguration.grid.titleProperty,
+				badge: input.view.displayConfiguration.grid.badgeProperty,
+				subtitle: input.view.displayConfiguration.grid.subtitleProperty,
+			}),
 		}))
 		.with("list", () => ({
 			...base,
-			fields: [
-				{
-					key: "image",
-					expression:
-						input.view.displayConfiguration.list.imageProperty ??
-						nullExpression,
-				},
-				{
-					key: "title",
-					expression:
-						input.view.displayConfiguration.list.titleProperty ??
-						nullExpression,
-				},
-				{
-					key: "subtitle",
-					expression:
-						input.view.displayConfiguration.list.subtitleProperty ??
-						nullExpression,
-				},
-				{
-					key: "badge",
-					expression:
-						input.view.displayConfiguration.list.badgeProperty ??
-						nullExpression,
-				},
-			],
+			fields: buildCardFields({
+				image: input.view.displayConfiguration.list.imageProperty,
+				title: input.view.displayConfiguration.list.titleProperty,
+				badge: input.view.displayConfiguration.list.badgeProperty,
+				subtitle: input.view.displayConfiguration.list.subtitleProperty,
+			}),
 		}))
 		.with("table", () => ({
 			...base,
 			fields: input.view.displayConfiguration.table.columns.map(
-				(column, index) => ({
-					key: `column_${index}`,
-					expression: column.expression,
-				}),
+				(column, index) =>
+					createRuntimeField(`column_${index}`, column.expression),
 			),
 		}))
 		.exhaustive();
@@ -123,6 +97,7 @@ export function createViewRuntimeRequest(input: {
 
 export function createDisabledViewRuntimeRequest(): ViewRuntimeRequest {
 	return {
+		filter: null,
 		eventJoins: [],
 		computedFields: [],
 		entitySchemaSlugs: ["book"],
@@ -131,12 +106,12 @@ export function createDisabledViewRuntimeRequest(): ViewRuntimeRequest {
 			direction: "asc",
 			expression: entityColumnExpression("book", "name"),
 		},
-		fields: [
-			{ key: "image", expression: entityColumnExpression("book", "image") },
-			{ key: "title", expression: entityColumnExpression("book", "name") },
-			{ key: "subtitle", expression: nullExpression },
-			{ key: "badge", expression: nullExpression },
-		],
+		fields: buildCardFields({
+			badge: null,
+			subtitle: null,
+			title: entityColumnExpression("book", "name"),
+			image: entityColumnExpression("book", "image"),
+		}),
 	};
 }
 
@@ -159,22 +134,6 @@ export function isRuntimeField(value: unknown): value is RuntimeField {
 	return (
 		!!value && typeof value === "object" && "kind" in value && "value" in value
 	);
-}
-
-export function toImageValue(value: unknown): AppEntityImage {
-	if (!value || typeof value !== "object") {
-		return null;
-	}
-
-	const parsed = value as { kind?: string; key?: string; url?: string };
-	if (parsed.kind === "remote" && parsed.url) {
-		return { kind: "remote", url: parsed.url };
-	}
-	if (parsed.kind === "s3" && parsed.key) {
-		return { kind: "s3", key: parsed.key };
-	}
-
-	return null;
 }
 
 export function formatRuntimeValue(value: unknown) {

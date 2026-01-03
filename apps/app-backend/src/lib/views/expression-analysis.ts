@@ -1,5 +1,6 @@
 import type { AppPropertyDefinition } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
+import { getComputedFieldOrThrow } from "./computed-fields";
 import { ViewRuntimeValidationError } from "./errors";
 import type { ViewComputedField, ViewExpression } from "./expression";
 import { supportsComparableFilter, supportsContainsFilter } from "./policy";
@@ -292,12 +293,10 @@ export const inferViewExpressionType = <
 			return cached;
 		}
 
-		const computedField = computedFieldMap.get(reference.key);
-		if (!computedField) {
-			throw new ViewRuntimeValidationError(
-				`Computed field '${reference.key}' is not part of this runtime request`,
-			);
-		}
+		const computedField = getComputedFieldOrThrow(
+			computedFieldMap,
+			reference.key,
+		);
 
 		const inferred = inferViewExpressionType({
 			typeCache,

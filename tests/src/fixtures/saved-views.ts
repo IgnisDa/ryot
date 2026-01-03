@@ -1,5 +1,14 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 import type { Client } from "./auth";
+import {
+	type ExpressionInput,
+	entityField,
+	type LegacyFilter,
+	type LegacySort,
+	toFilterPredicate,
+	toRequiredExpression,
+	type ViewPredicate,
+} from "./view-language";
 
 type CreateSavedViewBody = NonNullable<
 	paths["/saved-views"]["post"]["requestBody"]
@@ -10,41 +19,14 @@ type UpdateSavedViewBody = NonNullable<
 type ReorderSavedViewsBody = NonNullable<
 	paths["/saved-views/reorder"]["post"]["requestBody"]
 >["content"]["application/json"];
-type ViewExpression =
-	CreateSavedViewBody["queryDefinition"]["sort"]["expression"];
-type ViewPredicate = NonNullable<
-	CreateSavedViewBody["queryDefinition"]["filter"]
->;
-type RuntimeRef = Extract<ViewExpression, { type: "reference" }>["reference"];
-
-type LegacyFilter = {
-	op:
-		| "eq"
-		| "neq"
-		| "gt"
-		| "gte"
-		| "lt"
-		| "lte"
-		| "in"
-		| "contains"
-		| "isNull"
-		| "isNotNull";
-	field: string;
-	value?: unknown;
-};
-
-type LegacySort = {
-	direction: "asc" | "desc";
-	fields: string[];
-};
-
-type ExpressionInput = ViewExpression | string[];
+type QueryDefinition = CreateSavedViewBody["queryDefinition"];
+type DisplayConfiguration = CreateSavedViewBody["displayConfiguration"];
 
 type CreateSavedViewInput = Partial<
 	Omit<CreateSavedViewBody, "displayConfiguration" | "queryDefinition">
 > & {
 	displayConfiguration?: DisplayConfigurationInput;
-	queryDefinition?: unknown;
+	queryDefinition?: QueryDefinition | LegacyQueryDefinition;
 };
 
 type UpdateSavedViewInput = Partial<
@@ -52,36 +34,28 @@ type UpdateSavedViewInput = Partial<
 > & {
 	displayConfiguration?: DisplayConfigurationInput;
 	queryDefinition?:
-		| NormalizedQueryDefinition
+		| QueryDefinition
 		| LegacyQueryDefinition
 		| UpdateSavedViewBody["queryDefinition"];
 };
 
 type LegacyQueryDefinition = {
-	entitySchemaSlugs: string[];
-	eventJoins?: unknown[];
-	computedFields?: unknown[];
 	sort: LegacySort;
 	filters?: LegacyFilter[];
 	filter?: ViewPredicate | null;
+	eventJoins?: QueryDefinition["eventJoins"];
+	computedFields?: QueryDefinition["computedFields"];
+	entitySchemaSlugs: QueryDefinition["entitySchemaSlugs"];
 };
 
-type NormalizedQueryDefinition = {
-	filter: ViewPredicate | null;
-	eventJoins: unknown[];
-	computedFields: unknown[];
-	entitySchemaSlugs: string[];
-	sort: { direction: "asc" | "desc"; expression: ViewExpression };
+type DisplayColumnInput = {
+	label: string;
+	property?: string[];
+	expression?: ExpressionInput;
 };
 
 type DisplayConfigurationInput = {
-	table: {
-		columns: Array<{
-			label: string;
-			property?: string[];
-			expression?: ExpressionInput;
-		}>;
-	};
+	table: { columns: DisplayColumnInput[] };
 	grid: {
 		badgeProperty: ExpressionInput | null;
 		titleProperty: ExpressionInput | null;
@@ -96,187 +70,37 @@ type DisplayConfigurationInput = {
 	};
 };
 
-const entityField = (schemaSlug: string, property: string) => {
-	if (
-		property === "name" ||
-		property === "image" ||
-		property === "createdAt" ||
-		property === "updatedAt" ||
-		property.startsWith("@")
-	) {
-		return `entity.${schemaSlug}.${property.startsWith("@") ? property : `@${property}`}`;
-	}
-
-	return `entity.${schemaSlug}.${property}`;
-};
-
-const literalExpression = (value: unknown | null): ViewExpression => ({
-	type: "literal",
-	value,
-});
-
-const parseReference = (reference: string): RuntimeRef => {
-	const [namespace, segment, tail, ...rest] = reference.split(".");
-	if (namespace === "computed") {
-		if (!segment || tail || rest.length > 0) {
-			throw new Error(`Invalid saved view reference '${reference}'`);
-		}
-
-		return { type: "computed-field", key: segment };
-	}
-
-	if (namespace === "event") {
-		if (!segment || !tail || rest.length > 0) {
-			throw new Error(`Invalid saved view reference '${reference}'`);
-		}
-
-		return tail.startsWith("@")
-			? { type: "event-join-column", joinKey: segment, column: tail.slice(1) }
-			: { type: "event-join-property", joinKey: segment, property: tail };
-	}
-
-	if (namespace !== "entity" || !segment || !tail || rest.length > 0) {
-		throw new Error(`Invalid saved view reference '${reference}'`);
-	}
-
-	return tail.startsWith("@")
-		? { type: "entity-column", slug: segment, column: tail.slice(1) }
-		: { type: "schema-property", slug: segment, property: tail };
-};
-
-const toExpression = (input: ExpressionInput | null): ViewExpression | null => {
-	if (input === null) {
-		return null;
-	}
-
-	if (!Array.isArray(input)) {
-		return input;
-	}
-
-	if (!input.length) {
-		return literalExpression(null);
-	}
-
-	const values = input.map((reference) => ({
-		type: "reference" as const,
-		reference: parseReference(reference),
-	}));
-
-	return values.length === 1
-		? (values[0] ?? literalExpression(null))
-		: { type: "coalesce", values };
-};
-
-const toPredicate = (filter: LegacyFilter): ViewPredicate => {
-	const expression = toExpression([filter.field]) ?? literalExpression(null);
-	if (filter.op === "isNull") {
-		return { type: "isNull", expression };
-	}
-
-	if (filter.op === "isNotNull") {
-		return { type: "isNotNull", expression };
-	}
-
-	if (filter.op === "contains") {
-		return {
-			type: "contains",
-			expression,
-			value: literalExpression(filter.value ?? null),
-		};
-	}
-
-	if (filter.op === "in") {
-		return {
-			type: "in",
-			expression,
-			values: Array.isArray(filter.value)
-				? filter.value.map((value) => literalExpression(value))
-				: [literalExpression(filter.value ?? null)],
-		};
-	}
-
-	return {
-		type: "comparison",
-		left: expression,
-		right: literalExpression(filter.value ?? null),
-		operator: filter.op,
-	};
-};
-
-const getFilterGroupKey = (filter: LegacyFilter) => {
-	const reference = parseReference(filter.field);
-	return reference.type === "entity-column" ||
-		reference.type === "schema-property"
-		? reference.slug
-		: `${reference.type}:${JSON.stringify(reference)}`;
-};
-
-const combinePredicates = (predicates: ViewPredicate[], type: "and" | "or") => {
-	if (!predicates.length) {
-		return null;
-	}
-
-	if (predicates.length === 1) {
-		return predicates[0] ?? null;
-	}
-
-	return { type, predicates } satisfies ViewPredicate;
-};
-
-const toFilterPredicate = (
-	filters?: LegacyFilter[],
-	filter?: ViewPredicate | null,
-) => {
-	if (filter !== undefined) {
-		return filter;
-	}
-
-	if (!filters?.length) {
-		return null;
-	}
-
-	const grouped = new Map<string, ViewPredicate[]>();
-	for (const entry of filters) {
-		const key = getFilterGroupKey(entry);
-		const existing = grouped.get(key) ?? [];
-		existing.push(toPredicate(entry));
-		grouped.set(key, existing);
-	}
-
-	const groupedPredicates = Array.from(grouped.values())
-		.map((predicates) => combinePredicates(predicates, "and"))
-		.filter((predicate): predicate is ViewPredicate => predicate !== null);
-
-	return combinePredicates(groupedPredicates, "or");
-};
-
 const isNormalizedQueryDefinition = (
-	input: unknown,
-): input is NormalizedQueryDefinition => {
+	input: QueryDefinition | LegacyQueryDefinition,
+): input is QueryDefinition => {
 	if (!input || typeof input !== "object") {
 		return false;
 	}
 
-	const value = input as { filter?: unknown; sort?: { expression?: unknown } };
-	return "filter" in value && Boolean(value.sort?.expression);
+	return (
+		"filter" in input &&
+		"sort" in input &&
+		!!input.sort &&
+		typeof input.sort === "object" &&
+		"expression" in input.sort
+	);
 };
 
 const normalizeQueryDefinition = (
-	input: unknown,
-): NormalizedQueryDefinition => {
+	input: QueryDefinition | LegacyQueryDefinition,
+): QueryDefinition => {
 	if (isNormalizedQueryDefinition(input)) {
 		return input;
 	}
 
-	const legacy = input as LegacyQueryDefinition;
 	return {
-		computedFields: legacy.computedFields ?? [],
-		eventJoins: legacy.eventJoins ?? [],
-		entitySchemaSlugs: legacy.entitySchemaSlugs,
-		filter: toFilterPredicate(legacy.filters, legacy.filter),
+		eventJoins: input.eventJoins ?? [],
+		entitySchemaSlugs: input.entitySchemaSlugs,
+		computedFields: input.computedFields ?? [],
+		filter: toFilterPredicate(input.filters, input.filter),
 		sort: {
-			direction: legacy.sort.direction,
-			expression: toExpression(legacy.sort.fields) ?? literalExpression(null),
+			direction: input.sort.direction,
+			expression: toRequiredExpression(input.sort.fields),
 		},
 	};
 };
@@ -284,55 +108,61 @@ const normalizeQueryDefinition = (
 const normalizeDisplayConfiguration = (
 	input: DisplayConfigurationInput,
 	allowNulls = true,
-): CreateSavedViewBody["displayConfiguration"] =>
-	({
-		grid: {
-			badgeProperty:
-				toExpression(input.grid.badgeProperty) ??
-				(allowNulls ? null : literalExpression(null)),
-			titleProperty:
-				toExpression(input.grid.titleProperty) ??
-				(allowNulls ? null : literalExpression(null)),
-			imageProperty:
-				toExpression(input.grid.imageProperty) ??
-				(allowNulls ? null : literalExpression(null)),
-			subtitleProperty:
-				toExpression(input.grid.subtitleProperty) ??
-				(allowNulls ? null : literalExpression(null)),
-		},
-		list: {
-			badgeProperty:
-				toExpression(input.list.badgeProperty) ??
-				(allowNulls ? null : literalExpression(null)),
-			titleProperty:
-				toExpression(input.list.titleProperty) ??
-				(allowNulls ? null : literalExpression(null)),
-			imageProperty:
-				toExpression(input.list.imageProperty) ??
-				(allowNulls ? null : literalExpression(null)),
-			subtitleProperty:
-				toExpression(input.list.subtitleProperty) ??
-				(allowNulls ? null : literalExpression(null)),
-		},
-		table: {
-			columns: input.table.columns.map((column) => ({
-				label: column.label,
-				expression:
-					toExpression(column.expression ?? column.property ?? []) ??
-					literalExpression(null),
-			})),
-		},
-	}) as unknown as CreateSavedViewBody["displayConfiguration"];
+): DisplayConfiguration => ({
+	grid: {
+		badgeProperty:
+			(input.grid.badgeProperty === null && allowNulls
+				? null
+				: toRequiredExpression(input.grid.badgeProperty)) ?? null,
+		titleProperty:
+			(input.grid.titleProperty === null && allowNulls
+				? null
+				: toRequiredExpression(input.grid.titleProperty)) ?? null,
+		imageProperty:
+			(input.grid.imageProperty === null && allowNulls
+				? null
+				: toRequiredExpression(input.grid.imageProperty)) ?? null,
+		subtitleProperty:
+			(input.grid.subtitleProperty === null && allowNulls
+				? null
+				: toRequiredExpression(input.grid.subtitleProperty)) ?? null,
+	},
+	list: {
+		badgeProperty:
+			(input.list.badgeProperty === null && allowNulls
+				? null
+				: toRequiredExpression(input.list.badgeProperty)) ?? null,
+		titleProperty:
+			(input.list.titleProperty === null && allowNulls
+				? null
+				: toRequiredExpression(input.list.titleProperty)) ?? null,
+		imageProperty:
+			(input.list.imageProperty === null && allowNulls
+				? null
+				: toRequiredExpression(input.list.imageProperty)) ?? null,
+		subtitleProperty:
+			(input.list.subtitleProperty === null && allowNulls
+				? null
+				: toRequiredExpression(input.list.subtitleProperty)) ?? null,
+	},
+	table: {
+		columns: input.table.columns.map((column) => ({
+			label: column.label,
+			expression: toRequiredExpression(
+				column.expression ?? column.property ?? [],
+			),
+		})),
+	},
+});
 
-const defaultQueryDefinition: NormalizedQueryDefinition = {
+const defaultQueryDefinition: QueryDefinition = {
 	filter: null,
 	eventJoins: [],
 	computedFields: [],
 	entitySchemaSlugs: ["book"],
 	sort: {
 		direction: "asc",
-		expression:
-			toExpression([entityField("book", "name")]) ?? literalExpression(null),
+		expression: toRequiredExpression([entityField("book", "name")]),
 	},
 };
 
@@ -374,7 +204,7 @@ export function buildSavedViewBody(
 		displayConfiguration,
 		queryDefinition: normalizeQueryDefinition(
 			queryDefinition ?? defaultQueryDefinition,
-		) as unknown as CreateSavedViewBody["queryDefinition"],
+		),
 	};
 }
 
@@ -428,7 +258,7 @@ export function buildUpdatedSavedViewBody(
 					direction: "desc",
 				},
 			},
-		) as unknown as UpdateSavedViewBody["queryDefinition"],
+		),
 		displayConfiguration,
 	};
 }

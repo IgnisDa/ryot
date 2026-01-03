@@ -3,7 +3,7 @@ import {
 	createUpdatedAt,
 	withOverrides,
 } from "~/lib/test-fixtures/fixture-helpers";
-import type { ViewExpression } from "~/lib/views/expression";
+import { entityExpression } from "~/lib/test-fixtures/view-language";
 import type {
 	CreateSavedViewBody,
 	ListedSavedView,
@@ -12,18 +12,6 @@ import type {
 	UpdateSavedViewBody,
 } from "~/modules/saved-views/schemas";
 import type { SavedViewServiceDeps } from "~/modules/saved-views/service";
-
-const entityExpression = (
-	schemaSlug: string,
-	field: string,
-): ViewExpression => {
-	return {
-		type: "reference",
-		reference: field.startsWith("@")
-			? { type: "entity-column", slug: schemaSlug, column: field.slice(1) }
-			: { type: "schema-property", slug: schemaSlug, property: field },
-	};
-};
 
 const queryDefinitionDefaults: SavedViewQueryDefinition = {
 	filter: null,

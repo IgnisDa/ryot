@@ -13,23 +13,10 @@ import {
 	createRuntimeEntity,
 	createSingleSchemaRuntimeFixture,
 	createTracker,
+	entityField,
 	executeViewRuntime,
 } from "../fixtures";
 import { registerViewRuntimePresentationAndErrorTests } from "../test-support/view-runtime-suite";
-
-const entityField = (schemaSlug: string, property: string) => {
-	if (
-		property === "id" ||
-		property === "name" ||
-		property === "image" ||
-		property === "createdAt" ||
-		property === "updatedAt"
-	) {
-		return `entity.${schemaSlug}.@${property}`;
-	}
-
-	return `entity.${schemaSlug}.${property}`;
-};
 
 const getField = (
 	item:
@@ -47,6 +34,9 @@ const getField = (
 
 	return field;
 };
+
+const asRuntimeRequest = (input: Parameters<typeof executeViewRuntime>[2]) =>
+	input;
 
 describe("View runtime E2E", () => {
 	it("executes a simple single-schema query with the full response shape", async () => {
@@ -213,40 +203,47 @@ describe("View runtime E2E", () => {
 			reference: { type: "computed-field" as const, key: "label" },
 		};
 
-		const { data, response } = await executeViewRuntime(client, cookies, {
-			eventJoins: [],
-			entitySchemaSlugs: [schema.slug],
-			pagination: { page: 1, limit: 5 },
-			sort: { direction: "desc", expression: nextYearReference },
-			filter: {
-				operator: "gte",
-				type: "comparison",
-				left: nextYearReference,
-				right: { type: "literal", value: 2021 },
-			},
-			computedFields: [
-				{
-					key: "nextYear",
-					expression: {
-						operator: "add",
-						type: "arithmetic",
-						left: yearExpression,
-						right: { type: "literal", value: 1 },
-					},
+		const { data, response } = await executeViewRuntime(
+			client,
+			cookies,
+			asRuntimeRequest({
+				eventJoins: [],
+				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 5 },
+				sort: { direction: "desc", expression: nextYearReference },
+				filter: {
+					operator: "gte",
+					type: "comparison",
+					left: nextYearReference,
+					right: { type: "literal", value: 2021 },
 				},
-				{
-					key: "label",
-					expression: {
-						type: "concat",
-						values: [{ type: "literal", value: "Release " }, nextYearReference],
+				computedFields: [
+					{
+						key: "nextYear",
+						expression: {
+							operator: "add",
+							type: "arithmetic",
+							left: yearExpression,
+							right: { type: "literal", value: 1 },
+						},
 					},
-				},
-			],
-			fields: [
-				buildRuntimeField("label", labelReference),
-				buildRuntimeField("nextYear", nextYearReference),
-			],
-		} as unknown as Parameters<typeof executeViewRuntime>[2]);
+					{
+						key: "label",
+						expression: {
+							type: "concat",
+							values: [
+								{ type: "literal", value: "Release " },
+								nextYearReference,
+							],
+						},
+					},
+				],
+				fields: [
+					buildRuntimeField("label", labelReference),
+					buildRuntimeField("nextYear", nextYearReference),
+				],
+			}),
+		);
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items.map((item) => item.name)).toEqual([
@@ -269,7 +266,7 @@ describe("View runtime E2E", () => {
 		const missingComputedFieldResult = await executeViewRuntime(
 			client,
 			cookies,
-			{
+			asRuntimeRequest({
 				eventJoins: [],
 				computedFields: [],
 				entitySchemaSlugs: [schema.slug],
@@ -287,30 +284,34 @@ describe("View runtime E2E", () => {
 				},
 				filter: null,
 				fields: [buildRuntimeField("title", ["computed.missingLabel"])],
-			} as unknown as Parameters<typeof executeViewRuntime>[2],
+			}),
 		);
-		const cycleResult = await executeViewRuntime(client, cookies, {
-			eventJoins: [],
-			entitySchemaSlugs: [schema.slug],
-			pagination: { page: 1, limit: 5 },
-			sort: {
-				direction: "asc",
-				expression: {
-					type: "reference",
-					reference: {
-						column: "name",
-						slug: schema.slug,
-						type: "entity-column",
+		const cycleResult = await executeViewRuntime(
+			client,
+			cookies,
+			asRuntimeRequest({
+				eventJoins: [],
+				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 5 },
+				sort: {
+					direction: "asc",
+					expression: {
+						type: "reference",
+						reference: {
+							column: "name",
+							slug: schema.slug,
+							type: "entity-column",
+						},
 					},
 				},
-			},
-			filter: null,
-			computedFields: [
-				buildComputedField("first", ["computed.second"]),
-				buildComputedField("second", ["computed.first"]),
-			],
-			fields: [buildRuntimeField("title", ["computed.first"])],
-		} as unknown as Parameters<typeof executeViewRuntime>[2]);
+				filter: null,
+				computedFields: [
+					buildComputedField("first", ["computed.second"]),
+					buildComputedField("second", ["computed.first"]),
+				],
+				fields: [buildRuntimeField("title", ["computed.first"])],
+			}),
+		);
 
 		expect(missingComputedFieldResult.response.status).toBe(400);
 		expect(missingComputedFieldResult.error?.error?.message).toBe(
@@ -325,77 +326,89 @@ describe("View runtime E2E", () => {
 	it("rejects invalid computed field types and non-display image usage in raw runtime requests", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaRuntimeFixture();
-		const imageSortResult = await executeViewRuntime(client, cookies, {
-			filter: null,
-			eventJoins: [],
-			entitySchemaSlugs: [schema.slug],
-			pagination: { page: 1, limit: 5 },
-			sort: {
-				direction: "asc",
-				expression: {
-					type: "reference",
-					reference: { key: "cover", type: "computed-field" },
+		const imageSortResult = await executeViewRuntime(
+			client,
+			cookies,
+			asRuntimeRequest({
+				filter: null,
+				eventJoins: [],
+				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 5 },
+				sort: {
+					direction: "asc",
+					expression: {
+						type: "reference",
+						reference: { key: "cover", type: "computed-field" },
+					},
 				},
-			},
-			computedFields: [
-				{
-					key: "cover",
+				computedFields: [
+					{
+						key: "cover",
+						expression: {
+							type: "reference",
+							reference: {
+								column: "image",
+								slug: schema.slug,
+								type: "entity-column",
+							},
+						},
+					},
+				],
+				fields: [
+					buildRuntimeField("image", [entityField(schema.slug, "image")]),
+				],
+			}),
+		);
+		const mismatchedFilterResult = await executeViewRuntime(
+			client,
+			cookies,
+			asRuntimeRequest({
+				eventJoins: [],
+				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 5 },
+				sort: {
+					direction: "asc",
 					expression: {
 						type: "reference",
 						reference: {
-							column: "image",
+							column: "name",
 							slug: schema.slug,
 							type: "entity-column",
 						},
 					},
 				},
-			],
-			fields: [buildRuntimeField("image", [entityField(schema.slug, "image")])],
-		} as unknown as Parameters<typeof executeViewRuntime>[2]);
-		const mismatchedFilterResult = await executeViewRuntime(client, cookies, {
-			eventJoins: [],
-			entitySchemaSlugs: [schema.slug],
-			pagination: { page: 1, limit: 5 },
-			sort: {
-				direction: "asc",
-				expression: {
-					type: "reference",
-					reference: {
-						column: "name",
-						slug: schema.slug,
-						type: "entity-column",
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					right: { type: "literal", value: "2021" },
+					left: {
+						type: "reference",
+						reference: { type: "computed-field", key: "nextYear" },
 					},
 				},
-			},
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				right: { type: "literal", value: "2021" },
-				left: {
-					type: "reference",
-					reference: { type: "computed-field", key: "nextYear" },
-				},
-			},
-			computedFields: [
-				{
-					key: "nextYear",
-					expression: {
-						operator: "add",
-						type: "arithmetic",
-						right: { type: "literal", value: 1 },
-						left: {
-							type: "reference",
-							reference: {
-								property: "year",
-								slug: schema.slug,
-								type: "schema-property",
+				computedFields: [
+					{
+						key: "nextYear",
+						expression: {
+							operator: "add",
+							type: "arithmetic",
+							right: { type: "literal", value: 1 },
+							left: {
+								type: "reference",
+								reference: {
+									property: "year",
+									slug: schema.slug,
+									type: "schema-property",
+								},
 							},
 						},
 					},
-				},
-			],
-			fields: [buildRuntimeField("title", [entityField(schema.slug, "name")])],
-		} as unknown as Parameters<typeof executeViewRuntime>[2]);
+				],
+				fields: [
+					buildRuntimeField("title", [entityField(schema.slug, "name")]),
+				],
+			}),
+		);
 
 		expect(imageSortResult.response.status).toBe(400);
 		expect(imageSortResult.error?.error?.message).toBe(
@@ -435,74 +448,78 @@ describe("View runtime E2E", () => {
 			},
 		};
 
-		const { data, response } = await executeViewRuntime(client, cookies, {
-			eventJoins: [],
-			entitySchemaSlugs: [schema.slug],
-			pagination: { page: 1, limit: 1 },
-			sort: { direction: "asc", expression: nameExpression },
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				left: nameExpression,
-				right: { type: "literal", value: "Gamma Phone" },
-			},
-			computedFields: [
-				{
-					key: "nextYear",
-					expression: {
-						operator: "add",
-						type: "arithmetic",
-						left: yearExpression,
-						right: { type: "literal", value: 1 },
-					},
+		const { data, response } = await executeViewRuntime(
+			client,
+			cookies,
+			asRuntimeRequest({
+				eventJoins: [],
+				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 1 },
+				sort: { direction: "asc", expression: nameExpression },
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					left: nameExpression,
+					right: { type: "literal", value: "Gamma Phone" },
 				},
-			],
-			fields: [
-				buildRuntimeField("nextYear", ["computed.nextYear"]),
-				buildRuntimeField("rounded", {
-					type: "round",
-					expression: {
-						type: "arithmetic",
-						operator: "divide",
-						left: yearExpression,
-						right: { type: "literal", value: 3 },
+				computedFields: [
+					{
+						key: "nextYear",
+						expression: {
+							operator: "add",
+							type: "arithmetic",
+							left: yearExpression,
+							right: { type: "literal", value: 1 },
+						},
 					},
-				}),
-				buildRuntimeField("floored", {
-					type: "floor",
-					expression: {
-						type: "arithmetic",
-						operator: "divide",
-						left: yearExpression,
-						right: { type: "literal", value: 3 },
-					},
-				}),
-				buildRuntimeField("wholeYear", {
-					type: "integer",
-					expression: yearExpression,
-				}),
-				buildRuntimeField("label", {
-					type: "concat",
-					values: [
-						{ type: "literal", value: "Gamma / " },
-						categoryExpression,
-						{ type: "literal", value: " / " },
-						yearExpression,
-					],
-				}),
-				buildRuntimeField("badge", {
-					type: "conditional",
-					whenTrue: { type: "literal", value: "modern" },
-					whenFalse: { type: "literal", value: "classic" },
-					condition: {
-						operator: "gte",
-						type: "comparison",
-						left: yearExpression,
-						right: { type: "literal", value: 2020 },
-					},
-				}),
-			],
-		} as unknown as Parameters<typeof executeViewRuntime>[2]);
+				],
+				fields: [
+					buildRuntimeField("nextYear", ["computed.nextYear"]),
+					buildRuntimeField("rounded", {
+						type: "round",
+						expression: {
+							type: "arithmetic",
+							operator: "divide",
+							left: yearExpression,
+							right: { type: "literal", value: 3 },
+						},
+					}),
+					buildRuntimeField("floored", {
+						type: "floor",
+						expression: {
+							type: "arithmetic",
+							operator: "divide",
+							left: yearExpression,
+							right: { type: "literal", value: 3 },
+						},
+					}),
+					buildRuntimeField("wholeYear", {
+						type: "integer",
+						expression: yearExpression,
+					}),
+					buildRuntimeField("label", {
+						type: "concat",
+						values: [
+							{ type: "literal", value: "Gamma / " },
+							categoryExpression,
+							{ type: "literal", value: " / " },
+							yearExpression,
+						],
+					}),
+					buildRuntimeField("badge", {
+						type: "conditional",
+						whenTrue: { type: "literal", value: "modern" },
+						whenFalse: { type: "literal", value: "classic" },
+						condition: {
+							operator: "gte",
+							type: "comparison",
+							left: yearExpression,
+							right: { type: "literal", value: 2020 },
+						},
+					}),
+				],
+			}),
+		);
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items[0]?.fields).toEqual([
@@ -527,47 +544,51 @@ describe("View runtime E2E", () => {
 			},
 		};
 
-		const { data, response } = await executeViewRuntime(client, cookies, {
-			eventJoins: [],
-			computedFields: [],
-			entitySchemaSlugs: [schema.slug],
-			pagination: { page: 1, limit: 1 },
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				right: { type: "literal", value: "Alpha Phone" },
-				left: {
-					type: "reference",
-					reference: {
-						column: "name",
-						slug: schema.slug,
-						type: "entity-column",
+		const { data, response } = await executeViewRuntime(
+			client,
+			cookies,
+			asRuntimeRequest({
+				eventJoins: [],
+				computedFields: [],
+				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 1 },
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					right: { type: "literal", value: "Alpha Phone" },
+					left: {
+						type: "reference",
+						reference: {
+							column: "name",
+							slug: schema.slug,
+							type: "entity-column",
+						},
 					},
 				},
-			},
-			sort: {
-				direction: "asc",
-				expression: {
-					type: "reference",
-					reference: {
-						column: "name",
-						slug: schema.slug,
-						type: "entity-column",
-					},
-				},
-			},
-			fields: [
-				buildRuntimeField("integerNormalized", {
-					type: "integer",
+				sort: {
+					direction: "asc",
 					expression: {
-						type: "arithmetic",
-						operator: "divide",
-						left: yearExpression,
-						right: { type: "literal", value: 365 },
+						type: "reference",
+						reference: {
+							column: "name",
+							slug: schema.slug,
+							type: "entity-column",
+						},
 					},
-				}),
-			],
-		} as unknown as Parameters<typeof executeViewRuntime>[2]);
+				},
+				fields: [
+					buildRuntimeField("integerNormalized", {
+						type: "integer",
+						expression: {
+							type: "arithmetic",
+							operator: "divide",
+							left: yearExpression,
+							right: { type: "literal", value: 365 },
+						},
+					}),
+				],
+			}),
+		);
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items[0]?.fields).toEqual([
