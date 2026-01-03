@@ -307,7 +307,6 @@ it.effect("processes a successful sink run through shared media orchestration", 
 				{
 					userId: "user_1",
 					externalId: "603",
-					activityPrefix: "populate-0-",
 					executionId: "run_1-entity-0",
 					scriptId: "script-movie-tmdb",
 					entitySchemaId: "schema-movie",
@@ -510,7 +509,6 @@ it.effect("processes a komga yank run through shared media orchestration", () =>
 				{
 					userId: "user_1",
 					externalId: "30002",
-					activityPrefix: "populate-0-",
 					executionId: "run_1-entity-0",
 					entitySchemaId: "schema-manga",
 					scriptId: "script-manga-anilist",
