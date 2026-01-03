@@ -100,6 +100,11 @@ export type EventCreateWorkflowOperationsValue = {
 	) => Effect.Effect<SandboxCompletedResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 };
 
+/**
+ * DurableQueue.process must run inside the calling workflow's own execution
+ * context, so these requirements are intentional pass-throughs.
+ * @effect-expect-leaking WorkflowEngine WorkflowInstance
+ */
 export class EventCreateWorkflowOperations extends Context.Tag("EventCreateWorkflowOperations")<
 	EventCreateWorkflowOperations,
 	EventCreateWorkflowOperationsValue

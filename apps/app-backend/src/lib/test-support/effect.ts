@@ -92,7 +92,12 @@ export const makeAppConfigLayer = (
 		redisUrl: Redacted.make("unused"),
 		frontend: { oidcButtonLabel: Option.none() },
 		users: { allowRegistration: true, disableLocalAuth: false },
-		database: { poolMax: 10, connectionTimeoutMs: 10_000, url: Redacted.make("unused") },
+		database: {
+			poolMax: 10,
+			workflowPoolMax: 10,
+			connectionTimeoutMs: 10_000,
+			url: Redacted.make("unused"),
+		},
 		notifications: {
 			smtp: {
 				user: Option.none(),
