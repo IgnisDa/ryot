@@ -10,7 +10,6 @@ import {
 	makeWorkflowActivityEngine,
 	type MockOverrides,
 } from "#lib/test-support/effect";
-import { NotificationsService } from "#modules/notifications/service";
 
 import { diffMediaMonitoringSnapshots, type MediaMonitoringSnapshot } from "./diff";
 import {
@@ -59,7 +58,6 @@ const snapshot = (status: string, populatedAt: string | null = now) =>
 	}) satisfies MediaMonitoringSnapshot;
 
 const mediaMonitoringRepositoryMock = Layer.mock(MediaMonitoringRepository);
-const notificationsServiceMock = Layer.mock(NotificationsService);
 
 const makeMediaMonitoringRepository = (
 	overrides: MockOverrides<typeof mediaMonitoringRepositoryMock> = {},
@@ -71,34 +69,31 @@ const makeMediaMonitoringRepository = (
 		_tag: "MediaMonitoringRepository",
 	});
 
-const makeNotificationsService = (overrides: MockOverrides<typeof notificationsServiceMock> = {}) =>
-	notificationsServiceMock({
-		trigger: () => Effect.void.pipe(Effect.as(undefined)),
-		...overrides,
-		_tag: "NotificationsService",
-	});
-
-type PopulationStub = (
+type ExecuteStub = (
 	...args: Parameters<WorkflowEngine["Type"]["execute"]>
 ) => Effect.Effect<unknown, unknown>;
 
 type TestOptions = {
-	population?: PopulationStub;
+	population?: ExecuteStub;
+	onDelivery?: ExecuteStub;
 	mediaMonitoringRepository?: Layer.Layer<MediaMonitoringRepository>;
-	notificationsService?: Layer.Layer<NotificationsService>;
 };
 
 const makeLayer = (options: TestOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
 		options.mediaMonitoringRepository ?? makeMediaMonitoringRepository(),
-		options.notificationsService ?? makeNotificationsService(),
 	);
 
 const runWithLayer = <A, E, R>(options: TestOptions, effect: Effect.Effect<A, E, R>) => {
 	const instance = WorkflowInstance.initial(MediaMonitoringRefreshWorkflow, payload.executionId);
+	const population = options.population ?? (() => Effect.succeed(entity));
+	const onDelivery = options.onDelivery ?? (() => Effect.void);
 	const engine = makeWorkflowActivityEngine(instance, {
-		execute: options.population ?? (() => Effect.succeed(entity)),
+		execute: (workflow, execOptions) =>
+			workflow.name === "NotificationDeliveryWorkflow"
+				? onDelivery(workflow, execOptions)
+				: population(workflow, execOptions),
 	});
 	return effect.pipe(
 		Effect.provideService(WorkflowInstance, instance),
@@ -133,12 +128,7 @@ it.effect("refreshes once and sends deterministic deliveries only to current sub
 	let subscriberReads = 0;
 	const order: Array<"snapshot" | "population"> = [];
 	const populationCalls: unknown[] = [];
-	const deliveries: Array<{
-		userId: UserId;
-		message: string;
-		eventType: string;
-		executionId?: string;
-	}> = [];
+	const deliveries: unknown[] = [];
 	const before = snapshot("Continuing");
 	const after = snapshot("Ended");
 	const change = diffMediaMonitoringSnapshots(before, after)[0];
@@ -160,13 +150,11 @@ it.effect("refreshes once and sends deterministic deliveries only to current sub
 							: [UserId.make("user-b")];
 					}),
 			}),
-			notificationsService: makeNotificationsService({
-				trigger: (input) =>
-					Effect.sync(() => {
-						deliveries.push(input);
-						return undefined;
-					}),
-			}),
+			onDelivery: (_workflow, execOptions) =>
+				Effect.sync(() => {
+					deliveries.push(execOptions.payload);
+					return execOptions.executionId;
+				}),
 			population: (_workflow, execOptions) =>
 				Effect.sync(() => {
 					order.push("population");
@@ -188,9 +176,12 @@ it.effect("refreshes once and sends deterministic deliveries only to current sub
 			expect(deliveries).toEqual([
 				{
 					userId: UserId.make("user-b"),
-					eventType: "metadata_status_changed",
-					message: "Status of Media Monitoring Target changed from Continuing to Ended",
 					executionId: `${payload.executionId}-user-b-${change?.fingerprint}`,
+					request: {
+						kind: "event",
+						eventType: "metadata_status_changed",
+						message: "Status of Media Monitoring Target changed from Continuing to Ended",
+					},
 				},
 			]);
 		}),
@@ -215,13 +206,11 @@ it.effect("does not diff or notify when provider population fails", () => {
 					}),
 				listSubscribers: () => Effect.succeed([UserId.make("user-a")]),
 			}),
-			notificationsService: makeNotificationsService({
-				trigger: (input) =>
-					Effect.sync(() => {
-						deliveries.push(input);
-						return undefined;
-					}),
-			}),
+			onDelivery: (_workflow, execOptions) =>
+				Effect.sync(() => {
+					deliveries.push(execOptions.payload);
+					return execOptions.executionId;
+				}),
 			population: () => Effect.fail(new SandboxRunError({ message: "provider boom" })),
 		},
 		Effect.gen(function* () {
@@ -247,13 +236,11 @@ it.effect("treats an incomplete persisted target as a silent baseline", () => {
 					}),
 				listSubscribers: () => Effect.succeed([UserId.make("user-a")]),
 			}),
-			notificationsService: makeNotificationsService({
-				trigger: (input) =>
-					Effect.sync(() => {
-						deliveries.push(input);
-						return undefined;
-					}),
-			}),
+			onDelivery: (_workflow, execOptions) =>
+				Effect.sync(() => {
+					deliveries.push(execOptions.payload);
+					return execOptions.executionId;
+				}),
 		},
 		Effect.gen(function* () {
 			yield* runMediaMonitoringRefreshWorkflow(payload);
