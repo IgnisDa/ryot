@@ -342,7 +342,12 @@ export const AppPropertyDefinition: Schema.Schema<AppPropertyDefinition> = Schem
 			type: Schema.Literal("array"),
 			validation: Schema.optional(arrayValidationSchema),
 			defaultValue: Schema.optional(Schema.Array(Schema.Unknown)),
-		}),
+		}).pipe(
+			Schema.annotations({
+				identifier: "ArrayPropertyDefinition",
+				title: "Array Property Definition",
+			}),
+		),
 		strictStruct({
 			...propertyBaseFields,
 			type: Schema.Literal("object"),
@@ -350,7 +355,12 @@ export const AppPropertyDefinition: Schema.Schema<AppPropertyDefinition> = Schem
 			unknownKeys: Schema.optional(AppSchemaUnknownKeysPolicy),
 			properties: Schema.Record({ key: Schema.String, value: AppPropertyDefinition }),
 			defaultValue: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
-		}),
+		}).pipe(
+			Schema.annotations({
+				identifier: "ObjectPropertyDefinition",
+				title: "Object Property Definition",
+			}),
+		),
 		strictStruct({
 			...propertyBaseFields,
 			options: enumOptionsSchema,
@@ -362,6 +372,10 @@ export const AppPropertyDefinition: Schema.Schema<AppPropertyDefinition> = Schem
 				(value) => value.defaultValue === undefined || value.options.includes(value.defaultValue),
 				{ message: () => "defaultValue must be one of the enum options" },
 			),
+			Schema.annotations({
+				identifier: "EnumPropertyDefinition",
+				title: "Enum Property Definition",
+			}),
 		),
 		strictStruct({
 			...propertyBaseFields,
@@ -376,6 +390,10 @@ export const AppPropertyDefinition: Schema.Schema<AppPropertyDefinition> = Schem
 					value.defaultValue.every((item) => value.options.includes(item)),
 				{ message: () => "defaultValue items must be one of the enum options" },
 			),
+			Schema.annotations({
+				identifier: "EnumArrayPropertyDefinition",
+				title: "Enum Array Property Definition",
+			}),
 		),
 	),
 ).pipe(
@@ -407,7 +425,9 @@ export const AppSchemaRuleCondition: Schema.Schema<AppSchemaRuleCondition> = Sch
 		strictStruct({
 			operator: Schema.Literal("all", "any"),
 			conditions: Schema.Array(AppSchemaRuleCondition).pipe(Schema.minItems(1)),
-		}),
+		}).pipe(
+			Schema.annotations({ identifier: "CombinedRuleCondition", title: "Combined Rule Condition" }),
+		),
 	),
 ).pipe(
 	Schema.annotations({ identifier: "AppSchemaRuleCondition", title: "App Schema Rule Condition" }),

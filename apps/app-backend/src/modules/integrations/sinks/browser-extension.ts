@@ -26,8 +26,18 @@ const seenFields = {
 };
 
 const BrowserExtensionPayload = Schema.Union(
-	Schema.Struct({ url: Schema.String, data: Schema.Struct(seenFields) }),
-	Schema.Struct({ url: Schema.optional(Schema.String), ...seenFields }),
+	Schema.Struct({ url: Schema.String, data: Schema.Struct(seenFields) }).pipe(
+		Schema.annotations({
+			identifier: "BrowserExtensionNestedPayload",
+			title: "Browser Extension Nested Payload",
+		}),
+	),
+	Schema.Struct({ url: Schema.optional(Schema.String), ...seenFields }).pipe(
+		Schema.annotations({
+			identifier: "BrowserExtensionFlatPayload",
+			title: "Browser Extension Flat Payload",
+		}),
+	),
 );
 
 const decodeBrowserExtensionPayload = Schema.decodeUnknownSync(BrowserExtensionPayload);

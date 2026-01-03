@@ -82,7 +82,9 @@ const SourceApiUrl = Schema.String.pipe(
 );
 
 const uploadTokenInput = <const S extends string>(source: S) =>
-	Schema.Struct({ source: Schema.Literal(source), uploadToken: Schema.NonEmptyString });
+	Schema.Struct({ source: Schema.Literal(source), uploadToken: Schema.NonEmptyString }).pipe(
+		Schema.annotations({ identifier: `ImportInput_${source}` }),
+	);
 
 const urlAndKeyInput = <const S extends string>(source: S) =>
 	Schema.Struct({
@@ -90,7 +92,7 @@ const urlAndKeyInput = <const S extends string>(source: S) =>
 		source: Schema.Literal(source),
 		apiKey: Schema.NonEmptyString,
 		allowInsecureConnections: Schema.optional(Schema.Boolean),
-	});
+	}).pipe(Schema.annotations({ identifier: `ImportInput_${source}` }));
 
 export const CreateImportRunBody = Schema.Union(
 	uploadTokenInput("hevy"),
@@ -107,24 +109,26 @@ export const CreateImportRunBody = Schema.Union(
 		source: Schema.Literal("igdb"),
 		uploadToken: Schema.NonEmptyString,
 		collection: Schema.NonEmptyString,
-	}),
+	}).pipe(Schema.annotations({ identifier: "ImportInput_igdb" })),
 	Schema.Struct({
 		source: Schema.Literal("netflix"),
 		uploadToken: Schema.NonEmptyString,
 		profileName: Schema.optional(Schema.String),
-	}),
+	}).pipe(Schema.annotations({ identifier: "ImportInput_netflix" })),
 	Schema.Struct({
 		source: Schema.Literal("movary"),
 		historyUploadToken: Schema.NonEmptyString,
 		ratingsUploadToken: Schema.NonEmptyString,
 		watchlistUploadToken: Schema.NonEmptyString,
-	}),
+	}).pipe(Schema.annotations({ identifier: "ImportInput_movary" })),
 	Schema.Struct({
 		source: Schema.Literal("myanimelist"),
 		animeUploadToken: Schema.optional(Schema.NonEmptyString),
 		mangaUploadToken: Schema.optional(Schema.NonEmptyString),
-	}),
-	Schema.Struct({ source: Schema.Literal("trakt"), username: Schema.NonEmptyString }),
+	}).pipe(Schema.annotations({ identifier: "ImportInput_myanimelist" })),
+	Schema.Struct({ source: Schema.Literal("trakt"), username: Schema.NonEmptyString }).pipe(
+		Schema.annotations({ identifier: "ImportInput_trakt" }),
+	),
 	urlAndKeyInput("plex"),
 	urlAndKeyInput("media_tracker"),
 	urlAndKeyInput("audiobookshelf"),
@@ -134,7 +138,7 @@ export const CreateImportRunBody = Schema.Union(
 		username: Schema.NonEmptyString,
 		password: Schema.optional(Schema.NonEmptyString),
 		allowInsecureConnections: Schema.optional(Schema.Boolean),
-	}),
+	}).pipe(Schema.annotations({ identifier: "ImportInput_jellyfin" })),
 );
 
 export type CreateImportRunBody = typeof CreateImportRunBody.Type;
