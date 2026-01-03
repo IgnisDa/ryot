@@ -6,10 +6,10 @@ import type { CurrentUserValue } from "#lib/auth";
 import { AppConfig } from "#lib/config";
 import { DbRunner } from "#lib/db";
 import { badRequest, conflict, notFound } from "#lib/errors";
+import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/job-id";
 import { slugify } from "#lib/slug";
 import { trimToNull } from "#lib/validation";
 
-import { createSandboxJobId, resolveSandboxExecutionId } from "./job-id";
 import { SandboxRepository } from "./repository";
 import {
 	SandboxScriptMetadata,
@@ -129,7 +129,7 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 						})
 						.pipe(Effect.orDie);
 
-					return { jobId: createSandboxJobId(jobIdSecret, executionId, user.id) };
+					return { jobId: createWorkflowJobId(jobIdSecret, executionId, user.id) };
 				}),
 			getResult: (user: CurrentUserValue, jobId: string) =>
 				Effect.gen(function* () {
@@ -138,7 +138,7 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 						return yield* notFound(sandboxJobNotFoundError);
 					}
 
-					const executionId = resolveSandboxExecutionId(jobIdSecret, user.id, resolvedJobId);
+					const executionId = resolveWorkflowExecutionId(jobIdSecret, user.id, resolvedJobId);
 					if (!executionId) {
 						return yield* notFound(sandboxJobNotFoundError);
 					}
