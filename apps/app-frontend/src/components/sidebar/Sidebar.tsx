@@ -18,7 +18,7 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
-import { useDisclosure, useHover, useLocalStorage } from "@mantine/hooks";
+import { useHover, useLocalStorage } from "@mantine/hooks";
 import { Link } from "@tanstack/react-router";
 import {
 	ChevronDown,
@@ -35,7 +35,6 @@ import {
 import { useState } from "react";
 import { toSidebarAccount } from "#/components/sidebar/sidebar-account";
 import { toSidebarData } from "#/components/sidebar/sidebar-data";
-import { SavedViewModal } from "#/features/saved-views/components/saved-view-modal";
 import {
 	useSavedViewMutations,
 	useSavedViewsQuery,
@@ -79,7 +78,6 @@ function SortableView(props: {
 	onClick: () => void;
 	isMutationBusy: boolean;
 	isCustomizeMode: boolean;
-	onEditView: (viewId: string) => void;
 	onToggleViewEnabled: (viewId: string) => void;
 }) {
 	const { isDark } = useThemeTokens();
@@ -144,21 +142,6 @@ function SortableView(props: {
 				rightSection={
 					props.isCustomizeMode ? (
 						<Group gap={4} wrap="nowrap">
-							{!props.view.isBuiltin && (
-								<ActionIcon
-									size="sm"
-									variant="subtle"
-									aria-label="Edit view"
-									disabled={props.isMutationBusy}
-									onClick={(event) => {
-										event.preventDefault();
-										event.stopPropagation();
-										props.onEditView(props.view.id);
-									}}
-								>
-									<Pencil size={14} />
-								</ActionIcon>
-							)}
 							<ActionIcon
 								size="sm"
 								variant="subtle"
@@ -202,7 +185,6 @@ function SortableTracker(props: {
 	isCustomizeMode: boolean;
 	onNavLinkClick: () => void;
 	isViewMutationBusy: boolean;
-	onEditView: (viewId: string) => void;
 	onEditTracker?: (trackerId: string) => void;
 	onExpandTracker: (trackerId: string) => void;
 	onToggleTracker: (trackerId: string) => void;
@@ -366,7 +348,6 @@ function SortableTracker(props: {
 				<SortableTrackerViews
 					tracker={props.tracker}
 					hoverColor={color.muted}
-					onEditView={props.onEditView}
 					textSecondary={props.textSecondary}
 					onNavLinkClick={props.onNavLinkClick}
 					isCustomizeMode={props.isCustomizeMode}
@@ -385,7 +366,6 @@ function SortableTrackerViews(props: {
 	tracker: SidebarTracker;
 	isCustomizeMode: boolean;
 	onNavLinkClick: () => void;
-	onEditView: (viewId: string) => void;
 	onToggleViewEnabled: (viewId: string) => void;
 }) {
 	if (!props.tracker.views?.length) {
@@ -402,7 +382,6 @@ function SortableTrackerViews(props: {
 					view={view}
 					key={view.id}
 					leftPadding="40px"
-					onEditView={props.onEditView}
 					hoverColor={props.hoverColor}
 					onClick={props.onNavLinkClick}
 					textColor={props.textSecondary}
@@ -422,7 +401,6 @@ function SortableStandaloneViews(props: {
 	isCustomizeMode: boolean;
 	isMutationBusy: boolean;
 	onNavLinkClick: () => void;
-	onEditView: (viewId: string) => void;
 	onToggleViewEnabled: (viewId: string) => void;
 }) {
 	return (
@@ -435,7 +413,6 @@ function SortableStandaloneViews(props: {
 					view={view}
 					key={view.id}
 					leftPadding="14px"
-					onEditView={props.onEditView}
 					hoverColor={props.hoverColor}
 					onClick={props.onNavLinkClick}
 					textColor={props.textSecondary}
@@ -459,24 +436,6 @@ export function Sidebar(props: SidebarProps) {
 	const savedViewMutations = useSavedViewMutations();
 	const { hovered, ref } = useHover<HTMLDivElement>();
 	const [searchQuery, setSearchQuery] = useState("");
-	const [activeEditViewId, setActiveEditViewId] = useState<string | null>(null);
-	const [
-		editViewModalOpened,
-		{ open: openEditViewModal, close: closeEditViewModal },
-	] = useDisclosure(false);
-	const activeEditView = savedViewsQuery.savedViews.find(
-		(v) => v.id === activeEditViewId,
-	);
-
-	const handleEditView = (viewId: string) => {
-		setActiveEditViewId(viewId);
-		openEditViewModal();
-	};
-
-	const handleCloseEditViewModal = () => {
-		closeEditViewModal();
-		setActiveEditViewId(null);
-	};
 	const [expandedTrackers, setExpandedTrackers] = useLocalStorage<
 		Record<string, boolean>
 	>({ key: STORAGE_KEYS.sidebarExpandedTrackers, defaultValue: {} });
@@ -752,7 +711,6 @@ export function Sidebar(props: SidebarProps) {
 									tracker={tracker}
 									isExpanded={isExpanded}
 									textPrimary={textPrimary}
-									onEditView={handleEditView}
 									textSecondary={textSecondary}
 									onNavLinkClick={handleNavLinkClick}
 									onEditTracker={actions.openEditModal}
@@ -820,7 +778,6 @@ export function Sidebar(props: SidebarProps) {
 				>
 					<SortableStandaloneViews
 						views={sidebarData.views}
-						onEditView={handleEditView}
 						textSecondary={textSecondary}
 						onNavLinkClick={handleNavLinkClick}
 						hoverColor="rgba(212, 165, 116, 0.06)"
@@ -878,21 +835,6 @@ export function Sidebar(props: SidebarProps) {
 					{sidebarContent}
 				</Box>
 			)}
-
-			<SavedViewModal
-				view={activeEditView}
-				trackers={state.trackers}
-				opened={editViewModalOpened}
-				onClose={handleCloseEditViewModal}
-				isSubmitting={savedViewMutations.update.isPending}
-				onSubmit={async (formValues) => {
-					if (!activeEditView) {
-						return;
-					}
-					await savedViewMutations.updateViewById(activeEditView, formValues);
-					handleCloseEditViewModal();
-				}}
-			/>
 		</>
 	);
 }
