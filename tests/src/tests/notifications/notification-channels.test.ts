@@ -4,10 +4,14 @@ import { NotificationChannelId } from "@ryot/contract/schema/brands";
 
 import {
 	createAuthenticatedClient,
+	createEntity,
 	createNotificationChannel,
 	deleteNotificationChannel,
+	findBuiltinSchemaBySlug,
 	getBackendClient,
 	listNotificationChannels,
+	pollSignalId,
+	pollTerminalSubscriptionRunStatuses,
 	startFakeAppriseServer,
 	testNotificationChannels,
 	updateNotificationChannel,
@@ -126,6 +130,25 @@ describe("notification delivery", () => {
 			{ body: "This is a test notification for channel: apprise", title: "Ryot" },
 		]);
 		expect(fakeApprise.requests.some((request) => request.path === "/notify/disabled")).toBe(false);
+	});
+
+	it("completes a subscription run successfully with zero enabled channels", async () => {
+		const { client, userId } = await createAuthenticatedClient();
+		expect(await listNotificationChannels(client)).toEqual([]);
+
+		const { schema } = await findBuiltinSchemaBySlug(client, "workout");
+		await createEntity(client, {
+			entitySchemaId: schema.id,
+			name: `Zero Channel Workout ${crypto.randomUUID()}`,
+			properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
+		});
+
+		const signalId = await pollSignalId({ schemaSlug: "workout.created", actorUserId: userId });
+		const statuses = await pollTerminalSubscriptionRunStatuses({
+			signalId,
+			executionUserId: userId,
+		});
+		expect(statuses).toEqual(["succeeded"]);
 	});
 
 	it("exposes SMTP capability and requires authentication", async () => {

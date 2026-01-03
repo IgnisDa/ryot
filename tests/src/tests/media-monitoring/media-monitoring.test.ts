@@ -20,10 +20,10 @@ import {
 	seedBuiltinProviderScript,
 	seedMediaEntity,
 	startFakeAppriseServer,
+	waitForMediaMonitoringRefresh,
 	type Client,
 } from "~/fixtures";
 import { pollUntil } from "~/fixtures/polling";
-import { getPgClient } from "~/setup";
 import { assertTaggedError, requireObjectRecord } from "~/support/assertions";
 import type { FakeHttpServer } from "~/support/fake-http-server";
 
@@ -59,23 +59,6 @@ const discoveryProviderDetails = (episodeCount: number) =>
 							})),
 						},
 					],
-	});
-
-const waitForMediaMonitoringRefresh = (executionId: string) =>
-	pollUntil("media monitoring refresh workflow completion", async () => {
-		const result = await getPgClient().query<{ complete: boolean }>(
-			`select exists (
-				select 1
-				from cluster_messages m
-				inner join cluster_replies r on r.request_id = m.id
-				where m.entity_type = 'Workflow/MediaMonitoringRefreshWorkflow'
-				  and m.tag = 'run'
-				  and m.payload like ('%' || $1 || '%')
-				  and r.payload not like '%Suspended%'
-			) as complete`,
-			[executionId],
-		);
-		return result.rows[0]?.complete ? true : null;
 	});
 
 let apiEntityId: string;
