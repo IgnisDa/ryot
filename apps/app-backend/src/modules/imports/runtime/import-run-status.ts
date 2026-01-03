@@ -11,12 +11,12 @@ export type ImportRunFailureInput = {
 	runId: string;
 	message: string;
 	itemIndex: number;
-	sourceLabel?: string | null;
+	sourceLabel?: string | null | undefined;
 	stage: ImportRunFailureStage;
-	eventSchemaSlug?: string | null;
-	sourceIdentifier?: string | null;
-	entitySchemaSlug?: string | null;
-	context?: Record<string, unknown> | null;
+	eventSchemaSlug?: string | null | undefined;
+	sourceIdentifier?: string | null | undefined;
+	entitySchemaSlug?: string | null | undefined;
+	context?: Record<string, unknown> | null | undefined;
 };
 
 export type ImportRunFailureDetails = Omit<ImportRunFailureInput, "runId">;

@@ -569,7 +569,7 @@ vitestIt("creates a credential user without an account row", () => {
 				email: "new@example.com",
 			});
 
-			expect(result.userId).toBe(state.createdUser?.id);
+			expect(result.userId).toBe(state.createdUser?.["id"]);
 			expect(state.createdUser).toMatchObject({
 				emailVerified: true,
 				name: "new@example.com",
@@ -594,7 +594,7 @@ vitestIt("creates an oidc user with an account stub", () => {
 				oidcIssuerId: "google|123",
 			});
 
-			expect(result.userId).toBe(state.createdUser?.id);
+			expect(result.userId).toBe(state.createdUser?.["id"]);
 			expect(state.createdAccount).toMatchObject({
 				providerId: "oidc",
 				userId: result.userId,

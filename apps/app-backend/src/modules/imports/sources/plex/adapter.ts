@@ -49,7 +49,7 @@ const decodeMetadata = Schema.decodeUnknown(PlexMetadataResponse);
 type PlexAdapterInput = {
 	apiKey: string;
 	apiUrl: string;
-	allowInsecureConnections?: boolean;
+	allowInsecureConnections?: boolean | undefined;
 };
 
 const getGuidProviderIds = (guids: ReadonlyArray<{ id: string }> | undefined) => {

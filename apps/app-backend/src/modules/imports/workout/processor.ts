@@ -37,7 +37,7 @@ const matchExerciseCandidate = (
 ): ListedEntity | undefined => {
 	const key = exerciseIdentityKey(exercise);
 	return candidates.find((candidate) => {
-		const kind = isObjectRecord(candidate.properties) ? candidate.properties.kind : undefined;
+		const kind = isObjectRecord(candidate.properties) ? candidate.properties["kind"] : undefined;
 		return typeof kind === "string" && exerciseIdentityKey({ kind, name: candidate.name }) === key;
 	});
 };
@@ -74,10 +74,10 @@ const findOrCreateExercise = Effect.fn(function* (input: {
 const buildWorkoutEntityProperties = (workout: WorkoutImportItem): Record<string, unknown> => {
 	const properties: Record<string, unknown> = { startedAt: workout.startedAt };
 	if (workout.endedAt) {
-		properties.endedAt = workout.endedAt;
+		properties["endedAt"] = workout.endedAt;
 	}
 	if (workout.comment) {
-		properties.comment = workout.comment;
+		properties["comment"] = workout.comment;
 	}
 	return properties;
 };

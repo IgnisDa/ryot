@@ -178,8 +178,8 @@ export class IntegrationsRepository extends Effect.Service<IntegrationsRepositor
 
 			const listForUser = Effect.fn("IntegrationsRepository.listForUser")(function* (input: {
 				userId: UserId;
-				isDisabled?: boolean;
-				provider?: IntegrationProvider;
+				isDisabled?: boolean | undefined;
+				provider?: IntegrationProvider | undefined;
 			}) {
 				const db = yield* CurrentDb;
 				const conditions = [eq(schema.integration.userId, input.userId)];
@@ -203,15 +203,15 @@ export class IntegrationsRepository extends Effect.Service<IntegrationsRepositor
 
 			const updateForUser = Effect.fn("IntegrationsRepository.updateForUser")(function* (input: {
 				userId: UserId;
-				name?: string | null;
-				isDisabled?: boolean;
+				name?: string | null | undefined;
+				isDisabled?: boolean | undefined;
 				integrationId: IntegrationId;
-				syncOwnership?: boolean;
-				minimumProgress?: string;
-				maximumProgress?: string;
-				lastFinishedAt?: Date | null;
-				extraSettings?: IntegrationExtraSettings;
-				providerSpecifics?: IntegrationProviderSpecifics;
+				syncOwnership?: boolean | undefined;
+				minimumProgress?: string | undefined;
+				maximumProgress?: string | undefined;
+				lastFinishedAt?: Date | null | undefined;
+				extraSettings?: IntegrationExtraSettings | undefined;
+				providerSpecifics?: IntegrationProviderSpecifics | undefined;
 			}) {
 				const db = yield* CurrentDb;
 				type UpdateSet = Partial<typeof schema.integration.$inferInsert>;

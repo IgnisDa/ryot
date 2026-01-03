@@ -16,9 +16,9 @@ export type LoadedMediaImportAdapterError = {
 
 export const loadMediaTextFileAdapterResult = Effect.fn("imports.loadMediaTextFileAdapterResult")(
 	function* (input: {
-		filePath?: string;
+		filePath?: string | undefined;
 		sourceName: string;
-		adapterErrorFallback?: string;
+		adapterErrorFallback?: string | undefined;
 		loadAdapterResult: (fileText: string) => MediaImportAdapterResult;
 	}) {
 		const filePath = input.filePath;

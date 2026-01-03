@@ -27,7 +27,7 @@ describe("video-game.igdb sandbox script", () => {
 						return httpSuccess({ access_token: "token", token_type: "bearer", expires_in: 3600 });
 					}
 					const options = toRecord(args[2]);
-					const body = typeof options.body === "string" ? options.body : "";
+					const body = typeof options["body"] === "string" ? options["body"] : "";
 					if (requestUrl.endsWith("/games") && body.includes("where id = 1;")) {
 						return httpSuccess([
 							{
@@ -52,7 +52,7 @@ describe("video-game.igdb sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.relatedEntityGroups).toEqual([
+			expect(details["relatedEntityGroups"]).toEqual([
 				{
 					direction: "incoming",
 					synchronization: "additive",

@@ -17,8 +17,8 @@ class ImportSourceRequestError extends Data.TaggedError("ImportSourceRequestErro
 export type ImportSourceAdapterFailure = {
 	message: string;
 	itemIndex: number;
-	sourceLabel?: string;
-	sourceIdentifier?: string;
+	sourceLabel?: string | undefined;
+	sourceIdentifier?: string | undefined;
 	stage: ImportRunFailureStage;
 	context?: Record<string, unknown>;
 };
@@ -30,8 +30,8 @@ export type SourceRequestInput = {
 	body?: string | null;
 	headers?: SourceRequestHeaders;
 	method?: "GET" | "HEAD" | "POST";
-	allowInsecureConnections?: boolean;
-	query?: Record<string, SourceQueryValue>;
+	allowInsecureConnections?: boolean | undefined;
+	query?: Record<string, SourceQueryValue> | undefined;
 };
 
 export type SourceJsonRequestInput = Omit<SourceRequestInput, "method"> & {
@@ -66,7 +66,7 @@ export const getSourceApiHost = (value: string): string =>
 const buildSourceApiUrl = (input: {
 	path: string;
 	baseUrl: string;
-	query?: Record<string, SourceQueryValue>;
+	query?: Record<string, SourceQueryValue> | undefined;
 }): URL => {
 	const url = new URL(input.path.replace(/^\/+/, ""), `${normalizeSourceApiUrl(input.baseUrl)}/`);
 	for (const [key, value] of Object.entries(input.query ?? {})) {
@@ -89,8 +89,8 @@ export const createImportSourceFailure = (input: {
 	error: unknown;
 	message: string;
 	itemIndex: number;
-	sourceLabel?: string;
-	sourceIdentifier?: string;
+	sourceLabel?: string | undefined;
+	sourceIdentifier?: string | undefined;
 	stage: ImportRunFailureStage;
 }): ImportSourceAdapterFailure => ({
 	stage: input.stage,

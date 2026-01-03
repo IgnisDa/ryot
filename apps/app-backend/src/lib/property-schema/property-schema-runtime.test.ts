@@ -702,7 +702,7 @@ describe("getAppPropertyDefinitionAtPath", () => {
 
 	it("returns the definition for a nested field inside an object", () => {
 		const result = getAppPropertyDefinitionAtPath(fields, ["meta", "title"]);
-		expect(result).toEqual(meta.properties.title);
+		expect(result).toEqual(meta.properties["title"]);
 	});
 
 	it("returns undefined for a missing top-level field", () => {

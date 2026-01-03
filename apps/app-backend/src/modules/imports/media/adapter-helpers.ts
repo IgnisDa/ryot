@@ -192,7 +192,7 @@ export const createProgressEvent = (occurredAt: string): ImportMediaEvent => ({
 
 const createStateTransitionProperties = (input: {
 	progressPercent?: number;
-	startedOn?: string | null;
+	startedOn?: string | null | undefined;
 }) => ({
 	...(input.startedOn ? { startedOn: input.startedOn } : {}),
 	progressPercent: input.progressPercent ?? 1,
@@ -233,9 +233,9 @@ export const createCompleteEvent = (input: {
 
 export const createReviewEvent = (input: {
 	occurredAt: string;
-	isSpoiler?: boolean;
-	text?: string | null;
-	rating?: number | null;
+	isSpoiler?: boolean | undefined;
+	text?: string | null | undefined;
+	rating?: number | null | undefined;
 }): ImportMediaEvent | null => {
 	const text = input.text?.trim() ?? "";
 	if (input.rating == null && !text) {

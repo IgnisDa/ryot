@@ -45,8 +45,8 @@ export type Expr =
 	| { readonly type: "and"; readonly values: readonly [Expr, ...Expr[]] }
 	| { readonly type: "contains"; readonly left: Expr; readonly right: Expr }
 	| { readonly type: "coalesce"; readonly values: readonly [Expr, ...Expr[]] }
-	| { readonly type: "literal"; readonly value: unknown; readonly valueType?: "date" }
 	| { readonly type: "ref"; readonly sourceAlias: string; readonly field: FieldSelector }
+	| { readonly type: "literal"; readonly value: unknown; readonly valueType?: "date" | undefined }
 	| { readonly type: "aggregate"; readonly source: Source; readonly aggregation: AggregationSpec }
 	| {
 			type: "first";
@@ -68,7 +68,7 @@ export type Expr =
 	  };
 
 export type AggregationSpec =
-	| { readonly function: "count"; readonly distinctBy?: Expr }
+	| { readonly function: "count"; readonly distinctBy?: Expr | undefined }
 	| { readonly function: "sum" | "average" | "minimum" | "maximum"; readonly expr: Expr };
 
 const LiteralExpr = strictStruct({
@@ -231,7 +231,7 @@ export type IncludeEntry = {
 	readonly key: string;
 	readonly limit: number;
 	readonly source: EntitySource | NestedEventSource;
-	readonly include?: readonly IncludeEntry[];
+	readonly include?: readonly IncludeEntry[] | undefined;
 	readonly fields: readonly (typeof FieldDef.Type)[];
 	readonly orderBy: readonly [typeof OrderByEntry.Type, ...Array<typeof OrderByEntry.Type>];
 };

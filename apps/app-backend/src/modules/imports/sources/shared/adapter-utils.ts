@@ -12,6 +12,6 @@ export const createSourceFetchFailure = (input: {
 	error: unknown;
 	message: string;
 	itemIndex: number;
-	sourceLabel?: string;
-	sourceIdentifier?: string;
+	sourceLabel?: string | undefined;
+	sourceIdentifier?: string | undefined;
 }): ImportSourceAdapterFailure => createImportSourceFailure({ ...input, stage: "source_fetch" });

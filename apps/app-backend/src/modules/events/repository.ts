@@ -64,7 +64,11 @@ const toListedEvent = (row: EventRow): ListedEvent => ({
 export class EventsRepository extends Effect.Service<EventsRepository>()("EventsRepository", {
 	sync: () => {
 		const listQueryScopesForUser = Effect.fn("EventsRepository.listQueryScopesForUser")(
-			function* (input: { userId: UserId; sessionEntityId: EntityId; eventSchemaSlug?: string }) {
+			function* (input: {
+				userId: UserId;
+				sessionEntityId: EntityId;
+				eventSchemaSlug?: string | undefined;
+			}) {
 				const db = yield* CurrentDb;
 				const conditions = [
 					eq(schema.event.userId, input.userId),
@@ -112,7 +116,7 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 			entityId: EntityId;
 			eventSchemaName: string;
 			eventSchemaSlug: string;
-			sessionEntityId?: EntityId;
+			sessionEntityId?: EntityId | undefined;
 			eventSchemaId: EventSchemaId;
 			properties: Record<string, unknown>;
 		}) {

@@ -36,7 +36,7 @@ export type NotificationDeliveryWorkflowPayload = typeof NotificationDeliveryWor
 type NotificationDeliveryWorkflowInput = Omit<
 	NotificationDeliveryWorkflowPayload,
 	"executionId"
-> & { executionId?: string };
+> & { executionId?: string | undefined };
 
 export const NotificationDeliveryWorkflow = Workflow.make({
 	error: DbError,

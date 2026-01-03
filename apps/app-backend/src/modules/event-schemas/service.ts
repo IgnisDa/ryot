@@ -22,7 +22,7 @@ const reservedEventSchemaSlugsByEntitySchema = new Map(
 	),
 );
 
-const resolveEventSchemaSlug = (input: { name: string; slug?: string }) => {
+const resolveEventSchemaSlug = (input: { name: string; slug?: string | undefined }) => {
 	const candidate = input.slug?.trim() ?? input.name;
 	const slug = candidate ? slugify(candidate) : null;
 	if (!slug) {
