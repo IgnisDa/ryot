@@ -1,5 +1,5 @@
 import { Text } from "@react-email/components";
-import Layout from "../components/Layout";
+import Layout from "../layout";
 
 type LoginCodeEmailProps = {
 	code: string;

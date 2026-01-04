@@ -10,7 +10,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import PurchaseCompleteEmail, {
 	type PurchaseCompleteEmailProps,
-} from "@ryot/transactional/emails/PurchaseComplete";
+} from "@ryot/transactional/emails/purchase-complete";
 import { formatDateToNaiveDate } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
 import { and, desc, eq, type InferSelectModel, isNull } from "drizzle-orm";

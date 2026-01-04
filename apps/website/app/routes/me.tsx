@@ -1,5 +1,5 @@
 import { CheckoutEventNames, type Paddle } from "@paddle/paddle-js";
-import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
+import PurchaseCompleteEmail from "@ryot/transactional/emails/purchase-complete";
 import { changeCase, getActionIntent } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
 import dayjs from "dayjs";

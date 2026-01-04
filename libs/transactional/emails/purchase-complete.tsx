@@ -1,6 +1,6 @@
 import { Link, Text } from "@react-email/components";
 import { isString } from "@ryot/ts-utils";
-import Layout from "../components/Layout";
+import Layout from "../layout";
 
 const applicationLink = "https://app.ryot.io";
 

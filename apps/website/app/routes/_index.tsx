@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { TTLCache } from "@isaacs/ttlcache";
-import ContactSubmissionEmail from "@ryot/transactional/emails/ContactSubmission";
-import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
+import ContactSubmissionEmail from "@ryot/transactional/emails/contact-submission";
+import LoginCodeEmail from "@ryot/transactional/emails/login-code";
 import { cn, getActionIntent, processSubmission } from "@ryot/ts-utils";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";

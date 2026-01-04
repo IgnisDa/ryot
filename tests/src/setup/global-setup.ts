@@ -2,7 +2,7 @@ import {
 	type StartedServices,
 	startAllServices,
 	stopAllServices,
-} from "./testOrchestrator";
+} from "./test-orchestrator";
 
 // Vitest requires the global setup to be an async function that optionally returns a teardown function.
 // We store the started services in a closure to make them available to the teardown function.
