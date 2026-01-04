@@ -1,10 +1,9 @@
-import { Activity, DurableQueue, Workflow } from "@effect/workflow";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Cause, DateTime, Effect, Layer, Schema } from "effect";
 
 import { CurrentDb, DbRunner, dbEffect, schema } from "#lib/db";
 import { dieOnDbError, unknownToMessage } from "#lib/errors";
+import { SandboxService } from "#lib/sandbox/service";
 import { parseAppSchemaProperties } from "#lib/schema/core";
 import {
 	decodeEntityDetailsResult,
@@ -12,10 +11,11 @@ import {
 	processRelatedEntity,
 } from "#modules/entities/population";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
+import { SandboxRepository } from "#modules/sandbox/repository";
 
 const builtinExercisePageSize = 100;
 const builtinExerciseExpectedCount = 873;
+const builtinExerciseImportConcurrency = 5;
 const builtinExerciseScriptSlug = "exercise.free-exercise-db";
 
 class BuiltinEntityPreloadError extends Schema.TaggedError<BuiltinEntityPreloadError>()(
@@ -63,62 +63,64 @@ const countImportedGlobalEntities = (input: { entitySchemaId: string; sandboxScr
 		return row?.count ?? 0;
 	});
 
-const BuiltinExercisePreloadPayload = Schema.Struct({
-	entitySchemaId: Schema.String,
-	sandboxScriptId: Schema.String,
-});
-
-export const BuiltinExercisePreloadWorkflow = Workflow.make({
-	error: Schema.Never,
-	success: Schema.Void,
-	name: "BuiltinExercisePreload",
-	payload: BuiltinExercisePreloadPayload,
-	idempotencyKey: ({ entitySchemaId, sandboxScriptId }) =>
-		`builtin-exercise-preload:${entitySchemaId}:${sandboxScriptId}`,
-});
-
-const runBuiltinExercisePreload = (payload: typeof BuiltinExercisePreloadPayload.Type) =>
+export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
+		const sandbox = yield* SandboxService;
 		const repository = yield* EntitiesRepository;
+		const sandboxRepository = yield* SandboxRepository;
 
-		const shouldProceed = yield* Activity.make({
-			success: Schema.Boolean,
-			name: "check-and-log-start",
-			execute: Effect.gen(function* () {
-				const importedCount = yield* runWithDb(countImportedGlobalEntities(payload)).pipe(
-					dieOnDbError,
-				);
-				if (importedCount >= builtinExerciseExpectedCount) {
-					return false;
-				}
-				yield* Effect.logInfo(
-					`Starting builtin exercise preload (${importedCount}/${builtinExerciseExpectedCount} imported)`,
-				);
-				return true;
-			}),
-		});
-		if (!shouldProceed) {
+		const preloadTarget = yield* runWithDb(
+			repository.findEntitySchemaScriptBySlug(builtinExerciseScriptSlug),
+		);
+		if (!preloadTarget) {
+			yield* Effect.logWarning(
+				`Builtin exercise preload skipped because '${builtinExerciseScriptSlug}' is not linked to an entity schema`,
+			);
 			return;
 		}
 
-		const runBuiltinExerciseSandbox = (input: {
+		const importedCount = yield* runWithDb(countImportedGlobalEntities(preloadTarget)).pipe(
+			dieOnDbError,
+		);
+		if (importedCount >= builtinExerciseExpectedCount) {
+			return;
+		}
+
+		const script = yield* runWithDb(
+			sandboxRepository.getScriptForUser({
+				userId: null,
+				scriptId: preloadTarget.sandboxScriptId,
+			}),
+		);
+		if (!script) {
+			yield* Effect.logWarning(
+				`Builtin exercise preload skipped because script '${builtinExerciseScriptSlug}' was not found`,
+			);
+			return;
+		}
+
+		const runDriver = (input: {
 			driverName: string;
 			executionId: string;
 			context: Record<string, unknown>;
 		}) =>
-			DurableQueue.process(SandboxExecutionQueue, {
-				userId: null,
-				context: input.context,
-				driverName: input.driverName,
-				executionId: input.executionId,
-				scriptId: payload.sandboxScriptId,
-			}).pipe(
-				Effect.mapError((error) => new BuiltinEntityPreloadError({ message: error.message })),
-			);
+			sandbox
+				.run({
+					userId: null,
+					code: script.code,
+					scriptId: script.id,
+					context: input.context,
+					driverName: input.driverName,
+					executionId: input.executionId,
+					allowedHostFunctions: script.metadata.allowedHostFunctions ?? [],
+				})
+				.pipe(
+					Effect.mapError((error) => new BuiltinEntityPreloadError({ message: error.message })),
+				);
 
 		const searchBuiltinExercises = (page: number) =>
-			runBuiltinExerciseSandbox({
+			runDriver({
 				driverName: "search",
 				executionId: `builtin-exercise-search-${page}`,
 				context: { query: "", page, pageSize: builtinExercisePageSize },
@@ -139,10 +141,10 @@ const runBuiltinExercisePreload = (payload: typeof BuiltinExercisePreloadPayload
 			);
 
 		const loadBuiltinExerciseDetails = (externalId: string) =>
-			runBuiltinExerciseSandbox({
+			runDriver({
 				driverName: "details",
-				executionId: `builtin-exercise-details-${externalId}`,
 				context: { externalId },
+				executionId: `builtin-exercise-details-${externalId}`,
 			}).pipe(
 				Effect.flatMap((result) =>
 					result.error
@@ -156,8 +158,8 @@ const runBuiltinExercisePreload = (payload: typeof BuiltinExercisePreloadPayload
 				const existing = yield* runWithDb(
 					repository.findGlobalEntityByExternalId({
 						externalId,
-						entitySchemaId: payload.entitySchemaId,
-						sandboxScriptId: payload.sandboxScriptId,
+						entitySchemaId: preloadTarget.entitySchemaId,
+						sandboxScriptId: preloadTarget.sandboxScriptId,
 					}),
 				);
 				if (existing && existing.populatedAt !== null) {
@@ -166,7 +168,7 @@ const runBuiltinExercisePreload = (payload: typeof BuiltinExercisePreloadPayload
 
 				const detailsValue = yield* loadBuiltinExerciseDetails(externalId);
 				const entitySchemaScope = yield* runWithDb(
-					repository.findEntitySchemaById(payload.entitySchemaId),
+					repository.findEntitySchemaById(preloadTarget.entitySchemaId),
 				).pipe(
 					Effect.flatMap((scope) =>
 						scope
@@ -198,8 +200,8 @@ const runBuiltinExercisePreload = (payload: typeof BuiltinExercisePreloadPayload
 						populatedAt: null,
 						name: details.name,
 						properties: validatedProperties,
-						entitySchemaId: payload.entitySchemaId,
-						sandboxScriptId: payload.sandboxScriptId,
+						entitySchemaId: preloadTarget.entitySchemaId,
+						sandboxScriptId: preloadTarget.sandboxScriptId,
 					}),
 				);
 
@@ -209,7 +211,7 @@ const runBuiltinExercisePreload = (payload: typeof BuiltinExercisePreloadPayload
 						processRelatedEntity({
 							relatedEntity,
 							sourceEntityId: entity.id,
-							sourceEntitySchemaId: payload.entitySchemaId,
+							sourceEntitySchemaId: preloadTarget.entitySchemaId,
 						}).pipe(
 							Effect.mapError((error) => new BuiltinEntityPreloadError({ message: error.message })),
 						),
@@ -223,90 +225,64 @@ const runBuiltinExercisePreload = (payload: typeof BuiltinExercisePreloadPayload
 						populatedAt,
 						name: details.name,
 						properties: validatedProperties,
-						entitySchemaId: payload.entitySchemaId,
-						sandboxScriptId: payload.sandboxScriptId,
+						entitySchemaId: preloadTarget.entitySchemaId,
+						sandboxScriptId: preloadTarget.sandboxScriptId,
 						image: extractPrimaryRemoteImage(validatedProperties.images),
 					}),
 				);
 			});
 
-		let page = 1;
-
-		for (;;) {
-			const externalIds = yield* searchBuiltinExercises(page).pipe(
-				Effect.catchAll((error) =>
-					Effect.logError(
-						`Builtin exercise preload search failed on page ${page}: ${error.message}`,
-					).pipe(Effect.as<string[]>([])),
-				),
+		const runPreload = Effect.gen(function* () {
+			yield* Effect.logInfo(
+				`Starting builtin exercise preload (${importedCount}/${builtinExerciseExpectedCount} imported)`,
 			);
 
-			if (externalIds.length === 0) {
-				break;
-			}
+			let page = 1;
 
-			yield* Activity.make({
-				success: Schema.Void,
-				name: `log-schedule-page-${page}`,
-				execute: Effect.logInfo(
-					`Scheduling ${externalIds.length} builtin exercise imports from page ${page}`,
-				),
-			});
+			for (;;) {
+				const externalIds = yield* searchBuiltinExercises(page).pipe(
+					Effect.catchAll((error) =>
+						Effect.logError(
+							`Builtin exercise preload search failed on page ${page}: ${error.message}`,
+						).pipe(Effect.as<string[]>([])),
+					),
+				);
 
-			yield* Effect.forEach(
-				externalIds,
-				(externalId) =>
-					importBuiltinExercise(externalId).pipe(
-						Effect.catchAll((error) =>
-							Effect.logError(
-								`Failed to import builtin exercise '${externalId}': ${error.message}`,
+				if (externalIds.length === 0) {
+					break;
+				}
+
+				yield* Effect.logInfo(
+					`Importing ${externalIds.length} builtin exercises from page ${page}`,
+				);
+
+				yield* Effect.forEach(
+					externalIds,
+					(externalId) =>
+						importBuiltinExercise(externalId).pipe(
+							Effect.catchAll((error) =>
+								Effect.logError(
+									`Failed to import builtin exercise '${externalId}': ${error.message}`,
+								),
 							),
 						),
-					),
-				{ concurrency: 1, discard: true },
-			);
+					{ concurrency: builtinExerciseImportConcurrency, discard: true },
+				);
 
-			if (externalIds.length < builtinExercisePageSize) {
-				break;
+				if (externalIds.length < builtinExercisePageSize) {
+					break;
+				}
+
+				page += 1;
 			}
-
-			page += 1;
-		}
-	}).pipe(
-		Effect.catchAllCause((cause) =>
-			Effect.logError(`Builtin exercise preload failed: ${unknownToMessage(Cause.squash(cause))}`),
-		),
-	);
-
-export const BuiltinExercisePreloadWorkflowLive = BuiltinExercisePreloadWorkflow.toLayer(
-	(payload) => runBuiltinExercisePreload(payload),
-);
-
-export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
-	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const engine = yield* WorkflowEngine;
-		const repository = yield* EntitiesRepository;
-
-		const preloadTarget = yield* runWithDb(
-			repository.findEntitySchemaScriptBySlug(builtinExerciseScriptSlug),
+		}).pipe(
+			Effect.catchAllCause((cause) =>
+				Effect.logError(
+					`Builtin exercise preload failed: ${unknownToMessage(Cause.squash(cause))}`,
+				),
+			),
 		);
-		if (!preloadTarget) {
-			yield* Effect.logWarning(
-				`Builtin exercise preload skipped because '${builtinExerciseScriptSlug}' is not linked to an entity schema`,
-			);
-			return;
-		}
 
-		const importedCount = yield* runWithDb(countImportedGlobalEntities(preloadTarget));
-		if (importedCount >= builtinExerciseExpectedCount) {
-			return;
-		}
-
-		yield* engine.execute(BuiltinExercisePreloadWorkflow, {
-			discard: true,
-			executionId: `builtin-exercise-preload:${preloadTarget.entitySchemaId}:${preloadTarget.sandboxScriptId}`,
-			payload: preloadTarget,
-		});
+		yield* Effect.forkScoped(runPreload);
 	}),
 );
