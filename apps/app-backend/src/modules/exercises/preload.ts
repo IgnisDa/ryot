@@ -1,10 +1,10 @@
-import { Workflow } from "@effect/workflow";
+import { Activity, DurableQueue, Workflow } from "@effect/workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Cause, DateTime, Effect, Layer, Schema } from "effect";
 
 import { CurrentDb, DbRunner, dbEffect, schema } from "#lib/db";
-import { unknownToMessage } from "#lib/errors";
+import { dieOnDbError, unknownToMessage } from "#lib/errors";
 import { parseAppSchemaProperties } from "#lib/schema/core";
 import {
 	decodeEntityDetailsResult,
@@ -12,7 +12,7 @@ import {
 	processRelatedEntity,
 } from "#modules/entities/population";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { RunSandboxWorkflow } from "#modules/sandbox/workflow-definitions";
+import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 
 const builtinExercisePageSize = 100;
 const builtinExerciseExpectedCount = 873;
@@ -81,37 +81,40 @@ export const BuiltinExercisePreloadWorkflow = Workflow.make({
 const runBuiltinExercisePreload = (payload: typeof BuiltinExercisePreloadPayload.Type) =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
-		const engine = yield* WorkflowEngine;
 		const repository = yield* EntitiesRepository;
 
-		const importedCount = yield* runWithDb(countImportedGlobalEntities(payload));
-		if (importedCount >= builtinExerciseExpectedCount) {
-			return;
-		}
-
-		yield* Effect.logInfo(
-			`Starting builtin exercise preload (${importedCount}/${builtinExerciseExpectedCount} imported)`,
-		);
+		const shouldProceed = yield* Activity.make({
+			name: "check-and-log-start",
+			success: Schema.Boolean,
+			execute: Effect.gen(function* () {
+				const importedCount = yield* runWithDb(countImportedGlobalEntities(payload)).pipe(
+					dieOnDbError,
+				);
+				if (importedCount >= builtinExerciseExpectedCount) {
+					return false;
+				}
+				yield* Effect.logInfo(
+					`Starting builtin exercise preload (${importedCount}/${builtinExerciseExpectedCount} imported)`,
+				);
+				return true;
+			}),
+		});
+		if (!shouldProceed) {return;}
 
 		const runBuiltinExerciseSandbox = (input: {
 			driverName: string;
 			executionId: string;
 			context: Record<string, unknown>;
 		}) =>
-			engine
-				.execute(RunSandboxWorkflow, {
-					executionId: input.executionId,
-					payload: {
-						context: input.context,
-						driverName: input.driverName,
-						executionId: input.executionId,
-						userId: systemEntityImportUserId,
-						scriptId: payload.sandboxScriptId,
-					},
-				})
-				.pipe(
-					Effect.mapError((error) => new BuiltinEntityPreloadError({ message: error.message })),
-				);
+			DurableQueue.process(SandboxExecutionQueue, {
+				context: input.context,
+				driverName: input.driverName,
+				executionId: input.executionId,
+				userId: systemEntityImportUserId,
+				scriptId: payload.sandboxScriptId,
+			}).pipe(
+				Effect.mapError((error) => new BuiltinEntityPreloadError({ message: error.message })),
+			);
 
 		const searchBuiltinExercises = (page: number) =>
 			runBuiltinExerciseSandbox({
@@ -241,9 +244,13 @@ const runBuiltinExercisePreload = (payload: typeof BuiltinExercisePreloadPayload
 				break;
 			}
 
-			yield* Effect.logInfo(
-				`Scheduling ${externalIds.length} builtin exercise imports from page ${page}`,
-			);
+			yield* Activity.make({
+				name: `log-schedule-page-${page}`,
+				success: Schema.Void,
+				execute: Effect.logInfo(
+					`Scheduling ${externalIds.length} builtin exercise imports from page ${page}`,
+				),
+			});
 
 			yield* Effect.forEach(
 				externalIds,
@@ -255,7 +262,7 @@ const runBuiltinExercisePreload = (payload: typeof BuiltinExercisePreloadPayload
 							),
 						),
 					),
-				{ concurrency: 5, discard: true },
+				{ concurrency: 1, discard: true },
 			);
 
 			if (externalIds.length < builtinExercisePageSize) {
