@@ -106,21 +106,22 @@ export const getValidatedOptionalPath = (
 	return safePathResult.path;
 };
 
-export const readImportFile = (safePath: string) =>
-	Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
-		return yield* fs.readFileString(safePath);
-	});
+export const readImportFile = Effect.fn("imports.readImportFile")(function* (safePath: string) {
+	const fs = yield* FileSystem.FileSystem;
+	return yield* fs.readFileString(safePath);
+});
 
-export const readImportFileBytes = (safePath: string, maxBytes = MAX_FILE_BYTES) =>
-	Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
-		const info = yield* fs.stat(safePath).pipe(Effect.mapError(() => "Could not read import file"));
-		if (Number(info.size) > maxBytes) {
-			return yield* Effect.fail(`Import file exceeds maximum allowed size of ${maxBytes} bytes`);
-		}
-		return yield* fs.readFile(safePath).pipe(Effect.mapError(() => "Could not read import file"));
-	});
+export const readImportFileBytes = Effect.fn("imports.readImportFileBytes")(function* (
+	safePath: string,
+	maxBytes = MAX_FILE_BYTES,
+) {
+	const fs = yield* FileSystem.FileSystem;
+	const info = yield* fs.stat(safePath).pipe(Effect.mapError(() => "Could not read import file"));
+	if (Number(info.size) > maxBytes) {
+		return yield* Effect.fail(`Import file exceeds maximum allowed size of ${maxBytes} bytes`);
+	}
+	return yield* fs.readFile(safePath).pipe(Effect.mapError(() => "Could not read import file"));
+});
 
 export const resolveSafeZipOutputPath = (
 	path: Path.Path,
@@ -141,95 +142,93 @@ export const resolveSafeZipOutputPath = (
 	return outputPath;
 };
 
-export const extractImportZipArchive = (
+export const extractImportZipArchive = Effect.fn("imports.extractImportZipArchive")(function* (
 	safePath: string,
 	options: ExtractImportZipArchiveOptions = {},
-) =>
-	Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
-		const path = yield* Path.Path;
-		const importFile = Bun.file(safePath);
-		if (importFile.size > MAX_FILE_BYTES) {
-			return yield* zipArchiveError(
-				`Import file exceeds maximum allowed size of ${MAX_FILE_BYTES} bytes (file is ${importFile.size} bytes)`,
-			);
-		}
+) {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const importFile = Bun.file(safePath);
+	if (importFile.size > MAX_FILE_BYTES) {
+		return yield* zipArchiveError(
+			`Import file exceeds maximum allowed size of ${MAX_FILE_BYTES} bytes (file is ${importFile.size} bytes)`,
+		);
+	}
 
-		const maxEntryBytes = options.maxEntryBytes ?? MAX_ZIP_ENTRY_BYTES;
-		const maxEntryCount = options.maxEntryCount ?? MAX_ZIP_ENTRY_COUNT;
-		const maxTotalBytes = options.maxTotalBytes ?? MAX_ZIP_TOTAL_BYTES;
-		const directoryPath = yield* fs.makeTempDirectory({
-			prefix: ZIP_TEMP_DIRECTORY_PREFIX,
-			directory: getTemporaryDirectory(),
+	const maxEntryBytes = options.maxEntryBytes ?? MAX_ZIP_ENTRY_BYTES;
+	const maxEntryCount = options.maxEntryCount ?? MAX_ZIP_ENTRY_COUNT;
+	const maxTotalBytes = options.maxTotalBytes ?? MAX_ZIP_TOTAL_BYTES;
+	const directoryPath = yield* fs.makeTempDirectory({
+		prefix: ZIP_TEMP_DIRECTORY_PREFIX,
+		directory: getTemporaryDirectory(),
+	});
+
+	const extractEntries = Effect.gen(function* () {
+		const entries: ImportZipEntry[] = [];
+		let totalUncompressedSize = 0;
+		let extractedEntryCount = 0;
+
+		const zipInfo = yield* Effect.tryPromise({
+			try: () => unzipRaw(Bun.file(safePath)),
+			catch: (error) => unknownToZipArchiveError(error, "Could not open ZIP archive"),
 		});
 
-		const extractEntries = Effect.gen(function* () {
-			const entries: ImportZipEntry[] = [];
-			let totalUncompressedSize = 0;
-			let extractedEntryCount = 0;
-
-			const zipInfo = yield* Effect.tryPromise({
-				try: () => unzipRaw(Bun.file(safePath)),
-				catch: (error) => unknownToZipArchiveError(error, "Could not open ZIP archive"),
+		for (const entry of zipInfo.entries) {
+			const outputPath = yield* Effect.try({
+				try: () => resolveSafeZipOutputPath(path, directoryPath, entry.name),
+				catch: (error) => unknownToZipArchiveError(error, "Could not resolve ZIP entry path"),
 			});
-
-			for (const entry of zipInfo.entries) {
-				const outputPath = yield* Effect.try({
-					try: () => resolveSafeZipOutputPath(path, directoryPath, entry.name),
-					catch: (error) => unknownToZipArchiveError(error, "Could not resolve ZIP entry path"),
-				});
-				extractedEntryCount += 1;
-				if (extractedEntryCount > maxEntryCount) {
-					return yield* zipArchiveError(
-						`ZIP archive contains too many entries (maximum ${maxEntryCount})`,
-					);
-				}
-
-				if (entry.isDirectory) {
-					yield* fs.makeDirectory(outputPath, { recursive: true });
-					continue;
-				}
-
-				if (entry.size > maxEntryBytes) {
-					return yield* zipArchiveError(
-						`ZIP entry "${entry.name}" exceeds maximum allowed size of ${maxEntryBytes} bytes`,
-					);
-				}
-
-				totalUncompressedSize += entry.size;
-				if (totalUncompressedSize > maxTotalBytes) {
-					return yield* zipArchiveError(
-						`ZIP archive exceeds maximum allowed uncompressed size of ${maxTotalBytes} bytes`,
-					);
-				}
-
-				yield* fs.makeDirectory(path.dirname(outputPath), { recursive: true });
-				const buffer = yield* Effect.tryPromise({
-					try: () => entry.arrayBuffer(),
-					catch: (error) => unknownToZipArchiveError(error, "Could not read ZIP entry"),
-				});
-				yield* fs.writeFile(outputPath, new Uint8Array(buffer));
-				entries.push({ filePath: outputPath, fileName: entry.name, uncompressedSize: entry.size });
+			extractedEntryCount += 1;
+			if (extractedEntryCount > maxEntryCount) {
+				return yield* zipArchiveError(
+					`ZIP archive contains too many entries (maximum ${maxEntryCount})`,
+				);
 			}
 
-			return { directoryPath, entries };
-		}).pipe(
-			Effect.tapError(() => fs.remove(directoryPath, { recursive: true }).pipe(Effect.ignore)),
-		);
+			if (entry.isDirectory) {
+				yield* fs.makeDirectory(outputPath, { recursive: true });
+				continue;
+			}
 
-		return yield* extractEntries;
-	});
+			if (entry.size > maxEntryBytes) {
+				return yield* zipArchiveError(
+					`ZIP entry "${entry.name}" exceeds maximum allowed size of ${maxEntryBytes} bytes`,
+				);
+			}
+
+			totalUncompressedSize += entry.size;
+			if (totalUncompressedSize > maxTotalBytes) {
+				return yield* zipArchiveError(
+					`ZIP archive exceeds maximum allowed uncompressed size of ${maxTotalBytes} bytes`,
+				);
+			}
+
+			yield* fs.makeDirectory(path.dirname(outputPath), { recursive: true });
+			const buffer = yield* Effect.tryPromise({
+				try: () => entry.arrayBuffer(),
+				catch: (error) => unknownToZipArchiveError(error, "Could not read ZIP entry"),
+			});
+			yield* fs.writeFile(outputPath, new Uint8Array(buffer));
+			entries.push({ filePath: outputPath, fileName: entry.name, uncompressedSize: entry.size });
+		}
+
+		return { directoryPath, entries };
+	}).pipe(Effect.tapError(() => fs.remove(directoryPath, { recursive: true }).pipe(Effect.ignore)));
+
+	return yield* extractEntries;
+});
 
 export const resolveImportPath = (filePath: string): string[] => {
 	const safePathResult = resolveSafeImportFilePath(filePath, getTemporaryDirectory());
 	return "path" in safePathResult ? [safePathResult.path] : [];
 };
 
-export const cleanupImportFile = (safePath: string) =>
-	Effect.gen(function* () {
-		if (!safePath.trim()) {
-			return;
-		}
-		const fs = yield* FileSystem.FileSystem;
-		yield* fs.remove(safePath, { recursive: true }).pipe(Effect.ignore);
-	});
+export const cleanupImportFile = Effect.fn("imports.cleanupImportFile")(function* (
+	safePath: string,
+) {
+	if (!safePath.trim()) {
+		return;
+	}
+	const fs = yield* FileSystem.FileSystem;
+	yield* fs.remove(safePath, { recursive: true }).pipe(Effect.ignore);
+});

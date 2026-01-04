@@ -70,170 +70,173 @@ const createPlexHeaders = (apiKey: string): Record<string, string> => ({
 	Accept: "application/json",
 });
 
-export const adaptPlexData = (input: PlexAdapterInput) =>
-	Effect.gen(function* () {
-		const host = new URL(input.apiUrl).host;
-		const headers = createPlexHeaders(input.apiKey);
-		const failures: MediaImportAdapterFailure[] = [];
-		const groupMap = new Map<string, ImportMediaEntityGroup>();
+export const adaptPlexData = Effect.fn("plexAdapter.adaptData")(function* (
+	input: PlexAdapterInput,
+) {
+	const host = new URL(input.apiUrl).host;
+	const headers = createPlexHeaders(input.apiKey);
+	const failures: MediaImportAdapterFailure[] = [];
+	const groupMap = new Map<string, ImportMediaEntityGroup>();
 
-		const librariesResponse = yield* requestSourceJson({
+	const librariesResponse = yield* requestSourceJson({
+		headers,
+		sourceName: "Plex",
+		baseUrl: input.apiUrl,
+		path: "library/sections",
+		allowInsecureConnections: input.allowInsecureConnections,
+	}).pipe(Effect.flatMap(decodeDirectories));
+
+	let nextItemIndex = 0;
+	for (const directory of librariesResponse.MediaContainer.Directory) {
+		if (directory.type !== "movie" && directory.type !== "show") {
+			continue;
+		}
+
+		const itemsResponse = yield* requestSourceJson({
 			headers,
 			sourceName: "Plex",
 			baseUrl: input.apiUrl,
-			path: "library/sections",
+			query: { includeGuids: 1 },
+			path: `library/sections/${directory.key}/all`,
 			allowInsecureConnections: input.allowInsecureConnections,
-		}).pipe(Effect.flatMap(decodeDirectories));
+		}).pipe(Effect.flatMap(decodeMetadata));
 
-		let nextItemIndex = 0;
-		for (const directory of librariesResponse.MediaContainer.Directory) {
-			if (directory.type !== "movie" && directory.type !== "show") {
-				continue;
-			}
-
-			const itemsResponse = yield* requestSourceJson({
-				headers,
-				sourceName: "Plex",
-				baseUrl: input.apiUrl,
-				query: { includeGuids: 1 },
-				path: `library/sections/${directory.key}/all`,
-				allowInsecureConnections: input.allowInsecureConnections,
-			}).pipe(Effect.flatMap(decodeMetadata));
-
-			const sectionItems = itemsResponse.MediaContainer.Metadata ?? [];
-			const startItemIndex = nextItemIndex;
-			const sectionFailures = yield* Effect.forEach(
-				sectionItems,
-				(rawItem, offset) =>
-					Effect.gen(function* () {
-						const itemIndex = startItemIndex + offset;
-						const occurredAt = parseDateInput(rawItem.lastViewedAt, { unixSeconds: true });
-						if (!occurredAt) {
-							return null;
-						}
-
-						const entitySchemaSlug = directory.type === "movie" ? "movie" : "show";
-						const ref = buildMovieOrShowImportRef({
-							entitySchemaSlug,
-							sourceLabel: rawItem.title,
-							providerIds: getGuidProviderIds(rawItem.Guid),
-						});
-						if (!ref) {
-							return {
-								itemIndex,
-								sourceLabel: rawItem.title,
-								sourceIdentifier: rawItem.key,
-								stage: "input_transformation",
-								message: "Plex item has no TMDB, TVDB, or IMDb identifier",
-							} satisfies MediaImportAdapterFailure;
-						}
-
-						if (directory.type === "movie") {
-							const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
-							group.events.push(createCompleteEvent({ occurredAt, completedOn: occurredAt }));
-							return null;
-						}
-
-						if (!rawItem.ratingKey) {
-							return {
-								itemIndex,
-								sourceLabel: rawItem.title,
-								stage: "input_transformation",
-								sourceIdentifier: rawItem.key,
-								message: "Plex show has no rating key",
-							} satisfies MediaImportAdapterFailure;
-						}
-
-						const leavesResult = yield* requestSourceJson({
-							headers,
-							sourceName: "Plex",
-							baseUrl: input.apiUrl,
-							path: `library/metadata/${rawItem.ratingKey}/allLeaves`,
-							allowInsecureConnections: input.allowInsecureConnections,
-						}).pipe(Effect.flatMap(decodeMetadata), Effect.either);
-						if (Either.isLeft(leavesResult)) {
-							return createSourceFetchFailure({
-								host,
-								itemIndex,
-								error: leavesResult.left,
-								sourceLabel: rawItem.title,
-								sourceIdentifier: rawItem.key,
-								message: "Failed to fetch watched episodes from Plex",
-							});
-						}
-
-						const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
-						for (const leaf of leavesResult.right.MediaContainer.Metadata ?? []) {
-							const leafOccurredAt = parseDateInput(leaf.lastViewedAt, { unixSeconds: true });
-							if (!leafOccurredAt || leaf.parentIndex == null || leaf.index == null) {
-								continue;
-							}
-							group.events.push({
-								occurredAt: leafOccurredAt,
-								eventSchemaSlug: "progress",
-								properties: {
-									progressPercent: 100,
-									showEpisode: leaf.index,
-									showSeason: leaf.parentIndex,
-								},
-							});
-						}
-
+		const sectionItems = itemsResponse.MediaContainer.Metadata ?? [];
+		const startItemIndex = nextItemIndex;
+		const sectionFailures = yield* Effect.forEach(
+			sectionItems,
+			(rawItem, offset) =>
+				Effect.gen(function* () {
+					const itemIndex = startItemIndex + offset;
+					const occurredAt = parseDateInput(rawItem.lastViewedAt, { unixSeconds: true });
+					if (!occurredAt) {
 						return null;
-					}),
-				{ concurrency: PLEX_CONCURRENCY },
-			);
+					}
 
-			failures.push(...sectionFailures.filter(isNotNullAdapterFailure));
-			nextItemIndex += sectionItems.length;
+					const entitySchemaSlug = directory.type === "movie" ? "movie" : "show";
+					const ref = buildMovieOrShowImportRef({
+						entitySchemaSlug,
+						sourceLabel: rawItem.title,
+						providerIds: getGuidProviderIds(rawItem.Guid),
+					});
+					if (!ref) {
+						return {
+							itemIndex,
+							sourceLabel: rawItem.title,
+							sourceIdentifier: rawItem.key,
+							stage: "input_transformation",
+							message: "Plex item has no TMDB, TVDB, or IMDb identifier",
+						} satisfies MediaImportAdapterFailure;
+					}
+
+					if (directory.type === "movie") {
+						const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
+						group.events.push(createCompleteEvent({ occurredAt, completedOn: occurredAt }));
+						return null;
+					}
+
+					if (!rawItem.ratingKey) {
+						return {
+							itemIndex,
+							sourceLabel: rawItem.title,
+							stage: "input_transformation",
+							sourceIdentifier: rawItem.key,
+							message: "Plex show has no rating key",
+						} satisfies MediaImportAdapterFailure;
+					}
+
+					const leavesResult = yield* requestSourceJson({
+						headers,
+						sourceName: "Plex",
+						baseUrl: input.apiUrl,
+						path: `library/metadata/${rawItem.ratingKey}/allLeaves`,
+						allowInsecureConnections: input.allowInsecureConnections,
+					}).pipe(Effect.flatMap(decodeMetadata), Effect.either);
+					if (Either.isLeft(leavesResult)) {
+						return createSourceFetchFailure({
+							host,
+							itemIndex,
+							error: leavesResult.left,
+							sourceLabel: rawItem.title,
+							sourceIdentifier: rawItem.key,
+							message: "Failed to fetch watched episodes from Plex",
+						});
+					}
+
+					const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
+					for (const leaf of leavesResult.right.MediaContainer.Metadata ?? []) {
+						const leafOccurredAt = parseDateInput(leaf.lastViewedAt, { unixSeconds: true });
+						if (!leafOccurredAt || leaf.parentIndex == null || leaf.index == null) {
+							continue;
+						}
+						group.events.push({
+							occurredAt: leafOccurredAt,
+							eventSchemaSlug: "progress",
+							properties: {
+								progressPercent: 100,
+								showEpisode: leaf.index,
+								showSeason: leaf.parentIndex,
+							},
+						});
+					}
+
+					return null;
+				}),
+			{ concurrency: PLEX_CONCURRENCY },
+		);
+
+		failures.push(...sectionFailures.filter(isNotNullAdapterFailure));
+		nextItemIndex += sectionItems.length;
+	}
+
+	return {
+		failures,
+		entityGroups: finalizeEntityGroups(groupMap),
+	} satisfies MediaImportAdapterResult;
+});
+
+export const syncPlexYankOwnedItems = Effect.fn("plexAdapter.syncOwnedItems")(function* (input: {
+	apiKey: string;
+	apiUrl: string;
+}) {
+	const headers = createPlexHeaders(input.apiKey);
+	const ownedItems: Array<{ entityRef: ImportEntityRef; provider: string }> = [];
+
+	const librariesResponse = yield* requestSourceJson({
+		headers,
+		sourceName: "Plex",
+		baseUrl: input.apiUrl,
+		path: "library/sections",
+	}).pipe(Effect.flatMap(decodeDirectories));
+
+	for (const directory of librariesResponse.MediaContainer.Directory) {
+		if (directory.type !== "movie" && directory.type !== "show") {
+			continue;
 		}
 
-		return {
-			failures,
-			entityGroups: finalizeEntityGroups(groupMap),
-		} satisfies MediaImportAdapterResult;
-	});
-
-export const syncPlexYankOwnedItems = (input: { apiKey: string; apiUrl: string }) =>
-	Effect.gen(function* () {
-		const headers = createPlexHeaders(input.apiKey);
-		const ownedItems: Array<{ entityRef: ImportEntityRef; provider: string }> = [];
-
-		const librariesResponse = yield* requestSourceJson({
+		const itemsResult = yield* requestSourceJson({
 			headers,
 			sourceName: "Plex",
 			baseUrl: input.apiUrl,
-			path: "library/sections",
-		}).pipe(Effect.flatMap(decodeDirectories));
-
-		for (const directory of librariesResponse.MediaContainer.Directory) {
-			if (directory.type !== "movie" && directory.type !== "show") {
-				continue;
-			}
-
-			const itemsResult = yield* requestSourceJson({
-				headers,
-				sourceName: "Plex",
-				baseUrl: input.apiUrl,
-				query: { includeGuids: 1 },
-				path: `library/sections/${directory.key}/all`,
-			}).pipe(Effect.flatMap(decodeMetadata), Effect.either);
-			if (Either.isLeft(itemsResult)) {
-				continue;
-			}
-
-			const entitySchemaSlug = directory.type === "movie" ? "movie" : "show";
-			for (const item of itemsResult.right.MediaContainer.Metadata ?? []) {
-				const ref = buildMovieOrShowImportRef({
-					entitySchemaSlug,
-					sourceLabel: item.title,
-					providerIds: getGuidProviderIds(item.Guid),
-				});
-				if (ref) {
-					ownedItems.push({ entityRef: ref, provider: "plex_yank" });
-				}
-			}
+			query: { includeGuids: 1 },
+			path: `library/sections/${directory.key}/all`,
+		}).pipe(Effect.flatMap(decodeMetadata), Effect.either);
+		if (Either.isLeft(itemsResult)) {
+			continue;
 		}
 
-		return ownedItems;
-	});
+		const entitySchemaSlug = directory.type === "movie" ? "movie" : "show";
+		for (const item of itemsResult.right.MediaContainer.Metadata ?? []) {
+			const ref = buildMovieOrShowImportRef({
+				entitySchemaSlug,
+				sourceLabel: item.title,
+				providerIds: getGuidProviderIds(item.Guid),
+			});
+			if (ref) {
+				ownedItems.push({ entityRef: ref, provider: "plex_yank" });
+			}
+		}
+	}
+
+	return ownedItems;
+});

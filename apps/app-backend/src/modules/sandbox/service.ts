@@ -77,74 +77,78 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 		const jobIdSecret = Redacted.value(config.sandbox.jobIdSecret);
 
 		return {
-			createScript: (user: CurrentUserValue, payload: CreateSandboxScriptBody) =>
-				Effect.gen(function* () {
-					const resolved = yield* resolveScriptSlug(payload);
-					const metadata = yield* resolveMetadata(payload.metadata);
+			createScript: Effect.fn("SandboxApiService.createScript")(function* (
+				user: CurrentUserValue,
+				payload: CreateSandboxScriptBody,
+			) {
+				const resolved = yield* resolveScriptSlug(payload);
+				const metadata = yield* resolveMetadata(payload.metadata);
 
-					const existing = yield* runWithDb(
-						repository.findScriptBySlugForUser({ userId: user.id, slug: resolved.slug }),
-					);
-					if (existing) {
-						return yield* conflict("A sandbox script with this slug already exists");
-					}
+				const existing = yield* runWithDb(
+					repository.findScriptBySlugForUser({ userId: user.id, slug: resolved.slug }),
+				);
+				if (existing) {
+					return yield* conflict("A sandbox script with this slug already exists");
+				}
 
-					return yield* runWithDb(
-						repository.createScript({
-							metadata,
-							userId: user.id,
-							code: payload.code,
-							slug: resolved.slug,
-							name: resolved.name,
-						}),
-					);
-				}),
-			enqueue: (user: CurrentUserValue, payload: EnqueueSandboxBody) =>
-				Effect.gen(function* () {
-					const scriptId = trimToNull(payload.scriptId);
-					const driverName = trimToNull(payload.driverName);
-					if (!scriptId || !driverName) {
-						return yield* notFound(sandboxScriptNotFoundError);
-					}
+				return yield* runWithDb(
+					repository.createScript({
+						metadata,
+						userId: user.id,
+						code: payload.code,
+						slug: resolved.slug,
+						name: resolved.name,
+					}),
+				);
+			}),
+			enqueue: Effect.fn("SandboxApiService.enqueue")(function* (
+				user: CurrentUserValue,
+				payload: EnqueueSandboxBody,
+			) {
+				const scriptId = trimToNull(payload.scriptId);
+				const driverName = trimToNull(payload.driverName);
+				if (!scriptId || !driverName) {
+					return yield* notFound(sandboxScriptNotFoundError);
+				}
 
-					const script = yield* runWithDb(
-						repository.getScriptForUser({ userId: user.id, scriptId }),
-					);
-					if (!script) {
-						return yield* notFound(sandboxScriptNotFoundError);
-					}
+				const script = yield* runWithDb(repository.getScriptForUser({ userId: user.id, scriptId }));
+				if (!script) {
+					return yield* notFound(sandboxScriptNotFoundError);
+				}
 
-					const executionId = generateId();
-					yield* engine
-						.execute(RunSandboxWorkflow, {
+				const executionId = generateId();
+				yield* engine
+					.execute(RunSandboxWorkflow, {
+						executionId,
+						discard: true,
+						payload: {
+							driverName,
 							executionId,
-							discard: true,
-							payload: {
-								driverName,
-								executionId,
-								userId: user.id,
-								scriptId: script.id,
-								context: payload.context ?? {},
-							},
-						})
-						.pipe(Effect.orDie);
+							userId: user.id,
+							scriptId: script.id,
+							context: payload.context ?? {},
+						},
+					})
+					.pipe(Effect.orDie);
 
-					return { jobId: createWorkflowJobId(jobIdSecret, executionId, user.id) };
-				}),
-			getResult: (user: CurrentUserValue, jobId: string) =>
-				Effect.gen(function* () {
-					const resolvedJobId = trimToNull(jobId);
-					if (!resolvedJobId) {
-						return yield* notFound(sandboxJobNotFoundError);
-					}
+				return { jobId: createWorkflowJobId(jobIdSecret, executionId, user.id) };
+			}),
+			getResult: Effect.fn("SandboxApiService.getResult")(function* (
+				user: CurrentUserValue,
+				jobId: string,
+			) {
+				const resolvedJobId = trimToNull(jobId);
+				if (!resolvedJobId) {
+					return yield* notFound(sandboxJobNotFoundError);
+				}
 
-					const executionId = resolveWorkflowExecutionId(jobIdSecret, user.id, resolvedJobId);
-					if (!executionId) {
-						return yield* notFound(sandboxJobNotFoundError);
-					}
+				const executionId = resolveWorkflowExecutionId(jobIdSecret, user.id, resolvedJobId);
+				if (!executionId) {
+					return yield* notFound(sandboxJobNotFoundError);
+				}
 
-					return toSandboxRunResult(yield* engine.poll(RunSandboxWorkflow, executionId));
-				}),
+				return toSandboxRunResult(yield* engine.poll(RunSandboxWorkflow, executionId));
+			}),
 		};
 	}),
 }) {}
