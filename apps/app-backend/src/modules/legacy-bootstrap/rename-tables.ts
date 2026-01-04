@@ -35,6 +35,22 @@ BEGIN
 END $$;
 `;
 
+const renameLegacyNotificationPlatformTableSql = `
+DO $$
+DECLARE started_at timestamptz := clock_timestamp();
+BEGIN
+	IF to_regclass('"old_notification_platform"') IS NOT NULL THEN RETURN; END IF;
+	IF to_regclass('"notification_platform"') IS NULL THEN
+		RAISE EXCEPTION 'Expected V1 notification_platform table to exist but it was not found; cannot rename';
+	END IF;
+	ALTER TABLE "notification_platform" RENAME TO old_notification_platform;
+	ALTER TABLE "old_notification_platform" RENAME CONSTRAINT "notification_platform_pkey" TO "old_notification_platform_pkey";
+	ALTER INDEX IF EXISTS "notification_platform__user_id" RENAME TO "old_notification_platform__user_id";
+	RAISE NOTICE 'rename: notification_platform -> old_notification_platform (% seconds elapsed)',
+		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+END $$;
+`;
+
 export const renameLegacyTables = Effect.gen(function* () {
 	const gate = yield* legacyBootstrapGate;
 	if (!gate) {
@@ -44,6 +60,7 @@ export const renameLegacyTables = Effect.gen(function* () {
 	yield* withRawPgClient((client) =>
 		client
 			.query(renameLegacyUserTableSql)
-			.then(() => client.query(renameLegacyIntegrationTableSql)),
+			.then(() => client.query(renameLegacyIntegrationTableSql))
+			.then(() => client.query(renameLegacyNotificationPlatformTableSql)),
 	);
 });

@@ -11,16 +11,10 @@ import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/infrastructure/workflow";
 import { AuthService } from "#modules/auth/service";
-import { AutomationsRepository } from "#modules/automations/repository";
-import { AutomationsService } from "#modules/automations/service";
-import { SubscriptionExecutionWorkflowDefinitionsLive } from "#modules/automations/subscription-execution-workflow-live";
-import { BootstrapUserWorkflowDefinitionsLive } from "#modules/builtins/bootstrap-user-workflow-live";
 import { SeedService } from "#modules/builtins/seed";
 import { AddEntityToCollectionWorkflowDefinitionsLive } from "#modules/collections/add-entity-to-collection-workflow-live";
-import { RemoveEntityFromCollectionWorkflowDefinitionsLive } from "#modules/collections/remove-entity-from-collection-workflow-live";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
-import { EntityCreateWorkflowDefinitionsLive } from "#modules/entities/entity-create-workflow-live";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntityImportWorkflowOperationsLive } from "#modules/entity-import/operations-workflow";
@@ -39,8 +33,10 @@ import { EpisodeResolverRepository } from "#modules/episode-resolver/repository"
 import { EpisodeResolverService } from "#modules/episode-resolver/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventSchemasService } from "#modules/event-schemas/service";
-import { EventCreateWorkflowDefinitionsLive } from "#modules/events/event-create-workflow-live";
-import { EventCreateWorkflowOperationsLive } from "#modules/events/operations-workflow";
+import {
+	EventCreateWorkflowDefinitionsLive,
+	EventCreateWorkflowOperationsLive,
+} from "#modules/events/event-create-workflow-live";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
 import { BuiltinEntityPreloaderLive } from "#modules/exercises/preload";
@@ -58,8 +54,7 @@ import { LibraryEntityImportWorkflowDefinitionsLive } from "#modules/library-mem
 import { EnsureLibraryMembershipWorkerLive } from "#modules/library-membership/membership-worker";
 import { LibraryEntityImportWorkflowOperationsLive } from "#modules/library-membership/operations-workflow";
 import { LibraryImportService } from "#modules/library-membership/service";
-import { DisableMediaMonitoringWorkflowDefinitionsLive } from "#modules/media-monitoring/disable-media-monitoring-workflow-live";
-import { EnableMediaMonitoringWorkflowDefinitionsLive } from "#modules/media-monitoring/enable-media-monitoring-workflow-live";
+import { MediaMonitoringRefreshWorkflowDefinitionsLive } from "#modules/media-monitoring/refresh-workflow";
 import { MediaMonitoringRepository } from "#modules/media-monitoring/repository";
 import { MediaMonitoringService } from "#modules/media-monitoring/service";
 import { MediaTrendingWorkflowOperationsLive } from "#modules/media-trending/operations-workflow";
@@ -74,7 +69,6 @@ import { ProviderConfig } from "#modules/query-engine/provider-config";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipSchemasService } from "#modules/relationship-schemas/service";
-import { RelationshipCreateWorkflowDefinitionsLive } from "#modules/relationships/relationship-create-workflow-live";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxRepository } from "#modules/sandbox/repository";
@@ -124,7 +118,6 @@ const ContentRepositoriesLive = Layer.mergeAll(
 );
 
 const PlatformRepositoriesLive = Layer.mergeAll(
-	AutomationsRepository.Default,
 	GodModeRepository.Default,
 	ImportsRepository.Default,
 	IntegrationsRepository.Default,
@@ -160,11 +153,6 @@ const ApplicationInfrastructureLive = Layer.mergeAll(
 const QueryEngineServiceLive = Layer.provide(QueryEngineService.Default, ProviderConfig.Default);
 
 const EntitiesServiceLive = Layer.provide(EntitiesService.Default, QueryEngineServiceLive);
-const AuthServiceLive = Layer.provide(AuthService.Default, EntitiesServiceLive);
-const GodModeServiceLive = Layer.provide(
-	GodModeService.Default,
-	Layer.mergeAll(AuthServiceLive, EntitiesServiceLive),
-);
 
 const InterestReconcilerLive = Layer.provide(
 	InterestReconciler.Default,
@@ -176,13 +164,13 @@ const EventsServiceLive = Layer.provide(EventsService.Default, QueryEngineServic
 
 const RuntimeSandboxServiceLive = Layer.provide(
 	SandboxService.Default,
-	Layer.mergeAll(AutomationsService.Default, EventsServiceLive, QueryEngineServiceLive),
+	Layer.mergeAll(EventsServiceLive, QueryEngineServiceLive),
 );
 
 const SandboxServicesLive = Layer.mergeAll(SandboxApiService.Default, RuntimeSandboxServiceLive);
 
 const ContentServicesLive = Layer.mergeAll(
-	AuthServiceLive,
+	AuthService.Default,
 	EntitiesServiceLive,
 	LibraryImportService.Default,
 	EntitySchemasService.Default,
@@ -194,14 +182,13 @@ const ContentServicesLive = Layer.mergeAll(
 );
 
 const PlatformServicesLive = Layer.mergeAll(
-	AutomationsService.Default,
 	RelationshipsService.Default,
 	Layer.provide(SavedViewsService.Default, QueryEngineServiceLive),
 	TrackersService.Default,
 	UploadsService.Default,
-	Layer.provide(UserPreferencesService.Default, AuthServiceLive),
+	Layer.provide(UserPreferencesService.Default, AuthService.Default),
 	UserStateService.Default,
-	GodModeServiceLive,
+	Layer.provide(GodModeService.Default, AuthService.Default),
 	Layer.provide(ImportsService.Default, UploadsService.Default),
 	Layer.provide(
 		IntegrationsService.Default,
@@ -226,9 +213,26 @@ const ServicesBaseLive = Layer.provideMerge(
 	CollectionsServiceLive,
 );
 
+const MediaMonitoringRelationshipsServiceLive = Layer.provide(
+	RelationshipsService.Default,
+	RelationshipsRepository.Default,
+);
+
+const MediaMonitoringCollectionsServiceLive = Layer.provideMerge(
+	CollectionsServiceLive,
+	Layer.mergeAll(RelationshipSchemasRepository.Default, RelationshipsRepository.Default),
+);
+
+const MediaMonitoringServiceDependenciesLive = Layer.mergeAll(
+	MediaMonitoringCollectionsServiceLive,
+	QueryEngineServiceLive,
+	MediaMonitoringRepository.Default,
+	MediaMonitoringRelationshipsServiceLive,
+);
+
 const MediaMonitoringServiceLive = Layer.provide(
 	MediaMonitoringService.Default,
-	QueryEngineServiceLive,
+	MediaMonitoringServiceDependenciesLive,
 );
 
 const MetadataLookupServiceLive = Layer.provide(
@@ -246,19 +250,13 @@ const ServicesLive = Layer.mergeAll(
 const ServiceDependenciesLive = Layer.provide(ServicesLive, ApplicationInfrastructureLive);
 
 const RuntimeLive = Layer.mergeAll(
-	SubscriptionExecutionWorkflowDefinitionsLive,
 	AddEntityToCollectionWorkflowDefinitionsLive,
-	RemoveEntityFromCollectionWorkflowDefinitionsLive,
-	BootstrapUserWorkflowDefinitionsLive,
-	EntityCreateWorkflowDefinitionsLive,
-	RelationshipCreateWorkflowDefinitionsLive,
-	EnableMediaMonitoringWorkflowDefinitionsLive,
-	DisableMediaMonitoringWorkflowDefinitionsLive,
 	ProviderEntityPopulationWorkflowDefinitionsLive,
 	EntitySchemaWorkflowDefinitionsLive,
 	EventCreateWorkflowDefinitionsLive,
 	LibraryEntityImportWorkflowDefinitionsLive,
 	NotificationDeliveryWorkflowDefinitionsLive,
+	MediaMonitoringRefreshWorkflowDefinitionsLive,
 	MediaTrendingRefreshWorkflowDefinitionsLive,
 	IntegrationReconciliationWorkflowDefinitionsLive,
 	EnsureLibraryMembershipWorkerLive,

@@ -1,6 +1,3 @@
-import { unknownToMessage } from "@ryot/contract/errors";
-import { Effect } from "effect";
-
 import type { SandboxRunInput } from "./service";
 
 export type BoundHostFunction = (...args: ReadonlyArray<unknown>) => Promise<unknown>;
@@ -9,17 +6,6 @@ export type UserSandboxRunInput = SandboxRunInput & { readonly userId: string };
 
 export const apiSuccess = <T>(data: T) => ({ data, success: true as const });
 export const apiFailure = (error: string) => ({ error, success: false as const });
-
-export const runHostEffect = <A>(
-	runPromise: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>,
-	effect: Effect.Effect<A, unknown>,
-) =>
-	runPromise(
-		effect.pipe(
-			Effect.map(apiSuccess),
-			Effect.catchAll((error) => Effect.succeed(apiFailure(unknownToMessage(error)))),
-		),
-	);
 
 const isSandboxRunInput = (value: unknown): value is SandboxRunInput => {
 	if (value === null || typeof value !== "object") {

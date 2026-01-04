@@ -14,7 +14,6 @@ export const stableStringify = (value: unknown, options?: { sortArrays?: boolean
 	}
 	if (value !== null && typeof value === "object") {
 		return `{${Object.keys(value)
-			.filter((key) => Reflect.get(value, key) !== undefined)
 			.sort()
 			.map((key) => `${JSON.stringify(key)}:${stableStringify(Reflect.get(value, key), options)}`)
 			.join(",")}}`;
