@@ -9,9 +9,11 @@ registry — they migrate in Phase 3.
 
 ## 1. `libs/plugin-kit` — the manifest contract
 
-New workspace lib exporting the manifest types and a `definePlugin` builder (typed literal,
-`as const`-friendly). The manifest is data the kernel consumes generically; it must never
-require kernel code that only one plugin exercises (Decision 2).
+New workspace lib exporting Effect Schema manifest contracts, their derived types, and a
+`definePlugin` builder (typed literal, `as const`-friendly). The schemas are the runtime source
+of truth consumed by ingestion; do not maintain parallel handwritten manifest types. The
+manifest is data the kernel consumes generically; it must never require kernel code that only
+one plugin exercises (Decision 2).
 
 v1 manifest sections (exactly what `builtins/registry.ts` + the definition files encode
 today — no more):
@@ -42,7 +44,7 @@ inter-plugin dependency mechanism (non-goal; the only cross-plugin references ar
 kernel-owned definitions like `collection`, which the loader validates).
 
 Placement rationale: `libs/plugin-kit` is imported by plugin packages and by app-backend;
-keep it dependency-light (types + `AppSchema` re-exports + builder), like
+keep it dependency-light (Effect schemas + derived types + `AppSchema` re-exports + builder), like
 `@ryot/query-engine`'s dependency-free discipline.
 
 ## 2. Plugin packages
