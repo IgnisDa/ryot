@@ -1,7 +1,8 @@
 import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Option, Redacted } from "effect";
 
+import { AppConfig, type AppConfigValue } from "#lib/config";
 import { CurrentDb, DbRunner, TransactionRunner } from "#lib/db";
 
 const provideEmptyDb = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -36,6 +37,39 @@ export const makeWorkflowEngine = (
 		activityExecute: () => Effect.die("unused"),
 		...overrides,
 	});
+
+export const makeAppConfigLayer = (overrides?: Partial<AppConfigValue>): Layer.Layer<AppConfig> => {
+	const defaults = {
+		port: 3000,
+		timezone: "Etc/GMT",
+		_tag: "AppConfig" as const,
+		frontendUrl: "http://localhost:3000",
+		redisUrl: Redacted.make("unused"),
+		databaseUrl: Redacted.make("unused"),
+		frontend: { oidcButtonLabel: Option.none() },
+		users: { allowRegistration: true, disableLocalAuth: false },
+		scheduler: { frequentCronJobsSchedule: "every 5 minutes", progressUpdateThresholdHours: 2 },
+		sandbox: {
+			denoDir: "/tmp",
+			timeoutMs: 5_000,
+			workerConcurrency: 5,
+			jobIdSecret: Redacted.make("test-secret"),
+		},
+		server: {
+			corsOrigins: Option.none(),
+			adminAccessToken: Redacted.make("unused"),
+			oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },
+		},
+		fileStorage: {
+			url: Option.none(),
+			region: Option.none(),
+			bucketName: Option.none(),
+			accessKeyId: Option.none(),
+			secretAccessKey: Option.none(),
+		},
+	};
+	return Layer.succeed(AppConfig, { ...defaults, ...overrides });
+};
 
 export const makeWorkflowActivityEngine = (instance: WorkflowInstance["Type"]) => {
 	let engine: WorkflowEngine["Type"];
