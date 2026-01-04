@@ -49,14 +49,14 @@ function formatIssueTitle(seriesName, number) {
 }
 
 async function getMetronCredentials() {
-  const usernameResponse = await getAppConfigValue("comicBook.metron.username");
+  const usernameResponse = await getAppConfigValue("providers.metronUsername");
   if (!usernameResponse?.success) {
     throw new Error(
       usernameResponse?.error ?? "Could not load Metron username",
     );
   }
 
-  const passwordResponse = await getAppConfigValue("comicBook.metron.password");
+  const passwordResponse = await getAppConfigValue("providers.metronPassword");
   if (!passwordResponse?.success) {
     throw new Error(
       passwordResponse?.error ?? "Could not load Metron password",
