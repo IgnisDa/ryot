@@ -2,8 +2,8 @@ import { expect, it } from "@effect/vitest";
 import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth";
-import { CurrentDb, DbRunner } from "#lib/db";
 import { BadRequest, Conflict, NotFound } from "#lib/errors";
+import { dbRunnerLayer, makeMock } from "#lib/test-support/effect";
 
 import { EventSchemasRepository } from "./repository";
 import { EventSchemasService } from "./service";
@@ -14,21 +14,17 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-const defaultEventSchemasRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EventSchemasRepository" as const,
-		createEventSchema: () => Effect.die("unused"),
-		findBySlugForUser: () => Effect.die("unused"),
-		getEntitySchemaScopeById: () => Effect.die("unused"),
-		listByEntitySchemaForUser: () => Effect.die("unused"),
-	});
-
 const makeEventSchemasRepository = (overrides: Partial<EventSchemasRepository> = {}) =>
-	Object.assign(Object.create(null), defaultEventSchemasRepository(), overrides);
+	makeMock<EventSchemasRepository>(
+		{
+			_tag: "EventSchemasRepository" as const,
+			createEventSchema: () => Effect.die("unused"),
+			findBySlugForUser: () => Effect.die("unused"),
+			getEntitySchemaScopeById: () => Effect.die("unused"),
+			listByEntitySchemaForUser: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
 const makeEventSchemasServiceLayer = (repository: EventSchemasRepository) =>
 	EventSchemasService.Default.pipe(

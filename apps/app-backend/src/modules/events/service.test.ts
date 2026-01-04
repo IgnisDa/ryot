@@ -3,9 +3,9 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth";
-import { CurrentDb, DbRunner } from "#lib/db";
 import { BadRequest, NotFound } from "#lib/errors";
 import { SandboxService } from "#lib/sandbox/service";
+import { dbRunnerLayer, makeMock, makeWorkflowEngine } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
@@ -49,30 +49,6 @@ const eventSchemaScope = {
 	},
 };
 
-const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-type WorkflowEngineOverrides = Omit<Partial<WorkflowEngine["Type"]>, "execute"> & {
-	execute?: (...args: Parameters<WorkflowEngine["Type"]["execute"]>) => Effect.Effect<unknown>;
-};
-
-const makeWorkflowEngine = (overrides: WorkflowEngineOverrides = {}) =>
-	Object.assign(
-		{
-			poll: () => Effect.die("unused"),
-			resume: () => Effect.die("unused"),
-			execute: () => Effect.die("unused"),
-			register: () => Effect.die("unused"),
-			interrupt: () => Effect.die("unused"),
-			deferredDone: () => Effect.die("unused"),
-			scheduleClock: () => Effect.die("unused"),
-			deferredResult: () => Effect.die("unused"),
-			activityExecute: () => Effect.die("unused"),
-		},
-		overrides,
-	) as WorkflowEngine["Type"];
-
 const defaultSandboxRunResult = {
 	logs: [],
 	error: null,
@@ -82,69 +58,69 @@ const defaultSandboxRunResult = {
 	timing: { totalMs: 1, executionMs: 1 },
 };
 
-type FakeSandboxService = {
-	run: () => Effect.Effect<typeof defaultSandboxRunResult | { [key: string]: unknown }>;
-};
-
-const defaultSandboxService = () =>
-	Object.assign(Object.create(null), {
-		run: () => Effect.succeed(defaultSandboxRunResult),
-	});
-
-const makeSandboxService = (overrides: Partial<FakeSandboxService> = {}) =>
-	Object.assign(Object.create(null), defaultSandboxService(), overrides);
-
-const defaultEntitiesRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EntitiesRepository" as const,
-		createEntity: () => Effect.die("unused"),
-		getByIdForUser: () => Effect.die("unused"),
-		getEntityScopeById: () => Effect.die("unused"),
-		insertRelationship: () => Effect.die("unused"),
-		upsertRelationship: () => Effect.die("unused"),
-		getEntityScopeForUser: () => Effect.die("unused"),
-		upsertEntityRelationship: () => Effect.die("unused"),
-		deleteUserEventsForEntity: () => Effect.die("unused"),
-		getEntitySchemaScopeForUser: () => Effect.die("unused"),
-		findEntityByExternalIdForUser: () => Effect.die("unused"),
-		deleteUserRelationshipsForEntity: () => Effect.die("unused"),
-	});
-
-const defaultEventSchemasRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EventSchemasRepository" as const,
-		getScopeForUser: () => Effect.die("unused"),
-		createEventSchema: () => Effect.die("unused"),
-		findBySlugForUser: () => Effect.die("unused"),
-		getEntitySchemaScopeById: () => Effect.die("unused"),
-		listByEntitySchemaForUser: () => Effect.die("unused"),
-	});
-
-const defaultEventsRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EventsRepository" as const,
-		listForUser: () => Effect.die("unused"),
-		createEvent: () => Effect.die("unused"),
-		getActiveAfterCreateTriggers: () => Effect.succeed([]),
-		getActiveBeforeCreateTriggers: () => Effect.succeed([]),
-	});
-
-const defaultSandboxRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "SandboxRepository" as const,
-		createScript: () => Effect.die("unused"),
-		getScriptForUser: () => Effect.succeed(null),
-		findScriptBySlugForUser: () => Effect.die("unused"),
-	});
+const makeSandboxService = (overrides: Record<string, unknown> = {}) =>
+	Object.assign(
+		makeMock<SandboxService>({
+			_tag: "SandboxService" as const,
+			run: () => Effect.succeed(defaultSandboxRunResult),
+		}),
+		overrides,
+	);
 
 const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
-	Object.assign(Object.create(null), defaultEntitiesRepository(), overrides);
+	makeMock<EntitiesRepository>(
+		{
+			_tag: "EntitiesRepository" as const,
+			createEntity: () => Effect.die("unused"),
+			getByIdForUser: () => Effect.die("unused"),
+			getEntityScopeById: () => Effect.die("unused"),
+			insertRelationship: () => Effect.die("unused"),
+			upsertRelationship: () => Effect.die("unused"),
+			getEntityScopeForUser: () => Effect.die("unused"),
+			upsertEntityRelationship: () => Effect.die("unused"),
+			deleteUserEventsForEntity: () => Effect.die("unused"),
+			getEntitySchemaScopeForUser: () => Effect.die("unused"),
+			findEntityByExternalIdForUser: () => Effect.die("unused"),
+			deleteUserRelationshipsForEntity: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
 const makeEventSchemasRepository = (overrides: Partial<EventSchemasRepository> = {}) =>
-	Object.assign(Object.create(null), defaultEventSchemasRepository(), overrides);
+	makeMock<EventSchemasRepository>(
+		{
+			_tag: "EventSchemasRepository" as const,
+			getScopeForUser: () => Effect.die("unused"),
+			createEventSchema: () => Effect.die("unused"),
+			findBySlugForUser: () => Effect.die("unused"),
+			getEntitySchemaScopeById: () => Effect.die("unused"),
+			listByEntitySchemaForUser: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
 const makeEventsRepository = (overrides: Partial<EventsRepository> = {}) =>
-	Object.assign(Object.create(null), defaultEventsRepository(), overrides);
+	makeMock<EventsRepository>(
+		{
+			_tag: "EventsRepository" as const,
+			listForUser: () => Effect.die("unused"),
+			createEvent: () => Effect.die("unused"),
+			getActiveAfterCreateTriggers: () => Effect.succeed([]),
+			getActiveBeforeCreateTriggers: () => Effect.succeed([]),
+		},
+		overrides,
+	);
+
+const makeSandboxRepository = (overrides: Partial<SandboxRepository> = {}) =>
+	makeMock<SandboxRepository>(
+		{
+			_tag: "SandboxRepository" as const,
+			createScript: () => Effect.die("unused"),
+			getScriptForUser: () => Effect.succeed(null),
+			findScriptBySlugForUser: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
 const makeServiceLayer = (input: {
 	sandboxService?: SandboxService;
@@ -158,7 +134,7 @@ const makeServiceLayer = (input: {
 		dbRunnerLayer,
 		Layer.succeed(WorkflowEngine, input.workflowEngine ?? makeWorkflowEngine()),
 		Layer.succeed(SandboxService, input.sandboxService ?? makeSandboxService()),
-		Layer.succeed(SandboxRepository, input.sandboxRepository ?? defaultSandboxRepository()),
+		Layer.succeed(SandboxRepository, input.sandboxRepository ?? makeSandboxRepository()),
 		Layer.succeed(EntitiesRepository, input.entitiesRepository ?? makeEntitiesRepository()),
 		GlobalEntityReferenceHook.Default,
 		Layer.succeed(
@@ -464,7 +440,7 @@ it.effect("createForImport waits for the queued workflow result", () => {
 });
 
 it.effect("before-create trigger skip prevents event creation", () => {
-	const sandboxRepo = Object.assign(Object.create(null), defaultSandboxRepository(), {
+	const sandboxRepo = makeSandboxRepository({
 		getScriptForUser: () =>
 			Effect.succeed({
 				id: "script-1",
@@ -513,7 +489,7 @@ it.effect("before-create trigger skip prevents event creation", () => {
 
 it.effect("before-create trigger replace modifies event properties", () => {
 	const createCalls: unknown[] = [];
-	const sandboxRepo = Object.assign(Object.create(null), defaultSandboxRepository(), {
+	const sandboxRepo = makeSandboxRepository({
 		getScriptForUser: () =>
 			Effect.succeed({
 				id: "script-1",
@@ -585,7 +561,7 @@ it.effect("before-create trigger replace modifies event properties", () => {
 });
 
 it.effect("before-create trigger failure prevents event creation", () => {
-	const sandboxRepo = Object.assign(Object.create(null), defaultSandboxRepository(), {
+	const sandboxRepo = makeSandboxRepository({
 		getScriptForUser: () =>
 			Effect.succeed({
 				id: "script-1",

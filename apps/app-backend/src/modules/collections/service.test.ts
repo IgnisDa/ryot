@@ -3,8 +3,13 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth";
-import { CurrentDb, DbRunner, TransactionRunner } from "#lib/db";
 import { BadRequest, NotFound } from "#lib/errors";
+import {
+	dbRunnerLayer,
+	makeMock,
+	makeWorkflowEngine,
+	transactionLayer,
+} from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -15,32 +20,6 @@ import { CollectionsService } from "./service";
 const now = "2026-06-14T00:00:00.000Z";
 
 const user: CurrentUserValue = { id: "user-id", name: "Test User", email: "user@example.com" };
-
-const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-const transactionLayer = Layer.succeed(
-	TransactionRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
-		Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-const makeWorkflowEngine = (overrides: Partial<WorkflowEngine["Type"]> = {}) =>
-	Object.assign(
-		{
-			poll: () => Effect.die("unused"),
-			resume: () => Effect.die("unused"),
-			execute: () => Effect.die("unused"),
-			register: () => Effect.die("unused"),
-			interrupt: () => Effect.die("unused"),
-			deferredDone: () => Effect.die("unused"),
-			scheduleClock: () => Effect.die("unused"),
-			deferredResult: () => Effect.die("unused"),
-			activityExecute: () => Effect.die("unused"),
-		},
-		overrides,
-	) as WorkflowEngine["Type"];
 
 const memberOfSchema = {
 	isBuiltin: true,
@@ -91,53 +70,55 @@ const removeEventSchema = {
 	slug: "remove-entity-from-collection",
 };
 
-const defaultCollectionsRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "CollectionsRepository" as const,
-		getCollectionById: () => Effect.die("unused"),
-		getEntityForMembership: () => Effect.die("unused"),
-		getUserLibraryEntityId: () => Effect.die("unused"),
-		findLibraryEntityForUser: () => Effect.die("unused"),
-		findCollectionByNameForUser: () => Effect.die("unused"),
-		getBuiltinCollectionSchema: () => Effect.succeed(collectionEntitySchema),
-		findBuiltinEventSchemaBySlug: (_entitySchemaId: string, slug: string) =>
-			slug === "add-entity-to-collection"
-				? Effect.succeed(addEventSchema)
-				: Effect.succeed(removeEventSchema),
-	});
-
-const defaultEntitiesRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EntitiesRepository" as const,
-		createEntity: () => Effect.die("unused"),
-	});
-
-const defaultRelationshipsRepository = () =>
-	Object.assign(Object.create(null), {
-		insertRelationship: () => Effect.void,
-		_tag: "RelationshipsRepository" as const,
-		deleteMembership: () => Effect.die("unused"),
-		upsertMembership: () => Effect.die("unused"),
-		upsertRelationship: () => Effect.die("unused"),
-		findRelationshipProperties: () => Effect.die("unused"),
-	});
-
-const defaultRelationshipSchemasRepository = () =>
-	Object.assign(Object.create(null), {
-		findById: () => Effect.die("unused"),
-		_tag: "RelationshipSchemasRepository" as const,
-		findBuiltinBySlug: (slug: string) =>
-			slug === "member-of" ? Effect.succeed(memberOfSchema) : Effect.succeed(inLibrarySchema),
-	});
+const makeCollectionsRepository = (overrides: Partial<CollectionsRepository> = {}) =>
+	makeMock<CollectionsRepository>(
+		{
+			_tag: "CollectionsRepository" as const,
+			getCollectionById: () => Effect.die("unused"),
+			getEntityForMembership: () => Effect.die("unused"),
+			getUserLibraryEntityId: () => Effect.die("unused"),
+			findLibraryEntityForUser: () => Effect.die("unused"),
+			findCollectionByNameForUser: () => Effect.die("unused"),
+			getBuiltinCollectionSchema: () => Effect.succeed(collectionEntitySchema),
+			findBuiltinEventSchemaBySlug: (_entitySchemaId: string, slug: string) =>
+				slug === "add-entity-to-collection"
+					? Effect.succeed(addEventSchema)
+					: Effect.succeed(removeEventSchema),
+		},
+		overrides,
+	);
 
 const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
-	Object.assign(Object.create(null), defaultEntitiesRepository(), overrides);
-
-const makeCollectionsRepository = (overrides: Partial<CollectionsRepository> = {}) =>
-	Object.assign(Object.create(null), defaultCollectionsRepository(), overrides);
+	makeMock<EntitiesRepository>(
+		{ _tag: "EntitiesRepository" as const, createEntity: () => Effect.die("unused") },
+		overrides,
+	);
 
 const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository> = {}) =>
-	Object.assign(Object.create(null), defaultRelationshipsRepository(), overrides);
+	makeMock<RelationshipsRepository>(
+		{
+			insertRelationship: () => Effect.void,
+			_tag: "RelationshipsRepository" as const,
+			deleteMembership: () => Effect.die("unused"),
+			upsertMembership: () => Effect.die("unused"),
+			upsertRelationship: () => Effect.die("unused"),
+			findRelationshipProperties: () => Effect.die("unused"),
+		},
+		overrides,
+	);
+
+const makeRelationshipSchemasRepository = (
+	overrides: Partial<RelationshipSchemasRepository> = {},
+) =>
+	makeMock<RelationshipSchemasRepository>(
+		{
+			findById: () => Effect.die("unused"),
+			_tag: "RelationshipSchemasRepository" as const,
+			findBuiltinBySlug: (slug: string) =>
+				slug === "member-of" ? Effect.succeed(memberOfSchema) : Effect.succeed(inLibrarySchema),
+		},
+		overrides,
+	);
 
 const makeServiceLayer = (
 	options: {
@@ -156,19 +137,16 @@ const makeServiceLayer = (
 				Layer.succeed(WorkflowEngine, options.workflowEngine ?? makeWorkflowEngine()),
 				Layer.succeed(
 					CollectionsRepository,
-					options.collectionsRepository ?? defaultCollectionsRepository(),
+					options.collectionsRepository ?? makeCollectionsRepository(),
 				),
-				Layer.succeed(
-					EntitiesRepository,
-					options.entitiesRepository ?? defaultEntitiesRepository(),
-				),
+				Layer.succeed(EntitiesRepository, options.entitiesRepository ?? makeEntitiesRepository()),
 				Layer.succeed(
 					RelationshipsRepository,
-					options.relationshipsRepository ?? defaultRelationshipsRepository(),
+					options.relationshipsRepository ?? makeRelationshipsRepository(),
 				),
 				Layer.succeed(
 					RelationshipSchemasRepository,
-					options.relationshipSchemasRepository ?? defaultRelationshipSchemasRepository(),
+					options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
 				),
 			),
 		),
@@ -321,10 +299,10 @@ it.effect("creates membership event only on first add, not on upsert", () => {
 		relationshipSchemaId: "member-of-schema-id",
 	};
 	const workflowEngine = makeWorkflowEngine({
-		execute: ((_workflow, options) => {
+		execute: (_workflow, options) => {
 			queuedEventCount++;
 			return Effect.succeed(options.executionId);
-		}) as WorkflowEngine["Type"]["execute"],
+		},
 	});
 
 	const layer = makeServiceLayer({
@@ -371,10 +349,10 @@ it.effect("does not create membership event on upsert update", () => {
 		relationshipSchemaId: "member-of-schema-id",
 	};
 	const workflowEngine = makeWorkflowEngine({
-		execute: ((_workflow, options) => {
+		execute: (_workflow, options) => {
 			queuedEventCount++;
 			return Effect.succeed(options.executionId);
-		}) as WorkflowEngine["Type"]["execute"],
+		},
 	});
 
 	const layer = makeServiceLayer({
@@ -453,10 +431,10 @@ it.effect("creates remove event on successful membership deletion", () => {
 		relationshipSchemaId: "member-of-schema-id",
 	};
 	const workflowEngine = makeWorkflowEngine({
-		execute: ((_workflow, options) => {
+		execute: (_workflow, options) => {
 			queuedEventCount++;
 			return Effect.succeed(options.executionId);
-		}) as WorkflowEngine["Type"]["execute"],
+		},
 	});
 
 	const layer = makeServiceLayer({
