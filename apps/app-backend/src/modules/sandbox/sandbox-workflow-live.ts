@@ -43,13 +43,6 @@ export const toSandboxRunResult = (
 const RunSandboxWorkflowLive = RunSandboxWorkflow.toLayer((payload, executionId) =>
 	DurableQueue.process(SandboxExecutionQueue, payload).pipe(
 		Effect.mapError(toSandboxRunError),
-		Effect.withSpan("RunSandboxWorkflow", {
-			attributes: {
-				executionId,
-				userId: payload.userId,
-				scriptId: payload.scriptId,
-			},
-		}),
 		Effect.annotateLogs({ executionId, workflow: "RunSandboxWorkflow" }),
 	),
 );

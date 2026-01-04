@@ -27,8 +27,15 @@ export const MediaMonitoringRefreshWorkflow = Workflow.make({
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
-export const runMediaMonitoringRefreshWorkflow = Effect.fn("runMediaMonitoringRefreshWorkflow")(
-	function* (payload: MediaMonitoringRefreshPayload) {
+export const runMediaMonitoringRefreshWorkflow = Effect.fn("MediaMonitoringRefreshWorkflow")(
+	function* (payload: MediaMonitoringRefreshPayload, executionId: string) {
+		yield* Effect.annotateCurrentSpan({
+			executionId,
+			entityId: payload.entityId,
+			externalId: payload.externalId,
+			entitySchemaId: payload.entitySchemaId,
+			sandboxScriptId: payload.sandboxScriptId,
+		});
 		const engine = yield* WorkflowEngine;
 		const refreshExecutionId = `${payload.executionId}-provider-refresh`;
 		yield* engine.execute(ProviderEntityPopulationWorkflow, {
@@ -45,23 +52,12 @@ export const runMediaMonitoringRefreshWorkflow = Effect.fn("runMediaMonitoringRe
 			},
 		});
 	},
+	(effect, _payload, executionId) =>
+		Effect.annotateLogs(effect, { executionId, workflow: "MediaMonitoringRefreshWorkflow" }),
 );
 
 export const MediaMonitoringRefreshWorkflowDefinitionsLive = Layer.mergeAll(
-	MediaMonitoringRefreshWorkflow.toLayer((payload, executionId) =>
-		runMediaMonitoringRefreshWorkflow(payload).pipe(
-			Effect.withSpan("MediaMonitoringRefreshWorkflow", {
-				attributes: {
-					executionId,
-					entityId: payload.entityId,
-					externalId: payload.externalId,
-					entitySchemaId: payload.entitySchemaId,
-					sandboxScriptId: payload.sandboxScriptId,
-				},
-			}),
-			Effect.annotateLogs({ executionId, workflow: "MediaMonitoringRefreshWorkflow" }),
-		),
-	),
+	MediaMonitoringRefreshWorkflow.toLayer(runMediaMonitoringRefreshWorkflow),
 );
 
 export const mediaMonitoringPayloadFromTarget = (
