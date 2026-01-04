@@ -15,32 +15,18 @@ import type {
 import {
 	type BuiltInMediaOverviewSourceItem,
 	buildBuiltInMediaOverviewResponse,
+	type ContinueSourceItem,
+	type RateTheseSourceItem,
+	type UpNextSourceItem,
 } from "./response-builder";
 import type { BuiltInMediaOverviewResponse } from "./schemas";
 
 type MediaOverviewError = "not_found" | "validation";
 
-type BuiltInMediaOverviewServiceDeps = {
-	loadOverviewItems: typeof loadOverviewItems;
-};
-
-type LoadOverviewItemsDeps = {
-	executeOverviewPage: typeof executeOverviewPage;
-};
-
-type NullableDate = Date | null;
-
-const overviewRuntimeLimit = 5000;
 const mediaOverviewMisconfiguredError =
 	"Built-in media overview configuration is invalid";
 
-const serviceDeps: BuiltInMediaOverviewServiceDeps = {
-	loadOverviewItems,
-};
-
-const loadOverviewItemsDeps: LoadOverviewItemsDeps = {
-	executeOverviewPage,
-};
+const SECTION_LIMITS = { upNext: 20, continue: 6, rateThese: 12 };
 
 const literalExpression = (value: unknown) => ({
 	value,
@@ -100,7 +86,7 @@ const toNullableNumber = (value: unknown) => {
 	return null;
 };
 
-const toNullableDate = (value: unknown): NullableDate => {
+const toNullableDate = (value: unknown): Date | null => {
 	if (value instanceof Date) {
 		return Number.isNaN(value.getTime()) ? null : value;
 	}
@@ -128,8 +114,8 @@ const toBuiltinMediaSourceItem = (
 		backlogAt: toNullableDate(getFieldValue(item, "backlogAt")),
 		progressAt: toNullableDate(getFieldValue(item, "progressAt")),
 		completeAt: toNullableDate(getFieldValue(item, "completeAt")),
-		totalUnits: toNullableNumber(getFieldValue(item, "totalUnits")),
 		completedOn: toNullableDate(getFieldValue(item, "completedOn")),
+		totalUnits: toNullableNumber(getFieldValue(item, "totalUnits")),
 		publishYear: toNullableNumber(getFieldValue(item, "publishYear")),
 		reviewRating: toNullableNumber(getFieldValue(item, "reviewRating")),
 		progressPercent: toNullableNumber(getFieldValue(item, "progressPercent")),
@@ -144,7 +130,10 @@ function isBuiltInMediaEntitySchemaSlug(
 	);
 }
 
-const createOverviewRuntimeRequest = (page: number): ViewRuntimeRequest => {
+const buildBaseRequest = (): Omit<
+	ViewRuntimeRequest,
+	"filter" | "pagination" | "sort"
+> => {
 	const entityCreatedAt = coalesceExpression(
 		entityColumnExpression("book", "createdAt"),
 		entityColumnExpression("anime", "createdAt"),
@@ -162,13 +151,7 @@ const createOverviewRuntimeRequest = (page: number): ViewRuntimeRequest => {
 	);
 
 	return {
-		filter: null,
-		pagination: { page, limit: overviewRuntimeLimit },
 		entitySchemaSlugs: [...builtinMediaEntitySchemaSlugs],
-		sort: {
-			direction: "desc",
-			expression: computedFieldExpression("entityCreatedAt"),
-		},
 		eventJoins: [
 			{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
 			{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
@@ -218,44 +201,173 @@ const createOverviewRuntimeRequest = (page: number): ViewRuntimeRequest => {
 	};
 };
 
-async function executeOverviewPage(input: { page: number; userId: string }) {
-	const preparedView = await viewDefinitionModule.prepare({
-		userId: input.userId,
-		source: {
-			kind: "runtime",
-			request: createOverviewRuntimeRequest(input.page),
-		},
-	});
+type ExecuteSectionQuery = (
+	userId: string,
+	request: ViewRuntimeRequest,
+) => Promise<ViewRuntimeResponseData>;
 
-	return preparedView.execute();
-}
+type MediaServiceDeps = {
+	executeSectionQuery: ExecuteSectionQuery;
+};
 
-export async function loadOverviewItems(
-	input: { userId: string },
-	deps: LoadOverviewItemsDeps = loadOverviewItemsDeps,
-) {
-	const items: BuiltInMediaOverviewSourceItem[] = [];
-	let page = 1;
+const defaultDeps: MediaServiceDeps = {
+	executeSectionQuery: async (userId, request) => {
+		const preparedView = await viewDefinitionModule.prepare({
+			userId,
+			source: { request, kind: "runtime" },
+		});
+		return preparedView.execute();
+	},
+};
 
-	try {
-		for (;;) {
-			const result = await deps.executeOverviewPage({
-				page,
-				userId: input.userId,
-			});
-			items.push(
-				...result.items.flatMap((item) => {
-					const mapped = toBuiltinMediaSourceItem(item);
-					return mapped ? [mapped] : [];
-				}),
-			);
+const getContinueItems = async (
+	userId: string,
+	deps: MediaServiceDeps = defaultDeps,
+): Promise<ContinueSourceItem[]> => {
+	const progressAtRef = eventJoinColumnExpression("progress", "createdAt");
+	const completeAtRef = eventJoinColumnExpression("complete", "createdAt");
 
-			if (!result.meta.pagination.hasNextPage) {
-				break;
-			}
+	const filter = {
+		type: "and" as const,
+		predicates: [
+			{
+				expression: progressAtRef,
+				type: "isNotNull" as const,
+			},
+			{
+				type: "or" as const,
+				predicates: [
+					{
+						type: "isNull" as const,
+						expression: completeAtRef,
+					},
+					{
+						left: progressAtRef,
+						right: completeAtRef,
+						operator: "gt" as const,
+						type: "comparison" as const,
+					},
+				],
+			},
+		],
+	};
 
-			page += 1;
+	const request: ViewRuntimeRequest = {
+		...buildBaseRequest(),
+		filter,
+		sort: { direction: "desc", expression: progressAtRef },
+		pagination: { page: 1, limit: SECTION_LIMITS.continue },
+	};
+
+	const result = await deps.executeSectionQuery(userId, request);
+	return result.items.flatMap((item) => {
+		const mapped = toBuiltinMediaSourceItem(item);
+		if (mapped?.progressAt) {
+			return [mapped as ContinueSourceItem];
 		}
+		return [];
+	});
+};
+
+const getUpNextItems = async (
+	userId: string,
+	deps: MediaServiceDeps = defaultDeps,
+): Promise<UpNextSourceItem[]> => {
+	const backlogAtRef = eventJoinColumnExpression("backlog", "createdAt");
+	const progressAtRef = eventJoinColumnExpression("progress", "createdAt");
+
+	const filter = {
+		type: "and" as const,
+		predicates: [
+			{ type: "isNull" as const, expression: progressAtRef },
+			{ expression: backlogAtRef, type: "isNotNull" as const },
+		],
+	};
+
+	const request: ViewRuntimeRequest = {
+		...buildBaseRequest(),
+		filter,
+		sort: { direction: "asc", expression: backlogAtRef },
+		pagination: { page: 1, limit: SECTION_LIMITS.upNext },
+	};
+
+	const result = await deps.executeSectionQuery(userId, request);
+	return result.items.flatMap((item) => {
+		const mapped = toBuiltinMediaSourceItem(item);
+		if (mapped?.backlogAt) {
+			return [mapped as UpNextSourceItem];
+		}
+		return [];
+	});
+};
+
+const getRateTheseItems = async (
+	userId: string,
+	deps: MediaServiceDeps = defaultDeps,
+): Promise<RateTheseSourceItem[]> => {
+	const completeAtRef = eventJoinColumnExpression("complete", "createdAt");
+	const reviewAtRef = eventJoinColumnExpression("review", "createdAt");
+	const completedOnRef = eventJoinPropertyExpression("complete", "completedOn");
+
+	const filter = {
+		type: "and" as const,
+		predicates: [
+			{ expression: completeAtRef, type: "isNotNull" as const },
+			{
+				type: "or" as const,
+				predicates: [
+					{ type: "isNull" as const, expression: reviewAtRef },
+					{
+						right: reviewAtRef,
+						left: completedOnRef,
+						operator: "gt" as const,
+						type: "comparison" as const,
+					},
+				],
+			},
+		],
+	};
+
+	const completedOnOrCompleteAt = coalesceExpression(
+		completedOnRef,
+		completeAtRef,
+	);
+
+	const request: ViewRuntimeRequest = {
+		...buildBaseRequest(),
+		filter,
+		pagination: { page: 1, limit: SECTION_LIMITS.rateThese },
+		sort: { direction: "desc", expression: completedOnOrCompleteAt },
+	};
+
+	const result = await deps.executeSectionQuery(userId, request);
+	return result.items.flatMap((item) => {
+		const mapped = toBuiltinMediaSourceItem(item);
+		if (mapped?.completeAt) {
+			return [mapped as RateTheseSourceItem];
+		}
+		return [];
+	});
+};
+
+export const getBuiltInMediaOverview = async (
+	input: { userId: string },
+	deps: MediaServiceDeps = defaultDeps,
+): Promise<ServiceResult<BuiltInMediaOverviewResponse, MediaOverviewError>> => {
+	try {
+		const [continueItems, upNextItems, rateTheseItems] = await Promise.all([
+			getContinueItems(input.userId, deps),
+			getUpNextItems(input.userId, deps),
+			getRateTheseItems(input.userId, deps),
+		]);
+
+		return serviceData(
+			buildBuiltInMediaOverviewResponse({
+				upNextItems,
+				continueItems,
+				rateTheseItems,
+			}),
+		);
 	} catch (error) {
 		if (error instanceof ViewRuntimeNotFoundError) {
 			return serviceError("not_found", mediaOverviewMisconfiguredError);
@@ -266,18 +378,4 @@ export async function loadOverviewItems(
 
 		throw error;
 	}
-
-	return serviceData(items);
-}
-
-export const getBuiltInMediaOverview = async (
-	input: { userId: string },
-	deps: BuiltInMediaOverviewServiceDeps = serviceDeps,
-): Promise<ServiceResult<BuiltInMediaOverviewResponse, MediaOverviewError>> => {
-	const overviewItems = await deps.loadOverviewItems({ userId: input.userId });
-	if (!("data" in overviewItems)) {
-		return overviewItems;
-	}
-
-	return serviceData(buildBuiltInMediaOverviewResponse(overviewItems.data));
 };
