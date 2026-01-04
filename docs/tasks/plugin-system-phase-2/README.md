@@ -3,7 +3,7 @@
 This PRD is a thin framing layer. **The authoritative technical spec is the two plan
 files**, which this document references rather than restates:
 
-- `docs/plans/plugin-system/00-overview.md` — the vision, the 18-item decision record, the
+- `docs/plans/plugin-system/00-overview.md` — the vision, the 20-item decision record, the
   verified current-state map, the target architecture, and the cross-phase invariants that
   bind every phase.
 - `docs/plans/plugin-system/02-phase-2-plugin-contract-and-loader.md` — the complete Phase 2
@@ -24,7 +24,7 @@ open, and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 2 of 6 tasks completed
+**Overall Progress:** 2 of 7 tasks completed
 
 **Current Task:** [Task 03](./03-plugin-packages-and-boot-cutover.md) (todo)
 
@@ -37,7 +37,11 @@ open, and you record the choice you make in the plan file.
 | 03  | [Plugin Packages and Boot Cutover](./03-plugin-packages-and-boot-cutover.md)        | AFK  | todo   |
 | 04  | [Admin Install Surface and Test Fixture](./04-admin-install-surface-and-fixture.md) | AFK  | todo   |
 | 05  | [Notification Subscription State Table](./05-notification-subscription-state.md)    | AFK  | todo   |
-| 06  | [Codebase Cleanup](./06-codebase-cleanup.md)                                        | AFK  | todo   |
+| 06  | [Remove the Per-User Sandbox-Script Feature](./06-remove-user-sandbox-scripts.md)   | AFK  | todo   |
+| 07  | [Codebase Cleanup](./07-codebase-cleanup.md)                                        | AFK  | todo   |
+
+Task 06 (Decision 19: delete the per-user sandbox-script feature) depends on task 04's
+`installTestPlugin` fixture and must run before the final cleanup.
 
 ## Problem Statement
 
@@ -104,9 +108,9 @@ code inside a package), **admin** (installs/uninstalls plugins through the contr
    I author plugin bundles as declarative literals instead of the hand-written `registry.ts`
    prototype (plan §1).
 2. As the kernel, I want the manifest to carry exactly the sections `builtins/registry.ts` and
-   the definition files encode today (schemas, relationship/signal schemas, trackers, saved
-   views, scripts, bindings) and no more, so that I never interpret a field only one plugin
-   exercises (Decision 2; plan §1).
+   the definition files encode today (entity/relationship/signal schemas, saved views,
+   scripts, bindings, workspace display metadata) and no more, so that I never interpret a
+   field only one plugin exercises (Decision 2; plan §1).
 3. As the kernel, I want `libs/plugin-kit` kept dependency-light (types + `AppSchema`
    re-exports + builder), so that it can be imported by both plugin packages and app-backend
    without dragging in kernel internals (plan §1 placement rationale).
@@ -141,9 +145,10 @@ code inside a package), **admin** (installs/uninstalls plugins through the contr
     plan §4 step 3).
 12. As the kernel, I want plugins persisted in a new `plugin` table and compiled modules stored
     as immutable-per-hash `sandbox_script` rows gaining a `pluginSlug` column (new version ⇒
-    new row), with `isBuiltin` dropped and user scripts as `pluginSlug IS NULL` rows, so that
-    the execution path stays unchanged while superseded rows are retained while referenced
-    (plan §4 step 4 `[RECOMMENDED]`).
+    new row), with `isBuiltin` dropped, so that the execution path stays unchanged while
+    superseded rows are retained while referenced (plan §4 step 4 `[RECOMMENDED]`); the storage
+    end state is every row plugin-owned — `pluginSlug` NOT NULL, no `userId` — which task 06
+    completes (Decision 19).
 13. As the kernel, I want loading to build the new registry snapshot (Phase 1 registry + plugin
     definitions + bindings) and swap it atomically, so that reads never observe a half-applied
     plugin (plan §4 step 5; Decision 13).
@@ -173,7 +178,7 @@ code inside a package), **admin** (installs/uninstalls plugins through the contr
     plan §5).
 21. As an end user, I want my notification subscriptions moved to a dedicated
     `notification_subscription_state` table (unique on `(userId, signalSchemaSlug, scriptSlug)`,
-    following the `tracker_state` pattern), so that per-user state stops living in
+    following the per-user state-split pattern), so that per-user state stops living in
     `automation_rule` while the `automations` rule surface is preserved plumbing-only
     (Decision 15; plan §5 `[RECOMMENDED]`).
 22. As the kernel, I want `NotificationSubscriptionsService`, the `automations` rule endpoints,
@@ -220,7 +225,26 @@ code inside a package), **admin** (installs/uninstalls plugins through the contr
     that documentation follows the code (cross-phase invariant 7).
 34. As the owner, I want the branch to stay shippable at the end of the phase — backend `check`
     and unit tests, the full e2e suite, and the `app-client` check all green — so that Phase 3
-    starts from a working base (cross-phase invariant 1; done criterion 6).
+    starts from a working base (cross-phase invariant 1; done criterion 7).
+35. As the owner, I want the per-user standalone sandbox-script feature removed — the `sandbox`
+    group's authoring/CRUD/compile endpoints, the authoring service/routes, and owner-based
+    access checks — after the install fixture lands, so that plugins are the single extension
+    mechanism, first-party and user-authored alike (Decision 19; plan §8).
+36. As the kernel, I want script storage at its end state — every script row plugin-owned
+    (`pluginSlug` NOT NULL, no `userId`, no per-user slug uniqueness) with execution machinery,
+    `entity.sandboxScriptId` provenance, and per-executing-user cache isolation unchanged — so
+    that no second ownership model survives (Decision 19; plan §8; done criterion 6).
+37. As the implementing agent, I want the `tests/src/tests/sandbox/` execution/limits/fault
+    coverage ported to plugin-installed scripts and the authoring-CRUD coverage deleted, so
+    that behavior coverage survives the feature's removal (plan §8).
+38. As the kernel, I want no tracker concept — plugin `metadata` carries the workspace display
+    fields, per-user workspace state (`plugin_state`) keys on the plugin slug, and saved views
+    group by `pluginSlug` — so that a plugin is the user-facing workspace and no parallel
+    identity survives (Decision 20; plan §9).
+39. As the owner, I want the `trackers` manifest section, contract group, registry
+    definitions, and `tracker*` storage removed before the package manifests are authored, so
+    that no manifest is ever written against a concept being deleted (plan §9 ordering; done
+    criterion 7).
 
 ## Implementation Decisions
 
@@ -253,6 +277,14 @@ them (and risk drift), this PRD points to the exact sections that own them:
   uninstall-refusal policy, the `[IMPLEMENTER-DECIDES]` bundle format, the `installTestPlugin`
   replacement, the god-mode endpoint deletions, the temporary-seam removal, and the
   `patchSandboxScript`→reinstall port: plan §6.
+- **Per-user script-feature removal** — the deletion inventory (contract group audit,
+  authoring service/routes, storage end state, e2e port, doc updates), what survives
+  (execution machinery, compiler service, provenance, cache isolation), the `after §6`
+  ordering constraint, and the `[IMPLEMENTER-DECIDES]` table-rename question: Decision 19 and
+  plan §8.
+- **Tracker-concept removal** — the manifest/metadata rework, the registry change, the
+  `plugin_state` and `savedView.pluginSlug` storage renames, the contract-group dissolution,
+  and the before-manifests ordering (first work item of task 03): Decision 20 and plan §9.
 - **Cross-cutting rules** — kernel purity (no media/fitness strings, branches, or imports; the
   manifest-field litmus; Decision 2), sandbox-only runtime with boot-vs-install as the only
   first/third-party difference (Decision 3), the one-generic-invoke API-surface discipline
@@ -282,7 +314,9 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
   the harness cost now, `[RECOMMENDED]`).
 - **The `installTestPlugin` fixture is the central test change:** every provider-driven e2e
   test now exercises the real loader implicitly; the `automations` notification-subscriptions
-  suite is re-plumbed to the new state table with assertions preserved (plan §5–6).
+  suite is re-plumbed to the new state table with assertions preserved (plan §5–6). After
+  task 06, the `tests/src/tests/sandbox/` execution/limits/fault coverage also runs against
+  plugin-installed scripts, and authoring-CRUD coverage is deleted with its feature (plan §8).
 - **Behavior that must stay green:** the automation e2e suites (auto-complete, integration
   progress policy, notification delivery) with assertions unchanged (done criterion 2), and the
   hot-install e2e (install fake plugin → search/import through it → uninstall; done criterion
@@ -323,15 +357,16 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
 - **No deployment constraints.** All work is local on the `ultra-rewrite` branch; there is no
   CI, `apps/app-backend` is not deployed, dev databases are wipeable, and the single initial
   drizzle migration may be regenerated freely — so the `plugin` table, the `sandbox_script`
-  column changes, the `notification_subscription_state` table, and the `automation_rule` /
-  `entity_schema_sandbox_script` deletions are done by regenerating the migration, not by
-  authoring ALTERs (`00-overview.md` status line).
+  column changes, the `notification_subscription_state` table, the `plugin_state` /
+  `savedView.pluginSlug` renames, and the `automation_rule` / `entity_schema_sandbox_script`
+  deletions are done by regenerating the migration, not by authoring ALTERs (`00-overview.md`
+  status line).
 - **The plans are living documents during implementation.** Record `[RECOMMENDED]` deviations
   and `[IMPLEMENTER-DECIDES]` choices (bundle format, precompilation-cache question, ambiguous
   definition split) by editing the relevant plan file, not this PRD.
 - **Pattern discovery before writing.** Per `AGENTS.md`, launch an `explore` subagent to find
   existing patterns to replicate — the existing `libs/sandbox-compiler` bundling path, the
-  runtime compiler invocation in `modules/sandbox/compiler.ts`, the `tracker_state` state-split
+  runtime compiler invocation in `modules/sandbox/compiler.ts`, the Phase 1 per-user state-split
   pattern from Phase 1, the sandbox-runtime host-call bridge, and the existing provider fixture
   — before writing new code; `explore` is for discovery only.
 - **Phase ordering is strict.** Do not begin Phase 2 until every Phase 1 done criterion is met
