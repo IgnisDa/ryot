@@ -3,7 +3,7 @@ import type {
 	CatalogSignalSchema,
 	InstalledNotificationRule,
 } from "@ryot/contract/modules/automations/schemas";
-import type { AutomationRuleId, SignalSchemaId, UserId } from "@ryot/contract/schema/brands";
+import type { AutomationRuleId, SignalSchemaSlug, UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
@@ -75,7 +75,7 @@ export class NotificationSubscriptionsService extends Effect.Service<Notificatio
 			});
 
 			const getCatalog = Effect.fn("NotificationSubscriptionsService.getCatalog")(function* (
-				id: SignalSchemaId,
+				id: SignalSchemaSlug,
 			) {
 				const signalSchema = yield* runWithDb(signalSchemas.findActiveBuiltinById(id));
 				return signalSchema
@@ -129,10 +129,12 @@ export class NotificationSubscriptionsService extends Effect.Service<Notificatio
 			});
 
 			const installRule = Effect.fn("NotificationSubscriptionsService.installRule")(
-				function* (input: { userId: UserId; signalSchemaId: SignalSchemaId }) {
+				function* (input: { userId: UserId; signalSchemaSlug: SignalSchemaSlug }) {
 					return yield* runInTransaction(
 						Effect.gen(function* () {
-							const signalSchema = yield* signalSchemas.findActiveBuiltinById(input.signalSchemaId);
+							const signalSchema = yield* signalSchemas.findActiveBuiltinById(
+								input.signalSchemaSlug,
+							);
 							if (!signalSchema) {
 								return yield* notFound("Signal schema not found");
 							}

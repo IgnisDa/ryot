@@ -152,18 +152,18 @@ describe("sandbox async flow", () => {
 	it.live("completes a script that uses executeQueryEngine", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { trackerId } = yield* createTracker(client, {
+			const { trackerSlug } = yield* createTracker(client, {
 				name: "Sandbox Schema Tracker",
 			});
 			const { data: schema, slug } = yield* createEntitySchema(client, {
-				trackerId,
+				trackerSlug,
 				name: "Sandbox Schema",
 				slug: `sandbox-schema-${crypto.randomUUID()}`,
 			});
 			yield* createEntity(client, {
 				properties: {},
 				name: "Test Entity",
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 			});
 			const sandboxSlug = `execute-query-engine-${crypto.randomUUID()}`;
 			const { id: scriptId } = yield* createSandboxScript(client, {

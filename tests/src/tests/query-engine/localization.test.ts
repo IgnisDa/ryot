@@ -45,12 +45,12 @@ const setupLocalizedItems = () =>
 
 		const zulu = yield* createQueryEngineEntity(client, {
 			name: "Zulu",
-			entitySchemaId: schemaId,
+			entitySchemaSlug: schemaId,
 			properties: { rating: 5, description: "Canonical Zulu overview" },
 		});
 		const alpha = yield* createQueryEngineEntity(client, {
 			name: "Alpha",
-			entitySchemaId: schemaId,
+			entitySchemaSlug: schemaId,
 			properties: { rating: 9, description: "Canonical Alpha overview" },
 		});
 

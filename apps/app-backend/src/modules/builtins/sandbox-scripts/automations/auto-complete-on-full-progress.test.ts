@@ -17,7 +17,7 @@ const completeSchema = {
 	slug: "complete",
 	propertiesSchema: {},
 	id: "complete-schema",
-	entitySchemaId: "entity-schema-1",
+	entitySchemaSlug: "entity-schema-1",
 };
 
 const createHost = (options: {
@@ -59,7 +59,7 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 				[
 					{
 						entityId: "entity-1",
-						eventSchemaId: "complete-schema",
+						eventSchemaSlug: "complete-schema",
 						occurredAt: "2026-02-03T04:05:06.000Z",
 						properties: {
 							consumedOn: "Jellyfin",

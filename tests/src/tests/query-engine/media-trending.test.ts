@@ -46,13 +46,13 @@ describe("Query engine media trending", () => {
 					sourceEntityId: second.entity.id,
 					targetEntityId: second.entity.id,
 					properties: { rank: 2, fetchedAt },
-					relationshipSchemaId: mediaTrending.id,
+					relationshipSchemaSlug: mediaTrending.id,
 				}),
 				insertGlobalRelationship({
 					sourceEntityId: top.entity.id,
 					targetEntityId: top.entity.id,
 					properties: { rank: 1, fetchedAt },
-					relationshipSchemaId: mediaTrending.id,
+					relationshipSchemaSlug: mediaTrending.id,
 				}),
 			]);
 

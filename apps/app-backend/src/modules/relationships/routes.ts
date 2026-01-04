@@ -2,7 +2,7 @@ import { HttpApiBuilder } from "@effect/platform";
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
 import { badRequest, dieOnDbError, notFound } from "@ryot/contract/errors";
-import type { EntityId, EntitySchemaId } from "@ryot/contract/schema/brands";
+import type { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { DateTime, Effect } from "effect";
 
@@ -29,7 +29,7 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 				const schemasRepository = yield* RelationshipSchemasRepository;
 
 				const schema = yield* runWithDb(
-					schemasRepository.findById(payload.relationshipSchemaId, user.id),
+					schemasRepository.findById(payload.relationshipSchemaSlug, user.id),
 				);
 				if (!schema) {
 					return yield* notFound("Relationship schema not found");
@@ -55,8 +55,8 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 
 				yield* validateSchemaTargets(
 					schema,
-					sourceScope.entitySchemaId,
-					targetScope.entitySchemaId,
+					sourceScope.entitySchemaSlug,
+					targetScope.entitySchemaSlug,
 				);
 
 				const relationshipInput = {
@@ -66,7 +66,7 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 					sourceEntityId: payload.sourceEntityId,
 					targetEntityId: payload.targetEntityId,
 					propertiesSchema: schema.propertiesSchema,
-					relationshipSchemaId: payload.relationshipSchemaId,
+					relationshipSchemaSlug: payload.relationshipSchemaSlug,
 				} as const;
 
 				const outcome = yield* runInTransaction(
@@ -106,8 +106,7 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 							after: {
 								id: created.id,
 								properties: created.properties,
-								relationshipSchemaSlug: schema.slug,
-								relationshipSchemaId: created.relationshipSchemaId,
+								relationshipSchemaSlug: created.relationshipSchemaSlug,
 								target: referenceFor(payload.targetEntityId),
 								source: referenceFor(payload.sourceEntityId),
 							},
@@ -122,16 +121,16 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 
 const validateSchemaTargets = (
 	schema: {
-		readonly sourceEntitySchemaId: EntitySchemaId | null;
-		readonly targetEntitySchemaId: EntitySchemaId | null;
+		readonly sourceEntitySchemaSlug: EntitySchemaSlug | null;
+		readonly targetEntitySchemaSlug: EntitySchemaSlug | null;
 	},
-	sourceEntitySchemaId: EntitySchemaId,
-	targetEntitySchemaId: EntitySchemaId,
+	sourceEntitySchemaSlug: EntitySchemaSlug,
+	targetEntitySchemaSlug: EntitySchemaSlug,
 ) => {
-	if (schema.sourceEntitySchemaId && schema.sourceEntitySchemaId !== sourceEntitySchemaId) {
+	if (schema.sourceEntitySchemaSlug && schema.sourceEntitySchemaSlug !== sourceEntitySchemaSlug) {
 		return badRequest("Relationship source entity schema does not match");
 	}
-	if (schema.targetEntitySchemaId && schema.targetEntitySchemaId !== targetEntitySchemaId) {
+	if (schema.targetEntitySchemaSlug && schema.targetEntitySchemaSlug !== targetEntitySchemaSlug) {
 		return badRequest("Relationship target entity schema does not match");
 	}
 	return Effect.void;

@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { RelationshipSchemaId, SignalSchemaId } from "@ryot/contract/schema/brands";
+import { RelationshipSchemaSlug, SignalSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-utils/effect";
@@ -35,17 +35,17 @@ const scope = {
 	...definition,
 	userId: null,
 	isBuiltin: true,
-	id: SignalSchemaId.make("signal-schema-1"),
+	id: SignalSchemaSlug.make("signal-schema-1"),
 } satisfies SignalSchemaScope;
 
 const relationshipScope = {
 	isBuiltin: true,
 	slug: "media-monitoring",
 	name: "Media monitoring",
-	sourceEntitySchemaId: null,
-	targetEntitySchemaId: null,
+	sourceEntitySchemaSlug: null,
+	targetEntitySchemaSlug: null,
 	propertiesSchema: { fields: {} },
-	id: RelationshipSchemaId.make("relationship-schema-1"),
+	id: RelationshipSchemaSlug.make("relationship-schema-1"),
 };
 
 const mockSignalSchemasRepository = Layer.mock(SignalSchemasRepository);
@@ -106,7 +106,7 @@ it.effect("leaves an unchanged built-in signal schema untouched", () => {
 
 it.effect("updates only built-in display fields", () => {
 	const existing = { ...scope, name: "Old name", catalogState: "hidden" as const };
-	let update: { name: string; id: SignalSchemaId; catalogState: "active" | "hidden" } | undefined;
+	let update: { name: string; id: SignalSchemaSlug; catalogState: "active" | "hidden" } | undefined;
 	const layer = makeLayer(
 		makeSignalSchemasRepository({
 			findGlobalBySlug: () => Effect.succeed(existing),
@@ -157,7 +157,7 @@ it.effect("rejects built-in audience contract drift", () => {
 					audiencePolicy: {
 						kind: "related_users",
 						subjectSide: "source",
-						relationshipSchemaId: relationshipScope.id,
+						relationshipSchemaSlug: relationshipScope.id,
 					},
 				}),
 		}),
@@ -182,7 +182,7 @@ it.effect("rejects an invalid related-users schema contract", () => {
 		audiencePolicy: {
 			kind: "related_users",
 			subjectSide: "source",
-			relationshipSchemaId: relationshipScope.id,
+			relationshipSchemaSlug: relationshipScope.id,
 		},
 	} as const satisfies BuiltinSignalSchemaInput;
 	const layer = makeLayer(

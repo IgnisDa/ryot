@@ -13,12 +13,12 @@ import {
 import { SandboxScriptMetadata } from "@ryot/contract/modules/sandbox/schemas";
 import {
 	AutomationRuleId,
-	EntitySchemaId,
-	EventSchemaId,
-	RelationshipSchemaId,
+	EntitySchemaSlug,
+	EventSchemaSlug,
+	RelationshipSchemaSlug,
 	SandboxScriptId,
 	SignalId,
-	SignalSchemaId,
+	SignalSchemaSlug,
 	SubscriptionRunId,
 	UserId,
 } from "@ryot/contract/schema/brands";
@@ -28,15 +28,16 @@ import { DateTime, Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
 
 type AutomationRuleRow = typeof schema.automationRule.$inferSelect;
 type SubscriptionRunRow = typeof schema.subscriptionRun.$inferSelect;
 
 export type AutomationRuleTarget =
-	| { kind: "event_schema"; id: EventSchemaId }
-	| { kind: "entity_schema"; id: EntitySchemaId }
-	| { kind: "signal_schema"; id: SignalSchemaId }
-	| { kind: "relationship_schema"; id: RelationshipSchemaId };
+	| { kind: "event_schema"; id: EventSchemaSlug }
+	| { kind: "entity_schema"; id: EntitySchemaSlug }
+	| { kind: "signal_schema"; id: SignalSchemaSlug }
+	| { kind: "relationship_schema"; id: RelationshipSchemaSlug };
 
 export type AutomationReferenceScope = {
 	isBuiltin: boolean;
@@ -93,28 +94,28 @@ export type FinishSubscriptionRunInput = {
 
 const targetValues = (target: AutomationRuleTarget) => {
 	if (target.kind === "entity_schema") {
-		return { entitySchemaId: target.id };
+		return { entitySchemaSlug: target.id };
 	}
 	if (target.kind === "event_schema") {
-		return { eventSchemaId: target.id };
+		return { eventSchemaSlug: target.id };
 	}
 	if (target.kind === "relationship_schema") {
-		return { relationshipSchemaId: target.id };
+		return { relationshipSchemaSlug: target.id };
 	}
-	return { signalSchemaId: target.id };
+	return { signalSchemaSlug: target.id };
 };
 
 const targetClause = (target: AutomationRuleTarget): SQL => {
 	if (target.kind === "entity_schema") {
-		return eq(schema.automationRule.entitySchemaId, target.id);
+		return eq(schema.automationRule.entitySchemaSlug, target.id);
 	}
 	if (target.kind === "event_schema") {
-		return eq(schema.automationRule.eventSchemaId, target.id);
+		return eq(schema.automationRule.eventSchemaSlug, target.id);
 	}
 	if (target.kind === "relationship_schema") {
-		return eq(schema.automationRule.relationshipSchemaId, target.id);
+		return eq(schema.automationRule.relationshipSchemaSlug, target.id);
 	}
-	return eq(schema.automationRule.signalSchemaId, target.id);
+	return eq(schema.automationRule.signalSchemaSlug, target.id);
 };
 
 const userNotificationRuleClause = (input: { userId: UserId; sandboxScriptId: SandboxScriptId }) =>
@@ -123,25 +124,25 @@ const userNotificationRuleClause = (input: { userId: UserId; sandboxScriptId: Sa
 		eq(schema.automationRule.kind, "subscription"),
 		eq(schema.automationRule.operation, "signal"),
 		eq(schema.automationRule.isBuiltin, false),
-		isNotNull(schema.automationRule.signalSchemaId),
+		isNotNull(schema.automationRule.signalSchemaSlug),
 		eq(schema.automationRule.sandboxScriptId, input.sandboxScriptId),
 	);
 
 const targetFromRow = (row: AutomationRuleRow): AutomationRuleTarget | null => {
-	if (row.entitySchemaId) {
-		return { id: EntitySchemaId.make(row.entitySchemaId), kind: "entity_schema" };
+	if (row.entitySchemaSlug) {
+		return { id: EntitySchemaSlug.make(row.entitySchemaSlug), kind: "entity_schema" };
 	}
-	if (row.eventSchemaId) {
-		return { id: EventSchemaId.make(row.eventSchemaId), kind: "event_schema" };
+	if (row.eventSchemaSlug) {
+		return { id: EventSchemaSlug.make(row.eventSchemaSlug), kind: "event_schema" };
 	}
-	if (row.relationshipSchemaId) {
+	if (row.relationshipSchemaSlug) {
 		return {
-			id: RelationshipSchemaId.make(row.relationshipSchemaId),
+			id: RelationshipSchemaSlug.make(row.relationshipSchemaSlug),
 			kind: "relationship_schema",
 		};
 	}
-	if (row.signalSchemaId) {
-		return { id: SignalSchemaId.make(row.signalSchemaId), kind: "signal_schema" };
+	if (row.signalSchemaSlug) {
+		return { id: SignalSchemaSlug.make(row.signalSchemaSlug), kind: "signal_schema" };
 	}
 	return null;
 };
@@ -205,62 +206,27 @@ export type StoredSubscriptionRun = ReturnType<typeof toStoredRun>;
 export class AutomationsRepository extends Effect.Service<AutomationsRepository>()(
 	"AutomationsRepository",
 	{
-		sync: () => {
-			const findTargetScope = Effect.fn("AutomationsRepository.findTargetScope")(function* (
+		effect: Effect.gen(function* () {
+			const definitions = yield* DefinitionRegistry;
+			const findTargetScope = Effect.fn("AutomationsRepository.findTargetScope")((
 				target: AutomationRuleTarget,
-			) {
-				const db = yield* CurrentDb;
-				const selection = {
-					userId: schema.entitySchema.userId,
-					isBuiltin: schema.entitySchema.isBuiltin,
-				};
+			) => {
+				let exists: unknown;
 				if (target.kind === "entity_schema") {
-					const [row] = yield* dbEffect(() =>
-						db
-							.select(selection)
-							.from(schema.entitySchema)
-							.where(eq(schema.entitySchema.id, target.id))
-							.limit(1),
+					exists = definitions.getEntitySchema(target.id);
+				} else if (target.kind === "relationship_schema") {
+					exists = definitions.getRelationshipSchema(target.id);
+				} else if (target.kind === "signal_schema") {
+					exists = definitions.getSignalSchema(target.id);
+				} else {
+					exists = Object.values(definitions.getSnapshot().entitySchemas).find(
+						(entity) => entity.eventSchemas[target.id],
 					);
-					return row ? { ...row, userId: row.userId ? UserId.make(row.userId) : null } : null;
 				}
-				if (target.kind === "event_schema") {
-					const [row] = yield* dbEffect(() =>
-						db
-							.select({
-								userId: schema.eventSchema.userId,
-								isBuiltin: schema.eventSchema.isBuiltin,
-							})
-							.from(schema.eventSchema)
-							.where(eq(schema.eventSchema.id, target.id))
-							.limit(1),
-					);
-					return row ? { ...row, userId: row.userId ? UserId.make(row.userId) : null } : null;
-				}
-				if (target.kind === "relationship_schema") {
-					const [row] = yield* dbEffect(() =>
-						db
-							.select({
-								userId: schema.relationshipSchema.userId,
-								isBuiltin: schema.relationshipSchema.isBuiltin,
-							})
-							.from(schema.relationshipSchema)
-							.where(eq(schema.relationshipSchema.id, target.id))
-							.limit(1),
-					);
-					return row ? { ...row, userId: row.userId ? UserId.make(row.userId) : null } : null;
-				}
-				const [row] = yield* dbEffect(() =>
-					db
-						.select({
-							userId: schema.signalSchema.userId,
-							isBuiltin: schema.signalSchema.isBuiltin,
-						})
-						.from(schema.signalSchema)
-						.where(eq(schema.signalSchema.id, target.id))
-						.limit(1),
-				);
-				return row ? { ...row, userId: row.userId ? UserId.make(row.userId) : null } : null;
+				const scope: AutomationReferenceScope | null = exists
+					? { userId: null, isBuiltin: true }
+					: null;
+				return Effect.succeed(scope);
 			});
 
 			const findScriptScope = Effect.fn("AutomationsRepository.findScriptScope")(function* (
@@ -734,6 +700,6 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 				listRunsByOriginalRuleId,
 				listUserNotificationRules,
 			};
-		},
+		}),
 	},
 ) {}

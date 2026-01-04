@@ -1,14 +1,10 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
-import {
-	entitySchema,
-	eventSchema,
-	relationshipSchema,
-	sandboxScript,
-} from "#lib/infrastructure/db/schema/tables/combined";
+import { sandboxScript } from "#lib/infrastructure/db/schema/tables/combined";
 import { dbEffect, DbService } from "#lib/infrastructure/db/service";
 import { builtinMediaEntitySchemaSlugs } from "#modules/builtins/media-schema-slugs";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { bootstrapNewUser } from "#modules/user-bootstrap/bootstrap";
 
 import {
@@ -84,20 +80,15 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	}
 
 	const { db } = yield* DbService;
+	const definitions = yield* DefinitionRegistry;
 
-	const entitySchemas = yield* dbEffect(() =>
-		db
-			.select({ id: entitySchema.id, slug: entitySchema.slug })
-			.from(entitySchema)
-			.where(isNull(entitySchema.userId)),
-	);
-
-	const workoutSetEventSchemaResult = yield* dbEffect(() =>
-		db
-			.select({ id: eventSchema.id })
-			.from(eventSchema)
-			.where(and(isNull(eventSchema.userId), eq(eventSchema.slug, "workout-set"))),
-	);
+	const entitySchemas = Object.keys(definitions.getSnapshot().entitySchemas).map((slug) => ({
+		id: slug,
+		slug,
+	}));
+	const workoutSetEventSchemaResult = definitions.getEventSchema("exercise", "workout-set")
+		? [{ id: "workout-set" }]
+		: [];
 
 	const sandboxScripts = yield* dbEffect(() =>
 		db
@@ -106,37 +97,34 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			.where(and(isNull(sandboxScript.userId), eq(sandboxScript.isBuiltin, true))),
 	);
 
-	const relationshipSchemas = yield* dbEffect(() =>
-		db
-			.select({ id: relationshipSchema.id, slug: relationshipSchema.slug })
-			.from(relationshipSchema)
-			.where(isNull(relationshipSchema.userId)),
+	const relationshipSchemas = Object.keys(definitions.getSnapshot().relationshipSchemas).map(
+		(slug) => ({ id: slug, slug }),
 	);
 
-	const entitySchemaIds = buildUniqueSlugMap(entitySchemas, "entity schema");
+	const entitySchemaSlugs = buildUniqueSlugMap(entitySchemas, "entity schema");
 	const sandboxScriptIds = buildUniqueSlugMap(sandboxScripts, "sandbox script");
-	const relationshipSchemaIds = buildUniqueSlugMap(relationshipSchemas, "relationship schema");
+	const relationshipSchemaSlugs = buildUniqueSlugMap(relationshipSchemas, "relationship schema");
 	const metadataEntitySchemaSlugByLot = buildUniqueLotEntitySchemaSlugMap(
 		metadataMigrationTargets.map(({ lot, entitySchemaSlug }) => ({ lot, entitySchemaSlug })),
 	);
 
 	const resolvedMetadataTargets = resolveEntityMigrationTargets(
 		metadataMigrationTargets,
-		entitySchemaIds,
+		entitySchemaSlugs,
 		sandboxScriptIds,
 		"metadata",
 	);
 	const resolvedMetadataGroupEntityTargets = resolveEntityMigrationTargets(
 		metadataGroupEntityTargets,
-		entitySchemaIds,
+		entitySchemaSlugs,
 		sandboxScriptIds,
 		"metadata group",
 	);
 	const resolvedMetadataGroupRelationshipTargets = metadataGroupRelationshipTargets.map(
 		(target) => ({
 			lot: target.lot,
-			relationshipSchemaId: requireSchemaId(
-				relationshipSchemaIds,
+			relationshipSchemaSlug: requireSchemaId(
+				relationshipSchemaSlugs,
 				target.relationshipSchemaSlug,
 				"relationship schema",
 			),
@@ -144,23 +132,23 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	);
 	const resolvedPersonEntityTargets = resolveEntityMigrationTargets(
 		personEntityTargets,
-		entitySchemaIds,
+		entitySchemaSlugs,
 		sandboxScriptIds,
 		"person",
 	);
 	const resolvedCompanyEntityTargets = resolveEntityMigrationTargets(
 		companyEntityTargets,
-		entitySchemaIds,
+		entitySchemaSlugs,
 		sandboxScriptIds,
 		"company",
 	);
 	const resolvedPersonRelationshipTargets = resolveRelationshipMigrationTargets({
-		relationshipSchemaIds,
+		relationshipSchemaSlugs,
 		sourceEntitySchemaSlug: "person",
 		lotToEntitySchemaSlug: metadataEntitySchemaSlugByLot,
 	});
 	const resolvedCompanyRelationshipTargets = resolveRelationshipMigrationTargets({
-		relationshipSchemaIds,
+		relationshipSchemaSlugs,
 		sourceEntitySchemaSlug: "company",
 		lotToEntitySchemaSlug: metadataEntitySchemaSlugByLot,
 	});
@@ -171,98 +159,106 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	] as const;
 	const resolvedGroupPersonRelationshipTargets = groupPersonRelationshipLots.map((target) => ({
 		lot: target.lot,
-		relationshipSchemaId: requireSchemaId(
-			relationshipSchemaIds,
+		relationshipSchemaSlug: requireSchemaId(
+			relationshipSchemaSlugs,
 			target.relationshipSchemaSlug,
 			"relationship schema",
 		),
 	}));
 
-	const collectionEntitySchemaId = requireSchemaId(entitySchemaIds, "collection", "entity schema");
+	const collectionEntitySchemaSlug = requireSchemaId(
+		entitySchemaSlugs,
+		"collection",
+		"entity schema",
+	);
 
-	const memberOfRelationshipSchemaId = requireSchemaId(
-		relationshipSchemaIds,
+	const memberOfRelationshipSchemaSlug = requireSchemaId(
+		relationshipSchemaSlugs,
 		"member-of",
 		"relationship schema",
 	);
 
-	const measurementEntitySchemaId = requireSchemaId(
-		entitySchemaIds,
+	const measurementEntitySchemaSlug = requireSchemaId(
+		entitySchemaSlugs,
 		"measurement",
 		"entity schema",
 	);
 
-	const workoutEntitySchemaId = requireSchemaId(entitySchemaIds, "workout", "entity schema");
+	const workoutEntitySchemaSlug = requireSchemaId(entitySchemaSlugs, "workout", "entity schema");
 
-	const workoutTemplateEntitySchemaId = requireSchemaId(
-		entitySchemaIds,
+	const workoutTemplateEntitySchemaSlug = requireSchemaId(
+		entitySchemaSlugs,
 		"workout-template",
 		"entity schema",
 	);
 
-	const workoutSetEventSchemaId = requireDefined(
+	const workoutSetEventSchemaSlug = requireDefined(
 		workoutSetEventSchemaResult[0],
 		'Missing event schema for slug "workout-set"',
 	).id;
 
-	const workoutToWorkoutTemplateRelationshipSchemaId = requireSchemaId(
-		relationshipSchemaIds,
+	const workoutToWorkoutTemplateRelationshipSchemaSlug = requireSchemaId(
+		relationshipSchemaSlugs,
 		"workout-to-workout-template",
 		"relationship schema",
 	);
 
-	const workoutRepeatedFromRelationshipSchemaId = requireSchemaId(
-		relationshipSchemaIds,
+	const workoutRepeatedFromRelationshipSchemaSlug = requireSchemaId(
+		relationshipSchemaSlugs,
 		"workout-repeated-from",
 		"relationship schema",
 	);
 
-	const libraryEntitySchemaId = requireSchemaId(entitySchemaIds, "library", "entity schema");
+	const libraryEntitySchemaSlug = requireSchemaId(entitySchemaSlugs, "library", "entity schema");
 
-	const inLibraryRelationshipSchemaId = requireSchemaId(
-		relationshipSchemaIds,
+	const inLibraryRelationshipSchemaSlug = requireSchemaId(
+		relationshipSchemaSlugs,
 		"in-library",
 		"relationship schema",
 	);
 
-	const mediaMonitoringRelationshipSchemaId = requireSchemaId(
-		relationshipSchemaIds,
+	const mediaMonitoringRelationshipSchemaSlug = requireSchemaId(
+		relationshipSchemaSlugs,
 		"media-monitoring",
 		"relationship schema",
 	);
 
-	const monitorableEntitySchemaIds = ["company", "person", ...builtinMediaEntitySchemaSlugs].map(
-		(slug) => requireSchemaId(entitySchemaIds, slug, "entity schema"),
+	const monitorableEntitySchemaSlugs = ["company", "person", ...builtinMediaEntitySchemaSlugs].map(
+		(slug) => requireSchemaId(entitySchemaSlugs, slug, "entity schema"),
 	);
 
-	const showSeasonEntitySchemaId = requireSchemaId(entitySchemaIds, "show-season", "entity schema");
+	const showSeasonEntitySchemaSlug = requireSchemaId(
+		entitySchemaSlugs,
+		"show-season",
+		"entity schema",
+	);
 
-	const showEpisodeEntitySchemaId = requireSchemaId(
-		entitySchemaIds,
+	const showEpisodeEntitySchemaSlug = requireSchemaId(
+		entitySchemaSlugs,
 		"show-episode",
 		"entity schema",
 	);
 
-	const podcastEpisodeEntitySchemaId = requireSchemaId(
-		entitySchemaIds,
+	const podcastEpisodeEntitySchemaSlug = requireSchemaId(
+		entitySchemaSlugs,
 		"podcast-episode",
 		"entity schema",
 	);
 
-	const showToSeasonRelationshipSchemaId = requireSchemaId(
-		relationshipSchemaIds,
+	const showToSeasonRelationshipSchemaSlug = requireSchemaId(
+		relationshipSchemaSlugs,
 		"show-to-show-season",
 		"relationship schema",
 	);
 
-	const seasonToEpisodeRelationshipSchemaId = requireSchemaId(
-		relationshipSchemaIds,
+	const seasonToEpisodeRelationshipSchemaSlug = requireSchemaId(
+		relationshipSchemaSlugs,
 		"show-season-to-show-episode",
 		"relationship schema",
 	);
 
-	const podcastToEpisodeRelationshipSchemaId = requireSchemaId(
-		relationshipSchemaIds,
+	const podcastToEpisodeRelationshipSchemaSlug = requireSchemaId(
+		relationshipSchemaSlugs,
 		"podcast-to-podcast-episode",
 		"relationship schema",
 	);
@@ -335,7 +331,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 
 	const resolvedExerciseTargets = resolveEntityMigrationTargets(
 		exerciseEntityTargets,
-		entitySchemaIds,
+		entitySchemaSlugs,
 		sandboxScriptIds,
 		"exercise",
 	);
@@ -385,12 +381,12 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			.then(() =>
 				client.query(
 					buildLegacyEpisodicSubEntityMigrationSql({
-						showSeasonEntitySchemaId,
-						showEpisodeEntitySchemaId,
-						podcastEpisodeEntitySchemaId,
-						showToSeasonRelationshipSchemaId,
-						seasonToEpisodeRelationshipSchemaId,
-						podcastToEpisodeRelationshipSchemaId,
+						showSeasonEntitySchemaSlug,
+						showEpisodeEntitySchemaSlug,
+						podcastEpisodeEntitySchemaSlug,
+						showToSeasonRelationshipSchemaSlug,
+						seasonToEpisodeRelationshipSchemaSlug,
+						podcastToEpisodeRelationshipSchemaSlug,
 					}),
 				),
 			)
@@ -404,22 +400,24 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			)
 			.then(() => client.query(buildPersonEntityMigrationSql(resolvedPersonEntityTargets)))
 			.then(() => client.query(buildCompanyEntityMigrationSql(resolvedCompanyEntityTargets)))
-			.then(() => client.query(buildCollectionEntityMigrationSql(collectionEntitySchemaId)))
+			.then(() => client.query(buildCollectionEntityMigrationSql(collectionEntitySchemaSlug)))
 			.then(() => client.query(buildExerciseMigrationSql(resolvedExerciseTargets)))
-			.then(() => client.query(buildMeasurementMigrationSql(measurementEntitySchemaId)))
-			.then(() => client.query(buildWorkoutTemplateMigrationSql(workoutTemplateEntitySchemaId)))
-			.then(() => client.query(buildWorkoutMigrationSql(workoutEntitySchemaId)))
-			.then(() => client.query(buildWorkoutSetEventMigrationSql(workoutSetEventSchemaId)))
+			.then(() => client.query(buildMeasurementMigrationSql(measurementEntitySchemaSlug)))
+			.then(() => client.query(buildWorkoutTemplateMigrationSql(workoutTemplateEntitySchemaSlug)))
+			.then(() => client.query(buildWorkoutMigrationSql(workoutEntitySchemaSlug)))
+			.then(() => client.query(buildWorkoutSetEventMigrationSql(workoutSetEventSchemaSlug)))
 			.then(() =>
 				client.query(
 					buildWorkoutToTemplateRelationshipMigrationSql(
-						workoutToWorkoutTemplateRelationshipSchemaId,
+						workoutToWorkoutTemplateRelationshipSchemaSlug,
 					),
 				),
 			)
 			.then(() =>
 				client.query(
-					buildWorkoutRepeatedFromRelationshipMigrationSql(workoutRepeatedFromRelationshipSchemaId),
+					buildWorkoutRepeatedFromRelationshipMigrationSql(
+						workoutRepeatedFromRelationshipSchemaSlug,
+					),
 				),
 			)
 			.then(() => client.query(buildReviewMigrationSql()))
@@ -454,26 +452,28 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				),
 			)
 			.then(() =>
-				client.query(buildCollectionToEntityRelationshipMigrationSql(memberOfRelationshipSchemaId)),
+				client.query(
+					buildCollectionToEntityRelationshipMigrationSql(memberOfRelationshipSchemaSlug),
+				),
 			)
 			.then(() => client.query(buildMetadataToMetadataRelationshipMigrationSql()))
 			.then(() =>
 				client.query(
 					buildUserToEntityInLibraryMigrationSql(
-						inLibraryRelationshipSchemaId,
-						libraryEntitySchemaId,
+						inLibraryRelationshipSchemaSlug,
+						libraryEntitySchemaSlug,
 					),
 				),
 			)
 			.then(() =>
-				client.query(buildOwnedCollectionOwnershipMigrationSql(inLibraryRelationshipSchemaId)),
+				client.query(buildOwnedCollectionOwnershipMigrationSql(inLibraryRelationshipSchemaSlug)),
 			)
 			.then(() =>
 				client.query(
 					buildMonitoringCollectionMigrationSql({
-						libraryEntitySchemaId,
-						monitorableEntitySchemaIds,
-						mediaMonitoringRelationshipSchemaId,
+						libraryEntitySchemaSlug,
+						monitorableEntitySchemaSlugs,
+						mediaMonitoringRelationshipSchemaSlug,
 					}),
 				),
 			)

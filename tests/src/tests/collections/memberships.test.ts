@@ -37,7 +37,7 @@ describe("POST /collections/memberships", () => {
 			);
 
 			expect(data.memberOf.id).toBeDefined();
-			expect(data.memberOf.relationshipSchemaId).toBeDefined();
+			expect(data.memberOf.relationshipSchemaSlug).toBeDefined();
 			expect(data.memberOf.sourceEntityId).toBe(childCollection.id);
 			expect(data.memberOf.targetEntityId).toBe(parentCollection.id);
 		}),
@@ -81,7 +81,7 @@ describe("POST /collections/memberships", () => {
 			);
 
 			expect(data.memberOf.id).toBeDefined();
-			expect(data.memberOf.relationshipSchemaId).toBeDefined();
+			expect(data.memberOf.relationshipSchemaSlug).toBeDefined();
 			expect(data.memberOf.sourceEntityId).toBe(entityId);
 			expect(data.memberOf.targetEntityId).toBe(collection.id);
 		}),
@@ -333,13 +333,13 @@ describe("DELETE /collections/memberships", () => {
 				c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
 			);
 
-			expect(addData.memberOf.relationshipSchemaId).toBeDefined();
+			expect(addData.memberOf.relationshipSchemaSlug).toBeDefined();
 
 			const removeData = yield* client.call((c) =>
 				c.collections.deleteMembership({ payload: { entityId, collectionId: collection.id } }),
 			);
 
-			expect(removeData.memberOf.relationshipSchemaId).toBeDefined();
+			expect(removeData.memberOf.relationshipSchemaSlug).toBeDefined();
 			expect(removeData.memberOf.sourceEntityId).toBe(entityId);
 			expect(removeData.memberOf.targetEntityId).toBe(collection.id);
 		}),

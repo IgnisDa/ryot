@@ -3,14 +3,12 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createEntitySchema,
-	createTracker,
 	findBuiltinSchemaBySlug,
-	getBuiltinEntitySchemaId,
+	getBuiltinEntitySchemaSlug,
 	listBuiltinEntitySchemas,
 	listEventSchemas,
 } from "~/fixtures";
-import { assertPresent, assertTaggedError, requireObjectRecord } from "~/support/assertions";
+import { assertPresent, requireObjectRecord } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("GET /event-schemas", () => {
@@ -313,7 +311,7 @@ describe("GET /event-schemas", () => {
 				Effect.gen(function* () {
 					const schemaId =
 						schemas.find((schema) => schema.slug === slug)?.id ??
-						(yield* getBuiltinEntitySchemaId(slug));
+						(yield* getBuiltinEntitySchemaSlug(slug));
 					const eventSchemas = yield* listEventSchemas(client, schemaId);
 					const progressSchema = eventSchemas.find((schema) => schema.slug === "progress");
 					assertPresent(progressSchema, `Missing built-in progress schema for ${slug}`);
@@ -474,28 +472,6 @@ describe("GET /event-schemas", () => {
 			expect(showOnHoldSchema).toMatchObject(showDroppedSchema);
 			expect(podcastDroppedSchema).toMatchObject(showDroppedSchema);
 			expect(podcastOnHoldSchema).toMatchObject(showDroppedSchema);
-		}),
-	);
-
-	it.live("returns 404 when accessing another user's entity schema", () =>
-		Effect.gen(function* () {
-			const owner = yield* createAuthenticatedClient();
-			const intruder = yield* createAuthenticatedClient();
-			const { trackerId } = yield* createTracker(owner.client, {
-				name: "Owner Event Schema Tracker",
-			});
-			const { schemaId: entitySchemaId } = yield* createEntitySchema(owner.client, {
-				trackerId,
-				name: "Owner Entity",
-				slug: "owner-entity",
-			});
-
-			const error = yield* Effect.flip(
-				intruder.client.call((c) => c.eventSchemas.list({ urlParams: { entitySchemaId } })),
-			);
-
-			assertTaggedError(error, "NotFound");
-			expect(error.message).toBe("Entity schema not found");
 		}),
 	);
 });

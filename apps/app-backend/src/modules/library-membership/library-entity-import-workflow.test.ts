@@ -3,7 +3,7 @@ import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { DbError, SandboxRunError } from "@ryot/contract/errors";
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
-import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
@@ -34,7 +34,7 @@ const populatedEntity = {
 	sandboxScriptId: null,
 	id: EntityId.make("entity-1"),
 	properties: { title: "Test Book" },
-	entitySchemaId: EntitySchemaId.make("schema-1"),
+	entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
 } satisfies ListedEntity;
 
 const importPayload = {
@@ -43,7 +43,7 @@ const importPayload = {
 	userId: UserId.make("user-1"),
 	origin: { kind: "api" } as const,
 	scriptId: SandboxScriptId.make("script-1"),
-	entitySchemaId: EntitySchemaId.make("schema-1"),
+	entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
 } satisfies EntityImportPayload;
 
 type PopulationStub = (

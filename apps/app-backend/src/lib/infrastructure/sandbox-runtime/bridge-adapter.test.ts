@@ -135,7 +135,7 @@ describe("bindSandboxHostFunctions", () => {
 			expect(
 				yield* Effect.promise(() =>
 					bound.createEvents([
-						[{ entityId: "e-1", eventSchemaId: "es-1", properties: { watched: true } }],
+						[{ entityId: "e-1", eventSchemaSlug: "es-1", properties: { watched: true } }],
 					]),
 				),
 			).toEqual({ error: "reached", success: false });
@@ -160,7 +160,7 @@ describe("bindSandboxHostFunctions", () => {
 				{ fnName: "getEntity", value: "entity-1" },
 				{
 					fnName: "createEvents",
-					value: [{ entityId: "e-1", eventSchemaId: "es-1", properties: { watched: true } }],
+					value: [{ entityId: "e-1", eventSchemaSlug: "es-1", properties: { watched: true } }],
 				},
 				{ fnName: "listIntegrations", value: { provider: "plex_yank" } },
 			]);

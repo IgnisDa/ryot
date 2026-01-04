@@ -2,9 +2,9 @@ import { Schema } from "effect";
 
 import {
 	EntityId,
-	EntitySchemaId,
+	EntitySchemaSlug,
 	RelationshipId,
-	RelationshipSchemaId,
+	RelationshipSchemaSlug,
 	SandboxScriptId,
 } from "../../schema/brands";
 
@@ -14,7 +14,7 @@ export const CollectionResponse = Schema.Struct({
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
 	properties: Schema.Unknown,
-	entitySchemaId: EntitySchemaId,
+	entitySchemaSlug: EntitySchemaSlug,
 	externalId: Schema.NullOr(Schema.String),
 	sandboxScriptId: Schema.NullOr(SandboxScriptId),
 });
@@ -27,7 +27,7 @@ const MembershipRelationship = Schema.Struct({
 	properties: Schema.Unknown,
 	sourceEntityId: EntityId,
 	targetEntityId: EntityId,
-	relationshipSchemaId: RelationshipSchemaId,
+	relationshipSchemaSlug: RelationshipSchemaSlug,
 });
 
 export type MembershipRelationship = typeof MembershipRelationship.Type;

@@ -1,5 +1,5 @@
 import { assert, expect, it } from "@effect/vitest";
-import { EntityId, RelationshipId, RelationshipSchemaId } from "@ryot/contract/schema/brands";
+import { EntityId, RelationshipId, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { dbRunnerLayer } from "#lib/test-utils/effect";
@@ -10,7 +10,7 @@ import { RelationshipsService } from "#modules/relationships/service";
 import { synchronizeGlobalRelationships } from "./relationship-synchronization";
 
 const anchorEntityId = EntityId.make("anchor");
-const relationshipSchemaId = RelationshipSchemaId.make("credits");
+const relationshipSchemaSlug = RelationshipSchemaSlug.make("credits");
 const entityId = (value: string) => EntityId.make(value);
 const assertRecord: (value: unknown) => asserts value is Record<string, unknown> = (value) => {
 	assert(typeof value === "object" && value !== null && !Array.isArray(value));
@@ -23,7 +23,7 @@ const relationship = (input: {
 	wasInserted?: boolean;
 	properties: Record<string, unknown>;
 }) => ({
-	relationshipSchemaId,
+	relationshipSchemaSlug,
 	createdAt: input.createdAt,
 	properties: input.properties,
 	sourceEntityId: anchorEntityId,
@@ -125,7 +125,6 @@ it.effect(
 		return Effect.gen(function* () {
 			const outcomes = yield* synchronizeGlobalRelationships({
 				anchorEntityId,
-				relationshipSchemaId,
 				direction: "outgoing",
 				onConflict: "replaceProperties",
 				synchronization: "authoritative",
@@ -203,7 +202,6 @@ it.effect("preserves different existing properties as a noop", () => {
 	return Effect.gen(function* () {
 		const outcomes = yield* synchronizeGlobalRelationships({
 			anchorEntityId,
-			relationshipSchemaId,
 			direction: "outgoing",
 			synchronization: "additive",
 			onConflict: "preserveExisting",
@@ -228,7 +226,7 @@ it.effect(
 			let stored: ReturnType<typeof relationship> | null = null;
 			const credit = (wasInserted: boolean) => ({
 				wasInserted,
-				relationshipSchemaId,
+				relationshipSchemaSlug,
 				targetEntityId: movieId,
 				sourceEntityId: personId,
 				properties: { roles: ["Director"] },
@@ -267,7 +265,6 @@ it.effect(
 			const synchronize = (direction: "incoming" | "outgoing") =>
 				synchronizeGlobalRelationships({
 					direction,
-					relationshipSchemaId,
 					synchronization: "additive",
 					onConflict: "preserveExisting",
 					propertiesSchema: { fields: {} },

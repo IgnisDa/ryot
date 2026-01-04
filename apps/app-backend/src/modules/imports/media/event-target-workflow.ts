@@ -1,5 +1,5 @@
 import { Activity } from "@effect/workflow";
-import type { EntitySchemaId } from "@ryot/contract/schema/brands";
+import type { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { EntityId } from "@ryot/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
@@ -18,13 +18,13 @@ export const resolveMediaEventTarget = <R>(input: {
 	groupIndex: number;
 	itemIndex: number;
 	entityId: EntityId;
-	entitySchemaId: EntitySchemaId;
+	entitySchemaSlug: EntitySchemaSlug;
 	episodeResolver: EpisodeResolverService;
 	event: ImportMediaEntityGroup["events"][number];
 	payload: Pick<ImportRunJobData, "runId" | "userId">;
-	getEntitySchemaId: (
+	getEntitySchemaSlug: (
 		entitySchemaSlug: string,
-	) => Effect.Effect<EntitySchemaId | null, ImportRunError, R>;
+	) => Effect.Effect<EntitySchemaSlug | null, ImportRunError, R>;
 	ref: Extract<ImportMediaEntityGroup["entityRef"], { kind: "resolved" }>;
 }) =>
 	Effect.gen(function* () {
@@ -55,8 +55,8 @@ export const resolveMediaEventTarget = <R>(input: {
 				return { _tag: "failed" as const };
 			}
 
-			const episodeEntitySchemaId = yield* input.getEntitySchemaId("show-episode");
-			if (!episodeEntitySchemaId) {
+			const episodeEntitySchemaSlug = yield* input.getEntitySchemaSlug("show-episode");
+			if (!episodeEntitySchemaSlug) {
 				yield* recordEpisodeSchemaMissing({
 					payload: input.payload,
 					ref: input.ref,
@@ -70,9 +70,8 @@ export const resolveMediaEventTarget = <R>(input: {
 
 			return {
 				_tag: "resolved" as const,
-				entitySchemaSlug: "show-episode",
 				entityId: resolvedEpisodeId,
-				entitySchemaId: episodeEntitySchemaId,
+				entitySchemaSlug: episodeEntitySchemaSlug,
 			};
 		}
 
@@ -102,8 +101,8 @@ export const resolveMediaEventTarget = <R>(input: {
 				return { _tag: "failed" as const };
 			}
 
-			const episodeEntitySchemaId = yield* input.getEntitySchemaId("podcast-episode");
-			if (!episodeEntitySchemaId) {
+			const episodeEntitySchemaSlug = yield* input.getEntitySchemaSlug("podcast-episode");
+			if (!episodeEntitySchemaSlug) {
 				yield* recordEpisodeSchemaMissing({
 					payload: input.payload,
 					ref: input.ref,
@@ -117,16 +116,14 @@ export const resolveMediaEventTarget = <R>(input: {
 
 			return {
 				_tag: "resolved" as const,
-				entitySchemaSlug: "podcast-episode",
 				entityId: resolvedEpisodeId,
-				entitySchemaId: episodeEntitySchemaId,
+				entitySchemaSlug: episodeEntitySchemaSlug,
 			};
 		}
 
 		return {
 			_tag: "resolved" as const,
 			entityId: input.entityId,
-			entitySchemaId: input.entitySchemaId,
-			entitySchemaSlug: input.ref.entitySchemaSlug,
+			entitySchemaSlug: input.entitySchemaSlug,
 		};
 	});

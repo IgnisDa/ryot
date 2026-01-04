@@ -42,7 +42,6 @@ const compileInclude = (
 
 	if (source.type === "events") {
 		const ev = `iev${suffix}`;
-		const evs = `${ev}s`;
 		const childScope = scope.child(
 			new Map<string, SqlRef>([
 				[source.alias, { kind: "event", sqlAlias: ev, schemas: source.schemas }],
@@ -57,12 +56,9 @@ const compileInclude = (
 				FROM (
 					SELECT ${childObject} AS child, row_number() OVER (ORDER BY ${order}) AS "__rn"
 					FROM event ${sql.raw(ev)}
-					JOIN event_schema ${sql.raw(evs)} ON ${sql.raw(evs)}.id = ${sql.raw(ev)}.event_schema_id
-						AND ${sql.raw(evs)}.slug IN (${slugListSql(source.schemas)})
-						AND ${userVisibleSql(evs, userId)}
 					WHERE ${sql.raw(ev)}.entity_id = ${sql.raw(parentAlias)}.id
 						AND ${sql.raw(ev)}.user_id = ${userId}
-						AND ${sql.raw(evs)}.entity_schema_id = ${sql.raw(parentAlias)}.entity_schema_id
+						AND ${sql.raw(ev)}.event_schema_slug IN (${slugListSql(source.schemas)})
 						${whereTail(where)}
 					ORDER BY ${order}
 					LIMIT ${include.limit + 1}
@@ -76,9 +72,7 @@ const compileInclude = (
 	}
 	const via = source.via;
 	const e = `ie${suffix}`;
-	const es = `${e}s`;
 	const r = `ir${suffix}`;
-	const rs = `${r}s`;
 	const anchorColumn = via.direction === "outgoing" ? "source_entity_id" : "target_entity_id";
 	const childColumn = via.direction === "outgoing" ? "target_entity_id" : "source_entity_id";
 	const childScope = scope.child(
@@ -98,15 +92,11 @@ const compileInclude = (
 			FROM (
 				SELECT jsonb_build_object(${objectEntries}) AS child, row_number() OVER (ORDER BY ${order}) AS "__rn"
 				FROM relationship ${sql.raw(r)}
-				JOIN relationship_schema ${sql.raw(rs)} ON ${sql.raw(rs)}.id = ${sql.raw(r)}.relationship_schema_id
-					AND ${sql.raw(rs)}.slug = ${via.schema}
-					AND ${userVisibleSql(rs, userId)}
 				JOIN ${entitySourceSql(scope.language)} ${sql.raw(e)} ON ${sql.raw(e)}.id = ${sql.raw(`${r}.${childColumn}`)}
-				JOIN entity_schema ${sql.raw(es)} ON ${sql.raw(es)}.id = ${sql.raw(e)}.entity_schema_id
-					AND ${sql.raw(es)}.slug IN (${slugListSql(source.schemas)})
-					AND ${userVisibleSql(es, userId)}
 				${nested.laterals}
 				WHERE ${sql.raw(`${r}.${anchorColumn}`)} = ${sql.raw(parentAlias)}.id
+					AND ${sql.raw(r)}.relationship_schema_slug = ${via.schema}
+					AND ${sql.raw(e)}.entity_schema_slug IN (${slugListSql(source.schemas)})
 					AND ${userVisibleSql(r, userId)}
 					AND ${userVisibleSql(e, userId)}
 					${whereTail(where)}

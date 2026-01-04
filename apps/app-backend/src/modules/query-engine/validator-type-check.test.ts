@@ -171,12 +171,12 @@ describe("new event system field types", () => {
 		return checkQueryDocumentTypes(collectAliasScope(doc), doc, propertiesBySlug);
 	};
 
-	it("allows comparing eventSchemaId string against a string literal", () => {
+	it("allows comparing eventSchemaSlug string against a string literal", () => {
 		expect(
 			checkEventWhere(
 				comparison(
 					"eq",
-					{ type: "ref", sourceAlias: "ev", field: { type: "system", name: "eventSchemaId" } },
+					{ type: "ref", sourceAlias: "ev", field: { type: "system", name: "eventSchemaSlug" } },
 					literal("schema-1"),
 				),
 			),

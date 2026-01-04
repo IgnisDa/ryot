@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { ProviderInformation } from "@ryot/sandbox-sdk/core";
 import type {
 	ProviderDetailsResult,
@@ -25,7 +25,7 @@ export const seedBuiltinProviderScript = (input: {
 	name?: string;
 	client: Client;
 	drivers: FakeProviderDrivers;
-	linkToEntitySchemaId?: string;
+	linkToEntitySchemaSlug?: string;
 	providerInformation?: ProviderInformation;
 }) =>
 	Effect.gen(function* () {
@@ -44,15 +44,15 @@ export const seedBuiltinProviderScript = (input: {
 		const scriptId = script.id;
 
 		let entitySchemaScriptId: string | null = null;
-		if (input.linkToEntitySchemaId) {
-			const entitySchemaId = EntitySchemaId.make(input.linkToEntitySchemaId);
+		if (input.linkToEntitySchemaSlug) {
+			const entitySchemaSlug = EntitySchemaSlug.make(input.linkToEntitySchemaSlug);
 			entitySchemaScriptId = yield* Effect.gen(function* () {
 				const link = yield* backend.call(
 					(c) =>
 						c.testSupport.linkSandboxScriptToEntitySchema({
 							path: {
 								scriptId: SandboxScriptId.make(scriptId),
-								entitySchemaId,
+								entitySchemaSlug,
 							},
 						}),
 					adminHeaders,
@@ -60,7 +60,7 @@ export const seedBuiltinProviderScript = (input: {
 				const repeatedLink = yield* backend.call(
 					(c) =>
 						c.testSupport.linkSandboxScriptToEntitySchema({
-							path: { scriptId: SandboxScriptId.make(scriptId), entitySchemaId },
+							path: { scriptId: SandboxScriptId.make(scriptId), entitySchemaSlug },
 						}),
 					adminHeaders,
 				);

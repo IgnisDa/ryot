@@ -5,11 +5,11 @@ import { AdminMiddleware } from "../../auth-middleware";
 import { Conflict, InternalError, NotFound, Unauthorized } from "../../errors";
 import {
 	EntityId,
-	EntitySchemaId,
-	RelationshipSchemaId,
+	EntitySchemaSlug,
+	RelationshipSchemaSlug,
 	SandboxScriptId,
 	SignalId,
-	TrackerId,
+	TrackerSlug,
 	UserId,
 } from "../../schema/brands";
 import { ListedEntity } from "../entities/schemas";
@@ -19,6 +19,7 @@ import {
 	TestSupportBuiltinEntitySchema,
 	TestSupportEntityTranslation,
 	TestSupportGlobalRelationship,
+	TestSupportInstallDefinitions,
 	TestSupportSignal,
 	TestSupportStoredSandboxScript,
 	TestSupportSubscriptionRun,
@@ -27,10 +28,10 @@ import {
 const userIdParam = HttpApiSchema.param("userId", UserId);
 const slugParam = HttpApiSchema.param("slug", Schema.String);
 const entityIdParam = HttpApiSchema.param("entityId", EntityId);
-const trackerIdParam = HttpApiSchema.param("trackerId", TrackerId);
+const trackerSlugParam = HttpApiSchema.param("trackerSlug", TrackerSlug);
 const scriptIdParam = HttpApiSchema.param("scriptId", SandboxScriptId);
 const properties = Schema.Record({ key: Schema.String, value: Schema.Unknown });
-const entitySchemaIdParam = HttpApiSchema.param("entitySchemaId", EntitySchemaId);
+const entitySchemaSlugParam = HttpApiSchema.param("entitySchemaSlug", EntitySchemaSlug);
 
 const PatchSandboxScriptBody = Schema.Struct({
 	slug: Schema.optional(Schema.String),
@@ -44,7 +45,7 @@ const PatchSandboxScriptBody = Schema.Struct({
 const CreateGlobalEntityBody = Schema.Struct({
 	properties,
 	name: Schema.String,
-	entitySchemaId: EntitySchemaId,
+	entitySchemaSlug: EntitySchemaSlug,
 	externalId: Schema.optional(Schema.String),
 	sandboxScriptId: Schema.optional(SandboxScriptId),
 	populatedAt: Schema.optional(Schema.NullOr(Schema.String)),
@@ -53,11 +54,11 @@ const CreateGlobalEntityBody = Schema.Struct({
 const TriggerInfrequentCronResponse = Schema.Struct({ executionId: Schema.String });
 
 const GlobalRelationshipListBody = Schema.Union(
-	Schema.Struct({ type: Schema.Literal("self"), relationshipSchemaId: RelationshipSchemaId }),
+	Schema.Struct({ type: Schema.Literal("self"), relationshipSchemaSlug: RelationshipSchemaSlug }),
 	Schema.Struct({
 		anchorEntityId: EntityId,
 		type: Schema.Literal("anchored"),
-		relationshipSchemaId: RelationshipSchemaId,
+		relationshipSchemaSlug: RelationshipSchemaSlug,
 		direction: Schema.Literal("incoming", "outgoing"),
 	}),
 );
@@ -66,6 +67,12 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	.annotate(OpenApi.Description, "Provides administrative operations used by integration tests")
 	.addError(Unauthorized, { status: 401 })
 	.middleware(AdminMiddleware)
+	.add(
+		HttpApiEndpoint.post("installDefinitions", "/test-support/definitions")
+			.setPayload(TestSupportInstallDefinitions)
+			.addSuccess(Schema.Void)
+			.annotate(OpenApi.Description, "Installs temporary in-memory definitions for testing"),
+	)
 	.add(
 		HttpApiEndpoint.get("getSandboxScript")`/test-support/sandbox-scripts/${scriptIdParam}`
 			.addSuccess(TestSupportStoredSandboxScript)
@@ -86,7 +93,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			.annotate(OpenApi.Description, "Counts automation rules for a user"),
 	)
 	.add(
-		HttpApiEndpoint.get("trackerExists")`/test-support/trackers/${trackerIdParam}/exists`
+		HttpApiEndpoint.get("trackerExists")`/test-support/trackers/${trackerSlugParam}/exists`
 			.addSuccess(Schema.Struct({ exists: Schema.Boolean }))
 			.annotate(OpenApi.Description, "Checks whether a tracker exists"),
 	)
@@ -113,7 +120,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	.add(
 		HttpApiEndpoint.put(
 			"linkSandboxScriptToEntitySchema",
-		)`/test-support/entity-schemas/${entitySchemaIdParam}/sandbox-scripts/${scriptIdParam}`
+		)`/test-support/entity-schemas/${entitySchemaSlugParam}/sandbox-scripts/${scriptIdParam}`
 			.addSuccess(Schema.Struct({ id: Schema.String }))
 			.annotate(OpenApi.Description, "Links a sandbox script to an entity schema"),
 	)
@@ -136,7 +143,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 				Schema.Struct({
 					sourceEntityId: EntityId,
 					targetEntityId: EntityId,
-					relationshipSchemaId: RelationshipSchemaId,
+					relationshipSchemaSlug: RelationshipSchemaSlug,
 					properties: Schema.optional(properties),
 				}),
 			)

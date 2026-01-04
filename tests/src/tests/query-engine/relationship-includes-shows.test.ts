@@ -10,7 +10,7 @@ import {
 	createQueryEngineEvent,
 	executeQueryEngine,
 	findBuiltinSchemaBySlug,
-	getBuiltinEntitySchemaId,
+	getBuiltinEntitySchemaSlug,
 	insertGlobalRelationship,
 	listEventSchemas,
 	listRelationshipSchemas,
@@ -29,8 +29,8 @@ describe("Relationship includes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema: showSchema } = yield* findBuiltinSchemaBySlug(client, "show");
-			const showSeasonSchemaId = yield* getBuiltinEntitySchemaId("show-season");
-			const showEpisodeSchemaId = yield* getBuiltinEntitySchemaId("show-episode");
+			const showSeasonSchemaId = yield* getBuiltinEntitySchemaSlug("show-season");
+			const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug("show-episode");
 			const relationshipSchemas = yield* listRelationshipSchemas(client, {
 				slugs: ["show-to-show-season", "show-season-to-show-episode"],
 			});
@@ -51,7 +51,7 @@ describe("Relationship includes", () => {
 				userId: null,
 				sandboxScriptId: null,
 				name: "Episodic Test Show",
-				entitySchemaId: showSchema.id,
+				entitySchemaSlug: showSchema.id,
 				externalId: `show-${fixtureSuffix}`,
 				properties: {
 					images: [],
@@ -71,7 +71,7 @@ describe("Relationship includes", () => {
 				userId: null,
 				name: "Specials",
 				sandboxScriptId: null,
-				entitySchemaId: showSeasonSchemaId,
+				entitySchemaSlug: showSeasonSchemaId,
 				externalId: `season-0-${fixtureSuffix}`,
 				properties: { seasonNumber: 0, description: "Specials", releaseDate: null },
 			});
@@ -79,7 +79,7 @@ describe("Relationship includes", () => {
 				userId: null,
 				name: "Season 1",
 				sandboxScriptId: null,
-				entitySchemaId: showSeasonSchemaId,
+				entitySchemaSlug: showSeasonSchemaId,
 				externalId: `season-1-${fixtureSuffix}`,
 				properties: { seasonNumber: 1, description: "First", releaseDate: null },
 			});
@@ -87,7 +87,7 @@ describe("Relationship includes", () => {
 				userId: null,
 				name: "Season 2",
 				sandboxScriptId: null,
-				entitySchemaId: showSeasonSchemaId,
+				entitySchemaSlug: showSeasonSchemaId,
 				externalId: `season-2-${fixtureSuffix}`,
 				properties: { seasonNumber: 2, description: "Second", releaseDate: null },
 			});
@@ -95,7 +95,7 @@ describe("Relationship includes", () => {
 				userId: null,
 				name: "Special Episode",
 				sandboxScriptId: null,
-				entitySchemaId: showEpisodeSchemaId,
+				entitySchemaSlug: showEpisodeSchemaId,
 				externalId: `episode-0-1-${fixtureSuffix}`,
 				properties: {
 					runtime: 10,
@@ -109,7 +109,7 @@ describe("Relationship includes", () => {
 				userId: null,
 				name: "Episode One",
 				sandboxScriptId: null,
-				entitySchemaId: showEpisodeSchemaId,
+				entitySchemaSlug: showEpisodeSchemaId,
 				externalId: `episode-1-1-${fixtureSuffix}`,
 				properties: {
 					runtime: 45,
@@ -123,7 +123,7 @@ describe("Relationship includes", () => {
 				userId: null,
 				name: "Episode Two",
 				sandboxScriptId: null,
-				entitySchemaId: showEpisodeSchemaId,
+				entitySchemaSlug: showEpisodeSchemaId,
 				externalId: `episode-2-1-${fixtureSuffix}`,
 				properties: {
 					runtime: 50,
@@ -137,49 +137,49 @@ describe("Relationship includes", () => {
 			yield* insertGlobalRelationship({
 				sourceEntityId: show.id,
 				targetEntityId: specialSeason.id,
-				relationshipSchemaId: showSeasonRelationship.id,
+				relationshipSchemaSlug: showSeasonRelationship.id,
 			});
 			yield* insertGlobalRelationship({
 				sourceEntityId: show.id,
 				targetEntityId: firstSeason.id,
-				relationshipSchemaId: showSeasonRelationship.id,
+				relationshipSchemaSlug: showSeasonRelationship.id,
 			});
 			yield* insertGlobalRelationship({
 				sourceEntityId: show.id,
 				targetEntityId: secondSeason.id,
-				relationshipSchemaId: showSeasonRelationship.id,
+				relationshipSchemaSlug: showSeasonRelationship.id,
 			});
 			yield* insertGlobalRelationship({
 				sourceEntityId: specialSeason.id,
 				targetEntityId: specialEpisode.id,
-				relationshipSchemaId: seasonEpisodeRelationship.id,
+				relationshipSchemaSlug: seasonEpisodeRelationship.id,
 			});
 			yield* insertGlobalRelationship({
 				sourceEntityId: firstSeason.id,
 				targetEntityId: firstEpisode.id,
-				relationshipSchemaId: seasonEpisodeRelationship.id,
+				relationshipSchemaSlug: seasonEpisodeRelationship.id,
 			});
 			yield* insertGlobalRelationship({
 				sourceEntityId: secondSeason.id,
 				targetEntityId: secondEpisode.id,
-				relationshipSchemaId: seasonEpisodeRelationship.id,
+				relationshipSchemaSlug: seasonEpisodeRelationship.id,
 			});
 
 			yield* createQueryEngineEvent(client, {
 				entityId: firstEpisode.id,
-				eventSchemaId: episodeProgressSchema.id,
+				eventSchemaSlug: episodeProgressSchema.id,
 				occurredAt: "2026-06-25T00:00:00.000Z",
 				properties: { progressPercent: 100, consumedOn: "Jellyfin" },
 			});
 			yield* waitForEventCount(client, firstEpisode.id, 2);
 			yield* createQueryEngineEvent(client, {
 				entityId: secondEpisode.id,
-				eventSchemaId: episodeCompleteSchema.id,
+				eventSchemaSlug: episodeCompleteSchema.id,
 				properties: { completionMode: "unknown" },
 			});
 			yield* createQueryEngineEvent(client, {
 				entityId: specialEpisode.id,
-				eventSchemaId: episodeCompleteSchema.id,
+				eventSchemaSlug: episodeCompleteSchema.id,
 				properties: { completionMode: "unknown" },
 			});
 

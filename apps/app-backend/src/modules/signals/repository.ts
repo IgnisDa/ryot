@@ -3,7 +3,7 @@ import {
 	AutomationOrigin,
 	type AutomationOrigin as AutomationOriginValue,
 } from "@ryot/contract/modules/automations/schemas";
-import { EntityId, SignalId, SignalSchemaId, UserId } from "@ryot/contract/schema/brands";
+import { EntityId, SignalId, SignalSchemaSlug, UserId } from "@ryot/contract/schema/brands";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 
@@ -18,7 +18,7 @@ export type StoredSignal = {
 	occurredAt: string;
 	actorUserId: UserId | null;
 	origin: AutomationOriginValue;
-	signalSchemaId: SignalSchemaId;
+	signalSchemaSlug: SignalSchemaSlug;
 	subjectEntityId: EntityId | null;
 	properties: Record<string, unknown>;
 };
@@ -28,7 +28,7 @@ export type InsertSignalInput = {
 	occurredAt: Date;
 	actorUserId: UserId | null;
 	origin: AutomationOriginValue;
-	signalSchemaId: SignalSchemaId;
+	signalSchemaSlug: SignalSchemaSlug;
 	subjectEntityId: EntityId | null;
 	properties: Record<string, unknown>;
 };
@@ -43,7 +43,7 @@ const toStoredSignal = Effect.fn(function* (row: SignalRow) {
 		id: SignalId.make(row.id),
 		createdAt: row.createdAt.toISOString(),
 		occurredAt: row.occurredAt.toISOString(),
-		signalSchemaId: SignalSchemaId.make(row.signalSchemaId),
+		signalSchemaSlug: SignalSchemaSlug.make(row.signalSchemaSlug),
 		actorUserId: row.actorUserId ? UserId.make(row.actorUserId) : null,
 		subjectEntityId: row.subjectEntityId ? EntityId.make(row.subjectEntityId) : null,
 	};
@@ -107,7 +107,7 @@ export class SignalsRepository extends Effect.Service<SignalsRepository>()("Sign
 			subjectEntityId?: EntityId | undefined;
 		}) {
 			const db = yield* CurrentDb;
-			const conditions = [eq(schema.signalSchema.slug, input.schemaSlug)];
+			const conditions = [eq(schema.signal.signalSchemaSlug, input.schemaSlug)];
 			if (input.actorUserId) {
 				conditions.push(eq(schema.signal.actorUserId, input.actorUserId));
 			}
@@ -118,7 +118,6 @@ export class SignalsRepository extends Effect.Service<SignalsRepository>()("Sign
 				db
 					.select({ signal: schema.signal })
 					.from(schema.signal)
-					.innerJoin(schema.signalSchema, eq(schema.signalSchema.id, schema.signal.signalSchemaId))
 					.where(and(...conditions))
 					.orderBy(desc(schema.signal.createdAt)),
 			);

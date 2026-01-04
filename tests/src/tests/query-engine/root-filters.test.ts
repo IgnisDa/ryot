@@ -47,25 +47,25 @@ const setupItems = () =>
 		yield* Effect.all([
 			createQueryEngineEntity(client, {
 				name: "Alpha",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				properties: { difficulty: "beginner", durationMinutes: 30, archived: false },
 			}),
 			createQueryEngineEntity(client, {
 				name: "Bravo",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				properties: { difficulty: "advanced", durationMinutes: 60, archived: true },
 			}),
 			createQueryEngineEntity(client, {
 				name: "Charlie",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				properties: { difficulty: "advanced", durationMinutes: 90, archived: false },
 			}),
 			createQueryEngineEntity(client, {
 				name: "Delta",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				properties: { difficulty: "beginner", durationMinutes: 120, archived: true },
 			}),
-			createQueryEngineEntity(client, { name: "Echo", entitySchemaId: schemaId, properties: {} }),
+			createQueryEngineEntity(client, { name: "Echo", entitySchemaSlug: schemaId, properties: {} }),
 		]);
 		return { client, slug };
 	});
@@ -265,17 +265,17 @@ describe("Query engine root property filters", () => {
 				yield* Effect.all([
 					createQueryEngineEntity(client, {
 						name: "HighBook",
-						entitySchemaId: bookSchemaId,
+						entitySchemaSlug: bookSchemaId,
 						properties: { rating: 8 },
 					}),
 					createQueryEngineEntity(client, {
 						name: "LowBook",
-						entitySchemaId: bookSchemaId,
+						entitySchemaSlug: bookSchemaId,
 						properties: { rating: 3 },
 					}),
 					createQueryEngineEntity(client, {
 						name: "HighMovie",
-						entitySchemaId: movieSchemaId,
+						entitySchemaSlug: movieSchemaId,
 						properties: { rating: 9 },
 					}),
 				]);
@@ -331,7 +331,7 @@ describe("Query engine root property filters", () => {
 			});
 			yield* Effect.all(
 				["apple", "Banana", "Cherry"].map((name) =>
-					createQueryEngineEntity(client, { name, entitySchemaId: schemaId }),
+					createQueryEngineEntity(client, { name, entitySchemaSlug: schemaId }),
 				),
 			);
 			const result = yield* executeQueryEngine(

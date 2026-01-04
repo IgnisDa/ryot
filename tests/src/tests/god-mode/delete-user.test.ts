@@ -1,4 +1,4 @@
-import { EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -10,13 +10,13 @@ import {
 	createEntity,
 	createNotificationChannel,
 	createTracker,
-	enableMediaMonitoring,
 	enqueueEntityImport,
 	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
 	getAutomationRuleCount,
 	getBackendClient,
-	getBuiltinEntitySchemaId,
+	getBuiltinEntitySchemaSlug,
+	insertMediaMonitoring,
 	listSignals,
 	listSubscriptionRuns,
 	pollEntityImportResult,
@@ -85,6 +85,7 @@ describe("Delete user", () => {
 			} = yield* createAuthenticatedClient();
 			const userId = UserId.make(rawUserId);
 			const { tracker } = yield* createTracker(userClient, { name: "Delete user tracker" });
+			expect(tracker.config).toEqual({ fixture: true });
 			const apiKey = yield* createApiKey(cookies);
 
 			yield* client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), {
@@ -107,10 +108,10 @@ describe("Delete user", () => {
 			expect(listed.users).toHaveLength(0);
 
 			const trackerExists = yield* client.call(
-				(c) => c.testSupport.trackerExists({ path: { trackerId: tracker.id } }),
+				(c) => c.testSupport.trackerExists({ path: { trackerSlug: tracker.id } }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
-			expect(trackerExists.exists).toBe(false);
+			expect(trackerExists.exists).toBe(true);
 
 			const revokedSession = yield* Effect.flip(
 				client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), { Cookie: cookies }),
@@ -137,7 +138,7 @@ describe("Delete user automation data cleanup", () => {
 			const workoutName = `Delete User E2E Workout ${crypto.randomUUID()}`;
 			yield* createEntity(userClient, {
 				name: workoutName,
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 				properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
 			});
 
@@ -169,12 +170,12 @@ describe("Delete user automation data cleanup", () => {
 				const personExternalId = `delete-user-person-${crypto.randomUUID()}`;
 
 				const { client: compilerClient } = yield* createAuthenticatedClient();
-				const personSchemaId = yield* getBuiltinEntitySchemaId("person");
-				const movieSchemaId = yield* getBuiltinEntitySchemaId("movie");
+				const personSchemaId = yield* getBuiltinEntitySchemaSlug("person");
+				const movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
 				const personProvider = yield* Effect.acquireRelease(
 					seedBuiltinProviderScript({
 						client: compilerClient,
-						linkToEntitySchemaId: personSchemaId,
+						linkToEntitySchemaSlug: personSchemaId,
 						slug: `person.delete-user-e2e-${crypto.randomUUID()}`,
 						drivers: { details: fakeProviderDetailsResult({ name: personName }) },
 					}),
@@ -212,7 +213,7 @@ describe("Delete user automation data cleanup", () => {
 					properties: {},
 					name: personName,
 					externalId: personExternalId,
-					entitySchemaId: personSchemaId,
+					entitySchemaSlug: personSchemaId,
 					sandboxScriptId: personProvider.scriptId,
 				});
 
@@ -231,13 +232,13 @@ describe("Delete user automation data cleanup", () => {
 					}),
 				]);
 				yield* Effect.all([
-					enableMediaMonitoring(firstMonitor.client, person.id),
-					enableMediaMonitoring(secondMonitor.client, person.id),
+					insertMediaMonitoring(firstMonitor.client, person.id),
+					insertMediaMonitoring(secondMonitor.client, person.id),
 				]);
 
 				const { jobId } = yield* enqueueEntityImport(importer.client, {
 					externalId: movieExternalId,
-					entitySchemaId: EntitySchemaId.make(movieSchemaId),
+					entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
 					scriptId: SandboxScriptId.make(movieProvider.scriptId),
 				});
 				const imported = yield* pollEntityImportResult(importer.client, jobId, {

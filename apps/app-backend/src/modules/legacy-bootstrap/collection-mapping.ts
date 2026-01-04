@@ -1,7 +1,7 @@
 import { quoteSqlString } from "./shared";
 
 export const buildCollectionToEntityRelationshipMigrationSql = (
-	memberOfRelationshipSchemaId: string,
+	memberOfRelationshipSchemaSlug: string,
 ) => `
 DO $$
 DECLARE
@@ -19,7 +19,7 @@ BEGIN
 		"user_id",
 		"source_entity_id",
 		"target_entity_id",
-		"relationship_schema_id",
+		"relationship_schema_slug",
 		"properties",
 		"created_at"
 	)
@@ -28,7 +28,7 @@ BEGIN
 		coll_entity.user_id,
 		cte.entity_id,
 		cte.collection_id,
-		${quoteSqlString(memberOfRelationshipSchemaId)},
+		${quoteSqlString(memberOfRelationshipSchemaSlug)},
 		COALESCE(cte.information, '{}'::jsonb) || jsonb_build_object('rank', cte.rank),
 		cte.created_on
 	FROM "collection_to_entity" cte
@@ -44,9 +44,9 @@ END $$;
 `;
 
 export const buildMonitoringCollectionMigrationSql = (input: {
-	libraryEntitySchemaId: string;
-	mediaMonitoringRelationshipSchemaId: string;
-	monitorableEntitySchemaIds: ReadonlyArray<string>;
+	libraryEntitySchemaSlug: string;
+	mediaMonitoringRelationshipSchemaSlug: string;
+	monitorableEntitySchemaSlugs: ReadonlyArray<string>;
 }) => `
 DO $$
 DECLARE
@@ -69,12 +69,12 @@ BEGIN
 		WHERE src_entity.user_id IS NULL
 			AND src_entity.external_id IS NOT NULL
 			AND src_entity.sandbox_script_id IS NOT NULL
-			AND src_entity.entity_schema_id IN (${input.monitorableEntitySchemaIds.map(quoteSqlString).join(", ")})
+			AND src_entity.entity_schema_slug IN (${input.monitorableEntitySchemaSlugs.map(quoteSqlString).join(", ")})
 			AND NOT EXISTS (
 				SELECT 1
 				FROM "entity" library_entity
 				WHERE library_entity.user_id = coll.user_id
-					AND library_entity.entity_schema_id = ${quoteSqlString(input.libraryEntitySchemaId)}
+					AND library_entity.entity_schema_slug = ${quoteSqlString(input.libraryEntitySchemaSlug)}
 					AND library_entity.external_id IS NULL
 					AND library_entity.sandbox_script_id IS NULL
 			)
@@ -89,7 +89,7 @@ BEGIN
 		"user_id",
 		"source_entity_id",
 		"target_entity_id",
-		"relationship_schema_id",
+		"relationship_schema_slug",
 		"properties",
 		"created_at"
 	)
@@ -98,7 +98,7 @@ BEGIN
 		coll.user_id,
 		cte.entity_id,
 		library_entity.id,
-		${quoteSqlString(input.mediaMonitoringRelationshipSchemaId)},
+		${quoteSqlString(input.mediaMonitoringRelationshipSchemaSlug)},
 		'{}'::jsonb,
 		cte.created_on
 	FROM "collection_to_entity" cte
@@ -106,13 +106,13 @@ BEGIN
 	INNER JOIN "entity" src_entity ON src_entity.id = cte.entity_id
 	INNER JOIN "entity" library_entity
 		ON library_entity.user_id = coll.user_id
-		AND library_entity.entity_schema_id = ${quoteSqlString(input.libraryEntitySchemaId)}
+		AND library_entity.entity_schema_slug = ${quoteSqlString(input.libraryEntitySchemaSlug)}
 		AND library_entity.external_id IS NULL
 		AND library_entity.sandbox_script_id IS NULL
 	WHERE src_entity.user_id IS NULL
 		AND src_entity.external_id IS NOT NULL
 		AND src_entity.sandbox_script_id IS NOT NULL
-		AND src_entity.entity_schema_id IN (${input.monitorableEntitySchemaIds.map(quoteSqlString).join(", ")})
+		AND src_entity.entity_schema_slug IN (${input.monitorableEntitySchemaSlugs.map(quoteSqlString).join(", ")})
 	ON CONFLICT DO NOTHING;
 
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
@@ -125,7 +125,7 @@ END $$;
 // Marks each Owned-collection member's existing in-library relationship as owned, mirroring the
 // runtime ownership shape. Runs after user-to-entity so the relationships already exist.
 export const buildOwnedCollectionOwnershipMigrationSql = (
-	inLibraryRelationshipSchemaId: string,
+	inLibraryRelationshipSchemaSlug: string,
 ) => `
 DO $$
 DECLARE
@@ -150,7 +150,7 @@ BEGIN
 	)
 	FROM "collection_to_entity" cte
 	INNER JOIN "collection" coll ON coll.id = cte.collection_id AND coll.name = 'Owned'
-	WHERE rel.relationship_schema_id = ${quoteSqlString(inLibraryRelationshipSchemaId)}
+	WHERE rel.relationship_schema_slug = ${quoteSqlString(inLibraryRelationshipSchemaSlug)}
 		AND rel.source_entity_id = cte.entity_id
 		AND rel.user_id = coll.user_id;
 
@@ -161,7 +161,7 @@ BEGIN
 END $$;
 `;
 
-export const buildCollectionEntityMigrationSql = (entitySchemaId: string) => `
+export const buildCollectionEntityMigrationSql = (entitySchemaSlug: string) => `
 DO $$
 DECLARE
 	rows_inserted int;
@@ -181,7 +181,7 @@ BEGIN
 		"populated_at",
 		"user_id",
 		"properties",
-		"entity_schema_id",
+		"entity_schema_slug",
 		"sandbox_script_id",
 		"updated_at"
 	)
@@ -293,7 +293,7 @@ BEGIN
 				)
 			END
 		),
-		${quoteSqlString(entitySchemaId)},
+		${quoteSqlString(entitySchemaSlug)},
 		NULL,
 		collection.last_updated_on
 	FROM "collection"

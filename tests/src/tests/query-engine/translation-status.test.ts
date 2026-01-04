@@ -73,7 +73,7 @@ describe("query engine — translationStatus computed field", () => {
 				seedPopulatedProviderEntity({
 					properties,
 					sandboxScriptId,
-					entitySchemaId: schema.id,
+					entitySchemaSlug: schema.id,
 					name: `Movie ${crypto.randomUUID()}`,
 					externalId: `tstatus-${crypto.randomUUID()}`,
 				});
@@ -100,7 +100,7 @@ describe("query engine — translationStatus computed field", () => {
 				properties: {},
 				sandboxScriptId,
 				name: "Unpopulated Movie",
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 				externalId: `tstatus-${crypto.randomUUID()}`,
 			});
 
@@ -109,7 +109,7 @@ describe("query engine — translationStatus computed field", () => {
 				properties: {},
 				sandboxScriptId: null,
 				name: "Scriptless Movie",
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 				externalId: `tstatus-${crypto.randomUUID()}`,
 			});
 

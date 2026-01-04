@@ -1,4 +1,4 @@
-import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect } from "effect";
 
 import {
@@ -46,7 +46,7 @@ beforeAll(async () => {
 
 			companyProvider = yield* seedBuiltinProviderScript({
 				client,
-				linkToEntitySchemaId: companySchema.id,
+				linkToEntitySchemaSlug: companySchema.id,
 				drivers: {
 					details: fakeProviderDetailsResult({ name: RELATED_COMPANY_NAME, properties: {} }),
 				},
@@ -110,8 +110,11 @@ describe("POST /entity-schemas/search", () => {
 			const client = getBackendClient();
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.entitySchemas.search({
-						payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()) },
+					c.sandbox.enqueue({
+						payload: {
+							driverName: "search",
+							scriptId: SandboxScriptId.make(crypto.randomUUID()),
+						},
 					}),
 				),
 			);
@@ -126,8 +129,11 @@ describe("POST /entity-schemas/search", () => {
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.entitySchemas.search({
-						payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()) },
+					c.sandbox.enqueue({
+						payload: {
+							driverName: "search",
+							scriptId: SandboxScriptId.make(crypto.randomUUID()),
+						},
 					}),
 				),
 			);
@@ -157,9 +163,7 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 		Effect.gen(function* () {
 			const client = getBackendClient();
 			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.entitySchemas.getSearchResult({ path: { jobId: crypto.randomUUID() } }),
-				),
+				client.call((c) => c.sandbox.getResult({ path: { jobId: crypto.randomUUID() } })),
 			);
 
 			assertTaggedError(error, "Unauthorized");
@@ -171,9 +175,7 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 			const { client } = yield* createAuthenticatedClient();
 
 			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.entitySchemas.getSearchResult({ path: { jobId: crypto.randomUUID() } }),
-				),
+				client.call((c) => c.sandbox.getResult({ path: { jobId: crypto.randomUUID() } })),
 			);
 
 			assertTaggedError(error, "NotFound");
@@ -192,7 +194,7 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 			});
 
 			const error = yield* Effect.flip(
-				clientB.call((c) => c.entitySchemas.getSearchResult({ path: { jobId } })),
+				clientB.call((c) => c.sandbox.getResult({ path: { jobId } })),
 			);
 
 			assertTaggedError(error, "NotFound");
@@ -228,7 +230,7 @@ describe("POST /library/import", () => {
 						payload: {
 							externalId: "test-id",
 							scriptId: SandboxScriptId.make(crypto.randomUUID()),
-							entitySchemaId: EntitySchemaId.make(crypto.randomUUID()),
+							entitySchemaSlug: EntitySchemaSlug.make(crypto.randomUUID()),
 						},
 					}),
 				),
@@ -246,7 +248,7 @@ describe("POST /library/import", () => {
 			const { jobId } = yield* enqueueEntityImport(client, {
 				scriptId: bookScriptId(),
 				externalId: "e2e-book-1",
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 			});
 
 			expect(typeof jobId).toBe("string");
@@ -294,7 +296,7 @@ describe("GET /library/import/{jobId}", () => {
 			const { jobId } = yield* enqueueEntityImport(clientA, {
 				scriptId: bookScriptId(),
 				externalId: "e2e-book-crossuser",
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 			});
 
 			const error = yield* Effect.flip(
@@ -314,7 +316,7 @@ describe("GET /library/import/{jobId}", () => {
 			const { jobId } = yield* enqueueEntityImport(client, {
 				scriptId: bookScriptId(),
 				externalId: "e2e-book-terminal",
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 			});
 
 			const result = yield* pollEntityImportResult(client, jobId, { timeoutMs: 30_000 });
@@ -335,7 +337,7 @@ describe("GET /library/import/{jobId}", () => {
 				const { jobId } = yield* enqueueEntityImport(client, {
 					externalId: "e2e-anime-1",
 					scriptId: SandboxScriptId.make(animeProvider.scriptId),
-					entitySchemaId: schema.id,
+					entitySchemaSlug: schema.id,
 				});
 
 				const result = yield* pollEntityImportResult(client, jobId, { timeoutMs: 30_000 });
@@ -375,7 +377,7 @@ describe("GET /library/import/{jobId}", () => {
 
 			const { jobId } = yield* enqueueEntityImport(client, {
 				scriptId: bookScriptId(),
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 				externalId: "e2e-book-populatedat",
 			});
 
