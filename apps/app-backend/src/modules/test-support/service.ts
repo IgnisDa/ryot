@@ -16,6 +16,7 @@ import { TransactionRunner } from "#lib/infrastructure/db/service";
 import { AuthService } from "#modules/auth/service";
 import { AutomationsService } from "#modules/automations/service";
 import {
+	builtinDefinitionSource,
 	DefinitionRegistry,
 	definitionSourceFromSnapshot,
 } from "#modules/definition-registry/service";
@@ -48,9 +49,13 @@ const parseDate = (value: string) => {
 const mergeBySlug = <Definition extends { readonly slug: string }>(
 	current: ReadonlyArray<Definition>,
 	additions: ReadonlyArray<Definition> | undefined,
+	builtinSlugs: ReadonlySet<string>,
 ) => {
 	const merged = new Map(current.map((definition) => [definition.slug, definition]));
 	for (const definition of additions ?? []) {
+		if (builtinSlugs.has(definition.slug)) {
+			throw new Error(`Builtin definition slug cannot be replaced: ${definition.slug}`);
+		}
 		merged.set(definition.slug, definition);
 	}
 	return [...merged.values()];
@@ -71,6 +76,12 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 		const entitySchemas = yield* EntitySchemasRepository;
 		const runInTransaction = yield* TransactionRunner;
 		const relationshipSchemas = yield* RelationshipSchemasRepository;
+		const builtins = builtinDefinitionSource();
+		const builtinTrackerSlugs = new Set(builtins.trackers.map(({ slug }) => slug));
+		const builtinEntitySchemaSlugs = new Set(builtins.entitySchemas.map(({ slug }) => slug));
+		const builtinRelationshipSchemaSlugs = new Set(
+			builtins.relationshipSchemas.map(({ slug }) => slug),
+		);
 
 		const installDefinitions = Effect.fn("TestSupportService.installDefinitions")(function* (
 			input: TestSupportInstallDefinitions,
@@ -84,18 +95,20 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 				description: tracker.description ?? "",
 				entitySchemaSlugs: tracker.entitySchemaSlugs,
 			}));
-			const installedEntitySchemas = input.entitySchemas?.map((entitySchema) =>
-				Object.assign({}, entitySchema, { isBuiltin: false }),
-			);
 			yield* Effect.try({
 				try: () =>
 					definitions.replace({
 						...current,
-						trackers: mergeBySlug(current.trackers, trackers),
-						entitySchemas: mergeBySlug(current.entitySchemas, installedEntitySchemas),
+						trackers: mergeBySlug(current.trackers, trackers, builtinTrackerSlugs),
+						entitySchemas: mergeBySlug(
+							current.entitySchemas,
+							input.entitySchemas,
+							builtinEntitySchemaSlugs,
+						),
 						relationshipSchemas: mergeBySlug(
 							current.relationshipSchemas,
 							input.relationshipSchemas,
+							builtinRelationshipSchemaSlugs,
 						),
 					}),
 				catch: (cause) => badRequest(unknownToMessage(cause)),
