@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## Required reading (do this first)
 
@@ -52,19 +52,19 @@ property-schema runtime and existing service/module patterns to replicate before
 
 Derived from Phase 1 done criterion 3 and the cross-phase gate (invariant 1):
 
-- [ ] The registry serves all definition kinds in §1 by slug from an immutable snapshot behind
+- [x] The registry serves all definition kinds in §1 by slug from an immutable snapshot behind
       a single volatile reference, fed from the existing `modules/builtins/` sources without
       reshaping them.
-- [ ] Colocated validation helpers delegate to the existing property-schema runtime.
-- [ ] Registry startup validation fails fast on a deliberately broken definition (duplicate
+- [x] Colocated validation helpers delegate to the existing property-schema runtime.
+- [x] Registry startup validation fails fast on a deliberately broken definition (duplicate
       slug, `/` in a slug, or a dangling tracker/view/relationship reference), covered by a
       new unit test (done criterion 3).
-- [ ] The slice is additive: no definition tables, columns, contract groups, or consumers are
+- [x] The slice is additive: no definition tables, columns, contract groups, or consumers are
       changed in this task.
-- [ ] Gate stays green: `bun turbo --filter=@ryot/app-backend check`, backend unit tests
+- [x] Gate stays green: `bun turbo --filter=@ryot/app-backend check`, backend unit tests
       (`cd apps/app-backend && bun run test`), the e2e suite (`cd tests && bun run test`), and
       the `app-client` check all pass.
-- [ ] Any `[RECOMMENDED]` deviation or `[IMPLEMENTER-DECIDES]` choice (name/location, etc.) is
+- [x] Any `[RECOMMENDED]` deviation or `[IMPLEMENTER-DECIDES]` choice (name/location, etc.) is
       recorded in the Phase 1 plan file.
 
 ## User stories addressed
