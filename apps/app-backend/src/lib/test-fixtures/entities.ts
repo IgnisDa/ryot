@@ -16,7 +16,7 @@ const listedEntityDefaults: ListedEntity = {
 	name: "My Book",
 	externalId: null,
 	entitySchemaId: "schema_1",
-	detailsSandboxScriptId: null,
+	sandboxScriptId: null,
 	createdAt: createCreatedAt(),
 	updatedAt: createUpdatedAt(),
 	properties: { title: "My Book" },
@@ -62,7 +62,7 @@ export const createEntityDeps = (
 			properties: input.properties,
 			entitySchemaId: input.entitySchemaId,
 			externalId: input.externalId ?? null,
-			detailsSandboxScriptId: input.detailsSandboxScriptId ?? null,
+			sandboxScriptId: input.sandboxScriptId ?? null,
 		}),
 	...overrides,
 });

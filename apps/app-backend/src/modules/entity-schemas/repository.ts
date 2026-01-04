@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { type DbClient, db } from "~/lib/db";
 import {
 	entitySchema,
-	entitySchemaSandboxScript,
+	entitySchemaScript,
 	sandboxScript,
 	savedView,
 	tracker,
@@ -69,9 +69,8 @@ export const listEntitySchemasForUser = async (input: {
 	const rows = await db
 		.select({
 			...listedEntitySchemaSelection,
-			searchScriptName: sandboxScript.name,
-			searchScriptId: entitySchemaSandboxScript.searchSandboxScriptId,
-			detailsScriptId: entitySchemaSandboxScript.detailsSandboxScriptId,
+			scriptName: sandboxScript.name,
+			scriptId: entitySchemaScript.sandboxScriptId,
 		})
 		.from(trackerEntitySchema)
 		.innerJoin(tracker, eq(tracker.id, trackerEntitySchema.trackerId))
@@ -80,12 +79,12 @@ export const listEntitySchemasForUser = async (input: {
 			eq(entitySchema.id, trackerEntitySchema.entitySchemaId),
 		)
 		.leftJoin(
-			entitySchemaSandboxScript,
-			eq(entitySchemaSandboxScript.entitySchemaId, entitySchema.id),
+			entitySchemaScript,
+			eq(entitySchemaScript.entitySchemaId, entitySchema.id),
 		)
 		.leftJoin(
 			sandboxScript,
-			eq(sandboxScript.id, entitySchemaSandboxScript.searchSandboxScriptId),
+			eq(sandboxScript.id, entitySchemaScript.sandboxScriptId),
 		)
 		.where(and(...whereClauses))
 		.orderBy(asc(entitySchema.name), asc(entitySchema.createdAt));
@@ -101,14 +100,12 @@ export const listEntitySchemasForUser = async (input: {
 			record = { entry: { ...row, searchProviders: [] }, seen: new Set() };
 			schemaMap.set(schemaKey, record);
 		}
-		if (row.searchScriptId && row.detailsScriptId && row.searchScriptName) {
-			const providerKey = `${row.searchScriptId}::${row.detailsScriptId}`;
-			if (!record.seen.has(providerKey)) {
-				record.seen.add(providerKey);
+		if (row.scriptId && row.scriptName) {
+			if (!record.seen.has(row.scriptId)) {
+				record.seen.add(row.scriptId);
 				record.entry.searchProviders.push({
-					name: row.searchScriptName,
-					searchScriptId: row.searchScriptId,
-					detailsScriptId: row.detailsScriptId,
+					name: row.scriptName,
+					scriptId: row.scriptId,
 				});
 			}
 		}
@@ -125,9 +122,8 @@ export const getEntitySchemaByIdForUser = async (input: {
 	const rows = await db
 		.select({
 			...listedEntitySchemaSelection,
-			searchScriptName: sandboxScript.name,
-			searchScriptId: entitySchemaSandboxScript.searchSandboxScriptId,
-			detailsScriptId: entitySchemaSandboxScript.detailsSandboxScriptId,
+			scriptName: sandboxScript.name,
+			scriptId: entitySchemaScript.sandboxScriptId,
 		})
 		.from(entitySchema)
 		.innerJoin(
@@ -136,12 +132,12 @@ export const getEntitySchemaByIdForUser = async (input: {
 		)
 		.innerJoin(tracker, eq(tracker.id, trackerEntitySchema.trackerId))
 		.leftJoin(
-			entitySchemaSandboxScript,
-			eq(entitySchemaSandboxScript.entitySchemaId, entitySchema.id),
+			entitySchemaScript,
+			eq(entitySchemaScript.entitySchemaId, entitySchema.id),
 		)
 		.leftJoin(
 			sandboxScript,
-			eq(sandboxScript.id, entitySchemaSandboxScript.searchSandboxScriptId),
+			eq(sandboxScript.id, entitySchemaScript.sandboxScriptId),
 		)
 		.where(
 			and(
@@ -159,14 +155,12 @@ export const getEntitySchemaByIdForUser = async (input: {
 	const seenProviders = new Set<string>();
 	const searchProviders: SearchProvider[] = [];
 	for (const row of rows) {
-		if (row.searchScriptId && row.detailsScriptId && row.searchScriptName) {
-			const providerKey = `${row.searchScriptId}::${row.detailsScriptId}`;
-			if (!seenProviders.has(providerKey)) {
-				seenProviders.add(providerKey);
+		if (row.scriptId && row.scriptName) {
+			if (!seenProviders.has(row.scriptId)) {
+				seenProviders.add(row.scriptId);
 				searchProviders.push({
-					name: row.searchScriptName,
-					searchScriptId: row.searchScriptId,
-					detailsScriptId: row.detailsScriptId,
+					name: row.scriptName,
+					scriptId: row.scriptId,
 				});
 			}
 		}

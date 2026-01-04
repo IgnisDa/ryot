@@ -259,7 +259,7 @@ describe("createEntity", () => {
 		const createdEntity = createListedEntity({
 			name: "Built-in Book",
 			externalId: "ol:OL12345W",
-			detailsSandboxScriptId: "script_details_1",
+			sandboxScriptId: "script_details_1",
 		});
 		const deps = createEntityDeps({
 			getEntitySchemaScopeForUser: async () => ({
@@ -278,7 +278,7 @@ describe("createEntity", () => {
 				body: {
 					...createEntityBody(),
 					externalId: "ol:OL12345W",
-					detailsSandboxScriptId: "script_details_1",
+					sandboxScriptId: "script_details_1",
 				},
 			},
 			deps,
@@ -302,7 +302,7 @@ describe("createEntity", () => {
 		});
 	});
 
-	it("returns validation when only externalId is provided without detailsSandboxScriptId", async () => {
+	it("returns validation when only externalId is provided without sandboxScriptId", async () => {
 		const result = await createEntity(
 			{
 				userId: "user_1",
@@ -314,17 +314,17 @@ describe("createEntity", () => {
 		expect(result).toEqual({
 			error: "validation",
 			message:
-				"externalId and detailsSandboxScriptId must both be provided or both be omitted",
+				"externalId and sandboxScriptId must both be provided or both be omitted",
 		});
 	});
 
-	it("returns validation when only detailsSandboxScriptId is provided without externalId", async () => {
+	it("returns validation when only sandboxScriptId is provided without externalId", async () => {
 		const result = await createEntity(
 			{
 				userId: "user_1",
 				body: {
 					...createEntityBody(),
-					detailsSandboxScriptId: "script_details_1",
+					sandboxScriptId: "script_details_1",
 				},
 			},
 			createEntityDeps(),
@@ -333,7 +333,7 @@ describe("createEntity", () => {
 		expect(result).toEqual({
 			error: "validation",
 			message:
-				"externalId and detailsSandboxScriptId must both be provided or both be omitted",
+				"externalId and sandboxScriptId must both be provided or both be omitted",
 		});
 	});
 
@@ -341,7 +341,7 @@ describe("createEntity", () => {
 		const existingEntity = createListedEntity({
 			id: "entity_existing",
 			externalId: "ol:OL12345M",
-			detailsSandboxScriptId: "script_details_1",
+			sandboxScriptId: "script_details_1",
 		});
 		let createCalled = false;
 		const deps = createEntityDeps({
@@ -358,7 +358,7 @@ describe("createEntity", () => {
 				body: {
 					...createEntityBody(),
 					externalId: "ol:OL12345M",
-					detailsSandboxScriptId: "script_details_1",
+					sandboxScriptId: "script_details_1",
 				},
 			},
 			deps,
@@ -379,7 +379,7 @@ describe("createEntity", () => {
 				return createListedEntity({
 					name: input.name,
 					externalId: input.externalId ?? null,
-					detailsSandboxScriptId: input.detailsSandboxScriptId ?? null,
+					sandboxScriptId: input.sandboxScriptId ?? null,
 				});
 			},
 		});
@@ -391,7 +391,7 @@ describe("createEntity", () => {
 					body: {
 						...createEntityBody(),
 						externalId: "ol:OL99999M",
-						detailsSandboxScriptId: "script_details_1",
+						sandboxScriptId: "script_details_1",
 					},
 				},
 				deps,
@@ -400,6 +400,6 @@ describe("createEntity", () => {
 
 		expect(capturedInput).toBeDefined();
 		expect(result.externalId).toBe("ol:OL99999M");
-		expect(result.detailsSandboxScriptId).toBe("script_details_1");
+		expect(result.sandboxScriptId).toBe("script_details_1");
 	});
 });

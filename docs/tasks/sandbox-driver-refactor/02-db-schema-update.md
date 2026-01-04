@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -19,21 +19,21 @@ See the **DB schema** and **DB relations** sections of the parent PRD for the fu
 
 ## Acceptance criteria
 
-- [ ] `entitySchemaSandboxScript` table definition is removed from `tables.ts`.
-- [ ] A new `entitySchemaScript` table is defined in `tables.ts` with columns `id`,
+- [x] `entitySchemaSandboxScript` table definition is removed from `tables.ts`.
+- [x] A new `entitySchemaScript` table is defined in `tables.ts` with columns `id`,
       `entitySchemaId` (FK → `entity_schema`, cascade delete), `sandboxScriptId`
       (FK → `sandbox_script`, cascade delete), `createdAt`, `updatedAt`, and a unique
       constraint on `(entitySchemaId, sandboxScriptId)`.
-- [ ] `entity.detailsSandboxScriptId` is renamed to `entity.sandboxScriptId` in `tables.ts`.
+- [x] `entity.detailsSandboxScriptId` is renamed to `entity.sandboxScriptId` in `tables.ts`.
       FK target, nullability, and on-delete behaviour are unchanged.
-- [ ] The unique constraint on `entity` is updated to reference `sandboxScriptId` in place of
+- [x] The unique constraint on `entity` is updated to reference `sandboxScriptId` in place of
       `detailsSandboxScriptId`.
-- [ ] All references to `entitySchemaSandboxScript` and its dual relation names (`searchScript`,
+- [x] All references to `entitySchemaSandboxScript` and its dual relation names (`searchScript`,
       `detailsScript`) are removed from `relations.ts`.
-- [ ] `entitySchemaScript` has a relation to `entitySchema` (many-to-one) and a relation to
+- [x] `entitySchemaScript` has a relation to `entitySchema` (many-to-one) and a relation to
       `sandboxScript` (many-to-one) defined in `relations.ts`.
-- [ ] The `entity` → `sandboxScript` relation in `relations.ts` references `sandboxScriptId`.
-- [ ] `bun run typecheck` passes in `apps/app-backend`.
+- [x] The `entity` → `sandboxScript` relation in `relations.ts` references `sandboxScriptId`.
+- [x] `bun run typecheck` passes in `apps/app-backend`.
 
 ## Blocked by
 
