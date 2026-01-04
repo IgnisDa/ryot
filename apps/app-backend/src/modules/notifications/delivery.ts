@@ -67,7 +67,7 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 					return yield* new NotificationDeliveryError({ message: "SMTP is not configured" });
 				}
 
-				const { mailbox } = config.notifications.smtp;
+				const { mailbox } = config.server.smtp;
 				const { server, user, password } = credentials.value;
 
 				const transport = createTransport({
