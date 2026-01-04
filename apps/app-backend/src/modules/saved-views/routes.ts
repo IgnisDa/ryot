@@ -12,8 +12,8 @@ import {
 } from "~/lib/openapi";
 import { viewDefinitionModule } from "~/lib/views/definition";
 import {
-	ViewRuntimeNotFoundError,
-	ViewRuntimeValidationError,
+	QueryEngineNotFoundError,
+	QueryEngineValidationError,
 } from "~/lib/views/errors";
 import { getSavedViewByIdForUser, listSavedViewsForUser } from "./repository";
 import {
@@ -148,8 +148,8 @@ const savedViewNotFoundResult = createNotFoundErrorResult(
 
 export const resolveSavedViewValidationErrorResult = (error: unknown) => {
 	if (
-		error instanceof ViewRuntimeNotFoundError ||
-		error instanceof ViewRuntimeValidationError
+		error instanceof QueryEngineNotFoundError ||
+		error instanceof QueryEngineValidationError
 	) {
 		return createValidationErrorResult(error.message);
 	}

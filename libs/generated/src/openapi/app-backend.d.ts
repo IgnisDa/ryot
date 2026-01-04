@@ -2645,7 +2645,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/view-runtime/execute": {
+    "/query-engine/execute": {
         parameters: {
             query?: never;
             header?: never;
@@ -2654,7 +2654,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Execute a compiled view-runtime query */
+        /** Execute a compiled query-engine request */
         post: {
             parameters: {
                 query?: never;
@@ -2693,7 +2693,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Entities for the requested runtime query */
+                /** @description Entities for the requested query-engine request */
                 200: {
                     headers: {
                         [name: string]: unknown;

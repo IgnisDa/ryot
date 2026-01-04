@@ -98,7 +98,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 	);
 	const entityListQueryKey = apiClient.queryOptions(
 		"post",
-		"/view-runtime/execute",
+		"/query-engine/execute",
 		{ body: createEntityRuntimeRequest(props.entitySchema.slug) },
 	).queryKey;
 

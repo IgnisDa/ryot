@@ -9,12 +9,12 @@ import { entitySchemasApi } from "~/modules/entity-schemas/routes";
 import { eventSchemasApi } from "~/modules/event-schemas/routes";
 import { eventsApi } from "~/modules/events/routes";
 import { mediaApi } from "~/modules/media/routes";
+import { queryEngineApi } from "~/modules/query-engine/routes";
 import { sandboxApi } from "~/modules/sandbox/routes";
 import { savedViewsApi } from "~/modules/saved-views/routes";
 import { systemApi } from "~/modules/system/routes";
 import { trackersApi } from "~/modules/trackers/routes";
 import { uploadsApi } from "~/modules/uploads/routes";
-import { viewRuntimeApi } from "~/modules/view-runtime/routes";
 
 const openApiTags = [
 	{
@@ -66,8 +66,8 @@ const openApiTags = [
 		description: "Saved query configurations for quick access to entity views",
 	},
 	{
-		name: "view-runtime",
-		description: "Execute saved-view style entity queries",
+		name: "query-engine",
+		description: "Execute dynamic queries",
 	},
 ];
 
@@ -103,7 +103,7 @@ export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/events", eventsApi)
 	.route("/uploads", uploadsApi)
 	.route("/saved-views", savedViewsApi)
-	.route("/view-runtime", viewRuntimeApi);
+	.route("/query-engine", queryEngineApi);
 
 export const apiApp = baseApp
 	.doc("/openapi.json", (c) => ({

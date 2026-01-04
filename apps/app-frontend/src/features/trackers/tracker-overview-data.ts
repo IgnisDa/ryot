@@ -103,7 +103,7 @@ export function useTrackerOverviewData(input: {
 
 	const entityQueries = useQueries({
 		queries: input.entitySchemas.map((schema) =>
-			apiClient.queryOptions("post", "/view-runtime/execute", {
+			apiClient.queryOptions("post", "/query-engine/execute", {
 				body: createEntityRuntimeRequest(schema.slug),
 			}),
 		),
