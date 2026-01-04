@@ -10,7 +10,7 @@ export function createEntityFixture(
 		properties: {},
 		externalId: null,
 		entitySchemaId: "schema-1",
-		detailsSandboxScriptId: null,
+		sandboxScriptId: null,
 		createdAt: new Date("2026-03-08T08:00:00.000Z"),
 		updatedAt: new Date("2026-03-08T08:30:00.000Z"),
 		...overrides,
