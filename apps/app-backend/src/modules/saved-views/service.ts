@@ -7,13 +7,14 @@ import type {
 	UpdateSavedViewBody,
 } from "@ryot/contract/modules/saved-views/schemas";
 import type { TrackerId, UserId } from "@ryot/contract/schema/brands";
+import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine";
 import { Effect } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { buildReorderedIds } from "#lib/shared/reorder";
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
-import { buildDefaultQueryDocument, buildDisplayConfig } from "#modules/builtins/view-helpers";
+import { buildDisplayConfig } from "#modules/builtins/view-helpers";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { QueryEngineService } from "#modules/query-engine/service";
 
@@ -159,7 +160,9 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 					trackerId: input.trackerId,
 					accentColor: input.accentColor,
 					displayConfiguration: buildDisplayConfig(input.entitySchemaSlug),
-					queryDocument: buildDefaultQueryDocument([input.entitySchemaSlug]),
+					queryDocument: buildDefaultSavedViewQueryDocument({
+						schemas: [input.entitySchemaSlug],
+					}),
 				}),
 			);
 		});

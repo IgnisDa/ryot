@@ -113,6 +113,7 @@ Observable read-path semantics pinned by the e2e suite; keep them in mind when t
 - Property null semantics: a property read resolves to null when the row's schema does not define the property (including a multi-schema source where the property is qualified by a different schema) or the value is absent, and such rows are excluded from positive comparisons. `neq` compiles as null-as-false (null rows excluded); `not(eq)` is a double negation that keeps null rows. `isNull`/`isNotNull` treat a missing value as null. Comparisons are operand-order-preserving, and text orders under `COLLATE "C"` (byte order, uppercase before lowercase).
 - A query returns only the fields a row selects; an unselected field (e.g. `translationStatus`) is absent rather than null.
 - Time-series buckets are contiguous and gap-filled: each bucket's `endAt` equals the next bucket's `startAt`, empty spans between populated buckets are emitted as zero buckets, and week buckets align to the ISO Monday start.
+- Construct application-owned query documents through `@ryot/query-engine`. Its primitives stay dependency-free (they never import `@ryot/contract`) so any layer can build documents without risking a dependency cycle; production reads should use a named shared recipe when one exists.
 
 ## Sandbox Script Cache
 

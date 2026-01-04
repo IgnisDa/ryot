@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { buildTrendingMediaQueryDocument } from "@ryot/query-engine";
+
 import {
 	createAuthenticatedClient,
 	createGlobalBookEntityFixture,
@@ -7,13 +9,8 @@ import {
 	findBuiltinSchemaBySlug,
 	insertGlobalRelationship,
 	listRelationshipSchemas,
-	literalExpr,
-	propertyRef,
 	requireQueryEngineFieldValue,
 	requireRelationshipSchemaBySlug,
-	schemaMetaRef,
-	systemRef,
-	type QueryEnginePayload,
 } from "../fixtures";
 import { assertPresent } from "../test-support/assertions";
 
@@ -58,39 +55,11 @@ describe("Query engine media trending", () => {
 			}),
 		]);
 
-		const doc: QueryEnginePayload = {
-			source: {
-				alias: "trend",
-				type: "relationships",
-				schemas: ["media-trending"],
-				targetEntity: { alias: "media", schemas: [schema.slug] },
-				sourceEntity: { alias: "sourceMedia", schemas: [schema.slug] },
-				where: {
-					operator: "eq",
-					type: "comparison",
-					right: literalExpr(fetchedAt),
-					left: propertyRef("trend", "media-trending", "fetchedAt"),
-				},
-			},
-			output: {
-				type: "rows",
-				pagination: { page: 1, limit: 10 },
-				orderBy: [
-					{ order: "asc", expr: propertyRef("trend", "media-trending", "rank") },
-					{ order: "desc", expr: systemRef("media", "updatedAt") },
-				],
-				fields: [
-					{ key: "mediaId", expr: systemRef("media", "id") },
-					{ key: "mediaName", expr: systemRef("media", "name") },
-					{ key: "schemaSlug", expr: schemaMetaRef("media", "slug") },
-					{ key: "rank", expr: propertyRef("trend", "media-trending", "rank") },
-					{
-						key: "fetchedAt",
-						expr: propertyRef("trend", "media-trending", "fetchedAt"),
-					},
-				],
-			},
-		};
+		const doc = buildTrendingMediaQueryDocument({
+			fetchedAt,
+			entitySchemaSlug: schema.slug,
+			limit: 10,
+		});
 
 		const result = await executeQueryEngine(client, doc);
 
@@ -98,15 +67,15 @@ describe("Query engine media trending", () => {
 		const [first, secondRow] = result.data.items;
 		assertPresent(first, "Expected first trending row");
 		assertPresent(secondRow, "Expected second trending row");
-		expect(requireQueryEngineFieldValue(first, "mediaId").value).toBe(top.entity.id);
-		expect(requireQueryEngineFieldValue(first, "mediaName").value).toBe(top.entity.name);
+		expect(requireQueryEngineFieldValue(first, "id").value).toBe(top.entity.id);
+		expect(requireQueryEngineFieldValue(first, "name").value).toBe(top.entity.name);
 		expect(requireQueryEngineFieldValue(first, "schemaSlug").value).toBe(schema.slug);
 		expect(requireQueryEngineFieldValue(first, "rank").value).toBe(1);
 		expect(requireQueryEngineFieldValue(first, "fetchedAt").value).toBe(fetchedAt);
-		expect(requireQueryEngineFieldValue(secondRow, "mediaId").value).toBe(second.entity.id);
+		expect(requireQueryEngineFieldValue(secondRow, "id").value).toBe(second.entity.id);
 		expect(requireQueryEngineFieldValue(secondRow, "rank").value).toBe(2);
 		expect(
-			result.data.items.map((item) => requireQueryEngineFieldValue(item, "mediaId").value),
+			result.data.items.map((item) => requireQueryEngineFieldValue(item, "id").value),
 		).not.toContain(notTrending.entity.id);
 	});
 });

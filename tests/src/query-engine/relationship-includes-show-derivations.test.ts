@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
+import { buildCompletedShowsQueryDocument } from "@ryot/query-engine";
+
 import {
-	buildRowsDoc,
 	createAuthenticatedClient,
 	createQueryEngineEvent,
 	executeQueryEngine,
@@ -10,53 +11,10 @@ import {
 	insertGlobalRelationship,
 	listEventSchemas,
 	listRelationshipSchemas,
-	propertyRef,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
-	seasonEpisodeSource,
 	seedMediaEntity,
-	showEpisodeEventExistsSource,
-	showSeasonSource,
-	systemRef,
 } from "../fixtures";
-
-const completedRegularSeasonSource = (aliasSuffix: string) =>
-	showSeasonSource(`seasonCompleted${aliasSuffix}`, {
-		type: "and" as const,
-		values: [
-			{
-				operator: "gt" as const,
-				type: "comparison" as const,
-				right: { type: "literal" as const, value: 0 },
-				left: propertyRef(`seasonCompleted${aliasSuffix}`, "show-season", "seasonNumber"),
-			},
-			{
-				operator: "eq" as const,
-				type: "comparison" as const,
-				left: {
-					type: "aggregate" as const,
-					aggregation: { function: "count" as const },
-					source: seasonEpisodeSource(
-						`seasonCompleted${aliasSuffix}`,
-						`completedEpisode${aliasSuffix}`,
-						{
-							type: "exists" as const,
-							source: showEpisodeEventExistsSource(`completedEpisode${aliasSuffix}`, "complete"),
-						},
-					),
-				},
-				right: {
-					type: "aggregate" as const,
-					aggregation: { function: "count" as const },
-					source: seasonEpisodeSource(
-						`seasonCompleted${aliasSuffix}`,
-						`allEpisode${aliasSuffix}`,
-						null,
-					),
-				},
-			},
-		],
-	});
 
 describe("Relationship includes", () => {
 	it("derives show fully-watched from per-episode completion across multi-episode seasons", async () => {
@@ -195,48 +153,7 @@ describe("Relationship includes", () => {
 			properties: { completionMode: "unknown" },
 		});
 
-		const showNameWhere = {
-			operator: "eq" as const,
-			type: "comparison" as const,
-			left: systemRef("show", "id"),
-			right: { type: "literal" as const, value: show.id },
-		};
-		const fullyWatchedDoc = buildRowsDoc({
-			limit: 10,
-			alias: "show",
-			schemas: ["show"],
-			fields: [{ key: "name", expr: systemRef("show", "name") }],
-			source: {
-				alias: "show",
-				type: "entities",
-				schemas: ["show"],
-				where: {
-					type: "and" as const,
-					values: [
-						showNameWhere,
-						{
-							operator: "eq" as const,
-							type: "comparison" as const,
-							left: {
-								type: "aggregate" as const,
-								aggregation: { function: "count" as const },
-								source: completedRegularSeasonSource("Filter"),
-							},
-							right: {
-								type: "aggregate" as const,
-								aggregation: { function: "count" as const },
-								source: showSeasonSource("seasonRegularFilter", {
-									operator: "gt" as const,
-									type: "comparison" as const,
-									right: { type: "literal" as const, value: 0 },
-									left: propertyRef("seasonRegularFilter", "show-season", "seasonNumber"),
-								}),
-							},
-						},
-					],
-				},
-			},
-		});
+		const fullyWatchedDoc = buildCompletedShowsQueryDocument({ entityId: show.id, limit: 10 });
 
 		const incompleteResult = await executeQueryEngine(client, fullyWatchedDoc);
 		expect(incompleteResult.data.items).toHaveLength(0);

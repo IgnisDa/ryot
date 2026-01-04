@@ -4,9 +4,9 @@ import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 } from "@ryot/contract/display-configuration";
+import { buildMeasurementListQueryDocument } from "@ryot/query-engine";
 
 import {
-	buildEntityRowsQueryDocument,
 	createAuthenticatedClient,
 	createMeasurementEntityFixture,
 	executeQueryEngine,
@@ -16,8 +16,6 @@ import {
 	getQueryEngineFieldOrThrow,
 	listEntitySchemas,
 	listSavedViews,
-	propertyRef,
-	systemRef,
 } from "../fixtures";
 
 describe("Measurements E2E", () => {
@@ -117,28 +115,9 @@ describe("Measurements E2E", () => {
 		const { client } = await createAuthenticatedClient();
 		await createMeasurementEntityFixture(client);
 
-		const result = await executeQueryEngine(
-			client,
-			buildEntityRowsQueryDocument({
-				alias: "measurement",
-				schemas: ["measurement"],
-				fields: [
-					{ key: "title", expr: systemRef("measurement", "name") },
-					{
-						key: "primarySubtitle",
-						expr: propertyRef("measurement", "measurement", "recordedAt"),
-					},
-					{
-						key: "secondarySubtitle",
-						expr: propertyRef("measurement", "measurement", "comment"),
-					},
-				],
-			}),
-		);
+		const result = await executeQueryEngine(client, buildMeasurementListQueryDocument({}));
 
 		expect(result.data.items.length).toBeGreaterThan(0);
-		expect(getQueryEngineFieldOrThrow(result.data.items[0], "primarySubtitle").key).toBe(
-			"primarySubtitle",
-		);
+		expect(getQueryEngineFieldOrThrow(result.data.items[0], "recordedAt").key).toBe("recordedAt");
 	});
 });

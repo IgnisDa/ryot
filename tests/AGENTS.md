@@ -48,6 +48,12 @@ The contract API is scoped to a user's own trackers, so it cannot create the glo
 
 `query-engine-sql-pushdown.test.ts` asserts that aggregates/time-series over a filtered source, relationship-root filtering, and correlated exists/aggregate return the same results whether they run pushed down in SQL or app-side.
 
+## Query-Engine Construction
+
+- Build valid query documents with `@ryot/query-engine`; `fixtures/query-engine-core.ts` owns execution and response assertions, not a second query-document DSL.
+- Use named Ryot recipes for entity/event reads, media hierarchy and discovery, fitness lists, relationships, and saved-view defaults. Keep test-specific course hierarchies and deliberately malformed fragments explicit.
+- Sandbox-script source strings cannot import TypeScript utilities; keep their embedded query documents local to the sandbox tests.
+
 ## Diagnosing Failures
 
 - Assert async job completion with `assertCompleted` (`test-support/assertions.ts`) rather than comparing `result.status` by hand — on a failed job it includes the backend's error string, which is the difference between "got 'failed'" and an actionable message.
