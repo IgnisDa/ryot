@@ -182,8 +182,21 @@ export const runSubscriptionExecutionWorkflow = Effect.fn("runSubscriptionExecut
 	},
 );
 
-const SubscriptionExecutionWorkflowLive = SubscriptionExecutionWorkflow.toLayer((payload) =>
-	runSubscriptionExecutionWorkflow(payload),
+const SubscriptionExecutionWorkflowLive = SubscriptionExecutionWorkflow.toLayer(
+	(payload, executionId) =>
+		runSubscriptionExecutionWorkflow(payload).pipe(
+			Effect.withSpan("SubscriptionExecutionWorkflow", {
+				attributes: {
+					executionId,
+					ruleId: payload.ruleId,
+					occurrenceId: payload.occurrenceId,
+					...(payload.signalId ? { signalId: payload.signalId } : {}),
+					...(payload.recordId ? { recordId: payload.recordId } : {}),
+					...(payload.rowUserId ? { rowUserId: payload.rowUserId } : {}),
+				},
+			}),
+			Effect.annotateLogs({ executionId, workflow: "SubscriptionExecutionWorkflow" }),
+		),
 );
 
 export const SubscriptionExecutionWorkflowDefinitionsLive = Layer.mergeAll(

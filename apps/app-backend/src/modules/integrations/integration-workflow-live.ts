@@ -94,7 +94,18 @@ export const runIntegrationRunWorkflow = Effect.fn("runIntegrationRunWorkflow")(
 });
 
 const ProcessIntegrationRunWorkflowLive = ProcessIntegrationRunWorkflow.toLayer(
-	(payload, executionId) => runIntegrationRunWorkflow(payload, executionId),
+	(payload, executionId) =>
+		runIntegrationRunWorkflow(payload, executionId).pipe(
+			Effect.withSpan("ProcessIntegrationRunWorkflow", {
+				attributes: {
+					executionId,
+					runId: payload.runId,
+					userId: payload.userId,
+					integrationId: payload.integrationId,
+				},
+			}),
+			Effect.annotateLogs({ executionId, workflow: "ProcessIntegrationRunWorkflow" }),
+		),
 );
 
 export const IntegrationWorkflowDefinitionsLive = ProcessIntegrationRunWorkflowLive.pipe(

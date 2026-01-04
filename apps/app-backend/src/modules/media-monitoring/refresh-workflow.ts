@@ -48,7 +48,20 @@ export const runMediaMonitoringRefreshWorkflow = Effect.fn("runMediaMonitoringRe
 );
 
 export const MediaMonitoringRefreshWorkflowDefinitionsLive = Layer.mergeAll(
-	MediaMonitoringRefreshWorkflow.toLayer((payload) => runMediaMonitoringRefreshWorkflow(payload)),
+	MediaMonitoringRefreshWorkflow.toLayer((payload, executionId) =>
+		runMediaMonitoringRefreshWorkflow(payload).pipe(
+			Effect.withSpan("MediaMonitoringRefreshWorkflow", {
+				attributes: {
+					executionId,
+					entityId: payload.entityId,
+					externalId: payload.externalId,
+					entitySchemaId: payload.entitySchemaId,
+					sandboxScriptId: payload.sandboxScriptId,
+				},
+			}),
+			Effect.annotateLogs({ executionId, workflow: "MediaMonitoringRefreshWorkflow" }),
+		),
+	),
 );
 
 export const mediaMonitoringPayloadFromTarget = (

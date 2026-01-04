@@ -2,7 +2,7 @@ import { Activity } from "@effect/workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { MembershipResponse } from "@ryot/contract/modules/collections/schemas";
 import { EntityId, EventSchemaId } from "@ryot/contract/schema/brands";
-import { Cause, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
 
@@ -66,7 +66,7 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("runAddEntityToCollect
 				})
 				.pipe(
 					Effect.catchAllCause((cause) =>
-						Effect.logWarning(`Failed to queue collection event: ${String(Cause.squash(cause))}`),
+						Effect.logWarning("collection event enqueue failed", cause),
 					),
 				);
 		}
@@ -76,5 +76,16 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("runAddEntityToCollect
 );
 
 export const AddEntityToCollectionWorkflowDefinitionsLive = AddEntityToCollectionWorkflow.toLayer(
-	(payload) => runAddEntityToCollectionWorkflow(payload),
+	(payload, executionId) =>
+		runAddEntityToCollectionWorkflow(payload).pipe(
+			Effect.withSpan("AddEntityToCollectionWorkflow", {
+				attributes: {
+					executionId,
+					userId: payload.userId,
+					entityId: payload.entityId,
+					collectionId: payload.collectionId,
+				},
+			}),
+			Effect.annotateLogs({ executionId, workflow: "AddEntityToCollectionWorkflow" }),
+		),
 );
