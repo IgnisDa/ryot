@@ -15,9 +15,9 @@ export const sandboxRunJobData = z.object({
 	timeoutMs: positiveIntSchema.optional(),
 	maxHeapMB: positiveIntSchema.optional(),
 	scriptId: nonEmptyStringSchema.optional(),
+	driverName: nonEmptyStringSchema.optional(),
 	context: stringUnknownRecordSchema.optional(),
 	apiFunctionDescriptors: z.array(apiFunctionDescriptorSchema).optional(),
-	driverName: nonEmptyStringSchema.optional(),
 });
 
 export const sandboxRunJobResult = z.object({

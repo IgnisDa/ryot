@@ -24,9 +24,9 @@ export interface SandboxEnqueueOptions {
 	code: string;
 	userId: string;
 	scriptId?: string;
+	driverName?: string;
 	context?: Record<string, unknown>;
 	apiFunctionDescriptors?: Array<ApiFunctionDescriptor>;
-	driverName?: string;
 }
 
 export interface SandboxResult {
@@ -36,10 +36,7 @@ export interface SandboxResult {
 	success: boolean;
 }
 
-export type ApiSuccess<T> = {
-	data: T;
-	success: true;
-};
+export type ApiSuccess<T> = { data: T; success: true };
 
 export type ApiFailure = {
 	error: string;
