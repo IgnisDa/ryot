@@ -19,9 +19,11 @@ export const runTasks = <E, R>(tasks: ReadonlyArray<CronTask<E, R>>, ctx: CronTa
 		{ discard: true },
 	);
 
-const CronRunPayload = Schema.Struct({
+export const CronRunPayload = Schema.Struct({
 	executionId: Schema.String,
 });
+
+export type CronRunPayload = typeof CronRunPayload.Type;
 
 export const FrequentCronWorkflow = Workflow.make({
 	error: Schema.Never,
