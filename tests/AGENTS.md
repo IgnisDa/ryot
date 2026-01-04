@@ -63,7 +63,7 @@ Coverage is intentionally minimal (a drift signal, not exhaustive): OpenLibrary 
 ## Diagnosing Failures
 
 - Assert async job completion with `assertCompleted` (`support/assertions.ts`) rather than comparing `result.status` by hand. For successful sandbox executions, use `requireCompletedSandboxValue`; failures render the structured phase, source location, message, and sanitized stack instead of collapsing the error to a string.
-- Every backend the harness spawns mirrors all its stdout/stderr to a temp file and prints the path at startup (e.g. `[Backend] backend logs -> <os-tmpdir>/ryot-e2e-backend-<ts>-<pid>.log`); each backend gets its own labelled file (e.g. `Backend A/B/C` in the OIDC suite). Backend-side workflow/queue failures (e.g. cluster persistence errors) that don't crash the process show up only in that file. If a backend exits unexpectedly or fails to start, the harness prints a one-line notice pointing at the same file.
+- Every backend the harness spawns gets a unique `SERVER_LOG_FILE` (set by `buildBackendEnv`) under the OS temp dir, and the harness prints the path at startup.
 
 ## Timeouts & Pool Sizing
 
