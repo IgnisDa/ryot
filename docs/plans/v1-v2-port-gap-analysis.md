@@ -45,7 +45,7 @@ Core platform delivery is in the baseline; the remaining gaps are notification-p
 - **Reminders** _(depends on notifications)_ — reminder on an entity → scheduled notification, then automatically removed from the Reminders collection once it fires.
   - V1 event: `NotificationFromReminderCollection` (`crates/services/miscellaneous/background/src/calendar.rs`).
 - **Event-driven alerts** — wire these into the send path:
-  - `NewWorkoutCreated`, `ReviewPosted` (already tracked).
+  - `NewWorkoutCreated` (already tracked).
   - `MetadataMovedFromCompletedToWatchlistCollection` — fires from the smart-collection auto-management job below.
   - Outdated in-progress/on-hold nudges — user hasn't touched an in-progress item in 7 days, or an on-hold item in 14 days.
   - Released-media-today — notify monitoring users when a calendar event lands on today's date.
@@ -166,4 +166,5 @@ Intentionally not ported.
 - Mark as partial (`mark_entity_as_partial`) — obsolete under V2's on-demand population: `entity.populatedAt === null` is itself the partial state, and a partial entity is re-populated on demand when a client declares interest in it (`modules/entity-interest`), so no explicit partial flag or manual mark operation is needed.
 - Access links — V1: `create_access_link`, `process_access_link`, `revoke_access_link`, `user_access_links`.
 - Review comment threads & likes — confirmed dropped during migration, not merely unbuilt: `modules/legacy-bootstrap/review-mapping.ts` states "V2 has no comments concept on events; comment threads are lost."
-- Review visibility (public/private) — confirmed dropped the same way: events have no visibility field, so the public/private distinction from V1 reviews no longer exists.
+- Public reviews and review visibility (public/private) — confirmed dropped the same way: events have no visibility field, so V1's cross-user public-review model and public/private distinction no longer exist.
+- `ReviewPosted` notifications — intentionally excluded with public reviews; V1 sent these to users monitoring an entity only when a new public review was created, so the behavior has no V2 equivalent without restoring cross-user public reviews.
