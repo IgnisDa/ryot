@@ -7,7 +7,7 @@ import {
 	createEventAggregateExpression,
 	createLiteralExpression,
 } from "#lib/query-language";
-import type { AppSchema } from "#lib/schema";
+import type { AppSchema } from "#lib/schema/core";
 
 import { displayBuiltins } from "./reference";
 import { context, createEventSchema } from "./test-support";
