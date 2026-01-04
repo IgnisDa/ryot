@@ -26,6 +26,7 @@ export interface SandboxEnqueueOptions {
 	scriptId?: string;
 	context?: Record<string, unknown>;
 	apiFunctionDescriptors?: Array<ApiFunctionDescriptor>;
+	driverName?: string;
 }
 
 export interface SandboxResult {

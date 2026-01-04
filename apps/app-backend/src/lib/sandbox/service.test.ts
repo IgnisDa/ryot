@@ -200,3 +200,77 @@ describe("SandboxService.getJobByIdForUser", () => {
 		).resolves.toBeNull();
 	});
 });
+
+describe("SandboxService driverName support", () => {
+	it("includes driverName in job data when enqueuing with driverName", async () => {
+		const service = new SandboxService();
+		const testService = service as unknown as TestSandboxQueueAccessor;
+		const addedJobs: Array<{ name: string; data: unknown; opts: unknown }> = [];
+
+		testService.getQueue = () =>
+			({
+				add: async (name: string, data: unknown, opts: unknown) => {
+					addedJobs.push({ name, data, opts });
+					return { id: "job_1" };
+				},
+				getJob: async () => null,
+			}) as unknown as ReturnType<TestSandboxQueueAccessor["getQueue"]>;
+
+		await service.enqueue({
+			userId: "user_1",
+			code: "return 1;",
+			driverName: "search",
+		});
+
+		expect(addedJobs).toHaveLength(1);
+		const jobData = addedJobs[0]?.data as { driverName?: string } | undefined;
+		expect(jobData?.driverName).toBe("search");
+	});
+
+	it("forwards driverName in execute payload", async () => {
+		const service = new SandboxService();
+		const testService = service as unknown as TestSandboxExecutor;
+		let capturedOptions: unknown;
+
+		testService.execute = async (options: unknown) => {
+			capturedOptions = options;
+			return {
+				success: true,
+				logs: undefined,
+				value: undefined,
+				error: undefined,
+			};
+		};
+
+		await service.executeQueuedRun(createJobData({ driverName: "details" }));
+
+		expect(capturedOptions).toMatchObject({
+			driverName: "details",
+		});
+	});
+
+	it("does not include driverName when not provided", async () => {
+		const service = new SandboxService();
+		const testService = service as unknown as TestSandboxExecutor;
+		let capturedOptions: unknown;
+
+		testService.execute = async (options: unknown) => {
+			capturedOptions = options;
+			return {
+				success: true,
+				logs: undefined,
+				value: undefined,
+				error: undefined,
+			};
+		};
+
+		await service.executeQueuedRun(createJobData());
+
+		expect(capturedOptions).toMatchObject({
+			code: "return 1;",
+		});
+		expect(
+			(capturedOptions as { driverName?: string }).driverName,
+		).toBeUndefined();
+	});
+});

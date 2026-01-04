@@ -228,15 +228,15 @@ and when dependencies return errors.
 
 ## Tasks
 
-**Overall Progress:** 0 of 5 tasks completed
+**Overall Progress:** 1 of 5 tasks completed
 
-**Current Task:** [Task 01](./01-runner-driver-registration.md) (todo)
+**Current Task:** [Task 02](./02-db-schema-update.md) (todo)
 
 ### Task List
 
 | # | Task | Type | Status | Blocked By |
 |---|------|------|--------|------------|
-| 01 | [Runner Driver Registration](./01-runner-driver-registration.md) | AFK | todo | None |
+| 01 | [Runner Driver Registration](./01-runner-driver-registration.md) | AFK | done | None |
 | 02 | [DB Schema Update](./02-db-schema-update.md) | AFK | todo | None |
 | 03 | [Entity Schemas Providers and Seed](./03-entity-schemas-providers-and-seed.md) | AFK | todo | Task 02 |
 | 04 | [Entities Field Rename](./04-entities-field-rename.md) | AFK | todo | Task 02 |

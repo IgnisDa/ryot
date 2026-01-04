@@ -111,6 +111,7 @@ export const enqueueSandbox = async (
 			code: foundSandboxScript.code,
 			scriptId: input.body.scriptId,
 			apiFunctionDescriptors: createApiFunctionDescriptors(input.userId),
+			driverName: input.body.driverName,
 		});
 
 		return serviceData(job);
@@ -121,6 +122,7 @@ export const enqueueSandbox = async (
 		code: input.body.code,
 		context: input.body.context,
 		apiFunctionDescriptors: createApiFunctionDescriptors(input.userId),
+		driverName: input.body.driverName,
 	});
 
 	return serviceData(job);
