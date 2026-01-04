@@ -22,6 +22,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconChevronUp,
+	IconCirclesRelation,
 	IconClipboard,
 	IconDotsVertical,
 	IconLayersIntersect,
@@ -55,7 +56,12 @@ import {
 	OnboardingTourStepTarget,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
-import { getProgressOfExercise, usePlayFitnessSound } from "../hooks";
+import {
+	focusOnExercise,
+	getProgressOfExercise,
+	sortSupersetExercisesByWorkoutOrder,
+	usePlayFitnessSound,
+} from "../hooks";
 import { SetDisplay } from "../set-display/display";
 import type { FuncStartTimer } from "../types";
 import { ExerciseDetailsModal } from "./details-modal";
@@ -156,27 +162,54 @@ export const ExerciseDisplay = (props: {
 				ml={{ base: "-md", md: 0 }}
 				id={props.exerciseIdx.toString()}
 				pr={{ base: 4, md: "xs", lg: "sm" }}
-				style={{
-					scrollMargin: exercise.scrollMarginRemoved ? "10px" : "60px",
-					borderLeft: partOfSuperset
-						? `3px solid ${theme.colors[partOfSuperset.color][6]}`
-						: undefined,
-				}}
+				style={{ scrollMargin: exercise.scrollMarginRemoved ? "10px" : "60px" }}
 			>
 				<Stack ref={parent}>
 					<Menu shadow="md" width={200} position="left-end">
 						<Group justify="space-between" pos="relative" wrap="nowrap">
-							<Anchor
-								c="blue"
-								fw="bold"
-								lineClamp={1}
-								onClick={(e) => {
-									e.preventDefault();
-									openDetailsModal();
-								}}
-							>
-								{exerciseDetails?.name || "Loading..."}
-							</Anchor>
+							<Group wrap="nowrap" gap="xs">
+								{partOfSuperset ? (
+									<ActionIcon
+										size="sm"
+										variant="light"
+										color={theme.colors[partOfSuperset.color][6]}
+										onClick={() => {
+											const sortedExercises =
+												sortSupersetExercisesByWorkoutOrder(
+													partOfSuperset.exercises,
+													currentWorkout.exercises,
+												);
+											const currentIdx = sortedExercises.indexOf(
+												exercise.identifier,
+											);
+											const nextIdx = (currentIdx + 1) % sortedExercises.length;
+											const nextExerciseIdentifier = sortedExercises[nextIdx];
+											const nextExerciseIdx =
+												currentWorkout.exercises.findIndex(
+													(e) => e.identifier === nextExerciseIdentifier,
+												);
+											if (nextExerciseIdx !== -1)
+												focusOnExercise(nextExerciseIdx);
+										}}
+									>
+										<IconCirclesRelation
+											style={{ width: "90%", height: "90%" }}
+										/>
+									</ActionIcon>
+								) : null}
+								<Anchor
+									c="blue"
+									fw="bold"
+									lineClamp={1}
+									fz={{ base: "sm", md: "md" }}
+									onClick={(e) => {
+										e.preventDefault();
+										openDetailsModal();
+									}}
+								>
+									{exerciseDetails?.name || "Loading..."}
+								</Anchor>
+							</Group>
 							<Group wrap="nowrap" mr={-10}>
 								{didExerciseActivateTimer ? (
 									<DisplayExerciseSetRestTimer

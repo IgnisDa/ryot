@@ -13,7 +13,7 @@ import {
 	useGetSetAtIndex,
 } from "~/lib/state/fitness";
 import { OnboardingTourStepTarget } from "~/lib/state/onboarding-tour";
-import { usePlayFitnessSound } from "../hooks";
+import { focusOnExercise, usePlayFitnessSound } from "../hooks";
 import type { FuncStartTimer } from "../types";
 import {
 	isSetConfirmationDisabled,
@@ -22,16 +22,16 @@ import {
 
 const shouldShowPlayButton = (exerciseLot: ExerciseLot, set: ExerciseSet) => {
 	const durationBasedLots = [
-		ExerciseLot.DistanceAndDuration,
 		ExerciseLot.Duration,
 		ExerciseLot.RepsAndDuration,
+		ExerciseLot.DistanceAndDuration,
 		ExerciseLot.RepsAndDurationAndDistance,
 	];
 	return (
-		durationBasedLots.includes(exerciseLot) &&
 		!set.confirmedAt &&
 		!set.durationTimerTriggered &&
-		isString(set.statistic.duration)
+		isString(set.statistic.duration) &&
+		durationBasedLots.includes(exerciseLot)
 	);
 };
 
@@ -74,11 +74,7 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 			mounted
 			duration={200}
 			timingFunction="ease-in-out"
-			transition={{
-				in: {},
-				out: {},
-				transitionProperty: "all",
-			}}
+			transition={{ in: {}, out: {}, transitionProperty: "all" }}
 		>
 			{(style) => {
 				if (shouldShowPlayButton(exercise.lot, set)) {
@@ -89,6 +85,7 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 							variant="outline"
 							onClick={() => {
 								timerStartedSound();
+								focusOnExercise(props.exerciseIdx);
 								props.startTimer({
 									openTimerDrawer: true,
 									confirmSetOnFinish: setIdentifier,

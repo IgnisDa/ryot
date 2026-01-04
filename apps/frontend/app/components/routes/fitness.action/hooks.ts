@@ -23,6 +23,14 @@ export const focusOnExercise = (idx: number) => {
 	}, DEFAULT_SET_TIMEOUT_DELAY_MS);
 };
 
+export const sortSupersetExercisesByWorkoutOrder = (
+	supersetExercises: string[],
+	workoutExercises: InProgressWorkout["exercises"],
+) =>
+	sortBy(supersetExercises, (s) =>
+		workoutExercises.findIndex((e) => e.identifier === s),
+	);
+
 export const getProgressOfExercise = (cw: InProgressWorkout, index: number) => {
 	const isCompleted = cw.exercises[index].sets.every((s) => s.confirmedAt);
 	return isCompleted
@@ -43,8 +51,9 @@ const getNextSetInWorkout = (
 	);
 	const areAllSetsConfirmed = currentExercise.sets.every((s) => s.confirmedAt);
 	if (partOfSuperset) {
-		const sortedExercises = sortBy(partOfSuperset.exercises, (s) =>
-			currentWorkout.exercises.findIndex((e) => e.identifier === s),
+		const sortedExercises = sortSupersetExercisesByWorkoutOrder(
+			partOfSuperset.exercises,
+			currentWorkout.exercises,
 		);
 		const nextExerciseWithIncompleteSets = currentWorkout.exercises.find(
 			(e) =>
