@@ -21,7 +21,7 @@ const onShutdownSignal = () => {
 process.on("SIGINT", onShutdownSignal);
 process.on("SIGTERM", onShutdownSignal);
 
-if (Bun.env["RUN_LEGACY_BOOTSTRAP_ONLY"] === "true") {
+if (Bun.env["RUN_MIGRATION_ONLY"] === "true") {
 	const MigrationOnlyLive = MigrationsComplete.Default.pipe(
 		Layer.flatMap(() =>
 			SeedService.Default.pipe(Layer.flatMap(() => LegacyBootstrapMigrateDrop.Default)),
