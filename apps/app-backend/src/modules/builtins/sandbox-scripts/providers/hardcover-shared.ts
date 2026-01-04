@@ -23,7 +23,7 @@ export const idValue = (value: unknown) => {
 };
 
 export const getHardcoverApiKey = (host: HardcoverHost) =>
-	host.getAppConfigValue("providers.hardcoverApiKey").then((response) => {
+	host.getAppConfigValue("books.hardcoverApiKey").then((response) => {
 		if (!response.success) {
 			throw new Error(response.error || "Could not load Hardcover API key");
 		}

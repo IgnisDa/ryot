@@ -15,7 +15,7 @@ export const manifest = defineManifest({
 	name: "IGDB",
 	slug: "video-game-group.igdb",
 	providerInformation: { source: "igdb" },
-	requiredAppConfigKeys: ["providers.twitchClientId", "providers.twitchClientSecret"],
+	requiredAppConfigKeys: ["videoGames.twitchClientId", "videoGames.twitchClientSecret"],
 	capabilities: ["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"],
 });
 

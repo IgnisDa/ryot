@@ -30,8 +30,8 @@ export const getFirstImage = (images: unknown) => getImagesSortedBySize(images)[
 
 export const getCredentials = (host: SpotifyHost) =>
 	Promise.all([
-		host.getAppConfigValue("providers.spotifyClientId"),
-		host.getAppConfigValue("providers.spotifyClientSecret"),
+		host.getAppConfigValue("music.spotifyClientId"),
+		host.getAppConfigValue("music.spotifyClientSecret"),
 	]).then(([clientIdResp, clientSecretResp]) => {
 		if (!clientIdResp.success) {
 			throw new Error(clientIdResp.error || "Failed to retrieve Spotify client ID");

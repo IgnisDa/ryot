@@ -20,7 +20,7 @@ export const manifest = defineManifest({
 	name: "TMDB",
 	kind: "provider",
 	slug: "movie.tmdb",
-	requiredAppConfigKeys: ["providers.tmdbAccessToken"],
+	requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
 	providerInformation: { source: "tmdb", canonicalLanguage: "en" },
 	capabilities: ["httpCall", "getAppConfigValue", "getUserPreferences"],
 });
