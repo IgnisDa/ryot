@@ -28,8 +28,7 @@ import {
 } from "#modules/query-engine/response-helpers";
 import { QueryEngineService } from "#modules/query-engine/service";
 
-import { enqueueEventCreate } from "./event-create-workflow";
-import { validateEventCreateSubmission } from "./event-creation";
+import { executeEventCreate } from "./event-create-workflow";
 import { EventsRepository } from "./repository";
 
 const entityNotFoundError = "Entity not found";
@@ -42,6 +41,8 @@ type EventCreateInput = {
 	readonly source: EventCreateOrigin;
 	readonly payload: ReadonlyArray<CreateEventItem>;
 	readonly metadata?: {
+		readonly correlationId?: string;
+		readonly automationDepth?: number;
 		readonly importRunId?: ImportRunId;
 		readonly integrationId?: IntegrationId;
 	};
@@ -96,16 +97,6 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 		const queryEngine = yield* QueryEngineService;
 		const entitiesRepository = yield* EntitiesRepository;
 		const eventSchemasRepository = yield* EventSchemasRepository;
-
-		const provideValidationContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-			effect.pipe(
-				Effect.provideService(DbRunner, runWithDb),
-				Effect.provideService(EntitiesRepository, entitiesRepository),
-				Effect.provideService(EventSchemasRepository, eventSchemasRepository),
-			);
-
-		const provideWorkflowEngine = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-			effect.pipe(Effect.provideService(WorkflowEngine, engine));
 
 		const requireReadableEntity = Effect.fn("EventsService.requireReadableEntity")(function* (
 			userId: UserId,
@@ -224,28 +215,23 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 
 		const create = Effect.fn("EventsService.create")(function* (input: EventCreateInput) {
 			if (input.payload.length === 0) {
-				return { count: 0 };
+				return { count: 0, skipped: 0 };
 			}
 
 			if (input.source === "integration" && !input.metadata?.integrationId) {
 				return yield* badRequest("integrationId is required for integration event creation");
 			}
 
-			yield* provideValidationContext(
-				validateEventCreateSubmission({ userId: input.userId, payload: input.payload }),
-			);
-			yield* provideWorkflowEngine(
-				enqueueEventCreate({
-					userId: input.userId,
-					origin: input.source,
-					payload: input.payload,
-					executionId: input.executionId,
-					importRunId: input.metadata?.importRunId,
-					integrationId: input.metadata?.integrationId,
-				}),
-			);
-
-			return { count: input.payload.length };
+			return yield* executeEventCreate({
+				userId: input.userId,
+				origin: input.source,
+				payload: input.payload,
+				executionId: input.executionId,
+				importRunId: input.metadata?.importRunId,
+				integrationId: input.metadata?.integrationId,
+				correlationId: input.metadata?.correlationId,
+				automationDepth: input.metadata?.automationDepth,
+			}).pipe(Effect.provideService(WorkflowEngine, engine));
 		});
 
 		return { create, listForUser };

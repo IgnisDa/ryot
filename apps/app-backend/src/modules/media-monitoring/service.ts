@@ -1,20 +1,19 @@
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { notFound } from "@ryot/contract/errors";
 import type { IncludedRowsValue, RowValue } from "@ryot/contract/modules/query-engine/language";
 import { EntityId } from "@ryot/contract/schema/brands";
 import { buildMediaMonitoringStatusQueryDocument } from "@ryot/query-engine";
+import { generateId } from "better-auth";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
-import { CollectionsRepository } from "#modules/collections/repository";
-import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { requireRowsResponse, requireStringField } from "#modules/query-engine/response-helpers";
 import { QueryEngineService } from "#modules/query-engine/service";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import { RelationshipsRepository } from "#modules/relationships/repository";
-import { RelationshipsService } from "#modules/relationships/service";
 
+import { executeDisableMediaMonitoring } from "./disable-media-monitoring-workflow";
+import { executeEnableMediaMonitoring } from "./enable-media-monitoring-workflow";
 import { isMediaMonitorableEntity } from "./monitorable";
 import { MediaMonitoringRepository } from "./repository";
 
@@ -25,14 +24,10 @@ export class MediaMonitoringService extends Effect.Service<MediaMonitoringServic
 	"MediaMonitoringService",
 	{
 		effect: Effect.gen(function* () {
+			const engine = yield* WorkflowEngine;
 			const runWithDb = yield* DbRunner;
 			const entities = yield* EntitiesRepository;
-			const collections = yield* CollectionsService;
 			const queryEngine = yield* QueryEngineService;
-			const relationships = yield* RelationshipsRepository;
-			const relationshipsService = yield* RelationshipsService;
-			const collectionsRepository = yield* CollectionsRepository;
-			const relationshipSchemas = yield* RelationshipSchemasRepository;
 			const mediaMonitoringRepository = yield* MediaMonitoringRepository;
 
 			const get = Effect.fn("MediaMonitoringService.get")(function* (
@@ -73,30 +68,11 @@ export class MediaMonitoringService extends Effect.Service<MediaMonitoringServic
 				entityId: EntityId,
 			) {
 				const target = yield* get(user, entityId);
-				yield* collections.ensureEntityInLibrary(user.id, target.entityId);
-				const mediaMonitoring = yield* runWithDb(
-					relationshipSchemas.findBuiltinBySlug("media-monitoring"),
-				);
-				if (!mediaMonitoring) {
-					return yield* Effect.die("media-monitoring relationship schema not found");
-				}
-				const libraryEntityId = yield* runWithDb(
-					collectionsRepository.getUserLibraryEntityId({ userId: user.id }),
-				);
-				if (!libraryEntityId) {
-					return yield* Effect.die("Library entity not found for user");
-				}
-				yield* relationshipsService.save({
-					scope: "user",
-					properties: {},
+				return yield* executeEnableMediaMonitoring(engine, {
 					userId: user.id,
-					onConflict: "preserveExisting",
-					sourceEntityId: target.entityId,
-					targetEntityId: libraryEntityId,
-					relationshipSchemaId: mediaMonitoring.id,
-					propertiesSchema: mediaMonitoring.propertiesSchema,
+					executionId: generateId(),
+					entityId: target.entityId,
 				});
-				return { entityId: target.entityId, isMediaMonitored: true };
 			});
 
 			const disable = Effect.fn("MediaMonitoringService.disable")(function* (
@@ -104,26 +80,11 @@ export class MediaMonitoringService extends Effect.Service<MediaMonitoringServic
 				entityId: EntityId,
 			) {
 				const target = yield* get(user, entityId);
-				const mediaMonitoring = yield* runWithDb(
-					relationshipSchemas.findBuiltinBySlug("media-monitoring"),
-				);
-				if (!mediaMonitoring) {
-					return yield* Effect.die("media-monitoring relationship schema not found");
-				}
-				const libraryEntityId = yield* runWithDb(
-					collectionsRepository.getUserLibraryEntityId({ userId: user.id }),
-				);
-				if (libraryEntityId) {
-					yield* runWithDb(
-						relationships.deleteUserRelationship({
-							userId: user.id,
-							sourceEntityId: target.entityId,
-							targetEntityId: libraryEntityId,
-							relationshipSchemaId: mediaMonitoring.id,
-						}),
-					);
-				}
-				return { entityId: target.entityId, isMediaMonitored: false };
+				return yield* executeDisableMediaMonitoring(engine, {
+					userId: user.id,
+					executionId: generateId(),
+					entityId: target.entityId,
+				});
 			});
 
 			return { disable, enable, get };

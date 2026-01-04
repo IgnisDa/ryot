@@ -18,12 +18,14 @@ This module owns one-time import runs. It normalizes third-party exports into Ry
 
 Media imports run in four phases, split across a parent workflow and one canonical child:
 
-1. Adapter load (parent-owned): parse source input into `ImportMediaEntityGroup[]` plus row-level transformation failures. The load activity persists the normalized `MediaImportAdapterResult` to the Redis artifact store (`runtime/source-payload-store.ts`, keyed by `runId`, 24h TTL) and returns only a compact `MediaImportAdapterSummary` (group count + failures), never the full result.
+1. Adapter load (parent-owned): parse source input into normalized groups plus row-level transformation failures. The load activity persists a compact manifest and bounded 100-group chunks to the Redis artifact store (`runtime/source-payload-store.ts`, keyed by `runId`, 24h TTL) and returns only a compact `MediaImportAdapterSummary` (group count + failures), never the full result.
 2. `resolving-entities`: convert unresolved refs into resolved refs through sandbox `resolve` drivers.
 3. `populating-entities`: populate or reuse global entities and ensure library membership by awaiting `LibraryEntityImportWorkflow` per item (it composes provider population then the durable membership queue). Its `LibraryEntityImportError` stage maps to the `provider_details` (population) and `database_commit` (membership) failure stages.
 4. `writing-events`: write collection memberships and events for resolved entity ids.
 
-Phases 2–4 (plus recording adapter failures and finalizing the run) are single-owned by `ProcessNormalizedMediaImportWorkflow` (`media/normalized-import-workflow.ts` definition, `media/normalized-import-workflow-live.ts` body). Both parents — `runOneTimeMediaImportWorkflow` (one-time imports) and the integration workflow — persist the adapter result, then await the child with a deterministic `${parentExecutionId}-normalized` execution id so the pipeline activities journal under one workflow regardless of caller. The child rehydrates the adapter result from Redis as its first activity (typed `ImportRunError` if the artifact is missing or expired). Resolution and population call sandbox or entity-import work through durable workflow steps instead of a hidden pass-through processor.
+Phases 2–4 (plus recording adapter failures and finalizing the run) are single-owned by `ProcessNormalizedMediaImportWorkflow` (`media/normalized-import-workflow.ts` definition, `media/normalized-import-workflow-live.ts` body). Both parents — `runOneTimeMediaImportWorkflow` (one-time imports) and the integration workflow — persist the adapter result, then await the child with a deterministic `${parentExecutionId}-normalized` execution id so the pipeline activities journal under one workflow regardless of caller. The child rehydrates one bounded chunk at a time (typed `ImportRunError` if the manifest or a chunk is missing or expired), and chunk identity is included in child execution IDs. Resolution and population call sandbox or entity-import work through durable workflow steps instead of a hidden pass-through processor.
+
+Non-media imports use the same 100-item persisted-chunk boundary between adapter loading and writes. Their durable workflow state contains only the manifest and the current chunk, and each persisted item's `itemIndex` is the source-global index used for activity identity and recorded failures.
 
 Parents own everything outside the shared pipeline: file/source loading and mark-started, the Redis artifact write, and — after the child returns or fails — cleanup (one-time: `cleanupMediaImportRun` / `failRunAndCleanup`, which also deletes the adapter artifact via the `ImportRunArtifacts` cleanup lifecycle) or finalization (integration: `finalizeIntegrationRun`).
 
@@ -57,7 +59,6 @@ Use the existing import failure stages consistently:
 - `input_transformation`: parsing or normalization failures.
 - `provider_resolution`: unresolved ref could not be mapped to a supported provider id.
 - `provider_details`: sandbox `details` fetch or entity population failure.
-- `event_before_trigger`: failure before an import-triggered event fires.
 - `database_commit`: collections, events, or library membership writes failed.
 - `source_fetch`: source payload or external source fetch failed before normalization.
 

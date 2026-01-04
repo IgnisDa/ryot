@@ -14,10 +14,15 @@ async function pushShowToSonarr(integration, tvdbId) {
 		tags: typeof specifics.tagIds === "number" ? [specifics.tagIds] : [],
 	};
 
-	const result = await httpCall("POST", baseUrl + "/api/v3/series", {
-		body: JSON.stringify(requestBody),
-		headers: { "Content-Type": "application/json", "X-Api-Key": specifics.apiKey },
-	});
+	const result = await httpCall(
+		"POST",
+		baseUrl + "/api/v3/series",
+		{
+			body: JSON.stringify(requestBody),
+			headers: { "Content-Type": "application/json", "X-Api-Key": specifics.apiKey },
+		},
+		"sonarr:" + String(integration.id) + ":" + String(tvdbId),
+	);
 
 	if (!result.success) {
 		// Sonarr replies 400 when the series already exists; that is expected, not an error.
@@ -25,8 +30,9 @@ async function pushShowToSonarr(integration, tvdbId) {
 	}
 }
 
-driver("trigger", async function (context) {
-	const trigger = context.trigger;
+driver("subscription", async function (context) {
+	const source = context.automation?.source;
+	const trigger = source?.kind === "event" ? source.after : null;
 	if (!trigger) {
 		return;
 	}
@@ -37,7 +43,6 @@ driver("trigger", async function (context) {
 		return;
 	}
 
-	// Both checks are independent — run in parallel.
 	const preamble = await Promise.all([
 		integrationsDisabledForUser(),
 		listActiveIntegrations("sonarr"),

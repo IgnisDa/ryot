@@ -1,6 +1,7 @@
 import { apiKey } from "@better-auth/api-key";
 import { redisStorage } from "@better-auth/redis-storage";
 import { HttpServerRequest } from "@effect/platform";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import {
 	AdminMiddleware,
 	AuthMiddleware,
@@ -10,12 +11,12 @@ import {
 } from "@ryot/contract/auth-middleware";
 import { rateLimited, unauthorized, unknownToDbError } from "@ryot/contract/errors";
 import { UserId } from "@ryot/contract/schema/brands";
-import { betterAuth } from "better-auth";
+import { betterAuth, generateId } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { genericOAuth, twoFactor } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
-import { Effect, Layer, Option, Redacted, Runtime, Schema } from "effect";
+import { Cause, Effect, Exit, Layer, Option, Redacted, Runtime, Schema } from "effect";
 import type Redis from "ioredis";
 
 import { AppConfig, type AppConfigValue, isOidcEnabled } from "#lib/infrastructure/config/service";
@@ -25,7 +26,7 @@ import * as schemaRelations from "#lib/infrastructure/db/schema/tables/relations
 import type { DbRoot, TransactionRunner } from "#lib/infrastructure/db/service";
 import { DbService } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { bootstrapNewUser } from "#modules/builtins/bootstrap";
+import { executeBootstrapUser } from "#modules/builtins/bootstrap-user-workflow";
 
 const schema = { ...schemaAuth, ...schemaTables, ...schemaRelations };
 
@@ -33,7 +34,7 @@ const makeAuthInstance = (args: {
 	readonly db: DbRoot;
 	readonly redis: Redis;
 	readonly config: AppConfigValue;
-	readonly runtime: Runtime.Runtime<DbService | RedisService | TransactionRunner>;
+	readonly runtime: Runtime.Runtime<DbService | RedisService | TransactionRunner | WorkflowEngine>;
 }) => {
 	const corsOrigins = Option.match(args.config.server.corsOrigins, {
 		onNone: () => [] as string[],
@@ -64,6 +65,7 @@ const makeAuthInstance = (args: {
 		user: {
 			additionalFields: {
 				disabledAt: { type: "date", required: false, input: false },
+				bootstrapCompletedAt: { type: "date", required: false, input: false },
 				preferences: { type: "json", required: true, defaultValue: defaultUserPreferences },
 			},
 		},
@@ -106,27 +108,62 @@ const makeAuthInstance = (args: {
 			session: {
 				create: {
 					before: (session) =>
-						args.db
-							.select({ disabledAt: schema.user.disabledAt })
-							.from(schema.user)
-							.where(eq(schema.user.id, session.userId))
-							.limit(1)
-							.then(([foundUser]) => {
+						Runtime.runPromiseExit(args.runtime)(
+							Effect.gen(function* () {
+								const [foundUser] = yield* Effect.promise(() =>
+									args.db
+										.select({
+											disabledAt: schema.user.disabledAt,
+											bootstrapCompletedAt: schema.user.bootstrapCompletedAt,
+										})
+										.from(schema.user)
+										.where(eq(schema.user.id, session.userId))
+										.limit(1),
+								);
 								if (foundUser?.disabledAt) {
-									throw APIError.from("FORBIDDEN", {
-										code: "USER_DISABLED",
-										message: "This user has been disabled.",
-									});
+									return yield* Effect.fail(
+										APIError.from("FORBIDDEN", {
+											code: "USER_DISABLED",
+											message: "This user has been disabled.",
+										}),
+									);
+								}
+								if (!foundUser?.bootstrapCompletedAt) {
+									const engine = yield* WorkflowEngine;
+									yield* executeBootstrapUser(engine, {
+										executionId: generateId(),
+										userId: UserId.make(session.userId),
+									}).pipe(
+										Effect.mapError(() =>
+											APIError.from("SERVICE_UNAVAILABLE", {
+												code: "USER_INITIALIZING",
+												message: "Your account is still initializing. Please try again.",
+											}),
+										),
+									);
 								}
 								return undefined;
 							}),
+						).then((exit) => {
+							if (Exit.isSuccess(exit)) {
+								return exit.value;
+							}
+							const failure = Cause.failureOption(exit.cause);
+							throw Option.isSome(failure) ? failure.value : Cause.squash(exit.cause);
+						}),
 				},
 			},
 			user: {
 				create: {
 					after: (user) =>
 						Runtime.runPromise(args.runtime)(
-							bootstrapNewUser(user.id).pipe(
+							Effect.gen(function* () {
+								const engine = yield* WorkflowEngine;
+								yield* executeBootstrapUser(engine, {
+									executionId: generateId(),
+									userId: UserId.make(user.id),
+								});
+							}).pipe(
 								Effect.catchAllCause((cause) =>
 									Effect.logError("[auth] bootstrapNewUser failed for user", user.id, cause),
 								),
@@ -182,7 +219,9 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 		const db = yield* DbService;
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
-		const runtime = yield* Effect.runtime<DbService | RedisService | TransactionRunner>();
+		const runtime = yield* Effect.runtime<
+			DbService | RedisService | TransactionRunner | WorkflowEngine
+		>();
 		const auth = makeAuthInstance({ config, db: db.db, redis: redis.client, runtime });
 
 		return {

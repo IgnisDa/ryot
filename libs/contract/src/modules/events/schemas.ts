@@ -1,10 +1,7 @@
 import { Schema } from "effect";
 
+import { BadRequest, DbError, NotFound } from "../../errors";
 import { EntityId, EventId, EventSchemaId } from "../../schema/brands";
-
-export type EventTriggerMetadata = {
-	inheritedProperties?: string[];
-};
 
 export const EventCreateOrigin = Schema.Literal(
 	"api",
@@ -60,6 +57,15 @@ export const CreateEventItem = Schema.Struct({
 
 export type CreateEventItem = typeof CreateEventItem.Type;
 
-export const CreateEventsResponse = Schema.Struct({ count: Schema.Number });
+const EventCreateFailure = Schema.Struct({
+	reason: Schema.Union(BadRequest, DbError, NotFound),
+	index: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+});
+
+export const CreateEventsResponse = Schema.Struct({
+	failure: Schema.optional(EventCreateFailure),
+	count: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+	skipped: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+});
 
 export type CreateEventsResponse = typeof CreateEventsResponse.Type;

@@ -1,4 +1,5 @@
 export * from "./core";
+export * from "./automations";
 export * from "./entities";
 export * from "./events";
 export * from "./imports";

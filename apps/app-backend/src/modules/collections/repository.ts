@@ -80,28 +80,6 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 					: null;
 			});
 
-			const findLibraryEntityForUser = Effect.fn("CollectionsRepository.findLibraryEntityForUser")(
-				function* (input: { userId: UserId; entitySchemaId: EntitySchemaId }) {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
-						db
-							.select({ id: schema.entity.id })
-							.from(schema.entity)
-							.where(
-								and(
-									eq(schema.entity.userId, input.userId),
-									eq(schema.entity.entitySchemaId, input.entitySchemaId),
-									isNull(schema.entity.externalId),
-									isNull(schema.entity.sandboxScriptId),
-								),
-							)
-							.limit(1),
-					);
-
-					return row ? { id: EntityId.make(row.id) } : null;
-				},
-			);
-
 			const getUserLibraryEntityId = Effect.fn("CollectionsRepository.getUserLibraryEntityId")(
 				function* (input: { userId: UserId }) {
 					const db = yield* CurrentDb;
@@ -233,7 +211,6 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 
 			return {
 				getBuiltinCollectionSchema,
-				findLibraryEntityForUser,
 				getUserLibraryEntityId,
 				findCollectionByNameForUser,
 				getCollectionById,

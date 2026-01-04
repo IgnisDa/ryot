@@ -1,4 +1,4 @@
-import { badRequest, notFound, SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
+import { badRequest, notFound, SandboxRunError, toSandboxRunError } from "@ryot/contract/errors";
 import type {
 	MetadataLookupBody,
 	MetadataLookupResponse,
@@ -48,11 +48,6 @@ const EntitySearchResult = Schema.Struct({ items: Schema.Array(EntitySearchItem)
 const searchScripts: ReadonlyArray<SearchScriptSlug> = ["movie.tmdb", "show.tmdb"];
 
 const decodeEntitySearchResult = Schema.decodeUnknown(EntitySearchResult);
-
-const toSandboxRunError = (error: unknown) =>
-	error instanceof SandboxRunError
-		? error
-		: new SandboxRunError({ message: unknownToMessage(error) });
 
 const scriptUnavailable = () => notFound("TMDB sandbox scripts are not available");
 
@@ -118,6 +113,7 @@ export class MetadataLookupService extends Effect.Service<MetadataLookupService>
 						code: script.code,
 						scriptId: script.id,
 						driverName: "search",
+						executionKind: "provider",
 						metadata: script.metadata,
 						scriptIsBuiltin: script.isBuiltin,
 						context: { query, page: 1, pageSize: 20 },
