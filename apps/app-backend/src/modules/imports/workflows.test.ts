@@ -1,8 +1,14 @@
+import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Effect, Layer } from "effect";
 
-import { dbRunnerLayer, makeMock, makeWorkflowActivityEngine } from "#lib/test-support/effect";
+import {
+	dbRunnerLayer,
+	makeAppConfigLayer,
+	makeMock,
+	makeWorkflowActivityEngine,
+} from "#lib/test-support/effect";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -10,7 +16,6 @@ import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
 
 import { ImportsRepository } from "./repository";
-import { getTemporaryDirectory } from "./runtime/files";
 import { ProcessImportRunWorkflow } from "./worker";
 import { runOneTimeMediaImportWorkflow } from "./workflows";
 
@@ -146,6 +151,8 @@ type TestLayerOptions = {
 const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
+		makeAppConfigLayer(),
+		BunFileSystem.layer,
 		Layer.succeed(ImportsRepository, options.importsRepository ?? makeImportsRepository()),
 		Layer.succeed(EntitiesRepository, options.entitiesRepository ?? makeEntitiesRepository()),
 		Layer.succeed(CollectionsService, options.collectionsService ?? makeCollectionsService()),
@@ -383,10 +390,7 @@ it.effect(
 		let resolveCalled = false;
 		const cleanupCalls: Array<Record<string, unknown>> = [];
 		const recordedUpdates: Array<Record<string, unknown>> = [];
-		const defectPayload = {
-			...importPayload,
-			filePath: `${getTemporaryDirectory()}/import.csv`,
-		};
+		const defectPayload = { ...importPayload, filePath: "/tmp/import.csv" };
 
 		const options = {
 			importsRepository: makeImportsRepository({

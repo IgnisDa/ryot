@@ -1,5 +1,6 @@
 import { Config } from "effect";
 
+import type { ConfigLeaf, FieldMeta } from "./builder";
 import { boolField, group, intField, optField, secretField, strField } from "./builder";
 
 const fields = {
@@ -77,6 +78,56 @@ const fields = {
 		"Bearer token required for god-mode admin endpoints",
 		{ default: "changeme" },
 	),
+	nodeEnv: strField("NODE_ENV", "Runtime environment name", {
+		hidden: true,
+		default: "development",
+	}),
+	traktClientId: optField(
+		strField("SERVER_IMPORTER_TRAKT_CLIENT_ID", "Trakt client ID for the Trakt importer"),
+	),
+	malClientId: optField(
+		strField("ANIME_AND_MANGA_MAL_CLIENT_ID", "MyAnimeList client ID for anime and manga lookups"),
+	),
+	twitchClientId: optField(
+		strField("VIDEO_GAMES_TWITCH_CLIENT_ID", "Twitch client ID for IGDB video game lookups"),
+	),
+	hardcoverApiKey: optField(
+		secretField("BOOKS_HARDCOVER_API_KEY", "Hardcover API key for the Hardcover book importer"),
+	),
+	googleBooksApiKey: optField(
+		secretField("BOOKS_GOOGLE_BOOKS_API_KEY", "Google Books API key for ISBN book lookups"),
+	),
+	giantBombApiKey: optField(
+		secretField("VIDEO_GAMES_GIANT_BOMB_API_KEY", "Giant Bomb API key for the Grouvee importer"),
+	),
+	twitchClientSecret: optField(
+		secretField(
+			"VIDEO_GAMES_TWITCH_CLIENT_SECRET",
+			"Twitch client secret for IGDB video game lookups",
+		),
+	),
+	tmdbAccessToken: optField(
+		secretField(
+			"MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN",
+			"TMDB access token for movie and show lookups",
+		),
+	),
+};
+
+const tmpDir: ConfigLeaf<string, FieldMeta> = {
+	config: Config.string("TMPDIR").pipe(
+		Config.orElse(() => Config.string("TMP")),
+		Config.orElse(() => Config.string("TEMP")),
+		Config.withDefault("/tmp"),
+	),
+	meta: {
+		hidden: true,
+		kind: "field",
+		default: "/tmp",
+		required: false,
+		envKey: "TMPDIR",
+		description: "Directory for temporary import and upload files",
+	},
 };
 
 const frontendGroup = group(
@@ -174,10 +225,12 @@ const fileStorageGroup = group(
 export const systemConfigDefinition = group(
 	"Core system configuration",
 	Config.all({
+		tmpDir: tmpDir.config,
 		port: fields.port.config,
 		users: usersGroup.config,
 		server: serverGroup.config,
 		sandbox: sandboxGroup.config,
+		nodeEnv: fields.nodeEnv.config,
 		frontend: frontendGroup.config,
 		timezone: fields.timezone.config,
 		redisUrl: fields.redisUrl.config,
@@ -187,10 +240,12 @@ export const systemConfigDefinition = group(
 		databaseUrl: fields.databaseUrl.config,
 	}),
 	{
+		tmpDir: tmpDir.meta,
 		port: fields.port.meta,
 		users: usersGroup.meta,
 		server: serverGroup.meta,
 		sandbox: sandboxGroup.meta,
+		nodeEnv: fields.nodeEnv.meta,
 		frontend: frontendGroup.meta,
 		timezone: fields.timezone.meta,
 		redisUrl: fields.redisUrl.meta,
@@ -203,6 +258,24 @@ export const systemConfigDefinition = group(
 
 export const providerConfigDefinition = group(
 	"Provider integration configuration",
-	Config.succeed({}),
-	{},
+	Config.all({
+		malClientId: fields.malClientId.config,
+		traktClientId: fields.traktClientId.config,
+		twitchClientId: fields.twitchClientId.config,
+		tmdbAccessToken: fields.tmdbAccessToken.config,
+		hardcoverApiKey: fields.hardcoverApiKey.config,
+		giantBombApiKey: fields.giantBombApiKey.config,
+		googleBooksApiKey: fields.googleBooksApiKey.config,
+		twitchClientSecret: fields.twitchClientSecret.config,
+	}),
+	{
+		malClientId: fields.malClientId.meta,
+		traktClientId: fields.traktClientId.meta,
+		twitchClientId: fields.twitchClientId.meta,
+		tmdbAccessToken: fields.tmdbAccessToken.meta,
+		hardcoverApiKey: fields.hardcoverApiKey.meta,
+		giantBombApiKey: fields.giantBombApiKey.meta,
+		googleBooksApiKey: fields.googleBooksApiKey.meta,
+		twitchClientSecret: fields.twitchClientSecret.meta,
+	},
 );
