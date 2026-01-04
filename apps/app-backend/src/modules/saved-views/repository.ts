@@ -1,5 +1,5 @@
 import type { UserId } from "@ryot/contract/schema/brands";
-import { SavedViewId, TrackerSlug } from "@ryot/contract/schema/brands";
+import { PluginSlug, SavedViewId } from "@ryot/contract/schema/brands";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -14,7 +14,7 @@ type CreateSavedViewInput = {
 	readonly icon: string;
 	readonly userId: UserId;
 	readonly accentColor: string;
-	readonly trackerSlug: TrackerSlug | null | undefined;
+	readonly pluginSlug: PluginSlug | null | undefined;
 	readonly queryDocument: (typeof schema.savedView.$inferSelect)["queryDocument"];
 	readonly displayConfiguration: (typeof schema.savedView.$inferSelect)["displayConfiguration"];
 };
@@ -25,7 +25,7 @@ type UpdateSavedViewData = {
 	readonly isDisabled: boolean;
 	readonly accentColor: string;
 	readonly sortOrder?: number | undefined;
-	readonly trackerSlug?: TrackerSlug | undefined;
+	readonly pluginSlug?: PluginSlug | undefined;
 	readonly queryDocument: (typeof schema.savedView.$inferSelect)["queryDocument"];
 	readonly displayConfiguration: (typeof schema.savedView.$inferSelect)["displayConfiguration"];
 };
@@ -34,8 +34,8 @@ const toListedSavedView = (row: SavedViewRow) => ({
 	slug: row.slug,
 	name: row.name,
 	icon: row.icon,
-	sortOrder: row.sortOrder,
 	isBuiltin: false,
+	sortOrder: row.sortOrder,
 	isDisabled: row.isDisabled,
 	accentColor: row.accentColor,
 	id: SavedViewId.make(row.id),
@@ -43,13 +43,11 @@ const toListedSavedView = (row: SavedViewRow) => ({
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	displayConfiguration: row.displayConfiguration,
-	trackerSlug: row.trackerSlug === null ? null : TrackerSlug.make(row.trackerSlug),
+	pluginSlug: row.pluginSlug === null ? null : PluginSlug.make(row.pluginSlug),
 });
 
-const withSavedViewScope = (trackerSlug?: TrackerSlug) =>
-	trackerSlug
-		? eq(schema.savedView.trackerSlug, trackerSlug)
-		: isNull(schema.savedView.trackerSlug);
+const withSavedViewScope = (pluginSlug?: PluginSlug) =>
+	pluginSlug ? eq(schema.savedView.pluginSlug, pluginSlug) : isNull(schema.savedView.pluginSlug);
 
 export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()(
 	"SavedViewsRepository",
@@ -57,7 +55,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 		sync: () => {
 			const listByUser = Effect.fn("SavedViewsRepository.listByUser")(function* (
 				userId: UserId,
-				input: { trackerSlug?: TrackerSlug | undefined; includeDisabled: boolean },
+				input: { pluginSlug?: PluginSlug | undefined; includeDisabled: boolean },
 			) {
 				const db = yield* CurrentDb;
 				const clauses = [eq(schema.savedView.userId, userId)];
@@ -66,8 +64,8 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 					clauses.push(eq(schema.savedView.isDisabled, false));
 				}
 
-				if (input.trackerSlug) {
-					clauses.push(eq(schema.savedView.trackerSlug, input.trackerSlug));
+				if (input.pluginSlug) {
+					clauses.push(eq(schema.savedView.pluginSlug, input.pluginSlug));
 				}
 
 				const rows = yield* dbEffect(() =>
@@ -76,7 +74,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 						.from(schema.savedView)
 						.where(and(...clauses))
 						.orderBy(
-							asc(schema.savedView.trackerSlug),
+							asc(schema.savedView.pluginSlug),
 							asc(schema.savedView.sortOrder),
 							asc(schema.savedView.createdAt),
 						),
@@ -115,7 +113,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 						.where(
 							and(
 								eq(schema.savedView.userId, userId),
-								withSavedViewScope(input.trackerSlug ?? undefined),
+								withSavedViewScope(input.pluginSlug ?? undefined),
 							),
 						),
 				);
@@ -130,7 +128,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 							icon: input.icon,
 							accentColor: input.accentColor,
 							queryDocument: input.queryDocument,
-							trackerSlug: input.trackerSlug ?? null,
+							pluginSlug: input.pluginSlug ?? null,
 							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
 							displayConfiguration: input.displayConfiguration,
 						})
@@ -147,13 +145,13 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				userId: UserId,
 				viewSlug: string,
 				data: UpdateSavedViewData,
-				currentTrackerSlug: TrackerSlug | null,
+				currentPluginSlug: PluginSlug | null,
 			) {
 				const db = yield* CurrentDb;
-				const nextTrackerSlug = data.trackerSlug ?? null;
+				const nextPluginSlug = data.pluginSlug ?? null;
 				let sortOrder = data.sortOrder;
-				if (sortOrder === undefined && currentTrackerSlug !== nextTrackerSlug) {
-					sortOrder = yield* getNextSortOrder(userId, nextTrackerSlug);
+				if (sortOrder === undefined && currentPluginSlug !== nextPluginSlug) {
+					sortOrder = yield* getNextSortOrder(userId, nextPluginSlug);
 				}
 
 				const [row] = yield* dbEffect(() =>
@@ -162,7 +160,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 						.set({
 							icon: data.icon,
 							name: data.name,
-							trackerSlug: nextTrackerSlug,
+							pluginSlug: nextPluginSlug,
 							isDisabled: data.isDisabled,
 							accentColor: data.accentColor,
 							queryDocument: data.queryDocument,
@@ -212,7 +210,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 			const countBySlugs = Effect.fn("SavedViewsRepository.countBySlugs")(function* (
 				userId: UserId,
 				viewSlugs: ReadonlyArray<string>,
-				trackerSlug?: TrackerSlug,
+				pluginSlug?: PluginSlug,
 			) {
 				if (viewSlugs.length === 0) {
 					return 0;
@@ -227,7 +225,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 							and(
 								eq(schema.savedView.userId, userId),
 								inArray(schema.savedView.slug, [...viewSlugs]),
-								withSavedViewScope(trackerSlug),
+								withSavedViewScope(pluginSlug),
 							),
 						),
 				);
@@ -237,10 +235,10 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 
 			const listInOrder = Effect.fn("SavedViewsRepository.listInOrder")(function* (
 				userId: UserId,
-				trackerSlug?: TrackerSlug,
+				pluginSlug?: PluginSlug,
 			) {
 				const db = yield* CurrentDb;
-				const scope = and(eq(schema.savedView.userId, userId), withSavedViewScope(trackerSlug));
+				const scope = and(eq(schema.savedView.userId, userId), withSavedViewScope(pluginSlug));
 				yield* dbEffect(() =>
 					db.select({ id: schema.savedView.id }).from(schema.savedView).where(scope).for("update"),
 				);
@@ -265,9 +263,9 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 
 			const upsertBuiltinState = Effect.fn(function* (input: {
 				userId: UserId;
-				savedViewSlug: string;
 				sortOrder: number;
 				isDisabled: boolean;
+				savedViewSlug: string;
 			}) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
@@ -291,15 +289,15 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				countBySlugs,
 				updateBySlug,
 				deleteBySlug,
-				updateDisabledBySlug,
 				listBuiltinStates,
 				upsertBuiltinState,
+				updateDisabledBySlug,
 			};
 		},
 	},
 ) {}
 
-const getNextSortOrder = Effect.fn(function* (userId: UserId, trackerSlug: TrackerSlug | null) {
+const getNextSortOrder = Effect.fn(function* (userId: UserId, pluginSlug: PluginSlug | null) {
 	const db = yield* CurrentDb;
 	const [orderRow] = yield* dbEffect(() =>
 		db
@@ -307,9 +305,7 @@ const getNextSortOrder = Effect.fn(function* (userId: UserId, trackerSlug: Track
 				maxSortOrder: sql<number>`coalesce(max(${schema.savedView.sortOrder}), -1)`,
 			})
 			.from(schema.savedView)
-			.where(
-				and(eq(schema.savedView.userId, userId), withSavedViewScope(trackerSlug ?? undefined)),
-			),
+			.where(and(eq(schema.savedView.userId, userId), withSavedViewScope(pluginSlug ?? undefined))),
 	);
 
 	return (orderRow?.maxSortOrder ?? -1) + 1;

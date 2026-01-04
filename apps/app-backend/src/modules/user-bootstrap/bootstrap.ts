@@ -12,7 +12,7 @@ import { EntitiesService } from "#modules/entities/service";
 export const acquireBootstrapLock = Effect.fn(function* (userId: string) {
 	const db = yield* CurrentDb;
 	yield* dbEffect(() =>
-		db.execute(sql`select pg_advisory_xact_lock(hashtext(${`builtins:bootstrap:${userId}`}))`),
+		db.execute(sql`select pg_advisory_xact_lock(hashtext(${`user:bootstrap:${userId}`}))`),
 	);
 });
 

@@ -20,9 +20,9 @@ const makeSchemaSlug = () =>
 		make: (value: string) => value,
 	});
 
-export const TrackerSlug = makeSchemaSlug();
+export const PluginSlug = makeSchemaSlug();
 
-export type TrackerSlug = typeof TrackerSlug.Type;
+export type PluginSlug = typeof PluginSlug.Type;
 
 export const SavedViewId = Schema.String.pipe(Schema.brand("SavedViewId"));
 

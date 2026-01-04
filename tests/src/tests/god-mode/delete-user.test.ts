@@ -9,10 +9,10 @@ import {
 	createApiKey,
 	createEntity,
 	createNotificationChannel,
-	createTracker,
 	enqueueEntityImport,
 	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
+	findBuiltinWorkspaceBySlug,
 	getAutomationRuleCount,
 	getBackendClient,
 	getBuiltinEntitySchemaSlug,
@@ -26,12 +26,13 @@ import {
 	seedBuiltinProviderScript,
 	seedMediaEntity,
 	startFakeAppriseServerScoped,
+	updatePluginWorkspaceState,
 } from "~/fixtures";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const WRONG_TOKEN = "wrong-token";
-const trackersListQuery = { includeDisabled: false };
+const workspaceListQuery = { includeDisabled: false };
 
 describe("Delete user admin token enforcement", () => {
 	it.live("rejects deletion without an admin token", () =>
@@ -84,14 +85,18 @@ describe("Delete user", () => {
 				client: userClient,
 			} = yield* createAuthenticatedClient();
 			const userId = UserId.make(rawUserId);
-			const { tracker } = yield* createTracker(userClient, { name: "Delete user tracker" });
-			expect(tracker.config).toEqual({ fixture: true });
+			const { client: observerClient } = yield* createAuthenticatedClient();
+			const workspace = yield* findBuiltinWorkspaceBySlug(userClient, "media");
+			const configuredWorkspace = yield* updatePluginWorkspaceState(userClient, workspace.slug, {
+				config: { fixture: true },
+			});
+			expect(configuredWorkspace.config).toEqual({ fixture: true });
 			const apiKey = yield* createApiKey(cookies);
 
-			yield* client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
 				Cookie: cookies,
 			});
-			yield* client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
 				"X-Api-Key": apiKey,
 			});
 
@@ -107,19 +112,20 @@ describe("Delete user", () => {
 			);
 			expect(listed.users).toHaveLength(0);
 
-			const trackerExists = yield* client.call(
-				(c) => c.testSupport.trackerExists({ path: { trackerSlug: tracker.id } }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+			const workspaces = yield* observerClient.call((c) =>
+				c.definitions.listWorkspaces({ urlParams: { includeDisabled: true } }),
 			);
-			expect(trackerExists.exists).toBe(true);
+			expect(workspaces.some((candidate) => candidate.slug === workspace.slug)).toBe(true);
 
 			const revokedSession = yield* Effect.flip(
-				client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), { Cookie: cookies }),
+				client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+					Cookie: cookies,
+				}),
 			);
 			assertTaggedError(revokedSession, "Unauthorized");
 
 			const revokedApiKey = yield* Effect.flip(
-				client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+				client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
 					"X-Api-Key": apiKey,
 				}),
 			);

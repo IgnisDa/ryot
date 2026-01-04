@@ -9,7 +9,7 @@ type ProcessCommand = readonly [string, ...string[]];
 const compileCommand: ProcessCommand = [
 	process.execPath,
 	"run",
-	"scripts/compile-sandbox-builtins.ts",
+	"scripts/compile-sandbox-artifacts.ts",
 ];
 export const developmentCommands: readonly [ProcessCommand, ProcessCommand] = [
 	[...compileCommand, "--watch", "--skip-initial"],

@@ -17,7 +17,7 @@ import {
 	executeQueryEngine,
 	findBuiltinRelationshipSchemaSlug,
 	findBuiltinSchemaBySlug,
-	findBuiltinTrackerBySlug,
+	findBuiltinWorkspaceBySlug,
 	getEntity,
 	getQueryEngineFieldOrThrow,
 	requireQueryEngineIncludeValue,
@@ -53,18 +53,18 @@ type WorkoutTemplateProperties = {
 };
 
 describe("Workout Templates E2E", () => {
-	it.live("links the built-in workout-template schema to the fitness tracker", () =>
+	it.live("links the built-in workout-template schema to the fitness plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessTracker = yield* findBuiltinTrackerBySlug(client, "fitness");
+			const fitnessWorkspace = yield* findBuiltinWorkspaceBySlug(client, "fitness");
 			const schemas = yield* listEntitySchemas(client, {
-				trackerSlug: fitnessTracker.id,
+				pluginSlug: fitnessWorkspace.slug,
 			});
 			const workoutTemplateSchema = schemas.find((schema) => schema.slug === "workout-template");
 
 			expect(workoutTemplateSchema).toBeDefined();
 			expect(workoutTemplateSchema?.name).toBe("Workout Template");
-			expect(workoutTemplateSchema?.trackerSlug).toBe(fitnessTracker.id);
+			expect(workoutTemplateSchema?.pluginSlug).toBe(fitnessWorkspace.slug);
 			expect(workoutTemplateSchema?.isBuiltin).toBe(true);
 		}),
 	);
@@ -156,16 +156,16 @@ describe("Workout Templates E2E", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const fitnessTracker = yield* findBuiltinTrackerBySlug(client, "fitness");
+				const fitnessWorkspace = yield* findBuiltinWorkspaceBySlug(client, "fitness");
 				const views = yield* listSavedViews(client, {
-					trackerSlug: fitnessTracker.id,
+					pluginSlug: fitnessWorkspace.slug,
 				});
 				const allWorkoutTemplatesView = views.find((view) => view.name === "All Workout Templates");
 
 				expect(allWorkoutTemplatesView).toBeDefined();
 				expect(allWorkoutTemplatesView).toMatchObject({
 					isBuiltin: true,
-					trackerSlug: fitnessTracker.id,
+					pluginSlug: fitnessWorkspace.slug,
 					name: "All Workout Templates",
 					queryDocument: {
 						source: { schemas: ["workout-template"] },

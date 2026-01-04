@@ -5,12 +5,18 @@ import { Schema } from "effect";
 import { definePlugin, PluginManifest } from "./manifest";
 
 const manifest = definePlugin({
-	trackers: [],
 	savedViews: [],
 	entitySchemas: [],
 	signalSchemas: [],
 	relationshipSchemas: [],
-	metadata: { name: "Test", slug: "test", version: "1.0.0", description: "Test plugin" },
+	metadata: {
+		icon: "box",
+		name: "Test",
+		slug: "test",
+		version: "1.0.0",
+		accentColor: "blue",
+		description: "Test plugin",
+	},
 	bindings: {
 		eventAutomations: [],
 		entityAutomations: [],

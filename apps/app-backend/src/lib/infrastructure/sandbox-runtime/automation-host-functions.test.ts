@@ -13,7 +13,7 @@ import { Effect, Layer } from "effect";
 import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import notifierDefinition, {
 	manifest as notifierManifest,
-} from "#modules/builtins/sandbox-scripts/automations/notification.sandbox";
+} from "#modules/definition-registry/kernel-scripts/notification.sandbox";
 import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
 import { SignalEmissionService, type EmitSignalInput } from "#modules/signals/service";
