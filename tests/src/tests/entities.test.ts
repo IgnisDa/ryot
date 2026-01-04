@@ -4,7 +4,7 @@ import {
 	createEntity,
 	createEntitySchema,
 	createTracker,
-	findBuiltinSchemaWithSearchProviders,
+	findBuiltinSchemaWithProviders,
 } from "../fixtures";
 
 async function createCustomSchemaFixture(
@@ -36,25 +36,22 @@ describe("POST /entities", () => {
 		expect(entity.id).toBeDefined();
 		expect(entity.name).toBe("Plain Entity");
 		expect(entity.externalId).toBeNull();
-		expect(entity.detailsSandboxScriptId).toBeNull();
+		expect(entity.sandboxScriptId).toBeNull();
 	});
 
-	it("creates entity with externalId and detailsSandboxScriptId", async () => {
+	it("creates entity with externalId and sandboxScriptId", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schemaId } = await createCustomSchemaFixture(client, cookies);
-		const { schema } = await findBuiltinSchemaWithSearchProviders(
-			client,
-			cookies,
-		);
-		const detailsSandboxScriptId = schema.searchProviders[0]?.detailsScriptId;
-		if (!detailsSandboxScriptId) {
-			throw new Error("No search provider found");
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const sandboxScriptId = schema.providers[0]?.scriptId;
+		if (!sandboxScriptId) {
+			throw new Error("No provider found");
 		}
 
 		const entity = await createEntity(client, cookies, {
 			image: null,
 			externalId: "ext-001",
-			detailsSandboxScriptId,
+			sandboxScriptId,
 			name: "External Entity",
 			entitySchemaId: schemaId,
 			properties: { title: "External Entity" },
@@ -62,24 +59,21 @@ describe("POST /entities", () => {
 
 		expect(entity.id).toBeDefined();
 		expect(entity.externalId).toBe("ext-001");
-		expect(entity.detailsSandboxScriptId).toBe(detailsSandboxScriptId);
+		expect(entity.sandboxScriptId).toBe(sandboxScriptId);
 	});
 
-	it("returns the existing entity on duplicate externalId + detailsSandboxScriptId", async () => {
+	it("returns the existing entity on duplicate externalId + sandboxScriptId", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schemaId } = await createCustomSchemaFixture(client, cookies);
-		const { schema } = await findBuiltinSchemaWithSearchProviders(
-			client,
-			cookies,
-		);
-		const detailsSandboxScriptId = schema.searchProviders[0]?.detailsScriptId;
-		if (!detailsSandboxScriptId) {
-			throw new Error("No search provider found");
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const sandboxScriptId = schema.providers[0]?.scriptId;
+		if (!sandboxScriptId) {
+			throw new Error("No provider found");
 		}
 
 		const first = await createEntity(client, cookies, {
 			image: null,
-			detailsSandboxScriptId,
+			sandboxScriptId,
 			entitySchemaId: schemaId,
 			name: "Idempotent Entity",
 			externalId: "ext-idem-001",
@@ -88,7 +82,7 @@ describe("POST /entities", () => {
 
 		const second = await createEntity(client, cookies, {
 			image: null,
-			detailsSandboxScriptId,
+			sandboxScriptId,
 			entitySchemaId: schemaId,
 			name: "Idempotent Entity",
 			externalId: "ext-idem-001",
@@ -100,13 +94,10 @@ describe("POST /entities", () => {
 
 	it("creates entity for a built-in schema when provenance fields are provided", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithSearchProviders(
-			client,
-			cookies,
-		);
-		const provider = schema.searchProviders[0];
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const provider = schema.providers[0];
 		if (!provider) {
-			throw new Error("No search provider found");
+			throw new Error("No provider found");
 		}
 
 		const entity = await createEntity(client, cookies, {
@@ -115,15 +106,15 @@ describe("POST /entities", () => {
 			name: "Built-in Book",
 			entitySchemaId: schema.id,
 			externalId: "ext-builtin-test",
-			detailsSandboxScriptId: provider.detailsScriptId,
+			sandboxScriptId: provider.scriptId,
 		});
 
 		expect(entity.id).toBeDefined();
 		expect(entity.externalId).toBe("ext-builtin-test");
-		expect(entity.detailsSandboxScriptId).toBe(provider.detailsScriptId);
+		expect(entity.sandboxScriptId).toBe(provider.scriptId);
 	});
 
-	it("returns 400 when only externalId is provided without detailsSandboxScriptId", async () => {
+	it("returns 400 when only externalId is provided without sandboxScriptId", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schemaId } = await createCustomSchemaFixture(client, cookies);
 
@@ -140,27 +131,24 @@ describe("POST /entities", () => {
 
 		expect(response.status).toBe(400);
 		expect(error?.error?.message).toBe(
-			"externalId and detailsSandboxScriptId must both be provided or both be omitted",
+			"externalId and sandboxScriptId must both be provided or both be omitted",
 		);
 	});
 
-	it("returns 400 when only detailsSandboxScriptId is provided without externalId", async () => {
+	it("returns 400 when only sandboxScriptId is provided without externalId", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schemaId } = await createCustomSchemaFixture(client, cookies);
-		const { schema } = await findBuiltinSchemaWithSearchProviders(
-			client,
-			cookies,
-		);
-		const detailsSandboxScriptId = schema.searchProviders[0]?.detailsScriptId;
-		if (!detailsSandboxScriptId) {
-			throw new Error("No search provider found");
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const sandboxScriptId = schema.providers[0]?.scriptId;
+		if (!sandboxScriptId) {
+			throw new Error("No provider found");
 		}
 
 		const { response, error } = await client.POST("/entities", {
 			headers: { Cookie: cookies },
 			body: {
 				image: null,
-				detailsSandboxScriptId,
+				sandboxScriptId,
 				entitySchemaId: schemaId,
 				properties: { title: "Partial" },
 				name: "Partial Provenance Entity",
@@ -169,19 +157,16 @@ describe("POST /entities", () => {
 
 		expect(response.status).toBe(400);
 		expect(error?.error?.message).toBe(
-			"externalId and detailsSandboxScriptId must both be provided or both be omitted",
+			"externalId and sandboxScriptId must both be provided or both be omitted",
 		);
 	});
 
 	it("accepts null values for non-required boolean fields", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithSearchProviders(
-			client,
-			cookies,
-		);
-		const provider = schema.searchProviders[0];
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const provider = schema.providers[0];
 		if (!provider) {
-			throw new Error("No search provider found");
+			throw new Error("No provider found");
 		}
 
 		const entity = await createEntity(client, cookies, {
@@ -189,7 +174,7 @@ describe("POST /entities", () => {
 			entitySchemaId: schema.id,
 			externalId: "null-isNsfw-test",
 			name: "Entity with Null isNsfw",
-			detailsSandboxScriptId: provider.detailsScriptId,
+			sandboxScriptId: provider.scriptId,
 			properties: {
 				isNsfw: null,
 				genres: ["Test"],

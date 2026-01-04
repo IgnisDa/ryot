@@ -4,7 +4,7 @@ import {
 	createEntitySchema,
 	createTracker,
 	findBuiltinEntitySchema,
-	findBuiltinSchemaWithSearchProviders,
+	findBuiltinSchemaWithProviders,
 	findBuiltinTracker,
 	getEntitySchema,
 	listEntitySchemas,
@@ -231,7 +231,7 @@ describe("GET /entity-schemas", () => {
 		);
 	});
 
-	it("includes searchProviders on every schema row", async () => {
+	it("includes providers on every schema row", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 		const schemas = await listEntitySchemas(client, cookies, {
@@ -240,27 +240,23 @@ describe("GET /entity-schemas", () => {
 
 		expect(schemas.length).toBeGreaterThan(0);
 		for (const schema of schemas) {
-			expect(Array.isArray(schema.searchProviders)).toBe(true);
+			expect(Array.isArray(schema.providers)).toBe(true);
 		}
 	});
 
-	it("built-in schemas with linked scripts have non-empty searchProviders", async () => {
+	it("built-in schemas with linked scripts have non-empty providers", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithSearchProviders(
-			client,
-			cookies,
-		);
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
 
-		expect(schema.searchProviders.length).toBeGreaterThan(0);
-		const provider = schema.searchProviders[0];
+		expect(schema.providers.length).toBeGreaterThan(0);
+		const provider = schema.providers[0];
 		expect(provider).toBeDefined();
 		expect(typeof provider?.name).toBe("string");
 		expect(provider?.name.length).toBeGreaterThan(0);
-		expect(typeof provider?.searchScriptId).toBe("string");
-		expect(typeof provider?.detailsScriptId).toBe("string");
+		expect(typeof provider?.scriptId).toBe("string");
 	});
 
-	it("custom schemas without linked scripts have searchProviders as empty array", async () => {
+	it("custom schemas without linked scripts have providers as empty array", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { trackerId } = await createTracker(client, cookies, {
 			name: "Provider Test Tracker",
@@ -273,7 +269,7 @@ describe("GET /entity-schemas", () => {
 		const schemas = await listEntitySchemas(client, cookies, { trackerId });
 
 		expect(schemas.length).toBe(1);
-		expect(schemas[0]?.searchProviders).toEqual([]);
+		expect(schemas[0]?.providers).toEqual([]);
 	});
 });
 

@@ -56,11 +56,11 @@ describe("GET /media/overview", () => {
 		if (!bookSchema || !animeSchema || !mangaSchema) {
 			throw new Error("Missing built-in media schemas");
 		}
-		const bookProvider = bookSchema.searchProviders[0];
-		const animeProvider = animeSchema.searchProviders[0];
-		const mangaProvider = mangaSchema.searchProviders[0];
+		const bookProvider = bookSchema.providers[0];
+		const animeProvider = animeSchema.providers[0];
+		const mangaProvider = mangaSchema.providers[0];
 		if (!bookProvider || !animeProvider || !mangaProvider) {
-			throw new Error("Missing built-in search providers");
+			throw new Error("Missing built-in providers");
 		}
 
 		const continueBook = await createEntity(client, cookies, {
@@ -69,7 +69,7 @@ describe("GET /media/overview", () => {
 			entitySchemaId: bookSchema.id,
 			externalId: `book-${crypto.randomUUID()}`,
 			properties: { publishYear: 2021, pages: 320 },
-			detailsSandboxScriptId: bookProvider.detailsScriptId,
+			sandboxScriptId: bookProvider.scriptId,
 		});
 		const upNextAnime = await createEntity(client, cookies, {
 			image: null,
@@ -77,7 +77,7 @@ describe("GET /media/overview", () => {
 			entitySchemaId: animeSchema.id,
 			externalId: `anime-${crypto.randomUUID()}`,
 			properties: { publishYear: 2024, episodes: 24 },
-			detailsSandboxScriptId: animeProvider.detailsScriptId,
+			sandboxScriptId: animeProvider.scriptId,
 		});
 		const unknownTotalManga = await createEntity(client, cookies, {
 			image: null,
@@ -85,7 +85,7 @@ describe("GET /media/overview", () => {
 			name: "Unknown Total Manga",
 			entitySchemaId: mangaSchema.id,
 			externalId: `manga-${crypto.randomUUID()}`,
-			detailsSandboxScriptId: mangaProvider.detailsScriptId,
+			sandboxScriptId: mangaProvider.scriptId,
 		});
 		const rateAnime = await createEntity(client, cookies, {
 			image: null,
@@ -93,7 +93,7 @@ describe("GET /media/overview", () => {
 			entitySchemaId: animeSchema.id,
 			externalId: `anime-${crypto.randomUUID()}`,
 			properties: { publishYear: 2020, episodes: 12 },
-			detailsSandboxScriptId: animeProvider.detailsScriptId,
+			sandboxScriptId: animeProvider.scriptId,
 		});
 
 		await createBuiltInMediaEvent({
@@ -201,9 +201,9 @@ describe("GET /media/overview", () => {
 			if (!bookSchema) {
 				throw new Error("Missing book schema");
 			}
-			const bookProvider = bookSchema.searchProviders[0];
+			const bookProvider = bookSchema.providers[0];
 			if (!bookProvider) {
-				throw new Error("Missing search provider");
+				throw new Error("Missing provider");
 			}
 
 			const testBook = await createEntity(client, cookies, {
@@ -212,7 +212,7 @@ describe("GET /media/overview", () => {
 				entitySchemaId: bookSchema.id,
 				externalId: `book-utc-${crypto.randomUUID()}`,
 				properties: { publishYear: 2024, pages: 300 },
-				detailsSandboxScriptId: bookProvider.detailsScriptId,
+				sandboxScriptId: bookProvider.scriptId,
 			});
 
 			await createBuiltInMediaEvent({
@@ -253,9 +253,9 @@ describe("GET /media/overview", () => {
 			if (!animeSchema) {
 				throw new Error("Missing anime schema");
 			}
-			const animeProvider = animeSchema.searchProviders[0];
+			const animeProvider = animeSchema.providers[0];
 			if (!animeProvider) {
-				throw new Error("Missing search provider");
+				throw new Error("Missing provider");
 			}
 
 			const testAnime = await createEntity(client, cookies, {
@@ -264,7 +264,7 @@ describe("GET /media/overview", () => {
 				entitySchemaId: animeSchema.id,
 				properties: { publishYear: 2024, episodes: 12 },
 				externalId: `anime-midnight-${crypto.randomUUID()}`,
-				detailsSandboxScriptId: animeProvider.detailsScriptId,
+				sandboxScriptId: animeProvider.scriptId,
 			});
 
 			await createBuiltInMediaEvent({
