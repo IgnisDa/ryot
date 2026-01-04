@@ -183,7 +183,7 @@ const logLevel = {
 			const level = levels[value.toLowerCase()];
 			return level
 				? Either.right(level)
-				: Either.left(ConfigError.InvalidData([], `Unsupported LOG_LEVEL '${value}'`));
+				: Either.left(ConfigError.InvalidData([], `Unsupported SERVER_LOG_LEVEL '${value}'`));
 		}),
 	),
 };
