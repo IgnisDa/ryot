@@ -455,12 +455,16 @@ pub async fn metadata_progress_update(
                 );
                 bail!("No in progress seen found");
             };
+            let last_progress = previous_seen.progress;
             let mut updated_at = previous_seen.updated_at.clone();
 
             updated_at.push(Utc::now());
             let mut last_seen = previous_seen.into_active_model();
             last_seen.state = ActiveValue::Set(new_state);
             last_seen.updated_at = ActiveValue::Set(updated_at);
+            if new_state == SeenState::OnAHold && last_progress == dec!(100) {
+                last_seen.progress = ActiveValue::Set(dec!(99));
+            }
             let resp = last_seen.update(&ss.db).await?;
             if resp.state == SeenState::Completed {
                 ss.perform_application_job(ApplicationJob::Lp(
