@@ -1,16 +1,12 @@
 # App Backend Guidelines
 
+## Documentation Layout
+
+This file holds cross-cutting rules only. A module's behavior, boundaries, and design rationale live in that module's `AGENTS.md`; reference material (the query language spec, the sandbox runtime) lives in `README.md` files read on demand. Every fact has exactly one owning document — other documents point at it instead of restating it.
+
 ## Return Types
 
-Remove explicit return type annotations when TypeScript can trivially infer them. Keep them when:
-
-- **Discriminated union narrowing**: a function returning a discriminated union needs the explicit type, because TypeScript widens string-literal discriminants to `string`.
-- **Contextual parameter inference**: object-literal methods whose parameters rely on contextual typing need an explicit shape return type to recover that inference.
-- **`as const` preservation**: prefer `as const` on the returned value over an explicit type to keep nested literal types.
-- **Effect inference**: annotate when a function returns an effect with both a failure and a success branch whose inferred union would otherwise break downstream chaining.
-- **Type predicates**: keep `value is X` predicate returns — they are not inferrable. Omit the type on `as X` assertions.
-- **Array factory functions**: annotate factories returning arrays of objects with differing optional fields, so the element type does not widen optional fields to `undefined`.
-- **`satisfies`**: prefer `satisfies T` over a trailing return type when only the value, not every caller, needs the constraint.
+Remove explicit return type annotations when TypeScript can trivially infer them. Keep them for type predicates (`value is X`), functions returning discriminated unions (literal discriminants widen to `string` otherwise), object-literal methods whose parameter inference depends on an explicit return shape, effects whose inferred failure/success union would break downstream chaining, and array factories whose element type would widen differing optional fields to `undefined`. Prefer `as const` on the returned value to keep nested literal types, and `satisfies T` over a trailing return type when only the value — not every caller — needs the constraint. Omit the type on `as X` assertions.
 
 ## Testing
 
@@ -77,7 +73,7 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 ## Queues
 
 - Do not introduce a third-party job-queue library. Background work uses the durable workflow engine, durable queues, and durable deferred signals.
-- When a workflow runs a child workflow (e.g. an import writing events via `EventCreateWorkflow`), give the child a deterministic `executionId` derived from the parent (parent executionId + loop indices), never a fresh random one. A child that durably suspends — e.g. an event firing an after-create trigger — replays the parent, and a random id spawns a new child each replay, looping forever. Match the keying used by `populateMediaEntityGroups` (`imports/media/population-workflow.ts`) and `resolveMediaEntityGroups` (`imports/media/resolution-workflow.ts`). Note: `library-membership/service.ts`'s own `importEntity` and `collections/service.ts`'s `addToCollection` are unrelated top-level dispatches, not examples of this pattern.
+- When a workflow runs a child workflow (e.g. an import writing events via `EventCreateWorkflow`), give the child a deterministic `executionId` derived from the parent (parent executionId + loop indices), never a fresh random one. A child that durably suspends — e.g. an event firing an after-create trigger — replays the parent, and a random id spawns a new child each replay, looping forever. Match the keying used by `populateMediaEntityGroups` (`imports/media/population-workflow.ts`) and `resolveMediaEntityGroups` (`imports/media/resolution-workflow.ts`).
 
 ## Redis
 
@@ -92,27 +88,15 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 - Migration and `legacy-bootstrap` code is the only exception to the write-path rules.
 - Allow arbitrary top-level keys in a property schema only when relationship or collection properties genuinely require passthrough; otherwise keep properties aligned with their built-in schemas.
 
-## Entity Translation & Localization
+## Entity Translation, Localization & Interest
 
-Observable read-path semantics pinned by the e2e suite; keep them in mind when touching localization.
+- Entity reads are side-effect-free: they dispatch nothing. Population and translation fills are driven only by declared interest.
+- Each entity's canonical language comes from its provider script metadata; localized reads overlay the per-`(entity, language)` `entity_translation` row on the canonical entity, and the read path computes `translationStatus` from populate/overlay state.
+- The full semantics — the interest wire protocol and invariants, the overlay merge, the `translationStatus` truth table, and the negative-cache rules — are owned by `src/modules/entity-interest/AGENTS.md` and pinned by the e2e suite.
 
-- Each entity's canonical language comes from its provider script metadata (`providerInformation.canonicalLanguage`); the read path uses it to compute `translationStatus` and to decide whether to localize at all.
-- A localized read overlays the per-`(entity, language)` `entity_translation` row on the canonical entity: the overlay `name` and overlaid property values win, while canonical-only properties survive the `properties || et.properties` merge. Sorting and filtering on `name` key off the localized value, so a canonical name is no longer matchable once a localized overlay exists.
-- `translationStatus` resolves to `none` when the entity has no sandbox script (regardless of language or population), when `populated_at` is null even with a canonical script (populate-before-translate gate), or when the viewer's resolved language is the canonical one or unset. For a non-canonical viewer of a populated entity it is `pending` when no overlay row exists yet, `ready` when a content-bearing overlay exists, and `none` when the overlay is an all-null negative-cache row.
-- Overlays are shared: once one viewer's declared interest fills an overlay, other non-canonical viewers read it directly without declaring interest.
-- A provider that returns no translation writes an all-null overlay (negative cache) and does not refetch. Declaring interest on an unpopulated entity enqueues population only, never a translate — a premature all-null overlay would permanently mislabel the status as `none`.
+## Query Engine
 
-## Interest & Population Dispatch
-
-- Entity reads are side-effect-free: they dispatch nothing. Population and translation fills are driven by declaring interest (POST `/api/entity-interest`, or opening an interest stream), which runs the entity's provenance sandbox script (`sandbox_script_id`) and, on completion, fans out an `entity:updated` frame (`reason: "populated" | "translated"`) over the SSE stream.
-- Declaring interest on an already-terminal entity (e.g. populated, with no pending localization for a no-language reader) returns an immediate catch-up frame in the POST response itself, with no SSE round-trip.
-- Interest is authorization-scoped: an entity the requesting user cannot see (another user's private entity) is never surfaced by the reconciler — no catch-up, no completion event, and nothing enqueued on that user's behalf.
-
-## Query Engine Read Semantics
-
-- Property null semantics: a property read resolves to null when the row's schema does not define the property (including a multi-schema source where the property is qualified by a different schema) or the value is absent, and such rows are excluded from positive comparisons. `neq` compiles as null-as-false (null rows excluded); `not(eq)` is a double negation that keeps null rows. `isNull`/`isNotNull` treat a missing value as null. Comparisons are operand-order-preserving, and text orders under `COLLATE "C"` (byte order, uppercase before lowercase).
-- A query returns only the fields a row selects; an unselected field (e.g. `translationStatus`) is absent rather than null.
-- Time-series buckets are contiguous and gap-filled: each bucket's `endAt` equals the next bucket's `startAt`, empty spans between populated buckets are emitted as zero buckets, and week buckets align to the ISO Monday start.
+- Query-language read semantics (null handling, collation, response shapes, time-series bucketing) are specified in `src/modules/query-engine/README.md`.
 - Construct application-owned query documents through `@ryot/query-engine`. Its primitives stay dependency-free (they never import `@ryot/contract`) so any layer can build documents without risking a dependency cycle; production reads should use a named shared recipe when one exists.
 
 ## Sandbox Script Cache
