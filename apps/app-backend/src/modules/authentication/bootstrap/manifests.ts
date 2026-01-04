@@ -5,7 +5,7 @@ import { mangaPropertiesJsonSchema } from "~/lib/media/manga";
 import {
 	createDefaultDisplayConfiguration,
 	createDefaultQueryDefinition,
-} from "~/modules/saved-views/constants";
+} from "~/modules/saved-views";
 
 export const authenticationBuiltinTrackers = () => [
 	{

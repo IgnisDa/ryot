@@ -12,7 +12,7 @@ import {
 	initializeSandboxService,
 	shutdownSandboxService,
 } from "~/lib/sandbox";
-import { initializeMetrics } from "~/modules/system/service";
+import { initializeMetrics } from "~/modules/system";
 import { getServer } from "./server";
 
 export const startServer = async () => {

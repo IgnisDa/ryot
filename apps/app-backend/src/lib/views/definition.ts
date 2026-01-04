@@ -10,21 +10,19 @@ import {
 	type QueryEngineEventSchemaLike,
 	type QueryEngineSchemaLike,
 } from "~/lib/views/reference";
-import { propertySchemaObjectSchema } from "~/modules/property-schemas/schemas";
+import { propertySchemaObjectSchema } from "~/modules/property-schemas";
 import {
 	executePreparedQuery,
+	type QueryEngineField,
+	type QueryEngineRequest,
+	type QueryEngineResponse,
 	type QueryEngineSchemaRow,
-} from "~/modules/query-engine/query-builder";
-import type {
-	QueryEngineField,
-	QueryEngineRequest,
-	QueryEngineResponse,
-} from "~/modules/query-engine/schemas";
+} from "~/modules/query-engine";
 import type {
 	DisplayConfiguration,
 	EventJoinDefinition,
 	SavedViewQueryDefinition,
-} from "~/modules/saved-views/schemas";
+} from "~/modules/saved-views";
 import { QueryEngineNotFoundError, QueryEngineValidationError } from "./errors";
 import {
 	validateQueryEngineReferences,

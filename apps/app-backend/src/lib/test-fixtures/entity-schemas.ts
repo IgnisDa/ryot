@@ -2,9 +2,9 @@ import { withOverrides } from "~/lib/test-fixtures/fixture-helpers";
 import { createOptionalTitlePropertiesSchema } from "~/lib/test-fixtures/property-schemas";
 import type {
 	CreateEntitySchemaBody,
+	EntitySchemaServiceDeps,
 	ListedEntitySchema,
-} from "~/modules/entity-schemas/schemas";
-import type { EntitySchemaServiceDeps } from "~/modules/entity-schemas/service";
+} from "~/modules/entity-schemas";
 
 const listedEntitySchemaDefaults: ListedEntitySchema = {
 	slug: "books",

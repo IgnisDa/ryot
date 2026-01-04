@@ -6,9 +6,9 @@ import {
 import { createRequiredTitlePropertiesSchema } from "~/lib/test-fixtures/property-schemas";
 import type {
 	CreateEntityBody,
+	EntityServiceDeps,
 	ListedEntity,
-} from "~/modules/entities/schemas";
-import type { EntityServiceDeps } from "~/modules/entities/service";
+} from "~/modules/entities";
 
 const listedEntityDefaults: ListedEntity = {
 	image: null,
