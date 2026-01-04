@@ -59,25 +59,33 @@ pub async fn create_or_update_user_integration(
     if input.minimum_progress > input.maximum_progress {
         bail!("Minimum progress cannot be greater than maximum progress");
     }
-    let id = match input.integration_id {
-        None => ActiveValue::NotSet,
-        Some(id) => ActiveValue::Set(id),
+    let mut to_save = match input.integration_id {
+        None => integration::ActiveModel {
+            id: ActiveValue::NotSet,
+            user_id: ActiveValue::Set(user_id),
+            ..Default::default()
+        },
+        Some(id) => {
+            let existing = Integration::find_by_id(&id)
+                .one(&ss.db)
+                .await?
+                .ok_or_else(|| anyhow!("Integration with the given id does not exist"))?;
+            if existing.user_id != user_id {
+                bail!("Integration does not belong to the user");
+            }
+            existing.into()
+        }
     };
-    let to_insert = integration::ActiveModel {
-        id,
-        lot,
-        provider,
-        name: ActiveValue::Set(input.name),
-        user_id: ActiveValue::Set(user_id),
-        is_disabled: ActiveValue::Set(input.is_disabled),
-        extra_settings: ActiveValue::Set(input.extra_settings),
-        minimum_progress: ActiveValue::Set(input.minimum_progress),
-        maximum_progress: ActiveValue::Set(input.maximum_progress),
-        provider_specifics: ActiveValue::Set(input.provider_specifics),
-        sync_to_owned_collection: ActiveValue::Set(input.sync_to_owned_collection),
-        ..Default::default()
-    };
-    to_insert.save(&ss.db).await?;
+    to_save.lot = lot;
+    to_save.provider = provider;
+    to_save.name = ActiveValue::Set(input.name);
+    to_save.is_disabled = ActiveValue::Set(input.is_disabled);
+    to_save.extra_settings = ActiveValue::Set(input.extra_settings);
+    to_save.minimum_progress = ActiveValue::Set(input.minimum_progress);
+    to_save.maximum_progress = ActiveValue::Set(input.maximum_progress);
+    to_save.provider_specifics = ActiveValue::Set(input.provider_specifics);
+    to_save.sync_to_owned_collection = ActiveValue::Set(input.sync_to_owned_collection);
+    to_save.save(&ss.db).await?;
     Ok(true)
 }
 
