@@ -116,8 +116,26 @@ const toIsoFromMmmDdYyyy = (value: string): string | null => {
 	return month ? `${year}-${month}-${day.padStart(2, "0")}T${time}:00` : null;
 };
 
+const toIsoFromMmmDdYyyyMeridiem = (value: string): string | null => {
+	const m = /^([A-Za-z]{3})\s+(\d{1,2}),\s*(\d{4}),\s*(\d{1,2}):(\d{2})\s*(AM|PM)$/.exec(value);
+	if (!m) {
+		return null;
+	}
+	const [, mon, day, year, hour, minute, meridiem] = m;
+	if (!mon || !day || !year || !hour || !minute || !meridiem) {
+		return null;
+	}
+	const month = MONTH_ABBR[mon];
+	if (!month) {
+		return null;
+	}
+	const hour24 = (Number.parseInt(hour, 10) % 12) + (meridiem === "PM" ? 12 : 0);
+	return `${year}-${month}-${day.padStart(2, "0")}T${String(hour24).padStart(2, "0")}:${minute}:00`;
+};
+
 const parseHevyDate = (value: string, timezone: string) => {
-	const isoStr = toIsoFromDdMmmYyyy(value) ?? toIsoFromMmmDdYyyy(value);
+	const isoStr =
+		toIsoFromMmmDdYyyyMeridiem(value) ?? toIsoFromDdMmmYyyy(value) ?? toIsoFromMmmDdYyyy(value);
 	return DateTime.makeZoned(isoStr ?? value.replace(" ", "T"), {
 		timeZone: timezone,
 		adjustForTimeZone: true,
