@@ -148,8 +148,8 @@ const createAccessLinkFormSchema = z.object({
 
 export default function Page() {
 	const userDetails = useUserDetails();
-	const loaderData = useLoaderData<typeof loader>();
 	const dashboardData = useDashboardLayoutData();
+	const loaderData = useLoaderData<typeof loader>();
 	const [
 		createAccessLinkModalOpened,
 		{ open: openCreateAccessLinkModal, close: closeCreateAccessLinkModal },
@@ -225,16 +225,16 @@ export default function Page() {
 				<Flex w="100%">
 					<Button
 						size="xs"
-						variant="light"
-						radius="md"
-						onClick={openCreateAccessLinkModal}
 						ml="auto"
+						radius="md"
+						variant="light"
+						onClick={openCreateAccessLinkModal}
 					>
 						Create new access link
 					</Button>
 					<CreateAccessLinkModal
-						createModalOpened={createAccessLinkModalOpened}
 						closeModal={closeCreateAccessLinkModal}
+						createModalOpened={createAccessLinkModalOpened}
 					/>
 				</Flex>
 			</Stack>
@@ -365,10 +365,10 @@ const CreateAccessLinkModal = (props: {
 
 	return (
 		<Modal
-			opened={props.createModalOpened}
-			onClose={props.closeModal}
 			centered
 			withCloseButton={false}
+			onClose={props.closeModal}
+			opened={props.createModalOpened}
 		>
 			<Form
 				replace
@@ -379,32 +379,32 @@ const CreateAccessLinkModal = (props: {
 				<Stack>
 					<Title order={3}>Create new access link</Title>
 					<Text size="xs" c="dimmed">
-						Once a link has become invalid or been revoked, it will be
-						automatically deleted. If none of the below are provided, the link
-						will never expire and have unlimited uses.
+						Once a link becomes invalid or has been revoked, it will be
+						automatically deleted.
 					</Text>
 					<TextInput
 						required
 						name="name"
 						label="Name"
-						description="A descriptive name for this link"
+						description="A descriptive name for this link."
 					/>
 					<DateTimePicker
 						clearable
 						name="expiresOn"
 						label="Expires at"
 						defaultValue={defaultExpiresAtValue}
-						description="This link will become invalid after this timestamp"
+						description="This link will become invalid after this timestamp. Leave empty for no expiration."
 					/>
 					<NumberInput
 						name="maximumUses"
 						label="Maximum uses"
-						description="This link will become invalid after this number of uses"
+						description="This link will become invalid after this number of uses. Leave empty for unlimited uses"
 					/>
 					<TextInput
 						name="redirectTo"
 						label="Redirect to"
-						description="Users will be redirected to this URL when they use the link"
+						placeholder="/media/item/met_S3id90GDhICM"
+						description="Redirect to this URL when the link is used."
 					/>
 					<Checkbox
 						label="Allow mutation"
