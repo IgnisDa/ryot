@@ -23,13 +23,6 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 				return yield* service.getById(user, path.entityId).pipe(dieOnDbError);
 			}),
 		)
-		.handle("clearUserState", ({ path }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* EntitiesService;
-				return yield* service.clearUserState(user, path.entityId).pipe(dieOnDbError);
-			}),
-		)
 		.handle("import", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
