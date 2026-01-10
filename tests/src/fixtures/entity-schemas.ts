@@ -1,13 +1,13 @@
+import type { ContractPayload } from "@ryot/contract/client";
 import { PluginSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Brand, Effect } from "effect";
 
 import { assertPresent, requirePresent } from "~/support/assertions";
 
-export type { AppSchema };
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
-import { type ContractPayload, getBackendClient } from "./contract-client";
+import { getBackendClient } from "./contract-client";
 import { createPluginScope, listPluginWorkspaces } from "./plugin-workspaces";
 import { type PollOptions, pollUntil } from "./polling";
 import { installTestDefinitions } from "./test-plugin";

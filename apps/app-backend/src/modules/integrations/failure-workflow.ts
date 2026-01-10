@@ -3,11 +3,11 @@ import { unknownToMessage } from "@ryot/contract/errors";
 import type { ImportRunId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
+import type { ImportRunFailureDetails } from "#modules/imports/failure-service";
 import type { MediaImportAdapterFailure } from "#modules/imports/media/adapter-result";
 import {
 	failImportRun,
 	failImportRunWithFailures,
-	type ImportRunFailureDetails,
 } from "#modules/imports/runtime/import-run-status";
 
 import { IntegrationRunError } from "./jobs";
