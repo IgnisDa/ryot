@@ -104,7 +104,16 @@ async fn process_book_record(
 
     ryot_log!(debug, "Details for {} ({idx}/{total})", record.title);
 
-    let isbn = record.isbn13[2..record.isbn13.len() - 1].to_owned();
+    let isbn = if record.isbn13.len() >= 3 {
+        record.isbn13[2..record.isbn13.len() - 1].to_owned()
+    } else {
+        return Err(ImportFailedItem {
+            lot: Some(lot),
+            step: ImportFailStep::InputTransformation,
+            identifier: record.title,
+            error: Some(format!("Invalid ISBN format: {}", record.isbn13)),
+        });
+    };
     if isbn.is_empty() {
         return Err(ImportFailedItem {
             lot: Some(lot),
