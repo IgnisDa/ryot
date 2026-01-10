@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { Expr, FieldSelector, QueryDocumentV2, RowsReturnV2 } from "./language";
+import { Expr, FieldSelector, QueryDocumentV2, RowsOutputV2 } from "./language";
 
 const decodeSync = Schema.decodeUnknownSync;
 
@@ -192,9 +192,9 @@ describe("Expr", () => {
 	});
 });
 
-describe("RowsReturnV2", () => {
-	it("decodes a minimal rows return with no fields", () => {
-		const result = decodeSync(RowsReturnV2)({
+describe("RowsOutputV2", () => {
+	it("decodes a minimal rows output with no fields", () => {
+		const result = decodeSync(RowsOutputV2)({
 			fields: [],
 			type: "rows",
 			pagination: { page: 1, limit: 10 },
@@ -205,7 +205,7 @@ describe("RowsReturnV2", () => {
 	});
 
 	it("decodes fields array with multiple entries", () => {
-		const result = decodeSync(RowsReturnV2)({
+		const result = decodeSync(RowsOutputV2)({
 			type: "rows",
 			pagination: { page: 2, limit: 50 },
 			orderBy: [{ order: "desc", expr: { type: "literal", value: 1 } }],
@@ -221,7 +221,7 @@ describe("RowsReturnV2", () => {
 
 	it("throws when orderBy is empty", () => {
 		expect(() =>
-			decodeSync(RowsReturnV2)({
+			decodeSync(RowsOutputV2)({
 				fields: [],
 				orderBy: [],
 				type: "rows",
@@ -232,7 +232,7 @@ describe("RowsReturnV2", () => {
 
 	it("throws when pagination page is zero", () => {
 		expect(() =>
-			decodeSync(RowsReturnV2)({
+			decodeSync(RowsOutputV2)({
 				fields: [],
 				type: "rows",
 				pagination: { page: 0, limit: 10 },
@@ -243,7 +243,7 @@ describe("RowsReturnV2", () => {
 
 	it("throws when pagination limit is zero", () => {
 		expect(() =>
-			decodeSync(RowsReturnV2)({
+			decodeSync(RowsOutputV2)({
 				fields: [],
 				type: "rows",
 				pagination: { page: 1, limit: 0 },
@@ -254,7 +254,7 @@ describe("RowsReturnV2", () => {
 
 	it("throws when fields are missing", () => {
 		expect(() =>
-			decodeSync(RowsReturnV2)({
+			decodeSync(RowsOutputV2)({
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: { type: "literal", value: 1 } }],
@@ -264,7 +264,7 @@ describe("RowsReturnV2", () => {
 
 	it("throws when pagination is missing", () => {
 		expect(() =>
-			decodeSync(RowsReturnV2)({
+			decodeSync(RowsOutputV2)({
 				fields: [],
 				type: "rows",
 				orderBy: [{ order: "asc", expr: { type: "literal", value: 1 } }],
@@ -272,14 +272,63 @@ describe("RowsReturnV2", () => {
 		).toThrow();
 	});
 
-	it("throws when rows return has an unsupported include key", () => {
+	it("decodes an entity include with relationship traversal", () => {
+		const result = decodeSync(RowsOutputV2)({
+			fields: [],
+			type: "rows",
+			pagination: { page: 1, limit: 10 },
+			orderBy: [{ order: "asc", expr: { type: "literal", value: 1 } }],
+			include: [
+				{
+					limit: 20,
+					key: "modules",
+					fields: [
+						{
+							key: "name",
+							expr: { type: "ref", sourceAlias: "module", field: { type: "system", name: "name" } },
+						},
+					],
+					orderBy: [
+						{
+							order: "asc",
+							expr: { type: "ref", sourceAlias: "module", field: { type: "system", name: "name" } },
+						},
+					],
+					source: {
+						where: null,
+						alias: "module",
+						type: "entities",
+						schemas: ["module"],
+						via: {
+							entityRef: "course",
+							direction: "outgoing",
+							alias: "courseModule",
+							schema: "course-module",
+						},
+					},
+				},
+			],
+		});
+
+		expect(result.include).toHaveLength(1);
+		expect(result.include?.[0]?.source.via?.schema).toBe("course-module");
+	});
+
+	it("throws when an include is missing a limit", () => {
 		expect(() =>
-			decodeSync(RowsReturnV2)({
+			decodeSync(RowsOutputV2)({
 				fields: [],
-				include: [],
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: { type: "literal", value: 1 } }],
+				include: [
+					{
+						fields: [],
+						key: "modules",
+						orderBy: [{ order: "asc", expr: { type: "literal", value: 1 } }],
+						source: { type: "entities", alias: "module", schemas: ["module"], where: null },
+					},
+				],
 			}),
 		).toThrow();
 	});
@@ -289,7 +338,7 @@ describe("QueryDocumentV2", () => {
 	const minimal = {
 		version: 2,
 		source: { type: "entities", alias: "e", schemas: ["books"], where: null },
-		return: {
+		output: {
 			fields: [],
 			type: "rows",
 			pagination: { page: 1, limit: 10 },

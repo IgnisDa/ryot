@@ -3,11 +3,23 @@ import { Effect, Match } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/db";
 import * as dbSchema from "#lib/db/schema/tables";
-import { type BadRequest, type DbError, NotFound } from "#lib/errors";
+import { BadRequest, type DbError, NotFound } from "#lib/errors";
 
-import type { Expr, FieldSelector, FieldValue, QueryDocumentV2, RowsResponseV2 } from "./language";
+import type {
+	Expr,
+	FieldSelector,
+	FieldValue,
+	IncludeEntryV2,
+	QueryDocumentV2,
+	RowItem,
+	RowValue,
+	RowsResponseV2,
+} from "./language";
+
+const MAX_SERIALIZED_ROW_OBJECTS = 5000;
 
 export type VisibleSchema = { id: string; slug: string };
+type VisibleRelationshipSchema = { id: string; slug: string };
 
 const loadVisibleEntitySchemas = (
 	userId: string,
@@ -40,7 +52,45 @@ const loadVisibleEntitySchemas = (
 		return rows;
 	});
 
-export const systemFieldSql = (name: string): ReturnType<typeof sql> | null => {
+const loadVisibleRelationshipSchema = (
+	userId: string,
+	slug: string,
+): Effect.Effect<VisibleRelationshipSchema, NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const db = yield* CurrentDb;
+		const rows = yield* dbEffect(() =>
+			db
+				.select({ id: dbSchema.relationshipSchema.id, slug: dbSchema.relationshipSchema.slug })
+				.from(dbSchema.relationshipSchema)
+				.where(
+					and(
+						eq(dbSchema.relationshipSchema.slug, slug),
+						or(
+							eq(dbSchema.relationshipSchema.userId, userId),
+							isNull(dbSchema.relationshipSchema.userId),
+						),
+					),
+				),
+		);
+
+		const schema = rows[0];
+		if (!schema) {
+			return yield* new NotFound({ message: `Relationship schema '${slug}' not found` });
+		}
+		return schema;
+	});
+
+export const systemFieldSql = (name: string, alias = "e"): ReturnType<typeof sql> | null => {
+	if (alias === "r") {
+		const relationshipColumnMap: Record<string, ReturnType<typeof sql>> = {
+			id: sql`r.id`,
+			createdAt: sql`r.created_at`,
+			sourceEntityId: sql`r.source_entity_id`,
+			targetEntityId: sql`r.target_entity_id`,
+		};
+		return relationshipColumnMap[name] ?? null;
+	}
+
 	const columnMap: Record<string, ReturnType<typeof sql>> = {
 		id: sql`e.id`,
 		name: sql`e.name`,
@@ -56,16 +106,17 @@ export const systemFieldSql = (name: string): ReturnType<typeof sql> | null => {
 export const fieldSelectorToOrderSql = (
 	field: FieldSelector,
 	sourceSchemas: readonly [string, ...string[]],
+	alias = "e",
 ): ReturnType<typeof sql> | null => {
 	if (field.type === "system") {
-		return systemFieldSql(field.name);
+		return systemFieldSql(field.name, alias);
 	}
 
 	if (field.type === "property") {
 		const pathArgs = field.path.map((k) => sql`${k}`);
-		const jsonbExpr = sql`jsonb_extract_path_text(e.properties, ${sql.join(pathArgs, sql`, `)})`;
+		const jsonbExpr = sql`jsonb_extract_path_text(${alias === "r" ? sql`r.properties` : sql`e.properties`}, ${sql.join(pathArgs, sql`, `)})`;
 
-		if (sourceSchemas.length === 1) {
+		if (alias === "r" || sourceSchemas.length === 1) {
 			return jsonbExpr;
 		}
 		// Multi-schema: only return the property when the entity's schema matches
@@ -73,6 +124,9 @@ export const fieldSelectorToOrderSql = (
 	}
 
 	// field.type is "schema" at this point
+	if (alias === "r") {
+		return field.name === "slug" ? sql`rs.slug` : sql`rs.name`;
+	}
 	return field.name === "slug" ? sql`es.slug` : sql`es.name`;
 };
 
@@ -86,7 +140,7 @@ export const exprToOrderSql = (
 	return fieldSelectorToOrderSql(expr.field, sourceSchemas);
 };
 
-export type EntityQueryRow = {
+type BaseEntityQueryRow = {
 	id: string;
 	name: string;
 	image: unknown;
@@ -100,6 +154,20 @@ export type EntityQueryRow = {
 	sandboxScriptId: string | null;
 	properties: Record<string, unknown>;
 };
+
+export type EntityQueryRow = BaseEntityQueryRow & { totalCount: string | bigint };
+
+type RelationshipFields = {
+	relationshipId: string | null;
+	relationshipSchemaSlug: string | null;
+	relationshipSchemaName: string | null;
+	relationshipSourceEntityId: string | null;
+	relationshipTargetEntityId: string | null;
+	relationshipCreatedAt: Date | string | null;
+	relationshipProperties: Record<string, unknown> | null;
+};
+
+type IncludeQueryRow = BaseEntityQueryRow & RelationshipFields;
 
 export const valueToFieldValue = (value: unknown): FieldValue => {
 	if (value === null || value === undefined) {
@@ -117,7 +185,7 @@ export const valueToFieldValue = (value: unknown): FieldValue => {
 	return { kind: "json", value };
 };
 
-export const evalSystemRef = (name: string, row: EntityQueryRow): FieldValue =>
+export const evalSystemRef = (name: string, row: BaseEntityQueryRow): FieldValue =>
 	Match.value(name).pipe(
 		Match.when("id", () => ({ kind: "text" as const, value: row.id })),
 		Match.when("name", () => ({ kind: "text" as const, value: row.name })),
@@ -155,7 +223,7 @@ export const getNestedValue = (
 	return current ?? null;
 };
 
-export const evalFieldSelector = (field: FieldSelector, row: EntityQueryRow): FieldValue => {
+export const evalFieldSelector = (field: FieldSelector, row: BaseEntityQueryRow): FieldValue => {
 	if (field.type === "system") {
 		return evalSystemRef(field.name, row);
 	}
@@ -175,6 +243,40 @@ export const evalFieldSelector = (field: FieldSelector, row: EntityQueryRow): Fi
 	return { kind: "text", value: row.schemaName };
 };
 
+const evalRelationshipSystemRef = (name: string, row: RelationshipFields): FieldValue =>
+	Match.value(name).pipe(
+		Match.when("id", () => ({ kind: "text" as const, value: row.relationshipId ?? "" })),
+		Match.when("createdAt", () => ({ kind: "date" as const, value: row.relationshipCreatedAt })),
+		Match.when("sourceEntityId", () => ({
+			kind: "text" as const,
+			value: row.relationshipSourceEntityId ?? "",
+		})),
+		Match.when("targetEntityId", () => ({
+			kind: "text" as const,
+			value: row.relationshipTargetEntityId ?? "",
+		})),
+		Match.orElse(() => ({ kind: "null" as const, value: null })),
+	);
+
+const evalRelationshipFieldSelector = (
+	field: FieldSelector,
+	row: RelationshipFields,
+): FieldValue => {
+	if (field.type === "system") {
+		return evalRelationshipSystemRef(field.name, row);
+	}
+	if (field.type === "property") {
+		if (row.relationshipSchemaSlug !== field.schema) {
+			return { kind: "null", value: null };
+		}
+		return valueToFieldValue(getNestedValue(row.relationshipProperties ?? {}, field.path));
+	}
+	return {
+		kind: "text",
+		value: field.name === "slug" ? row.relationshipSchemaSlug : row.relationshipSchemaName,
+	};
+};
+
 export const evalExprForField = (expr: Expr, row: EntityQueryRow): FieldValue => {
 	if (expr.type === "ref") {
 		return evalFieldSelector(expr.field, row);
@@ -186,16 +288,125 @@ export const evalExprForField = (expr: Expr, row: EntityQueryRow): FieldValue =>
 	return { kind: "null", value: null };
 };
 
+const evalIncludeExprForField = (
+	expr: Expr,
+	row: IncludeQueryRow,
+	include: IncludeEntryV2,
+): FieldValue => {
+	if (expr.type === "ref" && expr.sourceAlias === include.source.via?.alias) {
+		return evalRelationshipFieldSelector(expr.field, row);
+	}
+	if (expr.type === "ref") {
+		return evalFieldSelector(expr.field, row);
+	}
+	if (expr.type === "literal") {
+		return valueToFieldValue(expr.value);
+	}
+	return { kind: "null", value: null };
+};
+
 export const serializeRow = (
 	row: EntityQueryRow,
-	fields: QueryDocumentV2["return"]["fields"],
-): Record<string, FieldValue> => {
-	const result: Record<string, FieldValue> = {};
+	fields: QueryDocumentV2["output"]["fields"],
+): RowItem => {
+	const result: Record<string, RowValue> = {};
 	for (const field of fields) {
 		result[field.key] = evalExprForField(field.expr, row);
 	}
 	return result;
 };
+
+const serializeIncludeRow = (row: IncludeQueryRow, include: IncludeEntryV2): RowItem => {
+	const result: Record<string, RowValue> = {};
+	for (const field of include.fields) {
+		result[field.key] = evalIncludeExprForField(field.expr, row, include);
+	}
+	return result;
+};
+
+const includeOrderSql = (include: IncludeEntryV2): ReturnType<typeof sql> => {
+	const viaAlias = include.source.via?.alias;
+	const orderParts = include.orderBy.map((entry) => {
+		if (entry.expr.type !== "ref") {
+			return sql`1`;
+		}
+		const sourceAlias = entry.expr.sourceAlias === viaAlias ? "r" : "e";
+		const exprSql = fieldSelectorToOrderSql(entry.expr.field, include.source.schemas, sourceAlias);
+		if (!exprSql) {
+			return sql`1`;
+		}
+		return entry.order === "asc" ? sql`${exprSql} ASC` : sql`${exprSql} DESC`;
+	});
+	return sql.join(orderParts, sql`, `);
+};
+
+const executeIncludeForRootRow = (
+	userId: string,
+	rootRow: EntityQueryRow,
+	include: IncludeEntryV2,
+): Effect.Effect<{ rows: IncludeQueryRow[]; hasMore: boolean }, NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const via = include.source.via;
+		if (via === undefined) {
+			return { rows: [], hasMore: false };
+		}
+
+		const [relationshipSchema, visibleSchemas] = yield* Effect.all([
+			loadVisibleRelationshipSchema(userId, via.schema),
+			loadVisibleEntitySchemas(userId, include.source.schemas),
+		]);
+		const schemaIdsSql = sql.join(
+			visibleSchemas.map((s) => sql`${s.id}`),
+			sql`, `,
+		);
+		const anchorColumn =
+			via.direction === "outgoing" ? sql`r.source_entity_id` : sql`r.target_entity_id`;
+		const childColumn =
+			via.direction === "outgoing" ? sql`r.target_entity_id` : sql`r.source_entity_id`;
+		const orderSql = includeOrderSql(include);
+		const db = yield* CurrentDb;
+
+		const rawRows = yield* dbEffect(() =>
+			db.execute<IncludeQueryRow>(sql`
+				SELECT
+					e.id,
+					e.name,
+					e.image,
+					e.properties,
+					e.created_at AS "createdAt",
+					e.updated_at AS "updatedAt",
+					e.external_id AS "externalId",
+					e.sandbox_script_id AS "sandboxScriptId",
+					es.id AS "schemaId",
+					es.slug AS "schemaSlug",
+					es.name AS "schemaName",
+					r.id AS "relationshipId",
+					r.created_at AS "relationshipCreatedAt",
+					r.source_entity_id AS "relationshipSourceEntityId",
+					r.target_entity_id AS "relationshipTargetEntityId",
+					r.properties AS "relationshipProperties",
+					rs.slug AS "relationshipSchemaSlug",
+					rs.name AS "relationshipSchemaName"
+				FROM relationship r
+				JOIN relationship_schema rs ON rs.id = r.relationship_schema_id
+				JOIN entity e ON e.id = ${childColumn}
+				JOIN entity_schema es ON es.id = e.entity_schema_id
+				WHERE
+					r.relationship_schema_id = ${relationshipSchema.id}
+					AND ${anchorColumn} = ${rootRow.id}
+					AND e.entity_schema_id IN (${schemaIdsSql})
+					AND (r.user_id = ${userId} OR r.user_id IS NULL)
+					AND (e.user_id = ${userId} OR e.user_id IS NULL)
+				ORDER BY ${orderSql}
+				LIMIT ${include.limit + 1}
+			`),
+		);
+
+		return {
+			hasMore: rawRows.rows.length > include.limit,
+			rows: rawRows.rows.slice(0, include.limit),
+		};
+	});
 
 export const executeEntityRowsQuery = (
 	userId: string,
@@ -203,7 +414,7 @@ export const executeEntityRowsQuery = (
 ): Effect.Effect<RowsResponseV2, BadRequest | NotFound | DbError, CurrentDb> =>
 	Effect.gen(function* () {
 		const { source } = doc;
-		const ret = doc.return;
+		const output = doc.output;
 
 		const visibleSchemas = yield* loadVisibleEntitySchemas(userId, source.schemas);
 		if (visibleSchemas.length === 0) {
@@ -214,8 +425,8 @@ export const executeEntityRowsQuery = (
 					pageInfo: {
 						total: 0,
 						hasMore: false,
-						page: ret.pagination.page,
-						limit: ret.pagination.limit,
+						page: output.pagination.page,
+						limit: output.pagination.limit,
 					},
 				},
 			};
@@ -223,7 +434,7 @@ export const executeEntityRowsQuery = (
 
 		const schemaIds = visibleSchemas.map((s) => s.id);
 
-		const orderParts = ret.orderBy.map((entry) => {
+		const orderParts = output.orderBy.map((entry) => {
 			const exprSql = exprToOrderSql(entry.expr, source.schemas);
 			if (!exprSql) {
 				return sql`1`; // Fallback for unsupported expressions; validator should catch these
@@ -238,7 +449,7 @@ export const executeEntityRowsQuery = (
 		);
 
 		const db = yield* CurrentDb;
-		const offset = (ret.pagination.page - 1) * ret.pagination.limit;
+		const offset = (output.pagination.page - 1) * output.pagination.limit;
 
 		const rawRows = yield* dbEffect(() =>
 			db.execute<EntityQueryRow>(sql`
@@ -261,14 +472,32 @@ export const executeEntityRowsQuery = (
 					e.entity_schema_id IN (${schemaIdsSql})
 					AND (e.user_id = ${userId} OR e.user_id IS NULL)
 				ORDER BY ${orderSql}
-				LIMIT ${ret.pagination.limit}
+				LIMIT ${output.pagination.limit}
 				OFFSET ${offset}
 			`),
 		);
 
 		const rows = rawRows.rows;
 		const total = rows[0]?.totalCount !== undefined ? Number(rows[0].totalCount) : 0;
-		const items = rows.map((row) => serializeRow(row, ret.fields));
+		let serializedRowCount = rows.length;
+		const items: RowItem[] = [];
+		for (const row of rows) {
+			const item: Record<string, RowValue> = serializeRow(row, output.fields);
+			for (const include of output.include ?? []) {
+				const includeResult = yield* executeIncludeForRootRow(userId, row, include);
+				serializedRowCount += includeResult.rows.length;
+				if (serializedRowCount > MAX_SERIALIZED_ROW_OBJECTS) {
+					return yield* new BadRequest({
+						message: `Serialized row object count exceeds maximum of ${MAX_SERIALIZED_ROW_OBJECTS}`,
+					});
+				}
+				item[include.key] = {
+					items: includeResult.rows.map((includeRow) => serializeIncludeRow(includeRow, include)),
+					pageInfo: { limit: include.limit, hasMore: includeResult.hasMore },
+				};
+			}
+			items.push(item);
+		}
 
 		return {
 			type: "rows" as const,
@@ -276,8 +505,8 @@ export const executeEntityRowsQuery = (
 				items,
 				pageInfo: {
 					total,
-					page: ret.pagination.page,
-					limit: ret.pagination.limit,
+					page: output.pagination.page,
+					limit: output.pagination.limit,
 					hasMore: offset + rows.length < total,
 				},
 			},
