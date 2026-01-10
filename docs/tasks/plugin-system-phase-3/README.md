@@ -29,16 +29,16 @@ and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 1 of 9 tasks completed
+**Overall Progress:** 2 of 9 tasks completed
 
-**Current Task:** [Task 02](./02-structured-sandbox-observability.md) (todo)
+**Current Task:** [Task 03](./03-crons-trending-exercises.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                                        | Type | Status |
 | --- | ----------------------------------------------------------------------------------------------------------- | ---- | ------ |
 | 01  | [Step 0a — Effect-Native Sandbox Cutover](./01-effect-native-sandbox-cutover.md)                           | AFK  | done   |
-| 02  | [Step 0b — Structured Sandbox Observability](./02-structured-sandbox-observability.md)                     | AFK  | todo   |
+| 02  | [Step 0b — Structured Sandbox Observability](./02-structured-sandbox-observability.md)                     | AFK  | done   |
 | 03  | [Step 1 — Crons: media-trending + exercises](./03-crons-trending-exercises.md)                              | AFK  | todo   |
 | 04  | [Step 2 — Operations/invoke: metadata-lookup + episode-resolver](./04-operations-invoke-lookup-resolver.md) | AFK  | todo   |
 | 05  | [Step 3a — Durable Workflow Spike](./05-durable-workflow-spike.md)                                          | HITL | todo   |

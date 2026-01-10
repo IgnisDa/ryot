@@ -21,6 +21,8 @@ const input: SandboxRunInput = {
 const makeImplementations = (
 	overrides: Partial<SandboxHostImplementationMap> = {},
 ): SandboxHostImplementationMap => ({
+	log: () => Effect.fail({ message: "unused" }),
+	span: () => Effect.fail({ message: "unused" }),
 	httpCall: () => Effect.fail({ message: "unused" }),
 	getEntity: () => Effect.fail({ message: "unused" }),
 	emitSignal: () => Effect.fail({ message: "unused" }),
@@ -91,6 +93,37 @@ describe("bindSandboxHostFunctions", () => {
 			expect(yield* bound.getUserPreferences(["unexpected"])).toEqual({
 				success: false,
 				error: "getUserPreferences received an invalid number of arguments",
+			});
+			expect(calls).toBe(0);
+		}),
+	);
+
+	it.effect("rejects invalid observability batches before dispatch", () =>
+		Effect.gen(function* () {
+			let calls = 0;
+			const implementations = makeImplementations({
+				log: () => {
+					calls += 1;
+					return Effect.succeed(null);
+				},
+				span: () => {
+					calls += 1;
+					return Effect.succeed(null);
+				},
+			});
+			const bound = bindSandboxHostFunctions(implementations, input);
+
+			expect(yield* bound.log([[{ level: "verbose", message: "nope" }]])).toEqual({
+				success: false,
+				error: "log expects an array of valid log entries",
+			});
+			expect(yield* bound.span([[{ name: "" }]])).toEqual({
+				success: false,
+				error: "span expects an array of valid span entries",
+			});
+			expect(yield* bound.log([[], "surplus"])).toEqual({
+				success: false,
+				error: "log received an invalid number of arguments",
 			});
 			expect(calls).toBe(0);
 		}),
