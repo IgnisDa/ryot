@@ -189,7 +189,10 @@ where
         .map(|(idx, _)| idx)
 }
 
-pub fn get_base_http_client(headers: Option<Vec<(HeaderName, HeaderValue)>>) -> reqwest::Client {
+fn build_http_client(
+    headers: Option<Vec<(HeaderName, HeaderValue)>>,
+    danger_accept_invalid_certs: bool,
+) -> reqwest::Client {
     let mut req_headers = HeaderMap::new();
     req_headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
     for (header, value) in headers.unwrap_or_default().into_iter() {
@@ -198,6 +201,18 @@ pub fn get_base_http_client(headers: Option<Vec<(HeaderName, HeaderValue)>>) -> 
     ClientBuilder::new()
         .default_headers(req_headers)
         .timeout(Duration::from_secs(15))
+        .danger_accept_invalid_certs(danger_accept_invalid_certs)
         .build()
         .unwrap()
+}
+
+pub fn get_base_http_client(headers: Option<Vec<(HeaderName, HeaderValue)>>) -> reqwest::Client {
+    build_http_client(headers, false)
+}
+
+pub fn get_http_client_with_tls_config(
+    headers: Option<Vec<(HeaderName, HeaderValue)>>,
+    danger_accept_invalid_certs: bool,
+) -> reqwest::Client {
+    build_http_client(headers, danger_accept_invalid_certs)
 }
