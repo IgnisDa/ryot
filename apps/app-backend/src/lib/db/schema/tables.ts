@@ -14,7 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import type { DisplayConfiguration, SavedViewQueryDefinition } from "#lib/query-language";
-import type { AppSchema } from "#lib/schema/core";
+import type { AppSchema } from "#lib/schema/property-schema";
 import type { StoredEntityImage } from "#modules/entities/types";
 import type { EventTriggerMetadata } from "#modules/events/schemas";
 import type {

@@ -6,7 +6,8 @@ import { describe, it as vitestIt } from "vitest";
 
 import { AuthService } from "#lib/auth";
 import { defaultUserPreferences } from "#lib/builtins/bootstrap";
-import { CurrentDb, DbRunner, DbService, schema, TransactionRunner } from "#lib/db";
+import { CurrentDb, DbRunner, DbService, TransactionRunner } from "#lib/db";
+import * as schema from "#lib/db/schema/auth";
 import { BadRequest, DbError } from "#lib/errors";
 import { RedisService } from "#lib/redis";
 import { makeAppConfigLayer } from "#lib/test-support/effect";

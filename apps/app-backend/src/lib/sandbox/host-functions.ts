@@ -12,7 +12,8 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { isIntegrationProvider } from "#modules/integrations/types";
 
 import { AppConfig, isOidcEnabled } from "../config";
-import { CurrentDb, DbRunner, dbEffect, schema } from "../db";
+import { CurrentDb, DbRunner, dbEffect } from "../db";
+import * as schema from "../db/schema/auth";
 import { unknownToMessage } from "../errors";
 import { RedisService, redisKeys } from "../redis";
 import { getSandboxAppConfigValue } from "./app-config";

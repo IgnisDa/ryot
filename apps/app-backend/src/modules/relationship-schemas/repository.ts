@@ -1,7 +1,8 @@
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect, schema } from "#lib/db";
+import { CurrentDb, dbEffect } from "#lib/db";
+import * as schema from "#lib/db/schema/tables";
 import { decodeStoredAppSchema } from "#lib/schema/core";
 
 type Row = typeof schema.relationshipSchema.$inferSelect;

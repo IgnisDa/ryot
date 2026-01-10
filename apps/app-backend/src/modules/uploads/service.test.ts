@@ -2,7 +2,7 @@ import { FileSystem, Multipart } from "@effect/platform";
 import { it, expect } from "@effect/vitest";
 import { Cause, Effect, Exit, Inspectable, Layer, Option } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth";
+import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest } from "#lib/errors";
 import { RedisService, redisKeys } from "#lib/redis";
 import { S3Service } from "#lib/s3";
