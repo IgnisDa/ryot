@@ -177,6 +177,7 @@ export const compileSandboxPackageEntries = (
 							manifest: extracted.manifest,
 							javascript: bundled.javascript,
 							format: SANDBOX_COMPILED_FORMAT,
+							driverNames: inspection.driverNames,
 						},
 					} satisfies CompiledBuiltInSandboxEntry);
 				}),

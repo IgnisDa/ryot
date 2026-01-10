@@ -325,6 +325,7 @@ const inspectScriptDefinition = (
 	);
 	if (defaults.length !== 1) {
 		return {
+			driverNames: [],
 			definitionKind: null,
 			diagnostics: [
 				diagnosticAt(
@@ -357,6 +358,7 @@ const inspectScriptDefinition = (
 		call.arguments.length !== 1
 	) {
 		return {
+			driverNames: [],
 			definitionKind: null,
 			diagnostics: [
 				diagnosticAt(
@@ -372,6 +374,7 @@ const inspectScriptDefinition = (
 	if (!definition || !ts.isObjectLiteralExpression(definition)) {
 		return {
 			definitionKind,
+			driverNames: [],
 			diagnostics: [
 				diagnosticAt(
 					definition ?? call,
@@ -403,6 +406,7 @@ const inspectScriptDefinition = (
 		}
 		return {
 			definitionKind,
+			driverNames: ["automation"],
 			diagnostics:
 				hasManifest && hasRun
 					? []
@@ -445,6 +449,7 @@ const inspectScriptDefinition = (
 	if (!hasManifest || drivers === null) {
 		return {
 			definitionKind,
+			driverNames: [],
 			diagnostics: [
 				diagnosticAt(
 					definition,
@@ -456,6 +461,7 @@ const inspectScriptDefinition = (
 	}
 
 	const diagnostics: SandboxCompilerDiagnostic[] = [];
+	const driverNames: string[] = [];
 	for (const property of drivers.properties) {
 		let driver: ts.Identifier | null = null;
 		let exposedName: string | null = null;
@@ -477,6 +483,7 @@ const inspectScriptDefinition = (
 			);
 			continue;
 		}
+		driverNames.push(exposedName);
 		if (definitionKind === "script" && driverDefinition.kind !== "generic") {
 			diagnostics.push(
 				diagnosticAt(property, "RYOT_DEFINITION", "Generic scripts must use defineDriver"),
@@ -508,7 +515,7 @@ const inspectScriptDefinition = (
 		}
 	}
 
-	return { definitionKind, diagnostics };
+	return { definitionKind, diagnostics, driverNames };
 };
 
 export const inspectSandboxModuleImports = (file: ts.SourceFile) =>
@@ -539,6 +546,7 @@ export const inspectSandboxSource = (
 	const imports = inspectImports(file, options.allowRelativeImports ?? false);
 	if (imports.diagnostics.length > 0) {
 		return {
+			driverNames: [],
 			definitionKind: null,
 			diagnostics: imports.diagnostics,
 			manifestHelpers: imports.manifestHelpers,
@@ -548,6 +556,7 @@ export const inspectSandboxSource = (
 	const drivers = inspectDriverDefinitions(file, imports.driverHelpers);
 	if (drivers.diagnostics.length > 0) {
 		return {
+			driverNames: [],
 			definitionKind: null,
 			diagnostics: drivers.diagnostics,
 			manifestHelpers: imports.manifestHelpers,
