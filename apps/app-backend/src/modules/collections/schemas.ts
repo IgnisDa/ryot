@@ -28,19 +28,18 @@ const membershipRelationshipSchema = z.object({
 	properties: stringUnknownRecordSchema,
 });
 
-export const addToCollectionDataSchema = z.object({
+const membershipDataSchema = z.object({
 	collection: membershipRelationshipSchema,
 	memberOf: membershipRelationshipSchema,
 });
+
+export const addToCollectionDataSchema = membershipDataSchema;
+
+export const removeFromCollectionDataSchema = membershipDataSchema;
 
 export const addToCollectionResponseSchema = itemDataSchema(
 	addToCollectionDataSchema,
 );
-
-export const removeFromCollectionDataSchema = z.object({
-	collection: membershipRelationshipSchema,
-	memberOf: membershipRelationshipSchema,
-});
 
 export const removeFromCollectionResponseSchema = itemDataSchema(
 	removeFromCollectionDataSchema,
