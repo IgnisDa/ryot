@@ -1,16 +1,17 @@
-import { defineManifest, type SandboxHost } from "@ryot/sandbox-sdk/core";
+import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { trimmedString } from "../../../script-helpers/records";
 
 export const manifest = defineManifest({
-	kind: "provider",
 	name: "iTunes",
+	kind: "provider",
 	slug: "podcast.itunes",
-	capabilities: ["httpCall"],
 	requiredAppConfigKeys: [],
+	capabilities: ["httpCall"],
 	providerInformation: { source: "itunes", canonicalLanguage: "en" },
 });
 type ItunesHost = SandboxHost<typeof manifest.capabilities>;

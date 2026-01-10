@@ -1,4 +1,4 @@
-import type { JsonValue } from "@ryot/sandbox-sdk/core";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import type { Option, Redacted } from "effect";
 
 import type { FieldMeta, GroupMeta } from "../config/builder";

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 
-import { defineManifest, SANDBOX_SCRIPT_DEFINITION } from "@ryot/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import {
 	defineProvider,
@@ -10,6 +9,8 @@ import {
 	providerSearchResultSchema,
 	providerTranslateResultSchema,
 } from "@ryot/sandbox-sdk/provider";
+
+import { defineManifest, SANDBOX_SCRIPT_DEFINITION } from "../src/driver";
 
 const decode = <A, I>(schema: Schema.Schema<A, I>) => Schema.decodeUnknownSync(schema);
 const manifest = defineManifest({

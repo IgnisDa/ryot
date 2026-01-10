@@ -1,5 +1,6 @@
-import type { JsonValue, SandboxHost } from "@ryot/sandbox-sdk/core";
+import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
 import {
 	asRecord,
