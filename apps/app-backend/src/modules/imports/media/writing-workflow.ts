@@ -11,9 +11,9 @@ import { DateTime, Effect, Schema } from "effect";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
-import { EpisodeResolverService } from "#modules/episode-resolver/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
+import { OperationsService } from "#modules/plugins/operations-service";
 
 import type { ImportRunJobData } from "../jobs";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-errors";
@@ -43,7 +43,7 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 	const operations = yield* MediaImportWorkflowOperations;
 	const eventSchemas = yield* EventSchemasRepository;
 	const entitySchemas = yield* EntitySchemasRepository;
-	const episodeResolver = yield* EpisodeResolverService;
+	const pluginOperations = yield* OperationsService;
 	let failures = 0;
 	let importedItems = 0;
 	const collectionIdsByName = new Map<string, EntityId>();
@@ -200,8 +200,8 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 			const target = yield* resolveMediaEventTarget({
 				...eventInput,
 				payload: input.payload,
-				episodeResolver,
 				getEntitySchemaSlug,
+				operations: pluginOperations,
 			});
 			if (target._tag === "failed") {
 				return true;

@@ -1,6 +1,9 @@
 import { runContract, type ContractProgram } from "@ryot/contract/client";
 import type { IntegrationWebhookPayload } from "@ryot/contract/modules/integrations/schemas";
 import { IntegrationId } from "@ryot/contract/schema/brands";
+import { invokeOperationRecipe } from "@ryot/plugin-kit/operations";
+import { metadataLookupRecipe } from "@ryot/plugin-media/operations/recipes";
+import { Effect } from "effect";
 
 const resolveConnection = (integrationUrl: string) => {
 	const url = new URL(integrationUrl);
@@ -21,11 +24,25 @@ const runForIntegration = <A, E>(integrationUrl: string, program: ContractProgra
 	return runContract(program, { baseUrl });
 };
 
-export const lookupMetadata = (integrationUrl: string, title: string) => {
+export const lookupMetadata = async (integrationUrl: string, title: string) => {
 	const { integrationId } = resolveConnection(integrationUrl);
-	return runForIntegration(integrationUrl, (client) =>
-		client.metadataLookup.lookup({ payload: { title }, path: { integrationId } }),
+	const { results } = await runForIntegration(integrationUrl, (client) =>
+		invokeOperationRecipe(metadataLookupRecipe, { integrationId, titles: [title] }, (request) =>
+			client.plugins
+				.invoke({
+					payload: { payload: request.payload },
+					path: { pluginSlug: request.pluginSlug, operationSlug: request.operationSlug },
+				})
+				.pipe(Effect.map(({ result }) => result)),
+		),
 	);
+
+	const result = results.at(0);
+	if (!result) {
+		throw new Error("Metadata lookup returned no result for the requested title");
+	}
+
+	return result;
 };
 
 export const postIntegrationWebhook = (

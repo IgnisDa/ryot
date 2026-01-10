@@ -91,6 +91,20 @@ export const mediaPlugin = definePlugin({
 			description: "Refresh global media trending rankings daily",
 		},
 	],
+	operations: [
+		{
+			auth: "integration",
+			slug: "metadata-lookup",
+			driverRef: "operation.metadata-lookup",
+			description: "Match browser extension titles to TMDB movies and shows",
+		},
+		{
+			auth: "user",
+			slug: "resolve-episodes",
+			driverRef: "operation.resolve-episodes",
+			description: "Resolve show and podcast episode references to entity ids",
+		},
+	],
 	metadata: {
 		icon: "film",
 		name: "Media",

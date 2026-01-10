@@ -143,6 +143,79 @@ to invoke.
 Done: modules deleted; invoke endpoint covered by kernel tests (schema validation, auth,
 unknown operation) + migrated suites green; extension works against invoke.
 
+**Implementation choices (2026-07-25, owner-approved):**
+
+1. **Operation `auth` gains a third `integration` mode (alongside `user` and `admin`).** The
+   plan text above named only "authenticated-user vs admin", but the browser extension — the sole
+   external `metadata-lookup` consumer, which task 04 requires migrating onto `plugins.invoke` — is
+   **public, holds no user session, and runs its lookup as the integration's owning user** (the
+   native `MetadataLookupService.lookup` loads the integration via `getByIdAnyUser` and searches as
+   `integration.userId` so the owner's NSFW preference applies). A two-value enum cannot express
+   this, so `auth` is `"user" | "admin" | "integration"`. For an `integration` operation,
+   `plugins.invoke` carries an integration id; the **kernel integrations framework** (which stays in
+   the kernel under Decision 14, so this is generic, not media-specific) resolves it to the owning
+   user, verifies the integration is enabled, and dispatches the operation with that user's context
+   and **no session required**. The integration id remains the credential exactly as today, so
+   behavior (including owner-scoped preferences) is preserved. The generic invoke endpoint has no
+   group middleware; the handler reads the operation's declared `auth` from the registry and
+   enforces it conditionally (resolving `CurrentUser` from request headers itself for `user`,
+   the admin token for `admin`, and the integration for `integration`), keeping the single generic
+   endpoint intact (Decision 9). `metadata-lookup` = `integration`; `resolve-episodes` = `user`.
+2. **Operation input/output Effect Schemas live on the driver, not serialized into the manifest
+   entry.** The manifest section is `operations: [{ slug, driverRef, auth, description }]`. Effect
+   Schemas cannot round-trip through `PluginManifest`'s own `Schema.decodeUnknown` (manifests are
+   plain data), and providers/crons already carry their `input`/`output` schemas on the driver in
+   the `.sandbox.ts` module. `plugins.invoke` validates against the declared schemas the same way
+   every driver already does: the sandbox runner decodes the payload against `driver.input` and the
+   result against `driver.output`. This realizes the plan's "validates against the declared
+   input/output schemas" within the existing architecture rather than duplicating schema data.
+
+   **Operation scripts use a dedicated `operation` sandbox-script kind** (owner-approved
+   2026-07-25). `libs/plugin-kit`'s `PluginScript` union deliberately rejects the generic
+   `kind: "script"` catch-all (pinned by `manifest.test.ts`), so rather than open it, a first-class
+   `kind: "operation"` is added across `@ryot/sandbox-sdk` (manifest-schema union + a
+   `defineOperation` authoring helper wrapping the generic `defineDriver` machinery — the SDK and
+   compiler already dispatch drivers generically by name), the compiler (recognize the helper and
+   map `definitionKind: "operation"`), and `PluginScript`. Operation scripts expose a single driver
+   under the conventional driver name `"operation"`; the kernel dispatches with
+   `driverName: "operation"` (mirroring how crons dispatch `driverName: "cron"`), and manifest
+   validation asserts each `operations[].driverRef` references an `operation`-kind script exposing
+   that driver. Keeping the generic catch-all closed and giving each capability its own typed kind
+   is the pattern step 3's `workflow` kind will follow. Operations reuse only existing host
+   capabilities (metadata-lookup: `httpCall`/`getAppConfigValue`/`getUserPreferences`/`getIntegration`
+   composed with the in-repo TMDB provider search drivers; resolve-episodes: `executeQueryEngine`),
+   so no new host functions or capability scopes are added this step.
+3. **`episode-resolver` becomes a single batch-first `resolve-episodes` operation.** Input is
+   `{ refs: [...] }` where each ref is discriminated `show` (showEntityId, seasonNumber,
+   episodeNumber) or `podcast` (podcastEntityId, episodeNumber); output is aligned
+   `{ entityId | null }[]` (unique-match-wins, matching the native ambiguity rule). It is
+   implemented with `executeQueryEngine` (multi-hop relationship traversal `show→season→episode`
+   via `EntitySource.via` plus JSONB property equality on `seasonNumber`/`episodeNumber`, run as the
+   caller's user), keeping provider-catalog/resolution knowledge in sandbox scripts per
+   `apps/app-backend/AGENTS.md`. The interim internal callers (import writing/event-target
+   workflows) reach it through the temporary `invokeOperation` service path with single-element
+   `refs` arrays until steps 3–4 move those callers into the plugin. `auth: "user"`.
+4. **First-party recipe typing = a generic typed invoker in `libs/plugin-kit` plus
+   plugin-exported operation types.** `plugins/media` exports its operation input/output types
+   (derived from the driver schemas); `libs/plugin-kit` exports a small generic typed `invoke`
+   wrapper over the `plugins.invoke` contract call. The browser extension imports the media
+   operation type and the plugin-kit invoker, so no plugin-specific contract endpoint is added
+   (Decision 9).
+5. **The title parse/match helpers are transitionally duplicated into the media plugin; step 4
+   deletes the kernel copy.** `lib/shared/title-parsing.ts` and `lib/shared/title-matching.ts`
+   (`extractMetadataLookupBaseTitle`, `extractMetadataLookupSeasonEpisode`,
+   `chooseBestMetadataLookupTitleMatch`) had two kernel consumers: the deleted
+   `modules/metadata-lookup`, and the **Netflix import source adapter**
+   (`modules/imports/sources/netflix/{adapter,processor}.ts`), which is media-specific and moves
+   into the plugin in step 4. The kernel must not import plugin code (Decision 2) and sandbox
+   scripts cannot import kernel code, so the logic is copied into `plugins/media/shared/` for the
+   metadata-lookup operation while the kernel copy stays **solely** for the Netflix adapter.
+   **Step 4 action:** when the Netflix adapter moves into the plugin, delete
+   `apps/app-backend/src/lib/shared/title-parsing.ts`, `title-matching.ts`, and their tests, and
+   point the migrated adapter at the plugin-side copy — leaving one owner. This is the only
+   duplication step 2 introduces; task 09's cleanup pass must not "resolve" it earlier by making
+   the kernel depend on the plugin.
+
 ## Step 3 — Durable workflows: media import population/resolution **(spike first)**
 
 **Mandatory spike before committing to the design**: a throwaway replay-deterministic script

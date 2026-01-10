@@ -2,10 +2,43 @@
 
 ## Module Purpose
 
-Owns the media plugin's schemas, relationships, saved views, providers, automations, and bindings.
+Owns the media plugin's schemas, relationships, saved views, providers, automations, operations, and
+bindings.
 The lifecycle semantics below are authoritative for this package.
 Media signal definitions select the package's `automation.media-notification` formatter; notification
 message vocabulary must remain with the signal owner rather than the kernel.
+
+---
+
+## Operations
+
+Operation scripts live in `scripts/operations/` and are declared in the manifest's `operations`
+section; `@ryot/plugin-kit/README.md` owns the generic manifest, driver, and recipe mechanics. The
+media-specific rules are:
+
+- **Batch-first.** Every operation takes a list and returns `results` aligned index-for-index with
+  that list. No operation gets a single-item signature, and a per-item miss is a value in the
+  result (`status: "notFound"`, `entityId: null`) rather than a failure.
+- **Input/output schemas live outside the sandbox modules** in `operations/schemas.ts`, so a
+  first-party client (the browser extension) can import the schemas and `operations/recipes.ts`
+  without pulling a sandbox script body — and its `dist` bundle — into its graph. Sandbox drivers
+  import the same module, so the kernel's payload decoding and the client's typing cannot drift.
+- **`metadata-lookup`** re-verifies that its integration is a `ryot_browser_extension` integration.
+  The kernel's `integration` auth mode only proves the integration exists, is enabled, and whose it
+  is; the provider assertion is the script's job. It composes the `movie.tmdb` and `show.tmdb`
+  `search` drivers in-process (movie first — result position feeds the match score) rather than
+  spawning nested sandbox executions.
+- **`resolve-episodes`** expresses the parent-chain filters as one query document per ref with full
+  pushdown; it must never fetch episodes and filter in the script. Each document is rooted at the
+  episode entity and reaches its parents through correlated `exists` traversals, so one row is
+  returned per candidate episode however many relationship rows link it — this is what makes
+  "exactly one candidate wins, zero or ambiguous resolves to `null`" hold. User-ownership scoping is
+  the query engine's, per executing user.
+- `shared/title-parsing.ts` and `shared/title-matching.ts` are a deliberate copy of the kernel's
+  `lib/shared` helpers: the kernel keeps its copy while the Netflix import adapter still uses it, and
+  the kernel must not import plugin code. Both copies are test-pinned. The plugin copy must stay
+  within the sandbox compiler's ES2022 lib, which is why roman numerals are read with an index loop
+  instead of `toReversed` — `oxlint --fix` rewrites `[...x].reverse()` back into that ES2023 method.
 
 ---
 
