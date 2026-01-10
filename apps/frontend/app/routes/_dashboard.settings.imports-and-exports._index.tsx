@@ -280,15 +280,15 @@ export default function Page() {
 													() => (
 														<>
 															<TextInput
-																label="Instance Url"
 																required
 																name="apiUrl"
+																label="Instance Url"
 															/>
 															<TextInput
 																mt="sm"
-																label="API Key"
 																required
 																name="apiKey"
+																label="API Key"
 															/>
 														</>
 													),
