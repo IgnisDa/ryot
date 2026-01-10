@@ -1,6 +1,5 @@
 import { parseWithZod } from "@conform-to/zod/v4";
 import { type ClassValue, clsx } from "clsx";
-import dayjs, { type Dayjs } from "dayjs";
 import {
 	HumanizeDuration,
 	HumanizeDurationLanguage,
@@ -37,6 +36,7 @@ import type { Params } from "react-router";
 import { twMerge } from "tailwind-merge";
 import invariant from "tiny-invariant";
 import { type output, type ZodTypeAny, z } from "zod";
+import { type Dayjs, dayjs } from "./dayjs";
 
 export const zodBoolAsString = z
 	.string()
@@ -197,11 +197,13 @@ export {
 	toAppSchema,
 	toAppSchemaProperties,
 } from "./app-schema";
+export { dayjs } from "./dayjs";
 export {
 	normalizeSlug,
 	resolveRequiredSlug,
 	resolveRequiredString,
 } from "./slug";
+export type { Dayjs };
 export {
 	camelCase,
 	cloneDeep,
