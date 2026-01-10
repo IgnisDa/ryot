@@ -3,6 +3,7 @@ import {
 	Anchor,
 	Box,
 	Button,
+	Checkbox,
 	Container,
 	Divider,
 	Drawer,
@@ -168,15 +169,20 @@ const apiUrlImportFormSchema = z.object({
 
 const apiKeySchema = z.object({ apiKey: z.string() });
 
-const urlAndKeyImportFormSchema = apiUrlImportFormSchema.extend(
-	apiKeySchema.shape,
-);
+const allowInsecureConnectionsSchema = z.object({
+	allowInsecureConnections: z.boolean().optional(),
+});
+
+const urlAndKeyImportFormSchema = apiUrlImportFormSchema
+	.extend(apiKeySchema.shape)
+	.extend(allowInsecureConnectionsSchema.shape);
 
 const optionalPasswordSchema = z.object({ password: z.string().optional() });
 
 const jellyfinImportFormSchema = usernameImportFormSchema
 	.extend(apiUrlImportFormSchema.shape)
-	.extend(optionalPasswordSchema.shape);
+	.extend(optionalPasswordSchema.shape)
+	.extend(allowInsecureConnectionsSchema.shape);
 
 const genericCsvImportFormSchema = z.object({ csvPath: z.string() });
 
@@ -291,6 +297,12 @@ export default function Page() {
 																name="apiKey"
 																label="API Key"
 															/>
+															<Checkbox
+																mt="sm"
+																name="allowInsecureConnections"
+																label="Allow insecure connections (skip certificate validation)"
+																description="⚠️ Only enable this for self-signed certificates on trusted local networks"
+															/>
 														</>
 													),
 												)
@@ -367,6 +379,12 @@ export default function Page() {
 															mt="sm"
 															name="password"
 															label="Password"
+														/>
+														<Checkbox
+															mt="sm"
+															name="allowInsecureConnections"
+															label="Allow insecure connections (skip certificate validation)"
+															description="⚠️ Only enable this for self-signed certificates on trusted local networks"
 														/>
 													</>
 												))
