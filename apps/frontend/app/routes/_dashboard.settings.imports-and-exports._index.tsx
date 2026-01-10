@@ -410,11 +410,11 @@ export default function Page() {
 													<>
 														<FileInput
 															name="animePath"
-															label="Anime export file"
+															label="Anime export file (GZipped XML format)"
 														/>
 														<FileInput
 															name="mangaPath"
-															label="Manga export file"
+															label="Manga export file (GZipped XML format)"
 														/>
 													</>
 												))

@@ -16,7 +16,7 @@
 		"node": "24.4.0"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.3.10",
+		"@biomejs/biome": "2.3.11",
 		"tsconfig-moon": "1.4.1",
 		"typescript": "5.9.3"
 	}
