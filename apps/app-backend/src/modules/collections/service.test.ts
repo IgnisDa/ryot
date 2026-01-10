@@ -941,6 +941,90 @@ describe("createCollection", () => {
 			expect(receivedProperties).toEqual({});
 		});
 
+		it("updates existing membership when re-adding same entity to collection", async () => {
+			const updatedRelationship = {
+				...mockRelationship,
+				id: "existing-rel-1",
+				properties: { updated: true, newProp: "value" },
+			};
+			const updatedMemberOf = {
+				...mockMemberOfRelationship,
+				id: "existing-rel-2",
+				properties: { updated: true, newProp: "value" },
+			};
+
+			const depsWithUpsert = {
+				...mockAddToCollectionDeps,
+				addEntityToCollection: async () => ({
+					collection: updatedRelationship,
+					memberOf: updatedMemberOf,
+				}),
+			};
+
+			const result = await addToCollection(
+				{
+					body: {
+						collectionId: "collection-1",
+						entityId: "entity-1",
+						properties: { updated: true, newProp: "value" },
+					},
+					userId: "user-1",
+				},
+				depsWithUpsert,
+			);
+
+			expect("data" in result).toBe(true);
+			if ("data" in result) {
+				expect(result.data.collection.properties).toEqual({
+					updated: true,
+					newProp: "value",
+				});
+				expect(result.data.memberOf.properties).toEqual({
+					updated: true,
+					newProp: "value",
+				});
+			}
+		});
+
+		it("prevents duplicate relationships by upserting", async () => {
+			let callCount = 0;
+			const depsWithTracking = {
+				...mockAddToCollectionDeps,
+				addEntityToCollection: async () => {
+					callCount++;
+					return {
+						collection: { ...mockRelationship, id: `rel-${callCount}` },
+						memberOf: { ...mockMemberOfRelationship, id: `rel-${callCount}` },
+					};
+				},
+			};
+
+			// First add
+			await addToCollection(
+				{
+					body: { collectionId: "collection-1", entityId: "entity-1" },
+					userId: "user-1",
+				},
+				depsWithTracking,
+			);
+
+			// Second add (should update, not create duplicate)
+			const result = await addToCollection(
+				{
+					body: {
+						collectionId: "collection-1",
+						entityId: "entity-1",
+						properties: { updated: true },
+					},
+					userId: "user-1",
+				},
+				depsWithTracking,
+			);
+
+			expect(callCount).toBe(2);
+			expect("data" in result).toBe(true);
+		});
+
 		it("propagates repository errors", async () => {
 			const failingDeps = {
 				...mockAddToCollectionDeps,
