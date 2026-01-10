@@ -167,7 +167,7 @@ protects live data under hot swap.
   `ensureDefaultRules` from `user-bootstrap/bootstrap.ts` — consumers also in
   `auth/service.ts` and `god-mode/service.ts`): this is per-user _state_ and moves to a
   dedicated table **[RECOMMENDED]** `notification_subscription_state`
-  `(userId, signalSchemaSlug, scriptSlug, isActive, metadata?, timestamps)`, unique on
+  `(id, userId, signalSchemaSlug, scriptSlug, isActive, metadata?, timestamps)`, unique on
   `(userId, signalSchemaSlug, scriptSlug)`, following the same definition-vs-state pattern
   as the per-user workspace state (`plugin_state`, §9). Re-point
   `NotificationSubscriptionsService`, the `automations` rule
@@ -175,10 +175,17 @@ protects live data under hot swap.
   `tests/src/tests/automations/notification-subscriptions.test.ts` suite (assertions
   preserved).
 
-Only after both moves is the `automation_rule` table deleted. `subscription_run` stays; its
-`ruleId` FK is replaced by a stable identifier string (`pluginSlug + scriptSlug + target +
-operation` for binding-driven runs, or the subscription-state key for user-subscription
-runs).
+Only after both moves is the `automation_rule` table deleted. `subscription_run` stays with one
+non-null text `ruleId`: the generated notification-subscription-state ID for per-user runs or the
+existing deterministic binding ID for manifest-driven runs. It has no foreign key because run
+attribution must survive deleting a subscription state or replacing a plugin snapshot.
+
+**Implementation choice (2026-07-24, owner-confirmed):**
+`notification_subscription_state.id` is a generated primary key and remains the public
+`AutomationRuleId`. Deleting and reinstalling the same `(userId, signalSchemaSlug, scriptSlug)`
+subscription therefore produces a new ID, preserving the existing API behavior. The durable run
+record stores that ID, or the manifest binding's existing deterministic `binding:...` ID, directly
+in `subscription_run.ruleId`. This is the run's single durable attribution field.
 
 Also delete: `entity_schema_sandbox_script` (links come from `bindings.schemaScriptLinks`),
 `builtins/registry.ts`, `builtins/seed.ts`, and the rest of the `builtins` module once its

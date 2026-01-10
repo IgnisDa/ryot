@@ -185,9 +185,10 @@ code inside a package), **admin** (installs/uninstalls plugins through the contr
     `ensureDefaultRules`, and the consumers in `auth/service.ts` and `god-mode/service.ts`
     re-pointed at the new state table, so that the user-facing rule surface is unchanged while
     its storage moves (plan §5).
-23. As the kernel, I want `subscription_run` kept but its `ruleId` FK replaced by a stable
-    identifier string (binding key or subscription-state key), so that execution bookkeeping
-    survives the `automation_rule` deletion (plan §5).
+23. As the kernel, I want `subscription_run` kept with one non-null text `ruleId` containing the
+    generated notification-subscription-state ID or deterministic manifest-binding ID, so that
+    execution bookkeeping survives state deletion and plugin snapshot replacement without an FK
+    or duplicate attribution column (plan §5).
 24. As the owner, I want `automation_rule` and `entity_schema_sandbox_script` tables deleted
     (schema→script links now come from `bindings.schemaScriptLinks`), along with
     `builtins/registry.ts`, `builtins/seed.ts`, and the rest of the `builtins` module once its
