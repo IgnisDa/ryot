@@ -1,7 +1,7 @@
 use anyhow::Result;
 use common_utils::{APPLICATION_JSON_HEADER, get_http_client_with_tls_config, ryot_log};
 use reqwest::{
-    Client, ClientBuilder,
+    Client,
     header::{ACCEPT, AUTHORIZATION, HeaderValue},
 };
 use sea_orm::prelude::DateTimeUtc;
@@ -70,17 +70,14 @@ pub mod jellyfin {
             r#"MediaBrowser , Client="other", Device="script", DeviceId="script", Version="0.0.0""#
                 .to_string();
         let uri = format!("{base_url}/Users/AuthenticateByName");
-        let client = ClientBuilder::new()
-            .danger_accept_invalid_certs(danger_accept_invalid_certs)
-            .build()
-            .unwrap();
-        let authenticate_request = client
-            .post(uri)
-            .header(AUTHORIZATION, &emby_header_value)
-            .json(&serde_json::json!({
-                "Username": username,
-                "Pw": password.clone().unwrap_or_default()
-            }));
+        let authenticate_request =
+            get_http_client_with_tls_config(None, danger_accept_invalid_certs)
+                .post(uri)
+                .header(AUTHORIZATION, &emby_header_value)
+                .json(&serde_json::json!({
+                    "Username": username,
+                    "Pw": password.clone().unwrap_or_default()
+                }));
         ryot_log!(debug, "Authentication request: {:?}", authenticate_request);
         let authenticate = authenticate_request
             .send()
