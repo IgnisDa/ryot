@@ -8,6 +8,8 @@ import { DbRunner } from "#lib/db";
 import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound } from "#lib/errors";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/job-id";
+import type { RelationshipSchemaId, UserId } from "#lib/schema/brands";
+import { EntityId, EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { requireText, trimToNull } from "#lib/validation";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
@@ -31,11 +33,11 @@ const partialProvenanceError =
 	"externalId and sandboxScriptId must both be provided or both be omitted";
 
 const validateRelationshipSchemaTargets = (input: {
-	sourceEntitySchemaId: string;
-	targetEntitySchemaId: string;
+	sourceEntitySchemaId: EntitySchemaId;
+	targetEntitySchemaId: EntitySchemaId;
 	relationshipSchema: {
-		readonly sourceEntitySchemaId: string | null;
-		readonly targetEntitySchemaId: string | null;
+		readonly sourceEntitySchemaId: EntitySchemaId | null;
+		readonly targetEntitySchemaId: EntitySchemaId | null;
 	};
 }) => {
 	if (
@@ -62,34 +64,34 @@ type EntitiesServiceShape = {
 	) => Effect.Effect<ListedEntity, BadRequest | DbError | NotFound>;
 	readonly getById: (
 		user: CurrentUserValue,
-		entityIdInput: string,
+		entityIdInput: EntityId,
 	) => Effect.Effect<ListedEntity, BadRequest | DbError | NotFound>;
 	readonly import: (
 		user: CurrentUserValue,
-		payload: { scriptId: string; externalId: string; entitySchemaId: string },
+		payload: { scriptId: SandboxScriptId; externalId: string; entitySchemaId: EntitySchemaId },
 	) => Effect.Effect<{ jobId: string }, BadRequest | NotFound | DbError>;
 	readonly getImportResult: (
 		user: CurrentUserValue,
 		jobId: string,
 	) => Effect.Effect<EntityImportRunResult, NotFound>;
 	readonly upsertUserRelationship: (input: {
-		userId: string;
-		sourceEntityId: string;
-		targetEntityId: string;
-		relationshipSchemaId: string;
+		userId: UserId;
+		sourceEntityId: EntityId;
+		targetEntityId: EntityId;
+		relationshipSchemaId: RelationshipSchemaId;
 		properties: Record<string, unknown>;
 	}) => Effect.Effect<SavedRelationship, BadRequest | DbError | NotFound>;
 	readonly insertUserRelationship: (input: {
-		userId: string;
-		sourceEntityId: string;
-		targetEntityId: string;
-		relationshipSchemaId: string;
+		userId: UserId;
+		sourceEntityId: EntityId;
+		targetEntityId: EntityId;
+		relationshipSchemaId: RelationshipSchemaId;
 		properties: Record<string, unknown>;
 	}) => Effect.Effect<void, BadRequest | DbError | NotFound>;
 	readonly writeEntityRelationship: (input: {
-		sourceEntityId: string;
-		targetEntityId: string;
-		relationshipSchemaId: string;
+		sourceEntityId: EntityId;
+		targetEntityId: EntityId;
+		relationshipSchemaId: RelationshipSchemaId;
 		properties: Record<string, unknown>;
 	}) => Effect.Effect<void, BadRequest | DbError | NotFound>;
 };
@@ -111,20 +113,22 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 				payload: CreateEntityBody,
 			) {
 				const externalId = payload.externalId ? trimToNull(payload.externalId) : null;
-				const sandboxScriptId = payload.sandboxScriptId
+				const trimmedScriptId = payload.sandboxScriptId
 					? trimToNull(payload.sandboxScriptId)
 					: null;
+				const sandboxScriptId = trimmedScriptId ? SandboxScriptId.make(trimmedScriptId) : null;
 				const hasExternalId = externalId !== null;
 				const hasScriptId = sandboxScriptId !== null;
 				if (hasExternalId !== hasScriptId) {
 					return yield* badRequest(partialProvenanceError);
 				}
 
-				const entitySchemaId = trimToNull(payload.entitySchemaId);
-				if (!entitySchemaId) {
+				const trimmedEntitySchemaId = trimToNull(payload.entitySchemaId);
+				if (!trimmedEntitySchemaId) {
 					return yield* badRequest("Entity schema id is required");
 				}
 
+				const entitySchemaId = EntitySchemaId.make(trimmedEntitySchemaId);
 				const scope = yield* runWithDb(
 					repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaId }),
 				);
@@ -169,13 +173,14 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			}),
 			getById: Effect.fn("EntitiesService.getById")(function* (
 				user: CurrentUserValue,
-				entityIdInput: string,
+				entityIdInput: EntityId,
 			) {
-				const entityId = trimToNull(entityIdInput);
-				if (!entityId) {
+				const trimmedEntityId = trimToNull(entityIdInput);
+				if (!trimmedEntityId) {
 					return yield* badRequest("Entity id is required");
 				}
 
+				const entityId = EntityId.make(trimmedEntityId);
 				const scope = yield* runWithDb(
 					repository.getEntityScopeForUser({ userId: user.id, entityId }),
 				);
@@ -192,16 +197,18 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			}),
 			import: Effect.fn("EntitiesService.import")(function* (
 				user: CurrentUserValue,
-				payload: { scriptId: string; externalId: string; entitySchemaId: string },
+				payload: { scriptId: SandboxScriptId; externalId: string; entitySchemaId: EntitySchemaId },
 			) {
-				const scriptId = trimToNull(payload.scriptId);
+				const trimmedScriptId = trimToNull(payload.scriptId);
 				const externalId = trimToNull(payload.externalId);
-				const entitySchemaId = trimToNull(payload.entitySchemaId);
+				const trimmedEntitySchemaId = trimToNull(payload.entitySchemaId);
 
-				if (!scriptId || !externalId || !entitySchemaId) {
+				if (!trimmedScriptId || !externalId || !trimmedEntitySchemaId) {
 					return yield* badRequest("scriptId, externalId, and entitySchemaId are required");
 				}
 
+				const entitySchemaId = EntitySchemaId.make(trimmedEntitySchemaId);
+				const scriptId = SandboxScriptId.make(trimmedScriptId);
 				const script = yield* runWithDb(
 					sandboxRepository.getScriptForUser({ userId: user.id, scriptId }),
 				);
@@ -245,10 +252,10 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			}),
 			upsertUserRelationship: Effect.fn("EntitiesService.upsertUserRelationship")(
 				function* (input: {
-					userId: string;
-					sourceEntityId: string;
-					targetEntityId: string;
-					relationshipSchemaId: string;
+					userId: UserId;
+					sourceEntityId: EntityId;
+					targetEntityId: EntityId;
+					relationshipSchemaId: RelationshipSchemaId;
 					properties: Record<string, unknown>;
 				}) {
 					const relationshipSchema = yield* runWithDb(
@@ -298,10 +305,10 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			),
 			insertUserRelationship: Effect.fn("EntitiesService.insertUserRelationship")(
 				function* (input: {
-					userId: string;
-					sourceEntityId: string;
-					targetEntityId: string;
-					relationshipSchemaId: string;
+					userId: UserId;
+					sourceEntityId: EntityId;
+					targetEntityId: EntityId;
+					relationshipSchemaId: RelationshipSchemaId;
 					properties: Record<string, unknown>;
 				}) {
 					const relationshipSchema = yield* runWithDb(
@@ -348,9 +355,9 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			),
 			writeEntityRelationship: Effect.fn("EntitiesService.writeEntityRelationship")(
 				function* (input: {
-					sourceEntityId: string;
-					targetEntityId: string;
-					relationshipSchemaId: string;
+					sourceEntityId: EntityId;
+					targetEntityId: EntityId;
+					relationshipSchemaId: RelationshipSchemaId;
 					properties: Record<string, unknown>;
 				}) {
 					const relationshipSchema = yield* runWithDb(

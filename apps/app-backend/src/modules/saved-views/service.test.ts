@@ -3,6 +3,7 @@ import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, NotFound } from "#lib/errors";
+import { SavedViewId, UserId } from "#lib/schema/brands";
 import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/effect";
 import { QueryEngineService } from "#modules/query-engine/service";
 
@@ -11,13 +12,13 @@ import type { ListedSavedView } from "./schemas";
 import { SavedViewsService } from "./service";
 
 const user = {
-	id: "user-id",
+	id: UserId.make("user-id"),
 	name: "Test User",
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
 const baseListedSavedView: ListedSavedView = {
-	id: "sv-id",
+	id: SavedViewId.make("sv-id"),
 	icon: "book",
 	sortOrder: 0,
 	slug: "my-view",

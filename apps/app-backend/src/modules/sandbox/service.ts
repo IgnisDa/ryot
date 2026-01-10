@@ -7,6 +7,7 @@ import { AppConfig } from "#lib/config";
 import { DbRunner } from "#lib/db";
 import { badRequest, conflict, notFound } from "#lib/errors";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/job-id";
+import { SandboxScriptId } from "#lib/schema/brands";
 import { slugify } from "#lib/slug";
 import { trimToNull } from "#lib/validation";
 
@@ -112,7 +113,12 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 					return yield* notFound(sandboxScriptNotFoundError);
 				}
 
-				const script = yield* runWithDb(repository.getScriptForUser({ userId: user.id, scriptId }));
+				const script = yield* runWithDb(
+					repository.getScriptForUser({
+						userId: user.id,
+						scriptId: SandboxScriptId.make(scriptId),
+					}),
+				);
 				if (!script) {
 					return yield* notFound(sandboxScriptNotFoundError);
 				}

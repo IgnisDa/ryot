@@ -4,6 +4,7 @@ import { Effect, Either, Schema } from "effect";
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
 import { type BadRequest, type DbError, type NotFound, badRequest, notFound } from "#lib/errors";
+import type { ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
 import type { ListedImportRun } from "#modules/imports/schemas";
 import { ImportsService } from "#modules/imports/service";
 
@@ -58,7 +59,7 @@ type IntegrationsServiceShape = {
 	) => Effect.Effect<{ id: string }, BadRequest | DbError>;
 	readonly get: (
 		user: CurrentUserValue,
-		integrationId: string,
+		integrationId: IntegrationId,
 	) => Effect.Effect<ListedIntegration, NotFound | DbError>;
 	readonly list: (
 		user: CurrentUserValue,
@@ -66,22 +67,22 @@ type IntegrationsServiceShape = {
 	) => Effect.Effect<readonly ListedIntegration[], DbError>;
 	readonly update: (
 		user: CurrentUserValue,
-		integrationId: string,
+		integrationId: IntegrationId,
 		body: UpdateIntegrationBody,
 	) => Effect.Effect<ListedIntegration, BadRequest | NotFound | DbError>;
 	readonly delete: (
 		user: CurrentUserValue,
-		integrationId: string,
+		integrationId: IntegrationId,
 	) => Effect.Effect<{ id: string }, NotFound | DbError>;
 	readonly listRuns: (
 		user: CurrentUserValue,
-		integrationId: string,
+		integrationId: IntegrationId,
 	) => Effect.Effect<readonly ListedImportRun[], NotFound | DbError>;
 	readonly handleWebhook: (input: {
 		rawBody?: string;
 		contentType?: string;
-		integrationId: string;
-	}) => Effect.Effect<{ runId: string }, BadRequest | NotFound | DbError>;
+		integrationId: IntegrationId;
+	}) => Effect.Effect<{ runId: ImportRunId }, BadRequest | NotFound | DbError>;
 };
 
 export class IntegrationsService extends Effect.Service<IntegrationsService>()(
@@ -93,12 +94,12 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 			const importsService = yield* ImportsService;
 			const repository = yield* IntegrationsRepository;
 
-			const failCreatedRun = (runId: string, message: string) =>
+			const failCreatedRun = (runId: ImportRunId, message: string) =>
 				importsService.failRunForIntegration(runId, message);
 
 			const requireIntegration = Effect.fn("IntegrationsService.requireIntegration")(function* (
-				userId: string,
-				integrationId: string,
+				userId: UserId,
+				integrationId: IntegrationId,
 			) {
 				const integration = yield* runWithDb(repository.getForUser({ userId, integrationId }));
 				if (!integration) {
@@ -175,7 +176,7 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				list: (user, query) => runWithDb(repository.listForUser({ userId: user.id, ...query })),
 				update: Effect.fn("IntegrationsService.update")(function* (
 					user: CurrentUserValue,
-					integrationId: string,
+					integrationId: IntegrationId,
 					body: UpdateIntegrationBody,
 				) {
 					const existing = yield* requireIntegration(user.id, integrationId);
@@ -226,7 +227,7 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				}),
 				delete: Effect.fn("IntegrationsService.delete")(function* (
 					user: CurrentUserValue,
-					integrationId: string,
+					integrationId: IntegrationId,
 				) {
 					yield* requireIntegration(user.id, integrationId);
 					yield* runWithDb(repository.deleteForUser({ userId: user.id, integrationId }));
@@ -234,7 +235,7 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				}),
 				listRuns: Effect.fn("IntegrationsService.listRuns")(function* (
 					user: CurrentUserValue,
-					integrationId: string,
+					integrationId: IntegrationId,
 				) {
 					yield* requireIntegration(user.id, integrationId);
 					return yield* importsService.listRunsByIntegrationId({
@@ -245,7 +246,7 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				handleWebhook: Effect.fn("IntegrationsService.handleWebhook")(function* (input: {
 					rawBody?: string;
 					contentType?: string;
-					integrationId: string;
+					integrationId: IntegrationId;
 				}) {
 					const { integrationId, rawBody, contentType } = input;
 					const integration = yield* runWithDb(repository.getByIdAnyUser({ integrationId }));

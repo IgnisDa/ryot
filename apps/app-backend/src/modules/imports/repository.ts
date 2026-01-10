@@ -4,6 +4,7 @@ import { Effect } from "effect";
 import { CurrentDb, dbEffect } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
 import { DbError } from "#lib/errors";
+import { ImportRunId, type IntegrationId, type UserId } from "#lib/schema/brands";
 
 import type { ListedImportRun, ListedImportRunFailure } from "./schemas";
 import type { ImportRunFailureStage, ImportRunSource, ImportRunStatus } from "./types";
@@ -12,7 +13,7 @@ type ImportRunRow = typeof schema.importRun.$inferSelect;
 type ImportRunFailureRow = typeof schema.importRunFailure.$inferSelect;
 
 const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
-	id: row.id,
+	id: ImportRunId.make(row.id),
 	source: row.source,
 	status: row.status,
 	progress: row.progress,
@@ -30,7 +31,7 @@ const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 
 const normalizeFailure = (row: ImportRunFailureRow): ListedImportRunFailure => ({
 	id: row.id,
-	runId: row.runId,
+	runId: ImportRunId.make(row.runId),
 	stage: row.stage,
 	message: row.message,
 	context: row.context,
@@ -45,9 +46,9 @@ const normalizeFailure = (row: ImportRunFailureRow): ListedImportRunFailure => (
 export class ImportsRepository extends Effect.Service<ImportsRepository>()("ImportsRepository", {
 	sync: () => ({
 		createRun: Effect.fn("ImportsRepository.createRun")(function* (input: {
-			userId: string;
+			userId: UserId;
 			source: ImportRunSource;
-			integrationId?: string | null;
+			integrationId?: IntegrationId | null;
 			inputSummary: Record<string, unknown>;
 		}) {
 			const db = yield* CurrentDb;
@@ -68,8 +69,8 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 			return normalizeRun(row);
 		}),
 		getRunById: Effect.fn("ImportsRepository.getRunById")(function* (input: {
-			runId: string;
-			userId: string;
+			runId: ImportRunId;
+			userId: UserId;
 		}) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
@@ -84,7 +85,7 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 			return row ? normalizeRun(row) : null;
 		}),
 		listRunsByUser: Effect.fn("ImportsRepository.listRunsByUser")(function* (input: {
-			userId: string;
+			userId: UserId;
 		}) {
 			const db = yield* CurrentDb;
 			const rows = yield* dbEffect(() =>
@@ -99,7 +100,7 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 			return rows.map(normalizeRun);
 		}),
 		listRunsByIntegrationId: Effect.fn("ImportsRepository.listRunsByIntegrationId")(
-			function* (input: { userId: string; integrationId: string }) {
+			function* (input: { userId: UserId; integrationId: IntegrationId }) {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
 					db
@@ -117,7 +118,7 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 			},
 		),
 		hasActiveRunForIntegration: Effect.fn("ImportsRepository.hasActiveRunForIntegration")(
-			function* (input: { integrationId: string }) {
+			function* (input: { integrationId: IntegrationId }) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
 					db
@@ -136,7 +137,7 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 		),
 		listRecentStatusesByIntegrationId: Effect.fn(
 			"ImportsRepository.listRecentStatusesByIntegrationId",
-		)(function* (input: { integrationId: string; limit: number }) {
+		)(function* (input: { integrationId: IntegrationId; limit: number }) {
 			const db = yield* CurrentDb;
 			return yield* dbEffect(() =>
 				db
@@ -196,8 +197,8 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 			);
 		}),
 		deleteRunById: Effect.fn("ImportsRepository.deleteRunById")(function* (input: {
-			runId: string;
-			userId: string;
+			runId: ImportRunId;
+			userId: UserId;
 		}) {
 			const db = yield* CurrentDb;
 			yield* dbEffect(() =>
@@ -235,7 +236,7 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 			);
 		}),
 		listFailuresByRunId: Effect.fn("ImportsRepository.listFailuresByRunId")(function* (input: {
-			runId: string;
+			runId: ImportRunId;
 			page: number;
 			limit: number;
 		}) {

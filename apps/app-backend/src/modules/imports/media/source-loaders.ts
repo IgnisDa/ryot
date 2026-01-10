@@ -4,6 +4,7 @@ import { Effect, Schema } from "effect";
 import { AppConfig } from "#lib/config";
 import type { DbRunner } from "#lib/db";
 import type { RedisService } from "#lib/redis";
+import { SandboxScriptId } from "#lib/schema/brands";
 import type { EntitiesRepository } from "#modules/entities/repository";
 
 import type { ImportRunJobData } from "../jobs";
@@ -59,7 +60,7 @@ const SearchScriptSlugSchema = Schema.Literal("movie.tmdb", "show.tmdb");
 export const MediaImportEntitySearchJob = Schema.Struct({
 	query: Schema.String,
 	jobKey: Schema.String,
-	scriptId: Schema.String,
+	scriptId: SandboxScriptId,
 	scriptSlug: SearchScriptSlugSchema,
 });
 

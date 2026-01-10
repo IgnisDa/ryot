@@ -2,19 +2,20 @@ import { expect, it } from "@effect/vitest";
 import { Effect, Exit, Layer } from "effect";
 
 import { NotFound } from "#lib/errors";
+import { EntitySchemaId, RelationshipSchemaId, UserId } from "#lib/schema/brands";
 import { dbRunnerLayer, makeMock } from "#lib/test-support/effect";
 
 import { RelationshipSchemasRepository } from "./repository";
 import { RelationshipSchemasService } from "./service";
 
 const scope = {
-	id: "rs-id",
+	id: RelationshipSchemaId.make("rs-id"),
 	isBuiltin: true,
 	slug: "in-library",
 	name: "In Library",
 	sourceEntitySchemaId: null,
 	propertiesSchema: { fields: {} },
-	targetEntitySchemaId: "library-id",
+	targetEntitySchemaId: EntitySchemaId.make("library-id"),
 };
 
 const makeRepository = (overrides: Partial<RelationshipSchemasRepository> = {}) =>
@@ -71,7 +72,10 @@ it.effect("returns relationship schema by id for user scope", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RelationshipSchemasService;
-		const found = yield* service.findById("rs-id", "user-id");
+		const found = yield* service.findById(
+			RelationshipSchemaId.make("rs-id"),
+			UserId.make("user-id"),
+		);
 		expect(found).toEqual(scope);
 	}).pipe(Effect.provide(layer));
 });
@@ -85,7 +89,9 @@ it.effect("returns not found when id does not exist or is inaccessible", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RelationshipSchemasService;
-		const exit = yield* Effect.exit(service.findById("missing", "user-id"));
+		const exit = yield* Effect.exit(
+			service.findById(RelationshipSchemaId.make("missing"), UserId.make("user-id")),
+		);
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Relationship schema not found" })));
 	}).pipe(Effect.provide(layer));
 });
@@ -99,7 +105,7 @@ it.effect("finds builtin schema by id with null userId", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RelationshipSchemasService;
-		const found = yield* service.findById("rs-id", null);
+		const found = yield* service.findById(RelationshipSchemaId.make("rs-id"), null);
 		expect(found).toEqual(scope);
 	}).pipe(Effect.provide(layer));
 });

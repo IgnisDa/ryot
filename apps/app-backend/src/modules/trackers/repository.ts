@@ -4,6 +4,7 @@ import { Effect } from "effect";
 import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
 import { DbError, conflict } from "#lib/errors";
+import { type EntitySchemaId, TrackerId, type UserId } from "#lib/schema/brands";
 
 type TrackerRow = typeof schema.tracker.$inferSelect;
 
@@ -19,8 +20,8 @@ type UpdateTrackerInput = {
 	readonly slug: string;
 	readonly name: string;
 	readonly icon: string;
-	readonly userId: string;
-	readonly trackerId: string;
+	readonly userId: UserId;
+	readonly trackerId: TrackerId;
 	readonly isDisabled: boolean;
 	readonly accentColor: string;
 	readonly description: string | null;
@@ -29,7 +30,7 @@ type UpdateTrackerInput = {
 const trackerUserSlugConstraint = "tracker_user_slug_unique";
 
 const toListedTracker = (row: TrackerRow) => ({
-	id: row.id,
+	id: TrackerId.make(row.id),
 	slug: row.slug,
 	name: row.name,
 	icon: row.icon,
@@ -42,7 +43,7 @@ const toListedTracker = (row: TrackerRow) => ({
 });
 
 const toOwnedTracker = (row: TrackerRow) => ({
-	id: row.id,
+	id: TrackerId.make(row.id),
 	slug: row.slug,
 	name: row.name,
 	icon: row.icon,
@@ -54,7 +55,7 @@ const toOwnedTracker = (row: TrackerRow) => ({
 export class TrackersRepository extends Effect.Service<TrackersRepository>()("TrackersRepository", {
 	sync: () => ({
 		listByUser: Effect.fn("TrackersRepository.listByUser")(function* (
-			userId: string,
+			userId: UserId,
 			includeDisabled: boolean,
 		) {
 			const db = yield* CurrentDb;
@@ -79,7 +80,7 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 			return rows.map(toListedTracker);
 		}),
 		create: Effect.fn("TrackersRepository.create")(function* (
-			userId: string,
+			userId: UserId,
 			input: CreateTrackerInput,
 		) {
 			const db = yield* CurrentDb;
@@ -121,7 +122,7 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 			return toListedTracker(row);
 		}),
 		findBySlug: Effect.fn("TrackersRepository.findBySlug")(function* (
-			userId: string,
+			userId: UserId,
 			slug: string,
 		) {
 			const db = yield* CurrentDb;
@@ -133,11 +134,11 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 					.limit(1),
 			);
 
-			return row ?? null;
+			return row ? { id: TrackerId.make(row.id) } : null;
 		}),
 		getOwnedById: Effect.fn("TrackersRepository.getOwnedById")(function* (
-			userId: string,
-			trackerId: string,
+			userId: UserId,
+			trackerId: TrackerId,
 		) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
@@ -171,7 +172,7 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 
 			return row ? toListedTracker(row) : null;
 		}),
-		countOwnedByIds: (userId: string, trackerIds: ReadonlyArray<string>) =>
+		countOwnedByIds: (userId: UserId, trackerIds: ReadonlyArray<TrackerId>) =>
 			trackerIds.length === 0
 				? Effect.succeed(0)
 				: Effect.gen(function* () {
@@ -190,7 +191,7 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 
 						return rows.length;
 					}),
-		listIdsInOrder: Effect.fn("TrackersRepository.listIdsInOrder")(function* (userId: string) {
+		listIdsInOrder: Effect.fn("TrackersRepository.listIdsInOrder")(function* (userId: UserId) {
 			const db = yield* CurrentDb;
 			const rows = yield* dbEffect(() =>
 				db
@@ -200,9 +201,9 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 					.orderBy(asc(schema.tracker.sortOrder), asc(schema.tracker.createdAt)),
 			);
 
-			return rows.map((row) => row.trackerId);
+			return rows.map((row) => TrackerId.make(row.trackerId));
 		}),
-		persistOrder: (userId: string, trackerIds: ReadonlyArray<string>) =>
+		persistOrder: (userId: UserId, trackerIds: ReadonlyArray<TrackerId>) =>
 			trackerIds.length === 0
 				? Effect.succeed([])
 				: Effect.gen(function* () {
@@ -220,8 +221,8 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 						return trackerIds;
 					}),
 		linkEntitySchema: Effect.fn("TrackersRepository.linkEntitySchema")(function* (input: {
-			trackerId: string;
-			entitySchemaId: string;
+			trackerId: TrackerId;
+			entitySchemaId: EntitySchemaId;
 		}) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
@@ -237,7 +238,7 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 				});
 			}
 
-			return row.trackerId;
+			return TrackerId.make(row.trackerId);
 		}),
 	}),
 }) {}
