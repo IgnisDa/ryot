@@ -217,4 +217,20 @@ describe("createCollection", () => {
 			);
 		}
 	});
+
+	it("propagates repository errors", async () => {
+		const failingDeps = {
+			...mockDeps,
+			createCollectionForUser: async () => {
+				throw new Error("Database connection lost");
+			},
+		};
+
+		expect(
+			createCollection(
+				{ body: { name: "Test Collection" }, userId: "user-1" },
+				failingDeps,
+			),
+		).rejects.toThrow("Database connection lost");
+	});
 });
