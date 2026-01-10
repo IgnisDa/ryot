@@ -695,7 +695,169 @@ describe("createCollection", () => {
 				expect(result.message).toContain(
 					"Membership properties validation failed",
 				);
+				// Verify stable error format with field path
+				expect(result.message).toContain("recommendedBy");
 			}
+		});
+
+		describe("stable validation error format", () => {
+			it("includes field path in validation error for missing required field", async () => {
+				const collectionWithRequired = {
+					...mockCollection,
+					properties: {
+						membershipPropertiesSchema: {
+							fields: {
+								rating: {
+									type: "integer",
+									validation: { required: true },
+								},
+							},
+						},
+					},
+				};
+
+				const depsWithRequired = {
+					...mockAddToCollectionDeps,
+					getCollectionById: async () => collectionWithRequired,
+				};
+
+				const result = await addToCollection(
+					{
+						body: {
+							collectionId: "collection-1",
+							entityId: "entity-1",
+							properties: {},
+						},
+						userId: "user-1",
+					},
+					depsWithRequired,
+				);
+
+				expect("error" in result).toBe(true);
+				if ("error" in result) {
+					expect(result.message).toContain("rating");
+				}
+			});
+
+			it("includes field path in validation error for invalid type", async () => {
+				const collectionWithSchema = {
+					...mockCollection,
+					properties: {
+						membershipPropertiesSchema: {
+							fields: {
+								score: { type: "integer" },
+							},
+						},
+					},
+				};
+
+				const depsWithSchema = {
+					...mockAddToCollectionDeps,
+					getCollectionById: async () => collectionWithSchema,
+				};
+
+				const result = await addToCollection(
+					{
+						body: {
+							collectionId: "collection-1",
+							entityId: "entity-1",
+							properties: { score: "not a number" },
+						},
+						userId: "user-1",
+					},
+					depsWithSchema,
+				);
+
+				expect("error" in result).toBe(true);
+				if ("error" in result) {
+					expect(result.message).toContain("score");
+				}
+			});
+
+			it("reports multiple validation errors with stable format", async () => {
+				const collectionWithMultipleRequired = {
+					...mockCollection,
+					properties: {
+						membershipPropertiesSchema: {
+							fields: {
+								name: {
+									type: "string",
+									validation: { required: true },
+								},
+								priority: {
+									type: "integer",
+									validation: { required: true },
+								},
+							},
+						},
+					},
+				};
+
+				const depsWithMultipleRequired = {
+					...mockAddToCollectionDeps,
+					getCollectionById: async () => collectionWithMultipleRequired,
+				};
+
+				const result = await addToCollection(
+					{
+						body: {
+							collectionId: "collection-1",
+							entityId: "entity-1",
+							properties: {},
+						},
+						userId: "user-1",
+					},
+					depsWithMultipleRequired,
+				);
+
+				expect("error" in result).toBe(true);
+				if ("error" in result) {
+					expect(result.message).toContain("name");
+					expect(result.message).toContain("priority");
+				}
+			});
+
+			it("includes nested field path in validation error", async () => {
+				const collectionWithNestedSchema = {
+					...mockCollection,
+					properties: {
+						membershipPropertiesSchema: {
+							fields: {
+								details: {
+									type: "object",
+									properties: {
+										score: { type: "integer" },
+									},
+								},
+							},
+						},
+					},
+				};
+
+				const depsWithNestedSchema = {
+					...mockAddToCollectionDeps,
+					getCollectionById: async () => collectionWithNestedSchema,
+				};
+
+				const result = await addToCollection(
+					{
+						body: {
+							collectionId: "collection-1",
+							entityId: "entity-1",
+							properties: {
+								details: { score: "invalid" },
+							},
+						},
+						userId: "user-1",
+					},
+					depsWithNestedSchema,
+				);
+
+				expect("error" in result).toBe(true);
+				if ("error" in result) {
+					expect(result.message).toContain("details.score");
+				}
+			});
 		});
 
 		it("allows any properties when collection has no membershipPropertiesSchema", async () => {
