@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import { asRecord, parseJsonResponse } from "../script-helpers/records";
 
@@ -24,9 +25,7 @@ export const parseDescription = (value: unknown) => {
 };
 
 export const loadOpenLibraryJson = (host: OpenLibraryHost, url: string, errorPrefix: string) =>
-	host.httpCall("GET", url).then((response) => {
-		if (!response.success) {
-			throw new Error(response.error || `${errorPrefix} request failed`);
-		}
-		return parseJsonResponse(response.data.body, "OpenLibrary");
-	});
+	host.httpCall("GET", url).pipe(
+		Effect.mapError((error) => new Error(error.message || `${errorPrefix} request failed`)),
+		Effect.map((response) => parseJsonResponse(response.body, "OpenLibrary")),
+	);

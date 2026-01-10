@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import type { ProviderSearchInput, ProviderSearchResult } from "@ryot/sandbox-sdk/provider";
 
 import {
@@ -26,52 +27,56 @@ export const firstStringValue = (record: UnknownRecord, keys: readonly string[])
 	keys.reduce<string | null>((value, key) => value ?? stringValue(record[key]), null);
 
 const getTvdbApiKey = (host: TvdbHost) =>
-	host.getAppConfigValue("moviesAndShows.tvdbApiKey").then((response) => {
-		if (!response.success) {
-			throw new Error(response.error || "Failed to retrieve TVDB API key");
-		}
-		const key = stringValue(response.data);
-		if (!key) {
-			throw new Error(
-				"TVDB API key is not configured. Set MOVIES_AND_SHOWS_TVDB_API_KEY in your environment.",
-			);
-		}
-		return key;
-	});
+	host.getAppConfigValue("moviesAndShows.tvdbApiKey").pipe(
+		Effect.mapError((error) => new Error(error.message || "Failed to retrieve TVDB API key")),
+		Effect.map((value) => {
+			const key = stringValue(value);
+			if (!key) {
+				throw new Error(
+					"TVDB API key is not configured. Set MOVIES_AND_SHOWS_TVDB_API_KEY in your environment.",
+				);
+			}
+			return key;
+		}),
+	);
 
-export const getTvdbAccessToken = (host: TvdbHost): Promise<string> =>
-	host.getCachedValue(TOKEN_CACHE_KEY).then((cached) => {
-		const cachedToken = cached.success ? stringValue(cached.data) : null;
-		if (cachedToken) {
-			return cachedToken;
-		}
-		return getTvdbApiKey(host)
-			.then((apiKey) =>
-				host.httpCall("POST", `${TVDB_BASE_URL}/login`, {
-					body: JSON.stringify({ apikey: apiKey }),
-					headers: { "Content-Type": "application/json" },
-				}),
-			)
-			.then((response) => {
-				if (!response.success) {
-					throw new Error(response.error || "TVDB login request failed");
-				}
-				const payload = asRecord(parseJsonResponse(response.data.body, "TVDB"));
-				const token = stringValue(asRecord(payload?.["data"])?.["token"]);
-				if (payload?.["status"] !== "success" || !token) {
-					throw new Error("TVDB login returned no token");
-				}
-				const accessToken = `Bearer ${token}`;
-				return host
-					.setCachedValue(TOKEN_CACHE_KEY, accessToken, TOKEN_CACHE_TTL_SECONDS)
-					.then((cacheResult) => {
-						if (!cacheResult.success) {
-							console.warn(`TVDB token cache write failed: ${cacheResult.error}`);
+export const getTvdbAccessToken = (host: TvdbHost): Effect.Effect<string, unknown> =>
+	host.getCachedValue(TOKEN_CACHE_KEY).pipe(
+		Effect.catchAll(() => Effect.succeed(null)),
+		Effect.flatMap((cached) => {
+			const cachedToken = stringValue(cached);
+			if (cachedToken) {
+				return Effect.succeed(cachedToken);
+			}
+			return getTvdbApiKey(host)
+				.pipe(
+					Effect.flatMap((apiKey) =>
+						host.httpCall("POST", `${TVDB_BASE_URL}/login`, {
+							body: JSON.stringify({ apikey: apiKey }),
+							headers: { "Content-Type": "application/json" },
+						}),
+					),
+				)
+				.pipe(
+					Effect.mapError((error) => new Error(error.message || "TVDB login request failed")),
+					Effect.flatMap((response) => {
+						const payload = asRecord(parseJsonResponse(response.body, "TVDB"));
+						const token = stringValue(asRecord(payload?.["data"])?.["token"]);
+						if (payload?.["status"] !== "success" || !token) {
+							throw new Error("TVDB login returned no token");
 						}
-						return accessToken;
-					});
-			});
-	});
+						const accessToken = `Bearer ${token}`;
+						return host.setCachedValue(TOKEN_CACHE_KEY, accessToken, TOKEN_CACHE_TTL_SECONDS).pipe(
+							Effect.as(accessToken),
+							Effect.catchAll((error) => {
+								console.warn(`TVDB token cache write failed: ${error.message}`);
+								return Effect.succeed(accessToken);
+							}),
+						);
+					}),
+				);
+		}),
+	);
 
 const tvdbRequest = (
 	host: TvdbHost,
@@ -79,42 +84,48 @@ const tvdbRequest = (
 	params: Readonly<Record<string, string>> | undefined,
 	options: { readonly allowMissing: boolean },
 ) =>
-	getTvdbAccessToken(host).then((token) => {
-		const query =
-			params && Object.keys(params).length > 0 ? `?${new URLSearchParams(params).toString()}` : "";
-		return host
-			.httpCall("GET", `${TVDB_BASE_URL}${path}${query}`, { headers: { Authorization: token } })
-			.then((response) => {
-				if (!response.success) {
-					const status = response.data?.status;
-					if (options.allowMissing && (status === 400 || status === 404)) {
-						return null;
-					}
-					throw new Error(response.error || `TVDB request failed: ${path}`);
-				}
-				const payload = asRecord(parseJsonResponse(response.data.body, "TVDB"));
-				if (!payload) {
-					throw new Error("TVDB returned an invalid response object");
-				}
-				const payloadStatus = payload["status"];
-				if (payloadStatus && payloadStatus !== "success") {
-					const message =
-						stringValue(payload["message"]) ??
-						stringValue(payloadStatus) ??
-						JSON.stringify(payloadStatus);
-					throw new Error(`TVDB API error: ${message}`);
-				}
-				return payload;
-			});
-	});
+	getTvdbAccessToken(host).pipe(
+		Effect.flatMap((token) => {
+			const query =
+				params && Object.keys(params).length > 0
+					? `?${new URLSearchParams(params).toString()}`
+					: "";
+			return host
+				.httpCall("GET", `${TVDB_BASE_URL}${path}${query}`, { headers: { Authorization: token } })
+				.pipe(
+					Effect.map((response) => {
+						const payload = asRecord(parseJsonResponse(response.body, "TVDB"));
+						if (!payload) {
+							throw new Error("TVDB returned an invalid response object");
+						}
+						const payloadStatus = payload["status"];
+						if (payloadStatus && payloadStatus !== "success") {
+							const message =
+								stringValue(payload["message"]) ??
+								stringValue(payloadStatus) ??
+								JSON.stringify(payloadStatus);
+							throw new Error(`TVDB API error: ${message}`);
+						}
+						return payload;
+					}),
+					Effect.catchAll((error) =>
+						options.allowMissing
+							? Effect.succeed(null)
+							: Effect.fail(new Error(error.message || `TVDB request failed: ${path}`)),
+					),
+				);
+		}),
+	);
 
 export const tvdbGet = (host: TvdbHost, path: string, params?: Readonly<Record<string, string>>) =>
-	tvdbRequest(host, path, params, { allowMissing: false }).then((payload) => {
-		if (!payload) {
-			throw new Error(`TVDB request failed: ${path}`);
-		}
-		return payload;
-	});
+	tvdbRequest(host, path, params, { allowMissing: false }).pipe(
+		Effect.map((payload) => {
+			if (!payload) {
+				throw new Error(`TVDB request failed: ${path}`);
+			}
+			return payload;
+		}),
+	);
 
 export const tvdbGetOptional = (
 	host: TvdbHost,
@@ -312,43 +323,45 @@ export const searchTvdb = (
 		readonly nameKeys: readonly string[];
 		readonly imageKeys?: readonly string[];
 	},
-): Promise<ProviderSearchResult> => {
+): Effect.Effect<ProviderSearchResult, unknown> => {
 	const offset = (input.page - 1) * input.pageSize;
 	return tvdbGet(host, "/search", {
 		query: input.query,
 		type: options.type,
 		offset: String(offset),
 		limit: String(input.pageSize),
-	}).then((data) => {
-		const results = recordsValue(data["data"]);
-		const links = asRecord(data["links"]);
-		const totalItems = numberValue(links?.["total_items"]) ?? results.length + offset;
-		const hasNext = links?.["next"] != null;
-		const imageKeys = options.imageKeys ?? ["poster", "image_url"];
-		const items = results.flatMap((item) => {
-			const id = stringValue(item["tvdb_id"]);
-			const title = firstStringValue(item, options.nameKeys);
-			if (!id || !title) {
-				return [];
-			}
-			const imageValue = imageKeys.reduce<unknown>((value, key) => value ?? item[key], null);
-			const image = stringValue(imageValue);
-			return [
-				{
-					externalId: id,
-					titleProperty: { kind: "text" as const, value: title },
-					calloutProperty: { kind: "null" as const, value: null },
-					primarySubtitleProperty: { kind: "null" as const, value: null },
-					secondarySubtitleProperty: { kind: "null" as const, value: null },
-					imageProperty: image
-						? { kind: "image" as const, value: { type: "remote" as const, url: image } }
-						: { kind: "null" as const, value: null },
-				},
-			];
-		});
-		return {
-			items,
-			details: { totalItems, nextPage: hasNext ? input.page + 1 : null },
-		};
-	});
+	}).pipe(
+		Effect.map((data) => {
+			const results = recordsValue(data["data"]);
+			const links = asRecord(data["links"]);
+			const totalItems = numberValue(links?.["total_items"]) ?? results.length + offset;
+			const hasNext = links?.["next"] != null;
+			const imageKeys = options.imageKeys ?? ["poster", "image_url"];
+			const items = results.flatMap((item) => {
+				const id = stringValue(item["tvdb_id"]);
+				const title = firstStringValue(item, options.nameKeys);
+				if (!id || !title) {
+					return [];
+				}
+				const imageValue = imageKeys.reduce<unknown>((value, key) => value ?? item[key], null);
+				const image = stringValue(imageValue);
+				return [
+					{
+						externalId: id,
+						titleProperty: { kind: "text" as const, value: title },
+						calloutProperty: { kind: "null" as const, value: null },
+						primarySubtitleProperty: { kind: "null" as const, value: null },
+						secondarySubtitleProperty: { kind: "null" as const, value: null },
+						imageProperty: image
+							? { kind: "image" as const, value: { type: "remote" as const, url: image } }
+							: { kind: "null" as const, value: null },
+					},
+				];
+			});
+			return {
+				items,
+				details: { totalItems, nextPage: hasNext ? input.page + 1 : null },
+			};
+		}),
+	);
 };

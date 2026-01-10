@@ -1,5 +1,6 @@
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
 import type { JsonValue } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
@@ -34,21 +35,25 @@ it.each([
 		{ providerName: "komga" },
 		"Integration komga has been disabled due to too many errors",
 	],
-] as const)("formats %s exclusively from the signal snapshot", (slug, properties, expected) => {
+])("formats %s exclusively from the signal snapshot", (slug, properties, expected) => {
 	const messages: string[] = [];
-	return runSandboxTestDriver(
-		definition.drivers.automation,
-		input(slug, properties),
-		defineSandboxTestHost(manifest, {
-			sendNotification: (message) => {
-				messages.push(message);
-				return Promise.resolve({ data: null, success: true });
-			},
-		}),
-		{ metadata: {}, sandboxScriptId: "script-1" },
-	).then((result) => {
-		expect(result).toEqual({ data: null, success: true });
-		expect(messages).toEqual([expected]);
-		return undefined;
-	});
+	return Effect.runPromise(
+		runSandboxTestDriver(
+			definition.drivers.automation,
+			input(slug, properties),
+			defineSandboxTestHost(manifest, {
+				sendNotification: (message) =>
+					Effect.sync(() => {
+						messages.push(message);
+						return null;
+					}),
+			}),
+			{ metadata: {}, sandboxScriptId: "script-1" },
+		).pipe(
+			Effect.tap((result) => {
+				expect(result).toBeNull();
+				expect(messages).toEqual([expected]);
+			}),
+		),
+	);
 });

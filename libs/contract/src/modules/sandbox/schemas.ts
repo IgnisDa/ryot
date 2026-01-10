@@ -30,8 +30,8 @@ export type SandboxScriptMetadata = Schema.Schema.Type<typeof SandboxScriptMetad
 const SandboxScriptManifestFields = {
 	name: Schema.String,
 	slug: Schema.String,
-	requiredAppConfigKeys: Schema.mutable(Schema.Array(Schema.String)),
-	capabilities: Schema.mutable(Schema.Array(Schema.Literal(...SANDBOX_HOST_CAPABILITIES))),
+	requiredAppConfigKeys: Schema.Array(Schema.String),
+	capabilities: Schema.Array(Schema.Literal(...SANDBOX_HOST_CAPABILITIES)),
 };
 
 export const SandboxScriptManifest = Schema.Union(

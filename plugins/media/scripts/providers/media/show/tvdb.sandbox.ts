@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 import type { ProviderTranslateInput } from "@ryot/sandbox-sdk/provider";
 
@@ -65,11 +66,15 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 
 export const translate = defineProviderDriver(manifest, "translate", (input, host) => {
 	const providerLanguage = bcp47ToTvdb(input.language);
-	const request = getTranslationRequest(input, providerLanguage);
-	return Promise.all([
-		tvdbGetOptional(host, request.translationPath),
-		tvdbGet(host, request.detailsPath).catch(() => null),
-	]).then(([translationData, detailsData]) => {
+	return Effect.gen(function* () {
+		const request = yield* Effect.try({
+			try: () => getTranslationRequest(input, providerLanguage),
+			catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+		});
+		const [translationData, detailsData] = yield* Effect.all([
+			tvdbGetOptional(host, request.translationPath),
+			tvdbGet(host, request.detailsPath).pipe(Effect.catchAll(() => Effect.succeed(null))),
+		]);
 		const detailsShow = detailsData ? asRecord(detailsData["data"]) : null;
 		const artworks = detailsShow ? (detailsShow["artworks"] ?? detailsShow["artwork"]) : null;
 		const image = getLocalizedArtwork(artworks, providerLanguage);

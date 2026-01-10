@@ -134,27 +134,29 @@ export function providerSandboxSource(input: {
 
 	if (input.drivers.search) {
 		providerImports.push("providerSearchResultSchema");
-		declarations.push(`const searchResult = providerSearchResultSchema.parse(JSON.parse(${JSON.stringify(
+		declarations.push(`const searchResult = Schema.decodeUnknownSync(providerSearchResultSchema)(JSON.parse(${JSON.stringify(
 			JSON.stringify(input.drivers.search),
 		)}));
-const search = defineProviderDriver(manifest, "search", async () => searchResult);`);
+const search = defineProviderDriver(manifest, "search", () => Effect.succeed(searchResult));`);
 		driverEntries.push("search");
 	}
 	if (input.drivers.details) {
 		providerImports.push("providerDetailsResultSchema");
-		declarations.push(`const detailsResult = providerDetailsResultSchema.parse(JSON.parse(${JSON.stringify(
+		declarations.push(`const detailsResult = Schema.decodeUnknownSync(providerDetailsResultSchema)(JSON.parse(${JSON.stringify(
 			JSON.stringify(input.drivers.details),
 		)}));
-const details = defineProviderDriver(manifest, "details", async () => detailsResult);`);
+const details = defineProviderDriver(manifest, "details", () => Effect.succeed(detailsResult));`);
 		driverEntries.push("details");
 	}
 	if (input.drivers.translations) {
 		providerImports.push("providerTranslateResultSchema");
-		declarations.push(`const translations = z.record(z.string(), providerTranslateResultSchema).parse(
+		declarations.push(`const translations = Schema.decodeUnknownSync(
+  Schema.Record({ key: Schema.String, value: providerTranslateResultSchema }),
+)(
   JSON.parse(${JSON.stringify(JSON.stringify(input.drivers.translations))}),
 );
-const translate = defineProviderDriver(manifest, "translate", async ({ language }) =>
-  translations[language] ?? {},
+const translate = defineProviderDriver(manifest, "translate", ({ language }) =>
+  Effect.succeed(translations[language] ?? {}),
 );`);
 		driverEntries.push("translate");
 	}
@@ -164,8 +166,8 @@ const translate = defineProviderDriver(manifest, "translate", async ({ language 
 
 	const source = `
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { ${providerImports.join(", ")} } from "@ryot/sandbox-sdk/provider";
-import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
   kind: "provider",

@@ -1,5 +1,6 @@
 import { defineAutomation } from "@ryot/sandbox-sdk/automation";
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
 	capabilities: [],
@@ -11,4 +12,4 @@ export const manifest = defineManifest({
 
 const invalid: string = 42;
 
-export default defineAutomation({ manifest, run: () => Promise.resolve(invalid) });
+export default defineAutomation({ manifest, run: () => Effect.succeed(invalid) });

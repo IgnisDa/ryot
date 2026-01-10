@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { Innertube } from "@ryot/sandbox-sdk/youtubei";
 
 import { asRecord, numberValue, stringValue } from "../script-helpers/records";
@@ -80,7 +81,7 @@ type RequestParts = {
 const resolveRequestParts = (
 	input: Request | string | URL,
 	init?: RequestInit,
-): Promise<RequestParts> => {
+): Effect.Effect<RequestParts> => {
 	const headers: Record<string, string> = {};
 	const applyInit = (base: { url: string; method: string; body: string | undefined }) => {
 		let method = base.method;
@@ -109,12 +110,16 @@ const resolveRequestParts = (
 	};
 	if (input instanceof Request) {
 		mergeHeaders(headers, input.headers);
-		return input.text().then(
-			(text) => applyInit({ url: input.url, method: input.method, body: text ? text : undefined }),
-			() => applyInit({ url: input.url, method: input.method, body: undefined }),
+		return Effect.tryPromise(() => input.text()).pipe(
+			Effect.map((text) =>
+				applyInit({ url: input.url, method: input.method, body: text ? text : undefined }),
+			),
+			Effect.catchAll(() =>
+				Effect.succeed(applyInit({ url: input.url, method: input.method, body: undefined })),
+			),
 		);
 	}
-	return Promise.resolve(applyInit({ url: String(input), method: "GET", body: undefined }));
+	return Effect.succeed(applyInit({ url: String(input), method: "GET", body: undefined }));
 };
 
 // The host adapter satisfies the Innertube `fetch` option; `preconnect` is only present to match
@@ -122,33 +127,38 @@ const resolveRequestParts = (
 export const makeFetch = (host: YoutubeMusicHost): typeof fetch =>
 	Object.assign(
 		(input: Request | string | URL, init?: RequestInit): Promise<Response> =>
-			resolveRequestParts(input, init).then((parts) => {
-				const options: { body?: string; headers?: Record<string, string> } = {};
-				if (parts.body !== undefined) {
-					options.body = parts.body;
-				}
-				if (Object.keys(parts.headers).length > 0) {
-					options.headers = parts.headers;
-				}
-				return host.httpCall(parts.method, parts.url, options).then((result) => {
-					if (!result.success) {
-						return new Response(result.error, { status: result.data?.status ?? 500 });
+			resolveRequestParts(input, init).pipe(
+				Effect.flatMap((parts) => {
+					const options: { body?: string; headers?: Record<string, string> } = {};
+					if (parts.body !== undefined) {
+						options.body = parts.body;
 					}
-					return new Response(result.data.body, {
-						status: result.data.status,
-						headers: result.data.headers,
-					});
-				});
-			}),
+					if (Object.keys(parts.headers).length > 0) {
+						options.headers = parts.headers;
+					}
+					return host.httpCall(parts.method, parts.url, options).pipe(
+						Effect.map(
+							(result) =>
+								new Response(result.body, { status: result.status, headers: result.headers }),
+						),
+						Effect.catchAll((error) =>
+							Effect.succeed(new Response(error.message, { status: 500 })),
+						),
+					);
+				}),
+				Effect.runPromise,
+			),
 		{ preconnect: () => undefined },
 	);
 
 export const createYoutubeMusicClient = (host: YoutubeMusicHost, language?: string) =>
-	Innertube.create({
-		fetch: makeFetch(host),
-		generate_session_locally: true,
-		...(language ? { lang: language } : {}),
-	});
+	Effect.tryPromise(() =>
+		Innertube.create({
+			fetch: makeFetch(host),
+			generate_session_locally: true,
+			...(language ? { lang: language } : {}),
+		}),
+	);
 
 export const createYoutubeHistoryClient = (host: YoutubeMusicHost, authCookie: string) =>
-	Innertube.create({ cookie: authCookie, fetch: makeFetch(host) });
+	Effect.tryPromise(() => Innertube.create({ cookie: authCookie, fetch: makeFetch(host) }));

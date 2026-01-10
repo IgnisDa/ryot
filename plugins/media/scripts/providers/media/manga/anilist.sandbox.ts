@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { cleanHtmlDescription } from "../../../script-helpers/clean-html-description";
@@ -54,45 +55,50 @@ query MediaDetailsQuery($id: Int!) {
 `;
 
 export const details = defineProviderDriver(manifest, "details", (input, host) => {
-	const mediaId = parseAnilistId(input.externalId, "media");
 	const titleLanguage =
 		bcp47ToAnilistMode(manifest.providerInformation.canonicalLanguage) ?? "english";
-	return anilistGraphql(host, "manga details", MEDIA_DETAILS_QUERY, { id: mediaId }).then(
-		(data) => {
-			const media = requireAnilistMedia(data, "MANGA");
-			const idValue = numberValue(media["id"]);
-			const payloadIdentifier = idValue === null ? input.externalId : String(Math.trunc(idValue));
-			const title = pickAnilistTitle(media["title"], titleLanguage);
-			if (!title) {
-				throw new Error("Anilist manga payload is missing title");
-			}
-			const volumesValue = numberValue(media["volumes"]);
-			const statusValue = stringValue(media["status"]);
-			return {
-				name: title,
-				relatedEntityGroups: [
-					{
-						direction: "outgoing" as const,
-						synchronization: "authoritative" as const,
-						relationshipSchemaSlug: "media-suggestion",
-						entities: collectSuggestions(media["recommendations"], titleLanguage),
-					},
-				],
-				properties: {
-					chapters: numberValue(media["chapters"]),
-					providerRating: numberValue(media["averageScore"]),
-					publishYear: parsePublishYear(media["startDate"]),
-					description: cleanHtmlDescription(media["description"]),
-					genres: collectGenres(media["genres"], media["tags"]),
-					productionStatus: statusValue ? toTitleCase(statusValue) : null,
-					isNsfw: typeof media["isAdult"] === "boolean" ? media["isAdult"] : null,
-					images: collectImages(media["coverImage"], media["bannerImage"]),
-					volumes: volumesValue === null ? null : Math.max(0, Math.trunc(volumesValue)),
-					sourceUrl: `https://anilist.co/manga/${payloadIdentifier}/${encodeURIComponent(title)}`,
+	return Effect.gen(function* () {
+		const mediaId = yield* Effect.try({
+			try: () => parseAnilistId(input.externalId, "media"),
+			catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+		});
+		const data = yield* anilistGraphql(host, "manga details", MEDIA_DETAILS_QUERY, { id: mediaId });
+		const media = yield* Effect.try({
+			try: () => requireAnilistMedia(data, "MANGA"),
+			catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+		});
+		const idValue = numberValue(media["id"]);
+		const payloadIdentifier = idValue === null ? input.externalId : String(Math.trunc(idValue));
+		const title = pickAnilistTitle(media["title"], titleLanguage);
+		if (!title) {
+			return yield* Effect.fail({ message: "Anilist manga payload is missing title" });
+		}
+		const volumesValue = numberValue(media["volumes"]);
+		const statusValue = stringValue(media["status"]);
+		return {
+			name: title,
+			relatedEntityGroups: [
+				{
+					direction: "outgoing" as const,
+					synchronization: "authoritative" as const,
+					relationshipSchemaSlug: "media-suggestion",
+					entities: collectSuggestions(media["recommendations"], titleLanguage),
 				},
-			};
-		},
-	);
+			],
+			properties: {
+				chapters: numberValue(media["chapters"]),
+				providerRating: numberValue(media["averageScore"]),
+				publishYear: parsePublishYear(media["startDate"]),
+				description: cleanHtmlDescription(media["description"]),
+				genres: collectGenres(media["genres"], media["tags"]),
+				productionStatus: statusValue ? toTitleCase(statusValue) : null,
+				isNsfw: typeof media["isAdult"] === "boolean" ? media["isAdult"] : null,
+				images: collectImages(media["coverImage"], media["bannerImage"]),
+				volumes: volumesValue === null ? null : Math.max(0, Math.trunc(volumesValue)),
+				sourceUrl: `https://anilist.co/manga/${payloadIdentifier}/${encodeURIComponent(title)}`,
+			},
+		};
+	});
 });
 
 export const translate = defineProviderDriver(manifest, "translate", (input, host) =>

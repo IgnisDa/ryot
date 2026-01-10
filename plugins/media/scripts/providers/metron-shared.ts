@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import { numberValue, parseJsonResponse, stringValue } from "../script-helpers/records";
 
@@ -13,39 +14,41 @@ export const getIdentifier = (value: unknown) => {
 };
 
 export const getMetronCredentials = (host: MetronHost) =>
-	host.getAppConfigValue("comicBooks.metronUsername").then((usernameResponse) => {
-		if (!usernameResponse.success) {
-			throw new Error(usernameResponse.error || "Could not load Metron username");
+	Effect.gen(function* () {
+		const usernameValue = yield* host
+			.getAppConfigValue("comicBooks.metronUsername")
+			.pipe(
+				Effect.mapError((error) => new Error(error.message || "Could not load Metron username")),
+			);
+		const passwordValue = yield* host
+			.getAppConfigValue("comicBooks.metronPassword")
+			.pipe(
+				Effect.mapError((error) => new Error(error.message || "Could not load Metron password")),
+			);
+		const username = stringValue(usernameValue);
+		const password = stringValue(passwordValue);
+		if (!username || !password) {
+			throw new Error("Metron credentials are not configured");
 		}
-		return host.getAppConfigValue("comicBooks.metronPassword").then((passwordResponse) => {
-			if (!passwordResponse.success) {
-				throw new Error(passwordResponse.error || "Could not load Metron password");
-			}
-			const username = stringValue(usernameResponse.data);
-			const password = stringValue(passwordResponse.data);
-			if (!username || !password) {
-				throw new Error("Metron credentials are not configured");
-			}
-			return { username, password };
-		});
+		return { username, password };
 	});
 
 export const loadMetronJson = (
 	host: MetronHost,
 	url: string,
 	failureMessage: string,
-): Promise<unknown> =>
-	getMetronCredentials(host).then((credentials) =>
-		host
-			.httpCall("GET", url, {
-				headers: {
-					Authorization: `Basic ${btoa(`${credentials.username}:${credentials.password}`)}`,
-				},
-			})
-			.then((response) => {
-				if (!response.success) {
-					throw new Error(response.error || failureMessage);
-				}
-				return parseJsonResponse(response.data.body, "Metron");
-			}),
+): Effect.Effect<unknown, unknown> =>
+	getMetronCredentials(host).pipe(
+		Effect.flatMap((credentials) =>
+			host
+				.httpCall("GET", url, {
+					headers: {
+						Authorization: `Basic ${btoa(`${credentials.username}:${credentials.password}`)}`,
+					},
+				})
+				.pipe(
+					Effect.mapError((error) => new Error(error.message || failureMessage)),
+					Effect.map((response) => parseJsonResponse(response.body, "Metron")),
+				),
+		),
 	);
