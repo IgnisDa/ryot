@@ -1,4 +1,4 @@
-import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
+import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../auth-middleware";
@@ -7,11 +7,13 @@ import { EntityId } from "../../schema/brands";
 import { CreateEventItem, CreateEventsResponse, ListedEvent } from "./schemas";
 
 export const EventsGroup = HttpApiGroup.make("events")
+	.annotate(OpenApi.Description, "List and create entity events.")
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
 	.middleware(AuthMiddleware)
 	.add(
 		HttpApiEndpoint.get("list", "/events")
+			.annotate(OpenApi.Description, "List events matching the requested filters.")
 			.setUrlParams(
 				Schema.Struct({
 					entityId: Schema.optional(EntityId),
@@ -24,6 +26,7 @@ export const EventsGroup = HttpApiGroup.make("events")
 	)
 	.add(
 		HttpApiEndpoint.post("create", "/events")
+			.annotate(OpenApi.Description, "Create one or more events.")
 			.setPayload(Schema.Array(CreateEventItem))
 			.addSuccess(CreateEventsResponse, { status: 201 })
 			.addError(NotFound, { status: 404 }),
