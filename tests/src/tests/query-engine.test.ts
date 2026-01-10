@@ -43,6 +43,7 @@ import {
 	toQueryEngineItem,
 	waitForEventCount,
 } from "../fixtures";
+import { getPgClient } from "../setup";
 import { assertPresent, assertTaggedError } from "../test-support/assertions";
 import { registerQueryEnginePresentationAndErrorTests } from "../test-support/query-engine-suite";
 
@@ -365,7 +366,7 @@ describe("Query engine E2E", () => {
 	});
 
 	it("required join excludes entities with no matching relationship row", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { trackerId } = await createTracker(client, {
 			name: "Required Join Tracker",
 		});
@@ -405,8 +406,7 @@ describe("Query engine E2E", () => {
 			entitySchemaId: schema.schemaId,
 			name: `Target ${crypto.randomUUID()}`,
 		});
-		await insertRelationshipRow({
-			userId,
+		await insertRelationshipRow(client, {
 			targetEntityId: targetId,
 			sourceEntityId: entityAId,
 			relationshipSchemaId: relSchema.id,
@@ -487,7 +487,7 @@ describe("Query engine E2E", () => {
 	});
 
 	it("returns a relationship property as a display field", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { trackerId } = await createTracker(client, {
 			name: "Rel Property Tracker",
 		});
@@ -520,8 +520,7 @@ describe("Query engine E2E", () => {
 			entitySchemaId: schema.schemaId,
 			name: `Rating Target ${crypto.randomUUID()}`,
 		});
-		await insertRelationshipRow({
-			userId,
+		await insertRelationshipRow(client, {
 			sourceEntityId: entityId,
 			targetEntityId: targetId,
 			properties: { rating: 8 },
@@ -566,7 +565,7 @@ describe("Query engine E2E", () => {
 	});
 
 	it("sorts by a relationship-derived scalar", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { trackerId } = await createTracker(client, {
 			name: "Rel Sort Tracker",
 		});
@@ -607,15 +606,13 @@ describe("Query engine E2E", () => {
 			entitySchemaId: schema.schemaId,
 			name: `Sort Target ${crypto.randomUUID()}`,
 		});
-		await insertRelationshipRow({
-			userId,
+		await insertRelationshipRow(client, {
 			sourceEntityId: lowId,
 			targetEntityId: targetId,
 			properties: { rating: 2 },
 			relationshipSchemaId: relSchema.id,
 		});
-		await insertRelationshipRow({
-			userId,
+		await insertRelationshipRow(client, {
 			sourceEntityId: highId,
 			targetEntityId: targetId,
 			properties: { rating: 9 },
@@ -677,7 +674,7 @@ describe("Query engine E2E", () => {
 	});
 
 	it("filters by a relationship property using a comparison operator", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { trackerId } = await createTracker(client, {
 			name: "Rel Filter Tracker",
 		});
@@ -726,22 +723,19 @@ describe("Query engine E2E", () => {
 			properties: {},
 			entitySchemaId: schema.schemaId,
 		});
-		await insertRelationshipRow({
-			userId,
+		await insertRelationshipRow(client, {
 			sourceEntityId: idA,
 			targetEntityId: targetId,
 			properties: { rating: 3 },
 			relationshipSchemaId: relSchema.id,
 		});
-		await insertRelationshipRow({
-			userId,
+		await insertRelationshipRow(client, {
 			sourceEntityId: idB,
 			targetEntityId: targetId,
 			properties: { rating: 7 },
 			relationshipSchemaId: relSchema.id,
 		});
-		await insertRelationshipRow({
-			userId,
+		await insertRelationshipRow(client, {
 			sourceEntityId: idC,
 			targetEntityId: targetId,
 			properties: { rating: 10 },
@@ -821,7 +815,7 @@ describe("Query engine E2E", () => {
 	});
 
 	it("filters by a relationship array property using contains", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { trackerId } = await createTracker(client, {
 			name: "Rel Array Filter Tracker",
 		});
@@ -869,15 +863,13 @@ describe("Query engine E2E", () => {
 			name: actorName,
 			entitySchemaId: schema.schemaId,
 		});
-		await insertRelationshipRow({
-			userId,
+		await insertRelationshipRow(client, {
 			targetEntityId: targetId,
 			sourceEntityId: directorId,
 			relationshipSchemaId: relSchema.id,
 			properties: { roles: ["director"] },
 		});
-		await insertRelationshipRow({
-			userId,
+		await insertRelationshipRow(client, {
 			sourceEntityId: actorId,
 			targetEntityId: targetId,
 			properties: { roles: ["actor"] },
@@ -944,7 +936,7 @@ describe("Query engine E2E", () => {
 	});
 
 	it("join-local filter selects from pre-filtered rows, not latest overall", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { trackerId } = await createTracker(client, {
 			name: "Join Local Filter Tracker",
 		});
@@ -984,16 +976,17 @@ describe("Query engine E2E", () => {
 			entitySchemaId: schema.schemaId,
 			name: `Local Filter Target 2 ${crypto.randomUUID()}`,
 		});
-		await insertRelationshipRow({
-			userId,
+		const rel1 = await insertRelationshipRow(client, {
 			sourceEntityId: entityId,
 			targetEntityId: target1Id,
 			properties: { rating: 1 },
 			relationshipSchemaId: relSchema.id,
-			createdAt: new Date(Date.now() - 10000),
 		});
-		await insertRelationshipRow({
-			userId,
+		await getPgClient().query(`update relationship set created_at = $1 where id = $2`, [
+			new Date(Date.now() - 10000).toISOString(),
+			rel1.id,
+		]);
+		await insertRelationshipRow(client, {
 			sourceEntityId: entityId,
 			targetEntityId: target2Id,
 			properties: { rating: 5 },
@@ -1053,7 +1046,7 @@ describe("Query engine E2E", () => {
 	});
 
 	it("sourceEntityId constraint filters relationship rows to a specific source", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { trackerId } = await createTracker(client, {
 			name: "Source Entity Id Tracker",
 		});
@@ -1092,14 +1085,12 @@ describe("Query engine E2E", () => {
 			entitySchemaId: entitySchema.schemaId,
 			name: `Source Coll C ${crypto.randomUUID()}`,
 		});
-		await insertRelationshipRow({
-			userId,
+		await insertRelationshipRow(client, {
 			targetEntityId: collBId,
 			sourceEntityId: memberId,
 			relationshipSchemaId: relSchema.id,
 		});
-		await insertRelationshipRow({
-			userId,
+		await insertRelationshipRow(client, {
 			targetEntityId: collCId,
 			sourceEntityId: memberId,
 			relationshipSchemaId: relSchema.id,
@@ -1145,7 +1136,7 @@ describe("Query engine E2E", () => {
 	});
 
 	it("targetEntityId constraint returns entity with the correct relationship target", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { trackerId } = await createTracker(client, {
 			name: "Target Entity Id Tracker",
 		});
@@ -1183,14 +1174,12 @@ describe("Query engine E2E", () => {
 			entitySchemaId: entitySchema.schemaId,
 			name: `Target Coll C ${crypto.randomUUID()}`,
 		});
-		await insertRelationshipRow({
-			userId,
+		await insertRelationshipRow(client, {
 			targetEntityId: collBId,
 			sourceEntityId: memberId,
 			relationshipSchemaId: relSchema.id,
 		});
-		await insertRelationshipRow({
-			userId,
+		await insertRelationshipRow(client, {
 			targetEntityId: collCId,
 			sourceEntityId: memberId,
 			relationshipSchemaId: relSchema.id,
