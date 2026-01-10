@@ -1,7 +1,7 @@
 use anyhow::Result;
-use common_utils::{APPLICATION_JSON_HEADER, get_base_http_client, ryot_log};
+use common_utils::{APPLICATION_JSON_HEADER, get_http_client_with_tls_config, ryot_log};
 use reqwest::{
-    Client,
+    Client, ClientBuilder,
     header::{ACCEPT, AUTHORIZATION, HeaderValue},
 };
 use sea_orm::prelude::DateTimeUtc;
@@ -64,12 +64,16 @@ pub mod jellyfin {
         base_url: &String,
         username: &String,
         password: &Option<String>,
+        danger_accept_invalid_certs: bool,
     ) -> Result<(Client, String)> {
         let mut emby_header_value =
             r#"MediaBrowser , Client="other", Device="script", DeviceId="script", Version="0.0.0""#
                 .to_string();
         let uri = format!("{base_url}/Users/AuthenticateByName");
-        let client = Client::new();
+        let client = ClientBuilder::new()
+            .danger_accept_invalid_certs(danger_accept_invalid_certs)
+            .build()
+            .unwrap();
         let authenticate_request = client
             .post(uri)
             .header(AUTHORIZATION, &emby_header_value)
@@ -93,13 +97,16 @@ pub mod jellyfin {
 
         emby_header_value.push_str(&format!(r#", Token="{}""#, authenticate.access_token));
 
-        let client = get_base_http_client(Some(vec![
-            (ACCEPT, APPLICATION_JSON_HEADER),
-            (
-                AUTHORIZATION,
-                HeaderValue::from_str(&emby_header_value).unwrap(),
-            ),
-        ]));
+        let client = get_http_client_with_tls_config(
+            Some(vec![
+                (ACCEPT, APPLICATION_JSON_HEADER),
+                (
+                    AUTHORIZATION,
+                    HeaderValue::from_str(&emby_header_value).unwrap(),
+                ),
+            ]),
+            danger_accept_invalid_certs,
+        );
         let user_id = authenticate.user.id;
         ryot_log!(debug, "Authenticated as user id: {}", user_id);
 
