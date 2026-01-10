@@ -8,7 +8,7 @@ import {
 	createRelationshipSchema,
 	createQueryEngineEntity,
 	createQueryEngineEvent,
-	createQueryEngineTrackerAndSchema,
+	createQueryEnginePluginSchema,
 	executeQueryEngine,
 	propertyRef,
 	requireQueryEngineFieldValue,
@@ -23,8 +23,10 @@ describe("Event roots and first expressions", () => {
 	it.live("returns root event rows with event and attached entity fields", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: lessonSchemaId, slug: lessonSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "EventRootLesson" });
+			const { schemaId: lessonSchemaId, slug: lessonSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{ schemaName: "EventRootLesson" },
+			);
 			const completeSlug = `event-root-complete-${crypto.randomUUID()}`;
 			const completeSchema = yield* createEventSchema(client, {
 				slug: completeSlug,
@@ -99,8 +101,10 @@ describe("Event roots and first expressions", () => {
 	it.live("returns latest event scalar values with first and null when no event matches", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: lessonSchemaId, slug: lessonSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "FirstExprLesson" });
+			const { schemaId: lessonSchemaId, slug: lessonSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{ schemaName: "FirstExprLesson" },
+			);
 			const completeSlug = `first-complete-${crypto.randomUUID()}`;
 			const completeSchema = yield* createEventSchema(client, {
 				slug: completeSlug,
@@ -177,17 +181,21 @@ describe("Event roots and first expressions", () => {
 	it.live("selects the first related child entity by an ordered edge property", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: courseSchemaId, slug: courseSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "FirstEntityCourse" });
-			const { schemaId: moduleSchemaId, slug: moduleSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId: courseSchemaId, slug: courseSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{ schemaName: "FirstEntityCourse" },
+			);
+			const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{
 					schemaName: "FirstEntityModule",
 					propertiesSchema: {
 						fields: {
 							moduleNumber: { type: "integer", label: "Module Number", description: "Sort order" },
 						},
 					},
-				});
+				},
+			);
 			const relationshipSlug = `first-entity-course-module-${crypto.randomUUID()}`;
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				name: "First Entity Course Module",
@@ -286,17 +294,21 @@ describe("Event roots and first expressions", () => {
 	it.live("uses a first-derived scalar inside coalesce fields and where filters", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: courseSchemaId, slug: courseSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "FirstWhereCourse" });
-			const { schemaId: moduleSchemaId, slug: moduleSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId: courseSchemaId, slug: courseSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{ schemaName: "FirstWhereCourse" },
+			);
+			const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{
 					schemaName: "FirstWhereModule",
 					propertiesSchema: {
 						fields: {
 							moduleNumber: { type: "integer", label: "Module Number", description: "Sort order" },
 						},
 					},
-				});
+				},
+			);
 			const relationshipSlug = `first-where-course-module-${crypto.randomUUID()}`;
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				name: "First Where Course Module",

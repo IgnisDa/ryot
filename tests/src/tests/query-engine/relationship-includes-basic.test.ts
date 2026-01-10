@@ -8,7 +8,7 @@ import {
 	createRelationshipSchema,
 	createQueryEngineEntity,
 	createQueryEngineEvent,
-	createQueryEngineTrackerAndSchema,
+	createQueryEnginePluginSchema,
 	executeQueryEngine,
 	propertyRef,
 	requireQueryEngineFieldValue,
@@ -22,17 +22,21 @@ describe("Relationship includes", () => {
 	it.live("returns one-hop entity includes with limit metadata", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: courseSchemaId, slug: courseSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "IncludeCourse" });
-			const { schemaId: moduleSchemaId, slug: moduleSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId: courseSchemaId, slug: courseSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{ schemaName: "IncludeCourse" },
+			);
+			const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{
 					schemaName: "IncludeModule",
 					propertiesSchema: {
 						fields: {
 							moduleNumber: { type: "integer", label: "Module Number", description: "Sort order" },
 						},
 					},
-				});
+				},
+			);
 			const relationshipSlug = `course-module-${crypto.randomUUID()}`;
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				name: "Course Module",
@@ -151,17 +155,21 @@ describe("Relationship includes", () => {
 	it.live("orders nested includes numerically by an integer property, not lexicographically", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: courseSchemaId, slug: courseSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "NumOrderCourse" });
-			const { schemaId: moduleSchemaId, slug: moduleSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId: courseSchemaId, slug: courseSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{ schemaName: "NumOrderCourse" },
+			);
+			const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{
 					schemaName: "NumOrderModule",
 					propertiesSchema: {
 						fields: {
 							moduleNumber: { type: "integer", label: "Module Number", description: "Sort order" },
 						},
 					},
-				});
+				},
+			);
 			const relationshipSlug = `num-course-module-${crypto.randomUUID()}`;
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				name: "Num Course Module",
@@ -245,26 +253,32 @@ describe("Relationship includes", () => {
 	it.live("returns deep entity includes with event existence fields", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: courseSchemaId, slug: courseSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "DeepCourse" });
-			const { schemaId: moduleSchemaId, slug: moduleSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId: courseSchemaId, slug: courseSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{ schemaName: "DeepCourse" },
+			);
+			const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{
 					schemaName: "DeepModule",
 					propertiesSchema: {
 						fields: {
 							moduleNumber: { type: "integer", label: "Module Number", description: "Sort order" },
 						},
 					},
-				});
-			const { schemaId: lessonSchemaId, slug: lessonSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, {
+				},
+			);
+			const { schemaId: lessonSchemaId, slug: lessonSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{
 					schemaName: "DeepLesson",
 					propertiesSchema: {
 						fields: {
 							lessonNumber: { type: "integer", label: "Lesson Number", description: "Sort order" },
 						},
 					},
-				});
+				},
+			);
 			const completeSlug = `complete-${crypto.randomUUID()}`;
 			const completeSchema = yield* createEventSchema(client, {
 				slug: completeSlug,

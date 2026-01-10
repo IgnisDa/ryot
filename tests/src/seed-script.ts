@@ -120,7 +120,7 @@ type SavedViewDisplayConfigInput = {
 type SavedViewSpec = {
 	name: string;
 	icon: string;
-	trackerId?: PluginSlug;
+	pluginSlug?: PluginSlug;
 	accentColor: string;
 	queryDocument: SavedViewQueryDocument;
 	displayConfiguration: SavedViewDisplayConfigInput;
@@ -492,7 +492,7 @@ async function createSavedView(
 	accentColor: string,
 	queryDocument: SavedViewQueryDocument,
 	displayConfiguration: SavedViewDisplayConfigInput,
-	trackerId?: PluginSlug,
+	pluginSlug?: PluginSlug,
 ) {
 	const sourceSchemas =
 		queryDocument.source.type === "entities"
@@ -603,7 +603,7 @@ async function createSavedView(
 				name,
 				icon,
 				accentColor,
-				pluginSlug: trackerId,
+				pluginSlug,
 				queryDocument,
 				displayConfiguration: normalizedDisplayConfiguration,
 			},
@@ -831,9 +831,9 @@ function generatePlacePhoto(): Record<string, unknown> {
 }
 
 async function seedWhiskeys(client: APIClient) {
-	console.log("\n🥃 Seeding Whiskeys Tracker...");
+	console.log("\n🥃 Seeding Whiskeys Plugin...");
 
-	const tracker = await createPluginScope(
+	const pluginScope = await createPluginScope(
 		client,
 		"Whiskeys",
 		"whiskeys",
@@ -846,7 +846,7 @@ async function seedWhiskeys(client: APIClient) {
 		client,
 		"Whiskey",
 		"whiskey",
-		tracker.id,
+		pluginScope.id,
 		"wine",
 		"#D97706",
 		{
@@ -967,13 +967,13 @@ async function seedWhiskeys(client: APIClient) {
 	const totalEvents = whiskeyEvents.length;
 	console.log(`  ✓ Created ${totalEvents} events for whiskeys`);
 
-	return { tracker, entities, entityCount, eventCount: totalEvents };
+	return { pluginScope, entities, entityCount, eventCount: totalEvents };
 }
 
 async function seedPlaces(client: APIClient) {
-	console.log("\n📍 Seeding Places Tracker...");
+	console.log("\n📍 Seeding Places Plugin...");
 
-	const tracker = await createPluginScope(
+	const pluginScope = await createPluginScope(
 		client,
 		"Places",
 		"places",
@@ -986,7 +986,7 @@ async function seedPlaces(client: APIClient) {
 		client,
 		"Place",
 		"place",
-		tracker.id,
+		pluginScope.id,
 		"map-pin",
 		"#3B82F6",
 		{
@@ -1140,13 +1140,13 @@ async function seedPlaces(client: APIClient) {
 	const totalEvents = placeEvents.length;
 	console.log(`  ✓ Created ${totalEvents} events for places`);
 
-	return { tracker, entities, entityCount, eventCount: totalEvents };
+	return { pluginScope, entities, entityCount, eventCount: totalEvents };
 }
 
 async function seedMobilePhones(client: APIClient) {
-	console.log("\n📱 Seeding Mobile Phones Tracker...");
+	console.log("\n📱 Seeding Mobile Phones Plugin...");
 
-	const tracker = await createPluginScope(
+	const pluginScope = await createPluginScope(
 		client,
 		"Mobile Phones",
 		"mobile-phones",
@@ -1159,7 +1159,7 @@ async function seedMobilePhones(client: APIClient) {
 		client,
 		"Smartphone",
 		"smartphone",
-		tracker.id,
+		pluginScope.id,
 		"smartphone",
 		"#6B7280",
 		{
@@ -1208,7 +1208,7 @@ async function seedMobilePhones(client: APIClient) {
 		client,
 		"Feature Phone",
 		"feature-phone",
-		tracker.id,
+		pluginScope.id,
 		"phone",
 		"#9CA3AF",
 		{
@@ -1247,7 +1247,7 @@ async function seedMobilePhones(client: APIClient) {
 		client,
 		"Tablet",
 		"tablet",
-		tracker.id,
+		pluginScope.id,
 		"tablet",
 		"#4B5563",
 		{
@@ -1349,7 +1349,7 @@ async function seedMobilePhones(client: APIClient) {
 	console.log(`  ✓ Created ${tabletCount} tablets`);
 
 	return {
-		tracker,
+		pluginScope,
 		entities,
 		entityCount: smartphoneCount + featurePhoneCount + tabletCount,
 		eventCount: 0,
@@ -1561,12 +1561,12 @@ function generateEpisodicProgressFields(slug: MediaEntitySchemaSlug): Record<str
 // ─── Media seeding ──────────────────────────────────────────────────────────
 
 async function seedMedia(client: APIClient, executingUserId: string) {
-	console.log("\n🎬 Seeding Media Tracker...");
+	console.log("\n🎬 Seeding Media Plugin...");
 
-	const builtinTracker = await getBuiltinWorkspace(client);
-	console.log(`  Found builtin plugin: ${builtinTracker.name} (${builtinTracker.id})`);
+	const builtinPluginScope = await getBuiltinWorkspace(client);
+	console.log(`  Found builtin plugin: ${builtinPluginScope.name} (${builtinPluginScope.id})`);
 
-	const allSchemas = await listMediaEntitySchemas(client, builtinTracker.id);
+	const allSchemas = await listMediaEntitySchemas(client, builtinPluginScope.id);
 	const schemas = allSchemas.filter((s) =>
 		(MEDIA_ENTITY_SCHEMA_SLUGS as readonly string[]).includes(s.slug),
 	);
@@ -1760,7 +1760,7 @@ async function seedMedia(client: APIClient, executingUserId: string) {
 	console.log(`\n  ✓ Media seeding complete: ${totalEntities} entities, ${totalEvents} events`);
 
 	return {
-		tracker: builtinTracker,
+		pluginScope: builtinPluginScope,
 		entities: allEntities,
 		entityCount: totalEntities,
 		eventCount: totalEvents,
@@ -1884,7 +1884,7 @@ async function seedCollections(
 
 	const allStarPicks = await createCollection(client, {
 		name: "All-Star Picks",
-		description: "Cross-tracker highlights pulled together with ad-hoc notes",
+		description: "Cross-plugin highlights pulled together with ad-hoc notes",
 	});
 
 	const collectionGuide = await createCollection(client, {
@@ -1969,7 +1969,7 @@ async function seedCollections(
 		membershipCount++;
 	}
 
-	console.log("  Adding cross-tracker memberships...");
+	console.log("  Adding cross-plugin memberships...");
 	const showcaseMembers = [
 		...faker.helpers.arrayElements(input.whiskeys, 3),
 		...faker.helpers.arrayElements(input.places, 3),
@@ -2041,9 +2041,9 @@ async function seedCollections(
 
 async function seedSavedViews(
 	client: APIClient,
-	whiskeyTrackerId: PluginSlug,
-	placesTrackerId: PluginSlug,
-	phonesTrackerId: PluginSlug,
+	whiskeyPluginSlug: PluginSlug,
+	placesPluginSlug: PluginSlug,
+	phonesPluginSlug: PluginSlug,
 ) {
 	console.log("\n💾 Seeding Saved Views...");
 
@@ -2058,7 +2058,7 @@ async function seedSavedViews(
 
 	const whiskeyViews: SavedViewSpec[] = [
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Premium Aged Whiskeys",
 			icon: "wine",
 			accentColor: "#D97706",
@@ -2079,7 +2079,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Scotch Whiskeys",
 			icon: "wine",
 			accentColor: "#B45309",
@@ -2100,7 +2100,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "High Proof Whiskeys",
 			icon: "flame",
 			accentColor: "#DC2626",
@@ -2122,7 +2122,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Recent Whiskey Additions",
 			icon: "clock",
 			accentColor: "#F59E0B",
@@ -2142,7 +2142,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Japanese Whiskeys",
 			icon: "wine",
 			accentColor: "#DC2626",
@@ -2162,7 +2162,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Whiskey Regions Atlas",
 			icon: "map",
 			accentColor: "#7C3AED",
@@ -2184,7 +2184,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Cask Strength Candidates",
 			icon: "flame",
 			accentColor: "#991B1B",
@@ -2208,7 +2208,7 @@ async function seedSavedViews(
 
 	const placeViews: SavedViewSpec[] = [
 		{
-			trackerId: placesTrackerId,
+			pluginSlug: placesPluginSlug,
 			name: "Restaurants & Cafes",
 			icon: "utensils",
 			accentColor: "#EF4444",
@@ -2229,7 +2229,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: placesTrackerId,
+			pluginSlug: placesPluginSlug,
 			name: "Cultural Venues",
 			icon: "landmark",
 			accentColor: "#8B5CF6",
@@ -2250,7 +2250,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: placesTrackerId,
+			pluginSlug: placesPluginSlug,
 			name: "Parks & Outdoor Spaces",
 			icon: "tree",
 			accentColor: "#10B981",
@@ -2270,7 +2270,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: placesTrackerId,
+			pluginSlug: placesPluginSlug,
 			name: "Recently Added Places",
 			icon: "clock",
 			accentColor: "#3B82F6",
@@ -2291,7 +2291,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: placesTrackerId,
+			pluginSlug: placesPluginSlug,
 			name: "Places by Country",
 			icon: "globe",
 			accentColor: "#06B6D4",
@@ -2313,7 +2313,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: placesTrackerId,
+			pluginSlug: placesPluginSlug,
 			name: "Mapped Places",
 			icon: "map-pin",
 			accentColor: "#0F766E",
@@ -2334,7 +2334,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: placesTrackerId,
+			pluginSlug: placesPluginSlug,
 			name: "City Address Book",
 			icon: "book-open",
 			accentColor: "#1D4ED8",
@@ -2359,7 +2359,7 @@ async function seedSavedViews(
 
 	const phoneViews: SavedViewSpec[] = [
 		{
-			trackerId: phonesTrackerId,
+			pluginSlug: phonesPluginSlug,
 			name: "Modern Smartphones",
 			icon: "smartphone",
 			accentColor: "#6366F1",
@@ -2380,7 +2380,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: phonesTrackerId,
+			pluginSlug: phonesPluginSlug,
 			name: "High Storage Devices",
 			icon: "hard-drive",
 			accentColor: "#EC4899",
@@ -2402,7 +2402,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: phonesTrackerId,
+			pluginSlug: phonesPluginSlug,
 			name: "Apple Ecosystem Devices",
 			icon: "apple",
 			accentColor: "#6B7280",
@@ -2424,7 +2424,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: phonesTrackerId,
+			pluginSlug: phonesPluginSlug,
 			name: "Android Devices",
 			icon: "android",
 			accentColor: "#22C55E",
@@ -2445,7 +2445,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: phonesTrackerId,
+			pluginSlug: phonesPluginSlug,
 			name: "Premium Smartphones",
 			icon: "gem",
 			accentColor: "#A855F7",
@@ -2468,7 +2468,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: phonesTrackerId,
+			pluginSlug: phonesPluginSlug,
 			name: "Budget-Friendly Phones",
 			icon: "dollar-sign",
 			accentColor: "#10B981",
@@ -2489,7 +2489,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: phonesTrackerId,
+			pluginSlug: phonesPluginSlug,
 			name: "Large Screen Devices",
 			icon: "smartphone",
 			accentColor: "#F97316",
@@ -2510,7 +2510,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: phonesTrackerId,
+			pluginSlug: phonesPluginSlug,
 			name: "Tablets with Cellular",
 			icon: "signal",
 			accentColor: "#EA580C",
@@ -2531,7 +2531,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: phonesTrackerId,
+			pluginSlug: phonesPluginSlug,
 			name: "Feature Phones with Camera",
 			icon: "camera",
 			accentColor: "#84CC16",
@@ -2553,7 +2553,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: phonesTrackerId,
+			pluginSlug: phonesPluginSlug,
 			name: "All Mobile Devices",
 			icon: "tablet",
 			accentColor: "#475569",
@@ -2584,7 +2584,7 @@ async function seedSavedViews(
 		},
 	];
 
-	const crossTrackerViews: SavedViewSpec[] = [
+	const crossPluginViews: SavedViewSpec[] = [
 		{
 			name: "Everything Recently Added",
 			icon: "star",
@@ -2706,7 +2706,7 @@ async function seedSavedViews(
 	const demoViews: SavedViewSpec[] = [
 		// ── Event joins ────────────────────────────────────────────────────────
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Latest Tasting",
 			icon: "star",
 			accentColor: "#F59E0B",
@@ -2728,7 +2728,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Highly Rated",
 			icon: "trophy",
 			accentColor: "#D97706",
@@ -2750,7 +2750,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Latest Purchase",
 			icon: "shopping-cart",
 			accentColor: "#059669",
@@ -2772,7 +2772,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: placesTrackerId,
+			pluginSlug: placesPluginSlug,
 			name: "Demo: Places – Last Visited",
 			icon: "calendar",
 			accentColor: "#3B82F6",
@@ -2795,7 +2795,7 @@ async function seedSavedViews(
 		},
 		// ── Computed fields ────────────────────────────────────────────────────
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – ABV Reference",
 			icon: "percent",
 			accentColor: "#7C3AED",
@@ -2817,7 +2817,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Quality Tiers",
 			icon: "layers",
 			accentColor: "#BE185D",
@@ -2839,7 +2839,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Full Description",
 			icon: "file-text",
 			accentColor: "#0284C7",
@@ -2859,7 +2859,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Rating with ABV",
 			icon: "activity",
 			accentColor: "#C026D3",
@@ -2881,7 +2881,7 @@ async function seedSavedViews(
 		},
 		// ── Complex filters ────────────────────────────────────────────────────
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Rare Bourbons",
 			icon: "award",
 			accentColor: "#92400E",
@@ -2902,7 +2902,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Not Rye",
 			icon: "x-circle",
 			accentColor: "#6B7280",
@@ -2923,7 +2923,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Bourbon or Scotch, High Proof",
 			icon: "zap",
 			accentColor: "#B45309",
@@ -2945,7 +2945,7 @@ async function seedSavedViews(
 		},
 		// ── isNull / isNotNull ─────────────────────────────────────────────────
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Unknown Region",
 			icon: "help-circle",
 			accentColor: "#9CA3AF",
@@ -2966,7 +2966,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: placesTrackerId,
+			pluginSlug: placesPluginSlug,
 			name: "Demo: Places – Has Full Address",
 			icon: "map-pin",
 			accentColor: "#0F766E",
@@ -2988,7 +2988,7 @@ async function seedSavedViews(
 		},
 		// ── contains / neq ─────────────────────────────────────────────────────
 		{
-			trackerId: whiskeyTrackerId,
+			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Speyside",
 			icon: "map",
 			accentColor: "#064E3B",
@@ -3009,7 +3009,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			trackerId: phonesTrackerId,
+			pluginSlug: phonesPluginSlug,
 			name: "Demo: Phones – Non-Apple",
 			icon: "smartphone",
 			accentColor: "#1E40AF",
@@ -3035,7 +3035,7 @@ async function seedSavedViews(
 		["whiskey-related", whiskeyViews],
 		["place-related", placeViews],
 		["phone-related", phoneViews],
-		["cross-tracker", crossTrackerViews],
+		["cross-plugin", crossPluginViews],
 		["demo", demoViews],
 	] as const;
 
@@ -3052,7 +3052,7 @@ async function seedSavedViews(
 					view.accentColor,
 					view.queryDocument,
 					view.displayConfiguration,
-					view.trackerId,
+					view.pluginSlug,
 				),
 			);
 		}
@@ -3086,9 +3086,9 @@ async function main() {
 	const mediaStats = await seedMedia(client, userId);
 	const savedViewsCount = await seedSavedViews(
 		client,
-		whiskeyStats.tracker.id,
-		placeStats.tracker.id,
-		phoneStats.tracker.id,
+		whiskeyStats.pluginScope.id,
+		placeStats.pluginScope.id,
+		phoneStats.pluginScope.id,
 	);
 	const collectionStats = await seedCollections(client, {
 		phones: phoneStats.entities,
@@ -3102,7 +3102,7 @@ async function main() {
 
 	console.log(`\n${"━".repeat(50)}`);
 	console.log("📊 Summary:");
-	console.log("  Custom Trackers: 3");
+	console.log("  Custom Plugins: 3");
 	console.log("  Entity Schemas: 5 (1 whiskey + 1 place + 3 phones)");
 	console.log("  Event Schemas: 5 (2 whiskey + 3 place)");
 	console.log(

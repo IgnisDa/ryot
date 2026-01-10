@@ -5,7 +5,7 @@ import {
 	createRelationship,
 	createRelationshipSchema,
 	createQueryEngineEntity,
-	createQueryEngineTrackerAndSchema,
+	createQueryEnginePluginSchema,
 	executeQueryEngine,
 	propertyRef,
 	requireQueryEngineFieldValue,
@@ -21,10 +21,12 @@ describe("Relationship root sources", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { schemaId: memberSchemaId, slug: memberSlug } =
-					yield* createQueryEngineTrackerAndSchema(client, { schemaName: "RelRootMember" });
+				const { schemaId: memberSchemaId, slug: memberSlug } = yield* createQueryEnginePluginSchema(
+					client,
+					{ schemaName: "RelRootMember" },
+				);
 				const { schemaId: collectionSchemaId, slug: collectionSlug } =
-					yield* createQueryEngineTrackerAndSchema(client, { schemaName: "RelRootCollection" });
+					yield* createQueryEnginePluginSchema(client, { schemaName: "RelRootCollection" });
 				const relationshipSlug = `rel-root-membership-${crypto.randomUUID()}`;
 				const relationshipSchema = yield* createRelationshipSchema(client, {
 					name: "Rel Root Membership",
@@ -128,10 +130,12 @@ describe("Relationship root sources", () => {
 			const userA = yield* createAuthenticatedClient();
 			const userB = yield* createAuthenticatedClient();
 
-			const { schemaId: memberSchemaIdA, slug: memberSlugA } =
-				yield* createQueryEngineTrackerAndSchema(userA.client, { schemaName: "RelRootIsoMember" });
+			const { schemaId: memberSchemaIdA, slug: memberSlugA } = yield* createQueryEnginePluginSchema(
+				userA.client,
+				{ schemaName: "RelRootIsoMember" },
+			);
 			const { schemaId: collectionSchemaIdA, slug: collectionSlugA } =
-				yield* createQueryEngineTrackerAndSchema(userA.client, {
+				yield* createQueryEnginePluginSchema(userA.client, {
 					schemaName: "RelRootIsoCollection",
 				});
 			const relationshipSlugA = `rel-root-iso-${crypto.randomUUID()}`;
@@ -175,10 +179,12 @@ describe("Relationship root sources", () => {
 			const resultForUserB = yield* executeQueryEngine(userB.client, docA);
 			expect(resultForUserB.data.items).toHaveLength(0);
 
-			const { schemaId: memberSchemaIdB, slug: memberSlugB } =
-				yield* createQueryEngineTrackerAndSchema(userB.client, { schemaName: "RelRootIsoMember" });
+			const { schemaId: memberSchemaIdB, slug: memberSlugB } = yield* createQueryEnginePluginSchema(
+				userB.client,
+				{ schemaName: "RelRootIsoMember" },
+			);
 			const { schemaId: collectionSchemaIdB, slug: collectionSlugB } =
-				yield* createQueryEngineTrackerAndSchema(userB.client, {
+				yield* createQueryEnginePluginSchema(userB.client, {
 					schemaName: "RelRootIsoCollection",
 				});
 			const relationshipSlugB = `rel-root-iso-${crypto.randomUUID()}`;
@@ -225,10 +231,12 @@ describe("Relationship root sources", () => {
 	it.live("filters relationship rows by a where on a relationship property", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: memberSchemaId, slug: memberSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "RelWhereMember" });
+			const { schemaId: memberSchemaId, slug: memberSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{ schemaName: "RelWhereMember" },
+			);
 			const { schemaId: collectionSchemaId, slug: collectionSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "RelWhereCollection" });
+				yield* createQueryEnginePluginSchema(client, { schemaName: "RelWhereCollection" });
 			const relationshipSlug = `rel-where-membership-${crypto.randomUUID()}`;
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				name: "Rel Where Membership",
@@ -309,10 +317,12 @@ describe("Relationship root sources", () => {
 	it.live("orders relationship rows by a source endpoint entity name", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: memberSchemaId, slug: memberSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "RelOrderMember" });
+			const { schemaId: memberSchemaId, slug: memberSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{ schemaName: "RelOrderMember" },
+			);
 			const { schemaId: collectionSchemaId, slug: collectionSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "RelOrderCollection" });
+				yield* createQueryEnginePluginSchema(client, { schemaName: "RelOrderCollection" });
 			const relationshipSlug = `rel-order-membership-${crypto.randomUUID()}`;
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				name: "Rel Order Membership",

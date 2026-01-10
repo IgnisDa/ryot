@@ -4,7 +4,7 @@ import {
 	buildEntityRowsQueryDocument,
 	createAuthenticatedClient,
 	createQueryEngineEntity,
-	createQueryEngineTrackerAndSchema,
+	createQueryEnginePluginSchema,
 	executeQueryEngine,
 	postBackendJson,
 	requireQueryEngineFieldValue,
@@ -32,7 +32,7 @@ describe("entity schema fields", () => {
 	it.live("returns entity schema slug and name fields", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "SchemaFieldsItem",
 			});
 			yield* createQueryEngineEntity(client, {
@@ -62,10 +62,10 @@ describe("entity schema fields", () => {
 	it.live("can filter by entity schema slug", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const alpha = yield* createQueryEngineTrackerAndSchema(client, {
+			const alpha = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "AlphaFilterItem",
 			});
-			const beta = yield* createQueryEngineTrackerAndSchema(client, {
+			const beta = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "BetaFilterItem",
 			});
 			yield* createQueryEngineEntity(client, {
@@ -102,8 +102,8 @@ describe("entity schema fields", () => {
 	it.live("sorts multi-schema rows by entity schema name", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const zebra = yield* createQueryEngineTrackerAndSchema(client, { schemaName: "ZebraSchema" });
-			const alpha = yield* createQueryEngineTrackerAndSchema(client, { schemaName: "AlphaSchema" });
+			const zebra = yield* createQueryEnginePluginSchema(client, { schemaName: "ZebraSchema" });
+			const alpha = yield* createQueryEnginePluginSchema(client, { schemaName: "AlphaSchema" });
 			yield* createQueryEngineEntity(client, {
 				name: "Zebra Entity",
 				entitySchemaSlug: zebra.schemaId,
@@ -132,7 +132,7 @@ describe("entity schema fields", () => {
 	it.live("rejects invalid entity schema columns", () =>
 		Effect.gen(function* () {
 			const { client, cookies } = yield* createAuthenticatedClient();
-			const { slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "InvalidSchemaColItem",
 			});
 			const invalidSchemaField = JSON.parse(
@@ -153,7 +153,7 @@ describe("entity schema fields", () => {
 	it.live("rejects entity builtins masquerading as entity-schema columns", () =>
 		Effect.gen(function* () {
 			const { client, cookies } = yield* createAuthenticatedClient();
-			const { slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "MasqueradeItem",
 			});
 			const masqueradeField = JSON.parse(

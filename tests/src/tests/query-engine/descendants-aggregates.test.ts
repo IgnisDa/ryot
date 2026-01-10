@@ -5,7 +5,7 @@ import {
 	createAuthenticatedClient,
 	createCourseLessonFilterFixture,
 	createQueryEngineEntity,
-	createQueryEngineTrackerAndSchema,
+	createQueryEnginePluginSchema,
 	executeAggregateQueryEngine,
 	executeQueryEngine,
 	executeQueryEngineError,
@@ -175,7 +175,7 @@ describe("Arithmetic output fields", () => {
 	it.live("computes arithmetic output fields and returns null for division by zero", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "ArithmeticCourse",
 				propertiesSchema: {
 					fields: {
@@ -254,7 +254,7 @@ describe("Aggregate returns", () => {
 	it.live("returns ungrouped aggregate measures without pageInfo", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "AggregateLesson",
 				propertiesSchema: {
 					fields: {
@@ -345,7 +345,7 @@ describe("Aggregate returns", () => {
 	it.live("returns grouped aggregates ordered by measureRef with limited pageInfo", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "GroupedAggregateLesson",
 				propertiesSchema: {
 					fields: {
@@ -397,7 +397,7 @@ describe("Aggregate returns", () => {
 	it.live("rejects duplicate aggregate output keys", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "DuplicateAggregateKeys",
 			});
 			const doc: QueryEnginePayload = {
