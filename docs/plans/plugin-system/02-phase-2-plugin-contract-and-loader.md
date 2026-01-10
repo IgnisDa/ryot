@@ -253,7 +253,7 @@ depend on the script-creation API this section deletes.
   scripts installed via `installTestPlugin`; delete authoring-CRUD coverage. Any remaining
   fixture that compiles "through the authenticated script-creation API" moves to the install
   path.
-- **Docs**: update the "Sandbox Scripts" and cache sections of `apps/app-backend/CLAUDE.md`
+- **Docs**: update the "Sandbox Scripts" and cache sections of `apps/app-backend/AGENTS.md`
   and the sandbox-runtime README where they describe user-authored scripts.
 
 ## 9. Remove the tracker concept (Decision 20)
