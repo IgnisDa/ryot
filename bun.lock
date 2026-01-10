@@ -97,6 +97,7 @@
         "babel-plugin-module-resolver": "5.0.3",
         "babel-preset-expo": "~56.0.0",
         "tailwindcss": "^4.1.13",
+        "vitest": "4.1.9",
       },
     },
     "apps/app-client-backup": {
