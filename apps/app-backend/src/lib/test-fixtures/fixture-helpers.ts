@@ -1,3 +1,5 @@
+import { dayjs } from "@ryot/ts-utils/dayjs";
+
 export const cloneFixture = <T>(value: T): T => structuredClone(value);
 
 export const withOverrides = <T extends object>(
@@ -8,8 +10,9 @@ export const withOverrides = <T extends object>(
 	...overrides,
 });
 
-export const createCreatedAt = () => new Date("2024-01-01T00:00:00.000Z");
+export const createCreatedAt = () => dayjs("2024-01-01T00:00:00.000Z").toDate();
 
-export const createUpdatedAt = () => new Date("2024-01-01T00:00:00.000Z");
+export const createUpdatedAt = () => dayjs("2024-01-01T00:00:00.000Z").toDate();
 
-export const createOccurredAt = () => new Date("2026-03-08T10:15:00.000Z");
+export const createOccurredAt = () =>
+	dayjs("2026-03-08T10:15:00.000Z").toDate();

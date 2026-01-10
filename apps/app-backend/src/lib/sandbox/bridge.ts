@@ -1,3 +1,4 @@
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { redis } from "~/lib/redis";
 import { requestBodyLimit } from "./constants";
 import { sendJson } from "./utils";
@@ -51,7 +52,9 @@ export class BridgeServer {
 
 	async addSession(executionId: string, session: ExecutionSession) {
 		const key = this.getKey(executionId);
-		const ttlSeconds = Math.ceil((session.expiresAt - Date.now()) / 1000);
+		const ttlSeconds = Math.ceil(
+			dayjs(session.expiresAt).diff(dayjs(), "second", true),
+		);
 		const data = {
 			token: session.token,
 			expiresAt: session.expiresAt,
@@ -105,7 +108,7 @@ export class BridgeServer {
 				expiresAt: number;
 			};
 
-			if (Date.now() > sessionData.expiresAt) {
+			if (dayjs().isAfter(dayjs(sessionData.expiresAt))) {
 				await this.removeSession(executionId);
 				return sendJson(410, { error: "Execution expired" });
 			}

@@ -1,3 +1,4 @@
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import type { ApiPostRequestBody } from "#/lib/api/types";
 import type { AppEventSchema } from "../event-schemas/model";
 
@@ -124,7 +125,7 @@ export function createLogEventPayload(input: {
 	const completedOn = resolveIsoDateTime(input.completedOn, "Completed on");
 	const startedOn = resolveOptionalIsoDateTime(input.startedOn, "Started on");
 
-	if (startedOn && new Date(startedOn) > new Date(completedOn)) {
+	if (startedOn && dayjs(startedOn).isAfter(dayjs(completedOn))) {
 		throw new Error("Started on must be before completed on");
 	}
 
@@ -180,10 +181,10 @@ function resolveOptionalIsoDateTime(value: string, label: string) {
 }
 
 function resolveIsoDateTime(value: string, label: string) {
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) {
+	const parsed = dayjs(value);
+	if (!parsed.isValid()) {
 		throw new Error(`${label} must be a valid date and time`);
 	}
 
-	return date.toISOString();
+	return parsed.toISOString();
 }

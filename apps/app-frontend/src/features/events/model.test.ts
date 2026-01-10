@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createEventFixture } from "#/features/test-fixtures";
 import { getEventListViewState, getRecentEvents, sortEvents } from "./model";
 
@@ -7,15 +8,15 @@ describe("sortEvents", () => {
 		const events = [
 			createEventFixture({
 				id: "3",
-				createdAt: new Date("2026-03-08T10:10:00.000Z"),
+				createdAt: dayjs("2026-03-08T10:10:00.000Z").toDate(),
 			}),
 			createEventFixture({
 				id: "1",
-				createdAt: new Date("2026-03-08T10:05:00.000Z"),
+				createdAt: dayjs("2026-03-08T10:05:00.000Z").toDate(),
 			}),
 			createEventFixture({
 				id: "2",
-				createdAt: new Date("2026-03-08T10:15:00.000Z"),
+				createdAt: dayjs("2026-03-08T10:15:00.000Z").toDate(),
 			}),
 		];
 
@@ -40,11 +41,11 @@ describe("getEventListViewState", () => {
 		const state = getEventListViewState([
 			createEventFixture({
 				id: "older",
-				createdAt: new Date("2026-03-08T10:05:00.000Z"),
+				createdAt: dayjs("2026-03-08T10:05:00.000Z").toDate(),
 			}),
 			createEventFixture({
 				id: "newer",
-				createdAt: new Date("2026-03-08T10:15:00.000Z"),
+				createdAt: dayjs("2026-03-08T10:15:00.000Z").toDate(),
 			}),
 		]);
 
@@ -64,15 +65,15 @@ describe("getRecentEvents", () => {
 			[
 				createEventFixture({
 					id: "older",
-					createdAt: new Date("2026-03-08T10:05:00.000Z"),
+					createdAt: dayjs("2026-03-08T10:05:00.000Z").toDate(),
 				}),
 				createEventFixture({
 					id: "newest",
-					createdAt: new Date("2026-03-08T10:20:00.000Z"),
+					createdAt: dayjs("2026-03-08T10:20:00.000Z").toDate(),
 				}),
 				createEventFixture({
 					id: "middle",
-					createdAt: new Date("2026-03-08T10:15:00.000Z"),
+					createdAt: dayjs("2026-03-08T10:15:00.000Z").toDate(),
 				}),
 			],
 			2,

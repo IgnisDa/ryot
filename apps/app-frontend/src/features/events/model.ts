@@ -1,3 +1,4 @@
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import type { ApiGetResponseData } from "#/lib/api/types";
 
 type ApiEvent = ApiGetResponseData<"/events">[number];
@@ -13,7 +14,7 @@ export type EventListViewState =
 
 export function sortEvents(events: AppEvent[]) {
 	return [...events].sort((a, b) => {
-		return b.createdAt.getTime() - a.createdAt.getTime();
+		return dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf();
 	});
 }
 
@@ -32,7 +33,7 @@ export function getRecentEvents(events: AppEvent[], limit = 3) {
 export function toAppEvent(event: ApiEvent): AppEvent {
 	return {
 		...event,
-		createdAt: new Date(event.createdAt),
-		updatedAt: new Date(event.updatedAt),
+		createdAt: dayjs(event.createdAt).toDate(),
+		updatedAt: dayjs(event.updatedAt).toDate(),
 	};
 }
