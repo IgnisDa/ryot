@@ -459,8 +459,8 @@ describe("createCollection", () => {
 
 		const mockEntity = { id: "entity-1" };
 
-		const mockMembership = {
-			id: "membership-1",
+		const mockRelationship = {
+			id: "rel-1",
 			relType: "collection",
 			createdAt: "2024-01-01T00:00:00Z",
 			sourceEntityId: "collection-1",
@@ -468,13 +468,25 @@ describe("createCollection", () => {
 			properties: {},
 		};
 
+		const mockMemberOfRelationship = {
+			id: "rel-2",
+			relType: "member_of",
+			createdAt: "2024-01-01T00:00:00Z",
+			sourceEntityId: "entity-1",
+			targetEntityId: "collection-1",
+			properties: {},
+		};
+
 		const mockAddToCollectionDeps = {
-			addEntityToCollection: async () => mockMembership,
+			addEntityToCollection: async () => ({
+				collection: mockRelationship,
+				memberOf: mockMemberOfRelationship,
+			}),
 			getCollectionById: async () => mockCollection,
 			getEntityById: async () => mockEntity,
 		};
 
-		it("adds an entity to a collection", async () => {
+		it("adds an entity to a collection and returns both relationships", async () => {
 			const result = await addToCollection(
 				{
 					body: { collectionId: "collection-1", entityId: "entity-1" },
@@ -485,22 +497,33 @@ describe("createCollection", () => {
 
 			expect("data" in result).toBe(true);
 			if ("data" in result) {
-				expect(result.data.id).toBe("membership-1");
-				expect(result.data.relType).toBe("collection");
-				expect(result.data.sourceEntityId).toBe("collection-1");
-				expect(result.data.targetEntityId).toBe("entity-1");
+				expect(result.data.collection.id).toBe("rel-1");
+				expect(result.data.collection.relType).toBe("collection");
+				expect(result.data.collection.sourceEntityId).toBe("collection-1");
+				expect(result.data.collection.targetEntityId).toBe("entity-1");
+				expect(result.data.memberOf.id).toBe("rel-2");
+				expect(result.data.memberOf.relType).toBe("member_of");
+				expect(result.data.memberOf.sourceEntityId).toBe("entity-1");
+				expect(result.data.memberOf.targetEntityId).toBe("collection-1");
 			}
 		});
 
 		it("adds an entity with custom properties", async () => {
-			const membershipWithProps = {
-				...mockMembership,
+			const collectionWithProps = {
+				...mockRelationship,
+				properties: { priority: "high", notes: "Important item" },
+			};
+			const memberOfWithProps = {
+				...mockMemberOfRelationship,
 				properties: { priority: "high", notes: "Important item" },
 			};
 
 			const depsWithProps = {
 				...mockAddToCollectionDeps,
-				addEntityToCollection: async () => membershipWithProps,
+				addEntityToCollection: async () => ({
+					collection: collectionWithProps,
+					memberOf: memberOfWithProps,
+				}),
 			};
 
 			const result = await addToCollection(
@@ -517,7 +540,11 @@ describe("createCollection", () => {
 
 			expect("data" in result).toBe(true);
 			if ("data" in result) {
-				expect(result.data.properties).toEqual({
+				expect(result.data.collection.properties).toEqual({
+					priority: "high",
+					notes: "Important item",
+				});
+				expect(result.data.memberOf.properties).toEqual({
 					priority: "high",
 					notes: "Important item",
 				});
@@ -578,7 +605,10 @@ describe("createCollection", () => {
 					properties: Record<string, unknown>;
 				}) => {
 					receivedProperties = input.properties;
-					return mockMembership;
+					return {
+						collection: mockRelationship,
+						memberOf: mockMemberOfRelationship,
+					};
 				},
 			};
 
