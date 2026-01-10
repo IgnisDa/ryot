@@ -23,13 +23,18 @@ behavior:
 
 1. **Signal definition contract**: add `notificationScriptSlug` to subscribable signal-schema
    definitions. Validate each reference against an automation script in the complete prospective
-   registry snapshot; this is reference validation, not plugin dependency resolution.
+   registry snapshot; this is reference validation, not plugin dependency resolution. Kernel
+   source-zero scripts live outside the loader snapshot (the static kernel set, persisted as
+   `pluginSlug`-null rows), so extend the validation universe to include them.
 2. **Formatter ownership**: move all media-signal formatting into a media plugin automation and
    `workout.created` formatting into a fitness plugin automation. Keep only the
    `integration.disabled` formatter in kernel source zero. Preserve every existing message.
-3. **Subscription resolution**: install/default notification subscriptions with the formatter
-   selected by the signal definition. Resolve the persisted slug to the active plugin script or
-   the content-addressed source-zero script.
+3. **Subscription resolution**: reshape `notification_subscription_state` — drop `scriptSlug`,
+   narrow the unique key to `(userId, signalSchemaSlug)`, regenerate the migration. Dispatch
+   resolves the formatter from the subscribed signal definition's `notificationScriptSlug` at
+   execution time (active plugin script or content-addressed source-zero script). Rows whose
+   signal definition is no longer registered are inert: skipped by dispatch, omitted from rule
+   listings, never an error.
 4. **Ownership invariant**: update relevant module documentation and tests to state that scripts
    are owned by an installed plugin or kernel source zero. Do not introduce a synthetic kernel
    plugin. Task 07 removes legacy user ownership and applies the final storage constraints.
@@ -45,8 +50,10 @@ domain-specific formatting, or a new top-level manifest section.
 - [ ] Every subscribable signal definition explicitly selects a valid automation formatter
 - [ ] Media and fitness formatters are compiled and loaded from their owning plugin packages;
       source zero formats only `integration.disabled`
-- [ ] Notification subscription state persists the selected formatter slug and resolves both
-      active plugin and source-zero scripts
+- [ ] `notification_subscription_state` stores no formatter slug (unique on
+      `(userId, signalSchemaSlug)`, migration regenerated); dispatch resolves the formatter from
+      the signal definition for both plugin-owned and source-zero scripts, and rows for
+      unregistered signals are inert rather than errors
 - [ ] Existing notification message and delivery assertions are unchanged and green
 - [ ] Backend `check` + unit tests, affected e2e suites, and `app-client` check pass
 
