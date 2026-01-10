@@ -10,7 +10,7 @@
 
 Before starting, read `docs/plans/plugin-system/00-overview.md` in full and then
 `docs/plans/plugin-system/03-phase-3-capability-migrations.md` in full. Do not begin until Step 4
-(task 06) is done. This slice is composition — it uses only capabilities the earlier steps
+(task 07) is done. This slice is composition — it uses only capabilities the earlier steps
 already landed — plus the phase gate (plan §5 and "Phase gate").
 
 Migration:
