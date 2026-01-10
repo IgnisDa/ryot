@@ -172,6 +172,7 @@ pub struct DeployNetflixImportInput {
 pub struct DeployUrlAndKeyImportInput {
     pub api_url: String,
     pub api_key: String,
+    pub allow_insecure_connections: Option<bool>,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -179,6 +180,7 @@ pub struct DeployJellyfinImportInput {
     pub api_url: String,
     pub username: String,
     pub password: Option<String>,
+    pub allow_insecure_connections: Option<bool>,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]

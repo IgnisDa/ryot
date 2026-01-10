@@ -613,6 +613,7 @@ export type DeployImportJobInput = {
 };
 
 export type DeployJellyfinImportInput = {
+  allowInsecureConnections?: InputMaybe<Scalars['Boolean']['input']>;
   apiUrl: Scalars['String']['input'];
   password?: InputMaybe<Scalars['String']['input']>;
   username: Scalars['String']['input'];
@@ -665,6 +666,7 @@ export type DeployTraktImportListInput = {
 };
 
 export type DeployUrlAndKeyImportInput = {
+  allowInsecureConnections?: InputMaybe<Scalars['Boolean']['input']>;
   apiKey: Scalars['String']['input'];
   apiUrl: Scalars['String']['input'];
 };

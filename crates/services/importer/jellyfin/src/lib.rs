@@ -18,8 +18,10 @@ pub async fn import(input: DeployJellyfinImportInput) -> Result<ImportResult> {
     let mut failed = vec![];
 
     let base_url = input.api_url;
+    let allow_insecure = input.allow_insecure_connections.unwrap_or(false);
     let (client, user_id) =
-        get_authenticated_client(&base_url, &input.username, &input.password).await?;
+        get_authenticated_client(&base_url, &input.username, &input.password, allow_insecure)
+            .await?;
 
     let library_data = client
         .get(format!("{base_url}/Users/{user_id}/Items"))

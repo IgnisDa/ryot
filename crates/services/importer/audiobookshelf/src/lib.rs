@@ -2,7 +2,7 @@ use std::{result::Result as StdResult, sync::Arc};
 
 use anyhow::Result;
 use application_utils::get_podcast_episode_number_by_name;
-use common_utils::{get_base_http_client, ryot_log};
+use common_utils::{get_http_client_with_tls_config, ryot_log};
 use data_encoding::BASE64;
 use dependent_entity_utils::commit_metadata;
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
@@ -40,10 +40,13 @@ pub async fn import(
     let mut completed = vec![];
     let mut failed = vec![];
     let url = format!("{}/api", input.api_url);
-    let client = get_base_http_client(Some(vec![(
-        AUTHORIZATION,
-        HeaderValue::from_str(&format!("Bearer {}", input.api_key)).unwrap(),
-    )]));
+    let client = get_http_client_with_tls_config(
+        Some(vec![(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {}", input.api_key)).unwrap(),
+        )]),
+        input.allow_insecure_connections.unwrap_or(false),
+    );
 
     let services = ImportServices {
         ss,

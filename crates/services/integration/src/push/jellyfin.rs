@@ -24,7 +24,8 @@ pub async fn push_progress(
             return Ok(());
         }
     }
-    let (client, user_id) = get_authenticated_client(&base_url, &username, &password).await?;
+    let (client, user_id) =
+        get_authenticated_client(&base_url, &username, &password, false).await?;
     let items = client
         .get(format!("{base_url}/Users/{user_id}/Items"))
         .query(&[
