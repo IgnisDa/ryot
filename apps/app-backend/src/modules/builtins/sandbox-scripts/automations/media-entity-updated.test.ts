@@ -1,5 +1,5 @@
-import type { JsonValue } from "@ryot/sandbox-sdk";
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
+import type { JsonValue } from "@ryot/sandbox-sdk/core";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 

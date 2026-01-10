@@ -1,4 +1,4 @@
-export const SANDBOX_SDK_ROOT_IMPORT = "@ryot/sandbox-sdk";
+export const SANDBOX_SDK_ROOT_IMPORT = "@ryot/sandbox-sdk/core";
 export const SANDBOX_SDK_AUTOMATION_IMPORT = "@ryot/sandbox-sdk/automation";
 export const SANDBOX_SDK_PROVIDER_IMPORT = "@ryot/sandbox-sdk/provider";
 

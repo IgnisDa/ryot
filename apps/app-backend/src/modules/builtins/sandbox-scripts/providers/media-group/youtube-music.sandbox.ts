@@ -1,5 +1,5 @@
-import { defineManifest } from "@ryot/sandbox-sdk";
 import { load } from "@ryot/sandbox-sdk/cheerio";
+import { defineManifest } from "@ryot/sandbox-sdk/core";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { type UnknownRecord, asRecord, stringValue } from "../../script-helpers/records";

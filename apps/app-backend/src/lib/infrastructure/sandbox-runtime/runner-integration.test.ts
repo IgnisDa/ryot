@@ -89,7 +89,7 @@ afterAll(() => {
 });
 
 const source = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
 import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
@@ -230,7 +230,7 @@ import {
   jsonValueSchema,
   unwrapHostResult,
   userPreferencesSchema,
-} from "@ryot/sandbox-sdk";
+} from "@ryot/sandbox-sdk/core";
 import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
@@ -288,7 +288,7 @@ import {
   defineManifest,
   defineScript,
   jsonValueSchema,
-} from "@ryot/sandbox-sdk";
+} from "@ryot/sandbox-sdk/core";
 import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
@@ -325,7 +325,7 @@ export default defineScript({ manifest, drivers: { main } });
 `;
 
 const hostBudgetSource = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
 import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
@@ -375,7 +375,7 @@ import {
   eventSchemaRecordSchema,
   integrationRecordSchema,
   unwrapHostResult,
-} from "@ryot/sandbox-sdk";
+} from "@ryot/sandbox-sdk/core";
 import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
@@ -438,7 +438,7 @@ export default defineScript({ manifest, drivers: { main } });
 
 const dependencySource = (name: string, sdkImport: string) => `
 import "${sdkImport}";
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
 import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
@@ -459,7 +459,7 @@ export default defineScript({ manifest, drivers: { main } });
 `;
 
 const generatedNpmImportSource = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
 import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
