@@ -1,17 +1,19 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import type { ChildProcess } from "node:child_process";
 
+import { Effect } from "effect";
 import getPort from "get-port";
 
-import { adminHeaders, makeSession } from "~/fixtures";
-import { createTestAuthClient } from "~/fixtures/auth";
 import {
 	type MockOidcServer,
+	adminHeaders,
+	createTestAuthClient,
+	makeSession,
 	oidcSignIn,
 	startMockOidcServer,
 	stopMockOidcServer,
-} from "~/fixtures/auth-oidc";
+} from "~/fixtures";
 import { requirePresent } from "~/support/assertions";
+import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import {
 	buildBackendEnv,
 	startCoreTestInfrastructure,
@@ -28,29 +30,32 @@ const OIDC_BUTTON_LABEL = "Sign in with TestOIDC";
 const trackersListQuery = { includeDisabled: false };
 const godModeListQuery = (search: string) => ({ limit: 50, offset: 0, search });
 
-async function countUsersByEmail(backendUrl: string, email: string) {
-	const data = await makeSession(backendUrl).run(
-		(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
-		adminHeaders,
-	);
-	return data.total;
-}
+const countUsersByEmail = (backendUrl: string, email: string) =>
+	Effect.gen(function* () {
+		const data = yield* makeSession(backendUrl).call(
+			(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+			adminHeaders,
+		);
+		return data.total;
+	});
 
-async function findUserIdByEmail(backendUrl: string, email: string) {
-	const data = await makeSession(backendUrl).run(
-		(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
-		adminHeaders,
-	);
-	return data.users[0]?.id ?? null;
-}
+const findUserIdByEmail = (backendUrl: string, email: string) =>
+	Effect.gen(function* () {
+		const data = yield* makeSession(backendUrl).call(
+			(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+			adminHeaders,
+		);
+		return data.users[0]?.id ?? null;
+	});
 
-async function listTrackerCount(backendUrl: string, cookie: string) {
-	const trackers = await makeSession(backendUrl).run(
-		(c) => c.trackers.list({ urlParams: trackersListQuery }),
-		{ Cookie: cookie },
-	);
-	return trackers.length;
-}
+const listTrackerCount = (backendUrl: string, cookie: string) =>
+	Effect.gen(function* () {
+		const trackers = yield* makeSession(backendUrl).call(
+			(c) => c.trackers.list({ urlParams: trackersListQuery }),
+			{ Cookie: cookie },
+		);
+		return trackers.length;
+	});
 
 let backendPortA: number;
 let backendPortB: number;
@@ -96,8 +101,8 @@ beforeAll(async () => {
 	const infrastructure = requireCoreInfrastructure();
 	const sharedEnv = {
 		SERVER_OIDC_CLIENT_ID: OIDC_CLIENT_ID,
-		SERVER_OIDC_ISSUER_URL: requireMockOidcServer().issuerUrl,
 		SERVER_OIDC_CLIENT_SECRET: OIDC_CLIENT_SECRET,
+		SERVER_OIDC_ISSUER_URL: requireMockOidcServer().issuerUrl,
 	};
 	const startBackend = (
 		label: string,
@@ -150,181 +155,225 @@ afterAll(async () => {
 });
 
 describe("GET /system/config with OIDC enabled (Backend A)", () => {
-	it("returns oidcEnabled: true", async () => {
-		const client = makeSession(getBackendUrlA());
-		const data = await client.run((c) => c.system.config());
-		expect(data.auth.oidcEnabled).toBe(true);
-	});
+	it.live("returns oidcEnabled: true", () =>
+		Effect.gen(function* () {
+			const client = makeSession(getBackendUrlA());
+			const data = yield* client.call((c) => c.system.config());
+			expect(data.auth.oidcEnabled).toBe(true);
+		}),
+	);
 
-	it("returns oidcButtonLabel from env var", async () => {
-		const client = makeSession(getBackendUrlA());
-		const data = await client.run((c) => c.system.config());
-		expect(data.auth.oidcButtonLabel).toBe(OIDC_BUTTON_LABEL);
-	});
+	it.live("returns oidcButtonLabel from env var", () =>
+		Effect.gen(function* () {
+			const client = makeSession(getBackendUrlA());
+			const data = yield* client.call((c) => c.system.config());
+			expect(data.auth.oidcButtonLabel).toBe(OIDC_BUTTON_LABEL);
+		}),
+	);
 });
 
 describe("GET /system/config with local auth disabled (Backend B)", () => {
-	it("returns localAuthDisabled: true", async () => {
-		const client = makeSession(getBackendUrlB());
-		const data = await client.run((c) => c.system.config());
-		expect(data.auth.signupAllowed).toBe(false);
-		expect(data.auth.localAuthDisabled).toBe(true);
-	});
+	it.live("returns localAuthDisabled: true", () =>
+		Effect.gen(function* () {
+			const client = makeSession(getBackendUrlB());
+			const data = yield* client.call((c) => c.system.config());
+			expect(data.auth.signupAllowed).toBe(false);
+			expect(data.auth.localAuthDisabled).toBe(true);
+		}),
+	);
 });
 
 describe("sign-up/email with local auth disabled (Backend B)", () => {
-	it("returns an error and does not create a user", async () => {
-		const email = "test@example.com";
-		const authClient = createTestAuthClient(getBackendUrlB());
-		const { error } = await authClient.signUp.email({
-			email,
-			name: "Test",
-			password: "password123",
-		});
-		expect(error).toBeDefined();
-		expect(await countUsersByEmail(getBackendUrlB(), email)).toBe(0);
-	});
+	it.live("returns an error and does not create a user", () =>
+		Effect.gen(function* () {
+			const email = "test@example.com";
+			const authClient = createTestAuthClient(getBackendUrlB());
+			const { error } = yield* Effect.promise(() =>
+				authClient.signUp.email({ email, name: "Test", password: "password123" }),
+			);
+			expect(error).toBeDefined();
+			expect(yield* countUsersByEmail(getBackendUrlB(), email)).toBe(0);
+		}),
+	);
 });
 
 describe("OIDC sign-in happy path (Backend A)", () => {
-	it("first-time OIDC sign-in produces a valid session", async () => {
-		const username = `user-${crypto.randomUUID()}`;
-		const sessionCookie = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
-		const client = makeSession(getBackendUrlA());
-		await client.run((c) => c.trackers.list({ urlParams: trackersListQuery }), {
-			Cookie: sessionCookie,
-		});
-	});
+	it.live("first-time OIDC sign-in produces a valid session", () =>
+		Effect.gen(function* () {
+			const username = `user-${crypto.randomUUID()}`;
+			const sessionCookie = yield* Effect.promise(() =>
+				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
+			);
+			const client = makeSession(getBackendUrlA());
+			yield* client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+				Cookie: sessionCookie,
+			});
+		}),
+	);
 
-	it("first-time OIDC sign-in creates a user row", async () => {
-		const username = `user-${crypto.randomUUID()}`;
-		await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
-		expect(await countUsersByEmail(getBackendUrlA(), `${username}@example.com`)).toBe(1);
-	});
+	it.live("first-time OIDC sign-in creates a user row", () =>
+		Effect.gen(function* () {
+			const username = `user-${crypto.randomUUID()}`;
+			yield* Effect.promise(() => oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()));
+			expect(yield* countUsersByEmail(getBackendUrlA(), `${username}@example.com`)).toBe(1);
+		}),
+	);
 
-	it("first-time OIDC sign-in bootstraps the user with tracker rows", async () => {
-		const username = `user-${crypto.randomUUID()}`;
-		const sessionCookie = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
-		expect(await listTrackerCount(getBackendUrlA(), sessionCookie)).toBeGreaterThan(0);
-	});
+	it.live("first-time OIDC sign-in bootstraps the user with tracker rows", () =>
+		Effect.gen(function* () {
+			const username = `user-${crypto.randomUUID()}`;
+			const sessionCookie = yield* Effect.promise(() =>
+				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
+			);
+			expect(yield* listTrackerCount(getBackendUrlA(), sessionCookie)).toBeGreaterThan(0);
+		}),
+	);
 
-	it("first-time OIDC sign-in bootstraps the user with the default notification rules", async () => {
-		const username = `user-${crypto.randomUUID()}`;
-		const sessionCookie = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
+	it.live("first-time OIDC sign-in bootstraps the user with the default notification rules", () =>
+		Effect.gen(function* () {
+			const username = `user-${crypto.randomUUID()}`;
+			const sessionCookie = yield* Effect.promise(() =>
+				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
+			);
 
-		const client = makeSession(getBackendUrlA());
-		const headers = { Cookie: sessionCookie };
-		const [catalog, rules] = await Promise.all([
-			client.run((c) => c.automations.listCatalog(), headers),
-			client.run((c) => c.automations.listRules(), headers),
-		]);
-		expect(rules).toHaveLength(catalog.length);
-		expect(rules.map((rule) => rule.signalSchema.id).sort()).toEqual(
-			catalog.map((schema) => schema.id).sort(),
-		);
-		expect(rules.every((rule) => rule.isActive)).toBe(true);
-	});
+			const client = makeSession(getBackendUrlA());
+			const headers = { Cookie: sessionCookie };
+			const [catalog, rules] = yield* Effect.all([
+				client.call((c) => c.automations.listCatalog(), headers),
+				client.call((c) => c.automations.listRules(), headers),
+			]);
+			expect(rules).toHaveLength(catalog.length);
+			expect(rules.map((rule) => rule.signalSchema.id).sort()).toEqual(
+				catalog.map((schema) => schema.id).sort(),
+			);
+			expect(rules.every((rule) => rule.isActive)).toBe(true);
+		}),
+	);
 });
 
 describe("OIDC idempotency (Backend A)", () => {
-	it("repeated OIDC sign-in with same identity reuses the same user row", async () => {
-		const username = `user-${crypto.randomUUID()}`;
+	it.live("repeated OIDC sign-in with same identity reuses the same user row", () =>
+		Effect.gen(function* () {
+			const username = `user-${crypto.randomUUID()}`;
 
-		const cookie1 = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
-		const cookie2 = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
+			const cookie1 = yield* Effect.promise(() =>
+				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
+			);
+			const cookie2 = yield* Effect.promise(() =>
+				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
+			);
 
-		expect(await countUsersByEmail(getBackendUrlA(), `${username}@example.com`)).toBe(1);
+			expect(yield* countUsersByEmail(getBackendUrlA(), `${username}@example.com`)).toBe(1);
 
-		const client = makeSession(getBackendUrlA());
-		await Promise.all([
-			client.run((c) => c.trackers.list({ urlParams: trackersListQuery }), { Cookie: cookie1 }),
-			client.run((c) => c.trackers.list({ urlParams: trackersListQuery }), { Cookie: cookie2 }),
-		]);
-	});
+			const client = makeSession(getBackendUrlA());
+			yield* Effect.all([
+				client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), { Cookie: cookie1 }),
+				client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), { Cookie: cookie2 }),
+			]);
+		}),
+	);
 
-	it("bootstrap idempotency: tracker count is the same after two sign-ins", async () => {
-		const username = `user-${crypto.randomUUID()}`;
+	it.live("bootstrap idempotency: tracker count is the same after two sign-ins", () =>
+		Effect.gen(function* () {
+			const username = `user-${crypto.randomUUID()}`;
 
-		const cookie1 = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
-		const firstCount = await listTrackerCount(getBackendUrlA(), cookie1);
-		expect(firstCount).toBeGreaterThan(0);
+			const cookie1 = yield* Effect.promise(() =>
+				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
+			);
+			const firstCount = yield* listTrackerCount(getBackendUrlA(), cookie1);
+			expect(firstCount).toBeGreaterThan(0);
 
-		const cookie2 = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
-		const secondCount = await listTrackerCount(getBackendUrlA(), cookie2);
-		expect(secondCount).toBe(firstCount);
-	});
+			const cookie2 = yield* Effect.promise(() =>
+				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
+			);
+			const secondCount = yield* listTrackerCount(getBackendUrlA(), cookie2);
+			expect(secondCount).toBe(firstCount);
+		}),
+	);
 });
 
 describe("Registration gating for OIDC (Backend C)", () => {
-	it("first-time OIDC sign-in is rejected when registration is disabled", async () => {
-		const username = `user-${crypto.randomUUID()}`;
-		const backendUrl = getBackendUrlC();
+	it.live("first-time OIDC sign-in is rejected when registration is disabled", () =>
+		Effect.gen(function* () {
+			const username = `user-${crypto.randomUUID()}`;
+			const backendUrl = getBackendUrlC();
 
-		const step1Response = await fetch(`${backendUrl}/auth/sign-in/oauth2`, {
-			method: "POST",
-			redirect: "manual",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ providerId: "oidc", callbackURL: `${new URL(backendUrl).origin}/` }),
-		});
-		const step1Data: { url?: string } = await step1Response.json();
-		const stateCookieHeader = requirePresent(
-			step1Response.headers.get("set-cookie"),
-			`Step 1 failed: url=${step1Data.url}, cookie=${step1Response.headers.get("set-cookie")}`,
-		);
-		const authorizeUrl = requirePresent(
-			step1Data.url,
-			`Step 1 failed: url=${step1Data.url}, cookie=${stateCookieHeader}`,
-		);
-		const [stateCookie] = stateCookieHeader.split(";");
+			const step1Response = yield* Effect.promise(() =>
+				fetch(`${backendUrl}/auth/sign-in/oauth2`, {
+					method: "POST",
+					redirect: "manual",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						providerId: "oidc",
+						callbackURL: `${new URL(backendUrl).origin}/`,
+					}),
+				}),
+			);
+			const step1Data: { url?: string } = yield* Effect.promise(() => step1Response.json());
+			const stateCookieHeader = requirePresent(
+				step1Response.headers.get("set-cookie"),
+				`Step 1 failed: url=${step1Data.url}, cookie=${step1Response.headers.get("set-cookie")}`,
+			);
+			const authorizeUrl = requirePresent(
+				step1Data.url,
+				`Step 1 failed: url=${step1Data.url}, cookie=${stateCookieHeader}`,
+			);
+			const [stateCookie] = stateCookieHeader.split(";");
 
-		requireMockOidcServer().setNextClaims({
-			sub: username,
-			name: username,
-			email: `${username}@example.com`,
-		});
-		const step2Response = await fetch(authorizeUrl, { redirect: "manual" });
-		const callbackUrl = requirePresent(
-			step2Response.headers.get("location"),
-			"Step 2 failed: no location header",
-		);
+			requireMockOidcServer().setNextClaims({
+				sub: username,
+				name: username,
+				email: `${username}@example.com`,
+			});
+			const step2Response = yield* Effect.promise(() =>
+				fetch(authorizeUrl, { redirect: "manual" }),
+			);
+			const callbackUrl = requirePresent(
+				step2Response.headers.get("location"),
+				"Step 2 failed: no location header",
+			);
 
-		const cookieValue = stateCookie ?? "";
-		const step3Response = await fetch(callbackUrl, {
-			redirect: "manual",
-			headers: { Cookie: cookieValue },
-		});
-		const step3Location = step3Response.headers.get("location");
-		expect(step3Response.status).toBe(302);
-		expect(step3Location).toMatch(/signup_disabled/i);
+			const cookieValue = stateCookie ?? "";
+			const step3Response = yield* Effect.promise(() =>
+				fetch(callbackUrl, { redirect: "manual", headers: { Cookie: cookieValue } }),
+			);
+			const step3Location = step3Response.headers.get("location");
+			expect(step3Response.status).toBe(302);
+			expect(step3Location).toMatch(/signup_disabled/i);
 
-		const sessionCookie = step3Response.headers.get("set-cookie");
-		const hasSessionCookie = sessionCookie?.includes("session_token") ?? false;
-		expect(
-			hasSessionCookie,
-			"Backend C must not issue a session when registration is disabled",
-		).toBe(false);
+			const sessionCookie = step3Response.headers.get("set-cookie");
+			const hasSessionCookie = sessionCookie?.includes("session_token") ?? false;
+			expect(
+				hasSessionCookie,
+				"Backend C must not issue a session when registration is disabled",
+			).toBe(false);
 
-		expect(
-			await countUsersByEmail(getBackendUrlC(), `${username}@example.com`),
-			"No user row must be created when registration is disabled",
-		).toBe(0);
-	});
+			expect(
+				yield* countUsersByEmail(getBackendUrlC(), `${username}@example.com`),
+				"No user row must be created when registration is disabled",
+			).toBe(0);
+		}),
+	);
 
-	it("existing OIDC users can still sign in when registration is disabled", async () => {
-		const username = `user-${crypto.randomUUID()}`;
-		const email = `${username}@example.com`;
+	it.live("existing OIDC users can still sign in when registration is disabled", () =>
+		Effect.gen(function* () {
+			const username = `user-${crypto.randomUUID()}`;
+			const email = `${username}@example.com`;
 
-		await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
-		const beforeId = await findUserIdByEmail(getBackendUrlA(), email);
-		expect(beforeId).not.toBeNull();
+			yield* Effect.promise(() => oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()));
+			const beforeId = yield* findUserIdByEmail(getBackendUrlA(), email);
+			expect(beforeId).not.toBeNull();
 
-		const sessionCookie = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlC());
-		const client = makeSession(getBackendUrlC());
-		await client.run((c) => c.trackers.list({ urlParams: trackersListQuery }), {
-			Cookie: sessionCookie,
-		});
+			const sessionCookie = yield* Effect.promise(() =>
+				oidcSignIn(requireMockOidcServer(), username, getBackendUrlC()),
+			);
+			const client = makeSession(getBackendUrlC());
+			yield* client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+				Cookie: sessionCookie,
+			});
 
-		const afterId = await findUserIdByEmail(getBackendUrlC(), email);
-		expect(afterId).toBe(beforeId);
-	});
+			const afterId = yield* findUserIdByEmail(getBackendUrlC(), email);
+			expect(afterId).toBe(beforeId);
+		}),
+	);
 });
