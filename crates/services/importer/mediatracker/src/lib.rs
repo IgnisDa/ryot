@@ -253,13 +253,12 @@ async fn process_item(
 pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let api_url = input.api_url.trim_end_matches('/');
     let url = format!("{api_url}/api");
-    let allow_insecure = input.allow_insecure_connections.unwrap_or(false);
     let client = get_http_client_with_tls_config(
         Some(vec![(
             HeaderName::from_static("access-token"),
             HeaderValue::from_str(&input.api_key).unwrap(),
         )]),
-        allow_insecure,
+        input.allow_insecure_connections.unwrap_or(false),
     );
 
     let rsp = client.get(format!("{url}/user")).send().await.unwrap();

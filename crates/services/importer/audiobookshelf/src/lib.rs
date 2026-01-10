@@ -40,13 +40,12 @@ pub async fn import(
     let mut completed = vec![];
     let mut failed = vec![];
     let url = format!("{}/api", input.api_url);
-    let allow_insecure = input.allow_insecure_connections.unwrap_or(false);
     let client = get_http_client_with_tls_config(
         Some(vec![(
             AUTHORIZATION,
             HeaderValue::from_str(&format!("Bearer {}", input.api_key)).unwrap(),
         )]),
-        allow_insecure,
+        input.allow_insecure_connections.unwrap_or(false),
     );
 
     let services = ImportServices {
