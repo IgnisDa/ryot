@@ -163,10 +163,26 @@ export const bindSandboxHostFunctions = (
 		(...args) => implementations.createEvents(input, ...args),
 		defaultFailure("createEvents", "createEvents expects an array of event items"),
 	),
+	upsertGlobalEntities: bindHostFunction(
+		domainSandboxHostContracts.upsertGlobalEntities,
+		(...args) => implementations.upsertGlobalEntities(input, ...args),
+		defaultFailure(
+			"upsertGlobalEntities",
+			"upsertGlobalEntities expects an array of valid entity items",
+		),
+	),
 	executeQueryEngine: bindHostFunction(
 		domainSandboxHostContracts.executeQueryEngine,
 		(...args) => implementations.executeQueryEngine(input, ...args),
 		defaultFailure("executeQueryEngine", "executeQueryEngine expects a JSON query document"),
+	),
+	upsertGlobalRelationships: bindHostFunction(
+		domainSandboxHostContracts.upsertGlobalRelationships,
+		(...args) => implementations.upsertGlobalRelationships(input, ...args),
+		defaultFailure(
+			"upsertGlobalRelationships",
+			"upsertGlobalRelationships expects an array of valid reconciliation groups",
+		),
 	),
 	getCachedValue: bindHostFunction(
 		coreSandboxHostContracts.getCachedValue,

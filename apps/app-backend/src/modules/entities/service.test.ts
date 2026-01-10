@@ -5,7 +5,7 @@ import type { FieldValue } from "@ryot/contract/modules/query-engine/language";
 import { EntityId, EntitySchemaSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
-import { type MockOverrides, dbRunnerLayer } from "#lib/test-utils/effect";
+import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
 import { QueryEngineService } from "#modules/query-engine/service";
 
 import { LifecycleDispatch, LifecycleDispatchNoop } from "./lifecycle-dispatch";
@@ -40,15 +40,18 @@ const makeServiceLayer = (
 	repository = makeEntitiesRepository(),
 	options: { queryEngine?: Layer.Layer<QueryEngineService> } = {},
 ) =>
-	EntitiesService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				LifecycleDispatchNoop,
-				options.queryEngine ?? makeQueryEngine(),
-				repository,
+	Layer.mergeAll(
+		EntitiesService.Default.pipe(
+			Layer.provide(
+				Layer.mergeAll(
+					dbRunnerLayer,
+					LifecycleDispatchNoop,
+					options.queryEngine ?? makeQueryEngine(),
+					repository,
+				),
 			),
 		),
+		transactionLayer,
 	);
 
 const field = (kind: FieldValue["kind"], value: unknown): FieldValue => ({ kind, value });
@@ -308,6 +311,219 @@ it.effect("upsert creates a new global entity when none exists", () => {
 			},
 		});
 		expect(updateCalled).toBe(false);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("upsertGlobalEntities remains unbounded without maximumTotal", () => {
+	const inserts: unknown[] = [];
+	let countCalled = false;
+	let lockCalled = false;
+	const layer = makeServiceLayer(
+		makeEntitiesRepository({
+			countGlobalEntitiesByProvenanceScope: () =>
+				Effect.sync(() => {
+					countCalled = true;
+					return 0;
+				}),
+			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			lockGlobalEntityProvenanceScope: () =>
+				Effect.sync(() => {
+					lockCalled = true;
+				}),
+			insertEntity: (input) =>
+				Effect.sync(() => {
+					inserts.push(input);
+					return { entity: globalEntity, wasInserted: false };
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitiesService;
+		const result = yield* service.upsertGlobalEntities(
+			[
+				{
+					name: "Replacement",
+					externalId: "ext-1",
+					populatedAt: null,
+					properties: { title: "Replacement" },
+					entitySchemaSlug: EntitySchemaSlug.make("person"),
+				},
+			],
+			SandboxScriptId.make("script-1"),
+		);
+
+		expect(result).toEqual([
+			{ status: "upserted", entityId: EntityId.make("entity-1"), wasInserted: false },
+		]);
+		expect(countCalled).toBe(false);
+		expect(lockCalled).toBe(false);
+		expect(inserts).toEqual([
+			{
+				scope: "global",
+				populatedAt: null,
+				name: "Replacement",
+				externalId: "ext-1",
+				properties: { title: "Replacement" },
+				sandboxScriptId: SandboxScriptId.make("script-1"),
+				entitySchemaSlug: EntitySchemaSlug.make("person"),
+			},
+		]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("counts existing entities outside the submitted prefix before admitting new rows", () => {
+	let insertCalled = false;
+	const layer = makeServiceLayer(
+		makeEntitiesRepository({
+			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			lockGlobalEntityProvenanceScope: () => Effect.void,
+			countGlobalEntitiesByProvenanceScope: () => Effect.succeed(2),
+			findGlobalEntityByExternalId: () => Effect.succeed(null),
+			insertEntity: () =>
+				Effect.sync(() => {
+					insertCalled = true;
+					return { entity: globalEntity, wasInserted: true };
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitiesService;
+		const result = yield* service.upsertGlobalEntities(
+			[
+				{
+					name: "New",
+					populatedAt: null,
+					externalId: "new-1",
+					properties: { title: "New" },
+					entitySchemaSlug: EntitySchemaSlug.make("person"),
+				},
+			],
+			SandboxScriptId.make("script-1"),
+			{ maximumTotal: 2 },
+		);
+
+		expect(result).toEqual([{ status: "skipped" }]);
+		expect(insertCalled).toBe(false);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("locks affected provenance scopes in deterministic order", () => {
+	const locked: EntitySchemaSlug[] = [];
+	const layer = makeServiceLayer(
+		makeEntitiesRepository({
+			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			countGlobalEntitiesByProvenanceScope: () => Effect.succeed(0),
+			findGlobalEntityByExternalId: () => Effect.succeed(null),
+			lockGlobalEntityProvenanceScope: ({ entitySchemaSlug }) =>
+				Effect.sync(() => {
+					locked.push(entitySchemaSlug);
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitiesService;
+		const result = yield* service.upsertGlobalEntities(
+			["zeta", "alpha", "zeta"].map((entitySchemaSlug, index) => ({
+				populatedAt: null,
+				name: `Entity ${index}`,
+				externalId: `external-${index}`,
+				properties: { title: `Entity ${index}` },
+				entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
+			})),
+			SandboxScriptId.make("script-1"),
+			{ maximumTotal: 0 },
+		);
+
+		expect(result).toEqual([{ status: "skipped" }, { status: "skipped" }, { status: "skipped" }]);
+		expect(locked).toEqual([EntitySchemaSlug.make("alpha"), EntitySchemaSlug.make("zeta")]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("preserves submitted existing entities when maximumTotal is zero", () => {
+	const layer = makeServiceLayer(
+		makeEntitiesRepository({
+			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			lockGlobalEntityProvenanceScope: () => Effect.void,
+			countGlobalEntitiesByProvenanceScope: () => Effect.succeed(1),
+			findGlobalEntityByExternalId: ({ externalId }) =>
+				Effect.succeed(externalId === "ext-1" ? globalEntity : null),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitiesService;
+		const result = yield* service.upsertGlobalEntities(
+			[
+				{
+					name: "Existing",
+					populatedAt: null,
+					externalId: "ext-1",
+					properties: { title: "Existing" },
+					entitySchemaSlug: EntitySchemaSlug.make("person"),
+				},
+				{
+					name: "New",
+					populatedAt: null,
+					externalId: "new-1",
+					properties: { title: "New" },
+					entitySchemaSlug: EntitySchemaSlug.make("person"),
+				},
+			],
+			SandboxScriptId.make("script-1"),
+			{ maximumTotal: 0 },
+		);
+
+		expect(result).toEqual([
+			{ status: "upserted", entityId: EntityId.make("entity-1"), wasInserted: false },
+			{ status: "skipped" },
+		]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("returns aligned existing, inserted, and skipped outcomes at the scope maximum", () => {
+	const stored = new Map([["ext-1", globalEntity]]);
+	const layer = makeServiceLayer(
+		makeEntitiesRepository({
+			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			lockGlobalEntityProvenanceScope: () => Effect.void,
+			countGlobalEntitiesByProvenanceScope: () => Effect.succeed(1),
+			findGlobalEntityByExternalId: ({ externalId }) =>
+				Effect.succeed(stored.get(externalId) ?? null),
+			insertEntity: (input) => {
+				const entity = {
+					...globalEntity,
+					name: input.name,
+					externalId: input.externalId ?? "",
+					id: EntityId.make(`entity-${stored.size + 1}`),
+				};
+				stored.set(input.externalId ?? "", entity);
+				return Effect.succeed({ entity, wasInserted: true });
+			},
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitiesService;
+		const result = yield* service.upsertGlobalEntities(
+			["ext-1", "new-1", "new-2"].map((externalId) => ({
+				externalId,
+				name: externalId,
+				populatedAt: null,
+				properties: { title: externalId },
+				entitySchemaSlug: EntitySchemaSlug.make("person"),
+			})),
+			SandboxScriptId.make("script-1"),
+			{ maximumTotal: 2 },
+		);
+
+		expect(result).toEqual([
+			{ status: "upserted", entityId: EntityId.make("entity-1"), wasInserted: false },
+			{ status: "upserted", entityId: EntityId.make("entity-2"), wasInserted: true },
+			{ status: "skipped" },
+		]);
 	}).pipe(Effect.provide(layer));
 });
 

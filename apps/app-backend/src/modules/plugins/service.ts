@@ -17,6 +17,7 @@ import type { NormalizedPlugin, PluginSource } from "./types";
 import {
 	decodePluginManifest,
 	PluginValidationError,
+	validatePluginCronDrivers,
 	validatePluginManifestReferences,
 	validatePluginSourcePaths,
 	validateSignalSchemaFormatterReferences,
@@ -54,6 +55,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 			);
 			const validateSnapshot = Effect.fn("PluginIngestionService.validateSnapshot")(function* (
 				snapshot: ReturnType<PluginLoader["getSnapshot"]>,
+				validateCompiledDrivers = true,
 			) {
 				const plugins = Object.values(snapshot.plugins);
 				yield* validateSignalSchemaFormatterReferences(
@@ -64,7 +66,12 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 				);
 				yield* Effect.forEach(
 					plugins,
-					({ manifest }) => validatePluginManifestReferences(manifest, snapshot.definitions),
+					(plugin) =>
+						validatePluginManifestReferences(plugin.manifest, snapshot.definitions).pipe(
+							Effect.andThen(
+								validateCompiledDrivers ? validatePluginCronDrivers(plugin) : Effect.void,
+							),
+						),
 					{ discard: true },
 				);
 			});
@@ -94,7 +101,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 						try: () => loader.preview(candidate),
 						catch: (error) => new PluginValidationError({ issues: [String(error)] }),
 					});
-					yield* validateSnapshot(prospectiveSnapshot);
+					yield* validateSnapshot(prospectiveSnapshot, false);
 
 					const cached = yield* runWithDb(
 						repository.findBySourceHash({ slug: manifest.metadata.slug, sourceHash }),
@@ -104,6 +111,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 							try: () => loader.preview(cached),
 							catch: (error) => new PluginValidationError({ issues: [String(error)] }),
 						});
+						yield* validateSnapshot(snapshot);
 						loader.replace(snapshot);
 						return cached;
 					}

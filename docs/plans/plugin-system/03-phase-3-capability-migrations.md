@@ -76,6 +76,26 @@ Kernel capability:
   - Both are global-scope (no user) and must be capability-gated in the driver manifest so a
     future untrusted provider script cannot write global data by default.
 
+**Implementation choice (2026-07-24, owner-approved):** `upsertGlobalEntities(items)` accepts
+`{ entitySchemaSlug, externalId, name, properties, populatedAt }` items, injects provenance from
+the executing script, preserves an existing global entity, and returns aligned upsert results
+(refined by the amendment below). `upsertGlobalRelationships(items)` accepts atomic
+reconciliation groups shaped as `{ relationshipSchemaSlug, selector, relationships[] }`; each
+group validates and upserts its listed edges and deletes absent global edges matching the generic
+selector in one transaction, returning mutation counts. Treating a relationship item as a set
+rather than a single edge preserves the native trending refresh's stale-edge deletion without a
+media-specific syscall or a separate list-and-filter host function.
+
+**Implementation choice amendment (2026-07-24, owner-approved):**
+`upsertGlobalEntities(items, options?)` additionally accepts a generic
+`{ maximumTotal?: number }` bound. When supplied, the kernel counts existing global entities for
+each affected `(entitySchemaSlug, executing-script provenance)` scope and atomically skips absent
+items after that scope reaches the maximum; aligned results are discriminated as upserted
+`{ status: "upserted", entityId, wasInserted }` or `{ status: "skipped" }`. This preserves the
+exercise preload cap when an upstream catalog reorder leaves previously imported entities outside
+the current prefix, without adding a list/count syscall or moving persistence knowledge into the
+plugin.
+
 Migrate: `modules/media-trending` (poll providers → write trending global entities +
 refresh workflow + infrequent task) and `modules/exercises` (free-exercise-db preload)
 become cron-driven plugin scripts. The trending _read_ path (whatever serves trending to

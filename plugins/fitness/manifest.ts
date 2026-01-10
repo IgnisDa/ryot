@@ -7,6 +7,19 @@ import { fitnessSignalSchemas } from "./schemas/signal-schemas";
 import { fitnessScripts } from "./script-catalog";
 
 export const fitnessPlugin = definePlugin({
+	scripts: fitnessScripts,
+	savedViews: fitnessSavedViews(),
+	entitySchemas: fitnessEntitySchemas(),
+	signalSchemas: fitnessSignalSchemas(),
+	relationshipSchemas: fitnessRelationshipSchemas(),
+	crons: [
+		{
+			schedule: "0 0 * * *",
+			slug: "preload-exercises",
+			driverRef: "exercise.free-exercise-db",
+			description: "Preload the built-in exercise catalog",
+		},
+	],
 	metadata: {
 		name: "Fitness",
 		slug: "fitness",
@@ -15,11 +28,6 @@ export const fitnessPlugin = definePlugin({
 		accentColor: "#2DD4BF",
 		description: "Track workouts, measurements, and progress.",
 	},
-	scripts: fitnessScripts,
-	savedViews: fitnessSavedViews(),
-	entitySchemas: fitnessEntitySchemas(),
-	signalSchemas: fitnessSignalSchemas(),
-	relationshipSchemas: fitnessRelationshipSchemas(),
 	bindings: {
 		eventAutomations: [],
 		signalAutomations: [],
@@ -27,8 +35,8 @@ export const fitnessPlugin = definePlugin({
 		schemaScriptLinks: [{ entitySchemaSlug: "exercise", scriptSlug: "exercise.free-exercise-db" }],
 		entityAutomations: [
 			{
-				entitySchemaSlug: "workout",
 				operation: "create",
+				entitySchemaSlug: "workout",
 				scriptSlug: "automation.workout-created",
 			},
 		],

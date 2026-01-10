@@ -253,6 +253,7 @@ export function trendingSandboxSource(
 ) {
 	return `
 import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/core";
+import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
@@ -260,7 +261,7 @@ export const manifest = defineManifest({
   kind: "provider",
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
-  capabilities: [],
+  capabilities: ["upsertGlobalEntities", "upsertGlobalRelationships"],
   requiredAppConfigKeys: [],
   providerInformation: { source: "e2e" },
 });
@@ -278,6 +279,34 @@ const trending = defineDriver(manifest, {
   run: () => Effect.succeed(trendingResult),
 });
 
-export default defineProvider({ manifest, drivers: { trending } });
+const cron = defineDriver(manifest, {
+  input: Schema.Struct({}),
+  output: Schema.Struct({ count: Schema.Number }),
+  run: (_input, host) => Effect.gen(function* () {
+    const entities = yield* host.upsertGlobalEntities(
+      trendingResult.items.map((item) => ({
+        properties: {},
+        name: item.name,
+        populatedAt: null,
+        entitySchemaSlug: "movie",
+        externalId: item.externalId,
+      })),
+    );
+    const upsertedEntities = entities.filter((entity) => entity.status === "upserted");
+    const fetchedAt = dayjs().toISOString();
+    yield* host.upsertGlobalRelationships([{
+      selector: { type: "self" },
+      relationshipSchemaSlug: "media-trending",
+      relationships: upsertedEntities.map(({ entityId }, index) => ({
+        sourceEntityId: entityId,
+        targetEntityId: entityId,
+        properties: { rank: index + 1, fetchedAt },
+      })),
+    }]);
+    return { count: upsertedEntities.length };
+  }),
+});
+
+export default defineProvider({ manifest, drivers: { cron, trending } });
 `;
 }
