@@ -55,10 +55,12 @@ describe("toAppSchema", () => {
 			),
 		).toEqual({
 			type: "object",
+			unknownKeys: "strip",
 			validation: { required: true },
 			properties: {
 				author: {
 					type: "object",
+					unknownKeys: "strip",
 					validation: { required: true },
 					properties: {
 						age: { type: "integer" },
@@ -91,6 +93,30 @@ describe("toAppSchemaProperties", () => {
 			fields: {
 				title: { type: "string" },
 				pages: { type: "integer" },
+			},
+		});
+	});
+
+	it("preserves object unknown-key policy when converting from zod", () => {
+		expect(
+			toAppSchema(
+				z.object({
+					metadata: z.object({ title: z.string() }),
+				}),
+			),
+		).toEqual({
+			type: "object",
+			unknownKeys: "strip",
+			validation: { required: true },
+			properties: {
+				metadata: {
+					type: "object",
+					unknownKeys: "strip",
+					validation: { required: true },
+					properties: {
+						title: { type: "string", validation: { required: true } },
+					},
+				},
 			},
 		});
 	});
@@ -214,6 +240,30 @@ describe("fromAppSchema", () => {
 		expect(
 			schema.safeParse({ author: { name: "Ada", extra: true } }).success,
 		).toBeFalse();
+	});
+
+	it("strips unknown keys when an object property opts in", () => {
+		const schema = fromAppSchema({
+			type: "object",
+			unknownKeys: "strip",
+			properties: {
+				author: {
+					type: "object",
+					unknownKeys: "strip",
+					validation: { required: true },
+					properties: {
+						name: { type: "string", validation: { required: true } },
+					},
+				},
+			},
+		});
+
+		expect(
+			schema.parse({
+				extra: true,
+				author: { name: "Ada", extra: true },
+			}),
+		).toEqual({ author: { name: "Ada" } });
 	});
 
 	it("applies string validation rules", () => {
