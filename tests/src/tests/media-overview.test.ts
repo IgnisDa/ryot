@@ -535,3 +535,158 @@ describe("GET /media/overview/week", () => {
 		expect(data?.data.items.reduce((sum, item) => sum + item.count, 0)).toBe(3);
 	});
 });
+
+describe("GET /media/overview/library", () => {
+	it("returns library statistics with counts by status", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const builtinTracker = await findBuiltinTracker(client, cookies);
+		const schemas = await listEntitySchemas(client, cookies, {
+			trackerId: builtinTracker.id,
+		});
+		const bookSchema = schemas.find((item) => item.slug === "book");
+		const mangaSchema = schemas.find((item) => item.slug === "manga");
+		if (!bookSchema || !mangaSchema) {
+			throw new Error("Missing built-in media schemas");
+		}
+		const bookProvider = bookSchema.providers[0];
+		const mangaProvider = mangaSchema.providers[0];
+		if (!bookProvider || !mangaProvider) {
+			throw new Error("Missing built-in providers");
+		}
+
+		// Create entities in different states
+		const backlogBook = await createEntity(client, cookies, {
+			image: null,
+			name: "Backlog Book",
+			entitySchemaId: bookSchema.id,
+			sandboxScriptId: bookProvider.scriptId,
+			properties: { publishYear: 2021, pages: 320 },
+			externalId: `book-backlog-${crypto.randomUUID()}`,
+		});
+
+		const inProgressManga = await createEntity(client, cookies, {
+			image: null,
+			name: "In Progress Manga",
+			entitySchemaId: mangaSchema.id,
+			sandboxScriptId: mangaProvider.scriptId,
+			properties: { publishYear: 2023, chapters: 100 },
+			externalId: `manga-progress-${crypto.randomUUID()}`,
+		});
+
+		const completedBook = await createEntity(client, cookies, {
+			image: null,
+			name: "Completed Book",
+			entitySchemaId: bookSchema.id,
+			sandboxScriptId: bookProvider.scriptId,
+			properties: { publishYear: 2020, pages: 250 },
+			externalId: `book-complete-${crypto.randomUUID()}`,
+		});
+
+		// Add events
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			properties: {},
+			entityId: backlogBook.id,
+			eventSchemaSlug: "backlog",
+			entitySchemaId: bookSchema.id,
+		});
+
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			eventSchemaSlug: "progress",
+			entityId: inProgressManga.id,
+			entitySchemaId: mangaSchema.id,
+			properties: { progressPercent: 30 },
+		});
+
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			entityId: completedBook.id,
+			eventSchemaSlug: "complete",
+			entitySchemaId: bookSchema.id,
+			properties: { completionMode: "just_now" },
+		});
+
+		// Review the completed book
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			eventSchemaSlug: "review",
+			entityId: completedBook.id,
+			entitySchemaId: bookSchema.id,
+			properties: { rating: 4, review: "Great read" },
+		});
+
+		const { data, response } = await client.GET("/media/overview/library", {
+			headers: { Cookie: cookies },
+		});
+
+		expect(data?.data).toBeDefined();
+		expect(data?.data.total).toBe(3);
+		expect(response.status).toBe(200);
+		expect(data?.data.inBacklog).toBe(1);
+		expect(data?.data.completed).toBe(1);
+		expect(data?.data.avgRating).toBe(4);
+		expect(data?.data.inProgress).toBe(1);
+		expect(data?.data.entityTypeCounts).toMatchObject({ book: 2, manga: 1 });
+	});
+
+	it("returns null avgRating when no reviews exist", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const builtinTracker = await findBuiltinTracker(client, cookies);
+		const schemas = await listEntitySchemas(client, cookies, {
+			trackerId: builtinTracker.id,
+		});
+		const bookSchema = schemas.find((item) => item.slug === "book");
+		if (!bookSchema) {
+			throw new Error("Missing book schema");
+		}
+		const bookProvider = bookSchema.providers[0];
+		if (!bookProvider) {
+			throw new Error("Missing provider");
+		}
+
+		const backlogBook = await createEntity(client, cookies, {
+			image: null,
+			name: "Backlog Only Book",
+			entitySchemaId: bookSchema.id,
+			sandboxScriptId: bookProvider.scriptId,
+			properties: { publishYear: 2021, pages: 320 },
+			externalId: `book-backlog-${crypto.randomUUID()}`,
+		});
+
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			properties: {},
+			entityId: backlogBook.id,
+			eventSchemaSlug: "backlog",
+			entitySchemaId: bookSchema.id,
+		});
+
+		const { data, response } = await client.GET("/media/overview/library", {
+			headers: { Cookie: cookies },
+		});
+
+		expect(response.status).toBe(200);
+		expect(data?.data.avgRating).toBeNull();
+		expect(data?.data.total).toBe(1);
+	});
+
+	it("returns library stats without tracker scoping", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { data, response } = await client.GET("/media/overview/library", {
+			headers: { Cookie: cookies },
+		});
+
+		expect(response.status).toBe(200);
+		expect(data?.data).toBeDefined();
+		expect(typeof data?.data.total).toBe("number");
+		expect(typeof data?.data.inBacklog).toBe("number");
+		expect(typeof data?.data.inProgress).toBe("number");
+		expect(typeof data?.data.completed).toBe("number");
+	});
+});

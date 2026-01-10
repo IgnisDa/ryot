@@ -438,3 +438,104 @@ export const getWeekActivity = async (
 
 	return serviceData(buildWeekActivitySectionResponse({ items }));
 };
+
+const isBacklogItem = (item: BuiltInMediaOverviewSourceItem): boolean => {
+	return item.backlogAt !== null && item.progressAt === null;
+};
+
+const isInProgressItem = (item: BuiltInMediaOverviewSourceItem): boolean => {
+	if (item.progressAt === null) {
+		return false;
+	}
+	if (item.completeAt === null) {
+		return true;
+	}
+	return dayjs(item.progressAt).isAfter(item.completeAt);
+};
+
+const isCompletedItem = (item: BuiltInMediaOverviewSourceItem): boolean => {
+	if (item.completeAt === null) {
+		return false;
+	}
+	if (item.progressAt === null) {
+		return true;
+	}
+	return dayjs(item.completeAt).isAfter(item.progressAt);
+};
+
+export const getLibraryStats = async (
+	userId: string,
+	deps: MediaServiceDeps = defaultDeps,
+) => {
+	// NOTE: Limit of 10000 entities. If user has more tracked entities,
+	// stats will be incomplete. Consider pagination or database-level
+	// aggregation if this becomes a constraint.
+	const request: QueryEngineRequest = {
+		...buildBaseRequest(),
+		filter: null,
+		pagination: { page: 1, limit: 10000 },
+		sort: {
+			direction: "desc",
+			expression: entityColumnExpression("book", "createdAt"),
+		},
+	};
+
+	try {
+		const result = await deps.executeSectionQuery(userId, request);
+		const items = result.items.flatMap((item) => {
+			const mapped = toBuiltinMediaSourceItem(item);
+			if (mapped) {
+				return [mapped];
+			}
+			return [];
+		});
+
+		const entityTypeCounts = new Map<string, number>();
+		let inBacklog = 0;
+		let completed = 0;
+		let ratingSum = 0;
+		let inProgress = 0;
+		let ratingCount = 0;
+
+		for (const item of items) {
+			entityTypeCounts.set(
+				item.entitySchemaSlug,
+				(entityTypeCounts.get(item.entitySchemaSlug) ?? 0) + 1,
+			);
+
+			if (isBacklogItem(item)) {
+				inBacklog++;
+			}
+			if (isInProgressItem(item)) {
+				inProgress++;
+			}
+			if (isCompletedItem(item)) {
+				completed++;
+			}
+			if (item.reviewRating !== null) {
+				ratingCount++;
+				ratingSum += item.reviewRating;
+			}
+		}
+
+		const total = items.length;
+		const avgRating = ratingCount > 0 ? ratingSum / ratingCount : null;
+
+		return serviceData({
+			total,
+			inBacklog,
+			completed,
+			avgRating,
+			inProgress,
+			entityTypeCounts: Object.fromEntries(entityTypeCounts),
+		});
+	} catch (error) {
+		if (error instanceof QueryEngineNotFoundError) {
+			return serviceError("not_found", mediaOverviewMisconfiguredError);
+		}
+		if (error instanceof QueryEngineValidationError) {
+			return serviceError("validation", mediaOverviewMisconfiguredError);
+		}
+		throw error;
+	}
+};
