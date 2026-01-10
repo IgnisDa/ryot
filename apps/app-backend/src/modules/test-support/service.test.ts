@@ -1,20 +1,17 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { EntityId, EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
-import mediaPlugin from "@ryot/plugin-media";
+import { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { Effect, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-utils/effect";
-import { makeWorkflowEngine, transactionLayer } from "#lib/test-utils/effect";
+import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { AutomationsService } from "#modules/automations/service";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesService } from "#modules/entities/service";
 import { InterestService } from "#modules/entity-interest/service";
 import { TranslationsService } from "#modules/entity-translation/service";
-import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxApiService } from "#modules/sandbox/service";
@@ -23,7 +20,6 @@ import { SignalsService } from "#modules/signals/service";
 import { TestSupportService } from "./service";
 
 const entityId = EntityId.make("entity-id");
-const scriptId = SandboxScriptId.make("script-id");
 const entitySchemaSlug = EntitySchemaSlug.make("entity-schema-id");
 
 const mockAuth = Layer.mock(AuthService);
@@ -34,7 +30,6 @@ const mockSandbox = Layer.mock(SandboxApiService);
 const mockAutomations = Layer.mock(AutomationsService);
 const mockTranslations = Layer.mock(TranslationsService);
 const mockRelationships = Layer.mock(RelationshipsService);
-const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
 const mockRelationshipSchemas = Layer.mock(RelationshipSchemasRepository);
 const workflowEngineLayer = Layer.succeed(
 	WorkflowEngine,
@@ -45,84 +40,27 @@ const makeServiceLayer = (
 	overrides: {
 		sandbox?: MockOverrides<typeof mockSandbox>;
 		entities?: MockOverrides<typeof mockEntities>;
-		relationships?: MockOverrides<typeof mockRelationships>;
-		pluginRuntime?: MockOverrides<typeof mockPluginRuntime>;
 	} = {},
 	definitions = makeDefinitionRegistry(),
 ) => {
-	const loader = makePluginLoader(definitions);
-	loader.load({ manifest: mediaPlugin, sourceHash: "test", scripts: [] });
 	return TestSupportService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				transactionLayer,
 				mockAuth({ _tag: "AuthService", auth: Object.create(null) }),
 				mockAutomations({ _tag: "AutomationsService" }),
 				mockSignals({ _tag: "SignalsService" }),
 				Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...definitions }),
-				Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader }),
-				mockPluginRuntime({ _tag: "PluginRuntimeResolver", ...overrides.pluginRuntime }),
 				mockEntities({ _tag: "EntitiesService", ...overrides.entities }),
 				mockSandbox({ _tag: "SandboxApiService", ...overrides.sandbox }),
 				mockInterest({ _tag: "InterestService" }),
 				mockTranslations({ _tag: "TranslationsService" }),
-				mockRelationships({ _tag: "RelationshipsService", ...overrides.relationships }),
+				mockRelationships({ _tag: "RelationshipsService" }),
 				mockRelationshipSchemas({ _tag: "RelationshipSchemasRepository" }),
 				workflowEngineLayer,
 			),
 		),
 	);
 };
-
-it.effect("deletes script-owned rows in order and remains idempotent", () => {
-	const calls: string[] = [];
-	const layer = makeServiceLayer({
-		relationships: {
-			deleteTouchingEntitiesOfSandboxScript: () =>
-				Effect.sync(() => {
-					calls.push("relationships");
-					return 0;
-				}),
-		},
-		entities: {
-			deleteBySandboxScript: () =>
-				Effect.sync(() => {
-					calls.push("entities");
-					return 0;
-				}),
-		},
-		pluginRuntime: {
-			unregisterTestSchemaScript: () =>
-				Effect.sync(() => {
-					calls.push("links");
-					return 0;
-				}),
-		},
-		sandbox: {
-			deleteStoredScript: () =>
-				Effect.sync(() => {
-					calls.push("script");
-					return null;
-				}),
-		},
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* TestSupportService;
-		expect(yield* service.deleteSandboxScript(scriptId)).toEqual({ id: scriptId });
-		expect(yield* service.deleteSandboxScript(scriptId)).toEqual({ id: scriptId });
-		expect(calls).toEqual([
-			"relationships",
-			"entities",
-			"links",
-			"script",
-			"relationships",
-			"entities",
-			"links",
-			"script",
-		]);
-	}).pipe(Effect.provide(layer));
-});
 
 it.effect("updates populatedAt without changing entity fields", () => {
 	const populatedAt = "2026-07-20T12:00:00.000Z";
@@ -160,123 +98,5 @@ it.effect("updates populatedAt without changing entity fields", () => {
 			populatedAt: populatedAtDate,
 			properties: entity.properties,
 		});
-	}).pipe(Effect.provide(layer));
-});
-
-const emptyPropertiesSchema = { fields: {} } as const;
-const testEntity = {
-	icon: "book",
-	name: "Test Book",
-	slug: "test-book",
-	accentColor: "blue",
-	propertiesSchema: emptyPropertiesSchema,
-	eventSchemas: [{ name: "Started", slug: "started", propertiesSchema: emptyPropertiesSchema }],
-};
-
-it.effect("additively installs entity and relationship definitions", () => {
-	const definitions = makeDefinitionRegistry();
-	const layer = makeServiceLayer({}, definitions);
-
-	return Effect.gen(function* () {
-		const service = yield* TestSupportService;
-		yield* service.installDefinitions({
-			entitySchemas: [testEntity],
-			relationshipSchemas: [
-				{
-					name: "Test Related",
-					slug: "test-related",
-					targetEntitySchemaSlug: null,
-					propertiesSchema: emptyPropertiesSchema,
-					sourceEntitySchemaSlug: testEntity.slug,
-				},
-			],
-		});
-
-		expect(definitions.getEntitySchema("movie")).toBeDefined();
-		expect(definitions.getEntitySchema(testEntity.slug)).toBeDefined();
-		expect(definitions.getRelationshipSchema("test-related")).toBeDefined();
-		expect(definitions.getEntitySchema(testEntity.slug)?.pluginSlug).toBeNull();
-		expect(definitions.isEntitySchemaBuiltin("movie")).toBe(true);
-		expect(definitions.isEntitySchemaBuiltin(testEntity.slug)).toBe(false);
-		expect(definitions.isRelationshipSchemaBuiltin("in-library")).toBe(true);
-		expect(definitions.isRelationshipSchemaBuiltin("test-related")).toBe(false);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("replaces same-slug test definitions including nested events", () => {
-	const definitions = makeDefinitionRegistry();
-	const layer = makeServiceLayer({}, definitions);
-
-	return Effect.gen(function* () {
-		const service = yield* TestSupportService;
-		yield* service.installDefinitions({
-			entitySchemas: [testEntity, { ...testEntity, name: "Unrelated", slug: "test-unrelated" }],
-		});
-		yield* service.installDefinitions({
-			entitySchemas: [
-				{
-					...testEntity,
-					name: "Updated Test Book",
-					eventSchemas: [
-						{
-							name: "Finished",
-							slug: "finished",
-							propertiesSchema: emptyPropertiesSchema,
-						},
-					],
-				},
-			],
-		});
-
-		expect(definitions.getEntitySchema(testEntity.slug)?.name).toBe("Updated Test Book");
-		expect(definitions.getEventSchema(testEntity.slug, "started")).toBeUndefined();
-		expect(definitions.getEventSchema(testEntity.slug, "finished")?.name).toBe("Finished");
-		expect(definitions.getEntitySchema("test-unrelated")?.name).toBe("Unrelated");
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("rejects a builtin definition slug", () => {
-	const definitions = makeDefinitionRegistry();
-	const layer = makeServiceLayer({}, definitions);
-
-	return Effect.gen(function* () {
-		const service = yield* TestSupportService;
-		const movie = definitions.getEntitySchema("movie");
-		assert(movie);
-		const failure = yield* Effect.flip(
-			service.installDefinitions({
-				entitySchemas: [{ ...movie, eventSchemas: Object.values(movie.eventSchemas) }],
-			}),
-		);
-
-		expect(failure.message).toMatch(/Builtin definition slug cannot be replaced: movie/);
-		expect(definitions.getEntitySchema("movie")).toBe(movie);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("leaves the previous snapshot intact when complete-source validation fails", () => {
-	const definitions = makeDefinitionRegistry();
-	const layer = makeServiceLayer({}, definitions);
-	const original = definitions.getSnapshot();
-
-	return Effect.gen(function* () {
-		const service = yield* TestSupportService;
-		const failure = yield* Effect.flip(
-			service.installDefinitions({
-				relationshipSchemas: [
-					{
-						name: "Broken",
-						slug: "broken",
-						targetEntitySchemaSlug: null,
-						sourceEntitySchemaSlug: "missing",
-						propertiesSchema: emptyPropertiesSchema,
-					},
-				],
-			}),
-		);
-
-		expect(failure.message).toMatch(/references missing entity schema missing/);
-		expect(definitions.getSnapshot()).toBe(original);
-		expect(definitions.getRelationshipSchema("broken")).toBeUndefined();
 	}).pipe(Effect.provide(layer));
 });

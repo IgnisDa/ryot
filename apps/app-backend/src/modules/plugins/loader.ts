@@ -71,6 +71,21 @@ const mergeBindings = (manifests: ReadonlyArray<PluginManifest>): PluginBindings
 		emptyBindings(),
 	);
 
+const assertUniqueScriptSlugs = (plugins: Readonly<Record<string, NormalizedPlugin>>) => {
+	const ownerBySlug = new Map<string, string>();
+	for (const [pluginSlug, plugin] of Object.entries(plugins)) {
+		for (const script of plugin.scripts) {
+			const owner = ownerBySlug.get(script.slug);
+			if (owner) {
+				throw new Error(
+					`Duplicate script slug '${script.slug}' in active plugins '${owner}' and '${pluginSlug}'`,
+				);
+			}
+			ownerBySlug.set(script.slug, pluginSlug);
+		}
+	}
+};
+
 export const makePluginLoader = (registry: Pick<DefinitionRegistry, "getSnapshot" | "replace">) => {
 	const base = definitionSourceFromSnapshot(registry.getSnapshot());
 	let snapshot: PluginRegistrySnapshot = {
@@ -80,6 +95,7 @@ export const makePluginLoader = (registry: Pick<DefinitionRegistry, "getSnapshot
 	};
 
 	const buildSnapshot = (plugins: Readonly<Record<string, NormalizedPlugin>>) => {
+		assertUniqueScriptSlugs(plugins);
 		const clonedPlugins = structuredClone(plugins);
 		const manifests = Object.values(clonedPlugins).map(({ manifest }) => manifest);
 		return deepFreeze({
@@ -103,7 +119,7 @@ export const makePluginLoader = (registry: Pick<DefinitionRegistry, "getSnapshot
 		replace(previewAll(plugins));
 	};
 
-	return { load, preview, rebuild, previewAll, getSnapshot: () => snapshot };
+	return { load, replace, preview, rebuild, previewAll, getSnapshot: () => snapshot };
 };
 
 export class PluginLoader extends Effect.Service<PluginLoader>()("PluginLoader", {

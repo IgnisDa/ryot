@@ -1,8 +1,8 @@
 import type { PluginManifest, PluginScript } from "@ryot/plugin-kit/manifest";
 
 export type PluginSource = {
-	readonly packageRoot: string;
 	readonly manifest: unknown;
+	readonly files: Readonly<Record<string, string>>;
 };
 
 export type NormalizedPluginScript = {
