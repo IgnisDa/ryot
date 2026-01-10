@@ -263,6 +263,17 @@ depend on the script-creation API this section deletes.
   Anything in the group the plugin machinery still genuinely needs (execution inspection,
   admin diagnostics) is kept or relocated — **[IMPLEMENTER-DECIDES]** after auditing the
   group's remaining consumers.
+
+**Implementation choice (2026-07-24, owner-confirmed):** delete the public `sandbox` contract
+group completely. Its remaining `enqueue` and `getResult` endpoints are low-level execution
+hooks used by the e2e suite, not by the application flow: entity import remains available through
+the generic `entityImport` surface, while Phase 3 adds declared plugin operations through
+`plugins.invoke`. Relocate equivalent execution and result-polling hooks to the admin-gated
+`testSupport` group, with an explicit executing-user ID so runtime behavior, user-context host
+functions, limits, faults, and per-executing-user cache isolation remain covered against
+plugin-installed scripts. Delete assertions specific to the removed public endpoint's
+authentication and job-ownership behavior along with that endpoint; preserve sandbox-runtime
+behavior assertions.
 - **Backend** (`modules/sandbox`): delete the user-facing script authoring service/routes
   and owner-based access checks. The execution services and the compiler service
   (`modules/sandbox/compiler.ts`) survive — ingestion (§4) is now their consumer.
@@ -273,6 +284,18 @@ depend on the script-creation API this section deletes.
   provider keep NULL).
 - **Cache semantics**: the per-`(user, scriptId)` sandbox cache isolation keys on the
   _executing_ user and is unchanged; only script-ownership checks disappear.
+
+**Implementation clarification (2026-07-24, owner-confirmed):** the pre-Task-07 runtime cache
+key actually used `(serverRunId, scriptId, key)`, so user-owned scripts were isolated only
+incidentally by having different script IDs while builtin/plugin script IDs could share entries
+across executing users. Removing per-user script ownership exposed that contradiction with
+Decision 19. Task 07 therefore makes the intended boundary explicit and includes
+`(executingUserId, scriptId, key)` in cache identity for both plugin and kernel source-zero
+scripts. The existing lifecycle distinction remains: `getCachedValue`/`setCachedValue` also
+include `serverRunId` and reset across backend restarts, while `claimCachedValue` uses the
+persistent user/script partition. Userless kernel executions use their own partition. This is the
+security-preserving interpretation of the decided per-executing-user isolation rule, not a
+continuation of isolation that depended on script ownership.
 - **E2e**: `tests/src/tests/sandbox/` — port execution-semantics/limits/fault coverage to
   scripts installed via `installTestPlugin`; delete authoring-CRUD coverage. Any remaining
   fixture that compiles "through the authenticated script-creation API" moves to the install

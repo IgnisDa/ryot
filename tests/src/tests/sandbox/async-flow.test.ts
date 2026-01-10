@@ -1,28 +1,24 @@
-import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
-	adminHeaders,
 	appConfigSandboxSource,
 	createAuthenticatedClient,
 	createEntity,
 	createEntitySchema,
-	createSandboxScript,
 	createPluginScope,
 	enqueueSandboxScript,
-	getBackendClient,
 	httpCallSandboxSource,
-	invalidTypeScriptSandboxSource,
+	installSandboxScriptScoped,
 	literalSandboxSource,
 	pollSandboxResult,
 	queryEngineSandboxSource,
+	reinstallTestPluginScript,
 	requireCompletedSandboxValue,
 	throwingSandboxSource,
 	userPreferencesSandboxSource,
 } from "~/fixtures";
 import {
 	assertCompleted,
-	assertTaggedError,
 	requireArray,
 	requireObjectRecord,
 	requireString,
@@ -45,96 +41,58 @@ afterAll(() => {
 });
 
 describe("sandbox async flow", () => {
-	it.live("completes a script that returns a plain value", () =>
+	it.scopedLive("completes a script that returns a plain value", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { userId } = yield* createAuthenticatedClient();
 			const slug = `plain-value-${crypto.randomUUID()}`;
 			const source = literalSandboxSource({ name: "Plain value", slug, value: 42 });
-			const script = yield* createSandboxScript(client, {
-				source,
-			});
-			const { id: scriptId } = script;
-			expect(script).toMatchObject({
-				slug,
-				source,
-				name: "Plain value",
-				manifest: {
-					slug,
-					kind: "script",
-					capabilities: [],
-					name: "Plain value",
-					requiredAppConfigKeys: [],
-				},
-			});
-			expect("compiledCode" in script).toBe(false);
-			const stored = yield* getBackendClient().call(
-				(c) =>
-					c.testSupport.getSandboxScript({
-						path: { scriptId: SandboxScriptId.make(scriptId) },
-					}),
-				adminHeaders,
-			);
-			expect(stored).toMatchObject({
-				source,
-				compiledFormat: 1,
-				metadata: script.manifest,
-			});
-			expect(stored.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
-			yield* getBackendClient().call(
-				(c) =>
-					c.testSupport.patchSandboxScript({
-						path: { scriptId: SandboxScriptId.make(scriptId) },
-						payload: { source: 'throw new Error("authored source must not execute");' },
-					}),
-				adminHeaders,
-			);
-			const { jobId } = yield* enqueueSandboxScript(client, { scriptId, driverName: "main" });
+			const script = yield* installSandboxScriptScoped({ slug, source, name: "Plain value" });
+			const { scriptId } = script;
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
 
-			const result = yield* pollSandboxResult(client, jobId);
+			const result = yield* pollSandboxResult(userId, jobId);
 
 			assertCompleted(result, "sandbox job");
 
 			expect(result.value).toBe(42);
 			expect(result.error).toBeNull();
-		}),
-	);
 
-	it.live("returns not found when another user polls the job", () =>
-		Effect.gen(function* () {
-			const owner = yield* createAuthenticatedClient();
-			const other = yield* createAuthenticatedClient();
-			const slug = `cross-user-job-${crypto.randomUUID()}`;
-			const { id: scriptId } = yield* createSandboxScript(owner.client, {
-				source: literalSandboxSource({ name: "cross-user-job", slug, value: 42 }),
+			const updatedSource = literalSandboxSource({ name: "Plain value", slug, value: 43 });
+			const reinstalled = yield* reinstallTestPluginScript(scriptId, updatedSource, {
+				slug,
+				capabilities: [],
+				kind: "provider",
+				name: "Plain value",
+				requiredAppConfigKeys: [],
+				providerInformation: { source: "e2e" },
 			});
-			const { jobId } = yield* enqueueSandboxScript(owner.client, {
-				scriptId,
+			const updatedJob = yield* enqueueSandboxScript(userId, {
 				driverName: "main",
+				scriptId: reinstalled.scriptId,
 			});
-
-			const error = yield* Effect.flip(
-				other.client.call((c) => c.sandbox.getResult({ path: { jobId } })),
+			expect(requireCompletedSandboxValue(yield* pollSandboxResult(userId, updatedJob.jobId))).toBe(
+				43,
 			);
-
-			assertTaggedError(error, "NotFound");
-			expect(error.message).toBe("Sandbox job not found");
 		}),
 	);
 
-	it.live("completes a script that uses httpCall", () =>
+	it.scopedLive("completes a script that uses httpCall", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { userId } = yield* createAuthenticatedClient();
 			const slug = `http-call-${crypto.randomUUID()}`;
-			const { id: scriptId } = yield* createSandboxScript(client, {
+			const { scriptId } = yield* installSandboxScriptScoped({
+				slug,
+				name: "http-call",
+				capabilities: ["httpCall"],
 				source: httpCallSandboxSource({ name: "http-call", slug, url: httpServerUrl }),
 			});
-			const { jobId } = yield* enqueueSandboxScript(client, {
+			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
 				driverName: "main",
 			});
 
 			const value = requireObjectRecord(
-				requireCompletedSandboxValue(yield* pollSandboxResult(client, jobId)),
+				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId)),
 				"Expected sandbox httpCall result to be an object",
 			);
 			const data = requireObjectRecord(
@@ -149,9 +107,9 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.live("completes a script that uses executeQueryEngine", () =>
+	it.scopedLive("completes a script that uses executeQueryEngine", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const pluginSlug = createPluginScope();
 			const { data: schema, slug } = yield* createEntitySchema(client, {
 				pluginSlug,
@@ -164,7 +122,10 @@ describe("sandbox async flow", () => {
 				entitySchemaSlug: schema.id,
 			});
 			const sandboxSlug = `execute-query-engine-${crypto.randomUUID()}`;
-			const { id: scriptId } = yield* createSandboxScript(client, {
+			const { scriptId } = yield* installSandboxScriptScoped({
+				slug: sandboxSlug,
+				name: "execute-query-engine",
+				capabilities: ["executeQueryEngine"],
 				source: queryEngineSandboxSource({
 					slug: sandboxSlug,
 					name: "execute-query-engine",
@@ -205,13 +166,10 @@ describe("sandbox async flow", () => {
 					},
 				}),
 			});
-			const { jobId } = yield* enqueueSandboxScript(client, {
-				scriptId,
-				driverName: "main",
-			});
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
 
 			const value = requireArray(
-				requireCompletedSandboxValue(yield* pollSandboxResult(client, jobId)),
+				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId)),
 				"Expected executeQueryEngine sandbox result to be an array",
 			);
 			const first = requireObjectRecord(
@@ -232,14 +190,17 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.live("returns an error when executeQueryEngine uses a missing schema slug", () =>
+	it.scopedLive("returns an error when executeQueryEngine uses a missing schema slug", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { userId } = yield* createAuthenticatedClient();
 			const slug = `execute-query-engine-missing-schema-${crypto.randomUUID()}`;
-			const { id: scriptId } = yield* createSandboxScript(client, {
+			const { scriptId } = yield* installSandboxScriptScoped({
+				slug,
+				capabilities: ["executeQueryEngine"],
+				name: "execute-query-engine-missing-schema",
 				source: queryEngineSandboxSource({
-					name: "execute-query-engine-missing-schema",
 					slug,
+					name: "execute-query-engine-missing-schema",
 					query: {
 						source: { where: null, alias: "entity", type: "entities", schemas: ["does-not-exist"] },
 						output: {
@@ -260,9 +221,9 @@ describe("sandbox async flow", () => {
 					},
 				}),
 			});
-			const { jobId } = yield* enqueueSandboxScript(client, { scriptId, driverName: "main" });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
 
-			const result = yield* pollSandboxResult(client, jobId);
+			const result = yield* pollSandboxResult(userId, jobId);
 
 			assertCompleted(result, "sandbox job");
 
@@ -273,30 +234,37 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.live("completes a script that uses getAppConfigValue", () =>
+	it.scopedLive("completes a script that uses getAppConfigValue", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { userId } = yield* createAuthenticatedClient();
 			const slug = `get-app-config-value-${crypto.randomUUID()}`;
-			const { id: scriptId } = yield* createSandboxScript(client, {
+			const { scriptId } = yield* installSandboxScriptScoped({
+				slug,
+				name: "get-app-config-value",
+				capabilities: ["getAppConfigValue"],
+				requiredAppConfigKeys: ["server.progressUpdateThresholdHours"],
 				source: appConfigSandboxSource({
 					slug,
 					name: "get-app-config-value",
 					key: "server.progressUpdateThresholdHours",
 				}),
 			});
-			const { jobId } = yield* enqueueSandboxScript(client, { scriptId, driverName: "main" });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
 
-			const value = requireCompletedSandboxValue(yield* pollSandboxResult(client, jobId));
+			const value = requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId));
 			expect(typeof value).toBe("number");
 			expect(value).toBeGreaterThan(0);
 		}),
 	);
 
-	it.live("rejects a script access to an unknown app config key", () =>
+	it.scopedLive("rejects a script access to an unknown app config key", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { userId } = yield* createAuthenticatedClient();
 			const slug = `invalid-app-config-value-${crypto.randomUUID()}`;
-			const { id: scriptId } = yield* createSandboxScript(client, {
+			const { scriptId } = yield* installSandboxScriptScoped({
+				slug,
+				name: "invalid-app-config-value",
+				capabilities: ["getAppConfigValue"],
 				source: appConfigSandboxSource({
 					slug,
 					requiredAppConfigKeys: [],
@@ -304,9 +272,9 @@ describe("sandbox async flow", () => {
 					name: "invalid-app-config-value",
 				}),
 			});
-			const { jobId } = yield* enqueueSandboxScript(client, { scriptId, driverName: "main" });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
 
-			const result = yield* pollSandboxResult(client, jobId);
+			const result = yield* pollSandboxResult(userId, jobId);
 			assertCompleted(result, "sandbox job");
 			expect(result.error).toMatchObject({
 				phase: "execute",
@@ -315,17 +283,20 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.live("completes a script that uses getUserPreferences", () =>
+	it.scopedLive("completes a script that uses getUserPreferences", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { userId } = yield* createAuthenticatedClient();
 			const slug = `get-user-prefs-${crypto.randomUUID()}`;
-			const { id: scriptId } = yield* createSandboxScript(client, {
+			const { scriptId } = yield* installSandboxScriptScoped({
+				slug,
+				name: "get-user-prefs",
+				capabilities: ["getUserPreferences"],
 				source: userPreferencesSandboxSource({ name: "get-user-prefs", slug }),
 			});
-			const { jobId } = yield* enqueueSandboxScript(client, { scriptId, driverName: "main" });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
 
 			const prefs = requireObjectRecord(
-				requireCompletedSandboxValue(yield* pollSandboxResult(client, jobId)),
+				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId)),
 				"Expected user preferences sandbox result to be an object",
 			);
 			expect(prefs.isNsfw).toBe(false);
@@ -333,16 +304,18 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.live("returns a completed result when the script throws", () =>
+	it.scopedLive("returns a completed result when the script throws", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { userId } = yield* createAuthenticatedClient();
 			const slug = `throws-error-${crypto.randomUUID()}`;
-			const { id: scriptId } = yield* createSandboxScript(client, {
+			const { scriptId } = yield* installSandboxScriptScoped({
+				slug,
+				name: "throws-error",
 				source: throwingSandboxSource({ name: "throws-error", slug, message: "intentional" }),
 			});
-			const { jobId } = yield* enqueueSandboxScript(client, { scriptId, driverName: "main" });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
 
-			const result = yield* pollSandboxResult(client, jobId);
+			const result = yield* pollSandboxResult(userId, jobId);
 
 			assertCompleted(result, "sandbox job");
 
@@ -356,85 +329,6 @@ describe("sandbox async flow", () => {
 			expect(result.error?.column).toBeGreaterThan(0);
 			expect(result.error?.stack).not.toContain("data:application/javascript");
 			expect(result.error?.stack).not.toContain("runner.mjs");
-		}),
-	);
-
-	it.live("rejects invalid TypeScript without creating a script row", () =>
-		Effect.gen(function* () {
-			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `invalid-typescript-${crypto.randomUUID()}`;
-			const source = invalidTypeScriptSandboxSource({ name: "Invalid TypeScript", slug });
-			const error = yield* Effect.flip(
-				client.call((c) => c.sandbox.createScript({ payload: { source } })),
-			);
-
-			assertTaggedError(error, "SandboxCompilationFailure");
-			expect(error.diagnostics.length).toBeGreaterThan(0);
-			expect(error.diagnostics[0]).toMatchObject({
-				file: "script.ts",
-				severity: "error",
-			});
-			expect(error.diagnostics[0]?.line).toBeGreaterThan(0);
-			expect(error.diagnostics[0]?.column).toBeGreaterThan(0);
-			expect(error.diagnostics).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({
-						code: "TS2322",
-						message: expect.stringContaining("not assignable to type 'number'"),
-					}),
-				]),
-			);
-
-			const rows = yield* getBackendClient().call(
-				(c) => c.testSupport.listSandboxScripts({ urlParams: { userId: UserId.make(userId) } }),
-				adminHeaders,
-			);
-			expect(rows.some((row) => row.source === source)).toBe(false);
-		}),
-	);
-
-	it.live("returns 404 for a non-existent job id", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const error = yield* Effect.flip(
-				client.call((c) => c.sandbox.getResult({ path: { jobId: crypto.randomUUID() } })),
-			);
-
-			assertTaggedError(error, "NotFound");
-			expect(error.message).toBe("Sandbox job not found");
-		}),
-	);
-
-	it.live("returns 401 for unauthenticated enqueue", () =>
-		Effect.gen(function* () {
-			const client = getBackendClient();
-			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.sandbox.enqueue({
-						payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()), driverName: "main" },
-					}),
-				),
-			);
-
-			assertTaggedError(error, "Unauthorized");
-		}),
-	);
-
-	it.live("returns 401 for unauthenticated poll", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const slug = `unauth-poll-${crypto.randomUUID()}`;
-			const { id: scriptId } = yield* createSandboxScript(client, {
-				source: literalSandboxSource({ name: "unauth-poll", slug, value: 42 }),
-			});
-			const { jobId } = yield* enqueueSandboxScript(client, { scriptId, driverName: "main" });
-
-			const unauthenticatedClient = getBackendClient();
-			const error = yield* Effect.flip(
-				unauthenticatedClient.call((c) => c.sandbox.getResult({ path: { jobId } })),
-			);
-
-			assertTaggedError(error, "Unauthorized");
 		}),
 	);
 });

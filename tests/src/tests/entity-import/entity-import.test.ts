@@ -56,20 +56,13 @@ afterAll(async () => {
 	await Effect.runPromise(uninstallTestProvider(providerScript));
 });
 
-describe("POST /entity-schemas/search — provider entity search", () => {
+describe("provider entity search", () => {
 	it.live("returns 404 when the script does not exist", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { userId } = yield* createAuthenticatedClient();
 
 			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.sandbox.enqueue({
-						payload: {
-							driverName: "search",
-							scriptId: SandboxScriptId.make(crypto.randomUUID()),
-						},
-					}),
-				),
+				enqueueEntitySearch(userId, { scriptId: SandboxScriptId.make(crypto.randomUUID()) }),
 			);
 
 			assertTaggedError(error, "NotFound");
@@ -78,37 +71,18 @@ describe("POST /entity-schemas/search — provider entity search", () => {
 
 	it.live("enqueues a provider search and completes with the seeded results", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { userId } = yield* createAuthenticatedClient();
 
-			const { jobId } = yield* enqueueEntitySearch(client, {
+			const { jobId } = yield* enqueueEntitySearch(userId, {
 				context: { query: "test", page: 1, pageSize: 5 },
 				scriptId: SandboxScriptId.make(providerScript.scriptId),
 			});
 
-			const result = yield* pollEntitySearchResult(client, jobId);
+			const result = yield* pollEntitySearchResult(userId, jobId);
 			assertCompleted(result, "search job");
 			const value = requireObjectRecord(result.value, "Expected search result to be an object");
 			const items = requireArray(value.items, "Expected search result items to be an array");
 			expect(items).toHaveLength(2);
-		}),
-	);
-
-	it.live("returns 401 for unauthenticated search requests", () =>
-		Effect.gen(function* () {
-			const client = getBackendClient();
-
-			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.sandbox.enqueue({
-						payload: {
-							driverName: "search",
-							scriptId: SandboxScriptId.make(crypto.randomUUID()),
-						},
-					}),
-				),
-			);
-
-			assertTaggedError(error, "Unauthorized");
 		}),
 	);
 });

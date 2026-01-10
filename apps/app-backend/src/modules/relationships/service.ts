@@ -1,5 +1,4 @@
 import { badRequest, notFound } from "@ryot/contract/errors";
-import type { SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
@@ -81,19 +80,7 @@ export class RelationshipsService extends Effect.Service<RelationshipsService>()
 				return yield* runWithDb(repository.listGlobalRelationships(input));
 			});
 
-			const deleteTouchingEntitiesOfSandboxScript = Effect.fn(
-				"RelationshipsService.deleteTouchingEntitiesOfSandboxScript",
-			)(function* (sandboxScriptId: SandboxScriptId) {
-				return yield* runWithDb(repository.deleteTouchingEntitiesOfSandboxScript(sandboxScriptId));
-			});
-
-			return {
-				create,
-				update,
-				listGlobal,
-				delete: deleteRelationship,
-				deleteTouchingEntitiesOfSandboxScript,
-			};
+			return { create, update, listGlobal, delete: deleteRelationship };
 		}),
 	},
 ) {}
