@@ -22,18 +22,21 @@ import {
 	getFirstProviderScriptId,
 	insertLibraryMembership,
 	listEventSchemas,
+	listRelationshipSchemas,
 	mergeUserState,
 	pollEntityImportResult,
 	pollEntitySearchResult,
 	queryInLibraryRelationship,
 	queryUserEntityStateCounts,
 	requireEventSchemaBySlug,
+	requireRelationshipSchemaBySlug,
 } from "../fixtures";
 import { pollUntil } from "../fixtures/polling";
 import { getPgClient } from "../setup";
 import { assertTaggedError } from "../test-support/assertions";
 
 async function insertUserRelationship(input: {
+	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"];
 	userId: string;
 	sourceEntityId: string;
 	targetEntityId: string;
@@ -41,16 +44,10 @@ async function insertUserRelationship(input: {
 	properties?: Record<string, unknown>;
 }) {
 	const pg = getPgClient();
-	const relationshipSchema = await pg.query<{ id: string }>(
-		`select id from relationship_schema
-		 where slug = $1 and user_id is null
-		 limit 1`,
-		[input.relationshipSchemaSlug],
-	);
-	const relationshipSchemaId = relationshipSchema.rows[0]?.id;
-	if (!relationshipSchemaId) {
-		throw new Error(`Missing relationship schema '${input.relationshipSchemaSlug}'`);
-	}
+	const schemas = await listRelationshipSchemas(input.client, {
+		slugs: [input.relationshipSchemaSlug],
+	});
+	const relationshipSchema = requireRelationshipSchemaBySlug(schemas, input.relationshipSchemaSlug);
 
 	await pg.query(
 		`insert into relationship (
@@ -65,7 +62,7 @@ async function insertUserRelationship(input: {
 		[
 			crypto.randomUUID(),
 			input.userId,
-			relationshipSchemaId,
+			relationshipSchema.id,
 			JSON.stringify(input.properties ?? {}),
 			input.sourceEntityId,
 			input.targetEntityId,
@@ -276,7 +273,7 @@ describe("GET /entities/:id — global entity read access", () => {
 		const { userId, client: clientA } = await createAuthenticatedClient();
 		const { entity } = await createGlobalBookEntityFixture(clientA);
 
-		await insertLibraryMembership({ userId, mediaEntityId: entity.id });
+		await insertLibraryMembership(clientA, { userId, mediaEntityId: entity.id });
 		const entityA = await getEntity(clientA, entity.id);
 		expect(entityA.id).toBe(entity.id);
 
@@ -413,9 +410,10 @@ describe("DELETE /user-state/clear/:id", () => {
 			}),
 		);
 
-		await insertLibraryMembership({ userId: userB.userId, mediaEntityId: entity.id });
-		await insertLibraryMembership({ userId: userA.userId, mediaEntityId: entity.id });
+		await insertLibraryMembership(userB.client, { userId: userB.userId, mediaEntityId: entity.id });
+		await insertLibraryMembership(userA.client, { userId: userA.userId, mediaEntityId: entity.id });
 		await insertUserRelationship({
+			client: userA.client,
 			userId: userA.userId,
 			sourceEntityId: entity.id,
 			targetEntityId: extraTargetEntityId,
@@ -451,8 +449,8 @@ describe("DELETE /user-state/clear/:id", () => {
 			{ eventCount: 1, relationshipCount: 1 },
 		);
 
-		const userAMembership = await queryInLibraryRelationship(entity.id, userA.email);
-		const userBMembership = await queryInLibraryRelationship(entity.id, userB.email);
+		const userAMembership = await queryInLibraryRelationship(userA.client, entity.id, userA.email);
+		const userBMembership = await queryInLibraryRelationship(userB.client, entity.id, userB.email);
 		expect(userAMembership.rowCount).toBe(0);
 		expect(userBMembership.rowCount).toBe(1);
 	});
@@ -523,12 +521,14 @@ describe("POST /user-state/merge", () => {
 			}),
 		);
 		await insertUserRelationship({
+			client,
 			userId,
 			sourceEntityId: source.id,
 			targetEntityId: related.id,
 			relationshipSchemaSlug: "member-of",
 		});
 		await insertUserRelationship({
+			client,
 			userId,
 			sourceEntityId: target.id,
 			targetEntityId: related.id,
@@ -693,7 +693,7 @@ describe("GET /entities/import/:jobId — provider entity import result", () => 
 			expect(result.data.name).toBeDefined();
 			expect(result.data.entitySchemaId).toBe(schema.id);
 
-			const inLibrary = await queryInLibraryRelationship(result.data.id, email);
+			const inLibrary = await queryInLibraryRelationship(client, result.data.id, email);
 			expect(inLibrary.rowCount).toBeGreaterThan(0);
 		}
 	}, 60_000);
