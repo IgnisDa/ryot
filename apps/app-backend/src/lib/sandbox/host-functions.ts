@@ -1,6 +1,6 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { eq } from "drizzle-orm";
-import { Effect, Option, Runtime, Schema } from "effect";
+import { Effect, Runtime, Schema } from "effect";
 
 import { QueryEngineRequest } from "#lib/query-language";
 import { EntityId, EntitySchemaId, IntegrationId, UserId } from "#lib/schema/brands";
@@ -14,7 +14,7 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { isIntegrationProvider } from "#modules/integrations/types";
 import { QueryEngineService } from "#modules/query-engine/service";
 
-import { AppConfig, isOidcEnabled } from "../config";
+import { AppConfig } from "../config";
 import { CurrentDb, DbRunner, dbEffect } from "../db";
 import * as schema from "../db/schema/auth";
 import { unknownToMessage } from "../errors";
@@ -330,25 +330,6 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					),
 				);
 			},
-			getSystemConfig: () =>
-				Promise.resolve(
-					apiSuccess({
-						system: {
-							scheduler: {
-								progressUpdateThresholdHours: String(config.scheduler.progressUpdateThresholdHours),
-							},
-						},
-						auth: {
-							oidcEnabled: isOidcEnabled(config),
-							localAuthDisabled: config.users.disableLocalAuth,
-							signupAllowed: config.users.allowRegistration && !config.users.disableLocalAuth,
-							...(Option.isSome(config.frontend.oidcButtonLabel) &&
-							config.frontend.oidcButtonLabel.value.length > 0
-								? { oidcButtonLabel: config.frontend.oidcButtonLabel.value }
-								: {}),
-						},
-					}),
-				),
 			getUserPreferences: (...args) => {
 				const input = requireUserSandboxRunInput(args, 0, "getUserPreferences");
 				return runHostEffect(runPromise, readUserPreferences(UserId.make(input.userId)));
