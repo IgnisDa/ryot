@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,13 +14,13 @@ This slice does not need relationship includes, event sources, aggregate returns
 
 ## Acceptance criteria
 
-- [ ] A temporary v2 query engine endpoint exists alongside the current query engine and accepts `version: 2` query documents.
-- [ ] A root entity source with one or more schema slugs can return row items with requested fields using system, property, and schema metadata field selectors.
-- [ ] Root rows require pagination, non-empty orderBy, and `fields`, with empty `fields` allowed.
-- [ ] Root pagination applies to root rows only and returns root page metadata including total count.
-- [ ] Property field selectors require explicit `schema` and return null on rows from other schemas in a multi-schema source.
-- [ ] V2 entity row queries enforce authenticated visibility, including user-owned rows and allowed global rows only.
-- [ ] E2E tests cover a successful single-schema entity rows query, a successful multi-schema property query, pagination metadata, and a visibility boundary.
+- [x] A temporary v2 query engine endpoint exists alongside the current query engine and accepts `version: 2` query documents.
+- [x] A root entity source with one or more schema slugs can return row items with requested fields using system, property, and schema metadata field selectors.
+- [x] Root rows require pagination, non-empty orderBy, and `fields`, with empty `fields` allowed.
+- [x] Root pagination applies to root rows only and returns root page metadata including total count.
+- [x] Property field selectors require explicit `schema` and return null on rows from other schemas in a multi-schema source.
+- [x] V2 entity row queries enforce authenticated visibility, including user-owned rows and allowed global rows only.
+- [x] E2E tests cover a successful single-schema entity rows query, a successful multi-schema property query, pagination metadata, and a visibility boundary.
 
 ## User stories addressed
 
