@@ -19,13 +19,11 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
     let anime_data = input
         .anime_path
-        .map(|p| decode_data::<DataRoot>(&p).ok())
-        .flatten()
+        .and_then(|p| decode_data::<DataRoot>(&p).ok())
         .unwrap_or_default();
     let manga_data = input
         .manga_path
-        .map(|p| decode_data::<DataRoot>(&p).ok())
-        .flatten()
+        .and_then(|p| decode_data::<DataRoot>(&p).ok())
         .unwrap_or_default();
     let mut metadata = vec![];
     for item in anime_data.items.into_iter() {
