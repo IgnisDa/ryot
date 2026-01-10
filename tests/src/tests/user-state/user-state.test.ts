@@ -1,5 +1,5 @@
 import { EntityId } from "@ryot/contract/schema/brands";
-import { queryEngineField, queryEngineSystemRef } from "@ryot/query-engine";
+import { queryEngineField, queryEngineSystemRef } from "@ryot/query-engine/primitives";
 import { Effect } from "effect";
 
 import {
