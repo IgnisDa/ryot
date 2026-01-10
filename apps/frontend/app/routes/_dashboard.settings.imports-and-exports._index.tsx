@@ -355,6 +355,7 @@ export default function Page() {
 															required
 															name="apiUrl"
 															label="Instance Url"
+															placeholder="https://jellyfin.mydomain.com"
 														/>
 														<TextInput
 															required
