@@ -1,7 +1,7 @@
 import { DbError } from "@ryot/contract/errors";
 import type { TrackerId } from "@ryot/contract/schema/brands";
 import { EntitySchemaId, UserId } from "@ryot/contract/schema/brands";
-import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine";
+import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine/recipes/app";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 

@@ -1,26 +1,30 @@
 import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import {
-	buildCollectionMediaSuggestionsQueryDocument,
-	buildCompletedPodcastsQueryDocument,
-	buildCompletedShowsQueryDocument,
 	buildDefaultSavedViewQueryDocument,
 	buildEntityDetailQueryDocument,
 	buildEntityInterestQueryDocument,
 	buildEventHistoryQueryDocument,
+} from "@ryot/query-engine/recipes/app";
+import {
 	buildExerciseListQueryDocument,
+	buildMeasurementListQueryDocument,
+	buildWorkoutDetailQueryDocument,
+	buildWorkoutListQueryDocument,
+	buildWorkoutTemplateDetailQueryDocument,
+	buildWorkoutTemplateListQueryDocument,
+} from "@ryot/query-engine/recipes/fitness";
+import {
+	buildCollectionMediaSuggestionsQueryDocument,
+	buildCompletedPodcastsQueryDocument,
+	buildCompletedShowsQueryDocument,
 	buildInProgressPodcastsQueryDocument,
 	buildInProgressShowsQueryDocument,
-	buildMeasurementListQueryDocument,
 	buildMediaMonitoringStatusQueryDocument,
 	buildPersonalMediaSuggestionsQueryDocument,
 	buildPodcastDetailQueryDocument,
 	buildShowDetailQueryDocument,
 	buildTrendingMediaQueryDocument,
-	buildWorkoutDetailQueryDocument,
-	buildWorkoutListQueryDocument,
-	buildWorkoutTemplateDetailQueryDocument,
-	buildWorkoutTemplateListQueryDocument,
-} from "@ryot/query-engine";
+} from "@ryot/query-engine/recipes/media";
 import { describe, expect, it } from "vitest";
 
 import { validateQueryDocument } from "./validator/document";

@@ -8,7 +8,7 @@ import type {
 	UpdateSavedViewBody,
 } from "@ryot/contract/modules/saved-views/schemas";
 import type { TrackerId, UserId } from "@ryot/contract/schema/brands";
-import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine";
+import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine/recipes/app";
 import { Effect } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";

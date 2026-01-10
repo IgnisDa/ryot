@@ -1,6 +1,6 @@
 import type { DisplayConfiguration } from "@ryot/contract/display-configuration";
 import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
-import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine";
+import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine/recipes/app";
 
 import { slugify } from "#lib/shared/slug";
 
