@@ -35,6 +35,7 @@ const collectionNotFoundError = "Collection not found";
 const entityNotFoundError = "Entity not found";
 const invalidMembershipPropertiesError =
 	"Membership properties validation failed";
+const circularReferenceError = "Cannot add a collection to itself";
 
 const formatValidationIssues = (issues: ValidationIssue[]) =>
 	issues.map((i) => `${i.path}: ${i.message}`).join("; ");
@@ -132,6 +133,11 @@ export const addToCollection = async (
 	input: { body: AddToCollectionBody; userId: string },
 	deps: AddToCollectionServiceDeps = addToCollectionServiceDeps,
 ): Promise<CollectionServiceResult<AddToCollectionData>> => {
+	// Prevent circular reference: cannot add a collection to itself
+	if (input.body.collectionId === input.body.entityId) {
+		return serviceError("validation", circularReferenceError);
+	}
+
 	// Verify the collection exists and belongs to the user
 	const collection = await deps.getCollectionById(
 		input.body.collectionId,
