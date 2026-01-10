@@ -1,3 +1,4 @@
+import { EntityId } from "@ryot/app-backend/schema/brands";
 import { useQuery } from "@tanstack/react-query";
 
 import { Box } from "@/components/ui/box";
@@ -47,7 +48,8 @@ export function EntityDetailScreen(props: { entityId: string }) {
 	const entityQuery = useQuery({
 		enabled: entityId.length > 0,
 		queryKey: ["entity-detail", entityId],
-		queryFn: () => runContract((client) => client.entities.get({ path: { entityId } })),
+		queryFn: () =>
+			runContract((client) => client.entities.get({ path: { entityId: EntityId.make(entityId) } })),
 	});
 
 	const entitySchemaId = entityQuery.data?.entitySchemaId;
