@@ -5,6 +5,12 @@ import {
 	type QueryRelationshipJoin,
 	type RuntimeField,
 } from "@ryot/app-backend/query-language";
+import {
+	EntityId,
+	EntitySchemaId,
+	EventSchemaId,
+	RemoteImageUrl,
+} from "@ryot/app-backend/schema/brands";
 
 import { requirePresent } from "../test-support/assertions";
 import { type Client, createAuthenticatedClient } from "./auth";
@@ -330,8 +336,8 @@ export async function createQueryEngineEntity(input: CreateEntityInput) {
 	const entity = await createEntity(input.client, {
 		name: input.name,
 		properties: input.properties,
-		entitySchemaId: input.entitySchemaId,
-		image: imageUrl ? { type: "remote", url: imageUrl } : null,
+		entitySchemaId: EntitySchemaId.make(input.entitySchemaId),
+		image: imageUrl ? { type: "remote", url: RemoteImageUrl.make(imageUrl) } : null,
 	});
 
 	return requirePresent(entity.id, `Failed to create entity '${input.name}'`);
@@ -339,7 +345,7 @@ export async function createQueryEngineEntity(input: CreateEntityInput) {
 
 export async function createQueryEngineEvent(input: CreateQueryEngineEventInput) {
 	const before = await input.client.run((c) =>
-		c.events.list({ urlParams: { entityId: input.entityId } }),
+		c.events.list({ urlParams: { entityId: EntityId.make(input.entityId) } }),
 	);
 	const beforeCount = before.length;
 
@@ -347,10 +353,10 @@ export async function createQueryEngineEvent(input: CreateQueryEngineEventInput)
 		c.events.create({
 			payload: [
 				{
-					entityId: input.entityId,
+					entityId: EntityId.make(input.entityId),
 					occurredAt: input.occurredAt,
 					properties: input.properties,
-					eventSchemaId: input.eventSchemaId,
+					eventSchemaId: EventSchemaId.make(input.eventSchemaId),
 				},
 			],
 		}),

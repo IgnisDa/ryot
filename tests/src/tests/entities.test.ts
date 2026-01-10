@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/app-backend/schema/brands";
+
 import {
 	clearEntityUserState,
 	createAuthenticatedClient,
@@ -118,7 +120,7 @@ async function getLibraryEntityId(userId: string) {
 		throw new Error(`Missing library entity for user '${userId}'`);
 	}
 
-	return libraryEntityId;
+	return EntityId.make(libraryEntityId);
 }
 
 async function createSchemaWithEnumFields(
@@ -482,7 +484,7 @@ describe("DELETE /user-state/clear/:id", () => {
 		const client = getBackendClient();
 
 		const error = await client.runError((c) =>
-			c.userState.clearUserState({ path: { entityId: "entity_1" } }),
+			c.userState.clearUserState({ path: { entityId: EntityId.make("entity_1") } }),
 		);
 
 		assertTaggedError(error, "Unauthorized");
@@ -578,7 +580,7 @@ describe("POST /entity-schemas/search — provider entity search", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const error = await client.runError((c) =>
-			c.entitySchemas.search({ payload: { scriptId: crypto.randomUUID() } }),
+			c.entitySchemas.search({ payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()) } }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -602,7 +604,7 @@ describe("POST /entity-schemas/search — provider entity search", () => {
 		const client = getBackendClient();
 
 		const error = await client.runError((c) =>
-			c.entitySchemas.search({ payload: { scriptId: crypto.randomUUID() } }),
+			c.entitySchemas.search({ payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()) } }),
 		);
 
 		assertTaggedError(error, "Unauthorized");
@@ -617,7 +619,7 @@ describe("POST /entities/import — provider entity import", () => {
 		const error = await client.runError((c) =>
 			c.entities.import({
 				payload: {
-					scriptId: crypto.randomUUID(),
+					scriptId: SandboxScriptId.make(crypto.randomUUID()),
 					externalId: "some-external-id",
 					entitySchemaId: schema.id,
 				},
@@ -637,7 +639,7 @@ describe("POST /entities/import — provider entity import", () => {
 				payload: {
 					scriptId,
 					externalId: "some-external-id",
-					entitySchemaId: crypto.randomUUID(),
+					entitySchemaId: EntitySchemaId.make(crypto.randomUUID()),
 				},
 			}),
 		);
@@ -663,8 +665,8 @@ describe("POST /entities/import — provider entity import", () => {
 			c.entities.import({
 				payload: {
 					externalId: "some-id",
-					scriptId: crypto.randomUUID(),
-					entitySchemaId: crypto.randomUUID(),
+					scriptId: SandboxScriptId.make(crypto.randomUUID()),
+					entitySchemaId: EntitySchemaId.make(crypto.randomUUID()),
 				},
 			}),
 		);
