@@ -7,6 +7,8 @@ next complete snapshot.
 
 The registry starts with `kernelDefinitionSource` and is populated from active plugin manifests by
 `PluginLoader` before the server starts. Kernel definitions are source zero, not a synthetic plugin.
-The generic notification script is persisted separately as a kernel-owned, content-addressed script.
+Each subscribable signal definition selects an automation formatter. Plugin signals select an
+active plugin script; the `integration.disabled` source-zero signal selects the separately persisted,
+kernel-owned content-addressed formatter. Source zero is not a synthetic plugin.
 The registry contains definitions and bindings only; user state and persisted domain data do not
 belong here.
