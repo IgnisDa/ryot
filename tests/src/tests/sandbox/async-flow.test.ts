@@ -294,6 +294,29 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
+	it.live("rejects a script access to an unknown app config key", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const slug = `invalid-app-config-value-${crypto.randomUUID()}`;
+			const { id: scriptId } = yield* createSandboxScript(client, {
+				source: appConfigSandboxSource({
+					slug,
+					requiredAppConfigKeys: [],
+					key: "server.unknownSetting",
+					name: "invalid-app-config-value",
+				}),
+			});
+			const { jobId } = yield* enqueueSandboxScript(client, { scriptId, driverName: "main" });
+
+			const result = yield* pollSandboxResult(client, jobId);
+			assertCompleted(result, "sandbox job");
+			expect(result.error).toMatchObject({
+				phase: "execute",
+				message: 'Config key "server.unknownSetting" does not exist',
+			});
+		}),
+	);
+
 	it.live("completes a script that uses getUserPreferences", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
