@@ -270,10 +270,62 @@ row-level `createRun`, `updateRun`, and `deleteRunById` operations, but import w
 - All import workflows and status helpers must stop using repository write helpers directly while
   preserving asynchronous status updates, failure recording, cleanup, and queue behavior.
 
+## Translations Service
+
+### Current state
+
+`TranslationsService` currently exposes `requestFill`, which only enqueues the translation
+workflow. The workflow writes `entity_translation` directly through
+`TranslationsRepository.upsertOverlay`. Each entity-language pair is unique, so the repository
+write currently combines insertion and replacement.
+
+### Decision
+
+- `requestFill` will remain workflow orchestration and will not become a table write method.
+- `create` will be the single entry point for inserting one translation overlay.
+- `update` will be the single entry point for replacing one existing translation overlay.
+- The workflow caller will read the existing overlay and choose `create` or `update`; the service
+  will not expose an `upsert` method or hide that branch internally.
+- `delete` will not be added because translation rows currently have no standalone deletion
+  requirement and are removed with their entity through the existing foreign-key cascade.
+- The workflow must move the `upsertOverlay` repository write behind the service while preserving
+  execution-id idempotency, activity retry behavior, the populated-entity precondition, and the
+  translation update notification.
+- Any unique-conflict or concurrency handling must remain in the workflow caller rather than
+  becoming a complex branch in a CRUD method. Read-only repository methods may remain available.
+
+## God Mode Service
+
+### Current state
+
+`GodModeService` is an administrative orchestration service. It currently performs user-table
+writes through `GodModeRepository.updateUserDisabled`, `deleteUser`, and
+`deleteAndRecreateUser`; the reset flow also inserts an OIDC account row directly. User
+provisioning already uses `AuthService` for user creation and account linking.
+
+### Decision
+
+- `AuthService` will be the canonical write gateway for the Better Auth `user` and `account`
+  tables. God-mode code must not write those tables through `GodModeRepository`.
+- `GodModeService` will remain an orchestration service. Methods such as `provisionUser`,
+  `setUserDisabled`, `deleteUser`, and `resetUser` will not be replaced by mode-based CRUD methods.
+- `setUserDisabled` will read the current row, calculate the desired `disabledAt` value in
+  `GodModeService`, and delegate the single-row update to `AuthService`.
+- `deleteUser` will retain its snapshot, transaction, session cleanup, and API-key cache cleanup,
+  but will delegate the user-row deletion to `AuthService`.
+- `resetUser` will retain auth-state classification, OIDC preservation, bootstrap, transaction,
+  and cleanup decisions in `GodModeService`; it may orchestrate narrow auth-owned delete/create
+  calls without introducing a reset or delete-and-recreate write method.
+- Auth-owned write primitives must participate in the existing transaction boundary. If Better
+  Auth's internal adapter cannot use the current transaction, `AuthService` must provide a
+  transaction-aware implementation rather than restoring direct repository writes.
+- God-mode repository methods may remain read-only. Auth lifecycle side effects, including session
+  invalidation and API-key cache cleanup, must be preserved.
+
 ## Follow-up
 
 Implement and verify these decisions one service at a time, beginning with `EntitiesService` and
-then `RelationshipsService`, `EventsService`, `SavedViewsService`, `TrackersService`, and
-`EntitySchemasService`, `EventSchemasService`, `RelationshipSchemasService`, and
-`NotificationsService`, `IntegrationsService`, and `ImportsService`. Do not add decisions for later
-services until they are discussed.
+then `RelationshipsService`, `EventsService`, `SavedViewsService`, `TrackersService`,
+`EntitySchemasService`, `EventSchemasService`, `RelationshipSchemasService`,
+`NotificationsService`, `IntegrationsService`, `ImportsService`, `TranslationsService`, and
+`GodModeService`. Do not add decisions for later services until they are discussed.
