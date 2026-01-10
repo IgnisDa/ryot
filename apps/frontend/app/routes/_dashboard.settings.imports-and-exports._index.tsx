@@ -289,6 +289,7 @@ export default function Page() {
 																required
 																name="apiUrl"
 																label="Instance Url"
+																description="Also allows IP addresses"
 																placeholder="https://plex.mydomain.com"
 															/>
 															<TextInput
@@ -368,6 +369,7 @@ export default function Page() {
 															required
 															name="apiUrl"
 															label="Instance Url"
+															description="Also allows IP addresses"
 															placeholder="https://jellyfin.mydomain.com"
 														/>
 														<TextInput
