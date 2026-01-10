@@ -3,11 +3,10 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
-import { BadRequest, NotFound } from "#lib/errors";
+import { NotFound } from "#lib/errors";
 import {
 	EntityId,
 	EntitySchemaId,
-	RelationshipSchemaId,
 	RemoteImageUrl,
 	SandboxScriptId,
 	UserId,
@@ -19,8 +18,6 @@ import {
 	makeWorkflowEngine,
 	transactionLayer,
 } from "#lib/test-support/effect";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { EntitiesRepository } from "./repository";
@@ -53,37 +50,6 @@ const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
 		overrides,
 	);
 
-const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository> = {}) =>
-	makeMock<RelationshipsRepository>(
-		{
-			_tag: "RelationshipsRepository" as const,
-			insertRelationship: () => Effect.die("unused"),
-			upsertRelationship: () => Effect.die("unused"),
-			upsertEntityRelationship: () => Effect.die("unused"),
-			findRelationshipProperties: () => Effect.die("unused"),
-			deleteUserRelationshipsForEntity: () => Effect.die("unused"),
-			moveUserRelationshipsBetweenEntities: () => Effect.die("unused"),
-		},
-		overrides,
-	);
-
-const makeRelationshipSchemasRepository = (
-	overrides: Partial<RelationshipSchemasRepository> = {},
-) =>
-	makeMock<RelationshipSchemasRepository>(
-		{
-			findById: () => Effect.die("unused"),
-			listByUser: () => Effect.die("unused"),
-			_tag: "RelationshipSchemasRepository" as const,
-			findBySlugForUser: () => Effect.die("unused"),
-			findBuiltinBySlug: () => Effect.die("unused"),
-			findGlobalBySchemaIds: () => Effect.die("unused"),
-			getEntitySchemaScopeById: () => Effect.die("unused"),
-			createRelationshipSchema: () => Effect.die("unused"),
-		},
-		overrides,
-	);
-
 const fakeWorkflowEngineLayer = Layer.succeed(WorkflowEngine, makeWorkflowEngine());
 
 const makeSandboxRepository = (overrides: Partial<SandboxRepository> = {}) =>
@@ -97,11 +63,7 @@ const makeSandboxRepository = (overrides: Partial<SandboxRepository> = {}) =>
 		overrides,
 	);
 
-const makeServiceLayer = (
-	repository: EntitiesRepository,
-	relationshipSchemasRepository: RelationshipSchemasRepository = makeRelationshipSchemasRepository(),
-	relationshipsRepository: RelationshipsRepository = makeRelationshipsRepository(),
-) =>
+const makeServiceLayer = (repository: EntitiesRepository) =>
 	EntitiesService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
@@ -111,8 +73,6 @@ const makeServiceLayer = (
 				fakeWorkflowEngineLayer,
 				Layer.succeed(EntitiesRepository, repository),
 				Layer.succeed(SandboxRepository, makeSandboxRepository()),
-				Layer.succeed(RelationshipsRepository, relationshipsRepository),
-				Layer.succeed(RelationshipSchemasRepository, relationshipSchemasRepository),
 			),
 		),
 	);
@@ -196,59 +156,5 @@ it.effect("returns not found when entity schema is not visible", () => {
 		);
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity schema not found" })));
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("validates relationship properties before upserting user relationships", () => {
-	const layer = makeServiceLayer(
-		makeEntitiesRepository({
-			getEntityScopeForUser: ({ entityId }) =>
-				Effect.succeed({
-					entityId,
-					isBuiltin: false,
-					entityUserId: user.id,
-					entitySchemaSlug: "book",
-					entitySchemaId: EntitySchemaId.make("schema-id"),
-				}),
-		}),
-		makeRelationshipSchemasRepository({
-			findById: () =>
-				Effect.succeed({
-					isBuiltin: false,
-					slug: "linked-to",
-					name: "Linked To",
-					sourceEntitySchemaId: EntitySchemaId.make("schema-id"),
-					targetEntitySchemaId: EntitySchemaId.make("schema-id"),
-					id: RelationshipSchemaId.make("relationship-schema-id"),
-					propertiesSchema: {
-						fields: {
-							rating: {
-								type: "number",
-								label: "Rating",
-								description: "Rating",
-								validation: { required: true },
-							},
-						},
-					},
-				}),
-		}),
-		makeRelationshipsRepository({
-			upsertRelationship: () => Effect.die("should not be called"),
-		}),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* EntitiesService;
-		const exit = yield* Effect.exit(
-			service.upsertUserRelationship({
-				properties: {},
-				userId: user.id,
-				sourceEntityId: EntityId.make("entity-a"),
-				targetEntityId: EntityId.make("entity-b"),
-				relationshipSchemaId: RelationshipSchemaId.make("relationship-schema-id"),
-			}),
-		);
-
-		expect(exit).toEqual(Exit.fail(new BadRequest({ message: "rating: is missing" })));
 	}).pipe(Effect.provide(layer));
 });
