@@ -2,7 +2,7 @@ use std::result::Result as StdResult;
 
 use anyhow::Result;
 use common_models::IdObject;
-use common_utils::{get_base_http_client, ryot_log};
+use common_utils::{get_http_client_with_tls_config, ryot_log};
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
 };
@@ -253,10 +253,14 @@ async fn process_item(
 pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let api_url = input.api_url.trim_end_matches('/');
     let url = format!("{api_url}/api");
-    let client = get_base_http_client(Some(vec![(
-        HeaderName::from_static("access-token"),
-        HeaderValue::from_str(&input.api_key).unwrap(),
-    )]));
+    let allow_insecure = input.allow_insecure_connections.unwrap_or(false);
+    let client = get_http_client_with_tls_config(
+        Some(vec![(
+            HeaderName::from_static("access-token"),
+            HeaderValue::from_str(&input.api_key).unwrap(),
+        )]),
+        allow_insecure,
+    );
 
     let rsp = client.get(format!("{url}/user")).send().await.unwrap();
     let data = rsp.json::<IdObject>().await.unwrap();

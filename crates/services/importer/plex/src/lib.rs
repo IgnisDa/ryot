@@ -1,7 +1,7 @@
 use std::result::Result as StdResult;
 
 use anyhow::Result;
-use common_utils::{get_base_http_client, ryot_log};
+use common_utils::{get_http_client_with_tls_config, ryot_log};
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use external_models::plex as plex_models;
@@ -117,13 +117,17 @@ async fn process_metadata_item(
 }
 
 pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
-    let client = get_base_http_client(Some(vec![
-        (
-            HeaderName::from_static("x-plex-token"),
-            HeaderValue::from_str(&input.api_key).unwrap(),
-        ),
-        (ACCEPT, HeaderValue::from_static("application/json")),
-    ]));
+    let allow_insecure = input.allow_insecure_connections.unwrap_or(false);
+    let client = get_http_client_with_tls_config(
+        Some(vec![
+            (
+                HeaderName::from_static("x-plex-token"),
+                HeaderValue::from_str(&input.api_key).unwrap(),
+            ),
+            (ACCEPT, HeaderValue::from_static("application/json")),
+        ]),
+        allow_insecure,
+    );
     let libraries = client
         .get(format!("{}/library/sections", input.api_url))
         .send()
