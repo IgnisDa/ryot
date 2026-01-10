@@ -283,6 +283,7 @@ export default function Page() {
 																required
 																name="apiUrl"
 																label="Instance Url"
+																placeholder="https://plex.mydomain.com"
 															/>
 															<TextInput
 																mt="sm"
