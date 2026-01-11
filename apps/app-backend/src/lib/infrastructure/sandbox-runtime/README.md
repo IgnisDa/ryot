@@ -75,7 +75,7 @@ Host functions are bridge handlers exposed only when listed in the compiled modu
 | Script                  | `getAppConfigValue`, `getCachedValue`, `setCachedValue`, `claimCachedValue`                                                                                        |
 | User                    | `createEvents`, `executeQueryEngine`, `getEntity`, `getEntitySchema`, `getIntegration`, `getUserPreferences`, `listEventSchemas`, `listEvents`, `listIntegrations` |
 | Automation subscription | `emitSignal`, `sendNotification`                                                                                                                                   |
-| System cron             | `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                                |
+| System cron / boot      | `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                                |
 
 Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require the executing user's `userId` and are unavailable for system executions. `claimCachedValue` atomically writes a cached value only when the key does not already exist.
 

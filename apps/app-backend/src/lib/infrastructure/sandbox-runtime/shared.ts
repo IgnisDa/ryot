@@ -25,16 +25,18 @@ export type UserSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput>
 	readonly userId: string;
 };
 
-export type SystemCronSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
+export type SystemSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
 	readonly userId: null;
-	readonly driverName: "cron";
 	readonly subscriptionRun?: never;
+	readonly driverName: "cron" | "boot";
 };
 
-const hasSystemCronContext = <Input extends SandboxRunInput>(
+const hasSystemContext = <Input extends SandboxRunInput>(
 	input: Input,
-): input is SystemCronSandboxRunInput<Input> =>
-	input.userId === null && input.driverName === "cron" && input.subscriptionRun === undefined;
+): input is SystemSandboxRunInput<Input> =>
+	input.userId === null &&
+	(input.driverName === "cron" || input.driverName === "boot") &&
+	input.subscriptionRun === undefined;
 
 export type SandboxHostImplementationMap = SdkSandboxHostImplementationMap<SandboxRunInput>;
 
@@ -121,12 +123,12 @@ export const requireUserSandboxRunInput = <Input extends SandboxRunInput>(
 	return Effect.succeed(input as UserSandboxRunInput<Input>);
 };
 
-export const requireSystemCronSandboxRunInput = <Input extends SandboxRunInput>(
+export const requireSystemSandboxRunInput = <Input extends SandboxRunInput>(
 	input: Input,
 	fnName: string,
-): Effect.Effect<SystemCronSandboxRunInput<Input>, SandboxHostError> => {
-	if (!hasSystemCronContext(input)) {
-		return sandboxHostFailure(`${fnName} is available only to system cron executions`);
+): Effect.Effect<SystemSandboxRunInput<Input>, SandboxHostError> => {
+	if (!hasSystemContext(input)) {
+		return sandboxHostFailure(`${fnName} is available only to system executions`);
 	}
 
 	return Effect.succeed(input);

@@ -23,6 +23,7 @@ it("declares the complete media-owned source", () => {
 			description: "Resolve show and podcast episode references to entity ids",
 		},
 	]);
+	expect(mediaPlugin.boot).toEqual([]);
 	expect(mediaPlugin.crons).toEqual([
 		{
 			schedule: "0 0 * * *",
