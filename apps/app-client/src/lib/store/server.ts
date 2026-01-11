@@ -22,7 +22,8 @@ export const serverStorageLayer =
 			});
 
 const storageRuntime = Atom.runtime(serverStorageLayer);
-const serverUrlAtom = Atom.kvs({
+
+export const serverUrlAtom = Atom.kvs({
 	key: serverUrlKey,
 	runtime: storageRuntime,
 	schema: serverUrlSchema,
