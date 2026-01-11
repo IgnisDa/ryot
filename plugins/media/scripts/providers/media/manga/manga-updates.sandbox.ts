@@ -1,7 +1,6 @@
 import { load } from "@ryot/sandbox-sdk/cheerio";
-import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import {
@@ -34,8 +33,11 @@ const parsePublishYear = (value: unknown) => {
 	if (!trimmed) {
 		return null;
 	}
-	const parsed = dayjs(trimmed);
-	return parsed.isValid() ? parsed.year() : null;
+	const parsed = DateTime.make(trimmed);
+	if (Option.isNone(parsed)) {
+		return null;
+	}
+	return DateTime.toDateUtc(parsed.value).getFullYear();
 };
 
 export const search = defineProviderDriver(manifest, "search", (input, host) =>

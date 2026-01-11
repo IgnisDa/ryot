@@ -263,8 +263,7 @@ export function trendingSandboxSource(
 ) {
 	return `
 import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
-import dayjs from "@ryot/sandbox-sdk/dayjs";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
 export const manifest = defineManifest({
@@ -303,7 +302,7 @@ const cron = defineDriver(manifest, {
       })),
     );
     const upsertedEntities = entities.filter((entity) => entity.status === "upserted");
-    const fetchedAt = dayjs().toISOString();
+    const fetchedAt = DateTime.formatIso(DateTime.unsafeNow());
     yield* host.upsertGlobalRelationships([{
       selector: { type: "self" },
       relationshipSchemaSlug: "media-trending",

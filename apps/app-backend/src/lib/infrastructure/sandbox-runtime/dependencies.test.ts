@@ -34,7 +34,6 @@ it.scoped("builds exact-version dependency modules in a read-only runtime direct
 			expect(yield* fs.exists(runtime.cacheDirectory)).toBe(true);
 			expect(SANDBOX_APPROVED_DEPENDENCIES).toMatchObject([
 				{ name: "effect", version: "3.21.4" },
-				{ name: "dayjs", version: "1.11.21" },
 				{ name: "cheerio", version: "1.2.0" },
 				{ name: "youtubei", version: "17.2.0" },
 			]);
@@ -43,8 +42,6 @@ it.scoped("builds exact-version dependency modules in a read-only runtime direct
 			expect(importMap).not.toContain('"npm:');
 			expect((yield* fs.readDirectory(runtime.directory)).sort()).toEqual([
 				"cheerio-1.2.0.mjs",
-				"dayjs-1.11.21.mjs",
-				"dayjs-custom-parse-format-1.11.21.mjs",
 				"effect-3.21.4.mjs",
 				"import-map.json",
 				"youtubei-17.2.0.mjs",
@@ -92,7 +89,7 @@ it.scoped("builds exact-version dependency modules in a read-only runtime direct
 				secondRepair.directory,
 			);
 
-			const youtubeRuntimeFile = SANDBOX_APPROVED_DEPENDENCIES[3].runtimeFile;
+			const youtubeRuntimeFile = SANDBOX_APPROVED_DEPENDENCIES[2].runtimeFile;
 			const youtubeModulePath = `${secondRepair.directory}/${youtubeRuntimeFile}`;
 			const secondImportMap = yield* fs.readFileString(secondRepair.importMapPath);
 			const youtubeModule = yield* fs.readFileString(youtubeModulePath);
