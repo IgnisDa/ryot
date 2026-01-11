@@ -11,35 +11,35 @@ export const NotificationsRoutesLive = HttpApiBuilder.group(
 	"notifications",
 	(handlers) =>
 		handlers
-			.handle("listPlatforms", () =>
+			.handle("listChannels", () =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* NotificationsService;
 					return yield* service.list(user).pipe(dieOnDbError);
 				}),
 			)
-			.handle("createPlatform", ({ payload }) =>
+			.handle("createChannel", ({ payload }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* NotificationsService;
 					return yield* service.create(user, payload).pipe(dieOnDbError);
 				}),
 			)
-			.handle("updatePlatform", ({ path, payload }) =>
+			.handle("updateChannel", ({ path, payload }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* NotificationsService;
-					return yield* service.update(user, path.platformId, payload).pipe(dieOnDbError);
+					return yield* service.update(user, path.channelId, payload).pipe(dieOnDbError);
 				}),
 			)
-			.handle("deletePlatform", ({ path }) =>
+			.handle("deleteChannel", ({ path }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* NotificationsService;
-					return yield* service.delete(user, path.platformId).pipe(dieOnDbError);
+					return yield* service.delete(user, path.channelId).pipe(dieOnDbError);
 				}),
 			)
-			.handle("testPlatforms", () =>
+			.handle("testChannels", () =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* NotificationsService;

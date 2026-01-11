@@ -34,9 +34,9 @@ export const IntegrationId = Schema.String.pipe(Schema.brand("IntegrationId"));
 
 export type IntegrationId = typeof IntegrationId.Type;
 
-export const NotificationPlatformId = Schema.String.pipe(Schema.brand("NotificationPlatformId"));
+export const NotificationChannelId = Schema.String.pipe(Schema.brand("NotificationChannelId"));
 
-export type NotificationPlatformId = typeof NotificationPlatformId.Type;
+export type NotificationChannelId = typeof NotificationChannelId.Type;
 
 export const EventSchemaId = Schema.String.pipe(Schema.brand("EventSchemaId"));
 
