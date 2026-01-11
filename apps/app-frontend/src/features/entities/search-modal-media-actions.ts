@@ -9,7 +9,12 @@ const lifecycleEventSlugs = [
 	"review",
 ] as const;
 
-export type MediaSearchDoneAction = "track" | "log" | "backlog" | "rate";
+export type MediaSearchDoneAction =
+	| "track"
+	| "log"
+	| "backlog"
+	| "rate"
+	| "collection";
 
 export type MediaSearchLogDateOption = "now" | "unknown" | "custom" | "started";
 
@@ -31,6 +36,9 @@ export function getMediaDoneActionLabel(
 	}
 	if (action === "backlog") {
 		return "In watchlist";
+	}
+	if (action === "collection") {
+		return "In collection";
 	}
 	return options?.rateStars ? `Rated ${options.rateStars}/5` : "Rated";
 }
