@@ -163,7 +163,11 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 					queryDocument: payload.queryDocument,
 					displayConfiguration: payload.displayConfiguration,
 				}),
-			).pipe(Effect.catchTag("Conflict", () => Effect.fail(badRequest(savedViewDuplicateMessage))));
+			).pipe(
+				Effect.flatMap((created) =>
+					created ? Effect.succeed(created) : badRequest(savedViewDuplicateMessage),
+				),
+			);
 		});
 
 		const createDefaultForSchema = Effect.fn("SavedViewsService.createDefaultForSchema")(function* (
