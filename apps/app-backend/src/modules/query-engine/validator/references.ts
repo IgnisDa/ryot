@@ -17,6 +17,7 @@ import type {
 	RootEventSource,
 	Source,
 } from "../language";
+import { validateQueryDocumentTypeCompatibility } from "./type-check";
 
 type EntityAliasSchemas = ReadonlyMap<string, readonly string[]>;
 type ValidationEffect = Effect.Effect<void, NotFound | DbError, CurrentDb>;
@@ -41,6 +42,7 @@ const validateExpr = (userId: string, expr: Expr, aliases: EntityAliasSchemas): 
 				}
 				return;
 			case "contains":
+			case "arithmetic":
 			case "comparison":
 				yield* validateExpr(userId, expr.left, aliases);
 				yield* validateExpr(userId, expr.right, aliases);
@@ -202,4 +204,10 @@ export const validateQueryDocumentReferences = (userId: string, doc: QueryDocume
 			yield* validateExpr(userId, doc.output.measure.aggregation.expr, aliases);
 		}
 		yield* validateExpr(userId, doc.output.time.expr, aliases);
+	});
+
+export const validateQueryDocumentReferencesAndTypes = (userId: string, doc: QueryDocument) =>
+	Effect.gen(function* () {
+		yield* validateQueryDocumentReferences(userId, doc);
+		yield* validateQueryDocumentTypeCompatibility(userId, doc);
 	});
