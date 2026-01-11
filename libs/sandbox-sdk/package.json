@@ -59,6 +59,7 @@
 		"youtubei.js": "17.2.0"
 	},
 	"devDependencies": {
+		"@ryot/testing": "workspace:*",
 		"vitest": "4.1.9"
 	}
 }

@@ -12,6 +12,7 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"devDependencies": {
+		"@ryot/testing": "workspace:*",
 		"vitest": "4.1.9"
 	}
 }

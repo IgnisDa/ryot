@@ -17,6 +17,7 @@
 		"@ryot/plugin-kit": "workspace:*",
 		"@ryot/query-engine": "workspace:*",
 		"@ryot/sandbox-sdk": "workspace:*",
+		"@ryot/testing": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"@testcontainers/postgresql": "11.14.0",
 		"better-auth": "1.6.15",

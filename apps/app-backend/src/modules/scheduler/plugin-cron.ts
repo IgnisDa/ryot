@@ -61,8 +61,8 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 					executionId,
 					payload: {
 						context: {},
-						userId: null,
 						executionId,
+						userId: null,
 						driverName: "cron",
 						scriptId: script.id,
 					},
