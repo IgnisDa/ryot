@@ -18,7 +18,7 @@ We use the `musicbrainz_rs` library which provides:
 - Pre-defined entity structs (Recording, ReleaseGroup, Artist, Release)
 - Fluent builder APIs for fetch, search, and browse operations
 - Query builders for Lucene search fields (via `*_SearchQuery::query_builder()`)
-- `MusicBrainzClient::new` for a custom User-Agent and `execute_with_client` for all calls
+- `MusicBrainzClient::default()` + `set_user_agent()` for a custom User-Agent and `execute_with_client` for all calls
 - Built-in Cover Art Archive helpers (`FetchCoverart`, `CoverartResponse`)
 - `DateString` for MusicBrainz partial dates
 - Automatic rate limiting (1 req/sec with burst 5) when the default `rate_limit` feature is enabled
@@ -197,9 +197,9 @@ pub struct MusicBrainzService {
 
 impl MusicBrainzService {
     pub fn new() -> Result<Self> {
-        Ok(Self {
-            client: MusicBrainzClient::new(USER_AGENT_STR)?,
-        })
+        let mut client = MusicBrainzClient::default();
+        client.set_user_agent(USER_AGENT_STR)?;
+        Ok(Self { client })
     }
 }
 ```
@@ -524,7 +524,7 @@ For Ryot:
 
 ### 1. User-Agent Header
 
-MusicBrainz requires a meaningful User-Agent header (app name + version + contact URL/email). Use the existing `USER_AGENT_STR` from `crates/utils/common/src/lib.rs`, initialize `MusicBrainzClient::new(USER_AGENT_STR)`, and call `execute_with_client(&self.client)` for all fetch/search/browse/coverart queries. `MusicBrainzClient::set_user_agent` is deprecated and `execute()` uses the global default client.
+MusicBrainz requires a meaningful User-Agent header (app name + version + contact URL/email). Use the existing `USER_AGENT_STR` from `crates/utils/common/src/lib.rs`, initialize `MusicBrainzClient::default()`, then call `client.set_user_agent(USER_AGENT_STR)?` to configure it. Use `execute_with_client(&self.client)` for all fetch/search/browse/coverart queries instead of `execute()` which uses the global default client.
 
 ### 2. Rate Limiting
 
@@ -706,7 +706,7 @@ Execute the builders with `execute_with_client(&self.client)` so the User-Agent 
 - [x] Create `crates/providers/music_brainz/` directory
 - [x] Create `Cargo.toml` for the new crate and add it to the workspace
 - [x] Add `musicbrainz_rs` dependency (default features include async + rate_limit; use `blocking` only if needed)
-- [x] Initialize `MusicBrainzClient::new(USER_AGENT_STR)` and use `execute_with_client`
+- [x] Initialize `MusicBrainzClient::default()` + `set_user_agent(USER_AGENT_STR)` and use `execute_with_client`
 - [x] Implement `MusicBrainzService` struct
 - [x] Implement `metadata_search` (search recordings)
 - [x] Implement `metadata_details` (get recording details)
