@@ -1,6 +1,6 @@
 import { faker } from "@faker-js/faker";
 import type { components, paths } from "@ryot/generated/openapi/app-backend";
-import { dayjs } from "@ryot/ts-utils/dayjs";
+import { dayjs } from "@ryot/ts-utils";
 import createClient from "openapi-fetch";
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3000/api";
