@@ -59,6 +59,9 @@ mime_guess = "=2.0.5"
 nanoid = "=0.4.0"
 nest_struct = "=0.5.5"
 openidconnect = "=4.0.1"
+opentelemetry = { version = "=0.31.0", features = ["trace"], default-features = false }
+opentelemetry-otlp = { version = "=0.31.0", features = ["grpc-tonic", "trace"], default-features = false }
+opentelemetry_sdk = { version = "=0.31.0", features = ["trace", "rt-tokio"], default-features = false }
 paginate = "=1.1.11"
 quote = "=1.0.42"
 rand = "=0.9.2"
@@ -122,6 +125,7 @@ totp-lite = "=2.0.1"
 tower-http = { version = "=0.6.8", features = ["catch-panic", "cors", "trace"] }
 tracing = { version = "=0.1.43", features = ["attributes"] }
 tracing-appender = "=0.2.4"
+tracing-opentelemetry = "=0.32.0"
 tracing-subscriber = "=0.3.22"
 url = "=2.5.7"
 uuid = { version = "=1.19.0", features = ["v4"], default-features = false }

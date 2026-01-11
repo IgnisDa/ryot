@@ -18,6 +18,7 @@ use dependent_models::CompleteExport;
 use english_to_cron::str_cron_syntax;
 use env_utils::APP_VERSION;
 use migrations_sql::Migrator;
+use opentelemetry_otlp::WithExportConfig;
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
@@ -55,7 +56,7 @@ async fn main() -> Result<()> {
             }
         }
     }
-    let log_file_path = init_tracing()?;
+    let (log_file_path, tracer_provider) = init_tracing()?;
 
     ryot_log!(info, "Running version: {}", APP_VERSION);
 
@@ -208,23 +209,50 @@ async fn main() -> Result<()> {
         let _ = join!(monitor, http);
     }
 
+    if let Err(err) = tracer_provider.shutdown() {
+        ryot_log!(warn, "Failed to shutdown OTLP tracer provider: {err}");
+    }
+
     Ok(())
 }
 
-fn init_tracing() -> Result<PathBuf> {
+fn init_tracing() -> Result<(PathBuf, opentelemetry_sdk::trace::SdkTracerProvider)> {
     let tmp_dir = PathBuf::new().join(get_temporary_directory());
     let file_path = tmp_dir.join(PROJECT_NAME);
     create_dir_all(&tmp_dir)?;
     let file_appender = tracing_appender::rolling::never(tmp_dir, PROJECT_NAME);
     let writer = Mutex::new(file_appender);
+
+    opentelemetry::global::set_text_map_propagator(
+        opentelemetry_sdk::propagation::TraceContextPropagator::new(),
+    );
+    let otlp_endpoint =
+        env::var("OTEL_EXPORTER_OTLP_ENDPOINT").unwrap_or_else(|_| "http://localhost:4317".into());
+    let resource = opentelemetry_sdk::Resource::builder()
+        .with_attribute(opentelemetry::KeyValue::new("service.name", PROJECT_NAME))
+        .with_attribute(opentelemetry::KeyValue::new("service.version", APP_VERSION))
+        .build();
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .with_endpoint(otlp_endpoint)
+        .build()
+        .context("Unable to build OTLP span exporter")?;
+    let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
+        .with_batch_exporter(exporter)
+        .with_resource(resource)
+        .build();
+    opentelemetry::global::set_tracer_provider(tracer_provider.clone());
+    let tracer = opentelemetry::global::tracer(PROJECT_NAME);
+
     tracing::subscriber::set_global_default(
-        fmt::Subscriber::builder()
-            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-            .finish()
-            .with(fmt::Layer::default().with_writer(writer).with_ansi(false)),
+        tracing_subscriber::registry()
+            .with(tracing_subscriber::EnvFilter::from_default_env())
+            .with(fmt::Layer::default())
+            .with(fmt::Layer::default().with_writer(writer).with_ansi(false))
+            .with(tracing_opentelemetry::OpenTelemetryLayer::new(tracer)),
     )
     .expect("Unable to set global tracing subscriber");
-    Ok(file_path)
+    Ok((file_path, tracer_provider))
 }
 
 fn get_cron_schedules(config: &Arc<AppConfig>, tz: chrono_tz::Tz) -> Result<(Schedule, Schedule)> {
