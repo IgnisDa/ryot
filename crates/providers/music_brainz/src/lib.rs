@@ -133,10 +133,10 @@ impl MediaProvider for MusicBrainzService {
             .map(|recording| {
                 let (_, publish_year) = extract_publish_date(recording.first_release_date.as_ref());
                 MetadataSearchItem {
+                    image: None,
                     publish_year,
                     title: recording.title,
                     identifier: recording.id,
-                    image: None,
                 }
             })
             .collect();
@@ -166,8 +166,8 @@ impl MediaProvider for MusicBrainzService {
         let people = artist_credit
             .iter()
             .map(|credit| PartialMetadataPerson {
-                name: credit.artist.name.clone(),
                 role: "Artist".to_string(),
+                name: credit.artist.name.clone(),
                 source: MediaSource::MusicBrainz,
                 identifier: credit.artist.id.clone(),
                 ..Default::default()
@@ -194,21 +194,21 @@ impl MediaProvider for MusicBrainzService {
             .collect();
 
         Ok(MetadataDetails {
-            title: recording.title,
+            groups,
+            people,
             publish_date,
             publish_year,
-            people,
-            groups,
+            title: recording.title,
+            source_url: Some(format!("{MUSICBRAINZ_BASE_URL}/recording/{identifier}")),
+            assets: EntityAssets {
+                remote_images: cover_url.into_iter().collect(),
+                ..Default::default()
+            },
             music_specifics: Some(MusicSpecifics {
                 duration: recording.length.map(|length| (length / 1000) as i32),
                 by_various_artists: Some(by_various_artists),
                 ..Default::default()
             }),
-            assets: EntityAssets {
-                remote_images: cover_url.into_iter().collect(),
-                ..Default::default()
-            },
-            source_url: Some(format!("{MUSICBRAINZ_BASE_URL}/recording/{identifier}")),
             ..Default::default()
         })
     }
@@ -237,8 +237,7 @@ impl MediaProvider for MusicBrainzService {
             .map(|group| MetadataGroupSearchItem {
                 name: group.title,
                 identifier: group.id,
-                parts: None,
-                image: None,
+                ..Default::default()
             })
             .collect();
 
@@ -302,11 +301,11 @@ impl MediaProvider for MusicBrainzService {
                             };
                             items.push(PartialMetadataWithoutId {
                                 title,
-                                identifier: recording.id.clone(),
+                                publish_year,
                                 lot: MediaLot::Music,
+                                identifier: recording.id.clone(),
                                 source: MediaSource::MusicBrainz,
                                 image: cover_url.clone(),
-                                publish_year,
                             });
                         }
                     }
@@ -324,11 +323,11 @@ impl MediaProvider for MusicBrainzService {
         let release_group_desc = release_group_description(&release_group);
         let group = MetadataGroupWithoutId {
             lot: MediaLot::Music,
-            source: MediaSource::MusicBrainz,
-            title: release_group_title,
-            identifier: release_group_id.clone(),
             parts: items.len() as i32,
+            title: release_group_title,
             description: release_group_desc,
+            source: MediaSource::MusicBrainz,
+            identifier: release_group_id.clone(),
             source_url: Some(format!(
                 "{MUSICBRAINZ_BASE_URL}/release-group/{release_group_id}"
             )),
@@ -365,7 +364,6 @@ impl MediaProvider for MusicBrainzService {
             .map(|artist| PeopleSearchItem {
                 name: artist.name,
                 identifier: artist.id,
-                image: None,
                 ..Default::default()
             })
             .collect();
@@ -409,12 +407,12 @@ impl MediaProvider for MusicBrainzService {
                 MetadataGroupPersonRelated {
                     role: "Artist".to_string(),
                     metadata_group: MetadataGroupWithoutId {
-                        lot: MediaLot::Music,
-                        source: MediaSource::MusicBrainz,
+                        source_url,
+                        description,
                         title: group_title,
                         identifier: group_id,
-                        description,
-                        source_url,
+                        lot: MediaLot::Music,
+                        source: MediaSource::MusicBrainz,
                         ..Default::default()
                     },
                 }
@@ -427,11 +425,10 @@ impl MediaProvider for MusicBrainzService {
             .map(|recording| MetadataPersonRelated {
                 role: "Artist".to_string(),
                 metadata: PartialMetadataWithoutId {
+                    lot: MediaLot::Music,
                     title: recording.title,
                     identifier: recording.id,
-                    lot: MediaLot::Music,
                     source: MediaSource::MusicBrainz,
-                    image: None,
                     ..Default::default()
                 },
                 ..Default::default()
@@ -442,10 +439,10 @@ impl MediaProvider for MusicBrainzService {
         let description = artist_description(&artist);
 
         Ok(PersonDetails {
-            name: artist_name,
             description,
-            related_metadata_groups,
             related_metadata,
+            name: artist_name,
+            related_metadata_groups,
             source_url: Some(format!("{MUSICBRAINZ_BASE_URL}/artist/{identifier}")),
             ..Default::default()
         })
