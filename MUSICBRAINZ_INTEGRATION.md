@@ -7,10 +7,21 @@ MusicBrainz is an open music encyclopedia that collects music metadata and makes
 ### MusicBrainz API Details
 
 - **Base URL**: `https://musicbrainz.org/ws/2/`
-- **Cover Art API**: `https://coverartarchive.org/`
-- **Response Format**: JSON (via `fmt=json` parameter or `Accept: application/json` header)
-- **User-Agent**: Must provide a meaningful User-Agent header (use `USER_AGENT_STR` from `common_utils`)
+- **Cover Art API**: `http://coverartarchive.org/` (library default)
+- **Rust Library**: [`musicbrainz_rs`](https://crates.io/crates/musicbrainz_rs) v0.12.0 (MSRV 1.82.0, default features include async + rate_limit)
+- **Response Format**: JSON (the library appends `fmt=json` automatically)
 - **Authentication**: Not required for read operations
+- **Rate Limit**: 1 request/second per client application (MusicBrainz policy)
+- **User-Agent**: Required and should identify the app and contact details
+
+We use the `musicbrainz_rs` library which provides:
+- Pre-defined entity structs (Recording, ReleaseGroup, Artist, Release)
+- Fluent builder APIs for fetch, search, and browse operations
+- Query builders for Lucene search fields (via `*_SearchQuery::query_builder()`)
+- `MusicBrainzClient::new` for a custom User-Agent and `execute_with_client` for all calls
+- Built-in Cover Art Archive helpers (`FetchCoverart`, `CoverartResponse`)
+- `DateString` for MusicBrainz partial dates
+- Automatic rate limiting (1 req/sec with burst 5) when the default `rate_limit` feature is enabled
 
 ## Entity Type Mapping
 
@@ -87,7 +98,7 @@ MusicBrainz has 13 core entity types, but for music tracking, we primarily care 
 **Note:** To get the actual tracklist for a release-group, we need to:
 1. Browse releases by release-group MBID
 2. Pick the "best" release (typically the earliest official release)
-3. Fetch that release's details with `inc=recordings` to get tracks
+3. Fetch that release's details with `with_recordings()` to get tracks
 
 ### 3. Release → Internal Use (Not Directly Exposed)
 
@@ -176,9 +187,20 @@ MusicBrainz has 13 core entity types, but for music tracking, we primarily care 
 ### MediaProvider Trait Implementation
 
 ```rust
+use common_utils::USER_AGENT_STR;
+use musicbrainz_rs::client::MusicBrainzClient;
+use musicbrainz_rs::prelude::*;
+
 pub struct MusicBrainzService {
-    client: Client,
-    cover_art_client: Client,
+    client: MusicBrainzClient,
+}
+
+impl MusicBrainzService {
+    pub fn new() -> Result<Self> {
+        Ok(Self {
+            client: MusicBrainzClient::new(USER_AGENT_STR)?,
+        })
+    }
 }
 ```
 
@@ -190,9 +212,10 @@ pub const PAGE_SIZE: u64 = 20;
 ```
 
 **MusicBrainz Limits:**
-- MusicBrainz API supports up to 100 results per request
-- Default is 25 if not specified
+- musicbrainz_rs supports limit/offset on search and browse builders
+- MusicBrainz API supports 1-100 results per request, default is 25
 - Ryot will request 20 per page for consistency
+- `SearchQuery::limit`/`BrowseQuery::limit` take `u8`; `offset` takes `u16`
 
 **Offset Calculation:**
 ```rust
@@ -203,15 +226,33 @@ let offset = (page - 1) * PAGE_SIZE;
 - MusicBrainz returns total count in response
 - Use existing `compute_next_page(page, count)` helper function to calculate next page
 - MusicBrainz count may be capped at 10,000 for very large result sets
+- Browse requests for releases can return fewer than the requested limit due to the 500-track safety cap; if we ever page release browse results, increment offsets by `entities.len()` instead of the limit
 
 ### 1. `metadata_search` - Search for Recordings
 
-**Endpoint:** `GET /ws/2/recording?query={query}&fmt=json&limit={limit}&offset={offset}`
+**Library Call:** `Recording::search(query)` with limit/offset, executed using `execute_with_client(&self.client)`
 
 **Query Construction:**
-- Basic: `query=recording:{track_name}`
-- With artist: `query=recording:{track_name} AND artist:{artist_name}`
+- Basic: `recording:{track_name}`
+- With artist: `recording:{track_name} AND artist:{artist_name}`
 - Can use Lucene syntax for advanced queries
+- Prefer `RecordingSearchQuery::query_builder()` to avoid manual escaping
+
+Example search setup:
+```rust
+use musicbrainz_rs::entity::recording::{Recording, RecordingSearchQuery};
+use musicbrainz_rs::prelude::*;
+
+let query = RecordingSearchQuery::query_builder()
+    .recording(track_name)
+    .and()
+    .artist(artist_name)
+    .build();
+
+let mut search = Recording::search(query);
+search.limit(PAGE_SIZE as u8).offset(offset as u16);
+let results = search.execute_with_client(&self.client).await?;
+```
 
 **Implementation:**
 ```rust
@@ -240,12 +281,12 @@ async fn metadata_search(
 
 ### 2. `metadata_details` - Get Recording Details
 
-**Endpoint:** `GET /ws/2/recording/{mbid}?inc=artist-credits+releases+isrcs&fmt=json`
+**Library Call:** `Recording::fetch().id(mbid).with_artists().with_releases().with_isrcs()` via `execute_with_client(&self.client)`
 
 **Include Parameters:**
-- `artist-credits`: Get artist information
-- `releases`: Get albums this recording appears on
-- `isrcs`: International Standard Recording Code (optional)
+- `with_artists()`: Populates `artist_credit` (MusicBrainz "artist-credits" include)
+- `with_releases()`: Get releases this recording appears on
+- `with_isrcs()`: International Standard Recording Code (optional)
 
 **Implementation:**
 ```rust
@@ -255,10 +296,10 @@ async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails>
 **Response Processing:**
 - `title`: recording.title
 - `identifier`: recording.id
-- `publish_date`: parse first-release-date
-- `publish_year`: extract year from first-release-date
+- `publish_date`: derive from `recording.first_release_date` (`DateString`) when a full date is present
+- `publish_year`: parse the year from `recording.first_release_date.0` when available
 - `music_specifics`: populate MusicSpecifics struct:
-  - `duration`: recording.length / 1000 (convert milliseconds to seconds)
+  - `duration`: `recording.length` / 1000 (milliseconds → seconds)
   - `by_various_artists`: true if artist-credit.length > 1
   - `track_number`: None (not available at recording level - see MusicSpecifics section)
   - `disc_number`: None (not available at recording level - see MusicSpecifics section)
@@ -269,22 +310,39 @@ async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails>
 - `groups`: map releases array to `CommitMetadataGroupInput`
   - For each release, we get the release-group it belongs to
   - Deduplicate by release-group id
-- `assets.remote_images`: fetch from Cover Art Archive
+- `assets.remote_images`: use `FetchCoverart` for release artwork
 - `source_url`: `https://musicbrainz.org/recording/{mbid}`
 
 **Cover Art Fetching:**
-- For each unique release, try: `GET https://coverartarchive.org/release/{release-mbid}/front-1200`
-- Take the first successful image (if any)
-- Returns 307 redirect to 1200px front cover image
+- For each unique release, use `FetchCoverart` with `front().res_1200()` to get a direct image URL (`CoverartResponse::Url`)
+- If only JSON metadata is fetched, take the first front image with a 1200px thumbnail when available
+- Fall back to release-group cover art if no release artwork is found
 
 ### 3. `metadata_group_search` - Search for Release-Groups (Albums)
 
-**Endpoint:** `GET /ws/2/release-group?query={query}&fmt=json&limit={limit}&offset={offset}`
+**Library Call:** `ReleaseGroup::search(query)` with limit/offset, executed using `execute_with_client(&self.client)`
 
 **Query Construction:**
-- Basic: `query=releasegroup:{album_name}`
-- With artist: `query=releasegroup:{album_name} AND artist:{artist_name}`
-- Filter by type: `query=releasegroup:{album_name} AND primarytype:album`
+- Basic: `releasegroup:{album_name}`
+- With artist: `releasegroup:{album_name} AND artist:{artist_name}`
+- Filter by type: `releasegroup:{album_name} AND primarytype:album`
+- Prefer `ReleaseGroupSearchQuery::query_builder()` for structured queries
+
+Example query builder:
+```rust
+use musicbrainz_rs::entity::release_group::{ReleaseGroup, ReleaseGroupSearchQuery};
+use musicbrainz_rs::prelude::*;
+
+let query = ReleaseGroupSearchQuery::query_builder()
+    .release_group(album_name)
+    .and()
+    .artist(artist_name)
+    .build();
+
+let mut search = ReleaseGroup::search(query);
+search.limit(PAGE_SIZE as u8).offset(offset as u16);
+let results = search.execute_with_client(&self.client).await?;
+```
 
 **Implementation:**
 ```rust
@@ -306,10 +364,10 @@ async fn metadata_group_search(
 
 ### 4. `metadata_group_details` - Get Release-Group Details with Tracklist
 
-**Endpoints:**
-1. `GET /ws/2/release-group/{mbid}?inc=artist-credits&fmt=json`
-2. `GET /ws/2/release?release-group={mbid}&fmt=json&limit=100`
-3. `GET /ws/2/release/{release-mbid}?inc=recordings+artist-credits&fmt=json`
+**Library Calls:**
+1. `ReleaseGroup::fetch().id(mbid).with_artists()` via `execute_with_client(&self.client)`
+2. `Release::browse().by_release_group(mbid).limit(100)` with optional `offset`
+3. `Release::fetch().id(release_mbid).with_recordings().with_artist_credits()` via `execute_with_client(&self.client)`
 
 **Implementation:**
 ```rust
@@ -325,7 +383,7 @@ async fn metadata_group_details(
    - Filter for status == "Official"
    - Sort by release date (earliest first)
    - Take first release with complete tracklist
-3. Fetch the chosen release with recordings included
+3. Fetch the chosen release with recordings included (`with_recordings`)
 4. Extract tracklist from release.media[].tracks[]
 
 **Response Processing:**
@@ -338,7 +396,7 @@ async fn metadata_group_details(
 - `parts`: total track count from release
 - `description`: format with primary-type, secondary-types, disambiguation
 - `source_url`: `https://musicbrainz.org/release-group/{mbid}`
-- `assets.remote_images`: fetch from Cover Art Archive for the release
+- `assets.remote_images`: use `FetchCoverart` for the chosen release (fallback to release-group)
 
 **PartialMetadataWithoutId array:**
 - Iterate through release.media[].tracks[]
@@ -353,12 +411,29 @@ async fn metadata_group_details(
 
 ### 5. `people_search` - Search for Artists
 
-**Endpoint:** `GET /ws/2/artist?query={query}&fmt=json&limit={limit}&offset={offset}`
+**Library Call:** `Artist::search(query)` with limit/offset, executed using `execute_with_client(&self.client)`
 
 **Query Construction:**
-- Basic: `query=artist:{artist_name}`
-- Filter by type: `query=artist:{artist_name} AND type:group`
-- Filter by country: `query=artist:{artist_name} AND country:US`
+- Basic: `artist:{artist_name}`
+- Filter by type: `artist:{artist_name} AND type:group`
+- Filter by country: `artist:{artist_name} AND country:US`
+- Prefer `ArtistSearchQuery::query_builder()` for structured queries
+
+Example query builder:
+```rust
+use musicbrainz_rs::entity::artist::{Artist, ArtistSearchQuery};
+use musicbrainz_rs::prelude::*;
+
+let query = ArtistSearchQuery::query_builder()
+    .artist(artist_name)
+    .and()
+    .country("US")
+    .build();
+
+let mut search = Artist::search(query);
+search.limit(PAGE_SIZE as u8).offset(offset as u16);
+let results = search.execute_with_client(&self.client).await?;
+```
 
 **Implementation:**
 ```rust
@@ -380,9 +455,9 @@ async fn people_search(
 
 ### 6. `person_details` - Get Artist Details
 
-**Endpoints:**
-1. `GET /ws/2/artist/{mbid}?inc=aliases+release-groups&fmt=json`
-2. `GET /ws/2/recording?artist={mbid}&fmt=json&limit=10` for recordings
+**Library Calls:**
+1. `Artist::fetch().id(mbid).with_aliases().with_release_groups()` via `execute_with_client(&self.client)`
+2. `Recording::browse().by_artist(mbid).limit(10)` via `execute_with_client(&self.client)` for top recordings
 
 **Implementation:**
 ```rust
@@ -423,53 +498,43 @@ async fn person_details(
 
 ## Cover Art Archive Integration
 
-The Cover Art Archive (CAA) is a separate service that hosts cover art for MusicBrainz releases.
+The musicbrainz_rs crate includes Cover Art Archive helpers via the `FetchCoverart` trait and returns a `CoverartResponse` (JSON metadata or a direct image URL).
 
-### Endpoints
+### Library Calls
 
-1. **Release Front Cover:** `GET https://coverartarchive.org/release/{mbid}/front`
-   - Returns 307 redirect to actual image
-   - Use this for getting album artwork
+1. **Release JSON metadata:** `Release::fetch_coverart().id(release_mbid).execute_with_client(&self.client)`
+2. **Release front image URL:** `Release::fetch_coverart().id(release_mbid).front().res_1200().execute_with_client(&self.client)`
+3. **Release-group front image URL:** `ReleaseGroup::fetch_coverart().id(release_group_mbid).front().res_1200().execute_with_client(&self.client)`
+4. **From fetched entities:** `release.get_coverart()` / `release_group.get_coverart()` when you already have the entity
 
-2. **Release-Group Front Cover:** `GET https://coverartarchive.org/release-group/{mbid}/front`
-   - Returns front cover from a release in the group
-   - Convenient for release-group lookups
-
-3. **All Images for Release:** `GET https://coverartarchive.org/release/{mbid}`
-   - Returns JSON with all artwork
-   - Includes thumbnails in multiple sizes (250, 500, 1200)
+`CoverartResponse::Json` matches the Cover Art Archive JSON listing (front/back flags + thumbnail URLs). `CoverartResponse::Url` is returned when requesting a specific image (front/back/res_*), mirroring the CAA redirect behavior.
 
 ### Image Size Variants
 
-Images available in multiple resolutions:
-- Original: `GET /release/{mbid}/front`
-- 250px: `GET /release/{mbid}/front-250`
-- 500px: `GET /release/{mbid}/front-500`
-- 1200px: `GET /release/{mbid}/front-1200`
+Cover art JSON responses include thumbnails in multiple sizes (250, 500, 1200) when available. `small` and `large` are deprecated aliases for 250/500.
 
 ### Implementation Strategy
 
 For Ryot:
-- Use direct fetch: `GET https://coverartarchive.org/release/{mbid}/front-1200`
-- This returns the 1200px front cover directly (307 redirect to image)
-- Single request, no need to fetch JSON metadata first
+- Prefer the chosen release's front cover (`front().res_1200()`) for a direct URL
+- Fall back to release-group front cover when release art is missing
+- If JSON metadata is used, choose the first front image and prefer `thumbnails.res_1200`, then `res_500`, then `res_250`, then `image`
 
 ## Key Implementation Considerations
 
 ### 1. User-Agent Header
 
-MusicBrainz requires a meaningful User-Agent header. Use the existing `USER_AGENT_STR` constant from `crates/utils/common/src/lib.rs`:
+MusicBrainz requires a meaningful User-Agent header (app name + version + contact URL/email). Use the existing `USER_AGENT_STR` from `crates/utils/common/src/lib.rs`, initialize `MusicBrainzClient::new(USER_AGENT_STR)`, and call `execute_with_client(&self.client)` for all fetch/search/browse/coverart queries. `MusicBrainzClient::set_user_agent` is deprecated and `execute()` uses the global default client.
 
-```rust
-use common_utils::USER_AGENT_STR;
+### 2. Rate Limiting
 
-let client = get_base_http_client(Some(vec![(
-    USER_AGENT,
-    HeaderValue::from_str(USER_AGENT_STR)?,
-)]));
-```
+MusicBrainz requires 1 request/second per client application. With the default `rate_limit` feature, musicbrainz_rs enforces 1 req/sec with a burst of 5 for async clients. Avoid additional throttling and reuse a single client to keep the limiter effective. The Cover Art Archive does not publish rate limiting rules, but 503 responses are still possible under load.
 
-### 2. Artist Credits Processing
+### 3. JSON Responses
+
+musicbrainz_rs appends `fmt=json` to API requests, so we do not need to set Accept headers or format parameters manually.
+
+### 4. Artist Credits Processing
 
 MusicBrainz uses "artist credits" which include multiple artists with joinphrases (e.g., " feat. ", " & ").
 
@@ -491,7 +556,7 @@ let artists: Vec<PartialMetadataPerson> = artist_credit
 
 Store each artist as a separate Person entity. Joinphrases are ignored - they're for display purposes only.
 
-### 3. Release vs. Release-Group Complexity
+### 5. Release vs. Release-Group Complexity
 
 The relationship between releases and release-groups is MusicBrainz's most complex aspect:
 
@@ -502,7 +567,7 @@ For Ryot's `metadata_group_details`:
 - Need to pick a "canonical" release from the group to get tracklist
 - Strategy: prefer official status, earliest date, most complete data
 
-### 4. Handling Missing Data
+### 6. Handling Missing Data
 
 MusicBrainz data quality varies:
 - Some fields may be null/missing
@@ -512,97 +577,42 @@ MusicBrainz data quality varies:
 
 Implement defensive coding with Option types and fallbacks.
 
-### 5. JSON vs XML
-
-Use JSON for all requests:
-- Set header: `Accept: application/json`
-- Or use parameter: `fmt=json`
-- JSON is easier to work with in Rust via serde
-
-### 6. MBID Format
+### 7. MBID Format
 
 MusicBrainz IDs (MBIDs) are UUIDs:
 - Format: `550e8400-e29b-41d4-a716-446655440000`
 - Always validate UUID format when receiving identifiers
 
-### 7. No Authentication Needed
+### 8. No Authentication Needed
 
 Unlike Spotify, MusicBrainz doesn't require authentication for read operations:
 - Simpler implementation
 - No token management
 - No credentials in config
 
-### 8. Translations
+### 9. Translations
 
 Translation support is not implemented for MusicBrainz. The `translate_metadata`, `translate_metadata_group`, and `translate_person` trait methods will use default implementations (return error).
 
-### 9. Partial Date Handling
+### 10. Partial Date Handling
 
-MusicBrainz dates can be partial: just a year (`"2007"`), year-month (`"2007-11"`), or full date (`"2007-11-07"`). The existing `convert_string_to_date` utility only handles full dates. Implement custom parsing:
-
-```rust
-fn parse_musicbrainz_date(date_str: &str) -> (Option<NaiveDate>, Option<i32>) {
-    let parts: Vec<&str> = date_str.split('-').collect();
-    match parts.len() {
-        1 => {
-            // Year only: "2007"
-            let year = parts[0].parse::<i32>().ok();
-            (None, year)
-        }
-        2 => {
-            // Year-month: "2007-11"
-            let year = parts[0].parse::<i32>().ok();
-            (None, year)
-        }
-        3 => {
-            // Full date: "2007-11-07"
-            let date = convert_string_to_date(date_str);
-            let year = date.map(|d| d.year());
-            (date, year)
-        }
-        _ => (None, None),
-    }
-}
-```
-
-### 10. Error Handling
-
-Follow the same pattern as Spotify and YouTube Music providers: propagate errors using the `?` operator and `Result` types. No explicit retry logic is needed.
+MusicBrainz dates can be partial: just a year (`"2007"`), year-month (`"2007-11"`), or full date (`"2007-11-07"`), and may include unknown tokens like `????` or `??`. musicbrainz_rs returns these as `DateString`. Use `DateString` to parse full dates and derive the year:
 
 ```rust
-// Example from metadata_details
-let response = self.client
-    .get(format!("{BASE_URL}/recording/{identifier}"))
-    .query(&[("fmt", "json"), ("inc", "artist-credits+releases")])
-    .send()
-    .await?;
+use chrono::NaiveDate;
+use musicbrainz_rs::entity::date_string::DateString;
 
-let recording: MusicBrainzRecording = response.json().await?;
-```
+fn parse_musicbrainz_date(date: &DateString) -> (Option<NaiveDate>, Option<i32>) {
+    let raw = date.0.as_str();
+    let year = raw.split('-').next().and_then(|part| part.parse::<i32>().ok());
 
-Errors from HTTP requests and JSON deserialization will bubble up naturally.
+    let date = if raw.len() == 10 && !raw.contains('?') {
+        date.into_naive_date(1, 1, 1).ok()
+    } else {
+        None
+    };
 
-### 11. JSON Deserialization
-
-Define Rust structs for MusicBrainz API responses using serde with the `rename_all` attribute to handle kebab-case field names:
-
-```rust
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-struct MusicBrainzRecording {
-    id: String,
-    title: String,
-    length: Option<i64>,
-    first_release_date: Option<String>,
-    artist_credit: Option<Vec<ArtistCredit>>,
-    releases: Option<Vec<Release>>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-struct ArtistCredit {
-    name: String,
-    artist: Artist,
+    (date, year)
 }
 ```
 
@@ -655,46 +665,50 @@ The following fields could be added to `MusicSpecifics` (all optional) without d
 
 1. **`isrc`**: `Option<String>` - International Standard Recording Code
    - Useful for matching recordings across platforms
-   - Available from MusicBrainz API via `inc=isrcs`
+   - Available via `with_isrcs()` as `recording.isrcs: Option<Vec<String>>` (pick first or join)
 
 2. **`is_video`**: `Option<bool>` - Indicates if recording is a music video
    - Available from MusicBrainz recording.video field
    - Could help differentiate audio tracks from video recordings
 
-## API Endpoint Reference
+## Library Call Reference
 
-### Search Endpoints
+### Search
 ```
-GET /ws/2/recording?query={q}&fmt=json&limit={l}&offset={o}
-GET /ws/2/release-group?query={q}&fmt=json&limit={l}&offset={o}
-GET /ws/2/artist?query={q}&fmt=json&limit={l}&offset={o}
-```
-
-### Lookup Endpoints
-```
-GET /ws/2/recording/{mbid}?inc=artist-credits+releases&fmt=json
-GET /ws/2/release-group/{mbid}?inc=artist-credits&fmt=json
-GET /ws/2/release/{mbid}?inc=artist-credits+recordings&fmt=json
-GET /ws/2/artist/{mbid}?inc=aliases+release-groups&fmt=json
+Recording::search(query).limit(limit).offset(offset)
+ReleaseGroup::search(query).limit(limit).offset(offset)
+Artist::search(query).limit(limit).offset(offset)
 ```
 
-### Browse Endpoints
+### Fetch
 ```
-GET /ws/2/release?release-group={mbid}&fmt=json
-GET /ws/2/recording?artist={mbid}&fmt=json&limit={l}
+Recording::fetch().id(mbid).with_artists().with_releases().with_isrcs()
+ReleaseGroup::fetch().id(mbid).with_artists()
+Release::fetch().id(mbid).with_recordings().with_artist_credits()
+Artist::fetch().id(mbid).with_aliases().with_release_groups()
 ```
 
-### Cover Art Endpoints
+### Browse
 ```
-GET https://coverartarchive.org/release/{mbid}/front
-GET https://coverartarchive.org/release-group/{mbid}/front
-GET https://coverartarchive.org/release/{mbid} (JSON with all images)
+Release::browse().by_release_group(mbid).limit(limit).offset(offset)
+Recording::browse().by_artist(mbid).limit(10)
 ```
+
+### Cover Art
+```
+Release::fetch_coverart().id(release_mbid)
+Release::fetch_coverart().id(release_mbid).front().res_1200()
+ReleaseGroup::fetch_coverart().id(release_group_mbid).front().res_1200()
+```
+
+Execute the builders with `execute_with_client(&self.client)` so the User-Agent and rate limiter are consistently applied.
 
 ## Implementation Checklist
 
 - [ ] Create `crates/providers/music_brainz/` directory
 - [ ] Create `Cargo.toml` for the new crate and add it to the workspace
+- [ ] Add `musicbrainz_rs` dependency (default features include async + rate_limit; use `blocking` only if needed)
+- [ ] Initialize `MusicBrainzClient::new(USER_AGENT_STR)` and use `execute_with_client`
 - [ ] Implement `MusicBrainzService` struct
 - [ ] Implement `metadata_search` (search recordings)
 - [ ] Implement `metadata_details` (get recording details)
@@ -702,7 +716,7 @@ GET https://coverartarchive.org/release/{mbid} (JSON with all images)
 - [ ] Implement `metadata_group_details` (get release-group + tracklist)
 - [ ] Implement `people_search` (search artists)
 - [ ] Implement `person_details` (get artist details)
-- [ ] Integrate Cover Art Archive for images
+- [ ] Use `FetchCoverart`/`CoverartResponse` to load front cover art (prefer 1200px thumbnails)
 - [ ] Add MusicBrainz to `MediaSource` enum
 - [ ] Add it as a music source in `crates/models/enum/src/media_enums.rs#L52`
 - [ ] Add `MediaSource::MusicBrainz` to `PEOPLE_SEARCH_SOURCES` in `crates/utils/common/src/lib.rs`
@@ -721,3 +735,5 @@ GET https://coverartarchive.org/release/{mbid} (JSON with all images)
 - [Entity: Artist](https://musicbrainz.org/doc/Artist)
 - [Search Documentation](https://musicbrainz.org/doc/MusicBrainz_API/Search)
 - [API Examples](https://musicbrainz.org/doc/MusicBrainz_API/Examples)
+- [musicbrainz_rs crate](https://crates.io/crates/musicbrainz_rs)
+- [musicbrainz_rs docs](https://docs.rs/musicbrainz_rs/latest/musicbrainz_rs/)
