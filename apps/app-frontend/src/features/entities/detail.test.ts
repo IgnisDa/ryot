@@ -18,11 +18,11 @@ describe("getEntityDetailProperties", () => {
 		const properties = getEntityDetailProperties(
 			{
 				fields: {
-					notes: { type: "string" },
-					startedOn: { type: "date" },
-					completed: { type: "boolean" },
-					distanceKm: { type: "number" },
-					completedAt: { type: "datetime" },
+					notes: { label: "Notes", type: "string" },
+					startedOn: { label: "Started On", type: "date" },
+					distanceKm: { label: "Distance", type: "number" },
+					completed: { label: "Completed", type: "boolean" },
+					completedAt: { label: "Completed At", type: "datetime" },
 				},
 			},
 			entity.properties,
@@ -32,35 +32,35 @@ describe("getEntityDetailProperties", () => {
 			{
 				key: "notes",
 				type: "string",
-				label: "notes",
+				label: "Notes",
 				value: "Easy pace",
 				rawValue: "Easy pace",
 			},
 			{
 				type: "date",
 				key: "startedOn",
-				label: "startedOn",
+				label: "Started On",
 				value: "March 8, 2026",
 				rawValue: "2026-03-08",
-			},
-			{
-				value: "Yes",
-				rawValue: true,
-				type: "boolean",
-				key: "completed",
-				label: "completed",
 			},
 			{
 				value: "5.25",
 				rawValue: 5.25,
 				type: "number",
 				key: "distanceKm",
-				label: "distanceKm",
+				label: "Distance",
+			},
+			{
+				value: "Yes",
+				rawValue: true,
+				type: "boolean",
+				key: "completed",
+				label: "Completed",
 			},
 			{
 				type: "datetime",
 				key: "completedAt",
-				label: "completedAt",
+				label: "Completed At",
 				rawValue: "2026-03-08T10:15:00Z",
 				value: expect.any(String),
 			},
@@ -79,11 +79,16 @@ describe("getEntityDetailProperties", () => {
 		const properties = getEntityDetailProperties(
 			{
 				fields: {
-					tags: { type: "array", items: { type: "string" } },
-					mood: { type: "string" },
+					mood: { label: "Mood", type: "string" },
+					tags: {
+						label: "Tags",
+						type: "array",
+						items: { label: "Item", type: "string" },
+					},
 					metadata: {
 						type: "object",
-						properties: { source: { type: "string" } },
+						label: "Metadata",
+						properties: { source: { label: "Source", type: "string" } },
 					},
 				},
 			},
@@ -92,23 +97,23 @@ describe("getEntityDetailProperties", () => {
 
 		expect(properties.length).toBe(3);
 		expect(properties[0]).toEqual({
-			key: "tags",
-			type: "array",
-			label: "tags",
-			value: "tempo, morning",
-			rawValue: ["tempo", "morning"],
-		});
-		expect(properties[1]).toEqual({
 			key: "mood",
 			type: "string",
-			label: "mood",
+			label: "Mood",
 			value: "strong",
 			rawValue: "strong",
+		});
+		expect(properties[1]).toEqual({
+			key: "tags",
+			type: "array",
+			label: "Tags",
+			value: "tempo, morning",
+			rawValue: ["tempo", "morning"],
 		});
 		expect(properties[2]).toEqual({
 			key: "metadata",
 			type: "object",
-			label: "metadata",
+			label: "Metadata",
 			value: "source: watch, version: 2.0",
 			rawValue: { source: "watch", version: "2.0" },
 		});

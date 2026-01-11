@@ -22,8 +22,12 @@ describe("buildDefaultEventFormValues", () => {
 				entitySchemaId: "entity-schema-1",
 				propertiesSchema: {
 					fields: {
-						notes: { type: "string" },
-						pages: { type: "integer", validation: { required: true } },
+						notes: { label: "Notes", type: "string" },
+						pages: {
+							label: "Pages",
+							type: "integer",
+							validation: { required: true },
+						},
 					},
 				},
 			}),
@@ -49,7 +53,11 @@ describe("buildDefaultEventFormValues", () => {
 					entitySchemaId: "entity-schema-1",
 					propertiesSchema: {
 						fields: {
-							pages: { type: "integer", validation: { required: true } },
+							pages: {
+								label: "Pages",
+								type: "integer",
+								validation: { required: true },
+							},
 						},
 					},
 				}),
@@ -60,7 +68,11 @@ describe("buildDefaultEventFormValues", () => {
 					entitySchemaId: "entity-schema-1",
 					propertiesSchema: {
 						fields: {
-							completed: { type: "boolean", validation: { required: true } },
+							completed: {
+								type: "boolean",
+								label: "Completed",
+								validation: { required: true },
+							},
 						},
 					},
 				}),
@@ -82,7 +94,11 @@ describe("buildDefaultEventFormValues", () => {
 					entitySchemaId: "entity-schema-1",
 					propertiesSchema: {
 						fields: {
-							pages: { type: "integer", validation: { required: true } },
+							pages: {
+								label: "Pages",
+								type: "integer",
+								validation: { required: true },
+							},
 						},
 					},
 				}),
@@ -93,7 +109,11 @@ describe("buildDefaultEventFormValues", () => {
 					entitySchemaId: "entity-schema-1",
 					propertiesSchema: {
 						fields: {
-							completed: { type: "boolean", validation: { required: true } },
+							completed: {
+								type: "boolean",
+								label: "Completed",
+								validation: { required: true },
+							},
 						},
 					},
 				}),
@@ -113,17 +133,24 @@ describe("buildDefaultEventFormValues", () => {
 				entitySchemaId: "entity-schema-1",
 				propertiesSchema: {
 					fields: {
-						pages: { type: "integer", validation: { required: true } },
-						tags: {
-							type: "array",
-							items: { type: "string" },
+						pages: {
+							label: "Pages",
+							type: "integer",
 							validation: { required: true },
+						},
+						tags: {
+							label: "Tags",
+							type: "array",
+							validation: { required: true },
+							items: { label: "Tag", type: "string" },
 						},
 						metadata: {
 							type: "object",
+							label: "Metadata",
 							validation: { required: true },
 							properties: {
 								rating: {
+									label: "Rating",
 									type: "number",
 									validation: { required: true },
 								},
@@ -155,8 +182,12 @@ describe("buildCreateEventFormSchema", () => {
 				id: "schema-1",
 				propertiesSchema: {
 					fields: {
-						minutes: { type: "number" },
-						completed: { type: "boolean", validation: { required: true } },
+						minutes: { label: "Minutes", type: "number" },
+						completed: {
+							type: "boolean",
+							label: "Completed",
+							validation: { required: true },
+						},
 					},
 				},
 			}),
@@ -175,7 +206,11 @@ describe("buildCreateEventFormSchema", () => {
 				id: "schema-1",
 				propertiesSchema: {
 					fields: {
-						pages: { type: "integer", validation: { required: true } },
+						pages: {
+							label: "Pages",
+							type: "integer",
+							validation: { required: true },
+						},
 					},
 				},
 			}),
@@ -184,7 +219,11 @@ describe("buildCreateEventFormSchema", () => {
 				name: "Finished",
 				propertiesSchema: {
 					fields: {
-						completed: { type: "boolean", validation: { required: true } },
+						completed: {
+							type: "boolean",
+							label: "Completed",
+							validation: { required: true },
+						},
 					},
 				},
 			}),
@@ -208,17 +247,27 @@ describe("buildCreateEventFormSchema", () => {
 			createEventSchemaFixture({
 				propertiesSchema: {
 					fields: {
-						pages: { type: "integer", validation: { required: true } },
+						pages: {
+							label: "Pages",
+							type: "integer",
+							validation: { required: true },
+						},
 						tags: {
+							label: "Tags",
 							type: "array",
-							items: { type: "string" },
+							items: { label: "Tag", type: "string" },
 							validation: { required: true },
 						},
 						metadata: {
 							type: "object",
+							label: "Metadata",
 							validation: { required: true },
 							properties: {
-								rating: { type: "number", validation: { required: true } },
+								rating: {
+									label: "Rating",
+									type: "number",
+									validation: { required: true },
+								},
 							},
 						},
 					},
@@ -250,18 +299,32 @@ describe("getUnsupportedRequiredEventProperties", () => {
 		expect(
 			getUnsupportedRequiredEventProperties({
 				fields: {
-					pages: { type: "integer", validation: { required: true } },
-					notes: { type: "array", items: { type: "string" } },
-					tags: {
+					pages: {
+						label: "Pages",
+						type: "integer",
+						validation: { required: true },
+					},
+					notes: {
+						label: "Notes",
 						type: "array",
-						items: { type: "string" },
+						items: { label: "Note", type: "string" },
+					},
+					tags: {
+						label: "Tags",
+						type: "array",
+						items: { label: "Tag", type: "string" },
 						validation: { required: true },
 					},
 					metadata: {
 						type: "object",
+						label: "Metadata",
 						validation: { required: true },
 						properties: {
-							rating: { type: "number", validation: { required: true } },
+							rating: {
+								type: "number",
+								label: "Rating",
+								validation: { required: true },
+							},
 						},
 					},
 				},
@@ -324,7 +387,11 @@ describe("toCreateEventPayload", () => {
 					id: "schema-1",
 					propertiesSchema: {
 						fields: {
-							minutes: { type: "number", validation: { required: true } },
+							minutes: {
+								type: "number",
+								label: "Minutes",
+								validation: { required: true },
+							},
 						},
 					},
 				}),
@@ -333,7 +400,11 @@ describe("toCreateEventPayload", () => {
 					name: "Finished",
 					propertiesSchema: {
 						fields: {
-							completed: { type: "boolean", validation: { required: true } },
+							completed: {
+								type: "boolean",
+								label: "Completed",
+								validation: { required: true },
+							},
 						},
 					},
 				}),
@@ -355,7 +426,11 @@ describe("toCreateEventPayload", () => {
 					id: "schema-1",
 					propertiesSchema: {
 						fields: {
-							minutes: { type: "number", validation: { required: true } },
+							minutes: {
+								type: "number",
+								label: "Minutes",
+								validation: { required: true },
+							},
 						},
 					},
 				}),
@@ -372,23 +447,22 @@ describe("reconcileEventProperties", () => {
 			reconcileEventProperties(
 				{
 					fields: {
-						notes: { type: "string" },
-						pages: { type: "integer", validation: { required: true } },
-						completed: { type: "boolean", validation: { required: true } },
+						notes: { label: "Notes", type: "string" },
+						pages: {
+							label: "Pages",
+							type: "integer",
+							validation: { required: true },
+						},
+						completed: {
+							type: "boolean",
+							label: "Completed",
+							validation: { required: true },
+						},
 					},
 				},
-				{
-					pages: 42,
-					minutes: 15,
-					completed: "yes",
-					notes: "keep me",
-				},
+				{ pages: 42, minutes: 15, completed: "yes", notes: "keep me" },
 			),
-		).toEqual({
-			pages: 42,
-			completed: false,
-			notes: "keep me",
-		});
+		).toEqual({ pages: 42, notes: "keep me", completed: false });
 	});
 
 	it("skips unsupported properties while keeping supported values", () => {
@@ -396,11 +470,16 @@ describe("reconcileEventProperties", () => {
 			reconcileEventProperties(
 				{
 					fields: {
-						pages: { type: "integer", validation: { required: true } },
-						tags: {
-							type: "array",
-							items: { type: "string" },
+						pages: {
+							label: "Pages",
+							type: "integer",
 							validation: { required: true },
+						},
+						tags: {
+							label: "Tags",
+							type: "array",
+							validation: { required: true },
+							items: { label: "Tag", type: "string" },
 						},
 					},
 				},
@@ -419,7 +498,11 @@ describe("syncCreateEventFormValues", () => {
 						id: "schema-1",
 						propertiesSchema: {
 							fields: {
-								pages: { type: "integer", validation: { required: true } },
+								pages: {
+									label: "Pages",
+									type: "integer",
+									validation: { required: true },
+								},
 							},
 						},
 					}),
@@ -428,9 +511,10 @@ describe("syncCreateEventFormValues", () => {
 						name: "Finished",
 						propertiesSchema: {
 							fields: {
-								notes: { type: "string" },
+								notes: { label: "Notes", type: "string" },
 								completed: {
 									type: "boolean",
+									label: "Completed",
 									validation: { required: true },
 								},
 							},
@@ -456,7 +540,11 @@ describe("syncCreateEventFormValues", () => {
 						id: "schema-1",
 						propertiesSchema: {
 							fields: {
-								pages: { type: "integer", validation: { required: true } },
+								pages: {
+									label: "Pages",
+									type: "integer",
+									validation: { required: true },
+								},
 							},
 						},
 					}),
@@ -465,20 +553,18 @@ describe("syncCreateEventFormValues", () => {
 						name: "Finished",
 						propertiesSchema: {
 							fields: {
-								completed: { type: "boolean", validation: { required: true } },
+								completed: {
+									type: "boolean",
+									label: "Completed",
+									validation: { required: true },
+								},
 							},
 						},
 					}),
 				],
-				{
-					properties: { completed: true },
-					eventSchemaId: "missing-schema",
-				},
+				{ properties: { completed: true }, eventSchemaId: "missing-schema" },
 			),
-		).toEqual({
-			properties: { pages: 0 },
-			eventSchemaId: "schema-1",
-		});
+		).toEqual({ properties: { pages: 0 }, eventSchemaId: "schema-1" });
 	});
 });
 
@@ -491,7 +577,11 @@ describe("buildEventSchemaSelectionPatch", () => {
 						id: "schema-1",
 						propertiesSchema: {
 							fields: {
-								pages: { type: "integer", validation: { required: true } },
+								pages: {
+									label: "Pages",
+									type: "integer",
+									validation: { required: true },
+								},
 							},
 						},
 					}),
@@ -500,8 +590,12 @@ describe("buildEventSchemaSelectionPatch", () => {
 						name: "Finished",
 						propertiesSchema: {
 							fields: {
-								notes: { type: "string" },
-								completed: { type: "boolean", validation: { required: true } },
+								notes: { label: "Notes", type: "string" },
+								completed: {
+									type: "boolean",
+									label: "Completed",
+									validation: { required: true },
+								},
 							},
 						},
 					}),
@@ -528,7 +622,11 @@ describe("getEventFormReconciliationState", () => {
 						id: "schema-1",
 						propertiesSchema: {
 							fields: {
-								pages: { type: "integer", validation: { required: true } },
+								pages: {
+									label: "Pages",
+									type: "integer",
+									validation: { required: true },
+								},
 							},
 						},
 					}),
@@ -537,7 +635,11 @@ describe("getEventFormReconciliationState", () => {
 						name: "Finished",
 						propertiesSchema: {
 							fields: {
-								completed: { type: "boolean", validation: { required: true } },
+								completed: {
+									type: "boolean",
+									label: "Completed",
+									validation: { required: true },
+								},
 							},
 						},
 					}),
@@ -548,7 +650,11 @@ describe("getEventFormReconciliationState", () => {
 			eventSchemaId: "schema-2",
 			propertiesSchema: {
 				fields: {
-					completed: { type: "boolean", validation: { required: true } },
+					completed: {
+						type: "boolean",
+						label: "Completed",
+						validation: { required: true },
+					},
 				},
 			},
 		});
@@ -562,7 +668,11 @@ describe("getEventFormReconciliationState", () => {
 						id: "schema-1",
 						propertiesSchema: {
 							fields: {
-								pages: { type: "integer", validation: { required: true } },
+								pages: {
+									label: "Pages",
+									type: "integer",
+									validation: { required: true },
+								},
 							},
 						},
 					}),
@@ -572,7 +682,13 @@ describe("getEventFormReconciliationState", () => {
 		).toEqual({
 			eventSchemaId: "schema-1",
 			propertiesSchema: {
-				fields: { pages: { type: "integer", validation: { required: true } } },
+				fields: {
+					pages: {
+						label: "Pages",
+						type: "integer",
+						validation: { required: true },
+					},
+				},
 			},
 		});
 	});

@@ -8,7 +8,7 @@ import {
 describe("propertySchemaObjectSchema", () => {
 	it("rejects property definitions without a type", () => {
 		const result = propertySchemaObjectSchema.safeParse({
-			fields: { title: { validation: { required: true } } },
+			fields: { title: { label: "Title", validation: { required: true } } },
 		});
 
 		expect(result.success).toBeFalse();
@@ -27,6 +27,7 @@ describe("propertySchemaObjectSchema", () => {
 			fields: {
 				progressPercent: {
 					type: "number",
+					label: "Progress Percent",
 					transform: { round: { mode: "half_up", scale: 2 } },
 					validation: {
 						required: true,
@@ -44,6 +45,7 @@ describe("propertySchemaObjectSchema", () => {
 		const result = propertySchemaObjectSchema.safeParse({
 			fields: {
 				progressPercent: {
+					label: "Progress Percent",
 					type: "number",
 					validation: { maximum: 5, exclusiveMinimum: 10 },
 				},
@@ -56,8 +58,12 @@ describe("propertySchemaObjectSchema", () => {
 	it("accepts conditional rules that reference existing primitive fields", () => {
 		const result = propertySchemaObjectSchema.safeParse({
 			fields: {
-				progressPercent: { type: "number" },
-				status: { type: "string", validation: { required: true } },
+				progressPercent: { label: "Progress Percent", type: "number" },
+				status: {
+					type: "string",
+					label: "Status",
+					validation: { required: true },
+				},
 			},
 			rules: [
 				{
@@ -75,9 +81,10 @@ describe("propertySchemaObjectSchema", () => {
 	it("accepts built-in complete-style datetime rules with constrained modes", () => {
 		const result = propertySchemaObjectSchema.safeParse({
 			fields: {
-				startedOn: { type: "datetime" },
-				completedOn: { type: "datetime" },
+				startedOn: { label: "Started On", type: "datetime" },
+				completedOn: { label: "Completed On", type: "datetime" },
 				completionMode: {
+					label: "Completion Mode",
 					type: "string",
 					validation: {
 						required: true,
@@ -104,7 +111,7 @@ describe("propertySchemaObjectSchema", () => {
 
 	it("rejects rules that point at missing fields", () => {
 		const result = propertySchemaObjectSchema.safeParse({
-			fields: { status: { type: "string" } },
+			fields: { status: { label: "Status", type: "string" } },
 			rules: [
 				{
 					kind: "validation",
@@ -120,7 +127,10 @@ describe("propertySchemaObjectSchema", () => {
 
 	it("rejects rules whose condition values do not match field types", () => {
 		const result = propertySchemaObjectSchema.safeParse({
-			fields: { status: { type: "string" }, rating: { type: "integer" } },
+			fields: {
+				status: { label: "Status", type: "string" },
+				rating: { label: "Rating", type: "integer" },
+			},
 			rules: [
 				{
 					path: ["rating"],
@@ -138,9 +148,10 @@ describe("propertySchemaObjectSchema", () => {
 		const result = propertySchemaObjectSchema.safeParse({
 			fields: {
 				membershipPropertiesSchema: {
-					properties: {},
 					type: "object",
+					properties: {},
 					unknownKeys: "strip",
+					label: "Membership Properties Schema",
 				},
 			},
 		});
@@ -153,8 +164,9 @@ describe("propertySchemaObjectSchema", () => {
 			fields: {
 				config: {
 					type: "object",
+					label: "Config",
 					unknownKeys: "strict",
-					properties: { enabled: { type: "boolean" } },
+					properties: { enabled: { label: "Enabled", type: "boolean" } },
 				},
 			},
 		});
@@ -169,6 +181,7 @@ describe("propertySchemaObjectSchema", () => {
 					type: "object",
 					properties: {},
 					unknownKeys: "passthrough",
+					label: "Membership Properties Schema",
 				},
 			},
 		});
@@ -179,7 +192,11 @@ describe("propertySchemaObjectSchema", () => {
 	it("accepts object properties without unknownKeys (defaults to strict)", () => {
 		const result = propertySchemaObjectSchema.safeParse({
 			fields: {
-				config: { type: "object", properties: { name: { type: "string" } } },
+				config: {
+					type: "object",
+					label: "Config",
+					properties: { name: { label: "Name", type: "string" } },
+				},
 			},
 		});
 

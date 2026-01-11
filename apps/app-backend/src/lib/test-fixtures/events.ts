@@ -71,6 +71,7 @@ export const createEventDeps = (
 			propertiesSchema: {
 				fields: {
 					rating: {
+						label: "Rating",
 						type: "number" as const,
 						validation: { required: true as const },
 					},

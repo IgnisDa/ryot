@@ -82,6 +82,7 @@ describe("parseEventProperties", () => {
 		const propertiesSchema = {
 			fields: {
 				rating: {
+					label: "Rating",
 					type: "number" as const,
 					validation: { required: true as const },
 				},
@@ -100,7 +101,9 @@ describe("parseEventProperties", () => {
 		expect(() =>
 			parseEventProperties({
 				properties: "bad",
-				propertiesSchema: { fields: { rating: { type: "number" as const } } },
+				propertiesSchema: {
+					fields: { rating: { label: "Rating", type: "number" as const } },
+				},
 			}),
 		).toThrow("Event properties must be a JSON object");
 	});
@@ -109,7 +112,9 @@ describe("parseEventProperties", () => {
 		expect(() =>
 			parseEventProperties({
 				properties: [],
-				propertiesSchema: { fields: { rating: { type: "number" as const } } },
+				propertiesSchema: {
+					fields: { rating: { label: "Rating", type: "number" as const } },
+				},
 			}),
 		).toThrow("Event properties must be a JSON object, not an array");
 	});
@@ -160,6 +165,7 @@ describe("resolveEventCreateInput", () => {
 				fields: {
 					progressPercent: {
 						type: "number" as const,
+						label: "Progress Percent",
 						validation: { required: true as const },
 					},
 				},
@@ -235,6 +241,7 @@ describe("createEvent", () => {
 						propertiesSchema: {
 							fields: {
 								rating: {
+									label: "Rating",
 									type: "number" as const,
 									validation: { required: true as const },
 								},

@@ -103,7 +103,7 @@ describe("parseEntitySchemaPropertiesSchema", () => {
 	it("rejects property with invalid type", () => {
 		expect(() =>
 			parseEntitySchemaPropertiesSchema({
-				fields: { title: { type: "invalid" } },
+				fields: { title: { label: "Title", type: "invalid" } },
 			}),
 		).toThrow("Invalid input");
 	});
@@ -111,7 +111,7 @@ describe("parseEntitySchemaPropertiesSchema", () => {
 	it("rejects array property without items", () => {
 		expect(() =>
 			parseEntitySchemaPropertiesSchema({
-				fields: { tags: { type: "array" } },
+				fields: { tags: { label: "Tags", type: "array" } },
 			}),
 		).toThrow("Invalid input: expected object, received undefined");
 	});
@@ -119,7 +119,7 @@ describe("parseEntitySchemaPropertiesSchema", () => {
 	it("rejects object property without properties", () => {
 		expect(() =>
 			parseEntitySchemaPropertiesSchema({
-				fields: { metadata: { type: "object" } },
+				fields: { metadata: { label: "Metadata", type: "object" } },
 			}),
 		).toThrow("Invalid input: expected record, received undefined");
 	});

@@ -54,6 +54,7 @@ export type AppStringPropertyValidation = AppPropertyValidationBase & {
 };
 
 type AppPropertyBase<TValidation> = {
+	label: string;
 	validation?: TValidation;
 	transform?: AppPropertyTransform;
 };
@@ -186,6 +187,14 @@ const roundHalfUp = (value: number, scale: number) => {
 	const factor = 10 ** scale;
 	return Math.round((value + Number.EPSILON) * factor) / factor;
 };
+
+const getDefaultPropertyLabel = (key: string) =>
+	key
+		.replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+		.replace(/[_-]+/g, " ")
+		.trim()
+		.replace(/\s+/g, " ")
+		.replace(/\b\w/g, (value) => value.toUpperCase());
 
 const getValueAtPath = (input: unknown, path: AppSchemaRulePath) => {
 	let value = input;
@@ -439,6 +448,7 @@ export const getAppPropertyDefinitionAtPath = (
 const toAppSchemaInternal = (
 	schema: z.ZodType,
 	includeRequiredValidation: boolean,
+	label: string,
 ): AppPropertyDefinition => {
 	const { isRequired, value } = isRequiredSchema(schema);
 	const applyRequiredValidation = <T extends AppPropertyDefinition>(
@@ -450,28 +460,33 @@ const toAppSchemaInternal = (
 
 	if (value instanceof z.ZodString) {
 		return applyRequiredValidation(
-			value.format === "date" ? { type: "date" } : { type: "string" },
+			value.format === "date"
+				? { label, type: "date" }
+				: { label, type: "string" },
 		);
 	}
 
 	if (value instanceof z.ZodNumber) {
 		return applyRequiredValidation(
-			value.format === "safeint" ? { type: "integer" } : { type: "number" },
+			value.format === "safeint"
+				? { label, type: "integer" }
+				: { label, type: "number" },
 		);
 	}
 
 	if (value instanceof z.ZodBoolean) {
-		return applyRequiredValidation({ type: "boolean" });
+		return applyRequiredValidation({ label, type: "boolean" });
 	}
 
 	if (value.constructor.name === "ZodISODateTime") {
-		return applyRequiredValidation({ type: "datetime" });
+		return applyRequiredValidation({ label, type: "datetime" });
 	}
 
 	if (value instanceof z.ZodArray) {
 		return applyRequiredValidation({
+			label,
 			items: withoutRequiredValidation(
-				toAppSchemaInternal(value.element as z.ZodType, false),
+				toAppSchemaInternal(value.element as z.ZodType, false, "Item"),
 			),
 			type: "array",
 		});
@@ -480,11 +495,16 @@ const toAppSchemaInternal = (
 	if (value instanceof z.ZodObject) {
 		const properties: Record<string, AppPropertyDefinition> = {};
 		for (const [key, child] of Object.entries(value.shape)) {
-			properties[key] = toAppSchemaInternal(child as z.ZodType, true);
+			properties[key] = toAppSchemaInternal(
+				child as z.ZodType,
+				true,
+				getDefaultPropertyLabel(key),
+			);
 		}
 
 		const unknownKeys = getUnknownKeysPolicy(value);
 		return applyRequiredValidation({
+			label,
 			properties,
 			type: "object",
 			...(unknownKeys === "strip" || unknownKeys === "passthrough"
@@ -497,7 +517,7 @@ const toAppSchemaInternal = (
 };
 
 export const toAppSchema = (schema: z.ZodType): AppPropertyDefinition =>
-	toAppSchemaInternal(schema, true);
+	toAppSchemaInternal(schema, true, "Value");
 
 export const toAppSchemaProperties = (
 	schema: z.ZodObject<z.ZodRawShape>,
@@ -505,7 +525,11 @@ export const toAppSchemaProperties = (
 	const fields: AppSchemaFields = {};
 
 	for (const [key, value] of Object.entries(schema.shape)) {
-		fields[key] = toAppSchemaInternal(value as z.ZodType, false);
+		fields[key] = toAppSchemaInternal(
+			value as z.ZodType,
+			false,
+			getDefaultPropertyLabel(key),
+		);
 	}
 
 	return { fields };

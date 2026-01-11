@@ -36,7 +36,7 @@ async function setupEventFixture(
 			accentColor: "#00FF00",
 			slug: `item-${crypto.randomUUID()}`,
 			propertiesSchema: {
-				fields: { title: { type: "string" as const } },
+				fields: { title: { type: "string" as const, label: "Title" } },
 			},
 		},
 	});
@@ -54,6 +54,7 @@ async function setupEventFixture(
 			propertiesSchema: {
 				fields: {
 					rating: {
+						label: "Rating",
 						type: "number" as const,
 						validation: { required: true as const },
 					},
@@ -115,7 +116,7 @@ async function setupRuleEventFixture(
 			accentColor: "#00FF00",
 			slug: `rule-item-${crypto.randomUUID()}`,
 			propertiesSchema: {
-				fields: { title: { type: "string" as const } },
+				fields: { title: { type: "string" as const, label: "Title" } },
 			},
 		},
 	});
@@ -132,16 +133,20 @@ async function setupRuleEventFixture(
 			slug: `progress-log-${crypto.randomUUID()}`,
 			propertiesSchema: {
 				fields: {
-					progressPercent: { type: "number" as const },
+					progressPercent: {
+						type: "number" as const,
+						label: "Progress Percent",
+					},
 					status: {
 						type: "string" as const,
+						label: "Status",
 						validation: { required: true as const },
 					},
 				},
 				rules: [
 					{
-						kind: "validation" as const,
 						path: ["progressPercent"],
+						kind: "validation" as const,
 						validation: { required: true as const },
 						when: {
 							path: ["status"],

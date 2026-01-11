@@ -1,9 +1,15 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 import type { Client } from "./auth";
+import type { AppSchema } from "./entity-schemas";
 
-type CreateEventSchemaBody = NonNullable<
+type GeneratedCreateEventSchemaBody = NonNullable<
 	paths["/event-schemas"]["post"]["requestBody"]
 >["content"]["application/json"];
+
+type CreateEventSchemaBody = Omit<
+	GeneratedCreateEventSchemaBody,
+	"propertiesSchema"
+> & { propertiesSchema: AppSchema };
 
 export async function createEventSchema(
 	client: Client,
@@ -11,7 +17,7 @@ export async function createEventSchema(
 	body: CreateEventSchemaBody,
 ) {
 	const { data, response } = await client.POST("/event-schemas", {
-		body,
+		body: body as never,
 		headers: { Cookie: cookies },
 	});
 

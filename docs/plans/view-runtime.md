@@ -423,13 +423,13 @@ Consider a "Smartphones" entity schema with properties:
 
 ```json
 {
-  "manufacturer": { "type": "string", "required": true },
-  "year": { "type": "integer" },
-  "os": { "type": "string" },
-  "screen_size": { "type": "number" },
-  "storage_gb": { "type": "integer" },
-  "ram_gb": { "type": "integer" },
-  "price_usd": { "type": "number" }
+  "manufacturer": { "type": "string", "label": "Manufacturer", "required": true },
+  "year": { "type": "integer", "label": "Year" },
+  "os": { "type": "string", "label": "OS" },
+  "screen_size": { "type": "number", "label": "Screen Size" },
+  "storage_gb": { "type": "integer", "label": "Storage (GB)" },
+  "ram_gb": { "type": "integer", "label": "RAM (GB)" },
+  "price_usd": { "type": "number", "label": "Price (USD)" }
 }
 ```
 
