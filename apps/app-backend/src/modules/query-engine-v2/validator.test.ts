@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Expr, IncludeEntryV2, QueryDocumentV2 } from "./language";
+import type { EntitySourceV2, Expr, IncludeEntryV2, QueryDocumentV2 } from "./language";
 import { validateQueryDocumentV2 } from "./validator";
 
 const nameRef = (alias: string): Expr => ({
@@ -22,6 +22,19 @@ const propertyRef = (alias: string, schema: string, path: [string, ...string[]])
 });
 
 const literal = (value: unknown): Expr => ({ type: "literal", value });
+
+const descendantSource = (
+	alias: string,
+	anchor: string,
+	edgeAlias: string,
+	where: Expr | null,
+): EntitySourceV2 => ({
+	where,
+	alias,
+	type: "entities",
+	schemas: [`${alias}s`],
+	via: { entityRef: anchor, alias: edgeAlias, direction: "outgoing", schema: edgeAlias },
+});
 
 const makeDoc = (overrides: Partial<QueryDocumentV2> = {}): QueryDocumentV2 => ({
 	version: 2,
@@ -358,7 +371,7 @@ describe("source where clause", () => {
 		expect(validateQueryDocumentV2(makeDoc())).toBeNull();
 	});
 
-	it("rejects a non-null root entity where clause until filters are executable", () => {
+	it("accepts a non-null root entity where clause", () => {
 		const doc: QueryDocumentV2 = {
 			version: 2,
 			source: {
@@ -374,10 +387,10 @@ describe("source where clause", () => {
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
 			},
 		};
-		expect(validateQueryDocumentV2(doc)).toMatch(/Root entity source does not support where yet/);
+		expect(validateQueryDocumentV2(doc)).toMatch(/Unknown source alias 'ghost'/);
 	});
 
-	it("rejects a valid root entity where expression until filters are executable", () => {
+	it("accepts a valid root entity where expression", () => {
 		const doc: QueryDocumentV2 = {
 			version: 2,
 			source: {
@@ -393,7 +406,114 @@ describe("source where clause", () => {
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
 			},
 		};
-		expect(validateQueryDocumentV2(doc)).toMatch(/Root entity source does not support where yet/);
+		expect(validateQueryDocumentV2(doc)).toBeNull();
+	});
+
+	it("accepts nested exists over descendant entity sources", () => {
+		const doc = makeDoc({
+			output: { ...makeDoc().output, orderBy: [{ order: "asc", expr: nameRef("course") }] },
+			source: {
+				alias: "course",
+				type: "entities",
+				schemas: ["courses"],
+				where: {
+					type: "exists",
+					source: {
+						type: "entities",
+						alias: "module",
+						schemas: ["modules"],
+						via: {
+							entityRef: "course",
+							alias: "courseModule",
+							direction: "outgoing",
+							schema: "course-module",
+						},
+						where: {
+							type: "exists",
+							source: {
+								where: {
+									operator: "gt",
+									type: "comparison",
+									right: literal(60),
+									left: propertyRef("lesson", "lessons", ["durationMinutes"]),
+								},
+								type: "entities",
+								alias: "lesson",
+								schemas: ["lessons"],
+								via: {
+									entityRef: "module",
+									alias: "moduleLesson",
+									direction: "outgoing",
+									schema: "module-lesson",
+								},
+							},
+						},
+					},
+				},
+			},
+		});
+
+		expect(validateQueryDocumentV2(doc)).toBeNull();
+	});
+
+	it("accepts aggregate expressions over descendant sources", () => {
+		const doc = makeDoc({
+			output: { ...makeDoc().output, orderBy: [{ order: "asc", expr: nameRef("course") }] },
+			source: {
+				alias: "course",
+				type: "entities",
+				schemas: ["courses"],
+				where: {
+					operator: "gt",
+					type: "comparison",
+					right: literal(2),
+					left: {
+						aggregation: { function: "count" },
+						type: "aggregate",
+						source: {
+							where: null,
+							type: "entities",
+							alias: "module",
+							schemas: ["modules"],
+							via: {
+								entityRef: "course",
+								alias: "courseModule",
+								direction: "outgoing",
+								schema: "course-module",
+							},
+						},
+					},
+				},
+			},
+		});
+
+		expect(validateQueryDocumentV2(doc)).toBeNull();
+	});
+
+	it("rejects expression source depth greater than 3", () => {
+		const doc = makeDoc({
+			output: { ...makeDoc().output, orderBy: [{ order: "asc", expr: nameRef("course") }] },
+			source: {
+				alias: "course",
+				type: "entities",
+				schemas: ["courses"],
+				where: {
+					type: "exists",
+					source: descendantSource("module", "course", "courseModule", {
+						type: "exists",
+						source: descendantSource("lesson", "module", "moduleLesson", {
+							type: "exists",
+							source: descendantSource("part", "lesson", "lessonPart", {
+								type: "exists",
+								source: descendantSource("segment", "part", "partSegment", null),
+							}),
+						}),
+					}),
+				},
+			},
+		});
+
+		expect(validateQueryDocumentV2(doc)).toMatch(/Expression source depth exceeds maximum of 3/);
 	});
 });
 
