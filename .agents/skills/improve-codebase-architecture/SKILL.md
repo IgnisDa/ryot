@@ -1,6 +1,6 @@
 ---
 name: improve-codebase-architecture
-description: Explore a codebase to find opportunities for architectural improvement, focusing on making the codebase more testable by deepening shallow modules. Use when user wants to improve architecture, find refactoring opportunities, consolidate tightly-coupled modules, or make a codebase more AI-navigable.
+description: Explore a codebase to find opportunities for architectural improvement, focusing on making the codebase more testable by deepening shallow modules. Use when user wants to improve architecture, find refactoring opportunities, consolidate tightly-coupled modules, or make a codebase more AI-navigable. Do not use subagents for this.
 ---
 
 # Improve Codebase Architecture
@@ -76,6 +76,7 @@ After comparing, give your own recommendation: which design you think is stronge
 Create a refactor RFC as a markdown file in `docs/tasks/refactor-{descriptive-name}/README.md`. Use the template in [REFERENCE.md](REFERENCE.md). Do NOT ask the user to review before creating — just create it and show the path.
 
 The file structure should be:
+
 ```
 docs/tasks/refactor-{descriptive-name}/
 └── README.md  (contains the RFC)
