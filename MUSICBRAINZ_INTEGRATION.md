@@ -703,25 +703,25 @@ Execute the builders with `execute_with_client(&self.client)` so the User-Agent 
 
 ## Implementation Checklist
 
-- [ ] Create `crates/providers/music_brainz/` directory
-- [ ] Create `Cargo.toml` for the new crate and add it to the workspace
-- [ ] Add `musicbrainz_rs` dependency (default features include async + rate_limit; use `blocking` only if needed)
-- [ ] Initialize `MusicBrainzClient::new(USER_AGENT_STR)` and use `execute_with_client`
-- [ ] Implement `MusicBrainzService` struct
-- [ ] Implement `metadata_search` (search recordings)
-- [ ] Implement `metadata_details` (get recording details)
-- [ ] Implement `metadata_group_search` (search release-groups)
-- [ ] Implement `metadata_group_details` (get release-group + tracklist)
-- [ ] Implement `people_search` (search artists)
-- [ ] Implement `person_details` (get artist details)
-- [ ] Use `FetchCoverart`/`CoverartResponse` to load front cover art (prefer 1200px thumbnails)
-- [ ] Add MusicBrainz to `MediaSource` enum
-- [ ] Add it as a music source in `crates/models/enum/src/media_enums.rs#L52`
-- [ ] Add `MediaSource::MusicBrainz` to `PEOPLE_SEARCH_SOURCES` in `crates/utils/common/src/lib.rs`
-- [ ] Add `MediaSource::MusicBrainz` to `MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS` in `crates/utils/common/src/lib.rs`
-- [ ] Register provider in `provider/src/lib.rs`
-- [ ] Update frontend to display MusicBrainz source
-- [ ] Add MusicBrainz logo to `apps/frontend/public/`
+- [x] Create `crates/providers/music_brainz/` directory
+- [x] Create `Cargo.toml` for the new crate and add it to the workspace
+- [x] Add `musicbrainz_rs` dependency (default features include async + rate_limit; use `blocking` only if needed)
+- [x] Initialize `MusicBrainzClient::new(USER_AGENT_STR)` and use `execute_with_client`
+- [x] Implement `MusicBrainzService` struct
+- [x] Implement `metadata_search` (search recordings)
+- [x] Implement `metadata_details` (get recording details)
+- [x] Implement `metadata_group_search` (search release-groups)
+- [x] Implement `metadata_group_details` (get release-group + tracklist)
+- [x] Implement `people_search` (search artists)
+- [x] Implement `person_details` (get artist details)
+- [x] Use `FetchCoverart`/`CoverartResponse` to load front cover art (prefer 1200px thumbnails)
+- [x] Add MusicBrainz to `MediaSource` enum
+- [x] Add it as a music source in `crates/models/enum/src/media_enums.rs#L52`
+- [x] Add `MediaSource::MusicBrainz` to `PEOPLE_SEARCH_SOURCES` in `crates/utils/common/src/lib.rs`
+- [x] Add `MediaSource::MusicBrainz` to `MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS` in `crates/utils/common/src/lib.rs`
+- [x] Register provider in `provider/src/lib.rs`
+- [x] Update frontend to display MusicBrainz source
+- [x] Add MusicBrainz logo to `apps/frontend/public/` (logo supplied by the user)
 
 ## References
 
