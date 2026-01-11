@@ -280,12 +280,6 @@ impl MediaProvider for MusicBrainzService {
                 .execute_with_client(&self.client)
                 .await?;
 
-            if cover_url.is_none() {
-                cover_url = self
-                    .fetch_coverart_url_for_release_group(&release_group.id)
-                    .await;
-            }
-
             if let Some(media) = release.media.as_ref() {
                 for medium in media {
                     if let Some(tracks) = medium.tracks.as_ref() {
