@@ -53,10 +53,9 @@ pub fn release_group_description(release_group: &ReleaseGroup) -> Option<String>
     if !release_group.disambiguation.is_empty() {
         parts.push(release_group.disambiguation.clone());
     }
-    if parts.is_empty() {
-        None
-    } else {
-        Some(parts.join(" - "))
+    match parts.is_empty() {
+        true => None,
+        false => Some(parts.join(" - ")),
     }
 }
 
@@ -87,10 +86,9 @@ pub fn artist_description(artist: &Artist) -> Option<String> {
     if !artist.disambiguation.is_empty() {
         parts.push(artist.disambiguation.clone());
     }
-    if parts.is_empty() {
-        None
-    } else {
-        Some(parts.join(" - "))
+    match parts.is_empty() {
+        true => None,
+        false => Some(parts.join(" - ")),
     }
 }
 
@@ -110,10 +108,9 @@ fn parse_musicbrainz_date(date: &DateString) -> (Option<NaiveDate>, Option<i32>)
         .next()
         .and_then(|part| part.parse::<i32>().ok());
 
-    let full_date = if raw.len() == 10 && !raw.contains('?') {
-        date.into_naive_date(1, 1, 1).ok()
-    } else {
-        None
+    let full_date = match raw.len() {
+        10 if !raw.contains('?') => date.into_naive_date(1, 1, 1).ok(),
+        _ => None,
     };
 
     (full_date, year)
