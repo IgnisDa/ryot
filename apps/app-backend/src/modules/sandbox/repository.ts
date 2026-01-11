@@ -11,13 +11,14 @@ const storedScriptSelection = {
 	name: schema.sandboxScript.name,
 	source: schema.sandboxScript.source,
 	metadata: schema.sandboxScript.metadata,
+	providerId: schema.sandboxScript.providerId,
 	compiledCode: schema.sandboxScript.compiledCode,
 	compiledFormat: schema.sandboxScript.compiledFormat,
 };
 
 type StoredScriptRow = Pick<
 	typeof schema.sandboxScript.$inferSelect,
-	"id" | "slug" | "name" | "source" | "metadata" | "compiledCode" | "compiledFormat"
+	"id" | "slug" | "name" | "source" | "metadata" | "providerId" | "compiledCode" | "compiledFormat"
 >;
 
 const toStoredScript = (row: StoredScriptRow) => ({
@@ -36,6 +37,7 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 					.select({
 						id: schema.sandboxScript.id,
 						metadata: schema.sandboxScript.metadata,
+						providerId: schema.sandboxScript.providerId,
 						compiledCode: schema.sandboxScript.compiledCode,
 						compiledFormat: schema.sandboxScript.compiledFormat,
 					})

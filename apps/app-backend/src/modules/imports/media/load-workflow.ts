@@ -10,7 +10,7 @@ import { storeImportAdapterResult } from "../runtime/source-payload-store";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-errors";
 import { buildNetflixAdapterResult } from "../sources/netflix/processor";
 import { MediaImportAdapterSummarySchema, toMediaImportAdapterSummary } from "./adapter-result";
-import { activityKey, LoadMediaImportFailed } from "./shared-workflow";
+import { activityKey, LoadMediaImportFailed, PopulationProvider } from "./shared-workflow";
 import { LoadedMediaImportAdapterNetflixSearchPlanned } from "./source-loaders";
 import { MediaImportWorkflowOperations } from "./types-workflow";
 
@@ -88,12 +88,24 @@ export const loadMediaAdapterResult = Effect.fn("loadMediaAdapterResult")(functi
 	}
 
 	const searchResponses = yield* Effect.forEach(loadOutcome.searchJobs, (searchJob) =>
-		searchEntities({
-			query: searchJob.query,
-			userId: input.payload.userId,
-			scriptId: searchJob.scriptId,
-			executionId: `${input.executionId}-search-${activityKey(searchJob.jobKey)}`,
+		Activity.make({
+			error: ImportRunError,
+			success: Schema.NullOr(PopulationProvider),
+			name: `resolve-search-provider-${activityKey(searchJob.jobKey)}`,
+			execute: operations
+				.resolveProvider(searchJob.providerSlug)
+				.pipe(Effect.mapError(toWorkflowError)),
 		}).pipe(
+			Effect.flatMap((provider) =>
+				provider
+					? searchEntities({
+							query: searchJob.query,
+							providerId: provider.providerId,
+							userId: input.payload.userId,
+							executionId: `${input.executionId}-search-${activityKey(searchJob.jobKey)}`,
+						})
+					: Effect.fail({ message: `Provider not found: ${searchJob.providerSlug}` }),
+			),
 			Effect.match({
 				onSuccess: (items) => ({ items, error: null, jobKey: searchJob.jobKey }),
 				onFailure: (error) => ({

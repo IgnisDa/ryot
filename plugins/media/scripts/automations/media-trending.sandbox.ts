@@ -1,51 +1,49 @@
-import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { DateTime, Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
 import {
 	manifest as movieTmdbManifest,
 	trending as movieTmdbTrending,
-} from "../providers/media/movie/tmdb.sandbox";
+} from "../providers/media/movie/tmdb";
 import {
 	manifest as showTmdbManifest,
 	trending as showTmdbTrending,
-} from "../providers/media/show/tmdb.sandbox";
+} from "../providers/media/show/tmdb";
 
 export const manifest = defineManifest({
-	kind: "provider",
+	kind: "script",
 	slug: "media-trending",
 	name: "Media Trending Refresh",
-	providerInformation: { source: "tmdb" },
 	requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
 	capabilities: [
 		"log",
 		"httpCall",
 		"getAppConfigValue",
-		"getUserPreferences",
 		"upsertGlobalEntities",
 		"upsertGlobalRelationships",
 	],
 });
 
 const providers = [
-	{ driver: showTmdbTrending, entitySchemaSlug: "show", manifest: showTmdbManifest },
-	{ driver: movieTmdbTrending, entitySchemaSlug: "movie", manifest: movieTmdbManifest },
+	{ script: showTmdbTrending, entitySchemaSlug: "show", manifest: showTmdbManifest },
+	{ script: movieTmdbTrending, entitySchemaSlug: "movie", manifest: movieTmdbManifest },
 ] as const;
 
-export const cron = defineDriver(manifest, {
+export default defineScript({
+	manifest,
 	input: Schema.Struct({}),
 	output: Schema.Struct({
 		synced: Schema.Boolean,
 		itemCount: Schema.Number,
 		providerCount: Schema.Number,
 	}),
-	run: (_input, host, execution) =>
+	run: (_input, host) =>
 		Effect.gen(function* () {
 			let providerCount = 0;
 			const savedItems: Array<{ entityId: string }> = [];
 
 			for (const provider of providers) {
-				const result = yield* provider.driver.run({}, host, execution).pipe(
+				const result = yield* provider.script.run({}, host).pipe(
 					Effect.flatMap(({ items }) =>
 						host.upsertGlobalEntities(
 							items.map(({ externalId, name }) => ({
@@ -64,7 +62,7 @@ export const cron = defineDriver(manifest, {
 								{
 									level: "warning",
 									message: "trending provider skipped",
-									attributes: { error: String(error), scriptSlug: provider.manifest.slug },
+									attributes: { error: String(error), providerSlug: provider.manifest.slug },
 								},
 							])
 							.pipe(
@@ -113,5 +111,3 @@ export const cron = defineDriver(manifest, {
 			return { synced: true, providerCount, itemCount: rankedItems.length };
 		}),
 });
-
-export default defineProvider({ manifest, drivers: { cron } });

@@ -103,7 +103,7 @@ export const collectGenres = (genres: unknown) =>
 
 export const collectSuggestions = (
 	results: unknown,
-	options: { readonly nameKeys: readonly string[]; readonly scriptSlug: string },
+	options: { readonly nameKeys: readonly string[]; readonly providerSlug: string },
 ) => {
 	const suggestions = new Map<string, ProviderDetailsRelatedEntity>();
 	for (const result of recordsValue(results)) {
@@ -116,10 +116,10 @@ export const collectSuggestions = (
 			continue;
 		}
 		const externalId = String(Math.trunc(id));
-		suggestions.set(`${options.scriptSlug}:${externalId}`, {
+		suggestions.set(`${options.providerSlug}:${externalId}`, {
 			name,
 			externalId,
-			scriptSlug: options.scriptSlug,
+			providerSlug: options.providerSlug,
 		});
 	}
 	return [...suggestions.values()];
@@ -130,7 +130,7 @@ export const collectPeople = (cast: unknown, crew: unknown, createdBy?: unknown)
 	const unlinkedCreators: Array<{ name: string; role: string }> = [];
 	const unlinkedKeys = new Set<string>();
 	const addRelatedEntity = (relatedEntity: RoleRelatedEntity) => {
-		const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+		const key = `${relatedEntity.providerSlug}:${relatedEntity.externalId}`;
 		const existing = relatedEntities.get(key);
 		if (!existing) {
 			relatedEntities.set(key, relatedEntity);
@@ -162,7 +162,7 @@ export const collectPeople = (cast: unknown, crew: unknown, createdBy?: unknown)
 		}
 		addRelatedEntity({
 			name,
-			scriptSlug: "person.tmdb",
+			providerSlug: "person.tmdb",
 			relationshipProperties: { roles: [role] },
 			externalId: String(Math.trunc(id)),
 		});
@@ -206,7 +206,7 @@ export const collectCompanies = (companyGroups: ReadonlyArray<readonly [unknown,
 		}
 		companies.set(key, {
 			name,
-			scriptSlug: "company.tmdb",
+			providerSlug: "company.tmdb",
 			externalId: String(id),
 			relationshipProperties: { roles: [role] },
 		});
@@ -224,7 +224,7 @@ export const fetchTrendingItems = (
 	path: string,
 	language: string,
 	token: string,
-	options: { readonly nameKeys: readonly string[]; readonly scriptSlug: string },
+	options: { readonly nameKeys: readonly string[]; readonly providerSlug: string },
 ) =>
 	[1, 2, 3]
 		.reduce<Effect.Effect<unknown[], unknown>>(

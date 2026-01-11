@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { cron, manifest } from "./media-trending.sandbox";
+import definition, { manifest } from "./media-trending.sandbox";
 
 type TrendingHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -23,7 +23,6 @@ describe("media trending cron", () => {
 		const host = defineSandboxTestHost(manifest, {
 			log: () => Effect.succeed(null),
 			getAppConfigValue: () => Effect.succeed("token"),
-			getUserPreferences: () => Effect.succeed({ isNsfw: false, disableIntegrations: false }),
 			httpCall: (_method, url) => {
 				const requestUrl = new URL(url);
 				const page = requestUrl.searchParams.get("page");
@@ -67,7 +66,7 @@ describe("media trending cron", () => {
 		});
 
 		return Effect.runPromise(
-			runSandboxTestDriver(cron, {}, host, execution).pipe(
+			runSandboxTestScript(definition, {}, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result).toEqual({ synced: true, itemCount: 2, providerCount: 2 });
 					expect(entityWrites.map((items) => items.map((item) => item.entitySchemaSlug))).toEqual([
@@ -112,7 +111,6 @@ describe("media trending cron", () => {
 					return null;
 				}),
 			getAppConfigValue: () => Effect.succeed("token"),
-			getUserPreferences: () => Effect.succeed({ isNsfw: false, disableIntegrations: false }),
 			httpCall: (_method, url) => {
 				const requestUrl = new URL(url);
 				const isShow = requestUrl.pathname.includes("/trending/tv/");
@@ -144,13 +142,13 @@ describe("media trending cron", () => {
 		});
 
 		await expect(
-			Effect.runPromise(runSandboxTestDriver(cron, {}, host, execution)),
+			Effect.runPromise(runSandboxTestScript(definition, {}, host, execution)),
 		).resolves.toEqual({ synced: true, itemCount: 1, providerCount: 1 });
 		expect(relationshipWrites).toHaveLength(1);
 
 		failMovie = true;
 		await expect(
-			Effect.runPromise(runSandboxTestDriver(cron, {}, host, execution)),
+			Effect.runPromise(runSandboxTestScript(definition, {}, host, execution)),
 		).resolves.toEqual({ synced: false, itemCount: 0, providerCount: 0 });
 		expect(relationshipWrites).toHaveLength(1);
 		expect(logs).toHaveLength(3);

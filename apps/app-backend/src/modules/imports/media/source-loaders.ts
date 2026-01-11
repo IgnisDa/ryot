@@ -1,11 +1,8 @@
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import type { DbRunner } from "#lib/infrastructure/db/service";
 import type { RedisService } from "#lib/infrastructure/redis";
-import type { EntitiesRepository } from "#modules/entities/repository";
 
 import type { ImportRunJobData } from "../jobs";
 import { resolveSafeImportFilePath, validateFileExtension } from "../runtime/import-files";
@@ -47,21 +44,18 @@ type MediaImportLoadInput = Pick<ImportRunJobData, "runId" | "source" | "userId"
 };
 
 type MediaImportLoadRequirements =
-	| DbRunner
 	| AppConfig
 	| Path.Path
 	| RedisService
-	| EntitiesRepository
 	| HttpClient.HttpClient
 	| FileSystem.FileSystem;
 
-const SearchScriptSlugSchema = Schema.Literal("movie.tmdb", "show.tmdb");
+const SearchProviderSlugSchema = Schema.Literal("movie.tmdb", "show.tmdb");
 
 const MediaImportEntitySearchJob = Schema.Struct({
 	query: Schema.String,
 	jobKey: Schema.String,
-	scriptId: SandboxScriptId,
-	scriptSlug: SearchScriptSlugSchema,
+	providerSlug: SearchProviderSlugSchema,
 });
 
 const LoadedMediaImportAdapterLoaded = Schema.TaggedStruct("loaded", {

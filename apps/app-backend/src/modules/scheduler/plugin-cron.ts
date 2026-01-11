@@ -44,14 +44,14 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 			entry: ActivePluginCron,
 			executionId: string,
 		) {
-			const script = yield* runWithDb(runtime.findActiveScript(entry.cron.driverRef));
+			const script = yield* runWithDb(runtime.findActiveScript(entry.cron.scriptSlug));
 			if (!script) {
 				return yield* Effect.logError("plugin cron script unavailable").pipe(
 					Effect.annotateLogs({
 						executionId,
 						cronSlug: entry.cron.slug,
 						pluginSlug: entry.pluginSlug,
-						scriptSlug: entry.cron.driverRef,
+						scriptSlug: entry.cron.scriptSlug,
 					}),
 				);
 			}
@@ -60,10 +60,9 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 					discard: true,
 					executionId,
 					payload: {
+						authority: { type: "system" },
 						context: {},
 						executionId,
-						userId: null,
-						driverName: "cron",
 						scriptId: script.id,
 					},
 				})

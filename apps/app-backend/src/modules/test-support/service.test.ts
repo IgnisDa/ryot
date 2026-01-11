@@ -1,6 +1,12 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { EntityId, EntitySchemaSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	SandboxProviderId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-utils/effect";
@@ -22,6 +28,17 @@ import { TestSupportService } from "./service";
 
 const entityId = EntityId.make("entity-id");
 const entitySchemaSlug = EntitySchemaSlug.make("entity-schema-id");
+const scriptId = SandboxScriptId.make("script-id");
+
+const storedSandboxScript = {
+	id: scriptId,
+	name: "Script",
+	slug: "script",
+	source: "export default {}",
+	compiledCode: "export default {}",
+	compiledFormat: 1,
+	metadata: { kind: "script" as const },
+};
 
 const mockAuth = Layer.mock(AuthService);
 const mockSignals = Layer.mock(SignalsService);
@@ -87,7 +104,7 @@ it.effect("updates populatedAt without changing entity fields", () => {
 		entitySchemaSlug,
 		externalId: null,
 		populatedAt: null,
-		sandboxScriptId: null,
+		providerId: null,
 		createdAt: populatedAt,
 		updatedAt: populatedAt,
 		properties: { title: "Entity" },
@@ -116,8 +133,53 @@ it.effect("updates populatedAt without changing entity fields", () => {
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("creates global entities with provider provenance", () => {
+	const providerId = SandboxProviderId.make("provider-id");
+	let createInput: unknown;
+	const entity = {
+		id: entityId,
+		providerId,
+		name: "Entity",
+		externalId: "external-id",
+		populatedAt: null,
+		entitySchemaSlug,
+		createdAt: "2026-07-20T12:00:00.000Z",
+		updatedAt: "2026-07-20T12:00:00.000Z",
+		properties: { title: "Entity" },
+	};
+	const layer = makeServiceLayer({
+		entities: {
+			createGlobal: (input) =>
+				Effect.sync(() => {
+					createInput = input;
+					return entity;
+				}),
+		},
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* TestSupportService;
+		expect(
+			yield* service.createGlobalEntity({
+				providerId,
+				name: entity.name,
+				externalId: entity.externalId,
+				properties: entity.properties,
+				entitySchemaSlug,
+			}),
+		).toEqual(entity);
+		expect(createInput).toEqual({
+			providerId,
+			populatedAt: null,
+			name: entity.name,
+			externalId: entity.externalId,
+			properties: entity.properties,
+			entitySchemaSlug,
+		});
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("delegates sandbox execution with the explicit executing user", () => {
-	const scriptId = SandboxScriptId.make("script-id");
 	const executingUserId = UserId.make("user-id");
 	let enqueueInput: unknown;
 	const layer = makeServiceLayer({
@@ -132,13 +194,39 @@ it.effect("delegates sandbox execution with the explicit executing user", () => 
 
 	return Effect.gen(function* () {
 		const service = yield* TestSupportService;
-		expect(
-			yield* service.enqueueSandbox({ scriptId, executingUserId, driverName: "main" }),
-		).toEqual({ jobId: "job-id" });
+		expect(yield* service.enqueueSandbox({ executingUserId, scriptId })).toEqual({
+			jobId: "job-id",
+		});
 		expect(enqueueInput).toEqual({
 			userId: executingUserId,
-			payload: { scriptId, driverName: "main" },
+			payload: { scriptId },
 		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("brands provider IDs in stored sandbox script responses", () => {
+	const providerId = "provider-id";
+	const layer = makeServiceLayer({
+		sandbox: {
+			getStoredScript: () => Effect.succeed({ ...storedSandboxScript, providerId }),
+			listStoredScripts: () =>
+				Effect.succeed([
+					{ ...storedSandboxScript, providerId },
+					{ ...storedSandboxScript, id: SandboxScriptId.make("standalone-id"), providerId: null },
+				]),
+		},
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* TestSupportService;
+		expect(yield* service.getSandboxScript(scriptId)).toEqual({
+			...storedSandboxScript,
+			providerId: SandboxProviderId.make(providerId),
+		});
+		expect(yield* service.listSandboxScripts()).toEqual([
+			{ ...storedSandboxScript, providerId: SandboxProviderId.make(providerId) },
+			{ ...storedSandboxScript, id: SandboxScriptId.make("standalone-id"), providerId: null },
+		]);
 	}).pipe(Effect.provide(layer));
 });
 

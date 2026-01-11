@@ -41,14 +41,14 @@ export class PluginBootService extends Effect.Service<PluginBootService>()("Plug
 			entry: ActivePluginBoot,
 			executionId: string,
 		) {
-			const script = yield* runWithDb(runtime.findActiveScript(entry.boot.driverRef));
+			const script = yield* runWithDb(runtime.findActiveScript(entry.boot.scriptSlug));
 			if (!script) {
 				return yield* Effect.logError("plugin boot script unavailable").pipe(
 					Effect.annotateLogs({
 						executionId,
 						bootSlug: entry.boot.slug,
 						pluginSlug: entry.pluginSlug,
-						scriptSlug: entry.boot.driverRef,
+						scriptSlug: entry.boot.scriptSlug,
 					}),
 				);
 			}
@@ -57,10 +57,9 @@ export class PluginBootService extends Effect.Service<PluginBootService>()("Plug
 					discard: true,
 					executionId,
 					payload: {
+						authority: { type: "system" },
 						context: {},
 						executionId,
-						userId: null,
-						driverName: "boot",
 						scriptId: script.id,
 					},
 				})

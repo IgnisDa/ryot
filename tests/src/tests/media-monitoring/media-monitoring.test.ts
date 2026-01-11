@@ -81,26 +81,26 @@ beforeAll(async () => {
 				client,
 				name: providerName,
 				slug: `movie.media-monitoring-e2e-${crypto.randomUUID()}`,
-				drivers: { details: providerDetails("Continuing") },
+				details: providerDetails("Continuing"),
 			});
 			discoveryProvider = yield* installTestProvider({
 				client,
 				name: `${providerName} Discovery`,
-				drivers: { details: discoveryProviderDetails(0) },
+				details: discoveryProviderDetails(0),
 				slug: `show.media-monitoring-discovery-e2e-${crypto.randomUUID()}`,
 			});
 			const apiEntity = yield* seedMediaEntity({
 				properties: {},
 				externalId: apiExternalId,
 				entitySchemaSlug: movieSchemaId,
-				sandboxScriptId: provider.scriptId,
+				providerId: provider.providerId,
 				name: "Media Monitoring API Target",
 			});
 			const cronEntity = yield* seedMediaEntity({
 				properties: {},
 				externalId: cronExternalId,
 				entitySchemaSlug: movieSchemaId,
-				sandboxScriptId: provider.scriptId,
+				providerId: provider.providerId,
 				name: "Media Monitoring Cron Target",
 			});
 			const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
@@ -109,7 +109,7 @@ beforeAll(async () => {
 				entitySchemaSlug: showSchemaId,
 				externalId: discoveryExternalId,
 				name: "Media Monitoring Discovery Target",
-				sandboxScriptId: discoveryProvider.scriptId,
+				providerId: discoveryProvider.providerId,
 			});
 			apiEntityId = apiEntity.id;
 			cronEntityId = cronEntity.id;
@@ -224,13 +224,13 @@ describe("media monitoring endpoints", () => {
 					name: "Season",
 					entitySchemaSlug: seasonSchemaId,
 					properties: { seasonNumber: 1 },
-					sandboxScriptId: provider.scriptId,
+					providerId: provider.providerId,
 					externalId: `media-monitoring-season-${crypto.randomUUID()}`,
 				}),
 				seedMediaEntity({
 					name: "Episode",
 					entitySchemaSlug: episodeSchemaId,
-					sandboxScriptId: provider.scriptId,
+					providerId: provider.providerId,
 					properties: { seasonNumber: 1, episodeNumber: 1 },
 					externalId: `media-monitoring-episode-${crypto.randomUUID()}`,
 				}),
@@ -238,7 +238,7 @@ describe("media monitoring endpoints", () => {
 					name: "Group",
 					properties: {},
 					entitySchemaSlug: groupSchemaId,
-					sandboxScriptId: provider.scriptId,
+					providerId: provider.providerId,
 					externalId: `media-monitoring-group-${crypto.randomUUID()}`,
 				}),
 				seedMediaEntity({
@@ -247,7 +247,7 @@ describe("media monitoring endpoints", () => {
 					userId: owner.userId,
 					client: owner.client,
 					entitySchemaSlug: movieSchemaId,
-					sandboxScriptId: provider.scriptId,
+					providerId: provider.providerId,
 					externalId: `media-monitoring-custom-${crypto.randomUUID()}`,
 				}),
 				seedMediaEntity({
@@ -256,12 +256,12 @@ describe("media monitoring endpoints", () => {
 					client: other.client,
 					name: "Other User Movie",
 					entitySchemaSlug: movieSchemaId,
-					sandboxScriptId: provider.scriptId,
+					providerId: provider.providerId,
 					externalId: `media-monitoring-invisible-${crypto.randomUUID()}`,
 				}),
 				seedMediaEntity({
 					properties: {},
-					sandboxScriptId: null,
+					providerId: null,
 					name: "Incomplete Movie",
 					entitySchemaSlug: movieSchemaId,
 					externalId: `media-monitoring-incomplete-${crypto.randomUUID()}`,
@@ -331,12 +331,12 @@ describe("media monitoring infrequent refresh", () => {
 
 				yield* replaceSandboxScriptCompiledRepresentation(
 					providerCompilerClient,
-					provider.scriptId,
+					provider.detailsScriptId,
 					providerSandboxSource({
 						name: providerName,
-						slug: provider.slug,
-						providerInformation: { source: "e2e" },
-						drivers: { details: providerDetails("Ended") },
+						slug: `${provider.providerSlug}.details`,
+						operation: "details",
+						result: providerDetails("Ended"),
 					}),
 				);
 				yield* triggerCronAndWaitForEntity(first, cronEntityId);
@@ -386,12 +386,12 @@ describe("media monitoring infrequent refresh", () => {
 
 				yield* replaceSandboxScriptCompiledRepresentation(
 					providerCompilerClient,
-					discoveryProvider.scriptId,
+					discoveryProvider.detailsScriptId,
 					providerSandboxSource({
-						slug: discoveryProvider.slug,
 						name: `${providerName} Discovery`,
-						providerInformation: { source: "e2e" },
-						drivers: { details: discoveryProviderDetails(1) },
+						slug: `${discoveryProvider.providerSlug}.details`,
+						operation: "details",
+						result: discoveryProviderDetails(1),
 					}),
 				);
 				yield* triggerCronAndWaitForEntity(owner, discoveryEntityId);

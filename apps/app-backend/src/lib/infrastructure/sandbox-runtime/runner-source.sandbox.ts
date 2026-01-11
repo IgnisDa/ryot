@@ -15,18 +15,6 @@ import {
 type HostBudget = { http: number; total: number };
 type SandboxHostError = { readonly message: string; readonly data?: unknown };
 
-type CompiledDriver = {
-	input: Schema.Schema.AnyNoContext;
-	output: Schema.Schema.AnyNoContext;
-	run: (input: unknown, host: Record<string, unknown>, execution: unknown) => unknown;
-};
-
-type CompiledDefinition = {
-	definitionType: unknown;
-	manifest: Record<string, unknown>;
-	drivers: Record<string, unknown>;
-};
-
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 const arrayIsArray = Array.isArray;
@@ -261,18 +249,6 @@ const stringArraysMatch = (left: unknown, right: unknown) => {
 	return true;
 };
 
-const providerInformationMatches = (left: unknown, right: unknown) => {
-	if (left === undefined && right === undefined) {
-		return true;
-	}
-	return (
-		isRecord(left) &&
-		isRecord(right) &&
-		left.source === right.source &&
-		left.canonicalLanguage === right.canonicalLanguage
-	);
-};
-
 const manifestsMatch = (left: unknown, right: unknown) =>
 	isRecord(left) &&
 	isRecord(right) &&
@@ -280,8 +256,7 @@ const manifestsMatch = (left: unknown, right: unknown) =>
 	left.name === right.name &&
 	left.slug === right.slug &&
 	stringArraysMatch(left.capabilities, right.capabilities) &&
-	stringArraysMatch(left.requiredAppConfigKeys, right.requiredAppConfigKeys) &&
-	providerInformationMatches(left.providerInformation, right.providerInformation);
+	stringArraysMatch(left.requiredAppConfigKeys, right.requiredAppConfigKeys);
 
 const importCompiledModule = async (
 	payload: SandboxRunnerPayload,
@@ -315,45 +290,39 @@ const executeDefinition = async (
 		return throwPhase("load", "Compiled sandbox module must have a default definition export");
 	}
 
-	if (
-		definition.definitionType !== "ryot:sandbox-script" ||
-		!isRecord(definition.manifest) ||
-		!isRecord(definition.drivers)
-	) {
+	if (definition.definitionType !== "ryot:sandbox-script" || !isRecord(definition.manifest)) {
 		return throwPhase("load", "Compiled sandbox module has an invalid script definition");
 	}
 	if (!manifestsMatch(definition.manifest, payload.metadata)) {
 		return throwPhase("load", "Compiled sandbox manifest does not match persisted metadata");
 	}
-	const typedDefinition = definition as unknown as CompiledDefinition;
-	const driver = typedDefinition.drivers[payload.driverName];
-	if (!isRecord(driver) || typeof driver.run !== "function") {
-		return throwPhase("load", 'Driver "' + payload.driverName + '" is not defined in this script');
+	if (typeof definition.run !== "function") {
+		return throwPhase("load", "Compiled sandbox definition has an invalid run function");
 	}
-	if (!Schema.isSchema(driver.input) || !Schema.isSchema(driver.output)) {
-		return throwPhase("load", 'Driver "' + payload.driverName + '" has invalid schemas');
+	if (!Schema.isSchema(definition.input) || !Schema.isSchema(definition.output)) {
+		return throwPhase("load", "Compiled sandbox definition has invalid schemas");
 	}
-	const typedDriver = driver as unknown as CompiledDriver;
+	const run = definition.run;
+	const input = definition.input as Schema.Schema.AnyNoContext;
+	const output = definition.output as Schema.Schema.AnyNoContext;
 
 	setPhase("input");
 	let parsedInput: unknown;
 	try {
-		parsedInput = await Effect.runPromise(
-			Schema.decodeUnknown(typedDriver.input)(payload.context ?? {}),
-		);
+		parsedInput = await Effect.runPromise(Schema.decodeUnknown(input)(payload.context ?? {}));
 	} catch (error) {
-		return throwPhase("input", "Driver input validation failed: " + nativeString(error));
+		return throwPhase("input", "Definition input validation failed: " + nativeString(error));
 	}
 
 	setPhase("execute");
 	let result: unknown;
 	try {
-		const execution = typedDriver.run(parsedInput, host, {
+		const execution = run(parsedInput, host, {
 			metadata: payload.metadata ?? {},
 			sandboxScriptId: payload.scriptId,
 		});
 		if (!Effect.isEffect(execution)) {
-			return throwPhase("execute", "Sandbox driver must return an Effect");
+			return throwPhase("execute", "Sandbox definition must return an Effect");
 		}
 		const outcome = await Effect.runPromise(
 			Effect.match(execution as Effect.Effect<unknown, unknown>, {
@@ -371,9 +340,9 @@ const executeDefinition = async (
 
 	setPhase("output");
 	try {
-		return await Effect.runPromise(Schema.decodeUnknown(typedDriver.output)(result));
+		return await Effect.runPromise(Schema.decodeUnknown(output)(result));
 	} catch (error) {
-		return throwPhase("output", "Driver output validation failed: " + nativeString(error));
+		return throwPhase("output", "Definition output validation failed: " + nativeString(error));
 	}
 };
 
@@ -416,9 +385,6 @@ void (async () => {
 			console.warn = logCollector.console.warn;
 			console.debug = logCollector.console.debug;
 			console.error = logCollector.console.error;
-			if (!payload.driverName) {
-				throwPhase("input", "driverName is required");
-			}
 			disableCodeGeneration();
 
 			phase = "load";
@@ -439,13 +405,13 @@ void (async () => {
 				throwPhase("output", error);
 			}
 			if (typeof serialized !== "string") {
-				throwPhase("output", "Sandbox driver result is not JSON-serializable");
+				throwPhase("output", "Sandbox definition result is not JSON-serializable");
 			}
 			const serializedValue = serialized as string;
 			if (encodeText(serializedValue).byteLength > payload.limits.resultBytes) {
 				throwPhase(
 					"output",
-					"Sandbox driver result exceeds " + payload.limits.resultBytes + " UTF-8 bytes",
+					"Sandbox definition result exceeds " + payload.limits.resultBytes + " UTF-8 bytes",
 				);
 			}
 			await writeSuccess(logCollector.logs, serializedValue, performanceNow() - startedAt);

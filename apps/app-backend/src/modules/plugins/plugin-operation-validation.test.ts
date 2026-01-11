@@ -5,7 +5,7 @@ import { assert } from "vitest";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { fixtureManifest } from "./test-support";
-import { validatePluginManifestReferences, validatePluginOperationDrivers } from "./validation";
+import { validatePluginManifestReferences, validatePluginOperationScripts } from "./validation";
 
 const operationManifest = () => {
 	const manifest = fixtureManifest();
@@ -21,7 +21,7 @@ const operationManifest = () => {
 			{
 				auth: "user" as const,
 				slug: "resolve.fixture",
-				driverRef: "operation.fixture",
+				scriptSlug: "operation.fixture",
 				description: "Resolve fixture references",
 			},
 		],
@@ -38,7 +38,7 @@ it.effect("rejects duplicate operation slugs and unknown driver references", () 
 		(manifest: ReturnType<typeof operationManifest>) => {
 			const operation = manifest.operations[0];
 			assert(operation);
-			return { ...manifest, operations: [{ ...operation, driverRef: "missing-script" }] };
+			return { ...manifest, operations: [{ ...operation, scriptSlug: "missing-script" }] };
 		},
 	];
 	const snapshot = makeDefinitionRegistry().getSnapshot();
@@ -52,21 +52,21 @@ it.effect("rejects duplicate operation slugs and unknown driver references", () 
 	});
 });
 
-it.effect("requires every compiled operation script to expose the operation driver", () => {
+it.effect("requires operation declarations to reference operation scripts", () => {
 	const manifest = operationManifest();
 	const normalized = {
 		manifest,
 		scripts: [
 			{
 				slug: "operation.fixture",
-				metadata: { kind: "operation" as const, driverNames: ["cron"] },
+				metadata: { kind: "automation" as const },
 			},
 		],
 	};
 
 	return Effect.gen(function* () {
-		const exit = yield* Effect.exit(validatePluginOperationDrivers(normalized));
+		const exit = yield* Effect.exit(validatePluginOperationScripts(normalized));
 		expect(Exit.isFailure(exit)).toBe(true);
-		expect(String(exit)).toContain("must expose driver: operation");
+		expect(String(exit)).toContain("must be an operation script");
 	});
 });

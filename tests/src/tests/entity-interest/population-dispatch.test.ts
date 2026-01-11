@@ -12,7 +12,7 @@ import {
 	seedMediaEntity,
 	seedPopulatedProviderEntity,
 	waitForEntityPopulated,
-	type InstalledProviderScript,
+	type InstalledTestProvider,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
@@ -20,29 +20,27 @@ import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test
 const GRACE_WINDOW_MS = 3000;
 const POPULATED_NAME = "E2E Populated Studio";
 
-let providerScript: InstalledProviderScript;
+let provider: InstalledTestProvider;
 
 describe("entity population via client-declared interest", () => {
 	beforeAll(async () => {
-		providerScript = await Effect.runPromise(
+		provider = await Effect.runPromise(
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				return yield* installTestProvider({
 					client,
-					providerInformation: { source: "e2e", canonicalLanguage: "en" },
-					drivers: {
-						details: fakeProviderDetailsResult({
-							name: POPULATED_NAME,
-							properties: { description: "Populated by the e2e fake provider." },
-						}),
-					},
+					information: { source: "e2e", canonicalLanguage: "en" },
+					details: fakeProviderDetailsResult({
+						name: POPULATED_NAME,
+						properties: { description: "Populated by the e2e fake provider." },
+					}),
 				});
 			}),
 		);
 	});
 
 	afterAll(async () => {
-		await Effect.runPromise(uninstallTestProvider(providerScript));
+		await Effect.runPromise(uninstallTestProvider(provider));
 	});
 
 	it.scopedLive(
@@ -55,7 +53,7 @@ describe("entity population via client-declared interest", () => {
 				const { schema } = yield* findBuiltinSchemaBySlug(client, "company");
 				const provenance = {
 					entitySchemaSlug: schema.slug,
-					sandboxScriptId: providerScript.scriptId,
+					providerId: provider.providerId,
 					externalId: `e2e-populate-${crypto.randomUUID()}`,
 				};
 
@@ -65,7 +63,7 @@ describe("entity population via client-declared interest", () => {
 					name: "Partial Studio",
 					entitySchemaSlug: schema.id,
 					externalId: provenance.externalId,
-					sandboxScriptId: providerScript.scriptId,
+					providerId: provider.providerId,
 				});
 
 				const fetched = yield* getEntity(client, seeded.id);
@@ -101,7 +99,7 @@ describe("entity population via client-declared interest", () => {
 				properties: {},
 				entitySchemaSlug: schema.id,
 				name: "Already Populated Studio",
-				sandboxScriptId: providerScript.scriptId,
+				providerId: provider.providerId,
 				externalId: `e2e-catchup-${crypto.randomUUID()}`,
 			});
 

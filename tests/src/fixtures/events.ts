@@ -204,8 +204,8 @@ export const createBuiltinMediaLifecycleFixture = (
 		const entitySchemaSlug = options.entitySchemaSlug ?? "book";
 		const { schema: selectedSchema } = yield* findBuiltinSchemaBySlug(client, entitySchemaSlug);
 
-		const providerScriptId = selectedSchema.providers[0]?.scriptId;
-		assertPresent(providerScriptId, `Missing built-in ${entitySchemaSlug} provider`);
+		const providerId = selectedSchema.providers[0]?.providerId;
+		assertPresent(providerId, `Missing built-in ${entitySchemaSlug} provider`);
 
 		const eventSchemas = yield* listEventSchemas(client, selectedSchema.id);
 		const backlogEventSchema = requireEventSchemaBySlug(eventSchemas, "backlog");
@@ -218,7 +218,7 @@ export const createBuiltinMediaLifecycleFixture = (
 		const entity = yield* seedMediaEntity({
 			userId: null,
 			entitySchemaSlug: selectedSchema.id,
-			sandboxScriptId: providerScriptId,
+			providerId,
 			externalId: `${entitySchemaSlug}-${crypto.randomUUID()}`,
 			name: `Built-in ${entitySchemaSlug} ${crypto.randomUUID()}`,
 			properties: {

@@ -1,11 +1,7 @@
 import { Schema } from "@ryot/sandbox-sdk/effect";
 
 import type { SandboxManifest } from "./core.js";
-import {
-	type GenericDriver,
-	type GenericScriptDefinition,
-	SANDBOX_SCRIPT_DEFINITION,
-} from "./driver.js";
+import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver.js";
 import { jsonValueSchema } from "./wire.js";
 
 const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
@@ -149,56 +145,35 @@ export type AutomationRelationshipSnapshot = Schema.Schema.Type<
 	typeof automationRelationshipSnapshotSchema
 >;
 
-export type AutomationDriver<Manifest extends AutomationManifest> = GenericDriver<
-	typeof automationInputSchema,
-	typeof automationResultSchema,
-	Manifest["capabilities"]
->;
 export type AutomationDefinition<Manifest extends AutomationManifest> = GenericScriptDefinition<
 	Manifest,
-	{ readonly automation: AutomationDriver<Manifest> }
+	typeof automationInputSchema,
+	typeof automationResultSchema
 >;
 export type AutomationPolicyDefinition<Manifest extends AutomationManifest> =
 	GenericScriptDefinition<
 		Manifest,
-		{
-			readonly automation: GenericDriver<
-				typeof automationPolicyInputSchema,
-				typeof automationPolicyResultSchema,
-				Manifest["capabilities"]
-			>;
-		}
+		typeof automationPolicyInputSchema,
+		typeof automationPolicyResultSchema
 	>;
 
 export const defineAutomation = <const Manifest extends AutomationManifest>(definition: {
 	readonly manifest: Manifest;
-	readonly run: AutomationDriver<Manifest>["run"];
+	readonly run: AutomationDefinition<Manifest>["run"];
 }): AutomationDefinition<Manifest> => ({
 	manifest: definition.manifest,
 	definitionType: SANDBOX_SCRIPT_DEFINITION,
-	drivers: {
-		automation: {
-			run: definition.run,
-			input: automationInputSchema,
-			output: automationResultSchema,
-		},
-	},
+	run: definition.run,
+	input: automationInputSchema,
+	output: automationResultSchema,
 });
 export const defineAutomationPolicy = <const Manifest extends AutomationManifest>(definition: {
 	readonly manifest: Manifest;
-	readonly run: GenericDriver<
-		typeof automationPolicyInputSchema,
-		typeof automationPolicyResultSchema,
-		Manifest["capabilities"]
-	>["run"];
+	readonly run: AutomationPolicyDefinition<Manifest>["run"];
 }): AutomationPolicyDefinition<Manifest> => ({
 	manifest: definition.manifest,
 	definitionType: SANDBOX_SCRIPT_DEFINITION,
-	drivers: {
-		automation: {
-			run: definition.run,
-			input: automationPolicyInputSchema,
-			output: automationPolicyResultSchema,
-		},
-	},
+	run: definition.run,
+	input: automationPolicyInputSchema,
+	output: automationPolicyResultSchema,
 });

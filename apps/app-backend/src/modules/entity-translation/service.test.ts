@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { NotFound } from "@ryot/contract/errors";
-import { EntityId } from "@ryot/contract/schema/brands";
+import { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-utils/effect";
@@ -25,24 +25,58 @@ const makeTranslationsRepository = (
 ) =>
 	mockTranslationsRepository({
 		_tag: "TranslationsRepository",
-		createOverlay: () => Effect.sync(() => undefined),
 		findOverlay: () => Effect.succeed(null),
 		listByEntity: () => Effect.succeed([]),
 		findUserLanguage: () => Effect.succeed(null),
+		createOverlay: () => Effect.sync(() => undefined),
 		updateOverlay: () => Effect.succeed("translation-1"),
 		...overrides,
 	});
 
-const makeServiceLayer = (repository = makeTranslationsRepository()) =>
+const makeServiceLayer = (
+	repository = makeTranslationsRepository(),
+	engine = makeWorkflowEngine(),
+) =>
 	TranslationsService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
-				repository,
-			),
-		),
+		Layer.provide(Layer.mergeAll(dbRunnerLayer, Layer.succeed(WorkflowEngine, engine), repository)),
 	);
+
+it.effect("preserves provider provenance when enqueueing a translation fill", () => {
+	const captured: Array<Parameters<WorkflowEngine["Type"]["execute"]>[1]> = [];
+	const layer = makeServiceLayer(
+		makeTranslationsRepository(),
+		makeWorkflowEngine({
+			execute: (_workflow, options) => {
+				captured.push(options);
+				return Effect.succeed(options.executionId);
+			},
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* TranslationsService;
+		yield* service.requestFill({
+			language: "es",
+			externalId: "book-1",
+			entitySchemaSlug: "book",
+			properties: { title: "Book" },
+			entityId: EntityId.make("entity-1"),
+			providerId: SandboxProviderId.make("provider-1"),
+		});
+		expect(captured).toMatchObject([
+			{
+				discard: true,
+				payload: {
+					language: "es",
+					entityId: "entity-1",
+					externalId: "book-1",
+					providerId: "provider-1",
+					entitySchemaSlug: "book",
+				},
+			},
+		]);
+	}).pipe(Effect.provide(layer));
+});
 
 it.effect("delegates overlay creation to the repository", () => {
 	let createdInput: unknown;

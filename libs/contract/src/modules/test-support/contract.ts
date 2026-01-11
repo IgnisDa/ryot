@@ -7,6 +7,7 @@ import {
 	EntityId,
 	EntitySchemaSlug,
 	RelationshipSchemaSlug,
+	SandboxProviderId,
 	SandboxScriptId,
 	SignalId,
 	UserId,
@@ -36,7 +37,7 @@ const CreateGlobalEntityBody = Schema.Struct({
 	name: Schema.String,
 	entitySchemaSlug: EntitySchemaSlug,
 	externalId: Schema.optional(Schema.String),
-	sandboxScriptId: Schema.optional(SandboxScriptId),
+	providerId: Schema.optional(SandboxProviderId),
 	populatedAt: Schema.optional(Schema.NullOr(Schema.String)),
 });
 

@@ -1,4 +1,4 @@
-import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineOperation } from "@ryot/sandbox-sdk/operation";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
@@ -124,7 +124,8 @@ const refDocument = (ref: ResolveEpisodesRef): JsonValue =>
 				],
 			});
 
-export const operation = defineDriver(manifest, {
+export default defineOperation({
+	manifest,
 	input: ResolveEpisodesInput,
 	output: ResolveEpisodesOutput,
 	run: (input, host) =>
@@ -137,5 +138,3 @@ export const operation = defineDriver(manifest, {
 			),
 		).pipe(Effect.map((results) => ({ results }))),
 });
-
-export default defineOperation({ manifest, drivers: { operation } });

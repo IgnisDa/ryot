@@ -63,7 +63,7 @@ export const extractMangaRef = (
 					sourceLabel: title,
 					externalId: match[1],
 					entitySchemaSlug: "manga",
-					scriptSlug: "manga.anilist",
+					providerSlug: "manga.anilist",
 				};
 			}
 		}
@@ -76,7 +76,7 @@ export const extractMangaRef = (
 					sourceLabel: title,
 					externalId: match[1],
 					entitySchemaSlug: "manga",
-					scriptSlug: "manga.myanimelist",
+					providerSlug: "manga.myanimelist",
 				};
 			}
 		}
@@ -89,7 +89,7 @@ export const extractMangaRef = (
 					sourceLabel: title,
 					externalId: match[1],
 					entitySchemaSlug: "manga",
-					scriptSlug: "manga.manga-updates",
+					providerSlug: "manga.manga-updates",
 				};
 			}
 		}

@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./audible.sandbox";
+import { details, manifest, search } from "./audible";
 
 type AudibleGroupHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -31,7 +31,7 @@ describe("audiobook-group.audible sandbox script", () => {
 		);
 
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "series-1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "series-1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("The Series");
 					expect(result.relatedEntityGroups).toEqual([
@@ -43,13 +43,13 @@ describe("audiobook-group.audible sandbox script", () => {
 								{
 									externalId: "book-a",
 									name: "Loading...",
-									scriptSlug: "audiobook.audible",
+									providerSlug: "audiobook.audible",
 									relationshipProperties: { order: 1 },
 								},
 								{
 									externalId: "book-b",
 									name: "Loading...",
-									scriptSlug: "audiobook.audible",
+									providerSlug: "audiobook.audible",
 									relationshipProperties: { order: 2 },
 								},
 							],
@@ -71,7 +71,7 @@ describe("audiobook-group.audible sandbox script", () => {
 
 		return expect(
 			Effect.runPromise(
-				runSandboxTestDriver(search, { query: "x", page: 1, pageSize: 20 }, host, execution),
+				runSandboxTestScript(search, { query: "x", page: 1, pageSize: 20 }, host, execution),
 			),
 		).rejects.toThrow("Audible does not support audiobook group search");
 	});

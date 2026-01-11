@@ -2,7 +2,7 @@ import { relations } from "drizzle-orm";
 
 import { user } from "./auth";
 import { notificationSubscriptionState, signal, signalRecipient } from "./automations";
-import { pluginState, sandboxScript } from "./core";
+import { plugin, pluginState, sandboxProvider, sandboxScript } from "./core";
 import { entity, relationship } from "./entities";
 import { event } from "./events";
 import { importRun, importRunFailure, integration } from "./imports";
@@ -13,8 +13,23 @@ export const pluginStateRelations = relations(pluginState, ({ one }) => ({
 	user: one(user, { references: [user.id], fields: [pluginState.userId] }),
 }));
 
-export const sandboxScriptRelations = relations(sandboxScript, ({ many }) => ({
+export const pluginRelations = relations(plugin, ({ many }) => ({
+	scripts: many(sandboxScript),
+	providers: many(sandboxProvider),
+}));
+
+export const sandboxProviderRelations = relations(sandboxProvider, ({ one, many }) => ({
 	entities: many(entity),
+	scripts: many(sandboxScript),
+	plugin: one(plugin, { references: [plugin.slug], fields: [sandboxProvider.pluginSlug] }),
+}));
+
+export const sandboxScriptRelations = relations(sandboxScript, ({ one }) => ({
+	plugin: one(plugin, { references: [plugin.slug], fields: [sandboxScript.pluginSlug] }),
+	provider: one(sandboxProvider, {
+		references: [sandboxProvider.id],
+		fields: [sandboxScript.providerId],
+	}),
 }));
 
 export const entityRelations = relations(entity, ({ one, many }) => ({
@@ -23,10 +38,7 @@ export const entityRelations = relations(entity, ({ one, many }) => ({
 	sessionEvents: many(event, { relationName: "sessionEntity" }),
 	outgoingRelationships: many(relationship, { relationName: "sourceEntity" }),
 	incomingRelationships: many(relationship, { relationName: "targetEntity" }),
-	sandboxScript: one(sandboxScript, {
-		references: [sandboxScript.id],
-		fields: [entity.sandboxScriptId],
-	}),
+	provider: one(sandboxProvider, { fields: [entity.providerId], references: [sandboxProvider.id] }),
 }));
 
 export const eventRelations = relations(event, ({ one }) => ({
