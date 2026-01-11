@@ -136,7 +136,7 @@ MusicBrainz has 13 core entity types, but for music tracking, we primarily care 
 - `life-span` → begin/end dates (for description)
 - `aliases` → alternative names
 - `release-groups` → `related_metadata_groups`
-- Top tracks (via browse recordings) → `related_metadata`
+- Sample tracks (browse recordings; no popularity ordering) → `related_metadata`
 
 **Example Artist:**
 ```json
@@ -407,7 +407,7 @@ async fn metadata_group_details(
   - `source`: MediaSource::MusicBrainz
   - `image`: use album cover art (same for all tracks)
   - Note: PartialMetadataWithoutId doesn't have music_specifics field
-  - Track/disc numbers would be populated when user views the full recording details later
+  - Track and disc numbers remain unset for MusicBrainz recordings unless release context is added to `metadata_details`
 
 ### 5. `people_search` - Search for Artists
 
@@ -457,7 +457,7 @@ async fn people_search(
 
 **Library Calls:**
 1. `Artist::fetch().id(mbid).with_aliases().with_release_groups()` via `execute_with_client(&self.client)`
-2. `Recording::browse().by_artist(mbid).limit(10)` via `execute_with_client(&self.client)` for top recordings
+2. `Recording::browse().by_artist(mbid).limit(10)` via `execute_with_client(&self.client)` for a small sample of recordings (no popularity ordering)
 
 **Implementation:**
 ```rust
@@ -481,7 +481,7 @@ async fn person_details(
   - artist.life-span (begin - end dates)
   - artist.disambiguation
 - `source_url`: `https://musicbrainz.org/artist/{mbid}`
-- `assets.remote_images`: None (or fetch from release-groups)
+- `assets.remote_images`: None (MusicBrainz does not provide artist photos)
 
 **related_metadata_groups:**
 - Map artist.release-groups to `MetadataGroupPersonRelated`
@@ -542,14 +542,12 @@ When processing artist-credit arrays:
 ```rust
 let artists: Vec<PartialMetadataPerson> = artist_credit
     .iter()
-    .filter_map(|ac| {
-        Some(PartialMetadataPerson {
-            name: ac.artist.name.clone(),
-            identifier: ac.artist.id.clone(),
-            role: "Artist".to_string(),
-            source: MediaSource::MusicBrainz,
-            ..Default::default()
-        })
+    .map(|ac| PartialMetadataPerson {
+        name: ac.artist.name.clone(),
+        identifier: ac.artist.id.clone(),
+        role: "Artist".to_string(),
+        source: MediaSource::MusicBrainz,
+        ..Default::default()
     })
     .collect();
 ```
@@ -606,13 +604,13 @@ fn parse_musicbrainz_date(date: &DateString) -> (Option<NaiveDate>, Option<i32>)
     let raw = date.0.as_str();
     let year = raw.split('-').next().and_then(|part| part.parse::<i32>().ok());
 
-    let date = if raw.len() == 10 && !raw.contains('?') {
+    let full_date = if raw.len() == 10 && !raw.contains('?') {
         date.into_naive_date(1, 1, 1).ok()
     } else {
         None
     };
 
-    (date, year)
+    (full_date, year)
 }
 ```
 
