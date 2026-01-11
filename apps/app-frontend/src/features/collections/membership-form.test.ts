@@ -339,6 +339,27 @@ describe("toMembershipPayload", () => {
 		});
 	});
 
+	it("passes properties through unchanged when collection has no membership schema", () => {
+		const collection = createAppCollectionFixture({
+			id: "collection-1",
+			membershipPropertiesSchema: null,
+		});
+		const payload = toMembershipPayload(
+			{
+				collectionId: "collection-1",
+				properties: { notes: "test", quantity: 5, extra: "value" },
+			},
+			"entity-1",
+			collection,
+		);
+
+		expect(payload.properties).toEqual({
+			notes: "test",
+			quantity: 5,
+			extra: "value",
+		});
+	});
+
 	it("sanitizes unknown properties using the selected collection schema", () => {
 		const collection = createAppCollectionFixture({
 			id: "collection-1",
