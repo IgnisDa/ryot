@@ -139,6 +139,7 @@ fn build_provider_language_information(
                 | MediaSource::Spotify
                 | MediaSource::GiantBomb
                 | MediaSource::Hardcover
+                | MediaSource::MusicBrainz
                 | MediaSource::Myanimelist
                 | MediaSource::GoogleBooks
                 | MediaSource::Listennotes

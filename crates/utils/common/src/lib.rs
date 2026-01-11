@@ -48,7 +48,7 @@ pub fn compute_next_page(page: u64, total_items: u64) -> Option<u64> {
         .flatten()
 }
 
-pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 12] = [
+pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 13] = [
     MediaSource::Vndb,
     MediaSource::Igdb,
     MediaSource::Tmdb,
@@ -58,17 +58,19 @@ pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 12] = [
     MediaSource::Audible,
     MediaSource::Hardcover,
     MediaSource::GiantBomb,
+    MediaSource::MusicBrainz,
     MediaSource::Openlibrary,
     MediaSource::MangaUpdates,
     MediaSource::YoutubeMusic,
 ];
 
-pub const MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS: [MediaSource; 6] = [
+pub const MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS: [MediaSource; 7] = [
     MediaSource::Tvdb,
     MediaSource::Vndb,
     MediaSource::Itunes,
     MediaSource::Custom,
     MediaSource::Spotify,
+    MediaSource::MusicBrainz,
     MediaSource::GoogleBooks,
 ];
 

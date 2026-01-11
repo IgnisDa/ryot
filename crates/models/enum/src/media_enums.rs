@@ -49,7 +49,6 @@ meta! {
     Show, vec![MediaSource::Tmdb, MediaSource::Tvdb];
     Movie, vec![MediaSource::Tmdb, MediaSource::Tvdb];
     VideoGame, vec![MediaSource::Igdb, MediaSource::GiantBomb];
-    Music, vec![MediaSource::YoutubeMusic, MediaSource::Spotify];
     Anime, vec![
         MediaSource::Anilist,
         MediaSource::Myanimelist,
@@ -57,6 +56,11 @@ meta! {
     Podcast, vec![
         MediaSource::Itunes,
         MediaSource::Listennotes,
+    ];
+    Music, vec![
+        MediaSource::Spotify,
+        MediaSource::MusicBrainz,
+        MediaSource::YoutubeMusic,
     ];
     Book, vec![
         MediaSource::Hardcover,
@@ -103,6 +107,7 @@ pub enum MediaSource {
     Anilist,
     Audible,
     Spotify,
+    MusicBrainz,
     GiantBomb,
     Hardcover,
     Myanimelist,
@@ -129,6 +134,7 @@ meta! {
     MangaUpdates, None;
     Tmdb, Some(MediaLot::Movie);
     Spotify, Some(MediaLot::Music);
+    MusicBrainz, Some(MediaLot::Music);
     Igdb, Some(MediaLot::VideoGame);
     Hardcover, Some(MediaLot::Book);
     YoutubeMusic, Some(MediaLot::Music);

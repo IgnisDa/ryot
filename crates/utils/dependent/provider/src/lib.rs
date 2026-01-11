@@ -12,6 +12,7 @@ use itunes_provider::ITunesService;
 use listennotes_provider::ListennotesService;
 use manga_updates_provider::MangaUpdatesService;
 use media_models::MetadataDetails;
+use music_brainz_provider::MusicBrainzService;
 use myanimelist_provider::{MalAnimeService, MalMangaService, NonMediaMalService};
 use openlibrary_provider::OpenlibraryService;
 use spotify_provider::SpotifyService;
@@ -98,6 +99,7 @@ pub async fn get_metadata_provider(
         MediaSource::MangaUpdates => {
             Box::new(MangaUpdatesService::new(&ss.config.anime_and_manga.manga_updates).await?)
         }
+        MediaSource::MusicBrainz => Box::new(MusicBrainzService::new()?),
         MediaSource::Custom => return err(),
         MediaSource::Spotify => {
             Box::new(SpotifyService::new(&ss.config.music.spotify, ss.clone()).await?)
@@ -133,6 +135,7 @@ pub async fn get_non_metadata_provider(
             Box::new(NonMediaAnilistService::new(&ss.config.anime_and_manga.anilist).await?)
         }
         MediaSource::Myanimelist => Box::new(NonMediaMalService::new().await?),
+        MediaSource::MusicBrainz => Box::new(MusicBrainzService::new()?),
         MediaSource::Spotify => {
             Box::new(SpotifyService::new(&ss.config.music.spotify, ss.clone()).await?)
         }

@@ -153,7 +153,7 @@ export const MetadataGroupDisplayItem = (props: {
 		if (!props.noEntityLot)
 			final.push(changeCase(snakeCase(EntityLot.MetadataGroup)));
 
-		if (metadataGroupDetails)
+		if (metadataGroupDetails?.details.parts)
 			final.push(`${metadataGroupDetails.details.parts} items`);
 
 		return final;
@@ -221,7 +221,7 @@ export const PersonDisplayItem = (props: {
 	const defaultAdditionalInformation = useMemo(() => {
 		const final = [];
 
-		if (personDetails)
+		if (personDetails?.details.associatedEntityCount)
 			final.push(`${personDetails.details.associatedEntityCount} items`);
 
 		return final;
