@@ -177,3 +177,145 @@ it.effect("returns the translationStatus sourced from the query-engine computed 
 		expect(entity.translationStatus).toBe("ready");
 	}).pipe(Effect.provide(layer));
 });
+
+const titlePropertiesSchema = {
+	fields: { title: { type: "string" as const, label: "Title", description: "Title" } },
+};
+
+const globalEntity = {
+	createdAt: now,
+	updatedAt: now,
+	populatedAt: null,
+	name: "Cooper",
+	externalId: "ext-1",
+	properties: { title: "Cooper" },
+	id: EntityId.make("entity-1"),
+	entitySchemaId: EntitySchemaId.make("schema-1"),
+	sandboxScriptId: SandboxScriptId.make("script-1"),
+};
+
+const upsertInput = (updateExisting: boolean) => ({
+	updateExisting,
+	name: "Cooper",
+	populatedAt: null,
+	externalId: "ext-1",
+	properties: { title: "Cooper" },
+	entitySchemaId: EntitySchemaId.make("schema-1"),
+	sandboxScriptId: SandboxScriptId.make("script-1"),
+});
+
+it.effect("upsert creates a new global entity when none exists", () => {
+	let insertCalled = false;
+	let updateCalled = false;
+	const layer = makeServiceLayer(
+		makeEntitiesRepository({
+			updateEntity: () =>
+				Effect.sync(() => {
+					updateCalled = true;
+					return globalEntity;
+				}),
+			findGlobalEntityByExternalId: () => Effect.succeed(null),
+			findEntitySchemaById: () => Effect.succeed({ propertiesSchema: titlePropertiesSchema }),
+			insertEntity: () =>
+				Effect.sync(() => {
+					insertCalled = true;
+					return { ...globalEntity, id: EntityId.make("created-entity") };
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitiesService;
+		const entity = yield* service.upsert(upsertInput(false));
+
+		expect(entity.id).toBe("created-entity");
+		expect(insertCalled).toBe(true);
+		expect(updateCalled).toBe(false);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("upsert updates an existing populated entity when updateExisting is set", () => {
+	let insertCalled = false;
+	const existing = { ...globalEntity, populatedAt: now, id: EntityId.make("existing-entity") };
+	const layer = makeServiceLayer(
+		makeEntitiesRepository({
+			findGlobalEntityByExternalId: () => Effect.succeed(existing),
+			findEntitySchemaById: () => Effect.succeed({ propertiesSchema: titlePropertiesSchema }),
+			insertEntity: () =>
+				Effect.sync(() => {
+					insertCalled = true;
+					return existing;
+				}),
+			updateEntity: (input) => Effect.succeed({ ...existing, name: "Updated", id: input.entityId }),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitiesService;
+		const entity = yield* service.upsert(upsertInput(true));
+
+		expect(entity.id).toBe("existing-entity");
+		expect(entity.name).toBe("Updated");
+		expect(insertCalled).toBe(false);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("upsert updates an existing skeleton even when updateExisting is not set", () => {
+	let updateCalled = false;
+	const skeleton = { ...globalEntity, populatedAt: null, id: EntityId.make("skeleton-entity") };
+	const layer = makeServiceLayer(
+		makeEntitiesRepository({
+			findGlobalEntityByExternalId: () => Effect.succeed(skeleton),
+			findEntitySchemaById: () => Effect.succeed({ propertiesSchema: titlePropertiesSchema }),
+			updateEntity: (input) =>
+				Effect.sync(() => {
+					updateCalled = true;
+					return { ...skeleton, populatedAt: now, id: input.entityId };
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitiesService;
+		const entity = yield* service.upsert(upsertInput(false));
+
+		expect(entity.id).toBe("skeleton-entity");
+		expect(updateCalled).toBe(true);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("upsert preserves an existing populated entity when updateExisting is not set", () => {
+	let insertCalled = false;
+	let updateCalled = false;
+	const existing = {
+		...globalEntity,
+		populatedAt: now,
+		name: "Existing",
+		id: EntityId.make("existing-entity"),
+	};
+	const layer = makeServiceLayer(
+		makeEntitiesRepository({
+			findGlobalEntityByExternalId: () => Effect.succeed(existing),
+			insertEntity: () =>
+				Effect.sync(() => {
+					insertCalled = true;
+					return existing;
+				}),
+			updateEntity: () =>
+				Effect.sync(() => {
+					updateCalled = true;
+					return existing;
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitiesService;
+		const entity = yield* service.upsert(upsertInput(false));
+
+		expect(entity.id).toBe("existing-entity");
+		expect(entity.name).toBe("Existing");
+		expect(insertCalled).toBe(false);
+		expect(updateCalled).toBe(false);
+	}).pipe(Effect.provide(layer));
+});
