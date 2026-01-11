@@ -15,14 +15,16 @@ use media_models::{
     MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
     UniqueMediaIdentifier,
 };
-use musicbrainz_rs::client::MusicBrainzClient;
-use musicbrainz_rs::entity::{
-    artist::{Artist, ArtistSearchQuery},
-    recording::{Recording, RecordingSearchQuery},
-    release::Release,
-    release_group::{ReleaseGroup, ReleaseGroupSearchQuery},
+use musicbrainz_rs::{
+    Browse, Fetch, FetchCoverart, Search,
+    client::MusicBrainzClient,
+    entity::{
+        artist::{Artist, ArtistSearchQuery},
+        recording::{Recording, RecordingSearchQuery},
+        release::Release,
+        release_group::{ReleaseGroup, ReleaseGroupSearchQuery},
+    },
 };
-use musicbrainz_rs::prelude::*;
 use traits::MediaProvider;
 
 mod helpers;
