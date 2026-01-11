@@ -261,7 +261,6 @@ impl MediaProvider for MusicBrainzService {
             .await?;
         let browse_results = Release::browse()
             .by_release_group(identifier)
-            .limit(100)
             .execute_with_client(&self.client)
             .await?;
         let release = choose_release(&browse_results.entities);
@@ -384,7 +383,6 @@ impl MediaProvider for MusicBrainzService {
             .await?;
         let recordings = Recording::browse()
             .by_artist(identifier)
-            .limit(10)
             .execute_with_client(&self.client)
             .await?;
 
