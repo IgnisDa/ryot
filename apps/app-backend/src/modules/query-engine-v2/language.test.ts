@@ -151,6 +151,20 @@ describe("Expr", () => {
 		expect(result.type).toBe("coalesce");
 	});
 
+	it("decodes an 'exists' expression over an event source", () => {
+		const result = decodeSync(Expr)({
+			type: "exists",
+			source: {
+				where: null,
+				type: "events",
+				alias: "completion",
+				entityRef: "lesson",
+				schemas: ["complete"],
+			},
+		});
+		expect(result.type).toBe("exists");
+	});
+
 	it("decodes deeply nested recursive expressions", () => {
 		const result = decodeSync(Expr)({
 			type: "and",
@@ -312,6 +326,57 @@ describe("RowsOutputV2", () => {
 
 		expect(result.include).toHaveLength(1);
 		expect(result.include?.[0]?.source.via?.schema).toBe("course-module");
+	});
+
+	it("decodes nested entity includes", () => {
+		const result = decodeSync(RowsOutputV2)({
+			fields: [],
+			type: "rows",
+			pagination: { page: 1, limit: 10 },
+			orderBy: [{ order: "asc", expr: { type: "literal", value: 1 } }],
+			include: [
+				{
+					limit: 20,
+					fields: [],
+					key: "modules",
+					orderBy: [{ order: "asc", expr: { type: "literal", value: 1 } }],
+					source: {
+						where: null,
+						alias: "module",
+						type: "entities",
+						schemas: ["module"],
+						via: {
+							entityRef: "course",
+							alias: "courseModule",
+							direction: "outgoing",
+							schema: "course-module",
+						},
+					},
+					include: [
+						{
+							limit: 20,
+							fields: [],
+							key: "lessons",
+							orderBy: [{ order: "asc", expr: { type: "literal", value: 1 } }],
+							source: {
+								where: null,
+								alias: "lesson",
+								type: "entities",
+								schemas: ["lesson"],
+								via: {
+									entityRef: "module",
+									alias: "moduleLesson",
+									direction: "outgoing",
+									schema: "module-lesson",
+								},
+							},
+						},
+					],
+				},
+			],
+		});
+
+		expect(result.include?.[0]?.include).toHaveLength(1);
 	});
 
 	it("throws when an include is missing a limit", () => {
