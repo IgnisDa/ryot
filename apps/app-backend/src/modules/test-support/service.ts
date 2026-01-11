@@ -20,6 +20,7 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
+import { PluginBootService } from "#modules/scheduler/plugin-boot";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
 import { SignalsService } from "#modules/signals/service";
 
@@ -47,6 +48,7 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 		const entities = yield* EntitiesService;
 		const interest = yield* InterestService;
 		const pluginCrons = yield* PluginCronService;
+		const pluginBoots = yield* PluginBootService;
 		const definitions = yield* DefinitionRegistry;
 		const automations = yield* AutomationsService;
 		const sandbox = yield* SandboxExecutionService;
@@ -155,6 +157,13 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 				return { executionId };
 			});
 
+		const triggerPluginBoot = () =>
+			Effect.gen(function* () {
+				const executionId = `plugin-boot-manual-${generateId()}`;
+				yield* pluginBoots.triggerAll(executionId);
+				return { executionId };
+			});
+
 		const countAutomationRules = Effect.fn("TestSupportService.countAutomationRules")(function* (
 			userId: UserId,
 		) {
@@ -164,6 +173,7 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 
 		return {
 			linkAuthAccount,
+			triggerPluginBoot,
 			createGlobalEntity,
 			countAutomationRules,
 			setEntityPopulatedAt,
