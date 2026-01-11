@@ -94,6 +94,7 @@ const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository>
 			listByUser: () => Effect.die("unused"),
 			findBySlug: () => Effect.die("unused"),
 			getByIdForUser: () => Effect.die("unused"),
+			listVisibleBySlugs: () => Effect.die("unused"),
 			getBuiltinBySlug: (slug: string) => Effect.succeed({ id: `${slug}-schema` }),
 		},
 		overrides,

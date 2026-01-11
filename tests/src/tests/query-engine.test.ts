@@ -1,3243 +1,1811 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-	createComputedFieldExpression,
-	createEntityColumnExpression,
-	createEntityPropertyExpression,
-	createEventAggregateExpression,
-} from "@ryot/app-backend/query-language";
-
-import {
-	buildComputedField,
-	buildGridDisplayConfiguration,
-	buildGridRequest,
-	buildInLibraryRelationshipJoin,
-	buildLatestRelationshipJoin,
-	buildQueryEngineField,
-	buildRequiredLatestRelationshipJoin,
-	buildTableDisplayConfiguration,
-	buildTableRequest,
 	createAuthenticatedClient,
-	createCollection,
-	createCrossSchemaQueryEngineFixture,
-	createEntitySchema,
 	createEventSchema,
-	createGlobalBookEntityFixture,
-	createQueryEngineEntity,
+	createRelationship,
 	createRelationshipSchema,
-	createSingleSchemaQueryEngineFixture,
-	createTracker,
-	type EntitiesQueryEngineResponse,
-	entityField,
+	createQueryEngineEntity,
+	createQueryEngineEvent,
+	createQueryEngineTrackerAndSchema,
+	executeAggregateQueryEngine,
 	executeQueryEngine,
-	findBuiltinSchemaBySlug,
-	getFirstProviderScriptId,
-	getQueryEngineFieldOrThrow,
-	insertLibraryMembership,
-	insertRelationshipRow,
-	listEventSchemas,
-	literalExpression,
-	relationshipJoinField,
-	seedMediaEntity,
 	executeQueryEngineError,
-	toQueryEngineItem,
-	waitForEventCount,
+	executeTimeSeriesQueryEngine,
+	propertyRef,
+	requireQueryEngineIncludeValue,
+	requireQueryEngineFieldValue,
+	schemaMetaRef,
+	systemRef,
+	type QueryEnginePayload,
 } from "../fixtures";
-import { getPgClient } from "../setup";
+import { createGlobalBookEntityFixture, insertLibraryMembership } from "../fixtures/media";
 import { assertPresent, assertTaggedError } from "../test-support/assertions";
-import { registerQueryEnginePresentationAndErrorTests } from "../test-support/query-engine-suite";
 
-type QueryEngineItems = EntitiesQueryEngineResponse["data"]["items"];
+const buildRowsDoc = (
+	overrides: Partial<QueryEnginePayload> & {
+		alias: string;
+		page?: number;
+		limit?: number;
+		schemas: [string, ...string[]];
+		fields?: Extract<QueryEnginePayload["output"], { type: "rows" }>["fields"];
+		orderByExpr?: Extract<
+			QueryEnginePayload["output"],
+			{ type: "rows" }
+		>["orderBy"][number]["expr"];
+	},
+): QueryEnginePayload => {
+	const { alias, schemas, fields = [], orderByExpr, page = 1, limit = 10, ...rest } = overrides;
+	return {
+		version: 2,
+		source: { type: "entities", alias, schemas, where: null },
+		output: {
+			fields,
+			type: "rows",
+			pagination: { page, limit },
+			orderBy: [{ order: "asc", expr: orderByExpr ?? systemRef(alias, "name") }],
+		},
+		...rest,
+	};
+};
 
-const getItemFieldValue = (item: Parameters<typeof getQueryEngineFieldOrThrow>[0], key: string) =>
-	getQueryEngineFieldOrThrow(item, key).value;
-
-const getItemTitles = (items: QueryEngineItems | undefined) =>
-	items?.map((item) => getItemFieldValue(item, "title"));
-
-const getAggregateValue = <T extends { key: string; kind?: string; value?: unknown }>(
-	values: readonly T[] | undefined,
-	key: string,
-) => values?.find((value) => value.key === key);
-
-describe("Query engine E2E", () => {
-	it("includes a global media entity when the user has it in their library", async () => {
-		const { client, userId } = await createAuthenticatedClient();
-		const { entity, schema } = await createGlobalBookEntityFixture(client, {
-			name: `Library Query Entity ${crypto.randomUUID()}`,
-			externalId: `library-query-entity-${crypto.randomUUID()}`,
-		});
-		await insertLibraryMembership(client, { mediaEntityId: entity.id, userId });
-
-		const { data } = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				relationshipJoins: [buildInLibraryRelationshipJoin()],
-				displayConfiguration: buildGridDisplayConfiguration(
-					{
-						calloutProperty: null,
-						primarySubtitleProperty: null,
-						secondarySubtitleProperty: null,
-					},
-					[schema.slug],
-				),
-				filter: {
-					operator: "eq",
-					type: "comparison",
-					right: literalExpression(entity.name),
-					left: createEntityColumnExpression(schema.slug, "name"),
-				},
-			}),
-		);
-
-		expect(getItemTitles(data.data.items)).toEqual([entity.name]);
-	});
-
-	it("computes entity averageRating from the current user's review events only", async () => {
-		const userA = await createAuthenticatedClient();
-		const userB = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaBySlug(userA.client, "show");
-
-		const entity = await seedMediaEntity({
-			image: null,
-			userId: null,
-			entitySchemaId: schema.id,
-			sandboxScriptId: getFirstProviderScriptId(schema),
-			name: `Average Rating Show ${crypto.randomUUID()}`,
-			externalId: `average-rating-show-${crypto.randomUUID()}`,
-			properties: {
-				genres: [],
-				images: [],
-				isNsfw: null,
-				sourceUrl: null,
-				showSeasons: [],
-				description: null,
-				publishYear: 2016,
-				providerRating: 88.8,
-				unlinkedCreators: [],
-				productionStatus: "Ended",
-			},
-		});
-		await insertLibraryMembership(userA.client, {
-			userId: userA.userId,
-			mediaEntityId: entity.id,
-		});
-		await insertLibraryMembership(userB.client, {
-			userId: userB.userId,
-			mediaEntityId: entity.id,
-		});
-
-		const eventSchemas = await listEventSchemas(userA.client, schema.id);
-		const reviewEventSchemaId = eventSchemas.find((item) => item.slug === "review")?.id;
-		assertPresent(reviewEventSchemaId, "Missing review event schema");
-
-		await userA.client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId: entity.id,
-						eventSchemaId: reviewEventSchemaId,
-						properties: { rating: 2, text: "Fine" },
-					},
-					{
-						entityId: entity.id,
-						eventSchemaId: reviewEventSchemaId,
-						properties: { rating: 4, text: "Better" },
-					},
-				],
-			}),
-		);
-		await userB.client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId: entity.id,
-						eventSchemaId: reviewEventSchemaId,
-						properties: { rating: 5, text: "Excellent" },
-					},
-				],
-			}),
-		);
-		await waitForEventCount(userA.client, entity.id, 2);
-		await waitForEventCount(userB.client, entity.id, 1);
-
-		const request = buildGridRequest({
-			scope: [schema.slug],
-			relationshipJoins: [buildInLibraryRelationshipJoin()],
-			displayConfiguration: buildGridDisplayConfiguration(
-				{
-					primarySubtitleProperty: null,
-					secondarySubtitleProperty: null,
-					calloutProperty: createEventAggregateExpression("review", "avg", [
-						"properties",
-						"rating",
-					]),
-				},
-				[schema.slug],
-			),
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				right: literalExpression(entity.name),
-				left: createEntityColumnExpression(schema.slug, "name"),
-			},
-		});
-
-		const userAResult = await executeQueryEngine(userA.client, request);
-		const userBResult = await executeQueryEngine(userB.client, request);
-
-		expect(getQueryEngineFieldOrThrow(userAResult.data.data.items[0], "callout")).toEqual({
-			value: 3,
-			key: "callout",
-			kind: "number",
-		});
-		expect(getQueryEngineFieldOrThrow(userBResult.data.data.items[0], "callout")).toEqual({
-			value: 5,
-			key: "callout",
-			kind: "number",
-		});
-	});
-
-	it("isolates global media entities by library membership per user", async () => {
-		const userA = await createAuthenticatedClient();
-		const userB = await createAuthenticatedClient();
-		const { entity, schema } = await createGlobalBookEntityFixture(userA.client, {
-			name: `Isolated Library Entity ${crypto.randomUUID()}`,
-			externalId: `isolated-library-entity-${crypto.randomUUID()}`,
-		});
-		await insertLibraryMembership(userA.client, {
-			userId: userA.userId,
-			mediaEntityId: entity.id,
-		});
-
-		const request = buildGridRequest({
-			scope: [schema.slug],
-			relationshipJoins: [buildInLibraryRelationshipJoin()],
-			displayConfiguration: buildGridDisplayConfiguration(
-				{ calloutProperty: null, primarySubtitleProperty: null, secondarySubtitleProperty: null },
-				[schema.slug],
-			),
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				right: literalExpression(entity.name),
-				left: createEntityColumnExpression(schema.slug, "name"),
-			},
-		});
-
-		const userAResult = await executeQueryEngine(userA.client, request);
-		const userBResult = await executeQueryEngine(userB.client, request);
-
-		expect(getItemTitles(userAResult.data.data.items)).toEqual([entity.name]);
-		expect(userBResult.data.data.items).toEqual([]);
-	});
-
-	it("deduplicates global entities that match multiple relationship filters", async () => {
-		const { client, userId } = await createAuthenticatedClient();
-		const { entity, schema } = await createGlobalBookEntityFixture(client, {
-			name: `Multi Relationship Entity ${crypto.randomUUID()}`,
-			externalId: `multi-relationship-entity-${crypto.randomUUID()}`,
-		});
-		await insertLibraryMembership(client, { mediaEntityId: entity.id, userId });
-
-		const collection = await createCollection(client, {
-			name: `Query Engine Multi Match ${crypto.randomUUID()}`,
-		});
-		await client.run((c) =>
-			c.collections.createMembership({
-				payload: { entityId: entity.id, collectionId: collection.id },
-			}),
-		);
-
-		const { data } = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				relationshipJoins: [
-					buildInLibraryRelationshipJoin(),
-					buildRequiredLatestRelationshipJoin({
-						key: "memberOf",
-						direction: "outgoing",
-						relationshipSchemaSlug: "member-of",
-					}),
-				],
-				displayConfiguration: buildGridDisplayConfiguration(
-					{
-						calloutProperty: null,
-						primarySubtitleProperty: null,
-						secondarySubtitleProperty: null,
-					},
-					[schema.slug],
-				),
-				filter: {
-					operator: "eq",
-					type: "comparison",
-					right: literalExpression(entity.name),
-					left: createEntityColumnExpression(schema.slug, "name"),
-				},
-			}),
-		);
-
-		expect(getItemTitles(data.data.items)).toEqual([entity.name]);
-		expect(data.data.meta.pagination.total).toBe(1);
-
-		const aggregateResult = await client.run((c) =>
-			c.queryEngine.execute({
-				payload: {
-					eventJoins: [],
-					mode: "aggregate",
-					computedFields: [],
-					scope: [schema.slug],
-					aggregations: [{ key: "total", aggregation: { type: "count" } }],
-					filter: {
-						operator: "eq",
-						type: "comparison",
-						right: literalExpression(entity.name),
-						left: createEntityColumnExpression(schema.slug, "name"),
-					},
-					relationshipJoins: [
-						buildInLibraryRelationshipJoin(),
-						buildRequiredLatestRelationshipJoin({
-							key: "memberOf",
-							direction: "outgoing",
-							relationshipSchemaSlug: "member-of",
-						}),
-					],
-				},
-			}),
-		);
-
-		const aggregateValues = aggregateResult.mode === "aggregate" ? aggregateResult.data.values : [];
-		expect(getAggregateValue(aggregateValues, "total")).toEqual({
-			value: 1,
-			key: "total",
-			kind: "number",
-		});
-	});
-
-	it("optional join produces null values without excluding the entity", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, { name: "Optional Join Tracker" });
-		const schema = await createEntitySchema(client, {
-			trackerId,
-			name: "Optional Join Entity",
-			propertiesSchema: {
-				fields: { title: { type: "string", label: "Title", description: "Title" } },
-			},
-		});
-		await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			entitySchemaId: schema.schemaId,
-			name: `Optional Join Entity ${crypto.randomUUID()}`,
-		});
-		const relSchema = await createRelationshipSchema(client, {
-			name: "Optional Rel",
-			propertiesSchema: { fields: {} },
-			slug: `optional-rel-${crypto.randomUUID()}`,
-		});
-
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			mode: "entities",
-			computedFields: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 10 },
-			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
-			relationshipJoins: [
-				buildLatestRelationshipJoin({
-					key: "optRel",
-					required: false,
-					direction: "outgoing",
-					relationshipSchemaSlug: relSchema.slug,
-				}),
-			],
-			fields: [
-				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
-				buildQueryEngineField("relCreatedAt", [relationshipJoinField("optRel", "createdAt")]),
-			],
-		});
-
-		expect(data.data.items.length).toBeGreaterThan(0);
-		const relCreatedAtField = getQueryEngineFieldOrThrow(data.data.items[0], "relCreatedAt");
-		expect(relCreatedAtField).toEqual({ key: "relCreatedAt", kind: "null", value: null });
-	});
-
-	it("required join excludes entities with no matching relationship row", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, {
-			name: "Required Join Tracker",
-		});
-		const schema = await createEntitySchema(client, {
-			trackerId,
-			name: "Required Join Entity",
-			propertiesSchema: {
-				fields: { title: { type: "string", label: "Title", description: "Title" } },
-			},
-		});
-		const relSchema = await createRelationshipSchema(client, {
-			name: "Required Rel",
-			propertiesSchema: { fields: {} },
-			slug: `required-rel-${crypto.randomUUID()}`,
-		});
-		const nameA = `With Rel ${crypto.randomUUID()}`;
-		const nameB = `No Rel ${crypto.randomUUID()}`;
-		const entityAId = await createQueryEngineEntity({
-			client,
-			name: nameA,
-			image: null,
-			properties: {},
-			entitySchemaId: schema.schemaId,
-		});
-		await createQueryEngineEntity({
-			client,
-			name: nameB,
-			image: null,
-			properties: {},
-			entitySchemaId: schema.schemaId,
-		});
-
-		const targetId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			entitySchemaId: schema.schemaId,
-			name: `Target ${crypto.randomUUID()}`,
-		});
-		await insertRelationshipRow(client, {
-			targetEntityId: targetId,
-			sourceEntityId: entityAId,
-			relationshipSchemaId: relSchema.id,
-		});
-
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			mode: "entities",
-			computedFields: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 50 },
-			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
-			relationshipJoins: [
-				buildLatestRelationshipJoin({
-					required: true,
-					key: "requiredRel",
-					direction: "outgoing",
-					relationshipSchemaSlug: relSchema.slug,
-				}),
-			],
-			fields: [buildQueryEngineField("title", [entityField(schema.slug, "name")])],
-			filter: {
-				type: "or",
-				predicates: [
-					{
-						operator: "eq",
-						type: "comparison",
-						right: literalExpression(nameA),
-						left: createEntityColumnExpression(schema.slug, "name"),
-					},
-					{
-						operator: "eq",
-						type: "comparison",
-						right: literalExpression(nameB),
-						left: createEntityColumnExpression(schema.slug, "name"),
-					},
-				],
-			},
-		});
-
-		const titles = data.data.items.map((i) => getQueryEngineFieldOrThrow(i, "title").value);
-		expect(titles).toContain(nameA);
-		expect(titles).not.toContain(nameB);
-	});
-
-	it("returns a relationship built-in createdAt as a display field", async () => {
-		const { client, userId } = await createAuthenticatedClient();
-		const { entity, schema } = await createGlobalBookEntityFixture(client, {
-			externalId: `rel-createdat-${crypto.randomUUID()}`,
-			name: `Rel CreatedAt Entity ${crypto.randomUUID()}`,
-		});
-		await insertLibraryMembership(client, { userId, mediaEntityId: entity.id });
-
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			mode: "entities",
-			computedFields: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 10 },
-			relationshipJoins: [buildInLibraryRelationshipJoin(true)],
-			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
-			fields: [
-				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
-				buildQueryEngineField("libCreatedAt", [relationshipJoinField("inLibrary", "createdAt")]),
-			],
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				right: literalExpression(entity.name),
-				left: createEntityColumnExpression(schema.slug, "name"),
-			},
-		});
-
-		expect(data.data.items).toHaveLength(1);
-		const createdAtField = getQueryEngineFieldOrThrow(data.data.items[0], "libCreatedAt");
-		expect(createdAtField.kind).toBe("date");
-		expect(typeof createdAtField.value).toBe("string");
-	});
-
-	it("returns a relationship property as a display field", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, {
-			name: "Rel Property Tracker",
-		});
-		const schema = await createEntitySchema(client, {
-			trackerId,
-			name: "Rel Property Entity",
-			propertiesSchema: {
-				fields: { title: { type: "string", label: "Title", description: "Title" } },
-			},
-		});
-		const relSchema = await createRelationshipSchema(client, {
-			name: "Rating Rel",
-			slug: `rating-rel-${crypto.randomUUID()}`,
-			propertiesSchema: {
-				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
-			},
-		});
-		const entityName = `Rated Entity ${crypto.randomUUID()}`;
-		const entityId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			name: entityName,
-			entitySchemaId: schema.schemaId,
-		});
-		const targetId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			entitySchemaId: schema.schemaId,
-			name: `Rating Target ${crypto.randomUUID()}`,
-		});
-		await insertRelationshipRow(client, {
-			sourceEntityId: entityId,
-			targetEntityId: targetId,
-			properties: { rating: 8 },
-			relationshipSchemaId: relSchema.id,
-		});
-
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			mode: "entities",
-			computedFields: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 10 },
-			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
-			relationshipJoins: [
-				buildLatestRelationshipJoin({
-					required: true,
-					key: "ratingRel",
-					direction: "outgoing",
-					relationshipSchemaSlug: relSchema.slug,
-				}),
-			],
-			fields: [
-				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
-				buildQueryEngineField("rating", [
-					relationshipJoinField("ratingRel", "properties", "rating"),
-				]),
-			],
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				right: literalExpression(entityName),
-				left: createEntityColumnExpression(schema.slug, "name"),
-			},
-		});
-
-		expect(data.data.items).toHaveLength(1);
-		expect(getQueryEngineFieldOrThrow(data.data.items[0], "rating")).toEqual({
-			value: 8,
-			key: "rating",
-			kind: "number",
-		});
-	});
-
-	it("sorts by a relationship-derived scalar", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, {
-			name: "Rel Sort Tracker",
-		});
-		const schema = await createEntitySchema(client, {
-			trackerId,
-			name: "Rel Sort Entity",
-			propertiesSchema: {
-				fields: { title: { type: "string", label: "Title", description: "Title" } },
-			},
-		});
-		const relSchema = await createRelationshipSchema(client, {
-			name: "Sort Rating Rel",
-			slug: `sort-rating-rel-${crypto.randomUUID()}`,
-			propertiesSchema: {
-				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
-			},
-		});
-		const nameLow = `Sort Low ${crypto.randomUUID()}`;
-		const nameHigh = `Sort High ${crypto.randomUUID()}`;
-		const lowId = await createQueryEngineEntity({
-			client,
-			image: null,
-			name: nameLow,
-			properties: {},
-			entitySchemaId: schema.schemaId,
-		});
-		const highId = await createQueryEngineEntity({
-			client,
-			image: null,
-			name: nameHigh,
-			properties: {},
-			entitySchemaId: schema.schemaId,
-		});
-		const targetId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			entitySchemaId: schema.schemaId,
-			name: `Sort Target ${crypto.randomUUID()}`,
-		});
-		await insertRelationshipRow(client, {
-			sourceEntityId: lowId,
-			targetEntityId: targetId,
-			properties: { rating: 2 },
-			relationshipSchemaId: relSchema.id,
-		});
-		await insertRelationshipRow(client, {
-			sourceEntityId: highId,
-			targetEntityId: targetId,
-			properties: { rating: 9 },
-			relationshipSchemaId: relSchema.id,
-		});
-
-		const ratingRef = {
-			type: "reference" as const,
-			reference: {
-				joinKey: "sortRatingRel",
-				path: ["properties", "rating"],
-				type: "relationship-join" as const,
-			},
-		};
-
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			mode: "entities",
-			computedFields: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 50 },
-			sort: { direction: "asc", expression: ratingRef },
-			relationshipJoins: [
-				buildLatestRelationshipJoin({
-					required: true,
-					key: "sortRatingRel",
-					direction: "outgoing",
-					relationshipSchemaSlug: relSchema.slug,
-				}),
-			],
-			fields: [
-				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
-				buildQueryEngineField("rating", [
-					relationshipJoinField("sortRatingRel", "properties", "rating"),
-				]),
-			],
-			filter: {
-				type: "or",
-				predicates: [
-					{
-						operator: "eq",
-						type: "comparison",
-						right: literalExpression(nameLow),
-						left: createEntityColumnExpression(schema.slug, "name"),
-					},
-					{
-						operator: "eq",
-						type: "comparison",
-						right: literalExpression(nameHigh),
-						left: createEntityColumnExpression(schema.slug, "name"),
-					},
-				],
-			},
-		});
-
-		expect(data.data.items).toHaveLength(2);
-		expect(getQueryEngineFieldOrThrow(data.data.items[0], "rating").value).toBe(2);
-		expect(getQueryEngineFieldOrThrow(data.data.items[1], "rating").value).toBe(9);
-	});
-
-	it("filters by a relationship property using a comparison operator", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, {
-			name: "Rel Filter Tracker",
-		});
-		const schema = await createEntitySchema(client, {
-			trackerId,
-			name: "Rel Filter Entity",
-			propertiesSchema: {
-				fields: { title: { type: "string", label: "Title", description: "Title" } },
-			},
-		});
-		const relSchema = await createRelationshipSchema(client, {
-			name: "Filter Rating Rel",
-			slug: `filter-rating-rel-${crypto.randomUUID()}`,
-			propertiesSchema: {
-				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
-			},
-		});
-		const nameA = `Filter A ${crypto.randomUUID()}`;
-		const nameB = `Filter B ${crypto.randomUUID()}`;
-		const nameC = `Filter C ${crypto.randomUUID()}`;
-		const targetId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			entitySchemaId: schema.schemaId,
-			name: `Filter Target ${crypto.randomUUID()}`,
-		});
-		const idA = await createQueryEngineEntity({
-			client,
-			name: nameA,
-			image: null,
-			properties: {},
-			entitySchemaId: schema.schemaId,
-		});
-		const idB = await createQueryEngineEntity({
-			client,
-			name: nameB,
-			image: null,
-			properties: {},
-			entitySchemaId: schema.schemaId,
-		});
-		const idC = await createQueryEngineEntity({
-			client,
-			name: nameC,
-			image: null,
-			properties: {},
-			entitySchemaId: schema.schemaId,
-		});
-		await insertRelationshipRow(client, {
-			sourceEntityId: idA,
-			targetEntityId: targetId,
-			properties: { rating: 3 },
-			relationshipSchemaId: relSchema.id,
-		});
-		await insertRelationshipRow(client, {
-			sourceEntityId: idB,
-			targetEntityId: targetId,
-			properties: { rating: 7 },
-			relationshipSchemaId: relSchema.id,
-		});
-		await insertRelationshipRow(client, {
-			sourceEntityId: idC,
-			targetEntityId: targetId,
-			properties: { rating: 10 },
-			relationshipSchemaId: relSchema.id,
-		});
-
-		const ratingRef = {
-			type: "reference" as const,
-			reference: {
-				joinKey: "filterRatingRel",
-				path: ["properties", "rating"],
-				type: "relationship-join" as const,
-			},
-		};
-
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			mode: "entities",
-			computedFields: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 50 },
-			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
-			relationshipJoins: [
-				buildLatestRelationshipJoin({
-					required: true,
-					direction: "outgoing",
-					key: "filterRatingRel",
-					relationshipSchemaSlug: relSchema.slug,
-				}),
-			],
-			fields: [
-				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
-				buildQueryEngineField("rating", [
-					relationshipJoinField("filterRatingRel", "properties", "rating"),
-				]),
-			],
-			filter: {
-				type: "and",
-				predicates: [
-					{
-						operator: "gte",
-						left: ratingRef,
-						type: "comparison",
-						right: literalExpression(7),
-					},
-					{
-						type: "or",
-						predicates: [
-							{
-								operator: "eq",
-								type: "comparison",
-								right: literalExpression(nameA),
-								left: createEntityColumnExpression(schema.slug, "name"),
-							},
-							{
-								operator: "eq",
-								type: "comparison",
-								right: literalExpression(nameB),
-								left: createEntityColumnExpression(schema.slug, "name"),
-							},
-							{
-								operator: "eq",
-								type: "comparison",
-								right: literalExpression(nameC),
-								left: createEntityColumnExpression(schema.slug, "name"),
-							},
-						],
-					},
-				],
-			},
-		});
-
-		const ratings = data.data.items.map((i) => getQueryEngineFieldOrThrow(i, "rating").value);
-		expect(ratings).toContain(7);
-		expect(ratings).toContain(10);
-		expect(ratings).not.toContain(3);
-	});
-
-	it("filters by a relationship array property using contains", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, {
-			name: "Rel Array Filter Tracker",
-		});
-		const schema = await createEntitySchema(client, {
-			trackerId,
-			name: "Rel Array Filter Entity",
-			propertiesSchema: {
-				fields: { title: { type: "string", label: "Title", description: "Title" } },
-			},
-		});
-		const relSchema = await createRelationshipSchema(client, {
-			name: "Roles Rel",
-			slug: `roles-rel-${crypto.randomUUID()}`,
+const createCourseLessonFilterFixture = async () => {
+	const { client } = await createAuthenticatedClient();
+	const { schemaId: courseSchemaId, slug: courseSlug } = await createQueryEngineTrackerAndSchema(
+		client,
+		{
+			schemaName: "FilterCourse",
+		},
+	);
+	const { schemaId: moduleSchemaId, slug: moduleSlug } = await createQueryEngineTrackerAndSchema(
+		client,
+		{
+			schemaName: "FilterModule",
+		},
+	);
+	const { schemaId: lessonSchemaId, slug: lessonSlug } = await createQueryEngineTrackerAndSchema(
+		client,
+		{
+			schemaName: "FilterLesson",
 			propertiesSchema: {
 				fields: {
-					roles: {
-						type: "array",
-						label: "Roles",
-						description: "Roles",
-						items: { type: "string", label: "Role", description: "Role" },
+					durationMinutes: {
+						type: "integer",
+						label: "Duration Minutes",
+						description: "Lesson duration in minutes",
 					},
 				},
 			},
-		});
-		const directorName = `Director Entity ${crypto.randomUUID()}`;
-		const actorName = `Actor Entity ${crypto.randomUUID()}`;
-		const targetId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			entitySchemaId: schema.schemaId,
-			name: `Roles Target ${crypto.randomUUID()}`,
-		});
-		const directorId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			name: directorName,
-			entitySchemaId: schema.schemaId,
-		});
-		const actorId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			name: actorName,
-			entitySchemaId: schema.schemaId,
-		});
-		await insertRelationshipRow(client, {
-			targetEntityId: targetId,
-			sourceEntityId: directorId,
-			relationshipSchemaId: relSchema.id,
-			properties: { roles: ["director"] },
-		});
-		await insertRelationshipRow(client, {
-			sourceEntityId: actorId,
-			targetEntityId: targetId,
-			properties: { roles: ["actor"] },
-			relationshipSchemaId: relSchema.id,
-		});
-
-		const rolesRef = {
-			type: "reference" as const,
-			reference: {
-				joinKey: "rolesRel",
-				path: ["properties", "roles"],
-				type: "relationship-join" as const,
-			},
-		};
-
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			mode: "entities",
-			computedFields: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 50 },
-			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
-			relationshipJoins: [
-				buildLatestRelationshipJoin({
-					required: true,
-					key: "rolesRel",
-					direction: "outgoing",
-					relationshipSchemaSlug: relSchema.slug,
-				}),
-			],
-			fields: [buildQueryEngineField("title", [entityField(schema.slug, "name")])],
-			filter: {
-				type: "and",
-				predicates: [
-					{
-						type: "contains",
-						expression: rolesRef,
-						value: literalExpression("director"),
-					},
-					{
-						type: "or",
-						predicates: [
-							{
-								operator: "eq",
-								type: "comparison",
-								right: literalExpression(directorName),
-								left: createEntityColumnExpression(schema.slug, "name"),
-							},
-							{
-								operator: "eq",
-								type: "comparison",
-								right: literalExpression(actorName),
-								left: createEntityColumnExpression(schema.slug, "name"),
-							},
-						],
-					},
-				],
-			},
-		});
-
-		const titles = data.data.items.map((i) => getQueryEngineFieldOrThrow(i, "title").value);
-		expect(titles).toContain(directorName);
-		expect(titles).not.toContain(actorName);
+		},
+	);
+	const completeSlug = `filter-complete-${crypto.randomUUID()}`;
+	const completeSchema = await createEventSchema(client, {
+		slug: completeSlug,
+		name: "Filter Complete",
+		entitySchemaId: lessonSchemaId,
+		propertiesSchema: {
+			fields: { note: { type: "string", label: "Note", description: "Completion note" } },
+		},
+	});
+	const courseModuleSlug = `filter-course-module-${crypto.randomUUID()}`;
+	const moduleLessonSlug = `filter-module-lesson-${crypto.randomUUID()}`;
+	const courseModuleSchema = await createRelationshipSchema(client, {
+		slug: courseModuleSlug,
+		name: "Filter Course Module",
+		propertiesSchema: { fields: {} },
+		targetEntitySchemaId: moduleSchemaId,
+		sourceEntitySchemaId: courseSchemaId,
+	});
+	const moduleLessonSchema = await createRelationshipSchema(client, {
+		slug: moduleLessonSlug,
+		name: "Filter Module Lesson",
+		propertiesSchema: { fields: {} },
+		targetEntitySchemaId: lessonSchemaId,
+		sourceEntitySchemaId: moduleSchemaId,
 	});
 
-	it("join-local filter selects from pre-filtered rows, not latest overall", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, {
-			name: "Join Local Filter Tracker",
-		});
-		const schema = await createEntitySchema(client, {
-			trackerId,
-			name: "Join Local Filter Entity",
-			propertiesSchema: {
-				fields: { title: { type: "string", label: "Title", description: "Title" } },
-			},
-		});
-		const relSchema = await createRelationshipSchema(client, {
-			name: "Local Filter Rel",
-			slug: `local-filter-rel-${crypto.randomUUID()}`,
-			propertiesSchema: {
-				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
-			},
-		});
-		const entityName = `Local Filter Entity ${crypto.randomUUID()}`;
-		const entityId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			name: entityName,
-			entitySchemaId: schema.schemaId,
-		});
-		const target1Id = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			entitySchemaId: schema.schemaId,
-			name: `Local Filter Target 1 ${crypto.randomUUID()}`,
-		});
-		const target2Id = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			entitySchemaId: schema.schemaId,
-			name: `Local Filter Target 2 ${crypto.randomUUID()}`,
-		});
-		const rel1 = await insertRelationshipRow(client, {
-			sourceEntityId: entityId,
-			targetEntityId: target1Id,
-			properties: { rating: 1 },
-			relationshipSchemaId: relSchema.id,
-		});
-		await getPgClient().query(`update relationship set created_at = $1 where id = $2`, [
-			new Date(Date.now() - 10000).toISOString(),
-			rel1.id,
-		]);
-		await insertRelationshipRow(client, {
-			sourceEntityId: entityId,
-			targetEntityId: target2Id,
-			properties: { rating: 5 },
-			relationshipSchemaId: relSchema.id,
-		});
-
-		const localFilterRef = {
-			type: "reference" as const,
-			reference: {
-				joinKey: "localFilterRel",
-				path: ["properties", "rating"],
-				type: "relationship-join" as const,
-			},
-		};
-
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			mode: "entities",
-			computedFields: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 10 },
-			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
-			relationshipJoins: [
-				buildLatestRelationshipJoin({
-					required: true,
-					key: "localFilterRel",
-					direction: "outgoing",
-					relationshipSchemaSlug: relSchema.slug,
-					filter: {
-						operator: "eq",
-						type: "comparison",
-						left: localFilterRef,
-						right: literalExpression(1),
-					},
-				}),
-			],
-			fields: [
-				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
-				buildQueryEngineField("rating", [
-					relationshipJoinField("localFilterRel", "properties", "rating"),
-				]),
-			],
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				right: literalExpression(entityName),
-				left: createEntityColumnExpression(schema.slug, "name"),
-			},
-		});
-
-		expect(data.data.items).toHaveLength(1);
-		expect(getQueryEngineFieldOrThrow(data.data.items[0], "rating")).toEqual({
-			value: 1,
-			key: "rating",
-			kind: "number",
-		});
-	});
-
-	it("sourceEntityId constraint filters relationship rows to a specific source", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, {
-			name: "Source Entity Id Tracker",
-		});
-		const entitySchema = await createEntitySchema(client, {
-			trackerId,
-			name: "Source Entity Id Entity",
-			propertiesSchema: {
-				fields: { title: { type: "string", label: "Title", description: "Title" } },
-			},
-		});
-		const relSchema = await createRelationshipSchema(client, {
-			name: "Source Id Rel",
-			propertiesSchema: { fields: {} },
-			slug: `source-id-rel-${crypto.randomUUID()}`,
-		});
-		const memberName = `Source Member ${crypto.randomUUID()}`;
-		const memberId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			name: memberName,
-			entitySchemaId: entitySchema.schemaId,
-		});
-		const collBName = `Source Coll B ${crypto.randomUUID()}`;
-		const collBId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			name: collBName,
-			entitySchemaId: entitySchema.schemaId,
-		});
-		const collCId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			entitySchemaId: entitySchema.schemaId,
-			name: `Source Coll C ${crypto.randomUUID()}`,
-		});
-		await insertRelationshipRow(client, {
-			targetEntityId: collBId,
-			sourceEntityId: memberId,
-			relationshipSchemaId: relSchema.id,
-		});
-		await insertRelationshipRow(client, {
-			targetEntityId: collCId,
-			sourceEntityId: memberId,
-			relationshipSchemaId: relSchema.id,
-		});
-
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			mode: "entities",
-			computedFields: [],
-			scope: [entitySchema.slug],
-			pagination: { page: 1, limit: 50 },
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(entitySchema.slug, "name"),
-			},
-			relationshipJoins: [
-				buildLatestRelationshipJoin({
-					required: true,
-					key: "sourceIdRel",
-					direction: "outgoing",
-					targetEntityId: collBId,
-					relationshipSchemaSlug: relSchema.slug,
-				}),
-			],
-			fields: [
-				buildQueryEngineField("title", [entityField(entitySchema.slug, "name")]),
-				buildQueryEngineField("targetId", [relationshipJoinField("sourceIdRel", "targetEntityId")]),
-			],
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				left: createEntityColumnExpression(entitySchema.slug, "name"),
-				right: literalExpression(memberName),
-			},
-		});
-
-		expect(data.data.items).toHaveLength(1);
-		expect(getQueryEngineFieldOrThrow(data.data.items[0], "targetId")).toEqual({
-			kind: "text",
-			value: collBId,
-			key: "targetId",
-		});
-	});
-
-	it("targetEntityId constraint returns entity with the correct relationship target", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, {
-			name: "Target Entity Id Tracker",
-		});
-		const entitySchema = await createEntitySchema(client, {
-			trackerId,
-			name: "Target Entity Id Entity",
-			propertiesSchema: {
-				fields: { title: { type: "string", label: "Title", description: "Title" } },
-			},
-		});
-		const relSchema = await createRelationshipSchema(client, {
-			name: "Target Id Rel",
-			propertiesSchema: { fields: {} },
-			slug: `target-id-rel-${crypto.randomUUID()}`,
-		});
-		const memberName = `Target Member ${crypto.randomUUID()}`;
-		const memberId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			name: memberName,
-			entitySchemaId: entitySchema.schemaId,
-		});
-		const collBId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			entitySchemaId: entitySchema.schemaId,
-			name: `Target Coll B ${crypto.randomUUID()}`,
-		});
-		const collCId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			entitySchemaId: entitySchema.schemaId,
-			name: `Target Coll C ${crypto.randomUUID()}`,
-		});
-		await insertRelationshipRow(client, {
-			targetEntityId: collBId,
-			sourceEntityId: memberId,
-			relationshipSchemaId: relSchema.id,
-		});
-		await insertRelationshipRow(client, {
-			targetEntityId: collCId,
-			sourceEntityId: memberId,
-			relationshipSchemaId: relSchema.id,
-		});
-
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			mode: "entities",
-			computedFields: [],
-			scope: [entitySchema.slug],
-			pagination: { page: 1, limit: 50 },
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(entitySchema.slug, "name"),
-			},
-			relationshipJoins: [
-				buildLatestRelationshipJoin({
-					required: true,
-					key: "targetIdRel",
-					direction: "outgoing",
-					targetEntityId: collCId,
-					relationshipSchemaSlug: relSchema.slug,
-				}),
-			],
-			fields: [
-				buildQueryEngineField("title", [entityField(entitySchema.slug, "name")]),
-				buildQueryEngineField("targetId", [relationshipJoinField("targetIdRel", "targetEntityId")]),
-			],
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				right: literalExpression(memberName),
-				left: createEntityColumnExpression(entitySchema.slug, "name"),
-			},
-		});
-
-		expect(data.data.items).toHaveLength(1);
-		expect(getQueryEngineFieldOrThrow(data.data.items[0], "targetId")).toEqual({
-			kind: "text",
-			value: collCId,
-			key: "targetId",
-		});
-	});
-
-	it("incoming direction returns the collection entity when a member entity is added", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const collection = await createCollection(client, {
-			name: `Incoming Dir Collection ${crypto.randomUUID()}`,
-		});
-
-		const { schema: collectionEntitySchema } = await findBuiltinSchemaBySlug(client, "collection");
-
-		const { trackerId } = await createTracker(client, {
-			name: "Incoming Dir Tracker",
-		});
-		const memberSchema = await createEntitySchema(client, {
-			trackerId,
-			name: "Incoming Dir Member",
-			propertiesSchema: {
-				fields: { title: { type: "string", label: "Title", description: "Title" } },
-			},
-		});
-		const memberName = `Incoming Member ${crypto.randomUUID()}`;
-		const memberId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			name: memberName,
-			entitySchemaId: memberSchema.schemaId,
-		});
-
-		await client.run((c) =>
-			c.collections.createMembership({
-				payload: { entityId: memberId, collectionId: collection.id },
-			}),
-		);
-
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			mode: "entities",
-			computedFields: [],
-			pagination: { page: 1, limit: 50 },
-			scope: [collectionEntitySchema.slug],
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(collectionEntitySchema.slug, "name"),
-			},
-			relationshipJoins: [
-				buildLatestRelationshipJoin({
-					required: true,
-					direction: "incoming",
-					key: "memberOfIncoming",
-					relationshipSchemaSlug: "member-of",
-				}),
-			],
-			fields: [buildQueryEngineField("title", [entityField(collectionEntitySchema.slug, "name")])],
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				right: literalExpression(collection.name),
-				left: createEntityColumnExpression(collectionEntitySchema.slug, "name"),
-			},
-		});
-
-		const titles = data.data.items.map((i) => getQueryEngineFieldOrThrow(i, "title").value);
-		expect(titles).toContain(collection.name);
-	});
-
-	it("returns related entity built-in targetEntity.name as a display field", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const collectionName = `Target Name Collection ${crypto.randomUUID()}`;
-		const collection = await createCollection(client, { name: collectionName });
-
-		const { trackerId } = await createTracker(client, {
-			name: "Target Name Tracker",
-		});
-		const schema = await createEntitySchema(client, {
-			trackerId,
-			name: "Target Name Entity",
-			propertiesSchema: {
-				fields: { title: { type: "string", label: "Title", description: "Title" } },
-			},
-		});
-		const entityName = `Target Name Member ${crypto.randomUUID()}`;
-		const entityId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			name: entityName,
-			entitySchemaId: schema.schemaId,
-		});
-
-		await client.run((c) =>
-			c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
-		);
-
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			mode: "entities",
-			computedFields: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 10 },
-			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
-			relationshipJoins: [
-				buildRequiredLatestRelationshipJoin({
-					key: "memberOfRel",
-					direction: "outgoing",
-					relationshipSchemaSlug: "member-of",
-				}),
-			],
-			fields: [
-				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
-				buildQueryEngineField("collectionName", [
-					relationshipJoinField("memberOfRel", "targetEntity", "name"),
-				]),
-			],
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				right: literalExpression(entityName),
-				left: createEntityColumnExpression(schema.slug, "name"),
-			},
-		});
-
-		expect(data.data.items).toHaveLength(1);
-		expect(getQueryEngineFieldOrThrow(data.data.items[0], "collectionName")).toEqual({
-			kind: "text",
-			key: "collectionName",
-			value: collectionName,
-		});
-	});
-
-	it("sorts by related entity built-in targetEntity.name", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const zCollection = await createCollection(client, {
-			name: `Zulu Sort Collection ${crypto.randomUUID()}`,
-		});
-		const aCollection = await createCollection(client, {
-			name: `Alpha Sort Collection ${crypto.randomUUID()}`,
-		});
-
-		const { trackerId } = await createTracker(client, {
-			name: "Target Name Sort Tracker",
-		});
-		const schema = await createEntitySchema(client, {
-			trackerId,
-			name: "Target Name Sort Entity",
-			propertiesSchema: {
-				fields: { title: { type: "string", label: "Title", description: "Title" } },
-			},
-		});
-		const zEntityName = `Target Name Z Member ${crypto.randomUUID()}`;
-		const aEntityName = `Target Name A Member ${crypto.randomUUID()}`;
-		const zEntityId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			name: zEntityName,
-			entitySchemaId: schema.schemaId,
-		});
-		const aEntityId = await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			name: aEntityName,
-			entitySchemaId: schema.schemaId,
-		});
-
-		const membershipPairs = [
-			[zEntityId, zCollection.id],
-			[aEntityId, aCollection.id],
-		] as const;
+	const createCourse = async (
+		name: string,
+		lessons: readonly { durationMinutes: number; complete: boolean }[],
+	) => {
+		const course = await createQueryEngineEntity(client, { name, entitySchemaId: courseSchemaId });
 		await Promise.all(
-			membershipPairs.map(([entityId, collectionId]) =>
-				client.run((c) => c.collections.createMembership({ payload: { entityId, collectionId } })),
-			),
+			lessons.map(async (lessonInput, index) => {
+				const [module, lesson] = await Promise.all([
+					createQueryEngineEntity(client, {
+						entitySchemaId: moduleSchemaId,
+						name: `${name} Module ${index + 1}`,
+					}),
+					createQueryEngineEntity(client, {
+						entitySchemaId: lessonSchemaId,
+						name: `${name} Lesson ${index + 1}`,
+						properties: { durationMinutes: lessonInput.durationMinutes },
+					}),
+				]);
+				await Promise.all([
+					createRelationship(client, {
+						targetEntityId: module.id,
+						sourceEntityId: course.id,
+						relationshipSchemaId: courseModuleSchema.id,
+					}),
+					createRelationship(client, {
+						targetEntityId: lesson.id,
+						sourceEntityId: module.id,
+						relationshipSchemaId: moduleLessonSchema.id,
+					}),
+				]);
+				if (lessonInput.complete) {
+					await createQueryEngineEvent(client, {
+						entityId: lesson.id,
+						eventSchemaId: completeSchema.id,
+					});
+				}
+			}),
 		);
+	};
 
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			mode: "entities",
-			computedFields: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 10 },
-			sort: {
-				direction: "asc",
-				expression: {
-					type: "reference",
-					reference: {
-						joinKey: "memberOfRel",
-						type: "relationship-join",
-						path: ["targetEntity", "name"],
+	await createCourse("Advanced Course", [
+		{ complete: true, durationMinutes: 35 },
+		{ complete: true, durationMinutes: 65 },
+	]);
+	await createCourse("Short Course", [{ complete: true, durationMinutes: 30 }]);
+	await createCourse("Long Incomplete Course", [{ complete: false, durationMinutes: 90 }]);
+
+	return {
+		client,
+		courseSlug,
+		moduleSlug,
+		lessonSlug,
+		completeSlug,
+		moduleLessonSlug,
+		courseModuleSlug,
+	};
+};
+
+describe("Query Engine E2E", () => {
+	describe("Single-schema entity rows query", () => {
+		it("returns entities with system field values", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "Course",
+				propertiesSchema: {
+					fields: {
+						difficulty: { type: "string", label: "Difficulty", description: "Difficulty level" },
 					},
 				},
-			},
-			relationshipJoins: [
-				buildRequiredLatestRelationshipJoin({
-					key: "memberOfRel",
-					direction: "outgoing",
-					relationshipSchemaSlug: "member-of",
-				}),
-			],
-			fields: [
-				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
-				buildQueryEngineField("collectionName", [
-					relationshipJoinField("memberOfRel", "targetEntity", "name"),
-				]),
-			],
-			filter: null,
+			});
+
+			await createQueryEngineEntity(client, {
+				entitySchemaId: schemaId,
+				name: "Advanced TypeScript",
+				properties: { difficulty: "advanced" },
+			});
+			await createQueryEngineEntity(client, {
+				name: "Beginner Rust",
+				entitySchemaId: schemaId,
+				properties: { difficulty: "beginner" },
+			});
+
+			const doc = buildRowsDoc({
+				alias: "course",
+				schemas: [slug],
+				fields: [
+					{ key: "name", expr: systemRef("course", "name") },
+					{ key: "id", expr: systemRef("course", "id") },
+				],
+			});
+
+			const result = await executeQueryEngine(client, doc);
+
+			expect(result.type).toBe("rows");
+			expect(result.data.items).toHaveLength(2);
+
+			const names = result.data.items.map(
+				(item) => requireQueryEngineFieldValue(item, "name").value,
+			);
+			expect(names).toContain("Advanced TypeScript");
+			expect(names).toContain("Beginner Rust");
+
+			for (const item of result.data.items) {
+				expect(requireQueryEngineFieldValue(item, "name").kind).toBe("text");
+				expect(requireQueryEngineFieldValue(item, "id").kind).toBe("text");
+				expect(typeof requireQueryEngineFieldValue(item, "id").value).toBe("string");
+			}
 		});
 
-		expect(data.data.items.map((item) => getItemFieldValue(item, "title"))).toEqual([
-			aEntityName,
-			zEntityName,
-		]);
-		expect(data.data.items.map((item) => getItemFieldValue(item, "collectionName"))).toEqual([
-			aCollection.name,
-			zCollection.name,
-		]);
+		it("returns property field values for matching schema", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "Book",
+				propertiesSchema: {
+					fields: { author: { type: "string", label: "Author", description: "Book author" } },
+				},
+			});
+
+			await createQueryEngineEntity(client, {
+				name: "Clean Code",
+				entitySchemaId: schemaId,
+				properties: { author: "Robert Martin" },
+			});
+
+			const doc = buildRowsDoc({
+				alias: "book",
+				schemas: [slug],
+				fields: [
+					{ key: "name", expr: systemRef("book", "name") },
+					{ key: "author", expr: propertyRef("book", slug, "author") },
+				],
+			});
+
+			const result = await executeQueryEngine(client, doc);
+
+			expect(result.data.items).toHaveLength(1);
+			const item = result.data.items[0];
+			assertPresent(item, "Expected result item");
+			expect(requireQueryEngineFieldValue(item, "name").value).toBe("Clean Code");
+			expect(requireQueryEngineFieldValue(item, "author").value).toBe("Robert Martin");
+			expect(requireQueryEngineFieldValue(item, "author").kind).toBe("text");
+		});
+
+		it("returns schema metadata fields", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "TaggedCourse",
+			});
+
+			await createQueryEngineEntity(client, { name: "First Course", entitySchemaId: schemaId });
+
+			const doc = buildRowsDoc({
+				alias: "c",
+				schemas: [slug],
+				fields: [
+					{ key: "schemaSlug", expr: schemaMetaRef("c", "slug") },
+					{ key: "schemaName", expr: schemaMetaRef("c", "name") },
+				],
+			});
+
+			const result = await executeQueryEngine(client, doc);
+
+			expect(result.data.items).toHaveLength(1);
+			const item = result.data.items[0];
+			assertPresent(item, "Expected result item");
+			expect(requireQueryEngineFieldValue(item, "schemaSlug").value).toBe(slug);
+			expect(requireQueryEngineFieldValue(item, "schemaName").value).toBe("TaggedCourse");
+		});
 	});
 
-	it("rejects a relationship-join reference in events mode", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, {
-			name: "Events Mode Rel Join Rejection Tracker",
-		});
-		const schema = await createEntitySchema(client, {
-			trackerId,
-			name: "Events Mode Rel Join Entity",
-			propertiesSchema: {
-				fields: { title: { type: "string", label: "Title", description: "Title" } },
-			},
-		});
-		const eventSchema = await createEventSchema(client, {
-			name: "Test Event",
-			slug: "test-event",
-			entitySchemaId: schema.schemaId,
-			propertiesSchema: {
-				fields: { note: { type: "string", label: "Note", description: "Note" } },
-			},
-		});
-
-		const error = await client.runError((c) =>
-			c.queryEngine.execute({
-				payload: {
-					mode: "events",
-					scope: [schema.slug],
-					eventSchemas: [eventSchema.slug],
-					pagination: { page: 1, limit: 10 },
-					sort: {
-						direction: "asc",
-						expression: createEntityColumnExpression(schema.slug, "name"),
+	describe("Multi-schema property query", () => {
+		it("returns null for property fields that do not match the row's schema", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId: bookSchemaId, slug: bookSlug } = await createQueryEngineTrackerAndSchema(
+				client,
+				{
+					schemaName: "MultiBook",
+					propertiesSchema: {
+						fields: { author: { type: "string", label: "Author", description: "Book author" } },
 					},
-					fields: [
-						{
-							key: "relField",
-							expression: {
-								type: "reference",
-								reference: {
-									joinKey: "someRel",
-									path: ["createdAt"],
-									type: "relationship-join",
-								},
-							},
-						},
-					],
 				},
-			}),
-		);
-
-		assertTaggedError(error, "BadRequest");
-	});
-
-	it("rejects join-local filter referencing a computed field", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, {
-			name: "Local Filter Computed Rejection Tracker",
-		});
-		const schema = await createEntitySchema(client, {
-			trackerId,
-			name: "Local Filter Computed Entity",
-			propertiesSchema: {
-				fields: { title: { type: "string", label: "Title", description: "Title" } },
-			},
-		});
-		const relSchema = await createRelationshipSchema(client, {
-			name: "Computed Filter Rel",
-			propertiesSchema: { fields: {} },
-			slug: `computed-filter-rel-${crypto.randomUUID()}`,
-		});
-
-		const error = await client.runError((c) =>
-			c.queryEngine.execute({
-				payload: {
-					eventJoins: [],
-					mode: "entities",
-					scope: [schema.slug],
-					pagination: { page: 1, limit: 10 },
-					sort: {
-						direction: "asc",
-						expression: createEntityColumnExpression(schema.slug, "name"),
+			);
+			const { schemaId: movieSchemaId, slug: movieSlug } = await createQueryEngineTrackerAndSchema(
+				client,
+				{
+					schemaName: "MultiMovie",
+					propertiesSchema: {
+						fields: {
+							director: { type: "string", label: "Director", description: "Movie director" },
+						},
 					},
-					computedFields: [
-						{
-							key: "computedTitle",
-							expression: createEntityColumnExpression(schema.slug, "name"),
-						},
-					],
-					relationshipJoins: [
-						{
-							required: false,
-							direction: "outgoing",
-							key: "computedFilterRel",
-							kind: "latestRelationship",
-							relationshipSchemaSlug: relSchema.slug,
-							filter: {
-								operator: "eq",
-								type: "comparison",
-								right: literalExpression("test"),
-								left: {
-									type: "reference",
-									reference: { key: "computedTitle", type: "computed-field" },
-								},
-							},
-						},
-					],
-					fields: [buildQueryEngineField("title", [entityField(schema.slug, "name")])],
 				},
-			}),
-		);
+			);
 
-		assertTaggedError(error, "BadRequest");
-	});
+			await createQueryEngineEntity(client, {
+				name: "A Great Book",
+				entitySchemaId: bookSchemaId,
+				properties: { author: "Author A" },
+			});
+			await createQueryEngineEntity(client, {
+				name: "A Great Movie",
+				entitySchemaId: movieSchemaId,
+				properties: { director: "Director B" },
+			});
 
-	it("executes a simple single-schema query with the full response shape", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, buildGridRequest({ scope: [schema.slug] }));
-		const result = data.data;
-		const firstItem = result.items[0];
+			const doc = buildRowsDoc({
+				alias: "media",
+				schemas: [bookSlug, movieSlug],
+				fields: [
+					{ key: "name", expr: systemRef("media", "name") },
+					{ key: "author", expr: propertyRef("media", bookSlug, "author") },
+					{ key: "director", expr: propertyRef("media", movieSlug, "director") },
+				],
+			});
 
-		expect(result.items).toHaveLength(5);
-		expect(getItemFieldValue(firstItem, "title")).toBe("Alpha Phone");
-		expect(getItemFieldValue(firstItem, "image")).toEqual({
-			type: "remote",
-			url: "https://example.com/alpha-phone.png",
-		});
-		expect(getQueryEngineFieldOrThrow(firstItem, "callout")).toEqual({
-			kind: "text",
-			value: "phone",
-			key: "callout",
-		});
-		expect(getQueryEngineFieldOrThrow(firstItem, "primarySubtitle")).toEqual({
-			value: 2018,
-			kind: "number",
-			key: "primarySubtitle",
-		});
-		expect(getQueryEngineFieldOrThrow(firstItem, "secondarySubtitle")).toEqual({
-			value: null,
-			kind: "null",
-			key: "secondarySubtitle",
-		});
-		expect(getQueryEngineFieldOrThrow(firstItem, "title")).toEqual({
-			key: "title",
-			kind: "text",
-			value: "Alpha Phone",
-		});
-		expect(getQueryEngineFieldOrThrow(firstItem, "image")).toEqual({
-			key: "image",
-			kind: "image",
-			value: { type: "remote", url: "https://example.com/alpha-phone.png" },
-		});
-		expect(result.meta.pagination).toEqual({
-			page: 1,
-			total: 5,
-			limit: 10,
-			totalPages: 1,
-			hasNextPage: false,
-			hasPreviousPage: false,
+			const result = await executeQueryEngine(client, doc);
+
+			expect(result.data.items).toHaveLength(2);
+
+			const bookItem = result.data.items.find(
+				(item) => requireQueryEngineFieldValue(item, "name").value === "A Great Book",
+			);
+			const movieItem = result.data.items.find(
+				(item) => requireQueryEngineFieldValue(item, "name").value === "A Great Movie",
+			);
+
+			assertPresent(bookItem, "Expected bookItem");
+			assertPresent(movieItem, "Expected movieItem");
+
+			expect(requireQueryEngineFieldValue(bookItem, "author").value).toBe("Author A");
+			expect(requireQueryEngineFieldValue(bookItem, "director").kind).toBe("null");
+
+			expect(requireQueryEngineFieldValue(movieItem, "director").value).toBe("Director B");
+			expect(requireQueryEngineFieldValue(movieItem, "author").kind).toBe("null");
 		});
 	});
 
-	it("executes aggregate mode counts and numeric aggregations inside the filtered set", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
+	describe("Pagination", () => {
+		it("returns correct pagination metadata for multiple pages", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "PaginatedItem",
+			});
 
-		const data = await client.run((c) =>
-			c.queryEngine.execute({
-				payload: {
-					eventJoins: [],
-					mode: "aggregate",
-					computedFields: [],
-					scope: [schema.slug],
-					relationshipJoins: [],
-					filter: {
-						type: "in",
-						expression: createEntityPropertyExpression(schema.slug, "category"),
-						values: [literalExpression("phone"), literalExpression("wearable")],
-					},
-					aggregations: [
-						{ key: "total", aggregation: { type: "count" } },
-						{
-							key: "recent",
-							aggregation: {
-								type: "countWhere",
-								predicate: {
-									operator: "gte",
-									type: "comparison",
-									right: literalExpression(2020),
-									left: createEntityPropertyExpression(schema.slug, "year"),
-								},
-							},
-						},
-						{
-							key: "sumYear",
-							aggregation: {
-								type: "sum",
-								expression: createEntityPropertyExpression(schema.slug, "year"),
-							},
-						},
-						{
-							key: "avgYear",
-							aggregation: {
-								type: "avg",
-								expression: createEntityPropertyExpression(schema.slug, "year"),
-							},
-						},
-						{
-							key: "minYear",
-							aggregation: {
-								type: "min",
-								expression: createEntityPropertyExpression(schema.slug, "year"),
-							},
-						},
-						{
-							key: "maxYear",
-							aggregation: {
-								type: "max",
-								expression: createEntityPropertyExpression(schema.slug, "year"),
-							},
-						},
-					],
-				},
-			}),
-		);
-
-		expect(data.mode).toBe("aggregate");
-		const values = data.mode === "aggregate" ? data.data.values : [];
-		expect(getAggregateValue(values, "total")).toEqual({
-			value: 3,
-			key: "total",
-			kind: "number",
-		});
-		expect(getAggregateValue(values, "recent")).toEqual({
-			value: 2,
-			key: "recent",
-			kind: "number",
-		});
-		expect(getAggregateValue(values, "sumYear")).toEqual({
-			value: 6059,
-			key: "sumYear",
-			kind: "number",
-		});
-		expect(getAggregateValue(values, "minYear")).toEqual({
-			value: 2018,
-			key: "minYear",
-			kind: "number",
-		});
-		expect(getAggregateValue(values, "maxYear")).toEqual({
-			value: 2021,
-			key: "maxYear",
-			kind: "number",
-		});
-		expect(Number(getAggregateValue(values, "avgYear")?.value)).toBeCloseTo(2019.6666666667, 6);
-	});
-
-	it("returns countBy maps and SQL empty-set defaults in aggregate mode", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-
-		const aggregateResult = await client.run((c) =>
-			c.queryEngine.execute({
-				payload: {
-					filter: null,
-					eventJoins: [],
-					mode: "aggregate",
-					computedFields: [],
-					scope: [schema.slug],
-					relationshipJoins: [],
-					aggregations: [
-						{
-							key: "byCategory",
-							aggregation: {
-								type: "countBy",
-								groupBy: createEntityPropertyExpression(schema.slug, "category"),
-							},
-						},
-					],
-				},
-			}),
-		);
-
-		const aggregateValues = aggregateResult.mode === "aggregate" ? aggregateResult.data.values : [];
-		expect(getAggregateValue(aggregateValues, "byCategory")).toEqual({
-			key: "byCategory",
-			kind: "json",
-			value: { phone: 2, tablet: 1, wearable: 1 },
-		});
-
-		const emptyResult = await client.run((c) =>
-			c.queryEngine.execute({
-				payload: {
-					eventJoins: [],
-					mode: "aggregate",
-					computedFields: [],
-					scope: [schema.slug],
-					relationshipJoins: [],
-					filter: {
-						operator: "eq",
-						type: "comparison",
-						right: literalExpression("Missing Device"),
-						left: createEntityColumnExpression(schema.slug, "name"),
-					},
-					aggregations: [
-						{ key: "total", aggregation: { type: "count" } },
-						{
-							key: "avgYear",
-							aggregation: {
-								type: "avg",
-								expression: createEntityPropertyExpression(schema.slug, "year"),
-							},
-						},
-						{
-							key: "byCategory",
-							aggregation: {
-								type: "countBy",
-								groupBy: createEntityPropertyExpression(schema.slug, "category"),
-							},
-						},
-					],
-				},
-			}),
-		);
-
-		const emptyValues = emptyResult.mode === "aggregate" ? emptyResult.data.values : [];
-		expect(getAggregateValue(emptyValues, "total")).toEqual({
-			value: 0,
-			key: "total",
-			kind: "number",
-		});
-		expect(getAggregateValue(emptyValues, "avgYear")).toEqual({
-			value: null,
-			kind: "null",
-			key: "avgYear",
-		});
-		expect(getAggregateValue(emptyValues, "byCategory")).toEqual({
-			value: {},
-			kind: "json",
-			key: "byCategory",
-		});
-	});
-
-	it("rejects non-numeric aggregate expressions at request time", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-
-		const error = await client.runError((c) =>
-			c.queryEngine.execute({
-				payload: {
-					filter: null,
-					eventJoins: [],
-					mode: "aggregate",
-					computedFields: [],
-					scope: [schema.slug],
-					relationshipJoins: [],
-					aggregations: [
-						{
-							key: "sumName",
-							aggregation: {
-								type: "sum",
-								expression: createEntityColumnExpression(schema.slug, "name"),
-							},
-						},
-					],
-				},
-			}),
-		);
-
-		assertTaggedError(error, "BadRequest");
-		expect(error.message).toContain("sum aggregation requires a numeric expression");
-	});
-
-	it("rejects non-numeric event-aggregate expressions at request time", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		await createEventSchema(client, {
-			name: "Review",
-			slug: "review",
-			entitySchemaId: schema.schemaId,
-			propertiesSchema: {
-				fields: { label: { type: "string", label: "Label", description: "Label" } },
-			},
-		});
-
-		const error = await executeQueryEngineError(client, {
-			filter: null,
-			eventJoins: [],
-			computedFields: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 5 },
-			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
-			fields: [
-				buildQueryEngineField(
-					"avgReviewLabel",
-					createEventAggregateExpression("review", "avg", ["properties", "label"]),
+			await Promise.all(
+				Array.from({ length: 5 }, (_, i) =>
+					createQueryEngineEntity(client, {
+						entitySchemaId: schemaId,
+						name: `Item ${String(i + 1).padStart(2, "0")}`,
+					}),
 				),
-			],
+			);
+
+			const doc = buildRowsDoc({
+				page: 1,
+				limit: 2,
+				alias: "item",
+				schemas: [slug],
+				fields: [{ key: "name", expr: systemRef("item", "name") }],
+			});
+
+			const result = await executeQueryEngine(client, doc);
+
+			expect(result.data.pageInfo.total).toBe(5);
+			expect(result.data.pageInfo.page).toBe(1);
+			expect(result.data.pageInfo.limit).toBe(2);
+			expect(result.data.pageInfo.hasMore).toBe(true);
+			expect(result.data.items).toHaveLength(2);
 		});
 
-		assertTaggedError(error, "BadRequest");
-		expect(error.message).toBe(
-			"avg event aggregate requires a numeric property, received 'string'",
-		);
+		it("returns hasMore=false on the last page", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "LastPageItem",
+			});
+
+			await createQueryEngineEntity(client, { name: "Only Item", entitySchemaId: schemaId });
+
+			const doc = buildRowsDoc({
+				page: 1,
+				limit: 10,
+				fields: [],
+				alias: "item",
+				schemas: [slug],
+			});
+
+			const result = await executeQueryEngine(client, doc);
+
+			expect(result.data.pageInfo.total).toBe(1);
+			expect(result.data.pageInfo.hasMore).toBe(false);
+		});
+
+		it("returns empty items and zero total for second page beyond results", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "SparseItem",
+			});
+
+			await createQueryEngineEntity(client, { name: "One Item", entitySchemaId: schemaId });
+
+			const doc = buildRowsDoc({
+				page: 2,
+				limit: 10,
+				fields: [],
+				alias: "item",
+				schemas: [slug],
+			});
+
+			const result = await executeQueryEngine(client, doc);
+
+			expect(result.data.pageInfo.total).toBe(0);
+			expect(result.data.items).toHaveLength(0);
+			expect(result.data.pageInfo.hasMore).toBe(false);
+		});
 	});
 
-	it("rejects primary event references in aggregate mode", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
+	describe("Relationship includes", () => {
+		it("returns one-hop entity includes with limit metadata", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId: courseSchemaId, slug: courseSlug } =
+				await createQueryEngineTrackerAndSchema(client, { schemaName: "IncludeCourse" });
+			const { schemaId: moduleSchemaId, slug: moduleSlug } =
+				await createQueryEngineTrackerAndSchema(client, {
+					schemaName: "IncludeModule",
+					propertiesSchema: {
+						fields: {
+							moduleNumber: { type: "integer", label: "Module Number", description: "Sort order" },
+						},
+					},
+				});
+			const relationshipSlug = `course-module-${crypto.randomUUID()}`;
+			const relationshipSchema = await createRelationshipSchema(client, {
+				name: "Course Module",
+				slug: relationshipSlug,
+				sourceEntitySchemaId: courseSchemaId,
+				targetEntitySchemaId: moduleSchemaId,
+				propertiesSchema: {
+					fields: {
+						position: { type: "integer", label: "Position", description: "Edge sort order" },
+					},
+				},
+			});
 
-		const error = await client.runError((c) =>
-			c.queryEngine.execute({
-				payload: {
-					filter: null,
-					eventJoins: [],
-					mode: "aggregate",
-					computedFields: [],
-					scope: [schema.slug],
-					relationshipJoins: [],
-					aggregations: [
+			const courseA = await createQueryEngineEntity(client, {
+				name: "Course A",
+				entitySchemaId: courseSchemaId,
+			});
+			const courseB = await createQueryEngineEntity(client, {
+				name: "Course B",
+				entitySchemaId: courseSchemaId,
+			});
+			const moduleOne = await createQueryEngineEntity(client, {
+				name: "Module One",
+				entitySchemaId: moduleSchemaId,
+				properties: { moduleNumber: 1 },
+			});
+			const moduleTwo = await createQueryEngineEntity(client, {
+				name: "Module Two",
+				entitySchemaId: moduleSchemaId,
+				properties: { moduleNumber: 2 },
+			});
+			const moduleThree = await createQueryEngineEntity(client, {
+				name: "Module Three",
+				entitySchemaId: moduleSchemaId,
+				properties: { moduleNumber: 3 },
+			});
+
+			await createRelationship(client, {
+				sourceEntityId: courseA.id,
+				properties: { position: 2 },
+				targetEntityId: moduleTwo.id,
+				relationshipSchemaId: relationshipSchema.id,
+			});
+			await createRelationship(client, {
+				sourceEntityId: courseA.id,
+				properties: { position: 1 },
+				targetEntityId: moduleOne.id,
+				relationshipSchemaId: relationshipSchema.id,
+			});
+			await createRelationship(client, {
+				sourceEntityId: courseB.id,
+				properties: { position: 3 },
+				targetEntityId: moduleThree.id,
+				relationshipSchemaId: relationshipSchema.id,
+			});
+
+			const doc = buildRowsDoc({
+				limit: 2,
+				alias: "course",
+				schemas: [courseSlug],
+				fields: [{ key: "name", expr: systemRef("course", "name") }],
+				output: {
+					fields: [{ key: "name", expr: systemRef("course", "name") }],
+					type: "rows",
+					pagination: { page: 1, limit: 2 },
+					orderBy: [{ order: "asc", expr: systemRef("course", "name") }],
+					include: [
 						{
-							key: "byEvent",
-							aggregation: {
-								type: "countBy",
-								groupBy: { type: "reference", reference: { type: "event", path: ["createdAt"] } },
+							limit: 1,
+							key: "modules",
+							orderBy: [{ order: "asc", expr: propertyRef("module", moduleSlug, "moduleNumber") }],
+							fields: [
+								{ key: "name", expr: systemRef("module", "name") },
+								{ key: "moduleNumber", expr: propertyRef("module", moduleSlug, "moduleNumber") },
+								{
+									key: "position",
+									expr: propertyRef("courseModule", relationshipSlug, "position"),
+								},
+							],
+							source: {
+								where: null,
+								alias: "module",
+								type: "entities",
+								schemas: [moduleSlug],
+								via: {
+									entityRef: "course",
+									alias: "courseModule",
+									direction: "outgoing",
+									schema: relationshipSlug,
+								},
 							},
 						},
 					],
 				},
-			}),
-		);
+			});
 
-		assertTaggedError(error, "BadRequest");
-		expect(error.message).toBe("Primary event references are not supported in this query mode");
-	});
+			const result = await executeQueryEngine(client, doc);
 
-	it("accepts literal and coalesce expressions in raw runtime fields", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 1 },
-			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
-			fields: [
-				buildQueryEngineField("label", { type: "literal", value: "Pinned" }),
-				buildQueryEngineField("yearOrFallback", {
-					type: "coalesce",
-					values: [
-						{ type: "literal", value: null },
-						{
-							type: "reference",
-							reference: { type: "entity", slug: schema.slug, path: ["properties", "year"] },
+			expect(result.data.items).toHaveLength(2);
+			expect(result.data.pageInfo.total).toBe(2);
+			const courseAItem = result.data.items.find(
+				(item) => requireQueryEngineFieldValue(item, "name").value === "Course A",
+			);
+			assertPresent(courseAItem, "Expected Course A row");
+			const modules = requireQueryEngineIncludeValue(courseAItem, "modules");
+			expect(modules.items).toHaveLength(1);
+			expect(modules.pageInfo).toEqual({ limit: 1, hasMore: true });
+			const firstModule = modules.items[0];
+			assertPresent(firstModule, "Expected first module row");
+			expect(requireQueryEngineFieldValue(firstModule, "name").value).toBe("Module One");
+			expect(requireQueryEngineFieldValue(firstModule, "moduleNumber").value).toBe(1);
+			expect(requireQueryEngineFieldValue(firstModule, "position").value).toBe(1);
+		});
+
+		it("returns deep entity includes with event existence fields", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId: courseSchemaId, slug: courseSlug } =
+				await createQueryEngineTrackerAndSchema(client, { schemaName: "DeepCourse" });
+			const { schemaId: moduleSchemaId, slug: moduleSlug } =
+				await createQueryEngineTrackerAndSchema(client, {
+					schemaName: "DeepModule",
+					propertiesSchema: {
+						fields: {
+							moduleNumber: { type: "integer", label: "Module Number", description: "Sort order" },
 						},
-						{ type: "literal", value: 0 },
-					],
-				}),
-			],
-		});
-
-		expect(data.data.items[0]).toEqual(
-			toQueryEngineItem([
-				{ key: "label", kind: "text", value: "Pinned" },
-				{ key: "yearOrFallback", kind: "number", value: 2018 },
-			]),
-		);
-	});
-
-	it("reuses computed fields in raw output and preserves null latest-event values", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		await createEventSchema(client, {
-			name: "Review",
-			slug: "review",
-			entitySchemaId: schema.schemaId,
-			propertiesSchema: {
-				fields: {
-					label: { type: "string", label: "Label", description: "Label" },
-					rating: { type: "number", label: "Rating", description: "Rating" },
-				},
-			},
-		});
-
-		const { data } = await executeQueryEngine(client, {
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 5 },
-			eventJoins: [{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" }],
-			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
-			fields: [
-				buildQueryEngineField("title", ["computed.entityLabel"]),
-				buildQueryEngineField("badge", ["computed.reviewOrLabel"]),
-				buildQueryEngineField("rawReview", ["computed.reviewLabel"]),
-			],
-			computedFields: [
-				buildComputedField("entityLabel", [entityField(schema.slug, "name")]),
-				buildComputedField("reviewLabel", ["event.review.properties.label"]),
-				buildComputedField("reviewOrLabel", {
-					type: "coalesce",
-					values: [
-						{ type: "reference", reference: { key: "reviewLabel", type: "computed-field" } },
-						{ type: "reference", reference: { key: "entityLabel", type: "computed-field" } },
-					],
-				}),
-			],
-		});
-
-		expect(data.data.items[0]).toEqual(
-			toQueryEngineItem([
-				{ key: "title", kind: "text", value: "Alpha Phone" },
-				{ key: "badge", kind: "text", value: "Alpha Phone" },
-				{ key: "rawReview", kind: "null", value: null },
-			]),
-		);
-	});
-
-	it("sorts and filters by computed fields in raw runtime requests", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const yearExpression = createEntityPropertyExpression(schema.slug, "year");
-		const nextYearReference = createComputedFieldExpression("nextYear");
-		const labelReference = createComputedFieldExpression("label");
-
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 5 },
-			sort: { direction: "desc", expression: nextYearReference },
-			filter: {
-				operator: "gte",
-				type: "comparison",
-				left: nextYearReference,
-				right: { type: "literal", value: 2021 },
-			},
-			computedFields: [
-				{
-					key: "nextYear",
-					expression: {
-						operator: "add",
-						type: "arithmetic",
-						left: yearExpression,
-						right: { type: "literal", value: 1 },
 					},
-				},
-				{
-					key: "label",
-					expression: {
-						type: "concat",
-						values: [{ type: "literal", value: "Release " }, nextYearReference],
+				});
+			const { schemaId: lessonSchemaId, slug: lessonSlug } =
+				await createQueryEngineTrackerAndSchema(client, {
+					schemaName: "DeepLesson",
+					propertiesSchema: {
+						fields: {
+							lessonNumber: { type: "integer", label: "Lesson Number", description: "Sort order" },
+						},
 					},
+				});
+			const completeSlug = `complete-${crypto.randomUUID()}`;
+			const completeSchema = await createEventSchema(client, {
+				slug: completeSlug,
+				name: "Complete",
+				entitySchemaId: lessonSchemaId,
+				propertiesSchema: {
+					fields: { note: { type: "string", label: "Note", description: "Completion note" } },
 				},
-			],
-			fields: [
-				buildQueryEngineField("label", labelReference),
-				buildQueryEngineField("nextYear", nextYearReference),
-			],
-		});
+			});
+			const courseModuleSlug = `deep-course-module-${crypto.randomUUID()}`;
+			const moduleLessonSlug = `deep-module-lesson-${crypto.randomUUID()}`;
+			const courseModuleSchema = await createRelationshipSchema(client, {
+				slug: courseModuleSlug,
+				name: "Deep Course Module",
+				propertiesSchema: { fields: {} },
+				targetEntitySchemaId: moduleSchemaId,
+				sourceEntitySchemaId: courseSchemaId,
+			});
+			const moduleLessonSchema = await createRelationshipSchema(client, {
+				slug: moduleLessonSlug,
+				name: "Deep Module Lesson",
+				propertiesSchema: { fields: {} },
+				targetEntitySchemaId: lessonSchemaId,
+				sourceEntitySchemaId: moduleSchemaId,
+			});
 
-		expect(data.data.items.map((item) => getItemFieldValue(item, "label"))).toEqual([
-			"Release 2022",
-			"Release 2021",
-		]);
-		expect(data.data.items[0]).toEqual(
-			toQueryEngineItem([
-				{ key: "label", kind: "text", value: "Release 2022" },
-				{ key: "nextYear", kind: "number", value: 2022 },
-			]),
-		);
-		expect(data.data.items[1]).toEqual(
-			toQueryEngineItem([
-				{ key: "label", kind: "text", value: "Release 2021" },
-				{ key: "nextYear", kind: "number", value: 2021 },
-			]),
-		);
+			const course = await createQueryEngineEntity(client, {
+				name: "Course",
+				entitySchemaId: courseSchemaId,
+			});
+			const module = await createQueryEngineEntity(client, {
+				name: "Module",
+				entitySchemaId: moduleSchemaId,
+				properties: { moduleNumber: 1 },
+			});
+			const secondLesson = await createQueryEngineEntity(client, {
+				name: "Lesson Two",
+				entitySchemaId: lessonSchemaId,
+				properties: { lessonNumber: 2 },
+			});
+			const firstLesson = await createQueryEngineEntity(client, {
+				name: "Lesson One",
+				entitySchemaId: lessonSchemaId,
+				properties: { lessonNumber: 1 },
+			});
+
+			await createRelationship(client, {
+				targetEntityId: module.id,
+				sourceEntityId: course.id,
+				relationshipSchemaId: courseModuleSchema.id,
+			});
+			await createRelationship(client, {
+				sourceEntityId: module.id,
+				targetEntityId: secondLesson.id,
+				relationshipSchemaId: moduleLessonSchema.id,
+			});
+			await createRelationship(client, {
+				sourceEntityId: module.id,
+				targetEntityId: firstLesson.id,
+				relationshipSchemaId: moduleLessonSchema.id,
+			});
+			await createQueryEngineEvent(client, {
+				entityId: firstLesson.id,
+				eventSchemaId: completeSchema.id,
+			});
+
+			const doc = buildRowsDoc({
+				limit: 1,
+				alias: "course",
+				schemas: [courseSlug],
+				fields: [{ key: "name", expr: systemRef("course", "name") }],
+				output: {
+					fields: [{ key: "name", expr: systemRef("course", "name") }],
+					type: "rows",
+					pagination: { page: 1, limit: 1 },
+					orderBy: [{ order: "asc", expr: systemRef("course", "name") }],
+					include: [
+						{
+							limit: 10,
+							key: "modules",
+							fields: [{ key: "name", expr: systemRef("module", "name") }],
+							orderBy: [{ order: "asc", expr: propertyRef("module", moduleSlug, "moduleNumber") }],
+							source: {
+								where: null,
+								alias: "module",
+								type: "entities",
+								schemas: [moduleSlug],
+								via: {
+									entityRef: "course",
+									alias: "courseModule",
+									direction: "outgoing",
+									schema: courseModuleSlug,
+								},
+							},
+							include: [
+								{
+									limit: 10,
+									key: "lessons",
+									orderBy: [
+										{ order: "asc", expr: propertyRef("lesson", lessonSlug, "lessonNumber") },
+									],
+									fields: [
+										{ key: "name", expr: systemRef("lesson", "name") },
+										{
+											key: "lessonNumber",
+											expr: propertyRef("lesson", lessonSlug, "lessonNumber"),
+										},
+										{
+											key: "isComplete",
+											expr: {
+												type: "exists",
+												source: {
+													where: null,
+													type: "events",
+													entityRef: "lesson",
+													schemas: [completeSlug],
+													alias: "lessonCompletion",
+												},
+											},
+										},
+									],
+									source: {
+										where: null,
+										alias: "lesson",
+										type: "entities",
+										schemas: [lessonSlug],
+										via: {
+											entityRef: "module",
+											alias: "moduleLesson",
+											direction: "outgoing",
+											schema: moduleLessonSlug,
+										},
+									},
+								},
+							],
+						},
+					],
+				},
+			});
+
+			const result = await executeQueryEngine(client, doc);
+
+			expect(result.data.items).toHaveLength(1);
+			const courseItem = result.data.items[0];
+			assertPresent(courseItem, "Expected course row");
+			const modules = requireQueryEngineIncludeValue(courseItem, "modules");
+			expect(modules.items).toHaveLength(1);
+			const moduleItem = modules.items[0];
+			assertPresent(moduleItem, "Expected module row");
+			const lessons = requireQueryEngineIncludeValue(moduleItem, "lessons");
+			expect(lessons.items).toHaveLength(2);
+
+			const lessonOne = lessons.items[0];
+			const lessonTwo = lessons.items[1];
+			assertPresent(lessonOne, "Expected first lesson row");
+			assertPresent(lessonTwo, "Expected second lesson row");
+			expect(requireQueryEngineFieldValue(lessonOne, "name").value).toBe("Lesson One");
+			expect(requireQueryEngineFieldValue(lessonOne, "lessonNumber").value).toBe(1);
+			expect(requireQueryEngineFieldValue(lessonOne, "isComplete")).toEqual({
+				value: true,
+				kind: "boolean",
+			});
+			expect(requireQueryEngineFieldValue(lessonTwo, "name").value).toBe("Lesson Two");
+			expect(requireQueryEngineFieldValue(lessonTwo, "isComplete")).toEqual({
+				value: false,
+				kind: "boolean",
+			});
+		});
 	});
 
-	it("rejects invalid computed field references and cycles in raw runtime requests", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const missingComputedFieldError = await executeQueryEngineError(client, {
-			eventJoins: [],
-			computedFields: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 5 },
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(schema.slug, "name"),
-			},
-			filter: null,
-			fields: [buildQueryEngineField("title", ["computed.missingLabel"])],
-		});
-		const cycleError = await executeQueryEngineError(client, {
-			eventJoins: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 5 },
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(schema.slug, "name"),
-			},
-			filter: null,
-			computedFields: [
-				buildComputedField("first", ["computed.second"]),
-				buildComputedField("second", ["computed.first"]),
-			],
-			fields: [buildQueryEngineField("title", ["computed.first"])],
-		});
-
-		assertTaggedError(missingComputedFieldError, "BadRequest");
-		expect(missingComputedFieldError.message).toBe(
-			"Computed field 'missingLabel' is not part of this runtime request",
-		);
-		assertTaggedError(cycleError, "BadRequest");
-		expect(cycleError.message).toBe(
-			"Computed field dependency cycle detected: first -> second -> first",
-		);
-	});
-
-	it("rejects invalid computed field types and non-display image usage in raw runtime requests", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const imageSortError = await executeQueryEngineError(client, {
-			filter: null,
-			eventJoins: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 5 },
-			sort: {
-				direction: "asc",
-				expression: createComputedFieldExpression("cover"),
-			},
-			computedFields: [
-				{
-					key: "cover",
-					expression: createEntityColumnExpression(schema.slug, "image"),
-				},
-			],
-			fields: [buildQueryEngineField("image", [entityField(schema.slug, "image")])],
-		});
-		const mismatchedFilterError = await executeQueryEngineError(client, {
-			eventJoins: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 5 },
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(schema.slug, "name"),
-			},
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				right: { type: "literal", value: "2021" },
-				left: createComputedFieldExpression("nextYear"),
-			},
-			computedFields: [
-				{
-					key: "nextYear",
-					expression: {
-						operator: "add",
-						type: "arithmetic",
-						right: { type: "literal", value: 1 },
-						left: {
-							type: "reference",
-							reference: {
-								type: "entity",
-								slug: schema.slug,
-								path: ["properties", "year"],
+	describe("Descendant source filters", () => {
+		it("filters courses by descendant completed lesson count", async () => {
+			const {
+				client,
+				courseSlug,
+				moduleSlug,
+				lessonSlug,
+				completeSlug,
+				moduleLessonSlug,
+				courseModuleSlug,
+			} = await createCourseLessonFilterFixture();
+			const completedLessonModulesSource = (suffix: string) =>
+				({
+					type: "entities",
+					schemas: [moduleSlug],
+					alias: `module${suffix}`,
+					via: {
+						entityRef: "course",
+						direction: "outgoing",
+						schema: courseModuleSlug,
+						alias: `courseModule${suffix}`,
+					},
+					where: {
+						type: "exists",
+						source: {
+							type: "entities",
+							schemas: [lessonSlug],
+							alias: `lesson${suffix}`,
+							via: {
+								direction: "outgoing",
+								schema: moduleLessonSlug,
+								entityRef: `module${suffix}`,
+								alias: `moduleLesson${suffix}`,
+							},
+							where: {
+								type: "exists",
+								source: {
+									where: null,
+									type: "events",
+									schemas: [completeSlug],
+									entityRef: `lesson${suffix}`,
+									alias: `completion${suffix}`,
+								},
 							},
 						},
 					},
-				},
-			],
-			fields: [buildQueryEngineField("title", [entityField(schema.slug, "name")])],
-		});
-
-		assertTaggedError(imageSortError, "BadRequest");
-		expect(imageSortError.message).toBe(
-			"Image expressions are display-only and cannot be used in sorting",
-		);
-		assertTaggedError(mismatchedFilterError, "BadRequest");
-		expect(mismatchedFilterError.message).toBe(
-			"Filter operator 'eq' requires compatible expression types, received 'integer' and 'string'",
-		);
-	});
-
-	it("returns 404 when the runtime request references a schema slug that is not visible", async () => {
-		const { client } = await createAuthenticatedClient();
-		const error = await executeQueryEngineError(
-			client,
-			buildGridRequest({ scope: ["does-not-exist"] }),
-		);
-
-		assertTaggedError(error, "NotFound");
-		expect(error.message).toContain("Schema 'does-not-exist' not found");
-	});
-
-	it("supports arithmetic, normalization, concat, and conditionals in runtime expressions", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const categoryExpression = createEntityPropertyExpression(schema.slug, "category");
-		const nameExpression = createEntityColumnExpression(schema.slug, "name");
-		const yearExpression = createEntityPropertyExpression(schema.slug, "year");
-
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 1 },
-			sort: { direction: "asc", expression: nameExpression },
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				left: nameExpression,
-				right: { type: "literal", value: "Gamma Phone" },
-			},
-			computedFields: [
-				{
-					key: "nextYear",
-					expression: {
-						operator: "add",
-						type: "arithmetic",
-						left: yearExpression,
-						right: { type: "literal", value: 1 },
+				}) as const;
+			const doc = buildRowsDoc({
+				alias: "course",
+				schemas: [courseSlug],
+				fields: [
+					{ key: "name", expr: systemRef("course", "name") },
+					{
+						key: "completedLessonCount",
+						expr: {
+							type: "coalesce",
+							values: [
+								{
+									type: "aggregate",
+									aggregation: { function: "count" },
+									source: completedLessonModulesSource("Field"),
+								},
+								{ type: "literal", value: 0 },
+							],
+						},
 					},
-				},
-			],
-			fields: [
-				buildQueryEngineField("nextYear", ["computed.nextYear"]),
-				buildQueryEngineField("rounded", {
-					type: "round",
-					expression: {
-						type: "arithmetic",
-						operator: "divide",
-						left: yearExpression,
-						right: { type: "literal", value: 3 },
-					},
-				}),
-				buildQueryEngineField("floored", {
-					type: "floor",
-					expression: {
-						type: "arithmetic",
-						operator: "divide",
-						left: yearExpression,
-						right: { type: "literal", value: 3 },
-					},
-				}),
-				buildQueryEngineField("wholeYear", {
-					type: "integer",
-					expression: yearExpression,
-				}),
-				buildQueryEngineField("label", {
-					type: "concat",
-					values: [
-						{ type: "literal", value: "Gamma / " },
-						categoryExpression,
-						{ type: "literal", value: " / " },
-						yearExpression,
-					],
-				}),
-				buildQueryEngineField("badge", {
-					type: "conditional",
-					whenTrue: { type: "literal", value: "modern" },
-					whenFalse: { type: "literal", value: "classic" },
-					condition: {
+				],
+				source: {
+					alias: "course",
+					type: "entities",
+					schemas: [courseSlug],
+					where: {
 						operator: "gte",
 						type: "comparison",
-						left: yearExpression,
-						right: { type: "literal", value: 2020 },
-					},
-				}),
-			],
-		});
-
-		expect(data.data.items[0]).toEqual(
-			toQueryEngineItem([
-				{ key: "nextYear", kind: "number", value: 2021 },
-				{ key: "rounded", kind: "number", value: 673 },
-				{ key: "floored", kind: "number", value: 673 },
-				{ key: "wholeYear", kind: "number", value: 2020 },
-				{ key: "label", kind: "text", value: "Gamma / phone / 2020" },
-				{ key: "badge", kind: "text", value: "modern" },
-			]),
-		);
-	});
-
-	it("supports titleCase and kebabCase transforms in runtime expressions", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			computedFields: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 1 },
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(schema.slug, "name"),
-			},
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				right: literalExpression("Gamma Phone"),
-				left: createEntityColumnExpression(schema.slug, "name"),
-			},
-			fields: [
-				buildQueryEngineField("titleCased", {
-					type: "transform",
-					name: "titleCase",
-					expression: createEntityPropertyExpression(schema.slug, "category"),
-				}),
-				buildQueryEngineField("kebabCased", {
-					type: "transform",
-					name: "kebabCase",
-					expression: createEntityPropertyExpression(schema.slug, "category"),
-				}),
-			],
-		});
-
-		expect(data.data.items[0]).toEqual(
-			toQueryEngineItem([
-				{ key: "titleCased", kind: "text", value: "Phone" },
-				{ key: "kebabCased", kind: "text", value: "phone" },
-			]),
-		);
-	});
-
-	it("truncates integer normalization toward zero for fractional values", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const yearExpression = createEntityPropertyExpression(schema.slug, "year");
-
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			computedFields: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 1 },
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(schema.slug, "name"),
-			},
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				right: { type: "literal", value: "Alpha Phone" },
-				left: createEntityColumnExpression(schema.slug, "name"),
-			},
-			fields: [
-				buildQueryEngineField("integerNormalized", {
-					type: "integer",
-					expression: {
-						type: "arithmetic",
-						operator: "divide",
-						left: yearExpression,
-						right: { type: "literal", value: 365 },
-					},
-				}),
-			],
-		});
-
-		expect(data.data.items[0]).toEqual(
-			toQueryEngineItem([{ key: "integerNormalized", kind: "number", value: 5 }]),
-		);
-	});
-
-	it("supports eq, neq, gt, gte, lt, lte, in, isNull, and isNotNull filters", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const scenarios = [
-			{
-				expected: ["Alpha Phone", "Gamma Phone"],
-				filter: {
-					type: "comparison" as const,
-					operator: "eq" as const,
-					left: createEntityPropertyExpression(schema.slug, "category"),
-					right: literalExpression("phone"),
-				},
-			},
-			{
-				expected: ["Beta Tablet", "Delta Watch"],
-				filter: {
-					type: "comparison" as const,
-					operator: "neq" as const,
-					left: createEntityPropertyExpression(schema.slug, "category"),
-					right: literalExpression("phone"),
-				},
-			},
-			{
-				expected: ["Delta Watch", "Gamma Phone"],
-				filter: {
-					type: "comparison" as const,
-					operator: "gt" as const,
-					left: createEntityPropertyExpression(schema.slug, "year"),
-					right: literalExpression(2019),
-				},
-			},
-			{
-				expected: ["Delta Watch", "Gamma Phone"],
-				filter: {
-					type: "comparison" as const,
-					operator: "gte" as const,
-					left: createEntityPropertyExpression(schema.slug, "year"),
-					right: literalExpression(2020),
-				},
-			},
-			{
-				expected: ["Alpha Phone", "Beta Tablet"],
-				filter: {
-					type: "comparison" as const,
-					operator: "lt" as const,
-					left: createEntityPropertyExpression(schema.slug, "year"),
-					right: literalExpression(2020),
-				},
-			},
-			{
-				expected: ["Alpha Phone", "Beta Tablet"],
-				filter: {
-					type: "comparison" as const,
-					operator: "lte" as const,
-					left: createEntityPropertyExpression(schema.slug, "year"),
-					right: literalExpression(2019),
-				},
-			},
-			{
-				expected: ["Beta Tablet", "Delta Watch"],
-				filter: {
-					type: "in" as const,
-					expression: createEntityPropertyExpression(schema.slug, "category"),
-					values: [literalExpression("tablet"), literalExpression("wearable")],
-				},
-			},
-			{
-				expected: ["Omega Prototype"],
-				filter: {
-					type: "isNull" as const,
-					expression: createEntityPropertyExpression(schema.slug, "category"),
-				},
-			},
-			{
-				expected: ["Alpha Phone", "Beta Tablet", "Delta Watch", "Gamma Phone"],
-				filter: {
-					type: "isNotNull" as const,
-					expression: createEntityPropertyExpression(schema.slug, "category"),
-				},
-			},
-		];
-
-		const results = await Promise.all(
-			scenarios.map(async (scenario) => ({
-				scenario,
-				result: await executeQueryEngine(
-					client,
-					buildGridRequest({ scope: [schema.slug], filter: scenario.filter }),
-				),
-			})),
-		);
-
-		for (const { result, scenario } of results) {
-			const { data } = result;
-			expect(getItemTitles(data.data.items)).toEqual(scenario.expected);
-		}
-	});
-
-	it("supports not predicate to negate filters", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				filter: {
-					type: "not",
-					predicate: {
-						operator: "eq",
-						type: "comparison",
-						right: literalExpression("phone"),
-						left: createEntityPropertyExpression(schema.slug, "category"),
+						right: { type: "literal", value: 2 },
+						left: {
+							type: "aggregate",
+							aggregation: { function: "count" },
+							source: completedLessonModulesSource("Filter"),
+						},
 					},
 				},
-			}),
-		);
+			});
 
-		expect(getItemTitles(data.data.items)).toEqual(["Beta Tablet", "Delta Watch"]);
+			const result = await executeQueryEngine(client, doc);
+
+			expect(result.data.items).toHaveLength(1);
+			const course = result.data.items[0];
+			assertPresent(course, "Expected filtered course row");
+			expect(requireQueryEngineFieldValue(course, "name").value).toBe("Advanced Course");
+			expect(requireQueryEngineFieldValue(course, "completedLessonCount").value).toBe(2);
+		});
+
+		it("filters courses by a descendant lesson duration threshold", async () => {
+			const { client, courseSlug, moduleSlug, lessonSlug, moduleLessonSlug, courseModuleSlug } =
+				await createCourseLessonFilterFixture();
+			const doc = buildRowsDoc({
+				alias: "course",
+				schemas: [courseSlug],
+				fields: [{ key: "name", expr: systemRef("course", "name") }],
+				source: {
+					alias: "course",
+					type: "entities",
+					schemas: [courseSlug],
+					where: {
+						type: "exists",
+						source: {
+							alias: "module",
+							where: {
+								type: "exists",
+								source: {
+									alias: "lesson",
+									type: "entities",
+									schemas: [lessonSlug],
+									where: {
+										operator: "gt",
+										type: "comparison",
+										right: { type: "literal", value: 45 },
+										left: propertyRef("lesson", lessonSlug, "durationMinutes"),
+									},
+									via: {
+										entityRef: "module",
+										alias: "moduleLesson",
+										direction: "outgoing",
+										schema: moduleLessonSlug,
+									},
+								},
+							},
+							type: "entities",
+							schemas: [moduleSlug],
+							via: {
+								entityRef: "course",
+								alias: "courseModule",
+								direction: "outgoing",
+								schema: courseModuleSlug,
+							},
+						},
+					},
+				},
+			});
+
+			const result = await executeQueryEngine(client, doc);
+
+			const names = result.data.items.map(
+				(item) => requireQueryEngineFieldValue(item, "name").value,
+			);
+			expect(names).toEqual(["Advanced Course", "Long Incomplete Course"]);
+		});
 	});
 
-	it("ands multiple filters within a single schema", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				filter: {
-					type: "and",
-					predicates: [
+	describe("Aggregate returns", () => {
+		it("returns ungrouped aggregate measures without pageInfo", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "AggregateLesson",
+				propertiesSchema: {
+					fields: {
+						difficulty: { type: "string", label: "Difficulty", description: "Difficulty" },
+						durationMinutes: { type: "integer", label: "Duration", description: "Duration" },
+					},
+				},
+			});
+
+			await Promise.all([
+				createQueryEngineEntity(client, {
+					name: "Lesson 1",
+					entitySchemaId: schemaId,
+					properties: { difficulty: "advanced", durationMinutes: 30 },
+				}),
+				createQueryEngineEntity(client, {
+					name: "Lesson 2",
+					entitySchemaId: schemaId,
+					properties: { difficulty: "advanced", durationMinutes: 60 },
+				}),
+				createQueryEngineEntity(client, {
+					name: "Lesson 3",
+					entitySchemaId: schemaId,
+					properties: { difficulty: "beginner", durationMinutes: 90 },
+				}),
+			]);
+
+			const doc: QueryEnginePayload = {
+				version: 2,
+				source: { type: "entities", alias: "lesson", schemas: [slug], where: null },
+				output: {
+					type: "aggregate",
+					measures: [
+						{ key: "count", aggregation: { function: "count" } },
 						{
-							operator: "gte",
-							type: "comparison",
-							right: literalExpression(2020),
-							left: createEntityPropertyExpression(schema.slug, "year"),
+							key: "difficultyCount",
+							aggregation: {
+								function: "count",
+								distinctBy: propertyRef("lesson", slug, "difficulty"),
+							},
 						},
 						{
-							operator: "eq",
-							type: "comparison",
-							right: literalExpression("phone"),
-							left: createEntityPropertyExpression(schema.slug, "category"),
+							key: "totalDuration",
+							aggregation: {
+								function: "sum",
+								expr: propertyRef("lesson", slug, "durationMinutes"),
+							},
+						},
+						{
+							key: "averageDuration",
+							aggregation: {
+								function: "average",
+								expr: propertyRef("lesson", slug, "durationMinutes"),
+							},
+						},
+						{
+							key: "minimumDuration",
+							aggregation: {
+								function: "minimum",
+								expr: propertyRef("lesson", slug, "durationMinutes"),
+							},
+						},
+						{
+							key: "maximumDuration",
+							aggregation: {
+								function: "maximum",
+								expr: propertyRef("lesson", slug, "durationMinutes"),
+							},
 						},
 					],
 				},
-			}),
-		);
+			};
 
-		expect(getItemTitles(data.data.items)).toEqual(["Gamma Phone"]);
-	});
+			const result = await executeAggregateQueryEngine(client, doc);
 
-	it("applies explicit entity name filters across every schema", async () => {
-		const { client, smartphoneSlug, tabletSlug } = await createCrossSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [smartphoneSlug, tabletSlug],
-				displayConfiguration: buildGridDisplayConfiguration(
-					{
-						calloutProperty: null,
-						primarySubtitleProperty: null,
-						secondarySubtitleProperty: null,
-					},
-					[smartphoneSlug, tabletSlug],
-				),
-				filter: {
-					type: "or",
-					predicates: [
-						{
-							type: "in",
-							expression: createEntityColumnExpression(smartphoneSlug, "name"),
-							values: [literalExpression("Alpha Phone"), literalExpression("Delta Tablet")],
-						},
-						{
-							type: "in",
-							expression: createEntityColumnExpression(tabletSlug, "name"),
-							values: [literalExpression("Alpha Phone"), literalExpression("Delta Tablet")],
-						},
-					],
-				},
-			}),
-		);
-
-		expect(getItemTitles(data.data.items)).toEqual(["Alpha Phone", "Delta Tablet"]);
-	});
-
-	it("ors schema-qualified filters across different schemas", async () => {
-		const { client, smartphoneSlug, tabletSlug } = await createCrossSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [smartphoneSlug, tabletSlug],
-				displayConfiguration: buildGridDisplayConfiguration(
-					{
-						calloutProperty: null,
-						primarySubtitleProperty: null,
-						secondarySubtitleProperty: null,
-					},
-					[smartphoneSlug, tabletSlug],
-				),
-				filter: {
-					type: "or",
-					predicates: [
-						{
-							type: "comparison",
-							operator: "gte",
-							left: createEntityPropertyExpression(smartphoneSlug, "year"),
-							right: literalExpression(2020),
-						},
-						{
-							type: "comparison",
-							operator: "gte",
-							left: createEntityPropertyExpression(tabletSlug, "releaseYear"),
-							right: literalExpression(2021),
-						},
-					],
-				},
-			}),
-		);
-
-		expect(getItemTitles(data.data.items)).toEqual(["Delta Tablet", "Gamma Phone", "Omega Phone"]);
-	});
-
-	it("sorts by name in both directions and by schema properties", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const ascResult = await executeQueryEngine(client, buildGridRequest({ scope: [schema.slug] }));
-		const descResult = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				sort: {
-					expression: createEntityColumnExpression(schema.slug, "name"),
-					direction: "desc",
-				},
-			}),
-		);
-		const yearResult = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				sort: {
-					expression: createEntityPropertyExpression(schema.slug, "year"),
-					direction: "asc",
-				},
-			}),
-		);
-
-		expect(getItemTitles(ascResult.data.data.items)).toEqual([
-			"Alpha Phone",
-			"Beta Tablet",
-			"Delta Watch",
-			"Gamma Phone",
-			"Omega Prototype",
-		]);
-		expect(getItemTitles(descResult.data.data.items)).toEqual([
-			"Omega Prototype",
-			"Gamma Phone",
-			"Delta Watch",
-			"Beta Tablet",
-			"Alpha Phone",
-		]);
-		expect(getItemTitles(yearResult.data.data.items)).toEqual([
-			"Alpha Phone",
-			"Beta Tablet",
-			"Gamma Phone",
-			"Delta Watch",
-			"Omega Prototype",
-		]);
-	});
-
-	it("filters, sorts, and displays entity @id", async () => {
-		const { client, entityIdsByName, schema } = await createSingleSchemaQueryEngineFixture();
-		const targetId = entityIdsByName["Gamma Phone"];
-		assertPresent(targetId, "Missing runtime entity fixture id for @id test");
-
-		const { data } = await executeQueryEngine(
-			client,
-			buildTableRequest({
-				scope: [schema.slug],
-				sort: {
-					expression: createEntityColumnExpression(schema.slug, "id"),
-					direction: "asc",
-				},
-				displayConfiguration: buildTableDisplayConfiguration([
-					{ label: "Id", property: [entityField(schema.slug, "id")] },
-					{ label: "Name", property: [entityField(schema.slug, "name")] },
-				]),
-				filter: {
-					type: "comparison",
-					operator: "eq",
-					left: createEntityColumnExpression(schema.slug, "id"),
-					right: literalExpression(targetId),
-				},
-			}),
-		);
-
-		expect(data.data.items).toHaveLength(1);
-		expect(data.data.meta.fieldOrder).toEqual(["column_0", "column_1"]);
-		expect(data.data.items[0]).toEqual(
-			toQueryEngineItem([
-				{ key: "column_0", kind: "text", value: targetId },
-				{ key: "column_1", kind: "text", value: "Gamma Phone" },
-			]),
-		);
-	});
-
-	it("filters entity @id with contains", async () => {
-		const { client, entityIdsByName, schema } = await createSingleSchemaQueryEngineFixture();
-		const targetId = entityIdsByName["Beta Tablet"];
-		assertPresent(targetId, "Missing runtime entity fixture id for @id contains test");
-		const suffix = targetId.slice(-8);
-
-		const { data } = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				displayConfiguration: buildGridDisplayConfiguration(
-					{
-						calloutProperty: [entityField(schema.slug, "id")],
-						primarySubtitleProperty: null,
-						secondarySubtitleProperty: null,
-					},
-					[schema.slug],
-				),
-				filter: {
-					type: "contains",
-					expression: createEntityColumnExpression(schema.slug, "id"),
-					value: literalExpression(suffix),
-				},
-			}),
-		);
-
-		expect(getItemTitles(data.data.items)).toEqual(["Beta Tablet"]);
-		expect(getQueryEngineFieldOrThrow(data.data.items[0], "callout")).toEqual({
-			key: "callout",
-			kind: "text",
-			value: targetId,
-		});
-	});
-
-	it("sorts across schemas with COALESCE and keeps null values last", async () => {
-		const { client, smartphoneSlug, tabletSchema, tabletSlug } =
-			await createCrossSchemaQueryEngineFixture();
-		const neutralDisplay = buildGridDisplayConfiguration(
-			{
-				calloutProperty: null,
-				primarySubtitleProperty: null,
-				secondarySubtitleProperty: null,
-			},
-			[smartphoneSlug, tabletSlug],
-		);
-		const coalesceSort = {
-			direction: "asc" as const,
-			expression: {
-				type: "coalesce" as const,
-				values: [
-					createEntityPropertyExpression(smartphoneSlug, "year"),
-					createEntityPropertyExpression(tabletSlug, "releaseYear"),
-				],
-			},
-		};
-		const coalesceResult = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				displayConfiguration: neutralDisplay,
-				scope: [smartphoneSlug, tabletSlug],
-				sort: coalesceSort,
-			}),
-		);
-
-		await createQueryEngineEntity({
-			client,
-			name: "Null Tablet",
-			entitySchemaId: tabletSchema.schemaId,
-			properties: { maker: "Ghost" },
+			expect(result.data.pageInfo).toBeUndefined();
+			expect(result.data.items).toHaveLength(1);
+			const item = result.data.items[0];
+			assertPresent(item, "Expected aggregate item");
+			expect(requireQueryEngineFieldValue(item, "count").value).toBe(3);
+			expect(requireQueryEngineFieldValue(item, "difficultyCount").value).toBe(2);
+			expect(requireQueryEngineFieldValue(item, "totalDuration").value).toBe(180);
+			expect(requireQueryEngineFieldValue(item, "averageDuration").value).toBe(60);
+			expect(requireQueryEngineFieldValue(item, "minimumDuration").value).toBe(30);
+			expect(requireQueryEngineFieldValue(item, "maximumDuration").value).toBe(90);
 		});
 
-		const nullsLastResult = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				displayConfiguration: neutralDisplay,
-				scope: [smartphoneSlug, tabletSlug],
-				sort: coalesceSort,
-			}),
-		);
-
-		expect(getItemTitles(coalesceResult.data.data.items)).toEqual([
-			"Alpha Phone",
-			"Beta Tablet",
-			"Gamma Phone",
-			"Delta Tablet",
-			"Omega Phone",
-		]);
-		expect(getItemFieldValue(nullsLastResult.data.data.items.at(-1), "title")).toBe("Null Tablet");
-	});
-
-	it("returns correct pagination metadata for first, middle, and last pages", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const scenarios = [
-			{
-				pagination: { page: 1, limit: 2 },
-				expectedNames: ["Alpha Phone", "Beta Tablet"],
-				expectedMeta: {
-					page: 1,
-					total: 5,
-					limit: 2,
-					totalPages: 3,
-					hasNextPage: true,
-					hasPreviousPage: false,
+		it("returns grouped aggregates ordered by measureRef with limited pageInfo", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "GroupedAggregateLesson",
+				propertiesSchema: {
+					fields: {
+						difficulty: { type: "string", label: "Difficulty", description: "Difficulty" },
+					},
 				},
-			},
-			{
-				pagination: { page: 2, limit: 2 },
-				expectedNames: ["Delta Watch", "Gamma Phone"],
-				expectedMeta: {
-					page: 2,
-					total: 5,
-					limit: 2,
-					totalPages: 3,
-					hasNextPage: true,
-					hasPreviousPage: true,
-				},
-			},
-			{
-				pagination: { page: 5, limit: 1 },
-				expectedNames: ["Omega Prototype"],
-				expectedMeta: {
-					page: 5,
-					total: 5,
+			});
+
+			await Promise.all([
+				createQueryEngineEntity(client, {
+					name: "Advanced 1",
+					entitySchemaId: schemaId,
+					properties: { difficulty: "advanced" },
+				}),
+				createQueryEngineEntity(client, {
+					name: "Advanced 2",
+					entitySchemaId: schemaId,
+					properties: { difficulty: "advanced" },
+				}),
+				createQueryEngineEntity(client, {
+					name: "Beginner 1",
+					entitySchemaId: schemaId,
+					properties: { difficulty: "beginner" },
+				}),
+			]);
+
+			const doc: QueryEnginePayload = {
+				version: 2,
+				source: { type: "entities", alias: "lesson", schemas: [slug], where: null },
+				output: {
 					limit: 1,
-					totalPages: 5,
-					hasNextPage: false,
-					hasPreviousPage: true,
+					type: "aggregate",
+					measures: [{ key: "count", aggregation: { function: "count" } }],
+					orderBy: [{ order: "desc", expr: { type: "measureRef", key: "count" } }],
+					groupBy: [{ key: "difficulty", expr: propertyRef("lesson", slug, "difficulty") }],
 				},
-			},
-		];
+			};
 
-		const results = await Promise.all(
-			scenarios.map(async (scenario) => ({
-				scenario,
-				result: await executeQueryEngine(
-					client,
-					buildGridRequest({ scope: [schema.slug], pagination: scenario.pagination }),
-				),
-			})),
-		);
+			const result = await executeAggregateQueryEngine(client, doc);
 
-		for (const { result, scenario } of results) {
-			const { data } = result;
-			expect(getItemTitles(data.data.items)).toEqual(scenario.expectedNames);
-			expect(data.data.meta.pagination).toEqual(scenario.expectedMeta);
-		}
-	});
-
-	it("returns empty out-of-range pages and zero-result pagination metadata", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const emptyPageResult = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				pagination: { page: 100, limit: 2 },
-			}),
-		);
-		const emptyResult = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				filter: {
-					type: "comparison",
-					operator: "eq",
-					left: createEntityPropertyExpression(schema.slug, "category"),
-					right: literalExpression("console"),
-				},
-			}),
-		);
-
-		expect(emptyPageResult.data.data.items).toEqual([]);
-		expect(emptyPageResult.data.data.meta.pagination).toEqual({
-			total: 5,
-			limit: 2,
-			page: 100,
-			totalPages: 3,
-			hasNextPage: false,
-			hasPreviousPage: true,
+			expect(result.data.pageInfo).toEqual({ limit: 1, hasMore: true });
+			expect(result.data.items).toHaveLength(1);
+			const item = result.data.items[0];
+			assertPresent(item, "Expected grouped aggregate item");
+			expect(requireQueryEngineFieldValue(item, "difficulty").value).toBe("advanced");
+			expect(requireQueryEngineFieldValue(item, "count").value).toBe(2);
 		});
 
-		expect(emptyResult.data.data.items).toHaveLength(0);
-		expect(emptyResult.data.data.meta.pagination).toEqual({
-			page: 1,
-			total: 0,
-			limit: 10,
-			totalPages: 0,
-			hasNextPage: false,
-			hasPreviousPage: false,
+		it("rejects duplicate aggregate output keys", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "DuplicateAggregateKeys",
+			});
+			const doc: QueryEnginePayload = {
+				version: 2,
+				source: { type: "entities", alias: "entity", schemas: [slug], where: null },
+				output: {
+					limit: 10,
+					type: "aggregate",
+					measures: [{ key: "count", aggregation: { function: "count" } }],
+					orderBy: [{ order: "desc", expr: { type: "measureRef", key: "count" } }],
+					groupBy: [{ key: "count", expr: systemRef("entity", "name") }],
+				},
+			};
+
+			const error = await executeQueryEngineError(client, doc);
+			expect(error).toMatchObject({ _tag: "BadRequest" });
 		});
 	});
 
-	it("keeps empty pages aligned with filtered totals in the single-query path", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const outOfRangeFilteredResult = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				pagination: { page: 2, limit: 5 },
-				filter: {
-					type: "comparison",
-					operator: "eq",
-					left: createEntityPropertyExpression(schema.slug, "category"),
-					right: literalExpression("phone"),
+	describe("Event roots and first expressions", () => {
+		it("returns root event rows with event and attached entity fields", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId: lessonSchemaId, slug: lessonSlug } =
+				await createQueryEngineTrackerAndSchema(client, { schemaName: "EventRootLesson" });
+			const completeSlug = `event-root-complete-${crypto.randomUUID()}`;
+			const completeSchema = await createEventSchema(client, {
+				slug: completeSlug,
+				name: "Event Root Complete",
+				entitySchemaId: lessonSchemaId,
+				propertiesSchema: {
+					fields: { notes: { type: "string", label: "Notes", description: "Completion notes" } },
 				},
-			}),
-		);
-		const zeroResultsLaterPage = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				pagination: { page: 3, limit: 2 },
-				filter: {
-					type: "comparison",
-					operator: "eq",
-					left: createEntityPropertyExpression(schema.slug, "category"),
-					right: literalExpression("console"),
+			});
+			const firstLesson = await createQueryEngineEntity(client, {
+				entitySchemaId: lessonSchemaId,
+				name: "First Lesson With Events",
+			});
+			const latestLesson = await createQueryEngineEntity(client, {
+				entitySchemaId: lessonSchemaId,
+				name: "Latest Lesson With Events",
+			});
+
+			await createQueryEngineEvent(client, {
+				entityId: firstLesson.id,
+				eventSchemaId: completeSchema.id,
+				occurredAt: "2026-01-01T00:00:00.000Z",
+				properties: { notes: "first completion" },
+			});
+			await createQueryEngineEvent(client, {
+				entityId: latestLesson.id,
+				eventSchemaId: completeSchema.id,
+				occurredAt: "2026-02-01T00:00:00.000Z",
+				properties: { notes: "latest completion" },
+			});
+
+			const doc: QueryEnginePayload = {
+				version: 2,
+				source: {
+					where: null,
+					type: "events",
+					alias: "completion",
+					schemas: [completeSlug],
+					entity: { alias: "lesson", schemas: [lessonSlug] },
 				},
-			}),
-		);
-
-		expect(outOfRangeFilteredResult.data.data.items).toEqual([]);
-		expect(outOfRangeFilteredResult.data.data.meta.pagination).toEqual({
-			page: 2,
-			total: 2,
-			limit: 5,
-			totalPages: 1,
-			hasNextPage: false,
-			hasPreviousPage: true,
-		});
-
-		expect(zeroResultsLaterPage.data.data.items).toEqual([]);
-		expect(zeroResultsLaterPage.data.data.meta.pagination).toEqual({
-			page: 3,
-			total: 0,
-			limit: 2,
-			totalPages: 0,
-			hasNextPage: false,
-			hasPreviousPage: false,
-		});
-	});
-
-	it("rejects empty runtime sort fields at payload validation time", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const error = await executeQueryEngineError(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				sort: { expression: literalExpression(null), direction: "asc" },
-			}),
-		);
-
-		assertTaggedError(error, "BadRequest");
-		expect(error.message).toContain("Sort expressions must resolve to a sortable scalar value");
-	});
-
-	it("filters with contains using ilike on string properties and entity @name", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-
-		const nameResult = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				filter: {
-					type: "contains",
-					expression: createEntityColumnExpression(schema.slug, "name"),
-					value: literalExpression("Phone"),
-				},
-			}),
-		);
-		const categoryResult = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				filter: {
-					type: "contains",
-					expression: createEntityPropertyExpression(schema.slug, "category"),
-					value: literalExpression("phone"),
-				},
-			}),
-		);
-
-		expect(getItemTitles(nameResult.data.data.items)).toEqual(["Alpha Phone", "Gamma Phone"]);
-		expect(getItemTitles(categoryResult.data.data.items)).toEqual(["Alpha Phone", "Gamma Phone"]);
-	});
-
-	it("filters with contains using jsonb containment for array properties", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, {
-			name: "Tag Tracker",
-		});
-		const schema = await createEntitySchema(client, {
-			trackerId,
-			name: "Tagged Movie",
-			propertiesSchema: {
-				fields: {
-					tags: {
-						type: "array",
-						label: "Tags",
-						description: "Tags",
-						items: { type: "string", label: "Tag", description: "Tag" },
-					},
-				},
-			},
-		});
-
-		await createQueryEngineEntity({
-			client,
-			image: null,
-			name: "Sci-Fi Movie",
-			entitySchemaId: schema.schemaId,
-			properties: { tags: ["sci-fi", "action"] },
-		});
-		await createQueryEngineEntity({
-			client,
-			image: null,
-			name: "Drama Movie",
-			properties: { tags: ["drama"] },
-			entitySchemaId: schema.schemaId,
-		});
-		await createQueryEngineEntity({
-			client,
-			image: null,
-			name: "Action Movie",
-			entitySchemaId: schema.schemaId,
-			properties: { tags: ["action"] },
-		});
-
-		const { data } = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				displayConfiguration: buildGridDisplayConfiguration(
-					{
-						calloutProperty: null,
-						primarySubtitleProperty: null,
-						secondarySubtitleProperty: null,
-					},
-					[schema.slug],
-				),
-				filter: {
-					type: "contains",
-					expression: createEntityPropertyExpression(schema.slug, "tags"),
-					value: literalExpression("action"),
-				},
-			}),
-		);
-
-		expect(getItemTitles(data.data.items)).toEqual(["Action Movie", "Sci-Fi Movie"]);
-	});
-
-	it("treats % and _ as literals in contains filters, not as ilike wildcards", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, {
-			name: "Metachar Tracker",
-		});
-		const schema = await createEntitySchema(client, {
-			trackerId,
-			name: "Product",
-			propertiesSchema: {
-				fields: { sku: { type: "string", label: "SKU", description: "SKU" } },
-			},
-		});
-
-		await createQueryEngineEntity({
-			client,
-			image: null,
-			name: "Percent Item",
-			properties: { sku: "A%B" },
-			entitySchemaId: schema.schemaId,
-		});
-		await createQueryEngineEntity({
-			client,
-			image: null,
-			name: "Underscore Item",
-			properties: { sku: "A_B" },
-			entitySchemaId: schema.schemaId,
-		});
-		await createQueryEngineEntity({
-			client,
-			image: null,
-			name: "Middle Item",
-			properties: { sku: "AXB" },
-			entitySchemaId: schema.schemaId,
-		});
-
-		const neutralDisplay = buildGridDisplayConfiguration(
-			{
-				calloutProperty: null,
-				primarySubtitleProperty: null,
-				secondarySubtitleProperty: null,
-			},
-			[schema.slug],
-		);
-
-		const percentResult = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				displayConfiguration: neutralDisplay,
-				filter: {
-					type: "contains",
-					expression: createEntityPropertyExpression(schema.slug, "sku"),
-					value: literalExpression("A%B"),
-				},
-			}),
-		);
-		const underscoreResult = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				displayConfiguration: neutralDisplay,
-				filter: {
-					type: "contains",
-					expression: createEntityPropertyExpression(schema.slug, "sku"),
-					value: literalExpression("A_B"),
-				},
-			}),
-		);
-
-		expect(getItemTitles(percentResult.data.data.items)).toEqual(["Percent Item"]);
-		expect(getItemTitles(underscoreResult.data.data.items)).toEqual(["Underscore Item"]);
-	});
-
-	it("rejects contains filter on array property when the value is itself an array", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, {
-			name: "Array Guard Tracker",
-		});
-		const schema = await createEntitySchema(client, {
-			trackerId,
-			name: "Tagged Item",
-			propertiesSchema: {
-				fields: {
-					tags: {
-						type: "array",
-						label: "Tags",
-						description: "Tags",
-						items: { type: "string", label: "Tag", description: "Tag" },
-					},
-				},
-			},
-		});
-
-		const error = await executeQueryEngineError(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				displayConfiguration: buildGridDisplayConfiguration({
-					calloutProperty: null,
-					primarySubtitleProperty: null,
-					secondarySubtitleProperty: null,
-				}),
-				filter: {
-					type: "contains",
-					expression: createEntityPropertyExpression(schema.slug, "tags"),
-					value: literalExpression(["sci-fi", "action"]),
-				},
-			}),
-		);
-
-		assertTaggedError(error, "BadRequest");
-		expect(error.message).toContain("requires a scalar or object item expression");
-	});
-
-	it("displays and filters by externalId and sandboxScriptId on global entities", async () => {
-		const { client, userId } = await createAuthenticatedClient();
-		const externalId = `ext-id-test-${crypto.randomUUID()}`;
-		const { entity, schema } = await createGlobalBookEntityFixture(client, {
-			externalId,
-			name: `External ID Entity ${crypto.randomUUID()}`,
-		});
-		await insertLibraryMembership(client, { mediaEntityId: entity.id, userId });
-		const sandboxScriptId = entity.sandboxScriptId;
-
-		const { data } = await executeQueryEngine(
-			client,
-			buildTableRequest({
-				scope: [schema.slug],
-				displayConfiguration: buildTableDisplayConfiguration([
-					{
-						label: "ExternalId",
-						property: [entityField(schema.slug, "externalId")],
-					},
-					{
-						label: "SandboxScriptId",
-						property: [entityField(schema.slug, "sandboxScriptId")],
-					},
-				]),
-				filter: {
-					operator: "eq",
-					type: "comparison",
-					right: literalExpression(externalId),
-					left: createEntityColumnExpression(schema.slug, "externalId"),
-				},
-			}),
-		);
-
-		expect(data.data.items).toHaveLength(1);
-		expect(data.data.items[0]).toEqual(
-			toQueryEngineItem([
-				{ key: "column_0", kind: "text", value: externalId },
-				{ key: "column_1", kind: "text", value: sandboxScriptId },
-			]),
-		);
-	});
-
-	it("resolves externalId and sandboxScriptId as null for regular user entities", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-
-		const { data } = await executeQueryEngine(
-			client,
-			buildTableRequest({
-				scope: [schema.slug],
-				pagination: { page: 1, limit: 1 },
-				displayConfiguration: buildTableDisplayConfiguration([
-					{
-						label: "ExternalId",
-						property: [entityField(schema.slug, "externalId")],
-					},
-					{
-						label: "SandboxScriptId",
-						property: [entityField(schema.slug, "sandboxScriptId")],
-					},
-				]),
-				filter: {
-					operator: "eq",
-					type: "comparison",
-					right: literalExpression("Alpha Phone"),
-					left: createEntityColumnExpression(schema.slug, "name"),
-				},
-			}),
-		);
-
-		expect(data.data.items).toHaveLength(1);
-		expect(data.data.items[0]).toEqual(
-			toQueryEngineItem([
-				{ key: "column_0", kind: "null", value: null },
-				{ key: "column_1", kind: "null", value: null },
-			]),
-		);
-	});
-
-	it("filters with isNull on externalId to find entities without an external id", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-
-		const { data } = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				scope: [schema.slug],
-				displayConfiguration: buildGridDisplayConfiguration({
-					calloutProperty: null,
-					primarySubtitleProperty: null,
-					secondarySubtitleProperty: null,
-				}),
-				filter: {
-					type: "isNull",
-					expression: createEntityColumnExpression(schema.slug, "externalId"),
-				},
-			}),
-		);
-
-		expect(data.data.items.length).toBeGreaterThan(0);
-		for (const item of data.data.items) {
-			expect(getQueryEngineFieldOrThrow(item, "callout").kind).toBe("null");
-		}
-	});
-
-	it("resolves externalId correctly in a cross-schema query with both global and user entities", async () => {
-		const { client, userId } = await createAuthenticatedClient();
-		const externalId = `cross-schema-ext-${crypto.randomUUID()}`;
-		const { entity: globalEntity, schema: mediaSchema } = await createGlobalBookEntityFixture(
-			client,
-			{ externalId, name: `Cross Schema Global ${crypto.randomUUID()}` },
-		);
-		await insertLibraryMembership(client, { userId, mediaEntityId: globalEntity.id });
-
-		const { trackerId } = await createTracker(client, {
-			name: "Cross Schema Tracker",
-		});
-		const userSchema = await createEntitySchema(client, {
-			trackerId,
-			name: "UserItem",
-			propertiesSchema: {
-				fields: {
-					title: {
-						label: "Title",
-						description: "Title",
-						type: "string" as const,
-					},
-				},
-			},
-		});
-		const userEntityName = `Cross Schema User ${crypto.randomUUID()}`;
-		await createQueryEngineEntity({
-			client,
-			image: null,
-			properties: {},
-			name: userEntityName,
-			entitySchemaId: userSchema.schemaId,
-		});
-
-		const { data } = await executeQueryEngine(
-			client,
-			buildTableRequest({
-				scope: [mediaSchema.slug, userSchema.slug],
-				displayConfiguration: buildTableDisplayConfiguration([
-					{
-						label: "Name",
-						property: [entityField(mediaSchema.slug, "name"), entityField(userSchema.slug, "name")],
-					},
-					{
-						label: "ExternalId",
-						property: [
-							entityField(mediaSchema.slug, "externalId"),
-							entityField(userSchema.slug, "externalId"),
-						],
-					},
-				]),
-				filter: {
-					type: "or",
-					predicates: [
-						{
-							operator: "eq",
-							type: "comparison",
-							right: literalExpression(externalId),
-							left: createEntityColumnExpression(mediaSchema.slug, "externalId"),
-						},
-						{
-							operator: "eq",
-							type: "comparison",
-							right: literalExpression(userEntityName),
-							left: createEntityColumnExpression(userSchema.slug, "name"),
-						},
+				output: {
+					type: "rows",
+					pagination: { page: 1, limit: 10 },
+					orderBy: [{ order: "desc", expr: systemRef("completion", "occurredAt") }],
+					fields: [
+						{ key: "occurredAt", expr: systemRef("completion", "occurredAt") },
+						{ key: "notes", expr: propertyRef("completion", completeSlug, "notes") },
+						{ key: "lessonName", expr: systemRef("lesson", "name") },
+						{ key: "eventSchemaSlug", expr: schemaMetaRef("completion", "slug") },
 					],
 				},
-			}),
-		);
+			};
 
-		expect(data.data.items).toHaveLength(2);
+			const result = await executeQueryEngine(client, doc);
 
-		const globalItem = data.data.items.find(
-			(item) => getItemFieldValue(item, "column_1") === externalId,
-		);
-		const userItem = data.data.items.find(
-			(item) => getItemFieldValue(item, "column_0") === userEntityName,
-		);
+			expect(result.data.items).toHaveLength(2);
+			const latest = result.data.items[0];
+			assertPresent(latest, "Expected latest event row");
+			expect(requireQueryEngineFieldValue(latest, "occurredAt").kind).toBe("date");
+			expect(
+				new Date(String(requireQueryEngineFieldValue(latest, "occurredAt").value)).toISOString(),
+			).toBe("2026-02-01T00:00:00.000Z");
+			expect(requireQueryEngineFieldValue(latest, "notes").value).toBe("latest completion");
+			expect(requireQueryEngineFieldValue(latest, "lessonName").value).toBe(
+				"Latest Lesson With Events",
+			);
+			expect(requireQueryEngineFieldValue(latest, "eventSchemaSlug").value).toBe(completeSlug);
+		});
 
-		expect(globalItem).toBeDefined();
-		expect(userItem).toBeDefined();
+		it("returns latest event scalar values with first and null when no event matches", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId: lessonSchemaId, slug: lessonSlug } =
+				await createQueryEngineTrackerAndSchema(client, { schemaName: "FirstExprLesson" });
+			const completeSlug = `first-complete-${crypto.randomUUID()}`;
+			const completeSchema = await createEventSchema(client, {
+				slug: completeSlug,
+				name: "First Complete",
+				entitySchemaId: lessonSchemaId,
+				propertiesSchema: {
+					fields: { notes: { type: "string", label: "Notes", description: "Completion notes" } },
+				},
+			});
+			const lessonWithEvents = await createQueryEngineEntity(client, {
+				name: "Lesson A",
+				entitySchemaId: lessonSchemaId,
+			});
+			await createQueryEngineEntity(client, { name: "Lesson B", entitySchemaId: lessonSchemaId });
+
+			await createQueryEngineEvent(client, {
+				entityId: lessonWithEvents.id,
+				eventSchemaId: completeSchema.id,
+				occurredAt: "2026-03-01T00:00:00.000Z",
+			});
+			await createQueryEngineEvent(client, {
+				entityId: lessonWithEvents.id,
+				eventSchemaId: completeSchema.id,
+				occurredAt: "2026-04-01T00:00:00.000Z",
+			});
+
+			const doc = buildRowsDoc({
+				alias: "lesson",
+				schemas: [lessonSlug],
+				fields: [
+					{ key: "name", expr: systemRef("lesson", "name") },
+					{
+						key: "latestCompletionAt",
+						expr: {
+							type: "first",
+							select: systemRef("completion", "occurredAt"),
+							orderBy: [{ order: "desc", expr: systemRef("completion", "occurredAt") }],
+							source: {
+								where: null,
+								type: "events",
+								alias: "completion",
+								entityRef: "lesson",
+								schemas: [completeSlug],
+							},
+						},
+					},
+				],
+			});
+
+			const result = await executeQueryEngine(client, doc);
+
+			const lessonA = result.data.items.find(
+				(item) => requireQueryEngineFieldValue(item, "name").value === "Lesson A",
+			);
+			const lessonB = result.data.items.find(
+				(item) => requireQueryEngineFieldValue(item, "name").value === "Lesson B",
+			);
+			assertPresent(lessonA, "Expected Lesson A row");
+			assertPresent(lessonB, "Expected Lesson B row");
+			expect(
+				new Date(
+					String(requireQueryEngineFieldValue(lessonA, "latestCompletionAt").value),
+				).toISOString(),
+			).toBe("2026-04-01T00:00:00.000Z");
+			expect(requireQueryEngineFieldValue(lessonB, "latestCompletionAt")).toEqual({
+				value: null,
+				kind: "null",
+			});
+		});
 	});
 
-	registerQueryEnginePresentationAndErrorTests();
+	describe("Relationship root sources", () => {
+		it("returns relationship rows with relationship and endpoint entity fields sorted by relationship createdAt", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId: memberSchemaId, slug: memberSlug } =
+				await createQueryEngineTrackerAndSchema(client, { schemaName: "RelRootMember" });
+			const { schemaId: collectionSchemaId, slug: collectionSlug } =
+				await createQueryEngineTrackerAndSchema(client, { schemaName: "RelRootCollection" });
+			const relationshipSlug = `rel-root-membership-${crypto.randomUUID()}`;
+			const relationshipSchema = await createRelationshipSchema(client, {
+				name: "Rel Root Membership",
+				slug: relationshipSlug,
+				sourceEntitySchemaId: memberSchemaId,
+				targetEntitySchemaId: collectionSchemaId,
+				propertiesSchema: {
+					fields: { role: { type: "string", label: "Role", description: "Membership role" } },
+				},
+			});
+
+			const memberOne = await createQueryEngineEntity(client, {
+				name: "Member One",
+				entitySchemaId: memberSchemaId,
+			});
+			const memberTwo = await createQueryEngineEntity(client, {
+				name: "Member Two",
+				entitySchemaId: memberSchemaId,
+			});
+			const collection = await createQueryEngineEntity(client, {
+				name: "Collection",
+				entitySchemaId: collectionSchemaId,
+			});
+
+			await createRelationship(client, {
+				sourceEntityId: memberOne.id,
+				targetEntityId: collection.id,
+				properties: { role: "first" },
+				relationshipSchemaId: relationshipSchema.id,
+			});
+			await createRelationship(client, {
+				sourceEntityId: memberTwo.id,
+				targetEntityId: collection.id,
+				properties: { role: "second" },
+				relationshipSchemaId: relationshipSchema.id,
+			});
+
+			const doc: QueryEnginePayload = {
+				version: 2,
+				source: {
+					where: null,
+					alias: "membership",
+					type: "relationships",
+					schemas: [relationshipSlug],
+					sourceEntity: { alias: "memberEntity", schemas: [memberSlug] },
+					targetEntity: { alias: "collectionEntity", schemas: [collectionSlug] },
+				},
+				output: {
+					type: "rows",
+					pagination: { page: 1, limit: 10 },
+					orderBy: [{ order: "desc", expr: systemRef("membership", "createdAt") }],
+					fields: [
+						{ key: "createdAt", expr: systemRef("membership", "createdAt") },
+						{ key: "sourceEntityId", expr: systemRef("membership", "sourceEntityId") },
+						{ key: "memberName", expr: systemRef("memberEntity", "name") },
+						{ key: "collectionName", expr: systemRef("collectionEntity", "name") },
+						{ key: "role", expr: propertyRef("membership", relationshipSlug, "role") },
+					],
+				},
+			};
+
+			const result = await executeQueryEngine(client, doc);
+
+			expect(result.data.items).toHaveLength(2);
+			expect(result.data.pageInfo.total).toBe(2);
+
+			const [first, second] = result.data.items;
+			assertPresent(first, "Expected first relationship row");
+			assertPresent(second, "Expected second relationship row");
+			const firstCreatedAt = new Date(
+				String(requireQueryEngineFieldValue(first, "createdAt").value),
+			);
+			const secondCreatedAt = new Date(
+				String(requireQueryEngineFieldValue(second, "createdAt").value),
+			);
+			expect(firstCreatedAt.getTime()).toBeGreaterThanOrEqual(secondCreatedAt.getTime());
+
+			const byMember = new Map(
+				result.data.items.map((item) => [
+					requireQueryEngineFieldValue(item, "sourceEntityId").value,
+					item,
+				]),
+			);
+			const memberOneRow = byMember.get(memberOne.id);
+			const memberTwoRow = byMember.get(memberTwo.id);
+			assertPresent(memberOneRow, "Expected Member One's relationship row");
+			assertPresent(memberTwoRow, "Expected Member Two's relationship row");
+			expect(requireQueryEngineFieldValue(memberOneRow, "memberName").value).toBe("Member One");
+			expect(requireQueryEngineFieldValue(memberOneRow, "collectionName").value).toBe("Collection");
+			expect(requireQueryEngineFieldValue(memberOneRow, "role").value).toBe("first");
+			expect(requireQueryEngineFieldValue(memberTwoRow, "memberName").value).toBe("Member Two");
+			expect(requireQueryEngineFieldValue(memberTwoRow, "role").value).toBe("second");
+		});
+
+		it("enforces visibility on relationship rows and both endpoint entities", async () => {
+			const userA = await createAuthenticatedClient();
+			const userB = await createAuthenticatedClient();
+
+			const { schemaId: memberSchemaIdA, slug: memberSlugA } =
+				await createQueryEngineTrackerAndSchema(userA.client, { schemaName: "RelRootIsoMember" });
+			const { schemaId: collectionSchemaIdA, slug: collectionSlugA } =
+				await createQueryEngineTrackerAndSchema(userA.client, {
+					schemaName: "RelRootIsoCollection",
+				});
+			const relationshipSlugA = `rel-root-iso-${crypto.randomUUID()}`;
+			const relationshipSchemaA = await createRelationshipSchema(userA.client, {
+				name: "Rel Root Iso",
+				slug: relationshipSlugA,
+				propertiesSchema: { fields: {} },
+				sourceEntitySchemaId: memberSchemaIdA,
+				targetEntitySchemaId: collectionSchemaIdA,
+			});
+			const memberA = await createQueryEngineEntity(userA.client, {
+				name: "User A Member",
+				entitySchemaId: memberSchemaIdA,
+			});
+			const collectionA = await createQueryEngineEntity(userA.client, {
+				name: "User A Collection",
+				entitySchemaId: collectionSchemaIdA,
+			});
+			await createRelationship(userA.client, {
+				sourceEntityId: memberA.id,
+				targetEntityId: collectionA.id,
+				relationshipSchemaId: relationshipSchemaA.id,
+			});
+
+			const docA: QueryEnginePayload = {
+				version: 2,
+				source: {
+					where: null,
+					alias: "membership",
+					type: "relationships",
+					schemas: [relationshipSlugA],
+					sourceEntity: { alias: "memberEntity", schemas: [memberSlugA] },
+					targetEntity: { alias: "collectionEntity", schemas: [collectionSlugA] },
+				},
+				output: {
+					type: "rows",
+					pagination: { page: 1, limit: 10 },
+					orderBy: [{ order: "desc", expr: systemRef("membership", "createdAt") }],
+					fields: [{ key: "memberName", expr: systemRef("memberEntity", "name") }],
+				},
+			};
+
+			const errorForUserB = await executeQueryEngineError(userB.client, docA);
+			expect(errorForUserB).toMatchObject({ _tag: "NotFound" });
+
+			const { schemaId: memberSchemaIdB, slug: memberSlugB } =
+				await createQueryEngineTrackerAndSchema(userB.client, { schemaName: "RelRootIsoMember" });
+			const { schemaId: collectionSchemaIdB, slug: collectionSlugB } =
+				await createQueryEngineTrackerAndSchema(userB.client, {
+					schemaName: "RelRootIsoCollection",
+				});
+			const relationshipSlugB = `rel-root-iso-${crypto.randomUUID()}`;
+			const relationshipSchemaB = await createRelationshipSchema(userB.client, {
+				name: "Rel Root Iso",
+				slug: relationshipSlugB,
+				propertiesSchema: { fields: {} },
+				sourceEntitySchemaId: memberSchemaIdB,
+				targetEntitySchemaId: collectionSchemaIdB,
+			});
+			const memberB = await createQueryEngineEntity(userB.client, {
+				name: "User B Member",
+				entitySchemaId: memberSchemaIdB,
+			});
+			const collectionB = await createQueryEngineEntity(userB.client, {
+				name: "User B Collection",
+				entitySchemaId: collectionSchemaIdB,
+			});
+			await createRelationship(userB.client, {
+				sourceEntityId: memberB.id,
+				targetEntityId: collectionB.id,
+				relationshipSchemaId: relationshipSchemaB.id,
+			});
+
+			const docB: QueryEnginePayload = {
+				...docA,
+				source: {
+					where: null,
+					alias: "membership",
+					type: "relationships",
+					schemas: [relationshipSlugB],
+					sourceEntity: { alias: "memberEntity", schemas: [memberSlugB] },
+					targetEntity: { alias: "collectionEntity", schemas: [collectionSlugB] },
+				},
+			};
+
+			const resultB = await executeQueryEngine(userB.client, docB);
+			expect(resultB.data.items).toHaveLength(1);
+			const itemB = resultB.data.items[0];
+			assertPresent(itemB, "Expected User B's relationship row");
+			expect(requireQueryEngineFieldValue(itemB, "memberName").value).toBe("User B Member");
+		});
+	});
+
+	describe("Time series returns", () => {
+		it("returns event buckets with half-open range filtering and zero fill", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId: lessonSchemaId, slug: lessonSlug } =
+				await createQueryEngineTrackerAndSchema(client, { schemaName: "TimeSeriesEventLesson" });
+			const completeSlug = `time-series-complete-${crypto.randomUUID()}`;
+			const completeSchema = await createEventSchema(client, {
+				slug: completeSlug,
+				name: "Time Series Complete",
+				entitySchemaId: lessonSchemaId,
+				propertiesSchema: {
+					fields: { note: { type: "string", label: "Note", description: "Completion note" } },
+				},
+			});
+			const lesson = await createQueryEngineEntity(client, {
+				name: "Time Series Lesson",
+				entitySchemaId: lessonSchemaId,
+			});
+
+			await createQueryEngineEvent(client, {
+				entityId: lesson.id,
+				properties: { note: "included" },
+				eventSchemaId: completeSchema.id,
+				occurredAt: "2026-01-01T12:00:00.000Z",
+			});
+			await createQueryEngineEvent(client, {
+				entityId: lesson.id,
+				properties: { note: "excluded" },
+				eventSchemaId: completeSchema.id,
+				occurredAt: "2026-01-03T00:00:00.000Z",
+			});
+
+			const doc: QueryEnginePayload = {
+				version: 2,
+				source: {
+					where: null,
+					type: "events",
+					alias: "completion",
+					schemas: [completeSlug],
+					entity: { alias: "lesson", schemas: [lessonSlug] },
+				},
+				output: {
+					type: "timeSeries",
+					measure: { aggregation: { function: "count" } },
+					time: {
+						bucket: "day",
+						expr: systemRef("completion", "occurredAt"),
+						range: { endAt: "2026-01-03T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
+					},
+				},
+			};
+
+			const result = await executeTimeSeriesQueryEngine(client, doc);
+
+			expect(result.data.buckets).toEqual([
+				{ value: 1, endAt: "2026-01-02T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
+				{ value: 0, endAt: "2026-01-03T00:00:00.000Z", startAt: "2026-01-02T00:00:00.000Z" },
+			]);
+		});
+
+		it("returns entity buckets using a date property", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "TimeSeriesEntity",
+				propertiesSchema: {
+					fields: {
+						publishedAt: { type: "datetime", label: "Published At", description: "Published at" },
+					},
+				},
+			});
+			await Promise.all([
+				createQueryEngineEntity(client, {
+					name: "Entity One",
+					entitySchemaId: schemaId,
+					properties: { publishedAt: "2026-01-01T12:00:00.000Z" },
+				}),
+				createQueryEngineEntity(client, {
+					name: "Entity Two",
+					entitySchemaId: schemaId,
+					properties: { publishedAt: "2026-01-01T13:00:00.000Z" },
+				}),
+			]);
+
+			const doc: QueryEnginePayload = {
+				version: 2,
+				source: { where: null, type: "entities", alias: "entity", schemas: [slug] },
+				output: {
+					type: "timeSeries",
+					measure: { aggregation: { function: "count" } },
+					time: {
+						bucket: "day",
+						expr: propertyRef("entity", slug, "publishedAt"),
+						range: { endAt: "2026-01-03T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
+					},
+				},
+			};
+
+			const result = await executeTimeSeriesQueryEngine(client, doc);
+
+			expect(result.data.buckets).toHaveLength(2);
+			expect(result.data.buckets[0]?.value).toBe(2);
+			expect(result.data.buckets[1]?.value).toBe(0);
+		});
+
+		it("returns relationship buckets using relationship createdAt", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId: memberSchemaId, slug: memberSlug } =
+				await createQueryEngineTrackerAndSchema(client, { schemaName: "TimeSeriesRelMember" });
+			const { schemaId: collectionSchemaId, slug: collectionSlug } =
+				await createQueryEngineTrackerAndSchema(client, { schemaName: "TimeSeriesRelCollection" });
+			const relationshipSlug = `time-series-membership-${crypto.randomUUID()}`;
+			const relationshipSchema = await createRelationshipSchema(client, {
+				slug: relationshipSlug,
+				name: "Time Series Membership",
+				propertiesSchema: { fields: {} },
+				sourceEntitySchemaId: memberSchemaId,
+				targetEntitySchemaId: collectionSchemaId,
+			});
+			const member = await createQueryEngineEntity(client, {
+				name: "Time Series Member",
+				entitySchemaId: memberSchemaId,
+			});
+			const collection = await createQueryEngineEntity(client, {
+				name: "Time Series Collection",
+				entitySchemaId: collectionSchemaId,
+			});
+			await createRelationship(client, {
+				sourceEntityId: member.id,
+				targetEntityId: collection.id,
+				relationshipSchemaId: relationshipSchema.id,
+			});
+
+			const doc: QueryEnginePayload = {
+				version: 2,
+				output: {
+					type: "timeSeries",
+					measure: { aggregation: { function: "count" } },
+					time: {
+						bucket: "month",
+						expr: systemRef("membership", "createdAt"),
+						range: { endAt: "2031-01-01T00:00:00.000Z", startAt: "2020-01-01T00:00:00.000Z" },
+					},
+				},
+				source: {
+					where: null,
+					alias: "membership",
+					type: "relationships",
+					schemas: [relationshipSlug],
+					sourceEntity: { alias: "memberEntity", schemas: [memberSlug] },
+					targetEntity: { alias: "collectionEntity", schemas: [collectionSlug] },
+				},
+			};
+
+			const result = await executeTimeSeriesQueryEngine(client, doc);
+
+			expect(result.data.buckets.some((bucket) => bucket.value === 1)).toBe(true);
+		});
+
+		it("rejects date ranges that produce more than 1000 buckets", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "TimeSeriesBucketCap",
+			});
+			const doc: QueryEnginePayload = {
+				version: 2,
+				source: { where: null, type: "entities", alias: "entity", schemas: [slug] },
+				output: {
+					type: "timeSeries",
+					measure: { aggregation: { function: "count" } },
+					time: {
+						bucket: "day",
+						expr: systemRef("entity", "createdAt"),
+						range: { endAt: "2028-10-01T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
+					},
+				},
+			};
+
+			const error = await executeQueryEngineError(client, doc);
+			expect(error).toMatchObject({ _tag: "BadRequest" });
+		});
+	});
+
+	describe("Visibility boundary", () => {
+		it("does not allow a user to query another user's private entity schema", async () => {
+			const userA = await createAuthenticatedClient();
+			const userB = await createAuthenticatedClient();
+
+			const { slug } = await createQueryEngineTrackerAndSchema(userA.client, {
+				schemaName: "UserAPrivateCourse",
+			});
+
+			const doc = buildRowsDoc({ fields: [], alias: "course", schemas: [slug] });
+
+			const error = await executeQueryEngineError(userB.client, doc);
+			expect(error).toMatchObject({ _tag: "NotFound" });
+		});
+
+		it("only returns entities owned by the authenticated user", async () => {
+			const userA = await createAuthenticatedClient();
+			const userB = await createAuthenticatedClient();
+
+			// Both users need access to the same schema slug. Use a unique slug per user
+			// to avoid cross-schema contamination; in practice each user has their own schema.
+			const { schemaId: schemaA, slug: slugA } = await createQueryEngineTrackerAndSchema(
+				userA.client,
+				{
+					schemaName: "VisibilityCourse",
+				},
+			);
+			const { schemaId: schemaB, slug: slugB } = await createQueryEngineTrackerAndSchema(
+				userB.client,
+				{
+					schemaName: "VisibilityCourse",
+				},
+			);
+
+			await createQueryEngineEntity(userA.client, {
+				name: "User A Entity",
+				entitySchemaId: schemaA,
+			});
+			await createQueryEngineEntity(userB.client, {
+				name: "User B Entity",
+				entitySchemaId: schemaB,
+			});
+
+			const resultA = await executeQueryEngine(
+				userA.client,
+				buildRowsDoc({
+					alias: "course",
+					schemas: [slugA],
+					fields: [{ key: "name", expr: systemRef("course", "name") }],
+				}),
+			);
+
+			expect(resultA.data.items).toHaveLength(1);
+			const itemA = resultA.data.items[0];
+			assertPresent(itemA, "Expected User A's result item");
+			expect(requireQueryEngineFieldValue(itemA, "name").value).toBe("User A Entity");
+
+			const resultB = await executeQueryEngine(
+				userB.client,
+				buildRowsDoc({
+					alias: "course",
+					schemas: [slugB],
+					fields: [{ key: "name", expr: systemRef("course", "name") }],
+				}),
+			);
+
+			expect(resultB.data.items).toHaveLength(1);
+			const itemB = resultB.data.items[0];
+			assertPresent(itemB, "Expected User B's result item");
+			expect(requireQueryEngineFieldValue(itemB, "name").value).toBe("User B Entity");
+		});
+	});
+
+	describe("In-library filter", () => {
+		it("isolates global media entities by library membership per user", async () => {
+			const userA = await createAuthenticatedClient();
+			const userB = await createAuthenticatedClient();
+			const { entity, schema } = await createGlobalBookEntityFixture(userA.client, {
+				name: `Isolated Library Entity ${crypto.randomUUID()}`,
+				externalId: `isolated-library-entity-${crypto.randomUUID()}`,
+			});
+
+			await insertLibraryMembership(userA.client, {
+				userId: userA.userId,
+				mediaEntityId: entity.id,
+			});
+
+			const doc: QueryEnginePayload = {
+				version: 2,
+				source: {
+					alias: "entity",
+					schemas: [schema.slug],
+					type: "entities",
+					where: {
+						type: "exists",
+						source: {
+							where: null,
+							type: "entities",
+							alias: "library",
+							schemas: ["library"],
+							via: {
+								alias: "inLibrary",
+								entityRef: "entity",
+								schema: "in-library",
+								direction: "outgoing",
+							},
+						},
+					},
+				},
+				output: {
+					type: "rows",
+					pagination: { page: 1, limit: 20 },
+					fields: [{ key: "name", expr: systemRef("entity", "name") }],
+					orderBy: [{ order: "asc", expr: systemRef("entity", "name") }],
+				},
+			};
+
+			const userAResult = await executeQueryEngine(userA.client, doc);
+			const userBResult = await executeQueryEngine(userB.client, doc);
+
+			const userANames = userAResult.data.items.map(
+				(item) => requireQueryEngineFieldValue(item, "name").value,
+			);
+			expect(userANames).toContain(entity.name);
+			expect(userBResult.data.items).toHaveLength(0);
+		});
+	});
+
+	describe("Validation errors", () => {
+		it("rejects a pagination limit exceeding 100", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "LimitTestSchema",
+			});
+
+			const doc = buildRowsDoc({ alias: "e", schemas: [slug], limit: 101 });
+			const error = await executeQueryEngineError(client, doc);
+			expect(error).toMatchObject({ _tag: "BadRequest" });
+		});
+
+		it("rejects an invalid system field for an entity source", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "SystemFieldTestSchema",
+			});
+
+			const doc = buildRowsDoc({
+				alias: "e",
+				schemas: [slug],
+				// occurredAt is an event-only system field
+				orderByExpr: systemRef("e", "occurredAt"),
+			});
+			const error = await executeQueryEngineError(client, doc);
+			expect(error).toMatchObject({ _tag: "BadRequest" });
+		});
+
+		it("rejects a property field that references a schema not in the source schemas", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "PropSchemaTestSchema",
+				propertiesSchema: {
+					fields: { title: { type: "string", label: "Title", description: "Title value" } },
+				},
+			});
+
+			const doc = buildRowsDoc({
+				alias: "e",
+				schemas: [slug],
+				fields: [{ key: "title", expr: propertyRef("e", "other-schema", "title") }],
+			});
+			const error = await executeQueryEngineError(client, doc);
+			expect(error).toMatchObject({ _tag: "BadRequest" });
+		});
+
+		it("rejects duplicate source schema slugs", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "DuplicateSchemaGuardrail",
+			});
+
+			const doc = buildRowsDoc({ alias: "e", schemas: [slug, slug] });
+			const error = await executeQueryEngineError(client, doc);
+			expect(error).toMatchObject({ _tag: "BadRequest" });
+		});
+
+		it("rejects old predicate operand keys", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "OldPredicateGuardrail",
+			});
+			const invalidExpr = {
+				type: "and" as const,
+				predicates: [{ type: "literal", value: true }],
+				values: [{ type: "literal" as const, value: true }] as const,
+			};
+
+			const doc = buildRowsDoc({ alias: "e", schemas: [slug], orderByExpr: invalidExpr });
+			const error = await executeQueryEngineError(client, doc);
+			assertTaggedError(error, "ParseError");
+		});
+
+		it("rejects unsupported legacy filter keys", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { slug } = await createQueryEngineTrackerAndSchema(client, {
+				schemaName: "LegacyFilterGuardrail",
+			});
+
+			const doc = {
+				...buildRowsDoc({ alias: "e", schemas: [slug] }),
+				source: {
+					alias: "e",
+					where: null,
+					schemas: [slug],
+					type: "entities",
+					filter: { type: "literal", value: true },
+				},
+			} as QueryEnginePayload;
+			const error = await executeQueryEngineError(client, doc);
+			assertTaggedError(error, "ParseError");
+		});
+	});
 });

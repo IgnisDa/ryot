@@ -9,8 +9,8 @@ import {
 	createLiteralExpression,
 	createTransformExpression,
 	type QueryExpression,
-	type QueryRelationshipJoin,
 } from "#lib/query-language";
+import type { Expr, QueryDocument } from "#modules/query-engine/language";
 
 const entityColumn = (slug: string, column: string) => createEntityColumnExpression(slug, column);
 
@@ -208,46 +208,44 @@ export const buildDisplayConfig = (slug: string) => {
 	};
 };
 
-export const buildDefaultQueryDefinition = (
-	scope: string[],
-	options?: { relationshipJoins?: QueryRelationshipJoin[] },
-) =>
-	({
-		scope,
-		filter: null,
-		eventJoins: [],
-		mode: "entities",
-		computedFields: [],
-		relationshipJoins: options?.relationshipJoins ?? [],
-		sort: {
-			direction: "asc",
-			expression: scope[0] ? entityColumn(scope[0], "name") : createLiteralExpression(""),
-		},
-	}) as const;
-
-export const buildDefaultQueryDocument = (scope: readonly [string, ...string[]]) => {
+export const buildDefaultQueryDocument = (
+	scope: readonly [string, ...string[]],
+	options: {
+		readonly requireInLibrary?: boolean;
+		readonly orderBy?: Extract<QueryDocument["output"], { type: "rows" }>["orderBy"];
+	} = {},
+) => {
 	const nameRef = {
 		type: "ref" as const,
 		sourceAlias: "entity",
 		field: { type: "system" as const, name: "name" },
 	};
+	const where: Expr | null = options.requireInLibrary
+		? {
+				type: "exists",
+				source: {
+					where: null,
+					type: "entities",
+					alias: "library",
+					schemas: ["library"],
+					via: {
+						alias: "inLibrary",
+						entityRef: "entity",
+						schema: "in-library",
+						direction: "outgoing",
+					},
+				},
+			}
+		: null;
 
 	return {
 		version: 2 as const,
-		source: { type: "entities" as const, alias: "entity", schemas: scope, where: null },
+		source: { type: "entities" as const, alias: "entity", schemas: scope, where },
 		output: {
 			type: "rows" as const,
 			pagination: { page: 1, limit: 20 },
-			orderBy: [{ order: "asc" as const, expr: nameRef }] as const,
 			fields: [{ key: "name", expr: nameRef }],
+			orderBy: options.orderBy ?? ([{ order: "asc" as const, expr: nameRef }] as const),
 		},
 	};
-};
-
-export const inLibraryRelationshipJoin: QueryRelationshipJoin = {
-	required: true,
-	key: "inLibrary",
-	direction: "outgoing",
-	kind: "latestRelationship",
-	relationshipSchemaSlug: "in-library",
 };

@@ -1,15 +1,8 @@
-import type {
-	DisplayConfiguration,
-	QueryRelationshipJoin,
-	SavedViewQueryDefinition,
-} from "#lib/query-language";
+import type { DisplayConfiguration } from "#lib/query-language";
 import { slugify } from "#lib/slug";
+import type { QueryDocument } from "#modules/query-engine/language";
 
-import {
-	buildDefaultQueryDefinition,
-	buildDisplayConfig,
-	inLibraryRelationshipJoin,
-} from "./view-helpers";
+import { buildDefaultQueryDocument, buildDisplayConfig } from "./view-helpers";
 
 export type BuiltinSavedView = {
 	readonly name: string;
@@ -18,8 +11,8 @@ export type BuiltinSavedView = {
 	readonly trackerSlug?: string;
 	readonly accentColor?: string;
 	readonly entitySchemaSlug?: string;
-	readonly relationshipJoins?: QueryRelationshipJoin[];
-	readonly queryDefinition?: typeof SavedViewQueryDefinition.Type;
+	readonly requireInLibrary?: boolean;
+	readonly queryDocument?: QueryDocument;
 	readonly displayConfiguration: typeof DisplayConfiguration.Type;
 };
 
@@ -74,16 +67,16 @@ export const builtinSavedViews = (): BuiltinSavedView[] => [
 		name: "All Persons",
 		slug: "all-persons",
 		trackerSlug: "media",
+		requireInLibrary: true,
 		entitySchemaSlug: "person",
-		relationshipJoins: [inLibraryRelationshipJoin],
 		displayConfiguration: buildDisplayConfig("person"),
 	},
 	{
 		trackerSlug: "media",
 		name: "All Companies",
 		slug: "all-companies",
+		requireInLibrary: true,
 		entitySchemaSlug: "company",
-		relationshipJoins: [inLibraryRelationshipJoin],
 		displayConfiguration: buildDisplayConfig("company"),
 	},
 	{
@@ -106,16 +99,18 @@ export const builtinSavedViews = (): BuiltinSavedView[] => [
 		name: "All Measurements",
 		entitySchemaSlug: "measurement",
 		displayConfiguration: buildDisplayConfig("measurement"),
-		queryDefinition: {
-			...buildDefaultQueryDefinition(["measurement"]),
-			sort: {
-				direction: "desc",
-				expression: {
-					type: "reference",
-					reference: { path: ["properties", "recordedAt"], slug: "measurement", type: "entity" },
+		queryDocument: buildDefaultQueryDocument(["measurement"], {
+			orderBy: [
+				{
+					order: "desc",
+					expr: {
+						type: "ref",
+						sourceAlias: "entity",
+						field: { type: "property", schema: "measurement", path: ["recordedAt"] },
+					},
 				},
-			},
-		},
+			],
+		}),
 	},
 	{
 		trackerSlug: "fitness",
@@ -123,25 +118,27 @@ export const builtinSavedViews = (): BuiltinSavedView[] => [
 		name: "All Workout Templates",
 		entitySchemaSlug: "workout-template",
 		displayConfiguration: buildDisplayConfig("workout-template"),
-		queryDefinition: {
-			...buildDefaultQueryDefinition(["workout-template"]),
-			sort: {
-				direction: "desc",
-				expression: {
-					type: "reference",
-					reference: { path: ["createdAt"], slug: "workout-template", type: "entity" },
+		queryDocument: buildDefaultQueryDocument(["workout-template"], {
+			orderBy: [
+				{
+					order: "desc",
+					expr: {
+						type: "ref",
+						sourceAlias: "entity",
+						field: { type: "system", name: "createdAt" },
+					},
 				},
-			},
-		},
+			],
+		}),
 	},
 	...mediaEntitySchemaSlugs.map((slug) => {
 		const name = mediaViewName[slug];
 		return {
 			name,
 			trackerSlug: "media",
+			requireInLibrary: true,
 			entitySchemaSlug: slug,
 			slug: slugify(name),
-			relationshipJoins: [inLibraryRelationshipJoin],
 			displayConfiguration: buildDisplayConfig(slug),
 		};
 	}),

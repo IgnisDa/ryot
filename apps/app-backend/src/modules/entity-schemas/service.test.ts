@@ -51,6 +51,7 @@ const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository>
 			_tag: "EntitySchemasRepository" as const,
 			findBySlug: () => Effect.die("unused"),
 			listByUser: () => Effect.die("unused"),
+			listVisibleBySlugs: () => Effect.die("unused"),
 			getByIdForUser: () => Effect.die("unused"),
 			createEntitySchema: () => Effect.die("unused"),
 		},
