@@ -182,6 +182,32 @@ MusicBrainz has 13 core entity types, but for music tracking, we primarily care 
 5. **More comprehensive metadata**: Better for classical music, compilations, various artists
 6. **Separate Cover Art API**: Unlike YTM/Spotify which include images in main response
 
+## Jellyfin Interop Notes
+
+Jellyfin uses MusicBrainz MBIDs under the hood and exposes them as provider IDs. When adding
+Jellyfin music tracking in the future, map the provider IDs to Ryot entities as follows:
+
+- `MusicBrainzRecording` (from `MUSICBRAINZ_TRACKID`) -> MusicBrainz Recording -> Ryot Metadata (track)
+- `MusicBrainzReleaseGroup` (from `MUSICBRAINZ_RELEASEGROUPID`) -> MusicBrainz Release-Group -> Ryot MetadataGroup (album)
+- `MusicBrainzArtist` / `MusicBrainzAlbumArtist` (from `MUSICBRAINZ_ARTISTID` / `MUSICBRAINZ_ALBUMARTISTID`) -> MusicBrainz Artist -> Ryot Person
+
+Additional Jellyfin IDs that may require translation before use:
+
+- `MusicBrainzAlbum` (from `MUSICBRAINZ_ALBUMID`) is a MusicBrainz Release MBID, not a Release-Group.
+- `MusicBrainzTrack` (from `MUSICBRAINZ_RELEASETRACKID`) is a MusicBrainz Release-Track MBID, not a Recording.
+
+If only a release or release-track ID is available, resolve it via MusicBrainz to the
+corresponding release-group or recording before using it as the Ryot identifier.
+
+When consuming Jellyfin API payloads, read these provider ID keys from `ProviderIds`:
+
+- `MusicBrainzRecording`
+- `MusicBrainzReleaseGroup`
+- `MusicBrainzArtist`
+- `MusicBrainzAlbumArtist`
+- `MusicBrainzAlbum`
+- `MusicBrainzTrack`
+
 ## API Implementation Plan
 
 ### MediaProvider Trait Implementation
