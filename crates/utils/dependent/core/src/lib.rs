@@ -137,6 +137,7 @@ fn build_provider_language_information(
                 | MediaSource::Vndb
                 | MediaSource::Custom
                 | MediaSource::Spotify
+                | MediaSource::MusicBrainz
                 | MediaSource::GiantBomb
                 | MediaSource::Hardcover
                 | MediaSource::Myanimelist
