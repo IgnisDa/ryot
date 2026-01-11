@@ -221,7 +221,7 @@ export const PersonDisplayItem = (props: {
 	const defaultAdditionalInformation = useMemo(() => {
 		const final = [];
 
-		if (personDetails)
+		if (personDetails?.details.associatedEntityCount)
 			final.push(`${personDetails.details.associatedEntityCount} items`);
 
 		return final;
