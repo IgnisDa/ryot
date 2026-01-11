@@ -25,9 +25,30 @@ import { PopulationProvider, type EntityIdsByKey, type ProgressReporter } from "
 import type { ImportEntityRef, ImportMediaEntityGroup } from "./types";
 import { importEntityRefKey } from "./types";
 import { MediaImportWorkflowOperations } from "./types-workflow";
+import { chunkWorkflowItems, type WorkflowChunkRejection } from "./workflow-chunks";
 
 const resolutionScriptSlugs: Readonly<Record<string, string>> =
 	mediaImportResolutionActivitySlugByProvider;
+
+const workflowChunkRejectionMessage = (workflow: string, reason: WorkflowChunkRejection) => {
+	if (reason === "context") {
+		return `${workflow} item exceeds the workflow context limit`;
+	}
+	if (reason === "steps") {
+		return `${workflow} item exceeds the durable step limit`;
+	}
+	return `${workflow} item is not JSON serializable`;
+};
+
+const populationFailureStage = (rejected: boolean, childStage?: "membership" | "population") => {
+	if (rejected) {
+		return "input_transformation" as const;
+	}
+	if (childStage === "membership") {
+		return "database_commit" as const;
+	}
+	return "provider_details" as const;
+};
 
 const indexWorkflowResults = <Result extends { index: number }>(input: {
 	workflow: string;
@@ -130,32 +151,68 @@ export const resolveMediaEntityGroupsWithPlugin = Effect.fn("resolveMediaEntityG
 			});
 		}
 
-		const output =
-			items.length === 0
-				? { results: [] }
-				: yield* sandbox
+		const { chunks, rejected } = chunkWorkflowItems(
+			items.map((item) => ({ item, steps: item.candidates.length })),
+		);
+		const rejectedMessageByIndex = new Map(
+			rejected.map(({ item, reason }) => [
+				item.index,
+				workflowChunkRejectionMessage("Media import resolution workflow", reason),
+			]),
+		);
+		const malformedMessageByIndex = new Map<number, string>();
+		const resultByIndex = new Map<
+			number,
+			(typeof MediaImportResolutionWorkflowOutput.Type)["results"][number]
+		>();
+		if (chunks.length > 0) {
+			const scriptId = yield* sandbox
+				.resolveWorkflowScript({
+					pluginSlug: "media",
+					workflowSlug: "media-import-resolution",
+					executionId: `${input.executionId}-resolution`,
+				})
+				.pipe(Effect.mapError(toWorkflowError));
+			const outputs = yield* Effect.forEach(
+				chunks,
+				(chunk, chunkIndex) =>
+					sandbox
 						.executeWorkflow({
-							input: { items },
-							pluginSlug: "media",
-							workflowSlug: "media-import-resolution",
-							executionId: `${input.executionId}-resolution`,
+							scriptId,
+							input: { items: chunk.items },
 							authority: { type: "user", userId: input.payload.userId },
+							executionId: `${input.executionId}-resolution-chunk-${chunkIndex}`,
 						})
 						.pipe(
 							Effect.flatMap(Schema.decodeUnknown(MediaImportResolutionWorkflowOutput)),
 							Effect.mapError(toWorkflowError),
-						);
-		const indexedResults = indexWorkflowResults({
-			items,
-			results: output.results,
-			workflow: "Media import resolution workflow",
-		});
-		const resultByIndex = indexedResults.resultByIndex;
+						),
+				{ concurrency: config.sandbox.workerConcurrency },
+			);
+			for (const [chunkIndex, chunk] of chunks.entries()) {
+				const indexed = indexWorkflowResults({
+					items: chunk.items,
+					results: outputs[chunkIndex]?.results ?? [],
+					workflow: "Media import resolution workflow",
+				});
+				if (indexed.message) {
+					for (const item of chunk.items) {
+						malformedMessageByIndex.set(item.index, indexed.message);
+					}
+				} else {
+					for (const [index, result] of indexed.resultByIndex ?? []) {
+						resultByIndex.set(index, result);
+					}
+				}
+			}
+		}
 
 		for (const [index, group] of input.entityGroups.entries()) {
 			const ref = group.entityRef;
 			if (ref.kind === "unresolved") {
-				const result = resultByIndex?.get(index);
+				const result = resultByIndex.get(index);
+				const malformedMessage = malformedMessageByIndex.get(index);
+				const rejectedMessage = rejectedMessageByIndex.get(index);
 				if (result?.status === "resolved") {
 					group.entityRef = {
 						kind: "resolved",
@@ -164,10 +221,7 @@ export const resolveMediaEntityGroupsWithPlugin = Effect.fn("resolveMediaEntityG
 						providerSlug: result.providerSlug,
 						entitySchemaSlug: ref.entitySchemaSlug,
 					};
-				} else if (
-					result ||
-					(indexedResults.message && items.some((item) => item.index === index))
-				) {
+				} else if (result || malformedMessage || rejectedMessage) {
 					failures += 1;
 					const errors = result?.status === "unresolved" ? result.errors : [];
 					yield* recordResolutionFailure({
@@ -177,7 +231,8 @@ export const resolveMediaEntityGroupsWithPlugin = Effect.fn("resolveMediaEntityG
 						payload: input.payload,
 						context: errors.length > 0 ? { errors } : null,
 						message:
-							indexedResults.message ??
+							rejectedMessage ??
+							malformedMessage ??
 							(errors.length > 0
 								? errors.join("; ")
 								: `Could not resolve ${ref.identifierType} to a supported provider`),
@@ -202,6 +257,7 @@ export const populateMediaEntityGroupsWithPlugin = Effect.fn("populateMediaEntit
 		entityGroups: ImportMediaEntityGroup[];
 		payload: Pick<ImportRunJobData, "runId" | "userId"> & { integrationId?: IntegrationId };
 	}) {
+		const config = yield* AppConfig;
 		const sandbox = yield* SandboxExecutionService;
 		const operations = yield* MediaImportWorkflowOperations;
 		const entityIdsByKey: EntityIdsByKey = new Map();
@@ -265,41 +321,71 @@ export const populateMediaEntityGroupsWithPlugin = Effect.fn("populateMediaEntit
 			});
 		}
 
-		const workflowInput = yield* Schema.encodeUnknown(jsonValueSchema)({ items }).pipe(
-			Effect.mapError(toWorkflowError),
+		const { chunks, rejected } = chunkWorkflowItems(items.map((item) => ({ item, steps: 1 })));
+		const rejectedMessageByIndex = new Map(
+			rejected.map(({ item, reason }) => [
+				item.index,
+				workflowChunkRejectionMessage("Media import population workflow", reason),
+			]),
 		);
-		const output =
-			items.length === 0
-				? { results: [] }
-				: yield* sandbox
-						.executeWorkflow({
-							input: workflowInput,
-							pluginSlug: "media",
-							workflowSlug: "media-import-population",
-							executionId: `${input.executionId}-population`,
-							authority: { type: "user", userId: input.payload.userId },
-						})
-						.pipe(
-							Effect.flatMap(Schema.decodeUnknown(MediaImportPopulationWorkflowOutput)),
-							Effect.mapError(toWorkflowError),
-						);
-		const indexedResults = indexWorkflowResults({
-			items,
-			results: output.results,
-			workflow: "Media import population workflow",
-		});
-		const resultByIndex = indexedResults.resultByIndex;
+		const malformedMessageByIndex = new Map<number, string>();
+		const resultByIndex = new Map<
+			number,
+			(typeof MediaImportPopulationWorkflowOutput.Type)["results"][number]
+		>();
+		if (chunks.length > 0) {
+			const scriptId = yield* sandbox
+				.resolveWorkflowScript({
+					pluginSlug: "media",
+					workflowSlug: "media-import-population",
+					executionId: `${input.executionId}-population`,
+				})
+				.pipe(Effect.mapError(toWorkflowError));
+			const outputs = yield* Effect.forEach(
+				chunks,
+				(chunk, chunkIndex) =>
+					Schema.encodeUnknown(jsonValueSchema)({ items: chunk.items }).pipe(
+						Effect.mapError(toWorkflowError),
+						Effect.flatMap((workflowInput) =>
+							sandbox.executeWorkflow({
+								scriptId,
+								input: workflowInput,
+								authority: { type: "user", userId: input.payload.userId },
+								executionId: `${input.executionId}-population-chunk-${chunkIndex}`,
+							}),
+						),
+						Effect.flatMap(Schema.decodeUnknown(MediaImportPopulationWorkflowOutput)),
+						Effect.mapError(toWorkflowError),
+					),
+				{ concurrency: config.sandbox.workerConcurrency },
+			);
+			for (const [chunkIndex, chunk] of chunks.entries()) {
+				const indexed = indexWorkflowResults({
+					items: chunk.items,
+					results: outputs[chunkIndex]?.results ?? [],
+					workflow: "Media import population workflow",
+				});
+				if (indexed.message) {
+					for (const item of chunk.items) {
+						malformedMessageByIndex.set(item.index, indexed.message);
+					}
+				} else {
+					for (const [index, result] of indexed.resultByIndex ?? []) {
+						resultByIndex.set(index, result);
+					}
+				}
+			}
+		}
 
 		for (const [index, group] of input.entityGroups.entries()) {
 			const ref = group.entityRef;
-			const result = resultByIndex?.get(index);
+			const result = resultByIndex.get(index);
 			const failure = result?.status === "failed" ? result : null;
+			const malformedMessage = malformedMessageByIndex.get(index);
+			const rejectedMessage = rejectedMessageByIndex.get(index);
 			if (ref.kind === "resolved" && result?.status === "completed") {
 				entityIdsByKey.set(importEntityRefKey(ref), EntityId.make(result.entityId));
-			} else if (
-				ref.kind === "resolved" &&
-				(failure || (indexedResults.message && items.some((item) => item.index === index)))
-			) {
+			} else if (ref.kind === "resolved" && (failure || malformedMessage || rejectedMessage)) {
 				failures += 1;
 				yield* Activity.make({
 					error: ImportRunError,
@@ -311,8 +397,12 @@ export const populateMediaEntityGroupsWithPlugin = Effect.fn("populateMediaEntit
 						sourceIdentifier: ref.externalId,
 						entitySchemaSlug: ref.entitySchemaSlug,
 						itemIndex: mediaEntityGroupItemIndex(group, index),
-						stage: failure?.stage === "membership" ? "database_commit" : "provider_details",
-						message: indexedResults.message ?? failure?.message ?? "Population workflow failed",
+						stage: populationFailureStage(Boolean(rejectedMessage), failure?.stage),
+						message:
+							rejectedMessage ??
+							malformedMessage ??
+							failure?.message ??
+							"Population workflow failed",
 					}).pipe(Effect.mapError(toWorkflowError)),
 				});
 			}
