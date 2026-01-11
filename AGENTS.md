@@ -17,7 +17,6 @@ Do not add functionality, abstractions, or generalization the user has not expli
 - **Type safety**: Prefer `z.infer` / `Schema.Schema.Type`, `Pick`, `Omit`, `ReturnType`, and indexed access types over parallel hand-written interfaces. The package's schema library (Zod for frontend packages, Effect Schema for `app-backend` and `@ryot/contract`) is the source of truth.
 - **Pattern matching**: Prefer `match` from `ts-pattern` over `switch`.
 - **Pattern discovery**: Before writing new code, launch an `explore` subagent to find existing patterns to replicate. `explore` subagents should be used only for discovery, not for any decision making. They should not create any files.
-- **Dates**: Prefer `dayjs` from `@ryot/ts-utils`. Avoid manual `Date` handling.
 - **Comments**: Avoid unless strictly necessary.
 - **Return types**: Omit unless inference is insufficient.
 - **Field/variable ordering**: Ascending line length (shorter first). Exceptions for semantic grouping. Does not apply to imports or function parameters.
