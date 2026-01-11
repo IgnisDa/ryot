@@ -17,6 +17,8 @@ import {
 	Plus,
 	Star,
 } from "lucide-react";
+import type { CollectionDiscoveryState } from "~/features/collections";
+import type { CollectionsDestination } from "~/features/collections/model";
 import { useThemeTokens } from "~/hooks/theme";
 import type {
 	MediaSearchDoneAction,
@@ -263,7 +265,8 @@ export function SearchResultRow(props: {
 	addStatus: "idle" | "loading" | "done" | "error";
 	onSaveCollection: () => void;
 	canUseCollectionAction: boolean;
-	collections: Array<{ id: string; name: string }>;
+	collectionState: CollectionDiscoveryState;
+	collectionsDestination: CollectionsDestination;
 	onPatchActionState: (patch: Partial<SearchResultRowActionState>) => void;
 }) {
 	const t = useThemeTokens();
@@ -516,7 +519,8 @@ export function SearchResultRow(props: {
 								textMuted={t.textMuted}
 								actionState={props.actionState}
 								accentColor={props.accentColor}
-								collections={props.collections}
+								collectionState={props.collectionState}
+								collectionsDestination={props.collectionsDestination}
 								onSaveCollection={props.onSaveCollection}
 								onPatchActionState={props.onPatchActionState}
 							/>
