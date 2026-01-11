@@ -15,6 +15,7 @@
 - **Comments**: Avoid unless strictly necessary. Prefer self-documenting code.
 - **File size**: Keep files below 500 lines. Split if exceeded.
 - **React props**: Use a single `props` parameter, not destructured arguments.
+- **Tests**: Prefer tests for app-owned behavior and branching. Avoid tests that only restate library behavior (for example, basic Zod parser semantics) unless the integration itself is the risk.
 
 ```typescript
 function MyComponent(props: MyComponentProps) {
