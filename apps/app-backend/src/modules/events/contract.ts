@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
-import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
+import { NotFound, RateLimited, Unauthorized } from "#lib/errors";
 import { EntityId } from "#lib/schema/brands";
 
 import { CreateEventItem, CreateEventsResponse, ListedEvent } from "./schemas";
@@ -21,13 +21,11 @@ export const EventsGroup = HttpApiGroup.make("events")
 				}),
 			)
 			.addSuccess(Schema.Array(ListedEvent))
-			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 }),
 	)
 	.add(
 		HttpApiEndpoint.post("create", "/events")
 			.setPayload(Schema.Array(CreateEventItem))
 			.addSuccess(CreateEventsResponse, { status: 201 })
-			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 }),
 	);

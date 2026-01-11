@@ -1,7 +1,7 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
-import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
+import { NotFound, RateLimited, Unauthorized } from "#lib/errors";
 import { EntityId } from "#lib/schema/brands";
 
 import { CreateEntityBody, ListedEntity } from "./schemas";
@@ -16,12 +16,10 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 		HttpApiEndpoint.post("create", "/entities")
 			.setPayload(CreateEntityBody)
 			.addSuccess(ListedEntity, { status: 201 })
-			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 }),
 	)
 	.add(
 		HttpApiEndpoint.get("get")`/entities/${entityIdParam}`
 			.addSuccess(ListedEntity)
-			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 }),
 	);

@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
-import { BadRequest, Conflict, NotFound, RateLimited, Unauthorized } from "#lib/errors";
+import { Conflict, NotFound, RateLimited, Unauthorized } from "#lib/errors";
 import { EntitySchemaId } from "#lib/schema/brands";
 
 import { CreateEventSchemaBody, ListedEventSchema } from "./schemas";
@@ -15,14 +15,12 @@ export const EventSchemasGroup = HttpApiGroup.make("eventSchemas")
 		HttpApiEndpoint.get("list", "/event-schemas")
 			.setUrlParams(Schema.Struct({ entitySchemaId: EntitySchemaId }))
 			.addSuccess(Schema.Array(ListedEventSchema))
-			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 }),
 	)
 	.add(
 		HttpApiEndpoint.post("create", "/event-schemas")
 			.setPayload(CreateEventSchemaBody)
 			.addSuccess(ListedEventSchema, { status: 201 })
-			.addError(BadRequest, { status: 400 })
 			.addError(Conflict, { status: 409 })
 			.addError(NotFound, { status: 404 }),
 	);
