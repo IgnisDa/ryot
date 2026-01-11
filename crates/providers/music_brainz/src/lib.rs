@@ -1,11 +1,5 @@
-mod helpers;
-
 use std::collections::HashSet;
 
-use crate::helpers::{
-    artist_description, choose_release, coverart_url_from_response, extract_publish_date,
-    release_group_description,
-};
 use anyhow::Result;
 use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
@@ -30,6 +24,13 @@ use musicbrainz_rs::entity::{
 };
 use musicbrainz_rs::prelude::*;
 use traits::MediaProvider;
+
+mod helpers;
+
+use crate::helpers::{
+    artist_description, choose_release, coverart_url_from_response, extract_publish_date,
+    release_group_description,
+};
 
 static MUSICBRAINZ_BASE_URL: &str = "https://musicbrainz.org";
 
