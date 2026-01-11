@@ -1,14 +1,22 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest, NotFound } from "@ryot/contract/errors";
-import { EntityId, EntitySchemaId, UserId } from "@ryot/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaId,
+	RelationshipId,
+	RelationshipSchemaId,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-support/effect";
 import { dbRunnerLayer, transactionLayer } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
+import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
+import { RelationshipsService } from "#modules/relationships/service";
 
 import { UserStateService } from "./service";
 
@@ -45,11 +53,31 @@ const makeRelationshipsRepository = (
 		_tag: "RelationshipsRepository",
 	});
 
+const mockRelationshipsService = Layer.mock(RelationshipsService);
+
+const makeRelationshipsService = (overrides: MockOverrides<typeof mockRelationshipsService> = {}) =>
+	mockRelationshipsService({
+		...overrides,
+		_tag: "RelationshipsService",
+	});
+
+const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasRepository);
+
+const makeRelationshipSchemasRepository = (
+	overrides: MockOverrides<typeof mockRelationshipSchemasRepository> = {},
+) =>
+	mockRelationshipSchemasRepository({
+		...overrides,
+		_tag: "RelationshipSchemasRepository",
+	});
+
 const makeServiceLayer = (
 	options: {
 		eventsRepository?: ReturnType<typeof makeEventsRepository>;
 		entitiesRepository?: ReturnType<typeof makeEntitiesRepository>;
+		relationshipsService?: ReturnType<typeof makeRelationshipsService>;
 		relationshipsRepository?: ReturnType<typeof makeRelationshipsRepository>;
+		relationshipSchemasRepository?: ReturnType<typeof makeRelationshipSchemasRepository>;
 	} = {},
 ) =>
 	UserStateService.Default.pipe(
@@ -60,6 +88,8 @@ const makeServiceLayer = (
 				options.entitiesRepository ?? makeEntitiesRepository(),
 				options.eventsRepository ?? makeEventsRepository(),
 				options.relationshipsRepository ?? makeRelationshipsRepository(),
+				options.relationshipsService ?? makeRelationshipsService(),
+				options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
 			),
 		),
 	);
@@ -215,11 +245,72 @@ it.effect("moves events and relationships for valid merges", () => {
 					return 2;
 				}),
 		}),
+		relationshipSchemasRepository: makeRelationshipSchemasRepository({
+			findById: () =>
+				Effect.succeed({
+					isBuiltin: true,
+					slug: "relationship",
+					name: "Relationship",
+					sourceEntitySchemaId: null,
+					targetEntitySchemaId: null,
+					propertiesSchema: { fields: {} },
+					id: RelationshipSchemaId.make("relationship-schema"),
+				}),
+		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			moveUserRelationshipsBetweenEntities: (input) =>
+			listUserRelationshipsForEntity: () =>
+				Effect.succeed([
+					{
+						properties: {},
+						createdAt: "2026-01-01T00:00:00.000Z",
+						sourceEntityId: EntityId.make("from"),
+						id: RelationshipId.make("relationship-1"),
+						targetEntityId: EntityId.make("target-1"),
+						relationshipSchemaId: RelationshipSchemaId.make("relationship-schema"),
+					},
+					{
+						properties: {},
+						createdAt: "2026-01-01T00:00:00.000Z",
+						targetEntityId: EntityId.make("from"),
+						id: RelationshipId.make("relationship-2"),
+						sourceEntityId: EntityId.make("target-2"),
+						relationshipSchemaId: RelationshipSchemaId.make("relationship-schema"),
+					},
+					{
+						properties: {},
+						createdAt: "2026-01-01T00:00:00.000Z",
+						sourceEntityId: EntityId.make("from"),
+						targetEntityId: EntityId.make("from"),
+						id: RelationshipId.make("relationship-3"),
+						relationshipSchemaId: RelationshipSchemaId.make("relationship-schema"),
+					},
+				]),
+		}),
+		relationshipsService: makeRelationshipsService({
+			create: (input) =>
 				Effect.sync(() => {
-					calls.push(`${input.mergeFrom}->${input.mergeInto}:relationships`);
-					return 3;
+					calls.push(`${input.sourceEntityId}->${input.targetEntityId}:create`);
+					return {
+						properties: {},
+						wasInserted: true,
+						sourceEntityId: input.sourceEntityId,
+						targetEntityId: input.targetEntityId,
+						id: RelationshipId.make("created"),
+						createdAt: "2026-01-01T00:00:00.000Z",
+						relationshipSchemaId: input.relationshipSchemaId,
+					};
+				}),
+			delete: (input) =>
+				Effect.sync(() => {
+					calls.push(`${input.sourceEntityId}->${input.targetEntityId}:delete`);
+					return {
+						properties: {},
+						sourceEntityId: input.sourceEntityId,
+						targetEntityId: input.targetEntityId,
+						id: RelationshipId.make("deleted"),
+						createdAt: "2026-01-01T00:00:00.000Z",
+						relationshipSchemaId: input.relationshipSchemaId,
+					};
 				}),
 		}),
 	});
@@ -237,6 +328,13 @@ it.effect("moves events and relationships for valid merges", () => {
 			movedEventsCount: 2,
 			movedRelationshipsCount: 3,
 		});
-		expect(calls).toEqual(["from->into:events", "from->into:relationships"]);
+		expect(calls).toEqual([
+			"from->into:events",
+			"into->target-1:create",
+			"from->target-1:delete",
+			"target-2->into:create",
+			"target-2->from:delete",
+			"from->from:delete",
+		]);
 	}).pipe(Effect.provide(layer));
 });
