@@ -439,35 +439,57 @@ writes through that service. `ImportRunFailuresService` separately owns single-r
 
 ### Current state
 
-`GodModeService` is an administrative orchestration service. It currently performs user-table writes
-through `GodModeRepository.updateUserDisabled`, `deleteUser`, and `deleteAndRecreateUser`; the reset
-flow also inserts an OIDC account row directly. User provisioning already uses `AuthService` for user
-creation and account linking.
+Implemented. `AuthService` is the write gateway for Better Auth user and account rows used by
+`GodModeService`. The God Mode repository is read-only; disabled-state updates and deletion use
+dedicated AuthService wrappers, while reset composes user deletion, creation, and optional OIDC account
+linking through AuthService inside the existing transaction. Provisioning continues to use the existing
+AuthService creation and account-linking wrappers.
 
 ### Checklist
 
-- [ ] Make `AuthService` the canonical write gateway for the Better Auth `user` and `account` tables.
+- [x] Make `AuthService` the canonical write gateway for the Better Auth `user` and `account` tables.
   God-mode code must not write those tables through `GodModeRepository`.
-- [ ] Do not introduce a generic AuthService CRUD surface solely to satisfy this plan. Existing methods
+- [x] Do not introduce a generic AuthService CRUD surface solely to satisfy this plan. Existing methods
   such as `createAuthUser`, `updateUserPreferences`, and `linkAuthAccount` should remain the preferred
   wrappers where they meet a concrete need; add any new wrapper only when a specific caller would
   otherwise access a repository or Better Auth's internal adapter directly.
-- [ ] Keep `GodModeService` as an orchestration service. Methods such as `provisionUser`,
+- [x] Keep `GodModeService` as an orchestration service. Methods such as `provisionUser`,
   `setUserDisabled`, `deleteUser`, and `resetUser` must not be replaced by mode-based CRUD methods.
-- [ ] Make `setUserDisabled` read the current row, calculate the desired `disabledAt` value in
+- [x] Make `setUserDisabled` read the current row, calculate the desired `disabledAt` value in
   `GodModeService`, and delegate the single-row update to `AuthService`.
-- [ ] Make `deleteUser` retain its snapshot, transaction, session cleanup, and API-key cache cleanup,
+- [x] Make `deleteUser` retain its snapshot, transaction, session cleanup, and API-key cache cleanup,
   but delegate the user-row deletion to an existing or minimally added AuthService wrapper around the
   appropriate Better Auth primitive.
-- [ ] Make `resetUser` retain auth-state classification, OIDC preservation, bootstrap, transaction,
+- [x] Make `resetUser` retain auth-state classification, OIDC preservation, bootstrap, transaction,
   and cleanup decisions in `GodModeService`; it may orchestrate the existing or minimally added
   Better Auth primitive wrappers without introducing a reset or delete-and-recreate write method.
-- [ ] Make any new AuthService wrapper preserve Better Auth lifecycle behavior and participate in the
-  existing transaction boundary where the caller requires atomicity. If Better Auth's internal adapter
-  cannot use the current transaction, resolve that integration constraint before migrating God Mode; do
-  not restore direct repository writes.
-- [ ] Keep god-mode repository methods read-only. Preserve auth lifecycle side effects, including
+- [x] Make any new AuthService wrapper preserve Better Auth lifecycle behavior and participate in the
+  existing transaction boundary where the caller requires atomicity. Better Auth operations are rebound
+  to the active Ryot executor through `runWithAdapter`; the transactional reset create uses the Better
+  Auth adapter primitive instead of `internalAdapter.createUser` so its `user.create.after` hook cannot
+  start a competing bootstrap transaction. God Mode keeps that bootstrap explicit in the same transaction.
+- [x] Keep god-mode repository methods read-only. Preserve auth lifecycle side effects, including
   session invalidation and API-key cache cleanup.
+
+### Implementation notes
+
+- `AuthService.updateAuthUserDisabled` and `AuthService.deleteAuthUser` are narrow wrappers around
+  Better Auth's `internalAdapter.updateUser` and `internalAdapter.deleteUser`. `GodModeService` uses
+  them for the disabled-state, delete, and reset flows; no user/account write remains in
+  `GodModeRepository`.
+- AuthService Better Auth operations detect `CurrentDb`. When an Effect transaction is active, a
+  Drizzle adapter bound to that executor is installed with Better Auth's `runWithAdapter`, so internal
+  adapter hooks and persistence stay inside the caller-owned transaction. The explicit dependency on
+  `@better-auth/core` provides this public Better Auth transaction-context bridge.
+- Reset composes `deleteAuthUser`, `createAuthUser`, and `linkAuthAccount` before `performBootstrap` in
+  the existing transaction. A transactional `createAuthUser` uses the Better Auth adapter's normalized
+  create primitive rather than `internalAdapter.createUser`: the configured `user.create.after` hook
+  runs `bootstrapNewUser` in a separate transaction and would block on the uncommitted replacement user.
+  The reset flow therefore preserves the hook's current bootstrap behavior explicitly and atomically in
+  `GodModeService`; normal provisioning still uses the lifecycle-backed internal adapter path.
+- Focused God Mode tests cover AuthService delegation for disabled state, deletion cleanup inputs, and
+  OIDC reset reconstruction. The existing end-to-end reset and recovery suites remain applicable because
+  the HTTP contract is unchanged.
 
 ## Built-in Initialization
 

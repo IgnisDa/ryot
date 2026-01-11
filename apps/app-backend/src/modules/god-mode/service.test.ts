@@ -38,10 +38,15 @@ const baseUser = {
 
 const dialect = new PgDialect();
 
-const makeAuthMock = (state?: { deleteUserSessionsCalled: boolean }) =>
+const makeAuthMock = (state?: {
+	deleteUserSessionsCalled: boolean;
+	updateAuthUserDisabledError?: Error;
+	updateInput?: { disabledAt: Date | null; updatedAt: Date } | undefined;
+}) =>
 	Object.assign(Object.create(null), {
 		currentUser: () => Effect.die("unused"),
 		createAuthUser: () => Effect.die("unused"),
+		deleteAuthUser: () => Effect.die("unused"),
 		linkAuthAccount: () => Effect.die("unused"),
 		auth: { api: { requestPasswordReset: () => Promise.resolve(undefined) } },
 		deleteUserSessions: () => {
@@ -50,6 +55,18 @@ const makeAuthMock = (state?: { deleteUserSessionsCalled: boolean }) =>
 			}
 			return Effect.void;
 		},
+		updateAuthUserDisabled: (
+			_userId: UserId,
+			input: { disabledAt: Date | null; updatedAt: Date },
+		) => {
+			if (state) {
+				state.updateInput = input;
+			}
+			return state?.updateAuthUserDisabledError
+				? Effect.fail(new DbError({ message: state.updateAuthUserDisabledError.message }))
+				: Effect.void;
+		},
+		purgeApiKeyCaches: () => Effect.die("unused"),
 	});
 
 const makeProvisionAuthMock = (
@@ -91,6 +108,7 @@ const makeBootstrapDb = () =>
 			values: () =>
 				Object.assign(Promise.resolve({}), {
 					onConflictDoNothing: () => Promise.resolve({}),
+					onConflictDoUpdate: () => Promise.resolve({}),
 				}),
 		}),
 		select: () => ({
@@ -114,11 +132,10 @@ const makeDbServiceLayer = (db: object) =>
 		Object.assign(Object.create(null), { db: Object.assign(Object.create(null), db), pool: {} }),
 	);
 
-const transactionLayer = Layer.succeed(
-	TransactionRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
-		Effect.provideService(effect, CurrentDb, makeBootstrapDb()),
-);
+const makeTransactionLayer = (db: object) =>
+	Layer.succeed(TransactionRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+		Effect.provideService(effect, CurrentDb, Object.assign(Object.create(null), db)),
+	);
 
 const workflowEngineLayer = Layer.succeed(
 	WorkflowEngine,
@@ -128,17 +145,19 @@ const workflowEngineLayer = Layer.succeed(
 const makeServiceLayer = (
 	db: object,
 	disableLocalAuth = false,
-	authState?: { deleteUserSessionsCalled: boolean },
+	authState?: Parameters<typeof makeAuthMock>[0],
+	transactionDb = makeBootstrapDb(),
+	auth: ReturnType<typeof makeAuthMock> = makeAuthMock(authState),
 ): Layer.Layer<GodModeService> =>
 	GodModeService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				makeDbRunnerLayer(db),
 				makeDbServiceLayer(db),
-				transactionLayer,
+				makeTransactionLayer(transactionDb),
 				GodModeRepository.Default,
 				makeAppConfigLayer({ users: { disableLocalAuth } }),
-				Layer.succeed(AuthService, makeAuthMock(authState)),
+				Layer.succeed(AuthService, auth),
 				Layer.succeed(RedisService, makeRedisMock()),
 				workflowEngineLayer,
 			),
@@ -154,7 +173,7 @@ const makeProvisionLayer = (
 			Layer.mergeAll(
 				makeDbRunnerLayer(db),
 				makeDbServiceLayer(db),
-				transactionLayer,
+				makeTransactionLayer(makeBootstrapDb()),
 				GodModeRepository.Default,
 				makeAppConfigLayer(),
 				Layer.succeed(AuthService, auth),
@@ -222,14 +241,7 @@ const makeListUsersDb = (options: {
 	return { db, state };
 };
 
-const makeSetUserDisabledDb = (options: {
-	updateError?: Error;
-	user: Pick<UserRow, "disabledAt" | "id"> | null;
-}) => {
-	const state = {
-		updateInput: null as null | { disabledAt: Date | null; updatedAt: Date },
-	};
-
+const makeSetUserDisabledDb = (options: { user: Pick<UserRow, "disabledAt" | "id"> | null }) => {
 	const db = Object.assign(Object.create(null), {
 		select: () => ({
 			from: () => ({
@@ -239,18 +251,9 @@ const makeSetUserDisabledDb = (options: {
 					}),
 			}),
 		}),
-		update: () => ({
-			set: (input: { disabledAt: Date | null; updatedAt: Date }) => {
-				state.updateInput = input;
-				return {
-					where: () =>
-						options.updateError ? Promise.reject(options.updateError) : Promise.resolve({}),
-				};
-			},
-		}),
 	});
 
-	return { db, state };
+	return { db };
 };
 
 const makeProvisionUserDb = (options?: {
@@ -279,6 +282,64 @@ const makeProvisionUserDb = (options?: {
 	});
 
 	return { auth: makeProvisionAuthMock(state, options), db, state };
+};
+
+const makeRecoveryAuthMock = (state: {
+	deletedUserIds: string[];
+	deleteUserSessionsCalled: boolean;
+	createdUser: null | Record<string, unknown>;
+	createdAccount: null | Record<string, unknown>;
+	purgedApiKeys: null | { apiKeys: ReadonlyArray<{ id: string; key: string }>; userId: string };
+}) =>
+	Object.assign(Object.create(null), makeAuthMock(), {
+		createAuthUser: (user: Record<string, unknown>) => {
+			state.createdUser = user;
+			return Effect.succeed(user);
+		},
+		deleteAuthUser: (userId: UserId) => {
+			state.deletedUserIds.push(userId);
+			return Effect.void;
+		},
+		deleteUserSessions: () => {
+			state.deleteUserSessionsCalled = true;
+			return Effect.void;
+		},
+		linkAuthAccount: (account: Record<string, unknown>) => {
+			state.createdAccount = account;
+			return Effect.succeed(account);
+		},
+		purgeApiKeyCaches: (userId: UserId, apiKeys: ReadonlyArray<{ id: string; key: string }>) => {
+			state.purgedApiKeys = { apiKeys, userId };
+			return Effect.void;
+		},
+	});
+
+const makeSnapshotDb = (snapshot: {
+	apiKeys: ReadonlyArray<{ id: string; key: string }>;
+	accounts: ReadonlyArray<{ accountId: string; providerId: string }>;
+	user: { email: string; emailVerified: boolean; id: string; name: string };
+}) => {
+	const db = makeBootstrapDb();
+	return Object.assign(db, {
+		select: () => ({
+			from: (table: unknown) => {
+				let rows: ReadonlyArray<unknown> = [];
+				if (table === schema.user) {
+					rows = [snapshot.user];
+				} else if (table === schema.account) {
+					rows = snapshot.accounts;
+				} else if (table === schema.apikey) {
+					rows = snapshot.apiKeys;
+				}
+				return {
+					where: () =>
+						Object.assign(Promise.resolve(rows), {
+							limit: () => Promise.resolve(rows),
+						}),
+				};
+			},
+		}),
+	});
 };
 
 describe("classifyAuthState", () => {
@@ -471,8 +532,11 @@ it.effect("returns the disabled timestamp for disabled users", () => {
 });
 
 it.effect("disables an enabled user and deletes sessions", () => {
-	const { db, state } = makeSetUserDisabledDb({ user: { id: "user_1", disabledAt: null } });
-	const authState = { deleteUserSessionsCalled: false };
+	const { db } = makeSetUserDisabledDb({ user: { id: "user_1", disabledAt: null } });
+	const authState = {
+		deleteUserSessionsCalled: false,
+		updateInput: undefined as { disabledAt: Date | null; updatedAt: Date } | undefined,
+	};
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
@@ -481,17 +545,20 @@ it.effect("disables an enabled user and deletes sessions", () => {
 		expect(result.id).toBe("user_1");
 		expect(typeof result.disabledAt).toBe("string");
 		expect(authState.deleteUserSessionsCalled).toBe(true);
-		expect(state.updateInput?.disabledAt?.toISOString()).toBe(result.disabledAt);
-		expect(state.updateInput?.updatedAt.toISOString()).toBe(result.disabledAt);
+		expect(authState.updateInput?.disabledAt?.toISOString()).toBe(result.disabledAt);
+		expect(authState.updateInput?.updatedAt.toISOString()).toBe(result.disabledAt);
 	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
 });
 
 it.effect("preserves an existing disabledAt when disabling an already-disabled user", () => {
 	const existingDisabledAt = new Date("2024-01-02T00:00:00Z");
-	const { db, state } = makeSetUserDisabledDb({
+	const { db } = makeSetUserDisabledDb({
 		user: { id: "user_1", disabledAt: existingDisabledAt },
 	});
-	const authState = { deleteUserSessionsCalled: false };
+	const authState = {
+		deleteUserSessionsCalled: false,
+		updateInput: undefined as { disabledAt: Date | null; updatedAt: Date } | undefined,
+	};
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
@@ -499,15 +566,18 @@ it.effect("preserves an existing disabledAt when disabling an already-disabled u
 
 		expect(result).toEqual({ id: "user_1", disabledAt: "2024-01-02T00:00:00.000Z" });
 		expect(authState.deleteUserSessionsCalled).toBe(true);
-		expect(state.updateInput?.disabledAt).toBe(existingDisabledAt);
+		expect(authState.updateInput?.disabledAt).toBe(existingDisabledAt);
 	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
 });
 
 it.effect("enables a disabled user without deleting sessions", () => {
-	const { db, state } = makeSetUserDisabledDb({
+	const { db } = makeSetUserDisabledDb({
 		user: { id: "user_1", disabledAt: new Date("2024-01-02T00:00:00Z") },
 	});
-	const authState = { deleteUserSessionsCalled: false };
+	const authState = {
+		deleteUserSessionsCalled: false,
+		updateInput: undefined as { disabledAt: Date | null; updatedAt: Date } | undefined,
+	};
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
@@ -515,13 +585,16 @@ it.effect("enables a disabled user without deleting sessions", () => {
 
 		expect(result).toEqual({ id: "user_1", disabledAt: null });
 		expect(authState.deleteUserSessionsCalled).toBe(false);
-		expect(state.updateInput).toMatchObject({ disabledAt: null });
+		expect(authState.updateInput).toMatchObject({ disabledAt: null });
 	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
 });
 
 it.effect("enabling an already-enabled user does not delete sessions", () => {
 	const { db } = makeSetUserDisabledDb({ user: { id: "user_1", disabledAt: null } });
-	const authState = { deleteUserSessionsCalled: false };
+	const authState = {
+		deleteUserSessionsCalled: false,
+		updateInput: undefined as { disabledAt: Date | null; updatedAt: Date } | undefined,
+	};
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
@@ -545,16 +618,88 @@ it.effect("returns a bad request when the user is not found while setting disabl
 });
 
 it.effect("returns a db error when persisting disabled state fails", () => {
-	const { db } = makeSetUserDisabledDb({
-		user: { id: "user_1", disabledAt: null },
-		updateError: new Error("db down"),
-	});
+	const { db } = makeSetUserDisabledDb({ user: { id: "user_1", disabledAt: null } });
+	const authState = {
+		deleteUserSessionsCalled: false,
+		updateAuthUserDisabledError: new Error("db down"),
+	};
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
 		const exit = yield* Effect.exit(service.setUserDisabled(UserId.make("user_1"), true));
 		expect(exit).toEqual(Exit.fail(new DbError({ message: "db down" })));
-	}).pipe(Effect.provide(makeServiceLayer(db)));
+	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
+});
+
+it.effect("deletes the user through AuthService and preserves cleanup inputs", () => {
+	const snapshot = {
+		accounts: [],
+		apiKeys: [{ id: "key_1", key: "raw-key" }],
+		user: { id: "user_1", name: "Test User", email: "test@example.com", emailVerified: true },
+	};
+	const state = {
+		deletedUserIds: [] as string[],
+		deleteUserSessionsCalled: false,
+		createdUser: null as null | Record<string, unknown>,
+		createdAccount: null as null | Record<string, unknown>,
+		purgedApiKeys: null as {
+			userId: string;
+			apiKeys: ReadonlyArray<{ id: string; key: string }>;
+		} | null,
+	};
+	const auth = makeRecoveryAuthMock(state);
+	const db = makeSnapshotDb(snapshot);
+
+	return Effect.gen(function* () {
+		const service = yield* GodModeService;
+		const result = yield* service.deleteUser(UserId.make("user_1"));
+
+		expect(result).toEqual({ id: "user_1" });
+		expect(state.deletedUserIds).toEqual(["user_1"]);
+		expect(state.deleteUserSessionsCalled).toBe(true);
+		expect(state.purgedApiKeys).toEqual({ userId: "user_1", apiKeys: snapshot.apiKeys });
+	}).pipe(Effect.provide(makeServiceLayer(db, false, undefined, makeSnapshotDb(snapshot), auth)));
+});
+
+it.effect("resets an OIDC user through AuthService primitives", () => {
+	const snapshot = {
+		accounts: [{ providerId: "oidc", accountId: "oidc-subject" }],
+		apiKeys: [{ id: "key_1", key: "raw-key" }],
+		user: { id: "user_1", name: "Test User", email: "test@example.com", emailVerified: true },
+	};
+	const state = {
+		deletedUserIds: [] as string[],
+		deleteUserSessionsCalled: false,
+		createdUser: null as null | Record<string, unknown>,
+		createdAccount: null as null | Record<string, unknown>,
+		purgedApiKeys: null as {
+			userId: string;
+			apiKeys: ReadonlyArray<{ id: string; key: string }>;
+		} | null,
+	};
+	const auth = makeRecoveryAuthMock(state);
+	const db = makeSnapshotDb(snapshot);
+
+	return Effect.gen(function* () {
+		const service = yield* GodModeService;
+		const result = yield* service.resetUser(UserId.make("user_1"));
+
+		expect(result).toEqual({ userId: "user_1", email: snapshot.user.email, resetUrl: null });
+		expect(state.deletedUserIds).toEqual(["user_1"]);
+		expect(state.createdUser).toMatchObject({
+			id: "user_1",
+			name: snapshot.user.name,
+			email: snapshot.user.email,
+			preferences: defaultUserPreferences,
+		});
+		expect(state.createdAccount).toMatchObject({
+			userId: "user_1",
+			providerId: "oidc",
+			accountId: "oidc-subject",
+		});
+		expect(state.deleteUserSessionsCalled).toBe(true);
+		expect(state.purgedApiKeys).toEqual({ userId: "user_1", apiKeys: snapshot.apiKeys });
+	}).pipe(Effect.provide(makeServiceLayer(db, false, undefined, makeSnapshotDb(snapshot), auth)));
 });
 
 vitestIt("creates a credential user without an account row", () => {
