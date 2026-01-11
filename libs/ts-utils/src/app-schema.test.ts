@@ -4,6 +4,7 @@ import {
 	fromAppSchema,
 	fromAppSchemaObject,
 	getAppPropertyDefinitionAtPath,
+	getDefaultPropertyLabel,
 	isAppPropertyRequired,
 	toAppSchema,
 	toAppSchemaProperties,
@@ -357,5 +358,50 @@ describe("isAppPropertyRequired", () => {
 				validation: { required: true },
 			}),
 		).toBeTrue();
+	});
+});
+
+describe("getDefaultPropertyLabel", () => {
+	it("converts camelCase keys to readable labels", () => {
+		expect(getDefaultPropertyLabel("myPropertyName")).toBe("My Property Name");
+		expect(getDefaultPropertyLabel("firstName")).toBe("First Name");
+		expect(getDefaultPropertyLabel("isbnNumber")).toBe("Isbn Number");
+	});
+
+	it("converts snake_case keys to readable labels", () => {
+		expect(getDefaultPropertyLabel("my_property_name")).toBe(
+			"My Property Name",
+		);
+		expect(getDefaultPropertyLabel("first_name")).toBe("First Name");
+	});
+
+	it("converts kebab-case keys to readable labels", () => {
+		expect(getDefaultPropertyLabel("my-property-name")).toBe(
+			"My Property Name",
+		);
+		expect(getDefaultPropertyLabel("first-name")).toBe("First Name");
+	});
+
+	it("handles mixed case styles", () => {
+		expect(getDefaultPropertyLabel("my_Property-name")).toBe(
+			"My Property Name",
+		);
+		expect(getDefaultPropertyLabel("myProperty_name")).toBe("My Property Name");
+	});
+
+	it("capitalizes single words", () => {
+		expect(getDefaultPropertyLabel("name")).toBe("Name");
+		expect(getDefaultPropertyLabel("title")).toBe("Title");
+	});
+
+	it("handles empty and whitespace-only strings", () => {
+		expect(getDefaultPropertyLabel("")).toBe("");
+		expect(getDefaultPropertyLabel("   ")).toBe("");
+	});
+
+	it("normalizes multiple consecutive separators", () => {
+		expect(getDefaultPropertyLabel("my__property")).toBe("My Property");
+		expect(getDefaultPropertyLabel("my--property")).toBe("My Property");
+		expect(getDefaultPropertyLabel("my  property")).toBe("My Property");
 	});
 });
