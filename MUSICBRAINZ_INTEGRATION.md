@@ -536,6 +536,76 @@ Unlike Spotify, MusicBrainz doesn't require authentication for read operations:
 
 Translation support is not implemented for MusicBrainz. The `translate_metadata`, `translate_metadata_group`, and `translate_person` trait methods will use default implementations (return error).
 
+### 9. Partial Date Handling
+
+MusicBrainz dates can be partial: just a year (`"2007"`), year-month (`"2007-11"`), or full date (`"2007-11-07"`). The existing `convert_string_to_date` utility only handles full dates. Implement custom parsing:
+
+```rust
+fn parse_musicbrainz_date(date_str: &str) -> (Option<NaiveDate>, Option<i32>) {
+    let parts: Vec<&str> = date_str.split('-').collect();
+    match parts.len() {
+        1 => {
+            // Year only: "2007"
+            let year = parts[0].parse::<i32>().ok();
+            (None, year)
+        }
+        2 => {
+            // Year-month: "2007-11"
+            let year = parts[0].parse::<i32>().ok();
+            (None, year)
+        }
+        3 => {
+            // Full date: "2007-11-07"
+            let date = convert_string_to_date(date_str);
+            let year = date.map(|d| d.year());
+            (date, year)
+        }
+        _ => (None, None),
+    }
+}
+```
+
+### 10. Error Handling
+
+Follow the same pattern as Spotify and YouTube Music providers: propagate errors using the `?` operator and `Result` types. No explicit retry logic is needed.
+
+```rust
+// Example from metadata_details
+let response = self.client
+    .get(format!("{BASE_URL}/recording/{identifier}"))
+    .query(&[("fmt", "json"), ("inc", "artist-credits+releases")])
+    .send()
+    .await?;
+
+let recording: MusicBrainzRecording = response.json().await?;
+```
+
+Errors from HTTP requests and JSON deserialization will bubble up naturally.
+
+### 11. JSON Deserialization
+
+Define Rust structs for MusicBrainz API responses using serde with the `rename_all` attribute to handle kebab-case field names:
+
+```rust
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+struct MusicBrainzRecording {
+    id: String,
+    title: String,
+    length: Option<i64>,
+    first_release_date: Option<String>,
+    artist_credit: Option<Vec<ArtistCredit>>,
+    releases: Option<Vec<Release>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+struct ArtistCredit {
+    name: String,
+    artist: Artist,
+}
+```
+
 ## Data Structure Mappings Summary
 
 | MusicBrainz Entity | Ryot Entity   | MediaLot | Notes                              |
@@ -624,6 +694,7 @@ GET https://coverartarchive.org/release/{mbid} (JSON with all images)
 ## Implementation Checklist
 
 - [ ] Create `crates/providers/music_brainz/` directory
+- [ ] Create `Cargo.toml` for the new crate and add it to the workspace
 - [ ] Implement `MusicBrainzService` struct
 - [ ] Implement `metadata_search` (search recordings)
 - [ ] Implement `metadata_details` (get recording details)
@@ -633,7 +704,9 @@ GET https://coverartarchive.org/release/{mbid} (JSON with all images)
 - [ ] Implement `person_details` (get artist details)
 - [ ] Integrate Cover Art Archive for images
 - [ ] Add MusicBrainz to `MediaSource` enum
-- [ ] Add it as a music source in crates/models/enum/src/media_enums.rs#L52.
+- [ ] Add it as a music source in `crates/models/enum/src/media_enums.rs#L52`
+- [ ] Add `MediaSource::MusicBrainz` to `PEOPLE_SEARCH_SOURCES` in `crates/utils/common/src/lib.rs`
+- [ ] Add `MediaSource::MusicBrainz` to `MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS` in `crates/utils/common/src/lib.rs`
 - [ ] Register provider in `provider/src/lib.rs`
 - [ ] Update frontend to display MusicBrainz source
 - [ ] Add MusicBrainz logo to `apps/frontend/public/`
