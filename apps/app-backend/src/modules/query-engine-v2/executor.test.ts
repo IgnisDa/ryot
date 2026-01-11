@@ -2,17 +2,19 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { assert, describe, expect, it } from "vitest";
 
 import {
+	entityJsonbObjectSql,
 	evalExprForField,
 	evalFieldSelector,
 	evalSystemRef,
 	exprToOrderSql,
 	fieldSelectorToOrderSql,
 	getNestedValue,
+	relationshipRootOrderSql,
 	serializeRow,
 	valueToFieldValue,
 	type EntityQueryRow,
 } from "./executor";
-import type { FieldSelector } from "./language";
+import type { FieldSelector, RelationshipSourceV2, RowsOutputV2 } from "./language";
 
 const dialect = new PgDialect();
 
@@ -296,5 +298,126 @@ describe("exprToOrderSql", () => {
 		expect(
 			exprToOrderSql({ type: "isNull", expr: { type: "literal", value: null } }, ["books"]),
 		).toBeNull();
+	});
+});
+
+describe("entityJsonbObjectSql", () => {
+	const toSql = (entityAlias: string, schemaAlias: string) =>
+		dialect.sqlToQuery(entityJsonbObjectSql(entityAlias, schemaAlias));
+
+	it("builds a jsonb_build_object expression", () => {
+		const query = toSql("se", "ses");
+		expect(query.sql.toLowerCase()).toContain("jsonb_build_object");
+	});
+
+	it("qualifies entity columns with the given entity alias", () => {
+		const query = toSql("se", "ses");
+		expect(query.sql).toContain("se.id");
+		expect(query.sql).toContain("se.name");
+		expect(query.sql).toContain("se.image");
+		expect(query.sql).toContain("se.created_at");
+		expect(query.sql).toContain("se.updated_at");
+		expect(query.sql).toContain("se.properties");
+		expect(query.sql).toContain("se.external_id");
+		expect(query.sql).toContain("se.sandbox_script_id");
+	});
+
+	it("qualifies schema columns with the given schema alias", () => {
+		const query = toSql("se", "ses");
+		expect(query.sql).toContain("ses.id");
+		expect(query.sql).toContain("ses.slug");
+		expect(query.sql).toContain("ses.name");
+	});
+
+	it("uses distinct aliases for the source and target entity sides", () => {
+		const sourceQuery = toSql("se", "ses");
+		const targetQuery = toSql("te", "tes");
+		expect(sourceQuery.sql).not.toBe(targetQuery.sql);
+		expect(targetQuery.sql).toContain("te.id");
+		expect(targetQuery.sql).toContain("tes.slug");
+		expect(targetQuery.sql).not.toContain("se.id");
+	});
+});
+
+const makeRelationshipRootOrderOutput = (orderBy: RowsOutputV2["orderBy"]): RowsOutputV2 => ({
+	orderBy,
+	fields: [],
+	type: "rows",
+	pagination: { page: 1, limit: 10 },
+});
+
+describe("relationshipRootOrderSql", () => {
+	const source: RelationshipSourceV2 = {
+		where: null,
+		alias: "membership",
+		type: "relationships",
+		schemas: ["member-of"],
+		sourceEntity: { alias: "memberEntity", schemas: ["books"] },
+		targetEntity: { alias: "collectionEntity", schemas: ["collections"] },
+	};
+
+	it("orders by the relationship's own system field", () => {
+		const output = makeRelationshipRootOrderOutput([
+			{
+				order: "desc",
+				expr: {
+					type: "ref",
+					sourceAlias: "membership",
+					field: { type: "system", name: "createdAt" },
+				},
+			},
+		]);
+		const query = dialect.sqlToQuery(relationshipRootOrderSql(source, output));
+		expect(query.sql).toContain("r.created_at");
+		expect(query.sql.toUpperCase()).toContain("DESC");
+	});
+
+	it("orders ascending when requested", () => {
+		const output = makeRelationshipRootOrderOutput([
+			{
+				order: "asc",
+				expr: {
+					type: "ref",
+					sourceAlias: "membership",
+					field: { type: "system", name: "createdAt" },
+				},
+			},
+		]);
+		const query = dialect.sqlToQuery(relationshipRootOrderSql(source, output));
+		expect(query.sql.toUpperCase()).toContain("ASC");
+	});
+
+	it("falls back to a constant for refs to the source entity alias", () => {
+		const output = makeRelationshipRootOrderOutput([
+			{
+				order: "asc",
+				expr: { type: "ref", sourceAlias: "memberEntity", field: { type: "system", name: "name" } },
+			},
+		]);
+		const query = dialect.sqlToQuery(relationshipRootOrderSql(source, output));
+		expect(query.sql.trim()).toBe("1");
+	});
+
+	it("falls back to a constant for refs to the target entity alias", () => {
+		const output = makeRelationshipRootOrderOutput([
+			{
+				order: "asc",
+				expr: {
+					type: "ref",
+					sourceAlias: "collectionEntity",
+					field: { type: "system", name: "name" },
+				},
+			},
+		]);
+		const query = dialect.sqlToQuery(relationshipRootOrderSql(source, output));
+		expect(query.sql.trim()).toBe("1");
+	});
+
+	it("falls back to a constant for non-ref expressions", () => {
+		const output = makeRelationshipRootOrderOutput([
+			{ order: "asc", expr: { type: "literal", value: 1 } },
+		]);
+		const query = dialect.sqlToQuery(relationshipRootOrderSql(source, output));
+		expect(query.sql.trim()).toBe("1");
 	});
 });
