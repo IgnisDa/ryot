@@ -206,7 +206,9 @@ describe("event root rows", () => {
 			slug: watchSlug,
 			name: "Primary Row Watch",
 			entitySchemaId: schemaId,
-			propertiesSchema: { fields: {} },
+			propertiesSchema: {
+				fields: { note: { type: "string", label: "Note", description: "Note" } },
+			},
 		});
 		const entity = await createQueryEngineEntity(client, {
 			name: "Primary Row Entity",
