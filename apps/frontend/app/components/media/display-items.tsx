@@ -153,7 +153,7 @@ export const MetadataGroupDisplayItem = (props: {
 		if (!props.noEntityLot)
 			final.push(changeCase(snakeCase(EntityLot.MetadataGroup)));
 
-		if (metadataGroupDetails)
+		if (metadataGroupDetails?.details.parts)
 			final.push(`${metadataGroupDetails.details.parts} items`);
 
 		return final;
