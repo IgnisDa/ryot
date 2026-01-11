@@ -4,7 +4,7 @@ import { DateTime, Effect, Layer } from "effect";
 import type { ImportRunJobData } from "../jobs";
 import { recordImportRunFailure } from "../runtime/import-run-status";
 import { loadImportAdapterResult } from "../runtime/source-payload-store";
-import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
+import { ImportRunError, toWorkflowError } from "../runtime/workflow-errors";
 import { ImportsService } from "../service";
 import { MediaImportAdapterResultSchema, type MediaImportAdapterResult } from "./adapter-result";
 import {

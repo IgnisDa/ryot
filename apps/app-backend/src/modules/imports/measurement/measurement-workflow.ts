@@ -16,7 +16,7 @@ import {
 	loadNonMediaImportText,
 } from "../non-media-workflow";
 import { sanitizeErrorMessage } from "../runtime/import-run-status";
-import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
+import { ImportRunError, toWorkflowError } from "../runtime/workflow-errors";
 import { adaptOpenScaleCsv } from "../sources/open-scale/adapter";
 
 export const OpenScaleImportItemSchema = Schema.Struct({
