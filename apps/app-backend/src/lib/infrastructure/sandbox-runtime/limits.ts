@@ -22,29 +22,55 @@ export const SANDBOX_LIMITS = {
 	execution: { denoHeapMiB: 256, resultBytes: MiB, requestBytes: 2 * MiB, contextBytes: 256 * KiB },
 } as const;
 
+export const WORKFLOW_SANDBOX_LIMITS = {
+	timeoutMs: 30_000,
+	hostCalls: { http: 0, total: 1_000 },
+	execution: { contextBytes: 64 * KiB, resultBytes: 4 * MiB },
+} as const;
+
 export const SANDBOX_LOG_TRUNCATION_MARKER = "[sandbox logs truncated]";
 
-export const SANDBOX_RUNNER_LIMITS = {
+const makeSandboxRunnerLimits = (workflow: boolean) => ({
 	httpCallCount: SANDBOX_LIMITS.hostCalls.http,
-	hostCallCount: SANDBOX_LIMITS.hostCalls.total,
 	logEntryBytes: SANDBOX_LIMITS.logs.entryBytes,
 	logEntryCount: SANDBOX_LIMITS.logs.entryCount,
 	logTotalBytes: SANDBOX_LIMITS.logs.totalBytes,
-	resultBytes: SANDBOX_LIMITS.execution.resultBytes,
 	logTruncationMarker: SANDBOX_LOG_TRUNCATION_MARKER,
 	bridgeRequestBytes: SANDBOX_LIMITS.bridge.requestBytes,
 	bridgeResponseBytes: SANDBOX_LIMITS.bridge.responseBytes,
-} as const;
+	hostCallCount: workflow
+		? WORKFLOW_SANDBOX_LIMITS.hostCalls.total
+		: SANDBOX_LIMITS.hostCalls.total,
+	resultBytes: workflow
+		? WORKFLOW_SANDBOX_LIMITS.execution.resultBytes
+		: SANDBOX_LIMITS.execution.resultBytes,
+});
+
+export const SANDBOX_RUNNER_LIMITS = makeSandboxRunnerLimits(false);
+export const WORKFLOW_SANDBOX_RUNNER_LIMITS = makeSandboxRunnerLimits(true);
+
+export const isWorkflowSandboxMetadata = (metadata: unknown) =>
+	typeof metadata === "object" &&
+	metadata !== null &&
+	"kind" in metadata &&
+	metadata.kind === "workflow";
+
+export const sandboxRunnerLimits = (metadata: unknown) =>
+	isWorkflowSandboxMetadata(metadata) ? WORKFLOW_SANDBOX_RUNNER_LIMITS : SANDBOX_RUNNER_LIMITS;
 
 export type SandboxHostCallBudget = { http: number; total: number };
 
-export const consumeSandboxHostCall = (budget: SandboxHostCallBudget, functionName: string) => {
+export const consumeSandboxHostCall = (
+	budget: SandboxHostCallBudget,
+	functionName: string,
+	totalLimit: number = SANDBOX_LIMITS.hostCalls.total,
+) => {
 	budget.total += 1;
 	if (functionName === "httpCall") {
 		budget.http += 1;
 	}
-	if (budget.total > SANDBOX_LIMITS.hostCalls.total) {
-		return `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.total} host calls`;
+	if (budget.total > totalLimit) {
+		return `Sandbox execution exceeds ${totalLimit} host calls`;
 	}
 	if (budget.http > SANDBOX_LIMITS.hostCalls.http) {
 		return `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.http} httpCall calls`;
@@ -87,9 +113,12 @@ export const sandboxRunnerRequestError = (request: string) =>
 		? `Sandbox runner request exceeds ${SANDBOX_LIMITS.execution.requestBytes} UTF-8 bytes`
 		: null;
 
-export const sandboxContextError = (context: unknown) => {
+export const sandboxContextError = (context: unknown, metadata?: unknown) => {
 	const bytes = jsonByteLength(context);
-	return bytes === null || bytes > SANDBOX_LIMITS.execution.contextBytes
-		? `Sandbox definition context must be JSON and no larger than ${SANDBOX_LIMITS.execution.contextBytes} UTF-8 bytes`
+	const limit = isWorkflowSandboxMetadata(metadata)
+		? WORKFLOW_SANDBOX_LIMITS.execution.contextBytes
+		: SANDBOX_LIMITS.execution.contextBytes;
+	return bytes === null || bytes > limit
+		? `Sandbox definition context must be JSON and no larger than ${limit} UTF-8 bytes`
 		: null;
 };

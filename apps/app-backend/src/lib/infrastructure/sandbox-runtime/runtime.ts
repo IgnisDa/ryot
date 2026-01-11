@@ -1,5 +1,4 @@
-import type { CommandExecutor } from "@effect/platform";
-import { Command, FileSystem, HttpApp, HttpServer } from "@effect/platform";
+import { Command, CommandExecutor, FileSystem, HttpApp, HttpServer } from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
 import type { PlatformError } from "@effect/platform/Error";
 import { badRequest, internalError, unknownToMessage } from "@ryot/contract/errors";
@@ -15,6 +14,7 @@ import {
 	type SandboxHostCallBudget,
 	utf8ByteLength,
 } from "./limits";
+import { makeSandboxCommandExecutor } from "./restricted-command-executor";
 import { sandboxRunnerSource } from "./runner.generated";
 import { apiFailure } from "./shared";
 import type { BoundHostFunction } from "./shared";
@@ -39,13 +39,15 @@ const oversizedBridgeRequest = Symbol("oversizedBridgeRequest");
 type ExecutionSession = {
 	readonly token: string;
 	readonly expiresAt: number;
+	readonly hostCallLimit: number;
 	readonly parentSpan: Tracer.AnySpan;
 	readonly apiFunctions: Record<string, BoundHostFunction>;
 };
 
 type ActiveExecutionSession = {
-	readonly budget: SandboxHostCallBudget;
+	readonly hostCallLimit: number;
 	readonly parentSpan: Tracer.AnySpan;
+	readonly budget: SandboxHostCallBudget;
 	readonly apiFunctions: Record<string, BoundHostFunction>;
 };
 
@@ -139,6 +141,12 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 	runtimeDirectory: string,
 	runnerPath: string,
 ) {
+	const executor = yield* CommandExecutor.CommandExecutor;
+	const path = Bun.env["PATH"];
+	if (!path) {
+		return yield* Effect.dieMessage("Sandbox process PATH is unavailable");
+	}
+	const sandboxExecutor = makeSandboxCommandExecutor(executor, { PATH: path, DENO_DIR: denoDir });
 	const denoProcess = yield* Command.make(
 		"deno",
 		"run",
@@ -161,8 +169,8 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 		Command.stdin("pipe"),
 		Command.stdout("pipe"),
 		Command.stderr("pipe"),
-		Command.env({ DENO_DIR: denoDir }),
 		Command.start,
+		Effect.provideService(CommandExecutor.CommandExecutor, sandboxExecutor),
 	);
 
 	yield* Effect.addFinalizer(() => killProcessHandle(denoProcess));
@@ -216,6 +224,7 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 					budget: { http: 0, total: 0 },
 					parentSpan: session.parentSpan,
 					apiFunctions: session.apiFunctions,
+					hostCallLimit: session.hostCallLimit,
 				}),
 			);
 		});
@@ -258,7 +267,11 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 				if (!activeSession) {
 					return Response.json({ error: "Execution not found" }, { status: 404 });
 				}
-				const budgetError = consumeSandboxHostCall(activeSession.budget, fnName);
+				const budgetError = consumeSandboxHostCall(
+					activeSession.budget,
+					fnName,
+					activeSession.hostCallLimit,
+				);
 				if (budgetError) {
 					return hostFailureResponse(budgetError);
 				}

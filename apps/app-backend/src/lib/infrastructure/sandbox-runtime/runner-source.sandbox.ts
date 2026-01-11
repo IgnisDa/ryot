@@ -15,14 +15,19 @@ import {
 type HostBudget = { http: number; total: number };
 type SandboxHostError = { readonly message: string; readonly data?: unknown };
 
+const reflectGet = Reflect.get;
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
+const nativeDate = globalThis.Date;
 const arrayIsArray = Array.isArray;
 const nativeError = globalThis.Error;
 const createDictionary = Object.create;
 const nativeString = globalThis.String;
 const nativeFunction = globalThis.Function;
+const reflectConstruct = Reflect.construct;
 const defineProperty = Object.defineProperty;
+const setPrototypeOf = Object.setPrototypeOf;
+const deleteProperty = Reflect.deleteProperty;
 const jsonParse = JSON.parse.bind(JSON);
 const readStdin = Deno.stdin.read.bind(Deno.stdin);
 const encodeComponent = globalThis.encodeURIComponent;
@@ -32,6 +37,7 @@ const decodeText = decoder.decode.bind(decoder);
 const jsonStringify = JSON.stringify.bind(JSON);
 const bridgeFetch = globalThis.fetch.bind(globalThis);
 const exitDeno: (code?: number) => never = Deno.exit.bind(Deno);
+const getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
 const performanceNow = performance.now.bind(performance);
 const generatorFunction = Object.getPrototypeOf(function* () {}).constructor as Function;
 const asyncFunction = Object.getPrototypeOf(async function () {}).constructor as Function;
@@ -84,20 +90,92 @@ const disableCodeGeneration = () => {
 	}
 };
 
+const installWorkflowDeterminismGuard = () => {
+	const restore: Array<() => void> = [];
+	const blocked = (name: string) => () => {
+		throw new nativeError("Workflow code cannot use ambient nondeterminism: " + name);
+	};
+	const replace = (target: object, name: PropertyKey, replacement: PropertyDescriptor) => {
+		const descriptor = getOwnPropertyDescriptor(target, name);
+		defineProperty(target, name, {
+			...replacement,
+			configurable: true,
+			enumerable: descriptor?.enumerable ?? false,
+		});
+		restore.push(() => {
+			if (descriptor) {
+				defineProperty(target, name, descriptor);
+			} else {
+				deleteProperty(target, name);
+			}
+		});
+	};
+	const dateNow = () => 0;
+	const workflowDate = function (...args: unknown[]) {
+		if (!new.target) {
+			throw new nativeError("Workflow code cannot call ambient Date()");
+		}
+		if (args.length === 0) {
+			throw new nativeError(
+				"Workflow code cannot construct an ambient current date with new Date()",
+			);
+		}
+		return reflectConstruct(nativeDate, args, workflowDate);
+	} as unknown as DateConstructor;
+	setPrototypeOf(workflowDate.prototype, nativeDate.prototype);
+	defineProperty(workflowDate, "now", { value: dateNow });
+	defineProperty(workflowDate, "UTC", { value: nativeDate.UTC });
+	defineProperty(workflowDate, "parse", { value: nativeDate.parse });
+
+	try {
+		replace(globalThis, "Date", { value: workflowDate });
+		replace(Math, "random", { value: blocked("Math.random") });
+		replace(crypto, "randomUUID", { value: blocked("crypto.randomUUID") });
+		replace(crypto, "getRandomValues", { value: blocked("crypto.getRandomValues") });
+		replace(performance, "now", { value: blocked("performance.now") });
+
+		const temporal = reflectGet(globalThis, "Temporal");
+		if (isRecord(temporal)) {
+			const temporalNow = reflectGet(temporal, "Now");
+			if (isRecord(temporalNow)) {
+				const blockedTemporalNow = blocked("Temporal.Now");
+				const workflowTemporalNow = new Proxy(temporalNow, {
+					get: (target, name, receiver) => {
+						const value = reflectGet(target, name, receiver);
+						return typeof value === "function" ? blockedTemporalNow : value;
+					},
+				});
+				replace(temporal, "Now", { value: workflowTemporalNow });
+			}
+		}
+	} catch (error) {
+		for (let index = restore.length - 1; index >= 0; index -= 1) {
+			restore[index]?.();
+		}
+		throw error;
+	}
+
+	return () => {
+		for (let index = restore.length - 1; index >= 0; index -= 1) {
+			restore[index]?.();
+		}
+	};
+};
+
 async function readLine(): Promise<string> {
 	const chunk = new Uint8Array(65536);
 	for (;;) {
-		const count = await readStdin(chunk);
-		if (count === null) {
-			exitDeno(0);
-		}
-		buffer += decodeText(chunk.subarray(0, count));
 		const newlineIdx = buffer.indexOf("\n");
 		if (newlineIdx !== -1) {
 			const line = buffer.slice(0, newlineIdx);
 			buffer = buffer.slice(newlineIdx + 1);
 			return line;
 		}
+		const count = await readStdin(chunk);
+		if (count === null) {
+			exitDeno(0);
+		}
+		buffer += decodeText(chunk.subarray(0, count));
 	}
 }
 
@@ -388,14 +466,24 @@ void (async () => {
 			disableCodeGeneration();
 
 			phase = "load";
-			const declaredCapabilities = isRecord(payload.metadata)
-				? payload.metadata.capabilities
-				: payload.apiFunctions;
+			const declaredCapabilities =
+				isRecord(payload.metadata) && payload.metadata.kind !== "workflow"
+					? payload.metadata.capabilities
+					: payload.apiFunctions;
 			const host = createHost(payload, declaredCapabilities);
-			const compiledModule = await importCompiledModule(payload);
-			const value = await executeDefinition(compiledModule.default, payload, host, (nextPhase) => {
-				phase = nextPhase;
-			});
+			const restoreWorkflowGlobals =
+				isRecord(payload.metadata) && payload.metadata.kind === "workflow"
+					? installWorkflowDeterminismGuard()
+					: undefined;
+			let value: unknown;
+			try {
+				const compiledModule = await importCompiledModule(payload);
+				value = await executeDefinition(compiledModule.default, payload, host, (nextPhase) => {
+					phase = nextPhase;
+				});
+			} finally {
+				restoreWorkflowGlobals?.();
+			}
 
 			phase = "output";
 			let serialized: string | undefined;

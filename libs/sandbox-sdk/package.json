@@ -3,6 +3,10 @@
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
+		"./activity": {
+			"types": "./src/activity.ts",
+			"default": "./src/activity.ts"
+		},
 		"./core": {
 			"types": "./src/core.ts",
 			"default": "./src/core.ts"
@@ -42,6 +46,10 @@
 		"./wire": {
 			"types": "./src/wire.ts",
 			"default": "./src/wire.ts"
+		},
+		"./workflow": {
+			"types": "./src/workflow.ts",
+			"default": "./src/workflow.ts"
 		},
 		"./youtubei": {
 			"types": "./src/youtubei.ts",

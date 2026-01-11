@@ -1,5 +1,5 @@
 import { BunFileSystem } from "@effect/platform-bun";
-import { expect, it } from "@effect/vitest";
+import { assert, expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import {
 	EntityId,
@@ -13,6 +13,7 @@ import {
 	ResolveEpisodesInput,
 	type ResolveEpisodesRef,
 } from "@ryot/plugin-media/operations/schemas";
+import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Effect, Layer, Schema } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";
@@ -27,8 +28,8 @@ import { CollectionsService } from "#modules/collections/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
-import { LibraryEntityImportError } from "#modules/library-membership/library-entity-import-workflow";
 import { OperationsService } from "#modules/plugins/operations-service";
+import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { ImportRunFailuresService } from "../failure-service";
 import { loadImportAdapterResult, storeImportAdapterResult } from "../runtime/source-payload-store";
@@ -43,13 +44,14 @@ import {
 
 const now = "2026-06-17T00:00:00.000Z";
 
-const mockImportRunFailuresService = Layer.mock(ImportRunFailuresService);
-const mockImportsService = Layer.mock(ImportsService);
-const mockCollectionsService = Layer.mock(CollectionsService);
 const mockEventsService = Layer.mock(EventsService);
+const mockImportsService = Layer.mock(ImportsService);
 const mockOperationsService = Layer.mock(OperationsService);
+const mockCollectionsService = Layer.mock(CollectionsService);
 const mockEventSchemasRepository = Layer.mock(EventSchemasRepository);
 const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
+const mockSandboxExecutionService = Layer.mock(SandboxExecutionService);
+const mockImportRunFailuresService = Layer.mock(ImportRunFailuresService);
 
 const makeImportRunFailuresService = (
 	overrides: MockOverrides<typeof mockImportRunFailuresService> = {},
@@ -154,6 +156,59 @@ const makeMediaOperations = (overrides: Partial<MediaImportWorkflowOperationsVal
 		...overrides,
 	});
 
+type WorkflowItem = {
+	index: number;
+	externalId?: string;
+	[key: string]: unknown;
+};
+
+const workflowItems = (input: { input: unknown }): WorkflowItem[] => {
+	assert(isObjectRecord(input.input));
+	assert(Array.isArray(input.input["items"]));
+	return input.input["items"].map((item) => {
+		assert(isObjectRecord(item));
+		assert(typeof item["index"] === "number");
+		return {
+			...item,
+			index: item["index"],
+			...(typeof item["externalId"] === "string" ? { externalId: item["externalId"] } : {}),
+		};
+	});
+};
+
+const entityIdForWorkflowItem = (item: WorkflowItem) => {
+	if (item.externalId === "show-1") {
+		return "show-entity-1";
+	}
+	if (item.externalId === "podcast-1") {
+		return "podcast-entity-1";
+	}
+	return "entity-1";
+};
+
+const makeSandboxExecutionService = (
+	executeWorkflow: SandboxExecutionService["executeWorkflow"] = (input) => {
+		const items = workflowItems(input);
+		if (input.workflowSlug === "media-import-resolution") {
+			return Effect.succeed({
+				results: items.map((item) => ({
+					index: item.index,
+					externalId: "OL123M",
+					status: "resolved" as const,
+					providerSlug: "book.openlibrary",
+				})),
+			});
+		}
+		return Effect.succeed({
+			results: items.map((item) => ({
+				index: item.index,
+				status: "completed" as const,
+				entityId: entityIdForWorkflowItem(item),
+			})),
+		});
+	},
+) => mockSandboxExecutionService({ executeWorkflow, _tag: "SandboxExecutionService" });
+
 const makeRedisLayer = () => {
 	const store = new Map<string, string>();
 	return Layer.succeed(
@@ -181,12 +236,13 @@ const makeRedisLayer = () => {
 type TestLayerOptions = {
 	eventsService?: Layer.Layer<EventsService>;
 	importsService?: Layer.Layer<ImportsService>;
+	operationsService?: Layer.Layer<OperationsService>;
 	collectionsService?: Layer.Layer<CollectionsService>;
 	mediaOperations?: Layer.Layer<MediaImportWorkflowOperations>;
-	operationsService?: Layer.Layer<OperationsService>;
 	eventSchemasRepository?: Layer.Layer<EventSchemasRepository>;
 	entitySchemasRepository?: Layer.Layer<EntitySchemasRepository>;
 	importRunFailuresService?: Layer.Layer<ImportRunFailuresService>;
+	sandboxExecutionService?: Layer.Layer<SandboxExecutionService>;
 };
 
 const makeTestLayer = (options: TestLayerOptions) =>
@@ -203,6 +259,7 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		options.eventsService ?? makeEventsService(),
 		options.eventSchemasRepository ?? makeEventSchemasRepository(),
 		options.entitySchemasRepository ?? makeEntitySchemasRepository(),
+		options.sandboxExecutionService ?? makeSandboxExecutionService(),
 	);
 
 const withTestLayer = <A, E, R>(
@@ -229,17 +286,157 @@ const seedAdapterResult = (adapterResult: MediaImportAdapterResult) =>
 	storeImportAdapterResult({ runId, adapterResult });
 
 const resolvedBookGroup = (input: { externalId: string; sourceLabel: string }) => ({
+	events: [],
 	itemIndex: 1,
 	collectionMemberships: [],
-	events: [],
 	entityRef: {
-		kind: "resolved" as const,
-		providerSlug: "book.openlibrary",
 		entitySchemaSlug: "book",
+		kind: "resolved" as const,
 		externalId: input.externalId,
 		sourceLabel: input.sourceLabel,
+		providerSlug: "book.openlibrary",
 	},
 });
+
+const malformedResultCases = [
+	{ name: "missing", results: [] },
+	{
+		name: "duplicate",
+		results: [
+			{ index: 0, status: "completed" as const, entityId: "entity-1" },
+			{ index: 0, status: "completed" as const, entityId: "entity-2" },
+		],
+	},
+	{
+		name: "out-of-range",
+		results: [{ index: 1, status: "completed" as const, entityId: "entity-1" }],
+	},
+];
+
+for (const malformedCase of malformedResultCases) {
+	it.effect(`records malformed ${malformedCase.name} resolution results`, () => {
+		const recordedUpdates: Array<Record<string, unknown>> = [];
+		const recordedFailures: Array<Record<string, unknown>> = [];
+		const resolutionResults = malformedCase.results.map(({ index }) => ({
+			index,
+			externalId: "OL123M",
+			status: "resolved" as const,
+			providerSlug: "book.openlibrary",
+		}));
+		const options = {
+			importsService: makeImportsService({
+				update: (input) => {
+					recordedUpdates.push(input);
+					return Effect.void;
+				},
+			}),
+			importRunFailuresService: makeImportRunFailuresService({
+				create: (input) => {
+					recordedFailures.push(input);
+					return Effect.void;
+				},
+			}),
+			sandboxExecutionService: makeSandboxExecutionService((input) =>
+				Effect.succeed(
+					input.workflowSlug === "media-import-resolution"
+						? { results: resolutionResults }
+						: { results: [] },
+				),
+			),
+		} satisfies TestLayerOptions;
+
+		return withTestLayer(
+			options,
+			`malformed-resolution-${malformedCase.name}`,
+			Effect.gen(function* () {
+				yield* seedAdapterResult({
+					failures: [],
+					entityGroups: [
+						{
+							events: [],
+							itemIndex: 4,
+							collectionMemberships: [],
+							entityRef: {
+								kind: "unresolved",
+								identifierType: "isbn",
+								entitySchemaSlug: "book",
+								sourceLabel: "Malformed Book",
+								identifierValue: "9781234567890",
+							},
+						},
+					],
+				});
+
+				yield* processNormalizedMediaImport(
+					makePayload(`malformed-resolution-${malformedCase.name}`),
+					`malformed-resolution-${malformedCase.name}`,
+				);
+
+				expect(recordedFailures).toEqual([
+					expect.objectContaining({
+						itemIndex: 4,
+						stage: "provider_resolution",
+						message: expect.stringContaining("returned malformed results"),
+					}),
+				]);
+				expect(recordedUpdates).toContainEqual(
+					expect.objectContaining({ failedItems: 1, importedItems: 0, status: "completed" }),
+				);
+			}),
+		);
+	});
+
+	it.effect(`records malformed ${malformedCase.name} population results`, () => {
+		const recordedUpdates: Array<Record<string, unknown>> = [];
+		const recordedFailures: Array<Record<string, unknown>> = [];
+		const options = {
+			importsService: makeImportsService({
+				update: (input) => {
+					recordedUpdates.push(input);
+					return Effect.void;
+				},
+			}),
+			importRunFailuresService: makeImportRunFailuresService({
+				create: (input) => {
+					recordedFailures.push(input);
+					return Effect.void;
+				},
+			}),
+			sandboxExecutionService: makeSandboxExecutionService(() =>
+				Effect.succeed({ results: malformedCase.results }),
+			),
+		} satisfies TestLayerOptions;
+
+		return withTestLayer(
+			options,
+			`malformed-population-${malformedCase.name}`,
+			Effect.gen(function* () {
+				yield* seedAdapterResult({
+					failures: [],
+					entityGroups: [
+						resolvedBookGroup({ externalId: "book-1", sourceLabel: "Malformed Book" }),
+					],
+				});
+
+				yield* processNormalizedMediaImport(
+					makePayload(`malformed-population-${malformedCase.name}`),
+					`malformed-population-${malformedCase.name}`,
+				);
+
+				expect(recordedFailures).toEqual([
+					expect.objectContaining({
+						itemIndex: 1,
+						stage: "provider_details",
+						message: expect.stringContaining("returned malformed results"),
+					}),
+				]);
+				expect(recordedUpdates).toContainEqual(
+					expect.objectContaining({ failedItems: 1, importedItems: 0, status: "completed" }),
+				);
+			}),
+		);
+	});
+}
 
 it.effect("runs the normalized media pipeline through workflow-owned phases", () => {
 	const resolvedCalls: Array<Record<string, unknown>> = [];
@@ -264,20 +461,32 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 			},
 		}),
 		mediaOperations: makeMediaOperations({
-			resolveExternalId: (input) =>
-				Effect.sync(() => {
-					resolvedCalls.push(input);
-					return { externalId: "OL123M" };
-				}),
-			importEntity: (input) =>
-				Effect.sync(() => {
-					importedCalls.push(input);
-					return { id: EntityId.make("entity-1") };
-				}),
 			writeCollectionMembership: (input) =>
 				Effect.sync(() => {
 					collectionAdds.push(input);
 				}),
+		}),
+		sandboxExecutionService: makeSandboxExecutionService((input) => {
+			const items = workflowItems(input);
+			if (input.workflowSlug === "media-import-resolution") {
+				resolvedCalls.push(...items);
+				return Effect.succeed({
+					results: items.map((item) => ({
+						index: item.index,
+						externalId: "OL123M",
+						status: "resolved" as const,
+						providerSlug: "book.openlibrary",
+					})),
+				});
+			}
+			importedCalls.push(...items);
+			return Effect.succeed({
+				results: items.map((item) => ({
+					index: item.index,
+					entityId: "entity-1",
+					status: "completed" as const,
+				})),
+			});
 		}),
 		collectionsService: makeCollectionsService({
 			ensureEntityInLibrary: () => Effect.void,
@@ -336,20 +545,24 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 
 			expect(resolvedCalls).toEqual([
 				{
-					userId: "user-1",
+					index: 0,
 					value: "9781234567890",
 					identifierType: "isbn",
-					providerId: "provider-book.openlibrary",
-					executionId: "normalized-1-resolve-0-0",
+					candidates: [
+						{
+							providerSlug: "book.openlibrary",
+							scriptSlug: "activity.media-import-resolve.book.openlibrary",
+						},
+					],
 				},
 			]);
 			expect(importedCalls).toEqual([
 				{
+					index: 0,
 					userId: "user-1",
 					externalId: "OL123M",
 					entitySchemaSlug: "schema-book",
 					providerId: "provider-book.openlibrary",
-					executionId: "normalized-1-entity-0",
 					origin: { kind: "import", importRunId: "run-1" },
 				},
 			]);
@@ -431,9 +644,6 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 				recordedFailures.push(input);
 				return Effect.void;
 			},
-		}),
-		mediaOperations: makeMediaOperations({
-			importEntity: () => Effect.succeed({ id: EntityId.make("show-entity-1") }),
 		}),
 		collectionsService: makeCollectionsService({
 			ensureEntityInLibrary: () => Effect.void,
@@ -601,9 +811,6 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 				return Effect.void;
 			},
 		}),
-		mediaOperations: makeMediaOperations({
-			importEntity: () => Effect.succeed({ id: EntityId.make("podcast-entity-1") }),
-		}),
 		collectionsService: makeCollectionsService({
 			ensureEntityInLibrary: () => Effect.void,
 		}),
@@ -752,15 +959,25 @@ it.effect(
 					return Effect.void;
 				},
 			}),
-			mediaOperations: makeMediaOperations({
-				importEntity: (input) =>
-					input.externalId === "ext-mem"
-						? Effect.fail(
-								new LibraryEntityImportError({ stage: "membership", message: "mem fail" }),
-							)
-						: Effect.fail(
-								new LibraryEntityImportError({ stage: "population", message: "pop fail" }),
-							),
+			sandboxExecutionService: makeSandboxExecutionService((input) => {
+				const items = workflowItems(input);
+				return Effect.succeed({
+					results: items.map((item) =>
+						item.externalId === "ext-mem"
+							? {
+									index: item.index,
+									message: "mem fail",
+									status: "failed" as const,
+									stage: "membership" as const,
+								}
+							: {
+									index: item.index,
+									message: "pop fail",
+									status: "failed" as const,
+									stage: "population" as const,
+								},
+					),
+				});
 			}),
 		} satisfies TestLayerOptions;
 
