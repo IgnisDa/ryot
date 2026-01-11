@@ -15,12 +15,12 @@ const fields = {
 	oidcIssuerUrl: optField(strField("SERVER_OIDC_ISSUER_URL", "OIDC issuer URL")),
 	s3Url: optField(strField("FILE_STORAGE_S3_URL", "S3-compatible endpoint URL")),
 	s3BucketName: optField(strField("FILE_STORAGE_S3_BUCKET_NAME", "S3 bucket name")),
-	logFile: optField(strField("SERVER_LOG_FILE", "File path for appended structured logs")),
 	tvdbApiKey: optField(secretField("MOVIES_AND_SHOWS_TVDB_API_KEY", "TVDB API key")),
-	otlpEndpoint: optField(strField("SERVER_OTLP_ENDPOINT", "Base URL for OTLP trace export")),
 	spotifyClientId: optField(strField("MUSIC_SPOTIFY_CLIENT_ID", "Spotify client ID")),
 	metronUsername: optField(strField("COMIC_BOOK_METRON_USERNAME", "Metron username")),
+	logFile: optField(strField("SERVER_LOG_FILE", "File path for appended structured logs")),
 	s3AccessKeyId: optField(secretField("FILE_STORAGE_S3_ACCESS_KEY_ID", "S3 access key ID")),
+	otlpEndpoint: optField(strField("SERVER_OTLP_ENDPOINT", "Base URL for OTLP trace export")),
 	oidcClientSecret: optField(secretField("SERVER_OIDC_CLIENT_SECRET", "OIDC client secret")),
 	listennotesApiKey: optField(secretField("PODCASTS_LISTENNOTES_API_KEY", "ListenNotes API key")),
 	frontendUrl: strField("FRONTEND_URL", "Public URL of the frontend application", {
@@ -310,9 +310,9 @@ const serverGroup = group(
 		smtp: smtpGroup.config,
 		logLevel: logLevel.config,
 		logFile: fields.logFile.config,
-		traktClientId: fields.traktClientId.config,
 		corsOrigins: fields.corsOrigins.config,
 		otlpEndpoint: fields.otlpEndpoint.config,
+		traktClientId: fields.traktClientId.config,
 		adminAccessToken: fields.adminAccessToken.config,
 		disableNotifications: fields.disableNotifications.config,
 		progressUpdateThresholdHours: fields.progressUpdateThresholdHours.config,
@@ -322,9 +322,9 @@ const serverGroup = group(
 		smtp: smtpGroup.meta,
 		logLevel: logLevel.meta,
 		logFile: fields.logFile.meta,
-		traktClientId: fields.traktClientId.meta,
 		corsOrigins: fields.corsOrigins.meta,
 		otlpEndpoint: fields.otlpEndpoint.meta,
+		traktClientId: fields.traktClientId.meta,
 		adminAccessToken: fields.adminAccessToken.meta,
 		disableNotifications: fields.disableNotifications.meta,
 		progressUpdateThresholdHours: fields.progressUpdateThresholdHours.meta,
@@ -334,23 +334,19 @@ const serverGroup = group(
 export const moviesAndShowsConfigDefinition = group(
 	"Movies and Shows configuration",
 	Config.all({
-		tmdbAccessToken: fields.tmdbAccessToken.config,
 		tvdbApiKey: fields.tvdbApiKey.config,
+		tmdbAccessToken: fields.tmdbAccessToken.config,
 	}),
 	{
-		tmdbAccessToken: fields.tmdbAccessToken.meta,
 		tvdbApiKey: fields.tvdbApiKey.meta,
+		tmdbAccessToken: fields.tmdbAccessToken.meta,
 	},
 );
 
 export const animeAndMangaConfigDefinition = group(
 	"Anime and Manga configuration",
-	Config.all({
-		malClientId: fields.malClientId.config,
-	}),
-	{
-		malClientId: fields.malClientId.meta,
-	},
+	Config.all({ malClientId: fields.malClientId.config }),
+	{ malClientId: fields.malClientId.meta },
 );
 
 export const comicBooksConfigDefinition = group(
@@ -391,24 +387,20 @@ export const musicConfigDefinition = group(
 
 export const podcastsConfigDefinition = group(
 	"Podcasts configuration",
-	Config.all({
-		listennotesApiKey: fields.listennotesApiKey.config,
-	}),
-	{
-		listennotesApiKey: fields.listennotesApiKey.meta,
-	},
+	Config.all({ listennotesApiKey: fields.listennotesApiKey.config }),
+	{ listennotesApiKey: fields.listennotesApiKey.meta },
 );
 
 export const videoGamesConfigDefinition = group(
 	"Video Games configuration",
 	Config.all({
-		giantBombApiKey: fields.giantBombApiKey.config,
 		twitchClientId: fields.twitchClientId.config,
+		giantBombApiKey: fields.giantBombApiKey.config,
 		twitchClientSecret: fields.twitchClientSecret.config,
 	}),
 	{
-		giantBombApiKey: fields.giantBombApiKey.meta,
 		twitchClientId: fields.twitchClientId.meta,
+		giantBombApiKey: fields.giantBombApiKey.meta,
 		twitchClientSecret: fields.twitchClientSecret.meta,
 	},
 );
