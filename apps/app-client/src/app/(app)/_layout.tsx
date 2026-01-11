@@ -1,9 +1,9 @@
 import { Redirect, Stack, useUnstableGlobalHref } from "expo-router";
 import { Text, View } from "react-native";
 
-import { useAuthClient } from "@/lib/auth";
-import { getGateHref, getSafeRedirectTo } from "@/lib/redirect";
-import { useServerUrl } from "@/lib/store/server";
+import { useAuthClient } from "@/modules/auth/client";
+import { getGateHref, getSafeRedirectTo } from "@/modules/navigation/redirect";
+import { useServerUrl } from "@/modules/server/state";
 
 export default function AppLayout() {
 	const client = useAuthClient();
