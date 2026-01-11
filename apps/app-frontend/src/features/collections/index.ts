@@ -5,6 +5,23 @@ export {
 export { useCollectionsDestination } from "./discovery-hooks";
 export { useCollectionMutations } from "./hooks";
 export type {
+	CollectionMembershipFormValues,
+	CollectionMembershipPayload,
+} from "./membership-form";
+export {
+	buildCollectionSelectionPatch,
+	buildDefaultMembershipFormValues,
+	buildMembershipFormSchema,
+	buildMembershipPropertyDefaults,
+	getMembershipFormReconciliationState,
+	getMembershipPropertyEntries,
+	getSelectedCollection,
+	getUnsupportedRequiredProperties,
+	reconcileMembershipProperties,
+	syncMembershipFormValues,
+	toMembershipPayload,
+} from "./membership-form";
+export type {
 	AppCollection,
 	CollectionDiscoveryState,
 	CollectionMembershipPropertiesSchema,
