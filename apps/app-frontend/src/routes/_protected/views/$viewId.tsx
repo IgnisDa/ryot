@@ -7,7 +7,10 @@ import {
 	useRouter,
 } from "@tanstack/react-router";
 import { useState } from "react";
-import { CreateCollectionModal } from "#/features/collections/create-modal";
+import {
+	type CreateCollectionFormPayload,
+	CreateCollectionModal,
+} from "#/features/collections/create-modal";
 import { useCollectionMutations } from "#/features/collections/hooks";
 import { useSavedViewMutations } from "#/features/saved-views/hooks";
 import { SavedViewPage } from "#/features/saved-views/view-page";
@@ -35,10 +38,15 @@ function RouteComponent() {
 		"/query-engine/execute",
 	).queryKey;
 
-	const createCollectionModal = useModalForm(async (name: string) => {
-		await collectionMutations.createCollection(name);
-		await queryClient.invalidateQueries({ queryKey: runtimeQueryKey });
-	});
+	const createCollectionModal = useModalForm(
+		async (payload: CreateCollectionFormPayload) => {
+			await collectionMutations.createCollection(
+				payload.name,
+				payload.membershipPropertiesSchema,
+			);
+			await queryClient.invalidateQueries({ queryKey: runtimeQueryKey });
+		},
+	);
 
 	const handleClone = async () => {
 		setActionError(null);
