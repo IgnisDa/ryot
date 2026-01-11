@@ -99,7 +99,6 @@ describe("property field schema validation", () => {
 
 	it("accepts a property field in a multi-schema source when schema is listed", () => {
 		const doc: QueryDocument = {
-			version: 2,
 			source: { type: "entities", alias: "e", schemas: ["books", "movies"], where: null },
 			output: {
 				type: "rows",
@@ -113,7 +112,6 @@ describe("property field schema validation", () => {
 
 	it("rejects a property field that references a third schema in a multi-schema source", () => {
 		const doc: QueryDocument = {
-			version: 2,
 			source: { type: "entities", alias: "e", schemas: ["books", "movies"], where: null },
 			output: {
 				type: "rows",
