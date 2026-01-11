@@ -55,7 +55,11 @@ indexmap = "=2.12.1"
 indoc = "=2.0.7"
 itertools = "=0.14.0"
 markdown = "=1.0.0"
-musicbrainz_rs = "=0.12.0"
+musicbrainz_rs = { version = "=0.12.0", default-features = false, features = [
+    "async",
+    "rate_limit",
+    "rustls",
+] }
 mime_guess = "=2.0.5"
 nanoid = "=0.4.0"
 nest_struct = "=0.5.5"
