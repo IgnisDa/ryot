@@ -1,4 +1,4 @@
-import { applyReorderPatch } from "#/lib/reorder";
+import { applyReorderPatch } from "~/lib/reorder";
 import type { AppSavedView } from "./model";
 
 export function applySavedViewReorderPatch(

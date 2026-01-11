@@ -1,8 +1,8 @@
 import { Button, Group, Modal, Stack, Text } from "@mantine/core";
-import type { CreateEntitySchemaPayload } from "#/features/entity-schemas/form";
-import { EntitySchemaPropertiesBuilder } from "#/features/entity-schemas/properties-builder";
-import { useCreateEntitySchemaForm } from "#/features/entity-schemas/use-form";
-import { TrackerIcon, trackerIconSelectData } from "#/features/trackers/icons";
+import type { CreateEntitySchemaPayload } from "~/features/entity-schemas/form";
+import { EntitySchemaPropertiesBuilder } from "~/features/entity-schemas/properties-builder";
+import { useCreateEntitySchemaForm } from "~/features/entity-schemas/use-form";
+import { TrackerIcon, trackerIconSelectData } from "~/features/trackers/icons";
 
 export interface EntitySchemaCreateModalProps {
 	opened: boolean;

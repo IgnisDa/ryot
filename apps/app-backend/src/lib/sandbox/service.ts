@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils/dayjs";
+import { dayjs } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
 import type { Job } from "bullmq";
 import { getQueues } from "../queue";

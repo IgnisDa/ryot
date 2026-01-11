@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useApiClient } from "#/hooks/api";
+import { useApiClient } from "~/hooks/api";
 import { applySavedViewReorderPatch } from "./cache";
 import type { AppSavedView } from "./model";
 

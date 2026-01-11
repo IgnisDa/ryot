@@ -1,6 +1,6 @@
 import { useQueries } from "@tanstack/react-query";
-import type { AppEntity, AppEntityImage } from "#/features/entities/model";
-import { useApiClient } from "#/hooks/api";
+import type { AppEntity, AppEntityImage } from "~/features/entities/model";
+import { useApiClient } from "~/hooks/api";
 
 interface ImageEntry {
 	id: string;

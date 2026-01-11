@@ -1,23 +1,23 @@
 import { Box, Grid, Stack } from "@mantine/core";
 import { createFileRoute } from "@tanstack/react-router";
-import { ErrorState, LoadingState } from "#/components/PageStates";
-import { getEntityDetailProperties } from "#/features/entities/detail";
+import { ErrorState, LoadingState } from "~/components/PageStates";
+import { getEntityDetailProperties } from "~/features/entities/detail";
 import {
 	EntityDetailEventTimeline,
 	EntityDetailIdentityHeader,
 	EntityDetailPropertiesSection,
 	EntityDetailSidebar,
-} from "#/features/entities/detail-page";
-import { useEntityQuery } from "#/features/entities/hooks";
-import { useEntitySchemaQuery } from "#/features/entity-schemas/hooks";
-import { useEventSchemasQuery } from "#/features/event-schemas/hooks";
-import type { CreateEventPayload } from "#/features/events/form";
-import { useEventMutations, useEventsQuery } from "#/features/events/hooks";
-import { LogEventModal } from "#/features/events/section";
-import { useTrackersQuery } from "#/features/trackers/hooks";
-import { useModalForm } from "#/hooks/modal-form";
-import { useThemeTokens } from "#/hooks/theme";
-import { getAccentMuted } from "#/lib/theme";
+} from "~/features/entities/detail-page";
+import { useEntityQuery } from "~/features/entities/hooks";
+import { useEntitySchemaQuery } from "~/features/entity-schemas/hooks";
+import { useEventSchemasQuery } from "~/features/event-schemas/hooks";
+import type { CreateEventPayload } from "~/features/events/form";
+import { useEventMutations, useEventsQuery } from "~/features/events/hooks";
+import { LogEventModal } from "~/features/events/section";
+import { useTrackersQuery } from "~/features/trackers/hooks";
+import { useModalForm } from "~/hooks/modal-form";
+import { useThemeTokens } from "~/hooks/theme";
+import { getAccentMuted } from "~/lib/theme";
 
 export const Route = createFileRoute("/_protected/entities/$entityId")({
 	component: RouteComponent,

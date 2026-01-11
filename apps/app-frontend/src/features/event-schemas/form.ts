@@ -1,4 +1,4 @@
-import type { ApiPostRequestBody } from "#/lib/api/types";
+import type { ApiPostRequestBody } from "~/lib/api/types";
 import {
 	buildDefaultPropertySchemaRow,
 	buildPropertiesSchema,

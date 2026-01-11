@@ -4,7 +4,7 @@ import {
 	buildPropertiesSchema,
 	type PropertySchemaRow,
 	propertySchemaTypes,
-} from "#/features/property-schemas/form";
+} from "~/features/property-schemas/form";
 
 export const collectionPropertyRowSchema = z.object({
 	id: z.string(),

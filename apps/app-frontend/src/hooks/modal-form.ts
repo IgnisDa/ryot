@@ -1,6 +1,6 @@
 import { useDisclosure } from "@mantine/hooks";
 import { useCallback, useRef, useState } from "react";
-import { getErrorMessage } from "#/lib/errors";
+import { getErrorMessage } from "~/lib/errors";
 
 export function useModalForm<TPayload>(
 	mutateFn: (payload: TPayload) => Promise<unknown>,

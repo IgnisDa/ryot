@@ -8,8 +8,8 @@ import { Notifications } from "@mantine/notifications";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { STORAGE_KEYS } from "#/lib/storage-keys";
-import { theme } from "#/lib/theme";
+import { STORAGE_KEYS } from "~/lib/storage-keys";
+import { theme } from "~/lib/theme";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({

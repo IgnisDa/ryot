@@ -2,9 +2,9 @@ import { Anchor, Box, Button, Group, Paper, Stack, Text } from "@mantine/core";
 import { Link } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
 import { FilePlus2, NotebookPen, Plus, Shapes } from "lucide-react";
-import type { AppSavedView } from "#/features/saved-views/model";
-import { useThemeTokens } from "#/hooks/theme";
-import { getAccentMuted } from "#/lib/theme";
+import type { AppSavedView } from "~/features/saved-views/model";
+import { useThemeTokens } from "~/hooks/theme";
+import { getAccentMuted } from "~/lib/theme";
 import { TrackerIcon } from "./icons";
 import type { AppTracker } from "./model";
 

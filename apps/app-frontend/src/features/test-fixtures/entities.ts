@@ -1,5 +1,5 @@
-import { dayjs } from "@ryot/ts-utils/dayjs";
-import type { AppEntity } from "#/features/entities/model";
+import { dayjs } from "@ryot/ts-utils";
+import type { AppEntity } from "~/features/entities/model";
 
 export function createEntityFixture(
 	overrides: Partial<AppEntity> = {},

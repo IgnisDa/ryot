@@ -1,4 +1,4 @@
-import { applyReorderPatch } from "#/lib/reorder";
+import { applyReorderPatch } from "~/lib/reorder";
 import type { AppTracker } from "./model";
 
 export function applyTrackerIsDisabledPatch(

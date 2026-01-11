@@ -33,21 +33,21 @@ import {
 	ToggleRight,
 } from "lucide-react";
 import { useState } from "react";
-import { toSidebarAccount } from "#/components/sidebar/sidebar-account";
-import { toSidebarData } from "#/components/sidebar/sidebar-data";
+import { toSidebarAccount } from "~/components/sidebar/sidebar-account";
+import { toSidebarData } from "~/components/sidebar/sidebar-data";
 import {
 	useSavedViewMutations,
 	useSavedViewsQuery,
-} from "#/features/saved-views/hooks";
-import { TrackerIcon } from "#/features/trackers/icons";
+} from "~/features/saved-views/hooks";
+import { TrackerIcon } from "~/features/trackers/icons";
 import {
 	useTrackerSidebarActions,
 	useTrackerSidebarState,
-} from "#/features/trackers/sidebar-context";
-import { useProtectedUser } from "#/hooks/protected-user";
-import { useIsMobileScreen } from "#/hooks/screen";
-import { useThemeTokens } from "#/hooks/theme";
-import { STORAGE_KEYS } from "#/lib/storage-keys";
+} from "~/features/trackers/sidebar-context";
+import { useProtectedUser } from "~/hooks/protected-user";
+import { useIsMobileScreen } from "~/hooks/screen";
+import { useThemeTokens } from "~/hooks/theme";
+import { STORAGE_KEYS } from "~/lib/storage-keys";
 import type {
 	SidebarProps,
 	SidebarTracker,

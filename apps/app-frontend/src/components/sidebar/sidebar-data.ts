@@ -1,9 +1,9 @@
-import type { AppSavedView } from "#/features/saved-views/model";
-import { sortSavedViewsByOrder } from "#/features/saved-views/model";
+import type { AppSavedView } from "~/features/saved-views/model";
+import { sortSavedViewsByOrder } from "~/features/saved-views/model";
 import {
 	type AppTracker,
 	sortTrackersByOrder,
-} from "#/features/trackers/model";
+} from "~/features/trackers/model";
 import type { SidebarTracker, SidebarView } from "./Sidebar.types";
 
 export function toSidebarData(input: {
