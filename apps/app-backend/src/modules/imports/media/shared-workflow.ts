@@ -4,12 +4,10 @@ import type { EntityId } from "@ryot/contract/schema/brands";
 import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
-
 import type { ImportRunJobData } from "../jobs";
-import { ImportsRepository } from "../repository";
 import { PROGRESS_UPDATE_INTERVAL } from "../runtime/import-run-status";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
+import { ImportsService } from "../service";
 
 export const ResolutionCandidate = Schema.Struct({
 	scriptSlug: Schema.String,
@@ -33,11 +31,7 @@ export const WriteOutcome = Schema.Struct({
 
 export type ProgressReporter = (
 	processed: number,
-) => Effect.Effect<
-	void,
-	ImportRunError,
-	WorkflowEngine | WorkflowInstance | DbRunner | ImportsRepository
->;
+) => Effect.Effect<void, ImportRunError, WorkflowEngine | WorkflowInstance | ImportsService>;
 
 const calculateProgress = (input: {
 	base: number;
@@ -69,8 +63,7 @@ export const createProgressReporter = (input: {
 
 	return (processed: number) =>
 		Effect.gen(function* () {
-			const runWithDb = yield* DbRunner;
-			const repository = yield* ImportsRepository;
+			const imports = yield* ImportsService;
 
 			if (!isProgressUpdateDue(processed, input.groups)) {
 				return;
@@ -90,9 +83,9 @@ export const createProgressReporter = (input: {
 			yield* Activity.make({
 				error: ImportRunError,
 				name: `report-progress-${input.phase}-${processed}`,
-				execute: runWithDb(repository.updateRun({ progress, runId: input.payload.runId })).pipe(
-					Effect.mapError(toWorkflowError),
-				),
+				execute: imports
+					.update({ progress, runId: input.payload.runId })
+					.pipe(Effect.mapError(toWorkflowError)),
 			});
 		});
 };

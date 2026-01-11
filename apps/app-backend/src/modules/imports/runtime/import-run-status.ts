@@ -1,64 +1,51 @@
-import type { ImportRunFailureStage } from "@ryot/contract/modules/imports/types";
+import type { ImportRunId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
+import {
+	ImportRunFailuresService,
+	type ImportRunFailureDetails,
+	type ImportRunFailureInput,
+} from "../failure-service";
+import { ImportsService } from "../service";
 
-import { ImportsRepository } from "../repository";
+export type { ImportRunFailureDetails, ImportRunFailureInput } from "../failure-service";
 
 export const PROGRESS_UPDATE_INTERVAL = 10;
-
-export type ImportRunFailureInput = {
-	runId: string;
-	message: string;
-	itemIndex: number;
-	sourceLabel?: string | null | undefined;
-	stage: ImportRunFailureStage;
-	eventSchemaSlug?: string | null | undefined;
-	sourceIdentifier?: string | null | undefined;
-	entitySchemaSlug?: string | null | undefined;
-	context?: Record<string, unknown> | null | undefined;
-};
-
-export type ImportRunFailureDetails = Omit<ImportRunFailureInput, "runId">;
 
 export const sanitizeErrorMessage = (error: unknown, fallback: string): string =>
 	error instanceof Error ? error.message : fallback;
 
 export const markImportRunStarted = Effect.fn("imports.markImportRunStarted")(function* (
-	runId: string,
+	runId: ImportRunId,
 ) {
-	const runWithDb = yield* DbRunner;
 	const startedAt = yield* DateTime.nowAsDate;
-	const repository = yield* ImportsRepository;
-	yield* runWithDb(repository.updateRun({ runId, status: "running", startedAt }));
+	const imports = yield* ImportsService;
+	yield* imports.update({ runId, status: "running", startedAt });
 });
 
 export const failImportRun = Effect.fn("imports.failImportRun")(function* (
-	runId: string,
+	runId: ImportRunId,
 	errorSummary: string,
 ) {
-	const runWithDb = yield* DbRunner;
-	const repository = yield* ImportsRepository;
 	const finishedAt = yield* DateTime.nowAsDate;
-	yield* runWithDb(repository.updateRun({ runId, errorSummary, status: "failed", finishedAt }));
+	const imports = yield* ImportsService;
+	yield* imports.update({ runId, errorSummary, status: "failed", finishedAt });
 });
 
 export const recordImportRunFailure = Effect.fn("imports.recordImportRunFailure")(function* (
 	input: ImportRunFailureInput,
 ) {
-	const runWithDb = yield* DbRunner;
-	const repository = yield* ImportsRepository;
-	yield* runWithDb(repository.createFailure(input));
+	const failures = yield* ImportRunFailuresService;
+	yield* failures.create(input);
 });
 
 export const failImportRunWithFailures = Effect.fn("imports.failImportRunWithFailures")(
 	function* (input: {
-		runId: string;
+		runId: ImportRunId;
 		errorSummary?: string;
 		failures: ReadonlyArray<ImportRunFailureDetails>;
 	}) {
-		const runWithDb = yield* DbRunner;
-		const repository = yield* ImportsRepository;
+		const imports = yield* ImportsService;
 		const failureCount = input.failures.length;
 		const errorSummary = input.errorSummary ?? input.failures[0]?.message ?? "Import run failed";
 
@@ -67,17 +54,15 @@ export const failImportRunWithFailures = Effect.fn("imports.failImportRunWithFai
 		}
 
 		const finishedAt = yield* DateTime.nowAsDate;
-		yield* runWithDb(
-			repository.updateRun({
-				finishedAt,
-				errorSummary,
-				progress: 100,
-				status: "failed",
-				runId: input.runId,
-				totalItems: failureCount,
-				failedItems: failureCount,
-				processedItems: failureCount,
-			}),
-		);
+		yield* imports.update({
+			finishedAt,
+			errorSummary,
+			progress: 100,
+			status: "failed",
+			runId: input.runId,
+			totalItems: failureCount,
+			failedItems: failureCount,
+			processedItems: failureCount,
+		});
 	},
 );
