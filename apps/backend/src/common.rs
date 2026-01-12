@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc};
 
 use apalis::prelude::MemoryStorage;
 use application_utils::{AuthContext, create_oidc_client};
@@ -13,7 +13,7 @@ use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
     Extension,
     extract::DefaultBodyLimit,
-    http::{Method, Request, Response, header},
+    http::{Method, header},
     routing::{Router, get, post},
 };
 use background_models::{
@@ -58,16 +58,17 @@ use sea_orm::DatabaseConnection;
 use statistics_resolver::StatisticsQueryResolver;
 use supporting_service::SupportingService;
 use tower_http::{
-    catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
-    trace::TraceLayer as TowerTraceLayer,
+    LatencyUnit,
+    catch_panic::CatchPanicLayer as TowerCatchPanicLayer,
+    cors::CorsLayer as TowerCorsLayer,
+    trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer as TowerTraceLayer},
 };
-use tracing::{Instrument, Span};
+use tracing::Instrument;
 use user_authentication_resolver::{
     UserAuthenticationMutationResolver, UserAuthenticationQueryResolver,
 };
 use user_management_resolver::{UserManagementMutationResolver, UserManagementQueryResolver};
 use user_services_resolver::{UserServicesMutationResolver, UserServicesQueryResolver};
-use uuid::Uuid;
 
 struct GraphqlOperationTracing;
 
@@ -151,29 +152,6 @@ pub async fn create_app_dependencies(
         gql = gql.get(graphql_playground_handler);
     }
 
-    let trace_layer = TowerTraceLayer::new_for_http()
-        .make_span_with(|request: &Request<_>| {
-            let request_id = Uuid::new_v4();
-            tracing::debug_span!(
-                "http.request",
-                uri = %request.uri(),
-                request_id = %request_id,
-                method = %request.method(),
-                version = ?request.version()
-            )
-        })
-        .on_request(|_request: &Request<_>, span: &Span| {
-            tracing::debug!(parent: span, "request started");
-        })
-        .on_response(|response: &Response<_>, latency: Duration, span: &Span| {
-            tracing::debug!(
-                parent: span,
-                status = %response.status(),
-                latency_ms = %latency.as_millis(),
-                "request finished"
-            );
-        });
-
     let app_router = Router::new()
         .nest("/webhooks", webhook_routes)
         .route("/config", get(config_handler))
@@ -182,7 +160,16 @@ pub async fn create_app_dependencies(
         .route("/logs/download/{token}", get(download_logs_handler))
         .layer(Extension(schema))
         .layer(Extension(supporting_service.clone()))
-        .layer(trace_layer)
+        .layer(
+            TowerTraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().include_headers(true))
+                .on_request(DefaultOnRequest::new())
+                .on_response(
+                    DefaultOnResponse::new()
+                        .latency_unit(LatencyUnit::Millis)
+                        .include_headers(true),
+                ),
+        )
         .layer(TowerCatchPanicLayer::new())
         .layer(DefaultBodyLimit::max(
             1024 * 1024 * config.server.max_file_size_mb,
