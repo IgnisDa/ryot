@@ -40,7 +40,6 @@ use crate::{
 mod common;
 mod job;
 
-static LOGGING_ENV_VAR: &str = "RUST_LOG";
 static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 #[tokio::main]
@@ -48,14 +47,6 @@ async fn main() -> Result<()> {
     #[cfg(debug_assertions)]
     dotenvy::dotenv().ok();
 
-    match env::var(LOGGING_ENV_VAR).ok() {
-        None => unsafe { env::set_var(LOGGING_ENV_VAR, "ryot=info,sea_orm=info") },
-        Some(v) => {
-            if !v.contains("sea_orm") {
-                unsafe { env::set_var(LOGGING_ENV_VAR, format!("{v},sea_orm=info")) };
-            }
-        }
-    }
     let (log_file_path, tracer_provider) = init_tracing()?;
 
     ryot_log!(info, "Running version: {}", APP_VERSION);
