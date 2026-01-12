@@ -227,7 +227,7 @@ fn init_tracing() -> Result<(PathBuf, opentelemetry_sdk::trace::SdkTracerProvide
     let mut metadata_map = MetadataMap::new();
     metadata_map.insert(
         "authorization",
-        "6f161087-7ddd-46dc-93b7-fea420c99e53".parse().unwrap(),
+        "39154187-3e1a-4bb4-a10a-697f30c017ad".parse().unwrap(),
     );
     let otlp_endpoint =
         env::var(OTEL_EXPORTER_OTLP_ENDPOINT).unwrap_or_else(|_| "http://localhost:4317".into());
