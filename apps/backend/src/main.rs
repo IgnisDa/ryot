@@ -18,8 +18,11 @@ use dependent_models::CompleteExport;
 use english_to_cron::str_cron_syntax;
 use env_utils::APP_VERSION;
 use migrations_sql::Migrator;
-use opentelemetry_otlp::{WithExportConfig, WithTonicConfig, tonic_types::metadata::MetadataMap};
-use opentelemetry_sdk::trace::SdkTracerProvider;
+use opentelemetry::{KeyValue, global};
+use opentelemetry_otlp::{
+    SpanExporter, WithExportConfig, WithTonicConfig, tonic_types::metadata::MetadataMap,
+};
+use opentelemetry_sdk::{Resource, propagation::TraceContextPropagator, trace::SdkTracerProvider};
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
@@ -28,6 +31,8 @@ use tokio::{
     net::TcpListener,
     time::{Duration, sleep},
 };
+use tracing::subscriber;
+use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{fmt, layer::SubscriberExt};
 
 use crate::{
@@ -201,69 +206,68 @@ async fn main() -> Result<()> {
         let _ = join!(monitor, http);
     }
 
-    if let Err(err) = tracer_provider.shutdown() {
-        ryot_log!(warn, "Failed to shutdown OTLP tracer provider: {err}");
+    if let Some(tracer_provider) = tracer_provider {
+        if let Err(err) = tracer_provider.shutdown() {
+            ryot_log!(warn, "Failed to shutdown OTLP tracer provider: {err}");
+        }
     }
 
     Ok(())
 }
 
-fn init_tracing(config: &AppConfig) -> Result<(PathBuf, SdkTracerProvider)> {
+fn init_tracing(config: &AppConfig) -> Result<(PathBuf, Option<SdkTracerProvider>)> {
     let tmp_dir = PathBuf::new().join(get_temporary_directory());
     let file_path = tmp_dir.join(PROJECT_NAME);
     create_dir_all(&tmp_dir)?;
     let file_appender = tracing_appender::rolling::never(tmp_dir, PROJECT_NAME);
     let writer = Mutex::new(file_appender);
 
-    opentelemetry::global::set_text_map_propagator(
-        opentelemetry_sdk::propagation::TraceContextPropagator::new(),
-    );
-    let resource = opentelemetry_sdk::Resource::builder()
-        .with_attribute(opentelemetry::KeyValue::new("service.name", PROJECT_NAME))
-        .with_attribute(opentelemetry::KeyValue::new("service.version", APP_VERSION))
+    let subscriber = tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::from_default_env())
+        .with(fmt::Layer::default())
+        .with(fmt::Layer::default().with_writer(writer).with_ansi(false));
+
+    if config.server.otel.endpoint_url.is_empty() {
+        subscriber::set_global_default(subscriber)
+            .expect("Unable to set global tracing subscriber");
+        return Ok((file_path, None));
+    }
+
+    global::set_text_map_propagator(TraceContextPropagator::new());
+    let resource = Resource::builder()
+        .with_attribute(KeyValue::new("service.name", PROJECT_NAME))
+        .with_attribute(KeyValue::new("service.version", APP_VERSION))
         .build();
 
-    let tracer_provider = if !config.server.otel.endpoint_url.is_empty() {
-        let mut metadata_map = MetadataMap::new();
-        if !config.server.otel.authorization_header_token.is_empty() {
-            metadata_map.insert(
-                "authorization",
-                config
-                    .server
-                    .otel
-                    .authorization_header_token
-                    .parse()
-                    .unwrap(),
-            );
-        }
-        let exporter = opentelemetry_otlp::SpanExporter::builder()
-            .with_tonic()
-            .with_endpoint(config.server.otel.endpoint_url.clone())
-            .with_metadata(metadata_map)
-            .build()
-            .context("Unable to build OTLP span exporter")?;
-        opentelemetry_sdk::trace::SdkTracerProvider::builder()
-            .with_batch_exporter(exporter)
-            .with_resource(resource)
-            .build()
-    } else {
-        opentelemetry_sdk::trace::SdkTracerProvider::builder()
-            .with_resource(resource)
-            .build()
-    };
+    let mut metadata_map = MetadataMap::new();
+    if !config.server.otel.authorization_header_token.is_empty() {
+        metadata_map.insert(
+            "authorization",
+            config
+                .server
+                .otel
+                .authorization_header_token
+                .parse()
+                .unwrap(),
+        );
+    }
+    let exporter = SpanExporter::builder()
+        .with_tonic()
+        .with_endpoint(config.server.otel.endpoint_url.clone())
+        .with_metadata(metadata_map)
+        .build()
+        .context("Unable to build OTLP span exporter")?;
+    let tracer_provider = SdkTracerProvider::builder()
+        .with_batch_exporter(exporter)
+        .with_resource(resource)
+        .build();
 
-    opentelemetry::global::set_tracer_provider(tracer_provider.clone());
-    let tracer = opentelemetry::global::tracer(PROJECT_NAME);
+    global::set_tracer_provider(tracer_provider.clone());
+    let tracer = global::tracer(PROJECT_NAME);
 
-    tracing::subscriber::set_global_default(
-        tracing_subscriber::registry()
-            .with(tracing_subscriber::EnvFilter::from_default_env())
-            .with(fmt::Layer::default())
-            .with(fmt::Layer::default().with_writer(writer).with_ansi(false))
-            .with(tracing_opentelemetry::OpenTelemetryLayer::new(tracer)),
-    )
-    .expect("Unable to set global tracing subscriber");
-    Ok((file_path, tracer_provider))
+    subscriber::set_global_default(subscriber.with(OpenTelemetryLayer::new(tracer)))
+        .expect("Unable to set global tracing subscriber");
+    Ok((file_path, Some(tracer_provider)))
 }
 
 fn get_cron_schedules(config: &Arc<AppConfig>, tz: chrono_tz::Tz) -> Result<(Schedule, Schedule)> {
