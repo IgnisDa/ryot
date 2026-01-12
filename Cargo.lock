@@ -922,7 +922,6 @@ dependencies = [
  "application-utils",
  "async-graphql",
  "async-graphql-axum",
- "async-trait",
  "axum",
  "background-models",
  "bon",
@@ -986,7 +985,6 @@ dependencies = [
  "user-authentication-resolver",
  "user-management-resolver",
  "user-services-resolver",
- "uuid",
 ]
 
 [[package]]

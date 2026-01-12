@@ -11,7 +11,6 @@ apalis = { workspace = true }
 apalis-cron = { workspace = true }
 async-graphql = { workspace = true }
 async-graphql-axum = { workspace = true }
-async-trait = { workspace = true }
 axum = { workspace = true }
 bon = { workspace = true }
 chrono-tz = { workspace = true }
@@ -33,7 +32,6 @@ tracing = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-opentelemetry = { workspace = true }
 tracing-subscriber = { workspace = true }
-uuid = { workspace = true }
 
 application-utils = { workspace = true }
 background-models = { workspace = true }

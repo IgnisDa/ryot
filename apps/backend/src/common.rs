@@ -1,17 +1,13 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc};
 
 use apalis::prelude::MemoryStorage;
 use application_utils::{AuthContext, create_oidc_client};
-use async_graphql::{
-    EmptySubscription, MergedObject, Schema,
-    extensions::{Extension as GraphqlExtension, ExtensionContext, ExtensionFactory, NextExecute},
-};
+use async_graphql::{EmptySubscription, MergedObject, Schema, extensions::Tracing};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
-use async_trait::async_trait;
 use axum::{
     Extension,
     extract::DefaultBodyLimit,
-    http::{Method, Request, Response, header},
+    http::{Method, header},
     routing::{Router, get, post},
 };
 use background_models::{
@@ -59,38 +55,11 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
-use tracing::{Instrument, Span};
 use user_authentication_resolver::{
     UserAuthenticationMutationResolver, UserAuthenticationQueryResolver,
 };
 use user_management_resolver::{UserManagementMutationResolver, UserManagementQueryResolver};
 use user_services_resolver::{UserServicesMutationResolver, UserServicesQueryResolver};
-use uuid::Uuid;
-
-struct GraphqlOperationTracing;
-
-impl ExtensionFactory for GraphqlOperationTracing {
-    fn create(&self) -> Arc<dyn GraphqlExtension> {
-        Arc::new(GraphqlOperationTracingExtension)
-    }
-}
-
-struct GraphqlOperationTracingExtension;
-
-#[async_trait]
-impl GraphqlExtension for GraphqlOperationTracingExtension {
-    async fn execute(
-        &self,
-        ctx: &ExtensionContext<'_>,
-        operation_name: Option<&str>,
-        next: NextExecute<'_>,
-    ) -> async_graphql::Response {
-        let operation_name_value = operation_name.unwrap_or("anonymous");
-        let span =
-            tracing::debug_span!("graphql.operation", operation_name = %operation_name_value);
-        next.run(ctx, operation_name).instrument(span).await
-    }
-}
 
 #[builder]
 pub async fn create_app_dependencies(
@@ -123,7 +92,7 @@ pub async fn create_app_dependencies(
         MutationRoot::default(),
         EmptySubscription,
     )
-    .extension(GraphqlOperationTracing)
+    .extension(Tracing)
     .data(supporting_service.clone())
     .finish();
 
@@ -149,28 +118,7 @@ pub async fn create_app_dependencies(
         gql = gql.get(graphql_playground_handler);
     }
 
-    let trace_layer = TowerTraceLayer::new_for_http()
-        .make_span_with(|request: &Request<_>| {
-            let request_id = Uuid::new_v4();
-            tracing::debug_span!(
-                "http.request",
-                uri = %request.uri(),
-                request_id = %request_id,
-                method = %request.method(),
-                version = ?request.version()
-            )
-        })
-        .on_request(|_request: &Request<_>, span: &Span| {
-            tracing::debug!(parent: span, "request started");
-        })
-        .on_response(|response: &Response<_>, latency: Duration, span: &Span| {
-            tracing::debug!(
-                parent: span,
-                status = %response.status(),
-                latency_ms = %latency.as_millis(),
-                "request finished"
-            );
-        });
+    let trace_layer = TowerTraceLayer::new_for_http();
 
     let app_router = Router::new()
         .nest("/webhooks", webhook_routes)
