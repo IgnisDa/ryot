@@ -18,7 +18,10 @@ use dependent_models::CompleteExport;
 use english_to_cron::str_cron_syntax;
 use env_utils::APP_VERSION;
 use migrations_sql::Migrator;
-use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_otlp::{
+    OTEL_EXPORTER_OTLP_ENDPOINT, WithExportConfig, WithTonicConfig,
+    tonic_types::metadata::MetadataMap,
+};
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
@@ -217,15 +220,21 @@ fn init_tracing() -> Result<(PathBuf, opentelemetry_sdk::trace::SdkTracerProvide
     opentelemetry::global::set_text_map_propagator(
         opentelemetry_sdk::propagation::TraceContextPropagator::new(),
     );
-    let otlp_endpoint =
-        env::var("OTEL_EXPORTER_OTLP_ENDPOINT").unwrap_or_else(|_| "http://localhost:4317".into());
     let resource = opentelemetry_sdk::Resource::builder()
         .with_attribute(opentelemetry::KeyValue::new("service.name", PROJECT_NAME))
         .with_attribute(opentelemetry::KeyValue::new("service.version", APP_VERSION))
         .build();
+    let mut metadata_map = MetadataMap::new();
+    metadata_map.insert(
+        "authorization",
+        "6f161087-7ddd-46dc-93b7-fea420c99e53".parse().unwrap(),
+    );
+    let otlp_endpoint =
+        env::var(OTEL_EXPORTER_OTLP_ENDPOINT).unwrap_or_else(|_| "http://localhost:4317".into());
     let exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
         .with_endpoint(otlp_endpoint)
+        .with_metadata(metadata_map)
         .build()
         .context("Unable to build OTLP span exporter")?;
     let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
