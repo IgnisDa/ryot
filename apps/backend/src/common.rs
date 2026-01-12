@@ -2,8 +2,12 @@ use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use apalis::prelude::MemoryStorage;
 use application_utils::{AuthContext, create_oidc_client};
-use async_graphql::{EmptySubscription, MergedObject, Schema, extensions::Tracing};
+use async_graphql::{
+    EmptySubscription, MergedObject, Schema,
+    extensions::{Extension as GraphqlExtension, ExtensionContext, ExtensionFactory, NextExecute},
+};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
+use async_trait::async_trait;
 use axum::{
     Extension,
     extract::DefaultBodyLimit,
@@ -55,13 +59,38 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
-use tracing::Span;
+use tracing::{Instrument, Span};
 use user_authentication_resolver::{
     UserAuthenticationMutationResolver, UserAuthenticationQueryResolver,
 };
 use user_management_resolver::{UserManagementMutationResolver, UserManagementQueryResolver};
 use user_services_resolver::{UserServicesMutationResolver, UserServicesQueryResolver};
 use uuid::Uuid;
+
+struct GraphqlOperationTracing;
+
+impl ExtensionFactory for GraphqlOperationTracing {
+    fn create(&self) -> Arc<dyn GraphqlExtension> {
+        Arc::new(GraphqlOperationTracingExtension)
+    }
+}
+
+struct GraphqlOperationTracingExtension;
+
+#[async_trait]
+impl GraphqlExtension for GraphqlOperationTracingExtension {
+    async fn execute(
+        &self,
+        ctx: &ExtensionContext<'_>,
+        operation_name: Option<&str>,
+        next: NextExecute<'_>,
+    ) -> async_graphql::Response {
+        let operation_name_value = operation_name.unwrap_or("anonymous");
+        let span =
+            tracing::debug_span!("graphql.operation", operation_name = %operation_name_value);
+        next.run(ctx, operation_name).instrument(span).await
+    }
+}
 
 #[builder]
 pub async fn create_app_dependencies(
@@ -94,7 +123,7 @@ pub async fn create_app_dependencies(
         MutationRoot::default(),
         EmptySubscription,
     )
-    .extension(Tracing)
+    .extension(GraphqlOperationTracing)
     .data(supporting_service.clone())
     .finish();
 

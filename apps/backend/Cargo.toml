@@ -11,6 +11,7 @@ apalis = { workspace = true }
 apalis-cron = { workspace = true }
 async-graphql = { workspace = true }
 async-graphql-axum = { workspace = true }
+async-trait = { workspace = true }
 axum = { workspace = true }
 bon = { workspace = true }
 chrono-tz = { workspace = true }
