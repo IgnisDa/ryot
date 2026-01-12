@@ -18,10 +18,8 @@ use dependent_models::CompleteExport;
 use english_to_cron::str_cron_syntax;
 use env_utils::APP_VERSION;
 use migrations_sql::Migrator;
-use opentelemetry_otlp::{
-    OTEL_EXPORTER_OTLP_ENDPOINT, WithExportConfig, WithTonicConfig,
-    tonic_types::metadata::MetadataMap,
-};
+use opentelemetry_otlp::{WithExportConfig, WithTonicConfig, tonic_types::metadata::MetadataMap};
+use opentelemetry_sdk::trace::SdkTracerProvider;
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
@@ -50,11 +48,11 @@ async fn main() -> Result<()> {
     #[cfg(debug_assertions)]
     dotenvy::dotenv().ok();
 
-    let (log_file_path, tracer_provider) = init_tracing()?;
+    let config = Arc::new(config_definition::load_app_config()?);
+
+    let (log_file_path, tracer_provider) = init_tracing(&config)?;
 
     ryot_log!(info, "Running version: {}", APP_VERSION);
-
-    let config = Arc::new(config_definition::load_app_config()?);
 
     let tz: chrono_tz::Tz = config.tz.parse().unwrap();
     ryot_log!(info, "Timezone: {}", tz);
@@ -210,7 +208,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn init_tracing() -> Result<(PathBuf, opentelemetry_sdk::trace::SdkTracerProvider)> {
+fn init_tracing(config: &AppConfig) -> Result<(PathBuf, SdkTracerProvider)> {
     let tmp_dir = PathBuf::new().join(get_temporary_directory());
     let file_path = tmp_dir.join(PROJECT_NAME);
     create_dir_all(&tmp_dir)?;
@@ -224,23 +222,36 @@ fn init_tracing() -> Result<(PathBuf, opentelemetry_sdk::trace::SdkTracerProvide
         .with_attribute(opentelemetry::KeyValue::new("service.name", PROJECT_NAME))
         .with_attribute(opentelemetry::KeyValue::new("service.version", APP_VERSION))
         .build();
-    let mut metadata_map = MetadataMap::new();
-    metadata_map.insert(
-        "authorization",
-        "39154187-3e1a-4bb4-a10a-697f30c017ad".parse().unwrap(),
-    );
-    let otlp_endpoint =
-        env::var(OTEL_EXPORTER_OTLP_ENDPOINT).unwrap_or_else(|_| "http://localhost:4317".into());
-    let exporter = opentelemetry_otlp::SpanExporter::builder()
-        .with_tonic()
-        .with_endpoint(otlp_endpoint)
-        .with_metadata(metadata_map)
-        .build()
-        .context("Unable to build OTLP span exporter")?;
-    let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
-        .with_batch_exporter(exporter)
-        .with_resource(resource)
-        .build();
+
+    let tracer_provider = if !config.server.otel.endpoint_url.is_empty() {
+        let mut metadata_map = MetadataMap::new();
+        if !config.server.otel.authorization_header_token.is_empty() {
+            metadata_map.insert(
+                "authorization",
+                config
+                    .server
+                    .otel
+                    .authorization_header_token
+                    .parse()
+                    .unwrap(),
+            );
+        }
+        let exporter = opentelemetry_otlp::SpanExporter::builder()
+            .with_tonic()
+            .with_endpoint(config.server.otel.endpoint_url.clone())
+            .with_metadata(metadata_map)
+            .build()
+            .context("Unable to build OTLP span exporter")?;
+        opentelemetry_sdk::trace::SdkTracerProvider::builder()
+            .with_batch_exporter(exporter)
+            .with_resource(resource)
+            .build()
+    } else {
+        opentelemetry_sdk::trace::SdkTracerProvider::builder()
+            .with_resource(resource)
+            .build()
+    };
+
     opentelemetry::global::set_tracer_provider(tracer_provider.clone());
     let tracer = opentelemetry::global::tracer(PROJECT_NAME);
 

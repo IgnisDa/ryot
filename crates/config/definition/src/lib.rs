@@ -392,6 +392,16 @@ pub struct ImporterConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
+#[config(rename_all = "snake_case", env_prefix = "SERVER_OTEL_")]
+pub struct OtelConfig {
+    /// The OTLP endpoint URL for OpenTelemetry traces.
+    pub endpoint_url: String,
+    /// The authorization header token for the OTLP exporter.
+    #[mask]
+    pub authorization_header_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_")]
 pub struct ServerConfig {
     /// The key that can be used to enable Ryot Pro features.
@@ -421,6 +431,10 @@ pub struct ServerConfig {
     #[setting(nested)]
     #[mask_nested]
     pub importer: ImporterConfig,
+    /// The OpenTelemetry related settings.
+    #[setting(nested)]
+    #[mask_nested]
+    pub otel: OtelConfig,
     /// An array of URLs for CORS.
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
     pub cors_origins: Vec<String>,

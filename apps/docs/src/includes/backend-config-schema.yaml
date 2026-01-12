@@ -199,6 +199,16 @@ server:
     # @env SERVER_OIDC_ISSUER_URL
     issuer_url: ""
 
+  # The OpenTelemetry related settings.
+  otel:
+    # The authorization header token for the OTLP exporter.
+    # @env SERVER_OTEL_AUTHORIZATION_HEADER_TOKEN
+    authorization_header_token: ""
+
+    # The OTLP endpoint URL for OpenTelemetry traces.
+    # @env SERVER_OTEL_ENDPOINT_URL
+    endpoint_url: ""
+
   # The key that can be used to enable Ryot Pro features.
   # @env SERVER_PRO_KEY
   pro_key: ""
