@@ -6,7 +6,7 @@ use common_utils::{APPLICATION_JSON_HEADER, AVATAR_URL, PROJECT_NAME, ryot_log};
 use config_definition::AppConfig;
 use convert_case::{Case, Casing};
 use lettre::{
-    Message, SmtpTransport, Transport,
+    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
     message::{MultiPart, SinglePart, header},
     transport::smtp::authentication::Credentials,
 };
@@ -164,7 +164,7 @@ pub async fn send_notification(
                 config.server.smtp.password.to_owned(),
             );
 
-            let mailer = SmtpTransport::relay(&config.server.smtp.server)
+            let mailer = AsyncSmtpTransport::<Tokio1Executor>::relay(&config.server.smtp.server)
                 .unwrap()
                 .credentials(credentials)
                 .build();
@@ -182,7 +182,7 @@ pub async fn send_notification(
                     ),
                 )
                 .unwrap();
-            mailer.send(&email_msg).map_err(|e| anyhow!(e))?;
+            mailer.send(email_msg).await.map_err(|e| anyhow!(e))?;
         }
     }
     Ok(())
