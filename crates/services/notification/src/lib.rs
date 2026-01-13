@@ -1,15 +1,27 @@
 use std::env;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
+use askama::Template;
 use common_utils::{APPLICATION_JSON_HEADER, AVATAR_URL, PROJECT_NAME, ryot_log};
+use config_definition::AppConfig;
 use convert_case::{Case, Casing};
+use lettre::{
+    Message, SmtpTransport, Transport,
+    message::{MultiPart, SinglePart, header},
+    transport::smtp::authentication::Credentials,
+};
 use reqwest::{
     Client,
     header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue},
 };
+use serde::{Deserialize, Serialize};
 use user_models::NotificationPlatformSpecifics;
 
-pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &str) -> Result<()> {
+pub async fn send_notification(
+    specifics: NotificationPlatformSpecifics,
+    config: &AppConfig,
+    msg: &str,
+) -> Result<()> {
     let project_name = PROJECT_NAME.to_case(Case::Title);
     let client = Client::new();
     if env::var("DISABLE_NOTIFICATIONS").is_ok() {
@@ -134,6 +146,43 @@ pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &s
                 }))
                 .send()
                 .await?;
+        }
+        NotificationPlatformSpecifics::Email { email } => {
+            #[derive(Template, Serialize, Deserialize, Debug, Clone)]
+            #[template(path = "Generic.html")]
+            pub struct GenericHtml {
+                pub generic_message: String,
+            }
+
+            let body = GenericHtml {
+                generic_message: msg.to_owned(),
+            }
+            .render()?;
+
+            let credentials = Credentials::new(
+                config.server.smtp.user.to_owned(),
+                config.server.smtp.password.to_owned(),
+            );
+
+            let mailer = SmtpTransport::relay(&config.server.smtp.server)
+                .unwrap()
+                .credentials(credentials)
+                .build();
+
+            let mailbox = config.server.smtp.mailbox.parse().unwrap();
+            let email_msg = Message::builder()
+                .from(mailbox)
+                .to(email.parse().unwrap())
+                .subject(format!("{} notification", project_name))
+                .multipart(
+                    MultiPart::mixed().singlepart(
+                        SinglePart::builder()
+                            .header(header::ContentType::TEXT_HTML)
+                            .body(body),
+                    ),
+                )
+                .unwrap();
+            mailer.send(&email_msg).map_err(|e| anyhow!(e))?;
         }
     }
     Ok(())

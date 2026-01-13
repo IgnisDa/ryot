@@ -66,7 +66,7 @@ pub async fn test_user_notification_platforms(
         .await?;
     for platform in notifications {
         let msg = format!("This is a test notification for platform: {}", platform.lot);
-        send_notification(platform.platform_specifics, &msg).await?;
+        send_notification(platform.platform_specifics, &ss.config, &msg).await?;
     }
     Ok(true)
 }
@@ -109,6 +109,9 @@ pub async fn create_user_notification_platform(
             bot_token: input.api_token.unwrap(),
             chat_id: input.chat_id.unwrap(),
         },
+        NotificationPlatformLot::Email => NotificationPlatformSpecifics::Email {
+            email: input.api_token.unwrap(),
+        },
     };
     let description = match &specifics {
         NotificationPlatformSpecifics::Apprise { url, key } => {
@@ -134,6 +137,9 @@ pub async fn create_user_notification_platform(
         }
         NotificationPlatformSpecifics::Telegram { chat_id, .. } => {
             format!("Chat ID: {chat_id}")
+        }
+        NotificationPlatformSpecifics::Email { email } => {
+            format!("Email: {email}")
         }
     };
     let notification = notification_platform::ActiveModel {
