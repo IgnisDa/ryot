@@ -508,6 +508,9 @@ pub enum NotificationPlatformSpecifics {
         bot_token: String,
         chat_id: String,
     },
+    Email {
+        email: String,
+    },
 }
 
 #[derive(
