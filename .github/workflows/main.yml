@@ -104,7 +104,7 @@ jobs:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           persist-credentials: false
-      - uses: moonrepo/setup-toolchain@v0
+      - uses: moonrepo/setup-toolchain@937d7dbbc1ec218aa8641c792d5821addebd9f03
         with:
           auto-install: true
       - name: Set up Node.js and caching
