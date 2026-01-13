@@ -149,7 +149,7 @@ pub async fn send_notification(
         }
         NotificationPlatformSpecifics::Email { email } => {
             #[derive(Template, Serialize, Deserialize, Debug, Clone)]
-            #[template(path = "Generic.html")]
+            #[template(path = "generic.html")]
             pub struct GenericHtml {
                 pub generic_message: String,
             }
