@@ -5,6 +5,7 @@ dependsOn:
 
 fileGroups:
   email:
+    - layout.tsx
     - "emails/**/*"
 
 tasks:
