@@ -12,5 +12,20 @@ tasks:
     command: "email dev --port 6200"
     local: true
 
+  build-html:
+    command: "email export"
+    inputs: ["@group(email)"]
+    outputs: ["out"]
+
+  copy-files:
+    command: "cp -r out/. ../../crates/services/notification/templates"
+    deps: ["~:build-html"]
+    platform: "system"
+
+  build:
+    deps: ["~:copy-files"]
+    options:
+      runDepsInParallel: false
+
   typecheck:
     inputs: ["@group(email)"]

@@ -94,9 +94,38 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  build-transactional:
+    needs: pre-workflow-checks
+    if: needs.pre-workflow-checks.outputs.should-run == 'true'
+    runs-on: ubuntu-latest
+    env:
+      MOON_TOOLCHAIN_FORCE_GLOBALS: true
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          persist-credentials: false
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+      - name: Set up Node.js and caching
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "yarn"
+      - name: Build emails
+        run: moon run transactional:build
+      - name: Upload templates artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: templates
+          path: |
+            crates/services/notification/templates/
+          retention-days: 1
+
   build-backend:
     needs:
       - pre-workflow-checks
+      - build-transactional
     if: needs.pre-workflow-checks.outputs.should-run == 'true'
     runs-on: ubuntu-latest
     strategy:
@@ -109,6 +138,10 @@ jobs:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: templates
+          path: crates/services/notification/templates/
       - name: Extract build information
         id: build
         env:
