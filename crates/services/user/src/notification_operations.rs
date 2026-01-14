@@ -67,7 +67,7 @@ pub async fn test_user_notification_platforms(
         .await?;
     for platform in notifications {
         let msg = format!("This is a test notification for platform: {}", platform.lot);
-        send_notification(platform.platform_specifics, &ss.config, &msg)
+        send_notification(&msg, &ss.config, platform.platform_specifics)
             .await
             .trace_ok();
     }

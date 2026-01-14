@@ -18,9 +18,9 @@ use serde::{Deserialize, Serialize};
 use user_models::NotificationPlatformSpecifics;
 
 pub async fn send_notification(
-    specifics: NotificationPlatformSpecifics,
-    config: &AppConfig,
     msg: &str,
+    config: &AppConfig,
+    specifics: NotificationPlatformSpecifics,
 ) -> Result<()> {
     let project_name = PROJECT_NAME.to_case(Case::Title);
     let client = Client::new();
