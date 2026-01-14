@@ -94,9 +94,38 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  build-transactional:
+    needs: pre-workflow-checks
+    if: needs.pre-workflow-checks.outputs.should-run == 'true'
+    runs-on: ubuntu-latest
+    env:
+      MOON_TOOLCHAIN_FORCE_GLOBALS: true
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          persist-credentials: false
+      - uses: moonrepo/setup-toolchain@937d7dbbc1ec218aa8641c792d5821addebd9f03
+        with:
+          auto-install: true
+      - name: Set up Node.js and caching
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
+          cache: "yarn"
+      - name: Build emails
+        run: moon run transactional:build
+      - name: Upload templates artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: templates
+          retention-days: 1
+          path: |
+            crates/services/notification/templates/
+
   build-backend:
     needs:
       - pre-workflow-checks
+      - build-transactional
     if: needs.pre-workflow-checks.outputs.should-run == 'true'
     runs-on: ubuntu-latest
     strategy:
@@ -109,6 +138,10 @@ jobs:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: templates
+          path: crates/services/notification/templates/
       - name: Extract build information
         id: build
         env:
@@ -167,7 +200,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Download build artifact for docker
-        uses: actions/download-artifact@f093f21ca4cfa7c75ccbbc2be54da76a0c7e1f05
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
         with:
           path: ${{ github.workspace }}/artifact/
       - name: Set up QEMU

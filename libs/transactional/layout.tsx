@@ -18,7 +18,7 @@ type LayoutProps = {
 	children: ReactNode;
 };
 
-const Layout = ({ headingText, children }: LayoutProps) => (
+const Layout = (props: LayoutProps) => (
 	<Html>
 		<Head />
 		<Preview>Message from Ryot</Preview>
@@ -42,12 +42,14 @@ const Layout = ({ headingText, children }: LayoutProps) => (
 						className="h-10 w-10 rounded-xl"
 					/>
 					<Heading className="text-2xl pt-4 px-0 font-normal text-brand-heading-gray tracking-tighter leading-3">
-						{headingText}
+						{props.headingText}
 					</Heading>
-					<Section className="py-7 text-paragraph-gray">{children}</Section>
+					<Section className="py-7 text-paragraph-gray">
+						{props.children}
+					</Section>
 					<Hr className="border-[#dfe1e4] my-6" />
 					<Link href="https://ryot.io" className="text-sm text-[#b4becc]">
-						Ryot
+						Ryot &copy; {new Date().getFullYear()}
 					</Link>
 				</Container>
 			</Body>

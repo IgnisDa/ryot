@@ -2009,6 +2009,7 @@ export type NotificationPlatform = {
 export enum NotificationPlatformLot {
   Apprise = 'APPRISE',
   Discord = 'DISCORD',
+  Email = 'EMAIL',
   Gotify = 'GOTIFY',
   Ntfy = 'NTFY',
   PushBullet = 'PUSH_BULLET',
