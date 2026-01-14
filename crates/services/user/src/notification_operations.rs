@@ -117,6 +117,7 @@ pub async fn create_user_notification_platform(
         },
     };
     let description = match &specifics {
+        NotificationPlatformSpecifics::Email { email } => email.to_owned(),
         NotificationPlatformSpecifics::Apprise { url, key } => {
             format!("URL: {url}, Key: {key}")
         }
@@ -140,9 +141,6 @@ pub async fn create_user_notification_platform(
         }
         NotificationPlatformSpecifics::Telegram { chat_id, .. } => {
             format!("Chat ID: {chat_id}")
-        }
-        NotificationPlatformSpecifics::Email { email } => {
-            format!("Email: {email}")
         }
     };
     let notification = notification_platform::ActiveModel {
