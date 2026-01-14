@@ -354,21 +354,13 @@ pub struct SchedulerConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_SMTP_")]
 pub struct SmtpConfig {
-    /// Use 587 for STARTTLS (default), 465 for TLS, or 25 for unencrypted. For cloud
-    /// providers, port 465 with tls_mode="tls" is recommended.
-    #[setting(default = 587)]
-    pub port: u16,
     #[mask]
     pub user: String,
     pub server: String,
-    #[setting(default = "Ryot <no-reply@ryot.io>")]
-    pub mailbox: String,
     #[mask]
     pub password: String,
-    // "starttls" (default, port 587), "tls" (direct TLS, port 465), or "none" (unencrypted)
-    #[mask]
-    #[setting(default = "starttls")]
-    pub tls_mode: String,
+    #[setting(default = "Ryot <no-reply@ryot.io>")]
+    pub mailbox: String,
 }
 
 impl SmtpConfig {

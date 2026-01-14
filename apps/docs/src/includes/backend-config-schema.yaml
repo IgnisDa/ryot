@@ -221,16 +221,8 @@ server:
     # @env SERVER_SMTP_PASSWORD
     password: ""
 
-    # Use 587 for STARTTLS (default), 465 for TLS, or 25 for unencrypted. For cloud
-    # providers, port 465 with tls_mode="tls" is recommended.
-    # @env SERVER_SMTP_PORT
-    port: 587
-
     # @env SERVER_SMTP_SERVER
     server: ""
-
-    # @env SERVER_SMTP_TLS_MODE
-    tls_mode: "starttls"
 
     # @env SERVER_SMTP_USER
     user: ""

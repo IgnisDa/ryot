@@ -164,21 +164,8 @@ pub async fn send_notification(
                 config.server.smtp.password.to_owned(),
             );
 
-            let mailer_builder = match config.server.smtp.tls_mode.to_lowercase().as_str() {
-                "tls" => AsyncSmtpTransport::<Tokio1Executor>::relay(&config.server.smtp.server)?
-                    .port(config.server.smtp.port),
-                "none" => AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(
-                    &config.server.smtp.server,
-                )
-                .port(config.server.smtp.port),
-                _ => AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(
-                    &config.server.smtp.server,
-                )?
-                .port(config.server.smtp.port),
-            };
-
-            let mailer = mailer_builder
-                .timeout(Some(Duration::from_secs(30)))
+            let mailer = AsyncSmtpTransport::<Tokio1Executor>::relay(&config.server.smtp.server)?
+                .timeout(Some(Duration::from_secs(10)))
                 .credentials(credentials)
                 .build();
 
