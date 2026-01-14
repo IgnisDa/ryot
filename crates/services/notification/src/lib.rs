@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, time::Duration};
 
 use anyhow::Result;
 use askama::Template;
@@ -165,6 +165,7 @@ pub async fn send_notification(
             );
 
             let mailer = AsyncSmtpTransport::<Tokio1Executor>::relay(&config.server.smtp.server)?
+                .timeout(Some(Duration::from_secs(10)))
                 .credentials(credentials)
                 .build();
 
