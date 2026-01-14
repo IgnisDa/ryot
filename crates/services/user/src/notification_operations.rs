@@ -10,6 +10,7 @@ use sea_orm::{
     QueryFilter, QueryOrder,
 };
 use supporting_service::SupportingService;
+use traits::TraceOk;
 use user_models::NotificationPlatformSpecifics;
 
 pub async fn update_user_notification_platform(
@@ -66,7 +67,9 @@ pub async fn test_user_notification_platforms(
         .await?;
     for platform in notifications {
         let msg = format!("This is a test notification for platform: {}", platform.lot);
-        send_notification(platform.platform_specifics, &ss.config, &msg).await?;
+        send_notification(platform.platform_specifics, &ss.config, &msg)
+            .await
+            .trace_ok();
     }
     Ok(true)
 }

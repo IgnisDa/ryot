@@ -8365,6 +8365,7 @@ dependencies = [
  "tokio",
  "totp-lite",
  "tracing",
+ "traits",
  "user-models",
 ]
 
