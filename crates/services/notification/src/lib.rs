@@ -1,6 +1,6 @@
 use std::env;
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use askama::Template;
 use common_utils::{APPLICATION_JSON_HEADER, AVATAR_URL, PROJECT_NAME, ryot_log};
 use config_definition::AppConfig;
@@ -164,15 +164,14 @@ pub async fn send_notification(
                 config.server.smtp.password.to_owned(),
             );
 
-            let mailer = AsyncSmtpTransport::<Tokio1Executor>::relay(&config.server.smtp.server)
-                .unwrap()
+            let mailer = AsyncSmtpTransport::<Tokio1Executor>::relay(&config.server.smtp.server)?
                 .credentials(credentials)
                 .build();
 
-            let mailbox = config.server.smtp.mailbox.parse().unwrap();
+            let mailbox = config.server.smtp.mailbox.parse()?;
             let email_msg = Message::builder()
                 .from(mailbox)
-                .to(email.parse().unwrap())
+                .to(email.parse()?)
                 .subject(format!("{} notification", project_name))
                 .multipart(
                     MultiPart::mixed().singlepart(
@@ -180,9 +179,8 @@ pub async fn send_notification(
                             .header(header::ContentType::TEXT_HTML)
                             .body(body),
                     ),
-                )
-                .unwrap();
-            mailer.send(email_msg).await.map_err(|e| anyhow!(e))?;
+                )?;
+            mailer.send(email_msg).await?;
         }
     }
     Ok(())
