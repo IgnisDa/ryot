@@ -290,7 +290,7 @@ pub async fn send_notification_for_user(
             );
             continue;
         }
-        if let Err(err) = send_notification(&&msg, &ss.config, platform.platform_specifics).await {
+        if let Err(err) = send_notification(&msg, &ss.config, platform.platform_specifics).await {
             ryot_log!(debug, "Error sending notification: {:?}", err);
         }
     }
