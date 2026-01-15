@@ -240,17 +240,10 @@ fn init_tracing(config: &AppConfig) -> Result<(PathBuf, Option<SdkTracerProvider
         .build();
 
     let mut metadata_map = MetadataMap::new();
-    if !config.server.otel.authorization_header_token.is_empty() {
-        metadata_map.insert(
-            "authorization",
-            config
-                .server
-                .otel
-                .authorization_header_token
-                .parse()
-                .unwrap(),
-        );
-    }
+    metadata_map.insert(
+        &*Box::leak(config.server.otel.header_name.clone().into_boxed_str()),
+        config.server.otel.header_value.parse().unwrap(),
+    );
     let exporter = SpanExporter::builder()
         .with_tonic()
         .with_endpoint(config.server.otel.endpoint_url.clone())

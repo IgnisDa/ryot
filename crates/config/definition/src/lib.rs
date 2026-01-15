@@ -394,11 +394,15 @@ pub struct ImporterConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_OTEL_")]
 pub struct OtelConfig {
+    /// The header name for the OTLP exporter.
+    #[mask]
+    #[setting(default = "authorization")]
+    pub header_name: String,
+    /// The header value for the OTLP exporter.
+    #[mask]
+    pub header_value: String,
     /// The OTLP endpoint URL for OpenTelemetry traces.
     pub endpoint_url: String,
-    /// The authorization header token for the OTLP exporter.
-    #[mask]
-    pub authorization_header_token: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
