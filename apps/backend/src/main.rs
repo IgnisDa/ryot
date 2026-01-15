@@ -19,9 +19,7 @@ use english_to_cron::str_cron_syntax;
 use env_utils::APP_VERSION;
 use migrations_sql::Migrator;
 use opentelemetry::{KeyValue, global};
-use opentelemetry_otlp::{
-    SpanExporter, WithExportConfig, WithTonicConfig, tonic_types::metadata::MetadataMap,
-};
+use opentelemetry_otlp::{SpanExporter, WithExportConfig, WithTonicConfig};
 use opentelemetry_sdk::{Resource, propagation::TraceContextPropagator, trace::SdkTracerProvider};
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
@@ -31,6 +29,7 @@ use tokio::{
     net::TcpListener,
     time::{Duration, sleep},
 };
+use tonic::metadata::{MetadataMap, MetadataValue};
 use tracing::subscriber;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{fmt, layer::SubscriberExt};
@@ -240,9 +239,9 @@ fn init_tracing(config: &AppConfig) -> Result<(PathBuf, Option<SdkTracerProvider
         .build();
 
     let mut metadata_map = MetadataMap::new();
-    metadata_map.insert(
-        &*Box::leak(config.server.otel.header_name.clone().into_boxed_str()),
-        config.server.otel.header_value.parse().unwrap(),
+    metadata_map.insert_bin(
+        config.server.otel.header_name.clone().leak() as &str,
+        MetadataValue::from_bytes(config.server.otel.header_value.as_bytes()),
     );
     let exporter = SpanExporter::builder()
         .with_tonic()
