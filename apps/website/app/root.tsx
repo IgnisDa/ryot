@@ -237,7 +237,9 @@ export default function App() {
 									</div>
 								</div>
 								<div className="border-t border-border/50 mt-8 pt-8 text-center text-muted-foreground">
-									<p>&copy; 2026 Ryot. All Rights Reserved.</p>
+									<p>
+										&copy; {new Date().getFullYear()} Ryot. All Rights Reserved.
+									</p>
 								</div>
 							</div>
 						</footer>

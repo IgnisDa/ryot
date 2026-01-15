@@ -5,12 +5,16 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
+askama = { workspace = true }
 convert_case = { workspace = true }
+lettre = { workspace = true }
 reqwest = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 
 common-utils = { workspace = true }
+config-definition = { workspace = true }
 user-models = { workspace = true }
 
 [package.metadata.cargo-machete]

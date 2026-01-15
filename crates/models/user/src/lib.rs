@@ -34,13 +34,13 @@ const MOVIE_WATCH_PROVIDERS: [&str; 8] = [
 #[graphql(input_name = "UserMediaFeaturesEnabledPreferencesInput")]
 pub struct UserMediaFeaturesEnabledPreferences {
     #[educe(Default = true)]
-    pub enabled: bool,
+    pub genres: bool,
     #[educe(Default = true)]
     pub people: bool,
     #[educe(Default = true)]
     pub groups: bool,
     #[educe(Default = true)]
-    pub genres: bool,
+    pub enabled: bool,
     #[educe(Default = MediaLot::iter().collect())]
     pub specific: Vec<MediaLot>,
 }
@@ -61,9 +61,9 @@ pub struct UserMediaFeaturesEnabledPreferences {
 #[graphql(input_name = "UserOthersFeaturesEnabledPreferencesInput")]
 pub struct UserOthersFeaturesEnabledPreferences {
     #[educe(Default = true)]
-    pub collections: bool,
-    #[educe(Default = true)]
     pub calendar: bool,
+    #[educe(Default = true)]
+    pub collections: bool,
 }
 
 #[derive(
@@ -84,11 +84,11 @@ pub struct UserFitnessFeaturesEnabledPreferences {
     #[educe(Default = true)]
     pub enabled: bool,
     #[educe(Default = true)]
-    pub measurements: bool,
-    #[educe(Default = true)]
     pub workouts: bool,
     #[educe(Default = true)]
     pub templates: bool,
+    #[educe(Default = true)]
+    pub measurements: bool,
 }
 
 #[derive(
@@ -241,17 +241,17 @@ pub struct UserFitnessPreferences {
 }
 
 #[derive(
-    Debug,
-    Serialize,
-    Default,
-    Deserialize,
+    Eq,
+    Copy,
     Enum,
     Clone,
-    Eq,
+    Debug,
+    Default,
     PartialEq,
-    FromJsonQueryResult,
-    Copy,
+    Serialize,
     EnumString,
+    Deserialize,
+    FromJsonQueryResult,
 )]
 #[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum UserReviewScale {
@@ -344,12 +344,12 @@ pub struct UserGeneralPreferences {
     pub disable_videos: bool,
     #[educe(Default = false)]
     pub disable_reviews: bool,
+    #[educe(Default = false)]
+    pub disable_integrations: bool,
     #[educe(Default = UserReviewScale::OutOfHundred)]
     pub review_scale: UserReviewScale,
     #[educe(Default = false)]
     pub disable_watch_providers: bool,
-    #[educe(Default = false)]
-    pub disable_integrations: bool,
     #[educe(Default = false)]
     pub disable_navigation_animation: bool,
     #[educe(Default(expression = vec![UserGeneralWatchProvider {
@@ -476,12 +476,29 @@ pub struct UserPreferences {
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 #[serde(tag = "t", content = "d")]
 pub enum NotificationPlatformSpecifics {
-    Apprise {
-        url: String,
+    PushSafer {
         key: String,
     },
     Discord {
         url: String,
+    },
+    Email {
+        email: String,
+    },
+    PushBullet {
+        api_token: String,
+    },
+    Apprise {
+        url: String,
+        key: String,
+    },
+    Telegram {
+        chat_id: String,
+        bot_token: String,
+    },
+    PushOver {
+        key: String,
+        app_key: Option<String>,
     },
     Gotify {
         url: String,
@@ -489,24 +506,10 @@ pub enum NotificationPlatformSpecifics {
         priority: Option<i32>,
     },
     Ntfy {
-        url: Option<String>,
         topic: String,
+        url: Option<String>,
         priority: Option<i32>,
         auth_header: Option<String>,
-    },
-    PushBullet {
-        api_token: String,
-    },
-    PushOver {
-        key: String,
-        app_key: Option<String>,
-    },
-    PushSafer {
-        key: String,
-    },
-    Telegram {
-        bot_token: String,
-        chat_id: String,
     },
 }
 

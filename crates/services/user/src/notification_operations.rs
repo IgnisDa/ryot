@@ -10,6 +10,7 @@ use sea_orm::{
     QueryFilter, QueryOrder,
 };
 use supporting_service::SupportingService;
+use traits::TraceOk;
 use user_models::NotificationPlatformSpecifics;
 
 pub async fn update_user_notification_platform(
@@ -66,7 +67,9 @@ pub async fn test_user_notification_platforms(
         .await?;
     for platform in notifications {
         let msg = format!("This is a test notification for platform: {}", platform.lot);
-        send_notification(platform.platform_specifics, &msg).await?;
+        send_notification(&msg, &ss.config, platform.platform_specifics)
+            .await
+            .trace_ok();
     }
     Ok(true)
 }
@@ -109,8 +112,12 @@ pub async fn create_user_notification_platform(
             bot_token: input.api_token.unwrap(),
             chat_id: input.chat_id.unwrap(),
         },
+        NotificationPlatformLot::Email => NotificationPlatformSpecifics::Email {
+            email: input.api_token.unwrap(),
+        },
     };
     let description = match &specifics {
+        NotificationPlatformSpecifics::Email { email } => email.to_owned(),
         NotificationPlatformSpecifics::Apprise { url, key } => {
             format!("URL: {url}, Key: {key}")
         }
