@@ -206,10 +206,10 @@ async fn main() -> Result<()> {
         let _ = join!(monitor, http);
     }
 
-    if let Some(tracer_provider) = tracer_provider {
-        if let Err(err) = tracer_provider.shutdown() {
-            ryot_log!(warn, "Failed to shutdown OTLP tracer provider: {err}");
-        }
+    if let Some(tracer_provider) = tracer_provider
+        && let Err(err) = tracer_provider.shutdown()
+    {
+        ryot_log!(warn, "Failed to shutdown OTLP tracer provider: {err}");
     }
 
     Ok(())
