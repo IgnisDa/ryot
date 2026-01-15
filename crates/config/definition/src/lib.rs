@@ -391,22 +391,9 @@ pub struct ImporterConfig {
     pub trakt_client_id: String,
 }
 
-derive_enum!(
-    #[derive(ConfigEnum, Default)]
-    pub enum OtelMethod {
-        #[default]
-        #[serde(rename = "grpc")]
-        Grpc,
-        #[serde(rename = "http")]
-        Http,
-    }
-);
-
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_OTEL_")]
 pub struct OtelConfig {
-    /// The transport method to use for the OTLP exporter.
-    pub method: OtelMethod,
     /// The header name for the OTLP exporter.
     #[mask]
     #[setting(default = "authorization")]

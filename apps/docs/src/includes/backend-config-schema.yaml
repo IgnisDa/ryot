@@ -213,11 +213,6 @@ server:
     # @env SERVER_OTEL_HEADER_VALUE
     header_value: ""
 
-    # The transport method to use for the OTLP exporter.
-    # @env SERVER_OTEL_METHOD
-    # @values "grpc" | "http"
-    method: "grpc"
-
   # The key that can be used to enable Ryot Pro features.
   # @env SERVER_PRO_KEY
   pro_key: ""
