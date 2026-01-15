@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     env,
     fs::{self, create_dir_all},
     path::PathBuf,
@@ -13,13 +14,13 @@ use apalis::{
 };
 use apalis_cron::{CronStream, Schedule};
 use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
-use config_definition::AppConfig;
+use config_definition::{AppConfig, OtelMethod};
 use dependent_models::CompleteExport;
 use english_to_cron::str_cron_syntax;
 use env_utils::APP_VERSION;
 use migrations_sql::Migrator;
 use opentelemetry::{KeyValue, global};
-use opentelemetry_otlp::{SpanExporter, WithExportConfig, WithTonicConfig};
+use opentelemetry_otlp::{SpanExporter, WithExportConfig, WithHttpConfig, WithTonicConfig};
 use opentelemetry_sdk::{Resource, propagation::TraceContextPropagator, trace::SdkTracerProvider};
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
@@ -238,17 +239,34 @@ fn init_tracing(config: &AppConfig) -> Result<(PathBuf, Option<SdkTracerProvider
         .with_attribute(KeyValue::new("service.version", APP_VERSION))
         .build();
 
-    let mut metadata_map = MetadataMap::new();
-    metadata_map.insert(
-        MetadataKey::from_str(&config.server.otel.header_name)?,
-        config.server.otel.header_value.parse()?,
-    );
-    let exporter = SpanExporter::builder()
-        .with_tonic()
-        .with_endpoint(config.server.otel.endpoint_url.clone())
-        .with_metadata(metadata_map)
-        .build()
-        .context("Unable to build OTLP span exporter")?;
+    let exporter = match config.server.otel.method {
+        OtelMethod::Grpc => {
+            let mut metadata_map = MetadataMap::new();
+            metadata_map.insert(
+                MetadataKey::from_str(&config.server.otel.header_name)?,
+                config.server.otel.header_value.parse()?,
+            );
+            SpanExporter::builder()
+                .with_tonic()
+                .with_endpoint(config.server.otel.endpoint_url.clone())
+                .with_metadata(metadata_map)
+                .build()
+                .context("Unable to build grpc OTLP span exporter")?
+        }
+        OtelMethod::Http => {
+            let mut headers = HashMap::new();
+            headers.insert(
+                config.server.otel.header_name.clone(),
+                config.server.otel.header_value.clone(),
+            );
+            SpanExporter::builder()
+                .with_http()
+                .with_endpoint(config.server.otel.endpoint_url.clone())
+                .with_headers(headers)
+                .build()
+                .context("Unable to build http OTLP span exporter")?
+        }
+    };
     let tracer_provider = SdkTracerProvider::builder()
         .with_batch_exporter(exporter)
         .with_resource(resource)
