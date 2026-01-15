@@ -29,7 +29,7 @@ use tokio::{
     net::TcpListener,
     time::{Duration, sleep},
 };
-use tonic::metadata::{MetadataMap, MetadataValue};
+use tonic::metadata::{MetadataKey, MetadataMap, MetadataValue};
 use tracing::subscriber;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{fmt, layer::SubscriberExt};
@@ -240,7 +240,7 @@ fn init_tracing(config: &AppConfig) -> Result<(PathBuf, Option<SdkTracerProvider
 
     let mut metadata_map = MetadataMap::new();
     metadata_map.insert_bin(
-        config.server.otel.header_name.clone().leak() as &str,
+        MetadataKey::from_bytes(config.server.otel.header_name.as_bytes())?,
         MetadataValue::from_bytes(config.server.otel.header_value.as_bytes()),
     );
     let exporter = SpanExporter::builder()
