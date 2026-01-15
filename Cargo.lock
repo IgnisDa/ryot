@@ -4143,7 +4143,6 @@ dependencies = [
  "serde_json",
  "supporting-service",
  "tokio",
- "tracing",
  "traits",
  "url",
  "uuid",
