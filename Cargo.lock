@@ -992,6 +992,7 @@ dependencies = [
  "application-utils",
  "async-graphql",
  "async-graphql-axum",
+ "async-trait",
  "axum",
  "background-models",
  "bon",
