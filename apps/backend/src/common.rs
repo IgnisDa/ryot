@@ -52,10 +52,8 @@ use sea_orm::DatabaseConnection;
 use statistics_resolver::StatisticsQueryResolver;
 use supporting_service::SupportingService;
 use tower_http::{
-    LatencyUnit,
-    catch_panic::CatchPanicLayer as TowerCatchPanicLayer,
-    cors::CorsLayer as TowerCorsLayer,
-    trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer as TowerTraceLayer},
+    catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
+    trace::TraceLayer as TowerTraceLayer,
 };
 use user_authentication_resolver::{
     UserAuthenticationMutationResolver, UserAuthenticationQueryResolver,
@@ -128,16 +126,7 @@ pub async fn create_app_dependencies(
         .route("/logs/download/{token}", get(download_logs_handler))
         .layer(Extension(schema))
         .layer(Extension(supporting_service.clone()))
-        .layer(
-            TowerTraceLayer::new_for_http()
-                .make_span_with(DefaultMakeSpan::new().include_headers(true))
-                .on_request(DefaultOnRequest::new())
-                .on_response(
-                    DefaultOnResponse::new()
-                        .latency_unit(LatencyUnit::Millis)
-                        .include_headers(true),
-                ),
-        )
+        .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(DefaultBodyLimit::max(
             1024 * 1024 * config.server.max_file_size_mb,
