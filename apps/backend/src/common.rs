@@ -106,8 +106,8 @@ pub async fn create_app_dependencies(
     let is_oidc_enabled = create_oidc_client(&config).await.is_some();
     let supporting_service = Arc::new(
         SupportingService::builder()
-            .db(&db.with_tracing())
             .timezone(timezone)
+            .db(&db.with_tracing())
             .config(config.clone())
             .log_file_path(log_file_path)
             .is_oidc_enabled(is_oidc_enabled)
