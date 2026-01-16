@@ -211,7 +211,7 @@ server:
 
     # The header name for the OTLP exporter.
     # @env SERVER_OTEL_HEADER_NAME
-    header_name: "authorization"
+    header_name: ""
 
     # The header value for the OTLP exporter.
     # @env SERVER_OTEL_HEADER_VALUE

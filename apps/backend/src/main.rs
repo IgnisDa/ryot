@@ -241,15 +241,20 @@ fn init_tracing(config: &AppConfig) -> Result<(PathBuf, Option<SdkTracerProvider
         .with_attribute(KeyValue::new("service.version", APP_VERSION))
         .build();
 
-    let mut metadata_map = MetadataMap::new();
-    metadata_map.insert(
-        MetadataKey::from_str(&config.server.otel.header_name)?,
-        config.server.otel.header_value.parse()?,
-    );
-    let exporter = SpanExporter::builder()
+    let mut with_exporter = SpanExporter::builder()
         .with_tonic()
-        .with_endpoint(config.server.otel.endpoint_url.clone())
-        .with_metadata(metadata_map)
+        .with_endpoint(config.server.otel.endpoint_url.clone());
+
+    if !config.server.otel.header_name.is_empty() {
+        let mut metadata_map = MetadataMap::new();
+        metadata_map.insert(
+            MetadataKey::from_str(&config.server.otel.header_name)?,
+            config.server.otel.header_value.parse()?,
+        );
+        with_exporter = with_exporter.with_metadata(metadata_map);
+    }
+
+    let exporter = with_exporter
         .build()
         .context("Unable to build grpc OTLP span exporter")?;
 

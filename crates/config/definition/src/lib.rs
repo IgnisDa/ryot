@@ -396,7 +396,6 @@ pub struct ImporterConfig {
 pub struct OtelConfig {
     /// The header name for the OTLP exporter.
     #[mask]
-    #[setting(default = "authorization")]
     pub header_name: String,
     /// The header value for the OTLP exporter.
     #[mask]
