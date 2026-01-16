@@ -274,7 +274,7 @@ fn init_tracing(config: &AppConfig) -> Result<(PathBuf, Option<SdkTracerProvider
 fn build_env_filter(log_level: &str) -> EnvFilter {
     let mut filter = EnvFilter::new(LevelFilter::WARN.to_string());
 
-    let external_crates = ["tower_http", "sea_orm", "async_graphql"];
+    let external_crates = ["backend", "tower_http", "sea_orm", "async_graphql"];
     let all_crates = WORKSPACE_CRATES.iter().chain(external_crates.iter());
 
     for crate_name in all_crates {
