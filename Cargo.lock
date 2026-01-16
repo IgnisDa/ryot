@@ -1044,6 +1044,7 @@ dependencies = [
  "schematic",
  "sea-orm",
  "sea-orm-migration",
+ "sea-orm-tracing",
  "serde_json",
  "statistics-resolver",
  "supporting-service",
@@ -4647,6 +4648,7 @@ dependencies = [
  "media-models",
  "rust_decimal",
  "sea-orm",
+ "sea-orm-tracing",
  "serde",
  "serde_json",
  "supporting-service",
@@ -6807,6 +6809,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "sea-orm-tracing"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87cbf3ed2a0f8b6e21d8258ac7c68462ea7089c705132aee79956dcde75262b2"
+dependencies = [
+ "async-trait",
+ "once_cell",
+ "regex",
+ "sea-orm",
+ "tracing",
+]
+
+[[package]]
 name = "sea-query"
 version = "0.32.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7666,6 +7681,7 @@ dependencies = [
  "chrono-tz",
  "config-definition",
  "sea-orm",
+ "sea-orm-tracing",
 ]
 
 [[package]]

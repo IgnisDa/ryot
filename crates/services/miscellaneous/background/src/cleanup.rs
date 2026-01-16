@@ -12,6 +12,7 @@ use database_models::{
     user_to_entity,
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect, UpdateMany, prelude::Expr};
+use sea_orm_tracing::TracedConnection;
 use supporting_service::SupportingService;
 use traits::TraceOk;
 
@@ -101,7 +102,7 @@ pub async fn put_entities_in_partial_state(ss: &Arc<SupportingService>) -> Resul
         updater: UpdateMany<T>,
         entity_id_column: Column2,
         entity_update_column: Column3,
-        db: &sea_orm::DatabaseConnection,
+        db: &TracedConnection,
     ) -> Result<()>
     where
         Column1: ColumnTrait,

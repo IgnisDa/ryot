@@ -53,6 +53,7 @@ use router_resolver::{
     upload_file_handler,
 };
 use sea_orm::DatabaseConnection;
+use sea_orm_tracing::TracingExt;
 use statistics_resolver::StatisticsQueryResolver;
 use supporting_service::SupportingService;
 use tower_http::{
@@ -105,7 +106,7 @@ pub async fn create_app_dependencies(
     let is_oidc_enabled = create_oidc_client(&config).await.is_some();
     let supporting_service = Arc::new(
         SupportingService::builder()
-            .db(&db)
+            .db(&db.with_tracing())
             .timezone(timezone)
             .config(config.clone())
             .log_file_path(log_file_path)

@@ -8,12 +8,13 @@ use background_models::{
 use bon::bon;
 use chrono::Utc;
 use config_definition::AppConfig;
-use sea_orm::{DatabaseConnection, prelude::DateTimeUtc};
+use sea_orm::prelude::DateTimeUtc;
+use sea_orm_tracing::TracedConnection;
 
 pub struct SupportingService {
+    pub db: TracedConnection,
     pub is_oidc_enabled: bool,
     pub config: Arc<AppConfig>,
-    pub db: DatabaseConnection,
     pub log_file_path: PathBuf,
     pub timezone: chrono_tz::Tz,
     pub server_start_time: DateTimeUtc,
@@ -29,9 +30,9 @@ impl SupportingService {
     #[builder]
     pub async fn new(
         is_oidc_enabled: bool,
+        db: &TracedConnection,
         config: Arc<AppConfig>,
         log_file_path: PathBuf,
-        db: &DatabaseConnection,
         timezone: chrono_tz::Tz,
         lp_application_job: &MemoryStorage<LpApplicationJob>,
         mp_application_job: &MemoryStorage<MpApplicationJob>,

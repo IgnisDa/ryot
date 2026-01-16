@@ -10,6 +10,7 @@ bon = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 sea-orm = { workspace = true }
+sea-orm-tracing = { workspace = true }
 
 background-models = { workspace = true }
 config-definition = { workspace = true }
