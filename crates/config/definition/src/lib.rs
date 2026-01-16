@@ -419,6 +419,9 @@ pub struct ServerConfig {
     #[setting(nested)]
     #[mask_nested]
     pub smtp: SmtpConfig,
+    /// The log level for the application. Valid values are: trace, debug, info, warn, error.
+    #[setting(default = "info")]
+    pub log_level: String,
     /// The port number to bind the backend server to.
     #[setting(default = 5000)]
     pub backend_port: usize,

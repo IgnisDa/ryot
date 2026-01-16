@@ -77,3 +77,6 @@ traits = { workspace = true }
 user-authentication-resolver = { workspace = true }
 user-management-resolver = { workspace = true }
 user-services-resolver = { workspace = true }
+
+[build-dependencies]
+cargo_toml = "=0.22.3"

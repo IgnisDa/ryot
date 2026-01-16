@@ -1,5 +1,4 @@
 use std::{
-    env,
     fs::{self, create_dir_all},
     path::PathBuf,
     str::FromStr,
@@ -32,7 +31,9 @@ use tokio::{
 use tonic::metadata::{MetadataKey, MetadataMap};
 use tracing::subscriber;
 use tracing_opentelemetry::OpenTelemetryLayer;
-use tracing_subscriber::{fmt, layer::SubscriberExt};
+use tracing_subscriber::{EnvFilter, filter::LevelFilter, fmt, layer::SubscriberExt};
+
+include!(concat!(env!("OUT_DIR"), "/workspace_crates.rs"));
 
 use crate::{
     common::create_app_dependencies,
@@ -221,8 +222,10 @@ fn init_tracing(config: &AppConfig) -> Result<(PathBuf, Option<SdkTracerProvider
     let file_appender = tracing_appender::rolling::never(tmp_dir, PROJECT_NAME);
     let writer = Mutex::new(file_appender);
 
+    let filter = build_env_filter(&config.server.log_level);
+
     let subscriber = tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::from_default_env())
+        .with(filter)
         .with(fmt::Layer::default())
         .with(fmt::Layer::default().with_writer(writer).with_ansi(false));
 
@@ -261,6 +264,27 @@ fn init_tracing(config: &AppConfig) -> Result<(PathBuf, Option<SdkTracerProvider
     subscriber::set_global_default(subscriber.with(OpenTelemetryLayer::new(tracer)))
         .expect("Unable to set global tracing subscriber");
     Ok((file_path, Some(tracer_provider)))
+}
+
+fn build_env_filter(log_level: &str) -> EnvFilter {
+    let mut filter = EnvFilter::new(LevelFilter::WARN.to_string());
+
+    for crate_name in WORKSPACE_CRATES {
+        let directive = format!("{}={}", crate_name, log_level);
+        if let Ok(parsed) = directive.parse() {
+            filter = filter.add_directive(parsed);
+        }
+    }
+
+    let external_crates = ["tower_http", "sea_orm", "async_graphql"];
+    for crate_name in external_crates {
+        let directive = format!("{}={}", crate_name, log_level);
+        if let Ok(parsed) = directive.parse() {
+            filter = filter.add_directive(parsed);
+        }
+    }
+
+    filter
 }
 
 fn get_cron_schedules(config: &Arc<AppConfig>, tz: chrono_tz::Tz) -> Result<(Schedule, Schedule)> {

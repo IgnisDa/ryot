@@ -184,6 +184,10 @@ server:
   # @env SERVER_IS_DEMO_INSTANCE
   is_demo_instance: false
 
+  # The log level for the application. Valid values are: trace, debug, info, warn, error.
+  # @env SERVER_LOG_LEVEL
+  log_level: "info"
+
   # The maximum file size in MB for user uploads.
   # @env SERVER_MAX_FILE_SIZE_MB
   max_file_size_mb: 70

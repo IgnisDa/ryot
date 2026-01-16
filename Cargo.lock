@@ -998,6 +998,7 @@ dependencies = [
  "axum",
  "background-models",
  "bon",
+ "cargo_toml",
  "chrono-tz",
  "collection-resolver",
  "collection-service",
@@ -1357,6 +1358,16 @@ dependencies = [
  "supporting-service",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "cargo_toml"
+version = "0.22.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "374b7c592d9c00c1f4972ea58390ac6b18cbb6ab79011f3bdc90a0b82ca06b77"
+dependencies = [
+ "serde",
+ "toml",
 ]
 
 [[package]]
@@ -7528,7 +7539,6 @@ dependencies = [
  "cfg-if",
  "libc",
  "psm",
- "windows-sys 0.52.0",
  "windows-sys 0.59.0",
 ]
 
