@@ -167,6 +167,7 @@ pub async fn metadata_group_details(
     .await
 }
 
+#[tracing::instrument(skip(ss))]
 pub async fn metadata_details(
     ss: &Arc<SupportingService>,
     metadata_id: &String,
