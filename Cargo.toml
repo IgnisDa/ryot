@@ -113,7 +113,6 @@ schematic = { version = "=0.19.1", features = [
     "yaml",
 ], default-features = false }
 sea-orm = { version = "=1.1.19", features = [
-    "debug-print",
     "postgres-array",
     "macros",
     "runtime-tokio-rustls",
