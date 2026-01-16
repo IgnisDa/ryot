@@ -42,5 +42,3 @@ supporting-service = { workspace = true }
 traits = { workspace = true }
 trakt-importer-service = { workspace = true }
 watcharr-importer-service = { workspace = true }
-[package.metadata.cargo-machete]
-ignored = ["tracing"]

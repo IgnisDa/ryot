@@ -16,6 +16,3 @@ tracing = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }
 user-models = { workspace = true }
-
-[package.metadata.cargo-machete]
-ignored = ["tracing"]

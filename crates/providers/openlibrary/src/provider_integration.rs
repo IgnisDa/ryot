@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
-use common_utils::{PAGE_SIZE, compute_next_page, ryot_log};
+use common_utils::{PAGE_SIZE, compute_next_page};
 use convert_case::{Case, Casing};
 use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
 use enum_models::MediaSource;
@@ -73,7 +73,7 @@ impl MediaProvider for OpenlibraryService {
             .send()
             .await?;
         let data: PersonDetailsAuthor = rsp.json().await?;
-        ryot_log!(debug, "Got person data: {:?}", data);
+        tracing::debug!("Got person data: {:?}", data);
         let description = data.bio.map(|d| match d {
             Description::Text(s) => s,
             Description::Nested { value, .. } => value,
@@ -115,7 +115,7 @@ impl MediaProvider for OpenlibraryService {
             .send()
             .await?;
         let data: MetadataDetailsBook = rsp.json().await?;
-        ryot_log!(debug, "Openlibrary response: {:?}", data);
+        tracing::debug!("Openlibrary response: {:?}", data);
 
         let rsp = self
             .client

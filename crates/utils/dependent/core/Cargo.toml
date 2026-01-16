@@ -30,6 +30,3 @@ supporting-service = { workspace = true }
 tmdb-provider = { workspace = true }
 tvdb-provider = { workspace = true }
 youtube-music-provider = { workspace = true }
-
-[package.metadata.cargo-machete]
-ignored = ["tracing"]

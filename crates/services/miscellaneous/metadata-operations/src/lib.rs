@@ -5,7 +5,6 @@ use chrono::Datelike;
 use common_models::{
     ChangeCollectionToEntitiesInput, DefaultCollection, EntityAssets, EntityToCollectionInput,
 };
-use common_utils::ryot_log;
 use database_models::{
     collection, collection_entity_membership, collection_to_entity,
     functions::get_user_to_entity_association,
@@ -146,13 +145,13 @@ pub async fn disassociate_metadata(
         .filter(review::Column::UserId.eq(&user_id))
         .exec(&ss.db)
         .await?;
-    ryot_log!(debug, "Deleted {} reviews", delete_review.rows_affected);
+    tracing::debug!("Deleted {} reviews", delete_review.rows_affected);
     let delete_seen = Seen::delete_many()
         .filter(seen::Column::MetadataId.eq(&metadata_id))
         .filter(seen::Column::UserId.eq(&user_id))
         .exec(&ss.db)
         .await?;
-    ryot_log!(debug, "Deleted {} seen items", delete_seen.rows_affected);
+    tracing::debug!("Deleted {} seen items", delete_seen.rows_affected);
     let collections_part_of = entity_in_collections_with_collection_to_entity_ids(
         &user_id,
         &metadata_id,
@@ -166,11 +165,7 @@ pub async fn disassociate_metadata(
         .filter(collection_to_entity::Column::Id.is_in(collections_part_of))
         .exec(&ss.db)
         .await?;
-    ryot_log!(
-        debug,
-        "Deleted {} collections",
-        delete_collections.rows_affected
-    );
+    tracing::debug!("Deleted {} collections", delete_collections.rows_affected);
     UserToEntity::delete_many()
         .filter(user_to_entity::Column::MetadataId.eq(metadata_id.clone()))
         .filter(user_to_entity::Column::UserId.eq(user_id.clone()))

@@ -11,12 +11,8 @@ serde = { workspace = true }
 tracing = { workspace = true }
 
 common-models = { workspace = true }
-common-utils = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
 importer-models = { workspace = true }
 media-models = { workspace = true }
 tmdb-provider = { workspace = true }
-
-[package.metadata.cargo-machete]
-ignored = ["tracing"]

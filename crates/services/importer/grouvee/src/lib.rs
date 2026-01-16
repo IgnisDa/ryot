@@ -3,7 +3,6 @@ use std::{collections::HashMap, result::Result as StdResult};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use common_models::DefaultCollection;
-use common_utils::ryot_log;
 use csv::Reader;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
@@ -90,7 +89,7 @@ fn process_grouvee_record(
         }
     };
 
-    ryot_log!(debug, "Processing {}/{}: {}", idx + 1, total, record.name);
+    tracing::debug!("Processing {}/{}: {}", idx + 1, total, record.name);
 
     let Some(giantbomb_id) = record.giantbomb_id else {
         return Err(ImportFailedItem {

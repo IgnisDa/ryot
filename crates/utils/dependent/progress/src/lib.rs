@@ -4,7 +4,6 @@ use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::Utc;
 use common_models::UserLevelCacheKey;
-use common_utils::ryot_log;
 use database_models::{prelude::Seen, seen};
 use dependent_details_utils::metadata_details;
 use dependent_models::{
@@ -38,8 +37,7 @@ pub async fn commit_import_seen_item(
     input: ImportOrExportMetadataItemSeen,
 ) -> Result<()> {
     let seen_execution_id = Uuid::new_v4();
-    ryot_log!(
-        debug,
+    tracing::debug!(
         "[1611 SEEN {}] Starting commit_import_seen_item for metadata: {}, user: {}",
         seen_execution_id,
         metadata_id,
@@ -89,8 +87,7 @@ pub async fn commit_import_seen_item(
             }
         };
         let change = MetadataProgressUpdateChange::CreateNewCompleted(change_inner);
-        ryot_log!(
-            debug,
+        tracing::debug!(
             "[1611 SEEN {}] Import path - calling metadata_progress_update for completed seen on {}",
             seen_execution_id,
             metadata_id
@@ -104,8 +101,7 @@ pub async fn commit_import_seen_item(
             },
         )
         .await?;
-        ryot_log!(
-            debug,
+        tracing::debug!(
             "[1611 SEEN {}] Import path - metadata_progress_update finished for {}",
             seen_execution_id,
             metadata_id
@@ -124,8 +120,7 @@ pub async fn commit_import_seen_item(
         ApplicationCacheKey::MetadataProgressUpdateCompletedCache(common_input.clone());
     let in_progress_cache_key =
         ApplicationCacheKey::MetadataProgressUpdateInProgressCache(common_input);
-    ryot_log!(
-        debug,
+    tracing::debug!(
         "[1611 SEEN {}] Checking caches for metadata: {}",
         seen_execution_id,
         metadata_id
@@ -134,8 +129,7 @@ pub async fn commit_import_seen_item(
         cache_service::get_value::<EmptyCacheValue>(ss, in_progress_cache_key.clone()),
         cache_service::get_value::<EmptyCacheValue>(ss, completed_cache_key.clone()),
     );
-    ryot_log!(
-        debug,
+    tracing::debug!(
         "[1611 SEEN {}] Cache check results - in_progress: {}, completed: {}",
         seen_execution_id,
         in_progress_cache.is_some(),
@@ -143,8 +137,7 @@ pub async fn commit_import_seen_item(
     );
 
     if completed_cache.is_some() {
-        ryot_log!(
-            debug,
+        tracing::debug!(
             "[1611 SEEN {}] Exiting early - progress already completed",
             seen_execution_id
         );
@@ -152,8 +145,7 @@ pub async fn commit_import_seen_item(
     }
 
     if in_progress_cache.is_none() {
-        ryot_log!(
-            debug,
+        tracing::debug!(
             "[1611 SEEN {}] in_progress_cache is None, creating new in-progress seen",
             seen_execution_id
         );
@@ -163,8 +155,7 @@ pub async fn commit_import_seen_item(
                 started_on: Utc::now(),
             },
         );
-        ryot_log!(
-            debug,
+        tracing::debug!(
             "[1611 SEEN {}] Calling metadata_progress_update for: {}",
             seen_execution_id,
             metadata_id
@@ -178,16 +169,14 @@ pub async fn commit_import_seen_item(
             },
         )
         .await?;
-        ryot_log!(
-            debug,
+        tracing::debug!(
             "[1611 SEEN {}] metadata_progress_update completed successfully for: {}",
             seen_execution_id,
             metadata_id
         );
 
         cache_service::set_key(ss, in_progress_cache_key, ApplicationCacheValue::MetadataProgressUpdateInProgressCache(EmptyCacheValue::default())).await?;
-        ryot_log!(
-            debug,
+        tracing::debug!(
             "[1611 SEEN {}] Completed commit_import_seen_item for: {}",
             seen_execution_id,
             metadata_id
@@ -196,8 +185,7 @@ pub async fn commit_import_seen_item(
     }
 
     if let Some(progress) = input.progress {
-        ryot_log!(
-            debug,
+        tracing::debug!(
             "[1611 SEEN {}] Updating in-progress seen for: {} with progress {}",
             seen_execution_id,
             metadata_id,
@@ -216,8 +204,7 @@ pub async fn commit_import_seen_item(
         .await?;
 
         if progress >= dec!(100) {
-            ryot_log!(
-                debug,
+            tracing::debug!(
                 "[1611 SEEN {}] Progress >= 100, expiring in-progress cache and setting completed cache for {}",
                 seen_execution_id,
                 metadata_id
@@ -235,16 +222,14 @@ pub async fn commit_import_seen_item(
                     ),
                 )
             );
-            ryot_log!(
-                debug,
+            tracing::debug!(
                 "[1611 SEEN {}] Cache transition to completed finished for {}",
                 seen_execution_id,
                 metadata_id
             );
         }
     } else {
-        ryot_log!(
-            debug,
+        tracing::debug!(
             "[1611 SEEN {}] No progress provided; skipping in-progress update for {}",
             seen_execution_id,
             metadata_id
@@ -345,7 +330,7 @@ async fn commit(input: CommitInput<'_>) -> Result<seen::Model> {
         ..Default::default()
     };
     let resp = seen_insert.insert(&input.ss.db).await?;
-    ryot_log!(debug, "Created new seen: {:?}", resp);
+    tracing::debug!("Created new seen: {:?}", resp);
     Ok(resp)
 }
 
@@ -378,16 +363,14 @@ pub async fn metadata_progress_update(
     input: MetadataProgressUpdateInput,
 ) -> Result<()> {
     let progress_update_exec_id = Uuid::new_v4();
-    ryot_log!(
-        debug,
+    tracing::debug!(
         "[1611 PROGRESS-UPD {}] Starting metadata_progress_update for {}, change={:?}",
         progress_update_exec_id,
         input.metadata_id,
         input.change
     );
     let meta = metadata_details(ss, &input.metadata_id).await?.response;
-    ryot_log!(
-        debug,
+    tracing::debug!(
         "[1611 PROGRESS-UPD {}] metadata_progress_update input: {:?}",
         progress_update_exec_id,
         input
@@ -397,8 +380,7 @@ pub async fn metadata_progress_update(
             let previous_seen_in_progress =
                 get_previous_seen_item(user_id, &input.metadata_id, false, ss).await?;
             let Some(previous_seen) = previous_seen_in_progress else {
-                ryot_log!(
-                    debug,
+                tracing::debug!(
                     "[1611 PROGRESS-UPD {}] No in-progress seen found for {} when trying to change progress",
                     progress_update_exec_id,
                     input.metadata_id
@@ -411,8 +393,7 @@ pub async fn metadata_progress_update(
             let mut updated_at = previous_seen.updated_at.clone();
 
             if new_progress == progress {
-                ryot_log!(
-                    debug,
+                tracing::debug!(
                     "[1611 PROGRESS-UPD {}] Incoming progress {} matches existing {}; aborting update",
                     progress_update_exec_id,
                     new_progress,
@@ -447,8 +428,7 @@ pub async fn metadata_progress_update(
             let previous_seen =
                 get_previous_seen_item(user_id, &input.metadata_id, true, ss).await?;
             let Some(previous_seen) = previous_seen else {
-                ryot_log!(
-                    debug,
+                tracing::debug!(
                     "[1611 PROGRESS-UPD {}] No in-progress seen found for {} when trying to change state",
                     progress_update_exec_id,
                     input.metadata_id
@@ -478,8 +458,7 @@ pub async fn metadata_progress_update(
             let previous_seen_in_progress =
                 get_previous_seen_item(user_id, &input.metadata_id, false, ss).await?;
             if previous_seen_in_progress.is_some() {
-                ryot_log!(
-                    debug,
+                tracing::debug!(
                     "[1611 PROGRESS-UPD {}] In-progress record already exists for {}; refusing to create another",
                     progress_update_exec_id,
                     input.metadata_id
@@ -532,15 +511,13 @@ pub async fn metadata_progress_update(
             .await?
         }
     };
-    ryot_log!(
-        debug,
+    tracing::debug!(
         "[1611 PROGRESS-UPD {}] Seen change committed: {:?}",
         progress_update_exec_id,
         seen
     );
     handle_after_metadata_seen_tasks(seen, ss).await?;
-    ryot_log!(
-        debug,
+    tracing::debug!(
         "[1611 PROGRESS-UPD {}] Progress update completed for {}",
         progress_update_exec_id,
         input.metadata_id

@@ -5,7 +5,7 @@ use application_utils::{get_current_date, get_current_time};
 use chrono::{Duration, NaiveDate, NaiveDateTime, Offset, Utc};
 use chrono_tz::Tz;
 use common_models::{UserLevelCacheKey, YoutubeMusicSongListened};
-use common_utils::{get_temporary_directory, ryot_log};
+use common_utils::get_temporary_directory;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ImportCompletedItem, ImportOrExportMetadataItem,
     ImportResult,
@@ -71,7 +71,7 @@ pub async fn yank_progress(
             })
         })
         .collect_vec();
-    ryot_log!(debug, "Songs listened today: {:?}", songs_listened_to_today);
+    tracing::debug!("Songs listened today: {:?}", songs_listened_to_today);
     let cache_keys = songs_listened_to_today
         .clone()
         .iter()

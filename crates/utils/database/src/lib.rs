@@ -3,7 +3,6 @@ use std::sync::Arc;
 use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::{BackendError, SearchInput, StringIdAndNamedObject, UserLevelCacheKey};
-use common_utils::ryot_log;
 use database_models::{
     access_link, collection, collection_entity_membership,
     prelude::{
@@ -462,7 +461,7 @@ pub async fn schedule_user_for_workout_revision(
     let mut user = user.into_active_model();
     user.extra_information = ActiveValue::Set(Some(extra_information));
     user.update(&ss.db).await?;
-    ryot_log!(debug, "Scheduled user for workout revision: {:?}", user_id);
+    tracing::debug!("Scheduled user for workout revision: {:?}", user_id);
     Ok(())
 }
 

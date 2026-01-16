@@ -11,7 +11,6 @@ use std::{
 use anyhow::Result;
 use chrono::{Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput, EntityWithLot};
-use common_utils::ryot_log;
 use database_models::{exercise, prelude::Exercise};
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
 use dependent_collection_utils::{add_entities_to_collection, create_or_update_collection};
@@ -123,8 +122,7 @@ where
                         existing_metadata
                             .seen_history
                             .append(&mut current_metadata.seen_history);
-                        ryot_log!(
-                            debug,
+                        tracing::debug!(
                             "Aggregating duplicate metadata ({}): merged seen_history from {} to {} items",
                             current_metadata.identifier,
                             existing_seen_count,
@@ -138,8 +136,7 @@ where
                             .append(&mut current_metadata.collections);
                     }
                     Entry::Vacant(entry) => {
-                        ryot_log!(
-                            debug,
+                        tracing::debug!(
                             "Adding new metadata ({}) with {} seen_history items",
                             entry.key().1,
                             current_metadata.seen_history.len()
@@ -184,14 +181,13 @@ where
     let mut need_to_schedule_user_for_workout_revision = false;
 
     for (idx, item) in import.completed.into_iter().enumerate() {
-        ryot_log!(debug, "Processing item ({:#}) {}/{}", item, idx + 1, total,);
+        tracing::debug!("Processing item ({:#}) {}/{}", item, idx + 1, total,);
         match item {
             ImportCompletedItem::Empty => {}
             ImportCompletedItem::Metadata(metadata) => {
                 let execution_id = Uuid::new_v4();
                 let metadata_ptr = format!("{:p}", &metadata as *const _);
-                ryot_log!(
-                    debug,
+                tracing::debug!(
                     "[1611 TRACE {}] Starting metadata processing, ptr={}",
                     execution_id,
                     metadata_ptr
@@ -210,8 +206,7 @@ where
                 .await
                 {
                     Ok((metadata, success)) => {
-                        ryot_log!(
-                            debug,
+                        tracing::debug!(
                             "[1611 TRACE {}] commit_metadata succeeded: id={}, updated={}",
                             execution_id,
                             metadata.id,
@@ -220,8 +215,7 @@ where
                         (metadata.id, success)
                     }
                     Err(e) => {
-                        ryot_log!(
-                            debug,
+                        tracing::debug!(
                             "[1611 TRACE {}] commit_metadata failed for source_id={}, lot={}: {}",
                             execution_id,
                             metadata.source_id,
@@ -238,8 +232,7 @@ where
                     }
                 };
                 if !was_updated_successfully {
-                    ryot_log!(
-                        debug,
+                    tracing::debug!(
                         "[1611 TRACE {}] commit_metadata marked as not updated for {}",
                         execution_id,
                         db_metadata_id
@@ -252,24 +245,21 @@ where
                     });
                 }
                 let counter_value = SEEN_PROCESSING_COUNTER.fetch_add(1, AtomicOrdering::SeqCst);
-                ryot_log!(
-                    debug,
+                tracing::debug!(
                     "[1611 TRACE {}] [1611 COUNTER {}] Before seen_history processing, metadata.seen_history.len={}, ptr={}",
                     execution_id,
                     counter_value,
                     metadata.seen_history.len(),
                     metadata_ptr
                 );
-                ryot_log!(
-                    debug,
+                tracing::debug!(
                     "[1611 TRACE {}] Processing {} seen_history items for metadata: {}",
                     execution_id,
                     metadata.seen_history.len(),
                     db_metadata_id
                 );
                 let seen_history_len = metadata.seen_history.len();
-                ryot_log!(
-                    debug,
+                tracing::debug!(
                     "[1611 TRACE {}] After seen_history log, about to enter loop with {} items",
                     execution_id,
                     seen_history_len
@@ -315,8 +305,7 @@ where
                 });
 
                 for (seen_idx, seen) in sorted_seen_history.into_iter().enumerate() {
-                    ryot_log!(
-                        debug,
+                    tracing::debug!(
                         "[1611 TRACE {}] Processing seen item {}/{} for metadata: {}",
                         execution_id,
                         seen_idx + 1,
@@ -326,8 +315,7 @@ where
                     if let Err(e) =
                         commit_import_seen_item(is_import, user_id, &db_metadata_id, ss, seen).await
                     {
-                        ryot_log!(
-                            debug,
+                        tracing::debug!(
                             "[1611 TRACE {}] Failed to commit seen item {}/{} for {}: {}",
                             execution_id,
                             seen_idx + 1,
@@ -343,8 +331,7 @@ where
                         });
                     };
                 }
-                ryot_log!(
-                    debug,
+                tracing::debug!(
                     "[1611 TRACE {}] Completed seen_history processing for metadata: {}",
                     execution_id,
                     db_metadata_id

@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{Context, Result, anyhow, bail};
 use common_models::DefaultCollection;
-use common_utils::{get_base_http_client, ryot_log, sleep_for_n_seconds};
+use common_utils::{get_base_http_client, sleep_for_n_seconds};
 use database_models::{metadata, prelude::Metadata};
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
@@ -199,7 +199,7 @@ async fn sse_listener(
 
         while let Some(event) = stream.next().await {
             let event = event.context("Failed to get next event")?;
-            ryot_log!(debug, ?event, "Received SSE event");
+            tracing::debug!(?event, "Received SSE event");
 
             // We could also handle ReadProgressDeleted here but I don't
             // think we want to handle any deletions like this
@@ -207,21 +207,21 @@ async fn sse_listener(
                 match serde_json::from_str::<komga_events::Data>(&event.data) {
                     Ok(read_progress) => {
                         if sender.send(read_progress).is_err() {
-                            ryot_log!(debug, "Receiver dropped, exiting SSE listener");
+                            tracing::debug!("Receiver dropped, exiting SSE listener");
                             break;
                         }
                     }
                     Err(e) => {
-                        ryot_log!(warn, error = ?e, data = ?event.data,
+                        tracing::warn!(error = ?e, data = ?event.data,
                                 "Failed to parse ReadProgressChanged event data");
                     }
                 }
             } else {
-                ryot_log!(debug, event_type = ?event.event, "Received unhandled event type");
+                tracing::debug!(event_type = ?event.event, "Received unhandled event type");
             }
         }
 
-        ryot_log!(debug, "SSE listener finished");
+        tracing::debug!("SSE listener finished");
         sleep_for_n_seconds(30).await;
     }
 }
@@ -336,7 +336,7 @@ async fn process_events(
             "No MAL URL or database entry found for manga: {}",
             series.name
         );
-        ryot_log!(debug, msg);
+        tracing::debug!(msg);
         bail!(msg)
     };
 
@@ -390,7 +390,7 @@ pub async fn yank_progress(
         mutex_task.get_or_init(|| {
             tokio::spawn(async move {
                 if let Err(e) = sse_listener(tx, base_url, komga_username, komga_password).await {
-                    ryot_log!(debug, "SSE listener error: {}", e);
+                    tracing::debug!("SSE listener error: {}", e);
                 }
             });
         });
@@ -403,7 +403,7 @@ pub async fn yank_progress(
         loop {
             match recv.try_recv() {
                 Ok(event) => {
-                    ryot_log!(debug, "Received event {:?}", event);
+                    tracing::debug!("Received event {:?}", event);
                     match unique_media_items.entry(event.book_id.clone()) {
                         Entry::Vacant(entry) => {
                             if let Ok(processed_event) = process_events(
@@ -419,8 +419,7 @@ pub async fn yank_progress(
                             {
                                 entry.insert(processed_event);
                             } else {
-                                ryot_log!(
-                                    warn,
+                                tracing::warn!(
                                     "Failed to process event for book_id: {}",
                                     event.book_id
                                 );
@@ -439,7 +438,7 @@ pub async fn yank_progress(
     }
 
     let media_items = unique_media_items.into_values().collect_vec();
-    ryot_log!(debug, "Media Items: {:?}", media_items);
+    tracing::debug!("Media Items: {:?}", media_items);
     media_items.into_iter().for_each(|(commit, hist)| {
         result
             .completed
@@ -494,7 +493,7 @@ pub async fn sync_to_owned_collection(
                     }),
                 )),
                 _ => {
-                    ryot_log!(debug, "No database entry found for manga: {}", book.name);
+                    tracing::debug!("No database entry found for manga: {}", book.name);
                     None
                 }
             }

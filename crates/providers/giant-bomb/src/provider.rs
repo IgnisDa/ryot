@@ -2,7 +2,7 @@ use anyhow::{Result, anyhow, bail};
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{EntityAssets, PersonSourceSpecifics};
-use common_utils::{PAGE_SIZE, ryot_log};
+use common_utils::PAGE_SIZE;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
     MetadataGroupPersonRelated, MetadataPersonRelated, MetadataSearchSourceSpecifics,
@@ -35,7 +35,7 @@ impl MediaProvider for GiantBombService {
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let offset = page.saturating_sub(1) * PAGE_SIZE;
 
-        ryot_log!(debug, "Searching GiantBomb for: {}", query);
+        tracing::debug!("Searching GiantBomb for: {}", query);
 
         let url = format!("{BASE_URL}/search/");
         let response = self
@@ -71,7 +71,7 @@ impl MediaProvider for GiantBombService {
     }
 
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        ryot_log!(debug, "Fetching GiantBomb game details for: {}", identifier);
+        tracing::debug!("Fetching GiantBomb game details for: {}", identifier);
 
         let url = format!("{BASE_URL}/game/{identifier}/");
         let response = self
@@ -224,7 +224,7 @@ impl MediaProvider for GiantBombService {
             _ => "person",
         };
 
-        ryot_log!(debug, "Searching GiantBomb {} for: {}", search_type, query);
+        tracing::debug!("Searching GiantBomb {} for: {}", search_type, query);
 
         let url = format!("{BASE_URL}/search/");
         let response = self
@@ -287,7 +287,7 @@ impl MediaProvider for GiantBombService {
 
         let endpoint = if is_company { "company" } else { "person" };
 
-        ryot_log!(debug, "Fetching {} details for: {}", endpoint, identifier);
+        tracing::debug!("Fetching {} details for: {}", endpoint, identifier);
 
         let url = format!("{BASE_URL}/{endpoint}/{identifier}/");
         let response = self
@@ -399,7 +399,7 @@ impl MediaProvider for GiantBombService {
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let offset = page.saturating_sub(1) * PAGE_SIZE;
 
-        ryot_log!(debug, "Searching GiantBomb franchises for: {}", query);
+        tracing::debug!("Searching GiantBomb franchises for: {}", query);
 
         let url = format!("{BASE_URL}/search/");
         let response = self
@@ -438,7 +438,7 @@ impl MediaProvider for GiantBombService {
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
-        ryot_log!(debug, "Fetching franchise details for: {}", identifier);
+        tracing::debug!("Fetching franchise details for: {}", identifier);
 
         let url = format!("{BASE_URL}/franchise/{identifier}/");
         let response = self

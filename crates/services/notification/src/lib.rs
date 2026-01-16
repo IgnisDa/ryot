@@ -2,7 +2,7 @@ use std::{env, time::Duration};
 
 use anyhow::Result;
 use askama::Template;
-use common_utils::{APPLICATION_JSON_HEADER, AVATAR_URL, PROJECT_NAME, ryot_log};
+use common_utils::{APPLICATION_JSON_HEADER, AVATAR_URL, PROJECT_NAME};
 use config_definition::AppConfig;
 use convert_case::{Case, Casing};
 use lettre::{
@@ -25,7 +25,7 @@ pub async fn send_notification(
     let project_name = PROJECT_NAME.to_case(Case::Title);
     let client = Client::new();
     if env::var("DISABLE_NOTIFICATIONS").is_ok() {
-        ryot_log!(warn, "Notification not sent. Body was: {:#?}", msg);
+        tracing::warn!("Notification not sent. Body was: {:#?}", msg);
         return Ok(());
     }
     match specifics {

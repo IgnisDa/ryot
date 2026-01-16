@@ -3,7 +3,7 @@ use std::result::Result as StdResult;
 use anyhow::Result;
 use chrono::{NaiveDate, NaiveDateTime};
 use common_models::DefaultCollection;
-use common_utils::{convert_naive_to_utc, ryot_log};
+use common_utils::convert_naive_to_utc;
 use csv::Reader;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
@@ -88,7 +88,7 @@ fn process_hardcover_record(
         }
     };
 
-    ryot_log!(debug, "Processing {}/{}: {}", idx + 1, total, record.title);
+    tracing::debug!("Processing {}/{}: {}", idx + 1, total, record.title);
 
     let source = MediaSource::Hardcover;
     let identifier = record.hardcover_book_id.clone();

@@ -1,6 +1,5 @@
 use anyhow::Result;
 use background_models::{ApplicationJob, SingleApplicationJob};
-use common_utils::ryot_log;
 use database_models::{import_report, prelude::ImportReport};
 use media_models::DeployImportJobInput;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
@@ -15,7 +14,7 @@ pub async fn deploy_import_job(
     let job = SingleApplicationJob::ImportFromExternalSource(user_id, Box::new(input));
     ss.perform_application_job(ApplicationJob::Single(job))
         .await?;
-    ryot_log!(debug, "Deployed import job");
+    tracing::debug!("Deployed import job");
     Ok(true)
 }
 

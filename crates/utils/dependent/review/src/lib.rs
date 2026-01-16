@@ -3,7 +3,6 @@ use std::sync::Arc;
 use anyhow::{Result, bail};
 use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::StringIdObject;
-use common_utils::ryot_log;
 use database_models::{
     prelude::{Collection, Exercise, Genre, Workout, WorkoutTemplate},
     review,
@@ -136,7 +135,7 @@ pub fn convert_review_into_input(
     entity_lot: EntityLot,
 ) -> Option<CreateOrUpdateReviewInput> {
     if review.review.is_none() && review.rating.is_none() {
-        ryot_log!(debug, "Skipping review since it has no content");
+        tracing::debug!("Skipping review since it has no content");
         return None;
     }
     let rating = match preferences.general.review_scale {

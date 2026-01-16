@@ -2,7 +2,6 @@ use std::{collections::HashMap, fs, sync::Arc};
 
 use anyhow::{Result, bail};
 use chrono::{Duration, NaiveDateTime};
-use common_utils::ryot_log;
 use csv::ReaderBuilder;
 use database_models::exercise;
 use dependent_import_utils::{associate_with_existing_or_new_exercise, get_date_time_with_offset};
@@ -139,7 +138,7 @@ async fn import_exercises(
                 &mut unique_exercises,
             )
             .await?;
-            ryot_log!(debug, "Importing exercise with id = {}", exercise_id);
+            tracing::debug!("Importing exercise with id = {}", exercise_id);
             for set in exercises {
                 if let Some(note) = set.notes {
                     notes.push(note);

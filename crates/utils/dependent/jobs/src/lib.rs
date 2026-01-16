@@ -3,7 +3,6 @@ use std::sync::Arc;
 use anyhow::Result;
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
 use common_models::{BackgroundJob, EntityWithLot};
-use common_utils::ryot_log;
 use database_models::{
     metadata,
     prelude::{Metadata, UserToEntity},
@@ -67,7 +66,7 @@ pub async fn deploy_background_job(
                 .filter(metadata::Column::Id.is_in(many_metadata))
                 .exec(&ss.db)
                 .await?;
-            ryot_log!(debug, "Marked {} metadata as partial", update.rows_affected);
+            tracing::debug!("Marked {} metadata as partial", update.rows_affected);
         }
         BackgroundJob::UpdateAllExercises => {
             ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateExerciseLibrary))

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use common_models::DefaultCollection;
-use common_utils::{get_base_http_client, ryot_log};
+use common_utils::get_base_http_client;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
 };
@@ -25,10 +25,10 @@ pub async fn sync_to_owned_collection(base_url: String, token: String) -> Result
 
     let mut success_items = vec![];
     for dir in libraries.media_container.directory {
-        ryot_log!(debug, "Processing directory {:?}", dir.title);
+        tracing::debug!("Processing directory {:?}", dir.title);
         let item_type = dir.item_type.as_str();
         if !["movie", "show"].contains(&item_type) {
-            ryot_log!(debug, "Skipping directory {:?}", dir.title);
+            tracing::debug!("Skipping directory {:?}", dir.title);
             continue;
         }
         let lot = match item_type {
@@ -47,7 +47,7 @@ pub async fn sync_to_owned_collection(base_url: String, token: String) -> Result
             continue;
         };
         for (idx, item) in metadata.into_iter().enumerate() {
-            ryot_log!(debug, "Processing item {}", idx + 1);
+            tracing::debug!("Processing item {}", idx + 1);
             let gu_ids = item.guid.unwrap_or_default();
             let Some(tmdb_id) = gu_ids
                 .iter()

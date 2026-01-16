@@ -7,7 +7,6 @@ use common_models::{
     ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput,
     ReorderCollectionEntityInput, StringIdObject,
 };
-use common_utils::ryot_log;
 use database_models::{
     collection, collection_to_entity,
     prelude::{Collection, CollectionToEntity, UserToEntity},
@@ -108,7 +107,7 @@ async fn add_single_entity_to_collection(
                 }
             }
             let created = created_collection.insert(&ss.db).await?;
-            ryot_log!(debug, "Created collection to entity: {:?}", created);
+            tracing::debug!("Created collection to entity: {:?}", created);
 
             created
         }
@@ -139,7 +138,7 @@ pub async fn create_or_update_collection(
     ss: &Arc<SupportingService>,
     input: CreateOrUpdateCollectionInput,
 ) -> Result<StringIdObject> {
-    ryot_log!(debug, "Creating or updating collection: {:?}", input);
+    tracing::debug!("Creating or updating collection: {:?}", input);
     let txn = ss.db.begin().await?;
     let meta = Collection::find()
         .filter(collection::Column::Name.eq(input.name.clone()))
@@ -183,12 +182,12 @@ pub async fn create_or_update_collection(
                 .filter(user_to_entity::Column::CollectionId.eq(&id))
                 .exec(&txn)
                 .await?;
-            ryot_log!(debug, "Deleted old user to entity: {:?}", result);
+            tracing::debug!("Deleted old user to entity: {:?}", result);
             let mut collaborators = HashSet::from([user_id.to_owned()]);
             if let Some(input_collaborators) = input.collaborators {
                 collaborators.extend(input_collaborators);
             }
-            ryot_log!(debug, "Collaborators: {:?}", collaborators);
+            tracing::debug!("Collaborators: {:?}", collaborators);
             collaborators_to_expire_cache = Some(collaborators.clone());
             for c in collaborators {
                 UserToEntity::insert(user_to_entity::ActiveModel {
@@ -339,8 +338,7 @@ pub async fn reorder_collection_entity(
         (prev_rank + next_rank) / dec!(2)
     };
 
-    ryot_log!(
-        debug,
+    tracing::debug!(
         "Reordering entity {} to position {} with new rank {}",
         entity_to_reorder.entity_id,
         input.new_position,

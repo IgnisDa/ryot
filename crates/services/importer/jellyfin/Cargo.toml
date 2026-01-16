@@ -11,12 +11,8 @@ serde_json = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 
-common-utils = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
 external-utils = { workspace = true }
 importer-models = { workspace = true }
 media-models = { workspace = true }
-
-[package.metadata.cargo-machete]
-ignored = ["tracing"]

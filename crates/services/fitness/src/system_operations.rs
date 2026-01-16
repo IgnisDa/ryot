@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use background_models::{ApplicationJob, MpApplicationJob};
-use common_utils::ryot_log;
 use database_models::prelude::Exercise;
 use database_utils::get_enabled_users_query;
 use sea_orm::{
@@ -17,7 +16,7 @@ pub async fn deploy_update_exercise_library_job(ss: &Arc<SupportingService>) -> 
     if Exercise::find().count(&ss.db).await? > 0 {
         return Ok(());
     }
-    ryot_log!(info, "No exercises found. Deploying job to download them.");
+    tracing::info!("No exercises found. Deploying job to download them.");
     ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateGithubExercises))
         .await?;
     Ok(())
@@ -29,7 +28,7 @@ pub async fn update_github_exercises(ss: &Arc<SupportingService>) -> Result<()> 
     for exercise in exercises {
         exercise_management::update_github_exercise(ss, exercise).await?;
     }
-    ryot_log!(info, "Updated {} GitHub exercises", count);
+    tracing::info!("Updated {} GitHub exercises", count);
     Ok(())
 }
 
@@ -46,7 +45,7 @@ pub async fn process_users_scheduled_for_workout_revision(
         return Ok(());
     }
     for user in revisions {
-        ryot_log!(debug, "Revising workouts for {}", user.id);
+        tracing::debug!("Revising workouts for {}", user.id);
         workout_operations::revise_user_workouts(ss, user.id.clone()).await?;
         let mut extra_information = user.extra_information.clone().unwrap_or_default();
         extra_information.scheduled_for_workout_revision = false;
@@ -54,6 +53,6 @@ pub async fn process_users_scheduled_for_workout_revision(
         user.extra_information = ActiveValue::Set(Some(extra_information));
         user.update(&ss.db).await?;
     }
-    ryot_log!(debug, "Completed scheduled workout revisions");
+    tracing::debug!("Completed scheduled workout revisions");
     Ok(())
 }

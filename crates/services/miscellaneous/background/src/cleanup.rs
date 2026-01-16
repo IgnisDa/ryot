@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use chrono::Utc;
-use common_utils::{BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE, ryot_log};
+use common_utils::BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE;
 use database_models::{
     access_link, application_cache, genre, metadata, metadata_group, metadata_to_genre, person,
     prelude::{
@@ -25,7 +25,7 @@ pub async fn remove_useless_data(ss: &Arc<SupportingService>) -> Result<()> {
         .all(&ss.db)
         .await?;
     for chunk in metadata_to_delete.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
-        ryot_log!(debug, "Deleting {} metadata items", chunk.len());
+        tracing::debug!("Deleting {} metadata items", chunk.len());
         Metadata::delete_many()
             .filter(metadata::Column::Id.is_in(chunk))
             .exec(&ss.db)
@@ -41,7 +41,7 @@ pub async fn remove_useless_data(ss: &Arc<SupportingService>) -> Result<()> {
         .all(&ss.db)
         .await?;
     for chunk in people_to_delete.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
-        ryot_log!(debug, "Deleting {} people", chunk.len());
+        tracing::debug!("Deleting {} people", chunk.len());
         Person::delete_many()
             .filter(person::Column::Id.is_in(chunk))
             .exec(&ss.db)
@@ -57,7 +57,7 @@ pub async fn remove_useless_data(ss: &Arc<SupportingService>) -> Result<()> {
         .all(&ss.db)
         .await?;
     for chunk in metadata_groups_to_delete.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
-        ryot_log!(debug, "Deleting {} metadata groups", chunk.len());
+        tracing::debug!("Deleting {} metadata groups", chunk.len());
         MetadataGroup::delete_many()
             .filter(metadata_group::Column::Id.is_in(chunk))
             .exec(&ss.db)
@@ -73,20 +73,20 @@ pub async fn remove_useless_data(ss: &Arc<SupportingService>) -> Result<()> {
         .all(&ss.db)
         .await?;
     for chunk in genre_to_delete.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
-        ryot_log!(debug, "Deleting {} genres", chunk.len());
+        tracing::debug!("Deleting {} genres", chunk.len());
         Genre::delete_many()
             .filter(genre::Column::Id.is_in(chunk))
             .exec(&ss.db)
             .await
             .trace_ok();
     }
-    ryot_log!(debug, "Deleting revoked access tokens");
+    tracing::debug!("Deleting revoked access tokens");
     AccessLink::delete_many()
         .filter(access_link::Column::IsRevoked.eq(true))
         .exec(&ss.db)
         .await
         .trace_ok();
-    ryot_log!(debug, "Deleting expired application caches");
+    tracing::debug!("Deleting expired application caches");
     ApplicationCache::delete_many()
         .filter(application_cache::Column::ExpiresAt.lt(Utc::now()))
         .exec(&ss.db)
@@ -117,7 +117,7 @@ pub async fn put_entities_in_partial_state(ss: &Arc<SupportingService>) -> Resul
             .all(db)
             .await?;
         for chunk in ids_to_update.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
-            ryot_log!(debug, "Entities to update: {:?}", chunk);
+            tracing::debug!("Entities to update: {:?}", chunk);
             updater
                 .clone()
                 .col_expr(entity_update_column, Expr::value(true))

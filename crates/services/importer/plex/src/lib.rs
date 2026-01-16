@@ -1,7 +1,7 @@
 use std::result::Result as StdResult;
 
 use anyhow::Result;
-use common_utils::{get_http_client_with_tls_config, ryot_log};
+use common_utils::get_http_client_with_tls_config;
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use external_models::plex as plex_models;
@@ -29,7 +29,7 @@ async fn process_metadata_item(
             error: Some("No last viewed date".to_string()),
         });
     };
-    ryot_log!(debug, "Processing item {}/{}", idx + 1, total);
+    tracing::debug!("Processing item {}/{}", idx + 1, total);
     let gu_ids = item.guid.unwrap_or_default();
     let Some(tmdb_id) = gu_ids
         .iter()
@@ -138,10 +138,10 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let mut success_items = vec![];
     let mut failed_items = vec![];
     for dir in libraries.media_container.directory {
-        ryot_log!(debug, "Processing directory {:?}", dir.title);
+        tracing::debug!("Processing directory {:?}", dir.title);
         let item_type = dir.item_type.as_str();
         if !["movie", "show"].contains(&item_type) {
-            ryot_log!(debug, "Skipping directory {:?}", dir.title);
+            tracing::debug!("Skipping directory {:?}", dir.title);
             continue;
         }
         let lot = match item_type {

@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{EntityAssets, NamedObject, SearchDetails};
-use common_utils::{PAGE_SIZE, get_base_http_client, ryot_log};
+use common_utils::{PAGE_SIZE, get_base_http_client};
 use database_models::{metadata, prelude::Metadata};
 use dependent_models::{
     MetadataSearchSourceSpecifics, ProviderSupportedLanguageInformation, SearchResults,
@@ -188,8 +188,7 @@ impl MediaProvider for ITunesService {
 
         let new_count = new_episodes_to_add.len();
         if new_count > 0 {
-            ryot_log!(
-                debug,
+            tracing::debug!(
                 "iTunes podcast {}: discovered {} new episode(s), assigning numbers {}-{}",
                 identifier,
                 new_count,

@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use common_utils::ryot_log;
 use sea_orm::{ConnectionTrait, Statement};
 use supporting_service::SupportingService;
 
@@ -53,13 +52,12 @@ pub async fn rebalance_collection_ranks(ss: &Arc<SupportingService>) -> Result<(
         .collect();
 
     if fragmented_collections.is_empty() {
-        ryot_log!(debug, "No fragmented collection ranks found to rebalance");
+        tracing::debug!("No fragmented collection ranks found to rebalance");
         return Ok(());
     }
 
     let collections_count = fragmented_collections.len();
-    ryot_log!(
-        debug,
+    tracing::debug!(
         "Found {} collections with fragmented ranks to rebalance",
         collections_count
     );
@@ -86,8 +84,7 @@ pub async fn rebalance_collection_ranks(ss: &Arc<SupportingService>) -> Result<(
             ))
             .await?;
 
-        ryot_log!(
-            debug,
+        tracing::debug!(
             "Rebalanced {} items in collection {} (affected: {})",
             item_count,
             collection_id,
@@ -95,8 +92,7 @@ pub async fn rebalance_collection_ranks(ss: &Arc<SupportingService>) -> Result<(
         );
     }
 
-    ryot_log!(
-        debug,
+    tracing::debug!(
         "Completed rebalancing ranks for {} collections",
         collections_count
     );

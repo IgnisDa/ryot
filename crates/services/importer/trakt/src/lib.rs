@@ -1,5 +1,5 @@
 use anyhow::Result;
-use common_utils::{APPLICATION_JSON_HEADER, get_base_http_client, ryot_log};
+use common_utils::{APPLICATION_JSON_HEADER, get_base_http_client};
 use convert_case::{Case, Casing};
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
@@ -230,7 +230,7 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
                 .parse::<usize>()
                 .unwrap();
             for page in 1..total_history + 1 {
-                ryot_log!(debug, "Fetching user history {page:?}/{total_history:?}");
+                tracing::debug!("Fetching user history {page:?}/{total_history:?}");
                 let history: Vec<ListItemResponse> = fetch_json(
                     &client,
                     &format!("{url}/history"),

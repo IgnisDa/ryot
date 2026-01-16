@@ -7,7 +7,6 @@ use background_models::{
     HpApplicationJob, LpApplicationJob, MpApplicationJob, ScheduledJob, SingleApplicationJob,
 };
 use collection_service::event_operations;
-use common_utils::ryot_log;
 use dependent_analytics_utils::calculate_user_activities_and_summary;
 use dependent_collection_utils::{add_entities_to_collection, remove_entities_from_collection};
 use dependent_notification_utils::{
@@ -40,7 +39,7 @@ pub async fn run_infrequent_cron_jobs(
     ctx: CronContext<chrono_tz::Tz>,
     ss: Data<Arc<SupportingService>>,
 ) -> Result<(), Error> {
-    ryot_log!(debug, "Running job at {:#?}", ctx.get_timestamp());
+    tracing::debug!("Running job at {:#?}", ctx.get_timestamp());
     perform_background_jobs(&ss).await.trace_ok();
     Ok(())
 }
@@ -50,7 +49,7 @@ pub async fn run_frequent_cron_jobs(
     ctx: CronContext<chrono_tz::Tz>,
     ss: Data<Arc<SupportingService>>,
 ) -> Result<(), Error> {
-    ryot_log!(debug, "Running job at {:#?}", ctx.get_timestamp());
+    tracing::debug!("Running job at {:#?}", ctx.get_timestamp());
     yank_integrations_data(&ss).await.trace_ok();
     process_users_scheduled_for_workout_revision(&ss)
         .await
@@ -65,7 +64,7 @@ pub async fn perform_hp_application_job(
     ss: Data<Arc<SupportingService>>,
 ) -> Result<(), Error> {
     let name = information.to_string();
-    ryot_log!(trace, "Started job {:?}", information);
+    tracing::trace!("Started job {:?}", information);
     let status = match information {
         HpApplicationJob::ReviewPosted(event) => handle_review_posted_event(&ss, event).await,
         HpApplicationJob::SyncUserIntegrationsData(user_id) => {
@@ -86,7 +85,7 @@ pub async fn perform_hp_application_job(
                 .map(|_| ())
         }
     };
-    ryot_log!(trace, "Finished job {:?}", name);
+    tracing::trace!("Finished job {:?}", name);
     status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }
 
@@ -95,7 +94,7 @@ pub async fn perform_mp_application_job(
     ss: Data<Arc<SupportingService>>,
 ) -> Result<(), Error> {
     let name = information.to_string();
-    ryot_log!(trace, "Started job {:?}", information);
+    tracing::trace!("Started job {:?}", information);
     let status = match information {
         MpApplicationJob::SyncIntegrationsData => sync_integrations_data(&ss).await,
         MpApplicationJob::UpdateGithubExercises => update_github_exercises(&ss).await,
@@ -123,7 +122,7 @@ pub async fn perform_mp_application_job(
             }
         }
     };
-    ryot_log!(trace, "Finished job {:?}", name);
+    tracing::trace!("Finished job {:?}", name);
     status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }
 
@@ -132,7 +131,7 @@ pub async fn perform_lp_application_job(
     ss: Data<Arc<SupportingService>>,
 ) -> Result<(), Error> {
     let name = information.to_string();
-    ryot_log!(trace, "Started job {:?}", information);
+    tracing::trace!("Started job {:?}", information);
     let status = match information {
         LpApplicationJob::HandleOnSeenComplete(id) => handle_on_seen_complete(&ss, id).await,
         LpApplicationJob::HandleMetadataEligibleForSmartCollectionMoving(metadata_id) => {
@@ -146,7 +145,7 @@ pub async fn perform_lp_application_job(
                 .await
         }
     };
-    ryot_log!(trace, "Finished job {:?}", name);
+    tracing::trace!("Finished job {:?}", name);
     status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }
 
@@ -155,7 +154,7 @@ pub async fn perform_single_application_job(
     ss: Data<Arc<SupportingService>>,
 ) -> Result<(), Error> {
     let name = information.to_string();
-    ryot_log!(trace, "Started job {:?}", information);
+    tracing::trace!("Started job {:?}", information);
     let status = match information {
         SingleApplicationJob::ImportFromExternalSource(user_id, input) => {
             perform_import(&ss, user_id, input).await
@@ -169,6 +168,6 @@ pub async fn perform_single_application_job(
                 .map(|_| ())
         }
     };
-    ryot_log!(trace, "Finished job {:?}", name);
+    tracing::trace!("Finished job {:?}", name);
     status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }

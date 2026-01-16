@@ -28,4 +28,4 @@ media-models = { workspace = true }
 supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
-ignored = ["rust_decimal", "tracing"]
+ignored = ["rust_decimal"]

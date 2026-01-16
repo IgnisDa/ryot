@@ -2,7 +2,7 @@ use std::{collections::HashSet, future::Future, sync::Arc};
 
 use anyhow::{Result, bail};
 use common_models::MetadataLookupCacheInput;
-use common_utils::{convert_date_to_year, get_base_http_client, ryot_log};
+use common_utils::{convert_date_to_year, get_base_http_client};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ProviderSupportedLanguageInformation, TmdbLanguage,
     TmdbSettings,
@@ -325,7 +325,7 @@ impl TmdbService {
             }),
             ApplicationCacheValue::TmdbMultiSearch,
             move || async move {
-                ryot_log!(debug, "tmdb multi_search: query={}", query);
+                tracing::debug!("tmdb multi_search: query={}", query);
                 let response: TmdbListResponse = self
                     .client
                     .get(format!("{URL}/search/multi"))

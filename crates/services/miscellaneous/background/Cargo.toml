@@ -35,4 +35,4 @@ supporting-service = { workspace = true }
 traits = { workspace = true }
 
 [package.metadata.cargo-machete]
-ignored = ["rust_decimal", "tracing"]
+ignored = ["rust_decimal"]

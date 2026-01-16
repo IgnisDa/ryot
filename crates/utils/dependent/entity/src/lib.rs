@@ -5,7 +5,7 @@ use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::Utc;
 use common_models::{EntityAssets, EntityWithLot, PersonSourceSpecifics, StringIdObject};
 use common_utils::{
-    MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES, ryot_log, sleep_for_n_seconds,
+    MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES, sleep_for_n_seconds,
 };
 use database_models::{
     genre, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
@@ -68,7 +68,7 @@ async fn ensure_metadata_updated(
                     )
                     .await?;
                     let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
-                    ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
+                    tracing::debug!("Sleeping for {}s before metadata check", sleep_time);
                     sleep_for_n_seconds(sleep_time).await;
                 } else {
                     success = true;
@@ -424,7 +424,7 @@ pub async fn update_metadata(
     }
 
     let mut result = UpdateMediaEntityResult::default();
-    ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
+    tracing::debug!("Updating metadata for {:?}", metadata_id);
     let maybe_details = details_from_provider(meta.lot, meta.source, &meta.identifier, ss).await;
     match maybe_details {
         Ok(details) => {
@@ -474,16 +474,11 @@ pub async fn update_metadata(
                 ss,
             )
             .await?;
-            ryot_log!(debug, "Updated metadata for {:?}", metadata_id);
+            tracing::debug!("Updated metadata for {:?}", metadata_id);
             result.notifications.extend(notifications);
         }
         Err(e) => {
-            ryot_log!(
-                error,
-                "Error while updating metadata = {:?}: {:?}",
-                metadata_id,
-                e
-            );
+            tracing::error!("Error while updating metadata = {:?}: {:?}", metadata_id, e);
         }
     };
     expire_metadata_details_cache(metadata_id, ss).await?;
@@ -555,7 +550,7 @@ pub async fn update_person(
     else {
         bail!("Failed to retrieve person details");
     };
-    ryot_log!(debug, "Updating person for {:?}", person_id);
+    tracing::debug!("Updating person for {:?}", person_id);
 
     let mut current_state_changes = person.clone().state_changes.unwrap_or_default();
     let mut to_update_person = person.clone().into_active_model();

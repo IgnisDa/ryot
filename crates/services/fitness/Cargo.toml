@@ -14,7 +14,6 @@ tracing = { workspace = true }
 
 background-models = { workspace = true }
 common-models = { workspace = true }
-common-utils = { workspace = true }
 database-models = { workspace = true }
 dependent-core-utils = { workspace = true }
 dependent-fitness-utils = { workspace = true }
@@ -24,6 +23,3 @@ dependent-models = { workspace = true }
 enum-models = { workspace = true }
 fitness-models = { workspace = true }
 supporting-service = { workspace = true }
-
-[package.metadata.cargo-machete]
-ignored = ["tracing"]

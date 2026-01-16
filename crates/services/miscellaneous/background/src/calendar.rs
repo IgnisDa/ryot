@@ -6,7 +6,7 @@ use application_utils::{
 };
 use chrono::NaiveDate;
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
-use common_utils::{SHOW_SPECIAL_SEASON_NAMES, ryot_log};
+use common_utils::SHOW_SPECIAL_SEASON_NAMES;
 use database_models::{
     calendar_event::{self, Entity as CalendarEvent},
     collection_entity_membership::{self, Entity as CollectionEntityMembership},
@@ -39,7 +39,7 @@ pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<
     let mut calendar_event_ids_to_delete = vec![];
 
     while let Some(meta) = meta_stream.try_next().await? {
-        ryot_log!(debug, "Processing metadata id = {:#?}", meta.id);
+        tracing::debug!("Processing metadata id = {:#?}", meta.id);
         let calendar_events = meta.find_related(CalendarEvent).all(&ss.db).await?;
         for cal_event in calendar_events {
             let mut need_to_delete = true;
@@ -77,8 +77,7 @@ pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<
             };
 
             if need_to_delete {
-                ryot_log!(
-                    debug,
+                tracing::debug!(
                     "Need to delete calendar event id = {:#?} since it is outdated",
                     cal_event.id
                 );
@@ -88,8 +87,7 @@ pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<
     }
 
     if !calendar_event_ids_to_delete.is_empty() {
-        ryot_log!(
-            debug,
+        tracing::debug!(
             "Batch deleting {} calendar events",
             calendar_event_ids_to_delete.len()
         );
@@ -99,7 +97,7 @@ pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<
             .await?;
     }
 
-    ryot_log!(debug, "Finished deleting invalid calendar events");
+    tracing::debug!("Finished deleting invalid calendar events");
 
     let mut metadata_stream = selected_metadata.stream(&ss.db).await?;
 
@@ -160,10 +158,10 @@ pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<
         metadata_updates.push(meta.id.clone());
     }
     for cal_insert in calendar_events_inserts {
-        ryot_log!(debug, "Inserting calendar event: {:?}", cal_insert);
+        tracing::debug!("Inserting calendar event: {:?}", cal_insert);
         cal_insert.insert(&ss.db).await.ok();
     }
-    ryot_log!(debug, "Finished updating calendar events");
+    tracing::debug!("Finished updating calendar events");
     Ok(())
 }
 

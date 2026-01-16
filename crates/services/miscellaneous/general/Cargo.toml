@@ -12,7 +12,6 @@ uuid = { workspace = true }
 
 cache-service = { workspace = true }
 common-models = { workspace = true }
-common-utils = { workspace = true }
 database-models = { workspace = true }
 dependent-models = { workspace = true }
 dependent-utility-utils = { workspace = true }
@@ -20,4 +19,4 @@ enum-models = { workspace = true }
 supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
-ignored = ["rust_decimal", "tracing"]
+ignored = ["rust_decimal"]

@@ -19,6 +19,3 @@ config-definition = { workspace = true }
 media-models = { workspace = true }
 session-service = { workspace = true }
 supporting-service = { workspace = true }
-
-[package.metadata.cargo-machete]
-ignored = ["tracing"]

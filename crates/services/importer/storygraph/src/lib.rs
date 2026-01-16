@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::NaiveDate;
-use common_utils::{convert_naive_to_utc, ryot_log};
+use common_utils::convert_naive_to_utc;
 use convert_case::{Case, Casing};
 use csv::Reader;
 use dependent_models::{
@@ -77,7 +77,7 @@ pub async fn import(
                 continue;
             }
         };
-        ryot_log!(debug, "Details for {} ({idx}/{total})", record.title);
+        tracing::debug!("Details for {} ({idx}/{total})", record.title);
         let Some(isbn) = record.isbn else {
             failed.push(ImportFailedItem {
                 lot: Some(lot),
@@ -105,7 +105,7 @@ pub async fn import(
             });
             continue;
         };
-        ryot_log!(debug, "Identifier = {identifier:?}, Source = {source:?}");
+        tracing::debug!("Identifier = {identifier:?}, Source = {source:?}");
         let mut seen_history = vec![
             ImportOrExportMetadataItemSeen {
                 providers_consumed_on: Some(vec![ImportSource::Storygraph.to_string()]),

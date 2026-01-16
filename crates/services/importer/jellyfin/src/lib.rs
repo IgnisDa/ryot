@@ -1,7 +1,6 @@
 use std::{collections::HashMap, result::Result as StdResult, sync::Arc};
 
 use anyhow::Result;
-use common_utils::ryot_log;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
 };
@@ -95,8 +94,7 @@ async fn process_item(
     series_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
 ) -> StdResult<Option<ImportOrExportMetadataItem>, ImportFailedItem> {
     let typ = item.typ.clone().unwrap();
-    ryot_log!(
-        debug,
+    tracing::debug!(
         "Processing item: {:?} ({:?}) ({}/{})",
         item.name,
         typ,

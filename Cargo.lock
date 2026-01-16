@@ -137,7 +137,6 @@ dependencies = [
  "serde",
  "serde_json",
  "supporting-service",
- "tracing",
 ]
 
 [[package]]
@@ -161,7 +160,6 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "tracing",
  "traits",
 ]
 
@@ -559,7 +557,6 @@ dependencies = [
  "rust_decimal",
  "serde",
  "strum",
- "tracing",
  "traits",
 ]
 
@@ -1348,7 +1345,6 @@ dependencies = [
  "anyhow",
  "async-graphql",
  "chrono",
- "common-utils",
  "database-models",
  "dependent-models",
  "itertools 0.14.0",
@@ -1995,7 +1991,6 @@ dependencies = [
  "background-models",
  "cache-service",
  "common-models",
- "common-utils",
  "database-models",
  "dependent-models",
  "enum-models",
@@ -2026,7 +2021,6 @@ dependencies = [
  "cache-service",
  "chrono",
  "common-models",
- "common-utils",
  "database-models",
  "dependent-entity-list-utils",
  "dependent-models",
@@ -2048,7 +2042,6 @@ dependencies = [
  "background-models",
  "chrono",
  "common-models",
- "common-utils",
  "database-models",
  "database-utils",
  "dependent-core-utils",
@@ -2112,7 +2105,6 @@ dependencies = [
  "rust_decimal",
  "sea-orm",
  "supporting-service",
- "tracing",
 ]
 
 [[package]]
@@ -2133,7 +2125,6 @@ dependencies = [
  "rust_decimal",
  "sea-orm",
  "supporting-service",
- "tracing",
 ]
 
 [[package]]
@@ -2196,7 +2187,6 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "common-models",
- "common-utils",
  "database-models",
  "database-utils",
  "dependent-collection-utils",
@@ -2225,7 +2215,6 @@ dependencies = [
  "anyhow",
  "background-models",
  "common-models",
- "common-utils",
  "database-models",
  "database-utils",
  "rust_decimal",
@@ -2265,7 +2254,6 @@ dependencies = [
  "anyhow",
  "chrono",
  "common-models",
- "common-utils",
  "database-models",
  "dependent-entity-utils",
  "enum-models",
@@ -2289,7 +2277,6 @@ dependencies = [
  "cache-service",
  "chrono",
  "common-models",
- "common-utils",
  "database-models",
  "dependent-details-utils",
  "dependent-models",
@@ -2327,7 +2314,6 @@ dependencies = [
  "spotify-provider",
  "supporting-service",
  "tmdb-provider",
- "tracing",
  "traits",
  "tvdb-provider",
  "vndb-provider",
@@ -2341,7 +2327,6 @@ dependencies = [
  "anyhow",
  "background-models",
  "common-models",
- "common-utils",
  "database-models",
  "database-utils",
  "dependent-details-utils",
@@ -2372,7 +2357,6 @@ dependencies = [
  "rust_decimal",
  "sea-orm",
  "supporting-service",
- "tracing",
 ]
 
 [[package]]
@@ -2389,7 +2373,6 @@ dependencies = [
  "futures",
  "sea-orm",
  "supporting-service",
- "tracing",
 ]
 
 [[package]]
@@ -3010,7 +2993,6 @@ dependencies = [
  "anyhow",
  "background-models",
  "common-models",
- "common-utils",
  "const-str",
  "database-models",
  "database-utils",
@@ -3236,7 +3218,6 @@ dependencies = [
  "itertools 0.14.0",
  "media-models",
  "serde_json",
- "tracing",
 ]
 
 [[package]]
@@ -3375,7 +3356,6 @@ dependencies = [
  "anyhow",
  "chrono",
  "common-models",
- "common-utils",
  "csv",
  "dependent-models",
  "enum-models",
@@ -3478,7 +3458,6 @@ dependencies = [
  "rust_decimal",
  "serde",
  "serde_json",
- "tracing",
  "traits",
 ]
 
@@ -3557,7 +3536,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
- "common-utils",
  "csv",
  "database-models",
  "dependent-import-utils",
@@ -3945,7 +3923,6 @@ dependencies = [
  "itertools 0.14.0",
  "media-models",
  "serde",
- "tracing",
 ]
 
 [[package]]
@@ -3975,7 +3952,6 @@ dependencies = [
  "serde_with",
  "slug",
  "supporting-service",
- "tracing",
  "traits",
 ]
 
@@ -3985,7 +3961,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "common-models",
- "common-utils",
  "csv",
  "dependent-models",
  "enum-models",
@@ -4250,7 +4225,6 @@ name = "jellyfin-importer-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "common-utils",
  "dependent-models",
  "enum-models",
  "external-utils",
@@ -4593,7 +4567,6 @@ dependencies = [
  "migrations-utils",
  "sea-orm",
  "sea-orm-migration",
- "tracing",
 ]
 
 [[package]]
@@ -4698,7 +4671,6 @@ dependencies = [
  "rust_decimal",
  "sea-orm",
  "supporting-service",
- "tracing",
  "user-models",
 ]
 
@@ -4723,7 +4695,6 @@ dependencies = [
  "rust_decimal",
  "sea-orm",
  "supporting-service",
- "tracing",
 ]
 
 [[package]]
@@ -4763,7 +4734,6 @@ dependencies = [
  "anyhow",
  "cache-service",
  "common-models",
- "common-utils",
  "database-models",
  "dependent-models",
  "dependent-utility-utils",
@@ -4804,7 +4774,6 @@ dependencies = [
  "rust_decimal",
  "supporting-service",
  "tmdb-provider",
- "tracing",
 ]
 
 [[package]]
@@ -4827,7 +4796,6 @@ dependencies = [
  "cache-service",
  "chrono",
  "common-models",
- "common-utils",
  "database-models",
  "database-utils",
  "dependent-models",
@@ -4848,7 +4816,6 @@ dependencies = [
  "anyhow",
  "chrono",
  "common-models",
- "common-utils",
  "database-models",
  "database-utils",
  "dependent-collection-utils",
@@ -4900,7 +4867,6 @@ dependencies = [
  "rust_decimal",
  "sea-orm",
  "supporting-service",
- "tracing",
  "traits",
 ]
 
@@ -4919,7 +4885,6 @@ dependencies = [
  "rust_decimal",
  "sea-orm",
  "supporting-service",
- "tracing",
 ]
 
 [[package]]
@@ -4952,7 +4917,6 @@ dependencies = [
  "media-models",
  "rust_decimal",
  "supporting-service",
- "tracing",
  "traits",
 ]
 
@@ -4969,7 +4933,6 @@ dependencies = [
  "media-models",
  "rust_decimal",
  "supporting-service",
- "tracing",
  "uuid",
 ]
 
@@ -5035,7 +4998,6 @@ dependencies = [
  "rust_decimal",
  "sea-orm",
  "supporting-service",
- "tracing",
 ]
 
 [[package]]
@@ -5053,7 +5015,6 @@ dependencies = [
  "media-models",
  "rust_decimal",
  "serde",
- "tracing",
 ]
 
 [[package]]
@@ -5088,7 +5049,6 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde-xml-rs",
- "tracing",
 ]
 
 [[package]]
@@ -5139,7 +5099,6 @@ dependencies = [
  "anyhow",
  "chrono",
  "common-models",
- "common-utils",
  "csv",
  "dependent-models",
  "enum-models",
@@ -6397,7 +6356,6 @@ dependencies = [
  "supporting-service",
  "tokio",
  "tokio-util",
- "tracing",
 ]
 
 [[package]]
@@ -7591,7 +7549,6 @@ dependencies = [
  "sea-orm",
  "supporting-service",
  "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -7634,7 +7591,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
- "common-utils",
  "csv",
  "database-models",
  "dependent-import-utils",
@@ -7709,7 +7665,6 @@ dependencies = [
  "chrono-tz",
  "config-definition",
  "sea-orm",
- "tracing",
 ]
 
 [[package]]
@@ -8282,7 +8237,6 @@ dependencies = [
  "async-graphql",
  "async-trait",
  "common-models",
- "common-utils",
  "database-models",
  "database-utils",
  "dependent-models",
@@ -8354,7 +8308,6 @@ dependencies = [
  "serde",
  "serde_json",
  "supporting-service",
- "tracing",
  "traits",
 ]
 
@@ -8759,7 +8712,6 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "tracing",
 ]
 
 [[package]]

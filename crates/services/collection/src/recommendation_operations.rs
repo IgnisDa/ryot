@@ -2,7 +2,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use anyhow::Result;
 use common_models::SearchDetails;
-use common_utils::{MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS, ryot_log};
+use common_utils::MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS;
 use database_models::{
     collection_to_entity, metadata,
     prelude::{CollectionToEntity, Metadata},
@@ -50,7 +50,7 @@ pub async fn collection_recommendations(
                     .await?
                     .into_iter(),
             );
-            ryot_log!(debug, "Media items: {:?}", media_items);
+            tracing::debug!("Media items: {:?}", media_items);
             for item in media_items {
                 update_metadata_and_notify_users(&item, ss).await?;
                 let generic = generic_metadata(&item, ss, None).await?;
@@ -66,7 +66,7 @@ pub async fn collection_recommendations(
         return Ok(SearchResults::default());
     }
 
-    ryot_log!(debug, "Required set: {:?}", required_set);
+    tracing::debug!("Required set: {:?}", required_set);
 
     let (take, page) = extract_pagination_params(input.search.clone(), user_id, ss).await?;
 

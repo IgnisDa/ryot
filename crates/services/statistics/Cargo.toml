@@ -10,7 +10,6 @@ hashbag = { workspace = true }
 itertools = { workspace = true }
 sea-orm = { workspace = true }
 tokio = { workspace = true }
-tracing = { workspace = true }
 
 common-models = { workspace = true }
 database-models = { workspace = true }
@@ -19,4 +18,4 @@ enum-models = { workspace = true }
 supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
-ignored = ["tokio", "tracing"]
+ignored = ["tokio"]

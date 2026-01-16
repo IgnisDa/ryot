@@ -3,7 +3,6 @@ use std::{collections::HashMap, future::Future, sync::Arc};
 use anyhow::Result;
 use async_graphql::OutputType;
 use chrono::{Duration, Utc};
-use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, ExpireCacheKeyInput,
@@ -149,7 +148,7 @@ async fn set_keys_with_custom_expiry(
         let insert_id = inserted.last_insert_id;
         response.insert(key, insert_id);
     }
-    ryot_log!(debug, "Inserted application caches: {response:?}");
+    tracing::debug!("Inserted application caches: {response:?}");
     Ok(response)
 }
 
@@ -279,6 +278,6 @@ pub async fn expire_key(ss: &Arc<SupportingService>, by: ExpireCacheKeyInput) ->
         })
         .exec(&ss.db)
         .await?;
-    ryot_log!(debug, "Expired cache: {by:?}, response: {expired:?}");
+    tracing::debug!("Expired cache: {by:?}, response: {expired:?}");
     Ok(())
 }

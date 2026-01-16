@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use application_utils::get_podcast_episode_number_by_name;
 use common_models::DefaultCollection;
-use common_utils::{get_base_http_client, ryot_log};
+use common_utils::get_base_http_client;
 use dependent_entity_utils::commit_metadata;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
@@ -47,7 +47,7 @@ pub async fn yank_progress(
         .json::<audiobookshelf::Response>()
         .await?;
 
-    ryot_log!(debug, "Got response for items in progress {:?}", resp);
+    tracing::debug!("Got response for items in progress {:?}", resp);
 
     let mut result = ImportResult::default();
 
@@ -110,11 +110,7 @@ pub async fn yank_progress(
         let Some((progress_id, identifier, lot, source, podcast_episode_number)) =
             update_information
         else {
-            ryot_log!(
-                debug,
-                "No ASIN, ISBN or iTunes ID found for item {:?}",
-                item
-            );
+            tracing::debug!("No ASIN, ISBN or iTunes ID found for item {:?}", item);
             continue;
         };
         match client
@@ -125,11 +121,7 @@ pub async fn yank_progress(
             .await
         {
             Ok(resp) => {
-                ryot_log!(
-                    debug,
-                    "Got response for individual item progress {:?}",
-                    resp
-                );
+                tracing::debug!("Got response for individual item progress {:?}", resp);
                 let mut progress = resp.progress;
                 if let Some(ebook_progress) = resp.ebook_progress
                     && ebook_progress > progress
@@ -137,7 +129,7 @@ pub async fn yank_progress(
                     progress = ebook_progress;
                 }
                 if progress == dec!(1) && resp.is_finished {
-                    ryot_log!(debug, "Item {:?} is finished", item);
+                    tracing::debug!("Item {:?} is finished", item);
                     continue;
                 }
                 result
@@ -156,7 +148,7 @@ pub async fn yank_progress(
                     }));
             }
             Err(e) => {
-                ryot_log!(debug, "Error getting progress for item {:?}: {:?}", item, e);
+                tracing::debug!("Error getting progress for item {:?}: {:?}", item, e);
                 continue;
             }
         };

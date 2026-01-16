@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use anyhow::{Result, bail};
 use common_models::EntityWithLot;
-use common_utils::ryot_log;
 use database_models::{
     metadata, metadata_group, person,
     prelude::{Metadata, MetadataGroup, Person},
@@ -48,6 +47,6 @@ pub async fn mark_entity_as_partial(
         }
         _ => bail!("Invalid entity lot".to_owned()),
     }
-    ryot_log!(debug, "Marked {:?} as partial", input);
+    tracing::debug!("Marked {:?} as partial", input);
     Ok(true)
 }

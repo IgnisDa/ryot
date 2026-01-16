@@ -2,7 +2,7 @@ use std::{result::Result as StdResult, sync::Arc};
 
 use anyhow::Result;
 use application_utils::get_podcast_episode_number_by_name;
-use common_utils::{get_http_client_with_tls_config, ryot_log};
+use common_utils::get_http_client_with_tls_config;
 use data_encoding::BASE64;
 use dependent_entity_utils::commit_metadata;
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
@@ -63,7 +63,7 @@ pub async fn import(
         .await
         .unwrap();
     for library in libraries_resp.libraries {
-        ryot_log!(debug, "Importing library {:?}", library.name.unwrap());
+        tracing::debug!("Importing library {:?}", library.name.unwrap());
         let mut query = serde_json:: json!({ "expanded": "1" });
         if let Some(audiobookshelf_models::MediaType::Book) = library.media_type {
             query["filter"] = serde_json::json!(format!("progress.{}", BASE64.encode(b"finished")));
@@ -104,7 +104,7 @@ async fn process_item(
 ) -> StdResult<ImportCompletedItem, ImportFailedItem> {
     let metadata = item.media.clone().unwrap().metadata;
     let title = metadata.title.clone();
-    ryot_log!(debug, "Importing item {:?} ({}/{})", title, idx + 1, total);
+    tracing::debug!("Importing item {:?} ({}/{})", title, idx + 1, total);
     let (identifier, lot, source, episodes) =
         if item.media.as_ref().unwrap().ebook_format.as_deref() == Some("epub") {
             match &metadata.isbn {
@@ -152,7 +152,7 @@ async fn process_item(
                     let source = MediaSource::Itunes;
                     let mut to_return = vec![];
                     for episode in episodes {
-                        ryot_log!(debug, "Importing episode {:?}", episode.title);
+                        tracing::debug!("Importing episode {:?}", episode.title);
                         let episode_details =
                             get_item_details(client, url, &item.id, Some(episode.id.unwrap()))
                                 .await
@@ -201,7 +201,7 @@ async fn process_item(
                 }
             }
         } else {
-            ryot_log!(debug, "No ASIN, ISBN or iTunes ID found {:?}", item);
+            tracing::debug!("No ASIN, ISBN or iTunes ID found {:?}", item);
             return Err(ImportFailedItem {
                 identifier: title,
                 step: ImportFailStep::InputTransformation,

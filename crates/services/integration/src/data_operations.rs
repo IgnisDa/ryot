@@ -1,7 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
 use anyhow::Result;
-use common_utils::ryot_log;
 use database_models::{
     integration,
     prelude::{Integration, User},
@@ -108,7 +107,7 @@ pub async fn yank_integrations_data(ss: &Arc<SupportingService>) -> Result<()> {
         .into_iter()
         .collect::<HashSet<String>>();
     for user_id in users_with_integrations {
-        ryot_log!(debug, "Yanking integrations data for user {}", user_id);
+        tracing::debug!("Yanking integrations data for user {}", user_id);
         yank_integrations_data_for_user(ss, &user_id).await?;
     }
     Ok(())
@@ -196,7 +195,7 @@ async fn sync_integrations_data_to_owned_collection(ss: &Arc<SupportingService>)
         .into_iter()
         .collect::<HashSet<String>>();
     for user_id in users_with_integrations {
-        ryot_log!(debug, "Syncing data to owned for user {}", user_id);
+        tracing::debug!("Syncing data to owned for user {}", user_id);
         sync_integrations_data_to_owned_collection_for_user(ss, &user_id).await?;
     }
     Ok(())

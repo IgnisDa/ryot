@@ -9,7 +9,6 @@ futures = { workspace = true }
 itertools = { workspace = true }
 rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
-tracing = { workspace = true }
 
 application-utils = { workspace = true }
 cache-service = { workspace = true }
@@ -25,4 +24,4 @@ media-models = { workspace = true }
 supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
-ignored = ["rust_decimal", "tracing"]
+ignored = ["rust_decimal"]

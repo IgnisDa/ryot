@@ -3,7 +3,6 @@ use std::sync::Arc;
 use anyhow::Result;
 use chrono::Utc;
 use common_models::DefaultCollection;
-use common_utils::ryot_log;
 use database_models::{
     collection_entity_membership, collection_to_entity, notification_platform,
     prelude::{CollectionEntityMembership, CollectionToEntity, NotificationPlatform},
@@ -282,8 +281,7 @@ pub async fn send_notification_for_user(
     for platform in notification_platforms {
         let notification = notification.clone().into();
         if !platform.configured_events.contains(&notification) {
-            ryot_log!(
-                debug,
+            tracing::debug!(
                 "Skipping sending notification to user: {} for platform: {} since it is not configured for this event",
                 user_id,
                 platform.lot,
@@ -291,7 +289,7 @@ pub async fn send_notification_for_user(
             continue;
         }
         if let Err(err) = send_notification(&msg, &ss.config, platform.platform_specifics).await {
-            ryot_log!(debug, "Error sending notification: {:?}", err);
+            tracing::debug!("Error sending notification: {:?}", err);
         }
     }
     Ok(())
@@ -301,10 +299,7 @@ pub async fn refresh_collection_to_entity_association(
     cte_id: &Uuid,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    ryot_log!(
-        debug,
-        "Refreshing collection to entity association for id = {cte_id}"
-    );
+    tracing::debug!("Refreshing collection to entity association for id = {cte_id}");
     CollectionToEntity::update_many()
         .col_expr(
             collection_to_entity::Column::LastUpdatedOn,

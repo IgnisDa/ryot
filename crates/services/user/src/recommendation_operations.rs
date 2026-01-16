@@ -2,7 +2,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use anyhow::Result;
 use common_models::UserLevelCacheKey;
-use common_utils::{MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS, ryot_log};
+use common_utils::MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS;
 use database_models::{
     metadata, metadata_to_metadata,
     prelude::{Metadata, MetadataToMetadata, UserToEntity},
@@ -55,18 +55,17 @@ async fn get_or_generate_recommendation_set(
                     .into_iter(),
             );
 
-            ryot_log!(
-                debug,
+            tracing::debug!(
                 "Media items selected for recommendations: {:?}",
                 media_items
             );
 
             let mut media_item_ids = vec![];
             for media in media_items.into_iter() {
-                ryot_log!(debug, "Getting recommendations: {:?}", media);
+                tracing::debug!("Getting recommendations: {:?}", media);
                 update_metadata_and_notify_users(&media, ss).await?;
                 let recommendations = generic_metadata(&media, ss, None).await?.suggestions;
-                ryot_log!(debug, "Found recommendations: {:?}", recommendations);
+                tracing::debug!("Found recommendations: {:?}", recommendations);
                 for rec in recommendations {
                     let relation = metadata_to_metadata::ActiveModel {
                         to_metadata_id: ActiveValue::Set(rec.clone()),
@@ -136,8 +135,7 @@ async fn filter_and_select_recommendations(
         .all(&ss.db)
         .await?;
 
-    ryot_log!(
-        debug,
+    tracing::debug!(
         "Selecting {} candidates for user: {}",
         candidates.len(),
         user_id

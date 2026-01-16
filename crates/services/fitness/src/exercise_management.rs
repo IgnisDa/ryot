@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use anyhow::{Result, anyhow, bail};
 use common_models::EntityAssets;
-use common_utils::ryot_log;
 use database_models::{
     exercise,
     prelude::{Exercise, UserToEntity, Workout},
@@ -197,7 +196,7 @@ pub async fn update_github_exercise(ss: &Arc<SupportingService>, ex: GithubExerc
         .one(&ss.db)
         .await?
     {
-        ryot_log!(debug, "Updating existing exercise with id: {}", ex.name);
+        tracing::debug!("Updating existing exercise with id: {}", ex.name);
         let mut db_ex = e.into_active_model();
         db_ex.assets = ActiveValue::Set(assets);
         db_ex.muscles = ActiveValue::Set(muscles);
@@ -228,7 +227,7 @@ pub async fn update_github_exercise(ss: &Arc<SupportingService>, ex: GithubExerc
             equipment: ActiveValue::Set(ex.attributes.equipment),
         };
         let created_exercise = db_exercise.insert(&ss.db).await?;
-        ryot_log!(debug, "Created exercise with id: {}", created_exercise.id);
+        tracing::debug!("Created exercise with id: {}", created_exercise.id);
     }
     Ok(())
 }

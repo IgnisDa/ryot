@@ -1,6 +1,5 @@
 use anyhow::Result;
 use common_models::DefaultCollection;
-use common_utils::ryot_log;
 use csv::Reader;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
@@ -75,7 +74,7 @@ pub async fn import(
                 continue;
             }
         };
-        ryot_log!(debug, "Tmdb id: {} ({}/{})", identifier, idx + 1, total);
+        tracing::debug!("Tmdb id: {} ({}/{})", identifier, idx + 1, total);
         completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
             source,

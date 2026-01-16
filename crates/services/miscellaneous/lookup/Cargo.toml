@@ -7,7 +7,6 @@ edition = "2024"
 anyhow = { workspace = true }
 regex = { workspace = true }
 rust_decimal = { workspace = true }
-tracing = { workspace = true }
 
 cache-service = { workspace = true }
 common-models = { workspace = true }
@@ -21,4 +20,4 @@ tmdb-provider = { workspace = true }
 rstest = { workspace = true }
 
 [package.metadata.cargo-machete]
-ignored = ["rust_decimal", "tracing"]
+ignored = ["rust_decimal"]

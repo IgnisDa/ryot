@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use anyhow::{Result, bail};
 use common_models::{DefaultCollection, StringIdObject};
-use common_utils::ryot_log;
 use database_models::{prelude::User, user};
 use database_utils::{admin_account_guard, deploy_job_to_calculate_user_activities_and_summary};
 use dependent_collection_utils::create_or_update_collection;
@@ -60,7 +59,7 @@ pub async fn update_user(
         user_obj.extra_information = ActiveValue::Set(Some(extra_information));
     }
     let user_obj = user_obj.update(&ss.db).await?;
-    ryot_log!(debug, "Updated user with id {:?}", user_obj.id);
+    tracing::debug!("Updated user with id {:?}", user_obj.id);
     Ok(StringIdObject { id: user_obj.id })
 }
 
@@ -127,7 +126,7 @@ pub async fn reset_user(
     match register_result {
         RegisterResult::Error(error) => Ok(UserResetResult::Error(error)),
         RegisterResult::Ok(result) => {
-            ryot_log!(debug, "User reset with id {:?}", result.id);
+            tracing::debug!("User reset with id {:?}", result.id);
             let password_change_url = match original_oidc_issuer_id {
                 Some(_) => None,
                 None => {
@@ -207,12 +206,7 @@ pub async fn register_user(
         ..Default::default()
     };
     let user = user.insert(&ss.db).await?;
-    ryot_log!(
-        debug,
-        "User {:?} registered with id {:?}",
-        user.name,
-        user.id
-    );
+    tracing::debug!("User {:?} registered with id {:?}", user.name, user.id);
     for col in DefaultCollection::iter() {
         let meta = col.meta().to_owned();
         create_or_update_collection(

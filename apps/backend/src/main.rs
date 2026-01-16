@@ -11,7 +11,7 @@ use apalis::{
     prelude::{MemoryStorage, Monitor, WorkerBuilder, WorkerFactoryFn},
 };
 use apalis_cron::{CronStream, Schedule};
-use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
+use common_utils::{PROJECT_NAME, get_temporary_directory};
 use config_definition::AppConfig;
 use dependent_models::CompleteExport;
 use english_to_cron::str_cron_syntax;
@@ -57,10 +57,10 @@ async fn main() -> Result<()> {
 
     let (log_file_path, tracer_provider) = init_tracing(&config)?;
 
-    ryot_log!(info, "Running version: {}", APP_VERSION);
+    tracing::info!("Running version: {}", APP_VERSION);
 
     let tz: chrono_tz::Tz = config.tz.parse().unwrap();
-    ryot_log!(info, "Timezone: {}", tz);
+    tracing::info!("Timezone: {}", tz);
 
     let port = config.server.backend_port;
     let host = config.server.backend_host.clone();
@@ -70,7 +70,7 @@ async fn main() -> Result<()> {
 
     if config.server.sleep_before_startup_seconds > 0 {
         let duration = Duration::from_secs(config.server.sleep_before_startup_seconds);
-        ryot_log!(warn, "Sleeping for {:?} before starting up...", duration);
+        tracing::warn!("Sleeping for {:?} before starting up...", duration);
         sleep(duration).await;
     }
 
@@ -88,7 +88,7 @@ async fn main() -> Result<()> {
         .context("There was an error migrating from v9")?;
 
     if let Err(err) = Migrator::up(&db, None).await {
-        ryot_log!(error, "Database migration failed: {}", err);
+        tracing::error!("Database migration failed: {}", err);
         bail!("There was an error running the database migrations.");
     };
 
@@ -141,7 +141,7 @@ async fn main() -> Result<()> {
     }
 
     let listener = TcpListener::bind(format!("{host}:{port}")).await.unwrap();
-    ryot_log!(info, "Listening on: {}", listener.local_addr()?);
+    tracing::info!("Listening on: {}", listener.local_addr()?);
 
     let monitor = Monitor::new()
         .register(
@@ -209,7 +209,7 @@ async fn main() -> Result<()> {
     if let Some(tracer_provider) = tracer_provider
         && let Err(err) = tracer_provider.shutdown()
     {
-        ryot_log!(warn, "Failed to shutdown OTLP tracer provider: {err}");
+        tracing::warn!("Failed to shutdown OTLP tracer provider: {err}");
     }
 
     Ok(())
@@ -296,7 +296,7 @@ fn get_cron_schedules(config: &Arc<AppConfig>, tz: chrono_tz::Tz) -> Result<(Sch
 
 fn log_cron_schedule(name: &str, schedule: &Schedule, tz: chrono_tz::Tz) {
     let times = schedule.upcoming(tz).take(5).collect::<Vec<_>>();
-    ryot_log!(info, "Schedule for {name:#?}: {times:?} and so on...");
+    tracing::info!("Schedule for {name:#?}: {times:?} and so on...");
 }
 
 async fn migrate_from_v9_if_applicable(db: &DatabaseConnection) -> Result<()> {

@@ -3,7 +3,6 @@ use std::{collections::HashSet, sync::Arc};
 use anyhow::{Result, anyhow, bail};
 use chrono::Utc;
 use common_models::{EntityWithLot, UserLevelCacheKey};
-use common_utils::ryot_log;
 use database_models::{
     entity_translation, metadata, metadata_group, person,
     prelude::{EntityTranslation, Metadata, MetadataGroup, Person},
@@ -104,7 +103,7 @@ async fn replace_entity_translations(
         .on_conflict(OnConflict::new().do_nothing().to_owned())
         .exec_without_returning(&ss.db)
         .await?;
-    ryot_log!(debug, "Inserting translations: {:?}", result);
+    tracing::debug!("Inserting translations: {:?}", result);
     Ok(())
 }
 

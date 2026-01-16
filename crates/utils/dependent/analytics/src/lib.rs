@@ -4,7 +4,6 @@ use anyhow::Result;
 use application_utils::{get_podcast_episode_by_number, get_show_episode_by_numbers};
 use chrono::{NaiveDate, Timelike};
 use common_models::{DailyUserActivityHourRecord, DailyUserActivityHourRecordEntity};
-use common_utils::ryot_log;
 use database_models::{
     collection_to_entity, daily_user_activity, metadata,
     prelude::{
@@ -87,7 +86,7 @@ pub async fn calculate_user_activities_and_summary(
         metadata_lot: Option<MediaLot>,
         timestamp: DateTimeUtc,
     ) -> &'a mut daily_user_activity::Model {
-        ryot_log!(debug, "Updating activity counts for id: {:?}", entity_id);
+        tracing::debug!("Updating activity counts for id: {:?}", entity_id);
         let date = dt.map(|d| d.date_naive());
         let existing = activities
             .entry(date)
@@ -367,7 +366,7 @@ pub async fn calculate_user_activities_and_summary(
             })
             .exec(&ss.db)
             .await?;
-        ryot_log!(debug, "Inserting activity = {:?}", activity.date);
+        tracing::debug!("Inserting activity = {:?}", activity.date);
         let total_collection_count = activity.person_collection_count
             + activity.metadata_collection_count
             + activity.metadata_group_collection_count;

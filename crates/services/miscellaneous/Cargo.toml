@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 rust_decimal = { workspace = true }
-tracing = { workspace = true }
 uuid = { workspace = true }
 
 background-models = { workspace = true }
@@ -18,4 +17,4 @@ media-models = { workspace = true }
 supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
-ignored = ["rust_decimal", "tracing"]
+ignored = ["rust_decimal"]

@@ -40,6 +40,3 @@ session-service = { workspace = true }
 supporting-service = { workspace = true }
 traits = { workspace = true }
 user-models = { workspace = true }
-
-[package.metadata.cargo-machete]
-ignored = ["tracing"]

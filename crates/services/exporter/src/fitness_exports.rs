@@ -2,7 +2,6 @@ use std::{fs::File as StdFile, sync::Arc};
 
 use anyhow::{Result, anyhow};
 use common_models::SearchInput;
-use common_utils::ryot_log;
 use database_models::prelude::Exercise;
 use database_utils::{
     entity_in_collections_with_details, item_reviews, user_workout_details,
@@ -44,7 +43,7 @@ pub async fn export_workouts(
             ss,
         )
         .await?;
-        ryot_log!(debug, "Exporting workouts list page: {current_page}");
+        tracing::debug!("Exporting workouts list page: {current_page}");
         for workout_id in workout_ids.response.items {
             let details = user_workout_details(user_id, workout_id, ss).await?;
             let exp = ImportOrExportWorkoutItem {
@@ -156,7 +155,7 @@ pub async fn export_workout_templates(
             },
         )
         .await?;
-        ryot_log!(debug, "Exporting templates list page: {current_page}");
+        tracing::debug!("Exporting templates list page: {current_page}");
         for workout_template_id in workout_template_ids.response.items {
             let details = user_workout_template_details(user_id, workout_template_id, ss).await?;
             let exp = ImportOrExportWorkoutTemplateItem {

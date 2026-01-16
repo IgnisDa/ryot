@@ -2,7 +2,6 @@ use std::{fs::File as StdFile, sync::Arc};
 
 use anyhow::Result;
 use common_models::SearchInput;
-use common_utils::ryot_log;
 use database_utils::{entity_in_collections_with_details, item_reviews};
 use dependent_details_utils::{metadata_details, metadata_group_details, person_details};
 use dependent_entity_list_utils::{
@@ -40,7 +39,7 @@ pub async fn export_media(
             ss,
         )
         .await?;
-        ryot_log!(debug, "Exporting metadata list page: {current_page}");
+        tracing::debug!("Exporting metadata list page: {current_page}");
         for rm in related_metadata.response.items.iter() {
             let m = metadata_details(ss, rm).await?.response;
             let seen_history = metadata_seen_history(user_id, &m.id, ss).await?;
@@ -123,7 +122,7 @@ pub async fn export_media_group(
             },
         )
         .await?;
-        ryot_log!(debug, "Exporting metadata groups list page: {current_page}");
+        tracing::debug!("Exporting metadata groups list page: {current_page}");
         for rm in related_metadata.response.items.iter() {
             let m = metadata_group_details(ss, rm).await?.response.details;
             let reviews = item_reviews(user_id, &m.id, EntityLot::MetadataGroup, false, ss)
@@ -176,7 +175,7 @@ pub async fn export_people(
             ss,
         )
         .await?;
-        ryot_log!(debug, "Exporting people list page: {current_page}");
+        tracing::debug!("Exporting people list page: {current_page}");
         for rm in related_people.response.items.iter() {
             let p = person_details(rm, ss).await?.response.details;
             let reviews = item_reviews(user_id, &p.id, EntityLot::Person, false, ss)

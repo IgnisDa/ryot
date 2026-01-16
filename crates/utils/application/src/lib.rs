@@ -7,7 +7,7 @@ use axum::{
     http::{StatusCode, header::AUTHORIZATION, request::Parts},
 };
 use chrono::{NaiveDate, NaiveDateTime, Utc};
-use common_utils::{FRONTEND_OAUTH_ENDPOINT, ryot_log};
+use common_utils::FRONTEND_OAUTH_ENDPOINT;
 use media_models::{
     GraphqlSortOrder, PodcastEpisode, PodcastSpecifics, ReviewItem, ShowEpisode, ShowSeason,
     ShowSpecifics,
@@ -148,7 +148,7 @@ pub async fn create_oidc_client(
     {
         Ok(url) => url,
         Err(e) => {
-            ryot_log!(debug, "Error while processing OIDC redirect url: {:?}", e);
+            tracing::debug!("Error while processing OIDC redirect url: {:?}", e);
             return None;
         }
     };
@@ -156,7 +156,7 @@ pub async fn create_oidc_client(
     let issuer_url = match IssuerUrl::new(config.server.oidc.issuer_url.clone()) {
         Ok(url) => url,
         Err(e) => {
-            ryot_log!(debug, "Error while processing OIDC issuer url: {:?}", e);
+            tracing::debug!("Error while processing OIDC issuer url: {:?}", e);
             return None;
         }
     };
@@ -164,7 +164,7 @@ pub async fn create_oidc_client(
     let async_http_client = match ClientBuilder::new().redirect(Policy::none()).build() {
         Ok(client) => client,
         Err(e) => {
-            ryot_log!(debug, "Error while building HTTP client: {:?}", e);
+            tracing::debug!("Error while building HTTP client: {:?}", e);
             return None;
         }
     };
@@ -173,7 +173,7 @@ pub async fn create_oidc_client(
         match CoreProviderMetadata::discover_async(issuer_url, &async_http_client).await {
             Ok(metadata) => metadata,
             Err(e) => {
-                ryot_log!(debug, "Error while creating OIDC client: {:?}", e);
+                tracing::debug!("Error while creating OIDC client: {:?}", e);
                 return None;
             }
         };

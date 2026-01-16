@@ -4,7 +4,7 @@ use anyhow::{Result, bail};
 use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::{DateTime, Utc};
 use common_models::ExportJob;
-use common_utils::{get_temporary_directory, ryot_log};
+use common_utils::get_temporary_directory;
 use nanoid::nanoid;
 use reqwest::{
     Body, Client,
@@ -69,7 +69,7 @@ pub async fn perform_export(ss: &Arc<SupportingService>, user_id: String) -> Res
     writer.begin_object()?;
 
     for export in ExportItem::iter() {
-        ryot_log!(debug, "Exporting {export}");
+        tracing::debug!("Exporting {export}");
         writer.name(&export.to_string())?;
         writer.begin_array()?;
         match export {
@@ -88,7 +88,7 @@ pub async fn perform_export(ss: &Arc<SupportingService>, user_id: String) -> Res
     }
     writer.end_object()?;
     writer.finish_document()?;
-    ryot_log!(debug, "Exporting completed");
+    tracing::debug!("Exporting completed");
     let ended_at = Utc::now();
     let (_key, url) = file_storage_service::get_presigned_put_url(
         ss,

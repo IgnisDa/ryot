@@ -24,6 +24,3 @@ enum-models = { workspace = true }
 media-models = { workspace = true }
 supporting-service = { workspace = true }
 traits = { workspace = true }
-
-[package.metadata.cargo-machete]
-ignored = ["tracing"]

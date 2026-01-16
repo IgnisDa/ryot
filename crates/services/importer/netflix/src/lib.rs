@@ -9,7 +9,6 @@ use std::{
 use anyhow::{Result, bail};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use common_models::DefaultCollection;
-use common_utils::ryot_log;
 use csv::Reader;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
@@ -281,11 +280,11 @@ pub async fn import(
     input: DeployNetflixImportInput,
     ss: &Arc<SupportingService>,
 ) -> Result<ImportResult> {
-    ryot_log!(debug, "Netflix import from: {}", input.input.export_path);
+    tracing::debug!("Netflix import from: {}", input.input.export_path);
 
     let _extracted_dir = extract_zip(&input.input.export_path)?;
     let extracted_path = _extracted_dir.path();
-    ryot_log!(debug, "Extracted ZIP to: {:?}", extracted_path);
+    tracing::debug!("Extracted ZIP to: {:?}", extracted_path);
 
     let Some((my_list_path, ratings_path, viewing_activity_path)) =
         find_content_interaction_dir(extracted_path)
@@ -299,7 +298,7 @@ pub async fn import(
     let mut viewing_items: Vec<ViewingActivityItem> = vec![];
     let mut media_map: IndexMap<String, ImportOrExportMetadataItem> = IndexMap::new();
 
-    ryot_log!(debug, "Processing ViewingActivity.csv");
+    tracing::debug!("Processing ViewingActivity.csv");
     let mut reader = Reader::from_path(&viewing_activity_path)?;
 
     for (idx, result) in reader.deserialize().enumerate() {
@@ -327,8 +326,7 @@ pub async fn import(
         viewing_items.push(record);
     }
 
-    ryot_log!(
-        debug,
+    tracing::debug!(
         "Processing {} viewing activity entries",
         viewing_items.len()
     );
@@ -346,13 +344,12 @@ pub async fn import(
         }
     }
 
-    ryot_log!(
-        debug,
+    tracing::debug!(
         "Built title context map with {} entries",
         title_context_map.len()
     );
 
-    ryot_log!(debug, "Processing Ratings.csv");
+    tracing::debug!("Processing Ratings.csv");
     let mut reader = Reader::from_path(&ratings_path)?;
 
     for (idx, result) in reader.deserialize().enumerate() {
@@ -380,7 +377,7 @@ pub async fn import(
         rating_items.push(record);
     }
 
-    ryot_log!(debug, "Processing MyList.csv");
+    tracing::debug!("Processing MyList.csv");
     let mut reader = Reader::from_path(&my_list_path)?;
 
     for (idx, result) in reader.deserialize().enumerate() {
@@ -423,11 +420,7 @@ pub async fn import(
     }
 
     let titles: Vec<String> = titles_to_lookup.into_iter().collect();
-    ryot_log!(
-        debug,
-        "Running metadata lookups for {} titles",
-        titles.len()
-    );
+    tracing::debug!("Running metadata lookups for {} titles", titles.len());
 
     let lookup_results = stream::iter(titles.into_iter().map(|title| async move {
         let (lookup, failure) = lookup_title(ss, &title).await;
@@ -446,7 +439,7 @@ pub async fn import(
 
     for (idx, record) in viewing_items.into_iter().enumerate() {
         if idx % 100 == 0 {
-            ryot_log!(debug, "Processed {idx} viewing entries");
+            tracing::debug!("Processed {idx} viewing entries");
         }
 
         let lookup = title_cache
@@ -574,11 +567,7 @@ pub async fn import(
         }
     }
 
-    ryot_log!(
-        debug,
-        "Netflix import completed with {} items",
-        media_map.len()
-    );
+    tracing::debug!("Netflix import completed with {} items", media_map.len());
 
     Ok(ImportResult {
         failed: failed_items,

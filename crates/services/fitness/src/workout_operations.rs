@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::{Result, bail};
-use common_utils::ryot_log;
 use database_models::{
     prelude::{UserToEntity, Workout},
     user_to_entity, workout,
@@ -122,7 +121,7 @@ pub async fn revise_user_workouts(ss: &Arc<SupportingService>, user_id: String) 
         workout.clone().delete(&ss.db).await?;
         let workout_input = db_workout_to_workout_input(workout);
         create_or_update_user_workout(&user_id, workout_input, ss).await?;
-        ryot_log!(debug, "Revised workout: {}/{}", idx + 1, total);
+        tracing::debug!("Revised workout: {}/{}", idx + 1, total);
     }
     Ok(())
 }

@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Result;
 use common_models::DefaultCollection;
-use common_utils::{BULK_APPLICATION_UPDATE_CHUNK_SIZE, ryot_log};
+use common_utils::BULK_APPLICATION_UPDATE_CHUNK_SIZE;
 use database_models::{collection_entity_membership, prelude::CollectionEntityMembership};
 use dependent_notification_utils::{
     update_metadata_and_notify_users, update_person_and_notify_users,
@@ -42,8 +42,7 @@ pub async fn update_all_monitored_metadata_and_notify_users(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     let m_map = get_monitored_entities(EntityLot::Metadata, ss).await?;
-    ryot_log!(
-        debug,
+    tracing::debug!(
         "Users to be notified for metadata state changes: {:?}",
         m_map
     );
@@ -65,11 +64,7 @@ pub async fn update_all_monitored_people_and_notify_users(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     let p_map = get_monitored_entities(EntityLot::Person, ss).await?;
-    ryot_log!(
-        debug,
-        "Users to be notified for people state changes: {:?}",
-        p_map
-    );
+    tracing::debug!("Users to be notified for people state changes: {:?}", p_map);
     let chunks = p_map.keys().chunks(BULK_APPLICATION_UPDATE_CHUNK_SIZE);
     let items = chunks
         .into_iter()

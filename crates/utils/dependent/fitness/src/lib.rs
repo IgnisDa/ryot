@@ -2,7 +2,7 @@ use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
 use anyhow::{Result, anyhow, bail};
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
-use common_utils::{get_first_max_index_by, ryot_log};
+use common_utils::get_first_max_index_by;
 use database_models::{
     exercise,
     prelude::{Exercise, UserMeasurement, UserToEntity, Workout},
@@ -305,7 +305,7 @@ pub async fn create_custom_exercise(
     input.aggregated_instructions = ActiveValue::NotSet;
 
     let exercise = input.insert(&ss.db).await?;
-    ryot_log!(debug, "Created custom exercise with id = {}", exercise.id);
+    tracing::debug!("Created custom exercise with id = {}", exercise.id);
     add_entities_to_collection(
         &user_id.clone(),
         ChangeCollectionToEntitiesInput {
@@ -396,7 +396,7 @@ pub async fn create_or_update_user_workout(
             None,
         ),
     };
-    ryot_log!(debug, "Creating workout with id = {}", new_workout_id);
+    tracing::debug!("Creating workout with id = {}", new_workout_id);
     let mut exercises = vec![];
     let mut workout_totals = vec![];
     if input.exercises.is_empty() {
@@ -418,7 +418,7 @@ pub async fn create_or_update_user_workout(
             .one(&ss.db)
             .await?
         else {
-            ryot_log!(debug, "Exercise with id = {} not found", ex.exercise_id);
+            tracing::debug!("Exercise with id = {} not found", ex.exercise_id);
             continue;
         };
         let mut sets = vec![];
@@ -531,7 +531,7 @@ pub async fn create_or_update_user_workout(
                     let workout_set = match workout_set {
                         Some(s) => s,
                         None => {
-                            ryot_log!(debug, "Workout set {} does not exist", r.set_idx);
+                            tracing::debug!("Workout set {} does not exist", r.set_idx);
                             continue;
                         }
                     };

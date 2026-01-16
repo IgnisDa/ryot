@@ -1,5 +1,5 @@
 use anyhow::Result;
-use common_utils::{APPLICATION_JSON_HEADER, get_http_client_with_tls_config, ryot_log};
+use common_utils::{APPLICATION_JSON_HEADER, get_http_client_with_tls_config};
 use reqwest::{
     Client,
     header::{ACCEPT, AUTHORIZATION, HeaderValue},
@@ -78,7 +78,7 @@ pub mod jellyfin {
                     "Username": username,
                     "Pw": password.clone().unwrap_or_default()
                 }));
-        ryot_log!(debug, "Authentication request: {:?}", authenticate_request);
+        tracing::debug!("Authentication request: {:?}", authenticate_request);
         let authenticate = authenticate_request
             .send()
             .await
@@ -86,11 +86,7 @@ pub mod jellyfin {
             .json::<AuthenticateResponse>()
             .await
             .unwrap();
-        ryot_log!(
-            debug,
-            "Authenticated with token: {}",
-            authenticate.access_token
-        );
+        tracing::debug!("Authenticated with token: {}", authenticate.access_token);
 
         emby_header_value.push_str(&format!(r#", Token="{}""#, authenticate.access_token));
 
@@ -105,7 +101,7 @@ pub mod jellyfin {
             danger_accept_invalid_certs,
         );
         let user_id = authenticate.user.id;
-        ryot_log!(debug, "Authenticated as user id: {}", user_id);
+        tracing::debug!("Authenticated as user id: {}", user_id);
 
         Ok((client, user_id))
     }

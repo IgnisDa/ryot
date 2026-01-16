@@ -10,7 +10,6 @@ nest_struct = { workspace = true }
 rust_decimal = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tracing = { workspace = true }
 
 common-utils = { workspace = true }
 dependent-import-utils = { workspace = true }
@@ -18,6 +17,3 @@ dependent-models = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
 supporting-service = { workspace = true }
-
-[package.metadata.cargo-machete]
-ignored = ["tracing"]

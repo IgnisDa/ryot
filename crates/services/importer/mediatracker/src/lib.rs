@@ -2,7 +2,7 @@ use std::result::Result as StdResult;
 
 use anyhow::Result;
 use common_models::IdObject;
-use common_utils::{get_http_client_with_tls_config, ryot_log};
+use common_utils::get_http_client_with_tls_config;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
 };
@@ -147,7 +147,7 @@ async fn get_item_details_with_source(
             error: Some(e.to_string()),
         })?;
     let details: ItemDetails = rsp.json().await.map_err(|e| {
-        ryot_log!(debug, "Error for id = {id:?}: {e:?}", id = item.id);
+        tracing::debug!("Error for id = {id:?}: {e:?}", id = item.id);
         ImportFailedItem {
             lot: Some(lot),
             step: ImportFailStep::ItemDetailsFromSource,
@@ -189,8 +189,7 @@ async fn process_item(
     let (details, identifier, source, lot) =
         get_item_details_with_source(client, url, &item).await?;
 
-    ryot_log!(
-        debug,
+    tracing::debug!(
         "Got details for {lot:?}, with {seen} seen history: {id} ({idx}/{total})",
         lot = lot,
         id = item.id,

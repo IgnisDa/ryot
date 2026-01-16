@@ -1,5 +1,4 @@
 use anyhow::Result;
-use common_utils::ryot_log;
 use enum_models::MediaLot;
 use external_utils::jellyfin::{ItemsResponse, get_authenticated_client};
 use media_models::SeenShowExtraInformation;
@@ -16,8 +15,7 @@ pub async fn push_progress(
     match *metadata_lot {
         MediaLot::Movie | MediaLot::Show => {}
         _ => {
-            ryot_log!(
-                debug,
+            tracing::debug!(
                 "Not pushing {:#?} progress for jellyfin push integration",
                 metadata_lot
             );

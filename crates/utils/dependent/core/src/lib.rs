@@ -6,7 +6,7 @@ use audible_provider::AudibleService;
 use common_models::BackendError;
 use common_utils::{
     PAGE_SIZE, PEOPLE_SEARCH_SOURCES, TWO_FACTOR_BACKUP_CODES_COUNT, convert_naive_to_utc,
-    get_base_http_client, ryot_log,
+    get_base_http_client,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CoreDetails, CoreDetailsProviderSpecifics,
@@ -190,27 +190,27 @@ async fn get_is_server_key_validated(ss: &Arc<SupportingService>) -> Result<bool
         .send()
         .await
     else {
-        ryot_log!(warn, "Failed to verify Pro Key.");
+        tracing::warn!("Failed to verify Pro Key.");
         return Ok(false);
     };
     let Ok(response) = request.json::<VerifyKeyResponse>().await else {
-        ryot_log!(warn, "Failed to parse Pro Key verification response.");
+        tracing::warn!("Failed to parse Pro Key verification response.");
         return Ok(false);
     };
     if !response.data.valid {
-        ryot_log!(debug, "Pro Key is no longer valid.");
+        tracing::debug!("Pro Key is no longer valid.");
         return Ok(false);
     };
     let key_meta = response.data.meta;
-    ryot_log!(debug, "Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
+    tracing::debug!("Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
     if let Some(meta) = key_meta
         && let Some(expiry) = meta.expiry
         && ss.server_start_time > convert_naive_to_utc(expiry)
     {
-        ryot_log!(warn, "Pro Key has expired. Please renew your subscription.");
+        tracing::warn!("Pro Key has expired. Please renew your subscription.");
         return Ok(false);
     }
-    ryot_log!(debug, "Pro Key verified successfully");
+    tracing::debug!("Pro Key verified successfully");
     Ok(true)
 }
 

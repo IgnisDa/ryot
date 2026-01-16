@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use chrono::{Duration, Utc};
 use common_models::BackgroundJob;
-use common_utils::{MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, ryot_log};
+use common_utils::MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE;
 use database_models::{import_report, prelude::ImportReport};
 use dependent_import_utils::process_import;
 use dependent_jobs_utils::deploy_background_job;
@@ -38,7 +38,7 @@ pub async fn perform_import(
     };
     let db_import_job = model.insert(&ss.db).await?;
     let import_id = db_import_job.id.clone();
-    ryot_log!(debug, "Started import job with id {import_id}");
+    tracing::debug!("Started import job with id {import_id}");
     let maybe_import = match input.source {
         ImportSource::Igdb => igdb_importer_service::import(input.igdb.unwrap()).await,
         ImportSource::Plex => plex_importer_service::import(input.url_and_key.unwrap()).await,
@@ -148,13 +148,13 @@ pub async fn perform_import(
                     .trace_ok();
                 }
                 Err(e) => {
-                    ryot_log!(debug, "Error while importing: {:?}", e);
+                    tracing::debug!("Error while importing: {:?}", e);
                     model.was_success = ActiveValue::Set(Some(false));
                 }
             }
         }
         Err(e) => {
-            ryot_log!(debug, "Error while importing: {:?}", e);
+            tracing::debug!("Error while importing: {:?}", e);
             model.was_success = ActiveValue::Set(Some(false));
         }
     }
