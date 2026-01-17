@@ -4,12 +4,21 @@ import {
 } from "@ryot/contract/modules/sandbox/schemas";
 import { Effect } from "effect";
 
+import {
+	SANDBOX_RUNTIME_SDK_IMPORTS,
+	SANDBOX_SDK_ROOT_IMPORT,
+} from "#lib/infrastructure/sandbox-runtime/dependencies";
+
 type BundleResult =
 	| { readonly diagnostics: readonly SandboxCompilationDiagnostic[] }
 	| { readonly javascript: string };
 
 const sourceFile = "script.ts";
 const compilationFailedMessage = "Sandbox TypeScript compilation failed";
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const dependencyImportPattern = new RegExp(
+	`^(?:${SANDBOX_RUNTIME_SDK_IMPORTS.map(escapeRegExp).join("|")})$`,
+);
 
 const compilationFailure = (diagnostics: readonly SandboxCompilationDiagnostic[]) =>
 	new SandboxCompilationFailure({
@@ -37,7 +46,7 @@ const toBuildDiagnostic = (log: BuildMessage | ResolveMessage): SandboxCompilati
 	...(log.position === null ? {} : { length: log.position.length }),
 });
 
-export const bundleUserScript = (source: string, sdkEntry: string) => {
+export const bundleUserScript = (source: string, sdkEntries: Readonly<Record<string, string>>) => {
 	const plugin: Bun.BunPlugin = {
 		name: "sandbox-user-source",
 		setup(builder) {
@@ -50,7 +59,11 @@ export const bundleUserScript = (source: string, sdkEntry: string) => {
 				contents: source,
 			}));
 			builder.onResolve({ filter: /^@ryot\/sandbox-sdk$/, namespace: "sandbox-user" }, () => ({
-				path: sdkEntry,
+				path: sdkEntries[SANDBOX_SDK_ROOT_IMPORT] ?? SANDBOX_SDK_ROOT_IMPORT,
+			}));
+			builder.onResolve({ filter: dependencyImportPattern }, ({ path }) => ({
+				path,
+				external: true,
 			}));
 		},
 	};

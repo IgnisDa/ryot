@@ -111,7 +111,7 @@ const fields = {
 	),
 	denoDir: strField(
 		"SANDBOX_DENO_DIR",
-		"Directory used by Deno for caching modules inside the sandbox",
+		"Directory used for the local sandbox dependency runtime and Deno cache",
 		{ default: "/tmp/ryot-sandbox-deno" },
 	),
 	adminAccessToken: secretField(

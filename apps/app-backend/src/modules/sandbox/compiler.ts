@@ -7,10 +7,12 @@ import { Effect } from "effect";
 import type * as ts from "typescript/unstable/ast";
 import { DiagnosticCategory, type Diagnostic } from "typescript/unstable/async";
 
+import { SANDBOX_SDK_IMPORTS } from "#lib/infrastructure/sandbox-runtime/dependencies";
+
 import { bundleUserScript } from "./compiler-bundle";
 import { extractSandboxManifest } from "./compiler-manifest";
 import { createTypeScriptProject } from "./compiler-project";
-import { inspectSandboxSource, SANDBOX_SDK_IMPORT, SANDBOX_SOURCE_FILE } from "./compiler-source";
+import { inspectSandboxSource, SANDBOX_SOURCE_FILE } from "./compiler-source";
 
 export const SANDBOX_COMPILED_FORMAT = 1 as const;
 
@@ -78,7 +80,12 @@ export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxC
 						);
 						const nativeDirectory = nativePackageJson.slice(0, nativePackageJson.lastIndexOf("/"));
 						return {
-							sdkEntry: Bun.resolveSync(SANDBOX_SDK_IMPORT, from),
+							sdkEntries: Object.fromEntries(
+								SANDBOX_SDK_IMPORTS.map((specifier) => [
+									specifier,
+									Bun.resolveSync(specifier, from),
+								]),
+							),
 							tsserverPath: `${nativeDirectory}/lib/tsc${process.platform === "win32" ? ".exe" : ""}`,
 						};
 					},
@@ -96,7 +103,7 @@ export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxC
 				});
 				const project = yield* createTypeScriptProject(
 					source,
-					dependencies.sdkEntry,
+					dependencies.sdkEntries,
 					dependencies.tsserverPath,
 				).pipe(
 					Effect.mapError((error) =>
@@ -129,7 +136,7 @@ export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxC
 					return yield* compilationFailure([extracted.diagnostic]);
 				}
 
-				const bundled = yield* bundleUserScript(source, dependencies.sdkEntry);
+				const bundled = yield* bundleUserScript(source, dependencies.sdkEntries);
 				if ("diagnostics" in bundled) {
 					return yield* compilationFailure(bundled.diagnostics);
 				}

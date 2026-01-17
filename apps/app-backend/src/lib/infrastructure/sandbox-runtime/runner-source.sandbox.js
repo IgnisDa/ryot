@@ -4,9 +4,40 @@ const arrayIsArray = Array.isArray;
 const bridgeFetch = globalThis.fetch.bind(globalThis);
 const createDictionary = Object.create;
 const encodeComponent = globalThis.encodeURIComponent;
+const defineProperty = Object.defineProperty;
 const reflectApply = Reflect.apply;
 const responseJson = Object.getOwnPropertyDescriptor(Response.prototype, "json").value;
+const nativeFunction = globalThis.Function;
+const asyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+const generatorFunction = Object.getPrototypeOf(function* () {}).constructor;
+const asyncGeneratorFunction = Object.getPrototypeOf(async function* () {}).constructor;
 let buffer = "";
+
+const disableFormat1CodeGeneration = () => {
+	for (const name of ["eval", "Function", "Worker", "SharedWorker"]) {
+		if (name in globalThis) {
+			defineProperty(globalThis, name, {
+				writable: false,
+				value: undefined,
+				enumerable: false,
+				configurable: false,
+			});
+		}
+	}
+	for (const constructor of [
+		nativeFunction,
+		asyncFunction,
+		generatorFunction,
+		asyncGeneratorFunction,
+	]) {
+		defineProperty(constructor.prototype, "constructor", {
+			writable: false,
+			value: undefined,
+			enumerable: false,
+			configurable: false,
+		});
+	}
+};
 
 const formatArg = (value) => {
 	if (typeof value === "string") {
@@ -200,6 +231,9 @@ void (async () => {
 
 		try {
 			const payload = JSON.parse(line);
+			if (payload.compiledFormat === 1) {
+				disableFormat1CodeGeneration();
+			}
 			const requestConsole = createRequestConsole(logs);
 			console.log = requestConsole.log;
 			console.info = requestConsole.info;
