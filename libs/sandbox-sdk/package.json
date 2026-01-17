@@ -23,6 +23,10 @@
 			"types": "./src/testing.ts",
 			"default": "./src/testing.ts"
 		},
+		"./imports": {
+			"types": "./src/imports.ts",
+			"default": "./src/imports.ts"
+		},
 		"./youtubei": {
 			"types": "./src/youtubei.ts",
 			"default": "./src/youtubei.ts"

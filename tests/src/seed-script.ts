@@ -151,6 +151,58 @@ class APIClient {
 	}
 }
 
+async function seedSandboxScript(apiClient: APIClient) {
+	const value = `seed-script-${dayjs().valueOf()}`;
+	const source = `
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
+
+export const manifest = defineManifest({
+  kind: "script",
+  capabilities: [],
+  requiredAppConfigKeys: [],
+  name: "Seed script",
+  slug: ${JSON.stringify(value)},
+});
+
+const main = defineDriver(manifest, {
+  input: z.object({}),
+  output: z.literal(${JSON.stringify(value)}),
+  run: async () => ${JSON.stringify(value)} as const,
+});
+
+export default defineScript({ manifest, drivers: { main } });
+`;
+	const script = await apiClient.run((c) => c.sandbox.createScript({ payload: { source } }));
+	const queued = await apiClient.run((c) =>
+		c.sandbox.enqueue({ payload: { context: {}, driverName: "main", scriptId: script.id } }),
+	);
+	const startedAt = dayjs();
+	while (dayjs().diff(startedAt, "second") < 120) {
+		// oxlint-disable-next-line no-await-in-loop
+		const result = await apiClient.run((c) =>
+			c.sandbox.getResult({ path: { jobId: queued.jobId } }),
+		);
+		if (result.status === "pending") {
+			// oxlint-disable-next-line no-await-in-loop
+			await sleep(250);
+			continue;
+		}
+		if (result.status === "failed") {
+			throw new Error(`Seed sandbox job failed: ${result.error}`);
+		}
+		if (result.error) {
+			throw new Error(`Seed sandbox execution failed: ${JSON.stringify(result.error)}`);
+		}
+		if (result.value !== value) {
+			throw new Error(`Seed sandbox returned ${JSON.stringify(result.value)}`);
+		}
+		console.log(`✓ Created and executed format-1 sandbox script ${script.id}`);
+		return;
+	}
+	throw new Error("Seed sandbox execution timed out");
+}
+
 function randomInt(min: number, max: number): number {
 	return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -2904,6 +2956,7 @@ async function main() {
 
 	const client = new APIClient(cookies);
 	const startTime = dayjs();
+	await seedSandboxScript(client);
 
 	const whiskeyStats = await seedWhiskeys(client);
 	const placeStats = await seedPlaces(client);
@@ -2939,6 +2992,7 @@ async function main() {
 	);
 	console.log(`  Media Events: ${mediaStats.eventCount} (backlog, progress, complete, review)`);
 	console.log(`  Collections: ${collectionStats.collectionCount}`);
+	console.log("  Sandbox Scripts: 1");
 	console.log(
 		`  Collection Memberships: ${collectionStats.membershipCount} (${collectionStats.nestedCollectionMembershipCount} nested collections)`,
 	);
