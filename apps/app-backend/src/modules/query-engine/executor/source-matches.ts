@@ -28,9 +28,15 @@ import {
 	loadVisibleRelationshipSchema,
 	loadVisibleRelationshipSchemas,
 } from "./schema-loaders";
-import { relationshipRootSelectSql } from "./sql";
+import {
+	entitySelectColumnsSql,
+	eventSelectColumnsSql,
+	relationshipEdgeColumnsSql,
+	relationshipRootSelectSql,
+} from "./sql";
 import {
 	MAX_AGGREGATE_EXPRESSION_SOURCE_ROWS,
+	MAX_ROOT_SOURCE_SCAN_ROWS,
 	type EntityQueryRow,
 	type EventQueryRow,
 	type IncludeQueryRow,
@@ -45,28 +51,25 @@ export type EvalExprAsBoolean = (
 	context: RowContext,
 ) => Effect.Effect<boolean, BadRequest | NotFound | DbError, CurrentDb>;
 
-// How many candidate rows an expression source may pull from the database.
-// `unbounded` is for root aggregate/time-series sources that span the user's full
-// dataset; `probe` is an `exists` short-circuit (top-N); `cap` bounds correlated
-// expression sources and fails rather than silently considering a truncated set.
-type FetchBound =
-	| { mode: "unbounded" }
-	| { mode: "probe"; limit: number }
-	| { mode: "cap"; cap: number };
+// `probe` is an `exists` short-circuit (top-N); `cap` bounds a full scan and fails rather
+// than silently truncating. `label` names the source in the overflow error.
+type FetchBound = { mode: "probe"; limit: number } | { mode: "cap"; cap: number; label?: string };
 
 const fetchBoundLimitSql = (bound: FetchBound) =>
-	bound.mode === "unbounded"
-		? sql``
-		: bound.mode === "probe"
-			? sql`LIMIT ${bound.limit}`
-			: sql`LIMIT ${bound.cap + 1}`;
+	bound.mode === "probe" ? sql`LIMIT ${bound.limit}` : sql`LIMIT ${bound.cap + 1}`;
 
 const fetchBoundOverflow = (bound: FetchBound, fetched: number) =>
 	bound.mode === "cap" && fetched > bound.cap
 		? new BadRequest({
-				message: `Expression source candidate rows exceeds maximum of ${bound.cap}`,
+				message: `${bound.label ?? "Expression source"} candidate rows exceeds maximum of ${bound.cap}`,
 			})
 		: null;
+
+const rootSourceBound: FetchBound = {
+	mode: "cap",
+	label: "Root source",
+	cap: MAX_ROOT_SOURCE_SCAN_ROWS,
+};
 
 const executeEntitySourceMatches = (
 	userId: string,
@@ -89,18 +92,7 @@ const executeEntitySourceMatches = (
 			const rawRows = yield* dbEffect(() =>
 				db.execute<EntityQueryRow>(sql`
 					SELECT
-						e.id,
-						e.name,
-						e.image,
-						e.properties,
-						e.created_at AS "createdAt",
-						e.updated_at AS "updatedAt",
-						e.external_id AS "externalId",
-						e.sandbox_script_id AS "sandboxScriptId",
-						es.id AS "schemaId",
-						es.slug AS "schemaSlug",
-						es.name AS "schemaName",
-						es.is_builtin AS "schemaIsBuiltin",
+						${entitySelectColumnsSql},
 						1 AS "totalCount"
 					FROM entity e
 					JOIN entity_schema es ON es.id = e.entity_schema_id
@@ -125,26 +117,8 @@ const executeEntitySourceMatches = (
 			const rawRows = yield* dbEffect(() =>
 				db.execute<IncludeQueryRow>(sql`
 					SELECT
-						e.id,
-						e.name,
-						e.image,
-						e.properties,
-						e.created_at AS "createdAt",
-						e.updated_at AS "updatedAt",
-						e.external_id AS "externalId",
-						e.sandbox_script_id AS "sandboxScriptId",
-						es.id AS "schemaId",
-						es.slug AS "schemaSlug",
-						es.name AS "schemaName",
-						es.is_builtin AS "schemaIsBuiltin",
-						r.id AS "relationshipId",
-						r.created_at AS "relationshipCreatedAt",
-						r.source_entity_id AS "relationshipSourceEntityId",
-						r.target_entity_id AS "relationshipTargetEntityId",
-						r.properties AS "relationshipProperties",
-						rs.slug AS "relationshipSchemaSlug",
-						rs.name AS "relationshipSchemaName",
-						rs.is_builtin AS "relationshipSchemaIsBuiltin",
+						${entitySelectColumnsSql},
+						${relationshipEdgeColumnsSql},
 						1 AS "totalCount"
 					FROM relationship r
 					JOIN relationship_schema rs ON rs.id = r.relationship_schema_id
@@ -205,27 +179,8 @@ const executeEventSourceMatches = (
 		const rawRows = yield* dbEffect(() =>
 			db.execute<EventQueryRow>(sql`
 				SELECT
-					e.id,
-					e.name,
-					e.image,
-					e.properties,
-					e.created_at AS "createdAt",
-					e.updated_at AS "updatedAt",
-					e.external_id AS "externalId",
-					e.sandbox_script_id AS "sandboxScriptId",
-					es.id AS "schemaId",
-					es.slug AS "schemaSlug",
-					es.name AS "schemaName",
-					es.is_builtin AS "schemaIsBuiltin",
-					ev.id AS "eventId",
-					ev.properties AS "eventProperties",
-					ev.created_at AS "eventCreatedAt",
-					ev.updated_at AS "eventUpdatedAt",
-					ev.occurred_at AS "eventOccurredAt",
-					evs.id AS "eventSchemaId",
-					evs.slug AS "eventSchemaSlug",
-					evs.name AS "eventSchemaName",
-					evs.is_builtin AS "eventSchemaIsBuiltin",
+					${entitySelectColumnsSql},
+					${eventSelectColumnsSql},
 					1 AS "totalCount"
 				FROM event ev
 				JOIN event_schema evs ON evs.id = ev.event_schema_id
@@ -283,27 +238,8 @@ const executeRootEventSourceMatches = (
 		const rawRows = yield* dbEffect(() =>
 			db.execute<EventQueryRow>(sql`
 				SELECT
-					e.id,
-					e.name,
-					e.image,
-					e.properties,
-					e.created_at AS "createdAt",
-					e.updated_at AS "updatedAt",
-					e.external_id AS "externalId",
-					e.sandbox_script_id AS "sandboxScriptId",
-					es.id AS "schemaId",
-					es.slug AS "schemaSlug",
-					es.name AS "schemaName",
-					es.is_builtin AS "schemaIsBuiltin",
-					ev.id AS "eventId",
-					ev.properties AS "eventProperties",
-					ev.created_at AS "eventCreatedAt",
-					ev.updated_at AS "eventUpdatedAt",
-					ev.occurred_at AS "eventOccurredAt",
-					evs.id AS "eventSchemaId",
-					evs.slug AS "eventSchemaSlug",
-					evs.name AS "eventSchemaName",
-					evs.is_builtin AS "eventSchemaIsBuiltin",
+					${entitySelectColumnsSql},
+					${eventSelectColumnsSql},
 					1 AS "totalCount"
 				FROM event ev
 				JOIN event_schema evs ON evs.id = ev.event_schema_id
@@ -314,8 +250,14 @@ const executeRootEventSourceMatches = (
 					AND ev.event_schema_id IN (${eventSchemaIdsSql})
 					AND e.entity_schema_id IN (${entitySchemaIdsSql})
 					AND (e.user_id = ${userId} OR e.user_id IS NULL)
+				${fetchBoundLimitSql(rootSourceBound)}
 			`),
 		);
+
+		const overflow = fetchBoundOverflow(rootSourceBound, rawRows.rows.length);
+		if (overflow) {
+			return yield* overflow;
+		}
 
 		const matches: SourceMatch[] = [];
 		for (const row of rawRows.rows) {
@@ -360,15 +302,21 @@ const executeRootRelationshipSourceMatches = (
 		);
 		const db = yield* CurrentDb;
 		const rawRows = yield* dbEffect(() =>
-			db.execute<RelationshipRootQueryRow>(
-				relationshipRootSelectSql(
+			db.execute<RelationshipRootQueryRow>(sql`
+				${relationshipRootSelectSql(
 					relationshipSchemaIdsSql,
 					sourceEntitySchemaIdsSql,
 					targetEntitySchemaIdsSql,
 					userId,
-				),
-			),
+				)}
+				${fetchBoundLimitSql(rootSourceBound)}
+			`),
 		);
+
+		const overflow = fetchBoundOverflow(rootSourceBound, rawRows.rows.length);
+		if (overflow) {
+			return yield* overflow;
+		}
 
 		const matches: SourceMatch[] = [];
 		for (const row of rawRows.rows) {
@@ -386,9 +334,13 @@ export const executeRootSourceMatches = (
 	evalBoolean: EvalExprAsBoolean,
 ): Effect.Effect<SourceMatch[], BadRequest | NotFound | DbError, CurrentDb> => {
 	if (source.type === "entities") {
-		return executeEntitySourceMatches(userId, makeEmptyContext(), source, evalBoolean, {
-			mode: "unbounded",
-		});
+		return executeEntitySourceMatches(
+			userId,
+			makeEmptyContext(),
+			source,
+			evalBoolean,
+			rootSourceBound,
+		);
 	}
 	if (source.type === "events") {
 		return executeRootEventSourceMatches(userId, source, evalBoolean);
