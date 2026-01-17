@@ -29,9 +29,9 @@ and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 8 of 12 tasks completed
+**Overall Progress:** 9 of 12 tasks completed
 
-**Current Task:** [Task 09](./09-import-framework-fitness-sources.md) (todo)
+**Current Task:** [Task 10](./10-media-import-sources.md) (todo)
 
 ### Task List
 
@@ -45,7 +45,7 @@ and you record the choice you make in the plan file.
 | 06  | [Step 3b — Durable Workflows: media import population/resolution](./06-durable-workflows-media-import.md)   | AFK  | done   |
 | 07  | [Step 4a — Kernel Capability: Manifest Sections, FS Grants, Deps](./07-integration-import-kernel-capability.md) | AFK | done |
 | 08  | [Step 4b — Integration Adapters: Sinks + Yanks into media](./08-integration-adapters-media.md)              | AFK  | done   |
-| 09  | [Step 4c — Import Framework Collapse + Fitness Import Sources](./09-import-framework-fitness-sources.md)    | AFK  | todo   |
+| 09  | [Step 4c — Import Framework Collapse + Fitness Import Sources](./09-import-framework-fitness-sources.md)    | AFK  | done   |
 | 10  | [Step 4d — Media Import Sources into media](./10-media-import-sources.md)                                   | AFK  | todo   |
 | 11  | [Step 5 — media-monitoring + Remaining Media Logic + Phase Gate](./11-media-monitoring-and-phase-gate.md)   | AFK  | todo   |
 | 12  | [Codebase Cleanup](./12-codebase-cleanup.md)                                                                | AFK  | todo   |

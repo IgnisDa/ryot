@@ -35,6 +35,10 @@
 			"types": "./src/fflate.ts",
 			"default": "./src/fflate.ts"
 		},
+		"./filesystem": {
+			"types": "./src/filesystem.ts",
+			"default": "./src/filesystem.ts"
+		},
 		"./testing": {
 			"types": "./src/testing.ts",
 			"default": "./src/testing.ts"

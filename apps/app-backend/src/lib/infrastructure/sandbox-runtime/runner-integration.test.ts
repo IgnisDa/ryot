@@ -2,7 +2,7 @@ import { Command, CommandExecutor, FileSystem, HttpApp, HttpServer } from "@effe
 import { BunContext, BunHttpServer } from "@effect/platform-bun";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
-import { Effect, Runtime, Schema, Stream } from "effect";
+import { Effect, Layer, Runtime, Schema, Stream } from "effect";
 import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
 import { SandboxCompiler } from "#modules/sandbox/compiler";
@@ -152,6 +152,31 @@ export default defineScript({
       console.log(index);
     }
     return null;
+  }),
+});
+`;
+
+const filesystemSource = `
+import { defineActivity } from "@ryot/sandbox-sdk/activity";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { readArtifact, sandboxScratchManifestSchema, writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";
+
+export const manifest = defineManifest({
+  kind: "activity",
+  name: "Filesystem",
+  slug: "filesystem",
+  capabilities: ["artifact-read", "scratch"],
+  requiredAppConfigKeys: [],
+});
+
+export default defineActivity({
+  manifest,
+  input: Schema.Struct({ chunkName: Schema.String }),
+  output: sandboxScratchManifestSchema,
+  run: (input) => Effect.gen(function* () {
+    const artifact = yield* readArtifact();
+    return yield* writeScratchChunks([{ name: input.chunkName, contents: artifact }]);
   }),
 });
 `;
@@ -501,9 +526,9 @@ export default defineScript({
 const encodeRunnerRequest = Schema.encodeSync(Schema.parseJson(Schema.Unknown));
 const decodeRunnerResponse = Schema.decodeUnknownSync(Schema.parseJson(Schema.Unknown));
 type RunnerCompiledModule = {
-	readonly manifest: SandboxManifest;
-	readonly javascript: string;
 	readonly format: number;
+	readonly javascript: string;
+	readonly manifest: SandboxManifest;
 };
 
 type RunnerOptions = {
@@ -511,6 +536,7 @@ type RunnerOptions = {
 	readonly scriptId?: string;
 	readonly executionId?: string;
 	readonly apiFunctions?: readonly string[];
+	readonly filesystem?: { readonly artifactPath?: string; readonly scratchDirectory?: string };
 };
 
 type RunnerRequest = {
@@ -525,20 +551,22 @@ const runInDenoRequests = (requests: readonly RunnerRequest[]) =>
 			assert(dependencyRuntime);
 			assert(runnerPath);
 			const apiBase = requests[0]?.options?.apiBase ?? "http://127.0.0.1:1";
+			const filesystem = requests[0]?.options?.filesystem;
 			const request = requests
 				.map(
 					({ compiled, context, options = {} }) =>
 						`${encodeRunnerRequest({
 							context,
-							apiBase: options.apiBase ?? apiBase,
-							limits: SANDBOX_RUNNER_LIMITS,
 							token: "unused",
 							metadata: compiled.manifest,
+							limits: SANDBOX_RUNNER_LIMITS,
 							compiledFormat: compiled.format,
 							compiledCode: compiled.javascript,
+							apiBase: options.apiBase ?? apiBase,
 							scriptId: options.scriptId ?? "script-1",
 							apiFunctions: options.apiFunctions ?? [],
 							executionId: options.executionId ?? "execution-1",
+							...(options.filesystem ? { filesystem: options.filesystem } : {}),
 						})}\n`,
 				)
 				.join("");
@@ -550,20 +578,27 @@ const runInDenoRequests = (requests: readonly RunnerRequest[]) =>
 			const command = Command.make(
 				"deno",
 				"run",
+				"--no-npm",
+				"--no-lock",
 				"--deny-run",
 				"--deny-env",
 				"--deny-ffi",
-				"--deny-write",
 				"--no-prompt",
 				"--no-config",
-				"--no-lock",
-				"--no-npm",
 				"--no-remote",
 				"--cached-only",
-				`--v8-flags=--max-old-space-size=${SANDBOX_LIMITS.execution.denoHeapMiB}`,
-				`--import-map=${dependencyRuntime.importMapPath}`,
 				`--allow-net=${new URL(apiBase).host}`,
-				`--allow-read=${runnerPath},${dependencyRuntime.directory}`,
+				`--import-map=${dependencyRuntime.importMapPath}`,
+				`--v8-flags=--max-old-space-size=${SANDBOX_LIMITS.execution.denoHeapMiB}`,
+				filesystem?.scratchDirectory
+					? `--allow-write=${filesystem.scratchDirectory}`
+					: "--deny-write",
+				`--allow-read=${[
+					runnerPath,
+					dependencyRuntime.directory,
+					...(filesystem?.artifactPath ? [filesystem.artifactPath] : []),
+					...(filesystem?.scratchDirectory ? [filesystem.scratchDirectory] : []),
+				].join(",")}`,
 				runnerPath,
 			).pipe(Command.feed(request), Command.stdout("pipe"), Command.stderr("pipe"));
 			const denoProcess = yield* sandboxExecutor
@@ -817,6 +852,45 @@ it("enforces direct-definition output and log limits", () =>
 		}).pipe(Effect.provide(SandboxCompiler.Default)),
 	));
 
+it("exposes only granted artifact reads and named scratch chunk writes", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const compiler = yield* SandboxCompiler;
+				const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-runner-filesystem-" });
+				const artifactPath = `${root}/artifact.json`;
+				const scratchDirectory = `${root}/scratch`;
+				yield* fs.makeDirectory(scratchDirectory);
+				yield* fs.writeFileString(artifactPath, "[1,2]");
+				const compiled = yield* compiler.compile(filesystemSource);
+
+				const unavailable = yield* runInDeno(compiled, { chunkName: "chunk.json" });
+				assert(unavailable !== null && typeof unavailable === "object");
+				expect(Reflect.get(unavailable, "error")).toMatchObject({
+					phase: "execute",
+					message: "Sandbox artifact grant is unavailable",
+				});
+
+				const options = { filesystem: { artifactPath, scratchDirectory } };
+				const success = yield* runInDeno(compiled, { chunkName: "chunk.json" }, options);
+				expect(success).toMatchObject({
+					success: true,
+					value: { chunkFiles: ["chunk.json"] },
+				});
+				expect(yield* fs.readFileString(`${scratchDirectory}/chunk.json`)).toBe("[1,2]");
+
+				const traversal = yield* runInDeno(compiled, { chunkName: "../outside.json" }, options);
+				assert(traversal !== null && typeof traversal === "object");
+				expect(Reflect.get(traversal, "error")).toMatchObject({
+					phase: "execute",
+					message: "Sandbox scratch chunk names must be plain file names",
+				});
+				expect(yield* fs.exists(`${root}/outside.json`)).toBe(false);
+			}).pipe(Effect.provide(Layer.merge(SandboxCompiler.Default, BunContext.layer))),
+		),
+	));
+
 it("loads one compiled fixture for each approved SDK dependency without remote modules", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
@@ -976,7 +1050,10 @@ it(
 						assert(result !== null && typeof result === "object", script.slug);
 						const error = Reflect.get(result, "error");
 						if (error !== null && typeof error === "object") {
-							expect(Reflect.get(error, "phase"), script.slug).not.toBe("load");
+							expect(
+								Reflect.get(error, "phase"),
+								`${script.slug}: ${String(Reflect.get(error, "message"))}`,
+							).not.toBe("load");
 						}
 					}),
 				{ concurrency: 5 },

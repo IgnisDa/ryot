@@ -3,6 +3,7 @@ import { BunContext } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
+import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { workflowReplayEnvelopeSchema } from "@ryot/sandbox-sdk/workflow";
@@ -27,6 +28,7 @@ import {
 import { SandboxRepository } from "./repository";
 import {
 	performSandboxWorkflowChild,
+	performSandboxWorkflowActivity,
 	runSandboxScriptWorkflowBody,
 	SANDBOX_WORKFLOW_MAX_STEPS,
 	SandboxScriptWorkflow,
@@ -43,6 +45,46 @@ it("derives child ids deterministically from the parent, call name, and step", (
 
 it("keeps workflow replay bounded by the kernel", () => {
 	expect(SANDBOX_WORKFLOW_MAX_STEPS).toBe(1_000);
+});
+
+it.effect("propagates trusted grants and journals harvested chunk paths", () => {
+	const grants = { artifactPath: "/tmp/trusted-artifact.json" };
+	let capturedGrants: SandboxExecutionPayload["grants"];
+
+	return Effect.gen(function* () {
+		const result = yield* performSandboxWorkflowActivity(
+			{
+				index: 0,
+				name: "import",
+				kind: "activity",
+				args: { input: {}, scriptSlug: "activity.import" },
+			},
+			SandboxScriptId.make("activity-script"),
+			{
+				grants,
+				input: {},
+				resolutionMode: "exact",
+				authority: { type: "system" },
+				executionId: "workflow-execution",
+				scriptId: SandboxScriptId.make("workflow-script"),
+			},
+			"workflow-execution",
+			0,
+			(payload) => {
+				capturedGrants = payload.grants;
+				return Effect.succeed({
+					logs: [],
+					error: null,
+					status: "completed" as const,
+					value: { count: 2, chunkFiles: ["chunk-0.json"] },
+					harvest: { directory: "/tmp/harvest", chunkPaths: ["/tmp/harvest/chunk-0.json"] },
+				});
+			},
+		);
+
+		expect(capturedGrants).toEqual(grants);
+		expect(result).toEqual({ count: 2, chunkFiles: ["/tmp/harvest/chunk-0.json"] });
+	});
 });
 
 it.effect("keeps every shell replay on the initial script pin after an active hot swap", () => {
@@ -97,21 +139,21 @@ fi
 	});
 	const script = (id: typeof historicalScriptId, compiledCode: string) => ({
 		id,
+		compiledCode,
 		slug: "workflow",
 		name: "Workflow",
-		source: compiledCode,
 		providerId: null,
-		pluginSlug: "plugin",
-		compiledCode,
 		compiledFormat: 1,
-		contentHash: id === historicalScriptId ? "historical-hash" : "replacement-hash",
+		pluginSlug: "plugin",
+		source: compiledCode,
 		createdAt: new Date(0),
 		updatedAt: new Date(0),
+		contentHash: id === historicalScriptId ? "historical-hash" : "replacement-hash",
 		metadata: {
-			kind: "workflow" as const,
-			capabilities: [],
 			name: "Workflow",
 			slug: "workflow",
+			capabilities: [],
+			kind: "workflow" as const,
 			requiredAppConfigKeys: [],
 		},
 	});
@@ -284,17 +326,17 @@ it.effect("dispatches plugin children as child workflows with an exact script pi
 		const result = yield* performSandboxWorkflowChild(
 			{
 				index: 2,
-				name: "events",
 				kind: "child",
+				name: "events",
 				args: { input: { value: 1 }, workflowSlug: "plugin-child" },
 			},
 			SandboxScriptId.make("child-script"),
 			{
 				input: {},
 				executionId: "parent",
-				scriptId: SandboxScriptId.make("parent-script"),
-				authority: { type: "system" },
 				resolutionMode: "active",
+				authority: { type: "system" },
+				scriptId: SandboxScriptId.make("parent-script"),
 			},
 			"parent",
 			2,
@@ -319,6 +361,7 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 		authority: unknown;
 		executionId: string;
 		workflowSlug: string;
+		parentExecutionId: string;
 	}> = [];
 	return Effect.gen(function* () {
 		const result = yield* performSandboxWorkflowChild(
@@ -346,6 +389,7 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 		expect(result).toEqual({ status: "completed", entity: { id: "entity-1" } });
 		expect(calls).toEqual([
 			{
+				parentExecutionId: "parent",
 				input: { externalId: "book-1" },
 				executionId: "parent-child-import-3-4",
 				authority: { type: "user", userId: "trusted-user" },
@@ -358,9 +402,9 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 			makeWorkflowEngine({ execute: () => Effect.die("unused") }),
 		),
 		Effect.provideService(KernelWorkflowReferences, {
-			execute: (workflowSlug, input, authority, executionId) =>
+			execute: (workflowSlug, input, authority, executionId, parentExecutionId) =>
 				Effect.sync(() => {
-					calls.push({ workflowSlug, input, authority, executionId });
+					calls.push({ workflowSlug, input, authority, executionId, parentExecutionId });
 					return { status: "completed", entity: { id: "entity-1" } };
 				}),
 		}),

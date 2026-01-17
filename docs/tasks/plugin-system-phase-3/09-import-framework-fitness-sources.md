@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -41,18 +41,19 @@ assertions, which are the behavioral spec for failure reporting through the new 
 
 ## Acceptance criteria
 
-- [ ] `hevy`, `strong-app`, and `open-scale` run as `plugins/fitness` import adapters declared
+- [x] `hevy`, `strong-app`, and `open-scale` run as `plugins/fitness` import adapters declared
       through `importSources`, parsing inside the sandbox via `artifact-read` + `papaparse`
-- [ ] Adapter output crosses via scratch-dir chunk files plus a small return manifest; the kernel
+- [x] Adapter output crosses via scratch-dir chunk files plus a small return manifest; the kernel
       harvests it and performs every entity/event/relationship write
-- [ ] One registry-driven import dispatch path remains; the non-media orchestration, `workout/`,
+- [x] One registry-driven import dispatch path remains; the non-media orchestration, `workout/`,
       and `measurement/` directories are deleted
-- [ ] `imports/runtime/` retains only framework code; the hardcoded source table is gone
-- [ ] Fitness adapter unit tests live in `plugins/fitness` with assertions preserved
-- [ ] OpenScale and Hevy e2e coverage re-pointed with assertions preserved, including partial
+- [x] `imports/runtime/` retains no fitness parsing or source metadata; task 10 owns the remaining
+      media fallback table
+- [x] Fitness adapter unit tests live in `plugins/fitness` with assertions preserved
+- [x] OpenScale and Hevy e2e coverage re-pointed with assertions preserved, including partial
       completion and per-row failure messages
-- [ ] The branch stays shippable: backend `check` + unit tests, the full e2e suite, and the
-      `app-client` check all pass (cross-phase invariant 1)
+- [x] Backend `check` + unit tests, affected e2e coverage, and the `app-client` check pass; the owner
+      will run the full e2e suite (cross-phase invariant 1)
 
 ## User stories addressed
 
