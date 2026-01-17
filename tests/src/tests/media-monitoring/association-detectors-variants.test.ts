@@ -2,7 +2,7 @@ import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands"
 import { Effect } from "effect";
 
 import {
-	cleanupBuiltinProviderScript,
+	uninstallTestProvider,
 	createAuthenticatedClient,
 	createNotificationChannel,
 	enableMediaMonitoring,
@@ -10,7 +10,7 @@ import {
 	fakeProviderDetailsResult,
 	getBuiltinEntitySchemaSlug,
 	pollEntityImportResult,
-	seedBuiltinProviderScript,
+	installTestProvider,
 	seedMediaEntity,
 	startFakeAppriseServer,
 	pollUntil,
@@ -52,13 +52,13 @@ describe("company and media-group association variants", () => {
 				getBuiltinEntitySchemaSlug("company"),
 				getBuiltinEntitySchemaSlug("movie"),
 			]);
-			const companyProvider = yield* seedBuiltinProviderScript({
+			const companyProvider = yield* installTestProvider({
 				client,
 				linkToEntitySchemaSlug: companySchemaId,
 				slug: `company.association-variant-e2e-${crypto.randomUUID()}`,
 				drivers: { details: fakeProviderDetailsResult({ name: companyName }) },
 			});
-			const movieProvider = yield* seedBuiltinProviderScript({
+			const movieProvider = yield* installTestProvider({
 				client,
 				slug: `movie.association-variant-e2e-${crypto.randomUUID()}`,
 				drivers: {
@@ -113,8 +113,8 @@ describe("company and media-group association variants", () => {
 					`${companyName} has been associated with ${movieName} as Production Company`,
 				);
 			} finally {
-				yield* cleanupBuiltinProviderScript(movieProvider);
-				yield* cleanupBuiltinProviderScript(companyProvider);
+				yield* uninstallTestProvider(movieProvider);
+				yield* uninstallTestProvider(companyProvider);
 			}
 		}),
 	);
@@ -134,19 +134,19 @@ describe("company and media-group association variants", () => {
 				getBuiltinEntitySchemaSlug("company"),
 				getBuiltinEntitySchemaSlug("music-group"),
 			]);
-			const personProvider = yield* seedBuiltinProviderScript({
+			const personProvider = yield* installTestProvider({
 				client,
 				linkToEntitySchemaSlug: personSchemaId,
 				slug: `person.media-group-e2e-${crypto.randomUUID()}`,
 				drivers: { details: fakeProviderDetailsResult({ name: personName }) },
 			});
-			const companyProvider = yield* seedBuiltinProviderScript({
+			const companyProvider = yield* installTestProvider({
 				client,
 				linkToEntitySchemaSlug: companySchemaId,
 				slug: `company.media-group-e2e-${crypto.randomUUID()}`,
 				drivers: { details: fakeProviderDetailsResult({ name: companyName }) },
 			});
-			const musicGroupProvider = yield* seedBuiltinProviderScript({
+			const musicGroupProvider = yield* installTestProvider({
 				client,
 				slug: `music-group.media-group-e2e-${crypto.randomUUID()}`,
 				drivers: {
@@ -247,9 +247,9 @@ describe("company and media-group association variants", () => {
 					requireObjectRecord(companyDelivered[0]?.body, "Missing notification body").body,
 				).toBe(`${companyName} has been associated with ${musicGroupName} as Label`);
 			} finally {
-				yield* cleanupBuiltinProviderScript(musicGroupProvider);
-				yield* cleanupBuiltinProviderScript(companyProvider);
-				yield* cleanupBuiltinProviderScript(personProvider);
+				yield* uninstallTestProvider(musicGroupProvider);
+				yield* uninstallTestProvider(companyProvider);
+				yield* uninstallTestProvider(personProvider);
 			}
 		}),
 	);

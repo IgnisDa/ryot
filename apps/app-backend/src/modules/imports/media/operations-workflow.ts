@@ -1,6 +1,5 @@
 import * as PersistedQueue from "@effect/experimental/PersistedQueue";
 import { FileSystem, HttpClient, Path } from "@effect/platform";
-import { DurableQueue } from "@effect/workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { toSandboxRunError } from "@ryot/contract/errors";
 import type { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
@@ -13,11 +12,13 @@ import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-t
 import { EntitiesRepository } from "#modules/entities/repository";
 import { decodeSandboxDriverResult } from "#modules/entity-import/population";
 import { LibraryEntityImportWorkflow } from "#modules/library-membership/library-entity-import-workflow";
-import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { processSandboxExecution } from "#modules/sandbox/durable-queues";
 import {
 	decodeProviderResolveResult,
 	decodeProviderSearchResult,
 } from "#modules/sandbox/provider-contracts";
+import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { loadOneTimeMediaImportAdapterResult } from "./source-loaders";
 import { MediaImportWorkflowOperations } from "./types-workflow";
@@ -29,7 +30,7 @@ const resolveSandboxEntityExternalId = (input: {
 	identifierType: string;
 	scriptId: SandboxScriptId;
 }) =>
-	DurableQueue.process(SandboxExecutionQueue, {
+	processSandboxExecution({
 		userId: input.userId,
 		driverName: "resolve",
 		scriptId: input.scriptId,
@@ -52,7 +53,7 @@ const searchSandboxEntities = (input: {
 	executionId: string;
 	scriptId: SandboxScriptId;
 }) =>
-	DurableQueue.process(SandboxExecutionQueue, {
+	processSandboxExecution({
 		userId: input.userId,
 		driverName: "search",
 		scriptId: input.scriptId,
@@ -78,6 +79,8 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 		const runWithDb = yield* DbRunner;
 		const fs = yield* FileSystem.FileSystem;
 		const httpClient = yield* HttpClient.HttpClient;
+		const repository = yield* SandboxRepository;
+		const pluginRuntime = yield* PluginRuntimeResolver;
 		const entitiesRepository = yield* EntitiesRepository;
 		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
 
@@ -94,6 +97,9 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 				),
 			searchEntities: (input) =>
 				searchSandboxEntities(input).pipe(
+					Effect.provideService(DbRunner, runWithDb),
+					Effect.provideService(SandboxRepository, repository),
+					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
 					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
 				),
 			importEntity: (input) =>
@@ -114,6 +120,9 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 				}),
 			resolveExternalId: (input) =>
 				resolveSandboxEntityExternalId(input).pipe(
+					Effect.provideService(DbRunner, runWithDb),
+					Effect.provideService(SandboxRepository, repository),
+					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
 					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
 				),
 			writeCollectionMembership: (input) =>

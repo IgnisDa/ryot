@@ -20,6 +20,7 @@ import { requirePresent } from "~/support/assertions";
 import { adminHeaders } from "./fixtures/admin";
 import { cookieHeaderFromSetCookies, enableTwoFactorForSession } from "./fixtures/auth-2fa";
 import type { ContractPayload, ContractSuccess } from "./fixtures/contract-client";
+import { testPluginManifest } from "./fixtures/test-plugin";
 
 type EntitySchemaSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
 type PluginSlug = string;
@@ -146,6 +147,27 @@ class APIClient {
 	}
 }
 
+const seedPluginManifests = new Map<string, ReturnType<typeof testPluginManifest>>();
+
+async function installSeedDefinitions(
+	apiClient: APIClient,
+	input: {
+		pluginSlug: string;
+		entitySchemas: ReturnType<typeof testPluginManifest>["entitySchemas"];
+	},
+) {
+	const current = seedPluginManifests.get(input.pluginSlug);
+	const entitySchemas = [
+		...(current?.entitySchemas ?? []).filter(
+			(schema) => !input.entitySchemas.some((addition) => addition.slug === schema.slug),
+		),
+		...input.entitySchemas,
+	];
+	const manifest = testPluginManifest({ pluginSlug: input.pluginSlug, entitySchemas });
+	await apiClient.runAdmin((c) => c.plugins.install({ payload: { files: {}, manifest } }));
+	seedPluginManifests.set(input.pluginSlug, manifest);
+}
+
 async function seedSandboxScript(apiClient: APIClient) {
 	const value = `seed-script-${dayjs().valueOf()}`;
 	const source = `
@@ -257,13 +279,7 @@ async function createEntitySchema(
 		propertiesSchema: propertiesSchemaWithImages,
 		eventSchemas: [],
 	};
-	await apiClient.runAdmin((c) =>
-		c.testSupport.installDefinitions({
-			payload: {
-				entitySchemas: [definition],
-			},
-		}),
-	);
+	await installSeedDefinitions(apiClient, { pluginSlug, entitySchemas: [definition] });
 	const schema = { ...definition, id: slug as EntitySchemaSlug };
 
 	console.log(`    ✓ Created entity schema: ${name} (${schema.id})`);
@@ -284,21 +300,26 @@ async function createEventSchema(
 		`Entity schema '${entitySchemaSlug}' not found`,
 	);
 	const definition = { name, slug, propertiesSchema };
-	await apiClient.runAdmin((c) =>
-		c.testSupport.installDefinitions({
-			payload: {
-				entitySchemas: [
-					{
-						...entitySchema,
-						eventSchemas: [
-							...entitySchema.eventSchemas.filter((schema) => schema.slug !== slug),
-							definition,
-						],
-					},
+	const pluginSlug = requirePresent(
+		entitySchema.pluginSlug,
+		`Entity schema '${entitySchemaSlug}' is not owned by an installed plugin`,
+	);
+	await installSeedDefinitions(apiClient, {
+		pluginSlug,
+		entitySchemas: [
+			{
+				icon: entitySchema.icon,
+				name: entitySchema.name,
+				slug: entitySchema.slug,
+				accentColor: entitySchema.accentColor,
+				propertiesSchema: entitySchema.propertiesSchema,
+				eventSchemas: [
+					...entitySchema.eventSchemas.filter((schema) => schema.slug !== slug),
+					definition,
 				],
 			},
-		}),
-	);
+		],
+	});
 	const schema = { ...definition, id: slug };
 
 	console.log(`      ✓ Created event schema: ${name} (${schema.id})`);

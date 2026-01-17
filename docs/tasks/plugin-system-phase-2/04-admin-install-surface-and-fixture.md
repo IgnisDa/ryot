@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## Before you start
 
@@ -46,21 +46,21 @@ restate or re-derive it.
 
 ## Acceptance criteria
 
-- [ ] Admin `plugins` group provides `install`/`uninstall`/`list`; no plugin-specific typed
+- [x] Admin `plugins` group provides `install`/`uninstall`/`list`; no plugin-specific typed
       contract endpoints are added (Decision 9)
-- [ ] Uninstall is refused while entity rows reference the plugin's schemas, under test (plan
+- [x] Uninstall is refused while entity rows reference the plugin's schemas, under test (plan
       §6, §7)
-- [ ] Hot-install e2e passes: install a fake plugin → search/import through it → uninstall
+- [x] Hot-install e2e passes: install a fake plugin → search/import through it → uninstall
       (done criterion 4)
-- [ ] `promoteSandboxScript`/`deleteSandboxScript` and the Phase 1 temporary `testSupport`
+- [x] `promoteSandboxScript`/`deleteSandboxScript` and the Phase 1 temporary `testSupport`
       definition installer + its registry-mutation helper are gone from `tests/` and the
       contract; no fixture references the temporary seam (done criterion 3)
-- [ ] `installTestPlugin` replaces the provider fixture and `patchSandboxScript` is ported to
+- [x] `installTestPlugin` replaces the provider fixture and `patchSandboxScript` is ported to
       reinstall-with-modified-source; the full e2e suite is green using the new fixture (done
       criterion 3)
-- [ ] A deliberately corrupted plugin source fails ingestion/boot with a structured error, under
+- [x] A deliberately corrupted plugin source fails ingestion/boot with a structured error, under
       unit/integration test (done criterion 5)
-- [ ] `[IMPLEMENTER-DECIDES]` bundle-format choice is recorded in the plan; backend `check` +
+- [x] `[IMPLEMENTER-DECIDES]` bundle-format choice is recorded in the plan; backend `check` +
       unit tests, e2e suite, and `app-client` check pass (cross-phase invariant 1)
 
 ## User stories addressed

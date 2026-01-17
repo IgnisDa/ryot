@@ -29,6 +29,7 @@ import { LibraryRoutesLive } from "#modules/library-membership/routes";
 import { MediaMonitoringRoutesLive } from "#modules/media-monitoring/routes";
 import { MetadataLookupRoutesLive } from "#modules/metadata-lookup/routes";
 import { NotificationsRoutesLive } from "#modules/notifications/routes";
+import { PluginsRoutesLive } from "#modules/plugins/routes";
 import { QueryEngineRoutesLive } from "#modules/query-engine/routes";
 import { RelationshipsRoutesLive } from "#modules/relationships/routes";
 import { SandboxRoutesLive } from "#modules/sandbox/routes";
@@ -93,6 +94,7 @@ const ApiBaseLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(EventsRoutesLive),
 	Layer.provide(UploadsRoutesLive),
 	Layer.provide(SavedViewsRoutesLive),
+	Layer.provide(PluginsRoutesLive),
 	Layer.provide(CollectionsRoutesLive),
 	Layer.provide(Layer.mergeAll(GodModeRoutesLive, TestSupportRoutesLive)),
 	Layer.provide(ImportsRoutesLive),

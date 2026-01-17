@@ -22,4 +22,11 @@ describe("OpenAPI documentation", () => {
 		expect(undocumentedGroups).toEqual([]);
 		expect(undocumentedRoutes).toEqual([]);
 	});
+
+	it("documents the admin plugin management surface", () => {
+		const spec = OpenApi.fromApi(AppContract);
+		expect(spec.paths["/plugins"]?.get?.security).toEqual([{ adminToken: [] }]);
+		expect(spec.paths["/plugins"]?.post?.description).toContain("source file map");
+		expect(spec.paths["/plugins/{pluginSlug}"]?.delete?.responses["409"]).toBeDefined();
+	});
 });
