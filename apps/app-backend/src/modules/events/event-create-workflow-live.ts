@@ -344,6 +344,7 @@ const dispatchAfterTriggers = Effect.fn(function* (
 							trigger: {
 								eventId: event.id,
 								inheritedProperties,
+								phase: "after_create",
 								entityId: event.entityId,
 								createdAt: event.createdAt,
 								updatedAt: event.updatedAt,

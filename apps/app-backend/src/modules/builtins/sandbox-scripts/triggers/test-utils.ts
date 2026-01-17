@@ -1,57 +1,131 @@
+import type {
+	EntityRecord,
+	EntitySchemaRecord,
+	EventRecord,
+	IntegrationRecord,
+	JsonValue,
+} from "@ryot/sandbox-sdk";
+import type { AfterCreateTriggerInput, BeforeCreateTriggerInput } from "@ryot/sandbox-sdk/trigger";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 
-type HostFunction = (...args: Array<unknown>) => unknown;
+const timestamp = "2026-01-01T00:00:00.000Z";
 
-export const runTriggerScript = (
-	code: string,
-	context: unknown,
-	hostFunctions: Record<string, HostFunction>,
-): Promise<unknown> => {
-	const driverRegistry: Record<string, HostFunction> = {};
-	const register = (name: string, fn: HostFunction) => {
-		driverRegistry[name] = fn;
-	};
+export const execution = { metadata: {}, sandboxScriptId: "script-test" };
 
-	const hostNames = Object.keys(hostFunctions);
-	const hostImplementations = hostNames.map((name) => hostFunctions[name]);
-
-	// oxlint-disable-next-line no-implied-eval
-	const factory = new Function("driver", ...hostNames, code);
-	factory(register, ...hostImplementations);
-
-	const trigger = driverRegistry["trigger"];
-	if (!trigger) {
-		throw new Error("Script did not register a 'trigger' driver");
-	}
-
-	return Promise.resolve(trigger(context));
-};
-
-const PUSH_HELPER_NAMES =
-	"normalizeBaseUrl, parseJsonBody, integrationsDisabledForUser, listActiveIntegrations, fetchEntity, resolveEntityProviderName, collectionSyncMatches";
-
-export const wrapWithPushHelpers = (pushHelperCode: string, scriptCode: string) =>
-	`const { ${PUSH_HELPER_NAMES} } = (function () {\n${pushHelperCode}\n})();\n\n${scriptCode}`;
-
-export const hostSuccess = (data: unknown) => ({ success: true, data });
-
-export const toRecord = (value: unknown): Record<string, unknown> =>
-	isObjectRecord(value) ? value : Object.create(null);
-
-export const hostFailure = (error = "not found") => ({ error, success: false });
-
-export const httpSuccess = (body: unknown) => ({
-	success: true,
-	data: {
-		headers: {},
-		status: 200,
-		statusText: "OK",
-		body: typeof body === "string" ? body : JSON.stringify(body),
+export const afterCreateContext = (
+	overrides: Partial<AfterCreateTriggerInput["trigger"]> = {},
+): AfterCreateTriggerInput => ({
+	trigger: {
+		properties: {},
+		eventId: "event-1",
+		entityId: "entity-1",
+		createdAt: timestamp,
+		updatedAt: timestamp,
+		occurredAt: timestamp,
+		phase: "after_create",
+		inheritedProperties: {},
+		entitySchemaSlug: "movie",
+		eventSchemaSlug: "progress",
+		eventSchemaId: "event-schema-1",
+		entitySchemaId: "entity-schema-1",
+		...overrides,
 	},
 });
 
-export const httpFailure = (error = "request failed", status = 500) => ({
-	error,
-	success: false,
-	data: { status },
+export const beforeCreateContext = (
+	overrides: Partial<BeforeCreateTriggerInput["trigger"]> = {},
+): BeforeCreateTriggerInput => ({
+	trigger: {
+		properties: {},
+		userId: "user-1",
+		entityId: "entity-1",
+		origin: "integration",
+		occurredAt: timestamp,
+		phase: "before_create",
+		entitySchemaSlug: "movie",
+		eventSchemaSlug: "progress",
+		integrationId: "integration-1",
+		eventSchemaId: "event-schema-1",
+		entitySchemaId: "entity-schema-1",
+		...overrides,
+	},
 });
+
+export const entityRecord = (overrides: Partial<EntityRecord> = {}): EntityRecord => ({
+	id: "entity-1",
+	properties: {},
+	name: "Entity",
+	externalId: null,
+	populatedAt: null,
+	createdAt: timestamp,
+	updatedAt: timestamp,
+	sandboxScriptId: null,
+	entitySchemaId: "entity-schema-1",
+	...overrides,
+});
+
+export const entitySchemaRecord = (
+	overrides: Partial<EntitySchemaRecord> = {},
+): EntitySchemaRecord => ({
+	providers: [],
+	icon: "circle",
+	name: "Entity",
+	slug: "entity",
+	isBuiltin: true,
+	propertiesSchema: {},
+	id: "entity-schema-1",
+	trackerId: "tracker-1",
+	accentColor: "#000000",
+	...overrides,
+});
+
+export const eventRecord = (overrides: Partial<EventRecord> = {}): EventRecord => ({
+	id: "event-1",
+	properties: {},
+	entityId: "entity-1",
+	createdAt: timestamp,
+	updatedAt: timestamp,
+	occurredAt: timestamp,
+	eventSchemaName: "Progress",
+	eventSchemaSlug: "progress",
+	eventSchemaId: "event-schema-1",
+	...overrides,
+});
+
+export const integrationRecord = (
+	overrides: Partial<IntegrationRecord> = {},
+): IntegrationRecord => ({
+	name: null,
+	lot: "push",
+	userId: "user-1",
+	isDisabled: false,
+	provider: "radarr",
+	minimumProgress: 2,
+	id: "integration-1",
+	syncOwnership: false,
+	maximumProgress: 95,
+	lastFinishedAt: null,
+	createdAt: timestamp,
+	updatedAt: timestamp,
+	providerSpecifics: {},
+	extraSettings: { disableOnContinuousErrors: false },
+	...overrides,
+});
+
+export const hostSuccess = <Data>(data: Data) => Promise.resolve({ success: true as const, data });
+
+export const hostFailure = (message = "not found") =>
+	Promise.resolve({ error: message, success: false as const });
+
+export const httpSuccess = (body: JsonValue) =>
+	hostSuccess({
+		status: 200,
+		headers: {},
+		body: typeof body === "string" ? body : JSON.stringify(body),
+	});
+
+export const httpFailure = (message = "request failed", status = 500) =>
+	Promise.resolve({ error: message, success: false as const, data: { status } });
+
+export const toRecord = (value: unknown): Record<string, unknown> =>
+	isObjectRecord(value) ? value : Object.create(null);

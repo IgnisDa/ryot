@@ -1,9 +1,13 @@
-import { sandboxShowDotTmdbScript } from "./generated-sandbox/registry";
 import {
-	withDelimiterTitleCaseHelper,
-	withPushHelpers,
-	withTitleCaseHelper,
-} from "./legacy-sandbox-helpers";
+	type GeneratedBuiltinSandboxScript,
+	sandboxShowDotTmdbScript,
+	sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript,
+	sandboxTriggerDotIntegrationDashProgressDashPolicyScript,
+	sandboxTriggerDotJellyfinDashPushScript,
+	sandboxTriggerDotRadarrDashPushScript,
+	sandboxTriggerDotSonarrDashPushScript,
+} from "./generated-sandbox/registry";
+import { withDelimiterTitleCaseHelper, withTitleCaseHelper } from "./legacy-sandbox-helpers";
 import anilistCompanyScriptCode from "./sandbox-scripts/providers/company/anilist.sandbox.js" with { type: "text" };
 import giantBombCompanyScriptCode from "./sandbox-scripts/providers/company/giant-bomb.sandbox.js" with { type: "text" };
 import hardcoverCompanyScriptCode from "./sandbox-scripts/providers/company/hardcover.sandbox.js" with { type: "text" };
@@ -55,11 +59,6 @@ import spotifyPersonScriptCode from "./sandbox-scripts/providers/person/spotify.
 import tmdbPersonScriptCode from "./sandbox-scripts/providers/person/tmdb.sandbox.js" with { type: "text" };
 import tvdbPersonScriptCode from "./sandbox-scripts/providers/person/tvdb.sandbox.js" with { type: "text" };
 import youtubeMusicPersonScriptCode from "./sandbox-scripts/providers/person/youtube-music.sandbox.js" with { type: "text" };
-import autoCompleteOnFullProgressScriptCode from "./sandbox-scripts/triggers/auto-complete-on-full-progress.sandbox.js" with { type: "text" };
-import integrationProgressPolicyScriptCode from "./sandbox-scripts/triggers/integration-progress-policy.sandbox.js" with { type: "text" };
-import jellyfinPushScriptCode from "./sandbox-scripts/triggers/jellyfin-push.sandbox.js" with { type: "text" };
-import radarrPushScriptCode from "./sandbox-scripts/triggers/radarr-push.sandbox.js" with { type: "text" };
-import sonarrPushScriptCode from "./sandbox-scripts/triggers/sonarr-push.sandbox.js" with { type: "text" };
 
 const BUILTIN_ALLOWED_HOST_FUNCTIONS: string[] = [
 	"httpCall",
@@ -307,69 +306,11 @@ export const builtinSandboxScripts = () => [
 		"giant-bomb",
 		["providers.giantBombApiKey"],
 	),
-	{
-		name: "Auto-Complete on Full Progress",
-		code: autoCompleteOnFullProgressScriptCode,
-		slug: "trigger.auto-complete-on-full-progress",
-		metadata: {
-			allowedHostFunctions: ["getEntity", "listEvents", "createEvents", "listEventSchemas"],
-		},
-	},
-	{
-		name: "Integration Progress Policy",
-		code: integrationProgressPolicyScriptCode,
-		slug: "trigger.integration-progress-policy",
-		metadata: {
-			allowedHostFunctions: [
-				"listEvents",
-				"getIntegration",
-				"claimCachedValue",
-				"getAppConfigValue",
-			],
-		},
-	},
-	{
-		name: "Radarr Push",
-		slug: "trigger.radarr-push",
-		code: withPushHelpers(radarrPushScriptCode),
-		metadata: {
-			allowedHostFunctions: [
-				"httpCall",
-				"getEntity",
-				"getEntitySchema",
-				"listIntegrations",
-				"getUserPreferences",
-			],
-		},
-	},
-	{
-		name: "Sonarr Push",
-		slug: "trigger.sonarr-push",
-		code: withPushHelpers(sonarrPushScriptCode),
-		metadata: {
-			allowedHostFunctions: [
-				"httpCall",
-				"getEntity",
-				"getEntitySchema",
-				"listIntegrations",
-				"getUserPreferences",
-			],
-		},
-	},
-	{
-		name: "Jellyfin Push",
-		slug: "trigger.jellyfin-push",
-		code: withPushHelpers(jellyfinPushScriptCode),
-		metadata: {
-			allowedHostFunctions: [
-				"httpCall",
-				"getEntity",
-				"getEntitySchema",
-				"listIntegrations",
-				"getUserPreferences",
-			],
-		},
-	},
+	sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript,
+	sandboxTriggerDotIntegrationDashProgressDashPolicyScript,
+	sandboxTriggerDotRadarrDashPushScript,
+	sandboxTriggerDotSonarrDashPushScript,
+	sandboxTriggerDotJellyfinDashPushScript,
 ];
 
 export const entitySchemaSandboxScriptLinks = () =>
@@ -401,47 +342,46 @@ export const entitySchemaSandboxScriptLinks = () =>
 export const fitnessSchemaSandboxScriptLinks = () =>
 	[{ schemaSlug: "exercise", scriptSlug: "exercise.free-exercise-db" }] as const;
 
+const triggerLink = (
+	entry: GeneratedBuiltinSandboxScript,
+	input: {
+		readonly position: number;
+		readonly eventSchemaSlug: string;
+		readonly metadata: { readonly inheritedProperties?: readonly string[] };
+	},
+) => {
+	if (entry.manifest.kind !== "trigger") {
+		throw new Error(`Built-in trigger link requires a trigger manifest: ${entry.slug}`);
+	}
+	return { ...input, scriptSlug: entry.slug, triggerName: entry.name, phase: entry.manifest.mode };
+};
+
 export const builtinEventSchemaTriggerLinks = () => [
-	{
+	triggerLink(sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript, {
 		position: 1000,
-		phase: "after_create",
 		eventSchemaSlug: "progress",
-		triggerName: "Auto-Complete on Full Progress",
 		metadata: { inheritedProperties: ["consumedOn"] },
-		scriptSlug: "trigger.auto-complete-on-full-progress",
-	},
-	{
+	}),
+	triggerLink(sandboxTriggerDotIntegrationDashProgressDashPolicyScript, {
+		metadata: {},
 		position: 100,
-		metadata: {},
-		phase: "before_create",
 		eventSchemaSlug: "progress",
-		triggerName: "Integration Progress Policy",
-		scriptSlug: "trigger.integration-progress-policy",
-	},
-	{
-		position: 1000,
+	}),
+	triggerLink(sandboxTriggerDotRadarrDashPushScript, {
 		metadata: {},
-		phase: "after_create",
-		triggerName: "Radarr Push",
-		scriptSlug: "trigger.radarr-push",
+		position: 1000,
 		eventSchemaSlug: "add-entity-to-collection",
-	},
-	{
-		position: 1000,
+	}),
+	triggerLink(sandboxTriggerDotSonarrDashPushScript, {
 		metadata: {},
-		phase: "after_create",
-		triggerName: "Sonarr Push",
-		scriptSlug: "trigger.sonarr-push",
+		position: 1000,
 		eventSchemaSlug: "add-entity-to-collection",
-	},
-	{
-		position: 1000,
+	}),
+	triggerLink(sandboxTriggerDotJellyfinDashPushScript, {
 		metadata: {},
-		phase: "after_create",
+		position: 1000,
 		eventSchemaSlug: "complete",
-		triggerName: "Jellyfin Push",
-		scriptSlug: "trigger.jellyfin-push",
-	},
+	}),
 ];
 
 export const personSchemaSandboxScriptLinks = () =>
