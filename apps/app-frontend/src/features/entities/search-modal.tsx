@@ -157,9 +157,26 @@ export function SearchEntityModalContent(props: {
 				pendingAction: "add",
 			});
 
+			let entityId: string | null = null;
 			try {
-				await addItem(item);
+				const entity = await addItem(item);
+				entityId = entity.id;
 				markDone(item.identifier, ["track"]);
+
+				if (collectionState.type === "collections") {
+					const firstCollection = collectionState.collections[0];
+					if (firstCollection) {
+						await addToCollection.mutateAsync({
+							body: {
+								entityId: entity.id,
+								collectionId: firstCollection.id,
+								properties: {},
+							},
+						});
+						markDone(item.identifier, ["collection"]);
+					}
+				}
+
 				props.onActionCompleted?.();
 				notifications.show({
 					color: "green",
@@ -171,16 +188,25 @@ export function SearchEntityModalContent(props: {
 					return;
 				}
 
+				const message = entityId
+					? `${item.titleProperty.value} is in your library, but could not be added to the collection: ${getErrorMessage(error)}`
+					: getErrorMessage(error);
+				if (entityId) {
+					markDone(item.identifier, ["track"]);
+				}
+				patchActionState(item.identifier, {
+					actionError: message,
+				});
 				notifications.show({
-					color: "red",
-					title: "Could not add item",
-					message: getErrorMessage(error),
+					color: entityId ? "yellow" : "red",
+					title: entityId ? "Partially saved" : "Could not add item",
+					message,
 				});
 			} finally {
 				patchActionState(item.identifier, { pendingAction: null });
 			}
 		},
-		[addItem, markDone, patchActionState],
+		[addItem, markDone, patchActionState, addToCollection, collectionState],
 	);
 
 	const runLifecycleAction = useCallback(
