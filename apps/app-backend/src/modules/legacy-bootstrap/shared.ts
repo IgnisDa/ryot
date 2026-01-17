@@ -7,13 +7,13 @@ import { dbEffect, DbService } from "#lib/infrastructure/db/service";
 export type EntityMigrationTarget = {
 	source: string;
 	entitySchemaSlug: string;
-	sandboxScriptSlug: string | null;
+	providerSlug: string | null;
 };
 
 export type ResolvedEntityMigrationTarget = {
 	source: string;
 	entitySchemaSlug: string;
-	sandboxScriptId: string | null;
+	providerId: string | null;
 };
 
 export type LotEntityMigrationTarget = EntityMigrationTarget & { lot: string };
@@ -96,7 +96,7 @@ export const buildLotEntityTargetValuesSql = (targets: ResolvedLotEntityMigratio
 	targets
 		.map(
 			(t) =>
-				`(${quoteSqlString(t.lot)}, ${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaSlug)}, ${quoteNullableSqlString(t.sandboxScriptId)})`,
+				`(${quoteSqlString(t.lot)}, ${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaSlug)}, ${quoteNullableSqlString(t.providerId)})`,
 		)
 		.join(", ");
 
@@ -104,7 +104,7 @@ export const buildEntityTargetValuesSql = (targets: ResolvedEntityMigrationTarge
 	targets
 		.map(
 			(t) =>
-				`(${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaSlug)}, ${quoteNullableSqlString(t.sandboxScriptId)})`,
+				`(${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaSlug)}, ${quoteNullableSqlString(t.providerId)})`,
 		)
 		.join(", ");
 
