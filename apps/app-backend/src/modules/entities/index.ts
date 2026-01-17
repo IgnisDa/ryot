@@ -3,12 +3,15 @@ export type {
 	ListedEntity,
 } from "./schemas";
 export type {
+	CreateEntityWithCollectionInput,
+	CreateEntityWithCollectionResult,
 	EntityPropertiesShape,
 	EntityServiceDeps,
 	EntityServiceResult,
 } from "./service";
 export {
 	createEntity,
+	createEntityWithCollection,
 	getEntityDetail,
 	parseEntityImage,
 	parseEntityProperties,
