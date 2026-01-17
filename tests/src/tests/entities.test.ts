@@ -34,7 +34,7 @@ import {
 } from "../fixtures";
 import { pollUntil } from "../fixtures/polling";
 import { getPgClient } from "../setup";
-import { assertTaggedError } from "../test-support/assertions";
+import { assertPresent, assertTaggedError } from "../test-support/assertions";
 
 async function insertUserRelationship(input: {
 	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"];
@@ -70,9 +70,7 @@ async function getLibraryEntityId(userId: string) {
 	);
 
 	const libraryEntityId = result.rows[0]?.id;
-	if (!libraryEntityId) {
-		throw new Error(`Missing library entity for user '${userId}'`);
-	}
+	assertPresent(libraryEntityId, `Missing library entity for user '${userId}'`);
 
 	return EntityId.make(libraryEntityId);
 }

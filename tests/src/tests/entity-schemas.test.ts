@@ -22,7 +22,12 @@ import {
 	pollEntityImportResult,
 	pollEntitySearchResult,
 } from "../fixtures";
-import { assertPresent, assertTaggedError, requireObjectRecord } from "../test-support/assertions";
+import {
+	assertCondition,
+	assertPresent,
+	assertTaggedError,
+	requireObjectRecord,
+} from "../test-support/assertions";
 
 describe("GET /entity-schemas", () => {
 	it("returns 200 and lists built-in entity schemas for built-in tracker", async () => {
@@ -736,9 +741,10 @@ describe("GET /entity-import/{jobId}", () => {
 			timeoutMs: 30_000,
 		});
 
-		if (result.status !== "completed") {
-			throw new Error(`Expected import job to complete, got '${result.status}'`);
-		}
+		assertCondition(
+			result.status === "completed",
+			`Expected import job to complete, got '${result.status}'`,
+		);
 
 		const properties = requireObjectRecord(
 			result.data.properties,
@@ -782,9 +788,10 @@ describe("GET /entity-import/{jobId}", () => {
 			timeoutMs: 30_000,
 		});
 
-		if (result.status !== "completed") {
-			throw new Error(`Expected import job to complete, got '${result.status}'`);
-		}
+		assertCondition(
+			result.status === "completed",
+			`Expected import job to complete, got '${result.status}'`,
+		);
 
 		const populatedAt = result.data.populatedAt;
 
