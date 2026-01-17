@@ -220,10 +220,11 @@ export const adaptJellyfinData = Effect.fn("jellyfinAdapter.adaptData")(function
 				group.events.push({
 					occurredAt,
 					eventSchemaSlug: "progress",
-					properties: {
-						progressPercent: 100,
-						showEpisode: item.IndexNumber,
-						showSeason: item.ParentIndexNumber,
+					properties: { progressPercent: 100 },
+					episodeLocator: {
+						type: "show",
+						episodeNumber: item.IndexNumber,
+						seasonNumber: item.ParentIndexNumber,
 					},
 				});
 				if (item.UserData?.IsFavorite) {

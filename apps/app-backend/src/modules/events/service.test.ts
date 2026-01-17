@@ -463,11 +463,17 @@ it.effect("createForImport waits for the queued workflow result", () => {
 				},
 			],
 			ImportRunId.make("run-1"),
+			"run-1-event-0-0",
 		);
 
 		expect(result).toEqual({ count: 1 });
 		expect(capturedOptions).toMatchObject({
-			payload: { userId: user.id, origin: "import", importRunId: "run-1" },
+			payload: {
+				userId: user.id,
+				origin: "import",
+				importRunId: "run-1",
+				executionId: "run-1-event-0-0",
+			},
 		});
 		expect(capturedOptions?.discard).toBeUndefined();
 	}).pipe(Effect.provide(layer));
