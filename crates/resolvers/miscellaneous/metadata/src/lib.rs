@@ -25,6 +25,7 @@ impl MiscellaneousMetadataQueryResolver {
     }
 
     /// Get all the media items related to a user for a specific media type.
+    #[tracing::instrument(skip(self, gql_ctx))]
     async fn user_metadata_list(
         &self,
         gql_ctx: &Context<'_>,

@@ -170,6 +170,7 @@ where
     .into()
 }
 
+#[tracing::instrument(skip(ss))]
 pub async fn user_metadata_list(
     user_id: &String,
     input: UserMetadataListInput,

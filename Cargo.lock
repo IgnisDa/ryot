@@ -2128,6 +2128,7 @@ dependencies = [
  "rust_decimal",
  "sea-orm",
  "supporting-service",
+ "tracing",
 ]
 
 [[package]]
