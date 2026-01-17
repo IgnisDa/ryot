@@ -1,7 +1,7 @@
 import type { Schema } from "@ryot/sandbox-sdk/effect";
 
-import type { ActivityManifest } from "./core.js";
-import { SANDBOX_SCRIPT_DEFINITION, type GenericScriptDefinition } from "./driver.js";
+import type { ActivityManifest } from "./core";
+import { SANDBOX_SCRIPT_DEFINITION, type GenericScriptDefinition } from "./driver";
 
 export const defineActivity = <
 	const Manifest extends ActivityManifest,
