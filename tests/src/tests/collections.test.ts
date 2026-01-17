@@ -326,10 +326,10 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data?.collection?.id).toBeDefined();
-			expect(data?.data?.collection?.relType).toBe("collection");
-			expect(data?.data?.collection?.sourceEntityId).toBe(parentCollection.id);
-			expect(data?.data?.collection?.targetEntityId).toBe(childCollection.id);
+			expect(data?.data?.memberOf?.id).toBeDefined();
+			expect(data?.data?.memberOf?.relType).toBe("member_of");
+			expect(data?.data?.memberOf?.sourceEntityId).toBe(childCollection.id);
+			expect(data?.data?.memberOf?.targetEntityId).toBe(parentCollection.id);
 		});
 
 		it("returns validation error when trying to add a collection to itself", async () => {
@@ -396,10 +396,10 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data?.collection?.id).toBeDefined();
-			expect(data?.data?.collection?.relType).toBe("collection");
-			expect(data?.data?.collection?.sourceEntityId).toBe(collection.id);
-			expect(data?.data?.collection?.targetEntityId).toBe(entity.id);
+			expect(data?.data?.memberOf?.id).toBeDefined();
+			expect(data?.data?.memberOf?.relType).toBe("member_of");
+			expect(data?.data?.memberOf?.sourceEntityId).toBe(entity.id);
+			expect(data?.data?.memberOf?.targetEntityId).toBe(collection.id);
 		});
 
 		it("adds an entity with custom properties", async () => {
@@ -451,7 +451,7 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data?.collection?.properties).toMatchObject({
+			expect(data?.data?.memberOf?.properties).toMatchObject({
 				rating: 5,
 				recommendedBy: "John",
 			});
@@ -512,13 +512,10 @@ describe("POST /collections", () => {
 
 			expect(first.response.status).toBe(200);
 			expect(second.response.status).toBe(200);
-			expect(second.data?.data?.collection?.id).toBe(
-				first.data?.data?.collection?.id,
-			);
 			expect(second.data?.data?.memberOf?.id).toBe(
 				first.data?.data?.memberOf?.id,
 			);
-			expect(second.data?.data?.collection?.properties).toMatchObject({
+			expect(second.data?.data?.memberOf?.properties).toMatchObject({
 				rating: 5,
 				recommendedBy: "Bob",
 			});
@@ -654,7 +651,7 @@ describe("POST /collections", () => {
 		});
 	});
 
-	it("removes an entity from a collection and deletes both relationships", async () => {
+	it("removes an entity from a collection and deletes the membership", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
 		// Create a collection
@@ -697,7 +694,7 @@ describe("POST /collections", () => {
 		);
 
 		expect(addResponse.status).toBe(200);
-		expect(addData?.data?.collection?.relType).toBe("collection");
+		expect(addData?.data?.memberOf?.relType).toBe("member_of");
 
 		// Now remove the entity from the collection
 		const { data: removeData, response: removeResponse } = await client.DELETE(
@@ -709,10 +706,7 @@ describe("POST /collections", () => {
 		);
 
 		expect(removeResponse.status).toBe(200);
-		expect(removeData?.data?.collection?.relType).toBe("collection");
 		expect(removeData?.data?.memberOf?.relType).toBe("member_of");
-		expect(removeData?.data?.collection?.sourceEntityId).toBe(collection.id);
-		expect(removeData?.data?.collection?.targetEntityId).toBe(entity.id);
 		expect(removeData?.data?.memberOf?.sourceEntityId).toBe(entity.id);
 		expect(removeData?.data?.memberOf?.targetEntityId).toBe(collection.id);
 	});

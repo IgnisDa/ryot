@@ -181,7 +181,7 @@ export const addToCollection = async (
 		validatedProperties = input.body.properties ?? {};
 	}
 
-	// Create the relationships (collection and member_of)
+	// Create the canonical member_of relationship
 	const relationships = await deps.addEntityToCollection({
 		collectionId: input.body.collectionId,
 		entityId: input.body.entityId,
@@ -217,11 +217,11 @@ export const removeFromCollection = async (
 		return serviceError("not_found", entityNotFoundError);
 	}
 
-	// Remove the relationships
+	// Remove the canonical member_of relationship
 	const relationships = await deps.removeEntityFromCollection({
-		collectionId: input.body.collectionId,
-		entityId: input.body.entityId,
 		userId: input.userId,
+		entityId: input.body.entityId,
+		collectionId: input.body.collectionId,
 	});
 
 	if (!relationships) {
