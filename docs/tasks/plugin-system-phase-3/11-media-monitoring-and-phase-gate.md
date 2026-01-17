@@ -13,9 +13,6 @@ Before starting, read `docs/plans/plugin-system/00-overview.md` in full and then
 is complete — that is tasks 07, 08, 09, and 10, all gated. This slice is composition — it uses only
 capabilities the earlier steps already landed — plus the phase gate (plan §5 and "Phase gate").
 
-Step 4 absorbed all of the imports and integrations work, so this task is narrower than earlier
-drafts implied: `media-monitoring` plus residual media branches, then the gate.
-
 Migration:
 
 - Rewrite `modules/media-monitoring` as composition: monitoring sweeps = cron +
