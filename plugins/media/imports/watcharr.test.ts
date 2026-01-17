@@ -68,7 +68,7 @@ describe("adaptWatcharrExportBatch", () => {
 					eventSchemaSlug: "progress",
 					properties: { progressPercent: 100 },
 					occurredAt: "2026-01-02T10:00:00.000Z",
-					episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 2 },
+					unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 2 },
 				},
 				{
 					eventSchemaSlug: "dropped",

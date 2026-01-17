@@ -1,4 +1,4 @@
-import { Schema } from "@ryot/sandbox-sdk/effect";
+import { Schema } from "@ryot/sandbox-sdk/workflow";
 
 const MetadataLookupData = Schema.Struct({
 	identifier: Schema.String,
@@ -41,6 +41,7 @@ export const MetadataLookupOutput = Schema.Struct({
 export type MetadataLookupOutput = Schema.Schema.Type<typeof MetadataLookupOutput>;
 
 const ShowEpisodeRef = Schema.Struct({
+	index: Schema.Int,
 	seasonNumber: Schema.Int,
 	episodeNumber: Schema.Int,
 	showEntityId: Schema.String,
@@ -48,6 +49,7 @@ const ShowEpisodeRef = Schema.Struct({
 });
 
 const PodcastEpisodeRef = Schema.Struct({
+	index: Schema.Int,
 	episodeNumber: Schema.Int,
 	podcastEntityId: Schema.String,
 	kind: Schema.Literal("podcast"),
@@ -64,7 +66,9 @@ export const ResolveEpisodesInput = Schema.Struct({
 export type ResolveEpisodesInput = Schema.Schema.Type<typeof ResolveEpisodesInput>;
 
 export const ResolveEpisodesOutput = Schema.Struct({
-	results: Schema.Array(Schema.Struct({ entityId: Schema.NullOr(Schema.String) })),
+	results: Schema.Array(
+		Schema.Struct({ index: Schema.Int, entityId: Schema.NullOr(Schema.String) }),
+	),
 });
 
 export type ResolveEpisodesOutput = Schema.Schema.Type<typeof ResolveEpisodesOutput>;

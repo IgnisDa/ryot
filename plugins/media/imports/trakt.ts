@@ -156,7 +156,7 @@ export const adaptTraktData = (username: string, clientId: string, host: HttpHos
 					occurredAt: item.watched_at,
 					eventSchemaSlug: "progress",
 					properties: { progressPercent: 100 },
-					episodeLocator: {
+					unresolvedEpisode: {
 						type: "show",
 						seasonNumber: item.episode.season,
 						episodeNumber: item.episode.number,

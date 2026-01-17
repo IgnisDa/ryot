@@ -174,7 +174,7 @@ export const adaptJellyfinData = (
 				occurredAt,
 				eventSchemaSlug: "progress",
 				properties: { progressPercent: 100 },
-				episodeLocator: {
+				unresolvedEpisode: {
 					type: "show",
 					episodeNumber: item.IndexNumber,
 					seasonNumber: item.ParentIndexNumber,

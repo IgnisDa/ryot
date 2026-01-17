@@ -186,7 +186,7 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 				properties: { progressPercent: 100 },
 				eventSchemaSlug: "progress",
 				occurredAt: parsed.right.date,
-				episodeLocator: {
+				unresolvedEpisode: {
 					type: "show",
 					seasonNumber: parsed.right.episode.season,
 					episodeNumber: parsed.right.episode.episode,
