@@ -195,21 +195,12 @@ function SearchResultActions(props: {
 					(props.isWorking && props.actionState.pendingAction !== "collection")
 				}
 				variant={
-					props.actionState.openPanel === "collection"
-						? "filled"
-						: props.actionState.doneActions.includes("collection")
-							? "light"
-							: "subtle"
+					props.actionState.openPanel === "collection" ? "filled" : "subtle"
 				}
 				style={
 					props.actionState.openPanel === "collection"
 						? { backgroundColor: props.accentColor, color: "white" }
-						: props.actionState.doneActions.includes("collection")
-							? {
-									backgroundColor: withAlpha(props.accentColor, 0.12),
-									color: props.accentColor,
-								}
-							: undefined
+						: undefined
 				}
 			>
 				Collection
