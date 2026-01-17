@@ -10,6 +10,7 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			sandboxService,
 			sandboxWorkflow,
 			eventCreateCore,
+			exercisePreload,
 			entityImportWorkflow,
 			libraryWorkflow,
 			mediaImportWorkflow,
@@ -18,6 +19,7 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			readModule("./service.ts"),
 			readModule("./workflows.ts"),
 			readModule("../events/create-core.ts"),
+			readModule("../exercises/preload.ts"),
 			readModule("../entity-import/workflows.ts"),
 			readModule("../library/workflows.ts"),
 			readModule("../imports/workflows.ts"),
@@ -25,7 +27,8 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 		]);
 
 		expect(sandboxService.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
-		expect(eventCreateCore.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
+		expect(eventCreateCore.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(2);
+		expect(exercisePreload.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
 		expect(sandboxWorkflow).toContain("DurableQueue.process(SandboxExecutionQueue, payload)");
 
 		for (const source of [
