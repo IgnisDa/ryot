@@ -1,9 +1,20 @@
 #!/usr/bin/env bun
 
+const compileCommand = [process.execPath, "run", "scripts/compile-sandbox-builtins.ts"];
 export const developmentCommands = [
-	[process.execPath, "run", "scripts/compile-sandbox-builtins.ts", "--watch", "--skip-initial"],
+	[...compileCommand, "--watch", "--skip-initial"],
 	[process.execPath, "run", "--watch", "src/main.ts"],
 ];
+const compilation = Bun.spawn({
+	cmd: compileCommand,
+	stdin: "inherit",
+	stdout: "inherit",
+	stderr: "inherit",
+});
+const compilationExitCode = await compilation.exited;
+if (compilationExitCode !== 0) {
+	process.exit(compilationExitCode);
+}
 const processes = developmentCommands.map((cmd) =>
 	Bun.spawn({ cmd, stdin: "inherit", stdout: "inherit", stderr: "inherit" }),
 );
