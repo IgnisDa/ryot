@@ -4,10 +4,12 @@ import {
 } from "@ryot/contract/modules/sandbox/schemas";
 import { sandboxManifestSchema, type SandboxManifest } from "@ryot/sandbox-sdk";
 import { Effect } from "effect";
-import ts from "typescript-compiler";
+import * as ts from "typescript/unstable/ast";
+import { DiagnosticCategory, type Diagnostic } from "typescript/unstable/async";
 
 import { isSandboxHostCapability } from "./capabilities";
 import { bundleUserScript } from "./compiler-bundle";
+import { createTypeScriptProject } from "./compiler-project";
 
 export const SANDBOX_COMPILED_FORMAT = 1 as const;
 
@@ -19,7 +21,6 @@ export type CompiledSandboxModule = {
 
 const sourceFile = "script.ts";
 const sdkImport = "@ryot/sandbox-sdk";
-const virtualSourceFile = "/__ryot_sandbox__/script.ts";
 const compilationFailedMessage = "Sandbox TypeScript compilation failed";
 
 const diagnosticAt = (
@@ -48,19 +49,25 @@ const compilationFailure = (diagnostics: readonly SandboxCompilationDiagnostic[]
 		diagnostics: [...diagnostics],
 	});
 
-const diagnosticSeverity = (category: ts.DiagnosticCategory) => {
-	if (category === ts.DiagnosticCategory.Warning) {
+const diagnosticSeverity = (category: DiagnosticCategory) => {
+	if (category === DiagnosticCategory.Warning) {
 		return "warning" as const;
 	}
-	if (category === ts.DiagnosticCategory.Message || category === ts.DiagnosticCategory.Suggestion) {
+	if (category === DiagnosticCategory.Message || category === DiagnosticCategory.Suggestion) {
 		return "info" as const;
 	}
 	return "error" as const;
 };
 
-const toTypeScriptDiagnostic = (diagnostic: ts.Diagnostic): SandboxCompilationDiagnostic => {
-	const start = diagnostic.start ?? 0;
-	const location = diagnostic.file?.getLineAndCharacterOfPosition(start);
+const diagnosticMessage = (diagnostic: Diagnostic): string =>
+	[diagnostic.text, ...(diagnostic.messageChain ?? []).map(diagnosticMessage)].join("\n");
+
+const toTypeScriptDiagnostic = (
+	diagnostic: Diagnostic,
+	file: ts.SourceFile,
+): SandboxCompilationDiagnostic => {
+	const start = Math.max(0, diagnostic.pos);
+	const location = diagnostic.fileName ? file.getLineAndCharacterOfPosition(start) : undefined;
 
 	return {
 		file: sourceFile,
@@ -68,13 +75,13 @@ const toTypeScriptDiagnostic = (diagnostic: ts.Diagnostic): SandboxCompilationDi
 		line: (location?.line ?? 0) + 1,
 		column: (location?.character ?? 0) + 1,
 		severity: diagnosticSeverity(diagnostic.category),
-		message: ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"),
-		...(diagnostic.length === undefined ? {} : { length: diagnostic.length }),
+		message: diagnosticMessage(diagnostic),
+		...(diagnostic.end > diagnostic.pos ? { length: diagnostic.end - diagnostic.pos } : {}),
 	};
 };
 
 const getModuleSpecifier = (node: ts.ImportDeclaration | ts.ExportDeclaration) =>
-	node.moduleSpecifier && ts.isStringLiteralLike(node.moduleSpecifier)
+	node.moduleSpecifier && ts.isStringLiteralLikeNode(node.moduleSpecifier)
 		? node.moduleSpecifier.text
 		: null;
 
@@ -148,7 +155,7 @@ const inspectImports = (file: ts.SourceFile) => {
 				diagnosticAt(node, "RYOT_IMPORT", "Import type expressions are not allowed"),
 			);
 		}
-		ts.forEachChild(node, visit);
+		node.forEachChild(visit);
 	};
 	visit(file);
 
@@ -171,7 +178,7 @@ const unwrapExpression = (expression: ts.Expression): ts.Expression => {
 };
 
 const propertyName = (name: ts.PropertyName) => {
-	if (ts.isIdentifier(name) || ts.isStringLiteralLike(name) || ts.isNumericLiteral(name)) {
+	if (ts.isIdentifier(name) || ts.isStringLiteralLikeNode(name) || ts.isNumericLiteral(name)) {
 		return name.text;
 	}
 	return null;
@@ -179,7 +186,7 @@ const propertyName = (name: ts.PropertyName) => {
 
 const readLiteral = (rawExpression: ts.Expression): LiteralResult => {
 	const expression = unwrapExpression(rawExpression);
-	if (ts.isStringLiteralLike(expression)) {
+	if (ts.isStringLiteralLikeNode(expression)) {
 		return { ok: true, value: expression.text };
 	}
 	if (ts.isNumericLiteral(expression)) {
@@ -353,92 +360,27 @@ const extractManifest = (file: ts.SourceFile, manifestHelpers: ReadonlySet<strin
 	return { manifest: parsed.data };
 };
 
-const typeCheck = (source: string, sdkEntry: string, compilerEntry: string) => {
-	const options: ts.CompilerOptions = {
-		types: [],
-		strict: true,
-		noEmit: true,
-		skipLibCheck: true,
-		isolatedModules: true,
-		noImplicitReturns: true,
-		module: ts.ModuleKind.ESNext,
-		target: ts.ScriptTarget.ES2022,
-		noUncheckedIndexedAccess: true,
-		exactOptionalPropertyTypes: true,
-		allowSyntheticDefaultImports: true,
-		lib: ["lib.es2022.d.ts", "lib.dom.d.ts"],
-		moduleDetection: ts.ModuleDetectionKind.Force,
-		moduleResolution: ts.ModuleResolutionKind.Bundler,
-	};
-	const defaultHost = ts.createCompilerHost(options, true);
-	const compilerLibDirectory = compilerEntry.slice(0, compilerEntry.lastIndexOf("/"));
-	const cache = ts.createModuleResolutionCache(
-		defaultHost.getCurrentDirectory(),
-		(fileName) => defaultHost.getCanonicalFileName(fileName),
-		options,
-	);
-	const host: ts.CompilerHost = {
-		...defaultHost,
-		getDefaultLibLocation: () => compilerLibDirectory,
-		getDefaultLibFileName: () => `${compilerLibDirectory}/lib.d.ts`,
-		fileExists: (fileName) => fileName === virtualSourceFile || defaultHost.fileExists(fileName),
-		readFile: (fileName) =>
-			fileName === virtualSourceFile ? source : defaultHost.readFile(fileName),
-		getSourceFile: (fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile) =>
-			fileName === virtualSourceFile
-				? ts.createSourceFile(fileName, source, languageVersionOrOptions, true, ts.ScriptKind.TS)
-				: defaultHost.getSourceFile(
-						fileName,
-						languageVersionOrOptions,
-						onError,
-						shouldCreateNewSourceFile,
-					),
-		resolveModuleNameLiterals: (literals, containingFile, redirectedReference, compilerOptions) =>
-			literals.map((literal) =>
-				containingFile === virtualSourceFile && literal.text === sdkImport
-					? {
-							resolvedModule: {
-								extension: ts.Extension.Ts,
-								resolvedFileName: sdkEntry,
-								isExternalLibraryImport: true,
-							},
-						}
-					: ts.resolveModuleName(
-							literal.text,
-							containingFile,
-							compilerOptions,
-							defaultHost,
-							cache,
-							redirectedReference,
-						),
-			),
-	};
-	const program = ts.createProgram({ rootNames: [virtualSourceFile], options, host });
-	return ts.getPreEmitDiagnostics(program).map(toTypeScriptDiagnostic);
-};
-
 export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxCompiler", {
 	sync: () => ({
 		compile: (source: string) =>
 			Effect.gen(function* () {
-				const parsedSource = ts.createSourceFile(
-					virtualSourceFile,
-					source,
-					ts.ScriptTarget.ES2022,
-					true,
-					ts.ScriptKind.TS,
-				);
-				const imports = inspectImports(parsedSource);
-				if (imports.diagnostics.length > 0) {
-					return yield* compilationFailure(imports.diagnostics);
-				}
-
 				const dependencies = yield* Effect.try({
 					try: () => {
 						const from = Bun.fileURLToPath(new URL(".", import.meta.url));
+						const typescriptPackage = Bun.resolveSync("typescript/package.json", from);
+						const typescriptDirectory = typescriptPackage.slice(
+							0,
+							typescriptPackage.lastIndexOf("/"),
+						);
+						const nativePackage = `@typescript/typescript-${process.platform}-${process.arch}`;
+						const nativePackageJson = Bun.resolveSync(
+							`${nativePackage}/package.json`,
+							typescriptDirectory,
+						);
+						const nativeDirectory = nativePackageJson.slice(0, nativePackageJson.lastIndexOf("/"));
 						return {
 							sdkEntry: Bun.resolveSync(sdkImport, from),
-							compilerEntry: Bun.resolveSync("typescript-compiler", from),
+							tsserverPath: `${nativeDirectory}/lib/tsc${process.platform === "win32" ? ".exe" : ""}`,
 						};
 					},
 					catch: (error) =>
@@ -453,9 +395,12 @@ export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxC
 							},
 						]),
 				});
-				const typeDiagnostics = yield* Effect.try({
-					try: () => typeCheck(source, dependencies.sdkEntry, dependencies.compilerEntry),
-					catch: (error) =>
+				const project = yield* createTypeScriptProject(
+					source,
+					dependencies.sdkEntry,
+					dependencies.tsserverPath,
+				).pipe(
+					Effect.mapError((error) =>
 						compilationFailure([
 							{
 								line: 1,
@@ -466,12 +411,21 @@ export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxC
 								message: `TypeScript compiler failed: ${String(error)}`,
 							},
 						]),
-				});
+					),
+				);
+				const imports = inspectImports(project.sourceFile);
+				if (imports.diagnostics.length > 0) {
+					return yield* compilationFailure(imports.diagnostics);
+				}
+
+				const typeDiagnostics = project.diagnostics.map((diagnostic) =>
+					toTypeScriptDiagnostic(diagnostic, project.sourceFile),
+				);
 				if (typeDiagnostics.some((diagnostic) => diagnostic.severity === "error")) {
 					return yield* compilationFailure(typeDiagnostics);
 				}
 
-				const extracted = extractManifest(parsedSource, imports.manifestHelpers);
+				const extracted = extractManifest(project.sourceFile, imports.manifestHelpers);
 				if ("diagnostic" in extracted) {
 					return yield* compilationFailure([extracted.diagnostic]);
 				}
