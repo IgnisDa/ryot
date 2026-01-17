@@ -10,8 +10,9 @@ export const manifest = defineManifest({
 	name: "Spotify",
 	kind: "provider",
 	slug: "music.spotify",
-	capabilities: ["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"],
-	requiredAppConfigKeys: ["music.spotifyClientId", "music.spotifyClientSecret"],
+	capabilities: ["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"],
+	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
+	requiredSystemConfigKeys: [],
 });
 
 const getPublishYear = (releaseDate: unknown) => {

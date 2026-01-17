@@ -20,8 +20,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "MyAnimeList",
 	slug: "anime.myanimelist",
-	requiredAppConfigKeys: ["animeAndManga.malClientId"],
-	capabilities: ["httpCall", "getAppConfigValue", "getUserPreferences"],
+	requiredPluginConfigKeys: ["malClientId"],
+	requiredSystemConfigKeys: [],
+	capabilities: ["httpCall", "getPluginConfigValue", "getUserPreferences"],
 });
 
 export const search = defineProvider({

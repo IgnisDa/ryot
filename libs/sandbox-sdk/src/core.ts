@@ -9,20 +9,9 @@ const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields
 const nonEmptyString = Schema.String.pipe(Schema.minLength(1));
 const positiveInteger = Schema.Number.pipe(Schema.int(), Schema.positive());
 
-export interface SandboxAppConfigRegistry {}
-
-type RegisteredSandboxAppConfig = SandboxAppConfigRegistry[keyof SandboxAppConfigRegistry];
-type SandboxAppConfigKey = [RegisteredSandboxAppConfig] extends [never]
-	? string
-	: keyof RegisteredSandboxAppConfig & string;
-type SandboxAppConfigValue<Key extends SandboxAppConfigKey> = [RegisteredSandboxAppConfig] extends [
-	never,
-]
-	? JsonValue
-	: RegisteredSandboxAppConfig[Key & keyof RegisteredSandboxAppConfig];
-type GetAppConfigValue = <Key extends SandboxAppConfigKey>(
-	key: Key,
-) => Effect.Effect<SandboxAppConfigValue<Key>, SandboxHostError>;
+type GetConfigValue = <Value extends JsonValue = JsonValue>(
+	key: string,
+) => Effect.Effect<Value, SandboxHostError>;
 
 export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"log",
@@ -31,7 +20,8 @@ export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"getCachedValue",
 	"setCachedValue",
 	"claimCachedValue",
-	"getAppConfigValue",
+	"getPluginConfigValue",
+	"getSystemConfigValue",
 	"getUserPreferences",
 ] as const;
 
@@ -85,9 +75,11 @@ export const claimCachedValueArgsSchema = Schema.Tuple(
 	jsonValueSchema,
 	cacheTtlSecondsSchema,
 );
-export const getAppConfigValueArgsSchema = Schema.Tuple(nonEmptyString);
+export const getPluginConfigValueArgsSchema = Schema.Tuple(nonEmptyString);
+export const getSystemConfigValueArgsSchema = Schema.Tuple(nonEmptyString);
 export const claimCachedValueResultSchema = hostResultSchema(cacheClaimSchema);
-export const getAppConfigValueResultSchema = hostResultSchema(jsonValueSchema);
+export const getPluginConfigValueResultSchema = hostResultSchema(jsonValueSchema);
+export const getSystemConfigValueResultSchema = hostResultSchema(jsonValueSchema);
 export const userPreferencesSchema = strictStruct({
 	isNsfw: Schema.Boolean,
 	disableIntegrations: Schema.Boolean,
@@ -135,10 +127,15 @@ export const coreSandboxHostContracts = {
 		args: claimCachedValueArgsSchema,
 		result: claimCachedValueResultSchema,
 	},
-	getAppConfigValue: {
+	getPluginConfigValue: {
 		success: jsonValueSchema,
-		args: getAppConfigValueArgsSchema,
-		result: getAppConfigValueResultSchema,
+		args: getPluginConfigValueArgsSchema,
+		result: getPluginConfigValueResultSchema,
+	},
+	getSystemConfigValue: {
+		success: jsonValueSchema,
+		args: getSystemConfigValueArgsSchema,
+		result: getSystemConfigValueResultSchema,
 	},
 	getUserPreferences: {
 		success: userPreferencesSchema,
@@ -561,9 +558,15 @@ export const SANDBOX_HOST_CAPABILITIES = [
 ] as const;
 export const sandboxHostCapabilitySchema = Schema.Literal(...SANDBOX_HOST_CAPABILITIES);
 export type SandboxHostCapability = Schema.Schema.Type<typeof sandboxHostCapabilitySchema>;
-export type SandboxHostMethodMap = Omit<CoreSandboxHostMethodMap, "getAppConfigValue"> &
+export type SandboxHostMethodMap = Omit<
+	CoreSandboxHostMethodMap,
+	"getPluginConfigValue" | "getSystemConfigValue"
+> &
 	DomainSandboxHostMethodMap &
-	AutomationSandboxHostMethodMap & { readonly getAppConfigValue: GetAppConfigValue };
+	AutomationSandboxHostMethodMap & {
+		readonly getPluginConfigValue: GetConfigValue;
+		readonly getSystemConfigValue: GetConfigValue;
+	};
 export type SandboxHostImplementationMap<Context> = CoreSandboxHostImplementationMap<Context> &
 	DomainSandboxHostImplementationMap<Context> &
 	AutomationSandboxHostImplementationMap<Context>;
@@ -580,7 +583,8 @@ const sandboxManifestBaseFields = {
 	slug: manifestSlugSchema,
 	name: manifestStringSchema,
 	capabilities: Schema.Array(sandboxHostCapabilitySchema),
-	requiredAppConfigKeys: Schema.Array(manifestStringSchema),
+	requiredPluginConfigKeys: Schema.Array(manifestStringSchema),
+	requiredSystemConfigKeys: Schema.Array(manifestStringSchema),
 };
 export const sandboxManifestSchema = Schema.Union(
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("script") }),

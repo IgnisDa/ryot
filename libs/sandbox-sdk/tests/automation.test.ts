@@ -16,7 +16,8 @@ const manifest = defineManifest({
 	capabilities: [],
 	name: "Test automation",
 	slug: "test-automation",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 const run = () => Effect.succeed(null);
 const policyRun = () => Effect.succeed({ action: "allow" as const });

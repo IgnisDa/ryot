@@ -1,5 +1,6 @@
 import type { ContractPayload, ContractSuccess } from "@ryot/contract/client";
 import { UserId } from "@ryot/contract/schema/brands";
+import type { PluginConfigSchema } from "@ryot/plugin-kit/manifest";
 import { Effect } from "effect";
 
 import { assertCompleted, requirePresent } from "~/support/assertions";
@@ -21,17 +22,23 @@ export const installSandboxScript = (input: {
 	name: string;
 	slug: string;
 	source: string;
+	pluginSlug?: string;
+	configSchema?: PluginConfigSchema;
 	capabilities?: ReadonlyArray<string>;
-	requiredAppConfigKeys?: ReadonlyArray<string>;
+	requiredPluginConfigKeys?: ReadonlyArray<string>;
+	requiredSystemConfigKeys?: ReadonlyArray<string>;
 }) =>
 	installTestPlugin({
 		source: input.source,
+		pluginSlug: input.pluginSlug,
+		configSchema: input.configSchema,
 		script: {
 			kind: "script",
 			name: input.name,
 			slug: input.slug,
 			capabilities: input.capabilities ?? [],
-			requiredAppConfigKeys: input.requiredAppConfigKeys ?? [],
+			requiredPluginConfigKeys: input.requiredPluginConfigKeys ?? [],
+			requiredSystemConfigKeys: input.requiredSystemConfigKeys ?? [],
 		},
 	});
 

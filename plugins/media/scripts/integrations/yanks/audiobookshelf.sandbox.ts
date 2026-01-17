@@ -8,7 +8,8 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Audiobookshelf yank",
 	slug: "integration.audiobookshelf",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getIntegration"],
 });
 const Input = Schema.Struct({});

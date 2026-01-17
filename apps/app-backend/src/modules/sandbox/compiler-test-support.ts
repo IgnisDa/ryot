@@ -11,7 +11,8 @@ export const manifest = defineManifest({
   capabilities: [],
   name: "Plain value",
   slug: "plain-value",
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 export default defineScript({

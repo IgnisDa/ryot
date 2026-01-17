@@ -6,7 +6,8 @@ import { details } from "./manga-updates";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "MangaUpdates Details",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall"],
 	slug: "manga.manga-updates.details",
 });

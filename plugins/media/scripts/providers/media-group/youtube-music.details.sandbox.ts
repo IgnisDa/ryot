@@ -9,7 +9,8 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "YouTube Music album details",
 	slug: "music-group.youtube-music.details",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall"],
 });
 

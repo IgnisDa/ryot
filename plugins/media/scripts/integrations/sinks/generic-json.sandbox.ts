@@ -7,7 +7,8 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Generic JSON sink",
 	slug: "integration.generic-json",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["getIntegration"],
 });
 export default defineScript({

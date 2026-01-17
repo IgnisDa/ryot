@@ -11,7 +11,8 @@ export const manifest = defineManifest({
 	name: "Fetch Audiobookshelf import",
 	slug: "activity.import.audiobookshelf",
 	capabilities: ["httpCall"],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineActivity({

@@ -23,7 +23,8 @@ export const manifest = defineManifest({
 	name: "Anilist",
 	kind: "provider",
 	slug: "anime.anilist",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getUserPreferences"],
 });
 

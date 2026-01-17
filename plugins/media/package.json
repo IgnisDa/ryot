@@ -33,6 +33,7 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
+		"@ryot/config": "workspace:*",
 		"@ryot/contract": "workspace:*",
 		"@ryot/plugin-kit": "workspace:*",
 		"@ryot/query-engine": "workspace:*",

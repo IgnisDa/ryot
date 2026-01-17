@@ -11,7 +11,8 @@ import { readImportArtifactText, writeImportChunks } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "activity",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	name: "Parse OpenScale import",
 	slug: "activity.import.open-scale",
 	capabilities: ["artifact-read", "scratch"],

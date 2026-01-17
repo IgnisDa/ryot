@@ -8,7 +8,8 @@ export const manifest = defineManifest({
 	name: "Audible Audiobook Group Search",
 	slug: "audiobook-group.audible.search",
 	capabilities: ["httpCall"],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({ manifest, operation: "search", run: search.run });

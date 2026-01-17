@@ -101,6 +101,38 @@ it("rejects definition collisions without replacing the current snapshot", () =>
 	expect(loader.getSnapshot()).toBe(original);
 });
 
+it("rejects plugin config environment collisions across active plugins", () => {
+	const loader = makePluginLoader(makeDefinitionRegistry(emptySource));
+	const firstBase = normalizedPlugin("1");
+	const first = {
+		...firstBase,
+		manifest: {
+			...firstBase.manifest,
+			metadata: { ...firstBase.manifest.metadata, slug: "fixture-one" },
+			configSchema: {
+				unknownKeys: "strict" as const,
+				fields: { token: { type: "string" as const, label: "Token", description: "Token" } },
+			},
+		},
+	};
+	const secondBase = normalizedPlugin("2");
+	const second = {
+		...secondBase,
+		manifest: {
+			...secondBase.manifest,
+			metadata: { ...secondBase.manifest.metadata, slug: "fixture_one" },
+			configSchema: {
+				unknownKeys: "strict" as const,
+				fields: { token: { type: "string" as const, label: "Token", description: "Token" } },
+			},
+		},
+	};
+
+	expect(() => loader.previewAll([first, second])).toThrow(
+		/Duplicate plugin config environment variable 'RYOT_PLUGIN_FIXTURE_ONE_TOKEN'/,
+	);
+});
+
 it("rejects invalid entity merge identity properties", () => {
 	const cases = [
 		{
@@ -182,7 +214,7 @@ it("rejects integration provider and import source slug collisions across active
 						lot: "single" as const,
 						input: "file" as const,
 						description: "Hevy CSV",
-						requiredAppConfigKeys: [],
+						requiredPluginConfigKeys: [],
 						allowedFileExtensions: ["csv"],
 						workflowSlug: "fixture.workflow",
 					},

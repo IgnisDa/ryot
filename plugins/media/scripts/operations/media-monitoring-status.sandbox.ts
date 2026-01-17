@@ -13,7 +13,8 @@ export const manifest = defineManifest({
 	name: "Media monitoring status",
 	capabilities: ["executeQueryEngine"],
 	slug: "operation.media-monitoring-status",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineOperation({

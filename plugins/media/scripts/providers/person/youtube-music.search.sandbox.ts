@@ -9,7 +9,8 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "YouTube Music artist search",
 	slug: "person.youtube-music.search",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall"],
 });
 
