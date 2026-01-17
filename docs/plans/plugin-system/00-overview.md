@@ -1,7 +1,8 @@
 # Plugin System Rewrite — Overview
 
 Status: in progress. Phases 1 and 2 and Phase 3 steps 0-3 are complete; resume with Phase 3
-step 4, integration and import-source adapters plus filesystem grants.
+step 4 — integration adapters, import sources, and filesystem grants — which is split across
+tasks 07-10 and whose design is fully settled in `03-phase-3-capability-migrations.md` §4.
 Branch: `ultra-rewrite` (all work is local; there is no
 CI and `apps/app-backend` is not deployed anywhere, so there are no release, rollout, or
 data-migration constraints — dev databases are wipeable and the initial drizzle migration may
@@ -104,7 +105,12 @@ These were settled in design discussion with the project owner. All are **[DECID
     directory. CPU-bound work (zip parsing) happens inside the sandbox via approved
     dependencies, not as host functions. This extends the existing pattern
     (`--allow-net=127.0.0.1:<bridgePort>` in
-    `apps/app-backend/src/lib/infrastructure/sandbox-runtime/runtime.ts`).
+    `apps/app-backend/src/lib/infrastructure/sandbox-runtime/runtime.ts`). The scratch directory
+    is also the **return path for output too large for `execution.resultBytes`**: the script
+    writes chunk files and returns a small manifest, and the kernel harvests those files at
+    execution end before cleaning up. The reader is always the kernel, never a second sandbox
+    execution, so the grant stays per-execution. The quota is 5 MiB, enforced after the execution
+    because Deno offers no preventive filesystem quota.
 11. **The sandbox authoring, schema, and typed bridge APIs are Effect-only.** Effect is available
     inside the sandbox as a runtime-provided (vendored) approved dependency with a single pinned
     version matching the host — never bundled per script. Effect Schema defines sandbox manifests,
@@ -131,9 +137,18 @@ These were settled in design discussion with the project owner. All are **[DECID
     changes are rejected); registry changes propagate to other instances via Redis pub/sub;
     in-flight workflow executions keep their pinned module versions across a swap.
 14. **Integration provider adapters move into plugins.** Yank/sink/push adapters (Plex,
-    Komga, Jellyfin, Radarr, Sonarr, etc.) and import source adapters are media-domain and move
-    into the media plugin. The kernel keeps the integrations _framework_: credential storage,
-    lifecycle, run tracking, auto-disable.
+    Komga, Jellyfin, Radarr, Sonarr, etc.) and import source adapters move into the plugin that
+    owns their domain: the sixteen media sources into `plugins/media`, and the three fitness
+    sources (`hevy`, `strong-app`, `open-scale`) into `plugins/fitness`. Both integration
+    providers and import sources are declared in manifest sections
+    (`integrationProviders`, `importSources`) and served generically from the registry, so the
+    kernel's media-vs-non-media import branch collapses into one registry-driven dispatch path.
+    The kernel keeps the integrations _framework_ (credential storage, lifecycle, run tracking,
+    auto-disable, webhook endpoint) and the imports _framework_ (run rows, failure rows, artifact
+    materialization and cleanup, source listing, workflow dispatch, and **all entity/event/
+    relationship writes**). Plugins parse and orchestrate; they never write import results to the
+    database. Phase 3 step 4 owns this migration in full — see
+    `03-phase-3-capability-migrations.md` §4.
 15. **Automations become manifest bindings.** `automation_rule` holds two distinct row
     kinds today. (a) Global builtin lifecycle bindings (`userId IS NULL`, seeded by
     `apps/app-backend/src/modules/builtins/seed.ts` from `registry.ts`) — these move to the
@@ -252,10 +267,12 @@ the named surfaces, but do not restore the superseded architecture.
 
 ### Native domain modules (the code that must end up inside plugins)
 
-The remaining native domain work begins at Phase 3 step 3: media import population/resolution
-workflows (`imports/media/*`), integration sink/yank and import-source adapters, then
-`media-monitoring` and residual media branches. `media-trending`, `exercises`, `metadata-lookup`,
-and `episode-resolver` have already moved into plugins and their native modules are deleted.
+The remaining native domain work begins at Phase 3 step 4: integration sink/yank adapters
+(`modules/integrations/{sinks,yank}/*`), the nineteen import-source adapters plus the
+media/non-media orchestration split (`modules/imports/{sources,media,workout,measurement}/*`),
+then `media-monitoring` and residual media branches in step 5. `media-trending`, `exercises`,
+`metadata-lookup`, `episode-resolver`, and the media import population/resolution workflows have
+already moved into plugins and their native code is deleted.
 
 ### Contract (`libs/contract/src/modules/`)
 
@@ -277,15 +294,15 @@ libs/plugin-kit            manifest types, definePlugin builder, shared plugin a
 libs/sandbox-sdk           script-facing SDK (+ Effect vendored, workflow entry point)
 libs/sandbox-compiler      bundling (extended for multi-file plugin packages)
 plugins/media              source bundle: manifest + schemas + scripts (providers, automations,
-                           workflows, crons, operations, integration adapters)
+                           workflows, crons, operations, integration providers, import sources)
 plugins/fitness            source bundle: manifest + schemas + scripts (exercise provider,
-                           preload boot script, workout automation)
+                           preload boot script, workout automation, import sources)
 apps/app-backend           the kernel:
   definition registry      in-memory, slug-keyed; sources: kernel-owned definitions + loaded
                            plugins; atomic snapshot swap; Redis invalidation
   plugin ingestion/loader  validate → compile → content-address → persist → load
-  sandbox runtime          direct script execution + authority gates; workflow primitives and
-                           fs grants added by the remaining Phase 3 steps
+  sandbox runtime          direct script execution + authority gates; workflow primitives, and
+                           deny-by-default per-execution filesystem grants (step 4)
   durable engine           kernel-owned; sandbox workflow scripts as bodies
   generic modules only     entities, events, relationships, collections, query-engine,
                            notifications, integrations framework, imports framework, auth,
