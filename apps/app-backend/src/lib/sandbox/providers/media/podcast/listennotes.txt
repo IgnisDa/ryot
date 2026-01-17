@@ -332,12 +332,24 @@ driver("details", async function(context) {
   const recommendations = await fetchRecommendations(externalId);
   const publisher = getNullableString(podcast?.publisher);
   const image = getNullableString(podcast?.image);
+  const childEntities = episodes.map((episode) => ({
+    entitySchemaSlug: "podcast-episode",
+    externalId: episode.id,
+    name: episode.title || `Episode ${episode.number}`,
+    image: episode.thumbnail ? { type: "remote", url: episode.thumbnail } : null,
+    properties: {
+      runtime: episode.runtime,
+      publishDate: episode.publishDate,
+      description: episode.overview,
+      episodeNumber: episode.number,
+    },
+  }));
 
   return {
     name: title,
+    childEntities,
     suggestions: recommendations,
     properties: {
-      episodes,
       sourceUrl: getSourceUrl(title, externalId),
       totalEpisodes: totalEpisodes ?? episodes.length,
       description: getNullableString(podcast?.description),

@@ -483,9 +483,9 @@ deferred).
 
 ## Tasks
 
-**Overall Progress:** 3 of 6 tasks completed
+**Overall Progress:** 4 of 6 tasks completed
 
-**Current Task:** [Task 04](./04-podcast-episodes-end-to-end.md) (todo)
+**Current Task:** [Task 05](./05-legacy-data-migration-to-episodes.md) (todo)
 
 ### Task List
 
@@ -494,6 +494,6 @@ deferred).
 | 01  | [Show episodes: structure, tracking & read](./01-show-episodes-structure-tracking-and-read.md) | AFK  | done   |
 | 02  | [Show import history → episodes](./02-show-import-history-to-episodes.md)                      | AFK  | done   |
 | 03  | [Show live integrations → episodes](./03-show-live-integrations-to-episodes.md)                | AFK  | done   |
-| 04  | [Podcast episodes end-to-end](./04-podcast-episodes-end-to-end.md)                             | AFK  | todo   |
+| 04  | [Podcast episodes end-to-end](./04-podcast-episodes-end-to-end.md)                             | AFK  | done   |
 | 05  | [Legacy data migration → episodes](./05-legacy-data-migration-to-episodes.md)                  | AFK  | todo   |
 | 06  | [Codebase cleanup](./06-codebase-cleanup.md)                                                   | AFK  | todo   |

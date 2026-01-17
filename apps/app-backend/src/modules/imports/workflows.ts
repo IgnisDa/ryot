@@ -833,6 +833,65 @@ export const runOneTimeMediaImportWorkflow = Effect.fn("runOneTimeMediaImportWor
 					targetEntitySchemaSlug = "show-episode";
 				}
 
+				if (event.episodeLocator?.type === "podcast") {
+					const resolvedEpisodeId = yield* Activity.make({
+						error: ImportRunError,
+						success: Schema.NullOr(EntityId),
+						name: `resolve-podcast-episode-${i}-${eventIndex}`,
+						execute: episodeResolver
+							.resolvePodcastEpisode({
+								userId: payload.userId,
+								podcastEntityId: entityId,
+								episodeNumber: event.episodeLocator.episodeNumber,
+							})
+							.pipe(Effect.mapError(toWorkflowError)),
+					});
+
+					if (!resolvedEpisodeId) {
+						groupFailed = true;
+						yield* Activity.make({
+							error: ImportRunError,
+							name: `record-podcast-episode-resolution-failure-${i}-${eventIndex}`,
+							execute: recordImportRunFailure({
+								itemIndex,
+								runId: payload.runId,
+								stage: "provider_resolution",
+								sourceLabel: ref.sourceLabel,
+								sourceIdentifier: ref.externalId,
+								eventSchemaSlug: event.eventSchemaSlug,
+								entitySchemaSlug: ref.entitySchemaSlug,
+								context: { episodeNumber: event.episodeLocator.episodeNumber },
+								message: `Could not resolve podcast episode ${event.episodeLocator.episodeNumber}`,
+							}).pipe(Effect.mapError(toWorkflowError)),
+						});
+						continue;
+					}
+
+					const episodeEntitySchemaId = yield* getEntitySchemaId("podcast-episode");
+					if (!episodeEntitySchemaId) {
+						groupFailed = true;
+						yield* Activity.make({
+							error: ImportRunError,
+							name: `record-podcast-episode-schema-missing-${i}-${eventIndex}`,
+							execute: recordImportRunFailure({
+								itemIndex,
+								context: null,
+								runId: payload.runId,
+								stage: "database_commit",
+								sourceLabel: ref.sourceLabel,
+								sourceIdentifier: ref.externalId,
+								entitySchemaSlug: "podcast-episode",
+								message: "Entity schema not found: podcast-episode",
+							}).pipe(Effect.mapError(toWorkflowError)),
+						});
+						continue;
+					}
+
+					targetEntityId = resolvedEpisodeId;
+					targetEntitySchemaId = episodeEntitySchemaId;
+					targetEntitySchemaSlug = "podcast-episode";
+				}
+
 				const eventSchemaId = yield* getEventSchemaId(targetEntitySchemaId, event.eventSchemaSlug);
 				if (!eventSchemaId) {
 					groupFailed = true;
