@@ -2,6 +2,7 @@ import type { CreateImportRunBody } from "@ryot/contract/modules/imports/schemas
 
 import type { ImporterConfig } from "./importer-config";
 import { getSourceApiHost, normalizeSourceApiUrl } from "./source-api";
+import { readTrimmedBodyField, type ImportSourceFileInput } from "./source-metadata";
 
 type ImportSourceFileDefinition = {
 	bodyField: string;
@@ -91,15 +92,6 @@ const sourceStartValidators: Partial<
 			: "Trakt importer is not configured. Set SERVER_IMPORTER_TRAKT_CLIENT_ID.",
 };
 
-const getBodyString = (body: CreateImportRunBody, field: string): string | undefined => {
-	const value = Reflect.get(body, field);
-	if (typeof value !== "string") {
-		return undefined;
-	}
-	const trimmed = value.trim();
-	return trimmed.length > 0 ? trimmed : undefined;
-};
-
 export const getKnownImportExtensions = (): string[] => [
 	...new Set(
 		Object.values(sourceFileDefinitions)
@@ -108,13 +100,13 @@ export const getKnownImportExtensions = (): string[] => [
 	),
 ];
 
-export const getImportSourceFileInputs = (body: CreateImportRunBody) =>
+export const getImportSourceFileInputs = (body: CreateImportRunBody): ImportSourceFileInput[] =>
 	(sourceFileDefinitions[body.source] ?? []).map((definition) => ({
 		required: definition.required,
 		bodyField: definition.bodyField,
 		payloadKey: definition.payloadKey,
 		allowedExtensions: definition.allowedExtensions,
-		uploadToken: getBodyString(body, definition.bodyField),
+		uploadToken: readTrimmedBodyField(body, definition.bodyField),
 	}));
 
 export const getImportSourceStartError = (

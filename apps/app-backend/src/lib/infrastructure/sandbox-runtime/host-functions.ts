@@ -42,6 +42,7 @@ import {
 	requireSystemProviderSandboxRunInput,
 	requireUserSandboxRunInput,
 	requireSystemSandboxRunInput,
+	sandboxRunIntegrationId,
 	sandboxRunUserId,
 	sandboxHostEffect,
 	sandboxHostFailure,
@@ -432,34 +433,34 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					),
 					sandboxHostEffect,
 				),
-			getIntegration: (rawInput, integrationId) =>
+			getIntegration: (rawInput) =>
 				requireUserSandboxRunInput(rawInput, "getIntegration").pipe(
-					Effect.flatMap((input) =>
-						requireNonEmptyString(
-							integrationId,
-							"getIntegration expects a non-empty integrationId",
-						).pipe(
-							Effect.flatMap((resolvedIntegrationId) =>
-								runWithDb(
-									integrationsRepository
-										.getForUser({
-											userId: UserId.make(input.authority.userId),
-											integrationId: IntegrationId.make(resolvedIntegrationId),
-										})
-										.pipe(
-											Effect.flatMap((integration) =>
-												integration
-													? Effect.succeed({
-															...integration,
-															providerSpecifics: toSandboxJsonValue(integration.providerSpecifics),
-														})
-													: Effect.fail("Integration not found"),
-											),
-										),
+					Effect.flatMap((input) => {
+						const integrationId = sandboxRunIntegrationId(input);
+						if (!integrationId) {
+							return Effect.fail(
+								"getIntegration is available only to executions scoped to an integration",
+							);
+						}
+
+						return runWithDb(
+							integrationsRepository
+								.getForUser({
+									integrationId: IntegrationId.make(integrationId),
+									userId: UserId.make(input.authority.userId),
+								})
+								.pipe(
+									Effect.flatMap((integration) =>
+										integration
+											? Effect.succeed({
+													...integration,
+													providerSpecifics: toSandboxJsonValue(integration.providerSpecifics),
+												})
+											: Effect.fail("Integration not found"),
+									),
 								),
-							),
-						),
-					),
+						);
+					}),
 					sandboxHostEffect,
 				),
 			getUserPreferences: (rawInput) =>

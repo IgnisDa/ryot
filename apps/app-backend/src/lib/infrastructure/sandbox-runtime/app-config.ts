@@ -8,16 +8,11 @@ const isEffectOption = (value: unknown): value is Option.Option<unknown> =>
 	isObjectRecord(value) &&
 	(Reflect.get(value, "_tag") === "Some" || Reflect.get(value, "_tag") === "None");
 
-const unwrapAppConfigValue = (value: unknown) => {
+const unwrapAppConfigValue = (value: unknown): unknown => {
 	if (isEffectOption(value)) {
-		if (Option.isNone(value)) {
-			return Effect.void;
-		}
-
-		return unwrapAppConfigValue(value.value);
+		return Option.isNone(value) ? undefined : unwrapAppConfigValue(value.value);
 	}
-
-	return Effect.succeed(Redacted.isRedacted(value) ? Redacted.value(value) : value);
+	return Redacted.isRedacted(value) ? Redacted.value(value) : value;
 };
 
 const resolveChildMeta = (node: GroupMeta, segment: string): AnyMeta | undefined =>
@@ -44,33 +39,43 @@ const resolveAppConfigFieldMeta = (key: string) => {
 	return node.kind === "field" ? node : null;
 };
 
-const resolveAppConfigValue = Effect.fn("resolveAppConfigValue")(function* (
-	config: unknown,
-	key: string,
-) {
+const resolveAppConfigEntry = (config: unknown, key: string) => {
 	const meta = resolveAppConfigFieldMeta(key);
 	if (!meta) {
-		return yield* Effect.fail(`Config key "${key}" does not exist`);
+		return null;
 	}
 
 	let value = config;
 	for (const segment of key.split(".")) {
 		if (!isObjectRecord(value) || !Object.hasOwn(value, segment)) {
-			return yield* Effect.fail(`Config key "${key}" does not exist`);
+			return null;
 		}
 		value = value[segment];
 	}
-
 	return { meta, value };
+};
+
+const resolveAppConfigValue = Effect.fn("resolveAppConfigValue")(function* (
+	config: unknown,
+	key: string,
+) {
+	const entry = resolveAppConfigEntry(config, key);
+	if (!entry) {
+		return yield* Effect.fail(`Config key "${key}" does not exist`);
+	}
+
+	return entry;
 });
+
+export const isAppConfigKeyConfigured = (config: unknown, key: string): boolean => {
+	const entry = resolveAppConfigEntry(config, key);
+	return entry !== null && unwrapAppConfigValue(entry.value) !== undefined;
+};
 
 export const getSandboxAppConfigValue = (
 	config: unknown,
 	key: string,
-	access: {
-		scriptIsBuiltin: boolean;
-		requiredAppConfigKeys: ReadonlyArray<string>;
-	},
+	access: { scriptIsBuiltin: boolean; requiredAppConfigKeys: ReadonlyArray<string> },
 ): Effect.Effect<unknown, string> =>
 	resolveAppConfigValue(config, key).pipe(
 		Effect.flatMap(({ meta, value }) => {
@@ -86,12 +91,9 @@ export const getSandboxAppConfigValue = (
 				return Effect.fail(`Config key "${key}" is sensitive`);
 			}
 
-			return unwrapAppConfigValue(value).pipe(
-				Effect.flatMap((unwrapped) =>
-					unwrapped === undefined
-						? Effect.fail(`Config key "${key}" is not configured`)
-						: Effect.succeed(unwrapped),
-				),
-			);
+			const unwrapped = unwrapAppConfigValue(value);
+			return unwrapped === undefined
+				? Effect.fail(`Config key "${key}" is not configured`)
+				: Effect.succeed(unwrapped);
 		}),
 	);
