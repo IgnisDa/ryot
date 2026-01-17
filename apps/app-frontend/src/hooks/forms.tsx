@@ -613,7 +613,7 @@ function SubmitButton(props: SubmitButtonProps) {
 	);
 }
 
-export const { fieldContext, useFieldContext, formContext, useFormContext } =
+const { fieldContext, useFieldContext, formContext, useFormContext } =
 	createFormHookContexts();
 
 export const { useAppForm } = createFormHook({
