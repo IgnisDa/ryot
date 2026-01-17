@@ -1,9 +1,10 @@
 // Backfill whole-entity `complete` events for episodic seen migrations.
 //
-// V1 episodic `Completed` seen rows are migrated as V2 progress(100%) events with episode/chapter
-// keys. This pass walks those progress events chronologically per user/entity, emits a `complete`
-// event once all required coverage keys are present, then resets coverage so another full coverage
-// cycle produces another `complete` event.
+// V1 episodic `Completed` seen rows are migrated as V2 progress(100%) events. Show/podcast rows
+// target episode entities; anime/manga rows keep their flat episode/chapter keys. This pass walks
+// those progress events chronologically per user/parent entity, emits a parent `complete` event once
+// all required coverage keys are present, then resets coverage so another full coverage cycle
+// produces another `complete` event.
 
 export const buildSeenEpisodicCompletionMigrationSql = () => `
 DO $$
@@ -20,41 +21,47 @@ BEGIN
 	CREATE TEMP TABLE _seen_required_coverage ON COMMIT DROP AS
 	WITH show_keys AS (
 		SELECT DISTINCT
-			e.id AS entity_id,
+			show_entity.id AS entity_id,
 			complete_schema.id AS complete_event_schema_id,
-			keyed.season_number::text || '-' || keyed.episode_number::text AS coverage_key
-		FROM "entity" e
-		INNER JOIN "entity_schema" entity_schema
-			ON  entity_schema.id   = e.entity_schema_id
-			AND entity_schema.slug = 'show'
+			episode.id AS coverage_key
+		FROM "entity" show_entity
+		INNER JOIN "entity_schema" show_schema
+			ON  show_schema.id   = show_entity.entity_schema_id
+			AND show_schema.slug = 'show'
 		INNER JOIN "event_schema" complete_schema
-			ON  complete_schema.entity_schema_id = e.entity_schema_id
+			ON  complete_schema.entity_schema_id = show_entity.entity_schema_id
 			AND complete_schema.slug             = 'complete'
 			AND complete_schema.user_id          IS NULL
-		CROSS JOIN LATERAL jsonb_array_elements(
-			CASE
-				WHEN jsonb_typeof(e.properties -> 'showSeasons') = 'array'
-				THEN e.properties -> 'showSeasons'
-				ELSE '[]'::jsonb
-			END
-		) AS season(value)
-		CROSS JOIN LATERAL jsonb_array_elements(
-			CASE
-				WHEN jsonb_typeof(season.value -> 'episodes') = 'array'
-				THEN season.value -> 'episodes'
-				ELSE '[]'::jsonb
-			END
-		) AS episode(value)
-		CROSS JOIN LATERAL (
-			SELECT
-				(season.value ->> 'seasonNumber')::int AS season_number,
-				(episode.value ->> 'episodeNumber')::int AS episode_number
-		) keyed
-		WHERE COALESCE(season.value ->> 'name', '') NOT IN ('Specials', 'Extras')
-		  AND (season.value ->> 'seasonNumber') ~ '^[0-9]+$'
-		  AND (episode.value ->> 'episodeNumber') ~ '^[0-9]+$'
-		  AND keyed.season_number > 0
-		  AND keyed.episode_number > 0
+		INNER JOIN "relationship" show_season_rel
+			ON show_season_rel.source_entity_id = show_entity.id
+		INNER JOIN "relationship_schema" show_season_rs
+			ON  show_season_rs.id      = show_season_rel.relationship_schema_id
+			AND show_season_rs.slug    = 'show-to-show-season'
+			AND show_season_rs.user_id IS NULL
+		INNER JOIN "entity" season
+			ON season.id = show_season_rel.target_entity_id
+		INNER JOIN "entity_schema" season_schema
+			ON  season_schema.id   = season.entity_schema_id
+			AND season_schema.slug = 'show-season'
+		INNER JOIN "relationship" season_episode_rel
+			ON season_episode_rel.source_entity_id = season.id
+		INNER JOIN "relationship_schema" season_episode_rs
+			ON  season_episode_rs.id      = season_episode_rel.relationship_schema_id
+			AND season_episode_rs.slug    = 'show-season-to-show-episode'
+			AND season_episode_rs.user_id IS NULL
+		INNER JOIN "entity" episode
+			ON episode.id = season_episode_rel.target_entity_id
+		INNER JOIN "entity_schema" episode_schema
+			ON  episode_schema.id   = episode.entity_schema_id
+			AND episode_schema.slug = 'show-episode'
+		WHERE (show_season_rel.user_id IS NULL OR show_season_rel.user_id = show_entity.user_id)
+		  AND (season_episode_rel.user_id IS NULL OR season_episode_rel.user_id = show_entity.user_id)
+		  AND (season.user_id IS NULL OR season.user_id = show_entity.user_id)
+		  AND (episode.user_id IS NULL OR episode.user_id = show_entity.user_id)
+		  AND (season.properties ->> 'seasonNumber') ~ '^[0-9]+$'
+		  AND (episode.properties ->> 'episodeNumber') ~ '^[0-9]+$'
+		  AND (season.properties ->> 'seasonNumber')::int > 0
+		  AND (episode.properties ->> 'episodeNumber')::int > 0
 	), anime_keys AS (
 		SELECT
 			e.id AS entity_id,
@@ -102,26 +109,32 @@ BEGIN
 		WHERE chapter_count <> floor(chapter_count)
 	), podcast_keys AS (
 		SELECT DISTINCT
-			e.id AS entity_id,
+			podcast.id AS entity_id,
 			complete_schema.id AS complete_event_schema_id,
-			(episode.value ->> 'number')::int::text AS coverage_key
-		FROM "entity" e
-		INNER JOIN "entity_schema" entity_schema
-			ON  entity_schema.id   = e.entity_schema_id
-			AND entity_schema.slug = 'podcast'
+			episode.id AS coverage_key
+		FROM "entity" podcast
+		INNER JOIN "entity_schema" podcast_schema
+			ON  podcast_schema.id   = podcast.entity_schema_id
+			AND podcast_schema.slug = 'podcast'
 		INNER JOIN "event_schema" complete_schema
-			ON  complete_schema.entity_schema_id = e.entity_schema_id
+			ON  complete_schema.entity_schema_id = podcast.entity_schema_id
 			AND complete_schema.slug             = 'complete'
 			AND complete_schema.user_id          IS NULL
-		CROSS JOIN LATERAL jsonb_array_elements(
-			CASE
-				WHEN jsonb_typeof(e.properties -> 'episodes') = 'array'
-				THEN e.properties -> 'episodes'
-				ELSE '[]'::jsonb
-			END
-		) AS episode(value)
-		WHERE (episode.value ->> 'number') ~ '^[0-9]+$'
-		  AND (episode.value ->> 'number')::int > 0
+		INNER JOIN "relationship" podcast_episode_rel
+			ON podcast_episode_rel.source_entity_id = podcast.id
+		INNER JOIN "relationship_schema" podcast_episode_rs
+			ON  podcast_episode_rs.id      = podcast_episode_rel.relationship_schema_id
+			AND podcast_episode_rs.slug    = 'podcast-to-podcast-episode'
+			AND podcast_episode_rs.user_id IS NULL
+		INNER JOIN "entity" episode
+			ON episode.id = podcast_episode_rel.target_entity_id
+		INNER JOIN "entity_schema" episode_schema
+			ON  episode_schema.id   = episode.entity_schema_id
+			AND episode_schema.slug = 'podcast-episode'
+		WHERE (podcast_episode_rel.user_id IS NULL OR podcast_episode_rel.user_id = podcast.user_id)
+		  AND (episode.user_id IS NULL OR episode.user_id = podcast.user_id)
+		  AND (episode.properties ->> 'episodeNumber') ~ '^[0-9]+$'
+		  AND (episode.properties ->> 'episodeNumber')::int > 0
 	)
 	SELECT * FROM show_keys
 	UNION ALL
@@ -148,15 +161,89 @@ BEGIN
 		SELECT
 			ev.id AS event_id,
 			ev.user_id,
+			show_entity.id AS entity_id,
+			ev.created_at,
+			NULLIF(ev.properties ->> 'consumedOn', '') AS consumed_on,
+			ev.entity_id AS coverage_key
+		FROM "event" ev
+		INNER JOIN "event_schema" progress_schema
+			ON  progress_schema.id      = ev.event_schema_id
+			AND progress_schema.slug    = 'progress'
+			AND progress_schema.user_id IS NULL
+		INNER JOIN "entity" episode
+			ON episode.id = ev.entity_id
+		INNER JOIN "entity_schema" episode_schema
+			ON  episode_schema.id   = episode.entity_schema_id
+			AND episode_schema.slug = 'show-episode'
+		INNER JOIN "relationship" season_episode_rel
+			ON season_episode_rel.target_entity_id = episode.id
+		INNER JOIN "relationship_schema" season_episode_rs
+			ON  season_episode_rs.id      = season_episode_rel.relationship_schema_id
+			AND season_episode_rs.slug    = 'show-season-to-show-episode'
+			AND season_episode_rs.user_id IS NULL
+		INNER JOIN "entity" season
+			ON season.id = season_episode_rel.source_entity_id
+		INNER JOIN "entity_schema" season_schema
+			ON  season_schema.id   = season.entity_schema_id
+			AND season_schema.slug = 'show-season'
+		INNER JOIN "relationship" show_season_rel
+			ON show_season_rel.target_entity_id = season.id
+		INNER JOIN "relationship_schema" show_season_rs
+			ON  show_season_rs.id      = show_season_rel.relationship_schema_id
+			AND show_season_rs.slug    = 'show-to-show-season'
+			AND show_season_rs.user_id IS NULL
+		INNER JOIN "entity" show_entity
+			ON show_entity.id = show_season_rel.source_entity_id
+		INNER JOIN "entity_schema" show_schema
+			ON  show_schema.id   = show_entity.entity_schema_id
+			AND show_schema.slug = 'show'
+		WHERE (ev.properties ->> 'progressPercent')::numeric = 100
+		  AND (show_season_rel.user_id = ev.user_id OR show_season_rel.user_id IS NULL)
+		  AND (season_episode_rel.user_id = ev.user_id OR season_episode_rel.user_id IS NULL)
+		  AND (show_entity.user_id = ev.user_id OR show_entity.user_id IS NULL)
+		  AND (season.user_id = ev.user_id OR season.user_id IS NULL)
+		  AND (episode.user_id = ev.user_id OR episode.user_id IS NULL)
+		UNION ALL
+		SELECT
+			ev.id AS event_id,
+			ev.user_id,
+			podcast.id AS entity_id,
+			ev.created_at,
+			NULLIF(ev.properties ->> 'consumedOn', '') AS consumed_on,
+			ev.entity_id AS coverage_key
+		FROM "event" ev
+		INNER JOIN "event_schema" progress_schema
+			ON  progress_schema.id      = ev.event_schema_id
+			AND progress_schema.slug    = 'progress'
+			AND progress_schema.user_id IS NULL
+		INNER JOIN "entity" episode
+			ON episode.id = ev.entity_id
+		INNER JOIN "entity_schema" episode_schema
+			ON  episode_schema.id   = episode.entity_schema_id
+			AND episode_schema.slug = 'podcast-episode'
+		INNER JOIN "relationship" podcast_episode_rel
+			ON podcast_episode_rel.target_entity_id = episode.id
+		INNER JOIN "relationship_schema" podcast_episode_rs
+			ON  podcast_episode_rs.id      = podcast_episode_rel.relationship_schema_id
+			AND podcast_episode_rs.slug    = 'podcast-to-podcast-episode'
+			AND podcast_episode_rs.user_id IS NULL
+		INNER JOIN "entity" podcast
+			ON podcast.id = podcast_episode_rel.source_entity_id
+		INNER JOIN "entity_schema" podcast_schema
+			ON  podcast_schema.id   = podcast.entity_schema_id
+			AND podcast_schema.slug = 'podcast'
+		WHERE (ev.properties ->> 'progressPercent')::numeric = 100
+		  AND (podcast_episode_rel.user_id = ev.user_id OR podcast_episode_rel.user_id IS NULL)
+		  AND (podcast.user_id = ev.user_id OR podcast.user_id IS NULL)
+		  AND (episode.user_id = ev.user_id OR episode.user_id IS NULL)
+		UNION ALL
+		SELECT
+			ev.id AS event_id,
+			ev.user_id,
 			ev.entity_id,
 			ev.created_at,
 			NULLIF(ev.properties ->> 'consumedOn', '') AS consumed_on,
 			CASE entity_schema.slug
-				WHEN 'show' THEN
-					CASE WHEN (ev.properties ->> 'showSeason') ~ '^[0-9]+$'
-						AND (ev.properties ->> 'showEpisode') ~ '^[0-9]+$'
-					THEN (ev.properties ->> 'showSeason') || '-' || (ev.properties ->> 'showEpisode')
-					END
 				WHEN 'anime' THEN
 					CASE WHEN (ev.properties ->> 'animeEpisode') ~ '^[0-9]+$'
 					THEN ev.properties ->> 'animeEpisode'
@@ -164,10 +251,6 @@ BEGIN
 				WHEN 'manga' THEN
 					CASE WHEN (ev.properties ->> 'mangaChapter') ~ '^[0-9]+(\\.[0-9]+)?$'
 					THEN ((ev.properties ->> 'mangaChapter')::float8)::text
-					END
-				WHEN 'podcast' THEN
-					CASE WHEN (ev.properties ->> 'podcastEpisode') ~ '^[0-9]+$'
-					THEN ev.properties ->> 'podcastEpisode'
 					END
 			END AS coverage_key
 		FROM "event" ev
@@ -177,7 +260,7 @@ BEGIN
 			AND progress_schema.user_id IS NULL
 		INNER JOIN "entity" e ON e.id = ev.entity_id
 		INNER JOIN "entity_schema" entity_schema ON entity_schema.id = e.entity_schema_id
-		WHERE entity_schema.slug IN ('show', 'anime', 'manga', 'podcast')
+		WHERE entity_schema.slug IN ('anime', 'manga')
 		  AND (ev.properties ->> 'progressPercent')::numeric = 100
 	)
 	SELECT progress.*

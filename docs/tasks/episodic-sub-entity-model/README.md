@@ -238,8 +238,8 @@ builtin relationship per pair.
 | `show`                   | `backlog`, `complete`, `dropped`, `on_hold`, `review` (no `progress`) |
 | `podcast`                | `backlog`, `complete`, `dropped`, `on_hold`, `review` (no `progress`) |
 | `show-season`            | `complete`                                                            |
-| `show-episode`           | `progress`, `complete`                                                |
-| `podcast-episode`        | `progress`, `complete`                                                |
+| `show-episode`           | `progress`, `review`, `complete`                                      |
+| `podcast-episode`        | `progress`, `review`, `complete`                                      |
 | anime, manga, all others | unchanged                                                             |
 
 - A `progress` event carries only `progressPercent` and `consumedOn`. The
@@ -457,7 +457,6 @@ deferred).
 - Pruning sub-entities that a provider later drops or renumbers on re-population.
 - Storing rolled-up parent (season/show) completion as events; parent "fully
   watched" is derived on read instead. Manual season/show `complete` remains.
-- A per-episode `review` event schema (can be added later if wanted).
 - Any dedicated endpoint for fetching a show's season/episode tree.
 - The legacy-bootstrap migration's end-to-end test (the migration itself is in
   scope).
@@ -483,9 +482,9 @@ deferred).
 
 ## Tasks
 
-**Overall Progress:** 4 of 6 tasks completed
+**Overall Progress:** 5 of 6 tasks completed
 
-**Current Task:** [Task 05](./05-legacy-data-migration-to-episodes.md) (todo)
+**Current Task:** [Task 06](./06-codebase-cleanup.md) (todo)
 
 ### Task List
 
@@ -495,5 +494,5 @@ deferred).
 | 02  | [Show import history → episodes](./02-show-import-history-to-episodes.md)                      | AFK  | done   |
 | 03  | [Show live integrations → episodes](./03-show-live-integrations-to-episodes.md)                | AFK  | done   |
 | 04  | [Podcast episodes end-to-end](./04-podcast-episodes-end-to-end.md)                             | AFK  | done   |
-| 05  | [Legacy data migration → episodes](./05-legacy-data-migration-to-episodes.md)                  | AFK  | todo   |
+| 05  | [Legacy data migration → episodes](./05-legacy-data-migration-to-episodes.md)                  | AFK  | done   |
 | 06  | [Codebase cleanup](./06-codebase-cleanup.md)                                                   | AFK  | todo   |
