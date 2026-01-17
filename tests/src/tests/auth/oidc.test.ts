@@ -28,7 +28,7 @@ const OIDC_CLIENT_ID = "test-client";
 const S3_BUCKET_NAME = "ryot-oidc-test";
 const OIDC_CLIENT_SECRET = "test-secret";
 const OIDC_BUTTON_LABEL = "Sign in with TestOIDC";
-const trackersListQuery = { includeDisabled: false };
+const workspaceListQuery = { includeDisabled: false };
 const godModeListQuery = (search: string) => ({ limit: 50, offset: 0, search });
 
 const countUsersByEmail = (backendUrl: string, email: string) =>
@@ -49,13 +49,13 @@ const findUserIdByEmail = (backendUrl: string, email: string) =>
 		return data.users[0]?.id ?? null;
 	});
 
-const listTrackerCount = (backendUrl: string, cookie: string) =>
+const listWorkspaceCount = (backendUrl: string, cookie: string) =>
 	Effect.gen(function* () {
-		const trackers = yield* makeSession(backendUrl).call(
-			(c) => c.trackers.list({ urlParams: trackersListQuery }),
+		const workspaces = yield* makeSession(backendUrl).call(
+			(c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }),
 			{ Cookie: cookie },
 		);
-		return trackers.length;
+		return workspaces.length;
 	});
 
 let backendPortA: number;
@@ -206,7 +206,7 @@ describe("OIDC sign-in happy path (Backend A)", () => {
 				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
 			);
 			const client = makeSession(getBackendUrlA());
-			yield* client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
 				Cookie: sessionCookie,
 			});
 		}),
@@ -220,13 +220,13 @@ describe("OIDC sign-in happy path (Backend A)", () => {
 		}),
 	);
 
-	it.live("first-time OIDC sign-in bootstraps the user with tracker rows", () =>
+	it.live("first-time OIDC sign-in bootstraps the user with plugin workspace state", () =>
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
 			const sessionCookie = yield* Effect.promise(() =>
 				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
 			);
-			expect(yield* listTrackerCount(getBackendUrlA(), sessionCookie)).toBeGreaterThan(0);
+			expect(yield* listWorkspaceCount(getBackendUrlA(), sessionCookie)).toBeGreaterThan(0);
 		}),
 	);
 
@@ -268,26 +268,30 @@ describe("OIDC idempotency (Backend A)", () => {
 
 			const client = makeSession(getBackendUrlA());
 			yield* Effect.all([
-				client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), { Cookie: cookie1 }),
-				client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), { Cookie: cookie2 }),
+				client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+					Cookie: cookie1,
+				}),
+				client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+					Cookie: cookie2,
+				}),
 			]);
 		}),
 	);
 
-	it.live("bootstrap idempotency: tracker count is the same after two sign-ins", () =>
+	it.live("bootstrap idempotency: workspace count is the same after two sign-ins", () =>
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
 
 			const cookie1 = yield* Effect.promise(() =>
 				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
 			);
-			const firstCount = yield* listTrackerCount(getBackendUrlA(), cookie1);
+			const firstCount = yield* listWorkspaceCount(getBackendUrlA(), cookie1);
 			expect(firstCount).toBeGreaterThan(0);
 
 			const cookie2 = yield* Effect.promise(() =>
 				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
 			);
-			const secondCount = yield* listTrackerCount(getBackendUrlA(), cookie2);
+			const secondCount = yield* listWorkspaceCount(getBackendUrlA(), cookie2);
 			expect(secondCount).toBe(firstCount);
 		}),
 	);
@@ -333,7 +337,7 @@ describe("Registration gating for OIDC (Backend C)", () => {
 				oidcSignIn(requireMockOidcServer(), username, getBackendUrlC()),
 			);
 			const client = makeSession(getBackendUrlC());
-			yield* client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
 				Cookie: sessionCookie,
 			});
 

@@ -15,15 +15,16 @@ import { DateTime, Effect } from "effect";
 import { TransactionRunner } from "#lib/infrastructure/db/service";
 import { AuthService } from "#modules/auth/service";
 import { AutomationsService } from "#modules/automations/service";
+import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import {
-	builtinDefinitionSource,
 	DefinitionRegistry,
 	definitionSourceFromSnapshot,
 } from "#modules/definition-registry/service";
 import { EntitiesService } from "#modules/entities/service";
 import { InterestService } from "#modules/entity-interest/service";
-import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { TranslationsService } from "#modules/entity-translation/service";
+import { PluginLoader } from "#modules/plugins/loader";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxApiService } from "#modules/sandbox/service";
@@ -32,8 +33,8 @@ import { SignalsService } from "#modules/signals/service";
 
 type CreateGlobalEntityInput = {
 	readonly name: string;
-	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly externalId?: string | undefined;
+	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly properties: Record<string, unknown>;
 	readonly populatedAt?: string | null | undefined;
 	readonly sandboxScriptId?: SandboxScriptId | undefined;
@@ -67,50 +68,70 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 		const engine = yield* WorkflowEngine;
 		const signals = yield* SignalsService;
 		const entities = yield* EntitiesService;
-		const definitions = yield* DefinitionRegistry;
 		const interest = yield* InterestService;
 		const sandbox = yield* SandboxApiService;
+		const pluginLoader = yield* PluginLoader;
+		const definitions = yield* DefinitionRegistry;
 		const automations = yield* AutomationsService;
 		const translations = yield* TranslationsService;
 		const relationships = yield* RelationshipsService;
-		const entitySchemas = yield* EntitySchemasRepository;
+		const pluginRuntime = yield* PluginRuntimeResolver;
 		const runInTransaction = yield* TransactionRunner;
 		const relationshipSchemas = yield* RelationshipSchemasRepository;
-		const builtins = builtinDefinitionSource();
-		const builtinTrackerSlugs = new Set(builtins.trackers.map(({ slug }) => slug));
-		const builtinEntitySchemaSlugs = new Set(builtins.entitySchemas.map(({ slug }) => slug));
-		const builtinRelationshipSchemaSlugs = new Set(
-			builtins.relationshipSchemas.map(({ slug }) => slug),
-		);
-
 		const installDefinitions = Effect.fn("TestSupportService.installDefinitions")(function* (
 			input: TestSupportInstallDefinitions,
 		) {
 			const current = definitionSourceFromSnapshot(definitions.getSnapshot());
-			const trackers = input.trackers?.map((tracker) => ({
-				icon: tracker.icon,
-				name: tracker.name,
-				slug: tracker.slug,
-				accentColor: tracker.accentColor,
-				description: tracker.description ?? "",
-				entitySchemaSlugs: tracker.entitySchemaSlugs,
-			}));
+			const kernel = kernelDefinitionSource();
+			const plugins = Object.values(pluginLoader.getSnapshot().plugins);
+			const builtinEntitySchemaSlugs = new Set([
+				...kernel.entitySchemas.map(({ slug }) => slug),
+				...plugins.flatMap(({ manifest }) => manifest.entitySchemas.map(({ slug }) => slug)),
+			]);
+			const builtinRelationshipSchemaSlugs = new Set([
+				...kernel.relationshipSchemas.map(({ slug }) => slug),
+				...plugins.flatMap(({ manifest }) => manifest.relationshipSchemas.map(({ slug }) => slug)),
+			]);
+			const nonBuiltinEntitySchemaSlugs = new Set(
+				current.entitySchemas
+					.filter(({ slug }) => !definitions.isEntitySchemaBuiltin(slug))
+					.map(({ slug }) => slug),
+			);
+			const nonBuiltinRelationshipSchemaSlugs = new Set(
+				current.relationshipSchemas
+					.filter(({ slug }) => !definitions.isRelationshipSchemaBuiltin(slug))
+					.map(({ slug }) => slug),
+			);
+			for (const definition of input.entitySchemas ?? []) {
+				nonBuiltinEntitySchemaSlugs.add(definition.slug);
+			}
+			for (const definition of input.relationshipSchemas ?? []) {
+				nonBuiltinRelationshipSchemaSlugs.add(definition.slug);
+			}
 			yield* Effect.try({
 				try: () =>
-					definitions.replace({
-						...current,
-						trackers: mergeBySlug(current.trackers, trackers, builtinTrackerSlugs),
-						entitySchemas: mergeBySlug(
-							current.entitySchemas,
-							input.entitySchemas,
-							builtinEntitySchemaSlugs,
-						),
-						relationshipSchemas: mergeBySlug(
-							current.relationshipSchemas,
-							input.relationshipSchemas,
-							builtinRelationshipSchemaSlugs,
-						),
-					}),
+					definitions.replace(
+						{
+							...current,
+							entitySchemas: mergeBySlug(
+								current.entitySchemas,
+								input.entitySchemas?.map((definition) => ({
+									...definition,
+									pluginSlug: definition.pluginSlug ?? null,
+								})),
+								builtinEntitySchemaSlugs,
+							),
+							relationshipSchemas: mergeBySlug(
+								current.relationshipSchemas,
+								input.relationshipSchemas,
+								builtinRelationshipSchemaSlugs,
+							),
+						},
+						{
+							nonBuiltinEntitySchemaSlugs,
+							nonBuiltinRelationshipSchemaSlugs,
+						},
+					),
 				catch: (cause) => badRequest(unknownToMessage(cause)),
 			});
 		});
@@ -122,7 +143,7 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 				Effect.gen(function* () {
 					yield* relationships.deleteTouchingEntitiesOfSandboxScript(scriptId);
 					yield* entities.deleteBySandboxScript(scriptId);
-					yield* entitySchemas.deleteSandboxScriptLinks(scriptId);
+					yield* pluginRuntime.unregisterTestSchemaScript(scriptId);
 					yield* sandbox.deleteStoredScript(scriptId);
 				}),
 			);
@@ -229,13 +250,11 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 				return { executionId };
 			});
 
-		const trackerExists = (trackerSlug: string) =>
-			Effect.succeed({ exists: definitions.getTracker(trackerSlug) !== undefined });
 		const linkSandboxScriptToEntitySchema = Effect.fn(function* (input: {
 			entitySchemaSlug: EntitySchemaSlug;
 			sandboxScriptId: SandboxScriptId;
 		}) {
-			const linked = yield* runInTransaction(entitySchemas.linkSandboxScript(input));
+			const linked = yield* runInTransaction(pluginRuntime.registerTestSchemaScript(input));
 			return linked ?? (yield* badRequest("Entity schema not found"));
 		});
 
@@ -247,9 +266,8 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 		});
 
 		return {
-			trackerExists,
-			installDefinitions,
 			linkAuthAccount,
+			installDefinitions,
 			createGlobalEntity,
 			deleteSandboxScript,
 			countAutomationRules,
@@ -258,6 +276,7 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 			upsertEntityTranslation,
 			upsertGlobalRelationship,
 			listSignals: signals.list,
+			linkSandboxScriptToEntitySchema,
 			setEntityInterest: interest.setInterest,
 			getSandboxScript: sandbox.getStoredScript,
 			deleteGlobalEntities: entities.deleteByIds,
@@ -266,6 +285,7 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 			listEntityTranslations: translations.listByEntity,
 			promoteSandboxScript: sandbox.promoteStoredScript,
 			listGlobalRelationships: relationships.listGlobal,
+			listSubscriptionRuns: automations.listRunsByExecutionUserId,
 			getBuiltinEntitySchema: (slug: string) =>
 				Effect.succeed(definitions.getEntitySchema(slug)).pipe(
 					Effect.flatMap((definition) =>
@@ -278,8 +298,6 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 							: Effect.fail(badRequest("Entity schema not found")),
 					),
 				),
-			listSubscriptionRuns: automations.listRunsByExecutionUserId,
-			linkSandboxScriptToEntitySchema,
 		};
 	}),
 }) {}

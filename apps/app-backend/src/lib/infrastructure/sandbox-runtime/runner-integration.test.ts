@@ -5,8 +5,15 @@ import type { CompiledSandboxModule } from "@ryot/sandbox-compiler/protocol";
 import { Effect, Runtime, Schema, Stream } from "effect";
 import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
+import { SandboxCompiler } from "#modules/sandbox/compiler";
+
 import {
-	generatedBuiltinSandboxScripts,
+	ensureSandboxRuntimeDependencies,
+	SANDBOX_APPROVED_DEPENDENCIES,
+	type SandboxRuntimePaths,
+} from "./dependencies";
+import {
+	generatedSandboxScripts,
 	sandboxAnimeDotAnilistScript,
 	sandboxAnimeDotMyanimelistScript,
 	sandboxComicDashBookDotMetronScript,
@@ -35,14 +42,7 @@ import {
 	sandboxVideoDashGameDotIgdbScript,
 	sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript,
 	sandboxTriggerDotIntegrationDashProgressDashPolicyScript,
-} from "#modules/builtins/generated-sandbox/registry";
-import { SandboxCompiler } from "#modules/sandbox/compiler";
-
-import {
-	ensureSandboxRuntimeDependencies,
-	SANDBOX_APPROVED_DEPENDENCIES,
-	type SandboxRuntimePaths,
-} from "./dependencies";
+} from "./generated-sandbox/registry";
 import {
 	SANDBOX_LIMITS,
 	SANDBOX_LOG_TRUNCATION_MARKER,
@@ -922,7 +922,7 @@ it(
 	() =>
 		Effect.runPromise(
 			Effect.forEach(
-				generatedBuiltinSandboxScripts,
+				generatedSandboxScripts,
 				(script) =>
 					Effect.gen(function* () {
 						const result = yield* runInDeno(
@@ -2342,7 +2342,7 @@ const domainEntitySchemaRecord = {
 	name: "Movie",
 	slug: "movie",
 	isBuiltin: true,
-	trackerId: "tracker-1",
+	pluginSlug: "plugin-1",
 	accentColor: "#ffffff",
 	propertiesSchema: { fields: {} },
 	providers: [{ name: "TMDB", scriptId: "tmdb-movie" }],

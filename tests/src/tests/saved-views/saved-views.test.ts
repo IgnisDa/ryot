@@ -9,9 +9,9 @@ import {
 	createAuthenticatedClient,
 	createRelationshipSchema,
 	createSavedViewWithQueryDocument,
-	createQueryEngineTrackerAndSchema,
+	createQueryEnginePluginSchema,
 	entityField,
-	findBuiltinTrackerBySlug,
+	findBuiltinWorkspaceBySlug,
 	getSavedView,
 	listSavedViews,
 	systemRef,
@@ -28,8 +28,8 @@ describe("Saved views query documents E2E", () => {
 	it.live("stores media built-in saved views with canonical in-library filters", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const mediaTracker = yield* findBuiltinTrackerBySlug(client, "media");
-			const views = yield* listSavedViews(client, { trackerSlug: mediaTracker.id });
+			const mediaWorkspace = yield* findBuiltinWorkspaceBySlug(client, "media");
+			const views = yield* listSavedViews(client, { pluginSlug: mediaWorkspace.slug });
 			const allBooksView = views.find((view) => view.name === "All Books");
 
 			expect(allBooksView?.queryDocument).toMatchObject({
@@ -111,14 +111,18 @@ describe("Saved views query documents E2E", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { schemaId: courseSchemaId, slug: courseSlug } =
-					yield* createQueryEngineTrackerAndSchema(client, {
+				const { schemaId: courseSchemaId, slug: courseSlug } = yield* createQueryEnginePluginSchema(
+					client,
+					{
 						schemaName: `SavedViewCourse ${crypto.randomUUID()}`,
-					});
-				const { schemaId: moduleSchemaId, slug: moduleSlug } =
-					yield* createQueryEngineTrackerAndSchema(client, {
+					},
+				);
+				const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createQueryEnginePluginSchema(
+					client,
+					{
 						schemaName: `SavedViewModule ${crypto.randomUUID()}`,
-					});
+					},
+				);
 				const courseModuleSlug = `saved-view-course-module-${crypto.randomUUID()}`;
 				yield* createRelationshipSchema(client, {
 					slug: courseModuleSlug,

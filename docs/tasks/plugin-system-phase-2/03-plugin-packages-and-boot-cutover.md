@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## Before you start
 
@@ -68,23 +68,23 @@ flow), §5 (global-binding dispatch). Do not restate or re-derive it.
 
 ## Acceptance criteria
 
-- [ ] `apps/app-backend/src/modules/builtins/` no longer exists; media/fitness definitions and
+- [x] `apps/app-backend/src/modules/builtins/` no longer exists; media/fitness definitions and
       scripts live in `plugins/media` and `plugins/fitness`; kernel-owned definitions live in
       the registry module (done criterion 1)
-- [ ] Boot ingests both first-party plugins before accepting traffic; the definition registry is
+- [x] Boot ingests both first-party plugins before accepting traffic; the definition registry is
       fully populated from the loader, not SeedService (done criterion 5, boot half)
-- [ ] `entity_schema_sandbox_script` is gone and lifecycle dispatch is registry-driven;
+- [x] `entity_schema_sandbox_script` is gone and lifecycle dispatch is registry-driven;
       automation e2e behavior suites (auto-complete, integration progress policy, notification
       delivery) are green with assertions unchanged (done criterion 2, partial)
-- [ ] No tracker concept remains: no `trackers` manifest section, contract group, or registry
+- [x] No tracker concept remains: no `trackers` manifest section, contract group, or registry
       definitions, and no `tracker*` tables/columns; workspace presentation comes from plugin
       metadata merged with `plugin_state`, and saved views group by `pluginSlug` (plan §9;
       done criterion 7)
-- [ ] `isBuiltin` on `sandbox_script` is dropped and `user-bootstrap` performs no builtin
+- [x] `isBuiltin` on `sandbox_script` is dropped and `user-bootstrap` performs no builtin
       materialization
-- [ ] The full e2e suite is green using the still-existing provider fixture (fixture swap is
+- [x] The full e2e suite is green using the still-existing provider fixture (fixture swap is
       task 04); backend `check` + unit tests and `app-client` check pass (cross-phase invariant 1)
-- [ ] Ambiguous plugin-vs-kernel ownership decisions are recorded in the plan; affected
+- [x] Ambiguous plugin-vs-kernel ownership decisions are recorded in the plan; affected
       `CLAUDE.md`/`README.md` docs are moved with the code (cross-phase invariant 7)
 
 ## User stories addressed

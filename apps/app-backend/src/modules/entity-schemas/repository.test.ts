@@ -3,40 +3,32 @@ import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands"
 import { Effect, Layer } from "effect";
 
 import { CurrentDb } from "#lib/infrastructure/db/service";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
-import { EntitySchemasRepository } from "./repository";
-
-const makeDb = () => {
-	let linkId: string | null = null;
-	const insert = () => ({
-		values: () => ({
-			onConflictDoNothing: () => ({
-				returning: () => {
-					if (linkId) {
-						return Promise.resolve([]);
-					}
-					linkId = "link-id";
-					return Promise.resolve([{ id: linkId }]);
-				},
-			}),
+const select = () => ({
+	from: () => ({
+		where: () => ({
+			limit: () =>
+				Promise.resolve([
+					{ id: "sandbox-script-id", slug: "fixture.provider", contentHash: "hash" },
+				]),
 		}),
-	});
-	const select = () => ({
-		from: () => ({
-			where: () => ({
-				limit: () => Promise.resolve(linkId ? [{ id: linkId }] : []),
-			}),
-		}),
-	});
-	return { insert, select };
-};
+	}),
+});
 
-const makeLayer = () =>
-	Layer.mergeAll(
-		EntitySchemasRepository.Default.pipe(Layer.provide(DefinitionRegistry.Default)),
-		Layer.succeed(CurrentDb, Object.assign(Object.create(null), makeDb())),
+const makeLayer = () => {
+	const loader = makePluginLoader(makeDefinitionRegistry());
+	return PluginRuntimeResolver.Default.pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader }),
+				Layer.succeed(CurrentDb, Object.assign(Object.create(null), { select })),
+			),
+		),
 	);
+};
 
 it.effect("returns the existing sandbox script link on conflict", () => {
 	const input = {
@@ -45,10 +37,10 @@ it.effect("returns the existing sandbox script link on conflict", () => {
 	};
 
 	return Effect.gen(function* () {
-		const repository = yield* EntitySchemasRepository;
-		const created = yield* repository.linkSandboxScript(input);
-		const existing = yield* repository.linkSandboxScript(input);
-		expect(created).toEqual({ id: "link-id" });
+		const resolver = yield* PluginRuntimeResolver;
+		const created = yield* resolver.registerTestSchemaScript(input);
+		const existing = yield* resolver.registerTestSchemaScript(input);
+		expect(created).toEqual({ id: "movie:fixture.provider" });
 		expect(existing).toEqual(created);
 	}).pipe(Effect.provide(makeLayer()));
 });

@@ -2,32 +2,21 @@ import { relations } from "drizzle-orm";
 
 import { user } from "./auth";
 import { signal, signalRecipient } from "./automations";
-import { entitySchemaSandboxScript, sandboxScript, trackerState } from "./core";
+import { pluginState, sandboxScript } from "./core";
 import { entity, relationship } from "./entities";
 import { event } from "./events";
 import { importRun, importRunFailure, integration } from "./imports";
 import { notificationChannel } from "./notifications";
 import { savedView, savedViewState } from "./views";
 
-export const trackerStateRelations = relations(trackerState, ({ one }) => ({
-	user: one(user, { references: [user.id], fields: [trackerState.userId] }),
+export const pluginStateRelations = relations(pluginState, ({ one }) => ({
+	user: one(user, { references: [user.id], fields: [pluginState.userId] }),
 }));
 
 export const sandboxScriptRelations = relations(sandboxScript, ({ one, many }) => ({
 	entities: many(entity),
-	entityScriptLinks: many(entitySchemaSandboxScript),
 	user: one(user, { references: [user.id], fields: [sandboxScript.userId] }),
 }));
-
-export const entitySchemaSandboxScriptRelations = relations(
-	entitySchemaSandboxScript,
-	({ one }) => ({
-		sandboxScript: one(sandboxScript, {
-			references: [sandboxScript.id],
-			fields: [entitySchemaSandboxScript.sandboxScriptId],
-		}),
-	}),
-);
 
 export const entityRelations = relations(entity, ({ one, many }) => ({
 	events: many(event),

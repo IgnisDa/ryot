@@ -7,7 +7,7 @@ import {
 	createEntitySchema,
 	createRelationship,
 	createRelationshipSchema,
-	createTracker,
+	createPluginScope,
 	getBackendClient,
 } from "~/fixtures";
 import { assertTaggedError } from "~/support/assertions";
@@ -15,9 +15,9 @@ import { describe, expect, it } from "~/support/effect-test";
 
 const makeRelationshipFixture = (client: Client) =>
 	Effect.gen(function* () {
-		const { trackerSlug } = yield* createTracker(client, { name: "Relationship Test Tracker" });
+		const pluginSlug = createPluginScope();
 		const { schemaId } = yield* createEntitySchema(client, {
-			trackerSlug,
+			pluginSlug,
 			name: "Relationship Test Entity",
 		});
 		const source = yield* createEntity(client, {

@@ -1,10 +1,9 @@
 import { expect, it } from "@effect/vitest";
 import { PropertyValidationError } from "@ryot/contract/schema/property-schema";
+import { exercisePropertiesSchema } from "@ryot/plugin-fitness/schemas/property-schemas";
+import { bookPropertiesSchema } from "@ryot/plugin-media/schemas/property-schemas";
 import { Effect } from "effect";
 import { describe } from "vitest";
-
-import { exercisePropertiesSchema } from "#modules/builtins/fitness-property-schemas";
-import { bookPropertiesSchema } from "#modules/builtins/media-property-schemas";
 
 import {
 	formatPropertyIssues,

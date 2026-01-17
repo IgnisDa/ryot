@@ -6,12 +6,13 @@ export const fixturePackageRoot = (kind: "diagnostic" | "valid" = "valid") =>
 export const fixtureManifest = () =>
 	({
 		metadata: {
+			icon: "box",
 			name: "Fixture",
 			slug: "fixture",
 			version: "1.0.0",
+			accentColor: "blue",
 			description: "Fixture plugin",
 		},
-		trackers: [],
 		savedViews: [],
 		entitySchemas: [
 			{

@@ -2,6 +2,7 @@ import { assert, expect, it } from "@effect/vitest";
 import { BadRequest, NotFound } from "@ryot/contract/errors";
 import {
 	AutomationRuleId,
+	EntitySchemaSlug,
 	SandboxScriptId,
 	SignalId,
 	SignalSchemaSlug,
@@ -14,6 +15,7 @@ import { Effect, Exit, Layer } from "effect";
 import { utf8ByteLength } from "#lib/infrastructure/sandbox-runtime/limits";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import {
 	AutomationsRepository,
@@ -75,18 +77,37 @@ const storedRunFromInsert = (input: InsertSubscriptionRunInput): StoredSubscript
 	returnedValue: null,
 	ruleId: input.ruleId,
 	scriptUpdatedAt: null,
-	originalRuleId: input.ruleId,
+	originalRuleId: input.originalRuleId ?? input.ruleId ?? ruleId,
 	queuedAt: "2026-07-20T10:00:00.000Z",
 });
 
 const mockRepository = Layer.mock(AutomationsRepository);
+const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
+const makePluginRuntime = (overrides: MockOverrides<typeof mockPluginRuntime> = {}) =>
+	mockPluginRuntime({
+		_tag: "PluginRuntimeResolver",
+		unregisterTestSchemaScript: () => Effect.void,
+		listAutomations: () => Effect.succeed([]),
+		findAutomation: () => Effect.succeed(null),
+		listSchemaScripts: () => Effect.succeed([]),
+		findKernelScript: () => Effect.succeed(null),
+		findActiveScript: () => Effect.succeed(null),
+		findSchemaScriptBySlug: () => Effect.succeed(null),
+		registerTestSchemaScript: () => Effect.succeed(null),
+		...overrides,
+	});
 
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
 	mockRepository({ _tag: "AutomationsRepository", ...overrides });
 
-const makeLayer = (repository: ReturnType<typeof makeRepository>) =>
+const makeLayer = (
+	repository: ReturnType<typeof makeRepository>,
+	pluginRuntime: MockOverrides<typeof mockPluginRuntime> = {},
+) =>
 	AutomationsService.Default.pipe(
-		Layer.provide(Layer.mergeAll(dbRunnerLayer, transactionLayer, repository)),
+		Layer.provide(
+			Layer.mergeAll(dbRunnerLayer, transactionLayer, repository, makePluginRuntime(pluginRuntime)),
+		),
 	);
 
 it.effect("rejects non-JSON rule metadata before persistence", () => {
@@ -189,6 +210,7 @@ it.effect("resolves only built-in rules for a global row", () => {
 					storedRule({ userId: null, isBuiltin: false }),
 				]),
 		}),
+		{ listAutomations: () => Effect.succeed([globalBuiltin]) },
 	);
 
 	return Effect.gen(function* () {
@@ -212,12 +234,40 @@ it.effect("resolves the owner's and built-in rules for a user row", () => {
 					storedRule({ userId: null, isBuiltin: false }),
 				]),
 		}),
+		{ listAutomations: () => Effect.succeed([globalBuiltin]) },
 	);
 
 	return Effect.gen(function* () {
 		const service = yield* AutomationsService;
 		const rules = yield* service.resolveActive({ target, operation: "signal", rowUserId: userId });
 		expect(rules).toEqual([globalBuiltin, own]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("resolves global lifecycle bindings without reading automation rules", () => {
+	const lifecycleTarget = {
+		kind: "entity_schema" as const,
+		id: EntitySchemaSlug.make("movie"),
+	};
+	const binding = storedRule({
+		userId: null,
+		isBuiltin: true,
+		operation: "create",
+		target: lifecycleTarget,
+	});
+	const layer = makeLayer(
+		makeRepository({ resolveActive: () => Effect.die("unexpected automation rule read") }),
+		{ listAutomations: () => Effect.succeed([binding]) },
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* AutomationsService;
+		const rules = yield* service.resolveActive({
+			rowUserId: null,
+			operation: "create",
+			target: lifecycleTarget,
+		});
+		expect(rules).toEqual([binding]);
 	}).pipe(Effect.provide(layer));
 });
 
