@@ -7,6 +7,7 @@ import {
 	Center,
 	Group,
 	Loader,
+	NumberInput,
 	Paper,
 	Progress,
 	ScrollArea,
@@ -32,6 +33,7 @@ import {
 } from "~/features/entities/search-modal";
 import {
 	createLogEventPayload,
+	createProgressEventPayload,
 	createReviewEventPayload,
 	type MediaSearchLogDateOption,
 } from "~/features/entities/search-modal-media-actions";
@@ -332,12 +334,94 @@ function Artwork(props: {
 	);
 }
 
+function ContinueLoggingModalContent(props: {
+	modalId: string;
+	entityId: string;
+	accentColor: string;
+	onSaved: () => void;
+	entitySchemaId: string;
+	initialPercent: number | null;
+}) {
+	const apiClient = useApiClient();
+	const [progressPercent, setProgressPercent] = useState<number | string>(
+		props.initialPercent ?? "",
+	);
+	const createEvents = apiClient.useMutation("post", "/events");
+	const eventSchemasQuery = useEventSchemasQuery(
+		props.entitySchemaId,
+		!!props.entitySchemaId,
+	);
+
+	const isValid =
+		typeof progressPercent === "number" &&
+		progressPercent > 0 &&
+		progressPercent < 100 &&
+		progressPercent !== props.initialPercent;
+
+	const handleSave = async () => {
+		try {
+			const payload = createProgressEventPayload({
+				entityId: props.entityId,
+				progressPercent: progressPercent as number,
+				eventSchemas: eventSchemasQuery.eventSchemas,
+			});
+			await createEvents.mutateAsync({ body: payload });
+			modals.close(props.modalId);
+			props.onSaved();
+		} catch (error) {
+			notifications.show({
+				color: "red",
+				title: "Could not log progress",
+				message: error instanceof Error ? error.message : "Please try again.",
+			});
+		}
+	};
+
+	return (
+		<Stack gap="sm">
+			<NumberInput
+				min={1}
+				max={99}
+				step={1}
+				size="xs"
+				suffix="%"
+				label="Progress"
+				value={progressPercent}
+				onChange={setProgressPercent}
+				description="Enter your current progress (1–99%)"
+				styles={{
+					input: { fontFamily: "var(--mantine-font-family-monospace)" },
+				}}
+			/>
+			<Group gap="xs">
+				<Button
+					size="compact-xs"
+					loading={createEvents.isPending}
+					onClick={() => void handleSave()}
+					disabled={!isValid || createEvents.isPending}
+					style={{ backgroundColor: props.accentColor, color: "white" }}
+				>
+					Save
+				</Button>
+				<Button
+					variant="subtle"
+					size="compact-xs"
+					onClick={() => modals.close(props.modalId)}
+				>
+					Cancel
+				</Button>
+			</Group>
+		</Stack>
+	);
+}
+
 function ContinueCard(props: {
 	border: string;
 	surface: string;
 	textMuted: string;
 	textPrimary: string;
 	surfaceHover: string;
+	onContinue: () => void;
 	item: OverviewContinueItem;
 	imageUrl: string | undefined;
 	schemaBySlug: Map<string, AppEntitySchema>;
@@ -453,6 +537,7 @@ function ContinueCard(props: {
 						mt={4}
 						variant="light"
 						size="compact-xs"
+						onClick={props.onContinue}
 						leftSection={<Play size={10} />}
 						style={{
 							color,
@@ -1170,6 +1255,36 @@ export function BuiltinMediaTrackerOverview(
 		});
 	};
 
+	const handleContinueItem = (
+		entityId: string,
+		accentColor: string,
+		entitySchemaId: string,
+		initialPercent: number | null,
+	) => {
+		const continueModalId = `builtin-media-continue-${entityId}`;
+		modals.open({
+			size: "sm",
+			centered: true,
+			modalId: continueModalId,
+			overlayProps: { backgroundOpacity: 0.55, blur: 3 },
+			title: (
+				<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
+					Log progress
+				</Text>
+			),
+			children: (
+				<ContinueLoggingModalContent
+					entityId={entityId}
+					modalId={continueModalId}
+					accentColor={accentColor}
+					onSaved={invalidateContinue}
+					entitySchemaId={entitySchemaId}
+					initialPercent={initialPercent}
+				/>
+			),
+		});
+	};
+
 	const openTypePickerModal = (intent: "log" | "backlog") => {
 		const title = intent === "log" ? "Start something" : "Queue something";
 
@@ -1402,6 +1517,15 @@ export function BuiltinMediaTrackerOverview(
 								schemaBySlug={schemaBySlug}
 								surfaceHover={t.surfaceHover}
 								imageUrl={imageUrls.imageUrlByEntityId.get(item.id)}
+								onContinue={() => {
+									const schema = schemaBySlug.get(item.entitySchemaSlug);
+									handleContinueItem(
+										item.id,
+										schema?.accentColor ?? STONE,
+										schema?.id ?? "",
+										item.progress.progressPercent ?? null,
+									);
+								}}
 							/>
 						))}
 					</SimpleGrid>
