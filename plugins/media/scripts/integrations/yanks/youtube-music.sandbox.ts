@@ -1,4 +1,5 @@
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineActivity } from "@ryot/sandbox-sdk/activity";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot/sandbox-sdk/effect";
 
 import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
@@ -7,14 +8,16 @@ import { createYoutubeHistoryClient } from "../../providers/youtube-music-shared
 import { specifics } from "../shared";
 
 export const manifest = defineManifest({
-	kind: "script",
+	kind: "activity",
 	name: "YouTube Music yank",
-	slug: "integration.youtube-music",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	slug: "integration.youtube-music",
 	capabilities: ["httpCall", "getIntegration", "claimCachedValue"],
 });
+
 const Input = Schema.Struct({});
+
 export const deduplicateWindow = (timezone: string) =>
 	Option.match(DateTime.makeZoned(DateTime.unsafeNow(), { timeZone: timezone }), {
 		onNone: () => ({
@@ -29,7 +32,8 @@ export const deduplicateWindow = (timezone: string) =>
 			};
 		},
 	});
-export default defineScript({
+
+export default defineActivity({
 	manifest,
 	input: Input,
 	output: MediaIntegrationAdapterResult,
@@ -54,19 +58,19 @@ export default defineScript({
 						itemIndex,
 						collectionMemberships: [],
 						entityRef: {
-							kind: "resolved" as const,
 							sourceLabel: song.title,
 							externalId: song.videoId,
+							kind: "resolved" as const,
 							entitySchemaSlug: "music",
 							providerSlug: "music.youtube-music",
 						},
 						events: [
 							{
-								occurredAt: new Date().toISOString(),
 								eventSchemaSlug: "progress",
+								occurredAt: new Date().toISOString(),
 								properties: {
-									progressPercent: claim.claimed ? 35 : 100,
 									consumedOn: "youtube_music",
+									progressPercent: claim.claimed ? 35 : 100,
 								},
 							},
 						],

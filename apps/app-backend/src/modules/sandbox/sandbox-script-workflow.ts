@@ -23,6 +23,7 @@ import {
 	projectWorkflowJournal,
 	type WorkflowJournalEntry,
 } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
+import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 
 import { resolveSandboxExecutionPayload, SandboxExecutionQueue } from "./durable-queues";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
@@ -277,30 +278,34 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 	const childExecutionId = sandboxWorkflowChildExecutionId(executionId, request.name, step);
 	if (request.args.workflowSlug.startsWith("kernel:")) {
 		const references = yield* KernelWorkflowReferences;
-		return yield* references.execute(
-			request.args.workflowSlug,
-			request.args.input,
-			payload.authority,
-			childExecutionId,
-			executionId,
-			payload.scriptId,
-		);
+		return yield* references
+			.execute(
+				request.args.workflowSlug,
+				request.args.input,
+				payload.authority,
+				childExecutionId,
+				executionId,
+				payload.scriptId,
+			)
+			.pipe(withoutWorkflowParent);
 	}
 	if (!targetScriptId) {
 		return yield* sandboxFailure("Child workflow script was not resolved");
 	}
 	const engine = yield* WorkflowEngine;
-	return yield* engine.execute(SandboxScriptWorkflow, {
-		executionId: childExecutionId,
-		payload: {
-			resolutionMode: "exact",
-			scriptId: targetScriptId,
-			input: request.args.input,
-			authority: payload.authority,
+	return yield* engine
+		.execute(SandboxScriptWorkflow, {
 			executionId: childExecutionId,
-			...(payload.grants ? { grants: payload.grants } : {}),
-		},
-	});
+			payload: {
+				resolutionMode: "exact",
+				scriptId: targetScriptId,
+				input: request.args.input,
+				authority: payload.authority,
+				executionId: childExecutionId,
+				...(payload.grants ? { grants: payload.grants } : {}),
+			},
+		})
+		.pipe(withoutWorkflowParent);
 });
 
 export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(function* <R>(
