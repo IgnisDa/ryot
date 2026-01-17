@@ -44,40 +44,39 @@ class RollbackTransaction<A, E> extends Error {
 const isRollbackTransaction = <A, E>(cause: unknown): cause is RollbackTransaction<A, E> =>
 	cause instanceof RollbackTransaction;
 
-const withTransaction = <A, E, R>(
+const withTransaction = Effect.fn("withTransaction")(function* <A, E, R>(
 	effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E | DbError, DbService | Exclude<R, CurrentDb>> =>
-	Effect.gen(function* () {
-		const { db } = yield* DbService;
-		// The effect runs on a detached fiber (Runtime.runPromiseExit) to bridge into Drizzle's
-		// callback-based transaction, so interrupting the caller will not cancel an in-flight
-		// transaction. Keep transactions short and free of long I/O; see "Transaction Design".
-		const runtime = yield* Effect.runtime<Exclude<R, CurrentDb>>();
-		const exit = yield* Effect.tryPromise({
-			try: () =>
-				db.transaction((tx) =>
-					Runtime.runPromiseExit(runtime)(effect.pipe(Effect.provideService(CurrentDb, tx))).then(
-						(innerExit) => {
-							if (Exit.isFailure(innerExit)) {
-								throw new RollbackTransaction(innerExit);
-							}
-							return innerExit;
-						},
-					),
+) {
+	const { db } = yield* DbService;
+	// The effect runs on a detached fiber (Runtime.runPromiseExit) to bridge into Drizzle's
+	// callback-based transaction, so interrupting the caller will not cancel an in-flight
+	// transaction. Keep transactions short and free of long I/O; see "Transaction Design".
+	const runtime = yield* Effect.runtime<Exclude<R, CurrentDb>>();
+	const exit = yield* Effect.tryPromise({
+		try: () =>
+			db.transaction((tx) =>
+				Runtime.runPromiseExit(runtime)(effect.pipe(Effect.provideService(CurrentDb, tx))).then(
+					(innerExit) => {
+						if (Exit.isFailure(innerExit)) {
+							throw new RollbackTransaction(innerExit);
+						}
+						return innerExit;
+					},
 				),
-			catch: (cause) => (isRollbackTransaction<A, E>(cause) ? cause : unknownToDbError(cause)),
-		}).pipe(
-			Effect.catchAll((cause) =>
-				isRollbackTransaction<A, E>(cause) ? Effect.succeed(cause.exit) : Effect.fail(cause),
 			),
-		);
+		catch: (cause) => (isRollbackTransaction<A, E>(cause) ? cause : unknownToDbError(cause)),
+	}).pipe(
+		Effect.catchAll((cause) =>
+			isRollbackTransaction<A, E>(cause) ? Effect.succeed(cause.exit) : Effect.fail(cause),
+		),
+	);
 
-		if (Exit.isSuccess(exit)) {
-			return exit.value;
-		}
+	if (Exit.isSuccess(exit)) {
+		return exit.value;
+	}
 
-		return yield* Effect.failCause(exit.cause);
-	});
+	return yield* Effect.failCause(exit.cause);
+});
 
 export class DbRunner extends Context.Tag("DbRunner")<
 	DbRunner,
