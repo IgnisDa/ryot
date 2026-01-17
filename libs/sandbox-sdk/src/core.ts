@@ -42,6 +42,7 @@ const cacheKeySchema = nonEmptyString;
 const cacheTtlSecondsSchema = positiveInteger;
 export const httpCallOptionsSchema = strictStruct({
 	body: Schema.optional(Schema.String),
+	allowInsecureConnections: Schema.optional(Schema.Boolean),
 	headers: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
 });
 export const httpCallResponseSchema = strictStruct({

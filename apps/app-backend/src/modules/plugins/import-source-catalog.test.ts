@@ -31,6 +31,7 @@ const catalogLayer = () => {
 	loader.rebuild([
 		pluginWithImportSources("zebra", [
 			{
+				lot: "single",
 				input: "file",
 				name: "OpenScale",
 				slug: "open-scale",
@@ -42,6 +43,7 @@ const catalogLayer = () => {
 		]),
 		pluginWithImportSources("apple", [
 			{
+				lot: "single",
 				input: "file",
 				slug: "netflix",
 				name: "Netflix",
@@ -54,7 +56,6 @@ const catalogLayer = () => {
 				slug: "trakt",
 				name: "Trakt",
 				input: "payload",
-				allowedFileExtensions: [],
 				description: "Trakt account",
 				workflowSlug: "trakt-import",
 				requiredAppConfigKeys: ["server.traktClientId"],
@@ -83,6 +84,7 @@ it.effect("resolves the owning plugin, workflow and input metadata by source slu
 		const catalog = yield* ImportSourceCatalog;
 
 		expect(catalog.find("netflix")).toMatchObject({
+			lot: "single",
 			input: "file",
 			pluginSlug: "apple",
 			workflowSlug: "netflix-import",

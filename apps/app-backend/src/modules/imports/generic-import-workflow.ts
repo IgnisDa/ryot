@@ -3,11 +3,12 @@ import { Activity, Workflow } from "@effect/workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { unknownToMessage } from "@ryot/contract/errors";
 import { CreateEventItem } from "@ryot/contract/modules/events/schemas";
-import type { EntityId } from "@ryot/contract/schema/brands";
 import {
+	EntityId,
 	EntitySchemaSlug,
 	EventSchemaSlug,
 	ImportRunId,
+	IntegrationId,
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
@@ -22,6 +23,8 @@ import { DateTime, Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { slugify } from "#lib/shared/slug";
+import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
+import { CollectionsService } from "#modules/collections/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
@@ -36,6 +39,7 @@ export const ProcessGenericImportChunksPayload = Schema.Struct({
 	...genericImportKernelInputSchema.fields,
 	userId: UserId,
 	executionId: Schema.String,
+	integrationId: Schema.optional(IntegrationId),
 	expectedHarvestDirectoryPrefix: Schema.String,
 });
 
@@ -49,7 +53,12 @@ export const ProcessGenericImportChunksWorkflow = Workflow.make({
 
 const ItemWriteOutcome = Schema.Union(
 	Schema.TaggedStruct("failed", { message: Schema.String }),
-	Schema.TaggedStruct("ready", { events: Schema.Array(CreateEventItem) }),
+	Schema.TaggedStruct("ready", {
+		events: Schema.Array(CreateEventItem),
+		collectionMemberships: Schema.Array(
+			Schema.Struct({ entityId: EntityId, collectionId: EntityId }),
+		),
+	}),
 );
 
 const requireHarvestedChunkPath = Effect.fn("imports.requireHarvestedChunkPath")(function* (
@@ -98,7 +107,17 @@ const resolveEntityIntents = Effect.fn("imports.resolveGenericEntityIntents")(fu
 			});
 		}
 		let entityId: EntityId | undefined;
-		if (intent.match) {
+		if (intent.entityId) {
+			const existing = yield* runWithDb(
+				repository.getByIdForUser({ userId, entityId: EntityId.make(intent.entityId) }),
+			);
+			if (!existing || existing.entitySchemaSlug !== intent.entitySchemaSlug) {
+				return yield* new ImportRunError({
+					message: "Import entity id is unavailable or has the wrong schema",
+				});
+			}
+			entityId = existing.id;
+		} else if (intent.match) {
 			const candidates = yield* runWithDb(
 				repository.listMatchCandidatesBySchema({
 					userId,
@@ -135,16 +154,34 @@ const writeGenericItem = (item: GenericImportWriteItem, userId: UserId, index: n
 		name: `write-generic-import-item-${index}`,
 		success: ItemWriteOutcome,
 		execute: Effect.gen(function* () {
+			const runWithDb = yield* DbRunner;
 			const definitions = yield* DefinitionRegistry;
+			const collections = yield* CollectionsService;
 			const relationships = yield* RelationshipsService;
+			const entitiesRepository = yield* EntitiesRepository;
 			const entitySchemasByAlias = new Map(
 				item.entities.map(({ alias, entitySchemaSlug }) => [alias, entitySchemaSlug]),
 			);
 			for (const event of item.events) {
-				const entitySchemaSlug = entitySchemasByAlias.get(event.entityAlias);
+				const subject =
+					event.subjectEntityId !== undefined
+						? yield* runWithDb(
+								entitiesRepository.getByIdForUser({
+									userId,
+									entityId: EntityId.make(event.subjectEntityId),
+								}),
+							)
+						: null;
+				if (event.subjectEntityId !== undefined && !subject) {
+					return yield* new ImportRunError({
+						message: "Import event references an unknown subject entity",
+					});
+				}
+				const entitySchemaSlug =
+					subject?.entitySchemaSlug ?? entitySchemasByAlias.get(event.entityAlias);
 				if (!entitySchemaSlug) {
 					return yield* new ImportRunError({
-						message: "Import event references an unknown entity alias",
+						message: "Import event references an unknown entity alias or subject",
 					});
 				}
 				yield* definitions.validateEventProperties(
@@ -193,8 +230,12 @@ const writeGenericItem = (item: GenericImportWriteItem, userId: UserId, index: n
 				});
 			}
 			const events: CreateEventItem[] = [];
+			const collectionMemberships: Array<{ entityId: EntityId; collectionId: EntityId }> = [];
 			for (const intent of item.events) {
-				const entityId = aliases.get(intent.entityAlias);
+				const entityId =
+					intent.subjectEntityId !== undefined
+						? EntityId.make(intent.subjectEntityId)
+						: aliases.get(intent.entityAlias);
 				const sessionEntityId = intent.sessionEntityAlias
 					? aliases.get(intent.sessionEntityAlias)
 					: undefined;
@@ -211,7 +252,35 @@ const writeGenericItem = (item: GenericImportWriteItem, userId: UserId, index: n
 					...(sessionEntityId ? { sessionEntityId } : {}),
 				});
 			}
-			return { _tag: "ready" as const, events };
+			const ownershipSyncedAt = (yield* DateTime.nowAsDate).toISOString();
+			for (const ownership of item.ownerships ?? []) {
+				const entityId = aliases.get(ownership.entityAlias);
+				if (!entityId) {
+					return yield* new ImportRunError({
+						message: "Import ownership references an unknown entity alias",
+					});
+				}
+				yield* collections.markEntityOwnedInLibrary({
+					userId,
+					entityId,
+					syncedAt: ownershipSyncedAt,
+					provider: ownership.provider,
+				});
+			}
+			for (const membership of item.collectionMemberships ?? []) {
+				const entityId = aliases.get(membership.entityAlias);
+				if (!entityId) {
+					return yield* new ImportRunError({
+						message: "Import collection membership references an unknown entity alias",
+					});
+				}
+				const collection = yield* collections.getOrCreateCollection(
+					userId,
+					membership.collectionName,
+				);
+				collectionMemberships.push({ entityId, collectionId: collection.id });
+			}
+			return { _tag: "ready" as const, events, collectionMemberships };
 		}).pipe(
 			Effect.catchAll((error) =>
 				Effect.succeed({ _tag: "failed" as const, message: unknownToMessage(error) }),
@@ -289,7 +358,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 					execute: recordImportRunFailure({
 						...failure,
 						runId,
-						stage: "input_transformation",
+						stage: failure.stage ?? "input_transformation",
 					}).pipe(Effect.mapError(toWorkflowError)),
 				});
 				failedItems += 1;
@@ -299,28 +368,52 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 				observedWriteItemCount += 1;
 				const outcome = yield* writeGenericItem(item, payload.userId, processedItems);
 				let message = outcome._tag === "failed" ? outcome.message : null;
-				if (outcome._tag === "ready" && outcome.events.length > 0) {
+				if (outcome._tag === "ready") {
 					const engine = yield* WorkflowEngine;
-					const eventResult = yield* engine
-						.execute(EventCreateWorkflow, {
-							executionId: `${executionId}-item-${processedItems}-events`,
-							payload: {
-								origin: "import",
-								importRunId: runId,
-								userId: payload.userId,
-								payload: outcome.events,
-								lifecycleOrigin: { kind: "import", importRunId: runId },
+					for (const [membershipIndex, membership] of outcome.collectionMemberships.entries()) {
+						const collectionExecutionId = `${executionId}-item-${processedItems}-collection-${membershipIndex}`;
+						const collectionResult = yield* engine
+							.execute(AddEntityToCollectionWorkflow, {
+								executionId: collectionExecutionId,
+								payload: {
+									properties: {},
+									userId: payload.userId,
+									entityId: membership.entityId,
+									executionId: collectionExecutionId,
+									collectionId: membership.collectionId,
+								},
+							})
+							.pipe(Effect.either);
+						if (collectionResult._tag === "Left" && !message) {
+							message = unknownToMessage(collectionResult.left);
+						}
+					}
+					if (outcome.events.length > 0) {
+						const integrationId = payload.integrationId;
+						const eventResult = yield* engine
+							.execute(EventCreateWorkflow, {
 								executionId: `${executionId}-item-${processedItems}-events`,
-							},
-						})
-						.pipe(Effect.mapError(toWorkflowError));
-					message = eventResult.failure?.reason.message ?? null;
+								payload: {
+									importRunId: runId,
+									userId: payload.userId,
+									payload: outcome.events,
+									...(integrationId ? { integrationId } : {}),
+									origin: integrationId ? "integration" : "import",
+									executionId: `${executionId}-item-${processedItems}-events`,
+									lifecycleOrigin: integrationId
+										? { kind: "integration", importRunId: runId, integrationId }
+										: { kind: "import", importRunId: runId },
+								},
+							})
+							.pipe(Effect.mapError(toWorkflowError));
+						message ??= eventResult.failure?.reason.message ?? null;
+					}
 				}
 				if (message) {
 					failedItems += 1;
 					yield* Activity.make({
-						name: `record-generic-write-failure-${processedItems}`,
 						error: ImportRunError,
+						name: `record-generic-write-failure-${processedItems}`,
 						execute: recordImportRunFailure({
 							runId,
 							message,

@@ -152,6 +152,7 @@ export const sandboxDenoRunFlags = (options: Omit<SpawnDenoProcessOptions, "deno
 	if (options.grants?.artifactPath) {
 		readPaths.push(options.grants.artifactPath);
 	}
+	readPaths.push(...Object.values(options.grants?.namedArtifactPaths ?? {}));
 	if (scratchDirectory) {
 		readPaths.push(scratchDirectory);
 	}

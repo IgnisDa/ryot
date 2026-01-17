@@ -99,6 +99,7 @@ export type ExecutionAuthority = Schema.Schema.Type<typeof ExecutionAuthority>;
 
 export const SandboxExecutionGrants = strictStruct({
 	artifactPath: Schema.optional(Schema.String),
+	namedArtifactPaths: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
 });
 
 export type SandboxExecutionGrants = Schema.Schema.Type<typeof SandboxExecutionGrants>;

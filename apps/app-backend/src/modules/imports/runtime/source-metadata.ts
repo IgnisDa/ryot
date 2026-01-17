@@ -1,14 +1,18 @@
 import type { CreateImportRunBody } from "@ryot/contract/modules/imports/schemas";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
 import type { AppConfigValue } from "#lib/infrastructure/config/service";
 import { isAppConfigKeyConfigured } from "#lib/infrastructure/sandbox-runtime/app-config";
 import type { RegisteredImportSource } from "#modules/plugins/import-source-catalog";
+
+import { getSourceApiHost, normalizeSourceApiUrl } from "./source-api";
 
 export type ImportSourceFileInput = {
 	bodyField: string;
 	allowedExtensions: string[];
 	required: boolean | undefined;
 	payloadKey: string | undefined;
+	artifactKey: string | undefined;
 	uploadToken: string | undefined;
 };
 
@@ -27,18 +31,31 @@ export const readTrimmedBodyField = (
 export const registryImportSourceFileInputs = (
 	source: RegisteredImportSource,
 	body: CreateImportRunBody,
-): ImportSourceFileInput[] =>
-	source.input === "payload"
-		? []
-		: [
-				{
-					required: undefined,
-					payloadKey: undefined,
-					bodyField: "uploadToken",
-					allowedExtensions: [...source.allowedFileExtensions],
-					uploadToken: readTrimmedBodyField(body, "uploadToken"),
-				},
-			];
+): ImportSourceFileInput[] => {
+	if (source.input === "payload") {
+		return [];
+	}
+	if (source.lot === "single") {
+		return [
+			{
+				required: undefined,
+				payloadKey: undefined,
+				artifactKey: undefined,
+				bodyField: "uploadToken",
+				allowedExtensions: [...source.allowedFileExtensions],
+				uploadToken: readTrimmedBodyField(body, "uploadToken"),
+			},
+		];
+	}
+	return source.artifacts.map((artifact) => ({
+		payloadKey: artifact.key,
+		artifactKey: artifact.key,
+		required: artifact.required,
+		bodyField: artifact.uploadTokenField,
+		allowedExtensions: [...artifact.allowedFileExtensions],
+		uploadToken: readTrimmedBodyField(body, artifact.uploadTokenField),
+	}));
+};
 
 export const registryImportSourceStartError = (
 	source: RegisteredImportSource,
@@ -50,4 +67,68 @@ export const registryImportSourceStartError = (
 	return missing.length === 0
 		? undefined
 		: `${source.name} importer is not configured. Set ${missing.join(", ")}.`;
+};
+
+const payloadEntries = (body: CreateImportRunBody) =>
+	Object.entries(body).filter(
+		([key, value]) =>
+			key !== "source" &&
+			key !== "uploadToken" &&
+			!key.endsWith("UploadToken") &&
+			value !== undefined &&
+			value !== false,
+	);
+
+export const buildImportSourcePayload = (
+	body: CreateImportRunBody,
+): Record<string, JsonValue> | undefined => {
+	const payload = Object.fromEntries(
+		payloadEntries(body).flatMap(([key, value]) => {
+			if (typeof value !== "string" && typeof value !== "boolean" && typeof value !== "number") {
+				return [];
+			}
+			if (key === "apiUrl" && typeof value === "string") {
+				return [[key, normalizeSourceApiUrl(value)]];
+			}
+			if (key === "profileName" && typeof value === "string") {
+				const trimmed = value.trim();
+				return trimmed ? [[key, trimmed]] : [];
+			}
+			return [[key, value]];
+		}),
+	);
+	return Object.keys(payload).length > 0 ? payload : undefined;
+};
+
+const artifactSummaryKey = (key: string) =>
+	`has${key.charAt(0).toUpperCase()}${key.slice(1).replace(/FilePath$/, "File")}`;
+
+export const buildImportInputSummary = (
+	body: CreateImportRunBody,
+	source: RegisteredImportSource,
+): Record<string, unknown> => {
+	const summary: Record<string, unknown> = { source: body.source };
+	if ("apiUrl" in body) {
+		summary["host"] = getSourceApiHost(body.apiUrl);
+		if ("allowInsecureConnections" in body && body.allowInsecureConnections) {
+			summary["allowInsecureConnections"] = true;
+		}
+	}
+	if ("collection" in body) {
+		summary["collection"] = body.collection;
+	}
+	if ("profileName" in body) {
+		summary["hasExportFile"] = true;
+		summary["hasProfileName"] = Boolean(body.profileName?.trim());
+	}
+	if ("username" in body && !("apiUrl" in body)) {
+		summary["username"] = body.username;
+	}
+	if (source.input === "file" && source.lot === "named") {
+		for (const artifact of source.artifacts) {
+			summary[artifactSummaryKey(artifact.key)] =
+				artifact.required || Boolean(readTrimmedBodyField(body, artifact.uploadTokenField));
+		}
+	}
+	return summary;
 };
