@@ -25,9 +25,7 @@ If you have not already explored the codebase, do so to understand the current s
 
 Break the PRD into **tracer bullet** tasks. Each task is a thin vertical slice that cuts through ALL integration layers end-to-end, NOT a horizontal slice of one layer.
 
-The **final task must always be a codebase cleanup task** (AFK). It must not be merged or skipped. It must explicitly follow the `codebase-cleanup` skill, and it should be scoped to the touched files and directly affected modules for the plan.
-
-Slices may be 'HITL' or 'AFK'. HITL slices require human interaction, such as an architectural decision or a design review. AFK slices can be implemented and merged without human interaction. Prefer AFK over HITL where possible.
+The **final task must always be a codebase cleanup task**. It must not be merged or skipped. It must explicitly follow the `codebase-cleanup` skill, and it should be scoped to the touched files and directly affected modules for the plan.
 
 <vertical-slice-rules>
 - Each slice delivers a narrow but COMPLETE path through every layer (schema, API, UI, tests)
@@ -40,14 +38,12 @@ Slices may be 'HITL' or 'AFK'. HITL slices require human interaction, such as an
 Present the proposed breakdown as a numbered list. For each slice, show:
 
 - **Title**: short descriptive name
-- **Type**: HITL / AFK
 - **User stories covered**: which user stories from the PRD this addresses
 
 Ask the user:
 
 - Does the granularity feel right? (too coarse / too fine)
 - Should any slices be merged or split further?
-- Are the correct slices marked as HITL and AFK?
 
 Iterate until the user approves the breakdown.
 
@@ -66,8 +62,6 @@ Create tasks in a sensible execution order so the task list reads cleanly from t
 # {Task Title}
 
 **Parent Plan:** [{Plan Name}](./README.md)
-
-**Type:** HITL / AFK
 
 **Status:** todo
 
@@ -97,8 +91,6 @@ The cleanup task file must use this template instead:
 
 **Parent Plan:** [{Plan Name}](./README.md)
 
-**Type:** AFK
-
 **Status:** todo
 
 ## What to build
@@ -127,11 +119,11 @@ Replace the Tasks section at the top of the file with:
 
 ### Task List
 
-| #   | Task                                   | Type | Status |
-| --- | -------------------------------------- | ---- | ------ |
-| 01  | [{Task Title}](./{01}-{task-title}.md) | AFK  | todo   |
-| 02  | [{Task Title}](./{02}-{task-title}.md) | HITL | todo   |
-| 03  | [{Task Title}](./{03}-{task-title}.md) | AFK  | todo   |
+| #   | Task                                   | Status |
+| --- | -------------------------------------- | ------ |
+| 01  | [{Task Title}](./{01}-{task-title}.md) | todo   |
+| 02  | [{Task Title}](./{02}-{task-title}.md) | todo   |
+| 03  | [{Task Title}](./{03}-{task-title}.md) | todo   |
 
 </tasks-section-template>
 
