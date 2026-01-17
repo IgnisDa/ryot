@@ -1,4 +1,4 @@
-import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -8,7 +8,7 @@ import {
 	enableMediaMonitoring,
 	enqueueEntityImport,
 	fakeProviderDetailsResult,
-	getBuiltinEntitySchemaId,
+	getBuiltinEntitySchemaSlug,
 	pollEntityImportResult,
 	seedBuiltinProviderScript,
 	seedMediaEntity,
@@ -49,12 +49,12 @@ describe("company and media-group association variants", () => {
 
 			const { client } = yield* createAuthenticatedClient();
 			const [companySchemaId, movieSchemaId] = yield* Effect.all([
-				getBuiltinEntitySchemaId("company"),
-				getBuiltinEntitySchemaId("movie"),
+				getBuiltinEntitySchemaSlug("company"),
+				getBuiltinEntitySchemaSlug("movie"),
 			]);
 			const companyProvider = yield* seedBuiltinProviderScript({
 				client,
-				linkToEntitySchemaId: companySchemaId,
+				linkToEntitySchemaSlug: companySchemaId,
 				slug: `company.association-variant-e2e-${crypto.randomUUID()}`,
 				drivers: { details: fakeProviderDetailsResult({ name: companyName }) },
 			});
@@ -88,7 +88,7 @@ describe("company and media-group association variants", () => {
 					properties: {},
 					name: companyName,
 					externalId: companyExternalId,
-					entitySchemaId: companySchemaId,
+					entitySchemaSlug: companySchemaId,
 					sandboxScriptId: companyProvider.scriptId,
 				});
 
@@ -102,7 +102,7 @@ describe("company and media-group association variants", () => {
 
 				const { jobId } = yield* enqueueEntityImport(importer.client, {
 					externalId: movieExternalId,
-					entitySchemaId: EntitySchemaId.make(movieSchemaId),
+					entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
 					scriptId: SandboxScriptId.make(movieProvider.scriptId),
 				});
 				const result = yield* pollEntityImportResult(importer.client, jobId, { timeoutMs: 30_000 });
@@ -130,19 +130,19 @@ describe("company and media-group association variants", () => {
 
 			const { client } = yield* createAuthenticatedClient();
 			const [personSchemaId, companySchemaId, musicGroupSchemaId] = yield* Effect.all([
-				getBuiltinEntitySchemaId("person"),
-				getBuiltinEntitySchemaId("company"),
-				getBuiltinEntitySchemaId("music-group"),
+				getBuiltinEntitySchemaSlug("person"),
+				getBuiltinEntitySchemaSlug("company"),
+				getBuiltinEntitySchemaSlug("music-group"),
 			]);
 			const personProvider = yield* seedBuiltinProviderScript({
 				client,
-				linkToEntitySchemaId: personSchemaId,
+				linkToEntitySchemaSlug: personSchemaId,
 				slug: `person.media-group-e2e-${crypto.randomUUID()}`,
 				drivers: { details: fakeProviderDetailsResult({ name: personName }) },
 			});
 			const companyProvider = yield* seedBuiltinProviderScript({
 				client,
-				linkToEntitySchemaId: companySchemaId,
+				linkToEntitySchemaSlug: companySchemaId,
 				slug: `company.media-group-e2e-${crypto.randomUUID()}`,
 				drivers: { details: fakeProviderDetailsResult({ name: companyName }) },
 			});
@@ -190,14 +190,14 @@ describe("company and media-group association variants", () => {
 						properties: {},
 						name: personName,
 						externalId: personExternalId,
-						entitySchemaId: personSchemaId,
+						entitySchemaSlug: personSchemaId,
 						sandboxScriptId: personProvider.scriptId,
 					}),
 					seedMediaEntity({
 						properties: {},
 						name: companyName,
 						externalId: companyExternalId,
-						entitySchemaId: companySchemaId,
+						entitySchemaSlug: companySchemaId,
 						sandboxScriptId: companyProvider.scriptId,
 					}),
 				]);
@@ -230,7 +230,7 @@ describe("company and media-group association variants", () => {
 
 				const { jobId } = yield* enqueueEntityImport(importer.client, {
 					externalId: musicGroupExternalId,
-					entitySchemaId: EntitySchemaId.make(musicGroupSchemaId),
+					entitySchemaSlug: EntitySchemaSlug.make(musicGroupSchemaId),
 					scriptId: SandboxScriptId.make(musicGroupProvider.scriptId),
 				});
 				const result = yield* pollEntityImportResult(importer.client, jobId, { timeoutMs: 30_000 });

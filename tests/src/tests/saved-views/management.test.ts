@@ -70,7 +70,7 @@ const buildBuiltinUpdatePayload = (
 	accentColor: view.accentColor,
 	queryDocument: view.queryDocument,
 	displayConfiguration: view.displayConfiguration,
-	...(view.trackerId ? { trackerId: view.trackerId } : {}),
+	...(view.trackerSlug ? { trackerSlug: view.trackerSlug } : {}),
 });
 
 describe("saved views management", () => {
@@ -227,50 +227,50 @@ describe("saved views management", () => {
 	it.live("filters views by tracker and reorders them within the requested scope", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { trackerId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { trackerSlug, slug } = yield* createQueryEngineTrackerAndSchema(client, {
 				schemaName: `SavedViewTracked ${crypto.randomUUID()}`,
 			});
 			const viewDocument = buildSchemaRowsDocument(slug);
 			const displayConfiguration = buildSchemaDisplayConfiguration(slug);
 
 			const trackerViewA = yield* createSavedViewWithQueryDocument(client, viewDocument, {
-				trackerId,
+				trackerSlug,
 				name: `Tracker View A ${crypto.randomUUID()}`,
 				displayConfiguration,
 			});
 			const trackerViewB = yield* createSavedViewWithQueryDocument(client, viewDocument, {
-				trackerId,
+				trackerSlug,
 				name: `Tracker View B ${crypto.randomUUID()}`,
 				displayConfiguration,
 			});
 			const trackerViewC = yield* createSavedViewWithQueryDocument(client, viewDocument, {
-				trackerId,
+				trackerSlug,
 				name: `Tracker View C ${crypto.randomUUID()}`,
 				displayConfiguration,
 			});
 			yield* createSavedView(client, { name: `Top Level View ${crypto.randomUUID()}` });
 
-			const trackerViews = yield* listSavedViews(client, { trackerId });
+			const trackerViews = yield* listSavedViews(client, { trackerSlug });
 			expect(trackerViews.map((view) => view.id)).toContain(trackerViewA.id);
 			expect(trackerViews.map((view) => view.id)).toContain(trackerViewB.id);
 			expect(trackerViews.map((view) => view.id)).toContain(trackerViewC.id);
 
 			const reordered = yield* reorderSavedViews(client, {
-				trackerId,
+				trackerSlug,
 				viewSlugs: [trackerViewC.slug, trackerViewA.slug],
 			});
 			expect(reordered.viewSlugs[0]).toBe(trackerViewC.slug);
 			expect(reordered.viewSlugs[1]).toBe(trackerViewA.slug);
 			expect(reordered.viewSlugs).toContain(trackerViewB.slug);
 
-			const reorderedViews = yield* listSavedViews(client, { trackerId });
+			const reorderedViews = yield* listSavedViews(client, { trackerSlug });
 			expect(reorderedViews[0]?.slug).toBe(trackerViewC.slug);
 			expect(reorderedViews[1]?.slug).toBe(trackerViewA.slug);
 			expect(reorderedViews.map((view) => view.slug)).toContain(trackerViewB.slug);
 
 			const trackers = yield* listTrackers(client, { includeDisabled: true });
-			const trackerIds = trackers.map((tracker) => tracker.id);
-			expect(trackerIds).toContain(trackerId);
+			const trackerSlugs = trackers.map((tracker) => tracker.id);
+			expect(trackerSlugs).toContain(trackerSlug);
 		}),
 	);
 });

@@ -5,11 +5,11 @@ import type {
 } from "@ryot/contract/modules/automations/schemas";
 import type {
 	EntityId,
-	EntitySchemaId,
+	EntitySchemaSlug,
 	EventId,
-	EventSchemaId,
+	EventSchemaSlug,
 	RelationshipId,
-	RelationshipSchemaId,
+	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
@@ -23,27 +23,24 @@ export type LifecycleEntityReference = {
 export type LifecycleEntitySnapshot = {
 	id: EntityId;
 	name: string;
-	entitySchemaSlug: string;
-	entitySchemaId: EntitySchemaId;
+	entitySchemaSlug: EntitySchemaSlug;
 	properties: Record<string, unknown>;
 };
 
 export type LifecycleEventSnapshot = {
 	id: EventId;
 	occurredAt: string;
-	eventSchemaSlug: string;
-	eventSchemaId: EventSchemaId;
+	eventSchemaSlug: EventSchemaSlug;
 	subject: LifecycleEntityReference;
 	properties: Record<string, unknown>;
 };
 
 export type LifecycleRelationshipSnapshot = {
 	id: RelationshipId;
-	relationshipSchemaSlug: string;
 	source: LifecycleEntityReference;
 	target: LifecycleEntityReference;
 	properties: Record<string, unknown>;
-	relationshipSchemaId: RelationshipSchemaId;
+	relationshipSchemaSlug: RelationshipSchemaSlug;
 };
 
 export type LifecycleSource =
@@ -70,8 +67,7 @@ export type LifecyclePopulationContext = {
 	scopeEntity: {
 		id: EntityId;
 		name: string;
-		entitySchemaSlug: string;
-		entitySchemaId: EntitySchemaId;
+		entitySchemaSlug: EntitySchemaSlug;
 	};
 };
 

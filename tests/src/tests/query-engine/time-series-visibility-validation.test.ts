@@ -33,23 +33,23 @@ describe("Time series returns", () => {
 			const completeSchema = yield* createEventSchema(client, {
 				slug: completeSlug,
 				name: "Time Series Complete",
-				entitySchemaId: lessonSchemaId,
+				entitySchemaSlug: lessonSchemaId,
 			});
 			const lesson = yield* createQueryEngineEntity(client, {
 				name: "Time Series Lesson",
-				entitySchemaId: lessonSchemaId,
+				entitySchemaSlug: lessonSchemaId,
 			});
 
 			yield* createQueryEngineEvent(client, {
 				entityId: lesson.id,
 				properties: { note: "included" },
-				eventSchemaId: completeSchema.id,
+				eventSchemaSlug: completeSchema.id,
 				occurredAt: "2026-01-01T12:00:00.000Z",
 			});
 			yield* createQueryEngineEvent(client, {
 				entityId: lesson.id,
 				properties: { note: "excluded" },
-				eventSchemaId: completeSchema.id,
+				eventSchemaSlug: completeSchema.id,
 				occurredAt: "2026-01-03T00:00:00.000Z",
 			});
 
@@ -95,12 +95,12 @@ describe("Time series returns", () => {
 			yield* Effect.all([
 				createQueryEngineEntity(client, {
 					name: "Entity One",
-					entitySchemaId: schemaId,
+					entitySchemaSlug: schemaId,
 					properties: { publishedAt: "2026-01-01T12:00:00.000Z" },
 				}),
 				createQueryEngineEntity(client, {
 					name: "Entity Two",
-					entitySchemaId: schemaId,
+					entitySchemaSlug: schemaId,
 					properties: { publishedAt: "2026-01-01T13:00:00.000Z" },
 				}),
 			]);
@@ -137,21 +137,21 @@ describe("Time series returns", () => {
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				slug: relationshipSlug,
 				name: "Time Series Membership",
-				sourceEntitySchemaId: memberSchemaId,
-				targetEntitySchemaId: collectionSchemaId,
+				sourceEntitySchemaSlug: memberSchemaId,
+				targetEntitySchemaSlug: collectionSchemaId,
 			});
 			const member = yield* createQueryEngineEntity(client, {
 				name: "Time Series Member",
-				entitySchemaId: memberSchemaId,
+				entitySchemaSlug: memberSchemaId,
 			});
 			const collection = yield* createQueryEngineEntity(client, {
 				name: "Time Series Collection",
-				entitySchemaId: collectionSchemaId,
+				entitySchemaSlug: collectionSchemaId,
 			});
 			yield* createRelationship(client, {
 				sourceEntityId: member.id,
 				targetEntityId: collection.id,
-				relationshipSchemaId: relationshipSchema.id,
+				relationshipSchemaSlug: relationshipSchema.id,
 			});
 
 			const doc: QueryEnginePayload = {
@@ -206,19 +206,23 @@ describe("Time series returns", () => {
 });
 
 describe("Visibility boundary", () => {
-	it.live("does not allow a user to query another user's private entity schema", () =>
+	it.live("does not return another user's entities through a global schema", () =>
 		Effect.gen(function* () {
 			const userA = yield* createAuthenticatedClient();
 			const userB = yield* createAuthenticatedClient();
 
-			const { slug } = yield* createQueryEngineTrackerAndSchema(userA.client, {
+			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(userA.client, {
 				schemaName: "UserAPrivateCourse",
+			});
+			yield* createQueryEngineEntity(userA.client, {
+				name: "User A Private Course",
+				entitySchemaSlug: schemaId,
 			});
 
 			const doc = buildRowsDoc({ fields: [], alias: "course", schemas: [slug] });
 
-			const error = yield* executeQueryEngineError(userB.client, doc);
-			expect(error).toMatchObject({ _tag: "NotFound" });
+			const result = yield* executeQueryEngine(userB.client, doc);
+			expect(result.data.items).toHaveLength(0);
 		}),
 	);
 
@@ -242,11 +246,11 @@ describe("Visibility boundary", () => {
 
 			yield* createQueryEngineEntity(userA.client, {
 				name: "User A Entity",
-				entitySchemaId: schemaA,
+				entitySchemaSlug: schemaA,
 			});
 			yield* createQueryEngineEntity(userB.client, {
 				name: "User B Entity",
-				entitySchemaId: schemaB,
+				entitySchemaSlug: schemaB,
 			});
 
 			const resultA = yield* executeQueryEngine(

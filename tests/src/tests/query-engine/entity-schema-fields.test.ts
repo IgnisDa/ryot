@@ -37,7 +37,7 @@ describe("entity schema fields", () => {
 			});
 			yield* createQueryEngineEntity(client, {
 				name: "Schema Fields Entity",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 
 			const result = yield* executeQueryEngine(
@@ -75,11 +75,11 @@ describe("entity schema fields", () => {
 			});
 			yield* createQueryEngineEntity(client, {
 				name: "Alpha Entity",
-				entitySchemaId: alpha.schemaId,
+				entitySchemaSlug: alpha.schemaId,
 			});
 			yield* createQueryEngineEntity(client, {
 				name: "Beta Entity",
-				entitySchemaId: beta.schemaId,
+				entitySchemaSlug: beta.schemaId,
 			});
 
 			const result = yield* executeQueryEngine(
@@ -111,11 +111,11 @@ describe("entity schema fields", () => {
 			const alpha = yield* createQueryEngineTrackerAndSchema(client, { schemaName: "AlphaSchema" });
 			yield* createQueryEngineEntity(client, {
 				name: "Zebra Entity",
-				entitySchemaId: zebra.schemaId,
+				entitySchemaSlug: zebra.schemaId,
 			});
 			yield* createQueryEngineEntity(client, {
 				name: "Alpha Entity",
-				entitySchemaId: alpha.schemaId,
+				entitySchemaSlug: alpha.schemaId,
 			});
 
 			const result = yield* executeQueryEngine(

@@ -3,10 +3,9 @@ import { HttpApi, OpenApi } from "@effect/platform";
 import { BadRequest } from "./errors";
 import { AutomationsGroup } from "./modules/automations/contract";
 import { CollectionsGroup } from "./modules/collections/contract";
+import { DefinitionsGroup } from "./modules/definitions/contract";
 import { EntitiesGroup } from "./modules/entities/contract";
 import { InterestGroup } from "./modules/entity-interest/contract";
-import { EntitySchemasGroup } from "./modules/entity-schemas/contract";
-import { EventSchemasGroup } from "./modules/event-schemas/contract";
 import { EventsGroup } from "./modules/events/contract";
 import { GodModeGroup } from "./modules/god-mode/contract";
 import { ImportsGroup } from "./modules/imports/contract";
@@ -16,7 +15,6 @@ import { MediaMonitoringGroup } from "./modules/media-monitoring/contract";
 import { MetadataLookupGroup } from "./modules/metadata-lookup/contract";
 import { NotificationsGroup } from "./modules/notifications/contract";
 import { QueryEngineGroup } from "./modules/query-engine/contract";
-import { RelationshipSchemasGroup } from "./modules/relationship-schemas/contract";
 import { RelationshipsGroup } from "./modules/relationships/contract";
 import { SandboxGroup } from "./modules/sandbox/contract";
 import { SavedViewsGroup } from "./modules/saved-views/contract";
@@ -33,14 +31,12 @@ export const AppContract = HttpApi.make("ryot")
 	.add(AutomationsGroup)
 	.add(SandboxGroup)
 	.add(TrackersGroup)
-	.add(EntitySchemasGroup)
-	.add(RelationshipSchemasGroup)
+	.add(DefinitionsGroup)
 	.add(RelationshipsGroup)
 	.add(EntitiesGroup)
 	.add(EntityImportGroup)
 	.add(UserStateGroup)
 	.add(UserPreferencesGroup)
-	.add(EventSchemasGroup)
 	.add(EventsGroup)
 	.add(UploadsGroup)
 	.add(SavedViewsGroup)

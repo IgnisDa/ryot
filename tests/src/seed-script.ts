@@ -3,12 +3,7 @@
 import { faker } from "@faker-js/faker";
 import { runContract, type ContractProgram } from "@ryot/contract/client";
 import type { QueryExpression, RuntimeRef } from "@ryot/contract/display-configuration";
-import {
-	EntitySchemaId,
-	RemoteImageUrl,
-	SandboxScriptId,
-	TrackerId,
-} from "@ryot/contract/schema/brands";
+import { RemoteImageUrl, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { imagesField } from "@ryot/contract/schema/core";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { buildQueryEngineEntityRowsDocument } from "@ryot/query-engine/documents";
@@ -22,8 +17,12 @@ import { createAuthClient } from "better-auth/client";
 
 import { requirePresent } from "~/support/assertions";
 
+import { adminHeaders } from "./fixtures/admin";
 import { cookieHeaderFromSetCookies, enableTwoFactorForSession } from "./fixtures/auth-2fa";
 import type { ContractPayload, ContractSuccess } from "./fixtures/contract-client";
+
+type EntitySchemaSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
+type TrackerSlug = string;
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:8000";
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8000/api";
@@ -118,7 +117,7 @@ type SavedViewDisplayConfigInput = {
 type SavedViewSpec = {
 	name: string;
 	icon: string;
-	trackerId?: TrackerId;
+	trackerId?: TrackerSlug;
 	accentColor: string;
 	queryDocument: SavedViewQueryDocument;
 	displayConfiguration: SavedViewDisplayConfigInput;
@@ -135,6 +134,11 @@ class APIClient {
 	run<A, E>(program: ContractProgram<A, E>): Promise<A> {
 		this.requestCount++;
 		return runContract(program, { baseUrl: API_BASE_URL, headers: { Cookie: this.cookies } });
+	}
+
+	runAdmin<A, E>(program: ContractProgram<A, E>): Promise<A> {
+		this.requestCount++;
+		return runContract(program, { baseUrl: API_BASE_URL, headers: adminHeaders });
 	}
 
 	getRequestCount(): number {
@@ -215,9 +219,20 @@ async function createTracker(
 	description?: string,
 ) {
 	console.log(`  Creating tracker: ${name}...`);
-	const tracker = await apiClient.run((c) =>
-		c.trackers.create({ payload: { name, slug, icon, accentColor, description } }),
+	const trackers = await apiClient.run((c) => c.definitions.listTrackers({}));
+	const definition = {
+		name,
+		slug,
+		icon,
+		accentColor,
+		description: description ?? null,
+		sortOrder: trackers.length,
+		entitySchemaSlugs: [],
+	};
+	await apiClient.runAdmin((c) =>
+		c.testSupport.installDefinitions({ payload: { trackers: [definition] } }),
 	);
+	const tracker = { ...definition, id: slug };
 
 	console.log(`  ✓ Created tracker: ${name} (${tracker.id})`);
 	return tracker;
@@ -227,7 +242,7 @@ async function createEntitySchema(
 	apiClient: APIClient,
 	name: string,
 	slug: string,
-	trackerId: TrackerId,
+	trackerSlug: TrackerSlug,
 	icon: string,
 	accentColor: string,
 	propertiesSchema: AppSchema,
@@ -238,18 +253,33 @@ async function createEntitySchema(
 		...propertiesSchema,
 		fields: { images: imagesField("Cover and promotional images"), ...propertiesSchema.fields },
 	};
-	const schema = await apiClient.run((c) =>
-		c.entitySchemas.create({
+	const trackers = await apiClient.run((c) => c.definitions.listTrackers({}));
+	const tracker = requirePresent(
+		trackers.find((candidate) => candidate.slug === trackerSlug),
+		`Tracker '${trackerSlug}' not found`,
+	);
+	const definition = {
+		name,
+		slug,
+		icon,
+		accentColor,
+		propertiesSchema: propertiesSchemaWithImages,
+		eventSchemas: [],
+	};
+	await apiClient.runAdmin((c) =>
+		c.testSupport.installDefinitions({
 			payload: {
-				name,
-				slug,
-				icon,
-				trackerId,
-				accentColor,
-				propertiesSchema: propertiesSchemaWithImages,
+				entitySchemas: [definition],
+				trackers: [
+					{
+						...tracker,
+						entitySchemaSlugs: [...new Set([...tracker.entitySchemaSlugs, slug])],
+					},
+				],
 			},
 		}),
 	);
+	const schema = { ...definition, id: slug as EntitySchemaSlug };
 
 	console.log(`    ✓ Created entity schema: ${name} (${schema.id})`);
 	return schema;
@@ -259,13 +289,32 @@ async function createEventSchema(
 	apiClient: APIClient,
 	name: string,
 	slug: string,
-	entitySchemaId: EntitySchemaId,
+	entitySchemaSlug: EntitySchemaSlug,
 	propertiesSchema: AppSchema,
 ) {
 	console.log(`      Creating event schema: ${name}...`);
-	const schema = await apiClient.run((c) =>
-		c.eventSchemas.create({ payload: { name, slug, entitySchemaId, propertiesSchema } }),
+	const schemas = await apiClient.run((c) => c.definitions.listEntities({}));
+	const entitySchema = requirePresent(
+		schemas.find((schema) => schema.slug === entitySchemaSlug),
+		`Entity schema '${entitySchemaSlug}' not found`,
 	);
+	const definition = { name, slug, propertiesSchema };
+	await apiClient.runAdmin((c) =>
+		c.testSupport.installDefinitions({
+			payload: {
+				entitySchemas: [
+					{
+						...entitySchema,
+						eventSchemas: [
+							...entitySchema.eventSchemas.filter((schema) => schema.slug !== slug),
+							definition,
+						],
+					},
+				],
+			},
+		}),
+	);
+	const schema = { ...definition, id: slug };
 
 	console.log(`      ✓ Created event schema: ${name} (${schema.id})`);
 	return schema;
@@ -274,7 +323,7 @@ async function createEventSchema(
 async function createEntity(
 	apiClient: APIClient,
 	name: string,
-	entitySchemaId: EntitySchemaId,
+	entitySchemaSlug: EntitySchemaSlug,
 	properties: Record<string, unknown>,
 	imageUrl: string | null,
 ) {
@@ -282,7 +331,7 @@ async function createEntity(
 		c.entities.create({
 			payload: {
 				name,
-				entitySchemaId,
+				entitySchemaSlug,
 				properties: imageUrl
 					? { ...properties, images: [{ type: "remote", url: RemoteImageUrl.make(imageUrl) }] }
 					: properties,
@@ -399,7 +448,7 @@ async function createSavedView(
 	accentColor: string,
 	queryDocument: SavedViewQueryDocument,
 	displayConfiguration: SavedViewDisplayConfigInput,
-	trackerId?: TrackerId,
+	trackerId?: TrackerSlug,
 ) {
 	const sourceSchemas =
 		queryDocument.source.type === "entities"
@@ -510,7 +559,7 @@ async function createSavedView(
 				name,
 				icon,
 				accentColor,
-				trackerId,
+				trackerSlug: trackerId,
 				queryDocument,
 				displayConfiguration: normalizedDisplayConfiguration,
 			},
@@ -866,7 +915,7 @@ async function seedWhiskeys(client: APIClient) {
 			whiskeyEvents.push({
 				properties,
 				entityId: entity.id,
-				eventSchemaId: schema.id,
+				eventSchemaSlug: schema.id,
 			});
 		}
 	}
@@ -1039,7 +1088,7 @@ async function seedPlaces(client: APIClient) {
 			placeEvents.push({
 				properties,
 				entityId: entity.id,
-				eventSchemaId: schema.id,
+				eventSchemaSlug: schema.id,
 			});
 		}
 	}
@@ -1270,22 +1319,45 @@ async function getBuiltinTracker(apiClient: APIClient) {
 		c.trackers.list({ urlParams: { includeDisabled: true } }),
 	);
 
-	const builtinTracker = trackers.find((t) => t.isBuiltin);
+	const builtinTracker = trackers[0];
 	if (!builtinTracker) {
 		throw new Error("Built-in media tracker not found");
 	}
 
-	return builtinTracker;
+	return { ...builtinTracker, id: builtinTracker.slug };
 }
 
-async function listMediaEntitySchemas(apiClient: APIClient, trackerId: TrackerId) {
-	return apiClient.run((c) => c.entitySchemas.list({ payload: { trackerId } }));
-}
-
-async function getMediaLifecycleEventSchemas(apiClient: APIClient, entitySchemaId: EntitySchemaId) {
-	const schemas = await apiClient.run((c) =>
-		c.eventSchemas.list({ urlParams: { entitySchemaId } }),
+async function listMediaEntitySchemas(apiClient: APIClient, trackerSlug: TrackerSlug) {
+	const [schemas, trackers, scripts] = await Promise.all([
+		apiClient.run((c) => c.definitions.listEntities({})),
+		apiClient.run((c) => c.definitions.listTrackers({})),
+		apiClient.runAdmin((c) => c.testSupport.listSandboxScripts({ urlParams: {} })),
+	]);
+	const tracker = requirePresent(
+		trackers.find((candidate) => candidate.slug === trackerSlug),
+		`Tracker '${trackerSlug}' not found`,
 	);
+	return schemas
+		.filter((schema) => tracker.entitySchemaSlugs.includes(schema.slug))
+		.map((schema) => ({
+			...schema,
+			id: schema.slug as EntitySchemaSlug,
+			providers: scripts
+				.filter((script) => script.metadata.kind === "provider")
+				.filter((script) => script.slug.startsWith(`${schema.slug}.`))
+				.map((script) => ({ name: script.name, scriptId: script.id })),
+		}));
+}
+
+async function getMediaLifecycleEventSchemas(
+	apiClient: APIClient,
+	entitySchemaSlug: EntitySchemaSlug,
+) {
+	const entities = await apiClient.run((c) => c.definitions.listEntities({}));
+	const schemas = requirePresent(
+		entities.find((schema) => schema.slug === entitySchemaSlug),
+		`Entity schema '${entitySchemaSlug}' not found`,
+	).eventSchemas.map((schema) => ({ ...schema, id: schema.slug }));
 
 	const backlog = schemas.find((s) => s.slug === "backlog");
 	const progress = schemas.find((s) => s.slug === "progress");
@@ -1293,7 +1365,7 @@ async function getMediaLifecycleEventSchemas(apiClient: APIClient, entitySchemaI
 	const review = schemas.find((s) => s.slug === "review");
 
 	if (!backlog || !complete || !review) {
-		throw new Error(`Missing lifecycle event schemas for entity schema ${entitySchemaId}`);
+		throw new Error(`Missing lifecycle event schemas for entity schema ${entitySchemaSlug}`);
 	}
 
 	return { backlog, complete, progress, review };
@@ -1342,7 +1414,7 @@ async function pollSearchJob(
 	const startedAt = Date.now();
 	while (true) {
 		// oxlint-disable-next-line no-await-in-loop
-		const result = await apiClient.run((c) => c.entitySchemas.getSearchResult({ path: { jobId } }));
+		const result = await apiClient.run((c) => c.sandbox.getResult({ path: { jobId } }));
 		if (result.status === "pending") {
 			if (Date.now() - startedAt > 60000) {
 				throw new Error(`Search job ${jobId} timed out`);
@@ -1366,7 +1438,9 @@ async function searchMediaPage(
 	page: number,
 ): Promise<Array<{ externalId: string }>> {
 	const result = await apiClient.run((c) =>
-		c.entitySchemas.search({ payload: { scriptId, context: { query, page, pageSize: 10 } } }),
+		c.sandbox.enqueue({
+			payload: { scriptId, driverName: "search", context: { query, page, pageSize: 10 } },
+		}),
 	);
 	return pollSearchJob(apiClient, result.jobId);
 }
@@ -1375,12 +1449,12 @@ async function importMediaEntity(
 	apiClient: APIClient,
 	scriptId: SandboxScriptId,
 	externalId: string,
-	entitySchemaId: EntitySchemaId,
+	entitySchemaSlug: EntitySchemaSlug,
 ): Promise<SeedEntity | null> {
 	let jobId: string;
 	try {
 		const importResult = await apiClient.run((c) =>
-			c.entityImport.import({ payload: { scriptId, externalId, entitySchemaId } }),
+			c.entityImport.import({ payload: { scriptId, externalId, entitySchemaSlug } }),
 		);
 		jobId = importResult.jobId;
 	} catch {
@@ -1575,7 +1649,7 @@ async function seedMedia(client: APIClient) {
 			mediaEvents.push({
 				properties: {},
 				entityId: entity.id,
-				eventSchemaId: eventSchemas.backlog.id,
+				eventSchemaSlug: eventSchemas.backlog.id,
 			});
 		}
 
@@ -1589,7 +1663,7 @@ async function seedMedia(client: APIClient) {
 				: {};
 			mediaEvents.push({
 				entityId: entity.id,
-				eventSchemaId: eventSchemas.progress.id,
+				eventSchemaSlug: eventSchemas.progress.id,
 				properties: { progressPercent: randomInt(10, 85), ...episodicFields },
 			});
 		}
@@ -1597,7 +1671,7 @@ async function seedMedia(client: APIClient) {
 		for (const entity of completeNoReviewEntities) {
 			mediaEvents.push({
 				entityId: entity.id,
-				eventSchemaId: eventSchemas.complete.id,
+				eventSchemaSlug: eventSchemas.complete.id,
 				properties: randomChoice(completionVariants)(),
 			});
 		}
@@ -1605,12 +1679,12 @@ async function seedMedia(client: APIClient) {
 		for (const entity of completeWithReviewEntities) {
 			mediaEvents.push({
 				entityId: entity.id,
-				eventSchemaId: eventSchemas.complete.id,
+				eventSchemaSlug: eventSchemas.complete.id,
 				properties: randomChoice(completionVariants)(),
 			});
 			mediaEvents.push({
 				entityId: entity.id,
-				eventSchemaId: eventSchemas.review.id,
+				eventSchemaSlug: eventSchemas.review.id,
 				properties: {
 					rating: randomInt(1, 5),
 					...(faker.datatype.boolean() ? { review: faker.lorem.sentences(randomInt(1, 3)) } : {}),
@@ -1910,9 +1984,9 @@ async function seedCollections(
 
 async function seedSavedViews(
 	client: APIClient,
-	whiskeyTrackerId: TrackerId,
-	placesTrackerId: TrackerId,
-	phonesTrackerId: TrackerId,
+	whiskeyTrackerId: TrackerSlug,
+	placesTrackerId: TrackerSlug,
+	phonesTrackerId: TrackerSlug,
 ) {
 	console.log("\n💾 Seeding Saved Views...");
 

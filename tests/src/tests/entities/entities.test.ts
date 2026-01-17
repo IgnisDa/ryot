@@ -20,11 +20,11 @@ import { describe, expect, it } from "~/support/effect-test";
 
 const createSchemaWithEnumFields = (client: Client) =>
 	Effect.gen(function* () {
-		const { trackerId } = yield* createTracker(client, {
+		const { trackerSlug } = yield* createTracker(client, {
 			name: "Enum Schema Tracker",
 		});
 		const { schemaId } = yield* createEntitySchema(client, {
-			trackerId,
+			trackerSlug,
 			name: "Enum Schema",
 			propertiesSchema: {
 				fields: {
@@ -54,7 +54,7 @@ describe("POST /entities", () => {
 
 			const entity = yield* createEntity(client, {
 				name: "Plain Entity",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				properties: { title: "Plain Entity" },
 			});
 
@@ -76,7 +76,7 @@ describe("POST /entities", () => {
 				sandboxScriptId,
 				externalId: "ext-001",
 				name: "External Entity",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				properties: { title: "External Entity" },
 			});
 
@@ -95,7 +95,7 @@ describe("POST /entities", () => {
 
 			const first = yield* createEntity(client, {
 				sandboxScriptId,
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "Idempotent Entity",
 				externalId: "ext-idem-001",
 				properties: { title: "Idempotent Entity" },
@@ -103,7 +103,7 @@ describe("POST /entities", () => {
 
 			const second = yield* createEntity(client, {
 				sandboxScriptId,
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "Idempotent Entity",
 				externalId: "ext-idem-001",
 				properties: { title: "Idempotent Entity" },
@@ -122,14 +122,14 @@ describe("POST /entities", () => {
 			const entity = yield* createEntity(client, {
 				properties: {},
 				name: "Built-in Book",
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 				sandboxScriptId: providerScriptId,
 				externalId: `ext-builtin-${crypto.randomUUID()}`,
 			});
 
 			expect(entity.id).toBeDefined();
 			expect(entity.name).toBe("Built-in Book");
-			expect(entity.entitySchemaId).toBe(schema.id);
+			expect(entity.entitySchemaSlug).toBe(schema.id);
 		}),
 	);
 
@@ -140,12 +140,12 @@ describe("POST /entities", () => {
 
 			const entity = yield* createEntity(client, {
 				name: "Push Day",
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 				properties: { endedAt: "2026-04-27T11:00:00Z", startedAt: "2026-04-27T10:00:00Z" },
 			});
 
 			expect(entity.id).toBeDefined();
-			expect(entity.entitySchemaId).toBe(schema.id);
+			expect(entity.entitySchemaSlug).toBe(schema.id);
 			expect(entity.properties).toMatchObject({
 				endedAt: "2026-04-27T11:00:00Z",
 				startedAt: "2026-04-27T10:00:00Z",
@@ -162,7 +162,7 @@ describe("POST /entities", () => {
 				client.call((c) =>
 					c.entities.create({
 						payload: {
-							entitySchemaId: schemaId,
+							entitySchemaSlug: schemaId,
 							externalId: "ext-partial",
 							properties: { title: "Partial" },
 							name: "Partial Provenance Entity",
@@ -190,7 +190,7 @@ describe("POST /entities", () => {
 					c.entities.create({
 						payload: {
 							sandboxScriptId,
-							entitySchemaId: schemaId,
+							entitySchemaSlug: schemaId,
 							properties: { title: "Partial" },
 							name: "Partial Provenance Entity",
 						},
@@ -227,11 +227,11 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 	it.live("round-trips enum and enum-array fields in propertiesSchema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { trackerId } = yield* createTracker(client, {
+			const { trackerSlug } = yield* createTracker(client, {
 				name: "Enum Round-trip Tracker",
 			});
 			const { schemaId } = yield* createEntitySchema(client, {
-				trackerId,
+				trackerSlug,
 				name: "Round-trip Schema",
 				propertiesSchema: {
 					fields: {
@@ -275,7 +275,7 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 
 			const entity = yield* createEntity(client, {
 				name: "Fiction Book",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				properties: { status: "published", genres: ["fiction", "mystery"] },
 			});
 
@@ -294,7 +294,7 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 					c.entities.create({
 						payload: {
 							name: "Invalid Status",
-							entitySchemaId: schemaId,
+							entitySchemaSlug: schemaId,
 							properties: { status: "deleted" },
 						},
 					}),
@@ -315,7 +315,7 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 					c.entities.create({
 						payload: {
 							name: "Invalid Genre",
-							entitySchemaId: schemaId,
+							entitySchemaSlug: schemaId,
 							properties: { genres: ["fiction", "horror"] },
 						},
 					}),

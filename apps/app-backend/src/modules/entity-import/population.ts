@@ -1,7 +1,11 @@
 import { SandboxRunError, dieOnDbError } from "@ryot/contract/errors";
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import type { SandboxExecutionError } from "@ryot/contract/modules/sandbox/schemas";
-import { EntitySchemaId, type EntityId, type SandboxScriptId } from "@ryot/contract/schema/brands";
+import {
+	EntitySchemaSlug,
+	type EntityId,
+	type SandboxScriptId,
+} from "@ryot/contract/schema/brands";
 import type { ProviderDetailsChildEntity } from "@ryot/sandbox-sdk/provider";
 import { DateTime, Effect, Schema } from "effect";
 
@@ -30,7 +34,7 @@ export const decodeSandboxDriverResult = <A, E, R>(
 
 export const ProcessedChildEntity = Schema.Struct({
 	entity: ListedEntity,
-	entitySchemaId: EntitySchemaId,
+	entitySchemaSlug: EntitySchemaSlug,
 	entityOutcome: EntityMutationOutcome,
 });
 
@@ -48,8 +52,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 	syncExisting?: boolean;
 	parentEntityId: EntityId;
 	sandboxScriptId: SandboxScriptId;
-	parentEntitySchemaId: EntitySchemaId;
-	parentEntitySchemaSlug?: string | undefined;
+	parentEntitySchemaSlug: EntitySchemaSlug;
 	childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
 	childEntitySchemaSlugs?: Readonly<Record<string, string>> | undefined;
 }) {
@@ -59,12 +62,11 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
 	const findChildRelationshipSchema = Effect.fn("findChildRelationshipSchema")(function* (
-		sourceEntitySchemaId: EntitySchemaId,
-		sourceEntitySchemaSlug: string | undefined,
-		targetEntitySchemaId: EntitySchemaId | undefined,
+		sourceEntitySchemaSlug: EntitySchemaSlug,
+		targetEntitySchemaSlug: EntitySchemaSlug | undefined,
 	) {
-		let targetSchemaId = targetEntitySchemaId;
-		if (!targetSchemaId && sourceEntitySchemaSlug) {
+		let targetSchemaId = targetEntitySchemaSlug;
+		if (!targetSchemaId) {
 			const targetSchemaSlug = input.childEntitySchemaSlugs?.[sourceEntitySchemaSlug];
 			if (targetSchemaSlug) {
 				const targetSchema = yield* runWithDb(
@@ -78,13 +80,13 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 		}
 		const relationshipSchema = yield* runWithDb(
 			relationshipSchemasRepository.findGlobalBySchemaIds({
-				sourceEntitySchemaId,
-				targetEntitySchemaId: targetSchemaId,
+				sourceEntitySchemaSlug,
+				targetEntitySchemaSlug: targetSchemaId,
 			}),
 		).pipe(dieOnDbError);
-		if (!relationshipSchema && targetEntitySchemaId) {
+		if (!relationshipSchema && targetEntitySchemaSlug) {
 			return yield* new SandboxRunError({
-				message: `Child relationship schema not found: ${sourceEntitySchemaId} -> ${targetEntitySchemaId}`,
+				message: `Child relationship schema not found: ${sourceEntitySchemaSlug} -> ${targetEntitySchemaSlug}`,
 			});
 		}
 		return relationshipSchema;
@@ -106,7 +108,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 			.upsert({
 				populatedAt,
 				name: childEntity.name,
-				entitySchemaId: entitySchema.id,
+				entitySchemaSlug: entitySchema.id,
 				externalId: childEntity.externalId,
 				properties: childEntity.properties,
 				sandboxScriptId: input.sandboxScriptId,
@@ -119,16 +121,15 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 		processedChildren.push({
 			entity: saved.entity,
 			entityOutcome: saved.outcome,
-			entitySchemaId: entitySchema.id,
+			entitySchemaSlug: entitySchema.id,
 		});
 	}
 
 	let relationshipOutcomes: RelationshipMutationOutcome[] = [];
-	const childEntitySchemaId = processedChildren[0]?.entitySchemaId;
+	const childEntitySchemaSlug = processedChildren[0]?.entitySchemaSlug;
 	const relationshipSchema = yield* findChildRelationshipSchema(
-		input.parentEntitySchemaId,
 		input.parentEntitySchemaSlug,
-		childEntitySchemaId,
+		childEntitySchemaSlug,
 	);
 	if (relationshipSchema) {
 		relationshipOutcomes = yield* synchronizeGlobalRelationships({
@@ -136,8 +137,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 			onConflict: "preserveExisting",
 			synchronization: "authoritative",
 			anchorEntityId: input.parentEntityId,
-			relationshipSchemaId: relationshipSchema.id,
-			relationshipSchemaSlug: relationshipSchema.slug,
+			relationshipSchemaSlug: relationshipSchema.id,
 			propertiesSchema: relationshipSchema.propertiesSchema,
 			entries: processedChildren.map((child) => ({ properties: {}, entityId: child.entity.id })),
 		});

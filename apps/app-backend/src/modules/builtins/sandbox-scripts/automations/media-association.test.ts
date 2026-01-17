@@ -22,7 +22,6 @@ const input = (overrides: InputOverrides = {}): AutomationInput => {
 	const snapshot = (properties: Record<string, JsonValue>) => ({
 		properties,
 		id: "relationship-1",
-		relationshipSchemaId: "relationship-schema-1",
 		relationshipSchemaSlug: `${subjectKind}-to-${targetKind}`,
 		target: { id: "associated-1", name: "Barbie", entitySchemaSlug: targetKind },
 		source: { id: "subject-1", name: "Greta Gerwig", entitySchemaSlug: subjectKind },
@@ -51,7 +50,6 @@ const input = (overrides: InputOverrides = {}): AutomationInput => {
 				scopeEntity: {
 					name: "Barbie",
 					entitySchemaSlug: targetKind,
-					entitySchemaId: "scope-schema",
 					id: overrides.rootEntityId ?? "associated-1",
 				},
 			},

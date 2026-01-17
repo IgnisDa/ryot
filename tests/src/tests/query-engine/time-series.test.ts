@@ -64,11 +64,11 @@ describe("event time series", () => {
 			const reviewSchema = yield* createEventSchema(client, {
 				slug: reviewSlug,
 				name: "OccurredAt Review",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 			const entity = yield* createQueryEngineEntity(client, {
 				name: "OccurredAt Series Entity",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 
 			const pastOccurredAt = currentTime().pipe(
@@ -78,12 +78,12 @@ describe("event time series", () => {
 			);
 			yield* createQueryEngineEvent(client, {
 				entityId: entity.id,
-				eventSchemaId: reviewSchema.id,
+				eventSchemaSlug: reviewSchema.id,
 				occurredAt: pastOccurredAt,
 			});
 			yield* createQueryEngineEvent(client, {
 				entityId: entity.id,
-				eventSchemaId: reviewSchema.id,
+				eventSchemaSlug: reviewSchema.id,
 			});
 
 			const result = yield* executeTimeSeriesQueryEngine(
@@ -113,7 +113,7 @@ describe("event time series", () => {
 			const reviewSchema = yield* createEventSchema(client, {
 				slug: reviewSlug,
 				name: "Time Series Filter Review",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				propertiesSchema: {
 					fields: {
 						rating: { type: "integer", label: "Rating", description: "Rating" },
@@ -122,7 +122,7 @@ describe("event time series", () => {
 			});
 			const entity = yield* createQueryEngineEntity(client, {
 				name: "Time Series Filter Entity",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 
 			yield* Effect.all(
@@ -130,7 +130,7 @@ describe("event time series", () => {
 					createQueryEngineEvent(client, {
 						entityId: entity.id,
 						properties: { rating },
-						eventSchemaId: reviewSchema.id,
+						eventSchemaSlug: reviewSchema.id,
 					}),
 				),
 			);
@@ -168,16 +168,16 @@ describe("event time series", () => {
 			const reviewSchema = yield* createEventSchema(client, {
 				slug: reviewSlug,
 				name: "Time Series Zero Review",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 			const entity = yield* createQueryEngineEntity(client, {
 				name: "Time Series Zero Entity",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 
 			yield* createQueryEngineEvent(client, {
 				entityId: entity.id,
-				eventSchemaId: reviewSchema.id,
+				eventSchemaSlug: reviewSchema.id,
 			});
 
 			const futureDay = currentTime().pipe(
@@ -211,11 +211,11 @@ describe("event time series", () => {
 			const reviewSchema = yield* createEventSchema(client, {
 				slug: reviewSlug,
 				name: "Time Series Gap Review",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 			const entity = yield* createQueryEngineEntity(client, {
 				name: "Time Series Gap Entity",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 
 			const base = startOfDay(DateTime.subtractDuration(currentTime(), Duration.days(10)));
@@ -225,17 +225,17 @@ describe("event time series", () => {
 				createQueryEngineEvent(client, {
 					entityId: entity.id,
 					occurredAt: dayZero,
-					eventSchemaId: reviewSchema.id,
+					eventSchemaSlug: reviewSchema.id,
 				}),
 				createQueryEngineEvent(client, {
 					entityId: entity.id,
 					occurredAt: dayZero,
-					eventSchemaId: reviewSchema.id,
+					eventSchemaSlug: reviewSchema.id,
 				}),
 				createQueryEngineEvent(client, {
 					entityId: entity.id,
 					occurredAt: dayTwo,
-					eventSchemaId: reviewSchema.id,
+					eventSchemaSlug: reviewSchema.id,
 				}),
 			]);
 
@@ -267,18 +267,18 @@ describe("event time series", () => {
 			const reviewSchema = yield* createEventSchema(client, {
 				slug: reviewSlug,
 				name: "Time Series Week Review",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 			const entity = yield* createQueryEngineEntity(client, {
 				name: "Time Series Week Entity",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 
 			const day = startOfDay(DateTime.subtractDuration(currentTime(), Duration.days(30)));
 			yield* createQueryEngineEvent(client, {
 				entityId: entity.id,
 				occurredAt: toIso(day),
-				eventSchemaId: reviewSchema.id,
+				eventSchemaSlug: reviewSchema.id,
 			});
 
 			const result = yield* executeTimeSeriesQueryEngine(
@@ -312,7 +312,7 @@ describe("event time series", () => {
 			yield* createEventSchema(client, {
 				slug: reviewSlug,
 				name: "Time Series Range Review",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 
 			const currentIso = toIso(currentTime());

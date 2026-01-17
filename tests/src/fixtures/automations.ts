@@ -2,7 +2,7 @@ import {
 	AutomationRuleId,
 	EntityId,
 	SignalId,
-	SignalSchemaId,
+	SignalSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
@@ -15,9 +15,11 @@ import { pollUntil, type PollOptions } from "./polling";
 export const listAutomationCatalog = (client: Client) =>
 	client.call((c) => c.automations.listCatalog());
 
-export const getAutomationCatalogSchema = (client: Client, signalSchemaId: string) =>
+export const getAutomationCatalogSchema = (client: Client, signalSchemaSlug: string) =>
 	client.call((c) =>
-		c.automations.getCatalog({ path: { signalSchemaId: SignalSchemaId.make(signalSchemaId) } }),
+		c.automations.getCatalog({
+			path: { signalSchemaSlug: SignalSchemaSlug.make(signalSchemaSlug) },
+		}),
 	);
 
 export const listNotificationRules = (client: Client) =>
@@ -26,9 +28,11 @@ export const listNotificationRules = (client: Client) =>
 export const getNotificationRule = (client: Client, ruleId: string) =>
 	client.call((c) => c.automations.getRule({ path: { ruleId: AutomationRuleId.make(ruleId) } }));
 
-export const installNotificationRule = (client: Client, signalSchemaId: string) =>
+export const installNotificationRule = (client: Client, signalSchemaSlug: string) =>
 	client.call((c) =>
-		c.automations.installRule({ payload: { signalSchemaId: SignalSchemaId.make(signalSchemaId) } }),
+		c.automations.installRule({
+			payload: { signalSchemaSlug: SignalSchemaSlug.make(signalSchemaSlug) },
+		}),
 	);
 
 export const setNotificationRuleActive = (client: Client, ruleId: string, isActive: boolean) => {

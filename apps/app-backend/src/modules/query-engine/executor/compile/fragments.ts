@@ -14,7 +14,7 @@ const ENTITY_COLUMNS: Record<string, string> = {
 	properties: "properties",
 	externalId: "external_id",
 	populatedAt: "populated_at",
-	entitySchemaId: "entity_schema_id",
+	entitySchemaSlug: "entity_schema_slug",
 	sandboxScriptId: "sandbox_script_id",
 };
 
@@ -26,7 +26,7 @@ const EVENT_COLUMNS: Record<string, string> = {
 	updatedAt: "updated_at",
 	properties: "properties",
 	occurredAt: "occurred_at",
-	eventSchemaId: "event_schema_id",
+	eventSchemaSlug: "event_schema_slug",
 	sessionEntityId: "session_entity_id",
 };
 
@@ -35,6 +35,7 @@ const RELATIONSHIP_COLUMNS: Record<string, string> = {
 	createdAt: "created_at",
 	sourceEntityId: "source_entity_id",
 	targetEntityId: "target_entity_id",
+	relationshipSchemaSlug: "relationship_schema_slug",
 };
 
 const COLUMNS_BY_KIND: Record<RootAliasKind, Record<string, string>> = {
@@ -53,7 +54,7 @@ export const entitySourceSql = (language: string | null): SqlFragment => {
 		return sql`entity`;
 	}
 	return sql`(
-		SELECT e0.id, e0.user_id, e0.external_id, e0.entity_schema_id, e0.sandbox_script_id,
+		SELECT e0.id, e0.user_id, e0.external_id, e0.entity_schema_slug, e0.sandbox_script_id,
 			e0.created_at, e0.updated_at, e0.populated_at,
 			COALESCE(et.name, e0.name) AS name,
 			e0.properties || COALESCE(et.properties, '{}'::jsonb) AS properties
@@ -75,8 +76,24 @@ export const systemColumnSql = (
 };
 
 // Schema-metadata columns live on the `<alias>s` schema-join table.
-export const schemaColumnSql = (name: string, sqlAlias: string): SqlFragment =>
-	sql.raw(`${sqlAlias}s.${name === "isBuiltin" ? "is_builtin" : name}`);
+export const schemaColumnSql = (
+	kind: RootAliasKind,
+	name: string,
+	sqlAlias: string,
+): SqlFragment => {
+	if (kind === "entity") {
+		if (name === "slug") {
+			return sql.raw(`${sqlAlias}.entity_schema_slug`);
+		}
+		const column = name === "isBuiltin" ? "is_builtin" : name;
+		return sql.raw(`${sqlAlias}s.${column}`);
+	}
+	if (name === "isBuiltin") {
+		return sql`true`;
+	}
+	const column = kind === "event" ? "event_schema_slug" : "relationship_schema_slug";
+	return sql.raw(`${sqlAlias}.${column}`);
+};
 
 export const isSystemDateField = (kind: RootAliasKind, name: string): boolean =>
 	SYSTEM_DATE_FIELDS_BY_KIND[kind].has(name);

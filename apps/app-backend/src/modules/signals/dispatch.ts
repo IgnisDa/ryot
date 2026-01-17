@@ -1,15 +1,14 @@
 import type { DbError } from "@ryot/contract/errors";
 import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
-import type { SignalId, SignalSchemaId, UserId } from "@ryot/contract/schema/brands";
+import type { SignalId, SignalSchemaSlug, UserId } from "@ryot/contract/schema/brands";
 import { Context, type Effect } from "effect";
 
 export type SignalDispatchInput = {
 	id: SignalId;
 	occurredAt: string;
-	signalSchemaSlug: string;
 	origin: AutomationOrigin;
 	actorUserId: UserId | null;
-	signalSchemaId: SignalSchemaId;
+	signalSchemaSlug: SignalSchemaSlug;
 	properties: Record<string, unknown>;
 	recipientUserIds: ReadonlyArray<UserId>;
 };

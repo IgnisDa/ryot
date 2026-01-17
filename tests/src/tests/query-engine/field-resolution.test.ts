@@ -35,12 +35,12 @@ describe("query engine field resolution", () => {
 			});
 			yield* createQueryEngineEntity(client, {
 				name: "Book Row",
-				entitySchemaId: book.schemaId,
+				entitySchemaSlug: book.schemaId,
 				properties: { author: "Author A" },
 			});
 			yield* createQueryEngineEntity(client, {
 				name: "Movie Row",
-				entitySchemaId: movie.schemaId,
+				entitySchemaSlug: movie.schemaId,
 				properties: { director: "Director B" },
 			});
 
@@ -111,7 +111,7 @@ describe("query engine field resolution", () => {
 			});
 			yield* createEntity(client, {
 				name: "Image Entity",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				properties: { images: [{ type: "remote", url: imageUrl }] },
 			});
 
@@ -142,7 +142,7 @@ describe("query engine field resolution", () => {
 					fields: { author: { type: "string", label: "Author", description: "Author" } },
 				},
 			});
-			yield* createQueryEngineEntity(client, { name: "No Author", entitySchemaId: schemaId });
+			yield* createQueryEngineEntity(client, { name: "No Author", entitySchemaSlug: schemaId });
 
 			const result = yield* executeQueryEngine(
 				client,

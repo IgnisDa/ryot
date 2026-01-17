@@ -2,10 +2,9 @@ import { assert, expect, it } from "@effect/vitest";
 import { BadRequest, NotFound } from "@ryot/contract/errors";
 import {
 	EntityId,
-	EntitySchemaId,
-	RelationshipSchemaId,
+	RelationshipSchemaSlug,
 	SignalId,
-	SignalSchemaId,
+	SignalSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
@@ -25,7 +24,7 @@ const userId = UserId.make("user-1");
 const recipientId = UserId.make("user-2");
 const subjectEntityId = EntityId.make("entity-1");
 const occurredAt = new Date("2026-07-20T10:00:00.000Z");
-const relationshipSchemaId = RelationshipSchemaId.make("relationship-schema-1");
+const relationshipSchemaSlug = RelationshipSchemaSlug.make("media-monitoring");
 
 const propertiesSchema = {
 	unknownKeys: "strict",
@@ -47,22 +46,23 @@ const actorSchema = {
 	name: "Review created",
 	catalogState: "active",
 	audiencePolicy: { kind: "actor" },
-	id: SignalSchemaId.make("signal-schema-1"),
+	id: SignalSchemaSlug.make("review.created"),
 } satisfies SignalSchemaScope;
 
 const relatedSchema = {
 	...actorSchema,
 	slug: "media.status.changed",
-	audiencePolicy: { relationshipSchemaId, kind: "related_users", subjectSide: "source" },
+	id: SignalSchemaSlug.make("media.status.changed"),
+	audiencePolicy: { relationshipSchemaSlug, kind: "related_users", subjectSide: "source" },
 } satisfies SignalSchemaScope;
 
 const relationshipScope = {
 	isBuiltin: true,
-	id: relationshipSchemaId,
+	id: relationshipSchemaSlug,
 	slug: "media-monitoring",
 	name: "Media monitoring",
-	sourceEntitySchemaId: null,
-	targetEntitySchemaId: null,
+	sourceEntitySchemaSlug: null,
+	targetEntitySchemaSlug: null,
 	propertiesSchema: { fields: {} },
 };
 
@@ -73,7 +73,6 @@ const subjectScope = {
 	entityId: subjectEntityId,
 	entitySchemaSlug: "movie",
 	propertiesSchema: { fields: {} },
-	entitySchemaId: EntitySchemaId.make("entity-schema-1"),
 };
 
 const baseInput = {
@@ -91,7 +90,7 @@ const storedSignal = (input: InsertSignalInput): StoredSignal => ({
 	origin: input.origin,
 	properties: input.properties,
 	actorUserId: input.actorUserId,
-	signalSchemaId: input.signalSchemaId,
+	signalSchemaSlug: input.signalSchemaSlug,
 	createdAt: "2026-07-20T10:00:01.000Z",
 	subjectEntityId: input.subjectEntityId,
 	occurredAt: input.occurredAt.toISOString(),
@@ -364,7 +363,7 @@ it.effect("returns a duplicate with its stored recipients without resolving agai
 		actorUserId: null,
 		origin: baseInput.origin,
 		properties: baseInput.properties,
-		signalSchemaId: relatedSchema.id,
+		signalSchemaSlug: relatedSchema.id,
 		id: SignalId.make("existing-signal"),
 	});
 	const layer = makeLayer({

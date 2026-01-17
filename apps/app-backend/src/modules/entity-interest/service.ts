@@ -8,7 +8,7 @@ import {
 import type { RowItem } from "@ryot/contract/modules/query-engine/language";
 import {
 	EntityId,
-	EntitySchemaId,
+	EntitySchemaSlug,
 	SandboxScriptId,
 	type UserId,
 } from "@ryot/contract/schema/brands";
@@ -47,7 +47,7 @@ type InterestRow = {
 	readonly properties: unknown;
 	readonly externalId: string | null;
 	readonly populatedAt: string | null;
-	readonly entitySchemaId: EntitySchemaId;
+	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly translationStatus: TranslationStatus;
 	readonly sandboxScriptId: SandboxScriptId | null;
 };
@@ -65,7 +65,7 @@ const toInterestRow = Effect.fn("toInterestRow")(function* (row: RowItem) {
 		properties: (yield* requireFieldValue(row, "properties")).value,
 		populatedAt: yield* getOptionalIsoStringField(row, "populatedAt"),
 		sandboxScriptId: sandboxScriptId ? SandboxScriptId.make(sandboxScriptId) : null,
-		entitySchemaId: EntitySchemaId.make(yield* requireStringField(row, "entitySchemaId")),
+		entitySchemaSlug: EntitySchemaSlug.make(yield* requireStringField(row, "entitySchemaSlug")),
 	} satisfies InterestRow;
 });
 
@@ -88,7 +88,7 @@ export class InterestReconciler extends Effect.Service<InterestReconciler>()("In
 							entityId: row.id,
 							origin: { kind: "api" },
 							externalId: row.externalId,
-							entitySchemaId: row.entitySchemaId,
+							entitySchemaSlug: row.entitySchemaSlug,
 							sandboxScriptId: row.sandboxScriptId,
 						});
 						return null;

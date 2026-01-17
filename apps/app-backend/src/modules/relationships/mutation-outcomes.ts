@@ -1,4 +1,4 @@
-import { RelationshipId, RelationshipSchemaId } from "@ryot/contract/schema/brands";
+import { RelationshipId, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import { Schema } from "effect";
 
 import { EntityReferenceSnapshot } from "#modules/entities/mutation-outcomes";
@@ -8,8 +8,7 @@ export const RelationshipMutationSnapshot = Schema.Struct({
 	properties: Schema.Unknown,
 	sourceEntity: EntityReferenceSnapshot,
 	targetEntity: EntityReferenceSnapshot,
-	relationshipSchemaSlug: Schema.String,
-	relationshipSchemaId: RelationshipSchemaId,
+	relationshipSchemaSlug: RelationshipSchemaSlug,
 });
 
 export type RelationshipMutationSnapshot = typeof RelationshipMutationSnapshot.Type;

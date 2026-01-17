@@ -1,8 +1,9 @@
 import { expect, it } from "@effect/vitest";
-import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { CurrentDb } from "#lib/infrastructure/db/service";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
 
 import { EntitiesRepository } from "./repository";
 
@@ -47,7 +48,7 @@ const makeDb = () => {
 it.effect("distinguishes an insert from a locked conflict row", () => {
 	const { db, getForUpdateCalls } = makeDb();
 	const layer = Layer.mergeAll(
-		EntitiesRepository.Default,
+		EntitiesRepository.Default.pipe(Layer.provide(DefinitionRegistry.Default)),
 		Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
 	);
 	const input = {
@@ -56,7 +57,7 @@ it.effect("distinguishes an insert from a locked conflict row", () => {
 		scope: "global" as const,
 		externalId: "external-1",
 		properties: { status: "active" },
-		entitySchemaId: EntitySchemaId.make("schema-1"),
+		entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
 		sandboxScriptId: SandboxScriptId.make("script-1"),
 	};
 

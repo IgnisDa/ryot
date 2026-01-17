@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { BadRequest, NotFound, SandboxRunError } from "@ryot/contract/errors";
 import {
-	EntitySchemaId,
+	EntitySchemaSlug,
 	IntegrationId,
 	SandboxScriptId,
 	UserId,
@@ -39,13 +39,13 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 			if (slug === "movie.tmdb") {
 				return Effect.succeed({
 					sandboxScriptId: movieScriptId,
-					entitySchemaId: EntitySchemaId.make("movie-schema"),
+					entitySchemaSlug: EntitySchemaSlug.make("movie-schema"),
 				});
 			}
 			if (slug === "show.tmdb") {
 				return Effect.succeed({
 					sandboxScriptId: showScriptId,
-					entitySchemaId: EntitySchemaId.make("show-schema"),
+					entitySchemaSlug: EntitySchemaSlug.make("show-schema"),
 				});
 			}
 			return Effect.succeed(null);

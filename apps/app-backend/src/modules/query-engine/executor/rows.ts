@@ -1,4 +1,4 @@
-import { BadRequest, type DbError, type NotFound } from "@ryot/contract/errors";
+import { BadRequest } from "@ryot/contract/errors";
 import type {
 	Expr,
 	FieldDef,
@@ -35,6 +35,14 @@ const absurdSourceType = (_source: never): never => {
 const idListSql = (schemas: readonly { id: string }[]): SqlFragment =>
 	sql.join(
 		schemas.map((schema) => sql`${schema.id}`),
+		sql`, `,
+	);
+
+const entitySchemaRowsSql = (
+	schemas: readonly { slug: string; name: string; isBuiltin: boolean }[],
+) =>
+	sql.join(
+		schemas.map((schema) => sql`(${schema.slug}, ${schema.name}, ${schema.isBuiltin}::boolean)`),
 		sql`, `,
 	);
 
@@ -111,9 +119,10 @@ const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 		db.execute(sql`
 			SELECT ${selectListSql(output.fields, scope, includes)}
 			FROM ${entitySourceSql(language)} e
-			JOIN entity_schema es ON es.id = e.entity_schema_id
+			JOIN (VALUES ${entitySchemaRowsSql(visibleSchemas)}) AS es(slug, name, is_builtin)
+				ON es.slug = e.entity_schema_slug
 			${includes.laterals}
-			WHERE e.entity_schema_id IN (${idListSql(visibleSchemas)})
+			WHERE e.entity_schema_slug IN (${idListSql(visibleSchemas)})
 				AND ${userVisibleSql("e", userId)}
 				${whereTail(where)}
 			ORDER BY ${compileOrderBySql(output.orderBy, scope)}
@@ -137,10 +146,10 @@ const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 	}
 	const offset = (output.pagination.page - 1) * output.pagination.limit;
 	const visibleEntitySchemas = yield* loadVisibleEntitySchemas(userId, source.entity.schemas);
-	const entitySchemaIds = visibleEntitySchemas.map((schema) => schema.id);
+	const entitySchemaSlugs = visibleEntitySchemas.map((schema) => schema.id);
 	const visibleEventSchemas = yield* loadVisibleEventSchemasForEntitySchemas(
 		userId,
-		entitySchemaIds,
+		entitySchemaSlugs,
 		source.schemas,
 	);
 	if (visibleEventSchemas.length === 0) {
@@ -155,14 +164,12 @@ const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 		db.execute(sql`
 			SELECT ${selectListSql(output.fields, scope, includes)}
 			FROM event ev
-			JOIN event_schema evs ON evs.id = ev.event_schema_id
 			JOIN ${entitySourceSql(language)} e ON e.id = ev.entity_id
-			JOIN entity_schema es ON es.id = e.entity_schema_id
 			${includes.laterals}
 			WHERE ev.user_id = ${userId}
-				AND ev.event_schema_id IN (${idListSql(visibleEventSchemas)})
-				AND e.entity_schema_id IN (${sql.join(
-					entitySchemaIds.map((id) => sql`${id}`),
+				AND ev.event_schema_slug IN (${idListSql(visibleEventSchemas)})
+				AND e.entity_schema_slug IN (${sql.join(
+					entitySchemaSlugs.map((id) => sql`${id}`),
 					sql`, `,
 				)})
 				AND ${userVisibleSql("e", userId)}
@@ -202,14 +209,11 @@ const executeRelationshipRowsQuery = Effect.fn("executeRelationshipRowsQuery")(f
 		db.execute(sql`
 			SELECT ${outputColumnsSql(output.fields, scope)}, COUNT(*) OVER() AS "totalCount"
 			FROM relationship r
-			JOIN relationship_schema rs ON rs.id = r.relationship_schema_id
 			JOIN ${entitySourceSql(language)} se ON se.id = r.source_entity_id
-			JOIN entity_schema ses ON ses.id = se.entity_schema_id
 			JOIN ${entitySourceSql(language)} te ON te.id = r.target_entity_id
-			JOIN entity_schema tes ON tes.id = te.entity_schema_id
-			WHERE r.relationship_schema_id IN (${idListSql(relationshipSchemas)})
-				AND se.entity_schema_id IN (${idListSql(sourceEntitySchemas)})
-				AND te.entity_schema_id IN (${idListSql(targetEntitySchemas)})
+			WHERE r.relationship_schema_slug IN (${idListSql(relationshipSchemas)})
+				AND se.entity_schema_slug IN (${idListSql(sourceEntitySchemas)})
+				AND te.entity_schema_slug IN (${idListSql(targetEntitySchemas)})
 				AND ${userVisibleSql("r", userId)}
 				AND ${userVisibleSql("se", userId)}
 				AND ${userVisibleSql("te", userId)}
@@ -228,7 +232,7 @@ export const executeRowsQuery = (
 	userId: string,
 	language: string | null,
 	doc: RowsQueryDocument,
-): Effect.Effect<RowsResponse, BadRequest | NotFound | DbError, CurrentDb> => {
+) => {
 	switch (doc.source.type) {
 		case "events":
 			return executeEventRowsQuery(userId, language, doc);

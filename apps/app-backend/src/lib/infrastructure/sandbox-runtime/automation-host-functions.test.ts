@@ -1,6 +1,11 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { SignalId, SignalSchemaId, SubscriptionRunId, UserId } from "@ryot/contract/schema/brands";
+import {
+	SignalId,
+	SignalSchemaSlug,
+	SubscriptionRunId,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { Effect, Layer } from "effect";
@@ -76,7 +81,7 @@ it.effect("derives signal authority and identity from the subscription run", () 
 					properties: { message: "trace" },
 					createdAt: "2026-07-20T10:00:01.000Z",
 					occurredAt: input.occurredAt.toISOString(),
-					signalSchemaId: SignalSchemaId.make("signal-schema-1"),
+					signalSchemaSlug: SignalSchemaSlug.make("signal-schema-1"),
 				},
 			});
 		},

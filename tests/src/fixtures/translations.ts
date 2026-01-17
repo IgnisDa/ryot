@@ -27,7 +27,7 @@ const markEntityPopulated = (entityId: string) =>
 export const seedPopulatedProviderEntity = (input: {
 	name: string;
 	externalId: string;
-	entitySchemaId: string;
+	entitySchemaSlug: string;
 	sandboxScriptId: string;
 	properties: Record<string, unknown>;
 }) =>
@@ -37,7 +37,7 @@ export const seedPopulatedProviderEntity = (input: {
 			name: input.name,
 			externalId: input.externalId,
 			properties: input.properties,
-			entitySchemaId: input.entitySchemaId,
+			entitySchemaSlug: input.entitySchemaSlug,
 			sandboxScriptId: input.sandboxScriptId,
 		});
 		yield* markEntityPopulated(seeded.id);
