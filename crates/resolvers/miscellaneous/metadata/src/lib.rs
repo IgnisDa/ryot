@@ -14,6 +14,7 @@ impl GraphqlDependencyInjector for MiscellaneousMetadataQueryResolver {}
 #[Object]
 impl MiscellaneousMetadataQueryResolver {
     /// Get details about a media present in the database.
+    #[tracing::instrument(skip(self, gql_ctx))]
     async fn metadata_details(
         &self,
         gql_ctx: &Context<'_>,

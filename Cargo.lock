@@ -4852,6 +4852,7 @@ dependencies = [
  "miscellaneous-entity-user-details-service",
  "miscellaneous-general-service",
  "miscellaneous-metadata-operations-service",
+ "tracing",
  "traits",
 ]
 
