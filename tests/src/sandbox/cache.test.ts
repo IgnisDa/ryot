@@ -1,38 +1,31 @@
 ﻿import { describe, expect, it } from "bun:test";
 
 import {
+	cacheSandboxSource,
 	createAuthenticatedClient,
 	createSandboxScript,
 	enqueueSandboxScript,
 	pollSandboxResult,
+	requireCompletedSandboxValue,
 } from "../fixtures";
-import { assertCompleted, requireObjectRecord } from "../test-support/assertions";
-
-const requireCompletedSandboxValue = (result: Awaited<ReturnType<typeof pollSandboxResult>>) => {
-	assertCompleted(result, "sandbox job");
-
-	expect(result.error).toBeNull();
-	return result.value;
-};
+import { requireObjectRecord } from "../test-support/assertions";
 
 describe("sandbox cache functions", () => {
 	it("setCachedValue stores a value that getCachedValue retrieves within the same script", async () => {
 		const { client } = await createAuthenticatedClient();
 		const cacheKey = `cache-test-${crypto.randomUUID()}`;
+		const slug = `cache-round-trip-${crypto.randomUUID()}`;
 		const { id: scriptId } = await createSandboxScript(client, {
-			name: "cache-round-trip",
-			slug: `cache-round-trip-${crypto.randomUUID()}`,
-			metadata: { allowedHostFunctions: ["setCachedValue", "getCachedValue"] },
-			code: `driver("main", async function() {
-  const setResult = await setCachedValue(${JSON.stringify(cacheKey)}, { value: 42 }, 60);
-  if (!setResult.success) throw new Error(setResult.error);
-  return await getCachedValue(${JSON.stringify(cacheKey)});
-});`,
+			source: cacheSandboxSource({
+				slug,
+				key: cacheKey,
+				ttlSeconds: 60,
+				value: { value: 42 },
+				operation: "roundTrip",
+				name: "cache-round-trip",
+			}),
 		});
-		const { jobId } = await enqueueSandboxScript(client, {
-			scriptId,
-			driverName: "main",
-		});
+		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });
 
 		const value = requireObjectRecord(
 			requireCompletedSandboxValue(await pollSandboxResult(client, jobId)),
@@ -45,18 +38,16 @@ describe("sandbox cache functions", () => {
 	it("getCachedValue returns null for a key that was never set", async () => {
 		const { client } = await createAuthenticatedClient();
 		const missingKey = `cache-missing-${crypto.randomUUID()}`;
+		const slug = `cache-miss-${crypto.randomUUID()}`;
 		const { id: scriptId } = await createSandboxScript(client, {
-			name: "cache-miss",
-			slug: `cache-miss-${crypto.randomUUID()}`,
-			metadata: { allowedHostFunctions: ["getCachedValue"] },
-			code: `driver("main", async function() {
-  return await getCachedValue(${JSON.stringify(missingKey)});
-});`,
+			source: cacheSandboxSource({
+				slug,
+				key: missingKey,
+				operation: "get",
+				name: "cache-miss",
+			}),
 		});
-		const { jobId } = await enqueueSandboxScript(client, {
-			scriptId,
-			driverName: "main",
-		});
+		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });
 
 		const value = requireObjectRecord(
 			requireCompletedSandboxValue(await pollSandboxResult(client, jobId)),
@@ -69,32 +60,36 @@ describe("sandbox cache functions", () => {
 	it("cache is isolated between different scripts for the same key", async () => {
 		const { client } = await createAuthenticatedClient();
 		const sharedKey = `cache-isolation-${crypto.randomUUID()}`;
+		const writerSlug = `cache-writer-${crypto.randomUUID()}`;
 		const { id: writerScriptId } = await createSandboxScript(client, {
-			name: "cache-writer",
-			slug: `cache-writer-${crypto.randomUUID()}`,
-			metadata: { allowedHostFunctions: ["setCachedValue"] },
-			code: `driver("main", async function() {
-  return await setCachedValue(${JSON.stringify(sharedKey)}, { secret: true }, 60);
-});`,
+			source: cacheSandboxSource({
+				key: sharedKey,
+				ttlSeconds: 60,
+				slug: writerSlug,
+				operation: "set",
+				name: "cache-writer",
+				value: { secret: true },
+			}),
 		});
+		const readerSlug = `cache-reader-${crypto.randomUUID()}`;
 		const { id: readerScriptId } = await createSandboxScript(client, {
-			name: "cache-reader",
-			slug: `cache-reader-${crypto.randomUUID()}`,
-			metadata: { allowedHostFunctions: ["getCachedValue"] },
-			code: `driver("main", async function() {
-  return await getCachedValue(${JSON.stringify(sharedKey)});
-});`,
+			source: cacheSandboxSource({
+				key: sharedKey,
+				slug: readerSlug,
+				operation: "get",
+				name: "cache-reader",
+			}),
 		});
 
 		const { jobId: writeJobId } = await enqueueSandboxScript(client, {
-			scriptId: writerScriptId,
 			driverName: "main",
+			scriptId: writerScriptId,
 		});
 		await pollSandboxResult(client, writeJobId);
 
 		const { jobId: readJobId } = await enqueueSandboxScript(client, {
-			scriptId: readerScriptId,
 			driverName: "main",
+			scriptId: readerScriptId,
 		});
 		const value = requireObjectRecord(
 			requireCompletedSandboxValue(await pollSandboxResult(client, readJobId)),
@@ -110,13 +105,16 @@ describe("sandbox cache functions", () => {
 
 		const cacheKey = `builtin-shared-cache-${crypto.randomUUID()}`;
 
+		const writerSlug = `builtin-cache-writer-${crypto.randomUUID()}`;
 		const { id: writerScriptId } = await createSandboxScript(clientA, {
-			name: "builtin-cache-writer",
-			slug: `builtin-cache-writer-${crypto.randomUUID()}`,
-			metadata: { allowedHostFunctions: ["setCachedValue"] },
-			code: `driver("main", async function() {
-  return await setCachedValue(${JSON.stringify(cacheKey)}, { sharedValue: true }, 60);
-});`,
+			source: cacheSandboxSource({
+				key: cacheKey,
+				ttlSeconds: 60,
+				slug: writerSlug,
+				operation: "set",
+				name: "builtin-cache-writer",
+				value: { sharedValue: true },
+			}),
 		});
 
 		const { jobId: writeJobId } = await enqueueSandboxScript(clientA, {
@@ -125,13 +123,14 @@ describe("sandbox cache functions", () => {
 		});
 		await pollSandboxResult(clientA, writeJobId);
 
+		const readerSlug = `builtin-cache-reader-${crypto.randomUUID()}`;
 		const { id: readerScriptId } = await createSandboxScript(clientB, {
-			name: "builtin-cache-reader",
-			slug: `builtin-cache-reader-${crypto.randomUUID()}`,
-			metadata: { allowedHostFunctions: ["getCachedValue"] },
-			code: `driver("main", async function() {
-  return await getCachedValue(${JSON.stringify(cacheKey)});
-});`,
+			source: cacheSandboxSource({
+				key: cacheKey,
+				slug: readerSlug,
+				operation: "get",
+				name: "builtin-cache-reader",
+			}),
 		});
 
 		const { jobId: readJobId } = await enqueueSandboxScript(clientB, {

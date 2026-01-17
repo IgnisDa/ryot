@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import {
 	cleanupBuiltinProviderScript,
 	createAuthenticatedClient,
-	detailsDriverCode,
+	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
 	getEntity,
 	getGlobalEntityByProvenance,
@@ -24,12 +24,16 @@ let providerScript: SeededProviderScript;
 
 describe("entity population via client-declared interest", () => {
 	beforeAll(async () => {
+		const { client } = await createAuthenticatedClient();
 		providerScript = await seedBuiltinProviderScript({
-			metadata: { providerInformation: { source: "e2e", canonicalLanguage: "en" } },
-			code: detailsDriverCode({
-				name: POPULATED_NAME,
-				properties: { description: "Populated by the e2e fake provider." },
-			}),
+			client,
+			providerInformation: { source: "e2e", canonicalLanguage: "en" },
+			drivers: {
+				details: fakeProviderDetailsResult({
+					name: POPULATED_NAME,
+					properties: { description: "Populated by the e2e fake provider." },
+				}),
+			},
 		});
 	});
 
