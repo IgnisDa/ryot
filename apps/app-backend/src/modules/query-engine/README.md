@@ -188,7 +188,7 @@ Invalid system fields for a source type fail semantic validation.
 
 ### Schema metadata fields
 
-`slug`, `name`, `isBuiltin`.
+`slug`, `name`.
 
 ### Property fields
 
