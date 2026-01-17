@@ -137,7 +137,7 @@ const buildYoutubeMusicImportResult = Effect.fn("buildYoutubeMusicImportResult")
 		return toMediaImportAdapterSummary(sourceFetchFailure(sandbox.left.message));
 	}
 	if (sandbox.right.error) {
-		return toMediaImportAdapterSummary(sourceFetchFailure(sandbox.right.error));
+		return toMediaImportAdapterSummary(sourceFetchFailure(sandbox.right.error.message));
 	}
 
 	return yield* Activity.make({

@@ -239,7 +239,10 @@ driver("main", async function() {
 
 		assertCompleted(result, "sandbox job");
 
-		expect(result.error).toContain("Entity schema 'does-not-exist' not found");
+		expect(result.error).toMatchObject({
+			phase: "execute",
+			message: expect.stringContaining("Entity schema 'does-not-exist' not found"),
+		});
 	});
 
 	it("completes a script that uses getAppConfigValue", async () => {
@@ -308,7 +311,10 @@ driver("main", async function() {
 		assertCompleted(result, "sandbox job");
 
 		expect(result.value).toBeNull();
-		expect(result.error).toContain("intentional");
+		expect(result.error).toMatchObject({
+			phase: "execute",
+			message: expect.stringContaining("intentional"),
+		});
 	});
 
 	it("rejects invalid TypeScript without creating a script row", async () => {
