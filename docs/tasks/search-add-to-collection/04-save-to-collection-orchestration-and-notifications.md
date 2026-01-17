@@ -21,12 +21,12 @@ and **Relationship to lifecycle actions**.
 
 ## Acceptance criteria
 
-- [ ] Submitting the collection panel first ensures the search result exists as an entity using the
+- [x] Submitting the collection panel first ensures the search result exists as an entity using the
       existing search-import flow.
-- [ ] After entity creation or lookup succeeds, the frontend calls the collection-membership write
+- [x] After entity creation or lookup succeeds, the frontend calls the collection-membership write
       contract for the selected collection with the validated membership payload.
-- [ ] The submit affordance uses save-oriented copy rather than one-time add copy.
-- [ ] A successful save closes the collection panel and shows a success notification that names the
+- [x] The submit affordance uses save-oriented copy rather than one-time add copy.
+- [x] A successful save closes the collection panel and shows a success notification that names the
       target collection.
 - [ ] If entity creation succeeds but the membership write fails, the user receives a partial-
       failure message that clearly explains the item is in the library but not in the collection.
