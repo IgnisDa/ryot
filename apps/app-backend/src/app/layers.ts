@@ -74,6 +74,7 @@ import { NotificationDeliveryWorkflowDefinitionsLive } from "#modules/notificati
 import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
 import { FirstPartyPluginBootstrap } from "#modules/plugins/boot";
+import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
 import { OperationsService } from "#modules/plugins/operations-service";
 import { PluginRepository } from "#modules/plugins/repository";
@@ -157,6 +158,10 @@ const PluginLoaderLive = Layer.mergeAll(
 );
 const PluginRuntimeResolverLive = PluginRuntimeResolver.Default.pipe(
 	Layer.provideMerge(PluginLoaderLive),
+);
+const IntegrationProviderCatalogLive = Layer.provide(
+	IntegrationProviderCatalog.Default,
+	PluginLoaderLive,
 );
 const PluginIngestionServiceLive = Layer.provide(
 	PluginIngestionService.Default,
@@ -285,7 +290,10 @@ const PlatformServicesLive = Layer.mergeAll(
 	RelationshipsService.Default,
 	UserStateServiceLive,
 	ImportsServiceLive,
-	Layer.provide(IntegrationsService.Default, ImportsServiceLive),
+	Layer.provide(
+		IntegrationsService.Default,
+		Layer.mergeAll(ImportsServiceLive, IntegrationProviderCatalogLive),
+	),
 	NotificationsService.Default,
 	NotificationDeliveryService.Default,
 );

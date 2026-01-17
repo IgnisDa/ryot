@@ -36,6 +36,9 @@ it.scoped("builds exact-version dependency modules in a read-only runtime direct
 				{ name: "effect", version: "3.21.4" },
 				{ name: "cheerio", version: "1.2.0" },
 				{ name: "youtubei", version: "17.2.0" },
+				{ name: "fflate", version: "0.8.3" },
+				{ name: "papaparse", version: "5.5.3" },
+				{ name: "fast-xml-parser", version: "5.8.0" },
 			]);
 			const importMap = yield* fs.readFileString(runtime.importMapPath);
 			expect(importMap).toBe(SANDBOX_RUNTIME_IMPORT_MAP_CONTENT);
@@ -43,7 +46,10 @@ it.scoped("builds exact-version dependency modules in a read-only runtime direct
 			expect((yield* fs.readDirectory(runtime.directory)).sort()).toEqual([
 				"cheerio-1.2.0.mjs",
 				"effect-3.21.4.mjs",
+				"fast-xml-parser-5.8.0.mjs",
+				"fflate-0.8.3.mjs",
 				"import-map.json",
+				"papaparse-5.5.3.mjs",
 				"youtubei-17.2.0.mjs",
 			]);
 			const parsedImportMap = yield* Schema.decodeUnknown(
@@ -64,6 +70,9 @@ it.scoped("builds exact-version dependency modules in a read-only runtime direct
 			for (const dependency of SANDBOX_APPROVED_DEPENDENCIES) {
 				const modulePath = `${runtime.directory}/${dependency.runtimeFile}`;
 				const module = yield* fs.readFileString(modulePath);
+				expect(parsedImportMap.imports[dependency.sdkImport], dependency.name).toBe(
+					`./${dependency.runtimeFile}`,
+				);
 				expect(module.length).toBeGreaterThan(0);
 				expect(module).not.toContain("npm:");
 				expect(module).not.toContain("@ryot/sandbox-sdk");

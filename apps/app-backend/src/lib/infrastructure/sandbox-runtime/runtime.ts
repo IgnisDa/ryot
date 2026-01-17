@@ -8,6 +8,7 @@ import { sandboxDenoDirConfig } from "../config/definition";
 import { AppConfig } from "../config/service";
 import { redisKeys, RedisService } from "../redis";
 import { ensureSandboxRuntimeDependencies } from "./dependencies";
+import type { SandboxProcessGrants } from "./filesystem-grants";
 import {
 	consumeSandboxHostCall,
 	SANDBOX_LIMITS,
@@ -134,26 +135,32 @@ export const invalidateProcess = (
 	worker: PooledProcess,
 ) => pool.invalidate(worker).pipe(Effect.zipRight(killProcess(worker)));
 
-const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
-	bridgePort: number,
-	denoDir: string,
-	importMapPath: string,
-	runtimeDirectory: string,
-	runnerPath: string,
-) {
-	const executor = yield* CommandExecutor.CommandExecutor;
-	const path = Bun.env["PATH"];
-	if (!path) {
-		return yield* Effect.dieMessage("Sandbox process PATH is unavailable");
+type SpawnDenoProcessOptions = {
+	readonly denoDir: string;
+	readonly bridgePort: number;
+	readonly runnerPath: string;
+	readonly importMapPath: string;
+	readonly runtimeDirectory: string;
+	readonly grants?: SandboxProcessGrants;
+};
+
+// A grant-carrying execution replaces the blanket `--deny-write` with a write grant scoped to its
+// own scratch directory; an execution without grants must keep today's flags byte for byte.
+export const sandboxDenoRunFlags = (options: Omit<SpawnDenoProcessOptions, "denoDir">) => {
+	const scratchDirectory = options.grants?.scratchDirectory;
+	const readPaths = [options.runnerPath, options.runtimeDirectory];
+	if (options.grants?.artifactPath) {
+		readPaths.push(options.grants.artifactPath);
 	}
-	const sandboxExecutor = makeSandboxCommandExecutor(executor, { PATH: path, DENO_DIR: denoDir });
-	const denoProcess = yield* Command.make(
-		"deno",
-		"run",
+	if (scratchDirectory) {
+		readPaths.push(scratchDirectory);
+	}
+
+	return [
 		"--deny-run",
 		"--deny-env",
 		"--deny-ffi",
-		"--deny-write",
+		scratchDirectory ? `--allow-write=${scratchDirectory}` : "--deny-write",
 		"--no-prompt",
 		"--no-config",
 		"--no-lock",
@@ -161,10 +168,29 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 		"--no-remote",
 		"--cached-only",
 		`--v8-flags=--max-old-space-size=${SANDBOX_LIMITS.execution.denoHeapMiB}`,
-		`--import-map=${importMapPath}`,
-		`--allow-read=${runnerPath},${runtimeDirectory}`,
-		`--allow-net=127.0.0.1:${bridgePort}`,
-		runnerPath,
+		`--import-map=${options.importMapPath}`,
+		`--allow-read=${readPaths.join(",")}`,
+		`--allow-net=127.0.0.1:${options.bridgePort}`,
+	];
+};
+
+const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
+	options: SpawnDenoProcessOptions,
+) {
+	const executor = yield* CommandExecutor.CommandExecutor;
+	const path = Bun.env["PATH"];
+	if (!path) {
+		return yield* Effect.dieMessage("Sandbox process PATH is unavailable");
+	}
+	const sandboxExecutor = makeSandboxCommandExecutor(executor, {
+		PATH: path,
+		DENO_DIR: options.denoDir,
+	});
+	const denoProcess = yield* Command.make(
+		"deno",
+		"run",
+		...sandboxDenoRunFlags(options),
+		options.runnerPath,
 	).pipe(
 		Command.stdin("pipe"),
 		Command.stdout("pipe"),
@@ -368,15 +394,22 @@ export class ProcessPool extends Effect.Service<ProcessPool>()("ProcessPool", {
 		const runner = yield* RunnerFile;
 		const bridge = yield* BridgeService;
 		const dependencies = yield* PackageCacheManager;
-		return yield* Pool.make({
+		const executor = yield* CommandExecutor.CommandExecutor;
+		// The executor is captured here so a dedicated spawn does not leak a context requirement into
+		// every caller of `SandboxService.run`.
+		const spawn = (grants?: SandboxProcessGrants) =>
+			makeSpawnDenoProcess({
+				bridgePort: bridge.port,
+				runnerPath: runner.path,
+				denoDir: dependencies.cacheDirectory,
+				runtimeDirectory: dependencies.directory,
+				importMapPath: dependencies.importMapPath,
+				...(grants ? { grants } : {}),
+			}).pipe(Effect.provideService(CommandExecutor.CommandExecutor, executor));
+		const pool = yield* Pool.make({
+			acquire: spawn(),
 			size: config.sandbox.workerConcurrency + 2,
-			acquire: makeSpawnDenoProcess(
-				bridge.port,
-				dependencies.cacheDirectory,
-				dependencies.importMapPath,
-				dependencies.directory,
-				runner.path,
-			),
 		});
+		return { pool, spawnDedicated: spawn };
 	}),
 }) {}

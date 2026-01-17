@@ -1,6 +1,28 @@
 import { describe, expect, it } from "vitest";
 
-import { validateProgressThresholds } from "./service";
+import type { RegisteredIntegrationProvider } from "#modules/plugins/integration-provider-catalog";
+
+import { resolveIntegrationLot, validateProgressThresholds } from "./service";
+
+describe("resolveIntegrationLot", () => {
+	const registered = {
+		lot: "sink",
+		name: "Plex",
+		slug: "plex_yank",
+		pluginSlug: "media",
+		scriptSlug: "media.plex",
+		description: "Plex sink",
+		settingsSchema: { fields: {} },
+	} satisfies RegisteredIntegrationProvider;
+
+	it("prefers the registry lot over the hardcoded table", () => {
+		expect(resolveIntegrationLot(() => registered, "plex_yank")).toBe("sink");
+	});
+
+	it("falls back to the hardcoded table when the registry does not know the provider", () => {
+		expect(resolveIntegrationLot(() => null, "plex_yank")).toBe("yank");
+	});
+});
 
 describe("validateProgressThresholds", () => {
 	it("returns null for valid thresholds", () => {

@@ -11,6 +11,8 @@ export const fixtureManifest = () =>
 		workflows: [] as PluginManifest["workflows"],
 		providers: [] as PluginManifest["providers"],
 		operations: [] as PluginManifest["operations"],
+		importSources: [] as PluginManifest["importSources"],
+		integrationProviders: [] as PluginManifest["integrationProviders"],
 		metadata: {
 			icon: "box",
 			name: "Fixture",

@@ -1,5 +1,8 @@
 import { unknownToMessage } from "@ryot/contract/errors";
-import type { ExecutionAuthority } from "@ryot/contract/modules/sandbox/schemas";
+import type {
+	ExecutionAuthority,
+	SandboxExecutionGrants,
+} from "@ryot/contract/modules/sandbox/schemas";
 import type { SandboxProviderId } from "@ryot/contract/schema/brands";
 import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } from "@ryot/sandbox-sdk/core";
 import type { JsonValue, SandboxHostError } from "@ryot/sandbox-sdk/wire";
@@ -17,6 +20,7 @@ export type SandboxRunInput = {
 	readonly scriptIsBuiltin: boolean;
 	readonly workflowExecutionId?: string;
 	readonly authority: ExecutionAuthority;
+	readonly grants?: SandboxExecutionGrants;
 	readonly providerId: SandboxProviderId | null;
 	readonly allowedHostFunctions: readonly string[];
 };
