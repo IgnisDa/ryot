@@ -171,10 +171,200 @@ const schemaProviderLinks = (
 	] as const
 ).map(([entitySchemaSlug, providerSlug]) => ({ entitySchemaSlug, providerSlug }));
 
+const stringSetting = (label: string, description: string, required = true, secret = false) => ({
+	type: "string" as const,
+	label,
+	description,
+	...(secret ? { secret: true as const } : {}),
+	...(required ? { validation: { required: true as const } } : {}),
+});
+const kindSetting = (kind: string) => ({
+	options: [kind],
+	defaultValue: kind,
+	type: "enum" as const,
+	label: "Provider kind",
+	validation: { required: true as const },
+	description: "Integration provider discriminator",
+});
+const providerSettings = (kind: string, fields = {}) => ({
+	fields: { kind: kindSetting(kind), ...fields },
+});
+const integrationProviders = [
+	{
+		lot: "sink",
+		slug: "plex_sink",
+		name: "Plex sink",
+		scriptSlug: "integration.plex-sink",
+		description: "Receive Plex playback webhooks",
+		settingsSchema: providerSettings("plex_sink", {
+			username: stringSetting("Username", "Only process playback for this Plex user", false),
+		}),
+	},
+	{
+		lot: "sink",
+		slug: "jellyfin_sink",
+		name: "Jellyfin sink",
+		scriptSlug: "integration.jellyfin-sink",
+		description: "Receive Jellyfin playback webhooks",
+		settingsSchema: providerSettings("jellyfin_sink", {
+			username: stringSetting("Username", "Only process playback for this Jellyfin user", false),
+			metadataProvider: {
+				type: "enum",
+				defaultValue: "tmdb",
+				options: ["tmdb", "tvdb"],
+				label: "Metadata provider",
+				description: "Provider used to identify Jellyfin media",
+			},
+		}),
+	},
+	{
+		lot: "sink",
+		slug: "emby",
+		name: "Emby",
+		scriptSlug: "integration.emby",
+		description: "Receive Emby playback webhooks",
+		settingsSchema: providerSettings("emby"),
+	},
+	{
+		lot: "sink",
+		slug: "kodi",
+		name: "Kodi",
+		scriptSlug: "integration.kodi",
+		description: "Receive Kodi playback webhooks",
+		settingsSchema: providerSettings("kodi"),
+	},
+	{
+		lot: "sink",
+		slug: "ryot_browser_extension",
+		name: "Ryot browser extension",
+		scriptSlug: "integration.browser-extension",
+		description: "Receive playback from the Ryot browser extension",
+		settingsSchema: providerSettings("ryot_browser_extension", {
+			disabledSites: {
+				type: "array",
+				label: "Disabled sites",
+				description: "Sites ignored by the browser extension",
+				items: stringSetting("Site", "Hostname to ignore", false),
+			},
+		}),
+	},
+	{
+		lot: "sink",
+		slug: "generic_json",
+		name: "Generic JSON",
+		scriptSlug: "integration.generic-json",
+		description: "Receive generic JSON playback webhooks",
+		settingsSchema: providerSettings("generic_json"),
+	},
+	{
+		lot: "yank",
+		slug: "komga",
+		name: "Komga",
+		scriptSlug: "integration.komga",
+		description: "Import progress and ownership from Komga",
+		settingsSchema: providerSettings("komga", {
+			baseUrl: stringSetting("Base URL", "Komga instance URL"),
+			apiKey: stringSetting("API key", "Komga API key", true, true),
+		}),
+	},
+	{
+		lot: "yank",
+		slug: "plex_yank",
+		name: "Plex yank",
+		scriptSlug: "integration.plex-yank",
+		description: "Import watched media and ownership from Plex",
+		settingsSchema: providerSettings("plex_yank", {
+			baseUrl: stringSetting("Base URL", "Plex instance URL"),
+			token: stringSetting("Token", "Plex access token", true, true),
+		}),
+	},
+	{
+		lot: "yank",
+		slug: "audiobookshelf",
+		name: "Audiobookshelf",
+		scriptSlug: "integration.audiobookshelf",
+		description: "Import finished media and ownership from Audiobookshelf",
+		settingsSchema: providerSettings("audiobookshelf", {
+			baseUrl: stringSetting("Base URL", "Audiobookshelf instance URL"),
+			token: stringSetting("Token", "Audiobookshelf access token", true, true),
+		}),
+	},
+	{
+		lot: "yank",
+		slug: "youtube_music",
+		name: "YouTube Music",
+		scriptSlug: "integration.youtube-music",
+		description: "Import listening history from YouTube Music",
+		settingsSchema: providerSettings("youtube_music", {
+			timezone: stringSetting("Timezone", "Timezone used for daily history synchronization"),
+			authCookie: stringSetting(
+				"Authentication cookie",
+				"YouTube Music authentication cookie",
+				true,
+				true,
+			),
+		}),
+	},
+	{
+		lot: "push",
+		slug: "radarr",
+		name: "Radarr",
+		description: "Push collection movies to Radarr",
+		settingsSchema: providerSettings("radarr", {
+			baseUrl: stringSetting("Base URL", "Radarr instance URL"),
+			apiKey: stringSetting("API key", "Radarr API key", true, true),
+			profileId: stringSetting("Profile ID", "Radarr quality profile ID"),
+			rootFolderPath: stringSetting("Root folder path", "Radarr root folder path"),
+			syncCollectionIds: {
+				type: "array",
+				label: "Collections",
+				description: "Collection IDs synchronized to Radarr",
+				items: stringSetting("Collection ID", "Collection ID", false),
+			},
+			tagIds: {
+				type: "array",
+				label: "Tag IDs",
+				description: "Radarr tag IDs",
+				items: { type: "integer", label: "Tag ID", description: "Radarr tag ID" },
+			},
+		}),
+	},
+	{
+		lot: "push",
+		slug: "sonarr",
+		name: "Sonarr",
+		description: "Push collection shows to Sonarr",
+		settingsSchema: providerSettings("sonarr", {
+			baseUrl: stringSetting("Base URL", "Sonarr instance URL"),
+			apiKey: stringSetting("API key", "Sonarr API key", true, true),
+			profileId: stringSetting("Profile ID", "Sonarr quality profile ID"),
+			rootFolderPath: stringSetting("Root folder path", "Sonarr root folder path"),
+			syncCollectionIds: {
+				type: "array",
+				label: "Collections",
+				description: "Collection IDs synchronized to Sonarr",
+				items: stringSetting("Collection ID", "Collection ID", false),
+			},
+			tagIds: { type: "integer", label: "Tag ID", description: "Sonarr tag ID" },
+		}),
+	},
+	{
+		lot: "push",
+		slug: "jellyfin_push",
+		name: "Jellyfin push",
+		description: "Update watched state in Jellyfin",
+		settingsSchema: providerSettings("jellyfin_push", {
+			baseUrl: stringSetting("Base URL", "Jellyfin instance URL"),
+			username: stringSetting("Username", "Jellyfin username"),
+			password: stringSetting("Password", "Jellyfin password", false, true),
+		}),
+	},
+] as const;
+
 export const mediaPlugin = definePlugin({
 	boot: [],
 	importSources: [],
-	integrationProviders: [],
+	integrationProviders,
 	providers: mediaProviders,
 	workflows: [
 		{ slug: "media-import-population", scriptSlug: "workflow.media-import-population" },

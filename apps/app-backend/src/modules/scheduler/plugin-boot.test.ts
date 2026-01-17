@@ -14,15 +14,7 @@ import type { NormalizedPlugin } from "#modules/plugins/types";
 
 import { pluginBootExecutionId, PluginBootService } from "./plugin-boot";
 
-type CapturedRun = {
-	readonly executionId: string;
-	readonly payload: {
-		readonly authority: { readonly type: "system" };
-		readonly context: unknown;
-		readonly executionId: string;
-		readonly scriptId: SandboxScriptId;
-	};
-};
+type CapturedRun = Parameters<WorkflowEngine["Type"]["execute"]>[1];
 
 const normalizedPlugin = (pluginSlug: string): NormalizedPlugin => {
 	const manifest = fixtureManifest();
@@ -108,7 +100,7 @@ const makeLayer = (
 							options.executionId === failingExecutionId
 								? Effect.fail("dispatch failed")
 								: Effect.sync(() => {
-										captured.push(options as CapturedRun);
+										captured.push(options);
 										return options.executionId;
 									}),
 					}),
@@ -117,7 +109,7 @@ const makeLayer = (
 		),
 	);
 
-it.effect("dispatches every plugin boot entry as a deterministic system sandbox run", () => {
+it.effect("awaits every plugin boot entry as a deterministic system sandbox run", () => {
 	const captured: Array<CapturedRun> = [];
 	const loader = makePluginLoader(makeDefinitionRegistry());
 	loader.load(normalizedPlugin("fixture"));
@@ -127,13 +119,34 @@ it.effect("dispatches every plugin boot entry as a deterministic system sandbox 
 		yield* service.dispatchAll(60_000);
 		expect(captured).toEqual([
 			{
-				discard: true,
 				executionId: "plugin-boot-7-fixture-12-fixture-boot-60000",
 				payload: {
 					authority: { type: "system" },
 					context: {},
 					scriptId: SandboxScriptId.make("fixture-script-id"),
 					executionId: "plugin-boot-7-fixture-12-fixture-boot-60000",
+				},
+			},
+		]);
+	}).pipe(Effect.provide(makeLayer(loader, captured)));
+});
+
+it.effect("awaits terminal plugin boot runs when manually triggered", () => {
+	const captured: Array<CapturedRun> = [];
+	const loader = makePluginLoader(makeDefinitionRegistry());
+	loader.load(normalizedPlugin("fixture"));
+
+	return Effect.gen(function* () {
+		const service = yield* PluginBootService;
+		yield* service.triggerAll("parent-id");
+		expect(captured).toEqual([
+			{
+				executionId: "plugin-boot-7-fixture-12-fixture-boot-parent-id",
+				payload: {
+					context: {},
+					authority: { type: "system" },
+					scriptId: SandboxScriptId.make("fixture-script-id"),
+					executionId: "plugin-boot-7-fixture-12-fixture-boot-parent-id",
 				},
 			},
 		]);

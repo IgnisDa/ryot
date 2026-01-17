@@ -1,10 +1,10 @@
 import type {
 	IntegrationExtraSettings,
 	IntegrationProvider,
-	IntegrationProviderSpecifics,
+	IntegrationProviderSettings,
 	ListedIntegration,
 } from "@ryot/contract/modules/integrations/schemas";
-import { isSinkProvider, type IntegrationLot } from "@ryot/contract/modules/integrations/types";
+import type { IntegrationLot } from "@ryot/contract/modules/integrations/types";
 import type { ImportRunId } from "@ryot/contract/schema/brands";
 import { IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { and, desc, eq } from "drizzle-orm";
@@ -29,7 +29,7 @@ type IntegrationRow = {
 	readonly lastFinishedAt: Date | null;
 	readonly provider: IntegrationProvider;
 	readonly extraSettings: IntegrationExtraSettings;
-	readonly providerSpecifics: IntegrationProviderSpecifics;
+	readonly providerSpecifics: IntegrationProviderSettings;
 };
 
 export type IntegrationRecord = ListedIntegration & { readonly userId: UserId };
@@ -66,7 +66,7 @@ const normalizeIntegration = (frontendUrl: string, row: IntegrationRow): Integra
 	minimumProgress: Number.parseFloat(row.minimumProgress),
 	maximumProgress: Number.parseFloat(row.maximumProgress),
 	lastFinishedAt: row.lastFinishedAt?.toISOString() ?? null,
-	webhookUrl: isSinkProvider(row.provider) ? `${frontendUrl}/_i/${row.id}` : undefined,
+	webhookUrl: row.lot === "sink" ? `${frontendUrl}/_i/${row.id}` : undefined,
 });
 
 const ownedIntegrationWhere = (input: { integrationId: IntegrationId; userId: UserId }) =>
@@ -88,7 +88,7 @@ export class IntegrationsRepository extends Effect.Service<IntegrationsRepositor
 				maximumProgress: string;
 				provider: IntegrationProvider;
 				extraSettings: IntegrationExtraSettings;
-				providerSpecifics: IntegrationProviderSpecifics;
+				providerSpecifics: IntegrationProviderSettings;
 			}) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
@@ -212,7 +212,7 @@ export class IntegrationsRepository extends Effect.Service<IntegrationsRepositor
 				maximumProgress?: string | undefined;
 				lastFinishedAt?: Date | null | undefined;
 				extraSettings?: IntegrationExtraSettings | undefined;
-				providerSpecifics?: IntegrationProviderSpecifics | undefined;
+				providerSpecifics?: IntegrationProviderSettings | undefined;
 			}) {
 				const db = yield* CurrentDb;
 				type UpdateSet = Partial<typeof schema.integration.$inferInsert>;

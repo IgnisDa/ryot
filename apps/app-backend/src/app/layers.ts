@@ -369,7 +369,7 @@ const RuntimeLive = Layer.mergeAll(
 	EnsureLibraryMembershipWorkerLive,
 	ImportWorkflowDefinitionsLive,
 	ProcessNormalizedMediaImportWorkflowDefinitionsLive,
-	IntegrationWorkflowDefinitionsLive,
+	Layer.provide(IntegrationWorkflowDefinitionsLive, IntegrationProviderCatalogLive),
 	Layer.provide(SandboxWorkflowDefinitionsLive, KernelWorkflowReferencesLive),
 	TranslateEntityWorkflowDefinitionsLive,
 	ServerLive,
