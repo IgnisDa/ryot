@@ -20,8 +20,9 @@ mechanics. The media-specific rules are:
   single-item signature, and a per-item miss is a value in the result (`status: "notFound"`,
   `entityId: null`) rather than a failure. `resolve-episodes` goes further: each submitted ref
   carries a caller-assigned `index` that its result echoes back, so correlation never depends on
-  positional alignment and a duplicate, missing, or unexpected index is a hard error at the caller.
-  The remaining operations still align their results index-for-index with the submitted list.
+  positional alignment, and a duplicate, missing, or unexpected index fails the calling workflow
+  through `Effect.fail` instead of being silently absorbed. The remaining operations still align
+  their results index-for-index with the submitted list.
 - **Input/output schemas live outside the sandbox modules** in `operations/schemas.ts`, so a
   first-party client (the browser extension) can import the schemas and `operations/recipes.ts`
   without pulling a sandbox script body — and its `dist` bundle — into its graph. Sandbox scripts
