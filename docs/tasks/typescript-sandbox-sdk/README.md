@@ -385,15 +385,15 @@ The Deno runner will load the compiled JavaScript as an in-memory ES module inst
 
 ## Tasks
 
-**Overall Progress:** 0 of 18 tasks completed
+**Overall Progress:** 1 of 18 tasks completed
 
-**Current Task:** [Task 01](./01-typescript-script-execution-tracer.md) (todo)
+**Current Task:** [Task 02](./02-core-host-capability-contracts.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                           | Type | Status |
 | --- | ---------------------------------------------------------------------------------------------- | ---- | ------ |
-| 01  | [TypeScript Script Execution Tracer](./01-typescript-script-execution-tracer.md)               | AFK  | todo   |
+| 01  | [TypeScript Script Execution Tracer](./01-typescript-script-execution-tracer.md)               | AFK  | done   |
 | 02  | [Core Host Capability Contracts](./02-core-host-capability-contracts.md)                       | AFK  | todo   |
 | 03  | [Domain Host Capability Contracts](./03-domain-host-capability-contracts.md)                   | AFK  | todo   |
 | 04  | [Approved Runtime Dependencies](./04-approved-runtime-dependencies.md)                         | AFK  | todo   |
