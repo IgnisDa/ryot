@@ -79,7 +79,7 @@
 |---|---|---|---|---|---|
 | `scheduler.disableDispatchers` | `SCHEDULER_DISABLE_DISPATCHERS` | Disable automatic scheduler dispatchers (the frequent/infrequent cron tiers, plugin manifest crons, and the one-time plugin boot dispatcher) | No | No | `false` |
 | `scheduler.frequentCronJobsSchedule` | `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE` | Interval phrase for the frequent cron tier | No | No | `every 5 minutes` |
-| `scheduler.infrequentCronJobsSchedule` | `SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE` | Cron expression (or the phrase 'every midnight') for the infrequent cron tier | No | No | `every midnight` |
+| `scheduler.infrequentCronJobsSchedule` | `SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE` | Cron expression used by plugin crons assigned to the infrequent tier | No | No | `0 0 * * *` |
 
 ### S3-compatible file storage
 

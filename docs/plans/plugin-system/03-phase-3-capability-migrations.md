@@ -139,7 +139,7 @@ waits for step 2's operations.
 Delete: `modules/media-trending`, `modules/exercises` (and their contract surface if any —
 check `libs/contract`). E2e: `tests/src/tests/exercises/` re-pointed to rely on boot dispatch
 (no manual trigger needed) + trending coverage re-pointed (cron trigger fixture already
-exists: `triggerInfrequentCron`).
+exists: `triggerPluginCron`).
 
 Done: both modules deleted; exercises + trending e2e green; `crons` and `boot` manifest
 sections documented in `libs/plugin-kit`.
