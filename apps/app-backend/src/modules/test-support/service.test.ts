@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { assert, expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { EntityId, EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { dayjs } from "@ryot/ts-utils/dayjs";
@@ -210,7 +210,7 @@ it.effect("additively installs entity, relationship, and tracker definitions", (
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("replaces same-slug definitions including nested events", () => {
+it.effect("replaces same-slug test definitions including nested events", () => {
 	const definitions = makeDefinitionRegistry();
 	const layer = makeServiceLayer({}, definitions);
 
@@ -239,6 +239,25 @@ it.effect("replaces same-slug definitions including nested events", () => {
 		expect(definitions.getEventSchema(testEntity.slug, "started")).toBeUndefined();
 		expect(definitions.getEventSchema(testEntity.slug, "finished")?.name).toBe("Finished");
 		expect(definitions.getEntitySchema("test-unrelated")?.name).toBe("Unrelated");
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("rejects a builtin definition slug", () => {
+	const definitions = makeDefinitionRegistry();
+	const layer = makeServiceLayer({}, definitions);
+
+	return Effect.gen(function* () {
+		const service = yield* TestSupportService;
+		const movie = definitions.getEntitySchema("movie");
+		assert(movie);
+		const failure = yield* Effect.flip(
+			service.installDefinitions({
+				entitySchemas: [{ ...movie, eventSchemas: Object.values(movie.eventSchemas) }],
+			}),
+		);
+
+		expect(failure.message).toMatch(/Builtin definition slug cannot be replaced: movie/);
+		expect(definitions.getEntitySchema("movie")).toBe(movie);
 	}).pipe(Effect.provide(layer));
 });
 

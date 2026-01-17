@@ -118,8 +118,10 @@ Find them mechanically: grep app-backend `src/` for `entitySchema`, `eventSchema
   per-user bootstrap step in this phase (its storage moves in Phase 2 §5; here only its
   schema FK references become slugs).
 - **`legacy-bootstrap`**: exempt from write-path rules but not from storage reality — convert
-  its schema-table reads/writes to registry lookups + slug columns. Its e2e coverage is
-  preserved behavior (it is the adoption path from the legacy deployed system).
+  its schema-table reads/writes to registry lookups + slug columns. This is the adoption path
+  from the legacy deployed system. Generated-SQL regression coverage prevents references to
+  dropped definition tables; full behavior remains dump-restore validation because the normal
+  e2e harness provisions a fresh V2 database.
 - **`builtins/seed.ts`**: schema/tracker/saved-view seeding deleted; script seeding and
   automation-rule seeding remain (slug-keyed) until Phase 2.
 - **Relations** (`tables/relations.ts`): rewrite for removed tables/FKs.
@@ -195,8 +197,9 @@ error, and callers may use an installed relationship definition with their own v
    `app-client` check.
 3. Registry startup validation fails fast on a deliberately broken definition (unit test).
 4. Behavior spot-checks stay green in e2e: media lifecycle (progress → auto-complete),
-   provider search/import, query-engine suite untouched and green, legacy-bootstrap suite
-   green.
+   provider search/import, query-engine suite untouched and green. Legacy-bootstrap generated-SQL
+   regression coverage is green, and both documented legacy dumps pass manual restore/migration
+   validation before release.
 5. No `isBuiltin` column remains on any _surviving_ table except `sandbox_script` and
    `automation_rule` (both die in Phase 2; `signal_schema`'s flag disappears with its table
    in this phase).
