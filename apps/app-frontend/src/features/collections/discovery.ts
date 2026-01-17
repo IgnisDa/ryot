@@ -47,9 +47,10 @@ export function useCollectionDiscovery(enabled = true): {
 	state: CollectionDiscoveryState;
 	refetch: () => void;
 } {
-	const { collections, isLoading, refetch } = useCollectionsQuery(enabled);
+	const { collections, isError, isLoading, refetch } =
+		useCollectionsQuery(enabled);
 
-	const state = getCollectionDiscoveryState(isLoading, collections);
+	const state = getCollectionDiscoveryState(isLoading, isError, collections);
 
 	return { state, refetch };
 }

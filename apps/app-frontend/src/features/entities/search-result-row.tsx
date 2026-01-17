@@ -251,6 +251,7 @@ export function SearchResultRow(props: {
 	primaryAction: "add" | "backlog";
 	canUseCollectionAction: boolean;
 	lifecycleErrorMessage: string | null;
+	onRetryCollectionDiscovery: () => void;
 	actionState: SearchResultRowActionState;
 	collectionState: CollectionDiscoveryState;
 	collectionsDestination: CollectionsDestination;
@@ -513,6 +514,7 @@ export function SearchResultRow(props: {
 								onSaveCollection={props.onSaveCollection}
 								onPatchActionState={props.onPatchActionState}
 								collectionsDestination={props.collectionsDestination}
+								onRetryCollectionDiscovery={props.onRetryCollectionDiscovery}
 								isEnsuringEntity={
 									props.actionState.pendingAction === "collection"
 								}
