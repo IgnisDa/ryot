@@ -9,6 +9,7 @@ use media_models::MetadataProgressUpdateInput;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
+#[tracing::instrument(skip(ss))]
 pub async fn deploy_bulk_metadata_progress_update(
     ss: &Arc<SupportingService>,
     user_id: String,

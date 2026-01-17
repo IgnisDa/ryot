@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 rust_decimal = { workspace = true }
+tracing = { workspace = true }
 uuid = { workspace = true }
 
 background-models = { workspace = true }

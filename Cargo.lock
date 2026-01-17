@@ -4939,6 +4939,7 @@ dependencies = [
  "media-models",
  "rust_decimal",
  "supporting-service",
+ "tracing",
  "uuid",
 ]
 
@@ -4983,6 +4984,7 @@ dependencies = [
  "miscellaneous-calendar-service",
  "miscellaneous-progress-service",
  "miscellaneous-service",
+ "tracing",
  "traits",
 ]
 

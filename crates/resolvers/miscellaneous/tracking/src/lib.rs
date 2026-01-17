@@ -70,6 +70,7 @@ impl MiscellaneousTrackingMutationResolver {
 
     /// Deploy job to update progress of media items in bulk. For seen items in progress,
     /// progress is updated only if it has actually changed.
+    #[tracing::instrument(skip(self, gql_ctx))]
     async fn deploy_bulk_metadata_progress_update(
         &self,
         gql_ctx: &Context<'_>,
