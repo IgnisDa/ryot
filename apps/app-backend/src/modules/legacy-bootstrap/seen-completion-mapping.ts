@@ -61,6 +61,7 @@ BEGIN
 		  AND (season.properties ->> 'seasonNumber') ~ '^[0-9]+$'
 		  AND (episode.properties ->> 'episodeNumber') ~ '^[0-9]+$'
 		  AND (season.properties ->> 'seasonNumber')::int > 0
+		  AND season.name NOT IN ('Specials', 'Extras')
 		  AND (episode.properties ->> 'episodeNumber')::int > 0
 	), anime_keys AS (
 		SELECT
