@@ -30,7 +30,16 @@ import {
 	SearchEntityModalContent,
 	SearchEntityModalTitle,
 } from "~/features/entities/search-modal";
-import { createReviewEventPayload } from "~/features/entities/search-modal-media-actions";
+import {
+	createLogEventPayload,
+	createReviewEventPayload,
+	type MediaSearchLogDateOption,
+} from "~/features/entities/search-modal-media-actions";
+import {
+	defaultSearchResultRowActionState,
+	type SearchResultRowActionState,
+} from "~/features/entities/search-result-row";
+import { SearchResultLogPanel } from "~/features/entities/search-result-row-panels";
 import { useEntitySchemasQuery } from "~/features/entity-schemas/hooks";
 import type { AppEntitySchema } from "~/features/entity-schemas/model";
 import { useEventSchemasQuery } from "~/features/event-schemas/hooks";
@@ -460,11 +469,88 @@ function ContinueCard(props: {
 	);
 }
 
+function StartLoggingModalContent(props: {
+	modalId: string;
+	entityId: string;
+	accentColor: string;
+	onSaved: () => void;
+	entitySchemaId: string;
+}) {
+	const t = useThemeTokens();
+	const apiClient = useApiClient();
+	const [logDate, setLogDate] = useState<MediaSearchLogDateOption>("now");
+	const [logStartedOn, setLogStartedOn] = useState("");
+	const [logCompletedOn, setLogCompletedOn] = useState("");
+	const createEvents = apiClient.useMutation("post", "/events");
+	const eventSchemasQuery = useEventSchemasQuery(
+		props.entitySchemaId,
+		!!props.entitySchemaId,
+	);
+
+	const actionState: SearchResultRowActionState = {
+		...defaultSearchResultRowActionState,
+		logDate,
+		logStartedOn,
+		logCompletedOn,
+		openPanel: "log",
+	};
+
+	const handlePatchActionState = (
+		patch: Partial<SearchResultRowActionState>,
+	) => {
+		if (patch.logDate !== undefined) {
+			setLogDate(patch.logDate);
+		}
+		if (patch.logStartedOn !== undefined) {
+			setLogStartedOn(patch.logStartedOn);
+		}
+		if (patch.logCompletedOn !== undefined) {
+			setLogCompletedOn(patch.logCompletedOn);
+		}
+		if ("openPanel" in patch && patch.openPanel === null) {
+			modals.close(props.modalId);
+		}
+	};
+
+	const handleSave = async () => {
+		try {
+			const payload = createLogEventPayload({
+				logDate,
+				startedOn: logStartedOn,
+				entityId: props.entityId,
+				completedOn: logCompletedOn,
+				eventSchemas: eventSchemasQuery.eventSchemas,
+			});
+			await createEvents.mutateAsync({ body: payload });
+			modals.close(props.modalId);
+			props.onSaved();
+		} catch (error) {
+			notifications.show({
+				color: "red",
+				title: "Could not log progress",
+				message: error instanceof Error ? error.message : "Please try again.",
+			});
+		}
+	};
+
+	return (
+		<SearchResultLogPanel
+			border={t.border}
+			textMuted={t.textMuted}
+			actionState={actionState}
+			accentColor={props.accentColor}
+			onSaveLog={() => void handleSave()}
+			onPatchActionState={handlePatchActionState}
+		/>
+	);
+}
+
 function BacklogCard(props: {
 	rank: number;
 	border: string;
 	surface: string;
 	textMuted: string;
+	onStart: () => void;
 	textPrimary: string;
 	surfaceHover: string;
 	item: OverviewUpNextItem;
@@ -478,10 +564,7 @@ function BacklogCard(props: {
 	const note = getQueueNote(props.item.entitySchemaSlug, backlogAt, props.rank);
 
 	return (
-		<UnstyledButton
-			style={{ flexShrink: 0 }}
-			onClick={() => console.log("[builtin-tracker] Start:", props.item.title)}
-		>
+		<UnstyledButton style={{ flexShrink: 0 }} onClick={props.onStart}>
 			<Paper
 				w={164}
 				radius="sm"
@@ -1059,6 +1142,34 @@ export function BuiltinMediaTrackerOverview(
 		});
 	};
 
+	const handleStartItem = (
+		entityId: string,
+		entitySchemaId: string,
+		accentColor: string,
+	) => {
+		const startModalId = `builtin-media-start-${entityId}`;
+		modals.open({
+			size: "md",
+			centered: true,
+			modalId: startModalId,
+			overlayProps: { backgroundOpacity: 0.55, blur: 3 },
+			title: (
+				<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
+					Log progress
+				</Text>
+			),
+			children: (
+				<StartLoggingModalContent
+					entityId={entityId}
+					modalId={startModalId}
+					accentColor={accentColor}
+					onSaved={invalidateOverview}
+					entitySchemaId={entitySchemaId}
+				/>
+			),
+		});
+	};
+
 	const openTypePickerModal = (intent: "log" | "backlog") => {
 		const title = intent === "log" ? "Start something" : "Queue something";
 
@@ -1330,6 +1441,14 @@ export function BuiltinMediaTrackerOverview(
 									schemaBySlug={schemaBySlug}
 									surfaceHover={t.surfaceHover}
 									imageUrl={imageUrls.imageUrlByEntityId.get(item.id)}
+									onStart={() => {
+										const schema = schemaBySlug.get(item.entitySchemaSlug);
+										handleStartItem(
+											item.id,
+											schema?.id ?? "",
+											schema?.accentColor ?? STONE,
+										);
+									}}
 								/>
 							))}
 						</Group>
