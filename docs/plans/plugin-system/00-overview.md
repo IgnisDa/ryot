@@ -1,10 +1,13 @@
 # Plugin System Rewrite — Overview
 
-Status: in progress. Phases 1 and 2, Phase 3 steps 0-4, and the Step 5 migration and purity
-triage are complete. Resume with Task 11's operational and deferred gate closure; do not repeat
-the Step 5 implementation. The opt-in operational gate timed out at two concurrent 1,001-item
-imports, and the owner-skipped Task 10 imports e2e failure also remains open.
-Neither Task 11 nor the Phase 3 gate is complete.
+Status: in progress. Phases 1 and 2, Phase 3 steps 0-4, the Step 5 migration and purity triage, and
+Task 12's final cleanup pass are complete (11 of 12 Phase 3 tasks). Task 12 was completed under an
+explicit owner waiver of its Task 11 prerequisite, so **Task 11 and the Phase 3 gate remain open** —
+resume with Task 11's operational and deferred gate closure; do not repeat the Step 5 implementation
+or the Task 12 cleanup. Still open: the opt-in operational gate timed out at two concurrent
+1,001-item imports; the Task 10 imports e2e case times out waiting for its import run; and three
+`integrations.test.ts` webhook/progress-normalization cases report a `failed` import run. All three
+were reproduced at `763720970` with Task 12's changes stashed, so they are Task 11's to close.
 Branch: `ultra-rewrite` (all work is local; there is no
 CI and `apps/app-backend` is not deployed anywhere, so there are no release, rollout, or
 data-migration constraints — dev databases are wipeable and the initial drizzle migration may
@@ -272,8 +275,12 @@ the named surfaces, but do not restore the superseded architecture.
 The Phase 3 domain migrations are complete. Native `media-monitoring` and its contract are deleted;
 operations, workflows, and crons are plugin-owned, and no media- or fitness-specific module remains
 outside the documented `modules/legacy-bootstrap` V1-adoption quarantine. The comprehensive kernel
-purity grep and triage are recorded in `03-phase-3-capability-migrations.md`; Phase 3 remains open for
-the operational gate and the owner-skipped Task 10 imports e2e follow-up, not Step 5 implementation.
+purity grep and triage are recorded in `03-phase-3-capability-migrations.md`. Task 12's cleanup pass
+additionally removed the last native import-adapter residue from the kernel
+(`modules/imports/runtime/source-api.ts` and `runtime/csv.ts`, whose surfaces the plugins now own),
+and moved `legacy-bootstrap`'s V2 entity provenance from script identity to logical `provider_id`.
+Phase 3 remains open for the operational gate and the Task 10 imports / integrations e2e follow-ups,
+not Step 5 implementation or cleanup.
 
 ### Contract (`libs/contract/src/modules/`)
 
