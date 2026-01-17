@@ -4,7 +4,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "#modules/imports/media/import-processor";
-import type { ImportEntityRef } from "#modules/imports/media/types";
+import type { ImportEntityRef, ImportMediaEvent } from "#modules/imports/media/types";
 
 import type { IntegrationRecord } from "../repository";
 
@@ -120,12 +120,24 @@ export const calculateProgressPercent = (
 	return Math.max(0, Math.min(100, Math.round(ratio * 100) / 100));
 };
 
+export const createShowEpisodeLocator = (
+	seasonNumber: number | undefined,
+	episodeNumber: number | undefined,
+): ImportMediaEvent["episodeLocator"] | undefined =>
+	typeof seasonNumber === "number" &&
+	typeof episodeNumber === "number" &&
+	Number.isInteger(seasonNumber) &&
+	Number.isInteger(episodeNumber) &&
+	seasonNumber >= 0 &&
+	episodeNumber >= 0
+		? { type: "show", seasonNumber, episodeNumber }
+		: undefined;
+
 export const createProgressResult = (input: {
 	consumedOn: string;
 	itemIndex?: number;
 	occurredAt?: string;
-	showSeason?: number;
-	showEpisode?: number;
+	episodeLocator?: ImportMediaEvent["episodeLocator"];
 	progressPercent: number;
 	entityRef: ImportEntityRef;
 }): MediaImportAdapterResult => ({
@@ -139,12 +151,8 @@ export const createProgressResult = (input: {
 				{
 					eventSchemaSlug: "progress",
 					occurredAt: input.occurredAt ?? new Date().toISOString(),
-					properties: {
-						consumedOn: input.consumedOn,
-						progressPercent: input.progressPercent,
-						...(input.showSeason !== undefined ? { showSeason: input.showSeason } : {}),
-						...(input.showEpisode !== undefined ? { showEpisode: input.showEpisode } : {}),
-					},
+					...(input.episodeLocator ? { episodeLocator: input.episodeLocator } : {}),
+					properties: { consumedOn: input.consumedOn, progressPercent: input.progressPercent },
 				},
 			],
 		},
