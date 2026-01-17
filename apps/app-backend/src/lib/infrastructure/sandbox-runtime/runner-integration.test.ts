@@ -5,6 +5,7 @@ import type { CompiledSandboxModule } from "@ryot/sandbox-compiler/protocol";
 import { Effect, Schema } from "effect";
 import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
+import { sandboxShowDotTmdbScript } from "#modules/builtins/generated-sandbox/registry";
 import { SandboxCompiler } from "#modules/sandbox/compiler";
 import { compileLegacySandboxModule } from "#modules/sandbox/legacy-module";
 
@@ -535,7 +536,12 @@ const runInDeno = (
 		});
 	});
 
-const startCoreHostBridge = () => {
+const startCoreHostBridge = (
+	options: {
+		readonly appConfigValue?: unknown;
+		readonly httpResponse?: (url: string) => unknown;
+	} = {},
+) => {
 	const calls: Array<{ fnName: string; executionId: string; args: readonly unknown[] }> = [];
 	const executionScripts = new Map<string, string>();
 	const runCache = new Map<string, unknown>();
@@ -578,25 +584,22 @@ const startCoreHostBridge = () => {
 							result = { data: { claimed: true }, success: true };
 						}
 					} else if (fnName === "httpCall") {
+						const customBody = options.httpResponse?.(String(args[1]));
 						result = {
 							data: {
 								status: 200,
 								headers: { "content-type": "application/json" },
-								body: encodeRunnerRequest({
-									method: args[0],
-									url: args[1],
-									options: args[2],
-								}),
+								body:
+									customBody === undefined
+										? encodeRunnerRequest({ url: args[1], method: args[0], options: args[2] })
+										: encodeRunnerRequest(customBody),
 							},
 							success: true,
 						};
 					} else if (fnName === "getAppConfigValue") {
-						result = { data: "Etc/GMT", success: true };
+						result = { data: options.appConfigValue ?? "Etc/GMT", success: true };
 					} else if (fnName === "getUserPreferences") {
-						result = {
-							data: { isNsfw: false, disableIntegrations: true },
-							success: true,
-						};
+						result = { success: true, data: { isNsfw: false, disableIntegrations: true } };
 					} else {
 						result = { error: "Unknown function", success: false };
 					}
@@ -901,6 +904,72 @@ it("executes typed core host methods and filters the Deno host to declared capab
 
 				expect(new Set(bridge.calls.map((call) => call.fnName))).toEqual(new Set(apiFunctions));
 			}).pipe(Effect.provide(SandboxCompiler.Default)),
+		),
+	));
+
+it("loads and executes the generated TMDB Show module in Deno", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							appConfigValue: "tmdb-token",
+							httpResponse: (url) => {
+								expect(new URL(url).pathname).toBe("/3/search/tv");
+								return {
+									total_pages: 1,
+									total_results: 1,
+									results: [
+										{
+											id: 42,
+											name: "Generated Show",
+											poster_path: "/poster.jpg",
+											first_air_date: "2024-01-01",
+										},
+									],
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const compiled = {
+					manifest: sandboxShowDotTmdbScript.manifest,
+					format: sandboxShowDotTmdbScript.compiledFormat,
+					javascript: sandboxShowDotTmdbScript.compiledCode,
+				};
+				const result = yield* runInDeno(
+					compiled,
+					"search",
+					{ query: "Generated", page: 1, pageSize: 20 },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(result).toMatchObject({ success: true });
+				expect(Reflect.get(result, "value")).toEqual({
+					details: { totalItems: 1, nextPage: null },
+					items: [
+						{
+							externalId: "42",
+							calloutProperty: { kind: "null", value: null },
+							titleProperty: { kind: "text", value: "Generated Show" },
+							primarySubtitleProperty: { kind: "number", value: 2024 },
+							secondarySubtitleProperty: { kind: "null", value: null },
+							imageProperty: {
+								kind: "image",
+								value: {
+									type: "remote",
+									url: "https://image.tmdb.org/t/p/original/poster.jpg",
+								},
+							},
+						},
+					],
+				});
+			}),
 		),
 	));
 

@@ -10,13 +10,15 @@
 		".": "./src/main.ts"
 	},
 	"scripts": {
-		"dev": "bun run --watch src/main.ts",
+		"dev": "bun run sandbox:compile && bun run scripts/develop.ts",
 		"db:generate": "bun --bun drizzle-kit generate",
-		"test": "bun --bun run vitest run --config vitest.config.ts",
-		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
-		"run-migration": "RUN_MIGRATION_ONLY=true bun run src/main.ts",
-		"build": "bun build src/main.ts --outdir dist --target bun --sourcemap",
-		"populate-sandbox-cache": "POPULATE_SANDBOX_CACHE_ONLY=true bun run src/main.ts"
+		"test": "bun run sandbox:compile && bun --bun run vitest run --config vitest.config.ts",
+		"check": "bun run sandbox:compile && tsc && oxfmt . --write && oxlint . --type-aware --fix && bun run sandbox:compile && tsc",
+		"run-migration": "bun run sandbox:compile && RUN_MIGRATION_ONLY=true bun run src/main.ts",
+		"build": "bun run sandbox:compile && bun build src/main.ts --outdir dist --target bun --sourcemap",
+		"sandbox:compile": "bun run scripts/compile-sandbox-builtins.ts",
+		"sandbox:compile:watch": "bun run scripts/compile-sandbox-builtins.ts --watch",
+		"populate-sandbox-cache": "bun run sandbox:compile && POPULATE_SANDBOX_CACHE_ONLY=true bun run src/main.ts"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.6.15",

@@ -3,6 +3,10 @@
 	"private": true,
 	"type": "module",
 	"exports": {
+		"./builtins": {
+			"types": "./src/compiler-builtins.ts",
+			"default": "./src/compiler-builtins.ts"
+		},
 		"./diagnostics": {
 			"types": "./src/compiler-diagnostics.ts",
 			"default": "./src/compiler-diagnostics.ts"

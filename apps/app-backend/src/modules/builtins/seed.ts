@@ -126,6 +126,9 @@ const ensureBuiltinSandboxScript = Effect.fn(function* (input: {
 	name: string;
 	slug: string;
 	metadata: Record<string, unknown>;
+	source?: string;
+	compiledCode?: string;
+	compiledFormat?: number;
 }) {
 	const db = yield* CurrentDb;
 	const [existingScript] = yield* dbEffect(() =>
@@ -141,10 +144,10 @@ const ensureBuiltinSandboxScript = Effect.fn(function* (input: {
 		isBuiltin: true,
 		code: input.code,
 		name: input.name,
-		source: input.code,
 		metadata: input.metadata,
-		compiledFormat: LEGACY_SANDBOX_COMPILED_FORMAT,
-		compiledCode: compileLegacySandboxModule(input.code),
+		source: input.source ?? input.code,
+		compiledFormat: input.compiledFormat ?? LEGACY_SANDBOX_COMPILED_FORMAT,
+		compiledCode: input.compiledCode ?? compileLegacySandboxModule(input.code),
 	};
 
 	if (existingScript) {
@@ -320,12 +323,7 @@ const seedInitialDatabase = Effect.gen(function* () {
 
 	const scriptIds = new Map<string, string>();
 	for (const script of builtinSandboxScripts()) {
-		const scriptId = yield* ensureBuiltinSandboxScript({
-			code: script.code,
-			name: script.name,
-			slug: script.slug,
-			metadata: script.metadata,
-		});
+		const scriptId = yield* ensureBuiltinSandboxScript(script);
 		scriptIds.set(script.slug, scriptId);
 	}
 
