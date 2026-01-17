@@ -6,6 +6,10 @@ import { Effect, Schema } from "effect";
 import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
 import {
+	sandboxCompanyDotTmdbScript,
+	sandboxMovieDashGroupDotTmdbScript,
+	sandboxMovieDotTmdbScript,
+	sandboxPersonDotTmdbScript,
 	sandboxShowDotTmdbScript,
 	sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript,
 	sandboxTriggerDotIntegrationDashProgressDashPolicyScript,
@@ -973,6 +977,89 @@ it("loads and executes the generated TMDB Show module in Deno", () =>
 						},
 					],
 				});
+			}),
+		),
+	));
+
+it("loads and executes the remaining generated TMDB provider family in Deno", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							appConfigValue: "tmdb-token",
+							httpResponse: (url) => {
+								const path = new URL(url).pathname;
+								if (path === "/3/search/movie") {
+									return {
+										total_pages: 1,
+										total_results: 1,
+										results: [{ id: 1, title: "Generated Movie", release_date: "2025-01-01" }],
+									};
+								}
+								if (path === "/3/search/person") {
+									return {
+										total_pages: 1,
+										total_results: 1,
+										results: [{ id: 2, name: "Generated Person" }],
+									};
+								}
+								if (path === "/3/search/company") {
+									return {
+										total_pages: 1,
+										total_results: 1,
+										results: [{ id: 3, name: "Generated Company" }],
+									};
+								}
+								expect(path).toBe("/3/search/collection");
+								return {
+									total_pages: 1,
+									total_results: 1,
+									results: [{ id: 4, name: "Generated Collection" }],
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const cases = [
+					{ entry: sandboxMovieDotTmdbScript, title: "Generated Movie", externalId: "1" },
+					{ entry: sandboxPersonDotTmdbScript, title: "Generated Person", externalId: "2" },
+					{ entry: sandboxCompanyDotTmdbScript, title: "Generated Company", externalId: "3" },
+					{
+						externalId: "4",
+						title: "Generated Collection",
+						entry: sandboxMovieDashGroupDotTmdbScript,
+					},
+				];
+				for (const scenario of cases) {
+					const compiled = {
+						manifest: scenario.entry.manifest,
+						format: scenario.entry.compiledFormat,
+						javascript: scenario.entry.compiledCode,
+					};
+					const result = yield* runInDeno(
+						compiled,
+						"search",
+						{ query: "Generated", page: 1, pageSize: 20 },
+						{
+							apiBase: `http://127.0.0.1:${bridge.port}`,
+							apiFunctions: compiled.manifest.capabilities,
+						},
+					);
+					assert(result !== null && typeof result === "object");
+					expect(result).toMatchObject({ success: true });
+					expect(Reflect.get(result, "value")).toMatchObject({
+						details: { totalItems: 1, nextPage: null },
+						items: [
+							{
+								externalId: scenario.externalId,
+								titleProperty: { kind: "text", value: scenario.title },
+							},
+						],
+					});
+				}
 			}),
 		),
 	));
