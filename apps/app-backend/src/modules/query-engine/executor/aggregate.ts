@@ -3,6 +3,7 @@ import { Effect } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
+import type { QueryExecutionScope } from "../execution-scope";
 import { compileBool } from "./compile/expr";
 import { rootScope } from "./compile/scope";
 import {
@@ -17,14 +18,14 @@ import type { AggregateQueryDocument } from "./types";
 // Executes an aggregate return entirely in SQL: grouping, aggregation, ordering and the group-count
 // window all run in Postgres. The source `where` compiles to a single boolean condition.
 export const executeAggregateQuery = Effect.fn("executeAggregateQuery")(function* (
-	userId: string,
+	executionScope: QueryExecutionScope,
 	language: string | null,
 	doc: AggregateQueryDocument,
 ) {
 	const { source, output } = doc;
-	const scope = rootScope(source, userId, language);
+	const scope = rootScope(source, executionScope, language);
 	const conditions = source.where ? [compileBool(source.where, scope)] : [];
-	const fromWhere = yield* rootSourceFromWhereSql(userId, language, source, conditions);
+	const fromWhere = yield* rootSourceFromWhereSql(executionScope, language, source, conditions);
 	const db = yield* CurrentDb;
 
 	const measures = output.measures;

@@ -6,6 +6,8 @@ import { expect, it } from "vitest";
 
 import definition, { manifest } from "./media-relationship-sync.sandbox";
 
+type Population = NonNullable<AutomationInput["automation"]["population"]>;
+
 const input = (overrides: {
 	isLeader?: boolean;
 	afterCount?: number;
@@ -13,7 +15,7 @@ const input = (overrides: {
 	createdCount?: number;
 	relationshipSchemaSlug?: string;
 	rootPreviouslyPopulated?: boolean;
-	owningSeason?: { name: string | null; number: number | null };
+	parentEntity?: NonNullable<Population["parentEntity"]>;
 }): AutomationInput => ({
 	automation: {
 		ruleId: "rule-1",
@@ -23,7 +25,7 @@ const input = (overrides: {
 		occurredAt: "2026-07-20T10:00:00.000Z",
 		population: {
 			rootPreviouslyPopulated: overrides.rootPreviouslyPopulated ?? true,
-			...(overrides.owningSeason ? { owningSeason: overrides.owningSeason } : {}),
+			...(overrides.parentEntity ? { parentEntity: overrides.parentEntity } : {}),
 			scopeEntity: {
 				id: "show-1",
 				name: "Severance",
@@ -91,7 +93,11 @@ it("emits aggregate episode discovery with the created count and season", () =>
 			afterCount: 5,
 			beforeCount: 2,
 			createdCount: 3,
-			owningSeason: { name: "Season 2", number: 2 },
+			parentEntity: {
+				name: "Season 2",
+				properties: { seasonNumber: 2 },
+				entitySchemaSlug: "show-season",
+			},
 			relationshipSchemaSlug: "show-season-to-show-episode",
 		}),
 	).pipe(
@@ -111,6 +117,29 @@ it("emits aggregate episode discovery with the created count and season", () =>
 		Effect.runPromise,
 	));
 
+it("does not treat a podcast parent as season context", () =>
+	run(
+		input({
+			parentEntity: {
+				name: "Special Podcast",
+				properties: { seasonNumber: 0 },
+				entitySchemaSlug: "podcast",
+			},
+			relationshipSchemaSlug: "podcast-to-podcast-episode",
+		}),
+	).pipe(
+		Effect.map((calls) => {
+			expect(calls[0]?.["properties"]).toEqual({
+				oldCount: 2,
+				newCount: 3,
+				discoveredCount: 1,
+				entityName: "Severance",
+			});
+			return undefined;
+		}),
+		Effect.runPromise,
+	));
+
 it("stays silent off-leader, on first population, without net changes, and for specials", () =>
 	Effect.runPromise(
 		Effect.all(
@@ -120,11 +149,25 @@ it("stays silent off-leader, on first population, without net changes, and for s
 				run(input({ afterCount: 2, beforeCount: 2 })),
 				run(
 					input({
-						owningSeason: { name: "Specials", number: 0 },
+						parentEntity: {
+							name: "Season Zero",
+							properties: { seasonNumber: 0 },
+							entitySchemaSlug: "show-season",
+						},
+						relationshipSchemaSlug: "show-season-to-show-episode",
+					}),
+				),
+				run(
+					input({
+						parentEntity: {
+							name: "Bonus Specials Collection",
+							properties: { seasonNumber: 2 },
+							entitySchemaSlug: "show-season",
+						},
 						relationshipSchemaSlug: "show-season-to-show-episode",
 					}),
 				),
 			],
 			{ concurrency: "unbounded" },
-		).pipe(Effect.map((calls) => expect(calls).toEqual([[], [], [], []]))),
+		).pipe(Effect.map((calls) => expect(calls).toEqual([[], [], [], [], []]))),
 	));

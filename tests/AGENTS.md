@@ -44,7 +44,7 @@ Admin-only fixture operations use the typed `testSupport` contract group with `a
 - `getBuiltinEntitySchemaSlug` uses `getBuiltinEntitySchema` for structural schemas outside plugin workspaces.
 - Translation fixtures use `setEntityPopulatedAt`, `upsertEntityTranslation`, and `listEntityTranslations`; null overlay values model a negative cache.
 - Mixed-auth fixtures use `linkAuthAccount`.
-- Media-monitoring refresh waits use `setEntityInterest` to register an authenticated stream without reconciliation before triggering cron. This preserves cron-first population while synchronizing through the normal `entity:updated` event.
+- Media-monitoring refresh waits use `setEntityInterest` to register an authenticated stream without reconciliation before targeting the `media/media-monitoring` plugin cron. This preserves cron-first population while synchronizing through the normal `entity:updated` event.
 
 ## SSE Interest Streams
 
@@ -60,6 +60,10 @@ Admin-only fixture operations use the typed `testSupport` contract group with `a
 `tests/src/tests/smoke/providers-live-smoke.test.ts` is the only suite that makes real external HTTP calls; it is gated behind `RUN_LIVE_PROVIDER_TESTS` (`=1`/`true`) so PR CI stays fast and deterministic. Run it in a nightly/pre-release job as an early-warning signal for upstream drift — provider schema changes, endpoint moves, and auth/credential failures a fully-mocked test can never surface.
 
 Coverage is intentionally minimal (a drift signal, not exhaustive): OpenLibrary book search → import (keyless) and TMDB movie translate-on-interest (requires `providers.tmdbAccessToken`, else the translate never completes and the test times out). It imports the first real search result by its own `externalId` (never a hardcoded provider id format) and asserts the localized overlay differs from the canonical name and is non-empty rather than an exact string, since upstream copy can drift.
+
+## Operational Gates
+
+`tests/src/tests/imports/media-population-operational-gate.test.ts` preserves the full-size Phase 3 load measurement against the real workflow pool, Redis projection, sandbox processes, and database. It is discoverable but skipped by default because the known failing measurement consumes its full 15-minute budget. Run it explicitly from this package with `RUN_OPERATIONAL_GATES=1 bun run test -- src/tests/imports/media-population-operational-gate.test.ts`; `true` is also accepted. Do not reduce its workload, timeout, assertions, or infrastructure path to make the gate pass.
 
 ## Query-Engine Parity
 
@@ -91,6 +95,6 @@ Parallel test runs share one backend, so keep fixtures collision-free: use rando
 
 ## Media Monitoring
 
-`tests/src/tests/media-monitoring/media-monitoring.test.ts` installs an offline details provider through the real plugin endpoint, then exercises status/enable/disable through the typed contract client. Its cron case reinstalls updated plugin source and uses the real admin infrequent-cron trigger plus a local Apprise server so baseline silence, provider refresh, signal production, subscription audience resolution, and notification delivery are covered together. `fixtures/media-monitoring.ts` owns the endpoint wrappers, the relationship-root query assertion, and `triggerCronAndWaitForEntity`, which passively registers interest before cron and waits for the refresh's `entity:updated` event. This helper is shared by every suite that forces a re-population through `enableMediaMonitoring` + `triggerInfrequentCron`, since `entityImport.import` is ensure-mode and no-ops on an already-populated entity.
+`tests/src/tests/media-monitoring/media-monitoring.test.ts` installs an offline details provider through the real plugin endpoint, then exercises status/enable/disable through `@ryot/plugin-media` operation recipes and the generic plugin invoke transport. Its cron case reinstalls updated plugin source and uses the admin targeted plugin-cron hook for `media/media-monitoring`, plus a local Apprise server so baseline silence, provider refresh, signal production, subscription audience resolution, and notification delivery are covered together. `fixtures/media-monitoring.ts` owns the single-item batch wrappers, the relationship-root query assertion, and `triggerCronAndWaitForEntity`, which passively registers interest before cron and waits for the refresh's `entity:updated` event. This helper is shared by every suite that forces a re-population through `enableMediaMonitoring` + the targeted cron, since `entityImport.import` is ensure-mode and no-ops on an already-populated entity.
 
 Association detector suites live in `tests/src/tests/media-monitoring/association-detectors*.test.ts` and `media-entity-update-signals.test.ts`. Credit edges have two writers (a media-rooted additive incoming sync and a person/company-rooted authoritative outgoing sync); the shared cron-refresh mechanism above is how a test re-drives an already-populated root to exercise role updates, authoritative deletes, and re-creates from either direction.

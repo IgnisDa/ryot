@@ -2,7 +2,6 @@ import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brand
 import { Effect } from "effect";
 
 import {
-	uninstallTestProvider,
 	createAuthenticatedClient,
 	createNotificationChannel,
 	enableMediaMonitoring,
@@ -61,6 +60,7 @@ describe("company and media-group association variants", () => {
 			const movieProvider = yield* installTestProvider({
 				client,
 				slug: `movie.association-variant-e2e-${crypto.randomUUID()}`,
+				linkToEntitySchemaSlug: movieSchemaId,
 				details: fakeProviderDetailsResult({
 					name: movieName,
 					relatedEntityGroups: [
@@ -81,39 +81,34 @@ describe("company and media-group association variants", () => {
 				}),
 			});
 
-			try {
-				const company = yield* seedMediaEntity({
-					properties: {},
-					name: companyName,
-					externalId: companyExternalId,
-					entitySchemaSlug: companySchemaId,
-					providerId: companyProvider.providerId,
-				});
+			const company = yield* seedMediaEntity({
+				properties: {},
+				name: companyName,
+				externalId: companyExternalId,
+				entitySchemaSlug: companySchemaId,
+				providerId: companyProvider.providerId,
+			});
 
-				const companyMonitor = yield* createAuthenticatedClient();
-				const importer = yield* createAuthenticatedClient();
-				yield* createNotificationChannel(companyMonitor.client, {
-					channel: "apprise",
-					channelSpecifics: { baseUrl: fakeApprise.url, key: "company-monitor", kind: "apprise" },
-				});
-				yield* enableMediaMonitoring(companyMonitor.client, company.id);
+			const companyMonitor = yield* createAuthenticatedClient();
+			const importer = yield* createAuthenticatedClient();
+			yield* createNotificationChannel(companyMonitor.client, {
+				channel: "apprise",
+				channelSpecifics: { baseUrl: fakeApprise.url, key: "company-monitor", kind: "apprise" },
+			});
+			yield* enableMediaMonitoring(companyMonitor.client, company.id);
 
-				const { jobId } = yield* enqueueEntityImport(importer.client, {
-					externalId: movieExternalId,
-					entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
-					providerId: SandboxProviderId.make(movieProvider.providerId),
-				});
-				const result = yield* pollEntityImportResult(importer.client, jobId, { timeoutMs: 30_000 });
-				assertCompleted(result, "company association media import");
+			const { jobId } = yield* enqueueEntityImport(importer.client, {
+				externalId: movieExternalId,
+				entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
+				providerId: SandboxProviderId.make(movieProvider.providerId),
+			});
+			const result = yield* pollEntityImportResult(importer.client, jobId, { timeoutMs: 30_000 });
+			assertCompleted(result, "company association media import");
 
-				const delivered = yield* pollNotificationBody("company-monitor");
-				expect(requireObjectRecord(delivered[0]?.body, "Missing notification body").body).toBe(
-					`${companyName} has been associated with ${movieName} as Production Company`,
-				);
-			} finally {
-				yield* uninstallTestProvider(movieProvider);
-				yield* uninstallTestProvider(companyProvider);
-			}
+			const delivered = yield* pollNotificationBody("company-monitor");
+			expect(requireObjectRecord(delivered[0]?.body, "Missing notification body").body).toBe(
+				`${companyName} has been associated with ${movieName} as Production Company`,
+			);
 		}),
 	);
 
@@ -146,6 +141,7 @@ describe("company and media-group association variants", () => {
 			});
 			const musicGroupProvider = yield* installTestProvider({
 				client,
+				linkToEntitySchemaSlug: musicGroupSchemaId,
 				slug: `music-group.media-group-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({
 					name: musicGroupName,
@@ -180,73 +176,67 @@ describe("company and media-group association variants", () => {
 				}),
 			});
 
-			try {
-				const [person, company] = yield* Effect.all([
-					seedMediaEntity({
-						properties: {},
-						name: personName,
-						externalId: personExternalId,
-						entitySchemaSlug: personSchemaId,
-						providerId: personProvider.providerId,
-					}),
-					seedMediaEntity({
-						properties: {},
-						name: companyName,
-						externalId: companyExternalId,
-						entitySchemaSlug: companySchemaId,
-						providerId: companyProvider.providerId,
-					}),
-				]);
+			const [person, company] = yield* Effect.all([
+				seedMediaEntity({
+					properties: {},
+					name: personName,
+					externalId: personExternalId,
+					entitySchemaSlug: personSchemaId,
+					providerId: personProvider.providerId,
+				}),
+				seedMediaEntity({
+					properties: {},
+					name: companyName,
+					externalId: companyExternalId,
+					entitySchemaSlug: companySchemaId,
+					providerId: companyProvider.providerId,
+				}),
+			]);
 
-				const personMonitor = yield* createAuthenticatedClient();
-				const companyMonitor = yield* createAuthenticatedClient();
-				const importer = yield* createAuthenticatedClient();
-				yield* Effect.all([
-					createNotificationChannel(personMonitor.client, {
-						channel: "apprise",
-						channelSpecifics: {
-							kind: "apprise",
-							baseUrl: fakeApprise.url,
-							key: "media-group-person-monitor",
-						},
-					}),
-					createNotificationChannel(companyMonitor.client, {
-						channel: "apprise",
-						channelSpecifics: {
-							kind: "apprise",
-							baseUrl: fakeApprise.url,
-							key: "media-group-company-monitor",
-						},
-					}),
-				]);
-				yield* Effect.all([
-					enableMediaMonitoring(personMonitor.client, person.id),
-					enableMediaMonitoring(companyMonitor.client, company.id),
-				]);
+			const personMonitor = yield* createAuthenticatedClient();
+			const companyMonitor = yield* createAuthenticatedClient();
+			const importer = yield* createAuthenticatedClient();
+			yield* Effect.all([
+				createNotificationChannel(personMonitor.client, {
+					channel: "apprise",
+					channelSpecifics: {
+						kind: "apprise",
+						baseUrl: fakeApprise.url,
+						key: "media-group-person-monitor",
+					},
+				}),
+				createNotificationChannel(companyMonitor.client, {
+					channel: "apprise",
+					channelSpecifics: {
+						kind: "apprise",
+						baseUrl: fakeApprise.url,
+						key: "media-group-company-monitor",
+					},
+				}),
+			]);
+			yield* Effect.all([
+				enableMediaMonitoring(personMonitor.client, person.id),
+				enableMediaMonitoring(companyMonitor.client, company.id),
+			]);
 
-				const { jobId } = yield* enqueueEntityImport(importer.client, {
-					externalId: musicGroupExternalId,
-					entitySchemaSlug: EntitySchemaSlug.make(musicGroupSchemaId),
-					providerId: SandboxProviderId.make(musicGroupProvider.providerId),
-				});
-				const result = yield* pollEntityImportResult(importer.client, jobId, { timeoutMs: 30_000 });
-				assertCompleted(result, "media-group association import");
+			const { jobId } = yield* enqueueEntityImport(importer.client, {
+				externalId: musicGroupExternalId,
+				entitySchemaSlug: EntitySchemaSlug.make(musicGroupSchemaId),
+				providerId: SandboxProviderId.make(musicGroupProvider.providerId),
+			});
+			const result = yield* pollEntityImportResult(importer.client, jobId, { timeoutMs: 30_000 });
+			assertCompleted(result, "media-group association import");
 
-				const [personDelivered, companyDelivered] = yield* Effect.all([
-					pollNotificationBody("media-group-person-monitor"),
-					pollNotificationBody("media-group-company-monitor"),
-				]);
-				expect(
-					requireObjectRecord(personDelivered[0]?.body, "Missing notification body").body,
-				).toBe(`${personName} has been associated with ${musicGroupName} as Artist`);
-				expect(
-					requireObjectRecord(companyDelivered[0]?.body, "Missing notification body").body,
-				).toBe(`${companyName} has been associated with ${musicGroupName} as Label`);
-			} finally {
-				yield* uninstallTestProvider(musicGroupProvider);
-				yield* uninstallTestProvider(companyProvider);
-				yield* uninstallTestProvider(personProvider);
-			}
+			const [personDelivered, companyDelivered] = yield* Effect.all([
+				pollNotificationBody("media-group-person-monitor"),
+				pollNotificationBody("media-group-company-monitor"),
+			]);
+			expect(requireObjectRecord(personDelivered[0]?.body, "Missing notification body").body).toBe(
+				`${personName} has been associated with ${musicGroupName} as Artist`,
+			);
+			expect(requireObjectRecord(companyDelivered[0]?.body, "Missing notification body").body).toBe(
+				`${companyName} has been associated with ${musicGroupName} as Label`,
+			);
 		}),
 	);
 });

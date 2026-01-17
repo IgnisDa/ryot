@@ -1,4 +1,3 @@
-import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
 import { unknownToMessage } from "@ryot/contract/errors";
 import { CreateEventItem, type CreateEventsResponse } from "@ryot/contract/modules/events/schemas";
 import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
@@ -7,6 +6,7 @@ import {
 	EntitySchemaSlug,
 	IntegrationId,
 	RelationshipSchemaSlug,
+	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { stableStringify } from "@ryot/ts-utils/json";
@@ -22,7 +22,10 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipsRepository } from "#modules/relationships/repository";
-import { reconcileGlobalRelationships } from "#modules/relationships/service";
+import {
+	changeUserRelationships,
+	reconcileGlobalRelationships,
+} from "#modules/relationships/service";
 
 import { AppConfig } from "../config/service";
 import * as schema from "../db/schema/tables/combined";
@@ -167,6 +170,52 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 						.pipe(Effect.flatMap(toSandboxCreateEventsResult));
 
 		return {
+			changeUserRelationships: (rawInput, batches) =>
+				sandboxHostEffect(
+					Effect.gen(function* () {
+						const input = yield* requireUserSandboxRunInput(rawInput, "changeUserRelationships");
+						if (input.authority.type !== "user") {
+							return yield* Effect.fail(
+								"changeUserRelationships is available only to user executions",
+							);
+						}
+						const changeCount = batches.reduce(
+							(total, batch) => total + batch.creates.length + batch.deletes.length,
+							0,
+						);
+						if (changeCount > SANDBOX_LIMITS.userRelationshipWrites.changesTotal) {
+							return yield* Effect.fail(
+								`changeUserRelationships exceeds ${SANDBOX_LIMITS.userRelationshipWrites.changesTotal} changes`,
+							);
+						}
+						return yield* changeUserRelationships(
+							UserId.make(input.authority.userId),
+							batches.map((batch) => ({
+								creates: batch.creates.map((create) => ({
+									...create,
+									sourceEntityId: EntityId.make(create.sourceEntityId),
+									targetEntityId: EntityId.make(create.targetEntityId),
+									relationshipSchemaSlug: RelationshipSchemaSlug.make(
+										create.relationshipSchemaSlug,
+									),
+								})),
+								deletes: batch.deletes.map((remove) => ({
+									...remove,
+									sourceEntityId: EntityId.make(remove.sourceEntityId),
+									targetEntityId: EntityId.make(remove.targetEntityId),
+									relationshipSchemaSlug: RelationshipSchemaSlug.make(
+										remove.relationshipSchemaSlug,
+									),
+								})),
+							})),
+						).pipe(
+							Effect.provideService(DefinitionRegistry, definitions),
+							Effect.provideService(EntitiesRepository, entitiesRepository),
+							Effect.provideService(TransactionRunner, runInTransaction),
+							Effect.provideService(RelationshipsRepository, relationshipsRepository),
+						);
+					}),
+				),
 			claimCachedValue: (input, key, value, ttlSeconds) => {
 				const keyError = sandboxCacheKeyError("claimCachedValue", key);
 				if (keyError) {
@@ -315,25 +364,34 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 						);
 					}),
 				),
-			executeQueryEngine: (rawInput, query) =>
-				requireUserSandboxRunInput(rawInput, "executeQueryEngine").pipe(
+			executeQueryEngine: (rawInput, query) => {
+				if (rawInput.authority.type === "system") {
+					return sandboxHostEffect(
+						Effect.gen(function* () {
+							const caller = yield* runWithDb(
+								pluginRuntime.resolveSystemQueryActivity(SandboxScriptId.make(rawInput.scriptId)),
+							);
+							if (!caller) {
+								return yield* Effect.fail(
+									"executeQueryEngine system access requires a pinned plugin activity script",
+								);
+							}
+							const doc = yield* decodeQueryDocument(query);
+							return yield* queryEngineService.executeSystem(caller, doc);
+						}),
+					);
+				}
+				return requireUserSandboxRunInput(rawInput, "executeQueryEngine").pipe(
 					Effect.flatMap((input) =>
 						decodeQueryDocument(query).pipe(
 							Effect.flatMap((doc) =>
-								queryEngineService.execute(
-									{
-										name: "",
-										email: "",
-										id: UserId.make(input.authority.userId),
-										preferences: defaultUserPreferences,
-									},
-									doc,
-								),
+								queryEngineService.executeForUser(UserId.make(input.authority.userId), null, doc),
 							),
 						),
 					),
 					sandboxHostEffect,
-				),
+				);
+			},
 			getAppConfigValue: (input, key) => {
 				if (typeof key !== "string" || !key.trim()) {
 					return sandboxHostFailure("getAppConfigValue expects a non-empty key string");

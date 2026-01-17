@@ -63,12 +63,14 @@ describe("provider result contracts", () => {
 			decode(providerDetailsResultSchema)({
 				name: "Show",
 				properties: { year: 2024 },
+				expectedChildEntitySchemaSlug: "show-season",
 				childEntities: [
 					{
 						name: "Season 1",
 						externalId: "season-1",
 						properties: { number: 1 },
 						entitySchemaSlug: "show-season",
+						expectedChildEntitySchemaSlug: "show-episode",
 						childEntities: [
 							{
 								name: "Episode 1",
@@ -88,7 +90,11 @@ describe("provider result contracts", () => {
 					},
 				],
 			}),
-		).toMatchObject({ name: "Show" });
+		).toMatchObject({
+			name: "Show",
+			expectedChildEntitySchemaSlug: "show-season",
+			childEntities: [{ expectedChildEntitySchemaSlug: "show-episode" }],
+		});
 		expect(decode(providerResolveResultSchema)({ externalId: null })).toEqual({ externalId: null });
 		expect(
 			decode(providerTranslateResultSchema)({

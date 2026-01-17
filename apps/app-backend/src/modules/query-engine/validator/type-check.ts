@@ -8,6 +8,7 @@ import type {
 import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
+import type { QueryExecutionScope } from "../execution-scope";
 import { loadVisibleEntityPropertySchemas } from "../executor/schema-loaders";
 import { collectAliasScope } from "./document";
 import type { AliasScope, ScopeEntry } from "./shared";
@@ -409,8 +410,15 @@ const collectEntitySlugs = (scope: AliasScope): string[] => {
 
 export const validateQueryDocumentTypeCompatibility = Effect.fn(
 	"validateQueryDocumentTypeCompatibility",
-)(function* (userId: string, doc: QueryDocument, scope: AliasScope = collectAliasScope(doc)) {
-	const schemas = yield* loadVisibleEntityPropertySchemas(userId, collectEntitySlugs(scope));
+)(function* (
+	executionScope: QueryExecutionScope,
+	doc: QueryDocument,
+	scope: AliasScope = collectAliasScope(doc),
+) {
+	const schemas = yield* loadVisibleEntityPropertySchemas(
+		executionScope,
+		collectEntitySlugs(scope),
+	);
 	const propertiesBySlug = new Map(
 		schemas.map((schema) => [schema.slug, schema.propertiesSchema] as const),
 	);

@@ -53,6 +53,15 @@ describe("definition registry", () => {
 		expect(Object.isFrozen(snapshot.entitySchemas["movie"]?.propertiesSchema)).toBe(true);
 	});
 
+	it("normalizes absent merge identity properties to an immutable empty array", () => {
+		const registry = makeDefinitionRegistry(pluginDefinitionSource());
+		const collection = registry.getEntitySchema("collection");
+		assert(collection);
+
+		expect(collection.mergeIdentityProperties).toEqual([]);
+		expect(Object.isFrozen(collection.mergeIdentityProperties)).toBe(true);
+	});
+
 	it("replaces the snapshot only after the next source passes validation", () => {
 		const registry = makeDefinitionRegistry(pluginDefinitionSource());
 		const original = registry.getSnapshot();
@@ -73,7 +82,7 @@ describe("definition registry", () => {
 		const source = pluginDefinitionSource();
 		const snapshot = buildDefinitionSnapshot(source);
 
-		expect(definitionSourceFromSnapshot(snapshot)).toEqual(source);
+		expect(buildDefinitionSnapshot(definitionSourceFromSnapshot(snapshot))).toEqual(snapshot);
 	});
 
 	it("validates every kernel and plugin saved-view display configuration", () => {

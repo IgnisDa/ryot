@@ -283,6 +283,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 			payload.authority,
 			childExecutionId,
 			executionId,
+			payload.scriptId,
 		);
 	}
 	if (!targetScriptId) {
@@ -360,7 +361,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		const value = yield* performSandboxWorkflowRequest(
 			observed.request,
 			observed.targetScriptId,
-			payload,
+			{ ...payload, scriptId: pin.scriptId },
 			executionId,
 			step,
 			processReplay,
