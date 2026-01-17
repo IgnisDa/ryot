@@ -109,7 +109,7 @@ describe("buildDefaultMembershipFormValues", () => {
 
 describe("buildMembershipFormSchema", () => {
 	it("validates that collectionId is required", () => {
-		const schema = buildMembershipFormSchema();
+		const schema = buildMembershipFormSchema([]);
 		const result = schema.safeParse({
 			properties: {},
 			collectionId: "  \n\t ",
@@ -136,7 +136,7 @@ describe("buildMembershipFormSchema", () => {
 				},
 			},
 		});
-		const schema = buildMembershipFormSchema(collection);
+		const schema = buildMembershipFormSchema([collection]);
 
 		const missingNotes = schema.safeParse({
 			collectionId: "collection-1",
@@ -169,7 +169,7 @@ describe("buildMembershipFormSchema", () => {
 				},
 			},
 		});
-		const schema = buildMembershipFormSchema(collection);
+		const schema = buildMembershipFormSchema([collection]);
 
 		const emptyString = schema.safeParse({
 			collectionId: "collection-1",
@@ -202,7 +202,7 @@ describe("buildMembershipFormSchema", () => {
 				},
 			},
 		});
-		const schema = buildMembershipFormSchema(collection);
+		const schema = buildMembershipFormSchema([collection]);
 
 		const invalidResult = schema.safeParse({
 			collectionId: "collection-1",
@@ -247,10 +247,10 @@ describe("buildMembershipFormSchema", () => {
 				},
 			},
 		});
-		const schema = buildMembershipFormSchema(collection);
+		const schema = buildMembershipFormSchema([collection]);
 		const result = schema.safeParse({
-			properties: { notes: "test" },
 			collectionId: "collection-1",
+			properties: { notes: "test" },
 		});
 
 		expect(result.success).toBeFalse();
@@ -272,13 +272,41 @@ describe("buildMembershipFormSchema", () => {
 			id: "collection-1",
 			membershipPropertiesSchema: null,
 		});
-		const schema = buildMembershipFormSchema(collection);
+		const schema = buildMembershipFormSchema([collection]);
 		const result = schema.safeParse({
-			collectionId: "collection-1",
 			properties: {},
+			collectionId: "collection-1",
 		});
 
 		expect(result.success).toBeTrue();
+	});
+
+	it("validates against the selected collection when given a collection list", () => {
+		const collections = [
+			createAppCollectionFixture({
+				id: "collection-1",
+				membershipPropertiesSchema: {
+					fields: {
+						notes: {
+							type: "string",
+							label: "Notes",
+							validation: { required: true },
+						},
+					},
+				},
+			}),
+		];
+		const schema = buildMembershipFormSchema(collections);
+
+		expect(
+			schema.safeParse({ properties: {}, collectionId: "missing" }).success,
+		).toBeFalse();
+		expect(
+			schema.safeParse({
+				collectionId: "collection-1",
+				properties: { notes: "hello" },
+			}).success,
+		).toBeTrue();
 	});
 });
 
