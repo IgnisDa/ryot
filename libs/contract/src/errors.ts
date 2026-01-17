@@ -107,8 +107,3 @@ export const mapDbErrorToSandbox = <A, E, R>(self: Effect.Effect<A, E, R>) =>
 				: toSandboxRunError(error),
 		),
 	);
-
-// Combines dieOnDbError with error transformation to SandboxRunError.
-// Used for database operations outside Activity.make contexts where defects are acceptable.
-export const dieOnDbErrorToSandbox = <A, E, R>(self: Effect.Effect<A, E, R>) =>
-	self.pipe(dieOnDbError, Effect.mapError(toSandboxRunError));

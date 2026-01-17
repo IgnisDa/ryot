@@ -1,8 +1,9 @@
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
 import { builtinMediaEntitySchemaSlugs } from "./schemas/media-schema-slugs";
+import type { MediaMonitoringTarget as MediaMonitoringTargetSchema } from "./workflows/schemas";
 
-export const mediaMonitorableEntitySchemaSlugs = [
+const mediaMonitorableEntitySchemaSlugs = [
 	"company",
 	"person",
 	...builtinMediaEntitySchemaSlugs,
@@ -145,11 +146,7 @@ const fieldString = (row: UnknownRecord, key: string) => {
 	return isRecord(field) && typeof field["value"] === "string" ? field["value"] : null;
 };
 
-export type MediaMonitoringTarget = {
-	entityId: string;
-	externalId: string;
-	providerId: string;
-	entitySchemaSlug: string;
+export type MediaMonitoringTarget = typeof MediaMonitoringTargetSchema.Type & {
 	monitoringLibraryId: string | null;
 };
 
