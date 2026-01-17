@@ -1,4 +1,7 @@
-import { createEntityRuntimeRequest } from "~/features/entities/model";
+import {
+	createEntityPropertyExpression,
+	createEntityRuntimeRequest,
+} from "~/features/entities/model";
 import { useApiClient } from "~/hooks/api";
 import {
 	type AppCollection,
@@ -14,7 +17,20 @@ export function useCollectionsQuery(enabled = true) {
 	const query = apiClient.useQuery(
 		"post",
 		"/query-engine/execute",
-		{ body: createEntityRuntimeRequest(COLLECTION_ENTITY_SCHEMA_SLUG) },
+		{
+			body: {
+				...createEntityRuntimeRequest(COLLECTION_ENTITY_SCHEMA_SLUG),
+				fields: [
+					{
+						key: "membershipPropertiesSchema",
+						expression: createEntityPropertyExpression(
+							COLLECTION_ENTITY_SCHEMA_SLUG,
+							"membershipPropertiesSchema",
+						),
+					},
+				],
+			},
+		},
 		{ enabled },
 	);
 
