@@ -118,6 +118,77 @@ describe("buildMembershipFormSchema", () => {
 		expect(result.success).toBeFalse();
 	});
 
+	it("validates that missing required primitive properties fail validation", () => {
+		const collection = createAppCollectionFixture({
+			id: "collection-1",
+			membershipPropertiesSchema: {
+				fields: {
+					notes: {
+						label: "Notes",
+						type: "string",
+						validation: { required: true },
+					},
+					quantity: {
+						label: "Quantity",
+						type: "integer",
+						validation: { required: true },
+					},
+				},
+			},
+		});
+		const schema = buildMembershipFormSchema(collection);
+
+		const missingNotes = schema.safeParse({
+			collectionId: "collection-1",
+			properties: { quantity: 5 },
+		});
+		const missingQuantity = schema.safeParse({
+			collectionId: "collection-1",
+			properties: { notes: "test" },
+		});
+		const missingBoth = schema.safeParse({
+			collectionId: "collection-1",
+			properties: {},
+		});
+
+		expect(missingNotes.success).toBeFalse();
+		expect(missingQuantity.success).toBeFalse();
+		expect(missingBoth.success).toBeFalse();
+	});
+
+	it("validates that empty strings fail validation for required string fields", () => {
+		const collection = createAppCollectionFixture({
+			id: "collection-1",
+			membershipPropertiesSchema: {
+				fields: {
+					notes: {
+						label: "Notes",
+						type: "string",
+						validation: { required: true },
+					},
+				},
+			},
+		});
+		const schema = buildMembershipFormSchema(collection);
+
+		const emptyString = schema.safeParse({
+			collectionId: "collection-1",
+			properties: { notes: "" },
+		});
+		const whitespaceOnly = schema.safeParse({
+			collectionId: "collection-1",
+			properties: { notes: "   " },
+		});
+		const validString = schema.safeParse({
+			collectionId: "collection-1",
+			properties: { notes: "valid notes" },
+		});
+
+		expect(emptyString.success).toBeFalse();
+		expect(whitespaceOnly.success).toBeFalse();
+		expect(validString.success).toBeTrue();
+	});
+
 	it("validates required primitive properties from the selected collection", () => {
 		const collection = createAppCollectionFixture({
 			id: "collection-1",
@@ -383,6 +454,45 @@ describe("toMembershipPayload", () => {
 		);
 
 		expect(payload.properties).toEqual({ quantity: 5 });
+	});
+
+	it("shapes payload with required field values", () => {
+		const collection = createAppCollectionFixture({
+			id: "collection-1",
+			membershipPropertiesSchema: {
+				fields: {
+					notes: {
+						label: "Notes",
+						type: "string",
+						validation: { required: true },
+					},
+					quantity: {
+						label: "Quantity",
+						type: "integer",
+						validation: { required: true },
+					},
+					completed: {
+						type: "boolean",
+						label: "Completed",
+						validation: { required: true },
+					},
+				},
+			},
+		});
+		const payload = toMembershipPayload(
+			{
+				collectionId: "collection-1",
+				properties: { notes: "test notes", quantity: 10, completed: true },
+			},
+			"entity-1",
+			collection,
+		);
+
+		expect(payload).toEqual({
+			collectionId: "collection-1",
+			entityId: "entity-1",
+			properties: { notes: "test notes", quantity: 10, completed: true },
+		});
 	});
 });
 
