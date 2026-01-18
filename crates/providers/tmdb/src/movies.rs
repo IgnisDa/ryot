@@ -14,7 +14,7 @@ use itertools::Itertools;
 use media_models::{
     CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails, MetadataGroupSearchItem,
     MetadataSearchItem, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
-    UniqueMediaIdentifier,
+    PodcastTranslationExtraInformation, ShowTranslationExtraInformation, UniqueMediaIdentifier,
 };
 use rust_decimal::dec;
 use supporting_service::SupportingService;
@@ -339,6 +339,8 @@ impl MediaProvider for TmdbMovieService {
         &self,
         identifier: &str,
         target_language: &str,
+        _show_extra_information: Option<&ShowTranslationExtraInformation>,
+        _podcast_extra_information: Option<&PodcastTranslationExtraInformation>,
     ) -> Result<EntityTranslationDetails> {
         let rsp = self
             .0

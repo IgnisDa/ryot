@@ -9,7 +9,8 @@ use enum_models::{EntityLot, EntityTranslationVariant};
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
     GenreDetailsInput, GraphqlMetadataDetails, MetadataLookupResponse,
-    MetadataProgressUpdateCacheInput, TmdbMetadataLookupResult,
+    MetadataProgressUpdateCacheInput, PodcastTranslationExtraInformation,
+    ShowTranslationExtraInformation, TmdbMetadataLookupResult,
 };
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
@@ -55,12 +56,15 @@ pub struct UserPasswordChangeSessionValue {
     pub user_id: String,
 }
 
+#[skip_serializing_none]
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MediaTranslationInProgressCacheInput {
     pub language: String,
     pub entity_id: String,
     pub entity_lot: EntityLot,
     pub variant: EntityTranslationVariant,
+    pub show_extra_information: Option<ShowTranslationExtraInformation>,
+    pub podcast_extra_information: Option<PodcastTranslationExtraInformation>,
 }
 
 #[derive(

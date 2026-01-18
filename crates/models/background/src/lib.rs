@@ -1,6 +1,9 @@
 use common_models::{ChangeCollectionToEntitiesInput, EntityWithLot};
 use enum_models::{EntityLot, EntityTranslationVariant};
-use media_models::{DeployImportJobInput, MetadataProgressUpdateInput, ReviewPostedEvent};
+use media_models::{
+    DeployImportJobInput, MetadataProgressUpdateInput, PodcastTranslationExtraInformation,
+    ReviewPostedEvent, ShowTranslationExtraInformation,
+};
 use serde::{Deserialize, Serialize};
 use strum::Display;
 use uuid::Uuid;
@@ -20,6 +23,8 @@ pub struct UpdateMediaTranslationJobInput {
     pub entity_id: String,
     pub entity_lot: EntityLot,
     pub variant: EntityTranslationVariant,
+    pub show_extra_information: Option<ShowTranslationExtraInformation>,
+    pub podcast_extra_information: Option<PodcastTranslationExtraInformation>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]

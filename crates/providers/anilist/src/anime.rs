@@ -3,7 +3,10 @@ use async_trait::async_trait;
 use common_models::SearchDetails;
 use common_utils::PAGE_SIZE;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use media_models::{EntityTranslationDetails, MetadataDetails, MetadataSearchItem};
+use media_models::{
+    EntityTranslationDetails, MetadataDetails, MetadataSearchItem,
+    PodcastTranslationExtraInformation, ShowTranslationExtraInformation,
+};
 use traits::MediaProvider;
 
 use crate::{
@@ -56,6 +59,8 @@ impl MediaProvider for AnilistAnimeService {
         &self,
         identifier: &str,
         target_language: &str,
+        _show_extra_information: Option<&ShowTranslationExtraInformation>,
+        _podcast_extra_information: Option<&PodcastTranslationExtraInformation>,
     ) -> Result<EntityTranslationDetails> {
         translate_media(&self.0.client, identifier, target_language).await
     }

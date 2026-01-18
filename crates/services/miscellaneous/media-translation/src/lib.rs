@@ -17,6 +17,7 @@ use enum_models::{EntityLot, EntityTranslationVariant, MediaSource};
 use media_models::{
     EntityTranslationDetails, MediaTranslationInput, MediaTranslationPending,
     MediaTranslationPendingStatus, MediaTranslationResult, MediaTranslationValue,
+    PodcastTranslationExtraInformation, ShowTranslationExtraInformation,
 };
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use supporting_service::SupportingService;
@@ -90,10 +91,14 @@ fn build_in_progress_cache_key(
     entity_lot: EntityLot,
     variant: EntityTranslationVariant,
     language: &str,
+    show_extra_information: Option<ShowTranslationExtraInformation>,
+    podcast_extra_information: Option<PodcastTranslationExtraInformation>,
 ) -> ApplicationCacheKey {
     ApplicationCacheKey::MediaTranslationInProgress(MediaTranslationInProgressCacheInput {
         variant,
         entity_lot,
+        show_extra_information,
+        podcast_extra_information,
         language: language.to_string(),
         entity_id: entity_id.to_string(),
     })
@@ -106,14 +111,29 @@ async fn upsert_entity_translation(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     let value = value.filter(|v| !v.is_empty());
-    if let Some(existing) = EntityTranslation::find()
+
+    let mut query = EntityTranslation::find()
         .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
         .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
         .filter(entity_translation::Column::Language.eq(preferred_language))
-        .filter(entity_translation::Column::Variant.eq(input.variant))
-        .one(&ss.db)
-        .await?
-    {
+        .filter(entity_translation::Column::Variant.eq(input.variant));
+
+    if let Some(show_extra_information) = input.show_extra_information.clone() {
+        query = query
+            .filter(entity_translation::Column::ShowExtraInformation.eq(show_extra_information));
+    } else {
+        query = query.filter(entity_translation::Column::ShowExtraInformation.is_null());
+    }
+
+    if let Some(podcast_extra_information) = input.podcast_extra_information.clone() {
+        query = query.filter(
+            entity_translation::Column::PodcastExtraInformation.eq(podcast_extra_information),
+        );
+    } else {
+        query = query.filter(entity_translation::Column::PodcastExtraInformation.is_null());
+    }
+
+    if let Some(existing) = query.one(&ss.db).await? {
         let mut model: entity_translation::ActiveModel = existing.into();
         model.value = ActiveValue::Set(value);
         model.update(&ss.db).await?;
@@ -124,6 +144,8 @@ async fn upsert_entity_translation(
         value: ActiveValue::Set(value),
         variant: ActiveValue::Set(input.variant),
         language: ActiveValue::Set(preferred_language.to_string()),
+        show_extra_information: ActiveValue::Set(input.show_extra_information.clone()),
+        podcast_extra_information: ActiveValue::Set(input.podcast_extra_information.clone()),
         ..Default::default()
     };
     match input.entity_lot {
@@ -155,15 +177,22 @@ pub async fn update_media_translation(
                     .await?;
             let provider = get_metadata_provider(entity.lot, entity.source, ss).await?;
             if let Ok(trn) = provider
-                .translate_metadata(&entity.identifier, &preferred_language)
+                .translate_metadata(
+                    &entity.identifier,
+                    &preferred_language,
+                    input.show_extra_information.as_ref(),
+                    input.podcast_extra_information.as_ref(),
+                )
                 .await
             {
                 let value = translation_value_for_variant(input.variant, &trn);
                 upsert_entity_translation(&input, &preferred_language, value, ss).await?;
             }
-            let mut item: metadata::ActiveModel = entity.into();
-            item.last_updated_on = ActiveValue::Set(Utc::now());
-            item.update(&ss.db).await?;
+            if input.show_extra_information.is_none() && input.podcast_extra_information.is_none() {
+                let mut item: metadata::ActiveModel = entity.into();
+                item.last_updated_on = ActiveValue::Set(Utc::now());
+                item.update(&ss.db).await?;
+            }
             preferred_language
         }
         EntityLot::MetadataGroup => {
@@ -222,6 +251,8 @@ pub async fn update_media_translation(
             input.entity_lot,
             input.variant,
             &preferred_language,
+            input.show_extra_information,
+            input.podcast_extra_information,
         ))),
     )
     .await?;
@@ -239,6 +270,8 @@ pub async fn deploy_update_media_translations_job(
         input.entity_lot,
         input.variant,
         &preferred_language,
+        input.show_extra_information.clone(),
+        input.podcast_extra_information.clone(),
     );
     if cache_service::get_value::<EmptyCacheValue>(ss, cache_key.clone())
         .await
@@ -258,6 +291,8 @@ pub async fn deploy_update_media_translations_job(
         variant: input.variant,
         entity_id: input.entity_id,
         entity_lot: input.entity_lot,
+        show_extra_information: input.show_extra_information,
+        podcast_extra_information: input.podcast_extra_information,
     };
     ss.perform_application_job(ApplicationJob::Mp(
         MpApplicationJob::UpdateMediaTranslations(job_input),
@@ -292,14 +327,28 @@ pub async fn media_translation(
     let preferred_language =
         get_preferred_language_for_user_and_source(ss, user_id, &source).await?;
 
-    if let Some(translation) = EntityTranslation::find()
+    let mut query = EntityTranslation::find()
         .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
         .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
         .filter(entity_translation::Column::Language.eq(&preferred_language))
-        .filter(entity_translation::Column::Variant.eq(input.variant))
-        .one(&ss.db)
-        .await?
-    {
+        .filter(entity_translation::Column::Variant.eq(input.variant));
+
+    if let Some(show_extra_information) = input.show_extra_information.clone() {
+        query = query
+            .filter(entity_translation::Column::ShowExtraInformation.eq(show_extra_information));
+    } else {
+        query = query.filter(entity_translation::Column::ShowExtraInformation.is_null());
+    }
+
+    if let Some(podcast_extra_information) = input.podcast_extra_information.clone() {
+        query = query.filter(
+            entity_translation::Column::PodcastExtraInformation.eq(podcast_extra_information),
+        );
+    } else {
+        query = query.filter(entity_translation::Column::PodcastExtraInformation.is_null());
+    }
+
+    if let Some(translation) = query.one(&ss.db).await? {
         return Ok(MediaTranslationResult::Value(MediaTranslationValue {
             value: translation.value,
         }));
@@ -310,6 +359,8 @@ pub async fn media_translation(
         input.entity_lot,
         input.variant,
         &preferred_language,
+        input.show_extra_information,
+        input.podcast_extra_information,
     );
     if cache_service::get_value::<EmptyCacheValue>(ss, cache_key)
         .await

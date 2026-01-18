@@ -53,6 +53,8 @@ pub enum EntityTranslation {
     EntityLot,
     MetadataId,
     MetadataGroupId,
+    ShowExtraInformation,
+    PodcastExtraInformation,
 }
 
 #[async_trait::async_trait]
@@ -98,6 +100,8 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .extra(ENTITY_TRANSLATION_ENTITY_ID_SQL),
                     )
+                    .col(ColumnDef::new(EntityTranslation::ShowExtraInformation).json())
+                    .col(ColumnDef::new(EntityTranslation::PodcastExtraInformation).json())
                     .foreign_key(
                         ForeignKey::create()
                             .name("entity_translation-fk1")
