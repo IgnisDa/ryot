@@ -69,11 +69,8 @@ const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository>
 	makeMock<RelationshipsRepository>(
 		{
 			_tag: "RelationshipsRepository" as const,
-			upsertMembership: () => Effect.die("unused"),
-			deleteMembership: () => Effect.die("unused"),
-			insertRelationship: () => Effect.die("unused"),
-			upsertRelationship: () => Effect.die("unused"),
-			upsertEntityRelationship: () => Effect.die("unused"),
+			saveRelationship: () => Effect.die("unused"),
+			deleteUserRelationship: () => Effect.die("unused"),
 			findRelationshipProperties: () => Effect.die("unused"),
 			deleteUserRelationshipsForEntity: () => Effect.die("unused"),
 			moveUserRelationshipsBetweenEntities: () => Effect.die("unused"),
@@ -264,7 +261,7 @@ it.effect("creates relationship and returns saved relationship", () => {
 	const layer = makeDefaultLayer({
 		relationshipSchemas: { findById: () => Effect.succeed(relationshipSchema) },
 		entities: { getEntityScopeForUser: () => Effect.succeed(sourceEntityScope) },
-		relationships: { upsertRelationship: () => Effect.succeed(savedRelationship) },
+		relationships: { saveRelationship: () => Effect.succeed(savedRelationship) },
 	});
 
 	return Effect.gen(function* () {
