@@ -330,8 +330,8 @@ query MediaDetailsQuery($id: Int!) {
       volumes,
       chapters,
       productionStatus: productionStatus,
-      genres: collectGenres(media.genres, media.tags),
       publishYear: parsePublishYear(media.startDate),
+      genres: collectGenres(media.genres, media.tags),
       isNsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
       url: `https://anilist.co/manga/${payloadIdentifier}/${encodeURIComponent(title)}`,
       description:
