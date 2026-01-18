@@ -1,43 +1,31 @@
 import { Activity } from "@effect/workflow";
 import { Effect, Schema } from "effect";
 
-import type { CurrentDb } from "#lib/db";
-import type { EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
+import { AppConfig } from "#lib/config";
+import { DbRunner } from "#lib/db";
+import { EntitiesRepository } from "#modules/entities/repository";
 
 import type { ImportRunJobData } from "../jobs";
 import { recordImportRunFailure } from "../runtime/failures";
-import type { makeImporterConfig } from "../runtime/importer-config";
+import { makeImporterConfig } from "../runtime/importer-config";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 import { mediaEntityGroupItemIndex } from "./groups";
 import { getResolutionCandidates } from "./resolution-candidates";
 import type { ImportEntityRef, ImportMediaEntityGroup } from "./types";
-import { ResolutionCandidate, type ProgressReporter, type RunWithDb } from "./workflow-shared";
-import type { MediaImportWorkflowOperations } from "./workflow-types";
+import { ResolutionCandidate, type ProgressReporter } from "./workflow-shared";
+import { MediaImportWorkflowOperations } from "./workflow-types";
 
-export const resolveMediaEntityGroups = Effect.fn("resolveMediaEntityGroups")(function* <
-	RLoad,
-	RResolve,
-	RImport,
-	RSearch = never,
-	RCleanup = never,
->(input: {
+export const resolveMediaEntityGroups = Effect.fn("resolveMediaEntityGroups")(function* (input: {
 	executionId: string;
 	reportProgress: ProgressReporter;
 	entityGroups: ImportMediaEntityGroup[];
 	payload: Pick<ImportRunJobData, "runId" | "userId">;
-	importer: ReturnType<typeof makeImporterConfig>;
-	runWithDb: RunWithDb;
-	operations: MediaImportWorkflowOperations<RLoad, RResolve, RImport, RSearch, RCleanup>;
-	entitiesRepository: {
-		findEntitySchemaScriptBySlug: (
-			scriptSlug: string,
-		) => Effect.Effect<
-			{ sandboxScriptId: SandboxScriptId; entitySchemaId: EntitySchemaId } | null,
-			unknown,
-			CurrentDb
-		>;
-	};
 }) {
+	const config = yield* AppConfig;
+	const runWithDb = yield* DbRunner;
+	const entitiesRepository = yield* EntitiesRepository;
+	const operations = yield* MediaImportWorkflowOperations;
+	const importer = makeImporterConfig(config);
 	let failures = 0;
 
 	for (let i = 0; i < input.entityGroups.length; i += 1) {
@@ -49,7 +37,7 @@ export const resolveMediaEntityGroups = Effect.fn("resolveMediaEntityGroups")(fu
 		}
 
 		const candidates = getResolutionCandidates({
-			importer: input.importer,
+			importer,
 			identifierType: ref.identifierType,
 			entitySchemaSlug: ref.entitySchemaSlug,
 		});
@@ -59,8 +47,8 @@ export const resolveMediaEntityGroups = Effect.fn("resolveMediaEntityGroups")(fu
 				i,
 				ref,
 				group,
-				context: { identifierType: ref.identifierType },
 				payload: input.payload,
+				context: { identifierType: ref.identifierType },
 				message: `No providers configured to resolve ${ref.identifierType}`,
 			});
 			yield* input.reportProgress(i + 1);
@@ -74,7 +62,7 @@ export const resolveMediaEntityGroups = Effect.fn("resolveMediaEntityGroups")(fu
 			execute: Effect.forEach(
 				candidates,
 				(scriptSlug) =>
-					input.runWithDb(input.entitiesRepository.findEntitySchemaScriptBySlug(scriptSlug)).pipe(
+					runWithDb(entitiesRepository.findEntitySchemaScriptBySlug(scriptSlug)).pipe(
 						Effect.map((script) => ({
 							scriptSlug,
 							sandboxScriptId: script?.sandboxScriptId ?? null,
@@ -98,10 +86,10 @@ export const resolveMediaEntityGroups = Effect.fn("resolveMediaEntityGroups")(fu
 				continue;
 			}
 
-			const result = yield* input.operations
+			const result = yield* operations
 				.resolveExternalId({
-					userId: input.payload.userId,
 					value: ref.identifierValue,
+					userId: input.payload.userId,
 					identifierType: ref.identifierType,
 					scriptId: candidate.sandboxScriptId,
 					executionId: `${input.executionId}-resolve-${i}-${candidateIndex}`,
@@ -150,22 +138,22 @@ export const resolveMediaEntityGroups = Effect.fn("resolveMediaEntityGroups")(fu
 const recordResolutionFailure = (input: {
 	i: number;
 	message: string;
-	context: Record<string, unknown> | null;
-	ref: Extract<ImportEntityRef, { kind: "unresolved" }>;
 	group: ImportMediaEntityGroup;
+	context: Record<string, unknown> | null;
 	payload: Pick<ImportRunJobData, "runId">;
+	ref: Extract<ImportEntityRef, { kind: "unresolved" }>;
 }) =>
 	Activity.make({
 		error: ImportRunError,
 		name: `record-resolution-failure-${input.i}`,
 		execute: recordImportRunFailure({
+			message: input.message,
+			context: input.context,
 			runId: input.payload.runId,
 			stage: "provider_resolution",
 			sourceLabel: input.ref.sourceLabel,
-			message: input.message,
 			sourceIdentifier: input.ref.identifierValue,
 			entitySchemaSlug: input.ref.entitySchemaSlug,
 			itemIndex: mediaEntityGroupItemIndex(input.group, input.i),
-			context: input.context,
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});

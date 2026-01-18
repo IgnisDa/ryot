@@ -22,7 +22,12 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
 import { processChildEntityTree } from "./population";
-import { EntityImportPayload, runEntityImportWorkflow } from "./workflows";
+import {
+	EntityImportPayload,
+	EntityImportWorkflowOperations,
+	type EntityImportWorkflowOperationsValue,
+	runEntityImportWorkflow,
+} from "./workflows";
 
 const TestEntityImportWorkflow = Workflow.make({
 	success: ListedEntity,
@@ -145,11 +150,15 @@ type TestLayerOptions = {
 	entitySchemasRepository?: EntitySchemasRepository;
 	relationshipsRepository?: RelationshipsRepository;
 	relationshipSchemasRepository?: RelationshipSchemasRepository;
+	processSandbox?: EntityImportWorkflowOperationsValue["processSandbox"];
 };
 
 const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
+		Layer.succeed(EntityImportWorkflowOperations, {
+			processSandbox: options.processSandbox ?? (() => Effect.die("unused")),
+		}),
 		Layer.succeed(EntitiesService, options.entitiesService ?? makeEntitiesService()),
 		Layer.succeed(EntitiesRepository, options.entitiesRepository ?? makeEntitiesRepository()),
 		Layer.succeed(
@@ -227,6 +236,25 @@ it.effect("populates entity and writes related entities", () => {
 		sandboxScriptId: SandboxScriptId.make("person-script-id"),
 	} satisfies ListedEntity;
 	const options = {
+		processSandbox: () =>
+			Effect.succeed({
+				logs: [],
+				error: null,
+				status: "completed" as const,
+				value: {
+					name: "Test Book",
+					image: expectedImage,
+					properties: { title: "Test Book" },
+					relatedEntities: [
+						{
+							name: "Author",
+							scriptSlug: "person.test",
+							externalId: "person-ext-1",
+							relationshipProperties: { roles: ["Author"] },
+						},
+					],
+				},
+			}),
 		relationshipSchemasRepository: makeRelationshipSchemasRepository({
 			findGlobalBySchemaIds: () => Effect.succeed(relationshipSchema),
 		}),
@@ -264,27 +292,7 @@ it.effect("populates entity and writes related entities", () => {
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			const result = yield* runEntityImportWorkflow(payload, payload.executionId, () =>
-				Effect.succeed({
-					logs: [],
-					error: null,
-					status: "completed" as const,
-					value: {
-						name: "Test Book",
-						image: expectedImage,
-						properties: { title: "Test Book" },
-						relatedEntities: [
-							{
-								name: "Author",
-								scriptSlug: "person.test",
-								externalId: "person-ext-1",
-								relationshipProperties: { roles: ["Author"] },
-							},
-						],
-					},
-				}),
-			);
-
+			const result = yield* runEntityImportWorkflow(payload, payload.executionId);
 			expect(result.id).toBe("entity-1");
 			expect(result.name).toBe("Test Book");
 			expect(result.image).toEqual(expectedImage);
@@ -466,6 +474,13 @@ it.effect("uses explicit details image for the primary entity", () => {
 	const payload = { ...importPayload, executionId: "exec-explicit-image" };
 	const explicitImage = { type: "s3" as const, key: "entities/test-book.jpg" };
 	const options = {
+		processSandbox: () =>
+			Effect.succeed({
+				logs: [],
+				error: null,
+				status: "completed" as const,
+				value: { name: "Test Book", image: explicitImage, properties: { title: "Test Book" } },
+			}),
 		entitiesService: makeEntitiesService({
 			save: (input) => {
 				if (input.scope !== "global") {
@@ -485,14 +500,7 @@ it.effect("uses explicit details image for the primary entity", () => {
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			const result = yield* runEntityImportWorkflow(payload, payload.executionId, () =>
-				Effect.succeed({
-					logs: [],
-					error: null,
-					status: "completed" as const,
-					value: { name: "Test Book", image: explicitImage, properties: { title: "Test Book" } },
-				}),
-			);
+			const result = yield* runEntityImportWorkflow(payload, payload.executionId);
 
 			expect(result.image).toEqual(explicitImage);
 			expect(primaryImages).toEqual([null, explicitImage]);
@@ -506,6 +514,15 @@ it.effect("short-circuits sandbox when global entity is already populated", () =
 	const populatedEntity = { ...baseEntity, populatedAt: now };
 	const payload = { ...importPayload, executionId: "exec-short-circuit" };
 	const options = {
+		processSandbox: () => {
+			sandboxCalled = true;
+			return Effect.succeed({
+				logs: [],
+				value: {},
+				error: null,
+				status: "completed" as const,
+			});
+		},
 		entitiesRepository: makeEntitiesRepository({
 			findGlobalEntityByExternalId: () => Effect.succeed(populatedEntity),
 		}),
@@ -515,15 +532,7 @@ it.effect("short-circuits sandbox when global entity is already populated", () =
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			const result = yield* runEntityImportWorkflow(payload, payload.executionId, () => {
-				sandboxCalled = true;
-				return Effect.succeed({
-					logs: [],
-					value: {},
-					error: null,
-					status: "completed" as const,
-				});
-			});
+			const result = yield* runEntityImportWorkflow(payload, payload.executionId);
 
 			expect(result.id).toBe("entity-1");
 			expect(sandboxCalled).toBe(false);
@@ -533,21 +542,21 @@ it.effect("short-circuits sandbox when global entity is already populated", () =
 
 it.effect("fails workflow when sandbox returns an error", () => {
 	const payload = { ...importPayload, executionId: "exec-sandbox-failure" };
+	const options = {
+		processSandbox: () =>
+			Effect.succeed({
+				logs: [],
+				value: null,
+				status: "completed" as const,
+				error: "Sandbox script execution failed",
+			}),
+	} satisfies TestLayerOptions;
 
 	return withTestLayer(
-		{},
+		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			const exit = yield* Effect.exit(
-				runEntityImportWorkflow(payload, payload.executionId, () =>
-					Effect.succeed({
-						logs: [],
-						value: null,
-						status: "completed" as const,
-						error: "Sandbox script execution failed",
-					}),
-				),
-			);
+			const exit = yield* Effect.exit(runEntityImportWorkflow(payload, payload.executionId));
 
 			expect(exit._tag).toBe("Failure");
 			if (exit._tag === "Failure") {
@@ -566,6 +575,15 @@ it.effect("workflow body executes the sandbox step as part of orchestration", ()
 
 	const payload = { ...importPayload, executionId: "exec-orchestration" };
 	const options = {
+		processSandbox: () => {
+			sandboxStepExecuted = true;
+			return Effect.succeed({
+				logs: [],
+				error: null,
+				status: "completed" as const,
+				value: { name: "Test", properties: { title: "Test" }, relatedEntities: [] },
+			});
+		},
 		entitiesService: makeEntitiesService({ save: () => Effect.succeed(baseEntity) }),
 	} satisfies TestLayerOptions;
 
@@ -573,15 +591,7 @@ it.effect("workflow body executes the sandbox step as part of orchestration", ()
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			yield* runEntityImportWorkflow(payload, payload.executionId, () => {
-				sandboxStepExecuted = true;
-				return Effect.succeed({
-					logs: [],
-					error: null,
-					status: "completed" as const,
-					value: { name: "Test", properties: { title: "Test" }, relatedEntities: [] },
-				});
-			});
+			yield* runEntityImportWorkflow(payload, payload.executionId);
 
 			expect(sandboxStepExecuted).toBe(true);
 		}),
@@ -593,6 +603,24 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 	let storedEntity: StoredEntity | null = null;
 	const payload = { ...importPayload, executionId: "exec-related-validation" };
 	const options = {
+		processSandbox: () =>
+			Effect.succeed({
+				logs: [],
+				error: null,
+				status: "completed" as const,
+				value: {
+					name: "Test Book",
+					properties: { title: "Test Book" },
+					relatedEntities: [
+						{
+							name: "Author",
+							scriptSlug: "person.test",
+							externalId: "person-ext-1",
+							relationshipProperties: {},
+						},
+					],
+				},
+			}),
 		relationshipSchemasRepository: makeRelationshipSchemasRepository({
 			findGlobalBySchemaIds: () =>
 				Effect.succeed({
@@ -659,27 +687,7 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			const exit = yield* Effect.exit(
-				runEntityImportWorkflow(payload, payload.executionId, () =>
-					Effect.succeed({
-						logs: [],
-						error: null,
-						status: "completed" as const,
-						value: {
-							name: "Test Book",
-							properties: { title: "Test Book" },
-							relatedEntities: [
-								{
-									name: "Author",
-									scriptSlug: "person.test",
-									externalId: "person-ext-1",
-									relationshipProperties: {},
-								},
-							],
-						},
-					}),
-				),
-			);
+			const exit = yield* Effect.exit(runEntityImportWorkflow(payload, payload.executionId));
 
 			expect(relationshipWritten).toBe(false);
 			expect(storedEntity?.populatedAt).toBeNull();
@@ -699,14 +707,32 @@ it.effect("fails workflow when related relationship properties are not objects",
 	let relationshipWritten = false;
 	const payload = { ...importPayload, executionId: "exec-related-type-validation" };
 	const options = {
+		processSandbox: () =>
+			Effect.succeed({
+				logs: [],
+				error: null,
+				status: "completed" as const,
+				value: {
+					name: "Test Book",
+					properties: { title: "Test Book" },
+					relatedEntities: [
+						{
+							name: "Author",
+							scriptSlug: "person.test",
+							externalId: "person-ext-1",
+							relationshipProperties: [],
+						},
+					],
+				},
+			}),
 		relationshipSchemasRepository: makeRelationshipSchemasRepository({
 			findGlobalBySchemaIds: () =>
 				Effect.succeed({
 					isBuiltin: true,
-					id: RelationshipSchemaId.make("rel-schema-1"),
 					slug: "authored-by",
 					name: "Authored By",
 					propertiesSchema: { fields: {} },
+					id: RelationshipSchemaId.make("rel-schema-1"),
 					sourceEntitySchemaId: EntitySchemaId.make("schema-1"),
 					targetEntitySchemaId: EntitySchemaId.make("schema-person"),
 				}),
@@ -731,27 +757,7 @@ it.effect("fails workflow when related relationship properties are not objects",
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			const exit = yield* Effect.exit(
-				runEntityImportWorkflow(payload, payload.executionId, () =>
-					Effect.succeed({
-						logs: [],
-						error: null,
-						status: "completed" as const,
-						value: {
-							name: "Test Book",
-							properties: { title: "Test Book" },
-							relatedEntities: [
-								{
-									name: "Author",
-									scriptSlug: "person.test",
-									externalId: "person-ext-1",
-									relationshipProperties: [],
-								},
-							],
-						},
-					}),
-				),
-			);
+			const exit = yield* Effect.exit(runEntityImportWorkflow(payload, payload.executionId));
 
 			expect(relationshipWritten).toBe(false);
 			expect(exit._tag).toBe("Failure");
@@ -836,28 +842,31 @@ it.effect("retries related writes after a failed related validation", () => {
 
 	const runAttempt = (executionId: string, relationshipProperties: unknown) =>
 		withTestLayer(
-			options,
+			{
+				...options,
+				processSandbox: () => {
+					sandboxCalls += 1;
+					return Effect.succeed({
+						logs: [],
+						error: null,
+						status: "completed" as const,
+						value: {
+							name: "Test Book",
+							properties: { title: "Test Book" },
+							relatedEntities: [
+								{
+									name: "Author",
+									relationshipProperties,
+									scriptSlug: "person.test",
+									externalId: "person-ext-1",
+								},
+							],
+						},
+					});
+				},
+			},
 			executionId,
-			runEntityImportWorkflow({ ...importPayload, executionId }, executionId, () => {
-				sandboxCalls += 1;
-				return Effect.succeed({
-					logs: [],
-					error: null,
-					status: "completed" as const,
-					value: {
-						name: "Test Book",
-						properties: { title: "Test Book" },
-						relatedEntities: [
-							{
-								name: "Author",
-								relationshipProperties,
-								scriptSlug: "person.test",
-								externalId: "person-ext-1",
-							},
-						],
-					},
-				});
-			}),
+			runEntityImportWorkflow({ ...importPayload, executionId }, executionId),
 		);
 
 	return Effect.gen(function* () {

@@ -1,38 +1,42 @@
+import * as PersistedQueue from "@effect/experimental/PersistedQueue";
+import { FileSystem, HttpClient, Path } from "@effect/platform";
 import { DurableQueue } from "@effect/workflow";
-import { Cause, Effect } from "effect";
+import { Cause, Effect, Layer } from "effect";
 
+import { AppConfig } from "#lib/config";
+import { DbRunner } from "#lib/db";
 import { SandboxRunError, unknownToMessage } from "#lib/errors";
+import { RedisService } from "#lib/redis";
 import type { EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
+import { EntitiesRepository } from "#modules/entities/repository";
+import { EntitiesService } from "#modules/entities/service";
 import {
 	decodeEntityResolveResult,
 	decodeEntitySearchResult,
 } from "#modules/entity-import/population";
-import { runEntityImportWorkflow } from "#modules/entity-import/workflows";
+import {
+	EntityImportWorkflowOperations,
+	runEntityImportWorkflow,
+} from "#modules/entity-import/workflows";
+import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
+import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
+
+import { loadOneTimeMediaImportAdapterResult } from "./source-loaders";
+import { MediaImportWorkflowOperations } from "./workflow-types";
 
 const toSandboxError = (cause: unknown) =>
 	cause instanceof SandboxRunError
 		? cause
 		: new SandboxRunError({ message: unknownToMessage(cause) });
 
-const processSandboxEntityDetails = (
-	payload: { userId: UserId | null; scriptId: SandboxScriptId; externalId: string },
-	executionId: string,
-) =>
-	DurableQueue.process(SandboxExecutionQueue, {
-		driverName: "details",
-		userId: payload.userId,
-		scriptId: payload.scriptId,
-		context: { externalId: payload.externalId },
-		executionId: `${executionId}-sandbox-details`,
-	}).pipe(Effect.mapError(toSandboxError));
-
-export const resolveSandboxEntityExternalId = (input: {
+const resolveSandboxEntityExternalId = (input: {
 	value: string;
 	userId: UserId;
-	scriptId: SandboxScriptId;
 	executionId: string;
 	identifierType: string;
+	scriptId: SandboxScriptId;
 }) =>
 	DurableQueue.process(SandboxExecutionQueue, {
 		userId: input.userId,
@@ -56,11 +60,11 @@ export const resolveSandboxEntityExternalId = (input: {
 		),
 	);
 
-export const searchSandboxEntities = (input: {
+const searchSandboxEntities = (input: {
 	query: string;
 	userId: UserId;
-	scriptId: SandboxScriptId;
 	executionId: string;
+	scriptId: SandboxScriptId;
 }) =>
 	DurableQueue.process(SandboxExecutionQueue, {
 		userId: input.userId,
@@ -85,13 +89,13 @@ export const searchSandboxEntities = (input: {
 		),
 	);
 
-export const importMediaEntityViaWorkflow = (input: {
+const importMediaEntityViaWorkflow = (input: {
 	userId: UserId;
-	scriptId: SandboxScriptId;
 	externalId: string;
 	executionId: string;
-	entitySchemaId: EntitySchemaId;
 	activityPrefix: string;
+	scriptId: SandboxScriptId;
+	entitySchemaId: EntitySchemaId;
 }) =>
 	runEntityImportWorkflow(
 		{
@@ -102,8 +106,6 @@ export const importMediaEntityViaWorkflow = (input: {
 			entitySchemaId: input.entitySchemaId,
 		},
 		input.executionId,
-		(entityPayload, childExecutionId) =>
-			processSandboxEntityDetails(entityPayload, childExecutionId),
 		{ activityPrefix: input.activityPrefix },
 	).pipe(
 		Effect.map((entity) => ({ id: entity.id })),
@@ -111,3 +113,53 @@ export const importMediaEntityViaWorkflow = (input: {
 			Effect.fail(new SandboxRunError({ message: unknownToMessage(Cause.squash(cause)) })),
 		),
 	);
+
+export const MediaImportWorkflowOperationsLive = Layer.effect(
+	MediaImportWorkflowOperations,
+	Effect.gen(function* () {
+		const path = yield* Path.Path;
+		const config = yield* AppConfig;
+		const redis = yield* RedisService;
+		const runWithDb = yield* DbRunner;
+		const entities = yield* EntitiesService;
+		const fs = yield* FileSystem.FileSystem;
+		const httpClient = yield* HttpClient.HttpClient;
+		const entitiesRepository = yield* EntitiesRepository;
+		const relationshipsRepository = yield* RelationshipsRepository;
+		const entitySchemasRepository = yield* EntitySchemasRepository;
+		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
+		const entityImportOperations = yield* EntityImportWorkflowOperations;
+		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
+
+		return {
+			loadAdapterResult: (payload) =>
+				loadOneTimeMediaImportAdapterResult(payload).pipe(
+					Effect.provideService(AppConfig, config),
+					Effect.provideService(FileSystem.FileSystem, fs),
+					Effect.provideService(Path.Path, path),
+					Effect.provideService(RedisService, redis),
+					Effect.provideService(DbRunner, runWithDb),
+					Effect.provideService(HttpClient.HttpClient, httpClient),
+					Effect.provideService(EntitiesRepository, entitiesRepository),
+				),
+			searchEntities: (input) =>
+				searchSandboxEntities(input).pipe(
+					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
+				),
+			importEntity: (input) =>
+				importMediaEntityViaWorkflow(input).pipe(
+					Effect.provideService(DbRunner, runWithDb),
+					Effect.provideService(EntitiesService, entities),
+					Effect.provideService(EntitiesRepository, entitiesRepository),
+					Effect.provideService(EntitySchemasRepository, entitySchemasRepository),
+					Effect.provideService(RelationshipsRepository, relationshipsRepository),
+					Effect.provideService(EntityImportWorkflowOperations, entityImportOperations),
+					Effect.provideService(RelationshipSchemasRepository, relationshipSchemasRepository),
+				),
+			resolveExternalId: (input) =>
+				resolveSandboxEntityExternalId(input).pipe(
+					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
+				),
+		};
+	}),
+);
