@@ -129,7 +129,7 @@ it.effect(
 				onConflict: "replaceProperties",
 				synchronization: "authoritative",
 				propertiesSchema: { fields: {} },
-				relationshipSchemaSlug: "credits",
+				relationshipSchemaSlug: RelationshipSchemaSlug.make("credits"),
 				entries: [
 					{ entityId: entityId("created"), properties: { roles: ["actor"] } },
 					{ entityId: entityId("same"), properties: { roles: ["actor"] } },
@@ -206,7 +206,7 @@ it.effect("preserves different existing properties as a noop", () => {
 			synchronization: "additive",
 			onConflict: "preserveExisting",
 			propertiesSchema: { fields: {} },
-			relationshipSchemaSlug: "credits",
+			relationshipSchemaSlug: RelationshipSchemaSlug.make("credits"),
 			entries: [{ entityId: entityId("person"), properties: { roles: ["director"] } }],
 		});
 
@@ -268,7 +268,7 @@ it.effect(
 					synchronization: "additive",
 					onConflict: "preserveExisting",
 					propertiesSchema: { fields: {} },
-					relationshipSchemaSlug: "person-to-movie",
+					relationshipSchemaSlug: RelationshipSchemaSlug.make("person-to-movie"),
 					anchorEntityId: direction === "incoming" ? movieId : personId,
 					entries: [
 						{

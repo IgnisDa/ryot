@@ -89,7 +89,7 @@ const setupGetById = (row: Record<string, FieldValue>) => {
 					isBuiltin: false,
 					entityName: "Cooper",
 					entityUserId: user.id,
-					entitySchemaSlug: "person",
+					entitySchemaSlug: EntitySchemaSlug.make("person"),
 					propertiesSchema: { fields: {} },
 					entityId: EntityId.make("entity-1"),
 				}),
