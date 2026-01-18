@@ -285,7 +285,7 @@ export const refreshEntityDetails = (entityId: string) =>
 				queryFactory.media.metadataGroupDetails(entityId).queryKey,
 				queryFactory.media.userMetadataGroupDetails(entityId).queryKey,
 				queryFactory.media.userEntityRecentlyConsumed(entityId).queryKey,
-				queryFactory.media.entityTranslation._def,
+				queryFactory.media.entityTranslation(entityId).queryKey,
 				queryFactory.fitness.workoutTemplateDetails(entityId).queryKey,
 				queryFactory.media.userGenresList._def,
 				queryFactory.media.userPeopleList._def,
