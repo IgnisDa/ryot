@@ -1,4 +1,4 @@
-import { useQueries } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { AppEntity, AppEntityImage } from "~/features/entities/model";
 import { useApiClient } from "~/hooks/api";
 
@@ -17,26 +17,22 @@ export function useResolvedImageUrls(imageEntries: ImageEntry[]) {
 		),
 	);
 
-	const presignedQueries = useQueries({
-		queries: s3Keys.map((key) =>
-			apiClient.queryOptions(
-				"get",
-				"/uploads/presigned",
-				{ params: { query: { key } } },
-				{ staleTime: 14 * 60 * 1000 /* 14m; URLs are valid for 15m */ },
-			),
+	const presignedQuery = useQuery(
+		apiClient.queryOptions(
+			"post",
+			"/uploads/presigned/download",
+			{ params: {}, body: { keys: s3Keys } },
+			{
+				enabled: s3Keys.length > 0,
+				staleTime: 14 * 60 * 1000 /* 14m; URLs are valid for 15m */,
+			},
 		),
-	});
+	);
 
 	const urlByKey = new Map<string, string>();
-	presignedQueries.forEach((query, index) => {
-		const key = s3Keys[index];
-		const url = query.data?.data.uploadUrl;
-		if (!key || !url) {
-			return;
-		}
-		urlByKey.set(key, url);
-	});
+	for (const item of presignedQuery.data?.data ?? []) {
+		urlByKey.set(item.key, item.downloadUrl);
+	}
 
 	const imageUrlByEntityId = new Map<string, string | undefined>();
 	for (const entry of imageEntries) {
@@ -55,8 +51,8 @@ export function useResolvedImageUrls(imageEntries: ImageEntry[]) {
 
 	return {
 		imageUrlByEntityId,
-		isError: presignedQueries.some((query) => query.isError),
-		isLoading: presignedQueries.some((query) => query.isLoading),
+		isError: presignedQuery.isError,
+		isLoading: presignedQuery.isLoading,
 	};
 }
 

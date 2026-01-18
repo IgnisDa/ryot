@@ -10,12 +10,13 @@ import {
 	successResponse,
 } from "~/lib/openapi";
 import {
+	getPresignedDownloadUrlBody,
+	getPresignedDownloadUrlResponseSchema,
 	getPresignedUploadUrlBody,
-	getPresignedUploadUrlQuery,
 	getPresignedUploadUrlResponseSchema,
 } from "./schemas";
 import {
-	createPresignedDownload,
+	createPresignedDownloads,
 	createPresignedUpload,
 	resolvePresignedUploadInput,
 } from "./service";
@@ -42,15 +43,15 @@ const getPresignedUploadUrlRoute = createAuthRoute(
 
 const getPresignedDownloadUrlRoute = createAuthRoute(
 	createRoute({
-		method: "get",
+		method: "post",
 		tags: ["uploads"],
-		path: "/presigned",
-		request: { query: getPresignedUploadUrlQuery },
-		summary: "Get a presigned download URL for an uploaded file",
+		path: "/presigned/download",
+		summary: "Get presigned download URLs for uploaded files",
+		request: { body: jsonBody(getPresignedDownloadUrlBody) },
 		responses: {
 			...createStandardResponses({
-				successDescription: "Presigned URL for an uploaded file",
-				successSchema: getPresignedUploadUrlResponseSchema,
+				successDescription: "Presigned download URLs for uploaded files",
+				successSchema: getPresignedDownloadUrlResponseSchema,
 			}),
 			500: createErrorResponse(
 				"Presigned URL generation failed",
@@ -78,6 +79,6 @@ export const uploadsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		);
 	})
 	.openapi(getPresignedDownloadUrlRoute, async (c) => {
-		const query = c.req.valid("query");
-		return c.json(successResponse(await createPresignedDownload(query)), 200);
+		const body = c.req.valid("json");
+		return c.json(successResponse(await createPresignedDownloads(body)), 200);
 	});
