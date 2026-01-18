@@ -1,5 +1,6 @@
 import {
 	SANDBOX_RUNTIME_SDK_IMPORTS,
+	SANDBOX_SDK_AUTOMATION_IMPORT,
 	SANDBOX_SDK_PROVIDER_IMPORT,
 	SANDBOX_SDK_ROOT_IMPORT,
 } from "@ryot/sandbox-sdk/imports";
@@ -21,7 +22,11 @@ const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\
 const dependencyImportPattern = new RegExp(
 	`^(?:${SANDBOX_RUNTIME_SDK_IMPORTS.map(escapeRegExp).join("|")})$`,
 );
-const bundledSdkImports = new Set([SANDBOX_SDK_ROOT_IMPORT, SANDBOX_SDK_PROVIDER_IMPORT]);
+const bundledSdkImports = new Set([
+	SANDBOX_SDK_ROOT_IMPORT,
+	SANDBOX_SDK_AUTOMATION_IMPORT,
+	SANDBOX_SDK_PROVIDER_IMPORT,
+]);
 
 const buildDiagnosticSeverity = (level: BuildMessage["level"]) => {
 	if (level === "warning") {
@@ -122,10 +127,8 @@ export const bundleUserScript = (source: string, sdkEntries: Readonly<Record<str
 				contents: source,
 			}));
 			builder.onResolve(
-				{ filter: /^@ryot\/sandbox-sdk(?:\/provider)?$/, namespace: "sandbox-user" },
-				({ path }) => ({
-					path: sdkEntries[path] ?? path,
-				}),
+				{ namespace: "sandbox-user", filter: /^@ryot\/sandbox-sdk\/(?:automation|core|provider)$/ },
+				({ path }) => ({ path: sdkEntries[path] ?? path }),
 			);
 			builder.onResolve({ filter: dependencyImportPattern }, ({ path }) => ({
 				path,

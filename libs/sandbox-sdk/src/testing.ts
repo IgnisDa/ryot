@@ -4,7 +4,7 @@ import type {
 	SandboxHost,
 	SandboxManifest,
 } from "./core.js";
-import type * as z from "./zod.js";
+import { Effect, Schema } from "./effect.js";
 
 type SandboxTestHost<Manifest extends SandboxManifest> = Omit<
 	SandboxHost<Manifest["capabilities"]>,
@@ -26,21 +26,27 @@ export function defineSandboxTestHost(_manifest: SandboxManifest, host: unknown)
 	return host;
 }
 
-export const runSandboxTestDriver = async <Input extends z.ZodType, Output extends z.ZodType, Host>(
+export const runSandboxTestDriver = <
+	Input extends Schema.Schema.AnyNoContext,
+	Output extends Schema.Schema.AnyNoContext,
+	Host,
+>(
 	driver: {
 		readonly input: Input;
 		readonly output: Output;
 		readonly run: (
-			input: z.output<Input>,
+			input: Schema.Schema.Type<Input>,
 			host: Host,
 			execution: ExecutionMetadata,
-		) => Promise<z.output<Output>>;
+		) => Effect.Effect<Schema.Schema.Type<Output>, unknown>;
 	},
-	input: z.input<Input>,
+	input: Schema.Schema.Encoded<Input>,
 	host: NoInfer<Host>,
 	execution: ExecutionMetadata,
 ) => {
-	const parsedInput = await driver.input.parseAsync(input);
-	const output = await driver.run(parsedInput, host, execution);
-	return driver.output.parseAsync(output);
+	return Schema.decodeUnknown(driver.input)(input).pipe(
+		Effect.flatMap((parsedInput) => driver.run(parsedInput, host, execution)),
+		Effect.flatMap(Schema.decodeUnknown(driver.output)),
+		Effect.runPromise,
+	);
 };

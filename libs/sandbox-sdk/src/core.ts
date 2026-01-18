@@ -1,60 +1,54 @@
-import * as z from "@ryot/sandbox-sdk/zod";
+import type { Effect } from "@ryot/sandbox-sdk/effect";
+import { Schema } from "@ryot/sandbox-sdk/effect";
 
-export type JsonPrimitive = boolean | number | string | null;
-export type JsonValue =
-	| JsonPrimitive
-	| readonly JsonValue[]
-	| { readonly [key: string]: JsonValue };
+import {
+	hostResultSchema,
+	jsonValueSchema,
+	type JsonValue,
+	type SandboxHostError,
+} from "./wire.js";
 
-export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
-	z.union([
-		z.boolean(),
-		z.number(),
-		z.string(),
-		z.null(),
-		z.array(jsonValueSchema),
-		z.record(z.string(), jsonValueSchema),
-	]),
-);
+export {
+	defineDriver,
+	defineManifest,
+	defineScript,
+	SANDBOX_SCRIPT_DEFINITION,
+	type GenericDriver,
+	type GenericScriptDefinition,
+} from "./driver.js";
 
-export const hostFailureSchema = z
-	.object({ error: z.string(), success: z.literal(false) })
-	.strict();
+export {
+	hostFailureSchema,
+	hostResultSchema,
+	jsonValueSchema,
+	sandboxHostErrorSchema,
+	type HostFailure,
+	type HostResult,
+	type JsonPrimitive,
+	type JsonValue,
+	type SandboxHostError,
+} from "./wire.js";
 
-export const hostResultSchema = <Data extends z.ZodType>(data: Data) =>
-	z.discriminatedUnion("success", [
-		hostFailureSchema,
-		z.object({ data, success: z.literal(true) }).strict(),
-	]);
+const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
+	Schema.Struct(fields).annotations({ parseOptions: { onExcessProperty: "error" as const } });
 
-export type HostFailure = z.infer<typeof hostFailureSchema>;
-export type HostResult<Data> = HostFailure | { data: Data; success: true };
+const nonEmptyString = Schema.String.pipe(Schema.minLength(1));
+const positiveInteger = Schema.Number.pipe(Schema.int(), Schema.positive());
 
 export interface SandboxAppConfigRegistry {}
 
 type RegisteredSandboxAppConfig = SandboxAppConfigRegistry[keyof SandboxAppConfigRegistry];
-
 type SandboxAppConfigKey = [RegisteredSandboxAppConfig] extends [never]
 	? string
 	: keyof RegisteredSandboxAppConfig & string;
-
 type SandboxAppConfigValue<Key extends SandboxAppConfigKey> = [RegisteredSandboxAppConfig] extends [
 	never,
 ]
 	? JsonValue
 	: RegisteredSandboxAppConfig[Key & keyof RegisteredSandboxAppConfig];
-
 type GetAppConfigValue = <Key extends SandboxAppConfigKey>(
 	key: Key,
-) => Promise<HostResult<SandboxAppConfigValue<Key>>>;
-
-export const unwrapHostResult = <Data>(result: HostResult<Data>) => {
-	if (!result.success) {
-		throw new Error(result.error);
-	}
-
-	return result.data;
-};
+) => Effect.Effect<SandboxAppConfigValue<Key>, SandboxHostError>;
 
 export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"httpCall",
@@ -65,100 +59,113 @@ export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"getUserPreferences",
 ] as const;
 
-export const coreSandboxHostCapabilitySchema = z.enum(CORE_SANDBOX_HOST_CAPABILITIES);
+export const coreSandboxHostCapabilitySchema = Schema.Literal(...CORE_SANDBOX_HOST_CAPABILITIES);
+export type CoreSandboxHostCapability = Schema.Schema.Type<typeof coreSandboxHostCapabilitySchema>;
 
-export type CoreSandboxHostCapability = z.infer<typeof coreSandboxHostCapabilitySchema>;
-
-const cacheKeySchema = z.string().min(1);
-const cacheTtlSecondsSchema = z.int().positive();
-
-export const httpCallOptionsSchema = z
-	.object({
-		body: z.string().optional(),
-		headers: z.record(z.string(), z.string()).optional(),
-	})
-	.strict();
-
-export const httpCallResponseSchema = z
-	.object({
-		status: z.int(),
-		body: z.string(),
-		headers: z.record(z.string(), z.string()),
-	})
-	.strict();
-
-export const httpCallFailureDetailsSchema = z.object({ status: z.int() }).strict();
-
-export const httpCallArgsSchema = z.tuple([
-	z.string(),
-	z.string(),
-	httpCallOptionsSchema.optional(),
-]);
-export const httpCallResultSchema = z.discriminatedUnion("success", [
-	hostFailureSchema.extend({ data: httpCallFailureDetailsSchema.optional() }),
-	z.object({ data: httpCallResponseSchema, success: z.literal(true) }).strict(),
-]);
-
-export const getCachedValueArgsSchema = z.tuple([cacheKeySchema]);
-export const getCachedValueResultSchema = hostResultSchema(jsonValueSchema.nullable());
-
-export const setCachedValueArgsSchema = z.tuple([
+const cacheKeySchema = nonEmptyString;
+const cacheTtlSecondsSchema = positiveInteger;
+export const httpCallOptionsSchema = strictStruct({
+	body: Schema.optional(Schema.String),
+	headers: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+});
+export const httpCallResponseSchema = strictStruct({
+	body: Schema.String,
+	status: Schema.Number.pipe(Schema.int()),
+	headers: Schema.Record({ key: Schema.String, value: Schema.String }),
+});
+export const httpCallFailureDetailsSchema = strictStruct({
+	status: Schema.Number.pipe(Schema.int()),
+});
+export const httpCallArgsSchema = Schema.Tuple(
+	Schema.String,
+	Schema.String,
+	Schema.optionalElement(httpCallOptionsSchema),
+);
+export const httpCallResultSchema = Schema.Union(
+	strictStruct({
+		error: Schema.String,
+		success: Schema.Literal(false),
+		data: Schema.optional(httpCallFailureDetailsSchema),
+	}),
+	strictStruct({ data: httpCallResponseSchema, success: Schema.Literal(true) }),
+);
+export const getCachedValueArgsSchema = Schema.Tuple(cacheKeySchema);
+export const getCachedValueDataSchema = Schema.NullOr(jsonValueSchema);
+export const getCachedValueResultSchema = hostResultSchema(getCachedValueDataSchema);
+export const setCachedValueArgsSchema = Schema.Tuple(
 	cacheKeySchema,
 	jsonValueSchema,
 	cacheTtlSecondsSchema,
-]);
-export const setCachedValueResultSchema = hostResultSchema(z.null());
-
-export const cacheClaimSchema = z.discriminatedUnion("claimed", [
-	z.object({ claimed: z.literal(true) }).strict(),
-	z.object({ claimed: z.literal(false), value: jsonValueSchema.nullable() }).strict(),
-]);
-export const claimCachedValueArgsSchema = z.tuple([
+);
+export const setCachedValueDataSchema = Schema.Null;
+export const setCachedValueResultSchema = hostResultSchema(setCachedValueDataSchema);
+export const cacheClaimSchema = Schema.Union(
+	strictStruct({ claimed: Schema.Literal(true) }),
+	strictStruct({ claimed: Schema.Literal(false), value: Schema.NullOr(jsonValueSchema) }),
+);
+export const claimCachedValueArgsSchema = Schema.Tuple(
 	cacheKeySchema,
 	jsonValueSchema,
 	cacheTtlSecondsSchema,
-]);
+);
 export const claimCachedValueResultSchema = hostResultSchema(cacheClaimSchema);
-
-export const getAppConfigValueArgsSchema = z.tuple([z.string().min(1)]);
+export const getAppConfigValueArgsSchema = Schema.Tuple(nonEmptyString);
 export const getAppConfigValueResultSchema = hostResultSchema(jsonValueSchema);
-
-export const userPreferencesSchema = z
-	.object({
-		isNsfw: z.boolean(),
-		disableIntegrations: z.boolean(),
-	})
-	.strict();
-export const getUserPreferencesArgsSchema = z.tuple([]);
+export const userPreferencesSchema = strictStruct({
+	isNsfw: Schema.Boolean,
+	disableIntegrations: Schema.Boolean,
+});
+export const getUserPreferencesArgsSchema = Schema.Tuple();
 export const getUserPreferencesResultSchema = hostResultSchema(userPreferencesSchema);
 
 export const coreSandboxHostContracts = {
-	httpCall: { args: httpCallArgsSchema, result: httpCallResultSchema },
-	getCachedValue: { args: getCachedValueArgsSchema, result: getCachedValueResultSchema },
-	setCachedValue: { args: setCachedValueArgsSchema, result: setCachedValueResultSchema },
-	claimCachedValue: { args: claimCachedValueArgsSchema, result: claimCachedValueResultSchema },
-	getAppConfigValue: { args: getAppConfigValueArgsSchema, result: getAppConfigValueResultSchema },
+	httpCall: {
+		args: httpCallArgsSchema,
+		result: httpCallResultSchema,
+		success: httpCallResponseSchema,
+	},
+	getCachedValue: {
+		args: getCachedValueArgsSchema,
+		result: getCachedValueResultSchema,
+		success: getCachedValueDataSchema,
+	},
+	setCachedValue: {
+		args: setCachedValueArgsSchema,
+		result: setCachedValueResultSchema,
+		success: setCachedValueDataSchema,
+	},
+	claimCachedValue: {
+		success: cacheClaimSchema,
+		args: claimCachedValueArgsSchema,
+		result: claimCachedValueResultSchema,
+	},
+	getAppConfigValue: {
+		success: jsonValueSchema,
+		args: getAppConfigValueArgsSchema,
+		result: getAppConfigValueResultSchema,
+	},
 	getUserPreferences: {
+		success: userPreferencesSchema,
 		args: getUserPreferencesArgsSchema,
 		result: getUserPreferencesResultSchema,
 	},
 } as const;
 
-type SandboxHostMethodMapFromContracts<
-	Contracts extends Record<
-		string,
-		{ readonly args: z.ZodType<unknown[]>; readonly result: z.ZodType }
-	>,
-> = {
+type SandboxHostContract = {
+	readonly args: Schema.Schema.AnyNoContext;
+	readonly success: Schema.Schema.AnyNoContext;
+};
+type SandboxHostMethodMapFromContracts<Contracts extends Record<string, SandboxHostContract>> = {
 	readonly [Capability in keyof Contracts]: (
-		...args: z.output<Contracts[Capability]["args"]>
-	) => Promise<z.output<Contracts[Capability]["result"]>>;
+		...args: Schema.Schema.Type<Contracts[Capability]["args"]> extends readonly unknown[]
+			? Schema.Schema.Type<Contracts[Capability]["args"]>
+			: never
+	) => Effect.Effect<Schema.Schema.Type<Contracts[Capability]["success"]>, SandboxHostError>;
 };
 
 export type CoreSandboxHostMethodMap = SandboxHostMethodMapFromContracts<
 	typeof coreSandboxHostContracts
 >;
-
 export type CoreSandboxHostImplementationMap<Context> = {
 	readonly [Capability in CoreSandboxHostCapability]: (
 		context: Context,
@@ -176,16 +183,16 @@ export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
 	"listIntegrations",
 	"executeQueryEngine",
 ] as const;
+export const domainSandboxHostCapabilitySchema = Schema.Literal(
+	...DOMAIN_SANDBOX_HOST_CAPABILITIES,
+);
+export type DomainSandboxHostCapability = Schema.Schema.Type<
+	typeof domainSandboxHostCapabilitySchema
+>;
 
-export const domainSandboxHostCapabilitySchema = z.enum(DOMAIN_SANDBOX_HOST_CAPABILITIES);
-
-export type DomainSandboxHostCapability = z.infer<typeof domainSandboxHostCapabilitySchema>;
-
-const sandboxIdSchema = z.string().min(1);
-
-export const integrationLotSchema = z.enum(["push", "sink", "yank"]);
-
-export const integrationProviderSchema = z.enum([
+const sandboxIdSchema = nonEmptyString;
+export const integrationLotSchema = Schema.Literal("push", "sink", "yank");
+export const integrationProviderSchema = Schema.Literal(
 	"emby",
 	"kodi",
 	"komga",
@@ -199,169 +206,165 @@ export const integrationProviderSchema = z.enum([
 	"jellyfin_sink",
 	"audiobookshelf",
 	"ryot_browser_extension",
-]);
+);
+export const entityRecordSchema = strictStruct({
+	id: Schema.String,
+	name: Schema.String,
+	createdAt: Schema.String,
+	updatedAt: Schema.String,
+	properties: jsonValueSchema,
+	externalId: Schema.NullOr(Schema.String),
+	populatedAt: Schema.NullOr(Schema.String),
+	entitySchemaSlug: Schema.String,
+	sandboxScriptId: Schema.NullOr(Schema.String),
+});
+export type EntityRecord = Schema.Schema.Type<typeof entityRecordSchema>;
 
-export const entityRecordSchema = z
-	.object({
-		id: z.string(),
-		name: z.string(),
-		createdAt: z.string(),
-		updatedAt: z.string(),
-		entitySchemaSlug: z.string(),
-		properties: jsonValueSchema,
-		externalId: z.string().nullable(),
-		populatedAt: z.string().nullable(),
-		sandboxScriptId: z.string().nullable(),
-	})
-	.strict();
+export const entitySchemaProviderSchema = strictStruct({
+	name: Schema.String,
+	scriptId: Schema.String,
+});
+export const entitySchemaRecordSchema = strictStruct({
+	id: Schema.String,
+	icon: Schema.String,
+	name: Schema.String,
+	slug: Schema.String,
+	isBuiltin: Schema.Boolean,
+	pluginSlug: Schema.String,
+	accentColor: Schema.String,
+	propertiesSchema: jsonValueSchema,
+	providers: Schema.Array(entitySchemaProviderSchema),
+});
+export type EntitySchemaRecord = Schema.Schema.Type<typeof entitySchemaRecordSchema>;
 
-export type EntityRecord = z.infer<typeof entityRecordSchema>;
+export const eventSchemaRecordSchema = strictStruct({
+	id: Schema.String,
+	name: Schema.String,
+	slug: Schema.String,
+	entitySchemaSlug: Schema.String,
+	propertiesSchema: jsonValueSchema,
+});
+export type EventSchemaRecord = Schema.Schema.Type<typeof eventSchemaRecordSchema>;
 
-export const entitySchemaProviderSchema = z
-	.object({ name: z.string(), scriptId: z.string() })
-	.strict();
+export const eventRecordSchema = strictStruct({
+	id: Schema.String,
+	entityId: Schema.String,
+	createdAt: Schema.String,
+	updatedAt: Schema.String,
+	occurredAt: Schema.String,
+	properties: jsonValueSchema,
+	eventSchemaName: Schema.String,
+	eventSchemaSlug: Schema.String,
+	sessionEntityId: Schema.optional(Schema.String),
+});
+export type EventRecord = Schema.Schema.Type<typeof eventRecordSchema>;
 
-export const entitySchemaRecordSchema = z
-	.object({
-		id: z.string(),
-		icon: z.string(),
-		name: z.string(),
-		slug: z.string(),
-		isBuiltin: z.boolean(),
-		pluginSlug: z.string(),
-		accentColor: z.string(),
-		propertiesSchema: jsonValueSchema,
-		providers: z.array(entitySchemaProviderSchema).readonly(),
-	})
-	.strict();
+export const integrationRecordSchema = strictStruct({
+	id: Schema.String,
+	userId: Schema.String,
+	createdAt: Schema.String,
+	updatedAt: Schema.String,
+	lot: integrationLotSchema,
+	isDisabled: Schema.Boolean,
+	syncOwnership: Schema.Boolean,
+	minimumProgress: Schema.Number,
+	maximumProgress: Schema.Number,
+	providerSpecifics: jsonValueSchema,
+	provider: integrationProviderSchema,
+	name: Schema.NullOr(Schema.String),
+	webhookUrl: Schema.optional(Schema.String),
+	lastFinishedAt: Schema.NullOr(Schema.String),
+	extraSettings: strictStruct({ disableOnContinuousErrors: Schema.Boolean }),
+});
+export type IntegrationRecord = Schema.Schema.Type<typeof integrationRecordSchema>;
 
-export type EntitySchemaRecord = z.infer<typeof entitySchemaRecordSchema>;
-
-export const eventSchemaRecordSchema = z
-	.object({
-		id: z.string(),
-		name: z.string(),
-		slug: z.string(),
-		entitySchemaSlug: z.string(),
-		propertiesSchema: jsonValueSchema,
-	})
-	.strict();
-
-export type EventSchemaRecord = z.infer<typeof eventSchemaRecordSchema>;
-
-export const eventRecordSchema = z
-	.object({
-		id: z.string(),
-		entityId: z.string(),
-		createdAt: z.string(),
-		updatedAt: z.string(),
-		occurredAt: z.string(),
-		eventSchemaName: z.string(),
-		eventSchemaSlug: z.string(),
-		properties: jsonValueSchema,
-		sessionEntityId: z.string().optional(),
-	})
-	.strict();
-
-export type EventRecord = z.infer<typeof eventRecordSchema>;
-
-export const integrationRecordSchema = z
-	.object({
-		id: z.string(),
-		userId: z.string(),
-		createdAt: z.string(),
-		updatedAt: z.string(),
-		isDisabled: z.boolean(),
-		lot: integrationLotSchema,
-		syncOwnership: z.boolean(),
-		name: z.string().nullable(),
-		minimumProgress: z.number(),
-		maximumProgress: z.number(),
-		webhookUrl: z.string().optional(),
-		providerSpecifics: jsonValueSchema,
-		provider: integrationProviderSchema,
-		lastFinishedAt: z.string().nullable(),
-		extraSettings: z.object({ disableOnContinuousErrors: z.boolean() }).strict(),
-	})
-	.strict();
-
-export type IntegrationRecord = z.infer<typeof integrationRecordSchema>;
-
-export const createEventItemSchema = z
-	.object({
-		entityId: sandboxIdSchema,
-		properties: jsonValueSchema,
-		eventSchemaSlug: sandboxIdSchema,
-		occurredAt: z.string().optional(),
-		sessionEntityId: sandboxIdSchema.optional(),
-	})
-	.strict();
-
-export type CreateEventItem = z.infer<typeof createEventItemSchema>;
-
-export const createEventsResultDataSchema = z.object({ count: z.int() }).strict();
-
-export const listEventsQuerySchema = z
-	.object({
-		entityId: sandboxIdSchema.optional(),
-		eventSchemaSlug: z.string().optional(),
-		sessionEntityId: sandboxIdSchema.optional(),
-	})
-	.strict();
-
-export type ListEventsQuery = z.infer<typeof listEventsQuerySchema>;
-
-export const listIntegrationsOptionsSchema = z
-	.object({
-		isDisabled: z.boolean().optional(),
-		provider: integrationProviderSchema.optional(),
-	})
-	.strict();
-
-export type ListIntegrationsOptions = z.infer<typeof listIntegrationsOptionsSchema>;
-
+export const createEventItemSchema = strictStruct({
+	entityId: sandboxIdSchema,
+	properties: jsonValueSchema,
+	eventSchemaSlug: sandboxIdSchema,
+	occurredAt: Schema.optional(Schema.String),
+	sessionEntityId: Schema.optional(sandboxIdSchema),
+});
+export type CreateEventItem = Schema.Schema.Type<typeof createEventItemSchema>;
+export const createEventsResultDataSchema = strictStruct({
+	count: Schema.Number.pipe(Schema.int()),
+});
+export const listEventsQuerySchema = strictStruct({
+	entityId: Schema.optional(sandboxIdSchema),
+	eventSchemaSlug: Schema.optional(Schema.String),
+	sessionEntityId: Schema.optional(sandboxIdSchema),
+});
+export type ListEventsQuery = Schema.Schema.Type<typeof listEventsQuerySchema>;
+export const listIntegrationsOptionsSchema = strictStruct({
+	isDisabled: Schema.optional(Schema.Boolean),
+	provider: Schema.optional(integrationProviderSchema),
+});
+export type ListIntegrationsOptions = Schema.Schema.Type<typeof listIntegrationsOptionsSchema>;
 export const queryDocumentSchema = jsonValueSchema;
+export type QueryDocument = Schema.Schema.Type<typeof queryDocumentSchema>;
 
-export type QueryDocument = z.infer<typeof queryDocumentSchema>;
-
-export const getEntityArgsSchema = z.tuple([sandboxIdSchema]);
+export const getEntityArgsSchema = Schema.Tuple(sandboxIdSchema);
 export const getEntityResultSchema = hostResultSchema(entityRecordSchema);
-
-export const getEntitySchemaArgsSchema = z.tuple([sandboxIdSchema]);
+export const getEntitySchemaArgsSchema = Schema.Tuple(sandboxIdSchema);
 export const getEntitySchemaResultSchema = hostResultSchema(entitySchemaRecordSchema);
-
-export const getIntegrationArgsSchema = z.tuple([sandboxIdSchema]);
+export const getIntegrationArgsSchema = Schema.Tuple(sandboxIdSchema);
 export const getIntegrationResultSchema = hostResultSchema(integrationRecordSchema);
-
-export const listEventSchemasArgsSchema = z.tuple([sandboxIdSchema]);
-export const listEventSchemasResultSchema = hostResultSchema(
-	z.array(eventSchemaRecordSchema).readonly(),
+export const listEventSchemasArgsSchema = Schema.Tuple(sandboxIdSchema);
+export const listEventSchemasDataSchema = Schema.Array(eventSchemaRecordSchema);
+export const listEventSchemasResultSchema = hostResultSchema(listEventSchemasDataSchema);
+export const listEventsArgsSchema = Schema.Tuple(Schema.optionalElement(listEventsQuerySchema));
+export const listEventsDataSchema = Schema.Array(eventRecordSchema);
+export const listEventsResultSchema = hostResultSchema(listEventsDataSchema);
+export const listIntegrationsArgsSchema = Schema.Tuple(
+	Schema.optionalElement(listIntegrationsOptionsSchema),
 );
-
-export const listEventsArgsSchema = z.tuple([listEventsQuerySchema.optional()]);
-export const listEventsResultSchema = hostResultSchema(z.array(eventRecordSchema).readonly());
-
-export const listIntegrationsArgsSchema = z.tuple([listIntegrationsOptionsSchema.optional()]);
-export const listIntegrationsResultSchema = hostResultSchema(
-	z.array(integrationRecordSchema).readonly(),
-);
-
-export const createEventsArgsSchema = z.tuple([z.array(createEventItemSchema)]);
+export const listIntegrationsDataSchema = Schema.Array(integrationRecordSchema);
+export const listIntegrationsResultSchema = hostResultSchema(listIntegrationsDataSchema);
+export const createEventsArgsSchema = Schema.Tuple(Schema.Array(createEventItemSchema));
 export const createEventsResultSchema = hostResultSchema(createEventsResultDataSchema);
-
-export const executeQueryEngineArgsSchema = z.tuple([queryDocumentSchema]);
-export const executeQueryEngineResultSchema = hostResultSchema(z.unknown());
+export const executeQueryEngineArgsSchema = Schema.Tuple(queryDocumentSchema);
+export const executeQueryEngineDataSchema = Schema.Unknown;
+export const executeQueryEngineResultSchema = hostResultSchema(executeQueryEngineDataSchema);
 
 export const domainSandboxHostContracts = {
-	getEntity: { args: getEntityArgsSchema, result: getEntityResultSchema },
-	listEvents: { args: listEventsArgsSchema, result: listEventsResultSchema },
-	createEvents: { args: createEventsArgsSchema, result: createEventsResultSchema },
-	getIntegration: { args: getIntegrationArgsSchema, result: getIntegrationResultSchema },
-	getEntitySchema: { args: getEntitySchemaArgsSchema, result: getEntitySchemaResultSchema },
-	listEventSchemas: { args: listEventSchemasArgsSchema, result: listEventSchemasResultSchema },
-	listIntegrations: { args: listIntegrationsArgsSchema, result: listIntegrationsResultSchema },
+	getEntity: {
+		args: getEntityArgsSchema,
+		success: entityRecordSchema,
+		result: getEntityResultSchema,
+	},
+	listEvents: {
+		args: listEventsArgsSchema,
+		success: listEventsDataSchema,
+		result: listEventsResultSchema,
+	},
+	createEvents: {
+		args: createEventsArgsSchema,
+		result: createEventsResultSchema,
+		success: createEventsResultDataSchema,
+	},
+	getIntegration: {
+		args: getIntegrationArgsSchema,
+		success: integrationRecordSchema,
+		result: getIntegrationResultSchema,
+	},
+	getEntitySchema: {
+		args: getEntitySchemaArgsSchema,
+		success: entitySchemaRecordSchema,
+		result: getEntitySchemaResultSchema,
+	},
+	listEventSchemas: {
+		args: listEventSchemasArgsSchema,
+		success: listEventSchemasDataSchema,
+		result: listEventSchemasResultSchema,
+	},
+	listIntegrations: {
+		args: listIntegrationsArgsSchema,
+		success: listIntegrationsDataSchema,
+		result: listIntegrationsResultSchema,
+	},
 	executeQueryEngine: {
 		args: executeQueryEngineArgsSchema,
+		success: executeQueryEngineDataSchema,
 		result: executeQueryEngineResultSchema,
 	},
 } as const;
@@ -369,7 +372,6 @@ export const domainSandboxHostContracts = {
 export type DomainSandboxHostMethodMap = SandboxHostMethodMapFromContracts<
 	typeof domainSandboxHostContracts
 >;
-
 export type DomainSandboxHostImplementationMap<Context> = {
 	readonly [Capability in DomainSandboxHostCapability]: (
 		context: Context,
@@ -378,33 +380,35 @@ export type DomainSandboxHostImplementationMap<Context> = {
 };
 
 export const AUTOMATION_SANDBOX_HOST_CAPABILITIES = ["emitSignal", "sendNotification"] as const;
-
 export type AutomationSandboxHostCapability = (typeof AUTOMATION_SANDBOX_HOST_CAPABILITIES)[number];
-
-export const emitSignalRequestSchema = z
-	.object({
-		schemaSlug: z.string().min(1),
-		discriminator: z.string().min(1),
-		subjectEntityId: sandboxIdSchema.optional(),
-		properties: z.record(z.string(), jsonValueSchema),
-	})
-	.strict();
-export const emitSignalArgsSchema = z.tuple([emitSignalRequestSchema]);
-export const emitSignalResultSchema = hostResultSchema(
-	z.object({ signalId: z.string(), wasCreated: z.boolean() }).strict(),
-);
-
-export const sendNotificationArgsSchema = z.tuple([z.string().trim().min(1)]);
-
+export const emitSignalRequestSchema = strictStruct({
+	schemaSlug: nonEmptyString,
+	discriminator: nonEmptyString,
+	subjectEntityId: Schema.optional(sandboxIdSchema),
+	properties: Schema.Record({ key: Schema.String, value: jsonValueSchema }),
+});
+export const emitSignalArgsSchema = Schema.Tuple(emitSignalRequestSchema);
+export const emitSignalDataSchema = strictStruct({
+	signalId: Schema.String,
+	wasCreated: Schema.Boolean,
+});
+export const emitSignalResultSchema = hostResultSchema(emitSignalDataSchema);
+export const sendNotificationArgsSchema = Schema.Tuple(Schema.Trim.pipe(Schema.minLength(1)));
 export const automationSandboxHostContracts = {
-	emitSignal: { args: emitSignalArgsSchema, result: emitSignalResultSchema },
-	sendNotification: { args: sendNotificationArgsSchema, result: hostResultSchema(z.null()) },
+	emitSignal: {
+		args: emitSignalArgsSchema,
+		success: emitSignalDataSchema,
+		result: emitSignalResultSchema,
+	},
+	sendNotification: {
+		success: Schema.Null,
+		args: sendNotificationArgsSchema,
+		result: hostResultSchema(Schema.Null),
+	},
 } as const;
-
 export type AutomationSandboxHostMethodMap = SandboxHostMethodMapFromContracts<
 	typeof automationSandboxHostContracts
 >;
-
 export type AutomationSandboxHostImplementationMap<Context> = {
 	readonly [Capability in AutomationSandboxHostCapability]: (
 		context: Context,
@@ -417,97 +421,51 @@ export const SANDBOX_HOST_CAPABILITIES = [
 	...DOMAIN_SANDBOX_HOST_CAPABILITIES,
 	...AUTOMATION_SANDBOX_HOST_CAPABILITIES,
 ] as const;
-
-export const sandboxHostCapabilitySchema = z.enum(SANDBOX_HOST_CAPABILITIES);
-
-export type SandboxHostCapability = z.infer<typeof sandboxHostCapabilitySchema>;
-
+export const sandboxHostCapabilitySchema = Schema.Literal(...SANDBOX_HOST_CAPABILITIES);
+export type SandboxHostCapability = Schema.Schema.Type<typeof sandboxHostCapabilitySchema>;
 export type SandboxHostMethodMap = Omit<CoreSandboxHostMethodMap, "getAppConfigValue"> &
 	DomainSandboxHostMethodMap &
 	AutomationSandboxHostMethodMap & { readonly getAppConfigValue: GetAppConfigValue };
-
 export type SandboxHostImplementationMap<Context> = CoreSandboxHostImplementationMap<Context> &
 	DomainSandboxHostImplementationMap<Context> &
 	AutomationSandboxHostImplementationMap<Context>;
 
-const manifestStringSchema = z
-	.string()
-	.min(1)
-	.refine((value) => value === value.trim(), "Must not have leading or trailing whitespace");
-
-export const providerInformationSchema = z
-	.object({ source: manifestStringSchema, canonicalLanguage: manifestStringSchema.optional() })
-	.strict();
-
-const sandboxManifestBaseSchema = z.object({
-	name: manifestStringSchema,
-	capabilities: z.array(sandboxHostCapabilitySchema),
-	requiredAppConfigKeys: z.array(manifestStringSchema),
-	slug: z.string().regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/),
+const manifestStringSchema = Schema.String.pipe(
+	Schema.filter((value) => value.length > 0 && value === value.trim(), {
+		message: () => "Must not be empty or have leading or trailing whitespace",
+	}),
+);
+const manifestSlugSchema = Schema.String.pipe(
+	Schema.filter((value) => /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value)),
+);
+export const providerInformationSchema = strictStruct({
+	source: manifestStringSchema,
+	canonicalLanguage: Schema.optional(manifestStringSchema),
 });
+const sandboxManifestBaseFields = {
+	name: manifestStringSchema,
+	slug: manifestSlugSchema,
+	capabilities: Schema.Array(sandboxHostCapabilitySchema),
+	requiredAppConfigKeys: Schema.Array(manifestStringSchema),
+};
+export const sandboxManifestSchema = Schema.Union(
+	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("script") }),
+	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("automation") }),
+	strictStruct({
+		...sandboxManifestBaseFields,
+		kind: Schema.Literal("provider"),
+		providerInformation: providerInformationSchema,
+	}),
+);
+export type SandboxManifest = Schema.Schema.Type<typeof sandboxManifestSchema>;
+export type ScriptManifest = Extract<SandboxManifest, { readonly kind: "script" }>;
+export type ProviderInformation = Schema.Schema.Type<typeof providerInformationSchema>;
 
-export const sandboxManifestSchema = z.discriminatedUnion("kind", [
-	sandboxManifestBaseSchema.extend({ kind: z.literal("script") }).strict(),
-	sandboxManifestBaseSchema.extend({ kind: z.literal("automation") }).strict(),
-	sandboxManifestBaseSchema
-		.extend({ kind: z.literal("provider"), providerInformation: providerInformationSchema })
-		.strict(),
-]);
-
-export type SandboxManifest = z.infer<typeof sandboxManifestSchema>;
-export type ScriptManifest = Extract<SandboxManifest, { kind: "script" }>;
-export type ProviderInformation = z.infer<typeof providerInformationSchema>;
-
-export const executionMetadataSchema = z
-	.object({ metadata: jsonValueSchema, sandboxScriptId: z.string().min(1) })
-	.strict();
-
-export type ExecutionMetadata = z.infer<typeof executionMetadataSchema>;
+export const executionMetadataSchema = strictStruct({
+	metadata: jsonValueSchema,
+	sandboxScriptId: nonEmptyString,
+});
+export type ExecutionMetadata = Schema.Schema.Type<typeof executionMetadataSchema>;
 export type SandboxHost<Capabilities extends readonly SandboxHostCapability[]> = Readonly<
 	Pick<SandboxHostMethodMap, Capabilities[number]>
 >;
-
-export type GenericDriver<
-	Input extends z.ZodType,
-	Output extends z.ZodType,
-	Capabilities extends readonly SandboxHostCapability[],
-> = {
-	readonly input: Input;
-	readonly output: Output;
-	readonly run: (
-		input: z.output<Input>,
-		host: SandboxHost<Capabilities>,
-		execution: ExecutionMetadata,
-	) => Promise<z.output<Output>>;
-};
-
-export const defineManifest = <const Manifest extends SandboxManifest>(manifest: Manifest) =>
-	manifest;
-
-export const defineDriver = <
-	const Manifest extends SandboxManifest,
-	Input extends z.ZodType,
-	Output extends z.ZodType,
->(
-	_manifest: Manifest,
-	driver: GenericDriver<Input, Output, Manifest["capabilities"]>,
-) => driver;
-
-export const SANDBOX_SCRIPT_DEFINITION = "ryot:sandbox-script" as const;
-
-export type GenericScriptDefinition<
-	Manifest extends SandboxManifest,
-	Drivers extends Record<string, unknown>,
-> = {
-	readonly manifest: Manifest;
-	readonly drivers: Drivers;
-	readonly definitionType: typeof SANDBOX_SCRIPT_DEFINITION;
-};
-
-export const defineScript = <
-	const Manifest extends ScriptManifest,
-	const Drivers extends Record<string, unknown>,
->(definition: {
-	readonly manifest: Manifest;
-	readonly drivers: Drivers;
-}) => ({ ...definition, definitionType: SANDBOX_SCRIPT_DEFINITION });

@@ -3,7 +3,7 @@ export const SANDBOX_SDK_AUTOMATION_IMPORT = "@ryot/sandbox-sdk/automation";
 export const SANDBOX_SDK_PROVIDER_IMPORT = "@ryot/sandbox-sdk/provider";
 
 export const SANDBOX_RUNTIME_SDK_IMPORTS = [
-	"@ryot/sandbox-sdk/zod",
+	"@ryot/sandbox-sdk/effect",
 	"@ryot/sandbox-sdk/dayjs",
 	"@ryot/sandbox-sdk/cheerio",
 	"@ryot/sandbox-sdk/youtubei",
