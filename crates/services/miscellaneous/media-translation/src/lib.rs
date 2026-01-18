@@ -92,10 +92,10 @@ fn build_in_progress_cache_key(
     language: &str,
 ) -> ApplicationCacheKey {
     ApplicationCacheKey::MediaTranslationInProgress(MediaTranslationInProgressCacheInput {
-        entity_id: entity_id.to_string(),
-        entity_lot,
         variant,
+        entity_lot,
         language: language.to_string(),
+        entity_id: entity_id.to_string(),
     })
 }
 
@@ -121,8 +121,8 @@ async fn upsert_entity_translation(
     }
 
     let mut model = entity_translation::ActiveModel {
-        variant: ActiveValue::Set(input.variant),
         value: ActiveValue::Set(value),
+        variant: ActiveValue::Set(input.variant),
         language: ActiveValue::Set(preferred_language.to_string()),
         ..Default::default()
     };
@@ -255,9 +255,9 @@ pub async fn deploy_update_media_translations_job(
 
     let job_input = UpdateMediaTranslationJobInput {
         user_id,
+        variant: input.variant,
         entity_id: input.entity_id,
         entity_lot: input.entity_lot,
-        variant: input.variant,
     };
     ss.perform_application_job(ApplicationJob::Mp(
         MpApplicationJob::UpdateMediaTranslations(job_input),
