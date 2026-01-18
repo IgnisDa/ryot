@@ -7,8 +7,9 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ProviderSupportedLanguageInformation,
     SearchResults, TvdbSettings,
 };
+use enum_models::EntityTranslationVariant;
 use itertools::Itertools;
-use media_models::{EntityTranslationDetails, MetadataSearchItem};
+use media_models::MetadataSearchItem;
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},
@@ -114,7 +115,7 @@ impl TvdbService {
         entity_type: &str,
         identifier: &str,
         target_language: &str,
-    ) -> Result<EntityTranslationDetails> {
+    ) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
         let response = self
             .client
             .get(format!(
@@ -129,11 +130,14 @@ impl TvdbService {
             bail!("Translation not found");
         }
 
-        Ok(EntityTranslationDetails {
-            title: response.data.name,
-            description: response.data.overview,
-            ..Default::default()
-        })
+        Ok(vec![
+            (EntityTranslationVariant::Title, response.data.name),
+            (
+                EntityTranslationVariant::Description,
+                response.data.overview,
+            ),
+            (EntityTranslationVariant::Image, None),
+        ])
     }
 }
 

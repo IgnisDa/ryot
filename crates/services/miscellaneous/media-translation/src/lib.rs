@@ -15,8 +15,8 @@ use dependent_models::{
 use dependent_provider_utils::{get_metadata_provider, get_non_metadata_provider};
 use enum_models::{EntityLot, EntityTranslationVariant, MediaSource};
 use media_models::{
-    EntityTranslationDetails, MediaTranslationInput, MediaTranslationPending,
-    MediaTranslationPendingStatus, MediaTranslationResult, MediaTranslationValue,
+    MediaTranslationInput, MediaTranslationPending, MediaTranslationPendingStatus,
+    MediaTranslationResult, MediaTranslationValue,
 };
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use supporting_service::SupportingService;
@@ -74,17 +74,6 @@ async fn get_preferred_language_for_user_and_source(
     Ok(preferred_language)
 }
 
-fn translation_value_for_variant(
-    variant: EntityTranslationVariant,
-    details: &EntityTranslationDetails,
-) -> Option<String> {
-    match variant {
-        EntityTranslationVariant::Title => details.title.clone(),
-        EntityTranslationVariant::Image => details.image.clone(),
-        EntityTranslationVariant::Description => details.description.clone(),
-    }
-}
-
 fn build_in_progress_cache_key(
     entity_id: &str,
     entity_lot: EntityLot,
@@ -102,6 +91,7 @@ fn build_in_progress_cache_key(
 async fn upsert_entity_translation(
     input: &UpdateMediaTranslationJobInput,
     preferred_language: &str,
+    variant: EntityTranslationVariant,
     value: Option<String>,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
@@ -110,7 +100,7 @@ async fn upsert_entity_translation(
         .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
         .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
         .filter(entity_translation::Column::Language.eq(preferred_language))
-        .filter(entity_translation::Column::Variant.eq(input.variant))
+        .filter(entity_translation::Column::Variant.eq(variant))
         .one(&ss.db)
         .await?
     {
@@ -122,7 +112,7 @@ async fn upsert_entity_translation(
 
     let mut model = entity_translation::ActiveModel {
         value: ActiveValue::Set(value),
-        variant: ActiveValue::Set(input.variant),
+        variant: ActiveValue::Set(variant),
         language: ActiveValue::Set(preferred_language.to_string()),
         ..Default::default()
     };
@@ -158,8 +148,10 @@ pub async fn update_media_translation(
                 .translate_metadata(&entity.identifier, &preferred_language)
                 .await
             {
-                let value = translation_value_for_variant(input.variant, &trn);
-                upsert_entity_translation(&input, &preferred_language, value, ss).await?;
+                for (variant, value) in trn {
+                    upsert_entity_translation(&input, &preferred_language, variant, value, ss)
+                        .await?;
+                }
             }
             let mut item: metadata::ActiveModel = entity.into();
             item.last_updated_on = ActiveValue::Set(Utc::now());
@@ -179,8 +171,10 @@ pub async fn update_media_translation(
                 .translate_metadata_group(&entity.identifier, &preferred_language)
                 .await
             {
-                let value = translation_value_for_variant(input.variant, &trn);
-                upsert_entity_translation(&input, &preferred_language, value, ss).await?;
+                for (variant, value) in trn {
+                    upsert_entity_translation(&input, &preferred_language, variant, value, ss)
+                        .await?;
+                }
             }
             let mut item: metadata_group::ActiveModel = entity.into();
             item.last_updated_on = ActiveValue::Set(Utc::now());
@@ -204,8 +198,10 @@ pub async fn update_media_translation(
                 )
                 .await
             {
-                let value = translation_value_for_variant(input.variant, &trn);
-                upsert_entity_translation(&input, &preferred_language, value, ss).await?;
+                for (variant, value) in trn {
+                    upsert_entity_translation(&input, &preferred_language, variant, value, ss)
+                        .await?;
+                }
             }
             let mut item: person::ActiveModel = person.into();
             item.last_updated_on = ActiveValue::Set(Utc::now());

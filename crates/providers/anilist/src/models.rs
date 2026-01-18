@@ -4,11 +4,11 @@ use common_models::{
 };
 use common_utils::compute_next_page;
 use convert_case::{Case, Casing};
-use enum_models::{MediaLot, MediaSource};
+use enum_models::{EntityTranslationVariant, MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    AnimeAiringScheduleSpecifics, AnimeSpecifics, EntityTranslationDetails, MangaSpecifics,
-    MetadataDetails, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
+    AnimeAiringScheduleSpecifics, AnimeSpecifics, MangaSpecifics, MetadataDetails,
+    MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
 };
 use nest_struct::nest_struct;
 use reqwest::Client;
@@ -309,7 +309,7 @@ pub async fn translate_media(
     client: &Client,
     id: &str,
     target_language: &str,
-) -> Result<EntityTranslationDetails> {
+) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
     let query = r#"
         query MediaTranslationQuery($id: Int!) {
           Media(id: $id) {
@@ -359,11 +359,11 @@ pub async fn translate_media(
         .or_else(|| media.title.as_ref().and_then(|t| t.romaji.clone()))
         .or_else(|| media.title.as_ref().and_then(|t| t.native.clone()));
 
-    Ok(EntityTranslationDetails {
-        title,
-        description: media.description,
-        ..Default::default()
-    })
+    Ok(vec![
+        (EntityTranslationVariant::Title, title),
+        (EntityTranslationVariant::Description, media.description),
+        (EntityTranslationVariant::Image, None),
+    ])
 }
 
 pub async fn media_details(client: &Client, id: &str) -> Result<MetadataDetails> {

@@ -7,12 +7,12 @@ use common_models::{
 };
 use common_utils::{convert_date_to_year, convert_string_to_date};
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use enum_models::MediaSource;
+use enum_models::{EntityTranslationVariant, MediaSource};
 use futures::stream::{self, StreamExt};
 use itertools::Itertools;
 use media_models::{
-    EntityTranslationDetails, MetadataDetails, MetadataExternalIdentifiers, MetadataSearchItem,
-    PartialMetadataPerson, ShowEpisode, ShowSeason, ShowSpecifics,
+    MetadataDetails, MetadataExternalIdentifiers, MetadataSearchItem, PartialMetadataPerson,
+    ShowEpisode, ShowSeason, ShowSpecifics,
 };
 use supporting_service::SupportingService;
 use traits::MediaProvider;
@@ -281,7 +281,7 @@ impl MediaProvider for TvdbShowService {
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<EntityTranslationDetails> {
+    ) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
         self.0
             .translate("series", identifier, target_language)
             .await

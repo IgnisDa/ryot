@@ -8,11 +8,11 @@ use common_models::{
 use common_utils::{convert_date_to_year, convert_string_to_date};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use enum_models::{MediaLot, MediaSource};
+use enum_models::{EntityTranslationVariant, MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails, MetadataSearchItem,
-    MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
+    CommitMetadataGroupInput, MetadataDetails, MetadataSearchItem, MovieSpecifics,
+    PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
 };
 use supporting_service::SupportingService;
 use traits::MediaProvider;
@@ -277,7 +277,7 @@ impl MediaProvider for TvdbMovieService {
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<EntityTranslationDetails> {
+    ) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
         self.0
             .translate("movies", identifier, target_language)
             .await
@@ -287,7 +287,7 @@ impl MediaProvider for TvdbMovieService {
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<EntityTranslationDetails> {
+    ) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
         self.0.translate("lists", identifier, target_language).await
     }
 }

@@ -4,9 +4,9 @@ use anyhow::{Result, bail};
 use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics};
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
-use enum_models::{MediaLot, MediaSource};
+use enum_models::{EntityTranslationVariant, MediaLot, MediaSource};
 use itertools::Itertools;
-use media_models::{EntityTranslationDetails, PartialMetadataWithoutId, PeopleSearchItem};
+use media_models::{PartialMetadataWithoutId, PeopleSearchItem};
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -202,7 +202,7 @@ impl MediaProvider for NonMediaTvdbService {
         identifier: &str,
         target_language: &str,
         source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<EntityTranslationDetails> {
+    ) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
         if let Some(true) = source_specifics.as_ref().and_then(|s| s.is_tvdb_company) {
             bail!("Companies do not have translations");
         }
