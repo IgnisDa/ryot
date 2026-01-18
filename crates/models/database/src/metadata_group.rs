@@ -28,7 +28,7 @@ pub struct Model {
     pub title: String,
     pub identifier: String,
     pub source: MediaSource,
-    #[sea_orm(column_type = "Json")]
+    #[sea_orm(column_type = "JsonBinary")]
     pub assets: EntityAssets,
     #[boilermates(not_in("MetadataGroupWithoutId"))]
     pub is_partial: Option<bool>,

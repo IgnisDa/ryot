@@ -26,11 +26,11 @@ pub struct Model {
     pub maximum_progress: Option<Decimal>,
     pub last_finished_at: Option<DateTimeUtc>,
     pub sync_to_owned_collection: Option<bool>,
-    #[sea_orm(column_type = "Json")]
+    #[sea_orm(column_type = "JsonBinary")]
     pub extra_settings: IntegrationExtraSettings,
-    #[sea_orm(column_type = "Json")]
+    #[sea_orm(column_type = "JsonBinary")]
     pub trigger_result: Vec<IntegrationTriggerResult>,
-    #[sea_orm(column_type = "Json")]
+    #[sea_orm(column_type = "JsonBinary")]
     pub provider_specifics: Option<IntegrationProviderSpecifics>,
 }
 

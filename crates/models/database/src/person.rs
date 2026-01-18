@@ -21,7 +21,7 @@ pub struct Model {
     pub name: String,
     pub identifier: String,
     pub source: MediaSource,
-    #[sea_orm(column_type = "Json")]
+    #[sea_orm(column_type = "JsonBinary")]
     pub assets: EntityAssets,
     pub place: Option<String>,
     pub gender: Option<String>,

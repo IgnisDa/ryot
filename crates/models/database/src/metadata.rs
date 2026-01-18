@@ -23,7 +23,7 @@ pub struct Model {
     pub title: String,
     pub identifier: String,
     pub source: MediaSource,
-    #[sea_orm(column_type = "Json")]
+    #[sea_orm(column_type = "JsonBinary")]
     pub assets: EntityAssets,
     pub is_nsfw: Option<bool>,
     pub created_on: DateTimeUtc,
@@ -44,14 +44,14 @@ pub struct Model {
     pub music_specifics: Option<MusicSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
     pub podcast_specifics: Option<PodcastSpecifics>,
-    #[sea_orm(column_type = "Json")]
+    #[sea_orm(column_type = "JsonBinary")]
     pub watch_providers: Option<Vec<WatchProvider>>,
-    #[sea_orm(column_type = "Json")]
+    #[sea_orm(column_type = "JsonBinary")]
     pub free_creators: Option<Vec<MetadataFreeCreator>>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
-    #[sea_orm(column_type = "Json")]
+    #[sea_orm(column_type = "JsonBinary")]
     pub external_identifiers: Option<MetadataExternalIdentifiers>,
 }
 
