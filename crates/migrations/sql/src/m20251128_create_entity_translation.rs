@@ -140,6 +140,8 @@ impl MigrationTrait for Migration {
                     .col(EntityTranslation::Language)
                     .col(EntityTranslation::MetadataId)
                     .col(EntityTranslation::Variant)
+                    .col(EntityTranslation::ShowExtraInformation)
+                    .col(EntityTranslation::PodcastExtraInformation)
                     .and_where(Expr::col(EntityTranslation::MetadataId).is_not_null())
                     .to_owned(),
             )
