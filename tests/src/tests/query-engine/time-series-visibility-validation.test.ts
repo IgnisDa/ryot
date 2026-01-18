@@ -9,7 +9,7 @@ import {
 	createRelationshipSchema,
 	createQueryEngineEntity,
 	createQueryEngineEvent,
-	createQueryEngineTrackerAndSchema,
+	createQueryEnginePluginSchema,
 	executeQueryEngine,
 	executeQueryEngineError,
 	executeTimeSeriesQueryEngine,
@@ -27,8 +27,10 @@ describe("Time series returns", () => {
 	it.live("returns event buckets with half-open range filtering and zero fill", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: lessonSchemaId, slug: lessonSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "TimeSeriesEventLesson" });
+			const { schemaId: lessonSchemaId, slug: lessonSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{ schemaName: "TimeSeriesEventLesson" },
+			);
 			const completeSlug = `time-series-complete-${crypto.randomUUID()}`;
 			const completeSchema = yield* createEventSchema(client, {
 				slug: completeSlug,
@@ -84,7 +86,7 @@ describe("Time series returns", () => {
 	it.live("returns entity buckets using a date property", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "TimeSeriesEntity",
 				propertiesSchema: {
 					fields: {
@@ -129,10 +131,12 @@ describe("Time series returns", () => {
 	it.live("returns relationship buckets using relationship createdAt", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: memberSchemaId, slug: memberSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "TimeSeriesRelMember" });
+			const { schemaId: memberSchemaId, slug: memberSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{ schemaName: "TimeSeriesRelMember" },
+			);
 			const { schemaId: collectionSchemaId, slug: collectionSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "TimeSeriesRelCollection" });
+				yield* createQueryEnginePluginSchema(client, { schemaName: "TimeSeriesRelCollection" });
 			const relationshipSlug = `time-series-membership-${crypto.randomUUID()}`;
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				slug: relationshipSlug,
@@ -183,7 +187,7 @@ describe("Time series returns", () => {
 	it.live("rejects date ranges that produce more than 1000 buckets", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "TimeSeriesBucketCap",
 			});
 			const doc: QueryEnginePayload = {
@@ -211,7 +215,7 @@ describe("Visibility boundary", () => {
 			const userA = yield* createAuthenticatedClient();
 			const userB = yield* createAuthenticatedClient();
 
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(userA.client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(userA.client, {
 				schemaName: "UserAPrivateCourse",
 			});
 			yield* createQueryEngineEntity(userA.client, {
@@ -231,13 +235,13 @@ describe("Visibility boundary", () => {
 			const userA = yield* createAuthenticatedClient();
 			const userB = yield* createAuthenticatedClient();
 
-			const { schemaId: schemaA, slug: slugA } = yield* createQueryEngineTrackerAndSchema(
+			const { schemaId: schemaA, slug: slugA } = yield* createQueryEnginePluginSchema(
 				userA.client,
 				{
 					schemaName: "VisibilityCourse",
 				},
 			);
-			const { schemaId: schemaB, slug: slugB } = yield* createQueryEngineTrackerAndSchema(
+			const { schemaId: schemaB, slug: slugB } = yield* createQueryEnginePluginSchema(
 				userB.client,
 				{
 					schemaName: "VisibilityCourse",
@@ -343,7 +347,7 @@ describe("Validation errors", () => {
 	it.live("rejects a pagination limit exceeding 100", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "LimitTestSchema",
 			});
 
@@ -356,7 +360,7 @@ describe("Validation errors", () => {
 	it.live("rejects an invalid system field for an entity source", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "SystemFieldTestSchema",
 			});
 
@@ -374,7 +378,7 @@ describe("Validation errors", () => {
 	it.live("rejects a property field that references a schema not in the source schemas", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "PropSchemaTestSchema",
 				propertiesSchema: {
 					fields: { title: { type: "string", label: "Title", description: "Title value" } },
@@ -394,7 +398,7 @@ describe("Validation errors", () => {
 	it.live("rejects duplicate source schema slugs", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "DuplicateSchemaGuardrail",
 			});
 
@@ -407,7 +411,7 @@ describe("Validation errors", () => {
 	it.live("rejects old predicate operand keys", () =>
 		Effect.gen(function* () {
 			const { client, cookies } = yield* createAuthenticatedClient();
-			const { slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "OldPredicateGuardrail",
 			});
 			const invalidExpr = {
@@ -424,7 +428,7 @@ describe("Validation errors", () => {
 	it.live("rejects unsupported legacy filter keys", () =>
 		Effect.gen(function* () {
 			const { client, cookies } = yield* createAuthenticatedClient();
-			const { slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "LegacyFilterGuardrail",
 			});
 
@@ -445,7 +449,7 @@ describe("Validation errors", () => {
 	it.live("rejects ordering a string property against a number literal", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "TypeCheckOrderingGuardrail",
 				propertiesSchema: {
 					fields: { title: { type: "string", label: "Title", description: "Title" } },
@@ -475,7 +479,7 @@ describe("Validation errors", () => {
 	it.live("rejects arithmetic with a non-numeric operand", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "TypeCheckArithmeticGuardrail",
 				propertiesSchema: {
 					fields: { title: { type: "string", label: "Title", description: "Title" } },

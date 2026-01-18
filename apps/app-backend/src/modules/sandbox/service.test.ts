@@ -17,7 +17,6 @@ const storedScript = {
 	id: scriptId,
 	metadata: {},
 	compiledFormat: 1,
-	isBuiltin: true as const,
 	compiledCode: "compiled",
 };
 

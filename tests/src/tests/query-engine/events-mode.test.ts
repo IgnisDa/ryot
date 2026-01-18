@@ -6,7 +6,7 @@ import {
 	createEventSchema,
 	createQueryEngineEntity,
 	createQueryEngineEvent,
-	createQueryEngineTrackerAndSchema,
+	createQueryEnginePluginSchema,
 	executeQueryEngine,
 	getQueryEngineFieldOrThrow,
 	propertyRef,
@@ -21,7 +21,7 @@ describe("event root rows", () => {
 	it.live("filters root events by an event property before returning rows", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "EventFilterItem",
 			});
 			const reviewSlug = `event-filter-review-${crypto.randomUUID()}`;
@@ -76,7 +76,7 @@ describe("event root rows", () => {
 	it.live("sorts root events by a numeric event property", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "EventSortItem",
 			});
 			const reviewSlug = `event-sort-review-${crypto.randomUUID()}`;
@@ -125,7 +125,7 @@ describe("event root rows", () => {
 	it.live("returns only events from the specified event schemas", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "EventSchemaFilterItem",
 			});
 			const watchSlug = `event-watch-${crypto.randomUUID()}`;
@@ -182,7 +182,7 @@ describe("event root rows", () => {
 	it.live("returns events as primary rows with pagination metadata", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "PrimaryRowItem",
 			});
 			const watchSlug = `primary-row-watch-${crypto.randomUUID()}`;
@@ -232,7 +232,7 @@ describe("event root rows", () => {
 	it.live("returns entity name and event schema slug alongside events", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "EventRefsItem",
 			});
 			const reviewSlug = `event-refs-review-${crypto.randomUUID()}`;
@@ -283,7 +283,7 @@ describe("event root rows", () => {
 	it.live("returns correct paginated results and metadata in events mode", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "EventPaginationItem",
 			});
 			const watchSlug = `event-pagination-watch-${crypto.randomUUID()}`;
@@ -352,7 +352,7 @@ describe("event root rows", () => {
 	it.live("attaches latest event data to each event row via a first expression", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "EventJoinItem",
 			});
 			const watchSlug = `event-join-watch-${crypto.randomUUID()}`;

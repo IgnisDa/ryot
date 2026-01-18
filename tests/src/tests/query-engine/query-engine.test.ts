@@ -4,7 +4,7 @@ import {
 	buildRowsDoc,
 	createAuthenticatedClient,
 	createQueryEngineEntity,
-	createQueryEngineTrackerAndSchema,
+	createQueryEnginePluginSchema,
 	executeQueryEngine,
 	propertyRef,
 	requireQueryEngineFieldValue,
@@ -18,7 +18,7 @@ describe("Single-schema entity rows query", () => {
 	it.live("returns entities with system field values", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "Course",
 				propertiesSchema: {
 					fields: {
@@ -69,7 +69,7 @@ describe("Single-schema entity rows query", () => {
 	it.live("returns property field values for matching schema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "Book",
 				propertiesSchema: {
 					fields: { author: { type: "string", label: "Author", description: "Book author" } },
@@ -105,7 +105,7 @@ describe("Single-schema entity rows query", () => {
 	it.live("returns schema metadata fields", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "TaggedCourse",
 			});
 
@@ -135,7 +135,7 @@ describe("Multi-schema property query", () => {
 	it.live("returns null for property fields that do not match the row's schema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: bookSchemaId, slug: bookSlug } = yield* createQueryEngineTrackerAndSchema(
+			const { schemaId: bookSchemaId, slug: bookSlug } = yield* createQueryEnginePluginSchema(
 				client,
 				{
 					schemaName: "MultiBook",
@@ -144,7 +144,7 @@ describe("Multi-schema property query", () => {
 					},
 				},
 			);
-			const { schemaId: movieSchemaId, slug: movieSlug } = yield* createQueryEngineTrackerAndSchema(
+			const { schemaId: movieSchemaId, slug: movieSlug } = yield* createQueryEnginePluginSchema(
 				client,
 				{
 					schemaName: "MultiMovie",
@@ -204,7 +204,7 @@ describe("Pagination", () => {
 	it.live("returns correct pagination metadata for multiple pages", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "PaginatedItem",
 			});
 
@@ -238,7 +238,7 @@ describe("Pagination", () => {
 	it.live("returns hasMore=false on the last page", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "LastPageItem",
 			});
 
@@ -262,7 +262,7 @@ describe("Pagination", () => {
 	it.live("returns empty items and zero total for second page beyond results", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "SparseItem",
 			});
 

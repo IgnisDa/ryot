@@ -1,15 +1,10 @@
 import { Effect } from "effect";
 
-import {
-	compileSandboxPackageEntries,
-	type CompiledBuiltInSandboxEntry,
-} from "./compiler-builtins";
+import { compileSandboxPackageEntries } from "./compiler-builtins";
 import { sandboxCompilationFailure, sandboxCompilerDiagnostic } from "./compiler-diagnostics";
 import type { SandboxTypeScriptSources } from "./compiler-project";
 
 export type PluginSandboxScriptEntry = { readonly entry: string };
-
-export type CompiledPluginSandboxEntry = CompiledBuiltInSandboxEntry;
 
 const sortedEntries = (scripts: ReadonlyArray<PluginSandboxScriptEntry>) =>
 	scripts.map(({ entry }) => entry).sort();

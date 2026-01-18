@@ -47,7 +47,7 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 			if (!row) {
 				return null;
 			}
-			return { ...row, isBuiltin: true as const, id: SandboxScriptId.make(row.id) };
+			return { ...row, id: SandboxScriptId.make(row.id) };
 		});
 
 		const isPluginScript = Effect.fn("SandboxRepository.isPluginScript")(function* (
