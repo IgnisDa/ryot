@@ -2,9 +2,9 @@
 	"name": "@ryot/ts-utils",
 	"main": "src/index.ts",
 	"scripts": {
-		"test": "bun test",
 		"typecheck": "tsc",
-		"lint": "biome check ."
+		"lint": "biome check .",
+		"test": "bun test --only-failures"
 	},
 	"devDependencies": {
 		"@types/lodash": "4.17.24"
