@@ -2,8 +2,9 @@ import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { NotFound } from "@ryot/contract/errors";
 import { UserId } from "@ryot/contract/schema/brands";
-import { Effect, Exit, Layer } from "effect";
+import { Effect, Layer } from "effect";
 
+import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { dbRunnerLayer } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
@@ -157,6 +158,6 @@ it.effect("returns not found when updating an unknown plugin", () => {
 			service.updateWorkspaceState(user, "unknown", { isDisabled: true }),
 		);
 
-		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Plugin not found" })));
+		assertExitFails(exit, new NotFound({ message: "Plugin not found" }));
 	}).pipe(Effect.provide(layer));
 });
