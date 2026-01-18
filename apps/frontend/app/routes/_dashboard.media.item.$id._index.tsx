@@ -416,7 +416,6 @@ export default function Page() {
 						openedShowSeason={openedShowSeason}
 						metadataId={loaderData.metadataId}
 						setOpenedShowSeason={setOpenedShowSeason}
-						userMetadataDetails={userMetadataDetails.data}
 					/>
 					<MediaDetailsLayout
 						title={title}
@@ -997,8 +996,7 @@ export default function Page() {
 													history={history}
 													reviewsVirtuosoRef={reviewsVirtuosoRef}
 													podcastVirtuosoRef={podcastVirtuosoRef}
-													metadataDetails={metadataDetails.data}
-													userMetadataDetails={userMetadataDetails.data}
+													metadataId={loaderData.metadataId}
 												/>
 											)}
 										/>
@@ -1017,7 +1015,6 @@ export default function Page() {
 												seasonIdx={seasonIdx}
 												key={season.seasonNumber}
 												metadataId={loaderData.metadataId}
-												userMetadataDetails={userMetadataDetails.data}
 												openSeasonModal={() => setOpenedShowSeason(seasonIdx)}
 											/>
 										)}
@@ -1034,9 +1031,6 @@ export default function Page() {
 												key={podcastEpisode.id}
 												episode={podcastEpisode}
 												index={podcastEpisodeIdx}
-												podcastProgress={
-													userMetadataDetails.data.podcastProgress
-												}
 												metadataId={loaderData.metadataId}
 											/>
 										)}

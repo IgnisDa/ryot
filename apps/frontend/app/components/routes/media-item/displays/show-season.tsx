@@ -2,9 +2,9 @@ import { Box, Button } from "@mantine/core";
 import { EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
 import { sum } from "@ryot/ts-utils";
 import { useMemo } from "react";
-import { useMetadataDetails } from "~/lib/shared/hooks";
+import { useMetadataDetails, useUserMetadataDetails } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
-import type { Season, UserMetadataDetails } from "../types";
+import type { Season } from "../types";
 import { DisplaySeasonOrEpisodeDetails } from "./season-episode-details";
 
 const getShowSeasonDisplayName = (season: Season, title: string) =>
@@ -15,15 +15,16 @@ export const DisplayShowSeason = (props: {
 	seasonIdx: number;
 	metadataId: string;
 	openSeasonModal: () => void;
-	userMetadataDetails: UserMetadataDetails;
 }) => {
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
 	const [, , useMetadataTranslationValue] = useMetadataDetails(
 		props.metadataId,
 	);
+	const { data: userMetadataDetails } = useUserMetadataDetails(
+		props.metadataId,
+	);
 
-	const seasonProgress =
-		props.userMetadataDetails.showProgress?.[props.seasonIdx];
+	const seasonProgress = userMetadataDetails?.showProgress?.[props.seasonIdx];
 	const numTimesSeen = seasonProgress?.timesSeen || 0;
 	const isSeen = numTimesSeen > 0;
 	const showExtraInformation = useMemo(

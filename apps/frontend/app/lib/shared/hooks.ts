@@ -257,7 +257,7 @@ export const useUserMetadataDetails = (
 	return useQuery({ ...getUserMetadataDetailsQuery(metadataId), enabled });
 };
 
-export const useTranslationValue = (props: {
+const useTranslationValue = (props: {
 	enabled?: boolean;
 	entityId?: string;
 	entityLot: EntityLot;
@@ -624,8 +624,9 @@ export const useForceUpdateEverySecond = () => {
 	useInterval(forceUpdate, 1000);
 };
 
-export const useGetWatchProviders = (mediaLot: MediaLot) => {
+export const useGetWatchProviders = (mediaLot?: MediaLot) => {
 	const userPreferences = useUserPreferences();
+	if (!mediaLot) return [];
 	const watchProviders =
 		userPreferences.general.watchProviders.find((l) => l.lot === mediaLot)
 			?.values || [];

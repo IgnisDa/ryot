@@ -3,9 +3,9 @@ import { EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphq
 import { isNumber } from "@ryot/ts-utils";
 import { useMemo } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { useMetadataDetails } from "~/lib/shared/hooks";
+import { useMetadataDetails, useUserMetadataDetails } from "~/lib/shared/hooks";
 import { DisplayShowEpisode } from "../displays/show-episode";
-import type { Season, UserMetadataDetails } from "../types";
+import type { Season } from "../types";
 
 const getShowSeasonDisplayName = (season: Season, title: string) =>
 	`${season.seasonNumber}. ${title}`;
@@ -13,7 +13,6 @@ const getShowSeasonDisplayName = (season: Season, title: string) =>
 export const DisplayShowSeasonEpisodesModal = (props: {
 	metadataId: string;
 	openedShowSeason: number | undefined;
-	userMetadataDetails: UserMetadataDetails;
 	setOpenedShowSeason: (v: number | undefined) => void;
 }) => {
 	const [{ data: metadataDetails }, , useMetadataTranslationValue] =
@@ -49,7 +48,6 @@ export const DisplayShowSeasonEpisodesModal = (props: {
 				<DisplayShowSeasonEpisodes
 					metadataId={props.metadataId}
 					openedShowSeason={props.openedShowSeason}
-					userMetadataDetails={props.userMetadataDetails}
 				/>
 			) : null}
 		</Drawer>
@@ -59,13 +57,15 @@ export const DisplayShowSeasonEpisodesModal = (props: {
 const DisplayShowSeasonEpisodes = (props: {
 	openedShowSeason: number;
 	metadataId: string;
-	userMetadataDetails: UserMetadataDetails;
 }) => {
 	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
+	const { data: userMetadataDetails } = useUserMetadataDetails(
+		props.metadataId,
+	);
 	const season =
 		metadataDetails?.showSpecifics?.seasons[props.openedShowSeason];
 	const seasonProgress =
-		props.userMetadataDetails.showProgress?.[props.openedShowSeason];
+		userMetadataDetails?.showProgress?.[props.openedShowSeason];
 
 	return isNumber(props.openedShowSeason) && season ? (
 		<Stack h={{ base: "80vh", md: "90vh" }} gap="xs">

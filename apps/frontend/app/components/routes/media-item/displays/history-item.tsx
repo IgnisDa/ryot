@@ -23,26 +23,34 @@ import type { VirtuosoHandle } from "react-virtuoso";
 import { withQuery } from "ufo";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import { useConfirmSubmit, useCoreDetails } from "~/lib/shared/hooks";
+import {
+	useConfirmSubmit,
+	useCoreDetails,
+	useMetadataDetails,
+	useUserMetadataDetails,
+} from "~/lib/shared/hooks";
 import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { EditHistoryItemModal } from "../modals/edit-history-modal";
-import type { History, MetadataDetails, UserMetadataDetails } from "../types";
+import type { History } from "../types";
 
 export const HistoryItem = (props: {
 	index: number;
 	history: History;
 	setTab: (tab: string) => void;
-	metadataDetails: MetadataDetails;
-	userMetadataDetails: UserMetadataDetails;
+	metadataId: string;
 	podcastVirtuosoRef: RefObject<VirtuosoHandle | null>;
 	reviewsVirtuosoRef: RefObject<VirtuosoHandle | null>;
 }) => {
 	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
+	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
+	const { data: userMetadataDetails } = useUserMetadataDetails(
+		props.metadataId,
+	);
 	const [opened, { open, close }] = useDisclosure(false);
 	const showExtraInformation = props.history.showExtraInformation
-		? props.metadataDetails.showSpecifics?.seasons
+		? metadataDetails?.showSpecifics?.seasons
 				.find(
 					(s) => s.seasonNumber === props.history.showExtraInformation?.season,
 				)
@@ -75,7 +83,7 @@ export const HistoryItem = (props: {
 		? `S${props.history.showExtraInformation?.season}-E${props.history.showExtraInformation?.episode}: ${showExtraInformation.name}`
 		: null;
 	const podcastExtraInformation = props.history.podcastExtraInformation
-		? props.metadataDetails.podcastSpecifics?.episodes.find(
+		? metadataDetails?.podcastSpecifics?.episodes.find(
 				(e) => e.number === props.history.podcastExtraInformation?.episode,
 			)
 		: null;
@@ -85,9 +93,9 @@ export const HistoryItem = (props: {
 				scrollToVirtuosoElement(
 					props.podcastVirtuosoRef,
 					"podcastEpisodes",
-					props.metadataDetails.podcastSpecifics?.episodes.findIndex(
+					metadataDetails?.podcastSpecifics?.episodes.findIndex(
 						(e) => e.number === podcastExtraInformation.number,
-					),
+					) ?? -1,
 				)
 			}
 		>
@@ -172,7 +180,7 @@ export const HistoryItem = (props: {
 									"Are you sure you want to delete this record from history?",
 									() => {
 										submit(form);
-										refreshEntityDetails(props.metadataDetails.id);
+										refreshEntityDetails(props.metadataId);
 									},
 								);
 							}}
@@ -200,9 +208,9 @@ export const HistoryItem = (props: {
 									scrollToVirtuosoElement(
 										props.reviewsVirtuosoRef,
 										"reviews",
-										props.userMetadataDetails.reviews.findIndex(
+										userMetadataDetails?.reviews.findIndex(
 											(r) => r.id === props.history.reviewId,
-										),
+										) ?? -1,
 									);
 								}}
 							>
@@ -260,8 +268,7 @@ export const HistoryItem = (props: {
 				opened={opened}
 				onClose={close}
 				seen={props.history}
-				metadataDetails={props.metadataDetails}
-				userMetadataDetails={props.userMetadataDetails}
+				metadataId={props.metadataId}
 			/>
 		</>
 	);
