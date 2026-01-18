@@ -9,7 +9,10 @@ import {
 	Tabs,
 	Text,
 } from "@mantine/core";
-import { EntityLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	EntityLot,
+	EntityTranslationVariant,
+} from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
 import {
 	IconDeviceTv,
@@ -36,6 +39,7 @@ import {
 } from "~/components/media/menu-items";
 import {
 	useMetadataGroupDetails,
+	useTranslationValue,
 	useUserMetadataGroupDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -68,20 +72,39 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
-	const [
-		metadataGroupDetailsData,
-		isMetadataGroupPartialStatusActive,
-		metadataGroupTranslations,
-	] = useMetadataGroupDetails(loaderData.metadataGroupId);
+	const [metadataGroupDetailsData, isMetadataGroupPartialStatusActive] =
+		useMetadataGroupDetails(loaderData.metadataGroupId);
 	const userMetadataGroupDetails = useUserMetadataGroupDetails(
 		loaderData.metadataGroupId,
 	);
+
+	const metadataGroupTitleTranslation = useTranslationValue({
+		entityLot: EntityLot.MetadataGroup,
+		entityId: loaderData.metadataGroupId,
+		variant: EntityTranslationVariant.Title,
+		mediaSource: metadataGroupDetailsData.data?.details.source,
+	});
+
+	const metadataGroupDescriptionTranslation = useTranslationValue({
+		entityLot: EntityLot.MetadataGroup,
+		entityId: loaderData.metadataGroupId,
+		variant: EntityTranslationVariant.Description,
+		mediaSource: metadataGroupDetailsData.data?.details.source,
+	});
+
+	const metadataGroupImageTranslation = useTranslationValue({
+		entityLot: EntityLot.MetadataGroup,
+		entityId: loaderData.metadataGroupId,
+		variant: EntityTranslationVariant.Image,
+		mediaSource: metadataGroupDetailsData.data?.details.source,
+	});
+
 	const title =
-		metadataGroupTranslations?.title ||
+		metadataGroupTitleTranslation ||
 		metadataGroupDetailsData.data?.details.title ||
 		"";
 	const description =
-		metadataGroupTranslations?.description ||
+		metadataGroupDescriptionTranslation ||
 		metadataGroupDetailsData.data?.details.description;
 
 	return (
@@ -89,7 +112,7 @@ export default function Page() {
 			{metadataGroupDetailsData.data && userMetadataGroupDetails.data ? (
 				<MediaDetailsLayout
 					title={title}
-					extraImage={metadataGroupTranslations?.image}
+					extraImage={metadataGroupImageTranslation}
 					assets={metadataGroupDetailsData.data.details.assets}
 					isPartialStatusActive={isMetadataGroupPartialStatusActive}
 					externalLink={{
@@ -158,7 +181,7 @@ export default function Page() {
 												entityLot: EntityLot.MetadataGroup,
 												entityId: loaderData.metadataGroupId,
 												entityTitle:
-													metadataGroupTranslations?.title ||
+													metadataGroupTitleTranslation ||
 													metadataGroupDetailsData.data.details.title,
 											});
 										}}

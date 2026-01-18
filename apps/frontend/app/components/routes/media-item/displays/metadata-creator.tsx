@@ -1,23 +1,45 @@
 import { useInViewport } from "@mantine/hooks";
-import type { MetadataCreator } from "@ryot/generated/graphql/backend/graphql";
+import {
+	EntityLot,
+	EntityTranslationVariant,
+	type MetadataCreator,
+} from "@ryot/generated/graphql/backend/graphql";
 import { useMemo } from "react";
 import { $path } from "safe-routes";
 import { BaseEntityDisplay } from "~/components/media/base-display";
-import { usePersonDetails } from "~/lib/shared/hooks";
+import { usePersonDetails, useTranslationValue } from "~/lib/shared/hooks";
 
 export const MetadataCreatorDisplay = (props: { data: MetadataCreator }) => {
 	const { ref, inViewport } = useInViewport();
-	const [{ data: personDetails }, isPartialStatusActive, personTranslations] =
-		usePersonDetails(props.data.idOrName, inViewport && !props.data.isFree);
+	const [{ data: personDetails }, isPartialStatusActive] = usePersonDetails(
+		props.data.idOrName,
+		inViewport && !props.data.isFree,
+	);
+
+	const personTitleTranslation = useTranslationValue({
+		entityLot: EntityLot.Person,
+		entityId: props.data.idOrName,
+		variant: EntityTranslationVariant.Title,
+		enabled: inViewport && !props.data.isFree,
+		mediaSource: personDetails?.details.source,
+	});
+
+	const personImageTranslation = useTranslationValue({
+		entityLot: EntityLot.Person,
+		entityId: props.data.idOrName,
+		variant: EntityTranslationVariant.Image,
+		enabled: inViewport && !props.data.isFree,
+		mediaSource: personDetails?.details.source,
+	});
 
 	const title = useMemo(() => {
 		const name =
-			personTranslations?.title ||
+			personTitleTranslation ||
 			personDetails?.details.name ||
 			props.data.idOrName;
 		const character = props.data.character ? ` as ${props.data.character}` : "";
 		return `${name}${character}`;
-	}, [personDetails, props.data, personTranslations]);
+	}, [personDetails, props.data, personTitleTranslation]);
 
 	return (
 		<BaseEntityDisplay
@@ -25,7 +47,7 @@ export const MetadataCreatorDisplay = (props: { data: MetadataCreator }) => {
 			title={title}
 			isPartialStatusActive={isPartialStatusActive}
 			image={
-				personTranslations?.image ||
+				personImageTranslation ||
 				personDetails?.details.assets.remoteImages.at(0) ||
 				undefined
 			}

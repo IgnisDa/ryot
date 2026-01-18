@@ -22,6 +22,7 @@ import {
 	DeleteUserWorkoutDocument,
 	DeleteUserWorkoutTemplateDocument,
 	EntityLot,
+	EntityTranslationVariant,
 	UpdateUserWorkoutAttributesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -75,6 +76,7 @@ import {
 	useInvalidateUserDetails,
 	useMetadataDetails,
 	useS3PresignedUrls,
+	useTranslationValue,
 	useUserPreferences,
 	useUserUnitSystem,
 	useUserWorkoutDetails,
@@ -697,8 +699,27 @@ const ConsumedMetadataDisplay = (props: {
 	enabled: boolean;
 	metadataId: string;
 }) => {
-	const [{ data: metadataDetails }, _, metadataTranslations] =
-		useMetadataDetails(props.metadataId, props.enabled);
+	const [{ data: metadataDetails }] = useMetadataDetails(
+		props.metadataId,
+		props.enabled,
+	);
+
+	const metadataTitleTranslation = useTranslationValue({
+		enabled: props.enabled,
+		entityId: props.metadataId,
+		entityLot: EntityLot.Metadata,
+		mediaSource: metadataDetails?.source,
+		variant: EntityTranslationVariant.Title,
+	});
+
+	const metadataImageTranslation = useTranslationValue({
+		enabled: props.enabled,
+		entityId: props.metadataId,
+		entityLot: EntityLot.Metadata,
+		mediaSource: metadataDetails?.source,
+		variant: EntityTranslationVariant.Image,
+	});
+
 	const s3PresignedUrls = useS3PresignedUrls(metadataDetails?.assets.s3Images);
 	const images = [
 		...(metadataDetails?.assets.remoteImages || []),
@@ -707,8 +728,8 @@ const ConsumedMetadataDisplay = (props: {
 
 	return (
 		<Link to={$path("/media/item/:id", { id: props.metadataId })}>
-			<Tooltip label={metadataTranslations?.title || metadataDetails?.title}>
-				<Avatar src={metadataTranslations?.image || images.at(0)} />
+			<Tooltip label={metadataTitleTranslation || metadataDetails?.title}>
+				<Avatar src={metadataImageTranslation || images.at(0)} />
 			</Tooltip>
 		</Link>
 	);

@@ -10,12 +10,13 @@ import {
 	DeployUpdateMediaEntityJobDocument,
 	DeployUpdateMediaTranslationsJobDocument,
 	EntityLot,
-	EntityTranslationVariant,
+	type EntityTranslationVariant,
 	ExpireCacheKeyDocument,
 	GetPresignedS3UrlDocument,
 	type MediaLot,
 	MediaSource,
 	MediaTranslationDocument,
+	MediaTranslationPendingStatus,
 	type MetadataProgressUpdateInput,
 	UpdateUserDocument,
 	UserCollectionsListDocument,
@@ -254,12 +255,12 @@ export const useUserMetadataDetails = (
 	return useQuery({ ...getUserMetadataDetailsQuery(metadataId), enabled });
 };
 
-const useTranslationValue = (props: {
-	entityId?: string;
+export const useTranslationValue = (props: {
 	enabled?: boolean;
-	variant: EntityTranslationVariant;
+	entityId?: string;
 	entityLot: EntityLot;
 	mediaSource?: MediaSource;
+	variant: EntityTranslationVariant;
 }) => {
 	const translationQuery = useQuery({
 		enabled: props.enabled,
@@ -284,6 +285,9 @@ const useTranslationValue = (props: {
 
 	const result = translationQuery.data;
 	const hasTranslationValue = result?.__typename === "MediaTranslationValue";
+	const isPending = result?.__typename === "MediaTranslationPending";
+	const isNotFetched =
+		isPending && result.status === MediaTranslationPendingStatus.NotFetched;
 
 	useEntityUpdateMonitor({
 		entityId: props.entityId,
@@ -291,10 +295,10 @@ const useTranslationValue = (props: {
 		onUpdate: () => translationQuery.refetch(),
 		needsRefetch:
 			props.enabled !== false &&
-			hasTranslationValue &&
+			isPending &&
 			props.mediaSource !== MediaSource.Custom,
 		deployJob: () => {
-			if (props.entityId)
+			if (props.entityId && isNotFetched)
 				clientGqlService.request(DeployUpdateMediaTranslationsJobDocument, {
 					input: {
 						variant: props.variant,
@@ -366,39 +370,7 @@ export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 			metadataDetailsQuery.data?.source !== MediaSource.Custom,
 	});
 
-	const titleTranslation = useTranslationValue({
-		enabled,
-		entityId: metadataId,
-		entityLot: EntityLot.Metadata,
-		variant: EntityTranslationVariant.Title,
-		mediaSource: metadataDetailsQuery.data?.source,
-	});
-
-	const descriptionTranslation = useTranslationValue({
-		enabled,
-		entityId: metadataId,
-		entityLot: EntityLot.Metadata,
-		variant: EntityTranslationVariant.Description,
-		mediaSource: metadataDetailsQuery.data?.source,
-	});
-
-	const imageTranslation = useTranslationValue({
-		enabled,
-		entityId: metadataId,
-		entityLot: EntityLot.Metadata,
-		variant: EntityTranslationVariant.Image,
-		mediaSource: metadataDetailsQuery.data?.source,
-	});
-
-	return [
-		metadataDetailsQuery,
-		isPartialStatusActive,
-		{
-			title: titleTranslation,
-			description: descriptionTranslation,
-			image: imageTranslation,
-		},
-	] as const;
+	return [metadataDetailsQuery, isPartialStatusActive] as const;
 };
 
 export const usePersonDetails = (personId?: string, enabled?: boolean) => {
@@ -415,39 +387,7 @@ export const usePersonDetails = (personId?: string, enabled?: boolean) => {
 			query.data?.details.source !== MediaSource.Custom,
 	});
 
-	const titleTranslation = useTranslationValue({
-		enabled,
-		entityId: personId,
-		entityLot: EntityLot.Person,
-		variant: EntityTranslationVariant.Title,
-		mediaSource: query.data?.details.source,
-	});
-
-	const descriptionTranslation = useTranslationValue({
-		enabled,
-		entityId: personId,
-		entityLot: EntityLot.Person,
-		variant: EntityTranslationVariant.Description,
-		mediaSource: query.data?.details.source,
-	});
-
-	const imageTranslation = useTranslationValue({
-		enabled,
-		entityId: personId,
-		entityLot: EntityLot.Person,
-		variant: EntityTranslationVariant.Image,
-		mediaSource: query.data?.details.source,
-	});
-
-	return [
-		query,
-		isPartialStatusActive,
-		{
-			title: titleTranslation,
-			description: descriptionTranslation,
-			image: imageTranslation,
-		},
-	] as const;
+	return [query, isPartialStatusActive] as const;
 };
 
 export const useMetadataGroupDetails = (
@@ -473,39 +413,7 @@ export const useMetadataGroupDetails = (
 			query.data?.details.source !== MediaSource.Custom,
 	});
 
-	const titleTranslation = useTranslationValue({
-		enabled,
-		entityId: metadataGroupId,
-		entityLot: EntityLot.MetadataGroup,
-		variant: EntityTranslationVariant.Title,
-		mediaSource: query.data?.details.source,
-	});
-
-	const descriptionTranslation = useTranslationValue({
-		enabled,
-		entityId: metadataGroupId,
-		entityLot: EntityLot.MetadataGroup,
-		variant: EntityTranslationVariant.Description,
-		mediaSource: query.data?.details.source,
-	});
-
-	const imageTranslation = useTranslationValue({
-		enabled,
-		entityId: metadataGroupId,
-		entityLot: EntityLot.MetadataGroup,
-		variant: EntityTranslationVariant.Image,
-		mediaSource: query.data?.details.source,
-	});
-
-	return [
-		query,
-		isPartialStatusActive,
-		{
-			title: titleTranslation,
-			description: descriptionTranslation,
-			image: imageTranslation,
-		},
-	] as const;
+	return [query, isPartialStatusActive] as const;
 };
 
 export const useUserMetadataGroupDetails = (

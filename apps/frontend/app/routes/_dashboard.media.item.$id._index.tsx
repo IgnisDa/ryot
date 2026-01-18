@@ -20,6 +20,7 @@ import {
 	DeleteSeenItemDocument,
 	DisassociateMetadataDocument,
 	EntityLot,
+	EntityTranslationVariant,
 	MediaLot,
 	MediaSource,
 	MergeMetadataDocument,
@@ -100,6 +101,7 @@ import {
 	useDeployBulkMetadataProgressUpdateMutation,
 	useMetadataDetails,
 	useMetadataGroupDetails,
+	useTranslationValue,
 	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -230,8 +232,9 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
 
-	const [metadataDetails, isMetadataPartialStatusActive, metadataTranslations] =
-		useMetadataDetails(loaderData.metadataId);
+	const [metadataDetails, isMetadataPartialStatusActive] = useMetadataDetails(
+		loaderData.metadataId,
+	);
 	const userMetadataDetails = useUserMetadataDetails(loaderData.metadataId);
 	const averageRatingValue = convertRatingToUserScale(
 		userMetadataDetails.data?.averageRating,
@@ -278,20 +281,48 @@ export default function Page() {
 		[changeProgress],
 	);
 
-	const title =
-		metadataTranslations?.title || metadataDetails.data?.title || "";
+	const metadataTitleTranslation = useTranslationValue({
+		entityLot: EntityLot.Metadata,
+		entityId: loaderData.metadataId,
+		variant: EntityTranslationVariant.Title,
+		mediaSource: metadataDetails.data?.source,
+	});
+
+	const metadataDescriptionTranslation = useTranslationValue({
+		entityLot: EntityLot.Metadata,
+		entityId: loaderData.metadataId,
+		mediaSource: metadataDetails.data?.source,
+		variant: EntityTranslationVariant.Description,
+	});
+
+	const metadataImageTranslation = useTranslationValue({
+		entityLot: EntityLot.Metadata,
+		entityId: loaderData.metadataId,
+		variant: EntityTranslationVariant.Image,
+		mediaSource: metadataDetails.data?.source,
+	});
+
+	const title = metadataTitleTranslation || metadataDetails.data?.title || "";
 	const description =
-		metadataTranslations?.description || metadataDetails.data?.description;
+		metadataDescriptionTranslation || metadataDetails.data?.description;
 	const nextEntry = userMetadataDetails.data?.nextEntry;
 	const inProgress = userMetadataDetails.data?.inProgress;
 	const firstGroupAssociated = metadataDetails.data?.groups.at(0);
 	const videos = [...(metadataDetails.data?.assets.remoteVideos || [])];
-	const [{ data: metadataGroupDetails }, _, metadataGroupTranslations] =
-		useMetadataGroupDetails(
-			firstGroupAssociated?.id,
+	const [{ data: metadataGroupDetails }] = useMetadataGroupDetails(
+		firstGroupAssociated?.id,
+		userPreferences.featuresEnabled.media.groups && !!firstGroupAssociated?.id,
+	);
+
+	const metadataGroupTitleTranslation = useTranslationValue({
+		entityId: firstGroupAssociated?.id,
+		entityLot: EntityLot.MetadataGroup,
+		variant: EntityTranslationVariant.Title,
+		mediaSource: metadataGroupDetails?.details.source,
+		enabled:
 			userPreferences.featuresEnabled.media.groups &&
-				!!firstGroupAssociated?.id,
-		);
+			!!firstGroupAssociated?.id,
+	});
 	const additionalMetadataDetails = [
 		userPreferences.featuresEnabled.media.groups && firstGroupAssociated && (
 			<Link
@@ -302,7 +333,7 @@ export default function Page() {
 				})}
 			>
 				<Text c="dimmed" fs="italic" span>
-					{metadataGroupTranslations?.title ||
+					{metadataGroupTitleTranslation ||
 						metadataGroupDetails?.details.title ||
 						"Group"}{" "}
 					{isNumber(firstGroupAssociated.part)
@@ -402,7 +433,7 @@ export default function Page() {
 					<MediaDetailsLayout
 						title={title}
 						assets={metadataDetails.data.assets}
-						extraImage={metadataTranslations?.image}
+						extraImage={metadataImageTranslation}
 						isPartialStatusActive={isMetadataPartialStatusActive}
 						externalLink={{
 							lot: metadataDetails.data.lot,
@@ -851,7 +882,7 @@ export default function Page() {
 														entityId: loaderData.metadataId,
 														metadataLot: metadataDetails.data.lot,
 														entityTitle:
-															metadataTranslations?.title ||
+															metadataTitleTranslation ||
 															metadataDetails.data.title,
 														existingReview: {
 															showExtraInformation: {

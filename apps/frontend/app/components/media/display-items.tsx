@@ -1,6 +1,7 @@
 import { useInViewport } from "@mantine/hooks";
 import {
 	EntityLot,
+	EntityTranslationVariant,
 	MediaLot,
 	SeenState,
 	UserToMediaReason,
@@ -13,6 +14,7 @@ import {
 	useMetadataGroupDetails,
 	usePersonDetails,
 	useS3PresignedUrls,
+	useTranslationValue,
 	useUserEntityRecentlyConsumed,
 	useUserMetadataDetails,
 	useUserMetadataGroupDetails,
@@ -34,7 +36,6 @@ export const MetadataDisplayItem = (props: {
 	const [
 		{ data: metadataDetails, isLoading: isMetadataDetailsLoading },
 		isMetadataPartialStatusActive,
-		metadataTranslations,
 	] = useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
@@ -45,6 +46,22 @@ export const MetadataDisplayItem = (props: {
 		EntityLot.Metadata,
 		inViewport,
 	);
+
+	const metadataTitleTranslation = useTranslationValue({
+		enabled: inViewport,
+		entityId: props.metadataId,
+		entityLot: EntityLot.Metadata,
+		mediaSource: metadataDetails?.source,
+		variant: EntityTranslationVariant.Title,
+	});
+
+	const metadataImageTranslation = useTranslationValue({
+		enabled: inViewport,
+		entityId: props.metadataId,
+		entityLot: EntityLot.Metadata,
+		mediaSource: metadataDetails?.source,
+		variant: EntityTranslationVariant.Image,
+	});
 
 	const averageRating = userMetadataDetails?.averageRating;
 	const completedHistory = (userMetadataDetails?.history || []).filter(
@@ -100,8 +117,8 @@ export const MetadataDisplayItem = (props: {
 			isDetailsLoading={isMetadataDetailsLoading}
 			wasRecentlyConsumed={isMetadataRecentlyConsumed}
 			isPartialStatusActive={isMetadataPartialStatusActive}
-			image={metadataTranslations?.image || images.at(0)}
-			title={metadataTranslations?.title || metadataDetails?.title}
+			image={metadataImageTranslation || images.at(0)}
+			title={metadataTitleTranslation || metadataDetails?.title}
 			interactionButtons={["collection", "consume", "review", "watchlist"]}
 			hasInteracted={
 				props.shouldHighlightNameIfInteracted &&
@@ -133,7 +150,6 @@ export const MetadataGroupDisplayItem = (props: {
 	const [
 		{ data: metadataGroupDetails, isLoading: isMetadataGroupDetailsLoading },
 		isMetadataGroupPartialStatusActive,
-		metadataGroupTranslations,
 	] = useMetadataGroupDetails(props.metadataGroupId, inViewport);
 	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
 		props.metadataGroupId,
@@ -145,6 +161,22 @@ export const MetadataGroupDisplayItem = (props: {
 			EntityLot.MetadataGroup,
 			inViewport,
 		);
+
+	const metadataGroupTitleTranslation = useTranslationValue({
+		enabled: inViewport,
+		entityId: props.metadataGroupId,
+		entityLot: EntityLot.MetadataGroup,
+		variant: EntityTranslationVariant.Title,
+		mediaSource: metadataGroupDetails?.details.source,
+	});
+
+	const metadataGroupImageTranslation = useTranslationValue({
+		enabled: inViewport,
+		entityId: props.metadataGroupId,
+		entityLot: EntityLot.MetadataGroup,
+		variant: EntityTranslationVariant.Image,
+		mediaSource: metadataGroupDetails?.details.source,
+	});
 
 	const averageRating = userMetadataGroupDetails?.averageRating;
 
@@ -180,9 +212,9 @@ export const MetadataGroupDisplayItem = (props: {
 			wasRecentlyConsumed={isMetadataGroupRecentlyConsumed}
 			interactionButtons={["collection", "review", "watchlist"]}
 			isPartialStatusActive={isMetadataGroupPartialStatusActive}
-			image={metadataGroupTranslations?.image || images.at(0)}
+			image={metadataGroupImageTranslation || images.at(0)}
 			title={
-				metadataGroupTranslations?.title || metadataGroupDetails?.details.title
+				metadataGroupTitleTranslation || metadataGroupDetails?.details.title
 			}
 			onImageClickBehavior={[
 				$path("/media/groups/item/:id", { id: props.metadataGroupId }),
@@ -204,7 +236,6 @@ export const PersonDisplayItem = (props: {
 	const [
 		{ data: personDetails, isLoading: isPersonDetailsLoading },
 		isPersonPartialStatusActive,
-		personTranslations,
 	] = usePersonDetails(props.personId, inViewport);
 	const { data: userPersonDetails } = useUserPersonDetails(
 		props.personId,
@@ -215,6 +246,22 @@ export const PersonDisplayItem = (props: {
 		EntityLot.Person,
 		inViewport,
 	);
+
+	const personTitleTranslation = useTranslationValue({
+		enabled: inViewport,
+		entityId: props.personId,
+		entityLot: EntityLot.Person,
+		variant: EntityTranslationVariant.Title,
+		mediaSource: personDetails?.details.source,
+	});
+
+	const personImageTranslation = useTranslationValue({
+		enabled: inViewport,
+		entityId: props.personId,
+		entityLot: EntityLot.Person,
+		variant: EntityTranslationVariant.Image,
+		mediaSource: personDetails?.details.source,
+	});
 
 	const averageRating = userPersonDetails?.averageRating;
 
@@ -247,8 +294,8 @@ export const PersonDisplayItem = (props: {
 			wasRecentlyConsumed={isPersonRecentlyConsumed}
 			isPartialStatusActive={isPersonPartialStatusActive}
 			additionalInformation={defaultAdditionalInformation}
-			image={personTranslations?.image || images.at(0)}
-			title={personTranslations?.title || personDetails?.details.name}
+			image={personImageTranslation || images.at(0)}
+			title={personTitleTranslation || personDetails?.details.name}
 			onImageClickBehavior={[
 				$path("/media/people/item/:id", { id: props.personId }),
 			]}

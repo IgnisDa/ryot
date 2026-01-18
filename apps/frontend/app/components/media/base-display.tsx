@@ -1,5 +1,9 @@
 import { Anchor, Avatar, Box, ScrollArea, Text } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
+import {
+	EntityLot,
+	EntityTranslationVariant,
+} from "@ryot/generated/graphql/backend/graphql";
 import type { ReactNode, Ref } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
@@ -7,6 +11,7 @@ import { MEDIA_DETAILS_HEIGHT } from "~/lib/shared/constants";
 import {
 	useMetadataDetails,
 	useS3PresignedUrls,
+	useTranslationValue,
 	useUserMetadataDetails,
 } from "~/lib/shared/hooks";
 import classes from "~/styles/common.module.css";
@@ -62,15 +67,30 @@ export const PartialMetadataDisplay = (props: {
 	extraText?: string;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const [
-		{ data: metadataDetails },
-		isPartialStatusActive,
-		metadataTranslations,
-	] = useMetadataDetails(props.metadataId, inViewport);
+	const [{ data: metadataDetails }, isPartialStatusActive] = useMetadataDetails(
+		props.metadataId,
+		inViewport,
+	);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 		inViewport,
 	);
+
+	const metadataTitleTranslation = useTranslationValue({
+		enabled: inViewport,
+		entityId: props.metadataId,
+		entityLot: EntityLot.Metadata,
+		mediaSource: metadataDetails?.source,
+		variant: EntityTranslationVariant.Title,
+	});
+
+	const metadataImageTranslation = useTranslationValue({
+		enabled: inViewport,
+		entityId: props.metadataId,
+		entityLot: EntityLot.Metadata,
+		mediaSource: metadataDetails?.source,
+		variant: EntityTranslationVariant.Image,
+	});
 
 	const s3PresignedUrls = useS3PresignedUrls(metadataDetails?.assets.s3Images);
 	const images = [
@@ -84,9 +104,9 @@ export const PartialMetadataDisplay = (props: {
 			extraText={props.extraText}
 			isPartialStatusActive={isPartialStatusActive}
 			hasInteracted={userMetadataDetails?.hasInteracted}
-			image={metadataTranslations?.image || images.at(0)}
+			image={metadataImageTranslation || images.at(0)}
 			link={$path("/media/item/:id", { id: props.metadataId })}
-			title={metadataTranslations?.title || metadataDetails?.title || undefined}
+			title={metadataTitleTranslation || metadataDetails?.title || undefined}
 		/>
 	);
 };
