@@ -22,7 +22,8 @@ reason). The gate failing must name the offending file/line.
   per single-use process (`runner-source.sandbox.ts`). Materialize compiled modules into the
   sandbox runtime directory keyed by content hash (already covered by the existing
   `--allow-read=<runtime-dir>` grant) and import by path — after Phase 2 §8 every executable
-  module is plugin-owned and content-addressed, so no fallback path is needed. Measure
+  module is definition-source-owned and content-addressed, so no legacy per-user fallback path is
+  needed. Measure
   before/after on a provider-heavy e2e run.
 - **In-flight host-call cap** per execution (the bridge has total-count budgets but no
   concurrency cap): a simple kernel-side semaphore per `executionId` in
