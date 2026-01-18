@@ -171,7 +171,7 @@ mutation DeployImportJob($input: DeployImportJobInput!) {
 	deployImportJob(input: $input)
 }
 
-mutation DeployUpdateMediaTranslationsJob($input: EntityWithLotInput!) {
+mutation DeployUpdateMediaTranslationsJob($input: MediaTranslationInput!) {
 	deployUpdateMediaTranslationsJob(input: $input)
 }
 
