@@ -245,9 +245,7 @@ describe("Delete user automation data cleanup", () => {
 					entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
 					providerId: movieProvider.providerId,
 				});
-				const imported = yield* pollEntityImportResult(importer.client, jobId, {
-					timeoutMs: 30_000,
-				});
+				const imported = yield* pollEntityImportResult(importer.client, jobId);
 				assertCompleted(imported, "delete-user shared association import");
 
 				const { id: signalId } = yield* pollSignalWithRecipientCount(

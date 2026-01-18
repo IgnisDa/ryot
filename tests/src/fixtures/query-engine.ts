@@ -85,7 +85,6 @@ export const createQueryEngineEvent = (
 				const count = yield* countMatchingEvents;
 				return count > previousCount ? count : null;
 			}),
-			{ timeoutMs: 15000, intervalMs: 250 },
 		);
 
 		return result;

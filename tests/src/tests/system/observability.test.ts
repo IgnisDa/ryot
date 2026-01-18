@@ -144,12 +144,10 @@ describe("Backend observability", () => {
 			const { resource, span } = yield* pollUntil(
 				"notification delivery workflow OTLP span",
 				Effect.sync(() => findWorkflowSpan(userId)),
-				{ timeoutMs: 20_000 },
 			);
 			const { span: requestSpan } = yield* pollUntil(
 				"notification test request OTLP span",
 				Effect.sync(() => findRequestSpan()),
-				{ timeoutMs: 20_000 },
 			);
 			expect(getStringAttribute(resource["attributes"], "service.name")).toBe("ryot-backend");
 
@@ -183,7 +181,6 @@ describe("Backend observability", () => {
 							) ?? null
 					);
 				}),
-				{ timeoutMs: 20_000 },
 			);
 			expect(logLine).toContain('message="span completed"');
 			expect(logLine).toContain(`spanName=${WORKFLOW_NAME}`);
@@ -205,7 +202,6 @@ describe("Backend observability", () => {
 							) ?? null
 					);
 				}),
-				{ timeoutMs: 20_000 },
 			);
 			expect(requestLogLine).toContain("http.url=/notifications/channels/test");
 		}),

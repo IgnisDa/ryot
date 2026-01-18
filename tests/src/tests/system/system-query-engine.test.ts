@@ -899,7 +899,6 @@ describe("system-authority query engine", () => {
 						});
 						return rows.length === cases.length + 1 ? rows : null;
 					}),
-					{ timeoutMs: 120_000 },
 				);
 			}),
 		);
