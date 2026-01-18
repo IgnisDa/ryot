@@ -698,7 +698,7 @@ const ConsumedMetadataDisplay = (props: {
 	enabled: boolean;
 	metadataId: string;
 }) => {
-	const [{ data: metadataDetails }, , useMetadataTranslationValue] =
+	const [{ data: metadataDetails }, useMetadataTranslationValue] =
 		useMetadataDetails(props.metadataId, props.enabled);
 
 	const metadataTitleTranslation = useMetadataTranslationValue({

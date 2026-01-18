@@ -17,9 +17,7 @@ export const DisplayShowSeason = (props: {
 	openSeasonModal: () => void;
 }) => {
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
-	const [, , useMetadataTranslationValue] = useMetadataDetails(
-		props.metadataId,
-	);
+	const [, useMetadataTranslationValue] = useMetadataDetails(props.metadataId);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 	);

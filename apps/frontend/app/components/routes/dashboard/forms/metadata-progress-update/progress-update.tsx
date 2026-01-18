@@ -12,7 +12,7 @@ export const MetadataProgressUpdateForm = ({
 }) => {
 	const { metadataToUpdate } = useMetadataProgressUpdate();
 
-	const [{ data: metadataDetails }, , useMetadataTranslationValue] =
+	const [{ data: metadataDetails }, useMetadataTranslationValue] =
 		useMetadataDetails(metadataToUpdate?.metadataId);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		metadataToUpdate?.metadataId,

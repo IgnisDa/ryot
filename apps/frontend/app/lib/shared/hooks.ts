@@ -146,7 +146,6 @@ const useEntityUpdateMonitor = (props: {
 
 	const attemptCountRef = useRef(0);
 	const isPollingRef = useRef(false);
-	const [isPartialStatusActive, setIsPartialStatusActive] = useState(false);
 	const jobDeployedForEntityRef = useRef<string | null>(null);
 	const pollingEntityIdRef = useRef<string | null>(null);
 	const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -161,7 +160,6 @@ const useEntityUpdateMonitor = (props: {
 				refreshEntityDetails(pollingEntityIdRef.current);
 			onUpdate();
 			isPollingRef.current = false;
-			setIsPartialStatusActive(false);
 			return;
 		}
 
@@ -185,7 +183,6 @@ const useEntityUpdateMonitor = (props: {
 		attemptCountRef.current = 0;
 		isPollingRef.current = false;
 		pollingEntityIdRef.current = null;
-		setIsPartialStatusActive(false);
 
 		if (wasPolling && polledEntityId) {
 			refreshEntityDetails(polledEntityId);
@@ -232,7 +229,6 @@ const useEntityUpdateMonitor = (props: {
 			attemptCountRef.current = 0;
 			isPollingRef.current = true;
 			pollingEntityIdRef.current = entityId ?? null;
-			setIsPartialStatusActive(true);
 			scheduleNextPoll();
 		}
 
@@ -246,8 +242,6 @@ const useEntityUpdateMonitor = (props: {
 		scheduleNextPoll,
 		resetPollingState,
 	]);
-
-	return { isPartialStatusActive };
 };
 
 export const useUserMetadataDetails = (
@@ -369,7 +363,7 @@ export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 		enabled,
 	});
 
-	const { isPartialStatusActive } = useEntityUpdateMonitor({
+	useEntityUpdateMonitor({
 		entityId: metadataId,
 		entityLot: EntityLot.Metadata,
 		onUpdate: () => metadataDetailsQuery.refetch(),
@@ -396,17 +390,13 @@ export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 			podcastExtraInformation: props.podcastExtraInformation,
 		});
 
-	return [
-		metadataDetailsQuery,
-		isPartialStatusActive,
-		useMetadataTranslationValue,
-	] as const;
+	return [metadataDetailsQuery, useMetadataTranslationValue] as const;
 };
 
 export const usePersonDetails = (personId?: string, enabled?: boolean) => {
 	const query = useQuery({ ...getPersonDetailsQuery(personId), enabled });
 
-	const { isPartialStatusActive } = useEntityUpdateMonitor({
+	useEntityUpdateMonitor({
 		entityId: personId,
 		entityLot: EntityLot.Person,
 		onUpdate: () => query.refetch(),
@@ -433,7 +423,7 @@ export const usePersonDetails = (personId?: string, enabled?: boolean) => {
 			podcastExtraInformation: props.podcastExtraInformation,
 		});
 
-	return [query, isPartialStatusActive, usePersonTranslationValue] as const;
+	return [query, usePersonTranslationValue] as const;
 };
 
 export const useMetadataGroupDetails = (
@@ -445,7 +435,7 @@ export const useMetadataGroupDetails = (
 		enabled,
 	});
 
-	const { isPartialStatusActive } = useEntityUpdateMonitor({
+	useEntityUpdateMonitor({
 		entityId: metadataGroupId,
 		onUpdate: () => query.refetch(),
 		entityLot: EntityLot.MetadataGroup,
@@ -475,11 +465,7 @@ export const useMetadataGroupDetails = (
 			podcastExtraInformation: props.podcastExtraInformation,
 		});
 
-	return [
-		query,
-		isPartialStatusActive,
-		useMetadataGroupTranslationValue,
-	] as const;
+	return [query, useMetadataGroupTranslationValue] as const;
 };
 
 export const useUserMetadataGroupDetails = (

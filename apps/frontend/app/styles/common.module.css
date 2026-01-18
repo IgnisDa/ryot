@@ -12,10 +12,6 @@
   }
 }
 
-.fadeInOut {
-  animation: fadeInOut 1.5s ease-in-out infinite;
-}
-
 @keyframes fadeInOut {
   0% {
     opacity: 1;

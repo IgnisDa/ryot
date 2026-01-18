@@ -10,7 +10,6 @@ import {
 	useS3PresignedUrls,
 	useUserMetadataDetails,
 } from "~/lib/shared/hooks";
-import classes from "~/styles/common.module.css";
 
 const WrapperComponent = (props: { link?: string; children: ReactNode }) =>
 	props.link ? (
@@ -28,46 +27,39 @@ export const BaseEntityDisplay = (props: {
 	extraText?: string;
 	hasInteracted?: boolean;
 	ref?: Ref<HTMLDivElement>;
-	isPartialStatusActive?: boolean;
-}) => {
-	return (
-		<WrapperComponent link={props.link}>
-			<Avatar
-				w={85}
-				h={100}
-				mx="auto"
-				radius="sm"
-				ref={props.ref}
-				src={props.image}
-				name={props.title}
-				imageProps={{ loading: "lazy" }}
-				styles={{ image: { objectPosition: "top" } }}
-			/>
-			<Text
-				mt={4}
-				size="xs"
-				ta="center"
-				lineClamp={1}
-				ref={props.ref}
-				c={props.hasInteracted ? "yellow" : "dimmed"}
-				className={props.isPartialStatusActive ? classes.fadeInOut : undefined}
-			>
-				{props.title} {props.extraText}
-			</Text>
-		</WrapperComponent>
-	);
-};
+}) => (
+	<WrapperComponent link={props.link}>
+		<Avatar
+			w={85}
+			h={100}
+			mx="auto"
+			radius="sm"
+			ref={props.ref}
+			src={props.image}
+			name={props.title}
+			imageProps={{ loading: "lazy" }}
+			styles={{ image: { objectPosition: "top" } }}
+		/>
+		<Text
+			mt={4}
+			size="xs"
+			ta="center"
+			lineClamp={1}
+			ref={props.ref}
+			c={props.hasInteracted ? "yellow" : "dimmed"}
+		>
+			{props.title} {props.extraText}
+		</Text>
+	</WrapperComponent>
+);
 
 export const PartialMetadataDisplay = (props: {
 	metadataId: string;
 	extraText?: string;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const [
-		{ data: metadataDetails },
-		isPartialStatusActive,
-		useMetadataTranslationValue,
-	] = useMetadataDetails(props.metadataId, inViewport);
+	const [{ data: metadataDetails }, useMetadataTranslationValue] =
+		useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 		inViewport,
@@ -93,7 +85,6 @@ export const PartialMetadataDisplay = (props: {
 		<BaseEntityDisplay
 			ref={ref}
 			extraText={props.extraText}
-			isPartialStatusActive={isPartialStatusActive}
 			hasInteracted={userMetadataDetails?.hasInteracted}
 			image={metadataImageTranslation || images.at(0)}
 			link={$path("/media/item/:id", { id: props.metadataId })}

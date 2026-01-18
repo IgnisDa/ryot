@@ -231,11 +231,9 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
 
-	const [
-		metadataDetails,
-		isMetadataPartialStatusActive,
-		useMetadataTranslationValue,
-	] = useMetadataDetails(loaderData.metadataId);
+	const [metadataDetails, useMetadataTranslationValue] = useMetadataDetails(
+		loaderData.metadataId,
+	);
 	const userMetadataDetails = useUserMetadataDetails(loaderData.metadataId);
 	const averageRatingValue = convertRatingToUserScale(
 		userMetadataDetails.data?.averageRating,
@@ -301,7 +299,7 @@ export default function Page() {
 	const inProgress = userMetadataDetails.data?.inProgress;
 	const firstGroupAssociated = metadataDetails.data?.groups.at(0);
 	const videos = [...(metadataDetails.data?.assets.remoteVideos || [])];
-	const [{ data: metadataGroupDetails }, , useMetadataGroupTranslationValue] =
+	const [{ data: metadataGroupDetails }, useMetadataGroupTranslationValue] =
 		useMetadataGroupDetails(
 			firstGroupAssociated?.id,
 			userPreferences.featuresEnabled.media.groups &&
@@ -421,7 +419,6 @@ export default function Page() {
 						title={title}
 						assets={metadataDetails.data.assets}
 						extraImage={metadataImageTranslation}
-						isPartialStatusActive={isMetadataPartialStatusActive}
 						externalLink={{
 							lot: metadataDetails.data.lot,
 							source: metadataDetails.data.source,

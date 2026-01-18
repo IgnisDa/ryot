@@ -14,9 +14,7 @@ export const DisplayPodcastEpisode = (props: {
 	episode: PodcastEpisode;
 }) => {
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
-	const [, , useMetadataTranslationValue] = useMetadataDetails(
-		props.metadataId,
-	);
+	const [, useMetadataTranslationValue] = useMetadataDetails(props.metadataId);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 	);
