@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 
 import { base32 } from "rfc4648";
 
-import { requireNonEmptyArray, requirePresent, requireString } from "../test-support/assertions";
+import { requireNonEmptyArray, requirePresent, requireString } from "~/support/assertions";
 
 type TwoFactorSetupResult = {
 	cookies: string;
