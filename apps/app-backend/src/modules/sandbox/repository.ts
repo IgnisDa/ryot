@@ -1,4 +1,4 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { sandboxScript } from "~/lib/db/schema/tables";
 
@@ -33,4 +33,20 @@ export const getSandboxScriptForUser = async (input: {
 		.limit(1);
 
 	return foundSandboxScript;
+};
+
+export const getBuiltinSandboxScriptBySlug = async (slug: string) => {
+	const [foundScript] = await db
+		.select({ id: sandboxScript.id, code: sandboxScript.code })
+		.from(sandboxScript)
+		.where(
+			and(
+				eq(sandboxScript.slug, slug),
+				isNull(sandboxScript.userId),
+				eq(sandboxScript.isBuiltin, true),
+			),
+		)
+		.limit(1);
+
+	return foundScript;
 };
