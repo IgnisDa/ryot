@@ -225,9 +225,7 @@ it.effect("targets exactly one script cron", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* PluginCronService;
-		expect(
-			yield* service.trigger(PluginSlug.make("second"), "second-cron", "parent-id"),
-		).toEqual({
+		expect(yield* service.trigger(PluginSlug.make("second"), "second-cron", "parent-id")).toEqual({
 			lot: "script",
 			status: "executed",
 			pluginSlug: "second",
