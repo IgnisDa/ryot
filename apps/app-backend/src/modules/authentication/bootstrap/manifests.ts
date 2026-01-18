@@ -94,6 +94,14 @@ const mediaLifecycleEventSchemas = () => [
 
 export const authenticationBuiltinEntitySchemas = () => [
 	{
+		slug: "library",
+		name: "Library",
+		icon: "library",
+		eventSchemas: [],
+		accentColor: "#6B7280",
+		propertiesSchema: { fields: {} },
+	},
+	{
 		icon: "user",
 		slug: "person",
 		name: "Person",

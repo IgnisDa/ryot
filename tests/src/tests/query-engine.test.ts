@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { Client as PgClient } from "pg";
 import {
 	buildComputedField,
 	buildGridDisplayConfiguration,
@@ -17,13 +18,162 @@ import {
 	entityColumnExpression,
 	entityField,
 	executeQueryEngine,
+	findBuiltinSchemaWithProviders,
 	getQueryEngineFieldOrThrow,
 	literalExpression,
 	schemaPropertyExpression,
+	seedMediaEntity,
 } from "../fixtures";
+import { getTestDatabaseUrl } from "../setup";
 import { registerQueryEnginePresentationAndErrorTests } from "../test-support/query-engine-suite";
 
+async function insertLibraryMembership(input: {
+	userId: string;
+	mediaEntityId: string;
+}) {
+	const pg = new PgClient({ connectionString: getTestDatabaseUrl() });
+	await pg.connect();
+
+	try {
+		const libraryResult = await pg.query<{ id: string }>(
+			`select e.id
+			 from entity e
+			 inner join entity_schema es on es.id = e.entity_schema_id
+			 where e.user_id = $1
+			   and es.slug = 'library'
+			   and es.user_id is null
+			 limit 1`,
+			[input.userId],
+		);
+		const libraryEntityId = libraryResult.rows[0]?.id;
+		if (!libraryEntityId) {
+			throw new Error(`Missing library entity for user '${input.userId}'`);
+		}
+
+		await pg.query(
+			`insert into relationship (
+				id,
+				user_id,
+				rel_type,
+				properties,
+				source_entity_id,
+				target_entity_id
+			) values ($1, $2, 'in_library', $3::jsonb, $4, $5)
+			on conflict (user_id, source_entity_id, target_entity_id, rel_type) do nothing`,
+			[
+				crypto.randomUUID(),
+				input.userId,
+				JSON.stringify({}),
+				input.mediaEntityId,
+				libraryEntityId,
+			],
+		);
+	} finally {
+		await pg.end();
+	}
+}
+
 describe("Query engine E2E", () => {
+	it("includes a global media entity when the user has it in their library", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const provider = schema.providers[0];
+		if (!provider) {
+			throw new Error("No provider found");
+		}
+
+		const entity = await seedMediaEntity({
+			image: null,
+			userId: null,
+			properties: {},
+			entitySchemaId: schema.id,
+			sandboxScriptId: provider.scriptId,
+			name: `Library Query Entity ${crypto.randomUUID()}`,
+			externalId: `library-query-entity-${crypto.randomUUID()}`,
+		});
+		await insertLibraryMembership({ mediaEntityId: entity.id, userId });
+
+		const { data, response } = await executeQueryEngine(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [schema.slug],
+				displayConfiguration: buildGridDisplayConfiguration(
+					{ badgeProperty: null, subtitleProperty: null },
+					[schema.slug],
+				),
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					right: literalExpression(entity.name),
+					left: entityColumnExpression(schema.slug, "name"),
+				},
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items.map((item) => item.name)).toEqual([entity.name]);
+	});
+
+	it("isolates global media entities by library membership per user", async () => {
+		const userA = await createAuthenticatedClient();
+		const userB = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(
+			userA.client,
+			userA.cookies,
+		);
+		const provider = schema.providers[0];
+		if (!provider) {
+			throw new Error("No provider found");
+		}
+
+		const entity = await seedMediaEntity({
+			image: null,
+			userId: null,
+			properties: {},
+			entitySchemaId: schema.id,
+			sandboxScriptId: provider.scriptId,
+			name: `Isolated Library Entity ${crypto.randomUUID()}`,
+			externalId: `isolated-library-entity-${crypto.randomUUID()}`,
+		});
+		await insertLibraryMembership({
+			userId: userA.userId,
+			mediaEntityId: entity.id,
+		});
+
+		const request = buildGridRequest({
+			entitySchemaSlugs: [schema.slug],
+			displayConfiguration: buildGridDisplayConfiguration(
+				{ badgeProperty: null, subtitleProperty: null },
+				[schema.slug],
+			),
+			filter: {
+				operator: "eq",
+				type: "comparison",
+				right: literalExpression(entity.name),
+				left: entityColumnExpression(schema.slug, "name"),
+			},
+		});
+
+		const userAResult = await executeQueryEngine(
+			userA.client,
+			userA.cookies,
+			request,
+		);
+		const userBResult = await executeQueryEngine(
+			userB.client,
+			userB.cookies,
+			request,
+		);
+
+		expect(userAResult.response.status).toBe(200);
+		expect(userAResult.data?.data.items.map((item) => item.name)).toEqual([
+			entity.name,
+		]);
+		expect(userBResult.response.status).toBe(200);
+		expect(userBResult.data?.data.items).toEqual([]);
+	});
+
 	it("executes a simple single-schema query with the full response shape", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaQueryEngineFixture();

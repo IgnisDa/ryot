@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## Backwards compatibility
 
@@ -13,6 +13,7 @@ Backwards compatibility with existing user-scoped media entity rows is not requi
 ## What to build
 
 Update the query engine so that saved views and tracker pages show only entities in the requesting user's library — not every global entity ever imported by any user.
+Backwards compatibility with existing user-scoped media entity rows is not required.
 
 **`query-engine/query-builder.ts`** — Replace the single `WHERE entity.userId = :userId` predicate in `buildBaseEntitiesCte` with a UNION of two branches:
 
@@ -35,13 +36,20 @@ The existing query engine e2e suite in `tests/src/test-support/query-engine-suit
 
 ## Acceptance criteria
 
-- [ ] A user's query engine results include global media entities they have `in_library`.
-- [ ] A user's query engine results do NOT include global media entities imported by other users.
-- [ ] A user's query engine results continue to include their user-owned entities (collections, custom schema entities).
-- [ ] A user with no library items sees no global entities in their results (empty UNION branch, no error).
-- [ ] All existing query engine e2e tests continue to pass.
-- [ ] E2E isolation test: user A sees their imported entity, user B does not.
-- [ ] `bun run typecheck`, `bun run test`, and `bun run lint` pass in both `apps/app-backend` and `tests`.
+- [x] A user's query engine results include global media entities they have `in_library`.
+- [x] A user's query engine results do NOT include global media entities imported by other users.
+- [x] A user's query engine results continue to include their user-owned entities (collections, custom schema entities).
+- [x] A user with no library items sees no global entities in their results (empty UNION branch, no error).
+- [x] All existing query engine e2e tests continue to pass.
+- [x] E2E isolation test: user A sees their imported entity, user B does not.
+- [x] `bun run typecheck`, `bun run test`, and `bun run lint` pass in both `apps/app-backend` and `tests`.
+
+## Notes
+
+- `executePreparedQuery` now resolves `getUserLibraryEntityId` up front and passes it into `buildBaseEntitiesCte`, so a missing library entity yields an empty global branch rather than an error.
+- `buildBaseEntitiesCte` now unions user-owned entities with global entities joined through `relationship` rows constrained by `userId`, `relType = 'in_library'`, and the user's library entity id.
+- Query-engine visibility remains unchanged for user-owned entities because the original `entity.userId = :userId` branch is preserved as-is.
+- The new end-to-end coverage seeds a global built-in media entity directly, inserts `in_library` membership for one user, and verifies both positive visibility and cross-user isolation through the public query-engine endpoint.
 
 ## Blocked by
 

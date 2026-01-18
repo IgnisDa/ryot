@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## Backwards compatibility
 
@@ -13,6 +13,7 @@ Backwards compatibility with existing user-scoped media entity rows is not requi
 ## What to build
 
 Introduce the `library` builtin entity schema and ensure every new user gets exactly one library entity at signup.
+Backwards compatibility with existing user-scoped media entity rows is not required.
 
 **Bootstrap manifests** — Add a `library` entry to the builtin entity schema seed data with `slug = 'library'`, `isBuiltin = true`, an empty `propertiesSchema`, and no tracker link. The schema must not appear in `authenticationBuiltinEntitySchemas()` tracker links so it is invisible in all entity listings and the query engine.
 

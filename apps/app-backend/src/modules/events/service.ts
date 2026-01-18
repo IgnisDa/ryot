@@ -8,6 +8,11 @@ import {
 	wrapServiceValidator,
 } from "~/lib/result";
 import {
+	getUserLibraryEntityId,
+	upsertInLibraryIfGlobal,
+	upsertInLibraryRelationship,
+} from "~/modules/entities";
+import {
 	createEventForUser,
 	getEntityScopeForUser,
 	getEventCreateScopeForUser,
@@ -26,8 +31,10 @@ type EventMutationError = "not_found" | "validation";
 export type EventServiceDeps = {
 	createEventForUser: typeof createEventForUser;
 	getEntityScopeForUser: typeof getEntityScopeForUser;
+	getUserLibraryEntityId: typeof getUserLibraryEntityId;
 	listEventsByEntityForUser: typeof listEventsByEntityForUser;
 	getEventCreateScopeForUser: typeof getEventCreateScopeForUser;
+	upsertInLibraryRelationship: typeof upsertInLibraryRelationship;
 };
 
 export type EventServiceResult<T> = ServiceResult<T, EventMutationError>;
@@ -40,8 +47,10 @@ const eventSchemaMismatchError =
 const eventServiceDeps: EventServiceDeps = {
 	createEventForUser,
 	getEntityScopeForUser,
-	getEventCreateScopeForUser,
+	getUserLibraryEntityId,
 	listEventsByEntityForUser,
+	getEventCreateScopeForUser,
+	upsertInLibraryRelationship,
 };
 
 const resolveEventEntityIdResult = (entityId: string) =>
@@ -177,6 +186,18 @@ export const createEvent = async (
 	});
 	if ("error" in eventInput) {
 		return eventInput;
+	}
+
+	const libraryError = await upsertInLibraryIfGlobal(
+		{
+			userId: input.userId,
+			entityId: eventScope.entityId,
+			entityUserId: eventScope.entityUserId,
+		},
+		deps,
+	);
+	if (libraryError) {
+		return libraryError;
 	}
 
 	const createdEvent = await deps.createEventForUser({
