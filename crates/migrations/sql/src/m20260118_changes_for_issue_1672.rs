@@ -7,12 +7,16 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
+
         db.execute_unprepared(
             r#"
-UPDATE "application_cache" SET "expires_at" = NOW() WHERE "sanitized_key" LIKE 'UserEntityTranslations-%';
-        "#,
+            ALTER TABLE person DROP COLUMN IF EXISTS "has_translations_for_languages";
+            ALTER TABLE metadata DROP COLUMN IF EXISTS "has_translations_for_languages";
+            ALTER TABLE metadata_group DROP COLUMN IF EXISTS "has_translations_for_languages";
+            "#,
         )
         .await?;
+
         Ok(())
     }
 

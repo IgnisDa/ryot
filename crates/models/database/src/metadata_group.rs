@@ -37,7 +37,6 @@ pub struct Model {
     pub last_updated_on: DateTimeUtc,
     #[boilermates(not_in("MetadataGroupWithoutId"))]
     pub created_by_user_id: Option<String>,
-    pub has_translations_for_languages: Option<Vec<String>>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
