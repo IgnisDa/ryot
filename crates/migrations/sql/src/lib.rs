@@ -28,6 +28,7 @@ mod m20250813_create_collection_entity_membership;
 mod m20251115_create_filter_preset;
 mod m20251128_create_entity_translation;
 mod m20251218_is_v10_migration;
+mod m20260118_changes_for_issue_1672;
 
 pub struct Migrator;
 
@@ -62,6 +63,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20251115_create_filter_preset::Migration),
             Box::new(m20251128_create_entity_translation::Migration),
             Box::new(m20251218_is_v10_migration::Migration),
+            Box::new(m20260118_changes_for_issue_1672::Migration),
         ]
     }
 }

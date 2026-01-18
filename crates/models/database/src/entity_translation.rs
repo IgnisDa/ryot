@@ -2,6 +2,7 @@
 
 use async_graphql::SimpleObject;
 use enum_models::{EntityLot, EntityTranslationVariant};
+use media_models::{PodcastTranslationExtraInformation, ShowTranslationExtraInformation};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -28,6 +29,10 @@ pub struct Model {
     pub variant: EntityTranslationVariant,
     #[graphql(skip)]
     pub metadata_group_id: Option<String>,
+    #[graphql(skip)]
+    pub show_extra_information: Option<ShowTranslationExtraInformation>,
+    #[graphql(skip)]
+    pub podcast_extra_information: Option<PodcastTranslationExtraInformation>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
