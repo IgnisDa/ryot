@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This package is the client-safe wire boundary consumed by `app-backend`, `app-client`, `website`, and `tests`. It holds the `AppContract` (`@effect/platform` `HttpApi`) assembly, the Effect Schema definitions for every HTTP group's payloads, shared errors, auth middleware, and brand/schema primitives — the parts of the backend's contract surface that are safe to load into a mobile bundle, a browser bundle, or a test harness.
+This package is the client-safe wire boundary consumed by `app-backend`, `app-client`, `website`, `browser-extension`, and `tests`. It holds the `AppContract` (`@effect/platform` `HttpApi`) assembly, the Effect Schema definitions for every HTTP group's payloads, shared errors, auth middleware, and brand/schema primitives — the parts of the backend's contract surface that are safe to load into a mobile bundle, a browser bundle, or a test harness.
 
 `app-backend` is a consumer/implementor of this package, not its source of truth. Other backend modules (services, repositories, routes, db, redis, config) stay in `apps/app-backend` and are never moved here.
 
@@ -14,4 +14,4 @@ If a type must be shared across the boundary, define it here and have backend co
 
 ## Keeping This In Sync
 
-Adding a new backend HTTP endpoint means editing this package's `contract.ts` and that module's files here — not just `apps/app-backend`. The module folder layout under `src/modules/*` mirrors `apps/app-backend/src/modules/*` 1:1 by name.
+Adding a new backend HTTP endpoint means editing this package's `contract.ts` and that module's files here — not just `apps/app-backend`. Every module folder under `src/modules/*` has a corresponding module in `apps/app-backend/src/modules/*` by name; the contract is a subset, so backend-only modules (e.g. `auth`, `builtins`, `scheduler`, `legacy-bootstrap`) have no contract counterpart.

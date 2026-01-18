@@ -6,7 +6,7 @@ Accepts a `QueryDocument` (a JSON-serializable, source-based query language), va
 
 ## Abstraction Boundaries
 
-- **language.ts**: Effect Schema source of truth for the entire DSL and response shapes. Types are derived from schemas; do not duplicate shapes as hand-written interfaces.
+- **language.ts** (in `@ryot/contract`): Effect Schema source of truth for the entire DSL and response shapes. Types are derived from schemas; do not duplicate shapes as hand-written interfaces.
 - **validator/**: Pure semantic validation (`document.ts`, `core.ts`, `output.ts`, `shared.ts`), DB-aware reference validation (`references.ts`), and type-compatibility validation (`type-check.ts`, which also enforces ISO date literals). Pure validation must not import executor runtime code except `schema-loaders` and `time-series-buckets`.
 - **executor/compile/**: Pure SQL compilation — no DB, no Effect.
   - `expr.ts`: the total `Expr` → SQL compiler (`compileBool` / `compileScalar` / `compileValue`), including correlated `exists` / `aggregate` / `first` subqueries. Every node compiles; nothing falls back to app code.
@@ -22,6 +22,6 @@ Accepts a `QueryDocument` (a JSON-serializable, source-based query language), va
 
 ## Conventions
 
-- Keep `routes.ts` thin and keep request/response contracts in `contract.ts` and `language.ts`.
+- Keep `routes.ts` thin and keep request/response contracts in `contract.ts` and `language.ts` (both in `@ryot/contract`).
 - Validation-limit constants (page size, include depth/limit, aggregate limit, bucket count) live in `validator/shared.ts`. Execution has no in-memory row caps; a runaway query is bounded by a transaction-local `statement_timeout` (`QUERY_ENGINE_STATEMENT_TIMEOUT_MS` in `service.ts`).
 - When changing the query language, update `README.md` in this directory and the examples in `tests/src/fixtures/query-engine.ts` and `tests/src/tests/query-engine/query-engine.test.ts`.
