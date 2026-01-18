@@ -414,7 +414,7 @@ export default function Page() {
 				<>
 					<DisplayShowSeasonEpisodesModal
 						openedShowSeason={openedShowSeason}
-						metadataDetails={metadataDetails.data}
+						metadataId={loaderData.metadataId}
 						setOpenedShowSeason={setOpenedShowSeason}
 						userMetadataDetails={userMetadataDetails.data}
 					/>
@@ -1037,7 +1037,7 @@ export default function Page() {
 												podcastProgress={
 													userMetadataDetails.data.podcastProgress
 												}
-												metadataDetails={metadataDetails.data}
+												metadataId={loaderData.metadataId}
 											/>
 										)}
 									/>

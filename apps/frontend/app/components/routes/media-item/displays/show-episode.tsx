@@ -1,23 +1,23 @@
 import { Box, Button } from "@mantine/core";
-import {
-	EntityLot,
-	EntityTranslationVariant,
-} from "@ryot/generated/graphql/backend/graphql";
+import { EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
 import { useMemo } from "react";
-import { useTranslationValue } from "~/lib/shared/hooks";
+import { useMetadataDetails } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
-import type { MetadataDetails, Season, SeasonProgress } from "../types";
+import type { Season, SeasonProgress } from "../types";
 import { DisplaySeasonOrEpisodeDetails } from "./season-episode-details";
 
 export const DisplayShowEpisode = (props: {
 	seasonIdx: number;
 	episodeIdx: number;
+	metadataId: string;
 	seasonNumber: number;
-	metadataDetails: MetadataDetails;
 	episode: Season["episodes"][number];
 	episodeProgress?: SeasonProgress["episodes"][number];
 }) => {
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
+	const [, , useMetadataTranslationValue] = useMetadataDetails(
+		props.metadataId,
+	);
 	const numTimesEpisodeSeen = props.episodeProgress?.timesSeen || 0;
 	const showExtraInformation = useMemo(
 		() => ({
@@ -26,16 +26,12 @@ export const DisplayShowEpisode = (props: {
 		}),
 		[props.seasonNumber, props.episode.episodeNumber],
 	);
-	const episodeTitleTranslation = useTranslationValue({
+	const episodeTitleTranslation = useMetadataTranslationValue({
 		showExtraInformation,
-		entityLot: EntityLot.Metadata,
-		entityId: props.metadataDetails.id,
 		variant: EntityTranslationVariant.Title,
 	});
-	const episodeDescriptionTranslation = useTranslationValue({
+	const episodeDescriptionTranslation = useMetadataTranslationValue({
 		showExtraInformation,
-		entityLot: EntityLot.Metadata,
-		entityId: props.metadataDetails.id,
 		variant: EntityTranslationVariant.Description,
 	});
 	const episodeName = `${props.episode.episodeNumber}. ${
@@ -58,7 +54,7 @@ export const DisplayShowEpisode = (props: {
 					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
 					onClick={() => {
 						initializeMetadataToUpdate({
-							metadataId: props.metadataDetails.id,
+							metadataId: props.metadataId,
 							showSeasonNumber: props.seasonNumber,
 							showEpisodeNumber: props.episode.episodeNumber,
 						});

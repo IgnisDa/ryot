@@ -1,25 +1,24 @@
 import { Drawer, Stack, Text } from "@mantine/core";
-import {
-	EntityLot,
-	EntityTranslationVariant,
-} from "@ryot/generated/graphql/backend/graphql";
+import { EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber } from "@ryot/ts-utils";
 import { useMemo } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { useTranslationValue } from "~/lib/shared/hooks";
+import { useMetadataDetails } from "~/lib/shared/hooks";
 import { DisplayShowEpisode } from "../displays/show-episode";
-import type { MetadataDetails, Season, UserMetadataDetails } from "../types";
+import type { Season, UserMetadataDetails } from "../types";
 
 const getShowSeasonDisplayName = (season: Season, title: string) =>
 	`${season.seasonNumber}. ${title}`;
 
 export const DisplayShowSeasonEpisodesModal = (props: {
-	metadataDetails: MetadataDetails;
+	metadataId: string;
 	openedShowSeason: number | undefined;
 	userMetadataDetails: UserMetadataDetails;
 	setOpenedShowSeason: (v: number | undefined) => void;
 }) => {
-	const showSpecifics = props.metadataDetails.showSpecifics;
+	const [{ data: metadataDetails }, , useMetadataTranslationValue] =
+		useMetadataDetails(props.metadataId);
+	const showSpecifics = metadataDetails?.showSpecifics;
 	const season = useMemo(() => {
 		return isNumber(props.openedShowSeason) && showSpecifics
 			? showSpecifics.seasons[props.openedShowSeason]
@@ -28,11 +27,9 @@ export const DisplayShowSeasonEpisodesModal = (props: {
 	const showExtraInformation = useMemo(() => {
 		return season ? { season: season.seasonNumber } : undefined;
 	}, [season]);
-	const seasonTitleTranslation = useTranslationValue({
+	const seasonTitleTranslation = useMetadataTranslationValue({
 		showExtraInformation,
 		enabled: Boolean(season),
-		entityLot: EntityLot.Metadata,
-		entityId: props.metadataDetails.id,
 		variant: EntityTranslationVariant.Title,
 	});
 	const title = useMemo(() => {
@@ -50,7 +47,7 @@ export const DisplayShowSeasonEpisodesModal = (props: {
 		>
 			{isNumber(props.openedShowSeason) ? (
 				<DisplayShowSeasonEpisodes
-					metadataDetails={props.metadataDetails}
+					metadataId={props.metadataId}
 					openedShowSeason={props.openedShowSeason}
 					userMetadataDetails={props.userMetadataDetails}
 				/>
@@ -61,11 +58,12 @@ export const DisplayShowSeasonEpisodesModal = (props: {
 
 const DisplayShowSeasonEpisodes = (props: {
 	openedShowSeason: number;
-	metadataDetails: MetadataDetails;
+	metadataId: string;
 	userMetadataDetails: UserMetadataDetails;
 }) => {
+	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
 	const season =
-		props.metadataDetails.showSpecifics?.seasons[props.openedShowSeason];
+		metadataDetails?.showSpecifics?.seasons[props.openedShowSeason];
 	const seasonProgress =
 		props.userMetadataDetails.showProgress?.[props.openedShowSeason];
 
@@ -80,7 +78,7 @@ const DisplayShowSeasonEpisodes = (props: {
 							episodeIdx={episodeIdx}
 							seasonNumber={season.seasonNumber}
 							seasonIdx={props.openedShowSeason}
-							metadataDetails={props.metadataDetails}
+							metadataId={props.metadataId}
 							episodeProgress={seasonProgress?.episodes[episodeIdx]}
 						/>
 					)}

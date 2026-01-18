@@ -1,11 +1,8 @@
 import { Box, Button } from "@mantine/core";
-import {
-	EntityLot,
-	EntityTranslationVariant,
-} from "@ryot/generated/graphql/backend/graphql";
+import { EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
 import { sum } from "@ryot/ts-utils";
 import { useMemo } from "react";
-import { useTranslationValue } from "~/lib/shared/hooks";
+import { useMetadataDetails } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { Season, UserMetadataDetails } from "../types";
 import { DisplaySeasonOrEpisodeDetails } from "./season-episode-details";
@@ -21,6 +18,9 @@ export const DisplayShowSeason = (props: {
 	userMetadataDetails: UserMetadataDetails;
 }) => {
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
+	const [, , useMetadataTranslationValue] = useMetadataDetails(
+		props.metadataId,
+	);
 
 	const seasonProgress =
 		props.userMetadataDetails.showProgress?.[props.seasonIdx];
@@ -30,16 +30,12 @@ export const DisplayShowSeason = (props: {
 		() => ({ season: props.season.seasonNumber }),
 		[props.season.seasonNumber],
 	);
-	const seasonTitleTranslation = useTranslationValue({
+	const seasonTitleTranslation = useMetadataTranslationValue({
 		showExtraInformation,
-		entityId: props.metadataId,
-		entityLot: EntityLot.Metadata,
 		variant: EntityTranslationVariant.Title,
 	});
-	const seasonDescriptionTranslation = useTranslationValue({
+	const seasonDescriptionTranslation = useMetadataTranslationValue({
 		showExtraInformation,
-		entityId: props.metadataId,
-		entityLot: EntityLot.Metadata,
 		variant: EntityTranslationVariant.Description,
 	});
 

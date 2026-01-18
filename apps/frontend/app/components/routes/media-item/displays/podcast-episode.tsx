@@ -1,38 +1,36 @@
 import { Box, Button, Divider } from "@mantine/core";
 import {
-	EntityLot,
 	EntityTranslationVariant,
 	type PodcastEpisode,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMemo } from "react";
-import { useTranslationValue } from "~/lib/shared/hooks";
+import { useMetadataDetails } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
-import type { MetadataDetails, UserMetadataDetails } from "../types";
+import type { UserMetadataDetails } from "../types";
 import { DisplaySeasonOrEpisodeDetails } from "./season-episode-details";
 
 export const DisplayPodcastEpisode = (props: {
 	index: number;
 	episode: PodcastEpisode;
-	metadataDetails: MetadataDetails;
+	metadataId: string;
 	podcastProgress: UserMetadataDetails["podcastProgress"];
 }) => {
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
+	const [, , useMetadataTranslationValue] = useMetadataDetails(
+		props.metadataId,
+	);
 	const numTimesEpisodeSeen =
 		props.podcastProgress?.[props.index]?.timesSeen || 0;
 	const podcastExtraInformation = useMemo(
 		() => ({ episode: props.episode.number }),
 		[props.episode.number],
 	);
-	const episodeTitleTranslation = useTranslationValue({
+	const episodeTitleTranslation = useMetadataTranslationValue({
 		podcastExtraInformation,
-		entityLot: EntityLot.Metadata,
-		entityId: props.metadataDetails.id,
 		variant: EntityTranslationVariant.Title,
 	});
-	const episodeDescriptionTranslation = useTranslationValue({
+	const episodeDescriptionTranslation = useMetadataTranslationValue({
 		podcastExtraInformation,
-		entityLot: EntityLot.Metadata,
-		entityId: props.metadataDetails.id,
 		variant: EntityTranslationVariant.Description,
 	});
 
@@ -52,7 +50,7 @@ export const DisplayPodcastEpisode = (props: {
 					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
 					onClick={() => {
 						initializeMetadataToUpdate({
-							metadataId: props.metadataDetails.id,
+							metadataId: props.metadataId,
 							podcastEpisodeNumber: props.episode.number,
 						});
 					}}
