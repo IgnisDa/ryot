@@ -526,21 +526,6 @@ query MediaTranslations($input: EntityWithLotInput!) {
 			title
 			image
 			description
-			episodes {
-				name
-				overview
-				episodeNumber
-			}
-			seasons {
-				name
-				overview
-				seasonNumber
-				episodes {
-					name
-					overview
-					episodeNumber
-				}
-			}
 		}
 	}
 }
