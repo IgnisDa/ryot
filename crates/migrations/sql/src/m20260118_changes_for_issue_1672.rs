@@ -20,6 +20,7 @@ ALTER TABLE entity_translation ADD COLUMN IF NOT EXISTS "podcast_extra_informati
 DROP INDEX IF EXISTS "entity_translation__language_metadata_id_variant_idx";
 CREATE UNIQUE INDEX "entity_translation__language_metadata_id_variant_idx"
 ON "entity_translation" ("language", "metadata_id", "variant", "show_extra_information", "podcast_extra_information")
+NULLS NOT DISTINCT
 WHERE "metadata_id" IS NOT NULL;
             "#,
         )

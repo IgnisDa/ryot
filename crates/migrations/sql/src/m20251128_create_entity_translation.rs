@@ -136,6 +136,7 @@ impl MigrationTrait for Migration {
                 Index::create()
                     .name("entity_translation__language_metadata_id_variant_idx")
                     .unique()
+                    .nulls_not_distinct()
                     .table(EntityTranslation::Table)
                     .col(EntityTranslation::Language)
                     .col(EntityTranslation::MetadataId)
