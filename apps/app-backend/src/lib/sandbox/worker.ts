@@ -14,19 +14,19 @@ const processSandboxRunJob = async (job: Job) => {
 	return sandbox.executeQueuedRun(parsed.data);
 };
 
-const processSandboxScriptJob = async (job: Job) => {
+const processSandboxJob = async (job: Job) => {
 	if (job.name === sandboxRunJobName) {
 		return processSandboxRunJob(job);
 	}
 
-	throw new Error(`Unsupported sandbox script job: ${job.name}`);
+	throw new Error(`Unsupported sandbox job: ${job.name}`);
 };
 
-export const createSandboxScriptWorker = () => {
-	const worker = new Worker("sandboxScript", processSandboxScriptJob, {
+export const createSandboxWorker = () => {
+	const worker = new Worker("sandbox", processSandboxJob, {
 		concurrency: 5,
 		connection: getRedisConnection(),
 	});
-	worker.on("error", onWorkerError("sandboxScript"));
+	worker.on("error", onWorkerError("sandbox"));
 	return worker;
 };
