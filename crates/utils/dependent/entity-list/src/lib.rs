@@ -119,6 +119,20 @@ where
                 .and_where(
                     Expr::col((
                         entity_translation::Entity,
+                        entity_translation::Column::ShowExtraInformation,
+                    ))
+                    .is_null(),
+                )
+                .and_where(
+                    Expr::col((
+                        entity_translation::Entity,
+                        entity_translation::Column::PodcastExtraInformation,
+                    ))
+                    .is_null(),
+                )
+                .and_where(
+                    Expr::col((
+                        entity_translation::Entity,
                         entity_translation::Column::Value,
                     ))
                     .ilike(pattern),
@@ -157,6 +171,20 @@ where
         )
         .and_where(entity_translation::Column::Language.is_in(user_languages.to_vec()))
         .and_where(entity_translation::Column::Variant.eq(EntityTranslationVariant::Title))
+        .and_where(
+            Expr::col((
+                entity_translation::Entity,
+                entity_translation::Column::ShowExtraInformation,
+            ))
+            .is_null(),
+        )
+        .and_where(
+            Expr::col((
+                entity_translation::Entity,
+                entity_translation::Column::PodcastExtraInformation,
+            ))
+            .is_null(),
+        )
         .limit(1)
         .to_owned();
 

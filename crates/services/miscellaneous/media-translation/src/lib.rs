@@ -1,4 +1,7 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashSet},
+    sync::Arc,
+};
 
 use anyhow::{Result, anyhow, bail};
 use chrono::Utc;
@@ -14,9 +17,12 @@ use dependent_models::{
     ExpireCacheKeyInput,
 };
 use dependent_provider_utils::{get_metadata_provider, get_non_metadata_provider};
-use enum_models::{EntityLot, EntityTranslationVariant, MediaSource};
+use enum_models::{EntityLot, EntityTranslationVariant, MediaLot, MediaSource};
 use itertools::Itertools;
-use media_models::EntityTranslationDetails;
+use media_models::{
+    EntityTranslationDetails, EpisodeTranslationDetails, PodcastTranslationExtraInformation,
+    SeasonTranslationDetails, ShowTranslationExtraInformation,
+};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect,
     sea_query::OnConflict,
@@ -49,6 +55,32 @@ fn merge_languages(existing: &Option<Vec<String>>, preferred_language: &str) -> 
     languages.into_iter().collect_vec()
 }
 
+fn build_translation_model(
+    input: &EntityWithLot,
+    variant: EntityTranslationVariant,
+    value: Option<String>,
+    preferred_language: &str,
+) -> entity_translation::ActiveModel {
+    let mut model = entity_translation::ActiveModel {
+        variant: ActiveValue::Set(variant),
+        value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
+        language: ActiveValue::Set(preferred_language.to_string()),
+        ..Default::default()
+    };
+    macro_rules! set_id {
+        ($field:ident) => {
+            model.$field = ActiveValue::Set(Some(input.entity_id.clone()))
+        };
+    }
+    match input.entity_lot {
+        EntityLot::Person => set_id!(person_id),
+        EntityLot::Metadata => set_id!(metadata_id),
+        EntityLot::MetadataGroup => set_id!(metadata_group_id),
+        _ => {}
+    }
+    model
+}
+
 fn build_translation_models(
     input: &EntityWithLot,
     title: Option<String>,
@@ -56,40 +88,116 @@ fn build_translation_models(
     preferred_language: &str,
     description: Option<String>,
 ) -> Vec<entity_translation::ActiveModel> {
-    let model_for = |variant: EntityTranslationVariant, value: Option<String>| {
-        let mut model = entity_translation::ActiveModel {
-            variant: ActiveValue::Set(variant),
-            value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
-            language: ActiveValue::Set(preferred_language.to_string()),
-            ..Default::default()
-        };
-        macro_rules! set_id {
-            ($field:ident) => {
-                model.$field = ActiveValue::Set(Some(input.entity_id.clone()))
-            };
-        }
-        match input.entity_lot {
-            EntityLot::Person => set_id!(person_id),
-            EntityLot::Metadata => set_id!(metadata_id),
-            EntityLot::MetadataGroup => set_id!(metadata_group_id),
-            _ => {}
-        }
-        model
-    };
-
     vec![
-        model_for(EntityTranslationVariant::Title, title),
-        model_for(EntityTranslationVariant::Image, image),
-        model_for(EntityTranslationVariant::Description, description),
+        build_translation_model(
+            input,
+            EntityTranslationVariant::Title,
+            title,
+            preferred_language,
+        ),
+        build_translation_model(
+            input,
+            EntityTranslationVariant::Image,
+            image,
+            preferred_language,
+        ),
+        build_translation_model(
+            input,
+            EntityTranslationVariant::Description,
+            description,
+            preferred_language,
+        ),
     ]
+}
+
+fn build_show_translation_models(
+    input: &EntityWithLot,
+    seasons: &[SeasonTranslationDetails],
+    preferred_language: &str,
+) -> Vec<entity_translation::ActiveModel> {
+    let mut translations = Vec::new();
+    for season in seasons {
+        let season_extra = ShowTranslationExtraInformation {
+            season_number: season.season_number,
+            episode_number: None,
+        };
+        let mut title_model = build_translation_model(
+            input,
+            EntityTranslationVariant::Title,
+            season.name.clone(),
+            preferred_language,
+        );
+        title_model.show_extra_information = ActiveValue::Set(Some(season_extra.clone()));
+        translations.push(title_model);
+        let mut overview_model = build_translation_model(
+            input,
+            EntityTranslationVariant::Description,
+            season.overview.clone(),
+            preferred_language,
+        );
+        overview_model.show_extra_information = ActiveValue::Set(Some(season_extra));
+        translations.push(overview_model);
+
+        for episode in &season.episodes {
+            let episode_extra = ShowTranslationExtraInformation {
+                season_number: season.season_number,
+                episode_number: Some(episode.episode_number),
+            };
+            let mut title_model = build_translation_model(
+                input,
+                EntityTranslationVariant::Title,
+                episode.name.clone(),
+                preferred_language,
+            );
+            title_model.show_extra_information = ActiveValue::Set(Some(episode_extra.clone()));
+            translations.push(title_model);
+            let mut overview_model = build_translation_model(
+                input,
+                EntityTranslationVariant::Description,
+                episode.overview.clone(),
+                preferred_language,
+            );
+            overview_model.show_extra_information = ActiveValue::Set(Some(episode_extra));
+            translations.push(overview_model);
+        }
+    }
+    translations
+}
+
+fn build_podcast_translation_models(
+    input: &EntityWithLot,
+    episodes: &[EpisodeTranslationDetails],
+    preferred_language: &str,
+) -> Vec<entity_translation::ActiveModel> {
+    let mut translations = Vec::new();
+    for episode in episodes {
+        let episode_extra = PodcastTranslationExtraInformation {
+            episode_number: episode.episode_number,
+        };
+        let mut title_model = build_translation_model(
+            input,
+            EntityTranslationVariant::Title,
+            episode.name.clone(),
+            preferred_language,
+        );
+        title_model.podcast_extra_information = ActiveValue::Set(Some(episode_extra.clone()));
+        translations.push(title_model);
+        let mut overview_model = build_translation_model(
+            input,
+            EntityTranslationVariant::Description,
+            episode.overview.clone(),
+            preferred_language,
+        );
+        overview_model.podcast_extra_information = ActiveValue::Set(Some(episode_extra));
+        translations.push(overview_model);
+    }
+    translations
 }
 
 async fn replace_entity_translations(
     input: &EntityWithLot,
-    title: Option<String>,
-    image: Option<String>,
+    translations: Vec<entity_translation::ActiveModel>,
     preferred_language: &str,
-    description: Option<String>,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     EntityTranslation::delete_many()
@@ -98,8 +206,6 @@ async fn replace_entity_translations(
         .filter(entity_translation::Column::Language.eq(preferred_language))
         .exec(&ss.db)
         .await?;
-    let translations =
-        build_translation_models(input, title, image, preferred_language, description);
     let result = EntityTranslation::insert_many(translations)
         .on_conflict(OnConflict::new().do_nothing().to_owned())
         .exec_without_returning(&ss.db)
@@ -113,45 +219,87 @@ pub async fn update_media_translation(
     user_id: &String,
     input: EntityWithLot,
 ) -> Result<()> {
-    macro_rules! update_metadata_translation {
-        ($entity_type:ident, $mod:ident, $method:ident) => {{
-            let entity = $entity_type::find_by_id(&input.entity_id)
+    match input.entity_lot {
+        EntityLot::Metadata => {
+            let entity = Metadata::find_by_id(&input.entity_id)
                 .one(&ss.db)
                 .await?
-                .ok_or_else(|| anyhow!(concat!(stringify!($entity_type), " not found")))?;
+                .ok_or_else(|| anyhow!("Metadata not found"))?;
             let preferred_language =
                 get_preferred_language_for_user_and_source(ss, user_id, &entity.source).await?;
-
             let provider = get_metadata_provider(entity.lot, entity.source, ss).await?;
 
             if let Ok(trn) = provider
-                .$method(&entity.identifier, &preferred_language)
+                .translate_metadata(&entity.identifier, &preferred_language)
                 .await
             {
-                replace_entity_translations(
+                let mut translations = build_translation_models(
                     &input,
                     trn.title,
                     trn.image,
                     &preferred_language,
                     trn.description,
-                    ss,
-                )
-                .await?;
+                );
+                match entity.lot {
+                    MediaLot::Show => {
+                        if let Some(seasons) = trn.seasons.as_ref() {
+                            translations.extend(build_show_translation_models(
+                                &input,
+                                seasons,
+                                &preferred_language,
+                            ));
+                        }
+                    }
+                    MediaLot::Podcast => {
+                        if let Some(episodes) = trn.episodes.as_ref() {
+                            translations.extend(build_podcast_translation_models(
+                                &input,
+                                episodes,
+                                &preferred_language,
+                            ));
+                        }
+                    }
+                    _ => {}
+                }
+                replace_entity_translations(&input, translations, &preferred_language, ss).await?;
             }
 
             let languages =
                 merge_languages(&entity.has_translations_for_languages, &preferred_language);
-            let mut item: $mod::ActiveModel = entity.into();
+            let mut item: metadata::ActiveModel = entity.into();
             item.last_updated_on = ActiveValue::Set(Utc::now());
             item.has_translations_for_languages = ActiveValue::Set(Some(languages));
             item.update(&ss.db).await?;
-        }};
-    }
-
-    match input.entity_lot {
-        EntityLot::Metadata => update_metadata_translation!(Metadata, metadata, translate_metadata),
+        }
         EntityLot::MetadataGroup => {
-            update_metadata_translation!(MetadataGroup, metadata_group, translate_metadata_group)
+            let entity = MetadataGroup::find_by_id(&input.entity_id)
+                .one(&ss.db)
+                .await?
+                .ok_or_else(|| anyhow!("Metadata group not found"))?;
+            let preferred_language =
+                get_preferred_language_for_user_and_source(ss, user_id, &entity.source).await?;
+            let provider = get_metadata_provider(entity.lot, entity.source, ss).await?;
+
+            if let Ok(trn) = provider
+                .translate_metadata_group(&entity.identifier, &preferred_language)
+                .await
+            {
+                let translations = build_translation_models(
+                    &input,
+                    trn.title,
+                    trn.image,
+                    &preferred_language,
+                    trn.description,
+                );
+                replace_entity_translations(&input, translations, &preferred_language, ss).await?;
+            }
+
+            let languages =
+                merge_languages(&entity.has_translations_for_languages, &preferred_language);
+            let mut item: metadata_group::ActiveModel = entity.into();
+            item.last_updated_on = ActiveValue::Set(Utc::now());
+            item.has_translations_for_languages = ActiveValue::Set(Some(languages));
+            item.update(&ss.db).await?;
         }
         EntityLot::Person => {
             let person = Person::find_by_id(&input.entity_id)
@@ -169,15 +317,14 @@ pub async fn update_media_translation(
                 )
                 .await
             {
-                replace_entity_translations(
+                let translations = build_translation_models(
                     &input,
                     trn.title,
                     trn.image,
                     &preferred_language,
                     trn.description,
-                    ss,
-                )
-                .await?;
+                );
+                replace_entity_translations(&input, translations, &preferred_language, ss).await?;
             }
 
             let languages =
@@ -253,19 +400,118 @@ pub async fn media_translations(
                 }
                 return Ok(None);
             }
+            let base_translations = translations
+                .iter()
+                .filter(|translation| {
+                    translation.show_extra_information.is_none()
+                        && translation.podcast_extra_information.is_none()
+                })
+                .collect_vec();
+            let mut seasons_map: BTreeMap<i32, SeasonTranslationDetails> = BTreeMap::new();
+            let mut episodes_map: BTreeMap<(i32, i32), EpisodeTranslationDetails> = BTreeMap::new();
+            for translation in translations
+                .iter()
+                .filter(|translation| translation.show_extra_information.is_some())
+            {
+                let info = translation
+                    .show_extra_information
+                    .as_ref()
+                    .ok_or_else(|| anyhow!("Show translation missing extra information"))?;
+                match info.episode_number {
+                    Some(episode_number) => {
+                        let episode = episodes_map
+                            .entry((info.season_number, episode_number))
+                            .or_insert_with(|| EpisodeTranslationDetails {
+                                episode_number,
+                                ..Default::default()
+                            });
+                        match translation.variant {
+                            EntityTranslationVariant::Title => {
+                                episode.name = translation.value.clone();
+                            }
+                            EntityTranslationVariant::Description => {
+                                episode.overview = translation.value.clone();
+                            }
+                            _ => {}
+                        }
+                    }
+                    None => {
+                        let season = seasons_map.entry(info.season_number).or_insert_with(|| {
+                            SeasonTranslationDetails {
+                                season_number: info.season_number,
+                                episodes: Vec::new(),
+                                ..Default::default()
+                            }
+                        });
+                        match translation.variant {
+                            EntityTranslationVariant::Title => {
+                                season.name = translation.value.clone();
+                            }
+                            EntityTranslationVariant::Description => {
+                                season.overview = translation.value.clone();
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            for ((season_number, _), episode) in episodes_map {
+                seasons_map
+                    .entry(season_number)
+                    .or_insert_with(|| SeasonTranslationDetails {
+                        season_number,
+                        episodes: Vec::new(),
+                        ..Default::default()
+                    })
+                    .episodes
+                    .push(episode);
+            }
+            let seasons =
+                (!seasons_map.is_empty()).then_some(seasons_map.into_values().collect_vec());
+
+            let mut podcast_episodes_map: BTreeMap<i32, EpisodeTranslationDetails> =
+                BTreeMap::new();
+            for translation in translations
+                .iter()
+                .filter(|translation| translation.podcast_extra_information.is_some())
+            {
+                let info = translation
+                    .podcast_extra_information
+                    .as_ref()
+                    .ok_or_else(|| anyhow!("Podcast translation missing extra information"))?;
+                let episode = podcast_episodes_map
+                    .entry(info.episode_number)
+                    .or_insert_with(|| EpisodeTranslationDetails {
+                        episode_number: info.episode_number,
+                        ..Default::default()
+                    });
+                match translation.variant {
+                    EntityTranslationVariant::Title => {
+                        episode.name = translation.value.clone();
+                    }
+                    EntityTranslationVariant::Description => {
+                        episode.overview = translation.value.clone();
+                    }
+                    _ => {}
+                }
+            }
+            let episodes = (!podcast_episodes_map.is_empty())
+                .then_some(podcast_episodes_map.into_values().collect_vec());
             Ok(Some(EntityTranslationDetails {
-                image: translations
+                image: base_translations
                     .iter()
                     .find(|s| s.variant == EntityTranslationVariant::Image)
                     .and_then(|s| s.value.clone()),
-                title: translations
+                title: base_translations
                     .iter()
                     .find(|s| s.variant == EntityTranslationVariant::Title)
                     .and_then(|s| s.value.clone()),
-                description: translations
+                description: base_translations
                     .iter()
                     .find(|s| s.variant == EntityTranslationVariant::Description)
                     .and_then(|s| s.value.clone()),
+                seasons,
+                episodes,
             }))
         },
     )
