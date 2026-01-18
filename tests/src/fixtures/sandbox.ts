@@ -143,7 +143,7 @@ export async function pollSandboxResult(client: Client, jobId: string, options: 
 	);
 }
 
-export function formatSandboxExecutionError(error: SandboxExecutionError) {
+function formatSandboxExecutionError(error: SandboxExecutionError) {
 	const location = error.line ? ` at ${error.line}${error.column ? `:${error.column}` : ""}` : "";
 	return `[${error.phase}] ${error.message}${location}${error.stack ? `\n${error.stack}` : ""}`;
 }

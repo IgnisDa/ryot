@@ -3,19 +3,21 @@ import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider
 import * as z from "@ryot/sandbox-sdk/zod";
 
 import {
+	type UnknownRecord,
 	asRecord,
+	numberValue,
+	stringValue,
+} from "../../../script-helpers/records";
+import { createRoleAccumulator } from "../../../script-helpers/role-accumulator";
+import {
 	coerceTrimmed,
-	createRoleAccumulator,
 	createYoutubeHistoryClient,
 	createYoutubeMusicClient,
 	getBestThumbnailUrl,
 	getThumbnailUrls,
 	type HistoryClient,
 	type MusicSearchClient,
-	numberValue,
-	stringValue,
 	type TrackQueueClient,
-	type UnknownRecord,
 } from "../../youtube-music-shared";
 
 export const manifest = defineManifest({

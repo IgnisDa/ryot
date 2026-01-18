@@ -1,123 +1,26 @@
 import type {
 	ProviderDetailsChildEntity,
 	ProviderDetailsInput,
-	ProviderDetailsRelatedEntity,
 	ProviderDetailsResult,
 } from "@ryot/sandbox-sdk/provider";
 
+import { parsePublishYear } from "../../../script-helpers/parse-publish-year";
 import {
-	collectGenres,
-	collectImages,
-	collectSuggestions,
-	getImageUrl,
+	type UnknownRecord,
 	numberValue,
-	parsePublishYear,
 	recordsValue,
 	stringValue,
+} from "../../../script-helpers/records";
+import {
+	collectCompanies,
+	collectGenres,
+	collectImages,
+	collectPeople,
+	collectSuggestions,
+	getImageUrl,
 	tmdbGet,
 	type TmdbHost,
-	type UnknownRecord,
 } from "../../tmdb-shared";
-
-type RelatedEntityWithRoles = Omit<ProviderDetailsRelatedEntity, "relationshipProperties"> & {
-	relationshipProperties: { roles: string[] };
-};
-
-const collectCompanies = (networks: unknown, productionCompanies: unknown) => {
-	const companies = new Map<string, RelatedEntityWithRoles>();
-	const addCompany = (company: UnknownRecord, role: string) => {
-		const idValue = numberValue(company["id"]);
-		if (idValue === null) {
-			return;
-		}
-		const id = Math.trunc(idValue);
-		const name = stringValue(company["name"]) ?? "Loading...";
-		const key = `company.tmdb:${id}`;
-		const existing = companies.get(key);
-		if (existing) {
-			existing.relationshipProperties.roles = [
-				...new Set([...existing.relationshipProperties.roles, role]),
-			];
-			if (existing.name === "Loading..." && name !== "Loading...") {
-				existing.name = name;
-			}
-			return;
-		}
-		companies.set(key, {
-			name,
-			scriptSlug: "company.tmdb",
-			externalId: String(id),
-			relationshipProperties: { roles: [role] },
-		});
-	};
-
-	for (const network of recordsValue(networks)) {
-		addCompany(network, "Network");
-	}
-	for (const company of recordsValue(productionCompanies)) {
-		addCompany(company, "Production Company");
-	}
-	return [...companies.values()];
-};
-
-const collectPeople = (cast: unknown, crew: unknown, createdBy: unknown) => {
-	const relatedEntities = new Map<string, RelatedEntityWithRoles>();
-	const unlinkedCreators: Array<{ name: string; role: string }> = [];
-	const unlinkedKeys = new Set<string>();
-	const addRelatedEntity = (relatedEntity: RelatedEntityWithRoles) => {
-		const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
-		const existing = relatedEntities.get(key);
-		if (!existing) {
-			relatedEntities.set(key, relatedEntity);
-			return;
-		}
-		existing.relationshipProperties.roles = [
-			...new Set([
-				...existing.relationshipProperties.roles,
-				...relatedEntity.relationshipProperties.roles,
-			]),
-		];
-		if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
-			existing.name = relatedEntity.name;
-		}
-	};
-	const addUnlinkedCreator = (name: string, role: string) => {
-		const key = `${name}:${role}`;
-		if (!unlinkedKeys.has(key)) {
-			unlinkedKeys.add(key);
-			unlinkedCreators.push({ name, role });
-		}
-	};
-	const addPerson = (person: UnknownRecord, role: string) => {
-		const name = stringValue(person["name"]) ?? "Loading...";
-		const id = numberValue(person["id"]);
-		if (id === null) {
-			addUnlinkedCreator(name, role);
-			return;
-		}
-		addRelatedEntity({
-			name,
-			scriptSlug: "person.tmdb",
-			relationshipProperties: { roles: [role] },
-			externalId: String(Math.trunc(id)),
-		});
-	};
-
-	for (const creator of recordsValue(createdBy)) {
-		addPerson(creator, "Creator");
-	}
-	for (const member of recordsValue(cast).slice(0, 15)) {
-		addPerson(member, stringValue(member["known_for_department"]) ?? "Acting");
-	}
-	const notableJobs = new Set(["Director", "Producer", "Screenplay", "Writer", "Story"]);
-	for (const member of recordsValue(crew)) {
-		const job = stringValue(member["job"]);
-		if (job && notableJobs.has(job)) {
-			addPerson(member, job);
-		}
-	}
-	return { relatedEntities: [...relatedEntities.values()], unlinkedCreators };
-};
 
 const buildSeason = (
 	parentShowExternalId: string,
@@ -213,7 +116,10 @@ const buildDetailsResult = (
 				direction: "incoming",
 				synchronization: "additive",
 				relationshipSchemaSlug: "company-to-show",
-				entities: collectCompanies(showData["networks"], showData["production_companies"]),
+				entities: collectCompanies([
+					[showData["networks"], "Network"],
+					[showData["production_companies"], "Production Company"],
+				]),
 			},
 			{
 				direction: "outgoing",

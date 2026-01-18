@@ -6,33 +6,14 @@ import type {
 	ProviderSearchResult,
 } from "@ryot/sandbox-sdk/provider";
 
+import { getUserIsNsfw } from "../script-helpers/host";
+import { asRecord, numberValue, parseJsonResponse, stringValue } from "../script-helpers/records";
+
 export type MyAnimeListHost = SandboxHost<
 	readonly ["httpCall", "getAppConfigValue", "getUserPreferences"]
 >;
 
-export type UnknownRecord = Record<string, unknown>;
-
 const MAL_API_BASE_URL = "https://api.myanimelist.net/v2";
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-export const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
-
-export const stringValue = (value: unknown) =>
-	typeof value === "string" && value.trim() ? value.trim() : null;
-
-export const numberValue = (value: unknown) =>
-	typeof value === "number" && Number.isFinite(value) ? value : null;
-
-const parseJsonResponse = (responseBody: string) => {
-	try {
-		const value: unknown = JSON.parse(responseBody);
-		return value;
-	} catch {
-		throw new Error("MyAnimeList returned invalid JSON");
-	}
-};
 
 export const getMalClientId = (host: MyAnimeListHost) =>
 	host.getAppConfigValue("providers.malClientId").then((response) => {
@@ -45,9 +26,6 @@ export const getMalClientId = (host: MyAnimeListHost) =>
 		}
 		return clientId;
 	});
-
-export const getUserIsNsfw = (host: MyAnimeListHost) =>
-	host.getUserPreferences().then((preferences) => preferences.success && preferences.data.isNsfw);
 
 export const malGet = (
 	host: MyAnimeListHost,
@@ -64,7 +42,7 @@ export const malGet = (
 			if (!response.success) {
 				throw new Error(response.error || `MyAnimeList ${label} request failed`);
 			}
-			return parseJsonResponse(response.data.body);
+			return parseJsonResponse(response.data.body, "MyAnimeList");
 		});
 
 export const parsePublishYear = (startDate: unknown) => {

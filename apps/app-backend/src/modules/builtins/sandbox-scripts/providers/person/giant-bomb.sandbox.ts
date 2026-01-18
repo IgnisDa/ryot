@@ -1,8 +1,9 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import { asRecord, stringValue } from "../../script-helpers/records";
+import type { RoleRelatedEntity } from "../../script-helpers/role-accumulator";
 import {
-	asRecord,
 	combineDescription,
 	extractGiantBombGuid,
 	extractYear,
@@ -13,8 +14,6 @@ import {
 	paginate,
 	readResults,
 	readTotalItems,
-	stringValue,
-	type RoleRelatedEntity,
 } from "../giant-bomb-shared";
 
 export const manifest = defineManifest({

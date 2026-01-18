@@ -1,13 +1,8 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
-import {
-	asRecord,
-	getImagesSortedBySize,
-	numberValue,
-	spotifyGet,
-	stringValue,
-} from "../spotify-shared";
+import { asRecord, numberValue, stringValue } from "../../script-helpers/records";
+import { getImagesSortedBySize, spotifyGet } from "../spotify-shared";
 
 export const manifest = defineManifest({
 	kind: "provider",

@@ -1,24 +1,23 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
-import {
-	defineProvider,
-	defineProviderDriver,
-	type ProviderDetailsRelatedEntity,
-} from "@ryot/sandbox-sdk/provider";
+import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import { getUserIsNsfw } from "../../script-helpers/host";
 import {
+	type UnknownRecord,
 	asRecord,
+	numberValue,
+	recordsValue,
+	stringValue,
+} from "../../script-helpers/records";
+import type { RoleRelatedEntity } from "../../script-helpers/role-accumulator";
+import {
 	firstTranslationValue,
 	getImageUrl,
 	getLocalizedImageUrl,
 	getTmdbAccessToken,
-	getUserIsNsfw,
-	numberValue,
 	orderedTranslationCandidates,
 	parseTranslationLanguage,
-	recordsValue,
-	stringValue,
 	tmdbGet,
-	type UnknownRecord,
 } from "../tmdb-shared";
 
 export const manifest = defineManifest({
@@ -80,12 +79,8 @@ export const search = defineProviderDriver(manifest, "search", (input, host) =>
 		}),
 );
 
-type RelatedEntityWithRoles = Omit<ProviderDetailsRelatedEntity, "relationshipProperties"> & {
-	relationshipProperties: { roles: string[] };
-};
-
 const collectCredits = (combinedCredits: UnknownRecord) => {
-	const relatedEntities = new Map<string, RelatedEntityWithRoles>();
+	const relatedEntities = new Map<string, RoleRelatedEntity>();
 	const addMedia = (media: UnknownRecord, fallbackRole: string) => {
 		const id = numberValue(media["id"]);
 		const mediaType = stringValue(media["media_type"]);
