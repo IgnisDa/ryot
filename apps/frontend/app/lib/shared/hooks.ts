@@ -273,9 +273,9 @@ const useTranslationValue = (props: {
 				return clientGqlService
 					.request(MediaTranslationDocument, {
 						input: {
+							variant: props.variant,
 							entityId: props.entityId,
 							entityLot: props.entityLot,
-							variant: props.variant,
 						},
 					})
 					.then((data) => data.mediaTranslation);
