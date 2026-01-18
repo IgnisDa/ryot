@@ -10,7 +10,7 @@
 
 Before starting, read `docs/plans/plugin-system/00-overview.md` in full and then
 `docs/plans/plugin-system/03-phase-3-capability-migrations.md` in full. Do not begin until Step 1
-(task 02) is done. This slice implements plan §2 end-to-end: kernel capability first, then the
+(task 03) is done. This slice implements plan §2 end-to-end: kernel capability first, then the
 plugin operations that consume it, then delete the native modules and re-point the suites.
 
 Kernel capability (lands before consumers):
