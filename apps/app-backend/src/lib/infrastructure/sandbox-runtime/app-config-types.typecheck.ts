@@ -7,6 +7,9 @@ const verifyAppConfigHost = (host: AppConfigHost) => {
 	const numberResult: Effect.Effect<number, SandboxHostError> = host.getAppConfigValue(
 		"server.progressUpdateThresholdHours",
 	);
+	const preloadLimitResult: Effect.Effect<number, SandboxHostError> = host.getAppConfigValue(
+		"builtinExercisePreloadLimit",
+	);
 	const stringResult: Effect.Effect<string, SandboxHostError> =
 		host.getAppConfigValue("books.googleBooksApiKey");
 
@@ -15,6 +18,7 @@ const verifyAppConfigHost = (host: AppConfigHost) => {
 	// @ts-expect-error Unknown config keys are rejected.
 	void host.getAppConfigValue("server.unknownSetting");
 	void numberResult;
+	void preloadLimitResult;
 	void stringResult;
 };
 

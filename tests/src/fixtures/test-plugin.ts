@@ -33,6 +33,12 @@ export type TestPluginScript =
 
 export const testPluginManifest = (input: {
 	pluginSlug: string;
+	crons?: ReadonlyArray<{
+		slug: string;
+		schedule: string;
+		driverRef: string;
+		description: string;
+	}>;
 	linkToEntitySchemaSlug?: string;
 	scripts?: ReadonlyArray<TestPluginScript & { entry: string }>;
 	entitySchemas?: ReadonlyArray<{
@@ -53,6 +59,7 @@ export const testPluginManifest = (input: {
 }) => ({
 	savedViews: [],
 	signalSchemas: [],
+	crons: input.crons ?? [],
 	scripts: input.scripts ?? [],
 	entitySchemas: input.entitySchemas ?? [],
 	relationshipSchemas: input.relationshipSchemas ?? [],
@@ -97,10 +104,11 @@ const findInstalledScriptId = (scriptSlug: string, source: string) =>
 
 export const installTestPlugin = (input: {
 	source: string;
-	script: TestPluginScript;
 	pluginSlug?: string;
-	entitySchemas?: Parameters<typeof testPluginManifest>[0]["entitySchemas"];
+	script: TestPluginScript;
 	linkToEntitySchemaSlug?: string;
+	crons?: Parameters<typeof testPluginManifest>[0]["crons"];
+	entitySchemas?: Parameters<typeof testPluginManifest>[0]["entitySchemas"];
 }) =>
 	Effect.gen(function* () {
 		const entry = `scripts/${input.script.kind}.sandbox.ts`;
@@ -108,6 +116,7 @@ export const installTestPlugin = (input: {
 		const manifest = testPluginManifest({
 			pluginSlug,
 			scripts: [{ ...input.script, entry }],
+			...(input.crons ? { crons: input.crons } : {}),
 			...(input.entitySchemas ? { entitySchemas: input.entitySchemas } : {}),
 			...(input.linkToEntitySchemaSlug
 				? { linkToEntitySchemaSlug: input.linkToEntitySchemaSlug }
@@ -120,12 +129,12 @@ export const installTestPlugin = (input: {
 		);
 		const scriptId = yield* findInstalledScriptId(input.script.slug, input.source);
 		const installed = {
-			active: true,
 			files,
 			manifest,
-			pluginSlug,
-			slug: input.script.slug,
 			scriptId,
+			pluginSlug,
+			active: true,
+			slug: input.script.slug,
 		};
 		installedByScriptId.set(scriptId, installed);
 		return installed;

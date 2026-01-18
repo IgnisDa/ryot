@@ -45,7 +45,6 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			sandboxWorkflow,
 			eventCreateCore,
 			eventCreateWorkflow,
-			exercisePreload,
 			entityImportWorkflow,
 			libraryWorkflow,
 			mediaImportWorkflow,
@@ -56,7 +55,6 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			readModule("./sandbox-workflow-live.ts"),
 			readModule("../events/event-creation.ts"),
 			readModule("../events/event-create-workflow-live.ts"),
-			readModule("../exercises/preload.ts"),
 			readModules(entityImportWorkflowModules),
 			readModule("../library-membership/library-entity-import-workflow.ts"),
 			readModules(mediaImportWorkflowModules),
@@ -67,7 +65,6 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 		expect(sandboxService.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
 		expect(eventCreateCore.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(0);
 		expect(eventCreateWorkflow.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(0);
-		expect(exercisePreload.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
 		expect(subscriptionWorkflow.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
 		expect(sandboxWorkflow).toContain("DurableQueue.process(SandboxExecutionQueue, payload)");
 
@@ -143,7 +140,6 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 			mediaOperations,
 			membershipWorker,
 			trigger,
-			preload,
 		] = yield* Effect.all([
 			readModule("../entity-import/provider-entity-population-workflow.ts"),
 			readModule("../library-membership/library-entity-import-workflow.ts"),
@@ -151,7 +147,6 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 			readModule("../imports/media/operations-workflow.ts"),
 			readModule("../library-membership/membership-worker.ts"),
 			readModule("../entity-import/population-trigger-live.ts"),
-			readModule("../exercises/preload.ts"),
 		]);
 
 		expect(populationWorkflow).toContain("validate-entity-details");
@@ -161,11 +156,9 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 		expect(populationWorkflow).toContain("stamp-root-populated-at");
 		expect(populationWorkflow).toContain("publish-primary-entity");
 
-		for (const source of [trigger, preload, libraryWorkflow, monitoringWorkflow]) {
+		for (const source of [trigger, libraryWorkflow, monitoringWorkflow]) {
 			expect(source).toContain("ProviderEntityPopulationWorkflow");
 		}
-		expect(preload.match(/engine\s*\.poll\(/g)?.length ?? 0).toBe(2);
-		expect(preload).toContain("`${preloadRunId}-exercise-${externalId}`");
 
 		expect(mediaOperations).toContain("LibraryEntityImportWorkflow");
 		expect(mediaOperations).not.toContain("ProviderEntityPopulationWorkflow");

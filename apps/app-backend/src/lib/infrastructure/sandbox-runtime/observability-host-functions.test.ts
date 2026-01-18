@@ -68,10 +68,20 @@ describe("sandbox observability host functions", () => {
 	it("selects log and span only when explicitly allowed", () => {
 		const bound = { log: selectedHostFunction, span: selectedHostFunction };
 
-		expect(selectSandboxHostFunctions(bound, { allowedHostFunctions: [] })).toEqual({});
-		expect(selectSandboxHostFunctions(bound, { allowedHostFunctions: ["log", "unknown"] })).toEqual(
-			{ log: selectedHostFunction },
-		);
+		expect(
+			selectSandboxHostFunctions(bound, {
+				userId: null,
+				driverName: "search",
+				allowedHostFunctions: [],
+			}),
+		).toEqual({});
+		expect(
+			selectSandboxHostFunctions(bound, {
+				userId: null,
+				driverName: "search",
+				allowedHostFunctions: ["log", "unknown"],
+			}),
+		).toEqual({ log: selectedHostFunction });
 	});
 
 	it("serializes deterministically and merges entries after console logs", () => {

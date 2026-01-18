@@ -27,13 +27,15 @@ it("journals plugin resolution without changing the durable queue identity", () 
 	expect(SandboxExecutionQueue.idempotencyKey(payload)).toBe("execution-id");
 });
 
-it.effect("executes the exact queued plugin row after the active plugin updates", () => {
+it.effect("executes the exact queued row and distinguishes plugin from kernel scripts", () => {
 	const queuedScriptId = SandboxScriptId.make("queued-script-id");
+	const kernelScriptId = SandboxScriptId.make("kernel-script-id");
 	let executedCode: string | undefined;
-	let executedScriptId: string | undefined;
-	let executedScriptIsBuiltin: boolean | undefined;
+	const executedScriptIds: string[] = [];
+	const executedScriptIsBuiltin: boolean[] = [];
 	const repository = Layer.mock(SandboxRepository)({
 		_tag: "SandboxRepository",
+		isPluginScript: (scriptId) => Effect.succeed(scriptId !== kernelScriptId),
 		getScript: (scriptId) =>
 			Effect.succeed({
 				id: scriptId,
@@ -47,8 +49,8 @@ it.effect("executes the exact queued plugin row after the active plugin updates"
 		run: (input) =>
 			Effect.sync(() => {
 				executedCode = input.compiledCode;
-				executedScriptId = input.scriptId;
-				executedScriptIsBuiltin = input.scriptIsBuiltin;
+				executedScriptIds.push(input.scriptId);
+				executedScriptIsBuiltin.push(input.scriptIsBuiltin);
 				return {
 					logs: [],
 					error: null,
@@ -69,10 +71,17 @@ it.effect("executes the exact queued plugin row after the active plugin updates"
 			scriptId: queuedScriptId,
 			executionId: "execution-id",
 		});
+		yield* executeSandboxExecution({
+			context: {},
+			userId: null,
+			driverName: "automation",
+			scriptId: kernelScriptId,
+			executionId: "kernel-execution-id",
+		});
 
 		expect(executedCode).toBe("queued-version");
-		expect(executedScriptId).toBe(queuedScriptId);
-		expect(executedScriptIsBuiltin).toBe(true);
+		expect(executedScriptIds).toEqual([queuedScriptId, kernelScriptId]);
+		expect(executedScriptIsBuiltin).toEqual([false, true]);
 		expect(result.value).toBe("queued-result");
 	}).pipe(Effect.provide(layer));
 });
