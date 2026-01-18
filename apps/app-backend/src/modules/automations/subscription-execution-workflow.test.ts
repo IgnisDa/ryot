@@ -115,6 +115,7 @@ const withWorkflowLayer = <A, E>(
 it.effect("runs a signal subscription to completion with full automation context", () => {
 	let completed: unknown;
 	let sandboxPayload: unknown;
+	const logs = ["console", '{"kind":"log","level":"info","message":"traced"}'];
 	const service = Layer.mock(AutomationsService, {
 		_tag: "AutomationsService",
 		prepareRun: () =>
@@ -132,8 +133,8 @@ it.effect("runs a signal subscription to completion with full automation context
 		runSandbox: (input) => {
 			sandboxPayload = input;
 			return Effect.succeed({
+				logs,
 				error: null,
-				logs: ["traced"],
 				value: { ok: true },
 				status: "completed" as const,
 				timing: { totalMs: 5, executionMs: 3 },
@@ -162,9 +163,9 @@ it.effect("runs a signal subscription to completion with full automation context
 				},
 			});
 			expect(completed).toMatchObject({
+				logs,
 				id: runId,
 				error: null,
-				logs: ["traced"],
 				value: { ok: true },
 				timing: { totalMs: 5, executionMs: 3 },
 			});
