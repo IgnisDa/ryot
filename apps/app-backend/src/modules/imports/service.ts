@@ -273,35 +273,44 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 				return { id: runId };
 			});
 
+		const listRunsByIntegrationId: ImportsServiceShape["listRunsByIntegrationId"] = (input) =>
+			runWithDb(repository.listRunsByIntegrationId(input));
+
+		const hasActiveRunForIntegration: ImportsServiceShape["hasActiveRunForIntegration"] = (input) =>
+			runWithDb(repository.hasActiveRunForIntegration(input));
+
+		const createRunForIntegration: ImportsServiceShape["createRunForIntegration"] = (input) =>
+			runWithDb(
+				repository.createRun({
+					userId: input.userId,
+					source: input.source,
+					inputSummary: input.inputSummary,
+					integrationId: input.integrationId,
+				}),
+			);
+
+		const failRunForIntegration = Effect.fn("ImportsService.failRunForIntegration")(function* (
+			runId: ImportRunId,
+			message: string,
+		) {
+			const finishedAt = yield* DateTime.nowAsDate;
+			yield* runWithDb(
+				repository.updateRun({ runId, finishedAt, status: "failed", errorSummary: message }),
+			);
+			yield* runWithDb(
+				repository.createFailure({ runId, message, itemIndex: 0, stage: "source_fetch" }),
+			);
+		});
+
 		return {
 			getImportRun,
 			listImportRuns,
 			startImportRun,
 			removeImportRun,
-			listRunsByIntegrationId: (input) => runWithDb(repository.listRunsByIntegrationId(input)),
-			hasActiveRunForIntegration: (input) =>
-				runWithDb(repository.hasActiveRunForIntegration(input)),
-			createRunForIntegration: (input) =>
-				runWithDb(
-					repository.createRun({
-						userId: input.userId,
-						source: input.source,
-						inputSummary: input.inputSummary,
-						integrationId: input.integrationId,
-					}),
-				),
-			failRunForIntegration: Effect.fn("ImportsService.failRunForIntegration")(function* (
-				runId: ImportRunId,
-				message: string,
-			) {
-				const finishedAt = yield* DateTime.nowAsDate;
-				yield* runWithDb(
-					repository.updateRun({ runId, finishedAt, status: "failed", errorSummary: message }),
-				);
-				yield* runWithDb(
-					repository.createFailure({ runId, message, itemIndex: 0, stage: "source_fetch" }),
-				);
-			}),
+			failRunForIntegration,
+			listRunsByIntegrationId,
+			createRunForIntegration,
+			hasActiveRunForIntegration,
 		} satisfies ImportsServiceShape;
 	}),
 }) {}
