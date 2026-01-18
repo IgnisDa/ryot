@@ -1,9 +1,12 @@
 import { Activity } from "@effect/workflow";
-import type { EntitySchemaSlug } from "@ryot/contract/schema/brands";
+import type { EntitySchemaSlug, UserId } from "@ryot/contract/schema/brands";
 import { EntityId } from "@ryot/contract/schema/brands";
+import { invokeOperationRecipe } from "@ryot/plugin-kit/operations";
+import { resolveEpisodesRecipe } from "@ryot/plugin-media/operations/recipes";
+import type { ResolveEpisodesRef } from "@ryot/plugin-media/operations/schemas";
 import { Effect, Schema } from "effect";
 
-import type { EpisodeResolverService } from "#modules/episode-resolver/service";
+import type { OperationsService } from "#modules/plugins/operations-service";
 
 import type { ImportRunJobData } from "../jobs";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-errors";
@@ -13,13 +16,28 @@ import {
 	recordEpisodeSchemaMissing,
 } from "./writing-failures-workflow";
 
+const resolveEpisodeEntityId = (input: {
+	userId: UserId;
+	ref: ResolveEpisodesRef;
+	operations: OperationsService;
+}) =>
+	invokeOperationRecipe(resolveEpisodesRecipe, { refs: [input.ref] }, (request) =>
+		input.operations.invokeOperation({ ...request, userId: input.userId }),
+	).pipe(
+		Effect.map(({ results }) => {
+			const entityId = results[0]?.entityId;
+			return entityId ? EntityId.make(entityId) : null;
+		}),
+		Effect.mapError(toWorkflowError),
+	);
+
 export const resolveMediaEventTarget = <R>(input: {
 	eventIndex: number;
 	groupIndex: number;
 	itemIndex: number;
 	entityId: EntityId;
+	operations: OperationsService;
 	entitySchemaSlug: EntitySchemaSlug;
-	episodeResolver: EpisodeResolverService;
 	event: ImportMediaEntityGroup["events"][number];
 	payload: Pick<ImportRunJobData, "runId" | "userId">;
 	getEntitySchemaSlug: (
@@ -33,14 +51,16 @@ export const resolveMediaEventTarget = <R>(input: {
 				error: ImportRunError,
 				success: Schema.NullOr(EntityId),
 				name: `resolve-show-episode-${input.groupIndex}-${input.eventIndex}`,
-				execute: input.episodeResolver
-					.resolveShowEpisode({
+				execute: resolveEpisodeEntityId({
+					operations: input.operations,
+					userId: input.payload.userId,
+					ref: {
+						kind: "show",
 						showEntityId: input.entityId,
-						userId: input.payload.userId,
 						seasonNumber: input.event.episodeLocator.seasonNumber,
 						episodeNumber: input.event.episodeLocator.episodeNumber,
-					})
-					.pipe(Effect.mapError(toWorkflowError)),
+					},
+				}),
 			});
 
 			if (!resolvedEpisodeId) {
@@ -80,13 +100,15 @@ export const resolveMediaEventTarget = <R>(input: {
 				error: ImportRunError,
 				success: Schema.NullOr(EntityId),
 				name: `resolve-podcast-episode-${input.groupIndex}-${input.eventIndex}`,
-				execute: input.episodeResolver
-					.resolvePodcastEpisode({
+				execute: resolveEpisodeEntityId({
+					operations: input.operations,
+					userId: input.payload.userId,
+					ref: {
+						kind: "podcast",
 						podcastEntityId: input.entityId,
-						userId: input.payload.userId,
 						episodeNumber: input.event.episodeLocator.episodeNumber,
-					})
-					.pipe(Effect.mapError(toWorkflowError)),
+					},
+				}),
 			});
 
 			if (!resolvedEpisodeId) {

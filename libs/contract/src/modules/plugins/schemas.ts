@@ -20,3 +20,11 @@ export const PluginListItem = Schema.Struct({
 export type PluginListItem = Schema.Schema.Type<typeof PluginListItem>;
 
 export const PluginList = Schema.Array(PluginListItem);
+
+export const PluginInvokeBody = Schema.Struct({ payload: Schema.Unknown });
+
+export type PluginInvokeBody = Schema.Schema.Type<typeof PluginInvokeBody>;
+
+export const PluginInvokeResult = Schema.Struct({ result: Schema.Unknown });
+
+export type PluginInvokeResult = Schema.Schema.Type<typeof PluginInvokeResult>;

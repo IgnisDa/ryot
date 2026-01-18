@@ -29,9 +29,9 @@ and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 3 of 9 tasks completed
+**Overall Progress:** 4 of 9 tasks completed
 
-**Current Task:** [Task 04](./04-operations-invoke-lookup-resolver.md) (todo)
+**Current Task:** [Task 05](./05-durable-workflow-spike.md) (todo)
 
 ### Task List
 
@@ -40,7 +40,7 @@ and you record the choice you make in the plan file.
 | 01  | [Step 0a — Effect-Native Sandbox Cutover](./01-effect-native-sandbox-cutover.md)                            | AFK  | done   |
 | 02  | [Step 0b — Structured Sandbox Observability](./02-structured-sandbox-observability.md)                      | AFK  | done   |
 | 03  | [Step 1 — Crons: media-trending + exercises](./03-crons-trending-exercises.md)                              | AFK  | done   |
-| 04  | [Step 2 — Operations/invoke: metadata-lookup + episode-resolver](./04-operations-invoke-lookup-resolver.md) | AFK  | todo   |
+| 04  | [Step 2 — Operations/invoke: metadata-lookup + episode-resolver](./04-operations-invoke-lookup-resolver.md) | AFK  | done   |
 | 05  | [Step 3a — Durable Workflow Spike](./05-durable-workflow-spike.md)                                          | HITL | todo   |
 | 06  | [Step 3b — Durable Workflows: media import population/resolution](./06-durable-workflows-media-import.md)   | AFK  | todo   |
 | 07  | [Step 4 — Integration + Import-Source Adapters + FS Grants](./07-integration-import-adapters.md)            | AFK  | todo   |

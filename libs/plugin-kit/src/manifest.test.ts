@@ -5,6 +5,9 @@ import { Schema } from "effect";
 import { definePlugin, PluginManifest } from "./manifest";
 
 const manifest = definePlugin({
+	savedViews: [],
+	entitySchemas: [],
+	relationshipSchemas: [],
 	crons: [
 		{
 			slug: "refresh.test",
@@ -13,8 +16,6 @@ const manifest = definePlugin({
 			description: "Refresh test data",
 		},
 	],
-	savedViews: [],
-	entitySchemas: [],
 	signalSchemas: [
 		{
 			name: "Test signal",
@@ -25,7 +26,14 @@ const manifest = definePlugin({
 			notificationScriptSlug: "automation.test",
 		},
 	],
-	relationshipSchemas: [],
+	operations: [
+		{
+			auth: "user",
+			slug: "resolve.test",
+			driverRef: "operation.test",
+			description: "Resolve test references",
+		},
+	],
 	metadata: {
 		icon: "box",
 		name: "Test",
@@ -73,11 +81,11 @@ describe("definePlugin", () => {
 		const optionalSections: [HasCapabilities, HasCrons, HasOperations, HasWorkflows] = [
 			false,
 			true,
-			false,
+			true,
 			false,
 		];
 
-		expect(optionalSections).toEqual([false, true, false, false]);
+		expect(optionalSections).toEqual([false, true, true, false]);
 	});
 
 	it("decodes the manifest with the canonical Effect schema", () => {
@@ -102,6 +110,34 @@ describe("definePlugin", () => {
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
 				scripts: [{ ...manifest.scripts[0], kind: "script" }],
+			}),
+		).toThrow();
+	});
+
+	it("accepts operation scripts and validates operation declarations", () => {
+		const operation = manifest.operations[0];
+		expect(
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				scripts: [{ ...manifest.scripts[0], kind: "operation" }],
+			}).scripts.map(({ kind }) => kind),
+		).toEqual(["operation"]);
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				operations: [{ ...operation, slug: "Invalid/Slug" }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				operations: [{ ...operation, auth: "public" }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				operations: [{ ...operation, description: "" }],
 			}),
 		).toThrow();
 	});
