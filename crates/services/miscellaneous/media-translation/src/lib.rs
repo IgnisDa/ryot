@@ -19,7 +19,9 @@ use media_models::{
     MediaTranslationPendingStatus, MediaTranslationResult, MediaTranslationValue,
     PodcastTranslationExtraInformation, ShowTranslationExtraInformation,
 };
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, Select,
+};
 use supporting_service::SupportingService;
 use user_models::UserProviderLanguagePreferences;
 
@@ -104,6 +106,25 @@ fn build_in_progress_cache_key(
     })
 }
 
+fn apply_extra_information_filters(
+    query: Select<entity_translation::Entity>,
+    show_extra_information: &Option<ShowTranslationExtraInformation>,
+    podcast_extra_information: &Option<PodcastTranslationExtraInformation>,
+) -> Select<entity_translation::Entity> {
+    let query = match show_extra_information {
+        Some(info) => {
+            query.filter(entity_translation::Column::ShowExtraInformation.eq(info.clone()))
+        }
+        None => query.filter(entity_translation::Column::ShowExtraInformation.is_null()),
+    };
+    match podcast_extra_information {
+        Some(info) => {
+            query.filter(entity_translation::Column::PodcastExtraInformation.eq(info.clone()))
+        }
+        None => query.filter(entity_translation::Column::PodcastExtraInformation.is_null()),
+    }
+}
+
 async fn upsert_entity_translation(
     input: &UpdateMediaTranslationJobInput,
     preferred_language: &str,
@@ -112,26 +133,16 @@ async fn upsert_entity_translation(
 ) -> Result<()> {
     let value = value.filter(|v| !v.is_empty());
 
-    let mut query = EntityTranslation::find()
+    let query = EntityTranslation::find()
         .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
         .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
         .filter(entity_translation::Column::Language.eq(preferred_language))
         .filter(entity_translation::Column::Variant.eq(input.variant));
-
-    if let Some(show_extra_information) = input.show_extra_information.clone() {
-        query = query
-            .filter(entity_translation::Column::ShowExtraInformation.eq(show_extra_information));
-    } else {
-        query = query.filter(entity_translation::Column::ShowExtraInformation.is_null());
-    }
-
-    if let Some(podcast_extra_information) = input.podcast_extra_information.clone() {
-        query = query.filter(
-            entity_translation::Column::PodcastExtraInformation.eq(podcast_extra_information),
-        );
-    } else {
-        query = query.filter(entity_translation::Column::PodcastExtraInformation.is_null());
-    }
+    let query = apply_extra_information_filters(
+        query,
+        &input.show_extra_information,
+        &input.podcast_extra_information,
+    );
 
     if let Some(existing) = query.one(&ss.db).await? {
         let mut model: entity_translation::ActiveModel = existing.into();
@@ -306,47 +317,18 @@ pub async fn media_translation(
     input: MediaTranslationInput,
     ss: &Arc<SupportingService>,
 ) -> Result<MediaTranslationResult> {
-    macro_rules! fetch_source {
-        ($entity:ident, $mod:ident, $name:literal) => {
-            $entity::find_by_id(&input.entity_id)
-                .select_only()
-                .column($mod::Column::Source)
-                .into_tuple::<MediaSource>()
-                .one(&ss.db)
-                .await?
-                .ok_or_else(|| anyhow!(concat!($name, " not found")))?
-        };
-    }
+    let preferred_language = get_preferred_language_for_input(user_id, &input, ss).await?;
 
-    let source = match input.entity_lot {
-        EntityLot::Person => fetch_source!(Person, person, "Person"),
-        EntityLot::Metadata => fetch_source!(Metadata, metadata, "Metadata"),
-        EntityLot::MetadataGroup => fetch_source!(MetadataGroup, metadata_group, "Metadata group"),
-        _ => bail!("Unsupported entity lot for translations"),
-    };
-    let preferred_language =
-        get_preferred_language_for_user_and_source(ss, user_id, &source).await?;
-
-    let mut query = EntityTranslation::find()
+    let query = EntityTranslation::find()
         .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
         .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
         .filter(entity_translation::Column::Language.eq(&preferred_language))
         .filter(entity_translation::Column::Variant.eq(input.variant));
-
-    if let Some(show_extra_information) = input.show_extra_information.clone() {
-        query = query
-            .filter(entity_translation::Column::ShowExtraInformation.eq(show_extra_information));
-    } else {
-        query = query.filter(entity_translation::Column::ShowExtraInformation.is_null());
-    }
-
-    if let Some(podcast_extra_information) = input.podcast_extra_information.clone() {
-        query = query.filter(
-            entity_translation::Column::PodcastExtraInformation.eq(podcast_extra_information),
-        );
-    } else {
-        query = query.filter(entity_translation::Column::PodcastExtraInformation.is_null());
-    }
+    let query = apply_extra_information_filters(
+        query,
+        &input.show_extra_information,
+        &input.podcast_extra_information,
+    );
 
     if let Some(translation) = query.one(&ss.db).await? {
         return Ok(MediaTranslationResult::Value(MediaTranslationValue {
