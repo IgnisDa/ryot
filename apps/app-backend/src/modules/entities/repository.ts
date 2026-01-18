@@ -232,7 +232,6 @@ export const updateGlobalEntityById = async (input: {
 };
 
 export const upsertPersonRelationship = async (input: {
-	userId: string;
 	relType: string;
 	sourceEntityId: string;
 	targetEntityId: string;
@@ -241,7 +240,6 @@ export const upsertPersonRelationship = async (input: {
 	await db
 		.insert(relationship)
 		.values({
-			userId: input.userId,
 			relType: input.relType,
 			properties: input.properties,
 			sourceEntityId: input.sourceEntityId,
@@ -249,11 +247,11 @@ export const upsertPersonRelationship = async (input: {
 		})
 		.onConflictDoUpdate({
 			set: { properties: input.properties },
+			targetWhere: isNull(relationship.userId),
 			target: [
-				relationship.userId,
-				relationship.relType,
 				relationship.sourceEntityId,
 				relationship.targetEntityId,
+				relationship.relType,
 			],
 		});
 };

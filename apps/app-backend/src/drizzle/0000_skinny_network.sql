@@ -244,6 +244,7 @@ CREATE INDEX "relationship_rel_type_idx" ON "relationship" USING btree ("rel_typ
 CREATE INDEX "relationship_source_entity_id_idx" ON "relationship" USING btree ("source_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_target_entity_id_idx" ON "relationship" USING btree ("target_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_properties_idx" ON "relationship" USING gin ("properties");--> statement-breakpoint
+CREATE UNIQUE INDEX "relationship_global_source_target_rel_type_unique" ON "relationship" USING btree ("source_entity_id","target_entity_id","rel_type") WHERE "relationship"."user_id" is null;--> statement-breakpoint
 CREATE INDEX "sandbox_script_user_id_idx" ON "sandbox_script" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_view_user_id_idx" ON "saved_view" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_view_tracker_id_idx" ON "saved_view" USING btree ("tracker_id");--> statement-breakpoint
