@@ -110,6 +110,51 @@ it("selects optional MyAnimeList artifacts from source payload path identities",
 	});
 });
 
+it("marks adapter-only integration failures as failed kernel runs", async () => {
+	const journal: JsonValue[] = [];
+	const input = {
+		source: "kodi",
+		runId: "run-kodi",
+		sourcePayload: {
+			integrationId: "integration-1",
+			integrationScriptSlug: "integration.kodi",
+			integrationContext: { rawBody: "{}", contentType: "application/json" },
+		},
+	};
+	const replay = () =>
+		Effect.runPromise(
+			workflow.run(
+				input,
+				{ durableCalls: () => Effect.succeed(journal) } satisfies WorkflowSandboxHost,
+				{ metadata: {}, sandboxScriptId: "media-import" },
+			),
+		);
+
+	let envelope = await replay();
+	expect(envelope).toMatchObject({
+		state: "pending",
+		requests: [{ kind: "activity", args: { scriptSlug: "integration.kodi" } }],
+	});
+	journal.push({
+		entityGroups: [],
+		failures: [{ itemIndex: 0, stage: "input_transformation", message: "Invalid payload" }],
+	});
+
+	envelope = await replay();
+	const chunkRequest = envelope.requests[journal.length];
+	assert(chunkRequest?.kind === "activity");
+	expect(chunkRequest.args.scriptSlug).toBe("activity.import.write-chunks");
+	journal.push({ totalItems: 1, failureCount: 1, writeItemCount: 0, chunkFiles: ["chunk.json"] });
+
+	envelope = await replay();
+	const kernelRequest = envelope.requests[journal.length];
+	assert(kernelRequest?.kind === "child");
+	expect(kernelRequest.args).toMatchObject({
+		workflowSlug: "kernel:process-import-chunks",
+		input: { failRun: true, integrationId: "integration-1" },
+	});
+});
+
 const showEntityRef = {
 	kind: "resolved",
 	externalId: "20",

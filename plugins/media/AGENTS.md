@@ -49,7 +49,8 @@ mechanics. The media-specific rules are:
   `activity.media-monitoring-targets` system query. Its root is the global monitored entity; the
   relationship traversal sees monitoring edges across users. The workflow deduplicates entity ids and
   invokes `kernel:provider-entity-population` in refresh batches of at most 100 using each row's
-  provider id. Keep query-engine access in the activity and durable child dispatch in the workflow.
+  provider id. The kernel dispatches each batch with concurrency 4 and deterministic index-derived
+  child ids. Keep query-engine access in the activity and durable child dispatch in the workflow.
 - `shared/title-parsing.ts` and `shared/title-matching.ts` own Netflix import title matching. They
   must stay within the sandbox compiler's ES2022 lib, which is why roman numerals are read with an
   index loop instead of `toReversed` — `oxlint --fix` rewrites `[...x].reverse()` back into that

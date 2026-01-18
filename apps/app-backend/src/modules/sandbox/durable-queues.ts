@@ -1,4 +1,5 @@
 import { Activity, DurableQueue } from "@effect/workflow";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import {
 	SandboxCompletedResult,
@@ -10,9 +11,11 @@ import { Effect, Layer } from "effect";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
+import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { SandboxRepository } from "./repository";
+import { RunSandboxWorkflow } from "./sandbox-run-workflow";
 
 export const SandboxExecutionQueue = DurableQueue.make({
 	error: SandboxRunError,
@@ -57,7 +60,14 @@ export const makeSandboxExecutionResolutionActivity = (payload: SandboxExecution
 
 export const processSandboxExecution = (payload: SandboxExecutionPayload) =>
 	makeSandboxExecutionResolutionActivity(payload).pipe(
-		Effect.flatMap((resolved) => DurableQueue.process(SandboxExecutionQueue, resolved)),
+		Effect.flatMap((resolved) =>
+			Effect.gen(function* () {
+				const engine = yield* WorkflowEngine;
+				return yield* engine
+					.execute(RunSandboxWorkflow, { payload: resolved, executionId: resolved.executionId })
+					.pipe(withoutWorkflowParent);
+			}),
+		),
 		Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 	);
 

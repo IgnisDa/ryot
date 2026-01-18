@@ -167,7 +167,11 @@ export async function openInterestStream(
 			}
 			const timer = setTimeout(() => {
 				listeners.delete(onFrame);
-				reject(new Error(`Timed out waiting for entity:updated for '${entityId}'`));
+				reject(
+					new Error(
+						`Timed out waiting for entity:updated for '${entityId}' on stream '${streamId}'`,
+					),
+				);
 			}, waitOptions.timeoutMs ?? 90_000);
 			const onFrame = (frame: EntityUpdatedFrame) => {
 				if (isEntityUpdatedMatch(frame, entityId, reason)) {

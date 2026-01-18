@@ -3,7 +3,7 @@ import { expect, it } from "@effect/vitest";
 import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { Effect, Exit, Layer } from "effect";
+import { Effect, Exit, Layer, Option } from "effect";
 import { assert } from "vitest";
 
 import { RedisService } from "#lib/infrastructure/redis";
@@ -55,6 +55,7 @@ type SandboxCall = { method: string; input: unknown };
 const makeHarness = (registered: RegisteredImportSource | null, suspendWorkflow = false) => {
 	const activityNames: string[] = [];
 	const sandboxCalls: SandboxCall[] = [];
+	const sandboxParents: boolean[] = [];
 	const instance = WorkflowInstance.initial(ProcessImportRunWorkflow, executionId);
 	const engine = makeWorkflowEngine({
 		activityExecute: (activity) =>
@@ -67,6 +68,7 @@ const makeHarness = (registered: RegisteredImportSource | null, suspendWorkflow 
 	return {
 		activityNames,
 		sandboxCalls,
+		sandboxParents,
 		layer: Layer.mergeAll(
 			makeAppConfigLayer(),
 			Layer.succeed(WorkflowEngine, engine),
@@ -85,9 +87,15 @@ const makeHarness = (registered: RegisteredImportSource | null, suspendWorkflow 
 						return SandboxScriptId.make("workflow.netflix-import");
 					}),
 				executeWorkflow: (input) =>
-					Effect.sync(() => {
-						sandboxCalls.push({ input, method: "executeWorkflow" });
-					}).pipe(Effect.zipRight(suspendWorkflow ? Effect.interrupt : Effect.succeed(null))),
+					Effect.serviceOption(WorkflowInstance).pipe(
+						Effect.tap((parent) =>
+							Effect.sync(() => {
+								sandboxParents.push(Option.isSome(parent));
+								sandboxCalls.push({ input, method: "executeWorkflow" });
+							}),
+						),
+						Effect.zipRight(suspendWorkflow ? Effect.interrupt : Effect.succeed(null)),
+					),
 			}),
 			dbRunnerLayer,
 			BunFileSystem.layer,
@@ -125,6 +133,7 @@ it.effect("dispatches a registry-declared source to its owning plugin's import w
 			"load-import-source-payload",
 			"cleanup-import-artifacts-on-success",
 		]);
+		expect(harness.sandboxParents).toEqual([false]);
 	}).pipe(Effect.provide(harness.layer));
 });
 

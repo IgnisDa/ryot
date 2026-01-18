@@ -6,7 +6,7 @@ This module is the backend half of **client-declared interest**: the mechanism b
 
 It exposes two ordinary authenticated HTTP endpoints on the `entity-interest` `HttpApiGroup`:
 
-- **`GET /api/entity-interest/stream?streamId=<uuid>`** — a long-lived Server-Sent Events (SSE) stream. The client mints its own `streamId` (a UUID). The first event is `connected` (`data: { streamId }`); thereafter completions arrive as `entity:updated` events (`data: { entityId, reason }`, `reason ∈ {"populated","translated"}`). A bare `: ping` comment line is sent every 25 s so idle proxies don't drop the connection.
+- **`GET /api/entity-interest/stream?streamId=<uuid>`** — a long-lived Server-Sent Events (SSE) stream. The client mints its own `streamId` (a UUID). The first event is `connected` (`data: { streamId }`); thereafter completions arrive as `entity:updated` events (`data: { entityId, reason }`, `reason ∈ {"populated","translated"}`). A bare `: ping` comment line is sent every 5 s, below Bun's default 10 s idle timeout, so the server and idle proxies keep the connection open.
 - **`POST /api/entity-interest`** — body `{ streamId, entityIds }`, **replace semantics** (each call supersedes the prior interest set for that stream). It returns `{ terminal: {entityId, reason}[] }`: entities already in a terminal state at reconcile time, for immediate catch-up.
 
 The module is **glue over existing bricks**. It owns no persistence and no provider logic. It reads the declared interest set through the query engine (which supplies authz, localization, and translation status for free) and enqueues the pre-existing idempotent population/translation workflows. Completion fan-out rides one Redis channel back to the SSE streams.
@@ -15,7 +15,7 @@ This file is the authoritative record of how the module works: the mental model,
 
 ## The End-to-End Flow
 
-```
+```txt
 client                        interest module                     rest of backend
   │                                  │                                   │
   ├─ GET /entity-interest/stream ───►│ StreamRegistry.add(streamId)      │
@@ -54,7 +54,7 @@ client                        interest module                     rest of backen
 The reference client is `tests/src/fixtures/interest-sse.ts`. A conforming client must:
 
 - **Generate its own `streamId`** (UUID) and pass the same value to both the stream GET and every interest POST.
-- **Parse SSE by `\n\n`-delimited blocks**, and **ignore any line starting with `:`** — that is how the `: ping` heartbeat (every `HEARTBEAT_INTERVAL_MS = 25_000`) is discarded. Read `event:` and `data:` lines.
+- **Parse SSE by `\n\n`-delimited blocks**, and **ignore any line starting with `:`** — that is how the `: ping` heartbeat (every `HEARTBEAT_INTERVAL_MS = 5_000`) is discarded. Read `event:` and `data:` lines.
 - **Treat `connected` as readiness.** Don't POST interest until `connected` arrives (the stream isn't registered until its scope acquires).
 - **Dedupe `entity:updated` by `entityId`, idempotently.** A terminal entity is delivered **twice by design**: once inline in the POST `terminal` array, and possibly again later as an SSE frame. Applying an update must be safe to repeat.
 - **Buffer completions.** A completion can arrive _before_ the caller starts awaiting a specific id (the workflow may finish during the POST round-trip), so check already-received frames before waiting.
