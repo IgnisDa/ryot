@@ -14,12 +14,12 @@ use dependent_models::{
     SearchResults,
 };
 use educe::Educe;
-use enum_models::{EntityTranslationVariant, MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    AudioBookSpecifics, CommitMetadataGroupInput, MetadataDetails, MetadataFreeCreator,
-    MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-    UniqueMediaIdentifier,
+    AudioBookSpecifics, CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails,
+    MetadataFreeCreator, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, UniqueMediaIdentifier,
 };
 use paginate::Pages;
 use reqwest::Client;
@@ -431,7 +431,7 @@ impl MediaProvider for AudibleService {
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
+    ) -> Result<EntityTranslationDetails> {
         let locale =
             locale_from_str(target_language).ok_or_else(|| anyhow!("Unsupported language"))?;
         let url = url_from_locale(&locale);
@@ -443,23 +443,21 @@ impl MediaProvider for AudibleService {
             .await?
             .json()
             .await?;
-        Ok(vec![
-            (EntityTranslationVariant::Title, Some(data.product.title)),
-            (
-                EntityTranslationVariant::Description,
-                data.product
-                    .publisher_summary
-                    .or(data.product.merchandising_summary),
-            ),
-            (EntityTranslationVariant::Image, None),
-        ])
+        Ok(EntityTranslationDetails {
+            title: Some(data.product.title),
+            description: data
+                .product
+                .publisher_summary
+                .or(data.product.merchandising_summary),
+            ..Default::default()
+        })
     }
 
     async fn translate_metadata_group(
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
+    ) -> Result<EntityTranslationDetails> {
         let locale =
             locale_from_str(target_language).ok_or_else(|| anyhow!("Unsupported language"))?;
         let url = url_from_locale(&locale);
@@ -471,16 +469,14 @@ impl MediaProvider for AudibleService {
             .await?
             .json()
             .await?;
-        Ok(vec![
-            (EntityTranslationVariant::Title, Some(data.product.title)),
-            (
-                EntityTranslationVariant::Description,
-                data.product
-                    .publisher_summary
-                    .or(data.product.merchandising_summary),
-            ),
-            (EntityTranslationVariant::Image, None),
-        ])
+        Ok(EntityTranslationDetails {
+            title: Some(data.product.title),
+            description: data
+                .product
+                .publisher_summary
+                .or(data.product.merchandising_summary),
+            ..Default::default()
+        })
     }
 }
 

@@ -9,10 +9,9 @@ use common_utils::ryot_log;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use database_utils::check_token;
 use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
-use enum_models::EntityTranslationVariant;
 use media_models::{
-    MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem, PartialMetadataWithoutId,
-    PeopleSearchItem,
+    EntityTranslationDetails, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
+    PartialMetadataWithoutId, PeopleSearchItem,
 };
 use supporting_service::SupportingService;
 
@@ -89,7 +88,7 @@ pub trait MediaProvider {
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
+    ) -> Result<EntityTranslationDetails> {
         bail!("This provider does not support translating metadata")
     }
 
@@ -99,7 +98,7 @@ pub trait MediaProvider {
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
+    ) -> Result<EntityTranslationDetails> {
         bail!("This provider does not support translating metadata groups")
     }
 
@@ -110,7 +109,7 @@ pub trait MediaProvider {
         identifier: &str,
         target_language: &str,
         source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
+    ) -> Result<EntityTranslationDetails> {
         bail!("This provider does not support translating person")
     }
 }

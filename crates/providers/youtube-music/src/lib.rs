@@ -9,12 +9,12 @@ use dependent_models::{
     MetadataGroupPersonRelated, MetadataPersonRelated, MetadataSearchSourceSpecifics,
     PersonDetails, ProviderSupportedLanguageInformation, SearchResults,
 };
-use enum_models::{EntityTranslationVariant, MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
-    MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-    UniqueMediaIdentifier,
+    CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails, MetadataGroupSearchItem,
+    MetadataSearchItem, MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, UniqueMediaIdentifier,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
@@ -330,28 +330,26 @@ impl MediaProvider for YoutubeMusicService {
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
+    ) -> Result<EntityTranslationDetails> {
         let lang_client = get_lang_client(&self.client, target_language);
         let details = lang_client.music_details(identifier).await?;
-        Ok(vec![
-            (EntityTranslationVariant::Title, Some(details.track.name)),
-            (EntityTranslationVariant::Description, None),
-            (EntityTranslationVariant::Image, None),
-        ])
+        Ok(EntityTranslationDetails {
+            title: Some(details.track.name),
+            ..Default::default()
+        })
     }
 
     async fn translate_metadata_group(
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
+    ) -> Result<EntityTranslationDetails> {
         let lang_client = get_lang_client(&self.client, target_language);
         let album = lang_client.music_album(identifier).await?;
-        Ok(vec![
-            (EntityTranslationVariant::Title, Some(album.name)),
-            (EntityTranslationVariant::Description, None),
-            (EntityTranslationVariant::Image, None),
-        ])
+        Ok(EntityTranslationDetails {
+            title: Some(album.name),
+            ..Default::default()
+        })
     }
 
     async fn translate_person(
@@ -359,14 +357,13 @@ impl MediaProvider for YoutubeMusicService {
         identifier: &str,
         target_language: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
+    ) -> Result<EntityTranslationDetails> {
         let lang_client = get_lang_client(&self.client, target_language);
         let data = lang_client.music_artist(identifier, true).await?;
-        Ok(vec![
-            (EntityTranslationVariant::Title, Some(data.name)),
-            (EntityTranslationVariant::Description, None),
-            (EntityTranslationVariant::Image, None),
-        ])
+        Ok(EntityTranslationDetails {
+            title: Some(data.name),
+            ..Default::default()
+        })
     }
 }
 

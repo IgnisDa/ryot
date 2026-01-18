@@ -9,7 +9,7 @@ use common_utils::{
     SHOW_SPECIAL_SEASON_NAMES, compute_next_page, convert_date_to_year, convert_string_to_date,
 };
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use enum_models::{EntityTranslationVariant, MediaSource};
+use enum_models::MediaSource;
 use futures::{
     stream::{self, StreamExt},
     try_join,
@@ -17,8 +17,8 @@ use futures::{
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
-    ShowEpisode, ShowSeason, ShowSpecifics,
+    EntityTranslationDetails, MetadataDetails, MetadataSearchItem, PartialMetadataPerson,
+    PartialMetadataWithoutId, ShowEpisode, ShowSeason, ShowSpecifics,
 };
 use rust_decimal::dec;
 use supporting_service::SupportingService;
@@ -288,7 +288,7 @@ impl MediaProvider for TmdbShowService {
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
+    ) -> Result<EntityTranslationDetails> {
         let rsp = self
             .0
             .client
@@ -297,14 +297,11 @@ impl MediaProvider for TmdbShowService {
             .send()
             .await?;
         let data: TmdbMediaEntry = rsp.json().await?;
-        Ok(vec![
-            (EntityTranslationVariant::Title, data.name),
-            (EntityTranslationVariant::Description, data.overview),
-            (
-                EntityTranslationVariant::Image,
-                data.poster_path.map(|p| self.0.get_image_url(p)),
-            ),
-        ])
+        Ok(EntityTranslationDetails {
+            title: data.name,
+            description: data.overview,
+            image: data.poster_path.map(|p| self.0.get_image_url(p)),
+        })
     }
 }
 

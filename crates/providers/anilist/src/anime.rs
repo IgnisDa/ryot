@@ -3,8 +3,7 @@ use async_trait::async_trait;
 use common_models::SearchDetails;
 use common_utils::PAGE_SIZE;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use enum_models::EntityTranslationVariant;
-use media_models::{MetadataDetails, MetadataSearchItem};
+use media_models::{EntityTranslationDetails, MetadataDetails, MetadataSearchItem};
 use traits::MediaProvider;
 
 use crate::{
@@ -57,7 +56,7 @@ impl MediaProvider for AnilistAnimeService {
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
+    ) -> Result<EntityTranslationDetails> {
         translate_media(&self.0.client, identifier, target_language).await
     }
 }

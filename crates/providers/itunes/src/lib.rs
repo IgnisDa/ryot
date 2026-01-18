@@ -9,10 +9,11 @@ use database_models::{metadata, prelude::Metadata};
 use dependent_models::{
     MetadataSearchSourceSpecifics, ProviderSupportedLanguageInformation, SearchResults,
 };
-use enum_models::{EntityTranslationVariant, MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataFreeCreator, MetadataSearchItem, PodcastEpisode, PodcastSpecifics,
+    EntityTranslationDetails, MetadataDetails, MetadataFreeCreator, MetadataSearchItem,
+    PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::Client;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
@@ -271,7 +272,7 @@ impl MediaProvider for ITunesService {
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<Vec<(EntityTranslationVariant, Option<String>)>> {
+    ) -> Result<EntityTranslationDetails> {
         let rsp = self
             .client
             .get(format!("{URL}/lookup"))
@@ -285,17 +286,11 @@ impl MediaProvider for ITunesService {
             .await?;
         let details: SearchResponse = rsp.json().await?;
         let item = details.results.and_then(|s| s.first().cloned());
-        Ok(vec![
-            (
-                EntityTranslationVariant::Title,
-                item.clone().map(|i| i.collection_name),
-            ),
-            (
-                EntityTranslationVariant::Description,
-                item.and_then(|i| i.description),
-            ),
-            (EntityTranslationVariant::Image, None),
-        ])
+        Ok(EntityTranslationDetails {
+            title: item.clone().map(|i| i.collection_name.clone()),
+            description: item.and_then(|i| i.description.clone()),
+            ..Default::default()
+        })
     }
 }
 

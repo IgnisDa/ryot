@@ -8095,7 +8095,6 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
- "enum-models",
  "media-models",
  "supporting-service",
  "tracing",
