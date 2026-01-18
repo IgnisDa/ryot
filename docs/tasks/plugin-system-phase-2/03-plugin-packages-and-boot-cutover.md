@@ -70,7 +70,7 @@ flow), §5 (global-binding dispatch). Do not restate or re-derive it.
 
 - [x] `apps/app-backend/src/modules/builtins/` no longer exists; media/fitness definitions and
       scripts live in `plugins/media` and `plugins/fitness`; kernel-owned definitions live in
-      the registry module (done criterion 1)
+      the registry module (done criterion 1 — its formatter-ownership half lands in task 06)
 - [x] Boot ingests both first-party plugins before accepting traffic; the definition registry is
       fully populated from the loader, not SeedService (done criterion 5, boot half)
 - [x] `entity_schema_sandbox_script` is gone and lifecycle dispatch is registry-driven;
