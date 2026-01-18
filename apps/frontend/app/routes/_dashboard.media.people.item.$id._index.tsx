@@ -46,7 +46,6 @@ import {
 import {
 	useMetadataGroupDetails,
 	usePersonDetails,
-	useTranslationValue,
 	useUserPersonDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -79,30 +78,23 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
-	const [personDetails, isPersonPartialStatusActive] = usePersonDetails(
-		loaderData.personId,
-	);
+	const [
+		personDetails,
+		isPersonPartialStatusActive,
+		usePersonTranslationValue,
+	] = usePersonDetails(loaderData.personId);
 	const userPersonDetails = useUserPersonDetails(loaderData.personId);
 
-	const personTitleTranslation = useTranslationValue({
-		entityLot: EntityLot.Person,
-		entityId: loaderData.personId,
+	const personTitleTranslation = usePersonTranslationValue({
 		variant: EntityTranslationVariant.Title,
-		mediaSource: personDetails.data?.details.source,
 	});
 
-	const personDescriptionTranslation = useTranslationValue({
-		entityLot: EntityLot.Person,
-		entityId: loaderData.personId,
+	const personDescriptionTranslation = usePersonTranslationValue({
 		variant: EntityTranslationVariant.Description,
-		mediaSource: personDetails.data?.details.source,
 	});
 
-	const personImageTranslation = useTranslationValue({
-		entityLot: EntityLot.Person,
-		entityId: loaderData.personId,
+	const personImageTranslation = usePersonTranslationValue({
 		variant: EntityTranslationVariant.Image,
-		mediaSource: personDetails.data?.details.source,
 	});
 
 	const title =
@@ -405,21 +397,18 @@ const MetadataDisplay = (props: {
 };
 
 const MetadataGroupDisplay = (props: { metadataGroupId: string }) => {
-	const [{ data: metadataGroupDetails }, isMetadataGroupPartialStatusActive] =
-		useMetadataGroupDetails(props.metadataGroupId);
+	const [
+		{ data: metadataGroupDetails },
+		isMetadataGroupPartialStatusActive,
+		useMetadataGroupTranslationValue,
+	] = useMetadataGroupDetails(props.metadataGroupId);
 
-	const metadataGroupTitleTranslation = useTranslationValue({
-		entityId: props.metadataGroupId,
-		entityLot: EntityLot.MetadataGroup,
+	const metadataGroupTitleTranslation = useMetadataGroupTranslationValue({
 		variant: EntityTranslationVariant.Title,
-		mediaSource: metadataGroupDetails?.details.source,
 	});
 
-	const metadataGroupImageTranslation = useTranslationValue({
-		entityId: props.metadataGroupId,
-		entityLot: EntityLot.MetadataGroup,
+	const metadataGroupImageTranslation = useMetadataGroupTranslationValue({
 		variant: EntityTranslationVariant.Image,
-		mediaSource: metadataGroupDetails?.details.source,
 	});
 
 	return (

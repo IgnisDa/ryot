@@ -1,9 +1,6 @@
 import { Anchor, Avatar, Box, ScrollArea, Text } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
-import {
-	EntityLot,
-	EntityTranslationVariant,
-} from "@ryot/generated/graphql/backend/graphql";
+import { EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
 import type { ReactNode, Ref } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
@@ -11,7 +8,6 @@ import { MEDIA_DETAILS_HEIGHT } from "~/lib/shared/constants";
 import {
 	useMetadataDetails,
 	useS3PresignedUrls,
-	useTranslationValue,
 	useUserMetadataDetails,
 } from "~/lib/shared/hooks";
 import classes from "~/styles/common.module.css";
@@ -67,28 +63,23 @@ export const PartialMetadataDisplay = (props: {
 	extraText?: string;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const [{ data: metadataDetails }, isPartialStatusActive] = useMetadataDetails(
-		props.metadataId,
-		inViewport,
-	);
+	const [
+		{ data: metadataDetails },
+		isPartialStatusActive,
+		useMetadataTranslationValue,
+	] = useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 		inViewport,
 	);
 
-	const metadataTitleTranslation = useTranslationValue({
+	const metadataTitleTranslation = useMetadataTranslationValue({
 		enabled: inViewport,
-		entityId: props.metadataId,
-		entityLot: EntityLot.Metadata,
-		mediaSource: metadataDetails?.source,
 		variant: EntityTranslationVariant.Title,
 	});
 
-	const metadataImageTranslation = useTranslationValue({
+	const metadataImageTranslation = useMetadataTranslationValue({
 		enabled: inViewport,
-		entityId: props.metadataId,
-		entityLot: EntityLot.Metadata,
-		mediaSource: metadataDetails?.source,
 		variant: EntityTranslationVariant.Image,
 	});
 

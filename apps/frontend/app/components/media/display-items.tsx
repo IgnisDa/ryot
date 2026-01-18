@@ -14,7 +14,6 @@ import {
 	useMetadataGroupDetails,
 	usePersonDetails,
 	useS3PresignedUrls,
-	useTranslationValue,
 	useUserEntityRecentlyConsumed,
 	useUserMetadataDetails,
 	useUserMetadataGroupDetails,
@@ -36,6 +35,7 @@ export const MetadataDisplayItem = (props: {
 	const [
 		{ data: metadataDetails, isLoading: isMetadataDetailsLoading },
 		isMetadataPartialStatusActive,
+		useMetadataTranslationValue,
 	] = useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
@@ -47,19 +47,13 @@ export const MetadataDisplayItem = (props: {
 		inViewport,
 	);
 
-	const metadataTitleTranslation = useTranslationValue({
+	const metadataTitleTranslation = useMetadataTranslationValue({
 		enabled: inViewport,
-		entityId: props.metadataId,
-		entityLot: EntityLot.Metadata,
-		mediaSource: metadataDetails?.source,
 		variant: EntityTranslationVariant.Title,
 	});
 
-	const metadataImageTranslation = useTranslationValue({
+	const metadataImageTranslation = useMetadataTranslationValue({
 		enabled: inViewport,
-		entityId: props.metadataId,
-		entityLot: EntityLot.Metadata,
-		mediaSource: metadataDetails?.source,
 		variant: EntityTranslationVariant.Image,
 	});
 
@@ -150,6 +144,7 @@ export const MetadataGroupDisplayItem = (props: {
 	const [
 		{ data: metadataGroupDetails, isLoading: isMetadataGroupDetailsLoading },
 		isMetadataGroupPartialStatusActive,
+		useMetadataGroupTranslationValue,
 	] = useMetadataGroupDetails(props.metadataGroupId, inViewport);
 	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
 		props.metadataGroupId,
@@ -162,20 +157,14 @@ export const MetadataGroupDisplayItem = (props: {
 			inViewport,
 		);
 
-	const metadataGroupTitleTranslation = useTranslationValue({
+	const metadataGroupTitleTranslation = useMetadataGroupTranslationValue({
 		enabled: inViewport,
-		entityId: props.metadataGroupId,
-		entityLot: EntityLot.MetadataGroup,
 		variant: EntityTranslationVariant.Title,
-		mediaSource: metadataGroupDetails?.details.source,
 	});
 
-	const metadataGroupImageTranslation = useTranslationValue({
+	const metadataGroupImageTranslation = useMetadataGroupTranslationValue({
 		enabled: inViewport,
-		entityId: props.metadataGroupId,
-		entityLot: EntityLot.MetadataGroup,
 		variant: EntityTranslationVariant.Image,
-		mediaSource: metadataGroupDetails?.details.source,
 	});
 
 	const averageRating = userMetadataGroupDetails?.averageRating;
@@ -236,6 +225,7 @@ export const PersonDisplayItem = (props: {
 	const [
 		{ data: personDetails, isLoading: isPersonDetailsLoading },
 		isPersonPartialStatusActive,
+		usePersonTranslationValue,
 	] = usePersonDetails(props.personId, inViewport);
 	const { data: userPersonDetails } = useUserPersonDetails(
 		props.personId,
@@ -247,20 +237,14 @@ export const PersonDisplayItem = (props: {
 		inViewport,
 	);
 
-	const personTitleTranslation = useTranslationValue({
+	const personTitleTranslation = usePersonTranslationValue({
 		enabled: inViewport,
-		entityId: props.personId,
-		entityLot: EntityLot.Person,
 		variant: EntityTranslationVariant.Title,
-		mediaSource: personDetails?.details.source,
 	});
 
-	const personImageTranslation = useTranslationValue({
+	const personImageTranslation = usePersonTranslationValue({
 		enabled: inViewport,
-		entityId: props.personId,
-		entityLot: EntityLot.Person,
 		variant: EntityTranslationVariant.Image,
-		mediaSource: personDetails?.details.source,
 	});
 
 	const averageRating = userPersonDetails?.averageRating;

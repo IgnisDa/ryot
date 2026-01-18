@@ -101,7 +101,6 @@ import {
 	useDeployBulkMetadataProgressUpdateMutation,
 	useMetadataDetails,
 	useMetadataGroupDetails,
-	useTranslationValue,
 	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -232,9 +231,11 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
 
-	const [metadataDetails, isMetadataPartialStatusActive] = useMetadataDetails(
-		loaderData.metadataId,
-	);
+	const [
+		metadataDetails,
+		isMetadataPartialStatusActive,
+		useMetadataTranslationValue,
+	] = useMetadataDetails(loaderData.metadataId);
 	const userMetadataDetails = useUserMetadataDetails(loaderData.metadataId);
 	const averageRatingValue = convertRatingToUserScale(
 		userMetadataDetails.data?.averageRating,
@@ -281,25 +282,16 @@ export default function Page() {
 		[changeProgress],
 	);
 
-	const metadataTitleTranslation = useTranslationValue({
-		entityLot: EntityLot.Metadata,
-		entityId: loaderData.metadataId,
+	const metadataTitleTranslation = useMetadataTranslationValue({
 		variant: EntityTranslationVariant.Title,
-		mediaSource: metadataDetails.data?.source,
 	});
 
-	const metadataDescriptionTranslation = useTranslationValue({
-		entityLot: EntityLot.Metadata,
-		entityId: loaderData.metadataId,
-		mediaSource: metadataDetails.data?.source,
+	const metadataDescriptionTranslation = useMetadataTranslationValue({
 		variant: EntityTranslationVariant.Description,
 	});
 
-	const metadataImageTranslation = useTranslationValue({
-		entityLot: EntityLot.Metadata,
-		entityId: loaderData.metadataId,
+	const metadataImageTranslation = useMetadataTranslationValue({
 		variant: EntityTranslationVariant.Image,
-		mediaSource: metadataDetails.data?.source,
 	});
 
 	const title = metadataTitleTranslation || metadataDetails.data?.title || "";
@@ -309,19 +301,15 @@ export default function Page() {
 	const inProgress = userMetadataDetails.data?.inProgress;
 	const firstGroupAssociated = metadataDetails.data?.groups.at(0);
 	const videos = [...(metadataDetails.data?.assets.remoteVideos || [])];
-	const [{ data: metadataGroupDetails }] = useMetadataGroupDetails(
-		firstGroupAssociated?.id,
-		userPreferences.featuresEnabled.media.groups && !!firstGroupAssociated?.id,
-	);
-
-	const metadataGroupTitleTranslation = useTranslationValue({
-		entityId: firstGroupAssociated?.id,
-		entityLot: EntityLot.MetadataGroup,
-		variant: EntityTranslationVariant.Title,
-		mediaSource: metadataGroupDetails?.details.source,
-		enabled:
+	const [{ data: metadataGroupDetails }, , useMetadataGroupTranslationValue] =
+		useMetadataGroupDetails(
+			firstGroupAssociated?.id,
 			userPreferences.featuresEnabled.media.groups &&
-			!!firstGroupAssociated?.id,
+				!!firstGroupAssociated?.id,
+		);
+
+	const metadataGroupTitleTranslation = useMetadataGroupTranslationValue({
+		variant: EntityTranslationVariant.Title,
 	});
 	const additionalMetadataDetails = [
 		userPreferences.featuresEnabled.media.groups && firstGroupAssociated && (

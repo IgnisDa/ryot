@@ -76,7 +76,6 @@ import {
 	useInvalidateUserDetails,
 	useMetadataDetails,
 	useS3PresignedUrls,
-	useTranslationValue,
 	useUserPreferences,
 	useUserUnitSystem,
 	useUserWorkoutDetails,
@@ -699,24 +698,16 @@ const ConsumedMetadataDisplay = (props: {
 	enabled: boolean;
 	metadataId: string;
 }) => {
-	const [{ data: metadataDetails }] = useMetadataDetails(
-		props.metadataId,
-		props.enabled,
-	);
+	const [{ data: metadataDetails }, , useMetadataTranslationValue] =
+		useMetadataDetails(props.metadataId, props.enabled);
 
-	const metadataTitleTranslation = useTranslationValue({
+	const metadataTitleTranslation = useMetadataTranslationValue({
 		enabled: props.enabled,
-		entityId: props.metadataId,
-		entityLot: EntityLot.Metadata,
-		mediaSource: metadataDetails?.source,
 		variant: EntityTranslationVariant.Title,
 	});
 
-	const metadataImageTranslation = useTranslationValue({
+	const metadataImageTranslation = useMetadataTranslationValue({
 		enabled: props.enabled,
-		entityId: props.metadataId,
-		entityLot: EntityLot.Metadata,
-		mediaSource: metadataDetails?.source,
 		variant: EntityTranslationVariant.Image,
 	});
 

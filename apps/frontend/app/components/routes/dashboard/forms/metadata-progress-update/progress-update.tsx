@@ -1,13 +1,6 @@
 import { Center, Loader, Stack, Text } from "@mantine/core";
-import {
-	EntityLot,
-	EntityTranslationVariant,
-} from "@ryot/generated/graphql/backend/graphql";
-import {
-	useMetadataDetails,
-	useTranslationValue,
-	useUserMetadataDetails,
-} from "~/lib/shared/hooks";
+import { EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
+import { useMetadataDetails, useUserMetadataDetails } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import { MetadataInProgressUpdateForm } from "./in-progress-form";
 import { MetadataNewProgressUpdateForm } from "./new-progress-form";
@@ -19,17 +12,13 @@ export const MetadataProgressUpdateForm = ({
 }) => {
 	const { metadataToUpdate } = useMetadataProgressUpdate();
 
-	const [{ data: metadataDetails }] = useMetadataDetails(
-		metadataToUpdate?.metadataId,
-	);
+	const [{ data: metadataDetails }, , useMetadataTranslationValue] =
+		useMetadataDetails(metadataToUpdate?.metadataId);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		metadataToUpdate?.metadataId,
 	);
 
-	const metadataTitleTranslation = useTranslationValue({
-		entityLot: EntityLot.Metadata,
-		mediaSource: metadataDetails?.source,
-		entityId: metadataToUpdate?.metadataId,
+	const metadataTitleTranslation = useMetadataTranslationValue({
 		variant: EntityTranslationVariant.Title,
 	});
 

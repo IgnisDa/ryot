@@ -1,35 +1,29 @@
 import { useInViewport } from "@mantine/hooks";
 import {
-	EntityLot,
 	EntityTranslationVariant,
 	type MetadataCreator,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMemo } from "react";
 import { $path } from "safe-routes";
 import { BaseEntityDisplay } from "~/components/media/base-display";
-import { usePersonDetails, useTranslationValue } from "~/lib/shared/hooks";
+import { usePersonDetails } from "~/lib/shared/hooks";
 
 export const MetadataCreatorDisplay = (props: { data: MetadataCreator }) => {
 	const { ref, inViewport } = useInViewport();
-	const [{ data: personDetails }, isPartialStatusActive] = usePersonDetails(
-		props.data.idOrName,
-		inViewport && !props.data.isFree,
-	);
+	const [
+		{ data: personDetails },
+		isPartialStatusActive,
+		usePersonTranslationValue,
+	] = usePersonDetails(props.data.idOrName, inViewport && !props.data.isFree);
 
-	const personTitleTranslation = useTranslationValue({
-		entityLot: EntityLot.Person,
-		entityId: props.data.idOrName,
+	const personTitleTranslation = usePersonTranslationValue({
 		variant: EntityTranslationVariant.Title,
 		enabled: inViewport && !props.data.isFree,
-		mediaSource: personDetails?.details.source,
 	});
 
-	const personImageTranslation = useTranslationValue({
-		entityLot: EntityLot.Person,
-		entityId: props.data.idOrName,
+	const personImageTranslation = usePersonTranslationValue({
 		variant: EntityTranslationVariant.Image,
 		enabled: inViewport && !props.data.isFree,
-		mediaSource: personDetails?.details.source,
 	});
 
 	const title = useMemo(() => {
