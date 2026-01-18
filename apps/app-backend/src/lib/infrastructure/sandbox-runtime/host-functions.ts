@@ -152,7 +152,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					return Promise.resolve(apiFailure(ttlError));
 				}
 
-				const redisKey = redisKeys.sandboxCache(input.scriptId, key.trim());
+				const redisKey = redisKeys.sandboxCache(input.userId, input.scriptId, key.trim());
 
 				return runSandboxHostEffect(
 					runPromise,

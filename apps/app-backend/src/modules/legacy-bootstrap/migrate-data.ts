@@ -1,8 +1,8 @@
 import { builtinMediaEntitySchemaSlugs } from "@ryot/plugin-media/schemas/media-schema-slugs";
-import { and, isNotNull, isNull, or } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { sandboxScript } from "#lib/infrastructure/db/schema/tables/combined";
+import { plugin, sandboxScript } from "#lib/infrastructure/db/schema/tables/combined";
 import { dbEffect, DbService } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { bootstrapNewUser } from "#modules/user-bootstrap/bootstrap";
@@ -92,17 +92,19 @@ export const migrateLegacyTables = Effect.gen(function* () {
 
 	const sandboxScripts = yield* dbEffect(() =>
 		db
-			.select({ id: sandboxScript.id, slug: sandboxScript.slug })
+			.selectDistinctOn([sandboxScript.slug], { id: sandboxScript.id, slug: sandboxScript.slug })
 			.from(sandboxScript)
+			.leftJoin(plugin, eq(plugin.slug, sandboxScript.pluginSlug))
 			.where(
-				and(
-					isNull(sandboxScript.userId),
-					or(
-						isNotNull(sandboxScript.pluginSlug),
-						and(isNull(sandboxScript.pluginSlug), isNotNull(sandboxScript.contentHash)),
+				or(
+					isNull(sandboxScript.pluginSlug),
+					and(
+						eq(plugin.status, "active"),
+						sql`${sandboxScript.contentHash} = ${plugin.compiledHashes} ->> ${sandboxScript.slug}`,
 					),
 				),
-			),
+			)
+			.orderBy(sandboxScript.slug, desc(sandboxScript.updatedAt)),
 	);
 
 	const relationshipSchemas = Object.keys(definitions.getSnapshot().relationshipSchemas).map(

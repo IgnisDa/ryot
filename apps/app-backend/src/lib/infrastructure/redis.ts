@@ -12,11 +12,12 @@ export const redisKeys = {
 	importSourcePayload: (runId: string) => `ryot:imports:source-payload:${runId}`,
 	importAdapterResult: (runId: string) => `ryot:imports:adapter-result:${runId}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
-	sandboxCache: (scriptId: string, key: string) => `ryot:sandbox:cache:${scriptId}:${key}`,
 	integrationCache: (integrationId: string, key: string) =>
 		`ryot:integrations:cache:${integrationId}:${key}`,
-	sandboxRunCache: (serverRunId: string, scriptId: string, key: string) =>
-		`ryot:sandbox:cache:run:${serverRunId}:${scriptId}:${key}`,
+	sandboxCache: (userId: string | null, scriptId: string, key: string) =>
+		`ryot:sandbox:cache:${userId === null ? "kernel" : `user:${userId}`}:${scriptId}:${key}`,
+	sandboxRunCache: (serverRunId: string, userId: string | null, scriptId: string, key: string) =>
+		`ryot:sandbox:cache:run:${serverRunId}:${userId === null ? "kernel" : `user:${userId}`}:${scriptId}:${key}`,
 };
 
 export class RedisService extends Effect.Service<RedisService>()("RedisService", {

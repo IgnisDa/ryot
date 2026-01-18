@@ -227,7 +227,7 @@ yield* engine.execute(ChildWorkflow, {
 The random-id form is correct **only** for a genuinely fresh, top-level dispatch — an HTTP handler
 starting a brand-new job that has no parent workflow and will never be replayed. Several places in
 this codebase correctly use `generateId()` for exactly that reason (e.g.
-`sandbox/service.ts`'s `SandboxApiService.enqueue`, `exercises/preload.ts`'s per-boot preload run).
+`sandbox/service.ts`'s `SandboxExecutionService.enqueue`, `exercises/preload.ts`'s per-boot preload run).
 The rule only bites when the dispatching code itself can run more than once.
 
 **The actual, correctly-executed example of this pattern in this codebase** lives in

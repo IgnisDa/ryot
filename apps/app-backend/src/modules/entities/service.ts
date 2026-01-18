@@ -315,12 +315,6 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			return yield* runWithDb(repository.deleteByIds(ids));
 		});
 
-		const deleteBySandboxScript = Effect.fn("EntitiesService.deleteBySandboxScript")(function* (
-			sandboxScriptId: SandboxScriptId,
-		) {
-			return yield* runWithDb(repository.deleteBySandboxScript(sandboxScriptId));
-		});
-
 		return {
 			create,
 			update,
@@ -329,7 +323,6 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			deleteByIds,
 			createGlobal,
 			getByIdAnyScope,
-			deleteBySandboxScript,
 		};
 	}),
 }) {}

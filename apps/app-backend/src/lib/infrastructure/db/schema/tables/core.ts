@@ -4,7 +4,6 @@ import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
 	boolean,
-	check,
 	index,
 	integer,
 	jsonb,
@@ -57,15 +56,14 @@ export const plugin = pgTable("plugin", {
 export const sandboxScript = pgTable(
 	"sandbox_script",
 	{
-		contentHash: text(),
 		slug: text().notNull(),
 		name: text().notNull(),
 		source: text().notNull(),
+		contentHash: text().notNull(),
 		compiledCode: text().notNull(),
 		compiledFormat: smallint().notNull().default(1),
 		metadata: jsonb().$type<SandboxScriptMetadata>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		pluginSlug: text().references(() => plugin.slug, { onDelete: "restrict" }),
 		id: text()
 			.notNull()
@@ -77,13 +75,7 @@ export const sandboxScript = pgTable(
 			.notNull(),
 	},
 	(table) => [
-		check(
-			"sandbox_script_plugin_content_hash_check",
-			sql`${table.pluginSlug} is null or ${table.contentHash} is not null`,
-		),
-		index("sandbox_script_user_id_idx").on(table.userId),
 		index("sandbox_script_plugin_slug_idx").on(table.pluginSlug),
-		unique("sandbox_script_user_slug_unique").on(table.userId, table.slug),
 		unique("sandbox_script_plugin_slug_content_hash_unique").on(
 			table.pluginSlug,
 			table.slug,
@@ -91,8 +83,6 @@ export const sandboxScript = pgTable(
 		),
 		uniqueIndex("sandbox_script_kernel_slug_content_hash_unique")
 			.on(table.slug, table.contentHash)
-			.where(
-				sql`${table.userId} is null and ${table.pluginSlug} is null and ${table.contentHash} is not null`,
-			),
+			.where(sql`${table.pluginSlug} is null`),
 	],
 );
