@@ -46,39 +46,39 @@ const toCollectionResponse = (row: CollectionRow) => ({
 export class CollectionsRepository extends Effect.Service<CollectionsRepository>()(
 	"CollectionsRepository",
 	{
-		sync: () => ({
-			getBuiltinCollectionSchema: Effect.fn("CollectionsRepository.getBuiltinCollectionSchema")(
-				function* () {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
-						db
-							.select({
-								id: schema.entitySchema.id,
-								entitySchemaId: schema.entitySchema.id,
-								propertiesSchema: schema.entitySchema.propertiesSchema,
-							})
-							.from(schema.entitySchema)
-							.where(
-								and(
-									eq(schema.entitySchema.slug, "collection"),
-									eq(schema.entitySchema.isBuiltin, true),
-									isNull(schema.entitySchema.userId),
-								),
-							)
-							.limit(1),
-					);
+		sync: () => {
+			const getBuiltinCollectionSchema = Effect.fn(
+				"CollectionsRepository.getBuiltinCollectionSchema",
+			)(function* () {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select({
+							id: schema.entitySchema.id,
+							entitySchemaId: schema.entitySchema.id,
+							propertiesSchema: schema.entitySchema.propertiesSchema,
+						})
+						.from(schema.entitySchema)
+						.where(
+							and(
+								eq(schema.entitySchema.slug, "collection"),
+								eq(schema.entitySchema.isBuiltin, true),
+								isNull(schema.entitySchema.userId),
+							),
+						)
+						.limit(1),
+				);
 
-					return row
-						? {
-								id: EntitySchemaId.make(row.id),
-								entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
-								propertiesSchema: row.propertiesSchema,
-							}
-						: null;
-				},
-			),
+				return row
+					? {
+							id: EntitySchemaId.make(row.id),
+							entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+							propertiesSchema: row.propertiesSchema,
+						}
+					: null;
+			});
 
-			findLibraryEntityForUser: Effect.fn("CollectionsRepository.findLibraryEntityForUser")(
+			const findLibraryEntityForUser = Effect.fn("CollectionsRepository.findLibraryEntityForUser")(
 				function* (input: { userId: UserId; entitySchemaId: EntitySchemaId }) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
@@ -98,9 +98,9 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 
 					return row ? { id: EntityId.make(row.id) } : null;
 				},
-			),
+			);
 
-			getUserLibraryEntityId: Effect.fn("CollectionsRepository.getUserLibraryEntityId")(
+			const getUserLibraryEntityId = Effect.fn("CollectionsRepository.getUserLibraryEntityId")(
 				function* (input: { userId: UserId }) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
@@ -123,32 +123,32 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 
 					return row ? EntityId.make(row.id) : null;
 				},
-			),
+			);
 
-			findCollectionByNameForUser: Effect.fn("CollectionsRepository.findCollectionByNameForUser")(
-				function* (input: { name: string; userId: UserId; entitySchemaId: EntitySchemaId }) {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
-						db
-							.select(collectionSelection)
-							.from(schema.entity)
-							.where(
-								and(
-									eq(schema.entity.name, input.name),
-									eq(schema.entity.userId, input.userId),
-									isNull(schema.entity.externalId),
-									isNull(schema.entity.sandboxScriptId),
-									eq(schema.entity.entitySchemaId, input.entitySchemaId),
-								),
-							)
-							.limit(1),
-					);
+			const findCollectionByNameForUser = Effect.fn(
+				"CollectionsRepository.findCollectionByNameForUser",
+			)(function* (input: { name: string; userId: UserId; entitySchemaId: EntitySchemaId }) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select(collectionSelection)
+						.from(schema.entity)
+						.where(
+							and(
+								eq(schema.entity.name, input.name),
+								eq(schema.entity.userId, input.userId),
+								isNull(schema.entity.externalId),
+								isNull(schema.entity.sandboxScriptId),
+								eq(schema.entity.entitySchemaId, input.entitySchemaId),
+							),
+						)
+						.limit(1),
+				);
 
-					return row ? toCollectionResponse(row) : null;
-				},
-			),
+				return row ? toCollectionResponse(row) : null;
+			});
 
-			getCollectionById: Effect.fn("CollectionsRepository.getCollectionById")(function* (
+			const getCollectionById = Effect.fn("CollectionsRepository.getCollectionById")(function* (
 				collectionId: EntityId,
 				userId: UserId,
 			) {
@@ -173,62 +173,71 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 				);
 
 				return row ? toCollectionResponse(row) : null;
-			}),
+			});
 
-			getEntityForMembership: Effect.fn("CollectionsRepository.getEntityForMembership")(function* (
-				entityId: EntityId,
-				userId: UserId,
-			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.select({
-							id: schema.entity.id,
-							userId: schema.entity.userId,
-							entitySchemaSlug: schema.entitySchema.slug,
-						})
-						.from(schema.entity)
-						.innerJoin(
-							schema.entitySchema,
-							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
-						)
-						.where(
-							and(
-								eq(schema.entity.id, entityId),
-								or(isNull(schema.entity.userId), eq(schema.entity.userId, userId)),
-								or(isNull(schema.entitySchema.userId), eq(schema.entitySchema.userId, userId)),
-							),
-						)
-						.limit(1),
-				);
-
-				return row ? { ...row, id: EntityId.make(row.id) } : null;
-			}),
-
-			findBuiltinEventSchemaBySlug: Effect.fn("CollectionsRepository.findBuiltinEventSchemaBySlug")(
-				function* (entitySchemaId: EntitySchemaId, slug: string) {
+			const getEntityForMembership = Effect.fn("CollectionsRepository.getEntityForMembership")(
+				function* (entityId: EntityId, userId: UserId) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
 						db
 							.select({
-								id: schema.eventSchema.id,
-								name: schema.eventSchema.name,
-								slug: schema.eventSchema.slug,
+								id: schema.entity.id,
+								userId: schema.entity.userId,
+								entitySchemaSlug: schema.entitySchema.slug,
 							})
-							.from(schema.eventSchema)
+							.from(schema.entity)
+							.innerJoin(
+								schema.entitySchema,
+								eq(schema.entity.entitySchemaId, schema.entitySchema.id),
+							)
 							.where(
 								and(
-									eq(schema.eventSchema.entitySchemaId, entitySchemaId),
-									eq(schema.eventSchema.slug, slug),
-									isNull(schema.eventSchema.userId),
+									eq(schema.entity.id, entityId),
+									or(isNull(schema.entity.userId), eq(schema.entity.userId, userId)),
+									or(isNull(schema.entitySchema.userId), eq(schema.entitySchema.userId, userId)),
 								),
 							)
 							.limit(1),
 					);
 
-					return row ? { ...row, id: EventSchemaId.make(row.id) } : null;
+					return row ? { ...row, id: EntityId.make(row.id) } : null;
 				},
-			),
-		}),
+			);
+
+			const findBuiltinEventSchemaBySlug = Effect.fn(
+				"CollectionsRepository.findBuiltinEventSchemaBySlug",
+			)(function* (entitySchemaId: EntitySchemaId, slug: string) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select({
+							id: schema.eventSchema.id,
+							name: schema.eventSchema.name,
+							slug: schema.eventSchema.slug,
+						})
+						.from(schema.eventSchema)
+						.where(
+							and(
+								eq(schema.eventSchema.entitySchemaId, entitySchemaId),
+								eq(schema.eventSchema.slug, slug),
+								isNull(schema.eventSchema.userId),
+							),
+						)
+						.limit(1),
+				);
+
+				return row ? { ...row, id: EventSchemaId.make(row.id) } : null;
+			});
+
+			return {
+				getBuiltinCollectionSchema,
+				findLibraryEntityForUser,
+				getUserLibraryEntityId,
+				findCollectionByNameForUser,
+				getCollectionById,
+				getEntityForMembership,
+				findBuiltinEventSchemaBySlug,
+			};
+		},
 	},
 ) {}
