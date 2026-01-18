@@ -401,6 +401,7 @@ pub struct OtelConfig {
     #[mask]
     pub header_value: String,
     /// The OTLP endpoint URL for OpenTelemetry traces.
+    #[mask]
     pub endpoint_url: String,
 }
 
