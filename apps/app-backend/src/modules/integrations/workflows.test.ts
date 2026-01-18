@@ -124,9 +124,8 @@ const makeEventsService = (overrides: Partial<EventsService> = {}) =>
 		{
 			_tag: "EventsService" as const,
 			list: () => Effect.die("unused"),
-			create: () => Effect.die("unused"),
-			createForIntegration: () => Effect.die("unused"),
-			createForImport: () => Effect.succeed({ count: 1 }),
+			listForUser: () => Effect.die("unused"),
+			create: () => Effect.succeed({ count: 1 }),
 		},
 		overrides,
 	);
@@ -248,13 +247,7 @@ it.effect("processes a successful sink run through shared media orchestration", 
 
 	const options = {
 		eventsService: makeEventsService({
-			createForImport: () => Effect.die("should not be called"),
-			createForIntegration: (input: {
-				integrationId: string;
-				importRunId: string;
-				userId: string;
-				payload: ReadonlyArray<Record<string, unknown>>;
-			}) => {
+			create: (input) => {
 				createdEvents.push(input);
 				return Effect.succeed({ count: input.payload.length });
 			},
@@ -300,8 +293,7 @@ it.effect("processes a successful sink run through shared media orchestration", 
 			expect(createdEvents).toHaveLength(1);
 			expect(createdEvents[0]).toMatchObject({
 				userId: "user_1",
-				importRunId: "run_1",
-				integrationId: "int_1",
+				metadata: { importRunId: "run_1", integrationId: "int_1" },
 				payload: [
 					expect.objectContaining({ entityId: "entity-1", eventSchemaId: "event-schema-1" }),
 				],
@@ -446,18 +438,12 @@ it.effect("fails the run when the integration is not found", () => {
 it.effect("processes a komga yank run through shared media orchestration", () => {
 	const importedCalls: Array<Record<string, unknown>> = [];
 	const createdEvents: Array<Record<string, unknown>> = [];
-	const integrationUpdates: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
+	const integrationUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
 		eventsService: makeEventsService({
-			createForImport: () => Effect.die("should not be called"),
-			createForIntegration: (input: {
-				userId: string;
-				importRunId: string;
-				integrationId: string;
-				payload: ReadonlyArray<Record<string, unknown>>;
-			}) => {
+			create: (input) => {
 				createdEvents.push(input);
 				return Effect.succeed({ count: input.payload.length });
 			},
@@ -509,8 +495,7 @@ it.effect("processes a komga yank run through shared media orchestration", () =>
 			expect(createdEvents).toHaveLength(1);
 			expect(createdEvents[0]).toMatchObject({
 				userId: "user_1",
-				importRunId: "run_1",
-				integrationId: "int_1",
+				metadata: { importRunId: "run_1", integrationId: "int_1" },
 			});
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({
@@ -618,8 +603,8 @@ it.effect("marks ownership for synced yank items", () => {
 });
 
 it.effect("processes a YouTube Music yank run through workflow-owned sandbox execution", () => {
-	const importedCalls: Array<Record<string, unknown>> = [];
 	const sandboxCalls: Array<Record<string, unknown>> = [];
+	const importedCalls: Array<Record<string, unknown>> = [];
 	const createdEvents: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 
@@ -629,13 +614,7 @@ it.effect("processes a YouTube Music yank run through workflow-owned sandbox exe
 			getByIdAnyUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
 		}),
 		eventsService: makeEventsService({
-			createForImport: () => Effect.die("should not be called"),
-			createForIntegration: (input: {
-				userId: string;
-				importRunId: string;
-				integrationId: string;
-				payload: ReadonlyArray<Record<string, unknown>>;
-			}) => {
+			create: (input) => {
 				createdEvents.push(input);
 				return Effect.succeed({ count: input.payload.length });
 			},
@@ -691,8 +670,7 @@ it.effect("processes a YouTube Music yank run through workflow-owned sandbox exe
 			expect(createdEvents).toHaveLength(1);
 			expect(createdEvents[0]).toMatchObject({
 				userId: "user_1",
-				importRunId: "run_1",
-				integrationId: "int_1",
+				metadata: { importRunId: "run_1", integrationId: "int_1" },
 				payload: [expect.objectContaining({ entityId: "entity-1" })],
 			});
 			expect(recordedUpdates).toContainEqual(
