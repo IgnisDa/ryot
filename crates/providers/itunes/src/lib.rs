@@ -9,11 +9,11 @@ use database_models::{metadata, prelude::Metadata};
 use dependent_models::{
     MetadataSearchSourceSpecifics, ProviderSupportedLanguageInformation, SearchResults,
 };
-use dependent_translation_utils::persist_metadata_translation;
-use enum_models::{EntityTranslationVariant, MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataFreeCreator, MetadataSearchItem, PodcastEpisode, PodcastSpecifics,
+    EntityTranslationDetails, MetadataDetails, MetadataFreeCreator, MetadataSearchItem,
+    PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::Client;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
@@ -268,7 +268,11 @@ impl MediaProvider for ITunesService {
         })
     }
 
-    async fn translate_metadata(&self, identifier: &str, target_language: &str) -> Result<()> {
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
         let rsp = self
             .client
             .get(format!("{URL}/lookup"))
@@ -282,21 +286,11 @@ impl MediaProvider for ITunesService {
             .await?;
         let details: SearchResponse = rsp.json().await?;
         let item = details.results.and_then(|s| s.first().cloned());
-        let title = item.clone().map(|i| i.collection_name.clone());
-        let description = item.and_then(|i| i.description.clone());
-        persist_metadata_translation(
-            identifier,
-            MediaLot::Podcast,
-            MediaSource::Itunes,
-            target_language,
-            &[
-                (EntityTranslationVariant::Title, title),
-                (EntityTranslationVariant::Description, description),
-            ],
-            &self.ss,
-        )
-        .await?;
-        Ok(())
+        Ok(EntityTranslationDetails {
+            title: item.clone().map(|i| i.collection_name.clone()),
+            description: item.and_then(|i| i.description.clone()),
+            ..Default::default()
+        })
     }
 }
 

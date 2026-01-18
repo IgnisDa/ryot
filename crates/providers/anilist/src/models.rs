@@ -7,8 +7,8 @@ use convert_case::{Case, Casing};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    AnimeAiringScheduleSpecifics, AnimeSpecifics, MangaSpecifics, MetadataDetails,
-    MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
+    AnimeAiringScheduleSpecifics, AnimeSpecifics, EntityTranslationDetails, MangaSpecifics,
+    MetadataDetails, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
 };
 use nest_struct::nest_struct;
 use reqwest::Client;
@@ -309,7 +309,7 @@ pub async fn translate_media(
     client: &Client,
     id: &str,
     target_language: &str,
-) -> Result<(Option<String>, Option<String>)> {
+) -> Result<EntityTranslationDetails> {
     let query = r#"
         query MediaTranslationQuery($id: Int!) {
           Media(id: $id) {
@@ -359,7 +359,11 @@ pub async fn translate_media(
         .or_else(|| media.title.as_ref().and_then(|t| t.romaji.clone()))
         .or_else(|| media.title.as_ref().and_then(|t| t.native.clone()));
 
-    Ok((title, media.description))
+    Ok(EntityTranslationDetails {
+        title,
+        description: media.description,
+        ..Default::default()
+    })
 }
 
 pub async fn media_details(client: &Client, id: &str) -> Result<MetadataDetails> {

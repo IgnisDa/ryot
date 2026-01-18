@@ -8,14 +8,11 @@ use common_models::{
 use common_utils::{convert_date_to_year, convert_string_to_date};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use dependent_translation_utils::{
-    persist_metadata_group_translation, persist_metadata_translation,
-};
-use enum_models::{EntityTranslationVariant, MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    CommitMetadataGroupInput, MetadataDetails, MetadataSearchItem, MovieSpecifics,
-    PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
+    CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails, MetadataSearchItem,
+    MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
 };
 use supporting_service::SupportingService;
 use traits::MediaProvider;
@@ -276,46 +273,21 @@ impl MediaProvider for TvdbMovieService {
         ))
     }
 
-    async fn translate_metadata(&self, identifier: &str, target_language: &str) -> Result<()> {
-        let (title, description) = self
-            .0
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        self.0
             .translate("movies", identifier, target_language)
-            .await?;
-        persist_metadata_translation(
-            identifier,
-            MediaLot::Movie,
-            MediaSource::Tvdb,
-            target_language,
-            &[
-                (EntityTranslationVariant::Title, title),
-                (EntityTranslationVariant::Description, description),
-            ],
-            &self.0.ss,
-        )
-        .await?;
-        Ok(())
+            .await
     }
 
     async fn translate_metadata_group(
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<()> {
-        let (title, description) = self
-            .0
-            .translate("lists", identifier, target_language)
-            .await?;
-        persist_metadata_group_translation(
-            identifier,
-            MediaSource::Tvdb,
-            target_language,
-            &[
-                (EntityTranslationVariant::Title, title),
-                (EntityTranslationVariant::Description, description),
-            ],
-            &self.0.ss,
-        )
-        .await?;
-        Ok(())
+    ) -> Result<EntityTranslationDetails> {
+        self.0.translate("lists", identifier, target_language).await
     }
 }

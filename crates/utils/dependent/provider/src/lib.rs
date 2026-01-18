@@ -56,12 +56,14 @@ pub async fn get_metadata_provider(
     let err = || Err(anyhow!("This source ({}) is not supported", source));
     let service: Provider = match source {
         MediaSource::Itunes => Box::new(ITunesService::new(ss.clone()).await?),
-        MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new(ss.clone()).await?),
+        MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await?),
         MediaSource::Hardcover => Box::new(get_hardcover_service(&ss.config).await?),
         MediaSource::Vndb => Box::new(VndbService::new(&ss.config.visual_novels).await?),
         MediaSource::Openlibrary => Box::new(get_openlibrary_service(&ss.config).await?),
         MediaSource::GoogleBooks => Box::new(get_google_books_service(&ss.config).await?),
-        MediaSource::Audible => Box::new(AudibleService::new(ss.clone()).await?),
+        MediaSource::Audible => {
+            Box::new(AudibleService::new(&ss.config.audio_books.audible).await?)
+        }
         MediaSource::Listennotes => Box::new(ListennotesService::new(ss.clone()).await?),
         MediaSource::Tvdb => match lot {
             MediaLot::Show => Box::new(TvdbShowService::new(ss.clone()).await?),
@@ -74,8 +76,12 @@ pub async fn get_metadata_provider(
             _ => return err(),
         },
         MediaSource::Anilist => match lot {
-            MediaLot::Anime => Box::new(AnilistAnimeService::new(ss.clone()).await?),
-            MediaLot::Manga => Box::new(AnilistMangaService::new(ss.clone()).await?),
+            MediaLot::Anime => {
+                Box::new(AnilistAnimeService::new(&ss.config.anime_and_manga.anilist).await?)
+            }
+            MediaLot::Manga => {
+                Box::new(AnilistMangaService::new(&ss.config.anime_and_manga.anilist).await?)
+            }
             _ => return err(),
         },
         MediaSource::Myanimelist => match lot {
@@ -105,13 +111,15 @@ pub async fn get_non_metadata_provider(
     let err = || Err(anyhow!("This source ({}) is not supported", source));
     let service: Provider = match source {
         MediaSource::Itunes => Box::new(ITunesService::new(ss.clone()).await?),
-        MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new(ss.clone()).await?),
+        MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await?),
         MediaSource::Tvdb => Box::new(NonMediaTvdbService::new(ss.clone()).await?),
         MediaSource::Hardcover => Box::new(get_hardcover_service(&ss.config).await?),
         MediaSource::Openlibrary => Box::new(get_openlibrary_service(&ss.config).await?),
         MediaSource::GoogleBooks => Box::new(get_google_books_service(&ss.config).await?),
         MediaSource::Vndb => Box::new(VndbService::new(&ss.config.visual_novels).await?),
-        MediaSource::Audible => Box::new(AudibleService::new(ss.clone()).await?),
+        MediaSource::Audible => {
+            Box::new(AudibleService::new(&ss.config.audio_books.audible).await?)
+        }
         MediaSource::Listennotes => Box::new(ListennotesService::new(ss.clone()).await?),
         MediaSource::Igdb => Box::new(IgdbService::new(ss.clone()).await?),
         MediaSource::GiantBomb => Box::new(GiantBombService::new(ss.clone()).await?),
@@ -119,7 +127,9 @@ pub async fn get_non_metadata_provider(
             Box::new(MangaUpdatesService::new(&ss.config.anime_and_manga.manga_updates).await?)
         }
         MediaSource::Tmdb => Box::new(get_tmdb_non_media_service(ss).await?),
-        MediaSource::Anilist => Box::new(NonMediaAnilistService::new(ss.clone()).await?),
+        MediaSource::Anilist => {
+            Box::new(NonMediaAnilistService::new(&ss.config.anime_and_manga.anilist).await?)
+        }
         MediaSource::Myanimelist => Box::new(NonMediaMalService::new().await?),
         MediaSource::Spotify => Box::new(SpotifyService::new(ss.clone()).await?),
         MediaSource::Custom => return err(),

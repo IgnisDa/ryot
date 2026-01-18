@@ -8,7 +8,7 @@ use dependent_models::{
     SearchResults, TvdbSettings,
 };
 use itertools::Itertools;
-use media_models::MetadataSearchItem;
+use media_models::{EntityTranslationDetails, MetadataSearchItem};
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},
@@ -23,7 +23,6 @@ use crate::models::{
 pub struct TvdbService {
     pub client: Client,
     pub settings: TvdbSettings,
-    pub ss: Arc<SupportingService>,
 }
 
 impl TvdbService {
@@ -33,11 +32,7 @@ impl TvdbService {
             AUTHORIZATION,
             HeaderValue::from_str(&settings.access_token).unwrap(),
         )]));
-        Ok(Self {
-            ss,
-            client,
-            settings,
-        })
+        Ok(Self { client, settings })
     }
 
     pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
@@ -119,7 +114,7 @@ impl TvdbService {
         entity_type: &str,
         identifier: &str,
         target_language: &str,
-    ) -> Result<(Option<String>, Option<String>)> {
+    ) -> Result<EntityTranslationDetails> {
         let response = self
             .client
             .get(format!(
@@ -134,7 +129,11 @@ impl TvdbService {
             bail!("Translation not found");
         }
 
-        Ok((response.data.name, response.data.overview))
+        Ok(EntityTranslationDetails {
+            title: response.data.name,
+            description: response.data.overview,
+            ..Default::default()
+        })
     }
 }
 

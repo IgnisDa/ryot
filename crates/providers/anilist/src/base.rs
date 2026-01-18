@@ -1,21 +1,17 @@
-use std::sync::Arc;
-
 use anyhow::Result;
 use common_utils::get_base_http_client;
 use dependent_models::ProviderSupportedLanguageInformation;
 use reqwest::Client;
-use supporting_service::SupportingService;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct AnilistService {
     pub client: Client,
-    pub ss: Arc<SupportingService>,
 }
 
 impl AnilistService {
-    pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
+    pub async fn new(_config: &config_definition::AnilistConfig) -> Result<Self> {
         let client = get_base_http_client(None);
-        Ok(Self { client, ss })
+        Ok(Self { client })
     }
 
     pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {

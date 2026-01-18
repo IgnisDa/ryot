@@ -149,9 +149,9 @@ dependencies = [
  "chrono",
  "common-models",
  "common-utils",
+ "config-definition",
  "convert_case 0.10.0",
  "dependent-models",
- "dependent-translation-utils",
  "enum-models",
  "itertools 0.14.0",
  "media-models",
@@ -161,7 +161,6 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "supporting-service",
  "tracing",
  "traits",
 ]
@@ -547,10 +546,10 @@ dependencies = [
  "async-trait",
  "common-models",
  "common-utils",
+ "config-definition",
  "convert_case 0.10.0",
  "database-models",
  "dependent-models",
- "dependent-translation-utils",
  "educe",
  "enum-models",
  "itertools 0.14.0",
@@ -560,7 +559,6 @@ dependencies = [
  "rust_decimal",
  "serde",
  "strum",
- "supporting-service",
  "tracing",
  "traits",
 ]
@@ -2360,17 +2358,6 @@ dependencies = [
  "sea-orm",
  "supporting-service",
  "tracing",
-]
-
-[[package]]
-name = "dependent-translation-utils"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "database-models",
- "enum-models",
- "sea-orm",
- "supporting-service",
 ]
 
 [[package]]
@@ -4219,7 +4206,6 @@ dependencies = [
  "common-utils",
  "database-models",
  "dependent-models",
- "dependent-translation-utils",
  "enum-models",
  "itertools 0.14.0",
  "media-models",
@@ -7796,7 +7782,6 @@ dependencies = [
  "common-utils",
  "database-models",
  "dependent-models",
- "dependent-translation-utils",
  "enum-models",
  "futures",
  "hashbag",
@@ -8170,7 +8155,6 @@ dependencies = [
  "common-utils",
  "database-models",
  "dependent-models",
- "dependent-translation-utils",
  "enum-models",
  "futures",
  "itertools 0.14.0",
@@ -9066,12 +9050,10 @@ dependencies = [
  "common-utils",
  "database-models",
  "dependent-models",
- "dependent-translation-utils",
  "enum-models",
  "itertools 0.14.0",
  "media-models",
  "rustypipe",
- "supporting-service",
  "traits",
 ]
 

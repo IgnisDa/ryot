@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::str::FromStr;
 
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
@@ -13,23 +13,19 @@ use dependent_models::{
     MetadataSearchSourceSpecifics, PersonDetails, ProviderSupportedLanguageInformation,
     SearchResults,
 };
-use dependent_translation_utils::{
-    persist_metadata_group_translation, persist_metadata_translation,
-};
 use educe::Educe;
-use enum_models::{EntityTranslationVariant, MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    AudioBookSpecifics, CommitMetadataGroupInput, MetadataDetails, MetadataFreeCreator,
-    MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-    UniqueMediaIdentifier,
+    AudioBookSpecifics, CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails,
+    MetadataFreeCreator, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, UniqueMediaIdentifier,
 };
 use paginate::Pages;
 use reqwest::Client;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, EnumString, IntoEnumIterator};
-use supporting_service::SupportingService;
 use traits::MediaProvider;
 
 static AUDNEX_URL: &str = "https://api.audnex.us";
@@ -164,11 +160,10 @@ struct AudibleItemSimResponse {
     similar_products: Vec<AudibleItem>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct AudibleService {
     url: String,
     client: Client,
-    ss: Arc<SupportingService>,
 }
 
 fn suffix_from_locale(locale: &AudibleLocale) -> &'static str {
@@ -196,10 +191,10 @@ fn locale_from_str(language: &str) -> Option<AudibleLocale> {
 }
 
 impl AudibleService {
-    pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
+    pub async fn new(_config: &config_definition::AudibleConfig) -> Result<Self> {
         let url = url_from_locale(&AudibleLocale::US);
         let client = get_base_http_client(None);
-        Ok(Self { url, client, ss })
+        Ok(Self { url, client })
     }
 
     pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
@@ -432,7 +427,11 @@ impl MediaProvider for AudibleService {
         })
     }
 
-    async fn translate_metadata(&self, identifier: &str, target_language: &str) -> Result<()> {
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
         let locale =
             locale_from_str(target_language).ok_or_else(|| anyhow!("Unsupported language"))?;
         let url = url_from_locale(&locale);
@@ -444,31 +443,21 @@ impl MediaProvider for AudibleService {
             .await?
             .json()
             .await?;
-        let title = Some(data.product.title);
-        let description = data
-            .product
-            .publisher_summary
-            .or(data.product.merchandising_summary);
-        persist_metadata_translation(
-            identifier,
-            MediaLot::AudioBook,
-            MediaSource::Audible,
-            target_language,
-            &[
-                (EntityTranslationVariant::Title, title),
-                (EntityTranslationVariant::Description, description),
-            ],
-            &self.ss,
-        )
-        .await?;
-        Ok(())
+        Ok(EntityTranslationDetails {
+            title: Some(data.product.title),
+            description: data
+                .product
+                .publisher_summary
+                .or(data.product.merchandising_summary),
+            ..Default::default()
+        })
     }
 
     async fn translate_metadata_group(
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<()> {
+    ) -> Result<EntityTranslationDetails> {
         let locale =
             locale_from_str(target_language).ok_or_else(|| anyhow!("Unsupported language"))?;
         let url = url_from_locale(&locale);
@@ -480,23 +469,14 @@ impl MediaProvider for AudibleService {
             .await?
             .json()
             .await?;
-        let title = Some(data.product.title);
-        let description = data
-            .product
-            .publisher_summary
-            .or(data.product.merchandising_summary);
-        persist_metadata_group_translation(
-            identifier,
-            MediaSource::Audible,
-            target_language,
-            &[
-                (EntityTranslationVariant::Title, title),
-                (EntityTranslationVariant::Description, description),
-            ],
-            &self.ss,
-        )
-        .await?;
-        Ok(())
+        Ok(EntityTranslationDetails {
+            title: Some(data.product.title),
+            description: data
+                .product
+                .publisher_summary
+                .or(data.product.merchandising_summary),
+            ..Default::default()
+        })
     }
 }
 

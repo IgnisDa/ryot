@@ -5,14 +5,13 @@ use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::compute_next_page;
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
-use dependent_translation_utils::persist_person_translation;
-use enum_models::{EntityTranslationVariant, MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use futures::{
     stream::{self, StreamExt},
     try_join,
 };
 use itertools::Itertools;
-use media_models::PeopleSearchItem;
+use media_models::{EntityTranslationDetails, PeopleSearchItem};
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -199,7 +198,7 @@ impl MediaProvider for NonMediaTmdbService {
         identifier: &str,
         target_language: &str,
         source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<()> {
+    ) -> Result<EntityTranslationDetails> {
         let person_type = match source_specifics {
             Some(PersonSourceSpecifics {
                 is_tmdb_company: Some(true),
@@ -215,21 +214,11 @@ impl MediaProvider for NonMediaTmdbService {
             .send()
             .await?;
         let data: TmdbNonMediaEntity = rsp.json().await?;
-        persist_person_translation(
-            identifier,
-            MediaSource::Tmdb,
-            target_language,
-            &[
-                (EntityTranslationVariant::Title, Some(data.name)),
-                (
-                    EntityTranslationVariant::Description,
-                    data.biography.or(data.description),
-                ),
-            ],
-            &self.0.ss,
-        )
-        .await?;
-        Ok(())
+        Ok(EntityTranslationDetails {
+            title: Some(data.name),
+            description: data.biography.or(data.description),
+            ..Default::default()
+        })
     }
 }
 

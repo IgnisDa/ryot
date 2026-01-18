@@ -2,6 +2,13 @@ use async_graphql::{Enum, InputObject, SimpleObject, Union};
 use enum_models::{EntityLot, EntityTranslationVariant};
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct EntityTranslationDetails {
+    pub image: Option<String>,
+    pub title: Option<String>,
+    pub description: Option<String>,
+}
+
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct MediaTranslationInput {
     pub entity_id: String,

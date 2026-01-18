@@ -1,14 +1,9 @@
-use std::sync::Arc;
-
 use anyhow::Result;
 use async_trait::async_trait;
 use common_models::SearchDetails;
 use common_utils::PAGE_SIZE;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use dependent_translation_utils::persist_metadata_translation;
-use enum_models::{EntityTranslationVariant, MediaLot, MediaSource};
-use media_models::{MetadataDetails, MetadataSearchItem};
-use supporting_service::SupportingService;
+use media_models::{EntityTranslationDetails, MetadataDetails, MetadataSearchItem};
 use traits::MediaProvider;
 
 use crate::{
@@ -16,12 +11,12 @@ use crate::{
     models::{MediaType, media_details, search, translate_media},
 };
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct AnilistMangaService(AnilistService);
 
 impl AnilistMangaService {
-    pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
-        Ok(Self(AnilistService::new(ss).await?))
+    pub async fn new(config: &config_definition::AnilistConfig) -> Result<Self> {
+        Ok(Self(AnilistService::new(config).await?))
     }
 }
 
@@ -57,21 +52,11 @@ impl MediaProvider for AnilistMangaService {
         })
     }
 
-    async fn translate_metadata(&self, identifier: &str, target_language: &str) -> Result<()> {
-        let (title, description) =
-            translate_media(&self.0.client, identifier, target_language).await?;
-        persist_metadata_translation(
-            identifier,
-            MediaLot::Manga,
-            MediaSource::Anilist,
-            target_language,
-            &[
-                (EntityTranslationVariant::Title, title),
-                (EntityTranslationVariant::Description, description),
-            ],
-            &self.0.ss,
-        )
-        .await?;
-        Ok(())
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        translate_media(&self.0.client, identifier, target_language).await
     }
 }

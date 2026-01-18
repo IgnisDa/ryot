@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::str::FromStr;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -9,37 +9,31 @@ use dependent_models::{
     MetadataGroupPersonRelated, MetadataPersonRelated, MetadataSearchSourceSpecifics,
     PersonDetails, ProviderSupportedLanguageInformation, SearchResults,
 };
-use dependent_translation_utils::{
-    persist_metadata_group_translation, persist_metadata_translation, persist_person_translation,
-};
-use enum_models::{EntityTranslationVariant, MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
-    MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-    UniqueMediaIdentifier,
+    CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails, MetadataGroupSearchItem,
+    MetadataSearchItem, MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, UniqueMediaIdentifier,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
     model::{Thumbnail, richtext::ToHtml},
     param::{LANGUAGES, Language},
 };
-use supporting_service::SupportingService;
 use traits::MediaProvider;
 
 pub struct YoutubeMusicService {
     client: RustyPipeQuery,
-    ss: Arc<SupportingService>,
 }
 
 impl YoutubeMusicService {
-    pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
+    pub async fn new() -> Result<Self> {
         let client = RustyPipe::builder()
             .storage_dir(get_temporary_directory())
             .build()?;
         Ok(Self {
             client: client.query(),
-            ss,
         })
     }
 
@@ -332,39 +326,30 @@ impl MediaProvider for YoutubeMusicService {
         })
     }
 
-    async fn translate_metadata(&self, identifier: &str, target_language: &str) -> Result<()> {
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
         let lang_client = get_lang_client(&self.client, target_language);
         let details = lang_client.music_details(identifier).await?;
-        let title = Some(details.track.name);
-        persist_metadata_translation(
-            identifier,
-            MediaLot::Music,
-            MediaSource::YoutubeMusic,
-            target_language,
-            &[(EntityTranslationVariant::Title, title)],
-            &self.ss,
-        )
-        .await?;
-        Ok(())
+        Ok(EntityTranslationDetails {
+            title: Some(details.track.name),
+            ..Default::default()
+        })
     }
 
     async fn translate_metadata_group(
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<()> {
+    ) -> Result<EntityTranslationDetails> {
         let lang_client = get_lang_client(&self.client, target_language);
         let album = lang_client.music_album(identifier).await?;
-        let title = Some(album.name);
-        persist_metadata_group_translation(
-            identifier,
-            MediaSource::YoutubeMusic,
-            target_language,
-            &[(EntityTranslationVariant::Title, title)],
-            &self.ss,
-        )
-        .await?;
-        Ok(())
+        Ok(EntityTranslationDetails {
+            title: Some(album.name),
+            ..Default::default()
+        })
     }
 
     async fn translate_person(
@@ -372,19 +357,13 @@ impl MediaProvider for YoutubeMusicService {
         identifier: &str,
         target_language: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<()> {
+    ) -> Result<EntityTranslationDetails> {
         let lang_client = get_lang_client(&self.client, target_language);
         let data = lang_client.music_artist(identifier, true).await?;
-        let title = Some(data.name);
-        persist_person_translation(
-            identifier,
-            MediaSource::YoutubeMusic,
-            target_language,
-            &[(EntityTranslationVariant::Title, title)],
-            &self.ss,
-        )
-        .await?;
-        Ok(())
+        Ok(EntityTranslationDetails {
+            title: Some(data.name),
+            ..Default::default()
+        })
     }
 }
 

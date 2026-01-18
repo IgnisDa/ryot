@@ -8,15 +8,13 @@ use common_models::{
 use common_utils::{compute_next_page, convert_date_to_year, convert_string_to_date};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use dependent_translation_utils::{
-    persist_metadata_group_translation, persist_metadata_translation,
-};
-use enum_models::{EntityTranslationVariant, MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use futures::try_join;
 use itertools::Itertools;
 use media_models::{
-    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
-    MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
+    CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails, MetadataGroupSearchItem,
+    MetadataSearchItem, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+    UniqueMediaIdentifier,
 };
 use rust_decimal::dec;
 use supporting_service::SupportingService;
@@ -337,7 +335,11 @@ impl MediaProvider for TmdbMovieService {
         self.0.get_trending_media("movie").await
     }
 
-    async fn translate_metadata(&self, identifier: &str, target_language: &str) -> Result<()> {
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
         let rsp = self
             .0
             .client
@@ -346,30 +348,18 @@ impl MediaProvider for TmdbMovieService {
             .send()
             .await?;
         let data: TmdbMediaEntry = rsp.json().await?;
-        persist_metadata_translation(
-            identifier,
-            MediaLot::Movie,
-            MediaSource::Tmdb,
-            target_language,
-            &[
-                (EntityTranslationVariant::Title, data.title),
-                (
-                    EntityTranslationVariant::Image,
-                    data.poster_path.map(|p| self.0.get_image_url(p)),
-                ),
-                (EntityTranslationVariant::Description, data.overview),
-            ],
-            &self.0.ss,
-        )
-        .await?;
-        Ok(())
+        Ok(EntityTranslationDetails {
+            title: data.title,
+            description: data.overview,
+            image: data.poster_path.map(|p| self.0.get_image_url(p)),
+        })
     }
 
     async fn translate_metadata_group(
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<()> {
+    ) -> Result<EntityTranslationDetails> {
         let rsp = self
             .0
             .client
@@ -378,21 +368,10 @@ impl MediaProvider for TmdbMovieService {
             .send()
             .await?;
         let data: TmdbCollection = rsp.json().await?;
-        persist_metadata_group_translation(
-            identifier,
-            MediaSource::Tmdb,
-            target_language,
-            &[
-                (EntityTranslationVariant::Title, Some(data.name)),
-                (
-                    EntityTranslationVariant::Image,
-                    data.poster_path.map(|p| self.0.get_image_url(p)),
-                ),
-                (EntityTranslationVariant::Description, data.overview),
-            ],
-            &self.0.ss,
-        )
-        .await?;
-        Ok(())
+        Ok(EntityTranslationDetails {
+            title: Some(data.name),
+            description: data.overview,
+            image: data.poster_path.map(|p| self.0.get_image_url(p)),
+        })
     }
 }

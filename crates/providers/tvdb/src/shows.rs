@@ -7,13 +7,12 @@ use common_models::{
 };
 use common_utils::{convert_date_to_year, convert_string_to_date};
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use dependent_translation_utils::persist_metadata_translation;
-use enum_models::{EntityTranslationVariant, MediaLot, MediaSource};
+use enum_models::MediaSource;
 use futures::stream::{self, StreamExt};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataExternalIdentifiers, MetadataSearchItem, PartialMetadataPerson,
-    ShowEpisode, ShowSeason, ShowSpecifics,
+    EntityTranslationDetails, MetadataDetails, MetadataExternalIdentifiers, MetadataSearchItem,
+    PartialMetadataPerson, ShowEpisode, ShowSeason, ShowSpecifics,
 };
 use supporting_service::SupportingService;
 use traits::MediaProvider;
@@ -278,23 +277,13 @@ impl MediaProvider for TvdbShowService {
         })
     }
 
-    async fn translate_metadata(&self, identifier: &str, target_language: &str) -> Result<()> {
-        let (title, description) = self
-            .0
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        self.0
             .translate("series", identifier, target_language)
-            .await?;
-        persist_metadata_translation(
-            identifier,
-            MediaLot::Show,
-            MediaSource::Tvdb,
-            target_language,
-            &[
-                (EntityTranslationVariant::Title, title),
-                (EntityTranslationVariant::Description, description),
-            ],
-            &self.0.ss,
-        )
-        .await?;
-        Ok(())
+            .await
     }
 }

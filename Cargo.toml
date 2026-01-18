@@ -164,7 +164,6 @@ dependent-models = { path = "crates/models/dependent" }
 dependent-notification-utils = { path = "crates/utils/dependent/notification" }
 dependent-progress-utils = { path = "crates/utils/dependent/progress" }
 dependent-provider-utils = { path = "crates/utils/dependent/provider" }
-dependent-translation-utils = { path = "crates/utils/dependent/translation" }
 dependent-review-utils = { path = "crates/utils/dependent/review" }
 dependent-seen-utils = { path = "crates/utils/dependent/seen" }
 dependent-utility-utils = { path = "crates/utils/dependent/utility" }

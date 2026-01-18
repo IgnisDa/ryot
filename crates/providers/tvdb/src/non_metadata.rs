@@ -4,10 +4,9 @@ use anyhow::{Result, bail};
 use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics};
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
-use dependent_translation_utils::persist_person_translation;
-use enum_models::{EntityTranslationVariant, MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
-use media_models::{PartialMetadataWithoutId, PeopleSearchItem};
+use media_models::{EntityTranslationDetails, PartialMetadataWithoutId, PeopleSearchItem};
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -203,25 +202,13 @@ impl MediaProvider for NonMediaTvdbService {
         identifier: &str,
         target_language: &str,
         source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<()> {
+    ) -> Result<EntityTranslationDetails> {
         if let Some(true) = source_specifics.as_ref().and_then(|s| s.is_tvdb_company) {
             bail!("Companies do not have translations");
         }
-        let (title, description) = self
-            .0
+
+        self.0
             .translate("people", identifier, target_language)
-            .await?;
-        persist_person_translation(
-            identifier,
-            MediaSource::Tvdb,
-            target_language,
-            &[
-                (EntityTranslationVariant::Title, title),
-                (EntityTranslationVariant::Description, description),
-            ],
-            &self.0.ss,
-        )
-        .await?;
-        Ok(())
+            .await
     }
 }
