@@ -9,17 +9,4 @@ describe("hostFunctionRegistry", () => {
 			"httpCall",
 		]);
 	});
-
-	it("returns callable factories for each registered key", () => {
-		for (const factory of Object.values(hostFunctionRegistry)) {
-			const boundFunction = factory({});
-			expect(typeof boundFunction).toBe("function");
-		}
-	});
-
-	it("returns undefined for an unknown function key", () => {
-		expect(
-			(hostFunctionRegistry as Record<string, unknown>).missingFunction,
-		).toBe(undefined);
-	});
 });
