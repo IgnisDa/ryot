@@ -1,4 +1,10 @@
 import { Box, Button } from "@mantine/core";
+import {
+	EntityLot,
+	EntityTranslationVariant,
+} from "@ryot/generated/graphql/backend/graphql";
+import { useMemo } from "react";
+import { useTranslationValue } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MetadataDetails, Season, SeasonProgress } from "../types";
 import { DisplaySeasonOrEpisodeDetails } from "./season-episode-details";
@@ -13,15 +19,38 @@ export const DisplayShowEpisode = (props: {
 }) => {
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
 	const numTimesEpisodeSeen = props.episodeProgress?.timesSeen || 0;
+	const showExtraInformation = useMemo(
+		() => ({
+			season: props.seasonNumber,
+			episode: props.episode.episodeNumber,
+		}),
+		[props.seasonNumber, props.episode.episodeNumber],
+	);
+	const episodeTitleTranslation = useTranslationValue({
+		showExtraInformation,
+		entityLot: EntityLot.Metadata,
+		entityId: props.metadataDetails.id,
+		variant: EntityTranslationVariant.Title,
+	});
+	const episodeDescriptionTranslation = useTranslationValue({
+		showExtraInformation,
+		entityLot: EntityLot.Metadata,
+		entityId: props.metadataDetails.id,
+		variant: EntityTranslationVariant.Description,
+	});
+	const episodeName = `${props.episode.episodeNumber}. ${
+		episodeTitleTranslation ?? props.episode.name
+	}`;
 
 	return (
 		<Box my="lg" ml="md">
 			<DisplaySeasonOrEpisodeDetails
 				{...props.episode}
+				name={episodeName}
 				key={props.episode.episodeNumber}
 				displayIndicator={numTimesEpisodeSeen}
 				publishDate={props.episode.publishDate}
-				name={`${props.episode.episodeNumber}. ${props.episode.name}`}
+				overview={episodeDescriptionTranslation ?? props.episode.overview}
 			>
 				<Button
 					size="xs"

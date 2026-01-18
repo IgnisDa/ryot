@@ -18,6 +18,8 @@ import {
 	MediaTranslationDocument,
 	MediaTranslationPendingStatus,
 	type MetadataProgressUpdateInput,
+	type PodcastTranslationExtraInformationInput,
+	type ShowTranslationExtraInformationInput,
 	UpdateUserDocument,
 	UserCollectionsListDocument,
 	UserMetadataGroupsListDocument,
@@ -261,6 +263,8 @@ export const useTranslationValue = (props: {
 	entityLot: EntityLot;
 	mediaSource?: MediaSource;
 	variant: EntityTranslationVariant;
+	showExtraInformation?: ShowTranslationExtraInformationInput;
+	podcastExtraInformation?: PodcastTranslationExtraInformationInput;
 }) => {
 	const translationQuery = useQuery({
 		enabled: props.enabled,
@@ -268,6 +272,8 @@ export const useTranslationValue = (props: {
 			props.entityId,
 			props.entityLot,
 			props.variant,
+			props.showExtraInformation,
+			props.podcastExtraInformation,
 		).queryKey,
 		queryFn: () => {
 			if (props.entityId && props.entityLot)
@@ -277,6 +283,8 @@ export const useTranslationValue = (props: {
 							variant: props.variant,
 							entityId: props.entityId,
 							entityLot: props.entityLot,
+							showExtraInformation: props.showExtraInformation,
+							podcastExtraInformation: props.podcastExtraInformation,
 						},
 					})
 					.then((data) => data.mediaTranslation);
@@ -304,6 +312,8 @@ export const useTranslationValue = (props: {
 						variant: props.variant,
 						entityId: props.entityId,
 						entityLot: props.entityLot,
+						showExtraInformation: props.showExtraInformation,
+						podcastExtraInformation: props.podcastExtraInformation,
 					},
 				});
 		},

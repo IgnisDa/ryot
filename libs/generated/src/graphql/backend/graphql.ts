@@ -1356,6 +1356,8 @@ export enum MediaSource {
 export type MediaTranslationInput = {
   entityId: Scalars['String']['input'];
   entityLot: EntityLot;
+  podcastExtraInformation?: InputMaybe<PodcastTranslationExtraInformationInput>;
+  showExtraInformation?: InputMaybe<ShowTranslationExtraInformationInput>;
   variant: EntityTranslationVariant;
 };
 
@@ -2138,6 +2140,10 @@ export type PodcastSpecificsInput = {
   totalEpisodes: Scalars['Int']['input'];
 };
 
+export type PodcastTranslationExtraInformationInput = {
+  episode: Scalars['Int']['input'];
+};
+
 export type PresignedPutUrlResponse = {
   key: Scalars['String']['output'];
   uploadUrl: Scalars['String']['output'];
@@ -2658,6 +2664,11 @@ export type ShowSpecificsInput = {
   seasons: Array<ShowSeasonSpecificsInput>;
   totalEpisodes?: InputMaybe<Scalars['Int']['input']>;
   totalSeasons?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type ShowTranslationExtraInformationInput = {
+  episode?: InputMaybe<Scalars['Int']['input']>;
+  season: Scalars['Int']['input'];
 };
 
 export type StringIdAndNamedObject = {

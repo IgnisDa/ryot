@@ -13,7 +13,9 @@ import {
 	type MetadataSearchInput,
 	type PeopleSearchInput,
 	PersonDetailsDocument,
+	type PodcastTranslationExtraInformationInput,
 	type SearchInput,
+	type ShowTranslationExtraInformationInput,
 	type UserAnalyticsInput,
 	type UserCalendarEventInput,
 	UserEntityRecentlyConsumedDocument,
@@ -116,8 +118,17 @@ const mediaQueryKeys = createQueryKeys("media", {
 		entityId?: string,
 		entityLot?: EntityLot,
 		variant?: EntityTranslationVariant,
+		showExtraInformation?: ShowTranslationExtraInformationInput,
+		podcastExtraInformation?: PodcastTranslationExtraInformationInput,
 	) => ({
-		queryKey: ["entityTranslation", entityId, entityLot, variant],
+		queryKey: [
+			"entityTranslation",
+			entityId,
+			entityLot,
+			variant,
+			showExtraInformation,
+			podcastExtraInformation,
+		],
 	}),
 });
 
