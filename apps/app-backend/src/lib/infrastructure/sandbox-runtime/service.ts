@@ -3,12 +3,9 @@ import { FetchHttpClient, HttpClient, HttpClientRequest } from "@effect/platform
 import { isHttpMethod } from "@effect/platform/HttpMethod";
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot/contract/errors";
 import { SandboxExecutionError } from "@ryot/contract/modules/sandbox/schemas";
-import {
-	AUTOMATION_SANDBOX_HOST_CAPABILITIES,
-	type CoreSandboxHostMethodMap,
-} from "@ryot/sandbox-sdk/core";
+import { AUTOMATION_SANDBOX_HOST_CAPABILITIES } from "@ryot/sandbox-sdk/core";
 import { generateId } from "better-auth";
-import { Clock, Duration, Effect, Match, Runtime, Schema, Stream } from "effect";
+import { Clock, Duration, Effect, Match, Schema, Stream } from "effect";
 
 import { AppConfig } from "../config/service";
 import { redisKeys, RedisService } from "../redis";
@@ -28,10 +25,10 @@ import {
 } from "./limits";
 import { BridgeService, invalidateProcess, ProcessPool } from "./runtime";
 import {
-	apiFailure,
-	apiSuccess,
 	type BoundHostFunction,
 	isJsonValue,
+	sandboxHostEffect,
+	sandboxHostFailure,
 	type SandboxHostImplementationMap,
 	type SandboxRunInput,
 } from "./shared";
@@ -105,8 +102,6 @@ const decodeSandboxRunnerResponse = Schema.decodeUnknownSync(
 );
 
 const makeInvalidResponse = () => new SandboxRunError({ message: invalidResponseMessage });
-type SetCachedValueResult = Awaited<ReturnType<CoreSandboxHostMethodMap["setCachedValue"]>>;
-
 export class SandboxService extends Effect.Service<SandboxService>()("SandboxService", {
 	dependencies: [FetchHttpClient.layer, ProcessPool.Default, BridgeService.Default],
 	effect: Effect.gen(function* () {
@@ -116,8 +111,6 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 		const serverRun = yield* ServerRun;
 		const bridge = yield* BridgeService;
 
-		const runtime = yield* Effect.runtime();
-		const runPromise = Runtime.runPromise(runtime);
 		const httpClient = yield* HttpClient.HttpClient;
 
 		// `runSandbox` reads `apiFunctions`, and some host functions are built from `runSandbox`
@@ -224,59 +217,54 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 			getCachedValue: (input, key) => {
 				const keyError = sandboxCacheKeyError("getCachedValue", key);
 				if (keyError) {
-					return Promise.resolve(apiFailure(keyError));
+					return sandboxHostFailure(keyError);
 				}
 
-				return runPromise(
+				return sandboxHostEffect(
 					redis
 						.get(redisKeys.sandboxRunCache(serverRun.id, input.userId, input.scriptId, key.trim()))
 						.pipe(
 							Effect.flatMap((cached) => {
 								if (cached === null) {
-									return Effect.succeed(apiSuccess(null));
+									return Effect.succeed(null);
 								}
 								const valueError = sandboxCacheValueError("getCachedValue", cached, "stored value");
 								if (valueError) {
-									return Effect.succeed(apiFailure(valueError));
+									return Effect.fail(valueError);
 								}
 								return Schema.decode(Schema.parseJson(Schema.Unknown))(cached).pipe(
-									Effect.map((value) =>
+									Effect.flatMap((value) =>
 										isJsonValue(value)
-											? apiSuccess(value)
-											: apiFailure("getCachedValue: stored value is not valid JSON"),
+											? Effect.succeed(value)
+											: Effect.fail("getCachedValue: stored value is not valid JSON"),
 									),
-									Effect.orElseSucceed(() =>
-										apiFailure("getCachedValue: stored value is not valid JSON"),
-									),
+									Effect.mapError(() => "getCachedValue: stored value is not valid JSON"),
 								);
 							}),
-							Effect.orDie,
 						),
 				);
 			},
 			httpCall: (_input, method, url, options) => {
 				if (typeof method !== "string" || !method.trim()) {
-					return Promise.resolve(apiFailure("httpCall expects a non-empty method string"));
+					return sandboxHostFailure("httpCall expects a non-empty method string");
 				}
 				if (typeof url !== "string" || !url.trim()) {
-					return Promise.resolve(apiFailure("httpCall expects a non-empty URL string"));
+					return sandboxHostFailure("httpCall expects a non-empty URL string");
 				}
 				const bodyError = sandboxHttpRequestBodyError(options?.body);
 				if (bodyError) {
-					return Promise.resolve(apiFailure(bodyError));
+					return sandboxHostFailure(bodyError);
 				}
 
-				return runPromise(
+				return sandboxHostEffect(
 					Effect.gen(function* () {
 						const requestUrl = yield* Effect.try({
 							try: () => new URL(url),
-							catch: () => apiFailure("httpCall URL is invalid"),
+							catch: () => "httpCall URL is invalid",
 						});
 						const httpMethod = yield* Match.value(method.trim().toUpperCase()).pipe(
 							Match.when(isHttpMethod, (m) => Effect.succeed(m)),
-							Match.orElse(() =>
-								Effect.fail(apiFailure("httpCall method is not a valid HTTP method")),
-							),
+							Match.orElse(() => Effect.fail("httpCall method is not a valid HTTP method")),
 						);
 						let request = HttpClientRequest.make(httpMethod)(requestUrl.toString());
 						if (options?.body !== undefined) {
@@ -293,40 +281,37 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 									: Effect.map(readSandboxHttpResponseText(res), (text) => [res, text] as const),
 							),
 							Effect.timeout(Duration.millis(httpCallTimeoutMs)),
-							Effect.mapError((error) => apiFailure(unknownToMessage(error))),
+							Effect.mapError(unknownToMessage),
 						);
 
 						if (response.status < 200 || response.status >= 300) {
-							return {
-								...apiFailure(`HTTP ${response.status}`),
+							return yield* Effect.fail({
+								message: `HTTP ${response.status}`,
 								data: { status: response.status },
-							};
+							});
 						}
 
-						return apiSuccess({
-							body,
-							status: response.status,
-							headers: response.headers,
-						});
-					}).pipe(Effect.catchAll((errorValue) => Effect.succeed(errorValue))),
+						return { body, status: response.status, headers: response.headers };
+					}),
 				);
 			},
 			setCachedValue: (input, key, value, expiry) => {
 				const keyError = sandboxCacheKeyError("setCachedValue", key);
 				if (keyError) {
-					return Promise.resolve(apiFailure(keyError));
+					return sandboxHostFailure(keyError);
 				}
 				const ttlError = sandboxCacheTtlError("setCachedValue", expiry, "expiry");
 				if (ttlError) {
-					return Promise.resolve(apiFailure(ttlError));
+					return sandboxHostFailure(ttlError);
 				}
 
-				return runPromise(
+				return sandboxHostEffect(
 					Schema.encode(Schema.parseJson(Schema.Unknown))(value).pipe(
-						Effect.flatMap((serialized): Effect.Effect<SetCachedValueResult> => {
+						Effect.mapError(() => "setCachedValue value must be JSON-serializable"),
+						Effect.flatMap((serialized) => {
 							const valueError = sandboxCacheValueError("setCachedValue", serialized);
 							return valueError
-								? Effect.succeed(apiFailure(valueError))
+								? Effect.fail(valueError)
 								: redis
 										.set(
 											redisKeys.sandboxRunCache(
@@ -338,11 +323,8 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 											serialized,
 											expiry,
 										)
-										.pipe(Effect.as(apiSuccess(null)), Effect.orDie);
+										.pipe(Effect.as(null));
 						}),
-						Effect.orElseSucceed(() =>
-							apiFailure("setCachedValue value must be JSON-serializable"),
-						),
 					),
 				);
 			},

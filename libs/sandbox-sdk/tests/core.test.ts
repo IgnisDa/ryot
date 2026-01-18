@@ -5,7 +5,6 @@ import {
 	defineDriver,
 	defineManifest,
 	defineScript,
-	hostResultSchema,
 	httpCallResultSchema,
 	jsonValueSchema,
 	SANDBOX_SCRIPT_DEFINITION,
@@ -50,9 +49,8 @@ describe("shared value contracts", () => {
 		expect(decode(jsonValueSchema)({ nested: [true, 2, null] })).toEqual({
 			nested: [true, 2, null],
 		});
-		expect(
-			decode(hostResultSchema(Schema.Number))({ success: false, error: "unavailable" }),
-		).toEqual({ success: false, error: "unavailable" });
+		expect(() => decode(jsonValueSchema)(Number.NaN)).toThrow();
+		expect(() => decode(jsonValueSchema)(Number.POSITIVE_INFINITY)).toThrow();
 	});
 
 	test("preserves core host result variants", () => {
@@ -94,10 +92,12 @@ describe("sandbox test hosts", () => {
 		});
 
 		expect(
-			await runSandboxTestDriver(main, { key: "answer" }, host, {
-				metadata: {},
-				sandboxScriptId: "script-1",
-			}),
+			await Effect.runPromise(
+				runSandboxTestDriver(main, { key: "answer" }, host, {
+					metadata: {},
+					sandboxScriptId: "script-1",
+				}),
+			),
 		).toBe(42);
 	});
 });
@@ -142,10 +142,12 @@ describe("domain host contracts", () => {
 		});
 
 		expect(
-			await runSandboxTestDriver(main, { entityId: "entity-1" }, host, {
-				metadata: {},
-				sandboxScriptId: "script-1",
-			}),
+			await Effect.runPromise(
+				runSandboxTestDriver(main, { entityId: "entity-1" }, host, {
+					metadata: {},
+					sandboxScriptId: "script-1",
+				}),
+			),
 		).toEqual({ name: "Inception", rows: 2 });
 	});
 });

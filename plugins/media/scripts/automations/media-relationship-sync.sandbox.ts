@@ -1,5 +1,6 @@
 import { defineAutomation } from "@ryot/sandbox-sdk/automation";
 import { defineManifest, type JsonValue } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -21,7 +22,7 @@ export default defineAutomation({
 		const batch = population?.batch;
 		const snapshot = source.kind === "relationship" ? (source.after ?? source.before) : undefined;
 		if (!snapshot || !population?.rootPreviouslyPopulated || !batch?.isLeader) {
-			return Promise.resolve(null);
+			return Effect.succeed(null);
 		}
 
 		const properties: Record<string, JsonValue> = {
@@ -58,6 +59,6 @@ export default defineAutomation({
 				},
 			});
 		}
-		return Promise.resolve(null);
+		return Effect.succeed(null);
 	},
 });

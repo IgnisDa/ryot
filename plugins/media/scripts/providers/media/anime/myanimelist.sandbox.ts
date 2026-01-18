@@ -1,5 +1,6 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue } from "../../../script-helpers/records";
@@ -39,57 +40,57 @@ const parseAiringSchedule = (startDate: unknown) => {
 };
 
 export const details = defineProviderDriver(manifest, "details", (input, host) =>
-	getMalClientId(host).then((clientId) => {
+	Effect.gen(function* () {
+		const clientId = yield* getMalClientId(host);
 		const params = new URLSearchParams({
 			fields:
 				"start_date,synopsis,genres,status,num_episodes,mean,nsfw,main_picture,recommendations,related_manga,related_anime",
 		});
-		return malGet(
+		const payloadValue = yield* malGet(
 			host,
 			clientId,
 			`/anime/${encodeURIComponent(input.externalId)}`,
 			params,
 			"anime details",
-		).then((payloadValue) => {
-			const payload = asRecord(payloadValue);
-			const idValue = numberValue(payload?.["id"]);
-			const payloadIdentifier = idValue === null ? input.externalId : String(Math.trunc(idValue));
-			const title = typeof payload?.["title"] === "string" ? payload["title"] : "";
-			if (!title) {
-				throw new Error("MyAnimeList anime payload is missing title");
-			}
-			const episodesValue = numberValue(payload?.["num_episodes"]);
-			const statusValue = stringValue(payload?.["status"]);
-			const synopsis = payload?.["synopsis"];
-			return {
-				name: title,
-				relatedEntityGroups: [
-					{
-						direction: "outgoing" as const,
-						synchronization: "authoritative" as const,
-						relationshipSchemaSlug: "media-suggestion",
-						entities: [
-							...collectSuggestionItems(payload?.["related_anime"], "anime.myanimelist"),
-							...collectSuggestionItems(payload?.["related_manga"], "manga.myanimelist"),
-							...collectSuggestionItems(payload?.["recommendations"], "anime.myanimelist"),
-						],
-					},
-				],
-				properties: {
-					isNsfw: parseIsNsfw(payload?.["nsfw"]),
-					genres: collectGenres(payload?.["genres"]),
-					providerRating: numberValue(payload?.["mean"]),
-					description: typeof synopsis === "string" ? synopsis : null,
-					images: collectImages(payload?.["main_picture"]),
-					publishDate: parsePublishDate(payload?.["start_date"]),
-					publishYear: parsePublishYear(payload?.["start_date"]),
-					airingSchedule: parseAiringSchedule(payload?.["start_date"]),
-					productionStatus: statusValue ? toTitleCase(statusValue) : null,
-					sourceUrl: `https://myanimelist.net/anime/${payloadIdentifier}/${title}`,
-					episodes: episodesValue === null ? null : Math.max(0, Math.trunc(episodesValue)),
+		);
+		const payload = asRecord(payloadValue);
+		const idValue = numberValue(payload?.["id"]);
+		const payloadIdentifier = idValue === null ? input.externalId : String(Math.trunc(idValue));
+		const title = typeof payload?.["title"] === "string" ? payload["title"] : "";
+		if (!title) {
+			return yield* Effect.fail({ message: "MyAnimeList anime payload is missing title" });
+		}
+		const episodesValue = numberValue(payload?.["num_episodes"]);
+		const statusValue = stringValue(payload?.["status"]);
+		const synopsis = payload?.["synopsis"];
+		return {
+			name: title,
+			relatedEntityGroups: [
+				{
+					direction: "outgoing" as const,
+					synchronization: "authoritative" as const,
+					relationshipSchemaSlug: "media-suggestion",
+					entities: [
+						...collectSuggestionItems(payload?.["related_anime"], "anime.myanimelist"),
+						...collectSuggestionItems(payload?.["related_manga"], "manga.myanimelist"),
+						...collectSuggestionItems(payload?.["recommendations"], "anime.myanimelist"),
+					],
 				},
-			};
-		});
+			],
+			properties: {
+				isNsfw: parseIsNsfw(payload?.["nsfw"]),
+				genres: collectGenres(payload?.["genres"]),
+				providerRating: numberValue(payload?.["mean"]),
+				description: typeof synopsis === "string" ? synopsis : null,
+				images: collectImages(payload?.["main_picture"]),
+				publishDate: parsePublishDate(payload?.["start_date"]),
+				publishYear: parsePublishYear(payload?.["start_date"]),
+				airingSchedule: parseAiringSchedule(payload?.["start_date"]),
+				productionStatus: statusValue ? toTitleCase(statusValue) : null,
+				sourceUrl: `https://myanimelist.net/anime/${payloadIdentifier}/${title}`,
+				episodes: episodesValue === null ? null : Math.max(0, Math.trunc(episodesValue)),
+			},
+		};
 	}),
 );
 

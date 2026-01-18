@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,10 +8,7 @@ import { details, manifest, search } from "./spotify.sandbox";
 type SpotifyGroupHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 type Route = { match: (url: string) => boolean; body: unknown };
 
@@ -19,15 +17,12 @@ const makeHost = (
 	overrides: Partial<SpotifyGroupHost> = {},
 ): SpotifyGroupHost =>
 	defineSandboxTestHost(manifest, {
-		getAppConfigValue: (key) =>
-			Promise.resolve({ success: true as const, data: key.endsWith("Secret") ? "secret" : "id" }),
-		getCachedValue: () => Promise.resolve({ success: true as const, data: "cached-token" }),
-		setCachedValue: () => Promise.resolve({ success: true as const, data: null }),
+		getAppConfigValue: (key) => Effect.succeed(key.endsWith("Secret") ? "secret" : "id"),
+		getCachedValue: () => Effect.succeed("cached-token"),
+		setCachedValue: () => Effect.succeed(null),
 		httpCall: (_method, url) => {
 			const route = routes.find((candidate) => candidate.match(url));
-			return route
-				? httpSuccess(route.body)
-				: Promise.resolve({ success: false as const, error: `no route: ${url}` });
+			return route ? httpSuccess(route.body) : Effect.fail({ message: `no route: ${url}` });
 		},
 		...overrides,
 	});
@@ -60,25 +55,26 @@ describe("music-group.spotify sandbox script", () => {
 			},
 		]);
 
-		return runSandboxTestDriver(
-			search,
-			{ query: "album", page: 1, pageSize: 20 },
-			host,
-			execution,
-		).then((result) => {
-			expect(result.items).toEqual([
-				{
-					externalId: "al1",
-					calloutProperty: { kind: "null", value: null },
-					titleProperty: { kind: "text", value: "Album One" },
-					primarySubtitleProperty: { kind: "number", value: 12 },
-					secondarySubtitleProperty: { kind: "null", value: null },
-					imageProperty: { kind: "image", value: { type: "remote", url: "https://img/big.jpg" } },
-				},
-			]);
-			expect(result.details).toEqual({ totalItems: 3, nextPage: null });
-			return undefined;
-		});
+		return Effect.runPromise(
+			runSandboxTestDriver(search, { query: "album", page: 1, pageSize: 20 }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.items).toEqual([
+						{
+							externalId: "al1",
+							calloutProperty: { kind: "null", value: null },
+							titleProperty: { kind: "text", value: "Album One" },
+							primarySubtitleProperty: { kind: "number", value: 12 },
+							secondarySubtitleProperty: { kind: "null", value: null },
+							imageProperty: {
+								kind: "image",
+								value: { type: "remote", url: "https://img/big.jpg" },
+							},
+						},
+					]);
+					expect(result.details).toEqual({ totalItems: 3, nextPage: null });
+				}),
+			),
+		);
 	});
 
 	it("maps album tracks into an ordered outgoing group with a loading placeholder", () => {
@@ -99,36 +95,39 @@ describe("music-group.spotify sandbox script", () => {
 			},
 		]);
 
-		return runSandboxTestDriver(details, { externalId: "al1" }, host, execution).then((result) => {
-			expect(result.name).toBe("The Album");
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "music-group-to-music",
-					entities: [
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "al1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.name).toBe("The Album");
+					expect(result.relatedEntityGroups).toEqual([
 						{
-							name: "First Track",
-							externalId: "t1",
-							scriptSlug: "music.spotify",
-							relationshipProperties: { order: 1 },
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "music-group-to-music",
+							entities: [
+								{
+									name: "First Track",
+									externalId: "t1",
+									scriptSlug: "music.spotify",
+									relationshipProperties: { order: 1 },
+								},
+								{
+									name: "Loading...",
+									externalId: "t2",
+									scriptSlug: "music.spotify",
+									relationshipProperties: { order: 2 },
+								},
+							],
 						},
-						{
-							name: "Loading...",
-							externalId: "t2",
-							scriptSlug: "music.spotify",
-							relationshipProperties: { order: 2 },
-						},
-					],
-				},
-			]);
-			expect(result.properties).toEqual({
-				parts: 2,
-				description: "An album.",
-				sourceUrl: "https://open.spotify.com/album/al1",
-				images: [{ type: "remote", url: "https://img/cover.jpg" }],
-			});
-			return undefined;
-		});
+					]);
+					expect(result.properties).toEqual({
+						parts: 2,
+						description: "An album.",
+						sourceUrl: "https://open.spotify.com/album/al1",
+						images: [{ type: "remote", url: "https://img/cover.jpg" }],
+					});
+				}),
+			),
+		);
 	});
 });

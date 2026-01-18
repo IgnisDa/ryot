@@ -1,3 +1,4 @@
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import type {
 	ProviderDetailsChildEntity,
 	ProviderDetailsInput,
@@ -157,16 +158,17 @@ export const getTmdbShowDetails = (
 	host: TmdbHost,
 	language: string,
 	token: string,
-): Promise<ProviderDetailsResult> => {
+) => {
 	if (!/^\d+$/.test(input.externalId)) {
-		return Promise.reject(new Error("externalId must be a numeric TMDB show ID"));
+		return Effect.fail(new Error("externalId must be a numeric TMDB show ID"));
 	}
-	return Promise.all([
-		tmdbGet(host, `/tv/${input.externalId}`, { language }, token),
-		tmdbGet(host, `/tv/${input.externalId}/images`, {}, token),
-		tmdbGet(host, `/tv/${input.externalId}/credits`, { language }, token),
-		tmdbGet(host, `/tv/${input.externalId}/recommendations`, { language }, token),
-	]).then(([showData, imagesData, creditsData, recommendationsData]) => {
+	return Effect.gen(function* () {
+		const [showData, imagesData, creditsData, recommendationsData] = yield* Effect.all([
+			tmdbGet(host, `/tv/${input.externalId}`, { language }, token),
+			tmdbGet(host, `/tv/${input.externalId}/images`, {}, token),
+			tmdbGet(host, `/tv/${input.externalId}/credits`, { language }, token),
+			tmdbGet(host, `/tv/${input.externalId}/recommendations`, { language }, token),
+		]);
 		const seasonNumbers = recordsValue(showData["seasons"]).flatMap((season) => {
 			const value = numberValue(season["season_number"]);
 			return value === null ? [] : [Math.trunc(value)];
@@ -174,19 +176,22 @@ export const getTmdbShowDetails = (
 		const batches = Array.from({ length: Math.ceil(seasonNumbers.length / 5) }, (_, index) =>
 			seasonNumbers.slice(index * 5, index * 5 + 5),
 		);
-		return batches
-			.reduce<Promise<UnknownRecord[]>>(
-				(seasons, batch) =>
-					seasons.then((loaded) =>
-						Promise.all(
+		const seasonDataList = yield* batches.reduce<Effect.Effect<UnknownRecord[], unknown>>(
+			(seasons, batch) =>
+				Effect.flatMap(seasons, (loaded) =>
+					Effect.map(
+						Effect.all(
 							batch.map((number) =>
 								tmdbGet(host, `/tv/${input.externalId}/season/${number}`, { language }, token),
 							),
-						).then((results) => [...loaded, ...results]),
+						),
+						(results) => [...loaded, ...results],
 					),
-				Promise.resolve([]),
-			)
-			.then((seasonDataList) =>
+				),
+			Effect.succeed([]),
+		);
+		return yield* Effect.try({
+			try: () =>
 				buildDetailsResult(
 					input,
 					showData,
@@ -195,6 +200,7 @@ export const getTmdbShowDetails = (
 					recommendationsData,
 					seasonDataList,
 				),
-			);
+			catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+		});
 	});
 };

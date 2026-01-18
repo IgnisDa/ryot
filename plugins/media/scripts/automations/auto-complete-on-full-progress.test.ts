@@ -1,6 +1,7 @@
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
 import type { CreateEventItem, JsonValue } from "@ryot/sandbox-sdk/core";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import definition, { manifest } from "./auto-complete-on-full-progress.sandbox";
@@ -24,7 +25,7 @@ const createHost = (options: {
 	entityProperties?: JsonValue;
 	events?: ReturnType<typeof eventRecord>[];
 }) => {
-	const created: CreateEventItem[][] = [];
+	const created: (readonly CreateEventItem[])[] = [];
 	return {
 		created,
 		host: defineSandboxTestHost(manifest, {
@@ -40,37 +41,41 @@ const createHost = (options: {
 };
 
 const run = (context: AutomationInput, host: ReturnType<typeof createHost>["host"]) =>
-	runSandboxTestDriver(definition.drivers.automation, context, host, execution);
+	definition.drivers.automation.run(context, host, execution);
 
 describe("auto-complete-on-full-progress sandbox script", () => {
 	it("completes non-episodic media at the progress event timestamp", () => {
 		const { created, host } = createHost({});
-		return run(
-			eventAutomationContext(
-				{
-					occurredAt: "2026-02-03T04:05:06.000Z",
-					properties: { progressPercent: 100, consumedOn: "Jellyfin" },
-				},
-				{ inheritedProperties: ["consumedOn"] },
-			),
-			host,
-		).then(() => {
-			expect(created).toEqual([
-				[
+		return Effect.runPromise(
+			run(
+				eventAutomationContext(
 					{
-						entityId: "entity-1",
-						eventSchemaSlug: "complete-schema",
 						occurredAt: "2026-02-03T04:05:06.000Z",
-						properties: {
-							consumedOn: "Jellyfin",
-							completionMode: "custom_timestamps",
-							completedOn: "2026-02-03T04:05:06.000Z",
-						},
+						properties: { progressPercent: 100, consumedOn: "Jellyfin" },
 					},
-				],
-			]);
-			return undefined;
-		});
+					{ inheritedProperties: ["consumedOn"] },
+				),
+				host,
+			).pipe(
+				Effect.map(() => {
+					expect(created).toEqual([
+						[
+							{
+								entityId: "entity-1",
+								eventSchemaSlug: "complete-schema",
+								occurredAt: "2026-02-03T04:05:06.000Z",
+								properties: {
+									consumedOn: "Jellyfin",
+									completionMode: "custom_timestamps",
+									completedOn: "2026-02-03T04:05:06.000Z",
+								},
+							},
+						],
+					]);
+					return undefined;
+				}),
+			),
+		);
 	});
 
 	it("waits for complete anime coverage and emits on the completing episode", () => {
@@ -91,28 +96,35 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 			events: events.slice(0, 1),
 			entityProperties: { episodes: 2 },
 		});
-		return Promise.all([
-			run(
-				eventAutomationContext({
-					id: "episode-2",
-					subject: { id: "entity-1", name: "Anime", entitySchemaSlug: "anime" },
-					properties: { progressPercent: 100, animeEpisode: 2 },
+		return Effect.runPromise(
+			Effect.all(
+				[
+					run(
+						eventAutomationContext({
+							id: "episode-2",
+							properties: { progressPercent: 100, animeEpisode: 2 },
+							subject: { id: "entity-1", name: "Anime", entitySchemaSlug: "anime" },
+						}),
+						complete.host,
+					),
+					run(
+						eventAutomationContext({
+							id: "episode-1",
+							properties: { progressPercent: 100, animeEpisode: 1 },
+							subject: { id: "entity-1", name: "Anime", entitySchemaSlug: "anime" },
+						}),
+						incomplete.host,
+					),
+				],
+				{ concurrency: "unbounded" },
+			).pipe(
+				Effect.map(() => {
+					expect(complete.created).toHaveLength(1);
+					expect(incomplete.created).toHaveLength(0);
+					return undefined;
 				}),
-				complete.host,
 			),
-			run(
-				eventAutomationContext({
-					id: "episode-1",
-					subject: { id: "entity-1", name: "Anime", entitySchemaSlug: "anime" },
-					properties: { progressPercent: 100, animeEpisode: 1 },
-				}),
-				incomplete.host,
-			),
-		]).then(() => {
-			expect(complete.created).toHaveLength(1);
-			expect(incomplete.created).toHaveLength(0);
-			return undefined;
-		});
+		);
 	});
 
 	it("supports manga coverage and repeated completion passes", () => {
@@ -139,16 +151,20 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 			}),
 		];
 		const { created, host } = createHost({ events, entityProperties: { chapters: 2 } });
-		return run(
-			eventAutomationContext({
-				id: "chapter-2b",
-				subject: { id: "entity-1", name: "Manga", entitySchemaSlug: "manga" },
-				properties: { progressPercent: 100, mangaChapter: 2 },
-			}),
-			host,
-		).then(() => {
-			expect(created).toHaveLength(1);
-			return undefined;
-		});
+		return Effect.runPromise(
+			run(
+				eventAutomationContext({
+					id: "chapter-2b",
+					properties: { progressPercent: 100, mangaChapter: 2 },
+					subject: { id: "entity-1", name: "Manga", entitySchemaSlug: "manga" },
+				}),
+				host,
+			).pipe(
+				Effect.map(() => {
+					expect(created).toHaveLength(1);
+					return undefined;
+				}),
+			),
+		);
 	});
 });

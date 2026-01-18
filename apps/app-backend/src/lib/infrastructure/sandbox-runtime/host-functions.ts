@@ -7,7 +7,7 @@ import { EntityId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { eq } from "drizzle-orm";
-import { Effect, Runtime, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -23,13 +23,13 @@ import { RedisService, redisKeys } from "../redis";
 import { getSandboxAppConfigValue } from "./app-config";
 import { sandboxCacheKeyError, sandboxCacheTtlError, sandboxCacheValueError } from "./limits";
 import {
-	apiFailure,
 	type AdditionalSandboxHostImplementationMap,
 	isJsonValue,
+	requireUserSandboxRunInput,
+	sandboxHostEffect,
+	sandboxHostFailure,
 	toSandboxJsonValue,
 	type UserSandboxRunInput,
-	requireUserSandboxRunInput,
-	runSandboxHostEffect,
 } from "./shared";
 
 type SandboxHostFunctionContext =
@@ -90,14 +90,11 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
 		const events = yield* EventsService;
-		const runtime = yield* Effect.runtime();
 		const definitions = yield* DefinitionRegistry;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const entitiesRepository = yield* EntitiesRepository;
 		const queryEngineService = yield* QueryEngineService;
 		const integrationsRepository = yield* IntegrationsRepository;
-
-		const runPromise = Runtime.runPromise(runtime);
 
 		const requireReadableEntity = (userId: UserId, entityId: EntityId, notFoundMessage: string) =>
 			runWithDb(
@@ -145,17 +142,16 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			claimCachedValue: (input, key, value, ttlSeconds) => {
 				const keyError = sandboxCacheKeyError("claimCachedValue", key);
 				if (keyError) {
-					return Promise.resolve(apiFailure(keyError));
+					return sandboxHostFailure(keyError);
 				}
 				const ttlError = sandboxCacheTtlError("claimCachedValue", ttlSeconds, "TTL");
 				if (ttlError) {
-					return Promise.resolve(apiFailure(ttlError));
+					return sandboxHostFailure(ttlError);
 				}
 
 				const redisKey = redisKeys.sandboxCache(input.userId, input.scriptId, key.trim());
 
-				return runSandboxHostEffect(
-					runPromise,
+				return sandboxHostEffect(
 					Effect.gen(function* () {
 						const serialized = yield* Schema.encode(Schema.parseJson(Schema.Unknown))(value).pipe(
 							Effect.mapError(() => "claimCachedValue value must be JSON-serializable"),
@@ -199,42 +195,40 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					}),
 				);
 			},
-			createEvents: (rawInput, body) => {
-				const input = requireUserSandboxRunInput(rawInput, "createEvents");
-				return runSandboxHostEffect(
-					runPromise,
-					decodeCreateEventsPayload(body).pipe(
-						Effect.flatMap((payload) => createEvents(input, payload)),
+			createEvents: (rawInput, body) =>
+				requireUserSandboxRunInput(rawInput, "createEvents").pipe(
+					Effect.flatMap((input) =>
+						decodeCreateEventsPayload(body).pipe(
+							Effect.flatMap((payload) => createEvents(input, payload)),
+						),
 					),
-				);
-			},
-			executeQueryEngine: (rawInput, query) => {
-				const input = requireUserSandboxRunInput(rawInput, "executeQueryEngine");
-
-				return runSandboxHostEffect(
-					runPromise,
-					decodeQueryDocument(query).pipe(
-						Effect.flatMap((doc) =>
-							queryEngineService.execute(
-								{
-									name: "",
-									email: "",
-									id: UserId.make(input.userId),
-									preferences: defaultUserPreferences,
-								},
-								doc,
+					sandboxHostEffect,
+				),
+			executeQueryEngine: (rawInput, query) =>
+				requireUserSandboxRunInput(rawInput, "executeQueryEngine").pipe(
+					Effect.flatMap((input) =>
+						decodeQueryDocument(query).pipe(
+							Effect.flatMap((doc) =>
+								queryEngineService.execute(
+									{
+										name: "",
+										email: "",
+										id: UserId.make(input.userId),
+										preferences: defaultUserPreferences,
+									},
+									doc,
+								),
 							),
 						),
 					),
-				);
-			},
+					sandboxHostEffect,
+				),
 			getAppConfigValue: (input, key) => {
 				if (typeof key !== "string" || !key.trim()) {
-					return Promise.resolve(apiFailure("getAppConfigValue expects a non-empty key string"));
+					return sandboxHostFailure("getAppConfigValue expects a non-empty key string");
 				}
 
-				return runSandboxHostEffect(
-					runPromise,
+				return sandboxHostEffect(
 					getSandboxAppConfigValue(config, key.trim(), input.scriptIsBuiltin).pipe(
 						Effect.flatMap((value) =>
 							isJsonValue(value)
@@ -244,201 +238,204 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					),
 				);
 			},
-			getEntity: (rawInput, entityId) => {
-				const input = requireUserSandboxRunInput(rawInput, "getEntity");
-				return runSandboxHostEffect(
-					runPromise,
-					requireNonEmptyString(entityId, "getEntity expects a non-empty entityId").pipe(
-						Effect.flatMap((rawEntityId) =>
-							Effect.gen(function* () {
-								const resolvedEntityId = EntityId.make(rawEntityId);
-								yield* requireReadableEntity(
-									UserId.make(input.userId),
-									resolvedEntityId,
-									entityNotFoundError,
-								);
-								const entity = yield* runWithDb(
-									entitiesRepository.getByIdForUser({
-										entityId: resolvedEntityId,
-										userId: UserId.make(input.userId),
-									}),
-								);
-								if (!entity) {
-									return yield* Effect.fail(entityNotFoundError);
-								}
-
-								return { ...entity, properties: toSandboxJsonValue(entity.properties) };
-							}),
-						),
-					),
-				);
-			},
-			getEntitySchema: (rawInput, entitySchemaSlug) => {
-				requireUserSandboxRunInput(rawInput, "getEntitySchema");
-				return runSandboxHostEffect(
-					runPromise,
-					requireNonEmptyString(
-						entitySchemaSlug,
-						"getEntitySchema expects a non-empty entitySchemaSlug",
-					).pipe(
-						Effect.flatMap((resolvedEntitySchemaSlug) => {
-							const definition = definitions.getEntitySchema(resolvedEntitySchemaSlug);
-							if (!definition) {
-								return Effect.fail("Entity schema not found");
-							}
-							if (!definition.pluginSlug) {
-								return Effect.fail("Entity schema plugin not found");
-							}
-							const pluginSlug = definition.pluginSlug;
-							return runWithDb(
+			getEntity: (rawInput, entityId) =>
+				requireUserSandboxRunInput(rawInput, "getEntity").pipe(
+					Effect.flatMap((input) =>
+						requireNonEmptyString(entityId, "getEntity expects a non-empty entityId").pipe(
+							Effect.flatMap((rawEntityId) =>
 								Effect.gen(function* () {
-									const links = yield* pluginRuntime.listSchemaScripts([resolvedEntitySchemaSlug]);
-									const providers = links.map(({ script }) => ({
-										name: script.name,
-										scriptId: script.id,
-									}));
-									return {
-										...definition,
-										providers,
-										pluginSlug,
-										isBuiltin: true,
-										id: resolvedEntitySchemaSlug,
-										propertiesSchema: toSandboxJsonValue(definition.propertiesSchema),
-									};
+									const resolvedEntityId = EntityId.make(rawEntityId);
+									yield* requireReadableEntity(
+										UserId.make(input.userId),
+										resolvedEntityId,
+										entityNotFoundError,
+									);
+									const entity = yield* runWithDb(
+										entitiesRepository.getByIdForUser({
+											entityId: resolvedEntityId,
+											userId: UserId.make(input.userId),
+										}),
+									);
+									if (!entity) {
+										return yield* Effect.fail(entityNotFoundError);
+									}
+
+									return { ...entity, properties: toSandboxJsonValue(entity.properties) };
 								}),
-							).pipe(Effect.mapError(unknownToMessage));
-						}),
-					),
-				);
-			},
-			getIntegration: (rawInput, integrationId) => {
-				const input = requireUserSandboxRunInput(rawInput, "getIntegration");
-				return runSandboxHostEffect(
-					runPromise,
-					requireNonEmptyString(
-						integrationId,
-						"getIntegration expects a non-empty integrationId",
-					).pipe(
-						Effect.flatMap((resolvedIntegrationId) =>
-							runWithDb(
-								integrationsRepository
-									.getForUser({
-										userId: UserId.make(input.userId),
-										integrationId: IntegrationId.make(resolvedIntegrationId),
-									})
-									.pipe(
-										Effect.flatMap((integration) =>
-											integration
-												? Effect.succeed({
-														...integration,
-														providerSpecifics: toSandboxJsonValue(integration.providerSpecifics),
-													})
-												: Effect.fail("Integration not found"),
-										),
-									),
 							),
 						),
 					),
-				);
-			},
-			getUserPreferences: (rawInput) => {
-				const input = requireUserSandboxRunInput(rawInput, "getUserPreferences");
-				return runSandboxHostEffect(runPromise, readUserPreferences(UserId.make(input.userId)));
-			},
-			listEventSchemas: (rawInput, entitySchemaSlug) => {
-				requireUserSandboxRunInput(rawInput, "listEventSchemas");
-				return runSandboxHostEffect(
-					runPromise,
-					requireNonEmptyString(
-						entitySchemaSlug,
-						"listEventSchemas expects a non-empty entitySchemaSlug",
-					).pipe(
-						Effect.flatMap((resolvedEntitySchemaSlug) => {
-							const entitySchema = definitions.getEntitySchema(resolvedEntitySchemaSlug);
-							return entitySchema
-								? Effect.succeed(
-										Object.values(entitySchema.eventSchemas).map((eventSchema) => ({
-											id: eventSchema.slug,
-											slug: eventSchema.slug,
-											name: eventSchema.name,
-											entitySchemaSlug: resolvedEntitySchemaSlug,
-											propertiesSchema: toSandboxJsonValue(eventSchema.propertiesSchema),
-										})),
-									)
-								: Effect.fail("Entity schema not found");
-						}),
-					),
-				);
-			},
-			listEvents: (rawInput, query) => {
-				const input = requireUserSandboxRunInput(rawInput, "listEvents");
-				return runSandboxHostEffect(
-					runPromise,
-					decodeListEventsQuery(query ?? {}).pipe(
-						Effect.flatMap((parsedQuery) => {
-							const entityId = parsedQuery.entityId
-								? EntityId.make(parsedQuery.entityId)
-								: undefined;
-							const sessionEntityId = parsedQuery.sessionEntityId
-								? EntityId.make(parsedQuery.sessionEntityId)
-								: undefined;
-
-							return events
-								.listForUser(UserId.make(input.userId), {
-									entityId,
-									sessionEntityId,
-									eventSchemaSlug: parsedQuery.eventSchemaSlug,
-								})
-								.pipe(
-									Effect.map((rows) =>
-										rows.map((event) => ({
-											...event,
-											properties: toSandboxJsonValue(event.properties),
-										})),
-									),
-								);
-						}),
-					),
-				);
-			},
-			listIntegrations: (rawInput, rawOptions) => {
-				const input = requireUserSandboxRunInput(rawInput, "listIntegrations");
-				const options = rawOptions ?? {};
-				if (!isObjectRecord(options)) {
-					return Promise.resolve(apiFailure("listIntegrations expects an object"));
-				}
-
-				const provider = options["provider"];
-				const isDisabled = options["isDisabled"];
-				if (provider !== undefined && typeof provider !== "string") {
-					return Promise.resolve(apiFailure("listIntegrations provider must be a string"));
-				}
-				if (typeof provider === "string" && !isIntegrationProvider(provider)) {
-					return Promise.resolve(
-						apiFailure("listIntegrations provider must be a supported provider"),
-					);
-				}
-				if (isDisabled !== undefined && typeof isDisabled !== "boolean") {
-					return Promise.resolve(apiFailure("listIntegrations isDisabled must be a boolean"));
-				}
-
-				return runSandboxHostEffect(
-					runPromise,
-					runWithDb(
-						integrationsRepository.listForUser({
-							userId: UserId.make(input.userId),
-							...(typeof provider === "string" ? { provider } : {}),
-							...(typeof isDisabled === "boolean" ? { isDisabled } : {}),
-						}),
-					).pipe(
-						Effect.map((rows) =>
-							rows.map((integration) => ({
-								...integration,
-								providerSpecifics: toSandboxJsonValue(integration.providerSpecifics),
-							})),
+					sandboxHostEffect,
+				),
+			getEntitySchema: (rawInput, entitySchemaSlug) =>
+				requireUserSandboxRunInput(rawInput, "getEntitySchema").pipe(
+					Effect.zipRight(
+						requireNonEmptyString(
+							entitySchemaSlug,
+							"getEntitySchema expects a non-empty entitySchemaSlug",
+						).pipe(
+							Effect.flatMap((resolvedEntitySchemaSlug) => {
+								const definition = definitions.getEntitySchema(resolvedEntitySchemaSlug);
+								if (!definition) {
+									return Effect.fail("Entity schema not found");
+								}
+								if (!definition.pluginSlug) {
+									return Effect.fail("Entity schema plugin not found");
+								}
+								const pluginSlug = definition.pluginSlug;
+								return runWithDb(
+									Effect.gen(function* () {
+										const links = yield* pluginRuntime.listSchemaScripts([
+											resolvedEntitySchemaSlug,
+										]);
+										const providers = links.map(({ script }) => ({
+											name: script.name,
+											scriptId: script.id,
+										}));
+										return {
+											...definition,
+											providers,
+											pluginSlug,
+											isBuiltin: true,
+											id: resolvedEntitySchemaSlug,
+											propertiesSchema: toSandboxJsonValue(definition.propertiesSchema),
+										};
+									}),
+								).pipe(Effect.mapError(unknownToMessage));
+							}),
 						),
 					),
-				);
-			},
+					sandboxHostEffect,
+				),
+			getIntegration: (rawInput, integrationId) =>
+				requireUserSandboxRunInput(rawInput, "getIntegration").pipe(
+					Effect.flatMap((input) =>
+						requireNonEmptyString(
+							integrationId,
+							"getIntegration expects a non-empty integrationId",
+						).pipe(
+							Effect.flatMap((resolvedIntegrationId) =>
+								runWithDb(
+									integrationsRepository
+										.getForUser({
+											userId: UserId.make(input.userId),
+											integrationId: IntegrationId.make(resolvedIntegrationId),
+										})
+										.pipe(
+											Effect.flatMap((integration) =>
+												integration
+													? Effect.succeed({
+															...integration,
+															providerSpecifics: toSandboxJsonValue(integration.providerSpecifics),
+														})
+													: Effect.fail("Integration not found"),
+											),
+										),
+								),
+							),
+						),
+					),
+					sandboxHostEffect,
+				),
+			getUserPreferences: (rawInput) =>
+				requireUserSandboxRunInput(rawInput, "getUserPreferences").pipe(
+					Effect.flatMap((input) => readUserPreferences(UserId.make(input.userId))),
+					sandboxHostEffect,
+				),
+			listEventSchemas: (rawInput, entitySchemaSlug) =>
+				requireUserSandboxRunInput(rawInput, "listEventSchemas").pipe(
+					Effect.zipRight(
+						requireNonEmptyString(
+							entitySchemaSlug,
+							"listEventSchemas expects a non-empty entitySchemaSlug",
+						).pipe(
+							Effect.flatMap((resolvedEntitySchemaSlug) => {
+								const entitySchema = definitions.getEntitySchema(resolvedEntitySchemaSlug);
+								return entitySchema
+									? Effect.succeed(
+											Object.values(entitySchema.eventSchemas).map((eventSchema) => ({
+												id: eventSchema.slug,
+												slug: eventSchema.slug,
+												name: eventSchema.name,
+												entitySchemaSlug: resolvedEntitySchemaSlug,
+												propertiesSchema: toSandboxJsonValue(eventSchema.propertiesSchema),
+											})),
+										)
+									: Effect.fail("Entity schema not found");
+							}),
+						),
+					),
+					sandboxHostEffect,
+				),
+			listEvents: (rawInput, query) =>
+				requireUserSandboxRunInput(rawInput, "listEvents").pipe(
+					Effect.flatMap((input) =>
+						decodeListEventsQuery(query ?? {}).pipe(
+							Effect.flatMap((parsedQuery) => {
+								const entityId = parsedQuery.entityId
+									? EntityId.make(parsedQuery.entityId)
+									: undefined;
+								const sessionEntityId = parsedQuery.sessionEntityId
+									? EntityId.make(parsedQuery.sessionEntityId)
+									: undefined;
+
+								return events
+									.listForUser(UserId.make(input.userId), {
+										entityId,
+										sessionEntityId,
+										eventSchemaSlug: parsedQuery.eventSchemaSlug,
+									})
+									.pipe(
+										Effect.map((rows) =>
+											rows.map((event) => ({
+												...event,
+												properties: toSandboxJsonValue(event.properties),
+											})),
+										),
+									);
+							}),
+						),
+					),
+					sandboxHostEffect,
+				),
+			listIntegrations: (rawInput, rawOptions) =>
+				Effect.gen(function* () {
+					const input = yield* requireUserSandboxRunInput(rawInput, "listIntegrations");
+					const options = rawOptions ?? {};
+					if (!isObjectRecord(options)) {
+						return yield* sandboxHostFailure("listIntegrations expects an object");
+					}
+
+					const provider = options["provider"];
+					const isDisabled = options["isDisabled"];
+					if (provider !== undefined && typeof provider !== "string") {
+						return yield* sandboxHostFailure("listIntegrations provider must be a string");
+					}
+					if (typeof provider === "string" && !isIntegrationProvider(provider)) {
+						return yield* sandboxHostFailure(
+							"listIntegrations provider must be a supported provider",
+						);
+					}
+					if (isDisabled !== undefined && typeof isDisabled !== "boolean") {
+						return yield* sandboxHostFailure("listIntegrations isDisabled must be a boolean");
+					}
+
+					return yield* sandboxHostEffect(
+						runWithDb(
+							integrationsRepository.listForUser({
+								userId: UserId.make(input.userId),
+								...(typeof provider === "string" ? { provider } : {}),
+								...(typeof isDisabled === "boolean" ? { isDisabled } : {}),
+							}),
+						).pipe(
+							Effect.map((rows) =>
+								rows.map((integration) => ({
+									...integration,
+									providerSpecifics: toSandboxJsonValue(integration.providerSpecifics),
+								})),
+							),
+						),
+					);
+				}),
 		} satisfies AdditionalSandboxHostImplementationMap;
 	});

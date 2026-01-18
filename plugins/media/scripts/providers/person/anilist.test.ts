@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,10 +8,7 @@ import { details, manifest } from "./anilist.sandbox";
 type AnilistPersonHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (httpCall: AnilistPersonHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, { httpCall });
@@ -54,37 +52,40 @@ describe("person.anilist sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "person-to-anime",
-					entities: [
-						{
-							externalId: "2",
-							name: "Anime Credit",
-							scriptSlug: "anime.anilist",
-							relationshipProperties: { roles: ["Voicing (Hero)"] },
-						},
-					],
-				},
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "person-to-manga",
-					entities: [
-						{
-							externalId: "3",
-							name: "Manga Credit",
-							scriptSlug: "manga.anilist",
-							relationshipProperties: { roles: ["Writer"] },
-						},
-					],
-				},
-			]);
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.relatedEntityGroups).toEqual([
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "person-to-anime",
+						entities: [
+							{
+								externalId: "2",
+								name: "Anime Credit",
+								scriptSlug: "anime.anilist",
+								relationshipProperties: { roles: ["Voicing (Hero)"] },
+							},
+						],
+					},
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "person-to-manga",
+						entities: [
+							{
+								externalId: "3",
+								name: "Manga Credit",
+								scriptSlug: "manga.anilist",
+								relationshipProperties: { roles: ["Writer"] },
+							},
+						],
+					},
+				]);
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("collects every character and staff media page", () => {
@@ -134,18 +135,21 @@ describe("person.anilist sandbox script", () => {
 			});
 		});
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(requestedPages).toEqual([1, 2]);
-			expect(result.relatedEntityGroups).toEqual([
-				expect.objectContaining({
-					entities: [expect.objectContaining({ externalId: "2" })],
-				}),
-				expect.objectContaining({
-					entities: [expect.objectContaining({ externalId: "3" })],
-				}),
-			]);
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(requestedPages).toEqual([1, 2]);
+				expect(result.relatedEntityGroups).toEqual([
+					expect.objectContaining({
+						entities: [expect.objectContaining({ externalId: "2" })],
+					}),
+					expect.objectContaining({
+						entities: [expect.objectContaining({ externalId: "3" })],
+					}),
+				]);
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("formats fuzzy dates and cleans the biography HTML", () => {
@@ -168,19 +172,22 @@ describe("person.anilist sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "9" }, host, execution).then((result) => {
-			expect(result.name).toBe("Creator");
-			expect(result.properties).toEqual({
-				gender: "Male",
-				deathDate: null,
-				alternateNames: [],
-				birthDate: "1970-02-09",
-				birthPlace: "Tokyo, Japan",
-				description: "First line\nSecond line",
-				sourceUrl: "https://anilist.co/staff/9",
-				images: [{ type: "remote", url: "https://img/creator.jpg" }],
-			});
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "9" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.name).toBe("Creator");
+				expect(result.properties).toEqual({
+					gender: "Male",
+					deathDate: null,
+					alternateNames: [],
+					birthDate: "1970-02-09",
+					birthPlace: "Tokyo, Japan",
+					description: "First line\nSecond line",
+					sourceUrl: "https://anilist.co/staff/9",
+					images: [{ type: "remote", url: "https://img/creator.jpg" }],
+				});
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 });

@@ -21,8 +21,8 @@ const scriptModuleSource = (input: ScriptModuleSourceInput) => {
 
 	return `
 import { ${sdkImports.join(", ")} } from "@ryot/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
-import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
   kind: "provider",
@@ -51,9 +51,9 @@ export function literalSandboxSource(
 	return scriptModuleSource({
 		...input,
 		capabilities: [],
-		inputSchema: "z.object({})",
-		outputSchema: `z.literal(${JSON.stringify(input.value)})`,
-		run: `async () => ${JSON.stringify(input.value)} as const`,
+		inputSchema: "Schema.Struct({})",
+		outputSchema: `Schema.Literal(${JSON.stringify(input.value)})`,
+		run: `() => Effect.succeed(${JSON.stringify(input.value)} as const)`,
 	});
 }
 
@@ -63,10 +63,12 @@ export function httpCallSandboxSource(
 	return scriptModuleSource({
 		...input,
 		capabilities: ["httpCall"],
-		inputSchema: "z.object({})",
+		inputSchema: "Schema.Struct({})",
 		sdkImports: ["httpCallResultSchema"],
 		outputSchema: "httpCallResultSchema",
-		run: `async (_input, host) => host.httpCall(${JSON.stringify(input.method ?? "GET")}, ${JSON.stringify(input.url)})`,
+		run: `(_input, host) => host.httpCall(${JSON.stringify(input.method ?? "GET")}, ${JSON.stringify(input.url)}).pipe(
+    Effect.map((data) => ({ data, success: true as const })),
+  )`,
 	});
 }
 
@@ -75,20 +77,17 @@ export function queryEngineSandboxSource(
 ) {
 	return scriptModuleSource({
 		...input,
-		inputSchema: "z.object({})",
+		inputSchema: "Schema.Struct({})",
 		sdkImports: ["jsonValueSchema"],
 		outputSchema: "queryItemsSchema",
 		capabilities: ["executeQueryEngine"],
-		declarations: `const queryItemsSchema = z.array(z.unknown());
-const queryResponseSchema = z.object({ data: z.object({ items: queryItemsSchema }) });
-const query = jsonValueSchema.parse(JSON.parse(${JSON.stringify(JSON.stringify(input.query))}));`,
-		run: `async (_input, host) => {
-    const result = await host.executeQueryEngine(query);
-    if (!result.success) {
-      throw new Error(result.error);
-    }
-    return queryResponseSchema.parse(result.data).data.items;
-  }`,
+		declarations: `const queryItemsSchema = Schema.Array(Schema.Unknown);
+const queryResponseSchema = Schema.Struct({ data: Schema.Struct({ items: queryItemsSchema }) });
+const query = Schema.decodeUnknownSync(jsonValueSchema)(JSON.parse(${JSON.stringify(JSON.stringify(input.query))}));`,
+		run: `(_input, host) => Effect.gen(function* () {
+    const result = yield* host.executeQueryEngine(query);
+    return (yield* Schema.decodeUnknown(queryResponseSchema)(result)).data.items;
+  })`,
 	});
 }
 
@@ -100,23 +99,23 @@ export function appConfigSandboxSource(
 ) {
 	return scriptModuleSource({
 		...input,
-		inputSchema: "z.object({})",
+		inputSchema: "Schema.Struct({})",
 		outputSchema: "jsonValueSchema",
 		capabilities: ["getAppConfigValue"],
-		sdkImports: ["jsonValueSchema", "unwrapHostResult"],
+		sdkImports: ["jsonValueSchema"],
 		requiredAppConfigKeys: input.requiredAppConfigKeys ?? [input.key],
-		run: `async (_input, host) => unwrapHostResult(await host.getAppConfigValue(${JSON.stringify(input.key)}))`,
+		run: `(_input, host) => host.getAppConfigValue(${JSON.stringify(input.key)})`,
 	});
 }
 
 export function userPreferencesSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
-		inputSchema: "z.object({})",
+		inputSchema: "Schema.Struct({})",
 		capabilities: ["getUserPreferences"],
 		outputSchema: "userPreferencesSchema",
-		sdkImports: ["unwrapHostResult", "userPreferencesSchema"],
-		run: "async (_input, host) => unwrapHostResult(await host.getUserPreferences())",
+		sdkImports: ["userPreferencesSchema"],
+		run: "(_input, host) => host.getUserPreferences()",
 	});
 }
 
@@ -124,11 +123,9 @@ export function throwingSandboxSource(input: SandboxSourceIdentity & { readonly 
 	return scriptModuleSource({
 		...input,
 		capabilities: [],
-		inputSchema: "z.object({})",
-		outputSchema: "z.unknown()",
-		run: `async () => {
-    throw new Error(${JSON.stringify(input.message)});
-  }`,
+		inputSchema: "Schema.Struct({})",
+		outputSchema: "Schema.Unknown",
+		run: `() => Effect.sync(() => { throw new Error(${JSON.stringify(input.message)}); })`,
 	});
 }
 
@@ -136,9 +133,9 @@ export function runtimeManifestMismatchSandboxSource(input: SandboxSourceIdentit
 	return scriptModuleSource({
 		...input,
 		capabilities: [],
-		inputSchema: "z.object({})",
-		outputSchema: "z.literal(true)",
-		run: "async () => true as const",
+		inputSchema: "Schema.Struct({})",
+		outputSchema: "Schema.Literal(true)",
+		run: "() => Effect.succeed(true as const)",
 		declarations: 'Object.assign(manifest, { name: "Runtime-tampered name" });',
 	});
 }
@@ -160,50 +157,56 @@ export function cacheSandboxSource(input: CacheSandboxSourceInput) {
 		return scriptModuleSource({
 			...input,
 			capabilities: ["setCachedValue", "getCachedValue"],
-			inputSchema: 'z.object({ operation: z.enum(["get", "set"]) })',
+			inputSchema: 'Schema.Struct({ operation: Schema.Literal("get", "set") })',
 			outputSchema: "getCachedValueResultSchema",
-			sdkImports: ["getCachedValueResultSchema", "unwrapHostResult"],
-			run: `async (input, host) => {
+			sdkImports: ["getCachedValueResultSchema"],
+			run: `(input, host) => Effect.gen(function* () {
     if (input.operation === "set") {
-      unwrapHostResult(await host.setCachedValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), 60));
+      yield* host.setCachedValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), 60);
     }
-    return host.getCachedValue(${JSON.stringify(input.key)});
-  }`,
+    const data = yield* host.getCachedValue(${JSON.stringify(input.key)});
+    return { data, success: true as const };
+  })`,
 		});
 	}
 
 	if (input.operation === "get") {
 		return scriptModuleSource({
 			...input,
-			inputSchema: "z.object({})",
+			inputSchema: "Schema.Struct({})",
 			capabilities: ["getCachedValue"],
 			sdkImports: ["getCachedValueResultSchema"],
 			outputSchema: "getCachedValueResultSchema",
-			run: `async (_input, host) => host.getCachedValue(${JSON.stringify(input.key)})`,
+			run: `(_input, host) => host.getCachedValue(${JSON.stringify(input.key)}).pipe(
+    Effect.map((data) => ({ data, success: true as const })),
+  )`,
 		});
 	}
 
 	if (input.operation === "set") {
 		return scriptModuleSource({
 			...input,
-			inputSchema: "z.object({})",
+			inputSchema: "Schema.Struct({})",
 			capabilities: ["setCachedValue"],
 			sdkImports: ["setCachedValueResultSchema"],
 			outputSchema: "setCachedValueResultSchema",
-			run: `async (_input, host) => host.setCachedValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), ${input.ttlSeconds})`,
+			run: `(_input, host) => host.setCachedValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), ${input.ttlSeconds}).pipe(
+    Effect.map((data) => ({ data, success: true as const })),
+  )`,
 		});
 	}
 
 	return scriptModuleSource({
 		...input,
-		inputSchema: "z.object({})",
+		inputSchema: "Schema.Struct({})",
 		outputSchema: "getCachedValueResultSchema",
 		capabilities: ["setCachedValue", "getCachedValue"],
-		sdkImports: ["getCachedValueResultSchema", "unwrapHostResult"],
-		run: `async (_input, host) => {
-    unwrapHostResult(await host.setCachedValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), ${input.ttlSeconds}));
-    return host.getCachedValue(${JSON.stringify(input.key)});
-  }`,
+		sdkImports: ["getCachedValueResultSchema"],
+		run: `(_input, host) => Effect.gen(function* () {
+    yield* host.setCachedValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), ${input.ttlSeconds});
+    const data = yield* host.getCachedValue(${JSON.stringify(input.key)});
+    return { data, success: true as const };
+  })`,
 	});
 }
 
@@ -214,8 +217,8 @@ export function trendingSandboxSource(
 ) {
 	return `
 import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
-import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
   kind: "provider",
@@ -226,17 +229,17 @@ export const manifest = defineManifest({
   providerInformation: { source: "e2e" },
 });
 
-const trendingResultSchema = z.object({
-  items: z.array(z.object({ externalId: z.string(), name: z.string() }).strict()),
-}).strict();
-const trendingResult = trendingResultSchema.parse(JSON.parse(${JSON.stringify(
+const trendingResultSchema = Schema.Struct({
+  items: Schema.Array(Schema.Struct({ externalId: Schema.String, name: Schema.String })),
+});
+const trendingResult = Schema.decodeUnknownSync(trendingResultSchema)(JSON.parse(${JSON.stringify(
 		JSON.stringify({ items: input.items }),
 	)}));
 
 const trending = defineDriver(manifest, {
-  input: z.object({}),
+  input: Schema.Struct({}),
   output: trendingResultSchema,
-  run: async () => trendingResult,
+  run: () => Effect.succeed(trendingResult),
 });
 
 export default defineProvider({ manifest, drivers: { trending } });

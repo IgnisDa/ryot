@@ -1,6 +1,7 @@
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
 import type { JsonValue } from "@ryot/sandbox-sdk/core";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
 import definition, { manifest } from "./media-relationship-sync.sandbox";
@@ -53,31 +54,36 @@ const input = (overrides: {
 
 const run = (value: AutomationInput) => {
 	const calls: Array<Record<string, JsonValue | undefined>> = [];
-	return runSandboxTestDriver(
-		definition.drivers.automation,
-		value,
-		defineSandboxTestHost(manifest, {
-			emitSignal: (request) => {
-				calls.push(request);
-				return Promise.resolve({ success: true, data: { wasCreated: true, signalId: "signal-1" } });
-			},
-		}),
-		{ metadata: {}, sandboxScriptId: "script-1" },
-	).then(() => calls);
+	return definition.drivers.automation
+		.run(
+			value,
+			defineSandboxTestHost(manifest, {
+				emitSignal: (request) => {
+					calls.push(request);
+					return Effect.succeed({ wasCreated: true, signalId: "signal-1" });
+				},
+			}),
+			{ metadata: {}, sandboxScriptId: "script-1" },
+		)
+		.pipe(Effect.as(calls));
 };
 
 it("emits one season-count signal from the batch leader on a net count change", () =>
-	run(input({})).then((calls) => {
-		expect(calls).toEqual([
-			{
-				discriminator: "batch-1",
-				subjectEntityId: "show-1",
-				schemaSlug: "media.season-count.changed",
-				properties: { oldCount: 2, newCount: 3, entityName: "Severance" },
-			},
-		]);
-		return undefined;
-	}));
+	Effect.runPromise(
+		run(input({})).pipe(
+			Effect.map((calls) => {
+				expect(calls).toEqual([
+					{
+						discriminator: "batch-1",
+						subjectEntityId: "show-1",
+						schemaSlug: "media.season-count.changed",
+						properties: { oldCount: 2, newCount: 3, entityName: "Severance" },
+					},
+				]);
+				return undefined;
+			}),
+		),
+	));
 
 it("emits aggregate episode discovery with the created count and season", () =>
 	run(
@@ -88,29 +94,37 @@ it("emits aggregate episode discovery with the created count and season", () =>
 			owningSeason: { name: "Season 2", number: 2 },
 			relationshipSchemaSlug: "show-season-to-show-episode",
 		}),
-	).then((calls) => {
-		expect(calls[0]).toMatchObject({
-			schemaSlug: "media.episode.discovered",
-			properties: {
-				newCount: 5,
-				oldCount: 2,
-				seasonNumber: 2,
-				discoveredCount: 3,
-				entityName: "Severance",
-			},
-		});
-		return undefined;
-	}));
+	).pipe(
+		Effect.map((calls) => {
+			expect(calls[0]).toMatchObject({
+				schemaSlug: "media.episode.discovered",
+				properties: {
+					newCount: 5,
+					oldCount: 2,
+					seasonNumber: 2,
+					discoveredCount: 3,
+					entityName: "Severance",
+				},
+			});
+			return undefined;
+		}),
+		Effect.runPromise,
+	));
 
 it("stays silent off-leader, on first population, without net changes, and for specials", () =>
-	Promise.all([
-		run(input({ isLeader: false })),
-		run(input({ rootPreviouslyPopulated: false })),
-		run(input({ afterCount: 2, beforeCount: 2 })),
-		run(
-			input({
-				owningSeason: { name: "Specials", number: 0 },
-				relationshipSchemaSlug: "show-season-to-show-episode",
-			}),
-		),
-	]).then((calls) => expect(calls).toEqual([[], [], [], []])));
+	Effect.runPromise(
+		Effect.all(
+			[
+				run(input({ isLeader: false })),
+				run(input({ rootPreviouslyPopulated: false })),
+				run(input({ afterCount: 2, beforeCount: 2 })),
+				run(
+					input({
+						owningSeason: { name: "Specials", number: 0 },
+						relationshipSchemaSlug: "show-season-to-show-episode",
+					}),
+				),
+			],
+			{ concurrency: "unbounded" },
+		).pipe(Effect.map((calls) => expect(calls).toEqual([[], [], [], []]))),
+	));

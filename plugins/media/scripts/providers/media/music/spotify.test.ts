@@ -1,39 +1,32 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import { details, manifest, search } from "./spotify.sandbox";
 
 type SpotifyMusicHost = SandboxHost<typeof manifest.capabilities>;
-
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
-
-type Route = { match: (url: string) => boolean; body: unknown };
-
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
+type Route = {
+	match: (url: string) => boolean;
+	body: unknown;
+};
 const makeHost = (
 	routes: readonly Route[],
 	overrides: Partial<SpotifyMusicHost> = {},
 ): SpotifyMusicHost =>
 	defineSandboxTestHost(manifest, {
-		getAppConfigValue: (key) =>
-			Promise.resolve({ success: true as const, data: key.endsWith("Secret") ? "secret" : "id" }),
-		getCachedValue: () => Promise.resolve({ success: true as const, data: "cached-token" }),
-		setCachedValue: () => Promise.resolve({ success: true as const, data: null }),
+		getAppConfigValue: (key) => Effect.succeed(key.endsWith("Secret") ? "secret" : "id"),
+		getCachedValue: () => Effect.succeed("cached-token"),
+		setCachedValue: () => Effect.succeed(null),
 		httpCall: (_method, url) => {
 			const route = routes.find((candidate) => candidate.match(url));
-			return route
-				? httpSuccess(route.body)
-				: Promise.resolve({ success: false as const, error: `no route: ${url}` });
+			return route ? httpSuccess(route.body) : Effect.fail(new Error(`no route: ${url}`));
 		},
 		...overrides,
 	});
-
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
-
 describe("music.spotify sandbox script", () => {
 	it("maps track search hits, drops entries without an id, and reuses the cached token", () => {
 		let tokenPosts = 0;
@@ -64,32 +57,32 @@ describe("music.spotify sandbox script", () => {
 				}
 				return url.includes("/search")
 					? httpSuccess(searchBody)
-					: Promise.resolve({ success: false as const, error: `no route: ${url}` });
+					: Effect.fail(new Error(`no route: ${url}`));
 			},
 		});
-
-		return runSandboxTestDriver(
-			search,
-			{ query: "track", page: 1, pageSize: 20 },
-			host,
-			execution,
-		).then((result) => {
-			expect(tokenPosts).toBe(0);
-			expect(result.items).toEqual([
-				{
-					externalId: "t1",
-					calloutProperty: { kind: "null", value: null },
-					titleProperty: { kind: "text", value: "Track One" },
-					primarySubtitleProperty: { kind: "number", value: 2020 },
-					secondarySubtitleProperty: { kind: "null", value: null },
-					imageProperty: { kind: "image", value: { type: "remote", url: "https://img/big.jpg" } },
-				},
-			]);
-			expect(result.details).toEqual({ totalItems: 2, nextPage: null });
-			return undefined;
-		});
+		return Effect.runPromise(
+			runSandboxTestDriver(search, { query: "track", page: 1, pageSize: 20 }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(tokenPosts).toBe(0);
+					expect(result.items).toEqual([
+						{
+							externalId: "t1",
+							calloutProperty: { kind: "null", value: null },
+							titleProperty: { kind: "text", value: "Track One" },
+							primarySubtitleProperty: { kind: "number", value: 2020 },
+							secondarySubtitleProperty: { kind: "null", value: null },
+							imageProperty: {
+								kind: "image",
+								value: { type: "remote", url: "https://img/big.jpg" },
+							},
+						},
+					]);
+					expect(result.details).toEqual({ totalItems: 2, nextPage: null });
+					return undefined;
+				}),
+			),
+		);
 	});
-
 	it("groups artists and the album, and maps track scalar properties", () => {
 		const host = makeHost([
 			{
@@ -114,65 +107,67 @@ describe("music.spotify sandbox script", () => {
 				},
 			},
 		]);
-
-		return runSandboxTestDriver(details, { externalId: "t1" }, host, execution).then((result) => {
-			expect(result.name).toBe("The Track");
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					direction: "incoming",
-					synchronization: "additive",
-					relationshipSchemaSlug: "person-to-music",
-					entities: [
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "t1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.name).toBe("The Track");
+					expect(result.relatedEntityGroups).toEqual([
 						{
-							externalId: "a1",
-							name: "First Artist",
-							scriptSlug: "person.spotify",
-							relationshipProperties: { roles: ["Artist"] },
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "person-to-music",
+							entities: [
+								{
+									externalId: "a1",
+									name: "First Artist",
+									scriptSlug: "person.spotify",
+									relationshipProperties: { roles: ["Artist"] },
+								},
+								{
+									externalId: "a2",
+									name: "Second Artist",
+									scriptSlug: "person.spotify",
+									relationshipProperties: { roles: ["Artist"] },
+								},
+							],
 						},
 						{
-							externalId: "a2",
-							name: "Second Artist",
-							scriptSlug: "person.spotify",
-							relationshipProperties: { roles: ["Artist"] },
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "music-group-to-music",
+							entities: [
+								{
+									name: "The Album",
+									externalId: "al1",
+									scriptSlug: "music-group.spotify",
+									relationshipProperties: { roles: ["Member"] },
+								},
+							],
 						},
-					],
-				},
-				{
-					direction: "incoming",
-					synchronization: "additive",
-					relationshipSchemaSlug: "music-group-to-music",
-					entities: [
-						{
-							name: "The Album",
-							externalId: "al1",
-							scriptSlug: "music-group.spotify",
-							relationshipProperties: { roles: ["Member"] },
-						},
-					],
-				},
-			]);
-			expect(result.properties).toEqual({
-				genres: [],
-				isNsfw: true,
-				duration: 215,
-				publishYear: 2019,
-				providerRating: 73,
-				byVariousArtists: true,
-				publishDate: "2019-03-15",
-				sourceUrl: "https://open.spotify.com/track/t1",
-				images: [{ type: "remote", url: "https://img/cover.jpg" }],
-			});
-			return undefined;
-		});
+					]);
+					expect(result.properties).toEqual({
+						genres: [],
+						isNsfw: true,
+						duration: 215,
+						publishYear: 2019,
+						providerRating: 73,
+						byVariousArtists: true,
+						publishDate: "2019-03-15",
+						sourceUrl: "https://open.spotify.com/track/t1",
+						images: [{ type: "remote", url: "https://img/cover.jpg" }],
+					});
+					return undefined;
+				}),
+			),
+		);
 	});
-
 	it("requests a fresh token on a cache miss and caches it with the computed ttl", () => {
 		const cacheWrites: Array<readonly [string, unknown, number]> = [];
 		const host = makeHost([{ match: (url) => url.includes("/search"), body: { tracks: {} } }], {
-			getCachedValue: () => Promise.resolve({ success: true as const, data: null }),
+			getCachedValue: () => Effect.succeed(null),
 			setCachedValue: (key, value, ttl) => {
 				cacheWrites.push([key, value, ttl]);
-				return Promise.resolve({ success: true as const, data: null });
+				return Effect.succeed(null);
 			},
 			httpCall: (_method, url) => {
 				if (url.includes("accounts.spotify.com")) {
@@ -180,19 +175,17 @@ describe("music.spotify sandbox script", () => {
 				}
 				return url.includes("/search")
 					? httpSuccess({ tracks: { total: 0, items: [] } })
-					: Promise.resolve({ success: false as const, error: `no route: ${url}` });
+					: Effect.fail(new Error(`no route: ${url}`));
 			},
 		});
-
-		return runSandboxTestDriver(
-			search,
-			{ query: "track", page: 1, pageSize: 20 },
-			host,
-			execution,
-		).then((result) => {
-			expect(cacheWrites).toEqual([["spotify_access_token", "fresh-token", 3300]]);
-			expect(result.items).toEqual([]);
-			return undefined;
-		});
+		return Effect.runPromise(
+			runSandboxTestDriver(search, { query: "track", page: 1, pageSize: 20 }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(cacheWrites).toEqual([["spotify_access_token", "fresh-token", 3300]]);
+					expect(result.items).toEqual([]);
+					return undefined;
+				}),
+			),
+		);
 	});
 });

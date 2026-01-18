@@ -1,6 +1,7 @@
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
 import type { JsonValue } from "@ryot/sandbox-sdk/core";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
 import definition, { manifest } from "./media-association.sandbox";
@@ -59,17 +60,18 @@ const input = (overrides: InputOverrides = {}): AutomationInput => {
 
 const run = (value: AutomationInput) => {
 	const calls: Array<Record<string, JsonValue | undefined>> = [];
-	return runSandboxTestDriver(
-		definition.drivers.automation,
-		value,
-		defineSandboxTestHost(manifest, {
-			emitSignal: (request) => {
-				calls.push(request);
-				return Promise.resolve({ success: true, data: { wasCreated: true, signalId: "signal-1" } });
-			},
-		}),
-		{ metadata: {}, sandboxScriptId: "script-1" },
-	).then(() => calls);
+	return definition.drivers.automation
+		.run(
+			value,
+			defineSandboxTestHost(manifest, {
+				emitSignal: (request) => {
+					calls.push(request);
+					return Effect.succeed({ wasCreated: true, signalId: "signal-1" });
+				},
+			}),
+			{ metadata: {}, sandboxScriptId: "script-1" },
+		)
+		.pipe(Effect.as(calls));
 };
 
 it.each([
@@ -78,49 +80,73 @@ it.each([
 	["person", "music-group", "person.media-group.associated"],
 	["company", "music-group", "company.media-group.associated"],
 ] as const)("maps a %s credit to a %s signal", (subjectKind, targetKind, schemaSlug) =>
-	run(input({ subjectKind, targetKind })).then((calls) => {
-		expect(calls).toEqual([
-			{
-				schemaSlug,
-				subjectEntityId: "subject-1",
-				discriminator: "subject-1:Director",
-				properties: { role: "Director", subjectName: "Greta Gerwig", associatedName: "Barbie" },
-			},
-		]);
-		return undefined;
-	}),
+	Effect.runPromise(
+		run(input({ subjectKind, targetKind })).pipe(
+			Effect.map((calls) => {
+				expect(calls).toEqual([
+					{
+						schemaSlug,
+						subjectEntityId: "subject-1",
+						discriminator: "subject-1:Director",
+						properties: { role: "Director", subjectName: "Greta Gerwig", associatedName: "Barbie" },
+					},
+				]);
+				return undefined;
+			}),
+		),
+	),
 );
 
 it("suppresses only the credited subject's own first population", () =>
-	Promise.all([
-		run(input({ rootEntityId: "subject-1", rootPreviouslyPopulated: false })),
-		run(input({ rootEntityId: "associated-1", rootPreviouslyPopulated: false })),
-	]).then(([subjectRoot, mediaRoot]) => {
-		expect(subjectRoot).toEqual([]);
-		expect(mediaRoot).toHaveLength(1);
-		return undefined;
-	}));
+	Effect.runPromise(
+		Effect.all(
+			[
+				run(input({ rootEntityId: "subject-1", rootPreviouslyPopulated: false })),
+				run(input({ rootEntityId: "associated-1", rootPreviouslyPopulated: false })),
+			],
+			{ concurrency: "unbounded" },
+		).pipe(
+			Effect.map(([subjectRoot, mediaRoot]) => {
+				expect(subjectRoot).toEqual([]);
+				expect(mediaRoot).toHaveLength(1);
+				return undefined;
+			}),
+		),
+	));
 
 it("emits each newly added role once and ignores unchanged, removed, and deleted roles", () =>
-	Promise.all([
-		run(input({ operation: "update", afterRoles: ["Actor", "Director", "Director"] })),
-		run(input({ operation: "update", beforeRoles: ["Actor", "Director"], afterRoles: ["Actor"] })),
-		run(input({ operation: "delete" })),
-	]).then(([added, removed, deleted]) => {
-		expect(added.map(({ discriminator }) => discriminator)).toEqual(["subject-1:Director"]);
-		expect(removed).toEqual([]);
-		expect(deleted).toEqual([]);
-		return undefined;
-	}));
+	Effect.runPromise(
+		Effect.all(
+			[
+				run(input({ operation: "update", afterRoles: ["Actor", "Director", "Director"] })),
+				run(
+					input({ operation: "update", beforeRoles: ["Actor", "Director"], afterRoles: ["Actor"] }),
+				),
+				run(input({ operation: "delete" })),
+			],
+			{ concurrency: "unbounded" },
+		).pipe(
+			Effect.map(([added, removed, deleted]) => {
+				expect(added.map(({ discriminator }) => discriminator)).toEqual(["subject-1:Director"]);
+				expect(removed).toEqual([]);
+				expect(deleted).toEqual([]);
+				return undefined;
+			}),
+		),
+	));
 
 it("uses stable per-role discriminators across replay", () => {
 	const value = input({ afterRoles: ["Actor", "Director"] });
-	return Promise.all([run(value), run(value)]).then(([first, replay]) => {
-		expect(first).toEqual(replay);
-		expect(first.map(({ discriminator }) => discriminator)).toEqual([
-			"subject-1:Actor",
-			"subject-1:Director",
-		]);
-		return undefined;
-	});
+	return Effect.runPromise(
+		Effect.all([run(value), run(value)], { concurrency: "unbounded" }).pipe(
+			Effect.map(([first, replay]) => {
+				expect(first).toEqual(replay);
+				expect(first.map(({ discriminator }) => discriminator)).toEqual([
+					"subject-1:Actor",
+					"subject-1:Director",
+				]);
+				return undefined;
+			}),
+		),
+	);
 });
