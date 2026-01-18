@@ -16,7 +16,6 @@ import {
 	type MediaLot,
 	MediaSource,
 	MediaTranslationDocument,
-	MediaTranslationPendingStatus,
 	type MetadataProgressUpdateInput,
 	UpdateUserDocument,
 	UserCollectionsListDocument,
@@ -284,13 +283,7 @@ const useTranslationValue = (props: {
 	});
 
 	const result = translationQuery.data;
-	const isPending =
-		result?.__typename === "MediaTranslationPending" &&
-		result.status === MediaTranslationPendingStatus.NotFetched;
-	const isInProgress =
-		result?.__typename === "MediaTranslationPending" &&
-		result.status === MediaTranslationPendingStatus.InProgress;
-	const hasValue = result?.__typename === "MediaTranslationValue";
+	const hasTranslationValue = result?.__typename === "MediaTranslationValue";
 
 	useEntityUpdateMonitor({
 		entityId: props.entityId,
@@ -298,7 +291,7 @@ const useTranslationValue = (props: {
 		onUpdate: () => translationQuery.refetch(),
 		needsRefetch:
 			props.enabled !== false &&
-			(isPending || isInProgress) &&
+			hasTranslationValue &&
 			props.mediaSource !== MediaSource.Custom,
 		deployJob: () => {
 			if (props.entityId)
@@ -312,7 +305,7 @@ const useTranslationValue = (props: {
 		},
 	});
 
-	return hasValue ? result.value : null;
+	return hasTranslationValue ? result.value : null;
 };
 
 export const useUserPersonDetails = (personId?: string, enabled?: boolean) => {
