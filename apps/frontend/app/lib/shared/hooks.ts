@@ -297,9 +297,9 @@ const useTranslationValue = (props: {
 			if (props.entityId)
 				clientGqlService.request(DeployUpdateMediaTranslationsJobDocument, {
 					input: {
+						variant: props.variant,
 						entityId: props.entityId,
 						entityLot: props.entityLot,
-						variant: props.variant,
 					},
 				});
 		},
