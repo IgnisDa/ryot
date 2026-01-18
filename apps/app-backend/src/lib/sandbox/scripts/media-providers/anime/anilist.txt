@@ -161,7 +161,7 @@ function parseAiringSchedule(airingSchedule, nextAiringEpisode) {
   return schedule.length > 0 ? schedule : null;
 }
 
-driver("search", async function(context) {
+driver("mediaSearch", async function(context) {
   const pageSize =
     Number.isFinite(Number(context?.pageSize)) &&
     Number(context.pageSize) > 0 &&
@@ -282,7 +282,7 @@ query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: Med
   };
 });
 
-driver("details", async function(context) {
+driver("mediaDetails", async function(context) {
   const contextIdentifier =
     typeof context?.identifier === "string" ? context.identifier.trim() : "";
   if (!contextIdentifier) {
