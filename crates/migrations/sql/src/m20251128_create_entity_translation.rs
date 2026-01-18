@@ -100,8 +100,8 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .extra(ENTITY_TRANSLATION_ENTITY_ID_SQL),
                     )
-                    .col(ColumnDef::new(EntityTranslation::ShowExtraInformation).json())
-                    .col(ColumnDef::new(EntityTranslation::PodcastExtraInformation).json())
+                    .col(ColumnDef::new(EntityTranslation::ShowExtraInformation).json_binary())
+                    .col(ColumnDef::new(EntityTranslation::PodcastExtraInformation).json_binary())
                     .foreign_key(
                         ForeignKey::create()
                             .name("entity_translation-fk1")
