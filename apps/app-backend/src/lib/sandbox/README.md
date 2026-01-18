@@ -36,7 +36,8 @@ The sandbox runs untrusted user code in single-use Deno subprocesses, exposes se
 - User code runs in a separate Deno process per execution.
 - Deno denies subprocess, env, FFI, write, prompt, and remote module access.
 - Deno can only read the generated runner file and call the localhost bridge port.
-- External network access must go through explicit host functions such as `httpCall`.
+- Sandbox script network access must go through explicit host functions such as `httpCall`.
+- App-side source connectors are outside the sandbox runtime and use app runtime HTTP helpers.
 - Bridge calls require the per-execution bearer token and expire through Redis TTL.
 - Timeouts terminate the process with `SIGTERM`, then `SIGKILL`.
 - Deno heap size is capped with `--v8-flags=--max-heap-size=<maxHeapMB>`.
