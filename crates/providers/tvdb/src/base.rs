@@ -34,9 +34,9 @@ impl TvdbService {
             HeaderValue::from_str(&settings.access_token).unwrap(),
         )]));
         Ok(Self {
+            ss,
             client,
             settings,
-            ss,
         })
     }
 

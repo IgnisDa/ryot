@@ -317,13 +317,9 @@ impl TmdbService {
         .await
     }
 
-    pub async fn multi_search(
-        &self,
-        query: &str,
-        ss: &Arc<SupportingService>,
-    ) -> Result<Vec<TmdbMetadataLookupResult>> {
+    pub async fn multi_search(&self, query: &str) -> Result<Vec<TmdbMetadataLookupResult>> {
         cache_service::get_or_set_with_callback(
-            ss,
+            &self.ss,
             ApplicationCacheKey::TmdbMultiSearch(MetadataLookupCacheInput {
                 title: query.to_owned(),
                 language: Some(self.get_default_language()),

@@ -159,10 +159,8 @@ async fn fetch_artist_top_tracks(client: &Client, artist_id: &str) -> Result<Vec
     Ok(top_tracks_response.tracks)
 }
 
-async fn get_spotify_access_token(
-    config: &config_definition::SpotifyConfig,
-    ss: &Arc<SupportingService>,
-) -> Result<String> {
+async fn get_spotify_access_token(ss: &Arc<SupportingService>) -> Result<String> {
+    let config = &ss.config.music.spotify;
     cache_service::get_or_set_with_callback(
         ss,
         ApplicationCacheKey::SpotifyAccessToken,
@@ -205,11 +203,8 @@ fn get_first_image(images: &[SpotifyImage]) -> Option<String> {
 }
 
 impl SpotifyService {
-    pub async fn new(
-        config: &config_definition::SpotifyConfig,
-        ss: Arc<SupportingService>,
-    ) -> Result<Self> {
-        let access_token = get_spotify_access_token(config, &ss).await?;
+    pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
+        let access_token = get_spotify_access_token(&ss).await?;
         let client = get_base_http_client(Some(vec![(
             AUTHORIZATION,
             HeaderValue::from_str(&format!("Bearer {access_token}"))?,
