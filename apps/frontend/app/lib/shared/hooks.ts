@@ -10,11 +10,13 @@ import {
 	DeployUpdateMediaEntityJobDocument,
 	DeployUpdateMediaTranslationsJobDocument,
 	EntityLot,
+	EntityTranslationVariant,
 	ExpireCacheKeyDocument,
 	GetPresignedS3UrlDocument,
 	type MediaLot,
 	MediaSource,
-	MediaTranslationsDocument,
+	MediaTranslationDocument,
+	MediaTranslationPendingStatus,
 	type MetadataProgressUpdateInput,
 	UpdateUserDocument,
 	UserCollectionsListDocument,
@@ -253,46 +255,64 @@ export const useUserMetadataDetails = (
 	return useQuery({ ...getUserMetadataDetailsQuery(metadataId), enabled });
 };
 
-const useTranslationMonitor = (props: {
+const useTranslationValue = (props: {
 	entityId?: string;
 	enabled?: boolean;
+	variant: EntityTranslationVariant;
 	entityLot: EntityLot;
 	mediaSource?: MediaSource;
 }) => {
-	const translationsQuery = useQuery({
+	const translationQuery = useQuery({
 		enabled: props.enabled,
-		queryKey: queryFactory.media.entityTranslations(
+		queryKey: queryFactory.media.entityTranslation(
 			props.entityId,
 			props.entityLot,
+			props.variant,
 		).queryKey,
 		queryFn: () => {
 			if (props.entityId && props.entityLot)
 				return clientGqlService
-					.request(MediaTranslationsDocument, {
-						input: { entityId: props.entityId, entityLot: props.entityLot },
+					.request(MediaTranslationDocument, {
+						input: {
+							entityId: props.entityId,
+							entityLot: props.entityLot,
+							variant: props.variant,
+						},
 					})
-					.then((data) => data.mediaTranslations);
+					.then((data) => data.mediaTranslation);
 		},
 	});
-	const hasTranslations = translationsQuery.data?.response !== null;
+
+	const result = translationQuery.data;
+	const isPending =
+		result?.__typename === "MediaTranslationPending" &&
+		result.status === MediaTranslationPendingStatus.NotFetched;
+	const isInProgress =
+		result?.__typename === "MediaTranslationPending" &&
+		result.status === MediaTranslationPendingStatus.InProgress;
+	const hasValue = result?.__typename === "MediaTranslationValue";
 
 	useEntityUpdateMonitor({
 		entityId: props.entityId,
 		entityLot: props.entityLot,
-		onUpdate: () => translationsQuery.refetch(),
+		onUpdate: () => translationQuery.refetch(),
 		needsRefetch:
 			props.enabled !== false &&
-			!hasTranslations &&
+			(isPending || isInProgress) &&
 			props.mediaSource !== MediaSource.Custom,
 		deployJob: () => {
 			if (props.entityId)
 				clientGqlService.request(DeployUpdateMediaTranslationsJobDocument, {
-					input: { entityId: props.entityId, entityLot: props.entityLot },
+					input: {
+						entityId: props.entityId,
+						entityLot: props.entityLot,
+						variant: props.variant,
+					},
 				});
 		},
 	});
 
-	return { translations: translationsQuery.data?.response };
+	return hasValue ? result.value : null;
 };
 
 export const useUserPersonDetails = (personId?: string, enabled?: boolean) => {
@@ -353,14 +373,39 @@ export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 			metadataDetailsQuery.data?.source !== MediaSource.Custom,
 	});
 
-	const { translations } = useTranslationMonitor({
+	const titleTranslation = useTranslationValue({
 		enabled,
 		entityId: metadataId,
 		entityLot: EntityLot.Metadata,
+		variant: EntityTranslationVariant.Title,
 		mediaSource: metadataDetailsQuery.data?.source,
 	});
 
-	return [metadataDetailsQuery, isPartialStatusActive, translations] as const;
+	const descriptionTranslation = useTranslationValue({
+		enabled,
+		entityId: metadataId,
+		entityLot: EntityLot.Metadata,
+		variant: EntityTranslationVariant.Description,
+		mediaSource: metadataDetailsQuery.data?.source,
+	});
+
+	const imageTranslation = useTranslationValue({
+		enabled,
+		entityId: metadataId,
+		entityLot: EntityLot.Metadata,
+		variant: EntityTranslationVariant.Image,
+		mediaSource: metadataDetailsQuery.data?.source,
+	});
+
+	return [
+		metadataDetailsQuery,
+		isPartialStatusActive,
+		{
+			title: titleTranslation,
+			description: descriptionTranslation,
+			image: imageTranslation,
+		},
+	] as const;
 };
 
 export const usePersonDetails = (personId?: string, enabled?: boolean) => {
@@ -377,14 +422,39 @@ export const usePersonDetails = (personId?: string, enabled?: boolean) => {
 			query.data?.details.source !== MediaSource.Custom,
 	});
 
-	const { translations } = useTranslationMonitor({
+	const titleTranslation = useTranslationValue({
 		enabled,
 		entityId: personId,
 		entityLot: EntityLot.Person,
+		variant: EntityTranslationVariant.Title,
 		mediaSource: query.data?.details.source,
 	});
 
-	return [query, isPartialStatusActive, translations] as const;
+	const descriptionTranslation = useTranslationValue({
+		enabled,
+		entityId: personId,
+		entityLot: EntityLot.Person,
+		variant: EntityTranslationVariant.Description,
+		mediaSource: query.data?.details.source,
+	});
+
+	const imageTranslation = useTranslationValue({
+		enabled,
+		entityId: personId,
+		entityLot: EntityLot.Person,
+		variant: EntityTranslationVariant.Image,
+		mediaSource: query.data?.details.source,
+	});
+
+	return [
+		query,
+		isPartialStatusActive,
+		{
+			title: titleTranslation,
+			description: descriptionTranslation,
+			image: imageTranslation,
+		},
+	] as const;
 };
 
 export const useMetadataGroupDetails = (
@@ -410,14 +480,39 @@ export const useMetadataGroupDetails = (
 			query.data?.details.source !== MediaSource.Custom,
 	});
 
-	const { translations } = useTranslationMonitor({
+	const titleTranslation = useTranslationValue({
 		enabled,
 		entityId: metadataGroupId,
 		entityLot: EntityLot.MetadataGroup,
+		variant: EntityTranslationVariant.Title,
 		mediaSource: query.data?.details.source,
 	});
 
-	return [query, isPartialStatusActive, translations] as const;
+	const descriptionTranslation = useTranslationValue({
+		enabled,
+		entityId: metadataGroupId,
+		entityLot: EntityLot.MetadataGroup,
+		variant: EntityTranslationVariant.Description,
+		mediaSource: query.data?.details.source,
+	});
+
+	const imageTranslation = useTranslationValue({
+		enabled,
+		entityId: metadataGroupId,
+		entityLot: EntityLot.MetadataGroup,
+		variant: EntityTranslationVariant.Image,
+		mediaSource: query.data?.details.source,
+	});
+
+	return [
+		query,
+		isPartialStatusActive,
+		{
+			title: titleTranslation,
+			description: descriptionTranslation,
+			image: imageTranslation,
+		},
+	] as const;
 };
 
 export const useUserMetadataGroupDetails = (

@@ -6,6 +6,7 @@ import {
 	type CollectionContentsInput,
 	type CollectionRecommendationsInput,
 	type EntityLot,
+	type EntityTranslationVariant,
 	type GenreDetailsInput,
 	MetadataGroupDetailsDocument,
 	type MetadataGroupSearchInput,
@@ -111,8 +112,12 @@ const mediaQueryKeys = createQueryKeys("media", {
 	userEntityRecentlyConsumed: (entityId?: string) => ({
 		queryKey: ["userEntityRecentlyConsumed", entityId],
 	}),
-	entityTranslations: (entityId?: string, entityLot?: EntityLot) => ({
-		queryKey: ["entityTranslations", entityId, entityLot],
+	entityTranslation: (
+		entityId?: string,
+		entityLot?: EntityLot,
+		variant?: EntityTranslationVariant,
+	) => ({
+		queryKey: ["entityTranslation", entityId, entityLot, variant],
 	}),
 });
 
@@ -269,7 +274,7 @@ export const refreshEntityDetails = (entityId: string) =>
 				queryFactory.media.metadataGroupDetails(entityId).queryKey,
 				queryFactory.media.userMetadataGroupDetails(entityId).queryKey,
 				queryFactory.media.userEntityRecentlyConsumed(entityId).queryKey,
-				queryFactory.media.entityTranslations(entityId).queryKey,
+				queryFactory.media.entityTranslation._def,
 				queryFactory.fitness.workoutTemplateDetails(entityId).queryKey,
 				queryFactory.media.userGenresList._def,
 				queryFactory.media.userPeopleList._def,
