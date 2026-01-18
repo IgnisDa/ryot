@@ -17,8 +17,9 @@ use futures::{
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
-    EntityTranslationDetails, MetadataDetails, MetadataSearchItem, PartialMetadataPerson,
-    PartialMetadataWithoutId, ShowEpisode, ShowSeason, ShowSpecifics,
+    EntityTranslationDetails, EpisodeTranslationDetails, MetadataDetails, MetadataSearchItem,
+    PartialMetadataPerson, PartialMetadataWithoutId, SeasonTranslationDetails, ShowEpisode,
+    ShowSeason, ShowSpecifics,
 };
 use rust_decimal::dec;
 use supporting_service::SupportingService;
@@ -297,10 +298,53 @@ impl MediaProvider for TmdbShowService {
             .send()
             .await?;
         let data: TmdbMediaEntry = rsp.json().await?;
+        let TmdbMediaEntry {
+            name,
+            seasons,
+            overview,
+            poster_path,
+            ..
+        } = data;
+        let seasons = stream::iter(
+            seasons
+                .unwrap_or_default()
+                .into_iter()
+                .map(|season| season.season_number),
+        )
+        .map(|season_number| {
+            fetch_season_with_language(season_number, identifier, &self.0, target_language)
+        })
+        .buffer_unordered(5)
+        .collect::<Vec<Result<TmdbSeason>>>()
+        .await
+        .into_iter()
+        .collect::<Result<Vec<TmdbSeason>>>()?
+        .into_iter()
+        .sorted_by_key(|s| s.season_number)
+        .map(|season| {
+            let episodes = season
+                .episodes
+                .into_iter()
+                .map(|episode| EpisodeTranslationDetails {
+                    name: Some(episode.name),
+                    overview: episode.overview,
+                    episode_number: episode.episode_number,
+                })
+                .collect();
+            SeasonTranslationDetails {
+                episodes,
+                name: Some(season.name),
+                overview: season.overview,
+                season_number: season.season_number,
+            }
+        })
+        .collect_vec();
         Ok(EntityTranslationDetails {
-            title: data.name,
-            description: data.overview,
-            image: data.poster_path.map(|p| self.0.get_image_url(p)),
+            title: name,
+            description: overview,
+            seasons: (!seasons.is_empty()).then_some(seasons),
+            image: poster_path.map(|p| self.0.get_image_url(p)),
+            ..Default::default()
         })
     }
 }
@@ -333,5 +377,21 @@ pub async fn fetch_season_with_credits(
         episode.guest_stars.extend(credits.cast.clone());
     }
 
+    Ok(season_data)
+}
+
+async fn fetch_season_with_language(
+    season_number: i32,
+    identifier: &str,
+    base: &TmdbService,
+    target_language: &str,
+) -> Result<TmdbSeason> {
+    let rsp = base
+        .client
+        .get(format!("{URL}/tv/{identifier}/season/{season_number}"))
+        .query(&[("language", target_language)])
+        .send()
+        .await?;
+    let season_data: TmdbSeason = rsp.json().await?;
     Ok(season_data)
 }

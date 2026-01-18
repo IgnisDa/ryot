@@ -352,6 +352,7 @@ impl MediaProvider for TmdbMovieService {
             title: data.title,
             description: data.overview,
             image: data.poster_path.map(|p| self.0.get_image_url(p)),
+            ..Default::default()
         })
     }
 
@@ -372,6 +373,7 @@ impl MediaProvider for TmdbMovieService {
             title: Some(data.name),
             description: data.overview,
             image: data.poster_path.map(|p| self.0.get_image_url(p)),
+            ..Default::default()
         })
     }
 }
