@@ -11,7 +11,7 @@ import { assert, describe, it as vitestIt } from "vitest";
 import * as schema from "#lib/infrastructure/db/schema/tables/auth";
 import { CurrentDb, DbRunner, DbService, TransactionRunner } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
-import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#lib/test-support/effect";
+import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";

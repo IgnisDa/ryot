@@ -3,7 +3,7 @@ import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngin
 import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { dbRunnerLayer, makeWorkflowEngine, type MockOverrides } from "#lib/test-support/effect";
+import { dbRunnerLayer, makeWorkflowEngine, type MockOverrides } from "#lib/test-utils/effect";
 import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 
 import { mediaMonitoringInfrequentTask } from "./infrequent-task";

@@ -2,7 +2,7 @@ import { FetchHttpClient } from "@effect/platform";
 import { expect, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 
-import { makeAppConfigLayer } from "#lib/test-support/effect";
+import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
 import { NotificationDeliveryService } from "./delivery";
 

@@ -6,7 +6,7 @@ import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { makeWorkflowActivityEngine } from "#lib/test-support/effect";
+import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { EntityImportPayload } from "#modules/entity-import/entity-import-workflow";
 
 import {
