@@ -49,13 +49,6 @@ export type GlobalEntityProvenanceScopeInput = {
 	entitySchemaSlug: EntitySchemaSlug;
 };
 
-export type {
-	EntityScope,
-	EntityMergeScope,
-	EntitySchemaScope,
-	EntitySchemaSandboxScriptScope,
-} from "./repository-support";
-
 export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("EntitiesRepository", {
 	effect: Effect.gen(function* () {
 		const definitions = yield* DefinitionRegistry;
