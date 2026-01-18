@@ -53,8 +53,6 @@ pub enum EntityTranslation {
     EntityLot,
     MetadataId,
     MetadataGroupId,
-    ShowExtraInformation,
-    PodcastExtraInformation,
 }
 
 #[async_trait::async_trait]
@@ -100,8 +98,6 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .extra(ENTITY_TRANSLATION_ENTITY_ID_SQL),
                     )
-                    .col(ColumnDef::new(EntityTranslation::ShowExtraInformation).json_binary())
-                    .col(ColumnDef::new(EntityTranslation::PodcastExtraInformation).json_binary())
                     .foreign_key(
                         ForeignKey::create()
                             .name("entity_translation-fk1")
@@ -141,38 +137,6 @@ impl MigrationTrait for Migration {
                     .col(EntityTranslation::MetadataId)
                     .col(EntityTranslation::Variant)
                     .and_where(Expr::col(EntityTranslation::MetadataId).is_not_null())
-                    .and_where(Expr::col(EntityTranslation::ShowExtraInformation).is_null())
-                    .and_where(Expr::col(EntityTranslation::PodcastExtraInformation).is_null())
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name("entity_translation__language_metadata_id_variant_show_extra_idx")
-                    .unique()
-                    .table(EntityTranslation::Table)
-                    .col(EntityTranslation::Language)
-                    .col(EntityTranslation::MetadataId)
-                    .col(EntityTranslation::Variant)
-                    .col(EntityTranslation::ShowExtraInformation)
-                    .and_where(Expr::col(EntityTranslation::MetadataId).is_not_null())
-                    .and_where(Expr::col(EntityTranslation::ShowExtraInformation).is_not_null())
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name("entity_translation__language_metadata_id_variant_podcast_extra_idx")
-                    .unique()
-                    .table(EntityTranslation::Table)
-                    .col(EntityTranslation::Language)
-                    .col(EntityTranslation::MetadataId)
-                    .col(EntityTranslation::Variant)
-                    .col(EntityTranslation::PodcastExtraInformation)
-                    .and_where(Expr::col(EntityTranslation::MetadataId).is_not_null())
-                    .and_where(Expr::col(EntityTranslation::PodcastExtraInformation).is_not_null())
                     .to_owned(),
             )
             .await?;
