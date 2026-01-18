@@ -62,7 +62,7 @@ export const createApiFunctionDescriptors = (
 ): Array<ApiFunctionDescriptor> => [
 	{ context: {}, functionKey: "httpCall" },
 	{ context: {}, functionKey: "getAppConfigValue" },
-	{ context: { userId }, functionKey: "getEntitySchemas" },
+	{ context: { userId }, functionKey: "executeQuery" },
 ];
 
 export const resolveSandboxJobId = (jobId: string) =>
