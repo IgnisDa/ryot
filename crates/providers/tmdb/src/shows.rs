@@ -9,7 +9,8 @@ use common_utils::{
     SHOW_SPECIAL_SEASON_NAMES, compute_next_page, convert_date_to_year, convert_string_to_date,
 };
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use enum_models::MediaSource;
+use dependent_translation_utils::persist_metadata_translation;
+use enum_models::{EntityTranslationVariant, MediaLot, MediaSource};
 use futures::{
     stream::{self, StreamExt},
     try_join,
@@ -17,8 +18,8 @@ use futures::{
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
-    EntityTranslationDetails, MetadataDetails, MetadataSearchItem, PartialMetadataPerson,
-    PartialMetadataWithoutId, ShowEpisode, ShowSeason, ShowSpecifics,
+    MetadataDetails, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
+    ShowEpisode, ShowSeason, ShowSpecifics,
 };
 use rust_decimal::dec;
 use supporting_service::SupportingService;
@@ -284,11 +285,7 @@ impl MediaProvider for TmdbShowService {
         self.0.get_trending_media("tv").await
     }
 
-    async fn translate_metadata(
-        &self,
-        identifier: &str,
-        target_language: &str,
-    ) -> Result<EntityTranslationDetails> {
+    async fn translate_metadata(&self, identifier: &str, target_language: &str) -> Result<()> {
         let rsp = self
             .0
             .client
@@ -297,11 +294,23 @@ impl MediaProvider for TmdbShowService {
             .send()
             .await?;
         let data: TmdbMediaEntry = rsp.json().await?;
-        Ok(EntityTranslationDetails {
-            title: data.name,
-            description: data.overview,
-            image: data.poster_path.map(|p| self.0.get_image_url(p)),
-        })
+        persist_metadata_translation(
+            identifier,
+            MediaLot::Show,
+            MediaSource::Tmdb,
+            target_language,
+            &[
+                (EntityTranslationVariant::Title, data.name),
+                (
+                    EntityTranslationVariant::Image,
+                    data.poster_path.map(|p| self.0.get_image_url(p)),
+                ),
+                (EntityTranslationVariant::Description, data.overview),
+            ],
+            &self.0.ss,
+        )
+        .await?;
+        Ok(())
     }
 }
 

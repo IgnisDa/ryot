@@ -18,11 +18,12 @@ tracing = { workspace = true }
 
 common-models = { workspace = true }
 common-utils = { workspace = true }
-config-definition = { workspace = true }
 database-models = { workspace = true }
 dependent-models = { workspace = true }
+dependent-translation-utils = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
+supporting-service = { workspace = true }
 traits = { workspace = true }
 
 [package.metadata.cargo-machete]

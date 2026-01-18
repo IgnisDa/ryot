@@ -101,9 +101,9 @@ async fn create_providers(
         TvdbService::new(ss.clone()),
         IgdbService::new(ss.clone()),
         ITunesService::new(ss.clone()),
-        AnilistService::new(&ss.config.anime_and_manga.anilist),
-        AudibleService::new(&ss.config.audio_books.audible),
-        YoutubeMusicService::new(),
+        AnilistService::new(ss.clone()),
+        AudibleService::new(ss.clone()),
+        YoutubeMusicService::new(ss.clone()),
     )?;
     Ok((
         tmdb_service,

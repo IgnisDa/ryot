@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::NaiveDate;
@@ -6,6 +8,7 @@ use common_utils::{PAGE_SIZE, compute_next_page};
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{PartialMetadataWithoutId, PeopleSearchItem};
+use supporting_service::SupportingService;
 use traits::MediaProvider;
 
 use crate::{
@@ -17,12 +20,12 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct NonMediaAnilistService(AnilistService);
 
 impl NonMediaAnilistService {
-    pub async fn new(config: &config_definition::AnilistConfig) -> Result<Self> {
-        Ok(Self(AnilistService::new(config).await?))
+    pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
+        Ok(Self(AnilistService::new(ss).await?))
     }
 }
 

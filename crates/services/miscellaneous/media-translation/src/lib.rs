@@ -15,8 +15,8 @@ use dependent_models::{
 use dependent_provider_utils::{get_metadata_provider, get_non_metadata_provider};
 use enum_models::{EntityLot, EntityTranslationVariant, MediaSource};
 use media_models::{
-    EntityTranslationDetails, MediaTranslationInput, MediaTranslationPending,
-    MediaTranslationPendingStatus, MediaTranslationResult, MediaTranslationValue,
+    MediaTranslationInput, MediaTranslationPending, MediaTranslationPendingStatus,
+    MediaTranslationResult, MediaTranslationValue,
 };
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use supporting_service::SupportingService;
@@ -74,17 +74,6 @@ async fn get_preferred_language_for_user_and_source(
     Ok(preferred_language)
 }
 
-fn translation_value_for_variant(
-    variant: EntityTranslationVariant,
-    details: &EntityTranslationDetails,
-) -> Option<String> {
-    match variant {
-        EntityTranslationVariant::Title => details.title.clone(),
-        EntityTranslationVariant::Image => details.image.clone(),
-        EntityTranslationVariant::Description => details.description.clone(),
-    }
-}
-
 fn build_in_progress_cache_key(
     entity_id: &str,
     entity_lot: EntityLot,
@@ -97,47 +86,6 @@ fn build_in_progress_cache_key(
         language: language.to_string(),
         entity_id: entity_id.to_string(),
     })
-}
-
-async fn upsert_entity_translation(
-    input: &UpdateMediaTranslationJobInput,
-    preferred_language: &str,
-    value: Option<String>,
-    ss: &Arc<SupportingService>,
-) -> Result<()> {
-    let value = value.filter(|v| !v.is_empty());
-    if let Some(existing) = EntityTranslation::find()
-        .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
-        .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
-        .filter(entity_translation::Column::Language.eq(preferred_language))
-        .filter(entity_translation::Column::Variant.eq(input.variant))
-        .one(&ss.db)
-        .await?
-    {
-        let mut model: entity_translation::ActiveModel = existing.into();
-        model.value = ActiveValue::Set(value);
-        model.update(&ss.db).await?;
-        return Ok(());
-    }
-
-    let mut model = entity_translation::ActiveModel {
-        value: ActiveValue::Set(value),
-        variant: ActiveValue::Set(input.variant),
-        language: ActiveValue::Set(preferred_language.to_string()),
-        ..Default::default()
-    };
-    match input.entity_lot {
-        EntityLot::Person => model.person_id = ActiveValue::Set(Some(input.entity_id.clone())),
-        EntityLot::Metadata => model.metadata_id = ActiveValue::Set(Some(input.entity_id.clone())),
-        EntityLot::MetadataGroup => {
-            model.metadata_group_id = ActiveValue::Set(Some(input.entity_id.clone()))
-        }
-        _ => {}
-    }
-    EntityTranslation::insert(model)
-        .exec_without_returning(&ss.db)
-        .await?;
-    Ok(())
 }
 
 pub async fn update_media_translation(
@@ -153,14 +101,10 @@ pub async fn update_media_translation(
             let preferred_language =
                 get_preferred_language_for_user_and_source(ss, &input.user_id, &entity.source)
                     .await?;
-            let provider = get_metadata_provider(entity.lot, entity.source, ss).await?;
-            if let Ok(trn) = provider
+            get_metadata_provider(entity.lot, entity.source, ss)
+                .await?
                 .translate_metadata(&entity.identifier, &preferred_language)
-                .await
-            {
-                let value = translation_value_for_variant(input.variant, &trn);
-                upsert_entity_translation(&input, &preferred_language, value, ss).await?;
-            }
+                .await?;
             let mut item: metadata::ActiveModel = entity.into();
             item.last_updated_on = ActiveValue::Set(Utc::now());
             item.update(&ss.db).await?;
@@ -174,14 +118,10 @@ pub async fn update_media_translation(
             let preferred_language =
                 get_preferred_language_for_user_and_source(ss, &input.user_id, &entity.source)
                     .await?;
-            let provider = get_metadata_provider(entity.lot, entity.source, ss).await?;
-            if let Ok(trn) = provider
+            get_metadata_provider(entity.lot, entity.source, ss)
+                .await?
                 .translate_metadata_group(&entity.identifier, &preferred_language)
-                .await
-            {
-                let value = translation_value_for_variant(input.variant, &trn);
-                upsert_entity_translation(&input, &preferred_language, value, ss).await?;
-            }
+                .await?;
             let mut item: metadata_group::ActiveModel = entity.into();
             item.last_updated_on = ActiveValue::Set(Utc::now());
             item.update(&ss.db).await?;
@@ -195,18 +135,14 @@ pub async fn update_media_translation(
             let preferred_language =
                 get_preferred_language_for_user_and_source(ss, &input.user_id, &person.source)
                     .await?;
-            let provider = get_non_metadata_provider(person.source, ss).await?;
-            if let Ok(trn) = provider
+            get_non_metadata_provider(person.source, ss)
+                .await?
                 .translate_person(
                     &person.identifier,
                     &preferred_language,
                     &person.source_specifics,
                 )
-                .await
-            {
-                let value = translation_value_for_variant(input.variant, &trn);
-                upsert_entity_translation(&input, &preferred_language, value, ss).await?;
-            }
+                .await?;
             let mut item: person::ActiveModel = person.into();
             item.last_updated_on = ActiveValue::Set(Utc::now());
             item.update(&ss.db).await?;

@@ -29,6 +29,7 @@ use crate::models::{
 pub struct TmdbService {
     pub client: Client,
     pub settings: TmdbSettings,
+    pub ss: Arc<SupportingService>,
 }
 
 impl TmdbService {
@@ -39,7 +40,11 @@ impl TmdbService {
             HeaderValue::from_str(&format!("Bearer {access_token}"))?,
         )]));
         let settings = get_settings(&client, &ss).await.unwrap_or_default();
-        Ok(Self { client, settings })
+        Ok(Self {
+            ss,
+            client,
+            settings,
+        })
     }
 
     pub fn get_image_url(&self, c: String) -> String {

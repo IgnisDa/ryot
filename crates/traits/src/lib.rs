@@ -10,8 +10,8 @@ use database_models::metadata_group::MetadataGroupWithoutId;
 use database_utils::check_token;
 use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
 use media_models::{
-    EntityTranslationDetails, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
-    PartialMetadataWithoutId, PeopleSearchItem,
+    MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem, PartialMetadataWithoutId,
+    PeopleSearchItem,
 };
 use supporting_service::SupportingService;
 
@@ -84,11 +84,7 @@ pub trait MediaProvider {
 
     /// Translate metadata.
     #[allow(unused_variables)]
-    async fn translate_metadata(
-        &self,
-        identifier: &str,
-        target_language: &str,
-    ) -> Result<EntityTranslationDetails> {
+    async fn translate_metadata(&self, identifier: &str, target_language: &str) -> Result<()> {
         bail!("This provider does not support translating metadata")
     }
 
@@ -98,7 +94,7 @@ pub trait MediaProvider {
         &self,
         identifier: &str,
         target_language: &str,
-    ) -> Result<EntityTranslationDetails> {
+    ) -> Result<()> {
         bail!("This provider does not support translating metadata groups")
     }
 
@@ -109,7 +105,7 @@ pub trait MediaProvider {
         identifier: &str,
         target_language: &str,
         source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<EntityTranslationDetails> {
+    ) -> Result<()> {
         bail!("This provider does not support translating person")
     }
 }
