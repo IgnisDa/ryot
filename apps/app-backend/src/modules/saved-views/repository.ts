@@ -155,8 +155,8 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				function* (input: {
 					icon: string;
 					userId: UserId;
-					trackerId: TrackerId;
 					accentColor: string;
+					trackerId: TrackerId;
 					entitySchemaSlug: string;
 					entitySchemaName: string;
 				}) {
