@@ -1,3 +1,5 @@
+export type { CreateEventsJobData } from "./jobs";
+export { createEventsJobData, createEventsJobName } from "./jobs";
 export type {
 	CreateEventBody,
 	CreateEventBulkBody,
