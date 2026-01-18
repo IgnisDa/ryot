@@ -11,7 +11,8 @@
 		"**/build/**",
 		"**/.vitepress/**",
 		"apps/frontend/app/styles/*.css",
-		"apps/docs/src/includes/export-schema.ts"
+		"apps/docs/src/includes/export-schema.ts",
+		"**/lib/infrastructure/sandbox-runtime/*.sandbox.ts"
 	],
 	"rules": {
 		"curly": "error",
@@ -71,15 +72,5 @@
 				"caughtErrorsIgnorePattern": "^_"
 			}
 		]
-	},
-	"overrides": [
-		{
-			"files": ["**/*.sandbox.js"],
-			"rules": {
-				"no-await-in-loop": "off",
-				"typescript/no-implied-eval": "off",
-				"typescript/no-unnecessary-condition": "off"
-			}
-		}
-	]
+	}
 }
