@@ -12,8 +12,8 @@ use dependent_models::{
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    EntityTranslationDetails, EpisodeTranslationDetails, MetadataDetails, MetadataFreeCreator,
-    MetadataSearchItem, PodcastEpisode, PodcastSpecifics,
+    EntityTranslationDetails, MetadataDetails, MetadataFreeCreator, MetadataSearchItem,
+    PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::Client;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
@@ -286,52 +286,9 @@ impl MediaProvider for ITunesService {
             .await?;
         let details: SearchResponse = rsp.json().await?;
         let item = details.results.and_then(|s| s.first().cloned());
-        let episodes = match item.as_ref().and_then(|i| i.track_count) {
-            None => None,
-            Some(track_count) => {
-                let rsp = self
-                    .client
-                    .get(format!("{URL}/lookup"))
-                    .query(&[
-                        ("id", identifier),
-                        ("media", "podcast"),
-                        ("lang", target_language),
-                        ("entity", "podcastEpisode"),
-                        ("limit", &track_count.to_string()),
-                    ])
-                    .send()
-                    .await?;
-                let episode_response: SearchResponse = rsp.json().await?;
-                let mut episode_items = episode_response
-                    .results
-                    .unwrap_or_default()
-                    .into_iter()
-                    .filter_map(|episode| {
-                        let date = episode.release_date?;
-                        let _track_id = episode.track_id?;
-                        let name = episode.track_name.clone()?;
-                        Some((date, name, episode.description))
-                    })
-                    .collect_vec();
-                episode_items.sort_by_key(|(date, _, _)| *date);
-                let translated_episodes = episode_items
-                    .into_iter()
-                    .enumerate()
-                    .map(|(idx, (_, name, description))| EpisodeTranslationDetails {
-                        name: Some(name),
-                        overview: description,
-                        episode_number: (idx as i32) + 1,
-                    })
-                    .collect_vec();
-                (!translated_episodes.is_empty()).then_some(translated_episodes)
-            }
-        };
-        let title = item.as_ref().map(|i| i.collection_name.clone());
-        let description = item.as_ref().and_then(|i| i.description.clone());
         Ok(EntityTranslationDetails {
-            title,
-            episodes,
-            description,
+            title: item.clone().map(|i| i.collection_name.clone()),
+            description: item.and_then(|i| i.description.clone()),
             ..Default::default()
         })
     }
