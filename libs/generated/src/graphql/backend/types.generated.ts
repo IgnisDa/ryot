@@ -736,7 +736,9 @@ export type EntityToCollectionInput = {
 export type EntityTranslationDetails = {
   __typename?: 'EntityTranslationDetails';
   description?: Maybe<Scalars['String']['output']>;
+  episodes?: Maybe<Array<EpisodeTranslationDetails>>;
   image?: Maybe<Scalars['String']['output']>;
+  seasons?: Maybe<Array<SeasonTranslationDetails>>;
   title?: Maybe<Scalars['String']['output']>;
 };
 
@@ -749,6 +751,13 @@ export type EntityWithLot = {
 export type EntityWithLotInput = {
   entityId: Scalars['String']['input'];
   entityLot: EntityLot;
+};
+
+export type EpisodeTranslationDetails = {
+  __typename?: 'EpisodeTranslationDetails';
+  episodeNumber: Scalars['Int']['output'];
+  name?: Maybe<Scalars['String']['output']>;
+  overview?: Maybe<Scalars['String']['output']>;
 };
 
 export type Exercise = {
@@ -2571,6 +2580,14 @@ export type SearchInput = {
   page?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<Scalars['String']['input']>;
   take?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type SeasonTranslationDetails = {
+  __typename?: 'SeasonTranslationDetails';
+  episodes: Array<EpisodeTranslationDetails>;
+  name?: Maybe<Scalars['String']['output']>;
+  overview?: Maybe<Scalars['String']['output']>;
+  seasonNumber: Scalars['Int']['output'];
 };
 
 export type Seen = {
