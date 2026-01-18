@@ -149,7 +149,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("entity_translation__language_metadata_id_variant_show_idx")
+                    .name("entity_translation__language_metadata_id_variant_show_extra_idx")
                     .unique()
                     .table(EntityTranslation::Table)
                     .col(EntityTranslation::Language)
@@ -164,7 +164,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("entity_translation__language_metadata_id_variant_podcast_idx")
+                    .name("entity_translation__language_metadata_id_variant_podcast_extra_idx")
                     .unique()
                     .table(EntityTranslation::Table)
                     .col(EntityTranslation::Language)

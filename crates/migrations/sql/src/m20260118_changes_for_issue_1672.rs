@@ -72,23 +72,12 @@ impl MigrationTrait for Migration {
                 .await?;
         }
 
-        let show_index = "entity_translation__language_metadata_id_variant_show_idx";
-        let show_legacy_index = "entity_translation__language_metadata_id_variant_show_extra_idx";
-        if manager.has_index(table_name, show_legacy_index).await? {
-            manager
-                .drop_index(
-                    Index::drop()
-                        .name(show_legacy_index)
-                        .table(EntityTranslation::Table)
-                        .to_owned(),
-                )
-                .await?;
-        }
-        if !manager.has_index(table_name, show_index).await? {
+        let show_extra_index = "entity_translation__language_metadata_id_variant_show_extra_idx";
+        if !manager.has_index(table_name, show_extra_index).await? {
             manager
                 .create_index(
                     Index::create()
-                        .name(show_index)
+                        .name(show_extra_index)
                         .unique()
                         .table(EntityTranslation::Table)
                         .col(EntityTranslation::Language)
@@ -102,36 +91,13 @@ impl MigrationTrait for Migration {
                 .await?;
         }
 
-        let podcast_index = "entity_translation__language_metadata_id_variant_podcast_idx";
-        let podcast_legacy_index =
+        let podcast_extra_index =
             "entity_translation__language_metadata_id_variant_podcast_extra_idx";
-        let podcast_legacy_truncated =
-            "entity_translation__language_metadata_id_variant_podcast_extra_";
-        if manager.has_index(table_name, podcast_legacy_index).await? {
-            manager
-                .drop_index(
-                    Index::drop()
-                        .name(podcast_legacy_index)
-                        .table(EntityTranslation::Table)
-                        .to_owned(),
-                )
-                .await?;
-        }
-        if manager.has_index(table_name, podcast_legacy_truncated).await? {
-            manager
-                .drop_index(
-                    Index::drop()
-                        .name(podcast_legacy_truncated)
-                        .table(EntityTranslation::Table)
-                        .to_owned(),
-                )
-                .await?;
-        }
-        if !manager.has_index(table_name, podcast_index).await? {
+        if !manager.has_index(table_name, podcast_extra_index).await? {
             manager
                 .create_index(
                     Index::create()
-                        .name(podcast_index)
+                        .name(podcast_extra_index)
                         .unique()
                         .table(EntityTranslation::Table)
                         .col(EntityTranslation::Language)
