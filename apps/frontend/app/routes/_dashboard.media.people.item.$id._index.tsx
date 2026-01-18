@@ -78,9 +78,11 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
-	const [personDetails, usePersonTranslationValue] = usePersonDetails(
-		loaderData.personId,
-	);
+	const [
+		personDetails,
+		isPersonPartialStatusActive,
+		usePersonTranslationValue,
+	] = usePersonDetails(loaderData.personId);
 	const userPersonDetails = useUserPersonDetails(loaderData.personId);
 
 	const personTitleTranslation = usePersonTranslationValue({
@@ -143,6 +145,7 @@ export default function Page() {
 					title={title}
 					extraImage={personImageTranslation}
 					assets={personDetails.data.details.assets}
+					isPartialStatusActive={isPersonPartialStatusActive}
 					externalLink={{
 						source: personDetails.data.details.source,
 						href: personDetails.data.details.sourceUrl,
@@ -394,8 +397,11 @@ const MetadataDisplay = (props: {
 };
 
 const MetadataGroupDisplay = (props: { metadataGroupId: string }) => {
-	const [{ data: metadataGroupDetails }, useMetadataGroupTranslationValue] =
-		useMetadataGroupDetails(props.metadataGroupId);
+	const [
+		{ data: metadataGroupDetails },
+		isMetadataGroupPartialStatusActive,
+		useMetadataGroupTranslationValue,
+	] = useMetadataGroupDetails(props.metadataGroupId);
 
 	const metadataGroupTitleTranslation = useMetadataGroupTranslationValue({
 		variant: EntityTranslationVariant.Title,
@@ -407,6 +413,7 @@ const MetadataGroupDisplay = (props: { metadataGroupId: string }) => {
 
 	return (
 		<BaseEntityDisplay
+			isPartialStatusActive={isMetadataGroupPartialStatusActive}
 			link={$path("/media/groups/item/:id", { id: props.metadataGroupId })}
 			title={
 				metadataGroupTitleTranslation || metadataGroupDetails?.details.title

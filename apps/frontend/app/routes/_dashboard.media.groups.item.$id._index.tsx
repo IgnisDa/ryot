@@ -71,8 +71,11 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
-	const [metadataGroupDetailsData, useMetadataGroupTranslationValue] =
-		useMetadataGroupDetails(loaderData.metadataGroupId);
+	const [
+		metadataGroupDetailsData,
+		isMetadataGroupPartialStatusActive,
+		useMetadataGroupTranslationValue,
+	] = useMetadataGroupDetails(loaderData.metadataGroupId);
 	const userMetadataGroupDetails = useUserMetadataGroupDetails(
 		loaderData.metadataGroupId,
 	);
@@ -104,6 +107,7 @@ export default function Page() {
 					title={title}
 					extraImage={metadataGroupImageTranslation}
 					assets={metadataGroupDetailsData.data.details.assets}
+					isPartialStatusActive={isMetadataGroupPartialStatusActive}
 					externalLink={{
 						lot: metadataGroupDetailsData.data.details.lot,
 						source: metadataGroupDetailsData.data.details.source,

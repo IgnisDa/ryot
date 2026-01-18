@@ -15,7 +15,9 @@ export const DisplayShowEpisode = (props: {
 	episodeProgress?: SeasonProgress["episodes"][number];
 }) => {
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
-	const [, useMetadataTranslationValue] = useMetadataDetails(props.metadataId);
+	const [, , useMetadataTranslationValue] = useMetadataDetails(
+		props.metadataId,
+	);
 	const numTimesEpisodeSeen = props.episodeProgress?.timesSeen || 0;
 	const showExtraInformation = useMemo(
 		() => ({

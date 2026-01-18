@@ -34,6 +34,7 @@ export const MetadataDisplayItem = (props: {
 
 	const [
 		{ data: metadataDetails, isLoading: isMetadataDetailsLoading },
+		isMetadataPartialStatusActive,
 		useMetadataTranslationValue,
 	] = useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
@@ -109,6 +110,7 @@ export const MetadataDisplayItem = (props: {
 			imageClassName={props.imageClassName}
 			isDetailsLoading={isMetadataDetailsLoading}
 			wasRecentlyConsumed={isMetadataRecentlyConsumed}
+			isPartialStatusActive={isMetadataPartialStatusActive}
 			image={metadataImageTranslation || images.at(0)}
 			title={metadataTitleTranslation || metadataDetails?.title}
 			interactionButtons={["collection", "consume", "review", "watchlist"]}
@@ -141,6 +143,7 @@ export const MetadataGroupDisplayItem = (props: {
 	const { ref, inViewport } = useInViewport();
 	const [
 		{ data: metadataGroupDetails, isLoading: isMetadataGroupDetailsLoading },
+		isMetadataGroupPartialStatusActive,
 		useMetadataGroupTranslationValue,
 	] = useMetadataGroupDetails(props.metadataGroupId, inViewport);
 	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
@@ -197,6 +200,7 @@ export const MetadataGroupDisplayItem = (props: {
 			additionalInformation={defaultAdditionalInformation}
 			wasRecentlyConsumed={isMetadataGroupRecentlyConsumed}
 			interactionButtons={["collection", "review", "watchlist"]}
+			isPartialStatusActive={isMetadataGroupPartialStatusActive}
 			image={metadataGroupImageTranslation || images.at(0)}
 			title={
 				metadataGroupTitleTranslation || metadataGroupDetails?.details.title
@@ -220,6 +224,7 @@ export const PersonDisplayItem = (props: {
 	const { ref, inViewport } = useInViewport();
 	const [
 		{ data: personDetails, isLoading: isPersonDetailsLoading },
+		isPersonPartialStatusActive,
 		usePersonTranslationValue,
 	] = usePersonDetails(props.personId, inViewport);
 	const { data: userPersonDetails } = useUserPersonDetails(
@@ -271,6 +276,7 @@ export const PersonDisplayItem = (props: {
 			isDetailsLoading={isPersonDetailsLoading}
 			interactionButtons={["collection", "review"]}
 			wasRecentlyConsumed={isPersonRecentlyConsumed}
+			isPartialStatusActive={isPersonPartialStatusActive}
 			additionalInformation={defaultAdditionalInformation}
 			image={personImageTranslation || images.at(0)}
 			title={personTitleTranslation || personDetails?.details.name}

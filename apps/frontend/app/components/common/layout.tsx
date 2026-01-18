@@ -6,6 +6,7 @@ import {
 	Flex,
 	Group,
 	Image,
+	Loader,
 	Modal,
 	Paper,
 	SimpleGrid,
@@ -52,6 +53,7 @@ export const MediaDetailsLayout = (props: {
 	children: ReactNode;
 	assets: EntityAssets;
 	extraImage?: string | null;
+	isPartialStatusActive: boolean;
 	externalLink: {
 		lot?: MediaLot;
 		source: MediaSource;
@@ -145,6 +147,7 @@ export const MediaDetailsLayout = (props: {
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
 				<Group wrap="nowrap">
+					{props.isPartialStatusActive ? <Loader size="sm" /> : null}
 					<Title id="media-title">{props.title}</Title>
 				</Group>
 				{props.children}

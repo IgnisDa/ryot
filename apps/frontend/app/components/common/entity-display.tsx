@@ -56,6 +56,7 @@ import {
 	OnboardingTourStepTarget,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
+import classes from "~/styles/common.module.css";
 
 const getThemeColor = (colorName: string, mode: string): string => {
 	const shade = mode === "dark" ? "3" : "7";
@@ -272,6 +273,7 @@ type BaseEntityDisplayItemCard = {
 	centerElement?: ReactNode;
 	isDetailsLoading: boolean;
 	wasRecentlyConsumed?: boolean;
+	isPartialStatusActive?: boolean;
 	consumeButtonIndicatorLabel?: string;
 	userToMediaReasons?: UserToMediaReason[];
 	onImageClickBehavior: [string, (() => Promise<void>)?];
@@ -506,6 +508,9 @@ const BaseEntityDisplayItemComponent = forwardRef<
 								lineClamp={1}
 								style={titleTextShadowStyle}
 								c={props.hasInteracted ? "yellow.4" : "white"}
+								className={
+									props.isPartialStatusActive ? classes.fadeInOut : undefined
+								}
 							>
 								{props.title}
 							</Text>

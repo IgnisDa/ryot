@@ -10,10 +10,11 @@ import { usePersonDetails } from "~/lib/shared/hooks";
 
 export const MetadataCreatorDisplay = (props: { data: MetadataCreator }) => {
 	const { ref, inViewport } = useInViewport();
-	const [{ data: personDetails }, usePersonTranslationValue] = usePersonDetails(
-		props.data.idOrName,
-		inViewport && !props.data.isFree,
-	);
+	const [
+		{ data: personDetails },
+		isPartialStatusActive,
+		usePersonTranslationValue,
+	] = usePersonDetails(props.data.idOrName, inViewport && !props.data.isFree);
 
 	const personTitleTranslation = usePersonTranslationValue({
 		variant: EntityTranslationVariant.Title,
@@ -38,6 +39,7 @@ export const MetadataCreatorDisplay = (props: { data: MetadataCreator }) => {
 		<BaseEntityDisplay
 			ref={ref}
 			title={title}
+			isPartialStatusActive={isPartialStatusActive}
 			image={
 				personImageTranslation ||
 				personDetails?.details.assets.remoteImages.at(0) ||

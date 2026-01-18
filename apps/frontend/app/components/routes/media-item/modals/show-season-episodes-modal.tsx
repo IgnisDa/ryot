@@ -15,7 +15,7 @@ export const DisplayShowSeasonEpisodesModal = (props: {
 	openedShowSeason: number | undefined;
 	setOpenedShowSeason: (v: number | undefined) => void;
 }) => {
-	const [{ data: metadataDetails }, useMetadataTranslationValue] =
+	const [{ data: metadataDetails }, , useMetadataTranslationValue] =
 		useMetadataDetails(props.metadataId);
 	const showSpecifics = metadataDetails?.showSpecifics;
 	const season = useMemo(() => {
