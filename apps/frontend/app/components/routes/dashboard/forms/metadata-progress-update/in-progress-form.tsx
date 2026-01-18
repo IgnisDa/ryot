@@ -19,7 +19,10 @@ import {
 import { match } from "ts-pattern";
 import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import { useDeployBulkMetadataProgressUpdateMutation } from "~/lib/shared/hooks";
+import {
+	useDeployBulkMetadataProgressUpdateMutation,
+	useMetadataDetails,
+} from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MetadataInProgressFormProps } from "./utils/form-types";
 
@@ -27,11 +30,12 @@ export const MetadataInProgressUpdateForm = (
 	props: MetadataInProgressFormProps,
 ) => {
 	const { metadataToUpdate } = useMetadataProgressUpdate();
+	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
 	const deployBulkMetadataProgressUpdate =
-		useDeployBulkMetadataProgressUpdateMutation(props.metadataDetails.title);
+		useDeployBulkMetadataProgressUpdateMutation(metadataDetails?.title);
 
 	const form = useSavedForm<{ progress: number }>({
-		storageKeyPrefix: `MetadataInProgressUpdateForm-${props.metadataDetails.id}`,
+		storageKeyPrefix: `MetadataInProgressUpdateForm-${props.metadataId}`,
 		initialValues: { progress: Number(props.inProgress.progress) },
 		validate: {
 			progress: (value) => {
@@ -42,17 +46,17 @@ export const MetadataInProgressUpdateForm = (
 		},
 	});
 
-	if (!metadataToUpdate) return null;
+	if (!metadataToUpdate || !metadataDetails) return null;
 
 	const total =
-		props.metadataDetails.bookSpecifics?.pages ||
-		props.metadataDetails.movieSpecifics?.runtime ||
-		props.metadataDetails.mangaSpecifics?.chapters ||
-		props.metadataDetails.animeSpecifics?.episodes ||
-		props.metadataDetails.audioBookSpecifics?.runtime ||
-		props.metadataDetails.visualNovelSpecifics?.length;
+		metadataDetails.bookSpecifics?.pages ||
+		metadataDetails.movieSpecifics?.runtime ||
+		metadataDetails.mangaSpecifics?.chapters ||
+		metadataDetails.animeSpecifics?.episodes ||
+		metadataDetails.audioBookSpecifics?.runtime ||
+		metadataDetails.visualNovelSpecifics?.length;
 
-	const [updateIcon, text] = match(props.metadataDetails.lot)
+	const [updateIcon, text] = match(metadataDetails.lot)
 		.with(MediaLot.Book, () => [<IconBook size={24} key="element" />, "Pages"])
 		.with(MediaLot.Anime, () => [
 			<IconDeviceTv size={24} key="element" />,

@@ -41,13 +41,13 @@ export const MetadataProgressUpdateForm = ({
 			{userMetadataDetails.inProgress ? (
 				<MetadataInProgressUpdateForm
 					onSubmit={onSubmit}
-					metadataDetails={metadataDetails}
+					metadataId={metadataDetails.id}
 					inProgress={userMetadataDetails.inProgress}
 				/>
 			) : (
 				<MetadataNewProgressUpdateForm
 					onSubmit={onSubmit}
-					metadataDetails={metadataDetails}
+					metadataId={metadataDetails.id}
 					history={userMetadataDetails.history}
 				/>
 			)}
