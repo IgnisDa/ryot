@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## Before you start
 
@@ -46,16 +46,16 @@ domain-specific formatting, or a new top-level manifest section.
 
 ## Acceptance criteria
 
-- [ ] No media- or fitness-specific signal slug or message formatting remains in kernel source
-- [ ] Every subscribable signal definition explicitly selects a valid automation formatter
-- [ ] Media and fitness formatters are compiled and loaded from their owning plugin packages;
+- [x] No media- or fitness-specific signal slug or message formatting remains in kernel source
+- [x] Every subscribable signal definition explicitly selects a valid automation formatter
+- [x] Media and fitness formatters are compiled and loaded from their owning plugin packages;
       source zero formats only `integration.disabled`
-- [ ] `notification_subscription_state` stores no formatter slug (unique on
+- [x] `notification_subscription_state` stores no formatter slug (unique on
       `(userId, signalSchemaSlug)`, migration regenerated); dispatch resolves the formatter from
       the signal definition for both plugin-owned and source-zero scripts, and rows for
       unregistered signals are inert rather than errors
-- [ ] Existing notification message and delivery assertions are unchanged and green
-- [ ] Backend `check` + unit tests, affected e2e suites, and `app-client` check pass
+- [x] Existing notification message and delivery assertions are unchanged and green
+- [x] Backend `check` + unit tests, affected e2e suites, and `app-client` check pass
 
 ## User stories addressed
 

@@ -46,8 +46,9 @@ export type SignalAudiencePolicy =
 export type SignalSchemaDefinition = {
 	readonly name: string;
 	readonly slug: string;
-	readonly catalogState: "active" | "hidden";
 	readonly propertiesSchema: AppSchema;
+	readonly notificationScriptSlug: string;
+	readonly catalogState: "active" | "hidden";
 	readonly audiencePolicy: SignalAudiencePolicy;
 };
 
@@ -57,8 +58,8 @@ export type SavedViewDefinition = {
 	readonly slug: string;
 	readonly sortOrder: number;
 	readonly accentColor: string;
-	readonly queryDocument: QueryDocument;
 	readonly pluginSlug: string | null;
+	readonly queryDocument: QueryDocument;
 	readonly displayConfiguration: DisplayConfiguration;
 };
 

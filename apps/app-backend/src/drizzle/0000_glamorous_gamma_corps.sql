@@ -144,10 +144,9 @@ CREATE TABLE "notification_channel" (
 );
 --> statement-breakpoint
 CREATE TABLE "notification_subscription_state" (
-	"script_slug" text NOT NULL,
 	"signal_schema_slug" text NOT NULL,
-	"is_active" boolean DEFAULT true NOT NULL,
 	"metadata" jsonb,
+	"is_active" boolean DEFAULT true NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
@@ -246,12 +245,12 @@ CREATE TABLE "session" (
 --> statement-breakpoint
 CREATE TABLE "signal" (
 	"id" text PRIMARY KEY NOT NULL,
+	"signal_schema_slug" text NOT NULL,
 	"origin" jsonb NOT NULL,
 	"properties" jsonb NOT NULL,
 	"occurred_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"actor_user_id" text,
-	"signal_schema_slug" text NOT NULL,
 	"subject_entity_id" text
 );
 --> statement-breakpoint
@@ -381,7 +380,7 @@ CREATE INDEX "integration_auto_disable_claim_integration_id_idx" ON "integration
 CREATE INDEX "notification_channel_user_id_created_at_idx" ON "notification_channel" USING btree ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "notification_channel_user_id_is_disabled_idx" ON "notification_channel" USING btree ("user_id","is_disabled");--> statement-breakpoint
 CREATE INDEX "notification_subscription_state_user_id_idx" ON "notification_subscription_state" USING btree ("user_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "notification_subscription_state_user_signal_script_unique" ON "notification_subscription_state" USING btree ("user_id","signal_schema_slug","script_slug");--> statement-breakpoint
+CREATE UNIQUE INDEX "notification_subscription_state_user_signal_unique" ON "notification_subscription_state" USING btree ("user_id","signal_schema_slug");--> statement-breakpoint
 CREATE INDEX "plugin_state_user_id_idx" ON "plugin_state" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "relationship_schema_slug_idx" ON "relationship" USING btree ("relationship_schema_slug");--> statement-breakpoint
 CREATE INDEX "relationship_source_entity_id_idx" ON "relationship" USING btree ("source_entity_id");--> statement-breakpoint

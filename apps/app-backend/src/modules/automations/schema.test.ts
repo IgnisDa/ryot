@@ -19,16 +19,14 @@ it("defines generated, user-owned notification subscription state", () => {
 	expect(config.foreignKeys[0]?.onDelete).toBe("cascade");
 });
 
-it("uniquely identifies notification state by user, signal schema, and script", () => {
+it("uniquely identifies notification state by user and signal schema", () => {
 	const config = getTableConfig(notificationSubscriptionState);
 	const uniqueIndexes = config.indexes.filter((entry) => entry.config.unique);
 	expect(uniqueIndexes).toHaveLength(1);
-	expect(uniqueIndexes[0]?.config.name).toBe(
-		"notification_subscription_state_user_signal_script_unique",
-	);
+	expect(uniqueIndexes[0]?.config.name).toBe("notification_subscription_state_user_signal_unique");
 	expect(
 		uniqueIndexes[0]?.config.columns.map((column) => ("name" in column ? column.name : null)),
-	).toEqual(["userId", "signalSchemaSlug", "scriptSlug"]);
+	).toEqual(["userId", "signalSchemaSlug"]);
 });
 
 it("stores one non-null durable rule attribution without a foreign key", () => {
