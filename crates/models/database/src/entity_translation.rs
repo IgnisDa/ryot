@@ -19,9 +19,9 @@ pub struct Model {
     pub metadata_id: Option<String>,
     pub variant: EntityTranslationVariant,
     pub metadata_group_id: Option<String>,
-    #[sea_orm(column_type = "Json")]
+    #[sea_orm(column_type = "JsonBinary")]
     pub show_extra_information: Option<ShowTranslationExtraInformation>,
-    #[sea_orm(column_type = "Json")]
+    #[sea_orm(column_type = "JsonBinary")]
     pub podcast_extra_information: Option<PodcastTranslationExtraInformation>,
 }
 
