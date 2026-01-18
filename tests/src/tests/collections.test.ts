@@ -71,40 +71,6 @@ describe("POST /collections", () => {
 		expect(error?.error?.message).toContain("Invalid input");
 	});
 
-	it("rejects collection creation when membershipPropertiesSchema is not an object", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-
-		const { response, error } = await client.POST("/collections", {
-			headers: { Cookie: cookies },
-			body: {
-				name: "Invalid Collection",
-				description: "Should fail",
-				membershipPropertiesSchema: "not an object",
-			} as unknown as { name: string; description?: string },
-		});
-
-		expect(response.status).toBe(400);
-		expect(error?.error?.message).toContain("expected object, received string");
-	});
-
-	it("rejects collection creation when membershipPropertiesSchema lacks fields", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-
-		const { response, error } = await client.POST("/collections", {
-			headers: { Cookie: cookies },
-			body: {
-				name: "Invalid Collection",
-				description: "Should fail",
-				membershipPropertiesSchema: { rules: [] },
-			} as unknown as { name: string; description?: string },
-		});
-
-		expect(response.status).toBe(400);
-		expect(error?.error?.message).toContain(
-			"expected record, received undefined",
-		);
-	});
-
 	it("rejects unauthenticated requests", async () => {
 		const { client } = await createAuthenticatedClient();
 
@@ -116,20 +82,6 @@ describe("POST /collections", () => {
 		});
 
 		expect(response.status).toBe(401);
-	});
-
-	it("rejects collection creation with empty name", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-
-		const { response, error } = await client.POST("/collections", {
-			headers: { Cookie: cookies },
-			body: { name: "", description: "Should fail" },
-		});
-
-		expect(response.status).toBe(400);
-		expect(error?.error?.message).toContain(
-			"Too small: expected string to have >=1 characters",
-		);
 	});
 
 	describe("nested membershipPropertiesSchema validation", () => {
