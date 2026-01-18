@@ -7,7 +7,7 @@ import {
 	stringUnknownRecordSchema,
 } from "~/lib/zod/base";
 
-export const sandboxRunJobName = "sandbox-run";
+export const sandboxRunJobName = "execute";
 
 export const sandboxRunJobData = z.object({
 	code: nonEmptyStringSchema,
