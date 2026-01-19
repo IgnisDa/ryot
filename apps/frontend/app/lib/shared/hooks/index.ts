@@ -192,27 +192,26 @@ export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 			metadataDetailsQuery.data?.source !== MediaSource.Custom,
 	});
 
-	const useMetadataTranslationValue = (props: {
-		enabled?: boolean;
-		variant: EntityTranslationVariant;
-		showExtraInformation?: ShowTranslationExtraInformationInput;
-		podcastExtraInformation?: PodcastTranslationExtraInformationInput;
-	}) =>
-		useTranslationValue({
-			entityId: metadataId,
-			variant: props.variant,
-			entityLot: EntityLot.Metadata,
-			enabled: props.enabled ?? enabled,
-			mediaSource: metadataDetailsQuery.data?.source,
-			showExtraInformation: props.showExtraInformation,
-			podcastExtraInformation: props.podcastExtraInformation,
-		});
+	return [metadataDetailsQuery, isPartialStatusActive] as const;
+};
 
-	return [
-		metadataDetailsQuery,
-		isPartialStatusActive,
-		useMetadataTranslationValue,
-	] as const;
+export const useMetadataTranslationValue = (props: {
+	metadataId?: string;
+	enabled?: boolean;
+	variant: EntityTranslationVariant;
+	showExtraInformation?: ShowTranslationExtraInformationInput;
+	podcastExtraInformation?: PodcastTranslationExtraInformationInput;
+}) => {
+	const [metadataDetailsQuery] = useMetadataDetails(props.metadataId, false);
+	return useTranslationValue({
+		entityId: props.metadataId,
+		variant: props.variant,
+		entityLot: EntityLot.Metadata,
+		enabled: props.enabled,
+		mediaSource: metadataDetailsQuery.data?.source,
+		showExtraInformation: props.showExtraInformation,
+		podcastExtraInformation: props.podcastExtraInformation,
+	});
 };
 
 export const usePersonDetails = (personId?: string, enabled?: boolean) => {
@@ -229,23 +228,26 @@ export const usePersonDetails = (personId?: string, enabled?: boolean) => {
 			query.data?.details.source !== MediaSource.Custom,
 	});
 
-	const usePersonTranslationValue = (props: {
-		enabled?: boolean;
-		variant: EntityTranslationVariant;
-		showExtraInformation?: ShowTranslationExtraInformationInput;
-		podcastExtraInformation?: PodcastTranslationExtraInformationInput;
-	}) =>
-		useTranslationValue({
-			entityId: personId,
-			variant: props.variant,
-			entityLot: EntityLot.Person,
-			enabled: props.enabled ?? enabled,
-			mediaSource: query.data?.details.source,
-			showExtraInformation: props.showExtraInformation,
-			podcastExtraInformation: props.podcastExtraInformation,
-		});
+	return [query, isPartialStatusActive] as const;
+};
 
-	return [query, isPartialStatusActive, usePersonTranslationValue] as const;
+export const usePersonTranslationValue = (props: {
+	personId?: string;
+	enabled?: boolean;
+	variant: EntityTranslationVariant;
+	showExtraInformation?: ShowTranslationExtraInformationInput;
+	podcastExtraInformation?: PodcastTranslationExtraInformationInput;
+}) => {
+	const [query] = usePersonDetails(props.personId, false);
+	return useTranslationValue({
+		entityId: props.personId,
+		variant: props.variant,
+		entityLot: EntityLot.Person,
+		enabled: props.enabled,
+		mediaSource: query.data?.details.source,
+		showExtraInformation: props.showExtraInformation,
+		podcastExtraInformation: props.podcastExtraInformation,
+	});
 };
 
 export const useMetadataGroupDetails = (
@@ -271,27 +273,26 @@ export const useMetadataGroupDetails = (
 			query.data?.details.source !== MediaSource.Custom,
 	});
 
-	const useMetadataGroupTranslationValue = (props: {
-		enabled?: boolean;
-		variant: EntityTranslationVariant;
-		showExtraInformation?: ShowTranslationExtraInformationInput;
-		podcastExtraInformation?: PodcastTranslationExtraInformationInput;
-	}) =>
-		useTranslationValue({
-			variant: props.variant,
-			entityId: metadataGroupId,
-			enabled: props.enabled ?? enabled,
-			entityLot: EntityLot.MetadataGroup,
-			mediaSource: query.data?.details.source,
-			showExtraInformation: props.showExtraInformation,
-			podcastExtraInformation: props.podcastExtraInformation,
-		});
+	return [query, isPartialStatusActive] as const;
+};
 
-	return [
-		query,
-		isPartialStatusActive,
-		useMetadataGroupTranslationValue,
-	] as const;
+export const useMetadataGroupTranslationValue = (props: {
+	metadataGroupId?: string;
+	enabled?: boolean;
+	variant: EntityTranslationVariant;
+	showExtraInformation?: ShowTranslationExtraInformationInput;
+	podcastExtraInformation?: PodcastTranslationExtraInformationInput;
+}) => {
+	const [query] = useMetadataGroupDetails(props.metadataGroupId, false);
+	return useTranslationValue({
+		variant: props.variant,
+		entityId: props.metadataGroupId,
+		enabled: props.enabled,
+		entityLot: EntityLot.MetadataGroup,
+		mediaSource: query.data?.details.source,
+		showExtraInformation: props.showExtraInformation,
+		podcastExtraInformation: props.podcastExtraInformation,
+	});
 };
 
 export const useUserMetadataGroupDetails = (
