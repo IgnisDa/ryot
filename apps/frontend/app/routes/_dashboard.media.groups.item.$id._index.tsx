@@ -39,6 +39,7 @@ import {
 } from "~/components/media/menu-items";
 import {
 	useMetadataGroupDetails,
+	useMetadataGroupTranslationValue,
 	useUserMetadataGroupDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -71,24 +72,24 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
-	const [
-		metadataGroupDetailsData,
-		isMetadataGroupPartialStatusActive,
-		useMetadataGroupTranslationValue,
-	] = useMetadataGroupDetails(loaderData.metadataGroupId);
+	const [metadataGroupDetailsData, isMetadataGroupPartialStatusActive] =
+		useMetadataGroupDetails(loaderData.metadataGroupId);
 	const userMetadataGroupDetails = useUserMetadataGroupDetails(
 		loaderData.metadataGroupId,
 	);
 
 	const metadataGroupTitleTranslation = useMetadataGroupTranslationValue({
+		metadataGroupId: loaderData.metadataGroupId,
 		variant: EntityTranslationVariant.Title,
 	});
 
 	const metadataGroupDescriptionTranslation = useMetadataGroupTranslationValue({
+		metadataGroupId: loaderData.metadataGroupId,
 		variant: EntityTranslationVariant.Description,
 	});
 
 	const metadataGroupImageTranslation = useMetadataGroupTranslationValue({
+		metadataGroupId: loaderData.metadataGroupId,
 		variant: EntityTranslationVariant.Image,
 	});
 

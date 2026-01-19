@@ -101,6 +101,8 @@ import {
 	useDeployBulkMetadataProgressUpdateMutation,
 	useMetadataDetails,
 	useMetadataGroupDetails,
+	useMetadataGroupTranslationValue,
+	useMetadataTranslationValue,
 	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -231,11 +233,9 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
 
-	const [
-		metadataDetails,
-		isMetadataPartialStatusActive,
-		useMetadataTranslationValue,
-	] = useMetadataDetails(loaderData.metadataId);
+	const [metadataDetails, isMetadataPartialStatusActive] = useMetadataDetails(
+		loaderData.metadataId,
+	);
 	const userMetadataDetails = useUserMetadataDetails(loaderData.metadataId);
 	const averageRatingValue = convertRatingToUserScale(
 		userMetadataDetails.data?.averageRating,
@@ -283,14 +283,17 @@ export default function Page() {
 	);
 
 	const metadataTitleTranslation = useMetadataTranslationValue({
+		metadataId: loaderData.metadataId,
 		variant: EntityTranslationVariant.Title,
 	});
 
 	const metadataDescriptionTranslation = useMetadataTranslationValue({
+		metadataId: loaderData.metadataId,
 		variant: EntityTranslationVariant.Description,
 	});
 
 	const metadataImageTranslation = useMetadataTranslationValue({
+		metadataId: loaderData.metadataId,
 		variant: EntityTranslationVariant.Image,
 	});
 
@@ -301,14 +304,13 @@ export default function Page() {
 	const inProgress = userMetadataDetails.data?.inProgress;
 	const firstGroupAssociated = metadataDetails.data?.groups.at(0);
 	const videos = [...(metadataDetails.data?.assets.remoteVideos || [])];
-	const [{ data: metadataGroupDetails }, , useMetadataGroupTranslationValue] =
-		useMetadataGroupDetails(
-			firstGroupAssociated?.id,
-			userPreferences.featuresEnabled.media.groups &&
-				!!firstGroupAssociated?.id,
-		);
+	const [{ data: metadataGroupDetails }] = useMetadataGroupDetails(
+		firstGroupAssociated?.id,
+		userPreferences.featuresEnabled.media.groups && !!firstGroupAssociated?.id,
+	);
 
 	const metadataGroupTitleTranslation = useMetadataGroupTranslationValue({
+		metadataGroupId: firstGroupAssociated?.id,
 		variant: EntityTranslationVariant.Title,
 	});
 	const additionalMetadataDetails = [

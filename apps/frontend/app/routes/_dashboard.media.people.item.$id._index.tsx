@@ -45,7 +45,9 @@ import {
 } from "~/components/media/menu-items";
 import {
 	useMetadataGroupDetails,
+	useMetadataGroupTranslationValue,
 	usePersonDetails,
+	usePersonTranslationValue,
 	useUserPersonDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -78,22 +80,23 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
-	const [
-		personDetails,
-		isPersonPartialStatusActive,
-		usePersonTranslationValue,
-	] = usePersonDetails(loaderData.personId);
+	const [personDetails, isPersonPartialStatusActive] = usePersonDetails(
+		loaderData.personId,
+	);
 	const userPersonDetails = useUserPersonDetails(loaderData.personId);
 
 	const personTitleTranslation = usePersonTranslationValue({
+		personId: loaderData.personId,
 		variant: EntityTranslationVariant.Title,
 	});
 
 	const personDescriptionTranslation = usePersonTranslationValue({
+		personId: loaderData.personId,
 		variant: EntityTranslationVariant.Description,
 	});
 
 	const personImageTranslation = usePersonTranslationValue({
+		personId: loaderData.personId,
 		variant: EntityTranslationVariant.Image,
 	});
 
@@ -397,17 +400,16 @@ const MetadataDisplay = (props: {
 };
 
 const MetadataGroupDisplay = (props: { metadataGroupId: string }) => {
-	const [
-		{ data: metadataGroupDetails },
-		isMetadataGroupPartialStatusActive,
-		useMetadataGroupTranslationValue,
-	] = useMetadataGroupDetails(props.metadataGroupId);
+	const [{ data: metadataGroupDetails }, isMetadataGroupPartialStatusActive] =
+		useMetadataGroupDetails(props.metadataGroupId);
 
 	const metadataGroupTitleTranslation = useMetadataGroupTranslationValue({
+		metadataGroupId: props.metadataGroupId,
 		variant: EntityTranslationVariant.Title,
 	});
 
 	const metadataGroupImageTranslation = useMetadataGroupTranslationValue({
+		metadataGroupId: props.metadataGroupId,
 		variant: EntityTranslationVariant.Image,
 	});
 
