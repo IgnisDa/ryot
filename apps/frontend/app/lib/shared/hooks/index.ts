@@ -65,11 +65,7 @@ import {
 } from "~/lib/state/fitness";
 import type { FitnessAction } from "~/lib/types";
 import type { loader as dashboardLoader } from "~/routes/_dashboard";
-import {
-	createDeployMediaEntityJob,
-	useEntityUpdateMonitor,
-	useTranslationValue,
-} from "./polling";
+import { useEntityDetailsPolling, useTranslationValue } from "./polling";
 
 export const useGetMantineColors = () => {
 	const theme = useMantineTheme();
@@ -176,20 +172,20 @@ export const useUserWorkoutTemplateDetails = (
 };
 
 export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
+	const { isPartialStatusActive, refetchInterval } = useEntityDetailsPolling({
+		entityId: metadataId,
+		entityLot: EntityLot.Metadata,
+		needsRefetch: enabled !== false,
+	});
+
 	const metadataDetailsQuery = useQuery({
 		...getMetadataDetailsQuery(metadataId),
 		enabled,
-	});
-
-	const { isPartialStatusActive } = useEntityUpdateMonitor({
-		entityId: metadataId,
-		entityLot: EntityLot.Metadata,
-		onUpdate: () => metadataDetailsQuery.refetch(),
-		deployJob: createDeployMediaEntityJob(metadataId, EntityLot.Metadata),
-		needsRefetch:
-			enabled !== false &&
-			metadataDetailsQuery.data?.isPartial &&
-			metadataDetailsQuery.data?.source !== MediaSource.Custom,
+		refetchInterval: (query) => {
+			const data = query.state.data;
+			if (!data?.isPartial || data?.source === MediaSource.Custom) return false;
+			return refetchInterval();
+		},
 	});
 
 	const useMetadataTranslationValue = (props: {
@@ -216,17 +212,24 @@ export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 };
 
 export const usePersonDetails = (personId?: string, enabled?: boolean) => {
-	const query = useQuery({ ...getPersonDetailsQuery(personId), enabled });
-
-	const { isPartialStatusActive } = useEntityUpdateMonitor({
+	const { isPartialStatusActive, refetchInterval } = useEntityDetailsPolling({
 		entityId: personId,
 		entityLot: EntityLot.Person,
-		onUpdate: () => query.refetch(),
-		deployJob: createDeployMediaEntityJob(personId, EntityLot.Person),
-		needsRefetch:
-			enabled !== false &&
-			query.data?.details.isPartial &&
-			query.data?.details.source !== MediaSource.Custom,
+		needsRefetch: enabled !== false,
+	});
+
+	const query = useQuery({
+		...getPersonDetailsQuery(personId),
+		enabled,
+		refetchInterval: (q) => {
+			const data = q.state.data;
+			if (
+				!data?.details.isPartial ||
+				data?.details.source === MediaSource.Custom
+			)
+				return false;
+			return refetchInterval();
+		},
 	});
 
 	const usePersonTranslationValue = (props: {
@@ -252,23 +255,24 @@ export const useMetadataGroupDetails = (
 	metadataGroupId?: string,
 	enabled?: boolean,
 ) => {
+	const { isPartialStatusActive, refetchInterval } = useEntityDetailsPolling({
+		entityId: metadataGroupId,
+		entityLot: EntityLot.MetadataGroup,
+		needsRefetch: enabled !== false,
+	});
+
 	const query = useQuery({
 		...getMetadataGroupDetailsQuery(metadataGroupId),
 		enabled,
-	});
-
-	const { isPartialStatusActive } = useEntityUpdateMonitor({
-		entityId: metadataGroupId,
-		onUpdate: () => query.refetch(),
-		entityLot: EntityLot.MetadataGroup,
-		deployJob: createDeployMediaEntityJob(
-			metadataGroupId,
-			EntityLot.MetadataGroup,
-		),
-		needsRefetch:
-			enabled !== false &&
-			query.data?.details.isPartial &&
-			query.data?.details.source !== MediaSource.Custom,
+		refetchInterval: (q) => {
+			const data = q.state.data;
+			if (
+				!data?.details.isPartial ||
+				data?.details.source === MediaSource.Custom
+			)
+				return false;
+			return refetchInterval();
+		},
 	});
 
 	const useMetadataGroupTranslationValue = (props: {
