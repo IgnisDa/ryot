@@ -65,7 +65,15 @@ import {
 } from "~/lib/state/fitness";
 import type { FitnessAction } from "~/lib/types";
 import type { loader as dashboardLoader } from "~/routes/_dashboard";
-import { useEntityDetailsPolling, useTranslationValue } from "./polling";
+import {
+	createDeployMediaEntityJob,
+	createJobKey,
+	MAX_POLLING_ATTEMPTS,
+	POLLING_INTERVAL,
+	useDeployJobOnce,
+	useRefreshOnPollingEnd,
+	useTranslationValue,
+} from "./polling";
 
 export const useGetMantineColors = () => {
 	const theme = useMantineTheme();
@@ -172,21 +180,41 @@ export const useUserWorkoutTemplateDetails = (
 };
 
 export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
-	const { isPartialStatusActive, refetchInterval } = useEntityDetailsPolling({
-		entityId: metadataId,
-		entityLot: EntityLot.Metadata,
-		needsRefetch: enabled !== false,
-	});
+	const attemptCountRef = useRef(0);
 
 	const metadataDetailsQuery = useQuery({
 		...getMetadataDetailsQuery(metadataId),
 		enabled,
 		refetchInterval: (query) => {
 			const data = query.state.data;
-			if (!data?.isPartial || data?.source === MediaSource.Custom) return false;
-			return refetchInterval();
+			const shouldPoll = data?.isPartial && data?.source !== MediaSource.Custom;
+			if (!shouldPoll) {
+				attemptCountRef.current = 0;
+				return false;
+			}
+			if (attemptCountRef.current >= MAX_POLLING_ATTEMPTS) {
+				if (metadataId) refreshEntityDetails(metadataId);
+				return false;
+			}
+			attemptCountRef.current += 1;
+			return POLLING_INTERVAL;
 		},
 	});
+
+	const isPartialStatusActive = Boolean(
+		metadataDetailsQuery.data?.isPartial &&
+			metadataDetailsQuery.data?.source !== MediaSource.Custom,
+	);
+
+	const jobKey = createJobKey(metadataId || "", EntityLot.Metadata);
+	useDeployJobOnce(
+		isPartialStatusActive,
+		metadataId,
+		jobKey,
+		createDeployMediaEntityJob(metadataId, EntityLot.Metadata),
+	);
+
+	useRefreshOnPollingEnd(false, isPartialStatusActive, metadataId);
 
 	const useMetadataTranslationValue = (props: {
 		enabled?: boolean;
@@ -212,25 +240,42 @@ export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 };
 
 export const usePersonDetails = (personId?: string, enabled?: boolean) => {
-	const { isPartialStatusActive, refetchInterval } = useEntityDetailsPolling({
-		entityId: personId,
-		entityLot: EntityLot.Person,
-		needsRefetch: enabled !== false,
-	});
+	const attemptCountRef = useRef(0);
 
 	const query = useQuery({
 		...getPersonDetailsQuery(personId),
 		enabled,
 		refetchInterval: (q) => {
 			const data = q.state.data;
-			if (
-				!data?.details.isPartial ||
-				data?.details.source === MediaSource.Custom
-			)
+			const shouldPoll =
+				data?.details.isPartial && data?.details.source !== MediaSource.Custom;
+			if (!shouldPoll) {
+				attemptCountRef.current = 0;
 				return false;
-			return refetchInterval();
+			}
+			if (attemptCountRef.current >= MAX_POLLING_ATTEMPTS) {
+				if (personId) refreshEntityDetails(personId);
+				return false;
+			}
+			attemptCountRef.current += 1;
+			return POLLING_INTERVAL;
 		},
 	});
+
+	const isPartialStatusActive = Boolean(
+		query.data?.details.isPartial &&
+			query.data?.details.source !== MediaSource.Custom,
+	);
+
+	const jobKey = createJobKey(personId || "", EntityLot.Person);
+	useDeployJobOnce(
+		isPartialStatusActive,
+		personId,
+		jobKey,
+		createDeployMediaEntityJob(personId, EntityLot.Person),
+	);
+
+	useRefreshOnPollingEnd(false, isPartialStatusActive, personId);
 
 	const usePersonTranslationValue = (props: {
 		enabled?: boolean;
@@ -255,25 +300,42 @@ export const useMetadataGroupDetails = (
 	metadataGroupId?: string,
 	enabled?: boolean,
 ) => {
-	const { isPartialStatusActive, refetchInterval } = useEntityDetailsPolling({
-		entityId: metadataGroupId,
-		entityLot: EntityLot.MetadataGroup,
-		needsRefetch: enabled !== false,
-	});
+	const attemptCountRef = useRef(0);
 
 	const query = useQuery({
 		...getMetadataGroupDetailsQuery(metadataGroupId),
 		enabled,
 		refetchInterval: (q) => {
 			const data = q.state.data;
-			if (
-				!data?.details.isPartial ||
-				data?.details.source === MediaSource.Custom
-			)
+			const shouldPoll =
+				data?.details.isPartial && data?.details.source !== MediaSource.Custom;
+			if (!shouldPoll) {
+				attemptCountRef.current = 0;
 				return false;
-			return refetchInterval();
+			}
+			if (attemptCountRef.current >= MAX_POLLING_ATTEMPTS) {
+				if (metadataGroupId) refreshEntityDetails(metadataGroupId);
+				return false;
+			}
+			attemptCountRef.current += 1;
+			return POLLING_INTERVAL;
 		},
 	});
+
+	const isPartialStatusActive = Boolean(
+		query.data?.details.isPartial &&
+			query.data?.details.source !== MediaSource.Custom,
+	);
+
+	const jobKey = createJobKey(metadataGroupId || "", EntityLot.MetadataGroup);
+	useDeployJobOnce(
+		isPartialStatusActive,
+		metadataGroupId,
+		jobKey,
+		createDeployMediaEntityJob(metadataGroupId, EntityLot.MetadataGroup),
+	);
+
+	useRefreshOnPollingEnd(false, isPartialStatusActive, metadataGroupId);
 
 	const useMetadataGroupTranslationValue = (props: {
 		enabled?: boolean;
