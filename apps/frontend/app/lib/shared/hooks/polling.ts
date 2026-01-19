@@ -10,43 +10,12 @@ import {
 	type ShowTranslationExtraInformationInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	clientGqlService,
 	queryFactory,
 	refreshEntityDetails,
 } from "~/lib/shared/react-query";
-
-const POLLING_INTERVAL = 1000;
-const MAX_POLLING_ATTEMPTS = 30;
-
-const deployedJobs = new Set<string>();
-
-const createJobKey = (entityId: string, entityLot: EntityLot, extra?: string) =>
-	`${entityLot}:${entityId}${extra ? `:${extra}` : ""}`;
-
-const useDeployJobOnce = (
-	shouldDeploy: boolean,
-	entityId: string | undefined,
-	jobKey: string,
-	deployFn: () => void,
-) => {
-	const deployedForEntityRef = useRef<string | null>(null);
-
-	useEffect(() => {
-		if (!shouldDeploy || !entityId) {
-			deployedForEntityRef.current = null;
-			return;
-		}
-
-		if (deployedJobs.has(jobKey) || deployedForEntityRef.current === entityId)
-			return;
-
-		deployedJobs.add(jobKey);
-		deployedForEntityRef.current = entityId;
-		deployFn();
-	}, [shouldDeploy, entityId, jobKey, deployFn]);
-};
 
 export const createDeployMediaEntityJob =
 	(entityId: string | undefined, entityLot: EntityLot) => () => {
@@ -56,51 +25,119 @@ export const createDeployMediaEntityJob =
 			});
 	};
 
-export const useEntityDetailsPolling = (props: {
+export const useEntityUpdateMonitor = (props: {
 	entityId?: string;
 	entityLot: EntityLot;
+	onUpdate: () => unknown;
 	needsRefetch?: boolean | null;
+	deployJob: () => void | Promise<void>;
 }) => {
+	const { entityId, entityLot, onUpdate, needsRefetch } = props;
+
 	const attemptCountRef = useRef(0);
-	const wasPollingRef = useRef(false);
+	const isPollingRef = useRef(false);
+	const [isPartialStatusActive, setIsPartialStatusActive] = useState(false);
+	const jobDeployedForEntityRef = useRef<string | null>(null);
 	const pollingEntityIdRef = useRef<string | null>(null);
-
-	const shouldPoll = Boolean(props.entityId && props.needsRefetch);
-	const jobKey = createJobKey(props.entityId || "", props.entityLot);
-
-	useDeployJobOnce(
-		shouldPoll,
-		props.entityId,
-		jobKey,
-		createDeployMediaEntityJob(props.entityId, props.entityLot),
+	const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+		undefined,
 	);
 
+	const scheduleNextPoll = useCallback(() => {
+		if (!isPollingRef.current) return;
+
+		if (attemptCountRef.current >= 30) {
+			if (pollingEntityIdRef.current)
+				refreshEntityDetails(pollingEntityIdRef.current);
+			onUpdate();
+			isPollingRef.current = false;
+			setIsPartialStatusActive(false);
+			return;
+		}
+
+		timeoutRef.current = setTimeout(async () => {
+			if (!isPollingRef.current) return;
+			await onUpdate();
+			attemptCountRef.current += 1;
+
+			scheduleNextPoll();
+		}, 1000);
+	}, [onUpdate]);
+
+	const resetPollingState = useCallback(() => {
+		const wasPolling = isPollingRef.current;
+		const polledEntityId = pollingEntityIdRef.current;
+
+		if (timeoutRef.current) {
+			clearTimeout(timeoutRef.current);
+			timeoutRef.current = undefined;
+		}
+		attemptCountRef.current = 0;
+		isPollingRef.current = false;
+		pollingEntityIdRef.current = null;
+		setIsPartialStatusActive(false);
+
+		if (wasPolling && polledEntityId) {
+			refreshEntityDetails(polledEntityId);
+		}
+	}, []);
+
 	useEffect(() => {
-		if (wasPollingRef.current && !shouldPoll) {
-			const entityToRefresh = pollingEntityIdRef.current;
-			if (entityToRefresh) refreshEntityDetails(entityToRefresh);
-			attemptCountRef.current = 0;
+		const jobDeployedForEntity = jobDeployedForEntityRef.current;
+		const shouldPoll = Boolean(entityId && needsRefetch);
+		const isJobForDifferentEntity = Boolean(
+			jobDeployedForEntity && jobDeployedForEntity !== entityId,
+		);
+
+		if (isJobForDifferentEntity || !entityId) {
+			jobDeployedForEntityRef.current = null;
 			pollingEntityIdRef.current = null;
 		}
-		if (shouldPoll && props.entityId)
-			pollingEntityIdRef.current = props.entityId;
-		wasPollingRef.current = shouldPoll;
-	}, [shouldPoll, props.entityId]);
 
-	const refetchInterval = (): number | false => {
 		if (!shouldPoll) {
-			attemptCountRef.current = 0;
-			return false;
+			if (isPollingRef.current) {
+				const entityToRefresh = jobDeployedForEntity || entityId;
+				if (entityToRefresh) refreshEntityDetails(entityToRefresh);
+				resetPollingState();
+			}
+			return;
 		}
-		if (attemptCountRef.current >= MAX_POLLING_ATTEMPTS) {
-			if (props.entityId) refreshEntityDetails(props.entityId);
-			return false;
-		}
-		attemptCountRef.current += 1;
-		return POLLING_INTERVAL;
-	};
 
-	return { isPartialStatusActive: shouldPoll, refetchInterval };
+		if (isJobForDifferentEntity) {
+			if (jobDeployedForEntity) refreshEntityDetails(jobDeployedForEntity);
+			resetPollingState();
+		}
+
+		if (!isPollingRef.current) {
+			if (jobDeployedForEntityRef.current !== entityId && entityId) {
+				props.deployJob();
+				jobDeployedForEntityRef.current = entityId;
+			}
+
+			if (timeoutRef.current) {
+				clearTimeout(timeoutRef.current);
+				timeoutRef.current = undefined;
+			}
+
+			attemptCountRef.current = 0;
+			isPollingRef.current = true;
+			pollingEntityIdRef.current = entityId ?? null;
+			setIsPartialStatusActive(true);
+			scheduleNextPoll();
+		}
+
+		return resetPollingState;
+	}, [
+		onUpdate,
+		entityId,
+		entityLot,
+		needsRefetch,
+		props.deployJob,
+		scheduleNextPoll,
+		resetPollingState,
+	]);
+
+	return { isPartialStatusActive };
 };
 
 export const useTranslationValue = (props: {
@@ -135,15 +172,6 @@ export const useTranslationValue = (props: {
 					})
 					.then((data) => data.mediaTranslation);
 		},
-		refetchInterval: (query) => {
-			const result = query.state.data;
-			const isPending = result?.__typename === "MediaTranslationPending";
-			const shouldPoll =
-				props.enabled !== false &&
-				isPending &&
-				props.mediaSource !== MediaSource.Custom;
-			return shouldPoll ? POLLING_INTERVAL : false;
-		},
 	});
 
 	const result = translationQuery.data;
@@ -152,20 +180,16 @@ export const useTranslationValue = (props: {
 	const isNotFetched =
 		isPending && result.status === MediaTranslationPendingStatus.NotFetched;
 
-	const jobKey = createJobKey(
-		props.entityId || "",
-		props.entityLot,
-		`translation:${props.variant}`,
-	);
-
-	useDeployJobOnce(
-		props.enabled !== false &&
-			isNotFetched &&
+	useEntityUpdateMonitor({
+		entityId: props.entityId,
+		entityLot: props.entityLot,
+		onUpdate: () => translationQuery.refetch(),
+		needsRefetch:
+			props.enabled !== false &&
+			isPending &&
 			props.mediaSource !== MediaSource.Custom,
-		props.entityId,
-		jobKey,
-		() => {
-			if (props.entityId)
+		deployJob: () => {
+			if (props.entityId && isNotFetched)
 				clientGqlService.request(DeployUpdateMediaTranslationsJobDocument, {
 					input: {
 						variant: props.variant,
@@ -176,7 +200,7 @@ export const useTranslationValue = (props: {
 					},
 				});
 		},
-	);
+	});
 
 	return hasTranslationValue ? result.value : null;
 };
