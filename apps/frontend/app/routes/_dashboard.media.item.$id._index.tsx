@@ -266,21 +266,6 @@ export default function Page() {
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const [openedShowSeason, setOpenedShowSeason] = useState<number>();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
-	const deployBulkMetadataProgressUpdate =
-		useDeployBulkMetadataProgressUpdateMutation(metadataDetails.data?.title);
-
-	const changeProgress = useCallback(
-		(change: MetadataProgressUpdateChange) =>
-			deployBulkMetadataProgressUpdate.mutate([
-				{ change, metadataId: loaderData.metadataId },
-			]),
-		[deployBulkMetadataProgressUpdate.mutate, loaderData.metadataId],
-	);
-
-	const changeProgressState = useCallback(
-		(state: SeenState) => changeProgress({ changeLatestState: state }),
-		[changeProgress],
-	);
 
 	const metadataTitleTranslation = useMetadataTranslationValue({
 		metadataId: loaderData.metadataId,
@@ -308,10 +293,25 @@ export default function Page() {
 		firstGroupAssociated?.id,
 		userPreferences.featuresEnabled.media.groups && !!firstGroupAssociated?.id,
 	);
+	const deployBulkMetadataProgressUpdate =
+		useDeployBulkMetadataProgressUpdateMutation(title);
+
+	const changeProgress = useCallback(
+		(change: MetadataProgressUpdateChange) =>
+			deployBulkMetadataProgressUpdate.mutate([
+				{ change, metadataId: loaderData.metadataId },
+			]),
+		[deployBulkMetadataProgressUpdate.mutate, loaderData.metadataId],
+	);
+
+	const changeProgressState = useCallback(
+		(state: SeenState) => changeProgress({ changeLatestState: state }),
+		[changeProgress],
+	);
 
 	const metadataGroupTitleTranslation = useMetadataGroupTranslationValue({
-		metadataGroupId: firstGroupAssociated?.id,
 		variant: EntityTranslationVariant.Title,
+		metadataGroupId: firstGroupAssociated?.id,
 	});
 	const additionalMetadataDetails = [
 		userPreferences.featuresEnabled.media.groups && firstGroupAssociated && (
@@ -867,12 +867,10 @@ export default function Page() {
 												w="100%"
 												onClick={() => {
 													setEntityToReview({
+														entityTitle: title,
 														entityLot: EntityLot.Metadata,
 														entityId: loaderData.metadataId,
 														metadataLot: metadataDetails.data.lot,
-														entityTitle:
-															metadataTitleTranslation ||
-															metadataDetails.data.title,
 														existingReview: {
 															showExtraInformation: {
 																episode:
@@ -1049,10 +1047,10 @@ export default function Page() {
 												<ReviewItemDisplay
 													key={r.id}
 													review={r}
+													title={title}
 													lot={metadataDetails.data.lot}
 													entityLot={EntityLot.Metadata}
 													entityId={loaderData.metadataId}
-													title={metadataDetails.data.title}
 												/>
 											)}
 										/>

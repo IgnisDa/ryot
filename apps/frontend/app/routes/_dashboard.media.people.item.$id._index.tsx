@@ -304,11 +304,9 @@ export default function Page() {
 										w="100%"
 										onClick={() => {
 											setEntityToReview({
+												entityTitle: title,
 												entityLot: EntityLot.Person,
 												entityId: loaderData.personId,
-												entityTitle:
-													personTitleTranslation ||
-													personDetails.data.details.name,
 											});
 										}}
 									>
@@ -366,9 +364,9 @@ export default function Page() {
 												<ReviewItemDisplay
 													review={r}
 													key={r.id}
+													title={title}
 													entityLot={EntityLot.Person}
 													entityId={loaderData.personId}
-													title={personDetails.data.details.name}
 												/>
 											))}
 										</Stack>
