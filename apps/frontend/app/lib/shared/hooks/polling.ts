@@ -17,18 +17,15 @@ import {
 	refreshEntityDetails,
 } from "~/lib/shared/react-query";
 
-export const POLLING_INTERVAL = 1000;
-export const MAX_POLLING_ATTEMPTS = 30;
+const POLLING_INTERVAL = 1000;
+const MAX_POLLING_ATTEMPTS = 30;
 
 const deployedJobs = new Set<string>();
 
-export const createJobKey = (
-	entityId: string,
-	entityLot: EntityLot,
-	extra?: string,
-) => `${entityLot}:${entityId}${extra ? `:${extra}` : ""}`;
+const createJobKey = (entityId: string, entityLot: EntityLot, extra?: string) =>
+	`${entityLot}:${entityId}${extra ? `:${extra}` : ""}`;
 
-export const useDeployJobOnce = (
+const useDeployJobOnce = (
 	shouldDeploy: boolean,
 	entityId: string | undefined,
 	jobKey: string,
@@ -59,23 +56,51 @@ export const createDeployMediaEntityJob =
 			});
 	};
 
-export const useRefreshOnPollingEnd = (
-	wasPolling: boolean,
-	isPolling: boolean,
-	entityId?: string,
-) => {
-	const wasPollingRef = useRef(wasPolling);
+export const useEntityDetailsPolling = (props: {
+	entityId?: string;
+	entityLot: EntityLot;
+	needsRefetch?: boolean | null;
+}) => {
+	const attemptCountRef = useRef(0);
+	const wasPollingRef = useRef(false);
 	const pollingEntityIdRef = useRef<string | null>(null);
 
+	const shouldPoll = Boolean(props.entityId && props.needsRefetch);
+	const jobKey = createJobKey(props.entityId || "", props.entityLot);
+
+	useDeployJobOnce(
+		shouldPoll,
+		props.entityId,
+		jobKey,
+		createDeployMediaEntityJob(props.entityId, props.entityLot),
+	);
+
 	useEffect(() => {
-		if (wasPollingRef.current && !isPolling) {
+		if (wasPollingRef.current && !shouldPoll) {
 			const entityToRefresh = pollingEntityIdRef.current;
 			if (entityToRefresh) refreshEntityDetails(entityToRefresh);
+			attemptCountRef.current = 0;
 			pollingEntityIdRef.current = null;
 		}
-		if (isPolling && entityId) pollingEntityIdRef.current = entityId;
-		wasPollingRef.current = isPolling;
-	}, [isPolling, entityId]);
+		if (shouldPoll && props.entityId)
+			pollingEntityIdRef.current = props.entityId;
+		wasPollingRef.current = shouldPoll;
+	}, [shouldPoll, props.entityId]);
+
+	const refetchInterval = (): number | false => {
+		if (!shouldPoll) {
+			attemptCountRef.current = 0;
+			return false;
+		}
+		if (attemptCountRef.current >= MAX_POLLING_ATTEMPTS) {
+			if (props.entityId) refreshEntityDetails(props.entityId);
+			return false;
+		}
+		attemptCountRef.current += 1;
+		return POLLING_INTERVAL;
+	};
+
+	return { isPartialStatusActive: shouldPoll, refetchInterval };
 };
 
 export const useTranslationValue = (props: {
