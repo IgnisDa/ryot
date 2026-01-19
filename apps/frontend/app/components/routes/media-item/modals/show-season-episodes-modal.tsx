@@ -1,5 +1,4 @@
 import { Drawer, Stack, Text } from "@mantine/core";
-import { EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber } from "@ryot/ts-utils";
 import { useMemo } from "react";
 import { Virtuoso } from "react-virtuoso";
@@ -15,27 +14,16 @@ export const DisplayShowSeasonEpisodesModal = (props: {
 	openedShowSeason: number | undefined;
 	setOpenedShowSeason: (v: number | undefined) => void;
 }) => {
-	const [{ data: metadataDetails }, , useMetadataTranslationValue] =
-		useMetadataDetails(props.metadataId);
+	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
 	const showSpecifics = metadataDetails?.showSpecifics;
 	const season = useMemo(() => {
 		return isNumber(props.openedShowSeason) && showSpecifics
 			? showSpecifics.seasons[props.openedShowSeason]
 			: undefined;
 	}, [props.openedShowSeason, showSpecifics]);
-	const showExtraInformation = useMemo(() => {
-		return season ? { season: season.seasonNumber } : undefined;
-	}, [season]);
-	const seasonTitleTranslation = useMetadataTranslationValue({
-		showExtraInformation,
-		enabled: Boolean(season),
-		variant: EntityTranslationVariant.Title,
-	});
 	const title = useMemo(() => {
-		return season
-			? getShowSeasonDisplayName(season, seasonTitleTranslation ?? season.name)
-			: "";
-	}, [season, seasonTitleTranslation]);
+		return season ? getShowSeasonDisplayName(season, season.name) : "";
+	}, [season]);
 
 	return (
 		<Drawer
