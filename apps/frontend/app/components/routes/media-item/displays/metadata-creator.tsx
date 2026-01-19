@@ -1,5 +1,5 @@
 import { useInViewport } from "@mantine/hooks";
-import { type MetadataCreator } from "@ryot/generated/graphql/backend/graphql";
+import type { MetadataCreator } from "@ryot/generated/graphql/backend/graphql";
 import { useMemo } from "react";
 import { $path } from "safe-routes";
 import { BaseEntityDisplay } from "~/components/media/base-display";
