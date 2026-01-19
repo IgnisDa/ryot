@@ -2,7 +2,10 @@ import { Box, Button } from "@mantine/core";
 import { EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
 import { sum } from "@ryot/ts-utils";
 import { useMemo } from "react";
-import { useMetadataDetails, useUserMetadataDetails } from "~/lib/shared/hooks";
+import {
+	useMetadataTranslationValue,
+	useUserMetadataDetails,
+} from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { Season } from "../types";
 import { DisplaySeasonOrEpisodeDetails } from "./season-episode-details";
@@ -17,9 +20,6 @@ export const DisplayShowSeason = (props: {
 	openSeasonModal: () => void;
 }) => {
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
-	const [, , useMetadataTranslationValue] = useMetadataDetails(
-		props.metadataId,
-	);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 	);
@@ -32,10 +32,12 @@ export const DisplayShowSeason = (props: {
 		[props.season.seasonNumber],
 	);
 	const seasonTitleTranslation = useMetadataTranslationValue({
+		metadataId: props.metadataId,
 		showExtraInformation,
 		variant: EntityTranslationVariant.Title,
 	});
 	const seasonDescriptionTranslation = useMetadataTranslationValue({
+		metadataId: props.metadataId,
 		showExtraInformation,
 		variant: EntityTranslationVariant.Description,
 	});

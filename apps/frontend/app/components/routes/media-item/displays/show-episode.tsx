@@ -1,7 +1,7 @@
 import { Box, Button } from "@mantine/core";
 import { EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
 import { useMemo } from "react";
-import { useMetadataDetails } from "~/lib/shared/hooks";
+import { useMetadataTranslationValue } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { Season, SeasonProgress } from "../types";
 import { DisplaySeasonOrEpisodeDetails } from "./season-episode-details";
@@ -15,9 +15,6 @@ export const DisplayShowEpisode = (props: {
 	episodeProgress?: SeasonProgress["episodes"][number];
 }) => {
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
-	const [, , useMetadataTranslationValue] = useMetadataDetails(
-		props.metadataId,
-	);
 	const numTimesEpisodeSeen = props.episodeProgress?.timesSeen || 0;
 	const showExtraInformation = useMemo(
 		() => ({
@@ -27,10 +24,12 @@ export const DisplayShowEpisode = (props: {
 		[props.seasonNumber, props.episode.episodeNumber],
 	);
 	const episodeTitleTranslation = useMetadataTranslationValue({
+		metadataId: props.metadataId,
 		showExtraInformation,
 		variant: EntityTranslationVariant.Title,
 	});
 	const episodeDescriptionTranslation = useMetadataTranslationValue({
+		metadataId: props.metadataId,
 		showExtraInformation,
 		variant: EntityTranslationVariant.Description,
 	});

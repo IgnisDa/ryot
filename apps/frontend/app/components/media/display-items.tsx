@@ -12,7 +12,10 @@ import { $path } from "safe-routes";
 import {
 	useMetadataDetails,
 	useMetadataGroupDetails,
+	useMetadataGroupTranslationValue,
+	useMetadataTranslationValue,
 	usePersonDetails,
+	usePersonTranslationValue,
 	useS3PresignedUrls,
 	useUserEntityRecentlyConsumed,
 	useUserMetadataDetails,
@@ -35,7 +38,6 @@ export const MetadataDisplayItem = (props: {
 	const [
 		{ data: metadataDetails, isLoading: isMetadataDetailsLoading },
 		isMetadataPartialStatusActive,
-		useMetadataTranslationValue,
 	] = useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
@@ -48,11 +50,13 @@ export const MetadataDisplayItem = (props: {
 	);
 
 	const metadataTitleTranslation = useMetadataTranslationValue({
+		metadataId: props.metadataId,
 		enabled: inViewport,
 		variant: EntityTranslationVariant.Title,
 	});
 
 	const metadataImageTranslation = useMetadataTranslationValue({
+		metadataId: props.metadataId,
 		enabled: inViewport,
 		variant: EntityTranslationVariant.Image,
 	});
@@ -144,7 +148,6 @@ export const MetadataGroupDisplayItem = (props: {
 	const [
 		{ data: metadataGroupDetails, isLoading: isMetadataGroupDetailsLoading },
 		isMetadataGroupPartialStatusActive,
-		useMetadataGroupTranslationValue,
 	] = useMetadataGroupDetails(props.metadataGroupId, inViewport);
 	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
 		props.metadataGroupId,
@@ -158,11 +161,13 @@ export const MetadataGroupDisplayItem = (props: {
 		);
 
 	const metadataGroupTitleTranslation = useMetadataGroupTranslationValue({
+		metadataGroupId: props.metadataGroupId,
 		enabled: inViewport,
 		variant: EntityTranslationVariant.Title,
 	});
 
 	const metadataGroupImageTranslation = useMetadataGroupTranslationValue({
+		metadataGroupId: props.metadataGroupId,
 		enabled: inViewport,
 		variant: EntityTranslationVariant.Image,
 	});
@@ -225,7 +230,6 @@ export const PersonDisplayItem = (props: {
 	const [
 		{ data: personDetails, isLoading: isPersonDetailsLoading },
 		isPersonPartialStatusActive,
-		usePersonTranslationValue,
 	] = usePersonDetails(props.personId, inViewport);
 	const { data: userPersonDetails } = useUserPersonDetails(
 		props.personId,
@@ -238,11 +242,13 @@ export const PersonDisplayItem = (props: {
 	);
 
 	const personTitleTranslation = usePersonTranslationValue({
+		personId: props.personId,
 		enabled: inViewport,
 		variant: EntityTranslationVariant.Title,
 	});
 
 	const personImageTranslation = usePersonTranslationValue({
+		personId: props.personId,
 		enabled: inViewport,
 		variant: EntityTranslationVariant.Image,
 	});

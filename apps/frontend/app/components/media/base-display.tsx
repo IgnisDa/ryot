@@ -7,6 +7,7 @@ import { $path } from "safe-routes";
 import { MEDIA_DETAILS_HEIGHT } from "~/lib/shared/constants";
 import {
 	useMetadataDetails,
+	useMetadataTranslationValue,
 	useS3PresignedUrls,
 	useUserMetadataDetails,
 } from "~/lib/shared/hooks";
@@ -63,22 +64,23 @@ export const PartialMetadataDisplay = (props: {
 	extraText?: string;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const [
-		{ data: metadataDetails },
-		isPartialStatusActive,
-		useMetadataTranslationValue,
-	] = useMetadataDetails(props.metadataId, inViewport);
+	const [{ data: metadataDetails }, isPartialStatusActive] = useMetadataDetails(
+		props.metadataId,
+		inViewport,
+	);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 		inViewport,
 	);
 
 	const metadataTitleTranslation = useMetadataTranslationValue({
+		metadataId: props.metadataId,
 		enabled: inViewport,
 		variant: EntityTranslationVariant.Title,
 	});
 
 	const metadataImageTranslation = useMetadataTranslationValue({
+		metadataId: props.metadataId,
 		enabled: inViewport,
 		variant: EntityTranslationVariant.Image,
 	});

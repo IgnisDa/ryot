@@ -4,7 +4,10 @@ import {
 	type PodcastEpisode,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMemo } from "react";
-import { useMetadataDetails, useUserMetadataDetails } from "~/lib/shared/hooks";
+import {
+	useMetadataTranslationValue,
+	useUserMetadataDetails,
+} from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import { DisplaySeasonOrEpisodeDetails } from "./season-episode-details";
 
@@ -14,9 +17,6 @@ export const DisplayPodcastEpisode = (props: {
 	episode: PodcastEpisode;
 }) => {
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
-	const [, , useMetadataTranslationValue] = useMetadataDetails(
-		props.metadataId,
-	);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 	);
@@ -27,10 +27,12 @@ export const DisplayPodcastEpisode = (props: {
 		[props.episode.number],
 	);
 	const episodeTitleTranslation = useMetadataTranslationValue({
+		metadataId: props.metadataId,
 		podcastExtraInformation,
 		variant: EntityTranslationVariant.Title,
 	});
 	const episodeDescriptionTranslation = useMetadataTranslationValue({
+		metadataId: props.metadataId,
 		podcastExtraInformation,
 		variant: EntityTranslationVariant.Description,
 	});
