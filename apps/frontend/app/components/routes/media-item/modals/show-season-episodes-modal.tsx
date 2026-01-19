@@ -4,10 +4,7 @@ import { useMemo } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { useMetadataDetails, useUserMetadataDetails } from "~/lib/shared/hooks";
 import { DisplayShowEpisode } from "../displays/show-episode";
-import type { Season } from "../types";
-
-const getShowSeasonDisplayName = (season: Season, title: string) =>
-	`${season.seasonNumber}. ${title}`;
+import { getShowSeasonDisplayName } from "../displays/show-season";
 
 export const DisplayShowSeasonEpisodesModal = (props: {
 	metadataId: string;

@@ -10,7 +10,7 @@ import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { Season } from "../types";
 import { DisplaySeasonOrEpisodeDetails } from "./season-episode-details";
 
-const getShowSeasonDisplayName = (season: Season, title: string) =>
+export const getShowSeasonDisplayName = (season: Season, title: string) =>
 	`${season.seasonNumber}. ${title}`;
 
 export const DisplayShowSeason = (props: {
