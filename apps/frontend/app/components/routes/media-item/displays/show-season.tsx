@@ -49,13 +49,13 @@ export const DisplayShowSeason = (props: {
 				displayIndicator={numTimesSeen}
 				numEpisodes={props.season.episodes.length}
 				onNameClick={() => props.openSeasonModal()}
-				overview={seasonDescriptionTranslation ?? props.season.overview}
 				endDate={props.season.episodes.at(-1)?.publishDate}
 				startDate={props.season.episodes.at(0)?.publishDate}
+				overview={seasonDescriptionTranslation || props.season.overview}
 				runtime={sum(props.season.episodes.map((e) => e.runtime || 0))}
 				name={getShowSeasonDisplayName(
 					props.season,
-					seasonTitleTranslation ?? props.season.name,
+					seasonTitleTranslation || props.season.name,
 				)}
 			>
 				{props.season.episodes.length > 0 ? (
