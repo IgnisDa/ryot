@@ -108,7 +108,7 @@ const createUpdateChange = (input: CreateUpdateChangeInput) => {
 
 const handleAnimeBulkUpdates = (context: BulkUpdateContext) => {
 	if (
-		context.metadataDetails.lot === MediaLot.Anime &&
+		context.metadata.lot === MediaLot.Anime &&
 		context.metadataToUpdate.animeAllEpisodesBefore &&
 		context.metadataToUpdate.animeEpisodeNumber
 	) {
@@ -137,7 +137,7 @@ const handleAnimeBulkUpdates = (context: BulkUpdateContext) => {
 
 const handleMangaBulkUpdates = (context: BulkUpdateContext) => {
 	if (
-		context.metadataDetails.lot === MediaLot.Manga &&
+		context.metadata.lot === MediaLot.Manga &&
 		context.metadataToUpdate.mangaAllChaptersOrVolumesBefore
 	) {
 		const latestHistoryItem = context.history[0];
@@ -211,14 +211,14 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext) => {
 
 const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 	if (
-		context.metadataDetails.lot === MediaLot.Show &&
+		context.metadata.lot === MediaLot.Show &&
 		(context.metadataToUpdate.showAllEpisodesBefore ||
 			context.metadataToUpdate.showSeasonEpisodesBefore) &&
 		context.metadataToUpdate.showSeasonNumber &&
 		context.metadataToUpdate.showEpisodeNumber
 	) {
 		const allEpisodesInShow =
-			context.metadataDetails.showSpecifics?.seasons.flatMap((s) =>
+			context.metadata.showSpecifics?.seasons.flatMap((s) =>
 				s.episodes.map((e) => ({ seasonNumber: s.seasonNumber, ...e })),
 			) || [];
 
@@ -285,13 +285,12 @@ const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 
 const handlePodcastBulkUpdates = (context: BulkUpdateContext) => {
 	if (
-		context.metadataDetails.lot === MediaLot.Podcast &&
+		context.metadata.lot === MediaLot.Podcast &&
 		context.metadataToUpdate.podcastAllEpisodesBefore &&
 		context.metadataToUpdate.podcastEpisodeNumber
 	) {
 		const latestHistoryItem = context.history[0];
-		const podcastSpecifics =
-			context.metadataDetails.podcastSpecifics?.episodes || [];
+		const podcastSpecifics = context.metadata.podcastSpecifics?.episodes || [];
 		const selectedEpisode = podcastSpecifics.find(
 			(e) => e.number === context.metadataToUpdate.podcastEpisodeNumber,
 		);

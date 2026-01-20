@@ -30,7 +30,7 @@ pub struct Model {
     pub name: String,
     pub lot: ExerciseLot,
     pub level: ExerciseLevel,
-    #[sea_orm(column_type = "Json")]
+    #[sea_orm(column_type = "JsonBinary")]
     pub assets: EntityAssets,
     pub source: ExerciseSource,
     pub instructions: Vec<String>,

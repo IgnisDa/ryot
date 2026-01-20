@@ -20,6 +20,7 @@ import {
 	DeleteSeenItemDocument,
 	DisassociateMetadataDocument,
 	EntityLot,
+	EntityTranslationVariant,
 	MediaLot,
 	MediaSource,
 	MergeMetadataDocument,
@@ -100,6 +101,8 @@ import {
 	useDeployBulkMetadataProgressUpdateMutation,
 	useMetadataDetails,
 	useMetadataGroupDetails,
+	useMetadataGroupTranslationValue,
+	useMetadataTranslationValue,
 	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -230,8 +233,9 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
 
-	const [metadataDetails, isMetadataPartialStatusActive, metadataTranslations] =
-		useMetadataDetails(loaderData.metadataId);
+	const [metadataDetails, isMetadataPartialStatusActive] = useMetadataDetails(
+		loaderData.metadataId,
+	);
 	const userMetadataDetails = useUserMetadataDetails(loaderData.metadataId);
 	const averageRatingValue = convertRatingToUserScale(
 		userMetadataDetails.data?.averageRating,
@@ -262,8 +266,35 @@ export default function Page() {
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const [openedShowSeason, setOpenedShowSeason] = useState<number>();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
+
+	const metadataTitleTranslation = useMetadataTranslationValue({
+		metadataId: loaderData.metadataId,
+		variant: EntityTranslationVariant.Title,
+	});
+
+	const metadataDescriptionTranslation = useMetadataTranslationValue({
+		metadataId: loaderData.metadataId,
+		variant: EntityTranslationVariant.Description,
+	});
+
+	const metadataImageTranslation = useMetadataTranslationValue({
+		metadataId: loaderData.metadataId,
+		variant: EntityTranslationVariant.Image,
+	});
+
+	const title = metadataTitleTranslation || metadataDetails.data?.title || "";
+	const description =
+		metadataDescriptionTranslation || metadataDetails.data?.description;
+	const nextEntry = userMetadataDetails.data?.nextEntry;
+	const inProgress = userMetadataDetails.data?.inProgress;
+	const firstGroupAssociated = metadataDetails.data?.groups.at(0);
+	const videos = [...(metadataDetails.data?.assets.remoteVideos || [])];
+	const [{ data: metadataGroupDetails }] = useMetadataGroupDetails(
+		firstGroupAssociated?.id,
+		userPreferences.featuresEnabled.media.groups && !!firstGroupAssociated?.id,
+	);
 	const deployBulkMetadataProgressUpdate =
-		useDeployBulkMetadataProgressUpdateMutation(metadataDetails.data?.title);
+		useDeployBulkMetadataProgressUpdateMutation(title);
 
 	const changeProgress = useCallback(
 		(change: MetadataProgressUpdateChange) =>
@@ -278,20 +309,10 @@ export default function Page() {
 		[changeProgress],
 	);
 
-	const title =
-		metadataTranslations?.title || metadataDetails.data?.title || "";
-	const description =
-		metadataTranslations?.description || metadataDetails.data?.description;
-	const nextEntry = userMetadataDetails.data?.nextEntry;
-	const inProgress = userMetadataDetails.data?.inProgress;
-	const firstGroupAssociated = metadataDetails.data?.groups.at(0);
-	const videos = [...(metadataDetails.data?.assets.remoteVideos || [])];
-	const [{ data: metadataGroupDetails }, _, metadataGroupTranslations] =
-		useMetadataGroupDetails(
-			firstGroupAssociated?.id,
-			userPreferences.featuresEnabled.media.groups &&
-				!!firstGroupAssociated?.id,
-		);
+	const metadataGroupTitleTranslation = useMetadataGroupTranslationValue({
+		variant: EntityTranslationVariant.Title,
+		metadataGroupId: firstGroupAssociated?.id,
+	});
 	const additionalMetadataDetails = [
 		userPreferences.featuresEnabled.media.groups && firstGroupAssociated && (
 			<Link
@@ -302,7 +323,7 @@ export default function Page() {
 				})}
 			>
 				<Text c="dimmed" fs="italic" span>
-					{metadataGroupTranslations?.title ||
+					{metadataGroupTitleTranslation ||
 						metadataGroupDetails?.details.title ||
 						"Group"}{" "}
 					{isNumber(firstGroupAssociated.part)
@@ -395,14 +416,13 @@ export default function Page() {
 				<>
 					<DisplayShowSeasonEpisodesModal
 						openedShowSeason={openedShowSeason}
-						metadataDetails={metadataDetails.data}
+						metadataId={loaderData.metadataId}
 						setOpenedShowSeason={setOpenedShowSeason}
-						userMetadataDetails={userMetadataDetails.data}
 					/>
 					<MediaDetailsLayout
 						title={title}
 						assets={metadataDetails.data.assets}
-						extraImage={metadataTranslations?.image}
+						extraImage={metadataImageTranslation}
 						isPartialStatusActive={isMetadataPartialStatusActive}
 						externalLink={{
 							lot: metadataDetails.data.lot,
@@ -847,12 +867,10 @@ export default function Page() {
 												w="100%"
 												onClick={() => {
 													setEntityToReview({
+														entityTitle: title,
 														entityLot: EntityLot.Metadata,
 														entityId: loaderData.metadataId,
 														metadataLot: metadataDetails.data.lot,
-														entityTitle:
-															metadataTranslations?.title ||
-															metadataDetails.data.title,
 														existingReview: {
 															showExtraInformation: {
 																episode:
@@ -978,8 +996,7 @@ export default function Page() {
 													history={history}
 													reviewsVirtuosoRef={reviewsVirtuosoRef}
 													podcastVirtuosoRef={podcastVirtuosoRef}
-													metadataDetails={metadataDetails.data}
-													userMetadataDetails={userMetadataDetails.data}
+													metadataId={loaderData.metadataId}
 												/>
 											)}
 										/>
@@ -998,7 +1015,6 @@ export default function Page() {
 												seasonIdx={seasonIdx}
 												key={season.seasonNumber}
 												metadataId={loaderData.metadataId}
-												userMetadataDetails={userMetadataDetails.data}
 												openSeasonModal={() => setOpenedShowSeason(seasonIdx)}
 											/>
 										)}
@@ -1015,10 +1031,7 @@ export default function Page() {
 												key={podcastEpisode.id}
 												episode={podcastEpisode}
 												index={podcastEpisodeIdx}
-												podcastProgress={
-													userMetadataDetails.data.podcastProgress
-												}
-												metadataDetails={metadataDetails.data}
+												metadataId={loaderData.metadataId}
 											/>
 										)}
 									/>
@@ -1034,10 +1047,10 @@ export default function Page() {
 												<ReviewItemDisplay
 													key={r.id}
 													review={r}
+													title={title}
 													lot={metadataDetails.data.lot}
 													entityLot={EntityLot.Metadata}
 													entityId={loaderData.metadataId}
-													title={metadataDetails.data.title}
 												/>
 											)}
 										/>

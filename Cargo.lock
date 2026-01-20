@@ -1061,6 +1061,7 @@ name = "background-models"
 version = "0.1.0"
 dependencies = [
  "common-models",
+ "enum-models",
  "media-models",
  "serde",
  "strum",
@@ -4783,9 +4784,7 @@ name = "miscellaneous-media-translation-resolver"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "common-models",
- "dependent-jobs-utils",
- "dependent-models",
+ "media-models",
  "miscellaneous-media-translation-service",
  "traits",
 ]
@@ -4795,16 +4794,14 @@ name = "miscellaneous-media-translation-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "background-models",
  "cache-service",
  "chrono",
- "common-models",
- "common-utils",
  "database-models",
  "database-utils",
  "dependent-models",
  "dependent-provider-utils",
  "enum-models",
- "itertools 0.14.0",
  "media-models",
  "sea-orm",
  "supporting-service",
@@ -7181,7 +7178,6 @@ dependencies = [
  "cache-service",
  "common-models",
  "common-utils",
- "config-definition",
  "data-encoding",
  "database-models",
  "dependent-models",

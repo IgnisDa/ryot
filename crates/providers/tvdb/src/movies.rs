@@ -12,7 +12,8 @@ use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails, MetadataSearchItem,
-    MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
+    MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+    PodcastTranslationExtraInformation, ShowTranslationExtraInformation, UniqueMediaIdentifier,
 };
 use supporting_service::SupportingService;
 use traits::MediaProvider;
@@ -277,6 +278,8 @@ impl MediaProvider for TvdbMovieService {
         &self,
         identifier: &str,
         target_language: &str,
+        _show_extra_information: Option<&ShowTranslationExtraInformation>,
+        _podcast_extra_information: Option<&PodcastTranslationExtraInformation>,
     ) -> Result<EntityTranslationDetails> {
         self.0
             .translate("movies", identifier, target_language)

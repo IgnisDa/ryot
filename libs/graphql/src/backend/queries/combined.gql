@@ -520,12 +520,14 @@ query UserEntityRecentlyConsumed($input: EntityWithLotInput!) {
 	userEntityRecentlyConsumed(input: $input)
 }
 
-query MediaTranslations($input: EntityWithLotInput!) {
-	mediaTranslations(input: $input) {
-		response {
-			title
-			image
-			description
+query MediaTranslation($input: MediaTranslationInput!) {
+	mediaTranslation(input: $input) {
+		__typename
+		... on MediaTranslationValue {
+			value
+		}
+		... on MediaTranslationPending {
+			status
 		}
 	}
 }

@@ -1,12 +1,18 @@
 import { Checkbox, Select, Text } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
+import { useMetadataDetails } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
 export const PodcastForm = (props: MediaFormProps) => {
 	const { metadataToUpdate, updateMetadataToUpdate } =
 		useMetadataProgressUpdate();
-	if (props.metadataDetails.lot !== MediaLot.Podcast || !metadataToUpdate)
+	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
+	if (
+		!metadataDetails ||
+		metadataDetails.lot !== MediaLot.Podcast ||
+		!metadataToUpdate
+	)
 		return null;
 
 	return (
@@ -19,7 +25,7 @@ export const PodcastForm = (props: MediaFormProps) => {
 				searchable
 				label="Episode"
 				value={metadataToUpdate.podcastEpisodeNumber?.toString()}
-				data={props.metadataDetails.podcastSpecifics?.episodes.map((se) => ({
+				data={metadataDetails.podcastSpecifics?.episodes.map((se) => ({
 					label: se.title.toString(),
 					value: se.number.toString(),
 				}))}

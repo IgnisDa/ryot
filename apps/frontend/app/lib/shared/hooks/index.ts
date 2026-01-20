@@ -7,15 +7,15 @@ import {
 	DeployAddEntitiesToCollectionJobDocument,
 	DeployBulkMetadataProgressUpdateDocument,
 	DeployRemoveEntitiesFromCollectionJobDocument,
-	DeployUpdateMediaEntityJobDocument,
-	DeployUpdateMediaTranslationsJobDocument,
 	EntityLot,
+	type EntityTranslationVariant,
 	ExpireCacheKeyDocument,
 	GetPresignedS3UrlDocument,
 	type MediaLot,
 	MediaSource,
-	MediaTranslationsDocument,
 	type MetadataProgressUpdateInput,
+	type PodcastTranslationExtraInformationInput,
+	type ShowTranslationExtraInformationInput,
 	UpdateUserDocument,
 	UserCollectionsListDocument,
 	UserMetadataGroupsListDocument,
@@ -65,6 +65,11 @@ import {
 } from "~/lib/state/fitness";
 import type { FitnessAction } from "~/lib/types";
 import type { loader as dashboardLoader } from "~/routes/_dashboard";
+import {
+	createDeployMediaEntityJob,
+	useEntityUpdateMonitor,
+	useTranslationValue,
+} from "./polling";
 
 export const useGetMantineColors = () => {
 	const theme = useMantineTheme();
@@ -122,177 +127,11 @@ export const useGetWorkoutStarter = () => {
 	return fn;
 };
 
-const createDeployMediaEntityJob =
-	(entityId: string | undefined, entityLot: EntityLot) => () => {
-		if (entityId) {
-			clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
-				input: { entityId, entityLot },
-			});
-		}
-	};
-
-const useEntityUpdateMonitor = (props: {
-	entityId?: string;
-	entityLot: EntityLot;
-	onUpdate: () => unknown;
-	needsRefetch?: boolean | null;
-	deployJob: () => void | Promise<void>;
-}) => {
-	const { entityId, entityLot, onUpdate, needsRefetch } = props;
-
-	const attemptCountRef = useRef(0);
-	const isPollingRef = useRef(false);
-	const [isPartialStatusActive, setIsPartialStatusActive] = useState(false);
-	const jobDeployedForEntityRef = useRef<string | null>(null);
-	const pollingEntityIdRef = useRef<string | null>(null);
-	const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-		undefined,
-	);
-
-	const scheduleNextPoll = useCallback(() => {
-		if (!isPollingRef.current) return;
-
-		if (attemptCountRef.current >= 30) {
-			if (pollingEntityIdRef.current)
-				refreshEntityDetails(pollingEntityIdRef.current);
-			onUpdate();
-			isPollingRef.current = false;
-			setIsPartialStatusActive(false);
-			return;
-		}
-
-		timeoutRef.current = setTimeout(async () => {
-			if (!isPollingRef.current) return;
-			await onUpdate();
-			attemptCountRef.current += 1;
-
-			scheduleNextPoll();
-		}, 1000);
-	}, [onUpdate]);
-
-	const resetPollingState = useCallback(() => {
-		const wasPolling = isPollingRef.current;
-		const polledEntityId = pollingEntityIdRef.current;
-
-		if (timeoutRef.current) {
-			clearTimeout(timeoutRef.current);
-			timeoutRef.current = undefined;
-		}
-		attemptCountRef.current = 0;
-		isPollingRef.current = false;
-		pollingEntityIdRef.current = null;
-		setIsPartialStatusActive(false);
-
-		if (wasPolling && polledEntityId) {
-			refreshEntityDetails(polledEntityId);
-		}
-	}, []);
-
-	useEffect(() => {
-		const jobDeployedForEntity = jobDeployedForEntityRef.current;
-		const shouldPoll = Boolean(entityId && needsRefetch);
-		const isJobForDifferentEntity = Boolean(
-			jobDeployedForEntity && jobDeployedForEntity !== entityId,
-		);
-
-		if (isJobForDifferentEntity || !entityId) {
-			jobDeployedForEntityRef.current = null;
-			pollingEntityIdRef.current = null;
-		}
-
-		if (!shouldPoll) {
-			if (isPollingRef.current) {
-				const entityToRefresh = jobDeployedForEntity || entityId;
-				if (entityToRefresh) refreshEntityDetails(entityToRefresh);
-				resetPollingState();
-			}
-			return;
-		}
-
-		if (isJobForDifferentEntity) {
-			if (jobDeployedForEntity) refreshEntityDetails(jobDeployedForEntity);
-			resetPollingState();
-		}
-
-		if (!isPollingRef.current) {
-			if (jobDeployedForEntityRef.current !== entityId && entityId) {
-				props.deployJob();
-				jobDeployedForEntityRef.current = entityId;
-			}
-
-			if (timeoutRef.current) {
-				clearTimeout(timeoutRef.current);
-				timeoutRef.current = undefined;
-			}
-
-			attemptCountRef.current = 0;
-			isPollingRef.current = true;
-			pollingEntityIdRef.current = entityId ?? null;
-			setIsPartialStatusActive(true);
-			scheduleNextPoll();
-		}
-
-		return resetPollingState;
-	}, [
-		onUpdate,
-		entityId,
-		entityLot,
-		needsRefetch,
-		props.deployJob,
-		scheduleNextPoll,
-		resetPollingState,
-	]);
-
-	return { isPartialStatusActive };
-};
-
 export const useUserMetadataDetails = (
 	metadataId?: string,
 	enabled?: boolean,
 ) => {
 	return useQuery({ ...getUserMetadataDetailsQuery(metadataId), enabled });
-};
-
-const useTranslationMonitor = (props: {
-	entityId?: string;
-	enabled?: boolean;
-	entityLot: EntityLot;
-	mediaSource?: MediaSource;
-}) => {
-	const translationsQuery = useQuery({
-		enabled: props.enabled,
-		queryKey: queryFactory.media.entityTranslations(
-			props.entityId,
-			props.entityLot,
-		).queryKey,
-		queryFn: () => {
-			if (props.entityId && props.entityLot)
-				return clientGqlService
-					.request(MediaTranslationsDocument, {
-						input: { entityId: props.entityId, entityLot: props.entityLot },
-					})
-					.then((data) => data.mediaTranslations);
-		},
-	});
-	const hasTranslations = translationsQuery.data?.response !== null;
-
-	useEntityUpdateMonitor({
-		entityId: props.entityId,
-		entityLot: props.entityLot,
-		onUpdate: () => translationsQuery.refetch(),
-		needsRefetch:
-			props.enabled !== false &&
-			!hasTranslations &&
-			props.mediaSource !== MediaSource.Custom,
-		deployJob: () => {
-			if (props.entityId)
-				clientGqlService.request(DeployUpdateMediaTranslationsJobDocument, {
-					input: { entityId: props.entityId, entityLot: props.entityLot },
-				});
-		},
-	});
-
-	return { translations: translationsQuery.data?.response };
 };
 
 export const useUserPersonDetails = (personId?: string, enabled?: boolean) => {
@@ -353,14 +192,26 @@ export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 			metadataDetailsQuery.data?.source !== MediaSource.Custom,
 	});
 
-	const { translations } = useTranslationMonitor({
-		enabled,
-		entityId: metadataId,
-		entityLot: EntityLot.Metadata,
-		mediaSource: metadataDetailsQuery.data?.source,
-	});
+	return [metadataDetailsQuery, isPartialStatusActive] as const;
+};
 
-	return [metadataDetailsQuery, isPartialStatusActive, translations] as const;
+export const useMetadataTranslationValue = (props: {
+	metadataId?: string;
+	enabled?: boolean;
+	variant: EntityTranslationVariant;
+	showExtraInformation?: ShowTranslationExtraInformationInput;
+	podcastExtraInformation?: PodcastTranslationExtraInformationInput;
+}) => {
+	const [metadataDetailsQuery] = useMetadataDetails(props.metadataId, false);
+	return useTranslationValue({
+		entityId: props.metadataId,
+		variant: props.variant,
+		entityLot: EntityLot.Metadata,
+		enabled: props.enabled,
+		mediaSource: metadataDetailsQuery.data?.source,
+		showExtraInformation: props.showExtraInformation,
+		podcastExtraInformation: props.podcastExtraInformation,
+	});
 };
 
 export const usePersonDetails = (personId?: string, enabled?: boolean) => {
@@ -377,14 +228,26 @@ export const usePersonDetails = (personId?: string, enabled?: boolean) => {
 			query.data?.details.source !== MediaSource.Custom,
 	});
 
-	const { translations } = useTranslationMonitor({
-		enabled,
-		entityId: personId,
-		entityLot: EntityLot.Person,
-		mediaSource: query.data?.details.source,
-	});
+	return [query, isPartialStatusActive] as const;
+};
 
-	return [query, isPartialStatusActive, translations] as const;
+export const usePersonTranslationValue = (props: {
+	personId?: string;
+	enabled?: boolean;
+	variant: EntityTranslationVariant;
+	showExtraInformation?: ShowTranslationExtraInformationInput;
+	podcastExtraInformation?: PodcastTranslationExtraInformationInput;
+}) => {
+	const [query] = usePersonDetails(props.personId, false);
+	return useTranslationValue({
+		entityId: props.personId,
+		variant: props.variant,
+		entityLot: EntityLot.Person,
+		enabled: props.enabled,
+		mediaSource: query.data?.details.source,
+		showExtraInformation: props.showExtraInformation,
+		podcastExtraInformation: props.podcastExtraInformation,
+	});
 };
 
 export const useMetadataGroupDetails = (
@@ -410,14 +273,26 @@ export const useMetadataGroupDetails = (
 			query.data?.details.source !== MediaSource.Custom,
 	});
 
-	const { translations } = useTranslationMonitor({
-		enabled,
-		entityId: metadataGroupId,
+	return [query, isPartialStatusActive] as const;
+};
+
+export const useMetadataGroupTranslationValue = (props: {
+	metadataGroupId?: string;
+	enabled?: boolean;
+	variant: EntityTranslationVariant;
+	showExtraInformation?: ShowTranslationExtraInformationInput;
+	podcastExtraInformation?: PodcastTranslationExtraInformationInput;
+}) => {
+	const [query] = useMetadataGroupDetails(props.metadataGroupId, false);
+	return useTranslationValue({
+		variant: props.variant,
+		entityId: props.metadataGroupId,
+		enabled: props.enabled,
 		entityLot: EntityLot.MetadataGroup,
 		mediaSource: query.data?.details.source,
+		showExtraInformation: props.showExtraInformation,
+		podcastExtraInformation: props.podcastExtraInformation,
 	});
-
-	return [query, isPartialStatusActive, translations] as const;
 };
 
 export const useUserMetadataGroupDetails = (
@@ -562,8 +437,9 @@ export const useForceUpdateEverySecond = () => {
 	useInterval(forceUpdate, 1000);
 };
 
-export const useGetWatchProviders = (mediaLot: MediaLot) => {
+export const useGetWatchProviders = (mediaLot?: MediaLot) => {
 	const userPreferences = useUserPreferences();
+	if (!mediaLot) return [];
 	const watchProviders =
 		userPreferences.general.watchProviders.find((l) => l.lot === mediaLot)
 			?.values || [];

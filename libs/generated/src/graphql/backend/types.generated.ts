@@ -136,12 +136,6 @@ export type CachedCollectionsListResponse = {
   response: Array<CollectionItem>;
 };
 
-export type CachedEntityTranslationDetails = {
-  __typename?: 'CachedEntityTranslationDetails';
-  cacheId: Scalars['UUID']['output'];
-  response?: Maybe<EntityTranslationDetails>;
-};
-
 export type CachedFilterPresetsResponse = {
   __typename?: 'CachedFilterPresetsResponse';
   cacheId: Scalars['UUID']['output'];
@@ -733,12 +727,11 @@ export type EntityToCollectionInput = {
   information?: InputMaybe<Scalars['JSON']['input']>;
 };
 
-export type EntityTranslationDetails = {
-  __typename?: 'EntityTranslationDetails';
-  description?: Maybe<Scalars['String']['output']>;
-  image?: Maybe<Scalars['String']['output']>;
-  title?: Maybe<Scalars['String']['output']>;
-};
+export enum EntityTranslationVariant {
+  Description = 'DESCRIPTION',
+  Image = 'IMAGE',
+  Title = 'TITLE'
+}
 
 export type EntityWithLot = {
   __typename?: 'EntityWithLot';
@@ -1403,6 +1396,31 @@ export enum MediaSource {
   YoutubeMusic = 'YOUTUBE_MUSIC'
 }
 
+export type MediaTranslationInput = {
+  entityId: Scalars['String']['input'];
+  entityLot: EntityLot;
+  podcastExtraInformation?: InputMaybe<PodcastTranslationExtraInformationInput>;
+  showExtraInformation?: InputMaybe<ShowTranslationExtraInformationInput>;
+  variant: EntityTranslationVariant;
+};
+
+export type MediaTranslationPending = {
+  __typename?: 'MediaTranslationPending';
+  status: MediaTranslationPendingStatus;
+};
+
+export enum MediaTranslationPendingStatus {
+  InProgress = 'IN_PROGRESS',
+  NotFetched = 'NOT_FETCHED'
+}
+
+export type MediaTranslationResult = MediaTranslationPending | MediaTranslationValue;
+
+export type MediaTranslationValue = {
+  __typename?: 'MediaTranslationValue';
+  value?: Maybe<Scalars['String']['output']>;
+};
+
 export type MetadataCreator = {
   __typename?: 'MetadataCreator';
   character?: Maybe<Scalars['String']['output']>;
@@ -1426,7 +1444,6 @@ export type MetadataGroup = {
   assets: EntityAssets;
   createdByUserId?: Maybe<Scalars['String']['output']>;
   description?: Maybe<Scalars['String']['output']>;
-  hasTranslationsForLanguages?: Maybe<Array<Scalars['String']['output']>>;
   id: Scalars['String']['output'];
   identifier: Scalars['String']['output'];
   isPartial?: Maybe<Scalars['Boolean']['output']>;
@@ -1919,7 +1936,7 @@ export type MutationRootDeployUpdateMediaEntityJobArgs = {
 
 
 export type MutationRootDeployUpdateMediaTranslationsJobArgs = {
-  input: EntityWithLotInput;
+  input: MediaTranslationInput;
 };
 
 
@@ -2111,7 +2128,6 @@ export type Person = {
   deathDate?: Maybe<Scalars['NaiveDate']['output']>;
   description?: Maybe<Scalars['String']['output']>;
   gender?: Maybe<Scalars['String']['output']>;
-  hasTranslationsForLanguages?: Maybe<Array<Scalars['String']['output']>>;
   id: Scalars['String']['output'];
   identifier: Scalars['String']['output'];
   isPartial?: Maybe<Scalars['Boolean']['output']>;
@@ -2186,6 +2202,10 @@ export type PodcastSpecifics = {
 export type PodcastSpecificsInput = {
   episodes: Array<PodcastEpisodeInput>;
   totalEpisodes: Scalars['Int']['input'];
+};
+
+export type PodcastTranslationExtraInformationInput = {
+  episode: Scalars['Int']['input'];
 };
 
 export type PresignedPutUrlResponse = {
@@ -2264,8 +2284,8 @@ export type QueryRoot = {
   getOidcToken: OidcTokenOutput;
   /** Get a presigned URL (valid for 90 minutes) for a given key. */
   getPresignedS3Url: Scalars['String']['output'];
-  /** Fetch translations for a given media item. */
-  mediaTranslations: CachedEntityTranslationDetails;
+  /** Fetch translation for a given media item. */
+  mediaTranslation: MediaTranslationResult;
   /** Get details about a media present in the database. */
   metadataDetails: CachedGraphqlMetadataDetailsResponse;
   /** Get details about a metadata group present in the database. */
@@ -2378,8 +2398,8 @@ export type QueryRootGetPresignedS3UrlArgs = {
 };
 
 
-export type QueryRootMediaTranslationsArgs = {
-  input: EntityWithLotInput;
+export type QueryRootMediaTranslationArgs = {
+  input: MediaTranslationInput;
 };
 
 
@@ -2729,6 +2749,11 @@ export type ShowSpecificsInput = {
   seasons: Array<ShowSeasonSpecificsInput>;
   totalEpisodes?: InputMaybe<Scalars['Int']['input']>;
   totalSeasons?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type ShowTranslationExtraInformationInput = {
+  episode?: InputMaybe<Scalars['Int']['input']>;
+  season: Scalars['Int']['input'];
 };
 
 export type StringIdAndNamedObject = {

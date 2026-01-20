@@ -11,8 +11,8 @@ import type { MetadataDetails } from "~/components/routes/media-item/types";
 import type { UpdateProgressData } from "~/lib/state/media";
 
 export interface MetadataProgressFormProps {
+	metadataId: string;
 	onSubmit: () => void;
-	metadataDetails: MetadataDetails;
 }
 
 export interface MetadataInProgressFormProps extends MetadataProgressFormProps {
@@ -25,14 +25,14 @@ export interface MetadataNewProgressFormProps
 }
 
 export interface MediaFormProps {
-	metadataDetails: MetadataDetails;
+	metadataId: string;
 }
 
 export interface BulkUpdateContext {
-	history: MetadataHistory;
 	watchTime: WatchTimes;
+	history: MetadataHistory;
+	metadata: MetadataDetails;
 	currentDateFormatted: string;
-	metadataDetails: MetadataDetails;
 	startDateFormatted: string | null;
 	finishDateFormatted: string | null;
 	metadataToUpdate: UpdateProgressData;

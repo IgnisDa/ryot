@@ -10,7 +10,10 @@ import {
 	Tabs,
 	Text,
 } from "@mantine/core";
-import { EntityLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	EntityLot,
+	EntityTranslationVariant,
+} from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
 import {
 	IconDeviceTv,
@@ -42,7 +45,9 @@ import {
 } from "~/components/media/menu-items";
 import {
 	useMetadataGroupDetails,
+	useMetadataGroupTranslationValue,
 	usePersonDetails,
+	usePersonTranslationValue,
 	useUserPersonDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -75,13 +80,30 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
-	const [personDetails, isPersonPartialStatusActive, personTranslations] =
-		usePersonDetails(loaderData.personId);
+	const [personDetails, isPersonPartialStatusActive] = usePersonDetails(
+		loaderData.personId,
+	);
 	const userPersonDetails = useUserPersonDetails(loaderData.personId);
+
+	const personTitleTranslation = usePersonTranslationValue({
+		personId: loaderData.personId,
+		variant: EntityTranslationVariant.Title,
+	});
+
+	const personDescriptionTranslation = usePersonTranslationValue({
+		personId: loaderData.personId,
+		variant: EntityTranslationVariant.Description,
+	});
+
+	const personImageTranslation = usePersonTranslationValue({
+		personId: loaderData.personId,
+		variant: EntityTranslationVariant.Image,
+	});
+
 	const title =
-		personTranslations?.title || personDetails.data?.details.name || "";
+		personTitleTranslation || personDetails.data?.details.name || "";
 	const description =
-		personTranslations?.description || personDetails.data?.details.description;
+		personDescriptionTranslation || personDetails.data?.details.description;
 
 	const [mediaRoleFilter, setMediaRoleFilter] = useLocalStorage(
 		"PersonMediaTabRoleFilter",
@@ -124,7 +146,7 @@ export default function Page() {
 			{personDetails.data && userPersonDetails.data ? (
 				<MediaDetailsLayout
 					title={title}
-					extraImage={personTranslations?.image}
+					extraImage={personImageTranslation}
 					assets={personDetails.data.details.assets}
 					isPartialStatusActive={isPersonPartialStatusActive}
 					externalLink={{
@@ -282,11 +304,9 @@ export default function Page() {
 										w="100%"
 										onClick={() => {
 											setEntityToReview({
+												entityTitle: title,
 												entityLot: EntityLot.Person,
 												entityId: loaderData.personId,
-												entityTitle:
-													personTranslations?.title ||
-													personDetails.data.details.name,
 											});
 										}}
 									>
@@ -344,9 +364,9 @@ export default function Page() {
 												<ReviewItemDisplay
 													review={r}
 													key={r.id}
+													title={title}
 													entityLot={EntityLot.Person}
 													entityId={loaderData.personId}
-													title={personDetails.data.details.name}
 												/>
 											))}
 										</Stack>
@@ -378,21 +398,28 @@ const MetadataDisplay = (props: {
 };
 
 const MetadataGroupDisplay = (props: { metadataGroupId: string }) => {
-	const [
-		{ data: metadataGroupDetails },
-		isMetadataGroupPartialStatusActive,
-		metadataGroupTranslations,
-	] = useMetadataGroupDetails(props.metadataGroupId);
+	const [{ data: metadataGroupDetails }, isMetadataGroupPartialStatusActive] =
+		useMetadataGroupDetails(props.metadataGroupId);
+
+	const metadataGroupTitleTranslation = useMetadataGroupTranslationValue({
+		metadataGroupId: props.metadataGroupId,
+		variant: EntityTranslationVariant.Title,
+	});
+
+	const metadataGroupImageTranslation = useMetadataGroupTranslationValue({
+		metadataGroupId: props.metadataGroupId,
+		variant: EntityTranslationVariant.Image,
+	});
 
 	return (
 		<BaseEntityDisplay
 			isPartialStatusActive={isMetadataGroupPartialStatusActive}
 			link={$path("/media/groups/item/:id", { id: props.metadataGroupId })}
 			title={
-				metadataGroupTranslations?.title || metadataGroupDetails?.details.title
+				metadataGroupTitleTranslation || metadataGroupDetails?.details.title
 			}
 			image={
-				metadataGroupTranslations?.image ||
+				metadataGroupImageTranslation ||
 				metadataGroupDetails?.details.assets.remoteImages.at(0)
 			}
 		/>

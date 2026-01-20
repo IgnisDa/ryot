@@ -42,7 +42,6 @@ pub enum Person {
     SourceSpecifics,
     AssociatedEntityCount,
     AssociatedMetadataCount,
-    HasTranslationsForLanguages,
     AssociatedMetadataGroupsCount,
 }
 
@@ -120,9 +119,6 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Person::Assets).json_binary().not_null())
                     .col(ColumnDef::new(Person::CreatedByUserId).text())
-                    .col(
-                        ColumnDef::new(Person::HasTranslationsForLanguages).array(ColumnType::Text),
-                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name(PERSON_TO_USER_FOREIGN_KEY)
