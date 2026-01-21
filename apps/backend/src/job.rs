@@ -103,8 +103,8 @@ pub async fn perform_mp_application_job(
         MpApplicationJob::PerformExport(user_id) => perform_export(&ss, user_id).await,
         MpApplicationJob::UpdateExerciseLibrary => deploy_update_exercise_library_job(&ss).await,
         MpApplicationJob::ReviseUserWorkouts(user_id) => revise_user_workouts(&ss, user_id).await,
-        MpApplicationJob::UpdateMediaTranslations(user_id, input) => {
-            update_media_translation(&ss, &user_id, input).await
+        MpApplicationJob::UpdateMediaTranslations(input) => {
+            update_media_translation(&ss, input).await
         }
         MpApplicationJob::UpdateMediaDetails(input) => {
             macro_rules! update_media {

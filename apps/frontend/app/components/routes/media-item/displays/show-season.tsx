@@ -1,25 +1,46 @@
 import { Box, Button } from "@mantine/core";
+import { EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
 import { sum } from "@ryot/ts-utils";
+import { useMemo } from "react";
+import {
+	useMetadataTranslationValue,
+	useUserMetadataDetails,
+} from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
-import type { Season, UserMetadataDetails } from "../types";
+import type { Season } from "../types";
 import { DisplaySeasonOrEpisodeDetails } from "./season-episode-details";
 
-const getShowSeasonDisplayName = (season: Season) =>
-	`${season.seasonNumber}. ${season.name}`;
+export const getShowSeasonDisplayName = (season: Season, title: string) =>
+	`${season.seasonNumber}. ${title}`;
 
 export const DisplayShowSeason = (props: {
 	season: Season;
 	seasonIdx: number;
 	metadataId: string;
 	openSeasonModal: () => void;
-	userMetadataDetails: UserMetadataDetails;
 }) => {
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
+	const { data: userMetadataDetails } = useUserMetadataDetails(
+		props.metadataId,
+	);
 
-	const seasonProgress =
-		props.userMetadataDetails.showProgress?.[props.seasonIdx];
+	const seasonProgress = userMetadataDetails?.showProgress?.[props.seasonIdx];
 	const numTimesSeen = seasonProgress?.timesSeen || 0;
 	const isSeen = numTimesSeen > 0;
+	const showExtraInformation = useMemo(
+		() => ({ season: props.season.seasonNumber }),
+		[props.season.seasonNumber],
+	);
+	const seasonTitleTranslation = useMetadataTranslationValue({
+		metadataId: props.metadataId,
+		showExtraInformation,
+		variant: EntityTranslationVariant.Title,
+	});
+	const seasonDescriptionTranslation = useMetadataTranslationValue({
+		metadataId: props.metadataId,
+		showExtraInformation,
+		variant: EntityTranslationVariant.Description,
+	});
 
 	return (
 		<Box my={props.seasonIdx !== 0 ? "md" : undefined}>
@@ -28,10 +49,14 @@ export const DisplayShowSeason = (props: {
 				displayIndicator={numTimesSeen}
 				numEpisodes={props.season.episodes.length}
 				onNameClick={() => props.openSeasonModal()}
-				name={getShowSeasonDisplayName(props.season)}
 				endDate={props.season.episodes.at(-1)?.publishDate}
 				startDate={props.season.episodes.at(0)?.publishDate}
+				overview={seasonDescriptionTranslation || props.season.overview}
 				runtime={sum(props.season.episodes.map((e) => e.runtime || 0))}
+				name={getShowSeasonDisplayName(
+					props.season,
+					seasonTitleTranslation || props.season.name,
+				)}
 			>
 				{props.season.episodes.length > 0 ? (
 					<Button

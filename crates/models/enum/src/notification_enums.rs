@@ -35,6 +35,7 @@ pub enum NotificationPlatformLot {
     Telegram,
     PushSafer,
     PushBullet,
+    Email,
 }
 
 #[derive(Debug, Clone, Display, PartialEq, Serialize, Deserialize, EnumDiscriminants)]

@@ -10,6 +10,7 @@ codegen-units = 1
 aes-gcm = "=0.10.3"
 anyhow = "=1.0.100"
 apalis = { version = "=0.7.4", features = ["catch-panic", "limit", "retry"] }
+askama = "=0.15.1"
 apalis-cron = "=0.7.4"
 argon2 = { version = "=0.6.0-rc.2", features = ["getrandom"] }
 async-graphql = { version = "=7.0.17", features = [
@@ -54,6 +55,13 @@ http = "=1.4.0"
 indexmap = "=2.12.1"
 indoc = "=2.0.7"
 itertools = "=0.14.0"
+lettre = { version = "=0.11.19", features = [
+    "builder",
+    "rustls-tls",
+    "smtp-transport",
+    "tokio1",
+    "tokio1-rustls",
+], default-features = false }
 markdown = "=1.0.0"
 musicbrainz_rs = { version = "=0.12.0", default-features = false, features = [
     "async",

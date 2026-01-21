@@ -31,7 +31,7 @@ pub struct Model {
     pub created_on: DateTimeUtc,
     pub description: Option<String>,
     pub last_updated_on: DateTimeUtc,
-    #[sea_orm(column_type = "Json")]
+    #[sea_orm(column_type = "JsonBinary")]
     pub information_template: Option<Vec<CollectionExtraInformation>>,
 }
 

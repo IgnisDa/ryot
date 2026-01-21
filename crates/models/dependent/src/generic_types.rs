@@ -3,8 +3,8 @@ use common_models::{ApplicationDateRange, EntityWithLot, SearchDetails, SearchIn
 use database_models::{collection, metadata_group};
 use enum_models::MediaLot;
 use media_models::{
-    CollectionContentsFilter, CollectionContentsSortBy, EntityTranslationDetails, GenreListItem,
-    GraphqlMetadataDetails, GraphqlSortOrder, MediaFilter, MediaSortBy, MetadataLookupResponse,
+    CollectionContentsFilter, CollectionContentsSortBy, GenreListItem, GraphqlMetadataDetails,
+    GraphqlSortOrder, MediaFilter, MediaSortBy, MetadataLookupResponse,
     PersonAndMetadataGroupsSortBy, ReviewItem,
 };
 use serde::{Deserialize, Serialize};
@@ -127,7 +127,6 @@ pub type MetadataGroupSearchResponse = SearchResults<String>;
 pub type UserMetadataGroupsListResponse = SearchResults<String>;
 pub type UserWorkoutsTemplatesListResponse = SearchResults<String>;
 pub type UserCollectionsListResponse = Vec<media_models::CollectionItem>;
-pub type EntityTranslationDetailsResponse = Option<EntityTranslationDetails>;
 pub type FilterPresetsListResponse = Vec<database_models::filter_preset::Model>;
 pub type UserMeasurementsListResponse = Vec<database_models::user_measurement::Model>;
 
@@ -145,10 +144,6 @@ pub type UserMeasurementsListResponse = Vec<database_models::user_measurement::M
 #[graphql(concrete(
     params(UserCollectionsListResponse),
     name = "CachedCollectionsListResponse",
-))]
-#[graphql(concrete(
-    params(EntityTranslationDetailsResponse),
-    name = "CachedEntityTranslationDetails",
 ))]
 #[graphql(concrete(
     params(CollectionContentsResponse),

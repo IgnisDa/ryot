@@ -12,7 +12,8 @@ use futures::stream::{self, StreamExt};
 use itertools::Itertools;
 use media_models::{
     EntityTranslationDetails, MetadataDetails, MetadataExternalIdentifiers, MetadataSearchItem,
-    PartialMetadataPerson, ShowEpisode, ShowSeason, ShowSpecifics,
+    PartialMetadataPerson, PodcastTranslationExtraInformation, ShowEpisode, ShowSeason,
+    ShowSpecifics, ShowTranslationExtraInformation,
 };
 use supporting_service::SupportingService;
 use traits::MediaProvider;
@@ -281,6 +282,8 @@ impl MediaProvider for TvdbShowService {
         &self,
         identifier: &str,
         target_language: &str,
+        _show_extra_information: Option<&ShowTranslationExtraInformation>,
+        _podcast_extra_information: Option<&PodcastTranslationExtraInformation>,
     ) -> Result<EntityTranslationDetails> {
         self.0
             .translate("series", identifier, target_language)

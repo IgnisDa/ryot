@@ -24,7 +24,6 @@ pub use extractors::{extract_base_title, extract_season_episode};
 async fn smart_search(
     title: &str,
     tmdb_service: &TmdbService,
-    ss: &Arc<SupportingService>,
 ) -> Result<Vec<TmdbMetadataLookupResult>> {
     let base_title = extract_base_title(title.trim());
 
@@ -32,7 +31,7 @@ async fn smart_search(
         return Ok(vec![]);
     }
 
-    tmdb_service.multi_search(&base_title, ss).await
+    tmdb_service.multi_search(&base_title).await
 }
 
 fn extract_show_information(title: &str, media_lot: &MediaLot) -> Option<SeenShowExtraInformation> {
@@ -50,13 +49,13 @@ pub async fn metadata_lookup(
     cache_service::get_or_set_with_callback(
         ss,
         ApplicationCacheKey::MetadataLookup(MetadataLookupCacheInput {
-            title: title.clone(),
             language: None,
+            title: title.clone(),
         }),
         ApplicationCacheValue::MetadataLookup,
         move || async move {
             let tmdb_service = TmdbService::new(ss.clone()).await?;
-            let search_results = smart_search(&title, &tmdb_service, ss).await?;
+            let search_results = smart_search(&title, &tmdb_service).await?;
 
             if search_results.is_empty() {
                 return Ok(MetadataLookupResponse::NotFound(MetadataLookupNotFound {

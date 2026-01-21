@@ -101,9 +101,7 @@ pub async fn get_metadata_provider(
         }
         MediaSource::MusicBrainz => Box::new(MusicBrainzService::new()?),
         MediaSource::Custom => return err(),
-        MediaSource::Spotify => {
-            Box::new(SpotifyService::new(&ss.config.music.spotify, ss.clone()).await?)
-        }
+        MediaSource::Spotify => Box::new(SpotifyService::new(ss.clone()).await?),
     };
     Ok(service)
 }
@@ -136,9 +134,7 @@ pub async fn get_non_metadata_provider(
         }
         MediaSource::Myanimelist => Box::new(NonMediaMalService::new().await?),
         MediaSource::MusicBrainz => Box::new(MusicBrainzService::new()?),
-        MediaSource::Spotify => {
-            Box::new(SpotifyService::new(&ss.config.music.spotify, ss.clone()).await?)
-        }
+        MediaSource::Spotify => Box::new(SpotifyService::new(ss.clone()).await?),
         MediaSource::Custom => return err(),
     };
     Ok(service)

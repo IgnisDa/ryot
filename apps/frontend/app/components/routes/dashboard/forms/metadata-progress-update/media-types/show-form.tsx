@@ -1,12 +1,18 @@
 import { Checkbox, Select } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
+import { useMetadataDetails } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
 export const ShowForm = (props: MediaFormProps) => {
 	const { metadataToUpdate, updateMetadataToUpdate } =
 		useMetadataProgressUpdate();
-	if (props.metadataDetails.lot !== MediaLot.Show || !metadataToUpdate)
+	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
+	if (
+		!metadataDetails ||
+		metadataDetails.lot !== MediaLot.Show ||
+		!metadataToUpdate
+	)
 		return null;
 
 	return (
@@ -18,7 +24,7 @@ export const ShowForm = (props: MediaFormProps) => {
 				limit={50}
 				label="Season"
 				value={metadataToUpdate.showSeasonNumber?.toString()}
-				data={props.metadataDetails.showSpecifics?.seasons.map((s) => ({
+				data={metadataDetails.showSpecifics?.seasons.map((s) => ({
 					label: `${s.seasonNumber}. ${s.name.toString()}`,
 					value: s.seasonNumber.toString(),
 				}))}
@@ -43,7 +49,7 @@ export const ShowForm = (props: MediaFormProps) => {
 					});
 				}}
 				data={
-					props.metadataDetails.showSpecifics?.seasons
+					metadataDetails.showSpecifics?.seasons
 						.find((s) => s.seasonNumber === metadataToUpdate.showSeasonNumber)
 						?.episodes.map((e) => ({
 							value: e.episodeNumber.toString(),

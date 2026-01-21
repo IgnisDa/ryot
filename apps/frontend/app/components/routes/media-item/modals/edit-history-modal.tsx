@@ -21,7 +21,9 @@ import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useCoreDetails,
 	useGetWatchProviders,
+	useMetadataDetails,
 	useUserDetails,
+	useUserMetadataDetails,
 } from "~/lib/shared/hooks";
 import { getVerb } from "~/lib/shared/media-utils";
 import { refreshEntityDetails } from "~/lib/shared/react-query";
@@ -29,9 +31,7 @@ import { Verb } from "~/lib/types";
 import {
 	type DurationInput,
 	type History,
-	type MetadataDetails,
 	POSSIBLE_DURATION_UNITS,
-	type UserMetadataDetails,
 } from "../types";
 import { convertDurationToSeconds, convertSecondsToDuration } from "../utils";
 
@@ -39,12 +39,15 @@ export const EditHistoryItemModal = (props: {
 	seen: History;
 	opened: boolean;
 	onClose: () => void;
-	metadataDetails: MetadataDetails;
-	userMetadataDetails: UserMetadataDetails;
+	metadataId: string;
 }) => {
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
-	const watchProviders = useGetWatchProviders(props.metadataDetails.lot);
+	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
+	const watchProviders = useGetWatchProviders(metadataDetails?.lot);
+	const { data: userMetadataDetails } = useUserMetadataDetails(
+		props.metadataId,
+	);
 	const [manualTimeSpentValue, setManualTimeSpentValue] =
 		useState<DurationInput>(
 			convertSecondsToDuration(props.seen.manualTimeSpent),
@@ -52,13 +55,15 @@ export const EditHistoryItemModal = (props: {
 
 	const manualTimeSpentInSeconds =
 		convertDurationToSeconds(manualTimeSpentValue);
-	const reviewsByThisCurrentUser = props.userMetadataDetails.reviews.filter(
+	const reviewsByThisCurrentUser = (userMetadataDetails?.reviews ?? []).filter(
 		(r) => r.postedBy.id === userDetails.id,
 	);
 	const areStartAndEndInputsDisabled = ![
 		SeenState.Completed,
 		SeenState.Dropped,
 	].includes(props.seen.state);
+
+	if (!metadataDetails) return null;
 
 	return (
 		<Modal
@@ -74,7 +79,7 @@ export const EditHistoryItemModal = (props: {
 				action={withQuery(".", { intent: "editSeenItem" })}
 				onSubmit={() => {
 					props.onClose();
-					refreshEntityDetails(props.metadataDetails.id);
+					refreshEntityDetails(props.metadataId);
 				}}
 			>
 				<input hidden name="seenId" defaultValue={props.seen.id} />
@@ -105,7 +110,7 @@ export const EditHistoryItemModal = (props: {
 						nothingFoundMessage="No watch providers configured. Please add them in your general preferences."
 						label={`Where did you ${getVerb(
 							Verb.Read,
-							props.metadataDetails.lot,
+							metadataDetails.lot,
 						)} it?`}
 					/>
 					<Tooltip

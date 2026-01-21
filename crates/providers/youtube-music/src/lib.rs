@@ -14,7 +14,8 @@ use itertools::Itertools;
 use media_models::{
     CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails, MetadataGroupSearchItem,
     MetadataSearchItem, MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem, UniqueMediaIdentifier,
+    PeopleSearchItem, PodcastTranslationExtraInformation, ShowTranslationExtraInformation,
+    UniqueMediaIdentifier,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
@@ -330,6 +331,8 @@ impl MediaProvider for YoutubeMusicService {
         &self,
         identifier: &str,
         target_language: &str,
+        _show_extra_information: Option<&ShowTranslationExtraInformation>,
+        _podcast_extra_information: Option<&PodcastTranslationExtraInformation>,
     ) -> Result<EntityTranslationDetails> {
         let lang_client = get_lang_client(&self.client, target_language);
         let details = lang_client.music_details(identifier).await?;
