@@ -121,11 +121,11 @@ impl MediaProvider for MusicBrainzService {
         let query = RecordingSearchQuery::query_builder()
             .recording(query)
             .build();
-        let mut search = Recording::search(query);
-        search
+        let results = Recording::search(query)
             .limit(PAGE_SIZE as u8)
-            .offset(u16::try_from(offset).unwrap_or(u16::MAX));
-        let results = search.execute_with_client(&self.client).await?;
+            .offset(u16::try_from(offset).unwrap_or(u16::MAX))
+            .execute_with_client(&self.client)
+            .await?;
         let total_items = results.count.max(0) as u64;
         let next_page = compute_next_page(page, total_items);
 
@@ -225,11 +225,11 @@ impl MediaProvider for MusicBrainzService {
         let query = ReleaseGroupSearchQuery::query_builder()
             .release_group(query)
             .build();
-        let mut search = ReleaseGroup::search(query);
-        search
+        let results = ReleaseGroup::search(query)
             .limit(PAGE_SIZE as u8)
-            .offset(u16::try_from(offset).unwrap_or(u16::MAX));
-        let results = search.execute_with_client(&self.client).await?;
+            .offset(u16::try_from(offset).unwrap_or(u16::MAX))
+            .execute_with_client(&self.client)
+            .await?;
         let total_items = results.count.max(0) as u64;
         let next_page = compute_next_page(page, total_items);
 
@@ -345,11 +345,11 @@ impl MediaProvider for MusicBrainzService {
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let offset = page.saturating_sub(1).saturating_mul(PAGE_SIZE);
         let query = ArtistSearchQuery::query_builder().artist(query).build();
-        let mut search = Artist::search(query);
-        search
+        let results = Artist::search(query)
             .limit(PAGE_SIZE as u8)
-            .offset(u16::try_from(offset).unwrap_or(u16::MAX));
-        let results = search.execute_with_client(&self.client).await?;
+            .offset(u16::try_from(offset).unwrap_or(u16::MAX))
+            .execute_with_client(&self.client)
+            .await?;
         let total_items = results.count.max(0) as u64;
         let next_page = compute_next_page(page, total_items);
 
