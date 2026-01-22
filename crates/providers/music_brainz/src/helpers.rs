@@ -126,32 +126,14 @@ fn pick_earliest_release<'a, I>(releases: I) -> Option<&'a Release>
 where
     I: IntoIterator<Item = &'a Release>,
 {
-    let mut selected = None;
-    let mut selected_date = None;
-
-    for release in releases {
-        let release_date = release_sort_date(release);
-        match (selected_date, release_date) {
-            (None, None) => {
-                if selected.is_none() {
-                    selected = Some(release);
-                }
-            }
-            (None, Some(candidate_date)) => {
-                selected = Some(release);
-                selected_date = Some(candidate_date);
-            }
-            (Some(current_date), Some(candidate_date)) => {
-                if candidate_date < current_date {
-                    selected = Some(release);
-                    selected_date = Some(candidate_date);
-                }
-            }
-            (Some(_), None) => {}
-        }
-    }
-
-    selected
+    releases
+        .into_iter()
+        .min_by(|a, b| match (release_sort_date(a), release_sort_date(b)) {
+            (Some(date_a), Some(date_b)) => date_a.cmp(&date_b),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
+        })
 }
 
 fn release_sort_date(release: &Release) -> Option<NaiveDate> {
