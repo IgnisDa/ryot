@@ -5137,7 +5137,6 @@ dependencies = [
  "musicbrainz_rs",
  "serde",
  "serde_json",
- "tracing",
  "traits",
 ]
 
