@@ -120,6 +120,8 @@ impl MediaProvider for MusicBrainzService {
         let offset = page.saturating_sub(1).saturating_mul(PAGE_SIZE);
         let query = RecordingSearchQuery::query_builder()
             .recording(query)
+            .or()
+            .artist(query)
             .build();
         let results = Recording::search(query)
             .limit(PAGE_SIZE as u8)
@@ -224,6 +226,8 @@ impl MediaProvider for MusicBrainzService {
         let offset = page.saturating_sub(1).saturating_mul(PAGE_SIZE);
         let query = ReleaseGroupSearchQuery::query_builder()
             .release_group(query)
+            .or()
+            .artist(query)
             .build();
         let results = ReleaseGroup::search(query)
             .limit(PAGE_SIZE as u8)
@@ -344,7 +348,11 @@ impl MediaProvider for MusicBrainzService {
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let offset = page.saturating_sub(1).saturating_mul(PAGE_SIZE);
-        let query = ArtistSearchQuery::query_builder().artist(query).build();
+        let query = ArtistSearchQuery::query_builder()
+            .artist(query)
+            .or()
+            .alias(query)
+            .build();
         let results = Artist::search(query)
             .limit(PAGE_SIZE as u8)
             .offset(u16::try_from(offset).unwrap_or(u16::MAX))
