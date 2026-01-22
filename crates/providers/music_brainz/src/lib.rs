@@ -18,12 +18,7 @@ use media_models::{
 use musicbrainz_rs::{
     Browse, Fetch, FetchCoverart, Search,
     client::MusicBrainzClient,
-    entity::{
-        artist::{Artist, ArtistSearchQuery},
-        recording::{Recording, RecordingSearchQuery},
-        release::Release,
-        release_group::{ReleaseGroup, ReleaseGroupSearchQuery},
-    },
+    entity::{artist::Artist, recording::Recording, release::Release, release_group::ReleaseGroup},
 };
 use traits::MediaProvider;
 
@@ -118,12 +113,8 @@ impl MediaProvider for MusicBrainzService {
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let offset = page.saturating_sub(1).saturating_mul(PAGE_SIZE);
-        let query = RecordingSearchQuery::query_builder()
-            .recording(query)
-            .or()
-            .artist(query)
-            .build();
-        let results = Recording::search(query)
+        let search_query = format!("recording:({}) OR artist:({})", query, query);
+        let results = Recording::search(search_query)
             .limit(PAGE_SIZE as u8)
             .offset(u16::try_from(offset).unwrap_or(u16::MAX))
             .execute_with_client(&self.client)
@@ -224,12 +215,8 @@ impl MediaProvider for MusicBrainzService {
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let offset = page.saturating_sub(1).saturating_mul(PAGE_SIZE);
-        let query = ReleaseGroupSearchQuery::query_builder()
-            .release_group(query)
-            .or()
-            .artist(query)
-            .build();
-        let results = ReleaseGroup::search(query)
+        let search_query = format!("release-group:({}) OR artist:({})", query, query);
+        let results = ReleaseGroup::search(search_query)
             .limit(PAGE_SIZE as u8)
             .offset(u16::try_from(offset).unwrap_or(u16::MAX))
             .execute_with_client(&self.client)
@@ -348,12 +335,8 @@ impl MediaProvider for MusicBrainzService {
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let offset = page.saturating_sub(1).saturating_mul(PAGE_SIZE);
-        let query = ArtistSearchQuery::query_builder()
-            .artist(query)
-            .or()
-            .alias(query)
-            .build();
-        let results = Artist::search(query)
+        let search_query = format!("artist:({}) OR alias:({})", query, query);
+        let results = Artist::search(search_query)
             .limit(PAGE_SIZE as u8)
             .offset(u16::try_from(offset).unwrap_or(u16::MAX))
             .execute_with_client(&self.client)
