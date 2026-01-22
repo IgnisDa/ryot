@@ -25,8 +25,8 @@ use traits::MediaProvider;
 mod helpers;
 
 use crate::helpers::{
-    artist_description, choose_release, coverart_url_from_response, extract_publish_date,
-    release_group_description,
+    artist_description, build_multi_field_query, choose_release, coverart_url_from_response,
+    extract_publish_date, release_group_description,
 };
 
 static MUSICBRAINZ_BASE_URL: &str = "https://musicbrainz.org";
@@ -40,14 +40,6 @@ impl MusicBrainzService {
         let mut client = MusicBrainzClient::default();
         client.set_user_agent(USER_AGENT_STR)?;
         Ok(Self { client })
-    }
-
-    fn build_multi_field_query(query: &str, fields: &[&str]) -> String {
-        let parts: Vec<String> = fields
-            .iter()
-            .map(|field| format!("{}:({})", field, query))
-            .collect();
-        format!("query={}", parts.join(" OR "))
     }
 
     async fn fetch_coverart_url_for_release(&self, release_id: &str) -> Option<String> {
@@ -121,7 +113,7 @@ impl MediaProvider for MusicBrainzService {
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let offset = page.saturating_sub(1).saturating_mul(PAGE_SIZE);
-        let lucene_query = Self::build_multi_field_query(query, &["recording", "artist"]);
+        let lucene_query = build_multi_field_query(query, &["recording", "artist"]);
         let results = Recording::search(lucene_query)
             .limit(PAGE_SIZE as u8)
             .offset(u16::try_from(offset).unwrap_or(u16::MAX))
@@ -223,7 +215,7 @@ impl MediaProvider for MusicBrainzService {
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let offset = page.saturating_sub(1).saturating_mul(PAGE_SIZE);
-        let lucene_query = Self::build_multi_field_query(query, &["release-group", "artist"]);
+        let lucene_query = build_multi_field_query(query, &["release-group", "artist"]);
         let results = ReleaseGroup::search(lucene_query)
             .limit(PAGE_SIZE as u8)
             .offset(u16::try_from(offset).unwrap_or(u16::MAX))
@@ -343,7 +335,7 @@ impl MediaProvider for MusicBrainzService {
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let offset = page.saturating_sub(1).saturating_mul(PAGE_SIZE);
-        let lucene_query = Self::build_multi_field_query(query, &["artist", "alias"]);
+        let lucene_query = build_multi_field_query(query, &["artist", "alias"]);
         let results = Artist::search(lucene_query)
             .limit(PAGE_SIZE as u8)
             .offset(u16::try_from(offset).unwrap_or(u16::MAX))

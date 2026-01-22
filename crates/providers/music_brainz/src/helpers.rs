@@ -158,3 +158,11 @@ fn release_sort_date(release: &Release) -> Option<NaiveDate> {
     let (full_date, year) = extract_publish_date(release.date.as_ref());
     full_date.or_else(|| year.and_then(|year| NaiveDate::from_ymd_opt(year, 1, 1)))
 }
+
+pub fn build_multi_field_query(query: &str, fields: &[&str]) -> String {
+    let parts: Vec<String> = fields
+        .iter()
+        .map(|field| format!("{}:({})", field, query))
+        .collect();
+    format!("query={}", parts.join(" OR "))
+}
