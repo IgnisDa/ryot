@@ -4,7 +4,7 @@
 	"type": "module",
 	"version": "0.1.0",
 	"devDependencies": {
-		"@types/react": "19.2.8",
+		"@types/react": "19.2.9",
 		"@types/react-dom": "19.2.3",
 		"@wxt-dev/auto-icons": "1.1.0",
 		"@wxt-dev/module-react": "1.1.5",
