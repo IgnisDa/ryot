@@ -1344,6 +1344,7 @@ export enum MediaSource {
   Itunes = 'ITUNES',
   Listennotes = 'LISTENNOTES',
   MangaUpdates = 'MANGA_UPDATES',
+  MusicBrainz = 'MUSIC_BRAINZ',
   Myanimelist = 'MYANIMELIST',
   Openlibrary = 'OPENLIBRARY',
   Spotify = 'SPOTIFY',

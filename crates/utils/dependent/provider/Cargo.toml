@@ -21,6 +21,7 @@ listennotes-provider = { workspace = true }
 manga-updates-provider = { workspace = true }
 media-models = { workspace = true }
 myanimelist-provider = { workspace = true }
+music-brainz-provider = { workspace = true }
 openlibrary-provider = { workspace = true }
 spotify-provider = { workspace = true }
 supporting-service = { workspace = true }

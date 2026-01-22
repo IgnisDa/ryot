@@ -198,7 +198,7 @@ export interface ImportOrExportMetadataItemSeen {
 }
 
 /** The different sources (or providers) from which data can be obtained from. */
-export type MediaSource = 'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music';
+export type MediaSource = 'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'music_brainz' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music';
 
 /** Details about a specific media item that needs to be imported or exported. */
 export interface ImportOrExportMetadataItem {
@@ -221,7 +221,7 @@ export interface ImportOrExportMetadataItem {
 	 * The source of media.
 	 *
 	 * @default 'custom'
-	 * @type {'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
+	 * @type {'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'music_brainz' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
 	 */
 	source: MediaSource;
 	/** An string to help identify it in the original source. */
@@ -247,7 +247,7 @@ export interface ImportOrExportMetadataGroupItem {
 	 * The source of media.
 	 *
 	 * @default 'custom'
-	 * @type {'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
+	 * @type {'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'music_brainz' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
 	 */
 	source: MediaSource;
 	/** Name of the group. */
@@ -276,7 +276,7 @@ export interface ImportOrExportPersonItem {
 	 * The source of data.
 	 *
 	 * @default 'custom'
-	 * @type {'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
+	 * @type {'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'music_brainz' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
 	 */
 	source: MediaSource;
 	/** The source specific data. */

@@ -499,6 +499,7 @@ export default function Page() {
 													MediaSource.Openlibrary,
 													MediaSource.YoutubeMusic,
 													MediaSource.GiantBomb,
+													MediaSource.MusicBrainz,
 													() => undefined,
 												)
 												.exhaustive()}
