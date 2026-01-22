@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use anyhow::Result;
 use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
+use common_utils::ryot_log;
 use common_utils::{PAGE_SIZE, USER_AGENT_STR, compute_next_page};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
@@ -40,6 +41,22 @@ impl MusicBrainzService {
         let mut client = MusicBrainzClient::default();
         client.set_user_agent(USER_AGENT_STR)?;
         Ok(Self { client })
+    }
+
+    fn build_multi_field_query(query: &str, fields: &[&str]) -> String {
+        let parts: Vec<String> = fields
+            .iter()
+            .map(|field| format!("{}:({})", field, query))
+            .collect();
+        let result = format!("query={}", parts.join(" OR "));
+        ryot_log!(
+            debug,
+            "[MusicBrainz] build_multi_field_query input: {:?}, fields: {:?}, output: {:?}",
+            query,
+            fields,
+            result
+        );
+        result
     }
 
     async fn fetch_coverart_url_for_release(&self, release_id: &str) -> Option<String> {
@@ -112,13 +129,49 @@ impl MediaProvider for MusicBrainzService {
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
+        ryot_log!(
+            debug,
+            "[MusicBrainz] metadata_search called with query: {:?}, page: {}",
+            query,
+            page
+        );
+
         let offset = page.saturating_sub(1).saturating_mul(PAGE_SIZE);
-        let search_query = format!("recording:({}) OR artist:({})", query, query);
-        let results = Recording::search(search_query)
+        let lucene_query = Self::build_multi_field_query(query, &["recording", "artist"]);
+
+        ryot_log!(
+            debug,
+            "[MusicBrainz] Constructed lucene_query: {:?}",
+            lucene_query
+        );
+        ryot_log!(
+            debug,
+            "[MusicBrainz] Search parameters - limit: {}, offset: {}",
+            PAGE_SIZE,
+            offset
+        );
+
+        let mut search_request = Recording::search(lucene_query.clone());
+        search_request
             .limit(PAGE_SIZE as u8)
-            .offset(u16::try_from(offset).unwrap_or(u16::MAX))
-            .execute_with_client(&self.client)
-            .await?;
+            .offset(u16::try_from(offset).unwrap_or(u16::MAX));
+
+        let api_request = search_request.as_api_request(&self.client);
+        ryot_log!(
+            debug,
+            "[MusicBrainz] Actual request URI: {}",
+            api_request.url
+        );
+
+        let results = search_request.execute_with_client(&self.client).await?;
+
+        ryot_log!(
+            debug,
+            "[MusicBrainz] Search completed - count: {}, entities: {}",
+            results.count,
+            results.entities.len()
+        );
+
         let total_items = results.count.max(0) as u64;
         let next_page = compute_next_page(page, total_items);
 
@@ -215,8 +268,8 @@ impl MediaProvider for MusicBrainzService {
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let offset = page.saturating_sub(1).saturating_mul(PAGE_SIZE);
-        let search_query = format!("release-group:({}) OR artist:({})", query, query);
-        let results = ReleaseGroup::search(search_query)
+        let lucene_query = Self::build_multi_field_query(query, &["release-group", "artist"]);
+        let results = ReleaseGroup::search(lucene_query)
             .limit(PAGE_SIZE as u8)
             .offset(u16::try_from(offset).unwrap_or(u16::MAX))
             .execute_with_client(&self.client)
@@ -335,8 +388,8 @@ impl MediaProvider for MusicBrainzService {
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let offset = page.saturating_sub(1).saturating_mul(PAGE_SIZE);
-        let search_query = format!("artist:({}) OR alias:({})", query, query);
-        let results = Artist::search(search_query)
+        let lucene_query = Self::build_multi_field_query(query, &["artist", "alias"]);
+        let results = Artist::search(lucene_query)
             .limit(PAGE_SIZE as u8)
             .offset(u16::try_from(offset).unwrap_or(u16::MAX))
             .execute_with_client(&self.client)
