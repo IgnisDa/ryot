@@ -8,7 +8,10 @@ use dependent_seen_utils::handle_after_metadata_seen_tasks;
 use dependent_utility_utils::associate_user_with_entity;
 use enum_models::EntityLot;
 use futures::try_join;
-use media_models::{MetadataProgressUpdateInput, UpdateSeenItemInput};
+use media_models::{
+    MetadataProgressUpdateInput, SeenAnimeExtraInformation, SeenMangaExtraInformation,
+    SeenPodcastExtraInformation, SeenShowExtraInformation, UpdateSeenItemInput,
+};
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel, ModelTrait};
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -31,11 +34,36 @@ pub async fn update_seen_item(
     if let Some(finished_on) = input.finished_on {
         seen.finished_on = ActiveValue::Set(Some(finished_on));
     }
-    if let Some(providers_consumed_on) = input.providers_consumed_on {
+    if let Some(providers_consumed_on) = input.common.providers_consumed_on {
         seen.providers_consumed_on = ActiveValue::Set(providers_consumed_on);
     }
-    if let Some(manual_time_spent) = input.manual_time_spent {
+    if let Some(manual_time_spent) = input.common.manual_time_spent {
         seen.manual_time_spent = ActiveValue::Set(Some(manual_time_spent));
+    }
+    if input.common.show_season_number.is_some() || input.common.show_episode_number.is_some() {
+        let show_ei = match (
+            input.common.show_season_number,
+            input.common.show_episode_number,
+        ) {
+            (Some(season), Some(episode)) => Some(SeenShowExtraInformation { season, episode }),
+            _ => None,
+        };
+        seen.show_extra_information = ActiveValue::Set(show_ei);
+    }
+    if input.common.anime_episode_number.is_some() {
+        seen.anime_extra_information = ActiveValue::Set(Some(SeenAnimeExtraInformation {
+            episode: input.common.anime_episode_number,
+        }));
+    }
+    if input.common.manga_chapter_number.is_some() || input.common.manga_volume_number.is_some() {
+        seen.manga_extra_information = ActiveValue::Set(Some(SeenMangaExtraInformation {
+            volume: input.common.manga_volume_number,
+            chapter: input.common.manga_chapter_number,
+        }));
+    }
+    if let Some(episode) = input.common.podcast_episode_number {
+        seen.podcast_extra_information =
+            ActiveValue::Set(Some(SeenPodcastExtraInformation { episode }));
     }
     if let Some(review_id) = input.review_id {
         let (review, to_update_review_id) = match review_id.is_empty() {
