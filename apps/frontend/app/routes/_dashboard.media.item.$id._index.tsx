@@ -227,9 +227,9 @@ const editSeenItem = z.object({
 	finishedOn: zodDateTimeString.optional(),
 	mangaChapterNumber: z.string().optional(),
 	showSeasonNumber: z.coerce.number().optional(),
+	mangaVolumeNumber: z.coerce.number().optional(),
 	showEpisodeNumber: z.coerce.number().optional(),
 	animeEpisodeNumber: z.coerce.number().optional(),
-	mangaVolumeNumber: z.coerce.number().optional(),
 	podcastEpisodeNumber: z.coerce.number().optional(),
 	providersConsumedOn: z.array(z.string()).optional(),
 });
