@@ -38,8 +38,8 @@ import { convertDurationToSeconds, convertSecondsToDuration } from "../utils";
 export const EditHistoryItemModal = (props: {
 	seen: History;
 	opened: boolean;
-	onClose: () => void;
 	metadataId: string;
+	onClose: () => void;
 }) => {
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
