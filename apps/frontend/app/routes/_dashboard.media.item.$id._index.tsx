@@ -26,7 +26,6 @@ import {
 	MergeMetadataDocument,
 	type MetadataProgressUpdateChange,
 	SeenState,
-	UpdateSeenItemDocument,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -116,7 +115,6 @@ import {
 	getProviderSourceImage,
 	openConfirmationModal,
 } from "~/lib/shared/ui-utils";
-import { zodDateTimeString } from "~/lib/shared/validation";
 import {
 	useAddEntityToCollections,
 	useMetadataProgressUpdate,
@@ -182,21 +180,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				{ type: "success", message: "Metadata merged successfully" },
 			);
 		})
-		.with("editSeenItem", async () => {
-			const submission = processSubmission(formData, editSeenItem);
-			submission.reviewId = submission.reviewId || "";
-			await serverGqlService.authenticatedRequest(
-				request,
-				UpdateSeenItemDocument,
-				{ input: submission },
-			);
-			return data({ status: "success", tt: new Date() } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Edited history item successfully",
-				}),
-			});
-		})
 		.with("removeItem", async () => {
 			const submission = processSubmission(formData, MetadataIdSchema);
 			await serverGqlService.authenticatedRequest(
@@ -217,21 +200,6 @@ const seenIdSchema = z.object({ seenId: z.string() });
 const mergeMetadataSchema = z.object({
 	mergeFrom: z.string(),
 	mergeInto: z.string(),
-});
-
-const editSeenItem = z.object({
-	seenId: z.string(),
-	reviewId: z.string().optional(),
-	manualTimeSpent: z.string().optional(),
-	startedOn: zodDateTimeString.optional(),
-	finishedOn: zodDateTimeString.optional(),
-	mangaChapterNumber: z.string().optional(),
-	showSeasonNumber: z.coerce.number().optional(),
-	showEpisodeNumber: z.coerce.number().optional(),
-	animeEpisodeNumber: z.coerce.number().optional(),
-	mangaVolumeNumber: z.coerce.number().optional(),
-	podcastEpisodeNumber: z.coerce.number().optional(),
-	providersConsumedOn: z.array(z.string()).optional(),
 });
 
 export default function Page() {

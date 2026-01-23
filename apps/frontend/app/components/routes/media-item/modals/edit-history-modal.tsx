@@ -13,10 +13,15 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { MediaLot, SeenState } from "@ryot/generated/graphql/backend/graphql";
-import { useState } from "react";
-import { Form } from "react-router";
-import { withQuery } from "ufo";
+import { useForm } from "@mantine/form";
+import { notifications } from "@mantine/notifications";
+import {
+	MediaLot,
+	SeenState,
+	UpdateSeenItemDocument,
+	type UpdateSeenItemInput,
+} from "@ryot/generated/graphql/backend/graphql";
+import { useMutation } from "@tanstack/react-query";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useCoreDetails,
@@ -26,7 +31,10 @@ import {
 	useUserMetadataDetails,
 } from "~/lib/shared/hooks";
 import { getVerb } from "~/lib/shared/media-utils";
-import { refreshEntityDetails } from "~/lib/shared/react-query";
+import {
+	clientGqlService,
+	refreshEntityDetails,
+} from "~/lib/shared/react-query";
 import { Verb } from "~/lib/types";
 import {
 	type DurationInput,
@@ -34,6 +42,20 @@ import {
 	POSSIBLE_DURATION_UNITS,
 } from "../types";
 import { convertDurationToSeconds, convertSecondsToDuration } from "../utils";
+
+interface EditSeenItemFormValues {
+	startedOn: Date | null;
+	finishedOn: Date | null;
+	showSeasonNumber: string | null;
+	showEpisodeNumber: string | null;
+	animeEpisodeNumber: number | string;
+	mangaChapterNumber: number | string;
+	mangaVolumeNumber: number | string;
+	podcastEpisodeNumber: string | null;
+	providersConsumedOn: string[];
+	reviewId: string | null;
+	manualTimeSpent: DurationInput;
+}
 
 export const EditHistoryItemModal = (props: {
 	seen: History;
@@ -48,16 +70,51 @@ export const EditHistoryItemModal = (props: {
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 	);
-	const [manualTimeSpentValue, setManualTimeSpentValue] =
-		useState<DurationInput>(
-			convertSecondsToDuration(props.seen.manualTimeSpent),
-		);
-	const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<
-		number | null
-	>(props.seen.showExtraInformation?.season ?? null);
 
-	const manualTimeSpentInSeconds =
-		convertDurationToSeconds(manualTimeSpentValue);
+	const form = useForm<EditSeenItemFormValues>({
+		initialValues: {
+			startedOn: props.seen.startedOn ? new Date(props.seen.startedOn) : null,
+			finishedOn: props.seen.finishedOn
+				? new Date(props.seen.finishedOn)
+				: null,
+			showSeasonNumber:
+				props.seen.showExtraInformation?.season !== undefined
+					? String(props.seen.showExtraInformation.season)
+					: null,
+			showEpisodeNumber:
+				props.seen.showExtraInformation?.episode !== undefined
+					? String(props.seen.showExtraInformation.episode)
+					: null,
+			animeEpisodeNumber: props.seen.animeExtraInformation?.episode ?? "",
+			mangaChapterNumber: props.seen.mangaExtraInformation?.chapter ?? "",
+			mangaVolumeNumber: props.seen.mangaExtraInformation?.volume ?? "",
+			podcastEpisodeNumber:
+				props.seen.podcastExtraInformation?.episode !== undefined
+					? String(props.seen.podcastExtraInformation.episode)
+					: null,
+			providersConsumedOn: props.seen.providersConsumedOn || [],
+			reviewId: props.seen.reviewId ?? null,
+			manualTimeSpent: convertSecondsToDuration(props.seen.manualTimeSpent),
+		},
+	});
+
+	const editSeenItemMutation = useMutation({
+		mutationFn: async (input: UpdateSeenItemInput) => {
+			await clientGqlService.request(UpdateSeenItemDocument, { input });
+		},
+		onSuccess: () => {
+			notifications.show({
+				color: "green",
+				message: "Edited history item successfully",
+			});
+			props.onClose();
+			refreshEntityDetails(props.metadataId);
+		},
+	});
+
+	const manualTimeSpentInSeconds = convertDurationToSeconds(
+		form.values.manualTimeSpent,
+	);
 	const reviewsByThisCurrentUser = (userMetadataDetails?.reviews ?? []).filter(
 		(r) => r.postedBy.id === userDetails.id,
 	);
@@ -68,7 +125,7 @@ export const EditHistoryItemModal = (props: {
 
 	const seasons = metadataDetails?.showSpecifics?.seasons ?? [];
 	const selectedSeason = seasons.find(
-		(s) => s.seasonNumber === selectedSeasonNumber,
+		(s) => String(s.seasonNumber) === form.values.showSeasonNumber,
 	);
 	const episodes = selectedSeason?.episodes ?? [];
 	const podcastEpisodes = metadataDetails?.podcastSpecifics?.episodes ?? [];
@@ -83,74 +140,79 @@ export const EditHistoryItemModal = (props: {
 			withCloseButton={false}
 		>
 			<FocusTrap.InitialFocus />
-			<Form
-				replace
-				method="POST"
-				action={withQuery(".", { intent: "editSeenItem" })}
-				onSubmit={() => {
-					props.onClose();
-					refreshEntityDetails(props.metadataId);
-				}}
+			<form
+				onSubmit={form.onSubmit((values) => {
+					editSeenItemMutation.mutate({
+						seenId: props.seen.id,
+						reviewId: values.reviewId || "",
+						manualTimeSpent:
+							manualTimeSpentInSeconds > 0
+								? String(manualTimeSpentInSeconds)
+								: undefined,
+						startedOn: values.startedOn
+							? values.startedOn.toISOString()
+							: undefined,
+						finishedOn: values.finishedOn
+							? values.finishedOn.toISOString()
+							: undefined,
+						showSeasonNumber: values.showSeasonNumber
+							? Number(values.showSeasonNumber)
+							: undefined,
+						showEpisodeNumber: values.showEpisodeNumber
+							? Number(values.showEpisodeNumber)
+							: undefined,
+						animeEpisodeNumber: values.animeEpisodeNumber
+							? Number(values.animeEpisodeNumber)
+							: undefined,
+						mangaChapterNumber: values.mangaChapterNumber
+							? String(values.mangaChapterNumber)
+							: undefined,
+						mangaVolumeNumber: values.mangaVolumeNumber
+							? Number(values.mangaVolumeNumber)
+							: undefined,
+						podcastEpisodeNumber: values.podcastEpisodeNumber
+							? Number(values.podcastEpisodeNumber)
+							: undefined,
+						providersConsumedOn: values.providersConsumedOn,
+					});
+				})}
 			>
-				<input hidden name="seenId" defaultValue={props.seen.id} />
 				<Stack>
 					<Title order={3}>Edit history record</Title>
 					<DateTimePicker
-						name="startedOn"
 						label="Start Date & Time"
 						disabled={areStartAndEndInputsDisabled}
-						defaultValue={
-							props.seen.startedOn ? new Date(props.seen.startedOn) : undefined
-						}
+						{...form.getInputProps("startedOn")}
 					/>
 					<DateTimePicker
-						name="finishedOn"
 						label="End Date & Time"
 						disabled={areStartAndEndInputsDisabled}
-						defaultValue={
-							props.seen.finishedOn
-								? new Date(props.seen.finishedOn)
-								: undefined
-						}
+						{...form.getInputProps("finishedOn")}
 					/>
 					{metadataDetails.lot === MediaLot.Show && seasons.length > 0 ? (
 						<>
 							<Select
 								label="Season"
-								name="showSeasonNumber"
-								onChange={(v) => setSelectedSeasonNumber(v ? Number(v) : null)}
 								data={seasons.map((s) => ({
 									label: s.name,
 									value: String(s.seasonNumber),
 								}))}
-								value={
-									selectedSeasonNumber !== null
-										? String(selectedSeasonNumber)
-										: null
-								}
+								{...form.getInputProps("showSeasonNumber")}
 							/>
 							<Select
 								label="Episode"
-								name="showEpisodeNumber"
 								data={episodes.map((e) => ({
 									value: String(e.episodeNumber),
 									label: `${e.episodeNumber}. ${e.name}`,
 								}))}
-								defaultValue={
-									props.seen.showExtraInformation?.episode !== undefined
-										? String(props.seen.showExtraInformation.episode)
-										: undefined
-								}
+								{...form.getInputProps("showEpisodeNumber")}
 							/>
 						</>
 					) : null}
 					{metadataDetails.lot === MediaLot.Anime ? (
 						<NumberInput
 							label="Episode"
-							name="animeEpisodeNumber"
-							defaultValue={
-								props.seen.animeExtraInformation?.episode ?? undefined
-							}
+							{...form.getInputProps("animeEpisodeNumber")}
 						/>
 					) : null}
 					{metadataDetails.lot === MediaLot.Manga ? (
@@ -158,17 +220,11 @@ export const EditHistoryItemModal = (props: {
 							<NumberInput
 								label="Chapter"
 								decimalScale={2}
-								name="mangaChapterNumber"
-								defaultValue={
-									props.seen.mangaExtraInformation?.chapter ?? undefined
-								}
+								{...form.getInputProps("mangaChapterNumber")}
 							/>
 							<NumberInput
 								label="Volume"
-								name="mangaVolumeNumber"
-								defaultValue={
-									props.seen.mangaExtraInformation?.volume ?? undefined
-								}
+								{...form.getInputProps("mangaVolumeNumber")}
 							/>
 						</>
 					) : null}
@@ -176,27 +232,21 @@ export const EditHistoryItemModal = (props: {
 					podcastEpisodes.length > 0 ? (
 						<Select
 							label="Episode"
-							name="podcastEpisodeNumber"
 							data={podcastEpisodes.map((e) => ({
 								value: String(e.number),
 								label: `${e.number}. ${e.title}`,
 							}))}
-							defaultValue={
-								props.seen.podcastExtraInformation?.episode !== undefined
-									? String(props.seen.podcastExtraInformation.episode)
-									: undefined
-							}
+							{...form.getInputProps("podcastEpisodeNumber")}
 						/>
 					) : null}
 					<MultiSelect
 						data={watchProviders}
-						name="providersConsumedOn"
-						defaultValue={props.seen.providersConsumedOn || []}
 						nothingFoundMessage="No watch providers configured. Please add them in your general preferences."
 						label={`Where did you ${getVerb(
 							Verb.Read,
 							metadataDetails.lot,
 						)} it?`}
+						{...form.getInputProps("providersConsumedOn")}
 					/>
 					<Tooltip
 						label={PRO_REQUIRED_MESSAGE}
@@ -206,9 +256,7 @@ export const EditHistoryItemModal = (props: {
 							clearable
 							limit={5}
 							searchable
-							name="reviewId"
 							label="Associate with a review"
-							defaultValue={props.seen.reviewId}
 							disabled={!coreDetails.isServerKeyValidated}
 							data={reviewsByThisCurrentUser.map((r) => ({
 								value: r.id,
@@ -222,6 +270,7 @@ export const EditHistoryItemModal = (props: {
 									.filter(Boolean)
 									.join(" • "),
 							}))}
+							{...form.getInputProps("reviewId")}
 						/>
 					</Tooltip>
 					<Input.Wrapper
@@ -233,37 +282,33 @@ export const EditHistoryItemModal = (props: {
 							disabled={coreDetails.isServerKeyValidated}
 						>
 							<Group wrap="nowrap" mt="xs">
-								{POSSIBLE_DURATION_UNITS.map((input) => (
+								{POSSIBLE_DURATION_UNITS.map((unit) => (
 									<NumberInput
-										key={input}
+										key={unit}
 										rightSectionWidth={36}
-										defaultValue={manualTimeSpentValue[input]}
 										disabled={!coreDetails.isServerKeyValidated}
-										rightSection={<Text size="xs">{input}</Text>}
-										onChange={(v) => {
-											setManualTimeSpentValue((prev) => ({
-												...prev,
-												[input]: v,
-											}));
-										}}
+										rightSection={<Text size="xs">{unit}</Text>}
+										value={form.values.manualTimeSpent[unit]}
+										onChange={(v) =>
+											form.setFieldValue("manualTimeSpent", {
+												...form.values.manualTimeSpent,
+												[unit]: v,
+											})
+										}
 									/>
 								))}
-								{manualTimeSpentInSeconds > 0 ? (
-									<input
-										hidden
-										readOnly
-										name="manualTimeSpent"
-										value={manualTimeSpentInSeconds}
-									/>
-								) : null}
 							</Group>
 						</Tooltip>
 					</Input.Wrapper>
-					<Button variant="outline" type="submit">
+					<Button
+						variant="outline"
+						type="submit"
+						loading={editSeenItemMutation.isPending}
+					>
 						Submit
 					</Button>
 				</Stack>
-			</Form>
+			</form>
 		</Modal>
 	);
 };
