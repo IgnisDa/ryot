@@ -21,6 +21,10 @@
 		"./schemas/property-schemas": {
 			"types": "./schemas/property-schemas.ts",
 			"default": "./schemas/property-schemas.ts"
+		},
+		"./workflows/schemas": {
+			"types": "./workflows/schemas.ts",
+			"default": "./workflows/schemas.ts"
 		}
 	},
 	"scripts": {

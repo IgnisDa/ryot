@@ -8,6 +8,7 @@ export const fixtureManifest = () =>
 		savedViews: [],
 		boot: [] as PluginManifest["boot"],
 		crons: [] as PluginManifest["crons"],
+		workflows: [] as PluginManifest["workflows"],
 		providers: [] as PluginManifest["providers"],
 		operations: [] as PluginManifest["operations"],
 		metadata: {
