@@ -62,9 +62,7 @@ export async function waitForEventCount(
 	return pollUntil(
 		`${expectedCount} events on entity ${entityId}`,
 		async () => {
-			const events = await client.run((c) =>
-				c.events.list({ urlParams: { entityId: EntityId.make(entityId) } }),
-			);
+			const events = await listEventsForEntity(client, entityId);
 			return events.length >= expectedCount ? events : null;
 		},
 		{ timeoutMs: 15000, intervalMs: 200, ...options },
@@ -146,8 +144,19 @@ export async function createRuleEventFixture(client: Client) {
 	return { entityId: entity.id, eventSchemaId: eventSchema.id };
 }
 
-export async function listEventsForEntity(client: Client, entityId: string) {
-	return client.run((c) => c.events.list({ urlParams: { entityId: EntityId.make(entityId) } }));
+export async function listEventsForEntity(
+	client: Client,
+	entityId: string,
+	options: { eventSchemaSlug?: string } = {},
+) {
+	return client.run((c) =>
+		c.events.list({
+			urlParams: {
+				entityId: EntityId.make(entityId),
+				...(options.eventSchemaSlug ? { eventSchemaSlug: options.eventSchemaSlug } : {}),
+			},
+		}),
+	);
 }
 
 export async function waitForEventWithSchema(

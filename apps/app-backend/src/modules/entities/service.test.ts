@@ -18,6 +18,7 @@ import {
 	makeWorkflowEngine,
 	transactionLayer,
 } from "#lib/test-support/effect";
+import { QueryEngineService } from "#modules/query-engine/service";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { EntitiesRepository } from "./repository";
@@ -61,6 +62,16 @@ const makeSandboxRepository = (overrides: Partial<SandboxRepository> = {}) =>
 		overrides,
 	);
 
+const makeQueryEngine = (overrides: Partial<QueryEngineService> = {}) =>
+	makeMock<QueryEngineService>(
+		{
+			validate: () => Effect.void,
+			_tag: "QueryEngineService" as const,
+			execute: () => Effect.die("unused"),
+		},
+		overrides,
+	);
+
 const makeServiceLayer = (repository: EntitiesRepository) =>
 	EntitiesService.Default.pipe(
 		Layer.provide(
@@ -69,6 +80,7 @@ const makeServiceLayer = (repository: EntitiesRepository) =>
 				transactionLayer,
 				makeAppConfigLayer(),
 				fakeWorkflowEngineLayer,
+				Layer.succeed(QueryEngineService, makeQueryEngine()),
 				Layer.succeed(EntitiesRepository, repository),
 				Layer.succeed(SandboxRepository, makeSandboxRepository()),
 			),

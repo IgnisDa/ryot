@@ -1,14 +1,24 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
-import { badRequest, notFound } from "#lib/errors";
+import { DbError, badRequest, notFound } from "#lib/errors";
 import { EntityId, EntitySchemaId, SandboxScriptId, type UserId } from "#lib/schema/brands";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { requireText, trimToNull } from "#lib/validation";
+import type { Expr, QueryDocument, RowItem, RowsOutput } from "#modules/query-engine/language";
+import {
+	getOptionalIsoStringField,
+	getOptionalStringField,
+	requireFieldValue,
+	requireIsoStringField,
+	requireRowsResponse,
+	requireStringField,
+} from "#modules/query-engine/response-helpers";
+import { QueryEngineService } from "#modules/query-engine/service";
 
 import { EntitiesRepository } from "./repository";
-import type { CreateEntityBody } from "./schemas";
+import { EntityImage, type CreateEntityBody } from "./schemas";
 import type { StoredEntityImage } from "./types";
 
 type SaveEntityInput = {
@@ -31,15 +41,84 @@ type SaveEntityInput = {
 	  }
 );
 
+const entityAlias = "entity";
 const entityNotFoundError = "Entity not found";
 const entitySchemaNotFoundError = "Entity schema not found";
 const partialProvenanceError =
 	"externalId and sandboxScriptId must both be provided or both be omitted";
 
+const systemRef = (name: string): Expr => ({
+	type: "ref",
+	sourceAlias: entityAlias,
+	field: { type: "system", name },
+});
+
+const literalExpr = (value: unknown): Expr => ({ type: "literal", value });
+
+const entityFields = [
+	{ key: "id", expr: systemRef("id") },
+	{ key: "name", expr: systemRef("name") },
+	{ key: "image", expr: systemRef("image") },
+	{ key: "createdAt", expr: systemRef("createdAt") },
+	{ key: "updatedAt", expr: systemRef("updatedAt") },
+	{ key: "properties", expr: systemRef("properties") },
+	{ key: "externalId", expr: systemRef("externalId") },
+	{ key: "populatedAt", expr: systemRef("populatedAt") },
+	{ key: "entitySchemaId", expr: systemRef("entitySchemaId") },
+	{ key: "sandboxScriptId", expr: systemRef("sandboxScriptId") },
+] satisfies RowsOutput["fields"];
+
+const buildEntityByIdDocument = (input: { entityId: EntityId; entitySchemaSlug: string }) =>
+	({
+		output: {
+			type: "rows",
+			fields: entityFields,
+			pagination: { page: 1, limit: 1 },
+			orderBy: [{ order: "asc", expr: systemRef("id") }],
+		},
+		source: {
+			type: "entities",
+			alias: entityAlias,
+			schemas: [input.entitySchemaSlug],
+			where: {
+				type: "comparison",
+				operator: "eq",
+				left: systemRef("id"),
+				right: literalExpr(input.entityId),
+			},
+		},
+	}) satisfies QueryDocument;
+
+const decodeEntityImage = (image: unknown) =>
+	image === null
+		? Effect.succeed(null)
+		: Schema.decodeUnknown(EntityImage)(image).pipe(
+				Effect.mapError(() => new DbError({ message: "Invalid entity image in database" })),
+			);
+
+const toListedEntity = Effect.fn("toListedEntityFromQueryEngine")(function* (row: RowItem) {
+	const image = yield* decodeEntityImage((yield* requireFieldValue(row, "image")).value);
+	const sandboxScriptId = yield* getOptionalStringField(row, "sandboxScriptId");
+
+	return {
+		image,
+		name: yield* requireStringField(row, "name"),
+		createdAt: yield* requireIsoStringField(row, "createdAt"),
+		updatedAt: yield* requireIsoStringField(row, "updatedAt"),
+		id: EntityId.make(yield* requireStringField(row, "id")),
+		externalId: yield* getOptionalStringField(row, "externalId"),
+		properties: (yield* requireFieldValue(row, "properties")).value,
+		populatedAt: yield* getOptionalIsoStringField(row, "populatedAt"),
+		sandboxScriptId: sandboxScriptId ? SandboxScriptId.make(sandboxScriptId) : null,
+		entitySchemaId: EntitySchemaId.make(yield* requireStringField(row, "entitySchemaId")),
+	};
+});
+
 export class EntitiesService extends Effect.Service<EntitiesService>()("EntitiesService", {
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const repository = yield* EntitiesRepository;
+		const queryEngine = yield* QueryEngineService;
 
 		const save = Effect.fn("EntitiesService.save")(function* (input: SaveEntityInput) {
 			if (input.scope === "user") {
@@ -143,12 +222,17 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 				return yield* notFound(entityNotFoundError);
 			}
 
-			const entity = yield* runWithDb(repository.getByIdForUser({ userId: user.id, entityId }));
-			if (!entity) {
+			const response = yield* queryEngine.execute(
+				user,
+				buildEntityByIdDocument({ entityId, entitySchemaSlug: scope.entitySchemaSlug }),
+			);
+			const rows = yield* requireRowsResponse(response);
+			const row = rows.data.items[0];
+			if (!row) {
 				return yield* notFound(entityNotFoundError);
 			}
 
-			return entity;
+			return yield* toListedEntity(row);
 		});
 
 		return { save, create, getById };
