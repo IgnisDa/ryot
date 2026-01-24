@@ -30,7 +30,7 @@
 | `server.otlpEndpoint` | `SERVER_OTLP_ENDPOINT` | Base URL for OTLP trace export | No | No | — |
 | `server.adminAccessToken` | `SERVER_ADMIN_ACCESS_TOKEN` | Bearer token required for god-mode admin endpoints | Yes | Yes | — |
 | `server.disableNotifications` | `SERVER_DISABLE_NOTIFICATIONS` | Disable delivery of all notifications | No | No | `false` |
-| `server.disableBackgroundJobs` | `SERVER_DISABLE_BACKGROUND_JOBS` | Disable all scheduled background jobs (both the frequent and infrequent cron tiers) | No | No | `false` |
+| `server.disableBackgroundJobs` | `SERVER_DISABLE_BACKGROUND_JOBS` | Disable all scheduled background jobs (the frequent/infrequent cron tiers, plugin manifest crons, and the one-time plugin boot dispatcher) | No | No | `false` |
 | `server.progressUpdateThresholdHours` | `SERVER_PROGRESS_UPDATE_THRESHOLD` | Minimum hours between automatic progress updates for an entity | No | No | `2` |
 
 #### OIDC provider

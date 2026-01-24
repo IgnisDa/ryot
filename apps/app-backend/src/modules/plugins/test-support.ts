@@ -6,6 +6,7 @@ export const fixturePackageRoot = (kind: "diagnostic" | "valid" = "valid") =>
 export const fixtureManifest = () =>
 	({
 		savedViews: [],
+		boot: [] as PluginManifest["boot"],
 		crons: [] as PluginManifest["crons"],
 		operations: [] as PluginManifest["operations"],
 		metadata: {

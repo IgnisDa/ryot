@@ -7,6 +7,7 @@ const manifest = definePlugin({
 	savedViews: [],
 	entitySchemas: [],
 	relationshipSchemas: [],
+	boot: [{ slug: "boot.test", driverRef: "automation.test", description: "Boot test data" }],
 	crons: [
 		{
 			slug: "refresh.test",
@@ -72,19 +73,21 @@ describe("definePlugin", () => {
 	});
 
 	it("contains only the supported manifest sections", () => {
-		type HasCapabilities = "capabilities" extends keyof PluginManifest ? true : false;
+		type HasBoot = "boot" extends keyof PluginManifest ? true : false;
 		type HasCrons = "crons" extends keyof PluginManifest ? true : false;
-		type HasOperations = "operations" extends keyof PluginManifest ? true : false;
 		type HasWorkflows = "workflows" extends keyof PluginManifest ? true : false;
+		type HasOperations = "operations" extends keyof PluginManifest ? true : false;
+		type HasCapabilities = "capabilities" extends keyof PluginManifest ? true : false;
 
-		const optionalSections: [HasCapabilities, HasCrons, HasOperations, HasWorkflows] = [
+		const optionalSections: [HasCapabilities, HasCrons, HasBoot, HasOperations, HasWorkflows] = [
 			false,
+			true,
 			true,
 			true,
 			false,
 		];
 
-		expect(optionalSections).toEqual([false, true, true, false]);
+		expect(optionalSections).toEqual([false, true, true, true, false]);
 	});
 
 	it("decodes the manifest with the canonical Effect schema", () => {
@@ -165,10 +168,7 @@ describe("definePlugin", () => {
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
-				...manifest,
-				crons: [{ ...cron, schedule: "" }],
-			}),
+			Schema.decodeUnknownSync(PluginManifest)({ ...manifest, crons: [{ ...cron, schedule: "" }] }),
 		).toThrow();
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
@@ -186,6 +186,34 @@ describe("definePlugin", () => {
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
 				crons: [{ ...cron, timezone: "UTC" }],
+			}),
+		).toThrow();
+	});
+
+	it("strictly validates boot declarations", () => {
+		const boot = manifest.boot[0];
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				boot: [{ ...boot, slug: "Invalid/Slug" }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				boot: [{ ...boot, driverRef: "Invalid/Slug" }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				boot: [{ ...boot, description: " " }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				boot: [{ ...boot, schedule: "0 0 * * *" }],
 			}),
 		).toThrow();
 	});

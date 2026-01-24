@@ -98,7 +98,7 @@ const fields = {
 	),
 	disableBackgroundJobs: boolField(
 		"SERVER_DISABLE_BACKGROUND_JOBS",
-		"Disable all scheduled background jobs (both the frequent and infrequent cron tiers)",
+		"Disable all scheduled background jobs (the frequent/infrequent cron tiers, plugin manifest crons, and the one-time plugin boot dispatcher)",
 		{ default: false },
 	),
 	timeoutMs: intField(

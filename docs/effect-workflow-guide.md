@@ -639,7 +639,9 @@ above:
   integration run) persist the adapter result to a Redis artifact and await the child with a
   deterministic `${parentExecutionId}-normalized` id.
 - **Cron owners** — `PluginCronService` (`scheduler/plugin-cron.ts`) dispatches plugin manifest crons
-  as sandbox executions; this owns media trending and exercise preloading. The native
+  as sandbox executions; this owns media trending. `PluginBootService` (`scheduler/plugin-boot.ts`)
+  dispatches plugin manifest `boot` entries once per server start, non-blocking; this owns exercise
+  preloading (one-time catalog seeding, not periodic work). The native
   `IntegrationReconciliationWorkflow` (`integrations/reconciliation-workflow.ts`) remains a fan-out
   shell whose activity prepares eligible runs and whose body dispatches one
   `ProcessIntegrationRunWorkflow` child per run id.
