@@ -29,14 +29,14 @@ import {
 	TestSupportGlobalRelationship,
 	TestSupportSignal,
 	TestSupportEnqueueSandboxBody,
-	TestSupportMediaPopulationGateResult,
-	TestSupportMediaPopulationGateRun,
 	TestSupportOperationalPressure,
 	TestSupportPluginCronResult,
-	TestSupportStartMediaPopulationGateBody,
+	TestSupportStartWorkflowLoadGateBody,
 	TestSupportStoredSandboxScript,
 	TestSupportSubscriptionRun,
 	TestSupportTriggerPluginCronBody,
+	TestSupportWorkflowLoadGateResult,
+	TestSupportWorkflowLoadGateRun,
 } from "./schemas";
 
 const userIdParam = HttpApiSchema.param("userId", UserId);
@@ -56,10 +56,10 @@ const CreateGlobalEntityBody = Schema.Struct({
 });
 
 const TriggerPluginBootResponse = Schema.Struct({ executionId: Schema.String });
-const MediaPopulationGateResultBody = Schema.Struct({
-	itemCount: Schema.Int.pipe(Schema.positive(), Schema.lessThanOrEqualTo(1_001)),
+const WorkflowLoadGateResultBody = Schema.Struct({
 	runId: ImportRunId,
 	executionIds: Schema.Array(Schema.String).pipe(Schema.minItems(1)),
+	itemCount: Schema.Int.pipe(Schema.positive(), Schema.lessThanOrEqualTo(1_001)),
 });
 const OperationalPressureBody = Schema.Struct({
 	executionIds: Schema.Array(Schema.String).pipe(Schema.minItems(1)),
@@ -106,24 +106,21 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			.annotate(OpenApi.Description, "Returns an installed sandbox script execution result"),
 	)
 	.add(
-		HttpApiEndpoint.post(
-			"startMediaPopulationGate",
-			"/test-support/operational-gate/media-population",
-		)
-			.setPayload(TestSupportStartMediaPopulationGateBody)
-			.addSuccess(TestSupportMediaPopulationGateRun)
+		HttpApiEndpoint.post("startWorkflowLoadGate", "/test-support/operational-gate/workflow-load")
+			.setPayload(TestSupportStartWorkflowLoadGateBody)
+			.addSuccess(TestSupportWorkflowLoadGateRun)
 			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 })
-			.annotate(OpenApi.Description, "Starts a full-size media population operational gate"),
+			.annotate(OpenApi.Description, "Starts a full-size workflow load operational gate"),
 	)
 	.add(
 		HttpApiEndpoint.post(
-			"getMediaPopulationGateResult",
-			"/test-support/operational-gate/media-population/result",
+			"getWorkflowLoadGateResult",
+			"/test-support/operational-gate/workflow-load/result",
 		)
-			.setPayload(MediaPopulationGateResultBody)
-			.addSuccess(TestSupportMediaPopulationGateResult)
-			.annotate(OpenApi.Description, "Returns media population operational gate results"),
+			.setPayload(WorkflowLoadGateResultBody)
+			.addSuccess(TestSupportWorkflowLoadGateResult)
+			.annotate(OpenApi.Description, "Returns workflow load operational gate results"),
 	)
 	.add(
 		HttpApiEndpoint.post("sampleOperationalPressure", "/test-support/operational-gate/pressure")
