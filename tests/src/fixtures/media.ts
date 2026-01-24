@@ -105,6 +105,24 @@ export async function getGlobalEntityByProvenance(input: {
 	);
 }
 
+export async function waitForEntityPopulated(
+	input: {
+		externalId: string;
+		entitySchemaId: string;
+		sandboxScriptId: string;
+	},
+	options: PollOptions = {},
+) {
+	return pollUntil(
+		`global entity '${input.externalId}' populated`,
+		async () => {
+			const entity = await getGlobalEntityByProvenance(input);
+			return entity.populatedAt !== null ? entity : null;
+		},
+		{ timeoutMs: 30_000, intervalMs: 500, ...options },
+	);
+}
+
 export async function getRelationshipBySchemaSlug(
 	client: Client,
 	input: {
