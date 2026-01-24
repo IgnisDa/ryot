@@ -1,13 +1,12 @@
-import { defineConfig } from "vitest/config";
+import shared from "@ryot/testing/vitest.shared";
+import { defineConfig, mergeConfig } from "vitest/config";
 
 const srcDir = Bun.fileURLToPath(new URL("./src/", import.meta.url));
 
-export default defineConfig({
-	resolve: { alias: [{ find: /^#(lib|modules)\//, replacement: `${srcDir}$1/` }] },
-	test: {
-		testTimeout: 20_000,
-		reporters: ["agent"],
-		include: ["src/**/*.test.ts"],
-		setupFiles: ["./test-setup.ts"],
-	},
-});
+export default mergeConfig(
+	shared,
+	defineConfig({
+		test: { testTimeout: 20_000, setupFiles: ["./test-setup.ts"] },
+		resolve: { alias: [{ find: /^#(lib|modules)\//, replacement: `${srcDir}$1/` }] },
+	}),
+);
