@@ -13,6 +13,7 @@ the rewrite is complete, add a section with implementation notes.
 - Do not commit any changes.
 - Use subagents to parallelize work. Give each subagent a small, exclusive file surface and explicit
   acceptance criteria.
+- All work must happen in the shared current checkout. Do not create or use worktrees.
 - Do not give two subagents overlapping ownership. Shared contracts must be stabilized before
   dependent work is dispatched.
 - Use fresh verification agents after non-trivial integration waves. A discovery result is not a
