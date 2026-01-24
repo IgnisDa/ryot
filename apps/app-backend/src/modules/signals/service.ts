@@ -66,6 +66,16 @@ export class SignalSchemasService extends Effect.Service<SignalSchemasService>()
 			const repository = yield* SignalSchemasRepository;
 			const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
+			const getBuiltinBySlug = Effect.fn("SignalSchemasService.getBuiltinBySlug")(function* (
+				slug: string,
+			) {
+				const signalSchema = yield* runWithDb(repository.findGlobalBySlug(slug));
+				if (!signalSchema?.isBuiltin) {
+					return yield* notFound("Signal schema not found");
+				}
+				return signalSchema;
+			});
+
 			const ensureBuiltin = Effect.fn("SignalSchemasService.ensureBuiltin")(function* (
 				input: BuiltinSignalSchemaInput,
 			) {
@@ -118,7 +128,7 @@ export class SignalSchemasService extends Effect.Service<SignalSchemasService>()
 				return existing;
 			});
 
-			return { ensureBuiltin };
+			return { ensureBuiltin, getBuiltinBySlug };
 		}),
 	},
 ) {}
