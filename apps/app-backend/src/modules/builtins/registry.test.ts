@@ -237,13 +237,21 @@ describe("builtinSandboxScripts", () => {
 		]);
 	});
 
-	it("registers the compiled automation tracer and its rule link", () => {
+	it("registers automation test scripts with isolated capabilities", () => {
 		const automation = builtinSandboxScripts().find(
 			({ slug }) => slug === "automation.test-tracer",
 		);
+		const notifier = builtinSandboxScripts().find(
+			({ slug }) => slug === "automation.test-notifier",
+		);
 		assert(automation);
+		assert(notifier);
 		expect(automation.manifest.kind).toBe("automation");
+		expect(notifier.manifest.kind).toBe("automation");
+		expect(automation.manifest.capabilities).toEqual(["emitSignal"]);
+		expect(notifier.manifest.capabilities).toEqual(["sendNotification"]);
 		expect(automation.compiledCode).toContain("ryot:sandbox-script");
+		expect(notifier.compiledCode).toContain("ryot:sandbox-script");
 		expect(builtinAutomationRuleLinks()).toEqual([
 			{
 				name: "Automation Test Tracer",
