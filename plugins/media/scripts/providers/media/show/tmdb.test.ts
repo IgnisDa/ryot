@@ -1,9 +1,14 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, trending } from "./tmdb.sandbox";
+import { manifest } from "./tmdb";
+import details, { manifest as detailsManifest } from "./tmdb-details.sandbox";
+import resolve, { manifest as resolveManifest } from "./tmdb-resolve.sandbox";
+import search, { manifest as searchManifest } from "./tmdb-search.sandbox";
+import translate, { manifest as translateManifest } from "./tmdb-translate.sandbox";
+import trending, { manifest as trendingManifest } from "./tmdb-trending.sandbox";
 
 type TmdbHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -20,6 +25,34 @@ const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("show.tmdb sandbox script", () => {
+	it("declares one narrowly scoped script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation, searchManifest.capabilities],
+			[detailsManifest.slug, details.operation, detailsManifest.capabilities],
+			[resolveManifest.slug, resolve.operation, resolveManifest.capabilities],
+			[translateManifest.slug, translate.operation, translateManifest.capabilities],
+		]).toEqual([
+			["show.tmdb.search", "search", ["httpCall", "getAppConfigValue", "getUserPreferences"]],
+			["show.tmdb.details", "details", ["httpCall", "getAppConfigValue"]],
+			["show.tmdb.resolve", "resolve", ["httpCall", "getAppConfigValue"]],
+			["show.tmdb.translate", "translate", ["httpCall", "getAppConfigValue"]],
+		]);
+	});
+	it("declares trending as a generic provider-associated script", () => {
+		expect({
+			kind: trendingManifest.kind,
+			slug: trendingManifest.slug,
+			operation: "operation" in trending ? trending.operation : null,
+			capabilities: trendingManifest.capabilities,
+			requiredAppConfigKeys: trendingManifest.requiredAppConfigKeys,
+		}).toEqual({
+			kind: "script",
+			slug: "show.tmdb.trending",
+			operation: null,
+			capabilities: ["httpCall", "getAppConfigValue"],
+			requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
+		});
+	});
 	it("keeps TMDB recommendations as related entities", () => {
 		const host = makeHost((_method, url) => {
 			if (url.includes("/tv/1/recommendations")) {
@@ -54,7 +87,7 @@ describe("show.tmdb sandbox script", () => {
 			});
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
@@ -74,8 +107,8 @@ describe("show.tmdb sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Pick One", externalId: "2", scriptSlug: "show.tmdb" },
-								{ name: "Pick Two", externalId: "3", scriptSlug: "show.tmdb" },
+								{ name: "Pick One", externalId: "2", providerSlug: "show.tmdb" },
+								{ name: "Pick Two", externalId: "3", providerSlug: "show.tmdb" },
 							],
 						},
 					]);
@@ -104,7 +137,7 @@ describe("show.tmdb sandbox script", () => {
 				: httpSuccess({ results: [{ id: 50, name: "Fourth Show" }] });
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(trending, {}, host, execution).pipe(
+			runSandboxTestScript(trending, {}, host, execution).pipe(
 				Effect.map((result) => {
 					expect(requestedPages).toEqual(["1", "2", "3"]);
 					expect(result).toEqual({

@@ -4,7 +4,9 @@ import { AppContract } from "@ryot/contract/contract";
 import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
 
+import { DbRunner } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { DefinitionsService } from "./service";
 
@@ -12,9 +14,19 @@ export const DefinitionsRoutesLive = HttpApiBuilder.group(AppContract, "definiti
 	handlers
 		.handle("listEntities", () =>
 			Effect.gen(function* () {
+				const runWithDb = yield* DbRunner;
 				const registry = yield* DefinitionRegistry;
+				const pluginRuntime = yield* PluginRuntimeResolver;
+				const schemaProviders = yield* runWithDb(pluginRuntime.listSchemaProviders()).pipe(
+					dieOnDbError,
+				);
 				return Object.values(registry.getSnapshot().entitySchemas).map((definition) =>
-					Object.assign({}, definition, { eventSchemas: Object.values(definition.eventSchemas) }),
+					Object.assign({}, definition, {
+						eventSchemas: Object.values(definition.eventSchemas),
+						providers: schemaProviders
+							.filter(({ entitySchemaSlug }) => entitySchemaSlug === definition.slug)
+							.map(({ provider }) => ({ name: provider.name, providerId: provider.id })),
+					}),
 				);
 			}),
 		)

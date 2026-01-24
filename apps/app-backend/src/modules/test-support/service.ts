@@ -1,9 +1,14 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { badRequest } from "@ryot/contract/errors";
+import type {
+	TestSupportEnqueueSandboxBody,
+	TestSupportStoredSandboxScript,
+} from "@ryot/contract/modules/test-support/schemas";
 import {
 	EntitySchemaSlug,
 	type EntityId,
 	type RelationshipSchemaSlug,
+	SandboxProviderId,
 	type SandboxScriptId,
 	type UserId,
 } from "@ryot/contract/schema/brands";
@@ -30,8 +35,17 @@ type CreateGlobalEntityInput = {
 	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly properties: Record<string, unknown>;
 	readonly populatedAt?: string | null | undefined;
-	readonly sandboxScriptId?: SandboxScriptId | undefined;
+	readonly providerId?: SandboxProviderId | undefined;
 };
+
+type StoredSandboxScriptRow = Omit<TestSupportStoredSandboxScript, "providerId"> & {
+	readonly providerId: string | null;
+};
+
+const toStoredSandboxScript = (script: StoredSandboxScriptRow) => ({
+	...script,
+	providerId: script.providerId === null ? null : SandboxProviderId.make(script.providerId),
+});
 
 const parseDate = (value: string) => {
 	const parsed = new Date(value);
@@ -64,8 +78,8 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 				populatedAt: null,
 				properties: input.properties,
 				externalId: input.externalId,
+				providerId: input.providerId,
 				entitySchemaSlug: input.entitySchemaSlug,
-				sandboxScriptId: input.sandboxScriptId,
 			});
 			if (input.populatedAt === undefined) {
 				return created;
@@ -171,6 +185,18 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 			return { count };
 		});
 
+		const getSandboxScript = Effect.fn("TestSupportService.getSandboxScript")(function* (
+			scriptId: SandboxScriptId,
+		) {
+			const script = yield* sandbox.getStoredScript(scriptId);
+			return toStoredSandboxScript(script as StoredSandboxScriptRow);
+		});
+
+		const listSandboxScripts = Effect.fn("TestSupportService.listSandboxScripts")(function* () {
+			const scripts = yield* sandbox.listStoredScripts();
+			return scripts.map((script) => toStoredSandboxScript(script as StoredSandboxScriptRow));
+		});
+
 		return {
 			linkAuthAccount,
 			triggerPluginBoot,
@@ -181,20 +207,15 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 			upsertEntityTranslation,
 			upsertGlobalRelationship,
 			listSignals: signals.list,
+			getSandboxScript,
 			getSandboxResult: sandbox.getResult,
 			setEntityInterest: interest.setInterest,
-			getSandboxScript: sandbox.getStoredScript,
 			deleteGlobalEntities: entities.deleteByIds,
-			listSandboxScripts: sandbox.listStoredScripts,
+			listSandboxScripts,
 			listEntityTranslations: translations.listByEntity,
 			listGlobalRelationships: relationships.listGlobal,
 			listSubscriptionRuns: automations.listRunsByExecutionUserId,
-			enqueueSandbox: (input: {
-				context?: unknown;
-				driverName: string;
-				executingUserId: UserId;
-				scriptId: SandboxScriptId;
-			}) => {
+			enqueueSandbox: (input: TestSupportEnqueueSandboxBody) => {
 				const { executingUserId, ...payload } = input;
 				return sandbox.enqueue(executingUserId, payload);
 			},

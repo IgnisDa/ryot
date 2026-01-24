@@ -5,11 +5,13 @@ import {
 	EntitySchemaSlug,
 	RelationshipId,
 	RelationshipSchemaSlug,
+	SandboxProviderId,
 	SandboxScriptId,
 	SignalId,
 	SubscriptionRunId,
 	UserId,
 } from "../../schema/brands";
+import { strictStruct } from "../../schema/utils";
 import { SubscriptionRunStatus } from "../automations/schemas";
 import { EnqueueSandboxBody, SandboxScriptMetadata } from "../sandbox/schemas";
 
@@ -18,6 +20,7 @@ export const TestSupportStoredSandboxScript = Schema.Struct({
 	slug: Schema.String,
 	name: Schema.String,
 	source: Schema.String,
+	providerId: Schema.NullOr(SandboxProviderId),
 	compiledCode: Schema.String,
 	compiledFormat: Schema.Number,
 	metadata: SandboxScriptMetadata,
@@ -25,7 +28,7 @@ export const TestSupportStoredSandboxScript = Schema.Struct({
 
 export type TestSupportStoredSandboxScript = typeof TestSupportStoredSandboxScript.Type;
 
-export const TestSupportEnqueueSandboxBody = Schema.Struct({
+export const TestSupportEnqueueSandboxBody = strictStruct({
 	...EnqueueSandboxBody.fields,
 	executingUserId: UserId,
 });

@@ -4,12 +4,12 @@ import {
 	createAuthenticatedClient,
 	executeQueryEngine,
 	findBuiltinSchemaBySlug,
-	getFirstProviderScriptId,
 	getSavedView,
 	insertLibraryMembership,
 	requireQueryEngineFieldValue,
 	seedMediaEntity,
 } from "~/fixtures";
+import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("saved views execution", () => {
@@ -18,11 +18,13 @@ describe("saved views execution", () => {
 			const userA = yield* createAuthenticatedClient();
 			const userB = yield* createAuthenticatedClient();
 			const { schema } = yield* findBuiltinSchemaBySlug(userA.client, "show");
+			const providerId = schema.providers[0]?.providerId;
+			assertPresent(providerId, "Expected a provider for the show schema");
 
 			const entity = yield* seedMediaEntity({
 				userId: null,
 				entitySchemaSlug: schema.id,
-				sandboxScriptId: getFirstProviderScriptId(schema),
+				providerId,
 				name: `Isolated All Shows ${crypto.randomUUID()}`,
 				externalId: `isolated-all-shows-${crypto.randomUUID()}`,
 				properties: {
@@ -60,11 +62,13 @@ describe("saved views execution", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "show");
+			const providerId = schema.providers[0]?.providerId;
+			assertPresent(providerId, "Expected a provider for the show schema");
 
 			const entity = yield* seedMediaEntity({
 				userId: null,
 				entitySchemaSlug: schema.id,
-				sandboxScriptId: getFirstProviderScriptId(schema),
+				providerId,
 				name: `Refetched All Shows ${crypto.randomUUID()}`,
 				externalId: `refetched-all-shows-${crypto.randomUUID()}`,
 				properties: {

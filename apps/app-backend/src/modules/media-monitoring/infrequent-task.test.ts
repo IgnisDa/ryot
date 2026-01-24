@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import { EntityId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { dbRunnerLayer, makeWorkflowEngine, type MockOverrides } from "#lib/test-utils/effect";
@@ -14,13 +14,13 @@ const targets = [
 		externalId: "movie-a",
 		entitySchemaSlug: "movie",
 		entityId: EntityId.make("entity-a"),
-		sandboxScriptId: SandboxScriptId.make("script-a"),
+		providerId: SandboxProviderId.make("provider-a"),
 	},
 	{
 		externalId: "person-b",
 		entitySchemaSlug: "person",
 		entityId: EntityId.make("entity-b"),
-		sandboxScriptId: SandboxScriptId.make("script-b"),
+		providerId: SandboxProviderId.make("provider-b"),
 	},
 ] satisfies ReadonlyArray<MediaMonitoringTarget>;
 
@@ -59,7 +59,7 @@ it.effect(
 						entityId: "entity-a",
 						externalId: "movie-a",
 						entitySchemaSlug: "movie",
-						sandboxScriptId: "script-a",
+						providerId: "provider-a",
 						executionId: "cron-run-entity-a",
 					},
 				},
@@ -69,7 +69,7 @@ it.effect(
 						entityId: "entity-b",
 						externalId: "person-b",
 						entitySchemaSlug: "person",
-						sandboxScriptId: "script-b",
+						providerId: "provider-b",
 						executionId: "cron-run-entity-b",
 					},
 				},

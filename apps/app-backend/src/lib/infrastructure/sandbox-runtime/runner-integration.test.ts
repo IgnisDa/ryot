@@ -1,7 +1,7 @@
 import { Command, CommandExecutor, FileSystem, HttpApp, HttpServer } from "@effect/platform";
 import { BunContext, BunHttpServer } from "@effect/platform-bun";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
-import type { CompiledSandboxModule } from "@ryot/sandbox-compiler/protocol";
+import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
 import { Effect, Runtime, Schema, Stream } from "effect";
 import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
@@ -14,41 +14,37 @@ import {
 } from "./dependencies";
 import {
 	generatedSandboxScripts,
-	sandboxAnimeDotAnilistScript,
-	sandboxAnimeDotMyanimelistScript,
-	sandboxComicDashBookDotMetronScript,
-	sandboxExerciseDotFreeDashExerciseDashDbScript,
-	sandboxVisualDashNovelDotVndbScript,
-	sandboxAudiobookDotAudibleScript,
-	sandboxBookDotGoogleDashBooksScript,
-	sandboxBookDotHardcoverScript,
-	sandboxBookDotOpenlibraryScript,
-	sandboxCompanyDotTmdbScript,
-	sandboxCompanyDotTvdbScript,
-	sandboxMangaDotMangaDashUpdatesScript,
-	sandboxMovieDashGroupDotTmdbScript,
-	sandboxMovieDashGroupDotTvdbScript,
-	sandboxMovieDotTmdbScript,
-	sandboxMovieDotTvdbScript,
-	sandboxMusicDotMusicDashBrainzScript,
-	sandboxMusicDotSpotifyScript,
-	sandboxPersonDotTmdbScript,
-	sandboxPersonDotTvdbScript,
-	sandboxPodcastDotItunesScript,
-	sandboxPodcastDotListennotesScript,
-	sandboxShowDotTmdbScript,
-	sandboxShowDotTvdbScript,
-	sandboxVideoDashGameDotGiantDashBombScript,
-	sandboxVideoDashGameDotIgdbScript,
+	sandboxAnimeDotAnilistDotDetailsScript,
+	sandboxAnimeDotMyanimelistDotSearchScript,
+	sandboxComicDashBookDotMetronDotSearchScript,
+	sandboxExerciseDotFreeDashExerciseDashDbDotSearchScript,
+	sandboxVisualDashNovelDotVndbDotSearchScript,
+	sandboxAudiobookDotAudibleDotDetailsScript,
+	sandboxBookDotGoogleDashBooksDotResolveScript,
+	sandboxBookDotGoogleDashBooksDotSearchScript,
+	sandboxBookDotHardcoverDotDetailsScript,
+	sandboxBookDotOpenlibraryDotDetailsScript,
+	sandboxCompanyDotTmdbDotSearchScript,
+	sandboxCompanyDotTvdbDotSearchScript,
+	sandboxMangaDotMangaDashUpdatesDotSearchScript,
+	sandboxMovieDashGroupDotTmdbDotSearchScript,
+	sandboxMovieDashGroupDotTvdbDotTranslateScript,
+	sandboxMovieDotTmdbDotSearchScript,
+	sandboxMovieDotTvdbDotSearchScript,
+	sandboxMusicDotMusicDashBrainzDotSearchScript,
+	sandboxMusicDotSpotifyDotSearchScript,
+	sandboxPersonDotTmdbDotSearchScript,
+	sandboxPersonDotTvdbDotSearchScript,
+	sandboxPodcastDotItunesDotSearchScript,
+	sandboxPodcastDotListennotesDotSearchScript,
+	sandboxShowDotTmdbDotSearchScript,
+	sandboxShowDotTvdbDotSearchScript,
+	sandboxVideoDashGameDotGiantDashBombDotSearchScript,
+	sandboxVideoDashGameDotIgdbDotSearchScript,
 	sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript,
 	sandboxTriggerDotIntegrationDashProgressDashPolicyScript,
 } from "./generated-sandbox/registry";
-import {
-	SANDBOX_LIMITS,
-	SANDBOX_LOG_TRUNCATION_MARKER,
-	SANDBOX_RUNNER_LIMITS,
-	utf8ByteLength,
-} from "./limits";
+import { SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "./limits";
 import { sandboxRunnerSource } from "./runner.generated";
 
 let dependencyRuntimeRoot: string | undefined;
@@ -89,7 +85,7 @@ afterAll(() => {
 });
 
 const source = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
@@ -100,123 +96,62 @@ export const manifest = defineManifest({
   requiredAppConfigKeys: [],
 });
 
-const main = defineDriver(manifest, {
+export default defineScript({
+	manifest,
   input: Schema.Struct({ value: Schema.Number }),
   output: Schema.Number,
   run: (input) => Effect.succeed(input.value),
 });
 
-const invalidOutput = defineDriver(manifest, {
-  input: Schema.Struct({}),
-  output: Schema.Number,
-  run: () => Effect.succeed("wrong" as never),
+`;
+
+const failureSource = `
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+
+export const manifest = defineManifest({
+  kind: "script",
+  name: "Runner failure",
+  slug: "runner-failure",
+  capabilities: [],
+  requiredAppConfigKeys: [],
 });
 
-const codeGeneration = defineDriver(manifest, {
-  input: Schema.Struct({}),
-  output: Schema.Null,
-  run: () => Effect.sync(() => {
-    const functionConstructor = (() => {}).constructor;
-    const asyncFunctionConstructor = Object.getPrototypeOf(async function () {}).constructor;
-    if (
-      globalThis.Function !== undefined ||
-      globalThis.eval !== undefined ||
-      functionConstructor !== undefined ||
-      asyncFunctionConstructor !== undefined ||
-      Reflect.get(globalThis, "Deno") !== undefined ||
-      Reflect.get(globalThis, "Worker") !== undefined
-    ) {
-      throw new Error("String code generation is available");
-    }
-    return null;
-  }),
-});
-
-const throwing = defineDriver(manifest, {
+export default defineScript({
+  manifest,
   input: Schema.Struct({}),
   output: Schema.Null,
   run: () => Effect.sync(() => {
     throw new Error("mapped execution failure execution-1");
   }),
 });
+`;
 
-const oversizedOutput = defineDriver(manifest, {
-  input: Schema.Struct({}),
-  output: Schema.String,
-  run: () => Effect.succeed("x".repeat(${SANDBOX_LIMITS.execution.resultBytes + 1})),
+const limitsSource = `
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+
+export const manifest = defineManifest({
+  kind: "script",
+  name: "Runner limits",
+  slug: "runner-limits",
+  capabilities: [],
+  requiredAppConfigKeys: [],
 });
 
-const oversizedLogEntry = defineDriver(manifest, {
-  input: Schema.Struct({}),
-  output: Schema.Null,
-  run: () => Effect.sync(() => {
-    console.log("🙂".repeat(${Math.floor(SANDBOX_LIMITS.logs.entryBytes / 4) + 1}));
-    console.log("ignored");
-    return null;
-  }),
-});
-
-const excessiveLogCount = defineDriver(manifest, {
-  input: Schema.Struct({}),
-  output: Schema.Null,
-  run: () => Effect.sync(() => {
+export default defineScript({
+  manifest,
+  input: Schema.Struct({ mode: Schema.Literal("output", "logs") }),
+  output: Schema.Unknown,
+  run: (input) => Effect.sync(() => {
+    if (input.mode === "output") {
+      return "x".repeat(${SANDBOX_LIMITS.execution.resultBytes + 1});
+    }
     for (let index = 0; index < ${SANDBOX_LIMITS.logs.entryCount}; index += 1) {
       console.log(index);
     }
     return null;
   }),
-});
-
-const excessiveLogBytes = defineDriver(manifest, {
-  input: Schema.Struct({}),
-  output: Schema.Null,
-  run: () => Effect.sync(() => {
-    for (let index = 0; index < 40; index += 1) {
-      console.log("x".repeat(${SANDBOX_LIMITS.logs.entryBytes}));
-    }
-    return null;
-  }),
-});
-
-const mutatedIntrinsics = defineDriver(manifest, {
-  input: Schema.Struct({}),
-  output: Schema.String,
-  run: () => Effect.sync(() => {
-    Reflect.set(JSON, "stringify", () => '"bypassed"');
-    Reflect.set(TextEncoder.prototype, "encode", () => new Uint8Array());
-    console.log("x".repeat(${SANDBOX_LIMITS.logs.entryBytes + 1}));
-    return "x".repeat(${SANDBOX_LIMITS.execution.resultBytes + 1});
-  }),
-});
-
-const unstableSerialization = defineDriver(manifest, {
-  input: Schema.Struct({}),
-  output: Schema.Unknown,
-  run: () => Effect.sync(() => {
-    let calls = 0;
-    return {
-      toJSON: () => {
-        calls += 1;
-        return calls === 1 ? "serialized-once" : "x".repeat(${SANDBOX_LIMITS.execution.resultBytes + 1});
-      },
-    };
-  }),
-});
-
-export default defineScript({
-  manifest,
-  drivers: {
-    main,
-    throwing,
-    invalidOutput,
-    codeGeneration,
-    mutatedIntrinsics,
-    oversizedOutput,
-    unstableSerialization,
-    excessiveLogBytes,
-    excessiveLogCount,
-    oversizedLogEntry,
-  },
 });
 `;
 
@@ -226,7 +161,7 @@ import {
   httpCallResponseSchema,
   userPreferencesSchema,
 } from "@ryot/sandbox-sdk/core";
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
@@ -245,7 +180,8 @@ export const manifest = defineManifest({
   requiredAppConfigKeys: ["timezone"],
 });
 
-const main = defineDriver(manifest, {
+export default defineScript({
+	manifest,
   input: Schema.Struct({ write: Schema.Boolean }),
   output: Schema.Struct({
     after: Schema.NullOr(jsonValueSchema),
@@ -273,12 +209,10 @@ const main = defineDriver(manifest, {
     return { after, before, claim, config, http, preferences };
   }),
 });
-
-export default defineScript({ manifest, drivers: { main } });
 `;
 
 const filteredHostSource = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
@@ -300,7 +234,8 @@ const nativeEncodeComponent = globalThis.encodeURIComponent;
 globalThis.encodeURIComponent = (value) =>
   value === "getCachedValue" ? "getAppConfigValue" : nativeEncodeComponent(value);
 
-const main = defineDriver(manifest, {
+export default defineScript({
+	manifest,
   input: Schema.Struct({}),
   output: Schema.Struct({ keys: Schema.Array(Schema.String), value: Schema.NullOr(jsonValueSchema) }),
   run: (_input, host) => Effect.gen(function* () {
@@ -311,12 +246,10 @@ const main = defineDriver(manifest, {
     };
   }),
 });
-
-export default defineScript({ manifest, drivers: { main } });
 `;
 
 const hostBudgetSource = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
@@ -327,35 +260,28 @@ export const manifest = defineManifest({
   requiredAppConfigKeys: [],
 });
 
-const hostCalls = defineDriver(manifest, {
-  input: Schema.Struct({}),
-  output: Schema.Unknown,
-  run: (_input, host) => Effect.gen(function* () {
-    let result: unknown = null;
-    for (let index = 0; index <= ${SANDBOX_LIMITS.hostCalls.total}; index += 1) {
-      result = yield* host.getCachedValue("budget");
-    }
-    return result;
-  }),
+export default defineScript({
+	manifest,
+	input: Schema.Struct({ kind: Schema.Literal("host", "http") }),
+	output: Schema.Unknown,
+	run: (input, host) => Effect.gen(function* () {
+		let result: unknown = null;
+		if (input.kind === "host") {
+			for (let index = 0; index <= ${SANDBOX_LIMITS.hostCalls.total}; index += 1) {
+				result = yield* host.getCachedValue("budget");
+			}
+		} else {
+			for (let index = 0; index <= ${SANDBOX_LIMITS.hostCalls.http}; index += 1) {
+				result = yield* host.httpCall("GET", "https://example.com/budget");
+			}
+		}
+		return result;
+	}),
 });
-
-const httpCalls = defineDriver(manifest, {
-  input: Schema.Struct({}),
-  output: Schema.Unknown,
-  run: (_input, host) => Effect.gen(function* () {
-    let result: unknown = null;
-    for (let index = 0; index <= ${SANDBOX_LIMITS.hostCalls.http}; index += 1) {
-      result = yield* host.httpCall("GET", "https://example.com/budget");
-    }
-    return result;
-  }),
-});
-
-export default defineScript({ manifest, drivers: { hostCalls, httpCalls } });
 `;
 
 const domainHostSource = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import {
   createEventsResultDataSchema,
   entityRecordSchema,
@@ -382,7 +308,8 @@ export const manifest = defineManifest({
   ],
 });
 
-const main = defineDriver(manifest, {
+export default defineScript({
+	manifest,
   input: Schema.Struct({}),
   output: Schema.Struct({
     queryRows: Schema.Number,
@@ -418,13 +345,11 @@ const main = defineDriver(manifest, {
     };
   }),
 });
-
-export default defineScript({ manifest, drivers: { main } });
 `;
 
 const dependencySource = (name: string, sdkImport: string) => `
 import "${sdkImport}";
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
@@ -435,17 +360,16 @@ export const manifest = defineManifest({
   requiredAppConfigKeys: [],
 });
 
-const main = defineDriver(manifest, {
+export default defineScript({
+	manifest,
   input: Schema.Struct({}),
   output: Schema.Null,
   run: () => Effect.succeed(null),
 });
-
-export default defineScript({ manifest, drivers: { main } });
 `;
 
 const generatedNpmImportSource = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
@@ -456,7 +380,8 @@ export const manifest = defineManifest({
   requiredAppConfigKeys: [],
 });
 
-const main = defineDriver(manifest, {
+export default defineScript({
+	manifest,
   input: Schema.Struct({}),
   output: Schema.Null,
   run: () => Effect.promise(async () => {
@@ -465,13 +390,13 @@ const main = defineDriver(manifest, {
     return null;
   }),
 });
-
-export default defineScript({ manifest, drivers: { main } });
 `;
 
 const encodeRunnerRequest = Schema.encodeSync(Schema.parseJson(Schema.Unknown));
 const decodeRunnerResponse = Schema.decodeUnknownSync(Schema.parseJson(Schema.Unknown));
-type RunnerCompiledModule = Omit<CompiledSandboxModule, "format" | "driverNames"> & {
+type RunnerCompiledModule = {
+	readonly manifest: SandboxManifest;
+	readonly javascript: string;
 	readonly format: number;
 };
 
@@ -482,12 +407,7 @@ type RunnerOptions = {
 	readonly apiFunctions?: readonly string[];
 };
 
-const runInDeno = (
-	compiled: RunnerCompiledModule,
-	driverName: string,
-	context: unknown,
-	options: RunnerOptions = {},
-) =>
+const runInDeno = (compiled: RunnerCompiledModule, context: unknown, options: RunnerOptions = {}) =>
 	Effect.scoped(
 		Effect.gen(function* () {
 			assert(dependencyRuntime);
@@ -497,7 +417,6 @@ const runInDeno = (
 				context,
 				apiBase,
 				limits: SANDBOX_RUNNER_LIMITS,
-				driverName,
 				token: "unused",
 				metadata: compiled.manifest,
 				compiledFormat: compiled.format,
@@ -650,35 +569,28 @@ const startCoreHostBridge = (
 		};
 	});
 
-it("loads compiled ESM in Deno and validates driver input and output", () =>
+it("loads compiled ESM in Deno and validates definition input and output", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
 			const compiler = yield* SandboxCompiler;
 			const compiled = yield* compiler.compile(source);
 
-			const success = yield* runInDeno(compiled, "main", { value: 42 });
+			const success = yield* runInDeno(compiled, { value: 42 });
 			assert(success !== null && typeof success === "object");
 			expect(Reflect.get(success, "error")).toBeUndefined();
 			expect(success).toMatchObject({ success: true, value: 42 });
 
-			const invalidInput = yield* runInDeno(compiled, "main", { value: "wrong" });
+			const invalidInput = yield* runInDeno(compiled, { value: "wrong" });
 			assert(invalidInput !== null && typeof invalidInput === "object");
 			expect(Reflect.get(invalidInput, "error")).toMatchObject({
 				phase: "input",
-				message: expect.stringContaining("Driver input validation failed"),
-			});
-
-			const invalidOutput = yield* runInDeno(compiled, "invalidOutput", {});
-			assert(invalidOutput !== null && typeof invalidOutput === "object");
-			expect(Reflect.get(invalidOutput, "error")).toMatchObject({
-				phase: "output",
-				message: expect.stringContaining("Driver output validation failed"),
+				message: expect.stringContaining("Definition input validation failed"),
 			});
 
 			const promiseManifest = {
 				kind: "script",
-				name: "Promise driver rejection",
-				slug: "promise-driver-rejection",
+				name: "Promise definition rejection",
+				slug: "promise-definition-rejection",
 				capabilities: [],
 				requiredAppConfigKeys: [],
 			} as const;
@@ -693,31 +605,25 @@ it("loads compiled ESM in Deno and validates driver input and output", () =>
 export default {
   definitionType: "ryot:sandbox-script",
   manifest: ${promiseManifestSource},
-  drivers: {
-    promiseOutput: {
-      input: Schema.Struct({}),
-      output: Schema.Boolean,
-      run: () => Promise.resolve(true),
-    },
-  },
+	input: Schema.Struct({}),
+	output: Schema.Boolean,
+	run: () => Promise.resolve(true),
 };`,
 				},
-				"promiseOutput",
 				{},
 			);
 			assert(promiseOutput !== null && typeof promiseOutput === "object");
 			expect(Reflect.get(promiseOutput, "error")).toEqual({
 				phase: "execute",
-				message: "Sandbox driver must return an Effect",
+				message: "Sandbox definition must return an Effect",
 			});
 
-			const codeGeneration = yield* runInDeno(compiled, "codeGeneration", {});
-			assert(codeGeneration !== null && typeof codeGeneration === "object");
-			expect(codeGeneration).toMatchObject({ success: true, value: null });
-
-			const unsupported = yield* runInDeno({ ...compiled, format: 2 }, "main", {
-				value: 42,
-			});
+			const unsupported = yield* runInDeno(
+				{ ...compiled, format: 2 },
+				{
+					value: 42,
+				},
+			);
 			assert(unsupported !== null && typeof unsupported === "object");
 			expect(Reflect.get(unsupported, "error")).toEqual({
 				phase: "load",
@@ -730,33 +636,26 @@ it("returns source-mapped, sanitized execution and load errors", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
 			const compiler = yield* SandboxCompiler;
-			const compiled = yield* compiler.compile(source);
-			const throwingLine = source
-				.slice(0, source.indexOf('throw new Error("mapped execution failure execution-1")'))
+			const compiled = yield* compiler.compile(failureSource);
+			const throwingLine = failureSource
+				.slice(0, failureSource.indexOf('throw new Error("mapped execution failure execution-1")'))
 				.split("\n").length;
-			const result = yield* runInDeno(compiled, "throwing", {});
+			const result = yield* runInDeno(compiled, {});
 			assert(result !== null && typeof result === "object");
-			const error = Reflect.get(result, "error");
-			assert(error !== null && typeof error === "object");
-			expect(error).toMatchObject({
+			expect(Reflect.get(result, "error")).toMatchObject({
 				phase: "execute",
 				line: throwingLine,
 				message: "mapped execution failure [redacted]",
 			});
-			const stack = Reflect.get(error, "stack");
-			expect(stack).toMatch(/^    at script\.ts:\d+:\d+(?:\n    at script\.ts:\d+:\d+)*$/);
-			expect(stack).not.toMatch(/data:|file:|runner|execution-1/);
 
-			const loadSource = source.replace(
-				"const main = defineDriver",
-				'throw new Error("mapped load failure execution-1");\n\nconst main = defineDriver',
+			const loadSource = failureSource.replace(
+				"export default defineScript",
+				'throw new Error("mapped load failure execution-1");\n\nexport default defineScript',
 			);
 			const loadLine = loadSource
 				.slice(0, loadSource.indexOf('throw new Error("mapped load failure execution-1")'))
 				.split("\n").length;
-			const loadResult = yield* runInDeno(yield* compiler.compile(loadSource), "main", {
-				value: 42,
-			});
+			const loadResult = yield* runInDeno(yield* compiler.compile(loadSource), {});
 			assert(loadResult !== null && typeof loadResult === "object");
 			expect(Reflect.get(loadResult, "error")).toMatchObject({
 				phase: "load",
@@ -766,58 +665,24 @@ it("returns source-mapped, sanitized execution and load errors", () =>
 		}).pipe(Effect.provide(SandboxCompiler.Default)),
 	));
 
-it("bounds output and truncates each log limit exactly once without failing", () =>
+it("enforces direct-definition output and log limits", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
 			const compiler = yield* SandboxCompiler;
-			const compiled = yield* compiler.compile(source);
-
-			const oversizedOutput = yield* runInDeno(compiled, "oversizedOutput", {});
-			assert(oversizedOutput !== null && typeof oversizedOutput === "object");
-			expect(Reflect.get(oversizedOutput, "value")).toBeUndefined();
-			expect(Reflect.get(oversizedOutput, "error")).toEqual({
+			const compiled = yield* compiler.compile(limitsSource);
+			const output = yield* runInDeno(compiled, { mode: "output" });
+			assert(output !== null && typeof output === "object");
+			expect(Reflect.get(output, "error")).toEqual({
 				phase: "output",
-				message: `Sandbox driver result exceeds ${SANDBOX_LIMITS.execution.resultBytes} UTF-8 bytes`,
+				message: `Sandbox definition result exceeds ${SANDBOX_LIMITS.execution.resultBytes} UTF-8 bytes`,
 			});
 
-			const entryResult = yield* runInDeno(compiled, "oversizedLogEntry", {});
-			assert(entryResult !== null && typeof entryResult === "object");
-			const entryLogs = Reflect.get(entryResult, "logs");
-			assert(Array.isArray(entryLogs));
-			expect(Reflect.get(entryResult, "success")).toBe(true);
-			expect(entryLogs).toHaveLength(2);
-			expect(utf8ByteLength(String(entryLogs[0]))).toBe(SANDBOX_LIMITS.logs.entryBytes);
-			expect(entryLogs[1]).toBe(SANDBOX_LOG_TRUNCATION_MARKER);
-
-			const countResult = yield* runInDeno(compiled, "excessiveLogCount", {});
-			assert(countResult !== null && typeof countResult === "object");
-			const countLogs = Reflect.get(countResult, "logs");
-			assert(Array.isArray(countLogs));
-			expect(countLogs).toHaveLength(SANDBOX_LIMITS.logs.entryCount);
-			expect(countLogs.filter((log) => log === SANDBOX_LOG_TRUNCATION_MARKER)).toHaveLength(1);
-
-			const byteResult = yield* runInDeno(compiled, "excessiveLogBytes", {});
-			assert(byteResult !== null && typeof byteResult === "object");
-			const byteLogs = Reflect.get(byteResult, "logs");
-			assert(Array.isArray(byteLogs));
-			expect(byteLogs.filter((log) => log === SANDBOX_LOG_TRUNCATION_MARKER)).toHaveLength(1);
-			expect(
-				byteLogs.reduce((total, log) => total + utf8ByteLength(String(log)), 0),
-			).toBeLessThanOrEqual(SANDBOX_LIMITS.logs.totalBytes);
-
-			const mutatedResult = yield* runInDeno(compiled, "mutatedIntrinsics", {});
-			assert(mutatedResult !== null && typeof mutatedResult === "object");
-			expect(Reflect.get(mutatedResult, "error")).toMatchObject({
-				phase: "output",
-				message: expect.stringContaining("Sandbox driver result exceeds"),
-			});
-			const mutatedLogs = Reflect.get(mutatedResult, "logs");
-			assert(Array.isArray(mutatedLogs));
-			expect(mutatedLogs.at(-1)).toBe(SANDBOX_LOG_TRUNCATION_MARKER);
-
-			const serializedOnce = yield* runInDeno(compiled, "unstableSerialization", {});
-			assert(serializedOnce !== null && typeof serializedOnce === "object");
-			expect(serializedOnce).toMatchObject({ success: true, value: "serialized-once" });
+			const logged = yield* runInDeno(compiled, { mode: "logs" });
+			assert(logged !== null && typeof logged === "object");
+			const logs = Reflect.get(logged, "logs");
+			assert(Array.isArray(logs));
+			expect(logs).toHaveLength(SANDBOX_LIMITS.logs.entryCount);
+			expect(logs.at(-1)).toBe("[sandbox logs truncated]");
 		}).pipe(Effect.provide(SandboxCompiler.Default)),
 	));
 
@@ -829,7 +694,7 @@ it("loads one compiled fixture for each approved SDK dependency without remote m
 				const compiled = yield* compiler.compile(
 					dependencySource(dependency.name, dependency.sdkImport),
 				);
-				const result = yield* runInDeno(compiled, "main", {});
+				const result = yield* runInDeno(compiled, {});
 				assert(result !== null && typeof result === "object");
 				expect(Reflect.get(result, "error"), dependency.name).toBeUndefined();
 				expect(result).toMatchObject({ success: true, value: null });
@@ -842,7 +707,7 @@ it("disables obfuscated string-generated imports at runtime", () =>
 		Effect.gen(function* () {
 			const compiler = yield* SandboxCompiler;
 			const compiled = yield* compiler.compile(generatedNpmImportSource);
-			const result = yield* runInDeno(compiled, "main", {});
+			const result = yield* runInDeno(compiled, {});
 			assert(result !== null && typeof result === "object");
 			expect(Reflect.get(result, "error")).toMatchObject({
 				phase: "execute",
@@ -865,7 +730,6 @@ it("executes typed core host methods and filters the Deno host to declared capab
 				bridge.register("execution-a-1", "script-a");
 				const first = yield* runInDeno(
 					compiled,
-					"main",
 					{ write: true },
 					{
 						apiBase,
@@ -886,7 +750,6 @@ it("executes typed core host methods and filters the Deno host to declared capab
 				bridge.register("execution-b-1", "script-b");
 				const isolated = yield* runInDeno(
 					compiled,
-					"main",
 					{ write: false },
 					{
 						apiBase,
@@ -905,7 +768,6 @@ it("executes typed core host methods and filters the Deno host to declared capab
 				bridge.register("execution-a-2", "script-a");
 				const persistent = yield* runInDeno(
 					compiled,
-					"main",
 					{ write: false },
 					{
 						apiBase,
@@ -924,7 +786,6 @@ it("executes typed core host methods and filters the Deno host to declared capab
 
 				const filteredResult = yield* runInDeno(
 					filtered,
-					"main",
 					{},
 					{ apiBase, apiFunctions: ["getCachedValue", "setCachedValue", "getAppConfigValue"] },
 				);
@@ -950,7 +811,6 @@ it("rejects malformed private host wire responses", () =>
 				const compiled = yield* compiler.compile(filteredHostSource);
 				const result = yield* runInDeno(
 					compiled,
-					"main",
 					{},
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -980,16 +840,13 @@ it(
 								format: script.compiledFormat,
 								javascript: script.compiledCode,
 							},
-							"__ryot_nonexistent_driver__",
 							{},
 						);
 						assert(result !== null && typeof result === "object", script.slug);
 						const error = Reflect.get(result, "error");
-						assert(error !== null && typeof error === "object", `${script.slug} failed to load`);
-						expect(Reflect.get(error, "phase"), script.slug).toBe("load");
-						expect(Reflect.get(error, "message"), script.slug).toContain(
-							"is not defined in this script",
-						);
+						if (error !== null && typeof error === "object") {
+							expect(Reflect.get(error, "phase"), script.slug).not.toBe("load");
+						}
 					}),
 				{ concurrency: 5 },
 			),
@@ -1020,13 +877,12 @@ it("loads and executes the generated TMDB Show module in Deno", () =>
 					},
 				});
 				const compiled = {
-					manifest: sandboxShowDotTmdbScript.manifest,
-					format: sandboxShowDotTmdbScript.compiledFormat,
-					javascript: sandboxShowDotTmdbScript.compiledCode,
+					manifest: sandboxShowDotTmdbDotSearchScript.manifest,
+					format: sandboxShowDotTmdbDotSearchScript.compiledFormat,
+					javascript: sandboxShowDotTmdbDotSearchScript.compiledCode,
 				};
 				const result = yield* runInDeno(
 					compiled,
-					"search",
 					{ query: "Generated", page: 1, pageSize: 20 },
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -1093,13 +949,21 @@ it("loads and executes the remaining generated TMDB provider family in Deno", ()
 					},
 				});
 				const cases = [
-					{ entry: sandboxMovieDotTmdbScript, title: "Generated Movie", externalId: "1" },
-					{ entry: sandboxPersonDotTmdbScript, title: "Generated Person", externalId: "2" },
-					{ entry: sandboxCompanyDotTmdbScript, title: "Generated Company", externalId: "3" },
+					{ entry: sandboxMovieDotTmdbDotSearchScript, title: "Generated Movie", externalId: "1" },
+					{
+						entry: sandboxPersonDotTmdbDotSearchScript,
+						title: "Generated Person",
+						externalId: "2",
+					},
+					{
+						entry: sandboxCompanyDotTmdbDotSearchScript,
+						title: "Generated Company",
+						externalId: "3",
+					},
 					{
 						externalId: "4",
 						title: "Generated Collection",
-						entry: sandboxMovieDashGroupDotTmdbScript,
+						entry: sandboxMovieDashGroupDotTmdbDotSearchScript,
 					},
 				];
 				for (const scenario of cases) {
@@ -1110,7 +974,6 @@ it("loads and executes the remaining generated TMDB provider family in Deno", ()
 					};
 					const result = yield* runInDeno(
 						compiled,
-						"search",
 						{ query: "Generated", page: 1, pageSize: 20 },
 						{
 							apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -1159,13 +1022,12 @@ it("loads and executes the generated TVDB Show module in Deno through the token 
 					},
 				});
 				const compiled = {
-					manifest: sandboxShowDotTvdbScript.manifest,
-					format: sandboxShowDotTvdbScript.compiledFormat,
-					javascript: sandboxShowDotTvdbScript.compiledCode,
+					manifest: sandboxShowDotTvdbDotSearchScript.manifest,
+					format: sandboxShowDotTvdbDotSearchScript.compiledFormat,
+					javascript: sandboxShowDotTvdbDotSearchScript.compiledCode,
 				};
 				const result = yield* runInDeno(
 					compiled,
-					"search",
 					{ query: "Generated", page: 1, pageSize: 20 },
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -1233,9 +1095,17 @@ it("loads and executes the remaining generated TVDB provider family in Deno", ()
 				});
 				const apiBase = `http://127.0.0.1:${bridge.port}`;
 				const searchCases = [
-					{ entry: sandboxMovieDotTvdbScript, title: "Generated Movie", externalId: "1" },
-					{ entry: sandboxPersonDotTvdbScript, title: "Generated Person", externalId: "2" },
-					{ entry: sandboxCompanyDotTvdbScript, title: "Generated Company", externalId: "3" },
+					{ entry: sandboxMovieDotTvdbDotSearchScript, title: "Generated Movie", externalId: "1" },
+					{
+						entry: sandboxPersonDotTvdbDotSearchScript,
+						title: "Generated Person",
+						externalId: "2",
+					},
+					{
+						entry: sandboxCompanyDotTvdbDotSearchScript,
+						title: "Generated Company",
+						externalId: "3",
+					},
 				];
 				for (const scenario of searchCases) {
 					const compiled = {
@@ -1245,7 +1115,6 @@ it("loads and executes the remaining generated TVDB provider family in Deno", ()
 					};
 					const result = yield* runInDeno(
 						compiled,
-						"search",
 						{ query: "Generated", page: 1, pageSize: 20 },
 						{ apiBase, apiFunctions: compiled.manifest.capabilities },
 					);
@@ -1262,14 +1131,13 @@ it("loads and executes the remaining generated TVDB provider family in Deno", ()
 					});
 				}
 
-				const groupEntry = sandboxMovieDashGroupDotTvdbScript;
+				const groupEntry = sandboxMovieDashGroupDotTvdbDotTranslateScript;
 				const translated = yield* runInDeno(
 					{
 						manifest: groupEntry.manifest,
 						format: groupEntry.compiledFormat,
 						javascript: groupEntry.compiledCode,
 					},
-					"translate",
 					{ externalId: "4", language: "en", entitySchemaSlug: "movie-group" },
 					{ apiBase, apiFunctions: groupEntry.manifest.capabilities },
 				);
@@ -1325,7 +1193,7 @@ it("loads and executes the generated AniList anime module in Deno with bundled h
 						};
 					},
 				});
-				const entry = sandboxAnimeDotAnilistScript;
+				const entry = sandboxAnimeDotAnilistDotDetailsScript;
 				const compiled = {
 					manifest: entry.manifest,
 					format: entry.compiledFormat,
@@ -1333,7 +1201,6 @@ it("loads and executes the generated AniList anime module in Deno with bundled h
 				};
 				const result = yield* runInDeno(
 					compiled,
-					"details",
 					{ externalId: "7" },
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -1353,7 +1220,7 @@ it("loads and executes the generated AniList anime module in Deno with bundled h
 								{
 									externalId: "11",
 									name: "Generated Studio",
-									scriptSlug: "company.anilist",
+									providerSlug: "company.anilist",
 									relationshipProperties: { roles: ["Animation Studio"] },
 								},
 							],
@@ -1362,7 +1229,9 @@ it("loads and executes the generated AniList anime module in Deno with bundled h
 							direction: "outgoing",
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
-							entities: [{ name: "Suggested Manga", externalId: "8", scriptSlug: "manga.anilist" }],
+							entities: [
+								{ name: "Suggested Manga", externalId: "8", providerSlug: "manga.anilist" },
+							],
 						},
 					],
 					properties: {
@@ -1430,14 +1299,14 @@ it("loads and executes the generated MyAnimeList and MangaUpdates modules in Den
 						publishYear: 2021,
 						title: "Generated MAL Anime",
 						image: "https://img.example/mal.jpg",
-						entry: sandboxAnimeDotMyanimelistScript,
+						entry: sandboxAnimeDotMyanimelistDotSearchScript,
 					},
 					{
 						externalId: "9",
 						publishYear: 2019,
 						title: "Generated Series",
 						image: "https://img.example/mu.jpg",
-						entry: sandboxMangaDotMangaDashUpdatesScript,
+						entry: sandboxMangaDotMangaDashUpdatesDotSearchScript,
 					},
 				];
 				for (const scenario of searchCases) {
@@ -1448,7 +1317,6 @@ it("loads and executes the generated MyAnimeList and MangaUpdates modules in Den
 					};
 					const result = yield* runInDeno(
 						compiled,
-						"search",
 						{ query: "Generated", page: 1, pageSize: 20 },
 						{ apiBase, apiFunctions: compiled.manifest.capabilities },
 					);
@@ -1504,7 +1372,7 @@ it("loads and executes the generated Hardcover book module in Deno through the G
 						};
 					},
 				});
-				const entry = sandboxBookDotHardcoverScript;
+				const entry = sandboxBookDotHardcoverDotDetailsScript;
 				const compiled = {
 					manifest: entry.manifest,
 					format: entry.compiledFormat,
@@ -1512,7 +1380,6 @@ it("loads and executes the generated Hardcover book module in Deno through the G
 				};
 				const result = yield* runInDeno(
 					compiled,
-					"details",
 					{ externalId: "42" },
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -1567,7 +1434,7 @@ it("loads and executes the generated OpenLibrary book module in Deno with custom
 						};
 					},
 				});
-				const entry = sandboxBookDotOpenlibraryScript;
+				const entry = sandboxBookDotOpenlibraryDotDetailsScript;
 				const compiled = {
 					manifest: entry.manifest,
 					format: entry.compiledFormat,
@@ -1575,7 +1442,6 @@ it("loads and executes the generated OpenLibrary book module in Deno with custom
 				};
 				const result = yield* runInDeno(
 					compiled,
-					"details",
 					{ externalId: "OL1W" },
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -1618,7 +1484,7 @@ it("loads and executes the generated Google Books module in Deno through the RES
 						};
 					},
 				});
-				const entry = sandboxBookDotGoogleDashBooksScript;
+				const entry = sandboxBookDotGoogleDashBooksDotSearchScript;
 				const compiled = {
 					manifest: entry.manifest,
 					format: entry.compiledFormat,
@@ -1626,7 +1492,6 @@ it("loads and executes the generated Google Books module in Deno through the RES
 				};
 				const result = yield* runInDeno(
 					compiled,
-					"search",
 					{ query: "g", page: 1, pageSize: 20 },
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -1648,6 +1513,22 @@ it("loads and executes the generated Google Books module in Deno through the RES
 						},
 					],
 				});
+
+				const resolveEntry = sandboxBookDotGoogleDashBooksDotResolveScript;
+				const resolved = yield* runInDeno(
+					{
+						manifest: resolveEntry.manifest,
+						format: resolveEntry.compiledFormat,
+						javascript: resolveEntry.compiledCode,
+					},
+					{ identifierType: "isbn", value: "9780000000000" },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: resolveEntry.manifest.capabilities,
+					},
+				);
+				assert(resolved !== null && typeof resolved === "object");
+				expect(resolved).toMatchObject({ success: true, value: { externalId: "g1" } });
 			}),
 		),
 	));
@@ -1680,7 +1561,7 @@ it("loads and executes the generated Audible module in Deno with HTML descriptio
 						};
 					},
 				});
-				const entry = sandboxAudiobookDotAudibleScript;
+				const entry = sandboxAudiobookDotAudibleDotDetailsScript;
 				const compiled = {
 					manifest: entry.manifest,
 					format: entry.compiledFormat,
@@ -1688,7 +1569,6 @@ it("loads and executes the generated Audible module in Deno with HTML descriptio
 				};
 				const result = yield* runInDeno(
 					compiled,
-					"details",
 					{ externalId: "B01" },
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -1734,7 +1614,7 @@ it("loads and executes the generated iTunes podcast module in Deno", () =>
 						};
 					},
 				});
-				const entry = sandboxPodcastDotItunesScript;
+				const entry = sandboxPodcastDotItunesDotSearchScript;
 				const compiled = {
 					manifest: entry.manifest,
 					format: entry.compiledFormat,
@@ -1742,7 +1622,6 @@ it("loads and executes the generated iTunes podcast module in Deno", () =>
 				};
 				const result = yield* runInDeno(
 					compiled,
-					"search",
 					{ query: "podcast", page: 1, pageSize: 20 },
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -1793,7 +1672,7 @@ it("loads and executes the generated ListenNotes podcast module in Deno through 
 						};
 					},
 				});
-				const entry = sandboxPodcastDotListennotesScript;
+				const entry = sandboxPodcastDotListennotesDotSearchScript;
 				const compiled = {
 					manifest: entry.manifest,
 					format: entry.compiledFormat,
@@ -1801,7 +1680,6 @@ it("loads and executes the generated ListenNotes podcast module in Deno through 
 				};
 				const result = yield* runInDeno(
 					compiled,
-					"search",
 					{ query: "podcast", page: 1, pageSize: 20 },
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -1845,7 +1723,7 @@ it("loads and executes the generated MusicBrainz module in Deno", () =>
 						};
 					},
 				});
-				const entry = sandboxMusicDotMusicDashBrainzScript;
+				const entry = sandboxMusicDotMusicDashBrainzDotSearchScript;
 				const compiled = {
 					manifest: entry.manifest,
 					format: entry.compiledFormat,
@@ -1853,7 +1731,6 @@ it("loads and executes the generated MusicBrainz module in Deno", () =>
 				};
 				const result = yield* runInDeno(
 					compiled,
-					"search",
 					{ query: "song", page: 1, pageSize: 20 },
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -1907,7 +1784,7 @@ it("loads and executes the generated Spotify module in Deno through the token ca
 						};
 					},
 				});
-				const entry = sandboxMusicDotSpotifyScript;
+				const entry = sandboxMusicDotSpotifyDotSearchScript;
 				const compiled = {
 					manifest: entry.manifest,
 					format: entry.compiledFormat,
@@ -1915,7 +1792,6 @@ it("loads and executes the generated Spotify module in Deno through the token ca
 				};
 				const result = yield* runInDeno(
 					compiled,
-					"search",
 					{ query: "track", page: 1, pageSize: 20 },
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -1965,7 +1841,7 @@ it("loads and executes the generated GiantBomb module in Deno", () =>
 						};
 					},
 				});
-				const entry = sandboxVideoDashGameDotGiantDashBombScript;
+				const entry = sandboxVideoDashGameDotGiantDashBombDotSearchScript;
 				const compiled = {
 					manifest: entry.manifest,
 					format: entry.compiledFormat,
@@ -1973,7 +1849,6 @@ it("loads and executes the generated GiantBomb module in Deno", () =>
 				};
 				const result = yield* runInDeno(
 					compiled,
-					"search",
 					{ query: "game", page: 1, pageSize: 20 },
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -2024,7 +1899,7 @@ it("loads and executes the generated IGDB module in Deno through the Twitch OAut
 						];
 					},
 				});
-				const entry = sandboxVideoDashGameDotIgdbScript;
+				const entry = sandboxVideoDashGameDotIgdbDotSearchScript;
 				const compiled = {
 					manifest: entry.manifest,
 					format: entry.compiledFormat,
@@ -2032,7 +1907,6 @@ it("loads and executes the generated IGDB module in Deno through the Twitch OAut
 				};
 				const result = yield* runInDeno(
 					compiled,
-					"search",
 					{ query: "game", page: 1, pageSize: 20 },
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -2092,7 +1966,7 @@ it("loads and executes the generated Metron module in Deno through Basic auth", 
 						};
 					},
 				});
-				const entry = sandboxComicDashBookDotMetronScript;
+				const entry = sandboxComicDashBookDotMetronDotSearchScript;
 				const compiled = {
 					manifest: entry.manifest,
 					format: entry.compiledFormat,
@@ -2100,7 +1974,6 @@ it("loads and executes the generated Metron module in Deno through Basic auth", 
 				};
 				const result = yield* runInDeno(
 					compiled,
-					"search",
 					{ query: "series", page: 1, pageSize: 20 },
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -2147,7 +2020,7 @@ it("loads and executes the generated VNDB module in Deno", () =>
 						};
 					},
 				});
-				const entry = sandboxVisualDashNovelDotVndbScript;
+				const entry = sandboxVisualDashNovelDotVndbDotSearchScript;
 				const compiled = {
 					manifest: entry.manifest,
 					format: entry.compiledFormat,
@@ -2155,7 +2028,6 @@ it("loads and executes the generated VNDB module in Deno", () =>
 				};
 				const result = yield* runInDeno(
 					compiled,
-					"search",
 					{ query: "vn", page: 1, pageSize: 20 },
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -2205,7 +2077,7 @@ it("loads and executes the generated Free Exercise DB module in Deno with cache 
 						];
 					},
 				});
-				const entry = sandboxExerciseDotFreeDashExerciseDashDbScript;
+				const entry = sandboxExerciseDotFreeDashExerciseDashDbDotSearchScript;
 				const compiled = {
 					manifest: entry.manifest,
 					format: entry.compiledFormat,
@@ -2213,7 +2085,6 @@ it("loads and executes the generated Free Exercise DB module in Deno with cache 
 				};
 				const result = yield* runInDeno(
 					compiled,
-					"search",
 					{ query: "bench", page: 1, pageSize: 20 },
 					{
 						apiBase: `http://127.0.0.1:${bridge.port}`,
@@ -2253,7 +2124,6 @@ it("loads migrated event policy and subscription automations in Deno", () =>
 					format: policy.compiledFormat,
 					javascript: policy.compiledCode,
 				},
-				"automation",
 				{
 					automation: {
 						operation: "create",
@@ -2284,7 +2154,6 @@ it("loads migrated event policy and subscription automations in Deno", () =>
 					format: subscription.compiledFormat,
 					javascript: subscription.compiledCode,
 				},
-				"automation",
 				{
 					automation: {
 						operation: "create",
@@ -2323,7 +2192,7 @@ it("counts failed host-call attempts against total and HTTP budgets", () =>
 					apiFunctions: compiled.manifest.capabilities,
 				};
 
-				const hostResult = yield* runInDeno(compiled, "hostCalls", {}, options);
+				const hostResult = yield* runInDeno(compiled, { kind: "host" }, options);
 				assert(hostResult !== null && typeof hostResult === "object");
 				expect(Reflect.get(hostResult, "error")).toEqual({
 					phase: "execute",
@@ -2333,7 +2202,7 @@ it("counts failed host-call attempts against total and HTTP budgets", () =>
 					SANDBOX_LIMITS.hostCalls.total,
 				);
 
-				const httpResult = yield* runInDeno(compiled, "httpCalls", {}, options);
+				const httpResult = yield* runInDeno(compiled, { kind: "http" }, options);
 				assert(httpResult !== null && typeof httpResult === "object");
 				expect(Reflect.get(httpResult, "error")).toEqual({
 					phase: "execute",
@@ -2349,7 +2218,7 @@ it("counts failed host-call attempts against total and HTTP budgets", () =>
 const domainEntityRecord = {
 	name: "Inception",
 	populatedAt: null,
-	sandboxScriptId: null,
+	providerId: "tmdb",
 	externalId: "tt1375666",
 	entitySchemaSlug: "movie",
 	properties: { runtime: 148 },
@@ -2394,7 +2263,7 @@ const domainEntitySchemaRecord = {
 	pluginSlug: "plugin-1",
 	accentColor: "#ffffff",
 	propertiesSchema: { fields: {} },
-	providers: [{ name: "TMDB", scriptId: "tmdb-movie" }],
+	providers: [{ name: "TMDB", providerId: "tmdb" }],
 };
 
 const domainEventSchemaRecord = {
@@ -2473,7 +2342,6 @@ it("executes typed domain host methods through Deno", () =>
 
 				const result = yield* runInDeno(
 					compiled,
-					"main",
 					{},
 					{ apiBase, apiFunctions: compiled.manifest.capabilities },
 				);

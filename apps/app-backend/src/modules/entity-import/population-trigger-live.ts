@@ -23,7 +23,7 @@ export const EntityPopulationTriggerLive = Layer.effect(
 							origin: input.origin,
 							userId: input.userId,
 							externalId: input.externalId,
-							scriptId: input.sandboxScriptId,
+							providerId: input.providerId,
 							entitySchemaSlug: input.entitySchemaSlug,
 						},
 					})

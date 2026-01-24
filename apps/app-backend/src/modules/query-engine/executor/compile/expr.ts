@@ -64,7 +64,7 @@ const literalScalarType = (expr: Extract<Expr, { type: "literal" }>): ScalarType
 // `translationStatus`: a server-derived, text-valued computed field (see language.ts). For canonical
 // readers (language === null) it constant-folds to 'none' with no join, keeping SQL byte-identical to
 // a query that never referenced translations. Otherwise it runs its own correlated reads of
-// sandbox_script (the canonical language must be read live — scripts are seeded/created after the
+// sandbox_provider (the canonical language must be read live — providers are seeded/created after the
 // query engine is built, so no compile-time snapshot can be trusted) and entity_translation — the
 // localized entity source coalesces that row away, so its merged columns cannot distinguish pending
 // from ready. Arm order matters: the cheap NULL/canonical guards short-circuit before the EXISTS and
@@ -75,11 +75,11 @@ const translationStatusSql = (scope: CompileScope, sqlAlias: string): SqlFragmen
 		return sql`'none'::text`;
 	}
 	const id = sql.raw(`${sqlAlias}.id`);
-	const scriptId = sql.raw(`${sqlAlias}.sandbox_script_id`);
+	const providerId = sql.raw(`${sqlAlias}.provider_id`);
 	const populatedAt = sql.raw(`${sqlAlias}.populated_at`);
-	const canonical = sql`(SELECT s.metadata -> 'providerInformation' ->> 'canonicalLanguage' FROM sandbox_script s WHERE s.id = ${scriptId})`;
+	const canonical = sql`(SELECT p.information ->> 'canonicalLanguage' FROM sandbox_provider p WHERE p.id = ${providerId})`;
 	return sql`CASE
-		WHEN ${scriptId} IS NULL THEN 'none'
+		WHEN ${providerId} IS NULL THEN 'none'
 		WHEN ${canonical} IS NULL THEN 'none'
 		WHEN ${canonical} = ${language} THEN 'none'
 		WHEN ${populatedAt} IS NULL THEN 'none'

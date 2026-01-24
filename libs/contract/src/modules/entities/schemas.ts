@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { EntityId, EntitySchemaSlug, SandboxScriptId } from "../../schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxProviderId } from "../../schema/brands";
 
 export const ListedEntity = Schema.Struct({
 	id: EntityId,
@@ -11,7 +11,7 @@ export const ListedEntity = Schema.Struct({
 	entitySchemaSlug: EntitySchemaSlug,
 	externalId: Schema.NullOr(Schema.String),
 	populatedAt: Schema.NullOr(Schema.String),
-	sandboxScriptId: Schema.NullOr(SandboxScriptId),
+	providerId: Schema.NullOr(SandboxProviderId),
 });
 
 export type ListedEntity = typeof ListedEntity.Type;
@@ -41,15 +41,15 @@ const OptionalExternalId = Schema.transform(Schema.String, Schema.UndefinedOr(Sc
 	},
 });
 
-const OptionalSandboxScriptId = Schema.transform(
+const OptionalSandboxProviderId = Schema.transform(
 	Schema.String,
-	Schema.UndefinedOr(SandboxScriptId),
+	Schema.UndefinedOr(SandboxProviderId),
 	{
 		strict: true,
 		encode: (value) => value ?? "",
 		decode: (value) => {
 			const trimmed = value.trim();
-			return trimmed.length > 0 ? SandboxScriptId.make(trimmed) : undefined;
+			return trimmed.length > 0 ? SandboxProviderId.make(trimmed) : undefined;
 		},
 	},
 );
@@ -59,7 +59,7 @@ export const CreateEntityBody = Schema.Struct({
 	properties: Schema.Unknown,
 	entitySchemaSlug: RequiredEntitySchemaSlug,
 	externalId: Schema.optional(OptionalExternalId),
-	sandboxScriptId: Schema.optional(OptionalSandboxScriptId),
+	providerId: Schema.optional(OptionalSandboxProviderId),
 });
 
 export type CreateEntityBody = typeof CreateEntityBody.Type;

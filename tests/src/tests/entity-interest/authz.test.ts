@@ -18,14 +18,14 @@ describe("interest authorization", () => {
 			const authB = yield* createAuthenticatedClient();
 
 			const { schema } = yield* findBuiltinSchemaBySlug(authA.client, "company");
-			const sandboxScriptId = schema.providers.find(
+			const providerId = schema.providers.find(
 				(provider) => provider.name === "Anilist",
-			)?.scriptId;
-			assertPresent(sandboxScriptId, "Anilist company provider script not found");
+			)?.providerId;
+			assertPresent(providerId, "Anilist company provider not found");
 
 			const privateEntity = yield* seedMediaEntity({
 				properties: {},
-				sandboxScriptId,
+				providerId,
 				client: authA.client,
 				userId: authA.userId,
 				entitySchemaSlug: schema.id,

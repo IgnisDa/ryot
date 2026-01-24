@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Conflict, SandboxRunError } from "@ryot/contract/errors";
-import { EntityId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";
@@ -37,7 +37,7 @@ const payload = {
 	entitySchemaSlug: "book",
 	properties: { title: "Test Book" },
 	entityId: EntityId.make("entity-1"),
-	scriptId: SandboxScriptId.make("script-1"),
+	providerId: SandboxProviderId.make("provider-1"),
 } satisfies TranslateEntityWorkflowPayload;
 
 const mockTranslationsRepository = Layer.mock(TranslationsRepository);

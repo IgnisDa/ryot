@@ -1,7 +1,7 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
-import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Effect, Redacted } from "effect";
 
@@ -11,13 +11,11 @@ import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job
 import { trimToNull } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { toEntityImportRunResult } from "#modules/entity-import/result-workflow";
-import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { LibraryEntityImportWorkflow } from "./library-entity-import-workflow";
 
 const entitySchemaNotFoundError = "Entity schema not found";
 const importJobNotFoundError = "Entity import job not found";
-const sandboxScriptNotFoundError = "Sandbox script not found";
 
 export class LibraryImportService extends Effect.Service<LibraryImportService>()(
 	"LibraryImportService",
@@ -27,31 +25,26 @@ export class LibraryImportService extends Effect.Service<LibraryImportService>()
 			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* EntitiesRepository;
-			const sandboxRepository = yield* SandboxRepository;
 			const jobIdSecret = Redacted.value(config.sandbox.jobIdSecret);
 
 			const importEntity = Effect.fn("LibraryImportService.import")(function* (
 				user: CurrentUserValue,
 				payload: {
 					externalId: string;
-					scriptId: SandboxScriptId;
+					providerId: SandboxProviderId;
 					entitySchemaSlug: EntitySchemaSlug;
 				},
 			) {
-				const trimmedScriptId = trimToNull(payload.scriptId);
+				const trimmedProviderId = trimToNull(payload.providerId);
 				const externalId = trimToNull(payload.externalId);
 				const trimmedEntitySchemaSlug = trimToNull(payload.entitySchemaSlug);
 
-				if (!trimmedScriptId || !externalId || !trimmedEntitySchemaSlug) {
-					return yield* badRequest("scriptId, externalId, and entitySchemaSlug are required");
+				if (!trimmedProviderId || !externalId || !trimmedEntitySchemaSlug) {
+					return yield* badRequest("providerId, externalId, and entitySchemaSlug are required");
 				}
 
+				const providerId = SandboxProviderId.make(trimmedProviderId);
 				const entitySchemaSlug = EntitySchemaSlug.make(trimmedEntitySchemaSlug);
-				const scriptId = SandboxScriptId.make(trimmedScriptId);
-				const script = yield* runWithDb(sandboxRepository.getScript(scriptId));
-				if (!script) {
-					return yield* notFound(sandboxScriptNotFoundError);
-				}
 
 				const entitySchemaScope = yield* runWithDb(
 					repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaSlug }),
@@ -66,7 +59,7 @@ export class LibraryImportService extends Effect.Service<LibraryImportService>()
 						executionId,
 						discard: true,
 						payload: {
-							scriptId,
+							providerId,
 							externalId,
 							executionId,
 							entitySchemaSlug,

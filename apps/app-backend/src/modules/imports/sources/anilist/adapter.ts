@@ -76,14 +76,14 @@ const getSeriesTarget = (seriesType: number) => {
 		return {
 			sourceLabelPrefix: "Anime",
 			entitySchemaSlug: "anime" as const,
-			scriptSlug: "anime.anilist" as const,
+			providerSlug: "anime.anilist" as const,
 		};
 	}
 	if (seriesType === 1) {
 		return {
 			sourceLabelPrefix: "Manga",
 			entitySchemaSlug: "manga" as const,
-			scriptSlug: "manga.anilist" as const,
+			providerSlug: "manga.anilist" as const,
 		};
 	}
 	return undefined;
@@ -94,14 +94,14 @@ const getFavoriteTarget = (favoriteType: number) => {
 		return {
 			sourceLabelPrefix: "Anime",
 			entitySchemaSlug: "anime" as const,
-			scriptSlug: "anime.anilist" as const,
+			providerSlug: "anime.anilist" as const,
 		};
 	}
 	if (favoriteType === 2) {
 		return {
 			sourceLabelPrefix: "Manga",
 			entitySchemaSlug: "manga" as const,
-			scriptSlug: "manga.anilist" as const,
+			providerSlug: "manga.anilist" as const,
 		};
 	}
 	return undefined;
@@ -189,7 +189,7 @@ export const adaptAnilistExport = (
 			{
 				sourceLabel,
 				kind: "resolved",
-				scriptSlug: target.scriptSlug,
+				providerSlug: target.providerSlug,
 				externalId: String(item.series_id),
 				entitySchemaSlug: target.entitySchemaSlug,
 			},
@@ -269,7 +269,7 @@ export const adaptAnilistExport = (
 			{
 				sourceLabel,
 				kind: "resolved",
-				scriptSlug: target.scriptSlug,
+				providerSlug: target.providerSlug,
 				entitySchemaSlug: target.entitySchemaSlug,
 				externalId: String(review.series_id),
 			},
@@ -317,7 +317,7 @@ export const adaptAnilistExport = (
 			{
 				sourceLabel,
 				kind: "resolved",
-				scriptSlug: target.scriptSlug,
+				providerSlug: target.providerSlug,
 				entitySchemaSlug: target.entitySchemaSlug,
 				externalId: String(favorite.favourite_id),
 			},

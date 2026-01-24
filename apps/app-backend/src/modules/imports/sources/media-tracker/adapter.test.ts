@@ -44,7 +44,7 @@ describe("adaptMediaTrackerData", () => {
 			expect(result.failures).toEqual([]);
 			expect(result.entityGroups).toHaveLength(2);
 			expect(result.entityGroups[0]).toMatchObject({
-				entityRef: { kind: "resolved", externalId: "27205", scriptSlug: "movie.tmdb" },
+				entityRef: { kind: "resolved", externalId: "27205", providerSlug: "movie.tmdb" },
 				events: [{ eventSchemaSlug: "complete" }],
 			});
 			expect(result.entityGroups[1]).toMatchObject({
@@ -52,7 +52,7 @@ describe("adaptMediaTrackerData", () => {
 				entityRef: {
 					kind: "resolved",
 					externalId: "7346",
-					scriptSlug: "video-game.igdb",
+					providerSlug: "video-game.igdb",
 					entitySchemaSlug: "video-game",
 				},
 			});

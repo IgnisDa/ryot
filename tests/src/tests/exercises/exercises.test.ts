@@ -67,7 +67,7 @@ describe("Exercises E2E", () => {
 			expect(exerciseSchema?.providers).toHaveLength(1);
 			expect(exerciseSchema?.providers[0]).toMatchObject({
 				name: "Free Exercise DB",
-				scriptId: expect.any(String),
+				providerId: expect.any(String),
 			});
 			expect(exerciseSchema?.propertiesSchema.fields.muscles).toMatchObject({
 				label: "Muscles",

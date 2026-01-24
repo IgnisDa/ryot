@@ -16,6 +16,7 @@ const executingUserId = UserId.make("user-1");
 const storedScript = {
 	id: scriptId,
 	metadata: {},
+	providerId: null,
 	compiledFormat: 1,
 	compiledCode: "compiled",
 };
@@ -71,12 +72,11 @@ it.effect("executes an installed script as the explicit user", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* SandboxExecutionService;
-		yield* service.enqueue(executingUserId, { scriptId, driverName: "run", context: {} });
+		yield* service.enqueue(executingUserId, { scriptId, context: {} });
 
 		expect(capturedOptions?.payload).toMatchObject({
 			scriptId,
-			driverName: "run",
-			userId: executingUserId,
+			authority: { type: "user", userId: executingUserId },
 		});
 	}).pipe(Effect.provide(layer));
 });
@@ -103,9 +103,7 @@ it.effect("rejects inactive plugin scripts before starting the workflow", () => 
 
 	return Effect.gen(function* () {
 		const service = yield* SandboxExecutionService;
-		const exit = yield* Effect.exit(
-			service.enqueue(executingUserId, { scriptId, driverName: "run", context: {} }),
-		);
+		const exit = yield* Effect.exit(service.enqueue(executingUserId, { scriptId, context: {} }));
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Sandbox script not found" })));
 		expect(executionCount).toBe(0);
@@ -131,7 +129,7 @@ it.effect("polls a job only for its explicit executing user", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* SandboxExecutionService;
-		const { jobId } = yield* service.enqueue(executingUserId, { scriptId, driverName: "run" });
+		const { jobId } = yield* service.enqueue(executingUserId, { scriptId });
 
 		expect(yield* service.getResult(executingUserId, jobId)).toEqual({ status: "pending" });
 		expect(yield* Effect.exit(service.getResult(otherUserId, jobId))).toEqual(

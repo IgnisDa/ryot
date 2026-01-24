@@ -1,4 +1,4 @@
-import { EntityId, EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -18,7 +18,7 @@ import {
 	seedMediaEntity,
 	startFakeAppriseServer,
 	triggerCronAndWaitForEntity,
-	type InstalledProviderScript,
+	type InstalledTestProvider,
 	pollUntil,
 } from "~/fixtures";
 import { assertCompleted, requireObjectRecord } from "~/support/assertions";
@@ -33,8 +33,8 @@ const personExternalId = `association-person-${crypto.randomUUID()}`;
 let movieSchemaId: string;
 let personEntityId: string;
 let fakeApprise: FakeHttpServer;
-let movieProvider: InstalledProviderScript;
-let personProvider: InstalledProviderScript;
+let movieProvider: InstalledTestProvider;
+let personProvider: InstalledTestProvider;
 
 beforeAll(async () => {
 	await Effect.runPromise(
@@ -46,38 +46,36 @@ beforeAll(async () => {
 				client,
 				linkToEntitySchemaSlug: personSchemaId,
 				slug: `person.association-e2e-${crypto.randomUUID()}`,
-				drivers: { details: fakeProviderDetailsResult({ name: personName }) },
+				details: fakeProviderDetailsResult({ name: personName }),
 			});
 			movieProvider = yield* installTestProvider({
 				client,
 				slug: `movie.association-e2e-${crypto.randomUUID()}`,
-				drivers: {
-					details: fakeProviderDetailsResult({
-						name: movieName,
-						relatedEntityGroups: [
-							{
-								direction: "incoming",
-								synchronization: "additive",
-								relationshipSchemaSlug: "person-to-movie",
-								entities: [
-									{
-										name: personName,
-										scriptSlug: personProvider.slug,
-										externalId: personExternalId,
-										relationshipProperties: { roles: ["Actor", "Director"] },
-									},
-								],
-							},
-						],
-					}),
-				},
+				details: fakeProviderDetailsResult({
+					name: movieName,
+					relatedEntityGroups: [
+						{
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "person-to-movie",
+							entities: [
+								{
+									name: personName,
+									providerSlug: personProvider.providerSlug,
+									externalId: personExternalId,
+									relationshipProperties: { roles: ["Actor", "Director"] },
+								},
+							],
+						},
+					],
+				}),
 			});
 			const person = yield* seedMediaEntity({
 				properties: {},
 				name: personName,
 				externalId: personExternalId,
 				entitySchemaSlug: personSchemaId,
-				sandboxScriptId: personProvider.scriptId,
+				providerId: personProvider.providerId,
 			});
 			personEntityId = person.id;
 		}),
@@ -114,7 +112,7 @@ it.live("notifies only a credited person's monitor once per role on first media 
 		const { jobId } = yield* enqueueEntityImport(importer.client, {
 			externalId: movieExternalId,
 			entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
-			scriptId: SandboxScriptId.make(movieProvider.scriptId),
+			providerId: SandboxProviderId.make(movieProvider.providerId),
 		});
 		const result = yield* pollEntityImportResult(importer.client, jobId, { timeoutMs: 30_000 });
 		assertCompleted(result, "association media import");
@@ -171,51 +169,47 @@ describe("dual-writer canonical identity", () => {
 					client,
 					slug: dwPersonSlug,
 					linkToEntitySchemaSlug: personSchemaId,
-					drivers: {
-						details: fakeProviderDetailsResult({
-							name: dwPersonName,
-							relatedEntityGroups: [
-								{
-									direction: "outgoing",
-									synchronization: "authoritative",
-									relationshipSchemaSlug: "person-to-movie",
-									entities: [
-										{
-											name: dwMovieName,
-											scriptSlug: dwMovieSlug,
-											externalId: dwMovieExternalId,
-											relationshipProperties: { roles: ["Actor"] },
-										},
-									],
-								},
-							],
-						}),
-					},
+					details: fakeProviderDetailsResult({
+						name: dwPersonName,
+						relatedEntityGroups: [
+							{
+								direction: "outgoing",
+								synchronization: "authoritative",
+								relationshipSchemaSlug: "person-to-movie",
+								entities: [
+									{
+										name: dwMovieName,
+										providerSlug: dwMovieSlug,
+										externalId: dwMovieExternalId,
+										relationshipProperties: { roles: ["Actor"] },
+									},
+								],
+							},
+						],
+					}),
 				});
 				const dwMovieProvider = yield* installTestProvider({
 					client,
 					slug: dwMovieSlug,
 					linkToEntitySchemaSlug: movieSchemaId,
-					drivers: {
-						details: fakeProviderDetailsResult({
-							name: dwMovieName,
-							relatedEntityGroups: [
-								{
-									direction: "incoming",
-									synchronization: "additive",
-									relationshipSchemaSlug: "person-to-movie",
-									entities: [
-										{
-											name: dwPersonName,
-											scriptSlug: dwPersonSlug,
-											externalId: dwPersonExternalId,
-											relationshipProperties: { roles: ["Actor"] },
-										},
-									],
-								},
-							],
-						}),
-					},
+					details: fakeProviderDetailsResult({
+						name: dwMovieName,
+						relatedEntityGroups: [
+							{
+								direction: "incoming",
+								synchronization: "additive",
+								relationshipSchemaSlug: "person-to-movie",
+								entities: [
+									{
+										name: dwPersonName,
+										providerSlug: dwPersonSlug,
+										externalId: dwPersonExternalId,
+										relationshipProperties: { roles: ["Actor"] },
+									},
+								],
+							},
+						],
+					}),
 				});
 
 				try {
@@ -224,7 +218,7 @@ describe("dual-writer canonical identity", () => {
 						name: dwPersonName,
 						externalId: dwPersonExternalId,
 						entitySchemaSlug: personSchemaId,
-						sandboxScriptId: dwPersonProvider.scriptId,
+						providerId: dwPersonProvider.providerId,
 					});
 					// Mark the person already-populated so its own later cron refresh below is a
 					// rewrite, not a first population — isolating the noop assertion from the
@@ -254,7 +248,7 @@ describe("dual-writer canonical identity", () => {
 					const { jobId } = yield* enqueueEntityImport(importer.client, {
 						externalId: dwMovieExternalId,
 						entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
-						scriptId: SandboxScriptId.make(dwMovieProvider.scriptId),
+						providerId: SandboxProviderId.make(dwMovieProvider.providerId),
 					});
 					const imported = yield* pollEntityImportResult(importer.client, jobId, {
 						timeoutMs: 30_000,
@@ -295,29 +289,27 @@ describe("association lifecycle via cron refresh", () => {
 
 			const buildPersonSource = (roles: string[]) =>
 				providerSandboxSource({
-					slug: ruPersonSlug,
 					name: ruPersonName,
-					providerInformation: { source: "e2e" },
-					drivers: {
-						details: fakeProviderDetailsResult({
-							name: ruPersonName,
-							relatedEntityGroups: [
-								{
-									direction: "outgoing",
-									synchronization: "authoritative",
-									relationshipSchemaSlug: "person-to-movie",
-									entities: [
-										{
-											name: ruMovieName,
-											scriptSlug: ruMovieSlug,
-											externalId: ruMovieExternalId,
-											relationshipProperties: { roles },
-										},
-									],
-								},
-							],
-						}),
-					},
+					slug: `${ruPersonSlug}.details`,
+					operation: "details",
+					result: fakeProviderDetailsResult({
+						name: ruPersonName,
+						relatedEntityGroups: [
+							{
+								direction: "outgoing",
+								synchronization: "authoritative",
+								relationshipSchemaSlug: "person-to-movie",
+								entities: [
+									{
+										name: ruMovieName,
+										providerSlug: ruMovieSlug,
+										externalId: ruMovieExternalId,
+										relationshipProperties: { roles },
+									},
+								],
+							},
+						],
+					}),
 				});
 
 			const { client } = yield* createAuthenticatedClient();
@@ -325,32 +317,30 @@ describe("association lifecycle via cron refresh", () => {
 				client,
 				slug: ruPersonSlug,
 				linkToEntitySchemaSlug: personSchemaId,
-				drivers: { details: fakeProviderDetailsResult({ name: ruPersonName }) },
+				details: fakeProviderDetailsResult({ name: ruPersonName }),
 			});
 			const ruMovieProvider = yield* installTestProvider({
 				client,
 				slug: ruMovieSlug,
 				linkToEntitySchemaSlug: movieSchemaId,
-				drivers: {
-					details: fakeProviderDetailsResult({
-						name: ruMovieName,
-						relatedEntityGroups: [
-							{
-								direction: "incoming",
-								synchronization: "additive",
-								relationshipSchemaSlug: "person-to-movie",
-								entities: [
-									{
-										name: ruPersonName,
-										scriptSlug: ruPersonSlug,
-										externalId: ruPersonExternalId,
-										relationshipProperties: { roles: ["Actor"] },
-									},
-								],
-							},
-						],
-					}),
-				},
+				details: fakeProviderDetailsResult({
+					name: ruMovieName,
+					relatedEntityGroups: [
+						{
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "person-to-movie",
+							entities: [
+								{
+									name: ruPersonName,
+									providerSlug: ruPersonSlug,
+									externalId: ruPersonExternalId,
+									relationshipProperties: { roles: ["Actor"] },
+								},
+							],
+						},
+					],
+				}),
 			});
 
 			try {
@@ -359,14 +349,14 @@ describe("association lifecycle via cron refresh", () => {
 					name: ruPersonName,
 					externalId: ruPersonExternalId,
 					entitySchemaSlug: personSchemaId,
-					sandboxScriptId: ruPersonProvider.scriptId,
+					providerId: ruPersonProvider.providerId,
 				});
 				const movie = yield* seedMediaEntity({
 					properties: {},
 					name: ruMovieName,
 					externalId: ruMovieExternalId,
 					entitySchemaSlug: movieSchemaId,
-					sandboxScriptId: ruMovieProvider.scriptId,
+					providerId: ruMovieProvider.providerId,
 				});
 				// Mark the person already-populated so its later cron-driven authoritative sync
 				// below is a role update, not a first population — the carve-out would otherwise
@@ -406,7 +396,7 @@ describe("association lifecycle via cron refresh", () => {
 				fakeApprise.requests.length = 0;
 				yield* replaceSandboxScriptCompiledRepresentation(
 					client,
-					ruPersonProvider.scriptId,
+					ruPersonProvider.detailsScriptId,
 					buildPersonSource(["Actor", "Director"]),
 				);
 				yield* triggerCronAndWaitForEntity(personMonitor, person.id);
@@ -436,28 +426,26 @@ describe("association lifecycle via cron refresh", () => {
 
 				const movieRelatedEntity = {
 					name: drMovieName,
-					scriptSlug: drMovieSlug,
+					providerSlug: drMovieSlug,
 					externalId: drMovieExternalId,
 					relationshipProperties: { roles: ["Actor"] },
 				};
 				const buildPersonSource = (entities: ReadonlyArray<typeof movieRelatedEntity>) =>
 					providerSandboxSource({
-						slug: drPersonSlug,
 						name: drPersonName,
-						providerInformation: { source: "e2e" },
-						drivers: {
-							details: fakeProviderDetailsResult({
-								name: drPersonName,
-								relatedEntityGroups: [
-									{
-										entities,
-										direction: "outgoing",
-										synchronization: "authoritative",
-										relationshipSchemaSlug: "person-to-movie",
-									},
-								],
-							}),
-						},
+						slug: `${drPersonSlug}.details`,
+						operation: "details",
+						result: fakeProviderDetailsResult({
+							name: drPersonName,
+							relatedEntityGroups: [
+								{
+									entities,
+									direction: "outgoing",
+									synchronization: "authoritative",
+									relationshipSchemaSlug: "person-to-movie",
+								},
+							],
+						}),
 					});
 
 				const { client } = yield* createAuthenticatedClient();
@@ -465,24 +453,22 @@ describe("association lifecycle via cron refresh", () => {
 					client,
 					slug: drMovieSlug,
 					linkToEntitySchemaSlug: movieSchemaId,
-					drivers: { details: fakeProviderDetailsResult({ name: drMovieName }) },
+					details: fakeProviderDetailsResult({ name: drMovieName }),
 				});
 				const drPersonProvider = yield* installTestProvider({
 					client,
 					slug: drPersonSlug,
-					drivers: {
-						details: fakeProviderDetailsResult({
-							name: drPersonName,
-							relatedEntityGroups: [
-								{
-									direction: "outgoing",
-									entities: [movieRelatedEntity],
-									synchronization: "authoritative",
-									relationshipSchemaSlug: "person-to-movie",
-								},
-							],
-						}),
-					},
+					details: fakeProviderDetailsResult({
+						name: drPersonName,
+						relatedEntityGroups: [
+							{
+								direction: "outgoing",
+								entities: [movieRelatedEntity],
+								synchronization: "authoritative",
+								relationshipSchemaSlug: "person-to-movie",
+							},
+						],
+					}),
 				});
 
 				try {
@@ -491,7 +477,7 @@ describe("association lifecycle via cron refresh", () => {
 						name: drPersonName,
 						externalId: drPersonExternalId,
 						entitySchemaSlug: personSchemaId,
-						sandboxScriptId: drPersonProvider.scriptId,
+						providerId: drPersonProvider.providerId,
 					});
 
 					const personMonitor = yield* createAuthenticatedClient();
@@ -517,7 +503,7 @@ describe("association lifecycle via cron refresh", () => {
 					fakeApprise.requests.length = 0;
 					yield* replaceSandboxScriptCompiledRepresentation(
 						client,
-						drPersonProvider.scriptId,
+						drPersonProvider.detailsScriptId,
 						buildPersonSource([]),
 					);
 					yield* triggerCronAndWaitForEntity(personMonitor, person.id);
@@ -530,7 +516,7 @@ describe("association lifecycle via cron refresh", () => {
 					fakeApprise.requests.length = 0;
 					yield* replaceSandboxScriptCompiledRepresentation(
 						client,
-						drPersonProvider.scriptId,
+						drPersonProvider.detailsScriptId,
 						buildPersonSource([movieRelatedEntity]),
 					);
 					yield* triggerCronAndWaitForEntity(personMonitor, person.id);

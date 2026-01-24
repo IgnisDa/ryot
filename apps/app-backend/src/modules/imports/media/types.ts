@@ -3,7 +3,7 @@ import { Schema } from "effect";
 const ResolvedImportEntityRef = Schema.Struct({
 	sourceLabel: Schema.String,
 	kind: Schema.Literal("resolved"),
-	scriptSlug: Schema.NonEmptyString,
+	providerSlug: Schema.NonEmptyString,
 	externalId: Schema.NonEmptyString,
 	entitySchemaSlug: Schema.NonEmptyString,
 });
@@ -24,7 +24,7 @@ export type ImportEntityRef = typeof ImportEntityRef.Type;
 
 export const importEntityRefKey = (ref: ImportEntityRef): string =>
 	ref.kind === "resolved"
-		? `${ref.entitySchemaSlug}|${ref.scriptSlug}|${ref.externalId}`
+		? `${ref.entitySchemaSlug}|${ref.providerSlug}|${ref.externalId}`
 		: `${ref.entitySchemaSlug}|${ref.identifierType}|${ref.identifierValue}`;
 
 const ImportMediaEventSchema = Schema.Struct({

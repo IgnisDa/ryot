@@ -1,7 +1,7 @@
 import { Workflow } from "@effect/workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError } from "@ryot/contract/errors";
-import { EntityId, EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
 
 import { ProviderEntityPopulationWorkflow } from "#modules/entity-import/provider-entity-population-workflow";
@@ -13,7 +13,7 @@ export const MediaMonitoringRefreshPayload = Schema.Struct({
 	externalId: Schema.String,
 	executionId: Schema.String,
 	entitySchemaSlug: EntitySchemaSlug,
-	sandboxScriptId: SandboxScriptId,
+	providerId: SandboxProviderId,
 });
 
 export type MediaMonitoringRefreshPayload = typeof MediaMonitoringRefreshPayload.Type;
@@ -33,7 +33,7 @@ export const runMediaMonitoringRefreshWorkflow = Effect.fn("MediaMonitoringRefre
 			entityId: payload.entityId,
 			externalId: payload.externalId,
 			entitySchemaSlug: payload.entitySchemaSlug,
-			sandboxScriptId: payload.sandboxScriptId,
+			providerId: payload.providerId,
 		});
 		const engine = yield* WorkflowEngine;
 		const refreshExecutionId = `${payload.executionId}-provider-refresh`;
@@ -44,7 +44,7 @@ export const runMediaMonitoringRefreshWorkflow = Effect.fn("MediaMonitoringRefre
 				mode: "refresh",
 				externalId: payload.externalId,
 				executionId: refreshExecutionId,
-				scriptId: payload.sandboxScriptId,
+				providerId: payload.providerId,
 				origin: { kind: "provider_refresh" },
 				entitySchemaSlug: payload.entitySchemaSlug,
 			},
@@ -66,5 +66,5 @@ export const mediaMonitoringPayloadFromTarget = (
 	entityId: target.entityId,
 	externalId: target.externalId,
 	entitySchemaSlug: target.entitySchemaSlug,
-	sandboxScriptId: target.sandboxScriptId,
+	providerId: target.providerId,
 });

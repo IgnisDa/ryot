@@ -52,7 +52,7 @@ describe("adaptWatcharrExport", () => {
 			entityRef: {
 				kind: "resolved",
 				externalId: "10",
-				scriptSlug: "movie.tmdb",
+				providerSlug: "movie.tmdb",
 				entitySchemaSlug: "movie",
 			},
 			events: [
@@ -64,7 +64,7 @@ describe("adaptWatcharrExport", () => {
 			entityRef: {
 				kind: "resolved",
 				externalId: "20",
-				scriptSlug: "show.tmdb",
+				providerSlug: "show.tmdb",
 				entitySchemaSlug: "show",
 			},
 			events: [

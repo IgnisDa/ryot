@@ -44,7 +44,7 @@ describe("adaptNetflixExports", () => {
 							entityRef: {
 								kind: "resolved",
 								externalId: "66732",
-								scriptSlug: "show.tmdb",
+								providerSlug: "show.tmdb",
 								entitySchemaSlug: "show",
 								sourceLabel: "Stranger Things",
 							},
@@ -56,7 +56,7 @@ describe("adaptNetflixExports", () => {
 							entityRef: {
 								kind: "resolved",
 								externalId: "398978",
-								scriptSlug: "movie.tmdb",
+								providerSlug: "movie.tmdb",
 								entitySchemaSlug: "movie",
 								sourceLabel: "The Irishman",
 							},
@@ -68,7 +68,7 @@ describe("adaptNetflixExports", () => {
 							entityRef: {
 								kind: "resolved",
 								externalId: "87739",
-								scriptSlug: "show.tmdb",
+								providerSlug: "show.tmdb",
 								entitySchemaSlug: "show",
 								sourceLabel: "The Queen's Gambit",
 							},
@@ -87,7 +87,7 @@ describe("adaptNetflixExports", () => {
 				entityRef: {
 					kind: "resolved",
 					externalId: "66732",
-					scriptSlug: "show.tmdb",
+					providerSlug: "show.tmdb",
 					entitySchemaSlug: "show",
 					sourceLabel: "Stranger Things",
 				},
@@ -111,7 +111,7 @@ describe("adaptNetflixExports", () => {
 				entityRef: {
 					kind: "resolved",
 					externalId: "398978",
-					scriptSlug: "movie.tmdb",
+					providerSlug: "movie.tmdb",
 					entitySchemaSlug: "movie",
 					sourceLabel: "The Irishman",
 				},
@@ -132,7 +132,7 @@ describe("adaptNetflixExports", () => {
 				entityRef: {
 					kind: "resolved",
 					externalId: "87739",
-					scriptSlug: "show.tmdb",
+					providerSlug: "show.tmdb",
 					entitySchemaSlug: "show",
 					sourceLabel: "The Queen's Gambit",
 				},
@@ -175,7 +175,7 @@ describe("adaptNetflixExports", () => {
 							entityRef: {
 								kind: "resolved",
 								externalId: "123",
-								scriptSlug: "show.tmdb",
+								providerSlug: "show.tmdb",
 								entitySchemaSlug: "show",
 								sourceLabel: "The Gentlemen",
 							},

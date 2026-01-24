@@ -1,5 +1,5 @@
 import { DbError } from "@ryot/contract/errors";
-import type { SandboxScriptId } from "@ryot/contract/schema/brands";
+import type { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { EntityId, EntitySchemaSlug, UserId } from "@ryot/contract/schema/brands";
 import { and, asc, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
@@ -14,6 +14,7 @@ import {
 	entitySelection,
 	entityVisibleToUserClause,
 	toListedEntity,
+	type EntitySchemaProviderDetailsScope,
 	type EntitySchemaScope,
 } from "./repository-support";
 
@@ -25,13 +26,13 @@ export type InsertEntityInputBase = {
 			scope: "global";
 			populatedAt: Date | null;
 			externalId?: string | undefined;
-			sandboxScriptId?: SandboxScriptId | undefined;
+			providerId?: SandboxProviderId | undefined;
 	  }
 	| {
 			scope: "user";
 			userId: UserId;
 			externalId?: string | undefined;
-			sandboxScriptId?: SandboxScriptId | undefined;
+			providerId?: SandboxProviderId | undefined;
 	  }
 );
 
@@ -45,7 +46,7 @@ export type UpdateEntityInput = {
 };
 
 export type GlobalEntityProvenanceScopeInput = {
-	sandboxScriptId: SandboxScriptId;
+	providerId: SandboxProviderId;
 	entitySchemaSlug: EntitySchemaSlug;
 };
 
@@ -231,7 +232,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			userId: UserId;
 			externalId: string;
 			entitySchemaSlug: EntitySchemaSlug;
-			sandboxScriptId: SandboxScriptId;
+			providerId: SandboxProviderId;
 		}) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
@@ -243,7 +244,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 							entityVisibleToUserClause(input.userId),
 							eq(schema.entity.externalId, input.externalId),
 							eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
-							eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
+							eq(schema.entity.providerId, input.providerId),
 						),
 					)
 					.limit(1),
@@ -257,7 +258,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 		)(function* (input: {
 			externalId: string;
 			entitySchemaSlug: EntitySchemaSlug;
-			sandboxScriptId: SandboxScriptId;
+			providerId: SandboxProviderId;
 		}) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
@@ -269,7 +270,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 							isNull(schema.entity.userId),
 							eq(schema.entity.externalId, input.externalId),
 							eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
-							eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
+							eq(schema.entity.providerId, input.providerId),
 						),
 					)
 					.limit(1),
@@ -282,7 +283,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			"EntitiesRepository.lockGlobalEntityProvenanceScope",
 		)(function* (input: GlobalEntityProvenanceScopeInput) {
 			const db = yield* CurrentDb;
-			const lockKey = `global-entities:${input.entitySchemaSlug}:${input.sandboxScriptId}`;
+			const lockKey = `global-entities:${input.entitySchemaSlug}:${input.providerId}`;
 			yield* dbEffect(() => db.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`));
 		});
 
@@ -298,7 +299,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 						and(
 							isNull(schema.entity.userId),
 							eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
-							eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
+							eq(schema.entity.providerId, input.providerId),
 						),
 					),
 			);
@@ -316,19 +317,23 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			);
 		});
 
-		const findEntitySchemaSandboxScriptBySlug = Effect.fn(
-			"EntitiesRepository.findEntitySchemaSandboxScriptBySlug",
-		)((scriptSlug: string) =>
-			pluginRuntime
-				.findSchemaScriptBySlug(scriptSlug)
-				.pipe(
-					Effect.map((resolved) =>
-						resolved
-							? { sandboxScriptId: resolved.script.id, entitySchemaSlug: resolved.entitySchemaSlug }
-							: null,
-					),
-				),
-		);
+		const findEntitySchemaProviderBySlug = Effect.fn(
+			"EntitiesRepository.findEntitySchemaProviderBySlug",
+		)(function* (providerSlug: string) {
+			const resolved = yield* pluginRuntime.findSchemaProviderBySlug(providerSlug);
+			if (!resolved) {
+				return null;
+			}
+
+			const detailsScript = yield* pluginRuntime.findDetailsScript(resolved.provider.id);
+			return detailsScript
+				? ({
+						providerId: resolved.provider.id,
+						detailsScriptId: detailsScript.id,
+						entitySchemaSlug: resolved.entitySchemaSlug,
+					} satisfies EntitySchemaProviderDetailsScope)
+				: null;
+		});
 
 		const insertEntity = Effect.fn("EntitiesRepository.insertEntity")(function* (
 			input: InsertEntityInput,
@@ -337,7 +342,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 
 			if (input.scope === "global") {
 				const externalId = input.externalId;
-				const sandboxScriptId = input.sandboxScriptId;
+				const providerId = input.providerId;
 				const values = {
 					userId: null,
 					name: input.name,
@@ -345,10 +350,10 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					externalId: externalId ?? null,
 					populatedAt: input.populatedAt,
 					entitySchemaSlug: input.entitySchemaSlug,
-					sandboxScriptId: sandboxScriptId ?? null,
+					providerId: providerId ?? null,
 				};
 
-				if (!externalId || !sandboxScriptId) {
+				if (!externalId || !providerId) {
 					const [row] = yield* dbEffect(() =>
 						db.insert(schema.entity).values(values).returning(entitySelection),
 					);
@@ -375,7 +380,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 								isNull(schema.entity.userId),
 								eq(schema.entity.externalId, externalId),
 								eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
-								eq(schema.entity.sandboxScriptId, sandboxScriptId),
+								eq(schema.entity.providerId, providerId),
 							),
 						)
 						.limit(1)
@@ -390,17 +395,17 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			}
 
 			const externalId = input.externalId;
-			const sandboxScriptId = input.sandboxScriptId;
+			const providerId = input.providerId;
 			const values = {
 				name: input.name,
 				userId: input.userId,
 				properties: input.properties,
 				externalId: externalId ?? null,
 				entitySchemaSlug: input.entitySchemaSlug,
-				sandboxScriptId: sandboxScriptId ?? null,
+				providerId: providerId ?? null,
 			};
 
-			if (externalId && sandboxScriptId) {
+			if (externalId && providerId) {
 				const rows = yield* dbEffect(() =>
 					db
 						.insert(schema.entity)
@@ -410,7 +415,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 								schema.entity.userId,
 								schema.entity.externalId,
 								schema.entity.entitySchemaSlug,
-								schema.entity.sandboxScriptId,
+								schema.entity.providerId,
 							],
 						})
 						.returning(entitySelection),
@@ -430,7 +435,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 								eq(schema.entity.userId, input.userId),
 								eq(schema.entity.externalId, externalId),
 								eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
-								eq(schema.entity.sandboxScriptId, sandboxScriptId),
+								eq(schema.entity.providerId, providerId),
 							),
 						)
 						.limit(1)
@@ -510,7 +515,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			findGlobalEntityByExternalId,
 			countGlobalEntitiesByProvenanceScope,
 			findEntityByExternalIdForUser,
-			findEntitySchemaSandboxScriptBySlug,
+			findEntitySchemaProviderBySlug,
 		};
 	}),
 }) {}

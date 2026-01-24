@@ -66,7 +66,9 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 		expect(eventCreateCore.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(0);
 		expect(eventCreateWorkflow.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(0);
 		expect(subscriptionWorkflow.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
-		expect(sandboxWorkflow).toContain("DurableQueue.process(SandboxExecutionQueue, payload)");
+		expect(sandboxWorkflow).toContain(
+			"DurableQueue.process(SandboxExecutionQueue, executionPayload)",
+		);
 
 		expect(libraryWorkflow).not.toContain("execute(RunSandboxWorkflow");
 		expect(libraryWorkflow).toContain("execute(ProviderEntityPopulationWorkflow");

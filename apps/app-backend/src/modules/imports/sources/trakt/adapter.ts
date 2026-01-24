@@ -157,7 +157,7 @@ const buildMovieRef = (movie: TraktItem): ImportEntityRef | undefined => {
 		return {
 			kind: "resolved",
 			externalId: tmdbId,
-			scriptSlug: "movie.tmdb",
+			providerSlug: "movie.tmdb",
 			entitySchemaSlug: "movie",
 			sourceLabel: movie.title ?? `Movie ${movie.ids.trakt ?? "unknown"}`,
 		};
@@ -181,7 +181,7 @@ const buildShowRef = (show: TraktItem): ImportEntityRef | undefined => {
 		return {
 			kind: "resolved",
 			externalId: tmdbId,
-			scriptSlug: "show.tmdb",
+			providerSlug: "show.tmdb",
 			entitySchemaSlug: "show",
 			sourceLabel: show.title ?? `Show ${show.ids.trakt ?? "unknown"}`,
 		};
