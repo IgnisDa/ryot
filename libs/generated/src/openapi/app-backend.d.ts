@@ -1197,8 +1197,8 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        identifier: string;
                         scriptId: string;
+                        identifier: string;
                         entitySchemaId: string;
                     };
                 };
@@ -1274,15 +1274,13 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
-                                /** @enum {string} */
-                                status: "pending";
-                            } | {
                                 error: string;
                                 /** @enum {string} */
                                 status: "failed";
                             } | {
                                 /** @enum {string} */
-                                status: "completed";
+                                status: "pending";
+                            } | {
                                 data: {
                                     id: string;
                                     name: string;
@@ -1306,6 +1304,8 @@ export interface paths {
                                     };
                                     sandboxScriptId: string | null;
                                 };
+                                /** @enum {string} */
+                                status: "completed";
                             };
                         };
                     };
@@ -3429,7 +3429,7 @@ export interface paths {
         put?: never;
         /**
          * Add an entity to a collection
-         * @description Add an entity to a collection by creating a member_of relationship from the entity to the collection.
+         * @description Add an entity to a collection by creating a member-of relationship from the entity to the collection.
          */
         post: {
             parameters: {
@@ -3460,10 +3460,10 @@ export interface paths {
                             data: {
                                 memberOf: {
                                     id: string;
-                                    relationshipSchemaId: string;
                                     createdAt: string;
                                     sourceEntityId: string;
                                     targetEntityId: string;
+                                    relationshipSchemaId: string;
                                     properties: {
                                         [key: string]: unknown;
                                     };
@@ -3509,7 +3509,7 @@ export interface paths {
         };
         /**
          * Remove an entity from a collection
-         * @description Remove an entity from a collection by deleting the member_of relationship from the entity to the collection.
+         * @description Remove an entity from a collection by deleting the member-of relationship from the entity to the collection.
          */
         delete: {
             parameters: {
@@ -3537,10 +3537,10 @@ export interface paths {
                             data: {
                                 memberOf: {
                                     id: string;
-                                    relationshipSchemaId: string;
                                     createdAt: string;
                                     sourceEntityId: string;
                                     targetEntityId: string;
+                                    relationshipSchemaId: string;
                                     properties: {
                                         [key: string]: unknown;
                                     };
@@ -3805,7 +3805,7 @@ export interface components {
             /** @enum {string} */
             operator: "not_in";
         };
-        AppPropertyDefinition: components["schemas"]["AppDateProperty"] | components["schemas"]["AppArrayProperty"] | components["schemas"]["AppObjectProperty"] | components["schemas"]["AppStringProperty"] | components["schemas"]["AppNumberProperty"] | components["schemas"]["AppIntegerProperty"] | components["schemas"]["AppBooleanProperty"] | components["schemas"]["AppDateTimeProperty"];
+        AppPropertyDefinition: components["schemas"]["AppDateProperty"] | components["schemas"]["AppEnumProperty"] | components["schemas"]["AppArrayProperty"] | components["schemas"]["AppObjectProperty"] | components["schemas"]["AppStringProperty"] | components["schemas"]["AppNumberProperty"] | components["schemas"]["AppIntegerProperty"] | components["schemas"]["AppBooleanProperty"] | components["schemas"]["AppDateTimeProperty"] | components["schemas"]["AppEnumArrayProperty"];
         AppDateProperty: {
             label: string;
             /**
@@ -3818,6 +3818,16 @@ export interface components {
         AppRequiredPropertyValidation: {
             /** @enum {boolean} */
             required?: true;
+        };
+        AppEnumProperty: {
+            options: string[];
+            label: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "enum";
+            validation?: components["schemas"]["AppRequiredPropertyValidation"];
         };
         AppArrayProperty: {
             label: string;
@@ -3919,6 +3929,16 @@ export interface components {
              */
             type: "datetime";
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
+        };
+        AppEnumArrayProperty: {
+            label: string;
+            options: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "enum-array";
+            validation?: components["schemas"]["AppArrayPropertyValidation"];
         };
         InternalServerError: {
             message: string;

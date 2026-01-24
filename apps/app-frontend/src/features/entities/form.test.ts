@@ -222,6 +222,55 @@ describe("buildCreateEntityFormSchema", () => {
 		expect(result.success).toBeTrue();
 	});
 
+	it("accepts a valid enum value and rejects out-of-options values", () => {
+		const propertiesSchema = {
+			fields: {
+				status: {
+					label: "Status",
+					type: "enum" as const,
+					validation: { required: true as const },
+					options: ["draft", "published"] as [string, ...string[]],
+				},
+			},
+		};
+
+		const schema = buildCreateEntityFormSchema(propertiesSchema);
+
+		expect(
+			schema.safeParse({ name: "Book", properties: { status: "draft" } })
+				.success,
+		).toBeTrue();
+		expect(
+			schema.safeParse({ name: "Book", properties: { status: "unknown" } })
+				.success,
+		).toBeFalse();
+	});
+
+	it("accepts valid enum-array values and rejects out-of-options items", () => {
+		const propertiesSchema = {
+			fields: {
+				genres: {
+					label: "Genres",
+					type: "enum-array" as const,
+					options: ["fiction", "mystery"] as [string, ...string[]],
+				},
+			},
+		};
+
+		const schema = buildCreateEntityFormSchema(propertiesSchema);
+
+		expect(
+			schema.safeParse({ name: "Book", properties: { genres: ["fiction"] } })
+				.success,
+		).toBeTrue();
+		expect(
+			schema.safeParse({
+				name: "Book",
+				properties: { genres: ["fiction", "invalid"] },
+			}).success,
+		).toBeFalse();
+	});
+
 	it("applies conditional required rules", () => {
 		const schema = buildCreateEntityFormSchema({
 			fields: {
@@ -338,6 +387,30 @@ describe("buildDefaultEntityFormValues", () => {
 		const values = buildDefaultEntityFormValues(propertiesSchema);
 
 		expect(values.properties.metadata).toEqual({ year: 0, author: "" });
+	});
+
+	it("defaults required enum to empty string and enum-array to empty array", () => {
+		const propertiesSchema = {
+			fields: {
+				genres: {
+					label: "Genres",
+					type: "enum-array" as const,
+					validation: { required: true as const },
+					options: ["fiction", "mystery"] as [string, ...string[]],
+				},
+				status: {
+					label: "Status",
+					type: "enum" as const,
+					validation: { required: true as const },
+					options: ["draft", "published"] as [string, ...string[]],
+				},
+			},
+		};
+
+		const values = buildDefaultEntityFormValues(propertiesSchema);
+
+		expect(values.properties.status).toBe("");
+		expect(values.properties.genres).toEqual([]);
 	});
 });
 
