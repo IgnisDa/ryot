@@ -1,7 +1,7 @@
+import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { Schema } from "effect";
 
 import { EntitySchemaSlug, EventSchemaSlug, ImportRunId } from "../../schema/brands";
-import { HttpUrl } from "../../schema/utils";
 import { importRunFailureStages, importRunStatuses } from "./types";
 
 const ImportRunStatus = Schema.Literal(...importRunStatuses);
@@ -57,65 +57,10 @@ export const DetailedImportRun = Schema.Struct({
 
 export type DetailedImportRun = typeof DetailedImportRun.Type;
 
-const uploadTokenInput = <const S extends string>(source: S) =>
-	Schema.Struct({ source: Schema.Literal(source), uploadToken: Schema.NonEmptyString }).pipe(
-		Schema.annotations({ identifier: `ImportInput_${source}` }),
-	);
-
-const urlAndKeyInput = <const S extends string>(source: S) =>
-	Schema.Struct({
-		apiUrl: HttpUrl,
-		source: Schema.Literal(source),
-		apiKey: Schema.NonEmptyString,
-		allowInsecureConnections: Schema.optional(Schema.Boolean),
-	}).pipe(Schema.annotations({ identifier: `ImportInput_${source}` }));
-
-export const CreateImportRunBody = Schema.Union(
-	uploadTokenInput("hevy"),
-	uploadTokenInput("imdb"),
-	uploadTokenInput("grouvee"),
-	uploadTokenInput("anilist"),
-	uploadTokenInput("watcharr"),
-	uploadTokenInput("hardcover"),
-	uploadTokenInput("goodreads"),
-	uploadTokenInput("open_scale"),
-	uploadTokenInput("storygraph"),
-	uploadTokenInput("strong_app"),
-	Schema.Struct({
-		source: Schema.Literal("igdb"),
-		uploadToken: Schema.NonEmptyString,
-		collection: Schema.NonEmptyString,
-	}).pipe(Schema.annotations({ identifier: "ImportInput_igdb" })),
-	Schema.Struct({
-		source: Schema.Literal("netflix"),
-		uploadToken: Schema.NonEmptyString,
-		profileName: Schema.optional(Schema.String),
-	}).pipe(Schema.annotations({ identifier: "ImportInput_netflix" })),
-	Schema.Struct({
-		source: Schema.Literal("movary"),
-		historyUploadToken: Schema.NonEmptyString,
-		ratingsUploadToken: Schema.NonEmptyString,
-		watchlistUploadToken: Schema.NonEmptyString,
-	}).pipe(Schema.annotations({ identifier: "ImportInput_movary" })),
-	Schema.Struct({
-		source: Schema.Literal("myanimelist"),
-		animeUploadToken: Schema.optional(Schema.NonEmptyString),
-		mangaUploadToken: Schema.optional(Schema.NonEmptyString),
-	}).pipe(Schema.annotations({ identifier: "ImportInput_myanimelist" })),
-	Schema.Struct({ source: Schema.Literal("trakt"), username: Schema.NonEmptyString }).pipe(
-		Schema.annotations({ identifier: "ImportInput_trakt" }),
-	),
-	urlAndKeyInput("plex"),
-	urlAndKeyInput("media_tracker"),
-	urlAndKeyInput("audiobookshelf"),
-	Schema.Struct({
-		apiUrl: HttpUrl,
-		username: Schema.NonEmptyString,
-		source: Schema.Literal("jellyfin"),
-		password: Schema.optional(Schema.NonEmptyString),
-		allowInsecureConnections: Schema.optional(Schema.Boolean),
-	}).pipe(Schema.annotations({ identifier: "ImportInput_jellyfin" })),
-);
+export const CreateImportRunBody = Schema.Struct(
+	{ source: Schema.NonEmptyString },
+	Schema.Record({ key: Schema.String, value: jsonValueSchema }),
+).pipe(Schema.annotations({ identifier: "CreateImportRunBody" }));
 
 export type CreateImportRunBody = typeof CreateImportRunBody.Type;
 
