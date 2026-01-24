@@ -19,6 +19,10 @@
 			"types": "./src/dayjs.ts",
 			"default": "./src/dayjs.ts"
 		},
+		"./driver": {
+			"types": "./src/driver.ts",
+			"default": "./src/driver.ts"
+		},
 		"./dayjs/custom-parse-format": {
 			"types": "./src/dayjs-custom-parse-format.ts",
 			"default": "./src/dayjs-custom-parse-format.ts"
@@ -35,9 +39,17 @@
 			"types": "./src/imports.ts",
 			"default": "./src/imports.ts"
 		},
+		"./operation": {
+			"types": "./src/operation.ts",
+			"default": "./src/operation.ts"
+		},
 		"./provider": {
 			"types": "./src/provider.ts",
 			"default": "./src/provider.ts"
+		},
+		"./wire": {
+			"types": "./src/wire.ts",
+			"default": "./src/wire.ts"
 		},
 		"./youtubei": {
 			"types": "./src/youtubei.ts",

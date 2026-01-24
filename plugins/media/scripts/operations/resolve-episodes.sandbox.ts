@@ -1,10 +1,7 @@
-import {
-	defineDriver,
-	defineManifest,
-	defineOperation,
-	type JsonValue,
-} from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineOperation } from "@ryot/sandbox-sdk/operation";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
 import {
 	ResolveEpisodesInput,
