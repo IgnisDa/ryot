@@ -81,6 +81,14 @@ zero or a trusted plugin. `pluginSlug` owns source attribution. Remove the never
 provenance scaffold rather than changing existing first-party definition behavior. Phase 5 will
 design user-package trust and visibility separately.
 
+Task 08 implementation record (2026-07-31): removed the unused non-builtin provenance type, empty
+sets, replacement parameters, and registry predicates. Entity, relationship, and event adapters keep
+their existing `isBuiltin: true` meaning for trusted registry definitions; saved views retain the
+same distinction between immutable definitions and per-user state. Signal scopes no longer carry a
+synthetic builtin flag: signal and related-relationship authorization is based on active registry
+lookup. Kernel/plugin ownership remains source attribution (`pluginSlug` where exposed), and no
+Phase 5 package-trust state was introduced.
+
 Task 01 implementation record: the first gate run found `mediaBaseFields` and
 `mediaWithCreatorsBaseFields` authored in `libs/contract/src/schema/core.ts` and consumed by the media
 plugin. No later purity task owned that production-domain leak, and permanently excepting it would
