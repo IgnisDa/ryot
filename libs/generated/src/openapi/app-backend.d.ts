@@ -386,182 +386,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/media/import": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Enqueue a media item import from a sandbox script */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        scriptId: string;
-                        identifier: string;
-                        entitySchemaId: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Media import job enqueued */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            data: {
-                                jobId: string;
-                            };
-                        };
-                    };
-                };
-                /** @description Request payload validation failed */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["ValidationFailedError"];
-                        };
-                    };
-                };
-                /** @description Request is unauthenticated */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["UnauthenticatedError"];
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/media/import/{jobId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Poll the result of a media import job */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    jobId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Media import job result */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            data: {
-                                error: string;
-                                /** @enum {string} */
-                                status: "failed";
-                            } | {
-                                /** @enum {string} */
-                                status: "pending";
-                            } | {
-                                /** @enum {string} */
-                                status: "completed";
-                                data: {
-                                    id: string;
-                                    name: string;
-                                    /** Format: date-time */
-                                    createdAt: string;
-                                    /** Format: date-time */
-                                    updatedAt: string;
-                                    entitySchemaId: string;
-                                    image: {
-                                        key: string;
-                                        /** @enum {string} */
-                                        kind: "s3";
-                                    } | {
-                                        url: string;
-                                        /** @enum {string} */
-                                        kind: "remote";
-                                    } | unknown;
-                                    externalId: string | null;
-                                    properties: {
-                                        [key: string]: unknown;
-                                    };
-                                    sandboxScriptId: string | null;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Request payload validation failed */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["ValidationFailedError"];
-                        };
-                    };
-                };
-                /** @description Request is unauthenticated */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["UnauthenticatedError"];
-                        };
-                    };
-                };
-                /** @description Media import job not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["NotFoundError"];
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/media/overview/up-next": {
         parameters: {
             query?: never;
@@ -1347,6 +1171,182 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/entity-schemas/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enqueue a media entity import from a sandbox script */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        identifier: string;
+                        scriptId: string;
+                        entitySchemaId: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Entity import job enqueued */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                jobId: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/entity-schemas/import/{jobId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Poll the result of an entity import job */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    jobId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Entity import job result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                /** @enum {string} */
+                                status: "pending";
+                            } | {
+                                error: string;
+                                /** @enum {string} */
+                                status: "failed";
+                            } | {
+                                /** @enum {string} */
+                                status: "completed";
+                                data: {
+                                    id: string;
+                                    name: string;
+                                    /** Format: date-time */
+                                    createdAt: string;
+                                    /** Format: date-time */
+                                    updatedAt: string;
+                                    entitySchemaId: string;
+                                    image: {
+                                        key: string;
+                                        /** @enum {string} */
+                                        kind: "s3";
+                                    } | {
+                                        url: string;
+                                        /** @enum {string} */
+                                        kind: "remote";
+                                    } | unknown;
+                                    externalId: string | null;
+                                    properties: {
+                                        [key: string]: unknown;
+                                    };
+                                    sandboxScriptId: string | null;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Entity import job not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["NotFoundError"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;

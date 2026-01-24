@@ -1,10 +1,13 @@
 export type {
 	CreateEntitySchemaBody,
 	EntitySearchBody,
+	ImportEntityBody,
+	ImportEntityResult,
 	ListedEntitySchema,
 	Provider,
 } from "./schemas";
 export type {
+	EntityImportDeps,
 	EntitySchemaPropertiesShape,
 	EntitySchemaServiceDeps,
 	EntitySchemaServiceResult,
@@ -13,8 +16,10 @@ export type {
 export {
 	createEntitySchema,
 	enqueueEntitySearch,
+	getEntityImportResult,
 	getEntitySchemaById,
 	getEntitySearchResult,
+	importEntity,
 	listEntitySchemas,
 	parseEntitySchemaPropertiesSchema,
 	resolveEntitySchemaAccentColor,

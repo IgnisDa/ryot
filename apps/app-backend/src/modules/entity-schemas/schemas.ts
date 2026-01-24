@@ -9,6 +9,7 @@ import {
 	nonEmptyTrimmedStringSchema,
 	stringUnknownRecordSchema,
 } from "~/lib/zod/base";
+import { listedEntitySchema } from "~/modules/entities";
 import {
 	sandboxCompletedResultSchema,
 	sandboxFailedResultSchema,
@@ -82,7 +83,36 @@ export const entitySearchResultResponseSchema = dataSchema(
 	]),
 );
 
+export const importEntityBody = z.object({
+	scriptId: nonEmptyStringSchema,
+	identifier: nonEmptyStringSchema,
+	entitySchemaId: nonEmptyStringSchema,
+});
+
+export const importEntityResponseSchema = dataSchema(
+	z.object({ jobId: nonEmptyStringSchema }),
+);
+
+export const entityImportJobParams = createIdParamsSchema("jobId");
+
+export const entityImportCompletedResultSchema = z.object({
+	data: listedEntitySchema,
+	status: z.literal("completed"),
+});
+
+export const importEntityResultResponseSchema = dataSchema(
+	z.discriminatedUnion("status", [
+		sandboxFailedResultSchema,
+		sandboxPendingResultSchema,
+		entityImportCompletedResultSchema,
+	]),
+);
+
 export type Provider = z.infer<typeof providerSchema>;
+export type ImportEntityBody = z.infer<typeof importEntityBody>;
 export type EntitySearchBody = z.infer<typeof entitySearchBody>;
 export type ListedEntitySchema = z.infer<typeof listedEntitySchemaSchema>;
 export type CreateEntitySchemaBody = z.infer<typeof createEntitySchemaBody>;
+export type ImportEntityResult = z.infer<
+	typeof importEntityResultResponseSchema.shape.data
+>;

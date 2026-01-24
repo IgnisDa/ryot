@@ -5,7 +5,6 @@ import {
 	createServiceErrorResult,
 	createStandardResponses,
 	createSuccessResult,
-	jsonBody,
 	notFoundResponse,
 	validationErrorResponse,
 } from "~/lib/openapi";
@@ -16,20 +15,14 @@ import {
 	builtInMediaOverviewRecentActivityResponseSchema,
 	builtInMediaOverviewUpNextResponseSchema,
 	builtInMediaOverviewWeekActivityResponseSchema,
-	importMediaBody,
-	importMediaResponseSchema,
-	mediaImportJobParams,
-	mediaImportResultResponseSchema,
 } from "./schemas";
 import {
 	getContinueItems,
 	getLibraryStats,
-	getMediaImportResult,
 	getRateTheseItems,
 	getRecentActivityItems,
 	getUpNextItems,
 	getWeekActivity,
-	importMedia,
 } from "./service";
 
 const getMediaOverviewUpNextRoute = createAuthRoute(
@@ -140,65 +133,7 @@ const getMediaOverviewLibraryRoute = createAuthRoute(
 	}),
 );
 
-const importMediaRoute = createAuthRoute(
-	createRoute({
-		method: "post",
-		tags: ["media"],
-		path: "/import",
-		request: { body: jsonBody(importMediaBody) },
-		summary: "Enqueue a media item import from a sandbox script",
-		responses: createStandardResponses({
-			successSchema: importMediaResponseSchema,
-			successDescription: "Media import job enqueued",
-		}),
-	}),
-);
-
-const getMediaImportResultRoute = createAuthRoute(
-	createRoute({
-		method: "get",
-		tags: ["media"],
-		path: "/import/{jobId}",
-		request: { params: mediaImportJobParams },
-		summary: "Poll the result of a media import job",
-		responses: createStandardResponses({
-			successSchema: mediaImportResultResponseSchema,
-			successDescription: "Media import job result",
-			notFoundDescription: "Media import job not found",
-		}),
-	}),
-);
-
 export const mediaApi = new OpenAPIHono<{ Variables: AuthType }>()
-	.openapi(importMediaRoute, async (c) => {
-		const user = c.get("user");
-		const body = c.req.valid("json");
-
-		const result = await importMedia({ body, userId: user.id });
-		if ("error" in result) {
-			const response = createServiceErrorResult(result);
-			return c.json(response.body, response.status);
-		}
-
-		const response = createSuccessResult(result.data);
-		return c.json(response.body, response.status);
-	})
-	.openapi(getMediaImportResultRoute, async (c) => {
-		const user = c.get("user");
-		const params = c.req.valid("param");
-
-		const result = await getMediaImportResult({
-			userId: user.id,
-			jobId: params.jobId,
-		});
-		if ("error" in result) {
-			const response = createServiceErrorResult(result);
-			return c.json(response.body, response.status);
-		}
-
-		const response = createSuccessResult(result.data);
-		return c.json(response.body, response.status);
-	})
 	.openapi(getMediaOverviewUpNextRoute, async (c) => {
 		const user = c.get("user");
 

@@ -11,18 +11,24 @@ import { sandboxJobParams } from "~/modules/sandbox";
 import {
 	createEntitySchemaBody,
 	createEntitySchemaResponseSchema,
+	entityImportJobParams,
 	entitySchemaParams,
 	entitySearchBody,
 	entitySearchResponseSchema,
 	entitySearchResultResponseSchema,
+	importEntityBody,
+	importEntityResponseSchema,
+	importEntityResultResponseSchema,
 	listEntitySchemasBody,
 	listEntitySchemasResponseSchema,
 } from "./schemas";
 import {
 	createEntitySchema,
 	enqueueEntitySearch,
+	getEntityImportResult,
 	getEntitySchemaById,
 	getEntitySearchResult,
+	importEntity,
 	listEntitySchemas,
 } from "./service";
 
@@ -71,6 +77,35 @@ const getEntitySchemaRoute = createAuthRoute(
 	}),
 );
 
+const importEntityRoute = createAuthRoute(
+	createRoute({
+		method: "post",
+		path: "/import",
+		tags: ["entity-schemas"],
+		request: { body: jsonBody(importEntityBody) },
+		summary: "Enqueue a media entity import from a sandbox script",
+		responses: createStandardResponses({
+			successSchema: importEntityResponseSchema,
+			successDescription: "Entity import job enqueued",
+		}),
+	}),
+);
+
+const getEntityImportResultRoute = createAuthRoute(
+	createRoute({
+		method: "get",
+		path: "/import/{jobId}",
+		tags: ["entity-schemas"],
+		request: { params: entityImportJobParams },
+		summary: "Poll the result of an entity import job",
+		responses: createStandardResponses({
+			successSchema: importEntityResultResponseSchema,
+			successDescription: "Entity import job result",
+			notFoundDescription: "Entity import job not found",
+		}),
+	}),
+);
+
 const enqueueEntitySearchRoute = createAuthRoute(
 	createRoute({
 		method: "post",
@@ -103,6 +138,35 @@ const getEntitySearchResultRoute = createAuthRoute(
 );
 
 export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
+	.openapi(importEntityRoute, async (c) => {
+		const user = c.get("user");
+		const body = c.req.valid("json");
+
+		const result = await importEntity({ body, userId: user.id });
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
+
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
+	})
+	.openapi(getEntityImportResultRoute, async (c) => {
+		const user = c.get("user");
+		const params = c.req.valid("param");
+
+		const result = await getEntityImportResult({
+			userId: user.id,
+			jobId: params.jobId,
+		});
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
+
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
+	})
 	.openapi(listEntitySchemasRoute, async (c) => {
 		const user = c.get("user");
 		const body = c.req.valid("json");

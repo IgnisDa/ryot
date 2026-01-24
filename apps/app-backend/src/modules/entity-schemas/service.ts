@@ -1,12 +1,20 @@
 import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
+import { generateId } from "better-auth";
 import { checkCustomAccess, checkReadAccess } from "~/lib/access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
+import { getQueues } from "~/lib/queue";
 import {
 	type ServiceResult,
 	serviceData,
 	serviceError,
 	wrapServiceValidator,
 } from "~/lib/result";
+import type { ListedEntity } from "~/modules/entities";
+import {
+	type MediaImportJobData,
+	mediaImportJobData,
+	mediaImportJobName,
+} from "~/modules/media";
 import {
 	type EnqueueSandboxBody,
 	enqueueSandbox,
@@ -27,6 +35,8 @@ import {
 import type {
 	CreateEntitySchemaBody,
 	EntitySearchBody,
+	ImportEntityBody,
+	ImportEntityResult,
 	ListedEntitySchema,
 } from "./schemas";
 
@@ -290,4 +300,98 @@ export const getEntitySearchResult = async (
 	deps: EntitySearchDeps = defaultEntitySearchDeps,
 ): Promise<SandboxServiceResult<PollSandboxResult>> => {
 	return deps.getSandboxJobResult({ jobId: input.jobId, userId: input.userId });
+};
+
+type EntityImportMutationError = "not_found" | "validation";
+
+const entityImportJobFailedMessage = "Entity import job failed";
+const entityImportJobNotFoundError = "Entity import job not found";
+
+type ImportQueueJob = {
+	data: unknown;
+	returnvalue: ListedEntity;
+	getState: () => Promise<string>;
+	failedReason: string | undefined;
+};
+
+export type EntityImportDeps = {
+	getJobFromQueue: (
+		jobId: string,
+	) => Promise<ImportQueueJob | null | undefined>;
+	addJobToQueue: (input: {
+		jobId: string;
+		payload: MediaImportJobData;
+	}) => Promise<void>;
+};
+
+const defaultEntityImportDeps: EntityImportDeps = {
+	getJobFromQueue: async (jobId) => {
+		return getQueues().mediaQueue.getJob(jobId);
+	},
+	addJobToQueue: async ({ jobId, payload }) => {
+		await getQueues().mediaQueue.add(mediaImportJobName, payload, { jobId });
+	},
+};
+
+const resolveEntityImportJobIdResult = (jobId: string) =>
+	wrapServiceValidator(
+		() => resolveRequiredString(jobId, "Entity import job id"),
+		"Entity import job id is required",
+	);
+
+export const importEntity = async (
+	input: { body: ImportEntityBody; userId: string },
+	deps: EntityImportDeps = defaultEntityImportDeps,
+): Promise<ServiceResult<{ jobId: string }, EntityImportMutationError>> => {
+	const jobId = generateId();
+	const payloadResult = wrapServiceValidator(
+		() =>
+			mediaImportJobData.parse({
+				userId: input.userId,
+				scriptId: input.body.scriptId,
+				identifier: input.body.identifier,
+				entitySchemaId: input.body.entitySchemaId,
+			}),
+		"Entity import payload is invalid",
+	);
+	if ("error" in payloadResult) {
+		return payloadResult;
+	}
+
+	await deps.addJobToQueue({ jobId, payload: payloadResult.data });
+
+	return serviceData({ jobId });
+};
+
+export const getEntityImportResult = async (
+	input: { jobId: string; userId: string },
+	deps: EntityImportDeps = defaultEntityImportDeps,
+): Promise<ServiceResult<ImportEntityResult, EntityImportMutationError>> => {
+	const jobIdResult = resolveEntityImportJobIdResult(input.jobId);
+	if ("error" in jobIdResult) {
+		return jobIdResult;
+	}
+
+	const job = await deps.getJobFromQueue(jobIdResult.data);
+	if (!job) {
+		return serviceError("not_found", entityImportJobNotFoundError);
+	}
+
+	const parsed = mediaImportJobData.safeParse(job.data);
+	if (!parsed.success || parsed.data.userId !== input.userId) {
+		return serviceError("not_found", entityImportJobNotFoundError);
+	}
+
+	const state = await job.getState();
+	if (state === "completed") {
+		return serviceData({ status: "completed", data: job.returnvalue });
+	}
+	if (state === "failed") {
+		return serviceData({
+			status: "failed",
+			error: job.failedReason ?? entityImportJobFailedMessage,
+		});
+	}
+
+	return serviceData({ status: "pending" });
 };
