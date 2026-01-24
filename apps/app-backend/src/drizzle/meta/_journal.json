@@ -5,15 +5,8 @@
 		{
 			"idx": 0,
 			"version": "7",
-			"when": 1784573054478,
-			"tag": "0000_lethal_shocker",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1784597181697,
-			"tag": "0001_pink_slyde",
+			"when": 1784597920831,
+			"tag": "0000_certain_mikhail_rasputin",
 			"breakpoints": true
 		}
 	]
