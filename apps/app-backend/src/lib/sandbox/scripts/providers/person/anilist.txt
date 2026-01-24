@@ -1,0 +1,272 @@
+function parseJsonResponse(responseBody) {
+	try {
+		return JSON.parse(responseBody);
+	} catch {
+		throw new Error("Anilist returned invalid JSON");
+	}
+}
+
+function extractGraphQlErrorMessage(payload) {
+	if (!Array.isArray(payload?.errors) || payload.errors.length === 0) {
+		return null;
+	}
+
+	const firstError = payload.errors[0];
+	const message =
+		typeof firstError?.message === "string" ? firstError.message.trim() : "";
+
+	return message || "unknown GraphQL error";
+}
+
+function formatDate(dateObj) {
+	if (!dateObj || typeof dateObj !== "object") {
+		return null;
+	}
+
+	const { year, month, day } = dateObj;
+	if (
+		typeof year !== "number" ||
+		!Number.isFinite(year) ||
+		typeof month !== "number" ||
+		!Number.isFinite(month) ||
+		typeof day !== "number" ||
+		!Number.isFinite(day)
+	) {
+		return null;
+	}
+
+	const y = Math.trunc(year);
+	const m = String(Math.trunc(month)).padStart(2, "0");
+	const d = String(Math.trunc(day)).padStart(2, "0");
+	return `${y}-${m}-${d}`;
+}
+
+driver("personSearch", async function (context) {
+	const pageSize =
+		Number.isFinite(Number(context?.pageSize)) &&
+		Number(context.pageSize) > 0 &&
+		Number(context.pageSize) <= 100
+			? Math.floor(Number(context.pageSize))
+			: 20;
+	const currentPage = Number.isFinite(Number(context?.page))
+		? Math.max(1, Math.floor(Number(context.page)))
+		: 1;
+	const query = typeof context?.query === "string" ? context.query.trim() : "";
+
+	if (!query) {
+		throw new Error("query is required");
+	}
+
+	const graphqlQuery = `
+query StaffSearchQuery($search: String!, $page: Int!, $perPage: Int!) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo { total }
+    staff(search: $search) {
+      id
+      name { full }
+      image { medium }
+      dateOfBirth { year }
+    }
+  }
+}
+`;
+
+	const response = await httpCall("POST", "https://graphql.anilist.co", {
+		headers: {
+			Accept: "application/json",
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({
+			query: graphqlQuery,
+			variables: {
+				search: query,
+				page: currentPage,
+				perPage: pageSize,
+			},
+		}),
+	});
+
+	if (!response?.success) {
+		throw new Error(response?.error ?? "Anilist person search request failed");
+	}
+
+	const payload = parseJsonResponse(response.data.body);
+
+	const graphQlErrorMessage = extractGraphQlErrorMessage(payload);
+	if (graphQlErrorMessage) {
+		throw new Error(
+			`Anilist person search GraphQL error: ${graphQlErrorMessage}`,
+		);
+	}
+
+	const pageData =
+		payload?.data?.Page && typeof payload.data.Page === "object"
+			? payload.data.Page
+			: null;
+
+	if (!pageData) {
+		throw new Error("Anilist returned invalid response structure");
+	}
+
+	const totalItems =
+		typeof pageData?.pageInfo?.total === "number" &&
+		Number.isFinite(pageData.pageInfo.total)
+			? Math.max(0, Math.trunc(pageData.pageInfo.total))
+			: 0;
+
+	const staffItems = Array.isArray(pageData.staff) ? pageData.staff : [];
+	const items = staffItems
+		.map((item) => {
+			if (!item || typeof item !== "object") {
+				return null;
+			}
+
+			const staffId =
+				typeof item.id === "number" && Number.isFinite(item.id)
+					? Math.trunc(item.id)
+					: null;
+			if (staffId === null || staffId <= 0) {
+				return null;
+			}
+
+			const name =
+				typeof item?.name?.full === "string" ? item.name.full.trim() : "";
+
+			const image =
+				typeof item?.image?.medium === "string" && item.image.medium.trim()
+					? item.image.medium.trim()
+					: null;
+
+			const birthYear =
+				typeof item?.dateOfBirth?.year === "number" &&
+				Number.isFinite(item.dateOfBirth.year)
+					? Math.trunc(item.dateOfBirth.year)
+					: null;
+
+			return {
+				identifier: String(staffId),
+				badgeProperty: { kind: "null", value: null },
+				titleProperty: { kind: "text", value: name },
+				subtitleProperty:
+					birthYear === null
+						? { kind: "null", value: null }
+						: { kind: "number", value: birthYear },
+				imageProperty:
+					image === null
+						? { kind: "null", value: null }
+						: { kind: "image", value: { kind: "remote", url: image } },
+			};
+		})
+		.filter((item) => item !== null);
+
+	return {
+		items,
+		details: {
+			totalItems,
+			nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+		},
+	};
+});
+
+driver("personDetails", async function (context) {
+	const contextIdentifier =
+		typeof context?.identifier === "string" ? context.identifier.trim() : "";
+	if (!contextIdentifier) {
+		throw new Error("identifier is required");
+	}
+
+	if (!/^\d+$/.test(contextIdentifier)) {
+		throw new Error("identifier must be a numeric Anilist staff id");
+	}
+
+	const staffId = Number(contextIdentifier);
+	if (!Number.isSafeInteger(staffId) || staffId <= 0) {
+		throw new Error(
+			"identifier must be a positive safe integer Anilist staff id",
+		);
+	}
+
+	const graphqlQuery = `
+query StaffQuery($id: Int!) {
+  Staff(id: $id) {
+    id
+    name { full }
+    image { large }
+    gender
+    description
+    homeTown
+    dateOfBirth { day year month }
+    dateOfDeath { day year month }
+  }
+}
+`;
+
+	const response = await httpCall("POST", "https://graphql.anilist.co", {
+		body: JSON.stringify({ query: graphqlQuery, variables: { id: staffId } }),
+		headers: {
+			Accept: "application/json",
+			"Content-Type": "application/json",
+		},
+	});
+
+	if (!response?.success) {
+		throw new Error(response?.error ?? "Anilist person details request failed");
+	}
+
+	const payload = parseJsonResponse(response.data.body);
+
+	const graphQlErrorMessage = extractGraphQlErrorMessage(payload);
+	if (graphQlErrorMessage) {
+		throw new Error(
+			`Anilist person details GraphQL error: ${graphQlErrorMessage}`,
+		);
+	}
+
+	const staffData =
+		payload?.data?.Staff && typeof payload.data.Staff === "object"
+			? payload.data.Staff
+			: null;
+
+	if (!staffData) {
+		throw new Error("Anilist returned no staff data");
+	}
+
+	const name =
+		typeof staffData?.name?.full === "string" ? staffData.name.full.trim() : "";
+	if (!name) {
+		throw new Error("Anilist staff data is missing name");
+	}
+
+	const image =
+		typeof staffData?.image?.large === "string" && staffData.image.large.trim()
+			? staffData.image.large.trim()
+			: null;
+
+	const gender =
+		typeof staffData.gender === "string" && staffData.gender.trim()
+			? staffData.gender.trim()
+			: null;
+
+	const birthPlace =
+		typeof staffData.homeTown === "string" && staffData.homeTown.trim()
+			? staffData.homeTown.trim()
+			: null;
+
+	const description =
+		typeof staffData.description === "string" ? staffData.description : null;
+
+	return {
+		name,
+		properties: {
+			gender,
+			birthPlace,
+			description,
+			website: null,
+			alternateNames: [],
+			birthDate: formatDate(staffData.dateOfBirth),
+			deathDate: formatDate(staffData.dateOfDeath),
+			assets: { remoteImages: image ? [image] : [] },
+			sourceUrl: `https://anilist.co/staff/${staffId}`,
+		},
+	};
+});
