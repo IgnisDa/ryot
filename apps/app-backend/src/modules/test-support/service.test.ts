@@ -1,7 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { EntityId, EntitySchemaSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { dayjs } from "@ryot/ts-utils/dayjs";
 import { Effect, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-utils/effect";
@@ -72,7 +71,7 @@ const makeServiceLayer = (
 
 it.effect("updates populatedAt without changing entity fields", () => {
 	const populatedAt = "2026-07-20T12:00:00.000Z";
-	const populatedAtDate = dayjs(populatedAt).toDate();
+	const populatedAtDate = new Date(populatedAt);
 	let updateInput: unknown;
 	const entity = {
 		id: entityId,

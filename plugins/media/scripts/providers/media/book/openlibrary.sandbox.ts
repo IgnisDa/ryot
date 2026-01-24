@@ -1,4 +1,3 @@
-import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
@@ -38,11 +37,12 @@ const parseFlexibleDate = (value: unknown) => {
 	if (!trimmed) {
 		return null;
 	}
-	for (const format of ["MMM D, YYYY", "YYYY"]) {
-		const parsed = dayjs(trimmed, format, true);
-		if (parsed.isValid()) {
-			return new Date(Date.UTC(parsed.year(), parsed.month(), parsed.date()));
-		}
+	if (/^\d{4}$/.test(trimmed)) {
+		return new Date(Date.UTC(Number(trimmed), 0, 1));
+	}
+	const d = new Date(trimmed);
+	if (!Number.isNaN(d.getTime())) {
+		return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 	}
 	return null;
 };
