@@ -33,13 +33,25 @@ export const evalSystemRef = (name: string, row: BaseEntityQueryRow): FieldValue
 				? { kind: "image" as const, value: row.image }
 				: { kind: "null" as const, value: null },
 		),
+		Match.when("userId", () =>
+			row.userId !== null
+				? { kind: "text" as const, value: row.userId }
+				: { kind: "null" as const, value: null },
+		),
 		Match.when("createdAt", () => ({ kind: "date" as const, value: row.createdAt })),
 		Match.when("updatedAt", () => ({ kind: "date" as const, value: row.updatedAt })),
+		Match.when("properties", () => ({ kind: "json" as const, value: row.properties })),
 		Match.when("externalId", () =>
 			row.externalId !== null
 				? { kind: "text" as const, value: row.externalId }
 				: { kind: "null" as const, value: null },
 		),
+		Match.when("populatedAt", () =>
+			row.populatedAt !== null
+				? { kind: "date" as const, value: row.populatedAt }
+				: { kind: "null" as const, value: null },
+		),
+		Match.when("entitySchemaId", () => ({ kind: "text" as const, value: row.schemaId })),
 		Match.when("sandboxScriptId", () =>
 			row.sandboxScriptId !== null
 				? { kind: "text" as const, value: row.sandboxScriptId }
@@ -125,9 +137,18 @@ export const evalRelationshipFieldSelector = (
 const evalEventSystemRef = (name: string, row: EventFields): FieldValue =>
 	Match.value(name).pipe(
 		Match.when("id", () => ({ kind: "text" as const, value: row.eventId })),
+		Match.when("userId", () => ({ kind: "text" as const, value: row.eventUserId })),
+		Match.when("entityId", () => ({ kind: "text" as const, value: row.eventEntityId })),
 		Match.when("createdAt", () => ({ kind: "date" as const, value: row.eventCreatedAt })),
 		Match.when("updatedAt", () => ({ kind: "date" as const, value: row.eventUpdatedAt })),
 		Match.when("occurredAt", () => ({ kind: "date" as const, value: row.eventOccurredAt })),
+		Match.when("properties", () => ({ kind: "json" as const, value: row.eventProperties })),
+		Match.when("eventSchemaId", () => ({ kind: "text" as const, value: row.eventSchemaId })),
+		Match.when("sessionEntityId", () =>
+			row.eventSessionEntityId !== null
+				? { kind: "text" as const, value: row.eventSessionEntityId }
+				: { kind: "null" as const, value: null },
+		),
 		Match.orElse(() => ({ kind: "null" as const, value: null })),
 	);
 

@@ -152,12 +152,22 @@ Schema metadata field selector — reads metadata about the row's schema:
 
 ### System fields by source type
 
-Entity: `id`, `name`, `image`, `createdAt`, `updatedAt`, `externalId`, `sandboxScriptId`.
+Entity: `id`, `name`, `image`, `createdAt`, `updatedAt`, `externalId`, `sandboxScriptId`,
+`entitySchemaId`, `userId`, `populatedAt`, `properties`.
 
 - `image` is display-only.
-- `externalId` and `sandboxScriptId` resolve to `null` when not set.
+- `externalId`, `userId`, `populatedAt`, and `sandboxScriptId` resolve to `null` when not set.
+- `entitySchemaId` reads the row's entity schema id (from the schema join).
+- `properties` returns the entire JSONB `properties` object as `{ kind: "json", value }`;
+  path-based access uses the `property` field selector instead.
 
-Event: `id`, `occurredAt`, `createdAt`, `updatedAt`.
+Event: `id`, `occurredAt`, `createdAt`, `updatedAt`, `entityId`, `eventSchemaId`,
+`sessionEntityId`, `userId`, `properties`.
+
+- `sessionEntityId` resolves to `null` when not set.
+- `eventSchemaId` reads the row's event schema id (from the schema join).
+- `properties` returns the entire JSONB `properties` object as `{ kind: "json", value }`;
+  path-based access uses the `property` field selector instead.
 
 Relationship: `id`, `sourceEntityId`, `targetEntityId`, `createdAt`.
 

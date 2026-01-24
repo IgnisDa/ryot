@@ -15,9 +15,14 @@ export const systemFieldSql = (name: string, alias = "e"): ReturnType<typeof sql
 	if (alias === "ev") {
 		const eventColumnMap: Record<string, ReturnType<typeof sql>> = {
 			id: sql`ev.id`,
+			userId: sql`ev.user_id`,
+			entityId: sql`ev.entity_id`,
 			createdAt: sql`ev.created_at`,
 			updatedAt: sql`ev.updated_at`,
+			properties: sql`ev.properties`,
 			occurredAt: sql`ev.occurred_at`,
+			eventSchemaId: sql`ev.event_schema_id`,
+			sessionEntityId: sql`ev.session_entity_id`,
 		};
 		return eventColumnMap[name] ?? null;
 	}
@@ -37,9 +42,13 @@ export const systemFieldSql = (name: string, alias = "e"): ReturnType<typeof sql
 		id: sql`${table}.id`,
 		name: sql`${table}.name`,
 		image: sql`${table}.image`,
+		userId: sql`${table}.user_id`,
 		createdAt: sql`${table}.created_at`,
 		updatedAt: sql`${table}.updated_at`,
+		properties: sql`${table}.properties`,
 		externalId: sql`${table}.external_id`,
+		populatedAt: sql`${table}.populated_at`,
+		entitySchemaId: sql`${table}.entity_schema_id`,
 		sandboxScriptId: sql`${table}.sandbox_script_id`,
 	};
 	return columnMap[name] ?? null;
@@ -108,6 +117,8 @@ export const entitySelectColumnsSql = sql`
 	e.created_at AS "createdAt",
 	e.updated_at AS "updatedAt",
 	e.external_id AS "externalId",
+	e.user_id AS "userId",
+	e.populated_at AS "populatedAt",
 	e.sandbox_script_id AS "sandboxScriptId",
 	es.id AS "schemaId",
 	es.slug AS "schemaSlug",
@@ -129,9 +140,12 @@ export const relationshipEdgeColumnsSql = sql`
 export const eventSelectColumnsSql = sql`
 	ev.id AS "eventId",
 	ev.properties AS "eventProperties",
+	ev.entity_id AS "eventEntityId",
 	ev.created_at AS "eventCreatedAt",
 	ev.updated_at AS "eventUpdatedAt",
 	ev.occurred_at AS "eventOccurredAt",
+	ev.user_id AS "eventUserId",
+	ev.session_entity_id AS "eventSessionEntityId",
 	evs.id AS "eventSchemaId",
 	evs.slug AS "eventSchemaSlug",
 	evs.name AS "eventSchemaName",
@@ -147,6 +161,8 @@ export const entityJsonbObjectSql = (entityAlias: string, schemaAlias: string) =
 		'updatedAt', ${sql.raw(entityAlias)}.updated_at,
 		'properties', ${sql.raw(entityAlias)}.properties,
 		'externalId', ${sql.raw(entityAlias)}.external_id,
+		'userId', ${sql.raw(entityAlias)}.user_id,
+		'populatedAt', ${sql.raw(entityAlias)}.populated_at,
 		'sandboxScriptId', ${sql.raw(entityAlias)}.sandbox_script_id,
 		'schemaId', ${sql.raw(schemaAlias)}.id,
 		'schemaSlug', ${sql.raw(schemaAlias)}.slug,
