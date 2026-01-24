@@ -215,12 +215,12 @@ describe("SandboxService driverName support", () => {
 		await service.enqueue({
 			userId: "user_1",
 			code: "return 1;",
-			driverName: "mediaSearch",
+			driverName: "search",
 		});
 
 		expect(addedJobs).toHaveLength(1);
 		const jobData = addedJobs[0]?.data as { driverName?: string } | undefined;
-		expect(jobData?.driverName).toBe("mediaSearch");
+		expect(jobData?.driverName).toBe("search");
 	});
 
 	it("forwards driverName in execute payload", async () => {
@@ -238,12 +238,10 @@ describe("SandboxService driverName support", () => {
 			};
 		};
 
-		await service.executeQueuedRun(
-			createJobData({ driverName: "mediaDetails" }),
-		);
+		await service.executeQueuedRun(createJobData({ driverName: "details" }));
 
 		expect(capturedOptions).toMatchObject({
-			driverName: "mediaDetails",
+			driverName: "details",
 		});
 	});
 

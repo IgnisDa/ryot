@@ -143,7 +143,7 @@ async function getMalClientId() {
   return clientId;
 }
 
-driver("mediaSearch", async function(context) {
+driver("search", async function(context) {
   const pageSize =
     Number.isFinite(Number(context?.pageSize)) &&
     Number(context.pageSize) > 0 &&
@@ -237,7 +237,7 @@ driver("mediaSearch", async function(context) {
   };
 });
 
-driver("mediaDetails", async function(context) {
+driver("details", async function(context) {
   const clientId = await getMalClientId();
 
   const contextIdentifier =
