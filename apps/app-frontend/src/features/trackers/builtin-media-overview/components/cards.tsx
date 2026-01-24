@@ -13,6 +13,7 @@ import {
 import { useDebouncedCallback } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { dayjs } from "@ryot/ts-utils";
+import { Link } from "@tanstack/react-router";
 import { Play, Star } from "lucide-react";
 import { useState } from "react";
 import { createReviewEventPayload } from "~/features/entities/search-modal-media-actions";
@@ -95,9 +96,15 @@ export function ContinueCard(props: ContinueCardProps) {
 						</Text>
 					</Group>
 
-					<CardTitle textPrimary={props.textPrimary}>
-						{props.item.title}
-					</CardTitle>
+					<Link
+						className="title-link"
+						to="/entities/$entityId"
+						params={{ entityId: props.item.id }}
+					>
+						<CardTitle textPrimary={props.textPrimary}>
+							{props.item.title}
+						</CardTitle>
+					</Link>
 					<CardSubtitle textMuted={props.textMuted}>
 						{props.item.subtitle.label}
 					</CardSubtitle>
@@ -216,9 +223,16 @@ export function BacklogCard(props: BacklogCardProps) {
 					>
 						{note}
 					</Text>
-					<CardTitle textPrimary={props.textPrimary} lineClamp={2}>
-						{props.item.title}
-					</CardTitle>
+					<Link
+						className="title-link"
+						to="/entities/$entityId"
+						params={{ entityId: props.item.id }}
+						onClick={(e) => e.stopPropagation()}
+					>
+						<CardTitle textPrimary={props.textPrimary} lineClamp={2}>
+							{props.item.title}
+						</CardTitle>
+					</Link>
 					<CardSubtitle textMuted={props.textMuted}>
 						{props.item.subtitle.label}
 					</CardSubtitle>
@@ -310,15 +324,21 @@ export function RateCard(props: RateCardProps) {
 							{completedDate}
 						</Text>
 					</Group>
-					<Text
-						fz="sm"
-						fw={600}
-						lineClamp={1}
-						c={props.textPrimary}
-						ff="var(--mantine-headings-font-family)"
+					<Link
+						className="title-link"
+						to="/entities/$entityId"
+						params={{ entityId: props.item.id }}
 					>
-						{props.item.title}
-					</Text>
+						<Text
+							fz="sm"
+							fw={600}
+							lineClamp={1}
+							c={props.textPrimary}
+							ff="var(--mantine-headings-font-family)"
+						>
+							{props.item.title}
+						</Text>
+					</Link>
 					<CardSubtitle textMuted={props.textMuted}>
 						{props.item.subtitle.label}
 					</CardSubtitle>

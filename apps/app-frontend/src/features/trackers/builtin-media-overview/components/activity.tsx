@@ -1,4 +1,5 @@
 import { Badge, Box, Group, Paper, Stack, Text, Tooltip } from "@mantine/core";
+import { Link } from "@tanstack/react-router";
 import { colorMix, GOLD, STONE, type WeekDayView } from "../shared";
 import { Artwork } from "./artwork";
 
@@ -122,15 +123,21 @@ export function EventRow(props: EventRowProps) {
 				icon={schema?.icon ?? "circle"}
 			/>
 			<Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
-				<Text
-					fz="sm"
-					fw={600}
-					lineClamp={1}
-					c={props.textPrimary}
-					ff="var(--mantine-headings-font-family)"
+				<Link
+					className="title-link"
+					to="/entities/$entityId"
+					params={{ entityId: props.event.id }}
 				>
-					{props.event.title}
-				</Text>
+					<Text
+						fz="sm"
+						fw={600}
+						lineClamp={1}
+						c={props.textPrimary}
+						ff="var(--mantine-headings-font-family)"
+					>
+						{props.event.title}
+					</Text>
+				</Link>
 				<Group gap={6} wrap="wrap">
 					<Badge
 						size="xs"
