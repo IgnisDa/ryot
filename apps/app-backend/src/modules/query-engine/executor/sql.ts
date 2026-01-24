@@ -11,7 +11,7 @@ import type {
 	RowsOutput,
 } from "../language";
 
-export const systemFieldSql = (name: string, alias = "e"): ReturnType<typeof sql> | null => {
+const systemFieldSql = (name: string, alias = "e"): ReturnType<typeof sql> | null => {
 	if (alias === "ev") {
 		const eventColumnMap: Record<string, ReturnType<typeof sql>> = {
 			id: sql`ev.id`,
