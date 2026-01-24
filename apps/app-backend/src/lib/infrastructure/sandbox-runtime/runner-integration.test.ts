@@ -633,6 +633,20 @@ const runInDeno = (compiled: RunnerCompiledModule, context: unknown, options: Ru
 		}),
 	);
 
+const compileBootPluginScript = (slug: string) =>
+	Effect.gen(function* () {
+		const plugin = bootPluginSources.find(({ manifest }) =>
+			manifest.scripts.some((script) => script.slug === slug),
+		);
+		assert(plugin, slug);
+		const script = plugin.manifest.scripts.find((candidate) => candidate.slug === slug);
+		assert(script, slug);
+		const pluginSource = yield* loadPluginSource(plugin.packageRoot, plugin.manifest);
+		const [output] = yield* compilePluginSandboxSourceEntries(pluginSource.files, [script]);
+		assert(output, slug);
+		return output.compiled;
+	});
+
 const startCoreHostBridge = (
 	options: {
 		readonly pluginConfigValue?: unknown;
@@ -1099,6 +1113,129 @@ it(
 					{ concurrency: 5 },
 				);
 			}),
+		),
+	120_000,
+);
+
+it(
+	"executes the compiled AniList anime provider in Deno with bundled helpers",
+	() =>
+		Effect.runPromise(
+			Effect.scoped(
+				Effect.gen(function* () {
+					const bridge = yield* startCoreHostBridge({
+						httpResponse: (url) => {
+							expect(new URL(url).host).toBe("graphql.anilist.co");
+							return {
+								data: {
+									Media: {
+										id: 7,
+										type: "ANIME",
+										episodes: 12,
+										isAdult: false,
+										averageScore: 83,
+										bannerImage: null,
+										status: "FINISHED",
+										genres: ["Action"],
+										nextAiringEpisode: null,
+										tags: [{ name: "Space" }],
+										startDate: { year: 2020 },
+										description: "Line one<br>Line two",
+										title: { english: "Compiled Anime" },
+										coverImage: { extraLarge: "https://img.example/cover.jpg" },
+										studios: { nodes: [{ id: 11, name: "Compiled Studio" }] },
+										airingSchedule: { nodes: [{ episode: 1, airingAt: 1_700_000_000 }] },
+										recommendations: {
+											nodes: [
+												{
+													mediaRecommendation: {
+														id: 8,
+														type: "MANGA",
+														title: { english: "Suggested Manga" },
+													},
+												},
+											],
+										},
+									},
+								},
+							};
+						},
+					});
+					const compiled = yield* compileBootPluginScript("anime.anilist.details");
+					const result = yield* runInDeno(
+						compiled,
+						{ externalId: "7" },
+						{
+							apiBase: `http://127.0.0.1:${bridge.port}`,
+							apiFunctions: compiled.manifest.capabilities,
+						},
+					);
+					assert(result !== null && typeof result === "object");
+					expect(result).toMatchObject({ success: true });
+					expect(Reflect.get(result, "value")).toMatchObject({
+						name: "Compiled Anime",
+						properties: {
+							description: "Line one\nLine two",
+							sourceUrl: "https://anilist.co/anime/7/Compiled%20Anime",
+						},
+					});
+				}),
+			),
+		),
+	120_000,
+);
+
+it(
+	"executes the compiled TVDB show provider in Deno through the token flow",
+	() =>
+		Effect.runPromise(
+			Effect.scoped(
+				Effect.gen(function* () {
+					const bridge = yield* startCoreHostBridge({
+						pluginConfigValue: "tvdb-api-key",
+						httpResponse: (url) => {
+							const path = new URL(url).pathname;
+							if (path === "/v4/login") {
+								return { status: "success", data: { token: "compiled-token" } };
+							}
+							expect(path).toBe("/v4/search");
+							return {
+								status: "success",
+								links: { next: null, total_items: 1 },
+								data: [
+									{
+										tvdb_id: "42",
+										name: "Compiled Series",
+										poster: "https://example.com/poster.jpg",
+									},
+								],
+							};
+						},
+					});
+					const compiled = yield* compileBootPluginScript("show.tvdb.search");
+					const result = yield* runInDeno(
+						compiled,
+						{ query: "Compiled", page: 1, pageSize: 20 },
+						{
+							apiBase: `http://127.0.0.1:${bridge.port}`,
+							apiFunctions: compiled.manifest.capabilities,
+						},
+					);
+					assert(result !== null && typeof result === "object");
+					expect(result).toMatchObject({ success: true });
+					expect(Reflect.get(result, "value")).toMatchObject({
+						details: { totalItems: 1, nextPage: null },
+						items: [
+							{
+								externalId: "42",
+								titleProperty: { kind: "text", value: "Compiled Series" },
+							},
+						],
+					});
+					const cacheWrite = bridge.calls.find((call) => call.fnName === "setCachedValue");
+					expect(cacheWrite?.args).toEqual(["tvdb_access_token", "Bearer compiled-token", 82_800]);
+				}),
+			),
 		),
 	120_000,
 );

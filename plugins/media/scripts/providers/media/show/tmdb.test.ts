@@ -53,6 +53,22 @@ describe("show.tmdb sandbox script", () => {
 			requiredPluginConfigKeys: ["tmdbAccessToken"],
 		});
 	});
+	it("builds the TMDB show search endpoint", () => {
+		const host = makeHost((_method, url) => {
+			const requestUrl = new URL(url);
+			expect(requestUrl.host).toBe("api.themoviedb.org");
+			expect(requestUrl.pathname).toBe("/3/search/tv");
+			return httpSuccess({ page: 1, total_results: 0, results: [] });
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(search, { query: "show", page: 1, pageSize: 20 }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({ details: { totalItems: 0, nextPage: null }, items: [] });
+					return undefined;
+				}),
+			),
+		);
+	});
 	it("keeps TMDB recommendations as related entities", () => {
 		const host = makeHost((_method, url) => {
 			if (url.includes("/tv/1/recommendations")) {

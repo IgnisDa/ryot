@@ -26,6 +26,56 @@ describe("comic-book.metron sandbox script", () => {
 			["comic-book.metron.details", "details"],
 		]);
 	});
+	it("loads Basic auth credentials and maps issue search results", () => {
+		const configKeys: string[] = [];
+		const host = defineSandboxTestHost(manifest, {
+			getPluginConfigValue: (key) => {
+				configKeys.push(key);
+				return Effect.succeed(key === "metronUsername" ? "user" : "pass");
+			},
+			httpCall: (_method, url, options) => {
+				const requestUrl = new URL(url);
+				expect(requestUrl.host).toBe("metron.cloud");
+				expect(requestUrl.pathname).toBe("/api/issue/");
+				expect(options?.headers).toEqual({ Authorization: "Basic dXNlcjpwYXNz" });
+				return httpSuccess({
+					count: 1,
+					results: [
+						{
+							id: 5,
+							number: "1",
+							cover_date: "2021-04-01",
+							image: "https://img/m.jpg",
+							series: { name: "My Series" },
+						},
+					],
+				});
+			},
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(
+				search,
+				{ query: "series", page: 1, pageSize: 20 },
+				host,
+				execution,
+			).pipe(
+				Effect.map((result) => {
+					expect(configKeys).toEqual(["metronUsername", "metronPassword"]);
+					expect(result).toMatchObject({
+						details: { totalItems: 1, nextPage: null },
+						items: [
+							{
+								externalId: "5",
+								titleProperty: { kind: "text", value: "My Series #1" },
+								primarySubtitleProperty: { kind: "number", value: 2021 },
+							},
+						],
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
 	it("keeps arc issues as related entities", () => {
 		const host = makeHost((_method, url) => {
 			if (url.includes("/issue/1/")) {
