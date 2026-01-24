@@ -29,12 +29,12 @@ export const decodeSandboxDriverResult = <A, E, R>(
 				Effect.mapError(() => new SandboxRunError({ message: errorMessage })),
 			);
 
-type ProcessedChildEntity = {
+export type ProcessedChildEntity = {
 	entity: ListedEntity;
 	entitySchemaId: EntitySchemaId;
 };
 
-export const processChildEntityTree = Effect.fn("processChildEntityTree")(function* (input: {
+export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (input: {
 	syncExisting?: boolean;
 	parentEntityId: EntityId;
 	sandboxScriptId: SandboxScriptId;
@@ -169,68 +169,33 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 		}
 	});
 
-	const processNode = (
-		childEntity: ProviderDetailsChildEntity,
-	): Effect.Effect<ProcessedChildEntity, SandboxRunError> =>
-		Effect.gen(function* () {
-			const entitySchema = yield* runWithDb(
-				entitySchemasRepository.getBuiltinBySlug(childEntity.entitySchemaSlug),
-			).pipe(dieOnDbError);
-			if (!entitySchema) {
-				return yield* new SandboxRunError({
-					message: `Child entity schema not found: ${childEntity.entitySchemaSlug}`,
-				});
-			}
-
-			const populatedAt = yield* DateTime.nowAsDate;
-			const entity = yield* entities
-				.upsert({
-					populatedAt,
-					name: childEntity.name,
-					entitySchemaId: entitySchema.id,
-					externalId: childEntity.externalId,
-					properties: childEntity.properties,
-					sandboxScriptId: input.sandboxScriptId,
-					updateExisting: input.syncExisting ?? false,
-				})
-				.pipe(
-					dieOnDbError,
-					Effect.mapError((error) => new SandboxRunError({ message: error.message })),
-				);
-			const child = { entity, entitySchemaId: entitySchema.id };
-
-			const nestedChildren: ProcessedChildEntity[] = [];
-			for (const nestedChildEntity of childEntity.childEntities ?? []) {
-				nestedChildren.push(yield* processNode(nestedChildEntity));
-			}
-
-			const nestedChildEntitySchemaId = nestedChildren[0]?.entitySchemaId;
-			const nestedRelationshipSchema = yield* findChildRelationshipSchema(
-				child.entitySchemaId,
-				childEntity.entitySchemaSlug,
-				nestedChildEntitySchemaId,
-			);
-			if (nestedRelationshipSchema) {
-				yield* synchronizeGlobalRelationships({
-					direction: "outgoing",
-					onConflict: "preserveExisting",
-					anchorEntityId: child.entity.id,
-					synchronization: "authoritative",
-					relationshipSchemaId: nestedRelationshipSchema.id,
-					propertiesSchema: nestedRelationshipSchema.propertiesSchema,
-					entries: nestedChildren.map((nestedChild) => ({
-						properties: {},
-						entityId: nestedChild.entity.id,
-					})),
-				});
-			}
-
-			return child;
-		});
-
 	const processedChildren: ProcessedChildEntity[] = [];
 	for (const childEntity of input.childEntities) {
-		processedChildren.push(yield* processNode(childEntity));
+		const entitySchema = yield* runWithDb(
+			entitySchemasRepository.getBuiltinBySlug(childEntity.entitySchemaSlug),
+		).pipe(dieOnDbError);
+		if (!entitySchema) {
+			return yield* new SandboxRunError({
+				message: `Child entity schema not found: ${childEntity.entitySchemaSlug}`,
+			});
+		}
+
+		const populatedAt = yield* DateTime.nowAsDate;
+		const entity = yield* entities
+			.upsert({
+				populatedAt,
+				name: childEntity.name,
+				entitySchemaId: entitySchema.id,
+				externalId: childEntity.externalId,
+				properties: childEntity.properties,
+				sandboxScriptId: input.sandboxScriptId,
+				updateExisting: input.syncExisting ?? false,
+			})
+			.pipe(
+				dieOnDbError,
+				Effect.mapError((error) => new SandboxRunError({ message: error.message })),
+			);
+		processedChildren.push({ entity, entitySchemaId: entitySchema.id });
 	}
 
 	const childEntitySchemaId = processedChildren[0]?.entitySchemaId;
@@ -250,4 +215,6 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 			entries: processedChildren.map((child) => ({ properties: {}, entityId: child.entity.id })),
 		});
 	}
+
+	return processedChildren;
 });
