@@ -779,9 +779,9 @@ Acceptance criteria the test suite must establish:
 
 ## Tasks
 
-**Overall Progress:** 4 of 15 tasks completed
+**Overall Progress:** 5 of 15 tasks completed
 
-**Current Task:** [Task 05](./05-lifecycle-occurrence-dispatch-for-creates.md) (todo)
+**Current Task:** [Task 06](./06-policy-engine-on-event-creates.md) (todo)
 
 ### Task List
 
@@ -791,7 +791,7 @@ Acceptance criteria the test suite must establish:
 | 02  | [Automation Rules and Subscription Runs](./02-automation-rules-and-subscription-runs.md)                               | AFK  | done   |
 | 03  | [Subscription Execution Workflow and SDK Entry Point](./03-subscription-execution-workflow-and-sdk-entry-point.md)     | AFK  | done   |
 | 04  | [Host Functions and Capabilities](./04-host-functions-and-capabilities.md)                                             | AFK  | done   |
-| 05  | [Lifecycle Occurrence Dispatch for Creates](./05-lifecycle-occurrence-dispatch-for-creates.md)                         | AFK  | todo   |
+| 05  | [Lifecycle Occurrence Dispatch for Creates](./05-lifecycle-occurrence-dispatch-for-creates.md)                         | AFK  | done   |
 | 06  | [Policy Engine on Event Creates](./06-policy-engine-on-event-creates.md)                                               | AFK  | todo   |
 | 07  | [Trigger Migration](./07-trigger-migration.md)                                                                         | AFK  | todo   |
 | 08  | [Shared Notification Script and First Producers](./08-shared-notification-script-and-first-producers.md)               | AFK  | todo   |

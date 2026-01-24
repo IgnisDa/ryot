@@ -69,6 +69,7 @@ const relationshipScope = {
 const subjectScope = {
 	isBuiltin: true,
 	entityUserId: null,
+	entityName: "The Matrix",
 	entityId: subjectEntityId,
 	entitySchemaSlug: "movie",
 	propertiesSchema: { fields: {} },

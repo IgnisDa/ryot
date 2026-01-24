@@ -1,6 +1,7 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { type CurrentUserValue, defaultUserPreferences } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
+import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import type { CreateEventItem, EventCreateOrigin } from "@ryot/contract/modules/events/schemas";
 import type { RowItem } from "@ryot/contract/modules/query-engine/language";
 import {
@@ -13,7 +14,7 @@ import {
 	type UserId,
 } from "@ryot/contract/schema/brands";
 import { buildEventHistoryQueryDocument } from "@ryot/query-engine";
-import { Effect } from "effect";
+import { Effect, Match } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -65,6 +66,29 @@ type EventListQuery = {
 type EventQueryScope = {
 	readonly eventSchemaSlugs: [string, ...string[]];
 	readonly entitySchemaSlugs: [string, ...string[]];
+};
+
+const toLifecycleOrigin = (input: EventCreateInput): AutomationOrigin | undefined => {
+	const importRunId = input.metadata?.importRunId;
+	const integrationId = input.metadata?.integrationId;
+	return Match.value(input.source).pipe(
+		Match.when("api", () => ({ kind: "api" }) as const),
+		Match.when(
+			"import",
+			() => ({ kind: "import", ...(importRunId ? { importRunId } : {}) }) as const,
+		),
+		Match.when("integration", () =>
+			integrationId
+				? ({ kind: "integration", integrationId, ...(importRunId ? { importRunId } : {}) } as const)
+				: undefined,
+		),
+		Match.when("sandbox", () =>
+			input.executionId
+				? ({ kind: "automation", executionId: input.executionId } as const)
+				: undefined,
+		),
+		Match.orElse(() => undefined),
+	);
 };
 
 const userFromId = (userId: UserId): CurrentUserValue => ({
@@ -250,6 +274,7 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 					payload: input.payload,
 					executionId: input.executionId,
 					importRunId: input.metadata?.importRunId,
+					lifecycleOrigin: toLifecycleOrigin(input),
 					integrationId: input.metadata?.integrationId,
 				}),
 			);
