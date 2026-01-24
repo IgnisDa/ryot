@@ -11,8 +11,8 @@ import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-r
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import { RelationshipsRepository } from "#modules/relationships/repository";
-import { RelationshipsService } from "#modules/relationships/service";
+
+import { synchronizeGlobalRelationships } from "./relationship-synchronization";
 
 export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(function* (input: {
 	primaryEntityId: EntityId;
@@ -22,8 +22,6 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	const runWithDb = yield* DbRunner;
 	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
-	const relationships = yield* RelationshipsService;
-	const relationshipsRepository = yield* RelationshipsRepository;
 	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
 	const relationshipSchema = yield* runWithDb(
@@ -122,75 +120,9 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 					synchronization: "authoritative" as const,
 				};
 
-	const existing = yield* runWithDb(
-		relationshipsRepository.listGlobalRelationships({
-			type: "anchored",
-			direction: syncInput.direction,
-			anchorEntityId: syncInput.anchorEntityId,
-			relationshipSchemaId: syncInput.relationshipSchemaId,
-		}),
-	);
-	const existingByEntityId = new Map(
-		existing.map((relationship) => [
-			syncInput.direction === "outgoing"
-				? relationship.targetEntityId
-				: relationship.sourceEntityId,
-			relationship,
-		]),
-	);
-	const entriesByEntityId = new Map(syncInput.entries.map((entry) => [entry.entityId, entry]));
-	for (const entry of entriesByEntityId.values()) {
-		const sourceEntityId =
-			syncInput.direction === "outgoing" ? syncInput.anchorEntityId : entry.entityId;
-		const targetEntityId =
-			syncInput.direction === "outgoing" ? entry.entityId : syncInput.anchorEntityId;
-		const relationshipInput = {
-			sourceEntityId,
-			targetEntityId,
-			scope: "global" as const,
-			properties: entry.properties,
-			relationshipSchemaId: syncInput.relationshipSchemaId,
-			propertiesSchema: relationshipSchema.propertiesSchema,
-		};
-		const current = existingByEntityId.get(entry.entityId);
-		if (current) {
-			if (syncInput.onConflict === "replaceProperties") {
-				yield* relationships
-					.update(relationshipInput)
-					.pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
-			}
-			continue;
-		}
-
-		const created = yield* relationships
-			.create(relationshipInput)
-			.pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
-		if (!created.wasInserted && syncInput.onConflict === "replaceProperties") {
-			yield* relationships
-				.update(relationshipInput)
-				.pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
-		}
-	}
-
-	if (syncInput.synchronization === "authoritative") {
-		for (const relationship of existing) {
-			const relatedEntityId =
-				syncInput.direction === "outgoing"
-					? relationship.targetEntityId
-					: relationship.sourceEntityId;
-			if (entriesByEntityId.has(relatedEntityId)) {
-				continue;
-			}
-
-			yield* relationships
-				.delete({
-					scope: "global",
-					sourceEntityId: relationship.sourceEntityId,
-					targetEntityId: relationship.targetEntityId,
-					relationshipSchemaId: relationship.relationshipSchemaId,
-				})
-				.pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
-		}
-	}
-	return undefined;
+	return yield* synchronizeGlobalRelationships({
+		...syncInput,
+		relationshipSchemaSlug: relationshipSchema.slug,
+		propertiesSchema: relationshipSchema.propertiesSchema,
+	});
 }, dieOnDbError);
