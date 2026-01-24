@@ -71,28 +71,39 @@ const makeLayer = (
 				Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader }),
 				Layer.mock(PluginRuntimeResolver)({
 					_tag: "PluginRuntimeResolver",
-					findActiveScript: (slug) =>
-						Effect.succeed({
-							slug,
-							name: slug,
-							source: "source",
-							compiledFormat: 1,
-							pluginSlug: "fixture",
-							providerId: null,
-							compiledCode: "compiled",
-							contentHash: `${slug}-hash`,
-							createdAt: new Date(0),
-							updatedAt: new Date(0),
-							id: SandboxScriptId.make(`${slug}-id`),
-							metadata: {
-								slug,
-								name: slug,
-								capabilities: [],
-								kind: "automation",
-								requiredPluginConfigKeys: [],
-								requiredSystemConfigKeys: [],
-							},
-						}),
+					resolveActivePluginBoot: ({ bootSlug, pluginSlug }) => {
+						const boot = loader
+							.getSnapshot()
+							.plugins[pluginSlug]?.manifest.boot.find(({ slug }) => slug === bootSlug);
+						return Effect.succeed(
+							boot
+								? {
+										boot,
+										script: {
+											pluginSlug,
+											source: "source",
+											providerId: null,
+											compiledFormat: 1,
+											slug: boot.scriptSlug,
+											name: boot.scriptSlug,
+											compiledCode: "compiled",
+											createdAt: new Date(0),
+											updatedAt: new Date(0),
+											contentHash: `${boot.scriptSlug}-hash`,
+											id: SandboxScriptId.make(`${boot.scriptSlug}-id`),
+											metadata: {
+												capabilities: [],
+												kind: "automation",
+												slug: boot.scriptSlug,
+												name: boot.scriptSlug,
+												requiredPluginConfigKeys: [],
+												requiredSystemConfigKeys: [],
+											},
+										},
+									}
+								: null,
+						);
+					},
 				}),
 				Layer.succeed(
 					WorkflowEngine,
@@ -122,8 +133,8 @@ it.effect("awaits every plugin boot entry as a deterministic system sandbox run"
 			{
 				executionId: "plugin-boot-7-fixture-12-fixture-boot-60000",
 				payload: {
-					authority: { type: "system" },
 					context: {},
+					authority: { type: "system" },
 					scriptId: SandboxScriptId.make("fixture-script-id"),
 					executionId: "plugin-boot-7-fixture-12-fixture-boot-60000",
 				},

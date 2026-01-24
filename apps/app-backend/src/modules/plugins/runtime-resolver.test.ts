@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { PluginManifest } from "@ryot/plugin-kit/manifest";
-import { Cause, Effect, Exit, Layer, Option } from "effect";
+import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option, Runtime } from "effect";
 import { assert } from "vitest";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -387,4 +387,69 @@ it.effect("returns a contextual typed failure for an unsupported operation", () 
 			reason: "unsupported_operation",
 		});
 	}).pipe(Effect.provide(makeLayer())),
+);
+
+it.effect(
+	"resolves provider operations from one snapshot while registry replacement is pending",
+	() =>
+		Effect.gen(function* () {
+			const selected = yield* Deferred.make<void>();
+			const release = yield* Deferred.make<void>();
+			const runtime = yield* Effect.runtime();
+			const loader = makePluginLoader(makeDefinitionRegistry());
+			loader.load(normalizedPlugin());
+			let snapshotReads = 0;
+			const countedLoader = {
+				_tag: "PluginLoader" as const,
+				...loader,
+				getSnapshot: () => {
+					snapshotReads += 1;
+					return loader.getSnapshot();
+				},
+			};
+			const db = {
+				select: () => ({
+					from: (table: unknown) => ({
+						where: () => ({
+							limit: () => {
+								if (table === schema.sandboxProvider) {
+									return Runtime.runPromise(runtime)(
+										Deferred.succeed(selected, undefined).pipe(
+											Effect.zipRight(Deferred.await(release)),
+										),
+									).then(() => [providerRow]);
+								}
+								return Promise.resolve([scriptRow]);
+							},
+						}),
+					}),
+				}),
+			};
+			const layer = PluginRuntimeResolver.Default.pipe(
+				Layer.provideMerge(
+					Layer.mergeAll(
+						Layer.succeed(PluginLoader, countedLoader),
+						Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
+					),
+				),
+			);
+			const fiber = yield* Effect.fork(
+				Effect.gen(function* () {
+					const resolver = yield* PluginRuntimeResolver;
+					return yield* resolver.resolveDetailsScript(providerId);
+				}).pipe(Effect.provide(layer)),
+			);
+			yield* Deferred.await(selected);
+			const replacement = normalizedPlugin();
+			loader.load({
+				...replacement,
+				manifest: { ...replacement.manifest, providers: [] },
+			});
+			yield* Deferred.succeed(release, undefined);
+			expect(yield* Fiber.join(fiber)).toMatchObject({
+				id: "details-script-id",
+				slug: "fixture.details",
+			});
+			expect(snapshotReads).toBe(1);
+		}),
 );
