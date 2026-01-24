@@ -5,6 +5,7 @@ import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import type {
 	PluginCron,
 	PluginConfigSchema,
+	PluginEventAutomation,
 	PluginImportSource,
 	PluginOperationAuth,
 	PluginProviderInformation,
@@ -81,9 +82,17 @@ export const testPluginManifest = (input: {
 	providers?: ReadonlyArray<TestPluginProvider>;
 	operations?: ReadonlyArray<TestPluginOperation>;
 	importSources?: ReadonlyArray<PluginImportSource>;
+	eventAutomations?: ReadonlyArray<PluginEventAutomation>;
 	scripts?: ReadonlyArray<TestPluginScript & { entry: string }>;
 	workflows?: ReadonlyArray<{ slug: string; scriptSlug: string }>;
 	boot?: ReadonlyArray<{ slug: string; scriptSlug: string; description: string }>;
+	relationshipSchemas?: ReadonlyArray<{
+		name: string;
+		slug: string;
+		propertiesSchema: AppSchema;
+		sourceEntitySchemaSlug: string | null;
+		targetEntitySchemaSlug: string | null;
+	}>;
 	entitySchemas?: ReadonlyArray<{
 		icon: string;
 		name: string;
@@ -91,13 +100,6 @@ export const testPluginManifest = (input: {
 		accentColor: string;
 		propertiesSchema: AppSchema;
 		eventSchemas: ReadonlyArray<{ name: string; slug: string; propertiesSchema: AppSchema }>;
-	}>;
-	relationshipSchemas?: ReadonlyArray<{
-		name: string;
-		slug: string;
-		propertiesSchema: AppSchema;
-		sourceEntitySchemaSlug: string | null;
-		targetEntitySchemaSlug: string | null;
 	}>;
 }) => ({
 	savedViews: [],
@@ -123,10 +125,10 @@ export const testPluginManifest = (input: {
 		description: "Generic plugin fixture for end-to-end tests",
 	},
 	bindings: {
-		eventAutomations: [],
 		entityAutomations: [],
 		signalAutomations: [],
 		relationshipAutomations: [],
+		eventAutomations: input.eventAutomations ?? [],
 		schemaProviderLinks: input.linkToEntitySchemaSlug
 			? [
 					{
@@ -157,13 +159,13 @@ export const installTestPlugin = (input: {
 	source: string;
 	pluginSlug?: string;
 	script: TestPluginScript;
-	configSchema?: PluginConfigSchema;
 	linkToEntitySchemaSlug?: string;
+	configSchema?: PluginConfigSchema;
 	boot?: Parameters<typeof testPluginManifest>[0]["boot"];
 	crons?: Parameters<typeof testPluginManifest>[0]["crons"];
+	providers?: Parameters<typeof testPluginManifest>[0]["providers"];
 	operations?: Parameters<typeof testPluginManifest>[0]["operations"];
 	entitySchemas?: Parameters<typeof testPluginManifest>[0]["entitySchemas"];
-	providers?: Parameters<typeof testPluginManifest>[0]["providers"];
 }) =>
 	Effect.gen(function* () {
 		const entry = `scripts/${input.script.kind}.sandbox.ts`;
@@ -171,9 +173,9 @@ export const installTestPlugin = (input: {
 		const pluginSlugId = PluginSlug.make(pluginSlug);
 		const manifest = testPluginManifest({
 			pluginSlug,
+			providers: input.providers ?? [],
 			configSchema: input.configSchema,
 			scripts: [{ ...input.script, entry }],
-			providers: input.providers ?? [],
 			...(input.boot ? { boot: input.boot } : {}),
 			...(input.crons ? { crons: input.crons } : {}),
 			...(input.operations ? { operations: input.operations } : {}),
@@ -195,27 +197,28 @@ export const installTestPlugin = (input: {
 			files,
 			manifest,
 			scriptId,
-			scriptIds: { [input.script.slug]: scriptId },
-			pluginSlug: pluginSlugId,
 			active: true,
 			slug: input.script.slug,
+			pluginSlug: pluginSlugId,
+			scriptIds: { [input.script.slug]: scriptId },
 		};
 		installedByScriptId.set(scriptId, { installed, targetSlug: input.script.slug });
 		return installed;
 	});
 
 export const installTestPluginBundle = (input: {
-	files: Record<string, string>;
 	pluginSlug?: string;
+	files: Record<string, string>;
+	linkToEntitySchemaSlug?: string;
 	configSchema?: PluginConfigSchema;
-	scripts: ReadonlyArray<TestPluginScript & { entry: string }>;
 	providers?: ReadonlyArray<TestPluginProvider>;
 	crons?: Parameters<typeof testPluginManifest>[0]["crons"];
+	scripts: ReadonlyArray<TestPluginScript & { entry: string }>;
 	workflows?: Parameters<typeof testPluginManifest>[0]["workflows"];
 	importSources?: Parameters<typeof testPluginManifest>[0]["importSources"];
 	entitySchemas?: Parameters<typeof testPluginManifest>[0]["entitySchemas"];
+	eventAutomations?: Parameters<typeof testPluginManifest>[0]["eventAutomations"];
 	relationshipSchemas?: Parameters<typeof testPluginManifest>[0]["relationshipSchemas"];
-	linkToEntitySchemaSlug?: string;
 }) =>
 	Effect.gen(function* () {
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
@@ -229,6 +232,7 @@ export const installTestPluginBundle = (input: {
 			configSchema: input.configSchema,
 			importSources: input.importSources,
 			entitySchemas: input.entitySchemas,
+			eventAutomations: input.eventAutomations,
 			relationshipSchemas: input.relationshipSchemas,
 			...(input.linkToEntitySchemaSlug
 				? {
@@ -257,12 +261,12 @@ export const installTestPluginBundle = (input: {
 			return yield* Effect.dieMessage("Test plugin bundle requires at least one script");
 		}
 		const installed: InstalledTestPlugin = {
-			files: input.files,
 			manifest,
 			scriptId,
 			scriptIds,
-			pluginSlug: pluginSlugId,
 			active: true,
+			files: input.files,
+			pluginSlug: pluginSlugId,
 			slug: input.providers?.[0]?.slug ?? input.scripts[0]?.slug ?? pluginSlug,
 		};
 		for (const [targetSlug, id] of Object.entries(scriptIds)) {

@@ -225,6 +225,15 @@ correction changes no schema or behavior and is the only domain move included in
 - Complete the third-party-style e2e fixture. One hot-installed plugin must exercise search, import,
   event creation, automation, uninstall refusal while referenced, cleanup, and successful uninstall
   without a server restart.
+
+  Task 15 implementation record (2026-07-31): one domain-neutral fixture now runs the complete
+  lifecycle through the real plugin endpoint without a backend restart. It verifies hot install and
+  reingestion, deterministic provider search, generic provider import, API event creation, and a
+  subscription automation that creates a second fixture-owned event with the triggering
+  event identity and payload. Entity cleanup uses the admin test-support service, uninstall retries
+  only while a draining workflow pin still reports conflict, and the test then verifies plugin and
+  schema catalog removal plus rejection of the historical search script ID. The fixture is offline
+  and successful completion leaves neither an active package nor referenced entity behind.
 - Effect-only means the public authoring boundary: sandbox definitions, SDK methods, backend host
   contracts, and typed bridge dispatch expose Effect. Private adapters may bridge Promise-returning
   Deno, filesystem, fetch, or third-party APIs behind that boundary.
