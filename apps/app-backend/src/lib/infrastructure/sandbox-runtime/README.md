@@ -126,6 +126,24 @@ The SDK run function receives `(input, host, execution)`. `execution` contains `
 - Accepted `log` and `span` entries are deterministically serialized into the same completed-result `logs` field after console logs. Their shared observability budget rejects an entire host-call batch before emitting or recording any item.
 - An oversized final value is rejected as an `output`-phase error and is never returned partially.
 
+## Durable Workflow Semantics
+
+The workflow shell pins its workflow script row before the first replay, so a hot swap cannot change
+that execution's workflow module. Activity and plugin-child targets are resolved when each durable
+step is first observed and that exact target is then memoized with the step. A long-running workflow
+can therefore use activity versions from different active plugin installations when those steps are
+first reached at different times; each individual step still executes exactly once against its
+resolved version.
+
+Workflow-authored ambient time and randomness are compiler errors. The runner also guards aliases at
+runtime. `Date.now()` remains a deterministic zero-valued shim because Effect itself reads it while
+executing the restricted workflow subset; authored workflow modules cannot call it because compiler
+validation rejects the reference.
+
+Each workflow child accepts at most 64 KiB of UTF-8 JSON context and at most 1,000 durable calls.
+Callers with bulk input must split work before dispatch. Media imports pack ordered chunks against
+both limits and fan out those independent child executions under the global sandbox worker bound.
+
 ## Resource Limits
 
 `@ryot/sandbox-compiler/limits` owns compiler limits and UTF-8 measurement. `limits.ts` composes those values with the execution, bridge, HTTP, log, result, and cache limits used by the backend. Limits are fixed in this phase rather than exposed as environment settings.
@@ -135,6 +153,7 @@ The SDK run function receives `(input, host, execution)`. `execution` contains `
 | TypeScript source / static manifest / compiled module | 256 KiB / 16 KiB / 1 MiB      |
 | Compiler concurrency / time / process-tree memory     | 2 / 5 seconds / 256 MiB       |
 | Driver context / runner request / final result        | 256 KiB / 2 MiB / 1 MiB       |
+| Workflow context / durable calls / final result       | 64 KiB / 1,000 / 4 MiB        |
 | Bridge request / response                             | 1 MiB / 10 MiB                |
 | Host calls / `httpCall` calls per execution           | 200 / 50                      |
 | HTTP request / streamed response body                 | 1 MiB / 10 MiB                |
