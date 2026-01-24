@@ -105,6 +105,22 @@ correction changes no schema or behavior and is the only domain move included in
   module is definition-source-owned and content-addressed, so no legacy per-user fallback path is
   needed. Measure
   before/after on a provider-heavy e2e run.
+
+  Task 10 implementation record (2026-07-31): compiled JavaScript now materializes under the
+  approved runtime directory as `modules/<compiled-hash>.mjs`. The backend verifies exact UTF-8
+  bytes against the persisted SHA-256 hash, publishes through a verified temporary file and atomic
+  non-overwriting link, and reuses only a matching immutable destination. Concurrent executions
+  converge on one read-only file. Runner requests carry only the local module path and compiled
+  format; Deno imports that file with the existing runtime-directory read grant, and returned load
+  errors redact module paths. The exposed module directory is the Task 14 disk-liveness boundary;
+  Task 10 adds no GC.
+
+  The pre-change operational run used the unchanged two-concurrent-1,001-item gate and took 911.20s
+  overall; its test body timed out after 902.16s at the unchanged 900,000ms deadline. Backend logs
+  showed no execution error or deadlock before timeout. The owner directed Task 10 completion without
+  rerunning that operational gate so its post-change measurement is deferred to the separate gate
+  diagnosis. Non-operational verification used the hermetic provider search/import suite, which
+  passed all 11 tests in 18.48s after the change.
 - **In-flight host-call cap** per execution (the bridge has total-count budgets but no
   concurrency cap): a simple kernel-side semaphore per `executionId` in
   `BridgeService.handleRequest`. Pick the limit from observed batch-activity behavior.

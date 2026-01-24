@@ -92,12 +92,19 @@ export const SANDBOX_RUNTIME_IMPORT_MAP_CONTENT = `${JSON.stringify(
 )}\n`;
 
 const runtimeFiles = runtimeModules.map(({ runtimeFile }) => runtimeFile);
+const runtimeModuleDirectoryName = "modules";
+const runtimeDirectoryEntries = [
+	"import-map.json",
+	runtimeModuleDirectoryName,
+	...runtimeFiles,
+].sort();
 const runtimeDirectoryFiles = ["import-map.json", ...runtimeFiles].sort();
 
 export type SandboxRuntimePaths = {
 	readonly directory: string;
 	readonly importMapPath: string;
 	readonly cacheDirectory: string;
+	readonly moduleDirectory: string;
 };
 
 const sandboxRuntimePaths = (
@@ -110,6 +117,7 @@ const sandboxRuntimePaths = (
 		directory,
 		importMapPath: `${directory}/import-map.json`,
 		cacheDirectory: `${denoDir}/cache-v${SANDBOX_RUNTIME_DEPENDENCY_FORMAT}-${contentHash}`,
+		moduleDirectory: `${directory}/${runtimeModuleDirectoryName}`,
 	};
 };
 
@@ -117,11 +125,16 @@ const runtimeContentHash = (fs: FileSystem.FileSystem, directory: string) =>
 	Effect.gen(function* () {
 		const entries = (yield* fs.readDirectory(directory)).sort();
 		if (
-			entries.length !== runtimeDirectoryFiles.length ||
-			entries.some((entry, index) => entry !== runtimeDirectoryFiles[index])
+			entries.length !== runtimeDirectoryEntries.length ||
+			entries.some((entry, index) => entry !== runtimeDirectoryEntries[index])
 		) {
 			return yield* new SandboxRuntimeDependencyError({
 				message: "Sandbox runtime dependency directory has unexpected files",
+			});
+		}
+		if ((yield* fs.stat(`${directory}/${runtimeModuleDirectoryName}`)).type !== "Directory") {
+			return yield* new SandboxRuntimeDependencyError({
+				message: "Sandbox runtime module path is not a directory",
 			});
 		}
 		const hasher = new Bun.CryptoHasher("sha256");
@@ -329,6 +342,7 @@ export const ensureSandboxRuntimeDependencies = (denoDir: string) =>
 			fs.makeTempDirectory({ directory: denoDir, prefix: ".ryot-sandbox-runtime-" }),
 			(temporaryDirectory) =>
 				Effect.gen(function* () {
+					yield* fs.makeDirectory(`${temporaryDirectory}/${runtimeModuleDirectoryName}`);
 					yield* Effect.forEach(
 						entries,
 						({ entrypoint, runtimeFile, runtimeSource }) =>

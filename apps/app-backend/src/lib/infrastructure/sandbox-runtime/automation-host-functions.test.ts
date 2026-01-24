@@ -29,6 +29,7 @@ const upsertGlobalEntities = () => Effect.void;
 const runInput = {
 	context: {},
 	metadata: {},
+	contentHash: "",
 	providerId: null,
 	compiledCode: "",
 	compiledFormat: 1,
