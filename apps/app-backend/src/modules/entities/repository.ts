@@ -400,26 +400,22 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					return yield* toListedEntity(created);
 				}
 
-				const existing = yield* Effect.flatMap(Effect.succeed(input), (repositoryInput) =>
-					Effect.gen(function* () {
-						const [row] = yield* dbEffect(() =>
-							db
-								.select(entitySelection)
-								.from(schema.entity)
-								.where(
-									and(
-										eq(schema.entity.userId, repositoryInput.userId),
-										eq(schema.entity.externalId, externalId),
-										eq(schema.entity.entitySchemaId, repositoryInput.entitySchemaId),
-										eq(schema.entity.sandboxScriptId, sandboxScriptId),
-									),
-								)
-								.limit(1),
-						);
-
-						return row ? yield* toListedEntity(row) : null;
-					}),
+				const [row] = yield* dbEffect(() =>
+					db
+						.select(entitySelection)
+						.from(schema.entity)
+						.where(
+							and(
+								eq(schema.entity.userId, input.userId),
+								eq(schema.entity.externalId, externalId),
+								eq(schema.entity.entitySchemaId, input.entitySchemaId),
+								eq(schema.entity.sandboxScriptId, sandboxScriptId),
+							),
+						)
+						.limit(1),
 				);
+
+				const existing = row ? yield* toListedEntity(row) : null;
 
 				if (existing) {
 					return existing;
