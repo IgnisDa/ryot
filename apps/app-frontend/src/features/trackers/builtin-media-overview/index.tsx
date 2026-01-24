@@ -14,7 +14,7 @@ import {
 } from "@mantine/core";
 import { dayjs } from "@ryot/ts-utils";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bookmark, Clock, Play } from "lucide-react";
+import { Bookmark, Clock } from "lucide-react";
 import { useCallback } from "react";
 import { useResolvedImageUrls } from "~/features/entities/image";
 import { toAppEntityImage } from "~/features/entities/model";
@@ -235,24 +235,14 @@ export function BuiltinMediaTrackerOverview(
 						</Badge>
 					</Group>
 				</Stack>
-				<Group gap="xs">
-					<Button
-						size="sm"
-						variant="default"
-						leftSection={<Bookmark size={14} />}
-						onClick={() => openTypePickerModal("backlog")}
-					>
-						Add to watchlist
-					</Button>
-					<Button
-						size="sm"
-						leftSection={<Play size={14} />}
-						style={{ backgroundColor: GOLD, color: "white" }}
-						onClick={() => openTypePickerModal("log")}
-					>
-						Start tracking
-					</Button>
-				</Group>
+				<Button
+					size="sm"
+					variant="default"
+					leftSection={<Bookmark size={14} />}
+					onClick={() => openTypePickerModal()}
+				>
+					Add to watchlist
+				</Button>
 			</Group>
 
 			{continueItems.length > 0 && (
