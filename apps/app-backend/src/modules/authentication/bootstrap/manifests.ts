@@ -205,10 +205,18 @@ export const authenticationBuiltinRelationshipSchemas = () => [
 		targetEntitySchemaSlug: "collection",
 	},
 	...builtinMediaEntitySchemaSlugs.map((mediaSlug) => ({
-		propertiesSchema: { fields: {} },
 		sourceEntitySchemaSlug: "person",
 		targetEntitySchemaSlug: mediaSlug,
 		slug: normalizeSlug(`person to ${mediaSlug}`),
 		name: `Person to ${mediaSlug.charAt(0).toUpperCase() + mediaSlug.slice(1)}`,
+		propertiesSchema: {
+			fields: {
+				roles: {
+					label: "Roles",
+					type: "array" as const,
+					items: { label: "Role", type: "string" as const },
+				},
+			},
+		},
 	})),
 ];
