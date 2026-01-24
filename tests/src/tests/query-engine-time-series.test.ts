@@ -65,9 +65,6 @@ describe("event time series", () => {
 			slug: reviewSlug,
 			name: "OccurredAt Review",
 			entitySchemaId: schemaId,
-			propertiesSchema: {
-				fields: { note: { type: "string", label: "Note", description: "Note" } },
-			},
 		});
 		const entity = await createQueryEngineEntity(client, {
 			name: "OccurredAt Series Entity",
@@ -168,9 +165,6 @@ describe("event time series", () => {
 			slug: reviewSlug,
 			name: "Time Series Zero Review",
 			entitySchemaId: schemaId,
-			propertiesSchema: {
-				fields: { note: { type: "string", label: "Note", description: "Note" } },
-			},
 		});
 		const entity = await createQueryEngineEntity(client, {
 			name: "Time Series Zero Entity",
@@ -209,9 +203,6 @@ describe("event time series", () => {
 			slug: reviewSlug,
 			name: "Time Series Range Review",
 			entitySchemaId: schemaId,
-			propertiesSchema: {
-				fields: { note: { type: "string", label: "Note", description: "Note" } },
-			},
 		});
 
 		const currentIso = toIso(currentTime());

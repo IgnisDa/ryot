@@ -104,9 +104,6 @@ describe("Event roots and first expressions", () => {
 			slug: completeSlug,
 			name: "First Complete",
 			entitySchemaId: lessonSchemaId,
-			propertiesSchema: {
-				fields: { notes: { type: "string", label: "Notes", description: "Completion notes" } },
-			},
 		});
 		const lessonWithEvents = await createQueryEngineEntity(client, {
 			name: "Lesson A",
