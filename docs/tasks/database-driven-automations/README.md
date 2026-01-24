@@ -779,9 +779,9 @@ Acceptance criteria the test suite must establish:
 
 ## Tasks
 
-**Overall Progress:** 2 of 15 tasks completed
+**Overall Progress:** 3 of 15 tasks completed
 
-**Current Task:** [Task 03](./03-subscription-execution-workflow-and-sdk-entry-point.md) (todo)
+**Current Task:** [Task 04](./04-host-functions-and-capabilities.md) (todo)
 
 ### Task List
 
@@ -789,7 +789,7 @@ Acceptance criteria the test suite must establish:
 | --- | ---------------------------------------------------------------------------------------------------------------------- | ---- | ------ |
 | 01  | [Signal Persistence and Emission Service](./01-signal-persistence-and-emission-service.md)                             | AFK  | done   |
 | 02  | [Automation Rules and Subscription Runs](./02-automation-rules-and-subscription-runs.md)                               | AFK  | done   |
-| 03  | [Subscription Execution Workflow and SDK Entry Point](./03-subscription-execution-workflow-and-sdk-entry-point.md)     | AFK  | todo   |
+| 03  | [Subscription Execution Workflow and SDK Entry Point](./03-subscription-execution-workflow-and-sdk-entry-point.md)     | AFK  | done   |
 | 04  | [Host Functions and Capabilities](./04-host-functions-and-capabilities.md)                                             | AFK  | todo   |
 | 05  | [Lifecycle Occurrence Dispatch for Creates](./05-lifecycle-occurrence-dispatch-for-creates.md)                         | AFK  | todo   |
 | 06  | [Policy Engine on Event Creates](./06-policy-engine-on-event-creates.md)                                               | AFK  | todo   |

@@ -16,6 +16,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
+import { SignalDispatch } from "./dispatch";
 import { SignalsRepository, type InsertSignalInput, type StoredSignal } from "./repository";
 import { SignalEmissionService, type EmitSignalInput } from "./service";
 import { SignalSchemasRepository, type SignalSchemaScope } from "./signal-schemas-repository";
@@ -100,6 +101,9 @@ const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 const mockSignalSchemasRepository = Layer.mock(SignalSchemasRepository);
 const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
 const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasRepository);
+const signalDispatchLayer = Layer.mock(SignalDispatch, {
+	dispatch: () => Effect.void,
+});
 
 const makeSignalsRepository = (overrides: MockOverrides<typeof mockSignalsRepository> = {}) =>
 	mockSignalsRepository({
@@ -120,6 +124,7 @@ const makeRelationshipSchemasRepository = (
 ) => mockRelationshipSchemasRepository({ _tag: "RelationshipSchemasRepository", ...overrides });
 
 const makeLayer = (input: {
+	dispatch?: typeof signalDispatchLayer;
 	signals: ReturnType<typeof makeSignalsRepository>;
 	entities?: ReturnType<typeof makeEntitiesRepository>;
 	signalSchemas?: ReturnType<typeof makeSignalSchemasRepository>;
@@ -130,6 +135,7 @@ const makeLayer = (input: {
 		Layer.provide(
 			Layer.mergeAll(
 				input.signals,
+				input.dispatch ?? signalDispatchLayer,
 				transactionLayer,
 				input.entities ?? makeEntitiesRepository(),
 				input.relationships ?? makeRelationshipsRepository(),
@@ -411,5 +417,42 @@ it.effect("uses the discriminator to distinguish sibling signal ids", () => {
 		yield* service.emit({ ...baseInput, discriminator: "role-2" });
 		expect(ids).toHaveLength(2);
 		expect(ids[0]).not.toBe(ids[1]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("dispatches the committed signal snapshot", () => {
+	const order: string[] = [];
+	let dispatched: unknown;
+	const layer = makeLayer({
+		dispatch: Layer.mock(SignalDispatch, {
+			dispatch: (input) => {
+				order.push("dispatch");
+				dispatched = input;
+				return Effect.void;
+			},
+		}),
+		signals: makeSignalsRepository({
+			insert: (input) => {
+				order.push("insert");
+				return Effect.succeed(storedSignal(input));
+			},
+			isUserEnabled: () => Effect.succeed(true),
+			insertRecipients: () => {
+				order.push("recipients");
+				return Effect.void;
+			},
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* SignalEmissionService;
+		const result = yield* service.emit(baseInput);
+		expect(order).toEqual(["insert", "recipients", "dispatch"]);
+		expect(dispatched).toMatchObject({
+			actorUserId: userId,
+			id: result.signal.id,
+			recipientUserIds: [userId],
+			signalSchemaSlug: actorSchema.slug,
+		});
 	}).pipe(Effect.provide(layer));
 });
