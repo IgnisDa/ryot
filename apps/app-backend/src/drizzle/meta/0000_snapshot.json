@@ -1,5 +1,5 @@
 {
-	"id": "706fad27-1fcb-40e3-a856-836c9fa6c37f",
+	"id": "14227e6c-96df-42a1-bfd6-b3d03fa9d000",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1277,6 +1277,13 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": false
+				},
+				"metadata": {
+					"name": "metadata",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'{}'::jsonb"
 				},
 				"user_id": {
 					"name": "user_id",

@@ -176,6 +176,12 @@ export const eventSchema = pgTable(
 	],
 );
 
+export const sandboxScriptMetadataSchema = z.object({
+	searchDriverName: z.string().optional(),
+});
+
+export type SandboxScriptMetadata = z.infer<typeof sandboxScriptMetadataSchema>;
+
 export const sandboxScript = pgTable(
 	"sandbox_script",
 	{
@@ -184,6 +190,7 @@ export const sandboxScript = pgTable(
 		code: text().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
 		isBuiltin: boolean().notNull().default(false),
+		metadata: jsonb().notNull().default({}).$type<SandboxScriptMetadata>(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
 			.notNull()
