@@ -11,7 +11,7 @@ export const FrequentCronSchedulerLive = Layer.scopedDiscard(
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
 
-		if (config.server.disableBackgroundJobs) {
+		if (config.scheduler.disableDispatchers) {
 			yield* Effect.logInfo("frequent cron scheduler disabled");
 			return;
 		}

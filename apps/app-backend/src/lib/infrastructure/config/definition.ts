@@ -96,9 +96,9 @@ const fields = {
 		"Cron expression (or the phrase 'every midnight') for the infrequent cron tier",
 		{ default: "every midnight" },
 	),
-	disableBackgroundJobs: boolField(
-		"SERVER_DISABLE_BACKGROUND_JOBS",
-		"Disable all scheduled background jobs (the frequent/infrequent cron tiers, plugin manifest crons, and the one-time plugin boot dispatcher)",
+	disableDispatchers: boolField(
+		"SCHEDULER_DISABLE_DISPATCHERS",
+		"Disable automatic scheduler dispatchers (the frequent/infrequent cron tiers, plugin manifest crons, and the one-time plugin boot dispatcher)",
 		{ default: false },
 	),
 	timeoutMs: intField(
@@ -246,10 +246,12 @@ const usersGroup = group(
 const schedulerGroup = group(
 	"Scheduler settings",
 	Config.all({
+		disableDispatchers: fields.disableDispatchers.config,
 		frequentCronJobsSchedule: fields.frequentCronJobsSchedule.config,
 		infrequentCronJobsSchedule: fields.infrequentCronJobsSchedule.config,
 	}),
 	{
+		disableDispatchers: fields.disableDispatchers.meta,
 		frequentCronJobsSchedule: fields.frequentCronJobsSchedule.meta,
 		infrequentCronJobsSchedule: fields.infrequentCronJobsSchedule.meta,
 	},
@@ -313,7 +315,6 @@ const serverGroup = group(
 		otlpEndpoint: fields.otlpEndpoint.config,
 		adminAccessToken: fields.adminAccessToken.config,
 		disableNotifications: fields.disableNotifications.config,
-		disableBackgroundJobs: fields.disableBackgroundJobs.config,
 		progressUpdateThresholdHours: fields.progressUpdateThresholdHours.config,
 	}),
 	{
@@ -326,7 +327,6 @@ const serverGroup = group(
 		otlpEndpoint: fields.otlpEndpoint.meta,
 		adminAccessToken: fields.adminAccessToken.meta,
 		disableNotifications: fields.disableNotifications.meta,
-		disableBackgroundJobs: fields.disableBackgroundJobs.meta,
 		progressUpdateThresholdHours: fields.progressUpdateThresholdHours.meta,
 	},
 );
