@@ -171,27 +171,47 @@ injected the same way: neither the execution authority nor the workflow payload 
 script legitimately relays an app-supplied origin. They are therefore validated against the
 authority user through the owner-scoped import-run and integration lookups before dispatch.
 
-Each workflow child accepts at most 64 KiB of UTF-8 JSON context and at most 1,000 durable calls.
-Callers with bulk input must split work before dispatch. Media imports pack ordered chunks against
-both limits and fan out those independent child executions under the global sandbox worker bound.
+Workflow context and durable-call ceilings are defined under Resource Limits. Callers with bulk
+input must split work before dispatch. Media imports pack ordered chunks against both ceilings and
+fan out those independent child executions under the global sandbox worker bound.
 
 ## Resource Limits
 
 `@ryot/sandbox-compiler/limits` owns compiler limits and UTF-8 measurement. `limits.ts` composes those values with the execution, bridge, HTTP, log, result, and cache limits used by the backend. Limits are fixed in this phase rather than exposed as environment settings.
 
+Profile selection follows the persisted definition kind, not the caller or execution path.
+`script`, `activity`, `provider`, `automation`, and `operation` use the standard profile; only
+`workflow` uses the workflow profile. `limits.ts` owns the fixed values. The standard timeout comes
+from `SANDBOX_TIMEOUT_MS`, whose default is 10 seconds; workflows use the greater of that configured
+timeout and 30 seconds.
+
+| Profile  | Context | Final result | Host calls | HTTP calls | Durable calls |
+| -------- | ------- | ------------ | ---------- | ---------- | ------------- |
+| Standard | 256 KiB | 1 MiB        | 200        | 50         | None          |
+| Workflow | 64 KiB  | 4 MiB        | 1,000      | 0          | 1,000         |
+
 | Boundary                                              | Limit                         |
 | ----------------------------------------------------- | ----------------------------- |
 | TypeScript source / static manifest / compiled module | 256 KiB / 16 KiB / 1 MiB      |
 | Compiler concurrency / time / process-tree memory     | 2 / 5 seconds / 256 MiB       |
-| Script context / runner request / final result        | 256 KiB / 2 MiB / 1 MiB       |
-| Workflow context / durable calls / final result       | 64 KiB / 1,000 / 4 MiB        |
+| Runner request                                        | 2 MiB                         |
 | Bridge request / response                             | 1 MiB / 10 MiB                |
 | Concurrent in-flight host calls per execution         | 4                             |
-| Host calls / `httpCall` calls per execution           | 200 / 50                      |
 | HTTP request / streamed response body                 | 1 MiB / 10 MiB                |
 | Log entry / count / total                             | 8 KiB / 500 / 256 KiB         |
 | Observability entry / count / total                   | 8 KiB / 500 / 256 KiB         |
 | Cache key / value / TTL                               | 256 bytes / 256 KiB / 30 days |
+
+These profile values are retained for distinct failure boundaries:
+
+| Resource              | Rationale                                                                                                                                                                                                                                                 | Limit and sizing symptoms                                                                                                                                                                                                                              |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Timeout               | Ten seconds bounds ordinary script work; workflow replay and orchestration need the 30-second floor.                                                                                                                                                      | A hit is a workflow-level `Sandbox timed out` job failure, not a completed script error. Repeated valid work timing out indicates an undersized value; raising it lets runaway executions occupy capacity longer.                                      |
+| Context               | The standard allowance supports data-bearing scripts. Measured workflow contexts were 99–136 bytes, so 64 KiB leaves substantial headroom while requiring bulk work to be split.                                                                          | Oversized or non-JSON context is rejected before execution. Valid dispatches rejected at this boundary indicate undersizing; routinely tiny workflow contexts provide no evidence for raising it.                                                      |
+| Final result          | One MiB bounds ordinary results. Workflow envelopes include orchestration state: a five-step workflow failed at 1 MiB and succeeded at 4 MiB.                                                                                                             | A hit is an `output`-phase oversized-result error and no partial value is returned. Valid envelopes failing indicate undersizing; a larger ceiling increases serialization, transfer, and retained-result cost.                                        |
+| Host calls            | The standard total and HTTP subset bound bridge and network amplification. Workflows receive only deterministic durable access, with HTTP unavailable; replay reads the journal through one bulk `durableCalls` call rather than one host call per entry. | Exceeding either counter is an `execute`-phase error naming the exhausted budget. Valid bounded scripts failing indicate undersizing; workflow replay approaching 1,000 host calls indicates a bug, while higher ceilings increase amplification risk. |
+| Durable calls         | One thousand supports established workflow fan-out while forcing larger batches into separate child executions.                                                                                                                                           | An attempt cannot emit more than 1,000 durable requests; hitting the ceiling means the input must be chunked before dispatch. A lower value breaks valid fan-out, while a higher value enlarges replay journals and result envelopes.                  |
+| Concurrent host calls | Four matches the largest observed intentional per-execution fan-out.                                                                                                                                                                                      | Additional calls wait instead of failing. Excess queueing that contributes to timeout indicates undersizing; raising the limit creates larger bridge and downstream bursts without an observed workload requiring them.                                |
 
 The compiler supervisor samples proportional set size for the Bun worker and its TypeScript descendants in the Linux production image. This avoids double-counting shared pages but is a sampled process supervisor, not a cgroup hard ceiling. Non-Linux development retains the process, timeout, and concurrency boundaries without claiming a portable memory ceiling; Bun's `--smol` flag reduces baseline memory but is not treated as enforcement.
 
