@@ -10,10 +10,12 @@ import {
 	deleteIntegration,
 	getImportRun,
 	getIntegration,
+	listEventSlugs,
 	listIntegrations,
 	postIntegrationWebhook,
 	postWebhook,
 	pollImportRunUntilTerminal,
+	waitForEventSlugs,
 } from "../fixtures";
 import { getPgClient } from "../setup";
 import { assertTaggedError, requirePresent } from "../test-support/assertions";
@@ -23,16 +25,6 @@ const kodiPayload = { identifier: "tt1234567", lot: "movie", progress: 50 };
 async function querySingle<T extends QueryResultRow>(sql: string, params: unknown[]): Promise<T> {
 	const result = await getPgClient().query<T>(sql, params);
 	return requirePresent(result.rows[0], `No row returned for: ${sql}`);
-}
-
-async function listEventSlugs(entityId: string): Promise<string[]> {
-	const result = await getPgClient().query<{ slug: string }>(
-		`select es.slug from event e
-		 join event_schema es on es.id = e.event_schema_id
-		 where e.entity_id = $1`,
-		[entityId],
-	);
-	return result.rows.map((row) => row.slug);
 }
 
 describe("Integration CRUD", () => {
@@ -314,8 +306,8 @@ describe("Webhook routes", () => {
 		expect(completedRun.status).toBe("completed");
 		expect(completedRun.failedItems).toBe(0);
 
+		const episodeEvents = await waitForEventSlugs(episodeId, "progress");
 		const showEvents = await listEventSlugs(showId);
-		const episodeEvents = await listEventSlugs(episodeId);
 		expect(showEvents).not.toContain("progress");
 		expect(episodeEvents).toContain("progress");
 	}, 60_000);
