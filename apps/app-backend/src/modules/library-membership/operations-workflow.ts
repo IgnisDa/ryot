@@ -5,7 +5,8 @@ import { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
-import { EnsureLibraryMembershipQueue } from "#modules/events/durable-queues";
+
+import { EnsureLibraryMembershipQueue } from "./durable-queues";
 
 const EnsureLibraryMembershipWorkflowPayload = Schema.Struct({
 	userId: UserId,

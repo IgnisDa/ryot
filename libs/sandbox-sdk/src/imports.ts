@@ -62,6 +62,8 @@ export const genericImportEntityIntentSchema = strictStruct({
 	properties: importRecordSchema,
 	entitySchemaSlug: Schema.String,
 	entityId: Schema.optional(Schema.String),
+	existingOnly: Schema.optional(Schema.Boolean),
+	scope: Schema.optional(Schema.Literal("global", "user")),
 	match: Schema.optional(
 		strictStruct({
 			name: Schema.String,
@@ -85,34 +87,30 @@ export const genericImportCollectionMembershipIntentSchema = strictStruct({
 	collectionName: Schema.String,
 });
 
-export const genericImportOwnershipIntentSchema = strictStruct({
-	provider: Schema.String,
-	entityAlias: Schema.String,
-});
-
 export const genericImportRelationshipIntentSchema = strictStruct({
 	sourceAlias: Schema.String,
 	targetAlias: Schema.String,
 	properties: importRecordSchema,
 	relationshipSchemaSlug: Schema.String,
+	propertiesMode: Schema.optional(Schema.Literal("preserve", "merge")),
 });
 
 export const genericImportWriteItemSchema = strictStruct({
 	itemIndex: Schema.Number,
 	sourceLabel: Schema.String,
 	sourceIdentifier: Schema.String,
+	subjectEntityAlias: Schema.String,
 	events: Schema.Array(genericImportEventIntentSchema),
 	entities: Schema.Array(genericImportEntityIntentSchema),
 	relationships: Schema.Array(genericImportRelationshipIntentSchema),
-	ownerships: Schema.optional(Schema.Array(genericImportOwnershipIntentSchema)),
 	collectionMemberships: Schema.optional(
 		Schema.Array(genericImportCollectionMembershipIntentSchema),
 	),
 });
 
 export const genericImportChunkSchema = strictStruct({
-	failures: Schema.Array(genericImportFailureSchema),
 	items: Schema.Array(genericImportWriteItemSchema),
+	failures: Schema.Array(genericImportFailureSchema),
 });
 
 export const genericImportAdapterManifestSchema = strictStruct({

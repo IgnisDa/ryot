@@ -23,7 +23,7 @@ import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { executeSandboxExecution } from "./durable-queues";
 import {
 	KernelWorkflowReferences,
-	KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
+	KERNEL_ENTITY_IMPORT_WORKFLOW,
 } from "./kernel-workflow-references";
 import { SandboxRepository } from "./repository";
 import {
@@ -386,7 +386,7 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 				name: "import-3",
 				args: {
 					input: { externalId: "book-1" },
-					workflowSlug: KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
+					workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW,
 				},
 			},
 			undefined,
@@ -408,7 +408,7 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 				input: { externalId: "book-1" },
 				executionId: "parent-child-import-3-4",
 				authority: { type: "user", userId: "trusted-user" },
-				workflowSlug: KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
+				workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW,
 				callerScriptId: "parent-script",
 			},
 		]);

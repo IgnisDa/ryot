@@ -33,7 +33,10 @@ const adapterFailure = (failure: MediaImportAdapterFailure): GenericImportFailur
 	...(failure.entitySchemaSlug === undefined ? {} : { entitySchemaSlug: failure.entitySchemaSlug }),
 });
 
-export const createMediaImportChunk = (input: MediaImportWriteChunkInput): GenericImportChunk => {
+export const createMediaImportChunk = (
+	input: MediaImportWriteChunkInput,
+	ownershipSyncedAt: string,
+): GenericImportChunk => {
 	const failures = input.failures.map(adapterFailure);
 	const items: GenericImportWriteItem[] = [];
 	const populationByIndex = new Map(
@@ -49,19 +52,28 @@ export const createMediaImportChunk = (input: MediaImportWriteChunkInput): Gener
 			continue;
 		}
 		if (population.status === "failed") {
-			failures.push(
-				failureSource(
-					group,
-					population.message,
-					population.stage === "membership" ? "database_commit" : "provider_details",
-				),
-			);
+			failures.push(failureSource(group, population.message, "provider_details"));
 			continue;
 		}
 
 		items.push({
-			relationships: [],
+			relationships: [
+				{
+					sourceAlias: "media",
+					targetAlias: "library",
+					propertiesMode: "merge",
+					relationshipSchemaSlug: "in-library",
+					properties: group.ownershipProvider
+						? {
+								owned: true,
+								ownershipSyncedAt,
+								ownershipSources: [group.ownershipProvider],
+							}
+						: {},
+				},
+			],
 			itemIndex: group.itemIndex,
+			subjectEntityAlias: "media",
 			sourceLabel: group.entityRef.sourceLabel,
 			sourceIdentifier: importEntityRefIdentifier(group.entityRef),
 			events: group.events.map((event) => ({
@@ -75,14 +87,20 @@ export const createMediaImportChunk = (input: MediaImportWriteChunkInput): Gener
 				{
 					alias: "media",
 					properties: {},
-					name: group.entityRef.sourceLabel,
 					entityId: population.entityId,
+					name: group.entityRef.sourceLabel,
 					entitySchemaSlug: group.entityRef.entitySchemaSlug,
 				},
+				{
+					scope: "user",
+					properties: {},
+					name: "Library",
+					alias: "library",
+					existingOnly: true,
+					entitySchemaSlug: "library",
+					match: { name: "Library", properties: {} },
+				},
 			],
-			...(group.ownershipProvider
-				? { ownerships: [{ entityAlias: "media", provider: group.ownershipProvider }] }
-				: {}),
 			...(group.collectionMemberships.length > 0
 				? {
 						collectionMemberships: group.collectionMemberships.map(({ collectionName }) => ({
