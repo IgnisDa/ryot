@@ -29,65 +29,77 @@ export class SandboxWorkflowReferenceRepository extends Effect.Service<SandboxWo
 	"SandboxWorkflowReferenceRepository",
 	{
 		sync: () => {
-			const register = Effect.fn("SandboxWorkflowReferenceRepository.register")(function* (input: {
+			const lockIngestionShared = Effect.fn(
+				"SandboxWorkflowReferenceRepository.lockIngestionShared",
+			)(function* () {
+				const db = yield* CurrentDb;
+				yield* dbEffect(() =>
+					db.execute(
+						sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
+					),
+				);
+			});
+
+			const registerInTransaction = Effect.fn(
+				"SandboxWorkflowReferenceRepository.registerInTransaction",
+			)(function* (input: {
 				pluginSlug: string;
 				executionId: string;
 				contentHash: string;
 				scriptId: SandboxScriptId;
 			}) {
+				const db = yield* CurrentDb;
+				const [plugin] = yield* dbEffect(() =>
+					db
+						.select({ slug: schema.plugin.slug })
+						.from(schema.plugin)
+						.where(
+							and(eq(schema.plugin.slug, input.pluginSlug), eq(schema.plugin.status, "active")),
+						)
+						.limit(1),
+				);
+				if (!plugin) {
+					return yield* new SandboxWorkflowReferenceRegistrationError({
+						reason: "plugin-inactive",
+						message: `Plugin '${input.pluginSlug}' is not active`,
+					});
+				}
+				const inserted = yield* dbEffect(() =>
+					db
+						.insert(schema.sandboxWorkflowReference)
+						.values(input)
+						.onConflictDoNothing()
+						.returning({ executionId: schema.sandboxWorkflowReference.executionId }),
+				);
+				if (inserted.length > 0) {
+					return { status: "registered" } as const;
+				}
+				const [existing] = yield* dbEffect(() =>
+					db
+						.select()
+						.from(schema.sandboxWorkflowReference)
+						.where(eq(schema.sandboxWorkflowReference.executionId, input.executionId))
+						.limit(1),
+				);
+				if (
+					existing?.pluginSlug === input.pluginSlug &&
+					existing.scriptId === input.scriptId &&
+					existing.contentHash === input.contentHash
+				) {
+					return { status: "already-registered" } as const;
+				}
+				return yield* new SandboxWorkflowReferenceRegistrationError({
+					reason: "execution-conflict",
+					message: `Execution '${input.executionId}' is pinned to another script`,
+				});
+			});
+
+			const register = Effect.fn("SandboxWorkflowReferenceRepository.register")(function* (
+				input: Parameters<typeof registerInTransaction>[0],
+			) {
 				const runInTransaction = yield* TransactionRunner;
 				return yield* runInTransaction(
-					Effect.gen(function* () {
-						const db = yield* CurrentDb;
-						yield* dbEffect(() =>
-							db.execute(
-								sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
-							),
-						);
-						const [plugin] = yield* dbEffect(() =>
-							db
-								.select({ slug: schema.plugin.slug })
-								.from(schema.plugin)
-								.where(
-									and(eq(schema.plugin.slug, input.pluginSlug), eq(schema.plugin.status, "active")),
-								)
-								.limit(1),
-						);
-						if (!plugin) {
-							return yield* new SandboxWorkflowReferenceRegistrationError({
-								reason: "plugin-inactive",
-								message: `Plugin '${input.pluginSlug}' is not active`,
-							});
-						}
-						const inserted = yield* dbEffect(() =>
-							db
-								.insert(schema.sandboxWorkflowReference)
-								.values(input)
-								.onConflictDoNothing()
-								.returning({ executionId: schema.sandboxWorkflowReference.executionId }),
-						);
-						if (inserted.length > 0) {
-							return { status: "registered" } as const;
-						}
-						const [existing] = yield* dbEffect(() =>
-							db
-								.select()
-								.from(schema.sandboxWorkflowReference)
-								.where(eq(schema.sandboxWorkflowReference.executionId, input.executionId))
-								.limit(1),
-						);
-						if (
-							existing?.pluginSlug === input.pluginSlug &&
-							existing.scriptId === input.scriptId &&
-							existing.contentHash === input.contentHash
-						) {
-							return { status: "already-registered" } as const;
-						}
-						return yield* new SandboxWorkflowReferenceRegistrationError({
-							reason: "execution-conflict",
-							message: `Execution '${input.executionId}' is pinned to another script`,
-						});
-					}),
+					lockIngestionShared().pipe(Effect.zipRight(registerInTransaction(input))),
 				);
 			});
 
@@ -129,7 +141,14 @@ export class SandboxWorkflowReferenceRepository extends Effect.Service<SandboxWo
 				},
 			);
 
-			return { register, release, hasReferences, listReferences };
+			return {
+				release,
+				register,
+				hasReferences,
+				listReferences,
+				lockIngestionShared,
+				registerInTransaction,
+			};
 		},
 	},
 ) {}

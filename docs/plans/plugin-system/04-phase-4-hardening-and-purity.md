@@ -180,6 +180,22 @@ correction changes no schema or behavior and is the only domain move included in
   so their liveness rule is the running kernel's declared script set: only rows whose content
   hash the kernel no longer declares are candidates.
 
+  Task 14 implementation record (2026-07-31): garbage collection waits until the running kernel
+  has compiled and recorded its complete source-zero content-hash set. One transaction takes the
+  exclusive plugin-ingestion advisory lock and computes one immutable live set from the local loader
+  snapshot, the active plugins reloaded from the database, nonterminal workflow references, and the
+  kernel declaration set. The same set drives both disk-module removal and immutable script-row
+  deletion; the module sweep runs first so a filesystem failure prevents row deletion, while a later
+  database failure remains recoverable from the retained compiled bytes. Collection runs after full
+  first-party bootstrap and after registry invalidation rebuilds, is idempotent, ignores unrelated
+  runtime-directory entries, and logs count-only candidate/removal summaries.
+
+  Workflow pinning now holds the matching shared advisory lock in one transaction across active or
+  exact resolution, script-pin lookup, and reference insertion, closing the workflow-start/GC race.
+  Ordinary in-flight executions import through scoped hard links to the immutable canonical module;
+  unlinking a dead canonical file therefore cannot break a process that already started, and the
+  execution link is removed with its scope.
+
 ## 3. Correctness and final-boundary hardening
 
 - Capture one loader snapshot per logical runtime-resolution operation. Concurrent hot swaps must
