@@ -472,6 +472,28 @@ it.effect("rejects relationships to entities outside the user's visibility scope
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("deletes an exact user relationship through the owning repository", () => {
+	const calls: Array<{ userId: UserId; relationshipId: RelationshipId }> = [];
+	const layer = makeServiceLayer({
+		deleteUserRelationshipById: (requestedUserId, relationshipId) =>
+			Effect.sync(() => {
+				calls.push({ userId: requestedUserId, relationshipId });
+				return true;
+			}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* RelationshipsService;
+		const removed = yield* service.deleteUserRelationshipById(
+			userId,
+			RelationshipId.make("rel-id"),
+		);
+
+		expect(removed).toBe(true);
+		expect(calls).toEqual([{ userId, relationshipId: "rel-id" }]);
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("reconciles a global self-relationship group atomically and deletes stale edges", () => {
 	const created: unknown[] = [];
 	const deleted: unknown[] = [];

@@ -1,5 +1,10 @@
 import { badRequest, notFound } from "@ryot/contract/errors";
-import type { EntityId, RelationshipSchemaSlug, UserId } from "@ryot/contract/schema/brands";
+import type {
+	EntityId,
+	RelationshipId,
+	RelationshipSchemaSlug,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Effect } from "effect";
@@ -317,6 +322,12 @@ export class RelationshipsService extends Effect.Service<RelationshipsService>()
 				return yield* runWithDb(repository.deleteRelationship(input));
 			});
 
+			const deleteUserRelationshipById = Effect.fn(
+				"RelationshipsService.deleteUserRelationshipById",
+			)(function* (userId: UserId, relationshipId: RelationshipId) {
+				return yield* runWithDb(repository.deleteUserRelationshipById(userId, relationshipId));
+			});
+
 			const listGlobal = Effect.fn("RelationshipsService.listGlobal")(function* (
 				input: GlobalRelationshipListInput,
 			) {
@@ -329,6 +340,7 @@ export class RelationshipsService extends Effect.Service<RelationshipsService>()
 				listGlobal,
 				mergeUserProperties,
 				delete: deleteRelationship,
+				deleteUserRelationshipById,
 				changeUser: (userId: UserId, batches: ReadonlyArray<ChangeUserRelationshipBatch>) =>
 					changeUserRelationships(userId, batches).pipe(
 						Effect.provideService(RelationshipsRepository, repository),

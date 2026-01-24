@@ -255,6 +255,7 @@ export const builtinEntitySchemas = () => [
 		pluginSlug: "media",
 		accentColor: "#9CA3AF",
 		propertiesSchema: { fields: {} },
+		userState: { deniedOperations: ["clear", "merge"] as const },
 	},
 	{
 		icon: "user",

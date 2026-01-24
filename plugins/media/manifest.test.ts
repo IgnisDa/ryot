@@ -4,6 +4,7 @@ import { Schema } from "effect";
 import { expect, it } from "vitest";
 
 import { mediaPlugin } from "./manifest";
+import { mediaLibraryEligibleEntitySchemaSlugs } from "./schemas/media-schema-slugs";
 
 it("catalogs every sandbox script exactly once", async () => {
 	const sandboxEntries = await Array.fromAsync(
@@ -19,6 +20,9 @@ it("declares the complete media-owned source", () => {
 	expect(() => Schema.decodeUnknownSync(PluginManifest)(mediaPlugin)).not.toThrow();
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug)).toContain("library");
 	expect(mediaPlugin.relationshipSchemas.map(({ slug }) => slug)).toContain("in-library");
+	expect(mediaPlugin.entitySchemas.find(({ slug }) => slug === "library")).toEqual(
+		expect.objectContaining({ userState: { deniedOperations: ["clear", "merge"] } }),
+	);
 	expect(mediaPlugin.configSchema.unknownKeys).toBe("strict");
 	expect(Object.keys(mediaPlugin.configSchema.fields)).toEqual([
 		"tvdbApiKey",
@@ -154,9 +158,12 @@ it("declares the complete media-owned source", () => {
 		}),
 	);
 	expect(mediaPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "media")).toBe(true);
+	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug).sort()).toEqual(
+		[...mediaLibraryEligibleEntitySchemaSlugs].sort(),
+	);
 });
 
-it("binds library membership only to media event schemas", () => {
+it("binds library membership to media events and collection membership", () => {
 	const bindings = mediaPlugin.bindings.eventAutomations.filter(
 		({ scriptSlug }) => scriptSlug === "policy.media-library-membership",
 	);
@@ -165,7 +172,12 @@ it("binds library membership only to media event schemas", () => {
 	);
 
 	expect(bindings.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual(
-		mediaEventSchemaSlugs.sort(),
+		["collection:add-entity-to-collection", ...mediaEventSchemaSlugs].sort(),
+	);
+	expect(bindings).toContainEqual(
+		expect.objectContaining({
+			eventSchemaSlug: "collection:add-entity-to-collection",
+		}),
 	);
 	expect(bindings).not.toContainEqual(
 		expect.objectContaining({ eventSchemaSlug: "workout:workout" }),
