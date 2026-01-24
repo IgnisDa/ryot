@@ -92,7 +92,7 @@ const makeCollectionsService = (overrides: MockOverrides<typeof mockCollectionsS
 
 const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
 	mockEventsService({
-		create: () => Effect.succeed({ count: 1 }),
+		create: () => Effect.succeed({ count: 1, outcomes: [], failure: null }),
 		...overrides,
 		_tag: "EventsService",
 	});
@@ -289,7 +289,11 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 		eventsService: makeEventsService({
 			create: (input) => {
 				createdEvents.push(input.payload as ReadonlyArray<Record<string, unknown>>);
-				return Effect.succeed({ count: input.payload.length });
+				return Effect.succeed({
+					count: input.payload.length,
+					outcomes: [],
+					failure: null,
+				});
 			},
 		}),
 	} satisfies TestLayerOptions;
@@ -462,7 +466,11 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 		eventsService: makeEventsService({
 			create: (input) => {
 				createdEvents.push(input.payload as ReadonlyArray<Record<string, unknown>>);
-				return Effect.succeed({ count: input.payload.length });
+				return Effect.succeed({
+					count: input.payload.length,
+					outcomes: [],
+					failure: null,
+				});
 			},
 		}),
 	} satisfies TestLayerOptions;
@@ -612,7 +620,11 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 		eventsService: makeEventsService({
 			create: (input) => {
 				createdEvents.push(input.payload as ReadonlyArray<Record<string, unknown>>);
-				return Effect.succeed({ count: input.payload.length });
+				return Effect.succeed({
+					count: input.payload.length,
+					outcomes: [],
+					failure: null,
+				});
 			},
 		}),
 	} satisfies TestLayerOptions;

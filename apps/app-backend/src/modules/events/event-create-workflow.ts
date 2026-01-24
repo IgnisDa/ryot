@@ -42,4 +42,4 @@ const withExecutionId = (input: EventCreateWorkflowInput) => ({
 });
 
 export const enqueueEventCreate = (input: EventCreateWorkflowInput) =>
-	EventCreateWorkflow.execute(withExecutionId(input), { discard: true });
+	EventCreateWorkflow.execute(withExecutionId(input));

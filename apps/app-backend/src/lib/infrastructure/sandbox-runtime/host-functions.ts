@@ -1,6 +1,6 @@
 import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
 import { unknownToMessage } from "@ryot/contract/errors";
-import { CreateEventItem } from "@ryot/contract/modules/events/schemas";
+import { CreateEventItem, type CreateEventsResponse } from "@ryot/contract/modules/events/schemas";
 import { isIntegrationProvider } from "@ryot/contract/modules/integrations/types";
 import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import { EntityId, EntitySchemaId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
@@ -75,6 +75,11 @@ export const normalizePreferences = (value: unknown) => {
 	};
 };
 
+export const toSandboxCreateEventsResult = (result: CreateEventsResponse) =>
+	result.failure
+		? Effect.fail(result.failure.reason.message)
+		: Effect.succeed({ count: result.count });
+
 export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 	AdditionalSandboxHostImplementationMap,
 	never,
@@ -127,12 +132,14 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 		const createEvents = (input: UserSandboxRunInput, payload: ReadonlyArray<CreateEventItem>) =>
 			payload.length === 0
 				? Effect.succeed({ count: 0 })
-				: events.create({
-						payload,
-						source: "sandbox",
-						userId: UserId.make(input.userId),
-						executionId: `${input.executionId}-create-events-${hashPayload(payload)}`,
-					});
+				: events
+						.create({
+							payload,
+							source: "sandbox",
+							userId: UserId.make(input.userId),
+							executionId: `${input.executionId}-create-events-${hashPayload(payload)}`,
+						})
+						.pipe(Effect.flatMap(toSandboxCreateEventsResult));
 
 		return {
 			claimCachedValue: (input, key, value, ttlSeconds) => {

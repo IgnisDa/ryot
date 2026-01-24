@@ -238,18 +238,23 @@ describe("builtinSandboxScripts", () => {
 	});
 
 	it("registers automation test scripts with isolated capabilities", () => {
+		const policy = builtinSandboxScripts().find(({ slug }) => slug === "automation.test-policy");
 		const automation = builtinSandboxScripts().find(
 			({ slug }) => slug === "automation.test-tracer",
 		);
 		const notifier = builtinSandboxScripts().find(
 			({ slug }) => slug === "automation.test-notifier",
 		);
+		assert(policy);
 		assert(automation);
 		assert(notifier);
+		expect(policy.manifest.kind).toBe("automation");
 		expect(automation.manifest.kind).toBe("automation");
 		expect(notifier.manifest.kind).toBe("automation");
+		expect(policy.manifest.capabilities).toEqual([]);
 		expect(automation.manifest.capabilities).toEqual(["emitSignal"]);
 		expect(notifier.manifest.capabilities).toEqual(["sendNotification"]);
+		expect(policy.compiledCode).toContain("ryot:sandbox-script");
 		expect(automation.compiledCode).toContain("ryot:sandbox-script");
 		expect(notifier.compiledCode).toContain("ryot:sandbox-script");
 		expect(builtinAutomationRuleLinks()).toEqual([
