@@ -2,16 +2,16 @@
 
 ## Tasks
 
-**Overall Progress:** 1 of 18 tasks completed
+**Overall Progress:** 2 of 18 tasks completed
 
-**Current Task:** [Task 02](./02-trusted-plugin-user-bootstrap.md) (todo)
+**Current Task:** [Task 03](./03-media-membership-imports-events.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                          | Status |
 | --- | --------------------------------------------------------------------------------------------- | ------ |
 | 01  | [Mechanical Kernel Purity Gate](./01-mechanical-kernel-purity-gate.md)                        | done   |
-| 02  | [Trusted Plugin User Bootstrap](./02-trusted-plugin-user-bootstrap.md)                        | todo   |
+| 02  | [Trusted Plugin User Bootstrap](./02-trusted-plugin-user-bootstrap.md)                        | done   |
 | 03  | [Media Membership for Imports and Events](./03-media-membership-imports-events.md)            | todo   |
 | 04  | [Media Membership for Collections and User State](./04-media-membership-collections-state.md) | todo   |
 | 05  | [Open Plugin Import Envelope](./05-open-plugin-import-envelope.md)                            | todo   |

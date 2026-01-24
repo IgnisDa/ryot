@@ -28,14 +28,14 @@ describe("kernel purity", () => {
 			{
 				line: 2,
 				term: "show",
-				path: "apps/app-backend/src/example.ts",
 				source: "const slug = 'show';",
+				path: "apps/app-backend/src/example.ts",
 			},
 			{
 				line: 3,
 				term: "show",
-				path: "apps/app-backend/src/example.ts",
 				source: "const showProvider = true;",
+				path: "apps/app-backend/src/example.ts",
 			},
 			{
 				line: 4,
@@ -72,13 +72,20 @@ describe("kernel purity", () => {
 	it("derives newly declared ownership vocabulary without banning generic values", () => {
 		const synthetic = {
 			...fitnessPlugin,
+			userBootstrap: [
+				{
+					slug: "new-domain-bootstrap",
+					scriptSlug: "bootstrap.new-domain",
+					description: "Generic bootstrap description",
+				},
+			],
 			operations: [
 				...fitnessPlugin.operations,
 				{
 					auth: "user",
 					slug: "new-domain-operation",
-					description: "Generic description must not become vocabulary",
 					scriptSlug: "operation.new-domain-operation",
+					description: "Generic description must not become vocabulary",
 				},
 			],
 		} as PluginManifest;
@@ -86,6 +93,8 @@ describe("kernel purity", () => {
 
 		expect(vocabulary).toContain("new-domain-operation");
 		expect(vocabulary).toContain("operation.new-domain-operation");
+		expect(vocabulary).toContain("new-domain-bootstrap");
+		expect(vocabulary).toContain("bootstrap.new-domain");
 		expect(vocabulary).toContain("exercise");
 		expect(vocabulary).not.toContain("Generic description must not become vocabulary");
 		expect(vocabulary).not.toContain("import");
@@ -99,9 +108,9 @@ describe("kernel purity", () => {
 		);
 		assert(finding);
 		const allowed: PurityAllowlistEntry = {
+			removalTask: 4,
 			term: "library",
 			kind: "temporary",
-			removalTask: 4,
 			path: "apps/app-backend/src/example.ts",
 			reason: "Phase 4 collection policy residue",
 		};
@@ -127,8 +136,8 @@ describe("kernel purity", () => {
 				],
 			),
 		).toEqual({
-			errors: ["Allowlist entry 1 exceeds the boot-wiring permanent scope"],
 			violations: [finding],
+			errors: ["Allowlist entry 1 exceeds the boot-wiring permanent scope"],
 		});
 	});
 });

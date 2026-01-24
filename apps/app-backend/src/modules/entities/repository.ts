@@ -122,6 +122,42 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			},
 		);
 
+		const findUserEntityWithoutProvenance = Effect.fn(
+			"EntitiesRepository.findUserEntityWithoutProvenance",
+		)(function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select(entitySelection)
+					.from(schema.entity)
+					.where(
+						and(
+							eq(schema.entity.userId, input.userId),
+							eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+							isNull(schema.entity.externalId),
+							isNull(schema.entity.providerId),
+						),
+					)
+					.orderBy(asc(schema.entity.createdAt), asc(schema.entity.id))
+					.limit(1),
+			);
+			return row ? toListedEntity(row) : null;
+		});
+
+		const lockUserEntityEnsureScopes = Effect.fn("EntitiesRepository.lockUserEntityEnsureScopes")(
+			function* (input: { userId: UserId; entitySchemaSlugs: ReadonlyArray<EntitySchemaSlug> }) {
+				const db = yield* CurrentDb;
+				const scopes = [...new Set(input.entitySchemaSlugs)].sort();
+				for (const entitySchemaSlug of scopes) {
+					yield* dbEffect(() =>
+						db.execute(
+							sql`select pg_advisory_xact_lock(hashtext(${`user-entity:ensure:${input.userId}:${entitySchemaSlug}`}))`,
+						),
+					);
+				}
+			},
+		);
+
 		const getEntityScopeForUser = Effect.fn("EntitiesRepository.getEntityScopeForUser")(
 			function* (input: { userId: UserId; entityId: EntityId }) {
 				const db = yield* CurrentDb;
@@ -506,16 +542,18 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			getByIdForUser,
 			findEntitySchemaById,
 			findGlobalEntityById,
-			lockGlobalEntityProvenanceScope,
 			getEntityScopeForUser,
 			listEntityReferencesByIds,
+			lockUserEntityEnsureScopes,
 			getEntityMergeScopeForUser,
 			listMatchCandidatesBySchema,
 			getEntitySchemaScopeForUser,
 			findGlobalEntityByExternalId,
-			countGlobalEntitiesByProvenanceScope,
 			findEntityByExternalIdForUser,
 			findEntitySchemaProviderBySlug,
+			findUserEntityWithoutProvenance,
+			lockGlobalEntityProvenanceScope,
+			countGlobalEntitiesByProvenanceScope,
 		};
 	}),
 }) {}
