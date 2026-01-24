@@ -118,12 +118,13 @@ export async function findBuiltinSchemaWithProviders(
 ) {
 	const builtinTracker = await findBuiltinTracker(client, cookies);
 	const schemas = await listEntitySchemas(client, cookies, {
+		slugs: ["book"],
 		trackerId: builtinTracker.id,
 	});
-	const schema = schemas.find((s) => s.providers.length > 0);
+	const schema = schemas[0];
 
 	if (!schema) {
-		throw new Error("No built-in entity schema with providers found");
+		throw new Error("Built-in book schema not found");
 	}
 
 	return { schema, builtinTracker };
