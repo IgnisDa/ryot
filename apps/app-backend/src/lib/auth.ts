@@ -187,6 +187,25 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 				Effect.promise(() =>
 					auth.$context.then((ctx) => ctx.internalAdapter.deleteUserSessions(userId)),
 				).pipe(Effect.orDie),
+			createAuthUser: (user: {
+				id: string;
+				name: string;
+				email: string;
+				emailVerified: boolean;
+				preferences: Record<string, unknown>;
+			}) =>
+				Effect.promise(() =>
+					auth.$context.then((ctx) => ctx.internalAdapter.createUser(user)),
+				).pipe(Effect.orDie),
+			linkAuthAccount: (account: {
+				id: string;
+				userId: string;
+				accountId: string;
+				providerId: string;
+			}) =>
+				Effect.promise(() =>
+					auth.$context.then((ctx) => ctx.internalAdapter.linkAccount(account)),
+				).pipe(Effect.orDie),
 			currentUser: (headers: Headers) =>
 				Effect.tryPromise({
 					try: () => auth.api.getSession({ headers }),
