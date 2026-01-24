@@ -77,6 +77,7 @@
 		"check": "tsc && tsc --project tests/tsconfig.json && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
+		"@types/papaparse": "5.5.2",
 		"cheerio": "1.2.0",
 		"effect": "3.21.4",
 		"fast-xml-parser": "5.8.0",
@@ -86,7 +87,6 @@
 	},
 	"devDependencies": {
 		"@ryot/testing": "workspace:*",
-		"@types/papaparse": "5.5.2",
 		"vitest": "4.1.9"
 	}
 }
