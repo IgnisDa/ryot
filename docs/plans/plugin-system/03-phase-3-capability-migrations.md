@@ -1,7 +1,8 @@
 # Phase 3 — Capability migrations
 
-Status: in progress. Steps 0, 1, and 2 are complete. Resume with the mandatory Step 3 workflow
-spike; do not recreate the removed multi-entrypoint driver model while implementing later steps.
+Status: in progress. Steps 0, 1, and 2 are complete, and Step 3's mandatory spike is done and
+signed off — resume by implementing Step 3 against the recorded A-prime design in §3. Do not
+recreate the removed multi-entrypoint driver model while implementing later steps.
 
 Goal: move the remaining native domain code into the plugins, one capability at a time. Step 0's
 two prerequisites establish the authoring and observability foundations. Each capability step
@@ -246,37 +247,188 @@ unknown operation) + migrated suites green; extension works against invoke.
 
 ## Step 3 — Durable workflows: media import population/resolution **(spike first)**
 
-**Mandatory spike before committing to the design**: a throwaway replay-deterministic script
-driven by a prototype `activity()` host function, exercised through suspend/resume and
-process-restart. Budget it small; its purpose is to surface serialization, timeout, and
-replay-ordering issues before the real machinery is built. Record findings in this file.
+**Spike status: complete (2026-07-26), owner-approved.** The mandatory spike ran twice — first
+the journal-in-context design ("A"), then the owner-selected journal-via-host-calls design
+("A-prime") — each as throwaway code exercised through suspend/resume, a SIGINT process
+restart, an induced timeout, a hot swap, and a concurrency smoke test. The spike code was
+discarded; its findings and the resulting design are recorded below and supersede any earlier
+wording in this section. **Task 06 implements the A-prime design.**
 
 Kernel capability:
 
 - Manifest section `workflows: [{ slug, scriptSlug }]`.
-- Workflow scripts are replay-deterministic: the kernel's durable engine (existing Effect
-  workflow machinery) runs a _workflow shell_ whose body repeatedly executes the script;
-  the script calls host primitives:
-  - `activity(name, scriptRef, input)` — first call runs the payload through a referenced direct
-    activity script and journals the
-    result; replays return the journaled result without re-execution.
+- Workflow scripts are replay-deterministic. The kernel's durable engine (existing Effect
+  workflow machinery) runs a _workflow shell_ whose body repeatedly executes the script as an
+  ordinary sandbox execution; the script is a **pure function of its input plus the journal**.
+  All IO is performed by the shell, never by the script:
+  - `activity(name, scriptRef, input)` — the shell runs the referenced direct activity script
+    once and journals the result; replays return the journaled result without re-execution.
   - `sleep(name, duration)` — durable timer via the engine.
   - `child(name, workflowRef, input)` — composes another manifest workflow with a
     **deterministic execution id** derived from parent id + name (this preserves the
     existing hard rule in `apps/app-backend/AGENTS.md` §Queues about deterministic child
     ids).
-  - The journal is keyed by call sequence + name; a replay that diverges (different call
-    order) fails the execution with a structured nondeterminism error.
-- Version pinning: an execution records the script row's `contentHash` at start; every
-  replay loads exactly that module (Phase 2's immutable-per-hash script rows make this a
-  lookup). A hot swap never changes a running execution's code.
-- Determinism guard rails: workflow scripts use a restricted SDK entry point (no
-  `httpCall`, no cache, no ambient time/random — activities do the IO); enforce by
-  capability scoping in the manifest kind, mirroring how automation vs provider host scopes
-  already differ (`bridge-adapter.ts` contract scopes).
-- Limits: workflow/activity script kinds get their own budget profile (a batch activity
-  legitimately makes more host calls than a provider search) — add per-script-kind limit
-  selection now, kernel-owned ceilings.
+  - The journal is keyed by call sequence + name; a replay that diverges fails the execution
+    with a structured nondeterminism error.
+- Version pinning: an execution records the script row's `contentHash` and resolved `scriptId`
+  at start; every replay loads exactly that module (Phase 2's immutable-per-hash script rows
+  make this a lookup). A hot swap never changes a running execution's code.
+- Determinism guard rails: workflow scripts get **no IO capabilities at all** — the journal
+  read is their only host function — so the guard rail is structural rather than a matter of
+  scoping a large capability set.
+- Limits: the workflow and activity script kinds get their own budget profile — add
+  per-script-kind limit selection now, kernel-owned ceilings (numbers below).
+
+### Spike findings and the A-prime design **[DECIDED]** (2026-07-26, owner-approved)
+
+**A host call cannot suspend a durable execution — suspension is expressed by the replay
+ending.** `BridgeService` serves every `/rpc/<executionId>/<fn>` call in its own
+`Runtime.runPromise` (`sandbox-runtime/runtime.ts`), outside the workflow execution's Effect
+scope, and the Deno runner blocks on `fetch` while the backend is parked on
+`worker.responseQueue.take`. A host call can therefore only return a value. This is not a
+limitation of the bridge: a Deno process's JS continuation cannot be persisted, so any design
+whose control flow spans a durable boundary must either re-execute the script from the top
+(Temporal/Cadence/Restate/DBOS model) or degrade into a long blocking call that holds a pool
+slot and loses all state on process death. Do not "fix" this by rearchitecting the bridge; the
+re-execution model is the intended architecture. Decision 7 stands as written — `activity`,
+`sleep`, and `child` are host functions that return recorded results — with the single
+clarification that the *pending* case ends the replay instead of returning.
+
+**The shell loop.** The workflow body, bounded by a kernel-owned max-step constant:
+
+1. An `Activity.make` at the start pins the workflow script's `scriptId` + `contentHash`.
+2. Rebuild the journal from the body's own memoized durable calls, and project it into Redis
+   (below) for the upcoming replay.
+3. Dispatch the pinned workflow script as a sandbox execution with a deterministic execution id
+   (`${executionId}-replay-${n}`). Its context carries only the workflow input — never the
+   journal (measured constant at 99–136 bytes regardless of journal size).
+4. The script replays. Each `activity`/`sleep`/`child` call is a host call that returns the
+   recorded result on a hit; on a miss the kernel records the pending request and the script's
+   primitive short-circuits, ending the replay.
+5. Read the recorded pending request **inside an `Activity.make`** so the observation is
+   durably memoized, then perform it **from the workflow body** (never inside an activity —
+   the `AGENTS.md` rule that activities must not start durable work still holds), append to the
+   journal, and loop. `done` returns the script's output.
+
+**Journal storage: memoized durable calls, no journal table.** Durability rests entirely on
+`@effect/workflow` memoization (`SandboxExecutionQueue.idempotencyKey` is the execution id, and
+`cluster_messages` holds the replies). The Redis projection — a hash keyed by the parent
+workflow execution id, one write-once (`HSETNX`) field per journal index, TTL'd — exists only so
+the bridge handler can read entries from its separate fiber. **Redis is never the source of
+truth**: the projection was deliberately deleted mid-flight during the spike and the execution
+still completed correctly, because the next body pass rebuilt it from the durable memos. Use a
+high-water-mark field rather than an `HLEN`-equality guard when deciding whether to re-project;
+the projection legitimately runs ahead of a partially rebuilt journal.
+
+**Journal transport is O(n) bytes per replay, and that is inherent.** A-prime removes the hard
+*cap* and all context pressure, not the transfer: the script re-reads its prefix on every
+replay, exactly as a Temporal worker re-reads history. Under A the accumulated journal rode in
+the script context and hit `sandboxContextError` (256 KiB, `sandbox-runtime/limits.ts`), which
+killed a workflow whose activity output totalled 528 KB — mid-flight, with a message that reads
+like a sandbox bug. Under A-prime the same workflow completes, a ~830 KB accumulated journal
+completes, and a single replay carried 3.99 MB of recorded values without complaint. The new
+binding limit is `execution.resultBytes` on the script's own **output**, which is a legitimate
+limit on what a workflow returns.
+
+**Ship the journal read as a bulk, batch-first host call.** Per-entry reads cost ~23 ms fixed
+for the first call in a replay plus ~5 ms marginal per additional call, and grow O(n) calls per
+replay (measured: 65 host calls total for a 10-activity workflow, 10 in its final replay). A
+200-step workflow would pay ~1 s of pure host-call latency on its last replay. The shape to
+implement is a single prefix read the SDK primitive issues once per replay and caches
+in-process, with per-call validation preserved server-side:
+`durableCalls(requests: ReadonlyArray<{ index, kind, name, args }>) => ReadonlyArray<{ status: "recorded", value } | { status: "pending" }>`.
+The bulk variant was recommended by the spike but **not measured** — task 06 owns validating it.
+
+**Replay ordering is validated kernel-side on `(index, kind, name, argsHash)`.** The kernel sees
+each call live and rejects divergence with a structured nondeterminism error before returning
+anything, e.g. `journal[0] recorded activity:alpha args#<hash> but the script requested
+activity:beta args#<hash>`. Hashing the args (`stableStringify` + sha256) is required, not
+optional: without it a script that calls `activity("fetch", A)` and on replay calls
+`activity("fetch", B)` silently receives A's result. Validation must live in the kernel rather
+than in the SDK, because the kernel is trusted and the script is not. Check the divergence
+outcome **before** the generic script-error branch, or a divergence surfaces as an opaque script
+failure and loses its detail.
+
+**Serialization.** Values cross as JSON, so `undefined` properties are dropped, `-0` becomes
+`0`, and integers beyond `Number.MAX_SAFE_INTEGER` lose precision — pass those as strings.
+Everything else survived: `null`, empty objects/arrays, float artifacts
+(`0.1 + 0.2 → 0.30000000000000004`), ISO date strings, unicode, deep nesting, and even NUL
+bytes through the runner line protocol, `cluster_messages`, and Redis. Effect Schema is
+transparent here (`Schema.Unknown`); the losses are the JSON layer's.
+
+**Timeouts.** An activity exceeding `config.sandbox.timeoutMs` surfaces as a **typed failure**
+(`Sandbox timed out after 6000ms`) from `DurableQueue.process` via the `Effect.raceFirst` in
+`sandbox-runtime/service.ts` — not as a `SandboxCompletedResult` with `error` set. It is not
+retried, the failure itself is memoized (so a 60 s busy loop costs one 6 s timeout, not one per
+replay), the journal is not corrupted, and the workflow makes progress afterwards. Task 06 owns
+the explicit retry policy decision.
+
+**Process restart mid-execution.** SIGINT during a durable sleep followed by a respawn against
+the same Postgres/Redis resumed and completed with **zero re-execution** of prior steps —
+proven three ways: a pre-restart activity's timestamp appeared verbatim in the post-restart
+output, replay `executionMs` floats were byte-identical across passes, and distinct activity
+executions stayed at 2 despite 8 `activity-done` records. `sleep` only suspends durably if
+`inMemoryThreshold` is set explicitly and small; with the 60 s default a 15 s sleep never
+suspends.
+
+**The workflow body re-runs from the top once per durable call.** 4 durable steps produced 8
+body passes and 28 memoized-reply reads for 7 real sandbox executions — roughly O(n²/2) reads.
+This is cheap (local `cluster_messages` reads) but it is the reason to prefer **batch
+activities**: one journal entry holding an array of results, per Decision 8's batch-first rule.
+A concurrency smoke test (10 simultaneous executions × 3 activities) completed 10/10 in 4021 ms
+against 2082 ms for a single execution, with no lock or pool errors.
+
+**Pinning requires bypassing active-version re-resolution.** Pinning works because the resolved
+`scriptId` lives in the immutable workflow payload and the shell dispatches the sandbox queue
+directly. `processSandboxExecution` must **not** be used inside a replay loop:
+`resolveSandboxExecutionPayload` (`modules/sandbox/durable-queues.ts`) unconditionally calls
+`findActiveScriptById`, which resolves the stored row's `pluginSlug`+`slug` to the *currently
+active* script (`modules/plugins/runtime-resolver.ts`) — after a hot swap that is the new
+version, which would silently switch a running execution's code. Task 06 gives that function an
+explicit mode: re-resolve for entry-point dispatch, pin inside durable replay loops. A hot swap
+performed while an execution was suspended was confirmed to resume on the original module.
+
+**Capability gating needs a kernel-side check, not just a manifest string.**
+`selectSandboxHostFunctions` (`sandbox-runtime/service.ts`) only restricts capabilities that
+appear in `automationHostFunctions` or `systemCronHostFunctions`; anything outside those sets is
+granted to any script that declares it in its manifest, since
+`allowedHostFunctions` is `script.metadata.capabilities` passed straight through
+(`modules/sandbox/durable-queues.ts`). The journal capability must therefore be gated
+kernel-side on the workflow script kind, following the `systemCronHostFunctions` precedent
+(which gates on trusted authority plus `metadata.kind`).
+
+**A distinct `workflow` script kind is still required — justified by determinism, not by
+capabilities.** Since the script needs no IO capabilities, a capability-restricted kind buys
+nothing that `capabilities: []` does not. The kind earns its place by enforcing the replay
+contract: force the empty IO capability set at ingestion, reject or shim the nondeterministic
+globals (`Date.now`, `Math.random`) that would make a replay diverge invisibly, and carry the
+limit profile below. Follow the `kind: "operation"` precedent from step 2 rather than opening
+the generic `kind: "script"` catch-all.
+
+**Per-script-kind limit profile (kernel-owned ceilings):**
+
+| Limit | Workflow kind | Rationale |
+| ------------------------ | ------------- | --------------------------------------------------------------------- |
+| `execution.contextBytes` | 64 KiB | measured 99–136 B, constant regardless of journal size |
+| `execution.resultBytes` | 4 MiB | the actual binding limit; 1 MiB broke a 5-step workflow's own output |
+| `hostCalls.total` | 1000 | budget is **per execution**, so it caps workflow length, not lifetime |
+| `bridge.responseBytes` | 10 MiB (keep) | carried 3.99 MB in one replay without issue |
+| timeout | ≥ 30 s | a pure replay took 4–9 ms (A) / 23–42 ms (A-prime) at 3–10 entries |
+
+Activity script kinds keep the current profile.
+
+**Open risks task 06 must close (not covered by the spike):** `child` was never prototyped in
+either spike — its mechanics mirror `activity` (dispatch from the workflow body with a
+deterministic `${executionId}-child-${step}` id) but are unmeasured; divergence rejection was
+only exercised at `journal[0]`; the bulk journal read is recommended but unmeasured; the
+workflow-script-fails-mid-replay path (as distinct from an activity failing) was never reached;
+and concurrency was a smoke test only, so nothing is known about pool or lock pressure at
+realistic import volumes.
+
+**`EventCreateWorkflow` composition [IMPLEMENTER-DECIDES] → resolved: `child`.** It is a
+kernel-owned `Workflow`, not a sandbox script, so exposing it as an activity host op would mean
+faking it as one. The shell dispatches it as a child from the workflow body with a deterministic
+id, which preserves single durable ownership.
 
 Migrate: `imports/media/population-workflow.ts` and `resolution-workflow.ts` (and the
 population trigger path in `entities/population-trigger.ts` + `entity-import` where
@@ -293,7 +445,7 @@ Delete: the media-specific workflow definitions from `imports/`. E2e:
 one of the most important tests in the repo).
 
 Done: media import population/resolution run as plugin workflows end-to-end; import e2e
-suites green; spike findings recorded.
+suites green; spike findings recorded (done — see the spike findings subsection above).
 
 ## Step 4 — Integration adapters: yank/sink/push + import source adapters
 
