@@ -110,7 +110,7 @@ it.effect("rejects generic schemas for a standard provider driver", () =>
 		const failure = yield* compile(
 			validSource
 				.replace(
-					'import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";',
+					'import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";',
 					'import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";\nimport { defineProvider } from "@ryot/sandbox-sdk/provider";',
 				)
 				.replace('kind: "script",', 'kind: "provider",\n  providerInformation: { source: "test" },')
@@ -206,7 +206,10 @@ it.effect("rejects a widened exported manifest that would expose undeclared host
 	Effect.gen(function* () {
 		const failure = yield* compile(
 			validSource
-				.replace("defineScript }", "defineScript, type SandboxManifest }")
+				.replace(
+					'import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";',
+					'import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";\nimport { type SandboxManifest } from "@ryot/sandbox-sdk/core";',
+				)
 				.replace(
 					"export const manifest = defineManifest",
 					"export const manifest: SandboxManifest = defineManifest",
@@ -233,7 +236,10 @@ it.effect("rejects capability assertions that widen a static manifest tuple", ()
 	Effect.gen(function* () {
 		const failure = yield* compile(
 			validSource
-				.replace("defineScript }", "defineScript, type SandboxManifest }")
+				.replace(
+					'import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";',
+					'import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";\nimport { type SandboxManifest } from "@ryot/sandbox-sdk/core";',
+				)
 				.replace("capabilities: []", 'capabilities: [] as SandboxManifest["capabilities"]')
 				.replace(
 					"run: (input) => Effect.succeed(input.value),",
@@ -290,7 +296,7 @@ const main = defineDriver(driverManifest,`,
 it.effect("rejects a block-local manifest shadowing the exported manifest", () =>
 	Effect.gen(function* () {
 		const failure = yield* compile(`
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
@@ -334,8 +340,8 @@ export default defineScript({ manifest, drivers: { main } });
 it.effect("rejects namespace helper calls that bypass the exported manifest", () =>
 	Effect.gen(function* () {
 		const failure = yield* compile(`
-import * as sdk from "@ryot/sandbox-sdk/core";
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
+import * as sdk from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
@@ -377,11 +383,8 @@ export default defineScript({ manifest, drivers: { main } });
 it.effect("rejects manually constructed drivers outside defineDriver", () =>
 	Effect.gen(function* () {
 		const failure = yield* compile(`
-import {
-  defineManifest,
-  defineScript,
-  type SandboxHost,
-} from "@ryot/sandbox-sdk/core";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { type SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({

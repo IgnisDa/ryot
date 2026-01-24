@@ -89,7 +89,7 @@ afterAll(() => {
 });
 
 const source = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
@@ -223,13 +223,11 @@ export default defineScript({
 const coreHostSource = `
 import {
   cacheClaimSchema,
-  defineDriver,
-  defineManifest,
-  defineScript,
   httpCallResponseSchema,
-  jsonValueSchema,
   userPreferencesSchema,
 } from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
@@ -280,12 +278,8 @@ export default defineScript({ manifest, drivers: { main } });
 `;
 
 const filteredHostSource = `
-import {
-  defineDriver,
-  defineManifest,
-  defineScript,
-  jsonValueSchema,
-} from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
@@ -322,7 +316,7 @@ export default defineScript({ manifest, drivers: { main } });
 `;
 
 const hostBudgetSource = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
@@ -361,11 +355,9 @@ export default defineScript({ manifest, drivers: { hostCalls, httpCalls } });
 `;
 
 const domainHostSource = `
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import {
   createEventsResultDataSchema,
-  defineDriver,
-  defineManifest,
-  defineScript,
   entityRecordSchema,
   entitySchemaRecordSchema,
   eventRecordSchema,
@@ -432,7 +424,7 @@ export default defineScript({ manifest, drivers: { main } });
 
 const dependencySource = (name: string, sdkImport: string) => `
 import "${sdkImport}";
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
@@ -453,7 +445,7 @@ export default defineScript({ manifest, drivers: { main } });
 `;
 
 const generatedNpmImportSource = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
