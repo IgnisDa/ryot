@@ -44,7 +44,7 @@ logged after a `dropped` or `on_hold` event resumes the in-progress state.
 
 - Start: `progress` event with `progressPercent: 1`
 - Continue: additional `progress` events as consumption proceeds
-- Finish: `progress(100%)` triggers auto-complete (see below)
+- Finish: `progress(100%)` runs the auto-complete subscription (see below)
 - Drop before finishing: `dropped` event
 - Pause before finishing: `on_hold` event
 
@@ -54,11 +54,12 @@ logged after a `dropped` or `on_hold` event resumes the in-progress state.
   derivation is timestamp-based so the new progress event's `occurredAt` determines current state.
   Multiple `complete` events for the same entity are valid and represent multiple watches.
 
-### Auto-Complete Trigger
+### Auto-Complete Subscription
 
-The built-in sandbox trigger (`trigger.auto-complete-on-full-progress`,
-`sandbox-scripts/triggers/auto-complete-on-full-progress.sandbox.ts`) fires when a `progress`
-event is created with `progressPercent = 100`.
+The built-in automation script (`trigger.auto-complete-on-full-progress`,
+`sandbox-scripts/automations/auto-complete-on-full-progress.sandbox.ts`) is bound by a global
+event-schema create subscription and runs when a `progress` event is created with
+`progressPercent = 100`.
 
 - **Non-episodic media** (movie, book, audiobook, show-episode, podcast-episode, etc.): creates a
   `complete` event immediately using the triggering progress event's `occurredAt` for both the
@@ -74,18 +75,18 @@ finished, not an individual episode/chapter. `show` and `podcast` progress is tr
 `show-episode`/`podcast-episode` entity instead, so each episode completes independently like
 non-episodic media.
 
-`consumedOn` is propagated from the triggering progress event to the created complete event via
-`event_schema_trigger.metadata.inheritedProperties: ["consumedOn"]`.
+`consumedOn` is propagated from the progress event to the created complete event through the
+automation rule's server-owned `metadata.inheritedProperties: ["consumedOn"]` value.
 
-### Integration Progress Policy Trigger
+### Integration Progress Policy
 
-The built-in sandbox trigger (`trigger.integration-progress-policy`,
-`sandbox-scripts/triggers/integration-progress-policy.sandbox.ts`) is a `before_create` trigger
-on the `progress` event schema (position 100), registered and seeded active by default alongside
-the Auto-Complete Trigger (`registry.ts` / `seed.ts`); there is no user-facing way to disable it
-short of disabling the integration itself. It is a no-op unless the incoming event's
-`trigger.origin` is `"integration"` — it never affects progress events created via the app UI,
-imports, or the API directly.
+The built-in automation script (`trigger.integration-progress-policy`,
+`sandbox-scripts/automations/integration-progress-policy.sandbox.ts`) is bound by a global
+event-schema create policy on `progress` at position 100. It is seeded active alongside the
+auto-complete subscription (`registry.ts` / `seed.ts`); there is no user-facing way to disable it
+short of disabling the integration itself. It is a no-op unless the automation origin kind is
+`integration`, so it never affects progress events created via the app UI, imports, or the API
+directly.
 
 For integration-sourced events it reads the integration's `minimumProgress`/`maximumProgress`
 (defaulting to `0`/`100` if unreadable) and applies, in order: a **minimum filter** (below
@@ -94,11 +95,11 @@ minimum → event skipped, nothing persisted), a **maximum clamp** (above maximu
 matching progress event — matched by `consumedOn` plus any episodic subitem key — already has the
 same post-clamp value → skipped), and a **completion debounce** (post-clamp `100` within
 `scheduler.progressUpdateThresholdHours`, default 2h, of a prior matching `progress(100%)` →
-skipped, so chatty integrations don't repeatedly re-trigger the auto-complete cascade). The exact
+skipped, so chatty integrations don't repeatedly start the auto-complete cascade). The exact
 skip reasons and matching keys live in the script.
 
-Auto-filling a missing timestamp is **not** this trigger's job — it's structural: every sink sets
+Auto-filling a missing timestamp is **not** this policy's job — it's structural: every sink sets
 a progress event's `occurredAt` via `createProgressResult`
 (`apps/app-backend/src/modules/integrations/sinks/shared.ts`), defaulting to now, and the
-Auto-Complete Trigger reuses that always-present `occurredAt` as the resulting `complete` event's
+auto-complete subscription reuses that always-present `occurredAt` as the resulting `complete` event's
 `completedOn`.

@@ -19,10 +19,9 @@ import { Effect, Match, Schema } from "effect";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 
 import { EventCreateWorkflowError, type EventCreateWorkflowPayload } from "./event-create-workflow";
-import { decodeBeforeTriggerResult, resolveEventCreateItemScopes } from "./event-creation";
+import { resolveEventCreateItemScopes } from "./event-creation";
 
-const beforeTriggerFailed = (detail: string) => badRequest(`Before trigger failed: ${detail}`);
-const invalidBeforeTriggerShape = "Before trigger returned invalid shape";
+const policyFailed = (detail: string) => badRequest(`Policy failed: ${detail}`);
 const invalidPolicyResultShape = "Policy returned invalid shape";
 
 export const EventPolicyProperties = Schema.Record({
@@ -45,12 +44,6 @@ export const PreparedEventPolicy = Schema.Struct({
 	metadata: Schema.NullOr(AutomationRuleMetadata),
 });
 
-export const PreparedLegacyBeforeTrigger = Schema.Struct({
-	id: Schema.String,
-	position: Schema.Number,
-	sandboxScriptId: SandboxScriptId,
-});
-
 type PolicyPreparation = {
 	entityId: EntityId;
 	occurredAt: string;
@@ -62,7 +55,6 @@ type PolicyPreparation = {
 	sessionEntityId?: EntityId | undefined;
 	properties: typeof EventPolicyProperties.Type;
 	policies: ReadonlyArray<typeof PreparedEventPolicy.Type>;
-	beforeTriggers: ReadonlyArray<typeof PreparedLegacyBeforeTrigger.Type>;
 };
 
 type ProcessSandboxExecution = (
@@ -145,12 +137,11 @@ export const runEventCreatePolicies = Effect.fn(function* (
 	prepared: PolicyPreparation,
 	processSandboxExecution: ProcessSandboxExecution,
 ) {
-	const { userId, origin, importRunId, integrationId } = payload;
+	const { userId } = payload;
 	const policyOrigin = yield* resolvePolicyOrigin(payload);
-	const steps = [
-		...prepared.policies.map((policy) => ({ ...policy, kind: "policy" as const })),
-		...prepared.beforeTriggers.map((trigger) => ({ ...trigger, kind: "legacy" as const })),
-	].sort((left, right) => left.position - right.position || left.id.localeCompare(right.id));
+	const steps = [...prepared.policies].sort(
+		(left, right) => left.position - right.position || left.id.localeCompare(right.id),
+	);
 	let draft: EventPolicyDraft = {
 		properties: prepared.properties,
 		occurredAt: prepared.occurredAt,
@@ -158,14 +149,13 @@ export const runEventCreatePolicies = Effect.fn(function* (
 	};
 
 	for (const step of steps) {
-		const isPolicy = step.kind === "policy";
 		const policyContext = {
 			automation: {
 				ruleId: step.id,
 				operation: "create",
 				origin: policyOrigin,
 				occurrenceId: `${payload.executionId}-lifecycle-${itemIndex}`,
-				...(isPolicy && step.metadata !== null ? { ruleMetadata: step.metadata } : {}),
+				...(step.metadata !== null ? { ruleMetadata: step.metadata } : {}),
 				source: {
 					kind: "event",
 					draft: {
@@ -182,39 +172,17 @@ export const runEventCreatePolicies = Effect.fn(function* (
 		const sandboxResult = yield* processSandboxExecution({
 			userId,
 			scriptId: step.sandboxScriptId,
-			driverName: isPolicy ? "automation" : "trigger",
-			executionId: `${payload.executionId}-${isPolicy ? "policy" : "before"}-${itemIndex}-${step.id}`,
-			context: isPolicy
-				? policyContext
-				: {
-						trigger: {
-							userId,
-							origin,
-							phase: "before_create",
-							entityId: prepared.entityId,
-							occurredAt: draft.occurredAt,
-							properties: draft.properties,
-							eventSchemaId: prepared.eventSchemaId,
-							sessionEntityId: draft.sessionEntityId,
-							...(importRunId ? { importRunId } : {}),
-							entitySchemaId: prepared.entitySchemaId,
-							eventSchemaSlug: prepared.eventSchemaSlug,
-							...(integrationId ? { integrationId } : {}),
-							entitySchemaSlug: prepared.entitySchemaSlug,
-						},
-					},
-		}).pipe(Effect.mapError((error) => beforeTriggerFailed(unknownToMessage(error))));
+			driverName: "automation",
+			context: policyContext,
+			executionId: `${payload.executionId}-policy-${itemIndex}-${step.id}`,
+		}).pipe(Effect.mapError((error) => policyFailed(unknownToMessage(error))));
 
 		if (sandboxResult.error) {
-			return yield* beforeTriggerFailed(sandboxResult.error.message);
+			return yield* policyFailed(sandboxResult.error.message);
 		}
-		const result = yield* isPolicy
-			? Schema.decodeUnknown(AutomationPolicyResult)(sandboxResult.value).pipe(
-					Effect.mapError(() => badRequest(invalidPolicyResultShape)),
-				)
-			: decodeBeforeTriggerResult(sandboxResult.value).pipe(
-					Effect.mapError(() => badRequest(invalidBeforeTriggerShape)),
-				);
+		const result = yield* Schema.decodeUnknown(AutomationPolicyResult)(sandboxResult.value).pipe(
+			Effect.mapError(() => badRequest(invalidPolicyResultShape)),
+		);
 		if (result.action === "skip") {
 			return { kind: "skipped" as const, reason: result.reason };
 		}

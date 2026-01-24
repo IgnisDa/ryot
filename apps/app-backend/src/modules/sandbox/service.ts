@@ -63,8 +63,6 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 					kind: compiled.manifest.kind,
 					providerInformation: { ...compiled.manifest.providerInformation },
 				};
-			} else if (compiled.manifest.kind === "trigger") {
-				manifest = { ...manifestBase, kind: compiled.manifest.kind, mode: compiled.manifest.mode };
 			} else {
 				manifest = { ...manifestBase, kind: compiled.manifest.kind };
 			}

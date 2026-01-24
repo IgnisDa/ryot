@@ -2,9 +2,8 @@ import type { JsonValue, SandboxHost } from "@ryot/sandbox-sdk";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 
-import definition, { manifest } from "./jellyfin-push.sandbox";
 import {
-	afterCreateContext,
+	eventAutomationContext,
 	entityRecord,
 	entitySchemaRecord,
 	execution,
@@ -14,7 +13,8 @@ import {
 	httpSuccess,
 	integrationRecord,
 	toRecord,
-} from "./test-utils";
+} from "./automation-test-utils";
+import definition, { manifest } from "./jellyfin-push.sandbox";
 
 type JellyfinHost = SandboxHost<typeof manifest.capabilities>;
 type HttpCall = { url: string; method: string; options: Record<string, unknown> };
@@ -37,11 +37,10 @@ const schema = entitySchemaRecord({
 	providers: [{ name: "TMDB", scriptId: "script-movie-tmdb" }],
 });
 
-const createTrigger = (overrides: Parameters<typeof afterCreateContext>[0] = {}) =>
-	afterCreateContext({
-		entityId: "movie-1",
-		entitySchemaSlug: "movie",
+const createAutomation = (overrides: Parameters<typeof eventAutomationContext>[0] = {}) =>
+	eventAutomationContext({
 		eventSchemaSlug: "complete",
+		subject: { id: "movie-1", name: "The Matrix", entitySchemaSlug: "movie" },
 		properties: { completionMode: "just_now" },
 		...overrides,
 	});
@@ -87,15 +86,18 @@ describe("jellyfin-push sandbox script", () => {
 				{ Id: "jf-item-1", Name: "The Matrix", ProviderIds: { Tmdb: "603" } },
 			]),
 		});
-		return runSandboxTestDriver(definition.drivers.trigger, createTrigger(), host, execution).then(
-			() => {
-				const markCall = calls.find((call) => call.url.includes("/PlayedItems/"));
-				expect(markCall?.method).toBe("POST");
-				expect(markCall?.url).toBe("http://jellyfin.local/Users/jf-user/PlayedItems/jf-item-1");
-				expect(markCall?.options["headers"]).toEqual({ "X-Emby-Token": "jf-token" });
-				return undefined;
-			},
-		);
+		return runSandboxTestDriver(
+			definition.drivers.automation,
+			createAutomation(),
+			host,
+			execution,
+		).then(() => {
+			const markCall = calls.find((call) => call.url.includes("/PlayedItems/"));
+			expect(markCall?.method).toBe("POST");
+			expect(markCall?.url).toBe("http://jellyfin.local/Users/jf-user/PlayedItems/jf-item-1");
+			expect(markCall?.options["headers"]).toEqual({ "X-Emby-Token": "jf-token" });
+			return undefined;
+		});
 	});
 
 	it("no-ops when the item is absent, the entity is unsupported, or integrations are disabled", () => {
@@ -103,20 +105,22 @@ describe("jellyfin-push sandbox script", () => {
 		const httpCall = createHttpCall(calls, []);
 		return Promise.all([
 			runSandboxTestDriver(
-				definition.drivers.trigger,
-				createTrigger(),
+				definition.drivers.automation,
+				createAutomation(),
 				createHost({ entity: movieEntity, integrations: [jellyfinIntegration], httpCall }),
 				execution,
 			),
 			runSandboxTestDriver(
-				definition.drivers.trigger,
-				createTrigger({ entityId: "book-1", entitySchemaSlug: "book" }),
+				definition.drivers.automation,
+				createAutomation({
+					subject: { id: "book-1", name: "Book", entitySchemaSlug: "book" },
+				}),
 				createHost({ entity: movieEntity, integrations: [jellyfinIntegration], httpCall }),
 				execution,
 			),
 			runSandboxTestDriver(
-				definition.drivers.trigger,
-				createTrigger(),
+				definition.drivers.automation,
+				createAutomation(),
 				createHost({
 					httpCall,
 					entity: movieEntity,
@@ -143,13 +147,16 @@ describe("jellyfin-push sandbox script", () => {
 				true,
 			),
 		});
-		return runSandboxTestDriver(definition.drivers.trigger, createTrigger(), host, execution).then(
-			(result) => {
-				expect(result).toBeUndefined();
-				expect(warning).toHaveBeenCalledWith("Jellyfin push failed: already played");
-				warning.mockRestore();
-				return undefined;
-			},
-		);
+		return runSandboxTestDriver(
+			definition.drivers.automation,
+			createAutomation(),
+			host,
+			execution,
+		).then((result) => {
+			expect(result).toBeNull();
+			expect(warning).toHaveBeenCalledWith("Jellyfin push failed: already played");
+			warning.mockRestore();
+			return undefined;
+		});
 	});
 });

@@ -14,25 +14,6 @@ const approvedDependencyImports = [
 	"@ryot/sandbox-sdk/youtubei",
 ] as const;
 
-const beforeTriggerSource = `
-import { defineManifest } from "@ryot/sandbox-sdk";
-import { defineBeforeCreateTrigger } from "@ryot/sandbox-sdk/trigger";
-
-export const manifest = defineManifest({
-  kind: "trigger",
-  mode: "before_create",
-  name: "Before trigger",
-  slug: "trigger.before",
-  capabilities: [],
-  requiredAppConfigKeys: [],
-});
-
-export default defineBeforeCreateTrigger({
-  manifest,
-  run: async () => ({ action: "allow" }),
-});
-`;
-
 const automationSource = `
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineAutomation } from "@ryot/sandbox-sdk/automation";
@@ -83,22 +64,6 @@ it.effect("accepts a top-level driver record in the default script definition", 
 		);
 
 		expect(compiled.manifest.slug).toBe("plain-value");
-	}),
-);
-
-it.effect("compiles a typed before-create trigger definition", () =>
-	Effect.gen(function* () {
-		const compiled = yield* compile(beforeTriggerSource);
-
-		expect(compiled.manifest).toEqual({
-			kind: "trigger",
-			capabilities: [],
-			mode: "before_create",
-			name: "Before trigger",
-			slug: "trigger.before",
-			requiredAppConfigKeys: [],
-		});
-		expect(compiled.javascript).toContain("ryot:sandbox-script");
 	}),
 );
 

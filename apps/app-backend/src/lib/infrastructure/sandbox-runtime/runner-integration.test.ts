@@ -2287,64 +2287,74 @@ it("loads and executes the generated Free Exercise DB module in Deno with cache 
 		),
 	));
 
-it("loads generated before-create and after-create triggers in Deno", () =>
+it("loads migrated event policy and subscription automations in Deno", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
-			const before = sandboxTriggerDotIntegrationDashProgressDashPolicyScript;
-			const beforeResult = yield* runInDeno(
+			const policy = sandboxTriggerDotIntegrationDashProgressDashPolicyScript;
+			const policyResult = yield* runInDeno(
 				{
-					manifest: before.manifest,
-					format: before.compiledFormat,
-					javascript: before.compiledCode,
+					manifest: policy.manifest,
+					format: policy.compiledFormat,
+					javascript: policy.compiledCode,
 				},
-				"trigger",
+				"automation",
 				{
-					trigger: {
-						origin: "api",
-						userId: "user-1",
-						entityId: "entity-1",
-						phase: "before_create",
-						entitySchemaSlug: "movie",
-						eventSchemaSlug: "progress",
-						eventSchemaId: "event-schema-1",
-						entitySchemaId: "entity-schema-1",
-						properties: { progressPercent: 50 },
-						occurredAt: "2026-01-01T00:00:00.000Z",
+					automation: {
+						operation: "create",
+						ruleId: "rule-policy",
+						origin: { kind: "api" },
+						occurrenceId: "occurrence-policy",
+						source: {
+							kind: "event",
+							draft: {
+								entityId: "entity-1",
+								entitySchemaSlug: "movie",
+								eventSchemaSlug: "progress",
+								eventSchemaId: "event-schema-1",
+								entitySchemaId: "entity-schema-1",
+								properties: { progressPercent: 50 },
+								occurredAt: "2026-01-01T00:00:00.000Z",
+							},
+						},
 					},
 				},
-				{ apiFunctions: before.manifest.capabilities },
+				{ apiFunctions: policy.manifest.capabilities },
 			);
-			assert(beforeResult !== null && typeof beforeResult === "object");
-			expect(beforeResult).toMatchObject({ success: true, value: { action: "allow" } });
+			assert(policyResult !== null && typeof policyResult === "object");
+			expect(policyResult).toMatchObject({ success: true, value: { action: "allow" } });
 
-			const after = sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript;
-			const afterResult = yield* runInDeno(
+			const subscription = sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript;
+			const subscriptionResult = yield* runInDeno(
 				{
-					manifest: after.manifest,
-					format: after.compiledFormat,
-					javascript: after.compiledCode,
+					manifest: subscription.manifest,
+					format: subscription.compiledFormat,
+					javascript: subscription.compiledCode,
 				},
-				"trigger",
+				"automation",
 				{
-					trigger: {
-						eventId: "event-1",
-						entityId: "entity-1",
-						phase: "after_create",
-						inheritedProperties: {},
-						entitySchemaSlug: "movie",
-						eventSchemaSlug: "progress",
-						eventSchemaId: "event-schema-1",
-						entitySchemaId: "entity-schema-1",
-						properties: { progressPercent: 50 },
-						createdAt: "2026-01-01T00:00:00.000Z",
-						updatedAt: "2026-01-01T00:00:00.000Z",
+					automation: {
+						operation: "create",
+						origin: { kind: "api" },
+						ruleId: "rule-subscription",
 						occurredAt: "2026-01-01T00:00:00.000Z",
+						occurrenceId: "occurrence-subscription",
+						source: {
+							kind: "event",
+							after: {
+								id: "event-1",
+								eventSchemaSlug: "progress",
+								eventSchemaId: "event-schema-1",
+								properties: { progressPercent: 50 },
+								occurredAt: "2026-01-01T00:00:00.000Z",
+								subject: { id: "entity-1", name: "Movie", entitySchemaSlug: "movie" },
+							},
+						},
 					},
 				},
-				{ apiFunctions: after.manifest.capabilities },
+				{ apiFunctions: subscription.manifest.capabilities },
 			);
-			assert(afterResult !== null && typeof afterResult === "object");
-			expect(afterResult).toMatchObject({ success: true, value: null });
+			assert(subscriptionResult !== null && typeof subscriptionResult === "object");
+			expect(subscriptionResult).toMatchObject({ success: true, value: null });
 		}),
 	));
 

@@ -1,4 +1,4 @@
-import { SandboxScriptId, SignalSchemaId } from "@ryot/contract/schema/brands";
+import { EventSchemaId, SandboxScriptId, SignalSchemaId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
@@ -11,8 +11,8 @@ import { SignalSchemasService } from "#modules/signals/service";
 
 import { builtinEntitySchemas } from "./entity-schemas";
 import {
-	builtinAutomationRuleLinks,
-	builtinEventSchemaTriggerLinks,
+	builtinEventAutomationRuleLinks,
+	builtinSignalAutomationRuleLinks,
 	builtinSandboxScripts,
 	companySchemaSandboxScriptLinks,
 	entitySchemaSandboxScriptLinks,
@@ -191,63 +191,6 @@ const linkScriptToEntitySchema = Effect.fn(function* (input: {
 	);
 });
 
-const ensureBuiltinEventSchemaTrigger = Effect.fn(function* (input: {
-	name: string;
-	phase: string;
-	position: number;
-	eventSchemaId: string;
-	sandboxScriptId: string;
-	metadata: Record<string, unknown>;
-}) {
-	const db = yield* CurrentDb;
-	const [existing] = yield* dbEffect(() =>
-		db
-			.select({ id: schema.eventSchemaTrigger.id })
-			.from(schema.eventSchemaTrigger)
-			.where(
-				and(
-					isNull(schema.eventSchemaTrigger.userId),
-					eq(schema.eventSchemaTrigger.eventSchemaId, input.eventSchemaId),
-					eq(schema.eventSchemaTrigger.sandboxScriptId, input.sandboxScriptId),
-				),
-			)
-			.limit(1),
-	);
-
-	if (existing) {
-		yield* dbEffect(() =>
-			db
-				.update(schema.eventSchemaTrigger)
-				.set({
-					isActive: true,
-					isBuiltin: true,
-					name: input.name,
-					phase: input.phase,
-					position: input.position,
-					metadata: input.metadata,
-				})
-				.where(eq(schema.eventSchemaTrigger.id, existing.id)),
-		);
-		return existing.id;
-	}
-
-	const triggerId = generateId();
-	yield* dbEffect(() =>
-		db.insert(schema.eventSchemaTrigger).values({
-			id: triggerId,
-			isActive: true,
-			isBuiltin: true,
-			name: input.name,
-			phase: input.phase,
-			position: input.position,
-			metadata: input.metadata,
-			eventSchemaId: input.eventSchemaId,
-			sandboxScriptId: input.sandboxScriptId,
-		}),
-	);
-	return triggerId;
-});
-
 const ensureBuiltinRelationshipSchema = Effect.fn(function* (input: {
 	slug: string;
 	name: string;
@@ -349,38 +292,6 @@ const seedInitialDatabase = Effect.gen(function* () {
 		});
 	}
 
-	for (const triggerLink of builtinEventSchemaTriggerLinks()) {
-		const scriptId = scriptIds.get(triggerLink.scriptSlug);
-		if (!scriptId) {
-			return yield* Effect.die(
-				new Error(`Missing script id for trigger script ${triggerLink.scriptSlug}`),
-			);
-		}
-
-		const matchingEventSchemas = yield* dbEffect(() =>
-			db
-				.select({ id: schema.eventSchema.id })
-				.from(schema.eventSchema)
-				.where(
-					and(
-						eq(schema.eventSchema.slug, triggerLink.eventSchemaSlug),
-						isNull(schema.eventSchema.userId),
-					),
-				),
-		);
-
-		for (const es of matchingEventSchemas) {
-			yield* ensureBuiltinEventSchemaTrigger({
-				eventSchemaId: es.id,
-				phase: triggerLink.phase,
-				sandboxScriptId: scriptId,
-				name: triggerLink.triggerName,
-				position: triggerLink.position,
-				metadata: triggerLink.metadata,
-			});
-		}
-	}
-
 	yield* Effect.logInfo("Seeding relationship schemas...");
 
 	for (const relationshipSchema of builtinRelationshipSchemas()) {
@@ -416,7 +327,13 @@ const seedInitialDatabase = Effect.gen(function* () {
 	}
 
 	yield* Effect.logInfo("Entity schemas seeded successfully");
-	return { scriptIds };
+	const eventSchemas = yield* dbEffect(() =>
+		db
+			.select({ id: schema.eventSchema.id, slug: schema.eventSchema.slug })
+			.from(schema.eventSchema)
+			.where(isNull(schema.eventSchema.userId)),
+	);
+	return { eventSchemas, scriptIds };
 });
 
 export class SeedService extends Effect.Service<SeedService>()("SeedService", {
@@ -424,13 +341,32 @@ export class SeedService extends Effect.Service<SeedService>()("SeedService", {
 		const runner = yield* TransactionRunner;
 		const automations = yield* AutomationsService;
 		const signalSchemas = yield* SignalSchemasService;
-		const { scriptIds } = yield* runner(seedInitialDatabase);
+		const { eventSchemas, scriptIds } = yield* runner(seedInitialDatabase);
+		for (const link of builtinEventAutomationRuleLinks()) {
+			const scriptId = scriptIds.get(link.scriptSlug);
+			if (!scriptId) {
+				return yield* Effect.die(
+					new Error(`Missing built-in event automation script for ${link.name}`),
+				);
+			}
+			for (const eventSchema of eventSchemas.filter(({ slug }) => slug === link.eventSchemaSlug)) {
+				yield* automations.ensureBuiltin({
+					name: link.name,
+					kind: link.kind,
+					metadata: link.metadata,
+					position: link.position,
+					operation: "create",
+					sandboxScriptId: SandboxScriptId.make(scriptId),
+					target: { id: EventSchemaId.make(eventSchema.id), kind: "event_schema" },
+				});
+			}
+		}
 		const signalSchemaIds = new Map<string, SignalSchemaId>();
 		for (const definition of builtinSignalSchemas()) {
 			const signalSchema = yield* signalSchemas.ensureBuiltin(definition);
 			signalSchemaIds.set(definition.slug, signalSchema.id);
 		}
-		for (const link of builtinAutomationRuleLinks()) {
+		for (const link of builtinSignalAutomationRuleLinks()) {
 			const scriptId = scriptIds.get(link.scriptSlug);
 			const signalSchemaId = signalSchemaIds.get(link.signalSchemaSlug);
 			if (!scriptId || !signalSchemaId) {

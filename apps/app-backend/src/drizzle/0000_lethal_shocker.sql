@@ -137,22 +137,6 @@ CREATE TABLE "event_schema" (
 	CONSTRAINT "event_schema_user_entity_schema_slug_unique" UNIQUE("user_id","entity_schema_id","slug")
 );
 --> statement-breakpoint
-CREATE TABLE "event_schema_trigger" (
-	"name" text NOT NULL,
-	"position" integer DEFAULT 1000 NOT NULL,
-	"is_active" boolean DEFAULT true NOT NULL,
-	"is_builtin" boolean DEFAULT false NOT NULL,
-	"phase" text DEFAULT 'after_create' NOT NULL,
-	"metadata" jsonb NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"user_id" text,
-	"event_schema_id" text NOT NULL,
-	"sandbox_script_id" text NOT NULL,
-	"id" text PRIMARY KEY NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "event_schema_trigger_user_unique" UNIQUE("user_id","event_schema_id","sandbox_script_id")
-);
---> statement-breakpoint
 CREATE TABLE "import_run" (
 	"error_summary" text,
 	"total_items" integer,
@@ -424,9 +408,6 @@ ALTER TABLE "event" ADD CONSTRAINT "event_entity_id_entity_id_fk" FOREIGN KEY ("
 ALTER TABLE "event" ADD CONSTRAINT "event_session_entity_id_entity_id_fk" FOREIGN KEY ("session_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event_schema" ADD CONSTRAINT "event_schema_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event_schema" ADD CONSTRAINT "event_schema_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "event_schema_trigger" ADD CONSTRAINT "event_schema_trigger_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "event_schema_trigger" ADD CONSTRAINT "event_schema_trigger_event_schema_id_event_schema_id_fk" FOREIGN KEY ("event_schema_id") REFERENCES "public"."event_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "event_schema_trigger" ADD CONSTRAINT "event_schema_trigger_sandbox_script_id_sandbox_script_id_fk" FOREIGN KEY ("sandbox_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "import_run" ADD CONSTRAINT "import_run_integration_id_integration_id_fk" FOREIGN KEY ("integration_id") REFERENCES "public"."integration"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "import_run" ADD CONSTRAINT "import_run_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "import_run_failure" ADD CONSTRAINT "import_run_failure_run_id_import_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."import_run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -493,9 +474,6 @@ CREATE INDEX "event_properties_idx" ON "event" USING gin ("properties");--> stat
 CREATE INDEX "event_user_entity_schema_idx" ON "event" USING btree ("user_id","entity_id","event_schema_id");--> statement-breakpoint
 CREATE INDEX "event_schema_entity_schema_id_idx" ON "event_schema" USING btree ("entity_schema_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "event_schema_builtin_entity_schema_slug_unique" ON "event_schema" USING btree ("entity_schema_id","slug") WHERE "event_schema"."user_id" is null;--> statement-breakpoint
-CREATE INDEX "event_schema_trigger_user_id_idx" ON "event_schema_trigger" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "event_schema_trigger_event_schema_id_idx" ON "event_schema_trigger" USING btree ("event_schema_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "event_schema_trigger_builtin_unique" ON "event_schema_trigger" USING btree ("event_schema_id","sandbox_script_id") WHERE "event_schema_trigger"."user_id" is null;--> statement-breakpoint
 CREATE INDEX "import_run_user_id_created_at_idx" ON "import_run" USING btree ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "import_run_integration_id_created_at_idx" ON "import_run" USING btree ("integration_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "import_run_failure_run_id_created_at_idx" ON "import_run_failure" USING btree ("run_id","created_at");--> statement-breakpoint
