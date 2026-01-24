@@ -20,6 +20,7 @@ import { RelationshipsGroup } from "./modules/relationships/contract";
 import { SandboxGroup } from "./modules/sandbox/contract";
 import { SavedViewsGroup } from "./modules/saved-views/contract";
 import { SystemGroup } from "./modules/system/contract";
+import { TestSupportGroup } from "./modules/test-support/contract";
 import { TrackersGroup } from "./modules/trackers/contract";
 import { UploadsGroup } from "./modules/uploads/contract";
 import { UserPreferencesGroup } from "./modules/user-preferences/contract";
@@ -43,6 +44,7 @@ export const AppContract = HttpApi.make("ryot")
 	.add(SavedViewsGroup)
 	.add(CollectionsGroup)
 	.add(GodModeGroup)
+	.add(TestSupportGroup)
 	.add(ImportsGroup)
 	.add(IntegrationsGroup)
 	.add(MetadataLookupGroup)

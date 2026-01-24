@@ -18,7 +18,7 @@ import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job
 import { trimToNull } from "#lib/shared/validation";
 
 import { SandboxCompiler } from "./compiler";
-import { SandboxRepository } from "./repository";
+import { SandboxRepository, type PatchSandboxScriptInput } from "./repository";
 import { RunSandboxWorkflow } from "./sandbox-run-workflow";
 import { toSandboxRunResult } from "./sandbox-workflow-live";
 
@@ -140,6 +140,57 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 			);
 		});
 
-		return { enqueue, getResult, createScript };
+		const getStoredScript = Effect.fn("SandboxApiService.getStoredScript")(function* (
+			scriptId: SandboxScriptId,
+		) {
+			const script = yield* runWithDb(repository.getScriptById(scriptId));
+			if (!script) {
+				return yield* notFound(sandboxScriptNotFoundError);
+			}
+			return script;
+		});
+
+		const listStoredScripts = Effect.fn("SandboxApiService.listStoredScripts")(function* (
+			userId: Parameters<typeof repository.listScripts>[0],
+		) {
+			return yield* runWithDb(repository.listScripts(userId));
+		});
+
+		const patchStoredScript = Effect.fn("SandboxApiService.patchStoredScript")(function* (
+			input: PatchSandboxScriptInput,
+		) {
+			const script = yield* runWithDb(repository.patchScript(input));
+			if (!script) {
+				return yield* notFound(sandboxScriptNotFoundError);
+			}
+			return script;
+		});
+
+		const promoteStoredScript = Effect.fn("SandboxApiService.promoteStoredScript")(function* (
+			scriptId: SandboxScriptId,
+		) {
+			const script = yield* runWithDb(repository.promoteScript(scriptId));
+			if (!script) {
+				return yield* notFound(sandboxScriptNotFoundError);
+			}
+			return script;
+		});
+
+		const deleteStoredScript = Effect.fn("SandboxApiService.deleteStoredScript")(function* (
+			scriptId: SandboxScriptId,
+		) {
+			return yield* runWithDb(repository.deleteScript(scriptId));
+		});
+
+		return {
+			enqueue,
+			getResult,
+			createScript,
+			getStoredScript,
+			listStoredScripts,
+			patchStoredScript,
+			deleteStoredScript,
+			promoteStoredScript,
+		};
 	}),
 }) {}

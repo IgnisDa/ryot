@@ -4,7 +4,7 @@ import type { ChildProcess } from "node:child_process";
 import getPort from "get-port";
 import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 
-import { makeSession } from "~/fixtures";
+import { adminHeaders, makeSession } from "~/fixtures";
 import { createTestAuthClient } from "~/fixtures/auth";
 import { oidcSignIn } from "~/fixtures/auth-oidc";
 import { requirePresent } from "~/support/assertions";
@@ -23,13 +23,12 @@ const S3_BUCKET_NAME = "ryot-oidc-test";
 const OIDC_CLIENT_SECRET = "test-secret";
 const OIDC_BUTTON_LABEL = "Sign in with TestOIDC";
 const trackersListQuery = { includeDisabled: false };
-const adminAccessTokenHeaders = { "Admin-Access-Token": "test-admin-token" };
 const godModeListQuery = (search: string) => ({ limit: 50, offset: 0, search });
 
 async function countUsersByEmail(backendUrl: string, email: string) {
 	const data = await makeSession(backendUrl).run(
 		(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
-		adminAccessTokenHeaders,
+		adminHeaders,
 	);
 	return data.total;
 }
@@ -37,7 +36,7 @@ async function countUsersByEmail(backendUrl: string, email: string) {
 async function findUserIdByEmail(backendUrl: string, email: string) {
 	const data = await makeSession(backendUrl).run(
 		(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
-		adminAccessTokenHeaders,
+		adminHeaders,
 	);
 	return data.users[0]?.id ?? null;
 }

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
+import { EntityId } from "@ryot/contract/schema/brands";
+
 import {
+	adminHeaders,
 	buildEntityRowsQueryDocument,
 	buildEventRowsDoc,
 	createAuthenticatedClient,
@@ -9,17 +12,21 @@ import {
 	createQueryEngineEvent,
 	createQueryEngineTrackerAndSchema,
 	executeQueryEngine,
+	getBackendClient,
 	requireQueryEngineFieldValue,
 	systemRef,
 } from "~/fixtures";
-import { getPgClient } from "~/setup";
 import { assertPresent } from "~/support/assertions";
 
 const setEntityPopulatedAt = async (entityId: string, isoDate: string) => {
-	await getPgClient().query(`update entity set populated_at = $1 where id = $2`, [
-		isoDate,
-		entityId,
-	]);
+	await getBackendClient().run(
+		(c) =>
+			c.testSupport.setEntityPopulatedAt({
+				payload: { populatedAt: isoDate },
+				path: { entityId: EntityId.make(entityId) },
+			}),
+		adminHeaders,
+	);
 };
 
 describe("entity system fields covering all entity table columns", () => {
