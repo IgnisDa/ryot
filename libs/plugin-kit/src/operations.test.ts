@@ -1,6 +1,5 @@
-import { describe, expect, it } from "bun:test";
-
 import { Effect, Schema } from "effect";
+import { describe, expect, it } from "vitest";
 
 import { defineOperationRecipe, invokeOperationRecipe } from "./operations";
 
