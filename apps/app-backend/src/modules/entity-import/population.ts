@@ -5,13 +5,12 @@ import { DateTime, Effect, Schema } from "effect";
 import { DbRunner } from "#lib/db";
 import { SandboxRunError, dieOnDbError } from "#lib/errors";
 import { EntitySchemaId, type EntityId, type SandboxScriptId } from "#lib/schema/brands";
-import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntityImage, ListedEntity } from "#modules/entities/schemas";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import { RelationshipsRepository } from "#modules/relationships/repository";
+import { RelationshipsService } from "#modules/relationships/service";
 
 export const EntityDetailsRelatedEntity = Schema.Struct({
 	name: Schema.String,
@@ -110,8 +109,8 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 }) {
 	const runWithDb = yield* DbRunner;
 	const entities = yield* EntitiesService;
+	const relationships = yield* RelationshipsService;
 	const entitySchemasRepository = yield* EntitySchemasRepository;
-	const relationshipsRepository = yield* RelationshipsRepository;
 	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
 	const processNode = (
@@ -171,22 +170,21 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 							message: `Child relationship schema not found: ${parentEntitySchemaId} -> ${child.entitySchemaId}`,
 						});
 					}
-					const properties = yield* parseAppSchemaProperties({
-						properties: {},
-						kind: "Relationship",
-						propertiesSchema: relationshipSchema.propertiesSchema,
-					}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
 
-					yield* runWithDb(
-						relationshipsRepository.saveRelationship({
-							properties,
+					yield* relationships
+						.create({
+							properties: {},
 							scope: "global",
 							sourceEntityId: parentEntityId,
 							targetEntityId: child.entity.id,
 							onConflict: "replaceProperties",
 							relationshipSchemaId: relationshipSchema.id,
-						}),
-					).pipe(dieOnDbError);
+							propertiesSchema: relationshipSchema.propertiesSchema,
+						})
+						.pipe(
+							dieOnDbError,
+							Effect.mapError((error) => new SandboxRunError({ message: error.message })),
+						);
 					return undefined;
 				}),
 			});
@@ -219,7 +217,7 @@ export const processRelatedEntity = Effect.fn("processRelatedEntity")(function* 
 	const runWithDb = yield* DbRunner;
 	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
-	const relationshipsRepository = yield* RelationshipsRepository;
+	const relationships = yield* RelationshipsService;
 	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
 	const entitySchemaScript = yield* runWithDb(
@@ -266,20 +264,18 @@ export const processRelatedEntity = Effect.fn("processRelatedEntity")(function* 
 	}
 
 	const relProps = input.relatedEntity.relationshipProperties;
-	const properties = yield* parseAppSchemaProperties({
-		kind: "Relationship",
-		properties: relProps === undefined ? {} : relProps,
-		propertiesSchema: relationshipSchema.propertiesSchema,
-	}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
-
-	yield* runWithDb(
-		relationshipsRepository.saveRelationship({
-			properties,
+	yield* relationships
+		.create({
 			sourceEntityId,
 			targetEntityId,
 			scope: "global",
 			onConflict: "replaceProperties",
 			relationshipSchemaId: relationshipSchema.id,
-		}),
-	);
+			properties: relProps === undefined ? {} : relProps,
+			propertiesSchema: relationshipSchema.propertiesSchema,
+		})
+		.pipe(
+			dieOnDbError,
+			Effect.mapError((error) => new SandboxRunError({ message: error.message })),
+		);
 }, dieOnDbError);
