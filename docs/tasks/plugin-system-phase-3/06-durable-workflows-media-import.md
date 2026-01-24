@@ -16,12 +16,12 @@ migrates the media import workflows.
 
 Kernel capability (lands before consumers):
 
-- Add the `workflows: [{ slug, driverRef }]` manifest section. The kernel's existing Effect
+- Add the `workflows: [{ slug, scriptSlug }]` manifest section. The kernel's existing Effect
   durable engine runs a _workflow shell_ whose body repeatedly executes the script (replay from
   the top on each resume).
-- Replay-deterministic host primitives: `activity(name, input)` (first call runs the referenced
-  activity driver as a normal sandbox execution and journals the result; replays return the
-  journal without re-execution), `sleep(name, duration)` (durable timer), and
+- Replay-deterministic host primitives: `activity(name, scriptRef, input)` (first call runs the
+  referenced direct activity script as a normal sandbox execution and journals the result; replays
+  return the journal without re-execution), `sleep(name, duration)` (durable timer), and
   `child(name, workflowRef, input)` (composes another manifest workflow with a **deterministic
   execution id** derived from parent id + name — preserving the `apps/app-backend/AGENTS.md`
   §Queues deterministic-child-id rule). The journal is keyed by call sequence + name; a
@@ -29,18 +29,20 @@ Kernel capability (lands before consumers):
 - Version pinning: an execution records the script row's `contentHash` at start and every replay
   loads exactly that module (a lookup given Phase 2's immutable-per-hash rows); a hot swap never
   changes a running execution's code (Decisions 7, 13).
-- Determinism guard rails: workflow drivers use a restricted SDK entry point (no `httpCall`, no
+- Determinism guard rails: workflow scripts use a restricted SDK entry point (no `httpCall`, no
   cache, no ambient time/random — activities do the IO), enforced by capability scoping on the
   manifest kind, mirroring the existing automation-vs-provider host-scope split in
   `bridge-adapter.ts`.
-- Limits: add a per-driver-kind budget profile so workflow/activity kinds get kernel-owned
+- Limits: add a per-script-kind budget profile so workflow/activity kinds get kernel-owned
   ceilings distinct from provider kinds.
 
 Migration: rewrite `imports/media/population-workflow.ts` and `resolution-workflow.ts` (plus the
 media-specific parts of `entities/population-trigger.ts` and `entity-import`) as media-plugin
 workflows + activities; the kernel `imports` framework (run tracking, file handling) and
 `entity-import`'s generic surface stay. Preserve the documented keying/idempotency semantics
-(ensure-mode, preserve-existing upserts). Keep `EventCreateWorkflow` a kernel-owned workflow,
+(ensure-mode, preserve-existing upserts), logical provider provenance, and provider-scoped cache
+identity. Resolve every provider operation to an exact script before execution; workflow and
+activity payloads must not carry runtime operation selectors. Keep `EventCreateWorkflow` a kernel-owned workflow,
 callable as an activity host op or composed via `child` (`[IMPLEMENTER-DECIDES]` — record the
 choice), keeping single durable ownership intact. Delete the media-specific workflow definitions
 from `imports/`.
@@ -57,11 +59,12 @@ Derived from the plan §3 done criteria and cross-phase invariants:
       on divergent replay
 - [ ] An execution pins its script `contentHash` at start and every replay loads exactly that
       module; a hot swap does not change a running execution's code
-- [ ] Workflow drivers run on the restricted determinism-safe SDK entry point enforced by
+- [ ] Workflow scripts run on the restricted determinism-safe SDK entry point enforced by
       capability scoping; workflow/activity kinds have their own kernel-owned limit profile
 - [ ] Media import population/resolution run as plugin workflows end-to-end; the media-specific
       workflow definitions are deleted while the kernel `imports`/`entity-import` frameworks stay;
-      keying/idempotency semantics preserved
+      keying/idempotency semantics, logical provider provenance, and provider-scoped caches are
+      preserved; execution payloads contain exact script IDs and no operation selector
 - [ ] Kernel tests cover replay determinism: induced suspend/replay, nondeterminism detection,
       and **module pinning across a hot swap** (the plan calls this one of the most important
       tests in the repo); import e2e suites re-pointed with assertions preserved
