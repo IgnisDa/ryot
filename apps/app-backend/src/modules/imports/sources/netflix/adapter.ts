@@ -13,10 +13,10 @@ import type { MediaImportAdapterFailure } from "../../media/import-processor";
 import type { ImportMediaEntityGroup, ResolvedImportEntityRef } from "../../media/types";
 import { parseCsvText, readRequiredCsvCell } from "../../runtime/csv";
 import {
-	extractNetflixBaseTitle,
 	extractNetflixSeasonEpisode,
+	extractNetflixBaseTitle,
 	hasNetflixShowIndicators,
-} from "./title-matching";
+} from "./title-parsing";
 
 const NETFLIX_DATETIME_FORMATS = ["YYYY-MM-DD HH:mm:ss"];
 
@@ -60,8 +60,8 @@ const matchesProfileFilter = (
 };
 
 const convertNetflixRating = (input: {
-	thumbsValue?: string;
 	starValue?: string;
+	thumbsValue?: string;
 }): number | null => {
 	const starValue = Number.parseInt(input.starValue?.trim() ?? "", 10);
 	if (Number.isFinite(starValue)) {
@@ -116,10 +116,7 @@ const parseViewingActivityRow = (row: Record<string, string>, itemIndex: number)
 		if (!occurredAt) {
 			throw new Error("Start Time is invalid");
 		}
-		return {
-			occurredAt,
-			episodeInfo: extractNetflixSeasonEpisode(title),
-		};
+		return { occurredAt, episodeInfo: extractNetflixSeasonEpisode(title) };
 	});
 	if (Either.isLeft(parsed)) {
 		return {
