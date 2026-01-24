@@ -59,7 +59,6 @@ describe("kernel purity", () => {
 			"apps/app-backend/src/example.test-fixture.ts",
 			"apps/app-backend/src/example.typecheck.ts",
 			"apps/app-backend/src/modules/plugins/test-fixtures/example.ts",
-			"apps/app-backend/src/lib/generated-sandbox/registry.ts",
 			"apps/app-backend/src/lib/runner.generated.ts",
 		]) {
 			expect(isProductionSourcePath(path)).toBe(false);
