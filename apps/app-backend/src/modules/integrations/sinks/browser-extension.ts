@@ -1,13 +1,14 @@
-import { Effect, Schema } from "effect";
+import { Schema } from "effect";
 
 import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provider-refs";
 
 import {
 	createProgressResult,
 	createShowEpisodeLocator,
-	createSinkFailure,
 	emptySinkResult,
+	sinkFailureResult,
 	type SinkParser,
+	wrapSinkParser,
 } from "./shared";
 
 const CoercedNumber = Schema.Union(Schema.Number, Schema.NumberFromString);
@@ -93,7 +94,7 @@ const deriveProviderName = (urlValue?: string): string => {
 };
 
 export const parseBrowserExtensionSink: SinkParser = (input) =>
-	Effect.try(() => {
+	wrapSinkParser("browser extension", () => {
 		const specs = input.integration.providerSpecifics;
 		if (specs.kind !== "ryot_browser_extension") {
 			throw new Error("Integration is not a browser extension sink integration");
@@ -114,15 +115,7 @@ export const parseBrowserExtensionSink: SinkParser = (input) =>
 			providerIds: { tmdb: mediaSeen.identifier },
 		});
 		if (!ref) {
-			return {
-				...emptySinkResult(),
-				failures: [
-					createSinkFailure({
-						stage: "input_transformation",
-						message: "Browser extension payload is missing a TMDB identifier",
-					}),
-				],
-			};
+			return sinkFailureResult("Browser extension payload is missing a TMDB identifier");
 		}
 
 		const episodeLocator =
@@ -130,15 +123,7 @@ export const parseBrowserExtensionSink: SinkParser = (input) =>
 				? createShowEpisodeLocator(mediaSeen.show_season_number, mediaSeen.show_episode_number)
 				: undefined;
 		if (mediaSeen.lot === "show" && !episodeLocator) {
-			return {
-				...emptySinkResult(),
-				failures: [
-					createSinkFailure({
-						stage: "input_transformation",
-						message: "Browser extension payload is missing show episode coordinates",
-					}),
-				],
-			};
+			return sinkFailureResult("Browser extension payload is missing show episode coordinates");
 		}
 
 		return createProgressResult({
@@ -147,14 +132,4 @@ export const parseBrowserExtensionSink: SinkParser = (input) =>
 			consumedOn: deriveProviderName(payload.url),
 			...(episodeLocator ? { episodeLocator } : {}),
 		});
-	}).pipe(
-		Effect.orElseSucceed(() => ({
-			...emptySinkResult(),
-			failures: [
-				createSinkFailure({
-					stage: "input_transformation",
-					message: "Could not parse browser extension webhook payload",
-				}),
-			],
-		})),
-	);
+	});

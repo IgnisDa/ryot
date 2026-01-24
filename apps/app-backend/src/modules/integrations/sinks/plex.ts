@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect";
+import { Schema } from "effect";
 
 import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provider-refs";
 
@@ -6,9 +6,10 @@ import {
 	calculateProgressPercent,
 	createProgressResult,
 	createShowEpisodeLocator,
-	createSinkFailure,
 	emptySinkResult,
+	sinkFailureResult,
 	type SinkParser,
+	wrapSinkParser,
 } from "./shared";
 
 const CoercedNumber = Schema.Union(Schema.Number, Schema.NumberFromString);
@@ -86,7 +87,7 @@ const normalizePlexEvent = (value: string): string =>
 		.replace(/^media\./, "");
 
 export const parsePlexSink: SinkParser = (input) =>
-	Effect.try(() => {
+	wrapSinkParser("Plex", () => {
 		const specs = input.integration.providerSpecifics;
 		if (specs.kind !== "plex_sink") {
 			throw new Error("Integration is not a Plex sink integration");
@@ -115,43 +116,19 @@ export const parsePlexSink: SinkParser = (input) =>
 					? "movie"
 					: undefined;
 		if (!entitySchemaSlug) {
-			return {
-				...emptySinkResult(),
-				failures: [
-					createSinkFailure({
-						stage: "input_transformation",
-						message: "Plex webhook payload has an unsupported media type",
-					}),
-				],
-			};
+			return sinkFailureResult("Plex webhook payload has an unsupported media type");
 		}
 
 		const progressPercent =
 			calculateProgressPercent(payload.Metadata.viewOffset, payload.Metadata.duration) ??
 			(eventType === "scrobble" ? 100 : undefined);
 		if (progressPercent === undefined) {
-			return {
-				...emptySinkResult(),
-				failures: [
-					createSinkFailure({
-						stage: "input_transformation",
-						message: "Plex webhook payload is missing playback timing data",
-					}),
-				],
-			};
+			return sinkFailureResult("Plex webhook payload is missing playback timing data");
 		}
 
 		const tmdb = getGuidTmdbId(payload.Metadata.Guid) ?? payload.Metadata.Provider_tmdb?.toString();
 		if (!tmdb) {
-			return {
-				...emptySinkResult(),
-				failures: [
-					createSinkFailure({
-						stage: "input_transformation",
-						message: "Plex webhook payload is missing a TMDB identifier",
-					}),
-				],
-			};
+			return sinkFailureResult("Plex webhook payload is missing a TMDB identifier");
 		}
 
 		const sourceLabel =
@@ -161,15 +138,7 @@ export const parsePlexSink: SinkParser = (input) =>
 
 		const ref = buildMovieOrShowImportRef({ sourceLabel, entitySchemaSlug, providerIds: { tmdb } });
 		if (!ref) {
-			return {
-				...emptySinkResult(),
-				failures: [
-					createSinkFailure({
-						stage: "input_transformation",
-						message: "Plex webhook payload is missing a TMDB identifier",
-					}),
-				],
-			};
+			return sinkFailureResult("Plex webhook payload is missing a TMDB identifier");
 		}
 
 		const episodeLocator =
@@ -177,15 +146,7 @@ export const parsePlexSink: SinkParser = (input) =>
 				? createShowEpisodeLocator(payload.Metadata.parentIndex, payload.Metadata.index)
 				: undefined;
 		if (entitySchemaSlug === "show" && !episodeLocator) {
-			return {
-				...emptySinkResult(),
-				failures: [
-					createSinkFailure({
-						stage: "input_transformation",
-						message: "Plex webhook payload is missing show episode coordinates",
-					}),
-				],
-			};
+			return sinkFailureResult("Plex webhook payload is missing show episode coordinates");
 		}
 
 		return createProgressResult({
@@ -194,14 +155,4 @@ export const parsePlexSink: SinkParser = (input) =>
 			consumedOn: "plex_sink",
 			...(episodeLocator ? { episodeLocator } : {}),
 		});
-	}).pipe(
-		Effect.orElseSucceed(() => ({
-			...emptySinkResult(),
-			failures: [
-				createSinkFailure({
-					stage: "input_transformation",
-					message: "Could not parse Plex webhook payload",
-				}),
-			],
-		})),
-	);
+	});
