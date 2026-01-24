@@ -1,0 +1,1 @@
+export { getBuiltinRelationshipSchemaBySlug } from "./repository";

@@ -9,6 +9,21 @@ import { mangaPropertiesJsonSchema } from "~/lib/media/manga";
 import { personPropertiesJsonSchema } from "~/lib/media/person";
 import { createDefaultDisplayConfiguration } from "~/modules/saved-views";
 
+export const builtinPersonRelationshipSlugs = [
+	"staff",
+	"author",
+	"artist",
+	"editor",
+	"director",
+	"publisher",
+	"character",
+	"illustrator",
+	"voice_actor",
+] as const;
+
+export type BuiltinPersonRelationshipSlug =
+	(typeof builtinPersonRelationshipSlugs)[number];
+
 export const authenticationBuiltinTrackers = () => [
 	{
 		icon: "film",
@@ -185,5 +200,32 @@ export const authenticationBuiltinSavedViews = () => [
 		entitySchemaSlug: slug,
 		name: getBuiltInSavedViewName(slug),
 		displayConfiguration: createDefaultDisplayConfiguration(slug),
+	})),
+];
+
+export const authenticationBuiltinRelationshipSchemas = () => [
+	{
+		slug: "in_library",
+		name: "In Library",
+		sourceEntitySchemaSlug: null,
+		propertiesSchema: { fields: {} },
+		targetEntitySchemaSlug: "library",
+	},
+	{
+		slug: "member_of",
+		name: "Member Of",
+		sourceEntitySchemaSlug: null,
+		propertiesSchema: { fields: {} },
+		targetEntitySchemaSlug: "collection",
+	},
+	...builtinPersonRelationshipSlugs.map((slug) => ({
+		slug,
+		targetEntitySchemaSlug: null,
+		propertiesSchema: { fields: {} },
+		sourceEntitySchemaSlug: "person",
+		name: slug
+			.split("_")
+			.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+			.join(" "),
 	})),
 ];

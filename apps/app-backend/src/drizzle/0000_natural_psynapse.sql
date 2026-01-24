@@ -101,14 +101,28 @@ CREATE TABLE "event_schema" (
 );
 --> statement-breakpoint
 CREATE TABLE "relationship" (
-	"rel_type" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"user_id" text,
 	"source_entity_id" text NOT NULL,
 	"target_entity_id" text NOT NULL,
+	"relationship_schema_id" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
-	CONSTRAINT "relationship_user_source_target_rel_type_unique" UNIQUE("user_id","source_entity_id","target_entity_id","rel_type")
+	CONSTRAINT "relationship_user_source_target_schema_unique" UNIQUE("user_id","source_entity_id","target_entity_id","relationship_schema_id")
+);
+--> statement-breakpoint
+CREATE TABLE "relationship_schema" (
+	"slug" text NOT NULL,
+	"name" text NOT NULL,
+	"properties_schema" jsonb NOT NULL,
+	"is_builtin" boolean DEFAULT false NOT NULL,
+	"user_id" text,
+	"source_entity_schema_id" text,
+	"target_entity_schema_id" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "relationship_schema_user_slug_unique" UNIQUE("user_id","slug")
 );
 --> statement-breakpoint
 CREATE TABLE "sandbox_script" (
@@ -117,7 +131,6 @@ CREATE TABLE "sandbox_script" (
 	"code" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
-	"metadata" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"user_id" text,
 	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
@@ -214,6 +227,10 @@ ALTER TABLE "event_schema" ADD CONSTRAINT "event_schema_entity_schema_id_entity_
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_id_fk" FOREIGN KEY ("source_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_target_entity_id_entity_id_fk" FOREIGN KEY ("target_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "relationship" ADD CONSTRAINT "relationship_relationship_schema_id_relationship_schema_id_fk" FOREIGN KEY ("relationship_schema_id") REFERENCES "public"."relationship_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "relationship_schema" ADD CONSTRAINT "relationship_schema_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "relationship_schema" ADD CONSTRAINT "relationship_schema_source_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("source_entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "relationship_schema" ADD CONSTRAINT "relationship_schema_target_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("target_entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_tracker_id_tracker_id_fk" FOREIGN KEY ("tracker_id") REFERENCES "public"."tracker"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -241,11 +258,15 @@ CREATE INDEX "event_session_entity_id_idx" ON "event" USING btree ("session_enti
 CREATE INDEX "event_properties_idx" ON "event" USING gin ("properties");--> statement-breakpoint
 CREATE INDEX "event_schema_entity_schema_id_idx" ON "event_schema" USING btree ("entity_schema_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "event_schema_builtin_entity_schema_slug_unique" ON "event_schema" USING btree ("entity_schema_id","slug") WHERE "event_schema"."user_id" is null;--> statement-breakpoint
-CREATE INDEX "relationship_rel_type_idx" ON "relationship" USING btree ("rel_type");--> statement-breakpoint
+CREATE INDEX "relationship_schema_id_idx" ON "relationship" USING btree ("relationship_schema_id");--> statement-breakpoint
 CREATE INDEX "relationship_source_entity_id_idx" ON "relationship" USING btree ("source_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_target_entity_id_idx" ON "relationship" USING btree ("target_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_properties_idx" ON "relationship" USING gin ("properties");--> statement-breakpoint
-CREATE UNIQUE INDEX "relationship_global_source_target_rel_type_unique" ON "relationship" USING btree ("source_entity_id","target_entity_id","rel_type") WHERE "relationship"."user_id" is null;--> statement-breakpoint
+CREATE UNIQUE INDEX "relationship_global_source_target_schema_unique" ON "relationship" USING btree ("source_entity_id","target_entity_id","relationship_schema_id") WHERE "relationship"."user_id" is null;--> statement-breakpoint
+CREATE INDEX "relationship_schema_user_id_idx" ON "relationship_schema" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "relationship_schema_source_entity_schema_id_idx" ON "relationship_schema" USING btree ("source_entity_schema_id");--> statement-breakpoint
+CREATE INDEX "relationship_schema_target_entity_schema_id_idx" ON "relationship_schema" USING btree ("target_entity_schema_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "relationship_schema_builtin_slug_unique" ON "relationship_schema" USING btree ("slug") WHERE "relationship_schema"."user_id" is null;--> statement-breakpoint
 CREATE INDEX "sandbox_script_user_id_idx" ON "sandbox_script" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_view_user_id_idx" ON "saved_view" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_view_tracker_id_idx" ON "saved_view" USING btree ("tracker_id");--> statement-breakpoint

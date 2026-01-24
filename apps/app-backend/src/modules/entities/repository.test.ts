@@ -1,4 +1,11 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
+
+mock.module("~/modules/relationship-schemas", () => ({
+	getBuiltinRelationshipSchemaBySlug: async (_slug: string) => ({
+		id: "schema_in_library_1",
+	}),
+}));
+
 import { upsertInLibraryRelationship } from "./repository";
 
 describe("upsertInLibraryRelationship", () => {
@@ -20,9 +27,9 @@ describe("upsertInLibraryRelationship", () => {
 			{
 				properties: {},
 				userId: "user_1",
-				relType: "in_library",
 				targetEntityId: "entity_lib_1",
 				sourceEntityId: "entity_media_1",
+				relationshipSchemaId: "schema_in_library_1",
 			},
 		]);
 	});
