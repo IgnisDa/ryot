@@ -249,10 +249,10 @@ export const systemConfigDefinition = group(
 		timezone: fields.timezone.config,
 		redisUrl: fields.redisUrl.config,
 		scheduler: schedulerGroup.config,
-		builtinExercisePreloadLimit: fields.builtinExercisePreloadLimit.config,
 		fileStorage: fileStorageGroup.config,
 		frontendUrl: fields.frontendUrl.config,
 		databaseUrl: fields.databaseUrl.config,
+		builtinExercisePreloadLimit: fields.builtinExercisePreloadLimit.config,
 	}),
 	{
 		tmpDir: tmpDir.meta,
@@ -265,10 +265,10 @@ export const systemConfigDefinition = group(
 		timezone: fields.timezone.meta,
 		redisUrl: fields.redisUrl.meta,
 		scheduler: schedulerGroup.meta,
-		builtinExercisePreloadLimit: fields.builtinExercisePreloadLimit.meta,
 		fileStorage: fileStorageGroup.meta,
 		frontendUrl: fields.frontendUrl.meta,
 		databaseUrl: fields.databaseUrl.meta,
+		builtinExercisePreloadLimit: fields.builtinExercisePreloadLimit.meta,
 	},
 );
 
