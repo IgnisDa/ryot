@@ -1,0 +1,295 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("YouTube Music returned invalid JSON");
+  }
+}
+
+function getString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getNullableString(value) {
+  const s = getString(value);
+  return s || null;
+}
+
+function getThumbnailUrls(thumbnails) {
+  if (!Array.isArray(thumbnails) || thumbnails.length === 0) {
+    return [];
+  }
+
+  return [...thumbnails]
+    .sort(
+      (a, b) =>
+        (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0),
+    )
+    .map((t) => t.url)
+    .filter((url) => typeof url === "string" && url);
+}
+
+function getLargestThumbnail(thumbnails) {
+  return getThumbnailUrls(thumbnails)[0] || null;
+}
+
+function parseDurationText(text) {
+  if (typeof text !== "string") {
+    return null;
+  }
+
+  const parts = text.split(":").map((p) => parseInt(p, 10));
+  if (parts.some((p) => !Number.isFinite(p))) {
+    return null;
+  }
+
+  if (parts.length === 2) {
+    return parts[0] * 60 + parts[1];
+  }
+  if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+
+  return null;
+}
+
+const YT_MUSIC_KEY = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30";
+const YT_MUSIC_BASE = "https://music.youtube.com/youtubei/v1";
+// Protobuf-encoded filter: songs only
+const SONGS_PARAMS = "EgWKAQIIAWoKEAkQBRAKEAMQBA==";
+
+const YT_CONTEXT = {
+  client: {
+    hl: "en",
+    gl: "US",
+    clientName: "WEB_REMIX",
+    clientVersion: "1.20231201.01.00",
+  },
+};
+
+async function ytPost(endpoint, body) {
+  const url = `${YT_MUSIC_BASE}/${endpoint}?key=${YT_MUSIC_KEY}&prettyPrint=false`;
+  const response = await httpCall("POST", url, {
+    body: JSON.stringify({ context: YT_CONTEXT, ...body }),
+    headers: {
+      Accept: "application/json",
+      Origin: "https://music.youtube.com",
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (compatible; Ryot/1.0)",
+      "X-YouTube-Client-Name": "67",
+      "X-YouTube-Client-Version": "1.20231201.01.00",
+    },
+  });
+
+  if (!response?.success) {
+    throw new Error(
+      response?.error ?? `YouTube Music request failed: ${endpoint}`,
+    );
+  }
+
+  return parseJsonResponse(response.data.body);
+}
+
+function extractSectionContents(data) {
+  const tabs = data?.contents?.tabbedSearchResultsRenderer?.tabs;
+  if (Array.isArray(tabs)) {
+    return (
+      tabs[0]?.tabRenderer?.content?.sectionListRenderer?.contents ?? []
+    );
+  }
+  return data?.contents?.sectionListRenderer?.contents ?? [];
+}
+
+function extractVideoIdFromRenderer(r) {
+  return (
+    getString(r.playlistItemData?.videoId) ||
+    getString(
+      r.overlay?.musicItemThumbnailOverlayRenderer?.content
+        ?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint
+        ?.videoId,
+    ) ||
+    null
+  );
+}
+
+function extractPublishYear(flexColumns) {
+  const col2Runs =
+    flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs ??
+    [];
+  for (const run of col2Runs) {
+    const yr = parseInt(getString(run.text), 10);
+    if (Number.isFinite(yr) && yr > 1900 && yr < 2200) {
+      return yr;
+    }
+  }
+  return null;
+}
+
+driver("search", async function (context) {
+  const query =
+    typeof context?.query === "string" ? context.query.trim() : "";
+  if (!query) {
+    throw new Error("query is required");
+  }
+
+  const data = await ytPost("search", { query, params: SONGS_PARAMS });
+  const sections = extractSectionContents(data);
+
+  const items = [];
+  for (const section of sections) {
+    const shelf = section?.musicShelfRenderer;
+    if (!shelf) {
+      continue;
+    }
+
+    for (const item of shelf.contents ?? []) {
+      const r = item?.musicResponsiveListItemRenderer;
+      if (!r) {
+        continue;
+      }
+
+      const videoId = extractVideoIdFromRenderer(r);
+      if (!videoId) {
+        continue;
+      }
+
+      const title =
+        getString(
+          r.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text
+            ?.runs?.[0]?.text,
+        ) || videoId;
+      const thumbnails =
+        r.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails ?? [];
+      const publishYear = extractPublishYear(r.flexColumns);
+      const imageUrl = getLargestThumbnail(thumbnails);
+
+      items.push({
+        identifier: videoId,
+        badgeProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        subtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        imageProperty:
+          imageUrl === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { kind: "remote", url: imageUrl } },
+      });
+    }
+  }
+
+  return {
+    items,
+    details: { totalItems: 100, nextPage: null },
+  };
+});
+
+driver("details", async function (context) {
+  const identifier =
+    typeof context?.identifier === "string"
+      ? context.identifier.trim()
+      : "";
+  if (!identifier) {
+    throw new Error("identifier is required");
+  }
+
+  const data = await ytPost("next", { videoId: identifier, isAudioOnly: true });
+
+  // Navigate to the "Up next" queue tab which contains the current track
+  const tabs =
+    data?.contents?.singleColumnMusicWatchNextResultsRenderer?.tabbedRenderer
+      ?.watchNextTabbedResultsRenderer?.tabs;
+  const queueContents =
+    tabs?.[0]?.tabRenderer?.content?.musicQueueRenderer?.content
+      ?.playlistPanelRenderer?.contents ?? [];
+
+  // Find the entry matching the requested videoId, or fall back to the first
+  let trackRenderer = null;
+  for (const entry of queueContents) {
+    const pvr = entry?.playlistPanelVideoRenderer;
+    if (pvr?.videoId === identifier) {
+      trackRenderer = pvr;
+      break;
+    }
+    // Some responses wrap in playlistPanelVideoWrapperRenderer
+    const wrapped =
+      entry?.playlistPanelVideoWrapperRenderer?.primaryRenderer
+        ?.playlistPanelVideoRenderer;
+    if (wrapped?.videoId === identifier) {
+      trackRenderer = wrapped;
+      break;
+    }
+  }
+
+  // If we couldn't find by ID, use the first available entry
+  if (!trackRenderer && queueContents.length > 0) {
+    trackRenderer =
+      queueContents[0]?.playlistPanelVideoRenderer ??
+      queueContents[0]?.playlistPanelVideoWrapperRenderer?.primaryRenderer
+        ?.playlistPanelVideoRenderer ??
+      null;
+  }
+
+  if (!trackRenderer) {
+    throw new Error(`YouTube Music track not found: ${identifier}`);
+  }
+
+  const title = getString(trackRenderer.title?.runs?.[0]?.text);
+  if (!title) {
+    throw new Error("YouTube Music track is missing title");
+  }
+
+  const thumbnails = trackRenderer.thumbnail?.thumbnails ?? [];
+  const durationText = getString(
+    trackRenderer.lengthText?.runs?.[0]?.text,
+  );
+  const duration = parseDurationText(durationText);
+
+  // Parse artists and album from the long byline (contains navigation endpoints)
+  const bylineRuns =
+    trackRenderer.longBylineText?.runs ??
+    trackRenderer.shortBylineText?.runs ??
+    [];
+
+  const artists = [];
+  for (const run of bylineRuns) {
+    const text = getString(run.text);
+    if (!text || text === " • " || text === " · " || text === "•") {
+      continue;
+    }
+    const browseId = getString(
+      run.navigationEndpoint?.browseEndpoint?.browseId,
+    );
+    // Artist channel IDs begin with "UC"
+    if (browseId.startsWith("UC")) {
+      artists.push({ name: text, id: browseId });
+    }
+  }
+
+  const byVariousArtists = artists.length === 0 ? null : artists.length > 1;
+  const people = artists.map((a) => ({
+    role: "Artist",
+    name: a.name,
+    identifier: a.id,
+    scriptSlug: "person.youtube-music",
+  }));
+
+  return {
+    name: title,
+    externalId: identifier,
+    properties: {
+      people,
+      isNsfw: null,
+      duration,
+      genres: [],
+      description: null,
+      publishYear: null,
+      byVariousArtists,
+      providerRating: null,
+      productionStatus: null,
+      sourceUrl: `https://music.youtube.com/watch?v=${identifier}`,
+      assets: { remoteImages: getThumbnailUrls(thumbnails) },
+    },
+  };
+});
