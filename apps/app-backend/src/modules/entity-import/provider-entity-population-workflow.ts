@@ -1,5 +1,5 @@
 import { Activity, Workflow } from "@effect/workflow";
-import { SandboxRunError, dieOnDbError } from "@ryot/contract/errors";
+import { SandboxRunError, mapDbErrorToSandbox } from "@ryot/contract/errors";
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { encodeEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
 import type { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
@@ -89,6 +89,7 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 	const repository = yield* EntitiesRepository;
 
 	return yield* Activity.make({
+		error: SandboxRunError,
 		name: "check-existing-entity",
 		success: Schema.NullOr(ListedEntity),
 		execute: runWithDb(
@@ -97,7 +98,7 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 				providerId: payload.providerId,
 				entitySchemaSlug: payload.entitySchemaSlug,
 			}),
-		).pipe(dieOnDbError),
+		).pipe(mapDbErrorToSandbox),
 	});
 });
 
@@ -151,10 +152,7 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 				});
 				return { result, committedAt: (yield* DateTime.nowAsDate).toISOString() };
 			}),
-		).pipe(
-			dieOnDbError,
-			Effect.mapError((error) => new SandboxRunError({ message: error.message })),
-		),
+		).pipe(mapDbErrorToSandbox),
 	});
 });
 
@@ -179,10 +177,7 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 				});
 				return { outcomes, committedAt: (yield* DateTime.nowAsDate).toISOString() };
 			}),
-		).pipe(
-			dieOnDbError,
-			Effect.mapError((error) => new SandboxRunError({ message: error.message })),
-		),
+		).pipe(mapDbErrorToSandbox),
 	});
 });
 
@@ -206,10 +201,7 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 				parentEntitySchemaSlug: scope.parentEntitySchemaSlug,
 				childEntitySchemaSlugs: options.childEntitySchemaSlugs,
 			}),
-		).pipe(
-			dieOnDbError,
-			Effect.mapError((error) => new SandboxRunError({ message: error.message })),
-		),
+		).pipe(mapDbErrorToSandbox),
 	});
 });
 
@@ -238,10 +230,7 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 				});
 				return { result, committedAt: (yield* DateTime.nowAsDate).toISOString() };
 			}),
-		).pipe(
-			dieOnDbError,
-			Effect.mapError((error) => new SandboxRunError({ message: error.message })),
-		),
+		).pipe(mapDbErrorToSandbox),
 	});
 });
 

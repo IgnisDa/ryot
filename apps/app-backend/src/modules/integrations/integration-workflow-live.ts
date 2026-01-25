@@ -28,10 +28,13 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 	payload: IntegrationRunJobData,
 	executionId: string,
 ) {
+	const markStartedEffect = markImportRunStarted(payload.runId).pipe(
+		Effect.mapError(toIntegrationWorkflowError),
+	);
 	yield* Activity.make({
 		error: IntegrationRunError,
 		name: "mark-integration-run-started",
-		execute: markImportRunStarted(payload.runId).pipe(Effect.mapError(toIntegrationWorkflowError)),
+		execute: markStartedEffect,
 	});
 
 	yield* processIntegrationMedia(integration, payload, executionId).pipe(
@@ -44,18 +47,19 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 		),
 	);
 
+	const finalizationEffect = finalizeIntegrationRun(integration, payload.runId).pipe(
+		Effect.mapError(toIntegrationWorkflowError),
+	);
 	const wasDisabled = yield* Activity.make({
 		success: Schema.Boolean,
 		error: IntegrationRunError,
 		name: "finalize-integration-run",
-		execute: finalizeIntegrationRun(integration, payload.runId).pipe(
-			Effect.mapError(toIntegrationWorkflowError),
-		),
+		execute: finalizationEffect,
 	});
 
 	if (wasDisabled) {
 		const signals = yield* SignalEmissionService;
-		yield* signals
+		const emitDisabledSignal = signals
 			.emit({
 				executionId,
 				discriminator: integration.id,
@@ -66,6 +70,7 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 				origin: { kind: "integration", importRunId: payload.runId, integrationId: integration.id },
 			})
 			.pipe(Effect.mapError(toIntegrationWorkflowError));
+		yield* emitDisabledSignal;
 	}
 });
 
@@ -80,13 +85,14 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 		const runWithDb = yield* DbRunner;
 		const integrationsRepository = yield* IntegrationsRepository;
 
+		const loadIntegrationEffect = runWithDb(
+			integrationsRepository.getByIdAnyUser({ integrationId: payload.integrationId }),
+		).pipe(Effect.mapError(toIntegrationWorkflowError));
 		const integration = yield* Activity.make({
 			name: "load-integration",
 			error: IntegrationRunError,
 			success: Schema.NullOr(IntegrationRecordSchema),
-			execute: runWithDb(
-				integrationsRepository.getByIdAnyUser({ integrationId: payload.integrationId }),
-			).pipe(Effect.mapError(toIntegrationWorkflowError)),
+			execute: loadIntegrationEffect,
 		});
 
 		if (!integration) {

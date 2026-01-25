@@ -268,35 +268,36 @@ const loadNonMediaAdapterResult = <Item extends NonMediaImportItem, RLoad, RPrep
 const recordNonMediaAdapterFailures = (
 	payload: ImportRunJobData,
 	failures: ReadonlyArray<NonMediaAdapterFailure>,
-) =>
-	Effect.forEach(
-		failures,
-		(failure, index) =>
-			Activity.make({
-				error: ImportRunError,
-				name: `record-adapter-failure-${index}`,
-				execute: recordImportRunFailure({
-					runId: payload.runId,
-					message: failure.message,
-					itemIndex: failure.itemIndex,
-					stage: "input_transformation",
-					sourceLabel: failure.sourceLabel,
-					sourceIdentifier: failure.sourceIdentifier,
-				}).pipe(Effect.mapError(toWorkflowError)),
-			}),
-		{ discard: true },
-	);
+) => {
+	const recordFailure = (failure: NonMediaAdapterFailure, index: number) => {
+		const recordFailureEffect = recordImportRunFailure({
+			runId: payload.runId,
+			message: failure.message,
+			itemIndex: failure.itemIndex,
+			stage: "input_transformation",
+			sourceLabel: failure.sourceLabel,
+			sourceIdentifier: failure.sourceIdentifier,
+		}).pipe(Effect.mapError(toWorkflowError));
+		return Activity.make({
+			error: ImportRunError,
+			name: `record-adapter-failure-${index}`,
+			execute: recordFailureEffect,
+		});
+	};
+	return Effect.forEach(failures, recordFailure, { discard: true });
+};
 
 const recordNonMediaTotalItems = (payload: ImportRunJobData, totalItems: number) =>
 	Effect.gen(function* () {
 		const imports = yield* ImportsService;
+		const updateTotalItems = imports
+			.update({ runId: payload.runId, totalItems })
+			.pipe(Effect.mapError(toWorkflowError));
 
 		yield* Activity.make({
 			error: ImportRunError,
 			name: "record-total-items",
-			execute: imports
-				.update({ runId: payload.runId, totalItems })
-				.pipe(Effect.mapError(toWorkflowError)),
+			execute: updateTotalItems,
 		});
 	});
 
@@ -305,20 +306,22 @@ const recordNonMediaItemFailure = (input: {
 	item: NonMediaImportItem;
 	payload: ImportRunJobData;
 	outcome: Extract<NonMediaItemOutcome, { _tag: "failed" }>;
-}) =>
-	Activity.make({
+}) => {
+	const recordItemFailure = recordImportRunFailure({
+		runId: input.payload.runId,
+		stage: input.outcome.stage,
+		message: input.outcome.message,
+		itemIndex: input.item.itemIndex,
+		sourceLabel: input.item.sourceLabel,
+		sourceIdentifier: input.item.sourceIdentifier,
+		entitySchemaSlug: input.outcome.entitySchemaSlug ?? null,
+	}).pipe(Effect.mapError(toWorkflowError));
+	return Activity.make({
 		error: ImportRunError,
 		name: `record-item-failure-${input.index}`,
-		execute: recordImportRunFailure({
-			runId: input.payload.runId,
-			stage: input.outcome.stage,
-			message: input.outcome.message,
-			itemIndex: input.item.itemIndex,
-			sourceLabel: input.item.sourceLabel,
-			sourceIdentifier: input.item.sourceIdentifier,
-			entitySchemaSlug: input.outcome.entitySchemaSlug ?? null,
-		}).pipe(Effect.mapError(toWorkflowError)),
+		execute: recordItemFailure,
 	});
+};
 
 const reportNonMediaProgress = (input: {
 	progress: number;
@@ -329,19 +332,20 @@ const reportNonMediaProgress = (input: {
 }) =>
 	Effect.gen(function* () {
 		const imports = yield* ImportsService;
+		const updateProgress = imports
+			.update({
+				progress: input.progress,
+				runId: input.payload.runId,
+				failedItems: input.failedItems,
+				importedItems: input.importedItems,
+				processedItems: input.processedItems,
+			})
+			.pipe(Effect.mapError(toWorkflowError));
 
 		yield* Activity.make({
 			error: ImportRunError,
 			name: `report-progress-${input.processedItems}`,
-			execute: imports
-				.update({
-					progress: input.progress,
-					runId: input.payload.runId,
-					failedItems: input.failedItems,
-					importedItems: input.importedItems,
-					processedItems: input.processedItems,
-				})
-				.pipe(Effect.mapError(toWorkflowError)),
+			execute: updateProgress,
 		});
 	});
 
@@ -424,10 +428,13 @@ export const runOneTimeNonMediaImportWorkflow = (payload: ImportRunJobData) =>
 			const operationSet = yield* operationsService.getOperations(payload);
 			yield* operationSet.withOperations((operations) =>
 				Effect.gen(function* () {
+					const markStarted = markImportRunStarted(payload.runId).pipe(
+						Effect.mapError(toWorkflowError),
+					);
 					yield* Activity.make({
 						error: ImportRunError,
 						name: "mark-import-run-started",
-						execute: markImportRunStarted(payload.runId).pipe(Effect.mapError(toWorkflowError)),
+						execute: markStarted,
 					});
 
 					const loadOutcome = yield* loadNonMediaAdapterResult(payload, operations);

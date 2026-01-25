@@ -17,14 +17,15 @@ const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: 
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const pluginRuntime = yield* PluginRuntimeResolver;
+		const resolveScript = runWithDb(pluginRuntime.resolveDetailsScript(payload.providerId)).pipe(
+			Effect.map(({ id }) => id),
+			Effect.mapError(toSandboxRunError),
+		);
 		const scriptId = yield* Activity.make({
 			error: SandboxRunError,
 			success: SandboxScriptId,
 			name: `resolve-provider-details-script-${executionId}`,
-			execute: runWithDb(pluginRuntime.resolveDetailsScript(payload.providerId)).pipe(
-				Effect.map(({ id }) => id),
-				Effect.mapError(toSandboxRunError),
-			),
+			execute: resolveScript,
 		});
 		return yield* processSandboxExecution({
 			scriptId,
