@@ -3,12 +3,9 @@ import type {
 	NotificationChannelSpecifics,
 	UpdateNotificationChannelBody,
 } from "@ryot/contract/modules/notifications/schemas";
-import type {
-	NotificationChannelKind,
-	NotificationEventType,
-} from "@ryot/contract/modules/notifications/types";
+import type { NotificationChannelKind } from "@ryot/contract/modules/notifications/types";
 import { NotificationChannelId, UserId } from "@ryot/contract/schema/brands";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { Effect, Match, Option } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -63,7 +60,6 @@ const toRecord = (row: NotificationChannelRow): NotificationChannelRecord => {
 		channel: row.channel,
 		isDisabled: row.isDisabled,
 		userId: UserId.make(row.userId),
-		configuredEvents: row.configuredEvents,
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),
 		id: NotificationChannelId.make(row.id),
@@ -105,7 +101,6 @@ export class NotificationsRepository extends Effect.Service<NotificationsReposit
 				userId: UserId;
 				isDisabled: boolean;
 				channel: NotificationChannelKind;
-				configuredEvents: NotificationEventType[];
 				channelSpecifics: NotificationChannelSpecifics;
 			}) {
 				const db = yield* CurrentDb;
@@ -116,7 +111,6 @@ export class NotificationsRepository extends Effect.Service<NotificationsReposit
 							userId: input.userId,
 							channel: input.channel,
 							isDisabled: input.isDisabled,
-							configuredEvents: input.configuredEvents,
 							channelSpecifics: input.channelSpecifics,
 						})
 						.returning(),
@@ -146,9 +140,6 @@ export class NotificationsRepository extends Effect.Service<NotificationsReposit
 				const updates: Partial<typeof schema.notificationChannel.$inferInsert> = {};
 				if (input.body.isDisabled !== undefined) {
 					updates.isDisabled = input.body.isDisabled;
-				}
-				if (input.body.configuredEvents !== undefined) {
-					updates.configuredEvents = [...input.body.configuredEvents];
 				}
 
 				if (Object.keys(updates).length === 0) {
@@ -181,23 +172,18 @@ export class NotificationsRepository extends Effect.Service<NotificationsReposit
 			});
 
 			const listEnabledForUser = Effect.fn("NotificationsRepository.listEnabledForUser")(
-				function* (input: { userId: UserId; eventType?: NotificationEventType | undefined }) {
+				function* (input: { userId: UserId }) {
 					const db = yield* CurrentDb;
-					const clauses = [
-						eq(schema.notificationChannel.userId, input.userId),
-						eq(schema.notificationChannel.isDisabled, false),
-					];
-					if (input.eventType !== undefined) {
-						clauses.push(
-							sql<boolean>`${input.eventType} = ANY(${schema.notificationChannel.configuredEvents})`,
-						);
-					}
-
 					const rows = yield* dbEffect(() =>
 						db
 							.select()
 							.from(schema.notificationChannel)
-							.where(and(...clauses))
+							.where(
+								and(
+									eq(schema.notificationChannel.userId, input.userId),
+									eq(schema.notificationChannel.isDisabled, false),
+								),
+							)
 							.orderBy(desc(schema.notificationChannel.createdAt)),
 					);
 					return rows.map(toRecord);

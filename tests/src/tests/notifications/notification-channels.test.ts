@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
-import { notificationEventTypes } from "@ryot/contract/modules/notifications/types";
 import { NotificationChannelId } from "@ryot/contract/schema/brands";
 
 import {
@@ -28,7 +27,7 @@ afterAll(() => {
 });
 
 describe("notification channel CRUD", () => {
-	it("creates with all event defaults and returns a safe description", async () => {
+	it("creates an enabled channel and returns a safe description", async () => {
 		const { client } = await createAuthenticatedClient();
 		await createNotificationChannel(client, {
 			channel: "apprise",
@@ -37,24 +36,19 @@ describe("notification channel CRUD", () => {
 
 		const channels = await listNotificationChannels(client);
 		const channel = requirePresent(channels[0], "Expected created notification channel");
-		expect(channel.configuredEvents).toEqual(notificationEventTypes);
 		expect(channel.isDisabled).toBe(false);
 		expect(channel.description).toBe(`Apprise at ${fakeApprise.url}`);
 		expect(channel.description).not.toContain("secret-key");
 	});
 
-	it("updates event subscriptions and disabled state", async () => {
+	it("updates the disabled state", async () => {
 		const { client } = await createAuthenticatedClient();
 		const { id } = await createNotificationChannel(client, {
 			channel: "telegram",
 			channelSpecifics: { botToken: "bot-secret", chatId: "1234", kind: "telegram" },
 		});
 
-		const updated = await updateNotificationChannel(client, id, {
-			isDisabled: true,
-			configuredEvents: [],
-		});
-		expect(updated.configuredEvents).toEqual([]);
+		const updated = await updateNotificationChannel(client, id, { isDisabled: true });
 		expect(updated.isDisabled).toBe(true);
 	});
 

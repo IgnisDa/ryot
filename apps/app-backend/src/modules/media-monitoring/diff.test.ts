@@ -36,11 +36,9 @@ describe("diffMediaMonitoringSnapshots", () => {
 
 		expect(diffMediaMonitoringSnapshots(before, after)).toMatchObject([
 			{
-				eventType: "metadata_status_changed",
 				message: "Status of Example changed from Continuing to Ended",
 			},
 			{
-				eventType: "metadata_release_date_changed",
 				message: "Publish year changed from 2025 to 2026 for Example",
 			},
 		]);
@@ -62,8 +60,8 @@ describe("diffMediaMonitoringSnapshots", () => {
 			],
 		});
 
-		expect(diffMediaMonitoringSnapshots(before, after).map((change) => change.eventType)).toEqual([
-			"metadata_number_of_seasons_changed",
+		expect(diffMediaMonitoringSnapshots(before, after).map((change) => change.message)).toEqual([
+			"Number of seasons changed from 1 to 2 for Example",
 		]);
 	});
 
@@ -103,9 +101,9 @@ describe("diffMediaMonitoringSnapshots", () => {
 		});
 
 		const changes = diffMediaMonitoringSnapshots(before, after);
-		expect(changes.map((change) => change.eventType)).toEqual([
-			"metadata_episode_name_changed",
-			"metadata_release_date_changed",
+		expect(changes.map((change) => change.message)).toEqual([
+			'Episode name changed from "Pilot" to "Premiere" (S1E1) for Example',
+			"Episode release date changed from 2026-01-01 to 2026-02-01 (S1E1) for Example",
 		]);
 		expect(changes[0]?.fingerprint).toBe(
 			diffMediaMonitoringSnapshots(before, after)[0]?.fingerprint,
@@ -167,8 +165,8 @@ describe("diffMediaMonitoringSnapshots", () => {
 		assert(countSeason);
 		const countBefore = { ...countAfter, seasons: [{ ...countSeason, episodes: [] }] };
 		expect(
-			diffMediaMonitoringSnapshots(countBefore, countAfter).map((change) => change.eventType),
-		).toEqual(["metadata_episode_released"]);
+			diffMediaMonitoringSnapshots(countBefore, countAfter).map((change) => change.message),
+		).toEqual(["Number of episodes changed from 0 to 2 (Season 1) for Example"]);
 	});
 
 	it("uses external episode IDs before episode numbers and reports replacements", () => {
@@ -227,7 +225,6 @@ describe("diffMediaMonitoringSnapshots", () => {
 
 		expect(diffMediaMonitoringSnapshots(before, after)).toMatchObject([
 			{
-				eventType: "metadata_episode_released",
 				message: "1 new episode released for Season 1 of Example",
 			},
 		]);
@@ -261,7 +258,6 @@ describe("diffMediaMonitoringSnapshots", () => {
 
 		expect(diffMediaMonitoringSnapshots(before, after)).toMatchObject([
 			{
-				eventType: "metadata_episode_released",
 				message: "Number of episodes changed from 0 to 1 (Season 2) for Example",
 			},
 		]);
@@ -301,14 +297,14 @@ describe("diffMediaMonitoringSnapshots", () => {
 			diffMediaMonitoringSnapshots(
 				snapshot({ animeEpisodes: 12, entitySchemaSlug: "anime" }),
 				snapshot({ animeEpisodes: 13, entitySchemaSlug: "anime" }),
-			).map((change) => change.eventType),
-		).toEqual(["metadata_chapters_or_episodes_changed"]);
+			).map((change) => change.message),
+		).toEqual(["Number of episodes changed from 12 to 13 for Example"]);
 		expect(
 			diffMediaMonitoringSnapshots(
 				snapshot({ entitySchemaSlug: "manga", mangaChapters: 10 }),
 				snapshot({ entitySchemaSlug: "manga", mangaChapters: 11 }),
-			).map((change) => change.eventType),
-		).toEqual(["metadata_chapters_or_episodes_changed"]);
+			).map((change) => change.message),
+		).toEqual(["Number of chapters changed from 10 to 11 for Example"]);
 
 		const podcastBefore = snapshot({
 			entitySchemaSlug: "podcast",
@@ -329,8 +325,11 @@ describe("diffMediaMonitoringSnapshots", () => {
 			podcastEpisodes: [{ ...podcastEpisode, name: "New", images: ["new"] }],
 		});
 		expect(
-			diffMediaMonitoringSnapshots(podcastBefore, podcastAfter).map((change) => change.eventType),
-		).toEqual(["metadata_episode_name_changed", "metadata_episode_images_changed"]);
+			diffMediaMonitoringSnapshots(podcastBefore, podcastAfter).map((change) => change.message),
+		).toEqual([
+			'Episode name changed from "Old" to "New" (EP1) for Example',
+			"Episode image changed for EP1 in Example",
+		]);
 	});
 
 	it("emits distinct association changes once and emits again after removal", () => {
@@ -340,16 +339,23 @@ describe("diffMediaMonitoringSnapshots", () => {
 			associations: [
 				{ id: "media:one", kind: "metadata", name: "Film", role: "Publisher" },
 				{ id: "media:one", kind: "metadata", name: "Film", role: "Publisher" },
-				{ id: "group:one", kind: "group", name: "Series", role: "Publisher" },
+				{ id: "group:one", kind: "group", name: "Film", role: "Publisher" },
 			],
 		});
-		expect(
-			diffMediaMonitoringSnapshots(before, associated).map((change) => change.eventType),
-		).toEqual(["company_metadata_associated", "company_metadata_group_associated"]);
+		const changes = diffMediaMonitoringSnapshots(before, associated);
+		expect(changes.map((change) => change.message)).toEqual([
+			"Example has been associated with Film as Publisher",
+			"Example has been associated with Film as Publisher",
+		]);
+		expect(new Set(changes.map((change) => change.fingerprint)).size).toBe(2);
 		expect(diffMediaMonitoringSnapshots(associated, associated)).toEqual([]);
 		expect(diffMediaMonitoringSnapshots(snapshot({ entityKind: "person" }), associated)).toEqual([
-			expect.objectContaining({ eventType: "company_metadata_associated" }),
-			expect.objectContaining({ eventType: "company_metadata_group_associated" }),
+			expect.objectContaining({
+				message: "Example has been associated with Film as Publisher",
+			}),
+			expect.objectContaining({
+				message: "Example has been associated with Film as Publisher",
+			}),
 		]);
 		const removed = { ...associated, associations: [] };
 		expect(diffMediaMonitoringSnapshots(removed, associated)).toHaveLength(2);
