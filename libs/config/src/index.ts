@@ -8,8 +8,7 @@ import type {
 	AppSchemaFields,
 	AppStringProperty,
 } from "@ryot/contract/schema/property-schema";
-import type { Option } from "effect";
-import { Config, ConfigError, Either, Redacted } from "effect";
+import { Config, Effect, Option, Redacted, Schema, SchemaIssue } from "effect";
 
 const ConfigValueType: unique symbol = Symbol.for("@ryot/config/ConfigValue");
 
@@ -109,8 +108,8 @@ export type ConfigReferencePlugin = {
 export const stringField = <const O extends FieldOptions<string>>(
 	options: O,
 ): ConfigFieldDefinition<FieldValue<string, O>, AppStringProperty> => ({
-	envKey: options.envKey,
 	kind: "field",
+	envKey: options.envKey,
 	hidden: options.hidden ?? false,
 	schema: { type: "string", ...fieldSchemaOptions(options) },
 });
@@ -118,8 +117,8 @@ export const stringField = <const O extends FieldOptions<string>>(
 export const integerField = <const O extends FieldOptions<number>>(
 	options: O,
 ): ConfigFieldDefinition<FieldValue<number, O>, AppIntegerProperty> => ({
-	envKey: options.envKey,
 	kind: "field",
+	envKey: options.envKey,
 	hidden: options.hidden ?? false,
 	schema: { type: "integer", ...fieldSchemaOptions(options) },
 });
@@ -127,8 +126,8 @@ export const integerField = <const O extends FieldOptions<number>>(
 export const booleanField = <const O extends FieldOptions<boolean>>(
 	options: O,
 ): ConfigFieldDefinition<FieldValue<boolean, O>, AppBooleanProperty> => ({
-	envKey: options.envKey,
 	kind: "field",
+	envKey: options.envKey,
 	hidden: options.hidden ?? false,
 	schema: { type: "boolean", ...fieldSchemaOptions(options) },
 });
@@ -139,8 +138,8 @@ export const enumField = <
 >(
 	options: O & { readonly options: Values },
 ): ConfigFieldDefinition<FieldValue<Values[number], O>, AppEnumProperty> => ({
-	envKey: options.envKey,
 	kind: "field",
+	envKey: options.envKey,
 	hidden: options.hidden ?? false,
 	schema: { type: "enum", options: options.options, ...fieldSchemaOptions(options) },
 });
@@ -169,7 +168,7 @@ const primitiveConfig = (field: AppPropertyDefinition, envKey: string): Config.C
 		return Config.boolean(envKey);
 	}
 	if (field.type === "integer") {
-		return Config.integer(envKey);
+		return Config.int(envKey);
 	}
 	if (field.type === "number") {
 		return Config.number(envKey);
@@ -178,9 +177,15 @@ const primitiveConfig = (field: AppPropertyDefinition, envKey: string): Config.C
 		return Config.string(envKey).pipe(
 			Config.mapOrFail((value) =>
 				field.options.includes(value)
-					? Either.right(value)
-					: Either.left(
-							ConfigError.InvalidData([], `${envKey} must be one of: ${field.options.join(", ")}`),
+					? Effect.succeed(value)
+					: Effect.fail(
+							new Config.ConfigError(
+								new Schema.SchemaError(
+									new SchemaIssue.InvalidValue(Option.some(value), {
+										message: `${envKey} must be one of: ${field.options.join(", ")}`,
+									}),
+								),
+							),
 						),
 			),
 		);
