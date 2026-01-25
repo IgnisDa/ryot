@@ -6,7 +6,7 @@ import type {
 	SandboxHostCapability,
 	SandboxManifest,
 	ScriptManifest,
-} from "./core.js";
+} from "./core";
 
 type ScriptExecution<
 	Input extends Schema.Schema.AnyNoContext,
