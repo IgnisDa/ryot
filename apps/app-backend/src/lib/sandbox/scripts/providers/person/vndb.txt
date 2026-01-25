@@ -1,0 +1,158 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("VNDB returned invalid JSON");
+  }
+}
+
+const BASE_URL = "https://api.vndb.org/kana";
+
+driver("search", async function (context) {
+  const pageSize = 20;
+  const currentPage = Number.isFinite(Number(context?.page))
+    ? Math.max(1, Math.floor(Number(context.page)))
+    : 1;
+  const query =
+    typeof context?.query === "string" ? context.query.trim() : "";
+
+  if (!query) {
+    throw new Error("query is required");
+  }
+
+  const response = await httpCall("POST", `${BASE_URL}/producer`, {
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      page: currentPage,
+      count: true,
+      results: pageSize,
+      fields: "id,name",
+      filters: ["search", "=", query],
+    }),
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "VNDB producer search request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  const totalItems =
+    typeof payload?.count === "number" && Number.isFinite(payload.count)
+      ? Math.max(0, Math.trunc(payload.count))
+      : 0;
+
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+
+  const items = results
+    .map((producer) => {
+      if (!producer || typeof producer !== "object") {
+        return null;
+      }
+
+      const identifier =
+        typeof producer.id === "string" && producer.id.trim()
+          ? producer.id.trim()
+          : null;
+      if (!identifier) {
+        return null;
+      }
+
+      const name =
+        typeof producer.name === "string" && producer.name.trim()
+          ? producer.name.trim()
+          : null;
+      if (!name) {
+        return null;
+      }
+
+      return {
+        identifier,
+        badgeProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: name },
+        subtitleProperty: { kind: "null", value: null },
+        imageProperty: { kind: "null", value: null },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: payload?.more === true ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function (context) {
+  const identifier =
+    typeof context?.identifier === "string"
+      ? context.identifier.trim()
+      : "";
+
+  if (!identifier) {
+    throw new Error("identifier is required");
+  }
+
+  if (!/^p\d+$/.test(identifier)) {
+    throw new Error(
+      "identifier must be a VNDB producer ID (e.g., 'p1')",
+    );
+  }
+
+  const response = await httpCall("POST", `${BASE_URL}/producer`, {
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      fields: "id,name,description",
+      filters: ["id", "=", identifier],
+    }),
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "VNDB producer details request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+
+  if (results.length === 0) {
+    throw new Error("VNDB returned no data for this producer identifier");
+  }
+
+  const producer = results[0];
+
+  const name =
+    typeof producer.name === "string" && producer.name.trim()
+      ? producer.name.trim()
+      : null;
+  if (!name) {
+    throw new Error("VNDB producer payload is missing name");
+  }
+
+  const description =
+    typeof producer.description === "string" && producer.description.trim()
+      ? producer.description.trim()
+      : null;
+
+  return {
+    name,
+    properties: {
+      gender: null,
+      website: null,
+      birthDate: null,
+      deathDate: null,
+      birthPlace: null,
+      description,
+      alternateNames: [],
+      assets: { remoteImages: [] },
+      sourceUrl: `https://vndb.org/${identifier}`,
+    },
+  };
+});
