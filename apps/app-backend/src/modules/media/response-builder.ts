@@ -89,10 +89,11 @@ const resolveUnitLabel = (
 ) =>
 	match(entitySchemaSlug)
 		.with("book", () => "pages")
-		.with("comic-book", () => "pages")
+		.with("music", () => "seconds")
 		.with("anime", () => "episodes")
 		.with("manga", () => "chapters")
 		.with("podcast", () => "episodes")
+		.with("comic-book", () => "pages")
 		.with("audiobook", () => "minutes")
 		.with("video-game", () => "percent")
 		.exhaustive();
@@ -109,6 +110,7 @@ const resolveContinueCta = (
 			"audiobook",
 			"podcast",
 			"video-game",
+			"music",
 			() => "Log Progress",
 		)
 		.exhaustive();

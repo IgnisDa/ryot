@@ -8,6 +8,7 @@ import metronComicBookScriptCode from "~/lib/sandbox/scripts/providers/media/com
 import anilistMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/anilist.txt";
 import mangaUpdatesMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/manga-updates.txt";
 import myanimelistMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/myanimelist.txt";
+import musicbrainzMusicScriptCode from "~/lib/sandbox/scripts/providers/media/music/musicbrainz.txt";
 import itunesPodcastScriptCode from "~/lib/sandbox/scripts/providers/media/podcast/itunes.txt";
 import listennotesPodcastScriptCode from "~/lib/sandbox/scripts/providers/media/podcast/listennotes.txt";
 import giantBombVideoGameScriptCode from "~/lib/sandbox/scripts/providers/media/video-game/giant-bomb.txt";
@@ -16,6 +17,7 @@ import anilistPersonScriptCode from "~/lib/sandbox/scripts/providers/person/anil
 import audiblePersonScriptCode from "~/lib/sandbox/scripts/providers/person/audible.txt";
 import hardcoverPersonScriptCode from "~/lib/sandbox/scripts/providers/person/hardcover.txt";
 import metronPersonScriptCode from "~/lib/sandbox/scripts/providers/person/metron.txt";
+import musicbrainzPersonScriptCode from "~/lib/sandbox/scripts/providers/person/musicbrainz.txt";
 
 export const builtinSandboxScripts = () => [
 	{
@@ -89,6 +91,11 @@ export const builtinSandboxScripts = () => [
 		code: igdbVideoGameScriptCode,
 	},
 	{
+		name: "MusicBrainz",
+		slug: "music.musicbrainz",
+		code: musicbrainzMusicScriptCode,
+	},
+	{
 		name: "Anilist",
 		slug: "person.anilist",
 		code: anilistPersonScriptCode,
@@ -107,6 +114,11 @@ export const builtinSandboxScripts = () => [
 		name: "Metron",
 		slug: "person.metron",
 		code: metronPersonScriptCode,
+	},
+	{
+		name: "MusicBrainz",
+		slug: "person.musicbrainz",
+		code: musicbrainzPersonScriptCode,
 	},
 ];
 
@@ -168,6 +180,10 @@ export const entitySchemaScriptLinks = () =>
 			schemaSlug: "video-game",
 			scriptSlug: "video-game.igdb",
 		},
+		{
+			schemaSlug: "music",
+			scriptSlug: "music.musicbrainz",
+		},
 	] as const;
 
 export const personSchemaScriptLinks = () =>
@@ -176,4 +192,5 @@ export const personSchemaScriptLinks = () =>
 		{ schemaSlug: "person", scriptSlug: "person.audible" },
 		{ schemaSlug: "person", scriptSlug: "person.hardcover" },
 		{ schemaSlug: "person", scriptSlug: "person.metron" },
+		{ schemaSlug: "person", scriptSlug: "person.musicbrainz" },
 	] as const;
