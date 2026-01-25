@@ -1,8 +1,10 @@
-import { AutomationRuleId, SignalSchemaId } from "@ryot/contract/schema/brands";
+import { AutomationRuleId, EntityId, SignalSchemaId, UserId } from "@ryot/contract/schema/brands";
 
 import { getPgClient } from "~/setup";
 
+import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
+import { getBackendClient } from "./contract-client";
 import { pollUntil, type PollOptions } from "./polling";
 
 export function listAutomationCatalog(client: Client) {
@@ -44,62 +46,53 @@ export function deleteNotificationRule(client: Client, ruleId: string) {
 	);
 }
 
-/**
- * Signal, recipient, and run history has no listing endpoint (deferred per the automations
- * PRD), so these are the documented SQL exception for asserting account-deletion cleanup and
- * subscription-run completion. See tests/AGENTS.md's SQL allowlist.
- */
-export async function querySignalId(input: {
+export interface SignalFilter {
 	schemaSlug: string;
 	actorUserId?: string;
 	subjectEntityId?: string;
-}) {
-	const params: unknown[] = [input.schemaSlug];
-	const conditions = ["ss.slug = $1"];
-	if (input.actorUserId) {
-		params.push(input.actorUserId);
-		conditions.push(`s.actor_user_id = $${params.length}`);
-	}
-	if (input.subjectEntityId) {
-		params.push(input.subjectEntityId);
-		conditions.push(`s.subject_entity_id = $${params.length}`);
-	}
-	const result = await getPgClient().query<{ id: string }>(
-		`select s.id from signal s
-		 inner join signal_schema ss on ss.id = s.signal_schema_id
-		 where ${conditions.join(" and ")}
-		 order by s.created_at desc
-		 limit 1`,
-		params,
+}
+
+/**
+ * Inspects signals and their recipients through the admin `testSupport.listSignals` endpoint.
+ * Rows come back newest-first, so `[0]` is the most recently created matching signal.
+ */
+export function listSignals(filter: SignalFilter) {
+	return getBackendClient().run(
+		(c) =>
+			c.testSupport.listSignals({
+				payload: {
+					schemaSlug: filter.schemaSlug,
+					actorUserId: filter.actorUserId ? UserId.make(filter.actorUserId) : undefined,
+					subjectEntityId: filter.subjectEntityId
+						? EntityId.make(filter.subjectEntityId)
+						: undefined,
+				},
+			}),
+		adminHeaders,
 	);
-	return result.rows[0]?.id ?? null;
 }
 
-export function pollSignalId(
-	input: { schemaSlug: string; actorUserId?: string; subjectEntityId?: string },
-	options: PollOptions = {},
-) {
-	return pollUntil(`signal for '${input.schemaSlug}'`, () => querySignalId(input), options);
-}
-
-export async function querySignalRecipientUserIds(signalId: string) {
-	const result = await getPgClient().query<{ user_id: string }>(
-		`select user_id from signal_recipient where signal_id = $1`,
-		[signalId],
+export function pollSignal(filter: SignalFilter, options: PollOptions = {}) {
+	return pollUntil(
+		`signal for '${filter.schemaSlug}'`,
+		async () => {
+			const [signal] = await listSignals(filter);
+			return signal ?? null;
+		},
+		options,
 	);
-	return result.rows.map((row) => row.user_id);
 }
 
-export function pollSignalRecipientCount(
-	signalId: string,
+export function pollSignalWithRecipientCount(
+	filter: SignalFilter,
 	count: number,
 	options: PollOptions = {},
 ) {
 	return pollUntil(
-		`${count} recipient(s) for signal '${signalId}'`,
+		`${count} recipient(s) for signal '${filter.schemaSlug}'`,
 		async () => {
-			const userIds = await querySignalRecipientUserIds(signalId);
-			return userIds.length === count ? userIds : null;
+			const [signal] = await listSignals(filter);
+			return signal?.recipientUserIds.length === count ? signal : null;
 		},
 		options,
 	);
