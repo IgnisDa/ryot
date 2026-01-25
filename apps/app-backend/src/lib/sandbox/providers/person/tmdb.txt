@@ -151,7 +151,7 @@ driver("search", async function (context) {
 	};
 });
 
-driver("details", async function (context) {
+driver("details", async function (context, { metadata }) {
 	const { z } = await import("npm:zod");
 
 	const { externalId } = z
@@ -164,11 +164,12 @@ driver("details", async function (context) {
 		throw new Error("externalId must be a numeric TMDB person ID");
 	}
 
+	const language = metadata?.providerInformation?.canonicalLanguage ?? "en-US";
 	const token = await getTmdbAccessToken();
 
 	const personData = await tmdbGet(
 		`/person/${externalId}`,
-		{ language: "en-US", append_to_response: "images" },
+		{ language, append_to_response: "images" },
 		token,
 	);
 
@@ -239,4 +240,70 @@ driver("details", async function (context) {
 					: null,
 		},
 	};
+});
+
+driver("translate", async function (context) {
+	const { z } = await import("npm:zod");
+
+	const { externalId, language } = z
+		.object({
+			language: z.string().trim().min(1, "language is required"),
+			externalId: z.string().trim().min(1, "externalId is required"),
+		})
+		.parse(context ?? {});
+
+	if (!/^\d+$/.test(externalId)) {
+		throw new Error("externalId must be a numeric TMDB person ID");
+	}
+
+	const [langPart, regionPart] = language.split("-");
+	const langCode = langPart.trim().toLowerCase();
+	const region = regionPart ? regionPart.trim().toUpperCase() : null;
+
+	const token = await getTmdbAccessToken();
+	const translationsData = await tmdbGet(`/person/${externalId}/translations`, {}, token);
+	let imagesData = {};
+	try {
+		imagesData = await tmdbGet(`/person/${externalId}/images`, {}, token);
+	} catch {}
+
+	const translations = Array.isArray(translationsData?.translations)
+		? translationsData.translations
+		: [];
+	const matchesLanguage = (entry) =>
+		typeof entry?.iso_639_1 === "string" && entry.iso_639_1.toLowerCase() === langCode;
+	const candidates = translations.filter(matchesLanguage);
+	const regionMatch = region
+		? candidates.find(
+				(entry) =>
+					typeof entry?.iso_3166_1 === "string" && entry.iso_3166_1.toUpperCase() === region,
+			)
+		: null;
+	const orderedCandidates = regionMatch
+		? [regionMatch, ...candidates.filter((entry) => entry !== regionMatch)]
+		: candidates;
+	const firstValue = (extract) => {
+		for (const entry of orderedCandidates) {
+			const value = extract(entry);
+			if (typeof value === "string" && value.trim()) return value.trim();
+		}
+		return null;
+	};
+
+	const name = firstValue((entry) => entry?.data?.name);
+	const description = firstValue((entry) => entry?.data?.biography);
+
+	const profiles = Array.isArray(imagesData?.profiles) ? imagesData.profiles : [];
+	const localizedProfile = profiles.find(
+		(profile) =>
+			typeof profile?.iso_639_1 === "string" && profile.iso_639_1.toLowerCase() === langCode,
+	);
+	const imageUrl = localizedProfile ? getImageUrl(localizedProfile.file_path) : null;
+
+	const result = {};
+	if (name) result.name = name;
+	if (description) result.description = description;
+	if (imageUrl) result.image = { type: "remote", url: imageUrl };
+
+	return result;
 });
