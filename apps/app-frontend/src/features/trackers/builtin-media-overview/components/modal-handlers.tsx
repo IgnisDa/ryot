@@ -104,6 +104,21 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 		});
 	};
 
+	const ENTITY_SUBTITLES: Record<string, string> = {
+		book: "Log books you've read",
+		movie: "Log films you've seen",
+		music: "Rate albums and tracks",
+		anime: "Watch and follow series",
+		"comic-book": "Track your issues",
+		manga: "Follow volumes and series",
+		person: "Follow creators and cast",
+		show: "Track episodes and seasons",
+		audiobook: "Listen to spoken books",
+		"visual-novel": "Track your reading",
+		podcast: "Subscribe and log episodes",
+		"video-game": "Log your play sessions",
+	};
+
 	const openTypePickerModal = () => {
 		const typePickerModalId = `builtin-media-type-picker-${deps.trackerId}`;
 
@@ -114,7 +129,7 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 			overlayProps: { backgroundOpacity: 0.55, blur: 3 },
 			title: (
 				<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
-					Queue something
+					Track something
 				</Text>
 			),
 			children: (
@@ -140,7 +155,8 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 										{schema.name}
 									</Text>
 									<Text fz={10} c={t.textMuted}>
-										Find and track {schema.name.toLowerCase()}
+										{ENTITY_SUBTITLES[schema.slug] ??
+											`Search and track ${schema.name.toLowerCase()}`}
 									</Text>
 								</Stack>
 							</UnstyledButton>
@@ -151,9 +167,5 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 		});
 	};
 
-	return {
-		handleStartItem,
-		handleContinueItem,
-		openTypePickerModal,
-	};
+	return { handleStartItem, handleContinueItem, openTypePickerModal };
 }

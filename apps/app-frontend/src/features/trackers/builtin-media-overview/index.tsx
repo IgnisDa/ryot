@@ -242,7 +242,7 @@ export function BuiltinMediaTrackerOverview(
 					leftSection={<Bookmark size={14} />}
 					onClick={() => openTypePickerModal()}
 				>
-					Add to watchlist
+					Track Something
 				</Button>
 			</Group>
 
