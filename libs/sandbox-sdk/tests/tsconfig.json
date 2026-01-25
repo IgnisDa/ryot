@@ -6,10 +6,5 @@
 		"rootDir": "..",
 		"composite": false
 	},
-	"include": [
-		"./host-types.ts",
-		"./trigger-types.ts",
-		"./provider-types.ts",
-		"./dependency-types.ts"
-	]
+	"include": ["./host-types.ts", "./provider-types.ts", "./dependency-types.ts"]
 }
