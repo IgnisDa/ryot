@@ -25,7 +25,7 @@ const CompilerWorkerFailure = Schema.Struct({
 	error: SandboxCompilerFailure,
 });
 
-export const CompilerWorkerResponse = Schema.Union(CompilerWorkerSuccess, CompilerWorkerFailure);
+export const CompilerWorkerResponse = Schema.Union([CompilerWorkerSuccess, CompilerWorkerFailure]);
 
 export type CompilerWorkerResponse = Schema.Schema.Type<typeof CompilerWorkerResponse>;
 
