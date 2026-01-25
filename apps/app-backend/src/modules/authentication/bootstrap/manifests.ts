@@ -1,6 +1,7 @@
 import { normalizeSlug } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { animePropertiesJsonSchema } from "~/lib/media/anime";
+import { audiobookPropertiesJsonSchema } from "~/lib/media/audiobook";
 import { bookPropertiesJsonSchema } from "~/lib/media/book";
 import {
 	type BuiltinMediaEntitySchemaSlug,
@@ -16,7 +17,7 @@ export const authenticationBuiltinTrackers = () => [
 		slug: "media",
 		name: "Media",
 		accentColor: "#5B7FFF",
-		description: "Track media across books, anime, and manga.",
+		description: "Track media across books, anime, manga, and audiobooks.",
 	},
 	{
 		slug: "fitness",
@@ -141,6 +142,15 @@ export const authenticationBuiltinEntitySchemas = () => [
 		propertiesSchema: mangaPropertiesJsonSchema,
 	},
 	{
+		slug: "audiobook",
+		name: "Audiobook",
+		icon: "headphones",
+		trackerSlug: "media",
+		accentColor: "#F97316",
+		eventSchemas: mediaLifecycleEventSchemas(),
+		propertiesSchema: audiobookPropertiesJsonSchema,
+	},
+	{
 		icon: "folders",
 		eventSchemas: [],
 		slug: "collection",
@@ -166,6 +176,7 @@ const getBuiltInSavedViewName = (slug: BuiltinMediaEntitySchemaSlug) => {
 		.with("book", () => "All Books")
 		.with("anime", () => "All Anime")
 		.with("manga", () => "All Manga")
+		.with("audiobook", () => "All Audiobooks")
 		.exhaustive();
 };
 
