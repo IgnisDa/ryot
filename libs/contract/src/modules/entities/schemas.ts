@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Schema, SchemaGetter } from "effect";
 
 import { EntityId, EntitySchemaSlug, SandboxProviderId } from "../../schema/brands";
 
@@ -16,7 +16,7 @@ export const ListedEntity = Schema.Struct({
 
 export type ListedEntity = typeof ListedEntity.Type;
 
-export const TranslationStatus = Schema.Literal("pending", "ready", "none");
+export const TranslationStatus = Schema.Literals(["pending", "ready", "none"]);
 
 export type TranslationStatus = typeof TranslationStatus.Type;
 
@@ -27,33 +27,30 @@ export const EntityDetail = Schema.Struct({
 
 export type EntityDetail = typeof EntityDetail.Type;
 
-const RequiredEntitySchemaSlug = Schema.compose(
-	Schema.Trim.pipe(
-		Schema.filter((value) => value.length > 0, { message: () => "Entity schema id is required" }),
+const RequiredEntitySchemaSlug = Schema.Trim.pipe(
+	Schema.check(
+		Schema.makeFilter((schemaFilterInput) => ((value) => value.length > 0)(schemaFilterInput)),
 	),
-	EntitySchemaSlug,
+).pipe(Schema.decodeTo(EntitySchemaSlug));
+
+const OptionalExternalId = Schema.String.pipe(
+	Schema.decodeTo(Schema.UndefinedOr(Schema.String), {
+		decode: SchemaGetter.transform((value) => {
+			const trimmed = value.trim();
+			return trimmed.length > 0 ? trimmed : undefined;
+		}),
+		encode: SchemaGetter.transform((value) => value ?? ""),
+	}),
 );
 
-const OptionalExternalId = Schema.transform(Schema.String, Schema.UndefinedOr(Schema.String), {
-	strict: true,
-	encode: (value) => value ?? "",
-	decode: (value) => {
-		const trimmed = value.trim();
-		return trimmed.length > 0 ? trimmed : undefined;
-	},
-});
-
-const OptionalSandboxProviderId = Schema.transform(
-	Schema.String,
-	Schema.UndefinedOr(SandboxProviderId),
-	{
-		strict: true,
-		encode: (value) => value ?? "",
-		decode: (value) => {
+const OptionalSandboxProviderId = Schema.String.pipe(
+	Schema.decodeTo(Schema.UndefinedOr(SandboxProviderId), {
+		decode: SchemaGetter.transform((value) => {
 			const trimmed = value.trim();
-			return trimmed.length > 0 ? SandboxProviderId.make(trimmed) : undefined;
-		},
-	},
+			return trimmed.length > 0 ? trimmed : undefined;
+		}),
+		encode: SchemaGetter.transform((value) => value ?? ""),
+	}),
 );
 
 export const CreateEntityBody = Schema.Struct({
