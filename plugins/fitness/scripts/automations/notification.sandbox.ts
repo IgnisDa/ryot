@@ -26,7 +26,7 @@ export default defineAutomation({
 					new Error(`Unsupported signal schema: ${signal.signalSchemaSlug}`),
 				);
 			}
-			const properties = yield* Schema.decodeUnknown(workoutCreatedPropertiesSchema)(
+			const properties = yield* Schema.decodeUnknownEffect(workoutCreatedPropertiesSchema)(
 				signal.properties,
 			).pipe(Effect.mapError(() => new Error("Signal property workoutName must be a string")));
 			return yield* host.sendNotification(`Workout ${properties.workoutName} was created`);
