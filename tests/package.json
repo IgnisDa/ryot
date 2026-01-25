@@ -15,6 +15,7 @@
 		"@ryot/app-backend": "workspace:*",
 		"@ryot/contract": "workspace:*",
 		"@ryot/plugin-kit": "workspace:*",
+		"@ryot/plugin-media": "workspace:*",
 		"@ryot/query-engine": "workspace:*",
 		"@ryot/sandbox-sdk": "workspace:*",
 		"@ryot/testing": "workspace:*",

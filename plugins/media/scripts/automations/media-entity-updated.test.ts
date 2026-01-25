@@ -6,10 +6,12 @@ import { expect, it } from "vitest";
 
 import definition, { manifest } from "./media-entity-updated.sandbox";
 
+type Population = NonNullable<AutomationInput["automation"]["population"]>;
+
 const input = (
 	overrides: {
 		rootPreviouslyPopulated?: boolean;
-		owningSeason?: { name: string | null; number: number | null };
+		parentEntity?: NonNullable<Population["parentEntity"]>;
 		after?: Partial<
 			NonNullable<Extract<AutomationInput["automation"]["source"], { kind: "entity" }>["after"]>
 		>;
@@ -27,7 +29,7 @@ const input = (
 		population: {
 			rootPreviouslyPopulated: overrides.rootPreviouslyPopulated ?? true,
 			scopeEntity: { id: "show-1", name: "Severance", entitySchemaSlug: "show" },
-			...(overrides.owningSeason ? { owningSeason: overrides.owningSeason } : {}),
+			...(overrides.parentEntity ? { parentEntity: overrides.parentEntity } : {}),
 		},
 		source: {
 			kind: "entity",
@@ -95,10 +97,14 @@ it("emits independent status, publish-year, and anime-count signals for a popula
 		Effect.runPromise,
 	));
 
-it("uses the parent show and owning season for episode facts", () =>
+it("uses the parent show and season context for episode facts", () =>
 	run(
 		input({
-			owningSeason: { name: "Season 1", number: 1 },
+			parentEntity: {
+				name: "Season 1",
+				properties: { seasonNumber: 1 },
+				entitySchemaSlug: "show-season",
+			},
 			before: {
 				name: "Pilot",
 				entitySchemaSlug: "show-episode",
@@ -137,6 +143,39 @@ it("uses the parent show and owning season for episode facts", () =>
 		Effect.runPromise,
 	));
 
+it("does not treat a podcast parent as season context", () =>
+	run(
+		input({
+			parentEntity: {
+				name: "Special Podcast",
+				properties: { seasonNumber: 0 },
+				entitySchemaSlug: "podcast",
+			},
+			before: {
+				name: "Old Name",
+				properties: { episodeNumber: 3 },
+				entitySchemaSlug: "podcast-episode",
+			},
+			after: {
+				name: "New Name",
+				properties: { episodeNumber: 3 },
+				entitySchemaSlug: "podcast-episode",
+			},
+		}),
+	).pipe(
+		Effect.map((calls) => {
+			expect(calls).toHaveLength(1);
+			expect(calls[0]?.["properties"]).toEqual({
+				episodeNumber: 3,
+				oldName: "Old Name",
+				newName: "New Name",
+				entityName: "Severance",
+			});
+			return undefined;
+		}),
+		Effect.runPromise,
+	));
+
 it("stays silent for initial population and special seasons", () =>
 	Effect.runPromise(
 		Effect.all(
@@ -144,7 +183,30 @@ it("stays silent for initial population and special seasons", () =>
 				run(input({ rootPreviouslyPopulated: false })),
 				run(
 					input({
-						owningSeason: { name: "Specials", number: 0 },
+						parentEntity: {
+							name: "Season Zero",
+							properties: { seasonNumber: 0 },
+							entitySchemaSlug: "show-season",
+						},
+						before: {
+							name: "Old",
+							properties: { episodeNumber: 1 },
+							entitySchemaSlug: "show-episode",
+						},
+						after: {
+							name: "New",
+							properties: { episodeNumber: 1 },
+							entitySchemaSlug: "show-episode",
+						},
+					}),
+				),
+				run(
+					input({
+						parentEntity: {
+							name: "Holiday Specials",
+							properties: { seasonNumber: 2 },
+							entitySchemaSlug: "show-season",
+						},
 						before: {
 							name: "Old",
 							properties: { episodeNumber: 1 },
@@ -160,9 +222,10 @@ it("stays silent for initial population and special seasons", () =>
 			],
 			{ concurrency: "unbounded" },
 		).pipe(
-			Effect.map(([initial, special]) => {
+			Effect.map(([initial, zero, namedSpecial]) => {
 				expect(initial).toEqual([]);
-				expect(special).toEqual([]);
+				expect(zero).toEqual([]);
+				expect(namedSpecial).toEqual([]);
 				return undefined;
 			}),
 		),
@@ -171,7 +234,11 @@ it("stays silent for initial population and special seasons", () =>
 it("treats image order and duplicates as equal and ignores null-sided dates", () =>
 	run(
 		input({
-			owningSeason: { name: "Season 1", number: 1 },
+			parentEntity: {
+				name: "Season 1",
+				properties: { seasonNumber: 1 },
+				entitySchemaSlug: "show-season",
+			},
 			before: {
 				name: "Episode",
 				entitySchemaSlug: "show-episode",

@@ -1,8 +1,8 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { badRequest } from "@ryot/contract/errors";
 import type {
 	TestSupportEnqueueSandboxBody,
 	TestSupportStoredSandboxScript,
+	TestSupportTriggerPluginCronBody,
 } from "@ryot/contract/modules/test-support/schemas";
 import {
 	EntitySchemaSlug,
@@ -24,7 +24,6 @@ import { TranslationsService } from "#modules/entity-translation/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";
-import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 import { PluginBootService } from "#modules/scheduler/plugin-boot";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
 import { SignalsService } from "#modules/signals/service";
@@ -57,7 +56,6 @@ const parseDate = (value: string) => {
 export class TestSupportService extends Effect.Service<TestSupportService>()("TestSupportService", {
 	effect: Effect.gen(function* () {
 		const auth = yield* AuthService;
-		const engine = yield* WorkflowEngine;
 		const signals = yield* SignalsService;
 		const entities = yield* EntitiesService;
 		const interest = yield* InterestService;
@@ -160,15 +158,12 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 		const triggerInfrequentCron = () =>
 			Effect.gen(function* () {
 				const executionId = `infrequent-cron-manual-${generateId()}`;
-				yield* engine
-					.execute(InfrequentCronWorkflow, {
-						executionId,
-						payload: { executionId },
-					})
-					.pipe(Effect.orDie);
 				yield* pluginCrons.triggerAll(executionId);
 				return { executionId };
 			});
+
+		const triggerPluginCron = (input: TestSupportTriggerPluginCronBody) =>
+			pluginCrons.trigger(input.pluginSlug, input.cronSlug, `plugin-cron-manual-${generateId()}`);
 
 		const triggerPluginBoot = () =>
 			Effect.gen(function* () {
@@ -199,6 +194,7 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 		return {
 			linkAuthAccount,
 			triggerPluginBoot,
+			triggerPluginCron,
 			createGlobalEntity,
 			countAutomationRules,
 			setEntityPopulatedAt,

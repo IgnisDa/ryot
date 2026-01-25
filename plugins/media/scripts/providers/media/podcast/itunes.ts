@@ -316,6 +316,7 @@ export const details = defineProvider({
 							return {
 								name: title,
 								childEntities,
+								expectedChildEntitySchemaSlug: "podcast-episode",
 								properties: {
 									publishDate: getIsoDate(podcast["releaseDate"]),
 									publishYear: getPublishYear(podcast["releaseDate"]),

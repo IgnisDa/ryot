@@ -448,35 +448,3 @@ export const buildTrendingMediaQueryDocument = (input: {
 			queryEngineOrder("desc", queryEngineSystemRef("targetEntity", "updatedAt")),
 		],
 	});
-
-export const buildMediaMonitoringStatusQueryDocument = (input: {
-	entityId: string;
-	entitySchemaSlug: string;
-}) =>
-	buildQueryEngineEntityRowsDocument({
-		alias: entityAlias,
-		limit: 1,
-		schemas: [input.entitySchemaSlug],
-		where: entityIdEquals(input.entityId),
-		fields: queryEngineIdentityFields(entityAlias),
-		orderBy: [queryEngineOrder("asc", queryEngineSystemRef(entityAlias, "id"))],
-		include: [
-			queryEngineInclude({
-				key: "libraries",
-				limit: 1,
-				fields: queryEngineIdentityFields("library"),
-				orderBy: [queryEngineOrder("asc", queryEngineSystemRef("library", "name"))],
-				source: queryEngineEntitySource({
-					alias: "library",
-					schemas: ["library"],
-					where: null,
-					via: {
-						entityRef: entityAlias,
-						alias: "mediaMonitoringRelationship",
-						direction: "outgoing" as const,
-						schema: "media-monitoring",
-					},
-				}),
-			}),
-		],
-	});

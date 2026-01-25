@@ -1,8 +1,9 @@
 # Phase 3 — Capability migrations
 
-Status: in progress. Steps 0-4 are complete; resume with Step 5. Step 4's focused imports e2e
-failure is deferred to the Phase 3 gate and recorded in §4. Do not recreate the removed
-multi-entrypoint driver model while implementing later steps.
+Status: in progress. Steps 0-4 and the Step 5 migration and purity triage are complete; Task 11 and
+the Phase 3 gate remain open. Resume with the timed-out opt-in operational gate and the owner-skipped
+Task 10 imports e2e follow-up recorded below, not Step 5 implementation. Do not claim the branch or
+full e2e gate green.
 
 Goal: move the remaining native domain code into the plugins, one capability at a time. Step 0's
 two prerequisites establish the authoring and observability foundations. Each capability step
@@ -301,7 +302,7 @@ whose control flow spans a durable boundary must either re-execute the script fr
 slot and loses all state on process death. Do not "fix" this by rearchitecting the bridge; the
 re-execution model is the intended architecture. Decision 7 stands as written — `activity`,
 `sleep`, and `child` are host functions that return recorded results — with the single
-clarification that the *pending* case ends the replay instead of returning.
+clarification that the _pending_ case ends the replay instead of returning.
 
 **The shell loop.** The workflow body, bounded by a kernel-owned max-step constant:
 
@@ -330,7 +331,7 @@ high-water-mark field rather than an `HLEN`-equality guard when deciding whether
 the projection legitimately runs ahead of a partially rebuilt journal.
 
 **Journal transport is O(n) bytes per replay, and that is inherent.** A-prime removes the hard
-*cap* and all context pressure, not the transfer: the script re-reads its prefix on every
+_cap_ and all context pressure, not the transfer: the script re-reads its prefix on every
 replay, exactly as a Temporal worker re-reads history. Under A the accumulated journal rode in
 the script context and hit `sandboxContextError` (256 KiB, `sandbox-runtime/limits.ts`), which
 killed a workflow whose activity output totalled 528 KB — mid-flight, with a message that reads
@@ -411,8 +412,8 @@ against 2082 ms for a single execution, with no lock or pool errors.
 `scriptId` lives in the immutable workflow payload and the shell dispatches the sandbox queue
 directly. `processSandboxExecution` must **not** be used inside a replay loop:
 `resolveSandboxExecutionPayload` (`modules/sandbox/durable-queues.ts`) unconditionally calls
-`findActiveScriptById`, which resolves the stored row's `pluginSlug`+`slug` to the *currently
-active* script (`modules/plugins/runtime-resolver.ts`) — after a hot swap that is the new
+`findActiveScriptById`, which resolves the stored row's `pluginSlug`+`slug` to the _currently
+active_ script (`modules/plugins/runtime-resolver.ts`) — after a hot swap that is the new
 version, which would silently switch a running execution's code. Task 06 gives that function an
 explicit mode: re-resolve for entry-point dispatch, pin inside durable replay loops. A hot swap
 performed while an execution was suspended was confirmed to resume on the original module.
@@ -445,13 +446,13 @@ date parsing.
 
 **Per-script-kind limit profile (kernel-owned ceilings):**
 
-| Limit | Workflow kind | Rationale |
+| Limit                    | Workflow kind | Rationale                                                             |
 | ------------------------ | ------------- | --------------------------------------------------------------------- |
-| `execution.contextBytes` | 64 KiB | measured 99–136 B, constant regardless of journal size |
-| `execution.resultBytes` | 4 MiB | the actual binding limit; 1 MiB broke a 5-step workflow's own output |
-| `hostCalls.total` | 1000 | budget is **per execution**, so it caps workflow length, not lifetime |
-| `bridge.responseBytes` | 10 MiB (keep) | carried 3.99 MB in one replay without issue |
-| timeout | ≥ 30 s | a pure replay took 4–9 ms (A) / 23–42 ms (A-prime) at 3–10 entries |
+| `execution.contextBytes` | 64 KiB        | measured 99–136 B, constant regardless of journal size                |
+| `execution.resultBytes`  | 4 MiB         | the actual binding limit; 1 MiB broke a 5-step workflow's own output  |
+| `hostCalls.total`        | 1000          | budget is **per execution**, so it caps workflow length, not lifetime |
+| `bridge.responseBytes`   | 10 MiB (keep) | carried 3.99 MB in one replay without issue                           |
+| timeout                  | ≥ 30 s        | a pure replay took 4–9 ms (A) / 23–42 ms (A-prime) at 3–10 entries    |
 
 Activity script kinds keep the current profile.
 
@@ -651,7 +652,7 @@ Task 07 landed the capability slice with no consumers. Five findings bind the la
    unchanged and makes file sources lot-discriminated:
    `{ input: "file", lot: "single", allowedFileExtensions }` or
    `{ input: "file", lot: "named", artifacts: [{ key, uploadTokenField,
-   allowedFileExtensions, required }] }`. Each named artifact's stable `key` is both its existing
+allowedFileExtensions, required }] }`. Each named artifact's stable `key` is both its existing
    source-payload path identity (`historyFilePath`, `animeFilePath`, etc.) and the key scripts pass
    to `readNamedArtifact(key)`; `uploadTokenField` names the existing
    `CreateImportRunBody` token property. The kernel claims and validates each declared upload,
@@ -729,10 +730,10 @@ manifest field, a new kernel dispatch path, and an extra round trip per writing 
 Adapters and sources split by owning plugin. Adapter outputs that identify catalog providers use
 logical `providerSlug` / `providerId`, never executable script identity.
 
-| Target           | Sinks                                                          | Yanks                                        | Import sources                                                                                                                                    |
-| ---------------- | -------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `plugins/media`  | plex, jellyfin, emby, kodi, browser-extension, generic_json    | komga, plex, audiobookshelf, youtube-music   | netflix, goodreads, storygraph, hardcover, anilist, trakt, imdb, igdb, grouvee, movary, myanimelist, watcharr, jellyfin, plex, audiobookshelf, media-tracker |
-| `plugins/fitness`| —                                                              | —                                            | hevy, strong-app, open-scale                                                                                                                       |
+| Target            | Sinks                                                       | Yanks                                      | Import sources                                                                                                                                               |
+| ----------------- | ----------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `plugins/media`   | plex, jellyfin, emby, kodi, browser-extension, generic_json | komga, plex, audiobookshelf, youtube-music | netflix, goodreads, storygraph, hardcover, anilist, trakt, imdb, igdb, grouvee, movary, myanimelist, watcharr, jellyfin, plex, audiobookshelf, media-tracker |
+| `plugins/fitness` | —                                                           | —                                          | hevy, strong-app, open-scale                                                                                                                                 |
 
 Network access from adapter scripts is bounded through `httpCall` with integration credentials from
 the scoped `getIntegration`. Preserve `createProgressResult` semantics (`integrations/sinks/shared.ts`)
@@ -778,16 +779,73 @@ domain-specific code; both plugins own their adapters and import workflows; `int
 ## Step 5 — `media-monitoring` + remaining media logic
 
 Step 4 absorbs all of the imports and integrations work, so this step is what remains:
-`media-monitoring` plus residual media branches. It is composition — it adds no kernel capability.
-Monitoring sweeps are cron + `executeQueryEngine` pushdown + signals; refresh flows compose the
-step-3 workflows; notification fan-out uses the existing signal/subscription machinery. The
-`media-monitoring` contract group's user-facing surface (status/enable/disable) becomes plugin
-operations (step 2 capability), using `user` or `integration` auth.
+`media-monitoring` plus residual media branches. It is primarily composition: monitoring sweeps
+are cron + `executeQueryEngine` pushdown + signals; refresh flows compose the step-3 workflows;
+notification fan-out uses the existing signal/subscription machinery. The `media-monitoring`
+contract group's user-facing surface (status/enable/disable) becomes plugin operations (step 2
+capability), using `user` auth.
+
+**Implementation choices (2026-07-28, owner-approved):** implementation discovery proved that the
+earlier "adds no kernel capability" statement was incompatible with preserving the native behavior.
+The sandbox had no user-scoped relationship write, cron entries could dispatch only direct scripts,
+and the only plugin-callable population workflow required user authority and hardcoded ensure mode;
+native monitoring atomically writes user relationships and refreshes global provider entities under
+system authority. Step 5 therefore adds only the following generic composition glue:
+
+1. Add a batch-first, user-authority-only host function for atomic user relationship changes. The
+   kernel derives the user id, validates entity visibility and relationship schemas, and applies each
+   batch's creates/deletes atomically. Media monitoring uses it to ensure library membership plus the
+   monitoring edge on enable and to remove only the monitoring edge on disable; the syscall contains
+   no media vocabulary.
+2. Make cron declarations lot-discriminated so a cron targets exactly one direct `scriptSlug` or one
+   durable `workflowSlug`. Existing direct crons retain their behavior; workflow crons dispatch the
+   declared workflow with trusted system authority and await its terminal result through the same
+   scheduler path.
+3. Add a batch-first kernel workflow reference for provider-entity population. System-authority
+   workflow callers may request refresh mode for bounded items; the kernel composes the existing
+   `ProviderEntityPopulationWorkflow` with deterministic child ids and verifies that referenced
+   entity schemas belong to the calling plugin and that every referenced active provider has an
+   exact registry binding to that schema. The provider itself may belong to another plugin: the
+   registry already supports cross-plugin provider/schema composition, and the preserved hermetic
+   monitoring tests exercise it with isolated provider plugins. Arbitrary providers and schemas
+   owned by another plugin remain rejected. This is the generic bridge from a plugin-owned durable
+   sweep to the kernel-owned population workflow, not a media-specific refresh syscall.
+4. Keep the provider-to-resolution-activity map as ordinary `plugins/media` implementation data and
+   colocate it with the import workflow. The kernel import of
+   `@ryot/plugin-media/workflows/schemas` was already removed during Step 4, so moving the remaining
+   plugin-private map into registry metadata would add a manifest field and registry-query mechanism
+   with no kernel consumer or purity benefit. This owner-approved choice supersedes the stale
+   registry-metadata sentence below.
+5. Remove the kernel's media child-hierarchy map by making provider details explicitly declare the
+   expected child entity schema for each recursive child set. Non-empty sets remain self-describing
+   through their child rows; the explicit schema hint preserves authoritative deletion when a
+   provider returns an empty set. The kernel recursively follows provider-declared generic child
+   schemas and relationship definitions and contains no show/podcast hierarchy vocabulary.
+6. Replace automation population context's media-specific `owningSeason` value with generic parent
+   entity context (`name`, schema slug, and properties). The media plugin extracts `seasonNumber`
+   and applies special-season rules itself. This keeps signal suppression and notification context
+   unchanged while moving interpretation of media properties out of lifecycle dispatch.
+7. **Owner-approved behavioral change (2026-07-29):** the deleted single-item monitoring endpoints
+   returned HTTP `NotFound` for invisible or unsupported entities; batch-first plugin operations
+   instead return an aligned `{ status: "notFound" }` value for each missing item. This follows the
+   established operation convention, preserves successful siblings in mixed batches, and keeps the
+   semantic not-found assertion while deliberately changing its wire representation.
+8. **Implementation choice (2026-07-29, owner-approved):** entity-schema definitions may declare
+   `mergeIdentityProperties`, a list of top-level property names whose values must match before two
+   entities of that schema can be merged. The loader validates every name against the schema's
+   property definition, the in-memory definition registry owns the metadata, and the generic
+   user-state merge service enforces it. The fitness plugin declares `kind` for `exercise`, preserving
+   the existing different-exercise-kind rejection without fitness vocabulary in the kernel.
+
+These additions follow Decision 8: batch-first inputs, coarse atomic writes, trusted authority,
+query pushdown, and names/semantics usable by any plugin. They do not add a media-specific endpoint
+or host function.
 
 Migrate & delete: `modules/media-monitoring`, and any leftover media references in `signals`,
 `events`, and `entity-interest` (the interest/translation machinery itself is kernel — only
-media-specific branches move). Move the media resolution provider-to-activity-script map into
-manifest/registry metadata and remove the kernel import of `@ryot/plugin-media/workflows/schemas`.
+media-specific branches move). Keep the media resolution provider-to-activity-script map private to
+the media import workflow and verify that the kernel has no import of
+`@ryot/plugin-media/workflows/schemas`.
 
 E2e: the `media-monitoring/` suites (4 files, including association detectors and cron-refresh
 coverage) re-pointed — these are the acceptance test that the syscall surface is sufficient, since
@@ -803,3 +861,73 @@ Phase 4's enforced check) and triage every hit — each is either deleted, gener
 explicitly justified in this file. Task 06 also left one open operational risk that must close
 here: run concurrent full-size media imports through the real workflow pool, Redis projection, and
 sandbox processes, and record pool and lock pressure alongside completion results.
+
+### Task 11 kernel-purity triage (2026-07-29)
+
+The audit covered `apps/app-backend/src/modules`, `apps/app-backend/src/app`, and operation dispatch
+support with media/fitness names and representative schema vocabulary. Results are classified as
+follows; an entry is not justified merely because deleting it would be inconvenient.
+
+- **Deleted:** the native `modules/media-monitoring` directory and contract wiring; the stale
+  `workflow-boundaries.test.ts` read of its deleted refresh workflow; the exercise-only merge rule
+  in `user-state/service.ts`; and the uncalled internal `OperationsService.invokeOperation`
+  scaffolding.
+- **Generalized:** the source-zero review description in `definition-registry/kernel-source.ts` now
+  describes an entity rather than media. Plugin cron/workflow dispatch, query-engine execution, and
+  relationship mutation remain schema-agnostic kernel capabilities. Recursive provider details use
+  `expectedChildEntitySchemaSlug` to preserve authoritative empty-child reconciliation without a
+  kernel-owned media hierarchy. Automation population context uses generic `parentEntity` data;
+  `plugins/media` interprets season properties and applies media-specific rules.
+- **Quarantined migration code:** every domain hit under `modules/legacy-bootstrap` is part of the
+  Phase 1-decided V1 adoption boundary. The exact hit-bearing files are `collection-mapping.ts`,
+  `drop-tables.ts`, `episodic-sub-entity-mapping.ts`, `exercise-mapping.ts`,
+  `integration-mapping.ts`, `metadata-group-mapping.ts`, `metadata-mapping-targets.ts`,
+  `metadata-mapping.ts`, `migrate-data.ts`, `person-mapping.ts`, `review-mapping.ts`,
+  `seen-completion-mapping.ts`, `seen-mapping.ts`, `user-measurement-mapping.ts`, and
+  `workout-mapping.ts`. They translate persisted V1 domain rows during adoption and are not normal
+  runtime kernel behavior.
+- **Generic boot ingestion:** `modules/plugins/boot-sources.ts` names the two bundled first-party
+  package sources. The loader treats both through the same manifest ingestion path; these names do
+  not select runtime behavior or authority.
+- **Tests and fixtures:** domain names remain in app-backend `*.test.ts` files to exercise plugin
+  manifests, schema-agnostic services, query documents, and preserved domain behavior. The
+  schema-agnostic helper `query-engine/validator.test-support.ts` uses `books` only as fixture data.
+  These names do not participate in production dispatch.
+- **Operational gate:** `modules/test-support/operational-gate-service.ts` and its route expose only
+  the opt-in Phase 3 full-size media-import measurement. They are test-support wiring for the gate
+  recorded below, not production capability selection.
+- **Deferred Task 10 path:** `modules/imports/runtime/importer-config.ts` still maps legacy
+  domain-grouped application configuration into the import adapter envelope. This is the explicitly
+  owner-skipped Task 10 import failure/path and is not changed by Task 11.
+- **Lexical false positives:** `entities/lifecycle-dispatch.ts` says tests may not "exercise"
+  automation; this is ordinary English, not fitness behavior.
+  No kernel import of `@ryot/plugin-media/workflows/schemas` remains. No temporary
+  `invokeOperation` caller or service entry point remains. Apart from the explicitly quarantined
+  `legacy-bootstrap` boundary, there are no media- or fitness-named module directories after removal
+  of the empty deleted `media-monitoring` directory.
+
+### Task 11 verification record (2026-07-29)
+
+- System-query e2e: 1 file, 9 tests covering 11 cases passed.
+- Media-monitoring e2e: 4 files, 13 tests passed with assertions unchanged.
+- Combined system-query and media-monitoring e2e: 5 files, 22 tests passed.
+- Backend unit tests: 131 files, 931 tests passed.
+- Media-plugin tests: 92 files, 351 tests passed.
+- Backend, app-client, and media-plugin checks passed with zero warnings.
+- The owner-approved monitoring behavior change remains aligned per item: invisible or unsupported
+  entities return `{ status: "notFound" }`, preserving successful siblings in mixed batches.
+
+### Task 11 operational gate record (2026-07-29, timed out; incomplete)
+
+The preserved full-size measurement ran two concurrent 1,001-item imports through the real
+infrastructure and packed them into eight workflows. It timed out after 901,013 ms with all eight
+workflows still pending and zero terminal. The observed maxima and final deltas were: database 5
+active / 25 total connections, app-pool wait 0, lock wait 0, advisory locks sampled 0, advisory wait
+0, deadlocks 0, Redis projections 8 / high-water 158 / errors 0, and sandbox executions 1,702 / max
+overlap 5. Teardown warned because the workflows remained pending.
+
+This failed measurement does not close the operational risk. Task 11 and the Phase 3 gate remain
+incomplete. The gate remains reproducible at its original workload, timeout, assertions, and real
+infrastructure path, but is opt-in through `RUN_OPERATIONAL_GATES=1` (or `true`) so the normal e2e
+suite does not repeatedly spend 15 minutes reproducing the known failure. The owner-skipped Task 10
+imports failure above remains a separate follow-up.

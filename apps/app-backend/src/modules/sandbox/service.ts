@@ -1,4 +1,5 @@
 import { Activity } from "@effect/workflow";
+import type { Result as WorkflowResult } from "@effect/workflow/Workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { badRequest, notFound, SandboxRunError } from "@ryot/contract/errors";
 import type {
@@ -9,7 +10,7 @@ import type {
 import { SandboxScriptId, type UserId } from "@ryot/contract/schema/brands";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { generateId } from "better-auth";
-import { Effect, Redacted } from "effect";
+import { Cause, Effect, Exit, Match, Option, Redacted } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -26,6 +27,27 @@ import { toSandboxRunResult } from "./sandbox-workflow-live";
 
 const sandboxJobNotFoundError = "Sandbox job not found";
 const sandboxScriptNotFoundError = "Sandbox script not found";
+
+const toPluginWorkflowResult = (result: WorkflowResult<JsonValue, SandboxRunError> | undefined) => {
+	if (!result) {
+		return { status: "pending" as const };
+	}
+	return Match.value(result).pipe(
+		Match.tag("Suspended", () => ({ status: "pending" as const })),
+		Match.orElse(({ exit }) =>
+			Exit.match(exit, {
+				onSuccess: (output) => ({ output, status: "completed" as const }),
+				onFailure: (cause) => ({
+					status: "failed" as const,
+					error: Option.match(Cause.failureOption(cause), {
+						onSome: (error) => String(error),
+						onNone: () => Cause.pretty(cause).slice(0, 500),
+					}),
+				}),
+			}),
+		),
+	);
+};
 
 export class SandboxExecutionService extends Effect.Service<SandboxExecutionService>()(
 	"SandboxExecutionService",
@@ -164,11 +186,57 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 				},
 			);
 
+			const enqueuePluginWorkflow = Effect.fn("SandboxExecutionService.enqueuePluginWorkflow")(
+				function* (input: {
+					input: JsonValue;
+					executionId: string;
+					pluginSlug: string;
+					workflowSlug: string;
+					executingUserId: UserId;
+				}) {
+					const contextError = sandboxContextError(input.input, { kind: "workflow" });
+					if (contextError) {
+						return yield* new SandboxRunError({ message: contextError });
+					}
+					const script = yield* runWithDb(
+						pluginRuntime.findActiveWorkflowScript({
+							pluginSlug: input.pluginSlug,
+							workflowSlug: input.workflowSlug,
+						}),
+					);
+					if (!script) {
+						return yield* notFound(sandboxScriptNotFoundError);
+					}
+					yield* engine
+						.execute(SandboxScriptWorkflow, {
+							discard: true,
+							executionId: input.executionId,
+							payload: {
+								input: input.input,
+								scriptId: script.id,
+								executionId: input.executionId,
+								resolutionMode: "exact",
+								authority: { type: "user", userId: input.executingUserId },
+							},
+						})
+						.pipe(Effect.orDie);
+					return input.executionId;
+				},
+			);
+
+			const getPluginWorkflowResult = Effect.fn("SandboxExecutionService.getPluginWorkflowResult")(
+				function* (executionId: string) {
+					return toPluginWorkflowResult(yield* engine.poll(SandboxScriptWorkflow, executionId));
+				},
+			);
+
 			return {
 				enqueue,
 				getResult,
 				executeWorkflow,
 				getStoredScript,
+				enqueuePluginWorkflow,
+				getPluginWorkflowResult,
 				resolveWorkflowScript,
 				listStoredScripts: () => runWithDb(repository.listStoredScripts()),
 			};

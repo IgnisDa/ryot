@@ -43,7 +43,11 @@ const mergeManifestDefinitions = (
 	entitySchemas: [
 		...base.entitySchemas,
 		...manifests.flatMap(({ entitySchemas, metadata }) =>
-			entitySchemas.map((definition) => ({ ...definition, pluginSlug: metadata.slug })),
+			entitySchemas.map((definition) => ({
+				...definition,
+				pluginSlug: metadata.slug,
+				mergeIdentityProperties: definition.mergeIdentityProperties ?? [],
+			})),
 		),
 	],
 	signalSchemas: [

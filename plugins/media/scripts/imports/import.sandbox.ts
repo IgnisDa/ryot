@@ -14,7 +14,6 @@ import {
 	MediaImportWriteChunkInput,
 } from "../../imports/schemas";
 import {
-	mediaImportResolutionActivitySlugByProvider,
 	MediaImportPopulationWorkflowInput,
 	MediaImportPopulationWorkflowOutput,
 	MediaImportResolutionWorkflowInput,
@@ -30,6 +29,14 @@ export const manifest = defineManifest({
 });
 
 const BATCH_SIZE = 25;
+
+const mediaImportResolutionActivitySlugByProvider = {
+	"book.google-books": "activity.media-import-resolve.book.google-books",
+	"book.hardcover": "activity.media-import-resolve.book.hardcover",
+	"book.openlibrary": "activity.media-import-resolve.book.openlibrary",
+	"movie.tmdb": "activity.media-import-resolve.movie.tmdb",
+	"show.tmdb": "activity.media-import-resolve.show.tmdb",
+} as const;
 
 export const mediaImportParser = (source: string) => ({
 	input: MediaImportDispatchParserInput,

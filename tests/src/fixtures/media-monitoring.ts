@@ -1,4 +1,10 @@
 import { EntityId, UserId } from "@ryot/contract/schema/brands";
+import { invokeOperationRecipe } from "@ryot/plugin-kit/operations";
+import {
+	mediaMonitoringDisableRecipe,
+	mediaMonitoringEnableRecipe,
+	mediaMonitoringStatusRecipe,
+} from "@ryot/plugin-media/operations/recipes";
 import {
 	buildQueryEngineRowsDocument,
 	queryEngineRelationshipSource,
@@ -36,25 +42,56 @@ export const triggerCronAndWaitForEntity = (
 					}),
 				adminHeaders,
 			);
-			yield* getBackendClient().call((c) => c.testSupport.triggerInfrequentCron(), adminHeaders);
+			yield* getBackendClient().call(
+				(c) =>
+					c.testSupport.triggerPluginCron({
+						payload: { pluginSlug: "media", cronSlug: "media-monitoring" },
+					}),
+				adminHeaders,
+			);
 			yield* Effect.promise(() => stream.waitForEntityUpdated(entityId, "populated"));
 		}),
 	);
 
 export const getMediaMonitoringStatus = (client: Client, entityId: string) =>
-	client.call((contract) =>
-		contract.mediaMonitoring.status({ path: { entityId: EntityId.make(entityId) } }),
-	);
+	invokeOperationRecipe(
+		mediaMonitoringStatusRecipe,
+		{ entityIds: [entityId] },
+		operationTransport(client),
+	).pipe(Effect.flatMap(singleResult));
 
 export const enableMediaMonitoring = (client: Client, entityId: string) =>
-	client.call((contract) =>
-		contract.mediaMonitoring.enable({ path: { entityId: EntityId.make(entityId) } }),
-	);
+	invokeOperationRecipe(
+		mediaMonitoringEnableRecipe,
+		{ entityIds: [entityId] },
+		operationTransport(client),
+	).pipe(Effect.flatMap(singleResult));
 
 export const disableMediaMonitoring = (client: Client, entityId: string) =>
-	client.call((contract) =>
-		contract.mediaMonitoring.disable({ path: { entityId: EntityId.make(entityId) } }),
-	);
+	invokeOperationRecipe(
+		mediaMonitoringDisableRecipe,
+		{ entityIds: [entityId] },
+		operationTransport(client),
+	).pipe(Effect.flatMap(singleResult));
+
+const operationTransport =
+	(client: Client) => (request: { payload: unknown; pluginSlug: string; operationSlug: string }) =>
+		client
+			.call((contract) =>
+				contract.plugins.invoke({
+					payload: { payload: request.payload },
+					path: {
+						pluginSlug: request.pluginSlug,
+						operationSlug: request.operationSlug,
+					},
+				}),
+			)
+			.pipe(Effect.map(({ result }) => result));
+
+const singleResult = <Result>(output: { readonly results: readonly Result[] }) =>
+	output.results[0]
+		? Effect.succeed(output.results[0])
+		: Effect.die("Media monitoring operation returned no aligned result");
 
 export const countMediaMonitoringRelationships = (input: {
 	client: Client;
