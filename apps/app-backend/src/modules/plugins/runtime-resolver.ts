@@ -21,9 +21,7 @@ import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 import { bootConfiguredPluginSlugs } from "./boot-sources";
-import { PluginLoader, PluginLoaderLive } from "./loader";
-
-export type PluginSnapshot = ReturnType<PluginLoader["getSnapshot"]>;
+import { PluginLoader, PluginLoaderLive, type PluginRegistrySnapshot } from "./loader";
 
 export type AutomationRuleTarget =
 	| { kind: "event_schema"; id: EventSchemaSlug }
@@ -78,7 +76,7 @@ const bindingId = (binding: BindingAutomation) =>
 		].join(":"),
 	);
 
-const activeScripts = (snapshot: PluginSnapshot) =>
+const activeScripts = (snapshot: PluginRegistrySnapshot) =>
 	Object.entries(snapshot.plugins).flatMap(([pluginSlug, plugin]) =>
 		plugin.scripts.map((script) => ({ ...script, pluginSlug })),
 	);
@@ -86,7 +84,7 @@ const activeScripts = (snapshot: PluginSnapshot) =>
 export const findActiveScriptInPluginSnapshot = Effect.fn(
 	"PluginRuntimeResolver.findActiveScriptInPluginSnapshot",
 )(function* (
-	snapshot: PluginSnapshot,
+	snapshot: PluginRegistrySnapshot,
 	input: { pluginSlug: string; scriptSlug: string; providerId?: string },
 ) {
 	const active = snapshot.plugins[input.pluginSlug]?.scripts.find(
@@ -114,7 +112,7 @@ export const findActiveScriptInPluginSnapshot = Effect.fn(
 });
 
 export const findActiveWorkflowScriptInSnapshot = (
-	snapshot: PluginSnapshot,
+	snapshot: PluginRegistrySnapshot,
 	input: { pluginSlug: string; workflowSlug: string },
 ) => {
 	const scriptSlug = snapshot.plugins[input.pluginSlug]?.manifest.workflows.find(
@@ -226,7 +224,7 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 
 			const findActiveScriptByIdInSnapshot = Effect.fn(
 				"PluginRuntimeResolver.findActiveScriptByIdInSnapshot",
-			)(function* (snapshot: PluginSnapshot, scriptId: SandboxScriptId) {
+			)(function* (snapshot: PluginRegistrySnapshot, scriptId: SandboxScriptId) {
 				const db = yield* CurrentDb;
 				const [stored] = yield* dbEffect(() =>
 					db
@@ -378,7 +376,7 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 
 			const findActiveProviderInSnapshot = Effect.fn(
 				"PluginRuntimeResolver.findActiveProviderInSnapshot",
-			)(function* (snapshot: PluginSnapshot, providerSlug: string) {
+			)(function* (snapshot: PluginRegistrySnapshot, providerSlug: string) {
 				const active = Object.entries(snapshot.plugins).find(([, plugin]) =>
 					plugin.manifest.providers.some(({ slug }) => slug === providerSlug),
 				);
@@ -403,7 +401,7 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 
 			const findActiveProviderByIdInSnapshot = Effect.fn(
 				"PluginRuntimeResolver.findActiveProviderByIdInSnapshot",
-			)(function* (snapshot: PluginSnapshot, providerId: SandboxProviderId) {
+			)(function* (snapshot: PluginRegistrySnapshot, providerId: SandboxProviderId) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
 					db
@@ -492,7 +490,7 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 			const findProviderOperationScriptInSnapshot = Effect.fn(
 				"PluginRuntimeResolver.findProviderOperationScriptInSnapshot",
 			)(function* (
-				snapshot: PluginSnapshot,
+				snapshot: PluginRegistrySnapshot,
 				providerId: SandboxProviderId,
 				operation: PluginProviderOperation,
 			) {
@@ -547,7 +545,9 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 			const resolveResolveScript = resolveOperation("resolve");
 			const resolveTranslateScript = resolveOperation("translate");
 
-			const automationBindings = (snapshot: PluginSnapshot): ReadonlyArray<BindingAutomation> => {
+			const automationBindings = (
+				snapshot: PluginRegistrySnapshot,
+			): ReadonlyArray<BindingAutomation> => {
 				const bindings: BindingAutomation[] = [];
 				for (const [pluginSlug, plugin] of Object.entries(snapshot.plugins)) {
 					const nameBySlug = new Map(
@@ -618,7 +618,7 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 			};
 
 			const resolveAutomation = Effect.fn("PluginRuntimeResolver.resolveAutomation")(function* (
-				snapshot: PluginSnapshot,
+				snapshot: PluginRegistrySnapshot,
 				binding: BindingAutomation,
 			) {
 				const active = activeScripts(snapshot).find(({ slug }) => slug === binding.scriptSlug);
