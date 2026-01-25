@@ -6,7 +6,10 @@ import { RateLimited, Unauthorized } from "#lib/errors";
 
 import { UploadBodyLimitMiddleware } from "./middleware";
 import { PresignedDownloadResponse, PresignedUploadResponse } from "./schemas";
-import { TEMPORARY_UPLOAD_MAX_FILE_BYTES, TEMPORARY_UPLOAD_MAX_REQUEST_BYTES } from "./shared";
+import {
+	TEMPORARY_UPLOAD_MAX_FILE_BYTES,
+	TEMPORARY_UPLOAD_MAX_REQUEST_BYTES,
+} from "./upload-policy";
 
 export const UploadsGroup = HttpApiGroup.make("uploads")
 	.addError(Unauthorized, { status: 401 })

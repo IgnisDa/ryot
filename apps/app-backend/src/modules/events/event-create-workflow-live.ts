@@ -1,8 +1,8 @@
 import { DurableQueue } from "@effect/workflow";
 import { Effect, Layer } from "effect";
 
-import { createEventsForUser } from "./create-core";
 import { GlobalEntityReferencedQueue } from "./durable-queues";
+import { createEventsForUser } from "./event-creation";
 import { EventCreateWorkflow } from "./workflows";
 
 const EventCreateWorkflowLive = EventCreateWorkflow.toLayer((payload) =>

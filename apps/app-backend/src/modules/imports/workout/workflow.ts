@@ -13,7 +13,7 @@ import type { EventSchemasRepository } from "#modules/event-schemas/repository";
 import type { EventsService } from "#modules/events/service";
 
 import type { ImportRunJobData } from "../jobs";
-import { sanitizeErrorMessage } from "../runtime/failures";
+import { sanitizeErrorMessage } from "../runtime/import-run-status";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 import { adaptHevyCsv } from "../sources/hevy/adapter";
 import { adaptStrongAppCsv } from "../sources/strong-app/adapter";
