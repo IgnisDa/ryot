@@ -551,6 +551,21 @@ registry and dispatches the owning plugin's workflow with
 resolution/population children; fitness's parses a CSV and writes directly. The kernel sees no
 difference.
 
+**Implementation choice (2026-07-27, owner-approved): the collapse spans tasks 07, 09, and 10.**
+Task 07's original acceptance bullet claimed the branch was gone at the end of 07, which
+contradicts task 09 ("complete the kernel-side collapse task 07 **started**") and 07's own
+"lands before any consumer" framing. It is unsatisfiable there: the dispatch resolves a source slug
+to `{ pluginSlug, workflowSlug }`, and no plugin owns a top-level import workflow until 09/10 —
+`plugins/fitness` has no import surface and `plugins/media` has only the task-06
+resolution/population children. Deleting the native branch in 07 would break all nineteen imports
+and violate cross-phase invariant 1. The split mirrors the integrations side, where 07 adds the
+`integrationProviders` section and **08** deletes the hardcoded provider union once the adapters
+move: **07** adds the `importSources` section, serves source metadata from the registry, and builds
+the dispatch path (declared sources route through it; the native orchestration is the fallback for
+undeclared ones); **09** moves the three fitness sources and deletes the non-media orchestration;
+**10** moves the sixteen media sources and deletes the branch and the hardcoded source table. The
+end state in §Delete is unchanged — only which task performs each deletion is pinned here.
+
 **Filesystem grants** (Decision 10, deny-by-default) [DECIDED]. The kernel materializes an
 uploaded or fetched artifact to a path and spawns the execution with `--allow-read` extended to
 that path plus `--allow-write` on a per-execution scratch directory, replacing the blanket
