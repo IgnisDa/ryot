@@ -29,69 +29,34 @@ describe("builtinSandboxScripts", () => {
 
 	it("declares translation metadata for translated scripts", () => {
 		const scripts = builtinSandboxScripts();
-		const providerInformationFor = (slug: string) => {
-			const script = scripts.find((item) => item.slug === slug);
-			return script && "providerInformation" in script.metadata
-				? script.metadata.providerInformation
-				: undefined;
-		};
+		const providerInformationBySlug = new Map(
+			scripts.map((script) => [
+				script.slug,
+				"providerInformation" in script.metadata
+					? script.metadata.providerInformation
+					: undefined,
+			]),
+		);
+		const translatedScripts = [
+			["anime.anilist", "anilist", "english"],
+			["manga.anilist", "anilist", "english"],
+			["podcast.itunes", "itunes", "en_us"],
+			["movie.tmdb", "tmdb", "en-US"],
+			["show.tmdb", "tmdb", "en-US"],
+			["person.tmdb", "tmdb", "en-US"],
+			["movie-group.tmdb", "tmdb", "en-US"],
+			["movie.tvdb", "tvdb", "eng"],
+			["show.tvdb", "tvdb", "eng"],
+			["person.tvdb", "tvdb", "eng"],
+			["movie-group.tvdb", "tvdb", "eng"],
+			["music.youtube-music", "youtube-music", "en"],
+			["person.youtube-music", "youtube-music", "en"],
+			["music-group.youtube-music", "youtube-music", "en"],
+		] as const;
 
-		expect(providerInformationFor("movie.tmdb")).toEqual({
-			source: "tmdb",
-			canonicalLanguage: "en-US",
-		});
-		expect(providerInformationFor("person.tmdb")).toEqual({
-			source: "tmdb",
-			canonicalLanguage: "en-US",
-		});
-		expect(providerInformationFor("show.tmdb")).toEqual({
-			source: "tmdb",
-			canonicalLanguage: "en-US",
-		});
-		expect(providerInformationFor("movie-group.tmdb")).toEqual({
-			source: "tmdb",
-			canonicalLanguage: "en-US",
-		});
-		expect(providerInformationFor("movie.tvdb")).toEqual({
-			source: "tvdb",
-			canonicalLanguage: "eng",
-		});
-		expect(providerInformationFor("show.tvdb")).toEqual({
-			source: "tvdb",
-			canonicalLanguage: "eng",
-		});
-		expect(providerInformationFor("person.tvdb")).toEqual({
-			source: "tvdb",
-			canonicalLanguage: "eng",
-		});
-		expect(providerInformationFor("movie-group.tvdb")).toEqual({
-			source: "tvdb",
-			canonicalLanguage: "eng",
-		});
-		expect(providerInformationFor("anime.anilist")).toEqual({
-			source: "anilist",
-			canonicalLanguage: "english",
-		});
-		expect(providerInformationFor("manga.anilist")).toEqual({
-			source: "anilist",
-			canonicalLanguage: "english",
-		});
-		expect(providerInformationFor("podcast.itunes")).toEqual({
-			source: "itunes",
-			canonicalLanguage: "en_us",
-		});
-		expect(providerInformationFor("music.youtube-music")).toEqual({
-			source: "youtube-music",
-			canonicalLanguage: "en",
-		});
-		expect(providerInformationFor("person.youtube-music")).toEqual({
-			source: "youtube-music",
-			canonicalLanguage: "en",
-		});
-		expect(providerInformationFor("music-group.youtube-music")).toEqual({
-			source: "youtube-music",
-			canonicalLanguage: "en",
-		});
+		for (const [slug, source, canonicalLanguage] of translatedScripts) {
+			expect(providerInformationBySlug.get(slug)).toEqual({ source, canonicalLanguage });
+		}
 	});
 
 	it("keeps parent show external ids on episodic show property schemas", () => {
