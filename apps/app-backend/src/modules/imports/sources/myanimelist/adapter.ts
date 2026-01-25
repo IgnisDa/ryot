@@ -2,6 +2,8 @@ import { Either } from "effect";
 import { XMLParser } from "fast-xml-parser";
 import { SyntaxValidator } from "fast-xml-validator";
 
+import { isObjectRecord } from "#lib/predicates";
+
 import {
 	createBacklogEvent,
 	createDroppedEvent,
@@ -43,20 +45,17 @@ const myanimelistXmlParser = new XMLParser({
 	parseTagValue: false,
 });
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
 const isMyanimelistXmlItem = (value: unknown): value is MyanimelistXmlItem =>
-	isRecord(value) &&
+	isObjectRecord(value) &&
 	Object.values(value).every((entry) => entry === undefined || typeof entry === "string");
 
 const isMyanimelistXmlDocument = (value: unknown): value is MyanimelistXmlDocument => {
-	if (!isRecord(value)) {
+	if (!isObjectRecord(value)) {
 		return false;
 	}
 
 	const myanimelist = value.myanimelist;
-	if (!isRecord(myanimelist)) {
+	if (!isObjectRecord(myanimelist)) {
 		return false;
 	}
 
