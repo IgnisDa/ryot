@@ -92,6 +92,7 @@ const resolveUnitLabel = (
 		.with("anime", () => "episodes")
 		.with("manga", () => "chapters")
 		.with("audiobook", () => "minutes")
+		.with("video-game", () => "percent")
 		.exhaustive();
 
 const resolveContinueCta = (
@@ -99,7 +100,7 @@ const resolveContinueCta = (
 ) =>
 	match(entitySchemaSlug)
 		.with("anime", () => "Next Episode")
-		.with("book", "manga", "audiobook", () => "Log Progress")
+		.with("book", "manga", "audiobook", "video-game", () => "Log Progress")
 		.exhaustive();
 
 const resolveCurrentUnits = (input: {

@@ -31,6 +31,7 @@ const appConfigSchema = z.object({
 	BOOKS_HARDCOVER_API_KEY: z.string().optional(),
 	BOOKS_GOOGLE_BOOKS_API_KEY: z.string().optional(),
 	ANIME_AND_MANGA_MAL_CLIENT_ID: z.string().optional(),
+	VIDEO_GAMES_GIANT_BOMB_API_KEY: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof appConfigSchema>;
