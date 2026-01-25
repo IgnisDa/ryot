@@ -1,10 +1,10 @@
 import { builtinMediaEntitySchemaSlugs } from "@ryot/plugin-media/schemas/media-schema-slugs";
-import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { plugin, sandboxScript } from "#lib/infrastructure/db/schema/tables/combined";
+import { sandboxProvider } from "#lib/infrastructure/db/schema/tables/combined";
 import { dbEffect, DbService } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { PluginLoader } from "#modules/plugins/loader";
 import { bootstrapNewUser } from "#modules/user-bootstrap/bootstrap";
 
 import {
@@ -80,6 +80,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	}
 
 	const { db } = yield* DbService;
+	const loader = yield* PluginLoader;
 	const definitions = yield* DefinitionRegistry;
 
 	const entitySchemas = Object.keys(definitions.getSnapshot().entitySchemas).map((slug) => ({
@@ -90,21 +91,26 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		? [{ id: "workout-set" }]
 		: [];
 
-	const sandboxScripts = yield* dbEffect(() =>
+	const persistedProviders = yield* dbEffect(() =>
 		db
-			.selectDistinctOn([sandboxScript.slug], { id: sandboxScript.id, slug: sandboxScript.slug })
-			.from(sandboxScript)
-			.leftJoin(plugin, eq(plugin.slug, sandboxScript.pluginSlug))
-			.where(
-				or(
-					isNull(sandboxScript.pluginSlug),
-					and(
-						eq(plugin.status, "active"),
-						sql`${sandboxScript.contentHash} = ${plugin.compiledHashes} ->> ${sandboxScript.slug}`,
-					),
-				),
-			)
-			.orderBy(sandboxScript.slug, desc(sandboxScript.updatedAt)),
+			.select({
+				id: sandboxProvider.id,
+				slug: sandboxProvider.slug,
+				pluginSlug: sandboxProvider.pluginSlug,
+			})
+			.from(sandboxProvider),
+	);
+
+	// A persisted `sandbox_provider` row is only live when the active loader snapshot's plugin still
+	// declares it; repository upserts never remove stale declarations. Mirrors `findActiveProvider`
+	// in `#modules/plugins/runtime-resolver`.
+	const declaredProviderKeys = new Set(
+		Object.entries(loader.getSnapshot().plugins).flatMap(([pluginSlug, plugin]) =>
+			plugin.manifest.providers.map(({ slug }) => `${pluginSlug}|${slug}`),
+		),
+	);
+	const activeProviders = persistedProviders.filter((provider) =>
+		declaredProviderKeys.has(`${provider.pluginSlug}|${provider.slug}`),
 	);
 
 	const relationshipSchemas = Object.keys(definitions.getSnapshot().relationshipSchemas).map(
@@ -112,7 +118,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	);
 
 	const entitySchemaSlugs = buildUniqueSlugMap(entitySchemas, "entity schema");
-	const sandboxScriptIds = buildUniqueSlugMap(sandboxScripts, "sandbox script");
+	const providerIds = buildUniqueSlugMap(activeProviders, "sandbox provider");
 	const relationshipSchemaSlugs = buildUniqueSlugMap(relationshipSchemas, "relationship schema");
 	const metadataEntitySchemaSlugByLot = buildUniqueLotEntitySchemaSlugMap(
 		metadataMigrationTargets.map(({ lot, entitySchemaSlug }) => ({ lot, entitySchemaSlug })),
@@ -121,13 +127,13 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const resolvedMetadataTargets = resolveEntityMigrationTargets(
 		metadataMigrationTargets,
 		entitySchemaSlugs,
-		sandboxScriptIds,
+		providerIds,
 		"metadata",
 	);
 	const resolvedMetadataGroupEntityTargets = resolveEntityMigrationTargets(
 		metadataGroupEntityTargets,
 		entitySchemaSlugs,
-		sandboxScriptIds,
+		providerIds,
 		"metadata group",
 	);
 	const resolvedMetadataGroupRelationshipTargets = metadataGroupRelationshipTargets.map(
@@ -143,13 +149,13 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const resolvedPersonEntityTargets = resolveEntityMigrationTargets(
 		personEntityTargets,
 		entitySchemaSlugs,
-		sandboxScriptIds,
+		providerIds,
 		"person",
 	);
 	const resolvedCompanyEntityTargets = resolveEntityMigrationTargets(
 		companyEntityTargets,
 		entitySchemaSlugs,
-		sandboxScriptIds,
+		providerIds,
 		"company",
 	);
 	const resolvedPersonRelationshipTargets = resolveRelationshipMigrationTargets({
@@ -342,7 +348,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const resolvedExerciseTargets = resolveEntityMigrationTargets(
 		exerciseEntityTargets,
 		entitySchemaSlugs,
-		sandboxScriptIds,
+		providerIds,
 		"exercise",
 	);
 
