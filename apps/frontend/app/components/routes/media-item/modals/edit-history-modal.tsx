@@ -13,7 +13,7 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { SeenState } from "@ryot/generated/graphql/backend/graphql";
+import { MediaLot, SeenState } from "@ryot/generated/graphql/backend/graphql";
 import { useState } from "react";
 import { Form } from "react-router";
 import { withQuery } from "ufo";
@@ -38,8 +38,8 @@ import { convertDurationToSeconds, convertSecondsToDuration } from "../utils";
 export const EditHistoryItemModal = (props: {
 	seen: History;
 	opened: boolean;
-	onClose: () => void;
 	metadataId: string;
+	onClose: () => void;
 }) => {
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
@@ -52,6 +52,9 @@ export const EditHistoryItemModal = (props: {
 		useState<DurationInput>(
 			convertSecondsToDuration(props.seen.manualTimeSpent),
 		);
+	const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<
+		number | null
+	>(props.seen.showExtraInformation?.season ?? null);
 
 	const manualTimeSpentInSeconds =
 		convertDurationToSeconds(manualTimeSpentValue);
@@ -62,6 +65,13 @@ export const EditHistoryItemModal = (props: {
 		SeenState.Completed,
 		SeenState.Dropped,
 	].includes(props.seen.state);
+
+	const seasons = metadataDetails?.showSpecifics?.seasons ?? [];
+	const selectedSeason = seasons.find(
+		(s) => s.seasonNumber === selectedSeasonNumber,
+	);
+	const episodes = selectedSeason?.episodes ?? [];
+	const podcastEpisodes = metadataDetails?.podcastSpecifics?.episodes ?? [];
 
 	if (!metadataDetails) return null;
 
@@ -103,6 +113,81 @@ export const EditHistoryItemModal = (props: {
 								: undefined
 						}
 					/>
+					{metadataDetails.lot === MediaLot.Show && seasons.length > 0 ? (
+						<>
+							<Select
+								label="Season"
+								name="showSeasonNumber"
+								onChange={(v) => setSelectedSeasonNumber(v ? Number(v) : null)}
+								data={seasons.map((s) => ({
+									label: s.name,
+									value: String(s.seasonNumber),
+								}))}
+								value={
+									selectedSeasonNumber !== null
+										? String(selectedSeasonNumber)
+										: null
+								}
+							/>
+							<Select
+								label="Episode"
+								name="showEpisodeNumber"
+								data={episodes.map((e) => ({
+									value: String(e.episodeNumber),
+									label: `${e.episodeNumber}. ${e.name}`,
+								}))}
+								defaultValue={
+									props.seen.showExtraInformation?.episode !== undefined
+										? String(props.seen.showExtraInformation.episode)
+										: undefined
+								}
+							/>
+						</>
+					) : null}
+					{metadataDetails.lot === MediaLot.Anime ? (
+						<NumberInput
+							label="Episode"
+							name="animeEpisodeNumber"
+							defaultValue={
+								props.seen.animeExtraInformation?.episode ?? undefined
+							}
+						/>
+					) : null}
+					{metadataDetails.lot === MediaLot.Manga ? (
+						<>
+							<NumberInput
+								label="Chapter"
+								decimalScale={2}
+								name="mangaChapterNumber"
+								defaultValue={
+									props.seen.mangaExtraInformation?.chapter ?? undefined
+								}
+							/>
+							<NumberInput
+								label="Volume"
+								name="mangaVolumeNumber"
+								defaultValue={
+									props.seen.mangaExtraInformation?.volume ?? undefined
+								}
+							/>
+						</>
+					) : null}
+					{metadataDetails.lot === MediaLot.Podcast &&
+					podcastEpisodes.length > 0 ? (
+						<Select
+							label="Episode"
+							name="podcastEpisodeNumber"
+							data={podcastEpisodes.map((e) => ({
+								value: String(e.number),
+								label: `${e.number}. ${e.title}`,
+							}))}
+							defaultValue={
+								props.seen.podcastExtraInformation?.episode !== undefined
+									? String(props.seen.podcastExtraInformation.episode)
+									: undefined
+							}
+						/>
+					) : null}
 					<MultiSelect
 						data={watchProviders}
 						name="providersConsumedOn"

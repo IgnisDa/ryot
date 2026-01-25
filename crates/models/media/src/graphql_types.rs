@@ -194,8 +194,8 @@ pub struct UpdateSeenItemInput {
     pub review_id: Option<String>,
     pub started_on: Option<DateTimeUtc>,
     pub finished_on: Option<DateTimeUtc>,
-    pub manual_time_spent: Option<Decimal>,
-    pub providers_consumed_on: Option<Vec<String>>,
+    #[graphql(flatten)]
+    pub common: MetadataProgressUpdateCommonInput,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

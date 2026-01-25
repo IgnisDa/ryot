@@ -2718,11 +2718,17 @@ export type UpdateCustomPersonInput = {
 };
 
 export type UpdateSeenItemInput = {
+  animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   finishedOn?: InputMaybe<Scalars['DateTime']['input']>;
+  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
+  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
   manualTimeSpent?: InputMaybe<Scalars['Decimal']['input']>;
+  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   providersConsumedOn?: InputMaybe<Array<Scalars['String']['input']>>;
   reviewId?: InputMaybe<Scalars['String']['input']>;
   seenId: Scalars['String']['input'];
+  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
   startedOn?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
