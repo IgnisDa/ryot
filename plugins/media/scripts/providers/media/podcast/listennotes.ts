@@ -9,8 +9,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Listen Notes",
 	slug: "podcast.listennotes",
-	requiredAppConfigKeys: ["podcasts.listennotesApiKey"],
-	capabilities: ["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"],
+	requiredPluginConfigKeys: ["listennotesApiKey"],
+	requiredSystemConfigKeys: [],
+	capabilities: ["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"],
 });
 type ListennotesHost = SandboxHost<typeof manifest.capabilities>;
 type UnknownRecord = Record<string, unknown>;
@@ -62,11 +63,11 @@ const parseJsonResponse = (responseBody: string): unknown => {
 	}
 };
 const getApiKey = (host: ListennotesHost) =>
-	host.getAppConfigValue("podcasts.listennotesApiKey").pipe(
+	host.getPluginConfigValue("listennotesApiKey").pipe(
 		Effect.flatMap((value) => {
 			const apiKey = typeof value === "string" ? value.trim() : "";
 			if (!apiKey) {
-				return Effect.fail(new Error("PODCASTS_LISTENNOTES_API_KEY is not configured"));
+				return Effect.fail(new Error("RYOT_PLUGIN_MEDIA_LISTENNOTES_API_KEY is not configured"));
 			}
 			return Effect.succeed(apiKey);
 		}),

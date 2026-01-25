@@ -13,6 +13,10 @@ it("declares the complete fitness-owned source", () => {
 		"measurement",
 	]);
 	expect(fitnessPlugin.entitySchemas[0].mergeIdentityProperties).toEqual(["kind"]);
+	expect(fitnessPlugin.configSchema).toMatchObject({
+		unknownKeys: "strict",
+		fields: { exercisePreloadLimit: { type: "integer", defaultValue: 873 } },
+	});
 	expect(
 		fitnessPlugin.entitySchemas.slice(1).every((schema) => !("mergeIdentityProperties" in schema)),
 	).toBe(true);
@@ -52,12 +56,12 @@ it("declares the complete fitness-owned source", () => {
 	).toEqual([
 		{
 			slug: "activity.import.hevy",
-			capabilities: ["artifact-read", "scratch", "getAppConfigValue"],
+			capabilities: ["artifact-read", "scratch", "getSystemConfigValue"],
 		},
 		{ slug: "activity.import.open-scale", capabilities: ["artifact-read", "scratch"] },
 		{
 			slug: "activity.import.strong-app",
-			capabilities: ["artifact-read", "scratch", "getAppConfigValue"],
+			capabilities: ["artifact-read", "scratch", "getSystemConfigValue"],
 		},
 	]);
 	expect(
@@ -65,7 +69,7 @@ it("declares the complete fitness-owned source", () => {
 	).toEqual(
 		expect.objectContaining({
 			providerSlug: "exercise.free-exercise-db",
-			requiredAppConfigKeys: ["builtinExercisePreloadLimit"],
+			requiredPluginConfigKeys: ["exercisePreloadLimit"],
 		}),
 	);
 	expect(

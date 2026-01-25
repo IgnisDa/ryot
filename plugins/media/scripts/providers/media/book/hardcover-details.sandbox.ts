@@ -7,8 +7,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Hardcover Details",
 	slug: "book.hardcover.details",
-	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["books.hardcoverApiKey"],
+	capabilities: ["httpCall", "getPluginConfigValue"],
+	requiredPluginConfigKeys: ["hardcoverApiKey"],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({ manifest, operation: "details", run: details.run });

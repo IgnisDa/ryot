@@ -9,7 +9,8 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "MusicBrainz",
 	slug: "person.music-brainz",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall"],
 });
 

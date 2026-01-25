@@ -1,10 +1,11 @@
-import { Path } from "@effect/platform";
+import { FileSystem, Path } from "@effect/platform";
 import { BunContext, BunRuntime } from "@effect/platform-bun";
+import { renderConfigReference } from "@ryot/config";
 import { Config, ConfigProvider, Effect, Layer } from "effect";
 
 import { AppLive, MigrationOnlyLive, SandboxCacheOnlyLive } from "./app/layers";
-import { generateConfigDocs } from "./lib/infrastructure/config/docs";
-import { appConfigMeta } from "./lib/infrastructure/config/service";
+import { appConfigDefinition } from "./lib/infrastructure/config/definition";
+import { bootPluginSources } from "./modules/plugins/boot-sources";
 
 let shutdownTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -41,11 +42,17 @@ if (populateSandboxCacheOnly) {
 if (nodeEnv !== "production") {
 	await Effect.runPromise(
 		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
 			const path = yield* Path.Path;
 			const outputPath = yield* path.fromFileUrl(
 				new URL("../../../apps/docs/src/includes/app-backend-config-schema.md", import.meta.url),
 			);
-			yield* generateConfigDocs([appConfigMeta], outputPath);
+			const plugins = bootPluginSources.map(({ manifest }) => ({
+				name: manifest.metadata.name,
+				slug: manifest.metadata.slug,
+				schema: manifest.configSchema,
+			}));
+			yield* fs.writeFileString(outputPath, renderConfigReference(appConfigDefinition, plugins));
 		}).pipe(Effect.provide(BunContext.layer)),
 	);
 }

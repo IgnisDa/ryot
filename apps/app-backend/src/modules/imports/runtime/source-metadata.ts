@@ -1,8 +1,9 @@
+import { pluginConfigEnvironmentKey } from "@ryot/config";
 import type { CreateImportRunBody } from "@ryot/contract/modules/imports/schemas";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
+import { Effect } from "effect";
 
-import type { AppConfigValue } from "#lib/infrastructure/config/service";
-import { isAppConfigKeyConfigured } from "#lib/infrastructure/sandbox-runtime/app-config";
+import { isPluginConfigKeyConfigured } from "#lib/infrastructure/sandbox-runtime/app-config";
 import type { RegisteredImportSource } from "#modules/plugins/import-source-catalog";
 
 import { getSourceApiHost, normalizeSourceApiUrl } from "./source-api";
@@ -57,17 +58,20 @@ export const registryImportSourceFileInputs = (
 	}));
 };
 
-export const registryImportSourceStartError = (
-	source: RegisteredImportSource,
-	config: AppConfigValue,
-): string | undefined => {
-	const missing = source.requiredAppConfigKeys.filter(
-		(key) => !isAppConfigKeyConfigured(config, key),
-	);
-	return missing.length === 0
-		? undefined
-		: `${source.name} importer is not configured. Set ${missing.join(", ")}.`;
-};
+export const registryImportSourceStartError = Effect.fn("registryImportSourceStartError")(
+	function* (source: RegisteredImportSource) {
+		const missing = yield* Effect.filter(source.requiredPluginConfigKeys, (key) =>
+			isPluginConfigKeyConfigured({
+				key,
+				pluginSlug: source.pluginSlug,
+				configSchema: source.configSchema,
+			}).pipe(Effect.map((configured) => !configured)),
+		);
+		return missing.length === 0
+			? undefined
+			: `${source.name} importer is not configured. Set ${missing.map((key) => pluginConfigEnvironmentKey(source.pluginSlug, key)).join(", ")}.`;
+	},
+);
 
 const payloadEntries = (body: CreateImportRunBody) =>
 	Object.entries(body).filter(

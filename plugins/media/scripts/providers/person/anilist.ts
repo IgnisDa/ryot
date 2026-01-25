@@ -22,7 +22,8 @@ export const manifest = defineManifest({
 	name: "Anilist",
 	kind: "provider",
 	slug: "person.anilist",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall"],
 });
 

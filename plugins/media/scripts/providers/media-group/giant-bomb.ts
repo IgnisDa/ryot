@@ -19,8 +19,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "GiantBomb",
 	slug: "video-game-group.giant-bomb",
-	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["videoGames.giantBombApiKey"],
+	capabilities: ["httpCall", "getPluginConfigValue"],
+	requiredPluginConfigKeys: ["giantBombApiKey"],
+	requiredSystemConfigKeys: [],
 });
 
 export const search = defineProvider({

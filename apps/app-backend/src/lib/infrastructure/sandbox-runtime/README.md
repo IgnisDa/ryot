@@ -87,16 +87,17 @@ Host functions are bridge handlers exposed only when listed in the compiled modu
 | Scope                   | Functions                                                                                                                                                          |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Runtime                 | `httpCall`, `log`, `span`                                                                                                                                          |
-| Script                  | `getAppConfigValue`, `getCachedValue`, `setCachedValue`, `claimCachedValue`                                                                                        |
+| Script                  | `getPluginConfigValue`, `getSystemConfigValue`, `getCachedValue`, `setCachedValue`, `claimCachedValue`                                                             |
 | User                    | `createEvents`, `executeQueryEngine`, `getEntity`, `getEntitySchema`, `getIntegration`, `getUserPreferences`, `listEventSchemas`, `listEvents`, `listIntegrations` |
 | Automation subscription | `emitSignal`, `sendNotification`                                                                                                                                   |
 | System cron / boot      | `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                                |
 
 Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require the executing user's `userId` and are unavailable for system executions. `claimCachedValue` atomically writes a cached value only when the key does not already exist.
 
-Installed plugin scripts may read a sensitive app-config key only when the key is listed in the
-script manifest's `requiredAppConfigKeys`; kernel source-zero scripts retain builtin access.
-First-party and runtime-installed plugin scripts use the same declaration-based grant.
+Plugin scripts may read only their owning plugin's fields listed in `requiredPluginConfigKeys`.
+The runtime derives environment variable names from trusted script provenance and rejects normalized
+name collisions when loading plugins. Explicitly exported kernel fields require a matching
+`requiredSystemConfigKeys` declaration. First-party and runtime-installed plugins use the same grants.
 
 Automation functions require both a declared script capability and the server-only subscription-run marker. Other execution paths do not receive them even if stored metadata lists the capability. `sendNotification` additionally requires a user principal; system subscriptions cannot send notifications.
 

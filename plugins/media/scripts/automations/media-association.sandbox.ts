@@ -5,7 +5,8 @@ import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
 export const manifest = defineManifest({
 	kind: "automation",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["emitSignal"],
 	name: "Media Association Detector",
 	slug: "automation.media-association",

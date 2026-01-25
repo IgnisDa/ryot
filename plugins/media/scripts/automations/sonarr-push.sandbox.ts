@@ -17,7 +17,8 @@ import {
 export const manifest = defineManifest({
 	kind: "automation",
 	name: "Sonarr Push",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	slug: "trigger.sonarr-push",
 	capabilities: [
 		"httpCall",

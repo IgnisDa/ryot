@@ -22,7 +22,8 @@ import {
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "MangaUpdates",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall"],
 	slug: "manga.manga-updates",
 });

@@ -4,7 +4,8 @@ import { Effect } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
 	kind: "automation",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["emitSignal"],
 	name: "Review Created Detector",
 	slug: "automation.review-created",

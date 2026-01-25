@@ -8,7 +8,8 @@ import { getKeySegment, loadOpenLibraryJson, parseDescription } from "../openlib
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "OpenLibrary",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	slug: "person.openlibrary",
 	capabilities: ["httpCall"],
 });
