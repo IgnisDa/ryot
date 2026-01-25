@@ -5,9 +5,6 @@ import {
 	sandboxAutomationDotMediaDashRelationshipDashSyncScript,
 	sandboxAutomationDotNotificationScript,
 	sandboxAutomationDotReviewDashCreatedScript,
-	sandboxAutomationDotTestDashPolicyScript,
-	sandboxAutomationDotTestDashNotifierScript,
-	sandboxAutomationDotTestDashTracerScript,
 	sandboxAutomationDotWorkoutDashCreatedScript,
 	sandboxComicDashBookDashGroupDotMetronScript,
 	sandboxComicDashBookDotMetronScript,
@@ -95,9 +92,6 @@ export const builtinSandboxScripts = () => [
 	sandboxAutomationDotMediaDashEntityDashUpdatedScript,
 	sandboxAutomationDotMediaDashRelationshipDashSyncScript,
 	sandboxAutomationDotReviewDashCreatedScript,
-	sandboxAutomationDotTestDashPolicyScript,
-	sandboxAutomationDotTestDashNotifierScript,
-	sandboxAutomationDotTestDashTracerScript,
 	sandboxAutomationDotWorkoutDashCreatedScript,
 	sandboxExerciseDotFreeDashExerciseDashDbScript,
 	sandboxBookDotOpenlibraryScript,
@@ -156,14 +150,6 @@ export const builtinSandboxScripts = () => [
 	sandboxTriggerDotRadarrDashPushScript,
 	sandboxTriggerDotSonarrDashPushScript,
 	sandboxTriggerDotJellyfinDashPushScript,
-];
-
-export const builtinSignalAutomationRuleLinks = () => [
-	{
-		name: "Automation Test Tracer",
-		signalSchemaSlug: "automation.test-tracer",
-		scriptSlug: sandboxAutomationDotTestDashTracerScript.slug,
-	},
 ];
 
 export const builtinEntityAutomationRuleLinks = () => [
