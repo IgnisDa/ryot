@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -36,17 +36,32 @@ their monitors are notified once per role.
 
 ## Acceptance criteria
 
-- [ ] All four schemas seed with the PRD's contract; the detector uses the person/company
+- [x] All four schemas seed with the PRD's contract; the detector uses the person/company
       endpoint as subject regardless of scope entity
-- [ ] Media-first, person/company-first, and concurrent discovery of one canonical edge produce
+- [x] Media-first, person/company-first, and concurrent discovery of one canonical edge produce
       exactly one create classification and one emission; an identical second write is a noop
       emitting nothing
-- [ ] Updates emit once per newly added role and nothing for unchanged or removed roles; a real
+- [x] Updates emit once per newly added role and nothing for unchanged or removed roles; a real
       delete/re-create cycle may notify again
-- [ ] A monitored person/company's own first population emits no association signals; first
+- [x] A monitored person/company's own first population emits no association signals; first
       population of a media entity still emits for monitored credit subjects
-- [ ] Replay of a multi-role emission produces no duplicate signals
-- [ ] The audience is exactly the monitors of the credited person/company
+- [x] Replay of a multi-role emission produces no duplicate signals
+- [x] The audience is exactly the monitors of the credited person/company
+
+## Implementation notes
+
+- Added one built-in credit-edge detector for create, update, and delete occurrences on every
+  person/company credit relationship schema, including company-to-media-group schemas matching the
+  existing person group scopes. It selects the canonical person/company source endpoint
+  independently of the population root and emits one signal for each distinct new role using a
+  stable subject-and-role discriminator.
+- Added strict active contracts for all four association signal schemas and extended the shared
+  notification formatter while retaining the media-monitoring relationship as the generic
+  related-user audience resolver.
+- Added synchronization coverage for media-first, subject-first, concurrent, and repeated writes;
+  detector coverage for all four signal variants, asymmetric first-population behavior, role
+  changes, deletion, and replay; and an offline E2E import proving two roles notify only the
+  credited person's monitor.
 
 ## User stories addressed
 
