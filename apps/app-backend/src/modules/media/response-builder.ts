@@ -89,9 +89,11 @@ const resolveUnitLabel = (
 ) =>
 	match(entitySchemaSlug)
 		.with("book", () => "pages")
+		.with("show", () => "episodes")
 		.with("music", () => "seconds")
 		.with("anime", () => "episodes")
 		.with("manga", () => "chapters")
+		.with("movie", () => "percent")
 		.with("podcast", () => "episodes")
 		.with("comic-book", () => "pages")
 		.with("audiobook", () => "minutes")
@@ -102,11 +104,13 @@ const resolveContinueCta = (
 	entitySchemaSlug: BuiltInMediaOverviewSourceItem["entitySchemaSlug"],
 ) =>
 	match(entitySchemaSlug)
+		.with("show", () => "Next Episode")
 		.with("anime", () => "Next Episode")
 		.with(
 			"book",
 			"comic-book",
 			"manga",
+			"movie",
 			"audiobook",
 			"podcast",
 			"video-game",
