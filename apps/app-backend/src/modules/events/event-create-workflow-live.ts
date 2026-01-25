@@ -3,6 +3,7 @@ import { Activity, DurableQueue } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { DbError, SandboxRunError } from "@ryot/contract/errors";
 import { badRequest } from "@ryot/contract/errors";
+import { AutomationProperties } from "@ryot/contract/modules/automations/schemas";
 import type {
 	EventCreateFailureReason,
 	EventCreateItemOutcome,
@@ -31,7 +32,6 @@ import { resolveEventCreateItemScopes } from "./event-creation";
 import type { EventPolicyDraft } from "./event-policy-engine";
 import {
 	decodeEventPolicyProperties,
-	EventPolicyProperties,
 	PreparedEventPolicy,
 	runEventCreatePolicies,
 } from "./event-policy-engine";
@@ -41,15 +41,15 @@ const PreparedItem = Schema.Struct({
 	entityId: EntityId,
 	occurredAt: Schema.String,
 	subjectName: Schema.String,
-	eventSchemaId: EventSchemaId,
 	propertiesSchema: AppSchema,
+	eventSchemaId: EventSchemaId,
 	eventSchemaName: Schema.String,
 	eventSchemaSlug: Schema.String,
 	isGlobalEntity: Schema.Boolean,
 	entitySchemaSlug: Schema.String,
 	entitySchemaId: EntitySchemaId,
+	properties: AutomationProperties,
 	sessionEntityId: Schema.optional(EntityId),
-	properties: EventPolicyProperties,
 	policies: Schema.Array(PreparedEventPolicy),
 });
 
