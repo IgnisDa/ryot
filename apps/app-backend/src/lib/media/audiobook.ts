@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
-import { createImportEnvelopeSchema, nullableIntSchema } from "../zod/base";
+import { nullableIntSchema } from "../zod/base";
 import { freeCreatorSchema, mediaPropertiesSchema } from "./common";
 
 export const audiobookPropertiesSchema = mediaPropertiesSchema.extend({
@@ -11,9 +11,3 @@ export const audiobookPropertiesSchema = mediaPropertiesSchema.extend({
 export const audiobookPropertiesJsonSchema = toAppSchemaProperties(
 	audiobookPropertiesSchema,
 );
-
-export const schemaImportResponse = createImportEnvelopeSchema(
-	audiobookPropertiesSchema,
-);
-
-export type SchemaImportResponse = z.infer<typeof schemaImportResponse>;

@@ -1,10 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
-import {
-	createImportEnvelopeSchema,
-	nullableBooleanSchema,
-	nullableIntSchema,
-} from "../zod/base";
+import { nullableBooleanSchema, nullableIntSchema } from "../zod/base";
 import { freeCreatorSchema, mediaPropertiesSchema } from "./common";
 
 export const personStubSchema = z
@@ -28,8 +24,3 @@ export const bookPropertiesSchema = mediaPropertiesSchema.extend({
 
 export const bookPropertiesJsonSchema =
 	toAppSchemaProperties(bookPropertiesSchema);
-
-export const schemaImportResponse =
-	createImportEnvelopeSchema(bookPropertiesSchema);
-
-export type SchemaImportResponse = z.infer<typeof schemaImportResponse>;
