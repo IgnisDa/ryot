@@ -1,21 +1,28 @@
-import { FileSystem } from "@effect/platform";
+import { FileSystem, Path } from "@effect/platform";
 import { Activity } from "@effect/workflow";
 import { Effect } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { RedisService } from "#lib/infrastructure/redis";
+import {
+	removeSandboxHarvestDirectories,
+	SANDBOX_HARVEST_DIRECTORY_PREFIX,
+} from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
+import { ServerRun } from "#lib/infrastructure/server-run";
 
 import type { ImportRunJobData } from "../jobs";
 import { resolveSafeImportFilePath } from "./import-files";
 import { failImportRun } from "./import-run-status";
-import { deleteImportAdapterResult, deleteImportSourcePayload } from "./source-payload-store";
+import { deleteImportSourcePayload } from "./source-payload-store";
 import { ImportRunError, toWorkflowError } from "./workflow-errors";
 
 export class ImportRunArtifacts extends Effect.Service<ImportRunArtifacts>()("ImportRunArtifacts", {
 	effect: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
+		const path = yield* Path.Path;
 		const fs = yield* FileSystem.FileSystem;
+		const serverRun = yield* ServerRun;
 
 		const cleanupArtifacts = Effect.fn("imports.cleanupArtifacts")(function* (input: {
 			runId?: string | undefined;
@@ -28,18 +35,12 @@ export class ImportRunArtifacts extends Effect.Service<ImportRunArtifacts>()("Im
 				);
 			}
 
-			if (input.runId) {
-				yield* deleteImportAdapterResult(input.runId).pipe(
-					Effect.provideService(RedisService, redis),
-				);
-			}
-
 			yield* Effect.forEach(
 				new Set(input.cleanupPaths),
-				(path) =>
-					!path.trim()
+				(cleanupPath) =>
+					!cleanupPath.trim()
 						? Effect.void
-						: resolveSafeImportFilePath(path, config.tmpDir).pipe(
+						: resolveSafeImportFilePath(cleanupPath, config.tmpDir).pipe(
 								Effect.mapError(
 									() => new ImportRunError({ message: "Import cleanup path is invalid" }),
 								),
@@ -49,7 +50,16 @@ export class ImportRunArtifacts extends Effect.Service<ImportRunArtifacts>()("Im
 			);
 		});
 
-		return { cleanupArtifacts };
+		const cleanupHarvestedDirectories = (executionPrefix: string) =>
+			removeSandboxHarvestDirectories({
+				executionPrefix,
+				harvestRoot: path.join(config.tmpDir, `${SANDBOX_HARVEST_DIRECTORY_PREFIX}${serverRun.id}`),
+			}).pipe(
+				Effect.provideService(Path.Path, path),
+				Effect.provideService(FileSystem.FileSystem, fs),
+			);
+
+		return { cleanupArtifacts, cleanupHarvestedDirectories };
 	}),
 }) {}
 
@@ -85,6 +95,13 @@ export const createImportRunLifecycle = (
 			execute: cleanupBestEffortEffect,
 		});
 	};
+	const cleanupHarvestedDirectoriesBestEffort = (name: string, executionPrefix: string) => {
+		const cleanupBestEffortEffect = Effect.gen(function* () {
+			const artifacts = yield* ImportRunArtifacts;
+			yield* artifacts.cleanupHarvestedDirectories(executionPrefix);
+		}).pipe(Effect.catchAll(() => Effect.void));
+		return Activity.make({ name, execute: cleanupBestEffortEffect });
+	};
 
 	const markRunFailed = (name: string, message: string) => {
 		const markFailedEffect = failImportRun(payload.runId, message).pipe(
@@ -116,5 +133,10 @@ export const createImportRunLifecycle = (
 		return undefined;
 	});
 
-	return { cleanupArtifacts, failRunAndCleanup, cleanupArtifactsBestEffort };
+	return {
+		cleanupArtifacts,
+		failRunAndCleanup,
+		cleanupArtifactsBestEffort,
+		cleanupHarvestedDirectoriesBestEffort,
+	};
 };

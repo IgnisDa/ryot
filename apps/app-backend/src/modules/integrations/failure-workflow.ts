@@ -4,7 +4,6 @@ import type { ImportRunId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import type { ImportRunFailureDetails } from "#modules/imports/failure-service";
-import type { MediaImportAdapterFailure } from "#modules/imports/media/adapter-result";
 import {
 	failImportRun,
 	failImportRunWithFailures,
@@ -26,15 +25,6 @@ export const failRun = (name: string, runId: ImportRunId, message: string) => {
 	});
 };
 
-const toImportFailure = (failure: MediaImportAdapterFailure): ImportRunFailureDetails => ({
-	message: failure.message,
-	itemIndex: failure.itemIndex,
-	sourceLabel: failure.sourceLabel,
-	sourceIdentifier: failure.sourceIdentifier,
-	stage: failure.stage ?? "input_transformation",
-	context: failure.context ? { ...failure.context } : null,
-});
-
 export const failRunWithFailures = (input: {
 	name: string;
 	runId: ImportRunId;
@@ -52,9 +42,3 @@ export const failRunWithFailures = (input: {
 		execute: failWithFailuresEffect,
 	});
 };
-
-export const failRunWithAdapterFailures = (
-	name: string,
-	runId: ImportRunId,
-	failures: ReadonlyArray<MediaImportAdapterFailure>,
-) => failRunWithFailures({ name, runId, failures: failures.map(toImportFailure) });

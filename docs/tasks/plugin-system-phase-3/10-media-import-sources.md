@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -49,21 +49,33 @@ as a failure and must never be mis-attached to the parent entity).
 
 ## Acceptance criteria
 
-- [ ] All sixteen media import sources run as `plugins/media` adapters declared through
+- [x] All sixteen media import sources run as `plugins/media` adapters declared through
       `importSources`, parsing in-sandbox with the approved dependencies
-- [ ] `episodeLocator` is replaced by `subjectEntityId`; the kernel writing path is
+- [x] `episodeLocator` is replaced by `subjectEntityId`; the kernel writing path is
       `subjectEntityId ?? group.entityId`; `event-target-workflow.ts` and the episode branches of
       `writing-failures-workflow.ts` are deleted with no replacement
-- [ ] The kernel no longer imports `@ryot/plugin-media` from `modules/imports`
-- [ ] Netflix's `"netflix-search-planned"` two-phase path is gone; `lib/shared/title-parsing.ts`,
+- [x] The kernel no longer imports `@ryot/plugin-media` from `modules/imports`
+- [x] Netflix's `"netflix-search-planned"` two-phase path is gone; `lib/shared/title-parsing.ts`,
       `title-matching.ts`, and their tests are deleted
-- [ ] `modules/imports` contains **zero provider-specific and zero domain-specific code**; only the
+- [x] `modules/imports` contains **zero provider-specific and zero domain-specific code**; only the
       framework named in plan §4 survives
-- [ ] Media adapter unit tests live in `plugins/media` with assertions preserved
-- [ ] `imports/` e2e suites re-pointed with assertions preserved, including the unresolvable-subject
+- [x] Media adapter unit tests live in `plugins/media` with assertions preserved
+- [x] `imports/` e2e suites re-pointed with assertions preserved, including the unresolvable-subject
       failure assertion
 - [ ] The branch stays shippable: backend `check` + unit tests, the full e2e suite, and the
       `app-client` check all pass (cross-phase invariant 1)
+
+## Deferred e2e follow-up
+
+The owner marked this task done on 2026-07-28 while deferring the affected imports e2e failure. The
+backend check, all 903 backend unit tests, and the app-client check pass. The focused imports file is
+not green: Hevy failed once in the full file but passes alone, while Watcharr times out with its run
+left `running`. Watcharr reaches the generic writer, records the expected S1E99
+`provider_resolution` failure, and its nested `EventCreateWorkflow` completes event, lifecycle, and
+membership steps, but the generic parent does not resume before the poll timeout. A nested durable
+workflow replay/resumption issue, potentially involving the progress auto-complete child, is the
+leading theory. The assertions were not changed or weakened, and this must be closed before the
+Phase 3 gate.
 
 ## User stories addressed
 

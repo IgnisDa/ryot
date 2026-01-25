@@ -61,6 +61,7 @@ export const fitnessPlugin = definePlugin({
 		{
 			slug: "hevy",
 			name: "Hevy",
+			lot: "single",
 			input: "file",
 			workflowSlug: "import",
 			requiredAppConfigKeys: [],
@@ -68,6 +69,7 @@ export const fitnessPlugin = definePlugin({
 			description: "Import workouts from a Hevy CSV export",
 		},
 		{
+			lot: "single",
 			input: "file",
 			slug: "strong_app",
 			name: "Strong App",
@@ -77,6 +79,7 @@ export const fitnessPlugin = definePlugin({
 			description: "Import workouts from a Strong CSV export",
 		},
 		{
+			lot: "single",
 			input: "file",
 			name: "OpenScale",
 			slug: "open_scale",

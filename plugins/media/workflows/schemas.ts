@@ -63,14 +63,23 @@ const AutomationOrigin = Schema.Union(
 
 export const MediaImportPopulationWorkflowInput = Schema.Struct({
 	items: Schema.Array(
-		Schema.Struct({
-			index: Schema.Number,
-			userId: Schema.String,
-			externalId: Schema.String,
-			providerId: Schema.String,
-			origin: AutomationOrigin,
-			entitySchemaSlug: Schema.String,
-		}),
+		Schema.Union(
+			Schema.Struct({
+				index: Schema.Number,
+				origin: AutomationOrigin,
+				externalId: Schema.String,
+				providerId: Schema.String,
+				entitySchemaSlug: Schema.String,
+				userId: Schema.optional(Schema.String),
+			}),
+			Schema.Struct({
+				index: Schema.Number,
+				origin: AutomationOrigin,
+				externalId: Schema.String,
+				providerSlug: Schema.String,
+				entitySchemaSlug: Schema.String,
+			}),
+		),
 	),
 });
 
@@ -80,9 +89,9 @@ export const KernelLibraryEntityImportResult = Schema.Union(
 		entity: Schema.Struct({ id: Schema.String }),
 	}),
 	Schema.Struct({
+		message: Schema.String,
 		status: Schema.Literal("failed"),
 		stage: Schema.Literal("population", "membership"),
-		message: Schema.String,
 	}),
 );
 

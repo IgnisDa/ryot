@@ -58,6 +58,9 @@ const invalidHttpCallArguments = (error: ParseResult.ParseError) => {
 				: "httpCall options.headers must be an object",
 		);
 	}
+	if (position === 2 && field === "allowInsecureConnections") {
+		return apiFailure("httpCall options.allowInsecureConnections must be a boolean");
+	}
 
 	return apiFailure("httpCall options must be an object");
 };

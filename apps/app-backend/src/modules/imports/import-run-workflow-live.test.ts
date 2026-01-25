@@ -23,7 +23,6 @@ import { ImportRunFailuresService } from "./failure-service";
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import { runProcessImportRunWorkflow } from "./import-run-workflow-live";
 import type { ImportRunJobData } from "./jobs";
-import { MediaImportWorkflowOperations } from "./media/types-workflow";
 import { ImportRunArtifacts } from "./runtime/workflow-helpers";
 import { ImportsService } from "./service";
 
@@ -38,6 +37,7 @@ const payload = {
 } satisfies ImportRunJobData;
 
 const netflixSource = {
+	lot: "single",
 	input: "file",
 	name: "Netflix",
 	slug: "netflix",
@@ -93,7 +93,6 @@ const makeHarness = (registered: RegisteredImportSource | null) => {
 			Layer.succeed(RedisService, makeRedisService()),
 			Layer.mock(ImportsService)({ _tag: "ImportsService" }),
 			Layer.mock(ImportRunFailuresService)({ _tag: "ImportRunFailuresService" }),
-			Layer.mock(MediaImportWorkflowOperations)({}),
 		),
 	};
 };
@@ -122,19 +121,90 @@ it.effect("dispatches a registry-declared source to its owning plugin's import w
 		});
 		expect(harness.activityNames).toEqual([
 			"mark-import-run-started",
+			"load-import-source-payload",
 			"cleanup-import-artifacts-on-success",
 		]);
 	}).pipe(Effect.provide(harness.layer));
 });
 
-it.effect("keeps an undeclared media source on the native media orchestration", () => {
+it.effect("grants only registry-declared named artifacts to a plugin import workflow", () => {
+	const source = {
+		lot: "named",
+		input: "file",
+		slug: "movary",
+		name: "Movary",
+		pluginSlug: "media",
+		requiredAppConfigKeys: [],
+		description: "Movary export",
+		workflowSlug: "movary-import",
+		artifacts: [
+			{
+				required: true,
+				key: "historyFilePath",
+				allowedFileExtensions: ["csv"],
+				uploadTokenField: "historyUploadToken",
+			},
+		],
+	} satisfies RegisteredImportSource;
+	const harness = makeHarness(source);
+
+	return Effect.gen(function* () {
+		yield* runProcessImportRunWorkflow(
+			{
+				...payload,
+				source: "movary",
+				filePath: "/tmp/history.csv",
+				namedArtifactPaths: {
+					ignoredFilePath: "/tmp/ignored.csv",
+					historyFilePath: "/tmp/history.csv",
+				},
+			},
+			executionId,
+		);
+
+		const executed = harness.sandboxCalls.find(({ method }) => method === "executeWorkflow");
+		expect(executed).toMatchObject({
+			input: { grants: { namedArtifactPaths: { historyFilePath: "/tmp/history.csv" } } },
+		});
+	}).pipe(Effect.provide(harness.layer));
+});
+
+it.effect("hands declared source payload to the plugin import workflow", () => {
+	const harness = makeHarness({
+		...netflixSource,
+		slug: "igdb",
+		name: "IGDB",
+		workflowSlug: "import",
+		allowedFileExtensions: ["csv"],
+	});
+
+	return Effect.gen(function* () {
+		yield* runProcessImportRunWorkflow(
+			{
+				...payload,
+				source: "igdb",
+				filePath: "/tmp/games.csv",
+				sourcePayload: { collection: "Favorites" },
+			},
+			executionId,
+		);
+
+		const executed = harness.sandboxCalls.find(({ method }) => method === "executeWorkflow");
+		expect(executed).toMatchObject({
+			input: {
+				input: { runId: "run-1", source: "igdb", sourcePayload: { collection: "Favorites" } },
+			},
+		});
+	}).pipe(Effect.provide(harness.layer));
+});
+
+it.effect("fails a run whose source is not registered", () => {
 	const harness = makeHarness(null);
 
 	return Effect.gen(function* () {
 		yield* runProcessImportRunWorkflow(payload, executionId);
 
 		expect(harness.sandboxCalls).toEqual([]);
-		expect(harness.activityNames).toContain("mark-import-run-started");
-		expect(harness.activityNames).toContain("load-media-import-adapter-result");
+		expect(harness.activityNames).toEqual(["fail-import-run"]);
 	}).pipe(Effect.provide(harness.layer));
 });
