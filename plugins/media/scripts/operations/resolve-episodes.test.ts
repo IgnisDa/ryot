@@ -208,7 +208,7 @@ describe("resolve episodes operation", () => {
 			),
 		);
 		for (const document of documents) {
-			expect(() => Schema.decodeUnknownSync(QueryDocument)(document)).not.toThrow();
+			expect(Schema.is(QueryDocument)(document)).toBe(true);
 		}
 	});
 

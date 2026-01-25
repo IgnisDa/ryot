@@ -18,7 +18,7 @@ export const manifest = defineManifest({
 const entityImport = {
 	output: KernelEntityImportResult,
 	workflowSlug: "kernel:entity-import",
-	input: Schema.Union(
+	input: Schema.Union([
 		Schema.Struct({
 			origin: Schema.Unknown,
 			externalId: Schema.String,
@@ -31,7 +31,7 @@ const entityImport = {
 			providerSlug: Schema.String,
 			entitySchemaSlug: Schema.String,
 		}),
-	),
+	]),
 };
 
 export default defineWorkflow({

@@ -18,7 +18,7 @@ export const manifest = defineManifest({
 
 const Input = Schema.Struct({});
 
-const StringOrNumber = Schema.Union(Schema.String, Schema.Number);
+const StringOrNumber = Schema.Union([Schema.String, Schema.Number]);
 
 const Item = Schema.Struct({
 	title: Schema.String,
@@ -66,7 +66,7 @@ export default defineActivity({
 			const headers = { Accept: "application/json", "X-Plex-Token": token };
 			const libraries = yield* requestJson(host, "GET", `${url}/library/sections`, {
 				headers,
-			}).pipe(Effect.flatMap(Schema.decodeUnknown(LibrariesResponse)));
+			}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(LibrariesResponse)));
 			const failures: Array<MediaIntegrationAdapterResult["failures"][number]> = [];
 			const entityGroups: Array<MediaIntegrationAdapterResult["entityGroups"][number]> = [];
 			let itemIndex = 0;
@@ -79,7 +79,7 @@ export default defineActivity({
 					"GET",
 					`${url}/library/sections/${directory.key}/all?includeGuids=1`,
 					{ headers },
-				).pipe(Effect.flatMap(Schema.decodeUnknown(ItemsResponse)), Effect.option);
+				).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ItemsResponse)), Effect.option);
 				if (Option.isNone(listingResult)) {
 					failures.push(
 						sourceFetchFailure({
@@ -136,7 +136,7 @@ export default defineActivity({
 							"GET",
 							`${url}/library/metadata/${item.ratingKey}/allLeaves`,
 							{ headers },
-						).pipe(Effect.flatMap(Schema.decodeUnknown(ItemsResponse)), Effect.option);
+						).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ItemsResponse)), Effect.option);
 						if (Option.isNone(leavesResult)) {
 							failures.push(
 								sourceFetchFailure({

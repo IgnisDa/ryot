@@ -99,7 +99,7 @@ export default defineActivity({
 					"GET",
 					`${url}/api/v1/books?page=${page}&size=500&read_status=IN_PROGRESS`,
 					{ headers },
-				).pipe(Effect.flatMap(Schema.decodeUnknown(BooksResponse)));
+				).pipe(Effect.flatMap(Schema.decodeUnknownEffect(BooksResponse)));
 				pages = response.totalPages ?? 1;
 				for (const book of response.content ?? []) {
 					const index = itemIndex++;
@@ -149,7 +149,7 @@ export default defineActivity({
 						"GET",
 						`${url}/api/v1/books?page=${ownershipPage}&size=500`,
 						{ headers },
-					).pipe(Effect.flatMap(Schema.decodeUnknown(BooksResponse)));
+					).pipe(Effect.flatMap(Schema.decodeUnknownEffect(BooksResponse)));
 					ownershipPages = response.totalPages ?? 1;
 					for (const book of response.content ?? []) {
 						const ref = mangaRef(book.metadata?.links ?? [], book.metadata?.title ?? "");

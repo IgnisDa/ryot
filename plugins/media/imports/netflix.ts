@@ -1,4 +1,4 @@
-import { Effect, Either } from "@ryot/sandbox-sdk/effect";
+import { Effect, Result } from "@ryot/sandbox-sdk/effect";
 
 import {
 	extractMetadataLookupBaseTitle,
@@ -135,7 +135,7 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 		}
 		const title = row["Title"]?.trim() ?? "";
 		const label = title || `Netflix ViewingActivity row ${index + 1}`;
-		const parsed = Either.try(() => {
+		const parsed = Result.try(() => {
 			requiredCell(row, "Title");
 			const date = occurredAt(requiredCell(row, "Start Time"));
 			if (!date) {
@@ -143,25 +143,25 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 			}
 			return { date, episode: extractMetadataLookupSeasonEpisode(title) };
 		});
-		if (Either.isLeft(parsed)) {
+		if (Result.isFailure(parsed)) {
 			failures.push({
 				itemIndex: index,
 				sourceLabel: label,
 				sourceIdentifier: title || undefined,
-				message: `ViewingActivity file: ${parsed.left instanceof Error ? parsed.left.message : "Netflix row is malformed"}`,
+				message: `ViewingActivity file: ${parsed.failure instanceof Error ? parsed.failure.message : "Netflix row is malformed"}`,
 			});
 			continue;
 		}
-		const lookup = yield* Effect.either(
+		const lookup = yield* Effect.result(
 			lookupTitle({
 				title,
 				preferredEntitySchemaSlug: hasMetadataLookupShowIndicators(title) ? "show" : undefined,
 			}),
 		);
-		if (Either.isLeft(lookup)) {
+		if (Result.isFailure(lookup)) {
 			failures.push(
 				lookupFailure({
-					message: lookup.left,
+					message: lookup.failure,
 					itemIndex: index,
 					sourceLabel: label,
 					sourceIdentifier: title,
@@ -169,8 +169,8 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 			);
 			continue;
 		}
-		if (lookup.right.entityRef.entitySchemaSlug === "show") {
-			if (!parsed.right.episode) {
+		if (lookup.success.entityRef.entitySchemaSlug === "show") {
+			if (!parsed.success.episode) {
 				failures.push(
 					lookupFailure({
 						message: "Viewing activity matched a show but no season or episode could be extracted",
@@ -181,21 +181,21 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 				);
 				continue;
 			}
-			const group = getOrCreateMediaEntityGroup(groups, lookup.right.entityRef, index);
+			const group = getOrCreateMediaEntityGroup(groups, lookup.success.entityRef, index);
 			group.events.push({
 				properties: { progressPercent: 100 },
 				eventSchemaSlug: "progress",
-				occurredAt: parsed.right.date,
+				occurredAt: parsed.success.date,
 				unresolvedEpisode: {
 					type: "show",
-					seasonNumber: parsed.right.episode.season,
-					episodeNumber: parsed.right.episode.episode,
+					seasonNumber: parsed.success.episode.season,
+					episodeNumber: parsed.success.episode.episode,
 				},
 			});
 		} else {
-			const group = getOrCreateMediaEntityGroup(groups, lookup.right.entityRef, index);
+			const group = getOrCreateMediaEntityGroup(groups, lookup.success.entityRef, index);
 			group.events.push(
-				createCompleteEvent({ occurredAt: parsed.right.date, completedOn: parsed.right.date }),
+				createCompleteEvent({ occurredAt: parsed.success.date, completedOn: parsed.success.date }),
 			);
 		}
 	}
@@ -210,32 +210,32 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 			continue;
 		}
 		const label = title || `Netflix Ratings row ${index + 1}`;
-		const parsed = Either.try(() => {
+		const parsed = Result.try(() => {
 			requiredCell(row, "Title Name");
 			return convertedRating(row);
 		});
-		if (Either.isLeft(parsed)) {
+		if (Result.isFailure(parsed)) {
 			failures.push({
 				itemIndex: index,
 				sourceLabel: label,
 				sourceIdentifier: title || undefined,
-				message: `Ratings file: ${parsed.left instanceof Error ? parsed.left.message : "Netflix row is malformed"}`,
+				message: `Ratings file: ${parsed.failure instanceof Error ? parsed.failure.message : "Netflix row is malformed"}`,
 			});
 			continue;
 		}
-		if (parsed.right === null) {
+		if (parsed.success === null) {
 			continue;
 		}
-		const lookup = yield* Effect.either(
+		const lookup = yield* Effect.result(
 			lookupTitle({
 				title,
 				preferredEntitySchemaSlug: titleContext.get(extractMetadataLookupBaseTitle(title)),
 			}),
 		);
-		if (Either.isLeft(lookup)) {
+		if (Result.isFailure(lookup)) {
 			failures.push(
 				lookupFailure({
-					message: lookup.left,
+					message: lookup.failure,
 					itemIndex: index,
 					sourceLabel: label,
 					sourceIdentifier: title,
@@ -244,11 +244,11 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 			continue;
 		}
 		const review = createReviewEvent({
-			rating: parsed.right,
+			rating: parsed.success,
 			occurredAt: occurredAt(row["Event Utc Ts"]?.trim() ?? "") ?? input.importedAt,
 		});
 		if (review) {
-			getOrCreateMediaEntityGroup(groups, lookup.right.entityRef, index).events.push(review);
+			getOrCreateMediaEntityGroup(groups, lookup.success.entityRef, index).events.push(review);
 		}
 	}
 
@@ -262,26 +262,26 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 			continue;
 		}
 		const label = title || `Netflix MyList row ${index + 1}`;
-		const parsed = Either.try(() => requiredCell(row, "Title Name"));
-		if (Either.isLeft(parsed)) {
+		const parsed = Result.try(() => requiredCell(row, "Title Name"));
+		if (Result.isFailure(parsed)) {
 			failures.push({
 				itemIndex: index,
 				sourceLabel: label,
 				sourceIdentifier: title || undefined,
-				message: `MyList file: ${parsed.left instanceof Error ? parsed.left.message : "Netflix row is malformed"}`,
+				message: `MyList file: ${parsed.failure instanceof Error ? parsed.failure.message : "Netflix row is malformed"}`,
 			});
 			continue;
 		}
-		const lookup = yield* Effect.either(
+		const lookup = yield* Effect.result(
 			lookupTitle({
 				title,
 				preferredEntitySchemaSlug: titleContext.get(extractMetadataLookupBaseTitle(title)),
 			}),
 		);
-		if (Either.isLeft(lookup)) {
+		if (Result.isFailure(lookup)) {
 			failures.push(
 				lookupFailure({
-					message: lookup.left,
+					message: lookup.failure,
 					itemIndex: index,
 					sourceLabel: label,
 					sourceIdentifier: title,
@@ -289,7 +289,7 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 			);
 			continue;
 		}
-		getOrCreateMediaEntityGroup(groups, lookup.right.entityRef, index).events.push(
+		getOrCreateMediaEntityGroup(groups, lookup.success.entityRef, index).events.push(
 			createBacklogEvent(input.importedAt),
 		);
 	}

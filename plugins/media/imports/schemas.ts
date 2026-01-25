@@ -20,11 +20,11 @@ const UnresolvedEntityRef = Schema.Struct({
 	entitySchemaSlug: Schema.String,
 });
 
-export const ImportEntityRef = Schema.Union(ResolvedEntityRef, UnresolvedEntityRef);
+export const ImportEntityRef = Schema.Union([ResolvedEntityRef, UnresolvedEntityRef]);
 
 export type ImportEntityRef = typeof ImportEntityRef.Type;
 
-export const UnresolvedEpisodeRef = Schema.Union(
+export const UnresolvedEpisodeRef = Schema.Union([
 	Schema.Struct({
 		type: Schema.Literal("show"),
 		seasonNumber: Schema.Int,
@@ -34,14 +34,14 @@ export const UnresolvedEpisodeRef = Schema.Union(
 		type: Schema.Literal("podcast"),
 		episodeNumber: Schema.Int,
 	}),
-);
+]);
 
 export type UnresolvedEpisodeRef = typeof UnresolvedEpisodeRef.Type;
 
 const mediaEventFields = {
 	occurredAt: Schema.String,
 	eventSchemaSlug: Schema.String,
-	properties: Schema.Record({ key: Schema.String, value: jsonValueSchema }),
+	properties: Schema.Record(Schema.String, jsonValueSchema),
 };
 
 const ImportMediaEvent = Schema.Struct({
@@ -72,7 +72,7 @@ export const MediaImportAdapterFailure = Schema.Struct({
 	sourceLabel: Schema.optional(Schema.String),
 	sourceIdentifier: Schema.optional(Schema.String),
 	entitySchemaSlug: genericImportFailureSchema.fields.entitySchemaSlug,
-	context: Schema.optional(Schema.Record({ key: Schema.String, value: jsonValueSchema })),
+	context: Schema.optional(Schema.Record(Schema.String, jsonValueSchema)),
 });
 
 export type MediaImportAdapterFailure = typeof MediaImportAdapterFailure.Type;
