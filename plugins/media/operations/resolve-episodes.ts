@@ -1,18 +1,7 @@
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
-type ResolveEpisodesRef =
-	| {
-			readonly kind: "show";
-			readonly showEntityId: string;
-			readonly seasonNumber: number;
-			readonly episodeNumber: number;
-	  }
-	| {
-			readonly kind: "podcast";
-			readonly episodeNumber: number;
-			readonly podcastEntityId: string;
-	  };
+import type { ResolveEpisodesRef } from "./schemas";
 
 const EPISODE_ALIAS = "episode";
 
@@ -127,6 +116,7 @@ export const resolveEpisodes = (
 		executeQueryEngine(refDocument(ref)).pipe(
 			Effect.flatMap(Schema.decodeUnknown(QueryRowsResponse)),
 			Effect.map(({ data }) => ({
+				index: ref.index,
 				entityId: data.items.length === 1 ? (data.items[0]?.entityId.value ?? null) : null,
 			})),
 		),

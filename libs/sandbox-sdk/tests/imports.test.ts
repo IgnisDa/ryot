@@ -2,7 +2,7 @@ import { Schema } from "@ryot/sandbox-sdk/effect";
 import { genericImportChunkSchema } from "@ryot/sandbox-sdk/imports";
 import { expect, it } from "vitest";
 
-it("decodes generic media write intents without admitting plugin-private locators", () => {
+it("decodes generic media write intents without admitting plugin-private event fields", () => {
 	const chunk = {
 		failures: [
 			{
@@ -51,12 +51,7 @@ it("decodes generic media write intents without admitting plugin-private locator
 			items: [
 				{
 					...chunk.items[0],
-					events: [
-						{
-							...chunk.items[0]?.events[0],
-							episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 99 },
-						},
-					],
+					events: [{ ...chunk.items[0]?.events[0], pluginPrivateField: { any: "shape" } }],
 				},
 			],
 		}),

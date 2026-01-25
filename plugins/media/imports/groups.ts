@@ -8,6 +8,9 @@ export type ImportMediaEntityGroupBuilder = {
 	ownershipProvider?: string | undefined;
 };
 
+export const importEntityRefIdentifier = (ref: ImportEntityRef) =>
+	ref.kind === "resolved" ? ref.externalId : ref.identifierValue;
+
 const importEntityRefKey = (ref: ImportEntityRef) =>
 	ref.kind === "resolved"
 		? `${ref.entitySchemaSlug}|${ref.providerSlug}|${ref.externalId}`

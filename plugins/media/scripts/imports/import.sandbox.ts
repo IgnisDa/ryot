@@ -6,13 +6,15 @@ import {
 } from "@ryot/sandbox-sdk/imports";
 import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot/sandbox-sdk/workflow";
 
+import { importEntityRefIdentifier } from "../../imports/groups";
+import type { MediaImportAdapterFailure, UnresolvedEpisodeRef } from "../../imports/schemas";
 import {
 	MediaImportAdapterBatch,
 	MediaImportDispatchParserInput,
-	MediaImportResolveEpisodesInput,
-	MediaImportResolveEpisodesOutput,
+	MediaIntegrationAdapterResult,
 	MediaImportWriteChunkInput,
 } from "../../imports/schemas";
+import { ResolveEpisodesInput, ResolveEpisodesOutput } from "../../operations/schemas";
 import {
 	MediaImportPopulationWorkflowInput,
 	MediaImportPopulationWorkflowOutput,
@@ -45,16 +47,19 @@ export const mediaImportParser = (source: string) => ({
 	scriptSlug: `activity.import.${source}`,
 });
 
-const IntegrationAdapterResult = Schema.Struct({
-	failures: MediaImportAdapterBatch.fields.failures,
-	entityGroups: MediaImportAdapterBatch.fields.entityGroups,
-});
-
 const integrationAdapter = (scriptSlug: string) => ({
 	input: Schema.Unknown,
-	output: IntegrationAdapterResult,
+	output: MediaIntegrationAdapterResult,
 	scriptSlug,
 });
+
+type FinalizedEntityGroup = (typeof MediaImportWriteChunkInput.Type)["entityGroups"][number];
+type FinalizedEvent = FinalizedEntityGroup["events"][number];
+
+const unresolvedEpisodeMessage = (episode: UnresolvedEpisodeRef) =>
+	episode.type === "show"
+		? `Could not resolve show episode S${episode.seasonNumber}E${episode.episodeNumber}`
+		: `Could not resolve podcast episode ${episode.episodeNumber}`;
 
 const resolution = {
 	input: MediaImportResolutionWorkflowInput,
@@ -69,8 +74,8 @@ const population = {
 };
 
 const episodes = {
-	input: MediaImportResolveEpisodesInput,
-	output: MediaImportResolveEpisodesOutput,
+	input: ResolveEpisodesInput,
+	output: ResolveEpisodesOutput,
 	scriptSlug: "activity.import.resolve-episodes",
 };
 
@@ -267,51 +272,104 @@ export default defineWorkflow({
 				const populationByIndex = new Map(
 					populationOutput.results.map((result) => [result.index, result]),
 				);
-				const episodeLocations = resolvedGroups.flatMap((group, groupIndex) => {
+				const episodeRequests = resolvedGroups.flatMap((group, groupIndex) => {
 					const populated = populationByIndex.get(groupIndex);
 					if (populated?.status !== "completed") {
 						return [];
 					}
 					return group.events.flatMap((event, eventIndex) =>
-						event.episodeLocator
+						event.unresolvedEpisode
 							? [
 									{
 										eventIndex,
 										groupIndex,
-										ref:
-											event.episodeLocator.type === "show"
-												? {
-														kind: "show" as const,
-														showEntityId: populated.entityId,
-														seasonNumber: event.episodeLocator.seasonNumber,
-														episodeNumber: event.episodeLocator.episodeNumber,
-													}
-												: {
-														kind: "podcast" as const,
-														podcastEntityId: populated.entityId,
-														episodeNumber: event.episodeLocator.episodeNumber,
-													},
+										parentEntityId: populated.entityId,
+										unresolvedEpisode: event.unresolvedEpisode,
 									},
 								]
 							: [],
 					);
 				});
+				const episodeRefs = episodeRequests.map(({ parentEntityId, unresolvedEpisode }, index) =>
+					unresolvedEpisode.type === "show"
+						? {
+								index,
+								kind: "show" as const,
+								showEntityId: parentEntityId,
+								seasonNumber: unresolvedEpisode.seasonNumber,
+								episodeNumber: unresolvedEpisode.episodeNumber,
+							}
+						: {
+								index,
+								kind: "podcast" as const,
+								podcastEntityId: parentEntityId,
+								episodeNumber: unresolvedEpisode.episodeNumber,
+							},
+				);
 				const episodeOutput =
-					episodeLocations.length > 0
-						? yield* replay.activity(`episodes-${batchIndex}`, episodes, {
-								refs: episodeLocations.map(({ ref }) => ref),
-							})
+					episodeRefs.length > 0
+						? yield* replay.activity(`episodes-${batchIndex}`, episodes, { refs: episodeRefs })
 						: { results: [] };
-				const episodeResolutions = episodeLocations.map((location, index) => ({
-					eventIndex: location.eventIndex,
-					groupIndex: location.groupIndex,
-					entityId: episodeOutput.results[index]?.entityId ?? null,
-				}));
+				const answeredRequests = new Set<number>();
+				const episodeEntityIdByEvent = new Map<string, string | null>();
+				for (const result of episodeOutput.results) {
+					const request = episodeRequests[result.index];
+					if (!request) {
+						throw new Error(`Episode resolution returned an unexpected index ${result.index}`);
+					}
+					if (answeredRequests.has(result.index)) {
+						throw new Error(`Episode resolution returned a duplicate index ${result.index}`);
+					}
+					answeredRequests.add(result.index);
+					episodeEntityIdByEvent.set(
+						`${request.groupIndex}:${request.eventIndex}`,
+						result.entityId,
+					);
+				}
+				const unansweredRequests = episodeRequests.flatMap((_, index) =>
+					answeredRequests.has(index) ? [] : [index],
+				);
+				if (unansweredRequests.length > 0) {
+					throw new Error(`Episode resolution omitted indices ${unansweredRequests.join(", ")}`);
+				}
+				const episodeFailures: MediaImportAdapterFailure[] = [];
+				const finalizedGroups: FinalizedEntityGroup[] = [];
+				for (const [groupIndex, group] of resolvedGroups.entries()) {
+					const events: FinalizedEvent[] = [];
+					for (const [eventIndex, event] of group.events.entries()) {
+						const finalized = {
+							occurredAt: event.occurredAt,
+							properties: event.properties,
+							eventSchemaSlug: event.eventSchemaSlug,
+						};
+						if (!event.unresolvedEpisode) {
+							events.push(finalized);
+							continue;
+						}
+						const eventKey = `${groupIndex}:${eventIndex}`;
+						if (!episodeEntityIdByEvent.has(eventKey)) {
+							continue;
+						}
+						const subjectEntityId = episodeEntityIdByEvent.get(eventKey);
+						if (!subjectEntityId) {
+							episodeFailures.push({
+								itemIndex: group.itemIndex,
+								stage: "provider_resolution",
+								sourceLabel: group.entityRef.sourceLabel,
+								entitySchemaSlug: group.entityRef.entitySchemaSlug,
+								message: unresolvedEpisodeMessage(event.unresolvedEpisode),
+								sourceIdentifier: importEntityRefIdentifier(group.entityRef),
+							});
+							continue;
+						}
+						events.push({ ...finalized, subjectEntityId });
+					}
+					finalizedGroups.push({ ...group, events });
+				}
 				const chunk = yield* replay.activity(`chunks-${batchIndex}`, chunkWriter, {
-					failures: batch.failures,
-					entityGroups: resolvedGroups,
-					episodeResolutions,
+					entityGroups: finalizedGroups,
 					populationResults: populationOutput.results,
+					failures: [...batch.failures, ...episodeFailures],
 				});
 				chunkFiles.push(...chunk.chunkFiles);
 				totalItems += chunk.totalItems;

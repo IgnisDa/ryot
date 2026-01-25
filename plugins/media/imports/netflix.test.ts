@@ -95,7 +95,7 @@ describe("adaptNetflixExports", () => {
 						eventSchemaSlug: "progress",
 						properties: { progressPercent: 100 },
 						occurredAt: "2026-01-03T10:00:00.000Z",
-						episodeLocator: { type: "show", seasonNumber: 4, episodeNumber: 9 },
+						unresolvedEpisode: { type: "show", seasonNumber: 4, episodeNumber: 9 },
 					},
 					{
 						eventSchemaSlug: "review",
