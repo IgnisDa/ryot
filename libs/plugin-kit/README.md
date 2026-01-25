@@ -2,6 +2,132 @@
 
 `@ryot/plugin-kit/manifest` provides the schemas and types used to declare plugins.
 
+The manifest is strict: every top-level section is required, even when its value is an empty array,
+and unknown fields are rejected. `definePlugin` preserves literal types while checking this contract.
+Sandbox slugs use lowercase letters and numbers separated by `.`, `_`, or `-`; `/` is reserved.
+
+## Manifest Reference
+
+| Section                | Purpose                                                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `metadata`             | Package `slug`, `name`, `description`, `version`, `icon`, and `accentColor`.                                                   |
+| `configSchema`         | Plugin-owned environment configuration available to declared scripts and import sources.                                       |
+| `scripts`              | Sandbox source entries, definition kinds, capabilities, and configuration requirements.                                        |
+| `providers`            | Logical provider identities and their required `details` plus optional `search`, `resolve`, and `translate` operation scripts. |
+| `workflows`            | Public logical workflow slugs mapped to `workflow`-kind scripts.                                                               |
+| `operations`           | Public operation slugs mapped to `operation`-kind scripts with `user` or `integration` auth.                                   |
+| `boot`                 | Restart-time, system-authority script dispatches.                                                                              |
+| `userBootstrap`        | Per-user bootstrap dispatches for trusted boot-configured plugins.                                                             |
+| `crons`                | Scheduled script or workflow dispatches.                                                                                       |
+| `importSources`        | Payload, single-file, or named-file import inputs mapped to workflows.                                                         |
+| `integrationProviders` | `push`, `sink`, or `yank` integration definitions and settings schemas. `sink` and `yank` map to scripts; `push` does not.     |
+| `entitySchemas`        | Entity definitions, nested event schemas, optional user-state restrictions, and optional merge identity properties.            |
+| `relationshipSchemas`  | Typed source/target relationship definitions. A null endpoint is unconstrained.                                                |
+| `signalSchemas`        | Signal definitions, audience policy, catalog state, and notification formatter script.                                         |
+| `savedViews`           | Plugin-owned query documents and display configuration.                                                                        |
+| `bindings`             | Entity, event, relationship, and signal automation bindings plus entity-schema/provider links.                                 |
+
+Script, provider, workflow, user-bootstrap, import-source, and integration-provider slugs are unique
+in the scopes enforced by `PluginManifest`. Every referenced script, workflow, provider, and config
+key must exist. Active plugins additionally share global script, provider, import-source, and
+integration-provider slug namespaces. Entity and relationship schema evolution is additive.
+
+## Script Kinds And Entrypoints
+
+Every `scripts` item declares `entry`, `slug`, `name`, `kind`, `capabilities`,
+`requiredPluginConfigKeys`, and `requiredSystemConfigKeys`. `script` and `activity` may optionally
+declare `providerSlug`; `provider` must declare both `providerSlug` and `providerOperation`.
+
+| Kind         | Authoring helper   | Use                                                                       |
+| ------------ | ------------------ | ------------------------------------------------------------------------- |
+| `script`     | `defineScript`     | Direct boot, cron, bootstrap, or internal execution.                      |
+| `activity`   | `defineActivity`   | Nondeterministic durable workflow step.                                   |
+| `operation`  | `defineOperation`  | Public `plugins.invoke` entrypoint.                                       |
+| `workflow`   | `defineWorkflow`   | Deterministic durable orchestration; manifest capabilities must be empty. |
+| `automation` | `defineAutomation` | Policy or subscription binding.                                           |
+| `provider`   | `defineProvider`   | One logical provider operation.                                           |
+
+Each entry is a complete ES module that default-exports exactly one direct definition containing its
+static manifest, input schema, output schema, and Effect-returning `run`. The entry's static manifest
+must match its `scripts` metadata. There are no driver maps, conventional driver names, or runtime
+selection inside a module. The matching `@ryot/sandbox-sdk` kind-specific entrypoint owns exact
+input/output contracts.
+
+### Logical Providers
+
+A provider is logical identity, not executable module. Its `operations` object points each supported
+operation at a distinct `provider`-kind script whose `providerSlug` and `providerOperation` agree.
+`details` is mandatory; `search`, `resolve`, and `translate` are optional. Each provider script can be
+versioned independently while callers continue addressing provider ID plus operation. A plain
+`script` or `activity` may join provider identity with `providerSlug`; omitting it makes that script
+standalone within its plugin.
+
+## Authority And Capabilities
+
+Trusted kernel dispatch chooses execution authority; script input cannot choose or widen it.
+
+| Entry path                                                   | Authority                                                                           |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `boot`, script crons, and workflow crons                     | System                                                                              |
+| `userBootstrap`                                              | User being initialized                                                              |
+| User and integration operations                              | Authenticated user; integration operations also carry validated integration context |
+| Import workflows and provider work reached from user actions | Calling user                                                                        |
+| Automation subscriptions                                     | Subscription authority with trusted run metadata                                    |
+| Activities and child workflows                               | Authority propagated by their durable parent                                        |
+
+`capabilities` is an allowlist, not a grant by itself. Runtime intersects it with implemented host
+functions, definition kind, authority, and trusted execution markers. Declare only methods used by
+the module. `artifact-read` and `scratch` request filesystem grants rather than bridge methods.
+Workflow scripts declare `[]` and receive only durable replay primitives. Host-function scope,
+filesystem behavior, and exact limits are owned by the
+[sandbox runtime reference](../../apps/app-backend/src/lib/infrastructure/sandbox-runtime/README.md).
+
+## Cache Identity
+
+Provider-associated `script`, `activity`, and `provider` entries use logical provider ID as cache
+namespace, so all scripts for that provider share cache state. A standalone script uses its immutable
+script ID instead. Both are further isolated by executing user, not plugin ownership. Exact cache key,
+TTL, and restart semantics are owned by the
+[sandbox runtime reference](../../apps/app-backend/src/lib/infrastructure/sandbox-runtime/README.md#host-functions).
+
+## Workflow Determinism
+
+Workflow modules orchestrate only `activity`, `sleep`, and child-workflow durable calls. Keep call
+order, call names, referenced slugs, and inputs deterministic across replay. Do not read ambient time,
+randomness, network, filesystem, mutable globals, or ordinary host functions in a workflow; move that
+work into an activity. Use `Effect.fail` for expected workflow failures, not `throw`. When app-owned
+workflows dispatch child workflows, deterministic execution-ID construction and single durable
+ownership are specified in [the Effect workflow guide](../../docs/effect-workflow-guide.md).
+Runtime pinning and replay behavior are owned by the
+[sandbox runtime reference](../../apps/app-backend/src/lib/infrastructure/sandbox-runtime/README.md#durable-workflow-semantics).
+
+## Batch First
+
+Prefer one bounded host call over per-item calls. Use array-oriented APIs such as `createEvents`,
+`ensureUserEntities`, `changeUserRelationships`, `upsertGlobalEntities`, and
+`upsertGlobalRelationships`; group query work where its contract permits. Chunk only at documented
+SDK or runtime limits. Do not hide N+1 bridge traffic behind unbounded Effect concurrency: each call
+consumes host-call budget and only four may be in flight per execution.
+
+## Lifecycle And Hot Loading
+
+Ingestion validates the full prospective registry, compiles every entry, persists immutable
+content-addressed scripts, then atomically replaces the active in-memory snapshot. Reinstalling one
+plugin slug hot-loads its new package without restart; readers observe either complete old snapshot
+or complete new snapshot. Existing durable workflow executions retain pinned workflow/step versions,
+while new resolution uses active snapshot.
+
+Boot-configured trusted plugins are global and cannot be uninstalled. Other globally installed
+plugins can be uninstalled only when no running/suspended workflow, entity, active schema, or binding
+still references them. Script rows and materialized modules remain live while active packages,
+source-zero, or durable references need their content hashes; runtime reference owns GC details.
+
+This is package authoring and global trusted-install behavior only. Phase 5 owns user-level
+installation, package-versus-installation identity, per-user visibility/state, assigned namespaces,
+capability approval, quotas, SSRF hardening, scheduler scope, shared-global-data policy, package GC,
+signing/attestation, marketplace concerns, and uninstall data policy beyond refusal while referenced.
+There is no separate per-user standalone-script authoring path.
+
 ## Configuration
 
 Every manifest declares a `configSchema` for plugin-owned environment configuration. It uses the

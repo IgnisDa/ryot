@@ -6,7 +6,6 @@ import { Effect, Layer } from "effect";
 
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { dbRunnerLayer } from "#lib/test-utils/effect";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import {
 	executeSandboxExecution,
@@ -14,6 +13,7 @@ import {
 	resolveSandboxExecutionPayload,
 	SandboxExecutionQueue,
 } from "./durable-queues";
+import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 
 it("journals plugin resolution without changing the durable queue identity", () => {
@@ -80,8 +80,7 @@ esac
 			getScript: (scriptId) =>
 				Effect.succeed(scriptId === historicalScriptId ? historical : replacement),
 		}),
-		Layer.mock(PluginRuntimeResolver)({
-			_tag: "PluginRuntimeResolver",
+		Layer.mock(SandboxPluginScriptResolver)({
 			findActiveScriptById: () =>
 				Effect.succeed(
 					script(
