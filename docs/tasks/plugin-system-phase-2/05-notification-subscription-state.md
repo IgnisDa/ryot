@@ -40,7 +40,7 @@ Move the last definition/state conflation off the database: per-user notificatio
    for manifest-driven runs. This is the run's single durable attribution field.
 4. **Delete `automation_rule`** — now that both the global-binding move (task 03) and this
    per-user move are done, the table has no remaining rows or readers.
-5. **Migrate `tests/src/tests/automations/notification-subscriptions.test.ts`** with assertions
+5. **Migrate `tests/src/tests/kernel/automations/notification-subscriptions.test.ts`** with assertions
    preserved (plumbing only — Decision 16, cross-phase invariant 2).
 
 Full spec: plan §5 (per-user subscriptions, `subscription_run` change, table deletion). Do not
