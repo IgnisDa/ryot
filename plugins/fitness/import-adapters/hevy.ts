@@ -1,30 +1,25 @@
-import { DateTime, Either, Option } from "effect";
+import { DateTime, Either, Option } from "@ryot/sandbox-sdk/effect";
 
-import {
-	parseCsvText,
-	readCsvCell,
-	readOptionalCsvNumber,
-	readRequiredCsvCell,
-} from "../../runtime/csv";
+import { parseCsvText, readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";
 import {
 	determineWorkoutExerciseKind,
 	type WorkoutAdapterFailure,
 	type WorkoutAdapterResult,
 	type WorkoutImportExercise,
 	type WorkoutImportSet,
-} from "../../workout/domain";
+} from "./workout-domain";
 
 type HevyRow = {
 	title: string;
-	reps?: number | undefined;
-	weight?: number | undefined;
 	endTime: string;
 	setType: string;
 	setOrder: string;
 	startTime: string;
 	itemIndex: number;
-	description?: string | undefined;
 	exerciseTitle: string;
+	reps?: number | undefined;
+	weight?: number | undefined;
+	description?: string | undefined;
 	exerciseNotes?: string | undefined;
 	distanceMeters?: number | undefined;
 	durationSeconds?: number | undefined;
@@ -32,7 +27,7 @@ type HevyRow = {
 
 const POUNDS_TO_KILOGRAMS = 0.45359237;
 
-const readHevyWeight = (row: Record<string, string>): number | undefined => {
+const readHevyWeight = (row: Record<string, string>) => {
 	const kilograms = readOptionalCsvNumber(row, ["weight_kg", "Weight (kg)"]);
 	if (kilograms !== undefined) {
 		return kilograms;
@@ -90,7 +85,7 @@ const MONTH_ABBR: Record<string, string> = {
 	Dec: "12",
 };
 
-const toIsoFromDdMmmYyyy = (value: string): string | null => {
+const toIsoFromDdMmmYyyy = (value: string) => {
 	const m = /^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4}),\s*(\d{2}:\d{2})$/.exec(value);
 	if (!m) {
 		return null;
@@ -103,7 +98,7 @@ const toIsoFromDdMmmYyyy = (value: string): string | null => {
 	return month ? `${year}-${month}-${day.padStart(2, "0")}T${time}:00` : null;
 };
 
-const toIsoFromMmmDdYyyy = (value: string): string | null => {
+const toIsoFromMmmDdYyyy = (value: string) => {
 	const m = /^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4}),\s*(\d{2}:\d{2})$/.exec(value);
 	if (!m) {
 		return null;
@@ -116,7 +111,7 @@ const toIsoFromMmmDdYyyy = (value: string): string | null => {
 	return month ? `${year}-${month}-${day.padStart(2, "0")}T${time}:00` : null;
 };
 
-const toIsoFromMmmDdYyyyMeridiem = (value: string): string | null => {
+const toIsoFromMmmDdYyyyMeridiem = (value: string) => {
 	const m = /^([A-Za-z]{3})\s+(\d{1,2}),\s*(\d{4}),\s*(\d{1,2}):(\d{2})\s*(AM|PM)$/.exec(value);
 	if (!m) {
 		return null;
@@ -143,22 +138,12 @@ const parseHevyDate = (value: string, timezone: string) => {
 };
 
 const toWorkoutSet = (row: HevyRow): WorkoutImportSet => {
-	let setLot: WorkoutImportSet["setLot"];
-	switch (row.setType) {
-		case "warmup":
-			setLot = "warm_up";
-			break;
-		case "failure":
-			setLot = "failure";
-			break;
-		case "dropset":
-			setLot = "drop";
-			break;
-		default:
-			setLot = "normal";
-	}
-
-	const set: WorkoutImportSet = { setLot };
+	const setLots: Record<string, WorkoutImportSet["setLot"]> = {
+		warmup: "warm_up",
+		failure: "failure",
+		dropset: "drop",
+	};
+	const set: WorkoutImportSet = { setLot: setLots[row.setType] ?? "normal" };
 	if (row.exerciseNotes) {
 		set.note = row.exerciseNotes;
 	}
@@ -177,9 +162,8 @@ const toWorkoutSet = (row: HevyRow): WorkoutImportSet => {
 	return set;
 };
 
-const sourceLabelForWorkout = (row: HevyRow): string => `${row.title} (${row.startTime})`;
-
-const sourceIdentifierForWorkout = (row: Pick<HevyRow, "startTime" | "title">): string =>
+const sourceLabelForWorkout = (row: HevyRow) => `${row.title} (${row.startTime})`;
+const sourceIdentifierForWorkout = (row: Pick<HevyRow, "startTime" | "title">) =>
 	`${row.startTime}:${row.title}`;
 
 export const adaptHevyCsv = (csvText: string, timezone: string): WorkoutAdapterResult => {
@@ -222,7 +206,6 @@ export const adaptHevyCsv = (csvText: string, timezone: string): WorkoutAdapterR
 		if (!firstRow) {
 			continue;
 		}
-
 		const sourceLabel = sourceLabelForWorkout(firstRow);
 		const startedAt = parseHevyDate(firstRow.startTime, timezone);
 		if (Option.isNone(startedAt)) {
@@ -237,7 +220,6 @@ export const adaptHevyCsv = (csvText: string, timezone: string): WorkoutAdapterR
 
 		const endedAtParsed = parseHevyDate(firstRow.endTime, timezone);
 		const endedAt = Option.isSome(endedAtParsed) ? DateTime.formatIso(endedAtParsed.value) : null;
-
 		const exercisesByName = new Map<string, HevyRow[]>();
 		for (const row of workoutRows) {
 			const exerciseRows = exercisesByName.get(row.exerciseTitle) ?? [];

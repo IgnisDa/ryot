@@ -1,6 +1,6 @@
-import { DateTime, Option } from "effect";
+import { DateTime, Option, Schema } from "@ryot/sandbox-sdk/effect";
 
-import { parseCsvText } from "../../runtime/csv";
+import { parseCsvText } from "./csv";
 
 const DATE_COLUMN_NAMES = ["date"];
 const TIME_COLUMN_NAMES = ["time"];
@@ -13,7 +13,7 @@ const SKIP_COLUMN_NAMES = new Set([
 	...COMMENT_COLUMN_NAMES,
 ]);
 
-const normalizeKey = (label: string): string =>
+const normalizeKey = (label: string) =>
 	label
 		.toLowerCase()
 		.trim()
@@ -22,51 +22,66 @@ const normalizeKey = (label: string): string =>
 		.replace(/_+/g, "_")
 		.replace(/^_|_$/g, "");
 
-export type OpenScaleNormalizedItem = {
-	itemIndex: number;
-	sourceLabel: string;
-	sourceIdentifier: string;
-	properties: {
-		recordedAt: string;
-		comment?: string | null;
-		statistics: Array<{ key: string; label: string; value: number }>;
-	};
-};
+const OpenScaleStatisticSchema = Schema.Struct({
+	key: Schema.String,
+	label: Schema.String,
+	value: Schema.Number,
+});
 
-type OpenScaleAdapterFailure = {
-	message: string;
-	itemIndex: number;
-	sourceLabel: string;
-	sourceIdentifier: string;
-};
+const OpenScaleNormalizedItemSchema = Schema.Struct({
+	itemIndex: Schema.Number,
+	sourceLabel: Schema.String,
+	sourceIdentifier: Schema.String,
+	properties: Schema.Struct({
+		recordedAt: Schema.String,
+		comment: Schema.optional(Schema.NullOr(Schema.String)),
+		statistics: Schema.mutable(Schema.Array(OpenScaleStatisticSchema)),
+	}),
+});
 
-type OpenScaleAdapterResult = {
-	items: OpenScaleNormalizedItem[];
-	failures: OpenScaleAdapterFailure[];
-};
+export type OpenScaleNormalizedItem = typeof OpenScaleNormalizedItemSchema.Type;
+
+const OpenScaleAdapterFailureSchema = Schema.Struct({
+	message: Schema.String,
+	itemIndex: Schema.Number,
+	sourceLabel: Schema.String,
+	sourceIdentifier: Schema.String,
+});
+
+type OpenScaleAdapterFailure = typeof OpenScaleAdapterFailureSchema.Type;
+
+const OpenScaleAdapterResultSchema = Schema.Struct({
+	items: Schema.mutable(Schema.Array(OpenScaleNormalizedItemSchema)),
+	failures: Schema.mutable(Schema.Array(OpenScaleAdapterFailureSchema)),
+});
+
+type OpenScaleAdapterResult = typeof OpenScaleAdapterResultSchema.Type;
 
 export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
 	const { headers, rows } = parseCsvText(csvText);
-
 	if (headers.length === 0) {
 		throw new Error("OpenScale CSV is empty or has no header row");
 	}
 
-	const normalizedHeaders = headers.map((h) => h.toLowerCase().trim());
-
+	const normalizedHeaders = headers.map((header) => header.toLowerCase().trim());
 	const datetimeColIdx =
-		DATETIME_COLUMN_NAMES.map((n) => normalizedHeaders.indexOf(n)).find((i) => i >= 0) ?? -1;
+		DATETIME_COLUMN_NAMES.map((name) => normalizedHeaders.indexOf(name)).find(
+			(index) => index >= 0,
+		) ?? -1;
 	const dateColIdx =
-		DATE_COLUMN_NAMES.map((n) => normalizedHeaders.indexOf(n)).find((i) => i >= 0) ?? -1;
+		DATE_COLUMN_NAMES.map((name) => normalizedHeaders.indexOf(name)).find((index) => index >= 0) ??
+		-1;
 	const timeColIdx =
-		TIME_COLUMN_NAMES.map((n) => normalizedHeaders.indexOf(n)).find((i) => i >= 0) ?? -1;
+		TIME_COLUMN_NAMES.map((name) => normalizedHeaders.indexOf(name)).find((index) => index >= 0) ??
+		-1;
 	const commentColIdx =
-		COMMENT_COLUMN_NAMES.map((n) => normalizedHeaders.indexOf(n)).find((i) => i >= 0) ?? -1;
+		COMMENT_COLUMN_NAMES.map((name) => normalizedHeaders.indexOf(name)).find(
+			(index) => index >= 0,
+		) ?? -1;
 
 	const hasDatetime = datetimeColIdx >= 0;
 	const hasDateAndTime = dateColIdx >= 0 && timeColIdx >= 0;
 	const hasDateOnly = dateColIdx >= 0 && timeColIdx < 0;
-
 	if (!hasDatetime && !hasDateAndTime && !hasDateOnly) {
 		throw new Error(
 			"OpenScale CSV does not contain a recognizable date/time column. Expected a column named 'dateTime', 'date', or similar.",
@@ -75,7 +90,6 @@ export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
 
 	const items: OpenScaleNormalizedItem[] = [];
 	const failures: OpenScaleAdapterFailure[] = [];
-
 	for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
 		const row = rows[rowIdx];
 		if (!row) {
@@ -119,21 +133,19 @@ export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
 		const recordedAt = DateTime.formatIso(parsed.value);
 		const sourceLabel = recordedAt.slice(0, 16).replace("T", " ");
 		const sourceIdentifier = recordedAt;
-
 		const commentKey = commentColIdx >= 0 && headers[commentColIdx] ? headers[commentColIdx] : null;
 		const rawComment = commentKey ? row[commentKey]?.trim() : undefined;
 		const comment = rawComment?.length ? rawComment : null;
-
-		const statistics: Array<{ key: string; label: string; value: number }> = [];
+		const statistics: Array<typeof OpenScaleStatisticSchema.Type> = [];
 		const normalizedSkip = new Set(
-			headers.filter((_, i) => {
-				const norm = normalizedHeaders[i] ?? "";
+			headers.filter((_, index) => {
+				const normalized = normalizedHeaders[index] ?? "";
 				return (
-					SKIP_COLUMN_NAMES.has(norm) ||
-					i === datetimeColIdx ||
-					i === dateColIdx ||
-					i === timeColIdx ||
-					i === commentColIdx
+					SKIP_COLUMN_NAMES.has(normalized) ||
+					index === datetimeColIdx ||
+					index === dateColIdx ||
+					index === timeColIdx ||
+					index === commentColIdx
 				);
 			}),
 		);
@@ -147,7 +159,6 @@ export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
 			if (!raw || raw.trim() === "") {
 				continue;
 			}
-
 			const numVal = Number(raw.trim());
 			if (Number.isNaN(numVal)) {
 				failures.push({
@@ -165,7 +176,6 @@ export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
 		if (hasBadNumeric) {
 			continue;
 		}
-
 		items.push({
 			sourceLabel,
 			sourceIdentifier,

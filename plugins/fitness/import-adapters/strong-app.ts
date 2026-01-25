@@ -1,32 +1,27 @@
-import { DateTime, Duration, Either, Option } from "effect";
+import { DateTime, Duration, Either, Option } from "@ryot/sandbox-sdk/effect";
 
-import {
-	parseCsvText,
-	readCsvCell,
-	readOptionalCsvNumber,
-	readRequiredCsvCell,
-} from "../../runtime/csv";
+import { parseCsvText, readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";
 import {
 	determineWorkoutExerciseKind,
 	type WorkoutAdapterFailure,
 	type WorkoutAdapterResult,
 	type WorkoutImportExercise,
 	type WorkoutImportSet,
-} from "../../workout/domain";
+} from "./workout-domain";
 
 type StrongAppRow = {
 	date: string;
+	setOrder: string;
+	itemIndex: number;
+	workoutName: string;
+	exerciseName: string;
+	workoutDuration: string;
 	reps?: number | undefined;
 	notes?: string | undefined;
 	weight?: number | undefined;
 	seconds?: number | undefined;
-	setOrder: string;
 	distance?: number | undefined;
-	itemIndex: number;
-	workoutName: string;
-	exerciseName: string;
 	workoutNotes?: string | undefined;
-	workoutDuration: string;
 };
 
 const parseStrongAppRow = (row: Record<string, string>, rowIdx: number): StrongAppRow => ({
@@ -48,7 +43,7 @@ const parseStrongAppRow = (row: Record<string, string>, rowIdx: number): StrongA
 	),
 });
 
-const parseWorkoutDurationSeconds = (value: string): number => {
+const parseWorkoutDurationSeconds = (value: string) => {
 	const trimmed = value.trim();
 	if (/^\d+$/.test(trimmed)) {
 		return Number(trimmed);
@@ -100,22 +95,12 @@ const parseWorkoutDurationSeconds = (value: string): number => {
 };
 
 const toWorkoutSet = (row: StrongAppRow): WorkoutImportSet => {
-	let setLot: WorkoutImportSet["setLot"];
-	switch (row.setOrder) {
-		case "W":
-			setLot = "warm_up";
-			break;
-		case "F":
-			setLot = "failure";
-			break;
-		case "D":
-			setLot = "drop";
-			break;
-		default:
-			setLot = "normal";
-	}
-
-	const set: WorkoutImportSet = { setLot };
+	const setLots: Record<string, WorkoutImportSet["setLot"]> = {
+		W: "warm_up",
+		F: "failure",
+		D: "drop",
+	};
+	const set: WorkoutImportSet = { setLot: setLots[row.setOrder] ?? "normal" };
 	if (row.notes) {
 		set.note = row.notes;
 	}
@@ -134,9 +119,8 @@ const toWorkoutSet = (row: StrongAppRow): WorkoutImportSet => {
 	return set;
 };
 
-const sourceLabelForWorkout = (row: StrongAppRow): string => `${row.workoutName} (${row.date})`;
-
-const sourceIdentifierForWorkout = (row: Pick<StrongAppRow, "date" | "workoutName">): string =>
+const sourceLabelForWorkout = (row: StrongAppRow) => `${row.workoutName} (${row.date})`;
+const sourceIdentifierForWorkout = (row: Pick<StrongAppRow, "date" | "workoutName">) =>
 	`${row.date}:${row.workoutName}`;
 
 export const adaptStrongAppCsv = (csvText: string, timezone: string): WorkoutAdapterResult => {
@@ -183,7 +167,6 @@ export const adaptStrongAppCsv = (csvText: string, timezone: string): WorkoutAda
 			continue;
 		}
 		const date = firstRow.date;
-
 		const sourceLabel = sourceLabelForWorkout(firstRow);
 		const startedAt = DateTime.makeZoned(date.replace(" ", "T"), {
 			timeZone: timezone,
@@ -212,7 +195,6 @@ export const adaptStrongAppCsv = (csvText: string, timezone: string): WorkoutAda
 			});
 			continue;
 		}
-		const durationSeconds = parsedDuration.right;
 
 		const exercisesByName = new Map<string, StrongAppRow[]>();
 		for (const row of workoutRows) {
@@ -256,7 +238,7 @@ export const adaptStrongAppCsv = (csvText: string, timezone: string): WorkoutAda
 			comment: firstRow.workoutNotes ?? null,
 			startedAt: DateTime.formatIso(startedAt.value),
 			endedAt: DateTime.formatIso(
-				DateTime.addDuration(startedAt.value, Duration.seconds(durationSeconds)),
+				DateTime.addDuration(startedAt.value, Duration.seconds(parsedDuration.right)),
 			),
 		});
 	}

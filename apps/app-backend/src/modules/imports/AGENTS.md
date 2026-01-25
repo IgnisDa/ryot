@@ -8,11 +8,17 @@ This module owns one-time import runs. It normalizes third-party exports into Ry
 
 - `routes.ts`, `service.ts`, `repository.ts`, `jobs.ts`, `import-run-workflow.ts`: HTTP, workflow entry, persistence, and shared import-run types. (`schemas.ts` lives in `@ryot/contract`.)
 - `runtime/`: file handling, source payload storage, shared failures, and workflow helpers.
-- `sources/`: source-specific adapters and loader helpers.
-- `media-workflow.ts`, `non-media-workflow.ts`, `non-media-operation-registry-workflow.ts`: import workflow orchestration and non-media source operation wiring.
+- `sources/`: native media source adapters and loader helpers retained until task 10.
+- `plugin-import-workflow.ts`, `generic-import-workflow.ts`: registry dispatch and kernel-owned generic chunk writes.
 - `media/`: shared media import stages, source loading, and workflow-owned sandbox composition.
-- `measurement/`: OpenScale import pipeline.
-- `workout/`: Hevy and Strong import pipeline.
+
+## Plugin import pipeline
+
+Registry-declared imports receive trusted artifacts only through sandbox filesystem grants. Adapter
+activities parse those artifacts and return manifests naming harvested generic write chunks. The
+`kernel:process-import-chunks` child consumes and deletes those kernel-owned files, records adapter
+and write failures, updates run counters, resolves aliases, performs entity/relationship writes, and
+awaits `EventCreateWorkflow` with deterministic child ids. Plugins never write import data directly.
 
 ## Media pipeline
 
@@ -79,10 +85,10 @@ Use the existing import failure stages consistently:
 
 For a new source:
 
-1. Add source metadata and validation in `runtime/source-definitions.ts` if needed.
-2. Register media loaders in `media/source-loaders.ts` and non-media operation wiring in `non-media-operation-registry-workflow.ts`.
-3. Prefer a small source adapter in `sources/<source>/adapter.ts` that only fetches, parses, and maps source data.
-4. Reuse `runOneTimeMediaImportWorkflow` or `runOneTimeNonMediaImportWorkflow` and keep source-specific code bounded to loading, parsing, or write preparation.
+1. Declare source metadata and its workflow in the owning plugin manifest.
+2. Parse source artifacts in a plugin activity and emit generic import chunks.
+3. Keep source-specific normalization and schema slugs in the plugin.
+4. Compose the kernel generic import child for writes, counters, and failure rows.
 5. Follow the source-ingestion versus provider catalog boundary rules.
 6. Add focused adapter, helper, or workflow tests beside the new source or workflow.
 
@@ -93,11 +99,9 @@ For a new source:
 - Trakt: source connector stays in app code, emits resolved TMDB refs when present and unresolved IMDB refs when TMDB is missing.
 - Plex, Jellyfin, Audiobookshelf, and MediaTracker: source connectors stay in app code, fetch user source data, and emit normalized refs.
 - YouTube Music history: source fetch stays in the sandbox `history` driver, then app code normalizes the returned songs.
-- Hevy and Strong: adapters normalize workout payloads into workout-domain items.
-- OpenScale: adapter normalizes measurement rows and writes them without provider resolution.
 
 ## Testing expectations
 
 - Adapter tests should validate normalization behavior and row-level failures, not provider HTTP.
-- Workflow orchestration tests belong in `media-workflow.test.ts` or `non-media-workflow.test.ts`, and pure helper tests should stay beside the helper they cover.
+- Workflow orchestration tests belong beside `media-workflow.ts` or `generic-import-workflow.ts`, and pure helper tests should stay beside the helper they cover.
 - End-to-end media pipeline tests should assert phase transitions and persisted job data only where needed.
