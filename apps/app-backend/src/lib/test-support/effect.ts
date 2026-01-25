@@ -46,10 +46,15 @@ export const makeAppConfigLayer = (overrides?: Partial<AppConfigValue>): Layer.L
 		builtinExercisePreloadLimit: 873,
 		frontendUrl: "http://localhost:3000",
 		redisUrl: Redacted.make("unused"),
-		databaseUrl: Redacted.make("unused"),
 		frontend: { oidcButtonLabel: Option.none() },
 		users: { allowRegistration: true, disableLocalAuth: false },
 		scheduler: { frequentCronJobsSchedule: "every 5 minutes", progressUpdateThresholdHours: 2 },
+		database: {
+			statementTimeoutMs: 0,
+			connectionTimeoutMs: 10_000,
+			idleInTransactionTimeoutMs: 0,
+			url: Redacted.make("unused"),
+		},
 		sandbox: {
 			denoDir: "/tmp",
 			timeoutMs: 5_000,
