@@ -154,6 +154,7 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 						executionId,
 						userId: null,
 						mode: "ensure",
+						origin: { kind: "bootstrap" },
 						scriptId: preloadTarget.sandboxScriptId,
 						entitySchemaId: preloadTarget.entitySchemaId,
 					},

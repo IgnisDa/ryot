@@ -41,6 +41,7 @@ export const runLibraryEntityImportWorkflow = Effect.fn("runLibraryEntityImportW
 				payload: {
 					userId,
 					mode: "ensure",
+					origin: payload.origin,
 					scriptId: payload.scriptId,
 					externalId: payload.externalId,
 					executionId: populationExecutionId,

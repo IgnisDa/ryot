@@ -1,4 +1,6 @@
 import { Activity } from "@effect/workflow";
+import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
+import type { IntegrationId } from "@ryot/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -17,7 +19,7 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 	executionId: string;
 	reportProgress: ProgressReporter;
 	entityGroups: ImportMediaEntityGroup[];
-	payload: Pick<ImportRunJobData, "runId" | "userId">;
+	payload: Pick<ImportRunJobData, "runId" | "userId"> & { integrationId?: IntegrationId };
 }) {
 	const runWithDb = yield* DbRunner;
 	const entitiesRepository = yield* EntitiesRepository;
@@ -77,6 +79,13 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 				scriptId: script.sandboxScriptId,
 				entitySchemaId: script.entitySchemaId,
 				executionId: `${input.executionId}-entity-${i}`,
+				origin: (input.payload.integrationId
+					? {
+							kind: "integration",
+							integrationId: input.payload.integrationId,
+							importRunId: input.payload.runId,
+						}
+					: { kind: "import", importRunId: input.payload.runId }) satisfies AutomationOrigin,
 			})
 			.pipe(Effect.either);
 

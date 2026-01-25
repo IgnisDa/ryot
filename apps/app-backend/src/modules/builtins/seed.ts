@@ -1,6 +1,7 @@
 import {
 	EntitySchemaId,
 	EventSchemaId,
+	RelationshipSchemaId,
 	SandboxScriptId,
 	SignalSchemaId,
 } from "@ryot/contract/schema/brands";
@@ -300,6 +301,7 @@ const seedInitialDatabase = Effect.gen(function* () {
 
 	yield* Effect.logInfo("Seeding relationship schemas...");
 
+	const relationshipSchemaIds = new Map<string, string>();
 	for (const relationshipSchema of builtinRelationshipSchemas()) {
 		const sourceEntitySchemaId = relationshipSchema.sourceEntitySchemaSlug
 			? schemaIds.get(relationshipSchema.sourceEntitySchemaSlug)
@@ -323,13 +325,14 @@ const seedInitialDatabase = Effect.gen(function* () {
 			);
 		}
 
-		yield* ensureBuiltinRelationshipSchema({
+		const relationshipSchemaId = yield* ensureBuiltinRelationshipSchema({
+			sourceEntitySchemaId,
+			targetEntitySchemaId,
 			slug: relationshipSchema.slug,
 			name: relationshipSchema.name,
 			propertiesSchema: relationshipSchema.propertiesSchema,
-			sourceEntitySchemaId,
-			targetEntitySchemaId,
 		});
+		relationshipSchemaIds.set(relationshipSchema.slug, relationshipSchemaId);
 	}
 
 	yield* Effect.logInfo("Entity schemas seeded successfully");
@@ -347,7 +350,7 @@ const seedInitialDatabase = Effect.gen(function* () {
 				.where(isNull(schema.eventSchema.userId)),
 		),
 	]);
-	return { entitySchemas, eventSchemas, scriptIds };
+	return { entitySchemas, eventSchemas, scriptIds, relationshipSchemaIds };
 });
 
 export class SeedService extends Effect.Service<SeedService>()("SeedService", {
@@ -355,7 +358,8 @@ export class SeedService extends Effect.Service<SeedService>()("SeedService", {
 		const runner = yield* TransactionRunner;
 		const automations = yield* AutomationsService;
 		const signalSchemas = yield* SignalSchemasService;
-		const { entitySchemas, eventSchemas, scriptIds } = yield* runner(seedInitialDatabase);
+		const { entitySchemas, eventSchemas, scriptIds, relationshipSchemaIds } =
+			yield* runner(seedInitialDatabase);
 		for (const link of builtinEntityAutomationRuleLinks()) {
 			const scriptId = scriptIds.get(link.scriptSlug);
 			const entitySchema = entitySchemas.find(({ slug }) => slug === link.entitySchemaSlug);
@@ -366,8 +370,8 @@ export class SeedService extends Effect.Service<SeedService>()("SeedService", {
 			}
 			yield* automations.ensureBuiltin({
 				name: link.name,
-				operation: "create",
 				kind: "subscription",
+				operation: link.operation,
 				sandboxScriptId: SandboxScriptId.make(scriptId),
 				target: { id: EntitySchemaId.make(entitySchema.id), kind: "entity_schema" },
 			});
@@ -392,7 +396,13 @@ export class SeedService extends Effect.Service<SeedService>()("SeedService", {
 			}
 		}
 		const signalSchemaIds = new Map<string, SignalSchemaId>();
-		for (const definition of builtinSignalSchemas()) {
+		const mediaMonitoringRelationshipSchemaId = relationshipSchemaIds.get("media-monitoring");
+		if (!mediaMonitoringRelationshipSchemaId) {
+			return yield* Effect.die(new Error("Missing media-monitoring relationship schema"));
+		}
+		for (const definition of builtinSignalSchemas(
+			RelationshipSchemaId.make(mediaMonitoringRelationshipSchemaId),
+		)) {
 			const signalSchema = yield* signalSchemas.ensureBuiltin(definition);
 			signalSchemaIds.set(definition.slug, signalSchema.id);
 		}
