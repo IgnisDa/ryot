@@ -58,7 +58,7 @@ Derived from the plan §1 done criteria and cross-phase invariants:
       executions, and follow the standing rules and contract pattern
 - [x] `modules/media-trending` and `modules/exercises` are deleted (with any contract surface)
 - [x] Trending e2e coverage is re-pointed with assertions preserved (using the existing
-      `triggerInfrequentCron` cron-trigger fixture); exercises e2e coverage relies on boot
+      `triggerPluginCron` cron-trigger fixture); exercises e2e coverage relies on boot
       dispatch at backend startup rather than a manual trigger
 - [x] The branch stays shippable: backend `check` + unit tests, the full e2e suite, and the
       `app-client` check all pass (cross-phase invariant 1)
