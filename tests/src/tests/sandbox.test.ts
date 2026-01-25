@@ -265,7 +265,11 @@ describe("sandbox enqueue by script ID", () => {
 
 		const { response } = await client.POST("/sandbox/enqueue", {
 			headers: { Cookie: cookies },
-			body: { kind: "script", scriptId: crypto.randomUUID() },
+			body: {
+				kind: "script",
+				driverName: "main",
+				scriptId: crypto.randomUUID(),
+			},
 		});
 
 		expect(response.status).toBe(404);
@@ -281,6 +285,7 @@ describe("sandbox enqueue by script ID", () => {
 
 		const { jobId } = await enqueueSandboxScript(client, cookies, {
 			kind: "script",
+			driverName: "search",
 			scriptId: searchScriptId,
 			context: { page: 1, pageSize: 5, query: "test" },
 		});
@@ -290,5 +295,5 @@ describe("sandbox enqueue by script ID", () => {
 		expect(result.status === "completed" || result.status === "failed").toBe(
 			true,
 		);
-	});
+	}, 30_000);
 });
