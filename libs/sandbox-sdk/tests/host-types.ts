@@ -125,16 +125,16 @@ defineScript({
 		Effect.gen(function* () {
 			const entity = yield* host.getEntity("entity-1");
 			const properties: JsonValue = entity.properties;
+			const integration = yield* host.getIntegration();
 			const externalId: string | null = entity.externalId;
 			const entitySchema = yield* host.getEntitySchema("schema-1");
-			const providers: ReadonlyArray<{ readonly name: string; readonly providerId: string }> =
-				entitySchema.providers;
-			const integration = yield* host.getIntegration("integration-1");
 			const lot: "push" | "sink" | "yank" = integration.lot;
 			const events = yield* host.listEvents({ entityId: "entity-1" });
 			const occurredAt: string = events[0]?.occurredAt ?? "";
 			yield* host.listEventSchemas("schema-1");
 			yield* host.listIntegrations({ provider: "plex_yank" });
+			const providers: ReadonlyArray<{ readonly name: string; readonly providerId: string }> =
+				entitySchema.providers;
 			const created = yield* host.createEvents([
 				{
 					entityId: "entity-1",

@@ -102,6 +102,16 @@ export const toSandboxJsonValue = (value: unknown): JsonValue =>
 export const sandboxRunUserId = (input: SandboxRunInput) =>
 	"userId" in input.authority ? input.authority.userId : null;
 
+// A subscription execution already carries its integration in the trusted automation origin, so it
+// is read from there rather than duplicated onto the authority and risking the two disagreeing.
+export const sandboxRunIntegrationId = (input: UserSandboxRunInput) => {
+	if (input.authority.type !== "subscription") {
+		return input.authority.integrationId ?? null;
+	}
+	const origin = input.authority.subscriptionRun.origin;
+	return origin.kind === "integration" ? origin.integrationId : null;
+};
+
 const hasUserContext = <Input extends SandboxRunInput>(
 	input: Input,
 ): input is UserSandboxRunInput<Input> => "userId" in input.authority;
