@@ -1,5 +1,6 @@
 import { executeQuery } from "./host-functions/execute-query";
 import { getAppConfigValue } from "./host-functions/get-app-config-value";
+import { getUserPreferences } from "./host-functions/get-user-preferences";
 import { httpCall } from "./host-functions/http-call";
 import type { HostFunction, HostFunctionFactory } from "./types";
 
@@ -15,4 +16,5 @@ export const hostFunctionRegistry = {
 	httpCall: createHostFunctionFactory(httpCall),
 	executeQuery: createHostFunctionFactory(executeQuery),
 	getAppConfigValue: createHostFunctionFactory(getAppConfigValue),
+	getUserPreferences: createHostFunctionFactory(getUserPreferences),
 } satisfies Record<string, HostFunctionFactory>;
