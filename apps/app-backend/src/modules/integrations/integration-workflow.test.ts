@@ -1,6 +1,7 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
+import { SandboxRunError } from "@ryot/contract/errors";
 import {
 	ImportRunId,
 	IntegrationId,
@@ -32,12 +33,7 @@ import {
 } from "./operations-workflow";
 import { IntegrationsRepository } from "./repository";
 import { IntegrationsService } from "./service";
-import {
-	makeIntegration,
-	makeKomgaIntegration,
-	makeRun,
-	makeYoutubeMusicIntegration,
-} from "./test-support";
+import { makeIntegration, makeRun } from "./test-support";
 
 const now = "2026-06-17T00:00:00.000Z";
 
@@ -60,6 +56,19 @@ const mangaGroup = (overrides: Record<string, unknown> = {}) => ({
 		providerSlug: "manga.anilist",
 	},
 	...overrides,
+});
+
+const movieGroup = () => ({
+	itemIndex: 0,
+	collectionMemberships: [],
+	events: [{ occurredAt: now, eventSchemaSlug: "progress", properties: { progressPercent: 30 } }],
+	entityRef: {
+		externalId: "603",
+		sourceLabel: "603",
+		entitySchemaSlug: "movie",
+		kind: "resolved" as const,
+		providerSlug: "movie.tmdb",
+	},
 });
 
 const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
@@ -150,10 +159,13 @@ type TestLayerOptions = {
 
 const makeIntegrationOperations = (overrides: Partial<IntegrationRunOperationsValue> = {}) =>
 	Layer.mock(IntegrationRunOperations, {
-		loadYankAdapterResult: () =>
-			Effect.succeed({ cleanupPaths: [], adapterResult: { failures: [], entityGroups: [] } }),
-		runSandboxHistory: () =>
-			Effect.succeed({ status: "completed" as const, value: { songs: [] }, logs: [], error: null }),
+		runAdapter: () =>
+			Effect.succeed({
+				logs: [],
+				error: null,
+				status: "completed" as const,
+				value: { failures: [], entityGroups: [movieGroup()] },
+			}),
 		...overrides,
 	});
 
@@ -278,6 +290,24 @@ it.effect(
 		const recordedUpdates: Array<Record<string, unknown>> = [];
 
 		const options = {
+			integrationOperations: {
+				runAdapter: () =>
+					Effect.succeed({
+						logs: [],
+						error: null,
+						status: "completed" as const,
+						value: {
+							entityGroups: [],
+							failures: [
+								{
+									itemIndex: 0,
+									stage: "input_transformation",
+									message: "Could not parse integration webhook payload",
+								},
+							],
+						},
+					}),
+			},
 			importsRepository: makeImportsRepository({
 				getRunById: () => Effect.succeed(makeRun("failed")),
 			}),
@@ -319,7 +349,7 @@ it.effect(
 						sourceLabel: undefined,
 						sourceIdentifier: undefined,
 						stage: "input_transformation",
-						message: "Could not parse Kodi webhook payload",
+						message: "Could not parse integration webhook payload",
 					},
 				]);
 				expect(recordedUpdates).toContainEqual(
@@ -335,7 +365,7 @@ it.effect(
 					expect.objectContaining({
 						runId: "run_1",
 						status: "failed",
-						errorSummary: "Could not parse Kodi webhook payload",
+						errorSummary: "Could not parse integration webhook payload",
 					}),
 				);
 			}),
@@ -379,17 +409,19 @@ it.effect("fails the run when the integration is not found", () => {
 	);
 });
 
-it.effect("persists the komga yank adapter result and dispatches the normalized child", () => {
+it.effect("persists a yank adapter result and dispatches the normalized child", () => {
 	const childDispatches: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 	const integrationUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
 		integrationOperations: {
-			loadYankAdapterResult: () =>
+			runAdapter: () =>
 				Effect.succeed({
-					cleanupPaths: [],
-					adapterResult: { failures: [], entityGroups: [mangaGroup()] },
+					logs: [],
+					error: null,
+					status: "completed" as const,
+					value: { failures: [], entityGroups: [mangaGroup()] },
 				}),
 		},
 		importsRepository: makeImportsRepository({
@@ -402,12 +434,12 @@ it.effect("persists the komga yank adapter result and dispatches the normalized 
 			},
 		}),
 		integrationsRepository: makeIntegrationsRepository({
-			getByIdAnyUser: () => Effect.succeed(makeKomgaIntegration()),
+			getByIdAnyUser: () => Effect.succeed(makeIntegration({ lot: "yank" })),
 		}),
 		integrationsService: makeIntegrationsService({
 			update: (userId, integrationId, body) => {
 				integrationUpdates.push({ userId, integrationId, ...body });
-				return Effect.succeed(makeKomgaIntegration());
+				return Effect.succeed(makeIntegration({ lot: "yank" }));
 			},
 		}),
 	} satisfies TestLayerOptions;
@@ -445,8 +477,7 @@ it.effect("fails the whole run on catastrophic yank provider failure", () => {
 
 	const options = {
 		integrationOperations: {
-			loadYankAdapterResult: () =>
-				Effect.fail({ cleanupPaths: [], message: "Failed to fetch data from Komga" }),
+			runAdapter: () => Effect.fail(new SandboxRunError({ message: "Failed to run integration" })),
 		},
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("failed")),
@@ -458,7 +489,7 @@ it.effect("fails the whole run on catastrophic yank provider failure", () => {
 			},
 		}),
 		integrationsRepository: makeIntegrationsRepository({
-			getByIdAnyUser: () => Effect.succeed(makeKomgaIntegration()),
+			getByIdAnyUser: () => Effect.succeed(makeIntegration({ lot: "yank" })),
 		}),
 	} satisfies TestLayerOptions;
 
@@ -473,7 +504,7 @@ it.effect("fails the whole run on catastrophic yank provider failure", () => {
 				expect.objectContaining({
 					runId: "run_1",
 					status: "failed",
-					errorSummary: "Failed to fetch data from Komga",
+					errorSummary: "Failed to run integration",
 				}),
 			);
 		}),
@@ -486,12 +517,14 @@ it.effect("persists synced yank ownership items into the adapter artifact", () =
 
 	const options = {
 		integrationOperations: {
-			loadYankAdapterResult: () =>
+			runAdapter: () =>
 				Effect.succeed({
-					cleanupPaths: [],
-					adapterResult: {
+					logs: [],
+					error: null,
+					status: "completed" as const,
+					value: {
 						failures: [],
-						entityGroups: [mangaGroup({ events: [], ownershipProvider: "komga" })],
+						entityGroups: [mangaGroup({ events: [], ownershipProvider: "integration-provider" })],
 					},
 				}),
 		},
@@ -499,7 +532,7 @@ it.effect("persists synced yank ownership items into the adapter artifact", () =
 			getRunById: () => Effect.succeed(makeRun("completed")),
 		}),
 		integrationsRepository: makeIntegrationsRepository({
-			getByIdAnyUser: () => Effect.succeed(makeKomgaIntegration({ syncOwnership: true })),
+			getByIdAnyUser: () => Effect.succeed(makeIntegration({ lot: "yank", syncOwnership: true })),
 		}),
 	} satisfies TestLayerOptions;
 
@@ -510,134 +543,10 @@ it.effect("persists synced yank ownership items into the adapter artifact", () =
 			yield* runIntegrationRunWorkflow(yankPayload, "run_1");
 
 			const stored = yield* loadImportAdapterResult("run_1");
-			expect(stored?.entityGroups[0]).toMatchObject({ ownershipProvider: "komga" });
+			expect(stored?.entityGroups[0]).toMatchObject({
+				ownershipProvider: "integration-provider",
+			});
 			expect(childDispatches).toHaveLength(1);
-		}),
-		captureChildExecute(childDispatches),
-	);
-});
-
-it.effect("runs a YouTube Music yank through workflow-owned sandbox execution", () => {
-	const childDispatches: Array<Record<string, unknown>> = [];
-	const sandboxCalls: Array<Record<string, unknown>> = [];
-	const recordedUpdates: Array<Record<string, unknown>> = [];
-
-	const options = {
-		integrationOperations: {
-			runSandboxHistory: (input) =>
-				Effect.sync(() => {
-					sandboxCalls.push(input);
-					return {
-						logs: [],
-						error: null,
-						status: "completed" as const,
-						value: { songs: [{ title: "Song A", videoId: "vid1" }] },
-					};
-				}),
-		},
-		integrationsRepository: makeIntegrationsRepository({
-			getByIdAnyUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
-		}),
-		importsRepository: makeImportsRepository({
-			getRunById: () => Effect.succeed(makeRun("completed")),
-		}),
-		importsService: makeImportsService({
-			update: (input) => {
-				recordedUpdates.push(input);
-				return Effect.void;
-			},
-		}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		"run_1",
-		Effect.gen(function* () {
-			yield* runIntegrationRunWorkflow(yankPayload, "run_1");
-
-			expect(sandboxCalls).toEqual([
-				{
-					userId: "user_1",
-					executionId: "run_1-youtube-music-history",
-					context: { authCookie: "cookie", timezone: "America/New_York" },
-				},
-			]);
-
-			const stored = yield* loadImportAdapterResult("run_1");
-			expect(stored?.entityGroups).toHaveLength(1);
-			expect(stored?.entityGroups[0]?.entityRef).toMatchObject({ externalId: "vid1" });
-
-			expect(childDispatches).toHaveLength(1);
-			expect(childDispatches[0]).toMatchObject({ executionId: "run_1-normalized" });
-		}),
-		captureChildExecute(childDispatches),
-	);
-});
-
-it.effect("records a YouTube Music sandbox failure as a source-fetch failure", () => {
-	const childDispatches: Array<Record<string, unknown>> = [];
-	const recordedUpdates: Array<Record<string, unknown>> = [];
-	const recordedFailures: Array<Record<string, unknown>> = [];
-	const integrationUpdates: Array<Record<string, unknown>> = [];
-
-	const options = {
-		integrationOperations: {
-			runSandboxHistory: () =>
-				Effect.succeed({
-					logs: [],
-					value: null,
-					status: "completed" as const,
-					error: { phase: "execute" as const, message: "history fetch failed" },
-				}),
-		},
-		integrationsRepository: makeIntegrationsRepository({
-			getByIdAnyUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
-		}),
-		integrationsService: makeIntegrationsService({
-			update: (userId, integrationId, body) => {
-				integrationUpdates.push({ userId, integrationId, ...body });
-				return Effect.succeed(makeYoutubeMusicIntegration());
-			},
-		}),
-		importsRepository: makeImportsRepository({
-			getRunById: () => Effect.succeed(makeRun("failed")),
-		}),
-		importRunFailuresService: makeImportRunFailuresService({
-			create: (input) => {
-				recordedFailures.push(input);
-				return Effect.void;
-			},
-		}),
-		importsService: makeImportsService({
-			update: (input) => {
-				recordedUpdates.push(input);
-				return Effect.void;
-			},
-		}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		"run_1",
-		Effect.gen(function* () {
-			yield* runIntegrationRunWorkflow(yankPayload, "run_1");
-
-			expect(childDispatches).toHaveLength(0);
-			expect(recordedFailures).toContainEqual(
-				expect.objectContaining({
-					itemIndex: 0,
-					runId: "run_1",
-					stage: "source_fetch",
-					message: "history fetch failed",
-				}),
-			);
-			expect(integrationUpdates).toEqual([]);
-			expect(recordedUpdates).toContainEqual(
-				expect.objectContaining({ runId: "run_1", failedItems: 1, processedItems: 1 }),
-			);
-			expect(recordedUpdates).toContainEqual(
-				expect.objectContaining({ runId: "run_1", status: "failed" }),
-			);
 		}),
 		captureChildExecute(childDispatches),
 	);
@@ -649,8 +558,7 @@ it.effect("disables a yank integration after continuous failures during finaliza
 
 	const options = {
 		integrationOperations: {
-			loadYankAdapterResult: () =>
-				Effect.fail({ cleanupPaths: [], message: "Failed to fetch data from Komga" }),
+			runAdapter: () => Effect.fail(new SandboxRunError({ message: "Failed to run integration" })),
 		},
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("failed")),
@@ -666,7 +574,10 @@ it.effect("disables a yank integration after continuous failures during finaliza
 		integrationsRepository: makeIntegrationsRepository({
 			getByIdAnyUser: () =>
 				Effect.succeed(
-					makeKomgaIntegration({ extraSettings: { disableOnContinuousErrors: true } }),
+					makeIntegration({
+						lot: "yank",
+						extraSettings: { disableOnContinuousErrors: true },
+					}),
 				),
 		}),
 		integrationsService: makeIntegrationsService({
@@ -689,7 +600,7 @@ it.effect("disables a yank integration after continuous failures during finaliza
 						createdAt: "2026-06-17T00:00:00.000Z",
 						occurredAt: input.occurredAt.toISOString(),
 						signalSchemaSlug: SignalSchemaSlug.make("signal-schema-1"),
-						properties: { integrationId: "int_1", providerName: "komga" },
+						properties: { integrationId: "int_1", providerName: "test-provider" },
 						actorUserId: input.principal.kind === "user" ? input.principal.userId : null,
 					},
 				});
@@ -711,7 +622,7 @@ it.effect("disables a yank integration after continuous failures during finaliza
 				discriminator: "int_1",
 				schemaSlug: "integration.disabled",
 				principal: { kind: "user", userId: "user_1" },
-				properties: { integrationId: "int_1", providerName: "komga" },
+				properties: { integrationId: "int_1", providerName: "test-provider" },
 				origin: { kind: "integration", importRunId: "run_1", integrationId: "int_1" },
 			});
 			expect(emitted?.occurredAt).toBeInstanceOf(Date);

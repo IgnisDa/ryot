@@ -1,9 +1,10 @@
 import { Activity } from "@effect/workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { unknownToMessage } from "@ryot/contract/errors";
-import { Cause, Effect, Either, Schema } from "effect";
+import { Cause, Effect, Schema } from "effect";
 
 import {
+	MediaImportAdapterResultSchema,
 	MediaImportAdapterSummarySchema,
 	toMediaImportAdapterSummary,
 } from "#modules/imports/media/adapter-result";
@@ -13,26 +14,12 @@ import { storeImportAdapterResult } from "#modules/imports/runtime/source-payloa
 import {
 	failRun,
 	failRunWithAdapterFailures,
-	failRunWithFailures,
 	toIntegrationWorkflowError,
 } from "./failure-workflow";
 import type { IntegrationRunJobData } from "./jobs";
 import { IntegrationRunError } from "./jobs";
 import { IntegrationRunOperations } from "./operations-workflow";
 import type { IntegrationRecord } from "./repository";
-import { getSinkAdapterResult } from "./sinks/sink-adapters";
-import { buildYoutubeMusicAdapterResult, sourceFetchFailure } from "./yank/youtube-music";
-
-const IntegrationMediaLoadOutcome = Schema.Union(
-	Schema.TaggedStruct("failed", {
-		message: Schema.String,
-		cleanupPaths: Schema.Array(Schema.String),
-	}),
-	Schema.TaggedStruct("loaded", {
-		cleanupPaths: Schema.Array(Schema.String),
-		summary: MediaImportAdapterSummarySchema,
-	}),
-);
 
 const runMediaImportForIntegration = (
 	integration: IntegrationRecord,
@@ -57,186 +44,82 @@ const runMediaImportForIntegration = (
 			);
 	});
 
-const processSinkMedia = Effect.fn("processSinkMedia")(function* (
+const loadAdapterResult = Effect.fn("loadIntegrationAdapterResult")(function* (
 	integration: IntegrationRecord,
 	payload: IntegrationRunJobData,
 	executionId: string,
-) {
-	const summary = yield* Activity.make({
-		error: IntegrationRunError,
-		name: "parse-sink-adapter",
-		success: MediaImportAdapterSummarySchema,
-		execute: getSinkAdapterResult(
-			integration,
-			payload.rawBody ?? "",
-			payload.contentType ?? "application/json",
-		).pipe(
-			Effect.flatMap((adapterResult) =>
-				storeImportAdapterResult({ runId: payload.runId, adapterResult }).pipe(
-					Effect.as(toMediaImportAdapterSummary(adapterResult)),
-				),
-			),
-		),
-	});
-
-	if (summary.groups === 0 && summary.failures.length > 0) {
-		yield* failRunWithAdapterFailures(
-			"record-adapter-only-sink-failure",
-			payload.runId,
-			summary.failures,
-		);
-		return;
-	}
-
-	yield* runMediaImportForIntegration(integration, payload, executionId);
-});
-
-const buildYoutubeMusicImportResult = Effect.fn("buildYoutubeMusicImportResult")(function* (
-	integration: IntegrationRecord,
-	runId: IntegrationRunJobData["runId"],
-	executionId: string,
-	credentials: { authCookie: string; timezone: string },
 ) {
 	const operations = yield* IntegrationRunOperations;
-
 	const sandbox = yield* operations
-		.runSandboxHistory({
-			context: credentials,
-			userId: integration.userId,
-			executionId: `${executionId}-youtube-music-history`,
+		.runAdapter({
+			integration,
+			executionId: `${executionId}-adapter`,
+			context:
+				integration.lot === "sink"
+					? {
+							rawBody: payload.rawBody ?? "",
+							contentType: payload.contentType ?? "application/json",
+						}
+					: {},
 		})
 		.pipe(Effect.either);
-	if (Either.isLeft(sandbox)) {
-		return toMediaImportAdapterSummary(sourceFetchFailure(sandbox.left.message));
+
+	if (sandbox._tag === "Left") {
+		return { _tag: "failed" as const, message: sandbox.left.message };
 	}
 	if (sandbox.right.error) {
-		return toMediaImportAdapterSummary(sourceFetchFailure(sandbox.right.error.message));
+		return { _tag: "failed" as const, message: sandbox.right.error.message };
 	}
 
-	return yield* Activity.make({
+	const summary = yield* Activity.make({
 		error: IntegrationRunError,
+		name: "store-integration-adapter-result",
 		success: MediaImportAdapterSummarySchema,
-		name: "build-youtube-music-adapter-result",
-		execute: buildYoutubeMusicAdapterResult(
-			{
-				userId: integration.userId,
-				integrationId: integration.id,
-				timezone: credentials.timezone,
-			},
-			sandbox.right.value,
-		).pipe(
-			Effect.mapError(toIntegrationWorkflowError),
+		execute: Schema.decodeUnknown(MediaImportAdapterResultSchema)(sandbox.right.value).pipe(
+			Effect.mapError(
+				(error) =>
+					new IntegrationRunError({
+						message: `Integration adapter returned an unexpected shape: ${error.message}`,
+					}),
+			),
 			Effect.flatMap((adapterResult) =>
-				storeImportAdapterResult({ runId, adapterResult }).pipe(
+				storeImportAdapterResult({ runId: payload.runId, adapterResult }).pipe(
+					Effect.mapError(toIntegrationWorkflowError),
 					Effect.as(toMediaImportAdapterSummary(adapterResult)),
 				),
 			),
 		),
 	});
+	return { _tag: "loaded" as const, summary };
 });
 
-const processYoutubeMusicYank = Effect.fn("processYoutubeMusicYank")(function* (
+export const processIntegrationMedia = Effect.fn("processIntegrationMedia")(function* (
 	integration: IntegrationRecord,
 	payload: IntegrationRunJobData,
 	executionId: string,
-	credentials: { authCookie: string; timezone: string },
 ) {
-	const summary = yield* buildYoutubeMusicImportResult(
-		integration,
-		payload.runId,
-		executionId,
-		credentials,
+	const loadOutcome = yield* loadAdapterResult(integration, payload, executionId).pipe(
+		Effect.catchAll((error) => Effect.succeed({ _tag: "failed" as const, message: error.message })),
+		Effect.catchAllCause((cause) =>
+			Effect.succeed({
+				_tag: "failed" as const,
+				message: unknownToMessage(Cause.squash(cause)),
+			}),
+		),
 	);
 
-	if (summary.groups === 0 && summary.failures.length > 0) {
+	if (loadOutcome._tag === "failed") {
+		yield* failRun("fail-integration-adapter-load", payload.runId, loadOutcome.message);
+		return;
+	}
+	if (loadOutcome.summary.groups === 0 && loadOutcome.summary.failures.length > 0) {
 		yield* failRunWithAdapterFailures(
-			"record-youtube-music-source-fetch-failure",
+			"record-integration-adapter-failures",
 			payload.runId,
-			summary.failures,
+			loadOutcome.summary.failures,
 		);
 		return;
 	}
 
 	yield* runMediaImportForIntegration(integration, payload, executionId);
 });
-
-const loadYankMediaAdapterResult = (
-	integration: IntegrationRecord,
-	runId: IntegrationRunJobData["runId"],
-) =>
-	Effect.gen(function* () {
-		const operations = yield* IntegrationRunOperations;
-
-		return yield* Activity.make({
-			name: "load-media-import-adapter-result",
-			success: IntegrationMediaLoadOutcome,
-			execute: operations.loadYankAdapterResult(integration).pipe(
-				Effect.flatMap((loaded) =>
-					storeImportAdapterResult({ runId, adapterResult: loaded.adapterResult }).pipe(
-						Effect.as({
-							_tag: "loaded" as const,
-							cleanupPaths: [...loaded.cleanupPaths],
-							summary: toMediaImportAdapterSummary(loaded.adapterResult),
-						}),
-					),
-				),
-				Effect.catchAll((error) =>
-					Effect.succeed({
-						message: error.message,
-						_tag: "failed" as const,
-						cleanupPaths: [...error.cleanupPaths],
-					}),
-				),
-				Effect.catchAllCause((cause) =>
-					Effect.succeed({
-						cleanupPaths: [],
-						_tag: "failed" as const,
-						message: unknownToMessage(Cause.squash(cause)),
-					}),
-				),
-			),
-		});
-	});
-
-const processYankMedia = Effect.fn("processYankMedia")(function* (
-	integration: IntegrationRecord,
-	payload: IntegrationRunJobData,
-	executionId: string,
-) {
-	const specs = integration.providerSpecifics;
-	if (specs.kind === "youtube_music") {
-		yield* processYoutubeMusicYank(integration, payload, executionId, {
-			timezone: specs.timezone,
-			authCookie: specs.authCookie,
-		});
-		return;
-	}
-
-	if (specs.kind === "audiobookshelf" || specs.kind === "plex_yank" || specs.kind === "komga") {
-		const loadOutcome = yield* loadYankMediaAdapterResult(integration, payload.runId);
-		if (loadOutcome._tag === "failed") {
-			yield* failRun("fail-import-run-on-load-error", payload.runId, loadOutcome.message);
-			return;
-		}
-
-		yield* runMediaImportForIntegration(integration, payload, executionId);
-		return;
-	}
-
-	const message = `${integration.provider} integration is not implemented in V2 yet`;
-	yield* failRunWithFailures({
-		runId: payload.runId,
-		errorSummary: message,
-		name: "record-unsupported-yank-run",
-		failures: [{ message, itemIndex: 0, stage: "source_fetch" }],
-	});
-});
-
-export const processIntegrationMedia = (
-	integration: IntegrationRecord,
-	payload: IntegrationRunJobData,
-	executionId: string,
-) =>
-	integration.lot === "sink"
-		? processSinkMedia(integration, payload, executionId)
-		: processYankMedia(integration, payload, executionId);

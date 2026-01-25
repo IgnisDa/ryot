@@ -1,7 +1,7 @@
 import { it } from "@effect/vitest";
 import { ImportRunId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
-import { describe, expect as vitestExpect, it as vitestIt } from "vitest";
+import { expect as vitestExpect } from "vitest";
 
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { dbRunnerLayer } from "#lib/test-utils/effect";
@@ -9,7 +9,7 @@ import { ImportsRepository } from "#modules/imports/repository";
 
 import { IntegrationsService } from "./service";
 import { makeIntegration, makeRun } from "./test-support";
-import { appendOwnedItems, finalizeIntegrationRun } from "./worker";
+import { finalizeIntegrationRun } from "./worker";
 
 const mockImportsRepository = Layer.mock(ImportsRepository);
 const mockIntegrationsService = Layer.mock(IntegrationsService);
@@ -40,59 +40,6 @@ const makeWorkerLayer = (input: {
 		input.importsRepository ?? makeImportsRepository(),
 		input.integrationsService ?? makeIntegrationsService(),
 	);
-
-describe("appendOwnedItems", () => {
-	vitestIt("appends owned items as event-less ownership groups after progress groups", () => {
-		const progress = {
-			failures: [{ itemIndex: 0, stage: "input_transformation" as const, message: "bad" }],
-			entityGroups: [
-				{
-					itemIndex: 0,
-					collectionMemberships: [],
-					events: [
-						{ occurredAt: "2026-06-17T00:00:00.000Z", eventSchemaSlug: "progress", properties: {} },
-					],
-					entityRef: {
-						externalId: "1",
-						sourceLabel: "A",
-						entitySchemaSlug: "manga",
-						kind: "resolved" as const,
-						providerSlug: "manga.anilist",
-					},
-				},
-			],
-		};
-
-		const result = appendOwnedItems(progress, [
-			{
-				provider: "komga",
-				entityRef: {
-					externalId: "2",
-					kind: "resolved",
-					sourceLabel: "B",
-					entitySchemaSlug: "manga",
-					providerSlug: "manga.anilist",
-				},
-			},
-		]);
-
-		vitestExpect(result.failures).toBe(progress.failures);
-		vitestExpect(result.entityGroups).toHaveLength(2);
-		vitestExpect(result.entityGroups[1]).toEqual({
-			events: [],
-			itemIndex: 1,
-			collectionMemberships: [],
-			ownershipProvider: "komga",
-			entityRef: {
-				externalId: "2",
-				kind: "resolved",
-				sourceLabel: "B",
-				entitySchemaSlug: "manga",
-				providerSlug: "manga.anilist",
-			},
-		});
-	});
-});
 
 it.effect("updates lastFinishedAt after a completed integration run", () => {
 	const updates: Array<Record<string, unknown>> = [];

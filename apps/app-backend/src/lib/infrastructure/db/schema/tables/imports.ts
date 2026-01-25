@@ -6,7 +6,7 @@ import type {
 import type {
 	IntegrationExtraSettings,
 	IntegrationProvider,
-	IntegrationProviderSpecifics,
+	IntegrationProviderSettings,
 } from "@ryot/contract/modules/integrations/schemas";
 import type { IntegrationLot } from "@ryot/contract/modules/integrations/types";
 import { generateId } from "better-auth";
@@ -35,7 +35,7 @@ export const integration = pgTable(
 		maximumProgress: numeric().notNull().default("95"),
 		lastFinishedAt: timestamp({ withTimezone: true }),
 		extraSettings: jsonb().$type<IntegrationExtraSettings>().notNull(),
-		providerSpecifics: jsonb().$type<IntegrationProviderSpecifics>().notNull(),
+		providerSpecifics: jsonb().$type<IntegrationProviderSettings>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
