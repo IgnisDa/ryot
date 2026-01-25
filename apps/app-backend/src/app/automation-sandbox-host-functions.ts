@@ -4,16 +4,15 @@ import { automationInputSchema } from "@ryot/sandbox-sdk/automation";
 import type { AutomationSandboxHostImplementationMap } from "@ryot/sandbox-sdk/core";
 import { DateTime, Effect, Option, Schema } from "effect";
 
-import { NotificationsService } from "#modules/notifications/service";
-import { SignalEmissionService } from "#modules/signals/service";
-
 import {
 	requireSubscriptionSandboxRunInput,
 	requireUserSandboxRunInput,
 	sandboxHostEffect,
 	sandboxHostFailure,
 	type SandboxRunInput,
-} from "./shared";
+} from "#lib/infrastructure/sandbox-runtime/shared";
+import { NotificationsService } from "#modules/notifications/service";
+import { SignalEmissionService } from "#modules/signals/service";
 
 export const makeAutomationSandboxApiFunctions = (): Effect.Effect<
 	AutomationSandboxHostImplementationMap<SandboxRunInput>,
@@ -21,8 +20,8 @@ export const makeAutomationSandboxApiFunctions = (): Effect.Effect<
 	NotificationsService | SignalEmissionService
 > =>
 	Effect.gen(function* () {
-		const notifications = yield* NotificationsService;
 		const signals = yield* SignalEmissionService;
+		const notifications = yield* NotificationsService;
 
 		return {
 			emitSignal: (rawInput, request) =>
@@ -40,8 +39,8 @@ export const makeAutomationSandboxApiFunctions = (): Effect.Effect<
 										Schema.decodeUnknown(AutomationOrigin)(automation.origin).pipe(
 											Effect.map((origin) => ({
 												origin,
-												occurredAt: automation.occurredAt,
 												id: rawInput.executionId,
+												occurredAt: automation.occurredAt,
 											})),
 										),
 									),
@@ -57,19 +56,19 @@ export const makeAutomationSandboxApiFunctions = (): Effect.Effect<
 					return yield* sandboxHostEffect(
 						signals
 							.emit({
+								origin: execution.origin,
+								executionId: execution.id,
 								properties: request.properties,
 								schemaSlug: request.schemaSlug,
 								discriminator: request.discriminator,
-								origin: execution.origin,
-								executionId: execution.id,
 								occurredAt: DateTime.toDate(occurredAt.value),
+								...(request.subjectEntityId
+									? { subjectEntityId: EntityId.make(request.subjectEntityId) }
+									: {}),
 								principal:
 									rawInput.authority.type === "subscription"
 										? { kind: "user", userId: UserId.make(rawInput.authority.userId) }
 										: { kind: "system" },
-								...(request.subjectEntityId
-									? { subjectEntityId: EntityId.make(request.subjectEntityId) }
-									: {}),
 							})
 							.pipe(
 								Effect.map((result) => ({

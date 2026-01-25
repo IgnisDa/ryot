@@ -2,6 +2,7 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
+import { SandboxRunError } from "@ryot/contract/errors";
 import { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer, Option } from "effect";
 import { assert } from "vitest";
@@ -13,10 +14,6 @@ import {
 	makeRedisService,
 	makeWorkflowEngine,
 } from "#lib/test-utils/effect";
-import {
-	ImportSourceCatalog,
-	type RegisteredImportSource,
-} from "#modules/plugins/import-source-catalog";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { ImportRunFailuresService } from "./failure-service";
@@ -27,32 +24,19 @@ import { ImportRunArtifacts } from "./runtime/workflow-helpers";
 import { ImportsService } from "./service";
 
 const executionId = "import-run-dispatch";
-const configSchema = { fields: {}, unknownKeys: "strict" } as const;
-
 const payload = {
 	source: "netflix",
+	pluginSlug: "media",
 	sourcePayloadKey: "run-1",
 	filePath: "/tmp/netflix.zip",
 	userId: UserId.make("user-1"),
 	runId: ImportRunId.make("run-1"),
+	workflowScriptId: SandboxScriptId.make("accepted.netflix-import"),
 } satisfies ImportRunJobData;
-
-const netflixSource = {
-	lot: "single",
-	input: "file",
-	name: "Netflix",
-	slug: "netflix",
-	pluginSlug: "media",
-	configSchema,
-	requiredPluginConfigKeys: [],
-	description: "Netflix export",
-	workflowSlug: "netflix-import",
-	allowedFileExtensions: ["zip"],
-} satisfies RegisteredImportSource;
 
 type SandboxCall = { method: string; input: unknown };
 
-const makeHarness = (registered: RegisteredImportSource | null, suspendWorkflow = false) => {
+const makeHarness = (suspendWorkflow = false, failWorkflow = false) => {
 	const activityNames: string[] = [];
 	const sandboxCalls: SandboxCall[] = [];
 	const sandboxParents: boolean[] = [];
@@ -64,6 +48,12 @@ const makeHarness = (registered: RegisteredImportSource | null, suspendWorkflow 
 				return new Workflow.Complete({ exit: Exit.void });
 			}),
 	});
+	const workflowResult = suspendWorkflow
+		? Effect.interrupt
+		: Effect.fail(new SandboxRunError({ message: "import failed" })).pipe(
+				Effect.when(() => failWorkflow),
+				Effect.as(null),
+			);
 
 	return {
 		activityNames,
@@ -74,19 +64,8 @@ const makeHarness = (registered: RegisteredImportSource | null, suspendWorkflow 
 			Layer.succeed(WorkflowEngine, engine),
 			Layer.succeed(WorkflowInstance, instance),
 			Layer.mock(ImportRunArtifacts)({ _tag: "ImportRunArtifacts" }),
-			Layer.mock(ImportSourceCatalog)({
-				find: () => registered,
-				_tag: "ImportSourceCatalog",
-				list: () => (registered ? [registered] : []),
-				resolve: () => (registered ? { source: registered, script: Effect.succeed(null) } : null),
-			}),
 			Layer.mock(SandboxExecutionService)({
 				_tag: "SandboxExecutionService",
-				resolveWorkflowScript: (input) =>
-					Effect.sync(() => {
-						sandboxCalls.push({ input, method: "resolveWorkflowScript" });
-						return SandboxScriptId.make("workflow.netflix-import");
-					}),
 				executeWorkflow: (input) =>
 					Effect.serviceOption(WorkflowInstance).pipe(
 						Effect.tap((parent) =>
@@ -95,7 +74,7 @@ const makeHarness = (registered: RegisteredImportSource | null, suspendWorkflow 
 								sandboxCalls.push({ input, method: "executeWorkflow" });
 							}),
 						),
-						Effect.zipRight(suspendWorkflow ? Effect.interrupt : Effect.succeed(null)),
+						Effect.zipRight(workflowResult),
 					),
 			}),
 			dbRunnerLayer,
@@ -108,17 +87,13 @@ const makeHarness = (registered: RegisteredImportSource | null, suspendWorkflow 
 };
 
 it.effect("dispatches a registry-declared source to its owning plugin's import workflow", () => {
-	const harness = makeHarness(netflixSource);
+	const harness = makeHarness();
 
 	return Effect.gen(function* () {
 		yield* runProcessImportRunWorkflow(payload, executionId);
 
-		const [resolved, executed] = harness.sandboxCalls;
-		assert(resolved !== undefined && executed !== undefined);
-		expect(resolved).toEqual({
-			method: "resolveWorkflowScript",
-			input: { executionId, pluginSlug: "media", workflowSlug: "netflix-import" },
-		});
+		const [executed] = harness.sandboxCalls;
+		assert(executed !== undefined);
 		expect(executed).toEqual({
 			method: "executeWorkflow",
 			input: {
@@ -126,7 +101,7 @@ it.effect("dispatches a registry-declared source to its owning plugin's import w
 				input: { runId: "run-1", source: "netflix" },
 				grants: { artifactPath: "/tmp/netflix.zip" },
 				authority: { type: "user", userId: "user-1" },
-				scriptId: SandboxScriptId.make("workflow.netflix-import"),
+				scriptId: SandboxScriptId.make("accepted.netflix-import"),
 			},
 		});
 		expect(harness.activityNames).toEqual([
@@ -139,26 +114,7 @@ it.effect("dispatches a registry-declared source to its owning plugin's import w
 });
 
 it.effect("grants only registry-declared named artifacts to a plugin import workflow", () => {
-	const source = {
-		lot: "named",
-		input: "file",
-		slug: "movary",
-		name: "Movary",
-		pluginSlug: "media",
-		configSchema,
-		requiredPluginConfigKeys: [],
-		description: "Movary export",
-		workflowSlug: "movary-import",
-		artifacts: [
-			{
-				required: true,
-				key: "historyFilePath",
-				allowedFileExtensions: ["csv"],
-				uploadTokenField: "historyUploadToken",
-			},
-		],
-	} satisfies RegisteredImportSource;
-	const harness = makeHarness(source);
+	const harness = makeHarness();
 
 	return Effect.gen(function* () {
 		yield* runProcessImportRunWorkflow(
@@ -182,13 +138,7 @@ it.effect("grants only registry-declared named artifacts to a plugin import work
 });
 
 it.effect("hands declared source payload to the plugin import workflow", () => {
-	const harness = makeHarness({
-		...netflixSource,
-		slug: "igdb",
-		name: "IGDB",
-		workflowSlug: "import",
-		allowedFileExtensions: ["csv"],
-	});
+	const harness = makeHarness();
 
 	return Effect.gen(function* () {
 		yield* runProcessImportRunWorkflow(
@@ -210,24 +160,23 @@ it.effect("hands declared source payload to the plugin import workflow", () => {
 	}).pipe(Effect.provide(harness.layer));
 });
 
-it.effect("fails a run whose source is not registered", () => {
-	const harness = makeHarness(null);
-
-	return Effect.gen(function* () {
-		yield* runProcessImportRunWorkflow(payload, executionId);
-
-		expect(harness.sandboxCalls).toEqual([]);
-		expect(harness.activityNames).toEqual(["fail-import-run"]);
-	}).pipe(Effect.provide(harness.layer));
-});
-
 it.effect("preserves workflow suspension while awaiting the plugin import child", () => {
-	const harness = makeHarness(netflixSource, true);
+	const harness = makeHarness(true);
 
 	return Effect.gen(function* () {
 		const exit = yield* Effect.exit(runProcessImportRunWorkflow(payload, executionId));
 
 		expect(Exit.isInterrupted(exit)).toBe(true);
 		expect(harness.activityNames).not.toContain("fail-import-run-unexpected");
+	}).pipe(Effect.provide(harness.layer));
+});
+
+it.effect("releases the pre-registered pin when import orchestration fails terminally", () => {
+	const harness = makeHarness(false, true);
+
+	return Effect.gen(function* () {
+		yield* runProcessImportRunWorkflow(payload, executionId);
+
+		expect(harness.activityNames).toContain("release-import-workflow-pin");
 	}).pipe(Effect.provide(harness.layer));
 });

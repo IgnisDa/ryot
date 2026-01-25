@@ -117,7 +117,7 @@ temporary scaffolding and directly affected migration residue without broad unre
 29. As a maintainer, I want e2e wall-clock and pressure measurements recorded, so that later tuning has a trustworthy baseline.
 30. As a database operator, I want superseded script rows removed when truly unreferenced, so that immutable history does not grow forever.
 31. As a workflow owner, I want pinned scripts retained until every running or suspended execution releases them, so that GC cannot break replay.
-32. As a kernel maintainer, I want source-zero scripts retained exactly while declared by the running kernel, so that their liveness does not depend on the plugin snapshot.
+32. As a kernel maintainer, I want persisted source-zero scripts retained across differing running kernel versions, so rolling deployment GC cannot remove another process's scripts.
 33. As an operator, I want script GC to be idempotent and safe under concurrent registry changes, so that cleanup cannot race activation.
 34. As a plugin user, I want uninstall refused while plugin workflows are nonterminal, so that suspended work remains resumable.
 35. As a plugin user, I want uninstall to prevent new dispatch while checking references, so that a new workflow cannot start between validation and deactivation.
@@ -228,9 +228,9 @@ temporary scaffolding and directly affected migration residue without broad unre
 
 ### Script liveness and GC
 
-- Define liveness from active registry snapshots, nonterminal workflow pins, and the running kernel source-zero declaration set.
+- Define liveness from active registry snapshots, nonterminal workflow pins, all historical scripts owned by pinned plugins, and persisted kernel source-zero scripts.
 - Plugin uninstall fences new entrypoint dispatch, checks entity/provider references and nonterminal workflow pins, and returns conflict when any remain. If refusing, dispatch becomes available again without changing the active snapshot.
-- Script GC deletes only immutable rows absent from all liveness sets. Source-zero rows are candidates only when their content hashes are no longer declared by the running kernel.
+- Script GC deletes only plugin-owned immutable rows absent from all liveness sets. Persisted source-zero rows remain live across rolling deployments.
 - GC is idempotent and safe under concurrent ingestion, invalidation rebuild, workflow start/completion, and repeated cleanup.
 - Disk modules use the same content-hash liveness decision.
 

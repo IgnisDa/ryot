@@ -112,23 +112,6 @@ it.effect("lists import sources from every plugin ordered by plugin slug then so
 	}).pipe(Effect.provide(catalogLayer())),
 );
 
-it.effect("resolves the owning plugin, workflow and input metadata by source slug", () =>
-	Effect.gen(function* () {
-		const catalog = yield* ImportSourceCatalog;
-
-		expect(catalog.find("netflix")).toMatchObject({
-			lot: "single",
-			input: "file",
-			pluginSlug: "apple",
-			workflowSlug: "netflix-import",
-			allowedFileExtensions: ["zip"],
-			requiredPluginConfigKeys: ["tmdbAccessToken"],
-		});
-		expect(catalog.find("trakt")).toMatchObject({ input: "payload", pluginSlug: "apple" });
-		expect(catalog.find("goodreads")).toBeNull();
-	}).pipe(Effect.provide(catalogLayer())),
-);
-
 it.effect(
 	"keeps import source and active workflow resolution on one snapshot during replacement",
 	() =>
@@ -189,7 +172,7 @@ it.effect(
 
 			expect(yield* Fiber.join(fiber)).toMatchObject({
 				source: { description: "Old source", slug: "trakt" },
-				script: { id: "old-workflow-script", contentHash: "script-apple" },
+				script: { id: "old-workflow-script" },
 			});
 		}),
 );

@@ -103,6 +103,19 @@ it.effect("resolves a provider lot and script binding by slug", () =>
 	}).pipe(Effect.provide(catalogLayer())),
 );
 
+it.effect("does not resolve a replacement plugin for a persisted provider owner", () =>
+	Effect.gen(function* () {
+		const catalog = yield* IntegrationProviderCatalog;
+
+		expect(catalog.findOwned("komga", "apple")).toMatchObject({
+			slug: "komga",
+			pluginSlug: "apple",
+		});
+		expect(catalog.findOwned("komga", "replacement")).toBeNull();
+		expect(catalog.resolveOwned("komga", "replacement")).toBeNull();
+	}).pipe(Effect.provide(catalogLayer())),
+);
+
 it.effect("keeps provider and active script resolution on one snapshot during replacement", () =>
 	Effect.gen(function* () {
 		const selected = yield* Deferred.make<void>();
@@ -147,7 +160,7 @@ it.effect("keeps provider and active script resolution on one snapshot during re
 		);
 		const fiber = yield* Effect.fork(
 			Effect.gen(function* () {
-				const resolution = (yield* IntegrationProviderCatalog).resolve("komga");
+				const resolution = (yield* IntegrationProviderCatalog).resolveOwned("komga", "apple");
 				yield* Deferred.succeed(selected, undefined);
 				yield* Deferred.await(release);
 				return resolution

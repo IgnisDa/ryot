@@ -23,6 +23,7 @@ import { finalizeIntegrationRun } from "./worker";
 const IntegrationRecordSchema = Schema.Struct({
 	...ListedIntegration.fields,
 	userId: UserId,
+	pluginSlug: Schema.String,
 });
 
 const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
@@ -32,7 +33,7 @@ const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
 ) {
 	const catalog = yield* IntegrationProviderCatalog;
 	const sandbox = yield* SandboxExecutionService;
-	const provider = catalog.find(integration.provider);
+	const provider = catalog.findOwned(integration.provider, integration.pluginSlug);
 	if (!provider?.scriptSlug) {
 		return yield* new IntegrationRunError({
 			message: `Integration provider '${integration.provider}' is unavailable`,

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { ImportRunId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
@@ -104,6 +106,81 @@ export const installTestImportPlugin = () => {
 			},
 		],
 	});
+};
+
+const testImportPinningWorkflowSource = (scriptSlug: string) => `
+import {
+  genericImportKernelInputSchema,
+  genericImportWorkflowInputSchema,
+  genericImportWorkflowResultSchema,
+} from "@ryot/sandbox-sdk/imports";
+import { Effect, defineManifest, defineWorkflow } from "@ryot/sandbox-sdk/workflow";
+
+export const manifest = defineManifest({
+  kind: "workflow",
+  capabilities: [],
+  name: "E2E import pinning",
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+  slug: ${JSON.stringify(scriptSlug)},
+});
+
+const kernelImport = {
+  input: genericImportKernelInputSchema,
+  output: genericImportWorkflowResultSchema,
+  workflowSlug: "kernel:process-import-chunks",
+};
+
+export default defineWorkflow({
+  manifest,
+  input: genericImportWorkflowInputSchema,
+  output: genericImportWorkflowResultSchema,
+  run: (input, replay) =>
+    Effect.gen(function* () {
+      yield* replay.sleep("hold-plugin-pin", 1500);
+      return yield* replay.child("complete-import", kernelImport, {
+        totalItems: 0,
+        chunkFiles: [],
+        failureCount: 0,
+        writeItemCount: 0,
+        runId: input.runId,
+      });
+    }),
+});
+`;
+
+export const installTestImportPinningPlugin = () => {
+	const suffix = randomUUID();
+	const source = `e2e_pinned_import_${suffix.replaceAll("-", "_")}`;
+	const workflowSlug = `pinning-import-${suffix}`;
+	const scriptSlug = `workflow.e2e-pinning-import-${suffix}`;
+	const entry = `scripts/${workflowSlug}.sandbox.ts`;
+
+	return installTestPluginBundle({
+		workflows: [{ slug: workflowSlug, scriptSlug }],
+		files: { [entry]: testImportPinningWorkflowSource(scriptSlug) },
+		scripts: [
+			{
+				entry,
+				slug: scriptSlug,
+				kind: "workflow",
+				capabilities: [],
+				name: "E2E import pinning",
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+			},
+		],
+		importSources: [
+			{
+				slug: source,
+				workflowSlug,
+				input: "payload",
+				name: "E2E import pinning",
+				requiredPluginConfigKeys: [],
+				description: "Hold an accepted import open for plugin pinning coverage",
+			},
+		],
+	}).pipe(Effect.map((plugin) => ({ plugin, source })));
 };
 
 const OPENSCALE_SAMPLE_CSV = `dateTime,weight,bmi,fat,water,muscle,comment

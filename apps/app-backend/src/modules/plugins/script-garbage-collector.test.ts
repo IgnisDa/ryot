@@ -27,6 +27,7 @@ const withCollector = <A, E, R>(
 		readonly pinnedHashes?: ReadonlyArray<string>;
 		readonly repositoryHashes?: ReadonlyArray<string>;
 		readonly repositoryList?: PluginRepository["list"];
+		readonly persistedLivenessHashes?: ReadonlyArray<string>;
 		readonly lockIngestion?: PluginRepository["lockIngestion"];
 		readonly deleteScripts?: PluginRepository["deleteUnreferencedScripts"];
 	},
@@ -61,7 +62,10 @@ const withCollector = <A, E, R>(
 	const repositoryLayer = Layer.mock(PluginRepository)({
 		_tag: "PluginRepository",
 		lockIngestion: input.lockIngestion ?? (() => Effect.void),
+		hasIntegrationReferences: () => Effect.succeed(false),
 		deleteUnreferencedScripts: input.deleteScripts ?? (() => Effect.succeed([])),
+		listPersistedLivenessContentHashes: () =>
+			Effect.succeed([...(input.persistedLivenessHashes ?? [])]),
 		list:
 			input.repositoryList ??
 			(() =>
@@ -156,6 +160,7 @@ it.effect(
 						pluginHashes: [activeHash],
 						pinnedHashes: [pinnedHash],
 						repositoryHashes: [databaseHash],
+						persistedLivenessHashes: [pinnedHash],
 						lockIngestion: () => Ref.update(lockCount, (count) => count + 1),
 					},
 				);
@@ -228,6 +233,64 @@ it.effect("does not delete rows when the module sweep fails", () =>
 
 			expect(exit._tag).toBe("Failure");
 			expect(yield* Ref.get(deleteCount)).toBe(0);
+		}),
+	).pipe(Effect.provide(BunContext.layer)),
+);
+
+it.effect("retains every historical script for a plugin with a nonterminal workflow", () =>
+	Effect.scoped(
+		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
+			const moduleDirectory = yield* fs.makeTempDirectoryScoped();
+			const rootHash = hash("workflow-root");
+			const targetHash = hash("historical-activity-target");
+			const obsoleteHash = hash("unreferenced-plugin");
+			for (const contentHash of [rootHash, targetHash, obsoleteHash]) {
+				yield* fs.writeFileString(`${moduleDirectory}/${contentHash}.mjs`, contentHash);
+			}
+
+			yield* withCollector(
+				Effect.gen(function* () {
+					const collector = yield* ScriptGarbageCollector;
+					yield* collector.recordKernelContentHashes(new Set());
+					yield* collector.collect();
+				}),
+				{
+					moduleDirectory,
+					pinnedHashes: [rootHash],
+					persistedLivenessHashes: [rootHash, targetHash],
+				},
+			);
+
+			expect(yield* fs.exists(`${moduleDirectory}/${rootHash}.mjs`)).toBe(true);
+			expect(yield* fs.exists(`${moduleDirectory}/${targetHash}.mjs`)).toBe(true);
+			expect(yield* fs.exists(`${moduleDirectory}/${obsoleteHash}.mjs`)).toBe(false);
+		}),
+	).pipe(Effect.provide(BunContext.layer)),
+);
+
+it.effect("retains persisted source-zero hashes absent from the local kernel set", () =>
+	Effect.scoped(
+		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
+			const moduleDirectory = yield* fs.makeTempDirectoryScoped();
+			const localHash = hash("new-kernel-version");
+			const persistedHash = hash("old-kernel-version");
+			for (const contentHash of [localHash, persistedHash]) {
+				yield* fs.writeFileString(`${moduleDirectory}/${contentHash}.mjs`, contentHash);
+			}
+
+			yield* withCollector(
+				Effect.gen(function* () {
+					const collector = yield* ScriptGarbageCollector;
+					yield* collector.recordKernelContentHashes(new Set([localHash]));
+					yield* collector.collect();
+				}),
+				{ moduleDirectory, persistedLivenessHashes: [persistedHash] },
+			);
+
+			expect(yield* fs.exists(`${moduleDirectory}/${localHash}.mjs`)).toBe(true);
+			expect(yield* fs.exists(`${moduleDirectory}/${persistedHash}.mjs`)).toBe(true);
 		}),
 	).pipe(Effect.provide(BunContext.layer)),
 );
