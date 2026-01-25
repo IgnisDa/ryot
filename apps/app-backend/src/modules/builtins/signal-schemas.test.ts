@@ -56,7 +56,6 @@ it.effect("defines strict active actor contracts for the first notification sign
 
 const mediaContracts = {
 	"media.status.changed": { newStatus: "Ended", oldStatus: "Airing", entityName: "Severance" },
-	"media.episode.images.changed": { seasonNumber: 2, episodeNumber: 1, entityName: "Severance" },
 	"media.content-count.changed": {
 		oldCount: 12,
 		newCount: 13,
@@ -74,6 +73,15 @@ const mediaContracts = {
 		seasonNumber: 2,
 		episodeNumber: 1,
 		newName: "Premiere",
+		entityName: "Severance",
+	},
+	"media.episode.images.changed": { seasonNumber: 2, episodeNumber: 1, entityName: "Severance" },
+	"media.season-count.changed": { oldCount: 1, newCount: 2, entityName: "Severance" },
+	"media.episode.discovered": {
+		oldCount: 7,
+		newCount: 10,
+		seasonNumber: 2,
+		discoveredCount: 3,
 		entityName: "Severance",
 	},
 } as const;

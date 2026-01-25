@@ -188,6 +188,40 @@ export const builtinSignalSchemas = (mediaMonitoringRelationshipSchemaId: Relati
 		},
 		{
 			catalogState: "active",
+			slug: "media.season-count.changed",
+			name: "Media Season Count Changed",
+			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaId),
+			propertiesSchema: {
+				unknownKeys: "strict",
+				fields: {
+					newCount: requiredInteger("New count", "Current season count"),
+					entityName: requiredString("Entity name", "Changed show name"),
+					oldCount: requiredInteger("Old count", "Previous season count"),
+				},
+			},
+		},
+		{
+			catalogState: "active",
+			slug: "media.episode.discovered",
+			name: "Media Episode Discovered",
+			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaId),
+			propertiesSchema: {
+				unknownKeys: "strict",
+				fields: {
+					oldCount: requiredInteger("Old count", "Previous episode count"),
+					newCount: requiredInteger("New count", "Current episode count"),
+					entityName: requiredString("Entity name", "Parent media name"),
+					discoveredCount: requiredInteger("Discovered count", "Newly discovered episodes"),
+					seasonNumber: {
+						type: "integer",
+						label: "Season number",
+						description: "Optional season number",
+					},
+				},
+			},
+		},
+		{
+			catalogState: "active",
 			slug: "workout.created",
 			name: "Workout Created",
 			audiencePolicy: { kind: "actor" },

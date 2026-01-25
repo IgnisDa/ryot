@@ -19,6 +19,7 @@ import { builtinEntitySchemas } from "./entity-schemas";
 import {
 	builtinEventAutomationRuleLinks,
 	builtinEntityAutomationRuleLinks,
+	builtinRelationshipAutomationRuleLinks,
 	builtinSignalAutomationRuleLinks,
 	builtinSandboxScripts,
 	companySchemaSandboxScriptLinks,
@@ -394,6 +395,25 @@ export class SeedService extends Effect.Service<SeedService>()("SeedService", {
 					target: { id: EventSchemaId.make(eventSchema.id), kind: "event_schema" },
 				});
 			}
+		}
+		for (const link of builtinRelationshipAutomationRuleLinks()) {
+			const scriptId = scriptIds.get(link.scriptSlug);
+			const relationshipSchemaId = relationshipSchemaIds.get(link.relationshipSchemaSlug);
+			if (!scriptId || !relationshipSchemaId) {
+				return yield* Effect.die(
+					new Error(`Missing built-in relationship automation references for ${link.name}`),
+				);
+			}
+			yield* automations.ensureBuiltin({
+				name: link.name,
+				kind: "subscription",
+				operation: link.operation,
+				sandboxScriptId: SandboxScriptId.make(scriptId),
+				target: {
+					kind: "relationship_schema",
+					id: RelationshipSchemaId.make(relationshipSchemaId),
+				},
+			});
 		}
 		const signalSchemaIds = new Map<string, SignalSchemaId>();
 		const mediaMonitoringRelationshipSchemaId = relationshipSchemaIds.get("media-monitoring");

@@ -47,6 +47,16 @@ it.each([
 		"Number of chapters changed from 100 to 101 for One Piece",
 	],
 	[
+		"media.season-count.changed",
+		{ entityName: "Severance", oldCount: 1, newCount: 2 },
+		"Number of seasons changed from 1 to 2 for Severance",
+	],
+	[
+		"media.episode.discovered",
+		{ entityName: "Severance", discoveredCount: 3, oldCount: 7, newCount: 10, seasonNumber: 2 },
+		"3 new episodes discovered in season 2 for Severance",
+	],
+	[
 		"media.release-date.changed",
 		{ entityName: "Dune", changeKind: "publish_year", oldYear: 2025, newYear: 2026 },
 		"Publish year changed from 2025 to 2026 for Dune",
