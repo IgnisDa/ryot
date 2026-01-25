@@ -27,6 +27,24 @@ export const SANDBOX_APPROVED_DEPENDENCIES = [
 		runtimeFile: "youtubei-17.2.0.mjs",
 		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[2],
 	},
+	{
+		name: "fflate",
+		version: "0.8.3",
+		runtimeFile: "fflate-0.8.3.mjs",
+		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[3],
+	},
+	{
+		version: "5.5.3",
+		name: "papaparse",
+		runtimeFile: "papaparse-5.5.3.mjs",
+		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[4],
+	},
+	{
+		version: "5.8.0",
+		name: "fast-xml-parser",
+		runtimeFile: "fast-xml-parser-5.8.0.mjs",
+		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[5],
+	},
 ] as const;
 
 const legacyYoutubeiRuntime = {
@@ -36,26 +54,26 @@ const legacyYoutubeiRuntime = {
 	entryRelativePath: "dist/src/platform/deno.js",
 } as const;
 
-const runtimeModules = [
-	...SANDBOX_APPROVED_DEPENDENCIES.slice(0, 2).map((dependency) =>
-		Object.assign({}, dependency, {
-			resolveFromSdk: false,
-			entryRelativePath: null,
-			sourceImport: dependency.sdkImport,
-			runtimeSource:
-				dependency.name === "effect"
-					? 'import * as Effect from "effect/Effect"; import * as Schema from "effect/Schema"; import * as DateTime from "effect/DateTime"; import * as Option from "effect/Option"; export { DateTime, Effect, Option, Schema };'
-					: null,
-		}),
-	),
-	{
-		...SANDBOX_APPROVED_DEPENDENCIES[2],
-		...legacyYoutubeiRuntime,
-		runtimeSource: null,
-		resolveFromSdk: true,
-		sourceImport: legacyYoutubeiRuntime.packageImport,
-	},
-] as const;
+const runtimeModules = SANDBOX_APPROVED_DEPENDENCIES.map((dependency) =>
+	dependency.name === "youtubei"
+		? {
+				...dependency,
+				...legacyYoutubeiRuntime,
+				runtimeSource: null,
+				resolveFromSdk: true,
+				sourceImport: legacyYoutubeiRuntime.packageImport,
+			}
+		: {
+				...dependency,
+				resolveFromSdk: false,
+				entryRelativePath: null,
+				sourceImport: dependency.sdkImport,
+				runtimeSource:
+					dependency.name === "effect"
+						? 'import * as Effect from "effect/Effect"; import * as Schema from "effect/Schema"; import * as DateTime from "effect/DateTime"; import * as Option from "effect/Option"; export { DateTime, Effect, Option, Schema };'
+						: null,
+			},
+);
 
 const runtimeDirectoryPrefix = `runtime-v${SANDBOX_RUNTIME_DEPENDENCY_FORMAT}-${SANDBOX_APPROVED_DEPENDENCIES.map(
 	({ name, version }) => `${name}-${version}`,

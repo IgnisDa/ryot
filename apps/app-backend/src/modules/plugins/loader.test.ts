@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { Effect, Fiber, Layer, Ref } from "effect";
 import { assert } from "vitest";
 
@@ -117,6 +118,70 @@ it("rejects script slug collisions across active plugins", () => {
 	expect(loader.getSnapshot()).toBe(original);
 });
 
+it("rejects integration provider and import source slug collisions across active plugins", () => {
+	const settingsSchema = {
+		fields: { token: { type: "string", label: "Token", description: "API token", secret: true } },
+	} satisfies PluginManifest["integrationProviders"][number]["settingsSchema"];
+	const cases = [
+		{
+			expected: /Duplicate integration provider slug 'plex'/,
+			section: {
+				integrationProviders: [
+					{
+						slug: "plex",
+						name: "Plex",
+						settingsSchema,
+						lot: "yank" as const,
+						description: "Plex yank",
+						scriptSlug: "fixture.automation",
+					},
+				],
+			},
+		},
+		{
+			expected: /Duplicate import source slug 'hevy'/,
+			section: {
+				importSources: [
+					{
+						slug: "hevy",
+						name: "Hevy",
+						input: "file" as const,
+						description: "Hevy CSV",
+						requiredAppConfigKeys: [],
+						allowedFileExtensions: ["csv"],
+						workflowSlug: "fixture.workflow",
+					},
+				],
+			},
+		},
+	];
+
+	for (const { expected, section } of cases) {
+		const loader = makePluginLoader(makeDefinitionRegistry(emptySource));
+		const first = normalizedPlugin("1");
+		loader.load({ ...first, manifest: { ...first.manifest, ...section } });
+		const original = loader.getSnapshot();
+		const second = normalizedPlugin("2");
+
+		expect(() =>
+			loader.load({
+				...second,
+				scripts: second.scripts.map((script) => ({ ...script, slug: "other.automation" })),
+				manifest: {
+					...second.manifest,
+					...section,
+					scripts: second.manifest.scripts.map((script) => ({
+						...script,
+						slug: "other.automation",
+					})),
+					metadata: { ...second.manifest.metadata, slug: "other-plugin" },
+				},
+			}),
+		).toThrow(expected);
+		expect(loader.getSnapshot()).toBe(original);
+	}
+});
+
 it("preserves provider membership for custom scripts in the loader snapshot", () => {
 	const loader = makePluginLoader(makeDefinitionRegistry(emptySource));
 	const plugin = normalizedPlugin("1");
@@ -126,9 +191,9 @@ it("preserves provider membership for custom scripts in the loader snapshot", ()
 	assert(normalized);
 	const details = {
 		...declared,
-		kind: "provider" as const,
 		name: "Fixture details",
 		slug: "fixture.details",
+		kind: "provider" as const,
 		providerSlug: "fixture-provider",
 		providerOperation: "details" as const,
 	};
