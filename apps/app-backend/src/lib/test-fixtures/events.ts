@@ -3,7 +3,12 @@ import {
 	createUpdatedAt,
 	withOverrides,
 } from "~/lib/test-fixtures/fixture-helpers";
-import { createNoteAndRatingPropertiesSchema } from "~/lib/test-fixtures/property-schemas";
+import {
+	createCompletePropertiesSchema,
+	createNoteAndRatingPropertiesSchema,
+	createProgressPercentPropertiesSchema,
+	createReviewPropertiesSchema,
+} from "~/lib/test-fixtures/property-schemas";
 import type {
 	CreateEventBody,
 	EventServiceDeps,
@@ -92,3 +97,71 @@ export const createEventDeps = (
 		}),
 	...overrides,
 });
+
+export const createBuiltinBacklogEventDeps = (
+	overrides: Partial<EventServiceDeps> = {},
+): EventServiceDeps =>
+	createEventDeps({
+		getEventCreateScopeForUser: async (input) =>
+			createEventCreateScope({
+				isBuiltin: true,
+				entitySchemaSlug: "book",
+				entityId: input.entityId,
+				eventSchemaName: "Backlog",
+				eventSchemaSlug: "backlog",
+				propertiesSchema: { fields: {} },
+				eventSchemaId: input.eventSchemaId,
+			}),
+		...overrides,
+	});
+
+export const createBuiltinProgressEventDeps = (
+	overrides: Partial<EventServiceDeps> = {},
+): EventServiceDeps =>
+	createEventDeps({
+		getEventCreateScopeForUser: async (input) =>
+			createEventCreateScope({
+				isBuiltin: true,
+				entitySchemaSlug: "book",
+				entityId: input.entityId,
+				eventSchemaName: "Progress",
+				eventSchemaSlug: "progress",
+				eventSchemaId: input.eventSchemaId,
+				propertiesSchema: createProgressPercentPropertiesSchema(),
+			}),
+		...overrides,
+	});
+
+export const createBuiltinCompleteEventDeps = (
+	overrides: Partial<EventServiceDeps> = {},
+): EventServiceDeps =>
+	createEventDeps({
+		getEventCreateScopeForUser: async (input) =>
+			createEventCreateScope({
+				isBuiltin: true,
+				entitySchemaSlug: "book",
+				entityId: input.entityId,
+				eventSchemaName: "Complete",
+				eventSchemaSlug: "complete",
+				eventSchemaId: input.eventSchemaId,
+				propertiesSchema: createCompletePropertiesSchema(),
+			}),
+		...overrides,
+	});
+
+export const createBuiltinReviewEventDeps = (
+	overrides: Partial<EventServiceDeps> = {},
+): EventServiceDeps =>
+	createEventDeps({
+		getEventCreateScopeForUser: async (input) =>
+			createEventCreateScope({
+				isBuiltin: true,
+				entitySchemaSlug: "book",
+				entityId: input.entityId,
+				eventSchemaName: "Review",
+				eventSchemaSlug: "review",
+				eventSchemaId: input.eventSchemaId,
+				propertiesSchema: createReviewPropertiesSchema(),
+			}),
+		...overrides,
+	});
