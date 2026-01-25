@@ -1,30 +1,12 @@
 # App Backend Guidelines
 
-## Documentation Layout
+## Effect And Types
 
-This file holds cross-cutting rules only. A module's behavior, boundaries, and design rationale live in that module's `AGENTS.md`; reference material (the query language spec, the sandbox runtime) lives in `README.md` files read on demand. Every fact has exactly one owning document — other documents point at it instead of restating it.
-
-## Return Types
-
-Remove explicit return type annotations when TypeScript can trivially infer them. Keep them for type predicates (`value is X`), functions returning discriminated unions (literal discriminants widen to `string` otherwise), object-literal methods whose parameter inference depends on an explicit return shape, effects whose inferred failure/success union would break downstream chaining, and array factories whose element type would widen differing optional fields to `undefined`. Prefer `as const` on the returned value to keep nested literal types, and `satisfies T` over a trailing return type when only the value — not every caller — needs the constraint. Omit the type on `as X` assertions.
-
-## Testing
-
-- Assert a typed failure with `assertExitFails(exit, expected)` (`src/lib/test-utils/assertions.ts`), never `expect(exit).toEqual(Exit.fail(expected))`. The latter cannot see the message: `Schema.TaggedError` inherits `message` from `Error` as a non-enumerable own property, and both vitest's structural equality and the `Equal.equals` tester that `addEqualityTesters` installs compare only enumerable own properties, so a wrong message passes silently.
-
-## Runtime APIs And Diagnostics
-
-- Prefer Effect's platform primitives over Bun built-in modules. Use Bun APIs when Effect offers no suitable primitive, and Bun built-ins only when neither has a practical equivalent — keep that reason local and explicit.
-- Prefer Effect's exception-capture primitives over raw `try`/`catch`: the promise-aware variant for promise-based APIs, the synchronous variant for parsing or row-level fallbacks. Sandbox scripts may use host-style error handling when they need it.
-- Do not add diagnostic- or lint-suppression comments by default. Prefer typed errors, schema decoding and encoding, promise-returning callbacks, and small pure helpers that satisfy the checks. If a suppression is unavoidable, scope it narrowly and explain why the API cannot be expressed cleanly.
-
-## Observability
-
-- `SERVER_OTLP_ENDPOINT` enables OTLP JSON trace export under the `ryot-backend` service name. Completed-span debug logs carry `spanId`, `traceId`, `spanName`, and `durationMs` so an exported span can be located from its log entry. Authenticated HTTP request logs carry `userId` and the request span's `traceId`.
-
-## Sandbox Scripts
-
-- Scripts enter the runtime only through plugin or kernel source-zero ingestion. See `src/lib/infrastructure/sandbox-runtime/README.md` for ingestion, execution, cache isolation, and generated-runner mechanics.
+- Keep explicit return types only for predicates or when inference widens literals, Effect unions, callback parameters, or heterogeneous arrays. Prefer `as const` and `satisfies` over trailing annotations.
+- Prefer Effect platform primitives, then Bun APIs, then Bun built-ins. Keep any lower-level choice justified locally.
+- Use `Effect.tryPromise` or `Effect.try` instead of raw `try`/`catch`; sandbox scripts may use host-style handling.
+- Avoid diagnostic and lint suppressions. Scope and explain unavoidable suppressions.
+- Assert typed failures with `assertExitFails` from `src/lib/test-utils/assertions.ts`; structural `Exit.fail` equality misses error messages.
 
 ## Module Boundaries
 
@@ -34,79 +16,37 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 - Define services and repositories as Effect service classes; provide dependencies through layer composition, not hand-passed dependency parameters.
 - Access control lives in services, as pure helpers or direct checks after loading the smallest resource scope.
 - Do not add barrel re-exports in app-backend; import from the defining module directly.
-- Contract-facing schemas, errors, auth middleware, and `HttpApiGroup` definitions live in `@ryot/contract` (`libs/contract`), not here. Adding a module's HTTP endpoints means editing `libs/contract/src/contract.ts` and that module's files under `libs/contract/src/modules/<name>/` too, not just `apps/app-backend`. See `libs/contract/AGENTS.md` for the boundary rules.
-
-## Cross-Module Infrastructure
-
-- Feature modules form a dependency gradient from most generic to most specific. A module may depend only on more generic modules; a generic module must never import a more specific one. Sandbox execution is orthogonal infrastructure.
-- When a generic module needs a side effect owned by a more specific module, invert the dependency instead of importing it: the generic module defines a `DurableQueue` (the hook), enqueues work without knowing the handler, the specific module registers a worker via `DurableQueue.worker()`, and `app/layers.ts` wires the two together.
+- Follow `libs/contract/AGENTS.md` for HTTP boundary ownership and endpoint changes.
+- Modules may depend only on more generic modules. Invert upward side effects through a generic `DurableQueue` hook, a specific worker, and layer wiring.
 - Every table has exactly one owning repository that performs its writes; every other consumer routes through that repository, and service code never issues raw table writes.
 - Cross-module side effects go through the owning module's service and never write another module's tables directly. Reach into another module's repository only when atomicity within one shared transaction requires it, and only to write tables that module owns.
 - Importers, background jobs, sandbox callbacks, and bootstrap paths use the same write paths as HTTP request handling.
-- Provider catalog knowledge for entity search, resolution, and details belongs in sandbox scripts, not application modules. Provider-backed population and unresolved identifier resolution must reach external provider APIs through sandbox provider scripts.
-- Source-ingestion connectors that fetch a user's source data during imports or yank integrations may perform bounded network calls in app adapter loading, then emit normalized refs. They must not call provider catalog APIs for enrichment directly.
-- When app code has only a foreign identifier, resolve it through a sandbox resolve-operation script before provider-backed population. When it already has a provider-native identifier, pass it through as a resolved provider input.
+- Provider catalog search, resolution, details, and population use sandbox provider scripts. Source-ingestion connectors may fetch user data but must not enrich it through provider APIs directly.
+- Resolve foreign identifiers through a sandbox resolve operation; pass provider-native identifiers through as resolved inputs.
 
-## Validation And Persistence
+## Persistence And Transactions
 
-- Runtime schemas, persisted JSON structures, and TypeScript types must stay aligned.
-- Reusable request and response schemas live in their module's schema definitions.
-- Database timestamps must be timezone-aware.
-- Persist JSON date values as ISO 8601 UTC strings.
-- Use Effect Schema for all HTTP payloads, service boundaries, and domain types. Do not use Zod in application code.
-
-## Transactions
-
-- A shared transaction runner runs an effect inside one PostgreSQL transaction; services depend on it and choose the transaction boundary.
-- Repository effects read the active executor from shared context; the transaction runner swaps that executor for the transactional one.
-- Expected failures roll back through an internal sentinel, after which the original typed failure is restored.
+- Keep runtime schemas, persisted JSON, and TypeScript types aligned. Use timezone-aware database timestamps and ISO 8601 UTC JSON dates.
+- Validate schema-backed entity, event, and relationship properties before writing. Allow arbitrary top-level keys only for genuine passthrough schemas.
+- Services choose transaction boundaries; repositories use the active executor from context.
 - Do not hold a transaction across sandbox execution, network calls, durable workflow boundaries, sleeps, or fan-out work.
+- Provider-backed population composes the import workflow. External event creation evaluates automation policies and dispatches lifecycle subscriptions.
+- Migration and `legacy-bootstrap` code are the only exceptions to normal write paths.
 
-## Durable Ownership
+## Durable Work
 
-- Every business operation that runs durably has exactly one owner: a single workflow definition or durable-queue worker. No two workflows may implement the same operation. When a workflow needs work another owns, it composes the owner — awaiting the child when it needs the result, or dispatching it fire-and-forget with a deterministic execution id when it does not.
+- Every durable business operation has one owning workflow or durable-queue worker. Other workflows compose that owner.
 - Parent workflows are orchestration shells. Cron ticks and multi-stage pipelines fan out to feature-owned child workflows instead of inlining another feature's activities.
-- A durable-queue worker is the canonical owner when the module gradient requires dependency inversion (hook in the generic module, worker in the specific one); otherwise prefer a workflow.
-- Activities never start durable work: no `engine.execute`, workflow `.execute`, or `DurableQueue.process` from inside an `Activity.make` execute body, including transitively through service calls — dispatch from the workflow body. `sandbox/workflow-boundaries.test.ts` pins the current owners.
-- Single ownership is not single-flight: different parents may run the owner concurrently for the same target, so owners must be idempotent (ensure-mode short-circuits, preserve-existing upserts). Add cross-execution coordination only when duplicate in-flight work is measurably harmful.
-- `docs/effect-workflow-guide.md` documents the mechanics and the audit of current owners.
-
-## Queues
-
+- Use a durable-queue worker when dependency inversion requires it; otherwise prefer a workflow.
+- Activities never start workflows or durable queues, directly or through service calls. Dispatch from workflow bodies.
+- Child workflow `executionId` values must be deterministic and derived from the parent; random IDs can spawn children on every replay.
+- Durable owners must be idempotent because ownership does not guarantee single-flight execution.
 - Do not introduce a third-party job-queue library. Background work uses the durable workflow engine, durable queues, and durable deferred signals.
-- When a workflow runs a child workflow, give the child a deterministic `executionId` derived from the parent (parent executionId + loop indices), never a fresh random one. A child that durably suspends replays the parent, and a random id spawns a new child each replay, looping forever. `docs/effect-workflow-guide.md` owns the detailed keying examples and single-owner audit.
+- See `docs/effect-workflow-guide.md` for mechanics and ownership details.
 
-## Redis
+## Shared Infrastructure
 
-- Centralize all app-defined Redis keys and pub/sub channel names in one module; never construct them inline elsewhere.
-- Access Redis-stored payloads through that module's codecs, so serialization and parsing stay typed in one place.
-
-## Schema Write Path
-
-- Writes to schema-backed entity, event, and relationship tables must validate their properties against the matching schema's property definition.
-- Provider-backed population in background flows composes the established import workflow rather than calling lower-level population helpers directly.
-- External event creation goes through the path that evaluates automation policies and dispatches
-  lifecycle subscriptions.
-- Migration and `legacy-bootstrap` code is the only exception to the write-path rules.
-- Allow arbitrary top-level keys in a property schema only when relationship or collection properties genuinely require passthrough; otherwise keep properties aligned with their built-in schemas.
-
-## Entity Translation, Localization & Interest
-
-- Entity reads are side-effect-free: they dispatch nothing. Population and translation fills are driven only by declared interest.
-- Each entity's canonical language comes from its provider script metadata; localized reads overlay the per-`(entity, language)` `entity_translation` row on the canonical entity, and the read path computes `translationStatus` from populate/overlay state.
-- The full semantics — the interest wire protocol and invariants, the overlay merge, the `translationStatus` truth table, and the negative-cache rules — are owned by `src/modules/entity-interest/AGENTS.md` and pinned by the e2e suite.
-
-## Query Engine
-
-- Query-language read semantics (null handling, collation, response shapes, time-series bucketing) are specified in `src/modules/query-engine/README.md`.
-- Construct application-owned query documents through `@ryot/query-engine`. Its primitives stay dependency-free (they never import `@ryot/contract`) so any layer can build documents without risking a dependency cycle; production reads should use a named shared recipe when one exists.
-
-## Sandbox Script Cache
-
-- Cache isolation follows the executing user, not script ownership; the sandbox-runtime README owns the exact keying semantics.
-
-## Events
-
-- Public and service-owned event creates await `EventCreateWorkflow` and return its per-item
-  outcomes. Explicit workflow calls using `discard: true` remain fire-and-forget; readers of those
-  paths must poll when they need to observe the resulting events.
+- Centralize Redis keys, channel names, payload codecs, and parsing in the Redis infrastructure module.
+- Sandbox scripts enter through plugin or kernel source-zero ingestion; see `src/lib/infrastructure/sandbox-runtime/README.md`.
+- Follow `src/modules/entity-interest/README.md` for entity read, population, translation, and interest semantics.
+- Public and service-owned event creates await `EventCreateWorkflow`. Callers using `discard: true` must poll to observe results.

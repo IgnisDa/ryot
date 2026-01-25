@@ -1,17 +1,7 @@
 # Contract Package Guidelines
 
-## Purpose
+This package owns the client-safe HTTP boundary: `AppContract`, Effect Schema payloads, shared errors, auth middleware, and wire-safe primitives. `app-backend` implements this contract; backend services and infrastructure stay in `apps/app-backend`.
 
-This package is the client-safe wire boundary consumed by `app-backend`, `app-client`, `website`, `browser-extension`, and `tests`. It holds the `AppContract` (`@effect/platform` `HttpApi`) assembly, the Effect Schema definitions for every HTTP group's payloads, shared errors, auth middleware, and brand/schema primitives — the parts of the backend's contract surface that are safe to load into a mobile bundle, a browser bundle, or a test harness.
-
-`app-backend` is a consumer/implementor of this package, not its source of truth. Other backend modules (services, repositories, routes, db, redis, config) stay in `apps/app-backend` and are never moved here.
-
-## The Boundary Rule
-
-This package must never import `drizzle-orm`, `ioredis`, `pg`, `better-auth`, Node/Bun built-ins, or any `#lib/infrastructure/db` / `#lib/infrastructure/redis` / `#lib/infrastructure/config` / service / repository code from `app-backend` — not even as `import type`. TypeScript erases type-only imports, but that erasure is easy to lose (a later edit that turns a type import into a value import, or a bundler that doesn't tree-shake it) and it still reaches into the wrong dependency graph. The one confirmed leak this package was extracted to fix was exactly this shape: `entity-interest/messages.ts` importing `EntityUpdatedReason` as a value from a file (`#lib/infrastructure/redis`) that also did `import Redis from "ioredis"`, pulling a real TCP/TLS client into the mobile bundle.
-
-If a type must be shared across the boundary, define it here and have backend consumers import it — never the reverse. This package's `auth-middleware.ts`'s `CachedUserPreferences`, moved here from the former backend bootstrap module, is the reference example.
-
-## Keeping This In Sync
-
-Adding a new backend HTTP endpoint means editing this package's `contract.ts` and that module's files here — not just `apps/app-backend`. Every module folder under `src/modules/*` has a corresponding module in `apps/app-backend/src/modules/*` by name; the contract is a subset, so backend-only modules (e.g. `auth`, `definition-registry`, `scheduler`, `legacy-bootstrap`) have no contract counterpart.
+- Never import backend code or runtime-only dependencies here, including through `import type`. This includes database, Redis, auth-server, Node, and Bun modules.
+- Define shared boundary types here and import them from backend consumers, never the reverse.
+- Adding an HTTP endpoint requires updating `src/contract.ts`, its contract module, and the matching backend module.
