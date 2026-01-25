@@ -1,3 +1,4 @@
+import { RelationshipSchemaId } from "@ryot/contract/schema/brands";
 import { assert, describe, expect, it } from "vitest";
 
 import {
@@ -13,6 +14,7 @@ import {
 	builtinSignalAutomationRuleLinks,
 } from "./registry";
 import { builtinRelationshipSchemas } from "./relationship-schemas";
+import { builtinSignalSchemas } from "./signal-schemas";
 
 describe("builtinSandboxScripts", () => {
 	it("uses generated format-1 representations for the complete TMDB family", () => {
@@ -382,6 +384,43 @@ describe("builtinSandboxScripts", () => {
 					.filter((link) => link.relationshipSchemaSlug === relationshipSchemaSlug)
 					.map(({ operation }) => operation),
 			).toEqual(["create", "update", "delete"]);
+		}
+	});
+
+	it("backs every active catalog signal with an enabled producer", () => {
+		const producerScripts = {
+			"review.created": "automation.review-created",
+			"workout.created": "automation.workout-created",
+			"person.media.associated": "automation.media-association",
+			"media.status.changed": "automation.media-entity-updated",
+			"company.media.associated": "automation.media-association",
+			"person.media-group.associated": "automation.media-association",
+			"media.release-date.changed": "automation.media-entity-updated",
+			"media.episode.name.changed": "automation.media-entity-updated",
+			"media.episode.discovered": "automation.media-relationship-sync",
+			"company.media-group.associated": "automation.media-association",
+			"media.content-count.changed": "automation.media-entity-updated",
+			"media.episode.images.changed": "automation.media-entity-updated",
+			"media.season-count.changed": "automation.media-relationship-sync",
+		} as const;
+		const linkedScripts = new Set(
+			[
+				...builtinEntityAutomationRuleLinks(),
+				...builtinEventAutomationRuleLinks(),
+				...builtinRelationshipAutomationRuleLinks(),
+			].map(({ scriptSlug }) => scriptSlug),
+		);
+		const activeSignalSlugs = builtinSignalSchemas(
+			RelationshipSchemaId.make("media-monitoring-schema"),
+		)
+			.filter(({ catalogState }) => catalogState === "active")
+			.map(({ slug }) => slug);
+
+		expect(new Set(activeSignalSlugs)).toEqual(
+			new Set([...Object.keys(producerScripts), "integration.disabled"]),
+		);
+		for (const scriptSlug of Object.values(producerScripts)) {
+			expect(linkedScripts.has(scriptSlug), scriptSlug).toBe(true);
 		}
 	});
 
