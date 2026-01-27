@@ -12,6 +12,6 @@ need to manually add the manga to your collection or you can perform the followi
 4. On Ryot, create an integration and select Komga as the source
 5. Provide your Base URL. It should look something like this `https://komga.acme.com` or
    `http://127.0.0.1:25600`
-6. Provide your Username and Password.
+6. Provide your API Key. You can generate one in Komga under User Settings > API Keys.
 7. Provide your preferred metadata provider. Ryot will attempt the others if the preferred
    is unavailable and will fallback to title search otherwise.
