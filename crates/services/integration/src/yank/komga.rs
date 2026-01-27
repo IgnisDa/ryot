@@ -168,7 +168,7 @@ pub async fn yank_progress(
 
     let books: komga_book::Response = client
         .post(format!(
-            "{url}/books/list?read_status=IN_PROGRESS&sort=readProgress.lastModified,desc"
+            "{url}/books/list?sort=readProgress.lastModified,desc"
         ))
         .json(&serde_json::json!({}))
         .send()
