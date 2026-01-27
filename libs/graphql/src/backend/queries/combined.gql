@@ -86,9 +86,8 @@ query UserIntegrations {
 			plexSinkUsername
 			audiobookshelfToken
 			audiobookshelfBaseUrl
+			komgaApiKey
 			komgaBaseUrl
-			komgaUsername
-			komgaPassword
 			komgaProvider
 			radarrBaseUrl
 			radarrApiKey

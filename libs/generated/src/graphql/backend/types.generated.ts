@@ -1220,10 +1220,9 @@ export type IntegrationProviderSpecifics = {
   jellyfinPushBaseUrl?: Maybe<Scalars['String']['output']>;
   jellyfinPushPassword?: Maybe<Scalars['String']['output']>;
   jellyfinPushUsername?: Maybe<Scalars['String']['output']>;
+  komgaApiKey?: Maybe<Scalars['String']['output']>;
   komgaBaseUrl?: Maybe<Scalars['String']['output']>;
-  komgaPassword?: Maybe<Scalars['String']['output']>;
   komgaProvider?: Maybe<MediaSource>;
-  komgaUsername?: Maybe<Scalars['String']['output']>;
   plexSinkUsername?: Maybe<Scalars['String']['output']>;
   plexYankBaseUrl?: Maybe<Scalars['String']['output']>;
   plexYankToken?: Maybe<Scalars['String']['output']>;
@@ -1250,10 +1249,9 @@ export type IntegrationSourceSpecificsInput = {
   jellyfinPushBaseUrl?: InputMaybe<Scalars['String']['input']>;
   jellyfinPushPassword?: InputMaybe<Scalars['String']['input']>;
   jellyfinPushUsername?: InputMaybe<Scalars['String']['input']>;
+  komgaApiKey?: InputMaybe<Scalars['String']['input']>;
   komgaBaseUrl?: InputMaybe<Scalars['String']['input']>;
-  komgaPassword?: InputMaybe<Scalars['String']['input']>;
   komgaProvider?: InputMaybe<MediaSource>;
-  komgaUsername?: InputMaybe<Scalars['String']['input']>;
   plexSinkUsername?: InputMaybe<Scalars['String']['input']>;
   plexYankBaseUrl?: InputMaybe<Scalars['String']['input']>;
   plexYankToken?: InputMaybe<Scalars['String']['input']>;
