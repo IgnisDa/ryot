@@ -210,10 +210,13 @@ async function processNewPurchase(
 	const renewalDate = calculateRenewalDate(planType);
 	const renewOn = renewalDate ? formatDateToNaiveDate(renewalDate) : undefined;
 
+	const emailElement = PurchaseCompleteEmail({ renewOn, details, planType });
+	if (!emailElement) throw new Error("Failed to create email element");
+
 	await sendEmail({
+		element: emailElement,
 		recipient: customer.email,
 		subject: PurchaseCompleteEmail.subject,
-		element: PurchaseCompleteEmail({ renewOn, details, planType }),
 	});
 
 	await getDb().insert(customerPurchases).values({
