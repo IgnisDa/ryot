@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
 use common_models::DefaultCollection;
@@ -167,9 +167,10 @@ pub async fn yank_progress(
     let client = get_http_client(&api_key);
 
     let books: komga_book::Response = client
-        .get(format!(
-            "{url}/books?read_status=IN_PROGRESS&sort=readProgress.lastModified,desc"
+        .post(format!(
+            "{url}/books/list?read_status=IN_PROGRESS&sort=readProgress.lastModified,desc"
         ))
+        .json(&serde_json::json!({}))
         .send()
         .await?
         .error_for_status()?
@@ -262,35 +263,34 @@ pub async fn sync_to_owned_collection(
         .json()
         .await?;
 
-    let unique_collection_updates: std::collections::HashMap<String, _> =
-        stream::iter(series.content)
-            .filter_map(|book| async move {
-                match find_provider_and_id(source, ss, &book).await {
-                    Ok((source, Some(id))) => Some((
-                        id.clone(),
-                        ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
-                            identifier: id,
-                            lot: MediaLot::Manga,
-                            source,
-                            collections: vec![CollectionToEntityDetails {
-                                collection_name: DefaultCollection::Owned.to_string(),
-                                ..Default::default()
-                            }],
+    let unique_collection_updates: HashMap<String, _> = stream::iter(series.content)
+        .filter_map(|book| async move {
+            match find_provider_and_id(source, ss, &book).await {
+                Ok((source, Some(id))) => Some((
+                    id.clone(),
+                    ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+                        identifier: id,
+                        lot: MediaLot::Manga,
+                        source,
+                        collections: vec![CollectionToEntityDetails {
+                            collection_name: DefaultCollection::Owned.to_string(),
                             ..Default::default()
-                        }),
-                    )),
-                    _ => {
-                        ryot_log!(
-                            debug,
-                            "No URL or database entry found for manga: {}",
-                            book.name
-                        );
-                        None
-                    }
+                        }],
+                        ..Default::default()
+                    }),
+                )),
+                _ => {
+                    ryot_log!(
+                        debug,
+                        "No URL or database entry found for manga: {}",
+                        book.name
+                    );
+                    None
                 }
-            })
-            .collect()
-            .await;
+            }
+        })
+        .collect()
+        .await;
 
     result
         .completed
