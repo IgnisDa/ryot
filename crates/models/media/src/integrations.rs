@@ -81,9 +81,8 @@ pub struct IntegrationProviderSpecifics {
     pub audiobookshelf_token: Option<String>,
     pub audiobookshelf_base_url: Option<String>,
 
+    pub komga_api_key: Option<String>,
     pub komga_base_url: Option<String>,
-    pub komga_username: Option<String>,
-    pub komga_password: Option<String>,
     pub komga_provider: Option<MediaSource>,
 
     pub radarr_api_key: Option<String>,

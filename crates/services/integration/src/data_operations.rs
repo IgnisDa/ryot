@@ -57,8 +57,7 @@ pub async fn yank_integrations_data_for_user(
             IntegrationProvider::Komga => {
                 yank::komga::yank_progress(
                     specifics.komga_base_url.unwrap(),
-                    specifics.komga_username.unwrap(),
-                    specifics.komga_password.unwrap(),
+                    specifics.komga_api_key.unwrap(),
                     specifics.komga_provider.unwrap(),
                     ss,
                 )
@@ -148,8 +147,7 @@ async fn sync_integrations_data_to_owned_collection_for_user(
             IntegrationProvider::Komga => {
                 yank::komga::sync_to_owned_collection(
                     specifics.komga_base_url.unwrap(),
-                    specifics.komga_username.unwrap(),
-                    specifics.komga_password.unwrap(),
+                    specifics.komga_api_key.unwrap(),
                     specifics.komga_provider.unwrap(),
                     ss,
                 )
