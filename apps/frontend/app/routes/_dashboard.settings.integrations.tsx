@@ -424,14 +424,9 @@ const PROVIDER_CONFIGS: Record<IntegrationProvider, ProviderConfig> = {
 		fields: [
 			{ name: "komgaBaseUrl", label: "Base Url", type: "text" },
 			{
-				type: "text",
-				label: "Username",
-				name: "komgaUsername",
-			},
-			{
 				type: "password",
-				label: "Password",
-				name: "komgaPassword",
+				label: "API Key",
+				name: "komgaApiKey",
 			},
 			{
 				type: "select",
