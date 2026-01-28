@@ -19,6 +19,7 @@ use rust_decimal::{Decimal, dec, prelude::FromPrimitive};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::Expr};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
+use url::Url;
 
 mod komga_book {
     use super::*;
@@ -63,21 +64,19 @@ mod komga_series {
     use super::*;
 
     #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
     pub struct Link {
         pub url: String,
         pub label: String,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
     pub struct Metadata {
         pub links: Vec<Link>,
     }
 
     impl Metadata {
         fn extract_id(&self, url: String) -> Option<String> {
-            reqwest::Url::parse(&url).ok().and_then(|parsed_url| {
+            Url::parse(&url).ok().and_then(|parsed_url| {
                 parsed_url
                     .path_segments()
                     .and_then(|segments| segments.collect_vec().get(1).cloned())
@@ -102,14 +101,12 @@ mod komga_series {
     }
 
     #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
     pub struct Item {
         pub name: String,
         pub metadata: Metadata,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
     pub struct Response {
         pub content: Vec<Item>,
     }
@@ -159,7 +156,6 @@ fn calculate_percentage(current_page: i32, total_page: i32) -> Decimal {
 pub async fn yank_progress(
     base_url: String,
     api_key: String,
-    source: MediaSource,
     ss: &Arc<SupportingService>,
 ) -> Result<ImportResult> {
     let mut result = ImportResult::default();
@@ -225,16 +221,16 @@ pub async fn yank_progress(
         result
             .completed
             .push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
-                lot: MediaLot::Manga,
                 source,
                 identifier: id,
+                lot: MediaLot::Manga,
                 seen_history: vec![ImportOrExportMetadataItemSeen {
+                    providers_consumed_on: Some(vec!["Komga".to_string()]),
+                    manga_chapter_number: Some(book.metadata.number.parse().unwrap_or_default()),
                     progress: Some(calculate_percentage(
                         read_progress.page,
                         book.media.pages_count,
                     )),
-                    providers_consumed_on: Some(vec!["Komga".to_string()]),
-                    manga_chapter_number: Some(book.metadata.number.parse().unwrap_or_default()),
                     ..Default::default()
                 }],
                 ..Default::default()
@@ -247,7 +243,6 @@ pub async fn yank_progress(
 pub async fn sync_to_owned_collection(
     base_url: String,
     api_key: String,
-    source: MediaSource,
     ss: &Arc<SupportingService>,
 ) -> Result<ImportResult> {
     let mut result = ImportResult::default();
@@ -269,9 +264,9 @@ pub async fn sync_to_owned_collection(
                 Ok((source, Some(id))) => Some((
                     id.clone(),
                     ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+                        source,
                         identifier: id,
                         lot: MediaLot::Manga,
-                        source,
                         collections: vec![CollectionToEntityDetails {
                             collection_name: DefaultCollection::Owned.to_string(),
                             ..Default::default()

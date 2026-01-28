@@ -83,7 +83,6 @@ pub struct IntegrationProviderSpecifics {
 
     pub komga_api_key: Option<String>,
     pub komga_base_url: Option<String>,
-    pub komga_provider: Option<MediaSource>,
 
     pub radarr_api_key: Option<String>,
     pub radarr_profile_id: Option<i32>,
