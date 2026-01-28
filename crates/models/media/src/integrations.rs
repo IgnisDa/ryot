@@ -1,7 +1,6 @@
 use async_graphql::{InputObject, SimpleObject, Union};
 use enum_models::{
-    IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
-    UserNotificationContentDiscriminants,
+    IntegrationProvider, MediaLot, NotificationPlatformLot, UserNotificationContentDiscriminants,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
