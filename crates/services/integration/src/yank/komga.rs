@@ -180,7 +180,7 @@ pub async fn yank_progress(
             }
         };
 
-        let Some(id) = id else {
+        let Some(identifier) = id else {
             ryot_log!(
                 debug,
                 "No provider URL or database entry found for: {}",
@@ -194,14 +194,17 @@ pub async fn yank_progress(
             .push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
                 lot,
                 source,
-                identifier: id,
+                identifier,
                 seen_history: vec![ImportOrExportMetadataItemSeen {
                     providers_consumed_on: Some(vec!["Komga".to_string()]),
-                    manga_chapter_number: Some(book.metadata.number.parse().unwrap_or_default()),
                     progress: Some(calculate_percentage(
                         read_progress.page,
                         book.media.pages_count,
                     )),
+                    manga_chapter_number: match lot {
+                        MediaLot::Manga => book.metadata.number.parse::<Decimal>().ok(),
+                        _ => None,
+                    },
                     ..Default::default()
                 }],
                 ..Default::default()
