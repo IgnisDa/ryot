@@ -849,6 +849,28 @@ const CreateOrUpdateModal = (props: {
 							integrationData={props.integrationData}
 						/>
 					)}
+					{provider && supportsSyncToOwnedCollection(provider) ? (
+						<Tooltip
+							label="Only available for Pro users"
+							disabled={coreDetails.isServerKeyValidated}
+						>
+							<Checkbox
+								name="syncToOwnedCollection"
+								label="Sync to Owned collection"
+								disabled={!coreDetails.isServerKeyValidated}
+								styles={{ body: { display: "flex", alignItems: "center" } }}
+								description={`Checking this will also sync items in your library to the "Owned" collection`}
+								defaultChecked={
+									props.integrationData?.syncToOwnedCollection || undefined
+								}
+							/>
+						</Tooltip>
+					) : undefined}
+					<Checkbox
+						name="isDisabled"
+						label="Pause integration"
+						defaultChecked={props.integrationData?.isDisabled || undefined}
+					/>
 					{provider && (
 						<Group justify="end">
 							<Button
@@ -860,11 +882,6 @@ const CreateOrUpdateModal = (props: {
 							</Button>
 						</Group>
 					)}
-					<Checkbox
-						name="isDisabled"
-						label="Pause integration"
-						defaultChecked={props.integrationData?.isDisabled || undefined}
-					/>
 					<Collapse in={isAdvancedSettingsOpened}>
 						<Stack>
 							<TextInput
@@ -888,9 +905,9 @@ const CreateOrUpdateModal = (props: {
 									/>
 									<NumberInput
 										min={0}
+										required
 										size="xs"
 										max={100}
-										required
 										name="maximumProgress"
 										label="Maximum progress"
 										description="After this value, progress will be marked as completed"
@@ -900,23 +917,6 @@ const CreateOrUpdateModal = (props: {
 									/>
 								</Group>
 							) : null}
-							{provider && supportsSyncToOwnedCollection(provider) ? (
-								<Tooltip
-									label="Only available for Pro users"
-									disabled={coreDetails.isServerKeyValidated}
-								>
-									<Checkbox
-										name="syncToOwnedCollection"
-										label="Sync to Owned collection"
-										disabled={!coreDetails.isServerKeyValidated}
-										styles={{ body: { display: "flex", alignItems: "center" } }}
-										description={`Checking this will also sync items in your library to the "Owned" collection`}
-										defaultChecked={
-											props.integrationData?.syncToOwnedCollection || undefined
-										}
-									/>
-								</Tooltip>
-							) : undefined}
 							<Checkbox
 								label="Disable on continuous errors"
 								name="extraSettings.disableOnContinuousErrors"
