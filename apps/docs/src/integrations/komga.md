@@ -5,7 +5,7 @@ metadata provider. If you use [Komf](https://github.com/Snd-R/komf) or some simi
 metadata provider these urls will be populated automatically. If you don't, you will either
 need to manually add the manga to your collection or you can perform the following steps.
 
-1. Navigate to the series and open the Edit tab
+1. Navigate to the book and open the Edit tab
 2. Navigate to the Links tab
 3. Create a link with one of the following names (not case-sensitive):
    - `AniList` - for manga from AniList
