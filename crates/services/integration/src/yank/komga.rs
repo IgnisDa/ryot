@@ -75,27 +75,37 @@ mod komga_series {
     }
 
     impl Metadata {
-        fn extract_id(&self, url: String) -> Option<String> {
-            Url::parse(&url).ok().and_then(|parsed_url| {
+        fn extract_id(&self, url: &str, label: &str) -> Option<String> {
+            let parsed_url = Url::parse(url).ok()?;
+            if label.to_lowercase().contains("google") {
+                parsed_url
+                    .query_pairs()
+                    .find(|(k, _)| k == "id")
+                    .map(|(_, v)| v.into_owned())
+            } else {
                 parsed_url
                     .path_segments()
                     .and_then(|segments| segments.collect_vec().get(1).cloned())
                     .map(String::from)
-            })
+            }
         }
 
-        pub fn find_providers(&self) -> Vec<(MediaSource, Option<String>)> {
+        pub fn find_providers(&self) -> Vec<(MediaSource, MediaLot, Option<String>)> {
             let mut provider_links = vec![];
             for link in self.links.iter() {
-                let source = match link.label.to_lowercase().as_str() {
-                    "anilist" => MediaSource::Anilist,
-                    "myanimelist" => MediaSource::Myanimelist,
+                let (source, lot) = match link.label.to_lowercase().as_str() {
+                    "anilist" => (MediaSource::Anilist, MediaLot::Manga),
+                    "hardcover" => (MediaSource::Hardcover, MediaLot::Book),
+                    "openlibrary" => (MediaSource::Openlibrary, MediaLot::Book),
+                    "myanimelist" => (MediaSource::Myanimelist, MediaLot::Manga),
+                    "mangaupdates" => (MediaSource::MangaUpdates, MediaLot::Manga),
+                    "googlebooks" | "google books" => (MediaSource::GoogleBooks, MediaLot::Book),
                     _ => continue,
                 };
-                let id = self.extract_id(link.url.clone());
-                provider_links.push((source, id));
+                let id = self.extract_id(&link.url, &link.label);
+                provider_links.push((source, lot, id));
             }
-            provider_links.sort_by_key(|a| a.1.clone());
+            provider_links.sort_by_key(|a| a.2.clone());
             provider_links
         }
     }
@@ -120,27 +130,21 @@ fn get_http_client(api_key: &str) -> Client {
 }
 
 async fn find_provider_and_id(
-    source: MediaSource,
     ss: &Arc<SupportingService>,
     series: &komga_series::Item,
-) -> Result<(MediaSource, Option<String>)> {
+) -> Result<(MediaSource, MediaLot, Option<String>)> {
     let providers = series.metadata.find_providers();
     if !providers.is_empty() {
-        Ok(providers
-            .iter()
-            .find(|x| x.0 == source)
-            .cloned()
-            .or_else(|| providers.first().cloned())
-            .unwrap_or_default())
+        Ok(providers.first().cloned().unwrap_or_default())
     } else {
-        let db_manga = Metadata::find()
-            .filter(metadata::Column::Lot.eq(MediaLot::Manga))
+        let db_entry = Metadata::find()
+            .filter(metadata::Column::Lot.is_in([MediaLot::Manga, MediaLot::Book]))
             .filter(Expr::col(metadata::Column::Title).eq(&series.name))
             .one(&ss.db)
             .await?;
 
-        Ok(db_manga
-            .map(|manga| (manga.source, Some(manga.identifier)))
+        Ok(db_entry
+            .map(|m| (m.source, m.lot, Some(m.identifier)))
             .unwrap_or_default())
     }
 }
@@ -201,7 +205,7 @@ pub async fn yank_progress(
             }
         };
 
-        let (source, id) = match find_provider_and_id(source, ss, &series).await {
+        let (source, lot, id) = match find_provider_and_id(ss, &series).await {
             Ok(result) => result,
             Err(e) => {
                 ryot_log!(warn, "Failed to find provider for {}: {}", series.name, e);
@@ -221,9 +225,9 @@ pub async fn yank_progress(
         result
             .completed
             .push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+                lot,
                 source,
                 identifier: id,
-                lot: MediaLot::Manga,
                 seen_history: vec![ImportOrExportMetadataItemSeen {
                     providers_consumed_on: Some(vec!["Komga".to_string()]),
                     manga_chapter_number: Some(book.metadata.number.parse().unwrap_or_default()),
@@ -260,13 +264,13 @@ pub async fn sync_to_owned_collection(
 
     let unique_collection_updates: HashMap<String, _> = stream::iter(series.content)
         .filter_map(|book| async move {
-            match find_provider_and_id(source, ss, &book).await {
-                Ok((source, Some(id))) => Some((
+            match find_provider_and_id(ss, &book).await {
+                Ok((source, lot, Some(id))) => Some((
                     id.clone(),
                     ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+                        lot,
                         source,
                         identifier: id,
-                        lot: MediaLot::Manga,
                         collections: vec![CollectionToEntityDetails {
                             collection_name: DefaultCollection::Owned.to_string(),
                             ..Default::default()
