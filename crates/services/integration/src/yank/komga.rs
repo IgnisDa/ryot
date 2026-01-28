@@ -97,7 +97,7 @@ mod komga_book {
                 let id = self.extract_id(&link.url, &link.label);
                 provider_links.push((source, lot, id));
             }
-            provider_links.sort_by_key(|a| a.2.clone());
+            provider_links.sort_by_key(|a| (a.2.is_none(), a.2.clone()));
             provider_links
         }
     }
