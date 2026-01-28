@@ -73,6 +73,16 @@ mod komga_book {
                     .query_pairs()
                     .find(|(k, _)| k == "id")
                     .map(|(_, v)| v.into_owned()),
+                label if label.contains("mangaupdates") => parsed_url
+                    .query_pairs()
+                    .find(|(k, _)| k == "id")
+                    .map(|(_, v)| v.into_owned())
+                    .or_else(|| {
+                        parsed_url
+                            .path_segments()
+                            .and_then(|segments| segments.collect_vec().get(1).cloned())
+                            .map(String::from)
+                    }),
                 _ => parsed_url
                     .path_segments()
                     .and_then(|segments| segments.collect_vec().get(1).cloned())
