@@ -32,7 +32,6 @@ import {
 	DeleteUserIntegrationDocument,
 	GenerateAuthTokenDocument,
 	IntegrationProvider,
-	MediaSource,
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -427,17 +426,6 @@ const PROVIDER_CONFIGS: Record<IntegrationProvider, ProviderConfig> = {
 				type: "password",
 				label: "API Key",
 				name: "komgaApiKey",
-			},
-			{
-				type: "select",
-				label: "Provider",
-				name: "komgaProvider",
-				options: [MediaSource.Anilist, MediaSource.Myanimelist].map(
-					(source) => ({
-						value: source,
-						label: changeCase(source),
-					}),
-				),
 			},
 		],
 	},

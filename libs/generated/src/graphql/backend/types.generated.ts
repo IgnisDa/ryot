@@ -1222,7 +1222,6 @@ export type IntegrationProviderSpecifics = {
   jellyfinPushUsername?: Maybe<Scalars['String']['output']>;
   komgaApiKey?: Maybe<Scalars['String']['output']>;
   komgaBaseUrl?: Maybe<Scalars['String']['output']>;
-  komgaProvider?: Maybe<MediaSource>;
   plexSinkUsername?: Maybe<Scalars['String']['output']>;
   plexYankBaseUrl?: Maybe<Scalars['String']['output']>;
   plexYankToken?: Maybe<Scalars['String']['output']>;
@@ -1251,7 +1250,6 @@ export type IntegrationSourceSpecificsInput = {
   jellyfinPushUsername?: InputMaybe<Scalars['String']['input']>;
   komgaApiKey?: InputMaybe<Scalars['String']['input']>;
   komgaBaseUrl?: InputMaybe<Scalars['String']['input']>;
-  komgaProvider?: InputMaybe<MediaSource>;
   plexSinkUsername?: InputMaybe<Scalars['String']['input']>;
   plexYankBaseUrl?: InputMaybe<Scalars['String']['input']>;
   plexYankToken?: InputMaybe<Scalars['String']['input']>;
