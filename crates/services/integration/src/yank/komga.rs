@@ -249,11 +249,7 @@ pub async fn sync_to_owned_collection(
                     }),
                 )),
                 _ => {
-                    ryot_log!(
-                        debug,
-                        "No URL or database entry found for manga: {}",
-                        book.name
-                    );
+                    ryot_log!(debug, "No URL or database entry found: {}", book.name);
                     None
                 }
             }
