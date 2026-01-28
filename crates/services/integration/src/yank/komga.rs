@@ -31,9 +31,16 @@ mod komga_book {
     }
 
     #[derive(Debug, Serialize, Deserialize)]
+    pub struct Link {
+        pub url: String,
+        pub label: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Metadata {
         pub number: String,
+        pub links: Vec<Link>,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -48,6 +55,7 @@ mod komga_book {
     pub struct Item {
         pub id: String,
         pub media: Media,
+        pub name: String,
         pub metadata: Metadata,
         pub read_progress: Option<ReadProgress>,
     }
@@ -56,21 +64,6 @@ mod komga_book {
     #[serde(rename_all = "camelCase")]
     pub struct Response {
         pub content: Vec<Item>,
-    }
-}
-
-mod komga_series {
-    use super::*;
-
-    #[derive(Debug, Serialize, Deserialize)]
-    pub struct Link {
-        pub url: String,
-        pub label: String,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    pub struct Metadata {
-        pub links: Vec<Link>,
     }
 
     impl Metadata {
@@ -108,17 +101,6 @@ mod komga_series {
             provider_links
         }
     }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    pub struct Item {
-        pub name: String,
-        pub metadata: Metadata,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    pub struct Response {
-        pub content: Vec<Item>,
-    }
 }
 
 fn get_http_client(api_key: &str) -> Client {
@@ -130,7 +112,7 @@ fn get_http_client(api_key: &str) -> Client {
 
 async fn find_provider_and_id(
     ss: &Arc<SupportingService>,
-    series: &komga_series::Item,
+    series: &komga_book::Item,
 ) -> Result<(MediaSource, MediaLot, Option<String>)> {
     let providers = series.metadata.find_providers();
     if !providers.is_empty() {
@@ -191,7 +173,7 @@ pub async fn yank_progress(
             continue;
         }
 
-        let series: komga_series::Item = match client
+        let series: komga_book::Item = match client
             .get(format!("{url}/books/{}", book.id))
             .send()
             .await?
@@ -252,7 +234,7 @@ pub async fn sync_to_owned_collection(
     let url = format!("{base_url}/api/v1");
     let client = get_http_client(&api_key);
 
-    let series: komga_series::Response = client
+    let series: komga_book::Response = client
         .post(format!("{url}/series/list?unpaged=true"))
         .json(&serde_json::json!({}))
         .send()
