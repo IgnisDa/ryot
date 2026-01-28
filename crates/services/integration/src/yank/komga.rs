@@ -48,7 +48,6 @@ mod komga_book {
     pub struct Item {
         pub id: String,
         pub media: Media,
-        pub series_id: String,
         pub metadata: Metadata,
         pub read_progress: Option<ReadProgress>,
     }
@@ -193,14 +192,14 @@ pub async fn yank_progress(
         }
 
         let series: komga_series::Item = match client
-            .get(format!("{url}/series/{}", book.series_id))
+            .get(format!("{url}/books/{}", book.id))
             .send()
             .await?
             .error_for_status()
         {
             Ok(resp) => resp.json().await?,
             Err(e) => {
-                ryot_log!(warn, "Failed to fetch series {}: {}", book.series_id, e);
+                ryot_log!(warn, "Failed to fetch series {}: {}", book.id, e);
                 continue;
             }
         };
