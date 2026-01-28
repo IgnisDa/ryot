@@ -53,7 +53,6 @@ mod komga_book {
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Item {
-        pub id: String,
         pub media: Media,
         pub name: String,
         pub metadata: Metadata,
@@ -69,16 +68,15 @@ mod komga_book {
     impl Metadata {
         fn extract_id(&self, url: &str, label: &str) -> Option<String> {
             let parsed_url = Url::parse(url).ok()?;
-            if label.to_lowercase().contains("google") {
-                parsed_url
+            match label.to_lowercase().as_str() {
+                label if label.contains("google") => parsed_url
                     .query_pairs()
                     .find(|(k, _)| k == "id")
-                    .map(|(_, v)| v.into_owned())
-            } else {
-                parsed_url
+                    .map(|(_, v)| v.into_owned()),
+                _ => parsed_url
                     .path_segments()
                     .and_then(|segments| segments.collect_vec().get(1).cloned())
-                    .map(String::from)
+                    .map(String::from),
             }
         }
 
@@ -175,7 +173,7 @@ pub async fn yank_progress(
         let (source, lot, id) = match find_provider_and_id(ss, &book).await {
             Ok(result) => result,
             Err(e) => {
-                ryot_log!(warn, "Failed to find provider for {}: {}", book.name, e);
+                ryot_log!(debug, "Failed to find provider for {}: {}", book.name, e);
                 continue;
             }
         };
