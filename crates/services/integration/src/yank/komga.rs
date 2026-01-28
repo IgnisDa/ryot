@@ -112,15 +112,15 @@ fn get_http_client(api_key: &str) -> Client {
 
 async fn find_provider_and_id(
     ss: &Arc<SupportingService>,
-    series: &komga_book::Item,
+    item: &komga_book::Item,
 ) -> Result<(MediaSource, MediaLot, Option<String>)> {
-    let providers = series.metadata.find_providers();
+    let providers = item.metadata.find_providers();
     if !providers.is_empty() {
         Ok(providers.first().cloned().unwrap_or_default())
     } else {
         let db_entry = Metadata::find()
             .filter(metadata::Column::Lot.is_in([MediaLot::Manga, MediaLot::Book]))
-            .filter(Expr::col(metadata::Column::Title).eq(&series.name))
+            .filter(Expr::col(metadata::Column::Title).eq(&item.name))
             .one(&ss.db)
             .await?;
 
@@ -173,7 +173,7 @@ pub async fn yank_progress(
             continue;
         }
 
-        let series: komga_book::Item = match client
+        let item: komga_book::Item = match client
             .get(format!("{url}/books/{}", book.id))
             .send()
             .await?
@@ -181,15 +181,15 @@ pub async fn yank_progress(
         {
             Ok(resp) => resp.json().await?,
             Err(e) => {
-                ryot_log!(warn, "Failed to fetch series {}: {}", book.id, e);
+                ryot_log!(warn, "Failed to fetch item {}: {}", book.id, e);
                 continue;
             }
         };
 
-        let (source, lot, id) = match find_provider_and_id(ss, &series).await {
+        let (source, lot, id) = match find_provider_and_id(ss, &item).await {
             Ok(result) => result,
             Err(e) => {
-                ryot_log!(warn, "Failed to find provider for {}: {}", series.name, e);
+                ryot_log!(warn, "Failed to find provider for {}: {}", item.name, e);
                 continue;
             }
         };
@@ -198,7 +198,7 @@ pub async fn yank_progress(
             ryot_log!(
                 debug,
                 "No provider URL or database entry found for manga: {}",
-                series.name
+                item.name
             );
             continue;
         };
@@ -234,7 +234,7 @@ pub async fn sync_to_owned_collection(
     let url = format!("{base_url}/api/v1");
     let client = get_http_client(&api_key);
 
-    let series: komga_book::Response = client
+    let item: komga_book::Response = client
         .post(format!("{url}/series/list?unpaged=true"))
         .json(&serde_json::json!({}))
         .send()
@@ -243,7 +243,7 @@ pub async fn sync_to_owned_collection(
         .json()
         .await?;
 
-    let unique_collection_updates: HashMap<String, _> = stream::iter(series.content)
+    let unique_collection_updates: HashMap<String, _> = stream::iter(item.content)
         .filter_map(|book| async move {
             match find_provider_and_id(ss, &book).await {
                 Ok((source, lot, Some(id))) => Some((
