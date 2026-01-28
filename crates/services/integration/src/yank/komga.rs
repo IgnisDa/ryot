@@ -235,7 +235,7 @@ pub async fn sync_to_owned_collection(
     let client = get_http_client(&api_key);
 
     let item: komga_book::Response = client
-        .post(format!("{url}/series/list?unpaged=true"))
+        .post(format!("{url}/books/list?unpaged=true"))
         .json(&serde_json::json!({}))
         .send()
         .await?
