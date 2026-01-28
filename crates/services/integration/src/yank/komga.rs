@@ -43,7 +43,7 @@ mod komga_book {
         pub links: Vec<Link>,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct ReadProgress {
         pub page: i32,
@@ -165,31 +165,17 @@ pub async fn yank_progress(
     );
 
     for book in books.content {
-        let Some(read_progress) = book.read_progress else {
+        let Some(read_progress) = book.read_progress.clone() else {
             continue;
         };
-
         if read_progress.completed {
             continue;
         }
 
-        let item: komga_book::Item = match client
-            .get(format!("{url}/books/{}", book.id))
-            .send()
-            .await?
-            .error_for_status()
-        {
-            Ok(resp) => resp.json().await?,
-            Err(e) => {
-                ryot_log!(warn, "Failed to fetch item {}: {}", book.id, e);
-                continue;
-            }
-        };
-
-        let (source, lot, id) = match find_provider_and_id(ss, &item).await {
+        let (source, lot, id) = match find_provider_and_id(ss, &book).await {
             Ok(result) => result,
             Err(e) => {
-                ryot_log!(warn, "Failed to find provider for {}: {}", item.name, e);
+                ryot_log!(warn, "Failed to find provider for {}: {}", book.name, e);
                 continue;
             }
         };
@@ -197,8 +183,8 @@ pub async fn yank_progress(
         let Some(id) = id else {
             ryot_log!(
                 debug,
-                "No provider URL or database entry found for manga: {}",
-                item.name
+                "No provider URL or database entry found for: {}",
+                book.name
             );
             continue;
         };
