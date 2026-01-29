@@ -124,8 +124,6 @@ pub async fn calculate_user_activities_and_summary(
         existing
     }
 
-    // Step 1: Find all unique finished_on dates that were affected by recent updates
-    // An activity date is "affected" if ANY item with that finished_on was recently updated
     #[derive(Debug, FromQueryResult)]
     struct AffectedDate {
         finished_on: Option<DateTimeUtc>,
@@ -145,10 +143,7 @@ pub async fn calculate_user_activities_and_summary(
         .map(|d| d.finished_on.map(|dt| dt.date_naive()))
         .collect();
 
-    // Step 2: For each affected date, fetch ALL completed items with that finished_on
-    // This ensures that if you add items to an old date, all items for that date are included
     let mut seen_stream = if affected_dates.is_empty() {
-        // No updates, return empty stream
         Seen::find()
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::State.eq(SeenState::Completed))
@@ -182,7 +177,6 @@ pub async fn calculate_user_activities_and_summary(
 
         let mut condition = Condition::any();
 
-        // Build OR condition for each affected date
         for date in affected_dates {
             condition = condition.add(match date {
                 None => seen::Column::FinishedOn.is_null(),
