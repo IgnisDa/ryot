@@ -70,7 +70,9 @@ Then run `docker compose up -d` and visit `http://localhost:8000`. For productio
 
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", is a self-hosted tracker for your media consumption and fitness activities. Track the books you read, shows you watch, games you play, and workouts you complete - all in one place with a clean interface and insightful statistics.
 
-## Features
+## Demo
+
+Try the [live demo](https://demo.ryot.io/_s/acl_vUMPnPirkHlT) to explore the interface. Demo data resets every 24 hours.
 
 ### Media Tracking
 
@@ -101,10 +103,6 @@ Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", is a self-hoste
 ## Pro Version
 
 Ryot Pro adds profile sharing, personalized recommendations, supercharged collections and more. [Learn more](https://ryot.io) about the pro version.
-
-## Demo
-
-Try the [live demo](https://demo.ryot.io/_s/acl_vUMPnPirkHlT) to explore the interface. Demo data resets every 24 hours.
 
 ## Community
 
