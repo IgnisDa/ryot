@@ -20,7 +20,7 @@
     <img alt="Docker pulls" src="https://img.shields.io/docker/pulls/ignisda/ryot">
   </a>
   <a href="https://discord.gg/D9XTg2a7R8">
-    <img alt="Discord" src="https://img.shields.io/discord/1115553491942154322?label=discord">
+    <img alt="Discord" src="https://img.shields.io/discord/1239445721502056459?label=discord">
   </a>
 </div>
 
