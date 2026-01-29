@@ -9,7 +9,6 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
         db.execute_unprepared(
             r#"
-UPDATE "metadata" SET "has_translations_for_languages" = NULL;
 UPDATE "application_cache" SET "expires_at" = NOW() WHERE "sanitized_key" LIKE 'UserEntityTranslations-%';
         "#,
         )

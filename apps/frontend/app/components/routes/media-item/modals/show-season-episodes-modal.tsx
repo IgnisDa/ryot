@@ -2,24 +2,25 @@ import { Drawer, Stack, Text } from "@mantine/core";
 import { isNumber } from "@ryot/ts-utils";
 import { useMemo } from "react";
 import { Virtuoso } from "react-virtuoso";
+import { useMetadataDetails, useUserMetadataDetails } from "~/lib/shared/hooks";
 import { DisplayShowEpisode } from "../displays/show-episode";
-import type { MetadataDetails, Season, UserMetadataDetails } from "../types";
-
-const getShowSeasonDisplayName = (season: Season) =>
-	`${season.seasonNumber}. ${season.name}`;
+import { getShowSeasonDisplayName } from "../displays/show-season";
 
 export const DisplayShowSeasonEpisodesModal = (props: {
-	metadataDetails: MetadataDetails;
+	metadataId: string;
 	openedShowSeason: number | undefined;
-	userMetadataDetails: UserMetadataDetails;
 	setOpenedShowSeason: (v: number | undefined) => void;
 }) => {
-	const title = useMemo(() => {
-		const showSpecifics = props.metadataDetails.showSpecifics;
+	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
+	const showSpecifics = metadataDetails?.showSpecifics;
+	const season = useMemo(() => {
 		return isNumber(props.openedShowSeason) && showSpecifics
-			? getShowSeasonDisplayName(showSpecifics.seasons[props.openedShowSeason])
-			: "";
-	}, [props.openedShowSeason]);
+			? showSpecifics.seasons[props.openedShowSeason]
+			: undefined;
+	}, [props.openedShowSeason, showSpecifics]);
+	const title = useMemo(() => {
+		return season ? getShowSeasonDisplayName(season, season.name) : "";
+	}, [season]);
 
 	return (
 		<Drawer
@@ -30,9 +31,8 @@ export const DisplayShowSeasonEpisodesModal = (props: {
 		>
 			{isNumber(props.openedShowSeason) ? (
 				<DisplayShowSeasonEpisodes
-					metadataDetails={props.metadataDetails}
+					metadataId={props.metadataId}
 					openedShowSeason={props.openedShowSeason}
-					userMetadataDetails={props.userMetadataDetails}
 				/>
 			) : null}
 		</Drawer>
@@ -41,13 +41,16 @@ export const DisplayShowSeasonEpisodesModal = (props: {
 
 const DisplayShowSeasonEpisodes = (props: {
 	openedShowSeason: number;
-	metadataDetails: MetadataDetails;
-	userMetadataDetails: UserMetadataDetails;
+	metadataId: string;
 }) => {
+	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
+	const { data: userMetadataDetails } = useUserMetadataDetails(
+		props.metadataId,
+	);
 	const season =
-		props.metadataDetails.showSpecifics?.seasons[props.openedShowSeason];
+		metadataDetails?.showSpecifics?.seasons[props.openedShowSeason];
 	const seasonProgress =
-		props.userMetadataDetails.showProgress?.[props.openedShowSeason];
+		userMetadataDetails?.showProgress?.[props.openedShowSeason];
 
 	return isNumber(props.openedShowSeason) && season ? (
 		<Stack h={{ base: "80vh", md: "90vh" }} gap="xs">
@@ -60,7 +63,7 @@ const DisplayShowSeasonEpisodes = (props: {
 							episodeIdx={episodeIdx}
 							seasonNumber={season.seasonNumber}
 							seasonIdx={props.openedShowSeason}
-							metadataDetails={props.metadataDetails}
+							metadataId={props.metadataId}
 							episodeProgress={seasonProgress?.episodes[episodeIdx]}
 						/>
 					)}

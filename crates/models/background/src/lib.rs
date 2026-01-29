@@ -1,5 +1,9 @@
 use common_models::{ChangeCollectionToEntitiesInput, EntityWithLot};
-use media_models::{DeployImportJobInput, MetadataProgressUpdateInput, ReviewPostedEvent};
+use enum_models::{EntityLot, EntityTranslationVariant};
+use media_models::{
+    DeployImportJobInput, MetadataProgressUpdateInput, PodcastTranslationExtraInformation,
+    ReviewPostedEvent, ShowTranslationExtraInformation,
+};
 use serde::{Deserialize, Serialize};
 use strum::Display;
 use uuid::Uuid;
@@ -13,6 +17,16 @@ pub enum HpApplicationJob {
     RemoveEntitiesFromCollection(String, ChangeCollectionToEntitiesInput),
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct UpdateMediaTranslationJobInput {
+    pub user_id: String,
+    pub entity_id: String,
+    pub entity_lot: EntityLot,
+    pub variant: EntityTranslationVariant,
+    pub show_extra_information: Option<ShowTranslationExtraInformation>,
+    pub podcast_extra_information: Option<PodcastTranslationExtraInformation>,
+}
+
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
 pub enum MpApplicationJob {
     SyncIntegrationsData,
@@ -22,7 +36,7 @@ pub enum MpApplicationJob {
     PerformBackgroundTasks,
     ReviseUserWorkouts(String),
     UpdateMediaDetails(EntityWithLot),
-    UpdateMediaTranslations(String, EntityWithLot),
+    UpdateMediaTranslations(UpdateMediaTranslationJobInput),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]

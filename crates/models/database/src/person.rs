@@ -21,7 +21,7 @@ pub struct Model {
     pub name: String,
     pub identifier: String,
     pub source: MediaSource,
-    #[sea_orm(column_type = "Json")]
+    #[sea_orm(column_type = "JsonBinary")]
     pub assets: EntityAssets,
     pub place: Option<String>,
     pub gender: Option<String>,
@@ -42,7 +42,6 @@ pub struct Model {
     pub state_changes: Option<PersonStateChanges>,
     #[graphql(skip)]
     pub source_specifics: Option<PersonSourceSpecifics>,
-    pub has_translations_for_languages: Option<Vec<String>>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -19,7 +19,8 @@ use itertools::Itertools;
 use media_models::{
     AudioBookSpecifics, CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails,
     MetadataFreeCreator, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem, UniqueMediaIdentifier,
+    PeopleSearchItem, PodcastTranslationExtraInformation, ShowTranslationExtraInformation,
+    UniqueMediaIdentifier,
 };
 use paginate::Pages;
 use reqwest::Client;
@@ -431,6 +432,8 @@ impl MediaProvider for AudibleService {
         &self,
         identifier: &str,
         target_language: &str,
+        _show_extra_information: Option<&ShowTranslationExtraInformation>,
+        _podcast_extra_information: Option<&PodcastTranslationExtraInformation>,
     ) -> Result<EntityTranslationDetails> {
         let locale =
             locale_from_str(target_language).ok_or_else(|| anyhow!("Unsupported language"))?;

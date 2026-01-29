@@ -8,7 +8,10 @@ import type {
 import { match } from "ts-pattern";
 import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { convertTimestampToUtcString } from "~/lib/shared/date-utils";
-import { useDeployBulkMetadataProgressUpdateMutation } from "~/lib/shared/hooks";
+import {
+	useDeployBulkMetadataProgressUpdateMutation,
+	useMetadataDetails,
+} from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import {
 	OnboardingTourStepTarget,
@@ -36,8 +39,9 @@ export const MetadataNewProgressUpdateForm = (
 	const [parent] = useAutoAnimate();
 	const { metadataToUpdate, updateMetadataToUpdate } =
 		useMetadataProgressUpdate();
+	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
 	const deployBulkMetadataProgressUpdate =
-		useDeployBulkMetadataProgressUpdateMutation(props.metadataDetails.title);
+		useDeployBulkMetadataProgressUpdateMutation(metadataDetails?.title);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const form = useSavedForm<{
@@ -46,7 +50,7 @@ export const MetadataNewProgressUpdateForm = (
 		finishDate: Date | null;
 		providersConsumedOn: string[];
 	}>({
-		storageKeyPrefix: `MetadataNewProgressUpdateForm-${props.metadataDetails.id}`,
+		storageKeyPrefix: `MetadataNewProgressUpdateForm-${props.metadataId}`,
 		initialValues: {
 			startDate: null,
 			finishDate: new Date(),
@@ -88,7 +92,7 @@ export const MetadataNewProgressUpdateForm = (
 			.run();
 	};
 
-	if (!metadataToUpdate) return null;
+	if (!metadataToUpdate || !metadataDetails) return null;
 
 	const handleProviderChange = (providers: string[]) => {
 		form.setFieldValue("providersConsumedOn", providers);
@@ -123,12 +127,12 @@ export const MetadataNewProgressUpdateForm = (
 					common,
 					updates,
 					metadataToUpdate,
-					history: props.history,
-					watchTime: values.watchTime,
 					startDateFormatted,
 					finishDateFormatted,
 					currentDateFormatted,
-					metadataDetails: props.metadataDetails,
+					history: props.history,
+					metadata: metadataDetails,
+					watchTime: values.watchTime,
 				});
 
 				const change: MetadataProgressUpdateChange = match(values.watchTime)
@@ -160,14 +164,14 @@ export const MetadataNewProgressUpdateForm = (
 			})}
 		>
 			<Stack ref={parent} gap="sm">
-				<ShowForm metadataDetails={props.metadataDetails} />
-				<AnimeForm metadataDetails={props.metadataDetails} />
-				<MangaForm metadataDetails={props.metadataDetails} />
-				<PodcastForm metadataDetails={props.metadataDetails} />
+				<ShowForm metadataId={props.metadataId} />
+				<AnimeForm metadataId={props.metadataId} />
+				<MangaForm metadataId={props.metadataId} />
+				<PodcastForm metadataId={props.metadataId} />
 				<WatchTimeSelect
 					value={form.values.watchTime}
 					onChange={handleWatchTimeChange}
-					metadataLot={props.metadataDetails.lot}
+					metadataLot={metadataDetails.lot}
 				/>
 				{form.values.watchTime === WatchTimes.CustomDates ? (
 					<CustomDatePicker
@@ -182,7 +186,7 @@ export const MetadataNewProgressUpdateForm = (
 				{form.values.watchTime !== WatchTimes.JustStartedIt ? (
 					<ProviderSelect
 						onChange={handleProviderChange}
-						metadataLot={props.metadataDetails.lot}
+						metadataLot={metadataDetails.lot}
 						value={form.values.providersConsumedOn}
 					/>
 				) : null}

@@ -67,7 +67,7 @@ import {
 	useInvalidateUserDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/react-query";
+import { clientGqlService, queryClient } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { FitnessEntity } from "~/lib/types";
 import classes from "~/styles/preferences.module.css";
@@ -199,7 +199,10 @@ export default function Page() {
 			await clientGqlService.request(UpdateUserPreferenceDocument, {
 				input: values,
 			});
-			await invalidateUserDetails();
+			await Promise.all([
+				invalidateUserDetails(),
+				queryClient.invalidateQueries(),
+			]);
 		},
 		onSuccess: () => {
 			notifications.show({

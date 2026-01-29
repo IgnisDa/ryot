@@ -1,6 +1,6 @@
 use std::{cmp::Reverse, collections::HashSet, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{EntityAssets, NamedObject, SearchDetails};
@@ -13,7 +13,8 @@ use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     EntityTranslationDetails, MetadataDetails, MetadataFreeCreator, MetadataSearchItem,
-    PodcastEpisode, PodcastSpecifics,
+    PodcastEpisode, PodcastSpecifics, PodcastTranslationExtraInformation,
+    ShowTranslationExtraInformation,
 };
 use reqwest::Client;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
@@ -271,7 +272,54 @@ impl MediaProvider for ITunesService {
         &self,
         identifier: &str,
         target_language: &str,
+        _show_extra_information: Option<&ShowTranslationExtraInformation>,
+        podcast_extra_information: Option<&PodcastTranslationExtraInformation>,
     ) -> Result<EntityTranslationDetails> {
+        if let Some(extra) = podcast_extra_information {
+            let media = "podcast".to_owned();
+            let entity = "podcastEpisode".to_owned();
+            let language = target_language.to_owned();
+            let metadata = Metadata::find()
+                .filter(metadata::Column::Identifier.eq(identifier))
+                .filter(metadata::Column::Lot.eq(MediaLot::Podcast))
+                .filter(metadata::Column::Source.eq(MediaSource::Itunes))
+                .one(&self.ss.db)
+                .await?
+                .ok_or_else(|| anyhow!("Podcast not found"))?;
+            let episode_id = metadata
+                .podcast_specifics
+                .and_then(|specifics| {
+                    specifics
+                        .episodes
+                        .into_iter()
+                        .find(|episode| episode.number == extra.episode)
+                        .map(|episode| episode.id)
+                })
+                .ok_or_else(|| anyhow!("Podcast episode not found"))?;
+            let rsp = self
+                .client
+                .get(format!("{URL}/lookup"))
+                .query(&[
+                    ("media", &media),
+                    ("id", &episode_id),
+                    ("lang", &language),
+                    ("entity", &entity),
+                ])
+                .send()
+                .await?;
+            let details: SearchResponse = rsp.json().await?;
+            let item = details.results.and_then(|s| s.first().cloned());
+            return Ok(EntityTranslationDetails {
+                title: item.as_ref().and_then(|i| i.track_name.clone()),
+                description: item.as_ref().and_then(|i| i.description.clone()),
+                image: item.and_then(|i| {
+                    i.artwork_url_600
+                        .or(i.artwork_url_100)
+                        .or(i.artwork_url_60)
+                        .or(i.artwork_url_30)
+                }),
+            });
+        }
         let rsp = self
             .client
             .get(format!("{URL}/lookup"))

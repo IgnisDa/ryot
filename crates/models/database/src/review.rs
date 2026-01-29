@@ -29,7 +29,7 @@ pub struct Model {
     pub metadata_id: Option<String>,
     pub collection_id: Option<String>,
     pub metadata_group_id: Option<String>,
-    #[sea_orm(column_type = "Json")]
+    #[sea_orm(column_type = "JsonBinary")]
     pub comments: Vec<ImportOrExportItemReviewComment>,
     pub anime_extra_information: Option<SeenAnimeExtraInformation>,
     pub manga_extra_information: Option<SeenMangaExtraInformation>,

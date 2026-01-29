@@ -1,23 +1,20 @@
 [package]
-name = "spotify-provider"
+name = "music-brainz-provider"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-data-encoding = { workspace = true }
-futures = { workspace = true }
-reqwest = { workspace = true }
-rust_decimal = { workspace = true }
+chrono = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 
-cache-service = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
-supporting-service = { workspace = true }
+musicbrainz_rs = { workspace = true }
 traits = { workspace = true }

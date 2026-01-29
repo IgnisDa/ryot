@@ -697,8 +697,11 @@ const ConsumedMetadataDisplay = (props: {
 	enabled: boolean;
 	metadataId: string;
 }) => {
-	const [{ data: metadataDetails }, _, metadataTranslations] =
-		useMetadataDetails(props.metadataId, props.enabled);
+	const [{ data: metadataDetails }] = useMetadataDetails(
+		props.metadataId,
+		props.enabled,
+	);
+
 	const s3PresignedUrls = useS3PresignedUrls(metadataDetails?.assets.s3Images);
 	const images = [
 		...(metadataDetails?.assets.remoteImages || []),
@@ -707,8 +710,8 @@ const ConsumedMetadataDisplay = (props: {
 
 	return (
 		<Link to={$path("/media/item/:id", { id: props.metadataId })}>
-			<Tooltip label={metadataTranslations?.title || metadataDetails?.title}>
-				<Avatar src={metadataTranslations?.image || images.at(0)} />
+			<Tooltip label={metadataDetails?.title}>
+				<Avatar src={images.at(0)} />
 			</Tooltip>
 		</Link>
 	);

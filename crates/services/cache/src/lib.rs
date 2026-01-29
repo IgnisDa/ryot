@@ -22,6 +22,8 @@ fn get_expiry_for_key(ss: &Arc<SupportingService>, key: &ApplicationCacheKey) ->
 
         ApplicationCacheKey::LogDownloadToken { .. } => Duration::minutes(1),
 
+        ApplicationCacheKey::MediaTranslationInProgress { .. } => Duration::minutes(15),
+
         ApplicationCacheKey::SpotifyAccessToken => Duration::minutes(50),
 
         ApplicationCacheKey::CoreDetails
@@ -72,7 +74,6 @@ fn get_expiry_for_key(ss: &Arc<SupportingService>, key: &ApplicationCacheKey) ->
         | ApplicationCacheKey::UserPasswordChangeSession { .. } => Duration::days(7),
 
         ApplicationCacheKey::UserFilterPresets { .. }
-        | ApplicationCacheKey::UserEntityTranslations { .. }
         | ApplicationCacheKey::MetadataProgressUpdateInProgressCache { .. } => Duration::days(60),
 
         ApplicationCacheKey::UserSession { .. } => {

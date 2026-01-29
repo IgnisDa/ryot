@@ -5,10 +5,12 @@ use common_models::{
     MetadataLookupCacheInput, PeopleSearchInput, UserAnalyticsInput, UserLevelCacheKey,
     YoutubeMusicSongListened,
 };
+use enum_models::{EntityLot, EntityTranslationVariant};
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
     GenreDetailsInput, GraphqlMetadataDetails, MetadataLookupResponse,
-    MetadataProgressUpdateCacheInput, TmdbMetadataLookupResult,
+    MetadataProgressUpdateCacheInput, PodcastTranslationExtraInformation,
+    ShowTranslationExtraInformation, TmdbMetadataLookupResult,
 };
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
@@ -17,9 +19,8 @@ use strum::{Display, EnumDiscriminants};
 use uuid::Uuid;
 
 use crate::{
-    EntityTranslationDetailsResponse, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
-    UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails, UserWorkoutDetails,
-    UserWorkoutTemplateDetails,
+    GenreDetails, GraphqlPersonDetails, MetadataGroupDetails, UserMetadataDetails,
+    UserMetadataGroupDetails, UserPersonDetails, UserWorkoutDetails, UserWorkoutTemplateDetails,
     analytics::UserAnalytics,
     core_systems::{CoreDetails, TmdbSettings, TvdbSettings},
     generic_types::{
@@ -53,6 +54,17 @@ pub struct UserSessionValue {
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserPasswordChangeSessionValue {
     pub user_id: String,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MediaTranslationInProgressCacheInput {
+    pub language: String,
+    pub entity_id: String,
+    pub entity_lot: EntityLot,
+    pub variant: EntityTranslationVariant,
+    pub show_extra_information: Option<ShowTranslationExtraInformation>,
+    pub podcast_extra_information: Option<PodcastTranslationExtraInformation>,
 }
 
 #[derive(
@@ -101,12 +113,12 @@ pub enum ApplicationCacheKey {
     UserMetadataRecommendationsSet(UserLevelCacheKey<()>),
     MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
     UserPeopleList(UserLevelCacheKey<UserPeopleListInput>),
-    UserEntityTranslations(UserLevelCacheKey<EntityWithLot>),
     EntityRecentlyConsumed(UserLevelCacheKey<EntityWithLot>),
     UserMetadataList(UserLevelCacheKey<UserMetadataListInput>),
     UserExercisesList(UserLevelCacheKey<UserExercisesListInput>),
     UserFilterPresets(UserLevelCacheKey<FilterPresetQueryInput>),
     MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
+    MediaTranslationInProgress(MediaTranslationInProgressCacheInput),
     UserCollectionContents(UserLevelCacheKey<CollectionContentsInput>),
     UserMeasurementsList(UserLevelCacheKey<UserMeasurementsListInput>),
     YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
@@ -146,6 +158,7 @@ pub enum ApplicationCacheValue {
     UserPersonDetails(Box<UserPersonDetails>),
     UserWorkoutsList(UserWorkoutsListResponse),
     UserMetadataList(UserMetadataListResponse),
+    MediaTranslationInProgress(EmptyCacheValue),
     UserWorkoutDetails(Box<UserWorkoutDetails>),
     MetadataDetails(Box<GraphqlMetadataDetails>),
     UserExercisesList(UserExercisesListResponse),
@@ -164,7 +177,6 @@ pub enum ApplicationCacheValue {
     UserMetadataGroupsList(UserMetadataGroupsListResponse),
     UserCollectionContents(Box<CollectionContentsResponse>),
     UserMetadataGroupDetails(Box<UserMetadataGroupDetails>),
-    UserEntityTranslations(EntityTranslationDetailsResponse),
     UserPasswordChangeSession(UserPasswordChangeSessionValue),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
     UserMetadataRecommendationsSet(ApplicationRecommendations),

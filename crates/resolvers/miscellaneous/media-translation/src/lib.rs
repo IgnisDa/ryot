@@ -1,6 +1,5 @@
-use async_graphql::{Context, Object, Result};
-use common_models::EntityWithLot;
-use dependent_models::{CachedResponse, EntityTranslationDetailsResponse};
+use async_graphql::{Context, Object, Result as GraphqlResult};
+use media_models::{MediaTranslationInput, MediaTranslationResult};
 use traits::GraphqlDependencyInjector;
 
 #[derive(Default)]
@@ -10,15 +9,15 @@ impl GraphqlDependencyInjector for MiscellaneousMediaTranslationQueryResolver {}
 
 #[Object]
 impl MiscellaneousMediaTranslationQueryResolver {
-    /// Fetch translations for a given media item.
-    async fn media_translations(
+    /// Fetch translation for a given media item.
+    async fn media_translation(
         &self,
         gql_ctx: &Context<'_>,
-        input: EntityWithLot,
-    ) -> Result<CachedResponse<EntityTranslationDetailsResponse>> {
+        input: MediaTranslationInput,
+    ) -> GraphqlResult<MediaTranslationResult> {
         let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
         Ok(
-            miscellaneous_media_translation_service::media_translations(&user_id, input, service)
+            miscellaneous_media_translation_service::media_translation(&user_id, input, service)
                 .await?,
         )
     }
@@ -39,12 +38,14 @@ impl MiscellaneousMediaTranslationMutationResolver {
     async fn deploy_update_media_translations_job(
         &self,
         gql_ctx: &Context<'_>,
-        input: EntityWithLot,
-    ) -> Result<bool> {
+        input: MediaTranslationInput,
+    ) -> GraphqlResult<bool> {
         let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
         Ok(
-            dependent_jobs_utils::deploy_update_media_translations_job(user_id, input, service)
-                .await?,
+            miscellaneous_media_translation_service::deploy_update_media_translations_job(
+                user_id, input, service,
+            )
+            .await?,
         )
     }
 }

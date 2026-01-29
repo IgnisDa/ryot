@@ -23,18 +23,6 @@ pub async fn deploy_update_media_entity_job(
     Ok(true)
 }
 
-pub async fn deploy_update_media_translations_job(
-    user_id: String,
-    input: EntityWithLot,
-    ss: &Arc<SupportingService>,
-) -> Result<bool> {
-    ss.perform_application_job(ApplicationJob::Mp(
-        MpApplicationJob::UpdateMediaTranslations(user_id, input),
-    ))
-    .await?;
-    Ok(true)
-}
-
 pub async fn deploy_background_job(
     user_id: &String,
     job_name: BackgroundJob,

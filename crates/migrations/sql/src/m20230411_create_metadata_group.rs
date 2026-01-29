@@ -26,7 +26,6 @@ pub enum MetadataGroup {
     Description,
     LastUpdatedOn,
     CreatedByUserId,
-    HasTranslationsForLanguages,
 }
 
 #[async_trait::async_trait]
@@ -66,10 +65,6 @@ impl MigrationTrait for Migration {
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
-                    )
-                    .col(
-                        ColumnDef::new(MetadataGroup::HasTranslationsForLanguages)
-                            .array(ColumnType::Text),
                     )
                     .foreign_key(
                         ForeignKey::create()

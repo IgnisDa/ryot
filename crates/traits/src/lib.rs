@@ -10,7 +10,8 @@ use database_utils::check_token;
 use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
 use media_models::{
     EntityTranslationDetails, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
-    PartialMetadataWithoutId, PeopleSearchItem,
+    PartialMetadataWithoutId, PeopleSearchItem, PodcastTranslationExtraInformation,
+    ShowTranslationExtraInformation,
 };
 use supporting_service::SupportingService;
 
@@ -87,6 +88,8 @@ pub trait MediaProvider {
         &self,
         identifier: &str,
         target_language: &str,
+        show_extra_information: Option<&ShowTranslationExtraInformation>,
+        podcast_extra_information: Option<&PodcastTranslationExtraInformation>,
     ) -> Result<EntityTranslationDetails> {
         bail!("This provider does not support translating metadata")
     }
