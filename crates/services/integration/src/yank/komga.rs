@@ -78,7 +78,7 @@ mod komga_book {
                 .map(|(_, v)| v.into_owned());
             match label.to_lowercase().as_str() {
                 label if label.contains("google") => from_query,
-                label if label.contains("mangaupdates") => from_query.or_else(|| from_segment),
+                label if label.contains("mangaupdates") => from_query.or(from_segment),
                 _ => from_segment,
             }
         }
