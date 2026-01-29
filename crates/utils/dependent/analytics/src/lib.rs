@@ -156,14 +156,16 @@ pub async fn calculate_user_activities_and_summary(
                         .unwrap()
                         .and_local_timezone(chrono::Utc)
                         .unwrap();
-                    let end_of_day = d
-                        .and_hms_opt(23, 59, 59)
+                    let next_day_start = d
+                        .succ_opt()
+                        .unwrap()
+                        .and_hms_opt(0, 0, 0)
                         .unwrap()
                         .and_local_timezone(chrono::Utc)
                         .unwrap();
                     seen::Column::FinishedOn
                         .gte(start_of_day)
-                        .and(seen::Column::FinishedOn.lte(end_of_day))
+                        .and(seen::Column::FinishedOn.lt(next_day_start))
                 }
             });
         }
