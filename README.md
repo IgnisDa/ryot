@@ -28,7 +28,7 @@
     <a href="https://docs.ryot.io" target="_blank">Documentation</a> •
     <a href="https://demo.ryot.io/_s/acl_vUMPnPirkHlT" target="_blank">Live Demo</a> •
     <a href="https://discord.gg/D9XTg2a7R8" target="_blank">Discord</a> •
-    <a href="https://ryot.io" target="_blank">Pro Features</a>
+    <a href="https://ryot.io/features" target="_blank">Pro Features</a>
 </p>
 
 <br/>
