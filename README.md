@@ -1,7 +1,7 @@
 <h1 align="center">Ryot</h1>
 
 <h3 align="center">
-  A self hosted platform for tracking various facets of your life - media, fitness etc.
+  A self hosted platform for tracking various facets of your life - media, fitness and more.
 </h3>
 
 <br/>
@@ -10,83 +10,115 @@
   <a href="https://github.com/ignisda/ryot/stargazers">
     <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ignisda/ryot">
   </a>
+  <a href="https://github.com/ignisda/ryot/releases">
+    <img alt="GitHub release" src="https://img.shields.io/github/v/release/ignisda/ryot">
+  </a>
   <a href="https://github.com/ignisda/ryot/blob/main/LICENSE">
     <img alt="License" src="https://img.shields.io/badge/license-GPLv3-purple">
   </a>
   <a href="https://hub.docker.com/r/ignisda/ryot">
-    <img alt="Image size" src="https://img.shields.io/docker/image-size/ignisda/ryot">
+    <img alt="Docker pulls" src="https://img.shields.io/docker/pulls/ignisda/ryot">
+  </a>
+  <a href="https://discord.gg/D9XTg2a7R8">
+    <img alt="Discord" src="https://img.shields.io/discord/1115553491942154322?label=discord">
   </a>
 </div>
 
 <p align="center">
-    <a href="https://ryot.io" target="_blank">Pro features</a> •
-    <a href="https://docs.ryot.io" target="_blank">Installation</a> •
-    <a href="https://docs.ryot.io/configuration" target="_blank">Configuration</a> •
-    <a href="https://demo.ryot.io/_s/acl_vUMPnPirkHlT" target="_blank">Demo</a>
+    <a href="https://docs.ryot.io" target="_blank">Documentation</a> •
+    <a href="https://demo.ryot.io/_s/acl_vUMPnPirkHlT" target="_blank">Live Demo</a> •
+    <a href="https://discord.gg/D9XTg2a7R8" target="_blank">Discord</a> •
+    <a href="https://ryot.io" target="_blank">Pro Features</a>
 </p>
 
 <br/>
 
-Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the only self
-hosted tracker you will ever need!
+<p align="center">
+  <img src="apps/website/public/cta-image.png" alt="Ryot Dashboard" width="700">
+</p>
 
-## IMPORTANT NOTE FOR `v9.*` USERS
+## Quick Start
 
-If you were using `v9.*` of Ryot, please read the
-[guide](https://docs.ryot.io/migration.html#from-v9-to-v10) for migration instructions to
-`v10`.
+Create a `docker-compose.yml` file:
 
-## Pro version
+```yaml
+services:
+  ryot-db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres_storage:/var/lib/postgresql
+    environment:
+      - POSTGRES_PASSWORD=postgres
 
-Ryot is available in two versions - community and pro. The pro version has additional
-features like profile sharing, recommendations, supercharged collections etc. [Learn
-more](https://ryot.io) about the pro version.
+  ryot:
+    image: ignisda/ryot:v10
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
+      - SERVER_ADMIN_ACCESS_TOKEN=CHANGE_ME_TO_A_LONG_RANDOM_STRING
 
-## 💻 Demo
+volumes:
+  postgres_storage:
+```
 
-You can use the demo account on the pro instance using [this
-link](https://demo.ryot.io/_s/acl_vUMPnPirkHlT).
+Then run `docker compose up -d` and visit `http://localhost:8000`. For production setups, see the [installation guide](https://docs.ryot.io).
 
-**NOTE**: The data in this demo account is reset every 24 hours.
+## What is Ryot?
 
-## 📝 ELI5
+Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", is a self-hosted tracker for your media consumption and fitness activities. Track the books you read, shows you watch, games you play, and workouts you complete - all in one place with a clean interface and insightful statistics.
 
-Imagine you have a special notebook where you can write down all the media you have
-consumed, like books you've read, shows you have watched, video games you have played or
-workouts you have done. Now, imagine that instead of a physical notebook, you have a
-special tool on your computer or phone that lets you keep track of all these digitally.
+## Features
 
-## Community and support
+### Media Tracking
 
-You can join the [Discord](https://discord.gg/D9XTg2a7R8) server for any help or questions.
-You can also open an issue on GitHub if you find any bugs or have feature requests.
+- Track movies, TV shows, anime, manga, books, audiobooks, podcasts, music and video games
+- Import from Goodreads, Trakt, MyAnimeList, Audiobookshelf [and more](https://docs.ryot.io/importing/overview.html)
+- Automatic tracking via Jellyfin, Plex, Kodi, Emby [integrations](https://docs.ryot.io/integrations/overview.html)
 
-## 💡 Why?
+### Fitness
 
-- Existing solutions do not have very good UI.
-- Pretty graphs and summaries make everyone happy. Ryot aims to have a lot of them.
-- There is a lack of a good self-hosted fitness and health tracking solution.
+- Log workouts with a comprehensive exercise database
+- Track body measurements over time
+- Monitor progress with detailed graphs
 
-## 🚀 Features
+<p align="center">
+  <img src="apps/website/public/features/current-workout.png" alt="Workout tracking" width="250">
+  <img src="apps/website/public/features/measurements-graph.png" alt="Measurements" width="250">
+</p>
 
-- ✅ [Supports](https://github.com/IgnisDa/ryot/discussions/4) tracking media
-  and fitness
-- ✅ Import data from Goodreads, Trakt, Strong App
-  [etc.](https://docs.ryot.io/importing/overview.html)
-- ✅ Integration with Jellyfin, Kodi, Plex, Emby, Audiobookshelf
-  [etc.](https://docs.ryot.io/integrations/overview.html)
-- ✅ [Supports](https://docs.ryot.io/guides/authentication.html) OpenID Connect
-- ✅ Sends notifications to Discord, Ntfy, Apprise etc
-- ✅ Self-hosted
-- ✅ PWA enabled
-- ✅ [Documented](https://app.ryot.io/backend/graphql) GraphQL API
-- ✅ Easy to understand UI
-- ✅ Lightning fast (written in Rust BTW)
-- ✅ Free and open-source
+### Technical
 
-## 🙏 Acknowledgements
+- Self-hosted with full data ownership
+- OpenID Connect [authentication](https://docs.ryot.io/guides/authentication.html)
+- Notifications via Discord, Ntfy, Apprise
+- [GraphQL API](https://app.ryot.io/backend/graphql) for custom integrations
+- PWA support for mobile use
+- Written in Rust for performance
 
-- Ryot is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker) and
-  other similar projects.
-- [Free Exercise DB](https://github.com/yuhonas/free-exercise-db) for exercise information.
-- Massive thanks to all the [contributors](https://github.com/IgnisDa/ryot/graphs/contributors).
+## Pro Version
+
+Ryot Pro adds profile sharing, personalized recommendations, supercharged collections and more. [Learn more](https://ryot.io) about the pro version.
+
+## Demo
+
+Try the [live demo](https://demo.ryot.io/_s/acl_vUMPnPirkHlT) to explore the interface. Demo data resets every 24 hours.
+
+## Community
+
+Questions or feedback? Join the [Discord server](https://discord.gg/D9XTg2a7R8) or open a [GitHub issue](https://github.com/ignisda/ryot/issues).
+
+## Acknowledgements
+
+- Inspired by [MediaTracker](https://github.com/bonukai/MediaTracker)
+- Exercise data from [Free Exercise DB](https://github.com/yuhonas/free-exercise-db)
+- Thanks to all [contributors](https://github.com/IgnisDa/ryot/graphs/contributors)
+
+<details>
+<summary><strong>Migrating from v9?</strong></summary>
+
+If you were using v9.* of Ryot, please read the [migration guide](https://docs.ryot.io/migration.html#from-v9-to-v10) for instructions to upgrade to v10.
+
+</details>
