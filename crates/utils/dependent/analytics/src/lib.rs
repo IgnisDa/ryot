@@ -124,34 +124,115 @@ pub async fn calculate_user_activities_and_summary(
         existing
     }
 
-    let mut seen_stream = Seen::find()
+    // Step 1: Find all unique finished_on dates that were affected by recent updates
+    // An activity date is "affected" if ANY item with that finished_on was recently updated
+    #[derive(Debug, FromQueryResult)]
+    struct AffectedDate {
+        finished_on: Option<DateTimeUtc>,
+    }
+    let affected_dates_raw = Seen::find()
         .filter(seen::Column::UserId.eq(user_id))
         .filter(seen::Column::State.eq(SeenState::Completed))
         .filter(seen::Column::LastUpdatedOn.gt(start_from))
-        .left_join(Metadata)
         .select_only()
-        .column_as(seen::Column::Id, "seen_id")
-        .columns([
-            seen::Column::ShowExtraInformation,
-            seen::Column::PodcastExtraInformation,
-            seen::Column::FinishedOn,
-            seen::Column::LastUpdatedOn,
-            seen::Column::ManualTimeSpent,
-        ])
-        .column_as(metadata::Column::Lot, "metadata_lot")
-        .columns([
-            metadata::Column::AudioBookSpecifics,
-            metadata::Column::BookSpecifics,
-            metadata::Column::MovieSpecifics,
-            metadata::Column::MusicSpecifics,
-            metadata::Column::PodcastSpecifics,
-            metadata::Column::ShowSpecifics,
-            metadata::Column::VideoGameSpecifics,
-            metadata::Column::VisualNovelSpecifics,
-        ])
-        .into_model::<SeenItem>()
-        .stream(&ss.db)
+        .column(seen::Column::FinishedOn)
+        .distinct()
+        .into_model::<AffectedDate>()
+        .all(&ss.db)
         .await?;
+    let affected_dates: Vec<Option<NaiveDate>> = affected_dates_raw
+        .into_iter()
+        .map(|d| d.finished_on.map(|dt| dt.date_naive()))
+        .collect();
+
+    // Step 2: For each affected date, fetch ALL completed items with that finished_on
+    // This ensures that if you add items to an old date, all items for that date are included
+    let mut seen_stream = if affected_dates.is_empty() {
+        // No updates, return empty stream
+        Seen::find()
+            .filter(seen::Column::UserId.eq(user_id))
+            .filter(seen::Column::State.eq(SeenState::Completed))
+            .filter(seen::Column::Id.eq("__impossible__"))
+            .left_join(Metadata)
+            .select_only()
+            .column_as(seen::Column::Id, "seen_id")
+            .columns([
+                seen::Column::ShowExtraInformation,
+                seen::Column::PodcastExtraInformation,
+                seen::Column::FinishedOn,
+                seen::Column::LastUpdatedOn,
+                seen::Column::ManualTimeSpent,
+            ])
+            .column_as(metadata::Column::Lot, "metadata_lot")
+            .columns([
+                metadata::Column::AudioBookSpecifics,
+                metadata::Column::BookSpecifics,
+                metadata::Column::MovieSpecifics,
+                metadata::Column::MusicSpecifics,
+                metadata::Column::PodcastSpecifics,
+                metadata::Column::ShowSpecifics,
+                metadata::Column::VideoGameSpecifics,
+                metadata::Column::VisualNovelSpecifics,
+            ])
+            .into_model::<SeenItem>()
+            .stream(&ss.db)
+            .await?
+    } else {
+        use sea_orm::Condition;
+
+        let mut condition = Condition::any();
+
+        // Build OR condition for each affected date
+        for date in affected_dates {
+            condition = condition.add(match date {
+                None => seen::Column::FinishedOn.is_null(),
+                Some(d) => {
+                    let start_of_day = d
+                        .and_hms_opt(0, 0, 0)
+                        .unwrap()
+                        .and_local_timezone(chrono::Utc)
+                        .unwrap();
+                    let end_of_day = d
+                        .and_hms_opt(23, 59, 59)
+                        .unwrap()
+                        .and_local_timezone(chrono::Utc)
+                        .unwrap();
+                    seen::Column::FinishedOn
+                        .gte(start_of_day)
+                        .and(seen::Column::FinishedOn.lte(end_of_day))
+                }
+            });
+        }
+
+        Seen::find()
+            .filter(seen::Column::UserId.eq(user_id))
+            .filter(seen::Column::State.eq(SeenState::Completed))
+            .filter(condition)
+            .left_join(Metadata)
+            .select_only()
+            .column_as(seen::Column::Id, "seen_id")
+            .columns([
+                seen::Column::ShowExtraInformation,
+                seen::Column::PodcastExtraInformation,
+                seen::Column::FinishedOn,
+                seen::Column::LastUpdatedOn,
+                seen::Column::ManualTimeSpent,
+            ])
+            .column_as(metadata::Column::Lot, "metadata_lot")
+            .columns([
+                metadata::Column::AudioBookSpecifics,
+                metadata::Column::BookSpecifics,
+                metadata::Column::MovieSpecifics,
+                metadata::Column::MusicSpecifics,
+                metadata::Column::PodcastSpecifics,
+                metadata::Column::ShowSpecifics,
+                metadata::Column::VideoGameSpecifics,
+                metadata::Column::VisualNovelSpecifics,
+            ])
+            .into_model::<SeenItem>()
+            .stream(&ss.db)
+            .await?
+    };
 
     while let Some(seen) = seen_stream.try_next().await? {
         let activity = get_activity_count(
