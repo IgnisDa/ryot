@@ -24,8 +24,8 @@ use media_models::{
 };
 use rust_decimal::{Decimal, dec, prelude::ToPrimitive};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
-    Order, QueryFilter, QueryOrder, QuerySelect,
+    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, EntityTrait, FromQueryResult,
+    IntoActiveModel, Order, QueryFilter, QueryOrder, QuerySelect,
     prelude::{Date, DateTimeUtc},
     sea_query::NullOrdering,
 };
@@ -143,40 +143,10 @@ pub async fn calculate_user_activities_and_summary(
         .map(|d| d.finished_on.map(|dt| dt.date_naive()))
         .collect();
 
-    let mut seen_stream = if affected_dates.is_empty() {
-        Seen::find()
-            .filter(seen::Column::UserId.eq(user_id))
-            .filter(seen::Column::State.eq(SeenState::Completed))
-            .filter(seen::Column::Id.eq("__impossible__"))
-            .left_join(Metadata)
-            .select_only()
-            .column_as(seen::Column::Id, "seen_id")
-            .columns([
-                seen::Column::ShowExtraInformation,
-                seen::Column::PodcastExtraInformation,
-                seen::Column::FinishedOn,
-                seen::Column::LastUpdatedOn,
-                seen::Column::ManualTimeSpent,
-            ])
-            .column_as(metadata::Column::Lot, "metadata_lot")
-            .columns([
-                metadata::Column::AudioBookSpecifics,
-                metadata::Column::BookSpecifics,
-                metadata::Column::MovieSpecifics,
-                metadata::Column::MusicSpecifics,
-                metadata::Column::PodcastSpecifics,
-                metadata::Column::ShowSpecifics,
-                metadata::Column::VideoGameSpecifics,
-                metadata::Column::VisualNovelSpecifics,
-            ])
-            .into_model::<SeenItem>()
-            .stream(&ss.db)
-            .await?
+    let date_condition = if affected_dates.is_empty() {
+        Condition::all().add(seen::Column::Id.eq("__impossible__"))
     } else {
-        use sea_orm::Condition;
-
         let mut condition = Condition::any();
-
         for date in affected_dates {
             condition = condition.add(match date {
                 None => seen::Column::FinishedOn.is_null(),
@@ -197,36 +167,37 @@ pub async fn calculate_user_activities_and_summary(
                 }
             });
         }
-
-        Seen::find()
-            .filter(seen::Column::UserId.eq(user_id))
-            .filter(seen::Column::State.eq(SeenState::Completed))
-            .filter(condition)
-            .left_join(Metadata)
-            .select_only()
-            .column_as(seen::Column::Id, "seen_id")
-            .columns([
-                seen::Column::ShowExtraInformation,
-                seen::Column::PodcastExtraInformation,
-                seen::Column::FinishedOn,
-                seen::Column::LastUpdatedOn,
-                seen::Column::ManualTimeSpent,
-            ])
-            .column_as(metadata::Column::Lot, "metadata_lot")
-            .columns([
-                metadata::Column::AudioBookSpecifics,
-                metadata::Column::BookSpecifics,
-                metadata::Column::MovieSpecifics,
-                metadata::Column::MusicSpecifics,
-                metadata::Column::PodcastSpecifics,
-                metadata::Column::ShowSpecifics,
-                metadata::Column::VideoGameSpecifics,
-                metadata::Column::VisualNovelSpecifics,
-            ])
-            .into_model::<SeenItem>()
-            .stream(&ss.db)
-            .await?
+        condition
     };
+
+    let mut seen_stream = Seen::find()
+        .filter(seen::Column::UserId.eq(user_id))
+        .filter(seen::Column::State.eq(SeenState::Completed))
+        .filter(date_condition)
+        .left_join(Metadata)
+        .select_only()
+        .column_as(seen::Column::Id, "seen_id")
+        .columns([
+            seen::Column::FinishedOn,
+            seen::Column::LastUpdatedOn,
+            seen::Column::ManualTimeSpent,
+            seen::Column::ShowExtraInformation,
+            seen::Column::PodcastExtraInformation,
+        ])
+        .column_as(metadata::Column::Lot, "metadata_lot")
+        .columns([
+            metadata::Column::BookSpecifics,
+            metadata::Column::ShowSpecifics,
+            metadata::Column::MovieSpecifics,
+            metadata::Column::MusicSpecifics,
+            metadata::Column::PodcastSpecifics,
+            metadata::Column::AudioBookSpecifics,
+            metadata::Column::VideoGameSpecifics,
+            metadata::Column::VisualNovelSpecifics,
+        ])
+        .into_model::<SeenItem>()
+        .stream(&ss.db)
+        .await?;
 
     while let Some(seen) = seen_stream.try_next().await? {
         let activity = get_activity_count(
