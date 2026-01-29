@@ -68,25 +68,18 @@ mod komga_book {
     impl Metadata {
         fn extract_id(&self, url: &str, label: &str) -> Option<String> {
             let parsed_url = Url::parse(url).ok()?;
+            let from_segment = parsed_url
+                .path_segments()
+                .and_then(|segments| segments.collect_vec().get(1).cloned())
+                .map(String::from);
+            let from_query = parsed_url
+                .query_pairs()
+                .find(|(k, _)| k == "id")
+                .map(|(_, v)| v.into_owned());
             match label.to_lowercase().as_str() {
-                label if label.contains("google") => parsed_url
-                    .query_pairs()
-                    .find(|(k, _)| k == "id")
-                    .map(|(_, v)| v.into_owned()),
-                label if label.contains("mangaupdates") => parsed_url
-                    .query_pairs()
-                    .find(|(k, _)| k == "id")
-                    .map(|(_, v)| v.into_owned())
-                    .or_else(|| {
-                        parsed_url
-                            .path_segments()
-                            .and_then(|segments| segments.collect_vec().get(1).cloned())
-                            .map(String::from)
-                    }),
-                _ => parsed_url
-                    .path_segments()
-                    .and_then(|segments| segments.collect_vec().get(1).cloned())
-                    .map(String::from),
+                label if label.contains("google") => from_query,
+                label if label.contains("mangaupdates") => from_query.or_else(|| from_segment),
+                _ => from_segment,
             }
         }
 
