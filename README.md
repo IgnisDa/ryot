@@ -44,12 +44,12 @@ Create a `docker-compose.yml` file:
 ```yaml
 services:
   ryot-db:
-    image: postgres:18-alpine
     restart: unless-stopped
-    volumes:
-      - postgres_storage:/var/lib/postgresql
+    image: postgres:18-alpine
     environment:
       - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres_storage:/var/lib/postgresql
 
   ryot:
     image: ignisda/ryot:v10
@@ -57,8 +57,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
       - SERVER_ADMIN_ACCESS_TOKEN=CHANGE_ME_TO_A_LONG_RANDOM_STRING
+      - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
 
 volumes:
   postgres_storage:
