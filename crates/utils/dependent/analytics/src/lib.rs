@@ -24,8 +24,8 @@ use media_models::{
 };
 use rust_decimal::{Decimal, dec, prelude::ToPrimitive};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
-    Order, QueryFilter, QueryOrder, QuerySelect,
+    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, EntityTrait, FromQueryResult,
+    IntoActiveModel, Order, QueryFilter, QueryOrder, QuerySelect,
     prelude::{Date, DateTimeUtc},
     sea_query::NullOrdering,
 };
@@ -124,28 +124,76 @@ pub async fn calculate_user_activities_and_summary(
         existing
     }
 
-    let mut seen_stream = Seen::find()
+    #[derive(Debug, FromQueryResult)]
+    struct AffectedDate {
+        finished_on: Option<DateTimeUtc>,
+    }
+    let affected_dates_raw = Seen::find()
         .filter(seen::Column::UserId.eq(user_id))
         .filter(seen::Column::State.eq(SeenState::Completed))
         .filter(seen::Column::LastUpdatedOn.gt(start_from))
+        .select_only()
+        .column(seen::Column::FinishedOn)
+        .distinct()
+        .into_model::<AffectedDate>()
+        .all(&ss.db)
+        .await?;
+    let affected_dates: Vec<Option<NaiveDate>> = affected_dates_raw
+        .into_iter()
+        .map(|d| d.finished_on.map(|dt| dt.date_naive()))
+        .collect();
+
+    let date_condition = if affected_dates.is_empty() {
+        Condition::all().add(seen::Column::Id.eq("__impossible__"))
+    } else {
+        let mut condition = Condition::any();
+        for date in affected_dates {
+            condition = condition.add(match date {
+                None => seen::Column::FinishedOn.is_null(),
+                Some(d) => {
+                    let start_of_day = d
+                        .and_hms_opt(0, 0, 0)
+                        .unwrap()
+                        .and_local_timezone(chrono::Utc)
+                        .unwrap();
+                    let next_day_start = d
+                        .succ_opt()
+                        .unwrap()
+                        .and_hms_opt(0, 0, 0)
+                        .unwrap()
+                        .and_local_timezone(chrono::Utc)
+                        .unwrap();
+                    seen::Column::FinishedOn
+                        .gte(start_of_day)
+                        .and(seen::Column::FinishedOn.lt(next_day_start))
+                }
+            });
+        }
+        condition
+    };
+
+    let mut seen_stream = Seen::find()
+        .filter(seen::Column::UserId.eq(user_id))
+        .filter(seen::Column::State.eq(SeenState::Completed))
+        .filter(date_condition)
         .left_join(Metadata)
         .select_only()
         .column_as(seen::Column::Id, "seen_id")
         .columns([
-            seen::Column::ShowExtraInformation,
-            seen::Column::PodcastExtraInformation,
             seen::Column::FinishedOn,
             seen::Column::LastUpdatedOn,
             seen::Column::ManualTimeSpent,
+            seen::Column::ShowExtraInformation,
+            seen::Column::PodcastExtraInformation,
         ])
         .column_as(metadata::Column::Lot, "metadata_lot")
         .columns([
-            metadata::Column::AudioBookSpecifics,
             metadata::Column::BookSpecifics,
+            metadata::Column::ShowSpecifics,
             metadata::Column::MovieSpecifics,
             metadata::Column::MusicSpecifics,
             metadata::Column::PodcastSpecifics,
-            metadata::Column::ShowSpecifics,
+            metadata::Column::AudioBookSpecifics,
             metadata::Column::VideoGameSpecifics,
             metadata::Column::VisualNovelSpecifics,
         ])
