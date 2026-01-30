@@ -97,13 +97,13 @@ async fn main() -> Result<()> {
     };
 
     let lp_application_job_storage =
-        Arc::new(JsonStorage::new_temp().expect("Failed to create temp storage"));
+        JsonStorage::new_temp().expect("Failed to create temp storage");
     let mp_application_job_storage =
-        Arc::new(JsonStorage::new_temp().expect("Failed to create temp storage"));
+        JsonStorage::new_temp().expect("Failed to create temp storage");
     let hp_application_job_storage =
-        Arc::new(JsonStorage::new_temp().expect("Failed to create temp storage"));
+        JsonStorage::new_temp().expect("Failed to create temp storage");
     let single_application_job_storage =
-        Arc::new(JsonStorage::new_temp().expect("Failed to create temp storage"));
+        JsonStorage::new_temp().expect("Failed to create temp storage");
 
     let (app_router, supporting_service) = create_app_dependencies()
         .db(db)
@@ -181,7 +181,7 @@ async fn main() -> Result<()> {
             let ss = supporting_service.clone();
             move |_runs| {
                 WorkerBuilder::new("perform_single_application_job")
-                    .backend(storage.as_ref().clone())
+                    .backend(storage.clone())
                     .catch_panic()
                     .enable_tracing()
                     .concurrency(1)
@@ -194,7 +194,7 @@ async fn main() -> Result<()> {
             let ss = supporting_service.clone();
             move |_runs| {
                 WorkerBuilder::new("perform_hp_application_job")
-                    .backend(storage.as_ref().clone())
+                    .backend(storage.clone())
                     .catch_panic()
                     .enable_tracing()
                     .data(ss.clone())
@@ -206,7 +206,7 @@ async fn main() -> Result<()> {
             let ss = supporting_service.clone();
             move |_runs| {
                 WorkerBuilder::new("perform_mp_application_job")
-                    .backend(storage.as_ref().clone())
+                    .backend(storage.clone())
                     .catch_panic()
                     .enable_tracing()
                     .rate_limit(10, Duration::new(5, 0))
@@ -219,7 +219,7 @@ async fn main() -> Result<()> {
             let ss = supporting_service.clone();
             move |_runs| {
                 WorkerBuilder::new("perform_lp_application_job")
-                    .backend(storage.as_ref().clone())
+                    .backend(storage.clone())
                     .catch_panic()
                     .enable_tracing()
                     .rate_limit(40, Duration::new(5, 0))
