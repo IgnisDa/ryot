@@ -280,19 +280,35 @@ dependencies = [
 ]
 
 [[package]]
-name = "apalis-file-storage"
-version = "0.1.0-rc.2"
+name = "apalis-postgres"
+version = "1.0.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca9c90d1d55a716aeab454911edafb84928099db99705301967db1962c6689f0"
+checksum = "a1e1d12998964c87df0f8171bbee14783ad576dde7d1b32c87dce404977e3901"
 dependencies = [
  "apalis-codec",
  "apalis-core",
- "futures-channel",
- "futures-core",
- "futures-sink",
- "futures-util",
+ "apalis-sql",
+ "futures",
+ "pin-project",
  "serde",
  "serde_json",
+ "sqlx",
+ "thiserror 2.0.17",
+ "tokio",
+ "ulid",
+]
+
+[[package]]
+name = "apalis-sql"
+version = "1.0.0-rc.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02b9d5873918c664ffcd0768f5048a261cd83a1741eed80f96a77091e6dc3e47"
+dependencies = [
+ "apalis-core",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
 ]
 
 [[package]]
@@ -1020,8 +1036,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "apalis",
+ "apalis-codec",
  "apalis-cron",
- "apalis-file-storage",
+ "apalis-postgres",
  "application-utils",
  "async-graphql",
  "async-graphql-axum",
@@ -7766,7 +7783,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "apalis",
- "apalis-file-storage",
+ "apalis-codec",
+ "apalis-postgres",
  "background-models",
  "bon",
  "chrono",
@@ -8380,6 +8398,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "470dbf6591da1b39d43c14523b2b469c86879a53e8b758c8e090a470fe7b1fbe"
 dependencies = [
  "rand 0.9.2",
+ "serde",
  "web-time",
 ]
 

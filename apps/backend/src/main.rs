@@ -9,10 +9,10 @@ use std::{
 use anyhow::{Context, Result, bail};
 use apalis::{
     layers::WorkerBuilderExt,
-    prelude::{Monitor, WorkerBuilder},
+    prelude::{MakeShared, Monitor, WorkerBuilder},
 };
 use apalis_cron::CronStream;
-use apalis_file_storage::JsonStorage;
+use apalis_postgres::{PostgresStorage, shared::SharedPostgresStorage};
 use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
 use config_definition::AppConfig;
 use cron::Schedule;
@@ -96,14 +96,15 @@ async fn main() -> Result<()> {
         bail!("There was an error running the database migrations.");
     };
 
-    let lp_application_job_storage =
-        JsonStorage::new_temp().expect("Failed to create temp storage");
-    let mp_application_job_storage =
-        JsonStorage::new_temp().expect("Failed to create temp storage");
-    let hp_application_job_storage =
-        JsonStorage::new_temp().expect("Failed to create temp storage");
-    let single_application_job_storage =
-        JsonStorage::new_temp().expect("Failed to create temp storage");
+    let pool = db.get_postgres_connection_pool();
+    PostgresStorage::setup(pool).await?;
+
+    let mut store = SharedPostgresStorage::new(pool.to_owned());
+
+    let lp_application_job_storage = store.make_shared().unwrap();
+    let mp_application_job_storage = store.make_shared().unwrap();
+    let hp_application_job_storage = store.make_shared().unwrap();
+    let single_application_job_storage = store.make_shared().unwrap();
 
     let (app_router, supporting_service) = create_app_dependencies()
         .db(db)

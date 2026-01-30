@@ -2,7 +2,8 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Result;
 use apalis::prelude::TaskSink;
-use apalis_file_storage::JsonStorage;
+use apalis_codec::json::JsonCodec;
+use apalis_postgres::{PostgresStorage, shared::SharedFetcher};
 use background_models::{
     ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob, SingleApplicationJob,
 };
@@ -19,10 +20,14 @@ pub struct SupportingService {
     pub timezone: chrono_tz::Tz,
     pub server_start_time: DateTimeUtc,
 
-    lp_application_job: JsonStorage<LpApplicationJob>,
-    hp_application_job: JsonStorage<HpApplicationJob>,
-    mp_application_job: JsonStorage<MpApplicationJob>,
-    single_application_job: JsonStorage<SingleApplicationJob>,
+    lp_application_job:
+        PostgresStorage<LpApplicationJob, Vec<u8>, JsonCodec<Vec<u8>>, SharedFetcher>,
+    hp_application_job:
+        PostgresStorage<HpApplicationJob, Vec<u8>, JsonCodec<Vec<u8>>, SharedFetcher>,
+    mp_application_job:
+        PostgresStorage<MpApplicationJob, Vec<u8>, JsonCodec<Vec<u8>>, SharedFetcher>,
+    single_application_job:
+        PostgresStorage<SingleApplicationJob, Vec<u8>, JsonCodec<Vec<u8>>, SharedFetcher>,
 }
 
 #[bon]
@@ -34,10 +39,30 @@ impl SupportingService {
         log_file_path: PathBuf,
         db: &DatabaseConnection,
         timezone: chrono_tz::Tz,
-        lp_application_job: JsonStorage<LpApplicationJob>,
-        mp_application_job: JsonStorage<MpApplicationJob>,
-        hp_application_job: JsonStorage<HpApplicationJob>,
-        single_application_job: JsonStorage<SingleApplicationJob>,
+        lp_application_job: PostgresStorage<
+            LpApplicationJob,
+            Vec<u8>,
+            JsonCodec<Vec<u8>>,
+            SharedFetcher,
+        >,
+        mp_application_job: PostgresStorage<
+            MpApplicationJob,
+            Vec<u8>,
+            JsonCodec<Vec<u8>>,
+            SharedFetcher,
+        >,
+        hp_application_job: PostgresStorage<
+            HpApplicationJob,
+            Vec<u8>,
+            JsonCodec<Vec<u8>>,
+            SharedFetcher,
+        >,
+        single_application_job: PostgresStorage<
+            SingleApplicationJob,
+            Vec<u8>,
+            JsonCodec<Vec<u8>>,
+            SharedFetcher,
+        >,
     ) -> Self {
         Self {
             config,
@@ -45,11 +70,11 @@ impl SupportingService {
             log_file_path,
             db: db.clone(),
             is_oidc_enabled,
-            server_start_time: Utc::now(),
             lp_application_job,
             mp_application_job,
             hp_application_job,
             single_application_job,
+            server_start_time: Utc::now(),
         }
     }
 
