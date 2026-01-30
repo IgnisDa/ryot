@@ -2,10 +2,9 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Result;
 use apalis::prelude::TaskSink;
-use apalis_codec::json::JsonCodec;
-use apalis_postgres::{PostgresStorage, shared::SharedFetcher};
 use background_models::{
-    ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob, SingleApplicationJob,
+    ApplicationJob, HpApplicationJob, JobStorage, LpApplicationJob, MpApplicationJob,
+    SingleApplicationJob,
 };
 use bon::bon;
 use chrono::Utc;
@@ -20,14 +19,10 @@ pub struct SupportingService {
     pub timezone: chrono_tz::Tz,
     pub server_start_time: DateTimeUtc,
 
-    lp_application_job:
-        PostgresStorage<LpApplicationJob, Vec<u8>, JsonCodec<Vec<u8>>, SharedFetcher>,
-    hp_application_job:
-        PostgresStorage<HpApplicationJob, Vec<u8>, JsonCodec<Vec<u8>>, SharedFetcher>,
-    mp_application_job:
-        PostgresStorage<MpApplicationJob, Vec<u8>, JsonCodec<Vec<u8>>, SharedFetcher>,
-    single_application_job:
-        PostgresStorage<SingleApplicationJob, Vec<u8>, JsonCodec<Vec<u8>>, SharedFetcher>,
+    lp_application_job: JobStorage<LpApplicationJob>,
+    hp_application_job: JobStorage<HpApplicationJob>,
+    mp_application_job: JobStorage<MpApplicationJob>,
+    single_application_job: JobStorage<SingleApplicationJob>,
 }
 
 #[bon]
@@ -39,30 +34,10 @@ impl SupportingService {
         log_file_path: PathBuf,
         db: &DatabaseConnection,
         timezone: chrono_tz::Tz,
-        lp_application_job: PostgresStorage<
-            LpApplicationJob,
-            Vec<u8>,
-            JsonCodec<Vec<u8>>,
-            SharedFetcher,
-        >,
-        mp_application_job: PostgresStorage<
-            MpApplicationJob,
-            Vec<u8>,
-            JsonCodec<Vec<u8>>,
-            SharedFetcher,
-        >,
-        hp_application_job: PostgresStorage<
-            HpApplicationJob,
-            Vec<u8>,
-            JsonCodec<Vec<u8>>,
-            SharedFetcher,
-        >,
-        single_application_job: PostgresStorage<
-            SingleApplicationJob,
-            Vec<u8>,
-            JsonCodec<Vec<u8>>,
-            SharedFetcher,
-        >,
+        lp_application_job: JobStorage<LpApplicationJob>,
+        mp_application_job: JobStorage<MpApplicationJob>,
+        hp_application_job: JobStorage<HpApplicationJob>,
+        single_application_job: JobStorage<SingleApplicationJob>,
     ) -> Self {
         Self {
             config,

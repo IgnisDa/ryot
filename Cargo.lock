@@ -1036,7 +1036,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "apalis",
- "apalis-codec",
  "apalis-cron",
  "apalis-postgres",
  "application-utils",
@@ -1108,6 +1107,8 @@ dependencies = [
 name = "background-models"
 version = "0.1.0"
 dependencies = [
+ "apalis-codec",
+ "apalis-postgres",
  "common-models",
  "enum-models",
  "media-models",
@@ -7783,8 +7784,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "apalis",
- "apalis-codec",
- "apalis-postgres",
  "background-models",
  "bon",
  "chrono",

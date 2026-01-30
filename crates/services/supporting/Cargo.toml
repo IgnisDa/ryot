@@ -6,8 +6,6 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 apalis = { workspace = true }
-apalis-codec = { workspace = true }
-apalis-postgres = { workspace = true }
 bon = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
