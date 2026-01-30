@@ -141,7 +141,7 @@ pub async fn perform_import(
                     model.was_success = ActiveValue::Set(Some(true));
                     deploy_background_job(
                         &user_id,
-                        BackgroundJob::CalculateUserActivitiesAndSummary,
+                        BackgroundJob::RecalculateUserActivitiesAndSummary,
                         ss,
                     )
                     .await
