@@ -1,7 +1,8 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Result;
-use apalis::prelude::{MemoryStorage, TaskSink};
+use apalis::prelude::TaskSink;
+use apalis_file_storage::JsonStorage;
 use background_models::{
     ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob, SingleApplicationJob,
 };
@@ -9,7 +10,6 @@ use bon::bon;
 use chrono::Utc;
 use config_definition::AppConfig;
 use sea_orm::{DatabaseConnection, prelude::DateTimeUtc};
-use tokio::sync::Mutex;
 
 pub struct SupportingService {
     pub is_oidc_enabled: bool,
@@ -19,10 +19,10 @@ pub struct SupportingService {
     pub timezone: chrono_tz::Tz,
     pub server_start_time: DateTimeUtc,
 
-    lp_application_job: Arc<Mutex<MemoryStorage<LpApplicationJob>>>,
-    hp_application_job: Arc<Mutex<MemoryStorage<HpApplicationJob>>>,
-    mp_application_job: Arc<Mutex<MemoryStorage<MpApplicationJob>>>,
-    single_application_job: Arc<Mutex<MemoryStorage<SingleApplicationJob>>>,
+    lp_application_job: Arc<JsonStorage<LpApplicationJob>>,
+    hp_application_job: Arc<JsonStorage<HpApplicationJob>>,
+    mp_application_job: Arc<JsonStorage<MpApplicationJob>>,
+    single_application_job: Arc<JsonStorage<SingleApplicationJob>>,
 }
 
 #[bon]
@@ -34,10 +34,10 @@ impl SupportingService {
         log_file_path: PathBuf,
         db: &DatabaseConnection,
         timezone: chrono_tz::Tz,
-        lp_application_job: Arc<Mutex<MemoryStorage<LpApplicationJob>>>,
-        mp_application_job: Arc<Mutex<MemoryStorage<MpApplicationJob>>>,
-        hp_application_job: Arc<Mutex<MemoryStorage<HpApplicationJob>>>,
-        single_application_job: Arc<Mutex<MemoryStorage<SingleApplicationJob>>>,
+        lp_application_job: Arc<JsonStorage<LpApplicationJob>>,
+        mp_application_job: Arc<JsonStorage<MpApplicationJob>>,
+        hp_application_job: Arc<JsonStorage<HpApplicationJob>>,
+        single_application_job: Arc<JsonStorage<SingleApplicationJob>>,
     ) -> Self {
         Self {
             config,
@@ -56,20 +56,20 @@ impl SupportingService {
     pub async fn perform_application_job(&self, job: ApplicationJob) -> Result<()> {
         match job {
             ApplicationJob::Lp(job) => {
-                let mut storage = self.lp_application_job.lock().await;
-                storage.push(job).await.ok();
+                let mut backend = self.lp_application_job.as_ref().clone();
+                backend.push(job).await.ok();
             }
             ApplicationJob::Hp(job) => {
-                let mut storage = self.hp_application_job.lock().await;
-                storage.push(job).await.ok();
+                let mut backend = self.hp_application_job.as_ref().clone();
+                backend.push(job).await.ok();
             }
             ApplicationJob::Mp(job) => {
-                let mut storage = self.mp_application_job.lock().await;
-                storage.push(job).await.ok();
+                let mut backend = self.mp_application_job.as_ref().clone();
+                backend.push(job).await.ok();
             }
             ApplicationJob::Single(job) => {
-                let mut storage = self.single_application_job.lock().await;
-                storage.push(job).await.ok();
+                let mut backend = self.single_application_job.as_ref().clone();
+                backend.push(job).await.ok();
             }
         }
         Ok(())

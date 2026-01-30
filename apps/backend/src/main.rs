@@ -9,9 +9,10 @@ use std::{
 use anyhow::{Context, Result, bail};
 use apalis::{
     layers::WorkerBuilderExt,
-    prelude::{MemoryStorage, Monitor, WorkerBuilder},
+    prelude::{Monitor, WorkerBuilder},
 };
 use apalis_cron::CronStream;
+use apalis_file_storage::JsonStorage;
 use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
 use config_definition::AppConfig;
 use cron::Schedule;
@@ -22,7 +23,6 @@ use migrations_sql::Migrator;
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
-use tokio::sync::Mutex;
 use tokio::{
     join,
     net::TcpListener,
@@ -96,10 +96,14 @@ async fn main() -> Result<()> {
         bail!("There was an error running the database migrations.");
     };
 
-    let lp_application_job_storage = Arc::new(Mutex::new(MemoryStorage::new()));
-    let mp_application_job_storage = Arc::new(Mutex::new(MemoryStorage::new()));
-    let hp_application_job_storage = Arc::new(Mutex::new(MemoryStorage::new()));
-    let single_application_job_storage = Arc::new(Mutex::new(MemoryStorage::new()));
+    let lp_application_job_storage =
+        Arc::new(JsonStorage::new_temp().expect("Failed to create temp storage"));
+    let mp_application_job_storage =
+        Arc::new(JsonStorage::new_temp().expect("Failed to create temp storage"));
+    let hp_application_job_storage =
+        Arc::new(JsonStorage::new_temp().expect("Failed to create temp storage"));
+    let single_application_job_storage =
+        Arc::new(JsonStorage::new_temp().expect("Failed to create temp storage"));
 
     let (app_router, supporting_service) = create_app_dependencies()
         .db(db)
@@ -176,12 +180,8 @@ async fn main() -> Result<()> {
             let storage = single_application_job_storage.clone();
             let ss = supporting_service.clone();
             move |_runs| {
-                let backend = tokio::task::block_in_place(|| {
-                    let mut guard = storage.blocking_lock();
-                    std::mem::replace(&mut *guard, MemoryStorage::new())
-                });
                 WorkerBuilder::new("perform_single_application_job")
-                    .backend(backend)
+                    .backend(storage.as_ref().clone())
                     .catch_panic()
                     .enable_tracing()
                     .concurrency(1)
@@ -193,12 +193,8 @@ async fn main() -> Result<()> {
             let storage = hp_application_job_storage.clone();
             let ss = supporting_service.clone();
             move |_runs| {
-                let backend = tokio::task::block_in_place(|| {
-                    let mut guard = storage.blocking_lock();
-                    std::mem::replace(&mut *guard, MemoryStorage::new())
-                });
                 WorkerBuilder::new("perform_hp_application_job")
-                    .backend(backend)
+                    .backend(storage.as_ref().clone())
                     .catch_panic()
                     .enable_tracing()
                     .data(ss.clone())
@@ -209,12 +205,8 @@ async fn main() -> Result<()> {
             let storage = mp_application_job_storage.clone();
             let ss = supporting_service.clone();
             move |_runs| {
-                let backend = tokio::task::block_in_place(|| {
-                    let mut guard = storage.blocking_lock();
-                    std::mem::replace(&mut *guard, MemoryStorage::new())
-                });
                 WorkerBuilder::new("perform_mp_application_job")
-                    .backend(backend)
+                    .backend(storage.as_ref().clone())
                     .catch_panic()
                     .enable_tracing()
                     .rate_limit(10, Duration::new(5, 0))
@@ -226,12 +218,8 @@ async fn main() -> Result<()> {
             let storage = lp_application_job_storage.clone();
             let ss = supporting_service.clone();
             move |_runs| {
-                let backend = tokio::task::block_in_place(|| {
-                    let mut guard = storage.blocking_lock();
-                    std::mem::replace(&mut *guard, MemoryStorage::new())
-                });
                 WorkerBuilder::new("perform_lp_application_job")
-                    .backend(backend)
+                    .backend(storage.as_ref().clone())
                     .catch_panic()
                     .enable_tracing()
                     .rate_limit(40, Duration::new(5, 0))

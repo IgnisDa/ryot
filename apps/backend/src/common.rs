@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
-use apalis::prelude::MemoryStorage;
+use apalis_file_storage::JsonStorage;
 use application_utils::{AuthContext, create_oidc_client};
 use async_graphql::{EmptySubscription, MergedObject, Schema, extensions::Tracing};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
@@ -51,7 +51,6 @@ use router_resolver::{
 use sea_orm::DatabaseConnection;
 use statistics_resolver::StatisticsQueryResolver;
 use supporting_service::SupportingService;
-use tokio::sync::Mutex;
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
@@ -68,10 +67,10 @@ pub async fn create_app_dependencies(
     config: Arc<AppConfig>,
     log_file_path: PathBuf,
     timezone: chrono_tz::Tz,
-    lp_application_job: Arc<Mutex<MemoryStorage<LpApplicationJob>>>,
-    mp_application_job: Arc<Mutex<MemoryStorage<MpApplicationJob>>>,
-    hp_application_job: Arc<Mutex<MemoryStorage<HpApplicationJob>>>,
-    single_application_job: Arc<Mutex<MemoryStorage<SingleApplicationJob>>>,
+    lp_application_job: Arc<JsonStorage<LpApplicationJob>>,
+    mp_application_job: Arc<JsonStorage<MpApplicationJob>>,
+    hp_application_job: Arc<JsonStorage<HpApplicationJob>>,
+    single_application_job: Arc<JsonStorage<SingleApplicationJob>>,
 ) -> (Router, Arc<SupportingService>) {
     let is_oidc_enabled = create_oidc_client(&config).await.is_some();
     let supporting_service = Arc::new(

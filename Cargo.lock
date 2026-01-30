@@ -236,6 +236,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "apalis-codec"
+version = "0.1.0-rc.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce833bf2acb6984eaa4e58ee4afacc0eaaefabc2c54ad5df46ea43255d115f7f"
+dependencies = [
+ "apalis-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "apalis-core"
 version = "1.0.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -266,6 +277,22 @@ dependencies = [
  "futures-util",
  "serde",
  "ulid",
+]
+
+[[package]]
+name = "apalis-file-storage"
+version = "0.1.0-rc.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca9c90d1d55a716aeab454911edafb84928099db99705301967db1962c6689f0"
+dependencies = [
+ "apalis-codec",
+ "apalis-core",
+ "futures-channel",
+ "futures-core",
+ "futures-sink",
+ "futures-util",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -994,6 +1021,7 @@ dependencies = [
  "anyhow",
  "apalis",
  "apalis-cron",
+ "apalis-file-storage",
  "application-utils",
  "async-graphql",
  "async-graphql-axum",
@@ -7738,13 +7766,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "apalis",
+ "apalis-file-storage",
  "background-models",
  "bon",
  "chrono",
  "chrono-tz",
  "config-definition",
  "sea-orm",
- "tokio",
  "tracing",
 ]
 
