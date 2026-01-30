@@ -223,47 +223,49 @@ checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "apalis"
-version = "0.7.4"
+version = "1.0.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "504d52557a16b7b202941660f339c9182910d498cac40f93d15f6b31e6bef290"
+checksum = "543708a780aff326f4fd63bf8ed85f9d79647af7fa1fbe33bb1e221930cd3e25"
 dependencies = [
  "apalis-core",
- "futures",
- "pin-project-lite",
- "serde",
+ "futures-util",
+ "pin-project",
  "thiserror 2.0.17",
  "tower",
  "tracing",
- "tracing-futures",
 ]
 
 [[package]]
 name = "apalis-core"
-version = "0.7.4"
+version = "1.0.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3948d2051795c769e6a44a46549879af39d5e8e4fb113e0011cf99f7cd21b657"
+checksum = "54b7edea7ba9866a1bc2e58f39183bdf204d78db45402d9ac1eb67d0e482735e"
 dependencies = [
- "futures",
+ "futures-channel",
+ "futures-core",
+ "futures-sink",
  "futures-timer",
- "pin-project-lite",
+ "futures-util",
+ "pin-project",
  "serde",
  "thiserror 2.0.17",
- "tower",
- "ulid",
+ "tower-layer",
+ "tower-service",
+ "tracing",
 ]
 
 [[package]]
 name = "apalis-cron"
-version = "0.7.4"
+version = "1.0.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82ce16ed2870e0226b02b242ef7b552f015ee9592bb797c20b32fb37bd796e2d"
+checksum = "56f0eeb8ae0f072e3b25777687226963aef99ee23c9eacd6739be938c3457af2"
 dependencies = [
  "apalis-core",
- "async-stream",
  "chrono",
  "cron",
- "futures",
- "tower",
+ "futures-util",
+ "serde",
+ "ulid",
 ]
 
 [[package]]
@@ -1003,6 +1005,7 @@ dependencies = [
  "collection-service",
  "common-utils",
  "config-definition",
+ "cron",
  "custom-resolver",
  "dependent-analytics-utils",
  "dependent-collection-utils",
@@ -7571,7 +7574,6 @@ dependencies = [
  "cfg-if",
  "libc",
  "psm",
- "windows-sys 0.52.0",
  "windows-sys 0.59.0",
 ]
 
@@ -7742,6 +7744,7 @@ dependencies = [
  "chrono-tz",
  "config-definition",
  "sea-orm",
+ "tokio",
  "tracing",
 ]
 

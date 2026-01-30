@@ -9,10 +9,15 @@ codegen-units = 1
 [workspace.dependencies]
 aes-gcm = "=0.10.3"
 anyhow = "=1.0.100"
-apalis = { version = "=0.7.4", features = ["catch-panic", "limit", "retry"] }
-askama = "=0.15.1"
-apalis-cron = "=0.7.4"
+apalis = { version = "=1.0.0-rc.2", features = [
+    "catch-panic",
+    "limit",
+    "retry",
+] }
+apalis-core = "=1.0.0-rc.2"
+apalis-cron = "=1.0.0-rc.2"
 argon2 = { version = "=0.6.0-rc.2", features = ["getrandom"] }
+askama = "=0.15.1"
 async-graphql = { version = "=7.0.17", features = [
     "chrono",
     "decimal",
@@ -30,6 +35,7 @@ chrono = "=0.4.42"
 chrono-tz = "=0.10.4"
 const-str = "=0.7.0"
 convert_case = "=0.10.0"
+cron = "=0.15.0"
 csv = "=1.4.0"
 data-encoding = "=2.9.0"
 derive_more = { version = "=2.1.0", features = [
@@ -49,6 +55,7 @@ enum_meta = "=0.7.0"
 eventsource-stream = "=0.2.3"
 flate2 = "=1.1.5"
 futures = "=0.3.31"
+futures-util = "=0.3.31"
 hashbag = "=0.1.13"
 hex = "=0.4.3"
 http = "=1.4.0"

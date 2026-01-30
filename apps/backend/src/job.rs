@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use apalis::prelude::{Data, Error};
-use apalis_cron::CronContext;
+use apalis::prelude::{BoxDynError, Data};
+use apalis_cron::Tick;
 use background_models::{
-    HpApplicationJob, LpApplicationJob, MpApplicationJob, ScheduledJob, SingleApplicationJob,
+    HpApplicationJob, LpApplicationJob, MpApplicationJob, SingleApplicationJob,
 };
 use collection_service::event_operations;
 use common_utils::ryot_log;
@@ -36,21 +36,19 @@ use supporting_service::SupportingService;
 use traits::TraceOk;
 
 pub async fn run_infrequent_cron_jobs(
-    _information: ScheduledJob,
-    ctx: CronContext<chrono_tz::Tz>,
+    tick: Tick<chrono_tz::Tz>,
     ss: Data<Arc<SupportingService>>,
-) -> Result<(), Error> {
-    ryot_log!(debug, "Running job at {:#?}", ctx.get_timestamp());
+) -> Result<(), BoxDynError> {
+    ryot_log!(debug, "Running job at {:#?}", tick.get_timestamp());
     perform_background_jobs(&ss).await.trace_ok();
     Ok(())
 }
 
 pub async fn run_frequent_cron_jobs(
-    _information: ScheduledJob,
-    ctx: CronContext<chrono_tz::Tz>,
+    tick: Tick<chrono_tz::Tz>,
     ss: Data<Arc<SupportingService>>,
-) -> Result<(), Error> {
-    ryot_log!(debug, "Running job at {:#?}", ctx.get_timestamp());
+) -> Result<(), BoxDynError> {
+    ryot_log!(debug, "Running job at {:#?}", tick.get_timestamp());
     yank_integrations_data(&ss).await.trace_ok();
     process_users_scheduled_for_workout_revision(&ss)
         .await
@@ -63,7 +61,7 @@ pub async fn run_frequent_cron_jobs(
 pub async fn perform_hp_application_job(
     information: HpApplicationJob,
     ss: Data<Arc<SupportingService>>,
-) -> Result<(), Error> {
+) -> Result<(), BoxDynError> {
     let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
@@ -87,13 +85,13 @@ pub async fn perform_hp_application_job(
         }
     };
     ryot_log!(trace, "Finished job {:?}", name);
-    status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
+    status.map_err(|e| e.into())
 }
 
 pub async fn perform_mp_application_job(
     information: MpApplicationJob,
     ss: Data<Arc<SupportingService>>,
-) -> Result<(), Error> {
+) -> Result<(), BoxDynError> {
     let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
@@ -124,13 +122,13 @@ pub async fn perform_mp_application_job(
         }
     };
     ryot_log!(trace, "Finished job {:?}", name);
-    status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
+    status.map_err(|e| e.into())
 }
 
 pub async fn perform_lp_application_job(
     information: LpApplicationJob,
     ss: Data<Arc<SupportingService>>,
-) -> Result<(), Error> {
+) -> Result<(), BoxDynError> {
     let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
@@ -147,13 +145,13 @@ pub async fn perform_lp_application_job(
         }
     };
     ryot_log!(trace, "Finished job {:?}", name);
-    status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
+    status.map_err(|e| e.into())
 }
 
 pub async fn perform_single_application_job(
     information: SingleApplicationJob,
     ss: Data<Arc<SupportingService>>,
-) -> Result<(), Error> {
+) -> Result<(), BoxDynError> {
     let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
@@ -170,5 +168,5 @@ pub async fn perform_single_application_job(
         }
     };
     ryot_log!(trace, "Finished job {:?}", name);
-    status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
+    status.map_err(|e| e.into())
 }

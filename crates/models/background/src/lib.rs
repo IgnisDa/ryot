@@ -60,6 +60,3 @@ pub enum ApplicationJob {
     Mp(MpApplicationJob),
     Single(SingleApplicationJob),
 }
-
-#[derive(Debug, Default)]
-pub struct ScheduledJob;

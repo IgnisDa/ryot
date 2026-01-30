@@ -14,6 +14,7 @@ async-graphql-axum = { workspace = true }
 axum = { workspace = true }
 bon = { workspace = true }
 chrono-tz = { workspace = true }
+cron = { workspace = true }
 dotenvy = { workspace = true }
 english-to-cron = { workspace = true }
 futures = { workspace = true }
