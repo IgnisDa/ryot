@@ -176,8 +176,10 @@ async fn main() -> Result<()> {
             let storage = single_application_job_storage.clone();
             let ss = supporting_service.clone();
             move |_runs| {
-                let mut guard = storage.blocking_lock();
-                let backend = std::mem::replace(&mut *guard, MemoryStorage::new());
+                let backend = tokio::task::block_in_place(|| {
+                    let mut guard = storage.blocking_lock();
+                    std::mem::replace(&mut *guard, MemoryStorage::new())
+                });
                 WorkerBuilder::new("perform_single_application_job")
                     .backend(backend)
                     .catch_panic()
@@ -191,8 +193,10 @@ async fn main() -> Result<()> {
             let storage = hp_application_job_storage.clone();
             let ss = supporting_service.clone();
             move |_runs| {
-                let mut guard = storage.blocking_lock();
-                let backend = std::mem::replace(&mut *guard, MemoryStorage::new());
+                let backend = tokio::task::block_in_place(|| {
+                    let mut guard = storage.blocking_lock();
+                    std::mem::replace(&mut *guard, MemoryStorage::new())
+                });
                 WorkerBuilder::new("perform_hp_application_job")
                     .backend(backend)
                     .catch_panic()
@@ -205,8 +209,10 @@ async fn main() -> Result<()> {
             let storage = mp_application_job_storage.clone();
             let ss = supporting_service.clone();
             move |_runs| {
-                let mut guard = storage.blocking_lock();
-                let backend = std::mem::replace(&mut *guard, MemoryStorage::new());
+                let backend = tokio::task::block_in_place(|| {
+                    let mut guard = storage.blocking_lock();
+                    std::mem::replace(&mut *guard, MemoryStorage::new())
+                });
                 WorkerBuilder::new("perform_mp_application_job")
                     .backend(backend)
                     .catch_panic()
@@ -220,8 +226,10 @@ async fn main() -> Result<()> {
             let storage = lp_application_job_storage.clone();
             let ss = supporting_service.clone();
             move |_runs| {
-                let mut guard = storage.blocking_lock();
-                let backend = std::mem::replace(&mut *guard, MemoryStorage::new());
+                let backend = tokio::task::block_in_place(|| {
+                    let mut guard = storage.blocking_lock();
+                    std::mem::replace(&mut *guard, MemoryStorage::new())
+                });
                 WorkerBuilder::new("perform_lp_application_job")
                     .backend(backend)
                     .catch_panic()
