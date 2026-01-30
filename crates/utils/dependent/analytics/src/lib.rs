@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use anyhow::Result;
 use application_utils::{get_podcast_episode_by_number, get_show_episode_by_numbers};
@@ -24,8 +27,8 @@ use media_models::{
 };
 use rust_decimal::{Decimal, dec, prelude::ToPrimitive};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, EntityTrait, FromQueryResult,
-    IntoActiveModel, Order, QueryFilter, QueryOrder, QuerySelect,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
+    Order, QueryFilter, QueryOrder, QuerySelect,
     prelude::{Date, DateTimeUtc},
     sea_query::NullOrdering,
 };
@@ -138,135 +141,128 @@ pub async fn calculate_user_activities_and_summary(
         .into_model::<AffectedDate>()
         .all(&ss.db)
         .await?;
-    let affected_dates: Vec<Option<NaiveDate>> = affected_dates_raw
+    let affected_dates: HashSet<Option<NaiveDate>> = affected_dates_raw
         .into_iter()
         .map(|d| d.finished_on.map(|dt| dt.date_naive()))
         .collect();
 
-    let date_condition = if affected_dates.is_empty() {
-        Condition::all().add(seen::Column::Id.eq("__impossible__"))
-    } else {
-        let mut condition = Condition::any();
-        for date in affected_dates {
-            condition = condition.add(match date {
-                None => seen::Column::FinishedOn.is_null(),
-                Some(d) => {
-                    let start_of_day = d
-                        .and_hms_opt(0, 0, 0)
-                        .unwrap()
-                        .and_local_timezone(chrono::Utc)
-                        .unwrap();
-                    let next_day_start = d
-                        .succ_opt()
-                        .unwrap()
-                        .and_hms_opt(0, 0, 0)
-                        .unwrap()
-                        .and_local_timezone(chrono::Utc)
-                        .unwrap();
-                    seen::Column::FinishedOn
-                        .gte(start_of_day)
-                        .and(seen::Column::FinishedOn.lt(next_day_start))
-                }
-            });
-        }
-        condition
-    };
-
-    let mut seen_stream = Seen::find()
-        .filter(seen::Column::UserId.eq(user_id))
-        .filter(seen::Column::State.eq(SeenState::Completed))
-        .filter(date_condition)
-        .left_join(Metadata)
-        .select_only()
-        .column_as(seen::Column::Id, "seen_id")
-        .columns([
-            seen::Column::FinishedOn,
-            seen::Column::LastUpdatedOn,
-            seen::Column::ManualTimeSpent,
-            seen::Column::ShowExtraInformation,
-            seen::Column::PodcastExtraInformation,
-        ])
-        .column_as(metadata::Column::Lot, "metadata_lot")
-        .columns([
-            metadata::Column::BookSpecifics,
-            metadata::Column::ShowSpecifics,
-            metadata::Column::MovieSpecifics,
-            metadata::Column::MusicSpecifics,
-            metadata::Column::PodcastSpecifics,
-            metadata::Column::AudioBookSpecifics,
-            metadata::Column::VideoGameSpecifics,
-            metadata::Column::VisualNovelSpecifics,
-        ])
-        .into_model::<SeenItem>()
-        .stream(&ss.db)
-        .await?;
-
-    while let Some(seen) = seen_stream.try_next().await? {
-        let activity = get_activity_count(
-            &mut activities,
-            user_id,
-            seen.finished_on,
-            seen.seen_id,
-            EntityLot::Metadata,
-            Some(seen.metadata_lot),
-            seen.last_updated_on,
-        );
-        if let (Some(show_seen), Some(show_extra)) =
-            (seen.show_specifics, seen.show_extra_information)
-        {
-            if let Some(runtime) =
-                get_show_episode_by_numbers(&show_seen, show_extra.season, show_extra.episode)
-                    .and_then(|(_, e)| e.runtime)
-            {
-                activity.show_duration += runtime;
+    for date in affected_dates {
+        let mut seen_query = Seen::find()
+            .filter(seen::Column::UserId.eq(user_id))
+            .filter(seen::Column::State.eq(SeenState::Completed));
+        seen_query = match date {
+            None => seen_query.filter(seen::Column::FinishedOn.is_null()),
+            Some(d) => {
+                let start_of_day = d
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap()
+                    .and_local_timezone(chrono::Utc)
+                    .unwrap();
+                let next_day_start = d
+                    .succ_opt()
+                    .unwrap()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap()
+                    .and_local_timezone(chrono::Utc)
+                    .unwrap();
+                seen_query
+                    .filter(seen::Column::FinishedOn.gte(start_of_day))
+                    .filter(seen::Column::FinishedOn.lt(next_day_start))
             }
-        } else if let (Some(podcast_seen), Some(podcast_extra)) =
-            (seen.podcast_specifics, seen.podcast_extra_information)
-        {
-            if let Some(runtime) =
-                get_podcast_episode_by_number(&podcast_seen, podcast_extra.episode)
-                    .and_then(|e| e.runtime)
-            {
-                activity.podcast_duration += runtime;
-            }
-        } else if let Some(audio_book_extra) = seen.audio_book_specifics {
-            if let Some(runtime) = audio_book_extra.runtime {
-                activity.audio_book_duration += runtime;
-            }
-        } else if let Some(movie_extra) = seen.movie_specifics {
-            if let Some(runtime) = movie_extra.runtime {
-                activity.movie_duration += runtime;
-            }
-        } else if let Some(music_extra) = seen.music_specifics {
-            if let Some(runtime) = music_extra.duration {
-                activity.music_duration += runtime / 60;
-            }
-        } else if let Some(book_extra) = seen.book_specifics {
-            if let Some(pages) = book_extra.pages {
-                activity.book_pages += pages;
-            }
-        } else if let Some(visual_novel_extra) = seen.visual_novel_specifics {
-            if let Some(runtime) = visual_novel_extra.length {
-                activity.visual_novel_duration += runtime;
-            }
-        } else if let Some(_video_game_extra) = seen.video_game_specifics
-            && let Some(manual_time_spent) = seen.manual_time_spent
-        {
-            activity.video_game_duration +=
-                (manual_time_spent / dec!(60)).to_i32().unwrap_or_default();
-        }
-        match seen.metadata_lot {
-            MediaLot::Book => activity.book_count += 1,
-            MediaLot::Show => activity.show_count += 1,
-            MediaLot::Music => activity.music_count += 1,
-            MediaLot::Anime => activity.anime_count += 1,
-            MediaLot::Movie => activity.movie_count += 1,
-            MediaLot::Manga => activity.manga_count += 1,
-            MediaLot::Podcast => activity.podcast_count += 1,
-            MediaLot::VideoGame => activity.video_game_count += 1,
-            MediaLot::AudioBook => activity.audio_book_count += 1,
-            MediaLot::VisualNovel => activity.visual_novel_count += 1,
         };
+        let mut seen_stream = seen_query
+            .left_join(Metadata)
+            .select_only()
+            .column_as(seen::Column::Id, "seen_id")
+            .columns([
+                seen::Column::FinishedOn,
+                seen::Column::LastUpdatedOn,
+                seen::Column::ManualTimeSpent,
+                seen::Column::ShowExtraInformation,
+                seen::Column::PodcastExtraInformation,
+            ])
+            .column_as(metadata::Column::Lot, "metadata_lot")
+            .columns([
+                metadata::Column::BookSpecifics,
+                metadata::Column::ShowSpecifics,
+                metadata::Column::MovieSpecifics,
+                metadata::Column::MusicSpecifics,
+                metadata::Column::PodcastSpecifics,
+                metadata::Column::AudioBookSpecifics,
+                metadata::Column::VideoGameSpecifics,
+                metadata::Column::VisualNovelSpecifics,
+            ])
+            .into_model::<SeenItem>()
+            .stream(&ss.db)
+            .await?;
+
+        while let Some(seen) = seen_stream.try_next().await? {
+            let activity = get_activity_count(
+                &mut activities,
+                user_id,
+                seen.finished_on,
+                seen.seen_id,
+                EntityLot::Metadata,
+                Some(seen.metadata_lot),
+                seen.last_updated_on,
+            );
+            if let (Some(show_seen), Some(show_extra)) =
+                (seen.show_specifics, seen.show_extra_information)
+            {
+                if let Some(runtime) =
+                    get_show_episode_by_numbers(&show_seen, show_extra.season, show_extra.episode)
+                        .and_then(|(_, e)| e.runtime)
+                {
+                    activity.show_duration += runtime;
+                }
+            } else if let (Some(podcast_seen), Some(podcast_extra)) =
+                (seen.podcast_specifics, seen.podcast_extra_information)
+            {
+                if let Some(runtime) =
+                    get_podcast_episode_by_number(&podcast_seen, podcast_extra.episode)
+                        .and_then(|e| e.runtime)
+                {
+                    activity.podcast_duration += runtime;
+                }
+            } else if let Some(audio_book_extra) = seen.audio_book_specifics {
+                if let Some(runtime) = audio_book_extra.runtime {
+                    activity.audio_book_duration += runtime;
+                }
+            } else if let Some(movie_extra) = seen.movie_specifics {
+                if let Some(runtime) = movie_extra.runtime {
+                    activity.movie_duration += runtime;
+                }
+            } else if let Some(music_extra) = seen.music_specifics {
+                if let Some(runtime) = music_extra.duration {
+                    activity.music_duration += runtime / 60;
+                }
+            } else if let Some(book_extra) = seen.book_specifics {
+                if let Some(pages) = book_extra.pages {
+                    activity.book_pages += pages;
+                }
+            } else if let Some(visual_novel_extra) = seen.visual_novel_specifics {
+                if let Some(runtime) = visual_novel_extra.length {
+                    activity.visual_novel_duration += runtime;
+                }
+            } else if let Some(_video_game_extra) = seen.video_game_specifics
+                && let Some(manual_time_spent) = seen.manual_time_spent
+            {
+                activity.video_game_duration +=
+                    (manual_time_spent / dec!(60)).to_i32().unwrap_or_default();
+            }
+            match seen.metadata_lot {
+                MediaLot::Book => activity.book_count += 1,
+                MediaLot::Show => activity.show_count += 1,
+                MediaLot::Music => activity.music_count += 1,
+                MediaLot::Anime => activity.anime_count += 1,
+                MediaLot::Movie => activity.movie_count += 1,
+                MediaLot::Manga => activity.manga_count += 1,
+                MediaLot::Podcast => activity.podcast_count += 1,
+                MediaLot::VideoGame => activity.video_game_count += 1,
+                MediaLot::AudioBook => activity.audio_book_count += 1,
+                MediaLot::VisualNovel => activity.visual_novel_count += 1,
+            };
+        }
     }
 
     let (exercises, user_exercises) = try_join!(
