@@ -32,7 +32,7 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 
-pub async fn calculate_user_activities_and_summary(
+pub async fn recalculate_user_activities_and_summary(
     user_id: &String,
     ss: &Arc<SupportingService>,
     calculate_from_beginning: bool,

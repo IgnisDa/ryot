@@ -8,7 +8,7 @@ use background_models::{
 };
 use collection_service::event_operations;
 use common_utils::ryot_log;
-use dependent_analytics_utils::calculate_user_activities_and_summary;
+use dependent_analytics_utils::recalculate_user_activities_and_summary;
 use dependent_collection_utils::{add_entities_to_collection, remove_entities_from_collection};
 use dependent_notification_utils::{
     update_metadata_and_notify_users, update_metadata_group_and_notify_users,
@@ -72,7 +72,7 @@ pub async fn perform_hp_application_job(
         HpApplicationJob::RecalculateUserActivitiesAndSummary(
             user_id,
             calculate_from_beginning,
-        ) => calculate_user_activities_and_summary(&user_id, &ss, calculate_from_beginning).await,
+        ) => recalculate_user_activities_and_summary(&user_id, &ss, calculate_from_beginning).await,
         HpApplicationJob::AddEntitiesToCollection(user_id, input) => {
             add_entities_to_collection(&user_id, input, &ss)
                 .await
