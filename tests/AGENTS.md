@@ -65,6 +65,10 @@ Coverage is intentionally minimal (a drift signal, not exhaustive): OpenLibrary 
 - Assert async job completion with `assertCompleted` (`support/assertions.ts`) rather than comparing `result.status` by hand. For successful sandbox executions, use `requireCompletedSandboxValue`; failures render the structured phase, source location, message, and sanitized stack instead of collapsing the error to a string.
 - Every backend the harness spawns gets a unique `SERVER_LOG_FILE` (set by `buildBackendEnv`) under the OS temp dir, and the harness prints the path at startup.
 
+## Observability
+
+`tests/src/tests/system/observability.test.ts` uses an isolated backend and a local OTLP JSON receiver so tracing does not add load or timing noise to the shared E2E backend. It triggers one authenticated notification-delivery workflow, locates the exported span by its unique user id, and joins it to the completed-span log through `traceId` and `spanId`; do not broaden it into assertions over Effect's batching, generated identifier formats, or nested spans.
+
 ## Timeouts & Pool Sizing
 
 - Inner poll budgets (event waits in `fixtures/events.ts`, sandbox polls in `fixtures/sandbox.ts`) are sized generously and kept comfortably below the outer 180s per-test timeout (`package.json`), so a genuine hang still fails. Automation and sandbox results flow through the durable-queue pipeline, whose p99 latency spikes under full-suite load — that's what the headroom is for.
