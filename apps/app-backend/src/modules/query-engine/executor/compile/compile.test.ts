@@ -1,4 +1,9 @@
 import type { Expr } from "@ryot/contract/modules/query-engine/language";
+import {
+	EntitySchemaSlug,
+	PluginSlug,
+	RelationshipSchemaSlug,
+} from "@ryot/contract/schema/brands";
 import { sql as rawSql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
@@ -123,10 +128,10 @@ describe("compileBool", () => {
 describe("system query visibility", () => {
 	const system = {
 		type: "system" as const,
-		pluginSlug: "media",
+		pluginSlug: PluginSlug.make("media"),
 		eventSchemas: [],
-		entitySchemaSlugs: ["media"],
-		relationshipSchemaSlugs: ["media-monitoring"],
+		entitySchemaSlugs: [EntitySchemaSlug.make("media")],
+		relationshipSchemaSlugs: [RelationshipSchemaSlug.make("media-monitoring")],
 	};
 
 	it("keeps entities global while allowing plugin relationship rows across users", () => {

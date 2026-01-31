@@ -41,7 +41,7 @@ export class DefinitionsService extends Effect.Service<DefinitionsService>()("De
 		});
 		const updateWorkspaceState = Effect.fn(function* (
 			user: Pick<CurrentUserValue, "id">,
-			pluginSlug: string,
+			pluginSlug: PluginSlug,
 			payload: UpdateWorkspaceStateBody,
 		) {
 			const plugins = loader.getSnapshot().plugins;
