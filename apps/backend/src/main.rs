@@ -3,7 +3,7 @@ use std::{
     fs::{self, create_dir_all},
     path::PathBuf,
     str::FromStr,
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use anyhow::{Context, Result, bail};
@@ -246,7 +246,7 @@ fn init_tracing() -> Result<PathBuf> {
     let file_path = tmp_dir.join(PROJECT_NAME);
     create_dir_all(&tmp_dir)?;
     let file_appender = tracing_appender::rolling::never(tmp_dir, PROJECT_NAME);
-    let writer = std::sync::Mutex::new(file_appender);
+    let writer = Mutex::new(file_appender);
     tracing::subscriber::set_global_default(
         fmt::Subscriber::builder()
             .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
