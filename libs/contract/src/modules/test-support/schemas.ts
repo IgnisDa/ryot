@@ -7,8 +7,10 @@ import {
 	RelationshipSchemaId,
 	SandboxScriptId,
 	SignalId,
+	SubscriptionRunId,
 	UserId,
 } from "../../schema/brands";
+import { SubscriptionRunStatus } from "../automations/schemas";
 import { SandboxScriptMetadata } from "../sandbox/schemas";
 
 export const TestSupportStoredSandboxScript = Schema.Struct({
@@ -38,6 +40,11 @@ export const TestSupportSignal = Schema.Struct({
 	actorUserId: Schema.NullOr(UserId),
 	recipientUserIds: Schema.Array(UserId),
 	subjectEntityId: Schema.NullOr(EntityId),
+});
+
+export const TestSupportSubscriptionRun = Schema.Struct({
+	id: SubscriptionRunId,
+	status: SubscriptionRunStatus,
 });
 
 export const TestSupportBuiltinEntitySchema = Schema.Struct({

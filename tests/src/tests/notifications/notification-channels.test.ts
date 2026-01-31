@@ -11,7 +11,7 @@ import {
 	getBackendClient,
 	listNotificationChannels,
 	pollSignal,
-	pollTerminalSubscriptionRunStatuses,
+	pollTerminalSubscriptionRuns,
 	startFakeAppriseServer,
 	testNotificationChannels,
 	updateNotificationChannel,
@@ -147,11 +147,11 @@ describe("notification delivery", () => {
 			schemaSlug: "workout.created",
 			actorUserId: userId,
 		});
-		const statuses = await pollTerminalSubscriptionRunStatuses({
+		const runs = await pollTerminalSubscriptionRuns({
 			signalId,
 			executionUserId: userId,
 		});
-		expect(statuses).toEqual(["succeeded"]);
+		expect(runs.map((run) => run.status)).toEqual(["succeeded"]);
 	});
 
 	it("exposes SMTP capability and requires authentication", async () => {
