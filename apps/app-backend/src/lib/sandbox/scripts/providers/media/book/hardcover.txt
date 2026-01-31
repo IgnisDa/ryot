@@ -143,20 +143,12 @@ async function getHardcoverApiKey() {
 }
 
 driver("search", async function(context) {
-  const pageSize =
-    Number.isFinite(Number(context?.pageSize)) &&
-    Number(context.pageSize) > 0 &&
-    Number(context.pageSize) <= 100
-      ? Math.floor(Number(context.pageSize))
-      : 20;
-  const currentPage = Number.isFinite(Number(context?.page))
-    ? Math.max(1, Math.floor(Number(context.page)))
-    : 1;
-  const query = typeof context?.query === "string" ? context.query.trim() : "";
-
-  if (!query) {
-    throw new Error("query is required");
-  }
+  const { z } = await import("npm:zod");
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
 
   const apiKey = await getHardcoverApiKey();
 
@@ -265,13 +257,12 @@ query {
 });
 
 driver("details", async function(context) {
+  const { z } = await import("npm:zod");
   const apiKey = await getHardcoverApiKey();
 
-  const contextIdentifier =
-    typeof context?.identifier === "string" ? context.identifier.trim() : "";
-  if (!contextIdentifier) {
-    throw new Error("identifier is required");
-  }
+  const { identifier: contextIdentifier } = z.object({
+    identifier: z.string().trim().min(1, "identifier is required"),
+  }).parse(context ?? {});
 
   if (!/^\d+$/.test(contextIdentifier)) {
     throw new Error("identifier must be a numeric Hardcover book id");
