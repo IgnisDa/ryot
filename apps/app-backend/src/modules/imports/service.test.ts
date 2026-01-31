@@ -1,10 +1,10 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { it, expect } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import type { ListedImportRun } from "@ryot/contract/modules/imports/schemas";
 import { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { ConfigProvider, Effect, Layer } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
 import { RedisService } from "#lib/infrastructure/redis";
@@ -61,7 +61,6 @@ const mockUploadsService = Layer.mock(UploadsService);
 
 const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
 	mockImportsRepository({
-		_tag: "ImportsRepository",
 		createRun: () => Effect.succeed(createdRun),
 		updateRun: () => Effect.void,
 		deleteRunById: () => Effect.void,
@@ -70,19 +69,16 @@ const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsReposi
 
 const makeImportRunFailuresService = () =>
 	mockImportRunFailuresService({
-		_tag: "ImportRunFailuresService",
 		create: () => Effect.void,
 	});
 
 const makeUploadsService = (resolvedPath?: string) =>
-	mockUploadsService({
-		_tag: "UploadsService",
-		...(resolvedPath ? { claimUploadToken: () => Effect.succeed({ resolvedPath }) } : {}),
-	});
+	mockUploadsService(
+		resolvedPath ? { claimUploadToken: () => Effect.succeed({ resolvedPath }) } : {},
+	);
 
 const makeImportSourceCatalog = (registered: RegisteredImportSource | null = null) =>
 	Layer.mock(ImportSourceCatalog)({
-		_tag: "ImportSourceCatalog",
 		list: () => (registered ? [registered] : []),
 		resolve: () =>
 			registered
@@ -107,14 +103,13 @@ const makeServiceLayer = (
 	),
 	pinning = importWorkflowPinningLayer,
 ) =>
-	ImportsService.Default.pipe(
+	ImportsService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				BunFileSystem.layer,
 				dbRunnerLayer,
 				makeAppConfigLayer(),
 				pinning,
-				Layer.setConfigProvider(ConfigProvider.fromMap(new Map())),
 				Layer.succeed(RedisService, makeRedisService()),
 				makeImportRunFailuresService(),
 				dependencies,
@@ -247,7 +242,6 @@ it.effect("claims and queues registry-declared named artifacts under stable keys
 		Layer.mergeAll(
 			makeImportSourceCatalog(source),
 			mockUploadsService({
-				_tag: "UploadsService",
 				claimUploadToken: (token) =>
 					Effect.sync(() => {
 						claimedTokens.push(token);
@@ -321,7 +315,6 @@ it.effect("rejects an undeclared artifact token before claiming uploads or start
 		Layer.mergeAll(
 			makeImportSourceCatalog(goodreadsSource()),
 			mockUploadsService({
-				_tag: "UploadsService",
 				claimUploadToken: () => Effect.die("upload token must not be claimed"),
 			}),
 			Layer.succeed(
@@ -353,8 +346,11 @@ it.effect("rejects a registry source whose declared plugin config keys are unset
 		makeImportsRepository(),
 		Layer.mergeAll(
 			makeImportSourceCatalog(goodreadsSource({ requiredPluginConfigKeys: ["hardcoverApiKey"] })),
-			makeUploadsService(),
-			Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+			makeUploadsService("/tmp/goodreads-export.csv"),
+			Layer.succeed(
+				WorkflowEngine,
+				makeWorkflowEngine({ execute: () => Effect.die("workflow must not start") }),
+			),
 		),
 	);
 
@@ -368,7 +364,9 @@ it.effect("rejects a registry source whose declared plugin config keys are unset
 		expect(error.message).toBe(
 			"Goodreads importer is not configured. Set RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY.",
 		);
-	}).pipe(Effect.provide(layer));
+	}).pipe(
+		Effect.provide(Layer.mergeAll(layer, ConfigProvider.layer(ConfigProvider.fromUnknown({})))),
+	);
 });
 
 it.effect("rejects an undeclared source before validating its configuration", () => {

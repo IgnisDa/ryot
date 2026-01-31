@@ -16,7 +16,7 @@ import {
 	type UserId,
 } from "@ryot/contract/schema/brands";
 import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
@@ -60,8 +60,8 @@ const normalizeFailure = (row: ImportRunFailureRow): ListedImportRunFailure => (
 	createdAt: row.createdAt.toISOString(),
 });
 
-export class ImportsRepository extends Effect.Service<ImportsRepository>()("ImportsRepository", {
-	sync: () => {
+export class ImportsRepository extends Context.Service<ImportsRepository>()("ImportsRepository", {
+	make: Effect.sync(() => {
 		const createRun = Effect.fn("ImportsRepository.createRun")(function* (input: {
 			userId: UserId;
 			source: ImportRunSource;
@@ -280,5 +280,7 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 			createFailure,
 			listFailuresByRunId,
 		};
-	},
-}) {}
+	}),
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
