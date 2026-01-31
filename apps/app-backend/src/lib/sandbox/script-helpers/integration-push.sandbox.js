@@ -67,3 +67,13 @@ function collectionSyncMatches(integration, collectionId) {
 		specifics && Array.isArray(specifics.syncCollectionIds) ? specifics.syncCollectionIds : [];
 	return ids.indexOf(collectionId) !== -1;
 }
+
+return {
+	normalizeBaseUrl,
+	parseJsonBody,
+	integrationsDisabledForUser,
+	listActiveIntegrations,
+	fetchEntity,
+	resolveEntityProviderName,
+	collectionSyncMatches,
+};
