@@ -1,8 +1,8 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { DbError, unknownToMessage } from "@ryot/contract/errors";
 import { AutomationProperties } from "@ryot/contract/modules/automations/schemas";
 import { EventSchemaSlug } from "@ryot/contract/schema/brands";
-import { Effect, Either, Layer, Match, Schema } from "effect";
+import { Effect, Result, Layer, Match, Schema } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import {
 	LifecycleDispatch,
@@ -14,7 +14,7 @@ import type { AutomationRuleTarget } from "./repository";
 import { AutomationsService } from "./service";
 import { SubscriptionExecutionWorkflow } from "./subscription-execution-workflow";
 
-const decodeProperties = Schema.decodeUnknown(AutomationProperties);
+const decodeProperties = Schema.decodeUnknownEffect(AutomationProperties);
 
 const sourceSnapshot = <A>(source: { after?: A; before?: A }): A => {
 	const snapshot = source.after ?? source.before;
@@ -61,17 +61,35 @@ const decodeSource = (source: LifecycleSource) =>
 	Match.value(source).pipe(
 		Match.when({ kind: "entity" }, (value) =>
 			decodeSnapshots(value).pipe(
-				Effect.map((snapshots) => ({ kind: "entity", ...snapshots }) as const),
+				Effect.map(
+					(snapshots) =>
+						({
+							kind: "entity",
+							...snapshots,
+						}) as const,
+				),
 			),
 		),
 		Match.when({ kind: "event" }, (value) =>
 			decodeSnapshots(value).pipe(
-				Effect.map((snapshots) => ({ kind: "event", ...snapshots }) as const),
+				Effect.map(
+					(snapshots) =>
+						({
+							kind: "event",
+							...snapshots,
+						}) as const,
+				),
 			),
 		),
 		Match.when({ kind: "relationship" }, (value) =>
 			decodeSnapshots(value).pipe(
-				Effect.map((snapshots) => ({ kind: "relationship", ...snapshots }) as const),
+				Effect.map(
+					(snapshots) =>
+						({
+							kind: "relationship",
+							...snapshots,
+						}) as const,
+				),
 			),
 		),
 		Match.exhaustive,
@@ -114,12 +132,12 @@ export const LifecycleDispatchLive = Layer.effect(
 										...(input.population ? { population: input.population } : {}),
 									},
 								})
-								.pipe(Effect.either),
+								.pipe(Effect.result),
 						{ concurrency: "unbounded" },
 					);
-					const failed = starts.find(Either.isLeft);
+					const failed = starts.find(Result.isFailure);
 					if (failed) {
-						return yield* new DbError({ message: unknownToMessage(failed.left) });
+						return yield* new DbError({ message: unknownToMessage(failed.failure) });
 					}
 					return yield* Effect.void;
 				}).pipe(Effect.mapError((error) => new DbError({ message: unknownToMessage(error) }))),
