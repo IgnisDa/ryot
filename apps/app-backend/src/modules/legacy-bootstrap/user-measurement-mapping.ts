@@ -17,9 +17,6 @@
 // Entity name uses V1 name when not null/empty, otherwise falls back to
 // 'Measurement - YYYY-MM-DD HH24:MI' matching the OpenScale import processor format.
 //
-// Primary image is migrated from information.assets (remote first, s3 fallback).
-// Assets beyond the primary image are not migrated.
-//
 // V1 has no per-statistic unit field; the unit key is absent from migrated statistics
 // (nullish in V2, so omission is valid).
 
@@ -64,7 +61,6 @@ BEGIN
 			"user_id",
 			"entity_schema_id",
 			"name",
-			"image",
 			"properties",
 			"created_at",
 			"updated_at"
@@ -74,13 +70,6 @@ BEGIN
 			um.user_id,
 			${quoteSqlString(measurementEntitySchemaId)},
 			COALESCE(NULLIF(um.name, ''), 'Measurement - ' || to_char(um.timestamp, 'YYYY-MM-DD HH24:MI')),
-			CASE
-				WHEN jsonb_array_length(COALESCE(um.information -> 'assets' -> 'remote_images', '[]'::jsonb)) > 0
-					THEN jsonb_build_object('type', 'remote', 'url', um.information -> 'assets' -> 'remote_images' ->> 0)
-				WHEN jsonb_array_length(COALESCE(um.information -> 'assets' -> 's3_images', '[]'::jsonb)) > 0
-					THEN jsonb_build_object('type', 's3', 'key', um.information -> 'assets' -> 's3_images' ->> 0)
-				ELSE NULL
-			END,
 			jsonb_strip_nulls(jsonb_build_object(
 				'comment',    NULLIF(um.comment, ''),
 				'recordedAt', to_char(um.timestamp AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),

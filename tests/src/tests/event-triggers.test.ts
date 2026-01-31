@@ -244,7 +244,6 @@ describe("Event trigger firing", () => {
 		const eventSchemas = await listEventSchemas(client, podcastEpisodeSchemaId);
 		const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
 		const entity = await seedMediaEntity({
-			image: null,
 			userId: null,
 			sandboxScriptId: null,
 			name: "Podcast Episode 1",
@@ -282,7 +281,6 @@ describe("Event trigger firing", () => {
 		const eventSchemas = await listEventSchemas(client, showEpisodeSchemaId);
 		const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
 		const entity = await seedMediaEntity({
-			image: null,
 			userId: null,
 			sandboxScriptId: null,
 			name: "Show Episode 1",

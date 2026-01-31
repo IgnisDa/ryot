@@ -8,6 +8,13 @@
 			"when": 1783188631055,
 			"tag": "0000_empty_hawkeye",
 			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1783224049740,
+			"tag": "0001_wealthy_zaladane",
+			"breakpoints": true
 		}
 	]
 }

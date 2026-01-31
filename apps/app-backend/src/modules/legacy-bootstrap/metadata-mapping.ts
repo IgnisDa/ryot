@@ -7,7 +7,6 @@ import { metadataMigrationTargets } from "./metadata-mapping-targets";
 import {
 	type ResolvedLotEntityMigrationTarget,
 	buildLotEntityTargetValuesSql,
-	buildPrimaryImageSql,
 	quoteSqlString,
 } from "./shared";
 
@@ -243,7 +242,6 @@ BEGIN
 			"id",
 			"external_id",
 			"name",
-			"image",
 			"created_at",
 			"populated_at",
 			"user_id",
@@ -256,7 +254,6 @@ BEGIN
 			metadata.id,
 			metadata.identifier,
 			metadata.title,
-			${buildPrimaryImageSql("metadata")},
 			metadata.created_on,
 			NULL,
 			metadata.created_by_user_id,

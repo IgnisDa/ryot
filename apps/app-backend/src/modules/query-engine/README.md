@@ -152,10 +152,9 @@ Schema metadata field selector — reads metadata about the row's schema:
 
 ### System fields by source type
 
-Entity: `id`, `name`, `image`, `createdAt`, `updatedAt`, `externalId`, `sandboxScriptId`,
+Entity: `id`, `name`, `createdAt`, `updatedAt`, `externalId`, `sandboxScriptId`,
 `entitySchemaId`, `userId`, `populatedAt`, `properties`.
 
-- `image` is display-only.
 - `externalId`, `userId`, `populatedAt`, and `sandboxScriptId` resolve to `null` when not set.
 - `entitySchemaId` reads the row's entity schema id (from the schema join).
 - `properties` returns the entire JSONB `properties` object as `{ kind: "json", value }`;
@@ -396,7 +395,7 @@ Time series:
 }
 ```
 
-Field value kinds: `text`, `number`, `boolean`, `date`, `image`, `json`, `null`.
+Field value kinds: `text`, `number`, `boolean`, `date`, `json`, `null`.
 
 - A field resolving to null returns `{ "kind": "null", "value": null }`.
 - Included sources use `{ "items", "pageInfo" }` instead of a scalar field value.
@@ -471,7 +470,7 @@ Example errors:
 
 - `Duplicate alias 'course'`
 - `Unknown source alias 'module'`
-- `Invalid system field 'occurredAt' for entity source. Valid fields: id, name, image, ...`
+- `Invalid system field 'occurredAt' for entity source. Valid fields: id, name, ...`
 - `Property field references schema 'movie' which is not in source schemas [book]`
 - `Root entity source cannot specify via`
 - `Included entity source 'module' must specify via`

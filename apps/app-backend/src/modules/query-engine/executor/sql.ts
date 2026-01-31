@@ -41,7 +41,6 @@ const systemFieldSql = (name: string, alias = "e"): ReturnType<typeof sql> | nul
 	const columnMap: Record<string, ReturnType<typeof sql>> = {
 		id: sql`${table}.id`,
 		name: sql`${table}.name`,
-		image: sql`${table}.image`,
 		userId: sql`${table}.user_id`,
 		createdAt: sql`${table}.created_at`,
 		updatedAt: sql`${table}.updated_at`,
@@ -197,7 +196,6 @@ export const wherePushdownSql = (conditions: readonly ReturnType<typeof sql>[]) 
 export const entitySelectColumnsSql = sql`
 	e.id,
 	e.name,
-	e.image,
 	e.properties,
 	e.created_at AS "createdAt",
 	e.updated_at AS "updatedAt",
@@ -241,7 +239,6 @@ export const entityJsonbObjectSql = (entityAlias: string, schemaAlias: string) =
 	jsonb_build_object(
 		'id', ${sql.raw(entityAlias)}.id,
 		'name', ${sql.raw(entityAlias)}.name,
-		'image', ${sql.raw(entityAlias)}.image,
 		'createdAt', ${sql.raw(entityAlias)}.created_at,
 		'updatedAt', ${sql.raw(entityAlias)}.updated_at,
 		'properties', ${sql.raw(entityAlias)}.properties,

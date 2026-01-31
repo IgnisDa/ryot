@@ -41,7 +41,6 @@ describe("Relationship includes", () => {
 
 		const fixtureSuffix = crypto.randomUUID();
 		const podcast = await seedMediaEntity({
-			image: null,
 			userId: null,
 			sandboxScriptId: null,
 			name: "Episodic Test Podcast",
@@ -62,7 +61,6 @@ describe("Relationship includes", () => {
 			},
 		});
 		const secondEpisode = await seedMediaEntity({
-			image: null,
 			userId: null,
 			name: "Episode Two",
 			sandboxScriptId: null,
@@ -71,7 +69,6 @@ describe("Relationship includes", () => {
 			properties: { runtime: 40, episodeNumber: 2, publishDate: null, description: "Second" },
 		});
 		const firstEpisode = await seedMediaEntity({
-			image: null,
 			userId: null,
 			name: "Episode One",
 			sandboxScriptId: null,
@@ -205,7 +202,6 @@ describe("Relationship includes", () => {
 
 		const fixtureSuffix = crypto.randomUUID();
 		const podcast = await seedMediaEntity({
-			image: null,
 			userId: null,
 			sandboxScriptId: null,
 			name: "Derivation Podcast",
@@ -226,7 +222,6 @@ describe("Relationship includes", () => {
 			},
 		});
 		const firstEpisode = await seedMediaEntity({
-			image: null,
 			userId: null,
 			name: "Episode One",
 			sandboxScriptId: null,
@@ -235,7 +230,6 @@ describe("Relationship includes", () => {
 			properties: { runtime: 30, episodeNumber: 1, publishDate: null, description: "First" },
 		});
 		const secondEpisode = await seedMediaEntity({
-			image: null,
 			userId: null,
 			name: "Episode Two",
 			sandboxScriptId: null,
