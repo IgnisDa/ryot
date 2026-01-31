@@ -1,9 +1,18 @@
 # Phase 3 — Capability migrations
 
-Status: in progress. Steps 0-4 and the Step 5 migration and purity triage are complete; Task 11 and
-the Phase 3 gate remain open. Resume with the timed-out opt-in operational gate and the owner-skipped
-Task 10 imports e2e follow-up recorded below, not Step 5 implementation. Do not claim the branch or
-full e2e gate green.
+Status: in progress. Steps 0-4, the Step 5 migration and purity triage, and Task 12's final cleanup
+pass are complete (11 of 12 tasks); Task 11 and the Phase 3 gate remain open. Task 12 ran under an
+explicit owner waiver of its Task 11 prerequisite and does not close that gate. Resume with the
+timed-out opt-in operational gate, the Task 10 imports e2e follow-up recorded below, and the three
+`integrations.test.ts` webhook/progress-normalization failures — not Step 5 implementation or
+cleanup. Each of those failures reproduces at `763720970` independently of Task 12. Do not claim the
+branch or full e2e gate green.
+
+The decision records below are historical: they describe the migration as designed and deliberately
+retain withdrawn names (`episodeLocator`, `providerLotByProvider`, `source-definitions.ts`, the four
+unbuilt import syscalls). Current code uses `unresolvedEpisode` / `subjectEntityId`, logical
+`provider_id` provenance, and manifest-declared import sources — see
+`../../tasks/plugin-system-phase-3/12-codebase-cleanup.md` for the residue-search record.
 
 Goal: move the remaining native domain code into the plugins, one capability at a time. Step 0's
 two prerequisites establish the authoring and observability foundations. Each capability step

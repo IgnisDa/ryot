@@ -1,7 +1,7 @@
 # Phase 1 — Schema definitions move to an in-memory registry
 
-Status: complete. This file remains as the implementation record; current work resumes at Phase 3
-step 3.
+Status: complete. This file remains as the implementation record; current work resumes at Phase 3's
+Task 11 gate closure (see `00-overview.md`).
 
 Goal: schema **definitions** (entity, event, relationship, signal, tracker, builtin saved
 views) stop living in Postgres and are served from an in-memory, slug-keyed registry fed
