@@ -43,7 +43,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 					colorSchemeManager={colorSchemeManager}
 				>
 					<ModalsProvider>
-						<Notifications position="top-right" />
+						<Notifications position="bottom-right" />
 						{children}
 						<TanStackDevtools
 							config={{ position: "bottom-right" }}
