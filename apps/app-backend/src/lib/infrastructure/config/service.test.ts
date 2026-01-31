@@ -48,7 +48,7 @@ describe("system log level config", () => {
 	it("fails with a config error for unsupported values", () => {
 		const result = loadSystemConfig("verbose");
 		assert(Exit.isFailure(result));
-		expect(JSON.stringify(result.cause)).toContain("Unsupported LOG_LEVEL 'verbose'");
+		expect(JSON.stringify(result.cause)).toContain("Unsupported SERVER_LOG_LEVEL 'verbose'");
 	});
 });
 
