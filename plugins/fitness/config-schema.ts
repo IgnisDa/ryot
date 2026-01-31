@@ -3,7 +3,7 @@ import type { AppNumberPropertyValidation } from "@ryot/contract/schema/property
 
 const nonNegativeValidation: AppNumberPropertyValidation = { minimum: 0 };
 
-export const fitnessConfigDefinition = definePluginConfig("fitness", {
+const fitnessConfigDefinition = definePluginConfig("fitness", {
 	exercisePreloadLimit: integerField({
 		defaultValue: 873,
 		label: "Exercise preload limit",
