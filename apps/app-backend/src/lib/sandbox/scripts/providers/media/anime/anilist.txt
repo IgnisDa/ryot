@@ -431,7 +431,6 @@ query MediaDetailsQuery($id: Int!) {
 
   return {
     name: title,
-    externalId: payloadIdentifier,
     properties: {
       episodes,
       productionStatus: productionStatus,

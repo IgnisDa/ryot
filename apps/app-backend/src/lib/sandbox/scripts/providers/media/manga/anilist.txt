@@ -379,7 +379,6 @@ query MediaDetailsQuery($id: Int!) {
 
   return {
     name: title,
-    externalId: payloadIdentifier,
     properties: {
       volumes,
       chapters,
