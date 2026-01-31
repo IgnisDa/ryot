@@ -6,7 +6,7 @@ import {
 import type { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { SignalId } from "@ryot/contract/schema/brands";
 import { stableStringify } from "@ryot/ts-utils/json";
-import { Effect, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
@@ -35,7 +35,7 @@ export type EmitSignalInput = {
 	subjectEntityId?: EntityId | undefined;
 };
 
-export class SignalSchemaContractDrift extends Schema.TaggedError<SignalSchemaContractDrift>()(
+export class SignalSchemaContractDrift extends Schema.TaggedErrorClass<SignalSchemaContractDrift>()(
 	"SignalSchemaContractDrift",
 	{ message: Schema.String },
 ) {}
@@ -58,10 +58,10 @@ const toEmissionResult = (
 	wasCreated: boolean,
 ) => ({ wasCreated, recipientUserIds, signal: { ...signal, schemaSlug: signalSchema.slug } });
 
-export class SignalSchemasService extends Effect.Service<SignalSchemasService>()(
+export class SignalSchemasService extends Context.Service<SignalSchemasService>()(
 	"SignalSchemasService",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
 			const repository = yield* SignalSchemasRepository;
 			const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
@@ -130,7 +130,9 @@ export class SignalSchemasService extends Effect.Service<SignalSchemasService>()
 			return { ensureBuiltin, getBuiltinBySlug };
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
 export type SignalListFilter = {
 	schemaSlug: string;
@@ -138,8 +140,8 @@ export type SignalListFilter = {
 	subjectEntityId?: EntityId | undefined;
 };
 
-export class SignalsService extends Effect.Service<SignalsService>()("SignalsService", {
-	effect: Effect.gen(function* () {
+export class SignalsService extends Context.Service<SignalsService>()("SignalsService", {
+	make: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const repository = yield* SignalsRepository;
 
@@ -165,12 +167,14 @@ export class SignalsService extends Effect.Service<SignalsService>()("SignalsSer
 
 		return { list };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
-export class SignalEmissionService extends Effect.Service<SignalEmissionService>()(
+export class SignalEmissionService extends Context.Service<SignalEmissionService>()(
 	"SignalEmissionService",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const dispatch = yield* SignalDispatch;
 			const repository = yield* SignalsRepository;
 			const runInTransaction = yield* TransactionRunner;
@@ -200,7 +204,7 @@ export class SignalEmissionService extends Effect.Service<SignalEmissionService>
 					return yield* badRequest("Signal identity fields must be non-empty");
 				}
 
-				const origin = yield* Schema.decodeUnknown(AutomationOrigin)(input.origin).pipe(
+				const origin = yield* Schema.decodeUnknownEffect(AutomationOrigin)(input.origin).pipe(
 					Effect.mapError(() => badRequest("Invalid signal origin")),
 				);
 
@@ -308,4 +312,6 @@ export class SignalEmissionService extends Effect.Service<SignalEmissionService>
 			return { emit };
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
