@@ -82,7 +82,17 @@ export const runTranslateEntityWorkflow = Effect.fn("runTranslateEntityWorkflow"
 });
 
 const TranslateEntityWorkflowLive = TranslateEntityWorkflow.toLayer((payload, executionId) =>
-	runTranslateEntityWorkflow(payload, executionId),
+	runTranslateEntityWorkflow(payload, executionId).pipe(
+		Effect.withSpan("TranslateEntityWorkflow", {
+			attributes: {
+				executionId,
+				entityId: payload.entityId,
+				scriptId: payload.scriptId,
+				externalId: payload.externalId,
+			},
+		}),
+		Effect.annotateLogs({ executionId, workflow: "TranslateEntityWorkflow" }),
+	),
 );
 
 export const TranslateEntityWorkflowDefinitionsLive = TranslateEntityWorkflowLive;
