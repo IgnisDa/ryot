@@ -6,14 +6,17 @@ async function authenticateJellyfin(baseUrl, username, password) {
 		body: JSON.stringify({ Username: username, Pw: typeof password === "string" ? password : "" }),
 		headers: { "Content-Type": "application/json", "X-Emby-Authorization": JELLYFIN_AUTH_HEADER },
 	});
-	if (!result.success) {return null;}
+	if (!result.success) {
+		return null;
+	}
 
 	const payload = parseJsonBody(result);
 	const accessToken =
 		payload && typeof payload.AccessToken === "string" ? payload.AccessToken : null;
-	const userId =
-		payload?.User && typeof payload.User.Id === "string" ? payload.User.Id : null;
-	if (!accessToken || !userId) {return null;}
+	const userId = payload?.User && typeof payload.User.Id === "string" ? payload.User.Id : null;
+	if (!accessToken || !userId) {
+		return null;
+	}
 
 	return { userId: userId, accessToken: accessToken };
 }
@@ -23,14 +26,18 @@ async function findJellyfinItemId(baseUrl, session, item) {
 	params.set("Recursive", "true");
 	params.set("Fields", "ProviderIds");
 	params.set("IncludeItemTypes", "Movie,Series");
-	if (item.title) {params.set("SearchTerm", item.title);}
+	if (item.title) {
+		params.set("SearchTerm", item.title);
+	}
 
 	const result = await httpCall(
 		"GET",
 		baseUrl + "/Users/" + encodeURIComponent(session.userId) + "/Items?" + params.toString(),
 		{ headers: { "X-Emby-Token": session.accessToken } },
 	);
-	if (!result.success) {return null;}
+	if (!result.success) {
+		return null;
+	}
 
 	const payload = parseJsonBody(result);
 	const items = payload && Array.isArray(payload.Items) ? payload.Items : [];
@@ -39,7 +46,9 @@ async function findJellyfinItemId(baseUrl, session, item) {
 		const byTmdb = items.find(function (entry) {
 			return entry?.ProviderIds && String(entry.ProviderIds.Tmdb) === String(item.tmdbId);
 		});
-		if (byTmdb && typeof byTmdb.Id === "string") {return byTmdb.Id;}
+		if (byTmdb && typeof byTmdb.Id === "string") {
+			return byTmdb.Id;
+		}
 	}
 
 	if (item.title) {
@@ -50,22 +59,30 @@ async function findJellyfinItemId(baseUrl, session, item) {
 				entry.Name.toLowerCase() === item.title.toLowerCase()
 			);
 		});
-		if (byName && typeof byName.Id === "string") {return byName.Id;}
+		if (byName && typeof byName.Id === "string") {
+			return byName.Id;
+		}
 	}
 
 	return null;
 }
 
 async function markPlayedInJellyfin(integration, item) {
-	const specifics = integration.providerSpecifics || {};
+	const specifics = integration.providerSpecifics ?? {};
 	const baseUrl = normalizeBaseUrl(specifics.baseUrl);
-	if (!baseUrl || typeof specifics.username !== "string") {return;}
+	if (!baseUrl || typeof specifics.username !== "string") {
+		return;
+	}
 
 	const session = await authenticateJellyfin(baseUrl, specifics.username, specifics.password);
-	if (!session) {return;}
+	if (!session) {
+		return;
+	}
 
 	const itemId = await findJellyfinItemId(baseUrl, session, item);
-	if (!itemId) {return;}
+	if (!itemId) {
+		return;
+	}
 
 	const result = await httpCall(
 		"POST",
@@ -83,25 +100,35 @@ async function markPlayedInJellyfin(integration, item) {
 
 driver("trigger", async function (context) {
 	const trigger = context.trigger;
-	if (!trigger) {return;}
-	if (trigger.entitySchemaSlug !== "movie" && trigger.entitySchemaSlug !== "show") {return;}
+	if (!trigger) {
+		return;
+	}
+	if (trigger.entitySchemaSlug !== "movie" && trigger.entitySchemaSlug !== "show") {
+		return;
+	}
 
 	// Both checks are independent — run in parallel.
 	const preamble = await Promise.all([
 		integrationsDisabledForUser(),
 		listActiveIntegrations("jellyfin_push"),
 	]);
-	if (preamble[0] || preamble[1].length === 0) {return;}
+	if (preamble[0] || preamble[1].length === 0) {
+		return;
+	}
 	const integrations = preamble[1];
 
 	const entity = await fetchEntity(trigger.entityId);
-	if (!entity) {return;}
+	if (!entity) {
+		return;
+	}
 
 	const providerName = await resolveEntityProviderName(entity);
 	const tmdbId =
 		providerName === "TMDB" && typeof entity.externalId === "string" ? entity.externalId : null;
 	const title = typeof entity.name === "string" ? entity.name : null;
-	if (!tmdbId && !title) {return;}
+	if (!tmdbId && !title) {
+		return;
+	}
 
 	for (const integration of integrations) {
 		await markPlayedInJellyfin(integration, { tmdbId: tmdbId, title: title });

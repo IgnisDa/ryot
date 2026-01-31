@@ -7,7 +7,9 @@ function parseJsonResponse(responseBody) {
 }
 
 function parsePublishYear(publishedDate, dayjs) {
-	if (typeof publishedDate !== "string" || !publishedDate.trim()) {return null;}
+	if (typeof publishedDate !== "string" || !publishedDate.trim()) {
+		return null;
+	}
 	const d = dayjs(publishedDate.trim());
 	return d.isValid() ? d.year() : null;
 }
@@ -148,7 +150,8 @@ async function getGoogleBooksApiKey() {
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const {
 		query,
@@ -236,7 +239,8 @@ driver("search", async function (context) {
 
 driver("details", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId: contextIdentifier } = z
 		.object({

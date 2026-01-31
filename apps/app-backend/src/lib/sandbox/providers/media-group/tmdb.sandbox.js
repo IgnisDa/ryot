@@ -24,7 +24,9 @@ async function getTmdbAccessToken() {
 }
 
 function getImageUrl(path) {
-	if (typeof path !== "string" || !path.trim()) {return null;}
+	if (typeof path !== "string" || !path.trim()) {
+		return null;
+	}
 	return `${TMDB_IMAGE_BASE}${path.trim()}`;
 }
 
@@ -57,10 +59,14 @@ function collectImages(posterPath, backdropPath, postersArray, backdropsArray) {
 	addImage(posterPath);
 	addImage(backdropPath);
 	if (Array.isArray(postersArray)) {
-		for (const item of postersArray) {addImage(item?.file_path);}
+		for (const item of postersArray) {
+			addImage(item?.file_path);
+		}
 	}
 	if (Array.isArray(backdropsArray)) {
-		for (const item of backdropsArray) {addImage(item?.file_path);}
+		for (const item of backdropsArray) {
+			addImage(item?.file_path);
+		}
 	}
 	return images;
 }
@@ -94,9 +100,13 @@ driver("search", async function (context) {
 	const items = results
 		.map((c) => {
 			const id = typeof c?.id === "number" ? String(Math.trunc(c.id)) : null;
-			if (!id) {return null;}
+			if (!id) {
+				return null;
+			}
 			const name = typeof c?.name === "string" && c.name.trim() ? c.name.trim() : null;
-			if (!name) {return null;}
+			if (!name) {
+				return null;
+			}
 			const image = getImageUrl(c?.poster_path);
 			return {
 				externalId: id,
@@ -142,7 +152,9 @@ driver("details", async function (context, { metadata }) {
 	]);
 
 	let title = typeof collectionData?.name === "string" ? collectionData.name : "";
-	if (!title) {throw new Error("TMDB returned no name for this collection");}
+	if (!title) {
+		throw new Error("TMDB returned no name for this collection");
+	}
 
 	// Strip trailing " Collection" suffix (matches V1 behaviour)
 	const suffixIndex = title.lastIndexOf(" Collection");
@@ -163,7 +175,9 @@ driver("details", async function (context, { metadata }) {
 	const relatedEntities = partsData
 		.map((part, idx) => {
 			const memberId = typeof part?.id === "number" ? String(Math.trunc(part.id)) : null;
-			if (!memberId) {return null;}
+			if (!memberId) {
+				return null;
+			}
 			const memberName =
 				typeof part?.title === "string" && part.title.trim() ? part.title.trim() : "Loading...";
 			return {
@@ -240,7 +254,9 @@ driver("translate", async function (context) {
 	const firstValue = (extract) => {
 		for (const entry of orderedCandidates) {
 			const value = extract(entry);
-			if (typeof value === "string" && value.trim()) {return value.trim();}
+			if (typeof value === "string" && value.trim()) {
+				return value.trim();
+			}
 		}
 		return null;
 	};
@@ -259,7 +275,7 @@ driver("translate", async function (context) {
 
 	const description = firstValue((entry) => entry?.data?.overview);
 
-	const posters = Array.isArray(imagesData?.posters) ? imagesData.posters : [];
+	const posters = Array.isArray(imagesData.posters) ? imagesData.posters : [];
 	const localizedPoster = posters.find(
 		(poster) =>
 			typeof poster?.iso_639_1 === "string" && poster.iso_639_1.toLowerCase() === langCode,
@@ -267,11 +283,19 @@ driver("translate", async function (context) {
 	const imageUrl = localizedPoster ? getImageUrl(localizedPoster.file_path) : null;
 
 	const result = {};
-	if (name) {result.name = name;}
-	if (imageUrl) {result.image = { type: "remote", url: imageUrl };}
+	if (name) {
+		result.name = name;
+	}
+	if (imageUrl) {
+		result.image = { type: "remote", url: imageUrl };
+	}
 	const properties = {};
-	if (description) {properties.description = description;}
-	if (Object.keys(properties).length > 0) {result.properties = properties;}
+	if (description) {
+		properties.description = description;
+	}
+	if (Object.keys(properties).length > 0) {
+		result.properties = properties;
+	}
 
 	return result;
 });
