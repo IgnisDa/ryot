@@ -19,11 +19,11 @@ const onShutdownSignal = () => {
 process.on("SIGINT", onShutdownSignal);
 process.on("SIGTERM", onShutdownSignal);
 
-const { nodeEnv, runMigrationOnly, populateSandboxCacheOnly } = await Effect.runPromise(
+const { nodeEnv, runMigrationOnly, prepareSandboxRuntimeOnly } = await Effect.runPromise(
 	Config.all({
 		nodeEnv: Config.string("NODE_ENV").pipe(Config.withDefault("development")),
 		runMigrationOnly: Config.boolean("RUN_MIGRATION_ONLY").pipe(Config.withDefault(false)),
-		populateSandboxCacheOnly: Config.boolean("POPULATE_SANDBOX_CACHE_ONLY").pipe(
+		prepareSandboxRuntimeOnly: Config.boolean("PREPARE_SANDBOX_RUNTIME_ONLY").pipe(
 			Config.withDefault(false),
 		),
 	}).pipe(Effect.withConfigProvider(ConfigProvider.fromEnv())),
@@ -34,7 +34,7 @@ if (runMigrationOnly) {
 	process.exit(0);
 }
 
-if (populateSandboxCacheOnly) {
+if (prepareSandboxRuntimeOnly) {
 	await Effect.runPromise(Effect.scoped(Layer.build(SandboxCacheOnlyLive)));
 	process.exit(0);
 }
