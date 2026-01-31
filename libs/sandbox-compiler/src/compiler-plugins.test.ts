@@ -300,6 +300,60 @@ export const nondeterministic = typeof Effect.clockWith;
 	}),
 );
 
+// The rule matches the module specifier alone, never the imported bindings, so namespace and
+// re-export forms cannot smuggle the unrestricted `Effect` into a workflow's graph. Narrowing it to
+// inspect bindings would reopen exactly these two holes.
+it.effect.each([
+	{
+		label: "namespace",
+		shared: `
+import * as Sdk from "@ryot/sandbox-sdk/effect";
+export const nondeterministic = typeof Sdk.Effect.clockWith;
+`,
+	},
+	{
+		label: "re-export",
+		shared: `
+export * from "@ryot/sandbox-sdk/effect";
+export const nondeterministic = "";
+`,
+	},
+])("rejects $label access to unrestricted Effect in workflow-reachable source", ({ shared }) =>
+	Effect.gen(function* () {
+		const source = `
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot/sandbox-sdk/workflow";
+import { nondeterministic } from "./shared";
+
+export const manifest = defineManifest({
+	name: "Workflow",
+	slug: "workflow",
+	kind: "workflow",
+	capabilities: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
+});
+
+export default defineWorkflow({
+	manifest,
+	input: Schema.Struct({}),
+	output: Schema.String,
+	run: () => Effect.succeed(nondeterministic),
+});
+`;
+		const failure = yield* compilePluginSandboxSourceEntries(
+			{ "workflow.sandbox.ts": source, "shared.ts": shared },
+			[{ kind: "workflow", entry: "workflow.sandbox.ts" }],
+		).pipe(Effect.flip);
+
+		expect(failure.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "RYOT_WORKFLOW_DETERMINISM",
+				message: expect.stringContaining("@ryot/sandbox-sdk/workflow"),
+			}),
+		]);
+	}),
+);
+
 it.effect("rejects workflow helpers that differ from the plugin declaration", () =>
 	Effect.gen(function* () {
 		const source = `
