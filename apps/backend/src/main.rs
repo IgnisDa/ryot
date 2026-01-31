@@ -101,10 +101,10 @@ async fn main() -> Result<()> {
 
     let mut store = SharedPostgresStorage::new(pool.to_owned());
 
-    let lp_application_job_storage = store.make_shared().unwrap();
-    let mp_application_job_storage = store.make_shared().unwrap();
-    let hp_application_job_storage = store.make_shared().unwrap();
-    let single_application_job_storage = store.make_shared().unwrap();
+    let lp_application_job_storage = store.make_shared()?;
+    let mp_application_job_storage = store.make_shared()?;
+    let hp_application_job_storage = store.make_shared()?;
+    let single_application_job_storage = store.make_shared()?;
 
     let (app_router, supporting_service) = create_app_dependencies()
         .db(db)
