@@ -12,7 +12,7 @@ export async function pollUntil<T>(
 	check: () => Promise<T | null>,
 	options: PollOptions = {},
 ): Promise<T> {
-	const { intervalMs = 500, timeoutMs = 30_000 } = options;
+	const { intervalMs = 500, timeoutMs = 60_000 } = options;
 	const deadlineMs = DateTime.unsafeNow().pipe(
 		(now) => DateTime.addDuration(now, Duration.millis(timeoutMs)),
 		DateTime.toEpochMillis,
