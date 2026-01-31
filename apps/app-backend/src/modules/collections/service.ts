@@ -9,7 +9,7 @@ import type {
 import type { EntityId, EntitySchemaId, EventSchemaId, UserId } from "@ryot/contract/schema/brands";
 import { decodeStoredAppSchema } from "@ryot/contract/schema/core";
 import { generateId } from "better-auth";
-import { Cause, DateTime, Effect } from "effect";
+import { DateTime, Effect } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import {
@@ -113,7 +113,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 				})
 				.pipe(
 					Effect.catchAllCause((cause) =>
-						Effect.logWarning(`Failed to queue collection event: ${String(Cause.squash(cause))}`),
+						Effect.logWarning("collection event enqueue failed", cause),
 					),
 				);
 

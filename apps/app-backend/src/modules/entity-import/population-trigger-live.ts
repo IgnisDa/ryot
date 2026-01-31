@@ -30,7 +30,7 @@ export const EntityPopulationTriggerLive = Layer.effect(
 					.pipe(
 						Effect.asVoid,
 						Effect.catchAllCause((cause) =>
-							Effect.logWarning("Failed to enqueue entity population", cause),
+							Effect.logWarning("entity population enqueue failed", cause),
 						),
 					);
 			},

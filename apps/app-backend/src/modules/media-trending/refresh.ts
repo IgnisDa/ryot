@@ -1,7 +1,7 @@
 import { Activity } from "@effect/workflow";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import { EntityId } from "@ryot/contract/schema/brands";
-import { Cause, DateTime, Effect, Schema } from "effect";
+import { DateTime, Effect, Schema } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { EntitiesService } from "#modules/entities/service";
@@ -208,8 +208,8 @@ export const runMediaTrendingRefresh = Effect.fn("runMediaTrendingRefresh")(func
 		}).pipe(Effect.exit);
 
 		if (result._tag === "Failure") {
-			yield* Effect.logWarning(
-				`Skipping trending provider ${provider.scriptSlug}: ${unknownToMessage(Cause.squash(result.cause))}`,
+			yield* Effect.logWarning("trending provider skipped", result.cause).pipe(
+				Effect.annotateLogs({ scriptSlug: provider.scriptSlug }),
 			);
 			continue;
 		}

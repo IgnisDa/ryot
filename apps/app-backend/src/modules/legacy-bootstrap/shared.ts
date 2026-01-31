@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { Effect } from "effect";
+import { Effect, Runtime } from "effect";
 import type { PoolClient } from "pg";
 
 import { dbEffect, DbService } from "#lib/infrastructure/db/service";
@@ -40,12 +40,6 @@ export const legacyBootstrapGate = Effect.gen(function* () {
 	return row.present;
 });
 
-const logLegacyBootstrapNotice = (msg: { message?: string | undefined }) => {
-	if (msg.message) {
-		Effect.runSync(Effect.logInfo(`[legacy-bootstrap] ${msg.message}`));
-	}
-};
-
 export const quoteSqlString = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
 const quoteNullableSqlString = (value: string | null) =>
@@ -55,7 +49,17 @@ export const withRawPgClient = Effect.fn("withRawPgClient")(function* <A>(
 	callback: (client: PoolClient) => Promise<A>,
 ) {
 	const { pool } = yield* DbService;
+	const runtime = yield* Effect.runtime();
 	const client = yield* Effect.promise(() => pool.connect());
+	const logLegacyBootstrapNotice = (msg: { message?: string | undefined }) => {
+		if (msg.message) {
+			Runtime.runFork(runtime)(
+				Effect.logInfo("legacy bootstrap notice").pipe(
+					Effect.annotateLogs({ notice: msg.message }),
+				),
+			);
+		}
+	};
 	client.on("notice", logLegacyBootstrapNotice);
 	return yield* Effect.promise(() => callback(client)).pipe(
 		Effect.ensuring(
