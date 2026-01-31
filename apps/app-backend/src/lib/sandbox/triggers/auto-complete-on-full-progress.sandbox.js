@@ -193,7 +193,7 @@ function getInheritedCompletionProperties(event) {
 }
 
 async function createCompletionEvent(trigger, completeSchema, sourceEvent) {
-	const occurredAt = getCompletionOccurredAt(sourceEvent) || trigger.occurredAt;
+	const occurredAt = getCompletionOccurredAt(sourceEvent) ?? trigger.occurredAt;
 	const completionResult = await createEvents([
 		{
 			entityId: trigger.entityId,

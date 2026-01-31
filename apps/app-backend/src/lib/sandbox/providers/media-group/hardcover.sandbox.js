@@ -91,7 +91,7 @@ query {
 			const parts = typeof doc.books_count === "number" ? doc.books_count : null;
 			const imageUrl =
 				doc.image && typeof doc.image === "object" && typeof doc.image.url === "string"
-					? doc.image.url.trim() || null
+					? doc.image.url.trim() ?? null
 					: null;
 			return {
 				externalId: id,

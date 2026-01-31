@@ -14,7 +14,7 @@ function extractGraphQlErrorMessage(payload) {
 	const firstError = payload.errors[0];
 	const message = typeof firstError?.message === "string" ? firstError.message.trim() : "";
 
-	return message || "unknown GraphQL error";
+	return message ?? "unknown GraphQL error";
 }
 
 driver("search", async function (context) {
