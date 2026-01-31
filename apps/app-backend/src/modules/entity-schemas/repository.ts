@@ -16,9 +16,17 @@ import { buildBuiltinSavedViewName } from "../saved-views/service";
 import type { ListedEntitySchema, Provider } from "./schemas";
 import type { EntitySchemaPropertiesShape } from "./service";
 
-type EntitySchemaRow = Omit<ListedEntitySchema, "propertiesSchema"> & {
-	propertiesSchema: unknown;
-};
+type ProviderWithMetadata = Provider & { scriptMetadata?: unknown };
+
+export type ListedEntitySchemaWithMetadata = Omit<
+	ListedEntitySchema,
+	"providers"
+> & { providers: ProviderWithMetadata[] };
+
+type EntitySchemaRow = Omit<
+	ListedEntitySchemaWithMetadata,
+	"propertiesSchema"
+> & { propertiesSchema: unknown };
 
 const listedEntitySchemaSelection = {
 	id: entitySchema.id,
@@ -48,10 +56,20 @@ const createdEntitySchemaSelection = {
 	propertiesSchema: entitySchema.propertiesSchema,
 };
 
-const toListedEntitySchema = (row: EntitySchemaRow): ListedEntitySchema => ({
+const toListedEntitySchemaWithMetadata = (
+	row: EntitySchemaRow,
+): ListedEntitySchemaWithMetadata => ({
 	...row,
 	propertiesSchema: row.propertiesSchema as EntitySchemaPropertiesShape,
 });
+
+const toListedEntitySchema = (row: EntitySchemaRow): ListedEntitySchema => {
+	const { providers, ...rest } = toListedEntitySchemaWithMetadata(row);
+	return {
+		...rest,
+		providers: providers.map(({ scriptMetadata: _m, ...p }) => p),
+	};
+};
 
 export const listEntitySchemasForUser = async (input: {
 	userId: string;
@@ -70,6 +88,7 @@ export const listEntitySchemasForUser = async (input: {
 		.select({
 			...listedEntitySchemaSelection,
 			scriptName: sandboxScript.name,
+			scriptMetadata: sandboxScript.metadata,
 			scriptId: entitySchemaScript.sandboxScriptId,
 		})
 		.from(trackerEntitySchema)
@@ -106,12 +125,13 @@ export const listEntitySchemasForUser = async (input: {
 				record.entry.providers.push({
 					name: row.scriptName,
 					scriptId: row.scriptId,
+					scriptMetadata: row.scriptMetadata,
 				});
 			}
 		}
 	}
 	return Array.from(schemaMap.values()).map(({ entry }) =>
-		toListedEntitySchema(entry),
+		toListedEntitySchemaWithMetadata(entry),
 	);
 };
 
@@ -123,6 +143,7 @@ export const getEntitySchemaByIdForUser = async (input: {
 		.select({
 			...listedEntitySchemaSelection,
 			scriptName: sandboxScript.name,
+			scriptMetadata: sandboxScript.metadata,
 			scriptId: entitySchemaScript.sandboxScriptId,
 		})
 		.from(entitySchema)
@@ -153,7 +174,7 @@ export const getEntitySchemaByIdForUser = async (input: {
 	}
 
 	const seenProviders = new Set<string>();
-	const providers: Provider[] = [];
+	const providers: ProviderWithMetadata[] = [];
 	for (const row of rows) {
 		if (row.scriptId && row.scriptName) {
 			if (!seenProviders.has(row.scriptId)) {
@@ -161,11 +182,12 @@ export const getEntitySchemaByIdForUser = async (input: {
 				providers.push({
 					name: row.scriptName,
 					scriptId: row.scriptId,
+					scriptMetadata: row.scriptMetadata,
 				});
 			}
 		}
 	}
-	return toListedEntitySchema({ ...baseRow, providers });
+	return toListedEntitySchemaWithMetadata({ ...baseRow, providers });
 };
 
 export const getEntitySchemaBySlugForUser = async (input: {

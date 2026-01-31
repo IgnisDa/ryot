@@ -22,7 +22,6 @@ export type {
 	SandboxServiceResult,
 } from "./service";
 export {
-	createApiFunctionDescriptors,
 	createSandboxScript,
 	enqueueSandbox,
 	getSandboxResult,

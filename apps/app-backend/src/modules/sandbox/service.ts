@@ -9,10 +9,7 @@ import {
 } from "~/lib/result";
 import { getSandboxService } from "~/lib/sandbox";
 import { sandboxRunJobResult } from "~/lib/sandbox/jobs";
-import type {
-	ApiFunctionDescriptor,
-	SandboxEnqueueOptions,
-} from "~/lib/sandbox/types";
+import type { SandboxEnqueueOptions } from "~/lib/sandbox/types";
 import {
 	createSandboxScriptForUser,
 	getSandboxScriptBySlugForUser,
@@ -77,18 +74,6 @@ const resolveSandboxJobIdResult = (jobId: string) =>
 		() => resolveSandboxJobId(jobId),
 		"Sandbox job id is required",
 	);
-
-export const createApiFunctionDescriptors = (
-	userId: string,
-	scriptId: string,
-): Array<ApiFunctionDescriptor> => [
-	{ context: {}, functionKey: "httpCall" },
-	{ context: {}, functionKey: "getAppConfigValue" },
-	{ context: { userId }, functionKey: "executeQuery" },
-	{ context: { scriptId }, functionKey: "getCachedValue" },
-	{ context: { scriptId }, functionKey: "setCachedValue" },
-	{ context: { userId }, functionKey: "getUserPreferences" },
-];
 
 export const resolveSandboxJobId = (jobId: string) =>
 	resolveRequiredString(jobId, "Sandbox job id");
@@ -173,13 +158,8 @@ export const enqueueSandbox = async (
 	const job = await deps.enqueueSandboxJob({
 		userId: input.userId,
 		context: input.body.context,
-		code: foundSandboxScript.code,
 		scriptId: input.body.scriptId,
 		driverName: input.body.driverName,
-		apiFunctionDescriptors: createApiFunctionDescriptors(
-			input.userId,
-			input.body.scriptId,
-		),
 	});
 
 	return serviceData(job);

@@ -1,3 +1,4 @@
+import type { AppConfig } from "~/lib/config";
 import anilistAnimeScriptCode from "~/lib/sandbox/scripts/providers/media/anime/anilist.txt";
 import myanimelistAnimeScriptCode from "~/lib/sandbox/scripts/providers/media/anime/myanimelist.txt";
 import audibleAudiobookScriptCode from "~/lib/sandbox/scripts/providers/media/audiobook/audible.txt";
@@ -28,158 +29,111 @@ import musicbrainzPersonScriptCode from "~/lib/sandbox/scripts/providers/person/
 import spotifyPersonScriptCode from "~/lib/sandbox/scripts/providers/person/spotify.txt";
 import vndbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/vndb.txt";
 import youtubeMusicPersonScriptCode from "~/lib/sandbox/scripts/providers/person/youtube-music.txt";
+import type { SandboxScriptMetadata } from "~/lib/sandbox/types";
 
-export const builtinSandboxScripts = () => [
-	{
-		name: "Hardcover",
-		slug: "book.hardcover",
-		code: hardcoverBookScriptCode,
+const BUILTIN_ALLOWED_HOST_FUNCTIONS: NonNullable<
+	SandboxScriptMetadata["allowedHostFunctions"]
+> = [
+	"httpCall",
+	"getCachedValue",
+	"setCachedValue",
+	"getAppConfigValue",
+	"getUserPreferences",
+];
+
+type BuiltinScriptEntry = {
+	name: string;
+	slug: string;
+	code: string;
+	metadata: {
+		requiredAppConfigKeys?: Array<keyof AppConfig>;
+		allowedHostFunctions: typeof BUILTIN_ALLOWED_HOST_FUNCTIONS;
+	};
+};
+
+const script = (
+	name: string,
+	slug: string,
+	code: string,
+	requiredAppConfigKeys?: Array<keyof AppConfig>,
+): BuiltinScriptEntry => ({
+	name,
+	slug,
+	code,
+	metadata: {
+		requiredAppConfigKeys,
+		allowedHostFunctions: BUILTIN_ALLOWED_HOST_FUNCTIONS,
 	},
-	{
-		name: "OpenLibrary",
-		slug: "book.openlibrary",
-		code: openLibraryBookScriptCode,
-	},
-	{
-		name: "Google Books",
-		slug: "book.google-book",
-		code: googleBooksBookScriptCode,
-	},
-	{
-		name: "Metron",
-		slug: "comic-book.metron",
-		code: metronComicBookScriptCode,
-	},
-	{
-		name: "Anilist",
-		slug: "anime.anilist",
-		code: anilistAnimeScriptCode,
-	},
-	{
-		name: "Anilist",
-		slug: "manga.anilist",
-		code: anilistMangaScriptCode,
-	},
-	{
-		name: "MyAnimeList",
-		slug: "anime.myanimelist",
-		code: myanimelistAnimeScriptCode,
-	},
-	{
-		name: "MyAnimeList",
-		slug: "manga.myanimelist",
-		code: myanimelistMangaScriptCode,
-	},
-	{
-		name: "MangaUpdates",
-		slug: "manga.manga-updates",
-		code: mangaUpdatesMangaScriptCode,
-	},
-	{
-		name: "Audible",
-		slug: "audiobook.audible",
-		code: audibleAudiobookScriptCode,
-	},
-	{
-		name: "iTunes",
-		slug: "podcast.itunes",
-		code: itunesPodcastScriptCode,
-	},
-	{
-		name: "ListenNotes",
-		slug: "podcast.listennotes",
-		code: listennotesPodcastScriptCode,
-	},
-	{
-		name: "TMDB",
-		slug: "movie.tmdb",
-		code: tmdbMovieScriptCode,
-	},
-	{
-		name: "TVDB",
-		slug: "movie.tvdb",
-		code: tvdbMovieScriptCode,
-	},
-	{
-		name: "TMDB",
-		slug: "show.tmdb",
-		code: tmdbShowScriptCode,
-	},
-	{
-		name: "TVDB",
-		slug: "show.tvdb",
-		code: tvdbShowScriptCode,
-	},
-	{
-		name: "GiantBomb",
-		slug: "video-game.giant-bomb",
-		code: giantBombVideoGameScriptCode,
-	},
-	{
-		name: "IGDB",
-		slug: "video-game.igdb",
-		code: igdbVideoGameScriptCode,
-	},
-	{
-		name: "VNDB",
-		slug: "visual-novel.vndb",
-		code: vndbVisualNovelScriptCode,
-	},
-	{
-		name: "MusicBrainz",
-		slug: "music.musicbrainz",
-		code: musicbrainzMusicScriptCode,
-	},
-	{
-		name: "Spotify",
-		slug: "music.spotify",
-		code: spotifyMusicScriptCode,
-	},
-	{
-		name: "YouTube Music",
-		slug: "music.youtube-music",
-		code: youtubeMusicScriptCode,
-	},
-	{
-		name: "Anilist",
-		slug: "person.anilist",
-		code: anilistPersonScriptCode,
-	},
-	{
-		name: "Hardcover",
-		slug: "person.hardcover",
-		code: hardcoverPersonScriptCode,
-	},
-	{
-		name: "Audible",
-		slug: "person.audible",
-		code: audiblePersonScriptCode,
-	},
-	{
-		name: "Metron",
-		slug: "person.metron",
-		code: metronPersonScriptCode,
-	},
-	{
-		name: "MusicBrainz",
-		slug: "person.musicbrainz",
-		code: musicbrainzPersonScriptCode,
-	},
-	{
-		name: "Spotify",
-		slug: "person.spotify",
-		code: spotifyPersonScriptCode,
-	},
-	{
-		name: "YouTube Music",
-		slug: "person.youtube-music",
-		code: youtubeMusicPersonScriptCode,
-	},
-	{
-		name: "VNDB",
-		slug: "person.vndb",
-		code: vndbPersonScriptCode,
-	},
+});
+
+export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
+	script("OpenLibrary", "book.openlibrary", openLibraryBookScriptCode),
+	script("Audible", "audiobook.audible", audibleAudiobookScriptCode),
+	script("iTunes", "podcast.itunes", itunesPodcastScriptCode),
+	script("VNDB", "visual-novel.vndb", vndbVisualNovelScriptCode),
+	script("Anilist", "anime.anilist", anilistAnimeScriptCode),
+	script("Anilist", "manga.anilist", anilistMangaScriptCode),
+	script("Anilist", "person.anilist", anilistPersonScriptCode),
+	script("Audible", "person.audible", audiblePersonScriptCode),
+	script("VNDB", "person.vndb", vndbPersonScriptCode),
+	script("MangaUpdates", "manga.manga-updates", mangaUpdatesMangaScriptCode),
+	script("MusicBrainz", "music.musicbrainz", musicbrainzMusicScriptCode),
+	script("MusicBrainz", "person.musicbrainz", musicbrainzPersonScriptCode),
+	script("YouTube Music", "music.youtube-music", youtubeMusicScriptCode),
+	script("YouTube Music", "person.youtube-music", youtubeMusicPersonScriptCode),
+	script("Hardcover", "book.hardcover", hardcoverBookScriptCode, [
+		"BOOKS_HARDCOVER_API_KEY",
+	]),
+	script("Hardcover", "person.hardcover", hardcoverPersonScriptCode, [
+		"BOOKS_HARDCOVER_API_KEY",
+	]),
+	script("Google Books", "book.google-book", googleBooksBookScriptCode, [
+		"BOOKS_GOOGLE_BOOKS_API_KEY",
+	]),
+	script("ListenNotes", "podcast.listennotes", listennotesPodcastScriptCode, [
+		"PODCASTS_LISTENNOTES_API_KEY",
+	]),
+	script("GiantBomb", "video-game.giant-bomb", giantBombVideoGameScriptCode, [
+		"VIDEO_GAMES_GIANT_BOMB_API_KEY",
+	]),
+	script("TMDB", "movie.tmdb", tmdbMovieScriptCode, [
+		"MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN",
+	]),
+	script("TMDB", "show.tmdb", tmdbShowScriptCode, [
+		"MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN",
+	]),
+	script("TVDB", "movie.tvdb", tvdbMovieScriptCode, [
+		"MOVIES_AND_SHOWS_TVDB_API_KEY",
+	]),
+	script("TVDB", "show.tvdb", tvdbShowScriptCode, [
+		"MOVIES_AND_SHOWS_TVDB_API_KEY",
+	]),
+	script("MyAnimeList", "anime.myanimelist", myanimelistAnimeScriptCode, [
+		"ANIME_AND_MANGA_MAL_CLIENT_ID",
+	]),
+	script("MyAnimeList", "manga.myanimelist", myanimelistMangaScriptCode, [
+		"ANIME_AND_MANGA_MAL_CLIENT_ID",
+	]),
+	script("Metron", "comic-book.metron", metronComicBookScriptCode, [
+		"COMIC_BOOK_METRON_USERNAME",
+		"COMIC_BOOK_METRON_PASSWORD",
+	]),
+	script("Metron", "person.metron", metronPersonScriptCode, [
+		"COMIC_BOOK_METRON_USERNAME",
+		"COMIC_BOOK_METRON_PASSWORD",
+	]),
+	script("Spotify", "music.spotify", spotifyMusicScriptCode, [
+		"MUSIC_SPOTIFY_CLIENT_ID",
+		"MUSIC_SPOTIFY_CLIENT_SECRET",
+	]),
+	script("Spotify", "person.spotify", spotifyPersonScriptCode, [
+		"MUSIC_SPOTIFY_CLIENT_ID",
+		"MUSIC_SPOTIFY_CLIENT_SECRET",
+	]),
+	script("IGDB", "video-game.igdb", igdbVideoGameScriptCode, [
+		"VIDEO_GAMES_TWITCH_CLIENT_ID",
+		"VIDEO_GAMES_TWITCH_CLIENT_SECRET",
+	]),
 ];
 
 export const entitySchemaScriptLinks = () =>

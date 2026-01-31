@@ -75,7 +75,6 @@ describe("enqueueSandbox", () => {
 				getSandboxScriptForUser: async () => ({
 					isBuiltin: true,
 					userId: "user_2",
-					code: "runBuiltin()",
 				}),
 				enqueueSandboxJob: async (input) => {
 					queuedInput = input;
@@ -87,18 +86,12 @@ describe("enqueueSandbox", () => {
 		expect(result).toEqual({ data: { jobId: "job_1" } });
 		expect(queuedInput).toMatchObject({
 			userId: "user_1",
-			code: "runBuiltin()",
 			scriptId: "script_1",
+			driverName: "search",
 			context: { source: "test" },
-			apiFunctionDescriptors: [
-				{ context: {}, functionKey: "httpCall" },
-				{ context: {}, functionKey: "getAppConfigValue" },
-				{ context: { userId: "user_1" }, functionKey: "executeQuery" },
-				{ context: { scriptId: "script_1" }, functionKey: "getCachedValue" },
-				{ context: { scriptId: "script_1" }, functionKey: "setCachedValue" },
-				{ context: { userId: "user_1" }, functionKey: "getUserPreferences" },
-			],
 		});
+		expect(queuedInput).not.toHaveProperty("code");
+		expect(queuedInput).not.toHaveProperty("apiFunctionDescriptors");
 	});
 });
 
