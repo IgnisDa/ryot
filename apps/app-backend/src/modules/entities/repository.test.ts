@@ -13,12 +13,12 @@ import { EntitiesRepository } from "./repository";
 const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
 
 const makePluginRuntime = (overrides: MockOverrides<typeof mockPluginRuntime> = {}) =>
-	mockPluginRuntime({ _tag: "PluginRuntimeResolver", ...overrides });
+	mockPluginRuntime({ ...overrides });
 
 const makeLayer = (db: object, pluginRuntime = makePluginRuntime()) =>
 	Layer.mergeAll(
-		EntitiesRepository.Default.pipe(
-			Layer.provide(Layer.mergeAll(DefinitionRegistry.Default, pluginRuntime)),
+		EntitiesRepository.layer.pipe(
+			Layer.provide(Layer.mergeAll(DefinitionRegistry.layer, pluginRuntime)),
 		),
 		Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
 	);

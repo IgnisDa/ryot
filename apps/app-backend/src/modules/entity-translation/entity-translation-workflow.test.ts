@@ -1,9 +1,9 @@
-import { expect, it } from "@effect/vitest";
-import { Workflow } from "@effect/workflow";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
+import { assert, expect, it } from "@effect/vitest";
 import { Conflict, SandboxRunError } from "@ryot/contract/errors";
 import { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
-import { Effect, Layer, Schema } from "effect";
+import { Cause, Effect, Exit, Layer, Option, Schema } from "effect";
+import { Workflow } from "effect/unstable/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { RedisService } from "#lib/infrastructure/redis";
 import type { MockOverrides } from "#lib/test-utils/effect";
@@ -22,10 +22,9 @@ import {
 import { TranslationsRepository } from "./repository";
 import { TranslationsService } from "./service";
 
-const TestTranslateEntityWorkflow = Workflow.make({
+const TestTranslateEntityWorkflow = Workflow.make("TestTranslateEntityWorkflow", {
 	success: Schema.Void,
 	error: SandboxRunError,
-	name: "TestTranslateEntityWorkflow",
 	payload: TranslateEntityWorkflowPayload,
 	idempotencyKey: ({ executionId }) => executionId,
 });
@@ -46,7 +45,6 @@ const makeTranslationsRepository = (
 	overrides: MockOverrides<typeof mockTranslationsRepository> = {},
 ) =>
 	mockTranslationsRepository({
-		_tag: "TranslationsRepository",
 		createOverlay: () => Effect.sync(() => undefined),
 		findOverlay: () => Effect.succeed(null),
 		findUserLanguage: () => Effect.succeed(null),
@@ -58,7 +56,6 @@ const mockTranslationsService = Layer.mock(TranslationsService);
 
 const makeTranslationsService = (overrides: MockOverrides<typeof mockTranslationsService> = {}) =>
 	mockTranslationsService({
-		_tag: "TranslationsService",
 		requestFill: () => Effect.void,
 		create: () => Effect.sync(() => undefined),
 		update: () => Effect.sync(() => undefined),
@@ -227,10 +224,11 @@ it.effect("fails with the sandbox's reported error", () => {
 		Effect.gen(function* () {
 			const exit = yield* Effect.exit(runTranslateEntityWorkflow(payload, payload.executionId));
 
-			expect(exit._tag).toBe("Failure");
-			if (exit._tag === "Failure" && exit.cause._tag === "Fail") {
-				expect(exit.cause.error.message).toBe("Translate script execution failed");
-			}
+			assert(Exit.isFailure(exit));
+			const failure = Cause.findErrorOption(exit.cause);
+			assert(Option.isSome(failure));
+			assert(failure.value instanceof Error);
+			expect(failure.value.message).toBe("Translate script execution failed");
 		}),
 	);
 });
@@ -252,10 +250,11 @@ it.effect("fails when the sandbox result does not decode as a translate result",
 		Effect.gen(function* () {
 			const exit = yield* Effect.exit(runTranslateEntityWorkflow(payload, payload.executionId));
 
-			expect(exit._tag).toBe("Failure");
-			if (exit._tag === "Failure" && exit.cause._tag === "Fail") {
-				expect(exit.cause.error.message).toContain("Invalid translate result");
-			}
+			assert(Exit.isFailure(exit));
+			const failure = Cause.findErrorOption(exit.cause);
+			assert(Option.isSome(failure));
+			assert(failure.value instanceof Error);
+			expect(failure.value.message).toContain("Invalid translate result");
 		}),
 	);
 });
