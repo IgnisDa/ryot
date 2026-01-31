@@ -10,7 +10,7 @@ import {
 	getEntity,
 	openInterestStreamScoped,
 	pollEntityImportResult,
-	pollEntitySearchResult,
+	pollSandboxResult,
 	pollEntityUntilTranslationStatus,
 	queryInLibraryRelationship,
 	seedPopulatedProviderEntity,
@@ -56,7 +56,7 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 				scriptId: provider.searchScriptId,
 				context: { query: "The Hobbit", page: 1, pageSize: 5 },
 			});
-			const search = yield* pollEntitySearchResult(userId, jobId);
+			const search = yield* pollSandboxResult(userId, jobId);
 			assertCompleted(search, "OpenLibrary search");
 
 			const value = requireObjectRecord(search.value, "Expected search result to be an object");
