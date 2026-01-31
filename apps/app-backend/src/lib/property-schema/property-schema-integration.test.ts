@@ -6,7 +6,6 @@ import { Effect } from "effect";
 import { describe } from "vitest";
 
 import {
-	formatPropertyIssues,
 	parseAppSchemaPropertiesSafe,
 	parseLabeledPropertySchemaInput,
 } from "./property-schema-runtime";
@@ -149,7 +148,10 @@ describe("property schema DSL", () => {
 			});
 			expect(strictResult.success).toBe(false);
 			if (!strictResult.success) {
-				expect(formatPropertyIssues(strictResult.issues)).toContain("strictMeta.extra");
+				expect(strictResult.issues).toContainEqual({
+					path: ["strictMeta", "extra"],
+					message: "Unexpected key with value true",
+				});
 			}
 
 			const passthroughResult = parseAppSchemaPropertiesSafe({
