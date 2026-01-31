@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { PluginSlug, type SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import type {
 	PluginCron,
@@ -17,7 +17,7 @@ import { getBackendClient } from "./contract-client";
 export type InstalledTestPlugin = {
 	slug: string;
 	active: boolean;
-	pluginSlug: string;
+	pluginSlug: PluginSlug;
 	scriptId: SandboxScriptId;
 	scriptIds: Record<string, SandboxScriptId>;
 	files: Record<string, string>;
@@ -165,6 +165,7 @@ export const installTestPlugin = (input: {
 	Effect.gen(function* () {
 		const entry = `scripts/${input.script.kind}.sandbox.ts`;
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
+		const pluginSlugId = PluginSlug.make(pluginSlug);
 		const manifest = testPluginManifest({
 			pluginSlug,
 			configSchema: input.configSchema,
@@ -192,7 +193,7 @@ export const installTestPlugin = (input: {
 			manifest,
 			scriptId,
 			scriptIds: { [input.script.slug]: scriptId },
-			pluginSlug,
+			pluginSlug: pluginSlugId,
 			active: true,
 			slug: input.script.slug,
 		};
@@ -214,6 +215,7 @@ export const installTestPluginBundle = (input: {
 }) =>
 	Effect.gen(function* () {
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
+		const pluginSlugId = PluginSlug.make(pluginSlug);
 		const manifest = testPluginManifest({
 			pluginSlug,
 			configSchema: input.configSchema,
@@ -254,7 +256,7 @@ export const installTestPluginBundle = (input: {
 			manifest,
 			scriptId,
 			scriptIds,
-			pluginSlug,
+			pluginSlug: pluginSlugId,
 			active: true,
 			slug: input.providers?.[0]?.slug ?? input.scripts[0]?.slug ?? pluginSlug,
 		};
