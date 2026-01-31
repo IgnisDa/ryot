@@ -1,9 +1,5 @@
 import type { Expr } from "@ryot/contract/modules/query-engine/language";
-import {
-	EntitySchemaSlug,
-	PluginSlug,
-	RelationshipSchemaSlug,
-} from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, PluginSlug, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import { sql as rawSql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
