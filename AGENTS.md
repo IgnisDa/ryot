@@ -108,6 +108,81 @@ function MyComponent({ title }: MyComponentProps) {
 }
 ```
 
+### Field Ordering by Line Length
+
+When initializing structs (Rust) or object literals (TypeScript), order fields by ascending line length - shorter lines first, longer lines last. This applies to:
+
+- Rust struct initializations
+- TypeScript/JavaScript object literals
+- JSX component props
+
+**Rust Example:**
+
+```rust
+Ok(MetadataDetails {
+    people,                                          // shortest
+    watch_providers,
+    description: data.overview,
+    external_identifiers: Some(external_identifiers),
+    original_language: self.0.get_language_name(data.original_language.clone()),
+    publish_date: data
+        .release_date
+        .clone()
+        .and_then(|r| convert_string_to_date(&r)),   // longer multi-line expressions last
+    ..Default::default()                             // always at the end
+})
+```
+
+**TypeScript Example:**
+
+```typescript
+const notification = {
+    color: "red",
+    title: "Invalid action",
+    message: "Changing preferences is disabled for demo users",
+};
+```
+
+**Exceptions (correctness takes precedence):**
+
+- `..Default::default()` in Rust must always be last (language requirement)
+- Semantic grouping may override length ordering when it improves readability
+- Shorthand fields (just the field name) typically come before assignment expressions of similar length
+
+### Variable Declaration Ordering by Line Length
+
+When declaring multiple variables in sequence (particularly React hooks), order them by ascending line length:
+
+```typescript
+const navigate = useNavigate();
+const isMobile = useIsMobile();
+const { startOnboardingTour } = useOnboardingTour();
+const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
+const markUserOnboardingStatus = useMarkUserOnboardingTourStatus();
+```
+
+This pattern applies to:
+
+- React hook calls at the start of components
+- Sequential `const`/`let` declarations
+- Return object fields
+
+**Return Object Example:**
+
+```typescript
+return {
+    userDetails,
+    coreDetails,
+    isDemoInstance,
+    shouldHaveUmami,
+    currentColorScheme,
+    desktopSidebarCollapsed,
+    userPreferences: userDetails.preferences,
+};
+```
+
+**Note:** This pattern does NOT apply to import statements (which follow alphabetical ordering enforced by tooling) or function parameters (which follow semantic ordering).
+
 ## Git Workflow
 
 ### Creating Commits
