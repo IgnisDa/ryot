@@ -501,6 +501,20 @@ describe("Query engine E2E", () => {
 		);
 	});
 
+	it("returns 404 when the runtime request references a schema slug that is not visible", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const result = await executeQueryEngine(
+			client,
+			cookies,
+			buildGridRequest({ entitySchemaSlugs: ["does-not-exist"] }),
+		);
+
+		expect(result.response.status).toBe(404);
+		expect(result.error?.error?.message).toContain(
+			"Schema 'does-not-exist' not found",
+		);
+	});
+
 	it("supports arithmetic, normalization, concat, and conditionals in runtime expressions", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaQueryEngineFixture();
