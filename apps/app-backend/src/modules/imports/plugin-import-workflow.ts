@@ -100,19 +100,21 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 
 	yield* processWorkflow.pipe(
 		Effect.catchAllCause((cause) =>
-			cleanupHarvestedDirectoriesBestEffort(
-				"cleanup-import-harvest-on-failure",
-				`${executionId}-import-activity-`,
-			).pipe(
-				Effect.zipRight(
-					failRunAndCleanup({
-						cleanupPaths,
-						failureName: "fail-import-run-unexpected",
-						message: unknownToMessage(Cause.squash(cause)),
-						cleanupName: "cleanup-import-artifacts-on-unexpected-failure",
-					}),
-				),
-			),
+			Cause.isInterruptedOnly(cause)
+				? Effect.failCause(cause)
+				: cleanupHarvestedDirectoriesBestEffort(
+						"cleanup-import-harvest-on-failure",
+						`${executionId}-import-activity-`,
+					).pipe(
+						Effect.zipRight(
+							failRunAndCleanup({
+								cleanupPaths,
+								failureName: "fail-import-run-unexpected",
+								message: unknownToMessage(Cause.squash(cause)),
+								cleanupName: "cleanup-import-artifacts-on-unexpected-failure",
+							}),
+						),
+					),
 		),
 	);
 });

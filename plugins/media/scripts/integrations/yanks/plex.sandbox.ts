@@ -1,4 +1,5 @@
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineActivity } from "@ryot/sandbox-sdk/activity";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Option, Schema } from "@ryot/sandbox-sdk/effect";
 
 import type { ImportEntityRef } from "../../../imports/schemas";
@@ -7,25 +8,30 @@ import { movieOrShowImportRef, sourceFetchFailure } from "../../../imports/sourc
 import { baseUrl, requestJson, specifics } from "../shared";
 
 export const manifest = defineManifest({
-	kind: "script",
+	kind: "activity",
 	name: "Plex yank",
-	slug: "integration.plex-yank",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	slug: "integration.plex-yank",
 	capabilities: ["httpCall", "getIntegration"],
 });
+
 const Input = Schema.Struct({});
+
 const StringOrNumber = Schema.Union(Schema.String, Schema.Number);
+
 const Item = Schema.Struct({
 	title: Schema.String,
-	Guid: Schema.optional(Schema.Array(Schema.Struct({ id: Schema.String }))),
 	key: Schema.optional(Schema.String),
 	index: Schema.optional(Schema.Number),
 	ratingKey: Schema.optional(StringOrNumber),
 	parentIndex: Schema.optional(Schema.Number),
 	lastViewedAt: Schema.optional(StringOrNumber),
+	Guid: Schema.optional(Schema.Array(Schema.Struct({ id: Schema.String }))),
 });
+
 const MediaContainer = Schema.Struct({ Metadata: Schema.optional(Schema.Array(Item)) });
+
 const LibrariesResponse = Schema.Struct({
 	MediaContainer: Schema.optional(
 		Schema.Struct({
@@ -35,16 +41,19 @@ const LibrariesResponse = Schema.Struct({
 		}),
 	),
 });
+
 const ItemsResponse = Schema.Struct({ MediaContainer: Schema.optional(MediaContainer) });
+
 const refFor = (item: typeof Item.Type, lot: "movie" | "show"): ImportEntityRef | null => {
 	const ids = Object.fromEntries((item.Guid ?? []).map(({ id }) => id.split("://")));
 	return movieOrShowImportRef({
-		sourceLabel: item.title,
 		entitySchemaSlug: lot,
+		sourceLabel: item.title,
 		providerIds: { imdb: ids["imdb"], tmdb: ids["tmdb"], tvdb: ids["tvdb"] },
 	});
 };
-export default defineScript({
+
+export default defineActivity({
 	manifest,
 	input: Input,
 	output: MediaIntegrationAdapterResult,
@@ -76,8 +85,8 @@ export default defineScript({
 						sourceFetchFailure({
 							itemIndex,
 							sourceLabel: String(directory.key),
-							sourceIdentifier: String(directory.key),
 							message: "Failed to fetch Plex library items",
+							sourceIdentifier: String(directory.key),
 						}),
 					);
 					continue;
@@ -89,10 +98,10 @@ export default defineScript({
 					if (!ref && item.lastViewedAt) {
 						failures.push({
 							itemIndex: currentIndex,
-							stage: "input_transformation",
-							message: "Plex item has no TMDB, TVDB, or IMDb identifier",
 							sourceLabel: item.title,
 							sourceIdentifier: item.key,
+							stage: "input_transformation",
+							message: "Plex item has no TMDB, TVDB, or IMDb identifier",
 						});
 					}
 					if (!ref) {
@@ -115,10 +124,10 @@ export default defineScript({
 					if (directory.type === "show" && item.lastViewedAt && !item.ratingKey) {
 						failures.push({
 							itemIndex: currentIndex,
-							stage: "input_transformation",
-							message: "Plex show has no rating key",
 							sourceLabel: item.title,
 							sourceIdentifier: item.key,
+							stage: "input_transformation",
+							message: "Plex show has no rating key",
 						});
 					}
 					if (directory.type === "show" && item.lastViewedAt && item.ratingKey) {
@@ -145,13 +154,13 @@ export default defineScript({
 										continue;
 									}
 									events.push({
-										occurredAt: new Date(timestamp * 1_000).toISOString(),
 										eventSchemaSlug: "progress",
 										properties: { progressPercent: 100 },
+										occurredAt: new Date(timestamp * 1_000).toISOString(),
 										unresolvedEpisode: {
 											type: "show",
-											seasonNumber: leaf.parentIndex,
 											episodeNumber: leaf.index,
+											seasonNumber: leaf.parentIndex,
 										},
 									});
 								}
@@ -160,19 +169,19 @@ export default defineScript({
 					}
 					if (events.length) {
 						entityGroups.push({
-							entityRef: ref,
 							events,
+							entityRef: ref,
 							itemIndex: currentIndex,
 							collectionMemberships: [],
 						});
 					}
 					if (integration.syncOwnership) {
 						entityGroups.push({
-							entityRef: ref,
 							events: [],
-							ownershipProvider: "plex_yank",
+							entityRef: ref,
 							itemIndex: currentIndex,
 							collectionMemberships: [],
+							ownershipProvider: "plex_yank",
 						});
 					}
 				}
