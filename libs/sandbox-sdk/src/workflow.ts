@@ -208,6 +208,7 @@ export const defineWorkflow = <
 export const Effect = {
 	as: RuntimeEffect.as,
 	gen: RuntimeEffect.gen,
+	fail: RuntimeEffect.fail,
 	succeed: RuntimeEffect.succeed,
 };
 export { Schema };

@@ -138,7 +138,7 @@ const driveWatcharrImport = (input: {
 }) => {
 	const journal: JsonValue[] = [];
 	const requests: Array<WorkflowReplayEnvelope["requests"][number]> = [];
-	const replay = (): Promise<JsonValue> =>
+	const replay = (): Promise<WorkflowReplayEnvelope> =>
 		Effect.runPromise(
 			workflow.run(
 				{ runId: "run-1", source: "watcharr" },
@@ -147,11 +147,8 @@ const driveWatcharrImport = (input: {
 			),
 		).then((envelope) => {
 			requests.splice(0, requests.length, ...envelope.requests);
-			if (envelope.state === "completed") {
-				return envelope.output;
-			}
-			if (envelope.state === "failed") {
-				throw new Error(envelope.error);
+			if (envelope.state !== "pending") {
+				return envelope;
 			}
 			const request = envelope.requests[journal.length];
 			assert(request);
@@ -190,6 +187,19 @@ const driveWatcharrImport = (input: {
 	return { requests, replay };
 };
 
+it("fails the workflow rather than dying when a source payload is incomplete", async () => {
+	const envelope = await Effect.runPromise(
+		workflow.run(
+			{ runId: "run-igdb", source: "igdb", sourcePayload: { collection: "  " } },
+			{ durableCalls: () => Effect.succeed([]) } satisfies WorkflowSandboxHost,
+			{ metadata: {}, sandboxScriptId: "media-import" },
+		),
+	);
+	assert(envelope.state === "failed");
+	expect(envelope.error).toContain("Import job is missing IGDB collection");
+	expect(envelope.requests).toEqual([]);
+});
+
 const singleShowGroup = (events: ReadonlyArray<JsonValue>) => [
 	{ itemIndex: 0, collectionMemberships: [], entityRef: showEntityRef, events: [...events] },
 ];
@@ -203,8 +213,11 @@ it("deterministically composes Watcharr parsing, population, episode resolution,
 		entityGroups: singleShowGroup([progressEvent("2026-01-01T00:00:00.000Z", showEpisode(1, 99))]),
 	});
 
-	const result = await replay();
-	expect(result).toEqual({ failedItems: 1, importedItems: 1, processedItems: 2 });
+	const envelope = await replay();
+	expect(envelope).toMatchObject({
+		state: "completed",
+		output: { failedItems: 1, importedItems: 1, processedItems: 2 },
+	});
 	expect(requests.map(({ kind }) => kind)).toEqual([
 		"activity",
 		"child",
@@ -367,8 +380,8 @@ it.each([
 		error: "Episode resolution omitted indices 1",
 		results: [{ index: 0, entityId: "episode-1" }],
 	},
-])("rejects $label episode result indices", async ({ error, results }) => {
-	const { replay } = driveWatcharrImport({
+])("fails the workflow on $label episode result indices", async ({ error, results }) => {
+	const { requests, replay } = driveWatcharrImport({
 		episodeResults: { results },
 		populationResults: completedShowPopulation,
 		entityGroups: singleShowGroup([
@@ -377,5 +390,9 @@ it.each([
 		]),
 	});
 
-	await expect(replay()).rejects.toThrow(error);
+	const envelope = await replay();
+	assert(envelope.state === "failed");
+	expect(envelope.error).toContain(error);
+	expect(envelope.requests.map(({ kind }) => kind)).toEqual(["activity", "child", "activity"]);
+	expect(requests).toHaveLength(3);
 });
