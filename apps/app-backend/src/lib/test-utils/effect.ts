@@ -98,19 +98,6 @@ export const makeAppConfigLayer = (
 			connectionTimeoutMs: 10_000,
 			url: Redacted.make("unused"),
 		},
-		notifications: {
-			smtp: {
-				user: Option.none(),
-				server: Option.none(),
-				password: Option.none(),
-				mailbox: "Ryot <no-reply@ryot.io>",
-			},
-		},
-		scheduler: {
-			progressUpdateThresholdHours: 2,
-			frequentCronJobsSchedule: "every 5 minutes",
-			infrequentCronJobsSchedule: "every midnight",
-		},
 		sandbox: {
 			denoDir: "/tmp",
 			timeoutMs: 5_000,
@@ -122,10 +109,22 @@ export const makeAppConfigLayer = (
 			logLevel: LogLevel.Info,
 			corsOrigins: Option.none(),
 			otlpEndpoint: Option.none(),
+			traktClientId: Option.none(),
 			disableNotifications: false,
 			disableBackgroundJobs: false,
+			progressUpdateThresholdHours: 2,
 			adminAccessToken: Redacted.make("unused"),
+			smtp: {
+				user: Option.none(),
+				server: Option.none(),
+				password: Option.none(),
+				mailbox: "Ryot <no-reply@ryot.io>",
+			},
 			oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },
+		},
+		scheduler: {
+			frequentCronJobsSchedule: "every 5 minutes",
+			infrequentCronJobsSchedule: "every midnight",
 		},
 		fileStorage: {
 			url: Option.none(),
@@ -134,21 +133,32 @@ export const makeAppConfigLayer = (
 			accessKeyId: Option.none(),
 			secretAccessKey: Option.none(),
 		},
-		providers: {
-			tvdbApiKey: Option.none(),
-			malClientId: Option.none(),
-			traktClientId: Option.none(),
-			metronUsername: Option.none(),
-			twitchClientId: Option.none(),
+		moviesAndShows: {
 			tmdbAccessToken: Option.none(),
+			tvdbApiKey: Option.none(),
+		},
+		animeAndManga: {
+			malClientId: Option.none(),
+		},
+		comicBooks: {
+			metronUsername: Option.none(),
 			metronPassword: Option.none(),
+		},
+		books: {
 			hardcoverApiKey: Option.none(),
-			spotifyClientId: Option.none(),
-			giantBombApiKey: Option.none(),
 			googleBooksApiKey: Option.none(),
-			listennotesApiKey: Option.none(),
-			twitchClientSecret: Option.none(),
+		},
+		music: {
+			spotifyClientId: Option.none(),
 			spotifyClientSecret: Option.none(),
+		},
+		podcasts: {
+			listennotesApiKey: Option.none(),
+		},
+		videoGames: {
+			giantBombApiKey: Option.none(),
+			twitchClientId: Option.none(),
+			twitchClientSecret: Option.none(),
 		},
 	};
 	// oxlint-disable-next-line no-unsafe-type-assertion -- deepMergeConfig is an untyped structural merge; the result is always the complete defaults with overrides applied, so it matches typeof defaults
