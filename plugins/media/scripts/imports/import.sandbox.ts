@@ -184,11 +184,12 @@ export default defineWorkflow({
 						: {}),
 				};
 			}
-			const chunkFiles: string[] = [];
+			let start = 0;
 			let totalItems = 0;
+			let failRun = false;
 			let failureCount = 0;
 			let writeItemCount = 0;
-			let start = 0;
+			const chunkFiles: string[] = [];
 
 			for (;;) {
 				const batchIndex = start / BATCH_SIZE;
@@ -203,6 +204,7 @@ export default defineWorkflow({
 						...result,
 						totalItems: result.failures.length + result.entityGroups.length,
 					};
+					failRun = result.entityGroups.length === 0 && result.failures.length > 0;
 				} else {
 					batch = yield* replay.activity(`parse-${batchIndex}`, mediaImportParser(input.source), {
 						...parserInput,
@@ -399,6 +401,7 @@ export default defineWorkflow({
 				runId: input.runId,
 				failureCount,
 				writeItemCount,
+				...(failRun ? { failRun: true } : {}),
 				...(isIntegration ? { integrationId } : {}),
 			});
 		}),

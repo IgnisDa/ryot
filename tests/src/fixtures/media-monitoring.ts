@@ -18,6 +18,8 @@ import {
 } from "@ryot/query-engine/primitives";
 import { Effect } from "effect";
 
+import { assertCondition } from "~/support/assertions";
+
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
@@ -42,13 +44,14 @@ export const triggerCronAndWaitForEntity = (
 					}),
 				adminHeaders,
 			);
-			yield* getBackendClient().call(
+			const cron = yield* getBackendClient().call(
 				(c) =>
 					c.testSupport.triggerPluginCron({
 						payload: { pluginSlug: "media", cronSlug: "media-monitoring" },
 					}),
 				adminHeaders,
 			);
+			assertCondition(cron.status === "executed", "Media monitoring cron was not found");
 			yield* Effect.promise(() => stream.waitForEntityUpdated(entityId, "populated"));
 		}),
 	);

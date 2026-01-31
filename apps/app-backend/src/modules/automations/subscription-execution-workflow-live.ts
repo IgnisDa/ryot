@@ -16,6 +16,7 @@ import {
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
 
 import { AutomationsService } from "./service";
@@ -56,10 +57,9 @@ export const SubscriptionExecutionWorkflowOperationsLive = Layer.succeed(
 		runSandbox: (payload) =>
 			Effect.gen(function* () {
 				const engine = yield* WorkflowEngine;
-				return yield* engine.execute(RunSandboxWorkflow, {
-					payload,
-					executionId: payload.executionId,
-				});
+				return yield* engine
+					.execute(RunSandboxWorkflow, { payload, executionId: payload.executionId })
+					.pipe(withoutWorkflowParent);
 			}),
 	},
 );
