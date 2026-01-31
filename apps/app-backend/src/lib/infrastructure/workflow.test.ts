@@ -1,19 +1,26 @@
 import { expect, it } from "@effect/vitest";
-import { Workflow } from "@effect/workflow";
-import { WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import { Effect, Option, Schema } from "effect";
+import { Effect, Layer, Option, Schema } from "effect";
+import { Workflow } from "effect/unstable/workflow";
+import { WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { makeWorkflowEngine } from "#lib/test-utils/effect";
+import { makeWorkflowEngine, workflowEngineTestLayer } from "#lib/test-utils/effect";
 
 import { detachDiscardedWorkflowChildren } from "./workflow";
 
-const ChildWorkflow = Workflow.make({
+const ChildWorkflow = Workflow.make("DiscardedChildTestWorkflow", {
 	error: Schema.Never,
 	success: Schema.Void,
-	name: "DiscardedChildTestWorkflow",
+	payload: { executionId: Schema.String },
 	idempotencyKey: ({ executionId }) => executionId,
-	payload: Schema.Struct({ executionId: Schema.String }),
 });
+
+const ChildWorkflowLayer = ChildWorkflow.toLayer(() => Effect.void).pipe(
+	Layer.provideMerge(workflowEngineTestLayer),
+);
+
+it.effect("provides an in-memory workflow test runtime", () =>
+	ChildWorkflow.execute({ executionId: "memory" }).pipe(Effect.provide(ChildWorkflowLayer)),
+);
 
 it.effect("detaches discarded children while preserving awaited child parent linkage", () => {
 	const observedParents: boolean[] = [];
