@@ -1,12 +1,11 @@
-import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
 import { nullableIntSchema } from "../zod";
-import { freeCreatorSchema, mediaPropertiesSchema } from "./common";
+import { mediaWithFreeCreatorsPropertiesSchema } from "./common";
 
-export const audiobookPropertiesSchema = mediaPropertiesSchema.extend({
-	runtime: nullableIntSchema,
-	freeCreators: z.array(freeCreatorSchema),
-});
+export const audiobookPropertiesSchema =
+	mediaWithFreeCreatorsPropertiesSchema.extend({
+		runtime: nullableIntSchema,
+	});
 
 export const audiobookPropertiesJsonSchema = toAppSchemaProperties(
 	audiobookPropertiesSchema,
