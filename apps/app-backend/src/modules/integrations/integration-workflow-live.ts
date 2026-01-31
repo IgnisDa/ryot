@@ -69,44 +69,39 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 	}
 });
 
-export const runIntegrationRunWorkflow = Effect.fn("runIntegrationRunWorkflow")(function* (
-	payload: IntegrationRunJobData,
-	executionId: string,
-) {
-	const runWithDb = yield* DbRunner;
-	const integrationsRepository = yield* IntegrationsRepository;
+export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflow")(
+	function* (payload: IntegrationRunJobData, executionId: string) {
+		yield* Effect.annotateCurrentSpan({
+			executionId,
+			runId: payload.runId,
+			userId: payload.userId,
+			integrationId: payload.integrationId,
+		});
+		const runWithDb = yield* DbRunner;
+		const integrationsRepository = yield* IntegrationsRepository;
 
-	const integration = yield* Activity.make({
-		name: "load-integration",
-		error: IntegrationRunError,
-		success: Schema.NullOr(IntegrationRecordSchema),
-		execute: runWithDb(
-			integrationsRepository.getByIdAnyUser({ integrationId: payload.integrationId }),
-		).pipe(Effect.mapError(toIntegrationWorkflowError)),
-	});
+		const integration = yield* Activity.make({
+			name: "load-integration",
+			error: IntegrationRunError,
+			success: Schema.NullOr(IntegrationRecordSchema),
+			execute: runWithDb(
+				integrationsRepository.getByIdAnyUser({ integrationId: payload.integrationId }),
+			).pipe(Effect.mapError(toIntegrationWorkflowError)),
+		});
 
-	if (!integration) {
-		yield* failRun("fail-run-integration-not-found", payload.runId, "Integration not found");
-		return;
-	}
+		if (!integration) {
+			yield* failRun("fail-run-integration-not-found", payload.runId, "Integration not found");
+			return;
+		}
 
-	yield* runIntegrationRun(integration, payload, executionId);
-});
-
-const ProcessIntegrationRunWorkflowLive = ProcessIntegrationRunWorkflow.toLayer(
-	(payload, executionId) =>
-		runIntegrationRunWorkflow(payload, executionId).pipe(
-			Effect.withSpan("ProcessIntegrationRunWorkflow", {
-				attributes: {
-					executionId,
-					runId: payload.runId,
-					userId: payload.userId,
-					integrationId: payload.integrationId,
-				},
-			}),
-			Effect.annotateLogs({ executionId, workflow: "ProcessIntegrationRunWorkflow" }),
-		),
+		yield* runIntegrationRun(integration, payload, executionId);
+	},
+	(effect, _payload, executionId) =>
+		Effect.annotateLogs(effect, { executionId, workflow: "ProcessIntegrationRunWorkflow" }),
 );
+
+const ProcessIntegrationRunWorkflowLive =
+	ProcessIntegrationRunWorkflow.toLayer(runIntegrationRunWorkflow);
 
 export const IntegrationWorkflowDefinitionsLive = ProcessIntegrationRunWorkflowLive.pipe(
 	Layer.provide(IntegrationRunOperationsLive),

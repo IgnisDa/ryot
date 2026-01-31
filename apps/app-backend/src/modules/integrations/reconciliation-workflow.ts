@@ -20,46 +20,45 @@ export const IntegrationReconciliationWorkflow = Workflow.make({
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
-export const runIntegrationReconciliationWorkflow = Effect.fn(
-	"runIntegrationReconciliationWorkflow",
-)(function* (_payload: IntegrationReconciliationPayload) {
-	const engine = yield* WorkflowEngine;
-	const integrations = yield* IntegrationsService;
+export const runIntegrationReconciliationWorkflow = Effect.fn("IntegrationReconciliationWorkflow")(
+	function* (_payload: IntegrationReconciliationPayload, executionId: string) {
+		yield* Effect.annotateCurrentSpan({ executionId });
+		const engine = yield* WorkflowEngine;
+		const integrations = yield* IntegrationsService;
 
-	const runs = yield* Activity.make({
-		error: Schema.Never,
-		name: "prepare-scheduled-yank-runs",
-		success: Schema.Array(IntegrationReconciliationRun),
-		execute: integrations.prepareScheduledYankRuns().pipe(Effect.orDie),
-	});
+		const runs = yield* Activity.make({
+			error: Schema.Never,
+			name: "prepare-scheduled-yank-runs",
+			success: Schema.Array(IntegrationReconciliationRun),
+			execute: integrations.prepareScheduledYankRuns().pipe(Effect.orDie),
+		});
 
-	for (const run of runs) {
-		yield* engine
-			.execute(ProcessIntegrationRunWorkflow, {
-				discard: true,
-				executionId: run.runId,
-				payload: {
-					runId: run.runId,
-					userId: run.userId,
-					integrationId: run.integrationId,
-				},
-			})
-			.pipe(
-				Effect.catchAllCause((cause) =>
-					Effect.logError("integration reconciliation run dispatch failed", cause).pipe(
-						Effect.annotateLogs({ runId: run.runId }),
+		for (const run of runs) {
+			yield* engine
+				.execute(ProcessIntegrationRunWorkflow, {
+					discard: true,
+					executionId: run.runId,
+					payload: {
+						runId: run.runId,
+						userId: run.userId,
+						integrationId: run.integrationId,
+					},
+				})
+				.pipe(
+					Effect.catchAllCause((cause) =>
+						Effect.logError("integration reconciliation run dispatch failed", cause).pipe(
+							Effect.annotateLogs({ runId: run.runId }),
+						),
 					),
-				),
-			);
-	}
-});
+				);
+		}
+	},
+	(effect, _payload, executionId) =>
+		Effect.annotateLogs(effect, { executionId, workflow: "IntegrationReconciliationWorkflow" }),
+);
 
 const IntegrationReconciliationWorkflowLive = IntegrationReconciliationWorkflow.toLayer(
-	(payload, executionId) =>
-		runIntegrationReconciliationWorkflow(payload).pipe(
-			Effect.withSpan("IntegrationReconciliationWorkflow", { attributes: { executionId } }),
-			Effect.annotateLogs({ executionId, workflow: "IntegrationReconciliationWorkflow" }),
-		),
+	runIntegrationReconciliationWorkflow,
 );
 
 export const IntegrationReconciliationWorkflowDefinitionsLive = Layer.mergeAll(

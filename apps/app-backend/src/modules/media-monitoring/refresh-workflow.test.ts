@@ -44,7 +44,7 @@ it.effect("refreshes monitored media through the provider population owner", () 
 				return options.executionId;
 			}),
 		Effect.gen(function* () {
-			yield* runMediaMonitoringRefreshWorkflow(payload);
+			yield* runMediaMonitoringRefreshWorkflow(payload, payload.executionId);
 			expect(calls).toEqual([
 				{
 					executionId: `${payload.executionId}-provider-refresh`,
@@ -68,7 +68,9 @@ it.effect("propagates provider population failures", () =>
 	runWithEngine(
 		() => Effect.fail(new SandboxRunError({ message: "provider boom" })),
 		Effect.gen(function* () {
-			const exit = yield* Effect.exit(runMediaMonitoringRefreshWorkflow(payload));
+			const exit = yield* Effect.exit(
+				runMediaMonitoringRefreshWorkflow(payload, payload.executionId),
+			);
 			expect(exit._tag).toBe("Failure");
 		}),
 	),

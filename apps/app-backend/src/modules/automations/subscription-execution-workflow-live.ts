@@ -128,8 +128,16 @@ const recordRunOutcome = Effect.fn("recordSubscriptionRunOutcome")(function* (
 	});
 });
 
-export const runSubscriptionExecutionWorkflow = Effect.fn("runSubscriptionExecutionWorkflow")(
-	function* (payload: SubscriptionExecutionWorkflowPayload) {
+export const runSubscriptionExecutionWorkflow = Effect.fn("SubscriptionExecutionWorkflow")(
+	function* (payload: SubscriptionExecutionWorkflowPayload, executionId: string) {
+		yield* Effect.annotateCurrentSpan({
+			executionId,
+			ruleId: payload.ruleId,
+			occurrenceId: payload.occurrenceId,
+			...(payload.signalId ? { signalId: payload.signalId } : {}),
+			...(payload.recordId ? { recordId: payload.recordId } : {}),
+			...(payload.rowUserId ? { rowUserId: payload.rowUserId } : {}),
+		});
 		if (payload.source.kind !== payload.sourceKind) {
 			return yield* badRequest("Automation source kind does not match its context");
 		}
@@ -180,23 +188,12 @@ export const runSubscriptionExecutionWorkflow = Effect.fn("runSubscriptionExecut
 		yield* recordRunOutcome(prepared.runId, result);
 		return prepared.runId;
 	},
+	(effect, _payload, executionId) =>
+		Effect.annotateLogs(effect, { executionId, workflow: "SubscriptionExecutionWorkflow" }),
 );
 
 const SubscriptionExecutionWorkflowLive = SubscriptionExecutionWorkflow.toLayer(
-	(payload, executionId) =>
-		runSubscriptionExecutionWorkflow(payload).pipe(
-			Effect.withSpan("SubscriptionExecutionWorkflow", {
-				attributes: {
-					executionId,
-					ruleId: payload.ruleId,
-					occurrenceId: payload.occurrenceId,
-					...(payload.signalId ? { signalId: payload.signalId } : {}),
-					...(payload.recordId ? { recordId: payload.recordId } : {}),
-					...(payload.rowUserId ? { rowUserId: payload.rowUserId } : {}),
-				},
-			}),
-			Effect.annotateLogs({ executionId, workflow: "SubscriptionExecutionWorkflow" }),
-		),
+	(payload, executionId) => runSubscriptionExecutionWorkflow(payload, executionId),
 );
 
 export const SubscriptionExecutionWorkflowDefinitionsLive = Layer.mergeAll(

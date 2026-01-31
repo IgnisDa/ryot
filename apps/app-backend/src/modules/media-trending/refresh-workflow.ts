@@ -1,6 +1,6 @@
 import { Workflow } from "@effect/workflow";
 import { SandboxRunError } from "@ryot/contract/errors";
-import { Effect, Layer, Schema } from "effect";
+import { Layer, Schema } from "effect";
 
 import { runMediaTrendingRefresh } from "./refresh";
 
@@ -23,11 +23,7 @@ export const MediaTrendingRefreshWorkflow = Workflow.make({
 });
 
 const MediaTrendingRefreshWorkflowLive = MediaTrendingRefreshWorkflow.toLayer(
-	(payload, executionId) =>
-		runMediaTrendingRefresh(payload).pipe(
-			Effect.withSpan("MediaTrendingRefreshWorkflow", { attributes: { executionId } }),
-			Effect.annotateLogs({ executionId, workflow: "MediaTrendingRefreshWorkflow" }),
-		),
+	(payload, executionId) => runMediaTrendingRefresh(payload, executionId),
 );
 
 export const MediaTrendingRefreshWorkflowDefinitionsLive = Layer.mergeAll(
