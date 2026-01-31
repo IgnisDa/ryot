@@ -143,7 +143,7 @@ const makeMergeScope = (overrides: {
 	entityUserId: user.id,
 	entityId: overrides.entityId,
 	properties: overrides.properties ?? {},
-	entitySchemaSlug: overrides.entitySchemaSlug ?? "book",
+	entitySchemaSlug: EntitySchemaSlug.make(overrides.entitySchemaSlug ?? "book"),
 });
 
 it.effect("rejects clearing library user state", () => {
@@ -155,7 +155,7 @@ it.effect("rejects clearing library user state", () => {
 					entityName: "Library",
 					entityUserId: user.id,
 					entityId: EntityId.make("library-entity"),
-					entitySchemaSlug: "library",
+					entitySchemaSlug: EntitySchemaSlug.make("library"),
 					propertiesSchema: { fields: {} },
 				}),
 		}),
@@ -181,7 +181,7 @@ it.effect("deletes matching events through EventsService when clearing user stat
 					isBuiltin: false,
 					entityName: "Dune",
 					entityUserId: user.id,
-					entitySchemaSlug: "book",
+					entitySchemaSlug: EntitySchemaSlug.make("book"),
 					propertiesSchema: { fields: {} },
 					entityId: EntityId.make("entity-1"),
 				}),
@@ -259,10 +259,7 @@ it.effect("rejects merging entities from different schemas", () => {
 				Effect.succeed(
 					makeMergeScope({
 						entityId,
-						entitySchemaSlug:
-							entityId === "from"
-								? EntitySchemaSlug.make("schema-a")
-								: EntitySchemaSlug.make("schema-b"),
+						entitySchemaSlug: entityId === "from" ? "schema-a" : "schema-b",
 					}),
 				),
 		}),
