@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 
 import type {
+	AggregationSpec,
 	EntitySource,
 	Expr,
 	FieldSelector,
@@ -8,36 +9,45 @@ import type {
 	NestedEventSource,
 	RelationshipSource,
 	RootEventSource,
+	RootSource,
 	RowsOutput,
+	TimeSeriesOutput,
 } from "../language";
+import { SYSTEM_DATE_FIELDS_BY_KIND, type RootAliasKind } from "./types";
+
+// Correlated subquery scans allocate numbered aliases (e1, ev1, r1, ...); recognize them by
+// prefix so the same field-selector mapping serves both the outer scan and the subqueries.
+const isEventAlias = (alias: string) => alias === "ev" || /^ev\d+$/.test(alias);
+const isRelationshipAlias = (alias: string) => alias === "r" || /^r\d+$/.test(alias);
 
 const systemFieldSql = (name: string, alias = "e"): ReturnType<typeof sql> | null => {
-	if (alias === "ev") {
+	const table = sql.raw(alias);
+
+	if (isEventAlias(alias)) {
 		const eventColumnMap: Record<string, ReturnType<typeof sql>> = {
-			id: sql`ev.id`,
-			userId: sql`ev.user_id`,
-			entityId: sql`ev.entity_id`,
-			createdAt: sql`ev.created_at`,
-			updatedAt: sql`ev.updated_at`,
-			properties: sql`ev.properties`,
-			occurredAt: sql`ev.occurred_at`,
-			eventSchemaId: sql`ev.event_schema_id`,
-			sessionEntityId: sql`ev.session_entity_id`,
+			id: sql`${table}.id`,
+			userId: sql`${table}.user_id`,
+			entityId: sql`${table}.entity_id`,
+			createdAt: sql`${table}.created_at`,
+			updatedAt: sql`${table}.updated_at`,
+			properties: sql`${table}.properties`,
+			occurredAt: sql`${table}.occurred_at`,
+			eventSchemaId: sql`${table}.event_schema_id`,
+			sessionEntityId: sql`${table}.session_entity_id`,
 		};
 		return eventColumnMap[name] ?? null;
 	}
 
-	if (alias === "r") {
+	if (isRelationshipAlias(alias)) {
 		const relationshipColumnMap: Record<string, ReturnType<typeof sql>> = {
-			id: sql`r.id`,
-			createdAt: sql`r.created_at`,
-			sourceEntityId: sql`r.source_entity_id`,
-			targetEntityId: sql`r.target_entity_id`,
+			id: sql`${table}.id`,
+			createdAt: sql`${table}.created_at`,
+			sourceEntityId: sql`${table}.source_entity_id`,
+			targetEntityId: sql`${table}.target_entity_id`,
 		};
 		return relationshipColumnMap[name] ?? null;
 	}
 
-	const table = sql.raw(alias);
 	const columnMap: Record<string, ReturnType<typeof sql>> = {
 		id: sql`${table}.id`,
 		name: sql`${table}.name`,
@@ -119,10 +129,30 @@ type WherePushdownResult = {
 	readonly residual: Expr | null;
 };
 
+// When present, `exists` and `aggregate` count comparisons compile to SQL subqueries; `alloc`
+// hands out unique numeric suffixes for their table aliases.
+type SubqueryCtx = { readonly userId: string; readonly alloc: () => number };
+type PushdownCtx = {
+	readonly resolve: WherePushdownResolve;
+	readonly subquery: SubqueryCtx | null;
+};
+
 // Text columns only; timestamp/jsonb columns compare differently app-side, so they stay residual.
+// `se`/`te` are relationship-root endpoint entities and share the entity column set; `r` is the
+// relationship edge (only its text ids push — createdAt is a timestamp).
+const ENTITY_TEXT_SYSTEM_FIELDS = new Set([
+	"id",
+	"name",
+	"userId",
+	"externalId",
+	"sandboxScriptId",
+]);
 const TEXT_SYSTEM_FIELDS_BY_ALIAS: Record<string, ReadonlySet<string>> = {
-	e: new Set(["id", "name", "userId", "externalId", "sandboxScriptId"]),
+	e: ENTITY_TEXT_SYSTEM_FIELDS,
+	se: ENTITY_TEXT_SYSTEM_FIELDS,
+	te: ENTITY_TEXT_SYSTEM_FIELDS,
 	ev: new Set(["id", "userId", "entityId", "sessionEntityId"]),
+	r: new Set(["id", "sourceEntityId", "targetEntityId"]),
 };
 
 const isTextSystemField = (name: string, alias: string): boolean =>
@@ -324,23 +354,199 @@ const compileNullCheckSql = (
 	return expr.type === "isNull" ? sql`(${normalized} IS NULL)` : sql`(${normalized} IS NOT NULL)`;
 };
 
+const flattenAndExpr = (expr: Expr): Expr[] =>
+	expr.type === "and" ? expr.values.flatMap(flattenAndExpr) : [expr];
+
+export const wherePushdownSql = (conditions: readonly SqlFragment[]) =>
+	conditions.length > 0 ? sql`AND ${sql.join([...conditions], sql` AND `)}` : sql``;
+
+// Resolvers key only off sourceAlias; a synthetic ref reuses them to look up an ancestor's SQL alias.
+const SYSTEM_ID_FIELD: FieldSelector = { type: "system", name: "id" };
+const resolveAlias = (resolve: WherePushdownResolve, alias: string): WherePushdownTarget | null =>
+	resolve({ type: "ref", sourceAlias: alias, field: SYSTEM_ID_FIELD });
+
+// Compiles a sub-source's whole `where` to SQL conditions, or null if any conjunct is not fully
+// pushable — the enclosing exists/aggregate then stays app-side rather than dropping the residual.
+function compileSubWhere(where: Expr | null, ctx: PushdownCtx): SqlFragment[] | null {
+	if (!where) {
+		return [];
+	}
+	const conditions: SqlFragment[] = [];
+	for (const conjunct of flattenAndExpr(where)) {
+		const compiled = compileBoolExprToSql(conjunct, ctx);
+		if (!compiled) {
+			return null;
+		}
+		conditions.push(compiled);
+	}
+	return conditions;
+}
+
+// Builds a correlated subquery FROM+WHERE for an exists/aggregate sub-source, mirroring the
+// standalone subsource scans. Visibility uses schema-slug joins (reference validation already
+// confirmed every sub-source schema is visible). Returns null when the anchor alias is not in SQL
+// scope or the sub-where is not fully pushable, so the caller keeps the app-side evaluation.
+function compileCorrelatedSubsource(
+	source: EntitySource | NestedEventSource,
+	ctx: PushdownCtx,
+): SqlFragment | null {
+	if (!ctx.subquery) {
+		return null;
+	}
+	const { userId, alloc } = ctx.subquery;
+	const suffix = alloc();
+
+	if (source.type === "events") {
+		const anchor = resolveAlias(ctx.resolve, source.entityRef);
+		if (!anchor) {
+			return null;
+		}
+		const ev = sql.raw(`ev${suffix}`);
+		const evs = sql.raw(`ev${suffix}s`);
+		const parent = sql.raw(anchor.alias);
+		const subResolve: WherePushdownResolve = (ref) =>
+			ref.sourceAlias === source.alias
+				? { alias: `ev${suffix}`, schemas: source.schemas }
+				: ctx.resolve(ref);
+		const subConditions = compileSubWhere(source.where, {
+			resolve: subResolve,
+			subquery: ctx.subquery,
+		});
+		if (subConditions === null) {
+			return null;
+		}
+		return sql`
+			FROM event ${ev}
+			JOIN event_schema ${evs} ON ${evs}.id = ${ev}.event_schema_id
+				AND ${evs}.entity_schema_id = ${parent}.entity_schema_id
+				AND ${evs}.slug IN (${sql.join(
+					source.schemas.map((slug) => sql`${slug}`),
+					sql`, `,
+				)})
+				AND (${evs}.user_id = ${userId} OR ${evs}.user_id IS NULL)
+			WHERE ${ev}.entity_id = ${parent}.id
+				AND ${ev}.user_id = ${userId}
+				${wherePushdownSql(subConditions)}
+		`;
+	}
+
+	if (source.via === undefined) {
+		return null;
+	}
+	const via = source.via;
+	const anchor = resolveAlias(ctx.resolve, via.entityRef);
+	if (!anchor) {
+		return null;
+	}
+	const e = sql.raw(`e${suffix}`);
+	const es = sql.raw(`e${suffix}s`);
+	const r = sql.raw(`r${suffix}`);
+	const rs = sql.raw(`r${suffix}s`);
+	const parent = sql.raw(anchor.alias);
+	const anchorColumn =
+		via.direction === "outgoing" ? sql`${r}.source_entity_id` : sql`${r}.target_entity_id`;
+	const childColumn =
+		via.direction === "outgoing" ? sql`${r}.target_entity_id` : sql`${r}.source_entity_id`;
+	const subResolve: WherePushdownResolve = (ref) =>
+		ref.sourceAlias === source.alias
+			? { alias: `e${suffix}`, schemas: source.schemas }
+			: ref.sourceAlias === via.alias
+				? { alias: `r${suffix}`, schemas: [via.schema] }
+				: ctx.resolve(ref);
+	const subConditions = compileSubWhere(source.where, {
+		resolve: subResolve,
+		subquery: ctx.subquery,
+	});
+	if (subConditions === null) {
+		return null;
+	}
+	return sql`
+		FROM relationship ${r}
+		JOIN relationship_schema ${rs} ON ${rs}.id = ${r}.relationship_schema_id
+			AND ${rs}.slug = ${via.schema}
+			AND (${rs}.user_id = ${userId} OR ${rs}.user_id IS NULL)
+		JOIN entity ${e} ON ${e}.id = ${childColumn}
+		JOIN entity_schema ${es} ON ${es}.id = ${e}.entity_schema_id
+			AND ${es}.slug IN (${sql.join(
+				source.schemas.map((slug) => sql`${slug}`),
+				sql`, `,
+			)})
+			AND (${es}.user_id = ${userId} OR ${es}.user_id IS NULL)
+		WHERE ${anchorColumn} = ${parent}.id
+			AND (${r}.user_id = ${userId} OR ${r}.user_id IS NULL)
+			AND (${e}.user_id = ${userId} OR ${e}.user_id IS NULL)
+			${wherePushdownSql(subConditions)}
+	`;
+}
+
+const compileExistsSql = (
+	expr: Extract<Expr, { type: "exists" }>,
+	ctx: PushdownCtx,
+): SqlFragment | null => {
+	const fromWhere = compileCorrelatedSubsource(expr.source, ctx);
+	return fromWhere ? sql`EXISTS (SELECT 1 ${fromWhere})` : null;
+};
+
+// Correlated `aggregate` count compared to a numeric literal → a scalar `(SELECT COUNT(*) ...)`.
+// COUNT(*) is never null, so ordering/equality against the literal matches the app-side compare;
+// count-distinct and sum/avg/min/max stay app-side (their scalar/null handling differs).
+const compileAggregateComparisonSql = (
+	expr: Extract<Expr, { type: "comparison" }>,
+	ctx: PushdownCtx,
+): SqlFragment | null => {
+	if (expr.operator === "neq") {
+		return null;
+	}
+	const aggregate =
+		expr.left.type === "aggregate"
+			? expr.left
+			: expr.right.type === "aggregate"
+				? expr.right
+				: null;
+	const literal =
+		expr.left.type === "literal" ? expr.left : expr.right.type === "literal" ? expr.right : null;
+	if (!aggregate || !literal || literal.valueType === "date" || typeof literal.value !== "number") {
+		return null;
+	}
+	if (
+		aggregate.aggregation.function !== "count" ||
+		aggregate.aggregation.distinctBy !== undefined
+	) {
+		return null;
+	}
+	const fromWhere = compileCorrelatedSubsource(aggregate.source, ctx);
+	if (!fromWhere) {
+		return null;
+	}
+	const scalar = sql`(SELECT COUNT(*) ${fromWhere})`;
+	const op = COMPARISON_OP_SQL[expr.operator];
+	return expr.left.type === "aggregate"
+		? sql`(${scalar} ${op} ${literal.value})`
+		: sql`(${literal.value} ${op} ${scalar})`;
+};
+
 // Returns null for anything not expressible with identical semantics (→ residual, evaluated
 // app-side). Leaves are TRUE only when the app-side value is true, which composes under AND/OR;
-// neq/not are excluded because SQL NULL negates unlike the app-side null-as-false rule.
-const compileBoolExprToSql = (expr: Expr, resolve: WherePushdownResolve): SqlFragment | null => {
+// neq/not are excluded because SQL NULL negates unlike the app-side null-as-false rule. Correlated
+// exists/aggregate compile only when the subquery capability is present.
+function compileBoolExprToSql(expr: Expr, ctx: PushdownCtx): SqlFragment | null {
 	if (expr.type === "comparison") {
-		return compileComparisonSql(expr, resolve);
+		const aggregate = ctx.subquery ? compileAggregateComparisonSql(expr, ctx) : null;
+		return aggregate ?? compileComparisonSql(expr, ctx.resolve);
 	}
 	if (expr.type === "contains") {
-		return compileContainsSql(expr, resolve);
+		return compileContainsSql(expr, ctx.resolve);
 	}
 	if (expr.type === "isNull" || expr.type === "isNotNull") {
-		return compileNullCheckSql(expr, resolve);
+		return compileNullCheckSql(expr, ctx.resolve);
+	}
+	if (expr.type === "exists") {
+		return ctx.subquery ? compileExistsSql(expr, ctx) : null;
 	}
 	if (expr.type === "and" || expr.type === "or") {
 		const parts: SqlFragment[] = [];
 		for (const value of expr.values) {
-			const compiled = compileBoolExprToSql(value, resolve);
+			const compiled = compileBoolExprToSql(value, ctx);
 			if (!compiled) {
 				return null;
 			}
@@ -349,24 +555,28 @@ const compileBoolExprToSql = (expr: Expr, resolve: WherePushdownResolve): SqlFra
 		return sql`(${sql.join(parts, expr.type === "and" ? sql` AND ` : sql` OR `)})`;
 	}
 	return null;
-};
-
-const flattenAndExpr = (expr: Expr): Expr[] =>
-	expr.type === "and" ? expr.values.flatMap(flattenAndExpr) : [expr];
+}
 
 // Splits a `where` into SQL conditions and an app-side residual, pushing top-level AND conjuncts
-// independently. A null residual lets the caller apply SQL LIMIT and skip the app-side scan.
+// independently. A null residual lets the caller apply SQL LIMIT and skip the app-side scan. Pass
+// `subquery` (a userId) to also compile correlated exists/aggregate sub-sources into SQL.
 export const wherePushdown = (
 	where: Expr | null,
 	resolve: WherePushdownResolve,
+	subquery: { readonly userId: string } | null = null,
 ): WherePushdownResult => {
 	if (!where) {
 		return { conditions: [], residual: null };
 	}
+	let aliasCounter = 0;
+	const ctx: PushdownCtx = {
+		resolve,
+		subquery: subquery ? { userId: subquery.userId, alloc: () => (aliasCounter += 1) } : null,
+	};
 	const conditions: SqlFragment[] = [];
 	const residuals: Expr[] = [];
 	for (const conjunct of flattenAndExpr(where)) {
-		const compiled = compileBoolExprToSql(conjunct, resolve);
+		const compiled = compileBoolExprToSql(conjunct, ctx);
 		if (compiled) {
 			conditions.push(compiled);
 		} else {
@@ -375,9 +585,6 @@ export const wherePushdown = (
 	}
 	return { conditions, residual: nonEmptyAndExpr(residuals) };
 };
-
-export const wherePushdownSql = (conditions: readonly SqlFragment[]) =>
-	conditions.length > 0 ? sql`AND ${sql.join([...conditions], sql` AND `)}` : sql``;
 
 export const entitySelectColumnsSql = sql`
 	e.id,
@@ -439,24 +646,47 @@ export const entityJsonbObjectSql = (entityAlias: string, schemaAlias: string) =
 	)
 `;
 
-export const relationshipRootSelectSql = (
-	relationshipSchemaIdsSql: ReturnType<typeof sql>,
-	sourceEntitySchemaIdsSql: ReturnType<typeof sql>,
-	targetEntitySchemaIdsSql: ReturnType<typeof sql>,
+// Root row-producing FROM + WHERE fragments (visibility enforced), shared by the row/candidate
+// scans and by the aggregate / time-series SQL pushdown. Callers pass the visible-schema id
+// fragments (already resolved through the schema loaders) and any pushed where conditions.
+export const entityRootFromWhereSql = (
+	schemaIdsSql: SqlFragment,
 	userId: string,
+	pushedConditions: readonly SqlFragment[] = [],
 ) => sql`
-	SELECT
-		r.id AS "relationshipId",
-		r.created_at AS "relationshipCreatedAt",
-		r.source_entity_id AS "relationshipSourceEntityId",
-		r.target_entity_id AS "relationshipTargetEntityId",
-		r.properties AS "relationshipProperties",
-		rs.slug AS "relationshipSchemaSlug",
-		rs.name AS "relationshipSchemaName",
-		rs.is_builtin AS "relationshipSchemaIsBuiltin",
-		${entityJsonbObjectSql("se", "ses")} AS "sourceEntity",
-		${entityJsonbObjectSql("te", "tes")} AS "targetEntity",
-		COUNT(*) OVER() AS "totalCount"
+	FROM entity e
+	JOIN entity_schema es ON es.id = e.entity_schema_id
+	WHERE
+		e.entity_schema_id IN (${schemaIdsSql})
+		AND (e.user_id = ${userId} OR e.user_id IS NULL)
+		${wherePushdownSql(pushedConditions)}
+`;
+
+export const eventRootFromWhereSql = (
+	eventSchemaIdsSql: SqlFragment,
+	entitySchemaIdsSql: SqlFragment,
+	userId: string,
+	pushedConditions: readonly SqlFragment[] = [],
+) => sql`
+	FROM event ev
+	JOIN event_schema evs ON evs.id = ev.event_schema_id
+	JOIN entity e ON e.id = ev.entity_id
+	JOIN entity_schema es ON es.id = e.entity_schema_id
+	WHERE
+		ev.user_id = ${userId}
+		AND ev.event_schema_id IN (${eventSchemaIdsSql})
+		AND e.entity_schema_id IN (${entitySchemaIdsSql})
+		AND (e.user_id = ${userId} OR e.user_id IS NULL)
+		${wherePushdownSql(pushedConditions)}
+`;
+
+export const relationshipRootFromWhereSql = (
+	relationshipSchemaIdsSql: SqlFragment,
+	sourceEntitySchemaIdsSql: SqlFragment,
+	targetEntitySchemaIdsSql: SqlFragment,
+	userId: string,
+	pushedConditions: readonly SqlFragment[] = [],
+) => sql`
 	FROM relationship r
 	JOIN relationship_schema rs ON rs.id = r.relationship_schema_id
 	JOIN entity se ON se.id = r.source_entity_id
@@ -470,6 +700,29 @@ export const relationshipRootSelectSql = (
 		AND (r.user_id = ${userId} OR r.user_id IS NULL)
 		AND (se.user_id = ${userId} OR se.user_id IS NULL)
 		AND (te.user_id = ${userId} OR te.user_id IS NULL)
+		${wherePushdownSql(pushedConditions)}
+`;
+
+export const relationshipRootSelectSql = (
+	relationshipSchemaIdsSql: ReturnType<typeof sql>,
+	sourceEntitySchemaIdsSql: ReturnType<typeof sql>,
+	targetEntitySchemaIdsSql: ReturnType<typeof sql>,
+	userId: string,
+	pushedConditions: readonly SqlFragment[] = [],
+) => sql`
+	SELECT
+		r.id AS "relationshipId",
+		r.created_at AS "relationshipCreatedAt",
+		r.source_entity_id AS "relationshipSourceEntityId",
+		r.target_entity_id AS "relationshipTargetEntityId",
+		r.properties AS "relationshipProperties",
+		rs.slug AS "relationshipSchemaSlug",
+		rs.name AS "relationshipSchemaName",
+		rs.is_builtin AS "relationshipSchemaIsBuiltin",
+		${entityJsonbObjectSql("se", "ses")} AS "sourceEntity",
+		${entityJsonbObjectSql("te", "tes")} AS "targetEntity",
+		COUNT(*) OVER() AS "totalCount"
+	${relationshipRootFromWhereSql(relationshipSchemaIdsSql, sourceEntitySchemaIdsSql, targetEntitySchemaIdsSql, userId, pushedConditions)}
 `;
 
 export const includeOrderSql = (source: EntitySource, orderBy: IncludeEntry["orderBy"]) =>
@@ -495,9 +748,195 @@ export const relationshipRootOrderSql = (source: RelationshipSource, output: Row
 					: null,
 	);
 
+export const relationshipRootWherePushdown = (
+	source: RelationshipSource,
+	userId: string,
+): WherePushdownResult =>
+	wherePushdown(
+		source.where,
+		(ref) =>
+			ref.sourceAlias === source.alias
+				? { alias: "r", schemas: source.schemas }
+				: ref.sourceAlias === source.sourceEntity.alias
+					? { alias: "se", schemas: source.sourceEntity.schemas }
+					: ref.sourceAlias === source.targetEntity.alias
+						? { alias: "te", schemas: source.targetEntity.schemas }
+						: null,
+		{ userId },
+	);
+
 export const eventRootOrderSql = (source: RootEventSource, output: RowsOutput) =>
 	buildOrderBySql(output.orderBy, (ref) =>
 		ref.sourceAlias === source.alias
 			? { alias: "ev", schemas: source.schemas }
 			: { alias: "e", schemas: source.entity.schemas },
 	);
+
+// --- Aggregate / time-series SQL pushdown helpers ---
+//
+// These map root-source refs onto the SQL aliases produced by the *RootFromWhereSql builders
+// (entity `e`/`es`, event `ev`/`evs`, relationship `r`/`rs` plus endpoint entities `se`/`ses`,
+// `te`/`tes`) so grouping, aggregation and time bucketing can run in the database.
+
+export type RootAliasTarget = {
+	readonly kind: RootAliasKind;
+	readonly sqlAlias: string;
+	readonly schemas: readonly string[];
+};
+export type RootAliasResolve = (sourceAlias: string) => RootAliasTarget | null;
+
+export const rootAliasResolver = (source: RootSource): RootAliasResolve => {
+	if (source.type === "entities") {
+		return (alias) =>
+			alias === source.alias ? { kind: "entity", sqlAlias: "e", schemas: source.schemas } : null;
+	}
+	if (source.type === "events") {
+		return (alias) =>
+			alias === source.alias
+				? { kind: "event", sqlAlias: "ev", schemas: source.schemas }
+				: alias === source.entity.alias
+					? { kind: "entity", sqlAlias: "e", schemas: source.entity.schemas }
+					: null;
+	}
+	return (alias) =>
+		alias === source.alias
+			? { kind: "relationship", sqlAlias: "r", schemas: source.schemas }
+			: alias === source.sourceEntity.alias
+				? { kind: "entity", sqlAlias: "se", schemas: source.sourceEntity.schemas }
+				: alias === source.targetEntity.alias
+					? { kind: "entity", sqlAlias: "te", schemas: source.targetEntity.schemas }
+					: null;
+};
+
+export const rootWherePushdown = (source: RootSource, userId: string): WherePushdownResult => {
+	const resolve = rootAliasResolver(source);
+	return wherePushdown(
+		source.where,
+		(ref) => {
+			const target = resolve(ref.sourceAlias);
+			return target ? { alias: target.sqlAlias, schemas: target.schemas } : null;
+		},
+		{ userId },
+	);
+};
+
+// Returns the SQL for a groupBy field selector, or null when it is not expressible with identical
+// semantics (grouping by the whole `properties` json object stays app-side).
+export const groupFieldSql = (
+	field: FieldSelector,
+	target: RootAliasTarget,
+): SqlFragment | null => {
+	if (field.type === "system") {
+		// `properties` (whole json) and timestamp columns stay app-side: Postgres groups a timestamptz
+		// at microsecond precision, but the app-side path keys off the driver's millisecond-truncated
+		// JS Date, so microsecond-distinct rows would split into separate SQL groups.
+		return field.name === "properties" || SYSTEM_DATE_FIELDS_BY_KIND[target.kind].has(field.name)
+			? null
+			: systemFieldSql(field.name, target.sqlAlias);
+	}
+
+	const schemaTable = sql.raw(`${target.sqlAlias}s`);
+	if (field.type === "schema") {
+		return field.name === "slug"
+			? sql`${schemaTable}.slug`
+			: field.name === "isBuiltin"
+				? sql`${schemaTable}.is_builtin`
+				: sql`${schemaTable}.name`;
+	}
+
+	const extract = propertyExtractSql(target.sqlAlias, field.path);
+	const guarded =
+		target.schemas.length > 1
+			? sql`CASE WHEN ${schemaTable}.slug = ${field.schema} THEN ${extract} END`
+			: extract;
+	// Normalize JSON null to SQL NULL so JSON-null and missing keys land in one group (as app-side does).
+	return sql`nullif(${guarded}, 'null'::jsonb)`;
+};
+
+// Only JSON numbers contribute to sum/avg/min/max (matching the app-side numeric filter); non-number
+// and wrong-schema rows read as NULL and are ignored by the SQL aggregate.
+const numericPropertyOperandSql = (
+	field: Extract<FieldSelector, { type: "property" }>,
+	target: RootAliasTarget,
+): SqlFragment => {
+	const extract = propertyExtractSql(target.sqlAlias, field.path);
+	const extractText = propertyExtractTextSql(target.sqlAlias, field.path);
+	const slugGuard =
+		target.schemas.length > 1
+			? sql`${sql.raw(`${target.sqlAlias}s`)}.slug = ${field.schema}`
+			: null;
+	const guards = [slugGuard, sql`jsonb_typeof(${extract}) = 'number'`].filter(isSqlFragment);
+	return sql`(CASE WHEN ${sql.join(guards, sql` AND `)} THEN (${extractText})::double precision END)`;
+};
+
+const AGGREGATE_FN_SQL: Record<"sum" | "average" | "minimum" | "maximum", string> = {
+	sum: "SUM",
+	average: "AVG",
+	minimum: "MIN",
+	maximum: "MAX",
+};
+
+// Returns the SQL aggregate for a measure, or null when it cannot match app-side semantics
+// (count-distinct and non-numeric-property operands stay app-side). Numeric aggregates cast to
+// double precision so results match JS float arithmetic; over an empty numeric set they yield NULL.
+export const measureAggregationSql = (
+	aggregation: AggregationSpec,
+	resolve: RootAliasResolve,
+): SqlFragment | null => {
+	if (aggregation.function === "count") {
+		return aggregation.distinctBy === undefined ? sql`COUNT(*)` : null;
+	}
+	const operand = aggregation.expr;
+	if (operand.type !== "ref" || operand.field.type !== "property") {
+		return null;
+	}
+	const target = resolve(operand.sourceAlias);
+	if (!target) {
+		return null;
+	}
+	return sql`${sql.raw(AGGREGATE_FN_SQL[aggregation.function])}(${numericPropertyOperandSql(operand.field, target)})`;
+};
+
+// Orders grouped output by measure aliases (m0, m1, ...). Postgres defaults (ASC NULLS LAST,
+// DESC NULLS FIRST) match the app-side null ordering. Returns null if an orderBy entry is not a
+// resolvable measureRef.
+export const aggregateOrderBySql = (
+	orderBy: readonly { readonly order: "asc" | "desc"; readonly expr: Expr }[],
+	measureKeyToIndex: ReadonlyMap<string, number>,
+): SqlFragment | null => {
+	const parts: SqlFragment[] = [];
+	for (const entry of orderBy) {
+		if (entry.expr.type !== "measureRef") {
+			continue;
+		}
+		const index = measureKeyToIndex.get(entry.expr.key);
+		if (index === undefined) {
+			return null;
+		}
+		parts.push(sql`${sql.raw(`"m${index}"`)} ${entry.order === "asc" ? sql`ASC` : sql`DESC`}`);
+	}
+	return parts.length === 0 ? null : sql.join(parts, sql`, `);
+};
+
+// UTC, ISO/Monday-start weeks: Postgres date_trunc('week') is Monday-based like the app-side
+// bucketing, and the AT TIME ZONE 'UTC' sandwich truncates on UTC boundaries regardless of session
+// time zone while returning a timestamptz.
+export const timeBucketSql = (
+	bucket: TimeSeriesOutput["time"]["bucket"],
+	timeColSql: SqlFragment,
+): SqlFragment => sql`date_trunc(${bucket}, ${timeColSql} AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`;
+
+export const timeRangeConditionSql = (
+	timeColSql: SqlFragment,
+	startAt: string,
+	endAt: string,
+): SqlFragment =>
+	sql`(${timeColSql} >= ${startAt}::timestamptz AND ${timeColSql} < ${endAt}::timestamptz)`;
+
+// The timestamptz column for a system date field, or null for any other time expression. Property
+// and computed time expressions keep the app-side path (their string parsing is more lenient than
+// a SQL ::timestamptz cast, which would drift or error on non-ISO values).
+export const timeColumnSql = (field: FieldSelector, target: RootAliasTarget): SqlFragment | null =>
+	field.type === "system" && SYSTEM_DATE_FIELDS_BY_KIND[target.kind].has(field.name)
+		? systemFieldSql(field.name, target.sqlAlias)
+		: null;
