@@ -81,20 +81,20 @@ export const ExerciseDisplay = (props: {
 	reorderDrawerToggle: (exerciseIdentifier: string | null) => void;
 	openBulkDeleteModal: (exerciseIdentifier: string | null) => void;
 }) => {
-	const theme = useMantineTheme();
-	const userPreferences = useUserPreferences();
 	const navigate = useNavigate();
+	const theme = useMantineTheme();
 	const [parent] = useAutoAnimate();
+	const userPreferences = useUserPreferences();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	invariant(currentWorkout);
 	const [currentTimer, _] = useCurrentWorkoutTimerAtom();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const coreDetails = useCoreDetails();
-	const { data: exerciseDetails } = useExerciseDetails(exercise.exerciseId);
 	const { data: userExerciseDetails } = useUserExerciseDetails(
 		exercise.exerciseId,
 	);
+	const { data: exerciseDetails } = useExerciseDetails(exercise.exerciseId);
 
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const [

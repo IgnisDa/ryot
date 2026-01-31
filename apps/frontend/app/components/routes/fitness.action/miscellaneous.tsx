@@ -190,9 +190,9 @@ export const UploadAssetsModal = (props: {
 }) => {
 	const coreDetails = useCoreDetails();
 	const fileUploadAllowed = coreDetails.fileStorageEnabled;
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const [isFileUploading, setIsFileUploading] = useState(false);
 	const deleteS3AssetMutation = useDeleteS3AssetMutation();
+	const [isFileUploading, setIsFileUploading] = useState(false);
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
 	const exerciseIdx = currentWorkout?.exercises.findIndex(
 		(e) => e.identifier === props.modalOpenedBy,

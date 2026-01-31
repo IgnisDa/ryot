@@ -18,8 +18,8 @@ export const EditEntityCollectionInformationForm = ({
 }: {
 	closeEditEntityCollectionInformationModal: () => void;
 }) => {
-	const userCollections = useUserCollections();
 	const events = useApplicationEvents();
+	const userCollections = useUserCollections();
 	const [editEntityCollectionInformationData] =
 		useEditEntityCollectionInformation();
 	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();

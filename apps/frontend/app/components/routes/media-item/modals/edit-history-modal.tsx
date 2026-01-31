@@ -44,10 +44,10 @@ export const EditHistoryItemModal = (props: {
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
 	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
-	const watchProviders = useGetWatchProviders(metadataDetails?.lot);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 	);
+	const watchProviders = useGetWatchProviders(metadataDetails?.lot);
 	const [manualTimeSpentValue, setManualTimeSpentValue] =
 		useState<DurationInput>(
 			convertSecondsToDuration(props.seen.manualTimeSpent),

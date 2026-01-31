@@ -87,13 +87,13 @@ export const CollectionsFilter = (props: {
 	applied: MediaCollectionFilter[];
 	onFiltersChanged: (val: MediaCollectionFilter[]) => void;
 }) => {
-	const coreDetails = useCoreDetails();
-	const collections = useNonHiddenUserCollections();
 	const [parent] = useAutoAnimate();
+	const coreDetails = useCoreDetails();
 	const [filters, filtersHandlers] = useListState<{
 		id: string;
 		data: MediaCollectionFilter;
 	}>(props.applied.map((a) => ({ data: a, id: randomId() })));
+	const collections = useNonHiddenUserCollections();
 
 	useDidUpdate(() => {
 		const applicableFilters = coreDetails.isServerKeyValidated

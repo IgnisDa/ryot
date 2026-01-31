@@ -332,12 +332,12 @@ const DisplayFitnessEntity = (props: {
 	entityId: string;
 	entity: FitnessEntity;
 }) => {
+	const [parent] = useAutoAnimate();
 	const unitSystem = useUserUnitSystem();
 	const { ref, inViewport } = useInViewport();
-	const [parent] = useAutoAnimate();
-	const [showDetails, setShowDetails] = useDisclosure(false);
-	const bulkEditingCollection = useBulkEditCollection();
 	const bulkEditingState = useBulkEditingState();
+	const bulkEditingCollection = useBulkEditCollection();
+	const [showDetails, setShowDetails] = useDisclosure(false);
 	const entityLot =
 		props.entity === FitnessEntity.Workouts
 			? EntityLot.Workout
