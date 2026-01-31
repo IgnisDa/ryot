@@ -9,12 +9,12 @@ codegen-units = 1
 [workspace.dependencies]
 aes-gcm = "=0.10.3"
 anyhow = "=1.0.100"
-apalis = { version = "=1.0.0-rc.2", features = [
+apalis = { version = "=1.0.0-rc.3", features = [
     "catch-panic",
     "limit",
     "retry",
 ] }
-apalis-codec = "=0.1.0-rc.2"
+apalis-codec = "=0.1.0-rc.3"
 apalis-cron = "=1.0.0-rc.2"
 apalis-postgres = "=1.0.0-rc.2"
 argon2 = { version = "=0.6.0-rc.2", features = ["getrandom"] }
