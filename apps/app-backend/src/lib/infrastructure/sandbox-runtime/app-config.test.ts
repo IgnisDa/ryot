@@ -1,6 +1,6 @@
 import { pluginConfigEnvironmentKey } from "@ryot/config";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { ConfigProvider, Effect, Layer } from "effect";
+import { ConfigProvider, Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { getPluginConfigValue, getSystemConfigValue } from "./app-config";
@@ -33,8 +33,8 @@ const runPluginConfig = (
 	values: Readonly<Record<string, string>>,
 	requiredPluginConfigKeys: ReadonlyArray<string> = [key],
 ) => {
-	const configProvider = ConfigProvider.fromMap(
-		new Map(
+	const configProvider = ConfigProvider.fromUnknown(
+		Object.fromEntries(
 			Object.entries(values).map(([configKey, value]) => [
 				pluginConfigEnvironmentKey(pluginSlug, configKey),
 				value,
@@ -47,12 +47,17 @@ const runPluginConfig = (
 			pluginSlug,
 			configSchema: pluginConfigSchema,
 			metadata: { requiredPluginConfigKeys },
-		}).pipe(Effect.either, Effect.provide(Layer.setConfigProvider(configProvider))),
+		}).pipe(Effect.result, Effect.provide(ConfigProvider.layer(configProvider))),
 	);
 };
 
 const runSystemConfig = (key: string, requiredSystemConfigKeys: ReadonlyArray<string> = [key]) =>
-	Effect.runSync(getSystemConfigValue(key, { requiredSystemConfigKeys }).pipe(Effect.either));
+	Effect.runSync(
+		getSystemConfigValue(key, { requiredSystemConfigKeys }).pipe(
+			Effect.result,
+			Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({}))),
+		),
+	);
 
 describe("getPluginConfigValue", () => {
 	it("derives stable environment keys from the plugin slug and config key", () => {
@@ -64,42 +69,42 @@ describe("getPluginConfigValue", () => {
 	it("reads and parses declared plugin config from the config provider", () => {
 		expect(
 			runPluginConfig("requestLimit", { apiToken: "secret", requestLimit: "12" }),
-		).toMatchObject({ _tag: "Right", right: 12 });
+		).toMatchObject({ _tag: "Success", success: 12 });
 		expect(runPluginConfig("enabled", { apiToken: "secret", enabled: "true" })).toMatchObject({
-			_tag: "Right",
-			right: true,
+			_tag: "Success",
+			success: true,
 		});
 	});
 
 	it("rejects undeclared, unknown, and unconfigured plugin config", () => {
 		expect(runPluginConfig("apiToken", { apiToken: "secret" }, [])).toMatchObject({
-			_tag: "Left",
-			left: expect.stringContaining("is not declared"),
+			_tag: "Failure",
+			failure: expect.stringContaining("is not declared"),
 		});
 		expect(runPluginConfig("missing", { apiToken: "secret" })).toMatchObject({
-			_tag: "Left",
-			left: expect.stringContaining("does not exist"),
+			_tag: "Failure",
+			failure: expect.stringContaining("does not exist"),
 		});
 		expect(runPluginConfig("enabled", { apiToken: "secret" })).toMatchObject({
-			_tag: "Left",
-			left: expect.stringContaining("is not configured"),
+			_tag: "Failure",
+			failure: expect.stringContaining("is not configured"),
 		});
 	});
 });
 
 describe("getSystemConfigValue", () => {
 	it("returns an allowlisted, declared system config value", () => {
-		expect(runSystemConfig("timezone")).toMatchObject({ _tag: "Right", right: "Etc/GMT" });
+		expect(runSystemConfig("timezone")).toMatchObject({ _tag: "Success", success: "Etc/GMT" });
 	});
 
 	it("rejects undeclared and non-plugin-readable system config", () => {
 		expect(runSystemConfig("timezone", [])).toMatchObject({
-			_tag: "Left",
-			left: expect.stringContaining("is not declared"),
+			_tag: "Failure",
+			failure: expect.stringContaining("is not declared"),
 		});
 		expect(runSystemConfig("port")).toMatchObject({
-			_tag: "Left",
-			left: expect.stringContaining("is not available to plugins"),
+			_tag: "Failure",
+			failure: expect.stringContaining("is not available to plugins"),
 		});
 	});
 });

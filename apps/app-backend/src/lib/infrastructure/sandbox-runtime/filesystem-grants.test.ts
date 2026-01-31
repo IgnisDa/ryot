@@ -1,8 +1,7 @@
-import { FileSystem, Path } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import { BunServices } from "@effect/platform-bun";
 import { it } from "@effect/vitest";
 import { SANDBOX_HOST_CAPABILITIES } from "@ryot/sandbox-sdk/core";
-import { Effect, Option, type Scope } from "effect";
+import { Cause, Effect, Option, type Scope, FileSystem, Path } from "effect";
 import { assert, describe, expect, it as vitestIt } from "vitest";
 
 import {
@@ -26,7 +25,7 @@ const withTempRoot = <A, E>(
 		const fs = yield* FileSystem.FileSystem;
 		const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-grants-" });
 		return yield* use(root);
-	}).pipe(Effect.provide(BunContext.layer));
+	}).pipe(Effect.provide(BunServices.layer));
 
 describe("sandbox filesystem grant gating", () => {
 	vitestIt("treats the capability as the gate and the dispatched path as its parameter", () => {
@@ -75,13 +74,13 @@ describe("sandbox grant path validation", () => {
 					"Sandbox artifact grant path must be inside /tmp/ryot-root",
 				);
 				expect(reject("/tmp/ryot-root/nested/export.zip")).toBeNull();
-			}).pipe(Effect.provide(BunContext.layer)),
+			}).pipe(Effect.provide(BunServices.layer)),
 		),
 	);
 });
 
 describe("sandbox scratch quota", () => {
-	it.scoped("passes under the quota and fails the execution above it", () =>
+	it.effect("passes under the quota and fails the execution above it", () =>
 		withTempRoot((root) =>
 			Effect.gen(function* () {
 				const path = yield* Path.Path;
@@ -109,7 +108,7 @@ describe("sandbox scratch quota", () => {
 });
 
 describe("sandbox scratch chunk harvest", () => {
-	it.scoped("copies only the named chunks into kernel-owned storage", () =>
+	it.effect("copies only the named chunks into kernel-owned storage", () =>
 		withTempRoot((root) =>
 			Effect.gen(function* () {
 				const path = yield* Path.Path;
@@ -141,7 +140,7 @@ describe("sandbox scratch chunk harvest", () => {
 		),
 	);
 
-	it.scoped("fails on a manifest naming a missing or escaping chunk", () =>
+	it.effect("fails on a manifest naming a missing or escaping chunk", () =>
 		withTempRoot((root) =>
 			Effect.gen(function* () {
 				const path = yield* Path.Path;
@@ -158,8 +157,8 @@ describe("sandbox scratch chunk harvest", () => {
 					}),
 				);
 				assert(missing._tag === "Failure");
-				expect(String(missing.cause)).toContain(
-					'Sandbox scratch manifest names a missing chunk file "chunk-0.json"',
+				expect(Cause.findErrorOption(missing.cause)).toEqual(
+					Option.some('Sandbox scratch manifest names a missing chunk file "chunk-0.json"'),
 				);
 
 				const escaping = yield* Effect.exit(
@@ -170,8 +169,10 @@ describe("sandbox scratch chunk harvest", () => {
 					}),
 				);
 				assert(escaping._tag === "Failure");
-				expect(String(escaping.cause)).toContain(
-					'Sandbox scratch manifest entry "../outside.json" escapes the scratch directory',
+				expect(Cause.findErrorOption(escaping.cause)).toEqual(
+					Option.some(
+						'Sandbox scratch manifest entry "../outside.json" escapes the scratch directory',
+					),
 				);
 			}),
 		),
@@ -185,7 +186,7 @@ describe("sandbox scratch chunk harvest", () => {
 		expect(Option.isNone(decodeSandboxScratchManifest(null))).toBe(true);
 	});
 
-	it.scoped("removes only harvested directories owned by one execution prefix", () =>
+	it.effect("removes only harvested directories owned by one execution prefix", () =>
 		withTempRoot((root) =>
 			Effect.gen(function* () {
 				const path = yield* Path.Path;
@@ -209,7 +210,7 @@ describe("sandbox scratch chunk harvest", () => {
 });
 
 describe("sandbox scratch cleanup", () => {
-	it.scoped("removes the scratch directory when the execution scope closes cleanly", () =>
+	it.effect("removes the scratch directory when the execution scope closes cleanly", () =>
 		withTempRoot((root) =>
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
@@ -224,7 +225,7 @@ describe("sandbox scratch cleanup", () => {
 		),
 	);
 
-	it.scoped("removes the scratch directory when the execution fails or dies", () =>
+	it.effect("removes the scratch directory when the execution fails or dies", () =>
 		withTempRoot((root) =>
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
@@ -235,7 +236,7 @@ describe("sandbox scratch cleanup", () => {
 					Effect.scoped(
 						acquireSandboxScratchDirectory(root).pipe(
 							Effect.tap((directory) => Effect.sync(() => captured.push(directory))),
-							Effect.zipRight(abort),
+							Effect.andThen(abort),
 						),
 					).pipe(Effect.exit);
 
