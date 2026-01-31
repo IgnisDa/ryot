@@ -38,19 +38,19 @@ export interface BulkCollectionEditingAffixProps {
 export const BulkCollectionEditingAffix = (
 	props: BulkCollectionEditingAffixProps,
 ) => {
+	const userCollections = useUserCollections();
 	const bulkEditingCollection = useBulkEditCollection();
 	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
 	const removeEntitiesFromCollection =
 		useRemoveEntitiesFromCollectionMutation();
-	const userCollections = useUserCollections();
 	const [bulkExtraInformation, setBulkExtraInformation] = useState<
 		Record<string, unknown>
 	>({});
+	const { formRef, isFormValid } = useFormValidation([bulkExtraInformation]);
 	const [
 		extraInformationModalOpened,
 		{ open: openExtraInformationModal, close: closeExtraInformationModal },
 	] = useDisclosure(false);
-	const { formRef, isFormValid } = useFormValidation([bulkExtraInformation]);
 
 	const bulkEditingCollectionState = bulkEditingCollection.state;
 
@@ -111,9 +111,10 @@ export const BulkCollectionEditingAffix = (
 			openExtraInformationModal();
 			return;
 		}
-		openConfirmationModal(getConfirmationMessage(), () => {
-			void handleBulkAction();
-		});
+		openConfirmationModal(
+			getConfirmationMessage(),
+			() => void handleBulkAction(),
+		);
 	};
 
 	const closeExtraInformation = () => {
@@ -124,9 +125,9 @@ export const BulkCollectionEditingAffix = (
 	const handleExtraInformationSubmit = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		const information = bulkExtraInformation;
-		openConfirmationModal(getConfirmationMessage(), async () => {
-			handleBulkAction(information).then(() => closeExtraInformation());
-		});
+		openConfirmationModal(getConfirmationMessage(), () =>
+			handleBulkAction(information).then(() => closeExtraInformation()),
+		);
 	};
 
 	const isLoading =
@@ -136,8 +137,8 @@ export const BulkCollectionEditingAffix = (
 		<>
 			<Modal
 				centered
-				opened={extraInformationModalOpened}
 				onClose={closeExtraInformation}
+				opened={extraInformationModalOpened}
 				title={`Add extra information to "${collection.name}"`}
 			>
 				<form ref={formRef} onSubmit={handleExtraInformationSubmit}>
