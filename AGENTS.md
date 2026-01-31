@@ -165,7 +165,6 @@ This pattern applies to:
 
 - React hook calls at the start of components
 - Sequential `const`/`let` declarations
-- Return object fields
 
 **Return Object Example:**
 
