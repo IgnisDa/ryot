@@ -9,7 +9,8 @@
 - When running bash commands (`git`, `sed`), please remember to quote the paths using
   single quotes since they often contain special characters.
 - When getting data from GitHub, try using the `gh` CLI and make raw requests only when
-  absolutely necessary.
+  absolutely necessary. It is particularly useful for fetching source code of libraries
+  that the project depends on.
 - When making changes to the code, run the following commands often to ensure that the
   changes you are making do not break anything:
 
