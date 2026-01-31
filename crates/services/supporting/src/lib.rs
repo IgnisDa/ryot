@@ -55,22 +55,10 @@ impl SupportingService {
 
     pub async fn perform_application_job(&self, job: ApplicationJob) -> Result<()> {
         match job {
-            ApplicationJob::Lp(job) => {
-                let mut backend = self.lp_application_job.clone();
-                backend.push(job).await.ok();
-            }
-            ApplicationJob::Hp(job) => {
-                let mut backend = self.hp_application_job.clone();
-                backend.push(job).await.ok();
-            }
-            ApplicationJob::Mp(job) => {
-                let mut backend = self.mp_application_job.clone();
-                backend.push(job).await.ok();
-            }
-            ApplicationJob::Single(job) => {
-                let mut backend = self.single_application_job.clone();
-                backend.push(job).await.ok();
-            }
+            ApplicationJob::Lp(job) => self.lp_application_job.clone().push(job).await?,
+            ApplicationJob::Hp(job) => self.hp_application_job.clone().push(job).await?,
+            ApplicationJob::Mp(job) => self.mp_application_job.clone().push(job).await?,
+            ApplicationJob::Single(job) => self.single_application_job.clone().push(job).await?,
         }
         Ok(())
     }
