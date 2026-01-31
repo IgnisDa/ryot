@@ -1,6 +1,7 @@
 import { EntitySchemaId, SandboxScriptId, TrackerId } from "@ryot/app-backend/schema/brands";
 import type { AppSchema } from "@ryot/app-backend/schema/property-schema";
 
+import { getPgClient } from "../setup";
 import { assertPresent, requirePresent } from "../test-support/assertions";
 
 export type { AppSchema };
@@ -105,6 +106,19 @@ export async function findBuiltinSchemaBySlug(client: Client, slug: string) {
 
 	throw new Error(`Built-in entity schema '${slug}' not found`);
 }
+
+// Structural sub-entity schemas (show-season, show-episode, podcast-episode) are
+// global (user_id null) and not linked to any user tracker, so the tracker-scoped
+// entity-schema list API cannot reach them. Look them up directly instead.
+export const getBuiltinEntitySchemaId = async (slug: string) => {
+	const result = await getPgClient().query<{ id: string }>(
+		`select id from entity_schema where slug = $1 and user_id is null and is_builtin = true limit 1`,
+		[slug],
+	);
+	const row = result.rows[0];
+	assertPresent(row, `Expected builtin entity schema '${slug}'`);
+	return row.id;
+};
 
 export async function listBuiltinEntitySchemas(client: Client) {
 	const trackers = await listTrackers(client, {
