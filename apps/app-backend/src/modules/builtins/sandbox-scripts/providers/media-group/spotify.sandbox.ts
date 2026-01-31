@@ -10,7 +10,7 @@ export const manifest = defineManifest({
 	slug: "music-group.spotify",
 	providerInformation: { source: "spotify" },
 	capabilities: ["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"],
-	requiredAppConfigKeys: ["providers.spotifyClientId", "providers.spotifyClientSecret"],
+	requiredAppConfigKeys: ["music.spotifyClientId", "music.spotifyClientSecret"],
 });
 
 export const search = defineProviderDriver(manifest, "search", (input, host) => {

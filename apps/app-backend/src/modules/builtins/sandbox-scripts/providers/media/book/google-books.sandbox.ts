@@ -31,7 +31,7 @@ const parseJsonResponse = (responseBody: string) => {
 };
 
 const getGoogleBooksApiKey = (host: GoogleBooksHost) =>
-	host.getAppConfigValue("providers.googleBooksApiKey").then((response) => {
+	host.getAppConfigValue("books.googleBooksApiKey").then((response) => {
 		if (!response.success) {
 			throw new Error(response.error || "Could not load Google Books API key");
 		}
@@ -155,7 +155,7 @@ export const manifest = defineManifest({
 	slug: "book.google-books",
 	capabilities: ["httpCall", "getAppConfigValue"],
 	providerInformation: { source: "google-books" },
-	requiredAppConfigKeys: ["providers.googleBooksApiKey"],
+	requiredAppConfigKeys: ["books.googleBooksApiKey"],
 });
 
 export const search = defineProviderDriver(manifest, "search", (input, host) =>

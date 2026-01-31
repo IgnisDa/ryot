@@ -15,7 +15,7 @@ export const manifest = defineManifest({
 	slug: "company.tmdb",
 	providerInformation: { source: "tmdb" },
 	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["providers.tmdbAccessToken"],
+	requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
 });
 
 export const search = defineProviderDriver(manifest, "search", (input, host) =>
