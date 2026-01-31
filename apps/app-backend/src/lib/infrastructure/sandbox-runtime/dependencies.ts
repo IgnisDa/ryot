@@ -1,4 +1,4 @@
-import { FileSystem } from "@effect/platform";
+import { FileSystem, Path } from "@effect/platform";
 import { SANDBOX_RUNTIME_SDK_IMPORTS, SANDBOX_SDK_ROOT_IMPORT } from "@ryot/sandbox-sdk/imports";
 import { Data, Effect } from "effect";
 
@@ -262,10 +262,11 @@ const publishRuntimeDirectory = (
 
 export const ensureSandboxRuntimeDependencies = (denoDir: string) =>
 	Effect.gen(function* () {
+		const path = yield* Path.Path;
 		const fs = yield* FileSystem.FileSystem;
 		yield* fs.makeDirectory(denoDir, { recursive: true });
 
-		const from = Bun.fileURLToPath(new URL(".", import.meta.url));
+		const from = yield* path.fromFileUrl(new URL(".", import.meta.url));
 		const sdkEntry = yield* Effect.try({
 			try: () => Bun.resolveSync(SANDBOX_SDK_ROOT_IMPORT, from),
 			catch: (error) =>

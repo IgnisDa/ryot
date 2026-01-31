@@ -1,8 +1,15 @@
+import { FileSystem, Path } from "@effect/platform";
+import { BunContext } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
 const readModule = (path: string) =>
-	Effect.promise(() => Bun.file(new URL(path, import.meta.url)).text());
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const paths = yield* Path.Path;
+		const modulePath = yield* paths.fromFileUrl(new URL(path, import.meta.url));
+		return yield* fs.readFileString(modulePath);
+	});
 
 const readModules = (paths: ReadonlyArray<string>) =>
 	Effect.all(paths.map(readModule)).pipe(Effect.map((sources) => sources.join("\n")));
@@ -77,7 +84,7 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 		expect(
 			integrationWorkflow.match(/\.execute\(ProcessNormalizedMediaImportWorkflow,/g)?.length ?? 0,
 		).toBe(1);
-	}),
+	}).pipe(Effect.provide(BunContext.layer)),
 );
 
 it.effect("keeps parent workflows as orchestrations instead of queue pass-through wrappers", () =>
@@ -103,7 +110,7 @@ it.effect("keeps parent workflows as orchestrations instead of queue pass-throug
 		expect(integrationWorkflow).toContain("mark-integration-run-started");
 		expect(integrationWorkflow).toContain("finalize-integration-run");
 		expect(integrationWorkflow).toContain("ProcessNormalizedMediaImportWorkflow");
-	}),
+	}).pipe(Effect.provide(BunContext.layer)),
 );
 
 it.effect("keeps event workflow and repository primitives behind EventsService", () =>
@@ -122,11 +129,13 @@ it.effect("keeps event workflow and repository primitives behind EventsService",
 
 		expect(collectionsService).not.toContain("EventCreateWorkflow");
 		expect(collectionsAddWorkflow.match(/\.execute\(EventCreateWorkflow,/g)?.length ?? 0).toBe(1);
-	}),
+	}).pipe(Effect.provide(BunContext.layer)),
 );
 
 it.effect("keeps provider entity population behind the canonical workflow", () =>
 	Effect.gen(function* () {
+		const paths = yield* Path.Path;
+		const fs = yield* FileSystem.FileSystem;
 		const [
 			populationWorkflow,
 			libraryWorkflow,
@@ -167,7 +176,7 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 		// module may import it — callers must dispatch ProviderEntityPopulationWorkflow through
 		// the engine. Scan every source file (not just today's known callers) so a newly added
 		// module cannot bypass the single-owner boundary undetected.
-		const sourceRoot = Bun.fileURLToPath(new URL("../../", import.meta.url));
+		const sourceRoot = yield* paths.fromFileUrl(new URL("../../", import.meta.url));
 		const productionPaths = yield* Effect.sync(() =>
 			Array.from(new Bun.Glob("**/*.ts").scanSync({ cwd: sourceRoot, absolute: true }))
 				.map((absolutePath) => absolutePath.replaceAll("\\", "/"))
@@ -179,7 +188,7 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 		);
 		const productionSources = yield* Effect.all(
 			productionPaths.map((path) =>
-				Effect.promise(() => Bun.file(path).text()).pipe(Effect.map((text) => ({ path, text }))),
+				fs.readFileString(path).pipe(Effect.map((text) => ({ path, text }))),
 			),
 		);
 
@@ -187,5 +196,5 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 		for (const { path, text } of productionSources) {
 			expect(text, path).not.toContain("runProviderEntityPopulationWorkflow");
 		}
-	}),
+	}).pipe(Effect.provide(BunContext.layer)),
 );
