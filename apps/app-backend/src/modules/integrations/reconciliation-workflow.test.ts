@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 
@@ -25,7 +25,7 @@ const run = (input: {
 });
 
 type ExecuteStub = (
-	...args: Parameters<WorkflowEngine["Type"]["execute"]>
+	...args: Parameters<WorkflowEngine["Service"]["execute"]>
 ) => Effect.Effect<unknown, unknown>;
 
 const integrationsServiceMock = Layer.mock(IntegrationsService);
@@ -33,7 +33,6 @@ const integrationsServiceMock = Layer.mock(IntegrationsService);
 const makeIntegrationsService = (runs: ReadonlyArray<IntegrationReconciliationRun>) =>
 	integrationsServiceMock({
 		prepareScheduledYankRuns: () => Effect.succeed([...runs]),
-		_tag: "IntegrationsService",
 	});
 
 const withEngine = <A, E, R>(
@@ -55,7 +54,7 @@ const withEngine = <A, E, R>(
 };
 
 it.effect("dispatches a process run for every eligible integration from the body", () => {
-	const captured: Array<Parameters<WorkflowEngine["Type"]["execute"]>[1]> = [];
+	const captured: Array<Parameters<WorkflowEngine["Service"]["execute"]>[1]> = [];
 	const runs = [
 		run({ runId: "run-1", userId: "user-1", integrationId: "integration-1" }),
 		run({ runId: "run-2", userId: "user-2", integrationId: "integration-2" }),
