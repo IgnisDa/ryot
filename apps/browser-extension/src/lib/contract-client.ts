@@ -31,7 +31,7 @@ export const lookupMetadata = async (integrationUrl: string, title: string) => {
 			client.plugins
 				.invoke({
 					payload: { payload: request.payload },
-					path: {
+					params: {
 						operationSlug: request.operationSlug,
 						pluginSlug: PluginSlug.make(request.pluginSlug),
 					},
@@ -54,6 +54,6 @@ export const postIntegrationWebhook = (
 ) => {
 	const { integrationId } = resolveConnection(integrationUrl);
 	return runForIntegration(integrationUrl, (client) =>
-		client.integrations.webhook({ payload, path: { integrationId } }),
+		client.integrations.webhook({ payload, params: { integrationId } }),
 	);
 };
