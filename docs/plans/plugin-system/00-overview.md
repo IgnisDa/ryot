@@ -1,10 +1,11 @@
 # Plugin System Rewrite — Overview
 
-Status: complete. Phases 1 and 2 and all 12 Phase 3 tasks are complete. The Task 10 imports and
+Status: in progress. Phases 1 and 2 and all 12 Phase 3 tasks are complete. The Task 10 imports and
 integration failures were reproduced and repaired, the standard e2e suite passes all 79 files and
 501 tests, and the opt-in operational gate passes at its unchanged two-concurrent-1,001-item workload
 and 15-minute budget. Task 12 was completed under an explicit owner waiver of its then-open Task 11
-prerequisite; Task 11 subsequently closed the full Phase 3 gate.
+prerequisite; Task 11 subsequently closed the full Phase 3 gate. Phase 4 is next. Phase 5 is a
+separate planned milestone for user-level plugin installation and must not expand Phase 4.
 Branch: `ultra-rewrite` (all work is local; there is no
 CI and `apps/app-backend` is not deployed anywhere, so there are no release, rollout, or
 data-migration constraints — dev databases are wipeable and the initial drizzle migration may
@@ -18,9 +19,11 @@ Read this completely before opening any phase file. The phase files are:
 | `02-phase-2-plugin-contract-and-loader.md` | Plugin manifest, ingestion, loader, hot-load; builtins become two plugin packages |
 | `03-phase-3-capability-migrations.md`      | Native domain modules move into the plugins, one capability at a time             |
 | `04-phase-4-hardening-and-purity.md`       | Purity enforcement, performance, limits, test-tree reorganization                 |
+| `05-phase-5-user-level-plugins.md`         | Shared plugin packages with independent user-owned installations                  |
 
 Phases are strictly ordered. Do not begin a phase before the previous phase's done criteria
-are all met. Within Phase 3, the numbered steps are also strictly ordered.
+are all met. Within Phase 3, the numbered steps are also strictly ordered. Phase 5 remains a
+planning record with open questions until Phase 4 is complete and its own design is approved.
 
 The sandbox single-entrypoint rewrite in `../sandbox-single-entrypoint.md` is complete and is the
 runtime baseline for all remaining work. Any older text in this plan set that refers to driver
@@ -48,7 +51,7 @@ source-code bundles of declarative schema definitions plus sandboxed scripts —
 one loader. The sandbox host functions are the syscall surface between kernel and plugins.
 First-party plugins are "trusted" only in the sense that the owner writes them; the kernel
 does not know or care, and the same loader supports runtime (hot) installation, which is how
-user-authored plugins will arrive later.
+user-authored plugins will arrive in Phase 5 through a separately designed user-installation layer.
 
 ## Decision record
 
@@ -169,22 +172,24 @@ These were settled in design discussion with the project owner. All are **[DECID
     per-step done criterion. No big-bang test rewrite.
 17. **Consumers.** `apps/app-client` uses none of the removed surfaces (verified: zero
     references to the `entitySchemas`/`trackers`/`eventSchemas`/`relationshipSchemas` contract
-    groups or to `entitySchemaId`/`trackerId`). `apps/app-client-backup` is slated for removal
-    — ignore it entirely. The browser extension depends on metadata-lookup endpoints and
+    groups or to `entitySchemaId`/`trackerId`). `apps/app-client-backup` is retained as a reference;
+    its eventual deletion is deferred and must remain marked in affected files. The browser
+    extension depends on metadata-lookup endpoints and
     migrates together with Phase 3 step 2. `apps/backend` and `apps/frontend` are the legacy
     system — not touched by this plan.
 18. **Slug namespacing** [RECOMMENDED]: builtin plugin slugs stay bare (`movie`, `workout`,
     `progress`) exactly as today, minimizing churn in query recipes, fixtures, and the
     frontend. The loader rejects slug collisions at ingestion. The `/` character is forbidden
-    in slugs now and reserved as a namespace separator, so future third-party namespacing
-    (`acme/movie`) is purely additive.
+    in slugs now and reserved as a namespace separator. Phase 5 owns the actual physical identity
+    and namespacing design for unrelated user-uploaded packages; do not assume that activating `/`
+    alone is sufficient.
 19. **There is no per-user standalone sandbox-script feature.** All extension — first-party
     and user-authored alike — arrives as plugins. The codebase still carries the old
     mechanism, a strictly weaker duplicate of plugins (an individual user authors a single
     script through the `sandbox` contract group, compiled server-side, stored in
     `sandbox_script` with their `userId`, usable as a private provider) — Phase 2 §8 deletes
     it. Accepted trade-off: on a multi-user instance, a non-admin user cannot self-serve a
-    private provider; that capability returns with the user-authored-plugins milestone.
+    private provider; that capability returns through Phase 5's user-level plugin installations.
     Execution machinery and per-executing-user cache isolation survive. The later
     single-entrypoint rewrite replaces `entity.sandboxScriptId` provenance with logical
     `entity.providerId` — only the user-facing authoring surface and per-user script
@@ -269,11 +274,13 @@ the named surfaces, but do not restore the superseded architecture.
 
 ### Native domain modules (the code that must end up inside plugins)
 
-The Phase 3 domain migrations are complete. Native `media-monitoring` and its contract are deleted;
-operations, workflows, and crons are plugin-owned, and no media- or fitness-specific module remains
-outside the documented `modules/legacy-bootstrap` V1-adoption quarantine. The comprehensive kernel
-purity grep and triage are recorded in `03-phase-3-capability-migrations.md`. Task 12's cleanup pass
-additionally removed the last native import-adapter residue from the kernel
+The Phase 3 capability migrations are complete. Native `media-monitoring` and its contract are
+deleted, and the migrated operations, workflows, crons, and adapters are plugin-owned. Phase 4's
+broader audit subsequently found cross-cutting media library ownership still hidden in the native
+`library-membership` feature and generic collection, event, import, user-bootstrap, user-state,
+contract, query-recipe, and test-support paths. Those findings supersede Phase 3's narrower statement
+that only `legacy-bootstrap` retained domain code and are explicit Phase 4 purity work. Task 12's
+cleanup pass removed the native import-adapter residue from the kernel
 (`modules/imports/runtime/source-api.ts` and `runtime/csv.ts`, whose surfaces the plugins now own),
 and moved `legacy-bootstrap`'s V2 entity provenance from script identity to logical `provider_id`.
 The Task 10 imports and integrations e2e follow-ups were repaired, and the successful operational
@@ -337,8 +344,9 @@ the signal.
    capability is built before the Phase 3 step that consumes it.
 4. **One capability in flight at a time.** Finish (native module deleted, suite green) before
    starting the next.
-5. **YAGNI.** No plugin-dependency resolution, no plugin marketplace/signing, no public
-   install endpoint, no speculative manifest fields. All are explicit non-goals for this plan.
+5. **YAGNI through Phase 4.** No plugin-dependency resolution, marketplace/signing, public user
+   installation, or speculative Phase 5 manifest fields are built during Phases 1-4. Phase 5 owns
+   user-level installation and retains its own unresolved non-goals.
 6. **Existing module conventions hold** (`apps/app-backend/AGENTS.md`): Effect service
    classes, thin routes, repository-owned writes, durable ownership rules, no transaction
    across sandbox execution, contract lives in `libs/contract`.

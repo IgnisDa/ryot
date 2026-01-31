@@ -35,20 +35,20 @@ and you record the choice you make in the plan file.
 
 ### Task List
 
-| #   | Task                                                                                                            | Type | Status      |
-| --- | --------------------------------------------------------------------------------------------------------------- | ---- | ----------- |
-| 01  | [Step 0a — Effect-Native Sandbox Cutover](./01-effect-native-sandbox-cutover.md)                                | AFK  | done        |
-| 02  | [Step 0b — Structured Sandbox Observability](./02-structured-sandbox-observability.md)                          | AFK  | done        |
-| 03  | [Step 1 — Crons & Boot: media-trending + exercises](./03-crons-trending-exercises.md)                           | AFK  | done        |
-| 04  | [Step 2 — Operations/invoke: metadata-lookup + episode-resolver](./04-operations-invoke-lookup-resolver.md)     | AFK  | done        |
-| 05  | [Step 3a — Durable Workflow Spike](./05-durable-workflow-spike.md)                                              | HITL | done        |
-| 06  | [Step 3b — Durable Workflows: media import population/resolution](./06-durable-workflows-media-import.md)       | AFK  | done        |
-| 07  | [Step 4a — Kernel Capability: Manifest Sections, FS Grants, Deps](./07-integration-import-kernel-capability.md) | AFK  | done        |
-| 08  | [Step 4b — Integration Adapters: Sinks + Yanks into media](./08-integration-adapters-media.md)                  | AFK  | done        |
-| 09  | [Step 4c — Import Framework Collapse + Fitness Import Sources](./09-import-framework-fitness-sources.md)        | AFK  | done        |
-| 10  | [Step 4d — Media Import Sources into media](./10-media-import-sources.md)                                       | AFK  | done        |
-| 11  | [Step 5 — media-monitoring + Remaining Media Logic + Phase Gate](./11-media-monitoring-and-phase-gate.md)       | AFK  | done        |
-| 12  | [Codebase Cleanup](./12-codebase-cleanup.md)                                                                    | AFK  | done        |
+| #   | Task                                                                                                            | Type | Status |
+| --- | --------------------------------------------------------------------------------------------------------------- | ---- | ------ |
+| 01  | [Step 0a — Effect-Native Sandbox Cutover](./01-effect-native-sandbox-cutover.md)                                | AFK  | done   |
+| 02  | [Step 0b — Structured Sandbox Observability](./02-structured-sandbox-observability.md)                          | AFK  | done   |
+| 03  | [Step 1 — Crons & Boot: media-trending + exercises](./03-crons-trending-exercises.md)                           | AFK  | done   |
+| 04  | [Step 2 — Operations/invoke: metadata-lookup + episode-resolver](./04-operations-invoke-lookup-resolver.md)     | AFK  | done   |
+| 05  | [Step 3a — Durable Workflow Spike](./05-durable-workflow-spike.md)                                              | HITL | done   |
+| 06  | [Step 3b — Durable Workflows: media import population/resolution](./06-durable-workflows-media-import.md)       | AFK  | done   |
+| 07  | [Step 4a — Kernel Capability: Manifest Sections, FS Grants, Deps](./07-integration-import-kernel-capability.md) | AFK  | done   |
+| 08  | [Step 4b — Integration Adapters: Sinks + Yanks into media](./08-integration-adapters-media.md)                  | AFK  | done   |
+| 09  | [Step 4c — Import Framework Collapse + Fitness Import Sources](./09-import-framework-fitness-sources.md)        | AFK  | done   |
+| 10  | [Step 4d — Media Import Sources into media](./10-media-import-sources.md)                                       | AFK  | done   |
+| 11  | [Step 5 — media-monitoring + Remaining Media Logic + Phase Gate](./11-media-monitoring-and-phase-gate.md)       | AFK  | done   |
+| 12  | [Codebase Cleanup](./12-codebase-cleanup.md)                                                                    | AFK  | done   |
 
 Steps are strictly ordered (`00-overview.md` phase ordering; plan intro): each task starts only
 after the previous task's done criteria and gates pass (one capability in flight at a time,
@@ -67,9 +67,10 @@ large migration lands on it. Every design question in Step 4 was settled with th
 
 Phases 1 and 2, Phase 3 Steps 0-4, and the Step 5 migration and comprehensive purity triage are
 complete. Native `media-monitoring` and its contract are deleted; operations, workflows, and crons
-are plugin-owned; and no media- or fitness-specific module remains outside the documented
-`legacy-bootstrap` V1-adoption quarantine. Task 12's cleanup pass is complete, executed under an
-explicit owner waiver of its Task 11 prerequisite.
+are plugin-owned. Phase 4's later, broader audit found cross-cutting media library policy outside
+the named Phase 3 modules; the Phase 4 plan owns that residue and supersedes this PRD's original
+purity conclusion. Task 12's cleanup pass is complete, executed under an explicit owner waiver of
+its Task 11 prerequisite.
 
 Task 11 and the full Phase 3 gate are complete. The Task 10 imports and integration failures are
 repaired, and the standard full e2e suite passes all 79 files and 501 tests. The opt-in operational
@@ -481,10 +482,9 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
 - **The frontend `app-client`'s own features:** the client is exempt from kernel purity and may
   key off well-known schema slugs (Decision 2); this phase only touches it (and the browser
   extension) where a consumed endpoint moves to `invoke` (plan §2).
-- **The general YAGNI non-goals of the whole plan:** no plugin-dependency resolution, no plugin
-  marketplace/signing, no public (non-admin) install endpoint, no speculative manifest fields
-  (cross-phase invariant 5).
-- `apps/app-client-backup` (slated for removal — ignore entirely) and the legacy
+- **The YAGNI non-goals through Phase 4:** no plugin-dependency resolution, marketplace/signing,
+  user-level installation, or speculative Phase 5 manifest fields (cross-phase invariant 5).
+- `apps/app-client-backup` (retained as a reference; deletion explicitly deferred) and the legacy
   `apps/backend`/`apps/frontend` system (untouched by this plan; Decision 17).
 
 ## Further Notes
