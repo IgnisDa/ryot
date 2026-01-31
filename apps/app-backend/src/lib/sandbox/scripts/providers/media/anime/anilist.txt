@@ -438,6 +438,7 @@ query MediaDetailsQuery($id: Int!) {
       publishYear: parsePublishYear(media.startDate),
       genres: collectGenres(media.genres, media.tags),
       isNsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
+      sourceUrl: `https://anilist.co/anime/${payloadIdentifier}/${encodeURIComponent(title)}`,
       description:
         typeof media?.description === "string" ? media.description : null,
       assets: {
