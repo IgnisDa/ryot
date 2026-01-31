@@ -44,25 +44,6 @@ mod job;
 static LOGGING_ENV_VAR: &str = "RUST_LOG";
 static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
-async fn shutdown_signal() -> std::io::Result<()> {
-    #[cfg(unix)]
-    {
-        use tokio::signal::unix::{SignalKind, signal};
-        let mut sigint = signal(SignalKind::interrupt())?;
-        let mut sigterm = signal(SignalKind::terminate())?;
-        tokio::select! {
-            _ = sigint.recv() => ryot_log!(info, "Received SIGINT, initiating graceful shutdown..."),
-            _ = sigterm.recv() => ryot_log!(info, "Received SIGTERM, initiating graceful shutdown..."),
-        }
-    }
-    #[cfg(not(unix))]
-    {
-        tokio::signal::ctrl_c().await?;
-        ryot_log!(info, "Received Ctrl+C, initiating graceful shutdown...");
-    }
-    Ok(())
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
     #[cfg(debug_assertions)]
@@ -247,18 +228,14 @@ async fn main() -> Result<()> {
                     .build(perform_lp_application_job)
             }
         })
-        .shutdown_timeout(Duration::from_secs(30))
-        .run_with_signal(shutdown_signal());
+        .run();
 
     let http = axum::serve(listener, app_router.into_make_service());
 
     if disable_background_jobs {
         let _ = join!(http);
     } else {
-        match join!(monitor, http) {
-            (Ok(_), _) => ryot_log!(info, "Background jobs shut down gracefully"),
-            (Err(e), _) => ryot_log!(error, "Background jobs error during shutdown: {}", e),
-        }
+        let _ = join!(monitor, http);
     }
 
     Ok(())
