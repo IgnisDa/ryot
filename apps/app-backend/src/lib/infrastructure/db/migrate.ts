@@ -1,6 +1,6 @@
 import { unknownToDbError } from "@ryot/contract/errors";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { dropLegacyTables } from "#modules/legacy-bootstrap/drop-tables";
 import { migrateLegacyTables } from "#modules/legacy-bootstrap/migrate-data";
@@ -21,17 +21,22 @@ const migrateDB = Effect.gen(function* () {
 	yield* Effect.logInfo("database migrations complete");
 });
 
-export class MigrationsComplete extends Effect.Service<MigrationsComplete>()("MigrationsComplete", {
-	effect: migrateDB.pipe(Effect.as({ done: true as const })),
-}) {}
+export class MigrationsComplete extends Context.Service<MigrationsComplete>()(
+	"MigrationsComplete",
+	{ make: migrateDB.pipe(Effect.as({ done: true as const })) },
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
-export class LegacyBootstrapMigrateDrop extends Effect.Service<LegacyBootstrapMigrateDrop>()(
+export class LegacyBootstrapMigrateDrop extends Context.Service<LegacyBootstrapMigrateDrop>()(
 	"LegacyBootstrapMigrateDrop",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			yield* migrateLegacyTables;
 			yield* dropLegacyTables;
 			return { done: true as const };
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
