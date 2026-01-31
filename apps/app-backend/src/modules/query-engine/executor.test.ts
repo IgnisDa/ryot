@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
 import { CurrentDb } from "#lib/db";
+import type { ArithmeticOperator } from "#lib/schema/operators";
 
 import { makeEmptyContext } from "./executor/context";
 import { evalExprValue } from "./executor/expr";
@@ -41,11 +42,7 @@ const evalExpr = (expr: Expr) =>
 		),
 	);
 
-const arithmeticExpr = (
-	operator: "add" | "subtract" | "multiply" | "divide",
-	left: number,
-	right: number,
-): Expr => ({
+const arithmeticExpr = (operator: ArithmeticOperator, left: number, right: number): Expr => ({
 	operator,
 	type: "arithmetic",
 	left: { type: "literal", value: left },
