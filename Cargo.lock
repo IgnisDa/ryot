@@ -280,25 +280,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "apalis-postgres"
-version = "1.0.0-rc.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1e1d12998964c87df0f8171bbee14783ad576dde7d1b32c87dce404977e3901"
-dependencies = [
- "apalis-codec",
- "apalis-core",
- "apalis-sql",
- "futures",
- "pin-project",
- "serde",
- "serde_json",
- "sqlx",
- "thiserror 2.0.17",
- "tokio",
- "ulid",
-]
-
-[[package]]
 name = "apalis-sql"
 version = "1.0.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -309,6 +290,26 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.17",
+]
+
+[[package]]
+name = "apalis-sqlite"
+version = "1.0.0-rc.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97a5dc503ddc3d0ec25437b3d0f62170557d7daa2d57eccf5f21c5e36bcebeab"
+dependencies = [
+ "apalis-codec",
+ "apalis-core",
+ "apalis-sql",
+ "futures",
+ "log",
+ "pin-project",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror 2.0.17",
+ "tokio",
+ "ulid",
 ]
 
 [[package]]
@@ -1037,7 +1038,7 @@ dependencies = [
  "anyhow",
  "apalis",
  "apalis-cron",
- "apalis-postgres",
+ "apalis-sqlite",
  "application-utils",
  "async-graphql",
  "async-graphql-axum",
@@ -1107,8 +1108,6 @@ dependencies = [
 name = "background-models"
 version = "0.1.0"
 dependencies = [
- "apalis-codec",
- "apalis-postgres",
  "common-models",
  "enum-models",
  "media-models",
@@ -4434,6 +4433,7 @@ version = "0.30.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2e99fb7a497b1e3339bc746195567ed8d3e24945ecd636e3619d20b9de9e9149"
 dependencies = [
+ "cc",
  "pkg-config",
  "vcpkg",
 ]
@@ -7784,6 +7784,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "apalis",
+ "apalis-codec",
+ "apalis-sqlite",
  "background-models",
  "bon",
  "chrono",

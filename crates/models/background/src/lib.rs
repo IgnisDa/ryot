@@ -1,5 +1,3 @@
-use apalis_codec::json::JsonCodec;
-use apalis_postgres::{PostgresStorage, shared::SharedFetcher};
 use common_models::{ChangeCollectionToEntitiesInput, EntityWithLot};
 use enum_models::{EntityLot, EntityTranslationVariant};
 use media_models::{
@@ -9,8 +7,6 @@ use media_models::{
 use serde::{Deserialize, Serialize};
 use strum::Display;
 use uuid::Uuid;
-
-pub type JobStorage<T> = PostgresStorage<T, Vec<u8>, JsonCodec<Vec<u8>>, SharedFetcher>;
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
 pub enum HpApplicationJob {

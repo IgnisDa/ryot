@@ -16,7 +16,7 @@ apalis = { version = "=1.0.0-rc.3", features = [
 ] }
 apalis-codec = "=0.1.0-rc.3"
 apalis-cron = "=1.0.0-rc.2"
-apalis-postgres = "=1.0.0-rc.2"
+apalis-sqlite = { version = "=1.0.0-rc.2", features = ["tokio"] }
 argon2 = { version = "=0.6.0-rc.2", features = ["getrandom"] }
 askama = "=0.15.1"
 async-graphql = { version = "=7.0.17", features = [

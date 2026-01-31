@@ -10,8 +10,7 @@ use axum::{
     routing::{Router, get, post},
 };
 use background_models::{
-    ApplicationJob, HpApplicationJob, JobStorage, LpApplicationJob, MpApplicationJob,
-    SingleApplicationJob,
+    ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob, SingleApplicationJob,
 };
 use bon::builder;
 use collection_resolver::{CollectionMutationResolver, CollectionQueryResolver};
@@ -50,6 +49,7 @@ use router_resolver::{
 };
 use sea_orm::DatabaseConnection;
 use statistics_resolver::StatisticsQueryResolver;
+use supporting_service::JobStorage;
 use supporting_service::SupportingService;
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,

@@ -12,7 +12,7 @@ use apalis::{
     prelude::{MakeShared, Monitor, WorkerBuilder},
 };
 use apalis_cron::CronStream;
-use apalis_postgres::{PostgresStorage, shared::SharedPostgresStorage};
+use apalis_sqlite::{SharedSqliteStorage, SqliteStorage};
 use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
 use config_definition::AppConfig;
 use cron::Schedule;
@@ -96,10 +96,8 @@ async fn main() -> Result<()> {
         bail!("There was an error running the database migrations.");
     };
 
-    let pool = db.get_postgres_connection_pool();
-    PostgresStorage::setup(pool).await?;
-
-    let mut store = SharedPostgresStorage::new(pool.to_owned());
+    let mut store = SharedSqliteStorage::new(":memory:");
+    SqliteStorage::setup(store.pool()).await?;
 
     let lp_application_job_storage = store.make_shared()?;
     let mp_application_job_storage = store.make_shared()?;

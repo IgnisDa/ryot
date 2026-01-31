@@ -4,8 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-apalis-codec = { workspace = true }
-apalis-postgres = { workspace = true }
 serde = { workspace = true }
 strum = { workspace = true }
 uuid = { workspace = true }
