@@ -5,7 +5,7 @@ import {
 	nonEmptyTrimmedStringSchema,
 	stringUnknownRecordSchema,
 	timestampFields,
-} from "~/lib/zod/base";
+} from "~/lib/zod";
 
 export const addToCollectionBody = z.object({
 	collectionId: z.string(),

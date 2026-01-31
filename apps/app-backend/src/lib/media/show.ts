@@ -4,7 +4,7 @@ import {
 	nullableIntSchema,
 	nullableStringSchema,
 	stringArraySchema,
-} from "../zod/base";
+} from "../zod";
 import { freeCreatorSchema, mediaPropertiesSchema } from "./common";
 
 const showEpisodeSchema = z

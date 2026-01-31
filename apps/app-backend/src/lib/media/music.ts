@@ -1,6 +1,6 @@
 import type { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
-import { nullableBooleanSchema, nullableIntSchema } from "../zod/base";
+import { nullableBooleanSchema, nullableIntSchema } from "../zod";
 import { mediaPropertiesSchema } from "./common";
 
 // duration is in seconds
