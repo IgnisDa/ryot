@@ -1,11 +1,14 @@
 import { BunRedis } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
+import type { Schema } from "effect";
 import { Context, Duration, Effect, Layer, Redacted } from "effect";
 import { ClusterWorkflowEngine, SingleRunner } from "effect/unstable/cluster";
 import { PersistedQueue } from "effect/unstable/persistence";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "./config/service";
+
+export type DurableSchema = Schema.ConstraintCodec<unknown, unknown>;
 
 const WorkflowPgClientLive = Layer.unwrap(
 	Effect.map(AppConfig, (config) =>
