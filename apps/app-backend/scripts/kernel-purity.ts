@@ -146,8 +146,7 @@ export const isProductionSourcePath = (path: string) => {
 		!file.endsWith(".test-fixture.ts") &&
 		!file.endsWith(".typecheck.ts") &&
 		file !== "runner.generated.ts" &&
-		!normalized.includes("/test-fixtures/") &&
-		!normalized.includes("/generated-sandbox/")
+		!normalized.includes("/test-fixtures/")
 	);
 };
 

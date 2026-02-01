@@ -5,12 +5,12 @@
 		"dev": "bun run scripts/develop.ts",
 		"db:generate": "bun --bun drizzle-kit generate",
 		"purity:check": "bun run scripts/check-kernel-purity.ts",
-		"test": "bun run sandbox:compile && bun --bun run vitest run",
-		"sandbox:compile": "bun run scripts/compile-sandbox-artifacts.ts",
-		"run-migration": "bun run sandbox:compile && RUN_MIGRATION_ONLY=true bun run src/main.ts",
-		"build": "bun run sandbox:compile && bun build src/main.ts --outdir dist --target bun --sourcemap",
-		"check": "bun run purity:check && bun run sandbox:compile && bun run sandbox:check-runner && tsc && oxfmt . --write && oxlint . --type-aware --fix",
-		"sandbox:check-runner": "deno check --config src/lib/infrastructure/sandbox-runtime/deno.json src/lib/infrastructure/sandbox-runtime/runner-source.sandbox.ts"
+		"test": "bun run sandbox:compile-runner && bun --bun run vitest run",
+		"sandbox:compile-runner": "bun run scripts/compile-sandbox-runner.ts",
+		"run-migration": "bun run sandbox:compile-runner && RUN_MIGRATION_ONLY=true bun run src/main.ts",
+		"build": "bun run sandbox:compile-runner && bun build src/main.ts --outdir dist --target bun --sourcemap",
+		"sandbox:check-runner": "deno check --config src/lib/infrastructure/sandbox-runtime/deno.json src/lib/infrastructure/sandbox-runtime/runner-source.sandbox.ts",
+		"check": "bun run purity:check && bun run sandbox:compile-runner && bun run sandbox:check-runner && tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.6.15",
