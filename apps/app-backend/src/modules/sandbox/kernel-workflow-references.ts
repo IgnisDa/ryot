@@ -7,7 +7,7 @@ import { Context, type Effect } from "effect";
 
 export const KERNEL_EVENT_CREATE_WORKFLOW = "kernel:event-create";
 export const KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW = "kernel:process-import-chunks";
-export const KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW = "kernel:library-entity-import";
+export const KERNEL_ENTITY_IMPORT_WORKFLOW = "kernel:entity-import";
 export const KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW = "kernel:provider-entity-population";
 
 export class KernelWorkflowReferences extends Context.Tag("KernelWorkflowReferences")<

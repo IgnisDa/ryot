@@ -31,6 +31,7 @@ export default defineActivity({
 				relationships: [],
 				itemIndex: item.itemIndex,
 				sourceLabel: item.sourceLabel,
+				subjectEntityAlias: "measurement",
 				sourceIdentifier: item.sourceIdentifier,
 				entities: [
 					{

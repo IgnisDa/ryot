@@ -15,26 +15,6 @@ const temporary = (
 		kind: "temporary" as const,
 	}));
 
-const importEventMembership = temporary(
-	3,
-	"Task 03 moves import and event library membership into the media plugin",
-	[
-		["apps/app-backend/src/app/kernel-workflow-references.ts", "library"],
-		["apps/app-backend/src/app/kernel-workflow-references.ts", "library-membership"],
-		["apps/app-backend/src/lib/infrastructure/config/service.ts", "library"],
-		["apps/app-backend/src/modules/events/durable-queues.ts", "library"],
-		["apps/app-backend/src/modules/events/event-create-workflow-live.ts", "library"],
-		["apps/app-backend/src/modules/imports/generic-import-workflow.ts", "library"],
-		[
-			"apps/app-backend/src/modules/library-membership/library-entity-import-workflow.ts",
-			"library",
-		],
-		["apps/app-backend/src/modules/library-membership/membership-worker.ts", "library"],
-		["apps/app-backend/src/modules/library-membership/operations-workflow.ts", "library"],
-		["apps/app-backend/src/modules/sandbox/kernel-workflow-references.ts", "library"],
-	],
-);
-
 const collectionUserStateMembership = temporary(
 	4,
 	"Task 04 removes native collection and user-state media library policy",
@@ -46,6 +26,13 @@ const collectionUserStateMembership = temporary(
 		["apps/app-backend/src/modules/collections/repository.ts", "library"],
 		["apps/app-backend/src/modules/collections/service.ts", "in-library"],
 		["apps/app-backend/src/modules/collections/service.ts", "library"],
+		["apps/app-backend/src/modules/library-membership/durable-queues.ts", "library"],
+		[
+			"apps/app-backend/src/modules/library-membership/library-entity-import-workflow.ts",
+			"library",
+		],
+		["apps/app-backend/src/modules/library-membership/membership-worker.ts", "library"],
+		["apps/app-backend/src/modules/library-membership/operations-workflow.ts", "library"],
 		["apps/app-backend/src/modules/library-membership/routes.ts", "library"],
 		["apps/app-backend/src/modules/library-membership/service.ts", "library"],
 		["apps/app-backend/src/modules/user-state/service.ts", "library"],
@@ -147,7 +134,6 @@ const permanent = [
 
 export const kernelPurityAllowlist = [
 	...permanent,
-	...importEventMembership,
 	...collectionUserStateMembership,
 	...importEnvelope,
 	...queryRecipes,

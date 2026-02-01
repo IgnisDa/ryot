@@ -19,11 +19,13 @@ import {
 	sanitizeSandboxExecutionSegment,
 } from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
 import { ServerRun } from "#lib/infrastructure/server-run";
-import { EntityImportPayload } from "#modules/entity-import/entity-import-workflow";
+import type { EntityImportError } from "#modules/entity-import/entity-import-workflow";
+import { EntityImportWorkflow } from "#modules/entity-import/entity-import-workflow";
 import {
 	ProviderEntityPopulationWorkflow,
 	type ProviderEntityPopulationPayload,
 } from "#modules/entity-import/provider-entity-population-workflow";
+import { EntityImportPayload } from "#modules/entity-import/schemas";
 import {
 	EventCreateWorkflow,
 	EventCreateWorkflowPayload,
@@ -34,11 +36,10 @@ import {
 } from "#modules/imports/generic-import-workflow";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
-import { LibraryEntityImportWorkflow } from "#modules/library-membership/library-entity-import-workflow";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import {
 	KERNEL_EVENT_CREATE_WORKFLOW,
-	KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
+	KERNEL_ENTITY_IMPORT_WORKFLOW,
 	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 	KernelWorkflowReferences,
@@ -110,7 +111,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 				Effect.gen(function* () {
 					if (
 						workflowSlug !== KERNEL_EVENT_CREATE_WORKFLOW &&
-						workflowSlug !== KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW &&
+						workflowSlug !== KERNEL_ENTITY_IMPORT_WORKFLOW &&
 						workflowSlug !== KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW &&
 						workflowSlug !== KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW
 					) {
@@ -244,7 +245,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 						);
 					}
-					if (workflowSlug === KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW) {
+					if (workflowSlug === KERNEL_ENTITY_IMPORT_WORKFLOW) {
 						const rawInput = isObjectRecord(input) ? input : {};
 						const providerSlug = Reflect.get(rawInput, "providerSlug");
 						const resolvedProvider =
@@ -283,10 +284,10 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							...attributionIds(payload.origin),
 						});
 						const result = yield* engine
-							.execute(LibraryEntityImportWorkflow, { executionId, payload })
+							.execute(EntityImportWorkflow, { executionId, payload })
 							.pipe(
 								Effect.match({
-									onFailure: (error) => ({
+									onFailure: (error: EntityImportError) => ({
 										stage: error.stage,
 										message: error.message,
 										status: "failed" as const,

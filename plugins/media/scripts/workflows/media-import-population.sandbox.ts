@@ -1,7 +1,7 @@
 import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot/sandbox-sdk/workflow";
 
 import {
-	KernelLibraryEntityImportResult,
+	KernelEntityImportResult,
 	MediaImportPopulationWorkflowInput,
 	MediaImportPopulationWorkflowOutput,
 } from "../../workflows/schemas";
@@ -15,9 +15,9 @@ export const manifest = defineManifest({
 	requiredSystemConfigKeys: [],
 });
 
-const libraryEntityImport = {
-	output: KernelLibraryEntityImportResult,
-	workflowSlug: "kernel:library-entity-import",
+const entityImport = {
+	output: KernelEntityImportResult,
+	workflowSlug: "kernel:entity-import",
 	input: Schema.Union(
 		Schema.Struct({
 			origin: Schema.Unknown,
@@ -43,7 +43,7 @@ export default defineWorkflow({
 			const results: Array<(typeof MediaImportPopulationWorkflowOutput.Type)["results"][number]> =
 				[];
 			for (const item of input.items) {
-				const result = yield* replay.child(`import-${item.index}`, libraryEntityImport, {
+				const result = yield* replay.child(`import-${item.index}`, entityImport, {
 					origin: item.origin,
 					externalId: item.externalId,
 					entitySchemaSlug: item.entitySchemaSlug,

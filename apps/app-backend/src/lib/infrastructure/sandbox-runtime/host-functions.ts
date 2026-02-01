@@ -173,11 +173,6 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 				sandboxHostEffect(
 					Effect.gen(function* () {
 						const input = yield* requireUserSandboxRunInput(rawInput, "changeUserRelationships");
-						if (input.authority.type !== "user") {
-							return yield* Effect.fail(
-								"changeUserRelationships is available only to user executions",
-							);
-						}
 						const changeCount = batches.reduce(
 							(total, batch) => total + batch.creates.length + batch.deletes.length,
 							0,
