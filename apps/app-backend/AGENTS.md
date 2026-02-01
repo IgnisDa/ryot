@@ -10,7 +10,6 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 
 ## Testing
 
-- Use `bun run test` instead. `bun test` does not work in this app.
 - Assert a typed failure with `assertExitFails(exit, expected)` (`src/lib/test-utils/assertions.ts`), never `expect(exit).toEqual(Exit.fail(expected))`. The latter cannot see the message: `Schema.TaggedError` inherits `message` from `Error` as a non-enumerable own property, and both vitest's structural equality and the `Equal.equals` tester that `addEqualityTesters` installs compare only enumerable own properties, so a wrong message passes silently.
 
 ## Runtime APIs And Diagnostics
