@@ -60,20 +60,15 @@ struct IssueListItem {
 }
 
 #[derive(Deserialize, Debug)]
-struct IssueCreditCreator {
-    id: i64,
-    name: String,
-}
-
-#[derive(Deserialize, Debug)]
 struct IssueCreditRole {
     name: String,
 }
 
 #[derive(Deserialize, Debug)]
 struct IssueCredit {
+    id: i64,
+    creator: String,
     role: Vec<IssueCreditRole>,
-    creator: IssueCreditCreator,
 }
 
 #[derive(Deserialize, Debug)]
@@ -222,9 +217,9 @@ impl MediaProvider for MetronService {
 
                     Some(PartialMetadataPerson {
                         role: roles,
-                        name: credit.creator.name,
+                        name: credit.creator,
                         source: MediaSource::Metron,
-                        identifier: credit.creator.id.to_string(),
+                        identifier: credit.id.to_string(),
                         ..Default::default()
                     })
                 })
