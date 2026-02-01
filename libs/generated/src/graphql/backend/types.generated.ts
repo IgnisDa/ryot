@@ -559,6 +559,7 @@ export type DailyUserActivityItem = {
   totalAudioBookDuration: Scalars['Int']['output'];
   totalBookPages: Scalars['Int']['output'];
   totalCollectionReviewCount: Scalars['Int']['output'];
+  totalComicBookPages: Scalars['Int']['output'];
   totalCount: Scalars['Int']['output'];
   totalDuration: Scalars['Int']['output'];
   totalMetadataCount: Scalars['Int']['output'];

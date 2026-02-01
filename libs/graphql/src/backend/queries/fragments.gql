@@ -280,4 +280,5 @@ fragment DailyUserActivityItemPart on DailyUserActivityItem {
 	videoGameCount
 	comicBookCount
 	visualNovelCount
+	totalComicBookPages
 }
