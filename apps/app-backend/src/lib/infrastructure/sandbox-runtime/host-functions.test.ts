@@ -73,6 +73,7 @@ const runInput = (authority: ExecutionAuthority): SandboxRunInput => ({
 	authority,
 	context: {},
 	metadata: {},
+	contentHash: "",
 	providerId: null,
 	compiledCode: "",
 	compiledFormat: 1,

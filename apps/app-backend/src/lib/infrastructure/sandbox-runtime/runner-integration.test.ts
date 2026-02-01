@@ -1,4 +1,4 @@
-import { Command, CommandExecutor, FileSystem, HttpApp, HttpServer } from "@effect/platform";
+import { Command, CommandExecutor, FileSystem, HttpApp, HttpServer, Path } from "@effect/platform";
 import { BunContext, BunHttpServer } from "@effect/platform-bun";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
@@ -11,6 +11,7 @@ import { bootPluginSources } from "#modules/plugins/boot-sources";
 import { loadPluginSource } from "#modules/plugins/source";
 import { SandboxCompiler } from "#modules/sandbox/compiler";
 
+import { materializeSandboxCompiledModule } from "./compiled-modules";
 import {
 	ensureSandboxRuntimeDependencies,
 	SANDBOX_APPROVED_DEPENDENCIES,
@@ -519,6 +520,7 @@ type RunnerCompiledModule = {
 type RunnerOptions = {
 	readonly apiBase?: string;
 	readonly scriptId?: string;
+	readonly moduleUrl?: string;
 	readonly executionId?: string;
 	readonly apiFunctions?: readonly string[];
 	readonly filesystem?: {
@@ -537,24 +539,36 @@ type RunnerRequest = {
 const runInDenoRequests = (requests: readonly RunnerRequest[]) =>
 	Effect.scoped(
 		Effect.gen(function* () {
-			assert(dependencyRuntime);
+			const runtime = dependencyRuntime;
+			assert(runtime);
 			assert(runnerPath);
+			const path = yield* Path.Path;
 			const apiBase = requests[0]?.options?.apiBase ?? "http://127.0.0.1:1";
 			const filesystem = requests[0]?.options?.filesystem;
+			const moduleUrls = yield* Effect.forEach(requests, ({ compiled }) =>
+				materializeSandboxCompiledModule(
+					runtime,
+					new Bun.CryptoHasher("sha256").update(compiled.javascript).digest("hex"),
+					compiled.javascript,
+				).pipe(
+					Effect.flatMap(path.toFileUrl),
+					Effect.map((url) => url.href),
+				),
+			);
 			const request = requests
 				.map(
-					({ compiled, context, options = {} }) =>
+					({ compiled, context, options = {} }, index) =>
 						`${encodeRunnerRequest({
 							context,
 							token: "unused",
 							metadata: compiled.manifest,
 							limits: SANDBOX_RUNNER_LIMITS,
 							compiledFormat: compiled.format,
-							compiledCode: compiled.javascript,
 							apiBase: options.apiBase ?? apiBase,
 							scriptId: options.scriptId ?? "script-1",
 							apiFunctions: options.apiFunctions ?? [],
 							executionId: options.executionId ?? "execution-1",
+							moduleUrl: options.moduleUrl ?? moduleUrls[index],
 							...(options.filesystem ? { filesystem: options.filesystem } : {}),
 						})}\n`,
 				)
@@ -562,7 +576,7 @@ const runInDenoRequests = (requests: readonly RunnerRequest[]) =>
 			const executor = yield* CommandExecutor.CommandExecutor;
 			const sandboxExecutor = makeSandboxCommandExecutor(executor, {
 				PATH: Bun.env["PATH"] ?? "/usr/bin:/bin",
-				DENO_DIR: dependencyRuntime.cacheDirectory,
+				DENO_DIR: runtime.cacheDirectory,
 			});
 			const command = Command.make(
 				"deno",
@@ -577,14 +591,14 @@ const runInDenoRequests = (requests: readonly RunnerRequest[]) =>
 				"--no-remote",
 				"--cached-only",
 				`--allow-net=${new URL(apiBase).host}`,
-				`--import-map=${dependencyRuntime.importMapPath}`,
+				`--import-map=${runtime.importMapPath}`,
 				`--v8-flags=--max-old-space-size=${SANDBOX_LIMITS.execution.denoHeapMiB}`,
 				filesystem?.scratchDirectory
 					? `--allow-write=${filesystem.scratchDirectory}`
 					: "--deny-write",
 				`--allow-read=${[
 					runnerPath,
-					dependencyRuntime.directory,
+					runtime.directory,
 					...(filesystem?.artifactPath ? [filesystem.artifactPath] : []),
 					...Object.values(filesystem?.namedArtifactPaths ?? {}),
 					...(filesystem?.scratchDirectory ? [filesystem.scratchDirectory] : []),
@@ -836,7 +850,33 @@ it("returns source-mapped, sanitized execution and load errors", () =>
 				line: loadLine,
 				message: "mapped load failure [redacted]",
 			});
-		}).pipe(Effect.provide(SandboxCompiler.Default)),
+
+			assert(dependencyRuntime);
+			const path = yield* Path.Path;
+			const missingModulePath = `${dependencyRuntime.moduleDirectory}/${"0".repeat(64)}.mjs`;
+			const missingResult = yield* runInDeno(
+				compiled,
+				{},
+				{
+					moduleUrl: (yield* path.toFileUrl(missingModulePath)).href,
+				},
+			);
+			assert(missingResult !== null && typeof missingResult === "object");
+			const missingError = Reflect.get(missingResult, "error");
+			const encodedMissingError = encodeRunnerRequest(missingError);
+			expect(missingError).toMatchObject({ phase: "load" });
+			expect(encodedMissingError).not.toContain("file://");
+			expect(encodedMissingError).not.toContain(dependencyRuntime.directory);
+
+			const pathLeakSource = failureSource.replace(
+				'throw new Error("mapped execution failure execution-1")',
+				'throw new Error(new URL(".", import.meta.url).pathname)',
+			);
+			const pathLeakResult = yield* runInDeno(yield* compiler.compile(pathLeakSource), {});
+			assert(pathLeakResult !== null && typeof pathLeakResult === "object");
+			const encodedPathLeakError = encodeRunnerRequest(Reflect.get(pathLeakResult, "error"));
+			expect(encodedPathLeakError).not.toContain(dependencyRuntime.moduleDirectory);
+		}).pipe(Effect.provide(Layer.merge(SandboxCompiler.Default, BunContext.layer))),
 	));
 
 it("enforces direct-definition output and log limits", () =>

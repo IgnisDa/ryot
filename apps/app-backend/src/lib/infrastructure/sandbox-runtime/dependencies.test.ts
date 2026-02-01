@@ -49,6 +49,7 @@ it.scoped("builds exact-version dependency modules in a read-only runtime direct
 				"fast-xml-parser-5.8.0.mjs",
 				"fflate-0.8.3.mjs",
 				"import-map.json",
+				"modules",
 				"papaparse-5.5.3.mjs",
 				"youtubei-17.2.0.mjs",
 			]);
