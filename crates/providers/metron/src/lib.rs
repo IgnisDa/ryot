@@ -6,6 +6,7 @@ use common_utils::{PAGE_SIZE, compute_next_page, get_base_http_client};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
+use futures::{StreamExt, stream, try_join};
 use itertools::Itertools;
 use media_models::{
     ComicBookSpecifics, CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem,
@@ -250,16 +251,34 @@ impl MediaProvider for MetronService {
 
         let mut suggestions = vec![];
         if let Some(arcs) = &data.arcs {
-            for arc in arcs.iter().take(3) {
-                let arc_issues: PaginatedResponse<ArcIssueListItem> = self
-                    .client
-                    .get(format!("{URL}/arc/{}/issue_list/", arc.id))
-                    .basic_auth(&self.username, Some(&self.password))
-                    .query(&[("page_size", PAGE_SIZE.to_string())])
-                    .send()
-                    .await?
-                    .json()
-                    .await?;
+            let arc_futures: Vec<_> = arcs
+                .iter()
+                .take(3)
+                .map(|arc| {
+                    let client = &self.client;
+                    let username = &self.username;
+                    let password = &self.password;
+                    async move {
+                        let arc_issues: PaginatedResponse<ArcIssueListItem> = client
+                            .get(format!("{URL}/arc/{}/issue_list/", arc.id))
+                            .basic_auth(username, Some(password))
+                            .query(&[("page_size", PAGE_SIZE.to_string())])
+                            .send()
+                            .await?
+                            .json()
+                            .await?;
+                        Ok::<_, anyhow::Error>(arc_issues)
+                    }
+                })
+                .collect();
+
+            let arc_issues_results = stream::iter(arc_futures)
+                .buffer_unordered(5)
+                .collect::<Vec<Result<PaginatedResponse<ArcIssueListItem>>>>()
+                .await;
+
+            for arc_issues_result in arc_issues_results {
+                let arc_issues = arc_issues_result?;
                 for issue in arc_issues.results {
                     if issue.id == data.id {
                         continue;
@@ -423,24 +442,22 @@ impl MediaProvider for MetronService {
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
-        let series: SeriesDetail = self
+        let series_future = self
             .client
             .get(format!("{URL}/series/{identifier}/"))
             .basic_auth(&self.username, Some(&self.password))
-            .send()
-            .await?
-            .json()
-            .await?;
+            .send();
 
-        let issues: PaginatedResponse<IssueListItem> = self
+        let issues_future = self
             .client
             .get(format!("{URL}/series/{identifier}/issue_list/"))
             .basic_auth(&self.username, Some(&self.password))
             .query(&[("page_size", "100")])
-            .send()
-            .await?
-            .json()
-            .await?;
+            .send();
+
+        let (series_response, issues_response) = try_join!(series_future, issues_future)?;
+        let series: SeriesDetail = series_response.json().await?;
+        let issues: PaginatedResponse<IssueListItem> = issues_response.json().await?;
 
         let members = issues
             .results
@@ -462,9 +479,9 @@ impl MediaProvider for MetronService {
             source: MediaSource::Metron,
             assets: EntityAssets::default(),
             identifier: series.id.to_string(),
-            last_updated_on: chrono::Utc::now(),
             parts: series.issue_count.unwrap_or(0) as i32,
             source_url: Some(format!("https://metron.cloud/series/{}", identifier)),
+            ..Default::default()
         };
 
         Ok((group, members))

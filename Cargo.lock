@@ -4628,6 +4628,7 @@ dependencies = [
  "database-models",
  "dependent-models",
  "enum-models",
+ "futures",
  "itertools 0.14.0",
  "media-models",
  "reqwest",
