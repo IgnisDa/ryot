@@ -6,7 +6,6 @@ import { Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, DbRunner, dbEffect } from "#lib/infrastructure/db/service";
-import { pollWorkflowWithResumeNudge } from "#lib/infrastructure/workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { ProviderEntityPopulationWorkflow } from "#modules/entity-import/provider-entity-population-workflow";
 import { decodeProviderSearchResult } from "#modules/sandbox/provider-contracts";
@@ -125,10 +124,9 @@ export const BuiltinEntityPreloaderLive = (configuredPreloadLimit: number) =>
 					})
 					.pipe(
 						Effect.raceFirst(
-							pollWorkflowWithResumeNudge(engine, RunSandboxWorkflow, executionId).pipe(
-								Effect.delay("250 millis"),
-								Effect.forever,
-							),
+							engine
+								.poll(RunSandboxWorkflow, executionId)
+								.pipe(Effect.delay("250 millis"), Effect.forever),
 						),
 						Effect.flatMap((result) =>
 							result.error
@@ -161,11 +159,9 @@ export const BuiltinEntityPreloaderLive = (configuredPreloadLimit: number) =>
 					})
 					.pipe(
 						Effect.raceFirst(
-							pollWorkflowWithResumeNudge(
-								engine,
-								ProviderEntityPopulationWorkflow,
-								executionId,
-							).pipe(Effect.delay("250 millis"), Effect.forever),
+							engine
+								.poll(ProviderEntityPopulationWorkflow, executionId)
+								.pipe(Effect.delay("250 millis"), Effect.forever),
 						),
 						Effect.as(true),
 						Effect.catchAll((error) =>
