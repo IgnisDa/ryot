@@ -1,8 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { assert, expect, it } from "@effect/vitest";
 import { Conflict } from "@ryot/contract/errors";
 import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Queue, Ref } from "effect";
-import { assert } from "vitest";
 
 import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
@@ -34,7 +33,7 @@ import type { NormalizedPlugin, StoredPlugin } from "./types";
 const mockRepository = Layer.mock(PluginRepository);
 
 const makeRepository = (overrides: MockOverrides<typeof mockRepository>) =>
-	mockRepository({ _tag: "PluginRepository", ...overrides });
+	mockRepository({ ...overrides });
 
 const makeStoredPlugin = (manifest: PluginManifest, sourceHash: string): StoredPlugin => {
 	return {
@@ -162,26 +161,23 @@ const makeLayer = (input?: {
 	readonly deactivated?: Array<string>;
 	readonly hasEntityReferences?: boolean;
 	readonly installed?: Array<StoredPlugin>;
-	readonly publish?: RedisService["publish"];
+	readonly publish?: RedisService["Service"]["publish"];
 	readonly hasIntegrationReferences?: boolean;
 	readonly afterPersist?: Effect.Effect<void>;
 	readonly persisted?: Array<NormalizedPlugin>;
 	readonly hasWorkflowReferences?: () => boolean;
-	readonly repositoryList?: PluginRepository["list"];
-	readonly deactivate?: PluginRepository["deactivate"];
+	readonly repositoryList?: PluginRepository["Service"]["list"];
+	readonly deactivate?: PluginRepository["Service"]["deactivate"];
 	readonly initialInstalled?: ReadonlyArray<StoredPlugin>;
-	readonly lockIngestion?: PluginRepository["lockIngestion"];
-	readonly collectGarbage?: ScriptGarbageCollector["collect"];
+	readonly lockIngestion?: PluginRepository["Service"]["lockIngestion"];
+	readonly collectGarbage?: ScriptGarbageCollector["Service"]["collect"];
 	readonly published?: Array<{ channel: string; message: string }>;
 	readonly transactionRunnerLayer?: Layer.Layer<TransactionRunner>;
 }) => {
 	const installed = input?.installed ?? [...(input?.initialInstalled ?? [])];
 	const registry = makeDefinitionRegistry();
-	const registryLayer = Layer.succeed(
-		DefinitionRegistry,
-		Object.assign(registry, { _tag: "DefinitionRegistry" as const }),
-	);
-	const loaderLayer = PluginLoader.Default.pipe(Layer.provide(registryLayer));
+	const registryLayer = Layer.succeed(DefinitionRegistry, registry);
+	const loaderLayer = PluginLoader.layer.pipe(Layer.provide(registryLayer));
 	const repositoryLayer = makeRepository({
 		list: input?.repositoryList ?? (() => Effect.succeed(installed)),
 		deactivate:
@@ -224,7 +220,6 @@ const makeLayer = (input?: {
 			}),
 	});
 	const workflowReferenceLayer = Layer.mock(SandboxWorkflowReferenceRepository)({
-		_tag: "SandboxWorkflowReferenceRepository",
 		hasReferences: () =>
 			Effect.sync(() => {
 				input?.events?.push("workflow-reference");
@@ -233,7 +228,6 @@ const makeLayer = (input?: {
 	});
 	const transactionsLayer = input?.transactionRunnerLayer ?? transactionLayer;
 	const garbageCollectorLayer = Layer.mock(ScriptGarbageCollector)({
-		_tag: "ScriptGarbageCollector",
 		collect: input?.collectGarbage ?? (() => Effect.sync(() => undefined)),
 		recordKernelContentHashes: () => Effect.void,
 	});
@@ -250,7 +244,7 @@ const makeLayer = (input?: {
 					})),
 		}),
 	);
-	const ingestionLayer = PluginIngestionService.Default.pipe(
+	const ingestionLayer = PluginIngestionService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				loaderLayer,
@@ -527,8 +521,13 @@ it.effect("refuses to rebuild a snapshot with a dangling notification formatter"
 		const snapshot = loader.getSnapshot();
 		const exit = yield* Effect.exit(ingestion.rebuild());
 
-		expect(Exit.isFailure(exit)).toBe(true);
-		expect(String(exit)).toContain("references missing script");
+		assert(Exit.isFailure(exit));
+		const failure = Cause.findErrorOption(exit.cause);
+		assert(Option.isSome(failure));
+		assert(failure.value._tag === "PluginValidationError");
+		expect(failure.value.issues).toContain(
+			"Signal schema fixture.signal notification formatter references missing script: missing.notification",
+		);
 		expect(loader.getSnapshot()).toBe(snapshot);
 	}).pipe(Effect.provide(makeLayer({ initialInstalled: [stored] })));
 });
@@ -552,10 +551,10 @@ it.effect("serializes rebuild with plugin mutations", () =>
 		const layer = makeLayer({ deactivated, repositoryList });
 		const program = Effect.gen(function* () {
 			const ingestion = yield* PluginIngestionService;
-			const rebuildFiber = yield* Effect.fork(ingestion.rebuild());
+			const rebuildFiber = yield* Effect.forkChild(ingestion.rebuild());
 			yield* Deferred.await(listed);
-			const uninstallFiber = yield* Effect.fork(ingestion.uninstallPlugin("fixture"));
-			yield* Effect.yieldNow();
+			const uninstallFiber = yield* Effect.forkChild(ingestion.uninstallPlugin("fixture"));
+			yield* Effect.yieldNow;
 			expect(deactivated).toEqual([]);
 			yield* Deferred.succeed(release, undefined);
 			yield* Fiber.join(rebuildFiber);
@@ -572,16 +571,16 @@ it.effect("completes the committed loader transition when installation is interr
 		const release = yield* Deferred.make<void>();
 		const layer = makeLayer({
 			afterPersist: Deferred.succeed(persisted, undefined).pipe(
-				Effect.zipRight(Deferred.await(release)),
+				Effect.andThen(Deferred.await(release)),
 			),
 		});
 		const program = Effect.gen(function* () {
 			const loader = yield* PluginLoader;
 			const ingestion = yield* PluginIngestionService;
 			const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
-			const fiber = yield* Effect.fork(ingestion.ingestPlugin(source));
+			const fiber = yield* Effect.forkChild(ingestion.ingestPlugin(source));
 			yield* Deferred.await(persisted);
-			yield* Fiber.interruptFork(fiber);
+			fiber.interruptUnsafe();
 			yield* Deferred.succeed(release, undefined);
 			yield* Fiber.await(fiber);
 			expect(loader.getSnapshot().plugins["fixture"]).toBeDefined();
@@ -635,7 +634,7 @@ it.effect("returns a committed uninstall when Redis publication fails", () => {
 	);
 });
 
-it.scoped("periodically rebuilds a peer after lost install and uninstall publications", () =>
+it.effect("periodically rebuilds a peer after lost install and uninstall publications", () =>
 	Effect.gen(function* () {
 		const installed: Array<StoredPlugin> = [];
 		const rebuilds = yield* Queue.unbounded<void>();
@@ -804,11 +803,13 @@ it.effect("serializes workflow pin registration with refused and successful unin
 
 			const program = Effect.gen(function* () {
 				const ingestion = yield* PluginIngestionService;
-				const uninstall = yield* Effect.fork(Effect.exit(ingestion.uninstallPlugin("fixture")));
+				const uninstall = yield* Effect.forkChild(
+					Effect.exit(ingestion.uninstallPlugin("fixture")),
+				);
 				yield* Deferred.await(exclusiveAcquired);
 				expect(events).toEqual(["exclusive-acquired"]);
 
-				const dispatch = yield* Effect.fork(Effect.exit(registerWorkflowReference));
+				const dispatch = yield* Effect.forkChild(Effect.exit(registerWorkflowReference));
 				yield* Deferred.await(sharedAttempted);
 				expect(events).toEqual(["exclusive-acquired", "shared-attempt"]);
 
@@ -952,7 +953,7 @@ it.effect("refuses uninstall while another plugin relationship targets its entit
 
 		expect(Exit.isFailure(exit)).toBe(true);
 		if (Exit.isFailure(exit)) {
-			const error = Option.getOrThrow(Cause.failureOption(exit.cause));
+			const error = Option.getOrThrow(Cause.findErrorOption(exit.cause));
 			expect(error).toBeInstanceOf(Conflict);
 		}
 		expect(String(exit)).toContain("active plugin schemas reference its definitions");

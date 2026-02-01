@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { Effect, Exit } from "effect";
+import { Cause, Effect, Exit, Option } from "effect";
 import { assert } from "vitest";
 
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
@@ -66,7 +66,10 @@ it.effect("requires operation declarations to reference operation scripts", () =
 
 	return Effect.gen(function* () {
 		const exit = yield* Effect.exit(validatePluginExecutableScripts(normalized));
-		expect(Exit.isFailure(exit)).toBe(true);
-		expect(String(exit)).toContain("must be an operation script");
+		assert(Exit.isFailure(exit));
+		const failure = Cause.findErrorOption(exit.cause);
+		assert(Option.isSome(failure));
+		expect(failure.value._tag).toBe("PluginValidationError");
+		expect(failure.value.issues.join("; ")).toContain("must be an operation script");
 	});
 });
