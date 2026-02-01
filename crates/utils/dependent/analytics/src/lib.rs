@@ -434,6 +434,7 @@ pub async fn calculate_user_activities_and_summary(
             + activity.music_count
             + activity.audio_book_count
             + activity.book_count
+            + activity.comic_book_count
             + activity.video_game_count
             + activity.visual_novel_count
             + activity.metadata_collection_count;
