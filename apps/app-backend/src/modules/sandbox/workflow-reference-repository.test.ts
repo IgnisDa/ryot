@@ -57,7 +57,7 @@ const makeRegisterLayer = (options: {
 		}),
 	};
 	const executor = Object.assign(Object.create(null), db);
-	return SandboxWorkflowReferenceRepository.Default.pipe(
+	return SandboxWorkflowReferenceRepository.layer.pipe(
 		Layer.provideMerge(Layer.succeed(CurrentDb, executor)),
 	);
 };
@@ -130,7 +130,7 @@ it.effect("exposes reusable reference liveness queries and idempotent release", 
 			},
 		}),
 	};
-	const layer = SandboxWorkflowReferenceRepository.Default.pipe(
+	const layer = SandboxWorkflowReferenceRepository.layer.pipe(
 		Layer.provideMerge(Layer.succeed(CurrentDb, Object.assign(Object.create(null), db))),
 	);
 	return Effect.gen(function* () {

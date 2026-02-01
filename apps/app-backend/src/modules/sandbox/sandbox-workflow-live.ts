@@ -1,5 +1,3 @@
-import { DurableQueue } from "@effect/workflow";
-import type { Result as WorkflowResult } from "@effect/workflow/Workflow";
 import type { SandboxRunError } from "@ryot/contract/errors";
 import { toSandboxRunError } from "@ryot/contract/errors";
 import type {
@@ -8,6 +6,8 @@ import type {
 	SandboxRunResult,
 } from "@ryot/contract/modules/sandbox/schemas";
 import { Cause, Effect, Exit, Layer, Match, Option, Schedule } from "effect";
+import { DurableQueue } from "effect/unstable/workflow";
+import type { Workflow } from "effect/unstable/workflow";
 
 import { SandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./durable-queues";
 import { RunSandboxWorkflow } from "./sandbox-run-workflow";
@@ -16,7 +16,7 @@ import { runSandboxScriptWorkflow, SandboxScriptWorkflow } from "./sandbox-scrip
 const workflowFailureResult = (
 	cause: Cause.Cause<SandboxRunError>,
 ): Extract<SandboxRunResult, { status: "failed" }> =>
-	Option.match(Cause.failureOption(cause), {
+	Option.match(Cause.findErrorOption(cause), {
 		onSome: (error) => ({ status: "failed", error: error.message }),
 		onNone: () => ({
 			status: "failed",
@@ -25,7 +25,7 @@ const workflowFailureResult = (
 	});
 
 export const toSandboxRunResult = (
-	result: WorkflowResult<SandboxCompletedResultValue, SandboxRunError> | undefined,
+	result: Workflow.Result<SandboxCompletedResultValue, SandboxRunError> | undefined,
 ): SandboxRunResult => {
 	if (!result) {
 		return { status: "pending" };
