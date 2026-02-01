@@ -46,7 +46,10 @@ describe("podcast.listennotes sandbox script", () => {
 				configKeys.push(key);
 				return Effect.succeed("listen-key");
 			},
-			httpCall: (_method, _url, options) => {
+			httpCall: (_method, url, options) => {
+				const requestUrl = new URL(url);
+				expect(requestUrl.host).toBe("listen-api.listennotes.com");
+				expect(requestUrl.pathname).toBe("/api/v2/search");
 				expect(options?.headers).toEqual({ "X-ListenAPI-Key": "listen-key" });
 				return httpSuccess({ total: 0, next_offset: null, results: [] });
 			},

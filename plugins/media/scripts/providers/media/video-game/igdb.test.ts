@@ -43,9 +43,13 @@ describe("video-game.igdb sandbox script", () => {
 	it("maps search hits and paginates using the x-count header", () => {
 		const host = makeHost({
 			httpCall: (_method, url) => {
-				if (url.startsWith("https://id.twitch.tv/oauth2/token")) {
+				const requestUrl = new URL(url);
+				if (requestUrl.host === "id.twitch.tv") {
+					expect(requestUrl.pathname).toBe("/oauth2/token");
 					return tokenResponse();
 				}
+				expect(requestUrl.host).toBe("api.igdb.com");
+				expect(requestUrl.pathname).toBe("/v4/games");
 				return httpSuccess(
 					[
 						{

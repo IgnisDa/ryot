@@ -170,7 +170,10 @@ describe("anime.anilist sandbox script", () => {
 			runSandboxTestScript(
 				search,
 				{ query: "hero", page: 2, pageSize: 20 },
-				makeHost((_method, _url, options) => collectBody(options)),
+				makeHost((_method, url, options) => {
+					expect(new URL(url).host).toBe("graphql.anilist.co");
+					return collectBody(options);
+				}),
 				execution,
 			)
 				.pipe(
@@ -179,7 +182,10 @@ describe("anime.anilist sandbox script", () => {
 						return runSandboxTestScript(
 							search,
 							{ query: "hero", page: 3, pageSize: 20 },
-							makeHost((_method, _url, options) => collectBody(options), true),
+							makeHost((_method, url, options) => {
+								expect(new URL(url).host).toBe("graphql.anilist.co");
+								return collectBody(options);
+							}, true),
 							execution,
 						);
 					}),

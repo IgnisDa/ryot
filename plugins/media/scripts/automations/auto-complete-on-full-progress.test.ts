@@ -45,6 +45,19 @@ const run = (context: AutomationInput, host: ReturnType<typeof createHost>["host
 	definition.run(context, host, execution);
 
 describe("auto-complete-on-full-progress sandbox script", () => {
+	it("ignores progress events below full completion", () => {
+		const { created, host } = createHost({});
+		return Effect.runPromise(
+			run(eventAutomationContext({ properties: { progressPercent: 50 } }), host).pipe(
+				Effect.map((result) => {
+					expect(result).toBeNull();
+					expect(created).toEqual([]);
+					return undefined;
+				}),
+			),
+		);
+	});
+
 	it("completes non-episodic media at the progress event timestamp", () => {
 		const { created, host } = createHost({});
 		return Effect.runPromise(
