@@ -115,6 +115,12 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.triggerInfrequentCron();
 			}),
 		)
+		.handle("setEntityInterest", ({ payload }) =>
+			Effect.gen(function* () {
+				const svc = yield* TestSupportService;
+				yield* svc.setEntityInterest(payload);
+			}),
+		)
 		.handle("listSignals", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;

@@ -15,7 +15,6 @@ import {
 
 declare module "vitest" {
 	export interface ProvidedContext {
-		dbUrl: string;
 		backendUrl: string;
 	}
 }
@@ -57,7 +56,6 @@ export default async function ({ provide }: TestProject) {
 	const healthCheckUrl = `http://127.0.0.1:${backendPort}/api/system/health`;
 	await waitForHealthCheck(healthCheckUrl, "E2E Setup");
 
-	provide("dbUrl", coreInfrastructure.dbUrl);
 	provide("backendUrl", `http://127.0.0.1:${backendPort}/api`);
 
 	return async () => {

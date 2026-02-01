@@ -53,10 +53,7 @@ const CreateGlobalEntityBody = Schema.Struct({
 const TriggerInfrequentCronResponse = Schema.Struct({ executionId: Schema.String });
 
 const GlobalRelationshipListBody = Schema.Union(
-	Schema.Struct({
-		type: Schema.Literal("self"),
-		relationshipSchemaId: RelationshipSchemaId,
-	}),
+	Schema.Struct({ type: Schema.Literal("self"), relationshipSchemaId: RelationshipSchemaId }),
 	Schema.Struct({
 		anchorEntityId: EntityId,
 		type: Schema.Literal("anchored"),
@@ -207,6 +204,19 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		HttpApiEndpoint.post("triggerInfrequentCron", "/test-support/cron/infrequent")
 			.addSuccess(TriggerInfrequentCronResponse)
 			.annotate(OpenApi.Description, "Triggers the infrequent cron job"),
+	)
+	.add(
+		HttpApiEndpoint.post("setEntityInterest", "/test-support/entity-interest")
+			.setPayload(
+				Schema.Struct({
+					userId: UserId,
+					streamId: Schema.String,
+					entityIds: Schema.Array(EntityId),
+				}),
+			)
+			.addSuccess(Schema.Void)
+			.addError(NotFound, { status: 404 })
+			.annotate(OpenApi.Description, "Registers entity interest without reconciliation"),
 	)
 	.add(
 		HttpApiEndpoint.post("listSignals", "/test-support/signals/list")
