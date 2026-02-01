@@ -255,8 +255,8 @@ describe("Query engine E2E", () => {
 						{
 							type: "reference",
 							reference: {
-								property: "year",
 								slug: schema.slug,
+								property: ["year"],
 								type: "schema-property",
 							},
 						},
@@ -305,7 +305,7 @@ describe("Query engine E2E", () => {
 			],
 			computedFields: [
 				buildComputedField("entityLabel", [entityField(schema.slug, "name")]),
-				buildComputedField("reviewLabel", ["event.review.label"]),
+				buildComputedField("reviewLabel", ["event.review.properties.label"]),
 				buildComputedField("reviewOrLabel", {
 					type: "coalesce",
 					values: [
@@ -478,8 +478,8 @@ describe("Query engine E2E", () => {
 						left: {
 							type: "reference",
 							reference: {
-								property: "year",
 								slug: schema.slug,
+								property: ["year"],
 								type: "schema-property",
 							},
 						},
@@ -1458,7 +1458,7 @@ describe("Query engine E2E", () => {
 		);
 	});
 
-	it("displays and filters by @externalId and @sandboxScriptId on global entities", async () => {
+	it("displays and filters by externalId and sandboxScriptId on global entities", async () => {
 		const { client, cookies, userId } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
 		const provider = schema.providers[0];
@@ -1512,7 +1512,7 @@ describe("Query engine E2E", () => {
 		]);
 	});
 
-	it("resolves @externalId and @sandboxScriptId as null for regular user entities", async () => {
+	it("resolves externalId and sandboxScriptId as null for regular user entities", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaQueryEngineFixture();
 
@@ -1551,7 +1551,7 @@ describe("Query engine E2E", () => {
 		]);
 	});
 
-	it("filters with isNull on @externalId to find entities without an external id", async () => {
+	it("filters with isNull on externalId to find entities without an external id", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaQueryEngineFixture();
 
@@ -1578,7 +1578,7 @@ describe("Query engine E2E", () => {
 		}
 	});
 
-	it("resolves @externalId correctly in a cross-schema query with both global and user entities", async () => {
+	it("resolves externalId correctly in a cross-schema query with both global and user entities", async () => {
 		const { client, cookies, userId } = await createAuthenticatedClient();
 		const { schema: mediaSchema } = await findBuiltinSchemaWithProviders(
 			client,

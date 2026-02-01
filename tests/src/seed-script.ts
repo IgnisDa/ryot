@@ -362,32 +362,62 @@ async function createSavedView(
 	});
 
 	const parseReference = (reference: string): SavedViewQueryEngineRef => {
-		const [namespace, segment, tail, ...rest] = reference.split(".");
+		const segments = reference.split(".");
+		const [namespace, segment, third, ...rest] = segments;
+
 		if (namespace === "computed") {
-			if (!segment || tail || rest.length > 0) {
+			if (!segment || third !== undefined) {
 				throw new Error(`Invalid saved view reference '${reference}'`);
 			}
 
 			return { type: "computed-field", key: segment };
 		}
 
-		if (namespace === "event") {
-			if (!segment || !tail || rest.length > 0) {
+		if (namespace === "entity") {
+			if (!segment || !third) {
 				throw new Error(`Invalid saved view reference '${reference}'`);
 			}
 
-			return tail.startsWith("@")
-				? { type: "event-join-column", joinKey: segment, column: tail.slice(1) }
-				: { type: "event-join-property", joinKey: segment, property: tail };
+			if (third === "properties") {
+				if (rest.length === 0) {
+					throw new Error(`Invalid saved view reference '${reference}'`);
+				}
+
+				return { type: "schema-property", slug: segment, property: rest };
+			}
+
+			if (rest.length > 0) {
+				throw new Error(`Invalid saved view reference '${reference}'`);
+			}
+
+			return { type: "entity-column", slug: segment, column: third };
 		}
 
-		if (namespace !== "entity" || !segment || !tail || rest.length > 0) {
-			throw new Error(`Invalid saved view reference '${reference}'`);
+		if (namespace === "event") {
+			if (!segment || !third) {
+				throw new Error(`Invalid saved view reference '${reference}'`);
+			}
+
+			if (third === "properties") {
+				if (rest.length === 0) {
+					throw new Error(`Invalid saved view reference '${reference}'`);
+				}
+
+				return {
+					type: "event-join-property",
+					joinKey: segment,
+					property: rest,
+				};
+			}
+
+			if (rest.length > 0) {
+				throw new Error(`Invalid saved view reference '${reference}'`);
+			}
+
+			return { type: "event-join-column", joinKey: segment, column: third };
 		}
 
-		return tail.startsWith("@")
-			? { type: "entity-column", slug: segment, column: tail.slice(1) }
-			: { type: "schema-property", slug: segment, property: tail };
+		throw new Error(`Invalid saved view reference '${reference}'`);
 	};
 
 	const toExpression = (
@@ -415,7 +445,8 @@ async function createSavedView(
 				!value.startsWith("computed.") &&
 				value.split(".").length === 2
 			) {
-				return [`entity.${value}`];
+				const [schemaSlug, prop] = value.split(".");
+				return [`entity.${schemaSlug}.properties.${prop}`];
 			}
 			return [value];
 		};
@@ -437,8 +468,9 @@ async function createSavedView(
 			return [value];
 		}
 
+		const column = value.slice(1);
 		return queryDefinition.entitySchemaSlugs.map((schemaSlug) => {
-			return `entity.${schemaSlug}.${value}`;
+			return `entity.${schemaSlug}.${column}`;
 		});
 	};
 
@@ -454,10 +486,16 @@ async function createSavedView(
 				);
 			}
 
-			return `entity.${queryDefinition.entitySchemaSlugs[0]}.${value}`;
+			const column = value.slice(1);
+			return `entity.${queryDefinition.entitySchemaSlugs[0]}.${column}`;
 		}
 
-		return value.split(".").length === 2 ? `entity.${value}` : value;
+		if (value.split(".").length === 2) {
+			const [schemaSlug, prop] = value.split(".");
+			return `entity.${schemaSlug}.properties.${prop}`;
+		}
+
+		return value;
 	};
 
 	const normalizeSortFields = (values: string[]) => {
@@ -470,7 +508,12 @@ async function createSavedView(
 				return expandEntityBuiltinReference(value);
 			}
 
-			return value.split(".").length === 2 ? [`entity.${value}`] : [value];
+			if (value.split(".").length === 2) {
+				const [schemaSlug, prop] = value.split(".");
+				return [`entity.${schemaSlug}.properties.${prop}`];
+			}
+
+			return [value];
 		});
 	};
 
@@ -649,7 +692,7 @@ function literal(value: unknown): SavedViewExpression {
 }
 
 function schemaProp(slug: string, property: string): SavedViewExpression {
-	return ref({ type: "schema-property", slug, property });
+	return ref({ type: "schema-property", slug, property: [property] });
 }
 
 function computedRef(key: string): SavedViewExpression {
@@ -657,7 +700,7 @@ function computedRef(key: string): SavedViewExpression {
 }
 
 function eventProp(joinKey: string, property: string): SavedViewExpression {
-	return ref({ type: "event-join-property", joinKey, property });
+	return ref({ type: "event-join-property", joinKey, property: [property] });
 }
 
 function eventCol(joinKey: string, column: string): SavedViewExpression {
@@ -763,17 +806,20 @@ function propertyReference(...fields: string[]) {
 }
 
 function schemaField(schemaSlug: string, property: string) {
-	if (
-		property === "name" ||
-		property === "image" ||
-		property === "createdAt" ||
-		property === "updatedAt" ||
-		property.startsWith("@")
-	) {
-		return `entity.${schemaSlug}.${property.startsWith("@") ? property : `@${property}`}`;
+	const entityBuiltins = new Set([
+		"id",
+		"name",
+		"image",
+		"createdAt",
+		"updatedAt",
+		"externalId",
+		"sandboxScriptId",
+	]);
+	if (entityBuiltins.has(property)) {
+		return `entity.${schemaSlug}.${property}`;
 	}
 
-	return `entity.${schemaSlug}.${property}`;
+	return `entity.${schemaSlug}.properties.${property}`;
 }
 
 function cardConfig(
@@ -2925,15 +2971,15 @@ async function seedSavedViews(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("event.tasting.rating"),
+					propertyReference("event.tasting.properties.rating"),
 					propertyReference(schemaField("whiskey", "distillery")),
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Rating", "event.tasting.rating"),
-					tableColumn("Notes", "event.tasting.notes"),
-					tableColumn("Location", "event.tasting.location"),
-					tableColumn("Tasted At", "event.tasting.@createdAt"),
+					tableColumn("Rating", "event.tasting.properties.rating"),
+					tableColumn("Notes", "event.tasting.properties.notes"),
+					tableColumn("Location", "event.tasting.properties.location"),
+					tableColumn("Tasted At", "event.tasting.createdAt"),
 				],
 			),
 		},
@@ -2952,12 +2998,12 @@ async function seedSavedViews(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("event.tasting.rating"),
+					propertyReference("event.tasting.properties.rating"),
 					propertyReference(schemaField("whiskey", "type")),
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Rating", "event.tasting.rating"),
+					tableColumn("Rating", "event.tasting.properties.rating"),
 					tableColumn("Type", schemaField("whiskey", "type")),
 					tableColumn("Distillery", schemaField("whiskey", "distillery")),
 					tableColumn("Age", schemaField("whiskey", "age")),
@@ -2979,15 +3025,15 @@ async function seedSavedViews(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("event.purchase.price"),
-					propertyReference("event.purchase.store"),
+					propertyReference("event.purchase.properties.price"),
+					propertyReference("event.purchase.properties.store"),
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Price", "event.purchase.price"),
-					tableColumn("Store", "event.purchase.store"),
-					tableColumn("Bottle Size", "event.purchase.bottle_size"),
-					tableColumn("Purchased At", "event.purchase.@createdAt"),
+					tableColumn("Price", "event.purchase.properties.price"),
+					tableColumn("Store", "event.purchase.properties.store"),
+					tableColumn("Bottle Size", "event.purchase.properties.bottle_size"),
+					tableColumn("Purchased At", "event.purchase.createdAt"),
 				],
 			),
 		},
@@ -3006,15 +3052,15 @@ async function seedSavedViews(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("event.visit.date"),
+					propertyReference("event.visit.properties.date"),
 					propertyReference(schemaField("place", "city")),
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Visit Date", "event.visit.date"),
+					tableColumn("Visit Date", "event.visit.properties.date"),
 					tableColumn("City", schemaField("place", "city")),
-					tableColumn("Duration (h)", "event.visit.duration_hours"),
-					tableColumn("Companions", "event.visit.companions"),
+					tableColumn("Duration (h)", "event.visit.properties.duration_hours"),
+					tableColumn("Companions", "event.visit.properties.companions"),
 				],
 			),
 		},
@@ -3176,7 +3222,7 @@ async function seedSavedViews(
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Rating", "event.tasting.rating"),
+					tableColumn("Rating", "event.tasting.properties.rating"),
 					tableColumn("ABV (%)", "computed.abv"),
 					tableColumn("Value Score", "computed.value_score"),
 				],
