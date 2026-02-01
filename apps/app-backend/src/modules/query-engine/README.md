@@ -451,6 +451,8 @@ deliberately:
   evaluator exactly.
 - **Text collation is `C`** (byte order): text comparisons and ordering are deterministic with
   uppercase before lowercase. Numeric properties sort numerically; dates sort as `timestamptz`.
+- **Equality of composite values** (`eq`/`neq` over object/array JSON) is structural jsonb value
+  equality, not identity.
 - **`contains`**: strings use a case-insensitive, escaped `ILIKE`; array/object property values
   use jsonb containment (`@>`).
 - **Guarded property access**: a schema-qualified property contributes only when the row is of
