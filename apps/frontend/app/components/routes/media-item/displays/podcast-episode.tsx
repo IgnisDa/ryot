@@ -27,13 +27,13 @@ export const DisplayPodcastEpisode = (props: {
 		[props.episode.number],
 	);
 	const episodeTitleTranslation = useMetadataTranslationValue({
-		metadataId: props.metadataId,
 		podcastExtraInformation,
+		metadataId: props.metadataId,
 		variant: EntityTranslationVariant.Title,
 	});
 	const episodeDescriptionTranslation = useMetadataTranslationValue({
-		metadataId: props.metadataId,
 		podcastExtraInformation,
+		metadataId: props.metadataId,
 		variant: EntityTranslationVariant.Description,
 	});
 
@@ -45,8 +45,8 @@ export const DisplayPodcastEpisode = (props: {
 				displayIndicator={numTimesEpisodeSeen}
 				publishDate={props.episode.publishDate}
 				posterImages={[props.episode.thumbnail || ""]}
-				name={episodeTitleTranslation ?? props.episode.title}
-				overview={episodeDescriptionTranslation ?? props.episode.overview}
+				name={episodeTitleTranslation || props.episode.title}
+				overview={episodeDescriptionTranslation || props.episode.overview}
 			>
 				<Button
 					color="blue"
