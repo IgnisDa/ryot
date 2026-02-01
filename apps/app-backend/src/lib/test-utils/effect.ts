@@ -87,7 +87,6 @@ export const makeAppConfigLayer = (
 		nodeEnv: "test",
 		timezone: "Etc/GMT",
 		_tag: "AppConfig" as const,
-		builtinExercisePreloadLimit: 873,
 		frontendUrl: "http://localhost:3000",
 		redisUrl: Redacted.make("unused"),
 		frontend: { oidcButtonLabel: Option.none() },

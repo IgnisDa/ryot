@@ -18,15 +18,19 @@ const onShutdownSignal = () => {
 process.on("SIGINT", onShutdownSignal);
 process.on("SIGTERM", onShutdownSignal);
 
-const { nodeEnv, runMigrationOnly, populateSandboxCacheOnly } = await Effect.runPromise(
-	Config.all({
-		nodeEnv: Config.string("NODE_ENV").pipe(Config.withDefault("development")),
-		runMigrationOnly: Config.boolean("RUN_MIGRATION_ONLY").pipe(Config.withDefault(false)),
-		populateSandboxCacheOnly: Config.boolean("POPULATE_SANDBOX_CACHE_ONLY").pipe(
-			Config.withDefault(false),
-		),
-	}).pipe(Effect.withConfigProvider(ConfigProvider.fromEnv())),
-);
+const { nodeEnv, runMigrationOnly, builtinExercisePreloadLimit, populateSandboxCacheOnly } =
+	await Effect.runPromise(
+		Config.all({
+			nodeEnv: Config.string("NODE_ENV").pipe(Config.withDefault("development")),
+			runMigrationOnly: Config.boolean("RUN_MIGRATION_ONLY").pipe(Config.withDefault(false)),
+			builtinExercisePreloadLimit: Config.integer("BUILTIN_EXERCISE_PRELOAD_LIMIT").pipe(
+				Config.withDefault(873),
+			),
+			populateSandboxCacheOnly: Config.boolean("POPULATE_SANDBOX_CACHE_ONLY").pipe(
+				Config.withDefault(false),
+			),
+		}).pipe(Effect.withConfigProvider(ConfigProvider.fromEnv())),
+	);
 
 if (runMigrationOnly) {
 	await Effect.runPromise(Effect.scoped(Layer.build(MigrationOnlyLive)));
@@ -50,4 +54,6 @@ if (nodeEnv !== "production") {
 	);
 }
 
-BunRuntime.runMain(Layer.launch(AppLive), { disablePrettyLogger: true });
+BunRuntime.runMain(Layer.launch(AppLive(builtinExercisePreloadLimit)), {
+	disablePrettyLogger: true,
+});

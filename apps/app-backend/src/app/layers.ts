@@ -329,31 +329,32 @@ const ServiceDependenciesLive = Layer.provide(
 	ServicesWithTestSupportLive,
 	ApplicationInfrastructureLive,
 );
-const RuntimeLive = Layer.mergeAll(
-	AddEntityToCollectionWorkflowDefinitionsLive,
-	SubscriptionExecutionWorkflowDefinitionsLive,
-	ProviderEntityPopulationWorkflowDefinitionsLive,
-	EntitySchemaWorkflowDefinitionsLive,
-	EventCreateWorkflowDefinitionsLive,
-	LibraryEntityImportWorkflowDefinitionsLive,
-	NotificationDeliveryWorkflowDefinitionsLive,
-	MediaMonitoringRefreshWorkflowDefinitionsLive,
-	MediaTrendingRefreshWorkflowDefinitionsLive,
-	IntegrationReconciliationWorkflowDefinitionsLive,
-	EnsureLibraryMembershipWorkerLive,
-	DefaultSavedViewWorkerLive,
-	BuiltinEntityPreloaderLive,
-	ImportWorkflowDefinitionsLive,
-	ProcessNormalizedMediaImportWorkflowDefinitionsLive,
-	IntegrationWorkflowDefinitionsLive,
-	SandboxWorkflowDefinitionsLive,
-	TranslateEntityWorkflowDefinitionsLive,
-	ServerLive,
-	FrequentCronWorkflowDefinitionsLive,
-	InfrequentCronWorkflowDefinitionsLive,
-	FrequentCronSchedulerLive,
-	InfrequentCronSchedulerLive,
-);
+const RuntimeLive = (builtinExercisePreloadLimit: number) =>
+	Layer.mergeAll(
+		AddEntityToCollectionWorkflowDefinitionsLive,
+		SubscriptionExecutionWorkflowDefinitionsLive,
+		ProviderEntityPopulationWorkflowDefinitionsLive,
+		EntitySchemaWorkflowDefinitionsLive,
+		EventCreateWorkflowDefinitionsLive,
+		LibraryEntityImportWorkflowDefinitionsLive,
+		NotificationDeliveryWorkflowDefinitionsLive,
+		MediaMonitoringRefreshWorkflowDefinitionsLive,
+		MediaTrendingRefreshWorkflowDefinitionsLive,
+		IntegrationReconciliationWorkflowDefinitionsLive,
+		EnsureLibraryMembershipWorkerLive,
+		DefaultSavedViewWorkerLive,
+		BuiltinEntityPreloaderLive(builtinExercisePreloadLimit),
+		ImportWorkflowDefinitionsLive,
+		ProcessNormalizedMediaImportWorkflowDefinitionsLive,
+		IntegrationWorkflowDefinitionsLive,
+		SandboxWorkflowDefinitionsLive,
+		TranslateEntityWorkflowDefinitionsLive,
+		ServerLive,
+		FrequentCronWorkflowDefinitionsLive,
+		InfrequentCronWorkflowDefinitionsLive,
+		FrequentCronSchedulerLive,
+		InfrequentCronSchedulerLive,
+	);
 
 const SeedServiceLive = Layer.provide(
 	SeedService.Default,
@@ -371,15 +372,18 @@ const MigrationBootstrapServicesLive = Layer.provideMerge(
 	Layer.mergeAll(LifecycleDispatchNoop, QueryEngineServiceLive, MigrationBootstrapRepositoriesLive),
 );
 
-const RuntimeAfterMigrationsLive = MigrationsComplete.Default.pipe(
-	Layer.flatMap(() =>
-		SeedServiceLive.pipe(
-			Layer.flatMap(() =>
-				LegacyBootstrapMigrateDrop.Default.pipe(Layer.flatMap(() => RuntimeLive)),
+const RuntimeAfterMigrationsLive = (builtinExercisePreloadLimit: number) =>
+	MigrationsComplete.Default.pipe(
+		Layer.flatMap(() =>
+			SeedServiceLive.pipe(
+				Layer.flatMap(() =>
+					LegacyBootstrapMigrateDrop.Default.pipe(
+						Layer.flatMap(() => RuntimeLive(builtinExercisePreloadLimit)),
+					),
+				),
 			),
 		),
-	),
-);
+	);
 
 const RuntimeDependenciesLive = Layer.mergeAll(
 	ServiceDependenciesLive,
@@ -407,8 +411,10 @@ export const SandboxCacheOnlyLive = PackageCacheManager.Default.pipe(
 	Layer.provide(BunContext.layer),
 );
 
-const AppCoreLive = Layer.provide(RuntimeAfterMigrationsLive, RuntimeDependenciesLive);
+const AppCoreLive = (builtinExercisePreloadLimit: number) =>
+	Layer.provide(RuntimeAfterMigrationsLive(builtinExercisePreloadLimit), RuntimeDependenciesLive);
 const ObservabilityProvided = Layer.provide(ObservabilityLive, ConfigLive);
 
-export const AppLive = Layer.provide(AppCoreLive, ObservabilityProvided);
+export const AppLive = (builtinExercisePreloadLimit: number) =>
+	Layer.provide(AppCoreLive(builtinExercisePreloadLimit), ObservabilityProvided);
 export const MigrationOnlyLive = Layer.provide(MigrationOnlyCoreLive, ObservabilityProvided);
