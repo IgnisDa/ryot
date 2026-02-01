@@ -260,6 +260,7 @@ pub async fn calculate_user_activities_and_summary(
                 MediaLot::Podcast => activity.podcast_count += 1,
                 MediaLot::VideoGame => activity.video_game_count += 1,
                 MediaLot::AudioBook => activity.audio_book_count += 1,
+                MediaLot::ComicBook => activity.comic_book_count += 1,
                 MediaLot::VisualNovel => activity.visual_novel_count += 1,
             };
         }
