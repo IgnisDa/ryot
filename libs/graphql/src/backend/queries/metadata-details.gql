@@ -49,8 +49,6 @@ query MetadataDetails($metadataId: String!) {
 			}
 			comicBookSpecifics {
 				pageCount
-				seriesName
-				issueNumber
 			}
 			assets {
 				...EntityAssetsPart
