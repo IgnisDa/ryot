@@ -40,6 +40,8 @@ RUN apt-get update && apt-get install -y curl unzip && \
 ENV SANDBOX_DENO_DIR=/home/ryot/tmp
 WORKDIR /home/ryot
 COPY --chown=ryot:ryot apps/app-backend/src/drizzle ./src/drizzle
+COPY --chown=ryot:ryot apps/app-backend/src/modules/definition-registry/kernel-scripts /src/modules/definition-registry/kernel-scripts
+COPY --chown=ryot:ryot plugins /plugins
 COPY --from=client-builder --chown=ryot:ryot /app/apps/app-client/dist ./client
 COPY --from=backend-builder --chown=ryot:ryot /app/apps/app-backend/dist ./dist
 COPY --from=backend-builder --chown=ryot:ryot /app/libs/sandbox-compiler/dist/compiler-worker.js* ./dist/
