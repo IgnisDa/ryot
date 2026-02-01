@@ -63,6 +63,13 @@ struct IssueCreditCreator {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(untagged)]
+enum IssueCreditCreatorWrapper {
+    Struct(IssueCreditCreator),
+    String(String),
+}
+
+#[derive(Deserialize, Debug)]
 struct IssueCreditRole {
     name: String,
 }
@@ -70,7 +77,7 @@ struct IssueCreditRole {
 #[derive(Deserialize, Debug)]
 struct IssueCredit {
     role: Vec<IssueCreditRole>,
-    creator: IssueCreditCreator,
+    creator: IssueCreditCreatorWrapper,
 }
 
 #[derive(Deserialize, Debug)]
@@ -216,11 +223,17 @@ impl MediaProvider for MetronService {
                         .map(|r| r.name)
                         .collect_vec()
                         .join(", ");
+
+                    let (name, identifier) = match credit.creator {
+                        IssueCreditCreatorWrapper::Struct(c) => (c.name, c.id.to_string()),
+                        IssueCreditCreatorWrapper::String(n) => (n.clone(), format!("name:{}", n)),
+                    };
+
                     Some(PartialMetadataPerson {
                         role: roles,
-                        name: credit.creator.name,
+                        name,
                         source: MediaSource::Metron,
-                        identifier: credit.creator.id.to_string(),
+                        identifier,
                         ..Default::default()
                     })
                 })
