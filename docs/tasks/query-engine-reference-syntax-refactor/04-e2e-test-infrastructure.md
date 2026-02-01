@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -40,24 +40,24 @@ new syntax.
 
 ## Acceptance criteria
 
-- [ ] `entityField("book", "name")` emits `"entity.book.name"` (not
+- [x] `entityField("book", "name")` emits `"entity.book.name"` (not
   `"entity.book.@name"`).
-- [ ] `entityField("book", "year")` emits `"entity.book.properties.year"` (not
+- [x] `entityField("book", "year")` emits `"entity.book.properties.year"` (not
   `"entity.book.year"`).
-- [ ] `parseReference("entity.book.sandboxScriptId")` returns
+- [x] `parseReference("entity.book.sandboxScriptId")` returns
   `{ type: "entity-column", slug: "book", column: "sandboxScriptId" }`.
-- [ ] `parseReference("entity.book.properties.author")` returns
+- [x] `parseReference("entity.book.properties.author")` returns
   `{ type: "schema-property", slug: "book", property: ["author"] }`.
-- [ ] `parseReference("event.review.createdAt")` returns
+- [x] `parseReference("event.review.createdAt")` returns
   `{ type: "event-join-column", joinKey: "review", column: "createdAt" }`.
-- [ ] `parseReference("event.review.properties.rating")` returns
+- [x] `parseReference("event.review.properties.rating")` returns
   `{ type: "event-join-property", joinKey: "review", property: ["rating"] }`.
-- [ ] `parseReference("entity.book.@sandboxScriptId")` throws.
-- [ ] No string literal in the `tests/` directory still contains `".@"` in a
+- [x] `parseReference("entity.book.@sandboxScriptId")` throws.
+- [x] No string literal in the `tests/` directory still contains `".@"` in a
   reference context.
-- [ ] The `saved-views.test.ts` error-message assertion matches the updated format
+- [x] The `saved-views.test.ts` error-message assertion matches the updated format
   (no `@` in the error string).
-- [ ] All previously passing E2E tests continue to pass.
+- [x] All previously passing E2E tests continue to pass.
 
 ## Blocked by
 
