@@ -297,6 +297,7 @@ impl MediaProvider for MetronService {
             description: data.desc,
             title: issue_title(&data.series.name, &data.number),
             publish_date: data.cover_date.as_ref().and_then(|d| parse_date(d)),
+            source_url: Some(format!("https://metron.cloud/issue/{}", identifier)),
             assets: EntityAssets {
                 remote_images: data.image.into_iter().collect(),
                 ..Default::default()
