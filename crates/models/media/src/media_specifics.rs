@@ -335,8 +335,6 @@ pub struct MusicSpecifics {
 #[graphql(input_name = "ComicBookSpecificsInput")]
 pub struct ComicBookSpecifics {
     pub page_count: Option<i32>,
-    pub series_name: Option<String>,
-    pub issue_number: Option<String>,
 }
 
 #[skip_serializing_none]

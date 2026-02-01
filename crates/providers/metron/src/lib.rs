@@ -313,9 +313,7 @@ impl MediaProvider for MetronService {
                 .and_then(|d| parse_date(d))
                 .map(|d| d.year()),
             comic_book_specifics: Some(ComicBookSpecifics {
-                issue_number: data.number,
                 page_count: data.page_count,
-                series_name: Some(data.series.name),
             }),
             ..Default::default()
         })
