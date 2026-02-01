@@ -1,5 +1,5 @@
 import { badRequest } from "@ryot/contract/errors";
-import type { TestSupportStartMediaPopulationGateBody } from "@ryot/contract/modules/test-support/schemas";
+import type { TestSupportStartWorkflowLoadGateBody } from "@ryot/contract/modules/test-support/schemas";
 import type { ImportRunId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect } from "effect";
 
@@ -10,7 +10,7 @@ import { getSandboxProcessMetrics } from "#lib/infrastructure/sandbox-runtime/ru
 import { ImportsService } from "#modules/imports/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
-const MEDIA_POPULATION_GATE_CHUNK_SIZE = 1_000;
+const WORKFLOW_LOAD_GATE_CHUNK_SIZE = 1_000;
 
 type PressureRow = {
 	deadlocks: number;
@@ -30,71 +30,68 @@ export class OperationalGateService extends Effect.Service<OperationalGateServic
 			const imports = yield* ImportsService;
 			const sandbox = yield* SandboxExecutionService;
 
-			const startMediaPopulation = Effect.fn("OperationalGateService.startMediaPopulation")(
-				function* (input: TestSupportStartMediaPopulationGateBody) {
-					const run = yield* imports.create({
-						source: "netflix",
-						userId: input.executingUserId,
-						inputSummary: {
-							itemCount: input.itemCount,
-							kind: "phase-3-media-population-operational-gate",
-						},
-					});
-					const startedAt = yield* DateTime.nowAsDate;
-					yield* imports.update({
-						startedAt,
-						status: "running",
-						runId: run.id,
-						totalItems: input.itemCount,
-					});
+			const startWorkflowLoad = Effect.fn("OperationalGateService.startWorkflowLoad")(function* (
+				input: TestSupportStartWorkflowLoadGateBody,
+			) {
+				const run = yield* imports.create({
+					source: input.source,
+					userId: input.executingUserId,
+					inputSummary: { itemCount: input.itemCount, kind: "workflow-load-operational-gate" },
+				});
+				const startedAt = yield* DateTime.nowAsDate;
+				yield* imports.update({
+					startedAt,
+					runId: run.id,
+					status: "running",
+					totalItems: input.itemCount,
+				});
 
-					const items = Array.from({ length: input.itemCount }, (_, index) => ({
-						index,
-						providerId: input.providerId,
-						entitySchemaSlug: input.entitySchemaSlug,
-						externalId: `${input.identifierPrefix}-${index}`,
-						origin: { kind: "import" as const, importRunId: run.id },
-					}));
-					const chunks: Array<typeof items> = [];
-					let chunk: typeof items = [];
-					for (const item of items) {
-						const candidate = [...chunk, item];
-						if (
-							candidate.length > MEDIA_POPULATION_GATE_CHUNK_SIZE ||
-							sandboxContextError({ items: candidate }, { kind: "workflow" })
-						) {
-							if (chunk.length === 0) {
-								return yield* badRequest("Media population gate item exceeds workflow limits");
-							}
-							chunks.push(chunk);
-							chunk = [item];
-						} else {
-							chunk = candidate;
+				const items = Array.from({ length: input.itemCount }, (_, index) => ({
+					index,
+					providerId: input.providerId,
+					entitySchemaSlug: input.entitySchemaSlug,
+					externalId: `${input.identifierPrefix}-${index}`,
+					origin: { kind: "import" as const, importRunId: run.id },
+				}));
+				const chunks: Array<typeof items> = [];
+				let chunk: typeof items = [];
+				for (const item of items) {
+					const candidate = [...chunk, item];
+					if (
+						candidate.length > WORKFLOW_LOAD_GATE_CHUNK_SIZE ||
+						sandboxContextError({ items: candidate }, { kind: "workflow" })
+					) {
+						if (chunk.length === 0) {
+							return yield* badRequest("Workflow load gate item exceeds workflow limits");
 						}
-					}
-					if (chunk.length > 0) {
 						chunks.push(chunk);
+						chunk = [item];
+					} else {
+						chunk = candidate;
 					}
+				}
+				if (chunk.length > 0) {
+					chunks.push(chunk);
+				}
 
-					const executionIds: string[] = [];
-					for (const [chunkIndex, packedItems] of chunks.entries()) {
-						const executionId = `${run.id}-phase-3-population-${chunkIndex}`;
-						executionIds.push(executionId);
-						yield* sandbox
-							.enqueuePluginWorkflow({
-								executionId,
-								pluginSlug: "media",
-								workflowSlug: "media-import-population",
-								executingUserId: input.executingUserId,
-								input: { items: packedItems },
-							})
-							.pipe(Effect.catchTag("SandboxRunError", (error) => badRequest(error.message)));
-					}
-					return { executionIds, runId: run.id };
-				},
-			);
+				const executionIds: string[] = [];
+				for (const [chunkIndex, packedItems] of chunks.entries()) {
+					const executionId = `${run.id}-workflow-load-${chunkIndex}`;
+					executionIds.push(executionId);
+					yield* sandbox
+						.enqueuePluginWorkflow({
+							executionId,
+							pluginSlug: input.pluginSlug,
+							input: { items: packedItems },
+							workflowSlug: input.workflowSlug,
+							executingUserId: input.executingUserId,
+						})
+						.pipe(Effect.catchTag("SandboxRunError", (error) => badRequest(error.message)));
+				}
+				return { executionIds, runId: run.id };
+			});
 
-			const getMediaPopulationResult = Effect.fn("OperationalGateService.getMediaPopulationResult")(
+			const getWorkflowLoadResult = Effect.fn("OperationalGateService.getWorkflowLoadResult")(
 				function* (input: {
 					itemCount: number;
 					runId: ImportRunId;
@@ -110,12 +107,12 @@ export class OperationalGateService extends Effect.Service<OperationalGateServic
 						const finishedAt = yield* DateTime.nowAsDate;
 						yield* imports.update({
 							finishedAt,
-							runId: input.runId,
 							progress: 100,
+							runId: input.runId,
 							processedItems: input.itemCount,
-							importedItems: failed ? 0 : input.itemCount,
-							failedItems: failed ? input.itemCount : 0,
 							status: failed ? "failed" : "completed",
+							failedItems: failed ? input.itemCount : 0,
+							importedItems: failed ? 0 : input.itemCount,
 						});
 					}
 					return { executions, runId: input.runId };
@@ -178,25 +175,25 @@ export class OperationalGateService extends Effect.Service<OperationalGateServic
 				}
 
 				return {
+					sandbox: getSandboxProcessMetrics(),
+					redis: { projectionCount, projectionErrors, maxHighWater },
 					locks: {
 						advisoryLocks: pressure.advisory_locks,
 						waitingAdvisoryLocks: pressure.waiting_advisory_locks,
 					},
-					redis: { projectionCount, projectionErrors, maxHighWater },
-					sandbox: getSandboxProcessMetrics(),
 					database: {
 						deadlocks: pressure.deadlocks,
-						activeConnections: pressure.active_connections,
-						totalConnections: pressure.total_connections,
-						lockWaitingConnections: pressure.lock_waiting_connections,
 						appPoolIdleConnections: db.pool.idleCount,
 						appPoolTotalConnections: db.pool.totalCount,
 						appPoolWaitingRequests: db.pool.waitingCount,
+						totalConnections: pressure.total_connections,
+						activeConnections: pressure.active_connections,
+						lockWaitingConnections: pressure.lock_waiting_connections,
 					},
 				};
 			});
 
-			return { samplePressure, startMediaPopulation, getMediaPopulationResult };
+			return { samplePressure, startWorkflowLoad, getWorkflowLoadResult };
 		}),
 	},
 ) {}
