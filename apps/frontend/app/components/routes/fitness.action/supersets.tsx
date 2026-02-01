@@ -61,8 +61,8 @@ const CreateSupersetModal = (props: {
 		props.supersetWith,
 	]);
 	const colors = useGetMantineColors();
-	const [allowedColors, setAllowedColors] = useState<string[]>([]);
 	const [selectedColor, setSelectedColor] = useState<string>("");
+	const [allowedColors, setAllowedColors] = useState<string[]>([]);
 
 	useEffect(() => {
 		if (cw) {

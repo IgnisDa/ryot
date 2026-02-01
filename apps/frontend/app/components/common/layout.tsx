@@ -60,8 +60,8 @@ export const MediaDetailsLayout = (props: {
 		href?: string | null;
 	};
 }) => {
-	const [activeImageId, setActiveImageId] = useState(0);
 	const fallbackImageUrl = useFallbackImageUrl();
+	const [activeImageId, setActiveImageId] = useState(0);
 
 	const s3PresignedUrls = useS3PresignedUrls(props.assets.s3Images);
 	const images = [

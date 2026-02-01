@@ -200,9 +200,9 @@ const PasswordSection = () => {
 };
 
 const TwoFactorAuthSection = () => {
+	const navigate = useNavigate();
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
-	const navigate = useNavigate();
 	const dashboardData = useDashboardLayoutData();
 	const isEditDisabled = dashboardData.isDemoInstance;
 	const [setupModalOpened, { open: openSetupModal, close: closeSetupModal }] =
@@ -353,11 +353,11 @@ interface TwoFactorSetupModalProps {
 
 const TwoFactorSetupModal = (props: TwoFactorSetupModalProps) => {
 	const [step, setStep] = useState(TwoFactorSetupStep.Auth);
+	const [backupCodes, setBackupCodes] = useState<string[]>([]);
 	const [setupData, setSetupData] = useState<{
 		secret: string;
 		qrCodeUrl: string;
 	} | null>(null);
-	const [backupCodes, setBackupCodes] = useState<string[]>([]);
 
 	const initiateMutation = useMutation({
 		mutationFn: async () => {

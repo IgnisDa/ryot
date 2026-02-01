@@ -26,11 +26,11 @@ export const AddEntityToCollectionsForm = ({
 	const events = useApplicationEvents();
 	const collections = useNonHiddenUserCollections();
 	const [addEntityToCollectionData] = useAddEntityToCollections();
-	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
 	const { alreadyInCollectionIds } = useEntityAlreadyInCollections(
 		addEntityToCollectionData?.entityId,
 		addEntityToCollectionData?.entityLot,
 	);
+	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
 
 	const form = useSavedForm<{
 		selectedCollections: Array<

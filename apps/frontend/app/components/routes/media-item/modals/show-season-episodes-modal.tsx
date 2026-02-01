@@ -43,10 +43,10 @@ const DisplayShowSeasonEpisodes = (props: {
 	openedShowSeason: number;
 	metadataId: string;
 }) => {
-	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 	);
+	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
 	const season =
 		metadataDetails?.showSpecifics?.seasons[props.openedShowSeason];
 	const seasonProgress =

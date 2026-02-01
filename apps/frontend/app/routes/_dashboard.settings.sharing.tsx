@@ -248,11 +248,11 @@ const DisplayAccessLink = (props: {
 	accessLink: AccessLink;
 	isEditDisabled: boolean;
 }) => {
-	const userDetails = useUserDetails();
 	const [parent] = useAutoAnimate();
-	const [inputOpened, { toggle: inputToggle }] = useDisclosure(false);
 	const submit = useConfirmSubmit();
+	const userDetails = useUserDetails();
 	const loaderData = useLoaderData<typeof loader>();
+	const [inputOpened, { toggle: inputToggle }] = useDisclosure(false);
 
 	const accessLinkUrl = `${applicationBaseUrl}/${
 		props.accessLink.isAccountDefault

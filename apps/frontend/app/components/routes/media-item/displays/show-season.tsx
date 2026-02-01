@@ -19,10 +19,10 @@ export const DisplayShowSeason = (props: {
 	metadataId: string;
 	openSeasonModal: () => void;
 }) => {
-	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 	);
+	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
 
 	const seasonProgress = userMetadataDetails?.showProgress?.[props.seasonIdx];
 	const numTimesSeen = seasonProgress?.timesSeen || 0;

@@ -8,11 +8,13 @@ use std::{
 use anyhow::{Context, Result, bail};
 use apalis::{
     layers::WorkerBuilderExt,
-    prelude::{MemoryStorage, Monitor, WorkerBuilder, WorkerFactoryFn},
+    prelude::{MakeShared, Monitor, WorkerBuilder},
 };
-use apalis_cron::{CronStream, Schedule};
+use apalis_cron::CronStream;
+use apalis_sqlite::{SharedSqliteStorage, SqliteStorage};
 use common_utils::{PROJECT_NAME, get_temporary_directory};
 use config_definition::AppConfig;
+use cron::Schedule;
 use dependent_models::CompleteExport;
 use english_to_cron::str_cron_syntax;
 use env_utils::APP_VERSION;
@@ -92,20 +94,23 @@ async fn main() -> Result<()> {
         bail!("There was an error running the database migrations.");
     };
 
-    let lp_application_job_storage = MemoryStorage::new();
-    let mp_application_job_storage = MemoryStorage::new();
-    let hp_application_job_storage = MemoryStorage::new();
-    let single_application_job_storage = MemoryStorage::new();
+    let mut store = SharedSqliteStorage::new(":memory:");
+    SqliteStorage::setup(store.pool()).await?;
+
+    let lp_application_job_storage = store.make_shared()?;
+    let mp_application_job_storage = store.make_shared()?;
+    let hp_application_job_storage = store.make_shared()?;
+    let single_application_job_storage = store.make_shared()?;
 
     let (app_router, supporting_service) = create_app_dependencies()
         .db(db)
         .timezone(tz)
         .config(config)
         .log_file_path(log_file_path)
-        .lp_application_job(&lp_application_job_storage)
-        .mp_application_job(&mp_application_job_storage)
-        .hp_application_job(&hp_application_job_storage)
-        .single_application_job(&single_application_job_storage)
+        .lp_application_job(lp_application_job_storage.clone())
+        .mp_application_job(mp_application_job_storage.clone())
+        .hp_application_job(hp_application_job_storage.clone())
+        .single_application_job(single_application_job_storage.clone())
         .call()
         .await;
 
@@ -144,58 +149,81 @@ async fn main() -> Result<()> {
     tracing::info!("Listening on: {}", listener.local_addr()?);
 
     let monitor = Monitor::new()
-        .register(
-            WorkerBuilder::new("infrequent_cron_jobs")
-                .enable_tracing()
-                .catch_panic()
-                .data(supporting_service.clone())
-                .backend(CronStream::new_with_timezone(infrequent_scheduler, tz))
-                .build_fn(run_infrequent_cron_jobs),
-        )
-        .register(
-            WorkerBuilder::new("frequent_cron_jobs")
-                .enable_tracing()
-                .catch_panic()
-                .data(supporting_service.clone())
-                .backend(CronStream::new_with_timezone(frequent_scheduler, tz))
-                .build_fn(run_frequent_cron_jobs),
-        )
-        // application jobs
-        .register(
-            WorkerBuilder::new("perform_single_application_job")
-                .catch_panic()
-                .enable_tracing()
-                .concurrency(1)
-                .data(supporting_service.clone())
-                .backend(single_application_job_storage)
-                .build_fn(perform_single_application_job),
-        )
-        .register(
-            WorkerBuilder::new("perform_hp_application_job")
-                .catch_panic()
-                .enable_tracing()
-                .data(supporting_service.clone())
-                .backend(hp_application_job_storage)
-                .build_fn(perform_hp_application_job),
-        )
-        .register(
-            WorkerBuilder::new("perform_mp_application_job")
-                .catch_panic()
-                .enable_tracing()
-                .rate_limit(10, Duration::new(5, 0))
-                .data(supporting_service.clone())
-                .backend(mp_application_job_storage)
-                .build_fn(perform_mp_application_job),
-        )
-        .register(
-            WorkerBuilder::new("perform_lp_application_job")
-                .catch_panic()
-                .enable_tracing()
-                .rate_limit(40, Duration::new(5, 0))
-                .data(supporting_service.clone())
-                .backend(lp_application_job_storage)
-                .build_fn(perform_lp_application_job),
-        )
+        .register({
+            let ss = supporting_service.clone();
+            let scheduler = infrequent_scheduler.clone();
+            move |_runs| {
+                WorkerBuilder::new("infrequent_cron_jobs")
+                    .backend(CronStream::new_with_timezone(scheduler.clone(), tz))
+                    .enable_tracing()
+                    .catch_panic()
+                    .data(ss.clone())
+                    .build(run_infrequent_cron_jobs)
+            }
+        })
+        .register({
+            let ss = supporting_service.clone();
+            let scheduler = frequent_scheduler.clone();
+            move |_runs| {
+                WorkerBuilder::new("frequent_cron_jobs")
+                    .backend(CronStream::new_with_timezone(scheduler.clone(), tz))
+                    .enable_tracing()
+                    .catch_panic()
+                    .data(ss.clone())
+                    .build(run_frequent_cron_jobs)
+            }
+        })
+        .register({
+            let storage = single_application_job_storage.clone();
+            let ss = supporting_service.clone();
+            move |_runs| {
+                WorkerBuilder::new("perform_single_application_job")
+                    .backend(storage.clone())
+                    .catch_panic()
+                    .enable_tracing()
+                    .concurrency(1)
+                    .data(ss.clone())
+                    .build(perform_single_application_job)
+            }
+        })
+        .register({
+            let storage = hp_application_job_storage.clone();
+            let ss = supporting_service.clone();
+            move |_runs| {
+                WorkerBuilder::new("perform_hp_application_job")
+                    .backend(storage.clone())
+                    .catch_panic()
+                    .enable_tracing()
+                    .data(ss.clone())
+                    .build(perform_hp_application_job)
+            }
+        })
+        .register({
+            let storage = mp_application_job_storage.clone();
+            let ss = supporting_service.clone();
+            move |_runs| {
+                WorkerBuilder::new("perform_mp_application_job")
+                    .backend(storage.clone())
+                    .catch_panic()
+                    .enable_tracing()
+                    .rate_limit(10, Duration::new(5, 0))
+                    .data(ss.clone())
+                    .build(perform_mp_application_job)
+            }
+        })
+        .register({
+            let storage = lp_application_job_storage.clone();
+            let ss = supporting_service.clone();
+            move |_runs| {
+                WorkerBuilder::new("perform_lp_application_job")
+                    .backend(storage.clone())
+                    .catch_panic()
+                    .enable_tracing()
+                    .rate_limit(40, Duration::new(5, 0))
+                    .data(ss.clone())
+                    .build(perform_lp_application_job)
+            }
+        })
         .run();
 
     let http = axum::serve(listener, app_router.into_make_service());

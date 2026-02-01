@@ -57,11 +57,11 @@ export const ExerciseDetailsModal = ({
 	selectedUnitSystem,
 }: ExerciseDetailsModalProps) => {
 	const coreDetails = useCoreDetails();
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [activeHistoryIdx, setActiveHistoryIdx] = useState(0);
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
-	const exerciseHistory = userExerciseDetails?.history;
 	const images = useExerciseImages(exerciseDetails);
+	const exerciseHistory = userExerciseDetails?.history;
 
 	return (
 		<Modal

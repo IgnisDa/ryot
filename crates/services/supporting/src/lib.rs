@@ -1,7 +1,8 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Result;
-use apalis::prelude::{MemoryStorage, MessageQueue};
+use apalis::prelude::{MakeShared, TaskSink};
+use apalis_sqlite::{CompactType, SharedSqliteStorage};
 use background_models::{
     ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob, SingleApplicationJob,
 };
@@ -11,6 +12,14 @@ use config_definition::AppConfig;
 use sea_orm::prelude::DateTimeUtc;
 use sea_orm_tracing::TracedConnection;
 
+type DefaultCodec = apalis_codec::json::JsonCodec<CompactType>;
+type SharedStorage = SharedSqliteStorage<DefaultCodec>;
+
+type LpStorage = <SharedStorage as MakeShared<LpApplicationJob>>::Backend;
+type HpStorage = <SharedStorage as MakeShared<HpApplicationJob>>::Backend;
+type MpStorage = <SharedStorage as MakeShared<MpApplicationJob>>::Backend;
+type SingleStorage = <SharedStorage as MakeShared<SingleApplicationJob>>::Backend;
+
 pub struct SupportingService {
     pub db: TracedConnection,
     pub is_oidc_enabled: bool,
@@ -19,10 +28,10 @@ pub struct SupportingService {
     pub timezone: chrono_tz::Tz,
     pub server_start_time: DateTimeUtc,
 
-    lp_application_job: MemoryStorage<LpApplicationJob>,
-    hp_application_job: MemoryStorage<HpApplicationJob>,
-    mp_application_job: MemoryStorage<MpApplicationJob>,
-    single_application_job: MemoryStorage<SingleApplicationJob>,
+    lp_application_job: LpStorage,
+    hp_application_job: HpStorage,
+    mp_application_job: MpStorage,
+    single_application_job: SingleStorage,
 }
 
 #[bon]
@@ -34,10 +43,10 @@ impl SupportingService {
         config: Arc<AppConfig>,
         log_file_path: PathBuf,
         timezone: chrono_tz::Tz,
-        lp_application_job: &MemoryStorage<LpApplicationJob>,
-        mp_application_job: &MemoryStorage<MpApplicationJob>,
-        hp_application_job: &MemoryStorage<HpApplicationJob>,
-        single_application_job: &MemoryStorage<SingleApplicationJob>,
+        lp_application_job: LpStorage,
+        mp_application_job: MpStorage,
+        hp_application_job: HpStorage,
+        single_application_job: SingleStorage,
     ) -> Self {
         Self {
             config,
@@ -45,22 +54,23 @@ impl SupportingService {
             log_file_path,
             db: db.clone(),
             is_oidc_enabled,
+            lp_application_job,
+            mp_application_job,
+            hp_application_job,
+            single_application_job,
             server_start_time: Utc::now(),
-            lp_application_job: lp_application_job.clone(),
-            mp_application_job: mp_application_job.clone(),
-            hp_application_job: hp_application_job.clone(),
-            single_application_job: single_application_job.clone(),
         }
     }
 
     pub async fn perform_application_job(&self, job: ApplicationJob) -> Result<()> {
         match job {
-            ApplicationJob::Lp(job) => self.lp_application_job.clone().enqueue(job).await,
-            ApplicationJob::Hp(job) => self.hp_application_job.clone().enqueue(job).await,
-            ApplicationJob::Mp(job) => self.mp_application_job.clone().enqueue(job).await,
-            ApplicationJob::Single(job) => self.single_application_job.clone().enqueue(job).await,
+            ApplicationJob::Lp(job) => self.lp_application_job.clone().push(job).await?,
+            ApplicationJob::Hp(job) => self.hp_application_job.clone().push(job).await?,
+            ApplicationJob::Mp(job) => self.mp_application_job.clone().push(job).await?,
+            ApplicationJob::Single(job) => self.single_application_job.clone().push(job).await?,
         }
-        .ok();
         Ok(())
     }
 }
+
+pub type JobStorage<T> = <SharedStorage as MakeShared<T>>::Backend;

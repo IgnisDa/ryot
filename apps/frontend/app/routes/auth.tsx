@@ -187,8 +187,8 @@ const loginSchema = z.object({
 
 export default function Page() {
 	const [form, fields] = useForm({});
-	const loaderData = useLoaderData<typeof loader>();
 	const [parent] = useAutoAnimate();
+	const loaderData = useLoaderData<typeof loader>();
 	const intent = loaderData.intent;
 
 	return (

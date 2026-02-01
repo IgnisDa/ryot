@@ -69,12 +69,12 @@ export function WorkoutHeader({
 	setIsSaveBtnLoading,
 	stopTimer,
 }: HeaderProps) {
-	const unitSystem = useUserUnitSystem();
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const events = useApplicationEvents();
 	const navigate = useNavigate();
-	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const events = useApplicationEvents();
+	const unitSystem = useUserUnitSystem();
 	const deleteS3AssetMutation = useDeleteS3AssetMutation();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
 	if (!currentWorkout) return null;
 

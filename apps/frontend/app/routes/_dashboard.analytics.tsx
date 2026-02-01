@@ -617,8 +617,8 @@ const StatItem = (props: {
 };
 
 const StatisticsCard = () => {
-	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
+	const userPreferences = useUserPreferences();
 
 	const displayDuration = (duration: number) => {
 		return humanizeDuration(
@@ -739,12 +739,12 @@ type ChartContainerProps = {
 };
 
 const ChartContainer = (props: ChartContainerProps) => {
-	const userPreferences = useUserPreferences();
-	const [isCaptureLoading] = useAtom(isCaptureLoadingAtom);
 	const [count, setCount] = useLocalStorage(
 		`FitnessChartContainer-${props.title}`,
 		10,
 	);
+	const userPreferences = useUserPreferences();
+	const [isCaptureLoading] = useAtom(isCaptureLoadingAtom);
 	const userAnalytics = useGetUserAnalytics();
 
 	const value = userAnalytics.data

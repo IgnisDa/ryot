@@ -485,9 +485,9 @@ const ExerciseItemDisplay = (props: {
 }) => {
 	const submit = useSubmit();
 	const navigate = useNavigate();
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const { ref, inViewport } = useInViewport();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const { data: exercise } = useExerciseDetails(props.exerciseId, inViewport);
 	const { data: userExerciseDetails } = useUserExerciseDetails(
 		props.exerciseId,

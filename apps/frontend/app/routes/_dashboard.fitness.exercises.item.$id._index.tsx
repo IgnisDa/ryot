@@ -111,16 +111,16 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
-	const userPreferences = useUserPreferences();
-	const unitSystem = useUserUnitSystem();
 	const userDetails = useUserDetails();
+	const unitSystem = useUserUnitSystem();
+	const userPreferences = useUserPreferences();
+	const loaderData = useLoaderData<typeof loader>();
 
-	const exerciseDetailsQuery = useExerciseDetails(loaderData.exerciseId);
 	const userExerciseDetailsQuery = useUserExerciseDetails(
 		loaderData.exerciseId,
 	);
+	const exerciseDetailsQuery = useExerciseDetails(loaderData.exerciseId);
 
 	const exerciseDetails = exerciseDetailsQuery.data;
 	const userExerciseDetails = userExerciseDetailsQuery.data;
@@ -130,16 +130,16 @@ export default function Page() {
 		userDetails.id === exerciseDetails.createdByUserId;
 	const exerciseNumTimesInteracted =
 		userExerciseDetails?.details?.exerciseNumTimesInteracted || 0;
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const navigate = useNavigate();
 	const isFitnessActionActive = useIsFitnessActionActive();
-	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [timeSpanForCharts, setTimeSpanForCharts] = useLocalStorage(
 		"ExerciseChartTimeSpan",
 		TimeSpan.Last90Days,
 	);
-	const [_m, setMergingExercise] = useMergingExercise();
+	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const [_r, setEntityToReview] = useReviewEntity();
+	const [_m, setMergingExercise] = useMergingExercise();
 	const [
 		updatePreferencesModalOpened,
 		{ open: openUpdatePreferencesModal, close: closeUpdatePreferencesModal },

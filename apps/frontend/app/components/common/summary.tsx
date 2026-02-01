@@ -41,9 +41,9 @@ export const DisplaySummarySection = ({
 }: {
 	latestUserSummary: UserAnalytics["activities"]["items"][number];
 }) => {
-	const userPreferences = useUserPreferences();
-	const unitSystem = useUserUnitSystem();
 	const theme = useMantineTheme();
+	const unitSystem = useUserUnitSystem();
+	const userPreferences = useUserPreferences();
 
 	return (
 		<SimpleGrid

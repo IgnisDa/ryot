@@ -236,8 +236,8 @@ const editSeenItem = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
+	const userPreferences = useUserPreferences();
 
 	const [metadataDetails, isMetadataPartialStatusActive] = useMetadataDetails(
 		loaderData.metadataId,
@@ -269,9 +269,9 @@ export default function Page() {
 	] = useDisclosure(false);
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
 	const [_r, setEntityToReview] = useReviewEntity();
-	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const [openedShowSeason, setOpenedShowSeason] = useState<number>();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
 	const metadataTitleTranslation = useMetadataTranslationValue({
 		metadataId: loaderData.metadataId,
