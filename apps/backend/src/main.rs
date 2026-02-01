@@ -150,83 +150,74 @@ async fn main() -> Result<()> {
     let listener = TcpListener::bind(format!("{host}:{port}")).await.unwrap();
     ryot_log!(info, "Listening on: {}", listener.local_addr()?);
 
-    let monitor = Monitor::new()
-        .register({
-            let ss = supporting_service.clone();
-            let scheduler = infrequent_scheduler.clone();
-            move |_runs| {
+    let monitor = {
+        let ss1 = supporting_service.clone();
+        let ss2 = supporting_service.clone();
+        let ss3 = supporting_service.clone();
+        let ss4 = supporting_service.clone();
+        let ss5 = supporting_service.clone();
+        let ss6 = supporting_service.clone();
+
+        Monitor::new()
+            .register(move |_runs| {
                 WorkerBuilder::new("infrequent_cron_jobs")
-                    .backend(CronStream::new_with_timezone(scheduler.clone(), tz))
+                    .backend(CronStream::new_with_timezone(
+                        infrequent_scheduler.clone(),
+                        tz,
+                    ))
                     .enable_tracing()
                     .catch_panic()
-                    .data(ss.clone())
+                    .data(ss1.clone())
                     .build(run_infrequent_cron_jobs)
-            }
-        })
-        .register({
-            let ss = supporting_service.clone();
-            let scheduler = frequent_scheduler.clone();
-            move |_runs| {
+            })
+            .register(move |_runs| {
                 WorkerBuilder::new("frequent_cron_jobs")
-                    .backend(CronStream::new_with_timezone(scheduler.clone(), tz))
+                    .backend(CronStream::new_with_timezone(
+                        frequent_scheduler.clone(),
+                        tz,
+                    ))
                     .enable_tracing()
                     .catch_panic()
-                    .data(ss.clone())
+                    .data(ss2.clone())
                     .build(run_frequent_cron_jobs)
-            }
-        })
-        .register({
-            let storage = single_application_job_storage.clone();
-            let ss = supporting_service.clone();
-            move |_runs| {
+            })
+            .register(move |_runs| {
                 WorkerBuilder::new("perform_single_application_job")
-                    .backend(storage.clone())
+                    .backend(single_application_job_storage.clone())
                     .catch_panic()
                     .enable_tracing()
                     .concurrency(1)
-                    .data(ss.clone())
+                    .data(ss3.clone())
                     .build(perform_single_application_job)
-            }
-        })
-        .register({
-            let storage = hp_application_job_storage.clone();
-            let ss = supporting_service.clone();
-            move |_runs| {
+            })
+            .register(move |_runs| {
                 WorkerBuilder::new("perform_hp_application_job")
-                    .backend(storage.clone())
+                    .backend(hp_application_job_storage.clone())
                     .catch_panic()
                     .enable_tracing()
-                    .data(ss.clone())
+                    .data(ss4.clone())
                     .build(perform_hp_application_job)
-            }
-        })
-        .register({
-            let storage = mp_application_job_storage.clone();
-            let ss = supporting_service.clone();
-            move |_runs| {
+            })
+            .register(move |_runs| {
                 WorkerBuilder::new("perform_mp_application_job")
-                    .backend(storage.clone())
+                    .backend(mp_application_job_storage.clone())
                     .catch_panic()
                     .enable_tracing()
                     .rate_limit(10, Duration::new(5, 0))
-                    .data(ss.clone())
+                    .data(ss5.clone())
                     .build(perform_mp_application_job)
-            }
-        })
-        .register({
-            let storage = lp_application_job_storage.clone();
-            let ss = supporting_service.clone();
-            move |_runs| {
+            })
+            .register(move |_runs| {
                 WorkerBuilder::new("perform_lp_application_job")
-                    .backend(storage.clone())
+                    .backend(lp_application_job_storage.clone())
                     .catch_panic()
                     .enable_tracing()
                     .rate_limit(40, Duration::new(5, 0))
-                    .data(ss.clone())
+                    .data(ss6.clone())
                     .build(perform_lp_application_job)
-            }
-        })
-        .run();
+            })
+            .run()
+    };
 
     let http = axum::serve(listener, app_router.into_make_service());
 
