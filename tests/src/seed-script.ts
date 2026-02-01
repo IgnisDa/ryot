@@ -29,7 +29,7 @@ import { createAuthClient } from "better-auth/client";
 
 import { requirePresent } from "~/support/assertions";
 
-import { adminHeaders } from "./fixtures/admin";
+import { adminAccessTokenHeaders } from "./fixtures/admin";
 import { cookieHeaderFromSetCookies, enableTwoFactorForSession } from "./fixtures/auth-2fa";
 import { testPluginManifest } from "./fixtures/test-plugin";
 
@@ -37,6 +37,9 @@ type EntitySchemaSlug = ContractPayload<"entities", "create">["entitySchemaSlug"
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:8000";
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8000/api";
+const adminHeaders = adminAccessTokenHeaders(
+	process.env.SERVER_ADMIN_ACCESS_TOKEN ?? "super-secret-token-that-should-be-changed",
+);
 
 async function createAndSignIn(): Promise<{
 	email: string;
@@ -319,13 +322,12 @@ async function createEntitySchema(
 		name,
 		slug,
 		icon,
-		pluginSlug,
 		accentColor,
 		propertiesSchema: propertiesSchemaWithImages,
 		eventSchemas: [],
 	};
 	await installSeedDefinitions(apiClient, { pluginSlug, entitySchemas: [definition] });
-	const schema = { ...definition, id: slug as EntitySchemaSlug };
+	const schema = { ...definition, pluginSlug, id: slug as EntitySchemaSlug };
 
 	console.log(`    ✓ Created entity schema: ${name} (${schema.id})`);
 	return schema;
