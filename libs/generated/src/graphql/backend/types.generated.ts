@@ -348,15 +348,11 @@ export type CollectionToEntityDetails = {
 
 export type ComicBookSpecifics = {
   __typename?: 'ComicBookSpecifics';
-  issueNumber?: Maybe<Scalars['String']['output']>;
   pageCount?: Maybe<Scalars['Int']['output']>;
-  seriesName?: Maybe<Scalars['String']['output']>;
 };
 
 export type ComicBookSpecificsInput = {
-  issueNumber?: InputMaybe<Scalars['String']['input']>;
   pageCount?: InputMaybe<Scalars['Int']['input']>;
-  seriesName?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type CoreDetails = {
