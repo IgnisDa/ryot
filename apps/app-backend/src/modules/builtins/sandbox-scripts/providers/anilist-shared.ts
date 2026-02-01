@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot/sandbox-sdk";
+import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import type {
 	ProviderDetailsRelatedEntity,
 	ProviderSearchInput,

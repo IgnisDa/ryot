@@ -1,4 +1,4 @@
-import type { JsonPrimitive, JsonValue, SandboxHostCapability } from "@ryot/sandbox-sdk";
+import type { JsonPrimitive, JsonValue, SandboxHostCapability } from "@ryot/sandbox-sdk/core";
 
 type SandboxSourceIdentity = {
 	readonly name: string;
@@ -25,7 +25,7 @@ const scriptModuleSource = (input: ScriptModuleSourceInput) => {
 	];
 
 	return `
-import { ${sdkImports.join(", ")} } from "@ryot/sandbox-sdk";
+import { ${sdkImports.join(", ")} } from "@ryot/sandbox-sdk/core";
 import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({

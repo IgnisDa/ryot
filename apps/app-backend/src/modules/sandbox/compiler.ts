@@ -5,7 +5,7 @@ import {
 	type CompiledSandboxModule,
 	CompilerWorkerResponse,
 } from "@ryot/sandbox-compiler/protocol";
-import { sandboxManifestSchema } from "@ryot/sandbox-sdk";
+import { sandboxManifestSchema } from "@ryot/sandbox-sdk/core";
 import { Duration, Effect, Either, Fiber, Ref, Schema, Stream } from "effect";
 
 import { SANDBOX_LIMITS, utf8ByteLength } from "#lib/infrastructure/sandbox-runtime/limits";

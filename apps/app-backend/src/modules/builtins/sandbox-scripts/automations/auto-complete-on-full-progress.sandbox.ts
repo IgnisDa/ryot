@@ -1,15 +1,15 @@
 import {
+	defineAutomation,
+	type AutomationContext,
+	type AutomationEventSnapshot,
+} from "@ryot/sandbox-sdk/automation";
+import {
 	defineManifest,
 	type EventRecord,
 	type EventSchemaRecord,
 	type JsonValue,
 	type SandboxHost,
-} from "@ryot/sandbox-sdk";
-import {
-	defineAutomation,
-	type AutomationContext,
-	type AutomationEventSnapshot,
-} from "@ryot/sandbox-sdk/automation";
+} from "@ryot/sandbox-sdk/core";
 
 export const manifest = defineManifest({
 	kind: "automation",
