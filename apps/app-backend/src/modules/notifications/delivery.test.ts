@@ -1,6 +1,6 @@
-import { FetchHttpClient } from "@effect/platform";
 import { expect, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
@@ -53,7 +53,7 @@ it.effect("builds the v1 request shape for every HTTP notification provider", ()
 	}).pipe(
 		Effect.provide(
 			Layer.provide(
-				NotificationDeliveryService.Default,
+				NotificationDeliveryService.layer,
 				Layer.mergeAll(FetchHttpClient.layer, makeAppConfigLayer()),
 			),
 		),
