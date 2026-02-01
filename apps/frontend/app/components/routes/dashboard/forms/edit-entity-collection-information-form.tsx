@@ -13,9 +13,7 @@ import {
 import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { useEditEntityCollectionInformation } from "~/lib/state/collection";
 
-export const EditEntityCollectionInformationForm = ({
-	closeEditEntityCollectionInformationModal,
-}: {
+export const EditEntityCollectionInformationForm = (props: {
 	closeEditEntityCollectionInformationModal: () => void;
 }) => {
 	const events = useApplicationEvents();
@@ -66,7 +64,7 @@ export const EditEntityCollectionInformationForm = ({
 			message: "Entity collection information updated successfully",
 		});
 		refreshEntityDetails(editEntityCollectionInformationData.entityId);
-		closeEditEntityCollectionInformationModal();
+		props.closeEditEntityCollectionInformationModal();
 		events.addToCollection(editEntityCollectionInformationData.entityLot);
 	};
 
