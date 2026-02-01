@@ -372,6 +372,7 @@ impl MediaProvider for MetronService {
             description: data.desc,
             birth_date: data.birth.and_then(|d| parse_date(&d)),
             death_date: data.death.and_then(|d| parse_date(&d)),
+            source_url: Some(format!("https://metron.cloud/creator/{}", identifier)),
             assets: EntityAssets {
                 remote_images: data.image.into_iter().collect(),
                 ..Default::default()
