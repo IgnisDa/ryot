@@ -105,11 +105,6 @@ driver("details", async function(context) {
   return {
     name,
     properties: {
-      gender: null,
-      website: null,
-      birthDate: null,
-      deathDate: null,
-      birthPlace: null,
       sourceUrl,
       description,
       alternateNames: [],
