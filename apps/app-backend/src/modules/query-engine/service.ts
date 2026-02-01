@@ -7,14 +7,15 @@ import { BadRequest, NotFound, dieOnDbError } from "#lib/errors";
 import { executeAggregateQuery } from "./executor/aggregate";
 import { executeRowsQuery } from "./executor/rows";
 import { executeTimeSeriesQuery } from "./executor/time-series";
-import type { AggregateOutput, QueryDocument, RowsOutput, TimeSeriesOutput } from "./language";
+import type {
+	AggregateQueryDocument,
+	RowsQueryDocument,
+	TimeSeriesQueryDocument,
+} from "./executor/types";
+import type { QueryDocument } from "./language";
 import { validateQueryDocument, validateQueryDocumentWithScope } from "./validator";
 import { validateQueryDocumentReferencesAndTypes } from "./validator/references";
 import { validateQueryDocumentTypeCompatibility } from "./validator/type-check";
-
-type RowsQueryDocument = QueryDocument & { output: RowsOutput };
-type AggregateQueryDocument = QueryDocument & { output: AggregateOutput };
-type TimeSeriesQueryDocument = QueryDocument & { output: TimeSeriesOutput };
 
 const isRowsQueryDocument = (doc: QueryDocument): doc is RowsQueryDocument =>
 	doc.output.type === "rows";
