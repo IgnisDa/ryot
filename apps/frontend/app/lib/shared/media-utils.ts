@@ -88,7 +88,7 @@ export const getVerb = (verb: Verb, lot: MediaLot) =>
 					MediaLot.Podcast,
 					() => "play",
 				)
-				.otherwise(() => "");
+				.exhaustive();
 		})
 		.otherwise(() => "");
 
