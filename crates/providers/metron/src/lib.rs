@@ -65,8 +65,8 @@ struct IssueCreditCreator {
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
 enum IssueCreditCreatorWrapper {
-    Struct(IssueCreditCreator),
     String(String),
+    Struct(IssueCreditCreator),
 }
 
 #[derive(Deserialize, Debug)]
@@ -230,8 +230,8 @@ impl MediaProvider for MetronService {
                     };
 
                     Some(PartialMetadataPerson {
-                        role: roles,
                         name,
+                        role: roles,
                         source: MediaSource::Metron,
                         identifier,
                         ..Default::default()
@@ -240,9 +240,9 @@ impl MediaProvider for MetronService {
                 .chain(data.characters.unwrap_or_default().into_iter().map(|c| {
                     PartialMetadataPerson {
                         name: c.name,
+                        source: MediaSource::Metron,
                         identifier: c.id.to_string(),
                         role: "Character".to_owned(),
-                        source: MediaSource::Metron,
                         ..Default::default()
                     }
                 }))
@@ -291,21 +291,21 @@ impl MediaProvider for MetronService {
         }];
 
         Ok(MetadataDetails {
-            title: issue_title(&data.series.name, &data.number),
+            people,
+            groups,
+            suggestions,
             description: data.desc,
+            title: issue_title(&data.series.name, &data.number),
             publish_date: data.cover_date.as_ref().and_then(|d| parse_date(d)),
+            assets: EntityAssets {
+                remote_images: data.image.into_iter().collect(),
+                ..Default::default()
+            },
             publish_year: data
                 .cover_date
                 .as_ref()
                 .and_then(|d| parse_date(d))
                 .map(|d| d.year()),
-            assets: EntityAssets {
-                remote_images: data.image.into_iter().collect(),
-                ..Default::default()
-            },
-            people,
-            suggestions,
-            groups,
             comic_book_specifics: Some(ComicBookSpecifics {
                 issue_number: data.number,
                 page_count: data.page_count,
@@ -458,13 +458,11 @@ impl MediaProvider for MetronService {
             lot: MediaLot::ComicBook,
             description: series.desc,
             source: MediaSource::Metron,
+            assets: EntityAssets::default(),
             identifier: series.id.to_string(),
             last_updated_on: chrono::Utc::now(),
             parts: series.issue_count.unwrap_or(0) as i32,
             source_url: Some(format!("https://metron.cloud/series/{}", identifier)),
-            assets: EntityAssets {
-                ..Default::default()
-            },
         };
 
         Ok((group, members))
