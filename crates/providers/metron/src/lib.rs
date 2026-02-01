@@ -207,7 +207,7 @@ impl MediaProvider for MetronService {
             data.credits
                 .unwrap_or_default()
                 .into_iter()
-                .flat_map(|credit| {
+                .map(|credit| {
                     let roles = credit
                         .role
                         .into_iter()
@@ -215,13 +215,13 @@ impl MediaProvider for MetronService {
                         .collect_vec()
                         .join(", ");
 
-                    Some(PartialMetadataPerson {
+                    PartialMetadataPerson {
                         role: roles,
                         name: credit.creator,
                         source: MediaSource::Metron,
                         identifier: credit.id.to_string(),
                         ..Default::default()
-                    })
+                    }
                 })
                 .chain(data.characters.unwrap_or_default().into_iter().map(|c| {
                     PartialMetadataPerson {
