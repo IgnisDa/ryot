@@ -16,13 +16,15 @@ export function createQueryEngineCollectionFixture(
 	const id = overrides.id ?? "collection-1";
 	return {
 		id,
-		name: "My Collection",
+		fields: [],
 		image: null,
+		externalId: null,
+		name: "My Collection",
+		sandboxScriptId: null,
+		entitySchemaSlug: "collection",
+		entitySchemaId: "schema-collection",
 		createdAt: "2026-03-08T08:00:00.000Z",
 		updatedAt: "2026-03-08T08:30:00.000Z",
-		entitySchemaId: "schema-collection",
-		entitySchemaSlug: "collection",
-		fields: [],
 		...overrides,
 	};
 }
@@ -33,12 +35,12 @@ export function createAppCollectionFixture(
 	const id = overrides.id ?? "collection-1";
 	return {
 		id,
-		name: "My Collection",
 		image: null,
+		name: "My Collection",
+		entitySchemaSlug: "collection",
+		membershipPropertiesSchema: null,
 		createdAt: new Date("2026-03-08T08:00:00.000Z"),
 		updatedAt: new Date("2026-03-08T08:30:00.000Z"),
-		membershipPropertiesSchema: null,
-		entitySchemaSlug: "collection",
 		...overrides,
 	};
 }
