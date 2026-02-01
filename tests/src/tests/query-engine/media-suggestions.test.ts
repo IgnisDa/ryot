@@ -1,7 +1,7 @@
 import {
 	buildCollectionMediaSuggestionsQueryDocument,
 	buildPersonalMediaSuggestionsQueryDocument,
-} from "@ryot/query-engine";
+} from "@ryot/query-engine/recipes/media";
 import { Effect } from "effect";
 
 import {

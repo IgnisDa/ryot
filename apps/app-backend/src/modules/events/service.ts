@@ -13,7 +13,7 @@ import {
 	type IntegrationId,
 	type UserId,
 } from "@ryot/contract/schema/brands";
-import { buildEventHistoryQueryDocument } from "@ryot/query-engine";
+import { buildEventHistoryQueryDocument } from "@ryot/query-engine/recipes/app";
 import { Effect, Match } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
