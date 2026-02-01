@@ -4,7 +4,9 @@ use anyhow::Result;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
-use common_utils::{PAGE_SIZE, compute_next_page, get_base_http_client};
+use common_utils::{
+    PAGE_SIZE, compute_next_page, compute_next_page_with_size, get_base_http_client,
+};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
@@ -467,7 +469,7 @@ impl MediaProvider for MetronService {
 
             members.extend(page_members);
 
-            if let Some(next_page) = compute_next_page(page, issues.count) {
+            if let Some(next_page) = compute_next_page_with_size(page, issues.count, page_size) {
                 page = next_page;
             } else {
                 break;
