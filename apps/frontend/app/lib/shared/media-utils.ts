@@ -17,6 +17,7 @@ import {
 	IconHeadphones,
 	IconMicrophone,
 	IconMusic,
+	IconVocabulary,
 } from "@tabler/icons-react";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -98,12 +99,12 @@ export const getMetadataIcon = (lot: MediaLot) =>
 		.with(MediaLot.Manga, () => IconBooks)
 		.with(MediaLot.Music, () => IconMusic)
 		.with(MediaLot.Movie, () => IconDeviceTv)
-		.with(MediaLot.ComicBook, () => IconBooks)
 		.with(MediaLot.Anime, () => IconDeviceTvOld)
 		.with(MediaLot.VisualNovel, () => IconBook2)
 		.with(MediaLot.Show, () => IconDeviceDesktop)
 		.with(MediaLot.Podcast, () => IconMicrophone)
 		.with(MediaLot.AudioBook, () => IconHeadphones)
+		.with(MediaLot.ComicBook, () => IconVocabulary)
 		.with(MediaLot.VideoGame, () => IconBrandAppleArcade)
 		.exhaustive();
 
