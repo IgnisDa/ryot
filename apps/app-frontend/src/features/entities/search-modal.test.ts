@@ -14,7 +14,7 @@ describe("search-modal collection panel submission", () => {
 	describe("entity ensuring before collection add", () => {
 		it("ensures entity exists before adding to collection", async () => {
 			const searchResult: SearchResultItem = {
-				identifier: "test-item-1",
+				externalId: "test-item-1",
 				badgeProperty: { kind: "null", value: null },
 				titleProperty: { kind: "text", value: "Test Book" },
 				subtitleProperty: { kind: "null", value: null },
@@ -96,7 +96,7 @@ describe("search-modal collection panel submission", () => {
 	describe("search result to entity transformation", () => {
 		it("search result item has required properties for entity creation", () => {
 			const searchResult: SearchResultItem = {
-				identifier: "tmdb-12345",
+				externalId: "tmdb-12345",
 				badgeProperty: { kind: "null", value: null },
 				titleProperty: { kind: "text", value: "Inception" },
 				subtitleProperty: { kind: "number", value: 2010 },
@@ -107,22 +107,22 @@ describe("search-modal collection panel submission", () => {
 			};
 
 			// Properties needed for entity creation
-			expect(searchResult.identifier).toBeDefined();
+			expect(searchResult.externalId).toBeDefined();
 			expect(searchResult.titleProperty.value).toBe("Inception");
 			expect(searchResult.subtitleProperty.value).toBe(2010);
 		});
 
-		it("uses search result identifier for entity externalId lookup", () => {
+		it("uses search result externalId for entity externalId lookup", () => {
 			const searchResult: SearchResultItem = {
-				identifier: "provider-specific-id-789",
+				externalId: "provider-specific-id-789",
 				badgeProperty: { kind: "null", value: null },
 				titleProperty: { kind: "text", value: "The Matrix" },
 				subtitleProperty: { kind: "null", value: null },
 				imageProperty: { kind: "null", value: null },
 			};
 
-			// The identifier is used to fetch entity details and ensure existence
-			expect(searchResult.identifier).toBe("provider-specific-id-789");
+			// The externalId is used to fetch entity details and ensure existence
+			expect(searchResult.externalId).toBe("provider-specific-id-789");
 		});
 	});
 
@@ -360,7 +360,7 @@ describe("search-modal collection panel submission", () => {
 		describe("success case", () => {
 			it("completes full flow when entity creation and collection add both succeed", async () => {
 				const searchResult: SearchResultItem = {
-					identifier: "test-item-1",
+					externalId: "test-item-1",
 					badgeProperty: { kind: "null", value: null },
 					titleProperty: { kind: "text", value: "Test Book" },
 					subtitleProperty: { kind: "null", value: null },
@@ -719,7 +719,7 @@ describe("search-modal collection panel submission", () => {
 
 			it("constructs partial failure message for lifecycle actions with entity success", () => {
 				const searchResult: SearchResultItem = {
-					identifier: "test-item-1",
+					externalId: "test-item-1",
 					badgeProperty: { kind: "null", value: null },
 					titleProperty: { kind: "text", value: "Test Movie" },
 					subtitleProperty: { kind: "null", value: null },

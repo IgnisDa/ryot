@@ -108,9 +108,9 @@ driver("search", async function(context) {
   const products = Array.isArray(payload?.products) ? payload.products : [];
   const items = products
     .map((product) => {
-      const identifier =
+      const externalId =
         typeof product?.asin === "string" ? product.asin.trim() : "";
-      if (!identifier) {
+      if (!externalId) {
         return null;
       }
 
@@ -123,7 +123,7 @@ driver("search", async function(context) {
         null;
 
       return {
-        identifier,
+        externalId,
         badgeProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: title },
         subtitleProperty:
@@ -151,8 +151,8 @@ driver("details", async function(context) {
   const { z } = await import("npm:zod");
   const dayjs = (await import("npm:dayjs")).default;
 
-  const { identifier } = z.object({
-    identifier: z.string().trim().min(1, "identifier is required"),
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
   }).parse(context ?? {});
 
   const localeSuffix = await getAudibleLocale();
@@ -166,7 +166,7 @@ driver("details", async function(context) {
 
   const response = await httpCall(
     "GET",
-    `${baseUrl}/${identifier}?${params.toString()}`,
+    `${baseUrl}/${externalId}?${params.toString()}`,
   );
   if (!response?.success) {
     throw new Error(response?.error ?? "Audible details request failed");
@@ -250,7 +250,7 @@ driver("details", async function(context) {
       people.push({
         role: "Author",
         name,
-        identifier: asin,
+        externalId: asin,
         scriptSlug: "person.audible",
       });
     } else {
@@ -274,7 +274,7 @@ driver("details", async function(context) {
       people.push({
         role: "Narrator",
         name,
-        identifier: asin,
+        externalId: asin,
         scriptSlug: "person.audible",
       });
     } else {
@@ -282,7 +282,7 @@ driver("details", async function(context) {
     }
   }
 
-  const sourceUrl = `https://www.audible.${localeSuffix}/pd/${identifier}`;
+  const sourceUrl = `https://www.audible.${localeSuffix}/pd/${externalId}`;
 
   return {
     name: title,

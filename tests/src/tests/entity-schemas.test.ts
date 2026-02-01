@@ -661,7 +661,7 @@ describe("POST /entity-schemas/import", () => {
 		const client = getBackendClient();
 		const { response, error } = await client.POST("/entity-schemas/import", {
 			body: {
-				identifier: "test-id",
+				externalId: "test-id",
 				scriptId: crypto.randomUUID(),
 				entitySchemaId: crypto.randomUUID(),
 			},
@@ -678,7 +678,7 @@ describe("POST /entity-schemas/import", () => {
 
 		const { jobId } = await enqueueEntityImport(client, cookies, {
 			scriptId,
-			identifier: "OL267933W",
+			externalId: "OL267933W",
 			entitySchemaId: schema.id,
 		});
 
@@ -725,7 +725,7 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 
 		const { jobId } = await enqueueEntityImport(clientA, cookiesA, {
 			scriptId,
-			identifier: "OL267933W",
+			externalId: "OL267933W",
 			entitySchemaId: schema.id,
 		});
 
@@ -749,7 +749,7 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 		}
 
 		const { jobId } = await enqueueEntityImport(client, cookies, {
-			identifier: "OL267933W",
+			externalId: "OL267933W",
 			scriptId: detailsScriptId,
 			entitySchemaId: schema.id,
 		});

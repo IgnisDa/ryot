@@ -184,11 +184,11 @@ driver("search", async function(context) {
         return null;
       }
 
-      const identifier =
+      const externalId =
         typeof game.guid === "string" && game.guid.trim()
           ? game.guid.trim()
           : null;
-      if (!identifier) {
+      if (!externalId) {
         return null;
       }
 
@@ -204,7 +204,7 @@ driver("search", async function(context) {
       const image = getPrioritizedImage(game.image);
 
       return {
-        identifier,
+        externalId,
         badgeProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: name },
         subtitleProperty:
@@ -230,17 +230,17 @@ driver("search", async function(context) {
 
 driver("details", async function(context) {
   const contextIdentifier =
-    typeof context?.identifier === "string"
-      ? context.identifier.trim()
+    typeof context?.externalId === "string"
+      ? context.externalId.trim()
       : "";
 
   if (!contextIdentifier) {
-    throw new Error("identifier is required");
+    throw new Error("externalId is required");
   }
 
   if (!GUID_PATTERN.test(contextIdentifier)) {
     throw new Error(
-      "identifier must be a GiantBomb GUID (e.g., '3030-1')",
+      "externalId must be a GiantBomb GUID (e.g., '3030-1')",
     );
   }
 

@@ -526,7 +526,7 @@ describe("importEntity", () => {
 				userId: "user_1",
 				body: {
 					scriptId: "script_1",
-					identifier: "ext_123",
+					externalId: "ext_123",
 					entitySchemaId: "schema_1",
 				},
 			},
@@ -538,7 +538,7 @@ describe("importEntity", () => {
 		expect(capturedPayload).toMatchObject({
 			userId: "user_1",
 			scriptId: "script_1",
-			identifier: "ext_123",
+			externalId: "ext_123",
 			entitySchemaId: "schema_1",
 		});
 	});
@@ -548,7 +548,7 @@ describe("importEntity", () => {
 			await importEntity(
 				{
 					userId: "user_1",
-					body: { scriptId: "s", identifier: "i", entitySchemaId: "e" },
+					body: { scriptId: "s", externalId: "i", entitySchemaId: "e" },
 				},
 				createEntityImportDeps(),
 			),
@@ -580,7 +580,7 @@ describe("getEntityImportResult", () => {
 				getState: async () => "completed",
 				data: {
 					scriptId: "s",
-					identifier: "i",
+					externalId: "i",
 					entitySchemaId: "e",
 					userId: "other_user",
 				},
@@ -615,7 +615,7 @@ describe("getEntityImportResult", () => {
 				failedReason: "Script threw an error",
 				data: {
 					scriptId: "s",
-					identifier: "i",
+					externalId: "i",
 					userId: "user_1",
 					entitySchemaId: "e",
 				},
