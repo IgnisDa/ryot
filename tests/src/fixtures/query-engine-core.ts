@@ -1,11 +1,13 @@
 import {
 	buildQueryEngineEntityRowsDocument,
 	buildQueryEngineEventRowsDocument,
+} from "@ryot/query-engine/documents";
+import {
 	queryEngineLiteral,
 	queryEnginePropertyRef,
 	queryEngineSchemaRef,
 	queryEngineSystemRef,
-} from "@ryot/query-engine";
+} from "@ryot/query-engine/primitives";
 import { Effect } from "effect";
 import { expect } from "vitest";
 

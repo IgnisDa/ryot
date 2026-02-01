@@ -1,15 +1,17 @@
 import { EntityId } from "@ryot/contract/schema/brands";
-import { buildEventHistoryQueryDocument } from "@ryot/query-engine/recipes/app";
 import {
 	buildQueryEngineRowsDocument,
+	queryEngineRelationshipSource,
+} from "@ryot/query-engine/documents";
+import {
 	queryEngineComparison,
 	queryEngineField,
 	queryEngineLiteral,
 	queryEngineOrder,
-	queryEngineRelationshipSource,
 	queryEngineSystemRef,
 	type QueryEngineNonEmptyArray,
-} from "@ryot/query-engine";
+} from "@ryot/query-engine/primitives";
+import { buildEventHistoryQueryDocument } from "@ryot/query-engine/recipes/app";
 import { Effect } from "effect";
 
 import type { Client } from "./auth";
