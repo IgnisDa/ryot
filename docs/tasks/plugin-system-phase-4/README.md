@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 5 of 18 tasks completed
+**Overall Progress:** 6 of 18 tasks completed
 
-**Current Task:** [Task 06](./06-plugin-owned-query-recipes.md) (todo)
+**Current Task:** [Task 07](./07-domain-neutral-operational-gate.md) (todo)
 
 ### Task List
 
@@ -15,7 +15,7 @@
 | 03  | [Media Membership for Imports and Events](./03-media-membership-imports-events.md)            | done   |
 | 04  | [Media Membership for Collections and User State](./04-media-membership-collections-state.md) | done   |
 | 05  | [Open Plugin Import Envelope](./05-open-plugin-import-envelope.md)                            | done   |
-| 06  | [Plugin-Owned Query Recipes](./06-plugin-owned-query-recipes.md)                              | todo   |
+| 06  | [Plugin-Owned Query Recipes](./06-plugin-owned-query-recipes.md)                              | done   |
 | 07  | [Domain-Neutral Operational Gate](./07-domain-neutral-operational-gate.md)                    | todo   |
 | 08  | [Registry Trust and Provenance Simplification](./08-registry-trust-provenance.md)             | todo   |
 | 09  | [Effect-Only Authoring Boundary](./09-effect-only-authoring-boundary.md)                      | todo   |
