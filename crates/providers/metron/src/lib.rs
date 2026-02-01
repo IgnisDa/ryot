@@ -44,9 +44,7 @@ struct PaginatedResponse<T> {
 
 #[derive(Deserialize, Debug)]
 struct IssueListSeries {
-    id: i64,
     name: String,
-    volume: Option<i32>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -90,7 +88,6 @@ struct IssueArc {
 struct IssueDetailSeries {
     id: i64,
     name: String,
-    volume: Option<i32>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -108,15 +105,9 @@ struct IssueDetail {
 }
 
 #[derive(Deserialize, Debug)]
-struct SeriesListPublisher {
-    name: String,
-}
-
-#[derive(Deserialize, Debug)]
 struct SeriesListItem {
     id: i64,
     name: String,
-    year_began: Option<i32>,
     issue_count: Option<usize>,
 }
 
@@ -125,10 +116,7 @@ struct SeriesDetail {
     id: i64,
     name: String,
     desc: Option<String>,
-    year_end: Option<i32>,
-    year_began: Option<i32>,
     issue_count: Option<usize>,
-    publisher: Option<SeriesListPublisher>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -139,7 +127,6 @@ struct CreatorListItem {
 
 #[derive(Deserialize, Debug)]
 struct CreatorDetail {
-    id: i64,
     name: String,
     desc: Option<String>,
     birth: Option<String>,
