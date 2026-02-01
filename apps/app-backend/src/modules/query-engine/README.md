@@ -418,8 +418,9 @@ validation — a grouped aggregate limit over 1000, or a bucket count over 1000,
 than being clamped.
 
 The engine never materializes rows in application memory, so there are no row-scan caps. The
-backstop against a pathologically expensive query is the database `statement_timeout`
-configured on the connection pool (`config.database.statementTimeoutMs`).
+backstop against a pathologically expensive query is a `statement_timeout` applied to the
+transaction each query runs in (`QUERY_ENGINE_STATEMENT_TIMEOUT_MS` in `service.ts`), so a
+runaway document is aborted by Postgres without affecting other pooled connections.
 
 ## Execution
 
