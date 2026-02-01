@@ -94,6 +94,7 @@ export function SearchEntityModalContent(props: {
 		searchError,
 		clearSearch,
 		ensureItemEntity,
+		trackedExternalIds,
 		selectedProviderIndex,
 		setSelectedProviderIndex,
 	} = useEntitySearch({ entitySchema: props.entitySchema });
@@ -178,7 +179,6 @@ export function SearchEntityModalContent(props: {
 
 			try {
 				await addItem(item);
-				markDone(item.externalId, ["track"]);
 
 				props.onActionCompleted?.();
 				notifications.show({
@@ -230,7 +230,7 @@ export function SearchEntityModalContent(props: {
 						params: { query: { entityId: entity.id } },
 					}).queryKey,
 				});
-				markDone(input.externalId, ["track", input.doneAction]);
+				markDone(input.externalId, [input.doneAction]);
 				props.onActionCompleted?.();
 				patchActionState(input.externalId, {
 					actionError: null,
@@ -249,9 +249,6 @@ export function SearchEntityModalContent(props: {
 				const message = entityId
 					? `${input.partialFailureMessage} ${getErrorMessage(error)}`
 					: getErrorMessage(error);
-				if (entityId) {
-					markDone(input.externalId, ["track"]);
-				}
 				patchActionState(input.externalId, {
 					actionError: message,
 					openPanel: entityId
@@ -434,7 +431,7 @@ export function SearchEntityModalContent(props: {
 						selectedCollection,
 					),
 				});
-				markDone(item.externalId, ["track", "collection"]);
+				markDone(item.externalId, ["collection"]);
 				props.onActionCompleted?.();
 				patchActionState(item.externalId, {
 					actionError: null,
@@ -460,9 +457,6 @@ export function SearchEntityModalContent(props: {
 				const message = isPartialFailure
 					? `${item.titleProperty.value} is in your library, but could not be added to the collection: ${getErrorMessage(error)}`
 					: getErrorMessage(error);
-				if (isPartialFailure) {
-					markDone(item.externalId, ["track"]);
-				}
 				patchActionState(item.externalId, {
 					actionError: message,
 					openPanel: getActionState(item.externalId).openPanel,
@@ -596,21 +590,20 @@ export function SearchEntityModalContent(props: {
 											onSaveReview={() => handleSaveReview(item)}
 											actionState={getActionState(item.externalId)}
 											lifecycleErrorMessage={lifecycleErrorMessage}
+											canUseCollectionAction={canUseCollectionAction}
 											addStatus={addStatus[item.externalId] ?? "idle"}
 											isLifecycleLoading={eventSchemasQuery.isLoading}
 											isExpanded={selectedResultId === item.externalId}
-											canUseCollectionAction={canUseCollectionAction}
+											onRetryCollectionDiscovery={() => refetchCollections()}
+											isTracked={trackedExternalIds.has(item.externalId)}
 											collectionsDestination={
 												collectionsDestination.destination
-											}
-											onRetryCollectionDiscovery={() =>
-												void refetchCollections()
 											}
 											onPatchActionState={(patch) =>
 												patchActionState(item.externalId, patch)
 											}
 											onSaveCollection={(values) =>
-												void handleSaveCollection(item, values)
+												handleSaveCollection(item, values)
 											}
 											onTogglePanel={(panel) => {
 												setSelectedResultId(item.externalId);
