@@ -1,5 +1,5 @@
 import { and, asc, eq, isNull, or } from "drizzle-orm";
-import { db } from "~/lib/db";
+import { assertPersisted, db } from "~/lib/db";
 import {
 	entitySchema,
 	entitySchemaAccessScopeSelection,
@@ -103,9 +103,7 @@ export const createEventSchemaForUser = async (input: {
 		})
 		.returning(listedEventSchemaSelection);
 
-	if (!createdEventSchema) {
-		throw new Error("Could not persist event schema");
-	}
-
-	return toListedEventSchema(createdEventSchema);
+	return toListedEventSchema(
+		assertPersisted(createdEventSchema, "event schema"),
+	);
 };
