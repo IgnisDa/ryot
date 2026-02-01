@@ -8,7 +8,7 @@ use common_utils::{PAGE_SIZE, compute_next_page, get_base_http_client};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
-use futures::{StreamExt, stream, try_join};
+use futures::{StreamExt, stream};
 use itertools::Itertools;
 use media_models::{
     ComicBookSpecifics, CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem,
@@ -445,35 +445,53 @@ impl MediaProvider for MetronService {
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
-        let series_future = self
+        let series_response = self
             .client
             .get(format!("{URL}/series/{identifier}/"))
             .basic_auth(&self.username, Some(&self.password))
-            .send();
-
-        let issues_future = self
-            .client
-            .get(format!("{URL}/series/{identifier}/issue_list/"))
-            .basic_auth(&self.username, Some(&self.password))
-            .query(&[("page_size", "100")])
-            .send();
-
-        let (series_response, issues_response) = try_join!(series_future, issues_future)?;
+            .send()
+            .await?;
         let series: SeriesDetail = series_response.json().await?;
-        let issues: PaginatedResponse<IssueListItem> = issues_response.json().await?;
 
-        let members = issues
-            .results
-            .into_iter()
-            .map(|i| PartialMetadataWithoutId {
-                image: i.image,
-                lot: MediaLot::ComicBook,
-                source: MediaSource::Metron,
-                identifier: i.id.to_string(),
-                title: issue_title(&i.series.name, &i.number),
-                publish_year: i.cover_date.and_then(|d| parse_date(&d)).map(|d| d.year()),
-            })
-            .collect_vec();
+        let page_size = 100;
+        let mut members = vec![];
+        let mut page = 1;
+
+        loop {
+            let issues_response = self
+                .client
+                .get(format!("{URL}/series/{identifier}/issue_list/"))
+                .basic_auth(&self.username, Some(&self.password))
+                .query(&[
+                    ("page", &page.to_string()),
+                    ("page_size", &page_size.to_string()),
+                ])
+                .send()
+                .await?;
+
+            let issues: PaginatedResponse<IssueListItem> = issues_response.json().await?;
+
+            let page_members: Vec<PartialMetadataWithoutId> = issues
+                .results
+                .into_iter()
+                .map(|i| PartialMetadataWithoutId {
+                    image: i.image,
+                    lot: MediaLot::ComicBook,
+                    source: MediaSource::Metron,
+                    identifier: i.id.to_string(),
+                    title: issue_title(&i.series.name, &i.number),
+                    publish_year: i.cover_date.and_then(|d| parse_date(&d)).map(|d| d.year()),
+                })
+                .collect_vec();
+
+            members.extend(page_members);
+
+            if let Some(next_page) = compute_next_page(page, issues.count) {
+                page = next_page;
+            } else {
+                break;
+            }
+        }
 
         let group = MetadataGroupWithoutId {
             title: series.name,
