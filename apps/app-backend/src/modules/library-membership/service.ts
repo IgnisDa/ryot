@@ -3,8 +3,8 @@ import { generateId } from "better-auth";
 import { Effect, Redacted } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
-import { AppConfig } from "#lib/config";
-import { DbRunner } from "#lib/db";
+import { AppConfig } from "#lib/config/service";
+import { DbRunner } from "#lib/db/service";
 import { badRequest, notFound } from "#lib/errors";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/job-id";
 import { EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";

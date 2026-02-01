@@ -4,7 +4,7 @@ import type { Result as WorkflowResult } from "@effect/workflow/Workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Cause, Context, DateTime, Effect, Exit, Layer, Match, Option, Schema } from "effect";
 
-import { DbRunner } from "#lib/db";
+import { DbRunner } from "#lib/db/service";
 import { SandboxRunError, dieOnDbError, toSandboxRunError } from "#lib/errors";
 import { EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";

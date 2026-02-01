@@ -4,7 +4,7 @@ import { generateId } from "better-auth";
 import { Effect, Schema } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
-import { AppConfig } from "#lib/config";
+import { AppConfig } from "#lib/config/service";
 import { type BadRequest, badRequest } from "#lib/errors";
 import { RedisService, redisKeys } from "#lib/redis";
 import { S3Service } from "#lib/s3";

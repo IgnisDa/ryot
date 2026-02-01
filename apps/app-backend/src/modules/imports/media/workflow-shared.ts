@@ -2,7 +2,7 @@ import { Activity } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/db";
+import { DbRunner } from "#lib/db/service";
 import type { EntityId } from "#lib/schema/brands";
 import { EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
 

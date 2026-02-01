@@ -3,7 +3,7 @@ import { Deferred, Effect, Exit, Fiber, Layer } from "effect";
 
 import { BadRequest } from "#lib/errors";
 
-import { DbService, TransactionRunner, TransactionRunnerLive } from "./index";
+import { DbService, TransactionRunner, TransactionRunnerLive } from "./service";
 
 // A fake DbService whose `transaction` mirrors Drizzle's commit-on-resolve /
 // rollback-on-reject contract and records the outcome order, so we can assert

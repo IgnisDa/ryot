@@ -1,7 +1,7 @@
 import { Effect, Redacted } from "effect";
 import Redis from "ioredis";
 
-import { AppConfig } from "./config";
+import { AppConfig } from "./config/service";
 
 export const redisKeys = {
 	uploadToken: (token: string) => `ryot:upload:token:${token}`,

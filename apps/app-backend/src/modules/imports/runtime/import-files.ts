@@ -2,7 +2,7 @@ import { FileSystem, Path } from "@effect/platform";
 import { Data, Effect } from "effect";
 import { unzipRaw } from "unzipit";
 
-import { AppConfig } from "#lib/config";
+import { AppConfig } from "#lib/config/service";
 
 const MAX_ZIP_ENTRY_COUNT = 100;
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
