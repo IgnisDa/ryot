@@ -18,6 +18,7 @@ import { SavedViewsGroup } from "#modules/saved-views/contract";
 import { SystemGroup } from "#modules/system/contract";
 import { TrackersGroup } from "#modules/trackers/contract";
 import { UploadsGroup } from "#modules/uploads/contract";
+import { UserPreferencesGroup } from "#modules/user-preferences/contract";
 import { UserStateGroup } from "#modules/user-state/contract";
 
 export const AppContract = HttpApi.make("ryot")
@@ -31,6 +32,7 @@ export const AppContract = HttpApi.make("ryot")
 	.add(EntitiesGroup)
 	.add(EntityImportGroup)
 	.add(UserStateGroup)
+	.add(UserPreferencesGroup)
 	.add(EventSchemasGroup)
 	.add(EventsGroup)
 	.add(UploadsGroup)
