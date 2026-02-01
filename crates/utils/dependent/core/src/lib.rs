@@ -144,7 +144,8 @@ fn build_provider_language_information(
                 | MediaSource::GoogleBooks
                 | MediaSource::Listennotes
                 | MediaSource::Openlibrary
-                | MediaSource::MangaUpdates => vec![ProviderSupportedLanguageInformation {
+                | MediaSource::MangaUpdates
+                | MediaSource::Metron => vec![ProviderSupportedLanguageInformation {
                     value: "us".to_owned(),
                     label: "us".to_owned(),
                 }],

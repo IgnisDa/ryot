@@ -2368,6 +2368,7 @@ dependencies = [
  "listennotes-provider",
  "manga-updates-provider",
  "media-models",
+ "metron-provider",
  "music-brainz-provider",
  "myanimelist-provider",
  "openlibrary-provider",
@@ -4662,6 +4663,27 @@ name = "memchr"
 version = "2.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
+
+[[package]]
+name = "metron-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "config-definition",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "futures",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "serde",
+ "traits",
+]
 
 [[package]]
 name = "miette"

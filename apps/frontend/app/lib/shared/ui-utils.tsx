@@ -94,5 +94,6 @@ export const getProviderSourceImage = (source: MediaSource) =>
 		.with(MediaSource.GiantBomb, () => "giant-bomb.jpeg")
 		.with(MediaSource.Spotify, () => "spotify.svg")
 		.with(MediaSource.MusicBrainz, () => "musicbrainz.svg")
+		.with(MediaSource.Metron, () => "metron.svg")
 		.with(MediaSource.Custom, () => undefined)
 		.exhaustive();

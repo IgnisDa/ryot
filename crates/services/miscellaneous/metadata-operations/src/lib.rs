@@ -499,6 +499,7 @@ fn get_data_for_custom_metadata(
         MediaLot::Podcast => input.podcast_specifics.is_none(),
         MediaLot::AudioBook => input.audio_book_specifics.is_none(),
         MediaLot::VideoGame => input.video_game_specifics.is_none(),
+        MediaLot::ComicBook => input.comic_book_specifics.is_none(),
         MediaLot::VisualNovel => input.visual_novel_specifics.is_none(),
     };
     metadata::ActiveModel {
@@ -521,6 +522,7 @@ fn get_data_for_custom_metadata(
         created_by_user_id: ActiveValue::Set(Some(user_id.to_owned())),
         audio_book_specifics: ActiveValue::Set(input.audio_book_specifics),
         video_game_specifics: ActiveValue::Set(input.video_game_specifics),
+        comic_book_specifics: ActiveValue::Set(input.comic_book_specifics),
         visual_novel_specifics: ActiveValue::Set(input.visual_novel_specifics),
         publish_year: ActiveValue::Set(
             input

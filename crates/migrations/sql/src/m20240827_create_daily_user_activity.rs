@@ -49,6 +49,8 @@ pub enum DailyUserActivity {
     ShowDuration,
     VideoGameCount,
     VideoGameDuration,
+    ComicBookCount,
+    ComicBookPages,
     VisualNovelCount,
     VisualNovelDuration,
     WorkoutPersonalBests,
@@ -159,6 +161,8 @@ impl MigrationTrait for Migration {
                         DailyUserActivity::MetadataGroupCollectionCount,
                     ))
                     .col(integer_not_null(DailyUserActivity::TotalCollectionCount))
+                    .col(integer_not_null(DailyUserActivity::ComicBookCount))
+                    .col(integer_not_null(DailyUserActivity::ComicBookPages))
                     .foreign_key(
                         ForeignKey::create()
                             .name("daily_user_activity_to_user_foreign_key")

@@ -18,8 +18,8 @@ fragment SeenPodcastExtraInformationPart on SeenPodcastExtraInformation {
 }
 
 fragment SeenShowExtraInformationPart on SeenShowExtraInformation {
-	episode
 	season
+	episode
 }
 
 fragment SeenAnimeExtraInformationPart on SeenAnimeExtraInformation {
@@ -167,8 +167,21 @@ fragment ReviewItemPart on ReviewItem {
 	textOriginal
 	textRendered
 	seenItemsAssociatedWith
+	podcastExtraInformation {
+		episode
+	}
 	postedBy {
 		...StringIdAndNamedObjectPart
+	}
+	animeExtraInformation {
+		...SeenAnimeExtraInformationPart
+	}
+	mangaExtraInformation {
+		...SeenMangaExtraInformationPart
+	}
+	showExtraInformation {
+		season
+		episode
 	}
 	comments {
 		id
@@ -178,19 +191,6 @@ fragment ReviewItemPart on ReviewItem {
 		user {
 			...StringIdAndNamedObjectPart
 		}
-	}
-	showExtraInformation {
-		season
-		episode
-	}
-	podcastExtraInformation {
-		episode
-	}
-	animeExtraInformation {
-		...SeenAnimeExtraInformationPart
-	}
-	mangaExtraInformation {
-		...SeenMangaExtraInformationPart
 	}
 }
 
@@ -245,38 +245,40 @@ fragment PersonDetailsGroupedByRolePart on PersonDetailsGroupedByRole {
 
 fragment DailyUserActivityItemPart on DailyUserActivityItem {
 	day
+	bookCount
+	showCount
+	movieCount
+	musicCount
+	animeCount
 	totalCount
+	mangaCount
+	workoutCount
+	podcastCount
 	totalDuration
+	audioBookCount
+	videoGameCount
+	comicBookCount
 	totalBookPages
 	totalReviewCount
-	totalMetadataCount
+	visualNovelCount
+	totalWorkoutReps
 	totalShowDuration
+	totalMetadataCount
 	totalMovieDuration
 	totalMusicDuration
-	totalWorkoutReps
 	totalWorkoutWeight
+	totalComicBookPages
+	userMeasurementCount
 	totalWorkoutDistance
 	totalWorkoutRestTime
 	totalWorkoutDuration
 	totalPodcastDuration
 	totalVideoGameDuration
 	totalAudioBookDuration
-	totalVisualNovelDuration
 	totalPersonReviewCount
+	totalVisualNovelDuration
 	totalMetadataReviewCount
 	totalWorkoutPersonalBests
 	totalCollectionReviewCount
 	totalMetadataGroupReviewCount
-	userMeasurementCount
-	bookCount
-	showCount
-	movieCount
-	musicCount
-	animeCount
-	mangaCount
-	workoutCount
-	podcastCount
-	audioBookCount
-	videoGameCount
-	visualNovelCount
 }
