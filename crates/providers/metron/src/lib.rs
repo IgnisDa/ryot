@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
@@ -297,7 +299,8 @@ impl MediaProvider for MetronService {
                 }
             }
         }
-        suggestions.dedup_by_key(|s| s.identifier.clone());
+        let mut seen = HashSet::new();
+        suggestions.retain(|s| seen.insert(s.identifier.clone()));
 
         let groups = vec![CommitMetadataGroupInput {
             name: data.series.name.clone(),
