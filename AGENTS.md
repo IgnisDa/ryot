@@ -47,7 +47,7 @@ When running tests:
 
 1. Implement the feature first
 2. Always ask the user's approval to run tests
-3. Compile the backend in debug mode and then use `moon run tests:test`.
+3. Compile the backend in debug mode and then run `moon run tests:test`
 
 ### GraphQL Code Generation
 
