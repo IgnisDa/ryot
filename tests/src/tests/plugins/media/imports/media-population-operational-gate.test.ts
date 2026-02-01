@@ -68,8 +68,8 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 				for (;;) {
 					const now = yield* Clock.currentTimeMillis;
 					if (now >= deadline) {
-						return yield* Effect.dieMessage(
-							`Phase 3 operational gate exceeded ${GATE_TIMEOUT_MS}ms`,
+						return yield* Effect.die(
+							new Error(`Phase 3 operational gate exceeded ${GATE_TIMEOUT_MS}ms`),
 						);
 					}
 					const [pressure, results] = yield* Effect.all(
