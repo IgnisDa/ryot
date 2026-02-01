@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 
 import type { AggregationSpec, Expr, FieldSelector, OrderByEntry, Source } from "../../language";
 import {
+	entitySourceSql,
 	escapeContainsPattern,
 	isSystemDateField,
 	jsonbTypeofKindSql,
@@ -554,6 +555,7 @@ const whereTail = (where: SqlFragment | null): SqlFragment => (where ? sql`AND $
 // every level, so nesting can never widen scope. Numbered aliases keep every level unique.
 const compileCorrelatedSource = (source: Source, parentScope: CompileScope): CorrelatedSource => {
 	const userId = parentScope.userId;
+	const language = parentScope.language;
 	const suffix = parentScope.freshSuffix();
 
 	if (source.type === "events") {
@@ -589,7 +591,7 @@ const compileCorrelatedSource = (source: Source, parentScope: CompileScope): Cor
 		);
 		const where = source.where ? compileBool(source.where, scope) : null;
 		const fromWhere = sql`
-			FROM entity ${sql.raw(e)}
+			FROM ${entitySourceSql(language)} ${sql.raw(e)}
 			JOIN entity_schema ${sql.raw(es)} ON ${sql.raw(es)}.id = ${sql.raw(e)}.entity_schema_id
 				AND ${sql.raw(es)}.slug IN (${slugListSql(source.schemas)})
 				AND ${userVisibleSql(es, userId)}
@@ -619,7 +621,7 @@ const compileCorrelatedSource = (source: Source, parentScope: CompileScope): Cor
 		JOIN relationship_schema ${sql.raw(rs)} ON ${sql.raw(rs)}.id = ${sql.raw(r)}.relationship_schema_id
 			AND ${sql.raw(rs)}.slug = ${via.schema}
 			AND ${userVisibleSql(rs, userId)}
-		JOIN entity ${sql.raw(e)} ON ${sql.raw(e)}.id = ${sql.raw(`${r}.${childColumn}`)}
+		JOIN ${entitySourceSql(language)} ${sql.raw(e)} ON ${sql.raw(e)}.id = ${sql.raw(`${r}.${childColumn}`)}
 		JOIN entity_schema ${sql.raw(es)} ON ${sql.raw(es)}.id = ${sql.raw(e)}.entity_schema_id
 			AND ${sql.raw(es)}.slug IN (${slugListSql(source.schemas)})
 			AND ${userVisibleSql(es, userId)}

@@ -10,7 +10,12 @@ import { Effect, Layer, Option, Redacted, Runtime, Schema } from "effect";
 import type Redis from "ioredis";
 
 import { AdminMiddleware, AuthMiddleware } from "./auth-middleware";
-import { bootstrapNewUser, defaultUserPreferences } from "./builtins/bootstrap";
+import {
+	bootstrapNewUser,
+	defaultUserPreferences,
+	normalizeUserPreferences,
+	type UserPreferences,
+} from "./builtins/bootstrap";
 import { AppConfig, type AppConfigValue, isOidcEnabled } from "./config/service";
 import * as schemaAuth from "./db/schema/tables/auth";
 import * as schemaTables from "./db/schema/tables/combined";
@@ -185,6 +190,14 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 				Effect.promise(() =>
 					auth.$context.then((ctx) => ctx.internalAdapter.deleteUserSessions(userId)),
 				).pipe(Effect.orDie),
+			// Writing preferences through better-auth refreshes the cached session copies in secondary
+			// storage, so a later getSession (and thus CurrentUserValue) reflects the new value.
+			updateUserPreferences: (userId: UserId, preferences: UserPreferences) =>
+				Effect.tryPromise({
+					catch: unknownToDbError,
+					try: () =>
+						auth.$context.then((ctx) => ctx.internalAdapter.updateUser(userId, { preferences })),
+				}).pipe(Effect.asVoid),
 			createAuthUser: (user: {
 				id: string;
 				name: string;
@@ -225,6 +238,7 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 										id: UserId.make(session.user.id),
 										name: session.user.name,
 										email: session.user.email,
+										preferences: normalizeUserPreferences(session.user.preferences),
 									})
 							: Effect.fail(unauthorized()),
 					),

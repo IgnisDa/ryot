@@ -48,6 +48,7 @@ const formatBoundary = (value: unknown): string => {
 // `timestamp` space, so stepping is timezone-independent and the join keys match date_trunc exactly.
 export const executeTimeSeriesQuery = Effect.fn("executeTimeSeriesQuery")(function* (
 	userId: string,
+	language: string | null,
 	doc: TimeSeriesQueryDocument,
 ) {
 	const { source, output } = doc;
@@ -60,13 +61,13 @@ export const executeTimeSeriesQuery = Effect.fn("executeTimeSeriesQuery")(functi
 	const rangeEnd = DateTime.formatIso(endAt.value);
 
 	const { bucket } = output.time;
-	const scope = rootScope(source, userId);
+	const scope = rootScope(source, userId, language);
 	const timeColSql = compileScalar(output.time.expr, scope, "date");
 	const conditions = [
 		...(source.where ? [compileBool(source.where, scope)] : []),
 		timeRangeConditionSql(timeColSql, rangeStart, rangeEnd),
 	];
-	const fromWhere = yield* rootSourceFromWhereSql(userId, source, conditions);
+	const fromWhere = yield* rootSourceFromWhereSql(userId, language, source, conditions);
 
 	const measure = measureExprSql(output.measure.aggregation, scope);
 	const step = bucketStepSql(bucket);
