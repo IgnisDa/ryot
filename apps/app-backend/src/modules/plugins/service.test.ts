@@ -21,6 +21,7 @@ import {
 
 import { PluginLoader } from "./loader";
 import { PluginRepository } from "./repository";
+import { ScriptGarbageCollector } from "./script-garbage-collector";
 import { handlePluginRegistryInvalidation, PluginIngestionService } from "./service";
 import { loadPluginSource } from "./source";
 import { fixtureManifest, fixturePackageRoot } from "./test-support";
@@ -163,6 +164,7 @@ const makeLayer = (input?: {
 	readonly deactivate?: PluginRepository["deactivate"];
 	readonly initialInstalled?: ReadonlyArray<StoredPlugin>;
 	readonly lockIngestion?: PluginRepository["lockIngestion"];
+	readonly collectGarbage?: ScriptGarbageCollector["collect"];
 	readonly published?: Array<{ channel: string; message: string }>;
 	readonly transactionRunnerLayer?: Layer.Layer<TransactionRunner>;
 }) => {
@@ -222,6 +224,11 @@ const makeLayer = (input?: {
 			}),
 	});
 	const transactionsLayer = input?.transactionRunnerLayer ?? transactionLayer;
+	const garbageCollectorLayer = Layer.mock(ScriptGarbageCollector)({
+		_tag: "ScriptGarbageCollector",
+		collect: input?.collectGarbage ?? (() => Effect.sync(() => undefined)),
+		recordKernelContentHashes: () => Effect.void,
+	});
 	const redisLayer = Layer.succeed(
 		RedisService,
 		makeRedisService({
@@ -241,6 +248,7 @@ const makeLayer = (input?: {
 				repositoryLayer,
 				dbRunnerLayer,
 				transactionsLayer,
+				garbageCollectorLayer,
 				workflowReferenceLayer,
 			),
 		),
@@ -465,13 +473,27 @@ it.effect("rejects plugin scripts that collide with kernel source zero", () => {
 
 it.effect("rebuilds the registry when Redis invalidates the plugin snapshot", () => {
 	const stored = makeStoredPlugin(fixtureManifest(), "stored-source-hash");
+	const events: Array<string> = [];
 	return Effect.gen(function* () {
 		const loader = yield* PluginLoader;
 		const ingestion = yield* PluginIngestionService;
 		expect(loader.getSnapshot().plugins["fixture"]).toBeUndefined();
 		yield* handlePluginRegistryInvalidation(redisKeys.pluginRegistryChannel, ingestion);
 		expect(loader.getSnapshot().plugins["fixture"]?.sourceHash).toBe("stored-source-hash");
-	}).pipe(Effect.provide(makeLayer({ initialInstalled: [stored] })));
+		expect(events).toEqual(["lock", "collect"]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				events,
+				initialInstalled: [stored],
+				collectGarbage: () =>
+					Effect.sync(() => {
+						events.push("collect");
+						return undefined;
+					}),
+			}),
+		),
+	);
 });
 
 it.effect("refuses to rebuild a snapshot with a dangling notification formatter", () => {
@@ -598,7 +620,7 @@ it.effect("fences uninstall while workflows reference the plugin and permits ret
 					"Plugin 'fixture' cannot be uninstalled while running or suspended workflows reference it",
 			}),
 		);
-		expect(events).toEqual(["lock", "workflow-reference"]);
+		expect(events).toEqual(["lock", "lock", "workflow-reference"]);
 		expect(loader.getSnapshot()).toBe(snapshot);
 		expect(yield* ingestion.listPlugins()).toEqual(plugins);
 		expect(deactivated).toEqual([]);
@@ -609,6 +631,7 @@ it.effect("fences uninstall while workflows reference the plugin and permits ret
 
 		expect(removed.slug).toBe("fixture");
 		expect(events).toEqual([
+			"lock",
 			"lock",
 			"workflow-reference",
 			"lock",

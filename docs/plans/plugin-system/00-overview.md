@@ -1,7 +1,7 @@
 # Plugin System Rewrite — Overview
 
-Status: in progress. Phases 1 and 2 and all 12 Phase 3 tasks are complete. Phase 4 Tasks 01-13 are
-complete; Task 14 is next. The Task 10 imports and integration failures were reproduced and repaired,
+Status: in progress. Phases 1 and 2 and all 12 Phase 3 tasks are complete. Phase 4 Tasks 01-14 are
+complete; Task 15 is next. The Task 10 imports and integration failures were reproduced and repaired,
 the standard e2e suite passes all 79 files and 501 tests, and the opt-in operational gate passes at
 its unchanged two-concurrent-1,001-item workload and 15-minute budget. Task 12 was completed under an
 explicit owner waiver of its then-open Task 11 prerequisite; Task 11 subsequently closed the full
