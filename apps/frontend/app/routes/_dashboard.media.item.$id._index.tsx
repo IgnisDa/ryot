@@ -354,8 +354,6 @@ export default function Page() {
 			`${metadataDetails.data.mangaSpecifics.chapters} chapters`,
 		metadataDetails.data?.mangaSpecifics?.volumes &&
 			`${metadataDetails.data.mangaSpecifics.volumes} volumes`,
-		metadataDetails.data?.comicBookSpecifics?.seriesName &&
-			metadataDetails.data.comicBookSpecifics.seriesName,
 		metadataDetails.data?.comicBookSpecifics?.pageCount &&
 			`${metadataDetails.data.comicBookSpecifics.pageCount} pages`,
 		metadataDetails.data?.movieSpecifics?.runtime &&
