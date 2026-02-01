@@ -119,14 +119,19 @@ const query = jsonValueSchema.parse(JSON.parse(${JSON.stringify(JSON.stringify(i
 	});
 }
 
-export function appConfigSandboxSource(input: SandboxSourceIdentity & { readonly key: string }) {
+export function appConfigSandboxSource(
+	input: SandboxSourceIdentity & {
+		readonly key: string;
+		readonly requiredAppConfigKeys?: readonly string[];
+	},
+) {
 	return scriptModuleSource({
 		...input,
 		inputSchema: "z.object({})",
 		outputSchema: "jsonValueSchema",
-		requiredAppConfigKeys: [input.key],
 		capabilities: ["getAppConfigValue"],
 		sdkImports: ["jsonValueSchema", "unwrapHostResult"],
+		requiredAppConfigKeys: input.requiredAppConfigKeys ?? [input.key],
 		run: `async (_input, host) => unwrapHostResult(await host.getAppConfigValue(${JSON.stringify(input.key)}))`,
 	});
 }
