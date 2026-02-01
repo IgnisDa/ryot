@@ -6,6 +6,10 @@
 			"types": "./manifest.ts",
 			"default": "./manifest.ts"
 		},
+		"./import-sources": {
+			"types": "./import-sources.ts",
+			"default": "./import-sources.ts"
+		},
 		"./operations/recipes": {
 			"types": "./operations/recipes.ts",
 			"default": "./operations/recipes.ts"

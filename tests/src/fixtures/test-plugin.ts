@@ -5,6 +5,7 @@ import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import type {
 	PluginCron,
 	PluginConfigSchema,
+	PluginImportSource,
 	PluginOperationAuth,
 	PluginProviderInformation,
 	PluginProviderOperation,
@@ -79,6 +80,7 @@ export const testPluginManifest = (input: {
 	configSchema?: PluginConfigSchema;
 	providers?: ReadonlyArray<TestPluginProvider>;
 	operations?: ReadonlyArray<TestPluginOperation>;
+	importSources?: ReadonlyArray<PluginImportSource>;
 	scripts?: ReadonlyArray<TestPluginScript & { entry: string }>;
 	workflows?: ReadonlyArray<{ slug: string; scriptSlug: string }>;
 	boot?: ReadonlyArray<{ slug: string; scriptSlug: string; description: string }>;
@@ -100,7 +102,6 @@ export const testPluginManifest = (input: {
 }) => ({
 	savedViews: [],
 	userBootstrap: [],
-	importSources: [],
 	signalSchemas: [],
 	boot: input.boot ?? [],
 	integrationProviders: [],
@@ -109,6 +110,7 @@ export const testPluginManifest = (input: {
 	workflows: input.workflows ?? [],
 	providers: input.providers ?? [],
 	operations: input.operations ?? [],
+	importSources: input.importSources ?? [],
 	entitySchemas: input.entitySchemas ?? [],
 	relationshipSchemas: input.relationshipSchemas ?? [],
 	configSchema: input.configSchema ?? { fields: {}, unknownKeys: "strict" as const },
@@ -210,6 +212,7 @@ export const installTestPluginBundle = (input: {
 	providers?: ReadonlyArray<TestPluginProvider>;
 	crons?: Parameters<typeof testPluginManifest>[0]["crons"];
 	workflows?: Parameters<typeof testPluginManifest>[0]["workflows"];
+	importSources?: Parameters<typeof testPluginManifest>[0]["importSources"];
 	entitySchemas?: Parameters<typeof testPluginManifest>[0]["entitySchemas"];
 	relationshipSchemas?: Parameters<typeof testPluginManifest>[0]["relationshipSchemas"];
 	linkToEntitySchemaSlug?: string;
@@ -219,17 +222,18 @@ export const installTestPluginBundle = (input: {
 		const pluginSlugId = PluginSlug.make(pluginSlug);
 		const manifest = testPluginManifest({
 			pluginSlug,
-			configSchema: input.configSchema,
-			scripts: input.scripts,
 			crons: input.crons,
+			scripts: input.scripts,
 			workflows: input.workflows,
 			providers: input.providers ?? [],
+			configSchema: input.configSchema,
+			importSources: input.importSources,
 			entitySchemas: input.entitySchemas,
 			relationshipSchemas: input.relationshipSchemas,
 			...(input.linkToEntitySchemaSlug
 				? {
-						linkToEntitySchemaSlug: input.linkToEntitySchemaSlug,
 						linkToProviderSlug: input.providers?.[0]?.slug,
+						linkToEntitySchemaSlug: input.linkToEntitySchemaSlug,
 					}
 				: {}),
 		});

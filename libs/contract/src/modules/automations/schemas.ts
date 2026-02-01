@@ -1,4 +1,4 @@
-import type { JsonValue } from "@ryot/sandbox-sdk/wire";
+import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { Schema } from "effect";
 
 import {
@@ -11,19 +11,6 @@ import {
 import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
 
-const JsonValueSchema: Schema.Schema<JsonValue, JsonValue> = Schema.suspend(() =>
-	Schema.Union(
-		Schema.Null,
-		Schema.String,
-		Schema.Boolean,
-		Schema.Array(JsonValueSchema),
-		Schema.Record({ key: Schema.String, value: JsonValueSchema }),
-		Schema.Number.pipe(
-			Schema.filter(Number.isFinite, { message: () => "JSON numbers must be finite" }),
-		),
-	),
-);
-
 export const AutomationRuleKind = Schema.Literal("policy", "subscription");
 
 export type AutomationRuleKind = typeof AutomationRuleKind.Type;
@@ -32,7 +19,7 @@ export const AutomationOperation = Schema.Literal("create", "update", "delete", 
 
 export type AutomationOperation = typeof AutomationOperation.Type;
 
-export const AutomationRuleMetadata = JsonValueSchema;
+export const AutomationRuleMetadata = jsonValueSchema;
 
 export type AutomationRuleMetadata = typeof AutomationRuleMetadata.Type;
 
@@ -49,7 +36,7 @@ export const AutomationPolicyResult = Schema.Union(
 		body: strictStruct({
 			occurredAt: Schema.optional(Schema.String),
 			sessionEntityId: Schema.optional(Schema.NullOr(Schema.String)),
-			properties: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
+			properties: Schema.optional(Schema.Record({ key: Schema.String, value: jsonValueSchema })),
 		}),
 	}),
 );

@@ -15,31 +15,6 @@ const temporary = (
 		kind: "temporary" as const,
 	}));
 
-const importEnvelope = temporary(5, "Task 05 replaces the closed first-party import source union", [
-	["libs/contract/src/modules/imports/schemas.ts", "anilist"],
-	["libs/contract/src/modules/imports/schemas.ts", "anime"],
-	["libs/contract/src/modules/imports/schemas.ts", "audiobookshelf"],
-	["libs/contract/src/modules/imports/schemas.ts", "goodreads"],
-	["libs/contract/src/modules/imports/schemas.ts", "grouvee"],
-	["libs/contract/src/modules/imports/schemas.ts", "hardcover"],
-	["libs/contract/src/modules/imports/schemas.ts", "hevy"],
-	["libs/contract/src/modules/imports/schemas.ts", "igdb"],
-	["libs/contract/src/modules/imports/schemas.ts", "imdb"],
-	["libs/contract/src/modules/imports/schemas.ts", "jellyfin"],
-	["libs/contract/src/modules/imports/schemas.ts", "manga"],
-	["libs/contract/src/modules/imports/schemas.ts", "media"],
-	["libs/contract/src/modules/imports/schemas.ts", "media_tracker"],
-	["libs/contract/src/modules/imports/schemas.ts", "movary"],
-	["libs/contract/src/modules/imports/schemas.ts", "myanimelist"],
-	["libs/contract/src/modules/imports/schemas.ts", "netflix"],
-	["libs/contract/src/modules/imports/schemas.ts", "open_scale"],
-	["libs/contract/src/modules/imports/schemas.ts", "plex"],
-	["libs/contract/src/modules/imports/schemas.ts", "storygraph"],
-	["libs/contract/src/modules/imports/schemas.ts", "strong_app"],
-	["libs/contract/src/modules/imports/schemas.ts", "trakt"],
-	["libs/contract/src/modules/imports/schemas.ts", "watcharr"],
-]);
-
 const queryRecipes = temporary(6, "Task 06 moves domain query recipes into their plugin packages", [
 	["libs/query-engine/src/recipes/app.ts", "in-library"],
 	["libs/query-engine/src/recipes/app.ts", "library"],
@@ -107,7 +82,6 @@ const permanent = [
 
 export const kernelPurityAllowlist = [
 	...permanent,
-	...importEnvelope,
 	...queryRecipes,
 	...operationalGate,
 ] satisfies ReadonlyArray<PurityAllowlistEntry>;
