@@ -520,6 +520,10 @@ pub struct AppConfig {
     #[setting(nested)]
     #[mask_nested]
     pub video_games: VideoGameConfig,
+    /// Settings related to comic books.
+    #[setting(nested)]
+    #[mask_nested]
+    pub comic_books: ComicBookConfig,
     /// Settings related to audio books.
     #[setting(nested)]
     pub audio_books: AudioBookConfig,
@@ -527,10 +531,6 @@ pub struct AppConfig {
     #[setting(nested)]
     #[mask_nested]
     pub file_storage: FileStorageConfig,
-    /// Settings related to comic books.
-    #[setting(nested)]
-    #[mask_nested]
-    pub comic_books: ComicBookConfig,
     /// Settings related to visual novels.
     #[setting(nested)]
     pub visual_novels: VisualNovelConfig,
