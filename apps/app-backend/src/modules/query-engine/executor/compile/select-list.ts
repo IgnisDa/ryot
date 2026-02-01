@@ -72,14 +72,21 @@ export const measureExprSql = (aggregation: AggregationSpec, scope: CompileScope
 		}
 		return sql`COUNT(DISTINCT ${compileValue(aggregation.distinctBy, scope).value})`;
 	}
-	const fn =
-		aggregation.function === "sum"
-			? sql`SUM`
-			: aggregation.function === "average"
-				? sql`AVG`
-				: aggregation.function === "minimum"
-					? sql`MIN`
-					: sql`MAX`;
+	let fn: SqlFragment;
+	switch (aggregation.function) {
+		case "sum":
+			fn = sql`SUM`;
+			break;
+		case "average":
+			fn = sql`AVG`;
+			break;
+		case "minimum":
+			fn = sql`MIN`;
+			break;
+		case "maximum":
+			fn = sql`MAX`;
+			break;
+	}
 	return sql`${fn}(${compileScalar(aggregation.expr, scope, "number")})`;
 };
 
