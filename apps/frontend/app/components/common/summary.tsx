@@ -181,6 +181,16 @@ export const DisplaySummarySection = (props: {
 				]}
 			/>
 			<DisplayStatForMediaType
+				lot={MediaLot.ComicBook}
+				data={[
+					{
+						type: "number",
+						label: "Comic Books",
+						value: props.latestUserSummary.comicBookCount,
+					},
+				]}
+			/>
+			<DisplayStatForMediaType
 				lot={MediaLot.Anime}
 				data={[
 					{
