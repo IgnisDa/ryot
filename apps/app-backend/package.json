@@ -8,9 +8,9 @@
 		"test": "bun run sandbox:compile-runner && bun --bun run vitest run",
 		"sandbox:compile-runner": "bun run scripts/compile-sandbox-runner.ts",
 		"run-migration": "bun run sandbox:compile-runner && RUN_MIGRATION_ONLY=true bun run src/main.ts",
-		"build": "bun run sandbox:compile-runner && bun build src/main.ts --outdir dist --target bun --sourcemap",
 		"sandbox:check-runner": "deno check --config src/lib/infrastructure/sandbox-runtime/deno.json src/lib/infrastructure/sandbox-runtime/runner-source.sandbox.ts",
-		"check": "bun run purity:check && bun run sandbox:compile-runner && bun run sandbox:check-runner && tsc && oxfmt . --write && oxlint . --type-aware --fix"
+		"check": "bun run purity:check && bun run sandbox:compile-runner && bun run sandbox:check-runner && tsc && oxfmt . --write && oxlint . --type-aware --fix",
+		"build": "bun run sandbox:compile-runner && bun build src/main.ts --outdir dist --target bun --sourcemap && bun build scripts/prepare-sandbox-runtime.ts --outdir dist --target bun --sourcemap && bun build scripts/smoke-compiler-worker.ts --outdir dist --target bun --sourcemap"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.6.15",
