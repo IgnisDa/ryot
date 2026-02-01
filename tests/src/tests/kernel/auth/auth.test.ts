@@ -35,7 +35,7 @@ describe("Email sign-up", () => {
 				const { cookies, email, password } = yield* createTestUser();
 				const headers = { Cookie: cookies };
 				const workspaces = yield* getBackendClient().call(
-					(c) => c.definitions.listWorkspaces({ urlParams: { includeDisabled: true } }),
+					(c) => c.definitions.listWorkspaces({ query: { includeDisabled: true } }),
 					headers,
 				);
 				expect(workspaces.length).toBeGreaterThan(0);

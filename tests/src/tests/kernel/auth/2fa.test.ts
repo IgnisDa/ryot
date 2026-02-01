@@ -29,7 +29,7 @@ describe("Two-factor sign-in flow", () => {
 				"Two-factor setup did not return any backup codes",
 			);
 
-			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 				Cookie: twoFactorCookies,
 			});
 
@@ -42,7 +42,7 @@ describe("Two-factor sign-in flow", () => {
 			expect(signIn.data).toHaveProperty("twoFactorRedirect", true);
 
 			const unauthorizedError = yield* Effect.flip(
-				client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 					Cookie: signInCookies,
 				}),
 			);
@@ -52,7 +52,7 @@ describe("Two-factor sign-in flow", () => {
 				verifyBackupCodeForSession({ code: backupCode, cookies: signInCookies, baseUrl }),
 			);
 			expect(verification.error).toBeNull();
-			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 				Cookie: verification.cookies,
 			});
 

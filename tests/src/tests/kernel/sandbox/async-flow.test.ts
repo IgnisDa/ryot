@@ -55,7 +55,7 @@ afterAll(() => {
 });
 
 describe("sandbox async flow", () => {
-	it.scopedLive("completes a script that returns a plain value", () =>
+	it.live("completes a script that returns a plain value", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
 			const slug = `plain-value-${crypto.randomUUID()}`;
@@ -89,7 +89,7 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.scopedLive("completes a script that uses httpCall", () =>
+	it.live("completes a script that uses httpCall", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
 			const slug = `http-call-${crypto.randomUUID()}`;
@@ -119,7 +119,7 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.scopedLive("completes a script that uses executeQueryEngine", () =>
+	it.live("completes a script that uses executeQueryEngine", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const pluginSlug = createPluginScope();
@@ -202,7 +202,7 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.scopedLive("returns an error when executeQueryEngine uses a missing schema slug", () =>
+	it.live("returns an error when executeQueryEngine uses a missing schema slug", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
 			const slug = `execute-query-engine-missing-schema-${crypto.randomUUID()}`;
@@ -246,7 +246,7 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.scopedLive("reads a declared env-backed plugin config value", () =>
+	it.live("reads a declared env-backed plugin config value", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
 			const slug = `get-plugin-config-value-${crypto.randomUUID()}`;
@@ -270,7 +270,7 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.scopedLive("rejects an undeclared plugin config key", () =>
+	it.live("rejects an undeclared plugin config key", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
 			const slug = `undeclared-plugin-config-value-${crypto.randomUUID()}`;
@@ -299,7 +299,7 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.scopedLive("reads timezone only when declared as system config", () =>
+	it.live("reads timezone only when declared as system config", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
 			const declaredSlug = `declared-system-config-value-${crypto.randomUUID()}`;
@@ -345,7 +345,7 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.scopedLive("completes a script that uses getUserPreferences", () =>
+	it.live("completes a script that uses getUserPreferences", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
 			const slug = `get-user-prefs-${crypto.randomUUID()}`;
@@ -366,7 +366,7 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.scopedLive("returns a completed result when the script throws", () =>
+	it.live("returns a completed result when the script throws", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
 			const slug = `throws-error-${crypto.randomUUID()}`;

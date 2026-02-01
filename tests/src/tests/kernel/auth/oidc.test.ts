@@ -34,7 +34,7 @@ const godModeListQuery = (search: string) => ({ limit: 50, offset: 0, search });
 const countUsersByEmail = (backendUrl: string, email: string) =>
 	Effect.gen(function* () {
 		const data = yield* makeSession(backendUrl).call(
-			(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+			(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
 			adminHeaders,
 		);
 		return data.total;
@@ -43,7 +43,7 @@ const countUsersByEmail = (backendUrl: string, email: string) =>
 const findUserIdByEmail = (backendUrl: string, email: string) =>
 	Effect.gen(function* () {
 		const data = yield* makeSession(backendUrl).call(
-			(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+			(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
 			adminHeaders,
 		);
 		return data.users[0]?.id ?? null;
@@ -52,7 +52,7 @@ const findUserIdByEmail = (backendUrl: string, email: string) =>
 const listWorkspaceCount = (backendUrl: string, cookie: string) =>
 	Effect.gen(function* () {
 		const workspaces = yield* makeSession(backendUrl).call(
-			(c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }),
+			(c) => c.definitions.listWorkspaces({ query: workspaceListQuery }),
 			{ Cookie: cookie },
 		);
 		return workspaces.length;
@@ -206,7 +206,7 @@ describe("OIDC sign-in happy path (Backend A)", () => {
 				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
 			);
 			const client = makeSession(getBackendUrlA());
-			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 				Cookie: sessionCookie,
 			});
 		}),
@@ -268,10 +268,10 @@ describe("OIDC idempotency (Backend A)", () => {
 
 			const client = makeSession(getBackendUrlA());
 			yield* Effect.all([
-				client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 					Cookie: cookie1,
 				}),
-				client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 					Cookie: cookie2,
 				}),
 			]);
@@ -337,7 +337,7 @@ describe("Registration gating for OIDC (Backend C)", () => {
 				oidcSignIn(requireMockOidcServer(), username, getBackendUrlC()),
 			);
 			const client = makeSession(getBackendUrlC());
-			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 				Cookie: sessionCookie,
 			});
 

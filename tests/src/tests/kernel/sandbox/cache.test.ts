@@ -131,7 +131,7 @@ const readProviderCache = (userId: string, scriptId: SandboxScriptId) =>
 	});
 
 describe("sandbox cache functions", () => {
-	it.scopedLive(
+	it.live(
 		"setCachedValue stores a value that getCachedValue retrieves within the same script",
 		() =>
 			Effect.gen(function* () {
@@ -162,7 +162,7 @@ describe("sandbox cache functions", () => {
 			}),
 	);
 
-	it.scopedLive("getCachedValue returns null for a key that was never set", () =>
+	it.live("getCachedValue returns null for a key that was never set", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
 			const missingKey = `cache-missing-${crypto.randomUUID()}`;
@@ -184,7 +184,7 @@ describe("sandbox cache functions", () => {
 		}),
 	);
 
-	it.scopedLive("provider scripts share cache while users and providers remain isolated", () =>
+	it.live("provider scripts share cache while users and providers remain isolated", () =>
 		Effect.gen(function* () {
 			const { userId: userIdA } = yield* createAuthenticatedClient();
 			const { userId: userIdB } = yield* createAuthenticatedClient();
