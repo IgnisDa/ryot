@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { Effect } from "effect";
 
 import {
 	buildEntityRowsQueryDocument,
@@ -12,6 +12,7 @@ import {
 	requireQueryEngineFieldValue,
 	systemRef,
 } from "~/fixtures";
+import { describe, expect, it } from "~/support/effect-test";
 
 type Expr = ReturnType<typeof literalExpr>;
 
@@ -30,43 +31,44 @@ const notW = (expr: Expr): Expr => ({ type: "not", expr });
 const namesOf = (result: QueryEngineRowsResponse) =>
 	result.data.items.map((item) => requireQueryEngineFieldValue(item, "name").value);
 
-const setupItems = async () => {
-	const { client } = await createAuthenticatedClient();
-	const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
-		schemaName: "RootFilterItem",
-		propertiesSchema: {
-			fields: {
-				difficulty: { type: "string", label: "Difficulty", description: "Difficulty" },
-				durationMinutes: { type: "integer", label: "Duration", description: "Duration minutes" },
-				archived: { type: "boolean", label: "Archived", description: "Archived flag" },
+const setupItems = () =>
+	Effect.gen(function* () {
+		const { client } = yield* createAuthenticatedClient();
+		const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			schemaName: "RootFilterItem",
+			propertiesSchema: {
+				fields: {
+					difficulty: { type: "string", label: "Difficulty", description: "Difficulty" },
+					durationMinutes: { type: "integer", label: "Duration", description: "Duration minutes" },
+					archived: { type: "boolean", label: "Archived", description: "Archived flag" },
+				},
 			},
-		},
+		});
+		yield* Effect.all([
+			createQueryEngineEntity(client, {
+				name: "Alpha",
+				entitySchemaId: schemaId,
+				properties: { difficulty: "beginner", durationMinutes: 30, archived: false },
+			}),
+			createQueryEngineEntity(client, {
+				name: "Bravo",
+				entitySchemaId: schemaId,
+				properties: { difficulty: "advanced", durationMinutes: 60, archived: true },
+			}),
+			createQueryEngineEntity(client, {
+				name: "Charlie",
+				entitySchemaId: schemaId,
+				properties: { difficulty: "advanced", durationMinutes: 90, archived: false },
+			}),
+			createQueryEngineEntity(client, {
+				name: "Delta",
+				entitySchemaId: schemaId,
+				properties: { difficulty: "beginner", durationMinutes: 120, archived: true },
+			}),
+			createQueryEngineEntity(client, { name: "Echo", entitySchemaId: schemaId, properties: {} }),
+		]);
+		return { client, slug };
 	});
-	await Promise.all([
-		createQueryEngineEntity(client, {
-			name: "Alpha",
-			entitySchemaId: schemaId,
-			properties: { difficulty: "beginner", durationMinutes: 30, archived: false },
-		}),
-		createQueryEngineEntity(client, {
-			name: "Bravo",
-			entitySchemaId: schemaId,
-			properties: { difficulty: "advanced", durationMinutes: 60, archived: true },
-		}),
-		createQueryEngineEntity(client, {
-			name: "Charlie",
-			entitySchemaId: schemaId,
-			properties: { difficulty: "advanced", durationMinutes: 90, archived: false },
-		}),
-		createQueryEngineEntity(client, {
-			name: "Delta",
-			entitySchemaId: schemaId,
-			properties: { difficulty: "beginner", durationMinutes: 120, archived: true },
-		}),
-		createQueryEngineEntity(client, { name: "Echo", entitySchemaId: schemaId, properties: {} }),
-	]);
-	return { client, slug };
-};
 
 const buildDoc = (slug: string, where: Expr, page?: number, limit?: number) =>
 	buildEntityRowsQueryDocument({
@@ -79,229 +81,269 @@ const buildDoc = (slug: string, where: Expr, page?: number, limit?: number) =>
 	});
 
 describe("Query engine root property filters", () => {
-	it("filters by a string property equality", async () => {
-		const { client, slug } = await setupItems();
-		const result = await executeQueryEngine(
-			client,
-			buildDoc(
-				slug,
-				compare("eq", propertyRef("item", slug, "difficulty"), literalExpr("advanced")),
-			),
-		);
-		expect(namesOf(result)).toEqual(["Bravo", "Charlie"]);
-		expect(result.data.pageInfo.total).toBe(2);
-	});
-
-	it("filters by a numeric property with a greater-than comparison", async () => {
-		const { client, slug } = await setupItems();
-		const result = await executeQueryEngine(
-			client,
-			buildDoc(slug, compare("gt", propertyRef("item", slug, "durationMinutes"), literalExpr(60))),
-		);
-		expect(namesOf(result)).toEqual(["Charlie", "Delta"]);
-	});
-
-	it("filters by a numeric property with a gte comparison (boundary inclusive)", async () => {
-		const { client, slug } = await setupItems();
-		const result = await executeQueryEngine(
-			client,
-			buildDoc(slug, compare("gte", propertyRef("item", slug, "durationMinutes"), literalExpr(60))),
-		);
-		expect(namesOf(result)).toEqual(["Bravo", "Charlie", "Delta"]);
-	});
-
-	it("preserves operand order when the literal is on the left", async () => {
-		const { client, slug } = await setupItems();
-		// 60 < durationMinutes  ==  durationMinutes > 60
-		const result = await executeQueryEngine(
-			client,
-			buildDoc(slug, compare("lt", literalExpr(60), propertyRef("item", slug, "durationMinutes"))),
-		);
-		expect(namesOf(result)).toEqual(["Charlie", "Delta"]);
-	});
-
-	it("filters by a boolean property equality", async () => {
-		const { client, slug } = await setupItems();
-		const archivedTrue = await executeQueryEngine(
-			client,
-			buildDoc(slug, compare("eq", propertyRef("item", slug, "archived"), literalExpr(true))),
-		);
-		expect(namesOf(archivedTrue)).toEqual(["Bravo", "Delta"]);
-
-		const archivedFalse = await executeQueryEngine(
-			client,
-			buildDoc(slug, compare("eq", propertyRef("item", slug, "archived"), literalExpr(false))),
-		);
-		expect(namesOf(archivedFalse)).toEqual(["Alpha", "Charlie"]);
-	});
-
-	it("filters by a case-insensitive substring contains", async () => {
-		const { client, slug } = await setupItems();
-		const lower = await executeQueryEngine(
-			client,
-			buildDoc(slug, containsW(propertyRef("item", slug, "difficulty"), literalExpr("vanc"))),
-		);
-		expect(namesOf(lower)).toEqual(["Bravo", "Charlie"]);
-
-		const upper = await executeQueryEngine(
-			client,
-			buildDoc(slug, containsW(propertyRef("item", slug, "difficulty"), literalExpr("ADVAN"))),
-		);
-		expect(namesOf(upper)).toEqual(["Bravo", "Charlie"]);
-	});
-
-	it("filters by isNull / isNotNull on a property (missing value reads as null)", async () => {
-		const { client, slug } = await setupItems();
-		const missing = await executeQueryEngine(
-			client,
-			buildDoc(slug, isNullW(propertyRef("item", slug, "durationMinutes"))),
-		);
-		expect(namesOf(missing)).toEqual(["Echo"]);
-
-		const present = await executeQueryEngine(
-			client,
-			buildDoc(slug, isNotNullW(propertyRef("item", slug, "durationMinutes"))),
-		);
-		expect(namesOf(present)).toEqual(["Alpha", "Bravo", "Charlie", "Delta"]);
-	});
-
-	it("combines predicates with AND", async () => {
-		const { client, slug } = await setupItems();
-		const result = await executeQueryEngine(
-			client,
-			buildDoc(
-				slug,
-				andW(
+	it.live("filters by a string property equality", () =>
+		Effect.gen(function* () {
+			const { client, slug } = yield* setupItems();
+			const result = yield* executeQueryEngine(
+				client,
+				buildDoc(
+					slug,
 					compare("eq", propertyRef("item", slug, "difficulty"), literalExpr("advanced")),
+				),
+			);
+			expect(namesOf(result)).toEqual(["Bravo", "Charlie"]);
+			expect(result.data.pageInfo.total).toBe(2);
+		}),
+	);
+
+	it.live("filters by a numeric property with a greater-than comparison", () =>
+		Effect.gen(function* () {
+			const { client, slug } = yield* setupItems();
+			const result = yield* executeQueryEngine(
+				client,
+				buildDoc(
+					slug,
 					compare("gt", propertyRef("item", slug, "durationMinutes"), literalExpr(60)),
 				),
-			),
-		);
-		expect(namesOf(result)).toEqual(["Charlie"]);
-	});
+			);
+			expect(namesOf(result)).toEqual(["Charlie", "Delta"]);
+		}),
+	);
 
-	it("combines predicates with OR", async () => {
-		const { client, slug } = await setupItems();
-		const result = await executeQueryEngine(
-			client,
-			buildDoc(
-				slug,
-				orW(
-					compare("eq", propertyRef("item", slug, "difficulty"), literalExpr("advanced")),
-					compare("lt", propertyRef("item", slug, "durationMinutes"), literalExpr(40)),
+	it.live("filters by a numeric property with a gte comparison (boundary inclusive)", () =>
+		Effect.gen(function* () {
+			const { client, slug } = yield* setupItems();
+			const result = yield* executeQueryEngine(
+				client,
+				buildDoc(
+					slug,
+					compare("gte", propertyRef("item", slug, "durationMinutes"), literalExpr(60)),
 				),
-			),
-		);
-		expect(namesOf(result)).toEqual(["Alpha", "Bravo", "Charlie"]);
-	});
+			);
+			expect(namesOf(result)).toEqual(["Bravo", "Charlie", "Delta"]);
+		}),
+	);
 
-	it("reports the correct total and page window for a filtered, paginated query", async () => {
-		const { client, slug } = await setupItems();
-		const pageOne = await executeQueryEngine(
-			client,
-			buildDoc(slug, isNotNullW(propertyRef("item", slug, "durationMinutes")), 1, 2),
-		);
-		expect(namesOf(pageOne)).toEqual(["Alpha", "Bravo"]);
-		expect(pageOne.data.pageInfo.total).toBe(4);
-		expect(pageOne.data.pageInfo.hasMore).toBe(true);
+	it.live("preserves operand order when the literal is on the left", () =>
+		Effect.gen(function* () {
+			const { client, slug } = yield* setupItems();
+			// 60 < durationMinutes  ==  durationMinutes > 60
+			const result = yield* executeQueryEngine(
+				client,
+				buildDoc(
+					slug,
+					compare("lt", literalExpr(60), propertyRef("item", slug, "durationMinutes")),
+				),
+			);
+			expect(namesOf(result)).toEqual(["Charlie", "Delta"]);
+		}),
+	);
 
-		const pageTwo = await executeQueryEngine(
-			client,
-			buildDoc(slug, isNotNullW(propertyRef("item", slug, "durationMinutes")), 2, 2),
-		);
-		expect(namesOf(pageTwo)).toEqual(["Charlie", "Delta"]);
-		expect(pageTwo.data.pageInfo.total).toBe(4);
-		expect(pageTwo.data.pageInfo.hasMore).toBe(false);
-	});
+	it.live("filters by a boolean property equality", () =>
+		Effect.gen(function* () {
+			const { client, slug } = yield* setupItems();
+			const archivedTrue = yield* executeQueryEngine(
+				client,
+				buildDoc(slug, compare("eq", propertyRef("item", slug, "archived"), literalExpr(true))),
+			);
+			expect(namesOf(archivedTrue)).toEqual(["Bravo", "Delta"]);
 
-	it("does not match rows of other schemas when filtering a multi-schema source by a schema-qualified property", async () => {
-		const { client } = await createAuthenticatedClient();
-		const ratingSchema = {
-			fields: { rating: { type: "integer" as const, label: "Rating", description: "Rating" } },
-		};
-		const { schemaId: bookSchemaId, slug: bookSlug } = await createQueryEngineTrackerAndSchema(
-			client,
-			{ schemaName: "MultiFilterBook", propertiesSchema: ratingSchema },
-		);
-		const { schemaId: movieSchemaId, slug: movieSlug } = await createQueryEngineTrackerAndSchema(
-			client,
-			{ schemaName: "MultiFilterMovie", propertiesSchema: ratingSchema },
-		);
-		await Promise.all([
-			createQueryEngineEntity(client, {
-				name: "HighBook",
-				entitySchemaId: bookSchemaId,
-				properties: { rating: 8 },
+			const archivedFalse = yield* executeQueryEngine(
+				client,
+				buildDoc(slug, compare("eq", propertyRef("item", slug, "archived"), literalExpr(false))),
+			);
+			expect(namesOf(archivedFalse)).toEqual(["Alpha", "Charlie"]);
+		}),
+	);
+
+	it.live("filters by a case-insensitive substring contains", () =>
+		Effect.gen(function* () {
+			const { client, slug } = yield* setupItems();
+			const lower = yield* executeQueryEngine(
+				client,
+				buildDoc(slug, containsW(propertyRef("item", slug, "difficulty"), literalExpr("vanc"))),
+			);
+			expect(namesOf(lower)).toEqual(["Bravo", "Charlie"]);
+
+			const upper = yield* executeQueryEngine(
+				client,
+				buildDoc(slug, containsW(propertyRef("item", slug, "difficulty"), literalExpr("ADVAN"))),
+			);
+			expect(namesOf(upper)).toEqual(["Bravo", "Charlie"]);
+		}),
+	);
+
+	it.live("filters by isNull / isNotNull on a property (missing value reads as null)", () =>
+		Effect.gen(function* () {
+			const { client, slug } = yield* setupItems();
+			const missing = yield* executeQueryEngine(
+				client,
+				buildDoc(slug, isNullW(propertyRef("item", slug, "durationMinutes"))),
+			);
+			expect(namesOf(missing)).toEqual(["Echo"]);
+
+			const present = yield* executeQueryEngine(
+				client,
+				buildDoc(slug, isNotNullW(propertyRef("item", slug, "durationMinutes"))),
+			);
+			expect(namesOf(present)).toEqual(["Alpha", "Bravo", "Charlie", "Delta"]);
+		}),
+	);
+
+	it.live("combines predicates with AND", () =>
+		Effect.gen(function* () {
+			const { client, slug } = yield* setupItems();
+			const result = yield* executeQueryEngine(
+				client,
+				buildDoc(
+					slug,
+					andW(
+						compare("eq", propertyRef("item", slug, "difficulty"), literalExpr("advanced")),
+						compare("gt", propertyRef("item", slug, "durationMinutes"), literalExpr(60)),
+					),
+				),
+			);
+			expect(namesOf(result)).toEqual(["Charlie"]);
+		}),
+	);
+
+	it.live("combines predicates with OR", () =>
+		Effect.gen(function* () {
+			const { client, slug } = yield* setupItems();
+			const result = yield* executeQueryEngine(
+				client,
+				buildDoc(
+					slug,
+					orW(
+						compare("eq", propertyRef("item", slug, "difficulty"), literalExpr("advanced")),
+						compare("lt", propertyRef("item", slug, "durationMinutes"), literalExpr(40)),
+					),
+				),
+			);
+			expect(namesOf(result)).toEqual(["Alpha", "Bravo", "Charlie"]);
+		}),
+	);
+
+	it.live("reports the correct total and page window for a filtered, paginated query", () =>
+		Effect.gen(function* () {
+			const { client, slug } = yield* setupItems();
+			const pageOne = yield* executeQueryEngine(
+				client,
+				buildDoc(slug, isNotNullW(propertyRef("item", slug, "durationMinutes")), 1, 2),
+			);
+			expect(namesOf(pageOne)).toEqual(["Alpha", "Bravo"]);
+			expect(pageOne.data.pageInfo.total).toBe(4);
+			expect(pageOne.data.pageInfo.hasMore).toBe(true);
+
+			const pageTwo = yield* executeQueryEngine(
+				client,
+				buildDoc(slug, isNotNullW(propertyRef("item", slug, "durationMinutes")), 2, 2),
+			);
+			expect(namesOf(pageTwo)).toEqual(["Charlie", "Delta"]);
+			expect(pageTwo.data.pageInfo.total).toBe(4);
+			expect(pageTwo.data.pageInfo.hasMore).toBe(false);
+		}),
+	);
+
+	it.live(
+		"does not match rows of other schemas when filtering a multi-schema source by a schema-qualified property",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const ratingSchema = {
+					fields: { rating: { type: "integer" as const, label: "Rating", description: "Rating" } },
+				};
+				const { schemaId: bookSchemaId, slug: bookSlug } = yield* createQueryEngineTrackerAndSchema(
+					client,
+					{ schemaName: "MultiFilterBook", propertiesSchema: ratingSchema },
+				);
+				const { schemaId: movieSchemaId, slug: movieSlug } =
+					yield* createQueryEngineTrackerAndSchema(client, {
+						schemaName: "MultiFilterMovie",
+						propertiesSchema: ratingSchema,
+					});
+				yield* Effect.all([
+					createQueryEngineEntity(client, {
+						name: "HighBook",
+						entitySchemaId: bookSchemaId,
+						properties: { rating: 8 },
+					}),
+					createQueryEngineEntity(client, {
+						name: "LowBook",
+						entitySchemaId: bookSchemaId,
+						properties: { rating: 3 },
+					}),
+					createQueryEngineEntity(client, {
+						name: "HighMovie",
+						entitySchemaId: movieSchemaId,
+						properties: { rating: 9 },
+					}),
+				]);
+
+				const result = yield* executeQueryEngine(
+					client,
+					buildEntityRowsQueryDocument({
+						alias: "item",
+						limit: 20,
+						schemas: [bookSlug, movieSlug],
+						fields: [{ key: "name", expr: systemRef("item", "name") }],
+						where: compare("gte", propertyRef("item", bookSlug, "rating"), literalExpr(5)),
+					}),
+				);
+
+				expect(namesOf(result)).toEqual(["HighBook"]);
 			}),
-			createQueryEngineEntity(client, {
-				name: "LowBook",
-				entitySchemaId: bookSchemaId,
-				properties: { rating: 3 },
-			}),
-			createQueryEngineEntity(client, {
-				name: "HighMovie",
-				entitySchemaId: movieSchemaId,
-				properties: { rating: 9 },
-			}),
-		]);
+	);
 
-		const result = await executeQueryEngine(
-			client,
-			buildEntityRowsQueryDocument({
-				alias: "item",
-				limit: 20,
-				schemas: [bookSlug, movieSlug],
-				fields: [{ key: "name", expr: systemRef("item", "name") }],
-				where: compare("gte", propertyRef("item", bookSlug, "rating"), literalExpr(5)),
-			}),
-		);
+	it.live("compiles neq with null-as-false (null-valued rows are excluded)", () =>
+		Effect.gen(function* () {
+			const { client, slug } = yield* setupItems();
+			const result = yield* executeQueryEngine(
+				client,
+				buildDoc(
+					slug,
+					compare("neq", propertyRef("item", slug, "difficulty"), literalExpr("advanced")),
+				),
+			);
+			expect(namesOf(result)).toEqual(["Alpha", "Delta"]);
+		}),
+	);
 
-		expect(namesOf(result)).toEqual(["HighBook"]);
-	});
+	it.live("compiles not(eq) as a double negation that keeps null-valued rows", () =>
+		Effect.gen(function* () {
+			const { client, slug } = yield* setupItems();
+			const result = yield* executeQueryEngine(
+				client,
+				buildDoc(
+					slug,
+					notW(compare("eq", propertyRef("item", slug, "difficulty"), literalExpr("advanced"))),
+				),
+			);
+			expect(namesOf(result)).toEqual(["Alpha", "Delta", "Echo"]);
+		}),
+	);
 
-	it("compiles neq with null-as-false (null-valued rows are excluded)", async () => {
-		const { client, slug } = await setupItems();
-		const result = await executeQueryEngine(
-			client,
-			buildDoc(
-				slug,
-				compare("neq", propertyRef("item", slug, "difficulty"), literalExpr("advanced")),
-			),
-		);
-		expect(namesOf(result)).toEqual(["Alpha", "Delta"]);
-	});
-
-	it("compiles not(eq) as a double negation that keeps null-valued rows", async () => {
-		const { client, slug } = await setupItems();
-		const result = await executeQueryEngine(
-			client,
-			buildDoc(
-				slug,
-				notW(compare("eq", propertyRef("item", slug, "difficulty"), literalExpr("advanced"))),
-			),
-		);
-		expect(namesOf(result)).toEqual(["Alpha", "Delta", "Echo"]);
-	});
-
-	it('orders text under COLLATE "C" (uppercase before lowercase, byte order)', async () => {
-		const { client } = await createAuthenticatedClient();
-		const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
-			schemaName: "CollationItem",
-		});
-		await Promise.all(
-			["apple", "Banana", "Cherry"].map((name) =>
-				createQueryEngineEntity(client, { name, entitySchemaId: schemaId }),
-			),
-		);
-		const result = await executeQueryEngine(
-			client,
-			buildEntityRowsQueryDocument({
-				alias: "item",
-				limit: 20,
-				schemas: [slug],
-				fields: [{ key: "name", expr: systemRef("item", "name") }],
-			}),
-		);
-		expect(namesOf(result)).toEqual(["Banana", "Cherry", "apple"]);
-	});
+	it.live('orders text under COLLATE "C" (uppercase before lowercase, byte order)', () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+				schemaName: "CollationItem",
+			});
+			yield* Effect.all(
+				["apple", "Banana", "Cherry"].map((name) =>
+					createQueryEngineEntity(client, { name, entitySchemaId: schemaId }),
+				),
+			);
+			const result = yield* executeQueryEngine(
+				client,
+				buildEntityRowsQueryDocument({
+					alias: "item",
+					limit: 20,
+					schemas: [slug],
+					fields: [{ key: "name", expr: systemRef("item", "name") }],
+				}),
+			);
+			expect(namesOf(result)).toEqual(["Banana", "Cherry", "apple"]);
+		}),
+	);
 });

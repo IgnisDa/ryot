@@ -1,4 +1,5 @@
 import { EntityId } from "@ryot/contract/schema/brands";
+import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
@@ -13,8 +14,8 @@ type EntityTranslationRow = {
 	properties: Record<string, unknown> | null;
 };
 
-async function markEntityPopulated(entityId: string) {
-	await getBackendClient().run(
+const markEntityPopulated = (entityId: string) =>
+	getBackendClient().call(
 		(c) =>
 			c.testSupport.setEntityPopulatedAt({
 				path: { entityId: EntityId.make(entityId) },
@@ -22,35 +23,35 @@ async function markEntityPopulated(entityId: string) {
 			}),
 		adminHeaders,
 	);
-}
 
-export async function seedPopulatedProviderEntity(input: {
+export const seedPopulatedProviderEntity = (input: {
 	name: string;
 	externalId: string;
 	entitySchemaId: string;
 	sandboxScriptId: string;
 	properties: Record<string, unknown>;
-}) {
-	const seeded = await seedMediaEntity({
-		userId: null,
-		name: input.name,
-		externalId: input.externalId,
-		properties: input.properties,
-		entitySchemaId: input.entitySchemaId,
-		sandboxScriptId: input.sandboxScriptId,
+}) =>
+	Effect.gen(function* () {
+		const seeded = yield* seedMediaEntity({
+			userId: null,
+			name: input.name,
+			externalId: input.externalId,
+			properties: input.properties,
+			entitySchemaId: input.entitySchemaId,
+			sandboxScriptId: input.sandboxScriptId,
+		});
+		yield* markEntityPopulated(seeded.id);
+
+		return seeded;
 	});
-	await markEntityPopulated(seeded.id);
 
-	return seeded;
-}
-
-export async function seedEntityTranslation(input: {
+export const seedEntityTranslation = (input: {
 	entityId: string;
 	language: string;
 	name?: string | null;
 	properties?: Record<string, unknown> | null;
-}) {
-	await getBackendClient().run(
+}) =>
+	getBackendClient().call(
 		(c) =>
 			c.testSupport.upsertEntityTranslation({
 				payload: {
@@ -62,43 +63,43 @@ export async function seedEntityTranslation(input: {
 			}),
 		adminHeaders,
 	);
-}
 
-export async function getEntityTranslationRow(input: { entityId: string; language: string }) {
-	const rows = await getBackendClient().run(
-		(c) =>
-			c.testSupport.listEntityTranslations({
-				path: { entityId: EntityId.make(input.entityId) },
-			}),
-		adminHeaders,
-	);
-	return (
-		(rows.find((row) => row.language === input.language) as EntityTranslationRow | undefined) ??
-		null
-	);
-}
+export const getEntityTranslationRow = (input: { entityId: string; language: string }) =>
+	Effect.gen(function* () {
+		const rows = yield* getBackendClient().call(
+			(c) =>
+				c.testSupport.listEntityTranslations({
+					path: { entityId: EntityId.make(input.entityId) },
+				}),
+			adminHeaders,
+		);
+		return (
+			(rows.find((row) => row.language === input.language) as EntityTranslationRow | undefined) ??
+			null
+		);
+	});
 
-export async function countEntityTranslations(entityId: string) {
-	const rows = await getBackendClient().run(
-		(c) => c.testSupport.listEntityTranslations({ path: { entityId: EntityId.make(entityId) } }),
-		adminHeaders,
-	);
-	return rows.length;
-}
+export const countEntityTranslations = (entityId: string) =>
+	Effect.gen(function* () {
+		const rows = yield* getBackendClient().call(
+			(c) => c.testSupport.listEntityTranslations({ path: { entityId: EntityId.make(entityId) } }),
+			adminHeaders,
+		);
+		return rows.length;
+	});
 
 /** Re-reads the entity detail endpoint until its translationStatus settles to `target`. */
-export async function pollEntityUntilTranslationStatus(
+export const pollEntityUntilTranslationStatus = (
 	client: Client,
 	entityId: string,
 	target: "ready" | "none",
 	options: PollOptions = {},
-) {
-	return pollUntil(
+) =>
+	pollUntil(
 		`entity '${entityId}' translationStatus=${target}`,
-		async () => {
-			const entity = await getEntity(client, entityId);
+		Effect.gen(function* () {
+			const entity = yield* getEntity(client, entityId);
 			return entity.translationStatus === target ? entity : null;
-		},
+		}),
 		{ timeoutMs: 60_000, intervalMs: 2000, ...options },
 	);
-}

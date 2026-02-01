@@ -23,11 +23,8 @@ export function requireRelationshipSchemaBySlug<T extends { slug: string }>(
 	return requirePresent(schema, `Relationship schema '${slug}' not found`);
 }
 
-export async function createRelationshipSchema(
-	client: Client,
-	body: CreateRelationshipSchemaOptions,
-) {
-	return client.run((c) =>
+export const createRelationshipSchema = (client: Client, body: CreateRelationshipSchemaOptions) =>
+	client.call((c) =>
 		c.relationshipSchemas.create({
 			payload: {
 				...body,
@@ -35,17 +32,16 @@ export async function createRelationshipSchema(
 			},
 		}),
 	);
-}
 
-export async function listRelationshipSchemas(
+export const listRelationshipSchemas = (
 	client: Client,
 	options: {
 		slugs?: string[];
 		sourceEntitySchemaId?: string | null;
 		targetEntitySchemaId?: string | null;
 	} = {},
-) {
-	return client.run((c) =>
+) =>
+	client.call((c) =>
 		c.relationshipSchemas.list({
 			payload: {
 				slugs: options.slugs,
@@ -60,4 +56,3 @@ export async function listRelationshipSchemas(
 			},
 		}),
 	);
-}

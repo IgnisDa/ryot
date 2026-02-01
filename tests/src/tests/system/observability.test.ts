@@ -1,17 +1,17 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import type { ChildProcess } from "node:child_process";
 import { readFile } from "node:fs/promises";
 
+import { Effect } from "effect";
 import getPort from "get-port";
 
-import { createAuthenticatedClient } from "~/fixtures/auth";
-import { pollUntil } from "~/fixtures/polling";
+import { createAuthenticatedClient, pollUntil } from "~/fixtures";
 import {
 	requireArray,
 	requireObjectRecord,
 	requirePresent,
 	requireString,
 } from "~/support/assertions";
+import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-server";
 import {
 	buildBackendEnv,
@@ -136,72 +136,78 @@ afterAll(async () => {
 });
 
 describe("Backend observability", () => {
-	it("exports spans with correlatable workflow and request logs", async () => {
-		const { client, userId } = await createAuthenticatedClient(getBackendUrl());
-		await client.run((c) => c.notifications.testChannels());
+	it.live("exports spans with correlatable workflow and request logs", () =>
+		Effect.gen(function* () {
+			const { client, userId } = yield* createAuthenticatedClient(getBackendUrl());
+			yield* client.call((c) => c.notifications.testChannels());
 
-		const { resource, span } = await pollUntil(
-			"notification delivery workflow OTLP span",
-			() => Promise.resolve(findWorkflowSpan(userId)),
-			{ timeoutMs: 20_000 },
-		);
-		const { span: requestSpan } = await pollUntil(
-			"notification test request OTLP span",
-			() => Promise.resolve(findRequestSpan()),
-			{ timeoutMs: 20_000 },
-		);
-		expect(getStringAttribute(resource["attributes"], "service.name")).toBe("ryot-backend");
+			const { resource, span } = yield* pollUntil(
+				"notification delivery workflow OTLP span",
+				Effect.sync(() => findWorkflowSpan(userId)),
+				{ timeoutMs: 20_000 },
+			);
+			const { span: requestSpan } = yield* pollUntil(
+				"notification test request OTLP span",
+				Effect.sync(() => findRequestSpan()),
+				{ timeoutMs: 20_000 },
+			);
+			expect(getStringAttribute(resource["attributes"], "service.name")).toBe("ryot-backend");
 
-		const requestTraceId = requirePresent(
-			requireString(requestSpan["traceId"], "Request trace ID is missing"),
-			"Request trace ID is empty",
-		);
-		const spanId = requirePresent(
-			requireString(span["spanId"], "Workflow span ID is missing"),
-			"Workflow span ID is empty",
-		);
-		const traceId = requirePresent(
-			requireString(span["traceId"], "Workflow trace ID is missing"),
-			"Workflow trace ID is empty",
-		);
-		requirePresent(
-			getStringAttribute(span["attributes"], "executionId"),
-			"Workflow execution ID is missing",
-		);
-		const logLine = await pollUntil(
-			"correlated workflow completion log",
-			async () => {
-				const contents = await readFile(requireLogFile(), "utf8").catch(() => "");
-				return (
-					contents
-						.split("\n")
-						.find(
-							(line) => line.includes(`spanId=${spanId}`) && line.includes(`traceId=${traceId}`),
-						) ?? null
-				);
-			},
-			{ timeoutMs: 20_000 },
-		);
-		expect(logLine).toContain('message="span completed"');
-		expect(logLine).toContain(`spanName=${WORKFLOW_NAME}`);
+			const requestTraceId = requirePresent(
+				requireString(requestSpan["traceId"], "Request trace ID is missing"),
+				"Request trace ID is empty",
+			);
+			const spanId = requirePresent(
+				requireString(span["spanId"], "Workflow span ID is missing"),
+				"Workflow span ID is empty",
+			);
+			const traceId = requirePresent(
+				requireString(span["traceId"], "Workflow trace ID is missing"),
+				"Workflow trace ID is empty",
+			);
+			requirePresent(
+				getStringAttribute(span["attributes"], "executionId"),
+				"Workflow execution ID is missing",
+			);
+			const logLine = yield* pollUntil(
+				"correlated workflow completion log",
+				Effect.gen(function* () {
+					const contents = yield* Effect.promise(() =>
+						readFile(requireLogFile(), "utf8").catch(() => ""),
+					);
+					return (
+						contents
+							.split("\n")
+							.find(
+								(line) => line.includes(`spanId=${spanId}`) && line.includes(`traceId=${traceId}`),
+							) ?? null
+					);
+				}),
+				{ timeoutMs: 20_000 },
+			);
+			expect(logLine).toContain('message="span completed"');
+			expect(logLine).toContain(`spanName=${WORKFLOW_NAME}`);
 
-		const requestLogLine = await pollUntil(
-			"correlated HTTP response log",
-			async () => {
-				const contents = await readFile(requireLogFile(), "utf8").catch(() => "");
-				return (
-					contents
-						.split("\n")
-						.find(
-							(line) =>
-								line.includes('message="Sent HTTP response"') &&
-								line.includes(`userId=${userId}`) &&
-								line.includes(`traceId=${requestTraceId}`),
-						) ?? null
-				);
-			},
-			{ timeoutMs: 20_000 },
-		);
-		expect(requestLogLine).toContain("http.url=/notifications/channels/test");
-	});
+			const requestLogLine = yield* pollUntil(
+				"correlated HTTP response log",
+				Effect.gen(function* () {
+					const contents = yield* Effect.promise(() =>
+						readFile(requireLogFile(), "utf8").catch(() => ""),
+					);
+					return (
+						contents
+							.split("\n")
+							.find(
+								(line) =>
+									line.includes('message="Sent HTTP response"') &&
+									line.includes(`userId=${userId}`) &&
+									line.includes(`traceId=${requestTraceId}`),
+							) ?? null
+					);
+				}),
+				{ timeoutMs: 20_000 },
+			);
+			expect(requestLogLine).toContain("http.url=/notifications/channels/test");
+		}),
+	);
 });

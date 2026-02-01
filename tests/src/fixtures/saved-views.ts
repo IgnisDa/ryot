@@ -13,11 +13,12 @@ import {
 	queryEngineOrder,
 	queryEngineSystemRef,
 } from "@ryot/query-engine";
+import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
-import type { ContractPayload, ContractSuccess } from "./contract-client";
+import type { ContractPayload } from "./contract-client";
 import {
 	entityField,
 	entityImageField,
@@ -72,8 +73,6 @@ export const timeSeriesDocument: SavedViewQueryDocument = buildQueryEngineTimeSe
 		range: { startAt: "2020-01-01T00:00:00.000Z", endAt: "2020-07-01T00:00:00.000Z" },
 	},
 });
-
-type SavedViewRecord = ContractSuccess<"savedViews", "get">;
 
 type CreateSavedViewInput = Partial<Omit<CreateSavedViewBody, "displayConfiguration">> & {
 	displayConfiguration?: DisplayConfigurationInput;
@@ -244,28 +243,23 @@ export function buildUpdatedSavedViewQueryDocumentBody(
 	return { ...buildUpdatedSavedViewBody(overrides), queryDocument };
 }
 
-export async function createSavedView(
-	client: Client,
-	overrides: CreateSavedViewInput = {},
-): Promise<SavedViewRecord> {
-	return client.run((c) => c.savedViews.create({ payload: buildSavedViewBody(overrides) }));
-}
+export const createSavedView = (client: Client, overrides: CreateSavedViewInput = {}) =>
+	client.call((c) => c.savedViews.create({ payload: buildSavedViewBody(overrides) }));
 
-export async function createSavedViewWithQueryDocument(
+export const createSavedViewWithQueryDocument = (
 	client: Client,
 	queryDocument: SavedViewQueryDocument,
 	overrides: CreateSavedViewInput = {},
-): Promise<SavedViewRecord> {
-	return client.run((c) =>
+) =>
+	client.call((c) =>
 		c.savedViews.create({ payload: buildSavedViewQueryDocumentBody(queryDocument, overrides) }),
 	);
-}
 
-export async function listSavedViews(
+export const listSavedViews = (
 	client: Client,
 	options: { trackerId?: string; includeDisabled?: boolean } = {},
-): Promise<readonly SavedViewRecord[]> {
-	return client.run((c) =>
+) =>
+	client.call((c) =>
 		c.savedViews.list({
 			urlParams: {
 				includeDisabled: options.includeDisabled ?? false,
@@ -273,54 +267,48 @@ export async function listSavedViews(
 			},
 		}),
 	);
-}
 
-export async function findBuiltinSavedView(client: Client) {
-	const views = await listSavedViews(client);
-	const builtinView = views.find((view) => view.isBuiltin);
+export const findBuiltinSavedView = (client: Client) =>
+	Effect.gen(function* () {
+		const views = yield* listSavedViews(client);
+		const builtinView = views.find((view) => view.isBuiltin);
 
-	return requirePresent(builtinView, "Built-in saved view not found");
-}
+		return requirePresent(builtinView, "Built-in saved view not found");
+	});
 
-export async function getSavedView(client: Client, viewSlug: string): Promise<SavedViewRecord> {
-	return client.run((c) => c.savedViews.get({ path: { viewSlug } }));
-}
+export const getSavedView = (client: Client, viewSlug: string) =>
+	client.call((c) => c.savedViews.get({ path: { viewSlug } }));
 
-export async function updateSavedView(
+export const updateSavedView = (
 	client: Client,
 	viewSlug: string,
 	overrides: UpdateSavedViewInput = {},
-): Promise<SavedViewRecord> {
-	return client.run((c) =>
+) =>
+	client.call((c) =>
 		c.savedViews.update({
 			path: { viewSlug },
 			payload: buildUpdatedSavedViewBody(overrides),
 		}),
 	);
-}
 
-export async function updateSavedViewWithQueryDocument(
+export const updateSavedViewWithQueryDocument = (
 	client: Client,
 	viewSlug: string,
 	queryDocument: SavedViewQueryDocument,
 	overrides: UpdateSavedViewInput = {},
-): Promise<SavedViewRecord> {
-	return client.run((c) =>
+) =>
+	client.call((c) =>
 		c.savedViews.update({
 			path: { viewSlug },
 			payload: buildUpdatedSavedViewQueryDocumentBody(queryDocument, overrides),
 		}),
 	);
-}
 
-export async function cloneSavedView(client: Client, viewSlug: string): Promise<SavedViewRecord> {
-	return client.run((c) => c.savedViews.clone({ path: { viewSlug } }));
-}
+export const cloneSavedView = (client: Client, viewSlug: string) =>
+	client.call((c) => c.savedViews.clone({ path: { viewSlug } }));
 
-export async function deleteSavedView(client: Client, viewSlug: string): Promise<SavedViewRecord> {
-	return client.run((c) => c.savedViews.delete({ path: { viewSlug } }));
-}
+export const deleteSavedView = (client: Client, viewSlug: string) =>
+	client.call((c) => c.savedViews.delete({ path: { viewSlug } }));
 
-export async function reorderSavedViews(client: Client, body: ReorderSavedViewsBody) {
-	return client.run((c) => c.savedViews.reorder({ payload: body }));
-}
+export const reorderSavedViews = (client: Client, body: ReorderSavedViewsBody) =>
+	client.call((c) => c.savedViews.reorder({ payload: body }));
