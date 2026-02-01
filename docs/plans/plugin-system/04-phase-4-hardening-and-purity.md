@@ -37,6 +37,20 @@ permanently allowlist, the following production-domain ownership leaks:
   and endpoints owned by another user or otherwise invisible to that user are rejected. Undeclared
   capability calls and system-authority calls remain unavailable.
 
+  **Implementation choice (2026-07-30, owner-approved behavioral change):** a generic direct
+  `/entity-import` provider import populates the entity without automatically creating media
+  `in-library` membership. The endpoint remains domain-neutral: no entity-import manifest hook or
+  general entity policy is added for plugin-specific post-import semantics. Media import-source
+  workflows may still emit generic relationship mutations, while event and collection membership
+  remain plugin-owned.
+
+  **Implementation choice (2026-07-30):** entity schemas may declare a compact nested `userState`
+  policy whose `deniedOperations` list contains `clear` and/or `merge`; absent policy permits both.
+  These restrictions are exceptional policy for protected singleton entities. A denied list avoids
+  top-level booleans and speculative per-operation policy objects while keeping ordinary schemas
+  permissive by default. Kernel enforcement reports generic operation-specific errors and checks
+  both source and destination schemas for merges.
+
 - Add a separate `userBootstrap` manifest section for the trusted boot-configured plugins that
   Phase 4 loads globally. It targets sandbox scripts running with user authority. Add the smallest
   batch-first, schema-owner-restricted host capability needed for the media plugin to idempotently

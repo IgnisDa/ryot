@@ -10,15 +10,15 @@ import { DbRunner } from "#lib/infrastructure/db/service";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job-id";
 import { trimToNull } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { toEntityImportRunResult } from "#modules/entity-import/result-workflow";
 
-import { LibraryEntityImportWorkflow } from "./library-entity-import-workflow";
+import { EntityImportWorkflow } from "./entity-import-workflow";
+import { toEntityImportRunResult } from "./result-workflow";
 
 const entitySchemaNotFoundError = "Entity schema not found";
 const importJobNotFoundError = "Entity import job not found";
 
-export class LibraryImportService extends Effect.Service<LibraryImportService>()(
-	"LibraryImportService",
+export class EntityImportService extends Effect.Service<EntityImportService>()(
+	"EntityImportService",
 	{
 		effect: Effect.gen(function* () {
 			const config = yield* AppConfig;
@@ -27,7 +27,7 @@ export class LibraryImportService extends Effect.Service<LibraryImportService>()
 			const repository = yield* EntitiesRepository;
 			const jobIdSecret = Redacted.value(config.sandbox.jobIdSecret);
 
-			const importEntity = Effect.fn("LibraryImportService.import")(function* (
+			const importEntity = Effect.fn("EntityImportService.import")(function* (
 				user: CurrentUserValue,
 				payload: {
 					externalId: string;
@@ -55,15 +55,15 @@ export class LibraryImportService extends Effect.Service<LibraryImportService>()
 
 				const executionId = generateId();
 				yield* engine
-					.execute(LibraryEntityImportWorkflow, {
+					.execute(EntityImportWorkflow, {
 						executionId,
 						discard: true,
 						payload: {
 							providerId,
 							externalId,
 							executionId,
-							entitySchemaSlug,
 							userId: user.id,
+							entitySchemaSlug,
 							origin: { kind: "api" },
 						},
 					})
@@ -72,7 +72,7 @@ export class LibraryImportService extends Effect.Service<LibraryImportService>()
 				return { jobId: createWorkflowJobId(jobIdSecret, executionId, user.id) };
 			});
 
-			const getImportResult = Effect.fn("LibraryImportService.getImportResult")(function* (
+			const getImportResult = Effect.fn("EntityImportService.getImportResult")(function* (
 				user: CurrentUserValue,
 				jobId: string,
 			) {
@@ -86,9 +86,7 @@ export class LibraryImportService extends Effect.Service<LibraryImportService>()
 					return yield* notFound(importJobNotFoundError);
 				}
 
-				return toEntityImportRunResult(
-					yield* engine.poll(LibraryEntityImportWorkflow, executionId),
-				);
+				return toEntityImportRunResult(yield* engine.poll(EntityImportWorkflow, executionId));
 			});
 
 			return { getImportResult, import: importEntity };
