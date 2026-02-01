@@ -12,7 +12,7 @@ function getString(value) {
 
 function getNullableString(value) {
 	const s = getString(value);
-	return s || null;
+	return s.length > 0 ? s : null;
 }
 
 function getPublishYear(dateStr, dayjs) {
@@ -156,7 +156,8 @@ driver("search", async function (context) {
 				return null;
 			}
 
-			const title = getString(recording?.title) || id;
+			const rawTitle = getString(recording?.title);
+			const title = rawTitle.length > 0 ? rawTitle : id;
 			const publishYear = getPublishYear(recording?.["first-release-date"], dayjs);
 
 			return {
