@@ -278,5 +278,6 @@ fragment DailyUserActivityItemPart on DailyUserActivityItem {
 	podcastCount
 	audioBookCount
 	videoGameCount
+	comicBookCount
 	visualNovelCount
 }
