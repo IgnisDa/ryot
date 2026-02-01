@@ -9,8 +9,10 @@ import {
 	Stack,
 	Text,
 } from "@mantine/core";
+import { FormError } from "~/components/PageStates";
 import { SectionHeader } from "~/components/SectionHeader";
 import type { AppEntitySchema } from "~/features/entity-schemas/model";
+import { createFormSubmitHandler } from "~/hooks/forms";
 import { useModalForm } from "~/hooks/modal-form";
 import type { CreateEventSchemaPayload } from "./form";
 import { useEventSchemaMutations, useEventSchemasQuery } from "./hooks";
@@ -69,20 +71,10 @@ export function CreateEventSchemaModal(props: {
 			title="Add event schema"
 			overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
 		>
-			<form
-				onSubmit={(event) => {
-					event.preventDefault();
-					event.stopPropagation();
-					void eventSchemaForm.handleSubmit();
-				}}
-			>
+			<form onSubmit={createFormSubmitHandler(eventSchemaForm.handleSubmit)}>
 				<eventSchemaForm.AppForm>
 					<Stack gap="md">
-						{props.errorMessage && (
-							<Text c="red" size="sm">
-								{props.errorMessage}
-							</Text>
-						)}
+						<FormError message={props.errorMessage} />
 
 						<eventSchemaForm.AppField
 							name="name"
@@ -153,11 +145,7 @@ export function EventSchemasSection(props: { entitySchema: AppEntitySchema }) {
 				action={{ label: "Add event schema", onClick: createModal.open }}
 			/>
 
-			{createModal.errorMessage && !createModal.opened && (
-				<Text c="red" size="sm">
-					{createModal.errorMessage}
-				</Text>
-			)}
+			{!createModal.opened && <FormError message={createModal.errorMessage} />}
 
 			{eventSchemasQuery.isLoading && (
 				<Center py="sm">
@@ -168,9 +156,7 @@ export function EventSchemasSection(props: { entitySchema: AppEntitySchema }) {
 			{eventSchemasQuery.isError && (
 				<Paper p="sm" withBorder radius="md">
 					<Stack gap="xs">
-						<Text c="red" size="sm">
-							Failed to load event schemas.
-						</Text>
+						<FormError message="Failed to load event schemas." />
 						<Group>
 							<Button
 								size="xs"
