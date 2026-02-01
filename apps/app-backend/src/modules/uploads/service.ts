@@ -1,5 +1,3 @@
-import type { Multipart } from "@effect/platform";
-import { FileSystem } from "@effect/platform";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { type BadRequest, badRequest } from "@ryot/contract/errors";
 import {
@@ -9,7 +7,8 @@ import {
 } from "@ryot/contract/modules/uploads/upload-policy";
 import { UserId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
-import { Effect, Schema } from "effect";
+import { Context, Effect, Layer, Schema, FileSystem } from "effect";
+import type { Multipart } from "effect/unstable/http";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
@@ -74,8 +73,8 @@ const resolveFileName = (name: string): Effect.Effect<string, BadRequest> => {
 	return Effect.succeed(fileName);
 };
 
-export class UploadsService extends Effect.Service<UploadsService>()("UploadsService", {
-	effect: Effect.gen(function* () {
+export class UploadsService extends Context.Service<UploadsService>()("UploadsService", {
+	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const s3Service = yield* S3Service;
@@ -151,7 +150,9 @@ export class UploadsService extends Effect.Service<UploadsService>()("UploadsSer
 
 			const tokens = yield* Effect.forEach(resolvedFiles, ({ id, destPath }) =>
 				Effect.gen(function* () {
-					const encoded = yield* Schema.encode(Schema.parseJson(UploadTokenValue))({
+					const encoded = yield* Schema.encodeUnknownEffect(
+						Schema.fromJsonString(UploadTokenValue),
+					)({
 						userId: user.id,
 						resolvedPath: destPath,
 					}).pipe(Effect.orDie);
@@ -172,9 +173,9 @@ export class UploadsService extends Effect.Service<UploadsService>()("UploadsSer
 			if (!raw) {
 				return yield* badRequest("Upload token is invalid or has expired");
 			}
-			const value = yield* Schema.decode(Schema.parseJson(UploadTokenValue))(raw).pipe(
-				Effect.mapError(() => badRequest("Upload token is invalid or has expired")),
-			);
+			const value = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(UploadTokenValue))(
+				raw,
+			).pipe(Effect.mapError(() => badRequest("Upload token is invalid or has expired")));
 			if (value.userId !== userId) {
 				return yield* badRequest("Upload token does not belong to this user");
 			}
@@ -183,4 +184,6 @@ export class UploadsService extends Effect.Service<UploadsService>()("UploadsSer
 
 		return { uploadTemporary, claimUploadToken, createPresignedUpload, createPresignedDownload };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
