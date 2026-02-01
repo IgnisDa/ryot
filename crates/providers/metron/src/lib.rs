@@ -156,8 +156,8 @@ fn parse_date(s: &str) -> Option<NaiveDate> {
 
 fn issue_title(series_name: &str, number: &Option<String>) -> String {
     match number {
-        Some(n) => format!("{} #{}", series_name, n),
         None => series_name.to_owned(),
+        Some(n) => format!("{} #{}", series_name, n),
     }
 }
 
