@@ -281,6 +281,12 @@ pub struct MetronConfig {
     pub password: String,
 }
 
+impl ComicBookConfig {
+    pub fn is_enabled(&self) -> bool {
+        !self.metron.username.is_empty() && !self.metron.password.is_empty()
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case")]
 pub struct ComicBookConfig {
