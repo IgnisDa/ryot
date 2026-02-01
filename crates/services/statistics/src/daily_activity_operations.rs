@@ -194,6 +194,10 @@ pub async fn get_daily_user_activities(
             "comic_book_count",
         )
         .column_as(
+            daily_user_activity::Column::ComicBookPages.sum(),
+            "total_comic_book_pages",
+        )
+        .column_as(
             daily_user_activity::Column::VisualNovelCount.sum(),
             "visual_novel_count",
         )

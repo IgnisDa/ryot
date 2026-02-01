@@ -12,6 +12,7 @@ impl MigrationTrait for Migration {
             r#"
 ALTER TABLE metadata ADD COLUMN IF NOT EXISTS "comic_book_specifics" JSONB;
 ALTER TABLE daily_user_activity ADD COLUMN IF NOT EXISTS "comic_book_count" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE daily_user_activity ADD COLUMN IF NOT EXISTS "comic_book_pages" INTEGER NOT NULL DEFAULT 0;
             "#,
         )
         .await?;
