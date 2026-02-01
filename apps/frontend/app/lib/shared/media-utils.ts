@@ -27,12 +27,13 @@ export const getLot = (lot: unknown) => {
 	if (!lot) return undefined;
 	const newLot = (lot as string).toLowerCase();
 	return match(newLot)
+		.with("music", () => MediaLot.Music)
+		.with("books", "book", () => MediaLot.Book)
 		.with("anime", "animes", () => MediaLot.Anime)
 		.with("manga", "mangas", () => MediaLot.Manga)
-		.with("books", "book", () => MediaLot.Book)
 		.with("movies", "movie", () => MediaLot.Movie)
+		.with("podcast", "podcasts", () => MediaLot.Podcast)
 		.with("tv", "show", "shows", () => MediaLot.Show)
-		.with("music", () => MediaLot.Music)
 		.with(
 			"visual_novel",
 			"visualnovel",
@@ -56,7 +57,6 @@ export const getLot = (lot: unknown) => {
 			"audio_books",
 			() => MediaLot.AudioBook,
 		)
-		.with("podcast", "podcasts", () => MediaLot.Podcast)
 		.with(
 			"comics",
 			"comicbook",
@@ -87,9 +87,7 @@ export const getVerb = (verb: Verb, lot: MediaLot) =>
 					MediaLot.Podcast,
 					() => "play",
 				)
-				.otherwise(() => {
-					return "";
-				});
+				.otherwise(() => "");
 		})
 		.otherwise(() => "");
 
@@ -99,20 +97,20 @@ export const getMetadataIcon = (lot: MediaLot) =>
 		.with(MediaLot.Manga, () => IconBooks)
 		.with(MediaLot.Music, () => IconMusic)
 		.with(MediaLot.Movie, () => IconDeviceTv)
+		.with(MediaLot.ComicBook, () => IconBooks)
 		.with(MediaLot.Anime, () => IconDeviceTvOld)
 		.with(MediaLot.VisualNovel, () => IconBook2)
 		.with(MediaLot.Show, () => IconDeviceDesktop)
 		.with(MediaLot.Podcast, () => IconMicrophone)
 		.with(MediaLot.AudioBook, () => IconHeadphones)
 		.with(MediaLot.VideoGame, () => IconBrandAppleArcade)
-		.with(MediaLot.ComicBook, () => IconBooks)
 		.exhaustive();
 
 export const getSetColor = (l: SetLot) =>
 	match(l)
-		.with(SetLot.WarmUp, () => "yellow")
-		.with(SetLot.Drop, () => "grape.6")
 		.with(SetLot.Failure, () => "red")
+		.with(SetLot.Drop, () => "grape.6")
+		.with(SetLot.WarmUp, () => "yellow")
 		.with(SetLot.Normal, () => "indigo.6")
 		.exhaustive();
 
@@ -148,20 +146,20 @@ export const formatRatingForDisplay = (
 	scale: UserReviewScale,
 ) =>
 	match(scale)
+		.with(UserReviewScale.OutOfTen, () => rating.toFixed(1))
+		.with(UserReviewScale.OutOfFive, () => rating.toFixed(1))
+		.with(UserReviewScale.ThreePointSmiley, () => rating.toFixed(2))
 		.with(UserReviewScale.OutOfHundred, () =>
 			Number.isInteger(rating)
 				? Math.round(rating).toString()
 				: rating.toFixed(1),
 		)
-		.with(UserReviewScale.OutOfTen, () => rating.toFixed(1))
-		.with(UserReviewScale.OutOfFive, () => rating.toFixed(1))
-		.with(UserReviewScale.ThreePointSmiley, () => rating.toFixed(2))
 		.exhaustive();
 
 export const getRatingUnitSuffix = (scale: UserReviewScale) =>
 	match(scale)
-		.with(UserReviewScale.OutOfHundred, () => "%")
 		.with(UserReviewScale.OutOfTen, () => "/10")
+		.with(UserReviewScale.OutOfHundred, () => "%")
 		.otherwise(() => undefined);
 
 export const getExerciseDetailsPath = (exerciseId: string) =>
