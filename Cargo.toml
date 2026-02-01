@@ -202,6 +202,7 @@ itunes-provider = { path = "crates/providers/itunes" }
 jellyfin-importer-service = { path = "crates/services/importer/jellyfin" }
 listennotes-provider = { path = "crates/providers/listennotes" }
 manga-updates-provider = { path = "crates/providers/manga-updates" }
+metron-provider = { path = "crates/providers/metron" }
 media-models = { path = "crates/models/media" }
 mediatracker-importer-service = { path = "crates/services/importer/mediatracker" }
 migrations-sql = { path = "crates/migrations/sql" }
