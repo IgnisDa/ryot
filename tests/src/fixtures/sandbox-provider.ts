@@ -109,23 +109,23 @@ export const installTestProvider = (input: {
 		});
 		const detailsScriptId = installed.scriptIds[`${providerSlug}.details`];
 		if (!detailsScriptId) {
-			return yield* Effect.dieMessage("Installed provider details script was not found");
+			return yield* Effect.die(new Error("Installed provider details script was not found"));
 		}
 		const storedScripts = yield* Effect.all(
 			Object.values(installed.scriptIds).map((scriptId) =>
 				getBackendClient().call(
-					(c) => c.testSupport.getSandboxScript({ path: { scriptId } }),
+					(c) => c.testSupport.getSandboxScript({ params: { scriptId } }),
 					adminHeaders,
 				),
 			),
 		);
 		const providerId = storedScripts.find((script) => script.id === detailsScriptId)?.providerId;
 		if (!providerId) {
-			return yield* Effect.dieMessage("Installed provider ID was not returned by test support");
+			return yield* Effect.die(new Error("Installed provider ID was not returned by test support"));
 		}
 		if (storedScripts.some((script) => script.providerId !== providerId)) {
-			return yield* Effect.dieMessage(
-				"Installed provider operation scripts do not share one provider ID",
+			return yield* Effect.die(
+				new Error("Installed provider operation scripts do not share one provider ID"),
 			);
 		}
 		return {
@@ -149,7 +149,9 @@ export const replaceSandboxScriptCompiledRepresentation = (
 ) => {
 	const metadata = providerMetadataBySource.get(source);
 	if (!metadata) {
-		return Effect.dieMessage("Replacement provider source was not built by providerSandboxSource");
+		return Effect.die(
+			new Error("Replacement provider source was not built by providerSandboxSource"),
+		);
 	}
 	return reinstallTestPluginScript(targetScriptId, source, metadata).pipe(Effect.asVoid);
 };

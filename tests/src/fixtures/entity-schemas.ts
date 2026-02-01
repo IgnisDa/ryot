@@ -71,10 +71,7 @@ export const listEntitySchemas = (
 	Effect.gen(function* () {
 		const [schemas, scripts] = yield* Effect.all([
 			client.call((c) => c.definitions.listEntities({})),
-			getBackendClient().call(
-				(c) => c.testSupport.listSandboxScripts({ urlParams: {} }),
-				adminHeaders,
-			),
+			getBackendClient().call((c) => c.testSupport.listSandboxScripts({ query: {} }), adminHeaders),
 		]);
 		const providers = new Map<
 			string,
@@ -169,7 +166,7 @@ export const findBuiltinSchemaBySlug = (client: Client, slug: string) =>
 export const getBuiltinEntitySchemaSlug = (slug: string) =>
 	Effect.gen(function* () {
 		const result = yield* getBackendClient().call(
-			(c) => c.testSupport.getBuiltinEntitySchema({ path: { slug } }),
+			(c) => c.testSupport.getBuiltinEntitySchema({ params: { slug } }),
 			adminHeaders,
 		);
 		assertPresent(result, `Expected builtin entity schema '${slug}'`);
@@ -220,7 +217,9 @@ export const pollEntityImportResult = (client: Client, jobId: string) =>
 	pollUntil(
 		`entity import job '${jobId}'`,
 		Effect.gen(function* () {
-			const result = yield* client.call((c) => c.entityImport.getImportResult({ path: { jobId } }));
+			const result = yield* client.call((c) =>
+				c.entityImport.getImportResult({ params: { jobId } }),
+			);
 			return result.status !== "pending" ? result : null;
 		}),
 	);

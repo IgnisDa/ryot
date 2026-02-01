@@ -301,7 +301,7 @@ export const seedGlobalShowEpisodeTree = (client: Client, options: { showName: s
 		);
 
 		const tmdbId = String(Math.floor(Math.random() * 1_000_000_000));
-		const populatedAt = DateTime.formatIso(DateTime.unsafeNow());
+		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
 		const backend = getBackendClient();
 		const createGlobalEntity = (input: {
 			name: string;
