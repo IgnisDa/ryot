@@ -137,7 +137,7 @@ struct CreatorListItem {
 
 #[derive(Deserialize, Debug)]
 struct CreatorDetail {
-    name: String,
+    name: Option<String>,
     desc: Option<String>,
     birth: Option<String>,
     death: Option<String>,
@@ -390,10 +390,10 @@ impl MediaProvider for MetronService {
             .json()
             .await?;
         Ok(PersonDetails {
-            name: data.name,
             description: data.desc,
             birth_date: data.birth.and_then(|d| parse_date(&d)),
             death_date: data.death.and_then(|d| parse_date(&d)),
+            name: data.name.unwrap_or_else(|| "Unknown".to_string()),
             source_url: Some(format!("https://metron.cloud/creator/{}", identifier)),
             assets: EntityAssets {
                 remote_images: data.image.into_iter().collect(),
