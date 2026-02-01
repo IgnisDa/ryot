@@ -1,0 +1,232 @@
+function parseJsonResponse(responseBody) {
+	try {
+		return JSON.parse(responseBody);
+	} catch {
+		throw new Error("TMDB returned invalid JSON");
+	}
+}
+
+const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
+
+async function getTmdbAccessToken() {
+	const resp = await getAppConfigValue("MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN");
+	if (!resp?.success) {
+		throw new Error(resp?.error ?? "Failed to retrieve TMDB access token");
+	}
+
+	const token = typeof resp.data === "string" ? resp.data.trim() : null;
+	if (!token) {
+		throw new Error(
+			"TMDB access token is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN in your environment.",
+		);
+	}
+
+	return token;
+}
+
+function getImageUrl(path) {
+	if (typeof path !== "string" || !path.trim()) {
+		return null;
+	}
+	return `${TMDB_IMAGE_BASE}${path.trim()}`;
+}
+
+async function tmdbGet(path, params, token) {
+	const query = new URLSearchParams(params);
+	const url = `${TMDB_BASE_URL}${path}?${query.toString()}`;
+	const response = await httpCall("GET", url, {
+		headers: { Authorization: `Bearer ${token}` },
+	});
+
+	if (!response?.success) {
+		throw new Error(response?.error ?? `TMDB request failed: ${path}`);
+	}
+
+	const payload = parseJsonResponse(response.data.body);
+
+	if (typeof payload?.status_code === "number" && payload.status_code !== 1) {
+		throw new Error(
+			payload.status_message ??
+				`TMDB API error (status ${payload.status_code})`,
+		);
+	}
+
+	return payload;
+}
+
+driver("search", async function (context) {
+	const { z } = await import("npm:zod");
+
+	const {
+		query,
+		page: currentPage,
+		pageSize,
+	} = z
+		.object({
+			query: z.string().trim().min(1, "query is required"),
+			page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+			pageSize: z.coerce
+				.number()
+				.min(1)
+				.max(100)
+				.transform(Math.floor)
+				.catch(20),
+		})
+		.parse(context ?? {});
+
+	const token = await getTmdbAccessToken();
+	const data = await tmdbGet(
+		"/search/person",
+		{
+			query,
+			page: String(currentPage),
+			language: "en-US",
+			include_adult: "true",
+		},
+		token,
+	);
+
+	const results = Array.isArray(data?.results) ? data.results : [];
+	const totalItems =
+		typeof data?.total_results === "number" &&
+		Number.isFinite(data.total_results)
+			? data.total_results
+			: results.length;
+	const totalPages =
+		typeof data?.total_pages === "number" && Number.isFinite(data.total_pages)
+			? data.total_pages
+			: 1;
+
+	const items = results
+		.map((person) => {
+			const id =
+				typeof person?.id === "number" && Number.isFinite(person.id)
+					? String(Math.trunc(person.id))
+					: null;
+			if (!id) {
+				return null;
+			}
+
+			const name =
+				typeof person?.name === "string" && person.name.trim()
+					? person.name.trim()
+					: null;
+			if (!name) {
+				return null;
+			}
+
+			const image = getImageUrl(person?.profile_path);
+
+			return {
+				externalId: id,
+				badgeProperty: { kind: "null", value: null },
+				titleProperty: { kind: "text", value: name },
+				subtitleProperty: { kind: "null", value: null },
+				imageProperty:
+					image === null
+						? { kind: "null", value: null }
+						: { kind: "image", value: { kind: "remote", url: image } },
+			};
+		})
+		.filter((item) => item !== null)
+		.slice(0, pageSize);
+
+	return {
+		items,
+		details: {
+			totalItems,
+			nextPage: currentPage < totalPages ? currentPage + 1 : null,
+		},
+	};
+});
+
+driver("details", async function (context) {
+	const { z } = await import("npm:zod");
+
+	const { externalId } = z
+		.object({
+			externalId: z.string().trim().min(1, "externalId is required"),
+		})
+		.parse(context ?? {});
+
+	if (!/^\d+$/.test(externalId)) {
+		throw new Error("externalId must be a numeric TMDB person ID");
+	}
+
+	const token = await getTmdbAccessToken();
+
+	const personData = await tmdbGet(
+		`/person/${externalId}`,
+		{ language: "en-US", append_to_response: "images" },
+		token,
+	);
+
+	const name =
+		typeof personData?.name === "string" && personData.name.trim()
+			? personData.name.trim()
+			: null;
+	if (!name) {
+		throw new Error("TMDB returned no name for this person");
+	}
+
+	const profileImages = [];
+	const mainProfile = getImageUrl(personData?.profile_path);
+	if (mainProfile) {
+		profileImages.push(mainProfile);
+	}
+	if (Array.isArray(personData?.images?.profiles)) {
+		for (const img of personData.images.profiles) {
+			const url = getImageUrl(img?.file_path);
+			if (url && !profileImages.includes(url)) {
+				profileImages.push(url);
+			}
+		}
+	}
+
+	const gender =
+		typeof personData?.gender === "number"
+			? personData.gender === 1
+				? "Female"
+				: personData.gender === 2
+					? "Male"
+					: personData.gender === 3
+						? "Non-Binary"
+						: null
+			: null;
+
+	const alternateNames = Array.isArray(personData?.also_known_as)
+		? personData.also_known_as.filter((n) => typeof n === "string" && n.trim())
+		: [];
+
+	return {
+		name,
+		properties: {
+			gender,
+			alternateNames,
+			assets: { remoteImages: profileImages },
+			sourceUrl: `https://www.themoviedb.org/person/${externalId}`,
+			description:
+				typeof personData?.biography === "string" && personData.biography.trim()
+					? personData.biography.trim()
+					: null,
+			birthDate:
+				typeof personData?.birthday === "string" && personData.birthday.trim()
+					? personData.birthday.trim()
+					: null,
+			deathDate:
+				typeof personData?.deathday === "string" && personData.deathday.trim()
+					? personData.deathday.trim()
+					: null,
+			birthPlace:
+				typeof personData?.place_of_birth === "string" &&
+				personData.place_of_birth.trim()
+					? personData.place_of_birth.trim()
+					: null,
+			website:
+				typeof personData?.homepage === "string" && personData.homepage.trim()
+					? personData.homepage.trim()
+					: null,
+		},
+	};
+});

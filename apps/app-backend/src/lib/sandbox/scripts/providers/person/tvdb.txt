@@ -45,7 +45,6 @@ async function getTvdbAccessToken() {
 	}
 
 	const accessToken = `Bearer ${payload.data.token}`;
-	// TVDB tokens are valid for 30 days; cache for 23 hours as a safety buffer.
 	const cacheResult = await setCachedValue(
 		TOKEN_CACHE_KEY,
 		accessToken,
@@ -81,89 +80,9 @@ async function tvdbGet(path, params) {
 	return payload;
 }
 
-function parsePublishYear(str, dayjs) {
-	if (typeof str !== "string" || !str.trim()) return null;
-	const d = dayjs(str.trim());
-	return d.isValid() && d.year() > 0 ? d.year() : null;
-}
-
-function collectImages(mainImage, imageUrl, artworks) {
-	const seen = new Set();
-	const images = [];
-
-	const addImage = (url) => {
-		if (typeof url === "string" && url.trim() && !seen.has(url)) {
-			seen.add(url);
-			images.push(url);
-		}
-	};
-
-	addImage(mainImage);
-	addImage(imageUrl);
-
-	if (Array.isArray(artworks)) {
-		for (const art of artworks) {
-			addImage(art?.image);
-		}
-	}
-
-	return images;
-}
-
-function collectGenres(genresArray) {
-	if (!Array.isArray(genresArray)) {
-		return [];
-	}
-	return genresArray
-		.map((g) => (typeof g?.name === "string" ? g.name.trim() : ""))
-		.filter((name) => name.length > 0);
-}
-
-function collectPeople(characters) {
-	if (!Array.isArray(characters)) {
-		return { people: [], freeCreators: [] };
-	}
-
-	const people = [];
-	const freeCreators = [];
-	const seen = new Set();
-
-	for (const chr of characters.slice(0, 20)) {
-		const name =
-			typeof chr?.personName === "string" ? chr.personName.trim() : "";
-		if (!name) {
-			continue;
-		}
-		const role =
-			typeof chr?.peopleType === "string" && chr.peopleType.trim()
-				? chr.peopleType.trim()
-				: "Cast";
-		const peopleId =
-			typeof chr?.peopleId === "number" && Number.isFinite(chr.peopleId)
-				? Math.trunc(chr.peopleId)
-				: null;
-		const key = `${peopleId ?? name}:${role}`;
-		if (seen.has(key)) {
-			continue;
-		}
-		seen.add(key);
-		if (peopleId !== null) {
-			people.push({
-				name,
-				role,
-				externalId: String(peopleId),
-				scriptSlug: "person.tvdb",
-			});
-		} else {
-			freeCreators.push({ name, role });
-		}
-	}
-
-	return { people, freeCreators };
-}
-
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
+
 	const {
 		query,
 		page: currentPage,
@@ -185,7 +104,7 @@ driver("search", async function (context) {
 
 	const data = await tvdbGet("/search", {
 		query,
-		type: "movie",
+		type: "person",
 		offset: String(offset),
 		limit: String(pageSize),
 	});
@@ -208,13 +127,11 @@ driver("search", async function (context) {
 				return null;
 			}
 
-			const title =
+			const name =
 				typeof item?.name === "string" && item.name.trim()
 					? item.name.trim()
-					: typeof item?.title === "string" && item.title.trim()
-						? item.title.trim()
-						: null;
-			if (!title) {
+					: null;
+			if (!name) {
 				return null;
 			}
 
@@ -227,7 +144,7 @@ driver("search", async function (context) {
 			return {
 				externalId: id,
 				badgeProperty: { kind: "null", value: null },
-				titleProperty: { kind: "text", value: title },
+				titleProperty: { kind: "text", value: name },
 				subtitleProperty: { kind: "null", value: null },
 				imageProperty:
 					image === null
@@ -248,7 +165,6 @@ driver("search", async function (context) {
 
 driver("details", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
 
 	const { externalId } = z
 		.object({
@@ -257,73 +173,74 @@ driver("details", async function (context) {
 		.parse(context ?? {});
 
 	if (!/^\d+$/.test(externalId)) {
-		throw new Error("externalId must be a numeric TVDB movie ID");
+		throw new Error("externalId must be a numeric TVDB person ID");
 	}
 
-	const data = await tvdbGet(`/movies/${externalId}/extended`);
-	const movie = data?.data;
-	if (!movie) {
-		throw new Error("TVDB returned no data for this movie");
+	const data = await tvdbGet(`/people/${externalId}/extended`);
+	const person = data?.data;
+	if (!person) {
+		throw new Error("TVDB returned no data for this person");
 	}
 
-	const title =
-		typeof movie?.name === "string" && movie.name.trim()
-			? movie.name.trim()
-			: typeof movie?.title === "string" && movie.title.trim()
-				? movie.title.trim()
-				: null;
-	if (!title) {
-		throw new Error("TVDB returned no title for this movie");
+	const name =
+		typeof person?.name === "string" && person.name.trim()
+			? person.name.trim()
+			: null;
+	if (!name) {
+		throw new Error("TVDB returned no name for this person");
 	}
 
-	const remoteImages = collectImages(
-		movie?.image,
-		movie?.image_url,
-		movie?.artworks,
-	);
-	const genres = collectGenres(movie?.genres);
-	const { people, freeCreators } = collectPeople(movie?.characters);
-
-	const firstAired =
-		typeof movie?.firstAired === "string" && movie.firstAired.trim()
-			? movie.firstAired.trim()
+	const image =
+		typeof person?.image === "string" && person.image.trim()
+			? person.image.trim()
 			: null;
 
-	const publishYear =
-		parsePublishYear(
-			typeof movie?.year === "string" ? movie.year : null,
-			dayjs,
-		) ?? parsePublishYear(firstAired, dayjs);
+	const gender =
+		typeof person?.gender === "number"
+			? person.gender === 1
+				? "Male"
+				: person.gender === 2
+					? "Female"
+					: person.gender === 3
+						? "Other"
+						: null
+			: null;
 
-	const runtime =
-		typeof movie?.averageRuntime === "number" &&
-		Number.isFinite(movie.averageRuntime) &&
-		movie.averageRuntime > 0
-			? Math.trunc(movie.averageRuntime)
+	const description =
+		Array.isArray(person?.biographies) && person.biographies.length > 0
+			? typeof person.biographies[0]?.biography === "string" &&
+				person.biographies[0].biography.trim()
+				? person.biographies[0].biography.trim()
+				: null
 			: null;
 
 	const slug =
-		typeof movie?.slug === "string" && movie.slug.trim()
-			? movie.slug.trim()
+		typeof person?.slug === "string" && person.slug.trim()
+			? person.slug.trim()
 			: null;
-	const sourceUrl = slug ? `https://thetvdb.com/movies/${slug}` : null;
 
 	return {
-		name: title,
+		name,
 		properties: {
-			genres,
-			people,
-			runtime,
-			sourceUrl,
-			publishYear,
-			isNsfw: null,
-			freeCreators,
-			providerRating: null,
-			productionStatus: null,
-			assets: { remoteImages },
-			description:
-				typeof movie?.overview === "string" && movie.overview.trim()
-					? movie.overview.trim()
+			gender,
+			description,
+			website: null,
+			alternateNames: [],
+			assets: { remoteImages: image ? [image] : [] },
+			sourceUrl: slug
+				? `https://www.thetvdb.com/people/${slug}`
+				: `https://www.thetvdb.com/people/${externalId}`,
+			birthDate:
+				typeof person?.birth === "string" && person.birth.trim()
+					? person.birth.trim()
+					: null,
+			deathDate:
+				typeof person?.death === "string" && person.death.trim()
+					? person.death.trim()
+					: null,
+			birthPlace:
+				typeof person?.birthPlace === "string" && person.birthPlace.trim()
+					? person.birthPlace.trim()
 					: null,
 		},
 	};
