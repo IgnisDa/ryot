@@ -188,6 +188,11 @@ export const DisplaySummarySection = (props: {
 						label: "Comic Books",
 						value: props.latestUserSummary.comicBookCount,
 					},
+					{
+						label: "Pages",
+						type: "number",
+						value: props.latestUserSummary.totalComicBookPages,
+					},
 				]}
 			/>
 			<DisplayStatForMediaType
