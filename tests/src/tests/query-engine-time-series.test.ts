@@ -193,6 +193,106 @@ describe("event time series", () => {
 		expect(result.data.buckets[0]?.value).toBe(0);
 	});
 
+	it("zero-fills interior buckets across a multi-day range", async () => {
+		const { client } = await createAuthenticatedClient();
+		const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
+			schemaName: "TimeSeriesGapItem",
+		});
+		const reviewSlug = `time-series-gap-${crypto.randomUUID()}`;
+		const reviewSchema = await createEventSchema(client, {
+			slug: reviewSlug,
+			name: "Time Series Gap Review",
+			entitySchemaId: schemaId,
+		});
+		const entity = await createQueryEngineEntity(client, {
+			name: "Time Series Gap Entity",
+			entitySchemaId: schemaId,
+		});
+
+		const base = startOfDay(DateTime.subtractDuration(currentTime(), Duration.days(10)));
+		const dayZero = toIso(base);
+		const dayTwo = toIso(add(base, Duration.days(2)));
+		await Promise.all([
+			createQueryEngineEvent(client, {
+				entityId: entity.id,
+				occurredAt: dayZero,
+				eventSchemaId: reviewSchema.id,
+			}),
+			createQueryEngineEvent(client, {
+				entityId: entity.id,
+				occurredAt: dayZero,
+				eventSchemaId: reviewSchema.id,
+			}),
+			createQueryEngineEvent(client, {
+				entityId: entity.id,
+				occurredAt: dayTwo,
+				eventSchemaId: reviewSchema.id,
+			}),
+		]);
+
+		const result = await executeTimeSeriesQueryEngine(
+			client,
+			buildEventTimeSeriesDoc({
+				entityAlias: "item",
+				eventAlias: "review",
+				entitySchemas: [slug],
+				eventSchemas: [reviewSlug],
+				startAt: toIso(base),
+				endAt: toIso(add(base, Duration.days(3))),
+			}),
+		);
+
+		// Day 1 has no events but is still emitted as a zero bucket between the two populated days.
+		expect(result.data.buckets.map((bucket) => bucket.value)).toEqual([2, 0, 1]);
+		// Buckets are contiguous: each bucket's endAt is the next bucket's startAt.
+		expect(result.data.buckets[0]?.endAt).toBe(result.data.buckets[1]?.startAt);
+		expect(result.data.buckets[1]?.endAt).toBe(result.data.buckets[2]?.startAt);
+	});
+
+	it("aligns week buckets to the ISO Monday start in SQL", async () => {
+		const { client } = await createAuthenticatedClient();
+		const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
+			schemaName: "TimeSeriesWeekItem",
+		});
+		const reviewSlug = `time-series-week-${crypto.randomUUID()}`;
+		const reviewSchema = await createEventSchema(client, {
+			slug: reviewSlug,
+			name: "Time Series Week Review",
+			entitySchemaId: schemaId,
+		});
+		const entity = await createQueryEngineEntity(client, {
+			name: "Time Series Week Entity",
+			entitySchemaId: schemaId,
+		});
+
+		const day = startOfDay(DateTime.subtractDuration(currentTime(), Duration.days(30)));
+		await createQueryEngineEvent(client, {
+			entityId: entity.id,
+			occurredAt: toIso(day),
+			eventSchemaId: reviewSchema.id,
+		});
+
+		const result = await executeTimeSeriesQueryEngine(
+			client,
+			buildEventTimeSeriesDoc({
+				bucket: "week",
+				entityAlias: "item",
+				eventAlias: "review",
+				entitySchemas: [slug],
+				eventSchemas: [reviewSlug],
+				startAt: toIso(day),
+				endAt: toIso(add(day, Duration.days(1))),
+			}),
+		);
+
+		expect(result.data.buckets).toHaveLength(1);
+		expect(result.data.buckets[0]?.value).toBe(1);
+		// The lone bucket's start snaps back to the Monday of the event's week (getUTCDay() === 1).
+		const bucketStart = result.data.buckets[0]?.startAt;
+		expect(bucketStart).toBeDefined();
+		expect(new Date(bucketStart ?? "").getUTCDay()).toBe(1);
+	});
+
 	it("rejects time ranges where startAt is not before endAt", async () => {
 		const { client } = await createAuthenticatedClient();
 		const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {

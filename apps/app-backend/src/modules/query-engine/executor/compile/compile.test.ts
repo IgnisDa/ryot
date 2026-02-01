@@ -1,9 +1,11 @@
+import { sql as rawSql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
 import type { Expr } from "../../language";
 import { reconstructMeasureValue, reconstructOutputValue } from "../reconstruct";
 import { compileBool, compileValue } from "./expr";
+import { bucketStartSql, bucketStepSql } from "./fragments";
 import { rootScope } from "./scope";
 
 type ComparisonOp = Extract<Expr, { type: "comparison" }>["operator"];
@@ -171,5 +173,20 @@ describe("reconstructMeasureValue", () => {
 	it("maps a numeric aggregate and null-over-empty", () => {
 		expect(reconstructMeasureValue("5")).toEqual({ kind: "number", value: 5 });
 		expect(reconstructMeasureValue(null)).toEqual({ kind: "null", value: null });
+	});
+});
+
+describe("time-series grid fragments", () => {
+	it("truncates to a naive-UTC bucket start without re-attaching a zone", () => {
+		const { sql } = render(bucketStartSql("week", rawSql`ev.occurred_at`));
+		expect(sql).toContain("date_trunc(");
+		expect(sql).toContain("AT TIME ZONE 'UTC'");
+		// Naive result: exactly one AT TIME ZONE (the conversion in), none re-attached out.
+		expect(sql.match(/AT TIME ZONE/g)).toHaveLength(1);
+	});
+
+	it("renders a calendar-aware month step interval", () => {
+		expect(render(bucketStepSql("month")).sql).toContain("interval '1 month'");
+		expect(render(bucketStepSql("week")).sql).toContain("interval '7 days'");
 	});
 });
