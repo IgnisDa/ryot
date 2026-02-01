@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 11 of 18 tasks completed
+**Overall Progress:** 12 of 18 tasks completed
 
-**Current Task:** [Task 12](./12-sandbox-database-limit-retuning.md) (todo)
+**Current Task:** [Task 13](./13-race-safe-resolution-uninstall.md) (todo)
 
 ### Task List
 
@@ -21,7 +21,7 @@
 | 09  | [Effect-Only Authoring Boundary](./09-effect-only-authoring-boundary.md)                      | done   |
 | 10  | [Content-Addressed Disk Modules](./10-content-addressed-disk-modules.md)                      | done   |
 | 11  | [Per-Execution Host-Call Concurrency](./11-per-execution-host-call-concurrency.md)            | done   |
-| 12  | [Sandbox and Database Limit Retuning](./12-sandbox-database-limit-retuning.md)                | todo   |
+| 12  | [Sandbox and Database Limit Retuning](./12-sandbox-database-limit-retuning.md)                | done   |
 | 13  | [Race-Safe Resolution and Uninstall Fencing](./13-race-safe-resolution-uninstall.md)          | todo   |
 | 14  | [Superseded Script and Module GC](./14-superseded-script-module-gc.md)                        | todo   |
 | 15  | [Complete Third-Party Plugin Lifecycle E2E](./15-third-party-plugin-lifecycle-e2e.md)         | todo   |
