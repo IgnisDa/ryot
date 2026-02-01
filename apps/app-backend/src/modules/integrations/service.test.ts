@@ -112,9 +112,10 @@ describe("update", () => {
 			},
 		});
 		const providerCatalog = Layer.mock(IntegrationProviderCatalog)({
-			_tag: "IntegrationProviderCatalog",
 			find: () => registered,
 			list: () => [registered],
+			_tag: "IntegrationProviderCatalog",
+			resolve: () => ({ provider: registered, script: Effect.succeed(null) }),
 		});
 		const layer = IntegrationsService.Default.pipe(
 			Layer.provide(

@@ -15,6 +15,11 @@ type ActivePluginCron = {
 	readonly pluginSlug: string;
 };
 
+type PluginCronIdentity = {
+	readonly cronSlug: string;
+	readonly pluginSlug: string;
+};
+
 const MINUTE_MS = Duration.toMillis(Duration.minutes(1));
 
 export const pluginCronExecutionId = (
@@ -43,50 +48,46 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 				);
 
 		const dispatch = Effect.fn("PluginCronService.dispatch")(function* (
-			entry: ActivePluginCron,
+			entry: PluginCronIdentity,
 			executionId: string,
 		) {
-			const script = yield* runWithDb(
-				entry.cron.lot === "script"
-					? runtime.findActiveScript(entry.cron.scriptSlug)
-					: runtime.findActiveWorkflowScript({
-							pluginSlug: entry.pluginSlug,
-							workflowSlug: entry.cron.workflowSlug,
-						}),
-			);
-			if (!script) {
+			const resolved = yield* runWithDb(runtime.resolveActivePluginCron(entry));
+			if (!resolved) {
 				yield* Effect.logError("plugin cron target unavailable").pipe(
 					Effect.annotateLogs({
 						executionId,
-						cronSlug: entry.cron.slug,
+						cronSlug: entry.cronSlug,
 						pluginSlug: entry.pluginSlug,
-						targetSlug:
-							entry.cron.lot === "script" ? entry.cron.scriptSlug : entry.cron.workflowSlug,
 					}),
 				);
 				return { status: "notFound" as const };
 			}
-			if (entry.cron.lot === "workflow") {
+			if (resolved.cron.lot === "workflow") {
 				const result = yield* engine.execute(SandboxScriptWorkflow, {
 					executionId,
 					payload: {
 						input: {},
 						executionId,
-						scriptId: script.id,
 						resolutionMode: "exact",
+						scriptId: resolved.script.id,
 						authority: { type: "system" },
 					},
 				});
-				return { result, status: "executed" as const };
+				return { result, cron: resolved.cron, status: "executed" as const };
 			}
 			const result = yield* engine.execute(RunSandboxWorkflow, {
 				executionId,
-				payload: { context: {}, executionId, scriptId: script.id, authority: { type: "system" } },
+				payload: {
+					context: {},
+					executionId,
+					scriptId: resolved.script.id,
+					authority: { type: "system" },
+				},
 			});
-			return { result, status: "executed" as const };
+			return { result, cron: resolved.cron, status: "executed" as const };
 		});
 
-		const dispatchAll = (entries: ReadonlyArray<readonly [ActivePluginCron, string]>) =>
+		const dispatchAll = (entries: ReadonlyArray<readonly [PluginCronIdentity, string]>) =>
 			Effect.forEach(
 				entries,
 				([entry, executionId]) =>
@@ -95,7 +96,7 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 							Effect.logError("plugin cron dispatch failed", cause).pipe(
 								Effect.annotateLogs({
 									executionId,
-									cronSlug: entry.cron.slug,
+									cronSlug: entry.cronSlug,
 									pluginSlug: entry.pluginSlug,
 								}),
 							),
@@ -127,7 +128,7 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 						return dueAt === scheduledAt
 							? [
 									[
-										entry,
+										{ cronSlug: entry.cron.slug, pluginSlug: entry.pluginSlug },
 										pluginCronExecutionId(entry.pluginSlug, entry.cron.slug, scheduledAt),
 									] as const,
 								]
@@ -142,21 +143,15 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 			cronSlug: string,
 			parentExecutionId: string,
 		) {
-			const entry = list().find(
-				(candidate) => candidate.pluginSlug === pluginSlug && candidate.cron.slug === cronSlug,
-			);
-			if (!entry) {
-				return { status: "notFound" as const, cronSlug, pluginSlug };
-			}
 			const executionId = pluginCronExecutionId(pluginSlug, cronSlug, parentExecutionId);
-			const dispatched = yield* dispatch(entry, executionId);
+			const dispatched = yield* dispatch({ cronSlug, pluginSlug }, executionId);
 			return dispatched.status === "notFound"
 				? { status: "notFound" as const, cronSlug, pluginSlug }
 				: {
 						cronSlug,
 						pluginSlug,
 						executionId,
-						lot: entry.cron.lot,
+						lot: dispatched.cron.lot,
 						result: dispatched.result,
 						status: "executed" as const,
 					};

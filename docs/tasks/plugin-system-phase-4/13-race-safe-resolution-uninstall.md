@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Plugin System - Phase 4](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -16,16 +16,16 @@ when references exist; refusal restores ordinary dispatch without changing the a
 
 ## Acceptance criteria
 
-- [ ] Each logical resolver operation derives all manifest, provider, binding, and active script decisions from one snapshot
-- [ ] Immutable content-hash rows allow a complete old or complete new result around replacement
-- [ ] New entrypoint dispatch still resolves active code while workflow replay uses its exact pin
-- [ ] Uninstall fences new plugin entrypoint/workflow dispatch before reference inspection
-- [ ] Running and suspended workflow pins cause a typed uninstall conflict
-- [ ] Entity, provider, and active-plugin definition references retain existing refusal behavior
-- [ ] A refused uninstall reopens dispatch and leaves registry/database activation unchanged
-- [ ] A successful uninstall publishes invalidation only after durable deactivation
-- [ ] Controlled concurrency tests cover swap during resolution, dispatch during uninstall, refusal, retry, and success
-- [ ] The resulting liveness/reference interface is reusable by task 14
+- [x] Each logical resolver operation derives all manifest, provider, binding, and active script decisions from one snapshot
+- [x] Immutable content-hash rows allow a complete old or complete new result around replacement
+- [x] New entrypoint dispatch still resolves active code while workflow replay uses its exact pin
+- [x] Uninstall fences new plugin entrypoint/workflow dispatch before reference inspection
+- [x] Running and suspended workflow pins cause a typed uninstall conflict
+- [x] Entity, provider, and active-plugin definition references retain existing refusal behavior
+- [x] A refused uninstall reopens dispatch and leaves registry/database activation unchanged
+- [x] A successful uninstall publishes invalidation only after durable deactivation
+- [x] Controlled concurrency tests cover swap during resolution, dispatch during uninstall, refusal, retry, and success
+- [x] The resulting liveness/reference interface is reusable by task 14
 
 ## User stories addressed
 

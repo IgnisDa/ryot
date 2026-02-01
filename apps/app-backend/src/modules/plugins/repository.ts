@@ -2,6 +2,7 @@ import { DbError } from "@ryot/contract/errors";
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
+import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
@@ -52,7 +53,9 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 		const lockIngestion = Effect.fn("PluginRepository.lockIngestion")(function* () {
 			const db = yield* CurrentDb;
 			yield* dbEffect(() =>
-				db.execute(sql`select pg_advisory_xact_lock(hashtext('ryot-plugin-ingestion'))`),
+				db.execute(
+					sql`select pg_advisory_xact_lock(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
+				),
 			);
 		});
 

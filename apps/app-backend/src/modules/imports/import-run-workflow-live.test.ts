@@ -78,6 +78,7 @@ const makeHarness = (registered: RegisteredImportSource | null, suspendWorkflow 
 				find: () => registered,
 				_tag: "ImportSourceCatalog",
 				list: () => (registered ? [registered] : []),
+				resolve: () => (registered ? { source: registered, script: Effect.succeed(null) } : null),
 			}),
 			Layer.mock(SandboxExecutionService)({
 				_tag: "SandboxExecutionService",

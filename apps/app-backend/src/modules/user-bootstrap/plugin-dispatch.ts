@@ -43,8 +43,13 @@ export const makePluginUserBootstrapDispatcher = (
 				);
 
 			for (const entry of entries) {
-				const script = yield* runWithDb(runtime.findActiveScript(entry.bootstrap.scriptSlug));
-				if (!script || script.pluginSlug !== entry.pluginSlug) {
+				const resolved = yield* runWithDb(
+					runtime.resolveActivePluginUserBootstrap({
+						pluginSlug: entry.pluginSlug,
+						bootstrapSlug: entry.bootstrap.slug,
+					}),
+				);
+				if (!resolved) {
 					return yield* new SandboxRunError({
 						message: `Plugin user bootstrap script not found: ${entry.pluginSlug}/${entry.bootstrap.slug}`,
 					});
@@ -57,7 +62,7 @@ export const makePluginUserBootstrapDispatcher = (
 				const result = yield* execute({
 					context: {},
 					executionId,
-					scriptId: script.id,
+					scriptId: resolved.script.id,
 					authority: { type: "user", userId },
 				}).pipe(
 					Effect.mapError(

@@ -81,6 +81,7 @@ const makeUploadsService = (resolvedPath?: string) =>
 
 const makeImportSourceCatalog = (registered: RegisteredImportSource | null = null) =>
 	Layer.mock(ImportSourceCatalog)({
+		resolve: () => null,
 		find: () => registered,
 		_tag: "ImportSourceCatalog",
 		list: () => (registered ? [registered] : []),
