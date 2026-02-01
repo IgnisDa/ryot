@@ -24,7 +24,7 @@ describe("buildResolvedFieldsExpression", () => {
 							type: "reference",
 							reference: {
 								slug: "smartphones",
-								property: "metadata",
+								property: ["metadata"],
 								type: "schema-property",
 							},
 						},
@@ -51,7 +51,7 @@ describe("buildResolvedFieldsExpression", () => {
 								type: "reference",
 								reference: {
 									slug: "smartphones",
-									property: "announcedAt",
+									property: ["announcedAt"],
 									type: "schema-property",
 								},
 							},
@@ -77,8 +77,8 @@ describe("buildResolvedFieldsExpression", () => {
 								type: "reference",
 								reference: {
 									slug: "smartphones",
-									property: "announcedAt",
 									type: "schema-property",
+									property: ["announcedAt"],
 								},
 							},
 						},
@@ -129,8 +129,8 @@ describe("buildResolvedFieldsExpression", () => {
 								type: "reference",
 								reference: {
 									slug: "smartphones",
-									property: "releasedAt",
 									type: "schema-property",
+									property: ["releasedAt"],
 								},
 							},
 						},
@@ -161,8 +161,8 @@ describe("buildResolvedFieldsExpression", () => {
 							expression: {
 								type: "reference",
 								reference: {
-									property,
 									slug: "smartphones",
+									property: [property],
 									type: "schema-property",
 								},
 							},

@@ -1,17 +1,13 @@
 import type { ViewExpression } from "~/lib/views/expression";
 import type { DisplayConfiguration, SavedViewQueryDefinition } from "./schemas";
 
-export const buildEntityReferenceExpression = (
+export const buildEntityColumnExpression = (
 	schemaSlug: string,
-	field: string,
-): ViewExpression => {
-	return {
-		type: "reference",
-		reference: field.startsWith("@")
-			? { type: "entity-column", slug: schemaSlug, column: field.slice(1) }
-			: { type: "schema-property", slug: schemaSlug, property: field },
-	};
-};
+	column: string,
+): ViewExpression => ({
+	type: "reference",
+	reference: { type: "entity-column", slug: schemaSlug, column },
+});
 
 export const createDefaultDisplayConfiguration = (
 	entitySchemaSlug?: string,
@@ -21,10 +17,7 @@ export const createDefaultDisplayConfiguration = (
 			? [
 					{
 						label: "Name",
-						expression: buildEntityReferenceExpression(
-							entitySchemaSlug,
-							"@name",
-						),
+						expression: buildEntityColumnExpression(entitySchemaSlug, "name"),
 					},
 				]
 			: [],
@@ -33,20 +26,20 @@ export const createDefaultDisplayConfiguration = (
 		badgeProperty: null,
 		subtitleProperty: null,
 		titleProperty: entitySchemaSlug
-			? buildEntityReferenceExpression(entitySchemaSlug, "@name")
+			? buildEntityColumnExpression(entitySchemaSlug, "name")
 			: null,
 		imageProperty: entitySchemaSlug
-			? buildEntityReferenceExpression(entitySchemaSlug, "@image")
+			? buildEntityColumnExpression(entitySchemaSlug, "image")
 			: null,
 	},
 	list: {
 		badgeProperty: null,
 		subtitleProperty: null,
 		titleProperty: entitySchemaSlug
-			? buildEntityReferenceExpression(entitySchemaSlug, "@name")
+			? buildEntityColumnExpression(entitySchemaSlug, "name")
 			: null,
 		imageProperty: entitySchemaSlug
-			? buildEntityReferenceExpression(entitySchemaSlug, "@image")
+			? buildEntityColumnExpression(entitySchemaSlug, "image")
 			: null,
 	},
 });
@@ -60,7 +53,7 @@ export const createDefaultQueryDefinition = (
 	sort: {
 		direction: "asc",
 		expression: entitySchemaSlugs[0]
-			? buildEntityReferenceExpression(entitySchemaSlugs[0], "@name")
+			? buildEntityColumnExpression(entitySchemaSlugs[0], "name")
 			: { type: "literal", value: "" },
 	},
 });
