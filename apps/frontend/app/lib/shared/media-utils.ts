@@ -57,6 +57,14 @@ export const getLot = (lot: unknown) => {
 			() => MediaLot.AudioBook,
 		)
 		.with("podcast", "podcasts", () => MediaLot.Podcast)
+		.with(
+			"comics",
+			"comicbook",
+			"comic_book",
+			"comicbooks",
+			"comic_books",
+			() => MediaLot.ComicBook,
+		)
 		.otherwise(() => undefined);
 };
 
@@ -64,7 +72,7 @@ export const getVerb = (verb: Verb, lot: MediaLot) =>
 	match(verb)
 		.with(Verb.Read, () => {
 			return match(lot)
-				.with(MediaLot.Book, MediaLot.Manga, () => "read")
+				.with(MediaLot.Book, MediaLot.Manga, MediaLot.ComicBook, () => "read")
 				.with(
 					MediaLot.Movie,
 					MediaLot.Show,
@@ -97,6 +105,7 @@ export const getMetadataIcon = (lot: MediaLot) =>
 		.with(MediaLot.Podcast, () => IconMicrophone)
 		.with(MediaLot.AudioBook, () => IconHeadphones)
 		.with(MediaLot.VideoGame, () => IconBrandAppleArcade)
+		.with(MediaLot.ComicBook, () => IconBooks)
 		.exhaustive();
 
 export const getSetColor = (l: SetLot) =>
@@ -172,18 +181,19 @@ export const getMetadataGroupDetailsPath = (groupId: string) =>
 type EntityColor = Record<MediaLot | (string & {}), MantineColor>;
 
 export const MediaColors: EntityColor = {
-	ANIME: "blue",
-	MUSIC: "indigo.2",
-	AUDIO_BOOK: "orange",
-	BOOK: "lime",
-	MANGA: "purple",
-	MOVIE: "cyan",
-	PODCAST: "yellow",
 	SHOW: "red",
-	VISUAL_NOVEL: "pink",
-	VIDEO_GAME: "teal",
-	WORKOUT: "violet",
+	BOOK: "lime",
+	MOVIE: "cyan",
+	ANIME: "blue",
+	MANGA: "purple",
+	MUSIC: "indigo.2",
+	PODCAST: "yellow",
 	REVIEW: "green.5",
+	WORKOUT: "violet",
+	VIDEO_GAME: "teal",
+	COMIC_BOOK: "grape",
+	AUDIO_BOOK: "orange",
+	VISUAL_NOVEL: "pink",
 	USER_MEASUREMENT: "indigo",
 };
 
