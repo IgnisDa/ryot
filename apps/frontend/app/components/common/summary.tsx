@@ -36,9 +36,7 @@ import {
 import { getMetadataIcon, MediaColors } from "~/lib/shared/media-utils";
 import { displayWeightWithUnit } from "../fitness/utils";
 
-export const DisplaySummarySection = ({
-	latestUserSummary,
-}: {
+export const DisplaySummarySection = (props: {
 	latestUserSummary: UserAnalytics["activities"]["items"][number];
 }) => {
 	const userPreferences = useUserPreferences();
@@ -57,12 +55,12 @@ export const DisplaySummarySection = ({
 					{
 						type: "number",
 						label: "Movies",
-						value: latestUserSummary.movieCount,
+						value: props.latestUserSummary.movieCount,
 					},
 					{
 						type: "duration",
 						label: "Runtime",
-						value: latestUserSummary.totalMovieDuration,
+						value: props.latestUserSummary.totalMovieDuration,
 					},
 				]}
 			/>
@@ -72,12 +70,12 @@ export const DisplaySummarySection = ({
 					{
 						label: "Songs",
 						type: "number",
-						value: latestUserSummary.musicCount,
+						value: props.latestUserSummary.musicCount,
 					},
 					{
 						label: "Runtime",
 						type: "duration",
-						value: latestUserSummary.totalMusicDuration,
+						value: props.latestUserSummary.totalMusicDuration,
 					},
 				]}
 			/>
@@ -87,12 +85,12 @@ export const DisplaySummarySection = ({
 					{
 						type: "number",
 						label: "Show episodes",
-						value: latestUserSummary.showCount,
+						value: props.latestUserSummary.showCount,
 					},
 					{
 						label: "Runtime",
 						type: "duration",
-						value: latestUserSummary.totalShowDuration,
+						value: props.latestUserSummary.totalShowDuration,
 					},
 				]}
 			/>
@@ -102,13 +100,13 @@ export const DisplaySummarySection = ({
 					{
 						type: "number",
 						label: "Video games",
-						value: latestUserSummary.videoGameCount,
+						value: props.latestUserSummary.videoGameCount,
 					},
 					{
 						label: "Runtime",
 						type: "duration",
 						hideIfZero: true,
-						value: latestUserSummary.totalVideoGameDuration,
+						value: props.latestUserSummary.totalVideoGameDuration,
 					},
 				]}
 			/>
@@ -118,12 +116,12 @@ export const DisplaySummarySection = ({
 					{
 						type: "number",
 						label: "Visual Novels",
-						value: latestUserSummary.visualNovelCount,
+						value: props.latestUserSummary.visualNovelCount,
 					},
 					{
 						label: "Runtime",
 						type: "duration",
-						value: latestUserSummary.totalVisualNovelDuration,
+						value: props.latestUserSummary.totalVisualNovelDuration,
 					},
 				]}
 			/>
@@ -133,12 +131,12 @@ export const DisplaySummarySection = ({
 					{
 						type: "number",
 						label: "Audio books",
-						value: latestUserSummary.audioBookCount,
+						value: props.latestUserSummary.audioBookCount,
 					},
 					{
 						label: "Runtime",
 						type: "duration",
-						value: latestUserSummary.totalAudioBookDuration,
+						value: props.latestUserSummary.totalAudioBookDuration,
 					},
 				]}
 			/>
@@ -148,12 +146,12 @@ export const DisplaySummarySection = ({
 					{
 						label: "Books",
 						type: "number",
-						value: latestUserSummary.bookCount,
+						value: props.latestUserSummary.bookCount,
 					},
 					{
 						label: "Pages",
 						type: "number",
-						value: latestUserSummary.totalBookPages,
+						value: props.latestUserSummary.totalBookPages,
 					},
 				]}
 			/>
@@ -163,12 +161,12 @@ export const DisplaySummarySection = ({
 					{
 						type: "number",
 						label: "Podcasts",
-						value: latestUserSummary.podcastCount,
+						value: props.latestUserSummary.podcastCount,
 					},
 					{
 						label: "Runtime",
 						type: "duration",
-						value: latestUserSummary.totalPodcastDuration,
+						value: props.latestUserSummary.totalPodcastDuration,
 					},
 				]}
 			/>
@@ -178,7 +176,22 @@ export const DisplaySummarySection = ({
 					{
 						label: "Manga",
 						type: "number",
-						value: latestUserSummary.mangaCount,
+						value: props.latestUserSummary.mangaCount,
+					},
+				]}
+			/>
+			<DisplayStatForMediaType
+				lot={MediaLot.ComicBook}
+				data={[
+					{
+						type: "number",
+						label: "Comic Books",
+						value: props.latestUserSummary.comicBookCount,
+					},
+					{
+						label: "Pages",
+						type: "number",
+						value: props.latestUserSummary.totalComicBookPages,
 					},
 				]}
 			/>
@@ -188,7 +201,7 @@ export const DisplaySummarySection = ({
 					{
 						label: "Anime",
 						type: "number",
-						value: latestUserSummary.animeCount,
+						value: props.latestUserSummary.animeCount,
 					},
 				]}
 			/>
@@ -202,13 +215,13 @@ export const DisplaySummarySection = ({
 							{
 								label: "Media",
 								type: "number",
-								value: latestUserSummary.totalMetadataCount,
+								value: props.latestUserSummary.totalMetadataCount,
 							},
 							{
 								type: "number",
 								label: "Reviews",
 								hideIfZero: true,
-								value: latestUserSummary.totalMetadataReviewCount,
+								value: props.latestUserSummary.totalMetadataReviewCount,
 							},
 						]}
 					/>
@@ -227,7 +240,7 @@ export const DisplaySummarySection = ({
 										type: "number",
 										hideIfZero: true,
 										label: "People Reviewed",
-										value: latestUserSummary.totalPersonReviewCount,
+										value: props.latestUserSummary.totalPersonReviewCount,
 									},
 								]}
 							/>
@@ -249,19 +262,19 @@ export const DisplaySummarySection = ({
 							{
 								type: "number",
 								label: "Workouts",
-								value: latestUserSummary.workoutCount,
+								value: props.latestUserSummary.workoutCount,
 							},
 							{
 								label: "Runtime",
 								type: "duration",
-								value: latestUserSummary.totalWorkoutDuration,
+								value: props.latestUserSummary.totalWorkoutDuration,
 							},
 							{
 								type: "string",
 								label: "Runtime",
 								value: displayWeightWithUnit(
 									unitSystem,
-									latestUserSummary.totalWorkoutWeight,
+									props.latestUserSummary.totalWorkoutWeight,
 									true,
 								),
 							},
@@ -280,7 +293,7 @@ export const DisplaySummarySection = ({
 								type: "number",
 								hideIfZero: true,
 								label: "Measurements",
-								value: latestUserSummary.userMeasurementCount,
+								value: props.latestUserSummary.userMeasurementCount,
 							},
 						]}
 					/>

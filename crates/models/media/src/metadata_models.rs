@@ -11,8 +11,9 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
 use crate::{
-    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,
-    MusicSpecifics, PodcastSpecifics, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
+    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ComicBookSpecifics, MangaSpecifics,
+    MovieSpecifics, MusicSpecifics, PodcastSpecifics, ShowSpecifics, VideoGameSpecifics,
+    VisualNovelSpecifics,
 };
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]
@@ -127,6 +128,7 @@ pub struct MetadataDetails {
     pub podcast_specifics: Option<PodcastSpecifics>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
+    pub comic_book_specifics: Option<ComicBookSpecifics>,
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
     pub external_identifiers: Option<MetadataExternalIdentifiers>,
 }
@@ -234,6 +236,7 @@ pub struct CreateCustomMetadataInput {
     pub podcast_specifics: Option<PodcastSpecifics>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
+    pub comic_book_specifics: Option<ComicBookSpecifics>,
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
 }
 
@@ -301,6 +304,7 @@ pub struct GraphqlMetadataDetails {
     pub anime_specifics: Option<AnimeSpecifics>,
     pub podcast_specifics: Option<PodcastSpecifics>,
     pub creators: Vec<MetadataCreatorsGroupedByRole>,
+    pub comic_book_specifics: Option<ComicBookSpecifics>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
