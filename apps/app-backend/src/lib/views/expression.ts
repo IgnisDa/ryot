@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+import type { RuntimeRef } from "@ryot/ts-utils";
 import { createNullableOpenApiRefSchema } from "~/lib/openapi";
 import { nonEmptyTrimmedStringSchema } from "~/lib/zod";
 import type { ViewPredicate } from "./filtering";
@@ -24,8 +25,8 @@ export const runtimeReferenceSchema = z
 		z
 			.object({
 				slug: nonEmptyTrimmedStringSchema,
-				property: nonEmptyTrimmedStringSchema,
 				type: z.literal("schema-property"),
+				property: z.array(nonEmptyTrimmedStringSchema).min(1),
 			})
 			.strict(),
 		z
@@ -38,8 +39,8 @@ export const runtimeReferenceSchema = z
 		z
 			.object({
 				joinKey: nonEmptyTrimmedStringSchema,
-				property: nonEmptyTrimmedStringSchema,
 				type: z.literal("event-join-property"),
+				property: z.array(nonEmptyTrimmedStringSchema).min(1),
 			})
 			.strict(),
 		z
@@ -51,7 +52,15 @@ export const runtimeReferenceSchema = z
 	])
 	.openapi("QueryEngineReference");
 
-export type RuntimeRef = z.infer<typeof runtimeReferenceSchema>;
+// Compile-time assertion: Zod schema must remain aligned with the shared RuntimeRef type.
+type _RuntimeRefAlignment =
+	z.infer<typeof runtimeReferenceSchema> extends RuntimeRef
+		? RuntimeRef extends z.infer<typeof runtimeReferenceSchema>
+			? true
+			: never
+		: never;
+
+export type { RuntimeRef };
 
 export const viewComputedFieldSchema = z
 	.object({

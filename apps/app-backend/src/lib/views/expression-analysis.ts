@@ -9,6 +9,7 @@ import {
 	getEventJoinColumnPropertyDefinition,
 	getEventJoinForReference,
 	getEventJoinPropertyDefinition,
+	getPropertyDefinition,
 	getSchemaForReference,
 	type PropertyType,
 	type QueryEngineEventJoinLike,
@@ -325,7 +326,7 @@ export const inferViewExpressionType = <
 		);
 		if (!propertyDefinition) {
 			throw new QueryEngineValidationError(
-				`Unsupported entity column 'entity.${reference.slug}.@${reference.column}'`,
+				`Unsupported entity column 'entity.${reference.slug}.${reference.column}'`,
 			);
 		}
 
@@ -342,7 +343,7 @@ export const inferViewExpressionType = <
 		);
 		if (!propertyDefinition) {
 			throw new QueryEngineValidationError(
-				`Unsupported event join column 'event.${reference.joinKey}.@${reference.column}'`,
+				`Unsupported event join column 'event.${reference.joinKey}.${reference.column}'`,
 			);
 		}
 
@@ -361,11 +362,6 @@ export const inferViewExpressionType = <
 			join,
 			reference.property,
 		);
-		if (!propertyDefinition) {
-			throw new QueryEngineValidationError(
-				`Property '${reference.property}' not found for event join '${join.key}'`,
-			);
-		}
 
 		return createPropertyTypeInfo(
 			normalizeExpressionPropertyType(propertyDefinition.type),
@@ -374,10 +370,10 @@ export const inferViewExpressionType = <
 	}
 
 	const schema = getSchemaForReference(input.context.schemaMap, reference);
-	const propertyDefinition = schema.propertiesSchema.fields[reference.property];
+	const propertyDefinition = getPropertyDefinition(schema, reference.property);
 	if (!propertyDefinition) {
 		throw new QueryEngineValidationError(
-			`Property '${reference.property}' not found in schema '${reference.slug}'`,
+			`Property '${reference.property.join(".")}' not found in schema '${reference.slug}'`,
 		);
 	}
 
