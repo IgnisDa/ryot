@@ -62,6 +62,7 @@ export const getLot = (lot: unknown) => {
 			"comicbook",
 			"comic_book",
 			"comicbooks",
+			"comic book",
 			"comic_books",
 			() => MediaLot.ComicBook,
 		)
