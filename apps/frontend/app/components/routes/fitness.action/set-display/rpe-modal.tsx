@@ -23,13 +23,7 @@ interface RpeModalProps {
 	currentRpe?: number | null;
 }
 
-export const RpeModal = ({
-	opened,
-	setIdx,
-	onClose,
-	currentRpe,
-	exerciseIdx,
-}: RpeModalProps) => {
+export const RpeModal = (props: RpeModalProps) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [isRpeDetailsOpen, setIsRpeDetailsOpen] = useState(false);
 
@@ -37,8 +31,8 @@ export const RpeModal = ({
 
 	return (
 		<Modal
-			opened={opened}
-			onClose={onClose}
+			opened={props.opened}
+			onClose={props.onClose}
 			withCloseButton={false}
 			title={
 				<Group justify="space-between" gap="xl">
@@ -59,19 +53,20 @@ export const RpeModal = ({
 						min={0}
 						max={10}
 						flex={1}
-						value={currentRpe ?? undefined}
+						value={props.currentRpe ?? undefined}
 						onChange={(v) => {
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {
 									const value = isNumber(v) ? v : null;
-									const currentSet = draft.exercises[exerciseIdx].sets[setIdx];
+									const currentSet =
+										draft.exercises[props.exerciseIdx].sets[props.setIdx];
 									currentSet.rpe = value;
 								}),
 							);
 						}}
 					/>
 				</Group>
-				<Button fullWidth variant="outline" onClick={onClose}>
+				<Button fullWidth variant="outline" onClick={props.onClose}>
 					Done
 				</Button>
 				<Collapse in={isRpeDetailsOpen}>

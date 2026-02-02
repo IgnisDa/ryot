@@ -54,21 +54,7 @@ interface HeaderProps {
 	};
 }
 
-export function WorkoutHeader({
-	loaderData,
-	setAssetsModalOpened,
-	isWorkoutPaused,
-	numberOfExercises,
-	shouldDisplayWorkoutTimer,
-	shouldDisplayReorderButton,
-	shouldDisplayFinishButton,
-	shouldDisplayCancelButton,
-	toggleTimerDrawer,
-	openReorderDrawer,
-	isSaveBtnLoading,
-	setIsSaveBtnLoading,
-	stopTimer,
-}: HeaderProps) {
+export function WorkoutHeader(props: HeaderProps) {
 	const navigate = useNavigate();
 	const events = useApplicationEvents();
 	const unitSystem = useUserUnitSystem();
@@ -81,25 +67,25 @@ export function WorkoutHeader({
 	return (
 		<>
 			<NameAndOtherInputs
-				isCreatingTemplate={loaderData.isCreatingTemplate}
-				openAssetsModal={() => setAssetsModalOpened(null)}
+				isCreatingTemplate={props.loaderData.isCreatingTemplate}
+				openAssetsModal={() => props.setAssetsModalOpened(null)}
 			/>
 			<Group>
 				<WorkoutDurationTimer
-					isWorkoutPaused={isWorkoutPaused}
-					isUpdatingWorkout={loaderData.isUpdatingWorkout}
-					isCreatingTemplate={loaderData.isCreatingTemplate}
+					isWorkoutPaused={props.isWorkoutPaused}
+					isUpdatingWorkout={props.loaderData.isUpdatingWorkout}
+					isCreatingTemplate={props.loaderData.isCreatingTemplate}
 				/>
 				<StatDisplay
 					name="Exercises"
 					value={
-						loaderData.isCreatingTemplate
-							? numberOfExercises.toString()
+						props.loaderData.isCreatingTemplate
+							? props.numberOfExercises.toString()
 							: `${
 									currentWorkout.exercises
 										.map((e) => e.sets.every((s) => s.confirmedAt))
 										.filter(Boolean).length
-								}/${numberOfExercises}`
+								}/${props.numberOfExercises}`
 					}
 				/>
 				<StatDisplay
@@ -110,7 +96,7 @@ export function WorkoutHeader({
 							currentWorkout.exercises
 								.flatMap((e) => e.sets)
 								.flatMap((s) =>
-									loaderData.isCreatingTemplate || s.confirmedAt
+									props.loaderData.isCreatingTemplate || s.confirmedAt
 										? Number(s.statistic.reps || 0) *
 											Number(s.statistic.weight || 0)
 										: 0,
@@ -124,7 +110,7 @@ export function WorkoutHeader({
 						currentWorkout.exercises
 							.flatMap((e) => e.sets)
 							.flatMap((s) =>
-								loaderData.isCreatingTemplate || s.confirmedAt ? 1 : 0,
+								props.loaderData.isCreatingTemplate || s.confirmedAt ? 1 : 0,
 							),
 					).toString()}
 				/>
@@ -132,65 +118,65 @@ export function WorkoutHeader({
 			<Divider />
 			<SimpleGrid
 				cols={
-					Number(shouldDisplayWorkoutTimer) +
-					Number(shouldDisplayReorderButton) +
-					Number(shouldDisplayFinishButton) +
-					Number(shouldDisplayCancelButton)
+					Number(props.shouldDisplayWorkoutTimer) +
+					Number(props.shouldDisplayReorderButton) +
+					Number(props.shouldDisplayFinishButton) +
+					Number(props.shouldDisplayCancelButton)
 				}
 			>
-				{shouldDisplayWorkoutTimer ? (
+				{props.shouldDisplayWorkoutTimer ? (
 					<Button
 						radius="md"
 						color="orange"
 						variant="subtle"
 						size="compact-sm"
-						onClick={toggleTimerDrawer}
+						onClick={props.toggleTimerDrawer}
 					>
 						<RestTimer />
 					</Button>
 				) : null}
-				{shouldDisplayReorderButton ? (
+				{props.shouldDisplayReorderButton ? (
 					<Button
 						radius="md"
 						color="blue"
 						variant="subtle"
 						size="compact-sm"
-						onClick={() => openReorderDrawer(null)}
+						onClick={() => props.openReorderDrawer(null)}
 					>
 						Reorder
 					</Button>
 				) : null}
-				{shouldDisplayFinishButton ? (
+				{props.shouldDisplayFinishButton ? (
 					<Button
 						radius="md"
 						color="green"
 						variant="subtle"
 						size="compact-sm"
-						loading={isSaveBtnLoading}
-						disabled={isWorkoutPaused}
+						loading={props.isSaveBtnLoading}
+						disabled={props.isWorkoutPaused}
 						className={OnboardingTourStepTarget.FinishWorkout}
 						onClick={() => {
 							if (!currentWorkout.name) {
 								notifications.show({
 									color: "red",
 									message: `Please give a name to the ${
-										loaderData.isCreatingTemplate ? "template" : "workout"
+										props.loaderData.isCreatingTemplate ? "template" : "workout"
 									}`,
 								});
 								return;
 							}
 							openConfirmationModal(
-								loaderData.isCreatingTemplate
+								props.loaderData.isCreatingTemplate
 									? "Only sets that have data will added. Are you sure you want to save this template?"
 									: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 								async () => {
-									setIsSaveBtnLoading(true);
+									props.setIsSaveBtnLoading(true);
 									advanceOnboardingTourStep();
 
 									await new Promise((r) => setTimeout(r, 1000));
 									const input = currentWorkoutToCreateWorkoutInput(
 										currentWorkout,
-										loaderData.isCreatingTemplate,
+										props.loaderData.isCreatingTemplate,
 									);
 									for (const exercise of currentWorkout.exercises) {
 										queryClient.removeQueries({
@@ -199,10 +185,10 @@ export function WorkoutHeader({
 											).queryKey,
 										});
 									}
-									stopTimer();
+									props.stopTimer();
 									try {
 										const [entityId, fitnessEntity] = await match(
-											loaderData.isCreatingTemplate,
+											props.loaderData.isCreatingTemplate,
 										)
 											.with(true, () =>
 												clientGqlService
@@ -224,7 +210,7 @@ export function WorkoutHeader({
 													]),
 											)
 											.exhaustive();
-										if (loaderData.action === FitnessAction.LogWorkout)
+										if (props.loaderData.action === FitnessAction.LogWorkout)
 											events.createWorkout();
 										setCurrentWorkout(RESET);
 										navigate(
@@ -238,18 +224,19 @@ export function WorkoutHeader({
 											color: "red",
 											message: `Error while saving workout: ${JSON.stringify(e)}`,
 										});
-										setIsSaveBtnLoading(false);
+										props.setIsSaveBtnLoading(false);
 									}
 								},
 							);
 						}}
 					>
-						{loaderData.isCreatingTemplate || loaderData.isUpdatingWorkout
+						{props.loaderData.isCreatingTemplate ||
+						props.loaderData.isUpdatingWorkout
 							? "Save"
 							: "Finish"}
 					</Button>
 				) : null}
-				{shouldDisplayCancelButton ? (
+				{props.shouldDisplayCancelButton ? (
 					<Button
 						radius="md"
 						color="red"
@@ -258,7 +245,7 @@ export function WorkoutHeader({
 						onClick={() => {
 							openConfirmationModal(
 								`Are you sure you want to cancel this ${
-									loaderData.isCreatingTemplate ? "template" : "workout"
+									props.loaderData.isCreatingTemplate ? "template" : "workout"
 								}?`,
 								async () => {
 									await Promise.all(

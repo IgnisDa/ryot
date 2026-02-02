@@ -46,35 +46,26 @@ interface ExerciseDetailsModalProps {
 	userExerciseDetails?: UserExerciseDetailsQuery["userExerciseDetails"];
 }
 
-export const ExerciseDetailsModal = ({
-	opened,
-	onClose,
-	exerciseIdx,
-	exerciseId,
-	exerciseName,
-	exerciseDetails,
-	userExerciseDetails,
-	selectedUnitSystem,
-}: ExerciseDetailsModalProps) => {
+export const ExerciseDetailsModal = (props: ExerciseDetailsModalProps) => {
 	const coreDetails = useCoreDetails();
 	const [activeHistoryIdx, setActiveHistoryIdx] = useState(0);
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
-	const images = useExerciseImages(exerciseDetails);
-	const exerciseHistory = userExerciseDetails?.history;
+	const images = useExerciseImages(props.exerciseDetails);
+	const exerciseHistory = props.userExerciseDetails?.history;
 
 	return (
 		<Modal
 			size="lg"
-			opened={opened}
-			onClose={onClose}
+			opened={props.opened}
+			onClose={props.onClose}
 			title={
 				<Anchor
 					fw="bold"
 					component={Link}
-					to={getExerciseDetailsPath(exerciseId)}
+					to={getExerciseDetailsPath(props.exerciseId)}
 				>
-					{exerciseName || "..."}
+					{props.exerciseName || "..."}
 				</Anchor>
 			}
 		>
@@ -84,13 +75,14 @@ export const ExerciseDetailsModal = ({
 					size="sm"
 					label="Unit system"
 					allowDeselect={false}
-					value={selectedUnitSystem}
+					value={props.selectedUnitSystem}
 					data={convertEnumToSelectData(UserUnitSystem)}
 					onChange={(v) => {
 						if (!currentWorkout) return;
 						setCurrentWorkout(
 							produce(currentWorkout, (draft) => {
-								draft.exercises[exerciseIdx].unitSystem = v as UserUnitSystem;
+								draft.exercises[props.exerciseIdx].unitSystem =
+									v as UserUnitSystem;
 							}),
 						);
 					}}
@@ -139,7 +131,7 @@ export const ExerciseDetailsModal = ({
 													if (!currentWorkout) return;
 													setCurrentWorkout(
 														produce(currentWorkout, (draft) => {
-															draft.exercises[exerciseIdx].sets.push(
+															draft.exercises[props.exerciseIdx].sets.push(
 																...converted,
 															);
 														}),
