@@ -73,4 +73,5 @@ supporting-service = { workspace = true }
 traits = { workspace = true }
 user-authentication-resolver = { workspace = true }
 user-management-resolver = { workspace = true }
+user-service = { workspace = true }
 user-services-resolver = { workspace = true }

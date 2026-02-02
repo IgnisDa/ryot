@@ -320,11 +320,7 @@ dependencies = [
  "axum",
  "chrono",
  "chrono-tz",
- "common-utils",
- "config-definition",
  "media-models",
- "openidconnect",
- "reqwest",
  "rust_decimal",
  "sea-orm",
  "session-service",
@@ -1101,6 +1097,7 @@ dependencies = [
  "traits",
  "user-authentication-resolver",
  "user-management-resolver",
+ "user-service",
  "user-services-resolver",
 ]
 
@@ -8567,12 +8564,12 @@ version = "0.1.0"
 dependencies = [
  "aes-gcm",
  "anyhow",
- "application-utils",
  "argon2",
  "cache-service",
  "chrono",
  "common-models",
  "common-utils",
+ "config-definition",
  "data-encoding",
  "database-models",
  "database-utils",

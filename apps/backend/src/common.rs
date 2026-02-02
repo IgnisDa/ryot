@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
-use application_utils::{AuthContext, create_oidc_client};
+use application_utils::AuthContext;
 use async_graphql::{EmptySubscription, MergedObject, Schema, extensions::Tracing};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
@@ -59,6 +59,7 @@ use user_authentication_resolver::{
     UserAuthenticationMutationResolver, UserAuthenticationQueryResolver,
 };
 use user_management_resolver::{UserManagementMutationResolver, UserManagementQueryResolver};
+use user_service::oidc_operations::create_oidc_client;
 use user_services_resolver::{UserServicesMutationResolver, UserServicesQueryResolver};
 
 #[builder]
