@@ -33,10 +33,7 @@ pub async fn send_notification(
             client
                 .post(format!("{url}/notify/{key}"))
                 .header(CONTENT_TYPE, APPLICATION_JSON_HEADER.clone())
-                .json(&serde_json::json!({
-                    "body": msg,
-                    "title": project_name,
-                }))
+                .json(&serde_json::json!({ "body": msg, "title": project_name }))
                 .send()
                 .await?;
         }
@@ -63,19 +60,15 @@ pub async fn send_notification(
                     "message": msg,
                     "title": project_name,
                     "priority": priority.unwrap_or(5),
-                    "extras": {
-                        "client::notification": {
-                          "bigImageUrl": AVATAR_URL
-                        }
-                     }
+                    "extras": { "client::notification": { "bigImageUrl": AVATAR_URL } }
                 }))
                 .send()
                 .await?;
         }
         NotificationPlatformSpecifics::Ntfy {
             url,
-            priority,
             topic,
+            priority,
             auth_header,
         } => {
             let mut request = client
@@ -84,8 +77,8 @@ pub async fn send_notification(
                     url.clone().unwrap_or_else(|| "https://ntfy.sh".to_owned()),
                     topic
                 ))
-                .header("Title", project_name)
                 .header("Attach", AVATAR_URL)
+                .header("Title", project_name)
                 .header(
                     "Priority",
                     priority
@@ -106,24 +99,32 @@ pub async fn send_notification(
                 .header("Access-Token", api_token)
                 .json(&serde_json::json!({
                     "body": msg,
+                    "type": "note",
                     "title": project_name,
-                    "type": "note"
                 }))
                 .send()
                 .await?;
         }
-        NotificationPlatformSpecifics::PushOver { key, app_key } => {
+        NotificationPlatformSpecifics::PushOver {
+            key,
+            device,
+            app_key,
+        } => {
+            let mut params = vec![
+                ("user".to_owned(), key),
+                ("title".to_owned(), project_name),
+                ("message".to_owned(), msg.to_string()),
+                (
+                    "token".to_owned(),
+                    app_key.unwrap_or_else(|| "abd1semr21hv1i5j5kfkm23wf1kd4u".to_string()),
+                ),
+            ];
+            if let Some(device) = device {
+                params.push(("device".to_owned(), device));
+            }
             client
                 .post("https://api.pushover.net/1/messages.json")
-                .query(&[
-                    ("user", &key),
-                    ("title", &project_name),
-                    ("message", &msg.to_string()),
-                    (
-                        "token",
-                        &app_key.unwrap_or_else(|| "abd1semr21hv1i5j5kfkm23wf1kd4u".to_string()),
-                    ),
-                ])
+                .query(&params)
                 .send()
                 .await?;
         }
@@ -140,8 +141,8 @@ pub async fn send_notification(
                     "https://api.telegram.org/bot{bot_token}/sendMessage"
                 ))
                 .json(&serde_json::json!({
-                    "chat_id": chat_id,
                     "text": msg,
+                    "chat_id": chat_id,
                     "parse_mode": "Markdown"
                 }))
                 .send()
@@ -150,7 +151,7 @@ pub async fn send_notification(
         NotificationPlatformSpecifics::Email { email } => {
             #[derive(Template, Serialize, Deserialize, Debug, Clone)]
             #[template(path = "generic.html")]
-            pub struct GenericHtml {
+            struct GenericHtml {
                 pub generic_message: String,
             }
 
