@@ -15,7 +15,6 @@ use sea_orm::{DatabaseConnection, prelude::DateTimeUtc};
 pub type JobStorage<T> = SqliteStorage<T, JsonCodec<Vec<u8>>, SharedFetcher<Vec<u8>>>;
 
 pub struct SupportingService {
-    pub is_oidc_enabled: bool,
     pub config: Arc<AppConfig>,
     pub db: DatabaseConnection,
     pub log_file_path: PathBuf,
@@ -32,7 +31,6 @@ pub struct SupportingService {
 impl SupportingService {
     #[builder]
     pub async fn new(
-        is_oidc_enabled: bool,
         config: Arc<AppConfig>,
         log_file_path: PathBuf,
         db: &DatabaseConnection,
@@ -47,7 +45,6 @@ impl SupportingService {
             timezone,
             log_file_path,
             db: db.clone(),
-            is_oidc_enabled,
             lp_application_job,
             mp_application_job,
             hp_application_job,

@@ -59,7 +59,6 @@ use user_authentication_resolver::{
     UserAuthenticationMutationResolver, UserAuthenticationQueryResolver,
 };
 use user_management_resolver::{UserManagementMutationResolver, UserManagementQueryResolver};
-use user_service::oidc_operations::create_oidc_client;
 use user_services_resolver::{UserServicesMutationResolver, UserServicesQueryResolver};
 
 #[builder]
@@ -73,14 +72,12 @@ pub async fn create_app_dependencies(
     hp_application_job: JobStorage<HpApplicationJob>,
     single_application_job: JobStorage<SingleApplicationJob>,
 ) -> (Router, Arc<SupportingService>) {
-    let is_oidc_enabled = create_oidc_client(&config).await.is_some();
     let supporting_service = Arc::new(
         SupportingService::builder()
             .db(&db)
             .timezone(timezone)
             .config(config.clone())
             .log_file_path(log_file_path)
-            .is_oidc_enabled(is_oidc_enabled)
             .lp_application_job(lp_application_job)
             .mp_application_job(mp_application_job)
             .hp_application_job(hp_application_job)
