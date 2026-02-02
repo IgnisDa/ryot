@@ -281,9 +281,9 @@ dependencies = [
 
 [[package]]
 name = "apalis-sql"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02b9d5873918c664ffcd0768f5048a261cd83a1741eed80f96a77091e6dc3e47"
+checksum = "903ce2cbece579dc4ce90bcee4c0c677edf8fc02812681fa0501f0a0ad800f00"
 dependencies = [
  "apalis-core",
  "chrono",
@@ -294,9 +294,9 @@ dependencies = [
 
 [[package]]
 name = "apalis-sqlite"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97a5dc503ddc3d0ec25437b3d0f62170557d7daa2d57eccf5f21c5e36bcebeab"
+checksum = "9efb1428e9c9cb6fa8bc7939c2683042837f87474a2c527f4275e32a62a9f2a9"
 dependencies = [
  "apalis-codec",
  "apalis-core",
