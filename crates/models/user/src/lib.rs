@@ -498,6 +498,7 @@ pub enum NotificationPlatformSpecifics {
     },
     PushOver {
         key: String,
+        device: Option<String>,
         app_key: Option<String>,
     },
     Gotify {
