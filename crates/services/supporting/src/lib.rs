@@ -1,8 +1,9 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Result;
-use apalis::prelude::{MakeShared, TaskSink};
-use apalis_sqlite::{CompactType, SharedSqliteStorage};
+use apalis::prelude::TaskSink;
+use apalis_codec::json::JsonCodec;
+use apalis_sqlite::{SqliteStorage, shared::SharedFetcher};
 use background_models::{
     ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob, SingleApplicationJob,
 };
@@ -11,13 +12,7 @@ use chrono::Utc;
 use config_definition::AppConfig;
 use sea_orm::{DatabaseConnection, prelude::DateTimeUtc};
 
-type DefaultCodec = apalis_codec::json::JsonCodec<CompactType>;
-type SharedStorage = SharedSqliteStorage<DefaultCodec>;
-
-type LpStorage = <SharedStorage as MakeShared<LpApplicationJob>>::Backend;
-type HpStorage = <SharedStorage as MakeShared<HpApplicationJob>>::Backend;
-type MpStorage = <SharedStorage as MakeShared<MpApplicationJob>>::Backend;
-type SingleStorage = <SharedStorage as MakeShared<SingleApplicationJob>>::Backend;
+pub type JobStorage<T> = SqliteStorage<T, JsonCodec<Vec<u8>>, SharedFetcher<Vec<u8>>>;
 
 pub struct SupportingService {
     pub is_oidc_enabled: bool,
@@ -27,10 +22,10 @@ pub struct SupportingService {
     pub timezone: chrono_tz::Tz,
     pub server_start_time: DateTimeUtc,
 
-    lp_application_job: LpStorage,
-    hp_application_job: HpStorage,
-    mp_application_job: MpStorage,
-    single_application_job: SingleStorage,
+    lp_application_job: JobStorage<LpApplicationJob>,
+    hp_application_job: JobStorage<HpApplicationJob>,
+    mp_application_job: JobStorage<MpApplicationJob>,
+    single_application_job: JobStorage<SingleApplicationJob>,
 }
 
 #[bon]
@@ -42,10 +37,10 @@ impl SupportingService {
         log_file_path: PathBuf,
         db: &DatabaseConnection,
         timezone: chrono_tz::Tz,
-        lp_application_job: LpStorage,
-        mp_application_job: MpStorage,
-        hp_application_job: HpStorage,
-        single_application_job: SingleStorage,
+        lp_application_job: JobStorage<LpApplicationJob>,
+        mp_application_job: JobStorage<MpApplicationJob>,
+        hp_application_job: JobStorage<HpApplicationJob>,
+        single_application_job: JobStorage<SingleApplicationJob>,
     ) -> Self {
         Self {
             config,
@@ -71,5 +66,3 @@ impl SupportingService {
         Ok(())
     }
 }
-
-pub type JobStorage<T> = <SharedStorage as MakeShared<T>>::Backend;
