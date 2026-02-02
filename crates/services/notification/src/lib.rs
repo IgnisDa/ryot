@@ -105,18 +105,26 @@ pub async fn send_notification(
                 .send()
                 .await?;
         }
-        NotificationPlatformSpecifics::PushOver { key, app_key } => {
+        NotificationPlatformSpecifics::PushOver {
+            key,
+            device,
+            app_key,
+        } => {
+            let mut params = vec![
+                ("user".to_owned(), key),
+                ("title".to_owned(), project_name),
+                ("message".to_owned(), msg.to_string()),
+                (
+                    "token".to_owned(),
+                    app_key.unwrap_or_else(|| "abd1semr21hv1i5j5kfkm23wf1kd4u".to_string()),
+                ),
+            ];
+            if let Some(device) = device {
+                params.push(("device".to_owned(), device));
+            }
             client
                 .post("https://api.pushover.net/1/messages.json")
-                .query(&[
-                    ("user", &key),
-                    ("title", &project_name),
-                    ("message", &msg.to_string()),
-                    (
-                        "token",
-                        &app_key.unwrap_or_else(|| "abd1semr21hv1i5j5kfkm23wf1kd4u".to_string()),
-                    ),
-                ])
+                .query(&params)
                 .send()
                 .await?;
         }
