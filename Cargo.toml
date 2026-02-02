@@ -161,6 +161,7 @@ config-macros = { path = "crates/config/macros" }
 custom-resolver = { path = "crates/resolvers/custom" }
 database-models = { path = "crates/models/database" }
 database-utils = { path = "crates/utils/database" }
+oidc-utils = { path = "crates/utils/oidc" }
 dependent-analytics-utils = { path = "crates/utils/dependent/analytics" }
 dependent-collection-utils = { path = "crates/utils/dependent/collection" }
 dependent-core-utils = { path = "crates/utils/dependent/core" }
