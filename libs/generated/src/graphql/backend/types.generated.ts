@@ -511,6 +511,7 @@ export type CreateUserNotificationPlatformInput = {
   authHeader?: InputMaybe<Scalars['String']['input']>;
   baseUrl?: InputMaybe<Scalars['String']['input']>;
   chatId?: InputMaybe<Scalars['String']['input']>;
+  device?: InputMaybe<Scalars['String']['input']>;
   lot: NotificationPlatformLot;
   priority?: InputMaybe<Scalars['Int']['input']>;
 };
