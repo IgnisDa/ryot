@@ -81,7 +81,10 @@ pub async fn create_oidc_client(
     let core_client = CoreClient::from_provider_metadata(
         provider_metadata,
         ClientId::new(config.server.oidc.client_id.clone()),
-        Some(ClientSecret::new(config.server.oidc.client_secret.clone())),
+        match config.server.oidc.client_secret.clone() {
+            secret if !secret.is_empty() => Some(ClientSecret::new(secret)),
+            _ => None,
+        },
     )
     .set_redirect_uri(redirect_url);
 
