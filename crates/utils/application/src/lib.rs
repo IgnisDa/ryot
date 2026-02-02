@@ -8,6 +8,7 @@ use axum::{
 };
 use chrono::{NaiveDate, NaiveDateTime, Utc};
 use common_utils::{FRONTEND_OAUTH_ENDPOINT, ryot_log};
+use config_definition::AppConfig;
 use media_models::{
     GraphqlSortOrder, PodcastEpisode, PodcastSpecifics, ReviewItem, ShowEpisode, ShowSeason,
     ShowSpecifics,
@@ -142,7 +143,7 @@ pub type ApplicationOidcClient<
 >;
 
 pub async fn create_oidc_client(
-    config: &config_definition::AppConfig,
+    config: &Arc<AppConfig>,
 ) -> Option<(ReqwestClient, ApplicationOidcClient)> {
     let redirect_url = match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT)
     {
