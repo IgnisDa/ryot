@@ -78,8 +78,8 @@ const setPasswordSchema = passwordConfirmationSchema.safeExtend({
 });
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
+	const loaderData = useLoaderData<typeof loader>();
 	const [form, fields] = useForm({
 		shouldValidate: "onBlur",
 		shouldRevalidate: "onInput",

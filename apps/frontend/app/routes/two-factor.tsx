@@ -129,8 +129,8 @@ const verifyTwoFactorSchema = z.object({
 
 export default function Page() {
 	const [form, fields] = useForm({});
-	const [useBackupCode, setUseBackupCode] = useState(false);
 	const [code, setCode] = useState("");
+	const [useBackupCode, setUseBackupCode] = useState(false);
 
 	return (
 		<Container size="xs" style={{ display: "flex", alignItems: "center" }}>

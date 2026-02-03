@@ -61,15 +61,15 @@ export default function Page() {
 	const [parent] = useAutoAnimate();
 	const userPreferences = useUserPreferences();
 	const loaderData = useLoaderData<typeof loader>();
-	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const playCheckSound = usePlayFitnessSound("check");
+	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 	const [_, setMeasurementsDrawerData] = useMeasurementsDrawer();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
-	const wakeLockRef = useRef<WakeLockSentinel | null>(null);
-	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
-	const timerCompleteSound = usePlayFitnessSound("timer-completed");
 	const [isSaveBtnLoading, setIsSaveBtnLoading] = useState(false);
+	const timerCompleteSound = usePlayFitnessSound("timer-completed");
+	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
+	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const {
 		openTimerDrawer,

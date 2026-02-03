@@ -16,8 +16,8 @@ export const EditSetRestTimer = (props: {
 	defaultDuration: number;
 	onClickOutside: () => void;
 }) => {
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const editRestTimerRef = useRef<HTMLInputElement>(null);
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
 	const [value, setValue] = useDebouncedState(props.defaultDuration, 500);
 

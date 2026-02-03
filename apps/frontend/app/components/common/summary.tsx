@@ -39,9 +39,9 @@ import { displayWeightWithUnit } from "../fitness/utils";
 export const DisplaySummarySection = (props: {
 	latestUserSummary: UserAnalytics["activities"]["items"][number];
 }) => {
-	const userPreferences = useUserPreferences();
-	const unitSystem = useUserUnitSystem();
 	const theme = useMantineTheme();
+	const unitSystem = useUserUnitSystem();
+	const userPreferences = useUserPreferences();
 
 	return (
 		<SimpleGrid

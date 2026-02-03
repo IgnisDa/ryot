@@ -141,10 +141,10 @@ export function useWorkoutModals() {
 			toggle: toggleTimerDrawer,
 		},
 	] = useDisclosure(false);
-	const [exerciseToDelete, setExerciseToDelete] = useState<string | null>();
 	const [isReorderDrawerOpened, setIsReorderDrawerOpened] = useState<
 		string | null
 	>();
+	const [exerciseToDelete, setExerciseToDelete] = useState<string | null>();
 	const [supersetWithExerciseIdentifier, setSupersetModalOpened] = useState<
 		string | null
 	>(null);

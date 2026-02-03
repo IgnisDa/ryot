@@ -10,8 +10,8 @@ export const NoteInput = (props: {
 	noteIdx: number;
 	exerciseIdx: number;
 }) => {
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [value, setValue] = useDebouncedState(props.note, 500);
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
 	useDidUpdate(() => {
 		if (currentWorkout)
