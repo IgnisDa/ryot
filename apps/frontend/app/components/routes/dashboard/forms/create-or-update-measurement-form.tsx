@@ -24,8 +24,8 @@ import {
 	queryFactory,
 } from "~/lib/shared/react-query";
 
-const buildInput = (measurement?: UserMeasurement | null) => {
-	return {
+const buildInput = (measurement?: UserMeasurement | null) =>
+	({
 		name: measurement?.name || "",
 		comment: measurement?.comment || "",
 		timestamp: measurement?.timestamp || new Date().toISOString(),
@@ -38,8 +38,7 @@ const buildInput = (measurement?: UserMeasurement | null) => {
 				remoteImages: [],
 			},
 		},
-	} as UserMeasurementInput;
-};
+	}) as UserMeasurementInput;
 
 export const CreateOrUpdateMeasurementForm = (props: {
 	closeMeasurementModal: () => void;
