@@ -174,9 +174,9 @@ export const meta = () => {
 	return [{ title: "Preferences | Ryot" }];
 };
 
-const notificationContent = {
-	title: "Invalid action",
+const disabledNotificationContent = {
 	color: "red",
+	title: "Invalid action",
 	message:
 		"Changing preferences is disabled for demo users. Please create an account to save your preferences.",
 };
@@ -248,7 +248,7 @@ export default function Page() {
 					</Group>
 					{isEditDisabled ? (
 						<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
-							{notificationContent.message}
+							{disabledNotificationContent.message}
 						</Alert>
 					) : null}
 					<Tabs
@@ -278,7 +278,7 @@ export default function Page() {
 										});
 										form.setFieldValue("general.dashboard", newOrder);
 									} else {
-										notifications.show(notificationContent);
+										notifications.show(disabledNotificationContent);
 									}
 								}}
 							>
@@ -691,73 +691,140 @@ export default function Page() {
 										history. If you add it again, those values will show back
 										up.
 									</Text>
-									{form.values.fitness.measurements.statistics.map(
-										(s, index) => (
-											<Group
-												wrap="nowrap"
-												key={`${
-													// biome-ignore lint/suspicious/noArrayIndexKey: index is unique
-													index
-												}`}
-											>
-												<TextInput
-													size="xs"
-													label="Name"
-													value={s.name}
-													disabled={!!isEditDisabled}
-													onChange={(val) =>
-														form.setFieldValue(
-															"fitness.measurements.statistics",
-															updateMeasurementStatistic(
-																form.values.fitness.measurements.statistics,
-																index,
-																{ name: val.target.value },
-															),
-														)
-													}
-												/>
-												<TextInput
-													size="xs"
-													label="Unit"
-													value={s.unit || undefined}
-													disabled={!!isEditDisabled}
-													onChange={(val) =>
-														form.setFieldValue(
-															"fitness.measurements.statistics",
-															updateMeasurementStatistic(
-																form.values.fitness.measurements.statistics,
-																index,
-																{ unit: val.target.value },
-															),
-														)
-													}
-												/>
-												<ActionIcon
-													mt={14}
-													size="xs"
-													color="red"
-													type="button"
-													variant="outline"
-													disabled={
-														!!isEditDisabled ||
-														form.values.fitness.measurements.statistics
-															.length === 1
-													}
-													onClick={() =>
-														form.setFieldValue(
-															"fitness.measurements.statistics",
-															removeMeasurementStatistic(
-																form.values.fitness.measurements.statistics,
-																index,
-															),
-														)
-													}
+									<DragDropContext
+										onDragEnd={({ destination, source }) => {
+											if (!isEditDisabled) {
+												const newOrder = reorder(
+													form.values.fitness.measurements.statistics,
+													{
+														from: source.index,
+														to: destination?.index || 0,
+													},
+												);
+												form.setFieldValue(
+													"fitness.measurements.statistics",
+													newOrder,
+												);
+											} else {
+												notifications.show(disabledNotificationContent);
+											}
+										}}
+									>
+										<Droppable droppableId="measurements-list">
+											{(provided) => (
+												<Stack
+													gap="xs"
+													{...provided.droppableProps}
+													ref={provided.innerRef}
 												>
-													<IconMinus />
-												</ActionIcon>
-											</Group>
-										),
-									)}
+													{form.values.fitness.measurements.statistics.map(
+														(s, index) => (
+															<Draggable
+																index={index}
+																draggableId={`measurement-${index}`}
+																key={`measurement-${
+																	// biome-ignore lint/suspicious/noArrayIndexKey: index is unique
+																	index
+																}`}
+															>
+																{(provided, snapshot) => (
+																	<Paper
+																		p="xs"
+																		withBorder
+																		ref={provided.innerRef}
+																		{...provided.draggableProps}
+																		className={cn({
+																			[classes.itemDragging]:
+																				snapshot.isDragging,
+																		})}
+																	>
+																		<Group wrap="nowrap">
+																			<div
+																				{...provided.dragHandleProps}
+																				style={{
+																					height: "100%",
+																					cursor: "grab",
+																					display: "flex",
+																					alignItems: "center",
+																				}}
+																			>
+																				<IconGripVertical
+																					stroke={1.5}
+																					style={{
+																						width: rem(18),
+																						height: rem(18),
+																					}}
+																				/>
+																			</div>
+																			<TextInput
+																				size="xs"
+																				label="Name"
+																				value={s.name}
+																				disabled={!!isEditDisabled}
+																				onChange={(val) =>
+																					form.setFieldValue(
+																						"fitness.measurements.statistics",
+																						updateMeasurementStatistic(
+																							form.values.fitness.measurements
+																								.statistics,
+																							index,
+																							{ name: val.target.value },
+																						),
+																					)
+																				}
+																			/>
+																			<TextInput
+																				size="xs"
+																				label="Unit"
+																				value={s.unit || undefined}
+																				disabled={!!isEditDisabled}
+																				onChange={(val) =>
+																					form.setFieldValue(
+																						"fitness.measurements.statistics",
+																						updateMeasurementStatistic(
+																							form.values.fitness.measurements
+																								.statistics,
+																							index,
+																							{ unit: val.target.value },
+																						),
+																					)
+																				}
+																			/>
+																			<ActionIcon
+																				mt={14}
+																				size="xs"
+																				color="red"
+																				type="button"
+																				variant="outline"
+																				disabled={
+																					!!isEditDisabled ||
+																					form.values.fitness.measurements
+																						.statistics.length === 1
+																				}
+																				onClick={() =>
+																					form.setFieldValue(
+																						"fitness.measurements.statistics",
+																						removeMeasurementStatistic(
+																							form.values.fitness.measurements
+																								.statistics,
+																							index,
+																						),
+																					)
+																				}
+																			>
+																				<IconMinus />
+																			</ActionIcon>
+																		</Group>
+																	</Paper>
+																)}
+															</Draggable>
+														),
+													)}
+													{provided.placeholder}
+												</Stack>
+											)}
+										</Droppable>
+									</DragDropContext>
 								</Stack>
 							</Stack>
 						</Tabs.Panel>
