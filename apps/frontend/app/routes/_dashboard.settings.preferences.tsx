@@ -666,9 +666,26 @@ export default function Page() {
 								/>
 								<Divider />
 								<Stack gap="xs">
-									<Text size="sm">
-										The measurements you want to keep track of
-									</Text>
+									<Group justify="space-between">
+										<Text size="sm">
+											The measurements you want to keep track of
+										</Text>
+										<Button
+											type="button"
+											size="compact-xs"
+											variant="outline"
+											onClick={() =>
+												form.setFieldValue(
+													"fitness.measurements.statistics",
+													addMeasurementStatistic(
+														form.values.fitness.measurements.statistics,
+													),
+												)
+											}
+										>
+											Add
+										</Button>
+									</Group>
 									<Text size="xs" c="dimmed">
 										Removing a measurement will hide its past values from
 										history. If you add it again, those values will show back
@@ -741,22 +758,6 @@ export default function Page() {
 											</Group>
 										),
 									)}
-									<Button
-										ml="auto"
-										size="xs"
-										type="button"
-										variant="outline"
-										onClick={() =>
-											form.setFieldValue(
-												"fitness.measurements.statistics",
-												addMeasurementStatistic(
-													form.values.fitness.measurements.statistics,
-												),
-											)
-										}
-									>
-										Add
-									</Button>
 								</Stack>
 							</Stack>
 						</Tabs.Panel>
