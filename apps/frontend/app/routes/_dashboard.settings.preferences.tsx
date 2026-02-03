@@ -669,6 +669,11 @@ export default function Page() {
 									<Text size="sm">
 										The measurements you want to keep track of
 									</Text>
+									<Text size="xs" c="dimmed">
+										Removing a measurement will hide its past values from
+										history. If you add it again, those values will show back
+										up.
+									</Text>
 									{form.values.fitness.measurements.statistics.map(
 										(s, index) => (
 											<Group
