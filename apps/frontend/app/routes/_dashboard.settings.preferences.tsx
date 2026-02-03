@@ -687,8 +687,9 @@ const MeasurementsSection = (props: {
 			<Text size="sm">The measurements you want to keep track of</Text>
 			<Button
 				type="button"
-				size="compact-xs"
 				variant="outline"
+				size="compact-xs"
+				disabled={!!props.isEditDisabled}
 				onClick={() =>
 					props.form.setFieldValue(
 						"fitness.measurements.statistics",
