@@ -665,167 +665,10 @@ export default function Page() {
 									}}
 								/>
 								<Divider />
-								<Stack gap="xs">
-									<Group justify="space-between">
-										<Text size="sm">
-											The measurements you want to keep track of
-										</Text>
-										<Button
-											type="button"
-											size="compact-xs"
-											variant="outline"
-											onClick={() =>
-												form.setFieldValue(
-													"fitness.measurements.statistics",
-													addMeasurementStatistic(
-														form.values.fitness.measurements.statistics,
-													),
-												)
-											}
-										>
-											Add
-										</Button>
-									</Group>
-									<Text size="xs" c="dimmed">
-										Removing a measurement will hide its past values from
-										history. If you add it again, those values will show back
-										up.
-									</Text>
-									<DragDropContext
-										onDragEnd={({ destination, source }) => {
-											if (!isEditDisabled) {
-												const newOrder = reorder(
-													form.values.fitness.measurements.statistics,
-													{
-														from: source.index,
-														to: destination?.index || 0,
-													},
-												);
-												form.setFieldValue(
-													"fitness.measurements.statistics",
-													newOrder,
-												);
-											} else {
-												notifications.show(disabledNotificationContent);
-											}
-										}}
-									>
-										<Droppable droppableId="measurements-list">
-											{(provided) => (
-												<Stack
-													gap="xs"
-													{...provided.droppableProps}
-													ref={provided.innerRef}
-												>
-													{form.values.fitness.measurements.statistics.map(
-														(s, index) => (
-															<Draggable
-																index={index}
-																draggableId={`measurement-${index}`}
-																key={`measurement-${
-																	// biome-ignore lint/suspicious/noArrayIndexKey: index is unique
-																	index
-																}`}
-															>
-																{(provided, snapshot) => (
-																	<Paper
-																		p="xs"
-																		withBorder
-																		ref={provided.innerRef}
-																		{...provided.draggableProps}
-																		className={cn({
-																			[classes.itemDragging]:
-																				snapshot.isDragging,
-																		})}
-																	>
-																		<Group wrap="nowrap">
-																			<div
-																				{...provided.dragHandleProps}
-																				style={{
-																					height: "100%",
-																					cursor: "grab",
-																					display: "flex",
-																					alignItems: "center",
-																				}}
-																			>
-																				<IconGripVertical
-																					stroke={1.5}
-																					style={{
-																						width: rem(18),
-																						height: rem(18),
-																					}}
-																				/>
-																			</div>
-																			<TextInput
-																				size="xs"
-																				label="Name"
-																				value={s.name}
-																				disabled={!!isEditDisabled}
-																				onChange={(val) =>
-																					form.setFieldValue(
-																						"fitness.measurements.statistics",
-																						updateMeasurementStatistic(
-																							form.values.fitness.measurements
-																								.statistics,
-																							index,
-																							{ name: val.target.value },
-																						),
-																					)
-																				}
-																			/>
-																			<TextInput
-																				size="xs"
-																				label="Unit"
-																				value={s.unit || undefined}
-																				disabled={!!isEditDisabled}
-																				onChange={(val) =>
-																					form.setFieldValue(
-																						"fitness.measurements.statistics",
-																						updateMeasurementStatistic(
-																							form.values.fitness.measurements
-																								.statistics,
-																							index,
-																							{ unit: val.target.value },
-																						),
-																					)
-																				}
-																			/>
-																			<ActionIcon
-																				mt={14}
-																				size="xs"
-																				color="red"
-																				type="button"
-																				variant="outline"
-																				disabled={
-																					!!isEditDisabled ||
-																					form.values.fitness.measurements
-																						.statistics.length === 1
-																				}
-																				onClick={() =>
-																					form.setFieldValue(
-																						"fitness.measurements.statistics",
-																						removeMeasurementStatistic(
-																							form.values.fitness.measurements
-																								.statistics,
-																							index,
-																						),
-																					)
-																				}
-																			>
-																				<IconMinus />
-																			</ActionIcon>
-																		</Group>
-																	</Paper>
-																)}
-															</Draggable>
-														),
-													)}
-													{provided.placeholder}
-												</Stack>
-											)}
-										</Droppable>
-									</DragDropContext>
-								</Stack>
+								<MeasurementsSection
+									form={form}
+									isEditDisabled={isEditDisabled}
+								/>
 							</Stack>
 						</Tabs.Panel>
 					</Tabs>
@@ -834,6 +677,162 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const MeasurementsSection = (props: {
+	isEditDisabled: boolean;
+	form: ReturnType<typeof useForm<UserPreferences>>;
+}) => (
+	<Stack gap="xs">
+		<Group justify="space-between">
+			<Text size="sm">The measurements you want to keep track of</Text>
+			<Button
+				type="button"
+				size="compact-xs"
+				variant="outline"
+				onClick={() =>
+					props.form.setFieldValue(
+						"fitness.measurements.statistics",
+						addMeasurementStatistic(
+							props.form.values.fitness.measurements.statistics,
+						),
+					)
+				}
+			>
+				Add
+			</Button>
+		</Group>
+		<Text size="xs" c="dimmed">
+			Removing a measurement will hide its past values from history. If you add
+			it again, those values will show back up.
+		</Text>
+		<DragDropContext
+			onDragEnd={({ destination, source }) => {
+				if (!props.isEditDisabled) {
+					const newOrder = reorder(
+						props.form.values.fitness.measurements.statistics,
+						{
+							from: source.index,
+							to: destination?.index || 0,
+						},
+					);
+					props.form.setFieldValue("fitness.measurements.statistics", newOrder);
+				} else {
+					notifications.show(disabledNotificationContent);
+				}
+			}}
+		>
+			<Droppable droppableId="measurements-list">
+				{(provided) => (
+					<Stack gap="xs" {...provided.droppableProps} ref={provided.innerRef}>
+						{props.form.values.fitness.measurements.statistics.map(
+							(s, index) => (
+								<Draggable
+									index={index}
+									key={`measurement-${
+										// biome-ignore lint/suspicious/noArrayIndexKey: index is unique
+										index
+									}`}
+									draggableId={`measurement-${index}`}
+								>
+									{(provided, snapshot) => (
+										<Paper
+											p="xs"
+											withBorder
+											ref={provided.innerRef}
+											{...provided.draggableProps}
+											className={cn({
+												[classes.itemDragging]: snapshot.isDragging,
+											})}
+										>
+											<Group wrap="nowrap">
+												<div
+													{...provided.dragHandleProps}
+													style={{
+														height: "100%",
+														cursor: "grab",
+														display: "flex",
+														alignItems: "center",
+													}}
+												>
+													<IconGripVertical
+														stroke={1.5}
+														style={{
+															width: rem(18),
+															height: rem(18),
+														}}
+													/>
+												</div>
+												<TextInput
+													size="xs"
+													label="Name"
+													value={s.name}
+													disabled={!!props.isEditDisabled}
+													onChange={(val) =>
+														props.form.setFieldValue(
+															"fitness.measurements.statistics",
+															updateMeasurementStatistic(
+																props.form.values.fitness.measurements
+																	.statistics,
+																index,
+																{ name: val.target.value },
+															),
+														)
+													}
+												/>
+												<TextInput
+													size="xs"
+													label="Unit"
+													value={s.unit || undefined}
+													disabled={!!props.isEditDisabled}
+													onChange={(val) =>
+														props.form.setFieldValue(
+															"fitness.measurements.statistics",
+															updateMeasurementStatistic(
+																props.form.values.fitness.measurements
+																	.statistics,
+																index,
+																{ unit: val.target.value },
+															),
+														)
+													}
+												/>
+												<ActionIcon
+													mt={14}
+													size="xs"
+													color="red"
+													type="button"
+													variant="outline"
+													disabled={
+														!!props.isEditDisabled ||
+														props.form.values.fitness.measurements.statistics
+															.length === 1
+													}
+													onClick={() =>
+														props.form.setFieldValue(
+															"fitness.measurements.statistics",
+															removeMeasurementStatistic(
+																props.form.values.fitness.measurements
+																	.statistics,
+																index,
+															),
+														)
+													}
+												>
+													<IconMinus />
+												</ActionIcon>
+											</Group>
+										</Paper>
+									)}
+								</Draggable>
+							),
+						)}
+						{provided.placeholder}
+					</Stack>
+				)}
+			</Droppable>
+		</DragDropContext>
+	</Stack>
+);
 
 const EditDashboardElement = (props: {
 	index: number;
