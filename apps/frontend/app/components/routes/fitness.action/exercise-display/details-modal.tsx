@@ -48,11 +48,10 @@ interface ExerciseDetailsModalProps {
 
 export const ExerciseDetailsModal = (props: ExerciseDetailsModalProps) => {
 	const coreDetails = useCoreDetails();
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const [activeHistoryIdx, setActiveHistoryIdx] = useState(0);
-
 	const exerciseHistory = props.userExerciseDetails?.history;
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const images = useExerciseImages(props.exerciseDetails);
+	const [activeHistoryIdx, setActiveHistoryIdx] = useState(0);
 
 	return (
 		<Modal
