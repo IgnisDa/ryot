@@ -119,7 +119,11 @@ export const CreateOrUpdateMeasurementForm = (props: {
 										(s) => s.name === name,
 									);
 									const newStatistics = [...form.values.information.statistics];
-									if (idx !== -1) newStatistics[idx].value = v.toString();
+									if (idx !== -1)
+										newStatistics[idx] = {
+											...newStatistics[idx],
+											value: v.toString(),
+										};
 									else newStatistics.push({ name, value: v.toString() });
 
 									form.setFieldValue("information.statistics", newStatistics);
