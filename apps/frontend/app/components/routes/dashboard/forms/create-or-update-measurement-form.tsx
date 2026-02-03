@@ -103,27 +103,30 @@ export const CreateOrUpdateMeasurementForm = (props: {
 				/>
 				<TextInput label="Name" {...form.getInputProps("name")} />
 				<SimpleGrid cols={2} style={{ alignItems: "end" }}>
-					{userPreferences.fitness.measurements.statistics.map(({ name }) => (
-						<NumberInput
-							key={name}
-							decimalScale={3}
-							label={changeCase(snakeCase(name))}
-							value={
-								form.values.information.statistics.find((s) => s.name === name)
-									?.value
-							}
-							onChange={(v) => {
-								const idx = form.values.information.statistics.findIndex(
-									(s) => s.name === name,
-								);
-								const newStatistics = [...form.values.information.statistics];
-								if (idx !== -1) newStatistics[idx].value = v.toString();
-								else newStatistics.push({ name, value: v.toString() });
+					{userPreferences.fitness.measurements.statistics.map(
+						({ name, unit }) => (
+							<NumberInput
+								key={name}
+								decimalScale={3}
+								label={changeCase(snakeCase(name)) + (unit ? ` (${unit})` : "")}
+								value={
+									form.values.information.statistics.find(
+										(s) => s.name === name,
+									)?.value
+								}
+								onChange={(v) => {
+									const idx = form.values.information.statistics.findIndex(
+										(s) => s.name === name,
+									);
+									const newStatistics = [...form.values.information.statistics];
+									if (idx !== -1) newStatistics[idx].value = v.toString();
+									else newStatistics.push({ name, value: v.toString() });
 
-								form.setFieldValue("information.statistics", newStatistics);
-							}}
-						/>
-					))}
+									form.setFieldValue("information.statistics", newStatistics);
+								}}
+							/>
+						),
+					)}
 				</SimpleGrid>
 				<Textarea label="Comment" {...form.getInputProps("comment")} />
 				<Button
