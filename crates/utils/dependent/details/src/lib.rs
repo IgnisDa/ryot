@@ -235,6 +235,7 @@ pub async fn metadata_details(
                 podcast_specifics: model.podcast_specifics,
                 created_by_user_id: model.created_by_user_id,
                 video_game_specifics: model.video_game_specifics,
+                comic_book_specifics: model.comic_book_specifics,
                 external_identifiers: model.external_identifiers,
                 audio_book_specifics: model.audio_book_specifics,
                 visual_novel_specifics: model.visual_novel_specifics,

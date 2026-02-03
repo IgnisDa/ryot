@@ -20,9 +20,9 @@ use dependent_models::{ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput};
 use enum_models::{EntityLot, MediaLot, SeenState};
 use futures::{TryStreamExt, try_join};
 use media_models::{
-    AudioBookSpecifics, BookSpecifics, MovieSpecifics, MusicSpecifics, PodcastSpecifics,
-    SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics,
-    VisualNovelSpecifics,
+    AudioBookSpecifics, BookSpecifics, ComicBookSpecifics, MovieSpecifics, MusicSpecifics,
+    PodcastSpecifics, SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+    VideoGameSpecifics, VisualNovelSpecifics,
 };
 use rust_decimal::{Decimal, dec, prelude::ToPrimitive};
 use sea_orm::{
@@ -53,6 +53,7 @@ pub async fn recalculate_user_activities_and_summary(
         podcast_specifics: Option<PodcastSpecifics>,
         video_game_specifics: Option<VideoGameSpecifics>,
         audio_book_specifics: Option<AudioBookSpecifics>,
+        comic_book_specifics: Option<ComicBookSpecifics>,
         visual_novel_specifics: Option<VisualNovelSpecifics>,
         show_extra_information: Option<SeenShowExtraInformation>,
         podcast_extra_information: Option<SeenPodcastExtraInformation>,
@@ -188,6 +189,7 @@ pub async fn recalculate_user_activities_and_summary(
                 metadata::Column::MusicSpecifics,
                 metadata::Column::PodcastSpecifics,
                 metadata::Column::AudioBookSpecifics,
+                metadata::Column::ComicBookSpecifics,
                 metadata::Column::VideoGameSpecifics,
                 metadata::Column::VisualNovelSpecifics,
             ])
@@ -239,6 +241,10 @@ pub async fn recalculate_user_activities_and_summary(
                 if let Some(pages) = book_extra.pages {
                     activity.book_pages += pages;
                 }
+            } else if let Some(comic_book_extra) = seen.comic_book_specifics {
+                if let Some(pages) = comic_book_extra.page_count {
+                    activity.comic_book_pages += pages;
+                }
             } else if let Some(visual_novel_extra) = seen.visual_novel_specifics {
                 if let Some(runtime) = visual_novel_extra.length {
                     activity.visual_novel_duration += runtime;
@@ -259,6 +265,7 @@ pub async fn recalculate_user_activities_and_summary(
                 MediaLot::Podcast => activity.podcast_count += 1,
                 MediaLot::VideoGame => activity.video_game_count += 1,
                 MediaLot::AudioBook => activity.audio_book_count += 1,
+                MediaLot::ComicBook => activity.comic_book_count += 1,
                 MediaLot::VisualNovel => activity.visual_novel_count += 1,
             };
         }
@@ -432,6 +439,7 @@ pub async fn recalculate_user_activities_and_summary(
             + activity.music_count
             + activity.audio_book_count
             + activity.book_count
+            + activity.comic_book_count
             + activity.video_game_count
             + activity.visual_novel_count
             + activity.metadata_collection_count;

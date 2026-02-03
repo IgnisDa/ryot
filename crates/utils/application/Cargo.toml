@@ -8,14 +8,9 @@ anyhow = { workspace = true }
 axum = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
-openidconnect = { workspace = true }
-reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
-tracing = { workspace = true }
 
-common-utils = { workspace = true }
-config-definition = { workspace = true }
 media-models = { workspace = true }
 session-service = { workspace = true }
 supporting-service = { workspace = true }

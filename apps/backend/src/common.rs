@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
-use application_utils::{AuthContext, create_oidc_client};
+use application_utils::AuthContext;
 use async_graphql::{
     EmptySubscription, MergedObject, Schema,
     extensions::{Extension as GraphqlExtension, ExtensionContext, ExtensionFactory, NextExecute},
@@ -103,14 +103,12 @@ pub async fn create_app_dependencies(
     hp_application_job: JobStorage<HpApplicationJob>,
     single_application_job: JobStorage<SingleApplicationJob>,
 ) -> (Router, Arc<SupportingService>) {
-    let is_oidc_enabled = create_oidc_client(&config).await.is_some();
     let supporting_service = Arc::new(
         SupportingService::builder()
             .timezone(timezone)
             .db(&db.with_tracing())
             .config(config.clone())
             .log_file_path(log_file_path)
-            .is_oidc_enabled(is_oidc_enabled)
             .lp_application_job(lp_application_job)
             .mp_application_job(mp_application_job)
             .hp_application_job(hp_application_job)

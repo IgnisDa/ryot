@@ -17,9 +17,7 @@ import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { useAddEntityToCollections } from "~/lib/state/media";
 import type { Collection } from "../types";
 
-export const AddEntityToCollectionsForm = ({
-	closeAddEntityToCollectionsDrawer,
-}: {
+export const AddEntityToCollectionsForm = (props: {
 	closeAddEntityToCollectionsDrawer: () => void;
 }) => {
 	const userDetails = useUserDetails();
@@ -134,7 +132,7 @@ export const AddEntityToCollectionsForm = ({
 				});
 				refreshEntityDetails(addEntityToCollectionData.entityId);
 				form.clearSavedState();
-				closeAddEntityToCollectionsDrawer();
+				props.closeAddEntityToCollectionsDrawer();
 				events.addToCollection(addEntityToCollectionData.entityLot);
 			})}
 		>

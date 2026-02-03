@@ -279,9 +279,9 @@ dependencies = [
 
 [[package]]
 name = "apalis-sql"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02b9d5873918c664ffcd0768f5048a261cd83a1741eed80f96a77091e6dc3e47"
+checksum = "903ce2cbece579dc4ce90bcee4c0c677edf8fc02812681fa0501f0a0ad800f00"
 dependencies = [
  "apalis-core",
  "chrono",
@@ -292,9 +292,9 @@ dependencies = [
 
 [[package]]
 name = "apalis-sqlite"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97a5dc503ddc3d0ec25437b3d0f62170557d7daa2d57eccf5f21c5e36bcebeab"
+checksum = "9efb1428e9c9cb6fa8bc7939c2683042837f87474a2c527f4275e32a62a9f2a9"
 dependencies = [
  "apalis-codec",
  "apalis-core",
@@ -318,16 +318,11 @@ dependencies = [
  "axum",
  "chrono",
  "chrono-tz",
- "common-utils",
- "config-definition",
  "media-models",
- "openidconnect",
- "reqwest",
  "rust_decimal",
  "sea-orm",
  "session-service",
  "supporting-service",
- "tracing",
 ]
 
 [[package]]
@@ -2142,6 +2137,7 @@ dependencies = [
  "itertools 0.14.0",
  "itunes-provider",
  "nest_struct",
+ "oidc-utils",
  "reqwest",
  "sea-orm",
  "serde",
@@ -2375,6 +2371,7 @@ dependencies = [
  "listennotes-provider",
  "manga-updates-provider",
  "media-models",
+ "metron-provider",
  "music-brainz-provider",
  "myanimelist-provider",
  "openlibrary-provider",
@@ -4671,6 +4668,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 
 [[package]]
+name = "metron-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "config-definition",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "futures",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "serde",
+ "traits",
+]
+
+[[package]]
 name = "miette"
 version = "7.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5437,6 +5455,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6a622008b6e321afc04970976f62ee297fdbaa6f95318ca343e3eebb9648441"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "oidc-utils"
+version = "0.1.0"
+dependencies = [
+ "common-utils",
+ "config-definition",
+ "openidconnect",
+ "tracing",
 ]
 
 [[package]]
@@ -8709,7 +8737,6 @@ version = "0.1.0"
 dependencies = [
  "aes-gcm",
  "anyhow",
- "application-utils",
  "argon2",
  "cache-service",
  "chrono",
@@ -8730,6 +8757,7 @@ dependencies = [
  "media-models",
  "nanoid",
  "notification-service",
+ "oidc-utils",
  "openidconnect",
  "rand 0.9.2",
  "ring",

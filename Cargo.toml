@@ -16,7 +16,7 @@ apalis = { version = "=1.0.0-rc.3", features = [
 ] }
 apalis-codec = "=0.1.0-rc.3"
 apalis-cron = "=1.0.0-rc.2"
-apalis-sqlite = { version = "=1.0.0-rc.2", features = ["tokio"] }
+apalis-sqlite = { version = "=1.0.0-rc.3", features = ["tokio"] }
 argon2 = { version = "=0.6.0-rc.2", features = ["getrandom"] }
 askama = "=0.15.1"
 async-graphql = { version = "=7.0.17", features = [
@@ -57,7 +57,6 @@ eventsource-stream = "=0.2.3"
 flate2 = "=1.1.5"
 futures = "=0.3.31"
 hashbag = "=0.1.13"
-hex = "=0.4.3"
 http = "=1.4.0"
 indexmap = "=2.12.1"
 indoc = "=2.0.7"
@@ -179,6 +178,7 @@ config-macros = { path = "crates/config/macros" }
 custom-resolver = { path = "crates/resolvers/custom" }
 database-models = { path = "crates/models/database" }
 database-utils = { path = "crates/utils/database" }
+oidc-utils = { path = "crates/utils/oidc" }
 dependent-analytics-utils = { path = "crates/utils/dependent/analytics" }
 dependent-collection-utils = { path = "crates/utils/dependent/collection" }
 dependent-core-utils = { path = "crates/utils/dependent/core" }
@@ -225,6 +225,7 @@ itunes-provider = { path = "crates/providers/itunes" }
 jellyfin-importer-service = { path = "crates/services/importer/jellyfin" }
 listennotes-provider = { path = "crates/providers/listennotes" }
 manga-updates-provider = { path = "crates/providers/manga-updates" }
+metron-provider = { path = "crates/providers/metron" }
 media-models = { path = "crates/models/media" }
 mediatracker-importer-service = { path = "crates/services/importer/mediatracker" }
 migrations-sql = { path = "crates/migrations/sql" }
@@ -242,7 +243,6 @@ miscellaneous-media-translation-resolver = { path = "crates/resolvers/miscellane
 miscellaneous-metadata-operations-service = { path = "crates/services/miscellaneous/metadata-operations" }
 miscellaneous-metadata-resolver = { path = "crates/resolvers/miscellaneous/metadata" }
 miscellaneous-progress-service = { path = "crates/services/miscellaneous/progress" }
-miscellaneous-resolver = { path = "crates/resolvers/miscellaneous" }
 miscellaneous-review-service = { path = "crates/services/miscellaneous/review" }
 miscellaneous-search-resolver = { path = "crates/resolvers/miscellaneous/search" }
 miscellaneous-search-service = { path = "crates/services/miscellaneous/search" }
@@ -275,7 +275,6 @@ tvdb-provider = { path = "crates/providers/tvdb" }
 user-authentication-resolver = { path = "crates/resolvers/user/authentication" }
 user-management-resolver = { path = "crates/resolvers/user/management" }
 user-models = { path = "crates/models/user" }
-user-resolver = { path = "crates/resolvers/user" }
 user-service = { path = "crates/services/user" }
 user-services-resolver = { path = "crates/resolvers/user/services" }
 vndb-provider = { path = "crates/providers/vndb" }

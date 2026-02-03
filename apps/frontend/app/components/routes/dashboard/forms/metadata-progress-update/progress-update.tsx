@@ -4,9 +4,7 @@ import { useMetadataProgressUpdate } from "~/lib/state/media";
 import { MetadataInProgressUpdateForm } from "./in-progress-form";
 import { MetadataNewProgressUpdateForm } from "./new-progress-form";
 
-export const MetadataProgressUpdateForm = ({
-	closeMetadataProgressUpdateModal,
-}: {
+export const MetadataProgressUpdateForm = (props: {
 	closeMetadataProgressUpdateModal: () => void;
 }) => {
 	const { metadataToUpdate } = useMetadataProgressUpdate();
@@ -26,7 +24,7 @@ export const MetadataProgressUpdateForm = ({
 		);
 
 	const onSubmit = () => {
-		closeMetadataProgressUpdateModal();
+		props.closeMetadataProgressUpdateModal();
 	};
 
 	return (

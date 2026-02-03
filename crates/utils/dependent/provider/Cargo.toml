@@ -19,6 +19,7 @@ itunes-provider = { workspace = true }
 listennotes-provider = { workspace = true }
 manga-updates-provider = { workspace = true }
 media-models = { workspace = true }
+metron-provider = { workspace = true }
 myanimelist-provider = { workspace = true }
 music-brainz-provider = { workspace = true }
 openlibrary-provider = { workspace = true }

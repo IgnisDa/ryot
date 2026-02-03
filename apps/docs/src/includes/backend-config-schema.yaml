@@ -38,6 +38,18 @@ books:
     # @values "S" | "M" | "L"
     cover_image_size: "M"
 
+# Settings related to comic books.
+comic_books:
+  # Settings related to Metron.
+  metron:
+    # The password for the Metron API.
+    # @env COMIC_BOOK_METRON_PASSWORD
+    password: ""
+
+    # The username for the Metron API.
+    # @env COMIC_BOOK_METRON_USERNAME
+    username: ""
+
 # The database related settings.
 database:
   # The Postgres database connection string.
