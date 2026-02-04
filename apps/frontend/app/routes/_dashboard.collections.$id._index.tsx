@@ -135,12 +135,12 @@ export default function Page(props: { params: { id: string } }) {
 		useFiltersState(defaultQueryState);
 
 	const [
-		filtersModalOpened,
-		{ open: openFiltersModal, close: closeFiltersModal },
-	] = useDisclosure(false);
-	const [
 		presetModalOpened,
 		{ open: openPresetModal, close: closePresetModal },
+	] = useDisclosure(false);
+	const [
+		filtersModalOpened,
+		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 
 	invariant(collectionId);
@@ -278,9 +278,9 @@ export default function Page(props: { params: { id: string } }) {
 													</ActionIcon>
 													<FiltersModal
 														opened={filtersModalOpened}
+														resetFilters={resetFilters}
 														onSavePreset={openPresetModal}
 														closeFiltersModal={closeFiltersModal}
-														resetFilters={resetFilters}
 													>
 														<FiltersModalForm
 															filters={filters}
@@ -341,8 +341,8 @@ export default function Page(props: { params: { id: string } }) {
 								<Tabs.Panel value={TabNames.Actions}>
 									<SimpleGrid cols={{ base: 2, md: 3, lg: 4 }} spacing="lg">
 										<Button
-											variant="outline"
 											w="100%"
+											variant="outline"
 											onClick={() => {
 												setEntityToReview({
 													entityId: collectionId,
@@ -477,6 +477,7 @@ const FiltersModalForm = (props: {
 				Object.values(EntityLot).filter(
 					(o) =>
 						![
+							EntityLot.Genre,
 							EntityLot.Review,
 							EntityLot.Collection,
 							EntityLot.UserMeasurement,
