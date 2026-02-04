@@ -5,13 +5,16 @@ metadata provider. If you use [Komf](https://github.com/Snd-R/komf) or some simi
 metadata provider these urls will be populated automatically. If you don't, you will either
 need to manually add the manga to your collection or you can perform the following steps.
 
-1. Navigate to the manga and open the Edit tab
+1. Navigate to the book and open the Edit tab
 2. Navigate to the Links tab
-3. Create a link named `AniList` or `MyAnimeList` providing the respective url (not
-   case-sensitive)
+3. Create a link with one of the following names (not case-sensitive):
+   - `AniList` - for manga from AniList
+   - `MyAnimeList` - for manga from MyAnimeList
+   - `MangaUpdates` - for manga from MangaUpdates
+   - `OpenLibrary` - for books from Open Library
+   - `GoogleBooks` or `Google Books` - for books from Google Books
+   - `Hardcover` - for books from Hardcover
 4. On Ryot, create an integration and select Komga as the source
 5. Provide your Base URL. It should look something like this `https://komga.acme.com` or
    `http://127.0.0.1:25600`
-6. Provide your Username and Password.
-7. Provide your preferred metadata provider. Ryot will attempt the others if the preferred
-   is unavailable and will fallback to title search otherwise.
+6. Provide your API Key. You can generate one in Komga under User Settings > API Keys.

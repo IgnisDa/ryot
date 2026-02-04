@@ -1,7 +1,6 @@
 use async_graphql::{InputObject, SimpleObject, Union};
 use enum_models::{
-    IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
-    UserNotificationContentDiscriminants,
+    IntegrationProvider, MediaLot, NotificationPlatformLot, UserNotificationContentDiscriminants,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -81,10 +80,8 @@ pub struct IntegrationProviderSpecifics {
     pub audiobookshelf_token: Option<String>,
     pub audiobookshelf_base_url: Option<String>,
 
+    pub komga_api_key: Option<String>,
     pub komga_base_url: Option<String>,
-    pub komga_username: Option<String>,
-    pub komga_password: Option<String>,
-    pub komga_provider: Option<MediaSource>,
 
     pub radarr_api_key: Option<String>,
     pub radarr_profile_id: Option<i32>,

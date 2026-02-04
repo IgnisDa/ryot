@@ -245,7 +245,11 @@ export const DisplayCollectionToEntity = (props: {
 						<>
 							<Divider />
 							<Group justify="space-between">
-								<Text td="underline">
+								<Text
+									td={
+										hasUserAddedAdditionalInformation ? "underline" : undefined
+									}
+								>
 									{hasUserAddedAdditionalInformation
 										? "Additional Information"
 										: "No Additional Information"}

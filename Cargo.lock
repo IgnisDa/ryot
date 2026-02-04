@@ -2858,17 +2858,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "eventsource-stream"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74fef4569247a5f429d9156b9d0a2599914385dd189c539334c625d8099d90ab"
-dependencies = [
- "futures-core",
- "nom 7.1.3",
- "pin-project-lite",
-]
-
-[[package]]
 name = "exporter-resolver"
 version = "0.1.0"
 dependencies = [
@@ -4203,7 +4192,6 @@ dependencies = [
  "dependent-notification-utils",
  "dependent-provider-utils",
  "enum-models",
- "eventsource-stream",
  "external-models",
  "external-utils",
  "futures",
@@ -4220,7 +4208,6 @@ dependencies = [
  "serde",
  "serde_json",
  "supporting-service",
- "tokio",
  "tracing",
  "traits",
  "url",
@@ -4385,7 +4372,7 @@ dependencies = [
  "httpdate",
  "idna",
  "mime",
- "nom 8.0.0",
+ "nom",
  "percent-encoding",
  "quoted_printable",
  "rustls 0.23.35",
@@ -4738,12 +4725,6 @@ dependencies = [
  "mime",
  "unicase",
 ]
-
-[[package]]
-name = "minimal-lexical"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
@@ -5308,16 +5289,6 @@ dependencies = [
  "tempfile",
  "tracing",
  "zip",
-]
-
-[[package]]
-name = "nom"
-version = "7.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
-dependencies = [
- "memchr",
- "minimal-lexical",
 ]
 
 [[package]]
