@@ -96,7 +96,10 @@ async fn main() -> Result<()> {
         bail!("There was an error running the database migrations.");
     };
 
-    let mut store = SharedSqliteStorage::new(":memory:");
+    let jobs_directory =
+        PathBuf::from(get_temporary_directory()).join(format!("{PROJECT_NAME}_jobs"));
+    let mut store =
+        SharedSqliteStorage::new(&format!("sqlite:{}?mode=rwc", jobs_directory.display()));
     SqliteStorage::setup(store.pool()).await?;
 
     let lp_application_job_storage = store.make_shared()?;
