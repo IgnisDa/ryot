@@ -9,10 +9,16 @@ codegen-units = 1
 [workspace.dependencies]
 aes-gcm = "=0.10.3"
 anyhow = "=1.0.100"
-apalis = { version = "=0.7.4", features = ["catch-panic", "limit", "retry"] }
-askama = "=0.15.1"
-apalis-cron = "=0.7.4"
+apalis = { version = "=1.0.0-rc.3", features = [
+    "catch-panic",
+    "limit",
+    "retry",
+] }
+apalis-codec = "=0.1.0-rc.3"
+apalis-cron = "=1.0.0-rc.2"
+apalis-sqlite = { version = "=1.0.0-rc.3", features = ["tokio"] }
 argon2 = { version = "=0.6.0-rc.2", features = ["getrandom"] }
+askama = "=0.15.1"
 async-graphql = { version = "=7.0.17", features = [
     "chrono",
     "decimal",
@@ -30,6 +36,7 @@ chrono = "=0.4.42"
 chrono-tz = "=0.10.4"
 const-str = "=0.7.0"
 convert_case = "=0.10.0"
+cron = "=0.15.0"
 csv = "=1.4.0"
 data-encoding = "=2.9.0"
 derive_more = { version = "=2.1.0", features = [
@@ -49,7 +56,6 @@ enum_meta = "=0.7.0"
 flate2 = "=1.1.5"
 futures = "=0.3.31"
 hashbag = "=0.1.13"
-hex = "=0.4.3"
 http = "=1.4.0"
 indexmap = "=2.12.1"
 indoc = "=2.0.7"
@@ -129,7 +135,6 @@ syn = { version = "=2.0.111", features = ["full", "derive"] }
 tempfile = "=3.23.0"
 tokio = { version = "=1.48.0", features = ["full"] }
 tokio-util = { version = "=0.7.17", features = ["codec", "io"] }
-tower = "=0.5.2"
 totp-lite = "=2.0.1"
 tower-http = { version = "=0.6.8", features = ["catch-panic", "cors", "trace"] }
 tracing = { version = "=0.1.43", features = ["attributes"] }
@@ -155,6 +160,7 @@ config-macros = { path = "crates/config/macros" }
 custom-resolver = { path = "crates/resolvers/custom" }
 database-models = { path = "crates/models/database" }
 database-utils = { path = "crates/utils/database" }
+oidc-utils = { path = "crates/utils/oidc" }
 dependent-analytics-utils = { path = "crates/utils/dependent/analytics" }
 dependent-collection-utils = { path = "crates/utils/dependent/collection" }
 dependent-core-utils = { path = "crates/utils/dependent/core" }
@@ -201,6 +207,7 @@ itunes-provider = { path = "crates/providers/itunes" }
 jellyfin-importer-service = { path = "crates/services/importer/jellyfin" }
 listennotes-provider = { path = "crates/providers/listennotes" }
 manga-updates-provider = { path = "crates/providers/manga-updates" }
+metron-provider = { path = "crates/providers/metron" }
 media-models = { path = "crates/models/media" }
 mediatracker-importer-service = { path = "crates/services/importer/mediatracker" }
 migrations-sql = { path = "crates/migrations/sql" }
@@ -218,7 +225,6 @@ miscellaneous-media-translation-resolver = { path = "crates/resolvers/miscellane
 miscellaneous-metadata-operations-service = { path = "crates/services/miscellaneous/metadata-operations" }
 miscellaneous-metadata-resolver = { path = "crates/resolvers/miscellaneous/metadata" }
 miscellaneous-progress-service = { path = "crates/services/miscellaneous/progress" }
-miscellaneous-resolver = { path = "crates/resolvers/miscellaneous" }
 miscellaneous-review-service = { path = "crates/services/miscellaneous/review" }
 miscellaneous-search-resolver = { path = "crates/resolvers/miscellaneous/search" }
 miscellaneous-search-service = { path = "crates/services/miscellaneous/search" }
@@ -251,7 +257,6 @@ tvdb-provider = { path = "crates/providers/tvdb" }
 user-authentication-resolver = { path = "crates/resolvers/user/authentication" }
 user-management-resolver = { path = "crates/resolvers/user/management" }
 user-models = { path = "crates/models/user" }
-user-resolver = { path = "crates/resolvers/user" }
 user-service = { path = "crates/services/user" }
 user-services-resolver = { path = "crates/resolvers/user/services" }
 vndb-provider = { path = "crates/providers/vndb" }

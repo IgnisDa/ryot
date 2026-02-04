@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use anyhow::{Result, anyhow, bail};
-use application_utils::create_oidc_client;
 use media_models::OidcTokenOutput;
+use oidc_utils::create_oidc_client;
 use openidconnect::{
     AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse, core::CoreAuthenticationFlow,
 };

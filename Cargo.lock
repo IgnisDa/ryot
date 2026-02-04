@@ -223,47 +223,93 @@ checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "apalis"
-version = "0.7.4"
+version = "1.0.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "504d52557a16b7b202941660f339c9182910d498cac40f93d15f6b31e6bef290"
+checksum = "654dba3a7f6dbdae20497565000566f965f5c9cd959a3307a4b19579b58893f7"
 dependencies = [
  "apalis-core",
- "futures",
- "pin-project-lite",
- "serde",
+ "futures-util",
+ "pin-project",
  "thiserror 2.0.17",
  "tower",
  "tracing",
- "tracing-futures",
+]
+
+[[package]]
+name = "apalis-codec"
+version = "0.1.0-rc.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01fe27c12f034ae66557b93070b29828957700bc1976f831965420bc7f98fb4b"
+dependencies = [
+ "apalis-core",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
 name = "apalis-core"
-version = "0.7.4"
+version = "1.0.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3948d2051795c769e6a44a46549879af39d5e8e4fb113e0011cf99f7cd21b657"
+checksum = "9686303ff620f9f8a7aff29f18802e9c85294ffd6347fb4fae435954e20e25fb"
 dependencies = [
- "futures",
+ "futures-channel",
+ "futures-core",
+ "futures-sink",
  "futures-timer",
- "pin-project-lite",
+ "futures-util",
+ "pin-project",
  "serde",
  "thiserror 2.0.17",
- "tower",
- "ulid",
+ "tower-layer",
+ "tower-service",
+ "tracing",
 ]
 
 [[package]]
 name = "apalis-cron"
-version = "0.7.4"
+version = "1.0.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82ce16ed2870e0226b02b242ef7b552f015ee9592bb797c20b32fb37bd796e2d"
+checksum = "56f0eeb8ae0f072e3b25777687226963aef99ee23c9eacd6739be938c3457af2"
 dependencies = [
  "apalis-core",
- "async-stream",
  "chrono",
  "cron",
+ "futures-util",
+ "serde",
+ "ulid",
+]
+
+[[package]]
+name = "apalis-sql"
+version = "1.0.0-rc.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "903ce2cbece579dc4ce90bcee4c0c677edf8fc02812681fa0501f0a0ad800f00"
+dependencies = [
+ "apalis-core",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+]
+
+[[package]]
+name = "apalis-sqlite"
+version = "1.0.0-rc.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9efb1428e9c9cb6fa8bc7939c2683042837f87474a2c527f4275e32a62a9f2a9"
+dependencies = [
+ "apalis-codec",
+ "apalis-core",
+ "apalis-sql",
  "futures",
- "tower",
+ "log",
+ "pin-project",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror 2.0.17",
+ "tokio",
+ "ulid",
 ]
 
 [[package]]
@@ -274,11 +320,7 @@ dependencies = [
  "axum",
  "chrono",
  "chrono-tz",
- "common-utils",
- "config-definition",
  "media-models",
- "openidconnect",
- "reqwest",
  "rust_decimal",
  "sea-orm",
  "session-service",
@@ -992,6 +1034,7 @@ dependencies = [
  "anyhow",
  "apalis",
  "apalis-cron",
+ "apalis-sqlite",
  "application-utils",
  "async-graphql",
  "async-graphql-axum",
@@ -1003,6 +1046,7 @@ dependencies = [
  "collection-service",
  "common-utils",
  "config-definition",
+ "cron",
  "custom-resolver",
  "dependent-analytics-utils",
  "dependent-collection-utils",
@@ -2083,6 +2127,7 @@ dependencies = [
  "itertools 0.14.0",
  "itunes-provider",
  "nest_struct",
+ "oidc-utils",
  "reqwest",
  "sea-orm",
  "serde",
@@ -2320,6 +2365,7 @@ dependencies = [
  "listennotes-provider",
  "manga-updates-provider",
  "media-models",
+ "metron-provider",
  "music-brainz-provider",
  "myanimelist-provider",
  "openlibrary-provider",
@@ -4372,6 +4418,7 @@ version = "0.30.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2e99fb7a497b1e3339bc746195567ed8d3e24945ecd636e3619d20b9de9e9149"
 dependencies = [
+ "cc",
  "pkg-config",
  "vcpkg",
 ]
@@ -4600,6 +4647,27 @@ name = "memchr"
 version = "2.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
+
+[[package]]
+name = "metron-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "config-definition",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "futures",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "serde",
+ "traits",
+]
 
 [[package]]
 name = "miette"
@@ -5362,6 +5430,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6a622008b6e321afc04970976f62ee297fdbaa6f95318ca343e3eebb9648441"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "oidc-utils"
+version = "0.1.0"
+dependencies = [
+ "common-utils",
+ "config-definition",
+ "openidconnect",
+ "tracing",
 ]
 
 [[package]]
@@ -7542,7 +7620,6 @@ dependencies = [
  "cfg-if",
  "libc",
  "psm",
- "windows-sys 0.52.0",
  "windows-sys 0.59.0",
 ]
 
@@ -7707,6 +7784,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "apalis",
+ "apalis-codec",
+ "apalis-sqlite",
  "background-models",
  "bon",
  "chrono",
@@ -8320,6 +8399,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "470dbf6591da1b39d43c14523b2b469c86879a53e8b758c8e090a470fe7b1fbe"
 dependencies = [
  "rand 0.9.2",
+ "serde",
  "web-time",
 ]
 
@@ -8465,7 +8545,6 @@ version = "0.1.0"
 dependencies = [
  "aes-gcm",
  "anyhow",
- "application-utils",
  "argon2",
  "cache-service",
  "chrono",
@@ -8486,6 +8565,7 @@ dependencies = [
  "media-models",
  "nanoid",
  "notification-service",
+ "oidc-utils",
  "openidconnect",
  "rand 0.9.2",
  "ring",

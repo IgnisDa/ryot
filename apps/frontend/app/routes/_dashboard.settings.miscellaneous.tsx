@@ -197,7 +197,7 @@ const getJobDetails = (job: BackgroundJob) =>
 				] as const,
 		)
 		.with(
-			BackgroundJob.CalculateUserActivitiesAndSummary,
+			BackgroundJob.RecalculateUserActivitiesAndSummary,
 			() =>
 				[
 					<IconChartBar size={28} key={job} />,

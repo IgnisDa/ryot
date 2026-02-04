@@ -123,6 +123,7 @@ pub struct CreateOrUpdateUserIntegrationInput {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateUserNotificationPlatformInput {
     pub priority: Option<i32>,
+    pub device: Option<String>,
     pub chat_id: Option<String>,
     pub base_url: Option<String>,
     #[graphql(secret)]

@@ -102,8 +102,9 @@ pub async fn create_user_notification_platform(
             api_token: input.api_token.unwrap(),
         },
         NotificationPlatformLot::PushOver => NotificationPlatformSpecifics::PushOver {
-            key: input.api_token.unwrap(),
+            device: input.device,
             app_key: input.auth_header,
+            key: input.api_token.unwrap(),
         },
         NotificationPlatformLot::PushSafer => NotificationPlatformSpecifics::PushSafer {
             key: input.api_token.unwrap(),
@@ -133,8 +134,12 @@ pub async fn create_user_notification_platform(
         NotificationPlatformSpecifics::PushBullet { api_token } => {
             format!("API Token: {api_token}")
         }
-        NotificationPlatformSpecifics::PushOver { key, app_key } => {
-            format!("Key: {key}, App Key: {app_key:?}")
+        NotificationPlatformSpecifics::PushOver {
+            key,
+            device,
+            app_key,
+        } => {
+            format!("Key: {key}, App Key: {app_key:?}, Device: {device:?}")
         }
         NotificationPlatformSpecifics::PushSafer { key } => {
             format!("Key: {key}")

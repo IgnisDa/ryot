@@ -136,6 +136,7 @@ export default function Page() {
 			<Anchor
 				target="_blank"
 				referrerPolicy="no-referrer"
+				fz={{ base: "sm", lg: "md" }}
 				href={personDetails.data?.details.website}
 			>
 				Website

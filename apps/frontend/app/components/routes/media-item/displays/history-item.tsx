@@ -42,12 +42,12 @@ export const HistoryItem = (props: {
 	podcastVirtuosoRef: RefObject<VirtuosoHandle | null>;
 	reviewsVirtuosoRef: RefObject<VirtuosoHandle | null>;
 }) => {
-	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
-	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
+	const coreDetails = useCoreDetails();
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 	);
+	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
 	const [opened, { open, close }] = useDisclosure(false);
 	const showExtraInformation = props.history.showExtraInformation
 		? metadataDetails?.showSpecifics?.seasons

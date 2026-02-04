@@ -161,7 +161,7 @@ export interface UserMeasurement {
 }
 
 /** The different types of media that can be stored. */
-export type MediaLot = 'book' | 'show' | 'movie' | 'anime' | 'manga' | 'music' | 'podcast' | 'audio_book' | 'video_game' | 'visual_novel';
+export type MediaLot = 'book' | 'show' | 'movie' | 'anime' | 'manga' | 'music' | 'podcast' | 'audio_book' | 'video_game' | 'comic_book' | 'visual_novel';
 
 export type SeenState = 'dropped' | 'on_a_hold' | 'completed' | 'in_progress';
 
@@ -198,7 +198,7 @@ export interface ImportOrExportMetadataItemSeen {
 }
 
 /** The different sources (or providers) from which data can be obtained from. */
-export type MediaSource = 'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'music_brainz' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music';
+export type MediaSource = 'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'metron' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'music_brainz' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music';
 
 /** Details about a specific media item that needs to be imported or exported. */
 export interface ImportOrExportMetadataItem {
@@ -210,7 +210,7 @@ export interface ImportOrExportMetadataItem {
 	 * The type of media.
 	 *
 	 * @default 'book'
-	 * @type {'book' | 'show' | 'movie' | 'anime' | 'manga' | 'music' | 'podcast' | 'audio_book' | 'video_game' | 'visual_novel'}
+	 * @type {'book' | 'show' | 'movie' | 'anime' | 'manga' | 'music' | 'podcast' | 'audio_book' | 'video_game' | 'comic_book' | 'visual_novel'}
 	 */
 	lot: MediaLot;
 	/** The review history for the user. */
@@ -221,7 +221,7 @@ export interface ImportOrExportMetadataItem {
 	 * The source of media.
 	 *
 	 * @default 'custom'
-	 * @type {'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'music_brainz' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
+	 * @type {'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'metron' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'music_brainz' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
 	 */
 	source: MediaSource;
 	/** An string to help identify it in the original source. */
@@ -238,7 +238,7 @@ export interface ImportOrExportMetadataGroupItem {
 	 * The type of media.
 	 *
 	 * @default 'book'
-	 * @type {'book' | 'show' | 'movie' | 'anime' | 'manga' | 'music' | 'podcast' | 'audio_book' | 'video_game' | 'visual_novel'}
+	 * @type {'book' | 'show' | 'movie' | 'anime' | 'manga' | 'music' | 'podcast' | 'audio_book' | 'video_game' | 'comic_book' | 'visual_novel'}
 	 */
 	lot: MediaLot;
 	/** The review history for the user. */
@@ -247,7 +247,7 @@ export interface ImportOrExportMetadataGroupItem {
 	 * The source of media.
 	 *
 	 * @default 'custom'
-	 * @type {'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'music_brainz' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
+	 * @type {'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'metron' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'music_brainz' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
 	 */
 	source: MediaSource;
 	/** Name of the group. */
@@ -276,7 +276,7 @@ export interface ImportOrExportPersonItem {
 	 * The source of data.
 	 *
 	 * @default 'custom'
-	 * @type {'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'music_brainz' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
+	 * @type {'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'metron' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'music_brainz' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
 	 */
 	source: MediaSource;
 	/** The source specific data. */

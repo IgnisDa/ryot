@@ -178,8 +178,8 @@ const UserActions = (props: {
 	user: User;
 	setUrlDisplayData: (data: UrlDisplayData) => void;
 }) => {
-	const userDetails = useUserDetails();
 	const navigate = useNavigate();
+	const userDetails = useUserDetails();
 
 	const toggleUserStatusMutation = useMutation({
 		mutationFn: async (input: UpdateUserInput) => {

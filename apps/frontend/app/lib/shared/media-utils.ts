@@ -17,6 +17,7 @@ import {
 	IconHeadphones,
 	IconMicrophone,
 	IconMusic,
+	IconVocabulary,
 } from "@tabler/icons-react";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -27,12 +28,13 @@ export const getLot = (lot: unknown) => {
 	if (!lot) return undefined;
 	const newLot = (lot as string).toLowerCase();
 	return match(newLot)
+		.with("music", () => MediaLot.Music)
+		.with("books", "book", () => MediaLot.Book)
 		.with("anime", "animes", () => MediaLot.Anime)
 		.with("manga", "mangas", () => MediaLot.Manga)
-		.with("books", "book", () => MediaLot.Book)
 		.with("movies", "movie", () => MediaLot.Movie)
+		.with("podcast", "podcasts", () => MediaLot.Podcast)
 		.with("tv", "show", "shows", () => MediaLot.Show)
-		.with("music", () => MediaLot.Music)
 		.with(
 			"visual_novel",
 			"visualnovel",
@@ -56,7 +58,15 @@ export const getLot = (lot: unknown) => {
 			"audio_books",
 			() => MediaLot.AudioBook,
 		)
-		.with("podcast", "podcasts", () => MediaLot.Podcast)
+		.with(
+			"comics",
+			"comicbook",
+			"comic_book",
+			"comicbooks",
+			"comic book",
+			"comic_books",
+			() => MediaLot.ComicBook,
+		)
 		.otherwise(() => undefined);
 };
 
@@ -64,7 +74,7 @@ export const getVerb = (verb: Verb, lot: MediaLot) =>
 	match(verb)
 		.with(Verb.Read, () => {
 			return match(lot)
-				.with(MediaLot.Book, MediaLot.Manga, () => "read")
+				.with(MediaLot.Book, MediaLot.Manga, MediaLot.ComicBook, () => "read")
 				.with(
 					MediaLot.Movie,
 					MediaLot.Show,
@@ -79,9 +89,7 @@ export const getVerb = (verb: Verb, lot: MediaLot) =>
 					MediaLot.Podcast,
 					() => "play",
 				)
-				.otherwise(() => {
-					return "";
-				});
+				.exhaustive();
 		})
 		.otherwise(() => "");
 
@@ -96,14 +104,15 @@ export const getMetadataIcon = (lot: MediaLot) =>
 		.with(MediaLot.Show, () => IconDeviceDesktop)
 		.with(MediaLot.Podcast, () => IconMicrophone)
 		.with(MediaLot.AudioBook, () => IconHeadphones)
+		.with(MediaLot.ComicBook, () => IconVocabulary)
 		.with(MediaLot.VideoGame, () => IconBrandAppleArcade)
 		.exhaustive();
 
 export const getSetColor = (l: SetLot) =>
 	match(l)
-		.with(SetLot.WarmUp, () => "yellow")
-		.with(SetLot.Drop, () => "grape.6")
 		.with(SetLot.Failure, () => "red")
+		.with(SetLot.Drop, () => "grape.6")
+		.with(SetLot.WarmUp, () => "yellow")
 		.with(SetLot.Normal, () => "indigo.6")
 		.exhaustive();
 
@@ -139,20 +148,20 @@ export const formatRatingForDisplay = (
 	scale: UserReviewScale,
 ) =>
 	match(scale)
+		.with(UserReviewScale.OutOfTen, () => rating.toFixed(1))
+		.with(UserReviewScale.OutOfFive, () => rating.toFixed(1))
+		.with(UserReviewScale.ThreePointSmiley, () => rating.toFixed(2))
 		.with(UserReviewScale.OutOfHundred, () =>
 			Number.isInteger(rating)
 				? Math.round(rating).toString()
 				: rating.toFixed(1),
 		)
-		.with(UserReviewScale.OutOfTen, () => rating.toFixed(1))
-		.with(UserReviewScale.OutOfFive, () => rating.toFixed(1))
-		.with(UserReviewScale.ThreePointSmiley, () => rating.toFixed(2))
 		.exhaustive();
 
 export const getRatingUnitSuffix = (scale: UserReviewScale) =>
 	match(scale)
-		.with(UserReviewScale.OutOfHundred, () => "%")
 		.with(UserReviewScale.OutOfTen, () => "/10")
+		.with(UserReviewScale.OutOfHundred, () => "%")
 		.otherwise(() => undefined);
 
 export const getExerciseDetailsPath = (exerciseId: string) =>
@@ -172,18 +181,19 @@ export const getMetadataGroupDetailsPath = (groupId: string) =>
 type EntityColor = Record<MediaLot | (string & {}), MantineColor>;
 
 export const MediaColors: EntityColor = {
-	ANIME: "blue",
-	MUSIC: "indigo.2",
-	AUDIO_BOOK: "orange",
-	BOOK: "lime",
-	MANGA: "purple",
-	MOVIE: "cyan",
-	PODCAST: "yellow",
 	SHOW: "red",
-	VISUAL_NOVEL: "pink",
-	VIDEO_GAME: "teal",
-	WORKOUT: "violet",
+	BOOK: "lime",
+	MOVIE: "cyan",
+	ANIME: "blue",
+	MANGA: "purple",
+	MUSIC: "indigo.2",
+	PODCAST: "yellow",
 	REVIEW: "green.5",
+	WORKOUT: "violet",
+	VIDEO_GAME: "teal",
+	COMIC_BOOK: "grape",
+	AUDIO_BOOK: "orange",
+	VISUAL_NOVEL: "pink",
 	USER_MEASUREMENT: "indigo",
 };
 

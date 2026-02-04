@@ -97,8 +97,8 @@ export enum BackendError {
 }
 
 export enum BackgroundJob {
-  CalculateUserActivitiesAndSummary = 'CALCULATE_USER_ACTIVITIES_AND_SUMMARY',
   PerformBackgroundTasks = 'PERFORM_BACKGROUND_TASKS',
+  RecalculateUserActivitiesAndSummary = 'RECALCULATE_USER_ACTIVITIES_AND_SUMMARY',
   ReviseUserWorkouts = 'REVISE_USER_WORKOUTS',
   SyncIntegrationsData = 'SYNC_INTEGRATIONS_DATA',
   UpdateAllExercises = 'UPDATE_ALL_EXERCISES',
@@ -346,6 +346,15 @@ export type CollectionToEntityDetails = {
   rank: Scalars['Decimal']['output'];
 };
 
+export type ComicBookSpecifics = {
+  __typename?: 'ComicBookSpecifics';
+  pageCount?: Maybe<Scalars['Int']['output']>;
+};
+
+export type ComicBookSpecificsInput = {
+  pageCount?: InputMaybe<Scalars['Int']['input']>;
+};
+
 export type CoreDetails = {
   __typename?: 'CoreDetails';
   backendErrors: Array<BackendError>;
@@ -410,6 +419,7 @@ export type CreateCustomMetadataInput = {
   assets: EntityAssetsInput;
   audioBookSpecifics?: InputMaybe<AudioBookSpecificsInput>;
   bookSpecifics?: InputMaybe<BookSpecificsInput>;
+  comicBookSpecifics?: InputMaybe<ComicBookSpecificsInput>;
   creatorIds?: InputMaybe<Array<Scalars['String']['input']>>;
   description?: InputMaybe<Scalars['String']['input']>;
   genres?: InputMaybe<Array<Scalars['String']['input']>>;
@@ -501,6 +511,7 @@ export type CreateUserNotificationPlatformInput = {
   authHeader?: InputMaybe<Scalars['String']['input']>;
   baseUrl?: InputMaybe<Scalars['String']['input']>;
   chatId?: InputMaybe<Scalars['String']['input']>;
+  device?: InputMaybe<Scalars['String']['input']>;
   lot: NotificationPlatformLot;
   priority?: InputMaybe<Scalars['Int']['input']>;
 };
@@ -539,6 +550,7 @@ export type DailyUserActivityItem = {
   animeCount: Scalars['Int']['output'];
   audioBookCount: Scalars['Int']['output'];
   bookCount: Scalars['Int']['output'];
+  comicBookCount: Scalars['Int']['output'];
   day: Scalars['NaiveDate']['output'];
   mangaCount: Scalars['Int']['output'];
   movieCount: Scalars['Int']['output'];
@@ -548,6 +560,7 @@ export type DailyUserActivityItem = {
   totalAudioBookDuration: Scalars['Int']['output'];
   totalBookPages: Scalars['Int']['output'];
   totalCollectionReviewCount: Scalars['Int']['output'];
+  totalComicBookPages: Scalars['Int']['output'];
   totalCount: Scalars['Int']['output'];
   totalDuration: Scalars['Int']['output'];
   totalMetadataCount: Scalars['Int']['output'];
@@ -1021,6 +1034,7 @@ export type GraphqlMetadataDetails = {
   assets: EntityAssets;
   audioBookSpecifics?: Maybe<AudioBookSpecifics>;
   bookSpecifics?: Maybe<BookSpecifics>;
+  comicBookSpecifics?: Maybe<ComicBookSpecifics>;
   createdByUserId?: Maybe<Scalars['String']['output']>;
   creators: Array<MetadataCreatorsGroupedByRole>;
   description?: Maybe<Scalars['String']['output']>;
@@ -1346,6 +1360,7 @@ export enum MediaLot {
   Anime = 'ANIME',
   AudioBook = 'AUDIO_BOOK',
   Book = 'BOOK',
+  ComicBook = 'COMIC_BOOK',
   Manga = 'MANGA',
   Movie = 'MOVIE',
   Music = 'MUSIC',
@@ -1383,6 +1398,7 @@ export enum MediaSource {
   Itunes = 'ITUNES',
   Listennotes = 'LISTENNOTES',
   MangaUpdates = 'MANGA_UPDATES',
+  Metron = 'METRON',
   MusicBrainz = 'MUSIC_BRAINZ',
   Myanimelist = 'MYANIMELIST',
   Openlibrary = 'OPENLIBRARY',

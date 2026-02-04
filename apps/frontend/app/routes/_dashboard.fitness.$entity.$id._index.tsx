@@ -199,8 +199,8 @@ export default function Page() {
 		`MetadataConsumedOpened-${entityId}`,
 		false,
 	);
-	const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
 	const startWorkout = useGetWorkoutStarter();
+	const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
 	const { data: workoutData } = useUserWorkoutDetails(

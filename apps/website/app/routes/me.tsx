@@ -140,9 +140,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 };
 
 export default function Index() {
-	const loaderData = useLoaderData<typeof loader>();
-	const [paddle, setPaddle] = useState<Paddle>();
 	const fetcher = useFetcher();
+	const [paddle, setPaddle] = useState<Paddle>();
+	const loaderData = useLoaderData<typeof loader>();
 
 	const isCancelLoading = fetcher.state !== "idle";
 	const paddleCustomerId = loaderData.customerDetails.paddleCustomerId;

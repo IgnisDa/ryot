@@ -71,8 +71,8 @@ export const useOnboardingTour = () => {
 	const userPreferences = useUserPreferences();
 	const applicationEvents = useApplicationEvents();
 	const { setOpenedSidebarLinks } = useOpenedSidebarLinks();
-	const markUserOnboardingStatus = useMarkUserOnboardingTourStatus();
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
+	const markUserOnboardingStatus = useMarkUserOnboardingTourStatus();
 	const isOnboardingTourInProgress =
 		isNumber(tourState?.currentStepIndex) && !tourState?.isCompleted;
 

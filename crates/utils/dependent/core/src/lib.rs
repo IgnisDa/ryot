@@ -25,6 +25,7 @@ use igdb_provider::IgdbService;
 use itertools::Itertools;
 use itunes_provider::ITunesService;
 use nest_struct::nest_struct;
+use oidc_utils::create_oidc_client;
 use reqwest::header::{AUTHORIZATION, HeaderValue};
 use sea_orm::{Iterable, prelude::Date};
 use serde::{Deserialize, Serialize};
@@ -144,7 +145,8 @@ fn build_provider_language_information(
                 | MediaSource::GoogleBooks
                 | MediaSource::Listennotes
                 | MediaSource::Openlibrary
-                | MediaSource::MangaUpdates => vec![ProviderSupportedLanguageInformation {
+                | MediaSource::MangaUpdates
+                | MediaSource::Metron => vec![ProviderSupportedLanguageInformation {
                     value: "us".to_owned(),
                     label: "us".to_owned(),
                 }],
@@ -247,16 +249,17 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
                 &anilist_service,
                 &youtube_music_service,
             )?;
+            let oidc_enabled = create_oidc_client(&ss.config).await.is_some();
             let provider_specifics = build_provider_specifics(&igdb_service).await?;
 
             let core_details = CoreDetails {
+                oidc_enabled,
                 provider_specifics,
+                provider_languages,
                 exercise_parameters,
                 page_size: PAGE_SIZE,
-                provider_languages,
                 metadata_lot_source_mappings,
                 version: APP_VERSION.to_owned(),
-                oidc_enabled: ss.is_oidc_enabled,
                 metadata_group_source_lot_mappings,
                 file_storage_enabled: files_enabled,
                 frontend: ss.config.frontend.clone(),
@@ -266,9 +269,9 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
                 disable_telemetry: ss.config.disable_telemetry,
                 smtp_enabled: ss.config.server.smtp.is_enabled(),
                 signup_allowed: ss.config.users.allow_registration,
+                is_demo_instance: ss.config.server.is_demo_instance,
                 max_file_size_mb: ss.config.server.max_file_size_mb,
                 people_search_sources: PEOPLE_SEARCH_SOURCES.to_vec(),
-                is_demo_instance: ss.config.server.is_demo_instance,
                 local_auth_disabled: ss.config.users.disable_local_auth,
                 token_valid_for_days: ss.config.users.token_valid_for_days,
                 two_factor_backup_codes_count: TWO_FACTOR_BACKUP_CODES_COUNT,

@@ -271,6 +271,32 @@ impl VideoGameConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
+#[config(rename_all = "snake_case", env_prefix = "COMIC_BOOK_METRON_")]
+pub struct MetronConfig {
+    /// The username for the Metron API.
+    #[mask]
+    pub username: String,
+    /// The password for the Metron API.
+    #[mask]
+    pub password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
+#[config(rename_all = "snake_case")]
+pub struct ComicBookConfig {
+    /// Settings related to Metron.
+    #[setting(nested)]
+    #[mask_nested]
+    pub metron: MetronConfig,
+}
+
+impl ComicBookConfig {
+    pub fn is_enabled(&self) -> bool {
+        !self.metron.username.is_empty() && !self.metron.password.is_empty()
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "VISUAL_NOVEL_")]
 pub struct VisualNovelConfig {}
 
@@ -500,6 +526,10 @@ pub struct AppConfig {
     #[setting(nested)]
     #[mask_nested]
     pub video_games: VideoGameConfig,
+    /// Settings related to comic books.
+    #[setting(nested)]
+    #[mask_nested]
+    pub comic_books: ComicBookConfig,
     /// Settings related to audio books.
     #[setting(nested)]
     pub audio_books: AudioBookConfig,

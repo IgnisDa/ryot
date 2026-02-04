@@ -100,7 +100,12 @@ impl MediaProvider for ITunesService {
             .send()
             .await?;
         let details: SearchResponse = rsp.json().await?;
-        let ht = details.results.unwrap()[0].clone();
+        let ht = details
+            .results
+            .ok_or_else(|| anyhow!("No results found for podcast"))?
+            .into_iter()
+            .next()
+            .ok_or_else(|| anyhow!("Podcast not found"))?;
         let description = ht.description.clone();
         let creators = Vec::from_iter(ht.artist_name.clone())
             .into_iter()

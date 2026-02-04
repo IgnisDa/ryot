@@ -130,12 +130,13 @@ export const action = async ({ request }: Route.ActionArgs) => {
 const deleteSchema = z.object({ notificationId: z.string() });
 
 const createSchema = z.object({
-	lot: z.enum(NotificationPlatformLot),
 	chatId: z.string().optional(),
+	device: z.string().optional(),
 	baseUrl: z.string().optional(),
+	priority: z.number().optional(),
 	apiToken: z.string().optional(),
 	authHeader: z.string().optional(),
-	priority: z.number().optional(),
+	lot: z.enum(NotificationPlatformLot),
 });
 
 const updateSchema = z.object({
@@ -159,6 +160,7 @@ export default function Page() {
 
 	const createForm = useSavedForm<{
 		chatId?: string;
+		device?: string;
 		baseUrl?: string;
 		apiToken?: string;
 		priority?: number;
@@ -169,6 +171,7 @@ export default function Page() {
 		validate: { lot: (value) => (value ? null : "Please select a platform") },
 		initialValues: {
 			lot: "",
+			device: "",
 			chatId: "",
 			baseUrl: "",
 			apiToken: "",
@@ -258,6 +261,11 @@ export default function Page() {
 										<>
 											<TextInput label="User Key" required name="apiToken" />
 											<TextInput label="App Key" name="authHeader" />
+											<TextInput
+												name="device"
+												label="Device"
+												description="Device name or device group name to target"
+											/>
 										</>
 									))
 									.with(NotificationPlatformLot.PushSafer, () => (

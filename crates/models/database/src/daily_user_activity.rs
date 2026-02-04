@@ -48,6 +48,8 @@ pub struct Model {
     pub show_duration: i32,
     pub video_game_count: i32,
     pub video_game_duration: i32,
+    pub comic_book_count: i32,
+    pub comic_book_pages: i32,
     pub visual_novel_count: i32,
     pub visual_novel_duration: i32,
     pub workout_personal_bests: i32,

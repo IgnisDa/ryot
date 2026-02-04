@@ -50,9 +50,9 @@ import { convertThreePointSmileyToDecimal } from "../utils";
 export const ReviewEntityForm = (props: {
 	closeReviewEntityModal: () => void;
 }) => {
-	const userPreferences = useUserPreferences();
 	const events = useApplicationEvents();
 	const [entityToReview] = useReviewEntity();
+	const userPreferences = useUserPreferences();
 	const [{ data: metadataDetails }] = useMetadataDetails(
 		entityToReview?.entityId,
 		entityToReview?.entityLot === EntityLot.Metadata,

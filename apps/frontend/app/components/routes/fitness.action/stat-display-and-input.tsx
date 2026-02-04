@@ -57,8 +57,8 @@ export const StatInput = (props: {
 	stat: keyof WorkoutSetStatistic;
 	durationUnit?: ExerciseDurationUnit;
 }) => {
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	invariant(set);
 
 	const getDisplayValue = () => {

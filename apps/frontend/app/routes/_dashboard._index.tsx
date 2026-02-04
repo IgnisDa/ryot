@@ -277,12 +277,12 @@ export default function Page() {
 const RecommendationsSection = () => {
 	const coreDetails = useCoreDetails();
 
-	const expireCacheKey = useExpireCacheKeyMutation();
 	const { data, refetch, isFetching } = useQuery({
 		queryKey: queryFactory.media.userMetadataRecommendations().queryKey,
 		queryFn: () =>
 			clientGqlService.request(UserMetadataRecommendationsDocument),
 	});
+	const expireCacheKey = useExpireCacheKeyMutation();
 
 	return (
 		<>
