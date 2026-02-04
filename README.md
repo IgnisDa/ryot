@@ -87,8 +87,8 @@ Try the [live demo](https://demo.ryot.io/_s/acl_vUMPnPirkHlT) to explore the int
 - Monitor progress with detailed graphs
 
 <p align="center">
-  <img src="apps/website/public/features/current-workout.png" alt="Workout tracking" width="250">
-  <img src="apps/website/public/features/measurements-graph.png" alt="Measurements" width="250">
+  <img src="apps/website/public/features/measurements-graph.png" alt="Workout tracking" width="250">
+  <img src="apps/website/public/features/exercise-dataset.png" alt="Measurements" width="250">
 </p>
 
 ### Technical
