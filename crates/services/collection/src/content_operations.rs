@@ -173,8 +173,10 @@ pub async fn collection_contents(
                                     ),
                                 ))
                             }
+                            CollectionContentsSortBy::ProviderRating => {
+                                Expr::col((metadata::Entity, metadata::Column::ProviderRating))
+                            }
                             CollectionContentsSortBy::TimesConsumed
-                            | CollectionContentsSortBy::ProviderRating
                             | CollectionContentsSortBy::AssociatedEntityCount
                             | CollectionContentsSortBy::LastPerformed
                             | CollectionContentsSortBy::TimesPerformed => {
