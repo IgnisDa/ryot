@@ -3,8 +3,10 @@ import {
 	Box,
 	Button,
 	Container,
+	Divider,
 	Flex,
 	Group,
+	MultiSelect,
 	Select,
 	SimpleGrid,
 	Stack,
@@ -12,6 +14,7 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
@@ -22,13 +25,21 @@ import {
 	type CollectionRecommendationsInput,
 	EntityLot,
 	type EntityWithLot,
+	ExerciseEquipment,
+	ExerciseForce,
+	ExerciseLevel,
+	ExerciseLot,
+	ExerciseMechanic,
+	ExerciseMuscle,
 	FilterPresetContextType,
 	GraphqlSortOrder,
+	MediaGeneralFilter,
 	MediaLot,
+	MediaSource,
 	ReorderCollectionEntityDocument,
 	type ReorderCollectionEntityInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { cloneDeep, isNumber } from "@ryot/ts-utils";
+import { cloneDeep, isNumber, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
 	IconEdit,
@@ -41,6 +52,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	type inferParserType,
+	parseAsArrayOf,
 	parseAsInteger,
 	parseAsString,
 	parseAsStringEnum,
@@ -61,6 +73,7 @@ import {
 	FilterPresetModalManager,
 } from "~/components/common/filter-presets";
 import {
+	CollectionsFilter,
 	DebouncedSearchInput,
 	FiltersModal,
 	SortOrderToggle,
@@ -71,7 +84,7 @@ import { MetadataDisplayItem } from "~/components/media/display-items";
 import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
 import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
 import { useFiltersState } from "~/lib/hooks/filters/use-state";
-import { dayjsLib } from "~/lib/shared/date-utils";
+import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
 	useUserCollections,
@@ -84,11 +97,13 @@ import {
 	queryFactory,
 } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import { parseAsCollectionsFilter } from "~/lib/shared/validation";
 import {
 	useBulkEditCollection,
 	useCreateOrUpdateCollectionModal,
 } from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
+import { ApplicationTimeRange } from "~/lib/types";
 
 enum TabNames {
 	Actions = "actions",
@@ -102,14 +117,40 @@ const DEFAULT_TAB = TabNames.Contents;
 const defaultQueryState = {
 	page: parseAsInteger.withDefault(1),
 	query: parseAsString.withDefault(""),
+	endDateRange: parseAsString.withDefault(""),
+	startDateRange: parseAsString.withDefault(""),
+	collections: parseAsCollectionsFilter.withDefault([]),
 	entityLot: parseAsStringEnum(Object.values(EntityLot)),
 	metadataLot: parseAsStringEnum(Object.values(MediaLot)),
+	metadataSource: parseAsStringEnum(Object.values(MediaSource)),
+	metadataGeneral: parseAsStringEnum(Object.values(MediaGeneralFilter)),
 	orderBy: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(
 		GraphqlSortOrder.Desc,
 	),
 	sortBy: parseAsStringEnum(
 		Object.values(CollectionContentsSortBy),
 	).withDefault(CollectionContentsSortBy.LastUpdatedOn),
+	dateRange: parseAsStringEnum(Object.values(ApplicationTimeRange)).withDefault(
+		ApplicationTimeRange.AllTime,
+	),
+	exerciseTypes: parseAsArrayOf(
+		parseAsStringEnum(Object.values(ExerciseLot)),
+	).withDefault([]),
+	exerciseLevels: parseAsArrayOf(
+		parseAsStringEnum(Object.values(ExerciseLevel)),
+	).withDefault([]),
+	exerciseForces: parseAsArrayOf(
+		parseAsStringEnum(Object.values(ExerciseForce)),
+	).withDefault([]),
+	exerciseMuscles: parseAsArrayOf(
+		parseAsStringEnum(Object.values(ExerciseMuscle)),
+	).withDefault([]),
+	exerciseMechanics: parseAsArrayOf(
+		parseAsStringEnum(Object.values(ExerciseMechanic)),
+	).withDefault([]),
+	exerciseEquipments: parseAsArrayOf(
+		parseAsStringEnum(Object.values(ExerciseEquipment)),
+	).withDefault([]),
 };
 
 type FilterState = inferParserType<typeof defaultQueryState>;
@@ -160,7 +201,55 @@ export default function Page(props: { params: { id: string } }) {
 			search: { page: filters.page, query: filters.query },
 			filter: {
 				entityLot: filters.entityLot,
-				metadataLot: filters.metadataLot,
+				collections: filters.collections,
+				dateRange: {
+					endDate: filters.endDateRange || undefined,
+					startDate: filters.startDateRange || undefined,
+				},
+				metadata:
+					filters.metadataLot ||
+					filters.metadataSource ||
+					filters.metadataGeneral
+						? {
+								lot: filters.metadataLot,
+								source: filters.metadataSource,
+								general: filters.metadataGeneral,
+							}
+						: undefined,
+				exercise:
+					filters.exerciseTypes.length > 0 ||
+					filters.exerciseLevels.length > 0 ||
+					filters.exerciseForces.length > 0 ||
+					filters.exerciseMuscles.length > 0 ||
+					filters.exerciseMechanics.length > 0 ||
+					filters.exerciseEquipments.length > 0
+						? {
+								types:
+									filters.exerciseTypes.length > 0
+										? filters.exerciseTypes
+										: undefined,
+								levels:
+									filters.exerciseLevels.length > 0
+										? filters.exerciseLevels
+										: undefined,
+								forces:
+									filters.exerciseForces.length > 0
+										? filters.exerciseForces
+										: undefined,
+								muscles:
+									filters.exerciseMuscles.length > 0
+										? filters.exerciseMuscles
+										: undefined,
+								mechanics:
+									filters.exerciseMechanics.length > 0
+										? filters.exerciseMechanics
+										: undefined,
+								equipments:
+									filters.exerciseEquipments.length > 0
+										? filters.exerciseEquipments
+										: undefined,
+							}
+						: undefined,
 			},
 		}),
 		[collectionId, filters],
@@ -445,58 +534,186 @@ export default function Page(props: { params: { id: string } }) {
 const FiltersModalForm = (props: {
 	filters: FilterState;
 	updateFilter: FilterUpdateFunction<FilterState>;
-}) => (
-	<>
-		<Flex gap="xs" align="center">
-			<Select
-				w="100%"
-				value={props.filters.sortBy}
-				onChange={(v) =>
-					props.updateFilter("sortBy", v as CollectionContentsSortBy)
-				}
-				data={[
-					{
-						group: "Sort by",
-						items: convertEnumToSelectData(CollectionContentsSortBy),
-					},
-				]}
-			/>
-			{props.filters.sortBy !== CollectionContentsSortBy.Random ? (
-				<SortOrderToggle
-					currentOrder={props.filters.orderBy}
-					onOrderChange={(order) => props.updateFilter("orderBy", order)}
+}) => {
+	const coreDetails = useCoreDetails();
+
+	return (
+		<>
+			<Flex gap="xs" align="center">
+				<Select
+					w="100%"
+					value={props.filters.sortBy}
+					onChange={(v) =>
+						props.updateFilter("sortBy", v as CollectionContentsSortBy)
+					}
+					data={[
+						{
+							group: "Sort by",
+							items: convertEnumToSelectData(CollectionContentsSortBy),
+						},
+					]}
 				/>
-			) : null}
-		</Flex>
-		<Select
-			clearable
-			value={props.filters.entityLot}
-			placeholder="Select an entity type"
-			onChange={(v) => props.updateFilter("entityLot", v as EntityLot)}
-			data={convertEnumToSelectData(
-				Object.values(EntityLot).filter(
-					(o) =>
-						![
-							EntityLot.Genre,
-							EntityLot.Review,
-							EntityLot.Collection,
-							EntityLot.UserMeasurement,
-						].includes(o),
-				),
-			)}
-		/>
-		{props.filters.entityLot === EntityLot.Metadata ||
-		props.filters.entityLot === EntityLot.MetadataGroup ? (
+				{props.filters.sortBy !== CollectionContentsSortBy.Random ? (
+					<SortOrderToggle
+						currentOrder={props.filters.orderBy}
+						onOrderChange={(order) => props.updateFilter("orderBy", order)}
+					/>
+				) : null}
+			</Flex>
 			<Select
 				clearable
-				placeholder="Select a media type"
-				defaultValue={props.filters.metadataLot}
-				data={convertEnumToSelectData(MediaLot)}
-				onChange={(v) => props.updateFilter("metadataLot", v as MediaLot)}
+				value={props.filters.entityLot}
+				placeholder="Select an entity type"
+				onChange={(v) => props.updateFilter("entityLot", v as EntityLot)}
+				data={convertEnumToSelectData(
+					Object.values(EntityLot).filter(
+						(o) =>
+							![
+								EntityLot.Genre,
+								EntityLot.Review,
+								EntityLot.Collection,
+								EntityLot.UserMeasurement,
+							].includes(o),
+					),
+				)}
 			/>
-		) : null}
-	</>
-);
+			{props.filters.entityLot === EntityLot.Metadata ||
+			props.filters.entityLot === EntityLot.MetadataGroup ? (
+				<>
+					<Select
+						clearable
+						placeholder="Select a media type"
+						value={props.filters.metadataLot}
+						data={convertEnumToSelectData(MediaLot)}
+						onChange={(v) => props.updateFilter("metadataLot", v as MediaLot)}
+					/>
+					{props.filters.entityLot === EntityLot.Metadata ? (
+						<>
+							<Select
+								clearable
+								placeholder="Select a media source"
+								value={props.filters.metadataSource}
+								data={convertEnumToSelectData(MediaSource)}
+								onChange={(v) =>
+									props.updateFilter("metadataSource", v as MediaSource)
+								}
+							/>
+							<Select
+								clearable
+								placeholder="Select a general filter"
+								value={props.filters.metadataGeneral}
+								data={convertEnumToSelectData(MediaGeneralFilter)}
+								onChange={(v) =>
+									props.updateFilter("metadataGeneral", v as MediaGeneralFilter)
+								}
+							/>
+						</>
+					) : null}
+				</>
+			) : null}
+			{props.filters.entityLot === EntityLot.Exercise ? (
+				<Stack gap={2}>
+					{[
+						"exerciseTypes",
+						"exerciseLevels",
+						"exerciseForces",
+						"exerciseMuscles",
+						"exerciseMechanics",
+						"exerciseEquipments",
+					].map((f) => {
+						const singularKey = f
+							.replace("exercise", "")
+							.replace("Types", "type")
+							.replace("Levels", "level")
+							.replace("Forces", "force")
+							.replace("Muscles", "muscle")
+							.replace("Mechanics", "mechanic")
+							.replace("Equipments", "equipment")
+							.toLowerCase();
+						return (
+							<MultiSelect
+								key={f}
+								size="xs"
+								clearable
+								searchable
+								label={startCase(f.replace("exercise", ""))}
+								value={(props.filters as any)[f]}
+								onChange={(v) =>
+									props.updateFilter(f as keyof FilterState, v as any)
+								}
+								data={(coreDetails.exerciseParameters.filters as any)[
+									singularKey
+								].map((v: any) => ({
+									value: v,
+									label: startCase(snakeCase(v)),
+								}))}
+							/>
+						);
+					})}
+				</Stack>
+			) : null}
+			<Divider />
+			<CollectionsFilter
+				applied={props.filters.collections}
+				onFiltersChanged={(val) => props.updateFilter("collections", val)}
+			/>
+			<Divider />
+			<Stack gap="xs">
+				<Select
+					size="xs"
+					value={props.filters.dateRange}
+					description="Updated between time range"
+					data={Object.values(ApplicationTimeRange)}
+					onChange={(v) => {
+						const range = v as ApplicationTimeRange;
+						const startDateRange = getStartTimeFromRange(range);
+						props.updateFilter("dateRange", range);
+						if (range === ApplicationTimeRange.Custom) return;
+
+						props.updateFilter(
+							"startDateRange",
+							startDateRange?.format("YYYY-MM-DD") || "",
+						);
+						props.updateFilter(
+							"endDateRange",
+							range === ApplicationTimeRange.AllTime
+								? ""
+								: dayjsLib().format("YYYY-MM-DD"),
+						);
+					}}
+				/>
+				{props.filters.dateRange === ApplicationTimeRange.Custom ? (
+					<DatePickerInput
+						size="xs"
+						type="range"
+						description="Select custom dates"
+						value={
+							props.filters.startDateRange && props.filters.endDateRange
+								? [
+										new Date(props.filters.startDateRange),
+										new Date(props.filters.endDateRange),
+									]
+								: undefined
+						}
+						onChange={(v) => {
+							const start = v[0];
+							const end = v[1];
+							if (!start || !end) return;
+							props.updateFilter(
+								"startDateRange",
+								dayjsLib(start).format("YYYY-MM-DD"),
+							);
+							props.updateFilter(
+								"endDateRange",
+								dayjsLib(end).format("YYYY-MM-DD"),
+							);
+						}}
+					/>
+				) : null}
+			</Stack>
+		</>
+	);
+};
 
 const defaultRecommendationsState = {
 	recommendationsPage: parseAsInteger.withDefault(1),
