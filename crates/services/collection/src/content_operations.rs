@@ -84,6 +84,16 @@ pub async fn collection_contents(
                 )))
                 .to_owned();
 
+            let times_seen_subquery = Query::select()
+                .expr(Func::count(Expr::col((seen::Entity, seen::Column::Id))))
+                .from(Seen)
+                .and_where(Expr::col((seen::Entity, seen::Column::UserId)).eq(user_id))
+                .and_where(Expr::col((seen::Entity, seen::Column::MetadataId)).equals((
+                    collection_to_entity::Entity,
+                    collection_to_entity::Column::MetadataId,
+                )))
+                .to_owned();
+
             let exercise_last_performed_subquery = Query::select()
                 .expr(Expr::col((
                     user_to_entity::Entity,
@@ -262,7 +272,10 @@ pub async fn collection_contents(
                                 ))
                             }
                             CollectionContentsSortBy::TimesConsumed => {
-                                todo!("Not yet implemented")
+                                Expr::expr(SimpleExpr::SubQuery(
+                                    None,
+                                    Box::new(times_seen_subquery.into_sub_query_statement()),
+                                ))
                             }
                         },
                         graphql_to_db_order(sort.order),
