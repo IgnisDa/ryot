@@ -5,7 +5,11 @@ use application_utils::graphql_to_db_order;
 use common_models::{EntityWithLot, SearchDetails, UserLevelCacheKey};
 use database_models::{
     collection_to_entity, exercise, metadata, metadata_group, person,
-    prelude::{Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, Workout},
+    prelude::{
+        Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, Workout,
+        WorkoutTemplate,
+    },
+    workout_template,
 };
 use database_utils::{apply_columns_search, extract_pagination_params, item_reviews, user_by_id};
 use dependent_models::{
@@ -50,6 +54,7 @@ pub async fn collection_contents(
                 .left_join(Person)
                 .left_join(Exercise)
                 .left_join(Workout)
+                .left_join(WorkoutTemplate)
                 .filter(collection_to_entity::Column::CollectionId.eq(details.id.clone()))
                 .apply_if(search.query, |query, v| {
                     apply_columns_search(
@@ -60,6 +65,7 @@ pub async fn collection_contents(
                             Expr::col((metadata_group::Entity, metadata_group::Column::Title)),
                             Expr::col((person::Entity, person::Column::Name)),
                             Expr::col((exercise::Entity, exercise::Column::Id)),
+                            Expr::col((workout_template::Entity, workout_template::Column::Name)),
                         ],
                     )
                 })
@@ -101,6 +107,8 @@ pub async fn collection_contents(
                                 .into(),
                             Expr::col((person::Entity, person::Column::Name)).into(),
                             Expr::col((exercise::Entity, exercise::Column::Id)).into(),
+                            Expr::col((workout_template::Entity, workout_template::Column::Name))
+                                .into(),
                         ])),
                     },
                     graphql_to_db_order(sort.order),
