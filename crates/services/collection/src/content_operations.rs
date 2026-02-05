@@ -51,6 +51,20 @@ pub async fn collection_contents(
             let Some(details) = maybe_collection else {
                 bail!("Collection not found");
             };
+            if let Some(entity_lot) = filter.entity_lot
+                && matches!(
+                    entity_lot,
+                    EntityLot::Genre
+                        | EntityLot::Review
+                        | EntityLot::Collection
+                        | EntityLot::UserMeasurement
+                )
+            {
+                bail!(
+                    "Cannot filter by entity type {:?} as it cannot be added to collections",
+                    entity_lot
+                );
+            }
 
             let average_rating_subquery = Query::select()
                 .expr(Func::avg(Expr::col((
@@ -380,17 +394,7 @@ pub async fn collection_contents(
 
             query = query
                 .apply_if(filter.entity_lot, |query, v| {
-                    let f = match v {
-                        EntityLot::Genre
-                        | EntityLot::Review
-                        | EntityLot::Collection
-                        | EntityLot::UserMeasurement => {
-                            // These entity types cannot be directly added to collections
-                            unreachable!()
-                        }
-                        _ => v,
-                    };
-                    query.filter(collection_to_entity::Column::EntityLot.eq(f))
+                    query.filter(collection_to_entity::Column::EntityLot.eq(v))
                 })
                 .apply_if(filter.date_range, |outer_query, outer_value| {
                     outer_query
