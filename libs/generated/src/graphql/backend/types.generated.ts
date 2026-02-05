@@ -259,7 +259,11 @@ export type CollectionContents = {
 };
 
 export type CollectionContentsFilter = {
+  collections?: InputMaybe<Array<MediaCollectionFilter>>;
+  dateRange?: InputMaybe<ApplicationDateRangeInput>;
   entityLot?: InputMaybe<EntityLot>;
+  exercise?: InputMaybe<ExerciseCollectionContentsFilter>;
+  metadata?: InputMaybe<MetadataCollectionContentsFilter>;
   metadataLot?: InputMaybe<MediaLot>;
 };
 
@@ -271,11 +275,36 @@ export type CollectionContentsInput = {
 };
 
 export enum CollectionContentsSortBy {
+  /**
+   * Sort by associated entity count for people or number of parts for metadata groups.
+   * Only applicable to people and metadata groups.
+   */
+  AssociatedEntityCount = 'ASSOCIATED_ENTITY_COUNT',
+  /**
+   * Sort by date: publish date for metadata, birth date for people, end time for workouts,
+   * created on for workout templates. Applicable to all entity types.
+   */
   Date = 'DATE',
+  /** Sort by when the metadata was last consumed (most recent seen entry). Only applicable to metadata. */
+  LastConsumed = 'LAST_CONSUMED',
+  /** Sort by when the exercise was last performed by the user. Only applicable to exercises. */
+  LastPerformed = 'LAST_PERFORMED',
+  /** Sort by when the item was last updated in the collection. Applicable to all entity types. */
   LastUpdatedOn = 'LAST_UPDATED_ON',
+  /** Sort by the provider's rating for the metadata. Only applicable to metadata. */
+  ProviderRating = 'PROVIDER_RATING',
+  /** Sort randomly. Applicable to all entity types. */
   Random = 'RANDOM',
+  /** Sort by the rank assigned to the item in the collection. Applicable to all entity types. */
   Rank = 'RANK',
-  Title = 'TITLE'
+  /** Sort by how many times the metadata has been consumed (seen count). Only applicable to metadata. */
+  TimesConsumed = 'TIMES_CONSUMED',
+  /** Sort by how many times the exercise has been performed by the user. Only applicable to exercises. */
+  TimesPerformed = 'TIMES_PERFORMED',
+  /** Sort by title/name of the entity. Applicable to all entity types. */
+  Title = 'TITLE',
+  /** Sort by the user's average review rating for the entity. Applicable to all entity types. */
+  UserRating = 'USER_RATING'
 }
 
 export type CollectionContentsSortInput = {
@@ -778,6 +807,15 @@ export type ExerciseBestSetRecord = {
   exerciseIdx: Scalars['Int']['output'];
   setIdx: Scalars['Int']['output'];
   workoutId: Scalars['String']['output'];
+};
+
+export type ExerciseCollectionContentsFilter = {
+  equipments?: InputMaybe<Array<ExerciseEquipment>>;
+  forces?: InputMaybe<Array<ExerciseForce>>;
+  levels?: InputMaybe<Array<ExerciseLevel>>;
+  mechanics?: InputMaybe<Array<ExerciseMechanic>>;
+  muscles?: InputMaybe<Array<ExerciseMuscle>>;
+  types?: InputMaybe<Array<ExerciseLot>>;
 };
 
 export enum ExerciseDurationUnit {
@@ -1432,6 +1470,11 @@ export type MediaTranslationResult = MediaTranslationPending | MediaTranslationV
 export type MediaTranslationValue = {
   __typename?: 'MediaTranslationValue';
   value?: Maybe<Scalars['String']['output']>;
+};
+
+export type MetadataCollectionContentsFilter = {
+  general?: InputMaybe<MediaGeneralFilter>;
+  source?: InputMaybe<MediaSource>;
 };
 
 export type MetadataCreator = {

@@ -26,42 +26,62 @@ pub struct CreateOrUpdateCollectionInput {
 
 #[derive(Debug, Serialize, Hash, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum CollectionContentsSortBy {
+    /// Sort by the rank assigned to the item in the collection. Applicable to all entity types.
     #[default]
     Rank,
+    /// Sort by date: publish date for metadata, birth date for people, end time for workouts,
+    /// created on for workout templates. Applicable to all entity types.
     Date,
+    /// Sort by title/name of the entity. Applicable to all entity types.
     Title,
+    /// Sort randomly. Applicable to all entity types.
     Random,
+    /// Sort by the user's average review rating for the entity. Applicable to all entity types.
     UserRating,
-    LastUpdatedOn,
-    // For metadata
+    /// Sort by when the metadata was last consumed (most recent seen entry). Only applicable to metadata.
     LastConsumed,
+    /// Sort by when the item was last updated in the collection. Applicable to all entity types.
+    LastUpdatedOn,
+    /// Sort by how many times the metadata has been consumed (seen count). Only applicable to metadata.
     TimesConsumed,
-    ProviderRating,
-    // For people/groups
-    AssociatedEntityCount,
-    // For exercises
+    /// Sort by when the exercise was last performed by the user. Only applicable to exercises.
     LastPerformed,
+    /// Sort by the provider's rating for the metadata. Only applicable to metadata.
+    ProviderRating,
+    /// Sort by how many times the exercise has been performed by the user. Only applicable to exercises.
     TimesPerformed,
+    /// Sort by associated entity count for people or number of parts for metadata groups.
+    /// Only applicable to people and metadata groups.
+    AssociatedEntityCount,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize, InputObject, Default)]
+pub struct MetadataCollectionContentsFilter {
+    pub source: Option<MediaSource>,
+    pub general: Option<MediaGeneralFilter>,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize, InputObject, Default)]
+pub struct ExerciseCollectionContentsFilter {
+    pub types: Option<Vec<ExerciseLot>>,
+    pub levels: Option<Vec<ExerciseLevel>>,
+    pub forces: Option<Vec<ExerciseForce>>,
+    pub muscles: Option<Vec<ExerciseMuscle>>,
+    pub mechanics: Option<Vec<ExerciseMechanic>>,
+    pub equipments: Option<Vec<ExerciseEquipment>>,
 }
 
 #[skip_serializing_none]
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize, InputObject, Default)]
 pub struct CollectionContentsFilter {
-    // Existing filters
     pub entity_lot: Option<EntityLot>,
     pub metadata_lot: Option<MediaLot>,
-    // For metadata
-    pub source: Option<MediaSource>,
-    pub general: Option<MediaGeneralFilter>,
     pub date_range: Option<ApplicationDateRange>,
     pub collections: Option<Vec<MediaCollectionFilter>>,
-    // For exercise entities
-    pub exercise_types: Option<Vec<ExerciseLot>>,
-    pub exercise_levels: Option<Vec<ExerciseLevel>>,
-    pub exercise_forces: Option<Vec<ExerciseForce>>,
-    pub exercise_muscles: Option<Vec<ExerciseMuscle>>,
-    pub exercise_mechanics: Option<Vec<ExerciseMechanic>>,
-    pub exercise_equipments: Option<Vec<ExerciseEquipment>>,
+    pub metadata: Option<MetadataCollectionContentsFilter>,
+    pub exercise: Option<ExerciseCollectionContentsFilter>,
 }
 
 #[skip_serializing_none]
