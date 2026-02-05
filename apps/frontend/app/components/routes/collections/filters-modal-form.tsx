@@ -133,7 +133,7 @@ export const FiltersModalForm = (props: {
 						(filterKey) => {
 							const { singularKey, label } = exerciseFilterMapping[filterKey];
 							const filterData =
-								coreDetails.exerciseParameters.filters[singularKey];
+								coreDetails.exerciseParameters.filters[singularKey] ?? [];
 							return (
 								<MultiSelect
 									key={filterKey}
