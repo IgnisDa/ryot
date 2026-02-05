@@ -6,10 +6,10 @@ use common_models::{EntityWithLot, SearchDetails, UserLevelCacheKey};
 use database_models::{
     collection_to_entity, exercise, metadata, metadata_group, person,
     prelude::{
-        Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, Review, Workout,
-        WorkoutTemplate,
+        Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, Review, Seen,
+        Workout, WorkoutTemplate,
     },
-    review, workout, workout_template,
+    review, seen, workout, workout_template,
 };
 use database_utils::{apply_columns_search, extract_pagination_params, item_reviews, user_by_id};
 use dependent_models::{
@@ -70,6 +70,20 @@ pub async fn collection_contents(
                 )
                 .and_where(Expr::col((review::Entity, review::Column::Rating)).is_not_null())
                 .to_owned();
+
+            let max_seen_finished_on_subquery = Query::select()
+                .expr(Func::max(Expr::col((
+                    seen::Entity,
+                    seen::Column::FinishedOn,
+                ))))
+                .from(Seen)
+                .and_where(Expr::col((seen::Entity, seen::Column::UserId)).eq(user_id))
+                .and_where(Expr::col((seen::Entity, seen::Column::MetadataId)).equals((
+                    collection_to_entity::Entity,
+                    collection_to_entity::Column::MetadataId,
+                )))
+                .to_owned();
+
             let mut query = CollectionToEntity::find()
                 .left_join(Metadata)
                 .left_join(MetadataGroup)
@@ -151,7 +165,21 @@ pub async fn collection_contents(
                                     Box::new(average_rating_subquery.into_sub_query_statement()),
                                 ))
                             }
-                            _ => todo!(),
+                            CollectionContentsSortBy::LastConsumed => {
+                                Expr::expr(SimpleExpr::SubQuery(
+                                    None,
+                                    Box::new(
+                                        max_seen_finished_on_subquery.into_sub_query_statement(),
+                                    ),
+                                ))
+                            }
+                            CollectionContentsSortBy::TimesConsumed
+                            | CollectionContentsSortBy::ProviderRating
+                            | CollectionContentsSortBy::AssociatedEntityCount
+                            | CollectionContentsSortBy::LastPerformed
+                            | CollectionContentsSortBy::TimesPerformed => {
+                                todo!("Not yet implemented")
+                            }
                         },
                         graphql_to_db_order(sort.order),
                         NullOrdering::Last,
