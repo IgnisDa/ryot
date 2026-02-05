@@ -42,7 +42,9 @@ export const RecommendationsSection = (props: { collectionId: string }) => {
 			<DebouncedSearchInput
 				value={search.recommendationsQuery}
 				placeholder="Search recommendations"
-				onChange={(query) => updateFilters({ recommendationsQuery: query })}
+				onChange={(query) =>
+					updateFilters({ recommendationsPage: 1, recommendationsQuery: query })
+				}
 			/>
 			{recommendations ? (
 				recommendations.collectionRecommendations.details.totalItems > 0 ? (
