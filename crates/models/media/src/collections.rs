@@ -95,8 +95,7 @@ pub struct CollectionContentsFilter {
     /// Filter by entity type (e.g., Metadata, Person, Exercise, Workout, WorkoutTemplate, MetadataGroup).
     /// Note: Genre, Review, Collection, and UserMeasurement cannot be filtered as they cannot be added to collections.
     pub entity_lot: Option<EntityLot>,
-    /// Filter by date range. The interpretation depends on entity type: publish date for metadata,
-    /// birth date for people, end time for workouts, created on for workout templates.
+    /// Filter by date range based on collection entry update time (LastUpdatedOn).
     pub date_range: Option<ApplicationDateRange>,
     /// Filter by presence in other collections. Use to find items that are present in or absent from specified collections.
     /// Multiple filters can be combined with AND/OR strategies.

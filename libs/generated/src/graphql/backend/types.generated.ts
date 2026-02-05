@@ -268,10 +268,7 @@ export type CollectionContentsFilter = {
    * Multiple filters can be combined with AND/OR strategies.
    */
   collections?: InputMaybe<Array<MediaCollectionFilter>>;
-  /**
-   * Filter by date range. The interpretation depends on entity type: publish date for metadata,
-   * birth date for people, end time for workouts, created on for workout templates.
-   */
+  /** Filter by date range based on collection entry update time (LastUpdatedOn). */
   dateRange?: InputMaybe<ApplicationDateRangeInput>;
   /**
    * Filter by entity type (e.g., Metadata, Person, Exercise, Workout, WorkoutTemplate, MetadataGroup).
