@@ -48,11 +48,11 @@ export function ContentsTabPanel(props: ContentsTabPanelProps) {
 						<DebouncedSearchInput
 							value={props.filters.query}
 							placeholder="Search in the collection"
-							onChange={(query) => props.updateFilters({ query })}
+							onChange={(query) => props.updateFilters({ page: 1, query })}
 						/>
 						<ActionIcon
-							color={props.haveFiltersChanged ? "blue" : "gray"}
 							onClick={() => props.openFiltersModal()}
+							color={props.haveFiltersChanged ? "blue" : "gray"}
 						>
 							<IconFilter size={24} />
 						</ActionIcon>
