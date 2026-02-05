@@ -48,6 +48,28 @@ pub async fn collection_contents(
             let Some(details) = maybe_collection else {
                 bail!("Collection not found");
             };
+
+            let average_rating_subquery = Query::select()
+                .expr(Func::avg(Expr::col((
+                    review::Entity,
+                    review::Column::Rating,
+                ))))
+                .from(Review)
+                .and_where(Expr::col((review::Entity, review::Column::UserId)).eq(user_id))
+                .and_where(
+                    Expr::col((review::Entity, review::Column::EntityId)).equals((
+                        collection_to_entity::Entity,
+                        collection_to_entity::Column::EntityId,
+                    )),
+                )
+                .and_where(
+                    Expr::col((review::Entity, review::Column::EntityLot)).equals((
+                        collection_to_entity::Entity,
+                        collection_to_entity::Column::EntityLot,
+                    )),
+                )
+                .and_where(Expr::col((review::Entity, review::Column::Rating)).is_not_null())
+                .to_owned();
             let mut query = CollectionToEntity::find()
                 .left_join(Metadata)
                 .left_join(MetadataGroup)
@@ -90,75 +112,54 @@ pub async fn collection_contents(
                 });
 
             query = match sort.by {
-                CollectionContentsSortBy::UserRating => {
-                    let average_rating_subquery = Query::select()
-                        .expr(Func::avg(Expr::col((
-                            review::Entity,
-                            review::Column::Rating,
-                        ))))
-                        .from(Review)
-                        .and_where(Expr::col((review::Entity, review::Column::UserId)).eq(user_id))
-                        .and_where(
-                            Expr::col((review::Entity, review::Column::EntityId)).equals((
-                                collection_to_entity::Entity,
-                                collection_to_entity::Column::EntityId,
-                            )),
-                        )
-                        .and_where(
-                            Expr::col((review::Entity, review::Column::EntityLot)).equals((
-                                collection_to_entity::Entity,
-                                collection_to_entity::Column::EntityLot,
-                            )),
-                        )
-                        .and_where(
-                            Expr::col((review::Entity, review::Column::Rating)).is_not_null(),
-                        )
-                        .to_owned();
-
-                    query
-                        .order_by_with_nulls(
-                            Expr::expr(SimpleExpr::SubQuery(
-                                None,
-                                Box::new(average_rating_subquery.into_sub_query_statement()),
-                            )),
-                            graphql_to_db_order(sort.order),
-                            NullOrdering::Last,
-                        )
-                        .order_by(collection_to_entity::Column::Rank, sea_orm::Order::Asc)
-                }
-                _ => query.order_by(
-                    match sort.by {
-                        CollectionContentsSortBy::Rank => {
-                            Expr::col(collection_to_entity::Column::Rank)
-                        }
-                        CollectionContentsSortBy::Random => Expr::expr(Func::random()),
-                        CollectionContentsSortBy::LastUpdatedOn => {
-                            Expr::col(collection_to_entity::Column::LastUpdatedOn)
-                        }
-                        CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
-                            Expr::col((metadata::Entity, metadata::Column::PublishDate)).into(),
-                            Expr::col((person::Entity, person::Column::BirthDate)).into(),
-                            Expr::col((workout::Entity, workout::Column::EndTime)).into(),
-                            Expr::col((
-                                workout_template::Entity,
-                                workout_template::Column::CreatedOn,
-                            ))
-                            .into(),
-                        ])),
-                        CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
-                            Expr::col((metadata::Entity, metadata::Column::Title)).into(),
-                            Expr::col((metadata_group::Entity, metadata_group::Column::Title))
+                _ => query
+                    .order_by_with_nulls(
+                        match sort.by {
+                            CollectionContentsSortBy::Rank => {
+                                Expr::col(collection_to_entity::Column::Rank)
+                            }
+                            CollectionContentsSortBy::Random => Expr::expr(Func::random()),
+                            CollectionContentsSortBy::LastUpdatedOn => {
+                                Expr::col(collection_to_entity::Column::LastUpdatedOn)
+                            }
+                            CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
+                                Expr::col((metadata::Entity, metadata::Column::PublishDate)).into(),
+                                Expr::col((person::Entity, person::Column::BirthDate)).into(),
+                                Expr::col((workout::Entity, workout::Column::EndTime)).into(),
+                                Expr::col((
+                                    workout_template::Entity,
+                                    workout_template::Column::CreatedOn,
+                                ))
                                 .into(),
-                            Expr::col((person::Entity, person::Column::Name)).into(),
-                            Expr::col((exercise::Entity, exercise::Column::Id)).into(),
-                            Expr::col((workout::Entity, workout::Column::Name)).into(),
-                            Expr::col((workout_template::Entity, workout_template::Column::Name))
+                            ])),
+                            CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
+                                Expr::col((metadata::Entity, metadata::Column::Title)).into(),
+                                Expr::col((metadata_group::Entity, metadata_group::Column::Title))
+                                    .into(),
+                                Expr::col((person::Entity, person::Column::Name)).into(),
+                                Expr::col((exercise::Entity, exercise::Column::Id)).into(),
+                                Expr::col((workout::Entity, workout::Column::Name)).into(),
+                                Expr::col((
+                                    workout_template::Entity,
+                                    workout_template::Column::Name,
+                                ))
                                 .into(),
-                        ])),
-                        CollectionContentsSortBy::UserRating => unreachable!(),
-                    },
-                    graphql_to_db_order(sort.order),
-                ),
+                            ])),
+                            CollectionContentsSortBy::UserRating => {
+                                Expr::expr(SimpleExpr::SubQuery(
+                                    None,
+                                    Box::new(average_rating_subquery.into_sub_query_statement()),
+                                ))
+                            }
+                            _ => todo!(),
+                        },
+                        graphql_to_db_order(sort.order),
+                        NullOrdering::Last,
+                    )
+                    .order_by(
+                        collection_to_entity::Column::LastUpdatedOn,
+                        sea_orm::Order::Desc,
+                    ),
             };
 
             let paginator = query.paginate(&ss.db, take);
