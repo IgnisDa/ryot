@@ -202,8 +202,8 @@ export const FiltersModalForm = (props: {
 								: undefined
 						}
 						onChange={(v) => {
-							const start = v[0];
 							const end = v[1];
+							const start = v[0];
 							if (!start || !end) return;
 							props.updateFilter(
 								"startDateRange",
