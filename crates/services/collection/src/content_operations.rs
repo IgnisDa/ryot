@@ -6,10 +6,10 @@ use common_models::{EntityWithLot, SearchDetails, UserLevelCacheKey};
 use database_models::{
     collection_to_entity, exercise, metadata, metadata_group, person,
     prelude::{
-        Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, Workout,
+        Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, Review, Workout,
         WorkoutTemplate,
     },
-    workout, workout_template,
+    review, workout, workout_template,
 };
 use database_utils::{apply_columns_search, extract_pagination_params, item_reviews, user_by_id};
 use dependent_models::{
@@ -21,7 +21,7 @@ use media_models::CollectionContentsSortBy;
 use sea_orm::{
     ColumnTrait, EntityTrait, ItemsAndPagesNumber, PaginatorTrait, QueryFilter, QueryOrder,
     QueryTrait,
-    sea_query::{Condition, Expr, Func},
+    sea_query::{Condition, Expr, Func, NullOrdering, Query, SimpleExpr},
 };
 use supporting_service::SupportingService;
 
@@ -48,7 +48,7 @@ pub async fn collection_contents(
             let Some(details) = maybe_collection else {
                 bail!("Collection not found");
             };
-            let paginator = CollectionToEntity::find()
+            let mut query = CollectionToEntity::find()
                 .left_join(Metadata)
                 .left_join(MetadataGroup)
                 .left_join(Person)
@@ -87,8 +87,46 @@ pub async fn collection_contents(
                         _ => v,
                     };
                     query.filter(collection_to_entity::Column::EntityLot.eq(f))
-                })
-                .order_by(
+                });
+
+            query = match sort.by {
+                CollectionContentsSortBy::UserRating => {
+                    let average_rating_subquery = Query::select()
+                        .expr(Func::avg(Expr::col((
+                            review::Entity,
+                            review::Column::Rating,
+                        ))))
+                        .from(Review)
+                        .and_where(Expr::col((review::Entity, review::Column::UserId)).eq(user_id))
+                        .and_where(
+                            Expr::col((review::Entity, review::Column::EntityId)).equals((
+                                collection_to_entity::Entity,
+                                collection_to_entity::Column::EntityId,
+                            )),
+                        )
+                        .and_where(
+                            Expr::col((review::Entity, review::Column::EntityLot)).equals((
+                                collection_to_entity::Entity,
+                                collection_to_entity::Column::EntityLot,
+                            )),
+                        )
+                        .and_where(
+                            Expr::col((review::Entity, review::Column::Rating)).is_not_null(),
+                        )
+                        .to_owned();
+
+                    query
+                        .order_by_with_nulls(
+                            Expr::expr(SimpleExpr::SubQuery(
+                                None,
+                                Box::new(average_rating_subquery.into_sub_query_statement()),
+                            )),
+                            graphql_to_db_order(sort.order),
+                            NullOrdering::Last,
+                        )
+                        .order_by(collection_to_entity::Column::Rank, sea_orm::Order::Asc)
+                }
+                _ => query.order_by(
                     match sort.by {
                         CollectionContentsSortBy::Rank => {
                             Expr::col(collection_to_entity::Column::Rank)
@@ -117,10 +155,13 @@ pub async fn collection_contents(
                             Expr::col((workout_template::Entity, workout_template::Column::Name))
                                 .into(),
                         ])),
+                        CollectionContentsSortBy::UserRating => unreachable!(),
                     },
                     graphql_to_db_order(sort.order),
-                )
-                .paginate(&ss.db, take);
+                ),
+            };
+
+            let paginator = query.paginate(&ss.db, take);
             let mut items = vec![];
             let ItemsAndPagesNumber {
                 number_of_items,
