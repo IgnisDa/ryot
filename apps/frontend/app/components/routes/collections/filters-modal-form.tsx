@@ -34,12 +34,12 @@ const exerciseFilterMapping: Record<
 	ExerciseFilterKey,
 	{ singularKey: ExerciseFiltersKey; label: string }
 > = {
-	exerciseTypes: { singularKey: "type", label: "Types" },
-	exerciseLevels: { singularKey: "level", label: "Levels" },
-	exerciseForces: { singularKey: "force", label: "Forces" },
-	exerciseMuscles: { singularKey: "muscle", label: "Muscles" },
-	exerciseMechanics: { singularKey: "mechanic", label: "Mechanics" },
-	exerciseEquipments: { singularKey: "equipment", label: "Equipments" },
+	exerciseTypes: { label: "Types", singularKey: "type" },
+	exerciseLevels: { label: "Levels", singularKey: "level" },
+	exerciseForces: { label: "Forces", singularKey: "force" },
+	exerciseMuscles: { label: "Muscles", singularKey: "muscle" },
+	exerciseMechanics: { label: "Mechanics", singularKey: "mechanic" },
+	exerciseEquipments: { label: "Equipments", singularKey: "equipment" },
 };
 
 export const FiltersModalForm = (props: {
