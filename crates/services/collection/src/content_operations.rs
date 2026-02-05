@@ -24,9 +24,65 @@ use media_models::{
 use sea_orm::{
     ColumnTrait, Condition, EntityTrait, ItemsAndPagesNumber, PaginatorTrait, QueryFilter,
     QueryOrder, QueryTrait,
-    sea_query::{Expr, Func, NullOrdering, PgFunc, Query, SimpleExpr},
+    sea_query::{Expr, Func, NullOrdering, PgFunc, Query, SelectStatement, SimpleExpr},
 };
 use supporting_service::SupportingService;
+
+fn build_seen_exists_query(user_id: &str, state: Option<SeenState>) -> SelectStatement {
+    let mut query = Query::select()
+        .expr(Expr::val(1))
+        .from(Seen)
+        .and_where(Expr::col((seen::Entity, seen::Column::UserId)).eq(user_id))
+        .and_where(Expr::col((seen::Entity, seen::Column::MetadataId)).equals((
+            collection_to_entity::Entity,
+            collection_to_entity::Column::MetadataId,
+        )))
+        .to_owned();
+
+    if let Some(state) = state {
+        query = query
+            .and_where(Expr::col((seen::Entity, seen::Column::State)).eq(state))
+            .to_owned();
+    }
+
+    query
+}
+
+fn build_review_rating_exists_query(user_id: &str) -> SelectStatement {
+    Query::select()
+        .expr(Expr::val(1))
+        .from(Review)
+        .and_where(Expr::col((review::Entity, review::Column::UserId)).eq(user_id))
+        .and_where(
+            Expr::col((review::Entity, review::Column::MetadataId)).equals((
+                collection_to_entity::Entity,
+                collection_to_entity::Column::MetadataId,
+            )),
+        )
+        .and_where(Expr::col((review::Entity, review::Column::Rating)).is_not_null())
+        .to_owned()
+}
+
+fn build_collection_membership_exists_query(collection_id: &str, user_id: &str) -> SelectStatement {
+    Query::select()
+        .expr(Expr::val(1))
+        .from(CollectionEntityMembership)
+        .and_where(collection_entity_membership::Column::OriginCollectionId.eq(collection_id))
+        .and_where(collection_entity_membership::Column::UserId.eq(user_id))
+        .and_where(
+            Expr::col(collection_entity_membership::Column::EntityId).equals((
+                collection_to_entity::Entity,
+                collection_to_entity::Column::EntityId,
+            )),
+        )
+        .and_where(
+            Expr::col(collection_entity_membership::Column::EntityLot).equals((
+                collection_to_entity::Entity,
+                collection_to_entity::Column::EntityLot,
+            )),
+        )
+        .to_owned()
+}
 
 pub async fn collection_contents(
     user_id: &String,
@@ -196,135 +252,63 @@ pub async fn collection_contents(
                         query.filter(Expr::col((metadata::Entity, metadata::Column::Source)).eq(v))
                     })
                     .apply_if(metadata_filter.general, |query, v| {
-                        let filter_expression: SimpleExpr = match v {
-                            MediaGeneralFilter::Dropped => Expr::exists(
-                                Query::select()
-                                    .expr(Expr::val(1))
-                                    .from(Seen)
-                                    .and_where(
-                                        Expr::col((seen::Entity, seen::Column::UserId)).eq(user_id),
-                                    )
-                                    .and_where(
-                                        Expr::col((seen::Entity, seen::Column::MetadataId)).equals(
-                                            (
-                                                collection_to_entity::Entity,
-                                                collection_to_entity::Column::MetadataId,
-                                            ),
-                                        ),
-                                    )
-                                    .and_where(
-                                        Expr::col((seen::Entity, seen::Column::State))
-                                            .eq(SeenState::Dropped),
-                                    )
-                                    .to_owned(),
-                            ),
-                            MediaGeneralFilter::OnAHold => Expr::exists(
-                                Query::select()
-                                    .expr(Expr::val(1))
-                                    .from(Seen)
-                                    .and_where(
-                                        Expr::col((seen::Entity, seen::Column::UserId)).eq(user_id),
-                                    )
-                                    .and_where(
-                                        Expr::col((seen::Entity, seen::Column::MetadataId)).equals(
-                                            (
-                                                collection_to_entity::Entity,
-                                                collection_to_entity::Column::MetadataId,
-                                            ),
-                                        ),
-                                    )
-                                    .and_where(
-                                        Expr::col((seen::Entity, seen::Column::State))
-                                            .eq(SeenState::OnAHold),
-                                    )
-                                    .to_owned(),
-                            ),
-                            MediaGeneralFilter::Unrated => Expr::exists(
-                                Query::select()
-                                    .expr(Expr::val(1))
-                                    .from(Review)
-                                    .and_where(
-                                        Expr::col((review::Entity, review::Column::UserId))
-                                            .eq(user_id),
-                                    )
-                                    .and_where(
-                                        Expr::col((review::Entity, review::Column::MetadataId))
-                                            .equals((
-                                                collection_to_entity::Entity,
-                                                collection_to_entity::Column::MetadataId,
-                                            )),
-                                    )
-                                    .and_where(
-                                        Expr::col((review::Entity, review::Column::Rating))
-                                            .is_not_null(),
-                                    )
-                                    .to_owned(),
-                            )
-                            .not(),
-                            MediaGeneralFilter::All => metadata::Column::Id.is_not_null(),
-                            MediaGeneralFilter::Rated => Expr::exists(
-                                Query::select()
-                                    .expr(Expr::val(1))
-                                    .from(Review)
-                                    .and_where(
-                                        Expr::col((review::Entity, review::Column::UserId))
-                                            .eq(user_id),
-                                    )
-                                    .and_where(
-                                        Expr::col((review::Entity, review::Column::MetadataId))
-                                            .equals((
-                                                collection_to_entity::Entity,
-                                                collection_to_entity::Column::MetadataId,
-                                            )),
-                                    )
-                                    .and_where(
-                                        Expr::col((review::Entity, review::Column::Rating))
-                                            .is_not_null(),
-                                    )
-                                    .to_owned(),
-                            ),
-                            MediaGeneralFilter::Unfinished => Expr::exists(
-                                Query::select()
-                                    .expr(Expr::val(1))
-                                    .from(UserToEntity)
-                                    .and_where(
-                                        Expr::col((
-                                            user_to_entity::Entity,
-                                            user_to_entity::Column::UserId,
-                                        ))
-                                        .eq(user_id),
-                                    )
-                                    .and_where(
-                                        Expr::col((
-                                            user_to_entity::Entity,
-                                            user_to_entity::Column::EntityId,
-                                        ))
-                                        .equals((
-                                            collection_to_entity::Entity,
-                                            collection_to_entity::Column::EntityId,
-                                        )),
-                                    )
-                                    .and_where(
-                                        Expr::col((
-                                            user_to_entity::Entity,
-                                            user_to_entity::Column::EntityLot,
-                                        ))
-                                        .equals((
-                                            collection_to_entity::Entity,
-                                            collection_to_entity::Column::EntityLot,
-                                        )),
-                                    )
-                                    .and_where(
-                                        Expr::val(UserToMediaReason::Finished)
-                                            .eq(PgFunc::any(Expr::col((
+                        let filter_expression: SimpleExpr =
+                            match v {
+                                MediaGeneralFilter::Dropped => Expr::exists(
+                                    build_seen_exists_query(user_id, Some(SeenState::Dropped)),
+                                ),
+                                MediaGeneralFilter::OnAHold => Expr::exists(
+                                    build_seen_exists_query(user_id, Some(SeenState::OnAHold)),
+                                ),
+                                MediaGeneralFilter::Unrated => {
+                                    Expr::exists(build_review_rating_exists_query(user_id)).not()
+                                }
+                                MediaGeneralFilter::All => metadata::Column::Id.is_not_null(),
+                                MediaGeneralFilter::Rated => {
+                                    Expr::exists(build_review_rating_exists_query(user_id))
+                                }
+                                MediaGeneralFilter::Unfinished => Expr::exists(
+                                    Query::select()
+                                        .expr(Expr::val(1))
+                                        .from(UserToEntity)
+                                        .and_where(
+                                            Expr::col((
                                                 user_to_entity::Entity,
-                                                user_to_entity::Column::MediaReason,
-                                            ))))
-                                            .not(),
-                                    )
-                                    .to_owned(),
-                            ),
-                        };
+                                                user_to_entity::Column::UserId,
+                                            ))
+                                            .eq(user_id),
+                                        )
+                                        .and_where(
+                                            Expr::col((
+                                                user_to_entity::Entity,
+                                                user_to_entity::Column::EntityId,
+                                            ))
+                                            .equals((
+                                                collection_to_entity::Entity,
+                                                collection_to_entity::Column::EntityId,
+                                            )),
+                                        )
+                                        .and_where(
+                                            Expr::col((
+                                                user_to_entity::Entity,
+                                                user_to_entity::Column::EntityLot,
+                                            ))
+                                            .equals((
+                                                collection_to_entity::Entity,
+                                                collection_to_entity::Column::EntityLot,
+                                            )),
+                                        )
+                                        .and_where(
+                                            Expr::val(UserToMediaReason::Finished)
+                                                .eq(PgFunc::any(Expr::col((
+                                                    user_to_entity::Entity,
+                                                    user_to_entity::Column::MediaReason,
+                                                ))))
+                                                .not(),
+                                        )
+                                        .to_owned(),
+                                ),
+                            };
                         query.filter(filter_expression)
                     });
             }
@@ -415,69 +399,21 @@ pub async fn collection_contents(
             {
                 let (first_filter, remaining_filters) = collections.split_first().unwrap();
 
-                let mut combined_condition: SimpleExpr = {
-                    let exists_condition = Expr::exists(
-                        Query::select()
-                            .expr(Expr::val(1))
-                            .from(CollectionEntityMembership)
-                            .and_where(
-                                collection_entity_membership::Column::OriginCollectionId
-                                    .eq(&first_filter.collection_id),
-                            )
-                            .and_where(collection_entity_membership::Column::UserId.eq(user_id))
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::EntityId).equals((
-                                    collection_to_entity::Entity,
-                                    collection_to_entity::Column::EntityId,
-                                )),
-                            )
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::EntityLot).equals(
-                                    (
-                                        collection_to_entity::Entity,
-                                        collection_to_entity::Column::EntityLot,
-                                    ),
-                                ),
-                            )
-                            .to_owned(),
-                    );
-                    match first_filter.presence {
+                let build_filter_condition = |coll_filter: &media_models::MediaCollectionFilter| {
+                    let exists_condition = Expr::exists(build_collection_membership_exists_query(
+                        &coll_filter.collection_id,
+                        user_id,
+                    ));
+                    match coll_filter.presence {
                         MediaCollectionPresenceFilter::PresentIn => exists_condition,
                         MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
                     }
                 };
 
-                for coll_filter in remaining_filters {
-                    let exists_condition = Expr::exists(
-                        Query::select()
-                            .expr(Expr::val(1))
-                            .from(CollectionEntityMembership)
-                            .and_where(
-                                collection_entity_membership::Column::OriginCollectionId
-                                    .eq(&coll_filter.collection_id),
-                            )
-                            .and_where(collection_entity_membership::Column::UserId.eq(user_id))
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::EntityId).equals((
-                                    collection_to_entity::Entity,
-                                    collection_to_entity::Column::EntityId,
-                                )),
-                            )
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::EntityLot).equals(
-                                    (
-                                        collection_to_entity::Entity,
-                                        collection_to_entity::Column::EntityLot,
-                                    ),
-                                ),
-                            )
-                            .to_owned(),
-                    );
-                    let condition = match coll_filter.presence {
-                        MediaCollectionPresenceFilter::PresentIn => exists_condition,
-                        MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
-                    };
+                let mut combined_condition = build_filter_condition(first_filter);
 
+                for coll_filter in remaining_filters {
+                    let condition = build_filter_condition(coll_filter);
                     combined_condition = match coll_filter.strategy {
                         MediaCollectionStrategyFilter::Or => combined_condition.or(condition),
                         MediaCollectionStrategyFilter::And => combined_condition.and(condition),
