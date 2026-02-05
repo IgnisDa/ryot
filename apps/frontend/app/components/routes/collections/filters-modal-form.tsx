@@ -3,6 +3,7 @@ import { DatePickerInput } from "@mantine/dates";
 import {
 	CollectionContentsSortBy,
 	EntityLot,
+	type ExerciseFilters,
 	MediaGeneralFilter,
 	MediaLot,
 	MediaSource,
@@ -18,6 +19,28 @@ import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
 import { useCoreDetails } from "~/lib/shared/hooks";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { ApplicationTimeRange } from "~/lib/types";
+
+type ExerciseFilterKey =
+	| "exerciseTypes"
+	| "exerciseLevels"
+	| "exerciseForces"
+	| "exerciseMuscles"
+	| "exerciseMechanics"
+	| "exerciseEquipments";
+
+type ExerciseFiltersKey = keyof ExerciseFilters;
+
+const exerciseFilterMapping: Record<
+	ExerciseFilterKey,
+	{ singularKey: ExerciseFiltersKey; label: string }
+> = {
+	exerciseTypes: { singularKey: "type", label: "Types" },
+	exerciseLevels: { singularKey: "level", label: "Levels" },
+	exerciseForces: { singularKey: "force", label: "Forces" },
+	exerciseMuscles: { singularKey: "muscle", label: "Muscles" },
+	exerciseMechanics: { singularKey: "mechanic", label: "Mechanics" },
+	exerciseEquipments: { singularKey: "equipment", label: "Equipments" },
+};
 
 export const FiltersModalForm = (props: {
 	filters: FilterState;
@@ -106,47 +129,33 @@ export const FiltersModalForm = (props: {
 			) : null}
 			{props.filters.entityLot === EntityLot.Exercise ? (
 				<Stack gap={2}>
-					{[
-						"exerciseTypes",
-						"exerciseLevels",
-						"exerciseForces",
-						"exerciseMuscles",
-						"exerciseMechanics",
-						"exerciseEquipments",
-					].map((f) => {
-						const singularKey = f
-							.replace("exercise", "")
-							.replace("Types", "type")
-							.replace("Levels", "level")
-							.replace("Forces", "force")
-							.replace("Muscles", "muscle")
-							.replace("Mechanics", "mechanic")
-							.replace("Equipments", "equipment")
-							.toLowerCase();
-						return (
-							<MultiSelect
-								key={f}
-								size="xs"
-								clearable
-								searchable
-								label={startCase(f.replace("exercise", ""))}
-								// biome-ignore lint/suspicious/noExplicitAny: needed here
-								value={(props.filters as any)[f]}
-								onChange={(v) =>
-									// biome-ignore lint/suspicious/noExplicitAny: needed here
-									props.updateFilter(f as keyof FilterState, v as any)
-								}
-								// biome-ignore lint/suspicious/noExplicitAny: needed here
-								data={(coreDetails.exerciseParameters.filters as any)[
-									singularKey
-									// biome-ignore lint/suspicious/noExplicitAny: needed here
-								].map((v: any) => ({
-									value: v,
-									label: startCase(snakeCase(v)),
-								}))}
-							/>
-						);
-					})}
+					{(Object.keys(exerciseFilterMapping) as Array<ExerciseFilterKey>).map(
+						(filterKey) => {
+							const { singularKey, label } = exerciseFilterMapping[filterKey];
+							const filterData =
+								coreDetails.exerciseParameters.filters[singularKey];
+							return (
+								<MultiSelect
+									key={filterKey}
+									size="xs"
+									clearable
+									searchable
+									label={label}
+									value={props.filters[filterKey]}
+									onChange={(v) =>
+										props.updateFilter(
+											filterKey,
+											v as FilterState[ExerciseFilterKey],
+										)
+									}
+									data={filterData.map((value) => ({
+										value,
+										label: startCase(snakeCase(value)),
+									}))}
+								/>
+							);
+						},
+					)}
 				</Stack>
 			) : null}
 			<Divider />
