@@ -637,12 +637,16 @@ const FiltersModalForm = (props: {
 								clearable
 								searchable
 								label={startCase(f.replace("exercise", ""))}
+								// biome-ignore lint/suspicious/noExplicitAny: needed here
 								value={(props.filters as any)[f]}
 								onChange={(v) =>
+									// biome-ignore lint/suspicious/noExplicitAny: needed here
 									props.updateFilter(f as keyof FilterState, v as any)
 								}
+								// biome-ignore lint/suspicious/noExplicitAny: needed here
 								data={(coreDetails.exerciseParameters.filters as any)[
 									singularKey
+									// biome-ignore lint/suspicious/noExplicitAny: needed here
 								].map((v: any) => ({
 									value: v,
 									label: startCase(snakeCase(v)),
