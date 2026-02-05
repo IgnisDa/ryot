@@ -187,6 +187,19 @@ pub async fn collection_contents(
                         _ => v,
                     };
                     query.filter(collection_to_entity::Column::EntityLot.eq(f))
+                })
+                .apply_if(filter.date_range, |outer_query, outer_value| {
+                    outer_query
+                        .apply_if(outer_value.start_date, |inner_query, inner_value| {
+                            inner_query.filter(
+                                collection_to_entity::Column::LastUpdatedOn.gte(inner_value),
+                            )
+                        })
+                        .apply_if(outer_value.end_date, |inner_query, inner_value| {
+                            inner_query.filter(
+                                collection_to_entity::Column::LastUpdatedOn.lte(inner_value),
+                            )
+                        })
                 });
 
             query = match sort.by {
