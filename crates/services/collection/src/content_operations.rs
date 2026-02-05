@@ -113,6 +113,7 @@ pub async fn collection_contents(
                                 .into(),
                             Expr::col((person::Entity, person::Column::Name)).into(),
                             Expr::col((exercise::Entity, exercise::Column::Id)).into(),
+                            Expr::col((workout::Entity, workout::Column::Name)).into(),
                             Expr::col((workout_template::Entity, workout_template::Column::Name))
                                 .into(),
                         ])),
