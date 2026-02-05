@@ -1,12 +1,18 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use common_models::{
-    CollectionExtraInformation, StringIdAndNamedObject, UserToCollectionExtraInformation,
+    ApplicationDateRange, CollectionExtraInformation, StringIdAndNamedObject,
+    UserToCollectionExtraInformation,
 };
-use enum_models::{EntityLot, MediaLot};
+use enum_models::{
+    EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
+    ExerciseMuscle, MediaLot, MediaSource,
+};
 use schematic::Schematic;
 use sea_orm::{FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+
+use crate::{MediaCollectionFilter, MediaGeneralFilter};
 
 #[derive(Debug, InputObject, Default, Clone, Serialize)]
 pub struct CreateOrUpdateCollectionInput {
@@ -25,13 +31,37 @@ pub enum CollectionContentsSortBy {
     Date,
     Title,
     Random,
+    UserRating,
     LastUpdatedOn,
+    // For metadata
+    LastConsumed,
+    TimesConsumed,
+    ProviderRating,
+    // For people/groups
+    AssociatedEntityCount,
+    // For exercises
+    LastPerformed,
+    TimesPerformed,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize, InputObject, Default)]
 pub struct CollectionContentsFilter {
+    // Existing filters
     pub entity_lot: Option<EntityLot>,
     pub metadata_lot: Option<MediaLot>,
+    // For metadata
+    pub source: Option<MediaSource>,
+    pub general: Option<MediaGeneralFilter>,
+    pub date_range: Option<ApplicationDateRange>,
+    pub collections: Option<Vec<MediaCollectionFilter>>,
+    // For exercise entities
+    pub exercise_types: Option<Vec<ExerciseLot>>,
+    pub exercise_levels: Option<Vec<ExerciseLevel>>,
+    pub exercise_forces: Option<Vec<ExerciseForce>>,
+    pub exercise_muscles: Option<Vec<ExerciseMuscle>>,
+    pub exercise_mechanics: Option<Vec<ExerciseMechanic>>,
+    pub exercise_equipments: Option<Vec<ExerciseEquipment>>,
 }
 
 #[skip_serializing_none]
