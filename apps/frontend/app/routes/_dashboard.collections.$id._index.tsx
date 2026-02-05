@@ -542,6 +542,7 @@ const FiltersModalForm = (props: {
 			<Flex gap="xs" align="center">
 				<Select
 					w="100%"
+					size="xs"
 					value={props.filters.sortBy}
 					onChange={(v) =>
 						props.updateFilter("sortBy", v as CollectionContentsSortBy)
@@ -561,6 +562,7 @@ const FiltersModalForm = (props: {
 				) : null}
 			</Flex>
 			<Select
+				size="xs"
 				clearable
 				value={props.filters.entityLot}
 				placeholder="Select an entity type"
@@ -581,6 +583,7 @@ const FiltersModalForm = (props: {
 			props.filters.entityLot === EntityLot.MetadataGroup ? (
 				<>
 					<Select
+						size="xs"
 						clearable
 						placeholder="Select a media type"
 						value={props.filters.metadataLot}
@@ -590,6 +593,7 @@ const FiltersModalForm = (props: {
 					{props.filters.entityLot === EntityLot.Metadata ? (
 						<>
 							<Select
+								size="xs"
 								clearable
 								placeholder="Select a media source"
 								value={props.filters.metadataSource}
@@ -599,6 +603,7 @@ const FiltersModalForm = (props: {
 								}
 							/>
 							<Select
+								size="xs"
 								clearable
 								placeholder="Select a general filter"
 								value={props.filters.metadataGeneral}
