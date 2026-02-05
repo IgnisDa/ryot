@@ -35,7 +35,7 @@ export function ActionsTabPanel(props: ActionsTabPanelProps) {
 	const coreDetails = useCoreDetails();
 
 	return (
-		<SimpleGrid cols={{ base: 2, md: 3, lg: 4 }} spacing="lg">
+		<SimpleGrid spacing="lg" cols={{ base: 2, md: 3, lg: 4 }}>
 			<Button
 				w="100%"
 				variant="outline"
