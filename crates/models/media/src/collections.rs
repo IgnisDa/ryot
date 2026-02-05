@@ -55,32 +55,55 @@ pub enum CollectionContentsSortBy {
     AssociatedEntityCount,
 }
 
+/// Filter options specific to metadata (media) entities in a collection.
+/// Only applies when filtering collection contents by metadata entity type.
 #[skip_serializing_none]
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize, InputObject, Default)]
 pub struct MetadataCollectionContentsFilter {
+    /// Filter by media type (e.g., Movie, Show, Book, VideoGame, Anime, Manga).
     pub lot: Option<MediaLot>,
+    /// Filter by the source/provider of the metadata (e.g., Tmdb, Anilist, Audible, Igdb).
     pub source: Option<MediaSource>,
+    /// General filter for metadata status (e.g., All, Rated, Unrated, Dropped, OnAHold, Unfinished).
     pub general: Option<MediaGeneralFilter>,
 }
 
+/// Filter options specific to exercise entities in a collection.
+/// Only applies when filtering collection contents by exercise entity type.
 #[skip_serializing_none]
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize, InputObject, Default)]
 pub struct ExerciseCollectionContentsFilter {
+    /// Filter by exercise types (e.g., Duration, DistanceAndDuration, Reps, RepsAndWeight).
     pub types: Option<Vec<ExerciseLot>>,
+    /// Filter by difficulty levels (e.g., Beginner, Intermediate, Expert).
     pub levels: Option<Vec<ExerciseLevel>>,
+    /// Filter by force types (e.g., Pull, Push, Static).
     pub forces: Option<Vec<ExerciseForce>>,
+    /// Filter by primary muscle groups targeted (e.g., Abdominals, Biceps, Chest, Quadriceps).
     pub muscles: Option<Vec<ExerciseMuscle>>,
+    /// Filter by movement mechanics (e.g., Compound, Isolation).
     pub mechanics: Option<Vec<ExerciseMechanic>>,
+    /// Filter by required equipment (e.g., Barbell, Dumbbell, Bodyweight, Machine).
     pub equipments: Option<Vec<ExerciseEquipment>>,
 }
 
+/// Multi-level filtering options for collection contents.
+/// Allows filtering by entity type, date ranges, nested collections, and entity-specific criteria.
 #[skip_serializing_none]
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize, InputObject, Default)]
 pub struct CollectionContentsFilter {
+    /// Filter by entity type (e.g., Metadata, Person, Exercise, Workout, WorkoutTemplate, MetadataGroup).
+    /// Note: Genre, Review, Collection, and UserMeasurement cannot be filtered as they cannot be added to collections.
     pub entity_lot: Option<EntityLot>,
+    /// Filter by date range. The interpretation depends on entity type: publish date for metadata,
+    /// birth date for people, end time for workouts, created on for workout templates.
     pub date_range: Option<ApplicationDateRange>,
+    /// Filter by presence in other collections. Use to find items that are present in or absent from specified collections.
+    /// Multiple filters can be combined with AND/OR strategies.
     pub collections: Option<Vec<MediaCollectionFilter>>,
+    /// Additional filters specific to metadata entities (lot, source, general status).
     pub metadata: Option<MetadataCollectionContentsFilter>,
+    /// Additional filters specific to exercise entities (types, levels, forces, muscles, mechanics, equipments).
     pub exercise: Option<ExerciseCollectionContentsFilter>,
 }
 
