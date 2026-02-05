@@ -7,9 +7,9 @@ use database_models::{
     collection_to_entity, exercise, metadata, metadata_group, person,
     prelude::{
         Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, Review, Seen,
-        Workout, WorkoutTemplate,
+        UserToEntity, Workout, WorkoutTemplate,
     },
-    review, seen, workout, workout_template,
+    review, seen, user_to_entity, workout, workout_template,
 };
 use database_utils::{apply_columns_search, extract_pagination_params, item_reviews, user_by_id};
 use dependent_models::{
@@ -82,6 +82,60 @@ pub async fn collection_contents(
                     collection_to_entity::Entity,
                     collection_to_entity::Column::MetadataId,
                 )))
+                .to_owned();
+
+            let exercise_last_performed_subquery = Query::select()
+                .expr(Expr::col((
+                    user_to_entity::Entity,
+                    user_to_entity::Column::LastUpdatedOn,
+                )))
+                .from(UserToEntity)
+                .and_where(
+                    Expr::col((user_to_entity::Entity, user_to_entity::Column::UserId)).eq(user_id),
+                )
+                .and_where(
+                    Expr::col((user_to_entity::Entity, user_to_entity::Column::EntityId)).equals((
+                        collection_to_entity::Entity,
+                        collection_to_entity::Column::EntityId,
+                    )),
+                )
+                .and_where(
+                    Expr::col((user_to_entity::Entity, user_to_entity::Column::EntityLot)).equals(
+                        (
+                            collection_to_entity::Entity,
+                            collection_to_entity::Column::EntityLot,
+                        ),
+                    ),
+                )
+                .to_owned();
+
+            let exercise_times_performed_subquery = Query::select()
+                .expr(Func::coalesce([
+                    Expr::col((
+                        user_to_entity::Entity,
+                        user_to_entity::Column::ExerciseNumTimesInteracted,
+                    ))
+                    .into(),
+                    Expr::val(0).into(),
+                ]))
+                .from(UserToEntity)
+                .and_where(
+                    Expr::col((user_to_entity::Entity, user_to_entity::Column::UserId)).eq(user_id),
+                )
+                .and_where(
+                    Expr::col((user_to_entity::Entity, user_to_entity::Column::EntityId)).equals((
+                        collection_to_entity::Entity,
+                        collection_to_entity::Column::EntityId,
+                    )),
+                )
+                .and_where(
+                    Expr::col((user_to_entity::Entity, user_to_entity::Column::EntityLot)).equals(
+                        (
+                            collection_to_entity::Entity,
+                            collection_to_entity::Column::EntityLot,
+                        ),
+                    ),
+                )
                 .to_owned();
 
             let mut query = CollectionToEntity::find()
@@ -190,9 +244,24 @@ pub async fn collection_contents(
                                     .into(),
                                 ]))
                             }
-                            CollectionContentsSortBy::TimesConsumed
-                            | CollectionContentsSortBy::LastPerformed
-                            | CollectionContentsSortBy::TimesPerformed => {
+                            CollectionContentsSortBy::LastPerformed => {
+                                Expr::expr(SimpleExpr::SubQuery(
+                                    None,
+                                    Box::new(
+                                        exercise_last_performed_subquery.into_sub_query_statement(),
+                                    ),
+                                ))
+                            }
+                            CollectionContentsSortBy::TimesPerformed => {
+                                Expr::expr(SimpleExpr::SubQuery(
+                                    None,
+                                    Box::new(
+                                        exercise_times_performed_subquery
+                                            .into_sub_query_statement(),
+                                    ),
+                                ))
+                            }
+                            CollectionContentsSortBy::TimesConsumed => {
                                 todo!("Not yet implemented")
                             }
                         },
