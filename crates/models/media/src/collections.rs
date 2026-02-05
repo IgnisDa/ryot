@@ -58,6 +58,7 @@ pub enum CollectionContentsSortBy {
 #[skip_serializing_none]
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize, InputObject, Default)]
 pub struct MetadataCollectionContentsFilter {
+    pub lot: Option<MediaLot>,
     pub source: Option<MediaSource>,
     pub general: Option<MediaGeneralFilter>,
 }
@@ -77,7 +78,6 @@ pub struct ExerciseCollectionContentsFilter {
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize, InputObject, Default)]
 pub struct CollectionContentsFilter {
     pub entity_lot: Option<EntityLot>,
-    pub metadata_lot: Option<MediaLot>,
     pub date_range: Option<ApplicationDateRange>,
     pub collections: Option<Vec<MediaCollectionFilter>>,
     pub metadata: Option<MetadataCollectionContentsFilter>,

@@ -169,7 +169,7 @@ pub async fn collection_contents(
                         ],
                     )
                 })
-                .apply_if(filter.metadata_lot, |query, v| {
+                .apply_if(filter.metadata.map(|d| d.lot), |query, v| {
                     query.filter(
                         Condition::any()
                             .add(Expr::col((metadata::Entity, metadata::Column::Lot)).eq(v)),
