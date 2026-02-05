@@ -99,7 +99,7 @@ export function ContentsTabPanel(props: ContentsTabPanelProps) {
 							rankNumber={index + 1}
 							isReorderMode={props.isReorderMode}
 							collectionName={props.details.details.name}
-							totalItems={props.details.results.items.length}
+							totalItems={props.details.results.details.totalItems}
 						/>
 					))}
 				</ApplicationGrid>
