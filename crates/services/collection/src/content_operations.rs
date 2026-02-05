@@ -22,8 +22,8 @@ use media_models::{
     MediaGeneralFilter,
 };
 use sea_orm::{
-    ColumnTrait, EntityTrait, ItemsAndPagesNumber, PaginatorTrait, QueryFilter, QueryOrder,
-    QueryTrait,
+    ColumnTrait, Condition, EntityTrait, ItemsAndPagesNumber, PaginatorTrait, QueryFilter,
+    QueryOrder, QueryTrait,
     sea_query::{Expr, Func, NullOrdering, PgFunc, Query, SimpleExpr},
 };
 use supporting_service::SupportingService;
@@ -313,6 +313,69 @@ pub async fn collection_contents(
                         };
                         query.filter(filter_expression)
                     });
+            }
+
+            if let Some(exercise_filter) = filter.exercise {
+                query = query
+                    .apply_if(
+                        exercise_filter.types.as_ref().filter(|v| !v.is_empty()),
+                        |q, v| {
+                            q.filter(
+                                Expr::col((exercise::Entity, exercise::Column::Lot))
+                                    .is_in(v.clone()),
+                            )
+                        },
+                    )
+                    .apply_if(
+                        exercise_filter.muscles.as_ref().filter(|v| !v.is_empty()),
+                        |q, v| {
+                            q.filter(v.iter().fold(Condition::any(), |cond, muscle| {
+                                cond.add(Expr::val(*muscle).eq(PgFunc::any(Expr::col((
+                                    exercise::Entity,
+                                    exercise::Column::Muscles,
+                                )))))
+                            }))
+                        },
+                    )
+                    .apply_if(
+                        exercise_filter.levels.as_ref().filter(|v| !v.is_empty()),
+                        |q, v| {
+                            q.filter(
+                                Expr::col((exercise::Entity, exercise::Column::Level))
+                                    .is_in(v.clone()),
+                            )
+                        },
+                    )
+                    .apply_if(
+                        exercise_filter.forces.as_ref().filter(|v| !v.is_empty()),
+                        |q, v| {
+                            q.filter(
+                                Expr::col((exercise::Entity, exercise::Column::Force))
+                                    .is_in(v.clone()),
+                            )
+                        },
+                    )
+                    .apply_if(
+                        exercise_filter.mechanics.as_ref().filter(|v| !v.is_empty()),
+                        |q, v| {
+                            q.filter(
+                                Expr::col((exercise::Entity, exercise::Column::Mechanic))
+                                    .is_in(v.clone()),
+                            )
+                        },
+                    )
+                    .apply_if(
+                        exercise_filter
+                            .equipments
+                            .as_ref()
+                            .filter(|v| !v.is_empty()),
+                        |q, v| {
+                            q.filter(
+                                Expr::col((exercise::Entity, exercise::Column::Equipment))
+                                    .is_in(v.clone()),
+                            )
+                        },
+                    );
             }
 
             query = query
