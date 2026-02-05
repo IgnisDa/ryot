@@ -9,7 +9,7 @@ use database_models::{
         Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, Workout,
         WorkoutTemplate,
     },
-    workout_template,
+    workout, workout_template,
 };
 use database_utils::{apply_columns_search, extract_pagination_params, item_reviews, user_by_id};
 use dependent_models::{
@@ -100,6 +100,12 @@ pub async fn collection_contents(
                         CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
                             Expr::col((metadata::Entity, metadata::Column::PublishDate)).into(),
                             Expr::col((person::Entity, person::Column::BirthDate)).into(),
+                            Expr::col((workout::Entity, workout::Column::EndTime)).into(),
+                            Expr::col((
+                                workout_template::Entity,
+                                workout_template::Column::CreatedOn,
+                            ))
+                            .into(),
                         ])),
                         CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
                             Expr::col((metadata::Entity, metadata::Column::Title)).into(),
