@@ -258,18 +258,44 @@ export type CollectionContents = {
   user: BasicUserDetails;
 };
 
+/**
+ * Multi-level filtering options for collection contents.
+ * Allows filtering by entity type, date ranges, nested collections, and entity-specific criteria.
+ */
 export type CollectionContentsFilter = {
+  /**
+   * Filter by presence in other collections. Use to find items that are present in or absent from specified collections.
+   * Multiple filters can be combined with AND/OR strategies.
+   */
   collections?: InputMaybe<Array<MediaCollectionFilter>>;
+  /**
+   * Filter by date range. The interpretation depends on entity type: publish date for metadata,
+   * birth date for people, end time for workouts, created on for workout templates.
+   */
   dateRange?: InputMaybe<ApplicationDateRangeInput>;
+  /**
+   * Filter by entity type (e.g., Metadata, Person, Exercise, Workout, WorkoutTemplate, MetadataGroup).
+   * Note: Genre, Review, Collection, and UserMeasurement cannot be filtered as they cannot be added to collections.
+   */
   entityLot?: InputMaybe<EntityLot>;
+  /** Additional filters specific to exercise entities (types, levels, forces, muscles, mechanics, equipments). */
   exercise?: InputMaybe<ExerciseCollectionContentsFilter>;
+  /** Additional filters specific to metadata entities (lot, source, general status). */
   metadata?: InputMaybe<MetadataCollectionContentsFilter>;
 };
 
+/**
+ * Input parameters for retrieving the contents of a collection with filtering, sorting, and search capabilities.
+ * Used by the `collection_contents` query to fetch and organize items within a collection.
+ */
 export type CollectionContentsInput = {
+  /** The unique identifier of the collection to retrieve contents from. */
   collectionId: Scalars['String']['input'];
+  /** Optional filters to narrow down collection contents by entity type, date range, or entity-specific criteria. */
   filter?: InputMaybe<CollectionContentsFilter>;
+  /** Optional pagination and text search parameters. */
   search?: InputMaybe<SearchInput>;
+  /** Optional sorting configuration specifying how to order the collection contents. */
   sort?: InputMaybe<CollectionContentsSortInput>;
 };
 
@@ -306,8 +332,14 @@ export enum CollectionContentsSortBy {
   UserRating = 'USER_RATING'
 }
 
+/**
+ * Generic sorting configuration for various list queries.
+ * Specifies both the field to sort by and the sort direction (ascending/descending).
+ */
 export type CollectionContentsSortInput = {
+  /** The field to sort by. Type depends on the context (e.g., CollectionContentsSortBy for collection contents). */
   by?: CollectionContentsSortBy;
+  /** Sort direction: ascending (Asc) or descending (Desc). Defaults to ascending. */
   order?: GraphqlSortOrder;
 };
 
@@ -808,12 +840,22 @@ export type ExerciseBestSetRecord = {
   workoutId: Scalars['String']['output'];
 };
 
+/**
+ * Filter options specific to exercise entities in a collection.
+ * Only applies when filtering collection contents by exercise entity type.
+ */
 export type ExerciseCollectionContentsFilter = {
+  /** Filter by required equipment (e.g., Barbell, Dumbbell, Bodyweight, Machine). */
   equipments?: InputMaybe<Array<ExerciseEquipment>>;
+  /** Filter by force types (e.g., Pull, Push, Static). */
   forces?: InputMaybe<Array<ExerciseForce>>;
+  /** Filter by difficulty levels (e.g., Beginner, Intermediate, Expert). */
   levels?: InputMaybe<Array<ExerciseLevel>>;
+  /** Filter by movement mechanics (e.g., Compound, Isolation). */
   mechanics?: InputMaybe<Array<ExerciseMechanic>>;
+  /** Filter by primary muscle groups targeted (e.g., Abdominals, Biceps, Chest, Quadriceps). */
   muscles?: InputMaybe<Array<ExerciseMuscle>>;
+  /** Filter by exercise types (e.g., Duration, DistanceAndDuration, Reps, RepsAndWeight). */
   types?: InputMaybe<Array<ExerciseLot>>;
 };
 
@@ -1115,8 +1157,11 @@ export type GraphqlPersonDetails = {
   details: Person;
 };
 
+/** Sort order direction for ordering query results. */
 export enum GraphqlSortOrder {
+  /** Ascending order (A to Z, 0 to 9, oldest to newest). Default behavior. */
   Asc = 'ASC',
+  /** Descending order (Z to A, 9 to 0, newest to oldest). */
   Desc = 'DESC'
 }
 
@@ -1360,19 +1405,35 @@ export type MediaCollectionContentsResults = {
   items: Array<EntityWithLot>;
 };
 
+/**
+ * Filter for finding items based on their presence in another collection.
+ * Can be used to create complex queries like "items in collection A but not in collection B".
+ */
 export type MediaCollectionFilter = {
+  /** The unique identifier of the collection to check against. */
   collectionId: Scalars['String']['input'];
+  /** Whether to match items present in or absent from this collection. Defaults to PresentIn. */
   presence: MediaCollectionPresenceFilter;
+  /** How to combine this filter with other collection filters (AND/OR). Defaults to AND. */
   strategy: MediaCollectionStrategyFilter;
 };
 
+/** Filter based on whether items are present in or absent from a collection. */
 export enum MediaCollectionPresenceFilter {
+  /** Match items that are NOT present in the specified collection. */
   NotPresentIn = 'NOT_PRESENT_IN',
+  /** Match items that ARE present in the specified collection. Default behavior. */
   PresentIn = 'PRESENT_IN'
 }
 
+/**
+ * Strategy for combining multiple collection filters.
+ * Determines how to interpret multiple MediaCollectionFilter entries.
+ */
 export enum MediaCollectionStrategyFilter {
+  /** Match items present in ALL of the specified collections (intersection). Default behavior. */
   And = 'AND',
+  /** Match items present in ANY of the specified collections (union). */
   Or = 'OR'
 }
 
@@ -1383,12 +1444,19 @@ export type MediaFilter = {
   source?: InputMaybe<MediaSource>;
 };
 
+/** General status filters for metadata (media) items. */
 export enum MediaGeneralFilter {
+  /** Show all items regardless of status. Default behavior. */
   All = 'ALL',
+  /** Show only items marked as dropped by the user. */
   Dropped = 'DROPPED',
+  /** Show only items marked as on hold by the user. */
   OnAHold = 'ON_A_HOLD',
+  /** Show only items that have been rated by the user. */
   Rated = 'RATED',
+  /** Show only items that are unfinished (started but not completed). */
   Unfinished = 'UNFINISHED',
+  /** Show only items that have not been rated by the user. */
   Unrated = 'UNRATED'
 }
 
@@ -1418,8 +1486,14 @@ export enum MediaSortBy {
   UserRating = 'USER_RATING'
 }
 
+/**
+ * Generic sorting configuration for various list queries.
+ * Specifies both the field to sort by and the sort direction (ascending/descending).
+ */
 export type MediaSortInput = {
+  /** The field to sort by. Type depends on the context (e.g., CollectionContentsSortBy for collection contents). */
   by?: MediaSortBy;
+  /** Sort direction: ascending (Asc) or descending (Desc). Defaults to ascending. */
   order?: GraphqlSortOrder;
 };
 
@@ -1471,9 +1545,16 @@ export type MediaTranslationValue = {
   value?: Maybe<Scalars['String']['output']>;
 };
 
+/**
+ * Filter options specific to metadata (media) entities in a collection.
+ * Only applies when filtering collection contents by metadata entity type.
+ */
 export type MetadataCollectionContentsFilter = {
+  /** General filter for metadata status (e.g., All, Rated, Unrated, Dropped, OnAHold, Unfinished). */
   general?: InputMaybe<MediaGeneralFilter>;
+  /** Filter by media type (e.g., Movie, Show, Book, VideoGame, Anime, Manga). */
   lot?: InputMaybe<MediaLot>;
+  /** Filter by the source/provider of the metadata (e.g., Tmdb, Anilist, Audible, Igdb). */
   source?: InputMaybe<MediaSource>;
 };
 
@@ -2215,8 +2296,14 @@ export type PersonDetailsItemWithCharacter = {
   entityId: Scalars['String']['output'];
 };
 
+/**
+ * Generic sorting configuration for various list queries.
+ * Specifies both the field to sort by and the sort direction (ascending/descending).
+ */
 export type PersonSortInput = {
+  /** The field to sort by. Type depends on the context (e.g., CollectionContentsSortBy for collection contents). */
   by?: PersonAndMetadataGroupsSortBy;
+  /** Sort direction: ascending (Asc) or descending (Desc). Defaults to ascending. */
   order?: GraphqlSortOrder;
 };
 
@@ -2643,9 +2730,13 @@ export type SearchDetails = {
   totalItems: Scalars['Int']['output'];
 };
 
+/** Pagination and text search parameters for various list queries. */
 export type SearchInput = {
+  /** Page number to retrieve (1-indexed). Defaults to 1 if not provided. */
   page?: InputMaybe<Scalars['Int']['input']>;
+  /** Optional text query to search within items. The search behavior depends on the entity type being queried. */
   query?: InputMaybe<Scalars['String']['input']>;
+  /** Number of items to return per page. If not provided, uses the user's default preference. */
   take?: InputMaybe<Scalars['Int']['input']>;
 };
 
@@ -3546,8 +3637,14 @@ export type UserWorkoutTemplateDetails = {
   details: WorkoutTemplate;
 };
 
+/**
+ * Generic sorting configuration for various list queries.
+ * Specifies both the field to sort by and the sort direction (ascending/descending).
+ */
 export type UserWorkoutsListSortInput = {
+  /** The field to sort by. Type depends on the context (e.g., CollectionContentsSortBy for collection contents). */
   by?: UserTemplatesOrWorkoutsListSortBy;
+  /** Sort direction: ascending (Asc) or descending (Desc). Defaults to ascending. */
   order?: GraphqlSortOrder;
 };
 
