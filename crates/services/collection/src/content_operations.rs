@@ -176,8 +176,21 @@ pub async fn collection_contents(
                             CollectionContentsSortBy::ProviderRating => {
                                 Expr::col((metadata::Entity, metadata::Column::ProviderRating))
                             }
+                            CollectionContentsSortBy::AssociatedEntityCount => {
+                                Expr::expr(Func::coalesce([
+                                    Expr::col((
+                                        person::Entity,
+                                        person::Column::AssociatedEntityCount,
+                                    ))
+                                    .into(),
+                                    Expr::col((
+                                        metadata_group::Entity,
+                                        metadata_group::Column::Parts,
+                                    ))
+                                    .into(),
+                                ]))
+                            }
                             CollectionContentsSortBy::TimesConsumed
-                            | CollectionContentsSortBy::AssociatedEntityCount
                             | CollectionContentsSortBy::LastPerformed
                             | CollectionContentsSortBy::TimesPerformed => {
                                 todo!("Not yet implemented")
