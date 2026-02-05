@@ -136,22 +136,22 @@ export const FiltersModalForm = (props: {
 								coreDetails.exerciseParameters.filters[singularKey] ?? [];
 							return (
 								<MultiSelect
-									key={filterKey}
 									size="xs"
 									clearable
 									searchable
 									label={label}
+									key={filterKey}
 									value={props.filters[filterKey]}
+									data={filterData.map((value) => ({
+										value,
+										label: startCase(snakeCase(value)),
+									}))}
 									onChange={(v) =>
 										props.updateFilter(
 											filterKey,
 											v as FilterState[ExerciseFilterKey],
 										)
 									}
-									data={filterData.map((value) => ({
-										value,
-										label: startCase(snakeCase(value)),
-									}))}
 								/>
 							);
 						},
