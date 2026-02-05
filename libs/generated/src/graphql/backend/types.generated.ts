@@ -264,7 +264,6 @@ export type CollectionContentsFilter = {
   entityLot?: InputMaybe<EntityLot>;
   exercise?: InputMaybe<ExerciseCollectionContentsFilter>;
   metadata?: InputMaybe<MetadataCollectionContentsFilter>;
-  metadataLot?: InputMaybe<MediaLot>;
 };
 
 export type CollectionContentsInput = {
@@ -1474,6 +1473,7 @@ export type MediaTranslationValue = {
 
 export type MetadataCollectionContentsFilter = {
   general?: InputMaybe<MediaGeneralFilter>;
+  lot?: InputMaybe<MediaLot>;
   source?: InputMaybe<MediaSource>;
 };
 
