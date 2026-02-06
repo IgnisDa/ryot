@@ -63,6 +63,44 @@ fn build_review_rating_exists_query(user_id: &str) -> SelectStatement {
         .to_owned()
 }
 
+fn build_user_to_entity_exists_query(
+    user_id: &str,
+    negated_media_reason: Option<UserToMediaReason>,
+) -> SelectStatement {
+    let mut query = Query::select()
+        .expr(Expr::val(1))
+        .from(UserToEntity)
+        .and_where(Expr::col((user_to_entity::Entity, user_to_entity::Column::UserId)).eq(user_id))
+        .and_where(
+            Expr::col((user_to_entity::Entity, user_to_entity::Column::EntityId)).equals((
+                collection_to_entity::Entity,
+                collection_to_entity::Column::EntityId,
+            )),
+        )
+        .and_where(
+            Expr::col((user_to_entity::Entity, user_to_entity::Column::EntityLot)).equals((
+                collection_to_entity::Entity,
+                collection_to_entity::Column::EntityLot,
+            )),
+        )
+        .to_owned();
+
+    if let Some(reason) = negated_media_reason {
+        query = query
+            .and_where(
+                Expr::val(reason)
+                    .eq(PgFunc::any(Expr::col((
+                        user_to_entity::Entity,
+                        user_to_entity::Column::MediaReason,
+                    ))))
+                    .not(),
+            )
+            .to_owned();
+    }
+
+    query
+}
+
 fn build_collection_membership_exists_query(collection_id: &str, user_id: &str) -> SelectStatement {
     Query::select()
         .expr(Expr::val(1))
@@ -255,6 +293,7 @@ pub async fn collection_contents(
                     .apply_if(metadata_filter.general, |query, v| {
                         let filter_expression: SimpleExpr =
                             match v {
+                                MediaGeneralFilter::All => metadata::Column::Id.is_not_null(),
                                 MediaGeneralFilter::Dropped => Expr::exists(
                                     build_seen_exists_query(user_id, Some(SeenState::Dropped)),
                                 ),
@@ -264,51 +303,15 @@ pub async fn collection_contents(
                                 MediaGeneralFilter::Unrated => {
                                     Expr::exists(build_review_rating_exists_query(user_id)).not()
                                 }
-                                MediaGeneralFilter::All => metadata::Column::Id.is_not_null(),
                                 MediaGeneralFilter::Rated => {
                                     Expr::exists(build_review_rating_exists_query(user_id))
                                 }
-                                MediaGeneralFilter::Unfinished => Expr::exists(
-                                    Query::select()
-                                        .expr(Expr::val(1))
-                                        .from(UserToEntity)
-                                        .and_where(
-                                            Expr::col((
-                                                user_to_entity::Entity,
-                                                user_to_entity::Column::UserId,
-                                            ))
-                                            .eq(user_id),
-                                        )
-                                        .and_where(
-                                            Expr::col((
-                                                user_to_entity::Entity,
-                                                user_to_entity::Column::EntityId,
-                                            ))
-                                            .equals((
-                                                collection_to_entity::Entity,
-                                                collection_to_entity::Column::EntityId,
-                                            )),
-                                        )
-                                        .and_where(
-                                            Expr::col((
-                                                user_to_entity::Entity,
-                                                user_to_entity::Column::EntityLot,
-                                            ))
-                                            .equals((
-                                                collection_to_entity::Entity,
-                                                collection_to_entity::Column::EntityLot,
-                                            )),
-                                        )
-                                        .and_where(
-                                            Expr::val(UserToMediaReason::Finished)
-                                                .eq(PgFunc::any(Expr::col((
-                                                    user_to_entity::Entity,
-                                                    user_to_entity::Column::MediaReason,
-                                                ))))
-                                                .not(),
-                                        )
-                                        .to_owned(),
-                                ),
+                                MediaGeneralFilter::Unfinished => {
+                                    Expr::exists(build_user_to_entity_exists_query(
+                                        user_id,
+                                        Some(UserToMediaReason::Finished),
+                                    ))
+                                }
                             };
                         query.filter(filter_expression)
                     });
@@ -427,10 +430,10 @@ pub async fn collection_contents(
             query = query
                 .order_by_with_nulls(
                     match sort.by {
+                        CollectionContentsSortBy::Random => Expr::expr(Func::random()),
                         CollectionContentsSortBy::Rank => {
                             Expr::col(collection_to_entity::Column::Rank)
                         }
-                        CollectionContentsSortBy::Random => Expr::expr(Func::random()),
                         CollectionContentsSortBy::LastUpdatedOn => {
                             Expr::col(collection_to_entity::Column::LastUpdatedOn)
                         }
