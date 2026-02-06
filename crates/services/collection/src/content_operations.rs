@@ -436,6 +436,11 @@ pub async fn collection_contents(
                         CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
                             Expr::col((metadata::Entity, metadata::Column::PublishDate)).into(),
                             Expr::col((person::Entity, person::Column::BirthDate)).into(),
+                            Expr::col((
+                                metadata_group::Entity,
+                                metadata_group::Column::LastUpdatedOn,
+                            ))
+                            .into(),
                             Expr::col((workout::Entity, workout::Column::EndTime)).into(),
                             Expr::col((
                                 workout_template::Entity,
