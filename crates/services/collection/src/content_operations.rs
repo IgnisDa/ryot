@@ -28,7 +28,7 @@ use sea_orm::{
 };
 use supporting_service::SupportingService;
 
-fn build_seen_exists_query(user_id: &str, state: Option<SeenState>) -> SelectStatement {
+fn build_metadata_seen_exists_query(user_id: &str, state: Option<SeenState>) -> SelectStatement {
     let mut query = Query::select()
         .expr(Expr::val(1))
         .from(Seen)
@@ -48,7 +48,7 @@ fn build_seen_exists_query(user_id: &str, state: Option<SeenState>) -> SelectSta
     query
 }
 
-fn build_review_rating_exists_query(user_id: &str) -> SelectStatement {
+fn build_metadata_review_rating_exists_query(user_id: &str) -> SelectStatement {
     Query::select()
         .expr(Expr::val(1))
         .from(Review)
@@ -291,28 +291,28 @@ pub async fn collection_contents(
                         query.filter(Expr::col((metadata::Entity, metadata::Column::Source)).eq(v))
                     })
                     .apply_if(metadata_filter.general, |query, v| {
-                        let filter_expression: SimpleExpr =
-                            match v {
-                                MediaGeneralFilter::All => metadata::Column::Id.is_not_null(),
-                                MediaGeneralFilter::Dropped => Expr::exists(
-                                    build_seen_exists_query(user_id, Some(SeenState::Dropped)),
-                                ),
-                                MediaGeneralFilter::OnAHold => Expr::exists(
-                                    build_seen_exists_query(user_id, Some(SeenState::OnAHold)),
-                                ),
-                                MediaGeneralFilter::Unrated => {
-                                    Expr::exists(build_review_rating_exists_query(user_id)).not()
-                                }
-                                MediaGeneralFilter::Rated => {
-                                    Expr::exists(build_review_rating_exists_query(user_id))
-                                }
-                                MediaGeneralFilter::Unfinished => {
-                                    Expr::exists(build_user_to_entity_exists_query(
-                                        user_id,
-                                        Some(UserToMediaReason::Finished),
-                                    ))
-                                }
-                            };
+                        let filter_expression: SimpleExpr = match v {
+                            MediaGeneralFilter::All => metadata::Column::Id.is_not_null(),
+                            MediaGeneralFilter::Dropped => Expr::exists(
+                                build_metadata_seen_exists_query(user_id, Some(SeenState::Dropped)),
+                            ),
+                            MediaGeneralFilter::OnAHold => Expr::exists(
+                                build_metadata_seen_exists_query(user_id, Some(SeenState::OnAHold)),
+                            ),
+                            MediaGeneralFilter::Unrated => {
+                                Expr::exists(build_metadata_review_rating_exists_query(user_id))
+                                    .not()
+                            }
+                            MediaGeneralFilter::Rated => {
+                                Expr::exists(build_metadata_review_rating_exists_query(user_id))
+                            }
+                            MediaGeneralFilter::Unfinished => {
+                                Expr::exists(build_user_to_entity_exists_query(
+                                    user_id,
+                                    Some(UserToMediaReason::Finished),
+                                ))
+                            }
+                        };
                         query.filter(filter_expression)
                     });
             }
