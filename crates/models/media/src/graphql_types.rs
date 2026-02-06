@@ -97,10 +97,13 @@ pub struct GenreDetailsInput {
     pub search: Option<SearchInput>,
 }
 
+/// Sort order direction for ordering query results.
 #[derive(Debug, Serialize, Hash, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum GraphqlSortOrder {
+    /// Ascending order (A to Z, 0 to 9, oldest to newest). Default behavior.
     #[default]
     Asc,
+    /// Descending order (Z to A, 9 to 0, newest to oldest).
     Desc,
 }
 
@@ -125,35 +128,54 @@ pub enum PersonAndMetadataGroupsSortBy {
     AssociatedEntityCount,
 }
 
+/// General status filters for metadata (media) items.
 #[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
 pub enum MediaGeneralFilter {
+    /// Show all items regardless of status. Default behavior.
     #[default]
     All,
+    /// Show only items that have been rated by the user.
     Rated,
+    /// Show only items that have not been rated by the user.
     Unrated,
+    /// Show only items marked as dropped by the user.
     Dropped,
+    /// Show only items marked as on hold by the user.
     OnAHold,
+    /// Show only items that are unfinished (started but not completed).
     Unfinished,
 }
 
+/// Strategy for combining multiple collection filters.
+/// Determines how to interpret multiple MediaCollectionFilter entries.
 #[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
 pub enum MediaCollectionStrategyFilter {
+    /// Match items present in ANY of the specified collections (union).
     Or,
+    /// Match items present in ALL of the specified collections (intersection). Default behavior.
     #[default]
     And,
 }
 
+/// Filter based on whether items are present in or absent from a collection.
 #[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
 pub enum MediaCollectionPresenceFilter {
+    /// Match items that ARE present in the specified collection. Default behavior.
     #[default]
     PresentIn,
+    /// Match items that are NOT present in the specified collection.
     NotPresentIn,
 }
 
+/// Filter for finding items based on their presence in another collection.
+/// Can be used to create complex queries like "items in collection A but not in collection B".
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct MediaCollectionFilter {
+    /// The unique identifier of the collection to check against.
     pub collection_id: String,
+    /// How to combine this filter with other collection filters (AND/OR). Defaults to AND.
     pub strategy: MediaCollectionStrategyFilter,
+    /// Whether to match items present in or absent from this collection. Defaults to PresentIn.
     pub presence: MediaCollectionPresenceFilter,
 }
 

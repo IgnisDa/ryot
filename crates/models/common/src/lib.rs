@@ -268,6 +268,7 @@ pub struct NamedObject {
     pub name: String,
 }
 
+/// Pagination and text search parameters for various list queries.
 #[skip_serializing_none]
 #[derive(
     Eq,
@@ -282,8 +283,11 @@ pub struct NamedObject {
     FromJsonQueryResult,
 )]
 pub struct SearchInput {
+    /// Number of items to return per page. If not provided, uses the user's default preference.
     pub take: Option<u64>,
+    /// Page number to retrieve (1-indexed). Defaults to 1 if not provided.
     pub page: Option<u64>,
+    /// Optional text query to search within items. The search behavior depends on the entity type being queried.
     pub query: Option<String>,
 }
 

@@ -24,6 +24,8 @@ pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,
 }
 
+/// Generic sorting configuration for various list queries.
+/// Specifies both the field to sort by and the sort direction (ascending/descending).
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, InputObject, Clone, Default)]
 #[graphql(concrete(name = "MediaSortInput", params(MediaSortBy)))]
 #[graphql(concrete(name = "PersonSortInput", params(PersonAndMetadataGroupsSortBy)))]
@@ -33,8 +35,10 @@ pub struct SearchResults<T: OutputType> {
     params(UserTemplatesOrWorkoutsListSortBy)
 ))]
 pub struct SortInput<T: InputType + Default> {
+    /// The field to sort by. Type depends on the context (e.g., CollectionContentsSortBy for collection contents).
     #[graphql(default)]
     pub by: T,
+    /// Sort direction: ascending (Asc) or descending (Desc). Defaults to ascending.
     #[graphql(default)]
     pub order: GraphqlSortOrder,
 }
@@ -60,11 +64,17 @@ pub struct GenreDetails {
     pub contents: SearchResults<String>,
 }
 
+/// Input parameters for retrieving the contents of a collection with filtering, sorting, and search capabilities.
+/// Used by the `collection_contents` query to fetch and organize items within a collection.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize, InputObject)]
 pub struct CollectionContentsInput {
+    /// The unique identifier of the collection to retrieve contents from.
     pub collection_id: String,
+    /// Optional pagination and text search parameters.
     pub search: Option<SearchInput>,
+    /// Optional filters to narrow down collection contents by entity type, date range, or entity-specific criteria.
     pub filter: Option<CollectionContentsFilter>,
+    /// Optional sorting configuration specifying how to order the collection contents.
     pub sort: Option<SortInput<CollectionContentsSortBy>>,
 }
 

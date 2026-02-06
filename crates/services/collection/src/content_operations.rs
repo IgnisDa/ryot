@@ -4,22 +4,123 @@ use anyhow::{Result, bail};
 use application_utils::graphql_to_db_order;
 use common_models::{EntityWithLot, SearchDetails, UserLevelCacheKey};
 use database_models::{
-    collection_to_entity, exercise, metadata, metadata_group, person,
-    prelude::{Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, Workout},
+    collection_entity_membership, collection_to_entity, exercise, metadata, metadata_group, person,
+    prelude::{
+        Collection, CollectionEntityMembership, CollectionToEntity, Exercise, Metadata,
+        MetadataGroup, Person, Review, Seen, UserToEntity, Workout, WorkoutTemplate,
+    },
+    review, seen, user_to_entity, workout, workout_template,
 };
 use database_utils::{apply_columns_search, extract_pagination_params, item_reviews, user_by_id};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, BasicUserDetails, CachedResponse,
     CollectionContents, CollectionContentsInput, CollectionContentsResponse, SearchResults,
 };
-use enum_models::EntityLot;
-use media_models::CollectionContentsSortBy;
+use enum_models::{EntityLot, SeenState, UserToMediaReason};
+use media_models::{
+    CollectionContentsSortBy, MediaCollectionPresenceFilter, MediaCollectionStrategyFilter,
+    MediaGeneralFilter,
+};
 use sea_orm::{
-    ColumnTrait, EntityTrait, ItemsAndPagesNumber, PaginatorTrait, QueryFilter, QueryOrder,
-    QueryTrait,
-    sea_query::{Condition, Expr, Func},
+    ColumnTrait, Condition, EntityTrait, ItemsAndPagesNumber, PaginatorTrait, QueryFilter,
+    QueryOrder, QueryTrait,
+    sea_query::{Expr, Func, NullOrdering, PgFunc, Query, SelectStatement, SimpleExpr},
 };
 use supporting_service::SupportingService;
+
+fn build_metadata_seen_exists_query(user_id: &str, state: Option<SeenState>) -> SelectStatement {
+    let mut query = Query::select()
+        .expr(Expr::val(1))
+        .from(Seen)
+        .and_where(Expr::col((seen::Entity, seen::Column::UserId)).eq(user_id))
+        .and_where(Expr::col((seen::Entity, seen::Column::MetadataId)).equals((
+            collection_to_entity::Entity,
+            collection_to_entity::Column::MetadataId,
+        )))
+        .to_owned();
+
+    if let Some(state) = state {
+        query = query
+            .and_where(Expr::col((seen::Entity, seen::Column::State)).eq(state))
+            .to_owned();
+    }
+
+    query
+}
+
+fn build_metadata_review_rating_exists_query(user_id: &str) -> SelectStatement {
+    Query::select()
+        .expr(Expr::val(1))
+        .from(Review)
+        .and_where(Expr::col((review::Entity, review::Column::UserId)).eq(user_id))
+        .and_where(
+            Expr::col((review::Entity, review::Column::MetadataId)).equals((
+                collection_to_entity::Entity,
+                collection_to_entity::Column::MetadataId,
+            )),
+        )
+        .and_where(Expr::col((review::Entity, review::Column::Rating)).is_not_null())
+        .to_owned()
+}
+
+fn build_user_to_entity_exists_query(
+    user_id: &str,
+    negated_media_reason: Option<UserToMediaReason>,
+) -> SelectStatement {
+    let mut query = Query::select()
+        .expr(Expr::val(1))
+        .from(UserToEntity)
+        .and_where(Expr::col((user_to_entity::Entity, user_to_entity::Column::UserId)).eq(user_id))
+        .and_where(
+            Expr::col((user_to_entity::Entity, user_to_entity::Column::EntityId)).equals((
+                collection_to_entity::Entity,
+                collection_to_entity::Column::EntityId,
+            )),
+        )
+        .and_where(
+            Expr::col((user_to_entity::Entity, user_to_entity::Column::EntityLot)).equals((
+                collection_to_entity::Entity,
+                collection_to_entity::Column::EntityLot,
+            )),
+        )
+        .to_owned();
+
+    if let Some(reason) = negated_media_reason {
+        query = query
+            .and_where(
+                Expr::val(reason)
+                    .eq(PgFunc::any(Expr::col((
+                        user_to_entity::Entity,
+                        user_to_entity::Column::MediaReason,
+                    ))))
+                    .not(),
+            )
+            .to_owned();
+    }
+
+    query
+}
+
+fn build_collection_membership_exists_query(collection_id: &str, user_id: &str) -> SelectStatement {
+    Query::select()
+        .expr(Expr::val(1))
+        .from(CollectionEntityMembership)
+        .and_where(collection_entity_membership::Column::OriginCollectionId.eq(collection_id))
+        .and_where(collection_entity_membership::Column::UserId.eq(user_id))
+        .and_where(
+            Expr::col(collection_entity_membership::Column::EntityId).equals((
+                collection_to_entity::Entity,
+                collection_to_entity::Column::EntityId,
+            )),
+        )
+        .and_where(
+            Expr::col(collection_entity_membership::Column::EntityLot).equals((
+                collection_to_entity::Entity,
+                collection_to_entity::Column::EntityLot,
+            )),
+        )
+        .to_owned()
+}
 
 pub async fn collection_contents(
     user_id: &String,
@@ -44,12 +145,127 @@ pub async fn collection_contents(
             let Some(details) = maybe_collection else {
                 bail!("Collection not found");
             };
-            let paginator = CollectionToEntity::find()
+            if let Some(entity_lot) = filter.entity_lot
+                && matches!(
+                    entity_lot,
+                    EntityLot::Genre
+                        | EntityLot::Review
+                        | EntityLot::Collection
+                        | EntityLot::UserMeasurement
+                )
+            {
+                bail!(
+                    "Cannot filter by entity type {:?} as it cannot be added to collections",
+                    entity_lot
+                );
+            }
+
+            let average_rating_subquery = Query::select()
+                .expr(Func::avg(Expr::col((
+                    review::Entity,
+                    review::Column::Rating,
+                ))))
+                .from(Review)
+                .and_where(Expr::col((review::Entity, review::Column::UserId)).eq(user_id))
+                .and_where(
+                    Expr::col((review::Entity, review::Column::EntityId)).equals((
+                        collection_to_entity::Entity,
+                        collection_to_entity::Column::EntityId,
+                    )),
+                )
+                .and_where(
+                    Expr::col((review::Entity, review::Column::EntityLot)).equals((
+                        collection_to_entity::Entity,
+                        collection_to_entity::Column::EntityLot,
+                    )),
+                )
+                .and_where(Expr::col((review::Entity, review::Column::Rating)).is_not_null())
+                .to_owned();
+
+            let max_seen_finished_on_subquery = Query::select()
+                .expr(Func::max(Expr::col((
+                    seen::Entity,
+                    seen::Column::FinishedOn,
+                ))))
+                .from(Seen)
+                .and_where(Expr::col((seen::Entity, seen::Column::UserId)).eq(user_id))
+                .and_where(Expr::col((seen::Entity, seen::Column::MetadataId)).equals((
+                    collection_to_entity::Entity,
+                    collection_to_entity::Column::MetadataId,
+                )))
+                .to_owned();
+
+            let times_seen_subquery = Query::select()
+                .expr(Func::count(Expr::col((seen::Entity, seen::Column::Id))))
+                .from(Seen)
+                .and_where(Expr::col((seen::Entity, seen::Column::UserId)).eq(user_id))
+                .and_where(Expr::col((seen::Entity, seen::Column::MetadataId)).equals((
+                    collection_to_entity::Entity,
+                    collection_to_entity::Column::MetadataId,
+                )))
+                .to_owned();
+
+            let exercise_last_performed_subquery = Query::select()
+                .expr(Expr::col((
+                    user_to_entity::Entity,
+                    user_to_entity::Column::LastUpdatedOn,
+                )))
+                .from(UserToEntity)
+                .and_where(
+                    Expr::col((user_to_entity::Entity, user_to_entity::Column::UserId)).eq(user_id),
+                )
+                .and_where(
+                    Expr::col((user_to_entity::Entity, user_to_entity::Column::EntityId)).equals((
+                        collection_to_entity::Entity,
+                        collection_to_entity::Column::EntityId,
+                    )),
+                )
+                .and_where(
+                    Expr::col((user_to_entity::Entity, user_to_entity::Column::EntityLot)).equals(
+                        (
+                            collection_to_entity::Entity,
+                            collection_to_entity::Column::EntityLot,
+                        ),
+                    ),
+                )
+                .to_owned();
+
+            let exercise_times_performed_subquery = Query::select()
+                .expr(Func::coalesce([
+                    Expr::col((
+                        user_to_entity::Entity,
+                        user_to_entity::Column::ExerciseNumTimesInteracted,
+                    ))
+                    .into(),
+                    Expr::val(0).into(),
+                ]))
+                .from(UserToEntity)
+                .and_where(
+                    Expr::col((user_to_entity::Entity, user_to_entity::Column::UserId)).eq(user_id),
+                )
+                .and_where(
+                    Expr::col((user_to_entity::Entity, user_to_entity::Column::EntityId)).equals((
+                        collection_to_entity::Entity,
+                        collection_to_entity::Column::EntityId,
+                    )),
+                )
+                .and_where(
+                    Expr::col((user_to_entity::Entity, user_to_entity::Column::EntityLot)).equals(
+                        (
+                            collection_to_entity::Entity,
+                            collection_to_entity::Column::EntityLot,
+                        ),
+                    ),
+                )
+                .to_owned();
+
+            let mut query = CollectionToEntity::find()
                 .left_join(Metadata)
                 .left_join(MetadataGroup)
                 .left_join(Person)
                 .left_join(Exercise)
                 .left_join(Workout)
+                .left_join(WorkoutTemplate)
                 .filter(collection_to_entity::Column::CollectionId.eq(details.id.clone()))
                 .apply_if(search.query, |query, v| {
                     apply_columns_search(
@@ -60,40 +276,181 @@ pub async fn collection_contents(
                             Expr::col((metadata_group::Entity, metadata_group::Column::Title)),
                             Expr::col((person::Entity, person::Column::Name)),
                             Expr::col((exercise::Entity, exercise::Column::Id)),
+                            Expr::col((workout::Entity, workout::Column::Name)),
+                            Expr::col((workout_template::Entity, workout_template::Column::Name)),
                         ],
                     )
-                })
-                .apply_if(filter.metadata_lot, |query, v| {
-                    query.filter(
-                        Condition::any()
-                            .add(Expr::col((metadata::Entity, metadata::Column::Lot)).eq(v)),
+                });
+
+            if let Some(metadata_filter) = filter.metadata {
+                query = query
+                    .apply_if(metadata_filter.lot, |query, v| {
+                        query.filter(Expr::col((metadata::Entity, metadata::Column::Lot)).eq(v))
+                    })
+                    .apply_if(metadata_filter.source, |query, v| {
+                        query.filter(Expr::col((metadata::Entity, metadata::Column::Source)).eq(v))
+                    })
+                    .apply_if(metadata_filter.general, |query, v| {
+                        let filter_expression: SimpleExpr = match v {
+                            MediaGeneralFilter::All => metadata::Column::Id.is_not_null(),
+                            MediaGeneralFilter::Dropped => Expr::exists(
+                                build_metadata_seen_exists_query(user_id, Some(SeenState::Dropped)),
+                            ),
+                            MediaGeneralFilter::OnAHold => Expr::exists(
+                                build_metadata_seen_exists_query(user_id, Some(SeenState::OnAHold)),
+                            ),
+                            MediaGeneralFilter::Unrated => {
+                                Expr::exists(build_metadata_review_rating_exists_query(user_id))
+                                    .not()
+                            }
+                            MediaGeneralFilter::Rated => {
+                                Expr::exists(build_metadata_review_rating_exists_query(user_id))
+                            }
+                            MediaGeneralFilter::Unfinished => {
+                                Expr::exists(build_user_to_entity_exists_query(
+                                    user_id,
+                                    Some(UserToMediaReason::Finished),
+                                ))
+                            }
+                        };
+                        query.filter(filter_expression)
+                    });
+            }
+
+            if let Some(exercise_filter) = filter.exercise {
+                query = query
+                    .apply_if(
+                        exercise_filter.types.as_ref().filter(|v| !v.is_empty()),
+                        |q, v| {
+                            q.filter(
+                                Expr::col((exercise::Entity, exercise::Column::Lot))
+                                    .is_in(v.clone()),
+                            )
+                        },
                     )
-                })
+                    .apply_if(
+                        exercise_filter.muscles.as_ref().filter(|v| !v.is_empty()),
+                        |q, v| {
+                            q.filter(v.iter().fold(Condition::any(), |cond, muscle| {
+                                cond.add(Expr::val(*muscle).eq(PgFunc::any(Expr::col((
+                                    exercise::Entity,
+                                    exercise::Column::Muscles,
+                                )))))
+                            }))
+                        },
+                    )
+                    .apply_if(
+                        exercise_filter.levels.as_ref().filter(|v| !v.is_empty()),
+                        |q, v| {
+                            q.filter(
+                                Expr::col((exercise::Entity, exercise::Column::Level))
+                                    .is_in(v.clone()),
+                            )
+                        },
+                    )
+                    .apply_if(
+                        exercise_filter.forces.as_ref().filter(|v| !v.is_empty()),
+                        |q, v| {
+                            q.filter(
+                                Expr::col((exercise::Entity, exercise::Column::Force))
+                                    .is_in(v.clone()),
+                            )
+                        },
+                    )
+                    .apply_if(
+                        exercise_filter.mechanics.as_ref().filter(|v| !v.is_empty()),
+                        |q, v| {
+                            q.filter(
+                                Expr::col((exercise::Entity, exercise::Column::Mechanic))
+                                    .is_in(v.clone()),
+                            )
+                        },
+                    )
+                    .apply_if(
+                        exercise_filter
+                            .equipments
+                            .as_ref()
+                            .filter(|v| !v.is_empty()),
+                        |q, v| {
+                            q.filter(
+                                Expr::col((exercise::Entity, exercise::Column::Equipment))
+                                    .is_in(v.clone()),
+                            )
+                        },
+                    );
+            }
+
+            query = query
                 .apply_if(filter.entity_lot, |query, v| {
-                    let f = match v {
-                        EntityLot::Genre
-                        | EntityLot::Review
-                        | EntityLot::Collection
-                        | EntityLot::UserMeasurement => {
-                            // These entity types cannot be directly added to collections
-                            unreachable!()
-                        }
-                        _ => v,
-                    };
-                    query.filter(collection_to_entity::Column::EntityLot.eq(f))
+                    query.filter(collection_to_entity::Column::EntityLot.eq(v))
                 })
-                .order_by(
+                .apply_if(filter.date_range, |outer_query, outer_value| {
+                    outer_query
+                        .apply_if(outer_value.start_date, |inner_query, inner_value| {
+                            inner_query.filter(
+                                collection_to_entity::Column::LastUpdatedOn.gte(inner_value),
+                            )
+                        })
+                        .apply_if(outer_value.end_date, |inner_query, inner_value| {
+                            inner_query.filter(
+                                collection_to_entity::Column::LastUpdatedOn.lte(inner_value),
+                            )
+                        })
+                });
+
+            if let Some(ref collections) = filter.collections
+                && !collections.is_empty()
+            {
+                let (first_filter, remaining_filters) = collections.split_first().unwrap();
+
+                let build_filter_condition = |coll_filter: &media_models::MediaCollectionFilter| {
+                    let exists_condition = Expr::exists(build_collection_membership_exists_query(
+                        &coll_filter.collection_id,
+                        user_id,
+                    ));
+                    match coll_filter.presence {
+                        MediaCollectionPresenceFilter::PresentIn => exists_condition,
+                        MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
+                    }
+                };
+
+                let mut combined_condition = build_filter_condition(first_filter);
+
+                for coll_filter in remaining_filters {
+                    let condition = build_filter_condition(coll_filter);
+                    combined_condition = match coll_filter.strategy {
+                        MediaCollectionStrategyFilter::Or => combined_condition.or(condition),
+                        MediaCollectionStrategyFilter::And => combined_condition.and(condition),
+                    };
+                }
+
+                query = query.filter(combined_condition);
+            }
+
+            query = query
+                .order_by_with_nulls(
                     match sort.by {
+                        CollectionContentsSortBy::Random => Expr::expr(Func::random()),
                         CollectionContentsSortBy::Rank => {
                             Expr::col(collection_to_entity::Column::Rank)
                         }
-                        CollectionContentsSortBy::Random => Expr::expr(Func::random()),
                         CollectionContentsSortBy::LastUpdatedOn => {
                             Expr::col(collection_to_entity::Column::LastUpdatedOn)
                         }
                         CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
                             Expr::col((metadata::Entity, metadata::Column::PublishDate)).into(),
                             Expr::col((person::Entity, person::Column::BirthDate)).into(),
+                            Expr::col((
+                                metadata_group::Entity,
+                                metadata_group::Column::LastUpdatedOn,
+                            ))
+                            .into(),
+                            Expr::col((workout::Entity, workout::Column::EndTime)).into(),
+                            Expr::col((
+                                workout_template::Entity,
+                                workout_template::Column::CreatedOn,
+                            ))
+                            .into(),
                         ])),
                         CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
                             Expr::col((metadata::Entity, metadata::Column::Title)).into(),
@@ -101,11 +458,61 @@ pub async fn collection_contents(
                                 .into(),
                             Expr::col((person::Entity, person::Column::Name)).into(),
                             Expr::col((exercise::Entity, exercise::Column::Id)).into(),
+                            Expr::col((workout::Entity, workout::Column::Name)).into(),
+                            Expr::col((workout_template::Entity, workout_template::Column::Name))
+                                .into(),
                         ])),
+                        CollectionContentsSortBy::UserRating => Expr::expr(SimpleExpr::SubQuery(
+                            None,
+                            Box::new(average_rating_subquery.into_sub_query_statement()),
+                        )),
+                        CollectionContentsSortBy::LastConsumed => Expr::expr(SimpleExpr::SubQuery(
+                            None,
+                            Box::new(max_seen_finished_on_subquery.into_sub_query_statement()),
+                        )),
+                        CollectionContentsSortBy::ProviderRating => {
+                            Expr::col((metadata::Entity, metadata::Column::ProviderRating))
+                        }
+                        CollectionContentsSortBy::AssociatedEntityCount => {
+                            Expr::expr(Func::coalesce([
+                                Expr::col((person::Entity, person::Column::AssociatedEntityCount))
+                                    .into(),
+                                Expr::col((metadata_group::Entity, metadata_group::Column::Parts))
+                                    .into(),
+                            ]))
+                        }
+                        CollectionContentsSortBy::LastPerformed => {
+                            Expr::expr(SimpleExpr::SubQuery(
+                                None,
+                                Box::new(
+                                    exercise_last_performed_subquery.into_sub_query_statement(),
+                                ),
+                            ))
+                        }
+                        CollectionContentsSortBy::TimesPerformed => {
+                            Expr::expr(SimpleExpr::SubQuery(
+                                None,
+                                Box::new(
+                                    exercise_times_performed_subquery.into_sub_query_statement(),
+                                ),
+                            ))
+                        }
+                        CollectionContentsSortBy::TimesConsumed => {
+                            Expr::expr(SimpleExpr::SubQuery(
+                                None,
+                                Box::new(times_seen_subquery.into_sub_query_statement()),
+                            ))
+                        }
                     },
                     graphql_to_db_order(sort.order),
+                    NullOrdering::Last,
                 )
-                .paginate(&ss.db, take);
+                .order_by(
+                    collection_to_entity::Column::LastUpdatedOn,
+                    sea_orm::Order::Desc,
+                );
+
+            let paginator = query.paginate(&ss.db, take);
             let mut items = vec![];
             let ItemsAndPagesNumber {
                 number_of_items,
