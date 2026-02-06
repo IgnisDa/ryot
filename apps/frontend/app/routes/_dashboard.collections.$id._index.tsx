@@ -62,8 +62,7 @@ export const meta = () => {
 	return [{ title: "Collection Details | Ryot" }];
 };
 
-const nonEmpty = <T,>(arr: T[]): T[] | undefined =>
-	arr.length > 0 ? arr : undefined;
+const nonEmpty = <T,>(arr: T[]) => (arr.length > 0 ? arr : undefined);
 
 export default function Page(props: { params: { id: string } }) {
 	const userDetails = useUserDetails();
