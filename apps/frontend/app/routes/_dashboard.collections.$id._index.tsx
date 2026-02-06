@@ -12,6 +12,7 @@ import { useDisclosure } from "@mantine/hooks";
 import {
 	CollectionContentsDocument,
 	type CollectionContentsInput,
+	EntityLot,
 	FilterPresetContextType,
 } from "@ryot/generated/graphql/backend/graphql";
 import { cloneDeep } from "@ryot/ts-utils";
@@ -94,8 +95,11 @@ export default function Page(props: { params: { id: string } }) {
 		contextType: FilterPresetContextType.CollectionContents,
 	});
 
-	const queryInput: CollectionContentsInput = useMemo(
-		() => ({
+	const queryInput: CollectionContentsInput = useMemo(() => {
+		const isMetadataEntity = filters.entityLot === EntityLot.Metadata;
+		const isExerciseEntity = filters.entityLot === EntityLot.Exercise;
+
+		return {
 			collectionId,
 			sort: { by: filters.sortBy, order: filters.orderBy },
 			search: { page: filters.page, query: filters.query },
@@ -107,9 +111,10 @@ export default function Page(props: { params: { id: string } }) {
 					startDate: filters.startDateRange || undefined,
 				},
 				metadata:
-					filters.metadataLot ||
-					filters.metadataSource ||
-					filters.metadataGeneral
+					isMetadataEntity &&
+					(filters.metadataLot ||
+						filters.metadataSource ||
+						filters.metadataGeneral)
 						? {
 								lot: filters.metadataLot,
 								source: filters.metadataSource,
@@ -117,12 +122,13 @@ export default function Page(props: { params: { id: string } }) {
 							}
 						: undefined,
 				exercise:
-					filters.exerciseTypes.length > 0 ||
-					filters.exerciseLevels.length > 0 ||
-					filters.exerciseForces.length > 0 ||
-					filters.exerciseMuscles.length > 0 ||
-					filters.exerciseMechanics.length > 0 ||
-					filters.exerciseEquipments.length > 0
+					isExerciseEntity &&
+					(filters.exerciseTypes.length > 0 ||
+						filters.exerciseLevels.length > 0 ||
+						filters.exerciseForces.length > 0 ||
+						filters.exerciseMuscles.length > 0 ||
+						filters.exerciseMechanics.length > 0 ||
+						filters.exerciseEquipments.length > 0)
 						? {
 								types:
 									filters.exerciseTypes.length > 0
@@ -151,9 +157,8 @@ export default function Page(props: { params: { id: string } }) {
 							}
 						: undefined,
 			},
-		}),
-		[collectionId, filters],
-	);
+		};
+	}, [collectionId, filters]);
 
 	const { data: collectionContents, refetch: refreshCollectionContents } =
 		useQuery({

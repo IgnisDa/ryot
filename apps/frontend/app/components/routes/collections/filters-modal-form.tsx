@@ -90,8 +90,7 @@ export const FiltersModalForm = (props: {
 					),
 				)}
 			/>
-			{props.filters.entityLot === EntityLot.Metadata ||
-			props.filters.entityLot === EntityLot.MetadataGroup ? (
+			{props.filters.entityLot === EntityLot.Metadata ? (
 				<>
 					<Select
 						size="xs"
@@ -101,30 +100,26 @@ export const FiltersModalForm = (props: {
 						data={convertEnumToSelectData(MediaLot)}
 						onChange={(v) => props.updateFilter("metadataLot", v as MediaLot)}
 					/>
-					{props.filters.entityLot === EntityLot.Metadata ? (
-						<>
-							<Select
-								size="xs"
-								clearable
-								placeholder="Select a media source"
-								value={props.filters.metadataSource}
-								data={convertEnumToSelectData(MediaSource)}
-								onChange={(v) =>
-									props.updateFilter("metadataSource", v as MediaSource)
-								}
-							/>
-							<Select
-								size="xs"
-								clearable
-								placeholder="Select a general filter"
-								value={props.filters.metadataGeneral}
-								data={convertEnumToSelectData(MediaGeneralFilter)}
-								onChange={(v) =>
-									props.updateFilter("metadataGeneral", v as MediaGeneralFilter)
-								}
-							/>
-						</>
-					) : null}
+					<Select
+						size="xs"
+						clearable
+						placeholder="Select a media source"
+						value={props.filters.metadataSource}
+						data={convertEnumToSelectData(MediaSource)}
+						onChange={(v) =>
+							props.updateFilter("metadataSource", v as MediaSource)
+						}
+					/>
+					<Select
+						size="xs"
+						clearable
+						placeholder="Select a general filter"
+						value={props.filters.metadataGeneral}
+						data={convertEnumToSelectData(MediaGeneralFilter)}
+						onChange={(v) =>
+							props.updateFilter("metadataGeneral", v as MediaGeneralFilter)
+						}
+					/>
 				</>
 			) : null}
 			{props.filters.entityLot === EntityLot.Exercise ? (
