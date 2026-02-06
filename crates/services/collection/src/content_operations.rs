@@ -238,6 +238,7 @@ pub async fn collection_contents(
                             Expr::col((metadata_group::Entity, metadata_group::Column::Title)),
                             Expr::col((person::Entity, person::Column::Name)),
                             Expr::col((exercise::Entity, exercise::Column::Id)),
+                            Expr::col((workout::Entity, workout::Column::Name)),
                             Expr::col((workout_template::Entity, workout_template::Column::Name)),
                         ],
                     )
