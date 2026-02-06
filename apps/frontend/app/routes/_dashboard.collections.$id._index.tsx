@@ -62,6 +62,9 @@ export const meta = () => {
 	return [{ title: "Collection Details | Ryot" }];
 };
 
+const nonEmpty = <T,>(arr: T[]): T[] | undefined =>
+	arr.length > 0 ? arr : undefined;
+
 export default function Page(props: { params: { id: string } }) {
 	const userDetails = useUserDetails();
 	const { id: collectionId } = props.params;
@@ -130,30 +133,12 @@ export default function Page(props: { params: { id: string } }) {
 						filters.exerciseMechanics.length > 0 ||
 						filters.exerciseEquipments.length > 0)
 						? {
-								types:
-									filters.exerciseTypes.length > 0
-										? filters.exerciseTypes
-										: undefined,
-								levels:
-									filters.exerciseLevels.length > 0
-										? filters.exerciseLevels
-										: undefined,
-								forces:
-									filters.exerciseForces.length > 0
-										? filters.exerciseForces
-										: undefined,
-								muscles:
-									filters.exerciseMuscles.length > 0
-										? filters.exerciseMuscles
-										: undefined,
-								mechanics:
-									filters.exerciseMechanics.length > 0
-										? filters.exerciseMechanics
-										: undefined,
-								equipments:
-									filters.exerciseEquipments.length > 0
-										? filters.exerciseEquipments
-										: undefined,
+								types: nonEmpty(filters.exerciseTypes),
+								levels: nonEmpty(filters.exerciseLevels),
+								forces: nonEmpty(filters.exerciseForces),
+								muscles: nonEmpty(filters.exerciseMuscles),
+								mechanics: nonEmpty(filters.exerciseMechanics),
+								equipments: nonEmpty(filters.exerciseEquipments),
 							}
 						: undefined,
 			},
