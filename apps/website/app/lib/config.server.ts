@@ -6,6 +6,7 @@ import { createCookie } from "react-router";
 import { z } from "zod";
 import * as schema from "~/drizzle/schema.server";
 import { PlanTypes, ProductTypes } from "~/drizzle/schema.server";
+import { PRICING_METADATA } from "./pricing-config";
 
 // The number of days after a subscription expires that we allow access
 export const GRACE_PERIOD = 7;
@@ -50,6 +51,18 @@ export const getOauthCallbackUrl = memoize(
 	() => `${getServerVariables().FRONTEND_URL}/callback`,
 );
 
+const pricesEnvSchema = z.array(
+	z.object({
+		type: z.enum(ProductTypes.enum),
+		prices: z.array(
+			z.object({
+				name: z.enum(PlanTypes.enum),
+				priceId: z.string().optional(),
+			}),
+		),
+	}),
+);
+
 export const pricesSchema = z.array(
 	z.object({
 		type: z.enum(ProductTypes.enum),
@@ -67,8 +80,30 @@ export const pricesSchema = z.array(
 
 export type TPrices = z.infer<typeof pricesSchema>;
 
-export const getPrices = memoize(() =>
-	pricesSchema.parse(JSON.parse(getServerVariables().PADDLE_PRICE_IDS)),
+export const getPrices = memoize(() => {
+	const envPrices = pricesEnvSchema.parse(
+		JSON.parse(getServerVariables().PADDLE_PRICE_IDS),
+	);
+
+	return envPrices.map((product) => ({
+		...product,
+		prices: product.prices.map((price) => ({
+			...price,
+			...PRICING_METADATA[product.type][price.name],
+		})),
+	}));
+});
+
+const polarProductsEnvSchema = z.array(
+	z.object({
+		type: z.enum(ProductTypes.enum),
+		prices: z.array(
+			z.object({
+				name: z.enum(PlanTypes.enum),
+				productId: z.string().optional(),
+			}),
+		),
+	}),
 );
 
 export const polarProductsSchema = z.array(
@@ -89,7 +124,16 @@ export type TPolarProducts = z.infer<typeof polarProductsSchema>;
 export const getPolarProducts = memoize(() => {
 	const productIds = getServerVariables().POLAR_PRODUCT_IDS;
 	if (!productIds) return null;
-	return polarProductsSchema.parse(JSON.parse(productIds));
+
+	const envProducts = polarProductsEnvSchema.parse(JSON.parse(productIds));
+
+	return envProducts.map((product) => ({
+		...product,
+		prices: product.prices.map((price) => ({
+			...price,
+			...PRICING_METADATA[product.type][price.name],
+		})),
+	}));
 });
 
 export const getPolarAbPercent = memoize(() => {
