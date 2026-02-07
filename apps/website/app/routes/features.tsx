@@ -19,10 +19,11 @@ import {
 	Target,
 	Users,
 } from "lucide-react";
-import { type ReactNode, useEffect } from "react";
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
+import { SectionHeader } from "~/lib/components/SectionHeader";
 import { Badge } from "~/lib/components/ui/badge";
 import { Button } from "~/lib/components/ui/button";
 import { Card, CardContent } from "~/lib/components/ui/card";
@@ -32,55 +33,43 @@ import {
 	CarouselItem,
 } from "~/lib/components/ui/carousel";
 import { ProBadge } from "~/lib/components/ui/pro-badge";
-import { initializePaddleForApplication, useConfigData } from "~/lib/general";
+import { usePaddleInitialization } from "~/lib/hooks/usePaddleInitialization";
 
 export const meta = () => {
 	return [{ title: "Features | Ryot" }];
 };
 
 export default function Page() {
-	const { data: configData } = useConfigData();
-
-	useEffect(() => {
-		if (configData)
-			initializePaddleForApplication(
-				configData.clientToken,
-				configData.isSandbox,
-			);
-	}, [configData]);
+	usePaddleInitialization();
 
 	return (
 		<div className="min-h-screen">
 			<section className="py-20 lg:py-32">
 				<div className={SECTION_STYLES}>
-					<div className="text-center mb-16">
-						<Badge variant="secondary" className="mb-6">
-							<Brain className="w-4 h-4 mr-2" />
-							Comprehensive Tracking
-						</Badge>
-						<h1 className="text-4xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
-							Think of Ryot as your{" "}
-							<span className="text-primary">second brain</span> with
-							superpowers ✨
-						</h1>
-						<p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-							What all can Ryot do for you?
-						</p>
-					</div>
+					<SectionHeader
+						as="h1"
+						icon={Brain}
+						badgeVariant="secondary"
+						subtitle="Comprehensive Tracking"
+						title={
+							<>
+								Think of Ryot as your{" "}
+								<span className="text-primary">second brain</span> with
+								superpowers ✨
+							</>
+						}
+						description="What all can Ryot do for you?"
+					/>
 				</div>
 			</section>
 
 			<section className="py-20">
 				<div className={SECTION_STYLES}>
-					<div className="text-center mb-16">
-						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
-							Everything You Need in One Place
-						</h2>
-						<p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-							Discover all the powerful features that make Ryot your ultimate
-							personal tracking companion.
-						</p>
-					</div>
+					<SectionHeader
+						title="Everything You Need in One Place"
+						maxWidth="max-w-2xl"
+						description="Discover all the powerful features that make Ryot your ultimate personal tracking companion."
+					/>
 
 					<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
 						{FEATURE_CARDS.map((card) => (

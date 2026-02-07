@@ -1,0 +1,74 @@
+import { cn } from "@ryot/ts-utils";
+import { Star } from "lucide-react";
+import { Link } from "react-router";
+import { Badge } from "~/lib/components/ui/badge";
+import { Button } from "~/lib/components/ui/button";
+
+type ImageProps = {
+	src: string;
+	alt: string;
+	className: string;
+};
+
+const Image = (props: ImageProps) => (
+	<img
+		src={props.src}
+		alt={props.alt}
+		className={cn(
+			props.className,
+			"mx-auto aspect-video overflow-hidden rounded-xl object-cover",
+		)}
+	/>
+);
+
+const demoLink = "https://demo.ryot.io/_s/acl_QQ7Bb9JvtOrj";
+
+type HeroSectionProps = Record<string, never>;
+
+export const HeroSection = (props: HeroSectionProps) => {
+	return (
+		<section className="relative py-20 lg:py-32 overflow-hidden">
+			<div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-accent/5" />
+			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+				<div className="grid lg:grid-cols-2 gap-12 items-center">
+					<div className="max-w-2xl">
+						<Badge variant="secondary" className="mb-6">
+							<Star className="w-4 h-4 mr-2" />
+							Trusted by thousands
+						</Badge>
+						<h1 className="text-4xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
+							Track Your Life, Your Way with{" "}
+							<span className="text-primary">Ryot</span>
+						</h1>
+						<p className="text-lg text-muted-foreground mb-8 leading-relaxed">
+							The ultimate personal tracking platform that helps you monitor
+							your media consumption, fitness progress, and daily habits all in
+							one place. Say goodbye to scattered spreadsheets and hello to
+							organized insights.
+						</p>
+						<div className="flex flex-col sm:flex-row gap-4">
+							<Link to="#start-here">
+								<Button size="lg" className="text-base px-8">
+									Start Free Trial
+								</Button>
+							</Link>
+							<a href={demoLink} target="_blank" rel="noopener noreferrer">
+								<Button variant="outline" size="lg" className="text-base px-8">
+									Try Live Demo
+								</Button>
+							</a>
+						</div>
+					</div>
+					<div className="relative">
+						<div className="absolute inset-0 bg-linear-to-r from-primary/20 to-accent/20 blur-3xl rounded-full" />
+						<Image
+							src="/cta-image.png"
+							alt="Ryot Dashboard Interface showing media tracking capabilities"
+							className="relative w-full max-w-2xl mx-auto rounded-2xl"
+						/>
+					</div>
+				</div>
+			</div>
+		</section>
+	);
+};

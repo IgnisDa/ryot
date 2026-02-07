@@ -1,5 +1,6 @@
 import { FileText, Mail, MapPin, Scale } from "lucide-react";
-import { Badge } from "~/lib/components/ui/badge";
+import { SectionHeader } from "~/lib/components/SectionHeader";
+import { TermsSection } from "~/lib/components/TermsSection";
 import { Card, CardContent } from "~/lib/components/ui/card";
 import { contactEmail } from "~/lib/general";
 
@@ -12,20 +13,15 @@ export default function Index() {
 		<>
 			<section className="py-10 lg:py-20 bg-muted/30">
 				<div className="max-w-4xl mx-auto px-4">
-					<div className="text-center mb-16">
-						<Badge variant="secondary" className="mb-6">
-							<Scale className="w-4 h-4 mr-2" />
-							Legal Information
-						</Badge>
-						<h1 className="text-3xl lg:text-5xl font-bold text-foreground mb-6 leading-tight">
-							Terms of Service
-						</h1>
-						<p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-							Please read these terms carefully before using Ryot. By accessing
-							or using our service, you agree to be bound by these terms and
-							conditions.
-						</p>
-					</div>
+					<SectionHeader
+						as="h1"
+						icon={Scale}
+						badgeVariant="secondary"
+						subtitle="Legal Information"
+						title="Terms of Service"
+						maxWidth="max-w-2xl"
+						description="Please read these terms carefully before using Ryot. By accessing or using our service, you agree to be bound by these terms and conditions."
+					/>
 				</div>
 			</section>
 
@@ -33,31 +29,15 @@ export default function Index() {
 				<div className="max-w-4xl mx-auto px-4">
 					<Card className="mb-8">
 						<CardContent className="p-4 sm:p-8">
-							<div className="mb-12">
-								<div className="flex items-center mb-6">
-									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
-										<span className="text-primary font-semibold">1</span>
-									</div>
-									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
-										Introduction
-									</h2>
-								</div>
+							<TermsSection number={1} title="Introduction">
 								<p className="text-muted-foreground leading-relaxed">
 									Welcome to Ryot! These Terms of Service ("Terms") govern your
 									use of the Ryot software ("Service"). By accessing or using
 									the Service, you agree to be bound by these Terms.
 								</p>
-							</div>
+							</TermsSection>
 
-							<div className="mb-12">
-								<div className="flex items-center mb-6">
-									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
-										<span className="text-primary font-semibold">2</span>
-									</div>
-									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
-										Company Information
-									</h2>
-								</div>
+							<TermsSection number={2} title="Company Information">
 								<div className="bg-muted/50 p-4 sm:p-6 rounded-lg space-y-3">
 									<div className="flex items-center">
 										<MapPin className="w-4 h-4 text-muted-foreground mr-3" />
@@ -76,17 +56,9 @@ export default function Index() {
 										</a>
 									</div>
 								</div>
-							</div>
+							</TermsSection>
 
-							<div className="mb-12">
-								<div className="flex items-center mb-6">
-									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
-										<span className="text-primary font-semibold">3</span>
-									</div>
-									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
-										User Eligibility
-									</h2>
-								</div>
+							<TermsSection number={3} title="User Eligibility">
 								<p className="text-muted-foreground leading-relaxed">
 									The Service is not directed to children. You may use the
 									Service only if you are at least 13 years old (or 16 where
@@ -94,17 +66,9 @@ export default function Index() {
 									that you meet the minimum age requirement and have the
 									capacity to enter into these Terms.
 								</p>
-							</div>
+							</TermsSection>
 
-							<div className="mb-12">
-								<div className="flex items-center mb-6">
-									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
-										<span className="text-primary font-semibold">4</span>
-									</div>
-									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
-										User Accounts and Pro Key
-									</h2>
-								</div>
+							<TermsSection number={4} title="User Accounts and Pro Key">
 								<p className="text-muted-foreground leading-relaxed">
 									Users can self-host the software and create accounts on their
 									own infrastructure. A "Pro Key" is required to verify the
@@ -112,34 +76,18 @@ export default function Index() {
 									their Pro Keys and ensuring their accounts are used in
 									accordance with these Terms.
 								</p>
-							</div>
+							</TermsSection>
 
-							<div className="mb-12">
-								<div className="flex items-center mb-6">
-									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
-										<span className="text-primary font-semibold">5</span>
-									</div>
-									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
-										Subscription and Payments
-									</h2>
-								</div>
+							<TermsSection number={5} title="Subscription and Payments">
 								<p className="text-muted-foreground leading-relaxed">
 									The Service offers monthly and yearly subscription plans.
 									Payments must be made on time to maintain access to the Pro
 									features. Failure to pay on time may result in the revocation
 									of your Pro Key and the deactivation of your server.
 								</p>
-							</div>
+							</TermsSection>
 
-							<div className="mb-12">
-								<div className="flex items-center mb-6">
-									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
-										<span className="text-primary font-semibold">6</span>
-									</div>
-									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
-										User Conduct
-									</h2>
-								</div>
+							<TermsSection number={6} title="User Conduct">
 								<p className="text-muted-foreground leading-relaxed">
 									Users must use the Service in a lawful and respectful manner.
 									Any misuse of the Service, including but not limited to
@@ -147,17 +95,9 @@ export default function Index() {
 									attempting to breach the security of the Service, is
 									prohibited.
 								</p>
-							</div>
+							</TermsSection>
 
-							<div className="mb-12">
-								<div className="flex items-center mb-6">
-									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
-										<span className="text-primary font-semibold">7</span>
-									</div>
-									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
-										Content Ownership
-									</h2>
-								</div>
+							<TermsSection number={7} title="Content Ownership">
 								<p className="text-muted-foreground leading-relaxed">
 									All content uploaded by users remains their property. By using
 									the Service, users grant Ryot a limited, non-exclusive license
@@ -165,17 +105,9 @@ export default function Index() {
 									Service. Users must have the necessary rights to any content
 									they upload.
 								</p>
-							</div>
+							</TermsSection>
 
-							<div className="mb-12">
-								<div className="flex items-center mb-6">
-									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
-										<span className="text-primary font-semibold">8</span>
-									</div>
-									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
-										Data Privacy
-									</h2>
-								</div>
+							<TermsSection number={8} title="Data Privacy">
 								<div className="space-y-4 text-muted-foreground leading-relaxed">
 									<p>
 										We care about your privacy and collect the minimum data
@@ -294,67 +226,38 @@ export default function Index() {
 										will notify you via email or through the Service.
 									</p>
 								</div>
-							</div>
+							</TermsSection>
 
-							<div className="mb-12">
-								<div className="flex items-center mb-6">
-									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
-										<span className="text-primary font-semibold">9</span>
-									</div>
-									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
-										Dispute Resolution
-									</h2>
-								</div>
+							<TermsSection number={9} title="Dispute Resolution">
 								<p className="text-muted-foreground leading-relaxed">
 									Any disputes arising from or relating to these Terms will be
 									resolved through binding arbitration in accordance with the
 									rules of the Indian Arbitration and Conciliation Act, 1996.
 								</p>
-							</div>
+							</TermsSection>
 
-							<div className="mb-12">
-								<div className="flex items-center mb-6">
-									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
-										<span className="text-primary font-semibold">10</span>
-									</div>
-									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
-										Changes to Terms
-									</h2>
-								</div>
+							<TermsSection number={10} title="Changes to Terms">
 								<p className="text-muted-foreground leading-relaxed">
 									Ryot reserves the right to update these Terms at any time.
 									Users will be notified of any changes via email or through the
 									Service. Continued use of the Service after such changes will
 									constitute acceptance of the new Terms.
 								</p>
-							</div>
+							</TermsSection>
 
-							<div className="mb-12">
-								<div className="flex items-center mb-6">
-									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
-										<span className="text-primary font-semibold">11</span>
-									</div>
-									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
-										Termination
-									</h2>
-								</div>
+							<TermsSection number={11} title="Termination">
 								<p className="text-muted-foreground leading-relaxed">
 									Ryot reserves the right to revoke your Pro Key and deactivate
 									your server if subscription payments are not made on time.
 									This action will prevent your server from starting up and
 									accessing Pro features.
 								</p>
-							</div>
+							</TermsSection>
 
-							<div className="mb-12">
-								<div className="flex items-center mb-6">
-									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
-										<span className="text-primary font-semibold">12</span>
-									</div>
-									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
-										Cancellation and Refund Policies
-									</h2>
-								</div>
+							<TermsSection
+								number={12}
+								title="Cancellation and Refund Policies"
+							>
 								<div className="space-y-4">
 									<p className="text-muted-foreground leading-relaxed">
 										Users may cancel their subscription at any time. To cancel,
@@ -404,7 +307,7 @@ export default function Index() {
 										compliance with applicable laws.
 									</p>
 								</div>
-							</div>
+							</TermsSection>
 
 							<div className="border-t border-border pt-8">
 								<div className="bg-primary/5 p-6 rounded-lg">

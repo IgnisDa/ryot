@@ -2,65 +2,38 @@ import { randomBytes } from "node:crypto";
 import { TTLCache } from "@isaacs/ttlcache";
 import ContactSubmissionEmail from "@ryot/transactional/emails/contact-submission";
 import LoginCodeEmail from "@ryot/transactional/emails/login-code";
-import { cn, getActionIntent, processSubmission } from "@ryot/ts-utils";
+import { getActionIntent, processSubmission } from "@ryot/ts-utils";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import { sql } from "drizzle-orm";
-import { REGEXP_ONLY_DIGITS } from "input-otp";
-import {
-	CheckCircle,
-	Github,
-	MessageCircle,
-	PlayIcon,
-	Shield,
-	Star,
-	TrendingUp,
-	Users,
-	Zap,
-} from "lucide-react";
 import * as openidClient from "openid-client";
-import { useEffect, useState } from "react";
-import { data, Form, Link, redirect, useSearchParams } from "react-router";
+import { useState } from "react";
+import { data, redirect, useSearchParams } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
 import { contactSubmissions, customers } from "~/drizzle/schema.server";
+import { CommunitySection } from "~/lib/components/CommunitySection";
+import { ContactSection } from "~/lib/components/ContactSection";
+import { FeaturesSection } from "~/lib/components/FeaturesSection";
+import { HeroSection } from "~/lib/components/HeroSection";
 import Pricing from "~/lib/components/Pricing";
-import { Badge } from "~/lib/components/ui/badge";
-import { Button } from "~/lib/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "~/lib/components/ui/card";
-import { Input } from "~/lib/components/ui/input";
-import {
-	InputOTP,
-	InputOTPGroup,
-	InputOTPSlot,
-} from "~/lib/components/ui/input-otp";
-import { Textarea } from "~/lib/components/ui/textarea";
-import { TurnstileWidget } from "~/lib/components/ui/turnstile";
+import { RegistrationSection } from "~/lib/components/RegistrationSection";
+import { TestimonialsSection } from "~/lib/components/TestimonialsSection";
+import { LoadingSpinner } from "~/lib/components/ui/loading-spinner";
 import {
 	assignPaymentProvider,
 	getDb,
 	getOauthCallbackUrl,
 	websiteAuthCookie,
 } from "~/lib/config.server";
+import { contactEmail, startUrl } from "~/lib/general";
+import { usePaddleInitialization } from "~/lib/hooks/usePaddleInitialization";
 import {
-	contactEmail,
-	initializePaddleForApplication,
-	startUrl,
-	useConfigData,
-} from "~/lib/general";
-import {
-	getClientIp,
 	oauthConfig,
 	sendEmail,
-	verifyTurnstileToken,
+	validateTurnstile,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_index";
 
@@ -84,16 +57,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	return await match(intent)
 		.with("sendLoginCode", async () => {
 			const submission = processSubmission(formData, sendLoginCodeSchema);
-			const isTurnstileValid = await verifyTurnstileToken({
-				remoteIp: getClientIp(request),
-				token: submission.turnstileToken,
-			});
-			if (!isTurnstileValid) {
-				throw data(
-					{ message: "CAPTCHA verification failed. Please try again." },
-					{ status: 400 },
-				);
-			}
+			await validateTurnstile(request, submission.turnstileToken);
 
 			const otpCode = generateOtp(6);
 			otpCodesCache.set(submission.email, otpCode);
@@ -143,17 +107,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				Object.fromEntries(formData.entries()),
 			);
 
-			const isTurnstileValid = await verifyTurnstileToken({
-				remoteIp: getClientIp(request),
-				token: submission.turnstileToken,
-			});
-
-			if (!isTurnstileValid) {
-				throw data(
-					{ message: "CAPTCHA verification failed. Please try again." },
-					{ status: 400 },
-				);
-			}
+			await validateTurnstile(request, submission.turnstileToken);
 
 			const result = await getDb()
 				.insert(contactSubmissions)
@@ -205,16 +159,9 @@ const contactSubmissionSchema = z
 	.extend(emailSchema.shape)
 	.extend(turnstileTokenSchema.shape);
 
-const FEATURE_CARD_STYLES =
-	"border-2 rounded-xl hover:border-primary/20 transition-all duration-300 hover:shadow-lg";
-
-const stars = Array.from({ length: 5 }, (_, i) => `star-${i + 1}`);
-const mikeStars = Array.from({ length: 4 }, (_, i) => `mike-star-${i + 1}`);
-const alexStars = Array.from({ length: 4 }, (_, i) => `alex-star-${i + 1}`);
-
 export default function Page() {
 	const [searchParams] = useSearchParams();
-	const { data: configData, isLoading } = useConfigData();
+	const { configData, isLoading } = usePaddleInitialization();
 
 	const query = {
 		email: searchParams.get("email") ?? undefined,
@@ -226,398 +173,22 @@ export default function Page() {
 	const [loginOtpTurnstileToken, setLoginOtpTurnstileToken] =
 		useState<string>("");
 
-	useEffect(() => {
-		if (configData)
-			initializePaddleForApplication(
-				configData.clientToken,
-				configData.isSandbox,
-			);
-	}, [configData]);
-
 	return (
 		<>
-			<section className="relative py-20 lg:py-32 overflow-hidden">
-				<div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-accent/5" />
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-					<div className="grid lg:grid-cols-2 gap-12 items-center">
-						<div className="max-w-2xl">
-							<Badge variant="secondary" className="mb-6">
-								<Star className="w-4 h-4 mr-2" />
-								Trusted by thousands
-							</Badge>
-							<h1 className="text-4xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
-								Track Your Life, Your Way with{" "}
-								<span className="text-primary">Ryot</span>
-							</h1>
-							<p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-								The ultimate personal tracking platform that helps you monitor
-								your media consumption, fitness progress, and daily habits all
-								in one place. Say goodbye to scattered spreadsheets and hello to
-								organized insights.
-							</p>
-							<div className="flex flex-col sm:flex-row gap-4">
-								<Link to="#start-here">
-									<Button size="lg" className="text-base px-8">
-										Start Free Trial
-									</Button>
-								</Link>
-								<a href={demoLink} target="_blank" rel="noopener noreferrer">
-									<Button
-										variant="outline"
-										size="lg"
-										className="text-base px-8"
-									>
-										Try Live Demo
-									</Button>
-								</a>
-							</div>
-						</div>
-						<div className="relative">
-							<div className="absolute inset-0 bg-linear-to-r from-primary/20 to-accent/20 blur-3xl rounded-full" />
-							<Image
-								src="/cta-image.png"
-								alt="Ryot Dashboard Interface showing media tracking capabilities"
-								className="relative w-full max-w-2xl mx-auto rounded-2xl"
-							/>
-						</div>
-					</div>
-				</div>
-			</section>
-
-			<section className="py-20 bg-muted/30">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="text-center mb-16">
-						<Badge variant="outline" className="mb-4">
-							Why Choose Ryot
-						</Badge>
-						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
-							Ditch the Spreadsheets, Embrace Ryot
-						</h2>
-						<p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-							Transform the way you track and analyze your personal data with
-							our comprehensive, user-friendly platform designed for modern life
-							management.
-						</p>
-					</div>
-
-					<div className="grid md:grid-cols-3 gap-8">
-						<Card className={FEATURE_CARD_STYLES}>
-							<CardHeader className="text-center p-8">
-								<div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-6">
-									<Zap className="w-6 h-6 text-primary" />
-								</div>
-								<CardTitle className="text-xl mb-4">
-									All-in-One Tracking
-								</CardTitle>
-								<CardDescription className="text-base">
-									Monitor your books, movies, TV shows, workouts, and daily
-									habits from a single, intuitive dashboard designed for
-									comprehensive life tracking.
-								</CardDescription>
-							</CardHeader>
-						</Card>
-
-						<Card className={FEATURE_CARD_STYLES}>
-							<CardHeader className="text-center p-8">
-								<div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-6">
-									<TrendingUp className="w-6 h-6 text-primary" />
-								</div>
-								<CardTitle className="text-xl mb-4">
-									Insightful Analytics
-								</CardTitle>
-								<CardDescription className="text-base">
-									Get detailed insights into your consumption patterns, progress
-									trends, and personal growth with beautiful charts and
-									meaningful statistics.
-								</CardDescription>
-							</CardHeader>
-						</Card>
-
-						<Card className={FEATURE_CARD_STYLES}>
-							<CardHeader className="text-center p-8">
-								<div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-6">
-									<Shield className="w-6 h-6 text-primary" />
-								</div>
-								<CardTitle className="text-xl mb-4">Privacy First</CardTitle>
-								<CardDescription className="text-base">
-									Your personal data stays secure with enterprise-level
-									encryption and complete control over your information.
-									Self-hosted options available.
-								</CardDescription>
-							</CardHeader>
-						</Card>
-					</div>
-				</div>
-			</section>
-
-			<section className="py-20">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="text-center mb-16">
-						<Badge variant="outline" className="mb-4">
-							<Users className="w-4 h-4 mr-2" />
-							Social Proof
-						</Badge>
-						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
-							Trusted by Thousands
-						</h2>
-						<p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-							Join the growing community of people who have transformed their
-							personal tracking experience with Ryot.
-						</p>
-					</div>
-
-					<div className="grid md:grid-cols-3 gap-8">
-						<Card className="bg-card/50 backdrop-blur-sm">
-							<CardContent className="pt-6">
-								<div className="flex items-center mb-4">
-									{stars.map((star) => (
-										<Star
-											key={star}
-											className="w-4 h-4 fill-yellow-400 text-yellow-400"
-										/>
-									))}
-								</div>
-								<p className="text-foreground mb-4">
-									"I love how easy it is to quickly add a game, book, movie or
-									show after I'm finished and write a short review. It's
-									probably the most used software on my home server!"
-								</p>
-								<div className="flex items-center">
-									<div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center mr-3">
-										<span className="text-primary font-semibold">@B</span>
-									</div>
-									<div>
-										<p className="font-medium">@beppi</p>
-										<p className="text-sm text-muted-foreground">
-											Fosstodon User
-										</p>
-									</div>
-								</div>
-							</CardContent>
-						</Card>
-
-						<Card className="bg-card/50 backdrop-blur-sm">
-							<CardContent className="pt-6">
-								<div className="flex items-center mb-4">
-									{mikeStars.map((star) => (
-										<Star
-											key={star}
-											className="w-4 h-4 fill-yellow-400 text-yellow-400"
-										/>
-									))}
-									<Star
-										key="mike-star-empty"
-										className="w-4 h-4 text-gray-300"
-									/>
-								</div>
-								<p className="text-foreground mb-4">
-									"Finally, a platform that understands what I need for personal
-									tracking. The analytics features are exactly what I was
-									looking for."
-								</p>
-								<div className="flex items-center">
-									<div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center mr-3">
-										<span className="text-primary font-semibold">MC</span>
-									</div>
-									<div>
-										<p className="font-medium">Mike Chen</p>
-										<p className="text-sm text-muted-foreground">
-											Fitness Enthusiast
-										</p>
-									</div>
-								</div>
-							</CardContent>
-						</Card>
-
-						<Card className="bg-card/50 backdrop-blur-sm">
-							<CardContent className="pt-6">
-								<div className="flex items-center mb-4">
-									{alexStars.map((star) => (
-										<Star
-											key={star}
-											className="w-4 h-4 fill-yellow-400 text-yellow-400"
-										/>
-									))}
-									<Star
-										key="alex-star-empty"
-										className="w-4 h-4 text-gray-300"
-									/>
-								</div>
-								<p className="text-foreground mb-4">
-									"The privacy features and self-hosting option sold me. Great
-									for anyone who wants control over their personal data."
-								</p>
-								<div className="flex items-center">
-									<div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center mr-3">
-										<span className="text-primary font-semibold">AL</span>
-									</div>
-									<div>
-										<p className="font-medium">Alex Liu</p>
-										<p className="text-sm text-muted-foreground">Developer</p>
-									</div>
-								</div>
-							</CardContent>
-						</Card>
-					</div>
-				</div>
-			</section>
-
-			<section id="start-here" className="py-20 bg-muted/30">
-				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-					<Badge variant="outline" className="mb-4">
-						Get Started Today
-					</Badge>
-					<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
-						Upgrade Your Tracking Experience
-					</h2>
-					<p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-						Ready to take control of your personal data and gain meaningful
-						insights into your life? Start your free trial today and see the
-						difference Ryot can make.
-					</p>
-					<div className="max-w-sm mx-auto space-y-4">
-						{isLoading || !configData ? (
-							<div className="text-center py-8">
-								<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
-								<p className="text-sm text-muted-foreground">
-									Loading registration form...
-								</p>
-							</div>
-						) : configData.isLoggedIn ? (
-							<Link to={$path("/me")}>
-								<Button size="lg" className="text-base px-8">
-									<PlayIcon size={16} className="mr-2" />
-									Get started
-								</Button>
-							</Link>
-						) : (
-							<>
-								<Form
-									method="POST"
-									className="flex flex-col sm:flex-row gap-4 justify-center"
-									action={withQuery(".?index", {
-										intent: query.email ? "registerWithEmail" : "sendLoginCode",
-									})}
-								>
-									{query.email ? (
-										<>
-											<input
-												readOnly
-												name="email"
-												type="hidden"
-												value={query.email}
-											/>
-											<InputOTP
-												maxLength={6}
-												pattern={REGEXP_ONLY_DIGITS}
-												name="otpCode"
-												className="justify-center"
-											>
-												<InputOTPGroup>
-													<InputOTPSlot index={0} />
-													<InputOTPSlot index={1} />
-													<InputOTPSlot index={2} />
-													<InputOTPSlot index={3} />
-													<InputOTPSlot index={4} />
-													<InputOTPSlot index={5} />
-												</InputOTPGroup>
-											</InputOTP>
-											<Button
-												type="submit"
-												size="lg"
-												className="text-base px-8"
-											>
-												Verify login code
-											</Button>
-										</>
-									) : (
-										<>
-											<input
-												type="hidden"
-												name="turnstileToken"
-												value={loginOtpTurnstileToken}
-											/>
-											<Input
-												type="email"
-												name="email"
-												className="max-w-lg flex-1"
-												placeholder="Enter your email"
-											/>
-											<Button
-												size="lg"
-												type="submit"
-												className="text-base px-8"
-												disabled={!loginOtpTurnstileToken}
-											>
-												Start Your Free Trial
-											</Button>
-											<TurnstileWidget
-												onSuccess={setLoginOtpTurnstileToken}
-												siteKey={configData.turnstileSiteKey}
-												onError={() => setLoginOtpTurnstileToken("")}
-												onExpire={() => setLoginOtpTurnstileToken("")}
-											/>
-										</>
-									)}
-								</Form>
-								<p className="text-xs">OR</p>
-								<Form
-									method="POST"
-									action={withQuery(".?index", { intent: "registerWithOidc" })}
-								>
-									<Button
-										variant="outline"
-										size="lg"
-										className="text-base px-8 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 hover:text-gray-900"
-									>
-										<svg
-											className="w-5 h-5 mr-2"
-											viewBox="0 0 24 24"
-											aria-label="Google logo"
-										>
-											<title>Google</title>
-											<path
-												fill="#4285F4"
-												d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-											/>
-											<path
-												fill="#34A853"
-												d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-											/>
-											<path
-												fill="#FBBC05"
-												d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-											/>
-											<path
-												fill="#EA4335"
-												d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-											/>
-										</svg>
-										Sign in with Google
-									</Button>
-								</Form>
-								<p className="text-sm text-muted-foreground">
-									No credit card required • 14-day free trial • Cancel anytime
-								</p>
-								<p className="text-xs text-muted-foreground">
-									Sign up to get started with Ryot.{" "}
-									<Link
-										to={$path("/terms")}
-										className="underline underline-offset-2"
-									>
-										Terms &amp; Conditions
-									</Link>
-								</p>
-							</>
-						)}
-					</div>
-				</div>
-			</section>
+			<HeroSection />
+			<FeaturesSection />
+			<TestimonialsSection />
+			<RegistrationSection
+				query={query}
+				isLoading={isLoading}
+				configData={configData}
+				loginOtpTurnstileToken={loginOtpTurnstileToken}
+				setLoginOtpTurnstileToken={setLoginOtpTurnstileToken}
+			/>
 			{isLoading || !configData ? (
 				<section className="py-20">
 					<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-						<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-						<p className="text-muted-foreground">Loading pricing...</p>
+						<LoadingSpinner size="lg" message="Loading pricing..." />
 					</div>
 				</section>
 			) : (
@@ -626,161 +197,14 @@ export default function Page() {
 					isLoggedIn={configData.isLoggedIn}
 				/>
 			)}
-
-			<section id="contact" className="py-20 bg-muted/30">
-				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="text-center mb-16">
-						<Badge variant="outline" className="mb-4">
-							Get in Touch
-						</Badge>
-						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
-							Have Questions? We're Here to Help
-						</h2>
-						<p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-							Whether you need technical support, have feature requests, or want
-							to learn more about Ryot, we'd love to hear from you.
-						</p>
-					</div>
-
-					{query.contactSubmission ? (
-						<Card className="max-w-2xl mx-auto border-2 rounded-xl">
-							<CardContent className="p-8 text-center">
-								<CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-								<h3 className="text-xl font-semibold text-foreground mb-2">
-									Message Sent Successfully!
-								</h3>
-								<p className="text-muted-foreground">
-									Your message has been submitted. We'll get back to you soon!
-								</p>
-							</CardContent>
-						</Card>
-					) : isLoading || !configData ? (
-						<Card className="max-w-2xl mx-auto border-2 rounded-xl">
-							<CardContent className="p-8 text-center">
-								<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
-								<p className="text-sm text-muted-foreground">
-									Loading contact form...
-								</p>
-							</CardContent>
-						</Card>
-					) : (
-						<Card className="max-w-2xl mx-auto border-2 rounded-xl">
-							<CardContent className="p-8">
-								<Form
-									method="POST"
-									action={withQuery(".?index", { intent: "contactSubmission" })}
-									className="space-y-6"
-								>
-									<div>
-										<label
-											htmlFor="contact-email"
-											className="block mb-2 text-sm font-medium text-foreground"
-										>
-											Email
-										</label>
-										<Input
-											required
-											type="email"
-											name="email"
-											id="contact-email"
-											placeholder="your@email.com"
-										/>
-									</div>
-									<div>
-										<label
-											htmlFor="contact-message"
-											className="block mb-2 text-sm font-medium text-foreground"
-										>
-											Message
-										</label>
-										<Textarea
-											rows={6}
-											required
-											name="message"
-											id="contact-message"
-											placeholder="Tell us how we can help you..."
-										/>
-									</div>
-									<TurnstileWidget
-										siteKey={configData.turnstileSiteKey}
-										onSuccess={setContactSubmissionTurnstileToken}
-										onError={() => setContactSubmissionTurnstileToken("")}
-										onExpire={() => setContactSubmissionTurnstileToken("")}
-									/>
-									<input
-										type="hidden"
-										name="turnstileToken"
-										value={contactSubmissionTurnstileToken}
-									/>
-									<Button
-										type="submit"
-										className="w-full"
-										disabled={!contactSubmissionTurnstileToken}
-									>
-										Send Message
-									</Button>
-								</Form>
-							</CardContent>
-						</Card>
-					)}
-				</div>
-			</section>
-
-			<section className="py-20">
-				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-					<Badge variant="outline" className="mb-4">
-						Join the Community
-					</Badge>
-					<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
-						Be Part of the Community
-					</h2>
-					<p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-						Connect with other Ryot users, share tips and tricks, get support,
-						and stay updated with the latest features and improvements.
-					</p>
-					<div className="flex flex-col sm:flex-row gap-4 justify-center">
-						<a
-							href="https://discord.gg/D9XTg2a7R8"
-							target="_blank"
-							rel="noopener noreferrer"
-						>
-							<Button size="lg" className="min-w-45">
-								<MessageCircle className="w-5 h-5 mr-2" />
-								Join Discord
-							</Button>
-						</a>
-						<a
-							href="https://github.com/IgnisDa/ryot"
-							target="_blank"
-							rel="noopener noreferrer"
-						>
-							<Button variant="outline" size="lg" className="min-w-45">
-								<Github className="w-5 h-5 mr-2" />
-								Follow on GitHub
-							</Button>
-						</a>
-					</div>
-				</div>
-			</section>
+			<ContactSection
+				query={query}
+				isLoading={isLoading}
+				configData={configData}
+				contactSubmissionTurnstileToken={contactSubmissionTurnstileToken}
+				setContactSubmissionTurnstileToken={setContactSubmissionTurnstileToken}
+			/>
+			<CommunitySection />
 		</>
 	);
 }
-
-const demoLink = "https://demo.ryot.io/_s/acl_QQ7Bb9JvtOrj";
-
-type ImageProps = {
-	src: string;
-	alt: string;
-	className: string;
-};
-
-const Image = (props: ImageProps) => (
-	<img
-		src={props.src}
-		alt={props.alt}
-		className={cn(
-			props.className,
-			"mx-auto aspect-video overflow-hidden rounded-xl object-cover",
-		)}
-	/>
-);
