@@ -1,11 +1,11 @@
-module.exports = function (api) {
+module.exports = (api) => {
 	api.cache(true);
-	let plugins = [];
-
-	plugins.push("react-native-worklets/plugin");
 
 	return {
 		presets: ["babel-preset-expo"],
-		plugins,
+		plugins: [
+			["module-resolver", { root: ["./src"], alias: { "@": "./src" } }],
+			"react-native-worklets/plugin",
+		],
 	};
 };
