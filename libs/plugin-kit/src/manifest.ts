@@ -5,8 +5,15 @@ import { AppSchema } from "@ryot/contract/schema/property-schema";
 import { SANDBOX_HOST_CAPABILITIES } from "@ryot/sandbox-sdk/core";
 import { Schema } from "effect";
 
-const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
-	Schema.Struct(fields).annotations({ parseOptions: { onExcessProperty: "error" as const } });
+const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
+	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" } });
+
+const strictParseOptions = {
+	parseOptions: { onExcessProperty: "error" },
+} satisfies Schema.Annotations.Filter;
+const PluginAppSchema = Schema.toType(AppSchema);
+const PluginQueryDocument = Schema.toType(QueryDocument);
+const PluginDisplayConfiguration = Schema.toType(DisplayConfiguration);
 
 export const PluginMetadata = strictStruct({
 	icon: Schema.String,
@@ -22,13 +29,13 @@ export type PluginMetadata = Schema.Schema.Type<typeof PluginMetadata>;
 export const PluginEventSchema = strictStruct({
 	name: Schema.String,
 	slug: Schema.String,
-	propertiesSchema: AppSchema,
+	propertiesSchema: PluginAppSchema,
 });
 
 export type PluginEventSchema = Schema.Schema.Type<typeof PluginEventSchema>;
 
 export const PluginEntityUserStatePolicy = strictStruct({
-	deniedOperations: Schema.Array(Schema.Literal("clear", "merge")),
+	deniedOperations: Schema.Array(Schema.Literals(["clear", "merge"])),
 });
 
 export type PluginEntityUserStatePolicy = Schema.Schema.Type<typeof PluginEntityUserStatePolicy>;
@@ -38,7 +45,7 @@ export const PluginEntitySchema = strictStruct({
 	name: Schema.String,
 	slug: Schema.String,
 	accentColor: Schema.String,
-	propertiesSchema: AppSchema,
+	propertiesSchema: PluginAppSchema,
 	eventSchemas: Schema.Array(PluginEventSchema),
 	userState: Schema.optional(PluginEntityUserStatePolicy),
 	mergeIdentityProperties: Schema.optional(Schema.Array(Schema.String)),
@@ -49,31 +56,31 @@ export type PluginEntitySchema = Schema.Schema.Type<typeof PluginEntitySchema>;
 export const PluginRelationshipSchema = strictStruct({
 	name: Schema.String,
 	slug: Schema.String,
-	propertiesSchema: AppSchema,
+	propertiesSchema: PluginAppSchema,
 	sourceEntitySchemaSlug: Schema.NullOr(Schema.String),
 	targetEntitySchemaSlug: Schema.NullOr(Schema.String),
 });
 
 export type PluginRelationshipSchema = Schema.Schema.Type<typeof PluginRelationshipSchema>;
 
-export const PluginSignalAudiencePolicy = Schema.Union(
+export const PluginSignalAudiencePolicy = Schema.Union([
 	strictStruct({ kind: Schema.Literal("actor") }),
 	strictStruct({
 		kind: Schema.Literal("related_users"),
 		relationshipSchemaSlug: Schema.String,
-		subjectSide: Schema.Literal("source", "target"),
+		subjectSide: Schema.Literals(["source", "target"]),
 	}),
-);
+]);
 
 export type PluginSignalAudiencePolicy = Schema.Schema.Type<typeof PluginSignalAudiencePolicy>;
 
 export const PluginSignalSchema = strictStruct({
 	name: Schema.String,
 	slug: Schema.String,
-	propertiesSchema: AppSchema,
+	propertiesSchema: PluginAppSchema,
 	notificationScriptSlug: Schema.String,
 	audiencePolicy: PluginSignalAudiencePolicy,
-	catalogState: Schema.Literal("active", "hidden"),
+	catalogState: Schema.Literals(["active", "hidden"]),
 });
 
 export type PluginSignalSchema = Schema.Schema.Type<typeof PluginSignalSchema>;
@@ -84,42 +91,49 @@ export const PluginSavedView = strictStruct({
 	slug: Schema.String,
 	sortOrder: Schema.Number,
 	accentColor: Schema.String,
-	queryDocument: QueryDocument,
-	displayConfiguration: DisplayConfiguration,
+	queryDocument: PluginQueryDocument,
+	displayConfiguration: PluginDisplayConfiguration,
 	pluginSlug: Schema.NullOr(Schema.String),
 });
 
 export type PluginSavedView = Schema.Schema.Type<typeof PluginSavedView>;
 
 const sandboxManifestString = Schema.String.pipe(
-	Schema.filter((value) => value.length > 0 && value === value.trim(), {
-		message: () => "Expected a non-empty string without surrounding whitespace",
-	}),
+	Schema.check(
+		Schema.makeFilter((value) =>
+			value.length > 0 && value === value.trim()
+				? true
+				: "Expected a non-empty string without surrounding whitespace",
+		),
+	),
 );
 
 const sandboxManifestSlug = Schema.String.pipe(
-	Schema.filter((value) => /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value), {
-		message: () => "Expected a sandbox manifest slug",
-	}),
+	Schema.check(
+		Schema.makeFilter((value) =>
+			/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value) ? true : "Expected a sandbox manifest slug",
+		),
+	),
 );
 
 const pluginConfigFieldTypes = new Set(["enum", "string", "number", "integer", "boolean"]);
 
-export const PluginConfigSchema = AppSchema.pipe(
-	Schema.filter(
-		(schema) =>
-			schema.unknownKeys === "strict" &&
-			schema.rules === undefined &&
-			Object.values(schema.fields).every(
-				(field) =>
-					pluginConfigFieldTypes.has(field.type) &&
-					field.translatable === undefined &&
-					field.transform === undefined,
-			),
-		{
-			message: () =>
-				"Expected a strict, top-level plugin config schema without translation, transforms, or rules",
-		},
+export const PluginConfigSchema = PluginAppSchema.pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(schema) =>
+				schema.unknownKeys === "strict" &&
+				schema.rules === undefined &&
+				Object.values(schema.fields).every(
+					(field) =>
+						pluginConfigFieldTypes.has(field.type) &&
+						field.translatable === undefined &&
+						field.transform === undefined,
+				)
+					? true
+					: "Expected a strict, top-level plugin config schema without translation, transforms, or rules",
+			strictParseOptions,
+		),
 	),
 );
 
@@ -132,9 +146,14 @@ const PluginScriptFields = {
 	requiredPluginConfigKeys: Schema.Array(sandboxManifestString),
 	requiredSystemConfigKeys: Schema.Array(sandboxManifestString),
 };
-const PluginScriptCapabilities = Schema.Array(Schema.Literal(...SANDBOX_HOST_CAPABILITIES));
+const PluginScriptCapabilities = Schema.Array(Schema.Literals([...SANDBOX_HOST_CAPABILITIES]));
 
-export const PluginProviderOperation = Schema.Literal("details", "search", "resolve", "translate");
+export const PluginProviderOperation = Schema.Literals([
+	"details",
+	"search",
+	"resolve",
+	"translate",
+]);
 
 export type PluginProviderOperation = Schema.Schema.Type<typeof PluginProviderOperation>;
 
@@ -159,66 +178,66 @@ export const PluginProvider = strictStruct({
 
 export type PluginProvider = Schema.Schema.Type<typeof PluginProvider>;
 
-export const PluginScript = Schema.Union(
+export const PluginScript = Schema.Union([
 	strictStruct({
 		...PluginScriptFields,
+		capabilities: PluginScriptCapabilities,
 		kind: Schema.Literal("script"),
-		capabilities: PluginScriptCapabilities,
 		providerSlug: Schema.optional(sandboxManifestSlug),
 	}),
 	strictStruct({
 		...PluginScriptFields,
+		capabilities: PluginScriptCapabilities,
 		kind: Schema.Literal("activity"),
-		capabilities: PluginScriptCapabilities,
 		providerSlug: Schema.optional(sandboxManifestSlug),
 	}),
 	strictStruct({
 		...PluginScriptFields,
+		capabilities: PluginScriptCapabilities,
 		kind: Schema.Literal("operation"),
-		capabilities: PluginScriptCapabilities,
 	}),
 	strictStruct({
 		...PluginScriptFields,
+		capabilities: Schema.Tuple([]),
 		kind: Schema.Literal("workflow"),
-		capabilities: Schema.Tuple(),
 	}),
 	strictStruct({
 		...PluginScriptFields,
+		capabilities: PluginScriptCapabilities,
 		kind: Schema.Literal("automation"),
-		capabilities: PluginScriptCapabilities,
 	}),
 	strictStruct({
 		...PluginScriptFields,
-		kind: Schema.Literal("provider"),
-		capabilities: PluginScriptCapabilities,
 		providerSlug: sandboxManifestSlug,
+		capabilities: PluginScriptCapabilities,
+		kind: Schema.Literal("provider"),
 		providerOperation: PluginProviderOperation,
 	}),
-);
+]);
 
 export type PluginScript = Schema.Schema.Type<typeof PluginScript>;
 
 const PluginCronFields = {
 	slug: sandboxManifestSlug,
 	description: sandboxManifestString,
-	schedule: Schema.Union(
+	schedule: Schema.Union([
 		strictStruct({ cron: sandboxManifestString }),
 		strictStruct({ tier: Schema.Literal("infrequent") }),
-	),
+	]),
 };
 
-export const PluginCron = Schema.Union(
+export const PluginCron = Schema.Union([
 	strictStruct({
 		...PluginCronFields,
-		lot: Schema.Literal("script"),
 		scriptSlug: sandboxManifestSlug,
+		lot: Schema.Literal("script"),
 	}),
 	strictStruct({
 		...PluginCronFields,
-		lot: Schema.Literal("workflow"),
 		workflowSlug: sandboxManifestSlug,
+		lot: Schema.Literal("workflow"),
 	}),
-);
+]);
 
 export type PluginCron = Schema.Schema.Type<typeof PluginCron>;
 
@@ -238,7 +257,7 @@ export const PluginUserBootstrap = strictStruct({
 
 export type PluginUserBootstrap = Schema.Schema.Type<typeof PluginUserBootstrap>;
 
-export const PluginOperationAuth = Schema.Literal("user", "integration");
+export const PluginOperationAuth = Schema.Literals(["user", "integration"]);
 
 export type PluginOperationAuth = Schema.Schema.Type<typeof PluginOperationAuth>;
 
@@ -260,19 +279,19 @@ export type PluginWorkflow = Schema.Schema.Type<typeof PluginWorkflow>;
 
 const PluginIntegrationProviderFields = {
 	slug: sandboxManifestSlug,
-	settingsSchema: AppSchema,
 	name: sandboxManifestString,
+	settingsSchema: PluginAppSchema,
 	description: sandboxManifestString,
 };
 
-export const PluginIntegrationProvider = Schema.Union(
+export const PluginIntegrationProvider = Schema.Union([
 	strictStruct({
 		...PluginIntegrationProviderFields,
 		scriptSlug: sandboxManifestSlug,
-		lot: Schema.Literal("yank", "sink"),
+		lot: Schema.Literals(["yank", "sink"]),
 	}),
 	strictStruct({ ...PluginIntegrationProviderFields, lot: Schema.Literal("push") }),
-);
+]);
 
 export type PluginIntegrationProvider = Schema.Schema.Type<typeof PluginIntegrationProvider>;
 
@@ -285,13 +304,13 @@ const PluginImportSourceFields = {
 };
 
 const PluginNamedImportArtifact = strictStruct({
-	key: sandboxManifestString,
 	required: Schema.Boolean,
+	key: sandboxManifestString,
 	uploadTokenField: sandboxManifestString,
 	allowedFileExtensions: Schema.Array(sandboxManifestString),
 });
 
-export const PluginImportSource = Schema.Union(
+export const PluginImportSource = Schema.Union([
 	strictStruct({ ...PluginImportSourceFields, input: Schema.Literal("payload") }),
 	strictStruct({
 		...PluginImportSourceFields,
@@ -305,15 +324,18 @@ export const PluginImportSource = Schema.Union(
 		input: Schema.Literal("file"),
 		artifacts: Schema.Array(PluginNamedImportArtifact),
 	}).pipe(
-		Schema.filter(
-			({ artifacts }) =>
-				artifacts.length > 0 &&
-				new Set(artifacts.map(({ key }) => key)).size === artifacts.length &&
-				new Set(artifacts.map(({ uploadTokenField }) => uploadTokenField)).size ===
-					artifacts.length,
+		Schema.check(
+			Schema.makeFilter(
+				({ artifacts }) =>
+					artifacts.length > 0 &&
+					new Set(artifacts.map(({ key }) => key)).size === artifacts.length &&
+					new Set(artifacts.map(({ uploadTokenField }) => uploadTokenField)).size ===
+						artifacts.length,
+				strictParseOptions,
+			),
 		),
 	),
-);
+]);
 
 export type PluginImportSource = Schema.Schema.Type<typeof PluginImportSource>;
 
@@ -324,7 +346,7 @@ export const PluginSchemaProviderLink = strictStruct({
 
 export type PluginSchemaProviderLink = Schema.Schema.Type<typeof PluginSchemaProviderLink>;
 
-export const PluginLifecycleOperation = Schema.Literal("create", "delete", "update");
+export const PluginLifecycleOperation = Schema.Literals(["create", "delete", "update"]);
 
 export type PluginLifecycleOperation = Schema.Schema.Type<typeof PluginLifecycleOperation>;
 
@@ -348,7 +370,7 @@ export const PluginEventAutomation = strictStruct({
 	scriptSlug: Schema.String,
 	eventSchemaSlug: Schema.String,
 	position: Schema.optional(Schema.Number),
-	kind: Schema.Literal("policy", "subscription"),
+	kind: Schema.Literals(["policy", "subscription"]),
 	metadata: Schema.optional(
 		strictStruct({ inheritedProperties: Schema.optional(Schema.Array(Schema.String)) }),
 	),
@@ -393,151 +415,155 @@ const PluginManifestFields = strictStruct({
 });
 
 export const PluginManifest = PluginManifestFields.pipe(
-	Schema.filter(
-		(manifest) => {
-			const scriptSlugs = new Set(manifest.scripts.map(({ slug }) => slug));
-			const workflowSlugs = new Set(manifest.workflows.map(({ slug }) => slug));
-			const providerSlugs = new Set(manifest.providers.map(({ slug }) => slug));
-			const userBootstrapSlugs = new Set(manifest.userBootstrap.map(({ slug }) => slug));
-			const configKeys = new Set(Object.keys(manifest.configSchema.fields));
-			const configEnvironmentKeys = [...configKeys].map((key) =>
-				pluginConfigEnvironmentKey(manifest.metadata.slug, key),
-			);
-			if (new Set(configEnvironmentKeys).size !== configEnvironmentKeys.length) {
-				return false;
-			}
-			const requiredConfigKeys = [
-				...manifest.scripts.flatMap(({ requiredPluginConfigKeys }) => requiredPluginConfigKeys),
-				...manifest.importSources.flatMap(
-					({ requiredPluginConfigKeys }) => requiredPluginConfigKeys,
-				),
-			];
-			if (!requiredConfigKeys.every((key) => configKeys.has(key))) {
-				return false;
-			}
-			if (scriptSlugs.size !== manifest.scripts.length) {
-				return false;
-			}
-			if (providerSlugs.size !== manifest.providers.length) {
-				return false;
-			}
-			if (workflowSlugs.size !== manifest.workflows.length) {
-				return false;
-			}
-			if (userBootstrapSlugs.size !== manifest.userBootstrap.length) {
-				return false;
-			}
-			if (
-				new Set(manifest.importSources.map(({ slug }) => slug)).size !==
-				manifest.importSources.length
-			) {
-				return false;
-			}
-			if (
-				new Set(manifest.integrationProviders.map(({ slug }) => slug)).size !==
-				manifest.integrationProviders.length
-			) {
-				return false;
-			}
-			if (manifest.importSources.some(({ workflowSlug }) => !workflowSlugs.has(workflowSlug))) {
-				return false;
-			}
-			if (
-				manifest.workflows.some(
-					(workflow) =>
-						manifest.scripts.find(({ slug }) => slug === workflow.scriptSlug)?.kind !== "workflow",
-				)
-			) {
-				return false;
-			}
-			if (
-				manifest.userBootstrap.some(
-					(entry) =>
-						manifest.scripts.find(({ slug }) => slug === entry.scriptSlug)?.kind !== "script",
-				)
-			) {
-				return false;
-			}
+	Schema.check(
+		Schema.makeFilter((manifest) => {
+			const valid = (() => {
+				const scriptSlugs = new Set(manifest.scripts.map(({ slug }) => slug));
+				const workflowSlugs = new Set(manifest.workflows.map(({ slug }) => slug));
+				const providerSlugs = new Set(manifest.providers.map(({ slug }) => slug));
+				const userBootstrapSlugs = new Set(manifest.userBootstrap.map(({ slug }) => slug));
+				const configKeys = new Set(Object.keys(manifest.configSchema.fields));
+				const configEnvironmentKeys = [...configKeys].map((key) =>
+					pluginConfigEnvironmentKey(manifest.metadata.slug, key),
+				);
+				if (new Set(configEnvironmentKeys).size !== configEnvironmentKeys.length) {
+					return false;
+				}
+				const requiredConfigKeys = [
+					...manifest.scripts.flatMap(({ requiredPluginConfigKeys }) => requiredPluginConfigKeys),
+					...manifest.importSources.flatMap(
+						({ requiredPluginConfigKeys }) => requiredPluginConfigKeys,
+					),
+				];
+				if (!requiredConfigKeys.every((key) => configKeys.has(key))) {
+					return false;
+				}
+				if (scriptSlugs.size !== manifest.scripts.length) {
+					return false;
+				}
+				if (providerSlugs.size !== manifest.providers.length) {
+					return false;
+				}
+				if (workflowSlugs.size !== manifest.workflows.length) {
+					return false;
+				}
+				if (userBootstrapSlugs.size !== manifest.userBootstrap.length) {
+					return false;
+				}
+				if (
+					new Set(manifest.importSources.map(({ slug }) => slug)).size !==
+					manifest.importSources.length
+				) {
+					return false;
+				}
+				if (
+					new Set(manifest.integrationProviders.map(({ slug }) => slug)).size !==
+					manifest.integrationProviders.length
+				) {
+					return false;
+				}
+				if (manifest.importSources.some(({ workflowSlug }) => !workflowSlugs.has(workflowSlug))) {
+					return false;
+				}
+				if (
+					manifest.workflows.some(
+						(workflow) =>
+							manifest.scripts.find(({ slug }) => slug === workflow.scriptSlug)?.kind !==
+							"workflow",
+					)
+				) {
+					return false;
+				}
+				if (
+					manifest.userBootstrap.some(
+						(entry) =>
+							manifest.scripts.find(({ slug }) => slug === entry.scriptSlug)?.kind !== "script",
+					)
+				) {
+					return false;
+				}
 
-			if (
-				manifest.scripts.some(
-					(script) =>
-						"providerSlug" in script &&
-						script.providerSlug !== undefined &&
-						!providerSlugs.has(script.providerSlug),
-				)
-			) {
-				return false;
-			}
-			const providerScripts = manifest.scripts.filter((script) => script.kind === "provider");
+				if (
+					manifest.scripts.some(
+						(script) =>
+							"providerSlug" in script &&
+							script.providerSlug !== undefined &&
+							!providerSlugs.has(script.providerSlug),
+					)
+				) {
+					return false;
+				}
+				const providerScripts = manifest.scripts.filter((script) => script.kind === "provider");
 
-			const operationAssignments = manifest.providers.flatMap((provider) =>
-				Object.entries(provider.operations).map(([operation, scriptSlug]) => ({
-					operation,
-					providerSlug: provider.slug,
-					scriptSlug,
-				})),
-			);
-			if (
-				new Set(operationAssignments.map(({ scriptSlug }) => scriptSlug)).size !==
-				operationAssignments.length
-			) {
-				return false;
-			}
+				const operationAssignments = manifest.providers.flatMap((provider) =>
+					Object.entries(provider.operations).map(([operation, scriptSlug]) => ({
+						operation,
+						providerSlug: provider.slug,
+						scriptSlug,
+					})),
+				);
+				if (
+					new Set(operationAssignments.map(({ scriptSlug }) => scriptSlug)).size !==
+					operationAssignments.length
+				) {
+					return false;
+				}
 
-			if (
-				operationAssignments.some(({ operation, providerSlug, scriptSlug }) => {
-					const script = providerScripts.find((candidate) => candidate.slug === scriptSlug);
-					return (
-						!script ||
-						script.providerSlug !== providerSlug ||
-						script.providerOperation !== operation
-					);
-				})
-			) {
-				return false;
-			}
+				if (
+					operationAssignments.some(({ operation, providerSlug, scriptSlug }) => {
+						const script = providerScripts.find((candidate) => candidate.slug === scriptSlug);
+						return (
+							!script ||
+							script.providerSlug !== providerSlug ||
+							script.providerOperation !== operation
+						);
+					})
+				) {
+					return false;
+				}
 
-			if (
-				providerScripts.some(
-					(script) =>
-						!operationAssignments.some(
-							(assignment) =>
-								assignment.scriptSlug === script.slug &&
-								assignment.providerSlug === script.providerSlug &&
-								assignment.operation === script.providerOperation,
-						),
-				)
-			) {
-				return false;
-			}
+				if (
+					providerScripts.some(
+						(script) =>
+							!operationAssignments.some(
+								(assignment) =>
+									assignment.scriptSlug === script.slug &&
+									assignment.providerSlug === script.providerSlug &&
+									assignment.operation === script.providerOperation,
+							),
+					)
+				) {
+					return false;
+				}
 
-			const referencedScriptSlugs = [
-				...manifest.boot.map(({ scriptSlug }) => scriptSlug),
-				...manifest.userBootstrap.map(({ scriptSlug }) => scriptSlug),
-				...manifest.crons.flatMap((cron) => (cron.lot === "script" ? [cron.scriptSlug] : [])),
-				...manifest.operations.map(({ scriptSlug }) => scriptSlug),
-				...manifest.workflows.map(({ scriptSlug }) => scriptSlug),
-				...manifest.bindings.eventAutomations.map(({ scriptSlug }) => scriptSlug),
-				...manifest.bindings.entityAutomations.map(({ scriptSlug }) => scriptSlug),
-				...manifest.bindings.signalAutomations.map(({ scriptSlug }) => scriptSlug),
-				...manifest.bindings.relationshipAutomations.map(({ scriptSlug }) => scriptSlug),
-				...manifest.integrationProviders.flatMap((provider) =>
-					provider.lot === "push" ? [] : [provider.scriptSlug],
-				),
-			];
+				const referencedScriptSlugs = [
+					...manifest.boot.map(({ scriptSlug }) => scriptSlug),
+					...manifest.userBootstrap.map(({ scriptSlug }) => scriptSlug),
+					...manifest.crons.flatMap((cron) => (cron.lot === "script" ? [cron.scriptSlug] : [])),
+					...manifest.operations.map(({ scriptSlug }) => scriptSlug),
+					...manifest.workflows.map(({ scriptSlug }) => scriptSlug),
+					...manifest.bindings.eventAutomations.map(({ scriptSlug }) => scriptSlug),
+					...manifest.bindings.entityAutomations.map(({ scriptSlug }) => scriptSlug),
+					...manifest.bindings.signalAutomations.map(({ scriptSlug }) => scriptSlug),
+					...manifest.bindings.relationshipAutomations.map(({ scriptSlug }) => scriptSlug),
+					...manifest.integrationProviders.flatMap((provider) =>
+						provider.lot === "push" ? [] : [provider.scriptSlug],
+					),
+				];
 
-			return (
-				referencedScriptSlugs.every((scriptSlug) => scriptSlugs.has(scriptSlug)) &&
-				manifest.crons.every(
-					(cron) => cron.lot === "script" || workflowSlugs.has(cron.workflowSlug),
-				) &&
-				manifest.bindings.schemaProviderLinks.every(({ providerSlug }) =>
-					providerSlugs.has(providerSlug),
-				)
-			);
-		},
-		{ message: () => "Expected valid plugin config, provider, and script references" },
+				return (
+					referencedScriptSlugs.every((scriptSlug) => scriptSlugs.has(scriptSlug)) &&
+					manifest.crons.every(
+						(cron) => cron.lot === "script" || workflowSlugs.has(cron.workflowSlug),
+					) &&
+					manifest.bindings.schemaProviderLinks.every(({ providerSlug }) =>
+						providerSlugs.has(providerSlug),
+					)
+				);
+			})();
+
+			return valid || "Expected valid plugin config, provider, and script references";
+		}, strictParseOptions),
 	),
 );
 
