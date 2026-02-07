@@ -168,9 +168,9 @@ export default function Page() {
 		contactSubmission: searchParams.get("contactSubmission") === "true",
 	};
 
-	const [contactSubmissionTurnstileToken, setContactSubmissionTurnstileToken] =
-		useState<string>("");
 	const [loginOtpTurnstileToken, setLoginOtpTurnstileToken] =
+		useState<string>("");
+	const [contactSubmissionTurnstileToken, setContactSubmissionTurnstileToken] =
 		useState<string>("");
 
 	return (
