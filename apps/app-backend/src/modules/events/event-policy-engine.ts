@@ -160,10 +160,14 @@ export const runEventCreatePolicies = Effect.fn(function* (
 				source: {
 					kind: "event",
 					draft: {
-						...draft,
 						entityId: prepared.entityId,
+						properties: draft.properties,
+						occurredAt: draft.occurredAt,
 						eventSchemaSlug: prepared.eventSchemaSlug,
 						entitySchemaSlug: prepared.entitySchemaSlug,
+						...(draft.sessionEntityId !== undefined
+							? { sessionEntityId: draft.sessionEntityId }
+							: {}),
 					},
 				},
 			},

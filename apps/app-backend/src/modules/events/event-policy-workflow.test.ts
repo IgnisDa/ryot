@@ -207,6 +207,9 @@ it.effect("runs policies in position order and validates each replacement before
 			"event-policy-execution-policy-0-early",
 			"event-policy-execution-policy-0-late",
 		]);
+		expect(test.sandboxPayloads[0]?.context).not.toHaveProperty(
+			"automation.source.draft.sessionEntityId",
+		);
 		expect(test.sandboxPayloads[1]?.context).toMatchObject({
 			automation: {
 				source: {
@@ -222,8 +225,8 @@ it.effect("runs policies in position order and validates each replacement before
 			userId,
 			type: "subscription",
 			subscriptionRun: {
-				origin: { kind: "api" },
 				occurredAt: now,
+				origin: { kind: "api" },
 				id: "event-policy-execution-policy-0-early",
 			},
 		});
