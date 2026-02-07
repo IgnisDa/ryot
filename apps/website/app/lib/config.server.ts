@@ -51,7 +51,7 @@ export const getOauthCallbackUrl = memoize(
 	() => `${getServerVariables().FRONTEND_URL}/callback`,
 );
 
-const pricesEnvSchema = z.array(
+const paddlePricesEnvSchema = z.array(
 	z.object({
 		type: z.enum(ProductTypes.enum),
 		prices: z.array(
@@ -64,7 +64,7 @@ const pricesEnvSchema = z.array(
 );
 
 export const getPrices = memoize(() => {
-	const envPrices = pricesEnvSchema.parse(
+	const envPrices = paddlePricesEnvSchema.parse(
 		JSON.parse(getServerVariables().PADDLE_PRICE_IDS),
 	);
 
