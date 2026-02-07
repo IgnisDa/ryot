@@ -18,7 +18,9 @@ import {
 
 const load = <A>(config: Config.Config<A>, values: Record<string, string>) =>
 	Effect.runSync(
-		config.pipe(Effect.withConfigProvider(ConfigProvider.fromMap(new Map(Object.entries(values))))),
+		config.pipe(
+			Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromUnknown(values)),
+		),
 	);
 
 describe("config definitions", () => {
@@ -37,8 +39,8 @@ describe("config definitions", () => {
 						secret: true,
 						label: "Token",
 						envKey: "TOKEN",
-						validation: { required: true },
 						description: "Server token",
+						validation: { required: true },
 					}),
 					mode: enumField({
 						label: "Mode",
@@ -73,8 +75,8 @@ describe("config definitions", () => {
 		const definition = definePluginConfig("media-tracker", {
 			apiToken: stringField({
 				label: "API token",
-				validation: { required: true },
 				description: "Plugin token",
+				validation: { required: true },
 			}),
 		});
 		expect(pluginConfigEnvironmentKey("media-tracker", "apiToken")).toBe(
@@ -89,18 +91,13 @@ describe("config definitions", () => {
 		const schema = {
 			unknownKeys: "strict",
 			fields: {
-				retries: {
-					type: "integer",
-					label: "Retries",
-					defaultValue: 2,
-					description: "Retry count",
-				},
+				retries: { type: "integer", defaultValue: 2, label: "Retries", description: "Retry count" },
 				provider: {
 					type: "enum",
 					label: "Provider",
 					options: ["local", "remote"],
-					validation: { required: true },
 					description: "Provider name",
+					validation: { required: true },
 				},
 			},
 		} satisfies AppSchema;
@@ -110,14 +107,30 @@ describe("config definitions", () => {
 			provider: "remote",
 		});
 	});
+
+	it("reports the environment key and allowed values for invalid enums", () => {
+		const definition = defineConfig({
+			mode: enumField({
+				label: "Mode",
+				envKey: "MODE",
+				options: ["safe", "fast"],
+				description: "Server mode",
+				validation: { required: true },
+			}),
+		});
+
+		expect(() => load(definition.config, { MODE: "unsafe" })).toThrow(
+			"MODE must be one of: safe, fast",
+		);
+	});
 });
 
 describe("config reference", () => {
 	it("renders nested core and plugin metadata while omitting hidden fields", () => {
 		const core = defineConfig({
 			timezone: stringField({
-				label: "Timezone",
 				envKey: "TZ",
+				label: "Timezone",
 				defaultValue: "Etc/GMT",
 				description: "Application timezone",
 			}),
