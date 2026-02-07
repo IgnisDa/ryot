@@ -3,7 +3,7 @@ import {
 	type SubscriptionNotification,
 	type TransactionNotification,
 } from "@paddle/paddle-node-sdk";
-import { and, desc, eq, type InferSelectModel } from "drizzle-orm";
+import { desc, eq, type InferSelectModel } from "drizzle-orm";
 import { data } from "react-router";
 import { customerPurchases, customers } from "~/drizzle/schema.server";
 import {
@@ -131,8 +131,8 @@ async function handleSubscriptionResumed(
 	if (!customer) return { message: "No customer found" };
 
 	const cancelledPurchase = await getDb().query.customerPurchases.findFirst({
-		where: and(eq(customerPurchases.customerId, customer.id)),
 		orderBy: [desc(customerPurchases.createdOn)],
+		where: eq(customerPurchases.customerId, customer.id),
 	});
 
 	if (cancelledPurchase)
