@@ -129,8 +129,8 @@ export const RegistrationSection = (props: RegistrationSectionProps) => {
 								action={withQuery(".?index", { intent: "registerWithOidc" })}
 							>
 								<Button
-									variant="outline"
 									size="lg"
+									variant="outline"
 									className="text-base px-8 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 hover:text-gray-900"
 								>
 									<GoogleLogo className="w-5 h-5 mr-2" />
