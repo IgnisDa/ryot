@@ -178,5 +178,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		result = await handleSubscriptionResumed(paddleData);
 	else result = { message: "Webhook event not handled" };
 
+	console.log("Webhook handling result:", result);
+
 	return data(result);
 };
