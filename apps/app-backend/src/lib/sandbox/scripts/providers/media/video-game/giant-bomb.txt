@@ -8,7 +8,7 @@ function parseJsonResponse(responseBody) {
 
 async function getApiKey() {
   const configValueResponse = await getAppConfigValue(
-    "VIDEO_GAMES_GIANT_BOMB_API_KEY",
+    "videoGames.giantBomb.apiKey",
   );
   if (!configValueResponse?.success) {
     throw new Error(

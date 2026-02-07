@@ -1,15 +1,14 @@
 import { describe, expect, it } from "bun:test";
-import { appConfigEnvIndex } from "~/lib/config";
+import { appConfigEnvIndex, appConfigPathIndex } from "~/lib/config";
 import { apiFailure, apiSuccess } from "~/lib/sandbox/types";
 import { getAppConfigValue } from "./get-app-config-value";
 
 describe("getAppConfigValue", () => {
-	it("returns the configured value for a known key", async () => {
+	it("returns the configured value for a known path", async () => {
+		const envKey = appConfigPathIndex["books.hardcover.apiKey"];
 		expect(
-			getAppConfigValue({}, "  BOOKS_HARDCOVER_API_KEY  "),
-		).resolves.toEqual(
-			apiSuccess(appConfigEnvIndex.BOOKS_HARDCOVER_API_KEY ?? null),
-		);
+			getAppConfigValue({}, "  books.hardcover.apiKey  "),
+		).resolves.toEqual(apiSuccess(appConfigEnvIndex[envKey] ?? null));
 	});
 
 	it("returns validation failure for a blank key", async () => {
@@ -19,8 +18,8 @@ describe("getAppConfigValue", () => {
 	});
 
 	it("returns failure for an unknown key", async () => {
-		expect(getAppConfigValue({}, "UNKNOWN_CONFIG_KEY")).resolves.toEqual(
-			apiFailure('Config key "UNKNOWN_CONFIG_KEY" does not exist'),
+		expect(getAppConfigValue({}, "books.unknown.key")).resolves.toEqual(
+			apiFailure('Config key "books.unknown.key" does not exist'),
 		);
 	});
 });

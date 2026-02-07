@@ -10,7 +10,7 @@ const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
 
 async function getTmdbAccessToken() {
-	const resp = await getAppConfigValue("MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN");
+	const resp = await getAppConfigValue("moviesAndShows.tmdb.accessToken");
 	if (!resp?.success) {
 		throw new Error(resp?.error ?? "Failed to retrieve TMDB access token");
 	}
