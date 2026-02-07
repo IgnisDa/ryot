@@ -55,6 +55,9 @@ export const EditHistoryItemModal = (props: {
 	const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<
 		number | null
 	>(props.seen.showExtraInformation?.season ?? null);
+	const [selectedProviders, setSelectedProviders] = useState<string[]>(
+		props.seen.providersConsumedOn || [],
+	);
 
 	const manualTimeSpentInSeconds =
 		convertDurationToSeconds(manualTimeSpentValue);
@@ -188,16 +191,23 @@ export const EditHistoryItemModal = (props: {
 							}
 						/>
 					) : null}
-					<MultiSelect
-						data={watchProviders}
-						name="providersConsumedOn"
-						defaultValue={props.seen.providersConsumedOn || []}
-						nothingFoundMessage="No watch providers configured. Please add them in your general preferences."
-						label={`Where did you ${getVerb(
-							Verb.Read,
-							metadataDetails.lot,
-						)} it?`}
-					/>
+				<MultiSelect
+					data={watchProviders}
+					value={selectedProviders}
+					onChange={setSelectedProviders}
+					nothingFoundMessage="No watch providers configured. Please add them in your general preferences."
+					label={`Where did you ${getVerb(
+						Verb.Read,
+						metadataDetails.lot,
+					)} it?`}
+				/>
+				{selectedProviders.length > 0 ? (
+					selectedProviders.map((p) => (
+						<input key={p} hidden readOnly name="providersConsumedOn" value={p} />
+					))
+				) : (
+					<input hidden readOnly name="providersConsumedOn" value="" />
+				)}
 					<Tooltip
 						label={PRO_REQUIRED_MESSAGE}
 						disabled={coreDetails.isServerKeyValidated}
