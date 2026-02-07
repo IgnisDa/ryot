@@ -1,5 +1,5 @@
 import { FetchHttpClient, HttpApiClient, HttpClient, HttpClientRequest } from "@effect/platform";
-import { AppContract } from "@ryot/app-backend/contract";
+import { AppContract } from "@ryot/contract/contract";
 import { useQuery } from "@tanstack/react-query";
 import { Effect } from "effect";
 import { useMemo } from "react";

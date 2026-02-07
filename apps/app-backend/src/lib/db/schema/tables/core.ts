@@ -1,3 +1,5 @@
+import type { SandboxScriptMetadata } from "@ryot/contract/modules/sandbox/schemas";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import {
 	boolean,
@@ -9,9 +11,6 @@ import {
 	timestamp,
 	unique,
 } from "drizzle-orm/pg-core";
-
-import type { AppSchema } from "#lib/schema/property-schema";
-import type { SandboxScriptMetadata } from "#modules/sandbox/schemas";
 
 import { user } from "./auth";
 

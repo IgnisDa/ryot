@@ -1,8 +1,7 @@
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { isHttpMethod } from "@effect/platform/HttpMethod";
+import type { ImportRunFailureStage } from "@ryot/contract/modules/imports/types";
 import { Data, Effect } from "effect";
-
-import type { ImportRunFailureStage } from "../types";
 
 type SourceQueryValue = boolean | number | string | undefined;
 type SourceRequestHeaders = Record<string, string>;

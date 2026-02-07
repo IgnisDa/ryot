@@ -1,10 +1,12 @@
+import { notFound } from "@ryot/contract/errors";
+import {
+	decodeEntityUpdatedMessage,
+	type EntityUpdatedFrame,
+} from "@ryot/contract/modules/entity-interest/messages";
+import type { UserId } from "@ryot/contract/schema/brands";
 import { Effect, Either } from "effect";
 
-import { notFound } from "#lib/errors";
-import { decodeEntityUpdatedMessage, redisKeys, RedisService } from "#lib/redis";
-import type { UserId } from "#lib/schema/brands";
-
-import type { EntityUpdatedFrame } from "./messages";
+import { redisKeys, RedisService } from "#lib/redis";
 
 export type StreamEnqueue = (frame: EntityUpdatedFrame) => void;
 

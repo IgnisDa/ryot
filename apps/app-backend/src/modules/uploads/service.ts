@@ -1,20 +1,19 @@
 import type { Multipart } from "@effect/platform";
 import { FileSystem } from "@effect/platform";
-import { generateId } from "better-auth";
-import { Effect, Schema } from "effect";
-
-import type { CurrentUserValue } from "#lib/auth-middleware";
-import { AppConfig } from "#lib/config/service";
-import { type BadRequest, badRequest } from "#lib/errors";
-import { RedisService, redisKeys } from "#lib/redis";
-import { S3Service } from "#lib/s3";
-import { UserId } from "#lib/schema/brands";
-
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { type BadRequest, badRequest } from "@ryot/contract/errors";
 import {
 	type UploadContentType,
 	uploadContentTypeExtensions,
 	uploadContentTypes,
-} from "./upload-policy";
+} from "@ryot/contract/modules/uploads/upload-policy";
+import { UserId } from "@ryot/contract/schema/brands";
+import { generateId } from "better-auth";
+import { Effect, Schema } from "effect";
+
+import { AppConfig } from "#lib/config/service";
+import { RedisService, redisKeys } from "#lib/redis";
+import { S3Service } from "#lib/s3";
 
 const UPLOAD_TOKEN_TTL_SECONDS = 15 * 60;
 const UPLOAD_URL_EXPIRY_SECONDS = 15 * 60;

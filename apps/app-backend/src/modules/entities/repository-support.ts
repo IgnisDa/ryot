@@ -1,9 +1,9 @@
+import type { UserId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { eq, isNull, or } from "drizzle-orm";
 
 import * as schema from "#lib/db/schema/tables/combined";
-import type { UserId } from "#lib/schema/brands";
-import { EntityId, EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
-import type { AppSchema } from "#lib/schema/property-schema";
 
 type EntityRow = Pick<
 	typeof schema.entity.$inferSelect,

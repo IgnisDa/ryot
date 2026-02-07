@@ -1,3 +1,5 @@
+import type { DisplayConfiguration } from "@ryot/contract/display-configuration";
+import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import { generateId } from "better-auth";
 import {
 	boolean,
@@ -9,9 +11,6 @@ import {
 	timestamp,
 	unique,
 } from "drizzle-orm/pg-core";
-
-import type { DisplayConfiguration } from "#lib/display-configuration";
-import type { QueryDocument } from "#modules/query-engine/language";
 
 import { user } from "./auth";
 import { tracker } from "./core";

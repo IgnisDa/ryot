@@ -1,4 +1,5 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { dieOnDbError, unknownToMessage } from "@ryot/contract/errors";
 import { generateId } from "better-auth";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Cause, Effect, Layer } from "effect";
@@ -6,7 +7,6 @@ import { Cause, Effect, Layer } from "effect";
 import { AppConfig } from "#lib/config/service";
 import * as schema from "#lib/db/schema/tables/combined";
 import { CurrentDb, DbRunner, dbEffect } from "#lib/db/service";
-import { dieOnDbError, unknownToMessage } from "#lib/errors";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { decodeEntitySearchResult } from "#modules/entity-import/population";
 import { BuiltinEntityImportWorkflow } from "#modules/entity-import/workflows";

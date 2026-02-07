@@ -1,5 +1,3 @@
-import { Either, Effect, Schema } from "effect";
-
 import {
 	type AppPropertyDefinition,
 	type AppArrayPropertyValidation,
@@ -17,7 +15,9 @@ import {
 	createPropertySchemaMessage,
 	type PropertyValidationError,
 	type PropertyValidationIssue,
-} from "./property-schema";
+} from "@ryot/contract/schema/property-schema";
+import { Either, Effect, Schema } from "effect";
+
 import {
 	formatValidationError,
 	parseErrorToIssues,

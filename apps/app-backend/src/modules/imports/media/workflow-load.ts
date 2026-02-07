@@ -1,7 +1,7 @@
 import { Activity } from "@effect/workflow";
+import { unknownToMessage } from "@ryot/contract/errors";
 import { Cause, Effect, Schema } from "effect";
 
-import { unknownToMessage } from "#lib/errors";
 import type { EntitySearchItem } from "#modules/entity-import/population";
 
 import type { ImportRunJobData } from "../jobs";

@@ -1,9 +1,9 @@
+import type { ImportRunFailureStage } from "@ryot/contract/modules/imports/types";
 import { DateTime, Effect } from "effect";
 
 import { DbRunner } from "#lib/db/service";
 
 import { ImportsRepository } from "../repository";
-import type { ImportRunFailureStage } from "../types";
 
 export const PROGRESS_UPDATE_INTERVAL = 10;
 

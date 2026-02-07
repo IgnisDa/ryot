@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { createEntityPropertyExpression } from "@ryot/app-backend/display-configuration";
+import { createEntityPropertyExpression } from "@ryot/contract/display-configuration";
 
 import { createSavedViewTableColumns } from "./table-utils";
 

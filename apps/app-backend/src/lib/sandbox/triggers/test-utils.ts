@@ -1,4 +1,4 @@
-import { isObjectRecord } from "#lib/predicates";
+import { isObjectRecord } from "@ryot/ts-utils/predicates";
 
 type HostFunction = (...args: Array<unknown>) => unknown;
 

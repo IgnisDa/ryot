@@ -1,16 +1,16 @@
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { badRequest, conflict, notFound } from "@ryot/contract/errors";
+import type { CreateEventSchemaBody } from "@ryot/contract/modules/event-schemas/schemas";
+import { EntitySchemaId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth-middleware";
 import { builtinEntitySchemas } from "#lib/builtins/entity-schemas";
 import { DbRunner } from "#lib/db/service";
-import { badRequest, conflict, notFound } from "#lib/errors";
-import { EntitySchemaId } from "#lib/schema/brands";
 import { parseLabeledPropertySchemaInput } from "#lib/schema/property-schema-runtime";
 import { slugify } from "#lib/slug";
 import { requireText } from "#lib/validation";
 
 import { EventSchemasRepository } from "./repository";
-import type { CreateEventSchemaBody } from "./schemas";
 
 const reservedEventSchemaSlugsByEntitySchema = new Map(
 	builtinEntitySchemas().map(

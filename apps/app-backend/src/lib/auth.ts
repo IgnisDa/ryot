@@ -1,6 +1,15 @@
 import { apiKey } from "@better-auth/api-key";
 import { redisStorage } from "@better-auth/redis-storage";
 import { HttpServerRequest } from "@effect/platform";
+import {
+	AdminMiddleware,
+	AuthMiddleware,
+	type CachedUserPreferences,
+	defaultUserPreferences,
+	normalizeUserPreferences,
+} from "@ryot/contract/auth-middleware";
+import { rateLimited, unauthorized, unknownToDbError } from "@ryot/contract/errors";
+import { UserId } from "@ryot/contract/schema/brands";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
@@ -9,22 +18,14 @@ import { eq } from "drizzle-orm";
 import { Effect, Layer, Option, Redacted, Runtime, Schema } from "effect";
 import type Redis from "ioredis";
 
-import { AdminMiddleware, AuthMiddleware } from "./auth-middleware";
-import {
-	bootstrapNewUser,
-	defaultUserPreferences,
-	normalizeUserPreferences,
-	type UserPreferences,
-} from "./builtins/bootstrap";
+import { bootstrapNewUser } from "./builtins/bootstrap";
 import { AppConfig, type AppConfigValue, isOidcEnabled } from "./config/service";
 import * as schemaAuth from "./db/schema/tables/auth";
 import * as schemaTables from "./db/schema/tables/combined";
 import * as schemaRelations from "./db/schema/tables/relations";
 import type { DbRoot, TransactionRunner } from "./db/service";
 import { DbService } from "./db/service";
-import { rateLimited, unauthorized, unknownToDbError } from "./errors";
 import { redisKeys, RedisService } from "./redis";
-import { UserId } from "./schema/brands";
 
 const schema = { ...schemaAuth, ...schemaTables, ...schemaRelations };
 
@@ -192,7 +193,7 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 				).pipe(Effect.orDie),
 			// Writing preferences through better-auth refreshes the cached session copies in secondary
 			// storage, so a later getSession (and thus CurrentUserValue) reflects the new value.
-			updateUserPreferences: (userId: UserId, preferences: UserPreferences) =>
+			updateUserPreferences: (userId: UserId, preferences: CachedUserPreferences) =>
 				Effect.tryPromise({
 					catch: unknownToDbError,
 					try: () =>
