@@ -2,9 +2,7 @@ import { Github, MessageCircle } from "lucide-react";
 import { SectionHeader } from "~/lib/components/SectionHeader";
 import { Button } from "~/lib/components/ui/button";
 
-type CommunitySectionProps = Record<string, never>;
-
-export const CommunitySection = (props: CommunitySectionProps) => {
+export const CommunitySection = () => {
 	return (
 		<section className="py-20">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

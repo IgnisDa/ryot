@@ -2,9 +2,7 @@ import { Shield, TrendingUp, Zap } from "lucide-react";
 import { FeatureCard } from "~/lib/components/FeatureCard";
 import { SectionHeader } from "~/lib/components/SectionHeader";
 
-type FeaturesSectionProps = Record<string, never>;
-
-export const FeaturesSection = (props: FeaturesSectionProps) => {
+export const FeaturesSection = () => {
 	return (
 		<section className="py-20 bg-muted/30">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

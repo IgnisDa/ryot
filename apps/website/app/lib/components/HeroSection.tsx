@@ -23,9 +23,7 @@ const Image = (props: ImageProps) => (
 
 const demoLink = "https://demo.ryot.io/_s/acl_QQ7Bb9JvtOrj";
 
-type HeroSectionProps = Record<string, never>;
-
-export const HeroSection = (props: HeroSectionProps) => {
+export const HeroSection = () => {
 	return (
 		<section className="relative py-20 lg:py-32 overflow-hidden">
 			<div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-accent/5" />
