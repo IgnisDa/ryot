@@ -365,6 +365,8 @@ export default function Index() {
 									method: "POST",
 									action: withQuery(".", { intent: "checkoutPolar" }),
 								});
+							} else {
+								toast.error("Unable to determine product for checkout.");
 							}
 							return;
 						}
