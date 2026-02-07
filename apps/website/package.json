@@ -23,6 +23,8 @@
 		"@marsidev/react-turnstile": "1.4.1",
 		"@paddle/paddle-js": "1.6.1",
 		"@paddle/paddle-node-sdk": "3.5.0",
+		"@polar-sh/remix": "0.6.3",
+		"@polar-sh/sdk": "0.42.5",
 		"@radix-ui/react-label": "2.1.8",
 		"@radix-ui/react-slot": "1.2.4",
 		"@react-email/components": "1.0.6",
