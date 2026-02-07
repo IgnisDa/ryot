@@ -150,7 +150,7 @@ export async function countEntityTranslations(entityId: string) {
 
 /**
  * Re-reads the entity detail endpoint until its translationStatus settles to the target. Reads are
- * side-effect-free, so the caller must have declared interest via POST /api/interest (or by opening
+ * side-effect-free, so the caller must have declared interest via POST /api/entity-interest (or by opening
  * an interest stream) to trigger the fill; this only observes the resulting status transition.
  */
 export async function pollEntityUntilTranslationStatus(

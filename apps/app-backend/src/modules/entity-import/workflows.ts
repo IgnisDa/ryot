@@ -225,7 +225,6 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 					dieOnDbError,
 					Effect.mapError((error) => new SandboxRunError({ message: error.message })),
 				);
-			// Fans out to sockets that declared interest in this entity so they refetch its populated state.
 			yield* redis.publish(
 				redisKeys.entityUpdatedChannel,
 				encodeEntityUpdatedMessage(saved.id, "populated"),
