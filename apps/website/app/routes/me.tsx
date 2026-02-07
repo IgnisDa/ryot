@@ -156,6 +156,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				const polar = getPolarClient();
 				await polar.subscriptions.revoke({ id: activeSubscription.id });
 
+				await new Promise((resolve) => setTimeout(resolve, 2000));
+
 				return data({
 					success: true,
 					message: "Subscription cancelled successfully",
