@@ -58,6 +58,8 @@ export const contactSubmissions = pgTable("contact_submission", {
 	isSpam: boolean("is_spam"),
 	email: text("email").notNull(),
 	message: text("message").notNull(),
+	// DEV: This field is present for administration purposes and not intended to be used
+	// by the application itself. Please do not remove it.
 	isAddressed: boolean("is_addressed"),
 	id: uuid("id").defaultRandom().primaryKey(),
 	createdAt: timestamp("created_at").defaultNow().notNull(),
