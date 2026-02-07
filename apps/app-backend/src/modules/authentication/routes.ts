@@ -3,7 +3,6 @@ import { isAPIError } from "better-auth/api";
 import { auth, type MaybeAuthType } from "~/lib/auth";
 import { db } from "~/lib/db";
 import {
-	createAuthRoute,
 	createValidationErrorResult,
 	jsonResponse,
 	payloadErrorResponse,
@@ -24,7 +23,6 @@ import {
 } from "./bootstrap/manifests";
 import {
 	defaultUserPreferences,
-	meResponseSchema,
 	signUpBody,
 	signUpResponseSchema,
 } from "./schemas";
@@ -35,18 +33,6 @@ import {
 	buildLibraryEntityInput,
 	resolveAuthenticationName,
 } from "./service";
-
-const meRoute = createAuthRoute(
-	createRoute({
-		path: "/me",
-		method: "get",
-		tags: ["authentication"],
-		summary: "Get the current authenticated user and session",
-		responses: {
-			200: jsonResponse("Authenticated session details", meResponseSchema),
-		},
-	}),
-);
 
 const signUpRoute = createRoute({
 	path: "/email",
@@ -62,90 +48,86 @@ const signUpRoute = createRoute({
 	},
 });
 
-export const authenticationApi = new OpenAPIHono<{ Variables: MaybeAuthType }>()
-	.openapi(meRoute, async (c) => {
-		const user = c.get("user");
-		const session = c.get("session");
-		return c.json(successResponse({ user, session }), 200);
-	})
-	.openapi(signUpRoute, async (c) => {
-		const body = c.req.valid("json");
+export const authenticationApi = new OpenAPIHono<{
+	Variables: MaybeAuthType;
+}>().openapi(signUpRoute, async (c) => {
+	const body = c.req.valid("json");
 
-		const nameResult = resolveValidationData(
-			() => resolveAuthenticationName(body.name),
-			"Signup name is invalid",
-		);
-		if ("status" in nameResult) {
-			return c.json(nameResult.body, nameResult.status);
-		}
+	const nameResult = resolveValidationData(
+		() => resolveAuthenticationName(body.name),
+		"Signup name is invalid",
+	);
+	if ("status" in nameResult) {
+		return c.json(nameResult.body, nameResult.status);
+	}
 
-		try {
-			const signUpResult = await auth.api.signUpEmail({
-				body: {
-					email: body.email,
-					name: nameResult.data,
-					password: body.password,
-					preferences: defaultUserPreferences,
-				},
+	try {
+		const signUpResult = await auth.api.signUpEmail({
+			body: {
+				email: body.email,
+				name: nameResult.data,
+				password: body.password,
+				preferences: defaultUserPreferences,
+			},
+		});
+
+		await db.transaction(async (tx) => {
+			const createdTrackers = await createBuiltinTrackersForUser({
+				database: tx,
+				userId: signUpResult.user.id,
+				trackers: buildAuthenticationTrackerInputs({
+					trackers: authenticationBuiltinTrackers(),
+				}),
 			});
 
-			await db.transaction(async (tx) => {
-				const createdTrackers = await createBuiltinTrackersForUser({
-					database: tx,
-					userId: signUpResult.user.id,
-					trackers: buildAuthenticationTrackerInputs({
-						trackers: authenticationBuiltinTrackers(),
-					}),
-				});
+			const builtinEntitySchemaRows = await listBuiltinEntitySchemas({
+				database: tx,
+			});
 
-				const builtinEntitySchemaRows = await listBuiltinEntitySchemas({
-					database: tx,
-				});
-
-				await createTrackerEntitySchemas({
-					database: tx,
-					links: buildAuthenticationTrackerEntitySchemaLinks({
-						trackers: createdTrackers,
-						entitySchemas: builtinEntitySchemaRows,
-						schemaLinks: authenticationBuiltinEntitySchemas()
-							.filter(
-								(schema): schema is typeof schema & { trackerSlug: string } =>
-									typeof (schema as { trackerSlug?: string }).trackerSlug ===
-									"string",
-							)
-							.map((schema) => ({
-								slug: schema.slug,
-								trackerSlug: schema.trackerSlug,
-							})),
-					}),
-				});
-
-				await createSavedViewsForUser({
-					database: tx,
-					userId: signUpResult.user.id,
-					views: buildAuthenticationSavedViewInputs({
-						trackers: createdTrackers,
-						entitySchemas: builtinEntitySchemaRows,
-						savedViews: authenticationBuiltinSavedViews(),
-					}),
-				});
-
-				const libraryEntityInput = buildLibraryEntityInput({
+			await createTrackerEntitySchemas({
+				database: tx,
+				links: buildAuthenticationTrackerEntitySchemaLinks({
+					trackers: createdTrackers,
 					entitySchemas: builtinEntitySchemaRows,
-				});
-				await createLibraryEntityForUser(
-					{ userId: signUpResult.user.id, ...libraryEntityInput },
-					tx,
-				);
+					schemaLinks: authenticationBuiltinEntitySchemas()
+						.filter(
+							(schema): schema is typeof schema & { trackerSlug: string } =>
+								typeof (schema as { trackerSlug?: string }).trackerSlug ===
+								"string",
+						)
+						.map((schema) => ({
+							slug: schema.slug,
+							trackerSlug: schema.trackerSlug,
+						})),
+				}),
 			});
-		} catch (error) {
-			if (isAPIError(error)) {
-				const message = error.message || "Could not create account";
-				return c.json(createValidationErrorResult(message).body, 400);
-			}
 
-			throw error;
+			await createSavedViewsForUser({
+				database: tx,
+				userId: signUpResult.user.id,
+				views: buildAuthenticationSavedViewInputs({
+					trackers: createdTrackers,
+					entitySchemas: builtinEntitySchemaRows,
+					savedViews: authenticationBuiltinSavedViews(),
+				}),
+			});
+
+			const libraryEntityInput = buildLibraryEntityInput({
+				entitySchemas: builtinEntitySchemaRows,
+			});
+			await createLibraryEntityForUser(
+				{ userId: signUpResult.user.id, ...libraryEntityInput },
+				tx,
+			);
+		});
+	} catch (error) {
+		if (isAPIError(error)) {
+			const message = error.message || "Could not create account";
+			return c.json(createValidationErrorResult(message).body, 400);
 		}
 
-		return c.json(successResponse({ created: true as const }), 200);
-	});
+		throw error;
+	}
+
+	return c.json(successResponse({ created: true as const }), 200);
+});
