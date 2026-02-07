@@ -1,7 +1,7 @@
 import { Effect, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 
-import { withoutSchemaServices } from "#lib/shared/schema";
+import type { DurableSchema } from "#lib/infrastructure/workflow";
 
 import type { CronTask, CronTaskContext } from "./types";
 
@@ -28,8 +28,8 @@ export const CronRunPayload = Schema.Struct({
 export type CronRunPayload = typeof CronRunPayload.Type;
 
 export const FrequentCronWorkflow = Workflow.make("FrequentCronWorkflow", {
-	error: withoutSchemaServices(Schema.Never),
-	success: withoutSchemaServices(Schema.Void),
-	payload: withoutSchemaServices(CronRunPayload),
+	error: Schema.Never satisfies DurableSchema,
+	success: Schema.Void satisfies DurableSchema,
+	payload: CronRunPayload satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
 });

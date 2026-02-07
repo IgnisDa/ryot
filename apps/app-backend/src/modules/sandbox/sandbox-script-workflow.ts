@@ -23,8 +23,7 @@ import {
 	projectWorkflowJournal,
 	type WorkflowJournalEntry,
 } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
-import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
-import { withoutSchemaServices } from "#lib/shared/schema";
+import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/workflow";
 
 import { resolveSandboxExecutionPayload } from "./durable-queues";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
@@ -65,9 +64,9 @@ export const SandboxScriptWorkflowPayload = Schema.Struct({
 export type SandboxScriptWorkflowPayload = Schema.Schema.Type<typeof SandboxScriptWorkflowPayload>;
 
 export const SandboxScriptWorkflow = Workflow.make("SandboxScriptWorkflow", {
-	error: withoutSchemaServices(SandboxRunError),
-	success: withoutSchemaServices(jsonValueSchema),
-	payload: withoutSchemaServices(SandboxScriptWorkflowPayload),
+	error: SandboxRunError satisfies DurableSchema,
+	success: jsonValueSchema satisfies DurableSchema,
+	payload: SandboxScriptWorkflowPayload satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
