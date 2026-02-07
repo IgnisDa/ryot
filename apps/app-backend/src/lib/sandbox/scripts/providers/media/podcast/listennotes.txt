@@ -345,10 +345,7 @@ driver("details", async function(context) {
       providerRating: getNullableNumber(podcast?.listen_score),
       description: getNullableString(podcast?.description),
       sourceUrl: getSourceUrl(title, externalId),
-      assets: {
-        images: image ? [{ kind: "remote", url: image }] : [],
-        videos: [],
-      },
+      images: image ? [{ kind: "remote", url: image }] : [],
       freeCreators: publisher ? [{ role: "Publishing", name: publisher }] : [],
       totalEpisodes: totalEpisodes ?? episodes.length,
       episodes,

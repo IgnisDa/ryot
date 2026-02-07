@@ -1,19 +1,15 @@
 import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
-import {
-	nullableStringSchema,
-	remoteImagesAssetsSchema,
-	stringArraySchema,
-} from "../zod";
+import { imagesSchema, nullableStringSchema, stringArraySchema } from "../zod";
 
 export const personPropertiesSchema = z
 	.object({
+		images: imagesSchema,
 		gender: nullableStringSchema,
 		website: nullableStringSchema,
 		sourceUrl: nullableStringSchema,
 		birthDate: nullableStringSchema,
 		deathDate: nullableStringSchema,
-		assets: remoteImagesAssetsSchema,
 		birthPlace: nullableStringSchema,
 		description: nullableStringSchema,
 		alternateNames: stringArraySchema,

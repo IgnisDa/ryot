@@ -124,18 +124,10 @@ driver("details", async function (context) {
   return {
     name: String(name),
     properties: {
-      gender: null,
-      website: null,
-      birthDate: null,
-      deathDate: null,
-      birthPlace: null,
       description,
       alternateNames: [],
       sourceUrl: `https://music.youtube.com/channel/${externalId}`,
-      assets: {
-        images: getThumbnailUrls(artist.header?.thumbnail).map((url) => ({ kind: "remote", url })),
-        videos: [],
-      },
+      images: getThumbnailUrls(artist.header?.thumbnail).map((url) => ({ kind: "remote", url })),
     },
   };
 });

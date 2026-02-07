@@ -174,9 +174,9 @@ driver("details", async function (context) {
       birthDate,
       deathDate,
       birthPlace,
+      images: [],
       description,
       alternateNames,
-      assets: { images: [], videos: [] },
       sourceUrl: `https://musicbrainz.org/artist/${externalId}`,
     },
   };

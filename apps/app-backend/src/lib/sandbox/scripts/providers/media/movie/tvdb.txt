@@ -311,13 +311,13 @@ driver("details", async function (context) {
 	return {
 		name: title,
 		properties: {
+			images,
 			genres,
 			people,
 			runtime,
 			sourceUrl,
 			publishYear,
 			freeCreators,
-			assets: { images, videos: [] },
 			description:
 				typeof movie?.overview === "string" && movie.overview.trim()
 					? movie.overview.trim()

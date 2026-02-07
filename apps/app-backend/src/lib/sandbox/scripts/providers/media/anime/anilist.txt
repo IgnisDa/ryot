@@ -439,10 +439,7 @@ query MediaDetailsQuery($id: Int!) {
       isNsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
       sourceUrl: `https://anilist.co/anime/${payloadIdentifier}/${encodeURIComponent(title)}`,
       description,
-      assets: {
-        images: collectImages(media.coverImage, media.bannerImage),
-        videos: [],
-      },
+      images: collectImages(media.coverImage, media.bannerImage),
       airingSchedule: parseAiringSchedule(
         media.airingSchedule,
         media.nextAiringEpisode,
