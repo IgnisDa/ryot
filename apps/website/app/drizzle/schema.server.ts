@@ -1,6 +1,7 @@
 import {
 	bigint,
 	boolean,
+	index,
 	pgEnum,
 	pgSequence,
 	pgTable,
@@ -66,19 +67,27 @@ export const contactSubmissions = pgTable("contact_submission", {
 	ticketNumber: bigint("ticket_number", { mode: "bigint" }),
 });
 
-export const customerPurchases = pgTable("customer_purchase", {
-	planType: planTypes("plan_type").notNull(),
-	productType: productTypes("product_type").notNull(),
-	id: uuid("id").notNull().primaryKey().defaultRandom(),
-	renewOn: timestamp("renew_on", { withTimezone: true }),
-	cancelledOn: timestamp("cancelled_on", { withTimezone: true }),
-	customerId: uuid("customer_id")
-		.notNull()
-		.references(() => customers.id),
-	createdOn: timestamp("created_on", { withTimezone: true })
-		.defaultNow()
-		.notNull(),
-	updatedOn: timestamp("updated_on", { withTimezone: true })
-		.defaultNow()
-		.notNull(),
-});
+export const customerPurchases = pgTable(
+	"customer_purchase",
+	{
+		planType: planTypes("plan_type").notNull(),
+		productType: productTypes("product_type").notNull(),
+		id: uuid("id").notNull().primaryKey().defaultRandom(),
+		renewOn: timestamp("renew_on", { withTimezone: true }),
+		cancelledOn: timestamp("cancelled_on", { withTimezone: true }),
+		customerId: uuid("customer_id")
+			.notNull()
+			.references(() => customers.id),
+		createdOn: timestamp("created_on", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+		updatedOn: timestamp("updated_on", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => ({
+		customerIdIdx: index("customer_purchase_customer_id_idx").on(
+			table.customerId,
+		),
+	}),
+);
