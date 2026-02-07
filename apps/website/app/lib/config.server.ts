@@ -93,7 +93,6 @@ const polarProductsEnvSchema = z.array(
 
 export const getPolarProducts = memoize(() => {
 	const productIds = getServerVariables().POLAR_PRODUCT_IDS;
-	if (!productIds) return null;
 
 	const envProducts = polarProductsEnvSchema.parse(JSON.parse(productIds));
 
@@ -112,11 +111,11 @@ export const getPolarAbPercent = memoize(() => {
 });
 
 export const getPolarAccessToken = memoize(() => {
-	return getServerVariables().POLAR_ACCESS_TOKEN || null;
+	return getServerVariables().POLAR_ACCESS_TOKEN;
 });
 
 export const getPolarWebhookSecret = memoize(() => {
-	return getServerVariables().POLAR_WEBHOOK_SECRET_KEY || null;
+	return getServerVariables().POLAR_WEBHOOK_SECRET_KEY;
 });
 
 export const isPolarSandbox = memoize(() => {
@@ -153,7 +152,6 @@ export const findPolarProductId = (
 	planType: schema.TPlanTypes,
 ): string | null => {
 	const products = getPolarProducts();
-	if (!products) return null;
 
 	const product = products.find((p) => p.type === productType);
 	if (!product) return null;

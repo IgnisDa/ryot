@@ -73,7 +73,6 @@ const getAllSubscriptionsForCustomer = async (customerId: string) => {
 
 const getPolarClient = () => {
 	const accessToken = getPolarAccessToken();
-	if (!accessToken) throw new Error("Polar access token not configured");
 	return new Polar({
 		accessToken,
 		server: isPolarSandbox() ? "sandbox" : "production",

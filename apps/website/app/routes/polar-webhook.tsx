@@ -51,7 +51,6 @@ function findPlanAndProductType(
 	productId: string,
 ): { planType: TPlanTypes; productType: TProductTypes } | null {
 	const products = getPolarProducts();
-	if (!products) return null;
 
 	for (const product of products) {
 		const matchingPrice = product.prices.find((p) => p.productId === productId);
@@ -146,15 +145,9 @@ async function handleSubscriptionRevoked(
 }
 
 export const action = async ({ request }: Route.ActionArgs) => {
-	const webhookSecret = getPolarWebhookSecret();
-	if (!webhookSecret)
-		return data(
-			{ error: "Polar webhook secret not configured" },
-			{ status: 500 },
-		);
-
 	const body = await request.text();
 	const headers: Record<string, string> = {};
+	const webhookSecret = getPolarWebhookSecret();
 	request.headers.forEach((value, key) => {
 		headers[key] = value;
 	});
