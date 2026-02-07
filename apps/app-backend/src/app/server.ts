@@ -16,9 +16,7 @@ import { EventsRoutesLive } from "#modules/events/routes";
 import { GodModeRoutesLive } from "#modules/god-mode/routes";
 import { ImportsRoutesLive } from "#modules/imports/routes";
 import { IntegrationsRoutesLive } from "#modules/integrations/routes";
-import { StreamRegistry } from "#modules/interest/registry";
 import { InterestRoutesLive } from "#modules/interest/routes";
-import { handleStreamRequest, STREAM_PATH } from "#modules/interest/stream";
 import { LibraryRoutesLive } from "#modules/library-membership/routes";
 import { QueryEngineRoutesLive } from "#modules/query-engine/routes";
 import { RelationshipSchemasRoutesLive } from "#modules/relationship-schemas/routes";
@@ -120,7 +118,6 @@ export const ServerLive = Layer.scopedDiscard(
 	Effect.gen(function* () {
 		const auth = yield* AuthService;
 		const config = yield* AppConfig;
-		const registry = yield* StreamRegistry;
 		const runtime = yield* Effect.runtime();
 		const fs = yield* FileSystem.FileSystem;
 		const apiContext = yield* Effect.context<ApiContext>();
@@ -145,13 +142,6 @@ export const ServerLive = Layer.scopedDiscard(
 			port: config.port,
 			fetch: (request) => {
 				const url = new URL(request.url);
-				if (url.pathname === STREAM_PATH) {
-					const streamId = url.searchParams.get("streamId");
-					if (!streamId) {
-						return new Response("Missing streamId", { status: 400 });
-					}
-					return runPromise(handleStreamRequest(request, streamId, auth, registry));
-				}
 				if (url.pathname.startsWith("/api/auth/")) {
 					return auth.auth.handler(request);
 				}
