@@ -101,8 +101,8 @@ export default function Page() {
 
 			{FEATURE_DATA.map((data, index) => (
 				<FeatureSection
-					key={data.heading}
 					data={data}
+					key={data.heading}
 					isEven={index % 2 === 0}
 					showDescription={index === 1}
 					customGrid={index === 2 ? "single" : "lg:grid-cols-2"}
