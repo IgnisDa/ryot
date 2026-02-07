@@ -27,6 +27,12 @@ export const PlanTypes = z.enum(planTypes.enumValues);
 
 export type TPlanTypes = z.infer<typeof PlanTypes>;
 
+export const paymentProviders = pgEnum("payment_provider", ["paddle", "polar"]);
+
+export const PaymentProviders = z.enum(paymentProviders.enumValues);
+
+export type TPaymentProviders = z.infer<typeof PaymentProviders>;
+
 export const customers = pgTable("customer", {
 	unkeyKeyId: text("unkey_key_id"),
 	ryotUserId: text("ryot_user_id"),
@@ -34,6 +40,10 @@ export const customers = pgTable("customer", {
 	oidcIssuerId: text("oidc_issuer_id").unique(),
 	id: uuid("id").notNull().primaryKey().defaultRandom(),
 	paddleCustomerId: text("paddle_customer_id").unique(),
+	polarCustomerId: text("polar_customer_id").unique(),
+	paymentProvider: paymentProviders("payment_provider")
+		.notNull()
+		.default("paddle"),
 	createdOn: timestamp("created_on", { withTimezone: true })
 		.defaultNow()
 		.notNull(),
