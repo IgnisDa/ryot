@@ -414,156 +414,150 @@ const PluginManifestFields = strictStruct({
 	integrationProviders: Schema.Array(PluginIntegrationProvider),
 });
 
+const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.Type) => {
+	const scriptSlugs = new Set(manifest.scripts.map(({ slug }) => slug));
+	const workflowSlugs = new Set(manifest.workflows.map(({ slug }) => slug));
+	const providerSlugs = new Set(manifest.providers.map(({ slug }) => slug));
+	const userBootstrapSlugs = new Set(manifest.userBootstrap.map(({ slug }) => slug));
+	const configKeys = new Set(Object.keys(manifest.configSchema.fields));
+	const configEnvironmentKeys = [...configKeys].map((key) =>
+		pluginConfigEnvironmentKey(manifest.metadata.slug, key),
+	);
+	if (new Set(configEnvironmentKeys).size !== configEnvironmentKeys.length) {
+		return false;
+	}
+	const requiredConfigKeys = [
+		...manifest.scripts.flatMap(({ requiredPluginConfigKeys }) => requiredPluginConfigKeys),
+		...manifest.importSources.flatMap(({ requiredPluginConfigKeys }) => requiredPluginConfigKeys),
+	];
+	if (!requiredConfigKeys.every((key) => configKeys.has(key))) {
+		return false;
+	}
+	if (scriptSlugs.size !== manifest.scripts.length) {
+		return false;
+	}
+	if (providerSlugs.size !== manifest.providers.length) {
+		return false;
+	}
+	if (workflowSlugs.size !== manifest.workflows.length) {
+		return false;
+	}
+	if (userBootstrapSlugs.size !== manifest.userBootstrap.length) {
+		return false;
+	}
+	if (
+		new Set(manifest.importSources.map(({ slug }) => slug)).size !== manifest.importSources.length
+	) {
+		return false;
+	}
+	if (
+		new Set(manifest.integrationProviders.map(({ slug }) => slug)).size !==
+		manifest.integrationProviders.length
+	) {
+		return false;
+	}
+	if (manifest.importSources.some(({ workflowSlug }) => !workflowSlugs.has(workflowSlug))) {
+		return false;
+	}
+	if (
+		manifest.workflows.some(
+			(workflow) =>
+				manifest.scripts.find(({ slug }) => slug === workflow.scriptSlug)?.kind !== "workflow",
+		)
+	) {
+		return false;
+	}
+	if (
+		manifest.userBootstrap.some(
+			(entry) => manifest.scripts.find(({ slug }) => slug === entry.scriptSlug)?.kind !== "script",
+		)
+	) {
+		return false;
+	}
+
+	if (
+		manifest.scripts.some(
+			(script) =>
+				"providerSlug" in script &&
+				script.providerSlug !== undefined &&
+				!providerSlugs.has(script.providerSlug),
+		)
+	) {
+		return false;
+	}
+	const providerScripts = manifest.scripts.filter((script) => script.kind === "provider");
+
+	const operationAssignments = manifest.providers.flatMap((provider) =>
+		Object.entries(provider.operations).map(([operation, scriptSlug]) => ({
+			operation,
+			providerSlug: provider.slug,
+			scriptSlug,
+		})),
+	);
+	if (
+		new Set(operationAssignments.map(({ scriptSlug }) => scriptSlug)).size !==
+		operationAssignments.length
+	) {
+		return false;
+	}
+
+	if (
+		operationAssignments.some(({ operation, providerSlug, scriptSlug }) => {
+			const script = providerScripts.find((candidate) => candidate.slug === scriptSlug);
+			return (
+				!script || script.providerSlug !== providerSlug || script.providerOperation !== operation
+			);
+		})
+	) {
+		return false;
+	}
+
+	if (
+		providerScripts.some(
+			(script) =>
+				!operationAssignments.some(
+					(assignment) =>
+						assignment.scriptSlug === script.slug &&
+						assignment.providerSlug === script.providerSlug &&
+						assignment.operation === script.providerOperation,
+				),
+		)
+	) {
+		return false;
+	}
+
+	const referencedScriptSlugs = [
+		...manifest.boot.map(({ scriptSlug }) => scriptSlug),
+		...manifest.userBootstrap.map(({ scriptSlug }) => scriptSlug),
+		...manifest.crons.flatMap((cron) => (cron.lot === "script" ? [cron.scriptSlug] : [])),
+		...manifest.operations.map(({ scriptSlug }) => scriptSlug),
+		...manifest.workflows.map(({ scriptSlug }) => scriptSlug),
+		...manifest.bindings.eventAutomations.map(({ scriptSlug }) => scriptSlug),
+		...manifest.bindings.entityAutomations.map(({ scriptSlug }) => scriptSlug),
+		...manifest.bindings.signalAutomations.map(({ scriptSlug }) => scriptSlug),
+		...manifest.bindings.relationshipAutomations.map(({ scriptSlug }) => scriptSlug),
+		...manifest.integrationProviders.flatMap((provider) =>
+			provider.lot === "push" ? [] : [provider.scriptSlug],
+		),
+	];
+
+	return (
+		referencedScriptSlugs.every((scriptSlug) => scriptSlugs.has(scriptSlug)) &&
+		manifest.crons.every((cron) => cron.lot === "script" || workflowSlugs.has(cron.workflowSlug)) &&
+		manifest.bindings.schemaProviderLinks.every(({ providerSlug }) =>
+			providerSlugs.has(providerSlug),
+		)
+	);
+};
+
 export const PluginManifest = PluginManifestFields.pipe(
 	Schema.check(
-		Schema.makeFilter((manifest) => {
-			const valid = (() => {
-				const scriptSlugs = new Set(manifest.scripts.map(({ slug }) => slug));
-				const workflowSlugs = new Set(manifest.workflows.map(({ slug }) => slug));
-				const providerSlugs = new Set(manifest.providers.map(({ slug }) => slug));
-				const userBootstrapSlugs = new Set(manifest.userBootstrap.map(({ slug }) => slug));
-				const configKeys = new Set(Object.keys(manifest.configSchema.fields));
-				const configEnvironmentKeys = [...configKeys].map((key) =>
-					pluginConfigEnvironmentKey(manifest.metadata.slug, key),
-				);
-				if (new Set(configEnvironmentKeys).size !== configEnvironmentKeys.length) {
-					return false;
-				}
-				const requiredConfigKeys = [
-					...manifest.scripts.flatMap(({ requiredPluginConfigKeys }) => requiredPluginConfigKeys),
-					...manifest.importSources.flatMap(
-						({ requiredPluginConfigKeys }) => requiredPluginConfigKeys,
-					),
-				];
-				if (!requiredConfigKeys.every((key) => configKeys.has(key))) {
-					return false;
-				}
-				if (scriptSlugs.size !== manifest.scripts.length) {
-					return false;
-				}
-				if (providerSlugs.size !== manifest.providers.length) {
-					return false;
-				}
-				if (workflowSlugs.size !== manifest.workflows.length) {
-					return false;
-				}
-				if (userBootstrapSlugs.size !== manifest.userBootstrap.length) {
-					return false;
-				}
-				if (
-					new Set(manifest.importSources.map(({ slug }) => slug)).size !==
-					manifest.importSources.length
-				) {
-					return false;
-				}
-				if (
-					new Set(manifest.integrationProviders.map(({ slug }) => slug)).size !==
-					manifest.integrationProviders.length
-				) {
-					return false;
-				}
-				if (manifest.importSources.some(({ workflowSlug }) => !workflowSlugs.has(workflowSlug))) {
-					return false;
-				}
-				if (
-					manifest.workflows.some(
-						(workflow) =>
-							manifest.scripts.find(({ slug }) => slug === workflow.scriptSlug)?.kind !==
-							"workflow",
-					)
-				) {
-					return false;
-				}
-				if (
-					manifest.userBootstrap.some(
-						(entry) =>
-							manifest.scripts.find(({ slug }) => slug === entry.scriptSlug)?.kind !== "script",
-					)
-				) {
-					return false;
-				}
-
-				if (
-					manifest.scripts.some(
-						(script) =>
-							"providerSlug" in script &&
-							script.providerSlug !== undefined &&
-							!providerSlugs.has(script.providerSlug),
-					)
-				) {
-					return false;
-				}
-				const providerScripts = manifest.scripts.filter((script) => script.kind === "provider");
-
-				const operationAssignments = manifest.providers.flatMap((provider) =>
-					Object.entries(provider.operations).map(([operation, scriptSlug]) => ({
-						operation,
-						providerSlug: provider.slug,
-						scriptSlug,
-					})),
-				);
-				if (
-					new Set(operationAssignments.map(({ scriptSlug }) => scriptSlug)).size !==
-					operationAssignments.length
-				) {
-					return false;
-				}
-
-				if (
-					operationAssignments.some(({ operation, providerSlug, scriptSlug }) => {
-						const script = providerScripts.find((candidate) => candidate.slug === scriptSlug);
-						return (
-							!script ||
-							script.providerSlug !== providerSlug ||
-							script.providerOperation !== operation
-						);
-					})
-				) {
-					return false;
-				}
-
-				if (
-					providerScripts.some(
-						(script) =>
-							!operationAssignments.some(
-								(assignment) =>
-									assignment.scriptSlug === script.slug &&
-									assignment.providerSlug === script.providerSlug &&
-									assignment.operation === script.providerOperation,
-							),
-					)
-				) {
-					return false;
-				}
-
-				const referencedScriptSlugs = [
-					...manifest.boot.map(({ scriptSlug }) => scriptSlug),
-					...manifest.userBootstrap.map(({ scriptSlug }) => scriptSlug),
-					...manifest.crons.flatMap((cron) => (cron.lot === "script" ? [cron.scriptSlug] : [])),
-					...manifest.operations.map(({ scriptSlug }) => scriptSlug),
-					...manifest.workflows.map(({ scriptSlug }) => scriptSlug),
-					...manifest.bindings.eventAutomations.map(({ scriptSlug }) => scriptSlug),
-					...manifest.bindings.entityAutomations.map(({ scriptSlug }) => scriptSlug),
-					...manifest.bindings.signalAutomations.map(({ scriptSlug }) => scriptSlug),
-					...manifest.bindings.relationshipAutomations.map(({ scriptSlug }) => scriptSlug),
-					...manifest.integrationProviders.flatMap((provider) =>
-						provider.lot === "push" ? [] : [provider.scriptSlug],
-					),
-				];
-
-				return (
-					referencedScriptSlugs.every((scriptSlug) => scriptSlugs.has(scriptSlug)) &&
-					manifest.crons.every(
-						(cron) => cron.lot === "script" || workflowSlugs.has(cron.workflowSlug),
-					) &&
-					manifest.bindings.schemaProviderLinks.every(({ providerSlug }) =>
-						providerSlugs.has(providerSlug),
-					)
-				);
-			})();
-
-			return valid || "Expected valid plugin config, provider, and script references";
-		}, strictParseOptions),
+		Schema.makeFilter(
+			(manifest) =>
+				hasValidPluginManifestReferences(manifest) ||
+				"Expected valid plugin config, provider, and script references",
+			strictParseOptions,
+		),
 	),
 );
 
