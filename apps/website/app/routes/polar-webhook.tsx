@@ -112,12 +112,6 @@ async function handleOrderPaid(
 		await provisionRenewal(customer, planType, productType, activePurchase);
 	}
 
-	if (polarCustomerId && polarCustomerId !== customer.polarCustomerId)
-		await getDb()
-			.update(customers)
-			.set({ polarCustomerId })
-			.where(eq(customers.id, customer.id));
-
 	return { message: "Order processed successfully" };
 }
 
