@@ -314,7 +314,7 @@ export default function Index() {
 									>
 										<button
 											type="submit"
-											className="text-xs underline text-right"
+											className="text-xs underline text-right cursor-pointer"
 											onClick={(e) => {
 												const yes = confirm(
 													"Are you sure you want to regenerate the unkey key? All old unkey keys will be invalidated.",
