@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { nonEmptyStringSchema, stringUnknownRecordSchema } from "~/lib/zod";
-import type { sandboxRunJobData, sandboxRunJobResult } from "./jobs";
+import type { sandboxRunJobData } from "./jobs";
 
 export const sandboxScriptMetadataSchema = z.object({
 	allowedHostFunctions: z.array(z.string()).optional(),
@@ -29,8 +29,6 @@ export type SandboxEnqueueOptions = Pick<
 	z.infer<typeof sandboxRunJobData>,
 	"userId" | "context" | "scriptId" | "driverName"
 >;
-
-export type SandboxResult = z.infer<typeof sandboxRunJobResult>;
 
 export type ApiSuccess<T> = { data: T; success: true };
 

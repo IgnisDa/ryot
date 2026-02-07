@@ -21,6 +21,12 @@ import {
 	sandboxRunJobData,
 	sandboxRunJobName,
 } from "./jobs";
+import {
+	sandboxExecutionDurationSeconds,
+	sandboxExecutionsTotal,
+	sandboxPoolHitsTotal,
+	sandboxScriptExecutionDurationSeconds,
+} from "./metrics";
 import { PackageCacheManager } from "./package-cache";
 import { ProcessPool, type SpawnedProcess } from "./process-pool";
 import { getSandboxScriptById } from "./repository";
@@ -29,7 +35,6 @@ import type {
 	ApiFunctionDescriptor,
 	HostFunctionFactory,
 	SandboxEnqueueOptions,
-	SandboxResult,
 } from "./types";
 import { sandboxScriptMetadataSchema } from "./types";
 import {
@@ -266,43 +271,72 @@ export class SandboxService {
 
 			const t2 = performance.now();
 			const cpuDelta = process.cpuUsage(cpuBefore);
-			const timings = {
-				poolHit,
-				totalMs: Math.round(t2 - t0),
-				processMs: Math.round(t2 - t1),
-				hostSetupMs: Math.round(t1 - t0),
-				cpuUserMs: Math.round(cpuDelta.user / 1000),
-				cpuSystemMs: Math.round(cpuDelta.system / 1000),
-			};
+			const totalMs = Math.round(t2 - t0);
+			const processMs = Math.round(t2 - t1);
+			const hostSetupMs = Math.round(t1 - t0);
+			const cpuUserMs = Math.round(cpuDelta.user / 1000);
+			const cpuSystemMs = Math.round(cpuDelta.system / 1000);
 
 			const logs = stderrText.trim() || undefined;
 			const resultText = stdoutText.trim();
 
 			if (timedOut) {
+				const outcome = "timeout";
+				sandboxExecutionsTotal.inc({ outcome });
+				sandboxExecutionDurationSeconds.observe({ outcome }, totalMs / 1000);
+				recordInternalMetrics({
+					poolHit,
+					cpuUserMs,
+					processMs,
+					cpuSystemMs,
+					hostSetupMs,
+				});
 				return {
 					logs,
-					timings,
+					timing: { totalMs, executionMs: 0 },
 					success: false,
 					error: `Sandbox timed out after ${timeoutMs}ms`,
 				};
 			}
 
 			try {
-				const parsed = JSON.parse(resultText) as SandboxResult;
-
+				const parsed = JSON.parse(resultText) as DenoRunOutput;
+				const outcome = parsed.success ? "success" : "error";
+				const executionMs = parsed.denoMetrics?.scriptExecMs ?? 0;
+				sandboxExecutionsTotal.inc({ outcome });
+				sandboxExecutionDurationSeconds.observe({ outcome }, totalMs / 1000);
+				if (executionMs > 0) {
+					sandboxScriptExecutionDurationSeconds.observe(executionMs / 1000);
+				}
+				recordInternalMetrics({
+					poolHit,
+					cpuUserMs,
+					processMs,
+					cpuSystemMs,
+					hostSetupMs,
+				});
 				return {
 					logs,
-					timings,
 					value: parsed.value,
 					error: parsed.error,
-					denoMetrics: parsed.denoMetrics,
+					timing: { totalMs, executionMs },
 					success: Boolean(parsed.success),
 				};
 			} catch {
+				const outcome = "error";
+				sandboxExecutionsTotal.inc({ outcome });
+				sandboxExecutionDurationSeconds.observe({ outcome }, totalMs / 1000);
+				recordInternalMetrics({
+					poolHit,
+					cpuUserMs,
+					processMs,
+					cpuSystemMs,
+					hostSetupMs,
+				});
 				return {
 					logs,
-					timings,
 					success: false,
+					timing: { totalMs, executionMs: 0 },
 					error:
 						exit.signal === "SIGTERM" || exit.signal === "SIGKILL"
 							? `Sandbox timed out after ${timeoutMs}ms`
@@ -391,4 +425,30 @@ type SandboxJobLookupResult = {
 		failedReason?: string;
 		getState: Job["getState"];
 	};
+};
+
+type DenoRunOutput = {
+	success: boolean;
+	value?: unknown;
+	error?: string | null;
+	denoMetrics?: {
+		startupMs: number;
+		scriptExecMs: number;
+		memoryRssBytes: number;
+		memoryHeapUsedBytes: number;
+	};
+};
+
+type InternalExecutionMetrics = {
+	poolHit: boolean;
+	cpuUserMs: number;
+	processMs: number;
+	cpuSystemMs: number;
+	hostSetupMs: number;
+};
+
+const recordInternalMetrics = (m: InternalExecutionMetrics) => {
+	if (m.poolHit) {
+		sandboxPoolHitsTotal.inc();
+	}
 };
