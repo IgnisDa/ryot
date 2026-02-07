@@ -37,13 +37,11 @@ Present the proposed breakdown as a numbered list. For each slice, show:
 
 - **Title**: short descriptive name
 - **Type**: HITL / AFK
-- **Blocked by**: which other slices (if any) must complete first
 - **User stories covered**: which user stories from the PRD this addresses
 
 Ask the user:
 
 - Does the granularity feel right? (too coarse / too fine)
-- Are the dependency relationships correct?
 - Should any slices be merged or split further?
 - Are the correct slices marked as HITL and AFK?
 
@@ -58,7 +56,7 @@ Task files should be named `{NN}-{task-title}.md` where:
 - `{NN}` is zero-padded (01, 02, 03, etc.)
 - `{task-title}` is in kebab-case
 
-Create tasks in dependency order (blockers first) so you can reference earlier task files in the "Blocked by" field.
+Create tasks in a sensible execution order so the task list reads cleanly from top to bottom.
 
 <task-template>
 # {Task Title}
@@ -78,12 +76,6 @@ A concise description of this vertical slice. Describe the end-to-end behavior, 
 - [ ] Criterion 1
 - [ ] Criterion 2
 - [ ] Criterion 3
-
-## Blocked by
-
-- [Task NN](./{NN}-{task-title}.md)
-
-Or "None - can start immediately" if no blockers.
 
 ## User stories addressed
 
@@ -108,11 +100,11 @@ Replace the Tasks section (everything after `---` and `## Tasks`) with:
 
 ### Task List
 
-| #   | Task                                   | Type | Status | Blocked By |
-| --- | -------------------------------------- | ---- | ------ | ---------- |
-| 01  | [{Task Title}](./{01}-{task-title}.md) | AFK  | todo   | None       |
-| 02  | [{Task Title}](./{02}-{task-title}.md) | HITL | todo   | Task 01    |
-| 03  | [{Task Title}](./{03}-{task-title}.md) | AFK  | todo   | Task 02    |
+| #   | Task                                   | Type | Status |
+| --- | -------------------------------------- | ---- | ------ |
+| 01  | [{Task Title}](./{01}-{task-title}.md) | AFK  | todo   |
+| 02  | [{Task Title}](./{02}-{task-title}.md) | HITL | todo   |
+| 03  | [{Task Title}](./{03}-{task-title}.md) | AFK  | todo   |
 
 </tasks-section-template>
 
@@ -132,5 +124,4 @@ When a task status changes (e.g., from `todo` to `in-progress` to `done`), updat
 - `todo` - Not started
 - `in-progress` - Currently being worked on
 - `done` - Completed
-- `blocked` - Waiting on dependencies
 - `cancelled` - No longer needed
