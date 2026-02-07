@@ -127,10 +127,10 @@ export function queryEngineSandboxSource(
 		capabilities: ["executeQueryEngine"],
 		declarations: `const queryItemsSchema = Schema.Array(Schema.Unknown);
 const queryResponseSchema = Schema.Struct({ data: Schema.Struct({ items: queryItemsSchema }) });
-const query = Schema.decodeUnknownSync(jsonValueSchema)(JSON.parse(${JSON.stringify(JSON.stringify(input.query))}));`,
+const query = Schema.decodeSync(jsonValueSchema)(JSON.parse(${JSON.stringify(JSON.stringify(input.query))}));`,
 		run: `(_input, host) => Effect.gen(function* () {
     const result = yield* host.executeQueryEngine(query);
-    return (yield* Schema.decodeUnknown(queryResponseSchema)(result)).data.items;
+    return (yield* Schema.decodeUnknownEffect(queryResponseSchema)(result)).data.items;
   })`,
 	});
 }
@@ -292,7 +292,7 @@ export const manifest = defineManifest({
 const trendingResultSchema = Schema.Struct({
   items: Schema.Array(Schema.Struct({ externalId: Schema.String, name: Schema.String })),
 });
-const trendingResult = Schema.decodeUnknownSync(trendingResultSchema)(JSON.parse(${JSON.stringify(
+const trendingResult = Schema.decodeSync(trendingResultSchema)(JSON.parse(${JSON.stringify(
 		JSON.stringify({ items: input.items }),
 	)}));
 
@@ -311,7 +311,7 @@ export default defineScript({
       })),
     );
     const upsertedEntities = entities.filter((entity) => entity.status === "upserted");
-    const fetchedAt = DateTime.formatIso(DateTime.unsafeNow());
+    const fetchedAt = DateTime.formatIso(DateTime.nowUnsafe());
     yield* host.upsertGlobalRelationships([{
       selector: { type: "self" },
       relationshipSchemaSlug: "media-trending",
