@@ -1,36 +1,72 @@
-import { Schema } from "@ryot/sandbox-sdk/effect";
+import { Schema, Effect, SchemaGetter, SchemaTransformation } from "@ryot/sandbox-sdk/effect";
 
 import type { SandboxManifest } from "./core";
 import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
 import { type JsonValue, jsonValueSchema } from "./wire";
 
-const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
-	Schema.Struct(fields).annotations({ parseOptions: { onExcessProperty: "error" as const } });
-const trimmedNonEmptyString = Schema.Trim.pipe(Schema.minLength(1));
-const querySchema = Schema.transform(Schema.Unknown, Schema.String, {
-	strict: true,
-	encode: (value) => value,
-	decode: (value) => (typeof value === "string" ? value.trim() : ""),
-});
+const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
+	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
+const trimmedNonEmptyString = Schema.Trim.pipe(Schema.check(Schema.isMinLength(1)));
+const querySchema = Schema.Unknown.pipe(
+	Schema.decodeTo(
+		Schema.String,
+		SchemaTransformation.transform({
+			decode: (value) => (typeof value === "string" ? value.trim() : ""),
+			encode: (value) => value,
+		}),
+	),
+);
 const integerWithFallback = (fallback: number, maximum?: number) =>
-	Schema.transform(Schema.Unknown, Schema.Number, {
-		strict: true,
-		encode: (value) => value,
-		decode: (value) => {
-			const coerced = typeof value === "symbol" ? Number.NaN : Number(value);
-			return Number.isFinite(coerced) &&
-				coerced >= 1 &&
-				(maximum === undefined || coerced <= maximum)
-				? Math.floor(coerced)
-				: fallback;
-		},
-	});
+	Schema.Unknown.pipe(
+		Schema.decodeTo(
+			Schema.Number,
+			SchemaTransformation.transform({
+				decode: (value) => {
+					const coerced = typeof value === "symbol" ? Number.NaN : Number(value);
+					return Number.isFinite(coerced) &&
+						coerced >= 1 &&
+						(maximum === undefined || coerced <= maximum)
+						? Math.floor(coerced)
+						: fallback;
+				},
+
+				encode: (value) => value,
+			}),
+		),
+	);
 
 export type ProviderManifest = Extract<SandboxManifest, { readonly kind: "provider" }>;
 export const providerSearchInputSchema = strictStruct({
-	query: Schema.optionalWith(querySchema, { default: () => "" }),
-	page: Schema.optionalWith(integerWithFallback(1), { default: () => 1 }),
-	pageSize: Schema.optionalWith(integerWithFallback(20, 100), { default: () => 20 }),
+	query: querySchema.pipe(
+		(schema) =>
+			Schema.optional(schema).pipe(
+				Schema.decodeTo(Schema.toType(schema), {
+					decode: SchemaGetter.withDefault(Effect.sync(() => "")),
+					encode: SchemaGetter.required(),
+				}),
+			),
+		Schema.withConstructorDefault(Effect.sync(() => "")),
+	),
+	page: integerWithFallback(1).pipe(
+		(schema) =>
+			Schema.optional(schema).pipe(
+				Schema.decodeTo(Schema.toType(schema), {
+					decode: SchemaGetter.withDefault(Effect.sync(() => 1)),
+					encode: SchemaGetter.required(),
+				}),
+			),
+		Schema.withConstructorDefault(Effect.sync(() => 1)),
+	),
+	pageSize: integerWithFallback(20, 100).pipe(
+		(schema) =>
+			Schema.optional(schema).pipe(
+				Schema.decodeTo(Schema.toType(schema), {
+					decode: SchemaGetter.withDefault(Effect.sync(() => 20)),
+					encode: SchemaGetter.required(),
+				}),
+			),
+		Schema.withConstructorDefault(Effect.sync(() => 20)),
+	),
 });
 
 const nullPropertySchema = strictStruct({ kind: Schema.Literal("null"), value: Schema.Null });
@@ -45,7 +81,9 @@ export const providerSearchItemSchema = strictStruct({
 	imageProperty: Schema.optional(jsonValueSchema),
 	calloutProperty: Schema.optional(jsonValueSchema),
 	secondarySubtitleProperty: Schema.optional(jsonValueSchema),
-	primarySubtitleProperty: Schema.optional(Schema.Union(nullPropertySchema, numberPropertySchema)),
+	primarySubtitleProperty: Schema.optional(
+		Schema.Union([nullPropertySchema, numberPropertySchema]),
+	),
 });
 export const providerSearchResultSchema = strictStruct({
 	items: Schema.Array(providerSearchItemSchema),
@@ -61,9 +99,9 @@ export const providerDetailsRelatedEntitySchema = strictStruct({
 	relationshipProperties: Schema.optional(jsonValueSchema),
 });
 export const providerDetailsRelatedEntityGroupSchema = strictStruct({
-	direction: Schema.Literal("incoming", "outgoing"),
+	direction: Schema.Literals(["incoming", "outgoing"]),
 	entities: Schema.Array(providerDetailsRelatedEntitySchema),
-	synchronization: Schema.Literal("authoritative", "additive"),
+	synchronization: Schema.Literals(["authoritative", "additive"]),
 	relationshipSchemaSlug: Schema.String,
 });
 
@@ -75,17 +113,19 @@ export type ProviderDetailsChildEntity = {
 	readonly expectedChildEntitySchemaSlug?: string | undefined;
 	readonly childEntities?: readonly ProviderDetailsChildEntity[] | undefined;
 };
-export const providerDetailsChildEntitySchema: Schema.Schema<ProviderDetailsChildEntity> =
-	Schema.suspend(() =>
-		strictStruct({
-			name: Schema.String,
-			externalId: Schema.String,
-			properties: jsonValueSchema,
-			entitySchemaSlug: Schema.String,
-			expectedChildEntitySchemaSlug: Schema.optional(Schema.String),
-			childEntities: Schema.optional(Schema.Array(providerDetailsChildEntitySchema)),
-		}),
-	);
+export const providerDetailsChildEntitySchema: Schema.Codec<
+	ProviderDetailsChildEntity,
+	ProviderDetailsChildEntity
+> = Schema.suspend(() =>
+	strictStruct({
+		name: Schema.String,
+		externalId: Schema.String,
+		properties: jsonValueSchema,
+		entitySchemaSlug: Schema.String,
+		expectedChildEntitySchemaSlug: Schema.optional(Schema.String),
+		childEntities: Schema.optional(Schema.Array(providerDetailsChildEntitySchema)),
+	}),
+);
 export const providerDetailsResultSchema = strictStruct({
 	name: Schema.String,
 	properties: jsonValueSchema,
@@ -108,9 +148,7 @@ export const providerTranslateInputSchema = strictStruct({
 });
 export const providerTranslateResultSchema = strictStruct({
 	name: Schema.optional(Schema.NullOr(Schema.String)),
-	properties: Schema.optional(
-		Schema.NullOr(Schema.Record({ key: Schema.String, value: jsonValueSchema })),
-	),
+	properties: Schema.optional(Schema.NullOr(Schema.Record(Schema.String, jsonValueSchema))),
 });
 
 export const providerOperationContracts = {

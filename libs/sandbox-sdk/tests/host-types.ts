@@ -68,7 +68,7 @@ defineScript({
 			void isNsfw;
 
 			const errorType: Expect<
-				Equal<Effect.Effect.Error<ReturnType<typeof host.httpCall>>, SandboxHostError>
+				Equal<Effect.Error<ReturnType<typeof host.httpCall>>, SandboxHostError>
 			> = true;
 			void errorType;
 

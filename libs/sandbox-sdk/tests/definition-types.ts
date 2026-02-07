@@ -80,14 +80,12 @@ const workflow = defineWorkflow({
 
 const scriptInputType: Expect<Equal<Parameters<typeof script.run>[0], { readonly key: string }>> =
 	true;
-const operationOutputType: Expect<
-	Equal<Effect.Effect.Success<ReturnType<typeof operation.run>>, string>
-> = true;
-const activityOutputType: Expect<
-	Equal<Effect.Effect.Success<ReturnType<typeof activity.run>>, string>
-> = true;
+const operationOutputType: Expect<Equal<Effect.Success<ReturnType<typeof operation.run>>, string>> =
+	true;
+const activityOutputType: Expect<Equal<Effect.Success<ReturnType<typeof activity.run>>, string>> =
+	true;
 const workflowOutputType: Expect<
-	Equal<Effect.Effect.Success<ReturnType<typeof workflow.run>>, WorkflowReplayEnvelope>
+	Equal<Effect.Success<ReturnType<typeof workflow.run>>, WorkflowReplayEnvelope>
 > = true;
 void scriptInputType;
 void activityOutputType;

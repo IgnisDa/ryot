@@ -1,1 +1,11 @@
-export { DateTime, Duration, Effect, Either, Option, ParseResult, Schema } from "effect";
+export {
+	DateTime,
+	Duration,
+	Effect,
+	Option,
+	Result,
+	Schema,
+	SchemaGetter,
+	SchemaIssue,
+	SchemaTransformation,
+} from "effect";
