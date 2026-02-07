@@ -408,7 +408,8 @@ bun turbo test --only --filter='!@ryot/tests' --filter='!@ryot/app-client-backup
 ```
 
 Never run the complete E2E package in one Vitest invocation. Discover current
-files under `tests/src/tests/**/*.test.ts`, then run one file per command:
+files under `tests/src/tests/**/*.test.ts`, excluding
+`media-population-operational-gate.test.ts`, then run one file per command:
 
 ```bash
 bun turbo --filter=@ryot/tests test --only -- src/tests/<area>/<file>.test.ts
@@ -418,17 +419,23 @@ Run E2E files sequentially. Each invocation must contain exactly one test file.
 Stop on the first failure and ask the user before continuing or changing code.
 Do not use a directory, glob, or omitted file argument.
 
-Two media E2E files use opt-in gates. Run them explicitly and do not treat a
-successful invocation containing skipped tests as a pass:
+The operational E2E test is prohibited. Never run this file and never set
+`RUN_OPERATIONAL_GATES` during migration:
 
 ```bash
-RUN_OPERATIONAL_GATES=1 bun turbo --filter=@ryot/tests test --only -- 'src/tests/plugins/media/imports/media-population-operational-gate.test.ts'
+tests/src/tests/plugins/media/imports/media-population-operational-gate.test.ts
+```
+
+Run the live-provider smoke file explicitly and do not treat a successful
+invocation containing skipped tests as a pass:
+
+```bash
 RUN_LIVE_PROVIDER_TESTS=1 bun turbo --filter=@ryot/tests test --only -- 'src/tests/plugins/media/smoke/providers-live-smoke.test.ts'
 ```
 
 The live provider smoke test requires outbound provider access and a TMDB
-access token. If either gated test cannot be enabled, stop and ask the user for
-the required environment or an explicit waiver naming the file and reason.
+access token. If it cannot be enabled, stop and ask the user for the required
+environment or an explicit waiver naming the file and reason.
 
 ## 8. Final Acceptance
 
@@ -436,8 +443,9 @@ Migration is complete when:
 
 - Every non-excluded workspace passes its applicable check and build.
 - Every non-E2E test suite passes normally.
-- Every E2E file passes in an individual invocation, except a gated file with
-  an explicit user waiver recorded by filename and reason.
+- Every permitted E2E file passes in an individual invocation, except the live
+  provider smoke file when an explicit user waiver records its filename and
+  reason. The prohibited operational E2E file is not an acceptance gate.
 - All in-scope Effect ecosystem dependencies use the selected exact v4 beta.
 - Remaining direct v3 dependencies belong only to excluded source.
 - No consolidated v3 import or removed v3 API remains in in-scope source.
