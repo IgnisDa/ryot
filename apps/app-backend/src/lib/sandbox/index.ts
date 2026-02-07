@@ -29,5 +29,3 @@ export const shutdownSandboxService = async () => {
 	sandboxService = null;
 	console.info("Sandbox service shut down");
 };
-
-export type { SandboxResult } from "./types";
