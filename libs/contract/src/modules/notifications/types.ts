@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-export const NotificationChannelKind = Schema.Literal(
+export const NotificationChannelKind = Schema.Literals([
 	"ntfy",
 	"email",
 	"gotify",
@@ -10,7 +10,7 @@ export const NotificationChannelKind = Schema.Literal(
 	"push_bullet",
 	"push_safer",
 	"telegram",
-);
+]);
 
 export type NotificationChannelKind = typeof NotificationChannelKind.Type;
 

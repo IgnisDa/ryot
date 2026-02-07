@@ -1,8 +1,8 @@
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "@effect/platform";
 import { Schema } from "effect";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
-import { NotFound, RateLimited, Unauthorized } from "../../errors";
+import { BadRequest, NotFound } from "../../errors";
 import { NotificationChannelId } from "../../schema/brands";
 import {
 	CreateNotificationChannelBody,
@@ -10,40 +10,40 @@ import {
 	UpdateNotificationChannelBody,
 } from "./schemas";
 
-const channelIdParam = HttpApiSchema.param("channelId", NotificationChannelId);
-
 export const NotificationsGroup = HttpApiGroup.make("notifications")
 	.annotate(OpenApi.Description, "Manage and test notification channels.")
-	.addError(Unauthorized, { status: 401 })
-	.addError(RateLimited, { status: 429 })
-	.addError(NotFound, { status: 404 })
-	.middleware(AuthMiddleware)
 	.add(
-		HttpApiEndpoint.get("listChannels", "/notifications/channels")
-			.annotate(OpenApi.Description, "List configured notification channels.")
-			.addSuccess(Schema.Array(ListedNotificationChannel)),
+		HttpApiEndpoint.get("listChannels", "/notifications/channels", {
+			success: Schema.Array(ListedNotificationChannel),
+			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "List configured notification channels."),
 	)
 	.add(
-		HttpApiEndpoint.post("createChannel", "/notifications/channels")
-			.annotate(OpenApi.Description, "Create a notification channel.")
-			.setPayload(CreateNotificationChannelBody)
-			.addSuccess(Schema.Struct({ id: NotificationChannelId }), { status: 201 }),
+		HttpApiEndpoint.post("createChannel", "/notifications/channels", {
+			payload: CreateNotificationChannelBody,
+			success: Schema.Struct({ id: NotificationChannelId }).pipe(HttpApiSchema.status(201)),
+			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "Create a notification channel."),
 	)
 	.add(
-		HttpApiEndpoint.patch("updateChannel")`/notifications/channels/${channelIdParam}`
-			.annotate(OpenApi.Description, "Update a notification channel by ID.")
-			.setPayload(UpdateNotificationChannelBody)
-			.addSuccess(ListedNotificationChannel),
+		HttpApiEndpoint.patch("updateChannel", "/notifications/channels/:channelId", {
+			params: { channelId: NotificationChannelId },
+			payload: UpdateNotificationChannelBody,
+			success: ListedNotificationChannel,
+			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "Update a notification channel by ID."),
 	)
 	.add(
-		HttpApiEndpoint.del("deleteChannel")`/notifications/channels/${channelIdParam}`
-			.annotate(OpenApi.Description, "Delete a notification channel by ID.")
-			.addSuccess(Schema.Struct({ id: NotificationChannelId })),
+		HttpApiEndpoint.delete("deleteChannel", "/notifications/channels/:channelId", {
+			params: { channelId: NotificationChannelId },
+			success: Schema.Struct({ id: NotificationChannelId }),
+			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "Delete a notification channel by ID."),
 	)
 	.add(
-		HttpApiEndpoint.post("testChannels", "/notifications/channels/test")
-			.annotate(OpenApi.Description, "Send a test notification through configured channels.")
-			.addSuccess(Schema.Void, {
-				status: 202,
-			}),
-	);
+		HttpApiEndpoint.post("testChannels", "/notifications/channels/test", {
+			success: Schema.Void.pipe(HttpApiSchema.status(202)),
+			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "Send a test notification through configured channels."),
+	)
+	.middleware(AuthMiddleware);

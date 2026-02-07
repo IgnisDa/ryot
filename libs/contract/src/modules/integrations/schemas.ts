@@ -3,16 +3,13 @@ import { Schema } from "effect";
 import { IntegrationId } from "../../schema/brands";
 import { integrationLots } from "./types";
 
-const IntegrationLot = Schema.Literal(...integrationLots);
+const IntegrationLot = Schema.Literals([...integrationLots]);
 
 export const IntegrationProvider = Schema.String;
 
 export type IntegrationProvider = typeof IntegrationProvider.Type;
 
-export const IntegrationProviderSettings = Schema.Record({
-	key: Schema.String,
-	value: Schema.Unknown,
-});
+export const IntegrationProviderSettings = Schema.Record(Schema.String, Schema.Unknown);
 
 export type IntegrationProviderSettings = typeof IntegrationProviderSettings.Type;
 
@@ -74,17 +71,17 @@ export type IntegrationWebhookPayload =
 	| ReadonlyArray<IntegrationWebhookPayload>
 	| { readonly [key: string]: IntegrationWebhookPayload };
 
-export const IntegrationWebhookPayload: Schema.Schema<IntegrationWebhookPayload> = Schema.suspend(
-	() =>
-		Schema.Union(
+export const IntegrationWebhookPayload: Schema.Codec<IntegrationWebhookPayload, unknown> =
+	Schema.suspend(() =>
+		Schema.Union([
 			Schema.Null,
 			Schema.String,
 			Schema.Number,
 			Schema.Boolean,
 			Schema.Array(IntegrationWebhookPayload),
-			Schema.Record({ key: Schema.String, value: IntegrationWebhookPayload }),
-		),
-).annotations({
-	title: "Integration Webhook Payload",
-	identifier: "IntegrationWebhookPayload",
-});
+			Schema.Record(Schema.String, IntegrationWebhookPayload),
+		]),
+	).annotate({
+		title: "Integration Webhook Payload",
+		identifier: "IntegrationWebhookPayload",
+	});

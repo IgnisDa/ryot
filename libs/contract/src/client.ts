@@ -1,5 +1,6 @@
-import { FetchHttpClient, HttpApiClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { Effect } from "effect";
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http";
+import { HttpApiClient } from "effect/unstable/httpapi";
 
 import { AppContract } from "./contract";
 
@@ -13,7 +14,7 @@ export const makeContractClient = (baseUrl: string, headers: RequestHeaders = {}
 			: {}),
 	});
 
-export type ContractClient = Effect.Effect.Success<ReturnType<typeof makeContractClient>>;
+export type ContractClient = Effect.Success<ReturnType<typeof makeContractClient>>;
 export type ContractProgram<A, E> = (client: ContractClient) => Effect.Effect<A, E>;
 
 export interface RunContractOptions {
@@ -56,9 +57,9 @@ type ClientSuccessValue<G extends GroupKey, M extends MethodKey<G>> = ContractCl
 export type ContractPayload<G extends GroupKey, M extends MethodKey<G>> =
 	ClientRequest<G, M> extends { payload: infer P } ? P : never;
 export type ContractUrlParams<G extends GroupKey, M extends MethodKey<G>> =
-	ClientRequest<G, M> extends { urlParams: infer U } ? U : never;
+	ClientRequest<G, M> extends { query: infer U } ? U : never;
 export type ContractPathParams<G extends GroupKey, M extends MethodKey<G>> =
-	ClientRequest<G, M> extends { path: infer P } ? P : never;
+	ClientRequest<G, M> extends { params: infer P } ? P : never;
 export type ContractSuccess<G extends GroupKey, M extends MethodKey<G>> = StripResponseMeta<
 	ClientSuccessValue<G, M>
 >;

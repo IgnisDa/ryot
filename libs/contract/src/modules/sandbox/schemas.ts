@@ -22,7 +22,7 @@ export const SandboxScriptMetadata = Schema.Struct({
 	requiredPluginConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	requiredSystemConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	kind: Schema.optional(
-		Schema.Literal("script", "activity", "operation", "workflow", "provider", "automation"),
+		Schema.Literals(["script", "activity", "operation", "workflow", "provider", "automation"]),
 	),
 });
 
@@ -31,23 +31,23 @@ export type SandboxScriptMetadata = Schema.Schema.Type<typeof SandboxScriptMetad
 const SandboxScriptManifestFields = {
 	name: Schema.String,
 	slug: Schema.String,
-	capabilities: Schema.Array(Schema.Literal(...SANDBOX_HOST_CAPABILITIES)),
+	capabilities: Schema.Array(Schema.Literals([...SANDBOX_HOST_CAPABILITIES])),
 	requiredPluginConfigKeys: Schema.Array(Schema.String),
 	requiredSystemConfigKeys: Schema.Array(Schema.String),
 };
 
-export const SandboxScriptManifest = Schema.Union(
+export const SandboxScriptManifest = Schema.Union([
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("script") }),
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("activity") }),
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("operation") }),
 	Schema.Struct({
 		...SandboxScriptManifestFields,
 		kind: Schema.Literal("workflow"),
-		capabilities: Schema.Tuple(),
+		capabilities: Schema.Tuple([]),
 	}),
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("automation") }),
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("provider") }),
-) satisfies Schema.Schema<SdkSandboxScriptManifest>;
+]) satisfies Schema.Schema<SdkSandboxScriptManifest>;
 
 export type SandboxScriptManifest = Schema.Schema.Type<typeof SandboxScriptManifest>;
 
@@ -58,12 +58,12 @@ export const SandboxCompilationDiagnostic = Schema.Struct({
 	column: Schema.Number,
 	message: Schema.String,
 	length: Schema.optional(Schema.Number),
-	severity: Schema.Literal("error", "warning", "info"),
+	severity: Schema.Literals(["error", "warning", "info"]),
 });
 
 export type SandboxCompilationDiagnostic = Schema.Schema.Type<typeof SandboxCompilationDiagnostic>;
 
-export class SandboxCompilationFailure extends Schema.TaggedError<SandboxCompilationFailure>()(
+export class SandboxCompilationFailure extends Schema.TaggedErrorClass<SandboxCompilationFailure>()(
 	"SandboxCompilationFailure",
 	{ message: Schema.String, diagnostics: Schema.Array(SandboxCompilationDiagnostic) },
 ) {}
@@ -77,7 +77,7 @@ export type EnqueueSandboxBody = Schema.Schema.Type<typeof EnqueueSandboxBody>;
 
 export const EnqueueResponse = Schema.Struct({ jobId: Schema.String });
 
-export const ExecutionAuthority = Schema.Union(
+export const ExecutionAuthority = Schema.Union([
 	strictStruct({ type: Schema.Literal("system") }),
 	// `integrationId` is the integration the execution belongs to. Only trusted kernel dispatch sets
 	// it, so a script can never widen its own credential scope by supplying an id.
@@ -95,13 +95,13 @@ export const ExecutionAuthority = Schema.Union(
 			occurredAt: Schema.String,
 		}),
 	}),
-);
+]);
 
 export type ExecutionAuthority = Schema.Schema.Type<typeof ExecutionAuthority>;
 
 export const SandboxExecutionGrants = strictStruct({
 	artifactPath: Schema.optional(Schema.String),
-	namedArtifactPaths: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+	namedArtifactPaths: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 });
 
 export type SandboxExecutionGrants = Schema.Schema.Type<typeof SandboxExecutionGrants>;
@@ -135,7 +135,7 @@ export const SandboxExecutionError = Schema.Struct({
 	line: Schema.optional(Schema.Number),
 	stack: Schema.optional(Schema.String),
 	column: Schema.optional(Schema.Number),
-	phase: Schema.Literal("load", "input", "execute", "output"),
+	phase: Schema.Literals(["load", "input", "execute", "output"]),
 });
 
 export type SandboxExecutionError = Schema.Schema.Type<typeof SandboxExecutionError>;
@@ -158,10 +158,10 @@ export const SandboxCompletedResult = Schema.Struct({
 
 export type SandboxCompletedResult = Schema.Schema.Type<typeof SandboxCompletedResult>;
 
-export const SandboxRunResult = Schema.Union(
+export const SandboxRunResult = Schema.Union([
 	SandboxFailedResult,
 	SandboxPendingResult,
 	SandboxCompletedResult,
-);
+]);
 
 export type SandboxRunResult = Schema.Schema.Type<typeof SandboxRunResult>;
