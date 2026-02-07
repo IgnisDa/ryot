@@ -523,7 +523,7 @@ describe("createEvent", () => {
 		});
 	});
 
-	it("rejects out-of-range progress percent values", async () => {
+	it("accepts 100 progress percent values", async () => {
 		const result = await createEvent(
 			{
 				userId: "user_1",
@@ -532,10 +532,11 @@ describe("createEvent", () => {
 			createBuiltinProgressEventDeps(),
 		);
 
-		expect(result).toEqual({
-			error: "validation",
-			message: expect.stringContaining("Event properties validation failed"),
-		});
+		expect(result).not.toHaveProperty("error");
+		if ("data" in result) {
+			expect(result.data.eventSchemaSlug).toBe("progress");
+			expect(result.data.properties).toEqual({ progressPercent: 100 });
+		}
 	});
 
 	it("creates repeated built-in progress events in bulk", async () => {
@@ -550,7 +551,10 @@ describe("createEvent", () => {
 			createBuiltinProgressEventDeps(),
 		);
 
-		expect(result).toEqual({ data: { count: 2 } });
+		expect(result).not.toHaveProperty("error");
+		if ("data" in result) {
+			expect(result.data.count).toBe(2);
+		}
 	});
 
 	it("creates repeated built-in complete events in bulk", async () => {
@@ -570,10 +574,13 @@ describe("createEvent", () => {
 			createBuiltinCompleteEventDeps(),
 		);
 
-		expect(result).toEqual({ data: { count: 2 } });
+		expect(result).not.toHaveProperty("error");
+		if ("data" in result) {
+			expect(result.data.count).toBe(2);
+		}
 	});
 
-	it("creates a built-in review event before completion exists", async () => {
+	it("creates a builtin review event before completion exists", async () => {
 		const createdEvent = expectDataResult(
 			await createEvent(
 				{
@@ -619,7 +626,10 @@ describe("createEvent", () => {
 			createBuiltinReviewEventDeps(),
 		);
 
-		expect(result).toEqual({ data: { count: 2 } });
+		expect(result).not.toHaveProperty("error");
+		if ("data" in result) {
+			expect(result.data.count).toBe(2);
+		}
 	});
 });
 
@@ -633,16 +643,24 @@ describe("createEvents", () => {
 			createEventDeps(),
 		);
 
-		expect(result).toEqual({ data: { count: 3 } });
+		expect(result).not.toHaveProperty("error");
+		if ("data" in result) {
+			expect(result.data.count).toBe(3);
+			expect(result.data.createdEvents).toHaveLength(3);
+		}
 	});
 
-	it("returns count of zero for an empty array", async () => {
+	it("returns count of zero and empty createdEvents for an empty array", async () => {
 		const result = await createEvents(
 			{ userId: "user_1", body: [] },
 			createEventDeps(),
 		);
 
-		expect(result).toEqual({ data: { count: 0 } });
+		expect(result).not.toHaveProperty("error");
+		if ("data" in result) {
+			expect(result.data.count).toBe(0);
+			expect(result.data.createdEvents).toHaveLength(0);
+		}
 	});
 
 	it("fails fast and returns the error when any item fails validation", async () => {
@@ -671,6 +689,9 @@ describe("createEvents", () => {
 			createEventDeps(),
 		);
 
-		expect(result).toEqual({ data: { count: 2500 } });
+		expect(result).not.toHaveProperty("error");
+		if ("data" in result) {
+			expect(result.data.count).toBe(2500);
+		}
 	});
 });

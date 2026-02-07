@@ -6,6 +6,7 @@ export type {
 	ListedEvent,
 } from "./schemas";
 export type {
+	CreatedEventData,
 	EventPropertiesShape,
 	EventServiceDeps,
 	EventServiceResult,
@@ -15,6 +16,7 @@ export {
 	createEvents,
 	listEntityEvents,
 	parseEventProperties,
+	processEventSchemaTriggers,
 	resolveEventCreateInput,
 	resolveEventEntityId,
 	resolveEventSchemaId,

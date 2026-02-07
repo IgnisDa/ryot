@@ -1,12 +1,14 @@
 import { type AppSchema, chunk, resolveRequiredString } from "@ryot/ts-utils";
 import { checkReadAccess } from "~/lib/access";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
+import { getQueues } from "~/lib/queue";
 import {
 	type ServiceResult,
 	serviceData,
 	serviceError,
 	wrapServiceValidator,
 } from "~/lib/result";
+import { sandboxRunJobName } from "~/lib/sandbox/jobs";
 import {
 	getUserLibraryEntityId,
 	upsertInLibraryIfGlobal,
@@ -14,6 +16,7 @@ import {
 } from "~/modules/entities";
 import {
 	createEventForUser,
+	getActiveEventSchemaTriggersForEventSchemas,
 	getEntityScopeForUser,
 	getEventCreateScopeForUser,
 	listEventsByEntityForUser,
@@ -26,6 +29,8 @@ import type {
 
 export type EventPropertiesShape = Record<string, unknown>;
 
+export type CreatedEventData = ListedEvent & { entitySchemaId: string };
+
 type EventMutationError = "not_found" | "validation";
 
 export type EventServiceDeps = {
@@ -35,6 +40,8 @@ export type EventServiceDeps = {
 	listEventsByEntityForUser: typeof listEventsByEntityForUser;
 	getEventCreateScopeForUser: typeof getEventCreateScopeForUser;
 	upsertInLibraryRelationship: typeof upsertInLibraryRelationship;
+	enqueueEventSchemaTriggerJob: typeof enqueueEventSchemaTriggerJob;
+	getActiveEventSchemaTriggersForEventSchemas: typeof getActiveEventSchemaTriggersForEventSchemas;
 };
 
 export type EventServiceResult<T> = ServiceResult<T, EventMutationError>;
@@ -44,6 +51,37 @@ const eventSchemaNotFoundError = "Event schema not found";
 const eventSchemaMismatchError =
 	"Event schema does not belong to the entity schema";
 
+const enqueueEventSchemaTriggerJob = async (input: {
+	jobId: string;
+	userId: string;
+	scriptId: string;
+	context: {
+		trigger: {
+			eventId: string;
+			entityId: string;
+			eventSchemaId: string;
+			entitySchemaId: string;
+			eventSchemaSlug: string;
+			properties: Record<string, unknown>;
+		};
+	};
+}) => {
+	await getQueues().sandboxQueue.add(
+		sandboxRunJobName,
+		{
+			userId: input.userId,
+			driverName: "trigger",
+			context: input.context,
+			scriptId: input.scriptId,
+		},
+		{
+			attempts: 3,
+			jobId: input.jobId,
+			backoff: { type: "exponential", delay: 5000 },
+		},
+	);
+};
+
 const eventServiceDeps: EventServiceDeps = {
 	createEventForUser,
 	getEntityScopeForUser,
@@ -51,6 +89,8 @@ const eventServiceDeps: EventServiceDeps = {
 	listEventsByEntityForUser,
 	getEventCreateScopeForUser,
 	upsertInLibraryRelationship,
+	enqueueEventSchemaTriggerJob,
+	getActiveEventSchemaTriggersForEventSchemas,
 };
 
 const resolveEventEntityIdResult = (entityId: string) =>
@@ -137,7 +177,7 @@ export const listEntityEvents = async (
 export const createEvent = async (
 	input: { body: CreateEventBody; userId: string },
 	deps: EventServiceDeps = eventServiceDeps,
-): Promise<EventServiceResult<ListedEvent>> => {
+): Promise<EventServiceResult<CreatedEventData>> => {
 	const entityIdResult = resolveEventEntityIdResult(input.body.entityId);
 	if ("error" in entityIdResult) {
 		return entityIdResult;
@@ -209,7 +249,10 @@ export const createEvent = async (
 		eventSchemaId: eventInput.data.eventSchemaId,
 	});
 
-	return serviceData(createdEvent);
+	return serviceData({
+		...createdEvent,
+		entitySchemaId: eventScope.entitySchemaId,
+	});
 };
 
 const BULK_CHUNK_SIZE = 1000;
@@ -217,9 +260,11 @@ const BULK_CHUNK_SIZE = 1000;
 export const createEvents = async (
 	input: { body: CreateEventBulkBody; userId: string },
 	deps: EventServiceDeps = eventServiceDeps,
-): Promise<EventServiceResult<{ count: number }>> => {
+): Promise<
+	EventServiceResult<{ count: number; createdEvents: CreatedEventData[] }>
+> => {
 	const chunks = chunk(input.body, BULK_CHUNK_SIZE);
-	let count = 0;
+	const createdEvents: CreatedEventData[] = [];
 
 	for (const chunk of chunks) {
 		for (const item of chunk) {
@@ -230,9 +275,76 @@ export const createEvents = async (
 			if ("error" in result) {
 				return result;
 			}
-			count++;
+			createdEvents.push(result.data);
 		}
 	}
 
-	return serviceData({ count });
+	return serviceData({ count: createdEvents.length, createdEvents });
+};
+
+export const processEventSchemaTriggers = async (
+	input: {
+		userId: string;
+		createdEvents: CreatedEventData[];
+	},
+	deps: EventServiceDeps = eventServiceDeps,
+): Promise<void> => {
+	if (input.createdEvents.length === 0) {
+		return;
+	}
+
+	const uniqueSchemaIds = [
+		...new Set(input.createdEvents.map((event) => event.eventSchemaId)),
+	];
+
+	let triggers: Awaited<
+		ReturnType<typeof getActiveEventSchemaTriggersForEventSchemas>
+	>;
+	try {
+		triggers = await deps.getActiveEventSchemaTriggersForEventSchemas({
+			userId: input.userId,
+			eventSchemaIds: uniqueSchemaIds,
+		});
+	} catch (error) {
+		console.warn("processEventSchemaTriggers: failed to query triggers", error);
+		return;
+	}
+
+	if (triggers.length === 0) {
+		return;
+	}
+
+	for (const createdEvent of input.createdEvents) {
+		const matchingTriggers = triggers.filter(
+			(trigger) => trigger.eventSchemaId === createdEvent.eventSchemaId,
+		);
+
+		for (const trigger of matchingTriggers) {
+			const jobId = `event-schema-trigger-${trigger.id}-${createdEvent.id}`;
+			const context = {
+				trigger: {
+					eventId: createdEvent.id,
+					entityId: createdEvent.entityId,
+					properties: createdEvent.properties,
+					eventSchemaId: createdEvent.eventSchemaId,
+					entitySchemaId: createdEvent.entitySchemaId,
+					eventSchemaSlug: createdEvent.eventSchemaSlug,
+				},
+			};
+
+			try {
+				await deps.enqueueEventSchemaTriggerJob({
+					jobId,
+					context,
+					userId: input.userId,
+					scriptId: trigger.sandboxScriptId,
+				});
+			} catch (error) {
+				console.warn(
+					`processEventSchemaTriggers: failed to enqueue trigger ${trigger.id} for event ${createdEvent.id}`,
+					error,
+				);
+			}
+		}
+	}
 };
