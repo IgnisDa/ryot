@@ -190,8 +190,8 @@ export const verifyTurnstileToken = async (input: {
 			},
 		);
 
-		const data = await response.json();
-		return data.success === true;
+		const jsonData = await response.json();
+		return jsonData.success === true;
 	} catch (error) {
 		console.error("Turnstile verification error:", error);
 		return false;
