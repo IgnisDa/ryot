@@ -4,7 +4,6 @@ import {
 	nullableIntSchema,
 	nullableNumberSchema,
 	nullableStringSchema,
-	remoteImagesAssetsSchema,
 	stringArraySchema,
 } from "../zod";
 
@@ -14,7 +13,6 @@ export const mediaPropertiesSchema = z
 		isNsfw: nullableBooleanSchema,
 		publishYear: nullableIntSchema,
 		sourceUrl: nullableStringSchema,
-		assets: remoteImagesAssetsSchema,
 		description: nullableStringSchema,
 		providerRating: nullableNumberSchema,
 		productionStatus: nullableStringSchema,

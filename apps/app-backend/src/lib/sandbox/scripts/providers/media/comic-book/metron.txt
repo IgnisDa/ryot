@@ -214,13 +214,16 @@ driver("details", async function(context) {
   return {
     name: title,
     properties: {
-      genres: [],
-      pages: pageCount,
-      people: buildPeople(payload?.credits),
-      description: getString(payload?.desc),
-      assets: { remoteImages: image ? [image] : [] },
-      sourceUrl: `https://metron.cloud/issue/${externalId}`,
-      publishYear: parsePublishYear(payload?.cover_date, dayjs),
+		genres: [],
+		pages: pageCount,
+		people: buildPeople(payload?.credits),
+		description: getString(payload?.desc),
+		assets: {
+			images: image ? [{ kind: "remote", url: image }] : [],
+			videos: [],
+		},
+		sourceUrl: `https://metron.cloud/issue/${externalId}`,
+		publishYear: parsePublishYear(payload?.cover_date, dayjs),
     },
   };
 });

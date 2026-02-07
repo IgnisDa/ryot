@@ -69,7 +69,7 @@ function collectImages(posterPath, backdropPath, postersArray, backdropsArray) {
 		const url = getImageUrl(path);
 		if (url && !seen.has(url)) {
 			seen.add(url);
-			images.push(url);
+			images.push({ kind: "remote", url });
 		}
 	};
 
@@ -304,7 +304,7 @@ driver("details", async function (context) {
 		throw new Error("TMDB returned no title for this movie");
 	}
 
-	const remoteImages = collectImages(
+	const images = collectImages(
 		movieData?.poster_path,
 		movieData?.backdrop_path,
 		imagesData?.posters,
@@ -330,7 +330,7 @@ driver("details", async function (context) {
 		properties: {
 			runtime,
 			providerRating,
-			assets: { remoteImages },
+			assets: { images, videos: [] },
 			isNsfw: movieData?.adult === true ? true : null,
 			genres: collectGenres(movieData?.genres),
 			...collectPeople(creditsData?.cast, creditsData?.crew),

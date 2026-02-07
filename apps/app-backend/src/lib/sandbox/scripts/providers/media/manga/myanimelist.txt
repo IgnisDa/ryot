@@ -49,7 +49,7 @@ function collectImages(mainPicture) {
     }
   }
 
-  return [...imageSet];
+  return [...imageSet].map((url) => ({ kind: "remote", url }));
 }
 
 function collectGenres(genres) {
@@ -264,7 +264,7 @@ driver("details", async function(context) {
       productionStatus: productionStatus,
       genres: collectGenres(payload?.genres),
       publishYear: parsePublishYear(payload?.start_date, dayjs),
-      assets: { remoteImages: collectImages(payload?.main_picture) },
+      assets: { images: collectImages(payload?.main_picture), videos: [] },
       description: typeof payload?.synopsis === "string" ? payload.synopsis : null,
       providerRating:
         typeof payload?.mean === "number" && Number.isFinite(payload.mean)

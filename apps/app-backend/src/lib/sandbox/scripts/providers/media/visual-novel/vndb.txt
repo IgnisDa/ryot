@@ -199,14 +199,14 @@ driver("details", async function (context) {
     throw new Error("VNDB VN payload is missing title");
   }
 
-  const remoteImages = [];
+  const images = [];
   if (
     vn.image &&
     typeof vn.image === "object" &&
     typeof vn.image.url === "string" &&
     vn.image.url.trim()
   ) {
-    remoteImages.push(vn.image.url.trim());
+    images.push({ kind: "remote", url: vn.image.url.trim() });
   }
   if (Array.isArray(vn.screenshots)) {
     for (const shot of vn.screenshots) {
@@ -217,8 +217,8 @@ driver("details", async function (context) {
         shot.url.trim()
       ) {
         const url = shot.url.trim();
-        if (!remoteImages.includes(url)) {
-          remoteImages.push(url);
+        if (!images.some((image) => image.url === url)) {
+          images.push({ kind: "remote", url });
         }
       }
     }
@@ -271,7 +271,7 @@ driver("details", async function (context) {
       lengthMinutes,
       providerRating,
       productionStatus,
-      assets: { remoteImages },
+      assets: { images, videos: [] },
       sourceUrl: `https://vndb.org/${externalId}`,
       publishYear: extractYear(vn.released, dayjs),
     },

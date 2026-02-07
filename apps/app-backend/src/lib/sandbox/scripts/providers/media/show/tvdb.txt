@@ -94,7 +94,7 @@ function collectImages(mainImage, artworks) {
 	const addImage = (url) => {
 		if (typeof url === "string" && url.trim() && !seen.has(url)) {
 			seen.add(url);
-			images.push(url);
+			images.push({ kind: "remote", url });
 		}
 	};
 
@@ -356,7 +356,7 @@ driver("details", async function (context) {
 		throw new Error("TVDB returned no name for this series");
 	}
 
-	const remoteImages = collectImages(show?.image, show?.artworks);
+	const images = collectImages(show?.image, show?.artworks);
 	const genres = collectGenres(show?.genres);
 	const { people, freeCreators } = collectPeople(show?.characters);
 
@@ -431,7 +431,7 @@ driver("details", async function (context) {
 			publishYear,
 			showSeasons,
 			freeCreators,
-			assets: { remoteImages },
+			assets: { images, videos: [] },
 			description:
 				typeof show?.overview === "string" && show.overview.trim()
 					? show.overview.trim()

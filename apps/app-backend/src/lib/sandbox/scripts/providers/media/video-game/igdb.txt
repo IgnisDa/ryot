@@ -361,14 +361,14 @@ driver("details", async function(context) {
     throw new Error("IGDB game payload is missing name");
   }
 
-  const remoteImages = [];
+  const images = [];
   if (game.cover && typeof game.cover.image_id === "string") {
-    remoteImages.push(getImageUrl(game.cover.image_id));
+    images.push({ kind: "remote", url: getImageUrl(game.cover.image_id) });
   }
   if (Array.isArray(game.artworks)) {
     for (const artwork of game.artworks) {
       if (artwork && typeof artwork.image_id === "string") {
-        remoteImages.push(getImageUrl(artwork.image_id));
+        images.push({ kind: "remote", url: getImageUrl(artwork.image_id) });
       }
     }
   }
@@ -419,7 +419,7 @@ driver("details", async function(context) {
       description,
       providerRating,
       platformReleases,
-      assets: { remoteImages },
+      assets: { images, videos: [] },
       sourceUrl: `https://www.igdb.com/games/${gameSlug}`,
       publishYear: extractYear(game.first_release_date, dayjs),
     },
