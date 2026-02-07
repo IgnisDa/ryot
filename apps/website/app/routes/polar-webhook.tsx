@@ -137,7 +137,7 @@ async function handleSubscriptionRevoked(
 	});
 
 	const customer = await findCustomer(polarCustomerId, externalCustomerId);
-	if (!customer) return { message: "No customer found" };
+	if (!customer) return { error: "No customer found" };
 
 	await revokePurchase(customer);
 
@@ -165,7 +165,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const result = await match(event.type)
 		.with("order.paid", () => handleOrderPaid(event))
 		.with("subscription.revoked", () => handleSubscriptionRevoked(event))
-		.otherwise(() => ({ message: "Webhook event not handled" }));
+		.otherwise(() => ({ error: "Webhook event not handled" }));
 
 	return data(result);
 };
