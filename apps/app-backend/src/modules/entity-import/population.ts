@@ -18,18 +18,11 @@ export const EntityDetailsRelatedEntity = Schema.Struct({
 	externalId: Schema.String,
 	scriptSlug: Schema.String,
 	reverseDirection: Schema.optional(Schema.Boolean),
+	relationshipSchemaSlug: Schema.optional(Schema.String),
 	relationshipProperties: Schema.optional(Schema.Unknown),
 });
 
 export type EntityDetailsRelatedEntity = typeof EntityDetailsRelatedEntity.Type;
-
-export const EntityDetailsSuggestion = Schema.Struct({
-	name: Schema.String,
-	externalId: Schema.String,
-	scriptSlug: Schema.String,
-});
-
-export type EntityDetailsSuggestion = typeof EntityDetailsSuggestion.Type;
 
 export type EntityDetailsChildEntity = {
 	name: string;
@@ -65,7 +58,6 @@ const EntityDetailsResult = Schema.Struct({
 	properties: Schema.Unknown,
 	childEntities: Schema.optional(Schema.Array(EntityDetailsChildEntity)),
 	relatedEntities: Schema.optional(Schema.Array(EntityDetailsRelatedEntity)),
-	suggestions: Schema.optional(Schema.Array(EntityDetailsSuggestion)),
 });
 
 export const decodeEntityDetailsResult = Schema.decodeUnknown(EntityDetailsResult);
@@ -292,9 +284,12 @@ export const processRelatedEntity = Effect.fn("processRelatedEntity")(function* 
 		);
 }, dieOnDbError);
 
-export const syncEntitySuggestions = Effect.fn("syncEntitySuggestions")(function* (input: {
+export const syncRelatedEntitiesByRelationshipSchema = Effect.fn(
+	"syncRelatedEntitiesByRelationshipSchema",
+)(function* (input: {
 	sourceEntityId: EntityId;
-	suggestions: ReadonlyArray<EntityDetailsSuggestion>;
+	relationshipSchemaSlug: string;
+	relatedEntities: ReadonlyArray<EntityDetailsRelatedEntity>;
 }) {
 	const runWithDb = yield* DbRunner;
 	const entities = yield* EntitiesService;
@@ -303,23 +298,26 @@ export const syncEntitySuggestions = Effect.fn("syncEntitySuggestions")(function
 	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
 	const relationshipSchema = yield* runWithDb(
-		relationshipSchemasRepository.findBuiltinBySlug("media-suggestion"),
+		relationshipSchemasRepository.findBuiltinBySlug(input.relationshipSchemaSlug),
 	).pipe(dieOnDbError);
 	if (!relationshipSchema) {
 		return yield* new SandboxRunError({
-			message: "Relationship schema not found: media-suggestion",
+			message: `Relationship schema not found: ${input.relationshipSchemaSlug}`,
 		});
 	}
 
-	const uniqueSuggestions = new Map<string, EntityDetailsSuggestion>();
-	for (const suggestion of input.suggestions) {
-		uniqueSuggestions.set(`${suggestion.scriptSlug}:${suggestion.externalId}`, suggestion);
+	const uniqueRelatedEntities = new Map<string, EntityDetailsRelatedEntity>();
+	for (const relatedEntity of input.relatedEntities) {
+		uniqueRelatedEntities.set(
+			`${relatedEntity.scriptSlug}:${relatedEntity.externalId}`,
+			relatedEntity,
+		);
 	}
 
 	const targetEntityIds: EntityId[] = [];
-	for (const suggestion of uniqueSuggestions.values()) {
+	for (const relatedEntity of uniqueRelatedEntities.values()) {
 		const entitySchemaScript = yield* runWithDb(
-			repository.findEntitySchemaScriptBySlug(suggestion.scriptSlug),
+			repository.findEntitySchemaScriptBySlug(relatedEntity.scriptSlug),
 		).pipe(dieOnDbError);
 		if (!entitySchemaScript) {
 			continue;
@@ -330,8 +328,8 @@ export const syncEntitySuggestions = Effect.fn("syncEntitySuggestions")(function
 				properties: {},
 				scope: "global",
 				populatedAt: null,
-				name: suggestion.name,
-				externalId: suggestion.externalId,
+				name: relatedEntity.name,
+				externalId: relatedEntity.externalId,
 				entitySchemaId: entitySchemaScript.entitySchemaId,
 				sandboxScriptId: entitySchemaScript.sandboxScriptId,
 			})
