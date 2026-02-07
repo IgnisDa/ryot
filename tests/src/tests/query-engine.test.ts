@@ -256,8 +256,8 @@ describe("Query engine E2E", () => {
 							type: "reference",
 							reference: {
 								slug: schema.slug,
-								property: ["year"],
-								type: "schema-property",
+								type: "entity",
+								path: ["properties", "year"],
 							},
 						},
 						{ type: "literal", value: 0 },
@@ -478,9 +478,9 @@ describe("Query engine E2E", () => {
 						left: {
 							type: "reference",
 							reference: {
+								type: "entity",
 								slug: schema.slug,
-								property: ["year"],
-								type: "schema-property",
+								path: ["properties", "year"],
 							},
 						},
 					},

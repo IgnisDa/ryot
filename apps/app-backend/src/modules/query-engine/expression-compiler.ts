@@ -1,3 +1,4 @@
+import type { RuntimeRef } from "@ryot/ts-utils";
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
 import {
@@ -5,7 +6,6 @@ import {
 	getComputedFieldOrThrow,
 } from "~/lib/views/computed-fields";
 import { QueryEngineValidationError } from "~/lib/views/errors";
-import type { RuntimeRef } from "@ryot/ts-utils";
 import type { ViewComputedField, ViewExpression } from "~/lib/views/expression";
 import {
 	assertConcatCompatibleExpression,
@@ -26,6 +26,7 @@ import {
 	type QueryEngineReferenceContext,
 	type QueryEngineSchemaLike,
 } from "~/lib/views/reference";
+
 import { buildPredicateClause } from "./predicate-clause-builder";
 import {
 	buildCastedValueExpression,
@@ -152,16 +153,55 @@ const buildJsonNullNormalizedExpression = (input: {
 	return input.expression;
 };
 
-const buildEntityColumnExpression = <
+const buildEntityExpression = <
 	TSchema extends QueryEngineSchemaLike,
 	TJoin extends QueryEngineEventJoinLike,
 >(input: {
 	alias: string;
 	targetType?: PropertyType;
+	reference: Extract<RuntimeRef, { type: "entity" }>;
 	context: QueryEngineReferenceContext<TSchema, TJoin>;
-	reference: Extract<RuntimeRef, { type: "entity-column" }>;
 }) => {
-	const expression = match(input.reference.column)
+	const schema = getSchemaForReference(
+		input.context.schemaMap,
+		input.reference,
+	);
+
+	if (input.reference.path[0] === "properties") {
+		const propertyPath = input.reference.path.slice(1);
+		const propertyType = getPropertyType(schema, propertyPath);
+		if (!propertyType) {
+			throw new QueryEngineValidationError(
+				`Property '${propertyPath.join(".")}' not found in schema '${input.reference.slug}'`,
+			);
+		}
+
+		const base = sql`${sql.raw(input.alias)}.properties`;
+		const valueExpression = buildCastedValueExpression(
+			input.targetType ?? normalizeExpressionPropertyType(propertyType),
+			{
+				propertyJson: buildPropertyPathExpression(base, propertyPath, "json"),
+				propertyText: buildPropertyPathExpression(base, propertyPath, "text"),
+			},
+		);
+
+		if (
+			input.context.schemaMap.size === 1 &&
+			input.reference.slug === schema.slug
+		) {
+			return valueExpression;
+		}
+
+		return sql`case when ${sql.raw(input.alias)}.entity_schema_slug = ${input.reference.slug} then ${valueExpression} else null end`;
+	}
+
+	const [column] = input.reference.path;
+	if (!column) {
+		throw new QueryEngineValidationError(
+			"Entity reference path must not be empty",
+		);
+	}
+	const expression = match(column)
 		.with("id", () => sql`${sql.raw(input.alias)}.id`)
 		.with("name", () => sql`${sql.raw(input.alias)}.name`)
 		.with("image", () => sql`${sql.raw(input.alias)}.image`)
@@ -174,15 +214,15 @@ const buildEntityColumnExpression = <
 		)
 		.otherwise(() => {
 			throw new QueryEngineValidationError(
-				`Unsupported entity column '${input.reference.column}'`,
+				`Unsupported entity column '${column}'`,
 			);
 		});
 
 	const actualType =
-		input.reference.column === "image"
+		column === "image"
 			? undefined
-			: (getEntityColumnPropertyType(input.reference.column) ?? undefined);
-	if (input.reference.column === "image" && input.targetType) {
+			: (getEntityColumnPropertyType(column) ?? undefined);
+	if (column === "image" && input.targetType) {
 		throw new QueryEngineValidationError(
 			"Image expressions are display-only and cannot be compiled for sort or filter usage",
 		);
@@ -207,110 +247,64 @@ const buildEntityColumnExpression = <
 	return sql`case when ${sql.raw(input.alias)}.entity_schema_slug = ${input.reference.slug} then ${valueExpression} else null end`;
 };
 
-const buildSchemaPropertyExpression = <
+const buildEventExpression = <
 	TSchema extends QueryEngineSchemaLike,
 	TJoin extends QueryEngineEventJoinLike,
 >(input: {
 	alias: string;
 	targetType?: PropertyType;
+	reference: Extract<RuntimeRef, { type: "event" }>;
 	context: QueryEngineReferenceContext<TSchema, TJoin>;
-	reference: Extract<RuntimeRef, { type: "schema-property" }>;
 }) => {
-	const schema = getSchemaForReference(
-		input.context.schemaMap,
-		input.reference,
-	);
-	const propertyType = getPropertyType(schema, input.reference.property);
-	if (!propertyType) {
-		throw new QueryEngineValidationError(
-			`Property '${input.reference.property.join(".")}' not found in schema '${input.reference.slug}'`,
-		);
-	}
-
-	const base = sql`${sql.raw(input.alias)}.properties`;
-	const propertyJson = buildPropertyPathExpression(
-		base,
-		input.reference.property,
-		"json",
-	);
-	const propertyText = buildPropertyPathExpression(
-		base,
-		input.reference.property,
-		"text",
-	);
-	const valueExpression = buildCastedValueExpression(
-		input.targetType ?? normalizeExpressionPropertyType(propertyType),
-		{ propertyJson, propertyText },
-	);
-
-	if (
-		input.context.schemaMap.size === 1 &&
-		input.reference.slug === schema.slug
-	) {
-		return valueExpression;
-	}
-
-	return sql`case when ${sql.raw(input.alias)}.entity_schema_slug = ${input.reference.slug} then ${valueExpression} else null end`;
-};
-
-const buildEventJoinColumnExpression = (input: {
-	alias: string;
-	targetType?: PropertyType;
-	reference: Extract<RuntimeRef, { type: "event-join-column" }>;
-}) => {
-	const propertyType = getEventJoinColumnPropertyType(input.reference.column);
-	if (!propertyType) {
-		throw new QueryEngineValidationError(
-			`Unsupported event join column 'event.${input.reference.joinKey}.${input.reference.column}'`,
-		);
-	}
-
 	const joinColumn = buildEventJoinJsonColumnExpression(
 		input.alias,
 		input.reference.joinKey,
 	);
+
+	if (input.reference.path[0] === "properties") {
+		const propertyPath = input.reference.path.slice(1);
+		const join = getEventJoinForReference(
+			input.context.eventJoinMap,
+			input.reference,
+		);
+		const propertyType = getEventJoinPropertyType(join, propertyPath);
+
+		const propertiesBase = sql`${joinColumn} -> ${"properties"}`;
+		return buildCastedValueExpression(
+			input.targetType ?? normalizeExpressionPropertyType(propertyType),
+			{
+				propertyJson: buildPropertyPathExpression(
+					propertiesBase,
+					propertyPath,
+					"json",
+				),
+				propertyText: buildPropertyPathExpression(
+					propertiesBase,
+					propertyPath,
+					"text",
+				),
+			},
+		);
+	}
+
+	const [column] = input.reference.path;
+	if (!column) {
+		throw new QueryEngineValidationError(
+			"Event reference path must not be empty",
+		);
+	}
+	const propertyType = getEventJoinColumnPropertyType(column);
+	if (!propertyType) {
+		throw new QueryEngineValidationError(
+			`Unsupported event join column 'event.${input.reference.joinKey}.${column}'`,
+		);
+	}
+
 	return buildCastedValueExpression(
 		input.targetType ?? normalizeExpressionPropertyType(propertyType),
 		{
-			propertyJson: sql`${joinColumn} -> ${input.reference.column}`,
-			propertyText: sql`${joinColumn} ->> ${input.reference.column}`,
-		},
-	);
-};
-
-const buildEventJoinPropertyExpression = <
-	TSchema extends QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike,
->(input: {
-	alias: string;
-	targetType?: PropertyType;
-	context: QueryEngineReferenceContext<TSchema, TJoin>;
-	reference: Extract<RuntimeRef, { type: "event-join-property" }>;
-}) => {
-	const join = getEventJoinForReference(
-		input.context.eventJoinMap,
-		input.reference,
-	);
-	const propertyType = getEventJoinPropertyType(join, input.reference.property);
-
-	const joinColumn = buildEventJoinJsonColumnExpression(
-		input.alias,
-		input.reference.joinKey,
-	);
-	const propertiesBase = sql`${joinColumn} -> ${"properties"}`;
-	return buildCastedValueExpression(
-		input.targetType ?? normalizeExpressionPropertyType(propertyType),
-		{
-			propertyJson: buildPropertyPathExpression(
-				propertiesBase,
-				input.reference.property,
-				"json",
-			),
-			propertyText: buildPropertyPathExpression(
-				propertiesBase,
-				input.reference.property,
-				"text",
-			),
+			propertyJson: sql`${joinColumn} -> ${column}`,
+			propertyText: sql`${joinColumn} ->> ${column}`,
 		},
 	);
 };
@@ -451,8 +445,8 @@ export const createScalarExpressionCompiler = <
 			return compiled;
 		}
 
-		if (reference.type === "entity-column") {
-			return buildEntityColumnExpression({
+		if (reference.type === "entity") {
+			return buildEntityExpression({
 				reference,
 				targetType,
 				alias: input.alias,
@@ -460,24 +454,7 @@ export const createScalarExpressionCompiler = <
 			});
 		}
 
-		if (reference.type === "schema-property") {
-			return buildSchemaPropertyExpression({
-				reference,
-				targetType,
-				alias: input.alias,
-				context: input.context,
-			});
-		}
-
-		if (reference.type === "event-join-column") {
-			return buildEventJoinColumnExpression({
-				reference,
-				targetType,
-				alias: input.alias,
-			});
-		}
-
-		return buildEventJoinPropertyExpression({
+		return buildEventExpression({
 			reference,
 			targetType,
 			alias: input.alias,

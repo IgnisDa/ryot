@@ -46,25 +46,25 @@ const computedFieldExpression = (key: string) => ({
 
 const entityColumnExpression = (slug: string, column: "createdAt") => ({
 	type: "reference" as const,
-	reference: { slug, column, type: "entity-column" as const },
+	reference: { slug, path: [column], type: "entity" as const },
 });
 
 const entityPropertyExpression = (slug: string, property: string) => ({
 	type: "reference" as const,
-	reference: { slug, property: [property], type: "schema-property" as const },
+	reference: { slug, path: ["properties", property], type: "entity" as const },
 });
 
 const eventJoinColumnExpression = (joinKey: string, column: "createdAt") => ({
 	type: "reference" as const,
-	reference: { column, joinKey, type: "event-join-column" as const },
+	reference: { joinKey, path: [column], type: "event" as const },
 });
 
 const eventJoinPropertyExpression = (joinKey: string, property: string) => ({
 	type: "reference" as const,
 	reference: {
 		joinKey,
-		property: [property],
-		type: "event-join-property" as const,
+		type: "event" as const,
+		path: ["properties", property],
 	},
 });
 
