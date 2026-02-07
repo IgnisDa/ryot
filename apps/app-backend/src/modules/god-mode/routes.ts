@@ -26,10 +26,10 @@ export const GodModeRoutesLive = HttpApiBuilder.group(AppContract, "godMode", (h
 				return yield* service.resetUserPassword(path.userId).pipe(dieOnDbError);
 			}),
 		)
-		.handle("setUserBan", ({ path, payload }) =>
+		.handle("setUserDisabled", ({ path, payload }) =>
 			Effect.gen(function* () {
 				const service = yield* GodModeService;
-				return yield* service.setUserBan(path.userId, payload.banned).pipe(dieOnDbError);
+				return yield* service.setUserDisabled(path.userId, payload.disabled).pipe(dieOnDbError);
 			}),
 		),
 );
