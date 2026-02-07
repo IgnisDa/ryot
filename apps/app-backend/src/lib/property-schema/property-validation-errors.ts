@@ -22,8 +22,8 @@ export const parseErrorToIssues = (
 	error: Schema.SchemaError,
 ): ReadonlyArray<PropertyValidationIssue> =>
 	formatIssue(error.issue).issues.map((issue) => ({
+		message: issue.message === "Missing key" ? "is missing" : issue.message,
 		path: (issue.path ?? []).map((segment) =>
 			String(typeof segment === "object" ? segment.key : segment),
 		),
-		message: issue.message,
 	}));
