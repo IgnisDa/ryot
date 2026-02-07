@@ -1,3 +1,4 @@
+// TODO: Delete this file when the retained app-client-backup is removed.
 import { Schema } from "effect";
 
 export const ImageSchema = Schema.Struct({

@@ -1,9 +1,10 @@
 import { UserId } from "@ryot/contract/schema/brands";
 import { eq, sql } from "drizzle-orm";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect, TransactionRunner } from "#lib/infrastructure/db/service";
+import { AuthUserBootstrap } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 
 import { PluginUserBootstrapDispatcher } from "./plugin-dispatch";
@@ -66,3 +67,21 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 
 export const bootstrapNewUser = (userId: string) =>
 	performBootstrap(userId).pipe(Effect.withSpan("bootstrapNewUser", { attributes: { userId } }));
+
+export const AuthUserBootstrapLive = Layer.effect(
+	AuthUserBootstrap,
+	Effect.gen(function* () {
+		const transactionRunner = yield* TransactionRunner;
+		const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
+		const notificationSubscriptions = yield* NotificationSubscriptionsService;
+
+		return {
+			run: (userId: string) =>
+				bootstrapNewUser(userId).pipe(
+					Effect.provideService(TransactionRunner, transactionRunner),
+					Effect.provideService(PluginUserBootstrapDispatcher, pluginBootstrap),
+					Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
+				),
+		};
+	}),
+);
