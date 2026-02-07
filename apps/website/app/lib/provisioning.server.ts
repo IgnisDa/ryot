@@ -133,10 +133,7 @@ async function handleSelfHostedPurchase(
 	return {
 		ryotUserId: null,
 		unkeyKeyId: created.keyId,
-		details: {
-			__typename: "self_hosted",
-			key: created.key,
-		},
+		details: { key: created.key, __typename: "self_hosted" },
 	};
 }
 
@@ -173,8 +170,8 @@ export async function provisionNewPurchase(
 	const updateData: {
 		ryotUserId?: string | null;
 		unkeyKeyId?: string | null;
-		paddleCustomerId?: string | null;
 		polarCustomerId?: string | null;
+		paddleCustomerId?: string | null;
 	} = {};
 
 	if (ryotUserId && ryotUserId !== customer.ryotUserId)
@@ -219,7 +216,7 @@ export async function provisionRenewal(
 		})
 		.where(eq(customerPurchases.id, activePurchase.id));
 
-	if (customer.ryotUserId) {
+	if (customer.ryotUserId)
 		await getServerGqlService().request(UpdateUserDocument, {
 			input: {
 				isDisabled: false,
@@ -227,18 +224,18 @@ export async function provisionRenewal(
 				adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
 			},
 		});
-	}
 
 	if (customer.unkeyKeyId) {
 		const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
-		const renewal = calculateRenewalDate(planType);
 
 		await unkey.keys.updateKey({
 			enabled: true,
 			keyId: customer.unkeyKeyId,
-			meta: renewal
+			meta: renewalDate
 				? {
-						expiry: formatDateToNaiveDate(renewal.add(GRACE_PERIOD, "days")),
+						expiry: formatDateToNaiveDate(
+							renewalDate.add(GRACE_PERIOD, "days"),
+						),
 					}
 				: undefined,
 		});
