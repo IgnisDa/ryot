@@ -63,23 +63,6 @@ const pricesEnvSchema = z.array(
 	}),
 );
 
-export const pricesSchema = z.array(
-	z.object({
-		type: z.enum(ProductTypes.enum),
-		prices: z.array(
-			z.object({
-				trial: z.number().optional(),
-				amount: z.number().optional(),
-				priceId: z.string().optional(),
-				linkToGithub: z.boolean().optional(),
-				name: z.enum(PlanTypes.enum),
-			}),
-		),
-	}),
-);
-
-export type TPrices = z.infer<typeof pricesSchema>;
-
 export const getPrices = memoize(() => {
 	const envPrices = pricesEnvSchema.parse(
 		JSON.parse(getServerVariables().PADDLE_PRICE_IDS),
@@ -94,6 +77,8 @@ export const getPrices = memoize(() => {
 	}));
 });
 
+export type TPrices = ReturnType<typeof getPrices>;
+
 const polarProductsEnvSchema = z.array(
 	z.object({
 		type: z.enum(ProductTypes.enum),
@@ -105,21 +90,6 @@ const polarProductsEnvSchema = z.array(
 		),
 	}),
 );
-
-export const polarProductsSchema = z.array(
-	z.object({
-		type: z.enum(ProductTypes.enum),
-		prices: z.array(
-			z.object({
-				productId: z.string().optional(),
-				linkToGithub: z.boolean().optional(),
-				name: z.enum(PlanTypes.enum),
-			}),
-		),
-	}),
-);
-
-export type TPolarProducts = z.infer<typeof polarProductsSchema>;
 
 export const getPolarProducts = memoize(() => {
 	const productIds = getServerVariables().POLAR_PRODUCT_IDS;
