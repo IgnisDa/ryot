@@ -5876,26 +5876,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@polar-sh/adapter-utils@npm:0.4.3":
-  version: 0.4.3
-  resolution: "@polar-sh/adapter-utils@npm:0.4.3"
-  dependencies:
-    "@polar-sh/sdk": "npm:^0.42.1"
-  checksum: 10/fd1bb355aba40a514fa42f17f56ad4aa5ba1cc0e1456dec63f16781cf85712839d089629ebae37cc136213c3b2ab9b2805c044a314b75c212b88d512906f73ab
-  languageName: node
-  linkType: hard
-
-"@polar-sh/remix@npm:0.6.3":
-  version: 0.6.3
-  resolution: "@polar-sh/remix@npm:0.6.3"
-  dependencies:
-    "@polar-sh/adapter-utils": "npm:0.4.3"
-    "@polar-sh/sdk": "npm:^0.42.1"
-  checksum: 10/832f7ffdd3812cd14c5c8d41428ab65577d77e59d0fc877e8d7a67881883e41d327d21c3079abc8edafbb389e3a91d3c76216bd604b4cfd4584ce7b542971889
-  languageName: node
-  linkType: hard
-
-"@polar-sh/sdk@npm:0.42.5, @polar-sh/sdk@npm:^0.42.1":
+"@polar-sh/sdk@npm:0.42.5":
   version: 0.42.5
   resolution: "@polar-sh/sdk@npm:0.42.5"
   dependencies:
@@ -7198,7 +7179,6 @@ __metadata:
     "@marsidev/react-turnstile": "npm:1.4.1"
     "@paddle/paddle-js": "npm:1.6.1"
     "@paddle/paddle-node-sdk": "npm:3.5.0"
-    "@polar-sh/remix": "npm:0.6.3"
     "@polar-sh/sdk": "npm:0.42.5"
     "@radix-ui/react-label": "npm:2.1.8"
     "@radix-ui/react-slot": "npm:1.2.4"
