@@ -1,9 +1,7 @@
-type GoogleLogoProps = {
-	className?: string;
-};
+type GoogleLogoProps = { className: string };
 
 export const GoogleLogo = (props: GoogleLogoProps) => (
-	<svg className={props.className} viewBox="0 0 24 24" aria-label="Google logo">
+	<svg viewBox="0 0 24 24" aria-label="Google logo" className={props.className}>
 		<title>Google</title>
 		<path
 			fill="#4285F4"
