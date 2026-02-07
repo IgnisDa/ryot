@@ -244,9 +244,11 @@ export default function Index() {
 											<li className="flex items-start">
 												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 shrink-0" />
 												<span>
-													Payments are processed by Paddle. We receive
-													transaction and subscription metadata from Paddle to
-													provision your purchase and manage renewals.
+													Payments are processed by Paddle or Polar.sh
+													(depending on your account). We receive transaction
+													and subscription metadata from these payment
+													processors to provision your purchase and manage
+													renewals.
 												</span>
 											</li>
 											<li className="flex items-start">
