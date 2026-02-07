@@ -1,5 +1,4 @@
 import { CheckoutEventNames, type Paddle } from "@paddle/paddle-js";
-import { PolarEmbedCheckout } from "@polar-sh/checkout/embed";
 import { Polar } from "@polar-sh/sdk";
 import PurchaseCompleteEmail from "@ryot/transactional/emails/purchase-complete";
 import { changeCase, getActionIntent } from "@ryot/ts-utils";
@@ -212,13 +211,12 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const frontendUrl = serverVariables.FRONTEND_URL;
 			const checkout = await polar.checkouts.create({
 				products: [productId],
-				embedOrigin: frontendUrl,
 				customerEmail: customer.email,
 				successUrl: `${frontendUrl}/me`,
 				externalCustomerId: customer.id,
 			});
 
-			return data({ checkoutUrl: checkout.url });
+			return redirect(checkout.url);
 		})
 		.with("logout", async () => {
 			const cookies = await websiteAuthCookie.serialize("", {
@@ -233,9 +231,6 @@ export default function Index() {
 	const fetcher = useFetcher();
 	const [paddle, setPaddle] = useState<Paddle>();
 	const loaderData = useLoaderData<typeof loader>();
-	const [polarCheckout, setPolarCheckout] = useState<Awaited<
-		ReturnType<typeof PolarEmbedCheckout.create>
-	> | null>(null);
 
 	const isCancelLoading = fetcher.state !== "idle";
 	const paddleCustomerId = loaderData.customerDetails.paddleCustomerId;
@@ -263,52 +258,6 @@ export default function Index() {
 				}
 			});
 	}, []);
-
-	useEffect(() => {
-		PolarEmbedCheckout.init();
-		return () => {
-			if (polarCheckout) polarCheckout.close();
-		};
-	}, [polarCheckout]);
-
-	useEffect(() => {
-		const openPolarCheckout = async () => {
-			if (
-				fetcher.data &&
-				typeof fetcher.data === "object" &&
-				"checkoutUrl" in fetcher.data
-			) {
-				try {
-					const checkout = await PolarEmbedCheckout.create(
-						fetcher.data.checkoutUrl as string,
-						{
-							theme: "light",
-							onLoaded: () => {
-								console.log("Checkout loaded successfully");
-							},
-						},
-					);
-
-					checkout.addEventListener("success", () => {
-						toast.loading(
-							"Purchase successful. Your order will be shipped shortly.",
-						);
-						setTimeout(() => window.location.reload(), 10000);
-					});
-
-					checkout.addEventListener("close", () => {
-						setPolarCheckout(null);
-					});
-
-					setPolarCheckout(checkout);
-				} catch (error) {
-					console.error("Failed to open checkout", error);
-				}
-			}
-		};
-
-		openPolarCheckout();
-	}, [fetcher.data]);
 
 	return (
 		<>
