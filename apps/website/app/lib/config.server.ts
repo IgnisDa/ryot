@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
+import { Polar } from "@polar-sh/sdk";
 import { memoize, zodBoolAsString } from "@ryot/ts-utils";
+import { Unkey } from "@unkey/api";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { GraphQLClient } from "graphql-request";
 import { createCookie } from "react-router";
@@ -140,6 +142,18 @@ export const getServerGqlService = memoize(
 			headers: { Connection: "keep-alive" },
 		}),
 );
+
+export const getUnkeyClient = memoize(() => {
+	return new Unkey({ rootKey: getServerVariables().UNKEY_ROOT_KEY });
+});
+
+export const getPolarClient = memoize(() => {
+	const accessToken = getPolarAccessToken();
+	return new Polar({
+		accessToken,
+		server: isPolarSandbox() ? "sandbox" : "production",
+	});
+});
 
 export const paddleCustomDataSchema = z.object({
 	customerId: z.string(),

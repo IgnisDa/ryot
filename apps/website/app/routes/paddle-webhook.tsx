@@ -5,16 +5,14 @@ import {
 } from "@paddle/paddle-node-sdk";
 import { desc, eq, type InferSelectModel } from "drizzle-orm";
 import { data } from "react-router";
-import { customerPurchases, customers } from "~/drizzle/schema.server";
+import { customerPurchases, type customers } from "~/drizzle/schema.server";
+import { getDb, getServerVariables } from "~/lib/config.server";
 import {
-	getDb,
-	getServerVariables,
-	paddleCustomDataSchema,
-} from "~/lib/config.server";
+	findCustomerByPaddleCustomData,
+	findCustomerByPaddleId,
+} from "~/lib/customer-lookup.server";
 import {
-	getActivePurchase,
-	provisionNewPurchase,
-	provisionRenewal,
+	handlePurchaseOrRenewal,
 	revokePurchase,
 } from "~/lib/provisioning.server";
 import {
@@ -30,25 +28,6 @@ interface WebhookResponse {
 	message?: string;
 }
 
-async function findCustomerByPaddleId(
-	paddleCustomerId: string,
-): Promise<Customer | null> {
-	return await getDb().query.customers.findFirst({
-		where: eq(customers.paddleCustomerId, paddleCustomerId),
-	});
-}
-
-async function findCustomerByCustomData(
-	customData: unknown,
-): Promise<Customer | null> {
-	const parsed = paddleCustomDataSchema.safeParse(customData);
-	if (!parsed.success) return null;
-
-	return await getDb().query.customers.findFirst({
-		where: eq(customers.id, parsed.data.customerId),
-	});
-}
-
 async function findOrCreateCustomer(
 	paddleCustomerId: string,
 	customData?: unknown,
@@ -56,9 +35,9 @@ async function findOrCreateCustomer(
 	let customer = await findCustomerByPaddleId(paddleCustomerId);
 
 	if (!customer && customData)
-		customer = await findCustomerByCustomData(customData);
+		customer = await findCustomerByPaddleCustomData(customData);
 
-	return customer;
+	return customer ?? null;
 }
 
 async function handleTransactionCompleted(
@@ -77,32 +56,17 @@ async function handleTransactionCompleted(
 	if (!customer)
 		return { error: `No customer found for customer ID: ${paddleCustomerId}` };
 
-	const activePurchase = await getActivePurchase(customer.id);
 	const priceId = paddleData.details?.lineItems?.at(0)?.priceId;
 	if (!priceId) return { error: "Price ID not found" };
 
 	const { planType, productType } = getProductAndPlanTypeByPriceId(priceId);
 
-	if (!activePurchase) {
-		console.log("Customer purchased plan:", {
-			planType,
-			productType,
-			paddleCustomerId,
-		});
-		await provisionNewPurchase(
-			customer,
-			planType,
-			productType,
-			paddleCustomerId,
-		);
-	} else {
-		console.log("Customer renewed plan:", {
-			planType,
-			productType,
-			paddleCustomerId,
-		});
-		await provisionRenewal(customer, planType, productType, activePurchase);
-	}
+	await handlePurchaseOrRenewal(
+		customer,
+		planType,
+		productType,
+		paddleCustomerId,
+	);
 
 	return { message: "Transaction completed successfully" };
 }

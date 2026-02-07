@@ -7,7 +7,6 @@ import PurchaseCompleteEmail, {
 	type PurchaseCompleteEmailProps,
 } from "@ryot/transactional/emails/purchase-complete";
 import { formatDateToNaiveDate } from "@ryot/ts-utils";
-import { Unkey } from "@unkey/api";
 import { and, eq, type InferSelectModel, isNull } from "drizzle-orm";
 import {
 	customerPurchases,
@@ -20,6 +19,7 @@ import {
 	getDb,
 	getServerGqlService,
 	getServerVariables,
+	getUnkeyClient,
 } from "./config.server";
 import {
 	calculateRenewalDate,
@@ -100,8 +100,7 @@ async function handleSelfHostedPurchase(
 	unkeyKeyId: string;
 	details: PurchaseCompleteEmailProps["details"];
 }> {
-	const serverVariables = getServerVariables();
-	const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
+	const unkey = getUnkeyClient();
 	const renewalDate = calculateRenewalDate(planType);
 
 	if (customer.unkeyKeyId) {
@@ -204,7 +203,6 @@ export async function provisionRenewal(
 	productType: TProductTypes,
 	activePurchase: InferSelectModel<typeof customerPurchases>,
 ) {
-	const serverVariables = getServerVariables();
 	const renewalDate = calculateRenewalDate(planType);
 	await getDb()
 		.update(customerPurchases)
@@ -216,7 +214,8 @@ export async function provisionRenewal(
 		})
 		.where(eq(customerPurchases.id, activePurchase.id));
 
-	if (customer.ryotUserId)
+	if (customer.ryotUserId) {
+		const serverVariables = getServerVariables();
 		await getServerGqlService().request(UpdateUserDocument, {
 			input: {
 				isDisabled: false,
@@ -224,9 +223,10 @@ export async function provisionRenewal(
 				adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
 			},
 		});
+	}
 
 	if (customer.unkeyKeyId) {
-		const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
+		const unkey = getUnkeyClient();
 
 		await unkey.keys.updateKey({
 			enabled: true,
@@ -268,8 +268,7 @@ export async function revokePurchase(customer: Customer) {
 	}
 
 	if (customer.unkeyKeyId) {
-		const serverVariables = getServerVariables();
-		const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
+		const unkey = getUnkeyClient();
 		await unkey.keys.updateKey({
 			enabled: false,
 			keyId: customer.unkeyKeyId,
@@ -284,4 +283,34 @@ export async function getActivePurchase(customerId: string) {
 			isNull(customerPurchases.cancelledOn),
 		),
 	});
+}
+
+export async function handlePurchaseOrRenewal(
+	customer: Customer,
+	planType: TPlanTypes,
+	productType: TProductTypes,
+	paymentProviderCustomerId: string,
+) {
+	const activePurchase = await getActivePurchase(customer.id);
+
+	if (!activePurchase) {
+		console.log("Customer purchased plan:", {
+			planType,
+			productType,
+			paymentProviderCustomerId,
+		});
+		await provisionNewPurchase(
+			customer,
+			planType,
+			productType,
+			paymentProviderCustomerId,
+		);
+	} else {
+		console.log("Customer renewed plan:", {
+			planType,
+			productType,
+			paymentProviderCustomerId,
+		});
+		await provisionRenewal(customer, planType, productType, activePurchase);
+	}
 }

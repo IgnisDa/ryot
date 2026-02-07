@@ -1,8 +1,6 @@
 import { CheckoutEventNames, type Paddle } from "@paddle/paddle-js";
-import { Polar } from "@polar-sh/sdk";
 import PurchaseCompleteEmail from "@ryot/transactional/emails/purchase-complete";
 import { changeCase, getActionIntent } from "@ryot/ts-utils";
-import { Unkey } from "@unkey/api";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
 import { useEffect, useState } from "react";
@@ -23,10 +21,10 @@ import {
 	findPolarProductId,
 	GRACE_PERIOD,
 	getDb,
-	getPolarAccessToken,
+	getPolarClient,
 	getPrices,
 	getServerVariables,
-	isPolarSandbox,
+	getUnkeyClient,
 	type PaddleCustomData,
 	websiteAuthCookie,
 } from "~/lib/config.server";
@@ -71,14 +69,6 @@ const getAllSubscriptionsForCustomer = async (customerId: string) => {
 	return allSubscriptions;
 };
 
-const getPolarClient = () => {
-	const accessToken = getPolarAccessToken();
-	return new Polar({
-		accessToken,
-		server: isPolarSandbox() ? "sandbox" : "production",
-	});
-};
-
 const getAllPolarSubscriptionsForCustomer = async (customerId: string) => {
 	const allSubscriptions = [];
 	const polar = getPolarClient();
@@ -100,7 +90,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.with("regenerateUnkeyKey", async () => {
 			if (!customer || !customer.planType) throw new Error("No customer found");
 			if (!customer.unkeyKeyId) throw new Error("No unkey key found");
-			const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
+			const unkey = getUnkeyClient();
 			await unkey.keys.updateKey({
 				enabled: false,
 				keyId: customer.unkeyKeyId,
@@ -261,7 +251,12 @@ export default function Index() {
 					setPaddle(paddleInstance);
 				}
 			});
-	}, []);
+	}, [
+		paddle,
+		loaderData.clientToken,
+		loaderData.isSandbox,
+		loaderData.customerDetails.paddleCustomerId,
+	]);
 
 	return (
 		<>
