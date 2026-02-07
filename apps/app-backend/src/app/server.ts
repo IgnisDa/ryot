@@ -2,7 +2,7 @@ import { BunHttpServer } from "@effect/platform-bun";
 import { AppContract } from "@ryot/contract/contract";
 import { BadRequest } from "@ryot/contract/errors";
 import { UploadBodyLimitMiddlewareLive } from "@ryot/contract/modules/uploads/middleware";
-import { Cause, Context, Effect, Layer, FileSystem, Result } from "effect";
+import { Cause, Context, Effect, Layer, FileSystem, Result, Schema } from "effect";
 import type * as LayerTypes from "effect/Layer";
 import {
 	HttpEffect,
@@ -67,9 +67,12 @@ const mimeType = (path: string) => {
 const decodeErrorsAsBadRequest = Effect.catchCause((cause) => {
 	const defect = Cause.findDefect(cause);
 	if (Result.isSuccess(defect) && HttpApiError.HttpApiSchemaError.is(defect.success)) {
-		return HttpServerResponse.json(new BadRequest({ message: String(defect.success.cause) }), {
-			status: 400,
-		}).pipe(Effect.orDie);
+		return Schema.encodeUnknownEffect(BadRequest)(
+			new BadRequest({ message: String(defect.success.cause) }),
+		).pipe(
+			Effect.flatMap((body) => HttpServerResponse.json(body, { status: 400 })),
+			Effect.orDie,
+		);
 	}
 	return Effect.failCause(cause);
 });
@@ -100,8 +103,14 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 
 const ScalarLive = HttpApiScalar.layer(AppContract, { path: "/docs" });
 
-const ApiWithScalarLive = Layer.mergeAll(ApiLive, ScalarLive);
+const DecodeErrorsAsBadRequestLive = HttpRouter.middleware(decodeErrorsAsBadRequest, {
+	global: true,
+});
+
+const ApiWithScalarLive = Layer.mergeAll(ApiLive, ScalarLive, DecodeErrorsAsBadRequestLive);
+
 type ApiRequirements = LayerTypes.Services<typeof ApiWithScalarLive>;
+
 type ApiContext =
 	| HttpRouter.Request.Without<ApiRequirements>
 	| HttpRouter.Request.Only<"Requires", ApiRequirements>;
@@ -120,7 +129,6 @@ export const ServerLive = Layer.effectDiscard(
 				Layer.provide(Layer.succeedContext(apiContext)),
 				Layer.provide(BunHttpServer.layerHttpServices),
 			),
-			{ middleware: decodeErrorsAsBadRequest },
 		);
 		yield* Effect.addFinalizer(() => Effect.promise(dispose));
 
