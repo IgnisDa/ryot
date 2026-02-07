@@ -78,6 +78,20 @@ const openApiTags = [
 	},
 ];
 
+const createOpenApiDocumentConfig = (origin: string) => ({
+	openapi: "3.0.0",
+	tags: openApiTags,
+	servers: [{ url: `${origin}/api` }],
+	externalDocs: { url: "https://ryot.io", description: "Main Website" },
+	info: {
+		version: "1.0.0",
+		title: "Ryot App Backend API",
+		license: { name: "Terms", url: "https://ryot.io/terms" },
+		description:
+			"OpenAPI specification for app-owned backend routes. Requests are limited to 60 per minute.",
+	},
+});
+
 const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.onError((error, c) => {
 		if (error instanceof HTTPException) {
@@ -113,20 +127,13 @@ const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/collections", collectionsApi)
 	.route("/query-engine", queryEngineApi);
 
+export const getAppBackendOpenApiDocument = (origin: string) =>
+	baseApp.getOpenAPIDocument(createOpenApiDocumentConfig(origin));
+
 export const apiApp = baseApp
-	.doc("/openapi.json", (c) => ({
-		openapi: "3.0.0",
-		tags: openApiTags,
-		servers: [{ url: `${new URL(c.req.url).origin}/api` }],
-		externalDocs: { url: "https://ryot.io", description: "Main Website" },
-		info: {
-			version: "1.0.0",
-			title: "Ryot App Backend API",
-			license: { name: "Terms", url: "https://ryot.io/terms" },
-			description:
-				"OpenAPI specification for app-owned backend routes. Requests are limited to 60 per minute.",
-		},
-	}))
+	.doc("/openapi.json", (c) =>
+		createOpenApiDocumentConfig(new URL(c.req.url).origin),
+	)
 	.get("/docs", Scalar({ url: "/api/openapi.json" }))
 	.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw));
 
