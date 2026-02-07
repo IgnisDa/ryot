@@ -10,7 +10,11 @@ import { data, Form, redirect, useFetcher, useLoaderData } from "react-router";
 import { toast } from "sonner";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
-import { customers } from "~/drizzle/schema.server";
+import {
+	customers,
+	type TPlanTypes,
+	type TProductTypes,
+} from "~/drizzle/schema.server";
 import Pricing from "~/lib/components/Pricing";
 import { Button } from "~/lib/components/ui/button";
 import { Card } from "~/lib/components/ui/card";
@@ -194,16 +198,15 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				throw new Error("Customer is not on Polar");
 
 			const formData = await request.formData();
-			const productType = formData.get("productType")?.toString();
-			const planType = formData.get("planType")?.toString();
+			const productType = formData
+				.get("productType")
+				?.toString() as TProductTypes;
+			const planType = formData.get("planType")?.toString() as TPlanTypes;
 
 			if (!productType || !planType)
 				throw new Error("Product type and plan type are required");
 
-			const productId = findPolarProductId(
-				productType as "cloud" | "self_hosted",
-				planType as "free" | "monthly" | "yearly" | "lifetime",
-			);
+			const productId = findPolarProductId(productType, planType);
 
 			if (!productId) throw new Error("Polar product not found");
 
