@@ -241,6 +241,69 @@ describe("GET /media/overview/up-next", () => {
 		]);
 	});
 
+	it("removes items from Up Next after they are completed", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const builtinTracker = await findBuiltinTracker(client, cookies);
+		const schemas = await listEntitySchemas(client, cookies, {
+			trackerId: builtinTracker.id,
+		});
+		const animeSchema = schemas.find((item) => item.slug === "anime");
+		if (!animeSchema) {
+			throw new Error("Missing anime schema");
+		}
+		const animeProvider = animeSchema.providers[0];
+		if (!animeProvider) {
+			throw new Error("Missing provider");
+		}
+
+		const completedAnime = await seedMediaEntity({
+			userId,
+			image: null,
+			name: "Completed Up Next Anime",
+			entitySchemaId: animeSchema.id,
+			sandboxScriptId: animeProvider.scriptId,
+			properties: { publishYear: 2024, episodes: 24 },
+			externalId: `anime-completed-${crypto.randomUUID()}`,
+		});
+
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			properties: {},
+			eventSchemaSlug: "backlog",
+			entityId: completedAnime.id,
+			entitySchemaId: animeSchema.id,
+		});
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			entityId: completedAnime.id,
+			eventSchemaSlug: "complete",
+			entitySchemaId: animeSchema.id,
+			properties: { completionMode: "just_now" },
+		});
+
+		const upNextResponse = await client.GET("/media/overview/up-next", {
+			headers: { Cookie: cookies },
+		});
+		expect(upNextResponse.response.status).toBe(200);
+		expect(
+			upNextResponse.data?.data.items.find(
+				(item) => item.id === completedAnime.id,
+			),
+		).toBeUndefined();
+
+		const reviewResponse = await client.GET("/media/overview/review", {
+			headers: { Cookie: cookies },
+		});
+		expect(reviewResponse.response.status).toBe(200);
+		expect(
+			reviewResponse.data?.data.items.find(
+				(item) => item.id === completedAnime.id,
+			),
+		).toBeDefined();
+	});
+
 	it("preserves UTC midnight without timezone conversion", async () => {
 		const { client, cookies, userId } = await createAuthenticatedClient();
 		const builtinTracker = await findBuiltinTracker(client, cookies);
