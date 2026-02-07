@@ -1,10 +1,15 @@
+import { createHash } from "node:crypto";
 import { memoize, zodBoolAsString } from "@ryot/ts-utils";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { GraphQLClient } from "graphql-request";
 import { createCookie } from "react-router";
 import { z } from "zod";
 import * as schema from "~/drizzle/schema.server";
-import { PlanTypes, ProductTypes } from "~/drizzle/schema.server";
+import {
+	type PaymentProviders,
+	PlanTypes,
+	ProductTypes,
+} from "~/drizzle/schema.server";
 
 // The number of days after a subscription expires that we allow access
 export const GRACE_PERIOD = 7;
@@ -31,9 +36,14 @@ const serverVariablesSchema = z.object({
 	SERVER_ADMIN_ACCESS_TOKEN: z.string(),
 	SERVER_OIDC_CLIENT_SECRET: z.string(),
 	PADDLE_WEBHOOK_SECRET_KEY: z.string(),
+	POLAR_AB_PERCENT: z.string().optional(),
 	SERVER_SMTP_PORT: z.string().optional(),
+	POLAR_PRODUCT_IDS: z.string().optional(),
+	POLAR_ACCESS_TOKEN: z.string().optional(),
+	POLAR_SANDBOX: zodBoolAsString.optional(),
 	PADDLE_SANDBOX: zodBoolAsString.optional(),
 	SERVER_SMTP_SECURE: zodBoolAsString.optional(),
+	POLAR_WEBHOOK_SECRET_KEY: z.string().optional(),
 });
 
 export const getServerVariables = memoize(() =>
@@ -65,6 +75,44 @@ export const getPrices = memoize(() =>
 	pricesSchema.parse(JSON.parse(getServerVariables().PADDLE_PRICE_IDS)),
 );
 
+export const polarProductsSchema = z.array(
+	z.object({
+		type: z.enum(ProductTypes.enum),
+		prices: z.array(
+			z.object({
+				productId: z.string().optional(),
+				linkToGithub: z.boolean().optional(),
+				name: z.enum(PlanTypes.enum),
+			}),
+		),
+	}),
+);
+
+export type TPolarProducts = z.infer<typeof polarProductsSchema>;
+
+export const getPolarProducts = memoize(() => {
+	const productIds = getServerVariables().POLAR_PRODUCT_IDS;
+	if (!productIds) return null;
+	return polarProductsSchema.parse(JSON.parse(productIds));
+});
+
+export const getPolarAbPercent = memoize(() => {
+	const percent = getServerVariables().POLAR_AB_PERCENT;
+	return percent ? Number.parseInt(percent, 10) : 0;
+});
+
+export const getPolarAccessToken = memoize(() => {
+	return getServerVariables().POLAR_ACCESS_TOKEN || null;
+});
+
+export const getPolarWebhookSecret = memoize(() => {
+	return getServerVariables().POLAR_WEBHOOK_SECRET_KEY || null;
+});
+
+export const isPolarSandbox = memoize(() => {
+	return getServerVariables().POLAR_SANDBOX === true;
+});
+
 export const websiteAuthCookie = createCookie("WebsiteAuth", {
 	path: "/",
 	maxAge: 60 * 60 * 24 * 365,
@@ -89,3 +137,30 @@ export const paddleCustomDataSchema = z.object({
 });
 
 export type PaddleCustomData = z.infer<typeof paddleCustomDataSchema>;
+
+export const findPolarProductId = (
+	productType: z.infer<typeof ProductTypes>,
+	planType: z.infer<typeof PlanTypes>,
+): string | null => {
+	const products = getPolarProducts();
+	if (!products) return null;
+
+	const product = products.find((p) => p.type === productType);
+	if (!product) return null;
+
+	const price = product.prices.find((p) => p.name === planType);
+	return price?.productId || null;
+};
+
+export const assignPaymentProvider = (
+	email: string,
+): z.infer<typeof PaymentProviders> => {
+	const abPercent = getPolarAbPercent();
+	if (abPercent === 0) return "paddle";
+
+	const hash = createHash("sha256").update(email).digest("hex");
+	const hashInt = Number.parseInt(hash.substring(0, 8), 16);
+	const bucket = hashInt % 100;
+
+	return bucket < abPercent ? "polar" : "paddle";
+};

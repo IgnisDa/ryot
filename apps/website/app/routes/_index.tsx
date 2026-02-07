@@ -45,6 +45,7 @@ import {
 import { Textarea } from "~/lib/components/ui/textarea";
 import { TurnstileWidget } from "~/lib/components/ui/turnstile";
 import {
+	assignPaymentProvider,
 	getDb,
 	getOauthCallbackUrl,
 	websiteAuthCookie,
@@ -109,9 +110,10 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const otpCode = otpCodesCache.get(submission.email);
 			if (otpCode !== submission.otpCode)
 				throw data({ message: "Invalid OTP code." }, { status: 400 });
+			const paymentProvider = assignPaymentProvider(submission.email);
 			const dbCustomer = await getDb()
 				.insert(customers)
-				.values({ email: submission.email })
+				.values({ paymentProvider, email: submission.email })
 				.returning({ id: customers.id })
 				.onConflictDoUpdate({
 					target: customers.email,
