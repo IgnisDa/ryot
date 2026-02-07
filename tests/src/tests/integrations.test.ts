@@ -5,11 +5,13 @@ import { ImportRunId, IntegrationId } from "@ryot/contract/schema/brands";
 import {
 	createAudiobookshelfIntegration,
 	createAuthenticatedClient,
+	createIntegration,
 	createKodiIntegration,
 	deleteIntegration,
 	getImportRun,
 	getIntegration,
 	listEventSlugs,
+	listEventsForEntity,
 	listIntegrations,
 	postIntegrationWebhook,
 	postWebhook,
@@ -17,6 +19,7 @@ import {
 	seedGlobalShowEpisodeTree,
 	updateUserPreferences,
 	waitForEventSlugs,
+	waitForEventWithSchema,
 } from "../fixtures";
 import { assertTaggedError, requirePresent } from "../test-support/assertions";
 
@@ -290,6 +293,101 @@ describe("Webhook routes", () => {
 
 		expect(response.status).toBe(400);
 	});
+});
+
+describe("Progress normalization", () => {
+	it("clamps progress above the integration's maximum down to 100% and fills the completion timestamp", async () => {
+		const { client } = await createAuthenticatedClient();
+		const { id } = await createIntegration(client, {
+			provider: "kodi",
+			maximumProgress: 90,
+			providerSpecifics: { kind: "kodi" },
+		});
+
+		const { tmdbId, episodeId } = await seedGlobalShowEpisodeTree(client, {
+			showName: "Progress Clamp Test Show",
+		});
+
+		const { response, data } = await postWebhook(id, {
+			lot: "show",
+			progress: 97,
+			identifier: tmdbId,
+			show_season_number: 1,
+			show_episode_number: 2,
+		});
+
+		expect(response.status).toBe(202);
+		const runId = requirePresent(data?.runId, "Expected runId from webhook");
+		const completedRun = await pollImportRunUntilTerminal(client, runId);
+
+		expect(completedRun.status).toBe("completed");
+		expect(completedRun.failedItems).toBe(0);
+
+		await waitForEventSlugs(client, episodeId, "progress");
+		const progressEvents = await listEventsForEntity(client, episodeId, {
+			eventSchemaSlug: "progress",
+		});
+
+		expect(progressEvents).toHaveLength(1);
+		const progressEvent = requirePresent(progressEvents[0], "Expected progress event");
+		expect(progressEvent.properties).toMatchObject({ progressPercent: 100 });
+		expect(progressEvent.occurredAt).toBeTruthy();
+
+		// The clamped 100% cascades into the builtin auto-complete trigger on this same
+		// episode entity — assert completedOn to directly prove the completion-timestamp
+		// fill, not just the progress event's own occurredAt.
+		const completeEvent = await waitForEventWithSchema(client, episodeId, "complete");
+		expect(completeEvent.properties).toMatchObject({ completedOn: progressEvent.occurredAt });
+	}, 90_000);
+
+	it("filters out progress below the integration's minimum threshold without failing the run", async () => {
+		const { client } = await createAuthenticatedClient();
+		const { id } = await createIntegration(client, {
+			provider: "kodi",
+			minimumProgress: 10,
+			providerSpecifics: { kind: "kodi" },
+		});
+
+		const { tmdbId, episodeId } = await seedGlobalShowEpisodeTree(client, {
+			showName: "Progress Filter Test Show",
+		});
+
+		const { response: firstResponse, data: firstData } = await postWebhook(id, {
+			lot: "show",
+			progress: 5,
+			identifier: tmdbId,
+			show_season_number: 1,
+			show_episode_number: 2,
+		});
+		expect(firstResponse.status).toBe(202);
+		const firstRunId = requirePresent(firstData?.runId, "Expected runId from webhook");
+		const firstRun = await pollImportRunUntilTerminal(client, firstRunId);
+		expect(firstRun.status).toBe("completed");
+		expect(firstRun.failedItems).toBe(0);
+
+		const { response: secondResponse, data: secondData } = await postWebhook(id, {
+			lot: "show",
+			progress: 50,
+			identifier: tmdbId,
+			show_season_number: 1,
+			show_episode_number: 2,
+		});
+		expect(secondResponse.status).toBe(202);
+		const secondRunId = requirePresent(secondData?.runId, "Expected runId from webhook");
+		const secondRun = await pollImportRunUntilTerminal(client, secondRunId);
+		expect(secondRun.status).toBe("completed");
+		expect(secondRun.failedItems).toBe(0);
+
+		await waitForEventSlugs(client, episodeId, "progress");
+		const progressEvents = await listEventsForEntity(client, episodeId, {
+			eventSchemaSlug: "progress",
+		});
+
+		expect(progressEvents).toHaveLength(1);
+		expect(requirePresent(progressEvents[0], "Expected progress event").properties).toMatchObject({
+			progressPercent: 50,
+		});
+	}, 90_000);
 });
 
 describe("Import run visibility", () => {
