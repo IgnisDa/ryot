@@ -1,5 +1,7 @@
+import { join } from "node:path";
 import { serve } from "@hono/node-server";
-import { config } from "~/lib/config";
+import { config, IS_DEVELOPMENT } from "~/lib/config";
+import { generateConfigDocs } from "~/lib/config/docs";
 import { migrateDB } from "~/lib/db/migrate";
 import {
 	initializeQueues,
@@ -16,6 +18,15 @@ import { initializeMetrics } from "~/modules/system";
 import { getServer } from "./server";
 
 export const startServer = async () => {
+	if (IS_DEVELOPMENT) {
+		generateConfigDocs(
+			join(
+				import.meta.dir,
+				"../../../../apps/docs/src/includes/app-backend-config-schema.md",
+			),
+		);
+	}
+
 	initializeMetrics();
 	await migrateDB();
 	await initializeRedis();
@@ -24,7 +35,7 @@ export const startServer = async () => {
 	await initializeWorkers();
 
 	const app = getServer();
-	const server = serve({ port: config.PORT, fetch: app.fetch }, (c) => {
+	const server = serve({ port: config.port, fetch: app.fetch }, (c) => {
 		console.info(`Server listening on port ${c.port}...`);
 	});
 

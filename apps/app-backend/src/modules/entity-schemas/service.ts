@@ -2,8 +2,8 @@ import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
 import { checkCustomAccess, checkReadAccess } from "~/lib/access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
-import type { AppConfig } from "~/lib/config";
-import { appConfig } from "~/lib/config";
+import type { AppConfigEnvKey } from "~/lib/config";
+import { appConfigEnvIndex } from "~/lib/config";
 import { getQueues } from "~/lib/queue";
 import { resolveJobPollState } from "~/lib/queue/utils";
 import {
@@ -63,7 +63,9 @@ const isProviderUsable = (provider: { scriptMetadata?: unknown }): boolean => {
 	const requiredKeys = parsed.success
 		? (parsed.data.requiredAppConfigKeys ?? [])
 		: [];
-	return requiredKeys.every((key) => appConfig[key as keyof AppConfig] != null);
+	return requiredKeys.every(
+		(key) => appConfigEnvIndex[key as AppConfigEnvKey] != null,
+	);
 };
 
 const stripProviderMetadata = (
