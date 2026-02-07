@@ -1,5 +1,133 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css";
-
 @import "nativewind/theme";
+
+@theme inline {
+	--color-bg: var(--bg);
+	--color-gold: var(--gold);
+	--color-info: var(--info);
+	--color-text: var(--text);
+	--color-accent: var(--accent);
+	--color-border: var(--border);
+	--color-danger: var(--danger);
+	--color-raised: var(--raised);
+	--color-success: var(--success);
+	--color-surface: var(--surface);
+	--color-info-soft: var(--info-soft);
+	--color-accent-ink: var(--accent-ink);
+	--color-accent-soft: var(--accent-soft);
+	--color-accent-text: var(--accent-text);
+	--color-surface-2: var(--surface-2);
+	--color-text-muted: var(--text-muted);
+	--color-success-soft: var(--success-soft);
+	--color-accent-deep: var(--accent-deep);
+	--color-text-subtle: var(--text-subtle);
+	--color-accent-border: var(--accent-border);
+	--color-border-strong: var(--border-strong);
+
+	--font-ui: "Outfit_400Regular";
+	--font-display: "Lora_400Regular";
+	--font-ui-medium: "Outfit_500Medium";
+	--font-ui-semibold: "Outfit_600SemiBold";
+	--font-display-medium: "Lora_500Medium";
+	--font-display-semibold: "Lora_600SemiBold";
+
+	--radius-sm: var(--r-sm);
+	--radius-md: var(--r);
+	--radius-lg: var(--r-lg);
+	--radius-xl: var(--r-xl);
+	--radius-pill: var(--r-pill);
+
+	--shadow-sm: var(--shadow-sm);
+	--shadow-card: var(--shadow);
+}
+
+:root {
+	color-scheme: light dark;
+
+	--bg: #f5f2ec;
+	--gold: #c6871f;
+	--info: #3a6389;
+	--text: #241f18;
+	--accent: #fd7e14;
+	--border: #e6ded1;
+	--danger: #a8422e;
+	--raised: #ffffff;
+	--success: #3d6d2f;
+	--surface: #fffdf9;
+	--info-soft: #e0e8ef;
+	--accent-ink: #2c1a09;
+	--accent-soft: #fbe7d0;
+	--accent-text: #a24e08;
+	--surface-2: #efe9df;
+	--text-muted: #6a6155;
+	--success-soft: #e3ecdb;
+	--accent-deep: #b45309;
+	--text-subtle: #756b5e;
+	--accent-border: #f3c99b;
+	--border-strong: #d6cbb9;
+
+	--shadow-sm: 0 1px 2px rgb(40 30 15 / 5%);
+	--shadow: 0 1px 2px rgb(40 30 15 / 5%), 0 10px 24px -12px rgb(40 30 15 / 10%);
+
+	--r-sm: 6px;
+	--r: 10px;
+	--r-lg: 12px;
+	--r-xl: 16px;
+	--r-pill: 999px;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--bg: #101113;
+		--gold: #e0a63f;
+		--info: #85b0d6;
+		--text: #eeece7;
+		--accent: #fd7e14;
+		--border: #2a2c31;
+		--danger: #e07a63;
+		--raised: #1b1d20;
+		--success: #8bc276;
+		--surface: #18191c;
+		--info-soft: #1e2833;
+		--accent-ink: #2c1a09;
+		--accent-soft: #31241a;
+		--accent-text: #f5a75f;
+		--surface-2: #212327;
+		--text-muted: #a3a09a;
+		--success-soft: #20291c;
+		--accent-deep: #fd7e14;
+		--text-subtle: #88857f;
+		--accent-border: #4d3820;
+		--border-strong: #3e4147;
+		--shadow-sm: 0 1px 2px rgb(0 0 0 / 45%);
+		--shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 14px 28px -14px rgb(0 0 0 / 55%);
+	}
+}
+
+:root[data-theme="dark"] {
+	--bg: #101113;
+	--gold: #e0a63f;
+	--info: #85b0d6;
+	--text: #eeece7;
+	--accent: #fd7e14;
+	--border: #2a2c31;
+	--danger: #e07a63;
+	--raised: #1b1d20;
+	--success: #8bc276;
+	--surface: #18191c;
+	--info-soft: #1e2833;
+	--accent-ink: #2c1a09;
+	--accent-soft: #31241a;
+	--accent-text: #f5a75f;
+	--surface-2: #212327;
+	--text-muted: #a3a09a;
+	--success-soft: #20291c;
+	--accent-deep: #fd7e14;
+	--text-subtle: #88857f;
+	--accent-border: #4d3820;
+	--border-strong: #3e4147;
+	--shadow-sm: 0 1px 2px rgb(0 0 0 / 45%);
+	--shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 14px 28px -14px rgb(0 0 0 / 55%);
+}
