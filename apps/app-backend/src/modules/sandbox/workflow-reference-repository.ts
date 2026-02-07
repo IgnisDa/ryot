@@ -8,7 +8,7 @@ import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 type WorkflowReferenceRow = typeof schema.sandboxWorkflowReference.$inferSelect;
 
-export type SandboxWorkflowReference = Omit<WorkflowReferenceRow, "scriptId"> & {
+type SandboxWorkflowReference = Omit<WorkflowReferenceRow, "scriptId"> & {
 	readonly scriptId: SandboxScriptId;
 };
 
