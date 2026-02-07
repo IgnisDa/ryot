@@ -5,11 +5,7 @@ import { GraphQLClient } from "graphql-request";
 import { createCookie } from "react-router";
 import { z } from "zod";
 import * as schema from "~/drizzle/schema.server";
-import {
-	type PaymentProviders,
-	PlanTypes,
-	ProductTypes,
-} from "~/drizzle/schema.server";
+import { PlanTypes, ProductTypes } from "~/drizzle/schema.server";
 
 // The number of days after a subscription expires that we allow access
 export const GRACE_PERIOD = 7;
@@ -139,8 +135,8 @@ export const paddleCustomDataSchema = z.object({
 export type PaddleCustomData = z.infer<typeof paddleCustomDataSchema>;
 
 export const findPolarProductId = (
-	productType: z.infer<typeof ProductTypes>,
-	planType: z.infer<typeof PlanTypes>,
+	productType: schema.TProductTypes,
+	planType: schema.TPlanTypes,
 ): string | null => {
 	const products = getPolarProducts();
 	if (!products) return null;
@@ -154,7 +150,7 @@ export const findPolarProductId = (
 
 export const assignPaymentProvider = (
 	email: string,
-): z.infer<typeof PaymentProviders> => {
+): schema.TPaymentProviders => {
 	const abPercent = getPolarAbPercent();
 	if (abPercent === 0) return "paddle";
 
