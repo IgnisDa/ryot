@@ -114,7 +114,7 @@ const resolveRequestParts = (
 			Effect.map((text) =>
 				applyInit({ url: input.url, method: input.method, body: text ? text : undefined }),
 			),
-			Effect.catchAll(() =>
+			Effect.catch(() =>
 				Effect.succeed(applyInit({ url: input.url, method: input.method, body: undefined })),
 			),
 		);
@@ -141,9 +141,7 @@ export const makeFetch = (host: YoutubeMusicHost): typeof fetch =>
 							(result) =>
 								new Response(result.body, { status: result.status, headers: result.headers }),
 						),
-						Effect.catchAll((error) =>
-							Effect.succeed(new Response(error.message, { status: 500 })),
-						),
+						Effect.catch((error) => Effect.succeed(new Response(error.message, { status: 500 }))),
 					);
 				}),
 				Effect.runPromise,

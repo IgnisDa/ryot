@@ -1,4 +1,4 @@
-import { Effect, Either, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect, Result, Schema } from "@ryot/sandbox-sdk/effect";
 
 import { nowIso } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
@@ -26,7 +26,7 @@ const Episode = Schema.Struct({
 	number: Schema.optional(Schema.Int),
 	sequence: Schema.optional(Schema.Int),
 	episodeNumber: Schema.optional(Schema.Int),
-	episode: Schema.optional(Schema.Union(Schema.Int, Schema.String)),
+	episode: Schema.optional(Schema.Union([Schema.Int, Schema.String])),
 });
 type Episode = typeof Episode.Type;
 const Progress = Schema.optional(
@@ -40,7 +40,7 @@ const Item = Schema.Struct({
 	id: Schema.String,
 	name: Schema.optional(Schema.String),
 	userMediaProgress: Progress,
-	mediaType: Schema.optional(Schema.Literal("book", "podcast")),
+	mediaType: Schema.optional(Schema.Literals(["book", "podcast"])),
 	media: Schema.optional(
 		Schema.Struct({
 			ebookFormat: Schema.optional(Schema.NullOr(Schema.String)),
@@ -59,7 +59,7 @@ const Libraries = Schema.Struct({
 		Schema.Struct({
 			id: Schema.String,
 			name: Schema.optional(Schema.String),
-			mediaType: Schema.optional(Schema.Literal("book", "podcast")),
+			mediaType: Schema.optional(Schema.Literals(["book", "podcast"])),
 		}),
 	),
 });
@@ -133,7 +133,7 @@ export const adaptAudiobookshelfData = (
 			headers,
 			baseUrl,
 			path: "libraries",
-		}).pipe(Effect.flatMap(Schema.decodeUnknown(Libraries)));
+		}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Libraries)));
 		let itemIndex = 0;
 		for (const library of libraries.libraries) {
 			const listing = yield* requestSourceJson(requestHost, {
@@ -144,8 +144,8 @@ export const adaptAudiobookshelfData = (
 					expanded: 1,
 					...(library.mediaType === "book" ? { filter: `progress.${FINISHED_FILTER}` } : {}),
 				},
-			}).pipe(Effect.flatMap(Schema.decodeUnknown(Listing)), Effect.either);
-			if (Either.isLeft(listing)) {
+			}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Listing)), Effect.result);
+			if (Result.isFailure(listing)) {
 				failures.push(
 					sourceFetchFailure({
 						host: hostName,
@@ -157,7 +157,7 @@ export const adaptAudiobookshelfData = (
 				);
 				continue;
 			}
-			for (const item of listing.right.results) {
+			for (const item of listing.success.results) {
 				const currentIndex = itemIndex++;
 				const metadata = item.media?.metadata;
 				const ref = itemRef(item);
@@ -187,8 +187,8 @@ export const adaptAudiobookshelfData = (
 						baseUrl,
 						path: `items/${item.id}`,
 						query: { expanded: 1, include: "progress" },
-					}).pipe(Effect.flatMap(Schema.decodeUnknown(Item)), Effect.either);
-					if (Either.isLeft(details)) {
+					}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Item)), Effect.result);
+					if (Result.isFailure(details)) {
 						failures.push(
 							sourceFetchFailure({
 								host: hostName,
@@ -200,7 +200,7 @@ export const adaptAudiobookshelfData = (
 						);
 						continue;
 					}
-					const episodes = details.right.media?.episodes ?? [];
+					const episodes = details.success.media?.episodes ?? [];
 					if (episodes.length === 0) {
 						failures.push({
 							itemIndex: currentIndex,
@@ -220,8 +220,8 @@ export const adaptAudiobookshelfData = (
 							baseUrl,
 							path: `items/${item.id}`,
 							query: { expanded: 1, include: "progress", episode: episode.id },
-						}).pipe(Effect.flatMap(Schema.decodeUnknown(Item)), Effect.either);
-						if (Either.isLeft(progress)) {
+						}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Item)), Effect.result);
+						if (Result.isFailure(progress)) {
 							failures.push(
 								sourceFetchFailure({
 									host: hostName,
@@ -234,7 +234,7 @@ export const adaptAudiobookshelfData = (
 							continue;
 						}
 						const number = episodeNumber(episode);
-						if (progress.right.userMediaProgress?.isFinished && number != null) {
+						if (progress.success.userMediaProgress?.isFinished && number != null) {
 							events.push({
 								occurredAt: importedAt,
 								eventSchemaSlug: "progress",

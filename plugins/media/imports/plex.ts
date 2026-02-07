@@ -1,4 +1,4 @@
-import { Effect, Either, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect, Result, Schema } from "@ryot/sandbox-sdk/effect";
 
 import { parseDateInput } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
@@ -22,11 +22,14 @@ const Metadata = Schema.Struct({
 	parentIndex: Schema.optional(Schema.Int),
 	ratingKey: Schema.optional(Schema.String),
 	Guid: Schema.optional(Schema.Array(Guid)),
-	lastViewedAt: Schema.optional(Schema.Union(Schema.Int, Schema.String)),
+	lastViewedAt: Schema.optional(Schema.Union([Schema.Int, Schema.String])),
 });
 const DirectoriesResponse = Schema.Struct({
 	MediaContainer: Schema.Struct({
-		Directory: Schema.optionalWith(Schema.Array(Directory), { default: () => [] }),
+		Directory: Schema.Array(Directory).pipe(
+			Schema.withDecodingDefault(Effect.succeed<ReadonlyArray<typeof Directory.Type>>([])),
+			Schema.withConstructorDefault(Effect.sync(() => [])),
+		),
 	}),
 });
 const MetadataResponse = Schema.Struct({
@@ -52,7 +55,7 @@ export const adaptPlexData = (
 			headers,
 			baseUrl: input.apiUrl,
 			path: "library/sections",
-		}).pipe(Effect.flatMap(Schema.decodeUnknown(DirectoriesResponse)));
+		}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(DirectoriesResponse)));
 		let itemIndex = 0;
 		for (const directory of root.MediaContainer.Directory) {
 			if (directory.type !== "movie" && directory.type !== "show") {
@@ -63,7 +66,7 @@ export const adaptPlexData = (
 				baseUrl: input.apiUrl,
 				query: { includeGuids: 1 },
 				path: `library/sections/${directory.key}/all`,
-			}).pipe(Effect.flatMap(Schema.decodeUnknown(MetadataResponse)));
+			}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(MetadataResponse)));
 			for (const item of section.MediaContainer.Metadata ?? []) {
 				const currentIndex = itemIndex++;
 				const occurredAt = parseDateInput(item.lastViewedAt, { unixSeconds: true });
@@ -106,8 +109,8 @@ export const adaptPlexData = (
 					headers,
 					baseUrl: input.apiUrl,
 					path: `library/metadata/${item.ratingKey}/allLeaves`,
-				}).pipe(Effect.flatMap(Schema.decodeUnknown(MetadataResponse)), Effect.either);
-				if (Either.isLeft(leaves)) {
+				}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(MetadataResponse)), Effect.result);
+				if (Result.isFailure(leaves)) {
 					failures.push(
 						sourceFetchFailure({
 							itemIndex: currentIndex,
@@ -120,7 +123,7 @@ export const adaptPlexData = (
 					continue;
 				}
 				const group = getOrCreateMediaEntityGroup(groups, ref, currentIndex);
-				for (const leaf of leaves.right.MediaContainer.Metadata ?? []) {
+				for (const leaf of leaves.success.MediaContainer.Metadata ?? []) {
 					const leafOccurredAt = parseDateInput(leaf.lastViewedAt, { unixSeconds: true });
 					if (!leafOccurredAt || leaf.parentIndex == null || leaf.index == null) {
 						continue;

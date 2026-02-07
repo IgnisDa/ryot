@@ -1,4 +1,4 @@
-import { Either, Option, Schema } from "@ryot/sandbox-sdk/effect";
+import { Result, Option, Schema } from "@ryot/sandbox-sdk/effect";
 
 import { parseCsvText } from "./csv";
 import { nowIso, parseDateTime, parseDateWithFormat } from "./dates";
@@ -31,13 +31,11 @@ const GrouveeStatusEntry = Schema.Struct({
 type GrouveeStatusEntry = typeof GrouveeStatusEntry.Type;
 const decodeDateEntries = Schema.decodeUnknownOption(Schema.Array(GrouveeDateEntry));
 const decodeStatusEntries = Schema.decodeUnknownOption(Schema.Array(GrouveeStatusEntry));
-const decodeShelfRecord = Schema.decodeUnknownOption(
-	Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-);
+const decodeShelfRecord = Schema.decodeUnknownOption(Schema.Record(Schema.String, Schema.Unknown));
 
 const parseJson = (value: string) => {
-	const parsed = Either.try(() => JSON.parse(value.trim()) as unknown);
-	return Either.isLeft(parsed) ? undefined : parsed.right;
+	const parsed = Result.try(() => JSON.parse(value.trim()) as unknown);
+	return Result.isFailure(parsed) ? undefined : parsed.success;
 };
 const parseGrouveeDate = (value: string | null | undefined) => {
 	const raw = value?.trim();
