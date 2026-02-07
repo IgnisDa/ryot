@@ -22,9 +22,7 @@ export type AppConfigValue = Omit<SystemConfigValue, "server"> & {
 	};
 };
 
-const mapLogLevel = (
-	config: SystemConfigValue,
-): Effect.Effect<AppConfigValue, Config.ConfigError> => {
+const mapLogLevel = (config: SystemConfigValue) => {
 	const level = logLevels[config.server.logLevel.toLowerCase()];
 	return level
 		? Effect.succeed({ ...config, server: { ...config.server, logLevel: level } })
@@ -62,9 +60,7 @@ export const getSmtpCredentials = (
 export const isSmtpEnabled = (config: AppConfigValue): boolean =>
 	Option.isSome(getSmtpCredentials(config));
 
-export const validateSystemConfig = (
-	config: AppConfigValue,
-): Effect.Effect<AppConfigValue, Config.ConfigError> =>
+export const validateSystemConfig = (config: AppConfigValue) =>
 	Effect.gen(function* () {
 		const { clientId, clientSecret, issuerUrl } = config.server.oidc;
 		const oidcSetCount = [
