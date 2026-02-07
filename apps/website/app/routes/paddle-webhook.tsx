@@ -65,9 +65,8 @@ async function handleTransactionCompleted(
 	paddleData: TransactionNotification,
 ): Promise<WebhookResponse> {
 	const paddleCustomerId = paddleData.customerId;
-	if (!paddleCustomerId) {
+	if (!paddleCustomerId)
 		return { error: "No customer ID found in transaction completed event" };
-	}
 
 	console.log("Received transaction completed event", { paddleCustomerId });
 
@@ -75,9 +74,8 @@ async function handleTransactionCompleted(
 		paddleCustomerId,
 		paddleData.customData,
 	);
-	if (!customer) {
+	if (!customer)
 		return { error: `No customer found for customer ID: ${paddleCustomerId}` };
-	}
 
 	const activePurchase = await getActivePurchase(customer.id);
 	const priceId = paddleData.details?.lineItems?.at(0)?.priceId;
@@ -137,7 +135,7 @@ async function handleSubscriptionResumed(
 		orderBy: [desc(customerPurchases.createdOn)],
 	});
 
-	if (cancelledPurchase) {
+	if (cancelledPurchase)
 		await getDb()
 			.update(customerPurchases)
 			.set({
@@ -145,7 +143,6 @@ async function handleSubscriptionResumed(
 				updatedOn: new Date(),
 			})
 			.where(eq(customerPurchases.id, cancelledPurchase.id));
-	}
 
 	return { message: "Subscription resumed successfully" };
 }
@@ -169,19 +166,17 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 	let result: WebhookResponse;
 
-	if (eventType === EventName.TransactionCompleted) {
+	if (eventType === EventName.TransactionCompleted)
 		result = await handleTransactionCompleted(paddleData);
-	} else if (
+	else if (
 		eventType === EventName.SubscriptionCanceled ||
 		eventType === EventName.SubscriptionPaused ||
 		eventType === EventName.SubscriptionPastDue
-	) {
+	)
 		result = await handleSubscriptionCancelled(paddleData);
-	} else if (eventType === EventName.SubscriptionResumed) {
+	else if (eventType === EventName.SubscriptionResumed)
 		result = await handleSubscriptionResumed(paddleData);
-	} else {
-		result = { message: "Webhook event not handled" };
-	}
+	else result = { message: "Webhook event not handled" };
 
 	return data(result);
 };

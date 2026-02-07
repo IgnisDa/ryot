@@ -41,9 +41,8 @@ async function findCustomer(
 		if (customer) return customer;
 	}
 
-	if (externalCustomerId) {
+	if (externalCustomerId)
 		return await findCustomerByExternalId(externalCustomerId);
-	}
 
 	return null;
 }
@@ -56,12 +55,11 @@ function findPlanAndProductType(
 
 	for (const product of products) {
 		const matchingPrice = product.prices.find((p) => p.productId === productId);
-		if (matchingPrice) {
+		if (matchingPrice)
 			return {
 				planType: matchingPrice.name,
 				productType: product.type,
 			};
-		}
 	}
 
 	return null;
@@ -84,28 +82,26 @@ async function handleOrderPaid(
 	});
 
 	const customer = await findCustomer(polarCustomerId, externalCustomerId);
-	if (!customer) {
+	if (!customer)
 		return {
 			error: `No customer found for Polar customer ID: ${polarCustomerId}`,
 		};
-	}
 
 	const productId = order.product?.id;
 	if (!productId) return { error: "Product ID not found in order" };
 
 	const planAndProduct = findPlanAndProductType(productId);
-	if (!planAndProduct) {
+	if (!planAndProduct)
 		return { error: `No matching product found for product ID: ${productId}` };
-	}
 
 	const { planType, productType } = planAndProduct;
 	const activePurchase = await getActivePurchase(customer.id);
 
 	if (!activePurchase) {
 		console.log("Customer purchased plan:", {
-			polarCustomerId,
-			productType,
 			planType,
+			productType,
+			polarCustomerId,
 		});
 		await provisionNewPurchase(
 			customer,
@@ -115,19 +111,18 @@ async function handleOrderPaid(
 		);
 	} else {
 		console.log("Customer renewed plan:", {
-			polarCustomerId,
-			productType,
 			planType,
+			productType,
+			polarCustomerId,
 		});
 		await provisionRenewal(customer, planType, productType, activePurchase);
 	}
 
-	if (polarCustomerId && polarCustomerId !== customer.polarCustomerId) {
+	if (polarCustomerId && polarCustomerId !== customer.polarCustomerId)
 		await getDb()
 			.update(customers)
 			.set({ polarCustomerId })
 			.where(eq(customers.id, customer.id));
-	}
 
 	return { message: "Order processed successfully" };
 }
@@ -135,9 +130,8 @@ async function handleOrderPaid(
 async function handleSubscriptionRevoked(
 	event: ReturnType<typeof validateEvent>,
 ): Promise<{ error?: string; message?: string }> {
-	if (event.type !== "subscription.revoked") {
+	if (event.type !== "subscription.revoked")
 		return { error: "Invalid event type" };
-	}
 
 	const { data: subscription } = event;
 	const polarCustomerId = subscription.customer.id;
@@ -149,9 +143,7 @@ async function handleSubscriptionRevoked(
 	});
 
 	const customer = await findCustomer(polarCustomerId, externalCustomerId);
-	if (!customer) {
-		return { message: "No customer found" };
-	}
+	if (!customer) return { message: "No customer found" };
 
 	await revokePurchase(customer);
 
@@ -160,12 +152,11 @@ async function handleSubscriptionRevoked(
 
 export const action = async ({ request }: Route.ActionArgs) => {
 	const webhookSecret = getPolarWebhookSecret();
-	if (!webhookSecret) {
+	if (!webhookSecret)
 		return data(
 			{ error: "Polar webhook secret not configured" },
 			{ status: 500 },
 		);
-	}
 
 	const body = await request.text();
 	const headers: Record<string, string> = {};
