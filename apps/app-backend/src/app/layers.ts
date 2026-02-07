@@ -1,6 +1,6 @@
 import { FetchHttpClient } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
-import { Layer } from "effect";
+import { Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "#lib/infrastructure/db/migrate";
@@ -8,6 +8,7 @@ import { DbService, DbRunnerLive, TransactionRunnerLive } from "#lib/infrastruct
 import { ObservabilityLive } from "#lib/infrastructure/observability";
 import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
+import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { ServerRun } from "#lib/infrastructure/server-run";
@@ -60,6 +61,7 @@ import { ProcessGenericImportChunksWorkflowDefinitionsLive } from "#modules/impo
 import { ImportWorkflowDefinitionsLive } from "#modules/imports/import-run-workflow-live";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
+import { ImportWorkflowPinning } from "#modules/imports/workflow-pinning";
 import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/integration-workflow-live";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
 import { IntegrationReconciliationWorkflowDefinitionsLive } from "#modules/integrations/reconciliation-workflow";
@@ -107,8 +109,10 @@ import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-di
 import { UserPreferencesService } from "#modules/user-preferences/service";
 import { UserStateService } from "#modules/user-state/service";
 
+import { makeAutomationSandboxApiFunctions } from "./automation-sandbox-host-functions";
 import { FrequentCronWorkflowDefinitionsLive } from "./cron-workflow-definitions";
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
+import { makeAdditionalSandboxApiFunctions } from "./sandbox-host-functions";
 import { ServerLive } from "./server";
 
 const ConfigLive = Layer.mergeAll(AppConfig.Default, BunContext.layer);
@@ -273,14 +277,26 @@ const SignalEmissionServiceLive = Layer.provide(
 	SignalDispatchLayerLive,
 );
 
+const SandboxHostImplementationsLive = Layer.effect(
+	SandboxHostImplementations,
+	Effect.all({
+		additional: makeAdditionalSandboxApiFunctions(),
+		automation: makeAutomationSandboxApiFunctions(),
+	}),
+).pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			EventsServiceLive,
+			QueryEngineServiceLive,
+			SignalEmissionServiceLive,
+			NotificationsService.Default,
+		),
+	),
+);
+
 const RuntimeSandboxServiceLive = Layer.provide(
 	SandboxService.Default,
-	Layer.mergeAll(
-		EventsServiceLive,
-		QueryEngineServiceLive,
-		SignalEmissionServiceLive,
-		NotificationsService.Default,
-	),
+	SandboxHostImplementationsLive,
 );
 
 const SandboxExecutionServiceLive = Layer.provide(
@@ -304,6 +320,14 @@ const SandboxServicesLive = Layer.mergeAll(
 	PluginUserBootstrapDispatcherLive,
 );
 
+const ImportWorkflowPinningLive = Layer.effect(
+	ImportWorkflowPinning,
+	Effect.map(SandboxExecutionService, (sandbox) => ({
+		preRegister: sandbox.preRegisterPluginWorkflow,
+		release: sandbox.releaseWorkflowRegistration,
+	})),
+).pipe(Layer.provide(SandboxExecutionServiceLive));
+
 const ContentServicesLive = Layer.mergeAll(
 	AuthDependentServicesLive,
 	EntityImportService.Default,
@@ -326,7 +350,12 @@ const UserStateServiceLive = UserStateService.Default.pipe(
 
 const ImportsServiceLive = Layer.provideMerge(
 	ImportsService.Default,
-	Layer.mergeAll(UploadsService.Default, ImportSourceCatalogLive, ImportRunFailuresService.Default),
+	Layer.mergeAll(
+		UploadsService.Default,
+		ImportSourceCatalogLive,
+		ImportRunFailuresService.Default,
+		ImportWorkflowPinningLive,
+	),
 );
 
 const PlatformServicesLive = Layer.mergeAll(

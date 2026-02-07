@@ -140,7 +140,9 @@ type TestLayerOptions = {
 	sandboxInterrupt?: boolean;
 	importsService?: Layer.Layer<ImportsService>;
 	sandboxCalls?: Array<Record<string, unknown>>;
+	providerLookups?: Array<Record<string, string>>;
 	importsRepository?: Layer.Layer<ImportsRepository>;
+	workflowResolutions?: Array<Record<string, string>>;
 	integrationsService?: Layer.Layer<IntegrationsService>;
 	signalEmissionService?: Layer.Layer<SignalEmissionService>;
 	integrationsRepository?: Layer.Layer<IntegrationsRepository>;
@@ -169,7 +171,7 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		makeIntegrationOperations(options.integrationOperations),
 		Layer.mock(IntegrationProviderCatalog)({
 			list: () => [],
-			resolve: () => null,
+			resolveOwned: () => null,
 			_tag: "IntegrationProviderCatalog",
 			find: () => ({
 				lot: "sink",
@@ -180,10 +182,27 @@ const makeTestLayer = (options: TestLayerOptions) =>
 				settingsSchema: { fields: {} },
 				scriptSlug: "integration.test-provider",
 			}),
+			findOwned: (providerSlug, pluginSlug) => {
+				options.providerLookups?.push({ providerSlug, pluginSlug });
+				return pluginSlug === "fixture"
+					? {
+							lot: "sink",
+							name: "Test provider",
+							slug: "test-provider",
+							pluginSlug: "fixture",
+							description: "Test provider",
+							settingsSchema: { fields: {} },
+							scriptSlug: "integration.test-provider",
+						}
+					: null;
+			},
 		}),
 		Layer.mock(SandboxExecutionService)({
 			_tag: "SandboxExecutionService",
-			resolveWorkflowScript: () => Effect.succeed(SandboxScriptId.make("workflow.media-import")),
+			resolveWorkflowScript: (input) => {
+				options.workflowResolutions?.push(input);
+				return Effect.succeed(SandboxScriptId.make("workflow.media-import"));
+			},
 			executeWorkflow: (input) => {
 				options.sandboxCalls?.push({ executionId: input.executionId, payload: input.input });
 				if (options.sandboxInterrupt) {
@@ -243,11 +262,15 @@ const yankPayload = {
 };
 
 it.effect("persists the sink adapter result and dispatches the normalized child", () => {
-	const childDispatches: Array<Record<string, unknown>> = [];
+	const providerLookups: Array<Record<string, string>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
+	const childDispatches: Array<Record<string, unknown>> = [];
 	const integrationUpdates: Array<Record<string, unknown>> = [];
+	const workflowResolutions: Array<Record<string, string>> = [];
 
 	const options = {
+		providerLookups,
+		workflowResolutions,
 		sandboxCalls: childDispatches,
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("completed")),
@@ -284,6 +307,10 @@ it.effect("persists the sink adapter result and dispatches the normalized child"
 					},
 				},
 			});
+			expect(providerLookups).toEqual([{ providerSlug: "test-provider", pluginSlug: "fixture" }]);
+			expect(workflowResolutions).toEqual([
+				{ executionId: "run_1", workflowSlug: "import", pluginSlug: "fixture" },
+			]);
 
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({ runId: "run_1", status: "running" }),

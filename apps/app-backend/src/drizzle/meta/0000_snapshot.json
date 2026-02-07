@@ -1172,6 +1172,12 @@
 					"primaryKey": false,
 					"notNull": true
 				},
+				"plugin_slug": {
+					"name": "plugin_slug",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
 				"sync_ownership": {
 					"name": "sync_ownership",
 					"type": "boolean",
@@ -1271,6 +1277,21 @@
 						},
 						{
 							"expression": "provider",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"integration_plugin_slug_idx": {
+					"name": "integration_plugin_slug_idx",
+					"columns": [
+						{
+							"expression": "plugin_slug",
 							"isExpression": false,
 							"asc": true,
 							"nulls": "last"
