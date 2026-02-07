@@ -167,5 +167,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.with("subscription.revoked", () => handleSubscriptionRevoked(event))
 		.otherwise(() => ({ message: "Webhook event not handled" }));
 
+	console.log("Webhook handling result:", result);
+
 	return data(result);
 };
