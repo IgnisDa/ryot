@@ -1,8 +1,8 @@
 import { Redirect } from "expo-router";
 import { Text, View } from "react-native";
 
-import { useAuthClient } from "@/lib/auth";
-import { useServerUrl } from "@/lib/store/server";
+import { useAuthClient } from "@/modules/auth/client";
+import { useServerUrl } from "@/modules/server/state";
 
 function SessionRedirect() {
 	const client = useAuthClient();

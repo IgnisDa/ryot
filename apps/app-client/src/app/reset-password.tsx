@@ -3,8 +3,8 @@ import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
 
-import { useAuthClient } from "@/lib/auth";
-import { useServerUrl } from "@/lib/store/server";
+import { useAuthClient } from "@/modules/auth/client";
+import { useServerUrl } from "@/modules/server/state";
 
 export default function ResetPassword() {
 	const client = useAuthClient();
