@@ -518,10 +518,9 @@ driver("details", async function (context) {
 	const relatedEntities = [
 		...collectGroups(game.collections),
 		...collectCompanies(game.involved_companies),
-		...suggestions.map((suggestion) => ({
-			...suggestion,
-			relationshipSchemaSlug: "media-suggestion",
-		})),
+		...suggestions.map((suggestion) =>
+			Object.assign(suggestion, { relationshipSchemaSlug: "media-suggestion" }),
+		),
 	];
 
 	return {

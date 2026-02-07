@@ -338,10 +338,9 @@ driver("details", async function (context) {
 		name: title,
 		relatedEntities: [
 			...relatedEntityByKey.values(),
-			...suggestions.map((suggestion) => ({
-				...suggestion,
-				relationshipSchemaSlug: "media-suggestion",
-			})),
+			...suggestions.map((suggestion) =>
+				Object.assign(suggestion, { relationshipSchemaSlug: "media-suggestion" }),
+			),
 		],
 		properties: {
 			images,
