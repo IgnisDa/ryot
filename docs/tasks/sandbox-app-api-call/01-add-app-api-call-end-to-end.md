@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,11 +14,15 @@ This slice should deliver a complete authenticated path from sandbox script exec
 
 ## Acceptance criteria
 
-- [ ] Sandbox scripts can call authenticated routes mounted on the app-owned backend route surface through `appApiCall(method, path, options?)`.
-- [ ] Internal sandbox API auth uses the in-memory request registry model from the parent PRD and does not expose reusable credentials to sandbox code.
-- [ ] `executeQuery` is removed completely from the sandbox host-function surface, registry, and tests.
-- [ ] Backend unit tests and end-to-end tests cover successful `appApiCall` execution, route-path normalization, rejection of auth override headers, and authenticated execution as the owning user.
-- [ ] Related sandbox documentation is updated to describe `appApiCall`, its scope, and the internal auth model.
+- [x] Sandbox scripts can call authenticated routes mounted on the app-owned backend route surface through `appApiCall(method, path, options?)`.
+- [x] Internal sandbox API auth uses the in-memory request registry model from the parent PRD and does not expose reusable credentials to sandbox code.
+- [x] `executeQuery` is removed completely from the sandbox host-function surface, registry, and tests.
+- [x] Backend unit tests and end-to-end tests cover successful `appApiCall` execution, route-path normalization, rejection of auth override headers, forbidden auth and sandbox routes, and authenticated execution as the owning user.
+- [x] Related sandbox documentation is updated to describe `appApiCall`, its scope, and the internal auth model.
+
+## Outcome
+
+Implemented with a new app-level internal request executor and `WeakMap<Request, { userId }>` auth bridge, plus the `appApiCall` host function and its backend/e2e coverage.
 
 ## User stories addressed
 
