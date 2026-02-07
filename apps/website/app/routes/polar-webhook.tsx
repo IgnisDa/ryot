@@ -56,10 +56,7 @@ function findPlanAndProductType(
 	for (const product of products) {
 		const matchingPrice = product.prices.find((p) => p.productId === productId);
 		if (matchingPrice)
-			return {
-				planType: matchingPrice.name,
-				productType: product.type,
-			};
+			return { productType: product.type, planType: matchingPrice.name };
 	}
 
 	return null;
@@ -68,9 +65,7 @@ function findPlanAndProductType(
 async function handleOrderPaid(
 	event: ReturnType<typeof validateEvent>,
 ): Promise<{ error?: string; message?: string }> {
-	if (event.type !== "order.paid") {
-		return { error: "Invalid event type" };
-	}
+	if (event.type !== "order.paid") return { error: "Invalid event type" };
 
 	const { data: order } = event;
 	const polarCustomerId = order.customer.id;
@@ -87,7 +82,7 @@ async function handleOrderPaid(
 			error: `No customer found for Polar customer ID: ${polarCustomerId}`,
 		};
 
-	const productId = order.product?.id;
+	const productId = order.productId;
 	if (!productId) return { error: "Product ID not found in order" };
 
 	const planAndProduct = findPlanAndProductType(productId);
