@@ -134,6 +134,7 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 			importEntity: (input) =>
 				importMediaEntityViaWorkflow(input).pipe(
 					Effect.provideService(DbRunner, runWithDb),
+					Effect.provideService(RedisService, redis),
 					Effect.provideService(EntitiesService, entities),
 					Effect.provideService(EntitiesRepository, entitiesRepository),
 					Effect.provideService(RelationshipsService, relationships),

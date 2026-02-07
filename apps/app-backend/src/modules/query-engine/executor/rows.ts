@@ -85,6 +85,7 @@ const compiledWhere = (where: Expr | null, scope: CompileScope): SqlFragment | n
 const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 	userId: string,
 	language: string | null,
+	canonicalByScript: Record<string, string> | null,
 	doc: RowsQueryDocument,
 ) {
 	const { source, output } = doc;
@@ -97,7 +98,7 @@ const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 		return rowsResponse([], output.pagination, 0, offset);
 	}
 
-	const scope = rootScope(source, userId, language);
+	const scope = rootScope(source, userId, language, canonicalByScript);
 	const where = compiledWhere(source.where, scope);
 	const includes = compileIncludes(output.include ?? [], scope, "e");
 	const db = yield* CurrentDb;
@@ -123,6 +124,7 @@ const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 	userId: string,
 	language: string | null,
+	canonicalByScript: Record<string, string> | null,
 	doc: RowsQueryDocument,
 ) {
 	const { source, output } = doc;
@@ -141,7 +143,7 @@ const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 		return rowsResponse([], output.pagination, 0, offset);
 	}
 
-	const scope = rootScope(source, userId, language);
+	const scope = rootScope(source, userId, language, canonicalByScript);
 	const where = compiledWhere(source.where, scope);
 	const includes = compileIncludes(output.include ?? [], scope, "e");
 	const db = yield* CurrentDb;
@@ -174,6 +176,7 @@ const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 const executeRelationshipRowsQuery = Effect.fn("executeRelationshipRowsQuery")(function* (
 	userId: string,
 	language: string | null,
+	canonicalByScript: Record<string, string> | null,
 	doc: RowsQueryDocument,
 ) {
 	const { source, output } = doc;
@@ -189,7 +192,7 @@ const executeRelationshipRowsQuery = Effect.fn("executeRelationshipRowsQuery")(f
 		return rowsResponse([], output.pagination, 0, offset);
 	}
 
-	const scope = rootScope(source, userId, language);
+	const scope = rootScope(source, userId, language, canonicalByScript);
 	const where = compiledWhere(source.where, scope);
 	const db = yield* CurrentDb;
 	const rawRows = yield* dbEffect(() =>
@@ -221,15 +224,16 @@ const executeRelationshipRowsQuery = Effect.fn("executeRelationshipRowsQuery")(f
 export const executeRowsQuery = (
 	userId: string,
 	language: string | null,
+	canonicalByScript: Record<string, string> | null,
 	doc: RowsQueryDocument,
 ): Effect.Effect<RowsResponse, BadRequest | NotFound | DbError, CurrentDb> => {
 	switch (doc.source.type) {
 		case "events":
-			return executeEventRowsQuery(userId, language, doc);
+			return executeEventRowsQuery(userId, language, canonicalByScript, doc);
 		case "relationships":
-			return executeRelationshipRowsQuery(userId, language, doc);
+			return executeRelationshipRowsQuery(userId, language, canonicalByScript, doc);
 		case "entities":
-			return executeEntityRowsQuery(userId, language, doc);
+			return executeEntityRowsQuery(userId, language, canonicalByScript, doc);
 		default:
 			return absurdSourceType(doc.source);
 	}

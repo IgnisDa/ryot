@@ -19,10 +19,19 @@ const SchemaMetadataFieldSelector = strictStruct({
 	name: Schema.Literal("slug", "name", "isBuiltin"),
 }).annotations({ identifier: "SchemaMetadataFieldSelector" });
 
+// A server-derived value that is not a physical column: it is computed in SQL at read time. Valid
+// on the root entity source only (see the validator). `translationStatus` reports the localization
+// state of the row for the session language.
+const SystemComputedFieldSelector = strictStruct({
+	type: Schema.Literal("systemComputed"),
+	name: Schema.Literal("translationStatus"),
+}).annotations({ identifier: "SystemComputedFieldSelector" });
+
 export const FieldSelector = Schema.Union(
 	SystemFieldSelector,
 	PropertyFieldSelector,
 	SchemaMetadataFieldSelector,
+	SystemComputedFieldSelector,
 ).annotations({ identifier: "FieldSelector" });
 export type FieldSelector = typeof FieldSelector.Type;
 

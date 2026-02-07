@@ -3,6 +3,7 @@ import { DateTime, Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/db/service";
 import { SandboxRunError, dieOnDbError, toSandboxRunError } from "#lib/errors";
+import { encodeEntityUpdatedMessage, redisKeys, RedisService } from "#lib/redis";
 import { EntityId, SandboxScriptId } from "#lib/schema/brands";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 
@@ -42,6 +43,7 @@ const runTranslateEntityWorkflow = Effect.fn("runTranslateEntityWorkflow")(funct
 	payload: TranslateEntityWorkflowPayload,
 	executionId: string,
 ) {
+	const redis = yield* RedisService;
 	const runWithDb = yield* DbRunner;
 	const repository = yield* TranslationsRepository;
 
@@ -86,6 +88,11 @@ const runTranslateEntityWorkflow = Effect.fn("runTranslateEntityWorkflow")(funct
 					properties: translation.properties ?? null,
 				}),
 			).pipe(dieOnDbError);
+			// Fans out to sockets interested in this entity so they refetch its now-ready translation.
+			yield* redis.publish(
+				redisKeys.entityUpdatedChannel,
+				encodeEntityUpdatedMessage(payload.entityId, "translated"),
+			);
 		}),
 	});
 });

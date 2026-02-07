@@ -1,10 +1,9 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db/service";
 import { badRequest, notFound } from "#lib/errors";
 import { EntityId, EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
-import { collectTranslatableProperties } from "#lib/schema/property-schema";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { requireText, trimToNull } from "#lib/validation";
 import type { Expr, QueryDocument, RowItem, RowsOutput } from "#modules/query-engine/language";
@@ -18,10 +17,8 @@ import {
 } from "#modules/query-engine/response-helpers";
 import { QueryEngineService } from "#modules/query-engine/service";
 
-import { EntityPopulationTrigger } from "./population-trigger";
 import { EntitiesRepository, type SaveEntityInputBase } from "./repository";
-import type { CreateEntityBody } from "./schemas";
-import { TranslationOverlay } from "./translation-overlay";
+import { TranslationStatus, type CreateEntityBody, type EntityDetail } from "./schemas";
 
 type SaveEntityInput = SaveEntityInputBase & { properties: unknown };
 
@@ -39,6 +36,12 @@ const systemRef = (name: string): Expr => ({
 
 const literalExpr = (value: unknown): Expr => ({ type: "literal", value });
 
+const translationStatusRef: Expr = {
+	type: "ref",
+	sourceAlias: entityAlias,
+	field: { type: "systemComputed", name: "translationStatus" },
+};
+
 const entityFields = [
 	{ key: "id", expr: systemRef("id") },
 	{ key: "name", expr: systemRef("name") },
@@ -49,6 +52,7 @@ const entityFields = [
 	{ key: "populatedAt", expr: systemRef("populatedAt") },
 	{ key: "entitySchemaId", expr: systemRef("entitySchemaId") },
 	{ key: "sandboxScriptId", expr: systemRef("sandboxScriptId") },
+	{ key: "translationStatus", expr: translationStatusRef },
 ] satisfies RowsOutput["fields"];
 
 const buildEntityByIdDocument = (input: { entityId: EntityId; entitySchemaSlug: string }) =>
@@ -93,8 +97,6 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 		const runWithDb = yield* DbRunner;
 		const repository = yield* EntitiesRepository;
 		const queryEngine = yield* QueryEngineService;
-		const translationOverlay = yield* TranslationOverlay;
-		const populationTrigger = yield* EntityPopulationTrigger;
 
 		const save = Effect.fn("EntitiesService.save")(function* (input: SaveEntityInput) {
 			if (input.scope === "user") {
@@ -207,30 +209,14 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 				return yield* notFound(entityNotFoundError);
 			}
 
+			// Localization comes from the query engine's entity source; translation status comes from the
+			// query engine's computed field. Population and translation are driven by client interest.
 			const entity = yield* toListedEntity(row);
+			const translationStatus = yield* Schema.decodeUnknown(TranslationStatus)(
+				yield* requireStringField(row, "translationStatus"),
+			).pipe(Effect.orDie);
 
-			if (
-				entity.populatedAt === null &&
-				entity.externalId !== null &&
-				entity.sandboxScriptId !== null
-			) {
-				yield* populationTrigger.request({
-					userId: user.id,
-					entityId: entity.id,
-					externalId: entity.externalId,
-					entitySchemaId: entity.entitySchemaId,
-					sandboxScriptId: entity.sandboxScriptId,
-				});
-			}
-
-			const overlay = yield* translationOverlay.apply({
-				user,
-				entity,
-				entitySchemaSlug: scope.entitySchemaSlug,
-				translatableKeys: collectTranslatableProperties(scope.propertiesSchema),
-			});
-
-			return { ...overlay.entity, translationStatus: overlay.status };
+			return { ...entity, translationStatus } satisfies EntityDetail;
 		});
 
 		return { save, create, getById };
