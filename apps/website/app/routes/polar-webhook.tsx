@@ -165,7 +165,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const result = await match(event.type)
 		.with("order.paid", () => handleOrderPaid(event))
 		.with("subscription.revoked", () => handleSubscriptionRevoked(event))
-		.otherwise(() => ({ error: "Webhook event not handled" }));
+		.otherwise(() => ({ message: "Webhook event not handled" }));
 
 	return data(result);
 };
