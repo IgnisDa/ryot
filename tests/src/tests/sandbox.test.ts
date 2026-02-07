@@ -60,6 +60,7 @@ describe("sandbox async flow", () => {
 		const { id: scriptId } = await createSandboxScript(client, cookies, {
 			name: "http-call",
 			slug: `http-call-${crypto.randomUUID()}`,
+			metadata: { allowedHostFunctions: ["httpCall"] },
 			code: `driver("main", async function() { return await httpCall("GET", ${JSON.stringify(httpServerUrl)}); });`,
 		});
 		const { jobId } = await enqueueSandboxScript(client, cookies, {
@@ -88,7 +89,7 @@ describe("sandbox async flow", () => {
 		expect(result.error).toBeNull();
 	});
 
-	it("completes a script that uses executeQuery", async () => {
+	it("completes a script that uses appApiCall against query-engine", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { trackerId } = await createTracker(client, cookies, {
 			name: "Sandbox Schema Tracker",
@@ -105,19 +106,22 @@ describe("sandbox async flow", () => {
 			entitySchemaId: schema.id,
 		});
 		const { id: scriptId } = await createSandboxScript(client, cookies, {
-			name: "execute-query",
-			slug: `execute-query-${crypto.randomUUID()}`,
+			name: "app-api-call-query-engine",
+			metadata: { allowedHostFunctions: ["appApiCall"] },
+			slug: `app-api-call-query-engine-${crypto.randomUUID()}`,
 			code: `
 driver("main", async function() {
-  const result = await executeQuery({
-    entitySchemaSlugs: [${JSON.stringify(slug)}],
-    pagination: { page: 1, limit: 10 },
-    sort: { direction: "asc", expression: { type: "reference", reference: { path: ["name"], type: "entity", slug: ${JSON.stringify(slug)} } } }
+  const result = await appApiCall("POST", "/query-engine/execute", {
+    body: {
+      entitySchemaSlugs: [${JSON.stringify(slug)}],
+      pagination: { page: 1, limit: 10 },
+      sort: { direction: "asc", expression: { type: "reference", reference: { path: ["name"], type: "entity", slug: ${JSON.stringify(slug)} } } }
+    }
   });
   if (!result.success) {
     throw new Error(result.error);
   }
-  return result.data.items;
+  return result.data.body.data.items;
 });
 `,
 		});
@@ -148,28 +152,31 @@ driver("main", async function() {
 		expect(value[0]?.id).toBeDefined();
 	});
 
-	it("fails a script that uses executeQuery with a missing schema slug", async () => {
+	it("returns an error when appApiCall hits query-engine with a missing schema slug", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { id: scriptId } = await createSandboxScript(client, cookies, {
-			name: "execute-query-missing-schema",
-			slug: `execute-query-missing-schema-${crypto.randomUUID()}`,
+			name: "app-api-call-missing-schema",
+			metadata: { allowedHostFunctions: ["appApiCall"] },
+			slug: `app-api-call-missing-schema-${crypto.randomUUID()}`,
 			code: `
 driver("main", async function() {
-  const result = await executeQuery({
-    entitySchemaSlugs: ["does-not-exist"],
-    pagination: { page: 1, limit: 10 },
-    sort: {
-      direction: "asc",
-      expression: {
-        type: "reference",
-        reference: { path: ["name"], type: "entity", slug: "does-not-exist" }
+  const result = await appApiCall("POST", "/query-engine/execute", {
+    body: {
+      entitySchemaSlugs: ["does-not-exist"],
+      pagination: { page: 1, limit: 10 },
+      sort: {
+        direction: "asc",
+        expression: {
+          type: "reference",
+          reference: { path: ["name"], type: "entity", slug: "does-not-exist" }
+        }
       }
     }
   });
-  if (!result.success) {
-    throw new Error(result.error);
+  if (result.success) {
+    throw new Error("Expected query-engine request to fail");
   }
-  return result.data.items;
+  throw new Error(JSON.stringify(result.data?.body ?? result.error));
 });
 `,
 		});
@@ -193,6 +200,7 @@ driver("main", async function() {
 		const { id: scriptId } = await createSandboxScript(client, cookies, {
 			name: "get-user-prefs",
 			slug: `get-user-prefs-${crypto.randomUUID()}`,
+			metadata: { allowedHostFunctions: ["getUserPreferences"] },
 			code: `
 driver("main", async function() {
   const result = await getUserPreferences();
@@ -347,6 +355,7 @@ describe("sandbox cache functions", () => {
 		const { id: scriptId } = await createSandboxScript(client, cookies, {
 			name: "cache-round-trip",
 			slug: `cache-round-trip-${crypto.randomUUID()}`,
+			metadata: { allowedHostFunctions: ["setCachedValue", "getCachedValue"] },
 			code: `driver("main", async function() {
   const setResult = await setCachedValue(${JSON.stringify(cacheKey)}, { value: 42 }, 60);
   if (!setResult.success) throw new Error(setResult.error);
@@ -375,6 +384,7 @@ describe("sandbox cache functions", () => {
 		const { id: scriptId } = await createSandboxScript(client, cookies, {
 			name: "cache-miss",
 			slug: `cache-miss-${crypto.randomUUID()}`,
+			metadata: { allowedHostFunctions: ["getCachedValue"] },
 			code: `driver("main", async function() {
   return await getCachedValue(${JSON.stringify(missingKey)});
 });`,
@@ -401,6 +411,7 @@ describe("sandbox cache functions", () => {
 		const { id: writerScriptId } = await createSandboxScript(client, cookies, {
 			name: "cache-writer",
 			slug: `cache-writer-${crypto.randomUUID()}`,
+			metadata: { allowedHostFunctions: ["setCachedValue"] },
 			code: `driver("main", async function() {
   return await setCachedValue(${JSON.stringify(sharedKey)}, { secret: true }, 60);
 });`,
@@ -408,6 +419,7 @@ describe("sandbox cache functions", () => {
 		const { id: readerScriptId } = await createSandboxScript(client, cookies, {
 			name: "cache-reader",
 			slug: `cache-reader-${crypto.randomUUID()}`,
+			metadata: { allowedHostFunctions: ["getCachedValue"] },
 			code: `driver("main", async function() {
   return await getCachedValue(${JSON.stringify(sharedKey)});
 });`,
@@ -454,6 +466,7 @@ describe("sandbox cache functions", () => {
 			{
 				name: "builtin-cache-writer",
 				slug: `builtin-cache-writer-${crypto.randomUUID()}`,
+				metadata: { allowedHostFunctions: ["setCachedValue"] },
 				code: `driver("main", async function() {
   return await setCachedValue(${JSON.stringify(cacheKey)}, { sharedValue: true }, 60);
 });`,
@@ -473,6 +486,7 @@ describe("sandbox cache functions", () => {
 			{
 				name: "builtin-cache-reader",
 				slug: `builtin-cache-reader-${crypto.randomUUID()}`,
+				metadata: { allowedHostFunctions: ["getCachedValue"] },
 				code: `driver("main", async function() {
   return await getCachedValue(${JSON.stringify(cacheKey)});
 });`,
@@ -533,4 +547,120 @@ describe("sandbox enqueue by script ID", () => {
 			true,
 		);
 	}, 30_000);
+
+	it("completes with a host-function error when appApiCall is not allowed", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, cookies, {
+			metadata: {},
+			name: "no-host-functions",
+			slug: `no-host-functions-${crypto.randomUUID()}`,
+			code: `driver("main", async function() {
+  return await appApiCall("GET", "/system/health");
+});`,
+		});
+
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			scriptId,
+			driverName: "main",
+		});
+
+		const result = await pollSandboxResult(client, cookies, jobId);
+		expect(result.status).toBe("completed");
+		if (result.status !== "completed") {
+			throw new Error("Expected sandbox job to complete");
+		}
+
+		expect(result.error).toContain("appApiCall is not defined");
+	});
+
+	it("rejects appApiCall attempts to target /api/auth routes", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, cookies, {
+			name: "app-api-call-auth-route",
+			metadata: { allowedHostFunctions: ["appApiCall"] },
+			slug: `app-api-call-auth-route-${crypto.randomUUID()}`,
+			code: `driver("main", async function() {
+  const result = await appApiCall("GET", "/api/auth/session");
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+  return result.data;
+});`,
+		});
+
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			scriptId,
+			driverName: "main",
+		});
+
+		const result = await pollSandboxResult(client, cookies, jobId);
+		expect(result.status).toBe("completed");
+		if (result.status !== "completed") {
+			throw new Error("Expected sandbox job to complete");
+		}
+
+		expect(result.error).toContain("appApiCall cannot target /api/auth routes");
+	});
+
+	it("rejects appApiCall attempts to target /api/sandbox routes", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, cookies, {
+			name: "app-api-call-sandbox-route",
+			metadata: { allowedHostFunctions: ["appApiCall"] },
+			slug: `app-api-call-sandbox-route-${crypto.randomUUID()}`,
+			code: `driver("main", async function() {
+  const result = await appApiCall("GET", "/api/sandbox/result/123");
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+  return result.data;
+});`,
+		});
+
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			scriptId,
+			driverName: "main",
+		});
+
+		const result = await pollSandboxResult(client, cookies, jobId);
+		expect(result.status).toBe("completed");
+		if (result.status !== "completed") {
+			throw new Error("Expected sandbox job to complete");
+		}
+
+		expect(result.error).toContain(
+			"appApiCall cannot target /api/sandbox routes",
+		);
+	});
+
+	it("rejects appApiCall attempts to target percent-encoded /api/sandbox routes", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, cookies, {
+			name: "app-api-call-encoded-sandbox-route",
+			metadata: { allowedHostFunctions: ["appApiCall"] },
+			slug: `app-api-call-encoded-sandbox-route-${crypto.randomUUID()}`,
+			code: `driver("main", async function() {
+  const result = await appApiCall("GET", "/api/%73andbox/result/123");
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+  return result.data;
+});`,
+		});
+
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			scriptId,
+			driverName: "main",
+		});
+
+		const result = await pollSandboxResult(client, cookies, jobId);
+		expect(result.status).toBe("completed");
+		if (result.status !== "completed") {
+			throw new Error("Expected sandbox job to complete");
+		}
+
+		expect(result.error).toContain(
+			"appApiCall cannot target /api/sandbox routes",
+		);
+	});
 });
