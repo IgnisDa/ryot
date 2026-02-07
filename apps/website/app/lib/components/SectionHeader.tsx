@@ -1,15 +1,16 @@
+import { cn } from "@ryot/ts-utils";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Badge } from "~/lib/components/ui/badge";
 
 type SectionHeaderProps = {
-	title: string | ReactNode;
-	subtitle?: string;
-	description?: string | ReactNode;
-	icon?: LucideIcon;
-	badgeVariant?: "default" | "secondary" | "outline" | "destructive";
-	maxWidth?: string;
 	as?: "h1" | "h2";
+	subtitle?: string;
+	icon?: LucideIcon;
+	maxWidth?: string;
+	title: string | ReactNode;
+	description?: string | ReactNode;
+	badgeVariant?: "default" | "secondary" | "outline" | "destructive";
 };
 
 export const SectionHeader = (props: SectionHeaderProps) => {
@@ -32,7 +33,12 @@ export const SectionHeader = (props: SectionHeaderProps) => {
 			<HeadingTag className={headingClass}>{props.title}</HeadingTag>
 			{props.description && (
 				<p
-					className={`text-lg text-muted-foreground ${maxWidthClass} mx-auto ${typeof props.description === "string" ? "leading-relaxed" : ""}`}
+					className={cn(
+						"text-lg text-muted-foreground",
+						maxWidthClass,
+						"mx-auto",
+						{ "leading-relaxed": typeof props.description === "string" },
+					)}
 				>
 					{props.description}
 				</p>
