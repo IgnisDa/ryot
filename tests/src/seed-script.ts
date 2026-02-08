@@ -22,7 +22,7 @@ import { cookieHeaderFromSetCookies, enableTwoFactorForSession } from "./fixture
 import type { ContractPayload, ContractSuccess } from "./fixtures/contract-client";
 
 type EntitySchemaSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
-type TrackerSlug = string;
+type PluginSlug = string;
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:8000";
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8000/api";
@@ -117,7 +117,7 @@ type SavedViewDisplayConfigInput = {
 type SavedViewSpec = {
 	name: string;
 	icon: string;
-	trackerId?: TrackerSlug;
+	trackerId?: PluginSlug;
 	accentColor: string;
 	queryDocument: SavedViewQueryDocument;
 	displayConfiguration: SavedViewDisplayConfigInput;
@@ -210,39 +210,34 @@ function generateImageUrl(seed: string, width: number, height: number): string {
 	return `https://picsum.photos/seed/${encodeURIComponent(seed)}/${width}/${height}`;
 }
 
-async function createTracker(
-	apiClient: APIClient,
+async function createPluginScope(
+	_apiClient: APIClient,
 	name: string,
 	slug: string,
 	icon: string,
 	accentColor: string,
 	description?: string,
 ) {
-	console.log(`  Creating tracker: ${name}...`);
-	const trackers = await apiClient.run((c) => c.definitions.listTrackers({}));
+	console.log(`  Creating plugin scope: ${name}...`);
 	const definition = {
 		name,
 		slug,
 		icon,
 		accentColor,
 		description: description ?? null,
-		sortOrder: trackers.length,
-		entitySchemaSlugs: [],
+		sortOrder: 0,
 	};
-	await apiClient.runAdmin((c) =>
-		c.testSupport.installDefinitions({ payload: { trackers: [definition] } }),
-	);
-	const tracker = { ...definition, id: slug };
+	const plugin = { ...definition, id: slug };
 
-	console.log(`  ✓ Created tracker: ${name} (${tracker.id})`);
-	return tracker;
+	console.log(`  ✓ Created plugin scope: ${name} (${plugin.id})`);
+	return plugin;
 }
 
 async function createEntitySchema(
 	apiClient: APIClient,
 	name: string,
 	slug: string,
-	trackerSlug: TrackerSlug,
+	pluginSlug: PluginSlug,
 	icon: string,
 	accentColor: string,
 	propertiesSchema: AppSchema,
@@ -253,15 +248,11 @@ async function createEntitySchema(
 		...propertiesSchema,
 		fields: { images: imagesField("Cover and promotional images"), ...propertiesSchema.fields },
 	};
-	const trackers = await apiClient.run((c) => c.definitions.listTrackers({}));
-	const tracker = requirePresent(
-		trackers.find((candidate) => candidate.slug === trackerSlug),
-		`Tracker '${trackerSlug}' not found`,
-	);
 	const definition = {
 		name,
 		slug,
 		icon,
+		pluginSlug,
 		accentColor,
 		propertiesSchema: propertiesSchemaWithImages,
 		eventSchemas: [],
@@ -270,12 +261,6 @@ async function createEntitySchema(
 		c.testSupport.installDefinitions({
 			payload: {
 				entitySchemas: [definition],
-				trackers: [
-					{
-						...tracker,
-						entitySchemaSlugs: [...new Set([...tracker.entitySchemaSlugs, slug])],
-					},
-				],
 			},
 		}),
 	);
@@ -448,7 +433,7 @@ async function createSavedView(
 	accentColor: string,
 	queryDocument: SavedViewQueryDocument,
 	displayConfiguration: SavedViewDisplayConfigInput,
-	trackerId?: TrackerSlug,
+	trackerId?: PluginSlug,
 ) {
 	const sourceSchemas =
 		queryDocument.source.type === "entities"
@@ -559,7 +544,7 @@ async function createSavedView(
 				name,
 				icon,
 				accentColor,
-				trackerSlug: trackerId,
+				pluginSlug: trackerId,
 				queryDocument,
 				displayConfiguration: normalizedDisplayConfiguration,
 			},
@@ -789,7 +774,7 @@ function generatePlacePhoto(): Record<string, unknown> {
 async function seedWhiskeys(client: APIClient) {
 	console.log("\n🥃 Seeding Whiskeys Tracker...");
 
-	const tracker = await createTracker(
+	const tracker = await createPluginScope(
 		client,
 		"Whiskeys",
 		"whiskeys",
@@ -929,7 +914,7 @@ async function seedWhiskeys(client: APIClient) {
 async function seedPlaces(client: APIClient) {
 	console.log("\n📍 Seeding Places Tracker...");
 
-	const tracker = await createTracker(
+	const tracker = await createPluginScope(
 		client,
 		"Places",
 		"places",
@@ -1102,7 +1087,7 @@ async function seedPlaces(client: APIClient) {
 async function seedMobilePhones(client: APIClient) {
 	console.log("\n📱 Seeding Mobile Phones Tracker...");
 
-	const tracker = await createTracker(
+	const tracker = await createPluginScope(
 		client,
 		"Mobile Phones",
 		"mobile-phones",
@@ -1312,33 +1297,28 @@ async function seedMobilePhones(client: APIClient) {
 	};
 }
 
-// ─── Builtin media tracker helpers ─────────────────────────────────────────
+// ─── Builtin media plugin helpers ──────────────────────────────────────────
 
-async function getBuiltinTracker(apiClient: APIClient) {
-	const trackers = await apiClient.run((c) =>
-		c.trackers.list({ urlParams: { includeDisabled: true } }),
+async function getBuiltinWorkspace(apiClient: APIClient) {
+	const workspaces = await apiClient.run((c) =>
+		c.definitions.listWorkspaces({ urlParams: { includeDisabled: true } }),
 	);
 
-	const builtinTracker = trackers[0];
-	if (!builtinTracker) {
-		throw new Error("Built-in media tracker not found");
+	const builtinWorkspace = workspaces[0];
+	if (!builtinWorkspace) {
+		throw new Error("Built-in media plugin workspace not found");
 	}
 
-	return { ...builtinTracker, id: builtinTracker.slug };
+	return { ...builtinWorkspace, id: builtinWorkspace.slug };
 }
 
-async function listMediaEntitySchemas(apiClient: APIClient, trackerSlug: TrackerSlug) {
-	const [schemas, trackers, scripts] = await Promise.all([
+async function listMediaEntitySchemas(apiClient: APIClient, pluginSlug: PluginSlug) {
+	const [schemas, scripts] = await Promise.all([
 		apiClient.run((c) => c.definitions.listEntities({})),
-		apiClient.run((c) => c.definitions.listTrackers({})),
 		apiClient.runAdmin((c) => c.testSupport.listSandboxScripts({ urlParams: {} })),
 	]);
-	const tracker = requirePresent(
-		trackers.find((candidate) => candidate.slug === trackerSlug),
-		`Tracker '${trackerSlug}' not found`,
-	);
 	return schemas
-		.filter((schema) => tracker.entitySchemaSlugs.includes(schema.slug))
+		.filter((schema) => schema.pluginSlug === pluginSlug)
 		.map((schema) => ({
 			...schema,
 			id: schema.slug as EntitySchemaSlug,
@@ -1512,8 +1492,8 @@ function generateEpisodicProgressFields(slug: MediaEntitySchemaSlug): Record<str
 async function seedMedia(client: APIClient) {
 	console.log("\n🎬 Seeding Media Tracker...");
 
-	const builtinTracker = await getBuiltinTracker(client);
-	console.log(`  Found builtin tracker: ${builtinTracker.name} (${builtinTracker.id})`);
+	const builtinTracker = await getBuiltinWorkspace(client);
+	console.log(`  Found builtin plugin: ${builtinTracker.name} (${builtinTracker.id})`);
 
 	const allSchemas = await listMediaEntitySchemas(client, builtinTracker.id);
 	const schemas = allSchemas.filter((s) =>
@@ -1984,9 +1964,9 @@ async function seedCollections(
 
 async function seedSavedViews(
 	client: APIClient,
-	whiskeyTrackerId: TrackerSlug,
-	placesTrackerId: TrackerSlug,
-	phonesTrackerId: TrackerSlug,
+	whiskeyTrackerId: PluginSlug,
+	placesTrackerId: PluginSlug,
+	phonesTrackerId: PluginSlug,
 ) {
 	console.log("\n💾 Seeding Saved Views...");
 

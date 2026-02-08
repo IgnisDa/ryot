@@ -1,6 +1,7 @@
 import { assert, expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { EntityId, EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
+import mediaPlugin from "@ryot/plugin-media";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { Effect, Layer } from "effect";
 
@@ -11,8 +12,9 @@ import { AutomationsService } from "#modules/automations/service";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesService } from "#modules/entities/service";
 import { InterestService } from "#modules/entity-interest/service";
-import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { TranslationsService } from "#modules/entity-translation/service";
+import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxApiService } from "#modules/sandbox/service";
@@ -32,7 +34,7 @@ const mockSandbox = Layer.mock(SandboxApiService);
 const mockAutomations = Layer.mock(AutomationsService);
 const mockTranslations = Layer.mock(TranslationsService);
 const mockRelationships = Layer.mock(RelationshipsService);
-const mockEntitySchemas = Layer.mock(EntitySchemasRepository);
+const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
 const mockRelationshipSchemas = Layer.mock(RelationshipSchemasRepository);
 const workflowEngineLayer = Layer.succeed(
 	WorkflowEngine,
@@ -44,11 +46,13 @@ const makeServiceLayer = (
 		sandbox?: MockOverrides<typeof mockSandbox>;
 		entities?: MockOverrides<typeof mockEntities>;
 		relationships?: MockOverrides<typeof mockRelationships>;
-		entitySchemas?: MockOverrides<typeof mockEntitySchemas>;
+		pluginRuntime?: MockOverrides<typeof mockPluginRuntime>;
 	} = {},
 	definitions = makeDefinitionRegistry(),
-) =>
-	TestSupportService.Default.pipe(
+) => {
+	const loader = makePluginLoader(definitions);
+	loader.load({ manifest: mediaPlugin, sourceHash: "test", scripts: [] });
+	return TestSupportService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				transactionLayer,
@@ -56,17 +60,19 @@ const makeServiceLayer = (
 				mockAutomations({ _tag: "AutomationsService" }),
 				mockSignals({ _tag: "SignalsService" }),
 				Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...definitions }),
+				Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader }),
+				mockPluginRuntime({ _tag: "PluginRuntimeResolver", ...overrides.pluginRuntime }),
 				mockEntities({ _tag: "EntitiesService", ...overrides.entities }),
 				mockSandbox({ _tag: "SandboxApiService", ...overrides.sandbox }),
 				mockInterest({ _tag: "InterestService" }),
 				mockTranslations({ _tag: "TranslationsService" }),
 				mockRelationships({ _tag: "RelationshipsService", ...overrides.relationships }),
-				mockEntitySchemas({ _tag: "EntitySchemasRepository", ...overrides.entitySchemas }),
 				mockRelationshipSchemas({ _tag: "RelationshipSchemasRepository" }),
 				workflowEngineLayer,
 			),
 		),
 	);
+};
 
 it.effect("deletes script-owned rows in order and remains idempotent", () => {
 	const calls: string[] = [];
@@ -85,8 +91,8 @@ it.effect("deletes script-owned rows in order and remains idempotent", () => {
 					return 0;
 				}),
 		},
-		entitySchemas: {
-			deleteSandboxScriptLinks: () =>
+		pluginRuntime: {
+			unregisterTestSchemaScript: () =>
 				Effect.sync(() => {
 					calls.push("links");
 					return 0;
@@ -151,8 +157,8 @@ it.effect("updates populatedAt without changing entity fields", () => {
 			entityId,
 			entitySchemaSlug,
 			name: entity.name,
-			properties: entity.properties,
 			populatedAt: populatedAtDate,
+			properties: entity.properties,
 		});
 	}).pipe(Effect.provide(layer));
 });
@@ -164,16 +170,10 @@ const testEntity = {
 	slug: "test-book",
 	accentColor: "blue",
 	propertiesSchema: emptyPropertiesSchema,
-	eventSchemas: [
-		{
-			name: "Started",
-			slug: "started",
-			propertiesSchema: emptyPropertiesSchema,
-		},
-	],
+	eventSchemas: [{ name: "Started", slug: "started", propertiesSchema: emptyPropertiesSchema }],
 };
 
-it.effect("additively installs entity, relationship, and tracker definitions", () => {
+it.effect("additively installs entity and relationship definitions", () => {
 	const definitions = makeDefinitionRegistry();
 	const layer = makeServiceLayer({}, definitions);
 
@@ -181,24 +181,13 @@ it.effect("additively installs entity, relationship, and tracker definitions", (
 		const service = yield* TestSupportService;
 		yield* service.installDefinitions({
 			entitySchemas: [testEntity],
-			trackers: [
-				{
-					icon: "library",
-					name: "Test Books",
-					slug: "test-books",
-					sortOrder: 10,
-					accentColor: "blue",
-					description: null,
-					entitySchemaSlugs: [testEntity.slug],
-				},
-			],
 			relationshipSchemas: [
 				{
 					name: "Test Related",
 					slug: "test-related",
+					targetEntitySchemaSlug: null,
 					propertiesSchema: emptyPropertiesSchema,
 					sourceEntitySchemaSlug: testEntity.slug,
-					targetEntitySchemaSlug: null,
 				},
 			],
 		});
@@ -206,7 +195,11 @@ it.effect("additively installs entity, relationship, and tracker definitions", (
 		expect(definitions.getEntitySchema("movie")).toBeDefined();
 		expect(definitions.getEntitySchema(testEntity.slug)).toBeDefined();
 		expect(definitions.getRelationshipSchema("test-related")).toBeDefined();
-		expect(definitions.getTracker("test-books")?.description).toBe("");
+		expect(definitions.getEntitySchema(testEntity.slug)?.pluginSlug).toBeNull();
+		expect(definitions.isEntitySchemaBuiltin("movie")).toBe(true);
+		expect(definitions.isEntitySchemaBuiltin(testEntity.slug)).toBe(false);
+		expect(definitions.isRelationshipSchemaBuiltin("in-library")).toBe(true);
+		expect(definitions.isRelationshipSchemaBuiltin("test-related")).toBe(false);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -270,15 +263,13 @@ it.effect("leaves the previous snapshot intact when complete-source validation f
 		const service = yield* TestSupportService;
 		const failure = yield* Effect.flip(
 			service.installDefinitions({
-				trackers: [
+				relationshipSchemas: [
 					{
-						icon: "broken",
 						name: "Broken",
 						slug: "broken",
-						sortOrder: 0,
-						accentColor: "red",
-						description: null,
-						entitySchemaSlugs: ["missing"],
+						targetEntitySchemaSlug: null,
+						sourceEntitySchemaSlug: "missing",
+						propertiesSchema: emptyPropertiesSchema,
 					},
 				],
 			}),
@@ -286,6 +277,6 @@ it.effect("leaves the previous snapshot intact when complete-source validation f
 
 		expect(failure.message).toMatch(/references missing entity schema missing/);
 		expect(definitions.getSnapshot()).toBe(original);
-		expect(definitions.getTracker("broken")).toBeUndefined();
+		expect(definitions.getRelationshipSchema("broken")).toBeUndefined();
 	}).pipe(Effect.provide(layer));
 });

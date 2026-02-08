@@ -1,4 +1,4 @@
-import { builtinMediaEntitySchemaSlugs } from "#modules/builtins/media-schema-slugs";
+import { builtinMediaEntitySchemaSlugs } from "@ryot/plugin-media/schemas/media-schema-slugs";
 
 export const mediaMonitorableEntitySchemaSlugs = [
 	"company",

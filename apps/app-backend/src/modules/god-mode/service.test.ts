@@ -16,7 +16,6 @@ import { NotificationSubscriptionsService } from "#modules/automations/notificat
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
-import { TrackersService } from "#modules/trackers/service";
 
 import { GodModeRepository } from "./repository";
 import { checkResetEligibility, classifyAuthState, GodModeService } from "./service";
@@ -161,10 +160,6 @@ const bootstrapNotificationSubscriptionsServiceLayer = Layer.mock(NotificationSu
 const bootstrapSavedViewsServiceLayer = Layer.mock(SavedViewsService)({
 	_tag: "SavedViewsService",
 });
-const bootstrapTrackersServiceLayer = Layer.mock(TrackersService)({
-	_tag: "TrackersService",
-	list: () => Effect.succeed([]),
-});
 
 const makeServiceLayer = (
 	db: object,
@@ -187,7 +182,6 @@ const makeServiceLayer = (
 				bootstrapEntitiesServiceLayer,
 				bootstrapNotificationSubscriptionsServiceLayer,
 				bootstrapSavedViewsServiceLayer,
-				bootstrapTrackersServiceLayer,
 			),
 		),
 	);
@@ -210,7 +204,6 @@ const makeProvisionLayer = (
 				bootstrapEntitiesServiceLayer,
 				bootstrapNotificationSubscriptionsServiceLayer,
 				bootstrapSavedViewsServiceLayer,
-				bootstrapTrackersServiceLayer,
 			),
 		),
 	);

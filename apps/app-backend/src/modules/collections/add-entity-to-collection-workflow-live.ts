@@ -2,7 +2,7 @@ import { Activity } from "@effect/workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { MembershipResponse } from "@ryot/contract/modules/collections/schemas";
 import { EntityId, EventSchemaSlug } from "@ryot/contract/schema/brands";
-import { Effect, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
 
@@ -22,6 +22,21 @@ const WriteCollectionMembershipResult = Schema.Struct({
 	addEventSchemaSlug: Schema.NullOr(EventSchemaSlug),
 });
 
+type AddEntityToCollectionWorkflowOperationsValue = {
+	writeMembership: CollectionsService["writeMembership"];
+};
+
+export class AddEntityToCollectionWorkflowOperations extends Context.Tag(
+	"AddEntityToCollectionWorkflowOperations",
+)<AddEntityToCollectionWorkflowOperations, AddEntityToCollectionWorkflowOperationsValue>() {}
+
+export const AddEntityToCollectionWorkflowOperationsLive = Layer.effect(
+	AddEntityToCollectionWorkflowOperations,
+	Effect.map(CollectionsService, (collections) => ({
+		writeMembership: collections.writeMembership,
+	})),
+);
+
 export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollectionWorkflow")(
 	function* (payload: AddEntityToCollectionWorkflowPayload, executionId: string) {
 		yield* Effect.annotateCurrentSpan({
@@ -31,13 +46,13 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 			collectionId: payload.collectionId,
 		});
 		const engine = yield* WorkflowEngine;
-		const collections = yield* CollectionsService;
+		const operations = yield* AddEntityToCollectionWorkflowOperations;
 
 		const result = yield* Activity.make({
 			name: "write-collection-membership",
 			success: WriteCollectionMembershipResult,
 			error: AddEntityToCollectionWorkflowError,
-			execute: collections.writeMembership({
+			execute: operations.writeMembership({
 				userId: payload.userId,
 				entityId: payload.entityId,
 				properties: payload.properties,
@@ -52,9 +67,9 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 					executionId: eventExecutionId,
 					discard: true,
 					payload: {
-						executionId: eventExecutionId,
 						origin: "collection",
 						userId: payload.userId,
+						executionId: eventExecutionId,
 						payload: [
 							{
 								occurredAt: result.occurredAt,

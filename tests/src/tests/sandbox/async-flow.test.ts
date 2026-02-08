@@ -8,7 +8,7 @@ import {
 	createEntity,
 	createEntitySchema,
 	createSandboxScript,
-	createTracker,
+	createPluginScope,
 	enqueueSandboxScript,
 	getBackendClient,
 	httpCallSandboxSource,
@@ -152,11 +152,9 @@ describe("sandbox async flow", () => {
 	it.live("completes a script that uses executeQueryEngine", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { trackerSlug } = yield* createTracker(client, {
-				name: "Sandbox Schema Tracker",
-			});
+			const pluginSlug = createPluginScope();
 			const { data: schema, slug } = yield* createEntitySchema(client, {
-				trackerSlug,
+				pluginSlug,
 				name: "Sandbox Schema",
 				slug: `sandbox-schema-${crypto.randomUUID()}`,
 			});

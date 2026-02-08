@@ -10,7 +10,7 @@ import {
 	createMeasurementEntityFixture,
 	executeQueryEngine,
 	findBuiltinSchemaBySlug,
-	findBuiltinTrackerBySlug,
+	findBuiltinWorkspaceBySlug,
 	getEntity,
 	getQueryEngineFieldOrThrow,
 	listEntitySchemas,
@@ -19,19 +19,19 @@ import {
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Measurements E2E", () => {
-	it.live("links the built-in measurement schema to the fitness tracker", () =>
+	it.live("links the built-in measurement schema to the fitness plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessTracker = yield* findBuiltinTrackerBySlug(client, "fitness");
+			const fitnessWorkspace = yield* findBuiltinWorkspaceBySlug(client, "fitness");
 			const schemas = yield* listEntitySchemas(client, {
-				trackerSlug: fitnessTracker.id,
+				pluginSlug: fitnessWorkspace.slug,
 			});
 			const measurementSchema = schemas.find((schema) => schema.slug === "measurement");
 
 			expect(measurementSchema).toBeDefined();
 			expect(measurementSchema?.name).toBe("Measurement");
 			expect(measurementSchema?.isBuiltin).toBe(true);
-			expect(measurementSchema?.trackerSlug).toBe(fitnessTracker.id);
+			expect(measurementSchema?.pluginSlug).toBe(fitnessWorkspace.slug);
 		}),
 	);
 
@@ -66,9 +66,9 @@ describe("Measurements E2E", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const fitnessTracker = yield* findBuiltinTrackerBySlug(client, "fitness");
+				const fitnessWorkspace = yield* findBuiltinWorkspaceBySlug(client, "fitness");
 				const views = yield* listSavedViews(client, {
-					trackerSlug: fitnessTracker.id,
+					pluginSlug: fitnessWorkspace.slug,
 				});
 				const allMeasurementsView = views.find((view) => view.name === "All Measurements");
 
@@ -76,7 +76,7 @@ describe("Measurements E2E", () => {
 				expect(allMeasurementsView).toMatchObject({
 					isBuiltin: true,
 					name: "All Measurements",
-					trackerSlug: fitnessTracker.id,
+					pluginSlug: fitnessWorkspace.slug,
 					queryDocument: {
 						source: { schemas: ["measurement"] },
 						output: {

@@ -1,9 +1,9 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { builtinMediaEntitySchemaSlugs } from "@ryot/plugin-media/schemas/media-schema-slugs";
+import { and, isNotNull, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { sandboxScript } from "#lib/infrastructure/db/schema/tables/combined";
 import { dbEffect, DbService } from "#lib/infrastructure/db/service";
-import { builtinMediaEntitySchemaSlugs } from "#modules/builtins/media-schema-slugs";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { bootstrapNewUser } from "#modules/user-bootstrap/bootstrap";
 
@@ -94,7 +94,15 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		db
 			.select({ id: sandboxScript.id, slug: sandboxScript.slug })
 			.from(sandboxScript)
-			.where(and(isNull(sandboxScript.userId), eq(sandboxScript.isBuiltin, true))),
+			.where(
+				and(
+					isNull(sandboxScript.userId),
+					or(
+						isNotNull(sandboxScript.pluginSlug),
+						and(isNull(sandboxScript.pluginSlug), isNotNull(sandboxScript.contentHash)),
+					),
+				),
+			),
 	);
 
 	const relationshipSchemas = Object.keys(definitions.getSnapshot().relationshipSchemas).map(
