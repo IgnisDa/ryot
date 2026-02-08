@@ -1,0 +1,287 @@
+{
+	"id": "30429509-d778-437f-815b-c8ac7d996221",
+	"prevId": "3aead7b6-a022-49a5-b223-6edc927a3fc8",
+	"version": "7",
+	"dialect": "postgresql",
+	"tables": {
+		"public.contact_submission": {
+			"name": "contact_submission",
+			"schema": "",
+			"columns": {
+				"is_spam": {
+					"name": "is_spam",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"email": {
+					"name": "email",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"message": {
+					"name": "message",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"is_addressed": {
+					"name": "is_addressed",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"ticket_number": {
+					"name": "ticket_number",
+					"type": "bigint",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.customer_purchase": {
+			"name": "customer_purchase",
+			"schema": "",
+			"columns": {
+				"plan_type": {
+					"name": "plan_type",
+					"type": "plan_type",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"product_type": {
+					"name": "product_type",
+					"type": "product_type",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"renew_on": {
+					"name": "renew_on",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"cancelled_on": {
+					"name": "cancelled_on",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"customer_id": {
+					"name": "customer_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_on": {
+					"name": "created_on",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updated_on": {
+					"name": "updated_on",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"customer_purchase_customer_id_idx": {
+					"name": "customer_purchase_customer_id_idx",
+					"columns": [
+						{
+							"expression": "customer_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"customer_purchase_customer_id_customer_id_fk": {
+					"name": "customer_purchase_customer_id_customer_id_fk",
+					"tableFrom": "customer_purchase",
+					"tableTo": "customer",
+					"columnsFrom": ["customer_id"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.customer": {
+			"name": "customer",
+			"schema": "",
+			"columns": {
+				"unkey_key_id": {
+					"name": "unkey_key_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"ryot_user_id": {
+					"name": "ryot_user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"email": {
+					"name": "email",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"oidc_issuer_id": {
+					"name": "oidc_issuer_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"paddle_customer_id": {
+					"name": "paddle_customer_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"polar_customer_id": {
+					"name": "polar_customer_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"payment_provider": {
+					"name": "payment_provider",
+					"type": "payment_provider",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'paddle'"
+				},
+				"created_on": {
+					"name": "created_on",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"customer_email_unique": {
+					"name": "customer_email_unique",
+					"nullsNotDistinct": false,
+					"columns": ["email"]
+				},
+				"customer_oidc_issuer_id_unique": {
+					"name": "customer_oidc_issuer_id_unique",
+					"nullsNotDistinct": false,
+					"columns": ["oidc_issuer_id"]
+				},
+				"customer_paddle_customer_id_unique": {
+					"name": "customer_paddle_customer_id_unique",
+					"nullsNotDistinct": false,
+					"columns": ["paddle_customer_id"]
+				},
+				"customer_polar_customer_id_unique": {
+					"name": "customer_polar_customer_id_unique",
+					"nullsNotDistinct": false,
+					"columns": ["polar_customer_id"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		}
+	},
+	"enums": {
+		"public.payment_provider": {
+			"name": "payment_provider",
+			"schema": "public",
+			"values": ["paddle", "polar"]
+		},
+		"public.plan_type": {
+			"name": "plan_type",
+			"schema": "public",
+			"values": ["free", "monthly", "yearly", "lifetime"]
+		},
+		"public.product_type": {
+			"name": "product_type",
+			"schema": "public",
+			"values": ["cloud", "self_hosted"]
+		}
+	},
+	"schemas": {},
+	"sequences": {
+		"public.ticket_number_seq": {
+			"name": "ticket_number_seq",
+			"schema": "public",
+			"increment": "1",
+			"startWith": "1",
+			"minValue": "1",
+			"maxValue": "9223372036854775807",
+			"cache": "1",
+			"cycle": false
+		}
+	},
+	"roles": {},
+	"policies": {},
+	"views": {},
+	"_meta": {
+		"columns": {},
+		"schemas": {},
+		"tables": {}
+	}
+}

@@ -3,38 +3,21 @@ import {
 	type SubscriptionNotification,
 	type TransactionNotification,
 } from "@paddle/paddle-node-sdk";
-import {
-	GetPasswordChangeSessionDocument,
-	RegisterUserDocument,
-	UpdateUserDocument,
-} from "@ryot/generated/graphql/backend/graphql";
-import PurchaseCompleteEmail, {
-	type PurchaseCompleteEmailProps,
-} from "@ryot/transactional/emails/purchase-complete";
-import { formatDateToNaiveDate } from "@ryot/ts-utils";
-import { Unkey } from "@unkey/api";
-import { and, desc, eq, type InferSelectModel, isNull } from "drizzle-orm";
+import { desc, eq, type InferSelectModel } from "drizzle-orm";
 import { data } from "react-router";
-import { match } from "ts-pattern";
+import { customerPurchases, type customers } from "~/drizzle/schema.server";
+import { getDb, getServerVariables } from "~/lib/config.server";
 import {
-	customerPurchases,
-	customers,
-	type TPlanTypes,
-	type TProductTypes,
-} from "~/drizzle/schema.server";
+	findCustomerByPaddleCustomData,
+	findCustomerByPaddleId,
+} from "~/lib/customer-lookup.server";
 import {
-	GRACE_PERIOD,
-	getDb,
-	getServerGqlService,
-	getServerVariables,
-	paddleCustomDataSchema,
-} from "~/lib/config.server";
+	handlePurchaseOrRenewal,
+	revokePurchase,
+} from "~/lib/provisioning.server";
 import {
-	calculateRenewalDate,
-	createUnkeyKey,
 	getPaddleServerClient,
 	getProductAndPlanTypeByPriceId,
-	sendEmail,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/paddle-webhook";
 
@@ -45,25 +28,6 @@ interface WebhookResponse {
 	message?: string;
 }
 
-async function findCustomerByPaddleId(
-	paddleCustomerId: string,
-): Promise<Customer | null> {
-	return await getDb().query.customers.findFirst({
-		where: eq(customers.paddleCustomerId, paddleCustomerId),
-	});
-}
-
-async function findCustomerByCustomData(
-	customData: unknown,
-): Promise<Customer | null> {
-	const parsed = paddleCustomDataSchema.safeParse(customData);
-	if (!parsed.success) return null;
-
-	return await getDb().query.customers.findFirst({
-		where: eq(customers.id, parsed.data.customerId),
-	});
-}
-
 async function findOrCreateCustomer(
 	paddleCustomerId: string,
 	customData?: unknown,
@@ -71,233 +35,17 @@ async function findOrCreateCustomer(
 	let customer = await findCustomerByPaddleId(paddleCustomerId);
 
 	if (!customer && customData)
-		customer = await findCustomerByCustomData(customData);
+		customer = await findCustomerByPaddleCustomData(customData);
 
-	return customer;
-}
-
-async function getActivePurchase(customerId: string) {
-	return await getDb().query.customerPurchases.findFirst({
-		where: and(
-			eq(customerPurchases.customerId, customerId),
-			isNull(customerPurchases.cancelledOn),
-		),
-	});
-}
-
-async function handleCloudPurchase(customer: NonNullable<Customer>): Promise<{
-	ryotUserId: string;
-	unkeyKeyId: null;
-	details: PurchaseCompleteEmailProps["details"];
-}> {
-	const { email, oidcIssuerId } = customer;
-	const serverVariables = getServerVariables();
-
-	if (customer.ryotUserId) {
-		await getServerGqlService().request(UpdateUserDocument, {
-			input: {
-				isDisabled: false,
-				userId: customer.ryotUserId,
-				adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
-			},
-		});
-		return {
-			ryotUserId: customer.ryotUserId,
-			unkeyKeyId: null,
-			details: {
-				__typename: "cloud",
-				auth: oidcIssuerId ? email : "User reactivated",
-			},
-		};
-	}
-
-	const { registerUser } = await getServerGqlService().request(
-		RegisterUserDocument,
-		{
-			input: {
-				adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
-				data: oidcIssuerId
-					? { oidc: { email: email, issuerId: oidcIssuerId } }
-					: { password: { username: email, password: "" } },
-			},
-		},
-	);
-	if (registerUser.__typename === "RegisterError") {
-		console.error(registerUser);
-		throw new Error("Failed to register user");
-	}
-
-	const auth = oidcIssuerId
-		? email
-		: await getServerGqlService()
-				.request(GetPasswordChangeSessionDocument, {
-					input: {
-						userId: registerUser.id,
-						adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
-					},
-				})
-				.then(({ getPasswordChangeSession }) => ({
-					username: email,
-					passwordChangeUrl: getPasswordChangeSession.passwordChangeUrl,
-				}));
-
-	return {
-		unkeyKeyId: null,
-		ryotUserId: registerUser.id,
-		details: { auth, __typename: "cloud" },
-	};
-}
-
-async function handleSelfHostedPurchase(
-	customer: NonNullable<Customer>,
-	planType: TPlanTypes,
-): Promise<{
-	ryotUserId: null;
-	unkeyKeyId: string;
-	details: PurchaseCompleteEmailProps["details"];
-}> {
-	const serverVariables = getServerVariables();
-	const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
-	const renewalDate = calculateRenewalDate(planType);
-
-	if (customer.unkeyKeyId) {
-		await unkey.keys.updateKey({
-			enabled: true,
-			keyId: customer.unkeyKeyId,
-			meta: renewalDate
-				? {
-						expiry: formatDateToNaiveDate(
-							renewalDate.add(GRACE_PERIOD, "days"),
-						),
-					}
-				: undefined,
-		});
-		return {
-			ryotUserId: null,
-			unkeyKeyId: customer.unkeyKeyId,
-			details: {
-				__typename: "self_hosted",
-				key: "API key reactivated with new expiry",
-			},
-		};
-	}
-
-	const created = await createUnkeyKey(
-		customer,
-		renewalDate ? renewalDate.add(GRACE_PERIOD, "days") : undefined,
-	);
-	return {
-		ryotUserId: null,
-		unkeyKeyId: created.keyId,
-		details: {
-			__typename: "self_hosted",
-			key: created.key,
-		},
-	};
-}
-
-async function processNewPurchase(
-	customer: NonNullable<Customer>,
-	planType: TPlanTypes,
-	productType: TProductTypes,
-	paddleCustomerId: string,
-) {
-	const { ryotUserId, unkeyKeyId, details } = await match(productType)
-		.with("cloud", () => handleCloudPurchase(customer))
-		.with("self_hosted", () => handleSelfHostedPurchase(customer, planType))
-		.exhaustive();
-
-	const renewalDate = calculateRenewalDate(planType);
-	const renewOn = renewalDate ? formatDateToNaiveDate(renewalDate) : undefined;
-
-	const emailElement = PurchaseCompleteEmail({ renewOn, details, planType });
-	if (!emailElement) throw new Error("Failed to create email element");
-
-	await sendEmail({
-		element: emailElement,
-		recipient: customer.email,
-		subject: PurchaseCompleteEmail.subject,
-	});
-
-	await getDb().insert(customerPurchases).values({
-		planType,
-		productType,
-		customerId: customer.id,
-		renewOn: renewalDate?.toDate(),
-	});
-
-	const updateData: {
-		ryotUserId?: string | null;
-		unkeyKeyId?: string | null;
-		paddleCustomerId?: string | null;
-	} = {};
-
-	if (ryotUserId && ryotUserId !== customer.ryotUserId)
-		updateData.ryotUserId = ryotUserId;
-	if (unkeyKeyId && unkeyKeyId !== customer.unkeyKeyId)
-		updateData.unkeyKeyId = unkeyKeyId;
-	if (paddleCustomerId && paddleCustomerId !== customer.paddleCustomerId)
-		updateData.paddleCustomerId = paddleCustomerId;
-
-	if (Object.keys(updateData).length > 0) {
-		await getDb()
-			.update(customers)
-			.set(updateData)
-			.where(eq(customers.id, customer.id));
-	}
-}
-
-async function processRenewal(
-	customer: NonNullable<Customer>,
-	planType: TPlanTypes,
-	productType: TProductTypes,
-	activePurchase: InferSelectModel<typeof customerPurchases>,
-) {
-	const serverVariables = getServerVariables();
-	const renewalDate = calculateRenewalDate(planType);
-	await getDb()
-		.update(customerPurchases)
-		.set({
-			planType,
-			productType,
-			updatedOn: new Date(),
-			renewOn: renewalDate?.toDate(),
-		})
-		.where(eq(customerPurchases.id, activePurchase.id));
-
-	if (customer.ryotUserId) {
-		await getServerGqlService().request(UpdateUserDocument, {
-			input: {
-				isDisabled: false,
-				userId: customer.ryotUserId,
-				adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
-			},
-		});
-	}
-
-	if (customer.unkeyKeyId) {
-		const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
-		const renewal = calculateRenewalDate(planType);
-
-		await unkey.keys.updateKey({
-			enabled: true,
-			keyId: customer.unkeyKeyId,
-			meta: renewal
-				? {
-						expiry: formatDateToNaiveDate(renewal.add(GRACE_PERIOD, "days")),
-					}
-				: undefined,
-		});
-	}
+	return customer ?? null;
 }
 
 async function handleTransactionCompleted(
 	paddleData: TransactionNotification,
 ): Promise<WebhookResponse> {
 	const paddleCustomerId = paddleData.customerId;
-	if (!paddleCustomerId) {
+	if (!paddleCustomerId)
 		return { error: "No customer ID found in transaction completed event" };
-	}
 
 	console.log("Received transaction completed event", { paddleCustomerId });
 
@@ -305,31 +53,20 @@ async function handleTransactionCompleted(
 		paddleCustomerId,
 		paddleData.customData,
 	);
-	if (!customer) {
+	if (!customer)
 		return { error: `No customer found for customer ID: ${paddleCustomerId}` };
-	}
 
-	const activePurchase = await getActivePurchase(customer.id);
 	const priceId = paddleData.details?.lineItems?.at(0)?.priceId;
 	if (!priceId) return { error: "Price ID not found" };
 
 	const { planType, productType } = getProductAndPlanTypeByPriceId(priceId);
 
-	if (!activePurchase) {
-		console.log("Customer purchased plan:", {
-			paddleCustomerId,
-			productType,
-			planType,
-		});
-		await processNewPurchase(customer, planType, productType, paddleCustomerId);
-	} else {
-		console.log("Customer renewed plan:", {
-			paddleCustomerId,
-			productType,
-			planType,
-		});
-		await processRenewal(customer, planType, productType, activePurchase);
-	}
+	await handlePurchaseOrRenewal(
+		customer,
+		planType,
+		productType,
+		paddleCustomerId,
+	);
 
 	return { message: "Transaction completed successfully" };
 }
@@ -343,29 +80,7 @@ async function handleSubscriptionCancelled(
 	const customer = await findCustomerByPaddleId(customerId);
 	if (!customer) return { message: "No customer found" };
 
-	await getDb()
-		.update(customerPurchases)
-		.set({
-			cancelledOn: new Date(),
-			updatedOn: new Date(),
-		})
-		.where(
-			and(
-				eq(customerPurchases.customerId, customer.id),
-				isNull(customerPurchases.cancelledOn),
-			),
-		);
-
-	if (customer.ryotUserId) {
-		const serverVariables = getServerVariables();
-		await getServerGqlService().request(UpdateUserDocument, {
-			input: {
-				isDisabled: true,
-				userId: customer.ryotUserId,
-				adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
-			},
-		});
-	}
+	await revokePurchase(customer);
 
 	return { message: "Subscription cancelled successfully" };
 }
@@ -380,11 +95,11 @@ async function handleSubscriptionResumed(
 	if (!customer) return { message: "No customer found" };
 
 	const cancelledPurchase = await getDb().query.customerPurchases.findFirst({
-		where: and(eq(customerPurchases.customerId, customer.id)),
 		orderBy: [desc(customerPurchases.createdOn)],
+		where: eq(customerPurchases.customerId, customer.id),
 	});
 
-	if (cancelledPurchase) {
+	if (cancelledPurchase)
 		await getDb()
 			.update(customerPurchases)
 			.set({
@@ -392,7 +107,6 @@ async function handleSubscriptionResumed(
 				updatedOn: new Date(),
 			})
 			.where(eq(customerPurchases.id, cancelledPurchase.id));
-	}
 
 	return { message: "Subscription resumed successfully" };
 }
@@ -416,19 +130,19 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 	let result: WebhookResponse;
 
-	if (eventType === EventName.TransactionCompleted) {
+	if (eventType === EventName.TransactionCompleted)
 		result = await handleTransactionCompleted(paddleData);
-	} else if (
+	else if (
 		eventType === EventName.SubscriptionCanceled ||
 		eventType === EventName.SubscriptionPaused ||
 		eventType === EventName.SubscriptionPastDue
-	) {
+	)
 		result = await handleSubscriptionCancelled(paddleData);
-	} else if (eventType === EventName.SubscriptionResumed) {
+	else if (eventType === EventName.SubscriptionResumed)
 		result = await handleSubscriptionResumed(paddleData);
-	} else {
-		result = { message: "Webhook event not handled" };
-	}
+	else result = { message: "Webhook event not handled" };
+
+	console.log("Webhook handling result:", result);
 
 	return data(result);
 };

@@ -5,6 +5,7 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { customers } from "~/drizzle/schema.server";
 import {
+	assignPaymentProvider,
 	getDb,
 	getOauthCallbackUrl,
 	websiteAuthCookie,
@@ -30,9 +31,10 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	});
 	const customerId = await match(alreadyCustomer)
 		.with(undefined, async () => {
+			const paymentProvider = assignPaymentProvider(email);
 			const dbCustomer = await getDb()
 				.insert(customers)
-				.values({ email, oidcIssuerId: claims.sub })
+				.values({ email, paymentProvider, oidcIssuerId: claims.sub })
 				.returning({ id: customers.id })
 				.onConflictDoUpdate({
 					target: customers.oidcIssuerId,

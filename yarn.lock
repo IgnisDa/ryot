@@ -5876,6 +5876,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@polar-sh/sdk@npm:0.42.5":
+  version: 0.42.5
+  resolution: "@polar-sh/sdk@npm:0.42.5"
+  dependencies:
+    standardwebhooks: "npm:^1.0.0"
+    zod: "npm:^3.25.65 || ^4.0.0"
+  checksum: 10/49f9fade64079c165733a3f703c024bd9dfbd294a2b7504dbe5f8b8b03d39f54817859282f69724bd99df041c42bdb71152c069c03cd8481fd029c0c11606b83
+  languageName: node
+  linkType: hard
+
 "@protobufjs/aspromise@npm:^1.1.1, @protobufjs/aspromise@npm:^1.1.2":
   version: 1.1.2
   resolution: "@protobufjs/aspromise@npm:1.1.2"
@@ -7169,6 +7179,7 @@ __metadata:
     "@marsidev/react-turnstile": "npm:1.4.1"
     "@paddle/paddle-js": "npm:1.6.1"
     "@paddle/paddle-node-sdk": "npm:3.5.0"
+    "@polar-sh/sdk": "npm:0.42.5"
     "@radix-ui/react-label": "npm:2.1.8"
     "@radix-ui/react-slot": "npm:1.2.4"
     "@react-email/components": "npm:1.0.6"
@@ -7981,6 +7992,13 @@ __metadata:
   version: 3.1.2
   resolution: "@socket.io/component-emitter@npm:3.1.2"
   checksum: 10/89888f00699eb34e3070624eb7b8161fa29f064aeb1389a48f02195d55dd7c52a504e52160016859f6d6dffddd54324623cdd47fd34b3d46f9ed96c18c456edc
+  languageName: node
+  linkType: hard
+
+"@stablelib/base64@npm:^1.0.0":
+  version: 1.0.1
+  resolution: "@stablelib/base64@npm:1.0.1"
+  checksum: 10/93f3edb05d5a828a775d23ebde49884abeb456b8946942acbe6a0815630e769c59c06c7275983031c8707bdcefc1c62917aaa99522ff1ec5f457704c83b686da
   languageName: node
   linkType: hard
 
@@ -12592,6 +12610,13 @@ __metadata:
   version: 3.5.0
   resolution: "fast-redact@npm:3.5.0"
   checksum: 10/24b27e2023bd5a62f908d97a753b1adb8d89206b260f97727728e00b693197dea2fc2aa3711147a385d0ec6e713569fd533df37a4ef947e08cb65af3019c7ad5
+  languageName: node
+  linkType: hard
+
+"fast-sha256@npm:^1.3.0":
+  version: 1.3.0
+  resolution: "fast-sha256@npm:1.3.0"
+  checksum: 10/3bef0491f10a254348ec11dcddb26e4d951cfd3b4c0662ea5843ad1be3fe184ed74d640df68565fcc60f6437548cddf49e3ac886f88a69e05b5142e862840bf9
   languageName: node
   linkType: hard
 
@@ -18697,6 +18722,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"standardwebhooks@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "standardwebhooks@npm:1.0.0"
+  dependencies:
+    "@stablelib/base64": "npm:^1.0.0"
+    fast-sha256: "npm:^1.3.0"
+  checksum: 10/02b74a3e4cd131affe8bf18945360747a5a0bf81c1d62a7bbbea3d40976b4fef4bb37de71a35cdc0fdc4d6f0d951a3b6031052e78bd086dc9b09b629b82d3919
+  languageName: node
+  linkType: hard
+
 "statuses@npm:2.0.1":
   version: 2.0.1
   resolution: "statuses@npm:2.0.1"
@@ -21347,7 +21382,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:4.3.6":
+"zod@npm:4.3.6, zod@npm:^3.25.65 || ^4.0.0":
   version: 4.3.6
   resolution: "zod@npm:4.3.6"
   checksum: 10/25fc0f62e01b557b4644bf0b393bbaf47542ab30877c37837ea8caf314a8713d220c7d7fe51f68ffa72f0e1018ddfa34d96f1973d23033f5a2a5a9b6b9d9da01

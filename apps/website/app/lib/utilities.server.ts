@@ -1,12 +1,12 @@
 import { Environment, Paddle } from "@paddle/paddle-node-sdk";
 import { render } from "@react-email/components";
 import { formatDateToNaiveDate } from "@ryot/ts-utils/index";
-import { Unkey } from "@unkey/api";
 import dayjs, { type Dayjs } from "dayjs";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { createTransport } from "nodemailer";
 import * as openidClient from "openid-client";
 import type { ReactElement } from "react";
+import { data } from "react-router";
 import { match } from "ts-pattern";
 import z from "zod";
 import type { TPlanTypes } from "~/drizzle/schema.server";
@@ -15,6 +15,7 @@ import {
 	getDb,
 	getPrices,
 	getServerVariables,
+	getUnkeyClient,
 	IS_DEVELOPMENT_ENV,
 	websiteAuthCookie,
 } from "./config.server";
@@ -157,8 +158,8 @@ export const createUnkeyKey = async (
 	customer: typeof schema.customers.$inferSelect,
 	renewOn?: Dayjs,
 ) => {
+	const unkey = getUnkeyClient();
 	const serverVariables = getServerVariables();
-	const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
 	const created = await unkey.keys.createKey({
 		name: customer.email,
 		externalId: customer.id,
@@ -189,10 +190,23 @@ export const verifyTurnstileToken = async (input: {
 			},
 		);
 
-		const data = await response.json();
-		return data.success === true;
+		const jsonData = await response.json();
+		return jsonData.success === true;
 	} catch (error) {
 		console.error("Turnstile verification error:", error);
 		return false;
+	}
+};
+
+export const validateTurnstile = async (request: Request, token: string) => {
+	const isTurnstileValid = await verifyTurnstileToken({
+		token,
+		remoteIp: getClientIp(request),
+	});
+	if (!isTurnstileValid) {
+		throw data(
+			{ message: "CAPTCHA verification failed. Please try again." },
+			{ status: 400 },
+		);
 	}
 };
