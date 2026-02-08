@@ -32,24 +32,22 @@ const TESTIMONIALS: Testimonial[] = [
 	},
 ];
 
-export const TestimonialsSection = () => {
-	return (
-		<section className="py-20">
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-				<SectionHeader
-					icon={Users}
-					subtitle="Social Proof"
-					title="Trusted by Thousands"
-					maxWidth="max-w-2xl"
-					description="Join the growing community of people who have transformed their personal tracking experience with Ryot."
-				/>
+export const TestimonialsSection = () => (
+	<section className="py-20">
+		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+			<SectionHeader
+				icon={Users}
+				maxWidth="max-w-2xl"
+				subtitle="Social Proof"
+				title="Trusted by Thousands"
+				description="Join the growing community of people who have transformed their personal tracking experience with Ryot."
+			/>
 
-				<div className="grid md:grid-cols-3 gap-8">
-					{TESTIMONIALS.map((testimonial) => (
-						<TestimonialCard key={testimonial.name} testimonial={testimonial} />
-					))}
-				</div>
+			<div className="grid md:grid-cols-3 gap-8">
+				{TESTIMONIALS.map((testimonial) => (
+					<TestimonialCard key={testimonial.name} testimonial={testimonial} />
+				))}
 			</div>
-		</section>
-	);
-};
+		</div>
+	</section>
+);
