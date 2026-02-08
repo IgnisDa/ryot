@@ -62,7 +62,7 @@ export const resolveMediaEntityGroups = Effect.fn("resolveMediaEntityGroups")(fu
 			execute: Effect.forEach(
 				candidates,
 				(scriptSlug) =>
-					runWithDb(entitiesRepository.findEntitySchemaScriptBySlug(scriptSlug)).pipe(
+					runWithDb(entitiesRepository.findEntitySchemaSandboxScriptBySlug(scriptSlug)).pipe(
 						Effect.map((script) => ({
 							scriptSlug,
 							sandboxScriptId: script?.sandboxScriptId ?? null,

@@ -23,14 +23,14 @@ export class MediaTrendingRepository extends Effect.Service<MediaTrendingReposit
 								entitySchemaId: schema.entitySchema.id,
 								entitySchemaSlug: schema.entitySchema.slug,
 							})
-							.from(schema.entitySchemaScript)
+							.from(schema.entitySchemaSandboxScript)
 							.innerJoin(
 								schema.entitySchema,
-								eq(schema.entitySchema.id, schema.entitySchemaScript.entitySchemaId),
+								eq(schema.entitySchema.id, schema.entitySchemaSandboxScript.entitySchemaId),
 							)
 							.innerJoin(
 								schema.sandboxScript,
-								eq(schema.sandboxScript.id, schema.entitySchemaScript.sandboxScriptId),
+								eq(schema.sandboxScript.id, schema.entitySchemaSandboxScript.sandboxScriptId),
 							)
 							.where(
 								and(
