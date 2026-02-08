@@ -71,7 +71,7 @@ export const propertyRef: (
 
 export const schemaMetaRef: (
 	alias: string,
-	name: "slug" | "name" | "isBuiltin",
+	name: "slug" | "name",
 ) => QueryEngineRowsOutput["orderBy"][number]["expr"] = queryEngineSchemaRef;
 
 export const literalExpr: (value: unknown) => QueryEngineRowsOutput["orderBy"][number]["expr"] =
@@ -88,14 +88,14 @@ export const buildEntityRowsQueryDocument = (input: {
 	where?: Extract<QueryEnginePayload["source"], { type: "entities" }>["where"];
 }): QueryEnginePayload => ({
 	...buildQueryEngineEntityRowsDocument({
-		alias: input.alias,
 		page: input.page,
+		alias: input.alias,
 		limit: input.limit,
-		schemas: input.schemas,
 		where: input.where,
-		fields: input.fields ?? [],
+		schemas: input.schemas,
 		include: input.include,
 		orderBy: input.orderBy,
+		fields: input.fields ?? [],
 	}),
 });
 
