@@ -14,7 +14,7 @@ Before starting, read `docs/plans/plugin-system/00-overview.md` in full and then
 
 This is Phase 3's second prerequisite (plan Step 0b). No domain code moves here. Add `log` and
 `span` as batch-first Effect host functions following the existing host-function contract pattern
-(`libs/sandbox-sdk` contract + `bridge-adapter.ts` validation + `host-functions.ts`
+(`packages/sandbox-sdk` contract + `bridge-adapter.ts` validation + `host-functions.ts`
 implementation + limits entry), threading structured output into the execution's OTLP trace and
 `subscription_run`-style bookkeeping. Capability gating, bridge validation, bounded artifacts,
 and focused tests must follow the same conventions as every other host function.
