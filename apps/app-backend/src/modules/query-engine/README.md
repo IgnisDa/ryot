@@ -816,7 +816,3 @@ Common validation failures are reported with direct payload-oriented messages:
 - Dependency cycle: `Computed field dependency cycle detected: first -> second -> first`
 - Type mismatch: `Filter operator 'eq' requires compatible expression types, received 'integer' and 'string'`
 - Non-display image usage: `Image expressions are display-only and cannot be used in sorting`
-
-## Copy-Paste Starters
-
-See the four complete examples under [Query Examples](#query-examples). Every payload should use `sort.expression`, optional top-level `filter`, and per-field `expression` nodes. All `RuntimeRef` objects in those examples are ready to use as-is in a real request body.
