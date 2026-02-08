@@ -11,9 +11,9 @@ import { makeImporterConfig } from "../runtime/importer-config";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 import { mediaEntityGroupItemIndex } from "./groups";
 import { getResolutionCandidates } from "./resolution-candidates";
+import { ResolutionCandidate, type ProgressReporter } from "./shared-workflow";
 import type { ImportEntityRef, ImportMediaEntityGroup } from "./types";
-import { ResolutionCandidate, type ProgressReporter } from "./workflow-shared";
-import { MediaImportWorkflowOperations } from "./workflow-types";
+import { MediaImportWorkflowOperations } from "./types-workflow";
 
 export const resolveMediaEntityGroups = Effect.fn("resolveMediaEntityGroups")(function* (input: {
 	executionId: string;
