@@ -13,7 +13,12 @@ import {
 	type TPlanTypes,
 	type TProductTypes,
 } from "~/drizzle/schema.server";
-import { getCancellation, setCancellation } from "~/lib/caches.server";
+import {
+	getCancellation,
+	getPurchaseInProgress,
+	setCancellation,
+	setPurchaseInProgress,
+} from "~/lib/caches.server";
 import Pricing from "~/lib/components/Pricing";
 import { Button } from "~/lib/components/ui/button";
 import { Card } from "~/lib/components/ui/card";
@@ -44,8 +49,10 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 
 	const serverVariables = getServerVariables();
 	const isCancelling = getCancellation(customerDetails.id);
+	const isPurchaseInProgress = getPurchaseInProgress(customerDetails.id);
 	return {
 		isCancelling,
+		isPurchaseInProgress,
 		customerDetails,
 		prices: getPrices(),
 		renewOn: customerDetails.renewOn,
@@ -203,6 +210,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 			if (!productId) throw new Error("Polar product not found");
 
+			setPurchaseInProgress(customer.id);
+
 			const polar = getPolarClient();
 			const frontendUrl = serverVariables.FRONTEND_URL;
 			const checkout = await polar.checkouts.create({
@@ -213,6 +222,10 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 
 			return redirect(checkout.url);
+		})
+		.with("checkoutPaddle", async () => {
+			if (!customer) throw new Error("No customer found");
+			setPurchaseInProgress(customer.id);
 		})
 		.with("logout", async () => {
 			const cookies = await websiteAuthCookie.serialize("", {
@@ -241,13 +254,8 @@ export default function Index() {
 				if (paddleInstance) {
 					paddleInstance.Update({
 						eventCallback: (data) => {
-							if (data.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
+							if (data.name === CheckoutEventNames.CHECKOUT_COMPLETED)
 								paddleInstance.Checkout.close();
-								toast.loading(
-									"Purchase successful. Your order will be shipped shortly.",
-								);
-								setTimeout(() => window.location.reload(), 10000);
-							}
 						},
 					});
 					setPaddle(paddleInstance);
@@ -255,8 +263,8 @@ export default function Index() {
 			});
 	}, [
 		paddle,
-		loaderData.clientToken,
 		loaderData.isSandbox,
+		loaderData.clientToken,
 		loaderData.customerDetails.paddleCustomerId,
 	]);
 
@@ -268,6 +276,14 @@ export default function Index() {
 					className="mx-auto mt-6 w-full max-w-md rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
 				>
 					Cancellation in progress. This can take a minute to sync.
+				</div>
+			) : null}
+			{loaderData.isPurchaseInProgress ? (
+				<div
+					role="alert"
+					className="mx-auto mt-6 w-full max-w-md rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"
+				>
+					Purchase in progress. This can take a minute to sync.
 				</div>
 			) : null}
 			{!loaderData.customerDetails.hasCancelled &&
@@ -376,6 +392,11 @@ export default function Index() {
 							return;
 						}
 
+						const formData = new FormData();
+						fetcher.submit(formData, {
+							method: "POST",
+							action: withQuery(".", { intent: "checkoutPaddle" }),
+						});
 						paddle?.Checkout.open({
 							items: [{ priceId, quantity: 1 }],
 							settings: paddleCustomerId ? { allowLogout: false } : undefined,

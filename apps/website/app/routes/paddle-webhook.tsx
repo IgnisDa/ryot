@@ -6,7 +6,10 @@ import {
 import { desc, eq, type InferSelectModel } from "drizzle-orm";
 import { data } from "react-router";
 import { customerPurchases, type customers } from "~/drizzle/schema.server";
-import { revokeCancellation } from "~/lib/caches.server";
+import {
+	revokeCancellation,
+	revokePurchaseInProgress,
+} from "~/lib/caches.server";
 import { getDb, getServerVariables } from "~/lib/config.server";
 import {
 	findCustomerByPaddleCustomData,
@@ -68,6 +71,7 @@ async function handleTransactionCompleted(
 		productType,
 		paddleCustomerId,
 	);
+	revokePurchaseInProgress(customer.id);
 
 	return { message: "Transaction completed successfully" };
 }

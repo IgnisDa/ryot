@@ -2,7 +2,10 @@ import { validateEvent } from "@polar-sh/sdk/webhooks";
 import { data } from "react-router";
 import { match } from "ts-pattern";
 import type { TPlanTypes, TProductTypes } from "~/drizzle/schema.server";
-import { revokeCancellation } from "~/lib/caches.server";
+import {
+	revokeCancellation,
+	revokePurchaseInProgress,
+} from "~/lib/caches.server";
 import { getPolarProducts, getPolarWebhookSecret } from "~/lib/config.server";
 import {
 	findCustomerById,
@@ -76,6 +79,7 @@ async function handleOrderPaid(
 		productType,
 		polarCustomerId,
 	);
+	revokePurchaseInProgress(customer.id);
 
 	return { message: "Order processed successfully" };
 }
