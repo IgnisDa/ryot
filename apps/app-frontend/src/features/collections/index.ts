@@ -17,7 +17,6 @@ export {
 	getMembershipFormReconciliationState,
 	getMembershipPropertyEntries,
 	getSelectedCollection,
-	getUnsupportedRequiredProperties,
 	reconcileMembershipProperties,
 	syncMembershipFormValues,
 	toMembershipPayload,

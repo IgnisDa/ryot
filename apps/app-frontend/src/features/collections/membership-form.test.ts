@@ -3,6 +3,7 @@ import {
 	createAppCollectionFixture,
 	createEntityFixture,
 } from "~/features/test-fixtures";
+import { getUnsupportedRequiredProperties } from "../property-schemas/primitive-schema-utils";
 import {
 	buildCollectionSelectionPatch,
 	buildDefaultMembershipFormValues,
@@ -12,7 +13,6 @@ import {
 	getMembershipFormReconciliationState,
 	getMembershipPropertyEntries,
 	getSelectedCollection,
-	getUnsupportedRequiredProperties,
 	reconcileMembershipProperties,
 	syncMembershipFormValues,
 	toMembershipPayload,

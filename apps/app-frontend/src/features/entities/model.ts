@@ -1,15 +1,9 @@
-import {
-	createEntityColumnExpression,
-	createEntityPropertyExpression,
-	dayjs,
-} from "@ryot/ts-utils";
+import { createEntityColumnExpression, dayjs } from "@ryot/ts-utils";
 import type {
 	ApiGetResponseData,
 	ApiPostRequestBody,
 	ApiPostResponseData,
 } from "~/lib/api/types";
-
-export { createEntityColumnExpression, createEntityPropertyExpression };
 
 type QueryEngineRequest = ApiPostRequestBody<"/query-engine/execute">;
 type ApiEntity = ApiGetResponseData<"/entities/{entityId}">;
