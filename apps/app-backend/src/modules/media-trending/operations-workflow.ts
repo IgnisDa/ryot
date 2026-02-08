@@ -1,16 +1,18 @@
 import * as PersistedQueue from "@effect/experimental/PersistedQueue";
-import { DurableQueue } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError, toSandboxRunError } from "@ryot/contract/errors";
 import type { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
-import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { processSandboxExecution } from "#modules/sandbox/durable-queues";
+import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { decodeTrendingDriverResult, type TrendingDriverItem } from "./schemas";
 
 const fetchSandboxTrending = (input: { scriptId: SandboxScriptId; executionId: string }) =>
-	DurableQueue.process(SandboxExecutionQueue, {
+	processSandboxExecution({
 		context: {},
 		userId: null,
 		driverName: "trending",
@@ -53,14 +55,19 @@ export class MediaTrendingWorkflowOperations extends Context.Tag("MediaTrendingW
 
 export const MediaTrendingWorkflowOperationsLive = Layer.effect(
 	MediaTrendingWorkflowOperations,
-	Effect.map(
-		PersistedQueue.PersistedQueueFactory,
-		(queueFactory) =>
-			({
-				fetchTrending: (input) =>
-					fetchSandboxTrending(input).pipe(
-						Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
-					),
-			}) satisfies MediaTrendingWorkflowOperationsValue,
-	),
+	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const repository = yield* SandboxRepository;
+		const pluginRuntime = yield* PluginRuntimeResolver;
+		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
+		return {
+			fetchTrending: (input) =>
+				fetchSandboxTrending(input).pipe(
+					Effect.provideService(DbRunner, runWithDb),
+					Effect.provideService(SandboxRepository, repository),
+					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
+					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
+				),
+		} satisfies MediaTrendingWorkflowOperationsValue;
+	}),
 );

@@ -1,5 +1,3 @@
-import fitnessPlugin from "@ryot/plugin-fitness";
-import mediaPlugin from "@ryot/plugin-media";
 import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Effect } from "effect";
@@ -7,13 +5,12 @@ import { Effect } from "effect";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { kernelScripts } from "#modules/definition-registry/kernel-source";
 
+import { bootPluginSources } from "./boot-sources";
 import { PluginRepository } from "./repository";
 import { PluginIngestionService } from "./service";
+import { loadPluginSource } from "./source";
 
 const digest = (value: string) => new Bun.CryptoHasher("sha256").update(value).digest("hex");
-
-const packageRoot = (name: "fitness" | "media") =>
-	new URL(`../../../../../plugins/${name}/`, import.meta.url).pathname;
 
 export class FirstPartyPluginBootstrap extends Effect.Service<FirstPartyPluginBootstrap>()(
 	"FirstPartyPluginBootstrap",
@@ -63,14 +60,11 @@ export class FirstPartyPluginBootstrap extends Effect.Service<FirstPartyPluginBo
 			const ingest = Effect.fn("FirstPartyPluginBootstrap.ingest")(function* () {
 				yield* ingestion.rebuild();
 				yield* ingestKernelScripts();
-				yield* ingestion.ingestPlugin({
-					manifest: mediaPlugin,
-					packageRoot: packageRoot("media"),
-				});
-				yield* ingestion.ingestPlugin({
-					manifest: fitnessPlugin,
-					packageRoot: packageRoot("fitness"),
-				});
+				for (const source of bootPluginSources) {
+					yield* loadPluginSource(source.packageRoot, source.manifest).pipe(
+						Effect.flatMap(ingestion.ingestPlugin),
+					);
+				}
 			});
 
 			yield* ingest();

@@ -2,7 +2,7 @@ import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands"
 import { DateTime, Effect } from "effect";
 
 import {
-	cleanupBuiltinProviderScript,
+	uninstallTestProvider,
 	createAuthenticatedClient,
 	enqueueEntityImport,
 	enqueueEntitySearch,
@@ -15,8 +15,8 @@ import {
 	getRelationshipBySchemaSlug,
 	pollEntityImportResult,
 	pollEntitySearchResult,
-	seedBuiltinProviderScript,
-	type SeededProviderScript,
+	installTestProvider,
+	type InstalledProviderScript,
 } from "~/fixtures";
 import {
 	assertCompleted,
@@ -32,9 +32,9 @@ const ANIME_IMPORT_NAME = "E2E Imported Anime";
 const RELATED_COMPANY_NAME = "E2E Studio";
 const RELATED_COMPANY_EXTERNAL_ID = "e2e-company-1";
 
-let bookProvider: SeededProviderScript;
-let animeProvider: SeededProviderScript;
-let companyProvider: SeededProviderScript;
+let bookProvider: InstalledProviderScript;
+let animeProvider: InstalledProviderScript;
+let companyProvider: InstalledProviderScript;
 
 const bookScriptId = () => SandboxScriptId.make(bookProvider.scriptId);
 
@@ -44,7 +44,7 @@ beforeAll(async () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema: companySchema } = yield* findBuiltinSchemaBySlug(client, "company");
 
-			companyProvider = yield* seedBuiltinProviderScript({
+			companyProvider = yield* installTestProvider({
 				client,
 				linkToEntitySchemaSlug: companySchema.id,
 				drivers: {
@@ -52,7 +52,7 @@ beforeAll(async () => {
 				},
 			});
 
-			animeProvider = yield* seedBuiltinProviderScript({
+			animeProvider = yield* installTestProvider({
 				client,
 				drivers: {
 					details: fakeProviderDetailsResult({
@@ -77,7 +77,7 @@ beforeAll(async () => {
 				},
 			});
 
-			bookProvider = yield* seedBuiltinProviderScript({
+			bookProvider = yield* installTestProvider({
 				client,
 				drivers: {
 					search: fakeProviderSearchResult([
@@ -97,9 +97,9 @@ beforeAll(async () => {
 afterAll(async () => {
 	await Effect.runPromise(
 		Effect.gen(function* () {
-			yield* cleanupBuiltinProviderScript(animeProvider);
-			yield* cleanupBuiltinProviderScript(companyProvider);
-			yield* cleanupBuiltinProviderScript(bookProvider);
+			yield* uninstallTestProvider(animeProvider);
+			yield* uninstallTestProvider(companyProvider);
+			yield* uninstallTestProvider(bookProvider);
 		}),
 	);
 });

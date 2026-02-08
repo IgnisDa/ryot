@@ -23,7 +23,9 @@ import {
 	LifecycleDispatch,
 	type LifecycleDispatchValue,
 } from "#modules/entities/lifecycle-dispatch";
-import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { processSandboxExecution } from "#modules/sandbox/durable-queues";
+import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { EnsureLibraryMembershipQueue } from "./durable-queues";
 import {
@@ -99,7 +101,10 @@ export class EventCreateWorkflowOperations extends Context.Tag("EventCreateWorkf
 export const EventCreateWorkflowOperationsLive = Layer.effect(
 	EventCreateWorkflowOperations,
 	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const repository = yield* SandboxRepository;
 		const lifecycleDispatch = yield* LifecycleDispatch;
+		const pluginRuntime = yield* PluginRuntimeResolver;
 		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
 		return {
 			dispatchLifecycleOccurrence: lifecycleDispatch.dispatch,
@@ -109,7 +114,10 @@ export const EventCreateWorkflowOperationsLive = Layer.effect(
 					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
 				),
 			processSandboxExecution: (payload) =>
-				DurableQueue.process(SandboxExecutionQueue, payload).pipe(
+				processSandboxExecution(payload).pipe(
+					Effect.provideService(DbRunner, runWithDb),
+					Effect.provideService(SandboxRepository, repository),
+					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
 					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
 				),
 		} satisfies EventCreateWorkflowOperationsValue;
