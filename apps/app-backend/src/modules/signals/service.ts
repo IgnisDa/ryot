@@ -5,6 +5,7 @@ import {
 } from "@ryot/contract/modules/automations/schemas";
 import type { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { SignalId } from "@ryot/contract/schema/brands";
+import { sha256Base64Url } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
@@ -46,9 +47,9 @@ const makeSignalId = (
 	input: Pick<EmitSignalInput, "discriminator" | "executionId" | "schemaSlug">,
 ) =>
 	SignalId.make(
-		`signal_${new Bun.CryptoHasher("sha256")
-			.update(stableStringify([input.executionId, input.schemaSlug, input.discriminator]))
-			.digest("base64url")}`,
+		`signal_${sha256Base64Url(
+			stableStringify([input.executionId, input.schemaSlug, input.discriminator]),
+		)}`,
 	);
 
 const toEmissionResult = (

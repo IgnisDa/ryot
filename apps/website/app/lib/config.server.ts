@@ -1,6 +1,5 @@
-import { createHash } from "node:crypto";
-
 import { Polar } from "@polar-sh/sdk";
+import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { memoize } from "@ryot/ts-utils/lodash";
 import { zodBoolAsString } from "@ryot/ts-utils/zod";
 import { Unkey } from "@unkey/api";
@@ -170,7 +169,7 @@ export const assignPaymentProvider = (email: string): schema.TPaymentProviders =
 		return "paddle";
 	}
 
-	const hash = createHash("sha256").update(email).digest("hex");
+	const hash = sha256Hex(email);
 	const hashInt = Number.parseInt(hash.substring(0, 8), 16);
 	const bucket = hashInt % 100;
 
