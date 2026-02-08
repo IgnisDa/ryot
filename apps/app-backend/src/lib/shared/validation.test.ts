@@ -29,23 +29,23 @@ describe("requireText", () => {
 	});
 
 	it("fails with BadRequest for an empty string", () => {
-		const result = Effect.runSync(Effect.either(requireText("", "must not be empty")));
-		expect(result._tag).toBe("Left");
-		if (result._tag === "Left") {
-			expect(result.left).toBeInstanceOf(BadRequest);
+		const result = Effect.runSync(Effect.result(requireText("", "must not be empty")));
+		expect(result._tag).toBe("Failure");
+		if (result._tag === "Failure") {
+			expect(result.failure).toBeInstanceOf(BadRequest);
 		}
 	});
 
 	it("fails with BadRequest for a whitespace-only string", () => {
-		const result = Effect.runSync(Effect.either(requireText("   ", "must not be empty")));
-		expect(result._tag).toBe("Left");
+		const result = Effect.runSync(Effect.result(requireText("   ", "must not be empty")));
+		expect(result._tag).toBe("Failure");
 	});
 
 	it("includes the provided message in the error", () => {
-		const result = Effect.runSync(Effect.either(requireText("", "title is required")));
-		expect(result._tag).toBe("Left");
-		if (result._tag === "Left") {
-			expect(result.left.message).toBe("title is required");
+		const result = Effect.runSync(Effect.result(requireText("", "title is required")));
+		expect(result._tag).toBe("Failure");
+		if (result._tag === "Failure") {
+			expect(result.failure.message).toBe("title is required");
 		}
 	});
 });
