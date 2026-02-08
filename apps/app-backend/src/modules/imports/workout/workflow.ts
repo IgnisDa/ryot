@@ -2,7 +2,8 @@ import { Activity } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
-import { Effect } from "effect";
+import { CreateEventItem } from "@ryot/contract/modules/events/schemas";
+import { Effect, Schema } from "effect";
 
 import { defaultUserPreferences } from "#lib/builtins/bootstrap";
 import { AppConfig } from "#lib/config/service";
@@ -11,7 +12,7 @@ import type { EntitiesRepository } from "#modules/entities/repository";
 import type { EntitiesService } from "#modules/entities/service";
 import type { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import type { EventSchemasRepository } from "#modules/event-schemas/repository";
-import type { EventsService } from "#modules/events/service";
+import { EventsService } from "#modules/events/service";
 
 import type { ImportRunJobData } from "../jobs";
 import { sanitizeErrorMessage } from "../runtime/import-run-status";
@@ -61,9 +62,10 @@ export const prepareWorkoutWrites = (
 ): NonMediaPrepareWritesEffect<
 	WorkoutImportItem,
 	EntitiesService | EventsService | WorkflowEngine | WorkflowInstance,
-	DbRunner | EntitiesRepository | EventSchemasRepository | EntitySchemasRepository
+	DbRunner | EntitiesRepository | EventSchemasRepository | EntitySchemasRepository | EventsService
 > =>
 	Effect.gen(function* () {
+		const events = yield* EventsService;
 		const user: CurrentUserValue = {
 			name: "",
 			email: "",
@@ -87,16 +89,24 @@ export const prepareWorkoutWrites = (
 				Activity.make({
 					error: ImportRunError,
 					name: `import-workout-item-${index}`,
+					success: Schema.Array(CreateEventItem),
 					execute: commitWorkoutItem({
 						user,
 						schemas,
 						candidates,
 						workout: item,
 						exerciseCache,
-						runId: payload.runId,
-						executionId: `${payload.runId}-workout-${index}`,
-					}).pipe(Effect.asVoid, Effect.mapError(toWorkflowError)),
+					}).pipe(Effect.mapError(toWorkflowError)),
 				}).pipe(
+					Effect.flatMap((eventBody) =>
+						events.create({
+							userId: user.id,
+							source: "import",
+							payload: eventBody,
+							executionId: `${payload.runId}-workout-${index}`,
+							metadata: { importRunId: payload.runId },
+						}),
+					),
 					Effect.as({ _tag: "imported" } satisfies NonMediaItemOutcome),
 					Effect.catchAll((error) =>
 						Effect.succeed({
