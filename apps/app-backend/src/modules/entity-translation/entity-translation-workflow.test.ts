@@ -13,13 +13,15 @@ import {
 	makeWorkflowActivityEngine,
 } from "#lib/test-support/effect";
 
-import { TranslationsRepository } from "./repository";
+import {
+	TranslateEntityWorkflowPayload,
+	runTranslateEntityWorkflow,
+} from "./entity-translation-workflow";
 import {
 	TranslateEntityWorkflowOperations,
 	type TranslateEntityWorkflowOperationsValue,
-	TranslateEntityWorkflowPayload,
-	runTranslateEntityWorkflow,
-} from "./workflows";
+} from "./operations-workflow";
+import { TranslationsRepository } from "./repository";
 
 const TestTranslateEntityWorkflow = Workflow.make({
 	success: Schema.Void,
