@@ -14,12 +14,12 @@ import { Effect, Layer } from "effect";
 import { assert } from "vitest";
 
 import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
-import type { StoredAutomationRule } from "#modules/automations/repository";
 import { AutomationsService } from "#modules/automations/service";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { LifecycleDispatchNoop } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
+import type { ResolvedAutomationRule } from "#modules/plugins/runtime-resolver";
 
 import { EventCreateWorkflow, type EventCreateWorkflowPayload } from "./event-create-workflow";
 import {
@@ -68,13 +68,11 @@ const eventSchemasRepository = EventSchemasRepository.Default.pipe(
 	Layer.provide(Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...registry })),
 );
 
-const policy = (id: string, position: number): StoredAutomationRule => ({
+const policy = (id: string, position: number): ResolvedAutomationRule => ({
 	userId,
 	position,
 	name: id,
 	kind: "policy",
-	createdAt: now,
-	updatedAt: now,
 	metadata: null,
 	isActive: true,
 	isBuiltin: false,
@@ -98,7 +96,7 @@ const payload = (ratings: number[]): EventCreateWorkflowPayload => ({
 });
 
 const run = (input: {
-	policies: StoredAutomationRule[];
+	policies: ResolvedAutomationRule[];
 	payload: EventCreateWorkflowPayload;
 	isEntityReadable?: (entityId: EntityId) => boolean;
 	process: (payload: SandboxExecutionPayload) => unknown;

@@ -385,10 +385,12 @@ const MigrationBootstrapDependenciesLive = Layer.provideMerge(
 	PluginRuntimeResolverLive,
 );
 const MigrationBootstrapServicesLive = Layer.provide(
-	Layer.mergeAll(
-		Layer.provideMerge(NotificationSubscriptionsService.Default, AutomationsService.Default),
-		Layer.fresh(EntitiesService.Default),
-		SignalSchemasService.Default,
+	Layer.provideMerge(
+		Layer.mergeAll(
+			Layer.provideMerge(NotificationSubscriptionsService.Default, AutomationsService.Default),
+			Layer.fresh(EntitiesService.Default),
+			SignalSchemasService.Default,
+		),
 		PluginLoaderLive,
 	),
 	MigrationBootstrapDependenciesLive,
