@@ -1,3 +1,4 @@
+import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { Effect } from "effect";
@@ -39,7 +40,7 @@ it.effect(
 			}
 			expect(first[0]?.compiled.manifest.requiredPluginConfigKeys).toEqual(["alpha-key"]);
 			expect(first[0]?.compiled.manifest.requiredSystemConfigKeys).toEqual(["system-key"]);
-		}),
+		}).pipe(Effect.provide(BunFileSystem.layer)),
 	10_000,
 );
 
