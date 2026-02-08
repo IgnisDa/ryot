@@ -1,3 +1,5 @@
+import { DateTime, Option } from "effect";
+
 import {
 	addCollectionMembership,
 	assertRequiredHeaders,
@@ -64,7 +66,19 @@ export const adaptGoodreadsCsv = (csvText: string): MediaImportAdapterResult => 
 		if (title) {
 			sourceLabel = title;
 		}
-		const isbn = normalizeIsbn(row["ISBN13"] ?? "");
+		const rawIsbn = (row["ISBN13"] ?? "").trim();
+		const stripped = rawIsbn.replace(/^=/, "").replace(/^"|"$/g, "");
+		if (stripped && !/^\d+$/.test(stripped)) {
+			failures.push({
+				itemIndex,
+				sourceLabel,
+				context: { rawIsbn },
+				sourceIdentifier: stripped,
+				message: "Invalid ISBN format",
+			});
+			continue;
+		}
+		const isbn = normalizeIsbn(rawIsbn);
 		if (!isbn) {
 			failures.push({ itemIndex, sourceLabel, message: "ISBN13 is empty" });
 			continue;
@@ -93,7 +107,29 @@ export const adaptGoodreadsCsv = (csvText: string): MediaImportAdapterResult => 
 		);
 		const shelves = splitCommaList(row["Bookshelves"] ?? "");
 		const lifecycleStatus = selectLifecycleStatus(shelves);
-		const completedOn = parseDateWithFormat(row["Date Read"] ?? "", "YYYY/MM/DD");
+		const dateRead = row["Date Read"]?.trim() ?? "";
+		let completedOn: string | null = null;
+		if (dateRead) {
+			const firstSegment = dateRead.split("/")[0];
+			if (firstSegment?.length === 4) {
+				completedOn = parseDateWithFormat(dateRead, "YYYY/MM/DD");
+			} else {
+				const parts = dateRead.split("/");
+				if (parts.length === 3) {
+					const month = (parts[0] ?? "").padStart(2, "0");
+					const day = (parts[1] ?? "").padStart(2, "0");
+					let year = parts[2] ?? "";
+					if (year.length === 2) {year = `20${year}`;}
+					if (year.length === 4 && month && day) {
+						const iso = `${year}-${month}-${day}`;
+						completedOn = Option.match(DateTime.make(iso), {
+							onNone: () => null,
+							onSome: (instant) => DateTime.formatIso(instant),
+						});
+					}
+				}
+			}
+		}
 		const fallbackOccurredAt = completedOn ?? nowIso();
 		const readCount = normalizeReadCount(row["Read Count"] ?? "");
 
