@@ -1,8 +1,8 @@
-import { HttpApiBuilder } from "@effect/platform";
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
 import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
+import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { CollectionsService } from "./service";
 

@@ -1,5 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
 import {
@@ -12,6 +11,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import {
@@ -96,7 +96,6 @@ const makeCollectionsRepository = (
 	overrides: MockOverrides<typeof mockCollectionsRepository> = {},
 ) =>
 	mockCollectionsRepository({
-		_tag: "CollectionsRepository",
 		getBuiltinCollectionSchema: () => Effect.succeed(collectionEntitySchema),
 		findBuiltinEventSchemaBySlug: (_entitySchemaSlug, slug) =>
 			slug === "add-entity-to-collection"
@@ -109,7 +108,6 @@ const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
 	mockEntitiesRepository({
-		_tag: "EntitiesRepository",
 		getEntitySchemaScopeForUser: () =>
 			Effect.succeed({
 				userId: null,
@@ -125,7 +123,7 @@ const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
 
 const makeRelationshipsRepository = (
 	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
-) => mockRelationshipsRepository({ _tag: "RelationshipsRepository", ...overrides });
+) => mockRelationshipsRepository({ ...overrides });
 
 const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasRepository);
 
@@ -133,7 +131,6 @@ const makeRelationshipSchemasRepository = (
 	overrides: MockOverrides<typeof mockRelationshipSchemasRepository> = {},
 ) =>
 	mockRelationshipSchemasRepository({
-		_tag: "RelationshipSchemasRepository",
 		findBuiltinBySlug: () => Effect.succeed(memberOfSchema),
 		...overrides,
 	});
@@ -142,7 +139,6 @@ const mockEventsService = Layer.mock(EventsService);
 
 const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
 	mockEventsService({
-		_tag: "EventsService",
 		create: () => Effect.succeed({ count: 1, outcomes: [], failure: null }),
 		...overrides,
 	});
@@ -151,7 +147,6 @@ const mockQueryEngine = Layer.mock(QueryEngineService);
 
 const makeQueryEngine = (overrides: MockOverrides<typeof mockQueryEngine> = {}) =>
 	mockQueryEngine({
-		_tag: "QueryEngineService",
 		validate: () => Effect.void.pipe(Effect.as(undefined)),
 		...overrides,
 	});
@@ -159,7 +154,7 @@ const makeQueryEngine = (overrides: MockOverrides<typeof mockQueryEngine> = {}) 
 const makeServiceLayer = (
 	options: {
 		eventsService?: ReturnType<typeof makeEventsService>;
-		workflowEngine?: WorkflowEngine["Type"];
+		workflowEngine?: WorkflowEngine["Service"];
 		entitiesRepository?: ReturnType<typeof makeEntitiesRepository>;
 		collectionsRepository?: ReturnType<typeof makeCollectionsRepository>;
 		relationshipsRepository?: ReturnType<typeof makeRelationshipsRepository>;
@@ -169,17 +164,17 @@ const makeServiceLayer = (
 	const entitiesRepository = options.entitiesRepository ?? makeEntitiesRepository();
 	const relationshipsRepository = options.relationshipsRepository ?? makeRelationshipsRepository();
 
-	const entitiesServiceLayer = EntitiesService.Default.pipe(
+	const entitiesServiceLayer = EntitiesService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(dbRunnerLayer, LifecycleDispatchNoop, makeQueryEngine(), entitiesRepository),
 		),
 	);
 
-	const relationshipsServiceLayer = RelationshipsService.Default.pipe(
+	const relationshipsServiceLayer = RelationshipsService.layer.pipe(
 		Layer.provide(Layer.mergeAll(dbRunnerLayer, relationshipsRepository)),
 	);
 
-	return CollectionsService.Default.pipe(
+	return CollectionsService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
@@ -267,7 +262,7 @@ it.effect("rejects creating a collection with invalid membershipPropertiesSchema
 			Exit.match({
 				onSuccess: () => Option.none(),
 				onFailure: (cause) =>
-					Cause.failureOption(cause).pipe(
+					Cause.findErrorOption(cause).pipe(
 						Option.map((e) => (e as { message?: string }).message ?? ""),
 					),
 			}),
