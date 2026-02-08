@@ -53,7 +53,7 @@ describe("Exercises E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const fitnessTracker = yield* findBuiltinTrackerBySlug(client, "fitness");
 			const schemas = yield* listEntitySchemas(client, {
-				trackerId: fitnessTracker.id,
+				trackerSlug: fitnessTracker.id,
 			});
 			const exerciseSchema = schemas.find((schema) => schema.slug === "exercise");
 
@@ -62,7 +62,7 @@ describe("Exercises E2E", () => {
 			expect(exerciseSchema?.slug).toBe("exercise");
 			expect(exerciseSchema?.icon).toBe("zap");
 			expect(exerciseSchema?.isBuiltin).toBe(true);
-			expect(exerciseSchema?.trackerId).toBe(fitnessTracker.id);
+			expect(exerciseSchema?.trackerSlug).toBe(fitnessTracker.id);
 			expect(exerciseSchema?.accentColor).toBe("#14B8A6");
 			expect(exerciseSchema?.providers).toHaveLength(1);
 			expect(exerciseSchema?.providers[0]).toMatchObject({
@@ -88,7 +88,7 @@ describe("Exercises E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const fitnessTracker = yield* findBuiltinTrackerBySlug(client, "fitness");
 			const views = yield* listSavedViews(client, {
-				trackerId: fitnessTracker.id,
+				trackerSlug: fitnessTracker.id,
 			});
 			const allExercisesView = views.find((view) => view.name === "All Exercises");
 
@@ -96,7 +96,7 @@ describe("Exercises E2E", () => {
 			expect(allExercisesView).toMatchObject({
 				isBuiltin: true,
 				name: "All Exercises",
-				trackerId: fitnessTracker.id,
+				trackerSlug: fitnessTracker.id,
 				queryDocument: { source: { schemas: ["exercise"] } },
 				displayConfiguration: {
 					table: {
@@ -199,12 +199,12 @@ describe("Exercises E2E", () => {
 			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
 			const source = yield* createEntity(client, {
 				name: "Source Exercise",
-				entitySchemaId: exerciseSchema.id,
+				entitySchemaSlug: exerciseSchema.id,
 				properties: { kind: "reps", muscles: ["abdominals"] },
 			});
 			const target = yield* createEntity(client, {
 				name: "Target Exercise",
-				entitySchemaId: exerciseSchema.id,
+				entitySchemaSlug: exerciseSchema.id,
 				properties: { kind: "reps", muscles: ["abdominals"] },
 			});
 
@@ -214,7 +214,7 @@ describe("Exercises E2E", () => {
 						{
 							entityId: source.id,
 							sessionEntityId: workoutId,
-							eventSchemaId: workoutSetEventSchema.id,
+							eventSchemaSlug: workoutSetEventSchema.id,
 							properties: { setOrder: 0, exerciseOrder: 0 },
 						},
 					],
@@ -245,12 +245,12 @@ describe("Exercises E2E", () => {
 			const { schema: exerciseSchema } = yield* findBuiltinSchemaBySlug(client, "exercise");
 			const source = yield* createEntity(client, {
 				name: "Source Reps Exercise",
-				entitySchemaId: exerciseSchema.id,
+				entitySchemaSlug: exerciseSchema.id,
 				properties: { kind: "reps", muscles: ["abdominals"] },
 			});
 			const target = yield* createEntity(client, {
 				name: "Target Duration Exercise",
-				entitySchemaId: exerciseSchema.id,
+				entitySchemaSlug: exerciseSchema.id,
 				properties: { kind: "duration", muscles: ["abdominals"] },
 			});
 

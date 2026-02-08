@@ -17,6 +17,6 @@ export const toCollectionResponse = (entity: ListedEntity): CollectionResponse =
 	updatedAt: entity.updatedAt,
 	properties: entity.properties,
 	externalId: entity.externalId,
-	entitySchemaId: entity.entitySchemaId,
+	entitySchemaSlug: entity.entitySchemaSlug,
 	sandboxScriptId: entity.sandboxScriptId,
 });

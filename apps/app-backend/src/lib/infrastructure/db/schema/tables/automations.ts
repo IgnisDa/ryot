@@ -3,13 +3,11 @@ import type {
 	AutomationOrigin,
 	AutomationRuleKind,
 	AutomationRuleMetadata,
-	SignalAudiencePolicy,
 	SubscriptionRunSkipReason,
 	SubscriptionRunSourceKind,
 	SubscriptionRunStatus,
 	SubscriptionRunTiming,
 } from "@ryot/contract/modules/automations/schemas";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
@@ -22,44 +20,12 @@ import {
 	primaryKey,
 	text,
 	timestamp,
-	unique,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
-import { entitySchema, sandboxScript } from "./core";
-import { entity, relationshipSchema } from "./entities";
-import { eventSchema } from "./events";
-
-export const signalSchema = pgTable(
-	"signal_schema",
-	{
-		slug: text().notNull(),
-		name: text().notNull(),
-		catalogState: text().notNull(),
-		isBuiltin: boolean().notNull().default(false),
-		propertiesSchema: jsonb().$type<AppSchema>().notNull(),
-		audiencePolicy: jsonb().$type<SignalAudiencePolicy>().notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		userId: text().references(() => user.id, { onDelete: "cascade" }),
-		id: text()
-			.notNull()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp({ withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
-	},
-	(table) => [
-		index("signal_schema_user_id_idx").on(table.userId),
-		unique("signal_schema_user_slug_unique").on(table.userId, table.slug),
-		uniqueIndex("signal_schema_global_slug_unique")
-			.on(table.slug)
-			.where(sql`${table.userId} is null`),
-		check("signal_schema_catalog_state_check", sql`${table.catalogState} in ('active', 'hidden')`),
-	],
-);
+import { sandboxScript } from "./core";
+import { entity } from "./entities";
 
 export const signal = pgTable(
 	"signal",
@@ -70,14 +36,12 @@ export const signal = pgTable(
 		occurredAt: timestamp({ withTimezone: true }).notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		actorUserId: text().references(() => user.id, { onDelete: "cascade" }),
-		signalSchemaId: text()
-			.notNull()
-			.references(() => signalSchema.id, { onDelete: "cascade" }),
+		signalSchemaSlug: text().notNull(),
 		subjectEntityId: text().references(() => entity.id, { onDelete: "set null" }),
 	},
 	(table) => [
 		index("signal_actor_user_id_idx").on(table.actorUserId),
-		index("signal_signal_schema_id_idx").on(table.signalSchemaId),
+		index("signal_signal_schema_slug_idx").on(table.signalSchemaSlug),
 		index("signal_subject_entity_id_idx").on(table.subjectEntityId),
 	],
 );
@@ -110,12 +74,10 @@ export const automationRule = pgTable(
 		operation: text().$type<AutomationOperation>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
-		eventSchemaId: text().references(() => eventSchema.id, { onDelete: "cascade" }),
-		entitySchemaId: text().references(() => entitySchema.id, { onDelete: "cascade" }),
-		signalSchemaId: text().references(() => signalSchema.id, { onDelete: "cascade" }),
-		relationshipSchemaId: text().references(() => relationshipSchema.id, {
-			onDelete: "cascade",
-		}),
+		eventSchemaSlug: text(),
+		entitySchemaSlug: text(),
+		signalSchemaSlug: text(),
+		relationshipSchemaSlug: text(),
 		sandboxScriptId: text()
 			.notNull()
 			.references(() => sandboxScript.id, { onDelete: "cascade" }),
@@ -130,35 +92,35 @@ export const automationRule = pgTable(
 	},
 	(table) => [
 		index("automation_rule_user_id_idx").on(table.userId),
-		index("automation_rule_entity_schema_id_idx").on(table.entitySchemaId),
-		index("automation_rule_event_schema_id_idx").on(table.eventSchemaId),
-		index("automation_rule_relationship_schema_id_idx").on(table.relationshipSchemaId),
-		index("automation_rule_signal_schema_id_idx").on(table.signalSchemaId),
+		index("automation_rule_entity_schema_slug_idx").on(table.entitySchemaSlug),
+		index("automation_rule_event_schema_slug_idx").on(table.eventSchemaSlug),
+		index("automation_rule_relationship_schema_slug_idx").on(table.relationshipSchemaSlug),
+		index("automation_rule_signal_schema_slug_idx").on(table.signalSchemaSlug),
 		index("automation_rule_sandbox_script_id_idx").on(table.sandboxScriptId),
 		uniqueIndex("automation_rule_user_entity_schema_unique")
-			.on(table.userId, table.entitySchemaId, table.operation, table.sandboxScriptId)
-			.where(sql`${table.userId} is not null and ${table.entitySchemaId} is not null`),
+			.on(table.userId, table.entitySchemaSlug, table.operation, table.sandboxScriptId)
+			.where(sql`${table.userId} is not null and ${table.entitySchemaSlug} is not null`),
 		uniqueIndex("automation_rule_global_entity_schema_unique")
-			.on(table.entitySchemaId, table.operation, table.sandboxScriptId)
-			.where(sql`${table.userId} is null and ${table.entitySchemaId} is not null`),
+			.on(table.entitySchemaSlug, table.operation, table.sandboxScriptId)
+			.where(sql`${table.userId} is null and ${table.entitySchemaSlug} is not null`),
 		uniqueIndex("automation_rule_user_event_schema_unique")
-			.on(table.userId, table.eventSchemaId, table.operation, table.sandboxScriptId)
-			.where(sql`${table.userId} is not null and ${table.eventSchemaId} is not null`),
+			.on(table.userId, table.eventSchemaSlug, table.operation, table.sandboxScriptId)
+			.where(sql`${table.userId} is not null and ${table.eventSchemaSlug} is not null`),
 		uniqueIndex("automation_rule_global_event_schema_unique")
-			.on(table.eventSchemaId, table.operation, table.sandboxScriptId)
-			.where(sql`${table.userId} is null and ${table.eventSchemaId} is not null`),
+			.on(table.eventSchemaSlug, table.operation, table.sandboxScriptId)
+			.where(sql`${table.userId} is null and ${table.eventSchemaSlug} is not null`),
 		uniqueIndex("automation_rule_user_relationship_schema_unique")
-			.on(table.userId, table.relationshipSchemaId, table.operation, table.sandboxScriptId)
-			.where(sql`${table.userId} is not null and ${table.relationshipSchemaId} is not null`),
+			.on(table.userId, table.relationshipSchemaSlug, table.operation, table.sandboxScriptId)
+			.where(sql`${table.userId} is not null and ${table.relationshipSchemaSlug} is not null`),
 		uniqueIndex("automation_rule_global_relationship_schema_unique")
-			.on(table.relationshipSchemaId, table.operation, table.sandboxScriptId)
-			.where(sql`${table.userId} is null and ${table.relationshipSchemaId} is not null`),
+			.on(table.relationshipSchemaSlug, table.operation, table.sandboxScriptId)
+			.where(sql`${table.userId} is null and ${table.relationshipSchemaSlug} is not null`),
 		uniqueIndex("automation_rule_user_signal_schema_unique")
-			.on(table.userId, table.signalSchemaId, table.operation, table.sandboxScriptId)
-			.where(sql`${table.userId} is not null and ${table.signalSchemaId} is not null`),
+			.on(table.userId, table.signalSchemaSlug, table.operation, table.sandboxScriptId)
+			.where(sql`${table.userId} is not null and ${table.signalSchemaSlug} is not null`),
 		uniqueIndex("automation_rule_global_signal_schema_unique")
-			.on(table.signalSchemaId, table.operation, table.sandboxScriptId)
-			.where(sql`${table.userId} is null and ${table.signalSchemaId} is not null`),
+			.on(table.signalSchemaSlug, table.operation, table.sandboxScriptId)
+			.where(sql`${table.userId} is null and ${table.signalSchemaSlug} is not null`),
 		check("automation_rule_kind_check", sql`${table.kind} in ('policy', 'subscription')`),
 		check(
 			"automation_rule_operation_check",
@@ -166,11 +128,11 @@ export const automationRule = pgTable(
 		),
 		check(
 			"automation_rule_one_target_check",
-			sql`num_nonnulls(${table.entitySchemaId}, ${table.eventSchemaId}, ${table.relationshipSchemaId}, ${table.signalSchemaId}) = 1`,
+			sql`num_nonnulls(${table.entitySchemaSlug}, ${table.eventSchemaSlug}, ${table.relationshipSchemaSlug}, ${table.signalSchemaSlug}) = 1`,
 		),
 		check(
 			"automation_rule_target_operation_check",
-			sql`((${table.signalSchemaId} is not null and ${table.kind} = 'subscription' and ${table.operation} = 'signal') or (${table.signalSchemaId} is null and ${table.operation} <> 'signal'))`,
+			sql`((${table.signalSchemaSlug} is not null and ${table.kind} = 'subscription' and ${table.operation} = 'signal') or (${table.signalSchemaSlug} is null and ${table.operation} <> 'signal'))`,
 		),
 		check(
 			"automation_rule_position_check",

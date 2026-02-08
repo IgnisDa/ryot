@@ -1,11 +1,11 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError } from "@ryot/contract/errors";
+import type { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import {
 	EntityId,
-	EntitySchemaId,
 	RelationshipId,
-	RelationshipSchemaId,
+	RelationshipSchemaSlug,
 	SandboxScriptId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
@@ -34,31 +34,29 @@ const movieProvider = {
 	scriptSlug: "movie.tmdb",
 	entitySchemaSlug: "movie",
 	scriptId: SandboxScriptId.make("script-movie"),
-	entitySchemaId: EntitySchemaId.make("schema-movie"),
 } satisfies TrendingProviderTarget;
 
 const showProvider = {
 	scriptSlug: "show.tmdb",
 	entitySchemaSlug: "show",
 	scriptId: SandboxScriptId.make("script-show"),
-	entitySchemaId: EntitySchemaId.make("schema-show"),
 } satisfies TrendingProviderTarget;
 
 const mediaTrendingSchema = {
 	isBuiltin: true,
 	slug: "media-trending",
 	name: "Media Trending",
-	sourceEntitySchemaId: null,
-	targetEntitySchemaId: null,
+	sourceEntitySchemaSlug: null,
+	targetEntitySchemaSlug: null,
 	propertiesSchema: { fields: {} },
-	id: RelationshipSchemaId.make("schema-media-trending"),
+	id: RelationshipSchemaSlug.make("schema-media-trending"),
 };
 
 const listedEntity = (input: {
 	id: string;
 	name: string;
 	externalId: string;
-	entitySchemaId: EntitySchemaId;
+	entitySchemaSlug: EntitySchemaSlug;
 	sandboxScriptId: SandboxScriptId;
 }) => ({
 	properties: {},
@@ -66,7 +64,7 @@ const listedEntity = (input: {
 	name: input.name,
 	externalId: input.externalId,
 	id: EntityId.make(input.id),
-	entitySchemaId: input.entitySchemaId,
+	entitySchemaSlug: input.entitySchemaSlug,
 	createdAt: "2026-01-01T00:00:00.000Z",
 	updatedAt: "2026-01-01T00:00:00.000Z",
 	sandboxScriptId: input.sandboxScriptId,
@@ -104,7 +102,7 @@ const makeRelationshipsService = (overrides: MockOverrides<typeof mockRelationsh
 				targetEntityId: input.targetEntityId,
 				createdAt: "2026-01-01T00:00:00.000Z",
 				id: RelationshipId.make("relationship-id"),
-				relationshipSchemaId: input.relationshipSchemaId,
+				relationshipSchemaSlug: input.relationshipSchemaSlug,
 			}),
 		update: (input) =>
 			Effect.succeed({
@@ -114,7 +112,7 @@ const makeRelationshipsService = (overrides: MockOverrides<typeof mockRelationsh
 				sourceEntityId: input.sourceEntityId,
 				targetEntityId: input.targetEntityId,
 				id: RelationshipId.make("relationship-id"),
-				relationshipSchemaId: input.relationshipSchemaId,
+				relationshipSchemaSlug: input.relationshipSchemaSlug,
 			}),
 		delete: () => Effect.succeed(null),
 		...overrides,
@@ -203,7 +201,7 @@ it.effect("syncs successful provider trend items as ranked self edges", () => {
 					listedEntity({
 						name: input.name,
 						externalId: input.externalId ?? "",
-						entitySchemaId: input.entitySchemaId,
+						entitySchemaSlug: input.entitySchemaSlug,
 						id: idByProviderItem.get(key) ?? "entity-unknown",
 						sandboxScriptId: input.sandboxScriptId ?? SandboxScriptId.make("script-unknown"),
 					}),
@@ -221,7 +219,7 @@ it.effect("syncs successful provider trend items as ranked self edges", () => {
 						targetEntityId: input.targetEntityId,
 						createdAt: "2026-01-01T00:00:00.000Z",
 						id: RelationshipId.make("relationship-id"),
-						relationshipSchemaId: input.relationshipSchemaId,
+						relationshipSchemaSlug: input.relationshipSchemaSlug,
 					};
 				}),
 		}),
@@ -276,7 +274,7 @@ it.effect("skips failed providers and syncs successful providers", () => {
 						name: input.name,
 						id: "entity-show-one",
 						externalId: input.externalId ?? "",
-						entitySchemaId: input.entitySchemaId,
+						entitySchemaSlug: input.entitySchemaSlug,
 						sandboxScriptId: input.sandboxScriptId ?? SandboxScriptId.make("script-show"),
 					}),
 				),
@@ -292,7 +290,7 @@ it.effect("skips failed providers and syncs successful providers", () => {
 						targetEntityId: input.targetEntityId,
 						createdAt: "2026-01-01T00:00:00.000Z",
 						id: RelationshipId.make("relationship-id"),
-						relationshipSchemaId: input.relationshipSchemaId,
+						relationshipSchemaSlug: input.relationshipSchemaSlug,
 					};
 				}),
 		}),
@@ -323,7 +321,7 @@ it.effect("updates current trend edges and deletes stale ones", () => {
 		{
 			properties: { rank: 9 },
 			createdAt: "2026-01-01T00:00:00.000Z",
-			relationshipSchemaId: mediaTrendingSchema.id,
+			relationshipSchemaSlug: mediaTrendingSchema.id,
 			id: RelationshipId.make("current-relationship"),
 			sourceEntityId: EntityId.make("entity-show-one"),
 			targetEntityId: EntityId.make("entity-show-one"),
@@ -331,7 +329,7 @@ it.effect("updates current trend edges and deletes stale ones", () => {
 		{
 			properties: { rank: 10 },
 			createdAt: "2026-01-01T00:00:00.000Z",
-			relationshipSchemaId: mediaTrendingSchema.id,
+			relationshipSchemaSlug: mediaTrendingSchema.id,
 			id: RelationshipId.make("stale-relationship"),
 			sourceEntityId: EntityId.make("entity-stale"),
 			targetEntityId: EntityId.make("entity-stale"),
@@ -347,7 +345,7 @@ it.effect("updates current trend edges and deletes stale ones", () => {
 						externalId: "s1",
 						id: "entity-show-one",
 						sandboxScriptId: showProvider.scriptId,
-						entitySchemaId: showProvider.entitySchemaId,
+						entitySchemaSlug: showProvider.entitySchemaSlug,
 					}),
 				),
 		}),
@@ -365,7 +363,7 @@ it.effect("updates current trend edges and deletes stale ones", () => {
 						targetEntityId: input.targetEntityId,
 						createdAt: "2026-01-01T00:00:00.000Z",
 						id: RelationshipId.make("current-relationship"),
-						relationshipSchemaId: input.relationshipSchemaId,
+						relationshipSchemaSlug: input.relationshipSchemaSlug,
 					};
 				}),
 			delete: (input) =>
@@ -419,7 +417,7 @@ it.effect("preserves prior trend edges when no provider succeeds", () => {
 						sourceEntityId: EntityId.make("unused"),
 						targetEntityId: EntityId.make("unused"),
 						id: RelationshipId.make("relationship-id"),
-						relationshipSchemaId: RelationshipSchemaId.make("unused"),
+						relationshipSchemaSlug: RelationshipSchemaSlug.make("unused"),
 					};
 				}),
 		}),

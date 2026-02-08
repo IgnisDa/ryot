@@ -21,7 +21,7 @@ describe("saved views execution", () => {
 
 			const entity = yield* seedMediaEntity({
 				userId: null,
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 				sandboxScriptId: getFirstProviderScriptId(schema),
 				name: `Isolated All Shows ${crypto.randomUUID()}`,
 				externalId: `isolated-all-shows-${crypto.randomUUID()}`,
@@ -63,7 +63,7 @@ describe("saved views execution", () => {
 
 			const entity = yield* seedMediaEntity({
 				userId: null,
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 				sandboxScriptId: getFirstProviderScriptId(schema),
 				name: `Refetched All Shows ${crypto.randomUUID()}`,
 				externalId: `refetched-all-shows-${crypto.randomUUID()}`,

@@ -24,7 +24,7 @@ const EVENT_SYSTEM_FIELDS = new Set([
 	"updatedAt",
 	"occurredAt",
 	"properties",
-	"eventSchemaId",
+	"eventSchemaSlug",
 	"sessionEntityId",
 ]);
 
@@ -37,7 +37,7 @@ const ENTITY_SYSTEM_FIELDS = new Set([
 	"properties",
 	"externalId",
 	"populatedAt",
-	"entitySchemaId",
+	"entitySchemaSlug",
 	"sandboxScriptId",
 ]);
 

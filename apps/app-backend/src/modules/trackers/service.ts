@@ -1,268 +1,62 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { badRequest, conflict, notFound } from "@ryot/contract/errors";
-import type {
-	CreateTrackerBody,
-	ReorderTrackersBody,
-	UpdateTrackerBody,
-} from "@ryot/contract/modules/trackers/schemas";
-import type { EntitySchemaId } from "@ryot/contract/schema/brands";
-import { TrackerId } from "@ryot/contract/schema/brands";
+import { notFound } from "@ryot/contract/errors";
+import type { UpdateTrackerStateBody } from "@ryot/contract/modules/trackers/schemas";
 import { Effect } from "effect";
 
-import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
-import { buildReorderedIds } from "#lib/shared/reorder";
-import { slugify } from "#lib/shared/slug";
-import { trimToNull } from "#lib/shared/validation";
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
 
-import { TrackersRepository } from "./repository";
+import { TrackersRepository, type TrackerStateRow } from "./repository";
 
-type TrackerUser = Pick<CurrentUserValue, "id">;
-
-type CreateTrackerInput = CreateTrackerBody & {
-	readonly isBuiltin?: boolean | undefined;
-};
-
-type UpdateTrackerInput = UpdateTrackerBody & {
-	readonly sortOrder?: number | undefined;
-};
-
-const resolveOptionalDescription = (description: string | undefined) => {
-	if (description === undefined) {
-		return undefined;
-	}
-
-	const trimmed = description.trim();
-	return trimmed.length > 0 ? trimmed : null;
-};
-
-const resolveCreatePayload = (payload: CreateTrackerBody) => {
-	const name = trimToNull(payload.name);
-	const icon = trimToNull(payload.icon);
-	const accentColor = trimToNull(payload.accentColor);
-	const description = resolveOptionalDescription(payload.description);
-
-	const candidate = payload.slug?.trim() ?? name;
-	const slug = candidate ? slugify(candidate) : null;
-
-	if (!name) {
-		return badRequest("Tracker name is required");
-	}
-	if (!icon) {
-		return badRequest("Icon is required");
-	}
-	if (!accentColor) {
-		return badRequest("Accent color is required");
-	}
-	if (payload.description !== undefined && description === null) {
-		return badRequest("Description is required");
-	}
-	if (!slug) {
-		return badRequest("Tracker slug is required");
-	}
-
-	return Effect.succeed({ slug, name, icon, description, accentColor });
-};
-
-const resolveUpdatePayload = (input: {
-	readonly current: {
-		readonly slug: string;
-		readonly name: string;
-		readonly icon: string;
-		readonly accentColor: string;
-		readonly description: string | null;
-	};
-	readonly payload: UpdateTrackerBody;
-}) => {
-	const hasConfigUpdate =
-		input.payload.icon !== undefined ||
-		input.payload.name !== undefined ||
-		input.payload.description !== undefined ||
-		input.payload.accentColor !== undefined;
-
-	if (hasConfigUpdate && input.payload.icon === undefined) {
-		return badRequest("Icon is required");
-	}
-	if (hasConfigUpdate && input.payload.accentColor === undefined) {
-		return badRequest("Accent color is required");
-	}
-
-	const name =
-		input.payload.name === undefined ? input.current.name : trimToNull(input.payload.name);
-	const icon =
-		input.payload.icon === undefined ? input.current.icon : trimToNull(input.payload.icon);
-	const accentColor =
-		input.payload.accentColor === undefined
-			? input.current.accentColor
-			: trimToNull(input.payload.accentColor);
-
-	if (!name) {
-		return badRequest("Tracker name is required");
-	}
-	if (!icon) {
-		return badRequest("Icon is required");
-	}
-	if (!accentColor) {
-		return badRequest("Accent color is required");
-	}
-
-	if (typeof input.payload.description === "string") {
-		const description = resolveOptionalDescription(input.payload.description);
-		if (description === null || description === undefined) {
-			return badRequest("Description is required");
-		}
-		return Effect.succeed({ name, icon, description, accentColor, slug: input.current.slug });
-	}
-
-	return Effect.succeed({
-		name,
-		icon,
-		accentColor,
-		slug: input.current.slug,
-		description:
-			input.payload.description === undefined
-				? input.current.description
-				: input.payload.description,
-	});
-};
-
-const resolveTrackerIds = (trackerIds: ReadonlyArray<TrackerId>) => {
-	if (trackerIds.length === 0) {
-		return badRequest("Tracker ids are required");
-	}
-
-	const normalizedIds = trackerIds.map((trackerId) => TrackerId.make(trackerId.trim()));
-	if (normalizedIds.some((trackerId) => trackerId.length === 0)) {
-		return badRequest("Tracker ids are required");
-	}
-	if (new Set(normalizedIds).size !== normalizedIds.length) {
-		return badRequest("Tracker ids must be unique");
-	}
-
-	return Effect.succeed(normalizedIds);
-};
+const merge = (
+	definition: NonNullable<ReturnType<DefinitionRegistry["getTracker"]>>,
+	state?: TrackerStateRow | null,
+	defaultSortOrder = 0,
+) => ({
+	...definition,
+	config: state?.config ?? {},
+	isDisabled: state?.isDisabled ?? false,
+	sortOrder: state?.sortOrder ?? defaultSortOrder,
+});
 
 export class TrackersService extends Effect.Service<TrackersService>()("TrackersService", {
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const repository = yield* TrackersRepository;
-		const runInTransaction = yield* TransactionRunner;
-
-		const list = Effect.fn("TrackersService.list")(function* (
-			user: TrackerUser,
+		const definitions = yield* DefinitionRegistry;
+		const list = Effect.fn(function* (
+			user: Pick<CurrentUserValue, "id">,
 			includeDisabled: boolean,
 		) {
-			return yield* runWithDb(repository.listByUser(user.id, includeDisabled));
+			const states = yield* runWithDb(repository.listStates(user.id));
+			const bySlug = new Map(states.map((state) => [state.trackerSlug, state]));
+			return Object.values(definitions.getSnapshot().trackers)
+				.map((definition, index) => merge(definition, bySlug.get(definition.slug), index))
+				.filter((tracker) => includeDisabled || !tracker.isDisabled)
+				.sort((left, right) => left.sortOrder - right.sortOrder);
 		});
-
-		const existsById = Effect.fn("TrackersService.existsById")(function* (trackerId: TrackerId) {
-			return yield* runWithDb(repository.existsById(trackerId));
-		});
-
-		const create = Effect.fn("TrackersService.create")(function* (
-			user: TrackerUser,
-			payload: CreateTrackerInput,
+		const updateState = Effect.fn(function* (
+			user: Pick<CurrentUserValue, "id">,
+			trackerSlug: string,
+			payload: UpdateTrackerStateBody,
 		) {
-			const resolvedPayload = yield* resolveCreatePayload(payload);
-
-			const existing = yield* runWithDb(repository.findBySlug(user.id, resolvedPayload.slug));
-			if (existing) {
-				return yield* conflict("Tracker slug already exists");
-			}
-
-			return yield* runWithDb(
-				repository.create(user.id, { ...resolvedPayload, isBuiltin: payload.isBuiltin }),
-			).pipe(
-				Effect.flatMap((created) =>
-					created ? Effect.succeed(created) : conflict("Tracker slug already exists"),
-				),
-			);
-		});
-
-		const linkEntitySchema = Effect.fn("TrackersService.linkEntitySchema")(function* (input: {
-			trackerId: TrackerId;
-			entitySchemaId: EntitySchemaId;
-		}) {
-			return yield* runWithDb(repository.linkEntitySchema(input));
-		});
-
-		const update = Effect.fn("TrackersService.update")(function* (
-			user: CurrentUserValue,
-			trackerId: TrackerId,
-			payload: UpdateTrackerInput,
-		) {
-			const trimmedTrackerId = trimToNull(trackerId);
-			if (!trimmedTrackerId) {
-				return yield* badRequest("Tracker id is required");
-			}
-			const resolvedTrackerId = TrackerId.make(trimmedTrackerId);
-
-			const current = yield* runWithDb(repository.getOwnedById(user.id, resolvedTrackerId));
-			if (!current) {
+			const definition = definitions.getTracker(trackerSlug);
+			if (!definition) {
 				return yield* notFound("Tracker not found");
 			}
-
-			const resolvedPayload = yield* resolveUpdatePayload({ current, payload });
-
-			const updated = yield* runWithDb(
-				repository.updateOwned({
+			const current = yield* runWithDb(repository.getState(user.id, trackerSlug));
+			const defaultSortOrder = Object.keys(definitions.getSnapshot().trackers).indexOf(trackerSlug);
+			const state = yield* runWithDb(
+				repository.upsertState({
 					userId: user.id,
-					trackerId: resolvedTrackerId,
-					isDisabled: payload.isDisabled,
-					sortOrder: payload.sortOrder,
-					...resolvedPayload,
+					trackerSlug,
+					config: payload.config ?? current?.config ?? {},
+					sortOrder: payload.sortOrder ?? current?.sortOrder ?? defaultSortOrder,
+					isDisabled: payload.isDisabled ?? current?.isDisabled ?? false,
 				}),
 			);
-			if (!updated) {
-				return yield* notFound("Tracker not found");
-			}
-
-			return updated;
+			return merge(definition, state, defaultSortOrder);
 		});
-
-		const reorder = Effect.fn("TrackersService.reorder")(function* (
-			user: CurrentUserValue,
-			payload: ReorderTrackersBody,
-		) {
-			const trackerIds = yield* resolveTrackerIds(payload.trackerIds);
-
-			return yield* runInTransaction(
-				Effect.gen(function* () {
-					const visibleTrackerCount = yield* repository.countOwnedByIds(user.id, trackerIds);
-					if (visibleTrackerCount !== trackerIds.length) {
-						return yield* badRequest("Tracker ids contain unknown trackers");
-					}
-
-					const currentTrackers = yield* repository.listInOrder(user.id);
-					const reorderedTrackerIds = buildReorderedIds({
-						requestedIds: trackerIds,
-						currentIds: currentTrackers.map((tracker) => tracker.id),
-					});
-					const trackersById = new Map(currentTrackers.map((tracker) => [tracker.id, tracker]));
-
-					for (const [sortOrder, trackerId] of reorderedTrackerIds.entries()) {
-						const currentTracker = trackersById.get(trackerId);
-						if (!currentTracker) {
-							return yield* badRequest("Tracker ids contain unknown trackers");
-						}
-						if (currentTracker.sortOrder === sortOrder) {
-							continue;
-						}
-
-						yield* update(user, trackerId, {
-							sortOrder,
-							isDisabled: currentTracker.isDisabled,
-						}).pipe(
-							Effect.catchTag("NotFound", () =>
-								Effect.fail(badRequest("Tracker ids contain unknown trackers")),
-							),
-						);
-					}
-
-					return { trackerIds: [...reorderedTrackerIds] };
-				}),
-			);
-		});
-
-		return { list, create, update, reorder, existsById, linkEntitySchema };
+		return { list, updateState };
 	}),
 }) {}

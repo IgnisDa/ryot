@@ -61,22 +61,22 @@ describe("Query engine media suggestions", () => {
 				insertGlobalRelationship({
 					sourceEntityId: sourceA.entity.id,
 					targetEntityId: candidateTop.entity.id,
-					relationshipSchemaId: mediaSuggestion.id,
+					relationshipSchemaSlug: mediaSuggestion.id,
 				}),
 				insertGlobalRelationship({
 					sourceEntityId: sourceB.entity.id,
 					targetEntityId: candidateTop.entity.id,
-					relationshipSchemaId: mediaSuggestion.id,
+					relationshipSchemaSlug: mediaSuggestion.id,
 				}),
 				insertGlobalRelationship({
 					sourceEntityId: sourceA.entity.id,
 					targetEntityId: candidateOther.entity.id,
-					relationshipSchemaId: mediaSuggestion.id,
+					relationshipSchemaSlug: mediaSuggestion.id,
 				}),
 				insertGlobalRelationship({
 					sourceEntityId: sourceA.entity.id,
 					targetEntityId: alreadyOwned.entity.id,
-					relationshipSchemaId: mediaSuggestion.id,
+					relationshipSchemaSlug: mediaSuggestion.id,
 				}),
 			]);
 
@@ -139,34 +139,34 @@ describe("Query engine media suggestions", () => {
 						properties: {},
 						targetEntityId: collection.id,
 						sourceEntityId: sourceA.entity.id,
-						relationshipSchemaId: memberOf.id,
+						relationshipSchemaSlug: memberOf.id,
 					}),
 					createRelationship(client, {
 						properties: {},
 						targetEntityId: collection.id,
 						sourceEntityId: sourceB.entity.id,
-						relationshipSchemaId: memberOf.id,
+						relationshipSchemaSlug: memberOf.id,
 					}),
 					createRelationship(client, {
 						properties: {},
 						targetEntityId: collection.id,
-						relationshipSchemaId: memberOf.id,
+						relationshipSchemaSlug: memberOf.id,
 						sourceEntityId: candidateExisting.entity.id,
 					}),
 					insertGlobalRelationship({
 						sourceEntityId: sourceA.entity.id,
 						targetEntityId: candidateTop.entity.id,
-						relationshipSchemaId: mediaSuggestion.id,
+						relationshipSchemaSlug: mediaSuggestion.id,
 					}),
 					insertGlobalRelationship({
 						sourceEntityId: sourceB.entity.id,
 						targetEntityId: candidateTop.entity.id,
-						relationshipSchemaId: mediaSuggestion.id,
+						relationshipSchemaSlug: mediaSuggestion.id,
 					}),
 					insertGlobalRelationship({
 						sourceEntityId: sourceA.entity.id,
 						targetEntityId: candidateExisting.entity.id,
-						relationshipSchemaId: mediaSuggestion.id,
+						relationshipSchemaSlug: mediaSuggestion.id,
 					}),
 				]);
 

@@ -18,7 +18,7 @@ const builtinExerciseImportConcurrency = 5;
 const builtinExerciseScriptSlug = "exercise.free-exercise-db";
 
 const countImportedGlobalEntities = Effect.fn(function* (input: {
-	entitySchemaId: string;
+	entitySchemaSlug: string;
 	sandboxScriptId: string;
 }) {
 	const db = yield* CurrentDb;
@@ -29,7 +29,7 @@ const countImportedGlobalEntities = Effect.fn(function* (input: {
 			.where(
 				and(
 					isNull(schema.entity.userId),
-					eq(schema.entity.entitySchemaId, input.entitySchemaId),
+					eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
 					eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
 				),
 			)
@@ -40,7 +40,7 @@ const countImportedGlobalEntities = Effect.fn(function* (input: {
 
 const findImportedGlobalExternalIds = Effect.fn(function* (input: {
 	externalIds: string[];
-	entitySchemaId: string;
+	entitySchemaSlug: string;
 	sandboxScriptId: string;
 }) {
 	if (input.externalIds.length === 0) {
@@ -55,7 +55,7 @@ const findImportedGlobalExternalIds = Effect.fn(function* (input: {
 			.where(
 				and(
 					isNull(schema.entity.userId),
-					eq(schema.entity.entitySchemaId, input.entitySchemaId),
+					eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
 					eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
 					inArray(schema.entity.externalId, input.externalIds),
 				),
@@ -154,7 +154,7 @@ export const BuiltinEntityPreloaderLive = (configuredPreloadLimit: number) =>
 							mode: "ensure",
 							origin: { kind: "bootstrap" },
 							scriptId: preloadTarget.sandboxScriptId,
-							entitySchemaId: preloadTarget.entitySchemaId,
+							entitySchemaSlug: preloadTarget.entitySchemaSlug,
 						},
 					})
 					.pipe(

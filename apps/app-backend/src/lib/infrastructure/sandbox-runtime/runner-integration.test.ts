@@ -415,7 +415,7 @@ const main = defineDriver(manifest, {
     const eventSchemas = unwrapHostResult(await host.listEventSchemas("movie"));
     const created = unwrapHostResult(
       await host.createEvents([
-        { entityId: "entity-1", eventSchemaId: "event-schema-1", properties: { watched: true } },
+        { entityId: "entity-1", eventSchemaSlug: "event-schema-1", properties: { watched: true } },
       ]),
     );
     const query = unwrapHostResult(await host.executeQueryEngine({ source: { type: "entities" } }));
@@ -2217,8 +2217,6 @@ it("loads migrated event policy and subscription automations in Deno", () =>
 								entityId: "entity-1",
 								entitySchemaSlug: "movie",
 								eventSchemaSlug: "progress",
-								eventSchemaId: "event-schema-1",
-								entitySchemaId: "entity-schema-1",
 								properties: { progressPercent: 50 },
 								occurredAt: "2026-01-01T00:00:00.000Z",
 							},
@@ -2250,7 +2248,6 @@ it("loads migrated event policy and subscription automations in Deno", () =>
 							after: {
 								id: "event-1",
 								eventSchemaSlug: "progress",
-								eventSchemaId: "event-schema-1",
 								properties: { progressPercent: 50 },
 								occurredAt: "2026-01-01T00:00:00.000Z",
 								subject: { id: "entity-1", name: "Movie", entitySchemaSlug: "movie" },
@@ -2305,7 +2302,7 @@ const domainEntityRecord = {
 	populatedAt: null,
 	sandboxScriptId: null,
 	externalId: "tt1375666",
-	entitySchemaId: "movie",
+	entitySchemaSlug: "movie",
 	properties: { runtime: 148 },
 	createdAt: "2024-01-01T00:00:00.000Z",
 	updatedAt: "2024-01-01T00:00:00.000Z",
@@ -2334,7 +2331,6 @@ const domainEventRecord = {
 	eventSchemaSlug: "watched",
 	eventSchemaName: "Watched",
 	properties: { watched: true },
-	eventSchemaId: "event-schema-1",
 	createdAt: "2024-01-01T00:00:00.000Z",
 	updatedAt: "2024-01-01T00:00:00.000Z",
 	occurredAt: "2024-01-01T00:00:00.000Z",
@@ -2356,7 +2352,7 @@ const domainEventSchemaRecord = {
 	id: "watched",
 	name: "Watched",
 	slug: "watched",
-	entitySchemaId: "movie",
+	entitySchemaSlug: "movie",
 	propertiesSchema: { fields: {} },
 };
 
@@ -2439,7 +2435,7 @@ it("executes typed domain host methods through Deno", () =>
 					missing: "Entity not found",
 					entitySchema: { id: "movie", name: "Movie" },
 					entity: { id: "entity-1", name: "Inception" },
-					eventSchemas: [{ id: "watched", entitySchemaId: "movie" }],
+					eventSchemas: [{ id: "watched", entitySchemaSlug: "movie" }],
 					integration: { id: "integration-1", provider: "plex_yank" },
 				});
 				expect(bridge.createdEvents).toHaveLength(1);

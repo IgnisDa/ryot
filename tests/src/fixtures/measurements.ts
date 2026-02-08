@@ -10,7 +10,7 @@ export const createMeasurementEntityFixture = (client: Client) =>
 
 		const measurement = yield* createEntity(client, {
 			name: "Measurement - 2026-04-27 08:00",
-			entitySchemaId: measurementSchema.id,
+			entitySchemaSlug: measurementSchema.id,
 			properties: {
 				recordedAt: "2026-04-27T08:00:00Z",
 				statistics: [{ key: "weight", label: "Weight", value: 75.5 }],

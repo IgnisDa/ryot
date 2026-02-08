@@ -1,8 +1,9 @@
 import { expect, it } from "@effect/vitest";
-import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { CurrentDb } from "#lib/infrastructure/db/service";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
 
 import { EntitySchemasRepository } from "./repository";
 
@@ -33,13 +34,13 @@ const makeDb = () => {
 
 const makeLayer = () =>
 	Layer.mergeAll(
-		EntitySchemasRepository.Default,
+		EntitySchemasRepository.Default.pipe(Layer.provide(DefinitionRegistry.Default)),
 		Layer.succeed(CurrentDb, Object.assign(Object.create(null), makeDb())),
 	);
 
 it.effect("returns the existing sandbox script link on conflict", () => {
 	const input = {
-		entitySchemaId: EntitySchemaId.make("entity-schema-id"),
+		entitySchemaSlug: EntitySchemaSlug.make("movie"),
 		sandboxScriptId: SandboxScriptId.make("sandbox-script-id"),
 	};
 

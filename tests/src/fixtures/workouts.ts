@@ -20,7 +20,7 @@ export const createWorkoutEntityFixture = (client: Client) =>
 		const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
 
 		const workout = yield* createEntity(client, {
-			entitySchemaId: workoutSchema.id,
+			entitySchemaSlug: workoutSchema.id,
 			name: `Workout ${crypto.randomUUID()}`,
 			properties: {
 				endedAt: "2026-04-27T11:00:00Z",

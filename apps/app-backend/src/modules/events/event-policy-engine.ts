@@ -11,7 +11,7 @@ import type {
 	SandboxCompletedResult,
 	SandboxExecutionPayload,
 } from "@ryot/contract/modules/sandbox/schemas";
-import type { EntitySchemaId, EventSchemaId } from "@ryot/contract/schema/brands";
+import type { EntitySchemaSlug, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import { AutomationRuleId, EntityId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import type { AutomationPolicyInput } from "@ryot/sandbox-sdk/automation";
@@ -43,11 +43,9 @@ export const PreparedEventPolicy = Schema.Struct({
 type PolicyPreparation = {
 	entityId: EntityId;
 	occurredAt: string;
-	eventSchemaSlug: string;
-	entitySchemaSlug: string;
 	propertiesSchema: AppSchema;
-	eventSchemaId: EventSchemaId;
-	entitySchemaId: EntitySchemaId;
+	eventSchemaSlug: EventSchemaSlug;
+	entitySchemaSlug: EntitySchemaSlug;
 	sessionEntityId?: EntityId | undefined;
 	properties: typeof AutomationProperties.Type;
 	policies: ReadonlyArray<typeof PreparedEventPolicy.Type>;
@@ -109,7 +107,7 @@ const validateEventDraft = Effect.fn("validateEventPolicyDraft")(function* (
 					entityId: prepared.entityId,
 					occurredAt: draft.occurredAt,
 					properties: draft.properties,
-					eventSchemaId: prepared.eventSchemaId,
+					eventSchemaSlug: prepared.eventSchemaSlug,
 					sessionEntityId: draft.sessionEntityId,
 				},
 			});
@@ -157,8 +155,6 @@ export const runEventCreatePolicies = Effect.fn(function* (
 					draft: {
 						...draft,
 						entityId: prepared.entityId,
-						eventSchemaId: prepared.eventSchemaId,
-						entitySchemaId: prepared.entitySchemaId,
 						eventSchemaSlug: prepared.eventSchemaSlug,
 						entitySchemaSlug: prepared.entitySchemaSlug,
 					},

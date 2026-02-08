@@ -1,5 +1,5 @@
 import type { UserId } from "@ryot/contract/schema/brands";
-import { SavedViewId, TrackerId } from "@ryot/contract/schema/brands";
+import { SavedViewId, TrackerSlug } from "@ryot/contract/schema/brands";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -13,9 +13,8 @@ type CreateSavedViewInput = {
 	readonly name: string;
 	readonly icon: string;
 	readonly userId: UserId;
-	readonly isBuiltin: boolean;
 	readonly accentColor: string;
-	readonly trackerId: TrackerId | null | undefined;
+	readonly trackerSlug: TrackerSlug | null | undefined;
 	readonly queryDocument: (typeof schema.savedView.$inferSelect)["queryDocument"];
 	readonly displayConfiguration: (typeof schema.savedView.$inferSelect)["displayConfiguration"];
 };
@@ -26,7 +25,7 @@ type UpdateSavedViewData = {
 	readonly isDisabled: boolean;
 	readonly accentColor: string;
 	readonly sortOrder?: number | undefined;
-	readonly trackerId?: TrackerId | undefined;
+	readonly trackerSlug?: TrackerSlug | undefined;
 	readonly queryDocument: (typeof schema.savedView.$inferSelect)["queryDocument"];
 	readonly displayConfiguration: (typeof schema.savedView.$inferSelect)["displayConfiguration"];
 };
@@ -36,7 +35,7 @@ const toListedSavedView = (row: SavedViewRow) => ({
 	name: row.name,
 	icon: row.icon,
 	sortOrder: row.sortOrder,
-	isBuiltin: row.isBuiltin,
+	isBuiltin: false,
 	isDisabled: row.isDisabled,
 	accentColor: row.accentColor,
 	id: SavedViewId.make(row.id),
@@ -44,11 +43,13 @@ const toListedSavedView = (row: SavedViewRow) => ({
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	displayConfiguration: row.displayConfiguration,
-	trackerId: row.trackerId === null ? null : TrackerId.make(row.trackerId),
+	trackerSlug: row.trackerSlug === null ? null : TrackerSlug.make(row.trackerSlug),
 });
 
-const withSavedViewScope = (trackerId?: TrackerId) =>
-	trackerId ? eq(schema.savedView.trackerId, trackerId) : isNull(schema.savedView.trackerId);
+const withSavedViewScope = (trackerSlug?: TrackerSlug) =>
+	trackerSlug
+		? eq(schema.savedView.trackerSlug, trackerSlug)
+		: isNull(schema.savedView.trackerSlug);
 
 export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()(
 	"SavedViewsRepository",
@@ -56,7 +57,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 		sync: () => {
 			const listByUser = Effect.fn("SavedViewsRepository.listByUser")(function* (
 				userId: UserId,
-				input: { trackerId?: TrackerId | undefined; includeDisabled: boolean },
+				input: { trackerSlug?: TrackerSlug | undefined; includeDisabled: boolean },
 			) {
 				const db = yield* CurrentDb;
 				const clauses = [eq(schema.savedView.userId, userId)];
@@ -65,8 +66,8 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 					clauses.push(eq(schema.savedView.isDisabled, false));
 				}
 
-				if (input.trackerId) {
-					clauses.push(eq(schema.savedView.trackerId, input.trackerId));
+				if (input.trackerSlug) {
+					clauses.push(eq(schema.savedView.trackerSlug, input.trackerSlug));
 				}
 
 				const rows = yield* dbEffect(() =>
@@ -75,7 +76,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 						.from(schema.savedView)
 						.where(and(...clauses))
 						.orderBy(
-							asc(schema.savedView.trackerId),
+							asc(schema.savedView.trackerSlug),
 							asc(schema.savedView.sortOrder),
 							asc(schema.savedView.createdAt),
 						),
@@ -114,7 +115,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 						.where(
 							and(
 								eq(schema.savedView.userId, userId),
-								withSavedViewScope(input.trackerId ?? undefined),
+								withSavedViewScope(input.trackerSlug ?? undefined),
 							),
 						),
 				);
@@ -127,10 +128,9 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 							slug: input.slug,
 							name: input.name,
 							icon: input.icon,
-							isBuiltin: input.isBuiltin,
 							accentColor: input.accentColor,
 							queryDocument: input.queryDocument,
-							trackerId: input.trackerId ?? null,
+							trackerSlug: input.trackerSlug ?? null,
 							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
 							displayConfiguration: input.displayConfiguration,
 						})
@@ -147,13 +147,13 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				userId: UserId,
 				viewSlug: string,
 				data: UpdateSavedViewData,
-				currentTrackerId: TrackerId | null,
+				currentTrackerSlug: TrackerSlug | null,
 			) {
 				const db = yield* CurrentDb;
-				const nextTrackerId = data.trackerId ?? null;
+				const nextTrackerSlug = data.trackerSlug ?? null;
 				let sortOrder = data.sortOrder;
-				if (sortOrder === undefined && currentTrackerId !== nextTrackerId) {
-					sortOrder = yield* getNextSortOrder(userId, nextTrackerId);
+				if (sortOrder === undefined && currentTrackerSlug !== nextTrackerSlug) {
+					sortOrder = yield* getNextSortOrder(userId, nextTrackerSlug);
 				}
 
 				const [row] = yield* dbEffect(() =>
@@ -162,20 +162,14 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 						.set({
 							icon: data.icon,
 							name: data.name,
-							trackerId: nextTrackerId,
+							trackerSlug: nextTrackerSlug,
 							isDisabled: data.isDisabled,
 							accentColor: data.accentColor,
 							queryDocument: data.queryDocument,
 							displayConfiguration: data.displayConfiguration,
 							...(sortOrder === undefined ? {} : { sortOrder }),
 						})
-						.where(
-							and(
-								eq(schema.savedView.slug, viewSlug),
-								eq(schema.savedView.userId, userId),
-								eq(schema.savedView.isBuiltin, false),
-							),
-						)
+						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
 						.returning(),
 				);
 
@@ -208,13 +202,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				const [row] = yield* dbEffect(() =>
 					db
 						.delete(schema.savedView)
-						.where(
-							and(
-								eq(schema.savedView.slug, viewSlug),
-								eq(schema.savedView.userId, userId),
-								eq(schema.savedView.isBuiltin, false),
-							),
-						)
+						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
 						.returning(),
 				);
 
@@ -224,7 +212,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 			const countBySlugs = Effect.fn("SavedViewsRepository.countBySlugs")(function* (
 				userId: UserId,
 				viewSlugs: ReadonlyArray<string>,
-				trackerId?: TrackerId,
+				trackerSlug?: TrackerSlug,
 			) {
 				if (viewSlugs.length === 0) {
 					return 0;
@@ -239,7 +227,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 							and(
 								eq(schema.savedView.userId, userId),
 								inArray(schema.savedView.slug, [...viewSlugs]),
-								withSavedViewScope(trackerId),
+								withSavedViewScope(trackerSlug),
 							),
 						),
 				);
@@ -249,10 +237,10 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 
 			const listInOrder = Effect.fn("SavedViewsRepository.listInOrder")(function* (
 				userId: UserId,
-				trackerId?: TrackerId,
+				trackerSlug?: TrackerSlug,
 			) {
 				const db = yield* CurrentDb;
-				const scope = and(eq(schema.savedView.userId, userId), withSavedViewScope(trackerId));
+				const scope = and(eq(schema.savedView.userId, userId), withSavedViewScope(trackerSlug));
 				yield* dbEffect(() =>
 					db.select({ id: schema.savedView.id }).from(schema.savedView).where(scope).for("update"),
 				);
@@ -268,6 +256,33 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				return rows.map(toListedSavedView);
 			});
 
+			const listBuiltinStates = Effect.fn(function* (userId: UserId) {
+				const db = yield* CurrentDb;
+				return yield* dbEffect(() =>
+					db.select().from(schema.savedViewState).where(eq(schema.savedViewState.userId, userId)),
+				);
+			});
+
+			const upsertBuiltinState = Effect.fn(function* (input: {
+				userId: UserId;
+				savedViewSlug: string;
+				sortOrder: number;
+				isDisabled: boolean;
+			}) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.insert(schema.savedViewState)
+						.values(input)
+						.onConflictDoUpdate({
+							target: [schema.savedViewState.userId, schema.savedViewState.savedViewSlug],
+							set: { sortOrder: input.sortOrder, isDisabled: input.isDisabled },
+						})
+						.returning(),
+				);
+				return row;
+			});
+
 			return {
 				create,
 				listByUser,
@@ -277,12 +292,14 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				updateBySlug,
 				deleteBySlug,
 				updateDisabledBySlug,
+				listBuiltinStates,
+				upsertBuiltinState,
 			};
 		},
 	},
 ) {}
 
-const getNextSortOrder = Effect.fn(function* (userId: UserId, trackerId: TrackerId | null) {
+const getNextSortOrder = Effect.fn(function* (userId: UserId, trackerSlug: TrackerSlug | null) {
 	const db = yield* CurrentDb;
 	const [orderRow] = yield* dbEffect(() =>
 		db
@@ -290,7 +307,9 @@ const getNextSortOrder = Effect.fn(function* (userId: UserId, trackerId: Tracker
 				maxSortOrder: sql<number>`coalesce(max(${schema.savedView.sortOrder}), -1)`,
 			})
 			.from(schema.savedView)
-			.where(and(eq(schema.savedView.userId, userId), withSavedViewScope(trackerId ?? undefined))),
+			.where(
+				and(eq(schema.savedView.userId, userId), withSavedViewScope(trackerSlug ?? undefined)),
+			),
 	);
 
 	return (orderRow?.maxSortOrder ?? -1) + 1;
