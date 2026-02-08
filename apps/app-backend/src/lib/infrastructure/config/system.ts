@@ -1,4 +1,4 @@
-import type { Config } from "effect";
+import type { Effect } from "effect";
 import { Config as EffectConfig } from "effect";
 
 import { appConfigDefinition } from "./definition";
@@ -18,4 +18,4 @@ export const SystemConfigSource = EffectConfig.all({
 	),
 );
 
-export type SystemConfigValue = Config.Config.Success<typeof SystemConfigSource>;
+export type SystemConfigValue = Effect.Success<typeof SystemConfigSource>;
