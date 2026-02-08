@@ -13,6 +13,7 @@ import {
 	type TPlanTypes,
 	type TProductTypes,
 } from "~/drizzle/schema.server";
+import { getCancellation, setCancellation } from "~/lib/caches.server";
 import Pricing from "~/lib/components/Pricing";
 import { Button } from "~/lib/components/ui/button";
 import { Card } from "~/lib/components/ui/card";
@@ -40,8 +41,11 @@ import type { Route } from "./+types/me";
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const customerDetails = await getCustomerWithActivePurchase(request);
 	if (!customerDetails) return redirect(startUrl);
+
 	const serverVariables = getServerVariables();
+	const isCancelling = getCancellation(customerDetails.id);
 	return {
+		isCancelling,
 		customerDetails,
 		prices: getPrices(),
 		renewOn: customerDetails.renewOn,
@@ -144,8 +148,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 				const polar = getPolarClient();
 				await polar.subscriptions.revoke({ id: activeSubscription.id });
-
-				await new Promise((resolve) => setTimeout(resolve, 2000));
+				setCancellation(customer.id);
 
 				return data({
 					success: true,
@@ -175,8 +178,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			await paddleClient.subscriptions.cancel(activeSubscription.id, {
 				effectiveFrom: "immediately",
 			});
-
-			await new Promise((resolve) => setTimeout(resolve, 2000));
+			setCancellation(customer.id);
 
 			return data({
 				success: true,
@@ -260,6 +262,14 @@ export default function Index() {
 
 	return (
 		<>
+			{loaderData.isCancelling ? (
+				<div
+					role="alert"
+					className="mx-auto mt-6 w-full max-w-md rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+				>
+					Cancellation in progress. This can take a minute to sync.
+				</div>
+			) : null}
 			{!loaderData.customerDetails.hasCancelled &&
 			loaderData.customerDetails.planType &&
 			loaderData.customerDetails.productType ? (

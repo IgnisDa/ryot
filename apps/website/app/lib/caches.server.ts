@@ -23,6 +23,18 @@ export const setOtpCode = (email: string) => {
 	return otpCode;
 };
 
-export const getOtpCode = (email: string) => {
-	return otpCodesCache.get(email);
-};
+export const getOtpCode = (email: string) => otpCodesCache.get(email);
+
+const cancellationCache = new TTLCache<string, boolean>({
+	max: 1000,
+	ttl: dayjs.duration(5, "minutes").asMilliseconds(),
+});
+
+export const setCancellation = (customerId: string) =>
+	cancellationCache.set(customerId, true);
+
+export const getCancellation = (customerId: string) =>
+	cancellationCache.get(customerId);
+
+export const revokeCancellation = (customerId: string) =>
+	cancellationCache.delete(customerId);

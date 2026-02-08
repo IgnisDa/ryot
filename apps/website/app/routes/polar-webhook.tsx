@@ -2,6 +2,7 @@ import { validateEvent } from "@polar-sh/sdk/webhooks";
 import { data } from "react-router";
 import { match } from "ts-pattern";
 import type { TPlanTypes, TProductTypes } from "~/drizzle/schema.server";
+import { revokeCancellation } from "~/lib/caches.server";
 import { getPolarProducts, getPolarWebhookSecret } from "~/lib/config.server";
 import {
 	findCustomerById,
@@ -98,6 +99,7 @@ async function handleSubscriptionRevoked(
 	if (!customer) return { error: "No customer found" };
 
 	await revokePurchase(customer);
+	revokeCancellation(customer.id);
 
 	return { message: "Subscription revoked successfully" };
 }
