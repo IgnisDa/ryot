@@ -38,6 +38,8 @@ type EntityRow = Omit<ListedEntity, "properties"> & {
 	properties: unknown;
 };
 
+const unpopulatedGlobalEntityDate = new Date(0);
+
 const toListedEntity = (row: EntityRow): ListedEntity => ({
 	...row,
 	properties: row.properties as EntityPropertiesShape,
@@ -195,6 +197,7 @@ export const createGlobalEntity = async (input: {
 		.values({
 			image: null,
 			userId: null,
+			populatedAt: unpopulatedGlobalEntityDate,
 			properties: {},
 			name: input.name,
 			externalId: input.externalId,
