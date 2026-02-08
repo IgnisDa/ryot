@@ -65,6 +65,7 @@ export const RegistrationSection = (props: RegistrationSectionProps) => {
 								{props.query.email ? (
 									<>
 										<input
+											required
 											readOnly
 											name="email"
 											type="hidden"

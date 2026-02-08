@@ -31,7 +31,7 @@ export const HeroSection = () => {
 			<div className={`${SECTION_CONTAINER} relative`}>
 				<div className="grid lg:grid-cols-2 gap-12 items-center">
 					<div className="max-w-2xl">
-						<Badge variant="secondary" className="mb-6">
+						<Badge className="mb-6" variant="secondary">
 							<Star className="w-4 h-4 mr-2" />
 							Trusted by thousands
 						</Badge>
@@ -52,7 +52,7 @@ export const HeroSection = () => {
 								</Button>
 							</Link>
 							<a href={demoLink} target="_blank" rel="noopener noreferrer">
-								<Button variant="outline" size="lg" className="text-base px-8">
+								<Button size="lg" variant="outline" className="text-base px-8">
 									Try Live Demo
 								</Button>
 							</a>
