@@ -378,13 +378,13 @@ export default function Index() {
 
 						paddle?.Checkout.open({
 							items: [{ priceId, quantity: 1 }],
-							customer: paddleCustomerId
-								? { id: paddleCustomerId }
-								: { email: loaderData.customerDetails.email },
+							settings: paddleCustomerId ? { allowLogout: false } : undefined,
 							customData: {
 								customerId: loaderData.customerDetails.id,
 							} as PaddleCustomData,
-							settings: paddleCustomerId ? { allowLogout: false } : undefined,
+							customer: paddleCustomerId
+								? { id: paddleCustomerId }
+								: { email: loaderData.customerDetails.email },
 						});
 					}}
 				/>
