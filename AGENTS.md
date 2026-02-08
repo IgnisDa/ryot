@@ -108,6 +108,31 @@ function MyComponent({ title }: MyComponentProps) {
 }
 ```
 
+### TypeScript Return Types
+
+Do not add explicit return types to functions unless explicitly required. TypeScript's type inference is sufficient in most cases.
+
+**Correct:**
+
+```typescript
+function getUserName(user: User) {
+  return user.name;
+}
+```
+
+**Incorrect:**
+
+```typescript
+function getUserName(user: User): string {
+  return user.name;
+}
+```
+
+Explicit return types may be necessary when:
+
+- The inferred return type is too complex or unclear
+- You want to enforce a specific return type contract
+
 ### Field Ordering by Line Length
 
 When initializing structs (Rust) or object literals (TypeScript), order fields by ascending line length - shorter lines first, longer lines last. This applies to:
