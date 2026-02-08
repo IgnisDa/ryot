@@ -1,10 +1,6 @@
-import { randomBytes } from "node:crypto";
-import { TTLCache } from "@isaacs/ttlcache";
 import ContactSubmissionEmail from "@ryot/transactional/emails/contact-submission";
 import LoginCodeEmail from "@ryot/transactional/emails/login-code";
 import { getActionIntent, processSubmission } from "@ryot/ts-utils";
-import dayjs from "dayjs";
-import duration from "dayjs/plugin/duration";
 import { sql } from "drizzle-orm";
 import * as openidClient from "openid-client";
 import { useState } from "react";
@@ -14,6 +10,7 @@ import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
 import { contactSubmissions, customers } from "~/drizzle/schema.server";
+import { getOtpCode, revokeOtpCode, setOtpCode } from "~/lib/caches.server";
 import { CommunitySection } from "~/lib/components/CommunitySection";
 import { ContactSection } from "~/lib/components/ContactSection";
 import { FeaturesSection } from "~/lib/components/FeaturesSection";
@@ -37,20 +34,6 @@ import {
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_index";
 
-dayjs.extend(duration);
-
-const otpCodesCache = new TTLCache<string, string>({
-	max: 1000,
-	ttl: dayjs.duration(5, "minutes").asMilliseconds(),
-});
-
-const generateOtp = (length: number) => {
-	const max = 10 ** length;
-	const buffer = randomBytes(Math.ceil(length / 2));
-	const otp = Number.parseInt(buffer.toString("hex"), 16) % max;
-	return otp.toString().padStart(length, "0");
-};
-
 export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
@@ -59,8 +42,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const submission = processSubmission(formData, sendLoginCodeSchema);
 			await validateTurnstile(request, submission.turnstileToken);
 
-			const otpCode = generateOtp(6);
-			otpCodesCache.set(submission.email, otpCode);
+			const otpCode = setOtpCode(submission.email);
 			console.log("OTP code generated:", { email: submission.email, otpCode });
 			await sendEmail({
 				recipient: submission.email,
@@ -71,9 +53,11 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		})
 		.with("registerWithEmail", async () => {
 			const submission = processSubmission(formData, registerSchema);
-			const otpCode = otpCodesCache.get(submission.email);
+			const otpCode = getOtpCode(submission.email);
 			if (otpCode !== submission.otpCode)
 				throw data({ message: "Invalid OTP code." }, { status: 400 });
+
+			revokeOtpCode(submission.email);
 			const paymentProvider = assignPaymentProvider(submission.email);
 			const dbCustomer = await getDb()
 				.insert(customers)

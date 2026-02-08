@@ -13,27 +13,19 @@ export async function findCustomerByField(
 	});
 }
 
-export async function findCustomerByPolarId(
-	polarCustomerId: string,
-): Promise<Customer | undefined> {
+export async function findCustomerByPolarId(polarCustomerId: string) {
 	return findCustomerByField("polarCustomerId", polarCustomerId);
 }
 
-export async function findCustomerByPaddleId(
-	paddleCustomerId: string,
-): Promise<Customer | undefined> {
+export async function findCustomerByPaddleId(paddleCustomerId: string) {
 	return findCustomerByField("paddleCustomerId", paddleCustomerId);
 }
 
-export async function findCustomerById(
-	customerId: string,
-): Promise<Customer | undefined> {
+export async function findCustomerById(customerId: string) {
 	return findCustomerByField("id", customerId);
 }
 
-export async function findCustomerByPaddleCustomData(
-	customData: unknown,
-): Promise<Customer | undefined> {
+export async function findCustomerByPaddleCustomData(customData: unknown) {
 	const parsed = paddleCustomDataSchema.safeParse(customData);
 	if (!parsed.success) return undefined;
 
@@ -45,7 +37,7 @@ export async function findCustomerWithFallback(
 	primaryLookup: (id: string) => Promise<Customer | undefined>,
 	fallbackId: string | undefined,
 	fallbackLookup?: (id: string) => Promise<Customer | undefined>,
-): Promise<Customer | null> {
+) {
 	if (primaryId) {
 		const customer = await primaryLookup(primaryId);
 		if (customer) return customer;

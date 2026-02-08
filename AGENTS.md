@@ -26,11 +26,17 @@ Example: `git add 'path/with-special-chars/file.ts'`
 
 Use the `gh` CLI for GitHub operations. Only make raw API requests when the `gh` CLI does not support the required functionality. The `gh` CLI is particularly useful for fetching source code of libraries that the project depends on.
 
+Example: To view a file from the `apalis` dependency:
+
+```bash
+gh api -H "Accept: application/vnd.github.raw" repos/apalis-dev/apalis/contents/apalis/src/layers/opentelemetry/mod.rs
+```
+
 ## Development Workflow
 
 ### Code Quality Checks
 
-Run the following commands frequently to ensure changes do not break anything:
+Run the relevant commands before committing to ensure changes do not break anything:
 
 ```bash
 cargo clippy
@@ -47,13 +53,13 @@ When running tests:
 
 1. Implement the feature first
 2. Always ask the user's approval to run tests
-3. Compile the backend in debug mode and then run `moon run tests:test`
+3. Compile the backend in release mode (`cargo build --release`) and then run `moon run tests:test`
 
 ### GraphQL Code Generation
 
 After adding a GraphQL query or mutation to the backend:
 
-1. Ensure the backend server is running in debug mode in the background
+1. Start the backend server in debug mode in the background (`cargo run`)
 2. Run `moon run generated:backend-graphql` to generate frontend types
 3. Stop the backend server after generation completes
 
@@ -108,6 +114,15 @@ function MyComponent({ title }: MyComponentProps) {
 }
 ```
 
+### TypeScript Return Types
+
+Do not add explicit return types to functions unless required. TypeScript's type inference is sufficient in most cases.
+
+Explicit return types may be necessary when:
+
+- The inferred return type is too complex or unclear
+- Enforcing a specific return type contract is desired
+
 ### Field Ordering by Line Length
 
 When initializing structs (Rust) or object literals (TypeScript), order fields by ascending line length - shorter lines first, longer lines last. This applies to:
@@ -147,7 +162,14 @@ const notification = {
 
 - `..Default::default()` in Rust must always be last (language requirement)
 - Semantic grouping may override length ordering when it improves readability
-- Shorthand fields (just the field name) typically come before assignment expressions of similar length
+- Shorthand fields (just the field name) typically come before assignment expressions of similar length:
+
+```rust
+MyStruct {
+    name,              // shorthand comes first
+    age: user.age,     // assignment of similar length comes after
+}
+```
 
 ### Variable Declaration Ordering by Line Length
 

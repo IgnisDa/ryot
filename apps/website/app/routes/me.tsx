@@ -13,6 +13,12 @@ import {
 	type TPlanTypes,
 	type TProductTypes,
 } from "~/drizzle/schema.server";
+import {
+	getCancellation,
+	getPurchaseInProgress,
+	setCancellation,
+	setPurchaseInProgress,
+} from "~/lib/caches.server";
 import Pricing from "~/lib/components/Pricing";
 import { Button } from "~/lib/components/ui/button";
 import { Card } from "~/lib/components/ui/card";
@@ -40,8 +46,13 @@ import type { Route } from "./+types/me";
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const customerDetails = await getCustomerWithActivePurchase(request);
 	if (!customerDetails) return redirect(startUrl);
+
 	const serverVariables = getServerVariables();
+	const isCancelling = getCancellation(customerDetails.id);
+	const isPurchaseInProgress = getPurchaseInProgress(customerDetails.id);
 	return {
+		isCancelling,
+		isPurchaseInProgress,
 		customerDetails,
 		prices: getPrices(),
 		renewOn: customerDetails.renewOn,
@@ -144,8 +155,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 				const polar = getPolarClient();
 				await polar.subscriptions.revoke({ id: activeSubscription.id });
-
-				await new Promise((resolve) => setTimeout(resolve, 2000));
+				setCancellation(customer.id);
 
 				return data({
 					success: true,
@@ -175,8 +185,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			await paddleClient.subscriptions.cancel(activeSubscription.id, {
 				effectiveFrom: "immediately",
 			});
-
-			await new Promise((resolve) => setTimeout(resolve, 2000));
+			setCancellation(customer.id);
 
 			return data({
 				success: true,
@@ -201,6 +210,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 			if (!productId) throw new Error("Polar product not found");
 
+			setPurchaseInProgress(customer.id);
+
 			const polar = getPolarClient();
 			const frontendUrl = serverVariables.FRONTEND_URL;
 			const checkout = await polar.checkouts.create({
@@ -211,6 +222,11 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 
 			return redirect(checkout.url);
+		})
+		.with("checkoutPaddle", async () => {
+			if (!customer) throw new Error("No customer found");
+			setPurchaseInProgress(customer.id);
+			return data({});
 		})
 		.with("logout", async () => {
 			const cookies = await websiteAuthCookie.serialize("", {
@@ -241,10 +257,11 @@ export default function Index() {
 						eventCallback: (data) => {
 							if (data.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
 								paddleInstance.Checkout.close();
-								toast.loading(
-									"Purchase successful. Your order will be shipped shortly.",
-								);
-								setTimeout(() => window.location.reload(), 10000);
+								const formData = new FormData();
+								fetcher.submit(formData, {
+									method: "POST",
+									action: withQuery(".", { intent: "checkoutPaddle" }),
+								});
 							}
 						},
 					});
@@ -253,13 +270,29 @@ export default function Index() {
 			});
 	}, [
 		paddle,
-		loaderData.clientToken,
 		loaderData.isSandbox,
+		loaderData.clientToken,
 		loaderData.customerDetails.paddleCustomerId,
 	]);
 
 	return (
 		<>
+			{loaderData.isCancelling ? (
+				<div
+					role="alert"
+					className="mx-auto mt-6 w-full max-w-md rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+				>
+					Cancellation in progress. This can take a minute to sync.
+				</div>
+			) : null}
+			{loaderData.isPurchaseInProgress ? (
+				<div
+					role="alert"
+					className="mx-auto mt-6 w-full max-w-md rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"
+				>
+					Purchase in progress. This can take a minute to sync.
+				</div>
+			) : null}
 			{!loaderData.customerDetails.hasCancelled &&
 			loaderData.customerDetails.planType &&
 			loaderData.customerDetails.productType ? (
@@ -368,13 +401,13 @@ export default function Index() {
 
 						paddle?.Checkout.open({
 							items: [{ priceId, quantity: 1 }],
-							customer: paddleCustomerId
-								? { id: paddleCustomerId }
-								: { email: loaderData.customerDetails.email },
+							settings: paddleCustomerId ? { allowLogout: false } : undefined,
 							customData: {
 								customerId: loaderData.customerDetails.id,
 							} as PaddleCustomData,
-							settings: paddleCustomerId ? { allowLogout: false } : undefined,
+							customer: paddleCustomerId
+								? { id: paddleCustomerId }
+								: { email: loaderData.customerDetails.email },
 						});
 					}}
 				/>
