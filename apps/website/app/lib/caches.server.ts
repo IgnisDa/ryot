@@ -25,6 +25,8 @@ export const setOtpCode = (email: string) => {
 
 export const getOtpCode = (email: string) => otpCodesCache.get(email);
 
+export const revokeOtpCode = (email: string) => otpCodesCache.delete(email);
+
 const cancellationCache = new TTLCache<string, boolean>({
 	max: 1000,
 	ttl: dayjs.duration(5, "minutes").asMilliseconds(),

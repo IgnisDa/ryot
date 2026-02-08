@@ -10,7 +10,7 @@ import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
 import { contactSubmissions, customers } from "~/drizzle/schema.server";
-import { getOtpCode, setOtpCode } from "~/lib/caches.server";
+import { getOtpCode, revokeOtpCode, setOtpCode } from "~/lib/caches.server";
 import { CommunitySection } from "~/lib/components/CommunitySection";
 import { ContactSection } from "~/lib/components/ContactSection";
 import { FeaturesSection } from "~/lib/components/FeaturesSection";
@@ -56,6 +56,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const otpCode = getOtpCode(submission.email);
 			if (otpCode !== submission.otpCode)
 				throw data({ message: "Invalid OTP code." }, { status: 400 });
+			revokeOtpCode(submission.email);
 			const paymentProvider = assignPaymentProvider(submission.email);
 			const dbCustomer = await getDb()
 				.insert(customers)
