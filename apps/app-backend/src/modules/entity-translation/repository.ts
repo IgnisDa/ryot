@@ -1,7 +1,7 @@
 import { DbError, conflict } from "@ryot/contract/errors";
 import type { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { and, eq } from "drizzle-orm";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -20,10 +20,10 @@ const extractLanguage = (preferences: Record<string, unknown>): string | null =>
 	return typeof language === "string" && language.length > 0 ? language : null;
 };
 
-export class TranslationsRepository extends Effect.Service<TranslationsRepository>()(
+export class TranslationsRepository extends Context.Service<TranslationsRepository>()(
 	"TranslationsRepository",
 	{
-		sync: () => {
+		make: Effect.sync(() => {
 			const findOverlay = Effect.fn("TranslationsRepository.findOverlay")(function* (input: {
 				language: string;
 				entityId: EntityId;
@@ -136,6 +136,8 @@ export class TranslationsRepository extends Effect.Service<TranslationsRepositor
 			});
 
 			return { findOverlay, createOverlay, updateOverlay, listByEntity, findUserLanguage };
-		},
+		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

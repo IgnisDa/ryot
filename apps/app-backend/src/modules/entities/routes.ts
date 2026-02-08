@@ -1,8 +1,8 @@
-import { HttpApiBuilder } from "@effect/platform";
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
 import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
+import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { EntitiesService } from "./service";
 
@@ -27,11 +27,11 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 					.pipe(dieOnDbError);
 			}),
 		)
-		.handle("get", ({ path }) =>
+		.handle("get", ({ params }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* EntitiesService;
-				return yield* service.getById(user, path.entityId).pipe(dieOnDbError);
+				return yield* service.getById(user, params.entityId).pipe(dieOnDbError);
 			}),
 		),
 );

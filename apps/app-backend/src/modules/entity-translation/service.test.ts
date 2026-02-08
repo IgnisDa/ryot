@@ -1,8 +1,8 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { NotFound } from "@ryot/contract/errors";
 import { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
@@ -25,7 +25,6 @@ const makeTranslationsRepository = (
 	overrides: MockOverrides<typeof mockTranslationsRepository> = {},
 ) =>
 	mockTranslationsRepository({
-		_tag: "TranslationsRepository",
 		findOverlay: () => Effect.succeed(null),
 		listByEntity: () => Effect.succeed([]),
 		findUserLanguage: () => Effect.succeed(null),
@@ -38,12 +37,12 @@ const makeServiceLayer = (
 	repository = makeTranslationsRepository(),
 	engine = makeWorkflowEngine(),
 ) =>
-	TranslationsService.Default.pipe(
+	TranslationsService.layer.pipe(
 		Layer.provide(Layer.mergeAll(dbRunnerLayer, Layer.succeed(WorkflowEngine, engine), repository)),
 	);
 
 it.effect("preserves provider provenance when enqueueing a translation fill", () => {
-	const captured: Array<Parameters<WorkflowEngine["Type"]["execute"]>[1]> = [];
+	const captured: Array<Parameters<WorkflowEngine["Service"]["execute"]>[1]> = [];
 	const layer = makeServiceLayer(
 		makeTranslationsRepository(),
 		makeWorkflowEngine({
