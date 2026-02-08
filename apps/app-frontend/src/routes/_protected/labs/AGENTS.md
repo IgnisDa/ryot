@@ -18,6 +18,6 @@ This directory contains experimental UI prototypes. These are **not production c
 
 ## Lifecycle
 
-- Create a lab when exploring a new interaction pattern, layout, or data presentation that needs iteration before committing to the production codebase.
-- A lab is considered validated when the user explicitly approves a version for production use.
-- Graduating a lab means implementing the approved design in the real route/component tree — do not copy-paste the prototype file directly. Labs use mock data and `console.log`; production code must use real APIs and proper error handling.
+- Create a lab when a design needs iteration before committing to production.
+- Validated when the user explicitly approves a version.
+- Graduate by implementing the design in the real route tree — do not copy-paste. Production code uses real APIs, not mock data.
