@@ -55,8 +55,9 @@ export const eventsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const query = c.req.valid("query");
 
 		const result = await listEntityEvents({
-			entityId: query.entityId,
 			userId: user.id,
+			entityId: query.entityId,
+			eventSchemaSlug: query.eventSchemaSlug,
 		});
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
