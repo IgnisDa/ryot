@@ -61,8 +61,8 @@ export const HeroSection = () => {
 						<div className="absolute inset-0 bg-linear-to-r from-primary/20 to-accent/20 blur-3xl rounded-full" />
 						<Image
 							src="/cta-image.png"
-							alt="Ryot Dashboard Interface showing media tracking capabilities"
 							className="relative w-full max-w-2xl mx-auto rounded-2xl"
+							alt="Ryot Dashboard Interface showing media tracking capabilities"
 						/>
 					</div>
 				</div>
