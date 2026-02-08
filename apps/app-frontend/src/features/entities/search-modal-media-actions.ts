@@ -24,6 +24,23 @@ type LifecycleEventSchemas = Record<LifecycleEventSlug, AppEventSchema>;
 
 type CreateEventPayload = ApiPostRequestBody<"/events">;
 
+export type EpisodicEntitySchemaSlug = "show" | "anime" | "manga" | "podcast";
+
+type EpisodicProgressFields = {
+	showSeason?: number;
+	showEpisode?: number;
+	animeEpisode?: number;
+	mangaChapter?: number;
+	mangaVolume?: number;
+	podcastEpisode?: number;
+};
+
+export function isEpisodicMediaEntitySchemaSlug(
+	entitySchemaSlug: string,
+): entitySchemaSlug is EpisodicEntitySchemaSlug {
+	return ["show", "anime", "manga", "podcast"].includes(entitySchemaSlug);
+}
+
 export function getMediaDoneActionLabel(
 	action: MediaSearchDoneAction,
 	options?: { logDate: MediaSearchLogDateOption; rateStars: number },
@@ -74,6 +91,12 @@ export function createBacklogEventPayload(input: {
 
 export function createProgressEventPayload(input: {
 	entityId: string;
+	showSeason?: number;
+	mangaVolume?: number;
+	showEpisode?: number;
+	animeEpisode?: number;
+	mangaChapter?: number;
+	podcastEpisode?: number;
 	progressPercent: number;
 	eventSchemas: AppEventSchema[];
 }): CreateEventPayload {
@@ -83,7 +106,10 @@ export function createProgressEventPayload(input: {
 		{
 			entityId: input.entityId,
 			eventSchemaId: schemas.progress.id,
-			properties: { progressPercent: input.progressPercent },
+			properties: {
+				progressPercent: input.progressPercent,
+				...resolveProgressFields(input),
+			},
 		},
 	];
 }
@@ -116,17 +142,36 @@ export function createLogEventPayload(input: {
 	entityId: string;
 	startedOn: string;
 	completedOn: string;
+	showSeason?: number;
+	mangaVolume?: number;
+	showEpisode?: number;
+	animeEpisode?: number;
+	mangaChapter?: number;
+	podcastEpisode?: number;
+	entitySchemaSlug: string;
 	eventSchemas: AppEventSchema[];
 	logDate: MediaSearchLogDateOption;
 }): CreateEventPayload {
 	const schemas = resolveLifecycleEventSchemas(input.eventSchemas);
+	const isEpisodic = isEpisodicMediaEntitySchemaSlug(input.entitySchemaSlug);
+	const progressFields = resolveProgressFields(input);
 
 	if (input.logDate === "started") {
 		return [
 			{
 				entityId: input.entityId,
 				eventSchemaId: schemas.progress.id,
-				properties: { progressPercent: 1 },
+				properties: { progressPercent: 1, ...progressFields },
+			},
+		];
+	}
+
+	if (isEpisodic && input.logDate === "now") {
+		return [
+			{
+				entityId: input.entityId,
+				eventSchemaId: schemas.progress.id,
+				properties: { progressPercent: 100, ...progressFields },
 			},
 		];
 	}
@@ -137,6 +182,16 @@ export function createLogEventPayload(input: {
 				entityId: input.entityId,
 				eventSchemaId: schemas.complete.id,
 				properties: { completionMode: "just_now" },
+			},
+		];
+	}
+
+	if (isEpisodic && input.logDate === "unknown") {
+		return [
+			{
+				entityId: input.entityId,
+				eventSchemaId: schemas.progress.id,
+				properties: { progressPercent: 100, ...progressFields },
 			},
 		];
 	}
@@ -156,6 +211,16 @@ export function createLogEventPayload(input: {
 
 	if (startedOn && dayjs(startedOn).isAfter(dayjs(completedOn))) {
 		throw new Error("Started on must be before completed on");
+	}
+
+	if (isEpisodic) {
+		return [
+			{
+				entityId: input.entityId,
+				eventSchemaId: schemas.progress.id,
+				properties: { progressPercent: 100, ...progressFields },
+			},
+		];
 	}
 
 	return [
@@ -190,6 +255,19 @@ function resolveLifecycleEventSchemas(eventSchemas: AppEventSchema[]) {
 	}
 
 	return schemas as LifecycleEventSchemas;
+}
+
+function resolveProgressFields(input: EpisodicProgressFields) {
+	return Object.fromEntries(
+		Object.entries({
+			showSeason: input.showSeason,
+			showEpisode: input.showEpisode,
+			mangaVolume: input.mangaVolume,
+			animeEpisode: input.animeEpisode,
+			mangaChapter: input.mangaChapter,
+			podcastEpisode: input.podcastEpisode,
+		}).filter(([, value]) => value !== undefined),
+	);
 }
 
 function resolveRating(value: number) {
