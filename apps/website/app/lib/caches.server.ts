@@ -38,3 +38,17 @@ export const getCancellation = (customerId: string) =>
 
 export const revokeCancellation = (customerId: string) =>
 	cancellationCache.delete(customerId);
+
+const purchaseInProgressCache = new TTLCache<string, boolean>({
+	max: 1000,
+	ttl: dayjs.duration(5, "minutes").asMilliseconds(),
+});
+
+export const setPurchaseInProgress = (customerId: string) =>
+	purchaseInProgressCache.set(customerId, true);
+
+export const getPurchaseInProgress = (customerId: string) =>
+	purchaseInProgressCache.get(customerId);
+
+export const revokePurchaseInProgress = (customerId: string) =>
+	purchaseInProgressCache.delete(customerId);
