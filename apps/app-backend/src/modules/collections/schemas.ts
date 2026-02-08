@@ -1,7 +1,7 @@
 import { z } from "@hono/zod-openapi";
-import { ImageSchema } from "~/lib/db/schema";
 import { itemDataSchema } from "~/lib/openapi";
 import {
+	ImageSchema,
 	nonEmptyTrimmedStringSchema,
 	stringUnknownRecordSchema,
 	timestampFields,

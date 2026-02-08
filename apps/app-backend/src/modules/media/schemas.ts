@@ -1,11 +1,11 @@
 import { z } from "@hono/zod-openapi";
-import { ImageSchema } from "~/lib/db/schema";
 import {
 	builtinMediaEntitySchemaSlugs,
 	builtinMediaEventSchemaSlugs,
 } from "~/lib/media/constants";
 import { itemDataSchema } from "~/lib/openapi";
 import {
+	ImageSchema,
 	nullableIntSchema,
 	nullableNumberSchema,
 	nullableStringSchema,

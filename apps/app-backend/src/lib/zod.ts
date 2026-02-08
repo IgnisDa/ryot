@@ -1,5 +1,4 @@
 import { z } from "@hono/zod-openapi";
-import { ImageSchema } from "./db/schema/tables";
 
 export const nullableStringSchema = z.string().nullish();
 export const nullableNumberSchema = z.number().nullish();
@@ -66,5 +65,44 @@ export const createNameWithOptionalSlugSchema = <TShape extends z.ZodRawShape>(
 		slug: nonEmptyTrimmedStringSchema.optional(),
 		...shape,
 	});
+
+const remoteImageUrlSchema = z
+	.string()
+	.trim()
+	.superRefine((value, ctx) => {
+		try {
+			const parsedUrl = new URL(value);
+			if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+				throw new Error();
+			}
+		} catch {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "Entity image remote url must be a valid URL",
+			});
+		}
+	});
+
+const s3ImageKeySchema = z
+	.string()
+	.trim()
+	.min(1, "Entity image s3 key is required");
+
+export const remoteImageSchema = z.strictObject({
+	url: remoteImageUrlSchema,
+	kind: z.literal("remote"),
+});
+
+export const s3ImageSchema = z.strictObject({
+	key: s3ImageKeySchema,
+	kind: z.literal("s3"),
+});
+
+export const ImageSchema = z.discriminatedUnion("kind", [
+	s3ImageSchema,
+	remoteImageSchema,
+]);
+
+export type ImageSchemaType = z.infer<typeof ImageSchema>;
 
 export const imagesSchema = z.array(ImageSchema);
