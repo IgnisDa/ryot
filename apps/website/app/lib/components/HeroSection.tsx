@@ -46,16 +46,19 @@ export const HeroSection = () => {
 							organized insights.
 						</p>
 						<div className="flex flex-col sm:flex-row gap-4">
-							<Link to="#start-here">
-								<Button size="lg" className="text-base px-8">
-									Start Free Trial
-								</Button>
-							</Link>
-							<a href={demoLink} target="_blank" rel="noopener noreferrer">
-								<Button size="lg" variant="outline" className="text-base px-8">
+							<Button asChild size="lg" className="text-base px-8">
+								<Link to="#start-here">Start Free Trial</Link>
+							</Button>
+							<Button
+								asChild
+								size="lg"
+								variant="outline"
+								className="text-base px-8"
+							>
+								<a href={demoLink} target="_blank" rel="noopener noreferrer">
 									Try Live Demo
-								</Button>
-							</a>
+								</a>
+							</Button>
 						</div>
 					</div>
 					<div className="relative">
