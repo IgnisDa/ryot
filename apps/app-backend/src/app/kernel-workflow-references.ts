@@ -1,5 +1,3 @@
-import { Path } from "@effect/platform";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import {
@@ -10,7 +8,8 @@ import {
 } from "@ryot/contract/schema/brands";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
-import { Effect, Exit, Layer, Schema } from "effect";
+import { Effect, Exit, Layer, Schema, Path } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -49,14 +48,17 @@ const PROVIDER_ENTITY_POPULATION_MAX_ITEMS = 100;
 const PROVIDER_ENTITY_POPULATION_CONCURRENCY = 4;
 
 const ProviderEntityPopulationReferenceInput = Schema.Struct({
-	mode: Schema.Literal("ensure", "refresh"),
+	mode: Schema.Literals(["ensure", "refresh"]),
 	items: Schema.Array(
 		Schema.Struct({
 			externalId: Schema.String,
 			providerId: Schema.String,
 			entitySchemaSlug: Schema.String,
 		}),
-	).pipe(Schema.minItems(1), Schema.maxItems(PROVIDER_ENTITY_POPULATION_MAX_ITEMS)),
+	).pipe(
+		Schema.check(Schema.isMinLength(1)),
+		Schema.check(Schema.isMaxLength(PROVIDER_ENTITY_POPULATION_MAX_ITEMS)),
+	),
 });
 
 const attributionIds = (origin: AutomationOrigin | undefined) => ({
@@ -136,9 +138,9 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							});
 						}
 						const callerPluginSlug = caller.pluginSlug;
-						const decoded = yield* Schema.decodeUnknown(ProviderEntityPopulationReferenceInput)(
-							input,
-						).pipe(
+						const decoded = yield* Schema.decodeUnknownEffect(
+							ProviderEntityPopulationReferenceInput,
+						)(input).pipe(
 							Effect.mapError(
 								(error) =>
 									new SandboxRunError({
@@ -198,7 +200,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						const results = yield* Effect.forEach(exits, (exit) =>
 							Exit.match(exit, { onSuccess: Effect.succeed, onFailure: Effect.failCause }),
 						);
-						return yield* Schema.decodeUnknown(jsonValueSchema)(results).pipe(
+						return yield* Schema.decodeUnknownEffect(jsonValueSchema)(results).pipe(
 							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 						);
 					}
@@ -209,7 +211,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 					}
 					const engine = yield* WorkflowEngine;
 					if (workflowSlug === KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW) {
-						const payload = yield* Schema.decodeUnknown(ProcessGenericImportChunksPayload)({
+						const payload = yield* Schema.decodeUnknownEffect(ProcessGenericImportChunksPayload)({
 							...(isObjectRecord(input) ? input : {}),
 							executionId,
 							userId: authority.userId,
@@ -241,7 +243,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 									(error) => new SandboxRunError({ message: unknownToMessage(error) }),
 								),
 							);
-						return yield* Schema.decodeUnknown(jsonValueSchema)(result).pipe(
+						return yield* Schema.decodeUnknownEffect(jsonValueSchema)(result).pipe(
 							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 						);
 					}
@@ -261,7 +263,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 								message: `Plugin provider not found: ${providerSlug}`,
 							});
 						}
-						const payload = yield* Schema.decodeUnknown(EntityImportPayload)({
+						const payload = yield* Schema.decodeUnknownEffect(EntityImportPayload)({
 							...rawInput,
 							executionId,
 							userId: authority.userId,
@@ -295,11 +297,11 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 									onSuccess: (entity) => ({ status: "completed" as const, entity }),
 								}),
 							);
-						return yield* Schema.decodeUnknown(jsonValueSchema)(result).pipe(
+						return yield* Schema.decodeUnknownEffect(jsonValueSchema)(result).pipe(
 							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 						);
 					}
-					const payload = yield* Schema.decodeUnknown(EventCreateWorkflowPayload)({
+					const payload = yield* Schema.decodeUnknownEffect(EventCreateWorkflowPayload)({
 						...(isObjectRecord(input) ? input : {}),
 						executionId,
 						userId: authority.userId,
@@ -328,7 +330,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						.pipe(
 							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 						);
-					return yield* Schema.decodeUnknown(jsonValueSchema)(result).pipe(
+					return yield* Schema.decodeUnknownEffect(jsonValueSchema)(result).pipe(
 						Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 					);
 				}),
