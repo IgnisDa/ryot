@@ -14,19 +14,8 @@ import { sleep } from "~/lib/sleep";
 import {
 	createEntityColumnExpression,
 	createEntityRuntimeRequest,
+	type SearchResultItem,
 } from "./model";
-
-export type SearchResultItem = {
-	externalId: string;
-	calloutProperty: { kind: "null"; value: null };
-	titleProperty: { kind: "text"; value: string };
-	primarySubtitleProperty: { kind: "number" | "null"; value: number | null };
-	secondarySubtitleProperty: { kind: "null"; value: null };
-	imageProperty: {
-		kind: "image" | "null";
-		value: { kind: "remote"; url: string } | null;
-	};
-};
 
 type AddStatus = "idle" | "loading" | "done" | "error" | "partial_error";
 

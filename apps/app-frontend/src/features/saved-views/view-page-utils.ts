@@ -6,16 +6,14 @@ import type {
 	ApiPostResponseData,
 } from "~/lib/api/types";
 
-export type RuntimeField = QueryEngineItem["fields"][number];
-export type ViewLayout = keyof SavedView["displayConfiguration"];
-export type QueryEngineItem = QueryEngineResponse["items"][number];
-export type SavedView = ApiGetResponseData<"/saved-views/{viewId}">;
-export type QueryEngineRequest = ApiPostRequestBody<"/query-engine/execute">;
-export type QueryEngineResponse = ApiPostResponseData<"/query-engine/execute">;
-type ViewExpression = NonNullable<
-	QueryEngineRequest["fields"]
->[number]["expression"];
+type SavedView = ApiGetResponseData<"/saved-views/{viewId}">;
+type QueryEngineRequest = ApiPostRequestBody<"/query-engine/execute">;
+type QueryEngineResponse = ApiPostResponseData<"/query-engine/execute">;
+type RuntimeField = QueryEngineResponse["items"][number]["fields"][number];
+type RuntimeRequestField = NonNullable<QueryEngineRequest["fields"]>[number];
+type ViewExpression = RuntimeRequestField["expression"];
 type CardDisplayConfiguration = SavedView["displayConfiguration"]["grid"];
+type ViewLayout = keyof SavedView["displayConfiguration"];
 
 export const GRID_LIMIT = 12;
 export const LIST_LIMIT = 15;
@@ -26,7 +24,10 @@ const nullExpression = {
 	type: "literal",
 } satisfies ViewExpression;
 
-const createRuntimeField = (key: string, expression: ViewExpression) => ({
+const createRuntimeField = (
+	key: string,
+	expression: ViewExpression,
+): RuntimeRequestField => ({
 	key,
 	expression,
 });

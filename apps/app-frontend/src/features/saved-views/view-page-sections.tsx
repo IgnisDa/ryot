@@ -13,16 +13,18 @@ import { Image as ImageIcon } from "lucide-react";
 import { DataTable, type DataTableColumn } from "mantine-datatable";
 import type { AppEntity } from "~/features/entities/model";
 import { useThemeTokens } from "~/hooks/theme";
-import type {
-	QueryEngineResponse,
-	SavedView,
-	ViewLayout,
-} from "./view-page-utils";
+import type { ApiGetResponseData, ApiPostResponseData } from "~/lib/api/types";
 import {
 	formatRuntimeValue,
 	getRuntimeField,
 	isRuntimeField,
 } from "./view-page-utils";
+
+type ViewLayout =
+	keyof ApiGetResponseData<"/saved-views/{viewId}">["displayConfiguration"];
+type SavedViewDisplayConfiguration =
+	ApiGetResponseData<"/saved-views/{viewId}">["displayConfiguration"];
+type QueryEngineMeta = ApiPostResponseData<"/query-engine/execute">["meta"];
 
 function EntityThumbnail(props: {
 	label?: string;
@@ -83,8 +85,8 @@ export function SavedViewResults(props: {
 	layout: ViewLayout;
 	accentColor: string;
 	accentMuted: string;
-	displayConfiguration: SavedView["displayConfiguration"];
-	meta: QueryEngineResponse["meta"];
+	displayConfiguration: SavedViewDisplayConfiguration;
+	meta: QueryEngineMeta;
 	imageUrlById: Map<string, string | undefined>;
 }) {
 	const { isDark, textPrimary, textSecondary } = useThemeTokens();
