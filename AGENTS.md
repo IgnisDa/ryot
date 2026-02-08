@@ -112,22 +112,6 @@ function MyComponent({ title }: MyComponentProps) {
 
 Do not add explicit return types to functions unless explicitly required. TypeScript's type inference is sufficient in most cases.
 
-**Correct:**
-
-```typescript
-function getUserName(user: User) {
-  return user.name;
-}
-```
-
-**Incorrect:**
-
-```typescript
-function getUserName(user: User): string {
-  return user.name;
-}
-```
-
 Explicit return types may be necessary when:
 
 - The inferred return type is too complex or unclear
