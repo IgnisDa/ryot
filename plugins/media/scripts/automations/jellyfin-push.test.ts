@@ -14,6 +14,7 @@ import {
 	httpFailure,
 	httpSuccess,
 	integrationRecord,
+	queryEngineRows,
 	toRecord,
 } from "./automation-test-utils";
 import definition, { manifest } from "./jellyfin-push.sandbox";
@@ -71,9 +72,10 @@ const createHost = (options: {
 }) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: options.httpCall,
-		getEntities: () => (options.entity ? hostSuccess([options.entity]) : hostFailure()),
 		getEntitySchemas: () => hostSuccess([schema]),
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
+		executeQueryEngine: () =>
+			options.entity ? hostSuccess(queryEngineRows([options.entity])) : hostFailure(),
 		getUserPreferences: () =>
 			hostSuccess({ isNsfw: false, disableIntegrations: options.disableIntegrations ?? false }),
 	});
