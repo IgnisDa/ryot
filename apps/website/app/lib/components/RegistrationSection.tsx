@@ -33,9 +33,9 @@ export const RegistrationSection = (props: RegistrationSectionProps) => {
 		<section id="start-here" className="py-20 bg-muted/30">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
 				<SectionHeader
+					maxWidth="max-w-2xl"
 					subtitle="Get Started Today"
 					title="Upgrade Your Tracking Experience"
-					maxWidth="max-w-2xl"
 					description={
 						<>
 							Ready to take control of your personal data and gain meaningful
