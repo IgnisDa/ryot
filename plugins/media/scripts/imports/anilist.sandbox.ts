@@ -13,7 +13,7 @@ export const manifest = defineManifest({
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: ["timezone"],
 	slug: "activity.import.anilist",
-	capabilities: ["artifact-read", "getSystemConfigValue"],
+	capabilities: ["artifact-read", "getSystemConfig"],
 });
 export default defineActivity({
 	manifest,
@@ -22,7 +22,7 @@ export default defineActivity({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			const text = yield* readImportArtifactText();
-			const timezone = yield* host.getSystemConfigValue("timezone");
+			const { timezone } = yield* host.getSystemConfig(["timezone"]);
 			if (typeof timezone !== "string") {
 				throw new Error("App timezone is unavailable");
 			}

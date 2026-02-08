@@ -20,7 +20,8 @@ const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 		httpCall,
 		getCachedValue: () => Effect.succeed("Bearer test-token"),
 		setCachedValue: () => Effect.succeed(null),
-		getPluginConfigValue: () => Effect.succeed("test-api-key"),
+		getPluginConfig: (keys) =>
+			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "test-api-key"]))),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("movie.tvdb sandbox script", () => {

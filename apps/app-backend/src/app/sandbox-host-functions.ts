@@ -19,10 +19,7 @@ import { Effect, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, DbRunner, dbEffect, TransactionRunner } from "#lib/infrastructure/db/service";
-import {
-	getPluginConfigValue,
-	getSystemConfigValue,
-} from "#lib/infrastructure/sandbox-runtime/app-config";
+import { getPluginConfig, getSystemConfig } from "#lib/infrastructure/sandbox-runtime/app-config";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
 	type AdditionalSandboxHostImplementationMap,
@@ -363,9 +360,10 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				sandboxHostEffect,
 			);
 		},
-		getPluginConfigValue: (input, key) => {
-			if (typeof key !== "string" || !key.trim()) {
-				return sandboxHostFailure("getPluginConfigValue expects a non-empty key string");
+		getPluginConfig: (input, rawKeys) => {
+			const keys = rawKeys.map((key) => key.trim());
+			if (keys.some((key) => !key)) {
+				return sandboxHostFailure("getPluginConfig expects non-empty key strings");
 			}
 
 			return sandboxHostEffect(
@@ -374,32 +372,37 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				).pipe(
 					Effect.flatMap((plugin) =>
 						plugin
-							? getPluginConfigValue({
-									key: key.trim(),
+							? getPluginConfig({
+									keys,
 									metadata: input.metadata,
 									pluginSlug: plugin.pluginSlug,
 									configSchema: plugin.configSchema,
 								})
 							: Effect.fail("Plugin config is available only to active plugin scripts"),
 					),
-					Effect.flatMap((value) =>
-						isJsonValue(value)
-							? Effect.succeed(value)
-							: Effect.fail(`Plugin config key "${key.trim()}" is not JSON-compatible`),
+					Effect.flatMap((values) =>
+						Effect.forEach(Object.entries(values), ([key, value]) =>
+							isJsonValue(value)
+								? Effect.succeed([key, value] as const)
+								: Effect.fail(`Plugin config key "${key}" is not JSON-compatible`),
+						).pipe(Effect.map(Object.fromEntries)),
 					),
 				),
 			);
 		},
-		getSystemConfigValue: (input, key) => {
-			if (typeof key !== "string" || !key.trim()) {
-				return sandboxHostFailure("getSystemConfigValue expects a non-empty key string");
+		getSystemConfig: (input, rawKeys) => {
+			const keys = rawKeys.map((key) => key.trim());
+			if (keys.some((key) => !key)) {
+				return sandboxHostFailure("getSystemConfig expects non-empty key strings");
 			}
 			return sandboxHostEffect(
-				getSystemConfigValue(key.trim(), input.metadata).pipe(
-					Effect.flatMap((value) =>
-						isJsonValue(value)
-							? Effect.succeed(value)
-							: Effect.fail(`System config key "${key.trim()}" is not JSON-compatible`),
+				getSystemConfig(keys, input.metadata).pipe(
+					Effect.flatMap((values) =>
+						Effect.forEach(Object.entries(values), ([key, value]) =>
+							isJsonValue(value)
+								? Effect.succeed([key, value] as const)
+								: Effect.fail(`System config key "${key}" is not JSON-compatible`),
+						).pipe(Effect.map(Object.fromEntries)),
 					),
 				),
 			);

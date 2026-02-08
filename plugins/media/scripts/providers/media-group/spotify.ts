@@ -9,7 +9,7 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Spotify",
 	slug: "music-group.spotify",
-	capabilities: ["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"],
+	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
 	requiredSystemConfigKeys: [],
 });

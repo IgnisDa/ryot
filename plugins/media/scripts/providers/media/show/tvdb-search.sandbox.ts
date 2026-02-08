@@ -7,9 +7,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "TVDB Show Search",
 	slug: "show.tvdb.search",
-	requiredPluginConfigKeys: ["tvdbApiKey"],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfigValue"],
+	requiredPluginConfigKeys: ["tvdbApiKey"],
+	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"],
 });
 
 export default defineProvider({ manifest, operation: "search", run: search.run });

@@ -12,9 +12,9 @@ const positiveInteger = Schema.Number.pipe(
 	Schema.check(Schema.isGreaterThan(0)),
 );
 
-type GetConfigValue = <Value extends JsonValue = JsonValue>(
-	key: string,
-) => Effect.Effect<Value, SandboxHostError>;
+type GetConfig = (
+	keys: ReadonlyArray<string>,
+) => Effect.Effect<Readonly<Record<string, JsonValue>>, SandboxHostError>;
 
 export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"log",
@@ -23,8 +23,8 @@ export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"getCachedValue",
 	"setCachedValue",
 	"claimCachedValue",
-	"getPluginConfigValue",
-	"getSystemConfigValue",
+	"getPluginConfig",
+	"getSystemConfig",
 	"getUserPreferences",
 ] as const;
 
@@ -78,11 +78,13 @@ export const claimCachedValueArgsSchema = Schema.Tuple([
 	jsonValueSchema,
 	cacheTtlSecondsSchema,
 ]);
-export const getPluginConfigValueArgsSchema = Schema.Tuple([nonEmptyString]);
-export const getSystemConfigValueArgsSchema = Schema.Tuple([nonEmptyString]);
+export const configKeysSchema = Schema.Array(nonEmptyString);
+export const getPluginConfigArgsSchema = Schema.Tuple([configKeysSchema]);
+export const getSystemConfigArgsSchema = Schema.Tuple([configKeysSchema]);
 export const claimCachedValueResultSchema = hostResultSchema(cacheClaimSchema);
-export const getPluginConfigValueResultSchema = hostResultSchema(jsonValueSchema);
-export const getSystemConfigValueResultSchema = hostResultSchema(jsonValueSchema);
+export const configValuesSchema = Schema.Record(Schema.String, jsonValueSchema);
+export const getPluginConfigResultSchema = hostResultSchema(configValuesSchema);
+export const getSystemConfigResultSchema = hostResultSchema(configValuesSchema);
 export const userPreferencesSchema = strictStruct({
 	isNsfw: Schema.Boolean,
 	disableIntegrations: Schema.Boolean,
@@ -130,15 +132,15 @@ export const coreSandboxHostContracts = {
 		args: claimCachedValueArgsSchema,
 		result: claimCachedValueResultSchema,
 	},
-	getPluginConfigValue: {
-		success: jsonValueSchema,
-		args: getPluginConfigValueArgsSchema,
-		result: getPluginConfigValueResultSchema,
+	getPluginConfig: {
+		success: configValuesSchema,
+		args: getPluginConfigArgsSchema,
+		result: getPluginConfigResultSchema,
 	},
-	getSystemConfigValue: {
-		success: jsonValueSchema,
-		args: getSystemConfigValueArgsSchema,
-		result: getSystemConfigValueResultSchema,
+	getSystemConfig: {
+		success: configValuesSchema,
+		args: getSystemConfigArgsSchema,
+		result: getSystemConfigResultSchema,
 	},
 	getUserPreferences: {
 		success: userPreferencesSchema,
@@ -627,12 +629,12 @@ export const sandboxHostCapabilitySchema = Schema.Literals([...SANDBOX_HOST_CAPA
 export type SandboxHostCapability = Schema.Schema.Type<typeof sandboxHostCapabilitySchema>;
 export type SandboxHostMethodMap = Omit<
 	CoreSandboxHostMethodMap,
-	"getPluginConfigValue" | "getSystemConfigValue"
+	"getPluginConfig" | "getSystemConfig"
 > &
 	DomainSandboxHostMethodMap &
 	AutomationSandboxHostMethodMap & {
-		readonly getPluginConfigValue: GetConfigValue;
-		readonly getSystemConfigValue: GetConfigValue;
+		readonly getPluginConfig: GetConfig;
+		readonly getSystemConfig: GetConfig;
 	};
 export type SandboxHostImplementationMap<Context> = CoreSandboxHostImplementationMap<Context> &
 	DomainSandboxHostImplementationMap<Context> &
