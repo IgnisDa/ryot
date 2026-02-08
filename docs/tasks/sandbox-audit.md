@@ -33,16 +33,16 @@ Host functions are assembled through `SandboxHostImplementations`, so orchestrat
 | Function                    | Fix                               |
 | --------------------------- | --------------------------------- |
 | `getEntities(ids[])`        | - [x] batch entity reads          |
-| `getEntitySchema(slug)`     | - [ ] `getEntitySchemas(slugs[])` |
+| `getEntitySchemas(slugs[])` | - [x] batch entity schema reads |
 | `listEventSchemas(slug)`    | - [ ] accept `slugs[]`            |
 | `getPluginConfigValue(key)` | - [ ] `getPluginConfig(keys[])`   |
 | `getSystemConfigValue(key)` | - [ ] `getSystemConfig(keys[])`   |
 
 The config ones are not just stylistic. `getPluginConfigValue` → `resolvePluginConfig` (app-config.ts:23-36) re-reads and re-parses the **entire** plugin config schema from env on every call. A script reading 6 config keys does 6 full `configFromAppSchema` + `parseAppSchemaProperties` passes, and burns 6 of its 200 host calls.
 
-**Read-surface overlap.** `executeQueryEngine` can express entity and event reads. `getEntities`, `listEvents`, `listEventSchemas`, `getEntitySchema` are four narrower syscalls doing what one general one does — and Decision 8(b) explicitly mandates query pushdown. Each also fails 8(d) ("must never be explicable only by one plugin's needs") less than cleanly.
+**Read-surface overlap.** `executeQueryEngine` can express entity and event reads. `getEntities`, `listEvents`, `listEventSchemas`, `getEntitySchemas` are four narrower syscalls doing what one general one does — and Decision 8(b) explicitly mandates query pushdown. Each also fails 8(d) ("must never be explicable only by one plugin's needs") less than cleanly.
 
-- [ ] Keep `executeQueryEngine` as the read surface, delete `getEntities`/`listEvents` once query documents cover their shapes, and keep `getEntitySchema`/`listEventSchemas` only as _metadata_ introspection. Net: 21 → 17 functions with no capability loss.
+- [ ] Keep `executeQueryEngine` as the read surface, delete `getEntities`/`listEvents` once query documents cover their shapes, and keep `getEntitySchemas`/`listEventSchemas` only as _metadata_ introspection. Net: 21 → 17 functions with no capability loss.
 
 **Naming lies.** `getIntegration()` takes no arguments and returns the integration from the execution's authority (sandbox-host-functions.ts:495-521).
 
@@ -86,7 +86,7 @@ automationHostFunctions      = AUTOMATION_…                  // :98
 systemCronHostFunctions      = SYSTEM_CRON_…                 // :99
 ```
 
-…and others (`getEntities`, `listEvents`, `createEvents`, `getUserPreferences`, `listIntegrations`, `getIntegration`, `listEventSchemas`, `getEntitySchema`) are gated **only** at call time by `requireUserSandboxRunInput`. And `ensureUserEntities` is gated in _both_ places plus a third DB lookup (`resolveTrustedUserBootstrapCaller`, sandbox-host-functions.ts:211).
+…and others (`getEntities`, `listEvents`, `createEvents`, `getUserPreferences`, `listIntegrations`, `getIntegration`, `listEventSchemas`, `getEntitySchemas`) are gated **only** at call time by `requireUserSandboxRunInput`. And `ensureUserEntities` is gated in _both_ places plus a third DB lookup (`resolveTrustedUserBootstrapCaller`, sandbox-host-functions.ts:211).
 
 The selection predicate itself is a five-clause negated boolean (service.ts:129-140):
 
