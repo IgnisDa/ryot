@@ -2,6 +2,8 @@
 
 Isolation model solid. Deno flags, content-addressed modules, per-execution token, budgets — all good and genuinely defensive. The weakness is not security posture, it is **layering**: permission decisions are spread across five places with three different mechanisms, and the execution path has one hop too many. Not over-engineered overall, but three specific subsystems are (bridge error messages, Redis session store, runner-side re-intersection).
 
+This is a greenfield project so breaking changes are fine.
+
 ---
 
 ## 1. Structure
@@ -139,7 +141,7 @@ DurableQueue.process(SandboxExecutionQueue, executionPayload).pipe(
 
 `Schedule.spaced` recurs forever. Every `SandboxRunError` — timeout, scratch-quota overrun, grant-path rejection, invalid runner response — retries at 1/s indefinitely, spawning a Deno process each attempt and holding a worker slot forever. A deterministically-failing script is a permanent capacity leak.
 
-- [ ] Bound retries with `Schedule.spaced("1 second")` composed with `Schedule.recurs(n)`, plus exponential backoff.
+- [x] Bound retries with exponential backoff composed with `Schedule.recurs(n)`. Implemented with three total attempts and exponential delays of 1s and 2s.
 
 **B2 — scratch symlinks. High.** `filesystem-grants.ts`:
 
@@ -148,7 +150,7 @@ DurableQueue.process(SandboxExecutionQueue, executionPayload).pipe(
 
 The runner-side name validation (runner-source.sandbox.ts:120-132) does not help — it is inside the untrusted process.
 
-- [ ] Add an `lstat`-equivalent check, reject anything that is not a regular file, and cap depth and entry count.
+- [x] Add an `lstat`-equivalent check, reject anything that is not a regular file, and cap depth and entry count. Scratch traversal now rejects symlinks and special entries, with 32 directory levels and 4,096 entries maximum.
 
 **B3 — `emitSignal` origin under system authority. Verify.** automation-sandbox-host-functions.ts:33-49: for non-subscription authority the origin is decoded from `rawInput.context`. For a plugin workflow's `activity()` call, the context _is_ `request.args.input` (sandbox-script-workflow.ts:310) — script-controlled. If any system-authority script can hold `emitSignal`, it can forge signal origin attribution.
 
@@ -250,8 +252,8 @@ You asked for recommendations rather than questions, so:
 4. [ ] **Drop the Redis session store (P1).** The data is process-local by construction.
 5. [ ] **Host-function batching.** Batch config functions now; defer entity/schema batching until query-engine consolidation is decided.
 6. [ ] **Collapse reads into `executeQueryEngine`.** Sequence after the capability table lands because this is a plugin-facing API break.
-7. [ ] **Fix B1 and B2.** Bound retry and harden symlink handling regardless of larger refactor sequencing.
+7. [x] **Fix B1 and B2.** Bound retry and harden symlink handling regardless of larger refactor sequencing.
 
 ---
 
-Two claims above I could not fully verify from source and flagged as such: **B3** depends on whether any system-authority script can actually hold `emitSignal` in practice, and **B2**'s exfiltration path (as opposed to its hang, which is certain) depends on Deno's exact permission check for `Deno.symlink` when only `--allow-write=<scratch>` is granted. Both are worth confirming before you decide how hard to fix them.
+One claim above remains unverified from source: **B3** depends on whether any system-authority script can actually hold `emitSignal` in practice. B2 now rejects symlink entries in kernel-owned measurement and harvest paths regardless of Deno's `Deno.symlink` permission behavior.
