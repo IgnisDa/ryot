@@ -12,6 +12,7 @@ export const listedEntitySchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	...timestampFields,
+	populatedAt: z.date(),
 	entitySchemaId: z.string(),
 	image: ImageSchema.nullable(),
 	externalId: z.string().nullable(),

@@ -169,17 +169,12 @@ const processPersonStubs = async (input: {
 			continue;
 		}
 
-		const existingOrCreated = await createGlobalEntity({
+		const { entity: existingOrCreated, isNew } = await createGlobalEntity({
 			name: stub.name,
 			externalId: stub.externalId,
 			entitySchemaId: personSchema.id,
 			sandboxScriptId: personScript.id,
 		});
-
-		const isNew =
-			existingOrCreated.properties &&
-			typeof existingOrCreated.properties === "object" &&
-			!("populatedAt" in existingOrCreated.properties);
 
 		const roleSlug = normalizeSlug(stub.role);
 
@@ -293,33 +288,22 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 
 	const image = extractPrimaryImage(validatedProperties.images);
 
-	const mediaEntity = await createGlobalEntity({
+	const { entity: mediaEntity, isNew } = await createGlobalEntity({
 		entitySchemaId,
 		name: details.name,
 		sandboxScriptId: scriptId,
 		externalId,
 	});
 
-	const isNew =
-		mediaEntity.properties &&
-		typeof mediaEntity.properties === "object" &&
-		!("populatedAt" in mediaEntity.properties);
-
-	const populatedProperties = {
-		...validatedProperties,
-		populatedAt: new Date().toISOString(),
-	};
-
-	if (isNew) {
-		await updateGlobalEntityById({
-			image,
-			entitySchemaId,
-			name: details.name,
-			entityId: mediaEntity.id,
-			removePropertyKeys: ["assets"],
-			properties: populatedProperties,
-		});
-	}
+	const updatedEntity = await updateGlobalEntityById({
+		image,
+		entitySchemaId,
+		name: details.name,
+		entityId: mediaEntity.id,
+		removePropertyKeys: ["assets"],
+		properties: validatedProperties,
+		populatedAt: isNew ? new Date() : mediaEntity.populatedAt,
+	});
 
 	const libraryEntityId = await getUserLibraryEntityId({ userId });
 	if (!libraryEntityId) {
@@ -338,7 +322,7 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 		rawProperties: details.properties,
 	});
 
-	return isNew ? { ...mediaEntity, image, properties: populatedProperties } : mediaEntity;
+	return updatedEntity;
 };
 
 const processPersonPopulateJob = async (job: Job, token?: string) => {
@@ -424,13 +408,11 @@ const processPersonPopulateJob = async (job: Job, token?: string) => {
 	await updateGlobalEntityById({
 		image,
 		name: details.name,
+		populatedAt: new Date(),
 		entityId: personEntityId,
 		removePropertyKeys: ["assets"],
 		entitySchemaId: personSchema.id,
-		properties: {
-			...validatedProperties.data,
-			populatedAt: new Date().toISOString(),
-		},
+		properties: { ...validatedProperties.data },
 	});
 };
 
