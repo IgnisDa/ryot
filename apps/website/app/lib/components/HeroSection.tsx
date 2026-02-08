@@ -26,9 +26,11 @@ const demoLink = "https://demo.ryot.io/_s/acl_QQ7Bb9JvtOrj";
 
 export const HeroSection = () => {
 	return (
-		<section className={`relative ${SECTION_Y_PADDING_LARGE} overflow-hidden`}>
+		<section
+			className={cn("relative", SECTION_Y_PADDING_LARGE, "overflow-hidden")}
+		>
 			<div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-accent/5" />
-			<div className={`${SECTION_CONTAINER} relative`}>
+			<div className={cn(SECTION_CONTAINER, "relative")}>
 				<div className="grid lg:grid-cols-2 gap-12 items-center">
 					<div className="max-w-2xl">
 						<Badge className="mb-6" variant="secondary">
