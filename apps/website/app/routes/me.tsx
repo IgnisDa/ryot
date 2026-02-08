@@ -226,6 +226,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.with("checkoutPaddle", async () => {
 			if (!customer) throw new Error("No customer found");
 			setPurchaseInProgress(customer.id);
+			return data({});
 		})
 		.with("logout", async () => {
 			const cookies = await websiteAuthCookie.serialize("", {
