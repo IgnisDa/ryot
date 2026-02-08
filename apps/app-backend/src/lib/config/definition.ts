@@ -65,7 +65,7 @@ const fields = {
 	),
 	frequentCronJobsSchedule: strField(
 		"SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE",
-		"Interval phrase used to poll enabled yank integrations",
+		"Interval phrase for the frequent cron tier",
 		{ default: "every 5 minutes" },
 	),
 	infrequentCronJobsSchedule: strField(
