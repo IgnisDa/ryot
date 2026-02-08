@@ -85,7 +85,7 @@ export const RegistrationSection = (props: RegistrationSectionProps) => {
 												<InputOTPSlot index={5} />
 											</InputOTPGroup>
 										</InputOTP>
-										<Button type="submit" size="lg" className="text-base px-8">
+										<Button size="lg" type="submit" className="text-base px-8">
 											Verify login code
 										</Button>
 									</>
