@@ -73,9 +73,9 @@ export const RegistrationSection = (props: RegistrationSectionProps) => {
 										/>
 										<InputOTP
 											maxLength={6}
-											pattern={REGEXP_ONLY_DIGITS}
 											name="otpCode"
 											className="justify-center"
+											pattern={REGEXP_ONLY_DIGITS}
 										>
 											<InputOTPGroup>
 												<InputOTPSlot index={0} />
