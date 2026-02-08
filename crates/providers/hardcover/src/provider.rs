@@ -53,8 +53,7 @@ query {{
             .send()
             .await?
             .json::<Response<BooksByPk>>()
-            .await
-            .unwrap();
+            .await?;
         let data = data.data.books_by_pk;
         let mut images = vec![];
         if let Some(i) = data.image
@@ -193,8 +192,7 @@ query {{
             .send()
             .await?
             .json::<Response<SeriesByPk>>()
-            .await
-            .unwrap();
+            .await?;
         let data = data.data.series_by_pk;
         let details = MetadataGroupWithoutId {
             lot: MediaLot::Book,
@@ -284,8 +282,7 @@ query {{
                     .send()
                     .await?
                     .json::<Response<AuthorsByPk>>()
-                    .await
-                    .unwrap();
+                    .await?;
                 let data = data.data.authors_by_pk;
                 let mut images = vec![];
                 if let Some(i) = data.image
@@ -355,8 +352,7 @@ query {{
                     .send()
                     .await?
                     .json::<Response<PublishersByPk>>()
-                    .await
-                    .unwrap();
+                    .await?;
                 let data = data.data.publishers_by_pk;
                 let details = PersonDetails {
                     name: data.name.unwrap(),
