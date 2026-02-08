@@ -29,6 +29,35 @@ import {
 
 type Customer = InferSelectModel<typeof customers>;
 
+type CloudAuthDetails = Extract<
+	NonNullable<PurchaseCompleteEmailProps["details"]>,
+	{ __typename: "cloud" }
+>["auth"];
+
+async function getCloudAuthDetails(
+	userId: string,
+	email: string,
+	oidcIssuerId: string | null,
+): Promise<CloudAuthDetails> {
+	if (oidcIssuerId) return { provider: "google", email };
+
+	const { getPasswordChangeSession } = await getServerGqlService().request(
+		GetPasswordChangeSessionDocument,
+		{
+			input: {
+				userId,
+				adminAccessToken: getServerVariables().SERVER_ADMIN_ACCESS_TOKEN,
+			},
+		},
+	);
+
+	return {
+		username: email,
+		provider: "password",
+		passwordChangeUrl: getPasswordChangeSession.passwordChangeUrl,
+	};
+}
+
 async function handleCloudPurchase(customer: Customer): Promise<{
 	ryotUserId: string;
 	unkeyKeyId: null;
@@ -45,13 +74,15 @@ async function handleCloudPurchase(customer: Customer): Promise<{
 				adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
 			},
 		});
+		const auth = await getCloudAuthDetails(
+			customer.ryotUserId,
+			email,
+			oidcIssuerId,
+		);
 		return {
-			ryotUserId: customer.ryotUserId,
 			unkeyKeyId: null,
-			details: {
-				__typename: "cloud",
-				auth: oidcIssuerId ? email : "User reactivated",
-			},
+			ryotUserId: customer.ryotUserId,
+			details: { auth, __typename: "cloud" },
 		};
 	}
 
@@ -71,19 +102,7 @@ async function handleCloudPurchase(customer: Customer): Promise<{
 		throw new Error("Failed to register user");
 	}
 
-	const auth = oidcIssuerId
-		? email
-		: await getServerGqlService()
-				.request(GetPasswordChangeSessionDocument, {
-					input: {
-						userId: registerUser.id,
-						adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
-					},
-				})
-				.then(({ getPasswordChangeSession }) => ({
-					username: email,
-					passwordChangeUrl: getPasswordChangeSession.passwordChangeUrl,
-				}));
+	const auth = await getCloudAuthDetails(registerUser.id, email, oidcIssuerId);
 
 	return {
 		unkeyKeyId: null,

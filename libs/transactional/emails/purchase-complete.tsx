@@ -1,5 +1,4 @@
 import { Link, Text } from "@react-email/components";
-import { isString } from "@ryot/ts-utils";
 import Layout from "../layout";
 
 const applicationLink = "https://app.ryot.io";
@@ -11,7 +10,13 @@ export type PurchaseCompleteEmailProps = {
 		| { __typename: "self_hosted"; key: string }
 		| {
 				__typename: "cloud";
-				auth: string | { username: string; passwordChangeUrl: string };
+				auth:
+					| { provider: "google"; email: string }
+					| {
+							username: string;
+							provider: "password";
+							passwordChangeUrl: string;
+					  };
 		  };
 };
 
@@ -38,8 +43,8 @@ const PurchaseCompleteEmail = (props: PurchaseCompleteEmailProps) =>
 					<>
 						Your account has been created on{" "}
 						<Link href={applicationLink}>{applicationLink}</Link> with{" "}
-						{isString(props.details.auth) ? (
-							`Google using the email ${props.details.auth}. Please login to get started`
+						{props.details.auth.provider === "google" ? (
+							`Google using the email ${props.details.auth.email}. Please login to get started`
 						) : (
 							<>
 								the username <strong>{props.details.auth.username}</strong>.
