@@ -119,7 +119,9 @@ export const adaptGoodreadsCsv = (csvText: string): MediaImportAdapterResult => 
 					const month = (parts[0] ?? "").padStart(2, "0");
 					const day = (parts[1] ?? "").padStart(2, "0");
 					let year = parts[2] ?? "";
-					if (year.length === 2) {year = `20${year}`;}
+					if (year.length === 2) {
+						year = `20${year}`;
+					}
 					if (year.length === 4 && month && day) {
 						const iso = `${year}-${month}-${day}`;
 						completedOn = Option.match(DateTime.make(iso), {
