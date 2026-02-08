@@ -334,8 +334,9 @@ describe("fromAppSchemaObject", () => {
 		expect(schema.safeParse({ timeToBeat: null }).success).toBeTrue();
 		expect(schema.safeParse({ timeToBeat: undefined }).success).toBeTrue();
 		expect(
-			schema.safeParse({ timeToBeat: { hastily: 5, normally: 10, completely: 20 } })
-				.success,
+			schema.safeParse({
+				timeToBeat: { hastily: 5, normally: 10, completely: 20 },
+			}).success,
 		).toBeTrue();
 	});
 
