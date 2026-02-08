@@ -47,7 +47,7 @@ const state = {
 
 const mockRepository = Layer.mock(AutomationsRepository);
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
-	mockRepository({ _tag: "AutomationsRepository", ...overrides });
+	mockRepository({ ...overrides });
 
 const makeDefinitions = (
 	catalogState: "active" | "hidden" = "active",
@@ -59,7 +59,7 @@ const makeDefinitions = (
 		relationshipSchemas: [],
 		signalSchemas: includeDefinition ? [{ ...signalSchema, catalogState }] : [],
 	});
-	return Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...registry });
+	return Layer.succeed(DefinitionRegistry, { ...registry });
 };
 
 const makeLayer = (
@@ -67,7 +67,7 @@ const makeLayer = (
 	catalogState: "active" | "hidden" = "active",
 	includeDefinition = true,
 ) =>
-	NotificationSubscriptionsService.Default.pipe(
+	NotificationSubscriptionsService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
