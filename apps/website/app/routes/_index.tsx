@@ -56,6 +56,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const otpCode = getOtpCode(submission.email);
 			if (otpCode !== submission.otpCode)
 				throw data({ message: "Invalid OTP code." }, { status: 400 });
+
 			revokeOtpCode(submission.email);
 			const paymentProvider = assignPaymentProvider(submission.email);
 			const dbCustomer = await getDb()
