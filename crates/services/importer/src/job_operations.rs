@@ -30,3 +30,29 @@ pub async fn user_import_reports(
         .await?;
     Ok(reports)
 }
+
+pub async fn delete_user_import_report(
+    ss: &Arc<SupportingService>,
+    user_id: String,
+    import_report_id: String,
+) -> Result<bool> {
+    let report = ImportReport::find_by_id(import_report_id.clone())
+        .one(&ss.db)
+        .await?
+        .ok_or(anyhow::anyhow!("Import report does not exist"))?;
+    
+    if report.user_id != user_id {
+        return Err(anyhow::anyhow!("You do not have permission to delete this import report"));
+    }
+    
+    if report.was_success.is_none() {
+        return Err(anyhow::anyhow!("Cannot delete an import that is still in progress"));
+    }
+    
+    ImportReport::delete_by_id(import_report_id)
+        .exec(&ss.db)
+        .await?;
+    
+    ryot_log!(debug, "Deleted import report");
+    Ok(true)
+}

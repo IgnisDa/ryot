@@ -143,6 +143,10 @@ mutation DeleteUserIntegration($integrationId: String!) {
 	deleteUserIntegration(integrationId: $integrationId)
 }
 
+mutation DeleteUserImportReport($importReportId: String!) {
+	deleteUserImportReport(importReportId: $importReportId)
+}
+
 mutation DeleteUserMeasurement($timestamp: DateTime!) {
 	deleteUserMeasurement(timestamp: $timestamp)
 }

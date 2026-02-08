@@ -41,4 +41,14 @@ impl ImporterMutationResolver {
         let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
         Ok(job_operations::deploy_import_job(service, user_id, input).await?)
     }
+
+    /// Delete an import report.
+    async fn delete_user_import_report(
+        &self,
+        gql_ctx: &Context<'_>,
+        import_report_id: String,
+    ) -> Result<bool> {
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(job_operations::delete_user_import_report(service, user_id, import_report_id).await?)
+    }
 }
