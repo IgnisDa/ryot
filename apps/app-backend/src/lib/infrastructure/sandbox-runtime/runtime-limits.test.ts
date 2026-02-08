@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { SANDBOX_LIMITS } from "./limits";
 import { readSandboxBridgeRequestBody, sandboxBridgeResultResponse } from "./runtime";
 
-const decodeBody = Schema.decode(Schema.parseJson(Schema.Unknown));
+const decodeBody = Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 const request = (body: string) =>
 	new Request("http://127.0.0.1/rpc/execution/function", { method: "POST", body });
 

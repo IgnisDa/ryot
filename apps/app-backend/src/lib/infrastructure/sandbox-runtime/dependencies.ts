@@ -1,6 +1,5 @@
-import { FileSystem, Path } from "@effect/platform";
 import { SANDBOX_RUNTIME_SDK_IMPORTS, SANDBOX_SDK_ROOT_IMPORT } from "@ryot/sandbox-sdk/imports";
-import { Data, Effect } from "effect";
+import { Data, Effect, FileSystem, Path } from "effect";
 
 class SandboxRuntimeDependencyError extends Data.TaggedError("SandboxRuntimeDependencyError")<{
 	message: string;
@@ -11,8 +10,8 @@ const SANDBOX_RUNTIME_DEPENDENCY_FORMAT = 1 as const;
 export const SANDBOX_APPROVED_DEPENDENCIES = [
 	{
 		name: "effect",
-		version: "3.21.4",
-		runtimeFile: "effect-3.21.4.mjs",
+		version: "4.0.0-beta.102",
+		runtimeFile: "effect-4.0.0-beta.102.mjs",
 		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[0],
 	},
 	{
@@ -70,7 +69,7 @@ const runtimeModules = SANDBOX_APPROVED_DEPENDENCIES.map((dependency) =>
 				sourceImport: dependency.sdkImport,
 				runtimeSource:
 					dependency.name === "effect"
-						? 'import * as Effect from "effect/Effect"; import * as Schema from "effect/Schema"; import * as DateTime from "effect/DateTime"; import * as Duration from "effect/Duration"; import * as Either from "effect/Either"; import * as Option from "effect/Option"; import * as ParseResult from "effect/ParseResult"; export { DateTime, Duration, Effect, Either, Option, ParseResult, Schema };'
+						? 'import * as Effect from "effect/Effect"; import * as Schema from "effect/Schema"; import * as DateTime from "effect/DateTime"; import * as Duration from "effect/Duration"; import * as Result from "effect/Result"; import * as Option from "effect/Option"; import * as SchemaGetter from "effect/SchemaGetter"; import * as SchemaIssue from "effect/SchemaIssue"; import * as SchemaTransformation from "effect/SchemaTransformation"; export { DateTime, Duration, Effect, Option, Result, Schema, SchemaGetter, SchemaIssue, SchemaTransformation };'
 						: null,
 			},
 );
@@ -282,7 +281,7 @@ const publishRuntimeDirectory = (
 		}
 		const paths = yield* fs.rename(temporaryDirectory, destination.directory).pipe(
 			Effect.as(destination),
-			Effect.catchAll(() =>
+			Effect.catch(() =>
 				Effect.gen(function* () {
 					if (yield* runtimeMatches(fs, primaryPaths, contentHash)) {
 						return primaryPaths;

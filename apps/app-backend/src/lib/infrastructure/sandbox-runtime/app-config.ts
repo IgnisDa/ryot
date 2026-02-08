@@ -62,8 +62,8 @@ export const isPluginConfigKeyConfigured = Effect.fn("isPluginConfigKeyConfigure
 		if (!Object.hasOwn(input.configSchema.fields, input.key)) {
 			return false;
 		}
-		const result = yield* Effect.either(resolvePluginConfig(input));
-		return result._tag === "Right" && result.right[input.key] !== undefined;
+		const result = yield* Effect.result(resolvePluginConfig(input));
+		return result._tag === "Success" && result.success[input.key] !== undefined;
 	},
 );
 

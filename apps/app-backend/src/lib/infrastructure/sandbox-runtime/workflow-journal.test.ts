@@ -45,10 +45,10 @@ const makeRedis = (entries: ReadonlyArray<string | null>) => {
 	return {
 		service: {
 			client: {
-				hmget: () => Promise.resolve([...entries]),
-				hget: () => Promise.resolve(String(entries.length)),
+				hmget: (_key, ..._fields) => Promise.resolve([...entries]),
+				hget: (_key, _field) => Promise.resolve(String(entries.length)),
 			},
-		},
+		} satisfies Parameters<typeof makeWorkflowDurableCallsHostFunction>[1],
 	};
 };
 
@@ -64,11 +64,12 @@ it.effect("returns the full projected journal from one argument-free bootstrap c
 		redis.service,
 	);
 
-	return durableCalls([]).pipe(
-		Effect.tap((result) => {
-			expect(result).toEqual({ success: true, data: [{ result: 1 }, { result: 2 }] });
-		}),
-	);
+	return Effect.gen(function* () {
+		expect(yield* durableCalls([])).toEqual({
+			success: true,
+			data: [{ result: 1 }, { result: 2 }],
+		});
+	});
 });
 
 it.effect("rejects request-bearing calls instead of retaining the growing-prefix protocol", () => {
@@ -78,14 +79,12 @@ it.effect("rejects request-bearing calls instead of retaining the growing-prefix
 		redis.service,
 	);
 
-	return durableCalls([[request(0, "old-protocol")]]).pipe(
-		Effect.tap((result) => {
-			expect(result).toEqual({
-				success: false,
-				error: "durableCalls does not accept arguments",
-			});
-		}),
-	);
+	return Effect.gen(function* () {
+		expect(yield* durableCalls([[request(0, "old-protocol")]])).toEqual({
+			success: false,
+			error: "durableCalls does not accept arguments",
+		});
+	});
 });
 
 it("isolates workflow host calls while activities retain normal capabilities", () => {
