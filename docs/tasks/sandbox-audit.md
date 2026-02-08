@@ -10,11 +10,11 @@ This is a greenfield project so breaking changes are fine.
 
 **Good.** `lib/infrastructure/sandbox-runtime` (mechanism) vs `modules/sandbox` (durable orchestration) vs `app/*-host-functions.ts` (domain binding) is the right cut. `SandboxHostImplementations` as an injected Context service is the right inversion.
 
-**Problem A — the runtime/app split is arbitrary.** `service.ts` is 653 lines, of which ~200 are host-function _implementations_ (`claimCachedValue`, `getCachedValue`, `setCachedValue`, `httpCall`, service.ts:454-645) inlined into the orchestrator, while every other host function arrives through injection. Cache is Redis and httpCall is HTTP — both infrastructure, but so is nothing else about them that justifies inlining.
+**Problem A — the runtime/app split is arbitrary.** Runtime-owned cache and HTTP host functions now live beside the other injected host implementations. `SandboxService` owns orchestration only.
 
-Consequence: the mutual-recursion hack at service.ts:229-233 (`let apiFunctions` assigned after `runSandbox` closes over it). That comment exists purely because the file both builds and consumes the map.
+Host functions are assembled through `SandboxHostImplementations`, so orchestration no longer builds and consumes its own map through late binding.
 
-- [ ] Move the four inline implementations into a `runtime-host-functions.ts` layer that is merged into `SandboxHostImplementations`. `service.ts` drops to ~250 lines of pure orchestration, the `let` disappears, and "runtime-owned methods stay in service.ts" (README:113) stops being a rule new contributors must memorize.
+- [x] Move cache and HTTP implementations into `runtime-host-functions.ts`, merge them into `SandboxHostImplementations`, and keep `SandboxService` focused on orchestration.
 
 **Problem B — three-hop dispatch.** `processSandboxExecution` → resolution `Activity` → `RunSandboxWorkflow` → `DurableQueue.process(SandboxExecutionQueue)` → worker → `executeSandboxExecution` → `SandboxService.run`.
 

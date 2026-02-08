@@ -11,25 +11,16 @@ import {
 	Duration,
 	Effect,
 	Layer,
-	Match,
 	Option,
 	Pool,
 	Queue,
 	Schema,
-	Stream,
 	FileSystem,
 	Path,
 } from "effect";
-import {
-	FetchHttpClient,
-	HttpClient,
-	HttpClientRequest,
-	HttpMethod,
-	type HttpClientResponse,
-} from "effect/unstable/http";
 
 import { AppConfig } from "../config/service";
-import { redisKeys, RedisService } from "../redis";
+import { RedisService } from "../redis";
 import { ServerRun } from "../server-run";
 import { bindSandboxHostFunctions } from "./bridge-adapter";
 import { acquireSandboxCompiledModule } from "./compiled-modules";
@@ -49,11 +40,7 @@ import {
 } from "./filesystem-grants";
 import { SandboxHostImplementations } from "./host-implementations";
 import {
-	sandboxCacheKeyError,
-	sandboxCacheTtlError,
-	sandboxCacheValueError,
 	sandboxContextError,
-	sandboxHttpRequestBodyError,
 	isWorkflowSandboxMetadata,
 	sandboxRunnerRequestError,
 	sandboxRunnerLimits,
@@ -73,25 +60,12 @@ import {
 	recordSandboxExecutionFinished,
 	recordSandboxExecutionStarted,
 } from "./runtime";
-import {
-	type BoundHostFunction,
-	isJsonValue,
-	sandboxHostEffect,
-	sandboxHostFailure,
-	sandboxRunUserId,
-	type SandboxHostImplementationMap,
-	type SandboxRunInput,
-} from "./shared";
+import type { BoundHostFunction, SandboxRunInput } from "./shared";
 import { makeWorkflowDurableCallsHostFunction } from "./workflow-journal";
 
-const httpCallTimeoutMs = 8_000;
 const sessionTtlBufferMs = 2_000;
-const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 const invalidResponseMessage = "Invalid JSON response from Deno process";
-type BunRequestInit = RequestInit & { tls: { rejectUnauthorized: boolean } };
-const insecureRequestInit: BunRequestInit = { tls: { rejectUnauthorized: false } };
-const defaultHeaders = { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )" };
 const userAuthorityHostFunctions = new Set<string>(["ensureUserEntities"]);
 const systemActivityHostFunctions = new Set<string>(["executeQueryEngine"]);
 const userBoundHostFunctions = new Set<string>(["changeUserRelationships"]);
@@ -144,36 +118,6 @@ export const selectSandboxHostFunctions = (
 	return selectedApiFunctions;
 };
 
-export const readSandboxHttpResponseText = (response: HttpClientResponse.HttpClientResponse) =>
-	response.stream.pipe(
-		Stream.runFoldEffect(
-			() => ({ bytes: 0, chunks: [] as Uint8Array[] }),
-			(state, chunk) => {
-				const bytes = state.bytes + chunk.byteLength;
-				return bytes > SANDBOX_LIMITS.http.responseBytes
-					? Effect.fail(`httpCall response body exceeds ${SANDBOX_LIMITS.http.responseBytes} bytes`)
-					: Effect.succeed({ bytes, chunks: [...state.chunks, chunk] });
-			},
-		),
-		Effect.map(({ bytes, chunks }) => {
-			const body = new Uint8Array(bytes);
-			let offset = 0;
-			for (const chunk of chunks) {
-				body.set(chunk, offset);
-				offset += chunk.byteLength;
-			}
-			return decoder.decode(body);
-		}),
-	);
-
-export const applySandboxHttpRequestInit = <A, E, R>(
-	effect: Effect.Effect<A, E, R>,
-	allowInsecureConnections: boolean | undefined,
-) =>
-	allowInsecureConnections
-		? effect.pipe(Effect.provideService(FetchHttpClient.RequestInit, insecureRequestInit))
-		: effect;
-
 const SandboxRunnerRequest = Schema.Struct({
 	token: Schema.String,
 	apiBase: Schema.String,
@@ -220,17 +164,16 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 		const fs = yield* FileSystem.FileSystem;
 		const hostImplementations = yield* SandboxHostImplementations;
 
-		const httpClient = yield* HttpClient.HttpClient;
 		const harvestRoot = path.join(
 			config.tmpDir,
 			`${SANDBOX_HARVEST_DIRECTORY_PREFIX}${serverRun.id}`,
 		);
 
-		// `runSandbox` reads `apiFunctions`, and some host functions are built from `runSandbox`
-		// (an automation can create events, which evaluates further policies and subscriptions).
-		// The late `let` binding ties this mutual reference; `runSandbox` is only ever invoked after
-		// `apiFunctions` is assigned below.
-		let apiFunctions: Omit<SandboxHostImplementationMap, "log" | "span">;
+		const apiFunctions = {
+			...hostImplementations.runtime,
+			...hostImplementations.additional,
+			...hostImplementations.automation,
+		};
 
 		const runSandbox = (input: SandboxRunInput) =>
 			Effect.scoped(
@@ -451,203 +394,10 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 				Effect.provideService(FileSystem.FileSystem, fs),
 			);
 
-		apiFunctions = {
-			claimCachedValue: (input, key, value, ttlSeconds) => {
-				const keyError = sandboxCacheKeyError("claimCachedValue", key);
-				if (keyError) {
-					return sandboxHostFailure(keyError);
-				}
-				const ttlError = sandboxCacheTtlError("claimCachedValue", ttlSeconds, "TTL");
-				if (ttlError) {
-					return sandboxHostFailure(ttlError);
-				}
-
-				const redisKey = redisKeys.sandboxCache(
-					sandboxRunUserId(input),
-					input.cacheNamespace,
-					key.trim(),
-				);
-
-				return sandboxHostEffect(
-					Effect.gen(function* () {
-						const serialized = yield* Schema.encodeUnknownEffect(
-							Schema.fromJsonString(Schema.Unknown),
-						)(value).pipe(
-							Effect.mapError(() => "claimCachedValue value must be JSON-serializable"),
-						);
-						const valueError = sandboxCacheValueError("claimCachedValue", serialized);
-						if (valueError) {
-							return yield* Effect.fail(valueError);
-						}
-
-						const setResult = yield* Effect.tryPromise({
-							try: () => redis.client.set(redisKey, serialized, "EX", ttlSeconds, "NX"),
-							catch: unknownToMessage,
-						});
-						if (setResult !== null) {
-							return { claimed: true as const };
-						}
-
-						const existing = yield* Effect.tryPromise({
-							try: () => redis.client.get(redisKey),
-							catch: unknownToMessage,
-						});
-						if (existing === null) {
-							return { claimed: false, value: null };
-						}
-						const existingValueError = sandboxCacheValueError(
-							"claimCachedValue",
-							existing,
-							"stored value",
-						);
-						if (existingValueError) {
-							return yield* Effect.fail(existingValueError);
-						}
-
-						return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
-							existing,
-						).pipe(
-							Effect.map((decoded) => ({
-								claimed: false as const,
-								value: isJsonValue(decoded) ? decoded : null,
-							})),
-							Effect.orElseSucceed(() => ({ claimed: false as const, value: null })),
-						);
-					}),
-				);
-			},
-			getCachedValue: (input, key) => {
-				const keyError = sandboxCacheKeyError("getCachedValue", key);
-				if (keyError) {
-					return sandboxHostFailure(keyError);
-				}
-
-				return sandboxHostEffect(
-					redis
-						.get(
-							redisKeys.sandboxRunCache(
-								serverRun.id,
-								sandboxRunUserId(input),
-								input.cacheNamespace,
-								key.trim(),
-							),
-						)
-						.pipe(
-							Effect.flatMap((cached) => {
-								if (cached === null) {
-									return Effect.succeed(null);
-								}
-								const valueError = sandboxCacheValueError("getCachedValue", cached, "stored value");
-								if (valueError) {
-									return Effect.fail(valueError);
-								}
-								return Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
-									cached,
-								).pipe(
-									Effect.flatMap((value) =>
-										isJsonValue(value)
-											? Effect.succeed(value)
-											: Effect.fail("getCachedValue: stored value is not valid JSON"),
-									),
-									Effect.mapError(() => "getCachedValue: stored value is not valid JSON"),
-								);
-							}),
-						),
-				);
-			},
-			httpCall: (_input, method, url, options) => {
-				if (typeof method !== "string" || !method.trim()) {
-					return sandboxHostFailure("httpCall expects a non-empty method string");
-				}
-				if (typeof url !== "string" || !url.trim()) {
-					return sandboxHostFailure("httpCall expects a non-empty URL string");
-				}
-				const bodyError = sandboxHttpRequestBodyError(options?.body);
-				if (bodyError) {
-					return sandboxHostFailure(bodyError);
-				}
-
-				return sandboxHostEffect(
-					Effect.gen(function* () {
-						const requestUrl = yield* Effect.try({
-							try: () => new URL(url),
-							catch: () => "httpCall URL is invalid",
-						});
-						const httpMethod = yield* Match.value(method.trim().toUpperCase()).pipe(
-							Match.when(HttpMethod.isHttpMethod, (m) => Effect.succeed(m)),
-							Match.orElse(() => Effect.fail("httpCall method is not a valid HTTP method")),
-						);
-						let request = HttpClientRequest.make(httpMethod)(requestUrl.toString());
-						if (options?.body !== undefined) {
-							request = HttpClientRequest.bodyText(options.body)(request);
-						}
-						request = request.pipe(
-							HttpClientRequest.setHeaders({ ...defaultHeaders, ...options?.headers }),
-						);
-
-						const [response, body] = yield* httpClient.execute(request).pipe(
-							(effect) => applySandboxHttpRequestInit(effect, options?.allowInsecureConnections),
-							Effect.flatMap((res) =>
-								res.status < 200 || res.status >= 300
-									? Effect.succeed([res, ""] as const)
-									: Effect.map(readSandboxHttpResponseText(res), (text) => [res, text] as const),
-							),
-							Effect.timeout(Duration.millis(httpCallTimeoutMs)),
-							Effect.mapError(unknownToMessage),
-						);
-
-						if (response.status < 200 || response.status >= 300) {
-							return yield* Effect.fail({
-								message: `HTTP ${response.status}`,
-								data: { status: response.status },
-							});
-						}
-
-						return { body, status: response.status, headers: response.headers };
-					}),
-				);
-			},
-			setCachedValue: (input, key, value, expiry) => {
-				const keyError = sandboxCacheKeyError("setCachedValue", key);
-				if (keyError) {
-					return sandboxHostFailure(keyError);
-				}
-				const ttlError = sandboxCacheTtlError("setCachedValue", expiry, "expiry");
-				if (ttlError) {
-					return sandboxHostFailure(ttlError);
-				}
-
-				return sandboxHostEffect(
-					Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(value).pipe(
-						Effect.mapError(() => "setCachedValue value must be JSON-serializable"),
-						Effect.flatMap((serialized) => {
-							const valueError = sandboxCacheValueError("setCachedValue", serialized);
-							return valueError
-								? Effect.fail(valueError)
-								: redis
-										.set(
-											redisKeys.sandboxRunCache(
-												serverRun.id,
-												sandboxRunUserId(input),
-												input.cacheNamespace,
-												key.trim(),
-											),
-											serialized,
-											expiry,
-										)
-										.pipe(Effect.as(null));
-						}),
-					),
-				);
-			},
-			...hostImplementations.additional,
-			...hostImplementations.automation,
-		};
-
 		return { run: runSandbox };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
-		Layer.provide(Layer.mergeAll(FetchHttpClient.layer, ProcessPool.layer, BridgeService.layer)),
+		Layer.provide(Layer.mergeAll(ProcessPool.layer, BridgeService.layer)),
 	);
 }
