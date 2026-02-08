@@ -8,7 +8,7 @@ use media_models::{CreateOrUpdateCollectionInput, DeployPathImportInput};
 
 pub async fn import(input: DeployPathImportInput) -> Result<ImportResult> {
     let export = read_to_string(input.export_path)?;
-    let complete_data = serde_json::from_str::<CompleteExport>(&export).unwrap();
+    let complete_data = serde_json::from_str::<CompleteExport>(&export)?;
 
     let media = complete_data
         .metadata
