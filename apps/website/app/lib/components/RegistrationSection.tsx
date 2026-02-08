@@ -36,13 +36,9 @@ export const RegistrationSection = (props: RegistrationSectionProps) => {
 					maxWidth="max-w-2xl"
 					subtitle="Get Started Today"
 					title="Upgrade Your Tracking Experience"
-					description={
-						<>
-							Ready to take control of your personal data and gain meaningful
+					description="Ready to take control of your personal data and gain meaningful
 							insights into your life? Start your free trial today and see the
-							difference Ryot can make.
-						</>
-					}
+							difference Ryot can make."
 				/>
 				<div className="mt-8" />
 				<div className="max-w-sm mx-auto space-y-4">
