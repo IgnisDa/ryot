@@ -222,13 +222,6 @@ export default function Page() {
 
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
-	const deleteImportReportMutation = useMutation({
-		mutationFn: (importReportId: string) =>
-			clientGqlService
-				.request(DeleteUserImportReportDocument, { importReportId })
-				.then((g) => g.deleteUserImportReport),
-	});
-
 	const userImportsReportsQuery = useQuery({
 		enabled: inViewport,
 		refetchInterval: 5000,
@@ -237,6 +230,14 @@ export default function Page() {
 			clientGqlService
 				.request(UserImportReportsDocument)
 				.then((u) => u.userImportReports),
+	});
+
+	const deleteImportReportMutation = useMutation({
+		onSuccess: () => userImportsReportsQuery.refetch(),
+		mutationFn: (importReportId: string) =>
+			clientGqlService
+				.request(DeleteUserImportReportDocument, { importReportId })
+				.then((g) => g.deleteUserImportReport),
 	});
 
 	const userExportsQuery = useQuery({
@@ -587,13 +588,10 @@ export default function Page() {
 																	onClick={() => {
 																		openConfirmationModal(
 																			"Are you sure you want to delete this import report? This action is irreversible.",
-																			() => {
-																				deleteImportReportMutation
-																					.mutateAsync(report.id)
-																					.then(() =>
-																						userImportsReportsQuery.refetch(),
-																					);
-																			},
+																			() =>
+																				deleteImportReportMutation.mutate(
+																					report.id,
+																				),
 																		);
 																	}}
 																>
