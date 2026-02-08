@@ -51,16 +51,18 @@ const loadPluginSources = (packageRoot: string) =>
 		const files: Record<string, string> = {};
 		for (const path of paths) {
 			if (!path.endsWith(".test.ts")) {
-				files[path] = yield* Effect.tryPromise({
-					try: () => Bun.file(`${packageRoot}/${path}`).text(),
-					catch: (error) =>
-						sandboxCompilationFailure([
-							sandboxCompilerDiagnostic(
-								"RYOT_PLUGIN_SOURCE",
-								`Plugin sources could not be read: ${String(error)}`,
-							),
-						]),
-				});
+				files[path] = yield* fs
+					.readFileString(`${packageRoot}/${path}`)
+					.pipe(
+						Effect.mapError((error) =>
+							sandboxCompilationFailure([
+								sandboxCompilerDiagnostic(
+									"RYOT_PLUGIN_SOURCE",
+									`Plugin sources could not be read: ${String(error)}`,
+								),
+							]),
+						),
+					);
 			}
 		}
 		return files;

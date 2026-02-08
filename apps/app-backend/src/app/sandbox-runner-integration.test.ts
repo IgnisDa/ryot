@@ -1103,6 +1103,8 @@ it(
 	() =>
 		Effect.runPromise(
 			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const path = yield* Path.Path;
 				const pluginOutputs = yield* Effect.forEach(bootPluginSources, (plugin) =>
 					Effect.gen(function* () {
 						const pluginSource = yield* loadPluginSource(plugin.packageRoot, plugin.manifest);
@@ -1114,9 +1116,13 @@ it(
 				);
 				const kernelFiles = Object.fromEntries(
 					yield* Effect.forEach(kernelScripts, (script) =>
-						Effect.tryPromise(() =>
-							Bun.file(new URL(`../../${script.entry}`, import.meta.url)).text(),
-						).pipe(Effect.map((scriptSource) => [script.entry, scriptSource] as const)),
+						Effect.gen(function* () {
+							const filePath = yield* path.fromFileUrl(
+								new URL(`../../${script.entry}`, import.meta.url),
+							);
+							const scriptSource = yield* fs.readFileString(filePath);
+							return [script.entry, scriptSource] as const;
+						}),
 					),
 				);
 				const kernelOutputs = yield* compilePluginSandboxSourceEntries(kernelFiles, kernelScripts);
