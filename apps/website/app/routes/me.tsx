@@ -255,8 +255,14 @@ export default function Index() {
 				if (paddleInstance) {
 					paddleInstance.Update({
 						eventCallback: (data) => {
-							if (data.name === CheckoutEventNames.CHECKOUT_COMPLETED)
+							if (data.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
 								paddleInstance.Checkout.close();
+								const formData = new FormData();
+								fetcher.submit(formData, {
+									method: "POST",
+									action: withQuery(".", { intent: "checkoutPaddle" }),
+								});
+							}
 						},
 					});
 					setPaddle(paddleInstance);
@@ -393,11 +399,6 @@ export default function Index() {
 							return;
 						}
 
-						const formData = new FormData();
-						fetcher.submit(formData, {
-							method: "POST",
-							action: withQuery(".", { intent: "checkoutPaddle" }),
-						});
 						paddle?.Checkout.open({
 							items: [{ priceId, quantity: 1 }],
 							settings: paddleCustomerId ? { allowLogout: false } : undefined,
