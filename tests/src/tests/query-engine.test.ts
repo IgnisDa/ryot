@@ -104,7 +104,11 @@ describe("Query engine E2E", () => {
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
 				displayConfiguration: buildGridDisplayConfiguration(
-					{ badgeProperty: null, subtitleProperty: null },
+					{
+						calloutProperty: null,
+						primarySubtitleProperty: null,
+						secondarySubtitleProperty: null,
+					},
 					[schema.slug],
 				),
 				filter: {
@@ -149,7 +153,11 @@ describe("Query engine E2E", () => {
 		const request = buildGridRequest({
 			entitySchemaSlugs: [schema.slug],
 			displayConfiguration: buildGridDisplayConfiguration(
-				{ badgeProperty: null, subtitleProperty: null },
+				{
+					calloutProperty: null,
+					primarySubtitleProperty: null,
+					secondarySubtitleProperty: null,
+				},
 				[schema.slug],
 			),
 			filter: {
@@ -202,15 +210,20 @@ describe("Query engine E2E", () => {
 			kind: "remote",
 			url: "https://example.com/alpha-phone.png",
 		});
-		expect(getQueryEngineFieldOrThrow(firstItem, "badge")).toEqual({
-			key: "badge",
+		expect(getQueryEngineFieldOrThrow(firstItem, "callout")).toEqual({
+			key: "callout",
 			kind: "text",
 			value: "phone",
 		});
-		expect(getQueryEngineFieldOrThrow(firstItem, "subtitle")).toEqual({
-			key: "subtitle",
+		expect(getQueryEngineFieldOrThrow(firstItem, "primarySubtitle")).toEqual({
+			key: "primarySubtitle",
 			kind: "number",
 			value: 2018,
+		});
+		expect(getQueryEngineFieldOrThrow(firstItem, "secondarySubtitle")).toEqual({
+			key: "secondarySubtitle",
+			kind: "null",
+			value: null,
 		});
 		expect(getQueryEngineFieldOrThrow(firstItem, "title")).toEqual({
 			key: "title",
@@ -784,8 +797,9 @@ describe("Query engine E2E", () => {
 			buildGridRequest({
 				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
 				displayConfiguration: buildGridDisplayConfiguration({
-					badgeProperty: null,
-					subtitleProperty: null,
+					calloutProperty: null,
+					primarySubtitleProperty: null,
+					secondarySubtitleProperty: null,
 				}),
 				filter: {
 					type: "or",
@@ -827,8 +841,9 @@ describe("Query engine E2E", () => {
 			buildGridRequest({
 				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
 				displayConfiguration: buildGridDisplayConfiguration({
-					badgeProperty: null,
-					subtitleProperty: null,
+					calloutProperty: null,
+					primarySubtitleProperty: null,
+					secondarySubtitleProperty: null,
 				}),
 				filter: {
 					type: "or",
@@ -969,8 +984,9 @@ describe("Query engine E2E", () => {
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
 				displayConfiguration: buildGridDisplayConfiguration({
-					badgeProperty: [entityField(schema.slug, "id")],
-					subtitleProperty: null,
+					calloutProperty: [entityField(schema.slug, "id")],
+					primarySubtitleProperty: null,
+					secondarySubtitleProperty: null,
 				}),
 				filter: {
 					type: "contains",
@@ -982,8 +998,8 @@ describe("Query engine E2E", () => {
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items.map((item) => item.name)).toEqual(["Beta Tablet"]);
-		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "badge")).toEqual({
-			key: "badge",
+		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "callout")).toEqual({
+			key: "callout",
 			kind: "text",
 			value: targetId,
 		});
@@ -993,8 +1009,9 @@ describe("Query engine E2E", () => {
 		const { client, cookies, smartphoneSlug, tabletSchema, tabletSlug } =
 			await createCrossSchemaQueryEngineFixture();
 		const neutralDisplay = buildGridDisplayConfiguration({
-			badgeProperty: null,
-			subtitleProperty: null,
+			calloutProperty: null,
+			primarySubtitleProperty: null,
+			secondarySubtitleProperty: null,
 		});
 		const coalesceSort = {
 			direction: "asc" as const,
@@ -1319,8 +1336,9 @@ describe("Query engine E2E", () => {
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
 				displayConfiguration: buildGridDisplayConfiguration({
-					badgeProperty: null,
-					subtitleProperty: null,
+					calloutProperty: null,
+					primarySubtitleProperty: null,
+					secondarySubtitleProperty: null,
 				}),
 				filter: {
 					type: "contains",
@@ -1374,8 +1392,9 @@ describe("Query engine E2E", () => {
 		});
 
 		const neutralDisplay = buildGridDisplayConfiguration({
-			badgeProperty: null,
-			subtitleProperty: null,
+			calloutProperty: null,
+			primarySubtitleProperty: null,
+			secondarySubtitleProperty: null,
 		});
 
 		const percentResult = await executeQueryEngine(
@@ -1441,8 +1460,9 @@ describe("Query engine E2E", () => {
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
 				displayConfiguration: buildGridDisplayConfiguration({
-					badgeProperty: null,
-					subtitleProperty: null,
+					calloutProperty: null,
+					primarySubtitleProperty: null,
+					secondarySubtitleProperty: null,
 				}),
 				filter: {
 					type: "contains",
@@ -1561,8 +1581,9 @@ describe("Query engine E2E", () => {
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
 				displayConfiguration: buildGridDisplayConfiguration({
-					badgeProperty: null,
-					subtitleProperty: null,
+					calloutProperty: null,
+					primarySubtitleProperty: null,
+					secondarySubtitleProperty: null,
 				}),
 				filter: {
 					type: "isNull",

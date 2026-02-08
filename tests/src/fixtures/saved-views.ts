@@ -44,16 +44,18 @@ type DisplayColumnInput = {
 type DisplayConfigurationInput = {
 	table: { columns: DisplayColumnInput[] };
 	grid: {
-		badgeProperty: ExpressionInput | null;
+		calloutProperty: ExpressionInput | null;
 		titleProperty: ExpressionInput | null;
 		imageProperty: ExpressionInput | null;
-		subtitleProperty: ExpressionInput | null;
+		primarySubtitleProperty: ExpressionInput | null;
+		secondarySubtitleProperty?: ExpressionInput | null;
 	};
 	list: {
-		badgeProperty: ExpressionInput | null;
+		calloutProperty: ExpressionInput | null;
 		titleProperty: ExpressionInput | null;
 		imageProperty: ExpressionInput | null;
-		subtitleProperty: ExpressionInput | null;
+		primarySubtitleProperty: ExpressionInput | null;
+		secondarySubtitleProperty?: ExpressionInput | null;
 	};
 };
 
@@ -62,10 +64,10 @@ const normalizeDisplayConfiguration = (
 	allowNulls = true,
 ): DisplayConfiguration => ({
 	grid: {
-		badgeProperty:
-			(input.grid.badgeProperty === null && allowNulls
+		calloutProperty:
+			(input.grid.calloutProperty === null && allowNulls
 				? null
-				: toRequiredExpression(input.grid.badgeProperty)) ?? null,
+				: toRequiredExpression(input.grid.calloutProperty)) ?? null,
 		titleProperty:
 			(input.grid.titleProperty === null && allowNulls
 				? null
@@ -74,16 +76,21 @@ const normalizeDisplayConfiguration = (
 			(input.grid.imageProperty === null && allowNulls
 				? null
 				: toRequiredExpression(input.grid.imageProperty)) ?? null,
-		subtitleProperty:
-			(input.grid.subtitleProperty === null && allowNulls
+		primarySubtitleProperty:
+			(input.grid.primarySubtitleProperty === null && allowNulls
 				? null
-				: toRequiredExpression(input.grid.subtitleProperty)) ?? null,
+				: toRequiredExpression(input.grid.primarySubtitleProperty)) ?? null,
+		secondarySubtitleProperty:
+			(input.grid.secondarySubtitleProperty === null && allowNulls
+				? null
+				: toRequiredExpression(input.grid.secondarySubtitleProperty ?? null)) ??
+			null,
 	},
 	list: {
-		badgeProperty:
-			(input.list.badgeProperty === null && allowNulls
+		calloutProperty:
+			(input.list.calloutProperty === null && allowNulls
 				? null
-				: toRequiredExpression(input.list.badgeProperty)) ?? null,
+				: toRequiredExpression(input.list.calloutProperty)) ?? null,
 		titleProperty:
 			(input.list.titleProperty === null && allowNulls
 				? null
@@ -92,10 +99,15 @@ const normalizeDisplayConfiguration = (
 			(input.list.imageProperty === null && allowNulls
 				? null
 				: toRequiredExpression(input.list.imageProperty)) ?? null,
-		subtitleProperty:
-			(input.list.subtitleProperty === null && allowNulls
+		primarySubtitleProperty:
+			(input.list.primarySubtitleProperty === null && allowNulls
 				? null
-				: toRequiredExpression(input.list.subtitleProperty)) ?? null,
+				: toRequiredExpression(input.list.primarySubtitleProperty)) ?? null,
+		secondarySubtitleProperty:
+			(input.list.secondarySubtitleProperty === null && allowNulls
+				? null
+				: toRequiredExpression(input.list.secondarySubtitleProperty ?? null)) ??
+			null,
 	},
 	table: {
 		columns: input.table.columns.map((column) => ({
@@ -123,14 +135,16 @@ const defaultDisplayConfiguration = {
 		columns: [{ label: "Name", expression: [entityField("book", "name")] }],
 	},
 	grid: {
-		badgeProperty: null,
-		subtitleProperty: null,
+		calloutProperty: null,
+		primarySubtitleProperty: null,
+		secondarySubtitleProperty: null,
 		titleProperty: [entityField("book", "name")],
 		imageProperty: [entityField("book", "image")],
 	},
 	list: {
-		badgeProperty: null,
-		subtitleProperty: null,
+		calloutProperty: null,
+		primarySubtitleProperty: null,
+		secondarySubtitleProperty: null,
 		titleProperty: [entityField("book", "name")],
 		imageProperty: [entityField("book", "image")],
 	},
@@ -194,14 +208,16 @@ export function buildUpdatedSavedViewBody(
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
+					calloutProperty: null,
+					primarySubtitleProperty: null,
+					secondarySubtitleProperty: null,
 				},
 				list: {
 					titleProperty: [entityField("book", "name")],
 					imageProperty: [entityField("book", "image")],
-					subtitleProperty: [entityField("book", "publishYear")],
-					badgeProperty: [entityField("anime", "productionStatus")],
+					calloutProperty: [entityField("anime", "productionStatus")],
+					primarySubtitleProperty: [entityField("book", "publishYear")],
+					secondarySubtitleProperty: null,
 				},
 			});
 

@@ -14,6 +14,7 @@ export function createEntityFixture(
 		sandboxScriptId: null,
 		entitySchemaId: "schema-1",
 		createdAt: dayjs("2026-03-08T08:00:00.000Z").toDate(),
+		populatedAt: dayjs("2026-03-08T08:30:00.000Z").toDate(),
 		updatedAt: dayjs("2026-03-08T08:30:00.000Z").toDate(),
 		...overrides,
 	};
@@ -24,9 +25,10 @@ export function createSearchResultItemFixture(
 ): SearchResultItem {
 	return {
 		externalId: "item-1",
-		badgeProperty: { kind: "null", value: null },
+		calloutProperty: { kind: "null", value: null },
 		imageProperty: { kind: "null", value: null },
-		subtitleProperty: { kind: "null", value: null },
+		primarySubtitleProperty: { kind: "null", value: null },
+		secondarySubtitleProperty: { kind: "null", value: null },
 		titleProperty: { kind: "text", value: "Test Item" },
 		...overrides,
 	};

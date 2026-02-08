@@ -18,9 +18,10 @@ import {
 
 export type SearchResultItem = {
 	externalId: string;
-	badgeProperty: { kind: "null"; value: null };
+	calloutProperty: { kind: "null"; value: null };
 	titleProperty: { kind: "text"; value: string };
-	subtitleProperty: { kind: "number" | "null"; value: number | null };
+	primarySubtitleProperty: { kind: "number" | "null"; value: number | null };
+	secondarySubtitleProperty: { kind: "null"; value: null };
 	imageProperty: {
 		kind: "image" | "null";
 		value: { kind: "remote"; url: string } | null;
