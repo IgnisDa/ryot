@@ -23,6 +23,7 @@ import {
 } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
 import {
+	DeleteUserImportReportDocument,
 	DeployExportJobDocument,
 	DeployImportJobDocument,
 	ImportSource,
@@ -37,7 +38,7 @@ import {
 	processSubmission,
 } from "@ryot/ts-utils";
 import { IconDownload, IconEye, IconTrash } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { filesize } from "filesize";
 import { DataTable } from "mantine-datatable";
 import { useMemo, useState } from "react";
@@ -229,6 +230,14 @@ export default function Page() {
 			clientGqlService
 				.request(UserImportReportsDocument)
 				.then((u) => u.userImportReports),
+	});
+
+	const deleteImportReportMutation = useMutation({
+		onSuccess: () => userImportsReportsQuery.refetch(),
+		mutationFn: (importReportId: string) =>
+			clientGqlService
+				.request(DeleteUserImportReportDocument, { importReportId })
+				.then((g) => g.deleteUserImportReport),
 	});
 
 	const userExportsQuery = useQuery({
@@ -562,13 +571,33 @@ export default function Page() {
 															) : null}
 														</Stack>
 														{!isInProgress && (
-															<ActionIcon
-																color="blue"
-																variant="transparent"
-																onClick={() => setOpenDrawerId(report.id)}
-															>
-																<IconEye />
-															</ActionIcon>
+															<>
+																<ActionIcon
+																	color="blue"
+																	variant="transparent"
+																	onClick={() => setOpenDrawerId(report.id)}
+																>
+																	<IconEye />
+																</ActionIcon>
+																<ActionIcon
+																	color="red"
+																	variant="transparent"
+																	disabled={
+																		deleteImportReportMutation.isPending
+																	}
+																	onClick={() => {
+																		openConfirmationModal(
+																			"Are you sure you want to delete this import report? This action is irreversible.",
+																			() =>
+																				deleteImportReportMutation.mutate(
+																					report.id,
+																				),
+																		);
+																	}}
+																>
+																	<IconTrash />
+																</ActionIcon>
+															</>
 														)}
 													</Group>
 													<Drawer

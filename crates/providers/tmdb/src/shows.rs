@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics, SearchDetails,
@@ -328,7 +328,7 @@ impl MediaProvider for TmdbShowService {
                             .episodes
                             .iter()
                             .find(|e| e.episode_number == ep_num)
-                            .ok_or_else(|| anyhow::anyhow!("Episode not found"))?;
+                            .ok_or_else(|| anyhow!("Episode not found"))?;
                         Ok(EntityTranslationDetails {
                             title: Some(episode.name.clone()),
                             description: episode.overview.clone(),
