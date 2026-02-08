@@ -1,6 +1,6 @@
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { expect, it } from "vitest";
 
@@ -38,8 +38,7 @@ it.each([
 ])("formats %s exclusively from the signal snapshot", (slug, properties, expected) => {
 	const messages: string[] = [];
 	return Effect.runPromise(
-		runSandboxTestScript(
-			definition,
+		definition.run(
 			input(slug, properties),
 			defineSandboxTestHost(manifest, {
 				sendNotification: (message) =>
@@ -49,11 +48,9 @@ it.each([
 					}),
 			}),
 			{ metadata: {}, sandboxScriptId: "script-1" },
-		).pipe(
-			Effect.tap((result) => {
-				expect(result).toBeNull();
-				expect(messages).toEqual([expected]);
-			}),
 		),
-	);
+	).then((result) => {
+		expect(result).toBeNull();
+		return expect(messages).toEqual([expected]);
+	});
 });
