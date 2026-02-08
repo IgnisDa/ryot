@@ -1,11 +1,12 @@
 import { Github, MessageCircle } from "lucide-react";
 import { SectionHeader } from "~/lib/components/SectionHeader";
 import { Button } from "~/lib/components/ui/button";
+import { SECTION_CONTAINER_NARROW, SECTION_Y_PADDING } from "~/lib/styles";
 
 export const CommunitySection = () => {
 	return (
-		<section className="py-20">
-			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+		<section className={SECTION_Y_PADDING}>
+			<div className={`${SECTION_CONTAINER_NARROW} text-center`}>
 				<SectionHeader
 					maxWidth="max-w-2xl"
 					subtitle="Join the Community"

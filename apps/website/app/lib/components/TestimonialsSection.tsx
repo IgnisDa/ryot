@@ -4,6 +4,7 @@ import {
 	type Testimonial,
 	TestimonialCard,
 } from "~/lib/components/TestimonialCard";
+import { SECTION_CONTAINER, SECTION_Y_PADDING } from "~/lib/styles";
 
 const TESTIMONIALS: Testimonial[] = [
 	{
@@ -33,8 +34,8 @@ const TESTIMONIALS: Testimonial[] = [
 ];
 
 export const TestimonialsSection = () => (
-	<section className="py-20">
-		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+	<section className={SECTION_Y_PADDING}>
+		<div className={SECTION_CONTAINER}>
 			<SectionHeader
 				icon={Users}
 				maxWidth="max-w-2xl"

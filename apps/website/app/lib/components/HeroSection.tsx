@@ -3,6 +3,7 @@ import { Star } from "lucide-react";
 import { Link } from "react-router";
 import { Badge } from "~/lib/components/ui/badge";
 import { Button } from "~/lib/components/ui/button";
+import { SECTION_CONTAINER, SECTION_Y_PADDING_LARGE } from "~/lib/styles";
 
 type ImageProps = {
 	src: string;
@@ -25,9 +26,9 @@ const demoLink = "https://demo.ryot.io/_s/acl_QQ7Bb9JvtOrj";
 
 export const HeroSection = () => {
 	return (
-		<section className="relative py-20 lg:py-32 overflow-hidden">
+		<section className={`relative ${SECTION_Y_PADDING_LARGE} overflow-hidden`}>
 			<div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-accent/5" />
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+			<div className={`${SECTION_CONTAINER} relative`}>
 				<div className="grid lg:grid-cols-2 gap-12 items-center">
 					<div className="max-w-2xl">
 						<Badge variant="secondary" className="mb-6">

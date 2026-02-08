@@ -1,11 +1,12 @@
 import { Shield, TrendingUp, Zap } from "lucide-react";
 import { FeatureCard } from "~/lib/components/FeatureCard";
 import { SectionHeader } from "~/lib/components/SectionHeader";
+import { SECTION_CONTAINER, SECTION_Y_PADDING } from "~/lib/styles";
 
 export const FeaturesSection = () => {
 	return (
-		<section className="py-20 bg-muted/30">
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+		<section className={`${SECTION_Y_PADDING} bg-muted/30`}>
+			<div className={SECTION_CONTAINER}>
 				<SectionHeader
 					subtitle="Why Choose Ryot"
 					title="Ditch the Spreadsheets, Embrace Ryot"
