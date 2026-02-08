@@ -4,7 +4,7 @@ import {
 	mediaMonitoringDisableRecipe,
 	mediaMonitoringEnableRecipe,
 	mediaMonitoringStatusRecipe,
-} from "@ryot/plugin-media/operations/recipes";
+} from "@ryot/media-fitness/operations/recipes";
 import {
 	buildQueryEngineRowsDocument,
 	queryEngineRelationshipSource,

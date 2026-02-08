@@ -2,7 +2,7 @@ import { runContract, type ContractProgram } from "@ryot/contract/client";
 import type { IntegrationWebhookPayload } from "@ryot/contract/modules/integrations/schemas";
 import { IntegrationId, PluginSlug } from "@ryot/contract/schema/brands";
 import { invokeOperationRecipe } from "@ryot/plugin-kit/operations";
-import { metadataLookupRecipe } from "@ryot/plugin-media/operations/recipes";
+import { metadataLookupRecipe } from "@ryot/media-fitness/operations/recipes";
 import { Effect } from "effect";
 
 const resolveConnection = (integrationUrl: string) => {
