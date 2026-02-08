@@ -305,6 +305,11 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 		typeof mediaEntity.properties === "object" &&
 		!("populatedAt" in mediaEntity.properties);
 
+	const populatedProperties = {
+		...validatedProperties,
+		populatedAt: new Date().toISOString(),
+	};
+
 	if (isNew) {
 		await updateGlobalEntityById({
 			image,
@@ -312,10 +317,7 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 			name: details.name,
 			entityId: mediaEntity.id,
 			removePropertyKeys: ["assets"],
-			properties: {
-				...validatedProperties,
-				populatedAt: new Date().toISOString(),
-			},
+			properties: populatedProperties,
 		});
 	}
 
@@ -336,7 +338,7 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 		rawProperties: details.properties,
 	});
 
-	return mediaEntity;
+	return isNew ? { ...mediaEntity, image, properties: populatedProperties } : mediaEntity;
 };
 
 const processPersonPopulateJob = async (job: Job, token?: string) => {
