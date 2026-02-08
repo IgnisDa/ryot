@@ -114,7 +114,7 @@ const allDomainManifest = defineManifest({
 	requiredSystemConfigKeys: [],
 	slug: "all-domain-capabilities",
 	capabilities: [
-		"getEntity",
+		"getEntities",
 		"listEvents",
 		"createEvents",
 		"getIntegration",
@@ -134,7 +134,10 @@ defineScript({
 	output: Schema.Boolean,
 	run: (_input, host) =>
 		Effect.gen(function* () {
-			const entity = yield* host.getEntity("entity-1");
+			const entity = (yield* host.getEntities(["entity-1"]))[0];
+			if (!entity) {
+				return false;
+			}
 			const properties: JsonValue = entity.properties;
 			const integration = yield* host.getIntegration();
 			const externalId: string | null = entity.externalId;
@@ -197,7 +200,9 @@ defineScript({
 			const deleted: number | undefined = reconciled?.deleted;
 			const query = yield* host.executeQueryEngine({ source: { type: "entities" } });
 			const queryResult: Expect<Equal<typeof query, unknown>> = true;
-			const entityArg: Expect<Equal<Parameters<typeof host.getEntity>[0], string>> = true;
+			const entityArg: Expect<
+				Equal<Parameters<typeof host.getEntities>[0], ReadonlyArray<string>>
+			> = true;
 			void lot;
 			void total;
 			void changedCount;

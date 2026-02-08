@@ -22,7 +22,7 @@ export const manifest = defineManifest({
 	requiredSystemConfigKeys: [],
 	capabilities: [
 		"httpCall",
-		"getEntity",
+		"getEntities",
 		"getEntitySchema",
 		"listIntegrations",
 		"getUserPreferences",
