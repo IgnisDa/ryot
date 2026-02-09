@@ -21,20 +21,18 @@ const getSourceFiles = (dir: string) =>
 			return { text, link: `/${dir}/${name}` };
 		});
 
+const guidesSourceFiles = getSourceFiles("guides");
 const conceptsSourceFiles = getSourceFiles("concepts");
 const importingSourceFiles = getSourceFiles("importing");
 const integrationsSourceFiles = getSourceFiles("integrations");
-const guidesSourceFiles = getSourceFiles("guides");
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
 	srcDir: "src",
 	lastUpdated: true,
 	title: "Ryot Documentation",
+	sitemap: { hostname: "https://docs.ryot.io" },
 	description: "Documentation for Ryot project and associated applications.",
-	sitemap: {
-		hostname: "https://docs.ryot.io",
-	},
 	head: [
 		[
 			"link",
@@ -55,8 +53,8 @@ export default defineConfig({
 			{ text: "Configuration", link: "/configuration" },
 			{ text: "Deployment", link: "/deployment" },
 			{
-				text: "Concepts",
 				collapsed: true,
+				text: "Concepts",
 				link: "/concepts/overview",
 				items: [
 					{ text: "Overview", link: "/concepts/overview" },

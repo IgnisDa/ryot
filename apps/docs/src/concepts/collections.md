@@ -9,15 +9,15 @@ transitions.
 Ryot creates these collections automatically for every user account. They are default system
 collections and cannot be deleted.
 
-| Collection | Description | Special behavior |
-| --- | --- | --- |
-| **Watchlist** | Items you want to consume in the future | Automatically removed when progress/seen is updated |
-| **In Progress** | Items you are currently consuming | Powers the "In Progress" dashboard section |
-| **Completed** | Items you have finished | Used for completion history and filters |
-| **Monitoring** | Items you want to keep an eye on | Powers upcoming events and update notifications |
-| **Owned** | Items in your physical/digital inventory | Includes an optional `Owned on` date field |
-| **Reminders** | Items with scheduled reminders | Uses reminder-specific extra fields |
-| **Custom** | Items you created manually in Ryot | Custom metadata/groups/people are added here automatically |
+| Collection      | Description                              | Special behavior                                           |
+| --------------- | ---------------------------------------- | ---------------------------------------------------------- |
+| **Watchlist**   | Items you want to consume in the future  | Automatically removed when progress/seen is updated        |
+| **In Progress** | Items you are currently consuming        | Powers the "In Progress" dashboard section                 |
+| **Completed**   | Items you have finished                  | Used for completion history and filters                    |
+| **Monitoring**  | Items you want to keep an eye on         | Powers upcoming events and update notifications            |
+| **Owned**       | Items in your physical/digital inventory | Includes an optional `Owned on` date field                 |
+| **Reminders**   | Items with scheduled reminders           | Uses reminder-specific extra fields                        |
+| **Custom**      | Items you created manually in Ryot       | Custom metadata/groups/people are added here automatically |
 
 ## Automatic Collection Management
 
