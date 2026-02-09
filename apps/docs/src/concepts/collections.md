@@ -1,104 +1,134 @@
 # Collections
 
-Collections are a way to organize and categorize your media. Ryot comes with several default
-collections that have special behaviors and affect how items appear in the UI.
+Collections are one of the core organizing systems in Ryot. They are not only labels for your
+media: they also drive dashboard sections, notification behavior, and some automatic status
+transitions.
 
 ## Default Collections
 
-These collections are created automatically for each user and cannot be deleted.
+Ryot creates these collections automatically for every user account. They are default system
+collections and cannot be deleted.
 
-| Collection      | Description                              | Special Behavior                                    |
-| --------------- | ---------------------------------------- | --------------------------------------------------- |
-| **Watchlist**   | Items you want to consume in the future  | Automatically removed when you start watching       |
-| **In Progress** | Items you are currently consuming        | Shown in the "In Progress" section on the dashboard |
-| **Completed**   | Items you have finished                  | Used for completion tracking                        |
-| **Monitoring**  | Items you want to keep an eye on         | Triggers notifications for new episodes/seasons     |
-| **Owned**       | Items in your physical/digital inventory | Has an optional "Owned on" date field               |
-| **Reminders**   | Items with scheduled reminders           | Requires a reminder date and text                   |
+| Collection | Description | Special behavior |
+| --- | --- | --- |
+| **Watchlist** | Items you want to consume in the future | Automatically removed when progress/seen is updated |
+| **In Progress** | Items you are currently consuming | Powers the "In Progress" dashboard section |
+| **Completed** | Items you have finished | Used for completion history and filters |
+| **Monitoring** | Items you want to keep an eye on | Powers upcoming events and update notifications |
+| **Owned** | Items in your physical/digital inventory | Includes an optional `Owned on` date field |
+| **Reminders** | Items with scheduled reminders | Uses reminder-specific extra fields |
+| **Custom** | Items you created manually in Ryot | Custom metadata/groups/people are added here automatically |
 
 ## Automatic Collection Management
 
-Ryot automatically manages certain collections based on your activity. Understanding this
-behavior helps avoid confusion about why items appear in certain sections.
+Ryot applies collection automation when progress/seen state changes are recorded.
 
-### When You Start Watching
+### Step 1: Watchlist removal
 
-When you mark any episode, chapter, or media item as "in progress":
+On every progress/seen update, Ryot first removes the item from `Watchlist` (if present).
 
-1. The item is **added** to `In Progress`
-2. The item is **added** to `Monitoring`
-3. The item is **removed** from `Watchlist` (if present)
+### Step 2: State-based rules
 
-### When You Complete Something
+When state becomes `In Progress`:
 
-The behavior depends on the media type:
+1. Add item to `In Progress`
+2. Add item to `Monitoring`
 
-**For movies, books, music, visual novels, and video games:**
+When state becomes `Dropped` or `On Hold`:
 
-- The item is **added** to `Completed`
-- The item is **removed** from `In Progress`
-- The item is **removed** from `Monitoring`
+1. Remove item from `In Progress`
+2. Leave `Monitoring` unchanged
 
-**For shows, anime, manga, and podcasts:**
+When state becomes `Completed`, behavior depends on media type:
 
-- Progress is calculated (see below)
-- If fully complete: moved to `Completed`, removed from `In Progress`
-- If not fully complete: stays in `In Progress` and `Monitoring`
+- **Non-episodic media** (movies, books, audiobooks, music, video games, comic books, visual
+  novels):
+  1. Add to `Completed`
+  2. Remove from `In Progress`
+  3. Remove from `Monitoring`
+- **Episodic media** (shows, anime, manga, podcasts):
+  - Use the completion algorithm below
+  - If complete: add to `Completed`, remove from `In Progress`
+  - If not complete: keep/add in `In Progress` and `Monitoring`
 
-### When You Drop or Put on Hold
+::: info
+For episodic media, `Monitoring` is not auto-removed on completion. This helps ongoing series
+continue surfacing future updates.
+:::
 
-- The item is **removed** from `In Progress`
-- The item stays in `Monitoring` (you'll still get notifications)
+## Episodic Completion Algorithm
 
-## Progress Calculation
+For shows, anime, manga, and podcasts, Ryot decides completion using consume counts.
 
-For episodic media (shows, anime, manga, podcasts), Ryot uses a specific algorithm to
-determine if you have "completed" the media.
+### Core rule
 
-### The Rule
+All tracked episodes/chapters must have equal, non-zero consume counts.
 
-**All episodes/chapters must be watched an equal number of times.**
+Example for a 10-episode show:
 
-For example, if a show has 10 episodes:
+- Episodes 1-10 watched once each -> **Completed**
+- Episodes 1-9 watched once, episode 10 watched twice -> **Not completed**
+- Episodes 1-10 watched twice each -> **Completed** (second full pass)
 
-- Watching episodes 1-10 once each = **Completed**
-- Watching episodes 1-9 once, and episode 10 twice = **Not completed** (unequal watch counts)
-- Watching episodes 1-10 twice each = **Completed** (second re-watch)
+This is why rewatching a single favorite episode can put a show back in `In Progress` until
+other episodes catch up.
 
-This means if you re-watch a random episode in the middle, Ryot will move the show back to
-"In Progress" until you've watched all other episodes an equal number of times.
+### Specials and extras exclusion
 
-### Specials Are Excluded
+For shows, seasons named `Specials` or `Extras` are excluded from completion counting.
 
-Seasons named "Specials" or "Extras" (typically Season 0) are **not** counted towards
-progress. You can leave them unwatched without affecting your completion status.
+### Unknown totals
 
-### When Episode Count Is Unknown
+If Ryot cannot determine a full episode/chapter set (common with ongoing anime/manga), it treats
+the item as complete by default. Strict counting starts once totals become known.
 
-For anime or manga where the total episode/chapter count is unknown (ongoing series with no
-defined end), Ryot considers the media "complete" by default. Progress tracking kicks in
-once the total count is known.
+## Show Update Edge Case: Completed -> Watchlist
+
+There is one additional automation path for shows during metadata refresh.
+
+If a show is in both `Completed` and `Monitoring`, and provider updates add new not-yet-seen
+content (for example new episodes/seasons), Ryot can:
+
+1. Remove it from `Completed`
+2. Add it to `Watchlist`
+3. Send a notification about the move
+
+This helps re-surface shows that were previously complete.
+
+## Monitoring and Notifications
+
+`Monitoring` is the main driver for update-based awareness in Ryot.
+
+- The dashboard `Upcoming` section is built from monitored items with upcoming calendar events
+- Monitoring notifications include more than episode releases, such as metadata status changes,
+  release-date changes, and episode/chapter count changes
+
+## Reminders Behavior
+
+The default `Reminders` collection uses reminder-specific data fields (date + text). On the
+scheduled date, Ryot sends a reminder notification and removes the item from `Reminders`.
 
 ## Manual Collection Management
 
-You can always manually add or remove items from collections. This is useful when:
+You can always add or remove collection memberships manually from an item page.
 
-- You want to mark something as "Completed" even if Ryot's algorithm disagrees
-- You want to remove something from "In Progress" that you don't plan to finish
-- You want to stop monitoring something but keep it in "In Progress"
+Common use cases:
+
+- Keep manual control when algorithmic completion is not what you want
+- Remove from `In Progress` when you decide not to continue
+- Keep in `In Progress` but remove `Monitoring` to reduce notifications
 
 ::: tip
-Manually adding an item to `Completed` does **not** stop notifications. Notifications are
-controlled by the `Monitoring` collection. Remove an item from `Monitoring` if you no longer
-want notifications about new episodes/seasons.
+Notifications are controlled by `Monitoring`, not `Completed`. Adding something to `Completed`
+does not disable update notifications by itself.
 :::
 
-## Collections and the Dashboard
+::: warning
+If you update progress again later, automation rules may add `In Progress`/`Monitoring` back,
+depending on the new state.
+:::
 
-The dashboard displays items based on their collection membership:
+## Dashboard Mapping
 
 - **In Progress** section shows items in the `In Progress` collection
-- **Upcoming** section shows items in `Monitoring` that have upcoming releases
-
-If an item appears in "In Progress" unexpectedly, check if you've watched episodes an
-unequal number of times (common with re-watches of favorite episodes).
+- **Upcoming** section is driven by monitored items that have upcoming events
