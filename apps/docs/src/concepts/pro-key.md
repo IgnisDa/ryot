@@ -20,8 +20,8 @@ following process:
 
 - The verification result is cached for **1 hour**
 - The cache is **invalidated on server restart** (verification happens fresh on each start)
-- This means Pro features will remain active for up to 1 hour even if your subscription
-  expires mid-session
+- This means [Pro features](https://ryot.io/features) will remain active for up to 1 hour
+- even if your subscription expires mid-session
 
 ## Fallback Behavior
 
