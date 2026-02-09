@@ -8,3 +8,4 @@ notifications trigger, and how progress affects your library.
 
 - [Collections](./collections.md) - Default collections, automatic rules, progress logic,
   and monitoring behavior
+- [Pro Key](./pro-key.md) - How Pro license key verification with Unkey works
