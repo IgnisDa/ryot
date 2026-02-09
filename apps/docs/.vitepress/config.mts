@@ -21,6 +21,7 @@ const getSourceFiles = (dir: string) =>
 			return { text, link: `/${dir}/${name}` };
 		});
 
+const conceptsSourceFiles = getSourceFiles("concepts");
 const importingSourceFiles = getSourceFiles("importing");
 const integrationsSourceFiles = getSourceFiles("integrations");
 const guidesSourceFiles = getSourceFiles("guides");
@@ -53,6 +54,15 @@ export default defineConfig({
 			{ text: "Installation", link: "/" },
 			{ text: "Configuration", link: "/configuration" },
 			{ text: "Deployment", link: "/deployment" },
+			{
+				text: "Concepts",
+				collapsed: true,
+				link: "/concepts/overview",
+				items: [
+					{ text: "Overview", link: "/concepts/overview" },
+					...conceptsSourceFiles,
+				],
+			},
 			{
 				collapsed: true,
 				text: "Importing",
