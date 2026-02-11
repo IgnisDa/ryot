@@ -134,6 +134,7 @@ subtle = "=2.6.1"
 syn = { version = "=2.0.111", features = ["full", "derive"] }
 tempfile = "=3.23.0"
 tokio = { version = "=1.48.0", features = ["full"] }
+tikv-jemallocator = "=0.6.1"
 tokio-util = { version = "=0.7.17", features = ["codec", "io"] }
 totp-lite = "=2.0.1"
 tower-http = { version = "=0.6.8", features = ["catch-panic", "cors", "trace"] }

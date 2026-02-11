@@ -28,6 +28,8 @@ use tokio::{
     net::TcpListener,
     time::{Duration, sleep},
 };
+#[cfg(not(target_env = "msvc"))]
+use tikv_jemallocator::Jemalloc;
 use tracing_subscriber::{fmt, layer::SubscriberExt};
 
 use crate::{
@@ -43,6 +45,10 @@ mod job;
 
 static LOGGING_ENV_VAR: &str = "RUST_LOG";
 static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
