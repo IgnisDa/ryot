@@ -3,17 +3,17 @@
 	"private": true,
 	"type": "module",
 	"devDependencies": {
-		"@aws-sdk/client-s3": "3.975.0",
-		"@faker-js/faker": "10.2.0",
+		"@aws-sdk/client-s3": "3.989.0",
+		"@faker-js/faker": "10.3.0",
 		"@ryot/generated": "workspace:*",
 		"@ryot/graphql": "workspace:*",
 		"@testcontainers/postgresql": "11.11.0",
-		"dotenv": "17.2.3",
+		"dotenv": "17.3.1",
 		"get-port": "7.1.0",
 		"graphql": "16.12.0",
 		"graphql-request": "7.4.0",
 		"testcontainers": "11.11.0",
-		"vite-tsconfig-paths": "6.0.5",
+		"vite-tsconfig-paths": "6.1.1",
 		"vitest": "4.0.18"
 	}
 }

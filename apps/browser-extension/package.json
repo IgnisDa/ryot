@@ -4,12 +4,12 @@
 	"type": "module",
 	"version": "0.1.0",
 	"devDependencies": {
-		"@types/react": "19.2.10",
+		"@types/react": "19.2.14",
 		"@types/react-dom": "19.2.3",
 		"@wxt-dev/auto-icons": "1.1.0",
 		"@wxt-dev/module-react": "1.1.5",
-		"vite-tsconfig-paths": "6.0.5",
-		"wxt": "0.20.13"
+		"vite-tsconfig-paths": "6.1.1",
+		"wxt": "0.20.17"
 	},
 	"dependencies": {
 		"@ryot/generated": "workspace:*",

@@ -79,8 +79,7 @@ pub fn parse_date(date_str: Option<String>) -> Option<NaiveDate> {
 pub fn extract_giant_bomb_guid(api_detail_url: &str) -> String {
     api_detail_url
         .split('/')
-        .filter(|s| !s.is_empty())
-        .next_back()
+        .rfind(|s| !s.is_empty())
         .unwrap_or("")
         .to_string()
 }
