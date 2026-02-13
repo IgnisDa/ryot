@@ -514,10 +514,12 @@ pub async fn media_details(client: &Client, id: &str) -> Result<MetadataDetails>
         && let Some(airing_at) = DateTimeUtc::from_timestamp(data.airing_at, 0)
     {
         let airing_at = airing_at.naive_utc();
-        if !airing_schedule
-            .iter()
-            .any(|s| s.episode == data.episode && s.airing_at == airing_at)
+        if let Some(existing) = airing_schedule
+            .iter_mut()
+            .find(|s| s.episode == data.episode)
         {
+            existing.airing_at = airing_at;
+        } else {
             airing_schedule.push(AnimeAiringScheduleSpecifics {
                 airing_at,
                 episode: data.episode,
