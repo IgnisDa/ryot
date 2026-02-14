@@ -4,7 +4,7 @@ import {
 	createAuthenticatedClient,
 	createCourseLessonFilterFixture,
 	createQueryEngineEntity,
-	createQueryEngineTrackerAndSchema,
+	createQueryEnginePluginSchema,
 	createRelationship,
 	createRelationshipSchema,
 	executeAggregateQueryEngine,
@@ -28,7 +28,7 @@ describe("aggregate returns over a filtered source", () => {
 	it.live("groups and counts only the rows matching a pushable numeric where", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "PushdownGroupedLesson",
 				propertiesSchema: lessonSchema(),
 			});
@@ -84,7 +84,7 @@ describe("aggregate returns over a filtered source", () => {
 	it.live("computes ungrouped sum/count only over rows matching a pushable string where", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				propertiesSchema: lessonSchema(),
 				schemaName: "PushdownUngroupedLesson",
 			});
@@ -143,10 +143,12 @@ describe("relationship root filtering (pushdown)", () => {
 	it.live("filters relationship rows by relationship property and endpoint entity fields", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: memberSchemaId, slug: memberSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "PushdownRelMember" });
+			const { schemaId: memberSchemaId, slug: memberSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{ schemaName: "PushdownRelMember" },
+			);
 			const { schemaId: collectionSchemaId, slug: collectionSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "PushdownRelCollection" });
+				yield* createQueryEnginePluginSchema(client, { schemaName: "PushdownRelCollection" });
 			const relationshipSlug = `pushdown-membership-${crypto.randomUUID()}`;
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				name: "Pushdown Membership",

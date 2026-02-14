@@ -232,5 +232,3 @@ export const createPluginSchema = (
 		const { slug, schemaId } = yield* createEntitySchema(client, { ...options, pluginSlug });
 		return { slug, schemaId };
 	});
-
-export const createTrackerWithSchema = createPluginSchema;

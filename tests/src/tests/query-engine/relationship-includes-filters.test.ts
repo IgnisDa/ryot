@@ -8,7 +8,7 @@ import {
 	createRelationshipSchema,
 	createQueryEngineEntity,
 	createQueryEngineEvent,
-	createQueryEngineTrackerAndSchema,
+	createQueryEnginePluginSchema,
 	executeQueryEngine,
 	propertyRef,
 	requireQueryEngineFieldValue,
@@ -24,10 +24,13 @@ describe("Relationship includes", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { schemaId: courseSchemaId, slug: courseSlug } =
-					yield* createQueryEngineTrackerAndSchema(client, { schemaName: "WhereIncludeCourse" });
-				const { schemaId: moduleSchemaId, slug: moduleSlug } =
-					yield* createQueryEngineTrackerAndSchema(client, {
+				const { schemaId: courseSchemaId, slug: courseSlug } = yield* createQueryEnginePluginSchema(
+					client,
+					{ schemaName: "WhereIncludeCourse" },
+				);
+				const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createQueryEnginePluginSchema(
+					client,
+					{
 						schemaName: "WhereIncludeModule",
 						propertiesSchema: {
 							fields: {
@@ -38,7 +41,8 @@ describe("Relationship includes", () => {
 								},
 							},
 						},
-					});
+					},
+				);
 				const relationshipSlug = `where-course-module-${crypto.randomUUID()}`;
 				const relationshipSchema = yield* createRelationshipSchema(client, {
 					name: "Where Course Module",
@@ -156,8 +160,10 @@ describe("Relationship includes", () => {
 	it.live("includes event sources under an entity as a nested list of event rows", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: lessonSchemaId, slug: lessonSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "EventIncludeLesson" });
+			const { schemaId: lessonSchemaId, slug: lessonSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{ schemaName: "EventIncludeLesson" },
+			);
 			const completeSlug = `event-include-complete-${crypto.randomUUID()}`;
 			const completeSchema = yield* createEventSchema(client, {
 				slug: completeSlug,
@@ -240,10 +246,12 @@ describe("Relationship includes", () => {
 	it.live("filters an event include by an event property, keeping parents with zero matches", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: lessonSchemaId, slug: lessonSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId: lessonSchemaId, slug: lessonSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{
 					schemaName: "EventIncludeFilterLesson",
-				});
+				},
+			);
 			const completeSlug = `event-include-filter-${crypto.randomUUID()}`;
 			const completeSchema = yield* createEventSchema(client, {
 				slug: completeSlug,
@@ -320,8 +328,10 @@ describe("Relationship includes", () => {
 	it.live("reports hasMore on an event include with a low limit", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: lessonSchemaId, slug: lessonSlug } =
-				yield* createQueryEngineTrackerAndSchema(client, { schemaName: "EventIncludeHasMore" });
+			const { schemaId: lessonSchemaId, slug: lessonSlug } = yield* createQueryEnginePluginSchema(
+				client,
+				{ schemaName: "EventIncludeHasMore" },
+			);
 			const completeSlug = `event-include-hasmore-${crypto.randomUUID()}`;
 			const completeSchema = yield* createEventSchema(client, {
 				slug: completeSlug,

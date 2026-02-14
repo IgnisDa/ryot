@@ -32,8 +32,6 @@ export const createQueryEnginePluginSchema = (
 		return { pluginSlug, schemaId, slug };
 	});
 
-export const createQueryEngineTrackerAndSchema = createQueryEnginePluginSchema;
-
 export const createQueryEngineEntity = (
 	client: Client,
 	input: { name: string; entitySchemaSlug: string; properties?: Record<string, unknown> },
