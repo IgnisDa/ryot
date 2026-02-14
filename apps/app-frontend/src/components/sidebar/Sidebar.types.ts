@@ -10,6 +10,7 @@ export type SidebarAccount = Pick<
 export type SidebarView = Pick<
 	AppSavedView,
 	| "id"
+	| "slug"
 	| "icon"
 	| "name"
 	| "trackerId"

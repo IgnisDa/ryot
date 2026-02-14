@@ -6,7 +6,7 @@ import type {
 	ApiPostResponseData,
 } from "~/lib/api/types";
 
-type SavedView = ApiGetResponseData<"/saved-views/{viewId}">;
+type SavedView = ApiGetResponseData<"/saved-views/{viewSlug}">;
 type QueryEngineRequest = ApiPostRequestBody<"/query-engine/execute">;
 type QueryEngineResponse = ApiPostResponseData<"/query-engine/execute">;
 type RuntimeField = QueryEngineResponse["items"][number]["fields"][number];

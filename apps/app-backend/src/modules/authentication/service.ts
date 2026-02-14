@@ -77,6 +77,7 @@ export const buildAuthenticationSavedViewInputs = (input: {
 		accentColor: string;
 	}>;
 	savedViews: Array<{
+		slug: string;
 		name: string;
 		icon?: string;
 		trackerSlug?: string;
@@ -149,6 +150,7 @@ export const buildAuthenticationSavedViewInputs = (input: {
 			trackerId,
 			accentColor,
 			isBuiltin: true,
+			slug: savedView.slug,
 			name: savedView.name,
 			queryDefinition: resolvedQueryDefinition,
 			displayConfiguration: savedView.displayConfiguration,

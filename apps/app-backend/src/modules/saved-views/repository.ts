@@ -12,6 +12,7 @@ import {
 } from "./schemas";
 
 type SavedViewCreateInput = CreateSavedViewBody & {
+	slug: string;
 	userId: string;
 	isBuiltin: boolean;
 };
@@ -26,6 +27,7 @@ type SavedViewRow = Omit<
 
 const savedViewSelection = {
 	id: savedView.id,
+	slug: savedView.slug,
 	icon: savedView.icon,
 	name: savedView.name,
 	sortOrder: savedView.sortOrder,
@@ -109,15 +111,18 @@ export const listSavedViewsForUser = async (input: {
 	return rows.map(toSavedView);
 };
 
-export const getSavedViewByIdForUser = async (input: {
+export const getSavedViewBySlugForUser = async (input: {
 	userId: string;
-	viewId: string;
+	viewSlug: string;
 }) => {
 	const [foundView] = await db
 		.select(savedViewSelection)
 		.from(savedView)
 		.where(
-			and(eq(savedView.userId, input.userId), eq(savedView.id, input.viewId)),
+			and(
+				eq(savedView.userId, input.userId),
+				eq(savedView.slug, input.viewSlug),
+			),
 		)
 		.limit(1);
 
@@ -139,6 +144,7 @@ export const createSavedViewForUser = async (input: SavedViewCreateInput) => {
 		.insert(savedView)
 		.values({
 			sortOrder,
+			slug: input.slug,
 			icon: input.icon,
 			name: input.name,
 			userId: input.userId,
@@ -172,6 +178,7 @@ export const createSavedViewsForUser = async (input: {
 			scopeOrderMap.set(scopeKey, sortOrder + 1);
 			return {
 				sortOrder,
+				slug: view.slug,
 				icon: view.icon,
 				name: view.name,
 				userId: input.userId,
@@ -185,9 +192,9 @@ export const createSavedViewsForUser = async (input: {
 	);
 };
 
-export const updateSavedViewByIdForUser = async (input: {
+export const updateSavedViewBySlugForUser = async (input: {
 	userId: string;
-	viewId: string;
+	viewSlug: string;
 	data: UpdateSavedViewBody;
 	currentTrackerId: string | null;
 }) => {
@@ -215,7 +222,7 @@ export const updateSavedViewByIdForUser = async (input: {
 		})
 		.where(
 			and(
-				eq(savedView.id, input.viewId),
+				eq(savedView.slug, input.viewSlug),
 				eq(savedView.userId, input.userId),
 				eq(savedView.isBuiltin, false),
 			),
@@ -229,12 +236,12 @@ export const updateSavedViewByIdForUser = async (input: {
 	return toSavedView(updatedView);
 };
 
-export const listUserSavedViewIdsInOrder = async (input: {
+export const listUserSavedViewSlugsInOrder = async (input: {
 	userId: string;
 	trackerId?: string;
 }) => {
 	const rows = await db
-		.select({ viewId: savedView.id })
+		.select({ viewSlug: savedView.slug })
 		.from(savedView)
 		.where(
 			and(
@@ -244,25 +251,25 @@ export const listUserSavedViewIdsInOrder = async (input: {
 		)
 		.orderBy(asc(savedView.sortOrder), asc(savedView.createdAt));
 
-	return rows.map((row) => row.viewId);
+	return rows.map((row) => row.viewSlug);
 };
 
-export const countSavedViewsByIdsForUser = async (input: {
+export const countSavedViewsBySlugForUser = async (input: {
 	userId: string;
-	viewIds: string[];
+	viewSlugs: string[];
 	trackerId?: string;
 }) => {
-	if (!input.viewIds.length) {
+	if (!input.viewSlugs.length) {
 		return 0;
 	}
 
 	const rows = await db
-		.select({ id: savedView.id })
+		.select({ slug: savedView.slug })
 		.from(savedView)
 		.where(
 			and(
 				eq(savedView.userId, input.userId),
-				inArray(savedView.id, input.viewIds),
+				inArray(savedView.slug, input.viewSlugs),
 				withSavedViewScope(input.trackerId),
 			),
 		);
@@ -272,34 +279,34 @@ export const countSavedViewsByIdsForUser = async (input: {
 
 export const persistSavedViewOrderForUser = async (input: {
 	userId: string;
-	viewIds: string[];
 	trackerId?: string;
+	viewSlugs: string[];
 }) => {
 	try {
 		return await db.transaction(async (tx) => {
-			const updatedIds: string[] = [];
+			const updatedSlugs: string[] = [];
 
-			for (const [index, viewId] of input.viewIds.entries()) {
+			for (const [index, viewSlug] of input.viewSlugs.entries()) {
 				const [updatedView] = await tx
 					.update(savedView)
 					.set({ sortOrder: index })
 					.where(
 						and(
-							eq(savedView.id, viewId),
+							eq(savedView.slug, viewSlug),
 							eq(savedView.userId, input.userId),
 							withSavedViewScope(input.trackerId),
 						),
 					)
-					.returning({ id: savedView.id });
+					.returning({ slug: savedView.slug });
 
 				if (!updatedView) {
 					throw new Error(savedViewOrderPersistenceError);
 				}
 
-				updatedIds.push(updatedView.id);
+				updatedSlugs.push(updatedView.slug);
 			}
 
-			return updatedIds;
+			return updatedSlugs;
 		});
 	} catch (error) {
 		if (
@@ -313,16 +320,19 @@ export const persistSavedViewOrderForUser = async (input: {
 	}
 };
 
-export const updateSavedViewDisabledByIdForUser = async (input: {
+export const updateSavedViewDisabledBySlugForUser = async (input: {
 	userId: string;
-	viewId: string;
+	viewSlug: string;
 	isDisabled: boolean;
 }) => {
 	const [updatedView] = await db
 		.update(savedView)
 		.set({ isDisabled: input.isDisabled })
 		.where(
-			and(eq(savedView.id, input.viewId), eq(savedView.userId, input.userId)),
+			and(
+				eq(savedView.slug, input.viewSlug),
+				eq(savedView.userId, input.userId),
+			),
 		)
 		.returning(savedViewSelection);
 
@@ -333,15 +343,15 @@ export const updateSavedViewDisabledByIdForUser = async (input: {
 	return toSavedView(updatedView);
 };
 
-export const deleteSavedViewByIdForUser = async (input: {
+export const deleteSavedViewBySlugForUser = async (input: {
 	userId: string;
-	viewId: string;
+	viewSlug: string;
 }) => {
 	const [deletedView] = await db
 		.delete(savedView)
 		.where(
 			and(
-				eq(savedView.id, input.viewId),
+				eq(savedView.slug, input.viewSlug),
 				eq(savedView.userId, input.userId),
 				eq(savedView.isBuiltin, false),
 			),

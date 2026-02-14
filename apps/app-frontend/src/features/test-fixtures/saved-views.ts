@@ -61,6 +61,7 @@ export function createSavedViewFixture(
 	return {
 		id: "view-1",
 		sortOrder: 1,
+		slug: "view-1",
 		isBuiltin: true,
 		queryDefinition,
 		icon: "book-open",

@@ -13,7 +13,7 @@ type CreateSavedViewBody = NonNullable<
 	paths["/saved-views"]["post"]["requestBody"]
 >["content"]["application/json"];
 type UpdateSavedViewBody = NonNullable<
-	paths["/saved-views/{viewId}"]["put"]["requestBody"]
+	paths["/saved-views/{viewSlug}"]["put"]["requestBody"]
 >["content"]["application/json"];
 type ReorderSavedViewsBody = NonNullable<
 	paths["/saved-views/reorder"]["post"]["requestBody"]
@@ -261,15 +261,15 @@ export async function findBuiltinSavedView(client: Client, cookies: string) {
 export async function getSavedView(
 	client: Client,
 	cookies: string,
-	viewId: string,
+	viewSlug: string,
 ) {
-	const { data, response } = await client.GET("/saved-views/{viewId}", {
+	const { data, response } = await client.GET("/saved-views/{viewSlug}", {
 		headers: { Cookie: cookies },
-		params: { path: { viewId } },
+		params: { path: { viewSlug } },
 	});
 
 	if (response.status !== 200 || !data?.data) {
-		throw new Error(`Failed to get saved view '${viewId}'`);
+		throw new Error(`Failed to get saved view '${viewSlug}'`);
 	}
 
 	return data.data;
@@ -278,17 +278,17 @@ export async function getSavedView(
 export async function updateSavedView(
 	client: Client,
 	cookies: string,
-	viewId: string,
+	viewSlug: string,
 	overrides: UpdateSavedViewInput = {},
 ) {
-	const { data, response } = await client.PUT("/saved-views/{viewId}", {
+	const { data, response } = await client.PUT("/saved-views/{viewSlug}", {
 		headers: { Cookie: cookies },
-		params: { path: { viewId } },
+		params: { path: { viewSlug } },
 		body: buildUpdatedSavedViewBody(overrides),
 	});
 
 	if (response.status !== 200 || !data?.data) {
-		throw new Error(`Failed to update saved view '${viewId}'`);
+		throw new Error(`Failed to update saved view '${viewSlug}'`);
 	}
 
 	return data.data;
@@ -297,15 +297,18 @@ export async function updateSavedView(
 export async function cloneSavedView(
 	client: Client,
 	cookies: string,
-	viewId: string,
+	viewSlug: string,
 ) {
-	const { data, response } = await client.POST("/saved-views/{viewId}/clone", {
-		headers: { Cookie: cookies },
-		params: { path: { viewId } },
-	});
+	const { data, response } = await client.POST(
+		"/saved-views/{viewSlug}/clone",
+		{
+			headers: { Cookie: cookies },
+			params: { path: { viewSlug } },
+		},
+	);
 
 	if (response.status !== 200 || !data?.data) {
-		throw new Error(`Failed to clone saved view '${viewId}'`);
+		throw new Error(`Failed to clone saved view '${viewSlug}'`);
 	}
 
 	return data.data;
@@ -314,15 +317,15 @@ export async function cloneSavedView(
 export async function deleteSavedView(
 	client: Client,
 	cookies: string,
-	viewId: string,
+	viewSlug: string,
 ) {
-	const { data, response } = await client.DELETE("/saved-views/{viewId}", {
+	const { data, response } = await client.DELETE("/saved-views/{viewSlug}", {
 		headers: { Cookie: cookies },
-		params: { path: { viewId } },
+		params: { path: { viewSlug } },
 	});
 
 	if (response.status !== 200 || !data?.data) {
-		throw new Error(`Failed to delete saved view '${viewId}'`);
+		throw new Error(`Failed to delete saved view '${viewSlug}'`);
 	}
 
 	return data.data;
