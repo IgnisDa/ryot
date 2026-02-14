@@ -152,6 +152,7 @@ CREATE TABLE "sandbox_script" (
 );
 --> statement-breakpoint
 CREATE TABLE "saved_view" (
+	"slug" text NOT NULL,
 	"name" text NOT NULL,
 	"icon" text NOT NULL,
 	"accent_color" text NOT NULL,
@@ -164,7 +165,8 @@ CREATE TABLE "saved_view" (
 	"tracker_id" text,
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "saved_view_user_slug_unique" UNIQUE("user_id","slug")
 );
 --> statement-breakpoint
 CREATE TABLE "session" (
@@ -265,6 +267,7 @@ CREATE INDEX "entity_entity_schema_id_idx" ON "entity" USING btree ("entity_sche
 CREATE INDEX "entity_properties_idx" ON "entity" USING gin ("properties");--> statement-breakpoint
 CREATE INDEX "entity_sandbox_script_id_idx" ON "entity" USING btree ("sandbox_script_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "entity_global_external_id_unique" ON "entity" USING btree ("external_id","entity_schema_id","sandbox_script_id") WHERE "entity"."user_id" is null;--> statement-breakpoint
+CREATE UNIQUE INDEX "entity_global_no_script_external_id_unique" ON "entity" USING btree ("external_id","entity_schema_id") WHERE "entity"."user_id" IS NULL AND "entity"."sandbox_script_id" IS NULL;--> statement-breakpoint
 CREATE INDEX "entity_schema_user_id_idx" ON "entity_schema" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "entity_schema_script_entity_schema_id_idx" ON "entity_schema_script" USING btree ("entity_schema_id");--> statement-breakpoint
 CREATE INDEX "entity_schema_script_sandbox_script_id_idx" ON "entity_schema_script" USING btree ("sandbox_script_id");--> statement-breakpoint
