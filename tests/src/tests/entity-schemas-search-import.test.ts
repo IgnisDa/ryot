@@ -170,7 +170,6 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 		const value = requireObjectRecord(result.value, "Expected search result to be an object");
 		const items = requireArray(value.items, "Expected search result items to be an array");
 		expect(items).toHaveLength(2);
-	}, 30_000);
 });
 
 describe("POST /library/import", () => {
@@ -262,7 +261,6 @@ describe("GET /library/import/{jobId}", () => {
 			`Expected import job to complete, got '${result.status}'`,
 		);
 		expect(result.data.name).toBe(BOOK_IMPORT_NAME);
-	}, 30_000);
 
 	it("returns entity with populated properties and related entities in the completed result", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -305,7 +303,6 @@ describe("GET /library/import/{jobId}", () => {
 		expect(relationship.sourceEntityId).toBe(relatedEntity.id);
 		expect(relationship.targetEntityId).toBe(result.data.id);
 		expect(relationship.properties).toMatchObject({ roles: ["E2E Animation Studio"] });
-	}, 30_000);
 
 	it("sets populatedAt as a UTC ISO timestamp column on the imported entity", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -329,5 +326,4 @@ describe("GET /library/import/{jobId}", () => {
 		assertPresent(populatedAt, "Expected populatedAt to be present on the imported entity");
 		expect(typeof populatedAt).toBe("string");
 		expect(new Date(populatedAt).toISOString()).toBe(populatedAt);
-	}, 30_000);
 });
