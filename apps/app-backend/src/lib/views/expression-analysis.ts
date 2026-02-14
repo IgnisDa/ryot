@@ -276,6 +276,17 @@ export const inferViewExpressionType = <
 		return createPropertyTypeInfo("string", { label: "Value", type: "string" });
 	}
 
+	if (input.expression.type === "transform") {
+		const innerType = inferViewExpressionType({
+			typeCache,
+			computedFieldMap,
+			context: input.context,
+			expression: input.expression.expression,
+		});
+		assertConcatCompatibleExpression(innerType);
+		return createPropertyTypeInfo("string", { label: "Value", type: "string" });
+	}
+
 	if (input.expression.type === "conditional") {
 		const thenType = inferViewExpressionType({
 			typeCache,
