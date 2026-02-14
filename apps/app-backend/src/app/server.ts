@@ -32,7 +32,6 @@ import { NotificationsRoutesLive } from "#modules/notifications/routes";
 import { PluginsRoutesLive } from "#modules/plugins/routes";
 import { QueryEngineRoutesLive } from "#modules/query-engine/routes";
 import { RelationshipsRoutesLive } from "#modules/relationships/routes";
-import { SandboxRoutesLive } from "#modules/sandbox/routes";
 import { SavedViewsRoutesLive } from "#modules/saved-views/routes";
 import { SystemRoutesLive } from "#modules/system/routes";
 import { TestSupportRoutesLive } from "#modules/test-support/routes";
@@ -85,7 +84,6 @@ const buildWebhookForwardRequest = (request: Request, url: URL) =>
 
 const ApiBaseLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(Layer.mergeAll(SystemRoutesLive, AutomationsRoutesLive)),
-	Layer.provide(SandboxRoutesLive),
 	Layer.provide(DefinitionsRoutesLive),
 	Layer.provide(RelationshipsRoutesLive),
 	Layer.provide(EntitiesRoutesLive),
