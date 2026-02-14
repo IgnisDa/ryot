@@ -1,14 +1,15 @@
-import { Workflow } from "@effect/workflow";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { Effect, Schema } from "effect";
+import { Workflow } from "effect/unstable/workflow";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
+import { withoutSchemaServices } from "#lib/shared/schema";
 
 import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
 import { EntityImportPayload } from "./schemas";
 
-export class EntityImportError extends Schema.TaggedError<EntityImportError>()(
+export class EntityImportError extends Schema.TaggedErrorClass<EntityImportError>()(
 	"EntityImportError",
 	{
 		message: Schema.String,
@@ -16,11 +17,10 @@ export class EntityImportError extends Schema.TaggedError<EntityImportError>()(
 	},
 ) {}
 
-export const EntityImportWorkflow = Workflow.make({
-	success: ListedEntity,
-	error: EntityImportError,
-	name: "EntityImportWorkflow",
-	payload: EntityImportPayload,
+export const EntityImportWorkflow = Workflow.make("EntityImportWorkflow", {
+	success: withoutSchemaServices(ListedEntity),
+	error: withoutSchemaServices(EntityImportError),
+	payload: withoutSchemaServices(EntityImportPayload),
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
