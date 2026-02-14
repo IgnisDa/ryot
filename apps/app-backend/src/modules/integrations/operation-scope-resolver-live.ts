@@ -18,7 +18,7 @@ export const IntegrationOperationScopeResolverLive = Layer.effect(
 		return {
 			resolve: (payload: unknown) =>
 				Effect.gen(function* () {
-					const decoded = yield* Schema.decodeUnknown(IntegrationPayload)(payload).pipe(
+					const decoded = yield* Schema.decodeUnknownEffect(IntegrationPayload)(payload).pipe(
 						Effect.mapError(() => badRequest("integrationId is required")),
 					);
 					const integrationId = IntegrationId.make(decoded.integrationId);

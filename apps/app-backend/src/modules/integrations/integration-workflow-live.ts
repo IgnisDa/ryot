@@ -1,8 +1,8 @@
-import { Activity } from "@effect/workflow";
 import { ListedIntegration } from "@ryot/contract/modules/integrations/schemas";
 import { UserId } from "@ryot/contract/schema/brands";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Cause, DateTime, Effect, Schema } from "effect";
+import { Activity } from "effect/unstable/workflow";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
@@ -91,8 +91,8 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 	});
 
 	yield* runIntegrationImport(integration, payload, executionId).pipe(
-		Effect.catchAllCause((cause) =>
-			Cause.isInterruptedOnly(cause)
+		Effect.catchCause((cause) =>
+			Cause.hasInterruptsOnly(cause)
 				? Effect.failCause(cause)
 				: failRun(
 						"fail-integration-run-unexpected",
