@@ -1,16 +1,16 @@
-import { HttpApiBuilder } from "@effect/platform";
 import { AppContract } from "@ryot/contract/contract";
 import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
+import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { GodModeService } from "./service";
 
 export const GodModeRoutesLive = HttpApiBuilder.group(AppContract, "godMode", (handlers) =>
 	handlers
-		.handle("listUsers", ({ urlParams }) =>
+		.handle("listUsers", ({ query }) =>
 			Effect.gen(function* () {
 				const service = yield* GodModeService;
-				return yield* service.listUsers(urlParams).pipe(dieOnDbError);
+				return yield* service.listUsers(query).pipe(dieOnDbError);
 			}),
 		)
 		.handle("provisionUser", ({ payload }) =>
@@ -19,28 +19,28 @@ export const GodModeRoutesLive = HttpApiBuilder.group(AppContract, "godMode", (h
 				return yield* service.provisionUser(payload).pipe(dieOnDbError);
 			}),
 		)
-		.handle("resetUserPassword", ({ path }) =>
+		.handle("resetUserPassword", ({ params }) =>
 			Effect.gen(function* () {
 				const service = yield* GodModeService;
-				return yield* service.resetUserPassword(path.userId).pipe(dieOnDbError);
+				return yield* service.resetUserPassword(params.userId).pipe(dieOnDbError);
 			}),
 		)
-		.handle("resetUser", ({ path }) =>
+		.handle("resetUser", ({ params }) =>
 			Effect.gen(function* () {
 				const service = yield* GodModeService;
-				return yield* service.resetUser(path.userId).pipe(dieOnDbError);
+				return yield* service.resetUser(params.userId).pipe(dieOnDbError);
 			}),
 		)
-		.handle("setUserDisabled", ({ path, payload }) =>
+		.handle("setUserDisabled", ({ params, payload }) =>
 			Effect.gen(function* () {
 				const service = yield* GodModeService;
-				return yield* service.setUserDisabled(path.userId, payload.disabled).pipe(dieOnDbError);
+				return yield* service.setUserDisabled(params.userId, payload.disabled).pipe(dieOnDbError);
 			}),
 		)
-		.handle("deleteUser", ({ path }) =>
+		.handle("deleteUser", ({ params }) =>
 			Effect.gen(function* () {
 				const service = yield* GodModeService;
-				return yield* service.deleteUser(path.userId).pipe(dieOnDbError);
+				return yield* service.deleteUser(params.userId).pipe(dieOnDbError);
 			}),
 		),
 );
