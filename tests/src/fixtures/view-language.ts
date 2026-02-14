@@ -3,12 +3,9 @@ import {
 	entitySchemaBuiltinColumns,
 	eventJoinBuiltinColumns,
 	type QueryExpression,
-	type QueryFilter,
 	relationshipJoinBuiltinColumns,
 	type RuntimeRef,
 } from "@ryot/contract/display-configuration";
-
-export type { QueryExpression as ViewExpression, QueryFilter as ViewPredicate };
 
 export type ExpressionInput = QueryExpression | string[];
 

@@ -1,10 +1,10 @@
+import type { ContractPayload } from "@ryot/contract/client";
 import { EntityId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { requireObjectRecord, requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
-import type { ContractPayload } from "./contract-client";
 import { createPluginSchema } from "./entity-schemas";
 
 type CreateEntityInput = ContractPayload<"entities", "create">;

@@ -1,7 +1,12 @@
 /* oxlint-disable */
 // TODO: delete this file eventually
 import { faker } from "@faker-js/faker";
-import { runContract, type ContractProgram } from "@ryot/contract/client";
+import {
+	ContractPayload,
+	ContractSuccess,
+	runContract,
+	type ContractProgram,
+} from "@ryot/contract/client";
 import type { QueryExpression, RuntimeRef } from "@ryot/contract/display-configuration";
 import { RemoteImageUrl, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { imagesField } from "@ryot/contract/schema/core";
@@ -19,7 +24,6 @@ import { requirePresent } from "~/support/assertions";
 
 import { adminHeaders } from "./fixtures/admin";
 import { cookieHeaderFromSetCookies, enableTwoFactorForSession } from "./fixtures/auth-2fa";
-import type { ContractPayload, ContractSuccess } from "./fixtures/contract-client";
 import { testPluginManifest } from "./fixtures/test-plugin";
 
 type EntitySchemaSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];

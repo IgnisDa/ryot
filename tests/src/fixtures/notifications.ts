@@ -1,10 +1,10 @@
+import type { ContractPayload } from "@ryot/contract/client";
 import { NotificationChannelId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { startFakeHttpServer } from "~/support/fake-http-server";
 
 import type { Client } from "./auth";
-import type { ContractPayload } from "./contract-client";
 
 type CreateNotificationChannelBody = ContractPayload<"notifications", "createChannel">;
 type UpdateNotificationChannelBody = ContractPayload<"notifications", "updateChannel">;

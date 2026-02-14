@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import {
-	createdAtRef,
-	nameRef,
-	propertyRef,
-	type RowsQueryDocument,
-} from "./validator.test-support";
+import type { RowsQueryDocument } from "./executor/types";
+import { createdAtRef, nameRef, propertyRef } from "./validator.test-support";
 import { validateQueryDocument } from "./validator/document";
 
 const makeRelationshipDoc = (overrides: Partial<RowsQueryDocument> = {}): RowsQueryDocument => ({
