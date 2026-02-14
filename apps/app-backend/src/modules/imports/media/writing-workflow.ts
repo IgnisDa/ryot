@@ -8,8 +8,8 @@ import {
 } from "@ryot/contract/schema/brands";
 import { DateTime, Effect, Schema } from "effect";
 
-import { defaultUserPreferences } from "#lib/builtins/bootstrap";
-import { DbRunner } from "#lib/db/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { defaultUserPreferences } from "#modules/builtins/bootstrap";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EpisodeResolverService } from "#modules/episode-resolver/service";

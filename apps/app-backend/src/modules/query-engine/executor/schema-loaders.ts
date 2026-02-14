@@ -3,8 +3,8 @@ import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
-import * as dbSchema from "#lib/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/db/service";
+import * as dbSchema from "#lib/infrastructure/db/schema/tables/combined";
+import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 export type VisibleEntityPropertySchema = { slug: string; propertiesSchema: AppSchema };
 

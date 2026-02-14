@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Context, Effect, Exit, Layer, Redacted, Runtime } from "effect";
 import { Pool } from "pg";
 
-import { AppConfig } from "#lib/config/service";
+import { AppConfig } from "#lib/infrastructure/config/service";
 
 import * as schemaAuth from "./schema/tables/auth";
 import * as schemaTables from "./schema/tables/combined";

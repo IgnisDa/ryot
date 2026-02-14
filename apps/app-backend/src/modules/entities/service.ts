@@ -14,9 +14,9 @@ import type {
 import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/db/service";
-import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
-import { requireText, trimToNull } from "#lib/validation";
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
+import { requireText, trimToNull } from "#lib/shared/validation";
 import {
 	getOptionalIsoStringField,
 	getOptionalStringField,

@@ -1,14 +1,14 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { bootstrapNewUser } from "#lib/builtins/bootstrap";
 import {
 	entitySchema,
 	eventSchema,
 	relationshipSchema,
 	sandboxScript,
-} from "#lib/db/schema/tables/combined";
-import { dbEffect, DbService } from "#lib/db/service";
+} from "#lib/infrastructure/db/schema/tables/combined";
+import { dbEffect, DbService } from "#lib/infrastructure/db/service";
+import { bootstrapNewUser } from "#modules/builtins/bootstrap";
 
 import {
 	buildCollectionEntityMigrationSql,

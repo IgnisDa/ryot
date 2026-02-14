@@ -9,11 +9,11 @@ import { Slug } from "@ryot/contract/schema/brands";
 import { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect, Schema } from "effect";
 
-import { builtinRelationshipSchemas } from "#lib/builtins/relationship-schemas";
-import { DbRunner } from "#lib/db/service";
-import { validateAppSchemaDefinition } from "#lib/schema/property-schema-runtime";
-import { slugify } from "#lib/slug";
-import { requireText } from "#lib/validation";
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { validateAppSchemaDefinition } from "#lib/property-schema/property-schema-runtime";
+import { slugify } from "#lib/shared/slug";
+import { requireText } from "#lib/shared/validation";
+import { builtinRelationshipSchemas } from "#modules/builtins/relationship-schemas";
 
 import { RelationshipSchemasRepository } from "./repository";
 

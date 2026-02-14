@@ -2,8 +2,8 @@ import { Activity } from "@effect/workflow";
 import { unknownToMessage } from "@ryot/contract/errors";
 import { Cause, DateTime, Effect } from "effect";
 
-import { AppConfig } from "#lib/config/service";
-import { DbRunner } from "#lib/db/service";
+import { AppConfig } from "#lib/infrastructure/config/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
 
 import type { ImportRunJobData } from "./jobs";
 import type { MediaImportAdapterResult } from "./media/adapter-result";
