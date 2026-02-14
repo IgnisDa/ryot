@@ -53,6 +53,9 @@ import { LibraryImportService } from "#modules/library-membership/service";
 import { MediaTrendingWorkflowOperationsLive } from "#modules/media-trending/operations-workflow";
 import { MediaTrendingRepository } from "#modules/media-trending/repository";
 import { MetadataLookupService } from "#modules/metadata-lookup/service";
+import { NotificationDeliveryService } from "#modules/notifications/delivery";
+import { NotificationsRepository } from "#modules/notifications/repository";
+import { NotificationsService } from "#modules/notifications/service";
 import { ProviderConfig } from "#modules/query-engine/provider-config";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
@@ -108,6 +111,7 @@ const PlatformRepositoriesLive = Layer.mergeAll(
 	GodModeRepository.Default,
 	ImportsRepository.Default,
 	IntegrationsRepository.Default,
+	NotificationsRepository.Default,
 	SandboxRepository.Default,
 	SavedViewsRepository.Default,
 	TrackersRepository.Default,
@@ -180,6 +184,7 @@ const PlatformServicesLive = Layer.mergeAll(
 		IntegrationsService.Default,
 		Layer.provide(ImportsService.Default, UploadsService.Default),
 	),
+	Layer.provide(NotificationsService.Default, NotificationDeliveryService.Default),
 );
 
 const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(

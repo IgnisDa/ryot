@@ -42,16 +42,20 @@ beforeAll(async () => {
 
 	backendProcess = spawnBackendProcess(
 		buildBackendEnv({
-			dbUrl: infrastructure.dbUrl,
-			frontendUrl: `http://127.0.0.1:${frontendPort}`,
 			port: backendPort,
-			redisUrl: infrastructure.redisUrl,
+			dbUrl: infrastructure.dbUrl,
 			s3BucketName: S3_BUCKET_NAME,
+			redisUrl: infrastructure.redisUrl,
 			s3Endpoint: infrastructure.s3Endpoint,
+			frontendUrl: `http://127.0.0.1:${frontendPort}`,
 			extraEnv: {
+				SERVER_SMTP_USER: "",
+				SERVER_SMTP_SERVER: "",
+				SERVER_SMTP_PASSWORD: "",
 				SERVER_OIDC_CLIENT_ID: "",
 				SERVER_OIDC_ISSUER_URL: "",
 				SERVER_OIDC_CLIENT_SECRET: "",
+				SERVER_SMTP_MAILBOX: "Ryot <no-reply@ryot.io>",
 			},
 		}),
 	);
