@@ -208,6 +208,9 @@ export const USER_ENTITY_WRITE_SANDBOX_LIMITS = {
 export const USER_ENTITY_READ_SANDBOX_LIMITS = {
 	ids: GLOBAL_WRITE_SANDBOX_LIMITS.entityItems,
 } as const;
+const sandboxEntitySchemaSlugListSchema = Schema.Array(sandboxIdSchema).pipe(
+	Schema.check(Schema.isMaxLength(USER_ENTITY_READ_SANDBOX_LIMITS.ids)),
+);
 export const SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES = [
 	"upsertGlobalEntities",
 	"upsertGlobalRelationships",
@@ -424,11 +427,7 @@ export type ListIntegrationsOptions = Schema.Schema.Type<typeof listIntegrations
 
 export const getCurrentIntegrationArgsSchema = Schema.Tuple([]);
 export const executeQueryEngineDataSchema = Schema.Unknown;
-export const getEntitySchemasArgsSchema = Schema.Tuple([
-	Schema.Array(sandboxIdSchema).pipe(
-		Schema.check(Schema.isMaxLength(USER_ENTITY_READ_SANDBOX_LIMITS.ids)),
-	),
-]);
+export const getEntitySchemasArgsSchema = Schema.Tuple([sandboxEntitySchemaSlugListSchema]);
 export const executeQueryEngineArgsSchema = Schema.Tuple([queryDocumentSchema]);
 export const listEventSchemasDataSchema = Schema.Array(eventSchemaRecordSchema);
 export const listIntegrationsDataSchema = Schema.Array(integrationRecordSchema);
@@ -438,11 +437,7 @@ export const getEntitySchemasResultSchema = hostResultSchema(
 );
 export const createEventsResultSchema = hostResultSchema(createEventsResultDataSchema);
 export const createEventsArgsSchema = Schema.Tuple([Schema.Array(createEventItemSchema)]);
-export const listEventSchemasArgsSchema = Schema.Tuple([
-	Schema.Array(sandboxIdSchema).pipe(
-		Schema.check(Schema.isMaxLength(USER_ENTITY_READ_SANDBOX_LIMITS.ids)),
-	),
-]);
+export const listEventSchemasArgsSchema = Schema.Tuple([sandboxEntitySchemaSlugListSchema]);
 export const listEventSchemasResultSchema = hostResultSchema(listEventSchemasDataSchema);
 export const listIntegrationsResultSchema = hostResultSchema(listIntegrationsDataSchema);
 export const upsertGlobalEntitiesDataSchema = Schema.Array(upsertGlobalEntityResultSchema);
