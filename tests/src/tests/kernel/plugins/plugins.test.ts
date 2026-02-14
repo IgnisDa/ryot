@@ -34,7 +34,7 @@ import {
 import { assert, describe, expect, it } from "~/support/effect-test";
 
 describe("plugins", () => {
-	it.scopedLive("runs a third-party plugin lifecycle without restarting", () =>
+	it.live("runs a third-party plugin lifecycle without restarting", () =>
 		Effect.gen(function* () {
 			const suffix = crypto.randomUUID();
 			const eventSlug = `observed-${suffix}`;
@@ -201,7 +201,7 @@ export default defineAutomation({
 									adminHeaders,
 								)
 								.pipe(
-									Effect.catchAll((error) =>
+									Effect.catch((error) =>
 										Effect.logWarning("[plugins-e2e] entity cleanup failed (non-fatal)", error),
 									),
 								);
@@ -229,7 +229,7 @@ export default defineAutomation({
 			assertPresent(originalDetailsScriptId, "Missing hot-installed provider details script");
 			assertPresent(originalSearchScriptId, "Missing hot-installed provider search script");
 			const storedDetailsScript = yield* getBackendClient().call(
-				(c) => c.testSupport.getSandboxScript({ path: { scriptId: originalDetailsScriptId } }),
+				(c) => c.testSupport.getSandboxScript({ params: { scriptId: originalDetailsScriptId } }),
 				adminHeaders,
 			);
 			assertPresent(storedDetailsScript.providerId, "Missing hot-installed provider ID");
@@ -261,11 +261,12 @@ export default defineAutomation({
 			assertPresent(reingestedSearchScriptId, "Missing reingested provider search script ID");
 			const [reingestedDetails, reingestedSearch] = yield* Effect.all([
 				getBackendClient().call(
-					(c) => c.testSupport.getSandboxScript({ path: { scriptId: reingestedDetailsScriptId } }),
+					(c) =>
+						c.testSupport.getSandboxScript({ params: { scriptId: reingestedDetailsScriptId } }),
 					adminHeaders,
 				),
 				getBackendClient().call(
-					(c) => c.testSupport.getSandboxScript({ path: { scriptId: reingestedSearchScriptId } }),
+					(c) => c.testSupport.getSandboxScript({ params: { scriptId: reingestedSearchScriptId } }),
 					adminHeaders,
 				),
 			]);
@@ -351,7 +352,7 @@ export default defineAutomation({
 
 			const refusal = yield* Effect.flip(
 				getBackendClient().call(
-					(c) => c.plugins.uninstall({ path: { pluginSlug: provider.pluginSlug } }),
+					(c) => c.plugins.uninstall({ params: { pluginSlug: provider.pluginSlug } }),
 					adminHeaders,
 				),
 			);
@@ -370,7 +371,7 @@ export default defineAutomation({
 				`uninstall of '${provider.pluginSlug}' after workflow pin release`,
 				getBackendClient()
 					.call(
-						(c) => c.plugins.uninstall({ path: { pluginSlug: provider.pluginSlug } }),
+						(c) => c.plugins.uninstall({ params: { pluginSlug: provider.pluginSlug } }),
 						adminHeaders,
 					)
 					.pipe(Effect.catchTag("Conflict", () => Effect.succeed(null))),
@@ -402,7 +403,7 @@ export default defineAutomation({
 				Effect.flip(
 					client.call((c) =>
 						c.plugins.uninstall({
-							path: { pluginSlug: PluginSlug.make(`unauthorized-${crypto.randomUUID()}`) },
+							params: { pluginSlug: PluginSlug.make(`unauthorized-${crypto.randomUUID()}`) },
 						}),
 					),
 				),

@@ -170,7 +170,7 @@ describe("saved views validation", () => {
 			const updateError = yield* Effect.flip(
 				client.call((c) =>
 					c.savedViews.update({
-						path: { viewSlug: createdView.slug },
+						params: { viewSlug: createdView.slug },
 						payload: {
 							...updateBody,
 							displayConfiguration: {

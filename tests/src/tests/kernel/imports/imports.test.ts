@@ -29,7 +29,7 @@ const uninstallWhenReleased = (installed: InstalledTestPlugin) =>
 
 describe("Plugin Import Public Boundary", () => {
 	beforeAll(async () => {
-		fixtureImportPlugin = await Effect.runPromise(installTestImportPlugin());
+		fixtureImportPlugin = await Effect.runPromise(installTestImportPlugin);
 	});
 
 	afterAll(async () => {
@@ -64,11 +64,11 @@ describe("Plugin Import Public Boundary", () => {
 		}),
 	);
 
-	it.scopedLive("pins an accepted plugin import until terminal completion", () =>
+	it.live("pins an accepted plugin import until terminal completion", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { plugin, source } = yield* Effect.acquireRelease(
-				installTestImportPinningPlugin(),
+				installTestImportPinningPlugin,
 				({ plugin: installedPlugin }) =>
 					uninstallWhenReleased(installedPlugin).pipe(Effect.asVoid, Effect.orDie),
 			);
@@ -256,7 +256,7 @@ describe("Plugin Import Public Boundary", () => {
 			assertTaggedError(error, "BadRequest");
 			expect(yield* client.call((c) => c.imports.listRuns())).toEqual([]);
 
-			fixtureImportPlugin = yield* installTestImportPlugin();
+			fixtureImportPlugin = yield* installTestImportPlugin;
 			const created = yield* client.call((c) =>
 				c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
 			);

@@ -112,7 +112,7 @@ describe("Saved views lifecycle E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const builtinView = yield* findBuiltinSavedView(client);
 			const error = yield* Effect.flip(
-				client.call((c) => c.savedViews.delete({ path: { viewSlug: builtinView.slug } })),
+				client.call((c) => c.savedViews.delete({ params: { viewSlug: builtinView.slug } })),
 			);
 			assertTaggedError(error, "BadRequest");
 			expect(error.message).toBe(builtinViewError);
@@ -127,7 +127,7 @@ describe("Saved views lifecycle E2E", () => {
 			const invalidUpdateError = yield* Effect.flip(
 				client.call((c) =>
 					c.savedViews.update({
-						path: { viewSlug: builtinView.slug },
+						params: { viewSlug: builtinView.slug },
 						payload: buildUpdatedSavedViewBody({ isDisabled: true, name: "Attempted Rename" }),
 					}),
 				),
@@ -138,7 +138,7 @@ describe("Saved views lifecycle E2E", () => {
 
 			const disableResult = yield* client.call((c) =>
 				c.savedViews.update({
-					path: { viewSlug: builtinView.slug },
+					params: { viewSlug: builtinView.slug },
 					payload: {
 						isDisabled: true,
 						icon: builtinView.icon,
@@ -154,7 +154,7 @@ describe("Saved views lifecycle E2E", () => {
 
 			yield* client.call((c) =>
 				c.savedViews.update({
-					path: { viewSlug: builtinView.slug },
+					params: { viewSlug: builtinView.slug },
 					payload: {
 						isDisabled: false,
 						icon: builtinView.icon,
@@ -178,21 +178,21 @@ describe("Saved views lifecycle E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 
 			const readError = yield* Effect.flip(
-				client.call((c) => c.savedViews.get({ path: { viewSlug: missingViewSlug } })),
+				client.call((c) => c.savedViews.get({ params: { viewSlug: missingViewSlug } })),
 			);
 			const updateError = yield* Effect.flip(
 				client.call((c) =>
 					c.savedViews.update({
-						path: { viewSlug: missingViewSlug },
+						params: { viewSlug: missingViewSlug },
 						payload: buildUpdatedSavedViewBody(),
 					}),
 				),
 			);
 			const cloneError = yield* Effect.flip(
-				client.call((c) => c.savedViews.clone({ path: { viewSlug: missingViewSlug } })),
+				client.call((c) => c.savedViews.clone({ params: { viewSlug: missingViewSlug } })),
 			);
 			const deleteError = yield* Effect.flip(
-				client.call((c) => c.savedViews.delete({ path: { viewSlug: missingViewSlug } })),
+				client.call((c) => c.savedViews.delete({ params: { viewSlug: missingViewSlug } })),
 			);
 
 			for (const error of [readError, updateError, cloneError, deleteError]) {
@@ -533,7 +533,7 @@ describe("Saved views lifecycle E2E", () => {
 			const updateError = yield* Effect.flip(
 				client.call((c) =>
 					c.savedViews.update({
-						path: { viewSlug: createdView.slug },
+						params: { viewSlug: createdView.slug },
 						payload: {
 							...updateBody,
 							displayConfiguration: {
