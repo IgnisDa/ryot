@@ -18,7 +18,7 @@ import {
 import { Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 
-import { withoutSchemaServices } from "#lib/shared/schema";
+import type { DurableSchema } from "#lib/infrastructure/workflow";
 
 export const SubscriptionExecutionWorkflowError = Schema.Union([
 	DbError,
@@ -128,8 +128,8 @@ export type SubscriptionExecutionWorkflowPayload =
 	typeof SubscriptionExecutionWorkflowPayloadSchema.Type;
 
 export const SubscriptionExecutionWorkflow = Workflow.make("SubscriptionExecutionWorkflow", {
-	error: withoutSchemaServices(SubscriptionExecutionWorkflowError),
-	success: withoutSchemaServices(Schema.NullOr(SubscriptionRunId)),
-	payload: withoutSchemaServices(SubscriptionExecutionWorkflowPayloadSchema),
+	error: SubscriptionExecutionWorkflowError satisfies DurableSchema,
+	success: Schema.NullOr(SubscriptionRunId) satisfies DurableSchema,
+	payload: SubscriptionExecutionWorkflowPayloadSchema satisfies DurableSchema,
 	idempotencyKey: ({ occurrenceId, ruleId }) => `${occurrenceId}:${ruleId}`,
 });
