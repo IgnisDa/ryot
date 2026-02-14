@@ -47,6 +47,8 @@ type GetAppConfigValue = <Key extends SandboxAppConfigKey>(
 ) => Effect.Effect<SandboxAppConfigValue<Key>, SandboxHostError>;
 
 export const CORE_SANDBOX_HOST_CAPABILITIES = [
+	"log",
+	"span",
 	"httpCall",
 	"getCachedValue",
 	"setCachedValue",
@@ -113,8 +115,27 @@ export const userPreferencesSchema = strictStruct({
 });
 export const getUserPreferencesArgsSchema = Schema.Tuple();
 export const getUserPreferencesResultSchema = hostResultSchema(userPreferencesSchema);
+export const logEntrySchema = strictStruct({
+	level: Schema.Literal("debug", "info", "warning", "error"),
+	message: nonEmptyString,
+	attributes: Schema.optional(Schema.Record({ key: Schema.String, value: jsonValueSchema })),
+});
+export type LogEntry = Schema.Schema.Type<typeof logEntrySchema>;
+export const logEntriesSchema = Schema.Array(logEntrySchema);
+export const logArgsSchema = Schema.Tuple(logEntriesSchema);
+export const logResultSchema = hostResultSchema(Schema.Null);
+export const spanEntrySchema = strictStruct({
+	name: nonEmptyString,
+	attributes: Schema.optional(Schema.Record({ key: Schema.String, value: jsonValueSchema })),
+});
+export type SpanEntry = Schema.Schema.Type<typeof spanEntrySchema>;
+export const spanEntriesSchema = Schema.Array(spanEntrySchema);
+export const spanArgsSchema = Schema.Tuple(spanEntriesSchema);
+export const spanResultSchema = hostResultSchema(Schema.Null);
 
 export const coreSandboxHostContracts = {
+	log: { args: logArgsSchema, success: Schema.Null, result: logResultSchema },
+	span: { success: Schema.Null, args: spanArgsSchema, result: spanResultSchema },
 	httpCall: {
 		args: httpCallArgsSchema,
 		result: httpCallResultSchema,
