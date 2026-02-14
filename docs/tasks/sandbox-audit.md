@@ -167,17 +167,17 @@ The runner-side name validation (runner-source.sandbox.ts:120-132) does not help
   Redis handles replace harvested host paths; kernel resolution validates trusted parent provenance,
   and public sandbox results omit harvest metadata.
 
-**B7 — `removedCount` is fabricated.** compiled-modules.ts:135 returns `removedCount: candidates.length` regardless of whether `fs.remove` succeeded.
+**B7 — `removedCount` was fabricated.** Module GC previously reported every candidate as removed regardless of whether `fs.remove` succeeded.
 
-- [ ] Report `removedCount` based on successful `fs.remove` operations.
+- [x] Report `removedCount` based on successful `fs.remove` operations.
 
-**B8 — quadratic chunk accumulation.** `[...state.chunks, chunk]` per chunk in service.ts:155 and runtime.ts:118. 10 MiB at 64 KiB chunks ≈ 160 array reallocations.
+**B8 — quadratic chunk accumulation.** Byte-limited stream readers now mutate their chunk arrays instead of reallocating them per chunk. 10 MiB at 64 KiB chunks would otherwise create ≈ 160 array reallocations.
 
-- [ ] Mutate the chunk array in the fold instead of reallocating it per chunk.
+- [x] Mutate the chunk array in the fold instead of reallocating it per chunk.
 
-**B9 — `httpCall` timeout is an orphan constant.** service.ts:87 hardcodes 8s while `SANDBOX_TIMEOUT_MS` is configurable. Lower the config below 8s and the process dies mid-call.
+**B9 — `httpCall` timeout was an orphan constant.** Runtime host functions previously hardcoded 8 seconds separately from sandbox execution limits.
 
-- [ ] Move timeout to `limits.ts` and derive it from the execution timeout.
+- [x] Centralize execution, HTTP, and worker-concurrency limits in `limits.ts`; remove environment-backed sandbox timeout and worker-concurrency settings.
 
 **B10 — stderr is black-holed.** runtime.ts:253-258 drains Deno stderr into `Effect.void`. Permission denials, V8 OOM, and module-resolution failures all vanish; the operator sees only "Sandbox timed out".
 

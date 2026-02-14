@@ -1,7 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
 import { sha256Hex } from "@ryot/ts-utils/crypto";
-import { Effect, FileSystem, Path } from "effect";
+import { Effect, FileSystem, Path, PlatformError } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 
@@ -263,6 +263,45 @@ it.effect("concurrent repeated cleanup tolerates already-missing candidates", ()
 			);
 
 			expect(yield* fs.readDirectory(moduleDirectory)).toEqual([]);
+		}),
+	),
+);
+
+it.effect("counts only successful module removals", () =>
+	withModuleDirectory((fs, moduleDirectory) =>
+		Effect.gen(function* () {
+			const removedHash = hash("removed");
+			const missingHash = hash("missing");
+			const missingPath = `${moduleDirectory}/${missingHash}.mjs`;
+			yield* fs.writeFileString(`${moduleDirectory}/${removedHash}.mjs`, "removed");
+			yield* fs.writeFileString(missingPath, "missing");
+
+			const fsWithMissingRemoval = {
+				...fs,
+				remove: (...args: Parameters<typeof fs.remove>) => {
+					const [filePath] = args;
+					if (filePath === missingPath) {
+						return Effect.fail(
+							PlatformError.systemError({
+								_tag: "NotFound",
+								method: "remove",
+								module: "FileSystem",
+								pathOrDescriptor: filePath,
+							}),
+						);
+					}
+					return fs.remove(...args);
+				},
+			};
+
+			const result = yield* garbageCollectSandboxCompiledModules(
+				{ moduleDirectory },
+				new Set(),
+			).pipe(Effect.provideService(FileSystem.FileSystem, fsWithMissingRemoval));
+
+			expect(result).toEqual({ candidateCount: 2, removedCount: 1 });
+			expect(yield* fs.exists(`${moduleDirectory}/${removedHash}.mjs`)).toBe(false);
+			expect(yield* fs.exists(missingPath)).toBe(true);
 		}),
 	),
 );

@@ -97,24 +97,12 @@ const sandbox = group(
 			defaultValue: "/tmp/ryot-sandbox-deno",
 			description: "Directory used for the local sandbox dependency runtime and Deno cache",
 		}),
-		timeoutMs: integerField({
-			label: "Timeout",
-			defaultValue: 10_000,
-			envKey: "SANDBOX_TIMEOUT_MS",
-			description: "Maximum execution time for a sandbox job in milliseconds",
-		}),
 		jobIdSecret: stringField({
 			secret: true,
 			label: "Job ID secret",
 			defaultValue: "changeme",
 			envKey: "SANDBOX_JOB_ID_SECRET",
 			description: "Secret used to sign sandbox job identifiers",
-		}),
-		workerConcurrency: integerField({
-			defaultValue: 5,
-			label: "Worker concurrency",
-			envKey: "SANDBOX_WORKER_CONCURRENCY",
-			description: "Maximum number of concurrent sandbox jobs",
 		}),
 	},
 );

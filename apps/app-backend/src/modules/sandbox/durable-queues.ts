@@ -1,11 +1,11 @@
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxProviderId } from "@ryot/contract/schema/brands";
-import { Effect, Layer, Schedule } from "effect";
+import { Effect, Schedule } from "effect";
 import { Activity, DurableQueue } from "effect/unstable/workflow";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
+import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 
 import { SandboxExecutionResult } from "./execution-result";
@@ -130,8 +130,6 @@ const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 		{ concurrency },
 	);
 
-export const SandboxExecutionQueueWorkerLive = Layer.unwrap(
-	Effect.map(AppConfig, (config) =>
-		makeSandboxExecutionQueueWorkerLive(config.sandbox.workerConcurrency),
-	),
+export const SandboxExecutionQueueWorkerLive = makeSandboxExecutionQueueWorkerLive(
+	SANDBOX_LIMITS.workerConcurrency,
 );

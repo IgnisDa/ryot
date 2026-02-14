@@ -14,18 +14,25 @@ const KiB = 1024;
 const MiB = 1024 * KiB;
 
 export const SANDBOX_LIMITS = {
+	workerConcurrency: 5,
 	compiler: SANDBOX_COMPILER_LIMITS,
 	hostCalls: { http: 50, total: 200 },
 	harvest: { handleTtlSeconds: 60 * 60 },
 	globalWrites: GLOBAL_WRITE_SANDBOX_LIMITS,
-	http: { requestBytes: MiB, responseBytes: 10 * MiB },
 	userRelationshipWrites: USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
 	scratch: { maxDepth: 32, maxEntries: 4_096, totalBytes: 5 * MiB },
 	logs: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
+	http: { requestBytes: MiB, responseBytes: 10 * MiB, timeoutMs: 8_000 },
 	cache: { keyBytes: 256, valueBytes: 256 * KiB, ttlSeconds: 30 * 24 * 60 * 60 },
 	bridge: { concurrentHostCalls: 4, requestBytes: MiB, responseBytes: 10 * MiB },
 	observability: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
-	execution: { denoHeapMiB: 256, resultBytes: MiB, requestBytes: 2 * MiB, contextBytes: 256 * KiB },
+	execution: {
+		resultBytes: MiB,
+		denoHeapMiB: 256,
+		timeoutMs: 10_000,
+		requestBytes: 2 * MiB,
+		contextBytes: 256 * KiB,
+	},
 } as const;
 
 export const WORKFLOW_SANDBOX_LIMITS = {
