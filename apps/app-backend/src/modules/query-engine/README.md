@@ -27,6 +27,7 @@ For concrete executable examples, see:
 - `entitySchemaSlugs`: one or more schema slugs included in the query
 - `filter`: a predicate AST or `null`
 - `eventJoins`: zero or more event join definitions
+- `relationships`: zero or more relationship schema slugs; causes non-user-owned entities to be included when the user has a relationship of the given schema type pointing to them
 - `computedFields`: zero or more named reusable expressions (may be omitted)
 - `fields`: ordered list of output fields
 
@@ -114,6 +115,8 @@ Built-ins per join: `id`, `createdAt`, `updatedAt`. Properties via `["properties
 
 Aggregations: `avg`, `count`, `max`, `min`, `sum`. Type inference returns `integer` for `count` and `number` for all others.
 
+> **Path convention differs from event joins**: event-aggregate `path` is relative to the event's `properties` object — omit the leading `"properties"` segment. Use `["rating"]`, not `["properties", "rating"]`.
+
 ```json
 { "type": "event-aggregate", "eventSchemaSlug": "review", "path": ["rating"], "aggregation": "avg" }
 ```
@@ -140,7 +143,7 @@ Aggregations: `avg`, `count`, `max`, `min`, `sum`. Type inference returns `integ
 
 Comparison operators: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `isNull`, `isNotNull`, `contains`.
 
-Combine predicates with `and` / `or` (each takes a `predicates` array):
+Combine predicates with `and` / `or` (each takes a `predicates` array). Negate any predicate with `not` (takes a single `predicate`):
 
 ```json
 {
@@ -229,5 +232,5 @@ Field result kinds: `text`, `number`, `boolean`, `date`, `image`, `json`, `null`
 - Missing computed field: `Computed field 'displayName' is not part of this runtime request`
 - Dependency cycle: `Computed field dependency cycle detected: first -> second -> first`
 - Type mismatch: `Filter operator 'eq' requires compatible expression types, received 'integer' and 'string'`
-- Non-display image usage: `Image expressions are display-only and cannot be used in sorting`
+- Non-display image usage: `Image expressions are display-only and cannot be compiled for sort or filter usage`
 - Invalid event-aggregate slug: `Event schema 'reviw' is not available for the requested entity schemas`
