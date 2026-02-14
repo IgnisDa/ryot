@@ -153,9 +153,9 @@ The runner-side name validation (runner-source.sandbox.ts:120-132) does not help
 
 - [x] Restrict `emitSignal` to subscription executions and derive origin from trusted subscription execution state.
 
-**B4 — `httpCall` discards non-2xx bodies. Medium.** service.ts:590-604 skips the body read for non-2xx and fails with bare `HTTP ${status}`. Every provider script loses API error detail (rate-limit reasons, validation messages) — exactly the payload a provider script needs to react correctly.
+**B4 — `httpCall` discards non-2xx bodies. Medium.** runtime-host-functions.ts:204-219 skipped the body read for non-2xx and failed with bare `HTTP ${status}`. Every provider script lost API error detail (rate-limit reasons, validation messages) — exactly the payload a provider script needs to react correctly.
 
-- [ ] Read the body up to the limit regardless; return `{status, body}` and let scripts branch.
+- [x] Read the body up to the limit regardless; non-2xx failures now carry `{ status, body }` for scripts to inspect.
 
 **B5 — child execution IDs embed unsanitized names.** `sandboxWorkflowChildExecutionId` (sandbox-script-workflow.ts:138) interpolates `request.name` raw into a durable execution key. Not exploitable that I can see, but it is the one place a script string reaches an engine primary key unfiltered.
 

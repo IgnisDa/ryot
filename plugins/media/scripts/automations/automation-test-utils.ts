@@ -149,7 +149,7 @@ export const httpSuccess = (body: JsonValue) =>
 		body: typeof body === "string" ? body : JSON.stringify(body),
 	});
 
-export const httpFailure = (message = "request failed", _status = 500) => Effect.fail({ message });
+export const httpFailure = (message = "request failed") => Effect.fail({ message });
 
 export const toRecord = (value: unknown): Record<string, unknown> =>
 	isObjectRecord(value) ? value : Object.create(null);

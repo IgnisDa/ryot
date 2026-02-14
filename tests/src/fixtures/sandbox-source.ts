@@ -125,6 +125,26 @@ export function httpCallSandboxSource(
 	});
 }
 
+export function httpCallFailureSandboxSource(
+	input: SandboxSourceIdentity & { readonly method?: string; readonly url: string },
+) {
+	return scriptModuleSource({
+		...input,
+		capabilities: ["httpCall"],
+		inputSchema: "Schema.Struct({})",
+		sdkImports: ["httpCallResultSchema"],
+		outputSchema: "httpCallResultSchema",
+		run: `(_input, host) => host.httpCall(${JSON.stringify(input.method ?? "GET")}, ${JSON.stringify(input.url)}).pipe(
+    Effect.map((data) => ({ data, success: true as const })),
+    Effect.catch((error) => Effect.succeed({
+      error: error.message,
+      success: false as const,
+      data: error.data as { body: string; status: number },
+    })),
+  )`,
+	});
+}
+
 export function queryEngineSandboxSource(
 	input: SandboxSourceIdentity & { readonly query: JsonValue },
 ) {
