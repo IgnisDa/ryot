@@ -3,6 +3,23 @@ import { createSavedViewFixture } from "~/features/test-fixtures";
 import { createQueryEngineRequest } from "./view-page-utils";
 
 describe("createQueryEngineRequest", () => {
+	it("does not request hidden entityImage for table layouts", () => {
+		const view = createSavedViewFixture({
+			queryDefinition: { entitySchemaSlugs: ["show"] },
+		});
+
+		const result = createQueryEngineRequest({
+			view,
+			page: 1,
+			limit: 20,
+			layout: "table",
+		});
+
+		expect(result.fields?.some((field) => field.key === "entityImage")).toBe(
+			false,
+		);
+	});
+
 	it("preserves saved view relationships in runtime requests", () => {
 		const view = createSavedViewFixture({
 			queryDefinition: {

@@ -18,8 +18,8 @@ const date = (value: string) => dayjs.utc(value).toDate();
 
 type SectionField = {
 	key: string;
-	value: Date | number | string;
-	kind: "date" | "number" | "text";
+	value: Date | number | string | null;
+	kind: "date" | "number" | "text" | "null" | "image";
 };
 
 const makeSectionItem = (opts: {
@@ -27,23 +27,22 @@ const makeSectionItem = (opts: {
 	name: string;
 	fields?: SectionField[];
 	entitySchemaSlug: string;
-}) => ({
-	id: opts.id,
-	image: null,
-	name: opts.name,
-	externalId: null,
-	sandboxScriptId: null,
-	createdAt: date("2024-01-01"),
-	updatedAt: date("2024-01-01"),
-	fields: [
-		{
-			kind: "text" as const,
-			key: "entitySchemaSlug",
-			value: opts.entitySchemaSlug,
-		},
-		...(opts.fields ?? []),
-	],
-});
+	image?: { kind: "remote"; url: string } | null;
+}) => [
+	{ key: "entityId", kind: "text" as const, value: opts.id },
+	{ key: "entityName", kind: "text" as const, value: opts.name },
+	{
+		key: "entityImage",
+		kind: opts.image ? ("image" as const) : ("null" as const),
+		value: opts.image ?? null,
+	},
+	{
+		kind: "text" as const,
+		key: "entitySchemaSlug",
+		value: opts.entitySchemaSlug,
+	},
+	...(opts.fields ?? []),
+];
 
 const makeSectionResult = <T>(items: T[], opts: { limit?: number } = {}) => ({
 	items,
@@ -797,6 +796,31 @@ const libraryQueryResult = (items: ReturnType<typeof makeLibraryItem>[]) =>
 	makeSectionResult(items, { limit: 10000 });
 
 describe("getLibraryStats", () => {
+	it("does not request entity identity fields for stats", async () => {
+		let capturedRequest:
+			| Parameters<NonNullable<Parameters<typeof getLibraryStats>[1]>["executeSectionQuery"]>[1]
+			| undefined;
+
+		expectDataResult(
+			await getLibraryStats("user_1", {
+				executeSectionQuery: async (_userId, request) => {
+					capturedRequest = request;
+					return libraryQueryResult([makeLibraryItem({ id: "e1" })]);
+				},
+			}),
+		);
+
+		expect(capturedRequest?.fields.some((field) => field.key === "entityId")).toBe(
+			false,
+		);
+		expect(
+			capturedRequest?.fields.some((field) => field.key === "entityName"),
+		).toBe(false);
+		expect(
+			capturedRequest?.fields.some((field) => field.key === "entityImage"),
+		).toBe(false);
+	});
+
 	it("counts total entities", async () => {
 		const result = expectDataResult(
 			await getLibraryStats("user_1", {
