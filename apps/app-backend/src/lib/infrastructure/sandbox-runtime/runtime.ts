@@ -208,12 +208,10 @@ export const withSandboxHostCallPermit = <A, E, R>(
 const killProcessHandle = (process: ChildProcessSpawner.ChildProcessHandle) =>
 	process.kill().pipe(Effect.ignore);
 
-const killProcess = (worker: PooledProcess) => killProcessHandle(worker.process);
-
 export const invalidateProcess = (
 	pool: Pool.Pool<PooledProcess, PlatformError>,
 	worker: PooledProcess,
-) => Pool.invalidate(pool, worker).pipe(Effect.andThen(killProcess(worker)));
+) => Pool.invalidate(pool, worker).pipe(Effect.andThen(killProcessHandle(worker.process)));
 
 type SpawnDenoProcessOptions = {
 	readonly denoDir: string;
