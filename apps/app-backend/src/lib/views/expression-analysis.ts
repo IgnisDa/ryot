@@ -356,6 +356,15 @@ export const inferViewExpressionType = <
 		);
 	}
 
+	if (reference.type === "event-aggregate") {
+		const propertyType =
+			reference.aggregation === "count" ? "integer" : "number";
+		return createPropertyTypeInfo(propertyType, {
+			type: propertyType,
+			label: "Event Aggregate",
+		});
+	}
+
 	const join = getEventJoinForReference(input.context.eventJoinMap, reference);
 
 	if (reference.path[0] === "properties") {

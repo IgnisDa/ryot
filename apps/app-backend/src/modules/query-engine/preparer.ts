@@ -50,6 +50,7 @@ export type SavedViewExecutionInput = {
 type PreparedQueryContext = {
 	eventJoins: PreparedEventJoin[];
 	relationshipSchemaIds: string[];
+	eventSchemaSlugs: ReadonlySet<string>;
 	runtimeSchemas: QueryEngineSchemaRow[];
 	schemaMap: Map<string, QueryEngineSchemaRow>;
 	eventJoinMap: Map<string, PreparedEventJoin>;
@@ -131,25 +132,28 @@ const buildRuntimeRequest = (input: {
 };
 
 const validateSavedViewDefinition = (input: {
+	eventSchemaSlugs: ReadonlySet<string>;
 	queryDefinition: SavedViewQueryDefinition;
 	displayConfiguration: DisplayConfiguration;
 	eventJoinMap: Map<string, PreparedEventJoin>;
 	schemaMap: Map<string, QueryEngineSchemaLike>;
 }) => {
+	const context = {
+		schemaMap: input.schemaMap,
+		eventJoinMap: input.eventJoinMap,
+		eventSchemaSlugs: input.eventSchemaSlugs,
+	};
 	validateQueryEngineReferences(
 		buildRuntimeRequest({
 			fields: [],
 			pagination: { page: 1, limit: 1 },
 			queryDefinition: input.queryDefinition,
 		}),
-		{ schemaMap: input.schemaMap, eventJoinMap: input.eventJoinMap },
+		context,
 	);
 	validateSavedViewDisplayConfiguration(
 		input.displayConfiguration,
-		{
-			schemaMap: input.schemaMap,
-			eventJoinMap: input.eventJoinMap,
-		},
+		context,
 		input.queryDefinition.computedFields,
 	);
 };
@@ -304,6 +308,30 @@ const loadRelationshipSchemaIds = async (
 	return rows.map((r) => r.id);
 };
 
+const loadEventSchemaSlugs = async (input: {
+	userId: string;
+	runtimeSchemas: QueryEngineSchemaRow[];
+}): Promise<ReadonlySet<string>> => {
+	if (!input.runtimeSchemas.length) {
+		return new Set();
+	}
+
+	const rows = await db
+		.selectDistinct({ slug: eventSchema.slug })
+		.from(eventSchema)
+		.where(
+			and(
+				inArray(
+					eventSchema.entitySchemaId,
+					input.runtimeSchemas.map((s) => s.id),
+				),
+				or(isNull(eventSchema.userId), eq(eventSchema.userId, input.userId)),
+			),
+		);
+
+	return new Set(rows.map((r) => r.slug));
+};
+
 const prepareContext = async (input: {
 	userId: string;
 	queryDefinition: SavedViewQueryDefinition;
@@ -320,6 +348,10 @@ const prepareContext = async (input: {
 	const relationshipSchemaIds = await loadRelationshipSchemaIds(
 		input.queryDefinition.relationships,
 	);
+	const eventSchemaSlugs = await loadEventSchemaSlugs({
+		runtimeSchemas,
+		userId: input.userId,
+	});
 	const schemaMap = buildSchemaMap(runtimeSchemas);
 	const eventJoinMap = buildEventJoinMap(eventJoins);
 
@@ -328,6 +360,7 @@ const prepareContext = async (input: {
 		eventJoins,
 		eventJoinMap,
 		runtimeSchemas,
+		eventSchemaSlugs,
 		relationshipSchemaIds,
 	};
 };
@@ -358,6 +391,7 @@ export const prepareAndExecute = async (input: {
 	validateQueryEngineReferences(request, {
 		schemaMap: context.schemaMap,
 		eventJoinMap: context.eventJoinMap,
+		eventSchemaSlugs: context.eventSchemaSlugs,
 	});
 
 	return executePreparedQuery({
@@ -383,9 +417,10 @@ export const prepareForValidation = async (input: {
 	});
 
 	validateSavedViewDefinition({
+		queryDefinition,
 		schemaMap: context.schemaMap,
 		eventJoinMap: context.eventJoinMap,
-		queryDefinition,
+		eventSchemaSlugs: context.eventSchemaSlugs,
 		displayConfiguration: input.displayConfiguration,
 	});
 };
@@ -411,9 +446,10 @@ export const prepareSavedView = async (input: {
 	});
 
 	validateSavedViewDefinition({
+		queryDefinition,
 		schemaMap: context.schemaMap,
 		eventJoinMap: context.eventJoinMap,
-		queryDefinition,
+		eventSchemaSlugs: context.eventSchemaSlugs,
 		displayConfiguration: savedView.displayConfiguration,
 	});
 
@@ -431,6 +467,7 @@ export const prepareSavedView = async (input: {
 			validateQueryEngineReferences(request, {
 				schemaMap: context.schemaMap,
 				eventJoinMap: context.eventJoinMap,
+				eventSchemaSlugs: context.eventSchemaSlugs,
 			});
 
 			return executePreparedQuery({
