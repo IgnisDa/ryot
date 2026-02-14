@@ -10,7 +10,7 @@ import { generateId } from "better-auth";
 import { Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 
-import { withoutSchemaServices } from "#lib/shared/schema";
+import type { DurableSchema } from "#lib/infrastructure/workflow";
 
 export const EventCreateWorkflowError = Schema.Union([BadRequest, DbError, NotFound]);
 
@@ -31,9 +31,9 @@ type EventCreateWorkflowInput = Omit<EventCreateWorkflowPayload, "executionId"> 
 };
 
 export const EventCreateWorkflow = Workflow.make("EventCreateWorkflow", {
-	success: withoutSchemaServices(CreateEventsResponse),
-	error: withoutSchemaServices(EventCreateWorkflowError),
-	payload: withoutSchemaServices(EventCreateWorkflowPayload),
+	success: CreateEventsResponse satisfies DurableSchema,
+	error: EventCreateWorkflowError satisfies DurableSchema,
+	payload: EventCreateWorkflowPayload satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
