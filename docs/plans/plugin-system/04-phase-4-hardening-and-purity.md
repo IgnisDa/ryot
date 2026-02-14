@@ -80,3 +80,5 @@ reason). The gate failing must name the offending file/line.
 4. A fake third-party-style plugin (the e2e fixture) can be hot-installed, exercise search →
    import → events → automation, and be uninstalled, without server restart.
 5. Docs updated per §3; this plan set's deviations and decisions recorded inline.
+6. Sandbox scripts, SDK host contracts, backend host-function implementations, and typed bridge
+   dispatch are Effect-only; no raw Promise authoring or host-function compatibility API remains.
