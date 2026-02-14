@@ -406,8 +406,8 @@
       "dependencies": {
         "cheerio": "1.2.0",
         "dayjs": "1.11.21",
+        "effect": "3.21.4",
         "youtubei.js": "17.2.0",
-        "zod": "4.4.3",
       },
     },
     "libs/transactional": {

@@ -1,4 +1,4 @@
-import * as z from "@ryot/sandbox-sdk/zod";
+import { Schema } from "@ryot/sandbox-sdk/effect";
 
 import {
 	jsonValueSchema,
@@ -8,200 +8,156 @@ import {
 	type SandboxManifest,
 } from "./core.js";
 
-export type AutomationManifest = Extract<SandboxManifest, { kind: "automation" }>;
+const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
+	Schema.Struct(fields).annotations({ parseOptions: { onExcessProperty: "error" as const } });
+const propertiesSchema = Schema.Record({ key: Schema.String, value: jsonValueSchema });
+const entityReferenceSchema = strictStruct({
+	id: Schema.String,
+	name: Schema.String,
+	entitySchemaSlug: Schema.String,
+});
 
-export const automationOriginSchema = z.discriminatedUnion("kind", [
-	z.object({ kind: z.literal("api") }).strict(),
-	z.object({ kind: z.literal("bootstrap") }).strict(),
-	z.object({ kind: z.literal("provider_refresh") }).strict(),
-	z.object({ kind: z.literal("import"), importRunId: z.string().optional() }).strict(),
-	z
-		.object({
-			integrationId: z.string(),
-			importRunId: z.string().optional(),
-			kind: z.literal("integration"),
-		})
-		.strict(),
-	z.object({ kind: z.literal("automation"), executionId: z.string() }).strict(),
-]);
-
-const propertiesSchema = z.record(z.string(), jsonValueSchema);
-const entityReferenceSchema = z
-	.object({ id: z.string(), name: z.string(), entitySchemaSlug: z.string() })
-	.strict();
-
-export const automationEntitySnapshotSchema = z
-	.object({
-		id: z.string(),
-		name: z.string(),
-		entitySchemaSlug: z.string(),
-		properties: propertiesSchema,
-	})
-	.strict();
-
-export const automationEventSnapshotSchema = z
-	.object({
-		id: z.string(),
-		occurredAt: z.string(),
-		eventSchemaSlug: z.string(),
-		properties: propertiesSchema,
-		subject: entityReferenceSchema,
-	})
-	.strict();
-
-export const automationRelationshipSnapshotSchema = z
-	.object({
-		id: z.string(),
-		properties: propertiesSchema,
-		source: entityReferenceSchema,
-		target: entityReferenceSchema,
-		relationshipSchemaSlug: z.string(),
-	})
-	.strict();
-
-export const automationSignalSnapshotSchema = z
-	.object({
-		id: z.string(),
-		occurredAt: z.string(),
-		properties: propertiesSchema,
-		signalSchemaSlug: z.string(),
-		origin: automationOriginSchema,
-	})
-	.strict();
-
-const automationSourceSchema = z.discriminatedUnion("kind", [
-	z.object({ kind: z.literal("signal"), signal: automationSignalSnapshotSchema }).strict(),
-	z
-		.object({
-			kind: z.literal("entity"),
-			after: automationEntitySnapshotSchema.optional(),
-			before: automationEntitySnapshotSchema.optional(),
-		})
-		.strict(),
-	z
-		.object({
-			kind: z.literal("event"),
-			after: automationEventSnapshotSchema.optional(),
-			before: automationEventSnapshotSchema.optional(),
-		})
-		.strict(),
-	z
-		.object({
-			kind: z.literal("relationship"),
-			after: automationRelationshipSnapshotSchema.optional(),
-			before: automationRelationshipSnapshotSchema.optional(),
-		})
-		.strict(),
-]);
-
-const automationPopulationSchema = z
-	.object({
-		rootPreviouslyPopulated: z.boolean(),
-		owningSeason: z
-			.object({ number: z.number().nullable(), name: z.string().nullable() })
-			.strict()
-			.optional(),
-		scopeEntity: z
-			.object({
-				id: z.string(),
-				name: z.string(),
-				entitySchemaSlug: z.string(),
-			})
-			.strict(),
-		batch: z
-			.object({
-				id: z.string(),
-				isLeader: z.boolean(),
-				afterCount: z.number(),
-				beforeCount: z.number(),
-				createdCount: z.number(),
-				deletedCount: z.number(),
-				updatedCount: z.number(),
-			})
-			.strict()
-			.optional(),
-	})
-	.strict();
-
-export const automationContextSchema = z
-	.object({
-		ruleId: z.string(),
-		occurredAt: z.string(),
-		occurrenceId: z.string(),
-		origin: automationOriginSchema,
-		source: automationSourceSchema,
-		ruleMetadata: jsonValueSchema.optional(),
-		population: automationPopulationSchema.optional(),
-		operation: z.enum(["create", "update", "delete", "signal"]),
-	})
-	.strict();
-
-export const automationInputSchema = z.object({ automation: automationContextSchema }).strict();
+export type AutomationManifest = Extract<SandboxManifest, { readonly kind: "automation" }>;
+export const automationOriginSchema = Schema.Union(
+	strictStruct({ kind: Schema.Literal("api") }),
+	strictStruct({ kind: Schema.Literal("bootstrap") }),
+	strictStruct({ kind: Schema.Literal("provider_refresh") }),
+	strictStruct({ kind: Schema.Literal("import"), importRunId: Schema.optional(Schema.String) }),
+	strictStruct({
+		integrationId: Schema.String,
+		kind: Schema.Literal("integration"),
+		importRunId: Schema.optional(Schema.String),
+	}),
+	strictStruct({ kind: Schema.Literal("automation"), executionId: Schema.String }),
+);
+export const automationEntitySnapshotSchema = strictStruct({
+	id: Schema.String,
+	name: Schema.String,
+	properties: propertiesSchema,
+	entitySchemaSlug: Schema.String,
+});
+export const automationEventSnapshotSchema = strictStruct({
+	id: Schema.String,
+	occurredAt: Schema.String,
+	properties: propertiesSchema,
+	subject: entityReferenceSchema,
+	eventSchemaSlug: Schema.String,
+});
+export const automationRelationshipSnapshotSchema = strictStruct({
+	id: Schema.String,
+	properties: propertiesSchema,
+	source: entityReferenceSchema,
+	target: entityReferenceSchema,
+	relationshipSchemaSlug: Schema.String,
+});
+export const automationSignalSnapshotSchema = strictStruct({
+	id: Schema.String,
+	occurredAt: Schema.String,
+	properties: propertiesSchema,
+	origin: automationOriginSchema,
+	signalSchemaSlug: Schema.String,
+});
+const automationSourceSchema = Schema.Union(
+	strictStruct({ kind: Schema.Literal("signal"), signal: automationSignalSnapshotSchema }),
+	strictStruct({
+		kind: Schema.Literal("entity"),
+		after: Schema.optional(automationEntitySnapshotSchema),
+		before: Schema.optional(automationEntitySnapshotSchema),
+	}),
+	strictStruct({
+		kind: Schema.Literal("event"),
+		after: Schema.optional(automationEventSnapshotSchema),
+		before: Schema.optional(automationEventSnapshotSchema),
+	}),
+	strictStruct({
+		kind: Schema.Literal("relationship"),
+		after: Schema.optional(automationRelationshipSnapshotSchema),
+		before: Schema.optional(automationRelationshipSnapshotSchema),
+	}),
+);
+const automationPopulationSchema = strictStruct({
+	rootPreviouslyPopulated: Schema.Boolean,
+	owningSeason: Schema.optional(
+		strictStruct({ number: Schema.NullOr(Schema.Number), name: Schema.NullOr(Schema.String) }),
+	),
+	scopeEntity: entityReferenceSchema,
+	batch: Schema.optional(
+		strictStruct({
+			id: Schema.String,
+			isLeader: Schema.Boolean,
+			afterCount: Schema.Number,
+			beforeCount: Schema.Number,
+			createdCount: Schema.Number,
+			deletedCount: Schema.Number,
+			updatedCount: Schema.Number,
+		}),
+	),
+});
+export const automationContextSchema = strictStruct({
+	ruleId: Schema.String,
+	occurredAt: Schema.String,
+	occurrenceId: Schema.String,
+	origin: automationOriginSchema,
+	source: automationSourceSchema,
+	ruleMetadata: Schema.optional(jsonValueSchema),
+	population: Schema.optional(automationPopulationSchema),
+	operation: Schema.Literal("create", "update", "delete", "signal"),
+});
+export const automationInputSchema = strictStruct({ automation: automationContextSchema });
 export const automationResultSchema = jsonValueSchema;
 
-export const automationPolicyDraftSchema = z
-	.object({
-		entityId: z.string(),
-		occurredAt: z.string(),
-		eventSchemaSlug: z.string(),
-		entitySchemaSlug: z.string(),
-		properties: propertiesSchema,
-		sessionEntityId: z.string().optional(),
-	})
-	.strict();
+export const automationPolicyDraftSchema = strictStruct({
+	entityId: Schema.String,
+	occurredAt: Schema.String,
+	properties: propertiesSchema,
+	eventSchemaSlug: Schema.String,
+	entitySchemaSlug: Schema.String,
+	sessionEntityId: Schema.optional(Schema.String),
+});
+export const automationPolicyContextSchema = strictStruct({
+	ruleId: Schema.String,
+	occurrenceId: Schema.String,
+	origin: automationOriginSchema,
+	operation: Schema.Literal("create"),
+	ruleMetadata: Schema.optional(jsonValueSchema),
+	source: strictStruct({ kind: Schema.Literal("event"), draft: automationPolicyDraftSchema }),
+});
+export const automationPolicyInputSchema = strictStruct({
+	automation: automationPolicyContextSchema,
+});
+export const automationPolicyResultSchema = Schema.Union(
+	strictStruct({ action: Schema.Literal("allow") }),
+	strictStruct({ action: Schema.Literal("skip"), reason: Schema.String }),
+	strictStruct({
+		action: Schema.Literal("replace"),
+		body: strictStruct({
+			occurredAt: Schema.optional(Schema.String),
+			properties: Schema.optional(propertiesSchema),
+			sessionEntityId: Schema.optional(Schema.NullOr(Schema.String)),
+		}),
+	}),
+);
 
-export const automationPolicyContextSchema = z
-	.object({
-		ruleId: z.string(),
-		occurrenceId: z.string(),
-		origin: automationOriginSchema,
-		operation: z.literal("create"),
-		ruleMetadata: jsonValueSchema.optional(),
-		source: z.object({ kind: z.literal("event"), draft: automationPolicyDraftSchema }).strict(),
-	})
-	.strict();
-
-export const automationPolicyInputSchema = z
-	.object({ automation: automationPolicyContextSchema })
-	.strict();
-
-export const automationPolicyResultSchema = z.discriminatedUnion("action", [
-	z.object({ action: z.literal("allow") }).strict(),
-	z.object({ action: z.literal("skip"), reason: z.string() }).strict(),
-	z
-		.object({
-			action: z.literal("replace"),
-			body: z
-				.object({
-					occurredAt: z.string().optional(),
-					properties: propertiesSchema.optional(),
-					sessionEntityId: z.string().nullable().optional(),
-				})
-				.strict(),
-		})
-		.strict(),
-]);
-
-export type AutomationInput = z.output<typeof automationInputSchema>;
-export type AutomationContext = z.output<typeof automationContextSchema>;
-export type AutomationPolicyInput = z.output<typeof automationPolicyInputSchema>;
-export type AutomationPolicyResult = z.output<typeof automationPolicyResultSchema>;
-export type AutomationEventSnapshot = z.output<typeof automationEventSnapshotSchema>;
-export type AutomationSignalSnapshot = z.output<typeof automationSignalSnapshotSchema>;
-export type AutomationEntitySnapshot = z.output<typeof automationEntitySnapshotSchema>;
-export type AutomationRelationshipSnapshot = z.output<typeof automationRelationshipSnapshotSchema>;
+export type AutomationInput = Schema.Schema.Type<typeof automationInputSchema>;
+export type AutomationContext = Schema.Schema.Type<typeof automationContextSchema>;
+export type AutomationPolicyInput = Schema.Schema.Type<typeof automationPolicyInputSchema>;
+export type AutomationPolicyResult = Schema.Schema.Type<typeof automationPolicyResultSchema>;
+export type AutomationEventSnapshot = Schema.Schema.Type<typeof automationEventSnapshotSchema>;
+export type AutomationSignalSnapshot = Schema.Schema.Type<typeof automationSignalSnapshotSchema>;
+export type AutomationEntitySnapshot = Schema.Schema.Type<typeof automationEntitySnapshotSchema>;
+export type AutomationRelationshipSnapshot = Schema.Schema.Type<
+	typeof automationRelationshipSnapshotSchema
+>;
 
 export type AutomationDriver<Manifest extends AutomationManifest> = GenericDriver<
 	typeof automationInputSchema,
 	typeof automationResultSchema,
 	Manifest["capabilities"]
 >;
-
 export type AutomationDefinition<Manifest extends AutomationManifest> = GenericScriptDefinition<
 	Manifest,
 	{ readonly automation: AutomationDriver<Manifest> }
 >;
-
 export type AutomationPolicyDefinition<Manifest extends AutomationManifest> =
 	GenericScriptDefinition<
 		Manifest,
@@ -228,7 +184,6 @@ export const defineAutomation = <const Manifest extends AutomationManifest>(defi
 		},
 	},
 });
-
 export const defineAutomationPolicy = <const Manifest extends AutomationManifest>(definition: {
 	readonly manifest: Manifest;
 	readonly run: GenericDriver<

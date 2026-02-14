@@ -1,5 +1,6 @@
 import { sandboxManifestSchema } from "@ryot/sandbox-sdk/core";
 import { SANDBOX_SDK_ROOT_IMPORT } from "@ryot/sandbox-sdk/imports";
+import { Either, Schema } from "effect";
 import * as ts from "typescript/unstable/ast";
 
 import {
@@ -195,17 +196,11 @@ export const extractSandboxManifest = (
 		return { diagnostic: literal.diagnostic };
 	}
 
-	const parsed = sandboxManifestSchema.safeParse(literal.value);
-	if (!parsed.success) {
+	const parsed = Schema.decodeUnknownEither(sandboxManifestSchema)(literal.value);
+	if (Either.isLeft(parsed)) {
 		return {
-			diagnostic: diagnosticAt(
-				argument,
-				"RYOT_MANIFEST",
-				parsed.error.issues
-					.map((issue) => `${issue.path.join(".") || "manifest"}: ${issue.message}`)
-					.join("; "),
-			),
+			diagnostic: diagnosticAt(argument, "RYOT_MANIFEST", String(parsed.left)),
 		};
 	}
-	return { manifest: parsed.data };
+	return { manifest: parsed.right };
 };
