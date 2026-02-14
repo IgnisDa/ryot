@@ -12,6 +12,8 @@
 	"dependencies": {
 		"@effect/platform": "0.96.2",
 		"@ryot/contract": "workspace:*",
+		"@ryot/plugin-kit": "workspace:*",
+		"@ryot/plugin-media": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"@tailwindcss/vite": "4.1.18",
 		"effect": "3.21.4",

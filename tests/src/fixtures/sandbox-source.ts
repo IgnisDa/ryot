@@ -310,3 +310,26 @@ const cron = defineDriver(manifest, {
 export default defineProvider({ manifest, drivers: { cron, trending } });
 `;
 }
+
+export function operationSandboxSource(input: SandboxSourceIdentity) {
+	return `
+import { defineDriver, defineManifest, defineOperation } from "@ryot/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+
+export const manifest = defineManifest({
+  kind: "operation",
+  capabilities: [],
+  requiredAppConfigKeys: [],
+  name: ${JSON.stringify(input.name)},
+  slug: ${JSON.stringify(input.slug)},
+});
+
+const operation = defineDriver(manifest, {
+  input: Schema.Struct({ titles: Schema.Array(Schema.String) }),
+  output: Schema.Struct({ results: Schema.Array(Schema.String) }),
+  run: (input) => Effect.succeed({ results: input.titles.map((title) => title.toUpperCase()) }),
+});
+
+export default defineOperation({ manifest, drivers: { operation } });
+`;
+}

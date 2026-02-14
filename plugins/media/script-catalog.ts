@@ -9,6 +9,8 @@ import { manifest as manifest60 } from "./scripts/automations/notification.sandb
 import { manifest as manifest6 } from "./scripts/automations/radarr-push.sandbox";
 import { manifest as manifest7 } from "./scripts/automations/review-created.sandbox";
 import { manifest as manifest8 } from "./scripts/automations/sonarr-push.sandbox";
+import { manifest as manifest62 } from "./scripts/operations/metadata-lookup.sandbox";
+import { manifest as manifest63 } from "./scripts/operations/resolve-episodes.sandbox";
 import { manifest as manifest9 } from "./scripts/providers/company/anilist.sandbox";
 import { manifest as manifest10 } from "./scripts/providers/company/giant-bomb.sandbox";
 import { manifest as manifest11 } from "./scripts/providers/company/hardcover.sandbox";
@@ -73,6 +75,8 @@ export const mediaScripts = [
 	{ ...manifest6, entry: "scripts/automations/radarr-push.sandbox.ts" },
 	{ ...manifest7, entry: "scripts/automations/review-created.sandbox.ts" },
 	{ ...manifest8, entry: "scripts/automations/sonarr-push.sandbox.ts" },
+	{ ...manifest62, entry: "scripts/operations/metadata-lookup.sandbox.ts" },
+	{ ...manifest63, entry: "scripts/operations/resolve-episodes.sandbox.ts" },
 	{ ...manifest9, entry: "scripts/providers/company/anilist.sandbox.ts" },
 	{ ...manifest10, entry: "scripts/providers/company/giant-bomb.sandbox.ts" },
 	{ ...manifest11, entry: "scripts/providers/company/hardcover.sandbox.ts" },

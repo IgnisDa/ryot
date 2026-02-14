@@ -103,6 +103,7 @@ const PluginScriptFields = {
 };
 
 export const PluginScript = Schema.Union(
+	strictStruct({ ...PluginScriptFields, kind: Schema.Literal("operation") }),
 	strictStruct({ ...PluginScriptFields, kind: Schema.Literal("automation") }),
 	strictStruct({
 		...PluginScriptFields,
@@ -124,6 +125,19 @@ export const PluginCron = strictStruct({
 });
 
 export type PluginCron = Schema.Schema.Type<typeof PluginCron>;
+
+export const PluginOperationAuth = Schema.Literal("user", "admin", "integration");
+
+export type PluginOperationAuth = Schema.Schema.Type<typeof PluginOperationAuth>;
+
+export const PluginOperation = strictStruct({
+	slug: sandboxManifestSlug,
+	auth: PluginOperationAuth,
+	driverRef: sandboxManifestSlug,
+	description: sandboxManifestString,
+});
+
+export type PluginOperation = Schema.Schema.Type<typeof PluginOperation>;
 
 export const PluginSchemaScriptLink = strictStruct({
 	scriptSlug: Schema.String,
@@ -184,6 +198,7 @@ export type PluginBindings = Schema.Schema.Type<typeof PluginBindings>;
 export const PluginManifest = strictStruct({
 	crons: Schema.Array(PluginCron),
 	metadata: PluginMetadata,
+	operations: Schema.Array(PluginOperation),
 	bindings: PluginBindings,
 	scripts: Schema.Array(PluginScript),
 	savedViews: Schema.Array(PluginSavedView),
