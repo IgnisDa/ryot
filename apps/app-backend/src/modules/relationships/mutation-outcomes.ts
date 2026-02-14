@@ -13,7 +13,7 @@ export const RelationshipMutationSnapshot = Schema.Struct({
 
 export type RelationshipMutationSnapshot = typeof RelationshipMutationSnapshot.Type;
 
-export const RelationshipMutationOutcome = Schema.Union(
+export const RelationshipMutationOutcome = Schema.Union([
 	Schema.Struct({
 		before: Schema.Null,
 		after: RelationshipMutationSnapshot,
@@ -34,7 +34,7 @@ export const RelationshipMutationOutcome = Schema.Union(
 		after: RelationshipMutationSnapshot,
 		before: RelationshipMutationSnapshot,
 	}),
-);
+]);
 
 export type RelationshipMutationOutcome = typeof RelationshipMutationOutcome.Type;
 
