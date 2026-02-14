@@ -229,27 +229,42 @@ it.effect("validates bindings against definitions from installed plugins", () =>
 	}).pipe(Effect.provide(makeLayer({ initialInstalled: [installedMedia] })));
 });
 
-it.effect("accepts plugin-owned, cross-plugin, and source-zero notification formatters", () => {
+it.effect("accepts plugin-owned and cross-plugin notification formatters", () => {
 	const owner = makeStoredPlugin(formatterOwnerManifest(), "formatter-owner-source-hash");
 	return Effect.gen(function* () {
 		const ingestion = yield* PluginIngestionService;
 		yield* ingestion.rebuild();
-		for (const notificationScriptSlug of [
-			"formatter-owner.notification",
-			"automation.notification",
-		]) {
-			const manifest = fixtureManifest();
-			const signalSchema = manifest.signalSchemas[0];
-			assert(signalSchema);
-			const source = yield* loadPluginSource(fixturePackageRoot(), {
-				...manifest,
-				signalSchemas: [{ ...signalSchema, notificationScriptSlug }],
-			});
+		const manifest = fixtureManifest();
+		const signalSchema = manifest.signalSchemas[0];
+		assert(signalSchema);
+		const source = yield* loadPluginSource(fixturePackageRoot(), {
+			...manifest,
+			signalSchemas: [{ ...signalSchema, notificationScriptSlug: "formatter-owner.notification" }],
+		});
 
-			const plugin = yield* ingestion.ingestPlugin(source);
-			expect(plugin.manifest.signalSchemas[0]?.notificationScriptSlug).toBe(notificationScriptSlug);
-		}
+		const plugin = yield* ingestion.ingestPlugin(source);
+		expect(plugin.manifest.signalSchemas[0]?.notificationScriptSlug).toBe(
+			"formatter-owner.notification",
+		);
 	}).pipe(Effect.provide(makeLayer({ initialInstalled: [owner] })));
+});
+
+it.effect("rejects plugin signals that reference a kernel source-zero formatter", () => {
+	const manifest = fixtureManifest();
+	const signalSchema = manifest.signalSchemas[0];
+	assert(signalSchema);
+	return Effect.gen(function* () {
+		const ingestion = yield* PluginIngestionService;
+		const source = yield* loadPluginSource(fixturePackageRoot(), {
+			...manifest,
+			signalSchemas: [{ ...signalSchema, notificationScriptSlug: "automation.notification" }],
+		});
+
+		const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
+		expect(String(exit)).toContain(
+			"cannot reference kernel source-zero formatter: automation.notification",
+		);
+	}).pipe(Effect.provide(makeLayer()));
 });
 
 it.effect("rejects missing and non-automation notification formatters", () =>
