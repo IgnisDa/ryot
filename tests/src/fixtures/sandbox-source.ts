@@ -315,11 +315,30 @@ type CacheSandboxSourceInput = SandboxSourceIdentity &
 				readonly key: string;
 				readonly value: JsonValue;
 				readonly ttlSeconds: number;
+				readonly operation: "claimPersistent";
+		  }
+		| {
+				readonly key: string;
+				readonly value: JsonValue;
+				readonly ttlSeconds: number;
 				readonly operation: "set" | "roundTrip";
 		  }
 	);
 
 export function cacheSandboxSource(input: CacheSandboxSourceInput) {
+	if (input.operation === "claimPersistent") {
+		return scriptModuleSource({
+			...input,
+			inputSchema: "Schema.Struct({})",
+			capabilities: ["claimPersistentValue"],
+			sdkImports: ["claimPersistentValueResultSchema"],
+			outputSchema: "claimPersistentValueResultSchema",
+			run: `(_input, host) => host.claimPersistentValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), ${input.ttlSeconds}).pipe(
+    Effect.map((data) => ({ data, success: true as const })),
+  )`,
+		});
+	}
+
 	if (input.operation === "byInput") {
 		return scriptModuleSource({
 			...input,

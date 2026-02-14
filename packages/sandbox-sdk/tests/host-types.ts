@@ -18,10 +18,10 @@ const allCapabilitiesManifest = defineManifest({
 		"httpCall",
 		"getCachedValue",
 		"setCachedValue",
-		"claimCachedValue",
 		"getPluginConfig",
 		"getSystemConfig",
 		"getUserPreferences",
+		"claimPersistentValue",
 	],
 });
 
@@ -52,7 +52,7 @@ defineScript({
 
 			const cached: JsonValue | null = yield* host.getCachedValue("key");
 			const stored: null = yield* host.setCachedValue("key", { nested: [true] }, 60);
-			const claim = yield* host.claimCachedValue("key", "value", 60);
+			const claim = yield* host.claimPersistentValue("key", "value", 60);
 			if (!claim.claimed) {
 				const value: JsonValue | null = claim.value;
 				void value;

@@ -65,10 +65,10 @@ describe("runtime sandbox host functions", () => {
 		Effect.gen(function* () {
 			const host = yield* makeRuntimeSandboxApiFunctions.pipe(Effect.provide(makeLayer(new Map())));
 
-			expect(yield* host.claimCachedValue(input, "answer", { value: 42 }, 60)).toEqual({
+			expect(yield* host.claimPersistentValue(input, "answer", { value: 42 }, 60)).toEqual({
 				claimed: true,
 			});
-			expect(yield* host.claimCachedValue(input, "answer", { value: 43 }, 60)).toEqual({
+			expect(yield* host.claimPersistentValue(input, "answer", { value: 43 }, 60)).toEqual({
 				claimed: false,
 				value: { value: 42 },
 			});
