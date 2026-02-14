@@ -74,6 +74,22 @@ export function literalSandboxSource(
 	});
 }
 
+export function processFailureSandboxSource(input: SandboxSourceIdentity) {
+	return scriptModuleSource({
+		...input,
+		capabilities: [],
+		inputSchema: "Schema.Struct({})",
+		outputSchema: "Schema.Literal(true)",
+		run: `() => {
+    const allocations = [];
+    for (let index = 0; index < 64; index += 1) {
+      allocations.push(new Array(1024 * 1024).fill(index));
+    }
+    return Effect.succeed(true as const);
+  }`,
+	});
+}
+
 export function observabilitySandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
