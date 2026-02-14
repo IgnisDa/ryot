@@ -1,4 +1,5 @@
-import type { JsonPrimitive, JsonValue, SandboxHostCapability } from "@ryot/sandbox-sdk/core";
+import type { SandboxHostCapability } from "@ryot/sandbox-sdk/core";
+import type { JsonPrimitive, JsonValue } from "@ryot/sandbox-sdk/wire";
 
 type SandboxSourceIdentity = {
 	readonly name: string;
@@ -252,7 +253,7 @@ export function trendingSandboxSource(
 	},
 ) {
 	return `
-import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";

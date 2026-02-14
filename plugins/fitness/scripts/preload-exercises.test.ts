@@ -1,6 +1,7 @@
-import type { JsonValue, SandboxHost } from "@ryot/sandbox-sdk/core";
+import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { describe, expect, it } from "vitest";
 
 import { cron, manifest } from "./providers/exercise/free-exercise-db.sandbox";

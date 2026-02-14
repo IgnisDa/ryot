@@ -42,7 +42,7 @@ operations: [
 `"integration"` and declares who may invoke the operation. `driverRef` is the slug of an
 `operation`-kind script declared in the manifest's `scripts` section; the operation exposes a
 single driver under the conventional name `operation`. Author the driver module with the
-`defineOperation` helper from `@ryot/sandbox-sdk/core` wrapping generic `defineDriver` drivers.
+`defineOperation` helper from `@ryot/sandbox-sdk/operation` wrapping generic `defineDriver` drivers.
 
 ## Recipes
 

@@ -1,4 +1,4 @@
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 import { value } from "../shared/value";
