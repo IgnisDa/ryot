@@ -1,7 +1,5 @@
-import { FileSystem } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { DbError } from "@ryot/contract/errors";
 import {
 	EntityId,
@@ -11,7 +9,8 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer, Schema, FileSystem } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
 import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
@@ -37,7 +36,7 @@ import {
 } from "./generic-import-workflow";
 import { ImportsService } from "./service";
 
-const collectionsLayer = Layer.mock(CollectionsService)({ _tag: "CollectionsService" });
+const collectionsLayer = Layer.mock(CollectionsService)({});
 const transactionRunnerLayer = Layer.succeed(
 	TransactionRunner,
 	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -94,7 +93,7 @@ it.effect(
 			yield* fs.makeDirectory(directory, { recursive: true });
 			yield* fs.writeFileString(
 				path,
-				yield* Schema.encode(Schema.parseJson(Schema.Unknown))({
+				yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
 					failures: [
 						{
 							itemIndex: 0,
@@ -119,7 +118,7 @@ it.effect(
 									relationshipSchemaSlug: "member-of",
 								},
 								{
-									properties: {},
+									properties: { rank: 0 },
 									sourceAlias: "direct",
 									targetAlias: "library",
 									propertiesMode: "merge",
@@ -181,7 +180,7 @@ it.effect(
 							sourceLabel: "Imported media",
 							relationships: [
 								{
-									properties: {},
+									properties: { rank: 0 },
 									sourceAlias: "media",
 									targetAlias: "library",
 									propertiesMode: "merge",
@@ -305,7 +304,7 @@ it.effect(
 				makeWorkflowActivityEngine(instance, {
 					execute: (workflow, options) =>
 						Effect.sync(() => {
-							if (workflow.name === "AddEntityToCollectionWorkflow") {
+							if (workflow._tag === "AddEntityToCollectionWorkflow") {
 								collectionExecutions.push(options);
 							} else {
 								eventExecutions.push(options);
@@ -319,11 +318,10 @@ it.effect(
 				Layer.mergeAll(
 					dbRunnerLayer,
 					transactionRunnerLayer,
-					BunContext.layer,
+					BunServices.layer,
 					makeAppConfigLayer(),
-					DefinitionRegistry.Default,
+					DefinitionRegistry.layer,
 					Layer.mock(CollectionsService)({
-						_tag: "CollectionsService",
 						getOrCreateCollection: () =>
 							Effect.succeed({
 								properties: {},
@@ -338,7 +336,6 @@ it.effect(
 							}),
 					}),
 					Layer.mock(RelationshipsService)({
-						_tag: "RelationshipsService",
 						mergeUserProperties: (input) =>
 							input.sourceEntityId === "failed-media"
 								? Effect.fail(new DbError({ message: "membership write failed" }))
@@ -362,7 +359,6 @@ it.effect(
 							}),
 					}),
 					Layer.mock(EntitiesRepository)({
-						_tag: "EntitiesRepository",
 						getByIdForUser: ({ entityId }) =>
 							Effect.succeed({
 								id: entityId,
@@ -423,7 +419,6 @@ it.effect(
 							]),
 					}),
 					Layer.mock(EntitiesService)({
-						_tag: "EntitiesService",
 						create: (input) =>
 							Effect.sync(() => {
 								entities.push(input);
@@ -442,11 +437,9 @@ it.effect(
 							}),
 					}),
 					Layer.mock(ImportsService)({
-						_tag: "ImportsService",
 						update: (input) => Effect.sync(() => updates.push(input)).pipe(Effect.asVoid),
 					}),
 					Layer.mock(ImportRunFailuresService)({
-						_tag: "ImportRunFailuresService",
 						create: (input) => Effect.sync(() => failures.push(input)).pipe(Effect.asVoid),
 					}),
 				),
@@ -507,7 +500,7 @@ it.effect("validates relationship endpoint schemas before generic import writes"
 		yield* fs.makeDirectory(directory, { recursive: true });
 		yield* fs.writeFileString(
 			path,
-			yield* Schema.encode(Schema.parseJson(Schema.Unknown))({
+			yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
 				failures: [],
 				items: [
 					makeRelationshipSchemaImportItem(0, "source-constrained", "other", "target"),
@@ -557,13 +550,12 @@ it.effect("validates relationship endpoint schemas before generic import writes"
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionRunnerLayer,
-				BunContext.layer,
+				BunServices.layer,
 				makeAppConfigLayer(),
 				collectionsLayer,
-				Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...definitions }),
-				Layer.mock(EntitiesRepository)({ _tag: "EntitiesRepository" }),
+				Layer.succeed(DefinitionRegistry, { ...definitions }),
+				Layer.mock(EntitiesRepository)({}),
 				Layer.mock(EntitiesService)({
-					_tag: "EntitiesService",
 					create: (input) =>
 						Effect.sync(() => {
 							entityWrites.push(input.name);
@@ -582,7 +574,6 @@ it.effect("validates relationship endpoint schemas before generic import writes"
 						}),
 				}),
 				Layer.mock(RelationshipsService)({
-					_tag: "RelationshipsService",
 					create: (input) =>
 						Effect.sync(() => {
 							relationshipWrites.push(input);
@@ -598,11 +589,9 @@ it.effect("validates relationship endpoint schemas before generic import writes"
 						}),
 				}),
 				Layer.mock(ImportsService)({
-					_tag: "ImportsService",
 					update: () => Effect.void,
 				}),
 				Layer.mock(ImportRunFailuresService)({
-					_tag: "ImportRunFailuresService",
 					create: (input) => Effect.sync(() => failures.push(input)).pipe(Effect.asVoid),
 				}),
 			),
@@ -646,15 +635,14 @@ it.effect("cleans trusted activity directories when the initial run update fails
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionRunnerLayer,
-				BunContext.layer,
-				DefinitionRegistry.Default,
+				BunServices.layer,
+				DefinitionRegistry.layer,
 				collectionsLayer,
-				Layer.mock(RelationshipsService)({ _tag: "RelationshipsService" }),
-				Layer.mock(EntitiesRepository)({ _tag: "EntitiesRepository" }),
-				Layer.mock(EntitiesService)({ _tag: "EntitiesService" }),
-				Layer.mock(ImportRunFailuresService)({ _tag: "ImportRunFailuresService" }),
+				Layer.mock(RelationshipsService)({}),
+				Layer.mock(EntitiesRepository)({}),
+				Layer.mock(EntitiesService)({}),
+				Layer.mock(ImportRunFailuresService)({}),
 				Layer.mock(ImportsService)({
-					_tag: "ImportsService",
 					update: () => Effect.fail(new DbError({ message: "initial update failed" })),
 				}),
 			),
@@ -674,7 +662,7 @@ it.effect("rejects another parent execution's chunks without cleaning untrusted 
 		const fs = yield* FileSystem.FileSystem;
 		yield* fs.makeDirectory(trustedDirectory, { recursive: true });
 		yield* fs.makeDirectory(untrustedDirectory, { recursive: true });
-		const emptyChunk = yield* Schema.encode(Schema.parseJson(Schema.Unknown))({
+		const emptyChunk = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
 			failures: [],
 			items: [],
 		});
@@ -708,14 +696,14 @@ it.effect("rejects another parent execution's chunks without cleaning untrusted 
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionRunnerLayer,
-				BunContext.layer,
-				DefinitionRegistry.Default,
+				BunServices.layer,
+				DefinitionRegistry.layer,
 				collectionsLayer,
-				Layer.mock(RelationshipsService)({ _tag: "RelationshipsService" }),
-				Layer.mock(EntitiesRepository)({ _tag: "EntitiesRepository" }),
-				Layer.mock(EntitiesService)({ _tag: "EntitiesService" }),
-				Layer.mock(ImportRunFailuresService)({ _tag: "ImportRunFailuresService" }),
-				Layer.mock(ImportsService)({ _tag: "ImportsService", update: () => Effect.void }),
+				Layer.mock(RelationshipsService)({}),
+				Layer.mock(EntitiesRepository)({}),
+				Layer.mock(EntitiesService)({}),
+				Layer.mock(ImportRunFailuresService)({}),
+				Layer.mock(ImportsService)({ update: () => Effect.void }),
 			),
 		),
 	);

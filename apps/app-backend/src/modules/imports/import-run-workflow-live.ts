@@ -23,5 +23,5 @@ export const runProcessImportRunWorkflow = Effect.fn("ProcessImportRunWorkflow")
 const ProcessImportRunWorkflowLive = ProcessImportRunWorkflow.toLayer(runProcessImportRunWorkflow);
 
 export const ImportWorkflowDefinitionsLive = ProcessImportRunWorkflowLive.pipe(
-	Layer.provide(ImportRunArtifacts.Default),
+	Layer.provide(ImportRunArtifacts.layer),
 );
