@@ -9,15 +9,19 @@ import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { processSandboxExecution } from "#modules/sandbox/durable-queues";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
-import { decodeTrendingDriverResult, type TrendingDriverItem } from "./schemas";
+import {
+	decodeTrendingDriverResult,
+	TRENDING_DRIVER_NAME,
+	type TrendingDriverItem,
+} from "./schemas";
 
 const fetchSandboxTrending = (input: { scriptId: SandboxScriptId; executionId: string }) =>
 	processSandboxExecution({
 		context: {},
 		userId: null,
-		driverName: "trending",
 		scriptId: input.scriptId,
 		executionId: input.executionId,
+		driverName: TRENDING_DRIVER_NAME,
 	}).pipe(
 		Effect.mapError(toSandboxRunError),
 		Effect.flatMap((result) => {
