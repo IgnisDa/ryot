@@ -2639,6 +2639,10 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationships: {
+                                        relationshipSchemaSlug: string;
+                                    }[];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -2722,6 +2726,10 @@ export interface paths {
                                 eventSchemaSlug: string;
                             }[];
                             filter?: components["schemas"]["NullableViewPredicate"];
+                            /** @default [] */
+                            relationships?: {
+                                relationshipSchemaSlug: string;
+                            }[];
                         };
                         displayConfiguration: {
                             grid: {
@@ -2788,6 +2796,10 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationships: {
+                                        relationshipSchemaSlug: string;
+                                    }[];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -2902,6 +2914,10 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationships: {
+                                        relationshipSchemaSlug: string;
+                                    }[];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -2990,6 +3006,10 @@ export interface paths {
                                 eventSchemaSlug: string;
                             }[];
                             filter?: components["schemas"]["NullableViewPredicate"];
+                            /** @default [] */
+                            relationships?: {
+                                relationshipSchemaSlug: string;
+                            }[];
                         };
                         displayConfiguration: {
                             grid: {
@@ -3056,6 +3076,10 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationships: {
+                                        relationshipSchemaSlug: string;
+                                    }[];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -3169,6 +3193,10 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationships: {
+                                        relationshipSchemaSlug: string;
+                                    }[];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -3295,6 +3323,10 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationships: {
+                                        relationshipSchemaSlug: string;
+                                    }[];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -3735,6 +3767,10 @@ export interface paths {
                             /** @enum {string} */
                             kind: "latestEvent";
                             eventSchemaSlug: string;
+                        }[];
+                        /** @default [] */
+                        relationships?: {
+                            relationshipSchemaSlug: string;
                         }[];
                         filter?: components["schemas"]["NullableViewPredicate"];
                         entitySchemaSlugs: string[];

@@ -93,6 +93,14 @@ export const displayConfigurationSchema = z.object({
 
 export type DisplayConfiguration = z.infer<typeof displayConfigurationSchema>;
 
+const relationshipFilterSchema = z.object({
+	relationshipSchemaSlug: nonEmptyTrimmedStringSchema,
+});
+
+export const relationshipFilterArraySchema = z
+	.array(relationshipFilterSchema)
+	.default([]);
+
 const createSavedViewQueryDefinitionSchema = (
 	entitySchemaSlugs: typeof savedViewEntitySchemaSlugArraySchema,
 ) =>
@@ -101,6 +109,7 @@ const createSavedViewQueryDefinitionSchema = (
 		sort: sortDefinitionSchema,
 		computedFields: computedFieldArraySchema,
 		eventJoins: eventJoinDefinitionArraySchema,
+		relationships: relationshipFilterArraySchema,
 		filter: nullableViewPredicateSchema.default(null),
 	});
 
@@ -171,3 +180,4 @@ export type ListedSavedView = z.infer<typeof listedSavedViewSchema>;
 export type CreateSavedViewBody = z.infer<typeof createSavedViewBody>;
 export type UpdateSavedViewBody = z.infer<typeof updateSavedViewBody>;
 export type ReorderSavedViewsBody = z.infer<typeof reorderSavedViewsBody>;
+export type RelationshipFilter = z.infer<typeof relationshipFilterSchema>;
