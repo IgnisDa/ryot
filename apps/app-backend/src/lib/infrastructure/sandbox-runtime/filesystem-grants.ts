@@ -32,17 +32,10 @@ export const declaresSandboxFilesystemGrant = (
 
 // The capability is the gate and the dispatched path is only its parameter: a script that never
 // declared `artifact-read` gets no read grant even when a path is supplied.
-export const sandboxArtifactGrantPath = (
+export const sandboxArtifactGrant = <T>(
 	allowedHostFunctions: readonly string[],
-	suppliedPath: string | undefined,
-) =>
-	declaresSandboxFilesystemGrant(allowedHostFunctions, "artifact-read") ? suppliedPath : undefined;
-
-export const sandboxNamedArtifactGrantPaths = (
-	allowedHostFunctions: readonly string[],
-	suppliedPaths: Readonly<Record<string, string>> | undefined,
-) =>
-	declaresSandboxFilesystemGrant(allowedHostFunctions, "artifact-read") ? suppliedPaths : undefined;
+	supplied: T | undefined,
+) => (declaresSandboxFilesystemGrant(allowedHostFunctions, "artifact-read") ? supplied : undefined);
 
 export const sandboxGrantPathError = (
 	path: Path.Path,
