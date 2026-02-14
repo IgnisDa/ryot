@@ -28,6 +28,10 @@ via the bridge; add structured log/span host functions in step 0 so plugin code 
   generic, provider, and automation driver `run` functions to return `Effect` values, and have
   the Deno runner execute them through the vendored runtime. Remove the raw Promise authoring API;
   do not retain wrappers, aliases, or a second driver contract for compatibility.
+- Replace the sandbox SDK's Zod schema surface with Effect Schema for manifests, driver
+  input/output, and host-function wire contracts. The compiler and runner decode these contracts
+  with Effect Schema, and Zod is removed from the approved sandbox dependencies. Declarative
+  `AppSchema` property metadata remains unchanged under Decision 6.
 - Make backend host-function implementations, `bridge-adapter.ts` validation/dispatch, and the
   typed bridge handler Effect-native. Promise-based platform operations such as the Deno
   runner's loopback `fetch` remain private transport details and are wrapped into Effect at that
@@ -90,7 +94,7 @@ in `libs/plugin-kit`.
 Kernel capability:
 
 - Manifest section `operations: [{ slug, driverRef, inputSchema, outputSchema, auth }]`
-  (`auth`: authenticated-user vs admin; schemas are the SDK's existing zod contract style).
+  (`auth`: authenticated-user vs admin; schemas use the SDK's Effect Schema contract style).
 - One new contract endpoint: `plugins.invoke(pluginSlug, operationSlug, payload)` —
   validates against the declared schemas, dispatches to the driver, returns the result.
   Batch-first: an operation's payload is naturally a batch (e.g., resolve N episode refs in

@@ -95,15 +95,18 @@ These were settled in design discussion with the project owner. All are **[DECID
     dependencies, not as host functions. This extends the existing pattern
     (`--allow-net=127.0.0.1:<bridgePort>` in
     `apps/app-backend/src/lib/infrastructure/sandbox-runtime/runtime.ts`).
-11. **The sandbox authoring and typed bridge APIs are Effect-only.** Effect is available inside
-    the sandbox as a runtime-provided (vendored) approved dependency with a single pinned version
-    matching the host — never bundled per script. Script drivers return `Effect` values, every
-    script-facing host function returns an `Effect` with a typed error, and backend host-function
-    implementations plus typed bridge dispatch use Effect directly. There is no parallel raw
-    Promise authoring or host-function API. Promise-based platform operations such as `fetch`
-    remain private implementation details wrapped at the transport boundary. Workflow scripts
-    get a restricted SDK entry point that does not expose nondeterminism footguns (ambient
-    Clock/Random).
+11. **The sandbox authoring, schema, and typed bridge APIs are Effect-only.** Effect is available
+    inside the sandbox as a runtime-provided (vendored) approved dependency with a single pinned
+    version matching the host — never bundled per script. Effect Schema defines sandbox manifests,
+    driver input/output, host-function wire contracts, and operation input/output; the declarative
+    `AppSchema` property format in Decision 6 is the explicit exception because the query engine and
+    schema-driven frontend require introspectable property metadata. Script drivers return `Effect`
+    values, every script-facing host function returns an `Effect` with a typed error, and backend
+    host-function implementations plus typed bridge dispatch use Effect directly. There is no
+    parallel Zod schema surface, raw Promise authoring API, or raw Promise host-function API.
+    Promise-based platform operations such as `fetch` remain private implementation details wrapped
+    at the transport boundary. Workflow scripts get a restricted SDK entry point that does not
+    expose nondeterminism footguns (ambient Clock/Random).
 12. **Source-canonical ingestion.** Plugins ship as source. The server compiles at ingestion
     using the existing compiler (`libs/sandbox-compiler`, `Bun.build`-based, already used at
     runtime by `apps/app-backend/src/modules/sandbox/compiler.ts`), stores content-addressed
@@ -230,8 +233,9 @@ looks stale.
   `listIntegrations`, `createEvents`, `executeQueryEngine`, `emitSignal`, `sendNotification`.
 - Compiler: `libs/sandbox-compiler` (Bun.build bundling in `compiler-bundle.ts`, TS
   diagnostics, worker protocol); already invoked at runtime for user scripts via
-  `apps/app-backend/src/modules/sandbox/compiler.ts`. SDK: `libs/sandbox-sdk` (approved deps
-  today: zod, dayjs, cheerio, youtubei; provider/automation contracts).
+  `apps/app-backend/src/modules/sandbox/compiler.ts`. SDK: `libs/sandbox-sdk` (Effect and Effect
+  Schema plus approved runtime dependencies dayjs, cheerio, and youtubei; provider/automation
+  contracts).
 
 ### Native domain modules (the code that must end up inside plugins)
 
