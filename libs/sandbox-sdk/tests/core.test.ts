@@ -10,6 +10,8 @@ import {
 	logArgsSchema,
 	SANDBOX_SCRIPT_DEFINITION,
 	spanArgsSchema,
+	upsertGlobalEntitiesArgsSchema,
+	upsertGlobalRelationshipsArgsSchema,
 } from "@ryot/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
@@ -104,6 +106,43 @@ describe("shared value contracts", () => {
 		).toThrow();
 		expect(() => decode(spanArgsSchema)([[{ name: "", attributes: {} }]])).toThrow();
 		expect(() => decode(spanArgsSchema)([[{ name: "span", extra: true }]])).toThrow();
+	});
+
+	test("validates global write batches and reconciliation selectors", () => {
+		expect(
+			decode(upsertGlobalEntitiesArgsSchema)([
+				[
+					{
+						name: "Cooper",
+						populatedAt: null,
+						externalId: "person-1",
+						entitySchemaSlug: "person",
+						properties: { role: "actor" },
+					},
+				],
+				{ maximumTotal: 100 },
+			]),
+		).toHaveLength(2);
+		expect(() => decode(upsertGlobalEntitiesArgsSchema)([[], { maximumTotal: -1 }])).toThrow();
+		expect(() => decode(upsertGlobalEntitiesArgsSchema)([[], { maximumTotal: 1.5 }])).toThrow();
+		expect(
+			decode(upsertGlobalRelationshipsArgsSchema)([
+				[
+					{
+						relationshipSchemaSlug: "acted-in",
+						selector: { type: "anchored", direction: "outgoing", anchorEntityId: "person-1" },
+						relationships: [
+							{ properties: { order: 1 }, sourceEntityId: "person-1", targetEntityId: "movie-1" },
+						],
+					},
+				],
+			]),
+		).toHaveLength(1);
+		expect(() =>
+			decode(upsertGlobalRelationshipsArgsSchema)([
+				[{ relationships: [], selector: { type: "all" }, relationshipSchemaSlug: "acted-in" }],
+			]),
+		).toThrow();
 	});
 });
 

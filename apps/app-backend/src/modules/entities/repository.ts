@@ -1,7 +1,7 @@
 import { DbError } from "@ryot/contract/errors";
 import type { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { EntityId, EntitySchemaSlug, UserId } from "@ryot/contract/schema/brands";
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -42,6 +42,11 @@ export type UpdateEntityInput = {
 	entityId: EntityId;
 	populatedAt: Date | null;
 	properties: Record<string, unknown>;
+};
+
+export type GlobalEntityProvenanceScopeInput = {
+	sandboxScriptId: SandboxScriptId;
+	entitySchemaSlug: EntitySchemaSlug;
 };
 
 export type {
@@ -280,6 +285,33 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			return row ? toListedEntity(row) : null;
 		});
 
+		const lockGlobalEntityProvenanceScope = Effect.fn(
+			"EntitiesRepository.lockGlobalEntityProvenanceScope",
+		)(function* (input: GlobalEntityProvenanceScopeInput) {
+			const db = yield* CurrentDb;
+			const lockKey = `global-entities:${input.entitySchemaSlug}:${input.sandboxScriptId}`;
+			yield* dbEffect(() => db.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`));
+		});
+
+		const countGlobalEntitiesByProvenanceScope = Effect.fn(
+			"EntitiesRepository.countGlobalEntitiesByProvenanceScope",
+		)(function* (input: GlobalEntityProvenanceScopeInput) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select({ count: count() })
+					.from(schema.entity)
+					.where(
+						and(
+							isNull(schema.entity.userId),
+							eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+							eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
+						),
+					),
+			);
+			return row?.count ?? 0;
+		});
+
 		const findEntitySchemaById = Effect.fn("EntitiesRepository.findEntitySchemaById")((
 			entitySchemaSlug: EntitySchemaSlug,
 		) => {
@@ -476,12 +508,14 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			getByIdForUser,
 			findEntitySchemaById,
 			findGlobalEntityById,
+			lockGlobalEntityProvenanceScope,
 			getEntityScopeForUser,
 			listEntityReferencesByIds,
 			getEntityMergeScopeForUser,
 			listMatchCandidatesBySchema,
 			getEntitySchemaScopeForUser,
 			findGlobalEntityByExternalId,
+			countGlobalEntitiesByProvenanceScope,
 			findEntityByExternalIdForUser,
 			findEntitySchemaSandboxScriptBySlug,
 		};

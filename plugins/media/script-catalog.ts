@@ -4,6 +4,7 @@ import { manifest as manifest2 } from "./scripts/automations/jellyfin-push.sandb
 import { manifest as manifest3 } from "./scripts/automations/media-association.sandbox";
 import { manifest as manifest4 } from "./scripts/automations/media-entity-updated.sandbox";
 import { manifest as manifest5 } from "./scripts/automations/media-relationship-sync.sandbox";
+import { manifest as manifest61 } from "./scripts/automations/media-trending.sandbox";
 import { manifest as manifest60 } from "./scripts/automations/notification.sandbox";
 import { manifest as manifest6 } from "./scripts/automations/radarr-push.sandbox";
 import { manifest as manifest7 } from "./scripts/automations/review-created.sandbox";
@@ -67,6 +68,7 @@ export const mediaScripts = [
 	{ ...manifest3, entry: "scripts/automations/media-association.sandbox.ts" },
 	{ ...manifest4, entry: "scripts/automations/media-entity-updated.sandbox.ts" },
 	{ ...manifest5, entry: "scripts/automations/media-relationship-sync.sandbox.ts" },
+	{ ...manifest61, entry: "scripts/automations/media-trending.sandbox.ts" },
 	{ ...manifest60, entry: "scripts/automations/notification.sandbox.ts" },
 	{ ...manifest6, entry: "scripts/automations/radarr-push.sandbox.ts" },
 	{ ...manifest7, entry: "scripts/automations/review-created.sandbox.ts" },

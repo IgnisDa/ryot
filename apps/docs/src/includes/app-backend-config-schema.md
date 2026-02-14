@@ -10,6 +10,7 @@
 | `timezone` | `TZ` | IANA timezone used for interpreting timezone-less datetimes during imports | No | No | `Etc/GMT` |
 | `redisUrl` | `REDIS_URL` | Redis connection string | Yes | Yes | — |
 | `frontendUrl` | `FRONTEND_URL` | Public URL of the frontend application | No | No | `http://localhost:3000` |
+| `builtinExercisePreloadLimit` | `BUILTIN_EXERCISE_PRELOAD_LIMIT` | Maximum number of built-in exercises to preload | No | No | `873` |
 
 ### User account settings
 

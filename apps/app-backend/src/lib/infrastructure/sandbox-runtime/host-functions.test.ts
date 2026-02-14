@@ -20,7 +20,9 @@ const config = {
 };
 
 const runEither = (key: string, scriptIsBuiltin: boolean) =>
-	Effect.either(getSandboxAppConfigValue(config, key, scriptIsBuiltin));
+	Effect.either(
+		getSandboxAppConfigValue(config, key, { scriptIsBuiltin, requiredAppConfigKeys: [] }),
+	);
 
 describe("getSandboxAppConfigValue", () => {
 	it.effect("reads non-sensitive app config values", () =>

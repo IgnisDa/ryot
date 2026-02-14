@@ -3,7 +3,15 @@ import { unknownToMessage } from "@ryot/contract/errors";
 import { CreateEventItem, type CreateEventsResponse } from "@ryot/contract/modules/events/schemas";
 import { isIntegrationProvider } from "@ryot/contract/modules/integrations/types";
 import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
-import { EntityId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	IntegrationId,
+	RelationshipSchemaSlug,
+	SandboxScriptId,
+	UserId,
+} from "@ryot/contract/schema/brands";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { eq } from "drizzle-orm";
@@ -11,21 +19,30 @@ import { Effect, Schema } from "effect";
 
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { QueryEngineService } from "#modules/query-engine/service";
+import { RelationshipsRepository } from "#modules/relationships/repository";
+import { reconcileGlobalRelationships } from "#modules/relationships/service";
 
 import { AppConfig } from "../config/service";
 import * as schema from "../db/schema/tables/combined";
-import { CurrentDb, DbRunner, dbEffect } from "../db/service";
+import { CurrentDb, DbRunner, dbEffect, TransactionRunner } from "../db/service";
 import { RedisService, redisKeys } from "../redis";
 import { getSandboxAppConfigValue } from "./app-config";
-import { sandboxCacheKeyError, sandboxCacheTtlError, sandboxCacheValueError } from "./limits";
+import {
+	sandboxCacheKeyError,
+	sandboxCacheTtlError,
+	sandboxCacheValueError,
+	SANDBOX_LIMITS,
+} from "./limits";
 import {
 	type AdditionalSandboxHostImplementationMap,
 	isJsonValue,
 	requireUserSandboxRunInput,
+	requireSystemCronSandboxRunInput,
 	sandboxHostEffect,
 	sandboxHostFailure,
 	toSandboxJsonValue,
@@ -37,11 +54,14 @@ type SandboxHostFunctionContext =
 	| AppConfig
 	| RedisService
 	| EventsService
+	| EntitiesService
+	| TransactionRunner
 	| EntitiesRepository
 	| DefinitionRegistry
 	| QueryEngineService
 	| PluginRuntimeResolver
-	| IntegrationsRepository;
+	| IntegrationsRepository
+	| RelationshipsRepository;
 
 const entityNotFoundError = "Entity not found";
 
@@ -90,11 +110,14 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
 		const events = yield* EventsService;
+		const entities = yield* EntitiesService;
 		const definitions = yield* DefinitionRegistry;
+		const runInTransaction = yield* TransactionRunner;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const entitiesRepository = yield* EntitiesRepository;
 		const queryEngineService = yield* QueryEngineService;
 		const integrationsRepository = yield* IntegrationsRepository;
+		const relationshipsRepository = yield* RelationshipsRepository;
 
 		const requireReadableEntity = (userId: UserId, entityId: EntityId, notFoundMessage: string) =>
 			runWithDb(
@@ -204,6 +227,85 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					),
 					sandboxHostEffect,
 				),
+			upsertGlobalEntities: (rawInput, items, options) =>
+				sandboxHostEffect(
+					Effect.gen(function* () {
+						const input = yield* requireSystemCronSandboxRunInput(rawInput, "upsertGlobalEntities");
+						if (items.length > SANDBOX_LIMITS.globalWrites.entityItems) {
+							return yield* Effect.fail(
+								`upsertGlobalEntities exceeds ${SANDBOX_LIMITS.globalWrites.entityItems} items`,
+							);
+						}
+
+						const parsed = yield* Effect.forEach(items, (item) => {
+							const populatedAt = item.populatedAt === null ? null : dayjs(item.populatedAt);
+							return populatedAt === null || populatedAt.isValid()
+								? Effect.succeed({
+										...item,
+										populatedAt: populatedAt?.toDate() ?? null,
+									})
+								: Effect.fail("upsertGlobalEntities populatedAt must be a valid date string");
+						});
+
+						return yield* entities
+							.upsertGlobalEntities(
+								parsed.map((item) => ({
+									name: item.name,
+									externalId: item.externalId,
+									properties: item.properties,
+									populatedAt: item.populatedAt,
+									entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
+								})),
+								SandboxScriptId.make(input.scriptId),
+								options?.maximumTotal === undefined
+									? undefined
+									: { maximumTotal: options.maximumTotal },
+							)
+							.pipe(Effect.provideService(TransactionRunner, runInTransaction));
+					}),
+				),
+			upsertGlobalRelationships: (rawInput, groups) =>
+				sandboxHostEffect(
+					Effect.gen(function* () {
+						yield* requireSystemCronSandboxRunInput(rawInput, "upsertGlobalRelationships");
+						const relationshipCount = groups.reduce(
+							(total, group) => total + group.relationships.length,
+							0,
+						);
+						if (groups.length > SANDBOX_LIMITS.globalWrites.relationshipGroups) {
+							return yield* Effect.fail(
+								`upsertGlobalRelationships exceeds ${SANDBOX_LIMITS.globalWrites.relationshipGroups} groups`,
+							);
+						}
+						if (relationshipCount > SANDBOX_LIMITS.globalWrites.relationshipsTotal) {
+							return yield* Effect.fail(
+								`upsertGlobalRelationships exceeds ${SANDBOX_LIMITS.globalWrites.relationshipsTotal} relationships`,
+							);
+						}
+
+						return yield* reconcileGlobalRelationships(
+							groups.map((group) => ({
+								relationshipSchemaSlug: RelationshipSchemaSlug.make(group.relationshipSchemaSlug),
+								relationships: group.relationships.map((relationship) => ({
+									...relationship,
+									sourceEntityId: EntityId.make(relationship.sourceEntityId),
+									targetEntityId: EntityId.make(relationship.targetEntityId),
+								})),
+								selector:
+									group.selector.type === "self"
+										? group.selector
+										: {
+												...group.selector,
+												anchorEntityId: EntityId.make(group.selector.anchorEntityId),
+											},
+							})),
+						).pipe(
+							Effect.provideService(DefinitionRegistry, definitions),
+							Effect.provideService(TransactionRunner, runInTransaction),
+							Effect.provideService(RelationshipsRepository, relationshipsRepository),
+						);
+					}),
+				),
 			executeQueryEngine: (rawInput, query) =>
 				requireUserSandboxRunInput(rawInput, "executeQueryEngine").pipe(
 					Effect.flatMap((input) =>
@@ -229,7 +331,16 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 				}
 
 				return sandboxHostEffect(
-					getSandboxAppConfigValue(config, key.trim(), input.scriptIsBuiltin).pipe(
+					getSandboxAppConfigValue(config, key.trim(), {
+						scriptIsBuiltin: input.scriptIsBuiltin,
+						requiredAppConfigKeys:
+							isObjectRecord(input.metadata) &&
+							Array.isArray(input.metadata["requiredAppConfigKeys"])
+								? input.metadata["requiredAppConfigKeys"].filter(
+										(value): value is string => typeof value === "string",
+									)
+								: [],
+					}).pipe(
 						Effect.flatMap((value) =>
 							isJsonValue(value)
 								? Effect.succeed(value)
