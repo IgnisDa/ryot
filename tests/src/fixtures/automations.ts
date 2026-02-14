@@ -18,7 +18,7 @@ export const listAutomationCatalog = (client: Client) =>
 export const getAutomationCatalogSchema = (client: Client, signalSchemaSlug: string) =>
 	client.call((c) =>
 		c.automations.getCatalog({
-			path: { signalSchemaSlug: SignalSchemaSlug.make(signalSchemaSlug) },
+			params: { signalSchemaSlug: SignalSchemaSlug.make(signalSchemaSlug) },
 		}),
 	);
 
@@ -26,7 +26,7 @@ export const listNotificationRules = (client: Client) =>
 	client.call((c) => c.automations.listRules());
 
 export const getNotificationRule = (client: Client, ruleId: string) =>
-	client.call((c) => c.automations.getRule({ path: { ruleId: AutomationRuleId.make(ruleId) } }));
+	client.call((c) => c.automations.getRule({ params: { ruleId: AutomationRuleId.make(ruleId) } }));
 
 export const installNotificationRule = (client: Client, signalSchemaSlug: string) =>
 	client.call((c) =>
@@ -36,14 +36,16 @@ export const installNotificationRule = (client: Client, signalSchemaSlug: string
 	);
 
 export const setNotificationRuleActive = (client: Client, ruleId: string, isActive: boolean) => {
-	const path = { ruleId: AutomationRuleId.make(ruleId) };
+	const params = { ruleId: AutomationRuleId.make(ruleId) };
 	return client.call((c) =>
-		isActive ? c.automations.activateRule({ path }) : c.automations.deactivateRule({ path }),
+		isActive ? c.automations.activateRule({ params }) : c.automations.deactivateRule({ params }),
 	);
 };
 
 export const deleteNotificationRule = (client: Client, ruleId: string) =>
-	client.call((c) => c.automations.deleteRule({ path: { ruleId: AutomationRuleId.make(ruleId) } }));
+	client.call((c) =>
+		c.automations.deleteRule({ params: { ruleId: AutomationRuleId.make(ruleId) } }),
+	);
 
 export interface SignalFilter {
 	schemaSlug: string;
@@ -121,7 +123,7 @@ export const getAutomationRuleCount = (userId: string) =>
 		const { count } = yield* getBackendClient().call(
 			(c) =>
 				c.testSupport.countAutomationRules({
-					path: { userId: UserId.make(userId) },
+					params: { userId: UserId.make(userId) },
 				}),
 			adminHeaders,
 		);

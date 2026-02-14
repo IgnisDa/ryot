@@ -51,7 +51,7 @@ export default defineWorkflow({
 });
 `;
 
-export const installTestImportPlugin = () => {
+export const installTestImportPlugin = Effect.suspend(() => {
 	const entry = "scripts/import.sandbox.ts";
 	return installTestPluginBundle({
 		files: { [entry]: FIXTURE_IMPORT_WORKFLOW_SOURCE },
@@ -106,7 +106,7 @@ export const installTestImportPlugin = () => {
 			},
 		],
 	});
-};
+});
 
 const testImportPinningWorkflowSource = (scriptSlug: string) => `
 import {
@@ -149,7 +149,7 @@ export default defineWorkflow({
 });
 `;
 
-export const installTestImportPinningPlugin = () => {
+export const installTestImportPinningPlugin = Effect.suspend(() => {
 	const suffix = randomUUID();
 	const source = `e2e_pinned_import_${suffix.replaceAll("-", "_")}`;
 	const workflowSlug = `pinning-import-${suffix}`;
@@ -181,7 +181,7 @@ export const installTestImportPinningPlugin = () => {
 			},
 		],
 	}).pipe(Effect.map((plugin) => ({ plugin, source })));
-};
+});
 
 const OPENSCALE_SAMPLE_CSV = `dateTime,weight,bmi,fat,water,muscle,comment
 2026-04-01 08:00:00,75.0,22.5,15.0,60.0,40.0,Morning weight
@@ -221,7 +221,7 @@ export const startOpenScaleImport = (client: Client, uploadToken: string) =>
 	});
 
 export const getImportRun = (client: Client, runId: string) =>
-	client.call((c) => c.imports.getRun({ path: { runId: ImportRunId.make(runId) }, urlParams: {} }));
+	client.call((c) => c.imports.getRun({ params: { runId: ImportRunId.make(runId) }, query: {} }));
 
 export const pollImportRunUntilTerminal = (client: Client, runId: string) =>
 	pollUntil(

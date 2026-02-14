@@ -18,7 +18,7 @@ const markEntityPopulated = (entityId: string) =>
 	getBackendClient().call(
 		(c) =>
 			c.testSupport.setEntityPopulatedAt({
-				path: { entityId: EntityId.make(entityId) },
+				params: { entityId: EntityId.make(entityId) },
 				payload: { populatedAt: new Date().toISOString() },
 			}),
 		adminHeaders,
@@ -69,7 +69,7 @@ export const getEntityTranslationRow = (input: { entityId: string; language: str
 		const rows = yield* getBackendClient().call(
 			(c) =>
 				c.testSupport.listEntityTranslations({
-					path: { entityId: EntityId.make(input.entityId) },
+					params: { entityId: EntityId.make(input.entityId) },
 				}),
 			adminHeaders,
 		);
@@ -82,7 +82,8 @@ export const getEntityTranslationRow = (input: { entityId: string; language: str
 export const countEntityTranslations = (entityId: string) =>
 	Effect.gen(function* () {
 		const rows = yield* getBackendClient().call(
-			(c) => c.testSupport.listEntityTranslations({ path: { entityId: EntityId.make(entityId) } }),
+			(c) =>
+				c.testSupport.listEntityTranslations({ params: { entityId: EntityId.make(entityId) } }),
 			adminHeaders,
 		);
 		return rows.length;

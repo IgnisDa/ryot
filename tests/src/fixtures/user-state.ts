@@ -30,7 +30,7 @@ export const mergeUserState = (client: Client, payload: MergeUserStateBody) =>
 	client.call((c) => c.userState.mergeUserState({ payload }));
 
 export const clearEntityUserState = (client: Client, entityId: string) =>
-	client.call((c) => c.userState.clearUserState({ path: { entityId: EntityId.make(entityId) } }));
+	client.call((c) => c.userState.clearUserState({ params: { entityId: EntityId.make(entityId) } }));
 
 export const queryUserEntityStateCounts = (input: {
 	client: Client;
