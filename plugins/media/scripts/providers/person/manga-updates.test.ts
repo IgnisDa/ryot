@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,10 +8,7 @@ import { details, manifest, search } from "./manga-updates.sandbox";
 type MangaUpdatesPersonHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (httpCall: MangaUpdatesPersonHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, { httpCall });
@@ -35,20 +33,23 @@ describe("person.manga-updates sandbox script", () => {
 			{ query: "author", page: 1, pageSize: 20 },
 			host,
 			execution,
-		).then((result) => {
-			expect(result.items).toEqual([
-				{
-					externalId: "4",
-					imageProperty: { kind: "null", value: null },
-					calloutProperty: { kind: "null", value: null },
-					titleProperty: { kind: "text", value: "Author Name" },
-					primarySubtitleProperty: { kind: "null", value: null },
-					secondarySubtitleProperty: { kind: "null", value: null },
-				},
-			]);
-			expect(result.details).toEqual({ totalItems: 1, nextPage: null });
-			return undefined;
-		});
+		).pipe(
+			Effect.map((result) => {
+				expect(result.items).toEqual([
+					{
+						externalId: "4",
+						imageProperty: { kind: "null", value: null },
+						calloutProperty: { kind: "null", value: null },
+						titleProperty: { kind: "text", value: "Author Name" },
+						primarySubtitleProperty: { kind: "null", value: null },
+						secondarySubtitleProperty: { kind: "null", value: null },
+					},
+				]);
+				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("formats valid birthdays and emits authored series relationships", () => {
@@ -73,40 +74,43 @@ describe("person.manga-updates sandbox script", () => {
 			});
 		});
 
-		return runSandboxTestDriver(details, { externalId: "4" }, host, execution).then((result) => {
-			expect(result.name).toBe("Author Name");
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "person-to-manga",
-					entities: [
-						{
-							name: "Series A",
-							externalId: "11",
-							scriptSlug: "manga.manga-updates",
-							relationshipProperties: { roles: ["Author"] },
-						},
-						{
-							externalId: "12",
-							name: "Loading...",
-							scriptSlug: "manga.manga-updates",
-							relationshipProperties: { roles: ["Author"] },
-						},
-					],
-				},
-			]);
-			expect(result.properties).toEqual({
-				description: null,
-				gender: "Female",
-				alternateNames: [],
-				birthDate: "1980-03-07",
-				birthPlace: "Osaka, Japan",
-				sourceUrl: "https://www.mangaupdates.com/authors/4",
-				images: [{ type: "remote", url: "https://img/author.jpg" }],
-			});
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "4" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.name).toBe("Author Name");
+				expect(result.relatedEntityGroups).toEqual([
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "person-to-manga",
+						entities: [
+							{
+								name: "Series A",
+								externalId: "11",
+								scriptSlug: "manga.manga-updates",
+								relationshipProperties: { roles: ["Author"] },
+							},
+							{
+								externalId: "12",
+								name: "Loading...",
+								scriptSlug: "manga.manga-updates",
+								relationshipProperties: { roles: ["Author"] },
+							},
+						],
+					},
+				]);
+				expect(result.properties).toEqual({
+					description: null,
+					gender: "Female",
+					alternateNames: [],
+					birthDate: "1980-03-07",
+					birthPlace: "Osaka, Japan",
+					sourceUrl: "https://www.mangaupdates.com/authors/4",
+					images: [{ type: "remote", url: "https://img/author.jpg" }],
+				});
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("nulls out-of-range birthdays", () => {
@@ -116,9 +120,12 @@ describe("person.manga-updates sandbox script", () => {
 				: httpSuccess({ name: "Author Name", birthday: { year: 1980, month: 13, day: 7 } }),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "4" }, host, execution).then((result) => {
-			expect(result.properties).toMatchObject({ birthDate: null });
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "4" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.properties).toMatchObject({ birthDate: null });
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 });

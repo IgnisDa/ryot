@@ -1,6 +1,10 @@
 import type { ProviderDetailsRelatedEntity } from "@ryot/sandbox-sdk/provider";
 
-export type RoleRelatedEntity = Omit<ProviderDetailsRelatedEntity, "relationshipProperties"> & {
+export type RoleRelatedEntity = Omit<
+	ProviderDetailsRelatedEntity,
+	"name" | "relationshipProperties"
+> & {
+	name: string;
 	relationshipProperties: { roles: string[] };
 };
 

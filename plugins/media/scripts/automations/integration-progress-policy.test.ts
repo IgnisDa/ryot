@@ -1,5 +1,6 @@
 import type { AutomationPolicyInput } from "@ryot/sandbox-sdk/automation";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -59,42 +60,60 @@ const createHost = (options: {
 };
 
 const run = (context: AutomationPolicyInput, host: ReturnType<typeof createHost>["host"]) =>
-	runSandboxTestDriver(definition.drivers.automation, context, host, execution);
+	definition.drivers.automation.run(context, host, execution);
 
 describe("integration-progress-policy sandbox script", () => {
 	it("allows non-integration events immediately without host calls", () => {
 		const { calls, host } = createHost({ integration: integrationRecord() });
-		return run(createPolicyContext({}, { kind: "api" }), host).then((result) => {
-			expect(result).toEqual({ action: "allow" });
-			expect(calls).toHaveLength(0);
-			return undefined;
-		});
+		return Effect.runPromise(
+			run(createPolicyContext({}, { kind: "api" }), host).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({ action: "allow" });
+					expect(calls).toHaveLength(0);
+					return undefined;
+				}),
+			),
+		);
 	});
 
 	it("skips invalid progress and progress below the integration minimum", () => {
 		const { host } = createHost({ integration: integrationRecord({ minimumProgress: 5 }) });
-		return Promise.all([
-			run(createPolicyContext({ properties: { progressPercent: "not-a-number" } }), host),
-			run(createPolicyContext({ properties: { progressPercent: 3, consumedOn: "Plex" } }), host),
-		]).then(([invalid, belowMinimum]) => {
-			expect(invalid).toEqual({ action: "skip", reason: "invalid_progress" });
-			expect(belowMinimum).toEqual({ action: "skip", reason: "below_minimum_progress" });
-			return undefined;
-		});
+		return Effect.runPromise(
+			Effect.all(
+				[
+					run(createPolicyContext({ properties: { progressPercent: "not-a-number" } }), host),
+					run(
+						createPolicyContext({ properties: { progressPercent: 3, consumedOn: "Plex" } }),
+						host,
+					),
+				],
+				{ concurrency: "unbounded" },
+			).pipe(
+				Effect.map(([invalid, belowMinimum]) => {
+					expect(invalid).toEqual({ action: "skip", reason: "invalid_progress" });
+					expect(belowMinimum).toEqual({ action: "skip", reason: "below_minimum_progress" });
+					return undefined;
+				}),
+			),
+		);
 	});
 
 	it("replaces progress above the integration maximum with 100", () => {
 		const { host } = createHost({ integration: integrationRecord({ maximumProgress: 95 }) });
-		return run(
-			createPolicyContext({ properties: { progressPercent: 97, consumedOn: "Plex" } }),
-			host,
-		).then((result) => {
-			expect(result).toEqual({
-				action: "replace",
-				body: { properties: { progressPercent: 100, consumedOn: "Plex" } },
-			});
-			return undefined;
-		});
+		return Effect.runPromise(
+			run(
+				createPolicyContext({ properties: { progressPercent: 97, consumedOn: "Plex" } }),
+				host,
+			).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({
+						action: "replace",
+						body: { properties: { progressPercent: 100, consumedOn: "Plex" } },
+					});
+					return undefined;
+				}),
+			),
+		);
 	});
 
 	it("suppresses duplicates only for the same progress identity", () => {
@@ -107,26 +126,33 @@ describe("integration-progress-policy sandbox script", () => {
 				}),
 			],
 		});
-		return Promise.all([
-			run(
-				createPolicyContext({
-					entitySchemaSlug: "anime",
-					properties: { animeEpisode: 1, consumedOn: "AniList", progressPercent: 35 },
+		return Effect.runPromise(
+			Effect.all(
+				[
+					run(
+						createPolicyContext({
+							entitySchemaSlug: "anime",
+							properties: { animeEpisode: 1, consumedOn: "AniList", progressPercent: 35 },
+						}),
+						host,
+					),
+					run(
+						createPolicyContext({
+							entitySchemaSlug: "anime",
+							properties: { animeEpisode: 2, consumedOn: "AniList", progressPercent: 35 },
+						}),
+						host,
+					),
+				],
+				{ concurrency: "unbounded" },
+			).pipe(
+				Effect.map(([duplicate, distinct]) => {
+					expect(duplicate).toEqual({ action: "skip", reason: "duplicate_progress" });
+					expect(distinct).toEqual({ action: "allow" });
+					return undefined;
 				}),
-				host,
 			),
-			run(
-				createPolicyContext({
-					entitySchemaSlug: "anime",
-					properties: { animeEpisode: 2, consumedOn: "AniList", progressPercent: 35 },
-				}),
-				host,
-			),
-		]).then(([duplicate, distinct]) => {
-			expect(duplicate).toEqual({ action: "skip", reason: "duplicate_progress" });
-			expect(distinct).toEqual({ action: "allow" });
-			return undefined;
-		});
+		);
 	});
 
 	it("debounces recent completions and allows completions outside the threshold", () => {
@@ -164,19 +190,26 @@ describe("integration-progress-policy sandbox script", () => {
 			],
 		});
 
-		return Promise.all([
-			run(
-				createPolicyContext({ properties: { progressPercent: 100, consumedOn: "Plex" } }),
-				recent.host,
+		return Effect.runPromise(
+			Effect.all(
+				[
+					run(
+						createPolicyContext({ properties: { progressPercent: 100, consumedOn: "Plex" } }),
+						recent.host,
+					),
+					run(
+						createPolicyContext({ properties: { progressPercent: 100, consumedOn: "Plex" } }),
+						old.host,
+					),
+				],
+				{ concurrency: "unbounded" },
+			).pipe(
+				Effect.map(([recentResult, oldResult]) => {
+					expect(recentResult).toEqual({ action: "skip", reason: "completed_recently" });
+					expect(oldResult).toEqual({ action: "allow" });
+					return undefined;
+				}),
 			),
-			run(
-				createPolicyContext({ properties: { progressPercent: 100, consumedOn: "Plex" } }),
-				old.host,
-			),
-		]).then(([recentResult, oldResult]) => {
-			expect(recentResult).toEqual({ action: "skip", reason: "completed_recently" });
-			expect(oldResult).toEqual({ action: "allow" });
-			return undefined;
-		});
+		);
 	});
 });

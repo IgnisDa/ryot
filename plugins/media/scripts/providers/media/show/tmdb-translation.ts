@@ -1,4 +1,5 @@
-import type { ProviderTranslateInput, ProviderTranslateResult } from "@ryot/sandbox-sdk/provider";
+import { Effect } from "@ryot/sandbox-sdk/effect";
+import type { ProviderTranslateInput } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, stringValue } from "../../../script-helpers/records";
 import {
@@ -68,19 +69,19 @@ const getTranslationRequest = (input: ProviderTranslateInput) => {
 	throw new Error("show.tmdb translate supports only show, show-season, and show-episode");
 };
 
-export const translateTmdbShow = (
-	input: ProviderTranslateInput,
-	host: TmdbHost,
-	token: string,
-): Promise<ProviderTranslateResult> => {
-	const request = getTranslationRequest(input);
-	const { langCode, region } = parseTranslationLanguage(input.language);
-	return Promise.all([
-		tmdbGet(host, request.translationsPath, {}, token),
-		tmdbGet(host, request.imagesPath, { include_image_language: langCode }, token).catch(
-			() => ({}),
-		),
-	]).then(([translationsData, imagesData]) => {
+export const translateTmdbShow = (input: ProviderTranslateInput, host: TmdbHost, token: string) => {
+	return Effect.gen(function* () {
+		const request = yield* Effect.try({
+			try: () => getTranslationRequest(input),
+			catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+		});
+		const { langCode, region } = parseTranslationLanguage(input.language);
+		const [translationsData, imagesData] = yield* Effect.all([
+			tmdbGet(host, request.translationsPath, {}, token),
+			tmdbGet(host, request.imagesPath, { include_image_language: langCode }, token).pipe(
+				Effect.catchAll(() => Effect.succeed({})),
+			),
+		]);
 		const candidates = orderedTranslationCandidates(translationsData, langCode, region);
 		const name = firstTranslationValue(
 			candidates,

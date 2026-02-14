@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,20 +8,16 @@ import { details, manifest, search, translate } from "./tvdb.sandbox";
 type TvdbHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
-const httpMissing = () =>
-	Promise.resolve({ success: false as const, error: "not found", data: { status: 404 } });
+const httpMissing = () => Effect.fail({ message: "not found", details: { status: 404 } });
 
 const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getCachedValue: () => Promise.resolve({ success: true as const, data: "Bearer test-token" }),
-		setCachedValue: () => Promise.resolve({ success: true as const, data: null }),
-		getAppConfigValue: () => Promise.resolve({ success: true as const, data: "test-api-key" }),
+		getCachedValue: () => Effect.succeed("Bearer test-token"),
+		setCachedValue: () => Effect.succeed(null),
+		getAppConfigValue: () => Effect.succeed("test-api-key"),
 	});
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
@@ -28,11 +25,13 @@ const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("movie-group.tvdb sandbox script", () => {
 	it("rejects search", () =>
 		expect(
-			runSandboxTestDriver(
-				search,
-				{ query: "x", page: 1, pageSize: 20 },
-				makeHost(httpSuccess),
-				execution,
+			Effect.runPromise(
+				runSandboxTestDriver(
+					search,
+					{ query: "x", page: 1, pageSize: 20 },
+					makeHost((_method, _url) => httpSuccess({})),
+					execution,
+				),
 			),
 		).rejects.toThrow("TVDB does not support movie group search"));
 
@@ -58,45 +57,48 @@ describe("movie-group.tvdb sandbox script", () => {
 			return httpMissing();
 		});
 
-		return runSandboxTestDriver(details, { externalId: "42" }, host, execution).then((result) => {
-			expect(result).toEqual({
-				name: "My List",
-				properties: {
-					parts: 4,
-					images: [{ type: "remote", url: "https://img/x.jpg" }],
-					sourceUrl: "https://thetvdb.com/lists/cool-list",
-					description: "An overview",
-				},
-				relatedEntityGroups: [
-					{
-						direction: "outgoing",
-						synchronization: "authoritative",
-						relationshipSchemaSlug: "movie-group-to-movie",
-						entities: [
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "42" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({
+						name: "My List",
+						properties: {
+							parts: 4,
+							images: [{ type: "remote", url: "https://img/x.jpg" }],
+							sourceUrl: "https://thetvdb.com/lists/cool-list",
+							description: "An overview",
+						},
+						relatedEntityGroups: [
 							{
-								name: "Alpha",
-								externalId: "20",
-								scriptSlug: "movie.tvdb",
-								relationshipProperties: { order: 1 },
-							},
-							{
-								name: "Bravo",
-								externalId: "10",
-								scriptSlug: "movie.tvdb",
-								relationshipProperties: { order: 2 },
-							},
-							{
-								name: "Loading...",
-								externalId: "30",
-								scriptSlug: "movie.tvdb",
-								relationshipProperties: { order: 4 },
+								direction: "outgoing",
+								synchronization: "authoritative",
+								relationshipSchemaSlug: "movie-group-to-movie",
+								entities: [
+									{
+										name: "Alpha",
+										externalId: "20",
+										scriptSlug: "movie.tvdb",
+										relationshipProperties: { order: 1 },
+									},
+									{
+										name: "Bravo",
+										externalId: "10",
+										scriptSlug: "movie.tvdb",
+										relationshipProperties: { order: 2 },
+									},
+									{
+										name: "Loading...",
+										externalId: "30",
+										scriptSlug: "movie.tvdb",
+										relationshipProperties: { order: 4 },
+									},
+								],
 							},
 						],
-					},
-				],
-			});
-			return undefined;
-		});
+					});
+				}),
+			),
+		);
 	});
 
 	it("falls back to Unnamed List title and null sourceUrl, and overrides from translation", () => {
@@ -120,26 +122,32 @@ describe("movie-group.tvdb sandbox script", () => {
 			});
 		});
 
-		return Promise.all([
-			runSandboxTestDriver(details, { externalId: "7" }, missingHost, execution),
-			runSandboxTestDriver(details, { externalId: "8" }, translatedHost, execution),
-		]).then(([missing, translated]) => {
-			expect(missing.name).toBe("Unnamed List");
-			expect(missing.properties).toEqual({
-				parts: 0,
-				images: [],
-				sourceUrl: null,
-				description: null,
-			});
-			expect(translated.name).toBe("Traducido");
-			expect(translated.properties).toEqual({
-				parts: 0,
-				images: [],
-				sourceUrl: null,
-				description: "Descripción",
-			});
-			return undefined;
-		});
+		return Effect.runPromise(
+			Effect.all(
+				[
+					runSandboxTestDriver(details, { externalId: "7" }, missingHost, execution),
+					runSandboxTestDriver(details, { externalId: "8" }, translatedHost, execution),
+				],
+				{ concurrency: "unbounded" },
+			).pipe(
+				Effect.map(([missing, translated]) => {
+					expect(missing.name).toBe("Unnamed List");
+					expect(missing.properties).toEqual({
+						parts: 0,
+						images: [],
+						sourceUrl: null,
+						description: null,
+					});
+					expect(translated.name).toBe("Traducido");
+					expect(translated.properties).toEqual({
+						parts: 0,
+						images: [],
+						sourceUrl: null,
+						description: "Descripción",
+					});
+				}),
+			),
+		);
 	});
 
 	it("translate prefers the primary translation record over the first entry", () => {
@@ -156,27 +164,32 @@ describe("movie-group.tvdb sandbox script", () => {
 			return httpMissing();
 		});
 
-		return runSandboxTestDriver(
-			translate,
-			{ externalId: "9", language: "es", entitySchemaSlug: "movie-group" },
-			host,
-			execution,
-		).then((result) => {
-			expect(result).toEqual({
-				name: "Primary",
-				properties: { description: "Primary overview" },
-			});
-			return undefined;
-		});
+		return Effect.runPromise(
+			runSandboxTestDriver(
+				translate,
+				{ externalId: "9", language: "es", entitySchemaSlug: "movie-group" },
+				host,
+				execution,
+			).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({
+						name: "Primary",
+						properties: { description: "Primary overview" },
+					});
+				}),
+			),
+		);
 	});
 
 	it("translate rejects a non-numeric externalId", () =>
 		expect(
-			runSandboxTestDriver(
-				translate,
-				{ externalId: "abc", language: "es", entitySchemaSlug: "movie-group" },
-				makeHost(httpSuccess),
-				execution,
+			Effect.runPromise(
+				runSandboxTestDriver(
+					translate,
+					{ externalId: "abc", language: "es", entitySchemaSlug: "movie-group" },
+					makeHost((_method, _url) => httpSuccess({})),
+					execution,
+				),
 			),
 		).rejects.toThrow("externalId must be a numeric TVDB list ID"));
 });

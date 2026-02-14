@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,17 +8,13 @@ import { details, manifest } from "./tmdb.sandbox";
 type TmdbHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getAppConfigValue: () => Promise.resolve({ data: "token", success: true }),
-		getUserPreferences: () =>
-			Promise.resolve({ success: true, data: { isNsfw: false, disableIntegrations: false } }),
+		getAppConfigValue: () => Effect.succeed("token"),
+		getUserPreferences: () => Effect.succeed({ isNsfw: false, disableIntegrations: false }),
 	});
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
@@ -40,36 +37,39 @@ describe("person.tmdb sandbox script", () => {
 			});
 		});
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "person-to-movie",
-					entities: [
-						{
-							name: "Film",
-							externalId: "2",
-							scriptSlug: "movie.tmdb",
-							relationshipProperties: { roles: ["Actor"] },
-						},
-					],
-				},
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "person-to-show",
-					entities: [
-						{
-							name: "Show",
-							externalId: "3",
-							scriptSlug: "show.tmdb",
-							relationshipProperties: { roles: ["Director"] },
-						},
-					],
-				},
-			]);
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.relatedEntityGroups).toEqual([
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "person-to-movie",
+						entities: [
+							{
+								name: "Film",
+								externalId: "2",
+								scriptSlug: "movie.tmdb",
+								relationshipProperties: { roles: ["Actor"] },
+							},
+						],
+					},
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "person-to-show",
+						entities: [
+							{
+								name: "Show",
+								externalId: "3",
+								scriptSlug: "show.tmdb",
+								relationshipProperties: { roles: ["Director"] },
+							},
+						],
+					},
+				]);
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 });

@@ -1,8 +1,5 @@
-import type {
-	ProviderDetailsChildEntity,
-	ProviderDetailsInput,
-	ProviderDetailsResult,
-} from "@ryot/sandbox-sdk/provider";
+import { Effect } from "@ryot/sandbox-sdk/effect";
+import type { ProviderDetailsChildEntity, ProviderDetailsInput } from "@ryot/sandbox-sdk/provider";
 
 import { parsePublishYear } from "../../../script-helpers/parse-publish-year";
 import {
@@ -88,23 +85,27 @@ export const getTvdbShowDetails = (
 	input: ProviderDetailsInput,
 	host: TvdbHost,
 	canonicalLanguage: string,
-): Promise<ProviderDetailsResult> => {
+) => {
 	if (!/^\d+$/.test(input.externalId)) {
-		return Promise.reject(new Error("externalId must be a numeric TVDB series ID"));
+		return Effect.fail(new Error("externalId must be a numeric TVDB series ID"));
 	}
 	const language = bcp47ToTvdb(canonicalLanguage);
-	return Promise.all([
-		tvdbGet(host, `/series/${input.externalId}/extended`),
-		tvdbGetOptional(host, `/series/${input.externalId}/translations/${language}`),
-	]).then(([data, translationData]) => {
+	return Effect.gen(function* () {
+		const [data, translationData] = yield* Effect.all(
+			[
+				tvdbGet(host, `/series/${input.externalId}/extended`),
+				tvdbGetOptional(host, `/series/${input.externalId}/translations/${language}`),
+			],
+			{ concurrency: "unbounded" },
+		);
 		const show = asRecord(data["data"]);
 		if (!show) {
-			throw new Error("TVDB returned no data for this series");
+			return yield* Effect.fail(new Error("TVDB returned no data for this series"));
 		}
 		const translation = getTranslationFields(translationData);
 		const title = translation.name ?? stringValue(show["name"]);
 		if (!title) {
-			throw new Error("TVDB returned no name for this series");
+			return yield* Effect.fail(new Error("TVDB returned no name for this series"));
 		}
 		const images = collectImages([show["image"]], show["artworks"]);
 		const genres = collectGenres(show["genres"]);
@@ -128,64 +129,67 @@ export const getTvdbShowDetails = (
 		const batches = Array.from({ length: Math.ceil(seasonIds.length / 5) }, (_, index) =>
 			seasonIds.slice(index * 5, index * 5 + 5),
 		);
-		return batches
-			.reduce<Promise<UnknownRecord[]>>(
-				(loaded, batch) =>
-					loaded.then((responses) =>
-						Promise.all(batch.map((sid) => tvdbGet(host, `/seasons/${sid}/extended`))).then(
-							(results) => [...responses, ...results],
+		const seasonResponses = yield* batches.reduce<Effect.Effect<UnknownRecord[], unknown>>(
+			(loaded, batch) =>
+				Effect.flatMap(loaded, (responses) =>
+					Effect.map(
+						Effect.all(
+							batch.map((sid) => tvdbGet(host, `/seasons/${sid}/extended`)),
+							{
+								concurrency: "unbounded",
+							},
 						),
+						(results) => [...responses, ...results],
 					),
-				Promise.resolve([]),
-			)
-			.then((seasonResponses) => {
-				const officialSeasons = seasonResponses
-					.flatMap((response) => {
-						const season = asRecord(response["data"]);
-						return season ? [season] : [];
-					})
-					.filter((season) => asRecord(season["type"])?.["type"] === "official")
-					.sort((a, b) => (numberValue(a["number"]) ?? 0) - (numberValue(b["number"]) ?? 0));
-				const childEntities = officialSeasons.flatMap((season) => {
-					const child = buildSeason(input.externalId, season);
-					return child ? [child] : [];
-				});
-				const totalEpisodes = childEntities.reduce(
-					(count, season) => count + (season.childEntities?.length ?? 0),
-					0,
-				);
-				const slug = stringValue(show["slug"]);
-				const sourceUrl = slug
-					? `https://thetvdb.com/series/${slug}`
-					: `https://thetvdb.com/series/${input.externalId}`;
-				return {
-					name: title,
-					childEntities,
-					relatedEntityGroups: [
-						{
-							direction: "incoming" as const,
-							synchronization: "additive" as const,
-							entities: relatedEntities,
-							relationshipSchemaSlug: "person-to-show",
-						},
-						{
-							direction: "incoming" as const,
-							synchronization: "additive" as const,
-							entities: collectCompanies(show["companies"]),
-							relationshipSchemaSlug: "company-to-show",
-						},
-					],
-					properties: {
-						images,
-						genres,
-						sourceUrl,
-						publishYear,
-						totalEpisodes,
-						unlinkedCreators,
-						totalSeasons: childEntities.length,
-						description: translation.description ?? stringValue(show["overview"]),
-					},
-				};
-			});
+				),
+			Effect.succeed([]),
+		);
+		const officialSeasons = seasonResponses
+			.flatMap((response) => {
+				const season = asRecord(response["data"]);
+				return season ? [season] : [];
+			})
+			.filter((season) => asRecord(season["type"])?.["type"] === "official")
+			.sort((a, b) => (numberValue(a["number"]) ?? 0) - (numberValue(b["number"]) ?? 0));
+		const childEntities = officialSeasons.flatMap((season) => {
+			const child = buildSeason(input.externalId, season);
+			return child ? [child] : [];
+		});
+		const totalEpisodes = childEntities.reduce(
+			(count, season) => count + (season.childEntities?.length ?? 0),
+			0,
+		);
+		const slug = stringValue(show["slug"]);
+		const sourceUrl = slug
+			? `https://thetvdb.com/series/${slug}`
+			: `https://thetvdb.com/series/${input.externalId}`;
+		return {
+			name: title,
+			childEntities,
+			relatedEntityGroups: [
+				{
+					direction: "incoming" as const,
+					synchronization: "additive" as const,
+					entities: relatedEntities,
+					relationshipSchemaSlug: "person-to-show",
+				},
+				{
+					direction: "incoming" as const,
+					synchronization: "additive" as const,
+					entities: collectCompanies(show["companies"]),
+					relationshipSchemaSlug: "company-to-show",
+				},
+			],
+			properties: {
+				images,
+				genres,
+				sourceUrl,
+				publishYear,
+				totalEpisodes,
+				unlinkedCreators,
+				totalSeasons: childEntities.length,
+				description: translation.description ?? stringValue(show["overview"]),
+			},
+		};
 	});
 };

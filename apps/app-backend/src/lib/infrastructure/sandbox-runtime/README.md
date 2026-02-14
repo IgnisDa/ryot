@@ -57,7 +57,7 @@ The pool preserves process isolation because every subprocess is still single-us
 
 ## Approved Dependencies
 
-Format-1 modules can import the SDK root plus the explicit `/zod`, `/dayjs`, `/dayjs/custom-parse-format`, `/cheerio`, and `/youtubei` entry points. The compiler bundles the small SDK definition runtime into each script and leaves approved dependency imports external.
+Format-1 modules can import the SDK root plus the explicit `/effect`, `/dayjs`, `/dayjs/custom-parse-format`, `/cheerio`, and `/youtubei` entry points. The compiler bundles the small SDK definition runtime into each script and leaves approved dependency imports external.
 
 `PackageCacheManager` builds the exact pinned package versions into self-contained ESM files under an immutable, content-addressed, read-only directory in `SANDBOX_DENO_DIR`. Its Deno import map resolves approved SDK imports to those local files. A separate content-addressed Deno cache starts without registry packages. Concurrent builders publish atomically and reuse the same verified module set.
 
@@ -95,13 +95,13 @@ Cache keys are isolated per `(executing user, scriptId)`. Executing the same plu
 Format-1 scripts define drivers with SDK input and output schemas. The enqueue request chooses a driver by name; the runner validates input before invoking `run` and output before returning it.
 
 ```ts
-import { defineDriver, defineScript } from "@ryot/sandbox-sdk";
-import * as z from "@ryot/sandbox-sdk/zod";
+import { defineDriver, defineScript } from "@ryot/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 const main = defineDriver(manifest, {
-	input: z.object({ value: z.number() }),
-	output: z.number(),
-	run: async (input) => input.value + 1,
+	input: Schema.Struct({ value: Schema.Number }),
+	output: Schema.Number,
+	run: (input) => Effect.succeed(input.value + 1),
 });
 
 export default defineScript({ manifest, drivers: { main } });
@@ -111,7 +111,8 @@ The SDK run function receives `(input, host, execution)`. `execution` contains `
 
 ## Errors And Debugging
 
-- Host-function exceptions are returned by the bridge and re-thrown by the runner stub.
+- Host-function failures cross the private bridge wire format and become typed `Effect` failures
+  in the runner stub.
 - Completed script failures contain a structured error with a `load`, `input`, `execute`, or `output` phase, message, optional mapped `script.ts` line and column, and an allowlisted source stack.
 - Returned stacks contain only mapped `script.ts` frames. Data URLs, runner and dependency paths, bridge URLs, execution identifiers, and bearer tokens are removed.
 - Bridge validation returns 400 for bad body, 401 for invalid token, 404 for unknown function, and 410 for expired session.

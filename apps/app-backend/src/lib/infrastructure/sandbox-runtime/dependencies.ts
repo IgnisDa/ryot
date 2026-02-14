@@ -10,9 +10,9 @@ const SANDBOX_RUNTIME_DEPENDENCY_FORMAT = 1 as const;
 
 export const SANDBOX_APPROVED_DEPENDENCIES = [
 	{
-		name: "zod",
-		version: "4.4.3",
-		runtimeFile: "zod-4.4.3.mjs",
+		name: "effect",
+		version: "3.21.4",
+		runtimeFile: "effect-3.21.4.mjs",
 		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[0],
 	},
 	{
@@ -55,16 +55,22 @@ const runtimeModules = [
 			resolveFromSdk: false,
 			entryRelativePath: null,
 			sourceImport: dependency.sdkImport,
+			runtimeSource:
+				dependency.name === "effect"
+					? 'import * as Effect from "effect/Effect"; import * as Schema from "effect/Schema"; export { Effect, Schema };'
+					: null,
 		}),
 	),
 	{
 		...SANDBOX_APPROVED_DEPENDENCIES[3],
 		...legacyYoutubeiRuntime,
+		runtimeSource: null,
 		resolveFromSdk: true,
 		sourceImport: legacyYoutubeiRuntime.packageImport,
 	},
 	{
 		...dayjsPluginRuntime,
+		runtimeSource: null,
 		resolveFromSdk: false,
 		entryRelativePath: null,
 		sourceImport: dayjsPluginRuntime.sdkImport,
@@ -139,7 +145,12 @@ const runtimeMatches = (
 		Effect.orElseSucceed(() => false),
 	);
 
-const buildRuntimeModule = (entrypoint: string, outputDirectory: string, runtimeFile: string) =>
+const buildRuntimeModule = (
+	entrypoint: string,
+	outputDirectory: string,
+	runtimeFile: string,
+	runtimeSource: string | null,
+) =>
 	Effect.tryPromise({
 		try: () =>
 			Bun.build({
@@ -149,8 +160,26 @@ const buildRuntimeModule = (entrypoint: string, outputDirectory: string, runtime
 				target: "browser",
 				packages: "bundle",
 				outdir: outputDirectory,
-				entrypoints: [entrypoint],
 				naming: { entry: runtimeFile },
+				entrypoints: [runtimeSource ? "ryot:sandbox-runtime-dependency" : entrypoint],
+				plugins: runtimeSource
+					? [
+							{
+								name: "sandbox-runtime-dependency",
+								setup(builder) {
+									builder.onResolve({ filter: /^ryot:sandbox-runtime-dependency$/ }, () => ({
+										path: runtimeFile,
+										namespace: "sandbox-runtime-dependency",
+									}));
+									builder.onLoad({ filter: /.*/, namespace: "sandbox-runtime-dependency" }, () => ({
+										loader: "js",
+										contents: runtimeSource,
+										resolveDir: entrypoint.slice(0, entrypoint.lastIndexOf("/")),
+									}));
+								},
+							},
+						]
+					: [],
 			}),
 		catch: (error) =>
 			new SandboxRuntimeDependencyError({
@@ -285,7 +314,11 @@ export const ensureSandboxRuntimeDependencies = (denoDir: string) =>
 					const entrypoint = runtimeModule.entryRelativePath
 						? `${resolved.slice(0, resolved.lastIndexOf("/"))}/${runtimeModule.entryRelativePath}`
 						: resolved;
-					return { entrypoint, runtimeFile: runtimeModule.runtimeFile };
+					return {
+						entrypoint,
+						runtimeFile: runtimeModule.runtimeFile,
+						runtimeSource: runtimeModule.runtimeSource,
+					};
 				},
 				catch: (error) =>
 					new SandboxRuntimeDependencyError({
@@ -300,8 +333,8 @@ export const ensureSandboxRuntimeDependencies = (denoDir: string) =>
 				Effect.gen(function* () {
 					yield* Effect.forEach(
 						entries,
-						({ entrypoint, runtimeFile }) =>
-							buildRuntimeModule(entrypoint, temporaryDirectory, runtimeFile),
+						({ entrypoint, runtimeFile, runtimeSource }) =>
+							buildRuntimeModule(entrypoint, temporaryDirectory, runtimeFile, runtimeSource),
 						{ discard: true },
 					);
 					yield* fs.writeFileString(

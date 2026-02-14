@@ -1,5 +1,6 @@
 import type { JsonValue, SandboxHost } from "@ryot/sandbox-sdk/core";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -86,53 +87,56 @@ describe("jellyfin-push sandbox script", () => {
 				{ Id: "jf-item-1", Name: "The Matrix", ProviderIds: { Tmdb: "603" } },
 			]),
 		});
-		return runSandboxTestDriver(
-			definition.drivers.automation,
-			createAutomation(),
-			host,
-			execution,
-		).then(() => {
-			const markCall = calls.find((call) => call.url.includes("/PlayedItems/"));
-			expect(markCall?.method).toBe("POST");
-			expect(markCall?.url).toBe("http://jellyfin.local/Users/jf-user/PlayedItems/jf-item-1");
-			expect(markCall?.options["headers"]).toEqual({ "X-Emby-Token": "jf-token" });
-			return undefined;
-		});
+		return Effect.runPromise(
+			definition.drivers.automation.run(createAutomation(), host, execution).pipe(
+				Effect.map(() => {
+					const markCall = calls.find((call) => call.url.includes("/PlayedItems/"));
+					expect(markCall?.method).toBe("POST");
+					expect(markCall?.url).toBe("http://jellyfin.local/Users/jf-user/PlayedItems/jf-item-1");
+					expect(markCall?.options["headers"]).toEqual({ "X-Emby-Token": "jf-token" });
+					return undefined;
+				}),
+			),
+		);
 	});
 
 	it("no-ops when the item is absent, the entity is unsupported, or integrations are disabled", () => {
 		const calls: HttpCall[] = [];
 		const httpCall = createHttpCall(calls, []);
-		return Promise.all([
-			runSandboxTestDriver(
-				definition.drivers.automation,
-				createAutomation(),
-				createHost({ entity: movieEntity, integrations: [jellyfinIntegration], httpCall }),
-				execution,
-			),
-			runSandboxTestDriver(
-				definition.drivers.automation,
-				createAutomation({
-					subject: { id: "book-1", name: "Book", entitySchemaSlug: "book" },
+		return Effect.runPromise(
+			Effect.all(
+				[
+					definition.drivers.automation.run(
+						createAutomation(),
+						createHost({ entity: movieEntity, integrations: [jellyfinIntegration], httpCall }),
+						execution,
+					),
+					definition.drivers.automation.run(
+						createAutomation({
+							subject: { id: "book-1", name: "Book", entitySchemaSlug: "book" },
+						}),
+						createHost({ entity: movieEntity, integrations: [jellyfinIntegration], httpCall }),
+						execution,
+					),
+					definition.drivers.automation.run(
+						createAutomation(),
+						createHost({
+							httpCall,
+							entity: movieEntity,
+							disableIntegrations: true,
+							integrations: [jellyfinIntegration],
+						}),
+						execution,
+					),
+				],
+				{ concurrency: "unbounded" },
+			).pipe(
+				Effect.map(() => {
+					expect(calls.some((call) => call.url.includes("/PlayedItems/"))).toBe(false);
+					return undefined;
 				}),
-				createHost({ entity: movieEntity, integrations: [jellyfinIntegration], httpCall }),
-				execution,
 			),
-			runSandboxTestDriver(
-				definition.drivers.automation,
-				createAutomation(),
-				createHost({
-					httpCall,
-					entity: movieEntity,
-					disableIntegrations: true,
-					integrations: [jellyfinIntegration],
-				}),
-				execution,
-			),
-		]).then(() => {
-			expect(calls.some((call) => call.url.includes("/PlayedItems/"))).toBe(false);
-			return undefined;
-		});
+		);
 	});
 
 	it("treats a played-item HTTP failure as non-fatal", () => {
@@ -147,16 +151,15 @@ describe("jellyfin-push sandbox script", () => {
 				true,
 			),
 		});
-		return runSandboxTestDriver(
-			definition.drivers.automation,
-			createAutomation(),
-			host,
-			execution,
-		).then((result) => {
-			expect(result).toBeNull();
-			expect(warning).toHaveBeenCalledWith("Jellyfin push failed: already played");
-			warning.mockRestore();
-			return undefined;
-		});
+		return Effect.runPromise(
+			definition.drivers.automation.run(createAutomation(), host, execution).pipe(
+				Effect.map((result) => {
+					expect(result).toBeNull();
+					expect(warning).toHaveBeenCalledWith("Jellyfin push failed: already played");
+					warning.mockRestore();
+					return undefined;
+				}),
+			),
+		);
 	});
 });
