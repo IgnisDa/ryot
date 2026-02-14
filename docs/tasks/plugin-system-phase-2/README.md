@@ -221,8 +221,8 @@ code inside a package), **admin** (installs/uninstalls plugins through the contr
 32. As the plugin developer, I want the whole pipeline to treat my future bundle identically to
     a first-party one (same manifest, same ingestion, same loader), so that user-authored
     plugins are purely additive later (Decision 3, 9, 13).
-33. As a maintainer, I want each touched `CLAUDE.md`/`AGENTS.md`/`README.md` updated where
-    conventions changed (the `builtins` module's `CLAUDE.md` semantics move with the code), so
+33. As a maintainer, I want each touched `AGENTS.md`/`AGENTS.md`/`README.md` updated where
+    conventions changed (the `builtins` module's `AGENTS.md` semantics move with the code), so
     that documentation follows the code (cross-phase invariant 7).
 34. As the owner, I want the branch to stay shippable at the end of the phase — backend `check`
     and unit tests, the full e2e suite, and the `app-client` check all green — so that Phase 3
@@ -291,7 +291,7 @@ them (and risk drift), this PRD points to the exact sections that own them:
   first/third-party difference (Decision 3), the one-generic-invoke API-surface discipline
   (Decision 9 — no plugin-specific contract endpoints), source-canonical content-addressed
   ingestion (Decision 12), hot-load semantics (Decision 13), slug namespacing with `/`
-  forbidden (Decision 18), and the module conventions in `apps/app-backend/CLAUDE.md`: overview
+  forbidden (Decision 18), and the module conventions in `apps/app-backend/AGENTS.md`: overview
   decision record and cross-phase invariants.
 
 Follow the plan markers when a section leaves room: `[DECIDED]` is fixed, `[RECOMMENDED]` is
@@ -325,7 +325,7 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
   unit/integration test (done criterion 5).
 - **Prior art:** the existing hermetic provider fixture
   (`tests/src/fixtures/sandbox-provider.ts`) and the `fakeProvider*` builders it uses are the
-  starting point for `installTestPlugin`; conventions live in `tests/CLAUDE.md` (update it
+  starting point for `installTestPlugin`; conventions live in `tests/AGENTS.md` (update it
   where conventions change). Run e2e and backend tests from their own app directories per
   `AGENTS.md`.
 - **The gate** (done criterion 6, cross-phase invariant 1):
