@@ -6,6 +6,7 @@ import { Clock, Duration, Effect, Match, Runtime, Schema } from "effect";
 
 import { AppConfig } from "../config/service";
 import { redisKeys, RedisService } from "../redis";
+import { ServerRun } from "../server-run";
 import { makeAdditionalSandboxApiFunctions } from "./host-functions";
 import { BridgeService, invalidateProcess, ProcessPool } from "./runtime";
 import { apiFailure, apiSuccess, type BoundHostFunction, requireSandboxRunInput } from "./shared";
@@ -40,7 +41,8 @@ const httpCallTimeoutMs = 8_000;
 const sessionTtlBufferMs = 2_000;
 const invalidResponseMessage = "Invalid JSON response from Deno process";
 const defaultHeaders = { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )" };
-const getCacheKey = (scriptId: string, key: string) => redisKeys.sandboxCache(scriptId, key);
+const getCacheKey = (serverRunId: string, scriptId: string, key: string) =>
+	redisKeys.sandboxRunCache(serverRunId, scriptId, key);
 
 const SandboxRunnerRequest = Schema.Struct({
 	token: Schema.String,
@@ -111,6 +113,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 		const pool = yield* ProcessPool;
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
+		const serverRun = yield* ServerRun;
 		const bridge = yield* BridgeService;
 
 		const runtime = yield* Effect.runtime();
@@ -218,7 +221,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 				}
 
 				return runPromise(
-					redis.get(getCacheKey(input.scriptId, key.trim())).pipe(
+					redis.get(getCacheKey(serverRun.id, input.scriptId, key.trim())).pipe(
 						Effect.flatMap((cached) => {
 							if (cached === null) {
 								return Effect.succeed(apiSuccess(null));
@@ -309,7 +312,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					Schema.encode(Schema.parseJson(Schema.Unknown))(value).pipe(
 						Effect.flatMap((serialized) =>
 							redis
-								.set(getCacheKey(input.scriptId, key.trim()), serialized, expiry)
+								.set(getCacheKey(serverRun.id, input.scriptId, key.trim()), serialized, expiry)
 								.pipe(Effect.as(apiSuccess(null)), Effect.orDie),
 						),
 						Effect.orElseSucceed(() =>
