@@ -30,15 +30,15 @@ export type AppEntityImage =
 
 export type AppEntity = Omit<
 	ApiEntity,
-	"createdAt" | "updatedAt" | "populatedAt" | "image" | "detailsSandboxScriptId"
+	"createdAt" | "updatedAt" | "populatedAt" | "image" | "entitySchemaId"
 > & {
 	createdAt: Date;
 	updatedAt: Date;
 	populatedAt?: Date;
 	image: AppEntityImage;
+	entitySchemaId?: string;
 	sandboxScriptId: string | null;
 	fields?: QueryEngineItem["fields"];
-	entitySchemaSlug?: QueryEngineItem["entitySchemaSlug"];
 };
 
 export function createEntityRuntimeRequest(
@@ -86,7 +86,7 @@ export function toAppEntityImage(image: unknown): AppEntityImage {
 function isQueryEngineEntity(
 	entity: ApiEntityInput,
 ): entity is QueryEngineItem {
-	return "entitySchemaSlug" in entity;
+	return !("entitySchemaId" in entity);
 }
 
 export function toAppEntity(entity: ApiEntityInput): AppEntity {
@@ -96,14 +96,10 @@ export function toAppEntity(entity: ApiEntityInput): AppEntity {
 		? null
 		: entity.sandboxScriptId;
 	const fields = isQueryEngineEntity(entity) ? entity.fields : undefined;
-	const {
-		id,
-		name,
-		createdAt,
-		updatedAt,
-		entitySchemaId,
-		image: entityImage,
-	} = entity;
+	const entitySchemaId = isQueryEngineEntity(entity)
+		? undefined
+		: entity.entitySchemaId;
+	const { id, name, createdAt, updatedAt, image: entityImage } = entity;
 	const populatedAt = isQueryEngineEntity(entity)
 		? undefined
 		: dayjs(entity.populatedAt).toDate();
@@ -118,11 +114,8 @@ export function toAppEntity(entity: ApiEntityInput): AppEntity {
 		sandboxScriptId,
 		createdAt: dayjs(createdAt).toDate(),
 		updatedAt: dayjs(updatedAt).toDate(),
-		populatedAt: dayjs(populatedAt).toDate(),
+		populatedAt,
 		image: toAppEntityImage(entityImage),
-		entitySchemaSlug: isQueryEngineEntity(entity)
-			? entity.entitySchemaSlug
-			: undefined,
 	};
 }
 

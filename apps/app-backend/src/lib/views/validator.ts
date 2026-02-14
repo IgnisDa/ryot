@@ -91,6 +91,26 @@ export const validateRuntimeReferenceAgainstSchemas = (
 		return;
 	}
 
+	if (reference.type === "entity-schema") {
+		const [column] = reference.path;
+		if (!column) {
+			throw new QueryEngineValidationError(
+				"Entity schema reference path must not be empty",
+			);
+		}
+		if (reference.path.length > 1) {
+			throw new QueryEngineValidationError(
+				`Entity schema column 'entity-schema.${reference.path.join(".")}' does not support nested paths`,
+			);
+		}
+		if (!validBuiltins.has(column)) {
+			throw new QueryEngineValidationError(
+				`Entity schema column 'entity-schema.${column}' is not valid in this context`,
+			);
+		}
+		return;
+	}
+
 	const join = getEventJoinForReference(context.eventJoinMap, reference);
 
 	if (reference.path[0] === "properties") {
@@ -186,6 +206,7 @@ export const validateExpressionAgainstSchemas = (
 			context,
 			predicate: expression.condition,
 			computedFields: [...computedFieldMap.values()],
+			validBuiltins,
 		});
 		validateExpressionAgainstSchemas(
 			expression.whenTrue,
@@ -279,6 +300,7 @@ export const validateQueryEngineReferences = (
 			context,
 			predicate: request.filter,
 			computedFields: request.computedFields,
+			validBuiltins: sortFilterBuiltins,
 		});
 	}
 

@@ -103,6 +103,54 @@ const eventJoinColumns = {
 	},
 } satisfies Record<string, RuntimeColumnConfig>;
 
+const entitySchemaRuntimeColumns = {
+	id: {
+		filter: true,
+		display: true,
+		property: { label: "ID", type: "string" },
+	},
+	icon: {
+		display: true,
+		filter: false,
+		property: { label: "Icon", type: "string" },
+	},
+	name: {
+		filter: true,
+		display: true,
+		property: { label: "Name", type: "string" },
+	},
+	slug: {
+		filter: true,
+		display: true,
+		property: { label: "Slug", type: "string" },
+	},
+	userId: {
+		filter: true,
+		display: true,
+		property: { label: "User ID", type: "string" },
+	},
+	isBuiltin: {
+		filter: true,
+		display: true,
+		property: { label: "Is Builtin", type: "boolean" },
+	},
+	createdAt: {
+		filter: true,
+		display: true,
+		property: { label: "Created At", type: "datetime" },
+	},
+	updatedAt: {
+		filter: true,
+		display: true,
+		property: { label: "Updated At", type: "datetime" },
+	},
+	accentColor: {
+		filter: false,
+		display: true,
+		property: { label: "Accent Color", type: "string" },
+	},
+} satisfies Record<string, RuntimeColumnConfig>;
+
 const hasOwnKey = <T extends object>(
 	value: T,
 	key: PropertyKey,
@@ -121,17 +169,23 @@ const getRuntimeColumnConfig = <T extends Record<string, RuntimeColumnConfig>>(
 	return columns[column];
 };
 
-export const sortFilterBuiltins: ReadonlySet<string> = new Set(
-	Object.entries(entityRuntimeColumns)
+export const sortFilterBuiltins: ReadonlySet<string> = new Set([
+	...Object.entries(entityRuntimeColumns)
 		.filter(([, value]) => value.filter)
 		.map(([key]) => key),
-);
+	...Object.entries(entitySchemaRuntimeColumns)
+		.filter(([, value]) => value.filter)
+		.map(([key]) => key),
+]);
 
-export const displayBuiltins: ReadonlySet<string> = new Set(
-	Object.entries(entityRuntimeColumns)
+export const displayBuiltins: ReadonlySet<string> = new Set([
+	...Object.entries(entityRuntimeColumns)
 		.filter(([, value]) => value.display)
 		.map(([key]) => key),
-);
+	...Object.entries(entitySchemaRuntimeColumns)
+		.filter(([, value]) => value.display)
+		.map(([key]) => key),
+]);
 
 export const getEntityColumnPropertyDefinition = (
 	column: string,
@@ -143,6 +197,20 @@ export const getEntityColumnPropertyType = (
 	column: string,
 ): PropertyType | null => {
 	return getEntityColumnPropertyDefinition(column)?.type ?? null;
+};
+
+export const getEntitySchemaColumnPropertyDefinition = (
+	column: string,
+): AppPropertyDefinition | null => {
+	return (
+		getRuntimeColumnConfig(entitySchemaRuntimeColumns, column)?.property ?? null
+	);
+};
+
+export const getEntitySchemaColumnPropertyType = (
+	column: string,
+): PropertyType | null => {
+	return getEntitySchemaColumnPropertyDefinition(column)?.type ?? null;
 };
 
 export const getEventJoinColumnPropertyDefinition = (

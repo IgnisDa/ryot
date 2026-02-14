@@ -148,7 +148,10 @@ describe("buildFilterWhereClause", () => {
 			[
 				{
 					key: "makerLabel",
-					expression: createEntityPropertyExpression("smartphones", "manufacturer"),
+					expression: createEntityPropertyExpression(
+						"smartphones",
+						"manufacturer",
+					),
 				},
 			],
 		);
@@ -187,7 +190,7 @@ describe("buildFilterWhereClause", () => {
 
 		expect(clause.sql.toLowerCase()).toContain(" and ");
 		expect(clause.sql.toLowerCase()).toContain(" or ");
-		expect(clause.sql).toContain("entity_schema_slug");
+		expect(clause.sql).toContain("entity_schema_data");
 	});
 
 	it("builds null-check predicates", () => {

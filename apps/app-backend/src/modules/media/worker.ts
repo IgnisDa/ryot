@@ -53,7 +53,6 @@ const extractPrimaryImage = (images: unknown) => {
 	return parsedImages.success ? (parsedImages.data[0] ?? null) : null;
 };
 
-
 export const hasImportedEntityDetails = (
 	entity: Pick<ListedEntity, "image" | "properties" | "populatedAt">,
 ) => {

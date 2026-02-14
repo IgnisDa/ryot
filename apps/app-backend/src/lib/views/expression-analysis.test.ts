@@ -55,7 +55,10 @@ describe("inferViewExpressionType", () => {
 				context,
 				expression: {
 					type: "round",
-					expression: createEntityPropertyExpression("smartphones", "screenSize"),
+					expression: createEntityPropertyExpression(
+						"smartphones",
+						"screenSize",
+					),
 				},
 			}),
 		).toEqual({
@@ -84,7 +87,10 @@ describe("inferViewExpressionType", () => {
 					whenFalse: { type: "literal", value: null },
 					condition: {
 						type: "isNotNull",
-						expression: createEntityPropertyExpression("smartphones", "manufacturer"),
+						expression: createEntityPropertyExpression(
+							"smartphones",
+							"manufacturer",
+						),
 					},
 				},
 			}),
@@ -110,11 +116,20 @@ describe("inferViewExpressionType", () => {
 				context,
 				expression: {
 					type: "conditional",
-					whenTrue: createEntityPropertyExpression("smartphones", "manufacturer"),
-					whenFalse: createEntityPropertyExpression("smartphones", "releaseYear"),
+					whenTrue: createEntityPropertyExpression(
+						"smartphones",
+						"manufacturer",
+					),
+					whenFalse: createEntityPropertyExpression(
+						"smartphones",
+						"releaseYear",
+					),
 					condition: {
 						type: "isNotNull",
-						expression: createEntityPropertyExpression("smartphones", "manufacturer"),
+						expression: createEntityPropertyExpression(
+							"smartphones",
+							"manufacturer",
+						),
 					},
 				},
 			}),
