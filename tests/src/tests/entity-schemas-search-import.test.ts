@@ -32,11 +32,6 @@ const ANIME_IMPORT_NAME = "E2E Imported Anime";
 const RELATED_COMPANY_NAME = "E2E Studio";
 const RELATED_COMPANY_EXTERNAL_ID = "e2e-company-1";
 
-// Fake builtin providers returning fixed data with no network access:
-// - bookProvider: `search` + `details`, used for the generic search/import happy-path cases.
-// - animeProvider: a `details` result that references a related company entity by the company
-//   provider's slug, exercising the related-entity + relationship import path offline.
-// - companyProvider: linked to the company schema so the related entity resolves to it by slug.
 let bookProvider: SeededProviderScript;
 let animeProvider: SeededProviderScript;
 let companyProvider: SeededProviderScript;
@@ -82,7 +77,6 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-	// Sequential: animeProvider owns the company→anime relationship; clean it before its endpoints.
 	await cleanupBuiltinProviderScript(animeProvider);
 	await cleanupBuiltinProviderScript(companyProvider);
 	await cleanupBuiltinProviderScript(bookProvider);

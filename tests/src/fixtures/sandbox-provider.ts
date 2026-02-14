@@ -8,11 +8,6 @@ export type SeededProviderScript = {
 	entitySchemaScriptId: string | null;
 };
 
-// Seeds a builtin (global, user_id null) sandbox_script row directly via SQL, mirroring how the
-// backend seeds real provider scripts at startup. This lets e2e tests exercise the provider-driven
-// flows (search, details/import, populate, translate) against deterministic offline data instead of
-// a live external API. Optionally links the script to an entity schema via entity_schema_script so it
-// resolves as a provider for that schema (needed when a `details` result references it by slug).
 export async function seedBuiltinProviderScript(input: {
 	code: string;
 	slug?: string;
@@ -44,9 +39,6 @@ export async function seedBuiltinProviderScript(input: {
 	return { slug, scriptId, entitySchemaScriptId };
 }
 
-// Removes everything a seeded provider script may have produced (global entities plus any
-// relationship touching them), the schema link, then the script itself. Safe for afterAll/afterEach:
-// all failures are swallowed so cleanup never masks a test failure.
 export async function cleanupBuiltinProviderScript(seeded: SeededProviderScript): Promise<void> {
 	const pg = getPgClient();
 	try {
@@ -68,10 +60,6 @@ export async function cleanupBuiltinProviderScript(seeded: SeededProviderScript)
 		console.error("[sandbox-provider] cleanup failed (non-fatal)", error);
 	}
 }
-
-// ─── Deterministic driver-code builders ──────────────────────────────────────
-// Each builder emits a `driver("<kind>", ...)` registration returning fixed data with no network
-// access. Concatenate several (join with "\n") to register multiple drivers in one script.
 
 export type FakeSearchItem = {
 	title: string;
@@ -119,10 +107,6 @@ export function detailsDriverCode(result: {
 	return `driver("details", async function () { return ${JSON.stringify(payload)}; });`;
 }
 
-// Emits a `translate` driver that returns a fixed overlay for each language present in
-// `translations` and an empty object (→ negative-cache, all-null overlay) for any other language.
-// Always registering a translate driver keeps the "populate never triggers a premature translate"
-// test honest: an erroneous translate enqueue would write an all-null overlay rather than error out.
 export function translateDriverCode(
 	translations: Record<
 		string,
