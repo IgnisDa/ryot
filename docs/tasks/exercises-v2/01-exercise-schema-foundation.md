@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -22,12 +22,12 @@ See the **Exercise Entity Schema**, **Exercise Properties Schema**, **Database S
 
 ## Acceptance criteria
 
-- [ ] A new migration is generated and applies cleanly.
-- [ ] The new partial unique index exists on the `entity` table after migration.
-- [ ] A newly registered user has the Fitness tracker in their tracker list.
-- [ ] That user has an "All Exercises" saved view under the Fitness tracker.
-- [ ] The exercise entity schema is visible via `GET /entity-schemas` for the user.
-- [ ] `bun run typecheck` passes with no errors.
+- [x] A new migration is generated and applies cleanly.
+- [x] The new partial unique index exists on the `entity` table after migration.
+- [x] A newly registered user has the Fitness tracker in their tracker list.
+- [x] That user has an "All Exercises" saved view under the Fitness tracker.
+- [x] The exercise entity schema is visible via `GET /entity-schemas` for the user.
+- [x] `bun run typecheck` passes with no errors.
 
 ## User stories addressed
 
