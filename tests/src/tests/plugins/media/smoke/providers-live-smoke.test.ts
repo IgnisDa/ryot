@@ -82,7 +82,7 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 		}),
 	);
 
-	it.scopedLive(
+	it.live(
 		"translates a real TMDB movie on interest (requires tmdbAccessToken)",
 		() =>
 			Effect.gen(function* () {
