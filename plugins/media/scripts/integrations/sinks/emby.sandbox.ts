@@ -12,7 +12,7 @@ export const manifest = defineManifest({
 	slug: "integration.emby",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["getIntegration"],
+	capabilities: ["getCurrentIntegration"],
 });
 
 export default defineActivity({
@@ -21,7 +21,7 @@ export default defineActivity({
 	output: MediaIntegrationAdapterResult,
 	run: (input, host) =>
 		host
-			.getIntegration()
+			.getCurrentIntegration()
 			.pipe(
 				Effect.flatMap((integration) =>
 					parseMediaServer("Emby", input.rawBody, integration.providerSpecifics),

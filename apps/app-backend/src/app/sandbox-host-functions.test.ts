@@ -98,12 +98,14 @@ const subscriptionAuthority = (
 		},
 	}) satisfies ExecutionAuthority;
 
-const runGetIntegration = (
+const runGetCurrentIntegration = (
 	authority: ExecutionAuthority,
 	getForUser: (input: GetForUserInput) => Effect.Effect<IntegrationRecord | null>,
 ) =>
 	makeAdditionalSandboxApiFunctions.pipe(
-		Effect.flatMap((functions) => Effect.result(functions.getIntegration(runInput(authority)))),
+		Effect.flatMap((functions) =>
+			Effect.result(functions.getCurrentIntegration(runInput(authority))),
+		),
 		Effect.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
@@ -124,11 +126,11 @@ const runGetIntegration = (
 		),
 	);
 
-describe("getIntegration", () => {
+describe("getCurrentIntegration", () => {
 	it.effect("resolves the integration the operation execution was dispatched for", () =>
 		Effect.gen(function* () {
 			const requested: GetForUserInput[] = [];
-			const result = yield* runGetIntegration(
+			const result = yield* runGetCurrentIntegration(
 				{
 					type: "user",
 					userId: UserId.make("user-1"),
@@ -155,7 +157,7 @@ describe("getIntegration", () => {
 	it.effect("resolves the integration a subscription execution originated from", () =>
 		Effect.gen(function* () {
 			const requested: GetForUserInput[] = [];
-			const result = yield* runGetIntegration(
+			const result = yield* runGetCurrentIntegration(
 				subscriptionAuthority({
 					kind: "integration",
 					integrationId: IntegrationId.make("int-origin"),
@@ -179,13 +181,14 @@ describe("getIntegration", () => {
 			] satisfies ExecutionAuthority[],
 			(authority) =>
 				Effect.gen(function* () {
-					const result = yield* runGetIntegration(authority, () =>
+					const result = yield* runGetCurrentIntegration(authority, () =>
 						Effect.die("must not reach the repository"),
 					);
 
 					expect(Result.getFailure(result)).toEqual(
 						Option.some({
-							message: "getIntegration is available only to executions scoped to an integration",
+							message:
+								"getCurrentIntegration is available only to executions scoped to an integration",
 						}),
 					);
 				}),
@@ -194,7 +197,7 @@ describe("getIntegration", () => {
 
 	it.effect("keeps the executing user's ownership scope", () =>
 		Effect.gen(function* () {
-			const result = yield* runGetIntegration(
+			const result = yield* runGetCurrentIntegration(
 				{
 					type: "user",
 					userId: UserId.make("user-1"),

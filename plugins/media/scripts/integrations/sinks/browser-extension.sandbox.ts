@@ -16,11 +16,11 @@ import {
 
 export const manifest = defineManifest({
 	kind: "activity",
-	name: "Ryot browser extension sink",
-	slug: "integration.browser-extension",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["getIntegration"],
+	name: "Ryot browser extension sink",
+	slug: "integration.browser-extension",
+	capabilities: ["getCurrentIntegration"],
 });
 
 const hostname = (url?: string) => {
@@ -51,7 +51,7 @@ export default defineActivity({
 	input: SinkInput,
 	output: MediaIntegrationAdapterResult,
 	run: (input, host) =>
-		host.getIntegration().pipe(
+		host.getCurrentIntegration().pipe(
 			Effect.flatMap((integration) =>
 				Effect.try(() => {
 					const payload = jsonRecord(input.rawBody);

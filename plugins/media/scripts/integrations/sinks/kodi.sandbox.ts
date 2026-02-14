@@ -12,7 +12,7 @@ export const manifest = defineManifest({
 	slug: "integration.kodi",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["getIntegration"],
+	capabilities: ["getCurrentIntegration"],
 });
 
 export const parseKodi = (rawBody: string) =>
@@ -64,5 +64,6 @@ export default defineActivity({
 	manifest,
 	input: SinkInput,
 	output: MediaIntegrationAdapterResult,
-	run: (input, host) => host.getIntegration().pipe(Effect.flatMap(() => parseKodi(input.rawBody))),
+	run: (input, host) =>
+		host.getCurrentIntegration().pipe(Effect.flatMap(() => parseKodi(input.rawBody))),
 });

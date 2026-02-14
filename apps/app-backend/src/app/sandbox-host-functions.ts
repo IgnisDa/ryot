@@ -463,13 +463,13 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				),
 				sandboxHostEffect,
 			),
-		getIntegration: (rawInput) =>
-			requireUserSandboxRunInput(rawInput, "getIntegration").pipe(
+		getCurrentIntegration: (rawInput) =>
+			requireUserSandboxRunInput(rawInput, "getCurrentIntegration").pipe(
 				Effect.flatMap((input) => {
 					const integrationId = sandboxRunIntegrationId(input);
 					if (!integrationId) {
 						return Effect.fail(
-							"getIntegration is available only to executions scoped to an integration",
+							"getCurrentIntegration is available only to executions scoped to an integration",
 						);
 					}
 
@@ -533,25 +533,13 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 			Effect.gen(function* () {
 				const input = yield* requireUserSandboxRunInput(rawInput, "listIntegrations");
 				const options = rawOptions ?? {};
-				if (!isObjectRecord(options)) {
-					return yield* sandboxHostFailure("listIntegrations expects an object");
-				}
-
-				const provider = options["provider"];
-				const isDisabled = options["isDisabled"];
-				if (provider !== undefined && typeof provider !== "string") {
-					return yield* sandboxHostFailure("listIntegrations provider must be a string");
-				}
-				if (isDisabled !== undefined && typeof isDisabled !== "boolean") {
-					return yield* sandboxHostFailure("listIntegrations isDisabled must be a boolean");
-				}
 
 				return yield* sandboxHostEffect(
 					runWithDb(
 						integrationsRepository.listForUser({
 							userId: UserId.make(input.authority.userId),
-							...(typeof provider === "string" ? { provider } : {}),
-							...(typeof isDisabled === "boolean" ? { isDisabled } : {}),
+							...(options.provider !== undefined ? { provider: options.provider } : {}),
+							...(options.isDisabled !== undefined ? { isDisabled: options.isDisabled } : {}),
 						}),
 					).pipe(Effect.map((rows) => rows.map(toSandboxIntegration))),
 				);

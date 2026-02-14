@@ -8,10 +8,10 @@ import { failureResult, SinkInput } from "../shared";
 export const manifest = defineManifest({
 	kind: "activity",
 	name: "Generic JSON sink",
-	slug: "integration.generic-json",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["getIntegration"],
+	slug: "integration.generic-json",
+	capabilities: ["getCurrentIntegration"],
 });
 
 export default defineActivity({
@@ -20,7 +20,7 @@ export default defineActivity({
 	output: MediaIntegrationAdapterResult,
 	run: (_input, host) =>
 		host
-			.getIntegration()
+			.getCurrentIntegration()
 			.pipe(
 				Effect.as(
 					failureResult("generic_json integration is not implemented in V2 yet", "source_fetch"),
