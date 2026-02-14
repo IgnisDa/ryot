@@ -90,7 +90,6 @@ const storedState = (
 	metadata: definition.metadata,
 	createdAt: "2026-07-20T10:00:00.000Z",
 	updatedAt: "2026-07-20T10:00:00.000Z",
-	scriptSlug: "automation.notification",
 	...input,
 });
 
@@ -137,6 +136,7 @@ const definitions = makeDefinitionRegistry({
 			catalogState: "active",
 			propertiesSchema: { fields: {} },
 			audiencePolicy: { kind: "actor" },
+			notificationScriptSlug: kernelScript.slug,
 		},
 	],
 });
@@ -178,7 +178,7 @@ it.effect("resolves only built-in rules for a global row", () => {
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("resolves the owner's and built-in rules for a user row", () => {
+it.effect("resolves a source-zero notification formatter for the row owner", () => {
 	const own = storedRule();
 	const globalBuiltin = storedRule({ userId: null, isBuiltin: true });
 	const layer = makeLayer(
@@ -204,11 +204,60 @@ it.effect("resolves the owner's and built-in rules for a user row", () => {
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("resolves notification state through an active plugin formatter", () => {
+	const pluginScript = { ...kernelScript, pluginSlug: "reviews", slug: kernelScript.slug };
+	const layer = makeLayer(
+		makeRepository({
+			isUserEnabled: () => Effect.succeed(true),
+			listActiveNotificationSubscriptions: () => Effect.succeed([storedState()]),
+		}),
+		{
+			findActiveScript: (slug) => {
+				expect(slug).toBe(kernelScript.slug);
+				return Effect.succeed(pluginScript);
+			},
+			findKernelScript: () => Effect.die("plugin formatter fell back to source zero"),
+		},
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* AutomationsService;
+		const rules = yield* service.resolveActive({ target, operation: "signal", rowUserId: userId });
+		expect(rules).toEqual([storedRule()]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("treats state with no live formatter as inert", () => {
+	const layer = makeLayer(
+		makeRepository({
+			isUserEnabled: () => Effect.succeed(true),
+			findRunById: () => Effect.succeed(null),
+			lockActiveNotificationSubscription: () => Effect.succeed(storedState()),
+			listActiveNotificationSubscriptions: () => Effect.succeed([storedState()]),
+			insertRun: () => Effect.die("stale notification state inserted a run"),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* AutomationsService;
+		expect(
+			yield* service.resolveActive({ target, operation: "signal", rowUserId: userId }),
+		).toEqual([]);
+		expect(
+			yield* service.prepareRun({
+				ruleId,
+				signalId,
+				rowUserId: userId,
+				operation: "signal",
+				sourceKind: "signal",
+				occurrenceId: "stale-occurrence",
+			}),
+		).toBeNull();
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("resolves global lifecycle bindings without reading automation rules", () => {
-	const lifecycleTarget = {
-		kind: "entity_schema" as const,
-		id: EntitySchemaSlug.make("movie"),
-	};
+	const lifecycleTarget = { kind: "entity_schema" as const, id: EntitySchemaSlug.make("movie") };
 	const binding = storedRule({
 		userId: null,
 		isBuiltin: true,

@@ -62,6 +62,7 @@ export const PluginSignalSchema = strictStruct({
 	name: Schema.String,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
+	notificationScriptSlug: Schema.String,
 	audiencePolicy: PluginSignalAudiencePolicy,
 	catalogState: Schema.Literal("active", "hidden"),
 });

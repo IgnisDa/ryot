@@ -143,6 +143,7 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			catalogState: "active",
 			slug: "integration.disabled",
 			name: "Integration Disabled",
+			notificationScriptSlug: "automation.notification",
 			audiencePolicy: { kind: "actor" },
 			propertiesSchema: {
 				unknownKeys: "strict",
