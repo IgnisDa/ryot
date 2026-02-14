@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
+import { createEntityPropertyExpression } from "@ryot/ts-utils";
 import {
 	createSmartphoneSchema,
 	createTabletSchema,
 	literalExpression,
-	schemaPropertyExpression,
 } from "~/lib/test-fixtures";
 import type { ViewComputedField } from "./expression";
 import { inferViewExpressionType } from "./expression-analysis";
@@ -23,7 +23,7 @@ describe("inferViewExpressionType", () => {
 					operator: "add",
 					type: "arithmetic",
 					right: literalExpression(1),
-					left: schemaPropertyExpression("smartphones", "releaseYear"),
+					left: createEntityPropertyExpression("smartphones", "releaseYear"),
 				},
 			}),
 		).toEqual({
@@ -38,9 +38,9 @@ describe("inferViewExpressionType", () => {
 				expression: {
 					type: "concat",
 					values: [
-						schemaPropertyExpression("smartphones", "manufacturer"),
+						createEntityPropertyExpression("smartphones", "manufacturer"),
 						literalExpression(" "),
-						schemaPropertyExpression("smartphones", "releaseYear"),
+						createEntityPropertyExpression("smartphones", "releaseYear"),
 					],
 				},
 			}),
@@ -55,7 +55,7 @@ describe("inferViewExpressionType", () => {
 				context,
 				expression: {
 					type: "round",
-					expression: schemaPropertyExpression("smartphones", "screenSize"),
+					expression: createEntityPropertyExpression("smartphones", "screenSize"),
 				},
 			}),
 		).toEqual({
@@ -84,7 +84,7 @@ describe("inferViewExpressionType", () => {
 					whenFalse: { type: "literal", value: null },
 					condition: {
 						type: "isNotNull",
-						expression: schemaPropertyExpression("smartphones", "manufacturer"),
+						expression: createEntityPropertyExpression("smartphones", "manufacturer"),
 					},
 				},
 			}),
@@ -96,7 +96,7 @@ describe("inferViewExpressionType", () => {
 				expression: {
 					type: "concat",
 					values: [
-						schemaPropertyExpression("smartphones", "manufacturer"),
+						createEntityPropertyExpression("smartphones", "manufacturer"),
 						imageExpression,
 					],
 				},
@@ -110,11 +110,11 @@ describe("inferViewExpressionType", () => {
 				context,
 				expression: {
 					type: "conditional",
-					whenTrue: schemaPropertyExpression("smartphones", "manufacturer"),
-					whenFalse: schemaPropertyExpression("smartphones", "releaseYear"),
+					whenTrue: createEntityPropertyExpression("smartphones", "manufacturer"),
+					whenFalse: createEntityPropertyExpression("smartphones", "releaseYear"),
 					condition: {
 						type: "isNotNull",
-						expression: schemaPropertyExpression("smartphones", "manufacturer"),
+						expression: createEntityPropertyExpression("smartphones", "manufacturer"),
 					},
 				},
 			}),
@@ -130,9 +130,9 @@ describe("inferViewExpressionType", () => {
 					expression: {
 						type: "concat",
 						values: [
-							schemaPropertyExpression("smartphones", "manufacturer"),
+							createEntityPropertyExpression("smartphones", "manufacturer"),
 							literalExpression(" "),
-							schemaPropertyExpression("smartphones", "releaseYear"),
+							createEntityPropertyExpression("smartphones", "releaseYear"),
 						],
 					},
 				},
