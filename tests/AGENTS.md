@@ -4,8 +4,9 @@ This package contains end-to-end and integration-style tests for Ryot.
 
 ## Conventions
 
+- Keep end-to-end suites in `tests/src/<domain>/` folders that mirror backend modules; prefer descriptive filenames over `index.test.ts`.
 - Prefer shared helpers in `tests/src/fixtures` for repeated auth setup, API setup, and test data builders.
-- Favor fixture files with clear ownership (`auth`, `trackers`, `entity-schemas`, `saved-views`, `query-engine`) over generic catch-all helpers.
+- Favor fixture files with clear ownership (`auth`, `entity-import`, `entity-interest`, `entity-schemas`, `events`, `query-engine`, `saved-views`, `trackers`) over generic catch-all helpers.
 - Keep `tests/src/test-support` for cross-cutting test infrastructure (assertions, backend/container provisioning), not domain fixtures.
 - Do not refactor `tests/src/seed-script.ts` as part of test fixture cleanup unless explicitly requested.
 - Document how a test pattern or fixture works in this file, and how the backend behaves in `apps/app-backend/AGENTS.md`, rather than in scattered code comments. Keep inline comments to hyper-local notes that decode a single assertion (expected order, arithmetic) or justify a lint suppression.

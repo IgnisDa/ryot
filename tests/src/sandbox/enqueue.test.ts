@@ -38,6 +38,7 @@ describe("sandbox enqueue by script ID", () => {
 
 		const result = await pollSandboxResult(client, jobId);
 		expect(result.status).not.toBe("pending");
+	});
 
 	it("completes with a host-function error when executeQueryEngine is not allowed", async () => {
 		const { client } = await createAuthenticatedClient();

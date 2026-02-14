@@ -76,6 +76,7 @@ describe("before_create triggers", () => {
 
 		const events = await listEventsForEntity(client, entityId);
 		expect(events).toHaveLength(0);
+	});
 
 	it("replace modifies the persisted event properties", async () => {
 		const { client, userId } = await createAuthenticatedClient();
@@ -101,6 +102,7 @@ describe("before_create triggers", () => {
 		const events = await listEventsForEntity(client, entityId);
 		expect(events).toHaveLength(1);
 		expect(requirePresent(events[0], "Expected event").properties).toMatchObject({ value: 999 });
+	});
 
 	it("fail-closed: before-trigger error happens after enqueue and prevents event creation", async () => {
 		const { client, userId } = await createAuthenticatedClient();
@@ -127,6 +129,7 @@ describe("before_create triggers", () => {
 
 		const events = await listEventsForEntity(client, entityId);
 		expect(events).toHaveLength(0);
+	});
 
 	it("two triggers run in ascending position order", async () => {
 		const { client, userId } = await createAuthenticatedClient();
@@ -159,4 +162,5 @@ describe("before_create triggers", () => {
 		const events = await listEventsForEntity(client, entityId);
 		expect(events).toHaveLength(1);
 		expect(requirePresent(events[0], "Expected event").properties).toMatchObject({ x: 3 });
+	});
 });
