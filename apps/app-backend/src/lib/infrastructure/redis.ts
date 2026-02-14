@@ -6,11 +6,14 @@ import { AppConfig } from "./config/service";
 export const redisKeys = {
 	entityUpdatedChannel: "ryot:entity:updated",
 	uploadToken: (token: string) => `ryot:upload:token:${token}`,
+	betterAuthApiKeyById: (id: string) => `better-auth:api-key:by-id:${id}`,
 	godModePendingReset: (email: string) => `ryot:god-mode:pending:${email}`,
 	sandboxSession: (executionId: string) => `ryot:sandbox:session:${executionId}`,
 	importSourcePayload: (runId: string) => `ryot:imports:source-payload:${runId}`,
+	betterAuthApiKeyByHash: (hashedKey: string) => `better-auth:api-key:${hashedKey}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
 	sandboxCache: (scriptId: string, key: string) => `ryot:sandbox:cache:${scriptId}:${key}`,
+	betterAuthApiKeyByReference: (referenceId: string) => `better-auth:api-key:by-ref:${referenceId}`,
 	integrationCache: (integrationId: string, key: string) =>
 		`ryot:integrations:cache:${integrationId}:${key}`,
 };
