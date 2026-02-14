@@ -437,16 +437,14 @@ export default defineWorkflow({
   manifest,
   input: Schema.Unknown,
   output: Schema.Unknown,
-  run: (_input, replay) => Effect.gen(function* () {
-    const results = [];
+  run: (_input, replay) => Effect.all([
 ${cases
 	.map(
 		(name) =>
-			`    results.push(yield* replay.activity(${JSON.stringify(name)}, activity(${JSON.stringify(activitySlug(name))}), {}));`,
+			`    replay.activity(${JSON.stringify(name)}, activity(${JSON.stringify(activitySlug(name))}), {}),`,
 	)
 	.join("\n")}
-    return results;
-  }),
+  ], { concurrency: "unbounded" }),
 });
 `;
 
@@ -748,11 +746,7 @@ describe("system-authority query engine", () => {
 							accentColor: "#991b1b",
 							propertiesSchema: { fields: {} },
 							eventSchemas: [
-								{
-									name: "Foreign event",
-									slug: foreignEventSlug,
-									propertiesSchema: { fields: {} },
-								},
+								{ name: "Foreign event", slug: foreignEventSlug, propertiesSchema: { fields: {} } },
 							],
 						},
 					],
