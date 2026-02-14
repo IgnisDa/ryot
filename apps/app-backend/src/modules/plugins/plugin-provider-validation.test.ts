@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { Effect, Exit } from "effect";
+import { Cause, Effect, Exit, Option } from "effect";
 import { assert } from "vitest";
 
 import { fixtureManifest } from "./test-support";
@@ -71,8 +71,11 @@ it.effect(
 		return Effect.forEach(cases, (candidate) =>
 			Effect.gen(function* () {
 				const exit = yield* Effect.exit(decodePluginManifest(candidate));
-				expect(Exit.isFailure(exit)).toBe(true);
-				expect(String(exit)).toContain(
+				assert(Exit.isFailure(exit));
+				const failure = Cause.findErrorOption(exit.cause);
+				assert(Option.isSome(failure));
+				expect(failure.value._tag).toBe("PluginValidationError");
+				expect(failure.value.issues.join("; ")).toContain(
 					"Expected valid plugin config, provider, and script references",
 				);
 			}),

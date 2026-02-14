@@ -95,9 +95,7 @@ const catalogLayer = () => {
 			},
 		]),
 	]);
-	return ImportSourceCatalog.Default.pipe(
-		Layer.provide(Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader })),
-	);
+	return ImportSourceCatalog.layer.pipe(Layer.provide(Layer.succeed(PluginLoader, { ...loader })));
 };
 
 it.effect("lists import sources from every plugin ordered by plugin slug then source slug", () =>
@@ -151,12 +149,10 @@ it.effect(
 				}),
 			};
 			const layer = Layer.merge(
-				ImportSourceCatalog.Default.pipe(
-					Layer.provide(Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader })),
-				),
+				ImportSourceCatalog.layer.pipe(Layer.provide(Layer.succeed(PluginLoader, { ...loader }))),
 				Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
 			);
-			const fiber = yield* Effect.fork(
+			const fiber = yield* Effect.forkChild(
 				Effect.gen(function* () {
 					const resolution = (yield* ImportSourceCatalog).resolve("trakt");
 					yield* Deferred.succeed(selected, undefined);

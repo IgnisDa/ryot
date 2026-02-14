@@ -124,7 +124,7 @@ it.each([
 	const exit = evolve(next);
 	expect(Exit.isFailure(exit)).toBe(true);
 	if (Exit.isFailure(exit)) {
-		const error = Option.getOrThrow(Cause.failureOption(exit.cause));
+		const error = Option.getOrThrow(Cause.findErrorOption(exit.cause));
 		assert(error instanceof SchemaEvolutionError);
 		expect(error.issues.some((issue) => issue.code === code)).toBe(true);
 	}

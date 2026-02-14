@@ -1,10 +1,10 @@
-import type { Headers as PlatformHeaders } from "@effect/platform";
 import type { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
 import { notFound, SandboxRunError } from "@ryot/contract/errors";
 import type { IntegrationId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import type { PluginOperationAuth } from "@ryot/plugin-kit/manifest";
 import { generateId } from "better-auth";
-import { Context, Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
+import type { Headers as PlatformHeaders } from "effect/unstable/http";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
@@ -19,16 +19,14 @@ type IntegrationOperationScope = {
 	readonly integrationId: IntegrationId;
 };
 
-export class IntegrationOperationScopeResolver extends Context.Tag(
-	"IntegrationOperationScopeResolver",
-)<
+export class IntegrationOperationScopeResolver extends Context.Service<
 	IntegrationOperationScopeResolver,
 	{
 		resolve: (
 			payload: unknown,
 		) => Effect.Effect<IntegrationOperationScope, BadRequest | DbError | NotFound>;
 	}
->() {}
+>()("IntegrationOperationScopeResolver") {}
 
 type DispatchInput = {
 	readonly userId: UserId;
@@ -39,8 +37,8 @@ type DispatchInput = {
 	readonly integrationId?: IntegrationId;
 };
 
-export class OperationsService extends Effect.Service<OperationsService>()("OperationsService", {
-	effect: Effect.gen(function* () {
+export class OperationsService extends Context.Service<OperationsService>()("OperationsService", {
+	make: Effect.gen(function* () {
 		const auth = yield* AuthService;
 		const runWithDb = yield* DbRunner;
 		const runtime = yield* PluginRuntimeResolver;
@@ -118,4 +116,6 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 
 		return { invoke };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
