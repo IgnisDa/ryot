@@ -1,5 +1,4 @@
-import { debounce } from "@ryot/ts-utils/lodash";
-import { throttle } from "@ryot/ts-utils/lodash";
+import { debounce, throttle } from "@ryot/ts-utils/lodash";
 
 import { storage } from "#imports";
 
@@ -138,7 +137,7 @@ export default defineContentScript({
 			metadata: MetadataLookupData,
 			video: HTMLVideoElement,
 		) {
-			updateExtensionStatus(ExtensionStatus.TrackingActive);
+			void updateExtensionStatus(ExtensionStatus.TrackingActive);
 
 			const sendProgress = () => {
 				if (!document.contains(video) || !isRunning || currentUrl !== window.location.href) {
@@ -150,9 +149,9 @@ export default defineContentScript({
 					logger.debug("Sending progress", {
 						title: progressData.title,
 						progress: `${progressData.progress || 0}%`,
-						showInformation: "notFound" in metadata ? null : metadata.showInformation,
+						showInformation: metadata.status === "notFound" ? null : metadata.showInformation,
 					});
-					sendProgressUpdate(progressData, metadata);
+					void sendProgressUpdate(progressData, metadata);
 				}
 			};
 
@@ -218,7 +217,7 @@ export default defineContentScript({
 			logger.debug(`Scheduling retry attempt ${retryAttempts} in ${delay}ms`);
 
 			retryTimeoutId = setTimeout(() => {
-				detectVideoWithRetry();
+				void detectVideoWithRetry();
 			}, delay);
 		}
 
@@ -245,17 +244,21 @@ export default defineContentScript({
 					video.duration >= MIN_VIDEO_DURATION_SECONDS
 				) {
 					logger.debug("Video became ready, triggering detection");
-					detectVideoWithRetry();
+					void detectVideoWithRetry();
 				}
 			};
 
-			video.addEventListener("loadedmetadata", checkVideoReady, {
+			const handleVideoReady = () => {
+				void checkVideoReady();
+			};
+
+			video.addEventListener("loadedmetadata", handleVideoReady, {
 				signal: cleanup.abortController.signal,
 			});
-			video.addEventListener("durationchange", checkVideoReady, {
+			video.addEventListener("durationchange", handleVideoReady, {
 				signal: cleanup.abortController.signal,
 			});
-			video.addEventListener("canplay", checkVideoReady, {
+			video.addEventListener("canplay", handleVideoReady, {
 				signal: cleanup.abortController.signal,
 			});
 		}
@@ -270,7 +273,7 @@ export default defineContentScript({
 		}
 
 		function setupVideoDetection() {
-			detectVideoWithRetry();
+			void detectVideoWithRetry();
 			setupVideoElementListeners();
 
 			const checkForVideos = debounce(async () => {
@@ -278,7 +281,7 @@ export default defineContentScript({
 				if (!isRunning || currentUrl !== window.location.href || hasFoundVideo) {
 					return;
 				}
-				detectVideoWithRetry();
+				void detectVideoWithRetry();
 			}, 500);
 
 			const observer = new MutationObserver((mutations) => {
@@ -303,7 +306,7 @@ export default defineContentScript({
 										'[class*="video"], [class*="player"], [id*="video"], [id*="player"]',
 									)
 								) {
-									checkForVideos();
+									void checkForVideos();
 									return;
 								}
 							}
@@ -313,7 +316,7 @@ export default defineContentScript({
 						mutation.target instanceof HTMLVideoElement
 					) {
 						if (mutation.attributeName === "src" || mutation.attributeName === "currentSrc") {
-							checkForVideos();
+							void checkForVideos();
 						}
 					}
 				}
@@ -333,7 +336,7 @@ export default defineContentScript({
 				clearRetryTimeout();
 			});
 
-			checkForVideos();
+			void checkForVideos();
 		}
 
 		function stopMainLoop() {
@@ -362,21 +365,21 @@ export default defineContentScript({
 
 			navigationListenersAttached = true;
 
-			const originalPushState = history.pushState;
-			const originalReplaceState = history.replaceState;
+			const originalPushState = history.pushState.bind(history);
+			const originalReplaceState = history.replaceState.bind(history);
 
-			window.addEventListener("popstate", handleUrlChange, {
+			window.addEventListener("popstate", () => void handleUrlChange(), {
 				signal: cleanup.abortController.signal,
 			});
 
 			history.pushState = function (...args) {
-				originalPushState.apply(this, args);
-				handleUrlChange();
+				originalPushState(...args);
+				void handleUrlChange();
 			};
 
 			history.replaceState = function (...args) {
-				originalReplaceState.apply(this, args);
-				handleUrlChange();
+				originalReplaceState(...args);
+				void handleUrlChange();
 			};
 
 			cleanup.abortController.signal.addEventListener("abort", () => {
@@ -387,24 +390,25 @@ export default defineContentScript({
 		}
 
 		function setupVisibilityListener() {
-			document.addEventListener(
-				"visibilitychange",
-				async () => {
-					if (document.hidden) {
-						logger.debug("Page hidden, stopping loop");
-						stopMainLoop();
-						clearRetryTimeout();
-						await setHasFoundVideo(false);
-						retryAttempts = 0;
-					} else {
-						logger.debug("Page visible, restarting loop");
-						if (!isRunning) {
-							startMainLoop();
-						}
-					}
-				},
-				{ signal: cleanup.abortController.signal },
-			);
+			const handleVisibilityChange = async () => {
+				if (document.hidden) {
+					logger.debug("Page hidden, stopping loop");
+					stopMainLoop();
+					clearRetryTimeout();
+					await setHasFoundVideo(false);
+					retryAttempts = 0;
+					return;
+				}
+
+				logger.debug("Page visible, restarting loop");
+				if (!isRunning) {
+					await startMainLoop();
+				}
+			};
+
+			document.addEventListener("visibilitychange", () => void handleVisibilityChange(), {
+				signal: cleanup.abortController.signal,
+			});
 		}
 
 		async function init() {
@@ -428,7 +432,7 @@ export default defineContentScript({
 		window.addEventListener(
 			"beforeunload",
 			() => {
-				cleanup.cleanupAll();
+				void cleanup.cleanupAll();
 			},
 			{ signal: cleanup.abortController.signal },
 		);
@@ -437,12 +441,12 @@ export default defineContentScript({
 			document.addEventListener(
 				"DOMContentLoaded",
 				() => {
-					init();
+					void init();
 				},
 				{ signal: cleanup.abortController.signal },
 			);
 		} else {
-			init();
+			void init();
 		}
 	},
 });
