@@ -11,6 +11,7 @@ export class SandboxCompiledModuleMaterializationError extends Data.TaggedError(
 
 const hashBytes = sha256Hex;
 
+const verifiedModulePaths = new Set<string>();
 const compiledModuleName = /^([0-9a-f]{64})\.mjs$/;
 
 const hasSystemErrorReason = (error: unknown, reason: "AlreadyExists" | "NotFound") =>
@@ -41,19 +42,24 @@ export const materializeSandboxCompiledModule = (
 
 		const modulePath = path.join(runtime.moduleDirectory, `${contentHash}.mjs`);
 		if (yield* fs.exists(modulePath)) {
-			if (!(yield* moduleMatches(fs, modulePath, contentHash))) {
+			if (
+				!verifiedModulePaths.has(modulePath) &&
+				!(yield* moduleMatches(fs, modulePath, contentHash))
+			) {
 				return yield* new SandboxCompiledModuleMaterializationError({
 					message: "Compiled module destination contains different bytes",
 				});
 			}
 			yield* fs.chmod(modulePath, 0o444);
+			verifiedModulePaths.add(modulePath);
 			return modulePath;
 		}
+		verifiedModulePaths.delete(modulePath);
 
 		return yield* Effect.acquireUseRelease(
 			fs.makeTempDirectory({
-				directory: runtime.moduleDirectory,
 				prefix: ".ryot-compiled-module-",
+				directory: runtime.moduleDirectory,
 			}),
 			(temporaryDirectory) =>
 				Effect.gen(function* () {
@@ -81,6 +87,7 @@ export const materializeSandboxCompiledModule = (
 						),
 					);
 					yield* fs.chmod(modulePath, 0o444);
+					verifiedModulePaths.add(modulePath);
 					return modulePath;
 				}),
 			(temporaryDirectory) =>
