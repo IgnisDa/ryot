@@ -75,9 +75,9 @@ export function SavedViewPage(props: {
 		() =>
 			savedView
 				? createQueryEngineRequest({
-						view: savedView,
-						layout,
 						page,
+						layout,
+						view: savedView,
 						limit: getPageLimit(layout),
 					})
 				: createDisabledQueryEngineRequest(),
@@ -128,6 +128,7 @@ export function SavedViewPage(props: {
 	if (savedViewQuery.isLoading) {
 		return <LoadingState />;
 	}
+
 	if (savedViewQuery.isError) {
 		return (
 			<ErrorState
@@ -137,6 +138,7 @@ export function SavedViewPage(props: {
 			/>
 		);
 	}
+
 	if (!savedView) {
 		return (
 			<ErrorState
@@ -145,9 +147,11 @@ export function SavedViewPage(props: {
 			/>
 		);
 	}
+
 	if (runtimeQuery.isLoading) {
 		return <LoadingState />;
 	}
+
 	if (runtimeQuery.isError || !meta) {
 		return (
 			<ErrorState
@@ -204,8 +208,8 @@ export function SavedViewPage(props: {
 								{savedView.isBuiltin ? (
 									<Badge
 										size="sm"
-										variant="light"
 										c={accentColor}
+										variant="light"
 										bg={accentMuted}
 									>
 										Built-in
