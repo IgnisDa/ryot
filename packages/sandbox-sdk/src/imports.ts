@@ -114,8 +114,7 @@ export const genericImportChunkSchema = strictStruct({
 	failures: Schema.Array(genericImportFailureSchema),
 });
 
-export const genericImportAdapterManifestSchema = strictStruct({
-	chunkFiles: Schema.Array(Schema.String),
+const genericImportManifestFields = {
 	totalItems: Schema.Number.pipe(
 		Schema.check(Schema.isInt()),
 		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
@@ -128,6 +127,16 @@ export const genericImportAdapterManifestSchema = strictStruct({
 		Schema.check(Schema.isInt()),
 		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
 	),
+};
+
+export const genericImportAdapterManifestSchema = strictStruct({
+	chunkFiles: Schema.Array(Schema.String),
+	...genericImportManifestFields,
+});
+
+export const genericImportWorkflowManifestSchema = strictStruct({
+	chunkHandles: Schema.Array(Schema.String),
+	...genericImportManifestFields,
 });
 
 export const genericImportWorkflowInputSchema = strictStruct({
@@ -145,7 +154,7 @@ export const genericImportWorkflowResultSchema = strictStruct({
 export const genericImportKernelInputSchema = strictStruct({
 	runId: Schema.String,
 	failRun: Schema.optional(Schema.Boolean),
-	chunkFiles: Schema.Array(Schema.String),
+	chunkHandles: Schema.Array(Schema.String),
 	integrationId: Schema.optional(Schema.String),
 	totalItems: Schema.Number.pipe(
 		Schema.check(Schema.isInt()),
@@ -166,4 +175,7 @@ export type GenericImportFailure = Schema.Schema.Type<typeof genericImportFailur
 export type GenericImportWriteItem = Schema.Schema.Type<typeof genericImportWriteItemSchema>;
 export type GenericImportAdapterManifest = Schema.Schema.Type<
 	typeof genericImportAdapterManifestSchema
+>;
+export type GenericImportWorkflowManifest = Schema.Schema.Type<
+	typeof genericImportWorkflowManifestSchema
 >;

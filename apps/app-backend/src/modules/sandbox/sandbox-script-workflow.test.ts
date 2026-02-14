@@ -11,6 +11,7 @@ import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { RedisService } from "#lib/infrastructure/redis";
+import { SandboxHarvestHandleStore } from "#lib/infrastructure/sandbox-runtime/harvest-handles";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { makeWorkflowDurableCallsHostFunction } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import { assertExitFails } from "#lib/test-utils/assertions";
@@ -60,6 +61,9 @@ const makeProjectionRedis = () =>
 const controlledWorkflowDependencies = Layer.mergeAll(
 	transactionLayer,
 	Layer.succeed(RedisService, makeProjectionRedis()),
+	Layer.mock(SandboxHarvestHandleStore)({
+		release: () => Effect.void,
+	}),
 	Layer.mock(SandboxPluginScriptResolver)({
 		findActiveScriptById: () => Effect.die("unused"),
 	}),
@@ -81,9 +85,10 @@ it("keeps workflow replay bounded by the kernel", () => {
 	expect(SANDBOX_WORKFLOW_MAX_STEPS).toBe(1_000);
 });
 
-it.effect("propagates trusted grants and journals harvested chunk paths", () => {
+it.effect("propagates trusted grants and journals harvested chunk handles", () => {
 	const grants = { artifactPath: "/tmp/trusted-artifact.json" };
 	let capturedGrants: SandboxExecutionPayload["grants"];
+	let capturedWorkflowExecutionId: SandboxExecutionPayload["workflowExecutionId"];
 
 	return Effect.gen(function* () {
 		const result = yield* performSandboxWorkflowActivity(
@@ -106,18 +111,20 @@ it.effect("propagates trusted grants and journals harvested chunk paths", () => 
 			0,
 			(payload) => {
 				capturedGrants = payload.grants;
+				capturedWorkflowExecutionId = payload.workflowExecutionId;
 				return Effect.succeed({
 					logs: [],
 					error: null,
 					status: "completed" as const,
+					harvest: { chunkHandles: ["harvest-handle-0"] },
 					value: { count: 2, chunkFiles: ["chunk-0.json"] },
-					harvest: { directory: "/tmp/harvest", chunkPaths: ["/tmp/harvest/chunk-0.json"] },
 				});
 			},
 		);
 
 		expect(capturedGrants).toEqual(grants);
-		expect(result).toEqual({ count: 2, chunkFiles: ["/tmp/harvest/chunk-0.json"] });
+		expect(capturedWorkflowExecutionId).toBe("workflow-execution");
+		expect(result).toEqual({ count: 2, chunkHandles: ["harvest-handle-0"] });
 	});
 });
 
@@ -214,6 +221,7 @@ fi
 		Layer.succeed(WorkflowEngine, engine),
 		Layer.succeed(WorkflowInstance, instance),
 		Layer.succeed(RedisService, makeRedisService({ client: redisClient })),
+		Layer.mock(SandboxHarvestHandleStore)({ release: () => Effect.void }),
 		Layer.mock(SandboxRepository)({
 			isPluginScript: () =>
 				Effect.sync(() => {
@@ -224,11 +232,7 @@ fi
 				Effect.sync(() => {
 					pinEvents.push("pin");
 					return scriptId === historicalScriptId
-						? {
-								pluginSlug: "plugin",
-								scriptId: historicalScriptId,
-								contentHash: "historical-hash",
-							}
+						? { pluginSlug: "plugin", scriptId: historicalScriptId, contentHash: "historical-hash" }
 						: {
 								pluginSlug: "plugin",
 								scriptId: replacementScriptId,
