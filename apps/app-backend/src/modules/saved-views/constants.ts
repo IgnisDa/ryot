@@ -229,7 +229,7 @@ const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 		secondarySubtitleProperty: buildSecondarySubtitleForSlug(slug),
 		calloutProperty: createEventAggregateExpression(
 			"review",
-			["rating"],
+			["properties", "rating"],
 			"avg",
 		),
 		primarySubtitleProperty: createEntityPropertyExpression(
