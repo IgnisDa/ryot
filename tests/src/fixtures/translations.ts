@@ -1,8 +1,6 @@
 import { getPgClient } from "../setup";
-import { assertPresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import { getEntity } from "./entities";
-import { findBuiltinSchemaBySlug } from "./entity-schemas";
 import { deleteGlobalEntityByProvenance, seedMediaEntity } from "./media";
 import { pollUntil, type PollOptions } from "./polling";
 
@@ -41,64 +39,6 @@ export async function seedPopulatedProviderEntity(input: {
 	await markEntityPopulated(seeded.id);
 
 	return seeded;
-}
-
-export async function getProviderIds(
-	client: Client,
-	input: { schemaSlug: string; providerName: string },
-) {
-	const { schema } = await findBuiltinSchemaBySlug(client, input.schemaSlug);
-	const sandboxScriptId = schema.providers.find(
-		(provider) => provider.name === input.providerName,
-	)?.scriptId;
-	assertPresent(
-		sandboxScriptId,
-		`${input.providerName} ${input.schemaSlug} provider script not found`,
-	);
-
-	return { entitySchemaId: schema.id, sandboxScriptId };
-}
-
-export async function seedPopulatedTmdbEntity(
-	client: Client,
-	input: {
-		name: string;
-		externalId: string;
-		schemaSlug: string;
-		entitySchemaId?: string;
-		sandboxScriptId?: string;
-		properties: Record<string, unknown>;
-	},
-) {
-	let entitySchemaId = input.entitySchemaId;
-	let sandboxScriptId = input.sandboxScriptId;
-	if (!entitySchemaId || !sandboxScriptId) {
-		const { schema } = await findBuiltinSchemaBySlug(client, input.schemaSlug);
-		entitySchemaId ??= schema.id;
-		sandboxScriptId ??= schema.providers.find((provider) => provider.name === "TMDB")?.scriptId;
-	}
-	assertPresent(entitySchemaId, `TMDB ${input.schemaSlug} entity schema not found`);
-	assertPresent(sandboxScriptId, `TMDB ${input.schemaSlug} provider script not found`);
-
-	return seedPopulatedProviderEntity({
-		entitySchemaId,
-		sandboxScriptId,
-		name: input.name,
-		externalId: input.externalId,
-		properties: input.properties,
-	});
-}
-
-export function seedPopulatedTmdbMovie(
-	client: Client,
-	input: { externalId: string; name: string },
-) {
-	return seedPopulatedTmdbEntity(client, {
-		name: input.name,
-		schemaSlug: "movie",
-		externalId: input.externalId,
-		properties: { description: `Canonical English overview of ${input.name}.` },
-	});
 }
 
 // Seeds an entity_translation row directly (no provider fill). Mirrors a completed fill for the
