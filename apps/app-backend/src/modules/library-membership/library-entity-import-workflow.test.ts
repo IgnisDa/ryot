@@ -1,21 +1,23 @@
 import { expect, it } from "@effect/vitest";
 import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import { SandboxRunError } from "@ryot/contract/errors";
+import { DbError, SandboxRunError } from "@ryot/contract/errors";
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import type { MockOverrides } from "#lib/test-support/effect";
 import { makeWorkflowActivityEngine } from "#lib/test-support/effect";
-import { CollectionsService } from "#modules/collections/service";
 import { EntityImportPayload } from "#modules/entity-import/entity-import-workflow";
 
-import { runLibraryEntityImportWorkflow } from "./library-entity-import-workflow";
+import {
+	LibraryEntityImportError,
+	runLibraryEntityImportWorkflow,
+} from "./library-entity-import-workflow";
+import { LibraryEntityImportWorkflowOperations } from "./operations-workflow";
 
 const TestLibraryEntityImportWorkflow = Workflow.make({
 	success: ListedEntity,
-	error: SandboxRunError,
+	error: LibraryEntityImportError,
 	payload: EntityImportPayload,
 	name: "TestLibraryEntityImportWorkflow",
 	idempotencyKey: ({ executionId }) => executionId,
@@ -47,15 +49,13 @@ type PopulationStub = (
 	...args: Parameters<WorkflowEngine["Type"]["execute"]>
 ) => Effect.Effect<unknown, unknown>;
 
+type EnsureMembershipStub =
+	LibraryEntityImportWorkflowOperations["Type"]["ensureLibraryMembership"];
+
 type TestLayerOptions = {
 	population?: PopulationStub;
-	collectionsService?: Layer.Layer<CollectionsService>;
+	ensureLibraryMembership?: EnsureMembershipStub;
 };
-
-const mockCollectionsService = Layer.mock(CollectionsService);
-
-const makeCollectionsService = (overrides: MockOverrides<typeof mockCollectionsService> = {}) =>
-	mockCollectionsService({ ...overrides, _tag: "CollectionsService" });
 
 const withTestLayer = <A, E, R>(
 	options: TestLayerOptions,
@@ -70,12 +70,16 @@ const withTestLayer = <A, E, R>(
 	return effect.pipe(
 		Effect.provideService(WorkflowEngine, engine),
 		Effect.provideService(WorkflowInstance, instance),
-		Effect.provide(options.collectionsService ?? makeCollectionsService()),
+		Effect.provide(
+			Layer.mock(LibraryEntityImportWorkflowOperations, {
+				ensureLibraryMembership: options.ensureLibraryMembership ?? (() => Effect.void),
+			}),
+		),
 	);
 };
 
-it.effect("awaits provider population then ensures library membership", () => {
-	let ensuredCall: { userId: string; entityId: string } | undefined;
+it.effect("awaits provider population then dispatches the membership queue", () => {
+	let ensuredCall: { userId: string; entityId: string; executionId: string } | undefined;
 	const populationCalls: unknown[] = [];
 
 	const options = {
@@ -83,12 +87,14 @@ it.effect("awaits provider population then ensures library membership", () => {
 			populationCalls.push(execOptions);
 			return Effect.succeed(populatedEntity);
 		},
-		collectionsService: makeCollectionsService({
-			ensureEntityInLibrary: (userId, entityId) => {
-				ensuredCall = { userId, entityId };
-				return Effect.void;
-			},
-		}),
+		ensureLibraryMembership: (input) => {
+			ensuredCall = {
+				userId: input.userId,
+				entityId: input.entityId,
+				executionId: input.executionId,
+			};
+			return Effect.void;
+		},
 	} satisfies TestLayerOptions;
 
 	return withTestLayer(
@@ -101,7 +107,11 @@ it.effect("awaits provider population then ensures library membership", () => {
 			);
 
 			expect(entity.id).toBe("entity-1");
-			expect(ensuredCall).toEqual({ userId: "user-1", entityId: "entity-1" });
+			expect(ensuredCall).toEqual({
+				userId: "user-1",
+				entityId: "entity-1",
+				executionId: `${importPayload.executionId}-membership`,
+			});
 			expect(populationCalls).toMatchObject([
 				{
 					payload: { mode: "ensure" },
@@ -112,17 +122,15 @@ it.effect("awaits provider population then ensures library membership", () => {
 	);
 });
 
-it.effect("does not ensure library membership when provider population fails", () => {
+it.effect("does not dispatch library membership when provider population fails", () => {
 	let ensureCalled = false;
 
 	const options = {
 		population: () => Effect.fail(new SandboxRunError({ message: "provider boom" })),
-		collectionsService: makeCollectionsService({
-			ensureEntityInLibrary: () => {
-				ensureCalled = true;
-				return Effect.void;
-			},
-		}),
+		ensureLibraryMembership: () => {
+			ensureCalled = true;
+			return Effect.void;
+		},
 	} satisfies TestLayerOptions;
 
 	return withTestLayer(
@@ -135,6 +143,36 @@ it.effect("does not ensure library membership when provider population fails", (
 
 			expect(ensureCalled).toBe(false);
 			expect(exit._tag).toBe("Failure");
+			if (exit._tag === "Failure") {
+				const error = exit.cause._tag === "Fail" ? exit.cause.error : undefined;
+				expect(error).toBeInstanceOf(LibraryEntityImportError);
+				expect(error?.stage).toBe("population");
+				expect(error?.message).toBe("provider boom");
+			}
+		}),
+	);
+});
+
+it.effect("surfaces a membership-stage failure when the queue dispatch fails", () => {
+	const options = {
+		ensureLibraryMembership: () => Effect.fail(new DbError({ message: "membership boom" })),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		importPayload.executionId,
+		Effect.gen(function* () {
+			const exit = yield* Effect.exit(
+				runLibraryEntityImportWorkflow(importPayload, importPayload.executionId),
+			);
+
+			expect(exit._tag).toBe("Failure");
+			if (exit._tag === "Failure") {
+				const error = exit.cause._tag === "Fail" ? exit.cause.error : undefined;
+				expect(error).toBeInstanceOf(LibraryEntityImportError);
+				expect(error?.stage).toBe("membership");
+				expect(error?.message).toBe("membership boom");
+			}
 		}),
 	);
 });
@@ -143,12 +181,10 @@ it.effect("dies when the payload has no userId", () => {
 	let ensureCalled = false;
 
 	const options = {
-		collectionsService: makeCollectionsService({
-			ensureEntityInLibrary: () => {
-				ensureCalled = true;
-				return Effect.void;
-			},
-		}),
+		ensureLibraryMembership: () => {
+			ensureCalled = true;
+			return Effect.void;
+		},
 	} satisfies TestLayerOptions;
 
 	const payload = { ...importPayload, userId: null };
