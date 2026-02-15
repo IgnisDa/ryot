@@ -105,7 +105,7 @@ const defaultQueryDefinition: QueryDefinition = {
 	filter: null,
 	eventJoins: [],
 	computedFields: [],
-	entitySchemaSlugs: ["book"],
+	scope: ["book"],
 	sort: {
 		direction: "asc",
 		expression: toRequiredExpression([entityField("book", "name")]),
@@ -135,7 +135,7 @@ const defaultDisplayConfiguration = {
 const defaultUpdatedQueryDefinition: QueryDefinition = {
 	eventJoins: [],
 	computedFields: [],
-	entitySchemaSlugs: ["book", "anime"],
+	scope: ["book", "anime"],
 	sort: {
 		direction: "desc",
 		expression: createEntityColumnExpression("book", "createdAt"),

@@ -13,7 +13,7 @@ describe("useCollectionsDestination hook prerequisites", () => {
 					id: "view-1",
 					isBuiltin: true,
 					trackerId: null,
-					queryDefinition: { entitySchemaSlugs: ["movie"] },
+					queryDefinition: { scope: ["movie"] },
 				}),
 			];
 
@@ -28,7 +28,7 @@ describe("useCollectionsDestination hook prerequisites", () => {
 					id: "view-collections",
 					isBuiltin: true,
 					trackerId: null,
-					queryDefinition: { entitySchemaSlugs: ["collection"] },
+					queryDefinition: { scope: ["collection"] },
 				}),
 			];
 
@@ -44,7 +44,7 @@ describe("useCollectionsDestination hook prerequisites", () => {
 					id: "view-1",
 					isBuiltin: false,
 					trackerId: null,
-					queryDefinition: { entitySchemaSlugs: ["collection"] },
+					queryDefinition: { scope: ["collection"] },
 				}),
 			];
 
@@ -59,7 +59,7 @@ describe("useCollectionsDestination hook prerequisites", () => {
 					id: "view-1",
 					isBuiltin: true,
 					trackerId: "tracker-1",
-					queryDefinition: { entitySchemaSlugs: ["collection"] },
+					queryDefinition: { scope: ["collection"] },
 				}),
 			];
 
@@ -74,7 +74,7 @@ describe("useCollectionsDestination hook prerequisites", () => {
 					id: "view-collections",
 					isBuiltin: true,
 					trackerId: null,
-					queryDefinition: { entitySchemaSlugs: ["collection", "movie"] },
+					queryDefinition: { scope: ["collection", "movie"] },
 				}),
 			];
 
@@ -100,7 +100,7 @@ describe("useCollectionsDestination hook prerequisites", () => {
 					trackerId: null,
 					slug: "collections",
 					id: "view-collections",
-					queryDefinition: { entitySchemaSlugs: ["collection"] },
+					queryDefinition: { scope: ["collection"] },
 				}),
 			];
 

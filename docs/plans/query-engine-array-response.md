@@ -88,7 +88,7 @@ Request:
 
 ```json
 {
-  "entitySchemaSlugs": ["book"],
+  "scope": ["book"],
   "eventJoins": [],
   "computedFields": [],
   "filter": null,
@@ -158,7 +158,7 @@ Request:
 
 ```json
 {
-  "entitySchemaSlugs": ["book"],
+  "scope": ["book"],
   "eventJoins": [],
   "computedFields": [],
   "filter": null,

@@ -155,6 +155,32 @@ const toBuiltinMediaSourceItem = (
 	};
 };
 
+type LibraryStatsSourceItem = Pick<
+	BuiltInMediaOverviewSourceItem,
+	| "backlogAt"
+	| "completeAt"
+	| "entitySchemaSlug"
+	| "progressAt"
+	| "reviewRating"
+>;
+
+const toLibraryStatsSourceItem = (
+	item: QueryEngineResponseData["items"][number],
+): LibraryStatsSourceItem | null => {
+	const slug = getFieldValue(item, "entitySchemaSlug");
+	if (typeof slug !== "string" || !isBuiltInMediaEntitySchemaSlug(slug)) {
+		return null;
+	}
+
+	return {
+		entitySchemaSlug: slug,
+		reviewRating: toNullableNumber(getFieldValue(item, "reviewRating")),
+		backlogAt: toNullableDate(getFieldValue(item, "backlogAt")),
+		progressAt: toNullableDate(getFieldValue(item, "progressAt")),
+		completeAt: toNullableDate(getFieldValue(item, "completeAt")),
+	};
+};
+
 function isBuiltInMediaEntitySchemaSlug(
 	value: string,
 ): value is BuiltInMediaOverviewSourceItem["entitySchemaSlug"] {
@@ -220,7 +246,7 @@ const buildBaseRequestWithOptions = (
 	);
 
 	return {
-		entitySchemaSlugs: [...builtinMediaEntitySchemaSlugs],
+		scope: [...builtinMediaEntitySchemaSlugs],
 		relationships: [{ relationshipSchemaSlug: "in-library" }],
 		eventJoins: [
 			{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
@@ -539,7 +565,9 @@ export const getWeekActivity = async (
 	return serviceData(buildWeekActivitySectionResponse({ items }));
 };
 
-const isBacklogItem = (item: BuiltInMediaOverviewSourceItem): boolean => {
+const isBacklogItem = (
+	item: Pick<LibraryStatsSourceItem, "backlogAt" | "completeAt" | "progressAt">,
+): boolean => {
 	return (
 		item.backlogAt !== null &&
 		item.progressAt === null &&
@@ -547,7 +575,9 @@ const isBacklogItem = (item: BuiltInMediaOverviewSourceItem): boolean => {
 	);
 };
 
-const isInProgressItem = (item: BuiltInMediaOverviewSourceItem): boolean => {
+const isInProgressItem = (
+	item: Pick<LibraryStatsSourceItem, "completeAt" | "progressAt">,
+): boolean => {
 	if (item.progressAt === null) {
 		return false;
 	}
@@ -557,7 +587,9 @@ const isInProgressItem = (item: BuiltInMediaOverviewSourceItem): boolean => {
 	return dayjs(item.progressAt).isAfter(item.completeAt);
 };
 
-const isCompletedItem = (item: BuiltInMediaOverviewSourceItem): boolean => {
+const isCompletedItem = (
+	item: Pick<LibraryStatsSourceItem, "completeAt" | "progressAt">,
+): boolean => {
 	if (item.completeAt === null) {
 		return false;
 	}
@@ -587,7 +619,7 @@ export const getLibraryStats = async (
 	try {
 		const result = await deps.executeSectionQuery(userId, request);
 		const items = result.items.flatMap((item) => {
-			const mapped = toBuiltinMediaSourceItem(item);
+			const mapped = toLibraryStatsSourceItem(item);
 			if (mapped) {
 				return [mapped];
 			}

@@ -162,7 +162,7 @@ export function SavedViewPage(props: {
 
 	const accentColor = savedView.accentColor;
 	const accentMuted = getAccentMuted(accentColor);
-	const schemaSummary = savedView.queryDefinition.entitySchemaSlugs.join(", ");
+	const schemaSummary = savedView.queryDefinition.scope.join(", ");
 	const pageSummary =
 		meta.pagination.totalPages > 0
 			? `Page ${meta.pagination.page} of ${meta.pagination.totalPages}`

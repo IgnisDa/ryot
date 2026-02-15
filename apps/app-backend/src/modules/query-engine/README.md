@@ -24,7 +24,7 @@ For concrete executable examples, see:
 - `sort.direction`: `asc` or `desc`
 - `pagination.page`: 1-based integer
 - `pagination.limit`: positive integer
-- `entitySchemaSlugs`: one or more schema slugs included in the query
+- `scope`: one or more entity schema slugs included in the query
 - `filter`: a predicate AST or `null`
 - `eventJoins`: zero or more event join definitions
 - `relationships`: zero or more relationship schema slugs; non-user-owned entities are included by default, and when relationship slugs are provided, only those non-user-owned entities where the user has a matching relationship are included
@@ -135,7 +135,7 @@ Aggregations: `avg`, `count`, `max`, `min`, `sum`. Type inference returns `integ
 - `key` is your local alias used in `event` references (`joinKey`).
 - `latestEvent`: uses the latest matching event per entity.
 - Event references only work when the join is declared in `eventJoins`.
-- The event schema must be available for the entity schemas in `entitySchemaSlugs`.
+- The event schema must be available for the entity schemas in `scope`.
 
 ## Filters
 
@@ -215,7 +215,7 @@ Field result kinds: `text`, `number`, `boolean`, `date`, `image`, `json`, `null`
 - `fields` may be empty, but then every `items[n]` will also be an empty array.
 - `event.*` references require the join to be declared in `eventJoins`.
 - `event-aggregate` references do not require an entry in `eventJoins`.
-- Sort/filter references must point to schemas included in `entitySchemaSlugs`.
+- Sort/filter references must point to schemas included in `scope`.
 - `image` is display-only, not filterable.
 - Duplicate field keys are rejected.
 - `"properties"` is a reserved first path segment for the JSONB column; system columns must never be named `properties`.

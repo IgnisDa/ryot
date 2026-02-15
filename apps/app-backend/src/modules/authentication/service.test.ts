@@ -67,7 +67,7 @@ describe("authentication bootstrap helpers", () => {
 
 	it("builds built-in saved views from built-in manifests", () => {
 		const queryDefinition = createQueryDefinition({
-			entitySchemaSlugs: ["book"],
+			scope: ["book"],
 			relationships: [{ relationshipSchemaSlug: "in-library" }],
 			sort: {
 				direction: "asc",
@@ -110,7 +110,7 @@ describe("authentication bootstrap helpers", () => {
 				displayConfiguration,
 				trackerId: "tracker-1",
 				accentColor: "#5B7FFF",
-				queryDefinition: { ...queryDefinition, entitySchemaSlugs: ["book"] },
+				queryDefinition: { ...queryDefinition, scope: ["book"] },
 			},
 		]);
 	});
@@ -139,7 +139,7 @@ describe("authentication bootstrap helpers", () => {
 	});
 
 	it("builds built-in saved views without trackers", () => {
-		const queryDefinition = createQueryDefinition({ entitySchemaSlugs: [] });
+		const queryDefinition = createQueryDefinition({ scope: [] });
 		const displayConfiguration = createDefaultDisplayConfiguration();
 
 		expect(
