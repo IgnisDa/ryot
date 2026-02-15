@@ -76,6 +76,7 @@ describe("getSandboxAppConfigValue", () => {
 	it("returns the inner value when an optional key is configured (Option.some)", () => {
 		const layer = makeAppConfigLayer({
 			server: {
+				disableNotifications: false,
 				disableBackgroundJobs: false,
 				adminAccessToken: Redacted.make("unused"),
 				corsOrigins: Option.some("http://localhost:3000"),

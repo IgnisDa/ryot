@@ -25,6 +25,7 @@
 |---|---|---|---|---|---|
 | `server.corsOrigins` | `SERVER_CORS_ORIGINS` | Comma-separated list of allowed CORS origins | No | No | — |
 | `server.adminAccessToken` | `SERVER_ADMIN_ACCESS_TOKEN` | Bearer token required for god-mode admin endpoints | No | Yes | `changeme` |
+| `server.disableNotifications` | `SERVER_DISABLE_NOTIFICATIONS` | Disable delivery of all notifications | No | No | `false` |
 | `server.disableBackgroundJobs` | `SERVER_DISABLE_BACKGROUND_JOBS` | Disable all scheduled background jobs (both the frequent and infrequent cron tiers) | No | No | `false` |
 
 #### OIDC provider
@@ -77,10 +78,6 @@
 | `fileStorage.secretAccessKey` | `FILE_STORAGE_S3_SECRET_ACCESS_KEY` | S3 secret access key | No | Yes | — |
 
 ### Notification delivery settings
-
-| App Config Key | Variable | Description | Required | Sensitive | Default |
-|---|---|---|---|---|---|
-| `notifications.disabled` | `DISABLE_NOTIFICATIONS` | Disable delivery of all notifications | No | No | `false` |
 
 #### SMTP delivery settings
 
