@@ -6,7 +6,7 @@ import {
 import { Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 
-import { withoutSchemaServices } from "#lib/shared/schema";
+import type { DurableSchema } from "#lib/infrastructure/workflow";
 
 const RunSandboxWorkflowPayload = Schema.Struct({
 	...SandboxExecutionPayload.fields,
@@ -15,8 +15,8 @@ const RunSandboxWorkflowPayload = Schema.Struct({
 }).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 
 export const RunSandboxWorkflow = Workflow.make("RunSandboxWorkflow", {
-	error: withoutSchemaServices(SandboxRunError),
-	success: withoutSchemaServices(SandboxCompletedResult),
-	payload: withoutSchemaServices(RunSandboxWorkflowPayload),
+	error: SandboxRunError satisfies DurableSchema,
+	success: SandboxCompletedResult satisfies DurableSchema,
+	payload: RunSandboxWorkflowPayload satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
 });
