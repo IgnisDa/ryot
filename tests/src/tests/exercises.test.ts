@@ -74,10 +74,10 @@ describe("Exercises E2E", () => {
 		expect(exerciseSchema).toBeDefined();
 		expect(exerciseSchema?.name).toBe("Exercise");
 		expect(exerciseSchema?.slug).toBe("exercise");
-		expect(exerciseSchema?.icon).toBe("dumbbell");
+		expect(exerciseSchema?.icon).toBe("zap");
 		expect(exerciseSchema?.isBuiltin).toBe(true);
 		expect(exerciseSchema?.trackerId).toBe(fitnessTracker.id);
-		expect(exerciseSchema?.accentColor).toBe("#2DD4BF");
+		expect(exerciseSchema?.accentColor).toBe("#14B8A6");
 		expect(exerciseSchema?.providers).toEqual([]);
 		expect(exerciseSchema?.propertiesSchema.fields.muscles).toMatchObject({
 			label: "Muscles",
