@@ -22,6 +22,7 @@ import type {
 	SavedViewQueryDefinition,
 } from "../saved-views/schemas";
 import { executeAggregateQuery } from "./aggregate-query-builder";
+import { executePreparedQuery } from "./entity-query-builder";
 import { executeEventQuery } from "./event-query-builder";
 import {
 	loadEventSchemaSlugs,
@@ -30,7 +31,6 @@ import {
 	loadVisibleEventJoins,
 	loadVisibleSchemas,
 } from "./loaders";
-import { executePreparedQuery } from "./query-builder";
 import type { QueryEngineSchemaRow } from "./query-ctes";
 import type {
 	EntityQueryEngineRequest,
@@ -341,12 +341,6 @@ export const prepareSavedView = async (input: {
 					layout: execution.layout,
 					displayConfiguration: savedView.displayConfiguration,
 				}),
-			});
-
-			validateQueryEngineReferences(request, {
-				schemaMap: context.schemaMap,
-				eventJoinMap: context.eventJoinMap,
-				eventSchemaSlugs: context.eventSchemaSlugs,
 			});
 
 			return executePreparedQuery({

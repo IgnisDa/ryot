@@ -150,6 +150,29 @@ export const buildCastedValueExpression = (
 		.with("array", "object", () => input.propertyJson)
 		.otherwise(() => input.propertyText);
 
+export const buildJsonColumnPropertyExpression = (input: {
+	propertyPath: string[];
+	propertyType: PropertyType;
+	base: SqlExpression;
+	targetType?: PropertyType;
+}) => {
+	return buildCastedValueExpression(
+		input.targetType ?? normalizeExpressionPropertyType(input.propertyType),
+		{
+			propertyJson: buildPropertyPathExpression(
+				input.base,
+				input.propertyPath,
+				"json",
+			),
+			propertyText: buildPropertyPathExpression(
+				input.base,
+				input.propertyPath,
+				"text",
+			),
+		},
+	);
+};
+
 export const buildCoalescedExpression = (expressions: SqlExpression[]) => {
 	if (expressions.length === 1) {
 		return expressions[0] ?? sql`null`;

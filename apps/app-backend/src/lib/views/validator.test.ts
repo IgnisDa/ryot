@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+	createComputedFieldExpression,
 	createEntityColumnExpression,
 	createEventAggregateExpression,
 } from "@ryot/ts-utils";
@@ -186,6 +187,250 @@ describe("validateRuntimeReferenceAgainstSchemas", () => {
 				displayBuiltins,
 			),
 		).not.toThrow();
+	});
+
+	it("rejects primary event property references without eventSchemaSlug when required by query context", () => {
+		expect(() =>
+			validateRuntimeReferenceAgainstSchemas(
+				{
+					type: "event",
+					path: ["properties", "rating"],
+				},
+				{
+					...context,
+					supportsPrimaryEventRefs: true,
+					requirePrimaryEventSchemaSlug: true,
+					eventSchemaMap: new Map([
+						[
+							"review",
+							[
+								{
+									slug: "review",
+									id: "review-smartphone",
+									entitySchemaSlug: "smartphones",
+									entitySchemaId: "smartphones-id",
+									propertiesSchema: {
+										fields: {
+											rating: {
+												type: "integer",
+												label: "Phone Rating",
+												description: "Phone review score",
+											},
+										},
+									},
+								},
+							],
+						],
+					]),
+				},
+				displayBuiltins,
+			),
+		).toThrow(
+			"Primary event property references in this context must specify eventSchemaSlug",
+		);
+	});
+
+	it("rejects countBy expressions that are not comparable scalars", () => {
+		expect(() =>
+			validateQueryEngineReferences(
+				{
+					filter: null,
+					eventJoins: [],
+					mode: "aggregate",
+					relationships: [],
+					computedFields: [],
+					scope: ["smartphones"],
+					aggregations: [
+						{
+							key: "byMetadata",
+							aggregation: {
+								type: "countBy",
+								groupBy: {
+									type: "reference",
+									reference: {
+										type: "entity",
+										slug: "smartphones",
+										path: ["properties", "metadata"],
+									},
+								},
+							},
+						},
+					],
+				},
+				context,
+			),
+		).toThrow(
+			"Filter operator 'countBy' is not supported for expression type 'object'",
+		);
+	});
+
+	it("rejects countWhere predicates that use unsupported primary event refs", () => {
+		expect(() =>
+			validateQueryEngineReferences(
+				{
+					filter: null,
+					eventJoins: [],
+					mode: "aggregate",
+					relationships: [],
+					computedFields: [],
+					scope: ["smartphones"],
+					aggregations: [
+						{
+							key: "reviewCount",
+							aggregation: {
+								type: "countWhere",
+								predicate: {
+									type: "comparison",
+									operator: "eq",
+									left: {
+										type: "reference",
+										reference: {
+											type: "event",
+											path: ["createdAt"],
+										},
+									},
+									right: {
+										type: "literal",
+										value: "2024-01-01T00:00:00.000Z",
+									},
+								},
+							},
+						},
+					],
+				},
+				context,
+			),
+		).toThrow("Primary event references are not supported in this query mode");
+	});
+
+	it("rejects computed fields that hide unslugged primary event property refs in strict contexts", () => {
+		expect(() =>
+			validateQueryEngineReferences(
+				{
+					filter: {
+						type: "comparison",
+						operator: "eq",
+						left: createComputedFieldExpression("eventRating"),
+						right: { type: "literal", value: "5" },
+					},
+					mode: "events",
+					eventJoins: [],
+					computedFields: [
+						{
+							key: "eventRating",
+							expression: {
+								type: "reference",
+								reference: {
+									type: "event",
+									path: ["properties", "rating"],
+								},
+							},
+						},
+					],
+					scope: ["smartphones"],
+					eventSchemas: ["review"],
+					pagination: { page: 1, limit: 10 },
+					sort: {
+						direction: "asc",
+						expression: createEntityColumnExpression("smartphones", "name"),
+					},
+					fields: [],
+				},
+				{
+					...context,
+					supportsPrimaryEventRefs: true,
+					eventSchemaMap: new Map([
+						[
+							"review",
+							[
+								{
+									slug: "review",
+									id: "review-smartphone",
+									entitySchemaSlug: "smartphones",
+									entitySchemaId: "smartphones-id",
+									propertiesSchema: {
+										fields: {
+											rating: {
+												type: "integer",
+												label: "Phone Rating",
+												description: "Phone review score",
+											},
+										},
+									},
+								},
+							],
+						],
+					]),
+				},
+			),
+		).toThrow(
+			"Primary event property references in this context must specify eventSchemaSlug",
+		);
+	});
+
+	it("rejects unslugged primary event refs inside conditional sort predicates", () => {
+		expect(() =>
+			validateQueryEngineReferences(
+				{
+					filter: null,
+					mode: "events",
+					eventJoins: [],
+					computedFields: [],
+					scope: ["smartphones"],
+					eventSchemas: ["review"],
+					pagination: { page: 1, limit: 10 },
+					sort: {
+						direction: "asc",
+						expression: {
+							type: "conditional",
+							condition: {
+								type: "comparison",
+								operator: "eq",
+								left: {
+									type: "reference",
+									reference: {
+										type: "event",
+										path: ["properties", "rating"],
+									},
+								},
+								right: { type: "literal", value: "5" },
+							},
+							whenTrue: { type: "literal", value: "before" },
+							whenFalse: { type: "literal", value: "after" },
+						},
+					},
+					fields: [],
+				},
+				{
+					...context,
+					supportsPrimaryEventRefs: true,
+					eventSchemaMap: new Map([
+						[
+							"review",
+							[
+								{
+									slug: "review",
+									id: "review-smartphone",
+									entitySchemaSlug: "smartphones",
+									entitySchemaId: "smartphones-id",
+									propertiesSchema: {
+										fields: {
+											rating: {
+												type: "integer",
+												label: "Phone Rating",
+												description: "Phone review score",
+											},
+										},
+									},
+								},
+							],
+						],
+					]),
+				},
+			),
+		).toThrow(
+			"Primary event property references in this context must specify eventSchemaSlug",
+		);
 	});
 
 	it("rejects primary event property references when matching event schemas disagree", () => {
