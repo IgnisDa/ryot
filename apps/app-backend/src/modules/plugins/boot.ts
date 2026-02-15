@@ -61,9 +61,10 @@ export class FirstPartyPluginBootstrap extends Effect.Service<FirstPartyPluginBo
 				yield* ingestion.rebuild();
 				yield* ingestKernelScripts();
 				for (const source of bootPluginSources) {
-					yield* loadPluginSource(source.packageRoot, source.manifest).pipe(
+					const sourceEffect = loadPluginSource(source.packageRoot, source.manifest).pipe(
 						Effect.flatMap(ingestion.ingestPlugin),
 					);
+					yield* sourceEffect;
 				}
 			});
 
