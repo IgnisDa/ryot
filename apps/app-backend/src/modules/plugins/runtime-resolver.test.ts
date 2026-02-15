@@ -42,9 +42,17 @@ const normalizedPlugin = (): NormalizedPlugin => {
 		slug: "fixture.preload",
 		providerSlug: "fixture-provider",
 	};
+	const workflow = {
+		...automation,
+		name: "Fixture workflow",
+		slug: "fixture.workflow",
+		kind: "workflow" as const,
+		capabilities: [] as const,
+	};
 	const normalizedManifest: PluginManifest = {
 		...manifest,
-		scripts: [...manifest.scripts, details, search, preload],
+		workflows: [{ slug: "fixture-run", scriptSlug: workflow.slug }],
+		scripts: [...manifest.scripts, details, search, preload, workflow],
 		providers: [
 			{
 				name: "Fixture provider",
@@ -125,6 +133,22 @@ const customScriptRow = {
 	},
 };
 
+const workflowScriptRow = {
+	...scriptRow,
+	providerId: null,
+	name: "Fixture workflow",
+	slug: "fixture.workflow",
+	id: SandboxScriptId.make("workflow-script-id"),
+	contentHash: "fixture.workflow-hash",
+	metadata: {
+		capabilities: [],
+		kind: "workflow" as const,
+		name: "Fixture workflow",
+		slug: "fixture.workflow",
+		requiredAppConfigKeys: [],
+	},
+};
+
 const makeLayer = () => {
 	const loader = makePluginLoader(makeDefinitionRegistry());
 	loader.load(normalizedPlugin());
@@ -138,7 +162,13 @@ const makeLayer = () => {
 							return Promise.resolve([providerRow]);
 						}
 						scriptSelectCount += 1;
-						return Promise.resolve(scriptSelectCount === 3 ? [customScriptRow] : [scriptRow]);
+						if (scriptSelectCount === 3) {
+							return Promise.resolve([customScriptRow]);
+						}
+						if (scriptSelectCount === 4) {
+							return Promise.resolve([workflowScriptRow]);
+						}
+						return Promise.resolve([scriptRow]);
 					},
 				}),
 			}),
@@ -175,6 +205,12 @@ it.effect("resolves active schema providers and their operation-specific scripts
 			id: "preload-script-id",
 			slug: "fixture.preload",
 		});
+		expect(
+			yield* resolver.findActiveWorkflowScript({
+				pluginSlug: "fixture",
+				workflowSlug: "fixture-run",
+			}),
+		).toMatchObject({ id: "workflow-script-id", slug: "fixture.workflow" });
 	}).pipe(Effect.provide(makeLayer())),
 );
 

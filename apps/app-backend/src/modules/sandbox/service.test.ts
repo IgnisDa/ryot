@@ -1,14 +1,20 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { NotFound } from "@ryot/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-utils/effect";
-import { dbRunnerLayer, makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import {
+	dbRunnerLayer,
+	makeAppConfigLayer,
+	makeWorkflowActivityEngine,
+	makeWorkflowEngine,
+} from "#lib/test-utils/effect";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { SandboxRepository } from "./repository";
+import { SandboxScriptWorkflow } from "./sandbox-script-workflow";
 import { SandboxExecutionService } from "./service";
 
 const scriptId = SandboxScriptId.make("script-id");
@@ -26,10 +32,13 @@ const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
 	mockRepository({ _tag: "SandboxRepository", ...overrides });
 const makePluginRuntime = (
 	findActiveScriptById: PluginRuntimeResolver["findActiveScriptById"] = () => Effect.succeed(null),
+	findActiveWorkflowScript: PluginRuntimeResolver["findActiveWorkflowScript"] = () =>
+		Effect.succeed(null),
 ) =>
 	Layer.mock(PluginRuntimeResolver)({
 		_tag: "PluginRuntimeResolver",
 		findActiveScriptById,
+		findActiveWorkflowScript,
 	});
 const makeServiceLayer = (
 	repository: ReturnType<typeof makeRepository>,
@@ -136,4 +145,63 @@ it.effect("polls a job only for its explicit executing user", () => {
 			Exit.fail(new NotFound({ message: "Sandbox job not found" })),
 		);
 	}).pipe(Effect.provide(layer));
+});
+
+it.effect("resolves and executes a manifest workflow with an exact script pin", () => {
+	const executionId = "media-resolution-1";
+	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
+	let capturedWorkflow: unknown;
+	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
+	const engine = makeWorkflowActivityEngine(instance, {
+		execute: (workflow, options) =>
+			Effect.sync(() => {
+				capturedWorkflow = workflow;
+				capturedOptions = options;
+				return { results: [] };
+			}),
+	});
+	const layer = makeServiceLayer(
+		makeRepository(),
+		makePluginRuntime(undefined, () =>
+			Effect.succeed({
+				...storedScript,
+				name: "Media resolution",
+				source: "source",
+				slug: "workflow.media-import-resolution",
+				pluginSlug: "media",
+				createdAt: new Date(0),
+				updatedAt: new Date(0),
+				contentHash: "workflow-hash",
+				metadata: { kind: "workflow" as const },
+			}),
+		),
+		Layer.succeed(WorkflowEngine, engine),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SandboxExecutionService;
+		const result = yield* service.executeWorkflow({
+			executionId,
+			pluginSlug: "media",
+			workflowSlug: "media-import-resolution",
+			authority: { type: "user", userId: executingUserId },
+			input: { items: [], scriptId: "attempted-override" },
+		});
+
+		expect(result).toEqual({ results: [] });
+		expect(capturedWorkflow).toBe(SandboxScriptWorkflow);
+		expect(capturedOptions).toMatchObject({
+			executionId,
+			payload: {
+				scriptId,
+				resolutionMode: "exact",
+				authority: { type: "user", userId: executingUserId },
+				input: { items: [], scriptId: "attempted-override" },
+			},
+		});
+	}).pipe(
+		Effect.provideService(WorkflowEngine, engine),
+		Effect.provideService(WorkflowInstance, instance),
+		Effect.provide(layer),
+	);
 });

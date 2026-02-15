@@ -5,7 +5,7 @@ import { assert } from "vitest";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { fixtureManifest } from "./test-support";
-import { validatePluginManifestReferences, validatePluginOperationScripts } from "./validation";
+import { validatePluginExecutableScripts, validatePluginManifestReferences } from "./validation";
 
 const operationManifest = () => {
 	const manifest = fixtureManifest();
@@ -65,7 +65,7 @@ it.effect("requires operation declarations to reference operation scripts", () =
 	};
 
 	return Effect.gen(function* () {
-		const exit = yield* Effect.exit(validatePluginOperationScripts(normalized));
+		const exit = yield* Effect.exit(validatePluginExecutableScripts(normalized));
 		expect(Exit.isFailure(exit)).toBe(true);
 		expect(String(exit)).toContain("must be an operation script");
 	});

@@ -1,9 +1,11 @@
 import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
 import {
+	SANDBOX_SDK_ACTIVITY_IMPORT,
 	SANDBOX_SDK_AUTOMATION_IMPORT,
 	SANDBOX_SDK_IMPORTS,
 	SANDBOX_SDK_PROVIDER_IMPORT,
 	SANDBOX_SDK_ROOT_IMPORT,
+	SANDBOX_SDK_WORKFLOW_IMPORT,
 } from "@ryot/sandbox-sdk/imports";
 import * as ts from "typescript/unstable/ast";
 
@@ -58,11 +60,138 @@ const inspectsGeneratedModule = (node: ts.CallExpression | ts.NewExpression) => 
 	);
 };
 
+const expressionPath = (expression: ts.Expression): readonly string[] | null => {
+	if (ts.isIdentifier(expression)) {
+		return [expression.text];
+	}
+	if (ts.isPropertyAccessExpression(expression)) {
+		const parent = expressionPath(expression.expression);
+		return parent ? [...parent, expression.name.text] : null;
+	}
+	if (
+		ts.isElementAccessExpression(expression) &&
+		ts.isStringLiteralLikeNode(expression.argumentExpression)
+	) {
+		const parent = expressionPath(expression.expression);
+		return parent ? [...parent, expression.argumentExpression.text] : null;
+	}
+	return null;
+};
+
+const ambientPath = (expression: ts.Expression) => {
+	const path = expressionPath(expression);
+	return path?.[0] === "globalThis" || path?.[0] === "self" || path?.[0] === "window"
+		? path.slice(1)
+		: path;
+};
+
+const nondeterministicGlobal = (expression: ts.Expression) => {
+	const path = ambientPath(expression);
+	if (!path) {
+		return null;
+	}
+	const blockedPath = [
+		["Date", "now"],
+		["Math", "random"],
+		["crypto", "getRandomValues"],
+		["crypto", "randomUUID"],
+		["performance", "now"],
+		["Temporal", "Now"],
+	].find((blocked) => blocked.every((segment, index) => path[index] === segment));
+	if (blockedPath) {
+		return blockedPath.join(".");
+	}
+	return null;
+};
+
+export const inspectWorkflowDeterminism = (file: ts.SourceFile) => {
+	const diagnostics: SandboxCompilerDiagnostic[] = [];
+	const visit = (node: ts.Node): void => {
+		if (ts.isCallExpression(node)) {
+			const path = ambientPath(node.expression);
+			const global = nondeterministicGlobal(node.expression);
+			if (path?.join(".") === "Date") {
+				diagnostics.push(
+					diagnosticAt(
+						node,
+						"RYOT_WORKFLOW_DETERMINISM",
+						"Workflow code cannot call ambient Date()",
+					),
+				);
+				return;
+			}
+			if (global) {
+				diagnostics.push(
+					diagnosticAt(
+						node,
+						"RYOT_WORKFLOW_DETERMINISM",
+						`Workflow code cannot use ambient nondeterminism: ${global}`,
+					),
+				);
+				return;
+			}
+		}
+		if (ts.isNewExpression(node)) {
+			const path = ambientPath(node.expression);
+			if (path?.join(".") === "Date" && (node.arguments?.length ?? 0) === 0) {
+				diagnostics.push(
+					diagnosticAt(
+						node,
+						"RYOT_WORKFLOW_DETERMINISM",
+						"Workflow code cannot construct an ambient current date with new Date()",
+					),
+				);
+				return;
+			}
+		}
+		if (
+			(ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) &&
+			!(ts.isCallExpression(node.parent) && node.parent.expression === node)
+		) {
+			const global = nondeterministicGlobal(node);
+			if (global) {
+				diagnostics.push(
+					diagnosticAt(
+						node,
+						"RYOT_WORKFLOW_DETERMINISM",
+						`Workflow code cannot reference ambient nondeterminism: ${global}`,
+					),
+				);
+				return;
+			}
+		}
+		node.forEachChild(visit);
+	};
+	visit(file);
+	return diagnostics;
+};
+
+export const inspectWorkflowImports = (file: ts.SourceFile) => {
+	const diagnostics: SandboxCompilerDiagnostic[] = [];
+	for (const statement of file.statements) {
+		if (
+			(ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) &&
+			getModuleSpecifier(statement) === "@ryot/sandbox-sdk/effect"
+		) {
+			diagnostics.push(
+				diagnosticAt(
+					statement.moduleSpecifier ?? statement,
+					"RYOT_WORKFLOW_DETERMINISM",
+					`Workflow code must import deterministic Effect and Schema exports from ${SANDBOX_SDK_WORKFLOW_IMPORT}`,
+				),
+			);
+		}
+	}
+	return diagnostics;
+};
+
 const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 	const scriptHelpers = new Set<string>();
+	const activityHelpers = new Set<string>();
 	const providerHelpers = new Set<string>();
 	const manifestHelpers = new Set<string>();
 	const operationHelpers = new Set<string>();
+	const workflowHelpers = new Set<string>();
 	const automationHelpers = new Set<string>();
 	const diagnostics: SandboxCompilerDiagnostic[] = [];
 
@@ -97,8 +226,10 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 			if (
 				ts.isImportDeclaration(statement) &&
 				(specifier === SANDBOX_SDK_ROOT_IMPORT ||
+					specifier === SANDBOX_SDK_ACTIVITY_IMPORT ||
 					specifier === SANDBOX_SDK_AUTOMATION_IMPORT ||
 					specifier === SANDBOX_SDK_PROVIDER_IMPORT ||
+					specifier === SANDBOX_SDK_WORKFLOW_IMPORT ||
 					specifier === "@ryot/sandbox-sdk/driver" ||
 					specifier === "@ryot/sandbox-sdk/operation")
 			) {
@@ -121,6 +252,9 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 						if (importedName === "defineScript") {
 							scriptHelpers.add(element.name.text);
 						}
+						if (importedName === "defineActivity") {
+							activityHelpers.add(element.name.text);
+						}
 						if (importedName === "defineAutomation" || importedName === "defineAutomationPolicy") {
 							automationHelpers.add(element.name.text);
 						}
@@ -129,6 +263,9 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 						}
 						if (importedName === "defineOperation") {
 							operationHelpers.add(element.name.text);
+						}
+						if (importedName === "defineWorkflow") {
+							workflowHelpers.add(element.name.text);
 						}
 					}
 				}
@@ -174,9 +311,11 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 	return {
 		diagnostics,
 		scriptHelpers,
+		activityHelpers,
 		manifestHelpers,
 		providerHelpers,
 		operationHelpers,
+		workflowHelpers,
 		automationHelpers,
 	};
 };
@@ -184,9 +323,11 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 const inspectScriptDefinition = (
 	file: ts.SourceFile,
 	scriptHelpers: ReadonlySet<string>,
+	activityHelpers: ReadonlySet<string>,
 	automationHelpers: ReadonlySet<string>,
 	providerHelpers: ReadonlySet<string>,
 	operationHelpers: ReadonlySet<string>,
+	workflowHelpers: ReadonlySet<string>,
 ) => {
 	const defaults = file.statements.filter(
 		(statement): statement is ts.ExportAssignment =>
@@ -208,16 +349,20 @@ const inspectScriptDefinition = (
 
 	const assignment = defaults[0];
 	const call = assignment?.expression;
-	let definitionKind: "automation" | "operation" | "provider" | "script" | null = null;
+	let definitionKind: SandboxManifest["kind"] | null = null;
 	if (call && ts.isCallExpression(call) && ts.isIdentifier(call.expression)) {
 		if (scriptHelpers.has(call.expression.text)) {
 			definitionKind = "script";
+		} else if (activityHelpers.has(call.expression.text)) {
+			definitionKind = "activity";
 		} else if (automationHelpers.has(call.expression.text)) {
 			definitionKind = "automation";
 		} else if (providerHelpers.has(call.expression.text)) {
 			definitionKind = "provider";
 		} else if (operationHelpers.has(call.expression.text)) {
 			definitionKind = "operation";
+		} else if (workflowHelpers.has(call.expression.text)) {
+			definitionKind = "workflow";
 		}
 	}
 	if (
@@ -235,7 +380,7 @@ const inspectScriptDefinition = (
 				diagnosticAt(
 					assignment ?? file,
 					"RYOT_DEFINITION",
-					"The default export must be a direct automation, operation, script, or provider definition call",
+					"The default export must be a direct activity, automation, operation, script, provider, or workflow definition call",
 				),
 			],
 		};
@@ -305,7 +450,11 @@ const inspectScriptDefinition = (
 			],
 		};
 	}
-	const requiresSchemas = definitionKind === "script" || definitionKind === "operation";
+	const requiresSchemas =
+		definitionKind === "activity" ||
+		definitionKind === "script" ||
+		definitionKind === "operation" ||
+		definitionKind === "workflow";
 	const validProviderOperation =
 		definitionKind !== "provider" ||
 		providerOperation === "details" ||
@@ -338,17 +487,21 @@ export const inspectSandboxModuleImports = (file: ts.SourceFile) =>
 
 export const sandboxDefinitionMismatch = (
 	inspection: {
-		readonly definitionKind: "automation" | "operation" | "provider" | "script" | null;
+		readonly definitionKind: SandboxManifest["kind"] | null;
 	},
 	manifest: SandboxManifest,
 ) => {
 	let helper = "defineScript";
-	if (manifest.kind === "provider") {
+	if (manifest.kind === "activity") {
+		helper = "defineActivity";
+	} else if (manifest.kind === "provider") {
 		helper = "defineProvider";
 	} else if (manifest.kind === "automation") {
 		helper = "defineAutomation";
 	} else if (manifest.kind === "operation") {
 		helper = "defineOperation";
+	} else if (manifest.kind === "workflow") {
+		helper = "defineWorkflow";
 	}
 	if (inspection.definitionKind !== manifest.kind) {
 		return `Manifest kind "${manifest.kind}" must use ${helper}`;
@@ -373,9 +526,11 @@ export const inspectSandboxSource = (
 	const definition = inspectScriptDefinition(
 		file,
 		imports.scriptHelpers,
+		imports.activityHelpers,
 		imports.automationHelpers,
 		imports.providerHelpers,
 		imports.operationHelpers,
+		imports.workflowHelpers,
 	);
 	return { ...definition, manifestHelpers: imports.manifestHelpers };
 };

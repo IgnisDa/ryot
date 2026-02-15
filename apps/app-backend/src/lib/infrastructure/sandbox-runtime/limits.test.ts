@@ -14,7 +14,9 @@ import {
 	sandboxHttpRequestBodyError,
 	sandboxRunnerRequestError,
 	SANDBOX_LIMITS,
+	sandboxRunnerLimits,
 	utf8ByteLength,
+	WORKFLOW_SANDBOX_LIMITS,
 } from "./limits";
 
 describe("sandbox limits", () => {
@@ -107,6 +109,23 @@ describe("sandbox limits", () => {
 			expect(consumeSandboxHostCall(httpBudget, "httpCall")).toBeNull();
 		}
 		expect(consumeSandboxHostCall(httpBudget, "httpCall")).toContain("50 httpCall calls");
+	});
+
+	it("applies the distinct workflow execution profile without changing activity limits", () => {
+		expect(WORKFLOW_SANDBOX_LIMITS).toEqual({
+			timeoutMs: 30_000,
+			hostCalls: { http: 0, total: 1_000 },
+			execution: { contextBytes: 65_536, resultBytes: 4_194_304 },
+		});
+		expect(sandboxRunnerLimits({ kind: "workflow" })).toMatchObject({
+			hostCallCount: 1_000,
+			resultBytes: 4_194_304,
+			bridgeResponseBytes: 10_485_760,
+		});
+		expect(sandboxRunnerLimits({ kind: "activity" })).toEqual(sandboxRunnerLimits({}));
+		expect(sandboxContextError("a".repeat(65_535), { kind: "workflow" })).toContain(
+			"65536 UTF-8 bytes",
+		);
 	});
 
 	it("bounds diagnostics by both entry count and serialized UTF-8 bytes", () => {
