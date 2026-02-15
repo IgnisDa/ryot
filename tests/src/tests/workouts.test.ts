@@ -47,10 +47,26 @@ describe("Workouts E2E", () => {
 		);
 
 		expect(workoutSchema.propertiesSchema.fields).toMatchObject({
-			comment: { label: "Comment", type: "string" },
-			endedAt: { label: "Ended At", type: "datetime" },
-			startedAt: { label: "Started At", type: "datetime" },
-			caloriesBurnt: { label: "Calories Burnt", type: "integer" },
+			comment: {
+				label: "Comment",
+				type: "string",
+				description: "Optional notes or comments about this workout",
+			},
+			endedAt: {
+				type: "datetime",
+				label: "Ended At",
+				description: "Date and time this workout session ended",
+			},
+			startedAt: {
+				type: "datetime",
+				label: "Started At",
+				description: "Date and time this workout session began",
+			},
+			caloriesBurnt: {
+				type: "integer",
+				label: "Calories Burnt",
+				description: "Estimated calories burned during this workout",
+			},
 		});
 	});
 

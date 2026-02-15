@@ -22,6 +22,7 @@ describe("buildDefaultPropertySchemaRow", () => {
 		expect(row).toMatchObject({
 			key: "",
 			label: "",
+			description: "",
 			type: "string",
 			required: false,
 		});
@@ -93,10 +94,15 @@ describe("buildPropertiesSchema", () => {
 			]),
 		).toEqual({
 			fields: {
-				notes: { label: "Title", type: "string" },
+				notes: {
+					label: "Title",
+					description: "Title",
+					type: "string",
+				},
 				occurredOn: {
 					type: "date",
 					label: "Title",
+					description: "Title",
 					validation: { required: true },
 				},
 			},

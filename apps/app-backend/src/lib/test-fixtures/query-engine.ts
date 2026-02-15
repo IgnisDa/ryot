@@ -4,22 +4,62 @@ const smartphoneSchemaDefaults = {
 	slug: "smartphones",
 	propertiesSchema: {
 		fields: {
-			nameplate: { label: "Nameplate", type: "string" as const },
-			screenSize: { label: "Screen Size", type: "number" as const },
-			announcedAt: { label: "Announced At", type: "date" as const },
-			isFoldable: { label: "Is Foldable", type: "boolean" as const },
-			releasedAt: { label: "Released At", type: "datetime" as const },
-			releaseYear: { label: "Release Year", type: "integer" as const },
-			manufacturer: { label: "Manufacturer", type: "string" as const },
+			nameplate: {
+				label: "Nameplate",
+				type: "string" as const,
+				description: "Marketing nameplate",
+			},
+			screenSize: {
+				label: "Screen Size",
+				type: "number" as const,
+				description: "Screen size in inches",
+			},
+			announcedAt: {
+				label: "Announced At",
+				type: "date" as const,
+				description: "Announcement date",
+			},
+			isFoldable: {
+				label: "Is Foldable",
+				type: "boolean" as const,
+				description: "Whether the phone folds",
+			},
+			releasedAt: {
+				label: "Released At",
+				type: "datetime" as const,
+				description: "Release timestamp",
+			},
+			releaseYear: {
+				label: "Release Year",
+				type: "integer" as const,
+				description: "Release year",
+			},
+			manufacturer: {
+				label: "Manufacturer",
+				type: "string" as const,
+				description: "Phone manufacturer",
+			},
 			tags: {
 				label: "Tags",
 				type: "array" as const,
-				items: { label: "Item", type: "string" as const },
+				description: "Classification tags",
+				items: {
+					label: "Item",
+					type: "string" as const,
+					description: "Tag value",
+				},
 			},
 			metadata: {
 				label: "Metadata",
 				type: "object" as const,
-				properties: { source: { label: "Source", type: "string" as const } },
+				description: "Supplemental metadata",
+				properties: {
+					source: {
+						label: "Source",
+						type: "string" as const,
+						description: "Metadata source",
+					},
+				},
 			},
 		},
 	},
@@ -29,8 +69,16 @@ const tabletSchemaDefaults = {
 	slug: "tablets",
 	propertiesSchema: {
 		fields: {
-			maker: { label: "Maker", type: "string" as const },
-			releaseYear: { label: "Release Year", type: "integer" as const },
+			maker: {
+				label: "Maker",
+				type: "string" as const,
+				description: "Tablet manufacturer",
+			},
+			releaseYear: {
+				label: "Release Year",
+				type: "integer" as const,
+				description: "Tablet release year",
+			},
 		},
 	},
 };

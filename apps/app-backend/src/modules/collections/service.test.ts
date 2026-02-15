@@ -52,6 +52,7 @@ describe("createCollection", () => {
 				friendWhoRecommendedIt: {
 					type: "string" as const,
 					label: "Friend Who Recommended It",
+					description: "Friend who recommended it",
 				},
 			},
 		};
@@ -165,7 +166,13 @@ describe("createCollection", () => {
 					body: {
 						name: "Test Collection",
 						membershipPropertiesSchema: {
-							fields: { invalidField: { type: "invalid_type" } },
+							fields: {
+								invalidField: {
+									type: "invalid_type",
+									label: "Invalid Field",
+									description: "Invalid field",
+								},
+							},
 						},
 					},
 				},
@@ -199,14 +206,28 @@ describe("createCollection", () => {
 					friendWhoRecommendedIt: {
 						type: "string" as const,
 						label: "Friend Who Recommended It",
+						description: "Friend who recommended it",
 					},
 					recommendationDetails: {
 						type: "object" as const,
 						label: "Recommendation Details",
+						description: "Recommendation details",
 						properties: {
-							when: { label: "When", type: "date" as const },
-							where: { label: "Where", type: "string" as const },
-							rating: { label: "Rating", type: "integer" as const },
+							when: {
+								label: "When",
+								type: "date" as const,
+								description: "Recommendation date",
+							},
+							where: {
+								label: "Where",
+								type: "string" as const,
+								description: "Recommendation location",
+							},
+							rating: {
+								label: "Rating",
+								type: "integer" as const,
+								description: "Recommendation rating",
+							},
 						},
 					},
 				},
@@ -234,7 +255,12 @@ describe("createCollection", () => {
 					tags: {
 						label: "Tags",
 						type: "array" as const,
-						items: { label: "Item", type: "string" as const },
+						description: "Tags",
+						items: {
+							label: "Item",
+							type: "string" as const,
+							description: "Tag item",
+						},
 					},
 				},
 			};
@@ -264,7 +290,15 @@ describe("createCollection", () => {
 								fields: {
 									nested: {
 										type: "object" as const,
-										properties: { invalidField: { type: "unknown_type" } },
+										label: "Nested",
+										description: "Nested object",
+										properties: {
+											invalidField: {
+												type: "unknown_type",
+												label: "Invalid Field",
+												description: "Invalid nested field",
+											},
+										},
 									},
 								},
 							},
@@ -291,7 +325,13 @@ describe("createCollection", () => {
 								fields: {
 									tags: {
 										type: "array" as const,
-										items: { type: "unknown_type" },
+										label: "Tags",
+										description: "Tags",
+										items: {
+											type: "unknown_type",
+											label: "Item",
+											description: "Invalid array item",
+										},
 									},
 								},
 							},
@@ -310,28 +350,52 @@ describe("createCollection", () => {
 		it("accepts complex deeply nested schema with multiple levels", async () => {
 			const complexSchema = {
 				fields: {
-					priority: { label: "Priority", type: "integer" as const },
+					priority: {
+						label: "Priority",
+						type: "integer" as const,
+						description: "Priority level",
+					},
 					metadata: {
 						label: "Metadata",
 						type: "object" as const,
+						description: "Metadata",
 						properties: {
 							source: {
 								label: "Source",
 								type: "object" as const,
+								description: "Source metadata",
 								properties: {
-									url: { label: "URL", type: "string" as const },
-									name: { label: "Name", type: "string" as const },
+									url: {
+										label: "URL",
+										type: "string" as const,
+										description: "Source URL",
+									},
+									name: {
+										label: "Name",
+										type: "string" as const,
+										description: "Source name",
+									},
 								},
 							},
 							tags: {
 								label: "Tags",
 								type: "array" as const,
+								description: "Tag metadata",
 								items: {
 									label: "Item",
 									type: "object" as const,
+									description: "Tag item",
 									properties: {
-										label: { label: "Label", type: "string" as const },
-										color: { label: "Color", type: "string" as const },
+										label: {
+											label: "Label",
+											type: "string" as const,
+											description: "Tag label",
+										},
+										color: {
+											label: "Color",
+											type: "string" as const,
+											description: "Tag color",
+										},
 									},
 								},
 							},
@@ -368,7 +432,15 @@ describe("createCollection", () => {
 							fields: {
 								nested: {
 									type: "object" as const,
-									properties: { invalid: { type: "bad_type" } },
+									label: "Nested",
+									description: "Nested object",
+									properties: {
+										invalid: {
+											type: "bad_type",
+											label: "Invalid",
+											description: "Invalid nested property",
+										},
+									},
 								},
 							},
 						},
@@ -567,7 +639,13 @@ describe("addToCollection", () => {
 					createCollectionResponse({
 						properties: {
 							membershipPropertiesSchema: {
-								fields: { rating: { type: "integer" } },
+								fields: {
+									rating: {
+										type: "integer",
+										label: "Rating",
+										description: "Rating",
+									},
+								},
 							},
 						},
 					}),
@@ -605,8 +683,16 @@ describe("addToCollection", () => {
 							properties: {
 								membershipPropertiesSchema: {
 									fields: {
-										rating: { type: "integer" },
-										recommendedBy: { type: "string" },
+										rating: {
+											type: "integer",
+											label: "Rating",
+											description: "Rating",
+										},
+										recommendedBy: {
+											type: "string",
+											label: "Recommended By",
+											description: "Friend name",
+										},
 									},
 								},
 							},
@@ -651,7 +737,13 @@ describe("addToCollection", () => {
 						createCollectionResponse({
 							properties: {
 								membershipPropertiesSchema: {
-									fields: { rating: { type: "integer" } },
+									fields: {
+										rating: {
+											type: "integer",
+											label: "Rating",
+											description: "Rating",
+										},
+									},
 								},
 							},
 						}),
@@ -682,6 +774,8 @@ describe("addToCollection", () => {
 									fields: {
 										recommendedBy: {
 											type: "string",
+											label: "Recommended By",
+											description: "Friend name",
 											validation: { required: true },
 										},
 									},
@@ -717,6 +811,8 @@ describe("addToCollection", () => {
 										fields: {
 											rating: {
 												type: "integer",
+												label: "Rating",
+												description: "Rating",
 												validation: { required: true },
 											},
 										},
@@ -746,7 +842,13 @@ describe("addToCollection", () => {
 							createCollectionResponse({
 								properties: {
 									membershipPropertiesSchema: {
-										fields: { score: { type: "integer" } },
+										fields: {
+											score: {
+												type: "integer",
+												label: "Score",
+												description: "Score",
+											},
+										},
 									},
 								},
 							}),
@@ -774,9 +876,16 @@ describe("addToCollection", () => {
 								properties: {
 									membershipPropertiesSchema: {
 										fields: {
-											name: { type: "string", validation: { required: true } },
+											name: {
+												type: "string",
+												label: "Name",
+												description: "Name",
+												validation: { required: true },
+											},
 											priority: {
 												type: "integer",
+												label: "Priority",
+												description: "Priority",
 												validation: { required: true },
 											},
 										},
@@ -810,7 +919,15 @@ describe("addToCollection", () => {
 										fields: {
 											details: {
 												type: "object",
-												properties: { score: { type: "integer" } },
+												label: "Details",
+												description: "Details",
+												properties: {
+													score: {
+														type: "integer",
+														label: "Score",
+														description: "Score",
+													},
+												},
 											},
 										},
 									},
@@ -875,9 +992,19 @@ describe("addToCollection", () => {
 									fields: {
 										recommendationDetails: {
 											type: "object",
+											label: "Recommendation Details",
+											description: "Recommendation details",
 											properties: {
-												friend: { type: "string" },
-												context: { type: "string" },
+												friend: {
+													type: "string",
+													label: "Friend",
+													description: "Friend name",
+												},
+												context: {
+													type: "string",
+													label: "Context",
+													description: "Recommendation context",
+												},
 											},
 										},
 									},
@@ -930,9 +1057,19 @@ describe("addToCollection", () => {
 									fields: {
 										recommendationDetails: {
 											type: "object",
+											label: "Recommendation Details",
+											description: "Recommendation details",
 											properties: {
-												friend: { type: "string" },
-												score: { type: "integer" },
+												friend: {
+													type: "string",
+													label: "Friend",
+													description: "Friend name",
+												},
+												score: {
+													type: "integer",
+													label: "Score",
+													description: "Recommendation score",
+												},
 											},
 										},
 									},
