@@ -1,7 +1,7 @@
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { describe, expect, it } from "vitest";
 
-import { buildAlbumDetails } from "./youtube-music.sandbox";
+import { buildAlbumDetails } from "./youtube-music";
 
 describe("music-group.youtube-music sandbox script", () => {
 	it("cleans the html description and maps ordered track members", () => {
@@ -40,13 +40,13 @@ describe("music-group.youtube-music sandbox script", () => {
 								{
 									name: "First Track",
 									externalId: "t1",
-									scriptSlug: "music.youtube-music",
+									providerSlug: "music.youtube-music",
 									relationshipProperties: { order: 1 },
 								},
 								{
 									name: "Loading...",
 									externalId: "t2",
-									scriptSlug: "music.youtube-music",
+									providerSlug: "music.youtube-music",
 									relationshipProperties: { order: 2 },
 								},
 							],

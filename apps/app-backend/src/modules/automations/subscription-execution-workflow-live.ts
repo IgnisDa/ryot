@@ -82,15 +82,16 @@ const prepareRun = Effect.fn("prepareSubscriptionRun")(function* (
 				sourceKind: payload.sourceKind,
 				occurrenceId: payload.occurrenceId,
 			});
-			return prepared
-				? {
-						runId: prepared.run.id,
-						ruleId: prepared.execution.ruleId,
-						ruleMetadata: prepared.execution.metadata,
-						executionUserId: prepared.run.executionUserId,
-						sandboxScriptId: prepared.execution.sandboxScriptId,
-					}
-				: null;
+			if (!prepared) {
+				return null;
+			}
+			return {
+				runId: prepared.run.id,
+				ruleId: prepared.execution.ruleId,
+				ruleMetadata: prepared.execution.metadata,
+				executionUserId: prepared.run.executionUserId,
+				sandboxScriptId: prepared.execution.sandboxScriptId,
+			};
 		}),
 	});
 });
@@ -172,17 +173,22 @@ export const runSubscriptionExecutionWorkflow = Effect.fn("SubscriptionExecution
 			...(prepared.ruleMetadata === null ? {} : { ruleMetadata: prepared.ruleMetadata }),
 		};
 		const context = { automation } satisfies AutomationInput;
+		const authority: SandboxExecutionPayload["authority"] = prepared.executionUserId
+			? {
+					type: "subscription",
+					userId: prepared.executionUserId,
+					subscriptionRun: {
+						id: prepared.runId,
+						origin: payload.origin,
+						occurredAt: payload.occurredAt,
+					},
+				}
+			: { type: "system" };
 		const result = yield* operations.runSandbox({
 			context,
-			driverName: "automation",
-			userId: prepared.executionUserId,
+			authority,
 			scriptId: prepared.sandboxScriptId,
 			executionId: `${prepared.runId}-sandbox`,
-			subscriptionRun: {
-				id: prepared.runId,
-				origin: payload.origin,
-				occurredAt: payload.occurredAt,
-			},
 		});
 
 		yield* recordRunOutcome(prepared.runId, result);

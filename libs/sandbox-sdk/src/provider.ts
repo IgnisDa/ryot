@@ -1,11 +1,7 @@
 import { Schema } from "@ryot/sandbox-sdk/effect";
 
 import type { SandboxManifest } from "./core.js";
-import {
-	type GenericDriver,
-	type GenericScriptDefinition,
-	SANDBOX_SCRIPT_DEFINITION,
-} from "./driver.js";
+import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver.js";
 import { type JsonValue, jsonValueSchema } from "./wire.js";
 
 const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
@@ -61,7 +57,7 @@ export const providerDetailsInputSchema = strictStruct({ externalId: trimmedNonE
 export const providerDetailsRelatedEntitySchema = strictStruct({
 	name: Schema.String,
 	externalId: Schema.String,
-	scriptSlug: Schema.String,
+	providerSlug: Schema.String,
 	relationshipProperties: Schema.optional(jsonValueSchema),
 });
 export const providerDetailsRelatedEntityGroupSchema = strictStruct({
@@ -114,7 +110,7 @@ export const providerTranslateResultSchema = strictStruct({
 	),
 });
 
-export const providerDriverContracts = {
+export const providerOperationContracts = {
 	search: { input: providerSearchInputSchema, output: providerSearchResultSchema },
 	details: { input: providerDetailsInputSchema, output: providerDetailsResultSchema },
 	resolve: { input: providerResolveInputSchema, output: providerResolveResultSchema },
@@ -136,43 +132,26 @@ export type ProviderDetailsRelatedEntity = Schema.Schema.Type<
 export type ProviderDetailsRelatedEntityGroup = Schema.Schema.Type<
 	typeof providerDetailsRelatedEntityGroupSchema
 >;
-export type ProviderDriverName = keyof typeof providerDriverContracts;
-export type ProviderDriver<
-	Manifest extends ProviderManifest,
-	Name extends ProviderDriverName,
-> = GenericDriver<
-	(typeof providerDriverContracts)[Name]["input"],
-	(typeof providerDriverContracts)[Name]["output"],
-	Manifest["capabilities"]
->;
-
-export const defineProviderDriver = <
-	const Manifest extends ProviderManifest,
-	const Name extends ProviderDriverName,
->(
-	_manifest: Manifest,
-	name: Name,
-	run: ProviderDriver<Manifest, Name>["run"],
-): ProviderDriver<Manifest, Name> => ({
-	run,
-	input: providerDriverContracts[name].input,
-	output: providerDriverContracts[name].output,
-});
-
-type StandardProviderDrivers<Manifest extends ProviderManifest> = {
-	readonly [Name in ProviderDriverName]: ProviderDriver<Manifest, Name>;
-};
+export type ProviderOperation = keyof typeof providerOperationContracts;
 export type ProviderDefinition<
 	Manifest extends ProviderManifest,
-	Drivers extends Partial<StandardProviderDrivers<Manifest>> & Record<string, unknown>,
-> = GenericScriptDefinition<Manifest, Drivers>;
+	Operation extends ProviderOperation,
+> = GenericScriptDefinition<
+	Manifest,
+	(typeof providerOperationContracts)[Operation]["input"],
+	(typeof providerOperationContracts)[Operation]["output"]
+> & { readonly operation: Operation };
 export const defineProvider = <
 	const Manifest extends ProviderManifest,
-	const Drivers extends Partial<StandardProviderDrivers<Manifest>> & Record<string, unknown>,
+	const Operation extends ProviderOperation,
 >(definition: {
 	readonly manifest: Manifest;
-	readonly drivers: Drivers;
-}): ProviderDefinition<Manifest, Drivers> => ({
-	...definition,
-	definitionType: SANDBOX_SCRIPT_DEFINITION,
-});
+	readonly operation: Operation;
+	readonly run: ProviderDefinition<Manifest, Operation>["run"];
+}): ProviderDefinition<Manifest, Operation> =>
+	({
+		...definition,
+		input: providerOperationContracts[definition.operation].input,
+		output: providerOperationContracts[definition.operation].output,
+		definitionType: SANDBOX_SCRIPT_DEFINITION,
+	}) as ProviderDefinition<Manifest, Operation>;

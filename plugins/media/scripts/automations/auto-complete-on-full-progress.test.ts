@@ -42,7 +42,7 @@ const createHost = (options: {
 };
 
 const run = (context: AutomationInput, host: ReturnType<typeof createHost>["host"]) =>
-	definition.drivers.automation.run(context, host, execution);
+	definition.run(context, host, execution);
 
 describe("auto-complete-on-full-progress sandbox script", () => {
 	it("completes non-episodic media at the progress event timestamp", () => {

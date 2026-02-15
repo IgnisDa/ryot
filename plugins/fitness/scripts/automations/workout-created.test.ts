@@ -29,7 +29,7 @@ const execution = { metadata: {}, sandboxScriptId: "script-1" };
 it("emits one actor signal for an API workout from its entity snapshot", () => {
 	const calls: unknown[] = [];
 	return Effect.runPromise(
-		definition.drivers.automation.run(
+		definition.run(
 			input({ kind: "api" }),
 			defineSandboxTestHost(manifest, {
 				emitSignal: (request) => {
@@ -61,7 +61,7 @@ it.each([
 ])("does not emit for the $kind origin", (origin) => {
 	const calls: unknown[] = [];
 	return Effect.runPromise(
-		definition.drivers.automation.run(
+		definition.run(
 			input(origin),
 			defineSandboxTestHost(manifest, {
 				emitSignal: (request) => {

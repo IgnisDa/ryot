@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, translate } from "./tmdb.sandbox";
+import { details, manifest, translate } from "./tmdb";
 
 type TmdbHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -36,7 +36,7 @@ describe("movie-group.tmdb sandbox script", () => {
 		);
 
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result).toMatchObject({
 						name: "Example",
@@ -50,13 +50,13 @@ describe("movie-group.tmdb sandbox script", () => {
 									{
 										name: "First",
 										externalId: "2",
-										scriptSlug: "movie.tmdb",
+										providerSlug: "movie.tmdb",
 										relationshipProperties: { order: 1 },
 									},
 									{
 										name: "Second",
 										externalId: "3",
-										scriptSlug: "movie.tmdb",
+										providerSlug: "movie.tmdb",
 										relationshipProperties: { order: 2 },
 									},
 								],
@@ -84,7 +84,7 @@ describe("movie-group.tmdb sandbox script", () => {
 		);
 
 		return Effect.runPromise(
-			runSandboxTestDriver(
+			runSandboxTestScript(
 				translate,
 				{ externalId: "1", language: "fr-FR", entitySchemaSlug: "movie-group" },
 				host,

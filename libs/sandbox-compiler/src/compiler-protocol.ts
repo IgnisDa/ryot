@@ -8,7 +8,6 @@ export const SANDBOX_COMPILED_FORMAT = 1 as const;
 export type CompiledSandboxModule = {
 	readonly javascript: string;
 	readonly manifest: SandboxManifest;
-	readonly driverNames: ReadonlyArray<string>;
 	readonly format: typeof SANDBOX_COMPILED_FORMAT;
 };
 
@@ -18,7 +17,6 @@ const CompilerWorkerSuccess = Schema.Struct({
 		manifest: Schema.Unknown,
 		javascript: Schema.String,
 		format: Schema.Literal(SANDBOX_COMPILED_FORMAT),
-		driverNames: Schema.Array(Schema.String),
 	}),
 });
 

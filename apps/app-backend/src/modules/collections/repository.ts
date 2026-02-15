@@ -3,7 +3,7 @@ import {
 	EntityId,
 	EntitySchemaSlug,
 	EventSchemaSlug,
-	SandboxScriptId,
+	SandboxProviderId,
 } from "@ryot/contract/schema/brands";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
@@ -21,7 +21,7 @@ type CollectionRow = Pick<
 	| "externalId"
 	| "properties"
 	| "entitySchemaSlug"
-	| "sandboxScriptId"
+	| "providerId"
 >;
 
 const collectionSelection = {
@@ -32,7 +32,7 @@ const collectionSelection = {
 	externalId: schema.entity.externalId,
 	properties: schema.entity.properties,
 	entitySchemaSlug: schema.entity.entitySchemaSlug,
-	sandboxScriptId: schema.entity.sandboxScriptId,
+	providerId: schema.entity.providerId,
 };
 
 const toCollectionResponse = (row: CollectionRow) => ({
@@ -43,7 +43,7 @@ const toCollectionResponse = (row: CollectionRow) => ({
 	entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
-	sandboxScriptId: row.sandboxScriptId ? SandboxScriptId.make(row.sandboxScriptId) : null,
+	providerId: row.providerId ? SandboxProviderId.make(row.providerId) : null,
 });
 
 export class CollectionsRepository extends Effect.Service<CollectionsRepository>()(
@@ -78,7 +78,7 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 									eq(schema.entity.userId, input.userId),
 									eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
 									isNull(schema.entity.externalId),
-									isNull(schema.entity.sandboxScriptId),
+									isNull(schema.entity.providerId),
 								),
 							)
 							.limit(1),
@@ -121,7 +121,7 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 								eq(schema.entity.name, input.name),
 								eq(schema.entity.userId, input.userId),
 								isNull(schema.entity.externalId),
-								isNull(schema.entity.sandboxScriptId),
+								isNull(schema.entity.providerId),
 								eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
 							),
 						)

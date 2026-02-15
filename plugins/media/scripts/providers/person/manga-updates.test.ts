@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./manga-updates.sandbox";
+import { details, manifest, search } from "./manga-updates";
 
 type MangaUpdatesPersonHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -28,7 +28,7 @@ describe("person.manga-updates sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(
+		return runSandboxTestScript(
 			search,
 			{ query: "author", page: 1, pageSize: 20 },
 			host,
@@ -74,7 +74,7 @@ describe("person.manga-updates sandbox script", () => {
 			});
 		});
 
-		return runSandboxTestDriver(details, { externalId: "4" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "4" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.name).toBe("Author Name");
 				expect(result.relatedEntityGroups).toEqual([
@@ -86,13 +86,13 @@ describe("person.manga-updates sandbox script", () => {
 							{
 								name: "Series A",
 								externalId: "11",
-								scriptSlug: "manga.manga-updates",
+								providerSlug: "manga.manga-updates",
 								relationshipProperties: { roles: ["Author"] },
 							},
 							{
 								externalId: "12",
 								name: "Loading...",
-								scriptSlug: "manga.manga-updates",
+								providerSlug: "manga.manga-updates",
 								relationshipProperties: { roles: ["Author"] },
 							},
 						],
@@ -120,7 +120,7 @@ describe("person.manga-updates sandbox script", () => {
 				: httpSuccess({ name: "Author Name", birthday: { year: 1980, month: 13, day: 7 } }),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "4" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "4" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.properties).toMatchObject({ birthDate: null });
 				return undefined;

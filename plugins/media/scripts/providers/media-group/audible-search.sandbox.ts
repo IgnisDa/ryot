@@ -1,0 +1,14 @@
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineProvider } from "@ryot/sandbox-sdk/provider";
+
+import { search } from "./audible";
+
+export const manifest = defineManifest({
+	kind: "provider",
+	name: "Audible Audiobook Group Search",
+	slug: "audiobook-group.audible.search",
+	capabilities: ["httpCall"],
+	requiredAppConfigKeys: [],
+});
+
+export default defineProvider({ manifest, operation: "search", run: search.run });

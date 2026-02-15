@@ -66,7 +66,7 @@ const ProviderDetailsRelatedEntitySchema: Schema.Schema<
 > = Schema.Struct({
 	name: Schema.String,
 	externalId: Schema.String,
-	scriptSlug: Schema.String,
+	providerSlug: Schema.String,
 	relationshipProperties: Schema.optional(JsonValueSchema),
 }).annotations(strict);
 

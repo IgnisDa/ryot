@@ -7,7 +7,7 @@ import { Cause, Effect, Exit, Layer, Option } from "effect";
 import { assert } from "vitest";
 
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
-import { dbRunnerLayer, makeAppConfigLayer } from "#lib/test-utils/effect";
+import { dbRunnerLayer } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import type { IntegrationRecord } from "#modules/integrations/repository";
@@ -44,11 +44,11 @@ const normalizedPlugin = (auth: PluginOperationAuth): NormalizedPlugin => {
 			eventAutomations: [],
 			entityAutomations: [],
 			signalAutomations: [],
-			schemaScriptLinks: [],
+			schemaProviderLinks: [],
 			relationshipAutomations: [],
 		},
 		operations: [
-			{ auth, slug: OPERATION_SLUG, driverRef: DRIVER_REF, description: "Resolve fixture" },
+			{ auth, slug: OPERATION_SLUG, scriptSlug: DRIVER_REF, description: "Resolve fixture" },
 		],
 	} satisfies PluginManifest;
 	const { entry, ...metadata } = operationScript;
@@ -64,7 +64,7 @@ const normalizedPlugin = (auth: PluginOperationAuth): NormalizedPlugin => {
 				compiledFormat: 1,
 				compiledCode: "compiled",
 				contentHash: "fixture-compiled",
-				metadata: { ...metadata, driverNames: ["operation"] },
+				metadata,
 			},
 		],
 	};
@@ -76,6 +76,7 @@ const makeActiveScript = (slug: string) => ({
 	source: "source",
 	compiledFormat: 1,
 	pluginSlug: "fixture",
+	providerId: null,
 	compiledCode: "compiled",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
@@ -85,7 +86,6 @@ const makeActiveScript = (slug: string) => ({
 		slug,
 		name: slug,
 		capabilities: [],
-		driverNames: ["operation"],
 		kind: "operation" as const,
 		requiredAppConfigKeys: [],
 	},
@@ -98,7 +98,8 @@ const makeIntegration = (userId: string, isDisabled: boolean) =>
 const makeLayer = (input: {
 	auth: PluginOperationAuth;
 	registerPlugin?: boolean;
-	captured?: Array<string | null>;
+	captured?: Array<unknown>;
+	currentUserId?: UserId;
 	integration?: IntegrationRecord | null;
 }) => {
 	const loader = makePluginLoader(makeDefinitionRegistry());
@@ -108,14 +109,21 @@ const makeLayer = (input: {
 	return OperationsService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				makeAppConfigLayer(),
 				dbRunnerLayer,
 				Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader }),
 				Layer.mock(AuthService)({
 					_tag: "AuthService",
 					// oxlint-disable-next-line no-unsafe-type-assertion -- the better-auth client is never touched by these tests
 					auth: {} as AuthService["auth"],
-					currentUser: () => Effect.fail(unauthorized()),
+					currentUser: () =>
+						input.currentUserId
+							? Effect.succeed({
+									name: "User",
+									email: "user@example.com",
+									id: input.currentUserId,
+									preferences: { isNsfw: false, language: null, disableIntegrations: false },
+								})
+							: Effect.fail(unauthorized()),
 				}),
 				Layer.mock(IntegrationsRepository)({
 					_tag: "IntegrationsRepository",
@@ -129,7 +137,7 @@ const makeLayer = (input: {
 					_tag: "SandboxService",
 					run: (runInput) =>
 						Effect.sync(() => {
-							input.captured?.push(runInput.userId);
+							input.captured?.push(runInput);
 							return {
 								logs: [],
 								error: null,
@@ -146,6 +154,7 @@ const makeLayer = (input: {
 					getScript: (scriptId) =>
 						Effect.succeed({
 							id: scriptId,
+							providerId: null,
 							compiledFormat: 1,
 							compiledCode: "compiled",
 							metadata: { capabilities: [] },
@@ -228,7 +237,7 @@ it.effect("rejects integration operations for a missing or disabled integration"
 );
 
 it.effect("dispatches integration operations as the owning user", () => {
-	const captured: Array<string | null> = [];
+	const captured: Array<unknown> = [];
 	return Effect.gen(function* () {
 		const service = yield* OperationsService;
 		const result = yield* service.invoke({
@@ -238,11 +247,32 @@ it.effect("dispatches integration operations as the owning user", () => {
 			payload: { integrationId: "int-1" },
 		});
 		expect(result).toBe("ok");
-		expect(captured).toEqual(["user-1"]);
+		expect(captured).toEqual([
+			expect.objectContaining({ authority: { type: "user", userId: "user-1" } }),
+		]);
 	}).pipe(
 		Effect.provide(
 			makeLayer({ auth: "integration", captured, integration: makeIntegration("user-1", false) }),
 		),
+	);
+});
+
+it.effect("dispatches authenticated user operations without system authority", () => {
+	const captured: Array<unknown> = [];
+	return Effect.gen(function* () {
+		const service = yield* OperationsService;
+		const result = yield* service.invoke({
+			payload: {},
+			pluginSlug: "fixture",
+			headers: Headers.empty,
+			operationSlug: OPERATION_SLUG,
+		});
+		expect(result).toBe("ok");
+		expect(captured).toEqual([
+			expect.objectContaining({ authority: { type: "user", userId: "user-1" } }),
+		]);
+	}).pipe(
+		Effect.provide(makeLayer({ auth: "user", captured, currentUserId: UserId.make("user-1") })),
 	);
 });
 

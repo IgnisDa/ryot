@@ -7,15 +7,16 @@ import {
 	adminHeaders,
 	type Client,
 	createAuthenticatedClient,
+	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
 	getBackendClient,
 	getEntity,
-	installTestPlugin,
+	installTestPluginBundle,
 	listRelationshipSchemas,
-	literalSandboxSource,
 	requireRelationshipSchemaBySlug,
 	trendingSandboxSource,
 	pollUntil,
+	providerSandboxSource,
 	type InstalledTestPlugin,
 	uninstallTestPlugin,
 } from "~/fixtures";
@@ -23,9 +24,10 @@ import { assertPresent, assertTaggedError, requireObjectRecord } from "~/support
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 
 const SCRIPT_SLUG = "movie.e2e-test-trending";
+const PROVIDER_SLUG = "movie.e2e-test-trending-provider";
+const DETAILS_SCRIPT_SLUG = `${PROVIDER_SLUG}.details`;
 const EXTERNAL_ID_ONE = "e2e-trending-1";
 const EXTERNAL_ID_TWO = "e2e-trending-2";
-const NON_TRENDING_SCRIPT_SLUG = "movie.e2e-test-non-trending";
 
 const TRENDING_SOURCE = trendingSandboxSource({
 	slug: SCRIPT_SLUG,
@@ -36,19 +38,11 @@ const TRENDING_SOURCE = trendingSandboxSource({
 	],
 });
 
-const NON_TRENDING_SOURCE = literalSandboxSource({
-	value: "unused",
-	name: "E2E Test Non-Trending",
-	slug: NON_TRENDING_SCRIPT_SLUG,
-});
-
-let scriptId: string;
+let providerId: string;
 let queryClient: Client;
 let movieSchemaId: string;
-let nonTrendingScriptId: string;
 let mediaTrendingSchemaId: string;
 let trendingPlugin: InstalledTestPlugin | undefined;
-let nonTrendingPlugin: InstalledTestPlugin | undefined;
 
 describe("POST /test-support/cron/infrequent (media-trending durable workflow)", () => {
 	beforeAll(async () => {
@@ -67,41 +61,79 @@ describe("POST /test-support/cron/infrequent (media-trending durable workflow)",
 					"media-trending",
 				).id;
 
-				trendingPlugin = yield* installTestPlugin({
-					source: TRENDING_SOURCE,
+				const detailsEntry = "scripts/provider-details.sandbox.ts";
+				const trendingEntry = "scripts/trending.sandbox.ts";
+				const installed = yield* installTestPluginBundle({
+					files: {
+						[trendingEntry]: TRENDING_SOURCE,
+						[detailsEntry]: providerSandboxSource({
+							operation: "details",
+							slug: DETAILS_SCRIPT_SLUG,
+							name: "E2E Test Trending Provider details",
+							result: fakeProviderDetailsResult({ name: "E2E Test Trending Provider" }),
+						}),
+					},
 					linkToEntitySchemaSlug: movieSchemaId,
+					scripts: [
+						{
+							kind: "provider",
+							entry: detailsEntry,
+							slug: DETAILS_SCRIPT_SLUG,
+							providerSlug: PROVIDER_SLUG,
+							providerOperation: "details",
+							name: "E2E Test Trending Provider details",
+							capabilities: [],
+							requiredAppConfigKeys: [],
+						},
+						{
+							kind: "script",
+							entry: trendingEntry,
+							slug: SCRIPT_SLUG,
+							providerSlug: PROVIDER_SLUG,
+							name: "E2E Test Trending",
+							capabilities: ["upsertGlobalEntities", "upsertGlobalRelationships"],
+							requiredAppConfigKeys: [],
+						},
+					],
+					providers: [
+						{
+							slug: PROVIDER_SLUG,
+							name: "E2E Test Trending Provider",
+							information: { source: "e2e" },
+							operations: { details: DETAILS_SCRIPT_SLUG },
+						},
+					],
+				});
+				installed.manifest = {
+					...installed.manifest,
 					crons: [
 						{
 							schedule: "0 0 * * *",
-							driverRef: SCRIPT_SLUG,
+							scriptSlug: SCRIPT_SLUG,
 							slug: "e2e-test-trending",
 							description: "Refresh E2E trending fixtures",
 						},
 					],
-					script: {
-						kind: "provider",
-						slug: SCRIPT_SLUG,
-						name: "E2E Test Trending",
-						requiredAppConfigKeys: [],
-						providerInformation: { source: "e2e" },
-						capabilities: ["upsertGlobalEntities", "upsertGlobalRelationships"],
-					},
-				});
-				scriptId = trendingPlugin.scriptId;
-
-				nonTrendingPlugin = yield* installTestPlugin({
-					source: NON_TRENDING_SOURCE,
-					linkToEntitySchemaSlug: movieSchemaId,
-					script: {
-						kind: "provider",
-						capabilities: [],
-						requiredAppConfigKeys: [],
-						name: "E2E Test Non-Trending",
-						slug: NON_TRENDING_SCRIPT_SLUG,
-						providerInformation: { source: "e2e" },
-					},
-				});
-				nonTrendingScriptId = nonTrendingPlugin.scriptId;
+				};
+				yield* getBackendClient().call(
+					(c) =>
+						c.plugins.install({
+							payload: { files: installed.files, manifest: installed.manifest },
+						}),
+					adminHeaders,
+				);
+				const directScriptId = installed.scriptIds[SCRIPT_SLUG];
+				assertPresent(directScriptId, "Trending direct script was not installed");
+				const directScript = yield* getBackendClient().call(
+					(c) =>
+						c.testSupport.getSandboxScript({
+							path: { scriptId: directScriptId },
+						}),
+					adminHeaders,
+				);
+				assertPresent(directScript.providerId, "Trending script provider was not stored");
+				providerId = directScript.providerId;
+				trendingPlugin = installed;
 			}),
 		);
 	});
@@ -109,9 +141,6 @@ describe("POST /test-support/cron/infrequent (media-trending durable workflow)",
 	afterAll(async () => {
 		if (trendingPlugin) {
 			await Effect.runPromise(uninstallTestPlugin(trendingPlugin));
-		}
-		if (nonTrendingPlugin) {
-			await Effect.runPromise(uninstallTestPlugin(nonTrendingPlugin));
 		}
 	});
 
@@ -132,83 +161,75 @@ describe("POST /test-support/cron/infrequent (media-trending durable workflow)",
 		}),
 	);
 
-	it.live(
-		"runs the media-trending workflow end-to-end, writes ranked self-edges, and excludes providers without a trending driver",
-		() =>
-			Effect.gen(function* () {
-				const { executionId } = yield* getBackendClient().call(
-					(c) => c.testSupport.triggerInfrequentCron(),
-					adminAccessTokenHeaders(ADMIN_TOKEN),
+	it.live("runs a direct media-trending cron script end-to-end and writes ranked self-edges", () =>
+		Effect.gen(function* () {
+			const { executionId } = yield* getBackendClient().call(
+				(c) => c.testSupport.triggerInfrequentCron(),
+				adminAccessTokenHeaders(ADMIN_TOKEN),
+			);
+			expect(typeof executionId).toBe("string");
+			expect(executionId.length).toBeGreaterThan(0);
+
+			const listCandidates = Effect.gen(function* () {
+				const relationships = yield* getBackendClient().call(
+					(c) =>
+						c.testSupport.listGlobalRelationships({
+							payload: {
+								type: "self",
+								relationshipSchemaSlug: RelationshipSchemaSlug.make(mediaTrendingSchemaId),
+							},
+						}),
+					adminHeaders,
 				);
-				expect(typeof executionId).toBe("string");
-				expect(executionId.length).toBeGreaterThan(0);
-
-				const listCandidates = Effect.gen(function* () {
-					const relationships = yield* getBackendClient().call(
-						(c) =>
-							c.testSupport.listGlobalRelationships({
-								payload: {
-									type: "self",
-									relationshipSchemaSlug: RelationshipSchemaSlug.make(mediaTrendingSchemaId),
-								},
-							}),
-						adminHeaders,
-					);
-					return yield* Effect.all(
-						relationships.map((relationship) =>
-							Effect.gen(function* () {
-								const entity = yield* getEntity(queryClient, relationship.sourceEntityId);
-								const properties = requireObjectRecord(
-									relationship.properties,
-									"Trending relationship properties",
-								);
-								return {
-									rank: properties["rank"],
-									external_id: entity.externalId,
-									fetched_at: properties["fetchedAt"],
-									sandboxScriptId: entity.sandboxScriptId,
-								};
-							}),
-						),
-					);
-				});
-
-				const rows = yield* pollUntil(
-					"media-trending self-edges for seeded provider",
-					Effect.gen(function* () {
-						const candidates = yield* listCandidates;
-						const matching = candidates
-							.filter(
-								(row) =>
-									row.sandboxScriptId === scriptId &&
-									(row.external_id === EXTERNAL_ID_ONE || row.external_id === EXTERNAL_ID_TWO),
-							)
-							.sort((a, b) => Number(a.rank) - Number(b.rank));
-						return matching.length === 2 ? matching : null;
-					}),
-					{ timeoutMs: 90_000, intervalMs: 1_000 },
+				return yield* Effect.all(
+					relationships.map((relationship) =>
+						Effect.gen(function* () {
+							const entity = yield* getEntity(queryClient, relationship.sourceEntityId);
+							const properties = requireObjectRecord(
+								relationship.properties,
+								"Trending relationship properties",
+							);
+							return {
+								rank: properties["rank"],
+								external_id: entity.externalId,
+								fetched_at: properties["fetchedAt"],
+								providerId: entity.providerId,
+							};
+						}),
+					),
 				);
+			});
 
-				expect(rows).toHaveLength(2);
-				for (const row of rows) {
-					expect(row.rank).toBeDefined();
-					expect(row.fetched_at).toBeDefined();
-					expect(Number(row.rank)).toBeGreaterThan(0);
-				}
+			const rows = yield* pollUntil(
+				"media-trending self-edges for seeded provider",
+				Effect.gen(function* () {
+					const candidates = yield* listCandidates;
+					const matching = candidates
+						.filter(
+							(row) =>
+								row.providerId === providerId &&
+								(row.external_id === EXTERNAL_ID_ONE || row.external_id === EXTERNAL_ID_TWO),
+						)
+						.sort((a, b) => Number(a.rank) - Number(b.rank));
+					return matching.length === 2 ? matching : null;
+				}),
+				{ timeoutMs: 90_000, intervalMs: 1_000 },
+			);
 
-				const rankByExternalId = new Map(rows.map((row) => [row.external_id, Number(row.rank)]));
-				const rankOne = rankByExternalId.get(EXTERNAL_ID_ONE);
-				const rankTwo = rankByExternalId.get(EXTERNAL_ID_TWO);
-				assertPresent(rankOne, "missing rank for first trending item");
-				assertPresent(rankTwo, "missing rank for second trending item");
-				// Ranks follow save order deterministically; the first-saved item ranks ahead.
-				expect(rankOne).toBeLessThan(rankTwo);
+			expect(rows).toHaveLength(2);
+			for (const row of rows) {
+				expect(row.rank).toBeDefined();
+				expect(row.fetched_at).toBeDefined();
+				expect(Number(row.rank)).toBeGreaterThan(0);
+			}
 
-				// The plugin cron reconciles the complete batch once, so exclusion is final when visible.
-				const finalCandidates = yield* listCandidates;
-				expect(
-					finalCandidates.filter((row) => row.sandboxScriptId === nonTrendingScriptId),
-				).toHaveLength(0);
-			}),
+			const rankByExternalId = new Map(rows.map((row) => [row.external_id, Number(row.rank)]));
+			const rankOne = rankByExternalId.get(EXTERNAL_ID_ONE);
+			const rankTwo = rankByExternalId.get(EXTERNAL_ID_TWO);
+			assertPresent(rankOne, "missing rank for first trending item");
+			assertPresent(rankTwo, "missing rank for second trending item");
+			// Ranks follow save order deterministically; the first-saved item ranks ahead.
+			expect(rankOne).toBeLessThan(rankTwo);
+		}),
 	);
 });

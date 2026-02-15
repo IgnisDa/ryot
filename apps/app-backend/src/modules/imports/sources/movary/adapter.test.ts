@@ -23,7 +23,7 @@ describe("adaptMovaryExports", () => {
 					kind: "resolved",
 					externalId: "42",
 					sourceLabel: "Arrival",
-					scriptSlug: "movie.tmdb",
+					providerSlug: "movie.tmdb",
 					entitySchemaSlug: "movie",
 				},
 				events: [
@@ -97,7 +97,7 @@ describe("adaptMovaryExports", () => {
 		expect(result.entityGroups).toHaveLength(1);
 		expect(result.entityGroups[0]?.entityRef).toMatchObject({
 			externalId: "55",
-			scriptSlug: "movie.tmdb",
+			providerSlug: "movie.tmdb",
 			entitySchemaSlug: "movie",
 		});
 	});

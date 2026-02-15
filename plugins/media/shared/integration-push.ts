@@ -45,7 +45,7 @@ export const fetchEntity = (host: IntegrationPushHost, entityId: string) =>
 	host.getEntity(entityId);
 
 export const resolveEntityProviderName = (host: IntegrationPushHost, entity: EntityRecord) => {
-	if (!entity.sandboxScriptId) {
+	if (!entity.providerId) {
 		return Effect.succeed(null);
 	}
 	return host
@@ -53,7 +53,7 @@ export const resolveEntityProviderName = (host: IntegrationPushHost, entity: Ent
 		.pipe(
 			Effect.map(
 				(schema) =>
-					schema.providers.find((provider) => provider.scriptId === entity.sandboxScriptId)?.name ??
+					schema.providers.find((provider) => provider.providerId === entity.providerId)?.name ??
 					null,
 			),
 		);

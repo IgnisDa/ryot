@@ -42,7 +42,7 @@ describe("Relationship includes", () => {
 				const fixtureSuffix = crypto.randomUUID();
 				const show = yield* seedMediaEntity({
 					userId: null,
-					sandboxScriptId: null,
+					providerId: null,
 					entitySchemaSlug: showSchema.id,
 					externalId: `show-${fixtureSuffix}`,
 					name: "Multi-Episode Derivation Show",
@@ -63,7 +63,7 @@ describe("Relationship includes", () => {
 				const specialSeason = yield* seedMediaEntity({
 					userId: null,
 					name: "Specials",
-					sandboxScriptId: null,
+					providerId: null,
 					entitySchemaSlug: showSeasonSchemaId,
 					externalId: `season-0-${fixtureSuffix}`,
 					properties: { seasonNumber: 0, description: "Specials", releaseDate: null },
@@ -71,14 +71,14 @@ describe("Relationship includes", () => {
 				const firstSeason = yield* seedMediaEntity({
 					userId: null,
 					name: "Season 1",
-					sandboxScriptId: null,
+					providerId: null,
 					entitySchemaSlug: showSeasonSchemaId,
 					externalId: `season-1-${fixtureSuffix}`,
 					properties: { seasonNumber: 1, description: "First", releaseDate: null },
 				});
 				const specialEpisode = yield* seedMediaEntity({
 					userId: null,
-					sandboxScriptId: null,
+					providerId: null,
 					name: "Special Episode",
 					entitySchemaSlug: showEpisodeSchemaId,
 					externalId: `episode-0-1-${fixtureSuffix}`,
@@ -92,7 +92,7 @@ describe("Relationship includes", () => {
 				});
 				const firstSeasonEpisodeOne = yield* seedMediaEntity({
 					userId: null,
-					sandboxScriptId: null,
+					providerId: null,
 					name: "Season 1 Episode One",
 					entitySchemaSlug: showEpisodeSchemaId,
 					externalId: `episode-1-1-${fixtureSuffix}`,
@@ -106,7 +106,7 @@ describe("Relationship includes", () => {
 				});
 				const firstSeasonEpisodeTwo = yield* seedMediaEntity({
 					userId: null,
-					sandboxScriptId: null,
+					providerId: null,
 					name: "Season 1 Episode Two",
 					entitySchemaSlug: showEpisodeSchemaId,
 					externalId: `episode-1-2-${fixtureSuffix}`,

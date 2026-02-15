@@ -8,7 +8,12 @@ import {
 	type ContractProgram,
 } from "@ryot/contract/client";
 import type { QueryExpression, RuntimeRef } from "@ryot/contract/display-configuration";
-import { RemoteImageUrl, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import {
+	RemoteImageUrl,
+	type SandboxProviderId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import { imagesField } from "@ryot/contract/schema/core";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { buildQueryEngineEntityRowsDocument } from "@ryot/query-engine/documents";
@@ -177,26 +182,23 @@ async function installSeedDefinitions(
 async function seedSandboxScript(apiClient: APIClient, executingUserId: string) {
 	const value = `seed-script-${dayjs().valueOf()}`;
 	const source = `
-import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
 export const manifest = defineManifest({
-  kind: "provider",
+  kind: "script",
   capabilities: [],
   requiredAppConfigKeys: [],
   name: "Seed script",
   slug: ${JSON.stringify(value)},
-  providerInformation: { source: "seed" },
 });
 
-const main = defineDriver(manifest, {
+export default defineScript({
+  manifest,
   input: Schema.Struct({}),
   output: Schema.Literal(${JSON.stringify(value)}),
   run: () => Effect.succeed(${JSON.stringify(value)} as const),
 });
-
-export default defineProvider({ manifest, drivers: { main } });
 `;
 	const entry = "scripts/seed.sandbox.ts";
 	const manifest = testPluginManifest({
@@ -204,12 +206,11 @@ export default defineProvider({ manifest, drivers: { main } });
 		scripts: [
 			{
 				entry,
-				kind: "provider",
-				name: "Seed script",
 				slug: value,
+				kind: "script",
 				capabilities: [],
+				name: "Seed script",
 				requiredAppConfigKeys: [],
-				providerInformation: { source: "seed" },
 			},
 		],
 	});
@@ -227,7 +228,6 @@ export default defineProvider({ manifest, drivers: { main } });
 		c.testSupport.enqueueSandbox({
 			payload: {
 				context: {},
-				driverName: "main",
 				scriptId: script.id,
 				executingUserId: UserId.make(executingUserId),
 			},
@@ -628,7 +628,7 @@ function schemaField(schemaSlug: string, property: string) {
 		"createdAt",
 		"updatedAt",
 		"externalId",
-		"sandboxScriptId",
+		"providerId",
 	]);
 	if (entityBuiltins.has(property)) {
 		return `entity.${schemaSlug}.${property}`;
@@ -1386,9 +1386,14 @@ async function listMediaEntitySchemas(apiClient: APIClient, pluginSlug: PluginSl
 			...schema,
 			id: schema.slug as EntitySchemaSlug,
 			providers: scripts
-				.filter((script) => script.metadata.kind === "provider")
+				.filter((script) => script.providerId && script.slug.endsWith(".search"))
 				.filter((script) => script.slug.startsWith(`${schema.slug}.`))
-				.map((script) => ({ name: script.name, scriptId: script.id })),
+				.map((script) => ({
+					name: script.name.replace(/ search$/, ""),
+					searchScriptId: script.id,
+					providerSlug: script.slug.slice(0, -".search".length),
+					providerId: requirePresent(script.providerId, "Search script is missing its provider"),
+				})),
 		}));
 }
 
@@ -1482,7 +1487,7 @@ async function pollSearchJob(
 
 async function searchMediaPage(
 	apiClient: APIClient,
-	scriptId: SandboxScriptId,
+	searchScriptId: SandboxScriptId,
 	query: string,
 	page: number,
 	executingUserId: string,
@@ -1490,8 +1495,7 @@ async function searchMediaPage(
 	const result = await apiClient.runAdmin((c) =>
 		c.testSupport.enqueueSandbox({
 			payload: {
-				scriptId,
-				driverName: "search",
+				scriptId: searchScriptId,
 				context: { query, page, pageSize: 10 },
 				executingUserId: UserId.make(executingUserId),
 			},
@@ -1502,14 +1506,14 @@ async function searchMediaPage(
 
 async function importMediaEntity(
 	apiClient: APIClient,
-	scriptId: SandboxScriptId,
+	providerId: SandboxProviderId,
 	externalId: string,
 	entitySchemaSlug: EntitySchemaSlug,
 ): Promise<SeedEntity | null> {
 	let jobId: string;
 	try {
 		const importResult = await apiClient.run((c) =>
-			c.entityImport.import({ payload: { scriptId, externalId, entitySchemaSlug } }),
+			c.entityImport.import({ payload: { providerId, externalId, entitySchemaSlug } }),
 		);
 		jobId = importResult.jobId;
 	} catch {
@@ -1585,7 +1589,7 @@ async function seedMedia(client: APIClient, executingUserId: string) {
 	type MediaEventSchemas = Awaited<ReturnType<typeof getMediaLifecycleEventSchemas>>;
 	type WorkItem = {
 		externalId: string;
-		scriptId: SandboxScriptId;
+		providerId: SandboxProviderId;
 		schema: (typeof schemas)[number];
 		eventSchemas: MediaEventSchemas;
 	};
@@ -1605,7 +1609,7 @@ async function seedMedia(client: APIClient, executingUserId: string) {
 
 		const searchConfig = MEDIA_SEARCH_QUERIES[slug];
 		for (const provider of schema.providers) {
-			const scriptId = provider.scriptId;
+			const searchScriptId = provider.searchScriptId;
 			console.log(`    Provider: ${provider.name}...`);
 			const identifiers: string[] = [];
 			for (const page of searchConfig.pages) {
@@ -1613,7 +1617,7 @@ async function seedMedia(client: APIClient, executingUserId: string) {
 					// oxlint-disable-next-line no-await-in-loop
 					const items = await searchMediaPage(
 						client,
-						scriptId,
+						searchScriptId,
 						searchConfig.query,
 						page,
 						executingUserId,
@@ -1631,7 +1635,7 @@ async function seedMedia(client: APIClient, executingUserId: string) {
 			console.log(`    Collected ${identifiers.length} unique identifiers from ${provider.name}`);
 
 			for (const externalId of identifiers) {
-				workItems.push({ externalId, scriptId, schema, eventSchemas });
+				workItems.push({ externalId, providerId: provider.providerId, schema, eventSchemas });
 			}
 		}
 	}
@@ -1651,7 +1655,12 @@ async function seedMedia(client: APIClient, executingUserId: string) {
 
 	for (const [index, item] of workItems.entries()) {
 		// oxlint-disable-next-line no-await-in-loop
-		const entity = await importMediaEntity(client, item.scriptId, item.externalId, item.schema.id);
+		const entity = await importMediaEntity(
+			client,
+			item.providerId,
+			item.externalId,
+			item.schema.id,
+		);
 		if (entity) {
 			const list = entitiesBySchemaId.get(item.schema.id) ?? [];
 			list.push(entity);

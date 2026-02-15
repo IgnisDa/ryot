@@ -8,7 +8,6 @@ import {
 	EntitySchemaSlug,
 	IntegrationId,
 	RelationshipSchemaSlug,
-	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { stableStringify } from "@ryot/ts-utils/json";
@@ -40,8 +39,10 @@ import {
 import {
 	type AdditionalSandboxHostImplementationMap,
 	isJsonValue,
+	requireSystemProviderSandboxRunInput,
 	requireUserSandboxRunInput,
 	requireSystemSandboxRunInput,
+	sandboxRunUserId,
 	sandboxHostEffect,
 	sandboxHostFailure,
 	toSandboxJsonValue,
@@ -155,7 +156,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 						.create({
 							payload,
 							source: "sandbox",
-							userId: UserId.make(input.userId),
+							userId: UserId.make(input.authority.userId),
 							executionId: `${input.executionId}-create-events-${hashPayload(payload)}`,
 						})
 						.pipe(Effect.flatMap(toSandboxCreateEventsResult));
@@ -171,7 +172,11 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					return sandboxHostFailure(ttlError);
 				}
 
-				const redisKey = redisKeys.sandboxCache(input.userId, input.scriptId, key.trim());
+				const redisKey = redisKeys.sandboxCache(
+					sandboxRunUserId(input),
+					input.cacheNamespace,
+					key.trim(),
+				);
 
 				return sandboxHostEffect(
 					Effect.gen(function* () {
@@ -229,7 +234,10 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			upsertGlobalEntities: (rawInput, items, options) =>
 				sandboxHostEffect(
 					Effect.gen(function* () {
-						const input = yield* requireSystemSandboxRunInput(rawInput, "upsertGlobalEntities");
+						const input = yield* requireSystemProviderSandboxRunInput(
+							rawInput,
+							"upsertGlobalEntities",
+						);
 						if (items.length > SANDBOX_LIMITS.globalWrites.entityItems) {
 							return yield* Effect.fail(
 								`upsertGlobalEntities exceeds ${SANDBOX_LIMITS.globalWrites.entityItems} items`,
@@ -252,7 +260,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 									populatedAt: item.populatedAt,
 									entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
 								})),
-								SandboxScriptId.make(input.scriptId),
+								input.providerId,
 								options?.maximumTotal === undefined
 									? undefined
 									: { maximumTotal: options.maximumTotal },
@@ -311,7 +319,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 									{
 										name: "",
 										email: "",
-										id: UserId.make(input.userId),
+										id: UserId.make(input.authority.userId),
 										preferences: defaultUserPreferences,
 									},
 									doc,
@@ -353,21 +361,31 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 								Effect.gen(function* () {
 									const resolvedEntityId = EntityId.make(rawEntityId);
 									yield* requireReadableEntity(
-										UserId.make(input.userId),
+										UserId.make(input.authority.userId),
 										resolvedEntityId,
 										entityNotFoundError,
 									);
 									const entity = yield* runWithDb(
 										entitiesRepository.getByIdForUser({
 											entityId: resolvedEntityId,
-											userId: UserId.make(input.userId),
+											userId: UserId.make(input.authority.userId),
 										}),
 									);
 									if (!entity) {
 										return yield* Effect.fail(entityNotFoundError);
 									}
 
-									return { ...entity, properties: toSandboxJsonValue(entity.properties) };
+									return {
+										id: entity.id,
+										name: entity.name,
+										createdAt: entity.createdAt,
+										updatedAt: entity.updatedAt,
+										externalId: entity.externalId,
+										providerId: entity.providerId,
+										populatedAt: entity.populatedAt,
+										entitySchemaSlug: entity.entitySchemaSlug,
+										properties: toSandboxJsonValue(entity.properties),
+									};
 								}),
 							),
 						),
@@ -392,12 +410,12 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 								const pluginSlug = definition.pluginSlug;
 								return runWithDb(
 									Effect.gen(function* () {
-										const links = yield* pluginRuntime.listSchemaScripts([
+										const links = yield* pluginRuntime.listSchemaProviders([
 											resolvedEntitySchemaSlug,
 										]);
-										const providers = links.map(({ script }) => ({
-											name: script.name,
-											scriptId: script.id,
+										const providers = links.map(({ provider }) => ({
+											name: provider.name,
+											providerId: provider.id,
 										}));
 										return {
 											...definition,
@@ -425,7 +443,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 								runWithDb(
 									integrationsRepository
 										.getForUser({
-											userId: UserId.make(input.userId),
+											userId: UserId.make(input.authority.userId),
 											integrationId: IntegrationId.make(resolvedIntegrationId),
 										})
 										.pipe(
@@ -446,7 +464,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 				),
 			getUserPreferences: (rawInput) =>
 				requireUserSandboxRunInput(rawInput, "getUserPreferences").pipe(
-					Effect.flatMap((input) => readUserPreferences(UserId.make(input.userId))),
+					Effect.flatMap((input) => readUserPreferences(UserId.make(input.authority.userId))),
 					sandboxHostEffect,
 				),
 			listEventSchemas: (rawInput, entitySchemaSlug) =>
@@ -487,7 +505,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 									: undefined;
 
 								return events
-									.listForUser(UserId.make(input.userId), {
+									.listForUser(UserId.make(input.authority.userId), {
 										entityId,
 										sessionEntityId,
 										eventSchemaSlug: parsedQuery.eventSchemaSlug,
@@ -530,7 +548,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					return yield* sandboxHostEffect(
 						runWithDb(
 							integrationsRepository.listForUser({
-								userId: UserId.make(input.userId),
+								userId: UserId.make(input.authority.userId),
 								...(typeof provider === "string" ? { provider } : {}),
 								...(typeof isDisabled === "boolean" ? { isDisabled } : {}),
 							}),

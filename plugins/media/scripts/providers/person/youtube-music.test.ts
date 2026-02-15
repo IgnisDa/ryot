@@ -1,7 +1,7 @@
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { describe, expect, it } from "vitest";
 
-import { buildArtistDetails } from "./youtube-music.sandbox";
+import { buildArtistDetails } from "./youtube-music";
 
 describe("person.youtube-music sandbox script", () => {
 	it("splits artist sections into track and group related entities", async () => {
@@ -48,7 +48,7 @@ describe("person.youtube-music sandbox script", () => {
 					{
 						name: "Song One",
 						externalId: "s1",
-						scriptSlug: "music.youtube-music",
+						providerSlug: "music.youtube-music",
 						relationshipProperties: { roles: ["Artist"] },
 					},
 				],
@@ -61,7 +61,7 @@ describe("person.youtube-music sandbox script", () => {
 					{
 						name: "Album One",
 						externalId: "al1",
-						scriptSlug: "music-group.youtube-music",
+						providerSlug: "music-group.youtube-music",
 						relationshipProperties: { roles: ["Artist"] },
 					},
 				],

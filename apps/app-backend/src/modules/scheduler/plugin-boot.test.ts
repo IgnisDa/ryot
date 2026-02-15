@@ -17,9 +17,8 @@ import { pluginBootExecutionId, PluginBootService } from "./plugin-boot";
 type CapturedRun = {
 	readonly executionId: string;
 	readonly payload: {
-		readonly userId: null;
+		readonly authority: { readonly type: "system" };
 		readonly context: unknown;
-		readonly driverName: string;
 		readonly executionId: string;
 		readonly scriptId: SandboxScriptId;
 	};
@@ -39,14 +38,12 @@ const normalizedPlugin = (pluginSlug: string): NormalizedPlugin => {
 		signalSchemas: [],
 		relationshipSchemas: [],
 		metadata: { ...manifest.metadata, slug: pluginSlug },
-		boot: [
-			{ driverRef: scriptSlug, slug: `${pluginSlug}-boot`, description: `${pluginSlug} boot` },
-		],
+		boot: [{ scriptSlug, slug: `${pluginSlug}-boot`, description: `${pluginSlug} boot` }],
 		bindings: {
 			eventAutomations: [],
 			entityAutomations: [],
 			signalAutomations: [],
-			schemaScriptLinks: [],
+			schemaProviderLinks: [],
 			relationshipAutomations: [],
 		},
 	} satisfies PluginManifest;
@@ -63,7 +60,7 @@ const normalizedPlugin = (pluginSlug: string): NormalizedPlugin => {
 				name: declared.name,
 				compiledCode: "compiled",
 				contentHash: `${pluginSlug}-compiled`,
-				metadata: { ...metadata, driverNames: ["boot"] },
+				metadata,
 			},
 		],
 	};
@@ -89,6 +86,7 @@ const makeLayer = (
 							source: "source",
 							compiledFormat: 1,
 							pluginSlug: "fixture",
+							providerId: null,
 							compiledCode: "compiled",
 							contentHash: `${slug}-hash`,
 							createdAt: new Date(0),
@@ -99,7 +97,6 @@ const makeLayer = (
 								name: slug,
 								capabilities: [],
 								kind: "automation",
-								driverNames: ["boot"],
 								requiredAppConfigKeys: [],
 							},
 						}),
@@ -133,9 +130,8 @@ it.effect("dispatches every plugin boot entry as a deterministic system sandbox 
 				discard: true,
 				executionId: "plugin-boot-7-fixture-12-fixture-boot-60000",
 				payload: {
+					authority: { type: "system" },
 					context: {},
-					userId: null,
-					driverName: "boot",
 					scriptId: SandboxScriptId.make("fixture-script-id"),
 					executionId: "plugin-boot-7-fixture-12-fixture-boot-60000",
 				},

@@ -138,7 +138,7 @@ export const adaptGrouveeCsv = (csvText: string): MediaImportAdapterResult => {
 				kind: "resolved",
 				entitySchemaSlug: "video-game",
 				externalId: `3030-${giantbombId}`,
-				scriptSlug: "video-game.giant-bomb",
+				providerSlug: "video-game.giant-bomb",
 			},
 			itemIndex,
 		);
