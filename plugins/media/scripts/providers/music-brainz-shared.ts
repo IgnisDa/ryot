@@ -1,6 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import dayjs from "@ryot/sandbox-sdk/dayjs";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 
 import { asRecord, parseJsonResponse, stringValue } from "../script-helpers/records";
 
@@ -102,8 +101,12 @@ export const getPublishYear = (dateValue: unknown) => {
 	if (!value) {
 		return null;
 	}
-	const parsed = dayjs(value);
-	return parsed.isValid() && parsed.year() > 0 ? parsed.year() : null;
+	const parsed = DateTime.make(value);
+	if (Option.isNone(parsed)) {
+		return null;
+	}
+	const year = DateTime.toDateUtc(parsed.value).getFullYear();
+	return year > 0 ? year : null;
 };
 
 export const buildLuceneQuery = (query: string, fields: readonly string[]) => {

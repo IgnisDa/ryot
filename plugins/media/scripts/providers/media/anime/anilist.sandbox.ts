@@ -1,6 +1,5 @@
-import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import {
 	defineProvider,
 	defineProviderDriver,
@@ -66,8 +65,11 @@ const toIsoDateTime = (unixSeconds: unknown) => {
 	if (seconds === null) {
 		return null;
 	}
-	const parsed = dayjs.unix(Math.trunc(seconds));
-	return parsed.isValid() ? parsed.toISOString() : null;
+	const parsed = DateTime.make(Math.trunc(seconds) * 1000);
+	if (Option.isNone(parsed)) {
+		return null;
+	}
+	return DateTime.formatIso(parsed.value);
 };
 
 const parseAiringSchedule = (airingSchedule: unknown, nextAiringEpisode: unknown) => {

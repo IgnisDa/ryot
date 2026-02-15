@@ -1,6 +1,5 @@
-import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue } from "../../script-helpers/records";
@@ -93,7 +92,10 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 			}
 
 			const startDate = numberValue(company?.["start_date"]);
-			const foundedYear = startDate === null ? null : dayjs.unix(startDate).year();
+			const foundedYear =
+				startDate === null
+					? null
+					: DateTime.toDateUtc(DateTime.unsafeMake(startDate * 1000)).getFullYear();
 
 			const websites = Array.isArray(company?.["websites"]) ? company["websites"] : [];
 			const firstWebsiteUrl = stringValue(asRecord(websites[0])?.["url"]);
