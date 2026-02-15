@@ -17,10 +17,14 @@
 				"dist/*-firefox.zip"
 			]
 		},
-		"typecheck": {},
-		"lint": {},
+		"typecheck": {
+			"dependsOn": ["^typecheck"]
+		},
+		"lint": {
+			"dependsOn": ["^lint"]
+		},
 		"test": {
-			"dependsOn": ["^build"]
+			"dependsOn": ["^build", "^typecheck"]
 		},
 		"dev": {
 			"cache": false,
