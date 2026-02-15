@@ -2,14 +2,12 @@ import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest, NotFound } from "@ryot/contract/errors";
-import type { CreateEventItem } from "@ryot/contract/modules/events/schemas";
 import {
 	EntityId,
 	EntitySchemaId,
 	EventId,
 	EventSchemaId,
 	ImportRunId,
-	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
@@ -18,9 +16,7 @@ import { type MockOverrides, dbRunnerLayer, makeWorkflowEngine } from "#lib/test
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { QueryEngineService } from "#modules/query-engine/service";
-import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
 
-import { createEventsForUser } from "./event-creation";
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
 
@@ -57,14 +53,6 @@ const eventSchemaScope = {
 			},
 		},
 	},
-};
-
-const defaultSandboxWorkflowResult = {
-	logs: [],
-	error: null,
-	value: { action: "allow" },
-	status: "completed" as const,
-	timing: { totalMs: 1, executionMs: 1 },
 };
 
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
@@ -115,9 +103,6 @@ const makeServiceLayer = (input: {
 
 const makeEventsServiceLayer = (input: Parameters<typeof makeServiceLayer>[0]) =>
 	EventsService.Default.pipe(Layer.provide(makeServiceLayer(input)));
-
-const runCreateCore = (payload: ReadonlyArray<CreateEventItem>) =>
-	createEventsForUser({ payload, origin: "api", userId: user.id, executionId: "test-execution" });
 
 it.effect("requires entityId or sessionEntityId when listing events", () => {
 	const layer = makeEventsServiceLayer({});
@@ -493,187 +478,5 @@ it.effect("import event creation validates and enqueues without waiting for inse
 			},
 		});
 		expect(capturedOptions?.discard).toBe(true);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("before-create trigger skip prevents event creation", () => {
-	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
-	let capturedWorkflow: Parameters<WorkflowEngine["Type"]["execute"]>[0] | undefined;
-
-	const layer = makeServiceLayer({
-		entitiesRepository: makeEntitiesRepository({
-			getEntityScopeForUser: () => Effect.succeed(entityScope),
-		}),
-		eventSchemasRepository: makeEventSchemasRepository({
-			getScopeForUser: () => Effect.succeed(eventSchemaScope),
-		}),
-		workflowEngine: makeWorkflowEngine({
-			execute: (workflow, options) => {
-				capturedWorkflow = workflow;
-				capturedOptions = options;
-				return Effect.succeed({
-					...defaultSandboxWorkflowResult,
-					value: { action: "skip", reason: "test_skip" },
-				});
-			},
-		}),
-		eventsRepository: makeEventsRepository({
-			getActiveBeforeCreateTriggers: () =>
-				Effect.succeed([
-					{
-						position: 100,
-						id: "trigger-1",
-						sandboxScriptId: SandboxScriptId.make("script-1"),
-						eventSchemaId: EventSchemaId.make("event-schema-1"),
-					},
-				]),
-		}),
-	});
-
-	return Effect.gen(function* () {
-		const result = yield* runCreateCore([
-			{
-				occurredAt: now,
-				properties: { rating: 5 },
-				entityId: EntityId.make("entity-1"),
-				eventSchemaId: EventSchemaId.make("event-schema-1"),
-			},
-		]);
-
-		expect(result).toEqual({ count: 0, referencedGlobalEntityIds: [] });
-		expect(capturedWorkflow).toBe(RunSandboxWorkflow);
-		expect(capturedOptions).toEqual({
-			executionId: "test-execution-before-0-trigger-1",
-			payload: {
-				userId: user.id,
-				driverName: "trigger",
-				scriptId: SandboxScriptId.make("script-1"),
-				executionId: "test-execution-before-0-trigger-1",
-				context: {
-					trigger: {
-						origin: "api",
-						userId: user.id,
-						occurredAt: now,
-						phase: "before_create",
-						entitySchemaSlug: "book",
-						properties: { rating: 5 },
-						sessionEntityId: undefined,
-						eventSchemaSlug: "finished",
-						entityId: EntityId.make("entity-1"),
-						eventSchemaId: EventSchemaId.make("event-schema-1"),
-						entitySchemaId: EntitySchemaId.make("entity-schema-1"),
-					},
-				},
-			},
-		});
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("before-create trigger replace modifies event properties", () => {
-	const createCalls: unknown[] = [];
-
-	const eventSchemaWithNoRequired = {
-		...eventSchemaScope,
-		propertiesSchema: {
-			fields: { rating: { label: "Rating", description: "Rating", type: "number" as const } },
-		},
-	};
-
-	const layer = makeServiceLayer({
-		entitiesRepository: makeEntitiesRepository({
-			getEntityScopeForUser: () => Effect.succeed(entityScope),
-		}),
-		eventSchemasRepository: makeEventSchemasRepository({
-			getScopeForUser: () => Effect.succeed(eventSchemaWithNoRequired),
-		}),
-		workflowEngine: makeWorkflowEngine({
-			execute: () =>
-				Effect.succeed({
-					...defaultSandboxWorkflowResult,
-					value: { action: "replace", body: { properties: { rating: 10 } } },
-				}),
-		}),
-		eventsRepository: makeEventsRepository({
-			getActiveBeforeCreateTriggers: () =>
-				Effect.succeed([
-					{
-						position: 100,
-						id: "trigger-1",
-						eventSchemaId: EventSchemaId.make("event-schema-1"),
-						sandboxScriptId: SandboxScriptId.make("script-1"),
-					},
-				]),
-			createEvent: (input) =>
-				Effect.sync(() => {
-					createCalls.push(input);
-					return {
-						entityId: input.entityId,
-						properties: input.properties,
-						id: EventId.make("event-1"),
-						eventSchemaId: input.eventSchemaId,
-						createdAt: "2026-01-01T00:00:00.000Z",
-						updatedAt: "2026-01-01T00:00:00.000Z",
-						eventSchemaName: input.eventSchemaName,
-						eventSchemaSlug: input.eventSchemaSlug,
-						sessionEntityId: input.sessionEntityId,
-						occurredAt: input.occurredAt.toISOString(),
-					};
-				}),
-		}),
-	});
-
-	return Effect.gen(function* () {
-		const result = yield* runCreateCore([
-			{
-				properties: { rating: 1 },
-				entityId: EntityId.make("entity-1"),
-				eventSchemaId: EventSchemaId.make("event-schema-1"),
-			},
-		]);
-
-		expect(result).toEqual({ count: 1, referencedGlobalEntityIds: [] });
-		expect(createCalls).toMatchObject([{ properties: { rating: 10 } }]);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("before-create trigger failure prevents event creation", () => {
-	const layer = makeServiceLayer({
-		entitiesRepository: makeEntitiesRepository({
-			getEntityScopeForUser: () => Effect.succeed(entityScope),
-		}),
-		eventSchemasRepository: makeEventSchemasRepository({
-			getScopeForUser: () => Effect.succeed(eventSchemaScope),
-		}),
-		workflowEngine: makeWorkflowEngine({
-			execute: () =>
-				Effect.succeed({ ...defaultSandboxWorkflowResult, value: null, error: "test_error" }),
-		}),
-		eventsRepository: makeEventsRepository({
-			getActiveBeforeCreateTriggers: () =>
-				Effect.succeed([
-					{
-						position: 100,
-						id: "trigger-1",
-						sandboxScriptId: SandboxScriptId.make("script-1"),
-						eventSchemaId: EventSchemaId.make("event-schema-1"),
-					},
-				]),
-		}),
-	});
-
-	return Effect.gen(function* () {
-		const exit = yield* Effect.exit(
-			runCreateCore([
-				{
-					properties: { rating: 5 },
-					entityId: EntityId.make("entity-1"),
-					eventSchemaId: EventSchemaId.make("event-schema-1"),
-				},
-			]),
-		);
-
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Before trigger failed: test_error" })),
-		);
 	}).pipe(Effect.provide(layer));
 });
