@@ -1,6 +1,6 @@
 import type { NotificationEventType } from "@ryot/contract/modules/notifications/types";
 
-export type MonitoringChange = {
+export type MediaMonitoringChange = {
 	message: string;
 	fingerprint: string;
 	eventType: NotificationEventType;
@@ -15,13 +15,13 @@ const fingerprint = (value: string) => {
 	return (hash >>> 0).toString(36);
 };
 
-const change = (eventType: NotificationEventType, message: string): MonitoringChange => ({
+const change = (eventType: NotificationEventType, message: string): MediaMonitoringChange => ({
 	message,
 	eventType,
 	fingerprint: fingerprint(`${eventType}:${message}`),
 });
 
-export const monitoringMessages = {
+export const mediaMonitoringMessages = {
 	associationAdded: (input: {
 		entityKind: "company" | "person";
 		associationKind: "group" | "metadata";
