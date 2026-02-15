@@ -1,26 +1,21 @@
 import * as PersistedQueue from "@effect/experimental/PersistedQueue";
 import { FileSystem, HttpClient, Path } from "@effect/platform";
 import { DurableQueue } from "@effect/workflow";
-import { SandboxRunError, toSandboxRunError, unknownToMessage } from "@ryot/contract/errors";
-import type { EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { Cause, Effect, Layer } from "effect";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { toSandboxRunError } from "@ryot/contract/errors";
+import type { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
-import { runEntityImportWorkflow } from "#modules/entity-import/entity-import-workflow";
-import { EntityImportWorkflowOperations } from "#modules/entity-import/operations-workflow";
 import {
 	decodeEntityResolveResult,
 	decodeEntitySearchResult,
 	decodeSandboxDriverResult,
 } from "#modules/entity-import/population";
-import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import { RelationshipsRepository } from "#modules/relationships/repository";
-import { RelationshipsService } from "#modules/relationships/service";
+import { ProviderEntityPopulationWorkflow } from "#modules/entity-import/provider-entity-population-workflow";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 
 import { loadOneTimeMediaImportAdapterResult } from "./source-loaders";
@@ -73,31 +68,6 @@ const searchSandboxEntities = (input: {
 		),
 	);
 
-const importMediaEntityViaWorkflow = (input: {
-	userId: UserId;
-	externalId: string;
-	executionId: string;
-	activityPrefix: string;
-	scriptId: SandboxScriptId;
-	entitySchemaId: EntitySchemaId;
-}) =>
-	runEntityImportWorkflow(
-		{
-			userId: input.userId,
-			scriptId: input.scriptId,
-			externalId: input.externalId,
-			executionId: input.executionId,
-			entitySchemaId: input.entitySchemaId,
-		},
-		input.executionId,
-		{ activityPrefix: input.activityPrefix },
-	).pipe(
-		Effect.map((entity) => ({ id: entity.id })),
-		Effect.catchAllCause((cause) =>
-			Effect.fail(new SandboxRunError({ message: unknownToMessage(Cause.squash(cause)) })),
-		),
-	);
-
 export const MediaImportWorkflowOperationsLive = Layer.effect(
 	MediaImportWorkflowOperations,
 	Effect.gen(function* () {
@@ -105,16 +75,10 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
-		const entities = yield* EntitiesService;
 		const fs = yield* FileSystem.FileSystem;
 		const httpClient = yield* HttpClient.HttpClient;
-		const relationships = yield* RelationshipsService;
 		const entitiesRepository = yield* EntitiesRepository;
-		const relationshipsRepository = yield* RelationshipsRepository;
-		const entitySchemasRepository = yield* EntitySchemasRepository;
 		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
-		const entityImportOperations = yield* EntityImportWorkflowOperations;
-		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
 		return {
 			loadAdapterResult: (payload) =>
@@ -132,17 +96,21 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
 				),
 			importEntity: (input) =>
-				importMediaEntityViaWorkflow(input).pipe(
-					Effect.provideService(DbRunner, runWithDb),
-					Effect.provideService(RedisService, redis),
-					Effect.provideService(EntitiesService, entities),
-					Effect.provideService(EntitiesRepository, entitiesRepository),
-					Effect.provideService(RelationshipsService, relationships),
-					Effect.provideService(RelationshipsRepository, relationshipsRepository),
-					Effect.provideService(EntitySchemasRepository, entitySchemasRepository),
-					Effect.provideService(EntityImportWorkflowOperations, entityImportOperations),
-					Effect.provideService(RelationshipSchemasRepository, relationshipSchemasRepository),
-				),
+				Effect.gen(function* () {
+					const engine = yield* WorkflowEngine;
+					const entity = yield* engine.execute(ProviderEntityPopulationWorkflow, {
+						executionId: input.executionId,
+						payload: {
+							mode: "ensure",
+							userId: input.userId,
+							scriptId: input.scriptId,
+							externalId: input.externalId,
+							executionId: input.executionId,
+							entitySchemaId: input.entitySchemaId,
+						},
+					});
+					return { id: entity.id };
+				}),
 			resolveExternalId: (input) =>
 				resolveSandboxEntityExternalId(input).pipe(
 					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
