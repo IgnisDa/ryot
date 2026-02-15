@@ -23,6 +23,11 @@ const integrationWorkflowModules = [
 	"../integrations/media-workflow.ts",
 ] as const;
 
+const entityImportWorkflowModules = [
+	"../entity-import/entity-import-workflow.ts",
+	"../entity-import/provider-entity-synchronizer.ts",
+] as const;
+
 it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =>
 	Effect.gen(function* () {
 		const [
@@ -39,7 +44,7 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			readModule("./sandbox-workflow-live.ts"),
 			readModule("../events/event-creation.ts"),
 			readModule("../exercises/preload.ts"),
-			readModule("../entity-import/entity-import-workflow.ts"),
+			readModules(entityImportWorkflowModules),
 			readModule("../library-membership/library-entity-import-workflow.ts"),
 			readModules(mediaImportWorkflowModules),
 			readModules(integrationWorkflowModules),
@@ -66,7 +71,7 @@ it.effect("keeps parent workflows as orchestrations instead of queue pass-throug
 	Effect.gen(function* () {
 		const [entityImportWorkflow, libraryWorkflow, mediaImportWorkflow, integrationWorkflow] =
 			yield* Effect.all([
-				readModule("../entity-import/entity-import-workflow.ts"),
+				readModules(entityImportWorkflowModules),
 				readModule("../library-membership/library-entity-import-workflow.ts"),
 				readModules(mediaImportWorkflowModules),
 				readModules(integrationWorkflowModules),
