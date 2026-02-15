@@ -1,12 +1,13 @@
-import type {
-	AppBooleanProperty,
-	AppEnumProperty,
-	AppIntegerProperty,
-	AppObjectProperty,
-	AppPropertyDefinition,
-	AppSchema,
-	AppSchemaFields,
-	AppStringProperty,
+import {
+	type AppBooleanProperty,
+	type AppEnumProperty,
+	type AppIntegerProperty,
+	type AppObjectProperty,
+	type AppPropertyDefinition,
+	type AppSchema,
+	type AppSchemaFields,
+	type AppStringProperty,
+	isAppPropertyRequired,
 } from "@ryot/contract/schema/property-schema";
 import { Config, Effect, Option, Redacted, Schema, SchemaIssue } from "effect";
 
@@ -206,7 +207,7 @@ const leafConfig = (field: AppPropertyDefinition, envKey: string, redactSecrets:
 				: field.defaultValue;
 		return config.pipe(Config.withDefault(value));
 	}
-	return field.validation?.required === true ? config : config.pipe(Config.option);
+	return isAppPropertyRequired(field) ? config : config.pipe(Config.option);
 };
 
 const configFromFields = (
@@ -347,7 +348,7 @@ const renderTable = (
 				const fieldPath = [...path, key];
 				const fallback =
 					field.defaultValue === undefined ? "—" : `\`${formatDefaultValue(field.defaultValue)}\``;
-				return `| \`${fieldPath.join(".")}\` | \`${resolveEnvKey(fieldPath, field)}\` | ${field.description} | ${field.validation?.required === true ? "Yes" : "No"} | ${field.secret === true ? "Yes" : "No"} | ${fallback} |`;
+				return `| \`${fieldPath.join(".")}\` | \`${resolveEnvKey(fieldPath, field)}\` | ${field.description} | ${isAppPropertyRequired(field) ? "Yes" : "No"} | ${field.secret === true ? "Yes" : "No"} | ${fallback} |`;
 			}),
 			"",
 		);
@@ -400,7 +401,7 @@ export const renderConfigReference = (
 			...fields.map(([key, field]) => {
 				const fallback =
 					field.defaultValue === undefined ? "—" : `\`${formatDefaultValue(field.defaultValue)}\``;
-				return `| \`${plugin.slug}.${key}\` | \`${pluginConfigEnvironmentKey(plugin.slug, key)}\` | ${field.label} | ${field.description} | ${field.validation?.required === true ? "Yes" : "No"} | ${field.secret === true ? "Yes" : "No"} | ${fallback} |`;
+				return `| \`${plugin.slug}.${key}\` | \`${pluginConfigEnvironmentKey(plugin.slug, key)}\` | ${field.label} | ${field.description} | ${isAppPropertyRequired(field) ? "Yes" : "No"} | ${field.secret === true ? "Yes" : "No"} | ${fallback} |`;
 			}),
 			"",
 		);
