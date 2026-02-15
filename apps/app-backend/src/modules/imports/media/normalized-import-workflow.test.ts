@@ -7,6 +7,7 @@ import {
 	EventSchemaSlug,
 	ImportRunId,
 	SandboxProviderId,
+	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import {
@@ -189,7 +190,7 @@ const entityIdForWorkflowItem = (item: WorkflowItem) => {
 const makeSandboxExecutionService = (
 	executeWorkflow: SandboxExecutionService["executeWorkflow"] = (input) => {
 		const items = workflowItems(input);
-		if (input.workflowSlug === "media-import-resolution") {
+		if (input.scriptId === SandboxScriptId.make("workflow.media-import-resolution")) {
 			return Effect.succeed({
 				results: items.map((item) => ({
 					index: item.index,
@@ -207,7 +208,14 @@ const makeSandboxExecutionService = (
 			})),
 		});
 	},
-) => mockSandboxExecutionService({ executeWorkflow, _tag: "SandboxExecutionService" });
+	resolveWorkflowScript: SandboxExecutionService["resolveWorkflowScript"] = ({ workflowSlug }) =>
+		Effect.succeed(SandboxScriptId.make(`workflow.${workflowSlug}`)),
+) =>
+	mockSandboxExecutionService({
+		executeWorkflow,
+		_tag: "SandboxExecutionService",
+		resolveWorkflowScript,
+	});
 
 const makeRedisLayer = () => {
 	const store = new Map<string, string>();
@@ -237,18 +245,19 @@ type TestLayerOptions = {
 	eventsService?: Layer.Layer<EventsService>;
 	importsService?: Layer.Layer<ImportsService>;
 	operationsService?: Layer.Layer<OperationsService>;
+	configLayer?: ReturnType<typeof makeAppConfigLayer>;
 	collectionsService?: Layer.Layer<CollectionsService>;
 	mediaOperations?: Layer.Layer<MediaImportWorkflowOperations>;
 	eventSchemasRepository?: Layer.Layer<EventSchemasRepository>;
 	entitySchemasRepository?: Layer.Layer<EntitySchemasRepository>;
-	importRunFailuresService?: Layer.Layer<ImportRunFailuresService>;
 	sandboxExecutionService?: Layer.Layer<SandboxExecutionService>;
+	importRunFailuresService?: Layer.Layer<ImportRunFailuresService>;
 };
 
 const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
-		makeAppConfigLayer(),
+		options.configLayer ?? makeAppConfigLayer(),
 		BunFileSystem.layer,
 		makeRedisLayer(),
 		options.mediaOperations ?? makeMediaOperations(),
@@ -338,7 +347,7 @@ for (const malformedCase of malformedResultCases) {
 			}),
 			sandboxExecutionService: makeSandboxExecutionService((input) =>
 				Effect.succeed(
-					input.workflowSlug === "media-import-resolution"
+					input.scriptId === SandboxScriptId.make("workflow.media-import-resolution")
 						? { results: resolutionResults }
 						: { results: [] },
 				),
@@ -468,7 +477,7 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 		}),
 		sandboxExecutionService: makeSandboxExecutionService((input) => {
 			const items = workflowItems(input);
-			if (input.workflowSlug === "media-import-resolution") {
+			if (input.scriptId === SandboxScriptId.make("workflow.media-import-resolution")) {
 				resolvedCalls.push(...items);
 				return Effect.succeed({
 					results: items.map((item) => ({

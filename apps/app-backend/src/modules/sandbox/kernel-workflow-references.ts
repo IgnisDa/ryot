@@ -1,5 +1,6 @@
 import type { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { SandboxRunError } from "@ryot/contract/errors";
+import type { ExecutionAuthority } from "@ryot/contract/modules/sandbox/schemas";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Context, type Effect } from "effect";
 
@@ -12,6 +13,7 @@ export class KernelWorkflowReferences extends Context.Tag("KernelWorkflowReferen
 		readonly execute: (
 			workflowSlug: string,
 			input: JsonValue,
+			authority: ExecutionAuthority,
 			executionId: string,
 		) => Effect.Effect<JsonValue, SandboxRunError, WorkflowEngine>;
 	}
