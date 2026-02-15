@@ -56,18 +56,20 @@ describe("audiobook.audible sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.relatedEntities).toEqual([
+			expect(details.relatedEntityGroups).toEqual([
+				{ direction: "incoming", entities: [], relationshipSchemaSlug: "person-to-audiobook" },
 				{
-					name: "Series Pick",
-					externalId: "book-2",
-					scriptSlug: "audiobook.audible",
-					relationshipSchemaSlug: "media-suggestion",
+					entities: [],
+					direction: "incoming",
+					relationshipSchemaSlug: "audiobook-group-to-audiobook",
 				},
 				{
-					name: "Similar Pick",
-					externalId: "book-3",
-					scriptSlug: "audiobook.audible",
+					direction: "outgoing",
 					relationshipSchemaSlug: "media-suggestion",
+					entities: [
+						{ name: "Series Pick", externalId: "book-2", scriptSlug: "audiobook.audible" },
+						{ name: "Similar Pick", externalId: "book-3", scriptSlug: "audiobook.audible" },
+					],
 				},
 			]);
 			return undefined;

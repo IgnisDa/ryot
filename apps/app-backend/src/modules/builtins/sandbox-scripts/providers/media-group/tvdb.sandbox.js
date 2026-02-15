@@ -207,7 +207,6 @@ driver("details", async function (context, { metadata }) {
 			return {
 				name: memberName,
 				externalId: memberId,
-				reverseDirection: true,
 				scriptSlug: "movie.tvdb",
 				relationshipProperties: { order: idx + 1 },
 			};
@@ -221,13 +220,14 @@ driver("details", async function (context, { metadata }) {
 
 	return {
 		name: title,
-		relatedEntities,
-		properties: {
-			parts,
-			images,
-			sourceUrl,
-			description,
-		},
+		properties: {parts,images,sourceUrl,description,},
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: relatedEntities,
+				relationshipSchemaSlug: "movie-group-to-movie",
+			},
+		],
 	};
 });
 

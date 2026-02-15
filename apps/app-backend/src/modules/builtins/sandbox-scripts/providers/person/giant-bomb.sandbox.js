@@ -225,6 +225,9 @@ driver("details", async function (context) {
 		"image",
 		"site_detail_url",
 		"franchises",
+		"games.guid",
+		"games.name",
+		"games.api_detail_url",
 	].join(",");
 
 	const url = `${BASE_URL}/person/${encodeURIComponent(externalId)}/?api_key=${encodeURIComponent(apiKey)}&format=json&field_list=${fieldList}`;
@@ -274,20 +277,39 @@ driver("details", async function (context) {
 			: null;
 
 	const franchises = Array.isArray(person?.franchises) ? person.franchises : [];
-	const relatedEntities = franchises
+	const groupEntities = franchises
 		.filter((f) => typeof f?.api_detail_url === "string" && f.api_detail_url)
 		.map((f) => ({
-			reverseDirection: true,
 			scriptSlug: "video-game-group.giant-bomb",
 			relationshipProperties: { roles: ["Person"] },
 			externalId: extractGiantBombGuid(f.api_detail_url),
 			name: typeof f?.name === "string" && f.name.trim() ? f.name.trim() : "",
 		}))
 		.filter((e) => e.externalId && e.name);
+	const mediaEntities = (Array.isArray(person?.games) ? person.games : [])
+		.filter((game) => typeof game?.api_detail_url === "string" && game.api_detail_url)
+		.map((game) => ({
+			scriptSlug: "video-game.giant-bomb",
+			relationshipProperties: { roles: ["Person"] },
+			externalId: extractGiantBombGuid(game.api_detail_url),
+			name: typeof game?.name === "string" && game.name.trim() ? game.name.trim() : "",
+		}))
+		.filter((entity) => entity.externalId && entity.name);
 
 	return {
 		name,
-		relatedEntities,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: mediaEntities,
+				relationshipSchemaSlug: "person-to-video-game",
+			},
+			{
+				direction: "outgoing",
+				entities: groupEntities,
+				relationshipSchemaSlug: "person-to-video-game-group",
+			},
+		],
 		properties: {
 			images,
 			birthDate,

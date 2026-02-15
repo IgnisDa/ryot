@@ -55,6 +55,7 @@ beforeAll(async () => {
 				SERVER_OIDC_CLIENT_ID: "",
 				SERVER_OIDC_ISSUER_URL: "",
 				SERVER_OIDC_CLIENT_SECRET: "",
+				SERVER_DISABLE_NOTIFICATIONS: "false",
 				SERVER_SMTP_MAILBOX: "Ryot <no-reply@ryot.io>",
 			},
 		}),

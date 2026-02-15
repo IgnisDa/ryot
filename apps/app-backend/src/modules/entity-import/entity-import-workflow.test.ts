@@ -33,6 +33,7 @@ import {
 	type EntityImportWorkflowOperationsValue,
 } from "./operations-workflow";
 import { processChildEntityTree } from "./population";
+import { synchronizeProviderEntity } from "./provider-entity-synchronizer";
 
 const TestEntityImportWorkflow = Workflow.make({
 	success: ListedEntity,
@@ -117,8 +118,9 @@ const makeRelationshipsRepository = (
 	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
 ) =>
 	mockRelationshipsRepository({
-		saveRelationship: () => Effect.succeed(savedRelationship),
 		syncGlobalRelationshipTargets: () => Effect.void,
+		syncGlobalRelationshipsWithProperties: () => Effect.void,
+		saveRelationship: () => Effect.succeed(savedRelationship),
 		...overrides,
 		_tag: "RelationshipsRepository",
 	});
@@ -213,8 +215,8 @@ it.effect("populates entity and writes related entities", () => {
 		name: "Authored By",
 		propertiesSchema: { fields: {} },
 		id: RelationshipSchemaId.make("rel-schema-1"),
-		sourceEntitySchemaId: EntitySchemaId.make("schema-1"),
-		targetEntitySchemaId: EntitySchemaId.make("schema-person"),
+		targetEntitySchemaId: EntitySchemaId.make("schema-1"),
+		sourceEntitySchemaId: EntitySchemaId.make("schema-person"),
 	};
 	const relatedEntity = {
 		name: "Author",
@@ -236,26 +238,32 @@ it.effect("populates entity and writes related entities", () => {
 				value: {
 					name: "Test Book",
 					properties: { title: "Test Book" },
-					relatedEntities: [
+					relatedEntityGroups: [
 						{
-							name: "Author",
-							scriptSlug: "person.test",
-							externalId: "person-ext-1",
-							relationshipProperties: { roles: ["Author"] },
+							direction: "incoming",
+							relationshipSchemaSlug: "authored-by",
+							entities: [
+								{
+									name: "Author",
+									scriptSlug: "person.test",
+									externalId: "person-ext-1",
+									relationshipProperties: { roles: ["Author"] },
+								},
+							],
 						},
 					],
 				},
 			}),
 		relationshipSchemasRepository: makeRelationshipSchemasRepository({
-			findGlobalBySchemaIds: () => Effect.succeed(relationshipSchema),
+			findBuiltinBySlug: () => Effect.succeed(relationshipSchema),
 		}),
 		entitiesRepository: makeEntitiesRepository({
 			findEntitySchemaSandboxScriptBySlug: () => Effect.succeed(relatedEntitySchemaSandboxScript),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			saveRelationship: () => {
+			syncGlobalRelationshipsWithProperties: () => {
 				relationshipWritten = true;
-				return Effect.succeed(savedRelationship);
+				return Effect.void;
 			},
 		}),
 		entitiesService: makeEntitiesService({
@@ -503,10 +511,11 @@ it.effect("propagates images through properties for the primary entity", () => {
 });
 
 it.effect("creates placeholder suggestion entities and syncs source suggestions", () => {
-	const syncedTargets: Array<{
-		sourceEntityId: EntityId;
-		targetEntityIds: ReadonlyArray<EntityId>;
+	const syncedGroups: Array<{
+		anchorEntityId: EntityId;
+		direction: "incoming" | "outgoing";
 		relationshipSchemaId: RelationshipSchemaId;
+		entries: ReadonlyArray<{ entityId: EntityId; properties: Record<string, unknown> }>;
 	}> = [];
 	const placeholderWrites: Array<{
 		name: string;
@@ -530,18 +539,22 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 				value: {
 					name: "Test Book",
 					properties: { title: "Test Book" },
-					relatedEntities: [
+					relatedEntityGroups: [
 						{
-							externalId: "movie-1",
-							scriptSlug: "movie.tmdb",
-							name: "Recommended Movie",
+							direction: "outgoing",
 							relationshipSchemaSlug: "media-suggestion",
-						},
-						{
-							externalId: "missing-1",
-							name: "Missing Suggestion",
-							scriptSlug: "missing.provider",
-							relationshipSchemaSlug: "media-suggestion",
+							entities: [
+								{
+									externalId: "movie-1",
+									scriptSlug: "movie.tmdb",
+									name: "Recommended Movie",
+								},
+								{
+									externalId: "missing-1",
+									name: "Missing Suggestion",
+									scriptSlug: "missing.provider",
+								},
+							],
 						},
 					],
 				},
@@ -585,9 +598,9 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 			},
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationshipTargets: (input) =>
+			syncGlobalRelationshipsWithProperties: (input) =>
 				Effect.sync(() => {
-					syncedTargets.push(input);
+					syncedGroups.push(input);
 				}),
 		}),
 	} satisfies TestLayerOptions;
@@ -610,11 +623,12 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 					sandboxScriptId: SandboxScriptId.make("movie-script"),
 				},
 			]);
-			expect(syncedTargets).toEqual([
+			expect(syncedGroups).toEqual([
 				{
-					sourceEntityId: EntityId.make("entity-1"),
+					anchorEntityId: EntityId.make("entity-1"),
+					direction: "outgoing",
 					relationshipSchemaId: mediaSuggestionSchema.id,
-					targetEntityIds: [EntityId.make("suggestion-movie-1")],
+					entries: [{ entityId: EntityId.make("suggestion-movie-1"), properties: {} }],
 				},
 			]);
 		}),
@@ -644,10 +658,13 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 						value: {
 							name: "Test Book",
 							properties: { title: "Test Book" },
-							relatedEntities: suggestions.map((suggestion) => ({
-								...suggestion,
-								relationshipSchemaSlug: "media-suggestion",
-							})),
+							relatedEntityGroups: [
+								{
+									direction: "outgoing",
+									entities: suggestions,
+									relationshipSchemaSlug: "media-suggestion",
+								},
+							],
 						},
 					}),
 				entitiesRepository: makeEntitiesRepository({
@@ -679,8 +696,8 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 
 						return Effect.succeed({
 							...baseEntity,
-							name: input.name,
 							properties: {},
+							name: input.name,
 							populatedAt: null,
 							externalId: input.externalId,
 							entitySchemaId: input.entitySchemaId,
@@ -690,12 +707,12 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 					},
 				}),
 				relationshipsRepository: makeRelationshipsRepository({
-					syncGlobalRelationshipTargets: (input) =>
+					syncGlobalRelationshipsWithProperties: (input) =>
 						Effect.sync(() => {
-							syncCalls.push(input.targetEntityIds);
+							syncCalls.push(input.entries.map((entry) => entry.entityId));
 							currentTargets.clear();
-							for (const targetEntityId of input.targetEntityIds) {
-								currentTargets.add(targetEntityId);
+							for (const entry of input.entries) {
+								currentTargets.add(entry.entityId);
 							}
 						}),
 				}),
@@ -728,43 +745,40 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 	});
 });
 
-it.effect(
-	"never syncs relationship targets when no related entity specifies a relationship schema slug",
-	() => {
-		let syncCalled = false;
+it.effect("does not synchronize relationships when the provider declares no groups", () => {
+	let syncCalled = false;
 
-		const payload = { ...importPayload, executionId: "exec-no-explicit-slug" };
-		const options = {
-			processSandbox: () =>
-				Effect.succeed({
-					logs: [],
-					error: null,
-					status: "completed" as const,
-					value: {
-						name: "Test Book",
-						properties: { title: "Test Book" },
-						relatedEntities: [],
-					},
+	const payload = { ...importPayload, executionId: "exec-no-explicit-slug" };
+	const options = {
+		processSandbox: () =>
+			Effect.succeed({
+				logs: [],
+				error: null,
+				status: "completed" as const,
+				value: {
+					name: "Test Book",
+					relatedEntityGroups: [],
+					properties: { title: "Test Book" },
+				},
+			}),
+		relationshipsRepository: makeRelationshipsRepository({
+			syncGlobalRelationshipsWithProperties: () =>
+				Effect.sync(() => {
+					syncCalled = true;
 				}),
-			relationshipsRepository: makeRelationshipsRepository({
-				syncGlobalRelationshipTargets: () =>
-					Effect.sync(() => {
-						syncCalled = true;
-					}),
-			}),
-		} satisfies TestLayerOptions;
+		}),
+	} satisfies TestLayerOptions;
 
-		return withTestLayer(
-			options,
-			payload.executionId,
-			Effect.gen(function* () {
-				yield* runEntityImportWorkflow(payload, payload.executionId);
+	return withTestLayer(
+		options,
+		payload.executionId,
+		Effect.gen(function* () {
+			yield* runEntityImportWorkflow(payload, payload.executionId);
 
-				expect(syncCalled).toBe(false);
-			}),
-		);
-	},
-);
+			expect(syncCalled).toBe(false);
+		}),
+	);
+});
 
 it.effect("short-circuits sandbox when global entity is already populated", () => {
 	let sandboxCalled = false;
@@ -839,7 +853,7 @@ it.effect("workflow body executes the sandbox step as part of orchestration", ()
 				logs: [],
 				error: null,
 				status: "completed" as const,
-				value: { name: "Test", properties: { title: "Test" }, relatedEntities: [] },
+				value: { name: "Test", properties: { title: "Test" } },
 			});
 		},
 		entitiesService: makeEntitiesService({ save: () => Effect.succeed(baseEntity) }),
@@ -869,25 +883,31 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 				value: {
 					name: "Test Book",
 					properties: { title: "Test Book" },
-					relatedEntities: [
+					relatedEntityGroups: [
 						{
-							name: "Author",
-							scriptSlug: "person.test",
-							externalId: "person-ext-1",
-							relationshipProperties: {},
+							direction: "incoming",
+							relationshipSchemaSlug: "authored-by",
+							entities: [
+								{
+									name: "Author",
+									scriptSlug: "person.test",
+									externalId: "person-ext-1",
+									relationshipProperties: {},
+								},
+							],
 						},
 					],
 				},
 			}),
 		relationshipSchemasRepository: makeRelationshipSchemasRepository({
-			findGlobalBySchemaIds: () =>
+			findBuiltinBySlug: () =>
 				Effect.succeed({
 					isBuiltin: true,
-					id: RelationshipSchemaId.make("rel-schema-1"),
 					slug: "authored-by",
 					name: "Authored By",
-					sourceEntitySchemaId: EntitySchemaId.make("schema-1"),
-					targetEntitySchemaId: EntitySchemaId.make("schema-person"),
+					id: RelationshipSchemaId.make("rel-schema-1"),
+					targetEntitySchemaId: EntitySchemaId.make("schema-1"),
+					sourceEntitySchemaId: EntitySchemaId.make("schema-person"),
 					propertiesSchema: {
 						fields: {
 							rating: {
@@ -933,10 +953,10 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 			},
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			saveRelationship: () =>
+			syncGlobalRelationshipsWithProperties: () =>
 				Effect.sync(() => {
 					relationshipWritten = true;
-					return savedRelationship;
+					return undefined;
 				}),
 		}),
 	} satisfies TestLayerOptions;
@@ -973,26 +993,32 @@ it.effect("fails workflow when related relationship properties are not objects",
 				value: {
 					name: "Test Book",
 					properties: { title: "Test Book" },
-					relatedEntities: [
+					relatedEntityGroups: [
 						{
-							name: "Author",
-							scriptSlug: "person.test",
-							externalId: "person-ext-1",
-							relationshipProperties: [],
+							direction: "incoming",
+							relationshipSchemaSlug: "authored-by",
+							entities: [
+								{
+									name: "Author",
+									scriptSlug: "person.test",
+									externalId: "person-ext-1",
+									relationshipProperties: [],
+								},
+							],
 						},
 					],
 				},
 			}),
 		relationshipSchemasRepository: makeRelationshipSchemasRepository({
-			findGlobalBySchemaIds: () =>
+			findBuiltinBySlug: () =>
 				Effect.succeed({
 					isBuiltin: true,
 					slug: "authored-by",
 					name: "Authored By",
 					propertiesSchema: { fields: {} },
 					id: RelationshipSchemaId.make("rel-schema-1"),
-					sourceEntitySchemaId: EntitySchemaId.make("schema-1"),
-					targetEntitySchemaId: EntitySchemaId.make("schema-person"),
+					targetEntitySchemaId: EntitySchemaId.make("schema-1"),
+					sourceEntitySchemaId: EntitySchemaId.make("schema-person"),
 				}),
 		}),
 		entitiesRepository: makeEntitiesRepository({
@@ -1003,10 +1029,10 @@ it.effect("fails workflow when related relationship properties are not objects",
 				}),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			saveRelationship: () =>
+			syncGlobalRelationshipsWithProperties: () =>
 				Effect.sync(() => {
 					relationshipWritten = true;
-					return savedRelationship;
+					return undefined;
 				}),
 		}),
 	} satisfies TestLayerOptions;
@@ -1037,14 +1063,14 @@ it.effect("retries related writes after a failed related validation", () => {
 
 	const options = {
 		relationshipSchemasRepository: makeRelationshipSchemasRepository({
-			findGlobalBySchemaIds: () =>
+			findBuiltinBySlug: () =>
 				Effect.succeed({
 					isBuiltin: true,
-					id: RelationshipSchemaId.make("rel-schema-1"),
 					slug: "authored-by",
 					name: "Authored By",
-					sourceEntitySchemaId: EntitySchemaId.make("schema-1"),
-					targetEntitySchemaId: EntitySchemaId.make("schema-person"),
+					id: RelationshipSchemaId.make("rel-schema-1"),
+					targetEntitySchemaId: EntitySchemaId.make("schema-1"),
+					sourceEntitySchemaId: EntitySchemaId.make("schema-person"),
 					propertiesSchema: {
 						fields: {
 							rating: {
@@ -1090,10 +1116,10 @@ it.effect("retries related writes after a failed related validation", () => {
 			},
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			saveRelationship: () =>
+			syncGlobalRelationshipsWithProperties: () =>
 				Effect.sync(() => {
 					relationshipWriteCount += 1;
-					return savedRelationship;
+					return undefined;
 				}),
 		}),
 	} satisfies TestLayerOptions;
@@ -1111,12 +1137,18 @@ it.effect("retries related writes after a failed related validation", () => {
 						value: {
 							name: "Test Book",
 							properties: { title: "Test Book" },
-							relatedEntities: [
+							relatedEntityGroups: [
 								{
-									name: "Author",
-									relationshipProperties,
-									scriptSlug: "person.test",
-									externalId: "person-ext-1",
+									direction: "incoming",
+									relationshipSchemaSlug: "authored-by",
+									entities: [
+										{
+											name: "Author",
+											relationshipProperties,
+											scriptSlug: "person.test",
+											externalId: "person-ext-1",
+										},
+									],
 								},
 							],
 						},
@@ -1140,4 +1172,155 @@ it.effect("retries related writes after a failed related validation", () => {
 		expect(secondResult.id).toBe("entity-1");
 		expect(secondResult.populatedAt).not.toBeNull();
 	});
+});
+
+it.effect("refresh synchronization replaces provider-owned primary and child values", () => {
+	const writes: Array<{
+		name: string;
+		populatedAt: Date | null;
+		entitySchemaId: EntitySchemaId;
+		properties: Record<string, unknown>;
+		onConflict: "preserveExisting" | "replaceExisting" | undefined;
+	}> = [];
+	const relationshipSchema = {
+		isBuiltin: true,
+		name: "Show to Season",
+		slug: "show-to-show-season",
+		propertiesSchema: { fields: {} },
+		id: RelationshipSchemaId.make("show-season-schema"),
+		sourceEntitySchemaId: EntitySchemaId.make("schema-1"),
+		targetEntitySchemaId: EntitySchemaId.make("schema-season"),
+	};
+	const payload = { ...importPayload, executionId: "refresh-overwrite" };
+	const options = {
+		processSandbox: () =>
+			Effect.succeed({
+				logs: [],
+				error: null,
+				status: "completed" as const,
+				value: {
+					name: "Updated Show",
+					properties: { title: "Updated Show", productionStatus: "Ended" },
+					childEntities: [
+						{
+							name: "Updated Season",
+							externalId: "season-1",
+							entitySchemaSlug: "show-season",
+							properties: { seasonNumber: 1 },
+						},
+					],
+				},
+			}),
+		entitySchemasRepository: makeEntitySchemasRepository({
+			getBuiltinBySlug: () => Effect.succeed({ id: EntitySchemaId.make("schema-season") }),
+		}),
+		relationshipSchemasRepository: makeRelationshipSchemasRepository({
+			findGlobalBySchemaIds: () => Effect.succeed(relationshipSchema),
+		}),
+		entitiesService: makeEntitiesService({
+			save: (input) => {
+				assertRecord(input.properties);
+				writes.push({
+					name: input.name,
+					properties: input.properties,
+					onConflict: input.onConflict,
+					populatedAt: input.populatedAt,
+					entitySchemaId: input.entitySchemaId,
+				});
+				return Effect.succeed({
+					...baseEntity,
+					name: input.name,
+					properties: input.properties,
+					entitySchemaId: input.entitySchemaId,
+					populatedAt: input.populatedAt?.toISOString() ?? null,
+					id:
+						input.entitySchemaId === "schema-1"
+							? EntityId.make("entity-1")
+							: EntityId.make("season-1"),
+				});
+			},
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		payload.executionId,
+		Effect.gen(function* () {
+			yield* synchronizeProviderEntity(payload, payload.executionId, {
+				mode: "refresh",
+				entitySchemaSlug: "show",
+				childEntitySchemaSlugs: { show: "show-season" },
+			});
+
+			expect(writes).toHaveLength(3);
+			expect(writes[0]).toMatchObject({
+				populatedAt: null,
+				name: "Updated Show",
+				onConflict: "replaceExisting",
+				properties: { title: "Updated Show", productionStatus: "Ended" },
+			});
+			expect(writes[1]).toMatchObject({
+				name: "Updated Season",
+				onConflict: "replaceExisting",
+				properties: { seasonNumber: 1 },
+				populatedAt: expect.any(Date),
+			});
+			expect(writes[2]).toMatchObject({
+				name: "Updated Show",
+				onConflict: "replaceExisting",
+				properties: { title: "Updated Show", productionStatus: "Ended" },
+			});
+		}),
+	);
+});
+
+it.effect("clears an explicit empty relationship group", () => {
+	const calls: Array<{
+		anchorEntityId: EntityId;
+		direction: "incoming" | "outgoing";
+		relationshipSchemaId: RelationshipSchemaId;
+		entries: ReadonlyArray<{ entityId: EntityId; properties: Record<string, unknown> }>;
+	}> = [];
+	const payload = { ...importPayload, executionId: "clear-empty-group" };
+	const options = {
+		processSandbox: () =>
+			Effect.succeed({
+				logs: [],
+				error: null,
+				status: "completed" as const,
+				value: {
+					name: "Test Book",
+					properties: { title: "Test Book" },
+					relatedEntityGroups: [
+						{
+							entities: [],
+							direction: "outgoing",
+							relationshipSchemaSlug: "media-suggestion",
+						},
+					],
+				},
+			}),
+		relationshipsRepository: makeRelationshipsRepository({
+			syncGlobalRelationshipsWithProperties: (input) =>
+				Effect.sync(() => {
+					calls.push(input);
+				}),
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		payload.executionId,
+		Effect.gen(function* () {
+			yield* runEntityImportWorkflow(payload, payload.executionId);
+			expect(calls).toEqual([
+				{
+					entries: [],
+					direction: "outgoing",
+					anchorEntityId: EntityId.make("entity-1"),
+					relationshipSchemaId: mediaSuggestionSchema.id,
+				},
+			]);
+		}),
+	);
 });

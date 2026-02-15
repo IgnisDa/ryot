@@ -142,9 +142,10 @@ driver("details", async function (context) {
 		})
 		.parse(context ?? {});
 
-	const artist = await mbGet(`artist/${externalId}`, {
-		inc: "aliases release-groups",
-	});
+	const [artist, recordingsData] = await Promise.all([
+		mbGet(`artist/${externalId}`, { inc: "aliases release-groups" }),
+		mbGet("recording", { artist: externalId, limit: "100" }),
+	]);
 
 	if (!artist) {
 		throw new Error(`MusicBrainz artist not found: ${externalId}`);
@@ -173,21 +174,43 @@ driver("details", async function (context) {
 		.filter((n) => n !== null && n !== name);
 
 	const releaseGroups = Array.isArray(artist?.["release-groups"]) ? artist["release-groups"] : [];
-	const relatedEntities = releaseGroups.map((group) => {
+	const groupEntities = releaseGroups.map((group) => {
 		const groupId = getString(group?.id);
 		const groupTitle = getString(group?.title);
 		return {
 			externalId: groupId,
-			reverseDirection: true,
 			scriptSlug: "music-group.music-brainz",
 			relationshipProperties: { roles: ["Artist"] },
 			name: groupTitle.length > 0 ? groupTitle : groupId,
 		};
 	});
+	const mediaEntities = (Array.isArray(recordingsData?.recordings) ? recordingsData.recordings : [])
+		.map((recording) => {
+			const recordingId = getString(recording?.id);
+			const recordingTitle = getString(recording?.title);
+			return {
+				externalId: recordingId,
+				scriptSlug: "music.music-brainz",
+				relationshipProperties: { roles: ["Artist"] },
+				name: recordingTitle.length > 0 ? recordingTitle : recordingId,
+			};
+		})
+		.filter((entity) => entity.externalId);
 
 	return {
 		name,
-		relatedEntities,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: mediaEntities,
+				relationshipSchemaSlug: "person-to-music",
+			},
+			{
+				direction: "outgoing",
+				entities: groupEntities,
+				relationshipSchemaSlug: "person-to-music-group",
+			},
+		],
 		properties: {
 			birthDate,
 			deathDate,

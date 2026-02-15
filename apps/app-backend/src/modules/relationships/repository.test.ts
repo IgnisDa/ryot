@@ -119,23 +119,24 @@ const makeDb = (rows: ReadonlyArray<StoredRelationship>) => {
 					return Promise.resolve([]);
 				}
 
-				const [sourceEntityId, relationshipSchemaId, ...targetEntityIds] = params;
-				const keptTargets = new Set(targetEntityIds);
+				const isIncoming = rendered.sql.includes('"relationship"."targetEntityId" =');
+				const [anchorEntityId, relationshipSchemaId, ...relatedEntityIds] = params;
+				const keptRelatedEntities = new Set(relatedEntityIds);
 
 				state.rows = state.rows.filter((row) => {
 					if (row.userId !== null) {
 						return true;
 					}
-					if (row.sourceEntityId !== sourceEntityId) {
+					if ((isIncoming ? row.targetEntityId : row.sourceEntityId) !== anchorEntityId) {
 						return true;
 					}
 					if (row.relationshipSchemaId !== relationshipSchemaId) {
 						return true;
 					}
-					if (keptTargets.size === 0) {
+					if (keptRelatedEntities.size === 0) {
 						return false;
 					}
-					return keptTargets.has(row.targetEntityId);
+					return keptRelatedEntities.has(isIncoming ? row.sourceEntityId : row.targetEntityId);
 				});
 
 				return Promise.resolve([]);
@@ -288,6 +289,166 @@ it.effect("clears all global targets for a source and schema when syncing an emp
 			),
 		).toHaveLength(0);
 		expect(state.rows.map((row) => row.id)).toContain("rel-other");
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("syncs global relationship properties while removing stale targets", () => {
+	const { db, state } = makeDb([
+		{
+			userId: null,
+			id: "rel-stale",
+			sourceEntityId: "source-a",
+			properties: { roles: ["Old"] },
+			targetEntityId: "target-stale",
+			relationshipSchemaId: "schema-credit",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+		{
+			userId: null,
+			id: "rel-existing",
+			sourceEntityId: "source-a",
+			properties: { roles: ["Old"] },
+			targetEntityId: "target-existing",
+			relationshipSchemaId: "schema-credit",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+	]);
+
+	return Effect.gen(function* () {
+		const repository = yield* RelationshipsRepository;
+		yield* repository.syncGlobalRelationshipsWithProperties({
+			direction: "outgoing",
+			anchorEntityId: EntityId.make("source-a"),
+			relationshipSchemaId: RelationshipSchemaId.make("schema-credit"),
+			entries: [
+				{ entityId: EntityId.make("target-existing"), properties: { roles: ["Artist"] } },
+				{ entityId: EntityId.make("target-new"), properties: { roles: ["Writer"] } },
+			],
+		});
+
+		expect(state.transactions).toBe(1);
+		expect(state.rows.find((row) => row.targetEntityId === "target-stale")).toBeUndefined();
+		expect(state.rows.find((row) => row.targetEntityId === "target-existing")?.properties).toEqual({
+			roles: ["Artist"],
+		});
+		expect(state.rows.find((row) => row.targetEntityId === "target-new")?.properties).toEqual({
+			roles: ["Writer"],
+		});
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("syncs incoming global relationships without removing unrelated sources", () => {
+	const { db, state } = makeDb([
+		{
+			userId: null,
+			id: "rel-stale",
+			targetEntityId: "person-a",
+			sourceEntityId: "movie-stale",
+			properties: { roles: ["Old"] },
+			relationshipSchemaId: "schema-person-to-movie",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+		{
+			userId: null,
+			id: "rel-existing",
+			targetEntityId: "person-a",
+			properties: { roles: ["Old"] },
+			sourceEntityId: "movie-existing",
+			relationshipSchemaId: "schema-person-to-movie",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+		{
+			userId: null,
+			id: "rel-other-target",
+			properties: { roles: ["Director"] },
+			targetEntityId: "person-b",
+			sourceEntityId: "movie-stale",
+			relationshipSchemaId: "schema-person-to-movie",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+		{
+			userId: null,
+			properties: {},
+			id: "rel-other-schema",
+			targetEntityId: "person-a",
+			sourceEntityId: "movie-other",
+			relationshipSchemaId: "schema-other",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+	]);
+
+	return Effect.gen(function* () {
+		const repository = yield* RelationshipsRepository;
+		yield* repository.syncGlobalRelationshipsWithProperties({
+			direction: "incoming",
+			anchorEntityId: EntityId.make("person-a"),
+			relationshipSchemaId: RelationshipSchemaId.make("schema-person-to-movie"),
+			entries: [
+				{ entityId: EntityId.make("movie-existing"), properties: { roles: ["Writer"] } },
+				{ entityId: EntityId.make("movie-new"), properties: { roles: ["Actor"] } },
+			],
+		});
+
+		expect(state.rows.find((row) => row.id === "rel-stale")).toBeUndefined();
+		expect(state.rows.find((row) => row.id === "rel-existing")?.properties).toEqual({
+			roles: ["Writer"],
+		});
+		expect(
+			state.rows.find(
+				(row) =>
+					row.sourceEntityId === "movie-new" &&
+					row.targetEntityId === "person-a" &&
+					row.relationshipSchemaId === "schema-person-to-movie",
+			),
+		).toMatchObject({ properties: { roles: ["Actor"] } });
+		expect(state.rows.map((row) => row.id)).toContain("rel-other-target");
+		expect(state.rows.map((row) => row.id)).toContain("rel-other-schema");
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("clears an empty incoming group without touching other anchors", () => {
+	const { db, state } = makeDb([
+		{
+			userId: null,
+			id: "rel-clear-a",
+			targetEntityId: "movie-a",
+			sourceEntityId: "person-a",
+			properties: { roles: ["Writer"] },
+			relationshipSchemaId: "schema-person-to-movie",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+		{
+			userId: null,
+			targetEntityId: "movie-b",
+			sourceEntityId: "person-a",
+			id: "rel-keep-other-anchor",
+			properties: { roles: ["Director"] },
+			relationshipSchemaId: "schema-person-to-movie",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+		{
+			userId: null,
+			properties: {},
+			targetEntityId: "movie-a",
+			sourceEntityId: "person-b",
+			id: "rel-keep-other-schema",
+			relationshipSchemaId: "schema-other",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+	]);
+
+	return Effect.gen(function* () {
+		const repository = yield* RelationshipsRepository;
+		yield* repository.syncGlobalRelationshipsWithProperties({
+			entries: [],
+			direction: "incoming",
+			anchorEntityId: EntityId.make("movie-a"),
+			relationshipSchemaId: RelationshipSchemaId.make("schema-person-to-movie"),
+		});
+
+		expect(state.rows.map((row) => row.id)).not.toContain("rel-clear-a");
+		expect(state.rows.map((row) => row.id)).toContain("rel-keep-other-anchor");
+		expect(state.rows.map((row) => row.id)).toContain("rel-keep-other-schema");
 	}).pipe(Effect.provide(makeLayer(db)));
 });
 

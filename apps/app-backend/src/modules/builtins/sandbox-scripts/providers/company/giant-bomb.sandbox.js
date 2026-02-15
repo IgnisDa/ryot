@@ -76,6 +76,17 @@ function combineDescription(deck, description) {
 const BASE_URL = "https://www.giantbomb.com/api";
 const GUID_PATTERN = /^\d+-\d+$/;
 
+function getGameGuid(game) {
+	if (typeof game?.guid === "string" && GUID_PATTERN.test(game.guid.trim())) {
+		return game.guid.trim();
+	}
+	if (typeof game?.api_detail_url !== "string") {
+		return null;
+	}
+	const guid = game.api_detail_url.split("/").findLast((part) => GUID_PATTERN.test(part));
+	return guid ?? null;
+}
+
 driver("search", async function (context) {
 	const pageSize =
 		Number.isFinite(Number(context?.pageSize)) &&
@@ -190,6 +201,12 @@ driver("details", async function (context) {
 		"image",
 		"site_detail_url",
 		"aliases",
+		"developed_games.guid",
+		"developed_games.name",
+		"developed_games.api_detail_url",
+		"published_games.guid",
+		"published_games.name",
+		"published_games.api_detail_url",
 	].join(",");
 
 	const url = `${BASE_URL}/company/${encodeURIComponent(contextIdentifier)}/?api_key=${encodeURIComponent(apiKey)}&format=json&field_list=${fieldList}`;
@@ -245,9 +262,41 @@ driver("details", async function (context) {
 
 	const website =
 		typeof company.website === "string" && company.website.trim() ? company.website.trim() : null;
+	const relatedById = new Map();
+	const addGames = (games, role) => {
+		for (const game of Array.isArray(games) ? games : []) {
+			const externalId = getGameGuid(game);
+			const gameName = typeof game?.name === "string" && game.name.trim() ? game.name.trim() : null;
+			if (!externalId || !gameName) {
+				continue;
+			}
+			const existing = relatedById.get(externalId);
+			if (existing) {
+				if (!existing.relationshipProperties.roles.includes(role)) {
+					existing.relationshipProperties.roles.push(role);
+				}
+				continue;
+			}
+			relatedById.set(externalId, {
+				name: gameName,
+				externalId,
+				scriptSlug: "video-game.giant-bomb",
+				relationshipProperties: { roles: [role] },
+			});
+		}
+	};
+	addGames(company?.developed_games, "Developer");
+	addGames(company?.published_games, "Publisher");
 
 	return {
 		name,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: [...relatedById.values()],
+				relationshipSchemaSlug: "company-to-video-game",
+			},
+		],
 		properties: {
 			images,
 			website,

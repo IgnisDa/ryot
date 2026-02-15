@@ -271,6 +271,24 @@ driver("details", async function (context, { metadata }) {
 
 	return {
 		name: title,
+		relatedEntityGroups: [
+			{
+				direction: "incoming",
+				relationshipSchemaSlug: "person-to-music",
+				entities: [...relatedEntityByKey.values()].filter(
+					(entity) => entity.scriptSlug === "person.youtube-music",
+				),
+			},
+			{
+				direction: "incoming",
+				relationshipSchemaSlug: "music-group-to-music",
+				entities: [...relatedEntityByKey.values()].filter(
+					(entity) => entity.scriptSlug === "music-group.youtube-music",
+				),
+			},
+			{direction: "outgoing",entities: suggestions,relationshipSchemaSlug: "media-suggestion",
+			},
+		],
 		properties: {
 			duration,
 			genres: [],
@@ -279,12 +297,6 @@ driver("details", async function (context, { metadata }) {
 			sourceUrl: `https://music.youtube.com/watch?v=${externalId}`,
 			images: getThumbnailUrls(trackItem.thumbnail).map((url) => ({ type: "remote", url })),
 		},
-		relatedEntities: [
-			...relatedEntityByKey.values(),
-			...suggestions.map((suggestion) =>
-				Object.assign(suggestion, { relationshipSchemaSlug: "media-suggestion" }),
-			),
-		],
 	};
 });
 
