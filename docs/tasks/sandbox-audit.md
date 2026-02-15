@@ -236,7 +236,7 @@ Confirmed by grep, non-test usage only:
 - [x] **`apiFailure`.** Consider sourcing the cross-runtime error shape from the SDK wire package.
 - [x] **Result-to-status mapping.** Consolidate the shared `Match`/`Exit`/`Cause.pretty(...).slice(0,500)` pipeline used by `toSandboxRunResult` and `toPluginWorkflowResult`.
 - [x] **Brand re-mapping loops.** Consolidate the near-identical relationship batch mapping loops.
-- [ ] **`bridge-adapter.ts` error reconstruction (~100 lines).** Emit the formatted schema issue and keep only the argument-count special case.
+- [x] **`bridge-adapter.ts` error reconstruction (~100 lines).** Emit the formatted schema issue and keep only the argument-count special case.
 
 ---
 
