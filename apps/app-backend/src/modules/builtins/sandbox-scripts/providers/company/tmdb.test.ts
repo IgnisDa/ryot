@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { type HostFunction, hostSuccess, httpSuccess, runProviderDriver, toRecord } from "../test-utils";
+import {
+	type HostFunction,
+	hostSuccess,
+	httpSuccess,
+	runProviderDriver,
+	toRecord,
+} from "../test-utils";
 import tmdbCompanyScriptCode from "./tmdb.sandbox.js" with { type: "text" };
 
 const runTmdbCompanyDetails = (context: unknown, hostFunctions: Record<string, HostFunction>) =>
@@ -51,6 +57,6 @@ describe("company.tmdb sandbox script", () => {
 					],
 				},
 			]);
-		}),
-	);
+			return undefined;
+		}));
 });

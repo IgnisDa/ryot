@@ -20,7 +20,7 @@ import {
 } from "../fixtures";
 import { pollUntil } from "../fixtures/polling";
 import { getPgClient } from "../setup";
-import { assertTaggedError, requirePresent } from "../test-support/assertions";
+import { assertTaggedError, requireObjectRecord } from "../test-support/assertions";
 
 const ADMIN_TOKEN = "test-admin-token";
 const adminHeaders = { "Admin-Access-Token": ADMIN_TOKEN };
@@ -137,9 +137,12 @@ describe("media monitoring endpoints", () => {
 		expect(
 			await countMediaMonitoringRelationships({ entityId: apiEntityId, userId: owner.userId }),
 		).toBe(0);
-		expect(
-			(await queryInLibraryRelationship(owner.client, apiEntityId, owner.email)).rowCount,
-		).toBe(1);
+		const inLibraryRelationship = await queryInLibraryRelationship(
+			owner.client,
+			apiEntityId,
+			owner.email,
+		);
+		expect(inLibraryRelationship.rowCount).toBe(1);
 	});
 
 	it("rejects invisible and unsupported media monitoring targets", async () => {
@@ -198,10 +201,14 @@ describe("media monitoring endpoints", () => {
 		]);
 		extraEntityIds.push(...unsupported.map((entity) => entity.id));
 
-		for (const entity of unsupported) {
-			const error = await owner.client.runError((contract) =>
-				contract.mediaMonitoring.enable({ path: { entityId: entity.id } }),
-			);
+		const errors = await Promise.all(
+			unsupported.map((entity) =>
+				owner.client.runError((contract) =>
+					contract.mediaMonitoring.enable({ path: { entityId: entity.id } }),
+				),
+			),
+		);
+		for (const error of errors) {
 			assertTaggedError(error, "NotFound");
 		}
 		const invisible = await owner.client.runError((contract) =>
@@ -290,13 +297,15 @@ describe("media monitoring infrequent refresh", () => {
 				`Expected two notification workflows, got ${queuedDeliveries.rows.length}: ${JSON.stringify(mediaMonitoringReplies.rows)}`,
 			);
 		}
-		const delivered = await pollUntil("media monitoring status notification delivery", async () => {
+		const delivered = await pollUntil("media monitoring status notification delivery", () => {
 			const paths = new Set(requests.map((request) => request.path));
-			return paths.has("/notify/first") && paths.has("/notify/second") ? requests : null;
+			return Promise.resolve(
+				paths.has("/notify/first") && paths.has("/notify/second") ? requests : null,
+			);
 		});
 		expect(delivered).toHaveLength(2);
 		for (const request of delivered) {
-			const body = requirePresent(request.body as { body?: unknown }, "Missing notification body");
+			const body = requireObjectRecord(request.body, "Missing notification body");
 			expect(body.body).toBe(
 				"Status of Media Monitoring Cron Target changed from Continuing to Ended",
 			);

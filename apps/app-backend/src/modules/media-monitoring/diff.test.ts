@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { diffMediaMonitoringSnapshots, type MediaMonitoringSnapshot } from "./diff";
 
@@ -132,8 +132,10 @@ describe("diffMediaMonitoringSnapshots", () => {
 				},
 			],
 		});
-		const specialSeason = specialBefore.seasons[0]!;
-		const specialEpisode = specialSeason.episodes[0]!;
+		const specialSeason = specialBefore.seasons[0];
+		assert(specialSeason);
+		const specialEpisode = specialSeason.episodes[0];
+		assert(specialEpisode);
 		const specialAfter = snapshot({
 			entitySchemaSlug: "show",
 			seasons: [{ ...specialSeason, episodes: [{ ...specialEpisode, name: "New" }] }],
@@ -161,7 +163,9 @@ describe("diffMediaMonitoringSnapshots", () => {
 				},
 			],
 		});
-		const countBefore = { ...countAfter, seasons: [{ ...countAfter.seasons[0]!, episodes: [] }] };
+		const countSeason = countAfter.seasons[0];
+		assert(countSeason);
+		const countBefore = { ...countAfter, seasons: [{ ...countSeason, episodes: [] }] };
 		expect(
 			diffMediaMonitoringSnapshots(countBefore, countAfter).map((change) => change.eventType),
 		).toEqual(["metadata_episode_released"]);
@@ -193,7 +197,8 @@ describe("diffMediaMonitoringSnapshots", () => {
 				},
 			],
 		});
-		const podcastEpisode = podcastBefore.podcastEpisodes[0]!;
+		const podcastEpisode = podcastBefore.podcastEpisodes[0];
+		assert(podcastEpisode);
 		const podcastAfter = snapshot({
 			entitySchemaSlug: "podcast",
 			podcastEpisodes: [{ ...podcastEpisode, name: "New", images: ["new"] }],

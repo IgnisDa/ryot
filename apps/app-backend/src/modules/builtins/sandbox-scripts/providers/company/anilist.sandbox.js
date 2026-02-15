@@ -197,20 +197,20 @@ query StudioDetailsQuery($id: Int!) {
 				typeof media?.id === "number" && Number.isFinite(media.id)
 					? String(Math.trunc(media.id))
 					: null;
-			const scriptSlug =
-				media?.type === "ANIME"
-					? "anime.anilist"
-					: media?.type === "MANGA"
-						? "manga.anilist"
-						: null;
-			const mediaName =
-				typeof media?.title?.userPreferred === "string" && media.title.userPreferred.trim()
-					? media.title.userPreferred.trim()
-					: typeof media?.title?.english === "string" && media.title.english.trim()
-						? media.title.english.trim()
-						: typeof media?.title?.romaji === "string" && media.title.romaji.trim()
-							? media.title.romaji.trim()
-							: "Loading...";
+			let scriptSlug = null;
+			if (media?.type === "ANIME") {
+				scriptSlug = "anime.anilist";
+			} else if (media?.type === "MANGA") {
+				scriptSlug = "manga.anilist";
+			}
+			let mediaName = "Loading...";
+			if (typeof media?.title?.userPreferred === "string" && media.title.userPreferred.trim()) {
+				mediaName = media.title.userPreferred.trim();
+			} else if (typeof media?.title?.english === "string" && media.title.english.trim()) {
+				mediaName = media.title.english.trim();
+			} else if (typeof media?.title?.romaji === "string" && media.title.romaji.trim()) {
+				mediaName = media.title.romaji.trim();
+			}
 			return {
 				scriptSlug,
 				name: mediaName,
@@ -222,7 +222,7 @@ query StudioDetailsQuery($id: Int!) {
 
 	return {
 		name,
-		properties: {sourceUrl,images: [],alternateNames: [],},
+		properties: { sourceUrl, images: [], alternateNames: [] },
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",

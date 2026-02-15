@@ -11,12 +11,17 @@ import {
 	makeWorkflowActivityEngine,
 	type MockOverrides,
 } from "#lib/test-support/effect";
+import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import {
 	EntityImportWorkflowOperations,
 	type EntityImportWorkflowOperationsValue,
 } from "#modules/entity-import/operations-workflow";
+import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { NotificationsService } from "#modules/notifications/service";
+import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
+import { RelationshipsRepository } from "#modules/relationships/repository";
+import { RelationshipsService } from "#modules/relationships/service";
 
 import { diffMediaMonitoringSnapshots, type MediaMonitoringSnapshot } from "./diff";
 import {
@@ -49,23 +54,29 @@ const entity = {
 	properties: { productionStatus: "Ended" },
 } satisfies ListedEntity;
 
-const snapshot = (status: string, populatedAt: string | null = now): MediaMonitoringSnapshot => ({
-	seasons: [],
-	populatedAt,
-	associations: [],
-	entityKind: "media",
-	animeEpisodes: null,
-	mangaChapters: null,
-	podcastEpisodes: [],
-	entitySchemaSlug: "movie",
-	name: "Media Monitoring Target",
-	entityId: payload.entityId,
-	properties: { productionStatus: status },
-});
+const snapshot = (status: string, populatedAt: string | null = now) =>
+	({
+		seasons: [],
+		populatedAt,
+		associations: [],
+		entityKind: "media",
+		animeEpisodes: null,
+		mangaChapters: null,
+		podcastEpisodes: [],
+		entitySchemaSlug: "movie",
+		entityId: payload.entityId,
+		name: "Media Monitoring Target",
+		properties: { productionStatus: status },
+	}) satisfies MediaMonitoringSnapshot;
 
 const mediaMonitoringRepositoryMock = Layer.mock(MediaMonitoringRepository);
 const notificationsServiceMock = Layer.mock(NotificationsService);
 const entitiesServiceMock = Layer.mock(EntitiesService);
+const entitiesRepositoryMock = Layer.mock(EntitiesRepository);
+const entitySchemasRepositoryMock = Layer.mock(EntitySchemasRepository);
+const relationshipsRepositoryMock = Layer.mock(RelationshipsRepository);
+const relationshipSchemasRepositoryMock = Layer.mock(RelationshipSchemasRepository);
+const relationshipsServiceMock = Layer.mock(RelationshipsService);
 
 const makeMediaMonitoringRepository = (
 	overrides: MockOverrides<typeof mediaMonitoringRepositoryMock> = {},
@@ -79,7 +90,7 @@ const makeMediaMonitoringRepository = (
 
 const makeNotificationsService = (overrides: MockOverrides<typeof notificationsServiceMock> = {}) =>
 	notificationsServiceMock({
-		trigger: () => Effect.void,
+		trigger: () => Effect.void.pipe(Effect.as(undefined)),
 		...overrides,
 		_tag: "NotificationsService",
 	});
@@ -103,8 +114,13 @@ const makeLayer = (options: TestOptions) =>
 		dbRunnerLayer,
 		Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(0) })),
 		options.entitiesService ?? makeEntitiesService(),
+		entitiesRepositoryMock({ _tag: "EntitiesRepository" }),
+		entitySchemasRepositoryMock({ _tag: "EntitySchemasRepository" }),
 		options.mediaMonitoringRepository ?? makeMediaMonitoringRepository(),
 		options.notificationsService ?? makeNotificationsService(),
+		relationshipsRepositoryMock({ _tag: "RelationshipsRepository" }),
+		relationshipSchemasRepositoryMock({ _tag: "RelationshipSchemasRepository" }),
+		relationshipsServiceMock({ _tag: "RelationshipsService" }),
 		Layer.mock(EntityImportWorkflowOperations, {
 			processSandbox:
 				options.processSandbox ??
@@ -188,6 +204,7 @@ it.effect("refreshes once and sends deterministic deliveries only to current sub
 				trigger: (input) =>
 					Effect.sync(() => {
 						deliveries.push(input);
+						return undefined;
 					}),
 			}),
 			processSandbox: () =>
@@ -236,6 +253,7 @@ it.effect("treats an incomplete persisted target as a silent baseline", () => {
 				trigger: (input) =>
 					Effect.sync(() => {
 						deliveries.push(input);
+						return undefined;
 					}),
 			}),
 		},
