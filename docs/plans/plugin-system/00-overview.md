@@ -234,7 +234,7 @@ looks stale.
 - Compiler: `libs/sandbox-compiler` (Bun.build bundling in `compiler-bundle.ts`, TS
   diagnostics, worker protocol); already invoked at runtime for user scripts via
   `apps/app-backend/src/modules/sandbox/compiler.ts`. SDK: `libs/sandbox-sdk` (Effect and Effect
-  Schema plus approved runtime dependencies dayjs, cheerio, and youtubei; provider/automation
+  Schema plus approved runtime dependencies cheerio, and youtubei; provider/automation
   contracts).
 
 ### Native domain modules (the code that must end up inside plugins)
