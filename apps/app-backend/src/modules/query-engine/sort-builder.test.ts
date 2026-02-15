@@ -10,7 +10,7 @@ import {
 	literalExpression,
 } from "~/lib/test-fixtures";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
-import type { QueryEngineContext } from "./context";
+import type { QueryEngineContext } from "./schemas";
 import { buildSortExpression } from "./sort-builder";
 
 const dialect = new PgDialect();

@@ -9,10 +9,13 @@ import {
 	type ViewExpressionTypeInfo,
 } from "~/lib/views/expression-analysis";
 import { getPropertyDisplayKind } from "~/lib/views/policy";
-import type { QueryEngineContext } from "./context";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
-import type { QueryEngineField, ResolvedDisplayValue } from "./schemas";
+import type {
+	QueryEngineContext,
+	QueryEngineField,
+	ResolvedDisplayValue,
+} from "./schemas";
 import type { SqlExpression } from "./sql-expression-helpers";
 
 const buildResolvedDisplayValueObject = (input: {
