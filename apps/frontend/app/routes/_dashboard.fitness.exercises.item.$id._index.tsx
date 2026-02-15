@@ -412,7 +412,9 @@ export default function Page() {
 											defaultValue={timeSpanForCharts}
 											data={convertEnumToSelectData(TimeSpan)}
 											onChange={(v) => {
-												if (v) setTimeSpanForCharts(v as TimeSpan);
+												if (v) {
+													setTimeSpanForCharts(v as TimeSpan);
+												}
 											}}
 										/>
 										{bestMappings.map((best) => {

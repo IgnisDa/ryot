@@ -27,8 +27,11 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const routeParams = parseParameters(params, z.object({ accessLinkId: z.string() }));
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const input: ProcessAccessLinkInput = {};
-	if (query.isAccountDefault) input.username = routeParams.accessLinkId;
-	else input.id = routeParams.accessLinkId;
+	if (query.isAccountDefault) {
+		input.username = routeParams.accessLinkId;
+	} else {
+		input.id = routeParams.accessLinkId;
+	}
 	const { processAccessLink } = await serverGqlService.request(ProcessAccessLinkDocument, {
 		input,
 	});

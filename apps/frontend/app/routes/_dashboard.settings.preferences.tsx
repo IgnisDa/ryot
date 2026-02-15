@@ -74,7 +74,7 @@ import type { Route } from "./+types/_dashboard.settings.preferences";
 
 import classes from "~/styles/preferences.module.css";
 
-const EDITABLE_NUM_DAYS_AHEAD = [DashboardElementLot.Upcoming];
+const EDITABLE_NUM_DAYS_AHEAD = new Set([DashboardElementLot.Upcoming]);
 const EDITABLE_DEDUPLICATE_MEDIA = [DashboardElementLot.Upcoming];
 const EDITABLE_NUM_ELEMENTS = [
 	DashboardElementLot.Upcoming,
@@ -829,7 +829,7 @@ const EditDashboardElement = (props: {
 									}}
 								/>
 							) : null}
-							{EDITABLE_NUM_DAYS_AHEAD.includes(props.lot) ? (
+							{EDITABLE_NUM_DAYS_AHEAD.has(props.lot) ? (
 								<NumberInput
 									size="xs"
 									label="Number of days ahead"

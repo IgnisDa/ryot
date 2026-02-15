@@ -38,7 +38,9 @@ const resolveMangaExtraInformation = (
 			return `CH-${isWholeNumber ? Math.floor(chapterNum) : chapterNum}`;
 		}
 	}
-	if (isNumber(volume)) return `VOL-${volume}`;
+	if (isNumber(volume)) {
+		return `VOL-${volume}`;
+	}
 	return null;
 };
 
@@ -65,7 +67,9 @@ export const HistoryItem = (props: {
 		tab: string,
 		index?: number,
 	) => {
-		if (!ref || !ref.current) return;
+		if (!ref || !ref.current) {
+			return;
+		}
 		if (!coreDetails.isServerKeyValidated) {
 			notifications.show({
 				color: "red",
@@ -74,7 +78,9 @@ export const HistoryItem = (props: {
 			return;
 		}
 		props.setTab(tab);
-		if (!isNumber(index)) return;
+		if (!isNumber(index)) {
+			return;
+		}
 		setTimeout(() => {
 			const current = ref.current;
 			current?.scrollToIndex({ index, behavior: "smooth", align: "start" });
@@ -131,7 +137,9 @@ export const HistoryItem = (props: {
 		(props.history.manualTimeSpent ? Number(props.history.manualTimeSpent) : 0) * 1000;
 	const units = ["mo", "d", "h"] as HumanizeDurationOptions["units"];
 	const isLessThanAnHour = timeSpentInMilliseconds < dayjsLib.duration(1, "hour").asMilliseconds();
-	if (isLessThanAnHour) units?.push("m");
+	if (isLessThanAnHour) {
+		units?.push("m");
+	}
 
 	return (
 		<>

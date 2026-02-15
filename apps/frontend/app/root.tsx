@@ -107,7 +107,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const colorScheme = await colorSchemeCookie.parse(request.headers.get("cookie"));
 	const headers = new Headers();
 	const defaultColorScheme = colorScheme || "light";
-	if (toastHeaders) extendResponseHeaders(headers, toastHeaders);
+	if (toastHeaders) {
+		extendResponseHeaders(headers, toastHeaders);
+	}
 	return data(
 		{
 			toast,
