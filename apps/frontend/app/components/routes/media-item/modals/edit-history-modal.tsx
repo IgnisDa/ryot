@@ -191,23 +191,29 @@ export const EditHistoryItemModal = (props: {
 							}
 						/>
 					) : null}
-				<MultiSelect
-					data={watchProviders}
-					value={selectedProviders}
-					onChange={setSelectedProviders}
-					nothingFoundMessage="No watch providers configured. Please add them in your general preferences."
-					label={`Where did you ${getVerb(
-						Verb.Read,
-						metadataDetails.lot,
-					)} it?`}
-				/>
-				{selectedProviders.length > 0 ? (
-					selectedProviders.map((p) => (
-						<input key={p} hidden readOnly name="providersConsumedOn" value={p} />
-					))
-				) : (
-					<input hidden readOnly name="providersConsumedOn" value="" />
-				)}
+					<MultiSelect
+						data={watchProviders}
+						value={selectedProviders}
+						onChange={setSelectedProviders}
+						nothingFoundMessage="No watch providers configured. Please add them in your general preferences."
+						label={`Where did you ${getVerb(
+							Verb.Read,
+							metadataDetails.lot,
+						)} it?`}
+					/>
+					{selectedProviders.length > 0 ? (
+						selectedProviders.map((p) => (
+							<input
+								hidden
+								key={p}
+								readOnly
+								value={p}
+								name="providersConsumedOn"
+							/>
+						))
+					) : (
+						<input hidden readOnly name="providersConsumedOn" value="" />
+					)}
 					<Tooltip
 						label={PRO_REQUIRED_MESSAGE}
 						disabled={coreDetails.isServerKeyValidated}
