@@ -19,7 +19,8 @@ Migration:
   `executeQueryEngine` pushdown + signals; refresh flows compose the step-3 workflows;
   notification fan-out uses the existing signal/subscription machinery.
 - The `media-monitoring` contract group's user-facing surface (status/enable/disable) becomes
-  plugin operations (step 2's capability).
+  direct plugin operations (step 2's capability) using `user` or `integration` auth as appropriate;
+  do not add an admin operation mode.
 - Migrate and delete any leftover media references in `signals`, `events`, and `entity-interest`
   (the interest/translation machinery itself is kernel — only media-specific branches move).
 
@@ -37,7 +38,8 @@ stories and the Implementation Decisions "Step 5" / "Phase gate" pointers for th
 Derived from the plan §5 done criteria, the phase gate, and cross-phase invariants:
 
 - [ ] `modules/media-monitoring` is migrated (sweeps = cron + query-engine pushdown + signals;
-      refresh = step-3 workflows; user-facing surface = step-2 operations) and deleted
+      refresh = step-3 workflows; user-facing surface = direct step-2 operations) and deleted;
+      scheduler execution uses trusted system authority rather than an executable name
 - [ ] Leftover media references in `signals`, `events`, and `entity-interest` are migrated or
       removed; the generic interest/translation machinery stays in the kernel
 - [ ] **No module under `apps/app-backend/src/modules/` is media- or fitness-specific**
