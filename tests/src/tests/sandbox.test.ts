@@ -113,6 +113,7 @@ describe("sandbox async flow", () => {
 driver("main", async function() {
   const result = await appApiCall("POST", "/query-engine/execute", {
     body: {
+      mode: "entities",
       scope: [${JSON.stringify(slug)}],
       pagination: { page: 1, limit: 10 },
       sort: { direction: "asc", expression: { type: "reference", reference: { path: ["name"], type: "entity", slug: ${JSON.stringify(slug)} } } },
@@ -125,7 +126,7 @@ driver("main", async function() {
   if (!result.success) {
     throw new Error(result.error);
   }
-  return result.data.body.data.items.map((fields) => Object.fromEntries(fields.map((field) => [field.key, field.value])));
+  return result.data.body.data.data.items.map((fields) => Object.fromEntries(fields.map((field) => [field.key, field.value])));
 });
 `,
 		});
@@ -161,6 +162,7 @@ driver("main", async function() {
 driver("main", async function() {
   const result = await appApiCall("POST", "/query-engine/execute", {
     body: {
+      mode: "entities",
       scope: ["does-not-exist"],
       pagination: { page: 1, limit: 10 },
       sort: {

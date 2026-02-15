@@ -33,6 +33,7 @@ import { useThemeTokens } from "~/hooks/theme";
 import type { ApiGetResponseData } from "~/lib/api/types";
 import { STORAGE_KEYS } from "~/lib/storage-keys";
 import { getAccentMuted } from "~/lib/theme";
+import { isEntitySavedView } from "./model";
 import { SavedViewResults } from "./view-page-sections";
 import {
 	createDisabledQueryEngineRequest,
@@ -71,27 +72,34 @@ export function SavedViewPage(props: {
 		params: { path: { viewSlug: props.viewSlug } },
 	});
 	const savedView = savedViewQuery.data?.data;
+	const entitySavedView =
+		savedView && isEntitySavedView(savedView) ? savedView : null;
 	const runtimeRequest = useMemo(
 		() =>
-			savedView
+			entitySavedView
 				? createQueryEngineRequest({
 						page,
 						layout,
-						view: savedView,
+						view: entitySavedView,
 						limit: getPageLimit(layout),
 					})
 				: createDisabledQueryEngineRequest(),
-		[savedView, layout, page],
+		[entitySavedView, layout, page],
 	);
 	const runtimeQuery = apiClient.useQuery(
 		"post",
 		"/query-engine/execute",
 		{ body: runtimeRequest },
-		{ enabled: !!savedView },
+		{ enabled: !!entitySavedView },
 	);
 
-	const items = (runtimeQuery.data?.data.items ?? []).map(toAppEntity);
-	const meta = runtimeQuery.data?.data.meta;
+	const runtimePayload = runtimeQuery.data?.data;
+	const items =
+		runtimePayload?.mode === "entities"
+			? runtimePayload.data.items.map(toAppEntity)
+			: [];
+	const meta =
+		runtimePayload?.mode === "entities" ? runtimePayload.data.meta : undefined;
 	const imageEntries = useMemo(() => {
 		const entries: Array<{ id: string; image: AppEntityImage }> = [];
 		for (const item of items) {
@@ -146,6 +154,15 @@ export function SavedViewPage(props: {
 		);
 	}
 
+	if (!entitySavedView) {
+		return (
+			<ErrorState
+				title="Unsupported view"
+				description="This saved view cannot be rendered in the standard entity layout yet."
+			/>
+		);
+	}
+
 	if (runtimeQuery.isLoading) {
 		return <LoadingState />;
 	}
@@ -160,9 +177,9 @@ export function SavedViewPage(props: {
 		);
 	}
 
-	const accentColor = savedView.accentColor;
+	const accentColor = entitySavedView.accentColor;
 	const accentMuted = getAccentMuted(accentColor);
-	const schemaSummary = savedView.queryDefinition.scope.join(", ");
+	const schemaSummary = entitySavedView.queryDefinition.scope.join(", ");
 	const pageSummary =
 		meta.pagination.totalPages > 0
 			? `Page ${meta.pagination.page} of ${meta.pagination.totalPages}`
@@ -192,7 +209,7 @@ export function SavedViewPage(props: {
 										borderRadius: "var(--mantine-radius-sm)",
 									}}
 								>
-									<TrackerIcon icon={savedView.icon} size={18} />
+									<TrackerIcon icon={entitySavedView.icon} size={18} />
 								</Box>
 								<Text
 									fw={700}
@@ -201,9 +218,9 @@ export function SavedViewPage(props: {
 									c={textPrimary}
 									ff="var(--mantine-headings-font-family)"
 								>
-									{savedView.name}
+									{entitySavedView.name}
 								</Text>
-								{savedView.isBuiltin ? (
+								{entitySavedView.isBuiltin ? (
 									<Badge
 										size="sm"
 										c={accentColor}
@@ -227,7 +244,8 @@ export function SavedViewPage(props: {
 							</Group>
 						</Stack>
 						<Group gap="xs">
-							{savedView.name === "Collections" && props.onCreateCollection ? (
+							{entitySavedView.name === "Collections" &&
+							props.onCreateCollection ? (
 								<Button
 									size="sm"
 									variant="light"
@@ -247,7 +265,7 @@ export function SavedViewPage(props: {
 							>
 								Clone
 							</Button>
-							{!savedView.isBuiltin ? (
+							{!entitySavedView.isBuiltin ? (
 								<Button
 									size="sm"
 									color="red"
@@ -295,7 +313,7 @@ export function SavedViewPage(props: {
 						accentColor={accentColor}
 						accentMuted={accentMuted}
 						imageUrlById={imageUrls.imageUrlByEntityId}
-						displayConfiguration={savedView.displayConfiguration}
+						displayConfiguration={entitySavedView.displayConfiguration}
 					/>
 				)}
 

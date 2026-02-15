@@ -24,8 +24,15 @@ export const runtimeReferenceSchema = z
 			.strict(),
 		z
 			.object({
-				type: z.literal("event"),
+				type: z.literal("event-join"),
 				joinKey: nonEmptyTrimmedStringSchema,
+				path: z.array(nonEmptyTrimmedStringSchema).min(1),
+			})
+			.strict(),
+		z
+			.object({
+				type: z.literal("event"),
+				eventSchemaSlug: nonEmptyTrimmedStringSchema.optional(),
 				path: z.array(nonEmptyTrimmedStringSchema).min(1),
 			})
 			.strict(),
@@ -40,6 +47,12 @@ export const runtimeReferenceSchema = z
 				type: z.literal("event-aggregate"),
 				eventSchemaSlug: nonEmptyTrimmedStringSchema,
 				aggregation: z.enum(["avg", "count", "max", "min", "sum"]),
+				path: z.array(nonEmptyTrimmedStringSchema).min(1),
+			})
+			.strict(),
+		z
+			.object({
+				type: z.literal("event-schema"),
 				path: z.array(nonEmptyTrimmedStringSchema).min(1),
 			})
 			.strict(),

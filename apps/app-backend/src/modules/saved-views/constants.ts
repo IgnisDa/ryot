@@ -316,11 +316,17 @@ export const createDefaultDisplayConfiguration = (
 
 export const createDefaultQueryDefinition = (
 	scope: string[],
-	options?: { relationships?: SavedViewQueryDefinition["relationships"] },
+	options?: {
+		relationships?: Extract<
+			SavedViewQueryDefinition,
+			{ mode: "entities" }
+		>["relationships"];
+	},
 ): SavedViewQueryDefinition => ({
+	scope,
 	filter: null,
 	eventJoins: [],
-	scope,
+	mode: "entities",
 	computedFields: [],
 	relationships: options?.relationships ?? [],
 	sort: {

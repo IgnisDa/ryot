@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -36,14 +36,20 @@ In this task, only the Zod schemas and TypeScript types are defined. The express
 
 ## Acceptance criteria
 
-- [ ] `RuntimeRef` type in `@ryot/ts-utils` has `event-join` (with joinKey), `event` (with optional eventSchemaSlug), and `event-schema` variants
-- [ ] Zod schemas validate all three reference types correctly
-- [ ] All existing code that used `{ type: "event", joinKey: ... }` now uses `{ type: "event-join", joinKey: ... }`
-- [ ] Expression compiler handles `event-join` references (same logic as before, just new type discriminant)
-- [ ] Validator rejects `event` and `event-schema` references in entity mode with a clear error message
-- [ ] All existing tests pass with the renamed reference type
-- [ ] Media service code uses the new `event-join` naming
-- [ ] `bun run typecheck`, `bun run test`, and `bun run lint` pass
+- [x] `RuntimeRef` type in `@ryot/ts-utils` has `event-join` (with joinKey), `event` (with optional eventSchemaSlug), and `event-schema` variants
+- [x] Zod schemas validate all three reference types correctly
+- [x] All existing code that used `{ type: "event", joinKey: ... }` now uses `{ type: "event-join", joinKey: ... }`
+- [x] Expression compiler handles `event-join` references (same logic as before, just new type discriminant)
+- [x] Validator rejects `event` and `event-schema` references in entity mode with a clear error message
+- [x] All existing tests pass with the renamed reference type
+- [x] Media service code uses the new `event-join` naming
+- [x] `bun run typecheck`, `bun run test`, and `bun run lint` pass
+
+## Notes
+
+- Kept the external field-path namespace as `event.*`; only the internal runtime discriminant changed to `event-join`.
+- Added structural `event` and `event-schema` reference variants in the shared type and Zod schema, but they remain intentionally rejected by the current entity-mode validator and expression analysis until later mode tasks land.
+- Verified with `bun turbo --filter='@ryot/ts-utils' --filter='@ryot/app-backend' --filter='@ryot/tests' lint -- --write`, `bun turbo --filter='@ryot/ts-utils' --filter='@ryot/app-backend' --filter='@ryot/tests' typecheck`, and `bun turbo --filter='@ryot/app-backend' --filter='@ryot/tests' test`.
 
 ## User stories addressed
 

@@ -7,13 +7,16 @@ import { supportsComparableFilter, supportsContainsFilter } from "./policy";
 import {
 	getEntityColumnPropertyDefinition,
 	getEntitySchemaColumnPropertyDefinition,
+	getEventColumnPropertyDefinition,
 	getEventJoinColumnPropertyDefinition,
 	getEventJoinForReference,
 	getEventJoinPropertyDefinition,
+	getEventSchemaColumnPropertyDefinition,
 	getPropertyDefinition,
 	getSchemaForReference,
 	type PropertyType,
 	type QueryEngineEventJoinLike,
+	type QueryEngineEventSchemaLike,
 	type QueryEngineReferenceContext,
 	type QueryEngineSchemaLike,
 } from "./reference";
@@ -100,6 +103,17 @@ const unifyPropertyDefinitions = (
 	}
 
 	return definitions[0];
+};
+
+const getUnifiedEventPropertyDefinition = (
+	eventSchemas: QueryEngineEventSchemaLike[],
+	propertyPath: string[],
+) => {
+	return unifyPropertyDefinitions(
+		eventSchemas.map(
+			(schema) => getPropertyDefinition(schema, propertyPath) ?? undefined,
+		),
+	);
 };
 
 const getExpressionTypeLabel = (input: ViewExpressionTypeInfo) => {
@@ -433,6 +447,79 @@ export const inferViewExpressionType = <
 		);
 	}
 
+	if (reference.type === "event") {
+		// Built-in columns: id, createdAt, updatedAt
+		if (reference.path[0] !== "properties") {
+			const [column] = reference.path;
+			if (!column) {
+				throw new QueryEngineValidationError(
+					"Event reference path must not be empty",
+				);
+			}
+			const propertyDefinition = getEventColumnPropertyDefinition(column);
+			if (!propertyDefinition) {
+				throw new QueryEngineValidationError(
+					`Unsupported event column 'event.${column}'`,
+				);
+			}
+			return createPropertyTypeInfo(
+				normalizeExpressionPropertyType(propertyDefinition.type),
+				propertyDefinition,
+			);
+		}
+
+		// Property path — look up type from event schema map when eventSchemaSlug
+		// is provided. Fall back to string (JSONB text extraction) otherwise.
+		const { eventSchemaSlug, path } = reference;
+		const propertyPath = path.slice(1);
+		if (eventSchemaSlug && input.context.eventSchemaMap) {
+			const eventSchemas = input.context.eventSchemaMap.get(eventSchemaSlug);
+			if (eventSchemas?.length) {
+				const propertyDefinition = getUnifiedEventPropertyDefinition(
+					eventSchemas,
+					propertyPath,
+				);
+				if (propertyDefinition) {
+					return createPropertyTypeInfo(
+						normalizeExpressionPropertyType(propertyDefinition.type),
+						propertyDefinition,
+					);
+				}
+			}
+		}
+
+		// Generic fallback: properties without a known schema slug return string
+		return createPropertyTypeInfo("string", {
+			type: "string",
+			label: "Event Property",
+			description: "Event property value",
+		});
+	}
+
+	if (reference.type === "event-schema") {
+		const [column] = reference.path;
+		if (!column) {
+			throw new QueryEngineValidationError(
+				"Event schema reference path must not be empty",
+			);
+		}
+		if (reference.path.length > 1) {
+			throw new QueryEngineValidationError(
+				`Event schema column 'event-schema.${reference.path.join(".")}' does not support nested paths`,
+			);
+		}
+		const propertyDefinition = getEventSchemaColumnPropertyDefinition(column);
+		if (!propertyDefinition) {
+			throw new QueryEngineValidationError(
+				`Unsupported event schema column 'event-schema.${column}'`,
+			);
+		}
+		return createPropertyTypeInfo(
+			normalizeExpressionPropertyType(propertyDefinition.type),
+			propertyDefinition,
+		);
+	}
+
 	const join = getEventJoinForReference(input.context.eventJoinMap, reference);
 
 	if (reference.path[0] === "properties") {
@@ -451,7 +538,7 @@ export const inferViewExpressionType = <
 	const [column] = reference.path;
 	if (!column) {
 		throw new QueryEngineValidationError(
-			"Event reference path must not be empty",
+			"Event join reference path must not be empty",
 		);
 	}
 	const propertyDefinition = getEventJoinColumnPropertyDefinition(column);

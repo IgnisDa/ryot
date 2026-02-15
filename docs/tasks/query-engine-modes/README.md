@@ -499,17 +499,17 @@ This is a greenfield project. There are no external consumers or persisted saved
 
 ## Tasks
 
-**Overall Progress:** 0 of 6 tasks completed
+**Overall Progress:** 6 of 6 tasks completed
 
-**Current Task:** [Reference Type Rename](./01-reference-type-rename.md) (todo)
+**Current Task:** All tasks complete
 
 ### Task List
 
 | #   | Task                                                        | Type | Status |
 | --- | ----------------------------------------------------------- | ---- | ------ |
-| 01  | [Reference Type Rename](./01-reference-type-rename.md)      | AFK  | todo   |
-| 02  | [Aggregate Mode](./02-aggregate-mode.md)                    | AFK  | todo   |
-| 03  | [Events Mode](./03-events-mode.md)                          | AFK  | todo   |
-| 04  | [Time-Series Mode](./04-time-series-mode.md)                | AFK  | todo   |
-| 05  | [Media Service Migration](./05-media-service-migration.md)  | AFK  | todo   |
-| 06  | [Codebase Cleanup](./06-codebase-cleanup.md)                | AFK  | todo   |
+| 01  | [Reference Type Rename](./01-reference-type-rename.md)      | AFK  | done   |
+| 02  | [Aggregate Mode](./02-aggregate-mode.md)                    | AFK  | done   |
+| 03  | [Events Mode](./03-events-mode.md)                          | AFK  | done   |
+| 04  | [Time-Series Mode](./04-time-series-mode.md)                | AFK  | done   |
+| 05  | [Media Service Migration](./05-media-service-migration.md)  | AFK  | done   |
+| 06  | [Codebase Cleanup](./06-codebase-cleanup.md)                | AFK  | done   |

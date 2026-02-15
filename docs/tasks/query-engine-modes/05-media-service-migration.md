@@ -82,14 +82,14 @@ Update media service tests to verify:
 
 ## Acceptance criteria
 
-- [ ] `getLibraryStats` uses aggregate mode and produces correct stats for any library size (no 10k limit)
-- [ ] `getRecentActivityItems` uses events mode and returns the same data shape as before
-- [ ] `getWeekActivity` uses time-series mode and returns correct 7-day bucket array
-- [ ] Custom Drizzle queries removed from media repository (`listRecentActivityEventsForUser`, `listWeekActivityEventsForUser`)
-- [ ] No custom SQL remains for media overview sections that the query engine can now handle
-- [ ] Media service tests pass with the new implementations
-- [ ] The media overview API endpoints return equivalent responses (same data, possibly different internal flow)
-- [ ] `bun run typecheck`, `bun run test`, and `bun run lint` pass
+- [x] `getLibraryStats` uses aggregate mode and produces correct stats for any library size (no 10k limit)
+- [x] `getRecentActivityItems` uses events mode and returns the same data shape as before
+- [x] `getWeekActivity` uses time-series mode and returns correct 7-day bucket array
+- [x] Custom Drizzle queries removed from media repository (`listRecentActivityEventsForUser`, `listWeekActivityEventsForUser`)
+- [x] No custom SQL remains for media overview sections that the query engine can now handle
+- [x] Media service tests pass with the new implementations
+- [x] The media overview API endpoints return equivalent responses (same data, possibly different internal flow)
+- [x] `bun run typecheck`, `bun run test`, and `bun run lint` pass
 
 ## User stories addressed
 

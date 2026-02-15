@@ -41,8 +41,9 @@ export function useCollectionsQuery(enabled = true) {
 		{ enabled },
 	);
 
+	const payload = query.data?.data;
 	const collections: AppCollection[] =
-		query.data?.data.items.map(toAppCollection) ?? [];
+		payload?.mode === "entities" ? payload.data.items.map(toAppCollection) : [];
 
 	return {
 		...query,
