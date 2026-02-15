@@ -12,6 +12,7 @@ import {
 	createProgressPercentPropertiesSchema,
 	createReviewPropertiesSchema,
 	createShowProgressPropertiesSchema,
+	createWorkoutSetPropertiesSchema,
 } from "~/lib/test-fixtures/property-schemas";
 import type {
 	CreateEventBody,
@@ -22,6 +23,7 @@ import type {
 const listedEventDefaults: ListedEvent = {
 	id: "event_1",
 	entityId: "entity_1",
+	sessionEntityId: null,
 	properties: { rating: 4 },
 	eventSchemaSlug: "finished",
 	eventSchemaName: "Finished",
@@ -79,6 +81,13 @@ export const createEventDeps = (
 		entitySchemaId: "schema_1",
 		entitySchemaSlug: "custom",
 	}),
+	getSessionEntityScopeForUser: async (input) => ({
+		isBuiltin: false,
+		entityId: input.entityId,
+		entityUserId: input.userId,
+		entitySchemaId: "schema_1",
+		entitySchemaSlug: "custom",
+	}),
 	getEventCreateScopeForUser: async (input) =>
 		createEventCreateScope({
 			entityId: input.entityId,
@@ -100,6 +109,7 @@ export const createEventDeps = (
 			eventSchemaId: input.eventSchemaId,
 			eventSchemaName: input.eventSchemaName,
 			eventSchemaSlug: input.eventSchemaSlug,
+			sessionEntityId: input.sessionEntityId ?? null,
 		}),
 	...overrides,
 });
@@ -236,6 +246,23 @@ export const createBuiltinReviewEventDeps = (
 				eventSchemaSlug: "review",
 				eventSchemaId: input.eventSchemaId,
 				propertiesSchema: createReviewPropertiesSchema(),
+			}),
+		...overrides,
+	});
+
+export const createBuiltinWorkoutSetEventDeps = (
+	overrides: Partial<EventServiceDeps> = {},
+): EventServiceDeps =>
+	createEventDeps({
+		getEventCreateScopeForUser: async (input) =>
+			createEventCreateScope({
+				isBuiltin: true,
+				entityId: input.entityId,
+				entitySchemaSlug: "exercise",
+				eventSchemaName: "Workout Set",
+				eventSchemaSlug: "workout-set",
+				eventSchemaId: input.eventSchemaId,
+				propertiesSchema: createWorkoutSetPropertiesSchema(),
 			}),
 		...overrides,
 	});

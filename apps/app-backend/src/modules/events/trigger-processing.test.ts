@@ -7,6 +7,7 @@ const createProgressEvent = (
 ): CreatedEventData => ({
 	id: "event_1",
 	entityId: "entity_1",
+	sessionEntityId: null,
 	entitySchemaSlug: "book",
 	entitySchemaId: "schema_1",
 	eventSchemaSlug: "progress",
@@ -26,6 +27,7 @@ const createDeps = (
 	getEntityScopeForUser: async () => undefined,
 	getUserLibraryEntityId: async () => undefined,
 	getEventCreateScopeForUser: async () => undefined,
+	getSessionEntityScopeForUser: async () => undefined,
 	createEventForUser: async () => {
 		throw new Error("not used");
 	},

@@ -25,6 +25,7 @@ const listedEventSelection = {
 	eventSchemaName: eventSchema.name,
 	eventSchemaSlug: eventSchema.slug,
 	eventSchemaId: event.eventSchemaId,
+	sessionEntityId: event.sessionEntityId,
 };
 
 const createdEventSelection = {
@@ -34,6 +35,7 @@ const createdEventSelection = {
 	updatedAt: event.updatedAt,
 	properties: event.properties,
 	eventSchemaId: event.eventSchemaId,
+	sessionEntityId: event.sessionEntityId,
 };
 
 const toListedEvent = (row: EventRow): ListedEvent => ({
@@ -109,17 +111,25 @@ export const getEventCreateScopeForUser = async (input: {
 
 export const listEventsByEntityForUser = async (input: {
 	userId: string;
-	entityId: string;
+	entityId?: string;
+	sessionEntityId?: string;
 	eventSchemaSlug?: string;
 }) => {
+	const whereClauses = [eq(event.userId, input.userId)];
+	if (input.entityId) {
+		whereClauses.push(eq(event.entityId, input.entityId));
+	}
+	if (input.sessionEntityId) {
+		whereClauses.push(eq(event.sessionEntityId, input.sessionEntityId));
+	}
+
 	const rows = await db
 		.select(listedEventSelection)
 		.from(event)
 		.innerJoin(eventSchema, eq(event.eventSchemaId, eventSchema.id))
 		.where(
 			and(
-				eq(event.userId, input.userId),
-				eq(event.entityId, input.entityId),
+				...whereClauses,
 				input.eventSchemaSlug
 					? eq(eventSchema.slug, input.eventSchemaSlug)
 					: undefined,
@@ -136,6 +146,7 @@ export const createEventForUser = async (input: {
 	eventSchemaId: string;
 	eventSchemaName: string;
 	eventSchemaSlug: string;
+	sessionEntityId?: string;
 	properties: EventPropertiesShape;
 }) => {
 	const [createdEvent] = await db
@@ -145,6 +156,7 @@ export const createEventForUser = async (input: {
 			entityId: input.entityId,
 			properties: input.properties,
 			eventSchemaId: input.eventSchemaId,
+			sessionEntityId: input.sessionEntityId ?? null,
 		})
 		.returning(createdEventSelection);
 

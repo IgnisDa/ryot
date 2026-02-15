@@ -61,4 +61,30 @@ describe("createDefaultDisplayConfiguration", () => {
 			},
 		]);
 	});
+
+	it("builds workout defaults from workout properties instead of media fields", () => {
+		const displayConfiguration = createDefaultDisplayConfiguration("workout");
+
+		expect(displayConfiguration.grid.calloutProperty).toBeNull();
+		expect(displayConfiguration.grid.primarySubtitleProperty).toEqual(
+			createEntityPropertyExpression("workout", "startedAt"),
+		);
+		expect(displayConfiguration.grid.secondarySubtitleProperty).toEqual(
+			createEntityPropertyExpression("workout", "endedAt"),
+		);
+		expect(displayConfiguration.table.columns).toEqual([
+			{
+				label: "Name",
+				expression: createEntityColumnExpression("workout", "name"),
+			},
+			{
+				label: "Started At",
+				expression: createEntityPropertyExpression("workout", "startedAt"),
+			},
+			{
+				label: "Ended At",
+				expression: createEntityPropertyExpression("workout", "endedAt"),
+			},
+		]);
+	});
 });
