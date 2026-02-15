@@ -51,6 +51,7 @@
       },
       "devDependencies": {
         "@effect/vitest": "0.29.0",
+        "@ryot/testing": "workspace:*",
         "@types/ioredis": "5.0.0",
         "@types/nodemailer": "8.0.0",
         "@types/papaparse": "5.5.2",
@@ -100,6 +101,7 @@
       },
       "devDependencies": {
         "@babel/core": "^7.20.0",
+        "@ryot/testing": "workspace:*",
         "@types/react": "~19.2.2",
         "babel-plugin-module-resolver": "5.0.3",
         "babel-preset-expo": "~56.0.0",
@@ -384,6 +386,7 @@
         "effect": "3.21.4",
       },
       "devDependencies": {
+        "@ryot/testing": "workspace:*",
         "bun-types": "1.3.14",
         "vitest": "4.1.9",
       },
@@ -391,6 +394,7 @@
     "libs/query-engine": {
       "name": "@ryot/query-engine",
       "devDependencies": {
+        "@ryot/testing": "workspace:*",
         "vitest": "4.1.9",
       },
     },
@@ -403,6 +407,7 @@
       },
       "devDependencies": {
         "@effect/vitest": "0.29.0",
+        "@ryot/testing": "workspace:*",
         "bun-types": "1.3.14",
         "vitest": "4.1.9",
       },
@@ -415,7 +420,17 @@
         "youtubei.js": "17.2.0",
       },
       "devDependencies": {
+        "@ryot/testing": "workspace:*",
         "vitest": "4.1.9",
+      },
+    },
+    "libs/testing": {
+      "name": "@ryot/testing",
+      "dependencies": {
+        "vitest": "4.1.9",
+      },
+      "devDependencies": {
+        "bun-types": "1.3.14",
       },
     },
     "libs/transactional": {
@@ -461,6 +476,7 @@
         "effect": "3.21.4",
       },
       "devDependencies": {
+        "@ryot/testing": "workspace:*",
         "bun-types": "1.3.14",
         "vitest": "4.1.9",
       },
@@ -476,6 +492,7 @@
         "effect": "3.21.4",
       },
       "devDependencies": {
+        "@ryot/testing": "workspace:*",
         "bun-types": "1.3.14",
         "vitest": "4.1.9",
       },
@@ -493,6 +510,7 @@
         "@ryot/plugin-kit": "workspace:*",
         "@ryot/query-engine": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
+        "@ryot/testing": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "@testcontainers/postgresql": "11.14.0",
         "better-auth": "1.6.15",
@@ -1710,6 +1728,8 @@
     "@ryot/sandbox-compiler": ["@ryot/sandbox-compiler@workspace:libs/sandbox-compiler"],
 
     "@ryot/sandbox-sdk": ["@ryot/sandbox-sdk@workspace:libs/sandbox-sdk"],
+
+    "@ryot/testing": ["@ryot/testing@workspace:libs/testing"],
 
     "@ryot/tests": ["@ryot/tests@workspace:tests"],
 
