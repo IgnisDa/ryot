@@ -1,22 +1,15 @@
 import type { ViewComputedField } from "~/lib/views/expression";
 import type { ViewPredicate } from "~/lib/views/filtering";
-import type {
-	QueryEngineEventJoinLike,
-	QueryEngineReferenceContext,
-	QueryEngineSchemaLike,
-} from "~/lib/views/reference";
+import type { QueryEngineContext } from "./context";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildPredicateClause } from "./predicate-clause-builder";
 
-export const buildFilterWhereClause = <
-	TSchema extends QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike,
->(input: {
+export const buildFilterWhereClause = (input: {
 	alias: string;
+	context: QueryEngineContext;
 	predicate: ViewPredicate | null;
 	computedFields?: ViewComputedField[];
-	context: QueryEngineReferenceContext<TSchema, TJoin>;
 }) => {
 	if (!input.predicate) {
 		return undefined;

@@ -9,6 +9,17 @@ import type { PropertyType } from "~/lib/views/reference";
 
 export type SqlExpression = ReturnType<typeof sql>;
 
+const VALID_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+export const sanitizeIdentifier = (name: string, label: string) => {
+	if (!VALID_IDENTIFIER.test(name)) {
+		throw new QueryEngineValidationError(
+			`Invalid SQL ${label}: '${name}' must be alphanumeric with underscores`,
+		);
+	}
+	return name;
+};
+
 export const getEventJoinColumnName = (joinKey: string) =>
 	`event_join_${joinKey}`;
 

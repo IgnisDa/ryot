@@ -11,12 +11,8 @@ import {
 	assertNumericExpression,
 	type ViewExpressionTypeInfo,
 } from "~/lib/views/expression-analysis";
-import type {
-	PropertyType,
-	QueryEngineEventJoinLike,
-	QueryEngineReferenceContext,
-	QueryEngineSchemaLike,
-} from "~/lib/views/reference";
+import type { PropertyType } from "~/lib/views/reference";
+import type { QueryEngineContext } from "./context";
 import { buildPredicateClause } from "./predicate-clause-builder";
 import {
 	buildEntityExpression,
@@ -35,13 +31,10 @@ import {
 	type SqlExpression,
 } from "./sql-expression-helpers";
 
-export const createScalarExpressionCompiler = <
-	TSchema extends QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike,
->(input: {
+export const createScalarExpressionCompiler = (input: {
 	alias: string;
+	context: QueryEngineContext;
 	computedFields?: ViewComputedField[];
-	context: QueryEngineReferenceContext<TSchema, TJoin>;
 	getTypeInfo: (expression: ViewExpression) => ViewExpressionTypeInfo;
 }) => {
 	const computedFieldMap = buildComputedFieldMap(input.computedFields);

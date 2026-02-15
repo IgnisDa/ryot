@@ -2,11 +2,8 @@ import { dayjs } from "@ryot/ts-utils";
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
 import { db } from "~/lib/db";
-import type {
-	QueryEngineEventJoinLike,
-	QueryEngineEventSchemaLike,
-	QueryEngineReferenceContext,
-} from "~/lib/views/reference";
+import type { QueryEngineEventSchemaLike } from "~/lib/views/reference";
+import type { QueryEngineContext } from "./context";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
@@ -59,10 +56,7 @@ export const executeTimeSeriesQuery = async (input: {
 	schemaMap: Map<string, QueryEngineSchemaRow>;
 	eventSchemaMap: Map<string, QueryEngineEventSchemaLike[]>;
 }): Promise<QueryEngineTimeSeriesResponse> => {
-	const context: QueryEngineReferenceContext<
-		QueryEngineSchemaRow,
-		QueryEngineEventJoinLike
-	> = {
+	const context: QueryEngineContext = {
 		userId: input.userId,
 		eventJoinMap: new Map(),
 		schemaMap: input.schemaMap,
