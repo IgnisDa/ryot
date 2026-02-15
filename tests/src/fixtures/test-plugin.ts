@@ -45,6 +45,7 @@ export const testPluginManifest = (input: {
 	linkToEntitySchemaSlug?: string;
 	operations?: ReadonlyArray<TestPluginOperation>;
 	scripts?: ReadonlyArray<TestPluginScript & { entry: string }>;
+	boot?: ReadonlyArray<{ slug: string; driverRef: string; description: string }>;
 	crons?: ReadonlyArray<{
 		slug: string;
 		schedule: string;
@@ -69,6 +70,7 @@ export const testPluginManifest = (input: {
 }) => ({
 	savedViews: [],
 	signalSchemas: [],
+	boot: input.boot ?? [],
 	crons: input.crons ?? [],
 	scripts: input.scripts ?? [],
 	operations: input.operations ?? [],
@@ -118,6 +120,7 @@ export const installTestPlugin = (input: {
 	pluginSlug?: string;
 	script: TestPluginScript;
 	linkToEntitySchemaSlug?: string;
+	boot?: Parameters<typeof testPluginManifest>[0]["boot"];
 	crons?: Parameters<typeof testPluginManifest>[0]["crons"];
 	operations?: Parameters<typeof testPluginManifest>[0]["operations"];
 	entitySchemas?: Parameters<typeof testPluginManifest>[0]["entitySchemas"];
@@ -128,6 +131,7 @@ export const installTestPlugin = (input: {
 		const manifest = testPluginManifest({
 			pluginSlug,
 			scripts: [{ ...input.script, entry }],
+			...(input.boot ? { boot: input.boot } : {}),
 			...(input.crons ? { crons: input.crons } : {}),
 			...(input.operations ? { operations: input.operations } : {}),
 			...(input.entitySchemas ? { entitySchemas: input.entitySchemas } : {}),
