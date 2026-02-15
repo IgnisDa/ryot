@@ -27,7 +27,7 @@ For concrete executable examples, see:
 - `entitySchemaSlugs`: one or more schema slugs included in the query
 - `filter`: a predicate AST or `null`
 - `eventJoins`: zero or more event join definitions
-- `relationships`: zero or more relationship schema slugs; causes non-user-owned entities to be included when the user has a relationship of the given schema type pointing to them
+- `relationships`: zero or more relationship schema slugs; non-user-owned entities are included by default, and when relationship slugs are provided, only those non-user-owned entities where the user has a matching relationship are included
 - `computedFields`: zero or more named reusable expressions (may be omitted)
 - `fields`: ordered list of output fields
 
@@ -139,7 +139,11 @@ Aggregations: `avg`, `count`, `max`, `min`, `sum`. Type inference returns `integ
 
 ## Filters
 
-Comparison operators: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `isNull`, `isNotNull`, `contains`.
+Predicate types: `comparison`, `in`, `isNull`, `isNotNull`, `contains`, `and`, `or`, `not`.
+
+The `comparison` predicate takes `left`, `right`, and `operator`. Supported comparison operators: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`.
+
+`isNull` / `isNotNull` take a single `expression`. `in` takes `expression` and `values` (array of expressions). `contains` takes `expression` and `value` (single expression).
 
 Combine predicates with `and` / `or` (each takes a `predicates` array). Negate any predicate with `not` (takes a single `predicate`):
 

@@ -33,10 +33,9 @@ import { buildPredicateClause } from "./predicate-clause-builder";
 import {
 	buildCastedValueExpression,
 	buildCoalescedExpression,
+	getEventJoinColumnName,
 	type SqlExpression,
 } from "./sql-expression-helpers";
-
-const getEventJoinColumnName = (joinKey: string) => `event_join_${joinKey}`;
 
 const buildEventJoinJsonColumnExpression = (alias: string, joinKey: string) => {
 	return sql`${sql.raw(`${alias}.${getEventJoinColumnName(joinKey)}`)}`;
