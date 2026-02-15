@@ -29,7 +29,7 @@
         "@ryot/config": "workspace:*",
         "@ryot/contract": "workspace:*",
         "@ryot/fitness-plugin": "workspace:*",
-        "@ryot/media-fitness": "workspace:*",
+        "@ryot/media-plugin": "workspace:*",
         "@ryot/plugin-kit": "workspace:*",
         "@ryot/query-engine": "workspace:*",
         "@ryot/sandbox-compiler": "workspace:*",
@@ -185,7 +185,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@ryot/contract": "workspace:*",
-        "@ryot/media-fitness": "workspace:*",
+        "@ryot/media-plugin": "workspace:*",
         "@ryot/plugin-kit": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "@tailwindcss/vite": "4.1.18",
@@ -495,7 +495,7 @@
       },
     },
     "plugins/media": {
-      "name": "@ryot/media-fitness",
+      "name": "@ryot/media-plugin",
       "dependencies": {
         "@ryot/config": "workspace:*",
         "@ryot/contract": "workspace:*",
@@ -523,7 +523,7 @@
         "@ryot/app-backend": "workspace:*",
         "@ryot/contract": "workspace:*",
         "@ryot/fitness-plugin": "workspace:*",
-        "@ryot/media-fitness": "workspace:*",
+        "@ryot/media-plugin": "workspace:*",
         "@ryot/plugin-kit": "workspace:*",
         "@ryot/query-engine": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
@@ -1698,7 +1698,7 @@
 
     "@ryot/graphql": ["@ryot/graphql@workspace:packages/graphql"],
 
-    "@ryot/media-fitness": ["@ryot/media-fitness@workspace:plugins/media"],
+    "@ryot/media-plugin": ["@ryot/media-plugin@workspace:plugins/media"],
 
     "@ryot/plugin-kit": ["@ryot/plugin-kit@workspace:packages/plugin-kit"],
 
