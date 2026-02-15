@@ -3,13 +3,13 @@ import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngin
 import { Effect, Layer } from "effect";
 
 import { makeWorkflowEngine } from "#lib/test-support/effect";
-import { FrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
+import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 
-import { integrationsFrequentTask } from "./frequent-task";
+import { mediaTrendingInfrequentTask } from "./infrequent-task";
 
-it.effect("dispatches the reconciliation workflow with a tick-derived execution id", () => {
+it.effect("dispatches the trending refresh workflow with a tick-derived execution id", () => {
 	const captured: Array<Parameters<WorkflowEngine["Type"]["execute"]>[1]> = [];
-	const instance = WorkflowInstance.initial(FrequentCronWorkflow, "exec-int");
+	const instance = WorkflowInstance.initial(InfrequentCronWorkflow, "cron-run");
 	const engine = makeWorkflowEngine({
 		execute: (_workflow, options) => {
 			captured.push(options);
@@ -17,28 +17,28 @@ it.effect("dispatches the reconciliation workflow with a tick-derived execution 
 		},
 	});
 
-	return integrationsFrequentTask.run({ executionId: "exec-int" }).pipe(
+	return mediaTrendingInfrequentTask.run({ executionId: "cron-run" }).pipe(
 		Effect.provideService(WorkflowEngine, engine),
 		Effect.provide(Layer.succeed(WorkflowInstance, instance)),
 		Effect.map(() => {
 			expect(captured).toMatchObject([
 				{
 					discard: true,
-					executionId: "exec-int-integrations-reconcile",
-					payload: { executionId: "exec-int-integrations-reconcile" },
+					executionId: "cron-run-media-trending",
+					payload: { executionId: "cron-run-media-trending" },
 				},
 			]);
 		}),
 	);
 });
 
-it.effect("swallows an enqueue failure so the cron tick keeps running", () => {
-	const instance = WorkflowInstance.initial(FrequentCronWorkflow, "exec-int");
+it.effect("swallows a trending failure so it does not fail the cron tick", () => {
+	const instance = WorkflowInstance.initial(InfrequentCronWorkflow, "cron-run");
 	const engine = makeWorkflowEngine({
-		execute: () => Effect.die("enqueue boom"),
+		execute: () => Effect.die("trending boom"),
 	});
 
-	return integrationsFrequentTask.run({ executionId: "exec-int" }).pipe(
+	return mediaTrendingInfrequentTask.run({ executionId: "cron-run" }).pipe(
 		Effect.provideService(WorkflowEngine, engine),
 		Effect.provide(Layer.succeed(WorkflowInstance, instance)),
 		Effect.exit,
