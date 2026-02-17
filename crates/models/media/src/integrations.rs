@@ -77,6 +77,8 @@ pub struct IntegrationProviderSpecifics {
 
     pub plex_sink_username: Option<String>,
 
+    pub jellyfin_sink_username: Option<String>,
+
     pub audiobookshelf_token: Option<String>,
     pub audiobookshelf_base_url: Option<String>,
 

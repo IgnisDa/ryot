@@ -598,6 +598,16 @@ const PROVIDER_CONFIGS: Record<IntegrationProvider, ProviderConfig> = {
 	},
 	[IntegrationProvider.JellyfinSink]: {
 		capabilities: { showUrl: true, progressAdjustment: true },
+		fields: [
+			{
+				type: "text",
+				label: "Username",
+				notRequired: true,
+				name: "jellyfinSinkUsername",
+				description:
+					"If specified, only webhooks for this user will be processed. Leave empty to process webhooks for all users.",
+			},
+		],
 	},
 	[IntegrationProvider.Kodi]: {
 		capabilities: { showUrl: true, progressAdjustment: true },

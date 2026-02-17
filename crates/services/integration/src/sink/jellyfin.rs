@@ -37,16 +37,30 @@ mod models {
     }
     #[derive(Serialize, Deserialize, Debug, Clone)]
     #[serde(rename_all = "PascalCase")]
+    pub struct JellyfinWebhookUserPayload {
+        pub name: Option<String>,
+    }
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[serde(rename_all = "PascalCase")]
     pub struct JellyfinWebhookPayload {
         pub event: Option<String>,
         pub item: JellyfinWebhookItemPayload,
+        pub user: Option<JellyfinWebhookUserPayload>,
         pub series: Option<JellyfinWebhookItemPayload>,
         pub session: Option<JellyfinWebhookSessionPayload>,
     }
 }
 
-pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
+pub async fn sink_progress(
+    payload: String,
+    jellyfin_sink_username: Option<String>,
+) -> Result<Option<ImportResult>> {
     let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(&payload)?;
+    if let Some(jellyfin_sink_username) = jellyfin_sink_username
+        && payload.user.as_ref().and_then(|u| u.name.as_ref()) != Some(&jellyfin_sink_username)
+    {
+        return Ok(None);
+    }
     let identifier = payload
         .item
         .provider_ids

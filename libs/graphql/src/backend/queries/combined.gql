@@ -86,6 +86,7 @@ query UserIntegrations {
 			plexSinkUsername
 			audiobookshelfToken
 			audiobookshelfBaseUrl
+			jellyfinSinkUsername
 			komgaApiKey
 			komgaBaseUrl
 			radarrBaseUrl
