@@ -44,7 +44,6 @@ mod common;
 mod job;
 
 static LOGGING_ENV_VAR: &str = "RUST_LOG";
-static SINGLE_APPLICATION_JOB_SHARDS: usize = 32;
 static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 fn create_sqlite_queue_config(queue_name: &str) -> ApalisSqliteConfig {
@@ -83,6 +82,10 @@ async fn main() -> Result<()> {
     let port = config.server.backend_port;
     let host = config.server.backend_host.clone();
     let disable_background_jobs = config.server.disable_background_jobs;
+    let single_application_job_shards = config.server.single_application_job_shards;
+    if single_application_job_shards == 0 {
+        bail!("server.single_application_job_shards must be greater than 0");
+    }
 
     let (infrequent_scheduler, frequent_scheduler) = get_cron_schedules(&config, tz)?;
 
@@ -110,9 +113,14 @@ async fn main() -> Result<()> {
         bail!("There was an error running the database migrations.");
     };
 
-    let jobs_directory =
+    let jobs_db_path =
         PathBuf::from(get_temporary_directory()).join(format!("{PROJECT_NAME}_jobs"));
-    let sqlite_url = format!("sqlite:{}?mode=rwc", jobs_directory.display());
+    let jobs_db_parent = jobs_db_path
+        .parent()
+        .context("Could not determine jobs database parent directory")?;
+    create_dir_all(jobs_db_parent)?;
+
+    let sqlite_url = format!("sqlite:{}?mode=rwc", jobs_db_path.display());
     let jobs_pool = SqlitePool::connect(&sqlite_url).await?;
     SqliteStorage::setup(&jobs_pool).await?;
 
@@ -123,7 +131,7 @@ async fn main() -> Result<()> {
     let hp_queue_config = create_sqlite_queue_config("hp_application_job");
     let hp_application_job_storage = SqliteStorage::new_with_config(&jobs_pool, &hp_queue_config);
     let mut single_application_job_storages = vec![];
-    for shard_idx in 0..SINGLE_APPLICATION_JOB_SHARDS {
+    for shard_idx in 0..single_application_job_shards {
         let queue_name = format!("single_application_job_{shard_idx}");
         let queue_config = create_sqlite_queue_config(&queue_name);
         let storage = SqliteStorage::new_with_config(&jobs_pool, &queue_config);

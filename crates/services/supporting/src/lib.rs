@@ -43,9 +43,10 @@ fn single_application_job_key(job: &SingleApplicationJob) -> String {
 }
 
 fn single_application_job_shard_index(job: &SingleApplicationJob, shard_count: usize) -> usize {
-    if shard_count == 0 {
-        return 0;
-    }
+    assert!(
+        shard_count > 0,
+        "single_application_job_shard_index: shard_count must be > 0"
+    );
     let mut hasher = DefaultHasher::new();
     let key = single_application_job_key(job);
     key.hash(&mut hasher);
