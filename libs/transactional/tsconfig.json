@@ -7,10 +7,11 @@
 		}
 	],
 	"compilerOptions": {
+		"noEmit": true,
+		"outDir": "dist",
 		"module": "ESNext",
 		"jsx": "react-jsx",
 		"moduleResolution": "bundler",
-		"outDir": "../../.moon/cache/types/libs/transactional",
 		"paths": {
 			"@ryot/ts-utils/*": ["../ts-utils/src/*"],
 			"@ryot/ts-utils": ["../ts-utils/src/index.ts"]

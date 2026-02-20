@@ -2,8 +2,9 @@
 	"include": ["**/*"],
 	"extends": "../../tsconfig.options.json",
 	"compilerOptions": {
+		"noEmit": true,
+		"outDir": "dist",
 		"module": "NodeNext",
-		"moduleResolution": "nodenext",
-		"outDir": "../../.moon/cache/types/apps/docs"
+		"moduleResolution": "nodenext"
 	}
 }

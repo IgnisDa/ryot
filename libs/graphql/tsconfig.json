@@ -7,11 +7,12 @@
 	],
 	"compilerOptions": {
 		"strict": true,
+		"noEmit": true,
+		"outDir": "dist",
 		"module": "esnext",
 		"lib": ["ESNext", "DOM"],
 		"preserveConstEnums": true,
 		"moduleResolution": "node",
-		"outDir": "../../.moon/cache/types/libs/graphql",
 		"paths": {
 			"@ryot/generated/*": ["../generated/src/*"]
 		}

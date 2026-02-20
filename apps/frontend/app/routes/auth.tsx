@@ -186,8 +186,8 @@ const loginSchema = z.object({
 });
 
 export default function Page() {
-	const [form, fields] = useForm({});
 	const [parent] = useAutoAnimate();
+	const [form, fields] = useForm({});
 	const loaderData = useLoaderData<typeof loader>();
 	const intent = loaderData.intent;
 
@@ -207,7 +207,8 @@ export default function Page() {
 					method="POST"
 					action={withQuery(".", { intent })}
 					{...getFormProps(form)}
-					ref={parent}
+					// biome-ignore lint/suspicious/noExplicitAny: too much work to fix
+					ref={parent as any}
 				>
 					<input
 						type="hidden"

@@ -3,25 +3,15 @@
 	"compilerOptions": {
 		"baseUrl": ".",
 		"strict": true,
+		"noEmit": true,
+		"outDir": "dist",
 		"jsx": "react-jsx",
 		"allowImportingTsExtensions": true,
-		"outDir": "../../.moon/cache/types/apps/browser-extension",
 		"paths": {
 			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
 			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"],
 			"@ryot/generated/*": ["../../libs/generated/src/*"],
 			"@ryot/ts-utils": ["../../libs/ts-utils/src/index.ts"]
 		}
-	},
-	"references": [
-		{
-			"path": "../../libs/generated"
-		},
-		{
-			"path": "../../libs/graphql"
-		},
-		{
-			"path": "../../libs/ts-utils"
-		}
-	]
+	}
 }

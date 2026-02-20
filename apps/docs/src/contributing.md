@@ -4,8 +4,7 @@
 `AGENTS.md` is an excellent place to start reading on coding conventions followed in this project.
 :::
 
-- Install [Rust](https://www.rust-lang.org), [Moon](https://moonrepo.dev) and
-  [Caddy](https://caddyserver.com/) (>= 2.7).
+- Install [Rust](https://www.rust-lang.org) and [Caddy](https://caddyserver.com/) (>= 2.7).
 - Make sure you have PostgreSQL installed and running. I prefer using Docker e.g.
 `docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=postgres -p 5432:5432 postgres:18-alpine`
 - Create the following environment file in the root of the repository:
@@ -20,8 +19,8 @@
 
   ```bash
   cargo run
-  moon run frontend:dev
   caddy run --config 'ci/Caddyfile'
+  yarn turbo run dev --filter=@ryot/frontend
   ```
 
 - The frontend will be available at `http://localhost:8000`.

@@ -1,5 +1,12 @@
 {
-	"files": { "ignoreUnknown": true },
+	"files": {
+		"ignoreUnknown": true,
+		"includes": [
+			"**",
+			"!apps/frontend/app/styles/*.css",
+			"!apps/docs/src/includes/export-schema.ts"
+		]
+	},
 	"json": { "parser": { "allowComments": true } },
 	"css": { "parser": { "tailwindDirectives": true } },
 	"assist": { "actions": { "source": { "organizeImports": "on" } } },

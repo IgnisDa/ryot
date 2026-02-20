@@ -1,6 +1,10 @@
 {
 	"name": "@ryot/ts-utils",
 	"main": "src/index.ts",
+	"scripts": {
+		"typecheck": "tsc",
+		"lint": "biome check ."
+	},
 	"devDependencies": {
 		"@types/lodash": "4.17.23"
 	},

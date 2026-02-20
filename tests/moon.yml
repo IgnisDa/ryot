@@ -1,9 +1,0 @@
-layer: automation
-
-tasks:
-  test:
-    command: "vitest run"
-
-  test-watch:
-    command: "vitest"
-    local: true

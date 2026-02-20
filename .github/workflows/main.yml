@@ -98,23 +98,21 @@ jobs:
     needs: pre-workflow-checks
     if: needs.pre-workflow-checks.outputs.should-run == 'true'
     runs-on: ubuntu-latest
-    env:
-      MOON_TOOLCHAIN_FORCE_GLOBALS: true
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           persist-credentials: false
-      - uses: moonrepo/setup-toolchain@937d7dbbc1ec218aa8641c792d5821addebd9f03
-        with:
-          auto-install: true
-          moon-version: 1.39.2
       - name: Set up Node.js and caching
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "24"
           cache: "yarn"
+      - name: Install dependencies
+        run: yarn install --immutable
       - name: Build emails
-        run: moon run transactional:build
+        run: yarn turbo run build --filter=@ryot/transactional
+      - name: Copy templates to crates
+        run: yarn workspace @ryot/transactional copy-templates
       - name: Upload templates artifact
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
@@ -254,18 +252,12 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      MOON_TOOLCHAIN_FORCE_GLOBALS: true
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           persist-credentials: false
-      - name: Setup Moon
-        uses: moonrepo/setup-toolchain@937d7dbbc1ec218aa8641c792d5821addebd9f03
-        with:
-          auto-install: true
-          moon-version: 1.39.2
       - name: Build plugin
-        run: moon run kodi:build
+        run: apps/kodi/ci/build-plugin.sh
       - name: Upload plugin to releases
         env:
           REF_NAME: ${{ github.ref_name }}
@@ -281,19 +273,19 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      MOON_TOOLCHAIN_FORCE_GLOBALS: true
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           persist-credentials: false
-      - name: Setup Moon
-        uses: moonrepo/setup-toolchain@937d7dbbc1ec218aa8641c792d5821addebd9f03
+      - name: Set up Node.js and caching
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          auto-install: true
-          moon-version: 1.39.2
+          node-version: "24"
+          cache: "yarn"
+      - name: Install dependencies
+        run: yarn install --immutable
       - name: Build browser extensions
-        run: |
-          moon run browser-extension:build
+        run: yarn turbo run build --filter=@ryot/browser-extension
       - name: Upload browser extensions to releases
         env:
           REF_NAME: ${{ github.ref_name }}
@@ -308,19 +300,19 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    env:
-      MOON_TOOLCHAIN_FORCE_GLOBALS: true
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           persist-credentials: false
-      - name: Setup Moon
-        uses: moonrepo/setup-toolchain@937d7dbbc1ec218aa8641c792d5821addebd9f03
+      - name: Set up Node.js and caching
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          auto-install: true
-          moon-version: 1.39.2
+          node-version: "24"
+          cache: "yarn"
+      - name: Install dependencies
+        run: yarn install --immutable
       - name: Build documentation
-        run: moon run docs:build
+        run: yarn turbo run build --filter=@ryot/docs
       - name: Push to deployment branch
         uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e
         with:

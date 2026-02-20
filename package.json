@@ -1,6 +1,22 @@
 {
 	"name": "@ryot/root",
 	"packageManager": "yarn@4.1.1",
+	"engines": {
+		"node": "24.4.0"
+	},
+	"scripts": {
+		"dev": "turbo dev",
+		"lint": "turbo lint",
+		"test": "turbo test",
+		"build": "turbo build",
+		"typecheck": "turbo typecheck"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.15",
+		"tsconfig-moon": "1.4.2",
+		"turbo": "2.8.10",
+		"typescript": "5.9.3"
+	},
 	"workspaces": [
 		"apps/browser-extension",
 		"apps/docs",
@@ -11,13 +27,5 @@
 		"libs/transactional",
 		"libs/ts-utils",
 		"tests"
-	],
-	"engines": {
-		"node": "24.4.0"
-	},
-	"devDependencies": {
-		"@biomejs/biome": "2.3.15",
-		"tsconfig-moon": "1.4.2",
-		"typescript": "5.9.3"
-	}
+	]
 }

@@ -3,6 +3,12 @@
 	"private": true,
 	"sideEffects": false,
 	"type": "module",
+	"scripts": {
+		"typecheck": "tsc",
+		"lint": "biome check .",
+		"build": "react-router build",
+		"dev": "react-router dev --port 3000 --host"
+	},
 	"installConfig": {
 		"hoistingLimits": "workspaces"
 	},

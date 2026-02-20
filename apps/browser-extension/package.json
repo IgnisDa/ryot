@@ -1,8 +1,15 @@
 {
-	"name": "@ryot/browser-extension",
 	"private": true,
 	"type": "module",
 	"version": "0.1.0",
+	"name": "@ryot/browser-extension",
+	"scripts": {
+		"typecheck": "tsc",
+		"lint": "biome check .",
+		"build-chrome": "wxt zip -b chrome",
+		"build-firefox": "wxt zip -b firefox",
+		"build": "yarn run build-chrome && yarn run build-firefox"
+	},
 	"devDependencies": {
 		"@types/react": "19.2.14",
 		"@types/react-dom": "19.2.3",

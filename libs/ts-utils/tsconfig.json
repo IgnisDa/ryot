@@ -1,19 +1,14 @@
 {
 	"extends": "../../tsconfig.options.json",
-	"references": [
-		{
-			"path": "../generated"
-		}
-	],
 	"compilerOptions": {
 		"strict": true,
+		"outDir": "dist",
 		"module": "nodenext",
 		"lib": ["ESNext", "DOM"],
 		"preserveConstEnums": true,
 		"verbatimModuleSyntax": false,
 		"moduleResolution": "nodenext",
 		"allowSyntheticDefaultImports": true,
-		"outDir": "../../.moon/cache/types/libs/ts-utils",
 		"paths": {
 			"@ryot/generated/*": ["../generated/src/*"]
 		}
