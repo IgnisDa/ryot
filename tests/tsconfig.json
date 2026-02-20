@@ -2,18 +2,8 @@
 	"exclude": ["node_modules", "dist"],
 	"include": ["src/**/*.ts", "vitest.config.ts"],
 	"references": [
-		{
-			"path": "../libs/generated"
-		},
-		{
-			"path": "../libs/graphql"
-		},
-		{
-			"path": "../libs/generated"
-		},
-		{
-			"path": "../libs/graphql"
-		}
+		{ "path": "../libs/graphql" },
+		{ "path": "../libs/generated" }
 	],
 	"compilerOptions": {
 		"noEmit": true,
