@@ -13,8 +13,9 @@ RUN turbo prune @ryot/website --docker
 FROM website-build-base AS website-builder
 WORKDIR /app
 COPY --from=website-pruner /app/out/json/ .
-RUN yarn install --immutable
+RUN yarn install
 COPY --from=website-pruner /app/out/full/ .
+COPY --from=website-pruner /app/tsconfig.options.json .
 RUN yarn turbo run build --filter=@ryot/website
 
 FROM $NODE_BASE_IMAGE

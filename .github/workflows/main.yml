@@ -111,6 +111,8 @@ jobs:
         run: yarn install --immutable
       - name: Build emails
         run: yarn turbo run build --filter=@ryot/transactional
+      - name: Copy templates to crates
+        run: yarn workspace @ryot/transactional copy-templates
       - name: Upload templates artifact
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:

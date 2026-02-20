@@ -13,8 +13,9 @@ RUN turbo prune @ryot/frontend --docker
 FROM frontend-build-base AS frontend-builder
 WORKDIR /app
 COPY --from=frontend-pruner /app/out/json/ .
-RUN yarn install --immutable
+RUN yarn install
 COPY --from=frontend-pruner /app/out/full/ .
+COPY --from=frontend-pruner /app/tsconfig.options.json .
 RUN yarn turbo run build --filter=@ryot/frontend
 
 FROM --platform=${BUILDPLATFORM} alpine AS artifact
