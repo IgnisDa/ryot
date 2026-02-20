@@ -6,9 +6,11 @@
 			"outputs": ["build/**", ".vitepress/dist/**", "dist/**", "out/**"]
 		},
 		"build-chrome": {
+			"dependsOn": ["^build"],
 			"outputs": ["dist/chrome-mv3/**", "dist/*-chrome.zip"]
 		},
 		"build-firefox": {
+			"dependsOn": ["^build"],
 			"outputs": [
 				"dist/firefox-mv2/**",
 				"dist/*-sources.zip",
