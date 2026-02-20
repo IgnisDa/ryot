@@ -1,5 +1,4 @@
 target
 node_modules
-.moon/cache
-.moon/docker
+.turbo
 **/.env
