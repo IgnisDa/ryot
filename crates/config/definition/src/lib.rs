@@ -457,6 +457,11 @@ pub struct ServerConfig {
     /// Disable all background jobs.
     #[setting(default = false)]
     pub disable_background_jobs: bool,
+    /// Number of deterministic shards used for single application job queues.
+    /// Jobs are hashed by integration/user key, so each key is serialized while
+    /// different keys can run in parallel across shards.
+    #[setting(default = 32)]
+    pub single_application_job_shards: usize,
     /// The hours in which a media can be marked as seen again for a user. This
     /// is used so that the same media can not be used marked as started when
     /// it has been already marked as seen in the last `n` hours.

@@ -221,6 +221,12 @@ server:
   # @env SERVER_PROGRESS_UPDATE_THRESHOLD
   progress_update_threshold: 2
 
+  # Number of deterministic shards used for single application job queues.
+  # Jobs are hashed by integration/user key, so each key is serialized while
+  # different keys can run in parallel across shards.
+  # @env SERVER_SINGLE_APPLICATION_JOB_SHARDS
+  single_application_job_shards: 32
+
   # Number of seconds to sleep before starting the server.
   # @env SERVER_SLEEP_BEFORE_STARTUP_SECONDS
   sleep_before_startup_seconds: 0
