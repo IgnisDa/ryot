@@ -45,6 +45,7 @@ mod job;
 
 static LOGGING_ENV_VAR: &str = "RUST_LOG";
 static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
+static SINGLE_APPLICATION_JOB_CONCURRENCY: usize = 8;
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
@@ -195,7 +196,7 @@ async fn main() -> Result<()> {
                     .backend(single_application_job_storage.clone())
                     .catch_panic()
                     .enable_tracing()
-                    .concurrency(1)
+                    .concurrency(SINGLE_APPLICATION_JOB_CONCURRENCY)
                     .data(ss3.clone())
                     .build(perform_single_application_job)
             })

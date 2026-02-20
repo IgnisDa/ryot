@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    sync::{Arc, LazyLock},
+};
 
 use anyhow::anyhow;
 use apalis::prelude::{BoxDynError, Data};
@@ -33,7 +36,32 @@ use miscellaneous_metadata_operations_service::handle_metadata_eligible_for_smar
 use miscellaneous_progress_service::bulk_metadata_progress_update;
 use miscellaneous_trending_and_events_service::handle_review_posted_event;
 use supporting_service::SupportingService;
+use tokio::sync::Mutex;
 use traits::TraceOk;
+
+static SINGLE_APPLICATION_JOB_LOCKS: LazyLock<Mutex<HashMap<String, Arc<Mutex<()>>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn single_application_job_key(job: &SingleApplicationJob) -> String {
+    match job {
+        SingleApplicationJob::ImportFromExternalSource(user_id, _) => format!("user:{user_id}"),
+        SingleApplicationJob::BulkMetadataProgressUpdate(user_id, _) => format!("user:{user_id}"),
+        SingleApplicationJob::ProcessIntegrationWebhook(integration_id, _) => {
+            format!("integration:{integration_id}")
+        }
+    }
+}
+
+async fn lock_single_application_job(key: &str) -> tokio::sync::OwnedMutexGuard<()> {
+    let lock = {
+        let mut locks = SINGLE_APPLICATION_JOB_LOCKS.lock().await;
+        locks
+            .entry(key.to_owned())
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
+    };
+    lock.lock_owned().await
+}
 
 pub async fn run_infrequent_cron_jobs(
     tick: Tick<chrono_tz::Tz>,
@@ -152,7 +180,9 @@ pub async fn perform_single_application_job(
     information: SingleApplicationJob,
     ss: Data<Arc<SupportingService>>,
 ) -> Result<(), BoxDynError> {
+    let key = single_application_job_key(&information);
     let name = information.to_string();
+    let _key_lock = lock_single_application_job(&key).await;
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
         SingleApplicationJob::ImportFromExternalSource(user_id, input) => {
