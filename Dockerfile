@@ -6,7 +6,8 @@ RUN apt update && apt install -y --no-install-recommends git curl ca-certificate
 
 FROM frontend-build-base AS frontend-pruner
 WORKDIR /app
-RUN npm install -g turbo
+# Use the exact version from the root package.json
+RUN npm install -g turbo@2.8.10
 COPY . .
 RUN turbo prune @ryot/frontend --docker
 

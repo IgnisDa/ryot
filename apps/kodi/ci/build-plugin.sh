@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-
 set -euxo pipefail
 
+cd "apps/kodi"
 cp "../../LICENSE" "./LICENSE"
 cd "../"
 cp -r "kodi" "script.ryot"
