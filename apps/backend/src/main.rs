@@ -9,10 +9,10 @@ use std::{
 use anyhow::{Context, Result, bail};
 use apalis::{
     layers::WorkerBuilderExt,
-    prelude::{MakeShared, Monitor, WorkerBuilder},
+    prelude::{Monitor, WorkerBuilder},
 };
 use apalis_cron::CronStream;
-use apalis_sqlite::{SharedSqliteStorage, SqliteStorage};
+use apalis_sqlite::{SqlitePool, SqliteStorage};
 use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
 use config_definition::AppConfig;
 use cron::Schedule;
@@ -45,7 +45,7 @@ mod job;
 
 static LOGGING_ENV_VAR: &str = "RUST_LOG";
 static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
-static SINGLE_APPLICATION_JOB_CONCURRENCY: usize = 8;
+static SINGLE_APPLICATION_JOB_SHARDS: usize = 32;
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
@@ -105,14 +105,19 @@ async fn main() -> Result<()> {
 
     let jobs_directory =
         PathBuf::from(get_temporary_directory()).join(format!("{PROJECT_NAME}_jobs"));
-    let mut store =
-        SharedSqliteStorage::new(&format!("sqlite:{}?mode=rwc", jobs_directory.display()));
-    SqliteStorage::setup(store.pool()).await?;
+    let sqlite_url = format!("sqlite:{}?mode=rwc", jobs_directory.display());
+    let jobs_pool = SqlitePool::connect(&sqlite_url).await?;
+    SqliteStorage::setup(&jobs_pool).await?;
 
-    let lp_application_job_storage = store.make_shared()?;
-    let mp_application_job_storage = store.make_shared()?;
-    let hp_application_job_storage = store.make_shared()?;
-    let single_application_job_storage = store.make_shared()?;
+    let lp_application_job_storage = SqliteStorage::new_in_queue(&jobs_pool, "lp_application_job");
+    let mp_application_job_storage = SqliteStorage::new_in_queue(&jobs_pool, "mp_application_job");
+    let hp_application_job_storage = SqliteStorage::new_in_queue(&jobs_pool, "hp_application_job");
+    let mut single_application_job_storages = vec![];
+    for shard_idx in 0..SINGLE_APPLICATION_JOB_SHARDS {
+        let queue_name = format!("single_application_job_{shard_idx}");
+        let storage = SqliteStorage::new_in_queue(&jobs_pool, &queue_name);
+        single_application_job_storages.push(storage);
+    }
 
     let (app_router, supporting_service) = create_app_dependencies()
         .db(db)
@@ -122,7 +127,7 @@ async fn main() -> Result<()> {
         .lp_application_job(lp_application_job_storage.clone())
         .mp_application_job(mp_application_job_storage.clone())
         .hp_application_job(hp_application_job_storage.clone())
-        .single_application_job(single_application_job_storage.clone())
+        .single_application_jobs(single_application_job_storages.clone())
         .call()
         .await;
 
@@ -163,12 +168,10 @@ async fn main() -> Result<()> {
     let monitor = {
         let ss1 = supporting_service.clone();
         let ss2 = supporting_service.clone();
-        let ss3 = supporting_service.clone();
         let ss4 = supporting_service.clone();
         let ss5 = supporting_service.clone();
         let ss6 = supporting_service.clone();
-
-        Monitor::new()
+        let mut monitor = Monitor::new()
             .register(move |_runs| {
                 WorkerBuilder::new("infrequent_cron_jobs")
                     .backend(CronStream::new_with_timezone(
@@ -190,15 +193,6 @@ async fn main() -> Result<()> {
                     .catch_panic()
                     .data(ss2.clone())
                     .build(run_frequent_cron_jobs)
-            })
-            .register(move |_runs| {
-                WorkerBuilder::new("perform_single_application_job")
-                    .backend(single_application_job_storage.clone())
-                    .catch_panic()
-                    .enable_tracing()
-                    .concurrency(SINGLE_APPLICATION_JOB_CONCURRENCY)
-                    .data(ss3.clone())
-                    .build(perform_single_application_job)
             })
             .register(move |_runs| {
                 WorkerBuilder::new("perform_hp_application_job")
@@ -225,8 +219,24 @@ async fn main() -> Result<()> {
                     .rate_limit(40, Duration::new(5, 0))
                     .data(ss6.clone())
                     .build(perform_lp_application_job)
-            })
-            .run()
+            });
+
+        for (shard_idx, single_application_job_storage) in
+            single_application_job_storages.into_iter().enumerate()
+        {
+            let shard_ss = supporting_service.clone();
+            monitor = monitor.register(move |_runs| {
+                WorkerBuilder::new(format!("perform_single_application_job_{shard_idx}"))
+                    .backend(single_application_job_storage.clone())
+                    .catch_panic()
+                    .enable_tracing()
+                    .concurrency(1)
+                    .data(shard_ss.clone())
+                    .build(perform_single_application_job)
+            });
+        }
+
+        monitor.run()
     };
 
     let http = axum::serve(listener, app_router.into_make_service());
