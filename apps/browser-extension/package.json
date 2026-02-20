@@ -4,8 +4,8 @@
 	"version": "0.1.0",
 	"name": "@ryot/browser-extension",
 	"scripts": {
+		"typecheck": "tsc",
 		"lint": "biome check .",
-		"typecheck": "tsc --build --verbose",
 		"build-chrome": "wxt zip -b chrome",
 		"build-firefox": "wxt zip -b firefox",
 		"build": "yarn run build-chrome && yarn run build-firefox"

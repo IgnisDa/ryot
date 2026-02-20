@@ -3,9 +3,9 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"typecheck": "tsc",
 		"test": "vitest run",
-		"test-watch": "vitest",
-		"typecheck": "tsc --build --verbose"
+		"test-watch": "vitest"
 	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "3.989.0",

@@ -17,9 +17,7 @@
 				"dist/*-firefox.zip"
 			]
 		},
-		"typecheck": {
-			"dependsOn": ["^typecheck"]
-		},
+		"typecheck": {},
 		"lint": {},
 		"test": {
 			"dependsOn": ["^build"]

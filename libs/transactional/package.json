@@ -2,10 +2,10 @@
 	"name": "@ryot/transactional",
 	"private": true,
 	"scripts": {
+		"typecheck": "tsc",
 		"lint": "biome check .",
 		"build": "email export",
 		"dev": "email dev --port 6200",
-		"typecheck": "tsc --build --verbose",
 		"copy-templates": "cp -r out/. ../../crates/services/notification/templates"
 	},
 	"dependencies": {

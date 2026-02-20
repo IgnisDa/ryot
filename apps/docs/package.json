@@ -3,10 +3,10 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"typecheck": "tsc",
 		"lint": "biome check .",
 		"build": "vitepress build",
-		"dev": "vitepress dev --port 3002",
-		"typecheck": "tsc --build --verbose"
+		"dev": "vitepress dev --port 3002"
 	},
 	"devDependencies": {
 		"vitepress": "2.0.0-alpha.15"

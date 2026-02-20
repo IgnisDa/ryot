@@ -1,19 +1,5 @@
 {
 	"include": ["**/*.ts", "**/*.tsx", ".react-router/types/**/*"],
-	"references": [
-		{
-			"path": "../../libs/generated"
-		},
-		{
-			"path": "../../libs/graphql"
-		},
-		{
-			"path": "../../libs/transactional"
-		},
-		{
-			"path": "../../libs/ts-utils"
-		}
-	],
 	"compilerOptions": {
 		"baseUrl": ".",
 		"noEmit": true,

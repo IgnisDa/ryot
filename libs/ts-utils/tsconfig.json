@@ -1,10 +1,5 @@
 {
 	"extends": "../../tsconfig.options.json",
-	"references": [
-		{
-			"path": "../generated"
-		}
-	],
 	"compilerOptions": {
 		"strict": true,
 		"outDir": "dist",

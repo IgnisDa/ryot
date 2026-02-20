@@ -3,6 +3,7 @@
 	"compilerOptions": {
 		"baseUrl": ".",
 		"strict": true,
+		"noEmit": true,
 		"outDir": "dist",
 		"jsx": "react-jsx",
 		"allowImportingTsExtensions": true,
@@ -12,16 +13,5 @@
 			"@ryot/generated/*": ["../../libs/generated/src/*"],
 			"@ryot/ts-utils": ["../../libs/ts-utils/src/index.ts"]
 		}
-	},
-	"references": [
-		{
-			"path": "../../libs/generated"
-		},
-		{
-			"path": "../../libs/graphql"
-		},
-		{
-			"path": "../../libs/ts-utils"
-		}
-	]
+	}
 }

@@ -1,7 +1,7 @@
 {
 	"name": "@ryot/generated",
 	"scripts": {
-		"typecheck": "tsc --build --verbose",
+		"typecheck": "tsc",
 		"backend-graphql": "graphql-codegen --config src/graphql/backend/codegen.ts"
 	},
 	"devDependencies": {

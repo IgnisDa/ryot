@@ -2,6 +2,7 @@
 	"include": ["**/*"],
 	"extends": "../../tsconfig.options.json",
 	"compilerOptions": {
+		"noEmit": true,
 		"outDir": "dist",
 		"module": "NodeNext",
 		"moduleResolution": "nodenext"
