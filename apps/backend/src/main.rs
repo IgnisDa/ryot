@@ -9,10 +9,10 @@ use std::{
 use anyhow::{Context, Result, bail};
 use apalis::{
     layers::WorkerBuilderExt,
-    prelude::{Monitor, WorkerBuilder},
+    prelude::{IntervalStrategy, Monitor, StrategyBuilder, WorkerBuilder},
 };
 use apalis_cron::CronStream;
-use apalis_sqlite::{SqlitePool, SqliteStorage};
+use apalis_sqlite::{Config as ApalisSqliteConfig, SqlitePool, SqliteStorage};
 use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
 use config_definition::AppConfig;
 use cron::Schedule;
@@ -46,6 +46,13 @@ mod job;
 static LOGGING_ENV_VAR: &str = "RUST_LOG";
 static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 static SINGLE_APPLICATION_JOB_SHARDS: usize = 32;
+
+fn create_sqlite_queue_config(queue_name: &str) -> ApalisSqliteConfig {
+    let poll_strategy = StrategyBuilder::new()
+        .apply(IntervalStrategy::new(Duration::from_millis(100)))
+        .build();
+    ApalisSqliteConfig::new(queue_name).with_poll_interval(poll_strategy)
+}
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
@@ -109,13 +116,17 @@ async fn main() -> Result<()> {
     let jobs_pool = SqlitePool::connect(&sqlite_url).await?;
     SqliteStorage::setup(&jobs_pool).await?;
 
-    let lp_application_job_storage = SqliteStorage::new_in_queue(&jobs_pool, "lp_application_job");
-    let mp_application_job_storage = SqliteStorage::new_in_queue(&jobs_pool, "mp_application_job");
-    let hp_application_job_storage = SqliteStorage::new_in_queue(&jobs_pool, "hp_application_job");
+    let lp_queue_config = create_sqlite_queue_config("lp_application_job");
+    let lp_application_job_storage = SqliteStorage::new_with_config(&jobs_pool, &lp_queue_config);
+    let mp_queue_config = create_sqlite_queue_config("mp_application_job");
+    let mp_application_job_storage = SqliteStorage::new_with_config(&jobs_pool, &mp_queue_config);
+    let hp_queue_config = create_sqlite_queue_config("hp_application_job");
+    let hp_application_job_storage = SqliteStorage::new_with_config(&jobs_pool, &hp_queue_config);
     let mut single_application_job_storages = vec![];
     for shard_idx in 0..SINGLE_APPLICATION_JOB_SHARDS {
         let queue_name = format!("single_application_job_{shard_idx}");
-        let storage = SqliteStorage::new_in_queue(&jobs_pool, &queue_name);
+        let queue_config = create_sqlite_queue_config(&queue_name);
+        let storage = SqliteStorage::new_with_config(&jobs_pool, &queue_config);
         single_application_job_storages.push(storage);
     }
 
