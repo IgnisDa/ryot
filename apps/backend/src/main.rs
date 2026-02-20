@@ -44,8 +44,8 @@ mod common;
 mod job;
 
 static LOGGING_ENV_VAR: &str = "RUST_LOG";
-static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 static SINGLE_APPLICATION_JOB_SHARDS: usize = 32;
+static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 fn create_sqlite_queue_config(queue_name: &str) -> ApalisSqliteConfig {
     let poll_strategy = StrategyBuilder::new()
