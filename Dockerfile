@@ -1,23 +1,21 @@
 ARG NODE_BASE_IMAGE=node:24.4.0-bookworm-slim
 
 FROM $NODE_BASE_IMAGE AS frontend-build-base
-ENV MOON_TOOLCHAIN_FORCE_GLOBALS=true
 WORKDIR /app
 RUN apt update && apt install -y --no-install-recommends git curl ca-certificates xz-utils
-RUN npm install -g @moonrepo/cli@1.39.2 && moon --version
 
-FROM frontend-build-base AS frontend-workspace
+FROM frontend-build-base AS frontend-pruner
 WORKDIR /app
+RUN npm install -g turbo
 COPY . .
-RUN moon docker scaffold frontend
+RUN turbo prune @ryot/frontend --docker
 
 FROM frontend-build-base AS frontend-builder
 WORKDIR /app
-COPY --from=frontend-workspace /app/.moon/docker/workspace .
-RUN moon docker setup
-COPY --from=frontend-workspace /app/.moon/docker/sources .
-RUN moon run frontend:build
-RUN moon docker prune
+COPY --from=frontend-pruner /app/out/json/ .
+RUN yarn install --immutable
+COPY --from=frontend-pruner /app/out/full/ .
+RUN yarn turbo run build --filter=@ryot/frontend
 
 FROM --platform=${BUILDPLATFORM} alpine AS artifact
 COPY artifact/ /artifact/

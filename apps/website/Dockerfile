@@ -1,25 +1,21 @@
 ARG NODE_BASE_IMAGE=node:24.4.0-bookworm-slim
 
-FROM --platform=$BUILDPLATFORM $NODE_BASE_IMAGE AS node-build-base
-
-FROM node-build-base AS website-build-base
-ENV MOON_TOOLCHAIN_FORCE_GLOBALS=true
+FROM --platform=$BUILDPLATFORM $NODE_BASE_IMAGE AS website-build-base
 WORKDIR /app
 RUN apt update && apt install -y --no-install-recommends git curl ca-certificates xz-utils
-RUN npm install -g @moonrepo/cli@1.39.2 && moon --version
 
-FROM website-build-base AS website-workspace
+FROM website-build-base AS website-pruner
 WORKDIR /app
+RUN npm install -g turbo
 COPY . .
-RUN moon docker scaffold website
+RUN turbo prune @ryot/website --docker
 
 FROM website-build-base AS website-builder
 WORKDIR /app
-COPY --from=website-workspace /app/.moon/docker/workspace .
-RUN moon docker setup
-COPY --from=website-workspace /app/.moon/docker/sources .
-RUN moon run website:build
-RUN moon docker prune
+COPY --from=website-pruner /app/out/json/ .
+RUN yarn install --immutable
+COPY --from=website-pruner /app/out/full/ .
+RUN yarn turbo run build --filter=@ryot/website
 
 FROM $NODE_BASE_IMAGE
 RUN apt-get update && apt-get install -y --no-install-recommends wget curl && rm -rf /var/lib/apt/lists/*
