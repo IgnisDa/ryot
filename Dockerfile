@@ -18,6 +18,7 @@ RUN yarn install
 COPY --from=frontend-pruner /app/out/full/ .
 COPY --from=frontend-pruner /app/tsconfig.options.json .
 RUN yarn turbo run build --filter=@ryot/frontend
+RUN yarn workspaces focus @ryot/frontend --production
 
 FROM --platform=${BUILDPLATFORM} alpine AS artifact
 COPY artifact/ /artifact/

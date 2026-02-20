@@ -18,6 +18,7 @@ RUN yarn install
 COPY --from=website-pruner /app/out/full/ .
 COPY --from=website-pruner /app/tsconfig.options.json .
 RUN yarn turbo run build --filter=@ryot/website
+RUN yarn workspaces focus @ryot/website --production
 
 FROM $NODE_BASE_IMAGE
 RUN apt-get update && apt-get install -y --no-install-recommends wget curl && rm -rf /var/lib/apt/lists/*
