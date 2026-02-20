@@ -2,8 +2,8 @@
 	"include": ["**/*"],
 	"extends": "../../tsconfig.options.json",
 	"compilerOptions": {
+		"outDir": "dist",
 		"module": "NodeNext",
-		"moduleResolution": "nodenext",
-		"outDir": "dist"
+		"moduleResolution": "nodenext"
 	}
 }

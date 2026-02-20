@@ -7,13 +7,13 @@
 	],
 	"compilerOptions": {
 		"strict": true,
+		"outDir": "dist",
 		"module": "nodenext",
 		"lib": ["ESNext", "DOM"],
 		"preserveConstEnums": true,
 		"verbatimModuleSyntax": false,
 		"moduleResolution": "nodenext",
 		"allowSyntheticDefaultImports": true,
-		"outDir": "dist",
 		"paths": {
 			"@ryot/generated/*": ["../generated/src/*"]
 		}

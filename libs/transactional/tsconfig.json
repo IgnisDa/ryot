@@ -7,10 +7,10 @@
 		}
 	],
 	"compilerOptions": {
+		"outDir": "dist",
 		"module": "ESNext",
 		"jsx": "react-jsx",
 		"moduleResolution": "bundler",
-		"outDir": "dist",
 		"paths": {
 			"@ryot/ts-utils/*": ["../ts-utils/src/*"],
 			"@ryot/ts-utils": ["../ts-utils/src/index.ts"]

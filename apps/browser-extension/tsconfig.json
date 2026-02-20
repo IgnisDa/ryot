@@ -3,9 +3,9 @@
 	"compilerOptions": {
 		"baseUrl": ".",
 		"strict": true,
+		"outDir": "dist",
 		"jsx": "react-jsx",
 		"allowImportingTsExtensions": true,
-		"outDir": "dist",
 		"paths": {
 			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
 			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"],

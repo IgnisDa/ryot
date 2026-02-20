@@ -2,11 +2,11 @@
 	"extends": "../../tsconfig.options.json",
 	"compilerOptions": {
 		"strict": true,
+		"outDir": "dist",
 		"module": "esnext",
 		"lib": ["ESNext", "DOM"],
 		"moduleResolution": "node",
 		"preserveConstEnums": true,
-		"verbatimModuleSyntax": false,
-		"outDir": "dist"
+		"verbatimModuleSyntax": false
 	}
 }

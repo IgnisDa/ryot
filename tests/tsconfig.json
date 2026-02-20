@@ -6,9 +6,9 @@
 		{ "path": "../libs/generated" }
 	],
 	"compilerOptions": {
-		"noEmit": true,
 		"strict": true,
 		"baseUrl": ".",
+		"outDir": "dist",
 		"target": "es2022",
 		"module": "ESNext",
 		"skipLibCheck": true,
@@ -16,7 +16,6 @@
 		"esModuleInterop": true,
 		"moduleResolution": "node",
 		"types": ["vitest/globals", "node"],
-		"outDir": "dist",
 		"forceConsistentCasingInFileNames": true,
 		"paths": {
 			"@ryot/graphql/*": ["../libs/graphql/src/*"],

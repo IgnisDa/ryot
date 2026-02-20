@@ -27,7 +27,6 @@
 		"moduleResolution": "bundler",
 		"forceConsistentCasingInFileNames": true,
 		"rootDirs": [".", "./.react-router/types"],
-		"outDir": "dist",
 		"lib": ["DOM", "DOM.Iterable", "ES2022", "WebWorker"],
 		"types": ["@react-router/node", "vite/client", "vite-plugin-pwa/client"],
 		"paths": {
