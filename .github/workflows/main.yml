@@ -107,6 +107,7 @@ jobs:
       - uses: moonrepo/setup-toolchain@937d7dbbc1ec218aa8641c792d5821addebd9f03
         with:
           auto-install: true
+          moon-version: 1.39.2
       - name: Set up Node.js and caching
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
@@ -262,6 +263,7 @@ jobs:
         uses: moonrepo/setup-toolchain@937d7dbbc1ec218aa8641c792d5821addebd9f03
         with:
           auto-install: true
+          moon-version: 1.39.2
       - name: Build plugin
         run: moon run kodi:build
       - name: Upload plugin to releases
@@ -288,6 +290,7 @@ jobs:
         uses: moonrepo/setup-toolchain@937d7dbbc1ec218aa8641c792d5821addebd9f03
         with:
           auto-install: true
+          moon-version: 1.39.2
       - name: Build browser extensions
         run: |
           moon run browser-extension:build
@@ -315,6 +318,7 @@ jobs:
         uses: moonrepo/setup-toolchain@937d7dbbc1ec218aa8641c792d5821addebd9f03
         with:
           auto-install: true
+          moon-version: 1.39.2
       - name: Build documentation
         run: moon run docs:build
       - name: Push to deployment branch
