@@ -7,6 +7,6 @@
 		"moduleResolution": "node",
 		"preserveConstEnums": true,
 		"verbatimModuleSyntax": false,
-		"outDir": "../../.moon/cache/types/libs/generated"
+		"outDir": "dist"
 	}
 }

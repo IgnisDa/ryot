@@ -5,7 +5,7 @@
 		"strict": true,
 		"jsx": "react-jsx",
 		"allowImportingTsExtensions": true,
-		"outDir": "../../.moon/cache/types/apps/browser-extension",
+		"outDir": "dist",
 		"paths": {
 			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
 			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"],

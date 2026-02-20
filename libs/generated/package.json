@@ -1,5 +1,9 @@
 {
 	"name": "@ryot/generated",
+	"scripts": {
+		"typecheck": "tsc --build --verbose",
+		"backend-graphql": "graphql-codegen --config src/graphql/backend/codegen.ts"
+	},
 	"devDependencies": {
 		"@graphql-codegen/cli": "6.1.1",
 		"@graphql-codegen/client-preset": "5.2.2"

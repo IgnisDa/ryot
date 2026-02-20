@@ -2,6 +2,12 @@
 	"name": "@ryot/docs",
 	"private": true,
 	"type": "module",
+	"scripts": {
+		"lint": "biome check .",
+		"build": "vitepress build",
+		"dev": "vitepress dev --port 3002",
+		"typecheck": "tsc --build --verbose"
+	},
 	"devDependencies": {
 		"vitepress": "2.0.0-alpha.15"
 	}

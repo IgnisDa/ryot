@@ -4,6 +4,6 @@
 	"compilerOptions": {
 		"module": "NodeNext",
 		"moduleResolution": "nodenext",
-		"outDir": "../../.moon/cache/types/apps/docs"
+		"outDir": "dist"
 	}
 }

@@ -1,6 +1,12 @@
 {
 	"name": "@ryot/transactional",
 	"private": true,
+	"scripts": {
+		"lint": "biome check .",
+		"dev": "email dev --port 6200",
+		"typecheck": "tsc --build --verbose",
+		"build": "email export && cp -r out/. ../../crates/services/notification/templates"
+	},
 	"dependencies": {
 		"@react-email/components": "1.0.7",
 		"@ryot/ts-utils": "workspace:*",

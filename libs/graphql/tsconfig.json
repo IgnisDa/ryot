@@ -11,7 +11,7 @@
 		"lib": ["ESNext", "DOM"],
 		"preserveConstEnums": true,
 		"moduleResolution": "node",
-		"outDir": "../../.moon/cache/types/libs/graphql",
+		"outDir": "dist",
 		"paths": {
 			"@ryot/generated/*": ["../generated/src/*"]
 		}

@@ -32,7 +32,7 @@
 		"forceConsistentCasingInFileNames": true,
 		"rootDirs": [".", "./.react-router/types"],
 		"types": ["@react-router/node", "vite/client"],
-		"outDir": "../../.moon/cache/types/apps/website",
+		"outDir": "dist",
 		"paths": {
 			"~/*": ["./app/*"],
 			"@ryot/graphql/*": ["../../libs/graphql/src/*"],

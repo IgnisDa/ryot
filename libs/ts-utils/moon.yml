@@ -1,6 +1,0 @@
-layer: "library"
-
-workspace:
-  inheritedTasks:
-    exclude:
-      - "build"

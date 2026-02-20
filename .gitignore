@@ -11,8 +11,7 @@
 .DS_Store
 .dev.vars
 .env
-.moon/cache
-.moon/docker
+.turbo
 .react-router
 .next/
 .pnp.*

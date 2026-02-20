@@ -2,6 +2,11 @@
 	"name": "@ryot/tests",
 	"private": true,
 	"type": "module",
+	"scripts": {
+		"test": "vitest run",
+		"test-watch": "vitest",
+		"typecheck": "tsc --build --verbose"
+	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "3.989.0",
 		"@faker-js/faker": "10.3.0",

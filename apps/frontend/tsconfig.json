@@ -27,7 +27,7 @@
 		"moduleResolution": "bundler",
 		"forceConsistentCasingInFileNames": true,
 		"rootDirs": [".", "./.react-router/types"],
-		"outDir": "../../.moon/cache/types/apps/frontend",
+		"outDir": "dist",
 		"lib": ["DOM", "DOM.Iterable", "ES2022", "WebWorker"],
 		"types": ["@react-router/node", "vite/client", "vite-plugin-pwa/client"],
 		"paths": {
