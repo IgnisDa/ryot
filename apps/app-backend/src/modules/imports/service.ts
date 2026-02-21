@@ -10,6 +10,7 @@ import { DateTime, Effect, Either } from "effect";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
+import { ImportSourceCatalog } from "#modules/plugins/import-source-catalog";
 import { UploadsService } from "#modules/uploads/service";
 
 import { ImportRunFailuresService, type ImportRunFailureDetails } from "./failure-service";
@@ -27,6 +28,11 @@ import {
 	getImportSourceFileInputs,
 	getImportSourceStartError,
 } from "./runtime/source-definitions";
+import {
+	registryImportSourceFileInputs,
+	registryImportSourceStartError,
+	type ImportSourceFileInput,
+} from "./runtime/source-metadata";
 import {
 	deleteImportSourcePayload,
 	storeImportSourcePayload,
@@ -69,6 +75,7 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 		const uploads = yield* UploadsService;
 		const fs = yield* FileSystem.FileSystem;
 		const repository = yield* ImportsRepository;
+		const importSources = yield* ImportSourceCatalog;
 		const failureService = yield* ImportRunFailuresService;
 
 		const create = Effect.fn("ImportsService.create")(function* (input: CreateImportRunInput) {
@@ -100,7 +107,7 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			user: CurrentUserValue,
 			body: CreateImportRunBody,
 			inputSummary: Record<string, unknown>,
-			sourceFileInputs: ReturnType<typeof getImportSourceFileInputs>,
+			sourceFileInputs: ReadonlyArray<ImportSourceFileInput>,
 		) {
 			const tempDir = config.tmpDir;
 			const queuedFilePaths: string[] = [];
@@ -224,13 +231,22 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			user: CurrentUserValue,
 			body: CreateImportRunBody,
 		) {
-			const startError = getImportSourceStartError(body.source, makeImporterConfig(config));
+			const registered = importSources.find(body.source);
+			// Transitional: sources no plugin manifest declares still read their allowed extensions,
+			// upload-token body fields, and required app config from the hardcoded
+			// `runtime/source-definitions.ts` table. Tasks 09 and 10 move all nineteen sources onto the
+			// registry and delete both that table and these fallback arms.
+			const startError = registered
+				? registryImportSourceStartError(registered, config)
+				: getImportSourceStartError(body.source, makeImporterConfig(config));
 			if (startError) {
 				return yield* badRequest(startError);
 			}
 
 			const inputSummary = buildInputSummary(body);
-			const sourceFileInputs = getImportSourceFileInputs(body);
+			const sourceFileInputs = registered
+				? registryImportSourceFileInputs(registered, body)
+				: getImportSourceFileInputs(body);
 
 			return sourceFileInputs.length > 0
 				? yield* startFileImportRun(user, body, inputSummary, sourceFileInputs)
