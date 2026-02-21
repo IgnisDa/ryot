@@ -12,6 +12,7 @@ use futures::{
 };
 use itertools::Itertools;
 use media_models::{EntityTranslationDetails, PeopleSearchItem};
+use reqwest::StatusCode;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -19,7 +20,7 @@ use crate::{
     base::TmdbService,
     models::{
         TmdbCreditsResponse, TmdbFindByExternalSourceResponse, TmdbListResponse,
-        TmdbNonMediaEntity, URL, fetch_company_media_by_type,
+        TmdbNonMediaEntity, TmdbSeasonEpisodeIds, URL, fetch_company_media_by_type,
     },
 };
 
@@ -223,12 +224,12 @@ impl MediaProvider for NonMediaTmdbService {
 }
 
 impl NonMediaTmdbService {
-    pub async fn find_by_external_id(
+    async fn find(
         &self,
         external_id: &str,
         external_source: &str,
-    ) -> Result<String> {
-        let details: TmdbFindByExternalSourceResponse = self
+    ) -> Result<TmdbFindByExternalSourceResponse> {
+        let details = self
             .0
             .client
             .get(format!("{URL}/find/{external_id}"))
@@ -240,6 +241,15 @@ impl NonMediaTmdbService {
             .await?
             .json()
             .await?;
+        Ok(details)
+    }
+
+    pub async fn find_by_external_id(
+        &self,
+        external_id: &str,
+        external_source: &str,
+    ) -> Result<String> {
+        let details = self.find(external_id, external_source).await?;
         if !details.movie_results.is_empty() {
             Ok(details.movie_results[0].id.to_string())
         } else if !details.tv_results.is_empty() {
@@ -247,5 +257,58 @@ impl NonMediaTmdbService {
         } else {
             Err(anyhow!("No results found"))
         }
+    }
+
+    pub async fn find_show_by_episode_external_id(
+        &self,
+        external_id: &str,
+        external_source: &str,
+    ) -> Result<Option<String>> {
+        let details = self.find(external_id, external_source).await?;
+        Ok(details
+            .tv_episode_results
+            .first()
+            .map(|episode| episode.show_id.to_string()))
+    }
+
+    pub async fn find_show_by_episode_title(
+        &self,
+        show_title: &str,
+        season_number: i32,
+        episode_id: &str,
+    ) -> Result<Option<String>> {
+        let search: TmdbListResponse = self
+            .0
+            .client
+            .get(format!("{URL}/search/tv"))
+            .query(&[
+                ("query", show_title),
+                ("language", &self.0.get_default_language()),
+            ])
+            .send()
+            .await?
+            .json()
+            .await?;
+        for show in search.results.iter().take(5) {
+            let rsp = self
+                .0
+                .client
+                .get(format!("{URL}/tv/{}/season/{season_number}", show.id))
+                .send()
+                .await?;
+            if rsp.status() == StatusCode::NOT_FOUND {
+                continue;
+            }
+            // The episode ID confirms that the search result is the right show.
+            let season: TmdbSeasonEpisodeIds = rsp.error_for_status()?.json().await?;
+            if season
+                .episodes
+                .iter()
+                .any(|e| e.id.to_string() == episode_id)
+            {
+                return Ok(Some(show.id.to_string()));
+            }
+        }
+        Ok(None)
     }
 }
