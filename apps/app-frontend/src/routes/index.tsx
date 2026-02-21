@@ -1,4 +1,3 @@
-import { useAuthClient } from "@/hooks/auth";
 import {
 	Box,
 	Button,
@@ -24,6 +23,7 @@ import {
 	Zap,
 } from "lucide-react";
 import { useEffect } from "react";
+import { useAuthClient } from "@/hooks/auth";
 
 export const Route = createFileRoute("/")({ component: App });
 

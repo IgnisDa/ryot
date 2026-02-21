@@ -5,9 +5,9 @@ import { db } from "./db";
 import * as schema from "./db/schema";
 
 export const auth = betterAuth({
-  plugins: [anonymous()],
-  baseURL: process.env.FRONTEND_URL,
-  emailAndPassword: { enabled: true },
-  secret: process.env.SERVER_ADMIN_ACCESS_TOKEN,
-  database: drizzleAdapter(db, { provider: "pg", schema }),
+	plugins: [anonymous()],
+	baseURL: process.env.FRONTEND_URL,
+	emailAndPassword: { enabled: true },
+	secret: process.env.SERVER_ADMIN_ACCESS_TOKEN,
+	database: drizzleAdapter(db, { provider: "pg", schema }),
 });
