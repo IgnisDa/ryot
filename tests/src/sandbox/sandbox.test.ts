@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+﻿import { describe, expect, it } from "bun:test";
 
 import {
 	createAuthenticatedClient,
@@ -6,7 +6,7 @@ import {
 	enqueueSandboxScript,
 	pollSandboxResult,
 } from "../fixtures";
-import { assertCondition, assertPresent } from "../test-support/assertions";
+import { assertCompleted, assertPresent } from "../test-support/assertions";
 
 describe("sandbox result observability", () => {
 	it("completed result includes timing with totalMs and executionMs", async () => {
@@ -19,8 +19,7 @@ describe("sandbox result observability", () => {
 		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });
 
 		const result = await pollSandboxResult(client, jobId);
-		expect(result.status).toBe("completed");
-		assertCondition(result.status === "completed", "Expected sandbox job to complete");
+		assertCompleted(result, "sandbox job");
 
 		assertPresent(result.timing, "Expected timing to be present");
 		expect(result.timing.totalMs).toBeGreaterThan(0);

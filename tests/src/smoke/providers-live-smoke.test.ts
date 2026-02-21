@@ -18,6 +18,7 @@ import {
 	setUserLanguage,
 } from "../fixtures";
 import {
+	assertCompleted,
 	assertCondition,
 	assertPresent,
 	requireArray,
@@ -48,10 +49,7 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 			context: { query: "The Hobbit", page: 1, pageSize: 5 },
 		});
 		const search = await pollEntitySearchResult(client, jobId, { timeoutMs: 60_000 });
-		assertCondition(
-			search.status === "completed",
-			`Expected OpenLibrary search to complete, got '${search.status}'`,
-		);
+		assertCompleted(search, "OpenLibrary search");
 
 		const value = requireObjectRecord(search.value, "Expected search result to be an object");
 		const items = requireArray(value.items, "Expected search result items to be an array");
@@ -71,10 +69,7 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 			entitySchemaId: schema.id,
 		});
 		const imported = await pollEntityImportResult(client, importJobId, { timeoutMs: 60_000 });
-		assertCondition(
-			imported.status === "completed",
-			`Expected OpenLibrary import to complete, got '${imported.status}'`,
-		);
+		assertCompleted(imported, "OpenLibrary import");
 		expect(imported.data.name.length).toBeGreaterThan(0);
 		expect(imported.data.entitySchemaId).toBe(schema.id);
 

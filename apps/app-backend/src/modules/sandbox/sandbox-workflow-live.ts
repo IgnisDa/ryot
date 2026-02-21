@@ -15,8 +15,11 @@ const workflowFailureResult = (
 	cause: Cause.Cause<SandboxRunError>,
 ): Extract<SandboxRunResult, { status: "failed" }> =>
 	Option.match(Cause.failureOption(cause), {
-		onNone: () => ({ status: "failed", error: "Sandbox job failed" }),
 		onSome: (error) => ({ status: "failed", error: error.message }),
+		onNone: () => ({
+			status: "failed",
+			error: `Sandbox job failed: ${Cause.pretty(cause).slice(0, 500)}`,
+		}),
 	});
 
 export const toSandboxRunResult = (

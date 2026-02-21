@@ -7,6 +7,7 @@ import { Effect, Redacted } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
+import { pollWorkflowWithResumeNudge } from "#lib/infrastructure/workflow";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job-id";
 import { trimToNull } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -89,7 +90,7 @@ export class LibraryImportService extends Effect.Service<LibraryImportService>()
 				}
 
 				return toEntityImportRunResult(
-					yield* engine.poll(LibraryEntityImportWorkflow, executionId),
+					yield* pollWorkflowWithResumeNudge(engine, LibraryEntityImportWorkflow, executionId),
 				);
 			});
 
