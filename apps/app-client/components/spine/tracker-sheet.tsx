@@ -1,4 +1,5 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react-native";
 import { useState } from "react";
 import { ScrollView } from "react-native";
 import Animated, {
@@ -110,9 +111,21 @@ export function TrackerSheet() {
 										{tracker.name}
 									</Text>
 									{tracker.subItems?.length ? (
-										<Text className="ml-2 text-[13px] text-ink-mid font-sans">
-											{isExpanded ? "∨" : "›"}
-										</Text>
+										<Box className="opacity-60 ml-2">
+											{isExpanded ? (
+												<ChevronDown
+													size={14}
+													color="#8a8378"
+													strokeWidth={1.5}
+												/>
+											) : (
+												<ChevronRight
+													size={14}
+													color="#8a8378"
+													strokeWidth={1.5}
+												/>
+											)}
+										</Box>
 									) : null}
 								</Pressable>
 
@@ -146,11 +159,12 @@ export function TrackerSheet() {
 					<Box className="mx-6 mt-2">
 						<Box className="h-[0.5px] bg-ink/20 mb-3.5" />
 						<Pressable
+							className="flex-row items-center gap-1.5 min-h-[44px]"
 							accessibilityRole="button"
-							className="min-h-11 justify-center"
 						>
+							<Plus size={12} color="#5a5347" strokeWidth={1.5} />
 							<Text className="text-[12px] text-ink-soft font-sans">
-								＋ new tracker
+								new tracker
 							</Text>
 						</Pressable>
 					</Box>
