@@ -13,6 +13,7 @@ type ScriptModuleSourceInput = SandboxSourceIdentity & {
 	readonly declarations?: string;
 	readonly filesystemImport?: boolean;
 	readonly sdkImports?: readonly string[];
+	readonly queryEngineImports?: readonly string[];
 	readonly requiredPluginConfigKeys?: readonly string[];
 	readonly requiredSystemConfigKeys?: readonly string[];
 	readonly capabilities: readonly SandboxHostCapability[];
@@ -29,12 +30,16 @@ const scriptModuleSource = (input: ScriptModuleSourceInput) => {
 		coreItems.length > 0
 			? `\nimport { ${coreItems.join(", ")} } from "@ryot/sandbox-sdk/core";`
 			: "";
+	const queryEngineImportLine =
+		input.queryEngineImports && input.queryEngineImports.length > 0
+			? `\nimport { ${input.queryEngineImports.join(", ")} } from "@ryot/sandbox-sdk/query-engine";`
+			: "";
 	const filesystemImportLine = input.filesystemImport
 		? '\nimport { writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";'
 		: "";
 
 	return `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";${wireImportLine}${coreImportLine}${filesystemImportLine}
+ import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";${wireImportLine}${coreImportLine}${queryEngineImportLine}${filesystemImportLine}
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
@@ -139,14 +144,38 @@ const query = Schema.decodeSync(jsonValueSchema)(JSON.parse(${JSON.stringify(JSO
 	});
 }
 
-export function entitiesSandboxSource(input: SandboxSourceIdentity) {
+export function entityRowsSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
-		capabilities: ["getEntities"],
 		sdkImports: ["entityRecordSchema"],
+		capabilities: ["executeQueryEngine"],
 		outputSchema: "Schema.Array(entityRecordSchema)",
-		run: "(input, host) => host.getEntities(input.ids)",
-		inputSchema: "Schema.Struct({ ids: Schema.Array(Schema.String) })",
+		queryEngineImports: ["buildEntityReadQuery", "queryEngineEntityRows"],
+		inputSchema:
+			"Schema.Struct({ ids: Schema.Array(Schema.String), entitySchemaSlug: Schema.String })",
+		run: `(input, host) => input.ids.length === 0
+    ? Effect.succeed([])
+    : host.executeQueryEngine(buildEntityReadQuery({
+				entityIds: input.ids as [string, ...string[]],
+        entitySchemaSlugs: [input.entitySchemaSlug],
+      })).pipe(Effect.map(queryEngineEntityRows))`,
+	});
+}
+
+export function eventRowsSandboxSource(input: SandboxSourceIdentity) {
+	return scriptModuleSource({
+		...input,
+		capabilities: ["executeQueryEngine"],
+		sdkImports: ["eventRecordSchema"],
+		queryEngineImports: ["buildEventReadQuery", "queryEngineEventRows"],
+		outputSchema: "Schema.Array(eventRecordSchema)",
+		run: `(input, host) => host.executeQueryEngine(buildEventReadQuery({
+        entityId: input.entityId,
+        entitySchemaSlug: input.entitySchemaSlug,
+        eventSchemaSlug: input.eventSchemaSlug,
+      })).pipe(Effect.map(queryEngineEventRows))`,
+		inputSchema:
+			"Schema.Struct({ entityId: Schema.String, entitySchemaSlug: Schema.String, eventSchemaSlug: Schema.String })",
 	});
 }
 

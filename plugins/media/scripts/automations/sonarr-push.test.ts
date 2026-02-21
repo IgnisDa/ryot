@@ -13,6 +13,7 @@ import {
 	httpFailure,
 	httpSuccess,
 	integrationRecord,
+	queryEngineRows,
 	toRecord,
 } from "./automation-test-utils";
 import definition, { manifest } from "./sonarr-push.sandbox";
@@ -71,8 +72,9 @@ const createHost = (options: {
 		httpCall: options.httpCall,
 		getEntitySchemas: () => hostSuccess([schema]),
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
-		getEntities: () => (options.entity ? hostSuccess([options.entity]) : hostFailure()),
 		getUserPreferences: () => hostSuccess({ isNsfw: false, disableIntegrations: false }),
+		executeQueryEngine: () =>
+			options.entity ? hostSuccess(queryEngineRows([options.entity])) : hostFailure(),
 	});
 
 describe("sonarr-push sandbox script", () => {
