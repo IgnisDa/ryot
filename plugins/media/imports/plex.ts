@@ -129,7 +129,7 @@ export const adaptPlexData = (
 						occurredAt: leafOccurredAt,
 						eventSchemaSlug: "progress",
 						properties: { progressPercent: 100 },
-						episodeLocator: {
+						unresolvedEpisode: {
 							type: "show",
 							episodeNumber: leaf.index,
 							seasonNumber: leaf.parentIndex,
