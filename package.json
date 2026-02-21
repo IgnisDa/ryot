@@ -19,6 +19,7 @@
 	},
 	"workspaces": [
 		"apps/app-backend",
+		"apps/app-frontend",
 		"apps/browser-extension",
 		"apps/docs",
 		"apps/frontend",
