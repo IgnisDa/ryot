@@ -155,8 +155,10 @@ export default function Auth() {
 								{(field) => (
 									<field.TextField
 										secureTextEntry
+										returnKeyType="go"
 										placeholder="Password"
 										autoComplete={modeContent.passwordAutoComplete}
+										onSubmitEditing={() => void form.handleSubmit()}
 									/>
 								)}
 							</form.AppField>

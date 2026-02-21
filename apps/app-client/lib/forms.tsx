@@ -21,8 +21,10 @@ type TextFieldProps = Pick<
 	| "autoCorrect"
 	| "autoComplete"
 	| "keyboardType"
+	| "returnKeyType"
 	| "autoCapitalize"
 	| "secureTextEntry"
+	| "onSubmitEditing"
 >;
 
 function TextField(props: TextFieldProps) {
