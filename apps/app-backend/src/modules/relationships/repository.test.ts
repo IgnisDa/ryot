@@ -160,85 +160,96 @@ const makeLayer = (db: object) =>
 		Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
 	);
 
-it.effect("syncs one source's global targets without removing unrelated relationships", () => {
-	const { db, state } = makeDb([
-		{
-			userId: null,
-			properties: {},
-			id: "rel-old-stale",
-			targetEntityId: "target-old",
-			sourceEntityId: "source-a",
-			relationshipSchemaId: "schema-suggestion",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			userId: null,
-			properties: {},
-			id: "rel-keep-existing",
-			targetEntityId: "target-keep",
-			sourceEntityId: "source-a",
-			relationshipSchemaId: "schema-suggestion",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			userId: null,
-			properties: {},
-			id: "rel-other-schema",
-			targetEntityId: "target-other-schema",
-			sourceEntityId: "source-a",
-			relationshipSchemaId: "schema-other",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			userId: null,
-			properties: {},
-			id: "rel-other-source",
-			targetEntityId: "target-other-source",
-			sourceEntityId: "source-b",
-			relationshipSchemaId: "schema-suggestion",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			userId: "user-1",
-			properties: {},
-			id: "rel-user-row",
-			targetEntityId: "target-user",
-			sourceEntityId: "source-a",
-			relationshipSchemaId: "schema-suggestion",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-	]);
-
-	return Effect.gen(function* () {
-		const repository = yield* RelationshipsRepository;
-		yield* repository.syncGlobalRelationshipTargets({
-			sourceEntityId: EntityId.make("source-a"),
-			relationshipSchemaId: RelationshipSchemaId.make("schema-suggestion"),
-			targetEntityIds: [
-				EntityId.make("target-keep"),
-				EntityId.make("target-new"),
-				EntityId.make("target-new"),
-			],
-		});
-
-		expect(state.transactions).toBe(1);
-		expect(
-			state.rows.filter(
-				(row) =>
-					row.userId === null &&
-					row.sourceEntityId === "source-a" &&
-					row.relationshipSchemaId === "schema-suggestion",
-			),
-		).toEqual([
-			expect.objectContaining({ id: "rel-keep-existing", targetEntityId: "target-keep" }),
-			expect.objectContaining({ targetEntityId: "target-new" }),
+it.effect(
+	"authoritatively syncs anchored global targets while preserving existing properties",
+	() => {
+		const { db, state } = makeDb([
+			{
+				userId: null,
+				properties: {},
+				id: "rel-old-stale",
+				targetEntityId: "target-old",
+				sourceEntityId: "source-a",
+				relationshipSchemaId: "schema-suggestion",
+				createdAt: new Date("2026-06-14T00:00:00.000Z"),
+			},
+			{
+				userId: null,
+				properties: { source: "existing" },
+				id: "rel-keep-existing",
+				targetEntityId: "target-keep",
+				sourceEntityId: "source-a",
+				relationshipSchemaId: "schema-suggestion",
+				createdAt: new Date("2026-06-14T00:00:00.000Z"),
+			},
+			{
+				userId: null,
+				properties: {},
+				id: "rel-other-schema",
+				targetEntityId: "target-other-schema",
+				sourceEntityId: "source-a",
+				relationshipSchemaId: "schema-other",
+				createdAt: new Date("2026-06-14T00:00:00.000Z"),
+			},
+			{
+				userId: null,
+				properties: {},
+				id: "rel-other-source",
+				targetEntityId: "target-other-source",
+				sourceEntityId: "source-b",
+				relationshipSchemaId: "schema-suggestion",
+				createdAt: new Date("2026-06-14T00:00:00.000Z"),
+			},
+			{
+				userId: "user-1",
+				properties: {},
+				id: "rel-user-row",
+				targetEntityId: "target-user",
+				sourceEntityId: "source-a",
+				relationshipSchemaId: "schema-suggestion",
+				createdAt: new Date("2026-06-14T00:00:00.000Z"),
+			},
 		]);
-		expect(state.rows.map((row) => row.id)).toContain("rel-other-schema");
-		expect(state.rows.map((row) => row.id)).toContain("rel-other-source");
-		expect(state.rows.map((row) => row.id)).toContain("rel-user-row");
-		expect(state.rows.map((row) => row.id)).not.toContain("rel-old-stale");
-	}).pipe(Effect.provide(makeLayer(db)));
-});
+
+		return Effect.gen(function* () {
+			const repository = yield* RelationshipsRepository;
+			yield* repository.syncGlobalRelationships({
+				type: "anchored",
+				entries: [
+					{ entityId: EntityId.make("target-keep"), properties: {} },
+					{ entityId: EntityId.make("target-new"), properties: {} },
+					{ entityId: EntityId.make("target-new"), properties: {} },
+				],
+				direction: "outgoing",
+				onConflict: "preserveExisting",
+				anchorEntityId: EntityId.make("source-a"),
+				relationshipSchemaId: RelationshipSchemaId.make("schema-suggestion"),
+				synchronization: "authoritative",
+			});
+
+			expect(state.transactions).toBe(1);
+			expect(
+				state.rows.filter(
+					(row) =>
+						row.userId === null &&
+						row.sourceEntityId === "source-a" &&
+						row.relationshipSchemaId === "schema-suggestion",
+				),
+			).toEqual([
+				expect.objectContaining({
+					id: "rel-keep-existing",
+					properties: { source: "existing" },
+					targetEntityId: "target-keep",
+				}),
+				expect.objectContaining({ targetEntityId: "target-new" }),
+			]);
+			expect(state.rows.map((row) => row.id)).toContain("rel-other-schema");
+			expect(state.rows.map((row) => row.id)).toContain("rel-other-source");
+			expect(state.rows.map((row) => row.id)).toContain("rel-user-row");
+			expect(state.rows.map((row) => row.id)).not.toContain("rel-old-stale");
+		}).pipe(Effect.provide(makeLayer(db)));
+	},
+);
 
 it.effect("clears all global targets for a source and schema when syncing an empty set", () => {
 	const { db, state } = makeDb([
@@ -273,10 +284,14 @@ it.effect("clears all global targets for a source and schema when syncing an emp
 
 	return Effect.gen(function* () {
 		const repository = yield* RelationshipsRepository;
-		yield* repository.syncGlobalRelationshipTargets({
-			sourceEntityId: EntityId.make("source-a"),
+		yield* repository.syncGlobalRelationships({
+			type: "anchored",
+			entries: [],
+			direction: "outgoing",
+			onConflict: "preserveExisting",
+			anchorEntityId: EntityId.make("source-a"),
 			relationshipSchemaId: RelationshipSchemaId.make("schema-suggestion"),
-			targetEntityIds: [],
+			synchronization: "authoritative",
 		});
 
 		expect(state.transactions).toBe(1);
@@ -292,7 +307,7 @@ it.effect("clears all global targets for a source and schema when syncing an emp
 	}).pipe(Effect.provide(makeLayer(db)));
 });
 
-it.effect("syncs global relationship properties while removing stale targets", () => {
+it.effect("replaces properties while authoritatively syncing anchored global relationships", () => {
 	const { db, state } = makeDb([
 		{
 			userId: null,
@@ -316,14 +331,17 @@ it.effect("syncs global relationship properties while removing stale targets", (
 
 	return Effect.gen(function* () {
 		const repository = yield* RelationshipsRepository;
-		yield* repository.syncGlobalRelationshipsWithProperties({
+		yield* repository.syncGlobalRelationships({
+			type: "anchored",
 			direction: "outgoing",
-			synchronization: "authoritative",
+			onConflict: "replaceProperties",
 			anchorEntityId: EntityId.make("source-a"),
 			relationshipSchemaId: RelationshipSchemaId.make("schema-credit"),
+			synchronization: "authoritative",
 			entries: [
 				{ entityId: EntityId.make("target-existing"), properties: { roles: ["Artist"] } },
 				{ entityId: EntityId.make("target-new"), properties: { roles: ["Writer"] } },
+				{ entityId: EntityId.make("target-new"), properties: { roles: ["Editor"] } },
 			],
 		});
 
@@ -333,7 +351,7 @@ it.effect("syncs global relationship properties while removing stale targets", (
 			roles: ["Artist"],
 		});
 		expect(state.rows.find((row) => row.targetEntityId === "target-new")?.properties).toEqual({
-			roles: ["Writer"],
+			roles: ["Editor"],
 		});
 	}).pipe(Effect.provide(makeLayer(db)));
 });
@@ -380,11 +398,13 @@ it.effect("preserves existing incoming global relationships and properties", () 
 
 	return Effect.gen(function* () {
 		const repository = yield* RelationshipsRepository;
-		yield* repository.syncGlobalRelationshipsWithProperties({
+		yield* repository.syncGlobalRelationships({
+			type: "anchored",
 			direction: "incoming",
-			synchronization: "additive",
+			onConflict: "preserveExisting",
 			anchorEntityId: EntityId.make("person-a"),
 			relationshipSchemaId: RelationshipSchemaId.make("schema-person-to-movie"),
+			synchronization: "additive",
 			entries: [
 				{ entityId: EntityId.make("movie-existing"), properties: { roles: ["Writer"] } },
 				{ entityId: EntityId.make("movie-new"), properties: { roles: ["Actor"] } },
@@ -441,11 +461,13 @@ it.effect("authoritatively syncs incoming global relationships and properties", 
 
 	return Effect.gen(function* () {
 		const repository = yield* RelationshipsRepository;
-		yield* repository.syncGlobalRelationshipsWithProperties({
+		yield* repository.syncGlobalRelationships({
+			type: "anchored",
 			direction: "incoming",
-			synchronization: "authoritative",
+			onConflict: "replaceProperties",
 			anchorEntityId: EntityId.make("book-a"),
 			relationshipSchemaId: RelationshipSchemaId.make("schema-person-to-book"),
+			synchronization: "authoritative",
 			entries: [
 				{ entityId: EntityId.make("person-existing"), properties: { roles: ["Author"] } },
 				{ entityId: EntityId.make("person-new"), properties: { roles: ["Translator"] } },
@@ -498,12 +520,14 @@ it.effect("keeps incoming relationships when an incoming group is empty", () => 
 
 	return Effect.gen(function* () {
 		const repository = yield* RelationshipsRepository;
-		yield* repository.syncGlobalRelationshipsWithProperties({
+		yield* repository.syncGlobalRelationships({
+			type: "anchored",
 			entries: [],
 			direction: "incoming",
-			synchronization: "additive",
+			onConflict: "preserveExisting",
 			anchorEntityId: EntityId.make("movie-a"),
 			relationshipSchemaId: RelationshipSchemaId.make("schema-person-to-movie"),
+			synchronization: "additive",
 		});
 
 		expect(state.rows.map((row) => row.id)).toContain("rel-clear-a");
@@ -563,7 +587,10 @@ it.effect("syncs global self edges with properties and removes stale edges", () 
 
 	return Effect.gen(function* () {
 		const repository = yield* RelationshipsRepository;
-		yield* repository.syncGlobalRelationshipSelfEdges({
+		yield* repository.syncGlobalRelationships({
+			type: "self",
+			onConflict: "replaceProperties",
+			synchronization: "authoritative",
 			relationshipSchemaId: RelationshipSchemaId.make("schema-trending"),
 			entries: [
 				{
@@ -637,7 +664,10 @@ it.effect("clears global self edges for a schema when syncing an empty set", () 
 
 	return Effect.gen(function* () {
 		const repository = yield* RelationshipsRepository;
-		yield* repository.syncGlobalRelationshipSelfEdges({
+		yield* repository.syncGlobalRelationships({
+			type: "self",
+			onConflict: "replaceProperties",
+			synchronization: "authoritative",
 			entries: [],
 			relationshipSchemaId: RelationshipSchemaId.make("schema-trending"),
 		});

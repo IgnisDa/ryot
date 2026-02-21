@@ -391,7 +391,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 
 			const inLibrary = yield* inLibrarySchema;
 			yield* relationships
-				.create({
+				.save({
 					userId,
 					scope: "user",
 					properties: {},
@@ -436,7 +436,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 					: [];
 
 				yield* relationships
-					.create({
+					.save({
 						scope: "user",
 						userId: input.userId,
 						sourceEntityId: input.entityId,
