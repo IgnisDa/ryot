@@ -1,7 +1,6 @@
 ﻿import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
-import getPort from "get-port";
 
 import {
 	createAuthenticatedClient,
@@ -20,6 +19,7 @@ import {
 	requireObjectRecord,
 	requireString,
 } from "../test-support/assertions";
+import { type FakeHttpServer, startFakeHttpServer } from "../test-support/fake-http-server";
 
 const requireCompletedSandboxValue = (result: Awaited<ReturnType<typeof pollSandboxResult>>) => {
 	assertCompleted(result, "sandbox job");
@@ -29,22 +29,17 @@ const requireCompletedSandboxValue = (result: Awaited<ReturnType<typeof pollSand
 };
 
 let httpServerUrl: string;
-let httpServer: ReturnType<typeof Bun.serve>;
+let httpServer: FakeHttpServer;
 
 beforeAll(async () => {
-	const port = await getPort();
-	httpServer = Bun.serve({
-		port,
-		hostname: "127.0.0.1",
-		fetch() {
-			return Response.json({ ok: true, source: "sandbox-test-server" });
-		},
-	});
-	httpServerUrl = `http://127.0.0.1:${port}/sandbox-http-call`;
+	httpServer = await startFakeHttpServer(() =>
+		Response.json({ ok: true, source: "sandbox-test-server" }),
+	);
+	httpServerUrl = `${httpServer.url}/sandbox-http-call`;
 });
 
 afterAll(() => {
-	void httpServer.stop(true);
+	httpServer.stop();
 });
 
 describe("sandbox async flow", () => {
