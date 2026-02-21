@@ -34,7 +34,7 @@ function App() {
 	const { data } = useQuery({
 		queryKey: ["hello"],
 		queryFn: async () => {
-			const res = await api.api.$get();
+			const res = await api.api.protected.$get();
 			return res.text();
 		},
 	});
