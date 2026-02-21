@@ -8,7 +8,7 @@ import {
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import TanStackQueryProvider from "../hooks/query";
+import ReactQueryProvider from "../hooks/react-query";
 import appCss from "../styles.css?url";
 
 interface MyRouterContext {
@@ -48,7 +48,7 @@ function RootDocument(props: { children: React.ReactNode }) {
 			</head>
 			<body>
 				<MantineProvider>
-					<TanStackQueryProvider>
+					<ReactQueryProvider>
 						{props.children}
 						<TanStackDevtools
 							config={{ position: "bottom-right" }}
@@ -63,7 +63,7 @@ function RootDocument(props: { children: React.ReactNode }) {
 								},
 							]}
 						/>
-					</TanStackQueryProvider>
+					</ReactQueryProvider>
 				</MantineProvider>
 				<Scripts />
 			</body>
