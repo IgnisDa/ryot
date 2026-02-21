@@ -83,7 +83,7 @@ BEGIN
 	RAISE NOTICE '${kindNotice} -> entity: migration started (% seconds elapsed)', 0.0;
 
 	LOOP
-		WITH person_targets (source, entity_schema_slug, sandbox_script_id) AS (
+		WITH person_targets (source, entity_schema_slug, provider_id) AS (
 			VALUES ${buildEntityTargetValuesSql(targets)}
 		), batch AS (
 			SELECT legacy_person.id::text AS id
@@ -92,7 +92,7 @@ BEGIN
 			WHERE ${isCompany ? companyFilterSql : `NOT ${companyFilterSql}`}
 				AND legacy_person.id::text > cursor_id
 				AND (
-					person_targets.sandbox_script_id IS NULL
+					person_targets.provider_id IS NULL
 					OR EXISTS (SELECT 1 FROM _referenced_global_entity_ids r WHERE r.id = legacy_person.id::text)
 				)
 			ORDER BY legacy_person.id::text
@@ -102,7 +102,7 @@ BEGIN
 
 		EXIT WHEN next_cursor_id IS NULL;
 
-		WITH person_targets (source, entity_schema_slug, sandbox_script_id) AS (
+		WITH person_targets (source, entity_schema_slug, provider_id) AS (
 			VALUES ${buildEntityTargetValuesSql(targets)}
 		)
 		INSERT INTO entity (
@@ -114,7 +114,7 @@ BEGIN
 			"user_id",
 			"properties",
 			"entity_schema_slug",
-			"sandbox_script_id",
+			"provider_id",
 			"updated_at"
 		)
 		SELECT
@@ -125,11 +125,11 @@ BEGIN
 			NULL,
 			legacy_person.created_by_user_id,
 			CASE
-				WHEN person_targets.sandbox_script_id IS NULL THEN ${propertiesSql}
+				WHEN person_targets.provider_id IS NULL THEN ${propertiesSql}
 				ELSE '{}'::jsonb
 			END,
 			person_targets.entity_schema_slug,
-			person_targets.sandbox_script_id,
+			person_targets.provider_id,
 			legacy_person.last_updated_on
 		FROM "person" legacy_person
 		INNER JOIN person_targets ON person_targets.source = legacy_person.source
@@ -137,7 +137,7 @@ BEGIN
 			AND legacy_person.id::text > cursor_id
 			AND legacy_person.id::text <= next_cursor_id
 			AND (
-				person_targets.sandbox_script_id IS NULL
+				person_targets.provider_id IS NULL
 				OR EXISTS (SELECT 1 FROM _referenced_global_entity_ids r WHERE r.id = legacy_person.id::text)
 			)
 		ON CONFLICT ("id") DO NOTHING;
