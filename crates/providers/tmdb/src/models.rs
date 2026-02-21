@@ -120,9 +120,20 @@ pub struct TmdbWatchProviderResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct TmdbFindEpisodeResult {
+    pub show_id: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct TmdbSeasonEpisodeIds {
+    pub episodes: Vec<IdObject>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct TmdbFindByExternalSourceResponse {
     pub tv_results: Vec<TmdbEntry>,
     pub movie_results: Vec<TmdbEntry>,
+    pub tv_episode_results: Vec<TmdbFindEpisodeResult>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
