@@ -144,6 +144,7 @@ driver("details", async function (context) {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: relatedEntities,
 				relationshipSchemaSlug: "comic-book-group-to-comic-book",
 			},

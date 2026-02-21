@@ -352,11 +352,13 @@ query StaffQuery($id: Int!, $page: Int!) {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				relationshipSchemaSlug: "person-to-anime",
 				entities: relatedEntities.filter((entity) => entity.scriptSlug === "anime.anilist"),
 			},
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				relationshipSchemaSlug: "person-to-manga",
 				entities: relatedEntities.filter((entity) => entity.scriptSlug === "manga.anilist"),
 			},

@@ -1,8 +1,15 @@
 import { describe, expect, it } from "@effect/vitest";
 import { BadRequest } from "@ryot/contract/errors";
-import { Deferred, Effect, Exit, Fiber, Layer } from "effect";
+import { Deferred, Effect, Exit, Fiber, Layer, Option } from "effect";
 
-import { DbService, TransactionRunner, TransactionRunnerLive } from "./service";
+import {
+	CurrentDb,
+	DbRunner,
+	DbRunnerLive,
+	DbService,
+	TransactionRunner,
+	TransactionRunnerLive,
+} from "./service";
 
 // A fake DbService whose `transaction` mirrors Drizzle's commit-on-resolve /
 // rollback-on-reject contract and records the outcome order, so we can assert
@@ -77,6 +84,34 @@ describe("TransactionRunner", () => {
 			// The commit lands before the caller observes the interrupt — the transaction
 			// is never abandoned in-flight.
 			expect(order).toEqual(["committed", "caller-interrupted"]);
+		}).pipe(Effect.provide(layer));
+	});
+});
+
+describe("DbRunner", () => {
+	it.effect("keeps an ambient transaction connection instead of replacing it", () => {
+		const fallbackDb = Object.create(null);
+		const transactionDb = Object.create(null);
+		const layer = DbRunnerLive.pipe(
+			Layer.provide(
+				Layer.succeed(DbService, {
+					_tag: "DbService",
+					db: fallbackDb,
+					pool: Object.create(null),
+				}),
+			),
+		);
+		const readCurrentDb = Effect.serviceOption(CurrentDb).pipe(Effect.map(Option.getOrThrow));
+
+		return Effect.gen(function* () {
+			const runWithDb = yield* DbRunner;
+			const fallback = yield* runWithDb(readCurrentDb);
+			const ambient = yield* runWithDb(readCurrentDb).pipe(
+				Effect.provideService(CurrentDb, transactionDb),
+			);
+
+			expect(fallback).toBe(fallbackDb);
+			expect(ambient).toBe(transactionDb);
 		}).pipe(Effect.provide(layer));
 	});
 });

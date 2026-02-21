@@ -245,11 +245,13 @@ query StudioDetailsQuery($id: Int!, $page: Int!) {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				relationshipSchemaSlug: "company-to-anime",
 				entities: mediaEntities.filter((entity) => entity.scriptSlug === "anime.anilist"),
 			},
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				relationshipSchemaSlug: "company-to-manga",
 				entities: mediaEntities.filter((entity) => entity.scriptSlug === "manga.anilist"),
 			},
