@@ -88,19 +88,16 @@ async function startFrontendProcess(
 			`[Orchestrator] Starting frontend process on port ${frontendPort}...`,
 		);
 
-		const frontendProcess = spawn(
-			"yarn",
-			["react-router-serve", "./build/server/index.js"],
-			{
-				stdio: ["ignore", "pipe", "pipe"],
-				cwd: path.join(MONOREPO_ROOT, "apps/frontend"),
-				env: {
-					...process.env,
-					API_URL: `http://127.0.0.1:${backendPort}`,
-					PORT: frontendPort.toString(),
-				},
+		const frontendProcess = spawn("node", ["./server.mjs"], {
+			stdio: ["ignore", "pipe", "pipe"],
+			cwd: path.join(MONOREPO_ROOT, "apps/frontend"),
+			env: {
+				...process.env,
+				FRONTEND_URL: "",
+				PORT: frontendPort.toString(),
+				API_URL: `http://127.0.0.1:${backendPort}`,
 			},
-		);
+		});
 
 		setupProcessLogging(frontendProcess);
 
