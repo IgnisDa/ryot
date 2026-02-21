@@ -17,6 +17,7 @@
 	"dependencies": {
 		"@mantine/core": "9.0.0-alpha.2",
 		"@mantine/hooks": "9.0.0-alpha.2",
+		"@ryot/app-backend": "workspace:*",
 		"@tanstack/react-devtools": "0.9.6",
 		"@tanstack/react-form": "1.28.3",
 		"@tanstack/react-query": "5.90.21",
@@ -26,6 +27,7 @@
 		"@tanstack/react-router-ssr-query": "1.161.4",
 		"@tanstack/react-start": "1.161.4",
 		"@tanstack/router-plugin": "1.161.4",
+		"hono": "4.12.1",
 		"lucide-react": "0.575.0",
 		"react": "19.2.4",
 		"react-dom": "19.2.4",
