@@ -1,8 +1,9 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { TranslationStatus } from "@ryot/contract/modules/entities/schemas";
 import type { EntityUpdatedReason } from "@ryot/contract/modules/entity-interest/messages";
-import type { Expr, QueryDocument, RowItem } from "@ryot/contract/modules/query-engine/language";
+import type { RowItem } from "@ryot/contract/modules/query-engine/language";
 import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { buildEntityInterestQueryDocument } from "@ryot/query-engine";
 import { Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -19,70 +20,12 @@ import {
 import { QueryEngineService } from "#modules/query-engine/service";
 import { MAX_ROOT_PAGE_SIZE } from "#modules/query-engine/validator/shared";
 
-const ENTITY_ALIAS = "entity";
-
-const systemRef = (name: string): Expr => ({
-	type: "ref",
-	sourceAlias: ENTITY_ALIAS,
-	field: { type: "system", name },
-});
-
-const schemaSlugRef: Expr = {
-	type: "ref",
-	sourceAlias: ENTITY_ALIAS,
-	field: { type: "schema", name: "slug" },
-};
-
-const translationStatusRef: Expr = {
-	type: "ref",
-	sourceAlias: ENTITY_ALIAS,
-	field: { type: "systemComputed", name: "translationStatus" },
-};
-
-const interestFields = [
-	{ key: "id", expr: systemRef("id") },
-	{ key: "populatedAt", expr: systemRef("populatedAt") },
-	{ key: "externalId", expr: systemRef("externalId") },
-	{ key: "properties", expr: systemRef("properties") },
-	{ key: "schemaSlug", expr: schemaSlugRef },
-	{ key: "entitySchemaId", expr: systemRef("entitySchemaId") },
-	{ key: "sandboxScriptId", expr: systemRef("sandboxScriptId") },
-	{ key: "translationStatus", expr: translationStatusRef },
-];
-
-const idEq = (entityId: string): Expr => ({
-	operator: "eq",
-	type: "comparison",
-	left: systemRef("id"),
-	right: { type: "literal", value: entityId },
-});
-
 const chunk = <T>(items: readonly T[], size: number): T[][] => {
 	const chunks: T[][] = [];
 	for (let index = 0; index < items.length; index += size) {
 		chunks.push(items.slice(index, index + size));
 	}
 	return chunks;
-};
-
-const buildInterestDocument = (
-	entityIds: readonly [string, ...string[]],
-	schemas: readonly [string, ...string[]],
-): QueryDocument => {
-	const [firstId, ...restIds] = entityIds;
-	const where: Expr =
-		restIds.length === 0
-			? idEq(firstId)
-			: { type: "or", values: [idEq(firstId), ...restIds.map(idEq)] };
-	return {
-		source: { type: "entities", alias: ENTITY_ALIAS, schemas, where },
-		output: {
-			type: "rows",
-			fields: interestFields,
-			pagination: { page: 1, limit: entityIds.length },
-			orderBy: [{ order: "asc", expr: systemRef("id") }],
-		},
-	};
 };
 
 type TerminalUpdate = { readonly entityId: EntityId; readonly reason: EntityUpdatedReason };
@@ -185,7 +128,10 @@ export class InterestReconciler extends Effect.Service<InterestReconciler>()("In
 				if (firstId === undefined) {
 					continue;
 				}
-				const doc = buildInterestDocument([firstId, ...restIds], schemas);
+				const doc = buildEntityInterestQueryDocument({
+					entityIds: [firstId, ...restIds],
+					entitySchemaSlugs: schemas,
+				});
 				const response = yield* queryEngine.execute(user, doc);
 				const rows = yield* requireRowsResponse(response);
 				for (const item of rows.data.items) {

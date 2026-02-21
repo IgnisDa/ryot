@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+	buildCollectionMediaSuggestionsQueryDocument,
+	buildPersonalMediaSuggestionsQueryDocument,
+} from "@ryot/query-engine";
+
+import {
 	createAuthenticatedClient,
 	createCollection,
 	createGlobalBookEntityFixture,
@@ -11,8 +16,6 @@ import {
 	listRelationshipSchemas,
 	requireQueryEngineFieldValue,
 	requireRelationshipSchemaBySlug,
-	systemRef,
-	type QueryEnginePayload,
 } from "../fixtures";
 import { assertPresent } from "../test-support/assertions";
 
@@ -76,71 +79,10 @@ describe("Query engine media suggestions", () => {
 			}),
 		]);
 
-		const doc: QueryEnginePayload = {
-			source: {
-				alias: "suggestion",
-				type: "relationships",
-				schemas: ["media-suggestion"],
-				sourceEntity: { alias: "sourceMedia", schemas: [schema.slug] },
-				targetEntity: { alias: "candidateMedia", schemas: [schema.slug] },
-				where: {
-					type: "and",
-					values: [
-						{
-							type: "exists",
-							source: {
-								where: null,
-								type: "entities",
-								schemas: ["library"],
-								alias: "sourceLibrary",
-								via: {
-									schema: "in-library",
-									direction: "outgoing",
-									alias: "sourceInLibrary",
-									entityRef: "sourceMedia",
-								},
-							},
-						},
-						{
-							type: "not",
-							expr: {
-								type: "exists",
-								source: {
-									where: null,
-									type: "entities",
-									schemas: ["library"],
-									alias: "candidateLibrary",
-									via: {
-										schema: "in-library",
-										direction: "outgoing",
-										alias: "candidateInLibrary",
-										entityRef: "candidateMedia",
-									},
-								},
-							},
-						},
-					],
-				},
-			},
-			output: {
-				limit: 10,
-				type: "aggregate",
-				measures: [
-					{
-						key: "recommendingSourceCount",
-						aggregation: {
-							function: "count",
-							distinctBy: systemRef("sourceMedia", "id"),
-						},
-					},
-				],
-				orderBy: [{ order: "desc", expr: { type: "measureRef", key: "recommendingSourceCount" } }],
-				groupBy: [
-					{ key: "candidateId", expr: systemRef("candidateMedia", "id") },
-					{ key: "candidateName", expr: systemRef("candidateMedia", "name") },
-				],
-			},
-		};
+		const doc = buildPersonalMediaSuggestionsQueryDocument({
+			entitySchemaSlug: schema.slug,
+			limit: 10,
+		});
 
 		const result = await executeAggregateQueryEngine(client, doc);
 
@@ -148,13 +90,9 @@ describe("Query engine media suggestions", () => {
 		const [first, second] = result.data.items;
 		assertPresent(first, "Expected top candidate row");
 		assertPresent(second, "Expected other candidate row");
-		expect(requireQueryEngineFieldValue(first, "candidateName").value).toBe(
-			candidateTop.entity.name,
-		);
+		expect(requireQueryEngineFieldValue(first, "name").value).toBe(candidateTop.entity.name);
 		expect(requireQueryEngineFieldValue(first, "recommendingSourceCount").value).toBe(2);
-		expect(requireQueryEngineFieldValue(second, "candidateName").value).toBe(
-			candidateOther.entity.name,
-		);
+		expect(requireQueryEngineFieldValue(second, "name").value).toBe(candidateOther.entity.name);
 		expect(requireQueryEngineFieldValue(second, "recommendingSourceCount").value).toBe(1);
 	});
 
@@ -227,60 +165,18 @@ describe("Query engine media suggestions", () => {
 			}),
 		]);
 
-		const doc: QueryEnginePayload = {
-			source: {
-				alias: "suggestion",
-				type: "relationships",
-				schemas: ["media-suggestion"],
-				sourceEntity: { alias: "sourceMedia", schemas: [schema.slug] },
-				targetEntity: { alias: "candidateMedia", schemas: [schema.slug] },
-				where: {
-					type: "exists",
-					source: {
-						type: "entities",
-						schemas: ["collection"],
-						alias: "collectionEntity",
-						via: {
-							schema: "member-of",
-							direction: "outgoing",
-							entityRef: "sourceMedia",
-							alias: "memberOfCollection",
-						},
-						where: {
-							operator: "eq",
-							type: "comparison",
-							right: { type: "literal", value: collection.id },
-							left: systemRef("collectionEntity", "id"),
-						},
-					},
-				},
-			},
-			output: {
-				limit: 10,
-				type: "aggregate",
-				measures: [
-					{
-						key: "recommendingSourceCount",
-						aggregation: {
-							function: "count",
-							distinctBy: systemRef("sourceMedia", "id"),
-						},
-					},
-				],
-				orderBy: [{ order: "desc", expr: { type: "measureRef", key: "recommendingSourceCount" } }],
-				groupBy: [
-					{ key: "candidateId", expr: systemRef("candidateMedia", "id") },
-					{ key: "candidateName", expr: systemRef("candidateMedia", "name") },
-				],
-			},
-		};
+		const doc = buildCollectionMediaSuggestionsQueryDocument({
+			collectionId: collection.id,
+			entitySchemaSlug: schema.slug,
+			limit: 10,
+		});
 
 		const result = await executeAggregateQueryEngine(client, doc);
 
 		expect(result.data.items).toHaveLength(2);
 		const byName = new Map(
 			result.data.items.map((item) => [
-				String(requireQueryEngineFieldValue(item, "candidateName").value),
+				String(requireQueryEngineFieldValue(item, "name").value),
 				Number(requireQueryEngineFieldValue(item, "recommendingSourceCount").value),
 			]),
 		);

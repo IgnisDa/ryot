@@ -1,7 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-	buildRowsDoc,
+	buildCompletedPodcastsQueryDocument,
+	buildInProgressPodcastsQueryDocument,
+	buildPodcastDetailQueryDocument,
+} from "@ryot/query-engine";
+
+import {
 	createAuthenticatedClient,
 	createQueryEngineEvent,
 	executeQueryEngine,
@@ -10,15 +15,11 @@ import {
 	insertGlobalRelationship,
 	listEventSchemas,
 	listRelationshipSchemas,
-	podcastEpisodeSource,
-	propertyRef,
 	requireEventSchemaBySlug,
 	requireQueryEngineFieldValue,
 	requireQueryEngineIncludeValue,
 	requireRelationshipSchemaBySlug,
 	seedMediaEntity,
-	showEpisodeEventExistsSource,
-	systemRef,
 	waitForEventCount,
 } from "../fixtures";
 import { assertPresent } from "../test-support/assertions";
@@ -101,67 +102,7 @@ describe("Relationship includes", () => {
 			properties: { completionMode: "unknown" },
 		});
 
-		const podcastIdWhere = {
-			operator: "eq" as const,
-			type: "comparison" as const,
-			left: systemRef("podcast", "id"),
-			right: { type: "literal" as const, value: podcast.id },
-		};
-		const detailDoc = buildRowsDoc({
-			limit: 1,
-			alias: "podcast",
-			schemas: ["podcast"],
-			fields: [{ key: "name", expr: systemRef("podcast", "name") }],
-			source: { alias: "podcast", type: "entities", schemas: ["podcast"], where: podcastIdWhere },
-			output: {
-				type: "rows",
-				pagination: { page: 1, limit: 1 },
-				fields: [{ key: "name", expr: systemRef("podcast", "name") }],
-				orderBy: [{ order: "asc", expr: systemRef("podcast", "name") }],
-				include: [
-					{
-						limit: 10,
-						key: "episodes",
-						orderBy: [
-							{ order: "asc", expr: propertyRef("episode", "podcast-episode", "episodeNumber") },
-						],
-						fields: [
-							{ key: "name", expr: systemRef("episode", "name") },
-							{
-								key: "episodeNumber",
-								expr: propertyRef("episode", "podcast-episode", "episodeNumber"),
-							},
-							{
-								key: "hasProgress",
-								expr: {
-									type: "exists",
-									source: showEpisodeEventExistsSource("episode", "progress"),
-								},
-							},
-							{
-								key: "isComplete",
-								expr: {
-									type: "exists",
-									source: showEpisodeEventExistsSource("episode", "complete"),
-								},
-							},
-						],
-						source: {
-							where: null,
-							alias: "episode",
-							type: "entities",
-							schemas: ["podcast-episode"],
-							via: {
-								entityRef: "podcast",
-								direction: "outgoing",
-								alias: "podcastEpisode",
-								schema: "podcast-to-podcast-episode",
-							},
-						},
-					},
-				],
-			},
-		});
+		const detailDoc = buildPodcastDetailQueryDocument({ entityId: podcast.id, episodeLimit: 10 });
 
 		const detailResult = await executeQueryEngine(client, detailDoc);
 		const podcastRow = detailResult.data.items[0];
@@ -257,82 +198,13 @@ describe("Relationship includes", () => {
 		});
 		await waitForEventCount(client, firstEpisode.id, 2);
 
-		const podcastIdWhere = {
-			operator: "eq" as const,
-			type: "comparison" as const,
-			left: systemRef("podcast", "id"),
-			right: { type: "literal" as const, value: podcast.id },
-		};
-		const currentlyWatchingDoc = buildRowsDoc({
+		const currentlyWatchingDoc = buildInProgressPodcastsQueryDocument({
+			entityId: podcast.id,
 			limit: 10,
-			alias: "podcast",
-			schemas: ["podcast"],
-			fields: [{ key: "name", expr: systemRef("podcast", "name") }],
-			source: {
-				alias: "podcast",
-				type: "entities",
-				schemas: ["podcast"],
-				where: {
-					type: "and" as const,
-					values: [
-						podcastIdWhere,
-						{
-							type: "not" as const,
-							expr: {
-								type: "exists" as const,
-								source: {
-									where: null,
-									type: "events" as const,
-									entityRef: "podcast",
-									schemas: ["complete"],
-									alias: "podcastCompletion",
-								},
-							},
-						},
-						{
-							type: "exists" as const,
-							source: podcastEpisodeSource("episodeWatching", {
-								type: "exists" as const,
-								source: showEpisodeEventExistsSource("episodeWatching", "progress"),
-							}),
-						},
-					],
-				},
-			},
 		});
-		const fullyWatchedDoc = buildRowsDoc({
+		const fullyWatchedDoc = buildCompletedPodcastsQueryDocument({
+			entityId: podcast.id,
 			limit: 10,
-			alias: "podcast",
-			schemas: ["podcast"],
-			fields: [{ key: "name", expr: systemRef("podcast", "name") }],
-			source: {
-				alias: "podcast",
-				type: "entities",
-				schemas: ["podcast"],
-				where: {
-					type: "and" as const,
-					values: [
-						podcastIdWhere,
-						{
-							operator: "eq" as const,
-							type: "comparison" as const,
-							left: {
-								type: "aggregate" as const,
-								aggregation: { function: "count" as const },
-								source: podcastEpisodeSource("completedEpisode", {
-									type: "exists" as const,
-									source: showEpisodeEventExistsSource("completedEpisode", "complete"),
-								}),
-							},
-							right: {
-								type: "aggregate" as const,
-								aggregation: { function: "count" as const },
-								source: podcastEpisodeSource("allEpisode", null),
-							},
-						},
-					],
-				},
-			},
 		});
 
 		const phaseOneCurrentlyWatching = await executeQueryEngine(client, currentlyWatchingDoc);
