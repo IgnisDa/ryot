@@ -20,7 +20,7 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug)).toContain("library");
 	expect(mediaPlugin.relationshipSchemas.map(({ slug }) => slug)).toContain("in-library");
 	expect(mediaPlugin.providers).toHaveLength(51);
-	expect(mediaPlugin.scripts).toHaveLength(153);
+	expect(mediaPlugin.scripts).toHaveLength(172);
 	expect(mediaPlugin.integrationProviders).toHaveLength(13);
 	expect(mediaPlugin.scripts.every((script) => !("providerInformation" in script))).toBe(true);
 	expect(
@@ -63,6 +63,24 @@ it("declares the complete media-owned source", () => {
 		},
 	]);
 	expect(mediaPlugin.boot).toEqual([]);
+	expect(mediaPlugin.importSources.map(({ slug }) => slug)).toEqual([
+		"netflix",
+		"goodreads",
+		"storygraph",
+		"hardcover",
+		"anilist",
+		"trakt",
+		"imdb",
+		"igdb",
+		"grouvee",
+		"watcharr",
+		"movary",
+		"myanimelist",
+		"jellyfin",
+		"plex",
+		"audiobookshelf",
+		"media_tracker",
+	]);
 	expect(mediaPlugin.crons).toEqual([
 		{
 			schedule: "0 0 * * *",

@@ -1,8 +1,8 @@
 # Plugin System Rewrite — Overview
 
-Status: in progress. Phases 1 and 2 and Phase 3 steps 0-3 are complete; resume with Phase 3
-step 4 — integration adapters, import sources, and filesystem grants — which is split across
-tasks 07-10 and whose design is fully settled in `03-phase-3-capability-migrations.md` §4.
+Status: in progress. Phases 1 and 2 and Phase 3 steps 0-4 are complete; resume with Phase 3
+step 5 — `media-monitoring` and remaining media logic. Step 4's deferred imports e2e failure is
+recorded in `03-phase-3-capability-migrations.md` §4 and must be closed before the Phase 3 gate.
 Branch: `ultra-rewrite` (all work is local; there is no
 CI and `apps/app-backend` is not deployed anywhere, so there are no release, rollout, or
 data-migration constraints — dev databases are wipeable and the initial drizzle migration may

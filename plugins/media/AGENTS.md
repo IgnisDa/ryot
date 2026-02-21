@@ -34,11 +34,10 @@ media-specific rules are:
   returned per candidate episode however many relationship rows link it — this is what makes
   "exactly one candidate wins, zero or ambiguous resolves to `null`" hold. User-ownership scoping is
   the query engine's, per executing user.
-- `shared/title-parsing.ts` and `shared/title-matching.ts` are a deliberate copy of the kernel's
-  `lib/shared` helpers: the kernel keeps its copy while the Netflix import adapter still uses it, and
-  the kernel must not import plugin code. Both copies are test-pinned. The plugin copy must stay
-  within the sandbox compiler's ES2022 lib, which is why roman numerals are read with an index loop
-  instead of `toReversed` — `oxlint --fix` rewrites `[...x].reverse()` back into that ES2023 method.
+- `shared/title-parsing.ts` and `shared/title-matching.ts` own Netflix import title matching. They
+  must stay within the sandbox compiler's ES2022 lib, which is why roman numerals are read with an
+  index loop instead of `toReversed` — `oxlint --fix` rewrites `[...x].reverse()` back into that
+  ES2023 method.
 
 ---
 

@@ -5,6 +5,7 @@ import { SandboxRunError } from "@ryot/contract/errors";
 import {
 	ImportRunId,
 	IntegrationId,
+	SandboxScriptId,
 	SignalId,
 	SignalSchemaSlug,
 	UserId,
@@ -21,8 +22,9 @@ import {
 } from "#lib/test-utils/effect";
 import { ImportRunFailuresService } from "#modules/imports/failure-service";
 import { ImportsRepository } from "#modules/imports/repository";
-import { loadImportAdapterResult } from "#modules/imports/runtime/source-payload-store";
 import { ImportsService } from "#modules/imports/service";
+import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
+import { SandboxExecutionService } from "#modules/sandbox/service";
 import { SignalEmissionService, type EmitSignalInput } from "#modules/signals/service";
 
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
@@ -43,20 +45,6 @@ const mockIntegrationsService = Layer.mock(IntegrationsService);
 const mockSignalEmissionService = Layer.mock(SignalEmissionService);
 const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
 const mockImportRunFailuresService = Layer.mock(ImportRunFailuresService);
-
-const mangaGroup = (overrides: Record<string, unknown> = {}) => ({
-	itemIndex: 0,
-	collectionMemberships: [],
-	events: [{ occurredAt: now, eventSchemaSlug: "progress", properties: { progressPercent: 50 } }],
-	entityRef: {
-		externalId: "30002",
-		sourceLabel: "Berserk",
-		entitySchemaSlug: "manga",
-		kind: "resolved" as const,
-		providerSlug: "manga.anilist",
-	},
-	...overrides,
-});
 
 const movieGroup = () => ({
 	itemIndex: 0,
@@ -148,7 +136,9 @@ const makeRedisLayer = () => {
 };
 
 type TestLayerOptions = {
+	sandboxFailure?: string;
 	importsService?: Layer.Layer<ImportsService>;
+	sandboxCalls?: Array<Record<string, unknown>>;
 	importsRepository?: Layer.Layer<ImportsRepository>;
 	integrationsService?: Layer.Layer<IntegrationsService>;
 	signalEmissionService?: Layer.Layer<SignalEmissionService>;
@@ -176,6 +166,29 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		BunFileSystem.layer,
 		makeRedisLayer(),
 		makeIntegrationOperations(options.integrationOperations),
+		Layer.mock(IntegrationProviderCatalog)({
+			list: () => [],
+			_tag: "IntegrationProviderCatalog",
+			find: () => ({
+				lot: "sink",
+				pluginSlug: "media",
+				name: "Test provider",
+				slug: "test-provider",
+				description: "Test provider",
+				settingsSchema: { fields: {} },
+				scriptSlug: "integration.test-provider",
+			}),
+		}),
+		Layer.mock(SandboxExecutionService)({
+			_tag: "SandboxExecutionService",
+			resolveWorkflowScript: () => Effect.succeed(SandboxScriptId.make("workflow.media-import")),
+			executeWorkflow: (input) => {
+				options.sandboxCalls?.push({ executionId: input.executionId, payload: input.input });
+				return options.sandboxFailure
+					? Effect.fail(new SandboxRunError({ message: options.sandboxFailure }))
+					: Effect.succeed(null);
+			},
+		}),
 		options.importsRepository ?? makeImportsRepository(),
 		options.importsService ?? makeImportsService(),
 		options.importRunFailuresService ?? makeImportRunFailuresService(),
@@ -230,6 +243,7 @@ it.effect("persists the sink adapter result and dispatches the normalized child"
 	const integrationUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
+		sandboxCalls: childDispatches,
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("completed")),
 		}),
@@ -253,18 +267,16 @@ it.effect("persists the sink adapter result and dispatches the normalized child"
 		Effect.gen(function* () {
 			yield* runIntegrationRunWorkflow(sinkPayload, "run_1");
 
-			const stored = yield* loadImportAdapterResult("run_1");
-			expect(stored?.entityGroups).toHaveLength(1);
-			expect(stored?.entityGroups[0]?.entityRef).toMatchObject({ externalId: "603" });
-
 			expect(childDispatches).toHaveLength(1);
 			expect(childDispatches[0]).toMatchObject({
-				executionId: "run_1-normalized",
+				executionId: "run_1-import",
 				payload: {
 					runId: "run_1",
-					userId: "user_1",
-					integrationId: "int_1",
-					executionId: "run_1-normalized",
+					source: "test-provider",
+					sourcePayload: {
+						integrationId: "int_1",
+						integrationScriptSlug: "integration.test-provider",
+					},
 				},
 			});
 
@@ -282,103 +294,12 @@ it.effect("persists the sink adapter result and dispatches the normalized child"
 	);
 });
 
-it.effect(
-	"records adapter-only sink failures and fails the run without dispatching a child",
-	() => {
-		const childDispatches: Array<Record<string, unknown>> = [];
-		const recordedFailures: Array<Record<string, unknown>> = [];
-		const recordedUpdates: Array<Record<string, unknown>> = [];
-
-		const options = {
-			integrationOperations: {
-				runAdapter: () =>
-					Effect.succeed({
-						logs: [],
-						error: null,
-						status: "completed" as const,
-						value: {
-							entityGroups: [],
-							failures: [
-								{
-									itemIndex: 0,
-									stage: "input_transformation",
-									message: "Could not parse integration webhook payload",
-								},
-							],
-						},
-					}),
-			},
-			importsRepository: makeImportsRepository({
-				getRunById: () => Effect.succeed(makeRun("failed")),
-			}),
-			importRunFailuresService: makeImportRunFailuresService({
-				create: (input) => {
-					recordedFailures.push(input);
-					return Effect.void;
-				},
-			}),
-			importsService: makeImportsService({
-				update: (input) => {
-					recordedUpdates.push(input);
-					return Effect.void;
-				},
-			}),
-		} satisfies TestLayerOptions;
-
-		return withTestLayer(
-			options,
-			"run_1",
-			Effect.gen(function* () {
-				yield* runIntegrationRunWorkflow(
-					{
-						rawBody: "{}",
-						userId: UserId.make("user_1"),
-						runId: ImportRunId.make("run_1"),
-						contentType: "application/json",
-						integrationId: IntegrationId.make("int_1"),
-					},
-					"run_1",
-				);
-
-				expect(childDispatches).toHaveLength(0);
-				expect(recordedFailures).toEqual([
-					{
-						itemIndex: 0,
-						context: null,
-						runId: "run_1",
-						sourceLabel: undefined,
-						sourceIdentifier: undefined,
-						stage: "input_transformation",
-						message: "Could not parse integration webhook payload",
-					},
-				]);
-				expect(recordedUpdates).toContainEqual(
-					expect.objectContaining({
-						runId: "run_1",
-						progress: 100,
-						totalItems: 1,
-						failedItems: 1,
-						processedItems: 1,
-					}),
-				);
-				expect(recordedUpdates).toContainEqual(
-					expect.objectContaining({
-						runId: "run_1",
-						status: "failed",
-						errorSummary: "Could not parse integration webhook payload",
-					}),
-				);
-			}),
-			captureChildExecute(childDispatches),
-		);
-	},
-);
-
 it.effect("fails the run when the integration is not found", () => {
 	const childDispatches: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
+		sandboxCalls: childDispatches,
 		importsService: makeImportsService({
 			update: (input) => {
 				recordedUpdates.push(input);
@@ -409,79 +330,18 @@ it.effect("fails the run when the integration is not found", () => {
 	);
 });
 
-it.effect("persists a yank adapter result and dispatches the normalized child", () => {
-	const childDispatches: Array<Record<string, unknown>> = [];
-	const recordedUpdates: Array<Record<string, unknown>> = [];
-	const integrationUpdates: Array<Record<string, unknown>> = [];
-
-	const options = {
-		integrationOperations: {
-			runAdapter: () =>
-				Effect.succeed({
-					logs: [],
-					error: null,
-					status: "completed" as const,
-					value: { failures: [], entityGroups: [mangaGroup()] },
-				}),
-		},
-		importsRepository: makeImportsRepository({
-			getRunById: () => Effect.succeed(makeRun("completed")),
-		}),
-		importsService: makeImportsService({
-			update: (input) => {
-				recordedUpdates.push(input);
-				return Effect.void;
-			},
-		}),
-		integrationsRepository: makeIntegrationsRepository({
-			getByIdAnyUser: () => Effect.succeed(makeIntegration({ lot: "yank" })),
-		}),
-		integrationsService: makeIntegrationsService({
-			update: (userId, integrationId, body) => {
-				integrationUpdates.push({ userId, integrationId, ...body });
-				return Effect.succeed(makeIntegration({ lot: "yank" }));
-			},
-		}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		"run_1",
-		Effect.gen(function* () {
-			yield* runIntegrationRunWorkflow(yankPayload, "run_1");
-
-			const stored = yield* loadImportAdapterResult("run_1");
-			expect(stored?.entityGroups).toHaveLength(1);
-			expect(stored?.entityGroups[0]?.entityRef).toMatchObject({ externalId: "30002" });
-
-			expect(childDispatches).toHaveLength(1);
-			expect(childDispatches[0]).toMatchObject({
-				executionId: "run_1-normalized",
-				payload: { runId: "run_1", integrationId: "int_1", executionId: "run_1-normalized" },
-			});
-
-			expect(integrationUpdates).toHaveLength(1);
-			expect(integrationUpdates[0]).toMatchObject({
-				userId: "user_1",
-				integrationId: "int_1",
-				lastFinishedAt: expect.any(Date),
-			});
-		}),
-		captureChildExecute(childDispatches),
-	);
-});
-
 it.effect("fails the whole run on catastrophic yank provider failure", () => {
 	const childDispatches: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
-		integrationOperations: {
-			runAdapter: () => Effect.fail(new SandboxRunError({ message: "Failed to run integration" })),
-		},
+		sandboxFailure: "Failed to run integration",
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("failed")),
 		}),
+		integrationOperations: {
+			runAdapter: () => Effect.fail(new SandboxRunError({ message: "Failed to run integration" })),
+		},
 		importsService: makeImportsService({
 			update: (input) => {
 				recordedUpdates.push(input);
@@ -507,46 +367,6 @@ it.effect("fails the whole run on catastrophic yank provider failure", () => {
 					errorSummary: "Failed to run integration",
 				}),
 			);
-		}),
-		captureChildExecute(childDispatches),
-	);
-});
-
-it.effect("persists synced yank ownership items into the adapter artifact", () => {
-	const childDispatches: Array<Record<string, unknown>> = [];
-
-	const options = {
-		integrationOperations: {
-			runAdapter: () =>
-				Effect.succeed({
-					logs: [],
-					error: null,
-					status: "completed" as const,
-					value: {
-						failures: [],
-						entityGroups: [mangaGroup({ events: [], ownershipProvider: "integration-provider" })],
-					},
-				}),
-		},
-		importsRepository: makeImportsRepository({
-			getRunById: () => Effect.succeed(makeRun("completed")),
-		}),
-		integrationsRepository: makeIntegrationsRepository({
-			getByIdAnyUser: () => Effect.succeed(makeIntegration({ lot: "yank", syncOwnership: true })),
-		}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		"run_1",
-		Effect.gen(function* () {
-			yield* runIntegrationRunWorkflow(yankPayload, "run_1");
-
-			const stored = yield* loadImportAdapterResult("run_1");
-			expect(stored?.entityGroups[0]).toMatchObject({
-				ownershipProvider: "integration-provider",
-			});
-			expect(childDispatches).toHaveLength(1);
 		}),
 		captureChildExecute(childDispatches),
 	);

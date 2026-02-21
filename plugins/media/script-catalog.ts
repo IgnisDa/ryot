@@ -11,6 +11,25 @@ import { manifest as manifest7 } from "./scripts/automations/notification.sandbo
 import { manifest as manifest8 } from "./scripts/automations/radarr-push.sandbox";
 import { manifest as manifest9 } from "./scripts/automations/review-created.sandbox";
 import { manifest as manifest10 } from "./scripts/automations/sonarr-push.sandbox";
+import { manifest as manifest157 } from "./scripts/imports/anilist.sandbox";
+import { manifest as manifest167 } from "./scripts/imports/audiobookshelf.sandbox";
+import { manifest as manifest158 } from "./scripts/imports/goodreads.sandbox";
+import { manifest as manifest159 } from "./scripts/imports/grouvee.sandbox";
+import { manifest as manifest160 } from "./scripts/imports/hardcover.sandbox";
+import { manifest as manifest161 } from "./scripts/imports/igdb.sandbox";
+import { manifest as manifest162 } from "./scripts/imports/imdb.sandbox";
+import { manifest as manifest156 } from "./scripts/imports/import.sandbox";
+import { manifest as manifest168 } from "./scripts/imports/jellyfin.sandbox";
+import { manifest as manifest169 } from "./scripts/imports/media-tracker.sandbox";
+import { manifest as manifest164 } from "./scripts/imports/movary.sandbox";
+import { manifest as manifest165 } from "./scripts/imports/myanimelist.sandbox";
+import { manifest as manifest166 } from "./scripts/imports/netflix.sandbox";
+import { manifest as manifest170 } from "./scripts/imports/plex.sandbox";
+import { manifest as manifest154 } from "./scripts/imports/resolve-episodes.sandbox";
+import { manifest as manifest163 } from "./scripts/imports/storygraph.sandbox";
+import { manifest as manifest171 } from "./scripts/imports/trakt.sandbox";
+import { manifest as manifest153 } from "./scripts/imports/watcharr.sandbox";
+import { manifest as manifest155 } from "./scripts/imports/write-chunks.sandbox";
 import { manifest as manifest143 } from "./scripts/integrations/sinks/browser-extension.sandbox";
 import { manifest as manifest144 } from "./scripts/integrations/sinks/emby.sandbox";
 import { manifest as manifest145 } from "./scripts/integrations/sinks/generic-json.sandbox";
@@ -186,6 +205,25 @@ export const mediaScripts = [
 	directScript(manifest8, "scripts/automations/radarr-push.sandbox.ts"),
 	directScript(manifest9, "scripts/automations/review-created.sandbox.ts"),
 	directScript(manifest10, "scripts/automations/sonarr-push.sandbox.ts"),
+	directScript(manifest153, "scripts/imports/watcharr.sandbox.ts"),
+	directScript(manifest154, "scripts/imports/resolve-episodes.sandbox.ts"),
+	directScript(manifest155, "scripts/imports/write-chunks.sandbox.ts"),
+	directScript(manifest156, "scripts/imports/import.sandbox.ts"),
+	directScript(manifest157, "scripts/imports/anilist.sandbox.ts"),
+	directScript(manifest158, "scripts/imports/goodreads.sandbox.ts"),
+	directScript(manifest159, "scripts/imports/grouvee.sandbox.ts"),
+	directScript(manifest160, "scripts/imports/hardcover.sandbox.ts"),
+	directScript(manifest161, "scripts/imports/igdb.sandbox.ts"),
+	directScript(manifest162, "scripts/imports/imdb.sandbox.ts"),
+	directScript(manifest163, "scripts/imports/storygraph.sandbox.ts"),
+	directScript(manifest164, "scripts/imports/movary.sandbox.ts"),
+	directScript(manifest165, "scripts/imports/myanimelist.sandbox.ts"),
+	directScript(manifest166, "scripts/imports/netflix.sandbox.ts"),
+	directScript(manifest167, "scripts/imports/audiobookshelf.sandbox.ts"),
+	directScript(manifest168, "scripts/imports/jellyfin.sandbox.ts"),
+	directScript(manifest169, "scripts/imports/media-tracker.sandbox.ts"),
+	directScript(manifest170, "scripts/imports/plex.sandbox.ts"),
+	directScript(manifest171, "scripts/imports/trakt.sandbox.ts"),
 	directScript(manifest11, "scripts/operations/metadata-lookup.sandbox.ts"),
 	directScript(manifest12, "scripts/operations/resolve-episodes.sandbox.ts"),
 	directScript(manifest143, "scripts/integrations/sinks/browser-extension.sandbox.ts"),
