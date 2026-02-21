@@ -216,3 +216,8 @@ export const createScalarExpressionCompiler = (input: {
 
 	return { compile };
 };
+
+export type ExpressionCompiler = {
+	compile: ReturnType<typeof createScalarExpressionCompiler>["compile"];
+	getTypeInfo: (expression: ViewExpression) => ViewExpressionTypeInfo;
+};

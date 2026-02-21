@@ -108,14 +108,17 @@ const createDisplayExpressionResolver = (input: {
 	alias: string;
 	context: QueryEngineContext;
 	computedFields?: ViewComputedField[];
+	getTypeInfo?: ReturnType<typeof createExpressionTypeResolver>;
 }) => {
 	const { computedFieldMap, orderedComputedFields } = prepareComputedFields(
 		input.computedFields,
 	);
-	const getTypeInfo = createExpressionTypeResolver({
-		context: input.context,
-		computedFields: input.computedFields,
-	});
+	const getTypeInfo =
+		input.getTypeInfo ??
+		createExpressionTypeResolver({
+			context: input.context,
+			computedFields: input.computedFields,
+		});
 	const { compile } = createScalarExpressionCompiler({
 		getTypeInfo,
 		alias: input.alias,
@@ -190,10 +193,12 @@ export const buildResolvedFieldsExpression = (input: {
 	fields: QueryEngineField[];
 	context: QueryEngineContext;
 	computedFields?: ViewComputedField[];
+	getTypeInfo?: ReturnType<typeof createExpressionTypeResolver>;
 }) => {
 	const resolveExpression = createDisplayExpressionResolver({
 		alias: input.alias,
 		context: input.context,
+		getTypeInfo: input.getTypeInfo,
 		computedFields: input.computedFields,
 	});
 
