@@ -77,10 +77,7 @@ const baseListedSavedView: ListedSavedView = {
 const mockRepository = Layer.mock(SavedViewsRepository);
 
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
-	mockRepository({
-		listBuiltinStates: () => Effect.succeed([]),
-		...overrides,
-	});
+	mockRepository({ ...overrides });
 
 const mockQueryEngine = Layer.mock(QueryEngineService);
 
@@ -203,9 +200,7 @@ it.effect("returns not found when getting a view the user does not own", () => {
 it.effect("returns bad request when deleting a built-in view", () => {
 	const builtinView = { ...baseListedSavedView, slug: "builtin-view", isBuiltin: true };
 	const layer = makeServiceLayer(
-		makeRepository({
-			findBySlug: () => Effect.succeed(null),
-		}),
+		makeRepository({ findBySlug: () => Effect.succeed(builtinView) }),
 		makeQueryEngine(),
 		makeEntitySchemasRepository(),
 		makeDefinitionRegistryLayer(builtinView),
@@ -220,17 +215,12 @@ it.effect("returns bad request when deleting a built-in view", () => {
 });
 
 it.effect("rejects built-in definition changes while still allowing disable toggles", () => {
-	const builtinView = {
-		...baseListedSavedView,
-		name: "Books",
-		slug: "books",
-		isBuiltin: true,
-	};
+	const builtinView = { ...baseListedSavedView, name: "Books", slug: "books", isBuiltin: true };
 	const layer = makeServiceLayer(
 		makeRepository({
-			findBySlug: () => Effect.succeed(null),
-			upsertBuiltinState: (input) =>
-				Effect.succeed({ ...input, createdAt: new Date(), updatedAt: new Date() }),
+			findBySlug: () => Effect.succeed(builtinView),
+			updateBuiltinStateBySlug: (_userId, _viewSlug, isDisabled, sortOrder) =>
+				Effect.succeed({ ...builtinView, isDisabled, sortOrder }),
 		}),
 		makeQueryEngine(),
 		makeEntitySchemasRepository(),
@@ -274,9 +264,9 @@ it.effect("allows built-in disable toggles with independently decoded nested lit
 	};
 	const layer = makeServiceLayer(
 		makeRepository({
-			findBySlug: () => Effect.succeed(null),
-			upsertBuiltinState: (input) =>
-				Effect.succeed({ ...input, createdAt: new Date(), updatedAt: new Date() }),
+			findBySlug: () => Effect.succeed(currentView),
+			updateBuiltinStateBySlug: (_userId, _viewSlug, isDisabled, sortOrder) =>
+				Effect.succeed({ ...currentView, isDisabled, sortOrder }),
 		}),
 		makeQueryEngine(),
 		makeEntitySchemasRepository(),
@@ -297,15 +287,10 @@ it.effect("allows built-in disable toggles with independently decoded nested lit
 });
 
 it.effect("rejects updating a built-in view name", () => {
-	const builtinView = {
-		...baseListedSavedView,
-		name: "Books",
-		slug: "books",
-		isBuiltin: true,
-	};
+	const builtinView = { ...baseListedSavedView, name: "Books", slug: "books", isBuiltin: true };
 	const layer = makeServiceLayer(
 		makeRepository({
-			findBySlug: () => Effect.succeed(null),
+			findBySlug: () => Effect.succeed(builtinView),
 		}),
 		makeQueryEngine(),
 		makeEntitySchemasRepository(),
@@ -329,9 +314,7 @@ it.effect("rejects updating a built-in view name", () => {
 it.effect("rejects updating a built-in view's queryDocument", () => {
 	const builtinView = { ...baseListedSavedView, slug: "builtin-view", isBuiltin: true };
 	const layer = makeServiceLayer(
-		makeRepository({
-			findBySlug: () => Effect.succeed(null),
-		}),
+		makeRepository({ findBySlug: () => Effect.succeed(builtinView) }),
 		makeQueryEngine(),
 		makeEntitySchemasRepository(),
 		makeDefinitionRegistryLayer(builtinView),
@@ -357,8 +340,8 @@ it.effect("rejects updating a built-in view's queryDocument", () => {
 });
 
 it.effect("clones a saved view with (Copy) suffix", () => {
-	let clonedName = "";
 	let findCalls = 0;
+	let clonedName = "";
 	let validated = false;
 
 	const layer = makeServiceLayer(

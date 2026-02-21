@@ -5,13 +5,13 @@ import type {
 	ReorderSavedViewsBody,
 	UpdateSavedViewBody,
 } from "@ryot/contract/modules/saved-views/schemas";
-import { PluginSlug, SavedViewId } from "@ryot/contract/schema/brands";
+import { PluginSlug } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
-import { DefinitionRegistry, type SavedViewDefinition } from "#modules/definition-registry/service";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { QueryEngineService } from "#modules/query-engine/service";
 
 import { validateDisplayConfiguration } from "./display-configuration-validation";
@@ -19,20 +19,6 @@ import { SavedViewsRepository } from "./repository";
 
 const savedViewNotFound = "Saved view not found";
 const builtinViewMutationMessage = "Cannot modify built-in saved views";
-
-const toBuiltin = (
-	definition: SavedViewDefinition,
-	state?: { isDisabled: boolean; sortOrder: number },
-) => ({
-	...definition,
-	isBuiltin: true,
-	createdAt: "1970-01-01T00:00:00.000Z",
-	updatedAt: "1970-01-01T00:00:00.000Z",
-	isDisabled: state?.isDisabled ?? false,
-	id: SavedViewId.make(definition.slug),
-	sortOrder: state?.sortOrder ?? definition.sortOrder,
-	pluginSlug: definition.pluginSlug ? PluginSlug.make(definition.pluginSlug) : null,
-});
 
 export class SavedViewsService extends Context.Service<SavedViewsService>()("SavedViewsService", {
 	make: Effect.gen(function* () {
@@ -45,31 +31,45 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			user: CurrentUserValue,
 			input: { pluginSlug?: PluginSlug | undefined; includeDisabled: boolean },
 		) {
-			const [custom, states] = yield* Effect.all([
-				runWithDb(repository.listByUser(user.id, input)),
-				runWithDb(repository.listBuiltinStates(user.id)),
-			]);
-			const bySlug = new Map(states.map((state) => [state.savedViewSlug, state]));
-			const builtins = Object.values(definitions.getSnapshot().savedViews)
-				.filter((view) => !input.pluginSlug || view.pluginSlug === input.pluginSlug)
-				.map((view) => toBuiltin(view, bySlug.get(view.slug)))
-				.filter((view) => input.includeDisabled || !view.isDisabled);
-			return [...builtins, ...custom].sort((left, right) => left.sortOrder - right.sortOrder);
+			return yield* runWithDb(repository.listByUser(user.id, input));
+		});
+
+		const ensureBuiltinViews = Effect.fn(function* (userId: CurrentUserValue["id"]) {
+			const views = Object.values(definitions.getSnapshot().savedViews);
+			yield* runWithDb(
+				repository.ensureBuiltinViews(
+					userId,
+					views.map(
+						({
+							slug,
+							name,
+							icon,
+							sortOrder,
+							pluginSlug,
+							accentColor,
+							queryDocument,
+							displayConfiguration,
+						}) => ({
+							slug,
+							name,
+							icon,
+							sortOrder,
+							accentColor,
+							queryDocument,
+							displayConfiguration,
+							pluginSlug: pluginSlug ? PluginSlug.make(pluginSlug) : null,
+						}),
+					),
+				),
+			);
 		});
 
 		const requireSavedView = Effect.fn(function* (user: CurrentUserValue, viewSlug: string) {
-			const custom = yield* runWithDb(repository.findBySlug(user.id, viewSlug));
-			if (custom) {
-				return custom;
+			const savedView = yield* runWithDb(repository.findBySlug(user.id, viewSlug));
+			if (savedView) {
+				return savedView;
 			}
-			const definition = definitions.getSavedView(viewSlug);
-			if (!definition) {
-				return yield* notFound(savedViewNotFound);
-			}
-			const state = (yield* runWithDb(repository.listBuiltinStates(user.id))).find(
-				(row) => row.savedViewSlug === viewSlug,
-			);
-			return toBuiltin(definition, state);
+			return yield* notFound(savedViewNotFound);
 		});
 
 		const create = Effect.fn(function* (
@@ -126,29 +126,26 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		) {
 			const current = yield* requireSavedView(user, viewSlug);
 			if (current.isBuiltin) {
-				const definition = definitions.getSavedView(viewSlug);
-				if (!definition) {
-					return yield* notFound(savedViewNotFound);
-				}
 				if (
-					payload.name !== definition.name ||
-					payload.icon !== definition.icon ||
-					payload.accentColor !== definition.accentColor ||
-					(payload.pluginSlug ?? null) !== definition.pluginSlug ||
-					!Bun.deepEquals(payload.queryDocument, definition.queryDocument) ||
-					!Bun.deepEquals(payload.displayConfiguration, definition.displayConfiguration)
+					payload.name !== current.name ||
+					payload.icon !== current.icon ||
+					payload.accentColor !== current.accentColor ||
+					(payload.pluginSlug ?? null) !== current.pluginSlug ||
+					!Bun.deepEquals(payload.queryDocument, current.queryDocument) ||
+					!Bun.deepEquals(payload.displayConfiguration, current.displayConfiguration)
 				) {
 					return yield* badRequest(builtinViewMutationMessage);
 				}
-				const state = yield* runWithDb(
-					repository.upsertBuiltinState({
-						userId: user.id,
-						savedViewSlug: viewSlug,
-						isDisabled: payload.isDisabled,
-						sortOrder: payload.sortOrder ?? current.sortOrder,
-					}),
+				return (
+					(yield* runWithDb(
+						repository.updateBuiltinStateBySlug(
+							user.id,
+							viewSlug,
+							payload.isDisabled,
+							payload.sortOrder ?? current.sortOrder,
+						),
+					)) ?? (yield* notFound(savedViewNotFound))
 				);
-				return toBuiltin(definition, state);
 			}
 			const name = trimToNull(payload.name);
 			if (!name) {
@@ -229,7 +226,16 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			return { viewSlugs: reordered };
 		});
 
-		return { get: requireSavedView, list, clone, create, update, reorder, delete: deleteView };
+		return {
+			list,
+			clone,
+			create,
+			update,
+			reorder,
+			delete: deleteView,
+			ensureBuiltinViews,
+			get: requireSavedView,
+		};
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
