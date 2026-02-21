@@ -1,0 +1,13 @@
+{
+	"name": "@ryot/app-backend",
+	"scripts": {
+		"dev": "bun run --hot src/index.ts"
+	},
+	"dependencies": {
+		"better-auth": "1.4.18",
+		"hono": "4.12.1"
+	},
+	"devDependencies": {
+		"@types/bun": "latest"
+	}
+}

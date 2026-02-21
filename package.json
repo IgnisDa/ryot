@@ -18,6 +18,7 @@
 		"typescript": "5.9.3"
 	},
 	"workspaces": [
+		"apps/app-backend",
 		"apps/browser-extension",
 		"apps/docs",
 		"apps/frontend",
