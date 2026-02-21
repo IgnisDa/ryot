@@ -8,7 +8,8 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Komga yank",
 	slug: "integration.komga",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getIntegration"],
 });
 const Input = Schema.Struct({});

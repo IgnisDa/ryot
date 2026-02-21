@@ -15,7 +15,8 @@ import {
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "VNDB",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	slug: "visual-novel.vndb",
 	capabilities: ["httpCall"],
 });

@@ -10,9 +10,10 @@ import { readImportArtifactText } from "./shared";
 export const manifest = defineManifest({
 	kind: "activity",
 	name: "Parse AniList import",
-	requiredAppConfigKeys: ["timezone"],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: ["timezone"],
 	slug: "activity.import.anilist",
-	capabilities: ["artifact-read", "getAppConfigValue"],
+	capabilities: ["artifact-read", "getSystemConfigValue"],
 });
 export default defineActivity({
 	manifest,
@@ -21,7 +22,7 @@ export default defineActivity({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			const text = yield* readImportArtifactText();
-			const timezone = yield* host.getAppConfigValue("timezone");
+			const timezone = yield* host.getSystemConfigValue("timezone");
 			if (typeof timezone !== "string") {
 				throw new Error("App timezone is unavailable");
 			}

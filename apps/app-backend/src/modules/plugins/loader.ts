@@ -1,3 +1,4 @@
+import { pluginConfigEnvironmentKey } from "@ryot/config";
 import type { PluginBindings, PluginManifest } from "@ryot/plugin-kit/manifest";
 import { Effect, Layer } from "effect";
 
@@ -108,6 +109,24 @@ const assertUniqueProviderSlugs = (plugins: Readonly<Record<string, NormalizedPl
 	}
 };
 
+const assertUniquePluginConfigEnvironmentKeys = (
+	plugins: Readonly<Record<string, NormalizedPlugin>>,
+) => {
+	const ownerByEnvironmentKey = new Map<string, string>();
+	for (const [pluginSlug, plugin] of Object.entries(plugins)) {
+		for (const key of Object.keys(plugin.manifest.configSchema.fields)) {
+			const environmentKey = pluginConfigEnvironmentKey(pluginSlug, key);
+			const owner = ownerByEnvironmentKey.get(environmentKey);
+			if (owner) {
+				throw new Error(
+					`Duplicate plugin config environment variable '${environmentKey}' in active plugins '${owner}' and '${pluginSlug}'`,
+				);
+			}
+			ownerByEnvironmentKey.set(environmentKey, pluginSlug);
+		}
+	}
+};
+
 const assertUniqueManifestEntrySlugs = (
 	kind: string,
 	plugins: Readonly<Record<string, NormalizedPlugin>>,
@@ -136,6 +155,7 @@ export const makePluginLoader = (registry: Pick<DefinitionRegistry, "getSnapshot
 	};
 
 	const buildSnapshot = (plugins: Readonly<Record<string, NormalizedPlugin>>) => {
+		assertUniquePluginConfigEnvironmentKeys(plugins);
 		assertUniqueScriptSlugs(plugins);
 		assertUniqueProviderSlugs(plugins);
 		assertUniqueManifestEntrySlugs(

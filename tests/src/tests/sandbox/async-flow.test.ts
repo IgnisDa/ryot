@@ -1,7 +1,6 @@
 import { Effect } from "effect";
 
 import {
-	appConfigSandboxSource,
 	createAuthenticatedClient,
 	createEntity,
 	createEntitySchema,
@@ -10,10 +9,12 @@ import {
 	httpCallSandboxSource,
 	installSandboxScriptScoped,
 	literalSandboxSource,
+	pluginConfigSandboxSource,
 	pollSandboxResult,
 	queryEngineSandboxSource,
 	reinstallTestPluginScript,
 	requireCompletedSandboxValue,
+	systemConfigSandboxSource,
 	throwingSandboxSource,
 	userPreferencesSandboxSource,
 } from "~/fixtures";
@@ -28,6 +29,19 @@ import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-se
 
 let httpServerUrl: string;
 let httpServer: FakeHttpServer;
+
+const configFixturePluginSlug = "e2e-sandbox-config-9d6f4b2a";
+const configFixtureSchema = {
+	unknownKeys: "strict",
+	fields: {
+		fixtureValue: {
+			type: "string",
+			label: "Fixture value",
+			description: "Deterministic sandbox plugin config fixture",
+			validation: { required: true },
+		},
+	},
+} as const;
 
 beforeAll(async () => {
 	httpServer = await startFakeHttpServer(() =>
@@ -63,7 +77,8 @@ describe("sandbox async flow", () => {
 				capabilities: [],
 				kind: "script",
 				name: "Plain value",
-				requiredAppConfigKeys: [],
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
 			});
 			const updatedJob = yield* enqueueSandboxScript(userId, {
 				scriptId: reinstalled.scriptId,
@@ -231,42 +246,46 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.scopedLive("completes a script that uses getAppConfigValue", () =>
+	it.scopedLive("reads a declared env-backed plugin config value", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
-			const slug = `get-app-config-value-${crypto.randomUUID()}`;
+			const slug = `get-plugin-config-value-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
-				name: "get-app-config-value",
-				capabilities: ["getAppConfigValue"],
-				requiredAppConfigKeys: ["server.progressUpdateThresholdHours"],
-				source: appConfigSandboxSource({
+				pluginSlug: configFixturePluginSlug,
+				name: "get-plugin-config-value",
+				configSchema: configFixtureSchema,
+				capabilities: ["getPluginConfigValue"],
+				requiredPluginConfigKeys: ["fixtureValue"],
+				source: pluginConfigSandboxSource({
 					slug,
-					name: "get-app-config-value",
-					key: "server.progressUpdateThresholdHours",
+					key: "fixtureValue",
+					name: "get-plugin-config-value",
 				}),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
 			const value = requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId));
-			expect(typeof value).toBe("number");
-			expect(value).toBeGreaterThan(0);
+			expect(value).toBe("sandbox-plugin-config-value");
 		}),
 	);
 
-	it.scopedLive("rejects a script access to an unknown app config key", () =>
+	it.scopedLive("rejects an undeclared plugin config key", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
-			const slug = `invalid-app-config-value-${crypto.randomUUID()}`;
+			const slug = `undeclared-plugin-config-value-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
-				name: "invalid-app-config-value",
-				capabilities: ["getAppConfigValue"],
-				source: appConfigSandboxSource({
+				pluginSlug: configFixturePluginSlug,
+				configSchema: configFixtureSchema,
+				name: "undeclared-plugin-config-value",
+				capabilities: ["getPluginConfigValue"],
+				requiredPluginConfigKeys: [],
+				source: pluginConfigSandboxSource({
 					slug,
-					requiredAppConfigKeys: [],
-					key: "server.unknownSetting",
-					name: "invalid-app-config-value",
+					key: "fixtureValue",
+					requiredPluginConfigKeys: [],
+					name: "undeclared-plugin-config-value",
 				}),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
@@ -275,7 +294,53 @@ describe("sandbox async flow", () => {
 			assertCompleted(result, "sandbox job");
 			expect(result.error).toMatchObject({
 				phase: "execute",
-				message: 'Config key "server.unknownSetting" does not exist',
+				message: 'Plugin config key "fixtureValue" is not declared by this script',
+			});
+		}),
+	);
+
+	it.scopedLive("reads timezone only when declared as system config", () =>
+		Effect.gen(function* () {
+			const { userId } = yield* createAuthenticatedClient();
+			const declaredSlug = `declared-system-config-value-${crypto.randomUUID()}`;
+			const declared = yield* installSandboxScriptScoped({
+				slug: declaredSlug,
+				name: "declared-system-config-value",
+				capabilities: ["getSystemConfigValue"],
+				requiredSystemConfigKeys: ["timezone"],
+				source: systemConfigSandboxSource({
+					key: "timezone",
+					slug: declaredSlug,
+					name: "declared-system-config-value",
+				}),
+			});
+			const declaredJob = yield* enqueueSandboxScript(userId, { scriptId: declared.scriptId });
+			expect(
+				requireCompletedSandboxValue(yield* pollSandboxResult(userId, declaredJob.jobId)),
+			).toBe("Etc/GMT");
+
+			const undeclaredSlug = `undeclared-system-config-value-${crypto.randomUUID()}`;
+			const undeclared = yield* installSandboxScriptScoped({
+				slug: undeclaredSlug,
+				name: "undeclared-system-config-value",
+				capabilities: ["getSystemConfigValue"],
+				requiredSystemConfigKeys: [],
+				source: systemConfigSandboxSource({
+					key: "timezone",
+					slug: undeclaredSlug,
+					requiredSystemConfigKeys: [],
+					name: "undeclared-system-config-value",
+				}),
+			});
+			const undeclaredJob = yield* enqueueSandboxScript(userId, {
+				scriptId: undeclared.scriptId,
+			});
+			const result = yield* pollSandboxResult(userId, undeclaredJob.jobId);
+
+			assertCompleted(result, "sandbox job");
+			expect(result.error).toMatchObject({
+				phase: "execute",
+				message: 'System config key "timezone" is not declared by this script',
 			});
 		}),
 	);

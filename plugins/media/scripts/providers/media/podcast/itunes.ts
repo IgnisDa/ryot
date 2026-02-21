@@ -9,7 +9,8 @@ export const manifest = defineManifest({
 	name: "iTunes",
 	kind: "provider",
 	slug: "podcast.itunes",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall"],
 });
 type ItunesHost = SandboxHost<typeof manifest.capabilities>;

@@ -13,7 +13,8 @@ export const manifest = defineManifest({
 	kind: "operation",
 	name: "Enable media monitoring",
 	slug: "operation.media-monitoring-enable",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["executeQueryEngine", "changeUserRelationships"],
 });
 

@@ -8,7 +8,8 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Emby sink",
 	slug: "integration.emby",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["getIntegration"],
 });
 export default defineScript({

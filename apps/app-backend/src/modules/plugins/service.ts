@@ -36,7 +36,8 @@ const declaredScriptMetadata = (
 			name: script.name,
 			kind: script.kind,
 			capabilities: script.capabilities,
-			requiredAppConfigKeys: script.requiredAppConfigKeys,
+			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
+			requiredSystemConfigKeys: script.requiredSystemConfigKeys,
 			...(script.providerSlug ? { providerSlug: script.providerSlug } : {}),
 		};
 	}
@@ -46,7 +47,8 @@ const declaredScriptMetadata = (
 			name: script.name,
 			kind: script.kind,
 			capabilities: script.capabilities,
-			requiredAppConfigKeys: script.requiredAppConfigKeys,
+			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
+			requiredSystemConfigKeys: script.requiredSystemConfigKeys,
 		};
 	}
 	if (script.kind === "workflow") {
@@ -55,7 +57,8 @@ const declaredScriptMetadata = (
 			name: script.name,
 			kind: "workflow",
 			capabilities: script.capabilities,
-			requiredAppConfigKeys: script.requiredAppConfigKeys,
+			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
+			requiredSystemConfigKeys: script.requiredSystemConfigKeys,
 		};
 	}
 	return {
@@ -65,7 +68,8 @@ const declaredScriptMetadata = (
 		capabilities: script.capabilities,
 		providerSlug: script.providerSlug,
 		providerOperation: script.providerOperation,
-		requiredAppConfigKeys: script.requiredAppConfigKeys,
+		requiredPluginConfigKeys: script.requiredPluginConfigKeys,
+		requiredSystemConfigKeys: script.requiredSystemConfigKeys,
 	};
 };
 

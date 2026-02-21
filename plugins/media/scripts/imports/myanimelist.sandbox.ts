@@ -11,7 +11,8 @@ import { MediaImportAdapterBatch, MyanimelistImportParserInput } from "../../imp
 export const manifest = defineManifest({
 	kind: "activity",
 	name: "Parse MyAnimeList import",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	slug: "activity.import.myanimelist",
 	capabilities: ["artifact-read"],
 });

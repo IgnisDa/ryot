@@ -87,7 +87,8 @@ const makeActiveScript = (slug: string) => ({
 		name: slug,
 		capabilities: [],
 		kind: "operation" as const,
-		requiredAppConfigKeys: [],
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
 	},
 });
 

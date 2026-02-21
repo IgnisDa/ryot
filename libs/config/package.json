@@ -1,0 +1,23 @@
+{
+	"name": "@ryot/config",
+	"private": true,
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		}
+	},
+	"scripts": {
+		"test": "bun --bun run vitest run",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"@ryot/contract": "workspace:*",
+		"effect": "3.21.4"
+	},
+	"devDependencies": {
+		"@ryot/testing": "workspace:*",
+		"bun-types": "1.3.14",
+		"vitest": "4.1.9"
+	}
+}

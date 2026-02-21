@@ -392,7 +392,8 @@ export const manifest = defineManifest({
   name: ${JSON.stringify(`System query ${name}`)},
   slug: ${JSON.stringify(activitySlug(name))},
   capabilities: ["executeQueryEngine", "setCachedValue"],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 const query = Schema.decodeUnknownSync(jsonValueSchema)(JSON.parse(${JSON.stringify(
@@ -426,7 +427,8 @@ export const manifest = defineManifest({
   name: "System query workflow",
   slug: ${JSON.stringify(workflowScriptSlug)},
   capabilities: [],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 const activity = (scriptSlug: string) => ({ input: Schema.Unknown, output: Schema.Unknown, scriptSlug });
@@ -457,7 +459,8 @@ export const manifest = defineManifest({
   name: "System query result collector",
   slug: ${JSON.stringify(collectorSlug)},
   capabilities: ["executeQueryEngine", "getCachedValue", "upsertGlobalEntities"],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
@@ -499,7 +502,8 @@ export const manifest = defineManifest({
   name: "Foreign inert activity",
   slug: ${JSON.stringify(`foreign-inert-${suffix}`)},
   capabilities: [],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 export default defineActivity({
@@ -586,6 +590,7 @@ describe("system-authority query engine", () => {
 				};
 				installed = yield* installTestPluginBundle({
 					pluginSlug,
+					configSchema: { fields: {}, unknownKeys: "strict" },
 					linkToEntitySchemaSlug: markerSlug,
 					files: {
 						[detailsEntry]: providerSandboxSource({
@@ -632,7 +637,8 @@ describe("system-authority query engine", () => {
 							capabilities: [],
 							slug: detailsSlug,
 							entry: detailsEntry,
-							requiredAppConfigKeys: [],
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
 							providerOperation: "details",
 							name: "System query provider details",
 						},
@@ -641,14 +647,16 @@ describe("system-authority query engine", () => {
 							capabilities: [],
 							entry: workflowEntry,
 							slug: workflowScriptSlug,
-							requiredAppConfigKeys: [],
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
 							name: "System query workflow",
 						},
 						...cases.map((name) => ({
 							providerSlug,
 							slug: activitySlug(name),
 							kind: "activity" as const,
-							requiredAppConfigKeys: [],
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
 							name: `System query ${name}`,
 							entry: activityEntries[name],
 							capabilities: ["executeQueryEngine", "setCachedValue"],
@@ -658,7 +666,8 @@ describe("system-authority query engine", () => {
 							kind: "script",
 							slug: collectorSlug,
 							entry: collectorEntry,
-							requiredAppConfigKeys: [],
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
 							name: "System query result collector",
 							capabilities: ["executeQueryEngine", "getCachedValue", "upsertGlobalEntities"],
 						},
@@ -718,12 +727,14 @@ describe("system-authority query engine", () => {
 
 				foreignInstalled = yield* installTestPluginBundle({
 					pluginSlug: foreignPluginSlug,
+					configSchema: { fields: {}, unknownKeys: "strict" },
 					files: { "scripts/foreign.sandbox.ts": foreignSource },
 					scripts: [
 						{
 							kind: "activity",
 							capabilities: [],
-							requiredAppConfigKeys: [],
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
 							name: "Foreign inert activity",
 							slug: `foreign-inert-${suffix}`,
 							entry: "scripts/foreign.sandbox.ts",

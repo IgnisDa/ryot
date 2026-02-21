@@ -14,8 +14,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Spotify",
 	slug: "person.spotify",
-	capabilities: ["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"],
-	requiredAppConfigKeys: ["music.spotifyClientId", "music.spotifyClientSecret"],
+	capabilities: ["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"],
+	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
+	requiredSystemConfigKeys: [],
 });
 
 const PAGE_SIZE = 20;
