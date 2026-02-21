@@ -8,11 +8,11 @@
 	},
 	"scripts": {
 		"typecheck": "tsc",
-		"dev": "expo start",
 		"ios": "expo run:ios",
 		"lint": "biome check .",
 		"web": "expo start --web",
 		"android": "expo run:android",
+		"dev": "expo start --port 3005",
 		"build": "expo export --platform web --output-dir dist"
 	},
 	"devDependencies": {
@@ -25,6 +25,7 @@
 		"typescript": "5.9.2"
 	},
 	"dependencies": {
+		"@ryot/generated": "workspace:*",
 		"@gluestack-ui/core": "5.0.13-alpha.0",
 		"@gluestack-ui/utils": "5.0.6-alpha.0",
 		"@react-aria/dialog": "3.6.0",
@@ -45,12 +46,15 @@
 		"expo-status-bar": "55.0.5",
 		"expo-system-ui": "55.0.16",
 		"expo-web-browser": "55.0.14",
+		"jotai": "2.19.1",
 		"lucide-react-native": "1.14.0",
 		"nativewind": "5.0.0-preview.3",
+		"openapi-fetch": "0.17.0",
 		"react": "19.2.0",
 		"react-dom": "19.2.0",
 		"react-native": "0.83.6",
 		"react-native-gesture-handler": "2.30.1",
+		"react-native-mmkv": "4.3.1",
 		"react-native-reanimated": "4.2.1",
 		"react-native-safe-area-context": "5.6.2",
 		"react-native-screens": "4.23.0",
