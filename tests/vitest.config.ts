@@ -9,6 +9,7 @@ export default mergeConfig(
 		resolve: { alias: [{ find: /^~\//, replacement: srcDir }] },
 		test: {
 			isolate: true,
+			maxWorkers: 3,
 			testTimeout: 180_000,
 			hookTimeout: 180_000,
 			fileParallelism: true,

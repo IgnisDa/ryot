@@ -29,9 +29,9 @@ and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 7 of 12 tasks completed
+**Overall Progress:** 8 of 12 tasks completed
 
-**Current Task:** [Task 08](./08-integration-adapters-media.md) (todo)
+**Current Task:** [Task 09](./09-import-framework-fitness-sources.md) (todo)
 
 ### Task List
 
@@ -44,7 +44,7 @@ and you record the choice you make in the plan file.
 | 05  | [Step 3a — Durable Workflow Spike](./05-durable-workflow-spike.md)                                          | HITL | done   |
 | 06  | [Step 3b — Durable Workflows: media import population/resolution](./06-durable-workflows-media-import.md)   | AFK  | done   |
 | 07  | [Step 4a — Kernel Capability: Manifest Sections, FS Grants, Deps](./07-integration-import-kernel-capability.md) | AFK | done |
-| 08  | [Step 4b — Integration Adapters: Sinks + Yanks into media](./08-integration-adapters-media.md)              | AFK  | todo   |
+| 08  | [Step 4b — Integration Adapters: Sinks + Yanks into media](./08-integration-adapters-media.md)              | AFK  | done   |
 | 09  | [Step 4c — Import Framework Collapse + Fitness Import Sources](./09-import-framework-fitness-sources.md)    | AFK  | todo   |
 | 10  | [Step 4d — Media Import Sources into media](./10-media-import-sources.md)                                   | AFK  | todo   |
 | 11  | [Step 5 — media-monitoring + Remaining Media Logic + Phase Gate](./11-media-monitoring-and-phase-gate.md)   | AFK  | todo   |
@@ -155,9 +155,8 @@ and **implementing agent**.
 description }`) whose schedule format is whatever the existing scheduler consumes, so that a
    plugin declares periodic work without the kernel knowing what the work is (plan §1).
 6. As the scheduler, I want each due cron dispatched as a sandbox execution of its referenced
-   script, fire-and-forget through the durable queue machinery per the `apps/app-backend`
-   durable-ownership rules with idempotency owned by the script, so that the kernel owns the
-   tick and the plugin owns the behavior (plan §1).
+   script and awaited to a terminal workflow result, with idempotency owned by the script, so that
+   the kernel owns the tick and the plugin owns the behavior (plan §1).
 7. As a sandbox script, I want batch, coarse-atomic global-write host functions
    `upsertGlobalEntities(items[])` and `upsertGlobalRelationships(items[])` with
    preserve-existing semantics matching today's trending refresh writes, so that a cron script

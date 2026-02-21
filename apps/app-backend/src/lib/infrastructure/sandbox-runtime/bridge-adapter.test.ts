@@ -205,11 +205,11 @@ describe("bindSandboxHostFunctions", () => {
 				error: "upsertGlobalEntities expects an array of valid entity items",
 			});
 
-			expect(yield* bound.listIntegrations([{ provider: "plex_yank" }])).toEqual({
+			expect(yield* bound.listIntegrations([{ provider: "plugin_defined_provider" }])).toEqual({
 				error: "reached",
 				success: false,
 			});
-			expect(yield* bound.listIntegrations([{ provider: "not-real" }])).toEqual({
+			expect(yield* bound.listIntegrations([{ provider: 1 }])).toEqual({
 				success: false,
 				error: "listIntegrations received invalid options",
 			});
@@ -240,7 +240,7 @@ describe("bindSandboxHostFunctions", () => {
 						],
 					},
 				},
-				{ fnName: "listIntegrations", value: { provider: "plex_yank" } },
+				{ fnName: "listIntegrations", value: { provider: "plugin_defined_provider" } },
 			]);
 		}),
 	);
