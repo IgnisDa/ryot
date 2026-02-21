@@ -4,7 +4,7 @@ import { Effect } from "@ryot/sandbox-sdk/effect";
 import { asRecord, numberValue, parseJsonResponse, stringValue } from "../script-helpers/records";
 
 export type IgdbHost = SandboxHost<
-	readonly ["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"]
+	readonly ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"]
 >;
 
 const BASE_URL = "https://api.igdb.com/v4";
@@ -24,26 +24,9 @@ const asCachedToken = (value: unknown): CachedToken | null => {
 };
 
 export const getCredentials = (host: IgdbHost) =>
-	Effect.all(
-		[
-			host
-				.getPluginConfigValue("twitchClientId")
-				.pipe(
-					Effect.mapError(
-						(error) => new Error(error.message || "Failed to retrieve Twitch Client ID"),
-					),
-				),
-			host
-				.getPluginConfigValue("twitchClientSecret")
-				.pipe(
-					Effect.mapError(
-						(error) => new Error(error.message || "Failed to retrieve Twitch Client Secret"),
-					),
-				),
-		],
-		{ concurrency: "unbounded" },
-	).pipe(
-		Effect.map(([clientIdValue, clientSecretValue]) => {
+	host.getPluginConfig(["twitchClientId", "twitchClientSecret"]).pipe(
+		Effect.mapError((error) => new Error(error.message || "Failed to retrieve Twitch credentials")),
+		Effect.map(({ twitchClientId: clientIdValue, twitchClientSecret: clientSecretValue }) => {
 			const clientId = stringValue(clientIdValue);
 			const clientSecret = stringValue(clientSecretValue);
 			if (!clientId) {
