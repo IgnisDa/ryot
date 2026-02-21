@@ -4,18 +4,15 @@ import {
 	SandboxExecutionPayload,
 } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxProviderId } from "@ryot/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schedule } from "effect";
 import { Activity, DurableQueue } from "effect/unstable/workflow";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
-import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 
 import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
-import { RunSandboxWorkflow } from "./sandbox-run-workflow";
 
 export const SandboxExecutionQueue = DurableQueue.make({
 	error: SandboxRunError,
@@ -24,6 +21,15 @@ export const SandboxExecutionQueue = DurableQueue.make({
 	payload: SandboxExecutionPayload,
 	idempotencyKey: ({ executionId }) => executionId,
 });
+
+const sandboxRetrySchedule = Schedule.max([Schedule.exponential("1 second"), Schedule.recurs(2)]);
+
+export const processSandboxExecutionQueue = (payload: SandboxExecutionPayload) =>
+	DurableQueue.process(SandboxExecutionQueue, payload).pipe(
+		Effect.timeout("1 minute"),
+		Effect.retry(sandboxRetrySchedule),
+		Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+	);
 
 export type SandboxExecutionResolutionMode = "active" | "exact";
 
@@ -62,14 +68,7 @@ export const makeSandboxExecutionResolutionActivity = (payload: SandboxExecution
 
 export const processSandboxExecution = (payload: SandboxExecutionPayload) =>
 	makeSandboxExecutionResolutionActivity(payload).pipe(
-		Effect.flatMap((resolved) =>
-			Effect.gen(function* () {
-				const engine = yield* WorkflowEngine;
-				return yield* engine
-					.execute(RunSandboxWorkflow, { payload: resolved, executionId: resolved.executionId })
-					.pipe(withoutWorkflowParent);
-			}),
-		),
+		Effect.flatMap(processSandboxExecutionQueue),
 		Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 	);
 
