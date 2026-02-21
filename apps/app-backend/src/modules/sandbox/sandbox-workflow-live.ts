@@ -7,7 +7,7 @@ import type {
 	SandboxExecutionPayload,
 	SandboxRunResult,
 } from "@ryot/contract/modules/sandbox/schemas";
-import { Cause, Effect, Exit, Layer, Match, Option } from "effect";
+import { Cause, Effect, Exit, Layer, Match, Option, Schedule } from "effect";
 
 import { SandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./durable-queues";
 import { RunSandboxWorkflow } from "./sandbox-run-workflow";
@@ -53,6 +53,8 @@ const runSandboxWorkflow = Effect.fn("RunSandboxWorkflow")(
 			...(payload.grants ? { grants: payload.grants } : {}),
 		};
 		return yield* DurableQueue.process(SandboxExecutionQueue, executionPayload).pipe(
+			Effect.timeout("1 minute"),
+			Effect.retry(Schedule.spaced("1 second")),
 			Effect.mapError(toSandboxRunError),
 		);
 	},
