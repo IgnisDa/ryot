@@ -35,9 +35,11 @@ export function SpineNavigation({ children }: Props) {
 		return (
 			<Box className="flex-1 flex-row">
 				<Box className="flex-1">{children}</Box>
-				{subFlyoutOpen && (
-					<SpineSubFlyout pinned onNavigate={() => setSubFlyoutOpen(false)} />
-				)}
+				<SpineSubFlyout
+					pinned
+					open={subFlyoutOpen}
+					onNavigate={() => setSubFlyoutOpen(false)}
+				/>
 				<SpineRail pinned onClose={() => {}} />
 			</Box>
 		);
