@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { adaptOpenScaleCsv } from "./adapter";
+import { adaptOpenScaleCsv } from "./open-scale";
 
 describe("adaptOpenScaleCsv", () => {
 	it("normalizes statistics and skips date/comment columns", () => {
