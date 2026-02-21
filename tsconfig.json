@@ -3,6 +3,8 @@
 	"extends": "./tsconfig.options.json",
 	"references": [
 		{ "path": "apps/browser-extension" },
+		{ "path": "apps/app-backend" },
+		{ "path": "apps/app-frontend" },
 		{ "path": "apps/docs" },
 		{ "path": "apps/frontend" },
 		{ "path": "apps/website" },
