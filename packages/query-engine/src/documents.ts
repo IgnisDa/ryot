@@ -1,7 +1,10 @@
 import {
+	queryEngineComparison,
 	queryEngineField,
 	queryEngineIdentityFields,
+	queryEngineLiteral,
 	queryEngineOrder,
+	queryEngineSchemaRef,
 	queryEngineSystemRef,
 	type QueryEngineNonEmptyArray,
 } from "./primitives";
@@ -81,7 +84,26 @@ export const queryEngineInclude = <
 	return include === undefined ? rest : { ...rest, include };
 };
 
-export const buildQueryEngineRowsDocument = <
+type QueryEngineRowsOutput<
+	TFields,
+	TOrderBy,
+	TInclude extends readonly unknown[] | undefined,
+> = TInclude extends readonly unknown[]
+	? {
+			type: "rows";
+			fields: TFields;
+			orderBy: TOrderBy;
+			include: TInclude;
+			pagination: { page: number; limit: number };
+		}
+	: {
+			type: "rows";
+			fields: TFields;
+			orderBy: TOrderBy;
+			pagination: { page: number; limit: number };
+		};
+
+export function buildQueryEngineRowsDocument<
 	TSource,
 	TFields extends readonly unknown[],
 	TOrderBy extends QueryEngineNonEmptyArray<unknown>,
@@ -93,14 +115,22 @@ export const buildQueryEngineRowsDocument = <
 	page?: number | undefined;
 	limit?: number | undefined;
 	include?: TInclude | undefined;
-}) => {
+}): { source: TSource; output: QueryEngineRowsOutput<TFields, TOrderBy, TInclude> };
+export function buildQueryEngineRowsDocument(input: {
+	source: unknown;
+	fields: readonly unknown[];
+	orderBy: readonly unknown[];
+	page?: number | undefined;
+	limit?: number | undefined;
+	include?: readonly unknown[] | undefined;
+}) {
 	const { include, source, fields, orderBy, page = 1, limit = 20 } = input;
 	const output =
 		include === undefined
 			? { type: "rows" as const, fields, orderBy, pagination: { page, limit } }
 			: { type: "rows" as const, fields, orderBy, include, pagination: { page, limit } };
 	return { source, output };
-};
+}
 
 export const buildQueryEngineEntityRowsDocument = <
 	TWhere,
@@ -192,14 +222,33 @@ export const buildQueryEngineTimeSeriesDocument = <TSource, TMeasure, TTime>(inp
 };
 
 export const queryEngineFields = {
+	id: (alias: string) => queryEngineField("id", queryEngineSystemRef(alias, "id")),
+	name: (alias: string) => queryEngineField("name", queryEngineSystemRef(alias, "name")),
 	createdAt: (alias: string) =>
 		queryEngineField("createdAt", queryEngineSystemRef(alias, "createdAt")),
 	externalId: (alias: string) =>
 		queryEngineField("externalId", queryEngineSystemRef(alias, "externalId")),
+	entitySchemaSlug: (alias: string) =>
+		queryEngineField("entitySchemaSlug", queryEngineSystemRef(alias, "entitySchemaSlug")),
 	populatedAt: (alias: string) =>
 		queryEngineField("populatedAt", queryEngineSystemRef(alias, "populatedAt")),
+	providerId: (alias: string) =>
+		queryEngineField("providerId", queryEngineSystemRef(alias, "providerId")),
 	properties: (alias: string) =>
 		queryEngineField("properties", queryEngineSystemRef(alias, "properties")),
+	eventSchemaName: (alias: string) =>
+		queryEngineField("eventSchemaName", queryEngineSchemaRef(alias, "name")),
+	eventSchemaSlug: (alias: string) =>
+		queryEngineField("eventSchemaSlug", queryEngineSchemaRef(alias, "slug")),
+	entityId: (alias: string) =>
+		queryEngineField("entityId", queryEngineSystemRef(alias, "entityId")),
+	occurredAt: (alias: string) =>
+		queryEngineField("occurredAt", queryEngineSystemRef(alias, "occurredAt")),
+	sessionEntityId: (alias: string) =>
+		queryEngineField("sessionEntityId", queryEngineSystemRef(alias, "sessionEntityId")),
 	updatedAt: (alias: string) =>
 		queryEngineField("updatedAt", queryEngineSystemRef(alias, "updatedAt")),
 };
+
+export const queryEngineEntityIdEquals = (alias: string, entityId: string) =>
+	queryEngineComparison("eq", queryEngineSystemRef(alias, "id"), queryEngineLiteral(entityId));
