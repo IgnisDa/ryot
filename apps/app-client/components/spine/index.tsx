@@ -1,7 +1,7 @@
 import { useAtom, useAtomValue } from "jotai";
 import type { ReactNode } from "react";
 import { useCallback } from "react";
-import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import { useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
 	useAnimatedStyle,
@@ -9,13 +9,14 @@ import Animated, {
 	withSpring,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
+import { Box } from "@/components/ui/box";
+import { Pressable } from "@/components/ui/pressable";
 import {
 	railOpenAtom,
 	searchOpenAtom,
 	subFlyoutOpenAtom,
 	trackersAtom,
 } from "@/lib/navigation";
-import { C } from "@/lib/theme";
 import { SpineHairline } from "./hairline";
 import { RAIL_WIDTH, SPRING_CONFIG, SpineRail } from "./rail";
 import { SearchOverlay } from "./search-overlay";
@@ -106,25 +107,29 @@ export function SpineNavigation({ children }: Props) {
 
 	if (isTablet) {
 		return (
-			<View style={styles.row}>
-				<View style={styles.content}>{children}</View>
+			<Box className="flex-1 flex-row">
+				<Box className="flex-1">{children}</Box>
 				{subFlyoutOpen && (
 					<SpineSubFlyout pinned onNavigate={() => setSubFlyoutOpen(false)} />
 				)}
 				<SpineRail pinned onClose={closeRail} />
-			</View>
+			</Box>
 		);
 	}
 
 	return (
-		<View style={styles.fill}>
+		<Box className="flex-1">
 			{children}
 			<GestureDetector gesture={panGesture}>
-				<View style={styles.overlay} pointerEvents="box-none">
-					<Animated.View style={[styles.dim, dimStyle]} pointerEvents="auto">
+				<Box className="absolute inset-0 z-20" pointerEvents="box-none">
+					<Animated.View
+						style={dimStyle}
+						pointerEvents="auto"
+						className="absolute inset-0 z-12 bg-ink"
+					>
 						<Pressable
-							style={StyleSheet.absoluteFill}
 							onPress={handleDismiss}
+							className="absolute inset-0"
 							accessibilityLabel="Close navigation"
 						/>
 					</Animated.View>
@@ -135,18 +140,10 @@ export function SpineNavigation({ children }: Props) {
 					<SpineHairline railTranslateX={translateX} />
 
 					{searchOpen && <SearchOverlay />}
-				</View>
+				</Box>
 			</GestureDetector>
-		</View>
+		</Box>
 	);
 }
 
 export { BreadcrumbChip } from "./breadcrumb-chip";
-
-const styles = StyleSheet.create({
-	fill: { flex: 1 },
-	content: { flex: 1 },
-	row: { flex: 1, flexDirection: "row" },
-	overlay: { ...StyleSheet.absoluteFill, zIndex: 20 },
-	dim: { ...StyleSheet.absoluteFill, zIndex: 12, backgroundColor: C.ink },
-});
