@@ -13,6 +13,7 @@
 		"includes": [
 			"**",
 			"!apps/frontend/app/styles/*.css",
+			"!apps/app-frontend/src/routeTree.gen.ts",
 			"!apps/docs/src/includes/export-schema.ts"
 		]
 	},
