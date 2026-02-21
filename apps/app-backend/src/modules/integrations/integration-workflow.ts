@@ -4,12 +4,10 @@ import { UserId } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Layer, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
-import { MediaImportWorkflowOperationsLive } from "#modules/imports/media/operations-workflow";
 import {
 	markImportRunStarted,
 	sanitizeErrorMessage,
 } from "#modules/imports/runtime/import-run-status";
-import { ImportRunArtifacts } from "#modules/imports/runtime/workflow-helpers";
 
 import { failRun, toIntegrationWorkflowError } from "./failure-workflow";
 import { IntegrationRunError, IntegrationRunJobData } from "./jobs";
@@ -95,11 +93,5 @@ const ProcessIntegrationRunWorkflowLive = ProcessIntegrationRunWorkflow.toLayer(
 );
 
 export const IntegrationWorkflowDefinitionsLive = ProcessIntegrationRunWorkflowLive.pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			ImportRunArtifacts.Default,
-			IntegrationRunOperationsLive,
-			MediaImportWorkflowOperationsLive,
-		),
-	),
+	Layer.provide(IntegrationRunOperationsLive),
 );
