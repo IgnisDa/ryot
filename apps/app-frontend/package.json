@@ -9,6 +9,7 @@
 		"dev": "vite dev",
 		"typecheck": "tsc",
 		"build": "vite build",
+		"lint": "biome check .",
 		"preview": "vite preview"
 	},
 	"installConfig": {
