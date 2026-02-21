@@ -11,8 +11,9 @@ import { Effect } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
+import type { QueryExecutionScope } from "../execution-scope";
 import { compileBool, compileOrderBySql } from "./compile/expr";
-import { entitySourceSql, userVisibleSql, type SqlFragment } from "./compile/fragments";
+import { entitySourceSql, rowVisibleSql, type SqlFragment } from "./compile/fragments";
 import { compileIncludes, type CompiledIncludes } from "./compile/includes";
 import type { CompileScope } from "./compile/scope";
 import { rootScope } from "./compile/scope";
@@ -95,7 +96,7 @@ const compiledWhere = (where: Expr | null, scope: CompileScope): SqlFragment | n
 	where ? compileBool(where, scope) : null;
 
 const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
-	userId: string,
+	executionScope: QueryExecutionScope,
 	language: string | null,
 	doc: RowsQueryDocument,
 ) {
@@ -104,12 +105,12 @@ const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 		return yield* new BadRequest({ message: "Entity rows query requires an entity source" });
 	}
 	const offset = (output.pagination.page - 1) * output.pagination.limit;
-	const visibleSchemas = yield* loadVisibleEntitySchemas(userId, source.schemas);
+	const visibleSchemas = yield* loadVisibleEntitySchemas(executionScope, source.schemas);
 	if (visibleSchemas.length === 0) {
 		return rowsResponse([], output.pagination, 0, offset);
 	}
 
-	const scope = rootScope(source, userId, language);
+	const scope = rootScope(source, executionScope, language);
 	const where = compiledWhere(source.where, scope);
 	const includes = compileIncludes(output.include ?? [], scope, "e");
 	const db = yield* CurrentDb;
@@ -121,7 +122,7 @@ const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 				ON es.slug = e.entity_schema_slug
 			${includes.laterals}
 			WHERE e.entity_schema_slug IN (${idListSql(visibleSchemas)})
-				AND ${userVisibleSql("e", userId)}
+				AND ${rowVisibleSql("entity", "e", executionScope)}
 				${whereTail(where)}
 			ORDER BY ${compileOrderBySql(output.orderBy, scope)}
 			LIMIT ${output.pagination.limit} OFFSET ${offset}
@@ -134,7 +135,7 @@ const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 });
 
 const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
-	userId: string,
+	executionScope: QueryExecutionScope,
 	language: string | null,
 	doc: RowsQueryDocument,
 ) {
@@ -143,10 +144,13 @@ const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 		return yield* new BadRequest({ message: "Event rows query requires an event source" });
 	}
 	const offset = (output.pagination.page - 1) * output.pagination.limit;
-	const visibleEntitySchemas = yield* loadVisibleEntitySchemas(userId, source.entity.schemas);
+	const visibleEntitySchemas = yield* loadVisibleEntitySchemas(
+		executionScope,
+		source.entity.schemas,
+	);
 	const entitySchemaSlugs = visibleEntitySchemas.map((schema) => schema.id);
 	const visibleEventSchemas = yield* loadVisibleEventSchemasForEntitySchemas(
-		userId,
+		executionScope,
 		entitySchemaSlugs,
 		source.schemas,
 	);
@@ -154,7 +158,7 @@ const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 		return rowsResponse([], output.pagination, 0, offset);
 	}
 
-	const scope = rootScope(source, userId, language);
+	const scope = rootScope(source, executionScope, language);
 	const where = compiledWhere(source.where, scope);
 	const includes = compileIncludes(output.include ?? [], scope, "e");
 	const db = yield* CurrentDb;
@@ -164,13 +168,13 @@ const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 			FROM event ev
 			JOIN ${entitySourceSql(language)} e ON e.id = ev.entity_id
 			${includes.laterals}
-			WHERE ev.user_id = ${userId}
+			WHERE ${rowVisibleSql("event", "ev", executionScope)}
 				AND ev.event_schema_slug IN (${idListSql(visibleEventSchemas)})
 				AND e.entity_schema_slug IN (${sql.join(
 					entitySchemaSlugs.map((id) => sql`${id}`),
 					sql`, `,
 				)})
-				AND ${userVisibleSql("e", userId)}
+				AND ${rowVisibleSql("entity", "e", executionScope)}
 				${whereTail(where)}
 			ORDER BY ${compileOrderBySql(output.orderBy, scope)}
 			LIMIT ${output.pagination.limit} OFFSET ${offset}
@@ -183,7 +187,7 @@ const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 });
 
 const executeRelationshipRowsQuery = Effect.fn("executeRelationshipRowsQuery")(function* (
-	userId: string,
+	executionScope: QueryExecutionScope,
 	language: string | null,
 	doc: RowsQueryDocument,
 ) {
@@ -195,12 +199,12 @@ const executeRelationshipRowsQuery = Effect.fn("executeRelationshipRowsQuery")(f
 	}
 	const offset = (output.pagination.page - 1) * output.pagination.limit;
 	const [relationshipSchemas, sourceEntitySchemas, targetEntitySchemas] =
-		yield* loadRelationshipRootVisibleSchemas(userId, source);
+		yield* loadRelationshipRootVisibleSchemas(executionScope, source);
 	if (relationshipSchemas.length === 0) {
 		return rowsResponse([], output.pagination, 0, offset);
 	}
 
-	const scope = rootScope(source, userId, language);
+	const scope = rootScope(source, executionScope, language);
 	const where = compiledWhere(source.where, scope);
 	const db = yield* CurrentDb;
 	const rawRows = yield* dbEffect(() =>
@@ -212,9 +216,17 @@ const executeRelationshipRowsQuery = Effect.fn("executeRelationshipRowsQuery")(f
 			WHERE r.relationship_schema_slug IN (${idListSql(relationshipSchemas)})
 				AND se.entity_schema_slug IN (${idListSql(sourceEntitySchemas)})
 				AND te.entity_schema_slug IN (${idListSql(targetEntitySchemas)})
-				AND ${userVisibleSql("r", userId)}
-				AND ${userVisibleSql("se", userId)}
-				AND ${userVisibleSql("te", userId)}
+				AND ${rowVisibleSql("relationship", "r", executionScope)}
+				AND ${rowVisibleSql("entity", "se", executionScope, {
+					type: "relationshipEndpoint",
+					endpoint: "source",
+					relationshipSchemaSlugs: source.schemas,
+				})}
+				AND ${rowVisibleSql("entity", "te", executionScope, {
+					type: "relationshipEndpoint",
+					endpoint: "target",
+					relationshipSchemaSlugs: source.schemas,
+				})}
 				${whereTail(where)}
 			ORDER BY ${compileOrderBySql(output.orderBy, scope)}
 			LIMIT ${output.pagination.limit} OFFSET ${offset}
@@ -227,17 +239,17 @@ const executeRelationshipRowsQuery = Effect.fn("executeRelationshipRowsQuery")(f
 });
 
 export const executeRowsQuery = (
-	userId: string,
+	executionScope: QueryExecutionScope,
 	language: string | null,
 	doc: RowsQueryDocument,
 ) => {
 	switch (doc.source.type) {
 		case "events":
-			return executeEventRowsQuery(userId, language, doc);
+			return executeEventRowsQuery(executionScope, language, doc);
 		case "relationships":
-			return executeRelationshipRowsQuery(userId, language, doc);
+			return executeRelationshipRowsQuery(executionScope, language, doc);
 		case "entities":
-			return executeEntityRowsQuery(userId, language, doc);
+			return executeEntityRowsQuery(executionScope, language, doc);
 		default:
 			return absurdSourceType(doc.source);
 	}

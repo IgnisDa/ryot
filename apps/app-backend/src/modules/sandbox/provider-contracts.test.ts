@@ -48,12 +48,14 @@ it.effect("keeps Effect provider decoders in parity with SDK encoded results", (
 		const details = yield* decodeSdkDetails({
 			name: "Show",
 			properties: { year: 2024 },
+			expectedChildEntitySchemaSlug: "show-season",
 			childEntities: [
 				{
 					name: "Season 1",
 					externalId: "season-1",
 					properties: { number: 1 },
 					entitySchemaSlug: "show-season",
+					expectedChildEntitySchemaSlug: "show-episode",
 					childEntities: [
 						{
 							name: "Episode 1",

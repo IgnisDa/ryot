@@ -7,6 +7,7 @@ import { Effect } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { trimToNull } from "#lib/shared/validation";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
@@ -16,15 +17,9 @@ import { RelationshipsService } from "#modules/relationships/service";
 
 const entityNotFoundError = "Entity not found";
 const sameEntityMergeError = "Cannot merge an entity into itself";
-const exerciseKindMismatchError = "Exercises must have the same kind";
 const libraryEntityMergeError = "Library entity user state cannot be merged";
 const differentEntitySchemaError = "Entities must belong to the same schema";
 const libraryEntityUserStateError = "Library entity user state cannot be cleared";
-
-const getPropertyString = (properties: Record<string, unknown>, key: string) => {
-	const value = properties[key];
-	return typeof value === "string" ? value : null;
-};
 
 export class UserStateService extends Effect.Service<UserStateService>()("UserStateService", {
 	effect: Effect.gen(function* () {
@@ -32,6 +27,7 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 		const eventsRepository = yield* EventsRepository;
 		const events = yield* EventsService;
 		const relationships = yield* RelationshipsService;
+		const definitions = yield* DefinitionRegistry;
 		const runInTransaction = yield* TransactionRunner;
 		const entitiesRepository = yield* EntitiesRepository;
 		const relationshipsRepository = yield* RelationshipsRepository;
@@ -137,14 +133,15 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 			if (fromScope.entitySchemaSlug !== intoScope.entitySchemaSlug) {
 				return yield* badRequest(differentEntitySchemaError);
 			}
-			if (
-				fromScope.entitySchemaSlug === "exercise" &&
-				getPropertyString(fromScope.properties, "kind") !==
-					getPropertyString(intoScope.properties, "kind")
-			) {
-				return yield* badRequest(exerciseKindMismatchError);
+			const entitySchema = definitions.getEntitySchema(fromScope.entitySchemaSlug);
+			if (!entitySchema) {
+				return yield* Effect.die("Entity schema not found during entity merge");
 			}
-
+			for (const property of entitySchema.mergeIdentityProperties) {
+				if (!Bun.deepEquals(fromScope.properties[property], intoScope.properties[property])) {
+					return yield* badRequest(`Entities must have the same '${property}' property`);
+				}
+			}
 			return yield* runInTransaction(
 				Effect.gen(function* () {
 					const eventIds = yield* eventsRepository.listUserEventIdsForEntity({

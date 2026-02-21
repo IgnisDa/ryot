@@ -1,5 +1,6 @@
 import type { RootSource } from "@ryot/contract/modules/query-engine/language";
 
+import type { QueryExecutionScope } from "../../execution-scope";
 import type { RootAliasKind } from "../types";
 
 // A doc alias resolved to its SQL table alias, the kind of root it belongs to, and its schema
@@ -18,7 +19,7 @@ type AliasAllocator = { next: () => number };
 // scope for its own aliases; refs to an ancestor source fall through to the parent chain.
 export class CompileScope {
 	private constructor(
-		readonly userId: string,
+		readonly executionScope: QueryExecutionScope,
 		readonly language: string | null,
 		private readonly bindings: ReadonlyMap<string, SqlRef>,
 		private readonly parent: CompileScope | null,
@@ -26,18 +27,18 @@ export class CompileScope {
 	) {}
 
 	static make(
-		userId: string,
+		executionScope: QueryExecutionScope,
 		language: string | null,
 		bindings: Map<string, SqlRef>,
 	): CompileScope {
 		let counter = 0;
-		return new CompileScope(userId, language, bindings, null, {
+		return new CompileScope(executionScope, language, bindings, null, {
 			next: () => (counter += 1),
 		});
 	}
 
 	child(bindings: Map<string, SqlRef>): CompileScope {
-		return new CompileScope(this.userId, this.language, bindings, this, this.allocator);
+		return new CompileScope(this.executionScope, this.language, bindings, this, this.allocator);
 	}
 
 	// Validation has already resolved every alias, so a miss is an internal invariant violation.
@@ -61,7 +62,7 @@ export class CompileScope {
 // plus its entity `e`/`es`; relationship `r`/`rs` plus endpoint entities `se`/`ses`, `te`/`tes`.
 export const rootScope = (
 	source: RootSource,
-	userId: string,
+	executionScope: QueryExecutionScope,
 	language: string | null,
 ): CompileScope => {
 	const bindings = new Map<string, SqlRef>();
@@ -94,5 +95,5 @@ export const rootScope = (
 			schemas: source.targetEntity.schemas,
 		});
 	}
-	return CompileScope.make(userId, language, bindings);
+	return CompileScope.make(executionScope, language, bindings);
 };

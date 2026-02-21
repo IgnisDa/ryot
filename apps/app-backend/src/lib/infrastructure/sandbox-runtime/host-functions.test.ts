@@ -1,6 +1,14 @@
 import { expect, it } from "@effect/vitest";
 import type { ExecutionAuthority } from "@ryot/contract/modules/sandbox/schemas";
-import { IntegrationId, SubscriptionRunId, UserId } from "@ryot/contract/schema/brands";
+import {
+	EntitySchemaSlug,
+	IntegrationId,
+	RelationshipId,
+	SubscriptionRunId,
+	UserId,
+} from "@ryot/contract/schema/brands";
+import type { ChangeUserRelationshipBatch } from "@ryot/sandbox-sdk/core";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Effect, Either, Layer, Option, Redacted } from "effect";
 import { describe } from "vitest";
 
@@ -26,6 +34,7 @@ import {
 	normalizePreferences,
 	toSandboxCreateEventsResult,
 } from "./host-functions";
+import { selectSandboxHostFunctions } from "./service";
 import type { SandboxRunInput } from "./shared";
 
 const config = {
@@ -254,6 +263,270 @@ describe("getIntegration", () => {
 			expect(Either.getLeft(result)).toEqual(Option.some({ message: "Integration not found" }));
 		}),
 	);
+});
+
+const queryDocument = {
+	source: { type: "entities", alias: "entity", schemas: ["media"], where: null },
+	output: {
+		fields: [],
+		type: "rows",
+		pagination: { page: 1, limit: 10 },
+		orderBy: [{ order: "asc", expr: { type: "literal", value: 1 } }],
+	},
+} as const satisfies JsonValue;
+
+const queryResponse = {
+	type: "rows" as const,
+	data: { items: [], pageInfo: { page: 1, limit: 10, total: 0, hasMore: false } },
+};
+
+const executeQueryEngine = () => Effect.void;
+
+const systemQueryCaller = {
+	eventSchemas: [],
+	entitySchemaSlugs: ["media"],
+	pluginSlug: "media",
+	relationshipSchemaSlugs: ["media-monitoring"],
+};
+
+const runExecuteQueryEngine = (input: SandboxRunInput, caller: typeof systemQueryCaller | null) => {
+	const userCalls: unknown[] = [];
+	const systemCalls: unknown[] = [];
+	const resolvedScriptIds: string[] = [];
+	return makeAdditionalSandboxApiFunctions().pipe(
+		Effect.flatMap((functions) =>
+			Effect.either(functions.executeQueryEngine(input, queryDocument)),
+		),
+		Effect.map((result) => ({ result, resolvedScriptIds, systemCalls, userCalls })),
+		Effect.provide(
+			Layer.mergeAll(
+				dbRunnerLayer,
+				transactionLayer,
+				makeAppConfigLayer(),
+				Layer.succeed(RedisService, makeRedisService()),
+				Layer.mock(EventsService)({ _tag: "EventsService" }),
+				Layer.mock(EntitiesService)({ _tag: "EntitiesService" }),
+				Layer.mock(EntitiesRepository)({ _tag: "EntitiesRepository" }),
+				Layer.mock(IntegrationsRepository)({ _tag: "IntegrationsRepository" }),
+				Layer.mock(RelationshipsRepository)({ _tag: "RelationshipsRepository" }),
+				Layer.succeed(DefinitionRegistry, {
+					_tag: "DefinitionRegistry",
+					...makeDefinitionRegistry(),
+				}),
+				Layer.mock(PluginRuntimeResolver)({
+					_tag: "PluginRuntimeResolver",
+					resolveSystemQueryActivity: (scriptId) => {
+						resolvedScriptIds.push(scriptId);
+						return Effect.succeed(caller);
+					},
+				}),
+				Layer.mock(QueryEngineService)({
+					_tag: "QueryEngineService",
+					executeSystem: (scope, doc) => {
+						systemCalls.push({ scope, doc });
+						return Effect.succeed(queryResponse);
+					},
+					executeForUser: (userId, language, doc) => {
+						userCalls.push({ userId, language, doc });
+						return Effect.succeed(queryResponse);
+					},
+				}),
+			),
+		),
+	);
+};
+
+describe("executeQueryEngine", () => {
+	it.effect("derives system scope from the persisted activity script identity", () =>
+		Effect.gen(function* () {
+			const execution = yield* runExecuteQueryEngine(
+				{ ...runInput({ type: "system" }), metadata: { kind: "activity" } },
+				systemQueryCaller,
+			);
+
+			expect(Either.getOrThrow(execution.result)).toEqual(queryResponse);
+			expect(execution.resolvedScriptIds).toEqual(["script-1"]);
+			expect(execution.systemCalls).toEqual([{ scope: systemQueryCaller, doc: queryDocument }]);
+			expect(execution.userCalls).toEqual([]);
+		}),
+	);
+
+	it.effect("rejects system access when persisted identity is not a pinned plugin activity", () =>
+		Effect.gen(function* () {
+			const execution = yield* runExecuteQueryEngine(
+				{ ...runInput({ type: "system" }), metadata: { kind: "activity" } },
+				null,
+			);
+
+			expect(Either.getLeft(execution.result)).toEqual(
+				Option.some({
+					message: "executeQueryEngine system access requires a pinned plugin activity script",
+				}),
+			);
+			expect(execution.systemCalls).toEqual([]);
+		}),
+	);
+
+	it.effect(
+		"keeps direct and delegated user execution in user scope without a synthetic user",
+		() =>
+			Effect.gen(function* () {
+				const execution = yield* runExecuteQueryEngine(
+					runInput(subscriptionAuthority({ kind: "api" })),
+					null,
+				);
+
+				expect(Either.getOrThrow(execution.result)).toEqual(queryResponse);
+				expect(execution.resolvedScriptIds).toEqual([]);
+				expect(execution.systemCalls).toEqual([]);
+				expect(execution.userCalls).toEqual([
+					{ userId: "user-1", language: null, doc: queryDocument },
+				]);
+			}),
+	);
+
+	it("exposes system query execution only to workflow activities while preserving user access", () => {
+		const bound = { executeQueryEngine };
+		const systemScript = selectSandboxHostFunctions(bound, {
+			metadata: { kind: "script" },
+			authority: { type: "system" },
+			allowedHostFunctions: ["executeQueryEngine"],
+		});
+		const systemActivity = selectSandboxHostFunctions(bound, {
+			authority: { type: "system" },
+			metadata: { kind: "activity" },
+			allowedHostFunctions: ["executeQueryEngine"],
+		});
+		const user = selectSandboxHostFunctions(bound, {
+			metadata: { kind: "operation" },
+			allowedHostFunctions: ["executeQueryEngine"],
+			authority: { type: "user", userId: UserId.make("user-1") },
+		});
+
+		expect(systemScript).toEqual({});
+		expect(systemActivity).toEqual({ executeQueryEngine });
+		expect(user).toEqual({ executeQueryEngine });
+	});
+});
+
+const runChangeUserRelationships = (
+	authority: ExecutionAuthority,
+	batches: ReadonlyArray<ChangeUserRelationshipBatch>,
+	repository: Layer.Layer<RelationshipsRepository>,
+) =>
+	makeAdditionalSandboxApiFunctions().pipe(
+		Effect.flatMap((functions) =>
+			Effect.either(functions.changeUserRelationships(runInput(authority), batches)),
+		),
+		Effect.provide(
+			Layer.mergeAll(
+				dbRunnerLayer,
+				transactionLayer,
+				makeAppConfigLayer(),
+				Layer.succeed(RedisService, makeRedisService()),
+				Layer.mock(EventsService)({ _tag: "EventsService" }),
+				Layer.mock(EntitiesService)({ _tag: "EntitiesService" }),
+				Layer.mock(QueryEngineService)({ _tag: "QueryEngineService" }),
+				Layer.mock(PluginRuntimeResolver)({ _tag: "PluginRuntimeResolver" }),
+				Layer.mock(IntegrationsRepository)({ _tag: "IntegrationsRepository" }),
+				repository,
+				Layer.succeed(DefinitionRegistry, {
+					_tag: "DefinitionRegistry",
+					...makeDefinitionRegistry(),
+				}),
+				Layer.mock(EntitiesRepository)({
+					_tag: "EntitiesRepository",
+					getEntityScopeForUser: ({ entityId }) =>
+						Effect.succeed({
+							entityId,
+							isBuiltin: true,
+							entityName: "Entity",
+							entityUserId: null,
+							entitySchemaSlug: EntitySchemaSlug.make(
+								entityId === "collection-1" ? "collection" : "entity",
+							),
+						}),
+				}),
+			),
+		),
+	);
+
+describe("changeUserRelationships", () => {
+	const identity = {
+		sourceEntityId: "entity-1",
+		targetEntityId: "collection-1",
+		relationshipSchemaSlug: "member-of",
+	};
+	const batch = { deletes: [], creates: [{ ...identity, properties: {} }] };
+
+	it.effect("derives the relationship owner from direct user authority", () => {
+		const created: unknown[] = [];
+		const repository = Layer.mock(RelationshipsRepository)({
+			_tag: "RelationshipsRepository",
+			createRelationship: (input) => {
+				created.push(input);
+				return Effect.succeed({
+					...input,
+					wasInserted: true,
+					createdAt: "2026-07-28T00:00:00.000Z",
+					id: RelationshipId.make("relationship-1"),
+				});
+			},
+		});
+
+		return Effect.gen(function* () {
+			const result = yield* runChangeUserRelationships(
+				{ type: "user", userId: UserId.make("trusted-user") },
+				[batch],
+				repository,
+			);
+
+			expect(Either.getOrThrow(result)).toEqual([{ created: 1, deleted: 0 }]);
+			expect(created).toEqual([
+				{
+					scope: "user",
+					userId: "trusted-user",
+					properties: { rank: 0 },
+					sourceEntityId: "entity-1",
+					targetEntityId: "collection-1",
+					relationshipSchemaSlug: "member-of",
+				},
+			]);
+		});
+	});
+
+	it.effect("rejects delegated user authority and total change overflow before writing", () => {
+		let writes = 0;
+		const repository = Layer.mock(RelationshipsRepository)({
+			_tag: "RelationshipsRepository",
+			createRelationship: () => {
+				writes += 1;
+				return Effect.die("must not write");
+			},
+		});
+		const overflow = Array.from({ length: 501 }, () => identity);
+
+		return Effect.gen(function* () {
+			const delegated = yield* runChangeUserRelationships(
+				subscriptionAuthority({ kind: "api" }),
+				[batch],
+				repository,
+			);
+			const tooMany = yield* runChangeUserRelationships(
+				{ type: "user", userId: UserId.make("trusted-user") },
+				[{ creates: [], deletes: overflow }],
+				repository,
+			);
+
+			expect(Either.getLeft(delegated)).toEqual(
+				Option.some({ message: "changeUserRelationships is available only to user executions" }),
+			);
+			expect(Either.getLeft(tooMany)).toEqual(
+				Option.some({ message: "changeUserRelationships exceeds 500 changes" }),
+			);
+			expect(writes).toBe(0);
+		});
+	});
 });
 
 describe("toSandboxCreateEventsResult", () => {

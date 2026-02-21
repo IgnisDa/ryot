@@ -25,6 +25,11 @@ export type EntitySchemaDefinition = {
 	readonly accentColor: string;
 	readonly propertiesSchema: AppSchema;
 	readonly eventSchemas: ReadonlyArray<EventSchemaDefinition>;
+	readonly mergeIdentityProperties: ReadonlyArray<string>;
+};
+
+type EntitySchemaSourceDefinition = Omit<EntitySchemaDefinition, "mergeIdentityProperties"> & {
+	readonly mergeIdentityProperties?: ReadonlyArray<string> | undefined;
 };
 
 export type RelationshipSchemaDefinition = {
@@ -65,7 +70,7 @@ export type SavedViewDefinition = {
 
 export type DefinitionSource = {
 	readonly savedViews: ReadonlyArray<SavedViewDefinition>;
-	readonly entitySchemas: ReadonlyArray<EntitySchemaDefinition>;
+	readonly entitySchemas: ReadonlyArray<EntitySchemaSourceDefinition>;
 	readonly signalSchemas: ReadonlyArray<SignalSchemaDefinition>;
 	readonly relationshipSchemas: ReadonlyArray<RelationshipSchemaDefinition>;
 };
@@ -137,6 +142,23 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 
 	for (const entitySchema of source.entitySchemas) {
 		assertSchemaDefinition("entity", entitySchema.slug, entitySchema.propertiesSchema);
+		const mergeIdentityProperties = entitySchema.mergeIdentityProperties ?? [];
+		const uniqueMergeIdentityProperties = new Set(mergeIdentityProperties);
+		if (mergeIdentityProperties.some((property) => property.length === 0)) {
+			throw new Error(
+				`Entity schema ${entitySchema.slug} merge identity property names cannot be empty`,
+			);
+		}
+		if (uniqueMergeIdentityProperties.size !== mergeIdentityProperties.length) {
+			throw new Error(`Entity schema ${entitySchema.slug} has duplicate merge identity properties`);
+		}
+		for (const property of mergeIdentityProperties) {
+			if (!Object.hasOwn(entitySchema.propertiesSchema.fields, property)) {
+				throw new Error(
+					`Entity schema ${entitySchema.slug} merge identity property '${property}' is not defined in its properties schema`,
+				);
+			}
+		}
 		assertUniqueSlugs(`event schema for ${entitySchema.slug}`, entitySchema.eventSchemas);
 		for (const eventSchema of entitySchema.eventSchemas) {
 			assertSchemaDefinition(
@@ -192,7 +214,11 @@ export const buildDefinitionSnapshot = (source: DefinitionSource): DefinitionSna
 		entitySchemas: Object.fromEntries(
 			cloned.entitySchemas.map(({ eventSchemas, ...entitySchema }) => [
 				entitySchema.slug,
-				{ ...entitySchema, eventSchemas: toRecord(eventSchemas) },
+				{
+					...entitySchema,
+					eventSchemas: toRecord(eventSchemas),
+					mergeIdentityProperties: entitySchema.mergeIdentityProperties ?? [],
+				},
 			]),
 		),
 	});
