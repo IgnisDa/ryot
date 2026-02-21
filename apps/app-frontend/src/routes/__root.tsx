@@ -1,3 +1,4 @@
+import AuthClientProvider from "@/hooks/auth";
 import { ColorSchemeScript, MantineProvider } from "@mantine/core";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import type { QueryClient } from "@tanstack/react-query";
@@ -47,24 +48,26 @@ function RootDocument(props: { children: React.ReactNode }) {
 				<HeadContent />
 			</head>
 			<body>
-				<MantineProvider>
-					<ReactQueryProvider>
-						{props.children}
-						<TanStackDevtools
-							config={{ position: "bottom-right" }}
-							plugins={[
-								{
-									name: "Tanstack Query",
-									render: <ReactQueryDevtoolsPanel />,
-								},
-								{
-									name: "Tanstack Router",
-									render: <TanStackRouterDevtoolsPanel />,
-								},
-							]}
-						/>
-					</ReactQueryProvider>
-				</MantineProvider>
+				<AuthClientProvider>
+					<MantineProvider>
+						<ReactQueryProvider>
+							{props.children}
+							<TanStackDevtools
+								config={{ position: "bottom-right" }}
+								plugins={[
+									{
+										name: "Tanstack Query",
+										render: <ReactQueryDevtoolsPanel />,
+									},
+									{
+										name: "Tanstack Router",
+										render: <TanStackRouterDevtoolsPanel />,
+									},
+								]}
+							/>
+						</ReactQueryProvider>
+					</MantineProvider>
+				</AuthClientProvider>
 				<Scripts />
 			</body>
 		</html>
