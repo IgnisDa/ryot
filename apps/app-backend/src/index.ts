@@ -36,12 +36,9 @@ const main = async () => {
 	await initializeQueues();
 	await initializeWorkers();
 
-	const server = serve(
-		{ port: Number.parseInt(config.PORT, 10), fetch: app.fetch },
-		(c) => {
-			console.info(`Server listening on port ${c.port}...`);
-		},
-	);
+	const server = serve({ port: config.PORT, fetch: app.fetch }, (c) => {
+		console.info(`Server listening on port ${c.port}...`);
+	});
 
 	const shutdown = async () => {
 		console.info("Shutting down server...");
