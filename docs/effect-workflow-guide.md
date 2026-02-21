@@ -231,9 +231,9 @@ this codebase correctly use `generateId()` for exactly that reason (e.g.
 The rule only bites when the dispatching code itself can run more than once.
 
 **The actual, correctly-executed example of this pattern in this codebase** lives in
-`apps/app-backend/src/modules/imports/media/population-workflow.ts:79-87` and
-`resolution-workflow.ts:89-96`, both implementing the `MediaImportWorkflowOperations` interface
-(`types-workflow.ts:27-47`):
+`apps/app-backend/src/modules/imports/media/population-workflow.ts:73-81` and
+`resolution-workflow.ts:89-96`, both consuming the `MediaImportWorkflowOperations` interface
+(`types-workflow.ts:22-60`):
 
 ```ts
 // resolution-workflow.ts:89-96
@@ -446,15 +446,27 @@ inference from reading the source, not a confirmed bug.
 **Practical takeaway**: avoid both patterns defensively — put concurrent fan-out *inside* a single
 Activity's `execute:` body rather than fanning out over multiple `Activity.make` calls, and always
 dispatch child workflows directly from the workflow body, never from inside an Activity — but don't
-describe either as a "confirmed bug" the way #6294 is. `apps/app-backend` currently has zero
-instances of pattern 1. One instance of pattern 2 remains: `collections/service.ts`'s
-`queueCollectionEvent`, still dispatched via `addToCollection`'s `Activity.make` wrapper in
-`imports/media/writing-workflow.ts`. Its previously-solid, independent-of-#6014 justification — a
-fresh random `executionId` generated on every activity retry — has since been fixed (the id is now
-derived from the relationship-membership row's own id), so this instance is now only a concern if
-the unconfirmed #6014 theory itself holds. A second instance, in the workout importer
-(`imports/workout/processor.ts`/`workout-workflow.ts`), was fixed defensively by moving its event dispatch
-out of the Activity entirely, even though its `executionId` was already deterministic.
+describe either as a "confirmed bug" the way #6294 is. `apps/app-backend` currently has **zero
+instances of either pattern**. Every child-workflow dispatch that used to run transitively from
+inside an `Activity.make` body has been refactored so the dispatch now happens from a workflow body:
+
+- The `EventCreateWorkflow` body dispatches before-create trigger sandboxes through
+  `DurableQueue.process(SandboxExecutionQueue)` and after-create triggers as discarded
+  `RunSandboxWorkflow` children — both from the body, no longer from a single `createEventsForUser`
+  activity that ran them transitively (`events/event-create-workflow-live.ts`).
+- The collection-added event is dispatched from `AddEntityToCollectionWorkflow`'s body, not from an
+  `Activity.make` wrapper around `addToCollection` (`collections/add-entity-to-collection-workflow-live.ts:44`).
+- Integration reconciliation runs dispatch `ProcessIntegrationRunWorkflow` from
+  `IntegrationReconciliationWorkflow`'s body, replacing the reconciliation activity that dispatched
+  them transitively (`integrations/reconciliation-workflow.ts:37-46`).
+- Media monitoring dispatches `NotificationDeliveryWorkflow` from
+  `MediaMonitoringRefreshWorkflow`'s body, replacing an activity that wrapped
+  `NotificationsService.trigger` (`media-monitoring/refresh-workflow.ts:100`).
+
+`sandbox/workflow-boundaries.test.ts` pins these as source-text assertions (e.g. exactly one
+`.execute(EventCreateWorkflow, …)` and it lives in the add-to-collection workflow body, zero
+`.execute(RunSandboxWorkflow, …)` in `event-creation.ts`), so a regression can't reintroduce a
+transitive dispatch silently.
 
 ### No versioning primitive of any kind
 
@@ -491,13 +503,16 @@ Three genuinely different tiers exist, in increasing order of fidelity to produc
    by default; `makeWorkflowActivityEngine(instance)` additionally runs a given activity's
    `execute` directly in-process. **`execute` (real child-workflow dispatch) is never overridden by
    this helper** — it stays `Effect.die("unused")` unless a test supplies its own. Every
-   workflow-body test in this codebase sidesteps this by mocking `EventsService`/
-   `CollectionsService` at the service boundary instead of letting real child-workflow dispatch run.
+   workflow-body test in this codebase sidesteps this by mocking the operations/service boundary
+   instead of letting real child-workflow dispatch run.
    That's a reasonable choice for unit-testing orchestration logic, but it means **the real
-   `queueCollectionEvent → EventCreateWorkflow.execute` chain is invisible to the existing test
-   suite structurally, not just by oversight** — a dispatch-argument regression (e.g. a
-   reintroduced non-deterministic `executionId`) needs an explicit assertion on the mocked call's
-   input to catch, not just an assertion that the mock was called.
+   `AddEntityToCollectionWorkflow → EventCreateWorkflow.execute` chain (and the other body-to-child
+   dispatches) is invisible to the existing unit tests structurally, not just by oversight** — a
+   dispatch-argument regression (e.g. a reintroduced non-deterministic `executionId`) needs an
+   explicit assertion on the mocked call's input to catch, not just an assertion that the mock was
+   called. `sandbox/workflow-boundaries.test.ts` closes part of this gap by asserting *which* file
+   dispatches *which* child and how many times, but it still checks call sites by source text, not
+   the `executionId` argument passed at runtime.
 
 ---
 
@@ -546,44 +561,94 @@ definitions, and runtime engine wiring are all visible.
 ## Audit: how this codebase measures up today
 
 This section is the result of reading every file in `apps/app-backend` that references
-`@effect/workflow` against the ground truth above. The codebase is in good shape — sandbox,
-entity-translation, entity-import, library-membership, saved-views, and collections are all clean,
-consistent reference examples of the rules above. What follows is what's left: a couple of
-deliberate trade-offs worth knowing about, and one lower-severity Activity-nesting concern that's
-tracked but intentionally not fixed (see the `#6014` discussion above).
+`@effect/workflow` against the ground truth above. The codebase is in good shape, and is organized
+around one principle: **one durable owner per business operation**. Each user-visible operation —
+create an event, add an entity to a collection, import a library entity, run a normalized media
+import, refresh trending, reconcile integrations — has a single workflow (or a single durable
+queue) that owns its writes and its child dispatches, so those steps journal under one execution id
+regardless of which caller triggered them. There are **no remaining instances** of a child workflow
+dispatched transitively from inside an `Activity.make` body (see the [#6014
+discussion](#reported-weaker-evidence-activitymake-concurrencynesting-hazards-6014) above); every
+child dispatch happens from a workflow body.
 
-### Findings
+### The canonical owners
 
-- **Bare-but-idempotent write**: `events/event-creation.ts:320-332` inserts a new event row
-  directly in `EventCreateWorkflow`'s body (not Activity-wrapped) — but the insert uses a
-  deterministic id (`` `${executionId}-event-${itemIndex}` ``) with `.onConflictDoNothing()` plus
-  a read-back on conflict (`events/repository.ts:108-146`). That's a legitimate *alternative* to
-  Activity-wrapping — deterministic-upsert instead of RPC-memoization — but it's easy to mistake
-  for a violation of the "wrap bare side effects" rule at a glance. Worth knowing this codebase
-  uses both strategies, deliberately, in different places.
-- **Bare reads**: a handful of DB reads inside `EventCreateWorkflow`'s body
-  (`event-creation.ts:92-95,255-260`) are unwrapped. Not a duplicate-write risk, but a
-  replay-drift risk — a resumed workflow could observe different data (e.g. edited trigger
-  config) than the original attempt saw. Low severity, worth knowing about.
-- **`DurableQueue.process(...)` called bare in workflow bodies** — this pattern recurs in nearly
-  every module (sandbox script dispatch, mainly). It is **correct**, not a violation; see the
+The workflows and durable queues that each single-own a business operation, all following the rules
+above:
+
+- **`EventCreateWorkflow`** (`events/event-create-workflow-live.ts`) — orchestrates event creation
+  from its body: a `prepare-item` activity resolves scopes/triggers, before-create triggers run via
+  `DurableQueue.process(SandboxExecutionQueue)`, a `write-event` activity persists the row,
+  after-create triggers are resolved in an activity and dispatched as discarded `RunSandboxWorkflow`
+  children from the body, and library membership for referenced global entities is dispatched
+  through `EnsureLibraryMembershipQueue`.
+- **`EnsureLibraryMembershipQueue`** — the canonical durable owner of the library-membership write.
+  Following the module dependency-inversion rule, the queue *definition* lives in the generic events
+  module (`events/durable-queues.ts`) while its *worker* lives in the feature module
+  (`library-membership/membership-worker.ts`, which calls `ensureEntityInLibrary`).
+- **`LibraryEntityImportWorkflow`** (`library-membership/library-entity-import-workflow.ts`) —
+  composes `ProviderEntityPopulationWorkflow` then `EnsureLibraryMembershipQueue`, and reports
+  failures through a stage-tagged `LibraryEntityImportError` (`"population" | "membership"`). Media
+  import routes each item through this workflow rather than composing population and membership
+  itself.
+- **`AddEntityToCollectionWorkflow`** (`collections/add-entity-to-collection-workflow-live.ts`) —
+  owns add-to-collection: one `write-collection-membership` activity does the transactional write,
+  then the body dispatches the collection-added `EventCreateWorkflow` child with the deterministic
+  `collection-membership-added-<id>` execution id. HTTP `addToCollection` and media-import writing
+  both route through it.
+- **`ProcessNormalizedMediaImportWorkflow`** (`imports/media/normalized-import-workflow.ts`
+  definition, `normalized-import-workflow-live.ts` body) — single-owns the post-adapter media
+  pipeline (record failures, resolve, populate, write, finalize). Both parents (one-time import,
+  integration run) persist the adapter result to a Redis artifact and await the child with a
+  deterministic `${parentExecutionId}-normalized` id.
+- **Cron fan-out shells** — `MediaTrendingRefreshWorkflow` (`media-trending/refresh-workflow.ts`)
+  and `IntegrationReconciliationWorkflow` (`integrations/reconciliation-workflow.ts`, whose activity
+  prepares the eligible runs and whose body dispatches one `ProcessIntegrationRunWorkflow` child per
+  run id) both exist so cron ticks only fan out children and never run feature work — or dispatch a
+  child — inside the tick's own activity.
+- **Pre-existing owners** unchanged by this structure: `ProviderEntityPopulationWorkflow`,
+  `TranslateEntityWorkflow`, `NotificationDeliveryWorkflow`, `RunSandboxWorkflow` +
+  `SandboxExecutionQueue`, `CreateDefaultSavedViewWorkflow`, `ProcessImportRunWorkflow`,
+  `ProcessIntegrationRunWorkflow`, and `MediaMonitoringRefreshWorkflow` (which now dispatches
+  `NotificationDeliveryWorkflow` from its body).
+
+### Notes worth knowing
+
+- **Deterministic-upsert as defense in depth**: the `write-event` activity in
+  `event-create-workflow-live.ts:179-212` is Activity-wrapped (RPC-memoized), *and* the insert it
+  performs uses a deterministic id (`` `${executionId}-event-${itemIndex}` ``) with
+  `.onConflictDoNothing()` plus a read-back on conflict (`events/repository.ts:108-146`). Either
+  strategy alone would keep the write idempotent under replay; the codebase uses both here. This is
+  worth knowing because a deterministic-key upsert is a legitimate *alternative* to Activity-wrapping
+  elsewhere, not only a belt-and-suspenders addition to it.
+- **The event workflow body is a pure orchestrator**: every DB read and write in
+  `runEventCreateWorkflow` happens inside an `Activity.make` (`prepare-item`, `write-event`,
+  `resolve-after-triggers`) or a durable queue — there are no bare reads left in the body, so there
+  is no replay-drift risk from unwrapped reads observing edited data across a resume.
+- **`DurableQueue.process(...)` called bare in workflow bodies** — this pattern recurs across
+  modules (sandbox dispatch, library membership). It is **correct**, not a violation; see the
   [durable primitives table](#durable-primitives-beyond-activity) above.
 - **No bare finalizers**: grepped every workflow-adjacent file in the codebase for
   `addFinalizer`/`Effect.ensuring`/`Effect.onExit`/`Effect.acquireRelease` — zero hits. The
   [compensation-vs-finalizers](#compensation-vs-plain-finalizers) gotcha isn't currently live
   anywhere here.
 - **`workflow-boundaries.test.ts`** (`sandbox/workflow-boundaries.test.ts`) is a source-text
-  conformance test — it asserts which files are allowed to import `WorkflowEngine` or call
-  `RunSandboxWorkflow`/`EventsRepository` directly, enforcing real architectural boundaries. It's
-  a good pattern, but it checks *which module* is imported, not *what arguments* are passed — it
-  structurally cannot catch an argument-correctness issue the way a targeted unit test can.
+  conformance test that pins the single-owner invariants: which files may execute
+  `RunSandboxWorkflow` (and how many times), that the collections service no longer references
+  `EventCreateWorkflow` while the add-to-collection workflow body is its one sanctioned dispatcher,
+  that the media/integration parents dispatch exactly one `ProcessNormalizedMediaImportWorkflow`
+  each, and that only the queue worker owns `ensureEntityInLibrary`. It's a strong guard, but it
+  matches call sites by source text — it checks *which module* dispatches *which* child and how
+  often, not *what `executionId` argument* is passed, so an argument-correctness regression still
+  needs a targeted unit test.
 
 #### Library-membership
 
-`library-membership/service.ts`'s `importEntity` (line 33) is a **top-level, HTTP-route-triggered**
-dispatch — one user click, one job, correctly using `generateId()` since there's no parent workflow
-and no loop. It shares a name with, but is functionally unrelated to, the
-`imports/media`-`population-workflow.ts`/`resolution-workflow.ts` pattern referenced in
+`library-membership/service.ts`'s `importEntity` (line 33, exported as `LibraryImportService.import`)
+is a **top-level, HTTP-route-triggered** dispatch of `LibraryEntityImportWorkflow` — one user click,
+one job, correctly using `generateId()` since there's no parent workflow and no loop. It shares a
+name with, but is functionally unrelated to, the `MediaImportWorkflowOperations.importEntity` call
+used by `imports/media`'s `population-workflow.ts` referenced in
 [Determinism](#determinism-and-child-workflows) above. Both are correct for what they each actually
 do; they just aren't the same pattern despite the shared name.
 
