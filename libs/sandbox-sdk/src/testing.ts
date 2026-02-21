@@ -2,6 +2,7 @@ import type {
 	CoreSandboxHostMethodMap,
 	ExecutionMetadata,
 	SandboxHost,
+	SandboxHostMethodMap,
 	SandboxManifest,
 } from "./core.js";
 import { Effect, Schema } from "./effect.js";
@@ -13,7 +14,7 @@ type SandboxTestHost<Manifest extends SandboxManifest> = Omit<
 	("getAppConfigValue" extends Manifest["capabilities"][number]
 		? {
 				readonly getAppConfigValue: (
-					key: Parameters<SandboxHost<Manifest["capabilities"]>["getAppConfigValue"]>[0],
+					key: Parameters<SandboxHostMethodMap["getAppConfigValue"]>[0],
 				) => ReturnType<CoreSandboxHostMethodMap["getAppConfigValue"]>;
 			}
 		: object);

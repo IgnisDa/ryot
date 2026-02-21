@@ -5,6 +5,7 @@ import { Effect, Layer } from "effect";
 
 import { dbRunnerLayer, makeWorkflowEngine, transactionLayer } from "#lib/test-utils/effect";
 import { ImportsService } from "#modules/imports/service";
+import { IntegrationProviderCatalogLive } from "#modules/plugins/integration-provider-catalog";
 
 import { IntegrationsRepository } from "./repository";
 import { IntegrationsService } from "./service";
@@ -21,6 +22,7 @@ const makeLayer = (repository: Layer.Layer<IntegrationsRepository>) =>
 				dbRunnerLayer,
 				transactionLayer,
 				repository,
+				IntegrationProviderCatalogLive,
 				Layer.mock(ImportsService, { _tag: "ImportsService" }),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 			),

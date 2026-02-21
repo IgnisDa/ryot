@@ -89,8 +89,8 @@ export const claimCachedValueArgsSchema = Schema.Tuple(
 	jsonValueSchema,
 	cacheTtlSecondsSchema,
 );
-export const claimCachedValueResultSchema = hostResultSchema(cacheClaimSchema);
 export const getAppConfigValueArgsSchema = Schema.Tuple(nonEmptyString);
+export const claimCachedValueResultSchema = hostResultSchema(cacheClaimSchema);
 export const getAppConfigValueResultSchema = hostResultSchema(jsonValueSchema);
 export const userPreferencesSchema = strictStruct({
 	isNsfw: Schema.Boolean,
@@ -99,8 +99,8 @@ export const userPreferencesSchema = strictStruct({
 export const getUserPreferencesArgsSchema = Schema.Tuple();
 export const getUserPreferencesResultSchema = hostResultSchema(userPreferencesSchema);
 export const logEntrySchema = strictStruct({
-	level: Schema.Literal("debug", "info", "warning", "error"),
 	message: nonEmptyString,
+	level: Schema.Literal("debug", "info", "warning", "error"),
 	attributes: Schema.optional(Schema.Record({ key: Schema.String, value: jsonValueSchema })),
 });
 export type LogEntry = Schema.Schema.Type<typeof logEntrySchema>;
@@ -112,9 +112,9 @@ export const spanEntrySchema = strictStruct({
 	attributes: Schema.optional(Schema.Record({ key: Schema.String, value: jsonValueSchema })),
 });
 export type SpanEntry = Schema.Schema.Type<typeof spanEntrySchema>;
+export const spanResultSchema = hostResultSchema(Schema.Null);
 export const spanEntriesSchema = Schema.Array(spanEntrySchema);
 export const spanArgsSchema = Schema.Tuple(spanEntriesSchema);
-export const spanResultSchema = hostResultSchema(Schema.Null);
 
 export const coreSandboxHostContracts = {
 	log: { args: logArgsSchema, success: Schema.Null, result: logResultSchema },
@@ -126,13 +126,13 @@ export const coreSandboxHostContracts = {
 	},
 	getCachedValue: {
 		args: getCachedValueArgsSchema,
-		result: getCachedValueResultSchema,
 		success: getCachedValueDataSchema,
+		result: getCachedValueResultSchema,
 	},
 	setCachedValue: {
 		args: setCachedValueArgsSchema,
-		result: setCachedValueResultSchema,
 		success: setCachedValueDataSchema,
+		result: setCachedValueResultSchema,
 	},
 	claimCachedValue: {
 		success: cacheClaimSchema,
@@ -177,13 +177,13 @@ export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
 	"getEntity",
 	"listEvents",
 	"createEvents",
-	"upsertGlobalEntities",
 	"getIntegration",
 	"getEntitySchema",
 	"listEventSchemas",
 	"listIntegrations",
-	"upsertGlobalRelationships",
 	"executeQueryEngine",
+	"upsertGlobalEntities",
+	"upsertGlobalRelationships",
 ] as const;
 export const domainSandboxHostCapabilitySchema = Schema.Literal(
 	...DOMAIN_SANDBOX_HOST_CAPABILITIES,
@@ -225,10 +225,10 @@ export const entityRecordSchema = strictStruct({
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
 	properties: jsonValueSchema,
-	externalId: Schema.NullOr(Schema.String),
-	populatedAt: Schema.NullOr(Schema.String),
 	entitySchemaSlug: Schema.String,
 	providerId: Schema.NullOr(Schema.String),
+	externalId: Schema.NullOr(Schema.String),
+	populatedAt: Schema.NullOr(Schema.String),
 });
 export type EntityRecord = Schema.Schema.Type<typeof entityRecordSchema>;
 
@@ -342,11 +342,11 @@ export type UpsertGlobalRelationshipItem = Schema.Schema.Type<
 	typeof upsertGlobalRelationshipItemSchema
 >;
 export const upsertGlobalRelationshipGroupSchema = strictStruct({
+	relationshipSchemaSlug: nonEmptyString,
 	selector: globalRelationshipSelectorSchema,
 	relationships: Schema.Array(upsertGlobalRelationshipItemSchema).pipe(
 		Schema.maxItems(GLOBAL_WRITE_SANDBOX_LIMITS.relationshipsPerGroup),
 	),
-	relationshipSchemaSlug: nonEmptyString,
 });
 export type UpsertGlobalRelationshipGroup = Schema.Schema.Type<
 	typeof upsertGlobalRelationshipGroupSchema
@@ -371,41 +371,33 @@ export const listIntegrationsOptionsSchema = strictStruct({
 	isDisabled: Schema.optional(Schema.Boolean),
 	provider: Schema.optional(integrationProviderSchema),
 });
-export type ListIntegrationsOptions = Schema.Schema.Type<typeof listIntegrationsOptionsSchema>;
 export const queryDocumentSchema = jsonValueSchema;
 export type QueryDocument = Schema.Schema.Type<typeof queryDocumentSchema>;
+export type ListIntegrationsOptions = Schema.Schema.Type<typeof listIntegrationsOptionsSchema>;
 
+export const executeQueryEngineDataSchema = Schema.Unknown;
 export const getEntityArgsSchema = Schema.Tuple(sandboxIdSchema);
-export const getEntityResultSchema = hostResultSchema(entityRecordSchema);
-export const getEntitySchemaArgsSchema = Schema.Tuple(sandboxIdSchema);
-export const getEntitySchemaResultSchema = hostResultSchema(entitySchemaRecordSchema);
 export const getIntegrationArgsSchema = Schema.Tuple(sandboxIdSchema);
-export const getIntegrationResultSchema = hostResultSchema(integrationRecordSchema);
+export const getEntitySchemaArgsSchema = Schema.Tuple(sandboxIdSchema);
 export const listEventSchemasArgsSchema = Schema.Tuple(sandboxIdSchema);
-export const listEventSchemasDataSchema = Schema.Array(eventSchemaRecordSchema);
-export const listEventSchemasResultSchema = hostResultSchema(listEventSchemasDataSchema);
-export const listEventsArgsSchema = Schema.Tuple(Schema.optionalElement(listEventsQuerySchema));
 export const listEventsDataSchema = Schema.Array(eventRecordSchema);
+export const executeQueryEngineArgsSchema = Schema.Tuple(queryDocumentSchema);
+export const getEntityResultSchema = hostResultSchema(entityRecordSchema);
 export const listEventsResultSchema = hostResultSchema(listEventsDataSchema);
+export const listEventSchemasDataSchema = Schema.Array(eventSchemaRecordSchema);
+export const listIntegrationsDataSchema = Schema.Array(integrationRecordSchema);
+export const getIntegrationResultSchema = hostResultSchema(integrationRecordSchema);
+export const getEntitySchemaResultSchema = hostResultSchema(entitySchemaRecordSchema);
+export const createEventsResultSchema = hostResultSchema(createEventsResultDataSchema);
+export const createEventsArgsSchema = Schema.Tuple(Schema.Array(createEventItemSchema));
+export const listEventSchemasResultSchema = hostResultSchema(listEventSchemasDataSchema);
+export const listIntegrationsResultSchema = hostResultSchema(listIntegrationsDataSchema);
+export const upsertGlobalEntitiesDataSchema = Schema.Array(upsertGlobalEntityResultSchema);
+export const executeQueryEngineResultSchema = hostResultSchema(executeQueryEngineDataSchema);
+export const listEventsArgsSchema = Schema.Tuple(Schema.optionalElement(listEventsQuerySchema));
+export const upsertGlobalEntitiesResultSchema = hostResultSchema(upsertGlobalEntitiesDataSchema);
 export const listIntegrationsArgsSchema = Schema.Tuple(
 	Schema.optionalElement(listIntegrationsOptionsSchema),
-);
-export const listIntegrationsDataSchema = Schema.Array(integrationRecordSchema);
-export const listIntegrationsResultSchema = hostResultSchema(listIntegrationsDataSchema);
-export const createEventsArgsSchema = Schema.Tuple(Schema.Array(createEventItemSchema));
-export const createEventsResultSchema = hostResultSchema(createEventsResultDataSchema);
-export const upsertGlobalEntitiesArgsSchema = Schema.Tuple(
-	Schema.Array(upsertGlobalEntityItemSchema).pipe(
-		Schema.maxItems(GLOBAL_WRITE_SANDBOX_LIMITS.entityItems),
-	),
-	Schema.optionalElement(upsertGlobalEntitiesOptionsSchema),
-);
-export const upsertGlobalEntitiesDataSchema = Schema.Array(upsertGlobalEntityResultSchema);
-export const upsertGlobalEntitiesResultSchema = hostResultSchema(upsertGlobalEntitiesDataSchema);
-export const upsertGlobalRelationshipsArgsSchema = Schema.Tuple(
-	Schema.Array(upsertGlobalRelationshipGroupSchema).pipe(
-		Schema.maxItems(GLOBAL_WRITE_SANDBOX_LIMITS.relationshipGroups),
-	),
 );
 export const upsertGlobalRelationshipsDataSchema = Schema.Array(
 	upsertGlobalRelationshipResultSchema,
@@ -413,9 +405,17 @@ export const upsertGlobalRelationshipsDataSchema = Schema.Array(
 export const upsertGlobalRelationshipsResultSchema = hostResultSchema(
 	upsertGlobalRelationshipsDataSchema,
 );
-export const executeQueryEngineArgsSchema = Schema.Tuple(queryDocumentSchema);
-export const executeQueryEngineDataSchema = Schema.Unknown;
-export const executeQueryEngineResultSchema = hostResultSchema(executeQueryEngineDataSchema);
+export const upsertGlobalRelationshipsArgsSchema = Schema.Tuple(
+	Schema.Array(upsertGlobalRelationshipGroupSchema).pipe(
+		Schema.maxItems(GLOBAL_WRITE_SANDBOX_LIMITS.relationshipGroups),
+	),
+);
+export const upsertGlobalEntitiesArgsSchema = Schema.Tuple(
+	Schema.Array(upsertGlobalEntityItemSchema).pipe(
+		Schema.maxItems(GLOBAL_WRITE_SANDBOX_LIMITS.entityItems),
+	),
+	Schema.optionalElement(upsertGlobalEntitiesOptionsSchema),
+);
 
 export const domainSandboxHostContracts = {
 	getEntity: {
@@ -517,10 +517,15 @@ export type AutomationSandboxHostImplementationMap<Context> = {
 	) => ReturnType<AutomationSandboxHostMethodMap[Capability]>;
 };
 
+export const FILESYSTEM_GRANT_SANDBOX_CAPABILITIES = ["scratch", "artifact-read"] as const;
+export type FilesystemGrantSandboxCapability =
+	(typeof FILESYSTEM_GRANT_SANDBOX_CAPABILITIES)[number];
+
 export const SANDBOX_HOST_CAPABILITIES = [
 	...CORE_SANDBOX_HOST_CAPABILITIES,
 	...DOMAIN_SANDBOX_HOST_CAPABILITIES,
 	...AUTOMATION_SANDBOX_HOST_CAPABILITIES,
+	...FILESYSTEM_GRANT_SANDBOX_CAPABILITIES,
 ] as const;
 export const sandboxHostCapabilitySchema = Schema.Literal(...SANDBOX_HOST_CAPABILITIES);
 export type SandboxHostCapability = Schema.Schema.Type<typeof sandboxHostCapabilitySchema>;
@@ -540,34 +545,36 @@ const manifestSlugSchema = Schema.String.pipe(
 	Schema.filter((value) => /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value)),
 );
 const sandboxManifestBaseFields = {
-	name: manifestStringSchema,
 	slug: manifestSlugSchema,
+	name: manifestStringSchema,
 	capabilities: Schema.Array(sandboxHostCapabilitySchema),
 	requiredAppConfigKeys: Schema.Array(manifestStringSchema),
 };
 export const sandboxManifestSchema = Schema.Union(
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("script") }),
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("activity") }),
+	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("provider") }),
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("operation") }),
+	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("automation") }),
 	strictStruct({
 		...sandboxManifestBaseFields,
-		kind: Schema.Literal("workflow"),
 		capabilities: Schema.Tuple(),
+		kind: Schema.Literal("workflow"),
 	}),
-	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("automation") }),
-	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("provider") }),
 );
 export type SandboxManifest = Schema.Schema.Type<typeof sandboxManifestSchema>;
-export type ActivityManifest = Extract<SandboxManifest, { readonly kind: "activity" }>;
 export type ScriptManifest = Extract<SandboxManifest, { readonly kind: "script" }>;
-export type OperationManifest = Extract<SandboxManifest, { readonly kind: "operation" }>;
+export type ActivityManifest = Extract<SandboxManifest, { readonly kind: "activity" }>;
 export type WorkflowManifest = Extract<SandboxManifest, { readonly kind: "workflow" }>;
+export type OperationManifest = Extract<SandboxManifest, { readonly kind: "operation" }>;
 
 export const executionMetadataSchema = strictStruct({
 	metadata: jsonValueSchema,
 	sandboxScriptId: nonEmptyString,
 });
 export type ExecutionMetadata = Schema.Schema.Type<typeof executionMetadataSchema>;
+// Filesystem grants are per-execution Deno permissions, never callable host functions, so they are
+// excluded from the host surface a script sees.
 export type SandboxHost<Capabilities extends readonly SandboxHostCapability[]> = Readonly<
-	Pick<SandboxHostMethodMap, Capabilities[number]>
+	Pick<SandboxHostMethodMap, Exclude<Capabilities[number], FilesystemGrantSandboxCapability>>
 >;
