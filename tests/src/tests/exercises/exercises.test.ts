@@ -44,7 +44,6 @@ const waitForSeededExercise = (client: Client) =>
 
 			return data.items[0] ?? null;
 		}),
-		{ intervalMs: 1000, timeoutMs: 60000 },
 	);
 
 describe("Exercises E2E", () => {

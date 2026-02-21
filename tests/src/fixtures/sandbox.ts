@@ -7,7 +7,7 @@ import { assertCompleted, requirePresent } from "~/support/assertions";
 
 import { adminHeaders } from "./admin";
 import { getBackendClient } from "./contract-client";
-import { type PollOptions, pollUntil } from "./polling";
+import { pollUntil } from "./polling";
 import { installTestPlugin, uninstallTestPlugin } from "./test-plugin";
 
 type SandboxExecutionError = NonNullable<CompletedSandboxResult["error"]>;
@@ -57,11 +57,7 @@ export const enqueueSandboxScript = (executingUserId: string, body: EnqueueSandb
 		return { jobId: requirePresent(result.jobId, "Failed to enqueue sandbox script") };
 	});
 
-export const pollSandboxResult = (
-	executingUserId: string,
-	jobId: string,
-	options: PollOptions = {},
-) =>
+export const pollSandboxResult = (executingUserId: string, jobId: string) =>
 	pollUntil(
 		`sandbox job '${jobId}'`,
 		Effect.gen(function* () {
@@ -75,7 +71,6 @@ export const pollSandboxResult = (
 			);
 			return result.status !== "pending" ? result : null;
 		}),
-		{ timeoutMs: 120_000, ...options },
 	);
 
 function formatSandboxExecutionError(error: SandboxExecutionError) {
