@@ -36,95 +36,95 @@ export type AppPropertyRoundTransform = {
 };
 
 export type AppPropertyTransform = {
-	readonly round?: AppPropertyRoundTransform;
+	readonly round?: AppPropertyRoundTransform | undefined;
 };
 
 export type AppSchemaUnknownKeysPolicy = "strip" | "strict" | "passthrough";
 
 type AppPropertyValidationBase = {
-	readonly required?: true;
+	readonly required?: true | undefined;
 };
 
 export type AppArrayPropertyValidation = AppPropertyValidationBase & {
-	readonly maxItems?: number;
-	readonly minItems?: number;
+	readonly maxItems?: number | undefined;
+	readonly minItems?: number | undefined;
 };
 
 export type AppNumberPropertyValidation = AppPropertyValidationBase & {
-	readonly maximum?: number;
-	readonly minimum?: number;
-	readonly multipleOf?: number;
-	readonly exclusiveMaximum?: number;
-	readonly exclusiveMinimum?: number;
+	readonly maximum?: number | undefined;
+	readonly minimum?: number | undefined;
+	readonly multipleOf?: number | undefined;
+	readonly exclusiveMaximum?: number | undefined;
+	readonly exclusiveMinimum?: number | undefined;
 };
 
 export type AppStringPropertyValidation = AppPropertyValidationBase & {
-	readonly pattern?: string;
-	readonly maxLength?: number;
-	readonly minLength?: number;
+	readonly pattern?: string | undefined;
+	readonly maxLength?: number | undefined;
+	readonly minLength?: number | undefined;
 };
 
 type AppPropertyBase<TValidation> = {
 	readonly label: string;
 	readonly description: string;
-	readonly validation?: TValidation;
-	readonly translatable?: true;
-	readonly transform?: AppPropertyTransform;
+	readonly validation?: TValidation | undefined;
+	readonly translatable?: true | undefined;
+	readonly transform?: AppPropertyTransform | undefined;
 };
 
 export type AppStringProperty = AppPropertyBase<AppStringPropertyValidation> & {
 	readonly type: "string";
-	readonly defaultValue?: string;
+	readonly defaultValue?: string | undefined;
 };
 
 export type AppNumberProperty = AppPropertyBase<AppNumberPropertyValidation> & {
 	readonly type: "number";
-	readonly defaultValue?: number;
+	readonly defaultValue?: number | undefined;
 };
 
 export type AppIntegerProperty = AppPropertyBase<AppNumberPropertyValidation> & {
 	readonly type: "integer";
-	readonly defaultValue?: number;
+	readonly defaultValue?: number | undefined;
 };
 
 export type AppBooleanProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	readonly type: "boolean";
-	readonly defaultValue?: boolean;
+	readonly defaultValue?: boolean | undefined;
 };
 
 export type AppDateProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	readonly type: "date";
-	readonly defaultValue?: string;
+	readonly defaultValue?: string | undefined;
 };
 
 export type AppDateTimeProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	readonly type: "datetime";
-	readonly defaultValue?: string;
+	readonly defaultValue?: string | undefined;
 };
 
 export type AppEnumProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	readonly type: "enum";
-	readonly defaultValue?: string;
+	readonly defaultValue?: string | undefined;
 	readonly options: ReadonlyArray<string>;
 };
 
 export type AppEnumArrayProperty = AppPropertyBase<AppArrayPropertyValidation> & {
 	readonly type: "enum-array";
 	readonly options: ReadonlyArray<string>;
-	readonly defaultValue?: ReadonlyArray<string>;
+	readonly defaultValue?: ReadonlyArray<string> | undefined;
 };
 
 export type AppArrayProperty = AppPropertyBase<AppArrayPropertyValidation> & {
 	readonly type: "array";
 	readonly items: AppPropertyDefinition;
-	readonly defaultValue?: ReadonlyArray<unknown>;
+	readonly defaultValue?: ReadonlyArray<unknown> | undefined;
 };
 
 export type AppObjectProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	readonly type: "object";
 	readonly properties: AppSchemaFields;
-	readonly unknownKeys?: AppSchemaUnknownKeysPolicy;
-	readonly defaultValue?: Readonly<Record<string, unknown>>;
+	readonly unknownKeys?: AppSchemaUnknownKeysPolicy | undefined;
+	readonly defaultValue?: Readonly<Record<string, unknown>> | undefined;
 };
 
 export type AppPropertyDefinition =
@@ -157,7 +157,7 @@ export type AppSchemaRuleCondition =
 	| { readonly operator: "any"; readonly conditions: ReadonlyArray<AppSchemaRuleCondition> };
 
 export type AppSchemaRule = {
-	readonly message?: string;
+	readonly message?: string | undefined;
 	readonly kind: "validation";
 	readonly path: AppSchemaRulePath;
 	readonly when: AppSchemaRuleCondition;
@@ -166,8 +166,8 @@ export type AppSchemaRule = {
 
 export type AppSchema = {
 	readonly fields: AppSchemaFields;
-	readonly rules?: ReadonlyArray<AppSchemaRule>;
-	readonly unknownKeys?: AppSchemaUnknownKeysPolicy;
+	readonly rules?: ReadonlyArray<AppSchemaRule> | undefined;
+	readonly unknownKeys?: AppSchemaUnknownKeysPolicy | undefined;
 };
 
 const PropertyValidationIssue = Schema.Struct({
@@ -187,10 +187,10 @@ const AppSchemaUnknownKeysPolicy = Schema.Literal("strip", "strict", "passthroug
 const requiredValidationSchema = strictStruct({ required: Schema.optional(Schema.Literal(true)) });
 
 const hasValidNumericBounds = (value: {
-	readonly maximum?: number;
-	readonly minimum?: number;
-	readonly exclusiveMaximum?: number;
-	readonly exclusiveMinimum?: number;
+	readonly maximum?: number | undefined;
+	readonly minimum?: number | undefined;
+	readonly exclusiveMaximum?: number | undefined;
+	readonly exclusiveMinimum?: number | undefined;
 }) => {
 	const lower = value.minimum ?? value.exclusiveMinimum;
 	const upper = value.maximum ?? value.exclusiveMaximum;

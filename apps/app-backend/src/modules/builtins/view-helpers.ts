@@ -219,8 +219,8 @@ export const buildDisplayConfig = (slug: string) => {
 export const buildDefaultQueryDocument = (
 	scope: readonly [string, ...string[]],
 	options: {
-		readonly requireInLibrary?: boolean;
-		readonly orderBy?: Extract<QueryDocument["output"], { type: "rows" }>["orderBy"];
+		readonly requireInLibrary?: boolean | undefined;
+		readonly orderBy?: Extract<QueryDocument["output"], { type: "rows" }>["orderBy"] | undefined;
 	} = {},
 ) => {
 	const nameRef = {

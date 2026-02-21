@@ -93,7 +93,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 
 		const list = Effect.fn("SavedViewsService.list")(function* (
 			user: CurrentUserValue,
-			input: { trackerId?: TrackerId; includeDisabled: boolean },
+			input: { trackerId?: TrackerId | undefined; includeDisabled: boolean },
 		) {
 			return yield* runWithDb(repository.listByUser(user.id, input));
 		});

@@ -1,6 +1,7 @@
 import { FileSystem } from "@effect/platform";
 import type { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
+import { match } from "ts-pattern";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import {
@@ -28,7 +29,7 @@ type NetflixAdapterInput = {
 	myListCsv: string;
 	importedAt: string;
 	ratingsCsv: string;
-	profileName?: string;
+	profileName?: string | undefined;
 	viewingActivityCsv: string;
 };
 
@@ -56,7 +57,7 @@ type LoadedNetflixAdapterResult =
 			importedAt: string;
 			myListPath: string;
 			ratingsPath: string;
-			profileName?: string;
+			profileName?: string | undefined;
 			viewingActivityPath: string;
 			cleanupPaths: ReadonlyArray<string>;
 			searchJobs: ReadonlyArray<NetflixSearchJob>;
@@ -121,18 +122,11 @@ const adaptNetflixExportsWithSearchResults = (input: {
 		const showKey = createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" });
 		const movieResults = input.searchResults.get(movieKey) ?? [];
 		const showResults = input.searchResults.get(showKey) ?? [];
-		let requiredSearchJobKeys: ReadonlyArray<string>;
-		switch (preferredEntitySchemaSlug) {
-			case "movie":
-				requiredSearchJobKeys = [movieKey];
-				break;
-			case "show":
-				requiredSearchJobKeys = [showKey];
-				break;
-			case undefined:
-				requiredSearchJobKeys = [movieKey, showKey];
-				break;
-		}
+		const requiredSearchJobKeys = match(preferredEntitySchemaSlug)
+			.with("movie", () => [movieKey])
+			.with("show", () => [showKey])
+			.with(undefined, () => [movieKey, showKey])
+			.exhaustive();
 		const lookupError = requiredSearchJobKeys
 			.map((searchJobKey) => input.searchErrors.get(searchJobKey))
 			.find((error): error is string => Boolean(error));
@@ -140,20 +134,17 @@ const adaptNetflixExportsWithSearchResults = (input: {
 			return Effect.fail(lookupError);
 		}
 
-		let results: MetadataLookupTitleMatchCandidate[];
-		switch (preferredEntitySchemaSlug) {
-			case "movie":
-				results = movieResults;
-				break;
-			case "show":
-				results = showResults;
-				break;
-			case undefined:
-				results = [...movieResults, ...showResults];
-				break;
-		}
-		const match = chooseBestMetadataLookupTitleMatch({ title, results, preferredEntitySchemaSlug });
-		if (!match) {
+		const results = match(preferredEntitySchemaSlug)
+			.with("movie", () => movieResults)
+			.with("show", () => showResults)
+			.with(undefined, () => [...movieResults, ...showResults])
+			.exhaustive();
+		const bestMatch = chooseBestMetadataLookupTitleMatch({
+			title,
+			results,
+			preferredEntitySchemaSlug,
+		});
+		if (!bestMatch) {
 			if (results.length === 0) {
 				return Effect.fail("Metadata not found");
 			}
@@ -166,13 +157,13 @@ const adaptNetflixExportsWithSearchResults = (input: {
 		}
 
 		return Effect.succeed({
-			matchedTitle: match.title,
+			matchedTitle: bestMatch.title,
 			entityRef: {
 				kind: "resolved",
-				sourceLabel: match.title,
-				externalId: match.externalId,
-				scriptSlug: match.scriptSlug,
-				entitySchemaSlug: match.entitySchemaSlug,
+				sourceLabel: bestMatch.title,
+				externalId: bestMatch.externalId,
+				scriptSlug: bestMatch.scriptSlug,
+				entitySchemaSlug: bestMatch.entitySchemaSlug,
 			},
 		});
 	});
@@ -197,7 +188,7 @@ export const buildNetflixAdapterResult = Effect.fn("netflixProcessor.buildResult
 		importedAt: string;
 		myListPath: string;
 		ratingsPath: string;
-		profileName?: string;
+		profileName?: string | undefined;
 		viewingActivityPath: string;
 		searchResponses: ReadonlyArray<NetflixSearchResponse>;
 	}) {
@@ -245,8 +236,8 @@ export const buildNetflixAdapterResult = Effect.fn("netflixProcessor.buildResult
 export const loadNetflixAdapterResult = Effect.fn("netflixProcessor.load")(function* (input: {
 	runId: ImportRunId;
 	userId: UserId;
-	filePath?: string;
-	sourcePayload?: Record<string, unknown>;
+	filePath?: string | undefined;
+	sourcePayload?: Record<string, unknown> | undefined;
 }) {
 	const runWithDb = yield* DbRunner;
 	const entitiesRepository = yield* EntitiesRepository;
@@ -298,8 +289,8 @@ export const loadNetflixAdapterResult = Effect.fn("netflixProcessor.load")(funct
 	);
 
 	const profileName =
-		typeof input.sourcePayload?.profileName === "string"
-			? input.sourcePayload.profileName
+		typeof input.sourcePayload?.["profileName"] === "string"
+			? input.sourcePayload["profileName"]
 			: undefined;
 	const importedAt = nowIso();
 	const adapterInput: NetflixAdapterInput = {

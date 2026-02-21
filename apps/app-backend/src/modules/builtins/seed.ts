@@ -248,8 +248,8 @@ const ensureBuiltinRelationshipSchema = Effect.fn(function* (input: {
 	slug: string;
 	name: string;
 	propertiesSchema: AppSchema;
-	sourceEntitySchemaId?: string;
-	targetEntitySchemaId?: string;
+	sourceEntitySchemaId?: string | undefined;
+	targetEntitySchemaId?: string | undefined;
 }) {
 	const db = yield* CurrentDb;
 	const [existing] = yield* dbEffect(() =>

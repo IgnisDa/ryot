@@ -17,11 +17,11 @@ export const parseKodiSinkPayload = (payload: unknown): MediaImportAdapterResult
 		return sinkFailureResult("Could not parse Kodi webhook payload");
 	}
 
-	const lot = payload.lot;
-	const progress = payload.progress;
-	const identifier = payload.identifier;
-	const rawSeason = payload.show_season_number;
-	const rawEpisode = payload.show_episode_number;
+	const lot = payload["lot"];
+	const progress = payload["progress"];
+	const identifier = payload["identifier"];
+	const rawSeason = payload["show_season_number"];
+	const rawEpisode = payload["show_episode_number"];
 
 	if (typeof progress !== "number" || !Number.isFinite(progress)) {
 		return sinkFailureResult("Could not parse Kodi webhook payload");

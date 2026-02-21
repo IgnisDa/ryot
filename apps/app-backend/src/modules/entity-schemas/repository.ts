@@ -28,7 +28,7 @@ type BuildEntitySchemaRow = Pick<
 };
 
 export type ProviderWithMetadata = Provider & {
-	readonly scriptMetadata?: BuildEntitySchemaRow["scriptMetadata"];
+	readonly scriptMetadata?: BuildEntitySchemaRow["scriptMetadata"] | undefined;
 };
 
 export type ListedEntitySchemaWithMetadata = Omit<ListedEntitySchema, "providers"> & {
@@ -123,8 +123,8 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 
 			const listByUser = Effect.fn("EntitySchemasRepository.listByUser")(function* (input: {
 				userId: UserId;
-				trackerId?: TrackerId;
-				slugs?: ReadonlyArray<string>;
+				trackerId?: TrackerId | undefined;
+				slugs?: ReadonlyArray<string> | undefined;
 			}) {
 				const db = yield* CurrentDb;
 				const clauses = [eq(schema.tracker.userId, input.userId)];

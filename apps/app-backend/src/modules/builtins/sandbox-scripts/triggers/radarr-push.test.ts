@@ -89,11 +89,11 @@ describe("radarr-push sandbox script", () => {
 			expect(httpCalls).toHaveLength(1);
 			expect(httpCalls[0]?.method).toBe("POST");
 			expect(httpCalls[0]?.url).toBe("http://radarr.local/api/v3/movie");
-			expect(httpCalls[0]?.options.headers).toEqual({
+			expect(httpCalls[0]?.options["headers"]).toEqual({
 				"X-Api-Key": "radarr-key",
 				"Content-Type": "application/json",
 			});
-			expect(JSON.parse(String(httpCalls[0]?.options.body))).toEqual({
+			expect(JSON.parse(String(httpCalls[0]?.options["body"]))).toEqual({
 				tmdbId: 603,
 				tags: [3, 7],
 				monitored: true,
