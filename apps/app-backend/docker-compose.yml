@@ -1,0 +1,37 @@
+services:
+  backend-redis:
+    image: redis:alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  backend-postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    volumes:
+      - backend_postgres_storage:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+    command: postgres -c shared_preload_libraries=pg_stat_statements -c wal_level=logical
+
+  app-backend:
+    build:
+      context: ../..
+      dockerfile: apps/app-backend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://backend-redis:6379
+      DATABASE_URL: postgresql://postgres:postgres@backend-postgres:5432/postgres
+    depends_on:
+      - backend-redis
+      - backend-postgres
+
+volumes:
+  backend_postgres_storage:
