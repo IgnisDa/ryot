@@ -2,10 +2,10 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { SharedValue } from "react-native-reanimated";
 import Animated, {
-	runOnJS,
 	useAnimatedStyle,
 	withSpring,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import type { Tracker } from "@/lib/navigation";
 import {
 	activeSubItemAtom,
@@ -15,22 +15,23 @@ import {
 } from "@/lib/navigation";
 import { C, F } from "@/lib/theme";
 
-const RAIL_WIDTH = 168;
-const SPRING_CONFIG = { damping: 22, stiffness: 280 };
+export const RAIL_WIDTH = 168;
+export const SPRING_CONFIG = { damping: 22, stiffness: 280 };
 
 type Props = {
-	translateX: SharedValue<number>;
+	translateX?: SharedValue<number>;
 	onClose: () => void;
+	pinned?: boolean;
 };
 
-export function SpineRail({ translateX, onClose }: Props) {
+export function SpineRail({ translateX, onClose, pinned = false }: Props) {
 	const trackers = useAtomValue(trackersAtom);
 	const [activeTrackerId, setActiveTrackerId] = useAtom(activeTrackerIdAtom);
 	const setActiveSubItem = useSetAtom(activeSubItemAtom);
 	const [subFlyoutOpen, setSubFlyoutOpen] = useAtom(subFlyoutOpenAtom);
 
 	const railStyle = useAnimatedStyle(() => ({
-		transform: [{ translateX: translateX.value }],
+		transform: [{ translateX: translateX?.value ?? 0 }],
 	}));
 
 	function handleTrackerPress(tracker: Tracker) {
@@ -45,50 +46,63 @@ export function SpineRail({ translateX, onClose }: Props) {
 			setActiveTrackerId(tracker.id);
 			setActiveSubItem(null);
 			setSubFlyoutOpen(false);
-			translateX.value = withSpring(0, SPRING_CONFIG, () => {
-				runOnJS(onClose)();
-			});
+			if (!pinned && translateX) {
+				translateX.value = withSpring(RAIL_WIDTH, SPRING_CONFIG, () => {
+					scheduleOnRN(onClose);
+				});
+			}
 		}
+	}
+
+	const items = (
+		<ScrollView
+			contentContainerStyle={styles.itemsContainer}
+			showsVerticalScrollIndicator={false}
+		>
+			{trackers.map((tracker) => {
+				const isActive = tracker.id === activeTrackerId;
+				return (
+					<Pressable
+						key={tracker.id}
+						style={styles.item}
+						accessibilityRole="button"
+						accessibilityLabel={tracker.name}
+						onPress={() => handleTrackerPress(tracker)}
+					>
+						{isActive && <View style={styles.activeBar} />}
+						<Text
+							style={[
+								styles.itemText,
+								isActive ? styles.itemTextActive : styles.itemTextInactive,
+							]}
+						>
+							{tracker.name}
+						</Text>
+						{tracker.subItems?.length ? (
+							<Text style={styles.subItemChevron}>›</Text>
+						) : null}
+					</Pressable>
+				);
+			})}
+		</ScrollView>
+	);
+
+	if (pinned) {
+		return (
+			<View style={styles.railPinned}>
+				{items}
+				<View style={styles.bindingLine} pointerEvents="none" />
+			</View>
+		);
 	}
 
 	return (
 		<Animated.View style={[styles.rail, railStyle]}>
-			<ScrollView
-				contentContainerStyle={styles.itemsContainer}
-				showsVerticalScrollIndicator={false}
-			>
-				{trackers.map((tracker) => {
-					const isActive = tracker.id === activeTrackerId;
-					return (
-						<Pressable
-							key={tracker.id}
-							style={styles.item}
-							accessibilityRole="button"
-							accessibilityLabel={tracker.name}
-							onPress={() => handleTrackerPress(tracker)}
-						>
-							{isActive && <View style={styles.activeBar} />}
-							<Text
-								style={[
-									styles.itemText,
-									isActive ? styles.itemTextActive : styles.itemTextInactive,
-								]}
-							>
-								{tracker.name}
-							</Text>
-							{tracker.subItems?.length ? (
-								<Text style={styles.subItemChevron}>›</Text>
-							) : null}
-						</Pressable>
-					);
-				})}
-			</ScrollView>
+			{items}
 			<View style={styles.bindingLine} pointerEvents="none" />
 		</Animated.View>
 	);
 }
-
-export { RAIL_WIDTH, SPRING_CONFIG };
 
 const styles = StyleSheet.create({
 	rail: {
@@ -106,6 +120,12 @@ const styles = StyleSheet.create({
 		borderLeftColor: C.rule,
 		backgroundColor: C.paperDeep,
 		shadowOffset: { width: -8, height: 0 },
+	},
+	railPinned: {
+		width: RAIL_WIDTH,
+		borderLeftWidth: 0.5,
+		borderLeftColor: C.rule,
+		backgroundColor: C.paperDeep,
 	},
 	itemsContainer: {
 		gap: 4,
