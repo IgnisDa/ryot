@@ -5,6 +5,7 @@ import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Cause, DateTime, Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
+import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import {
 	markImportRunStarted,
 	sanitizeErrorMessage,
@@ -71,7 +72,7 @@ const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
 				integrationId: integration.id,
 			},
 		})
-		.pipe(Effect.mapError(toIntegrationWorkflowError));
+		.pipe(withoutWorkflowParent, Effect.mapError(toIntegrationWorkflowError));
 });
 
 const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
