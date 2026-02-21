@@ -1,5 +1,6 @@
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import type { WorkflowDurableCallRequest } from "@ryot/sandbox-sdk/workflow";
+import { sha256Base64Url } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Effect, Schema } from "effect";
 
@@ -50,8 +51,7 @@ const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const decodeJournalEntry = Schema.decodeUnknownResult(Schema.fromJsonString(JournalEntry));
 const decodeBootstrapArgs = Schema.decodeUnknownResult(Schema.Tuple([]));
 
-export const hashWorkflowCallArgs = (args: unknown) =>
-	new Bun.CryptoHasher("sha256").update(stableStringify(args)).digest("base64url");
+export const hashWorkflowCallArgs = (args: unknown) => sha256Base64Url(stableStringify(args));
 
 export const projectWorkflowJournalWithRedis = (
 	redis: WorkflowJournalProjectionRedis,

@@ -1,3 +1,4 @@
+import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { Data, Effect, FileSystem, Path, PlatformError } from "effect";
 
 import type { SandboxRuntimePaths } from "./dependencies";
@@ -8,7 +9,7 @@ export class SandboxCompiledModuleMaterializationError extends Data.TaggedError(
 	message: string;
 }> {}
 
-const hashBytes = (bytes: Uint8Array) => new Bun.CryptoHasher("sha256").update(bytes).digest("hex");
+const hashBytes = sha256Hex;
 
 const compiledModuleName = /^([0-9a-f]{64})\.mjs$/;
 
