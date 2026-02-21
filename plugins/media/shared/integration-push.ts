@@ -7,7 +7,7 @@ import type {
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 export type IntegrationPushHost = SandboxHost<
-	readonly ["httpCall", "getEntity", "getEntitySchema", "listIntegrations", "getUserPreferences"]
+	readonly ["httpCall", "getEntities", "getEntitySchema", "listIntegrations", "getUserPreferences"]
 >;
 
 const isObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -42,7 +42,13 @@ export const listActiveIntegrations = (
 ) => host.listIntegrations({ provider, isDisabled: false });
 
 export const fetchEntity = (host: IntegrationPushHost, entityId: string) =>
-	host.getEntity(entityId);
+	host
+		.getEntities([entityId])
+		.pipe(
+			Effect.flatMap(([entity]) =>
+				entity ? Effect.succeed(entity) : Effect.fail({ message: "Entity not found" }),
+			),
+		);
 
 export const resolveEntityProviderName = (host: IntegrationPushHost, entity: EntityRecord) => {
 	if (!entity.providerId) {
