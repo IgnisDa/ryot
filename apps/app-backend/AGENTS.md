@@ -43,9 +43,9 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 - Every table has exactly one owning repository that performs its writes; every other consumer routes through that repository, and service code never issues raw table writes.
 - Cross-module side effects go through the owning module's service and never write another module's tables directly. Reach into another module's repository only when atomicity within one shared transaction requires it, and only to write tables that module owns.
 - Importers, background jobs, sandbox callbacks, and bootstrap paths use the same write paths as HTTP request handling.
-- Provider catalog knowledge for entity search, resolution, and details belongs in sandbox scripts, not application modules. Provider-backed population and unresolved identifier resolution must reach external provider APIs through sandbox drivers.
+- Provider catalog knowledge for entity search, resolution, and details belongs in sandbox scripts, not application modules. Provider-backed population and unresolved identifier resolution must reach external provider APIs through sandbox provider scripts.
 - Source-ingestion connectors that fetch a user's source data during imports or yank integrations may perform bounded network calls in app adapter loading, then emit normalized refs. They must not call provider catalog APIs for enrichment directly.
-- When app code has only a foreign identifier, resolve it through a sandbox resolution driver before provider-backed population. When it already has a provider-native identifier, pass it through as a resolved provider input.
+- When app code has only a foreign identifier, resolve it through a sandbox resolve-operation script before provider-backed population. When it already has a provider-native identifier, pass it through as a resolved provider input.
 
 ## Validation And Persistence
 
