@@ -251,17 +251,6 @@ export const DisplayConfiguration = strictStruct({
 });
 export type DisplayConfiguration = typeof DisplayConfiguration.Type;
 
-export function getQueryEngineField(
-	item: Readonly<Record<string, { kind: string; value: unknown }>> | undefined,
-	key: string,
-) {
-	if (!item) {
-		return undefined;
-	}
-	const field = item[key];
-	return field !== undefined ? { ...field, key } : undefined;
-}
-
 export const createLiteralExpression = (value: unknown) =>
 	({
 		value,
