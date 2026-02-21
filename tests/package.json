@@ -8,7 +8,7 @@
 	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "3.1032.0",
-		"@effect/platform": "0.96.1",
+		"@effect/platform": "0.96.2",
 		"@faker-js/faker": "10.4.0",
 		"@ryot/app-backend": "workspace:*",
 		"@ryot/contract": "workspace:*",
