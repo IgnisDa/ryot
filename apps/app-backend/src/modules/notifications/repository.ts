@@ -77,6 +77,12 @@ const toListed = ({
 	...record
 }: NotificationPlatformRecord) => record;
 
+const ownedPlatformWhere = (input: { platformId: NotificationPlatformId; userId: UserId }) =>
+	and(
+		eq(schema.notificationPlatform.id, input.platformId),
+		eq(schema.notificationPlatform.userId, input.userId),
+	);
+
 export class NotificationsRepository extends Effect.Service<NotificationsRepository>()(
 	"NotificationsRepository",
 	{
@@ -126,16 +132,7 @@ export class NotificationsRepository extends Effect.Service<NotificationsReposit
 			}) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
-					db
-						.select()
-						.from(schema.notificationPlatform)
-						.where(
-							and(
-								eq(schema.notificationPlatform.id, input.platformId),
-								eq(schema.notificationPlatform.userId, input.userId),
-							),
-						)
-						.limit(1),
+					db.select().from(schema.notificationPlatform).where(ownedPlatformWhere(input)).limit(1),
 				);
 				return row ? toRecord(row) : null;
 			});
@@ -163,12 +160,7 @@ export class NotificationsRepository extends Effect.Service<NotificationsReposit
 					db
 						.update(schema.notificationPlatform)
 						.set(updates)
-						.where(
-							and(
-								eq(schema.notificationPlatform.id, input.platformId),
-								eq(schema.notificationPlatform.userId, input.userId),
-							),
-						)
+						.where(ownedPlatformWhere(input))
 						.returning(),
 				);
 				return row ? toListed(toRecord(row)) : null;
@@ -182,12 +174,7 @@ export class NotificationsRepository extends Effect.Service<NotificationsReposit
 				const rows = yield* dbEffect(() =>
 					db
 						.delete(schema.notificationPlatform)
-						.where(
-							and(
-								eq(schema.notificationPlatform.id, input.platformId),
-								eq(schema.notificationPlatform.userId, input.userId),
-							),
-						)
+						.where(ownedPlatformWhere(input))
 						.returning({ id: schema.notificationPlatform.id }),
 				);
 				return rows.length > 0;

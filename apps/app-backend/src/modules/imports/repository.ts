@@ -18,6 +18,10 @@ import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 type ImportRunRow = typeof schema.importRun.$inferSelect;
 type ImportRunFailureRow = typeof schema.importRunFailure.$inferSelect;
 
+type ListImportRunsInput =
+	| { type: "manual"; userId: UserId }
+	| { type: "integration"; userId: UserId; integrationId: IntegrationId };
+
 const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 	id: ImportRunId.make(row.id),
 	source: row.source,
@@ -92,40 +96,23 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 			return row ? normalizeRun(row) : null;
 		});
 
-		const listRunsByUser = Effect.fn("ImportsRepository.listRunsByUser")(function* (input: {
-			userId: UserId;
-		}) {
+		const listRuns = Effect.fn("ImportsRepository.listRuns")(function* (
+			input: ListImportRunsInput,
+		) {
 			const db = yield* CurrentDb;
+			const integrationCondition =
+				input.type === "manual"
+					? isNull(schema.importRun.integrationId)
+					: eq(schema.importRun.integrationId, input.integrationId);
 			const rows = yield* dbEffect(() =>
 				db
 					.select()
 					.from(schema.importRun)
-					.where(
-						and(eq(schema.importRun.userId, input.userId), isNull(schema.importRun.integrationId)),
-					)
+					.where(and(eq(schema.importRun.userId, input.userId), integrationCondition))
 					.orderBy(desc(schema.importRun.createdAt)),
 			);
 			return rows.map(normalizeRun);
 		});
-
-		const listRunsByIntegrationId = Effect.fn("ImportsRepository.listRunsByIntegrationId")(
-			function* (input: { userId: UserId; integrationId: IntegrationId }) {
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
-					db
-						.select()
-						.from(schema.importRun)
-						.where(
-							and(
-								eq(schema.importRun.userId, input.userId),
-								eq(schema.importRun.integrationId, input.integrationId),
-							),
-						)
-						.orderBy(desc(schema.importRun.createdAt)),
-				);
-				return rows.map(normalizeRun);
-			},
-		);
 
 		const hasActiveRunForIntegration = Effect.fn("ImportsRepository.hasActiveRunForIntegration")(
 			function* (input: { integrationId: IntegrationId }) {
@@ -278,8 +265,7 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 		return {
 			createRun,
 			getRunById,
-			listRunsByUser,
-			listRunsByIntegrationId,
+			listRuns,
 			hasActiveRunForIntegration,
 			listRecentStatusesByIntegrationId,
 			updateRun,

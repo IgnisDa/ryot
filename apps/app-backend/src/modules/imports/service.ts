@@ -5,7 +5,7 @@ import { badRequest, notFound } from "@ryot/contract/errors";
 import type { CreateImportRunBody } from "@ryot/contract/modules/imports/schemas";
 import type { ImportRunSource, ImportRunStatus } from "@ryot/contract/modules/imports/types";
 import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
-import { DateTime, Effect, Either } from "effect";
+import { Effect, Either } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -19,7 +19,7 @@ import {
 	resolveSafeImportFilePath,
 	validateFileExtension,
 } from "./runtime/import-files";
-import { failImportRunWithFailures } from "./runtime/import-run-status";
+import { failImportRun, failImportRunWithFailures } from "./runtime/import-run-status";
 import { makeImporterConfig } from "./runtime/importer-config";
 import {
 	buildInputSummary,
@@ -45,28 +45,12 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 		const fs = yield* FileSystem.FileSystem;
 		const repository = yield* ImportsRepository;
 
-		const storeSourcePayload = (input: {
-			runId: ImportRunId;
-			sourcePayload: Record<string, unknown>;
-		}) => storeImportSourcePayload(input).pipe(Effect.provideService(RedisService, redis));
-
-		const deleteSourcePayload = (runId: ImportRunId) =>
-			deleteImportSourcePayload(runId).pipe(Effect.provideService(RedisService, redis));
-
 		const cleanupFiles = (paths: ReadonlyArray<string>) =>
 			Effect.forEach(
 				new Set(paths),
 				(path) => cleanupImportFile(path).pipe(Effect.provideService(FileSystem.FileSystem, fs)),
 				{ discard: true },
 			);
-
-		const failRun = Effect.fn("ImportsService.failRun")(function* (
-			runId: ImportRunId,
-			errorSummary: string,
-		) {
-			const finishedAt = yield* DateTime.nowAsDate;
-			yield* runWithDb(repository.updateRun({ runId, status: "failed", errorSummary, finishedAt }));
-		});
 
 		const startFileImportRun = Effect.fn("ImportsService.startFileImportRun")(function* (
 			user: CurrentUserValue,
@@ -140,7 +124,7 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 				})
 				.pipe(Effect.either);
 			if (Either.isLeft(started)) {
-				yield* failRun(run.id, "Failed to enqueue import job");
+				yield* failImportRun(run.id, "Failed to enqueue import job");
 				yield* cleanupFiles(claimedFilePaths);
 				return yield* badRequest("Could not queue the import job; please try again");
 			}
@@ -160,11 +144,12 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 				);
 
 				if (sourcePayload) {
-					const stored = yield* storeSourcePayload({ runId: run.id, sourcePayload }).pipe(
+					const stored = yield* storeImportSourcePayload({ runId: run.id, sourcePayload }).pipe(
+						Effect.provideService(RedisService, redis),
 						Effect.either,
 					);
 					if (Either.isLeft(stored)) {
-						yield* failRun(run.id, "Failed to queue import credentials");
+						yield* failImportRun(run.id, "Failed to queue import credentials");
 						return yield* badRequest("Could not queue the import job; please try again");
 					}
 				}
@@ -183,9 +168,11 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 					.pipe(Effect.either);
 				if (Either.isLeft(started)) {
 					if (sourcePayload) {
-						yield* deleteSourcePayload(run.id);
+						yield* deleteImportSourcePayload(run.id).pipe(
+							Effect.provideService(RedisService, redis),
+						);
 					}
-					yield* failRun(run.id, "Failed to enqueue import job");
+					yield* failImportRun(run.id, "Failed to enqueue import job");
 					return yield* badRequest("Could not queue the import job; please try again");
 				}
 
@@ -211,17 +198,26 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 		});
 
 		const listImportRuns = (user: CurrentUserValue) =>
-			runWithDb(repository.listRunsByUser({ userId: user.id }));
+			runWithDb(repository.listRuns({ type: "manual", userId: user.id }));
+
+		const requireImportRun = Effect.fn("ImportsService.requireImportRun")(function* (
+			user: CurrentUserValue,
+			runId: ImportRunId,
+		) {
+			const run = yield* runWithDb(repository.getRunById({ runId, userId: user.id }));
+			if (!run) {
+				return yield* notFound("Import run not found");
+			}
+
+			return run;
+		});
 
 		const getImportRun = Effect.fn("ImportsService.getImportRun")(function* (
 			user: CurrentUserValue,
 			runId: ImportRunId,
 			query: { page: number; limit: number },
 		) {
-			const run = yield* runWithDb(repository.getRunById({ runId, userId: user.id }));
-			if (!run) {
-				return yield* notFound("Import run not found");
-			}
+			const run = yield* requireImportRun(user, runId);
 			const failures = yield* runWithDb(
 				repository.listFailuresByRunId({ runId, page: query.page, limit: query.limit }),
 			);
@@ -232,10 +228,7 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			user: CurrentUserValue,
 			runId: ImportRunId,
 		) {
-			const run = yield* runWithDb(repository.getRunById({ runId, userId: user.id }));
-			if (!run) {
-				return yield* notFound("Import run not found");
-			}
+			const run = yield* requireImportRun(user, runId);
 			if (!isTerminalStatus(run.status)) {
 				return yield* badRequest("Can only delete completed or failed import runs");
 			}
@@ -244,7 +237,7 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 		});
 
 		const listRunsByIntegrationId = (input: { userId: UserId; integrationId: IntegrationId }) =>
-			runWithDb(repository.listRunsByIntegrationId(input));
+			runWithDb(repository.listRuns({ ...input, type: "integration" }));
 
 		const hasActiveRunForIntegration = (input: { integrationId: IntegrationId }) =>
 			runWithDb(repository.hasActiveRunForIntegration(input));
