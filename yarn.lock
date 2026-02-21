@@ -7393,6 +7393,7 @@ __metadata:
     drizzle-orm: "npm:0.45.1"
     hono: "npm:4.12.1"
     pg: "npm:8.18.0"
+    zod: "npm:4.3.6"
   languageName: unknown
   linkType: soft
 
