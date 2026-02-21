@@ -137,14 +137,17 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 		// the engine. Scan every source file (not just today's known callers) so a newly added
 		// module cannot bypass the single-owner boundary undetected.
 		const sourceRoot = yield* paths.fromFileUrl(new URL("../../", import.meta.url));
-		const productionPaths = yield* Effect.sync(() =>
-			Array.from(new Bun.Glob("**/*.ts").scanSync({ cwd: sourceRoot, absolute: true }))
-				.map((absolutePath) => absolutePath.replaceAll("\\", "/"))
-				.filter(
-					(path) =>
-						!path.endsWith(".test.ts") &&
-						!path.endsWith("/entity-import/provider-entity-population-workflow.ts"),
-				),
+		const productionPaths = yield* fs.glob("**/*.ts", { root: sourceRoot }).pipe(
+			Effect.map((matchedPaths) =>
+				matchedPaths
+					.map((path) => paths.resolve(sourceRoot, path))
+					.map((absolutePath) => absolutePath.replaceAll("\\", "/"))
+					.filter(
+						(path) =>
+							!path.endsWith(".test.ts") &&
+							!path.endsWith("/entity-import/provider-entity-population-workflow.ts"),
+					),
+			),
 		);
 		const productionSources = yield* Effect.all(
 			productionPaths.map((path) =>
