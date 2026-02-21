@@ -52,6 +52,39 @@ async function tmdbGet(path, params, token) {
 	return payload;
 }
 
+async function tmdbDiscoverCompanyResults(path, externalId, token) {
+	const firstPage = await tmdbGet(
+		path,
+		{ language: "en-US", page: "1", with_companies: externalId },
+		token,
+	);
+	const pages = [firstPage];
+	const totalPages =
+		typeof firstPage?.total_pages === "number" && Number.isFinite(firstPage.total_pages)
+			? Math.max(1, Math.trunc(firstPage.total_pages))
+			: 1;
+
+	for (let page = 2; page <= totalPages; page += 5) {
+		const pageNumbers = Array.from(
+			{ length: Math.min(5, totalPages - page + 1) },
+			(_, index) => page + index,
+		);
+		pages.push(
+			...(await Promise.all(
+				pageNumbers.map((pageNumber) =>
+					tmdbGet(
+						path,
+						{ language: "en-US", page: String(pageNumber), with_companies: externalId },
+						token,
+					),
+				),
+			)),
+		);
+	}
+
+	return pages.flatMap((page) => (Array.isArray(page?.results) ? page.results : []));
+}
+
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
 
@@ -144,10 +177,10 @@ driver("details", async function (context) {
 
 	const token = await getTmdbAccessToken();
 
-	const [companyData, movieData, showData] = await Promise.all([
+	const [companyData, movies, shows] = await Promise.all([
 		tmdbGet(`/company/${externalId}`, { language: "en-US" }, token),
-		tmdbGet(`/company/${externalId}/movies`, { language: "en-US" }, token),
-		tmdbGet(`/company/${externalId}/tv`, { language: "en-US" }, token),
+		tmdbDiscoverCompanyResults("/discover/movie", externalId, token),
+		tmdbDiscoverCompanyResults("/discover/tv", externalId, token),
 	]);
 
 	const name =
@@ -170,7 +203,7 @@ driver("details", async function (context) {
 	} else if (typeof companyData?.origin_country === "string" && companyData.origin_country.trim()) {
 		headquarters = companyData.origin_country.trim();
 	}
-	const movieEntities = (Array.isArray(movieData?.results) ? movieData.results : [])
+	const movieEntities = movies
 		.map((movie) => {
 			const movieId =
 				typeof movie?.id === "number" && Number.isFinite(movie.id)
@@ -186,7 +219,7 @@ driver("details", async function (context) {
 			};
 		})
 		.filter((entity) => entity.externalId !== null);
-	const showEntities = (Array.isArray(showData?.results) ? showData.results : [])
+	const showEntities = shows
 		.map((show) => {
 			const showId =
 				typeof show?.id === "number" && Number.isFinite(show.id)

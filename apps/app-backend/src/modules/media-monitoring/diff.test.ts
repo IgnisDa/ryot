@@ -171,6 +171,98 @@ describe("diffMediaMonitoringSnapshots", () => {
 		).toEqual(["metadata_episode_released"]);
 	});
 
+	it("uses external episode IDs before episode numbers and reports replacements", () => {
+		const before = snapshot({
+			entitySchemaSlug: "show",
+			seasons: [
+				{
+					seasonNumber: 1,
+					name: "Season 1",
+					externalId: "season-1",
+					episodes: [
+						{
+							name: "A",
+							images: [],
+							episodeNumber: 1,
+							publishDate: null,
+							externalId: "episode-a",
+						},
+						{
+							name: "B",
+							images: [],
+							episodeNumber: 2,
+							publishDate: null,
+							externalId: "episode-b",
+						},
+					],
+				},
+			],
+		});
+		const after = snapshot({
+			entitySchemaSlug: "show",
+			seasons: [
+				{
+					seasonNumber: 1,
+					name: "Season 1",
+					externalId: "season-1",
+					episodes: [
+						{
+							name: "B",
+							images: [],
+							episodeNumber: 1,
+							publishDate: null,
+							externalId: "episode-b",
+						},
+						{
+							name: "C",
+							images: [],
+							episodeNumber: 2,
+							publishDate: null,
+							externalId: "episode-c",
+						},
+					],
+				},
+			],
+		});
+
+		expect(diffMediaMonitoringSnapshots(before, after)).toMatchObject([
+			{
+				eventType: "metadata_episode_released",
+				message: "1 new episode released for Season 1 of Example",
+			},
+		]);
+		expect(diffMediaMonitoringSnapshots(before, after)).toHaveLength(1);
+	});
+
+	it("does not report episode releases when episodes are only removed", () => {
+		const episode = {
+			images: [],
+			name: "Pilot",
+			episodeNumber: 1,
+			publishDate: null,
+			externalId: "episode-1",
+		};
+		const before = snapshot({
+			entitySchemaSlug: "show",
+			seasons: [
+				{
+					name: "Season 1",
+					externalId: "season-1",
+					seasonNumber: 1,
+					episodes: [episode, { ...episode, externalId: "episode-2", episodeNumber: 2 }],
+				},
+			],
+		});
+		const beforeSeason = before.seasons[0];
+		assert(beforeSeason);
+		const after = snapshot({
+			entitySchemaSlug: "show",
+			seasons: [{ ...beforeSeason, episodes: [episode] }],
+		});
+
+		expect(diffMediaMonitoringSnapshots(before, after)).toEqual([]);
+	});
+
 	it("reports anime, manga, and podcast changes by their normalized identities", () => {
 		expect(
 			diffMediaMonitoringSnapshots(

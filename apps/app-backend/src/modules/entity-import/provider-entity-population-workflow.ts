@@ -87,6 +87,7 @@ const validateEntityDetails = Effect.fn("validateEntityDetails")(function* (valu
 const writePrimaryEntity = Effect.fn("writeProviderPrimaryEntity")(function* (
 	payload: EntityImportPayload,
 	details: ValidatedEntityDetails,
+	options: SynchronizeOptions,
 ) {
 	const entities = yield* EntitiesService;
 
@@ -99,7 +100,7 @@ const writePrimaryEntity = Effect.fn("writeProviderPrimaryEntity")(function* (
 				scope: "global",
 				populatedAt: null,
 				name: details.name,
-				onConflict: "replaceExisting",
+				onConflict: options.mode === "refresh" ? undefined : "replaceExisting",
 				externalId: payload.externalId,
 				properties: details.properties,
 				sandboxScriptId: payload.scriptId,
@@ -205,7 +206,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	}
 
 	const details = yield* validateEntityDetails(sandboxResult.value);
-	const entity = yield* writePrimaryEntity(payload, details);
+	const entity = yield* writePrimaryEntity(payload, details, options);
 	yield* writeRelatedEntities(payload, entity, details.relatedEntityGroups);
 	yield* writeChildEntities(payload, entity, details, options);
 
