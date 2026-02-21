@@ -129,29 +129,35 @@ export function TrackerSheet() {
 									) : null}
 								</Pressable>
 
-								{isExpanded &&
-									tracker.subItems?.map((item) => {
-										const isSubActive = isActive && item === activeSubItem;
-										return (
-											<Pressable
-												key={item}
-												accessibilityLabel={item}
-												accessibilityRole="button"
-												className="pl-10 pr-6 min-h-11 justify-center"
-												onPress={() => handleSubItemPress(tracker.id, item)}
-											>
-												<Text
-													className={`text-[18px] ${
-														isSubActive
-															? "text-terra font-serif-medium-italic"
-															: "text-ink font-serif"
-													}`}
+								{isExpanded && (
+									<Animated.View
+										entering={FadeIn.duration(150)}
+										exiting={FadeOut.duration(120)}
+									>
+										{tracker.subItems?.map((item) => {
+											const isSubActive = isActive && item === activeSubItem;
+											return (
+												<Pressable
+													key={item}
+													accessibilityLabel={item}
+													accessibilityRole="button"
+													className="pl-10 pr-6 min-h-11 justify-center"
+													onPress={() => handleSubItemPress(tracker.id, item)}
 												>
-													{item}
-												</Text>
-											</Pressable>
-										);
-									})}
+													<Text
+														className={`text-[18px] ${
+															isSubActive
+																? "text-terra font-serif-medium-italic"
+																: "text-ink font-serif"
+														}`}
+													>
+														{item}
+													</Text>
+												</Pressable>
+											);
+										})}
+									</Animated.View>
+								)}
 							</Box>
 						);
 					})}
@@ -159,8 +165,8 @@ export function TrackerSheet() {
 					<Box className="mx-6 mt-2">
 						<Box className="h-[0.5px] bg-ink/20 mb-3.5" />
 						<Pressable
-							className="flex-row items-center gap-1.5 min-h-[44px]"
 							accessibilityRole="button"
+							className="flex-row items-center gap-1.5 min-h-11"
 						>
 							<Plus size={12} color="#5a5347" strokeWidth={1.5} />
 							<Text className="text-[12px] text-ink-soft font-sans">
