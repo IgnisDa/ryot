@@ -2,10 +2,11 @@ use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
 use background_models::{ApplicationJob, SingleApplicationJob};
+use chrono::Utc;
 use common_utils::ryot_log;
 use database_models::{import_report, prelude::ImportReport};
 use media_models::DeployImportJobInput;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use supporting_service::SupportingService;
 
 pub async fn deploy_import_job(
@@ -13,9 +14,27 @@ pub async fn deploy_import_job(
     user_id: String,
     input: DeployImportJobInput,
 ) -> Result<bool> {
-    let job = SingleApplicationJob::ImportFromExternalSource(user_id, Box::new(input));
-    ss.perform_application_job(ApplicationJob::Single(job))
-        .await?;
+    let queued_at = Utc::now();
+    let report = import_report::ActiveModel {
+        progress: ActiveValue::Set(None),
+        source: ActiveValue::Set(input.source),
+        started_on: ActiveValue::Set(queued_at),
+        user_id: ActiveValue::Set(user_id.clone()),
+        estimated_finish_time: ActiveValue::Set(queued_at),
+        ..Default::default()
+    }
+    .insert(&ss.db)
+    .await?;
+    let job =
+        SingleApplicationJob::ImportFromExternalSource(user_id, report.id.clone(), Box::new(input));
+    if let Err(error) = ss
+        .perform_application_job(ApplicationJob::Single(job))
+        .await
+    {
+        // Without a job the report would stay queued until the next restart.
+        ImportReport::delete_by_id(report.id).exec(&ss.db).await?;
+        return Err(error);
+    }
     ryot_log!(debug, "Deployed import job");
     Ok(true)
 }
