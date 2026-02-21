@@ -1,3 +1,4 @@
+import { authClient } from "@/lib/auth";
 import {
 	Box,
 	Button,
@@ -22,6 +23,7 @@ import {
 	Waves,
 	Zap,
 } from "lucide-react";
+import { useEffect } from "react";
 
 export const Route = createFileRoute("/")({ component: App });
 
@@ -35,6 +37,10 @@ function App() {
 			return res.text();
 		},
 	});
+
+	useEffect(() => {
+		authClient.signIn.anonymous();
+	}, []);
 
 	const features = [
 		{
