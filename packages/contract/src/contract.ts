@@ -17,7 +17,7 @@ import { RelationshipsGroup } from "./modules/relationships/contract";
 import { SavedViewsGroup } from "./modules/saved-views/contract";
 import { SystemGroup } from "./modules/system/contract";
 import { TestSupportGroup } from "./modules/test-support/contract";
-import { UploadsGroup } from "./modules/uploads/contract";
+import { LocalUploadsGroup, UploadsGroup } from "./modules/uploads/contract";
 import { UserPreferencesGroup } from "./modules/user-preferences/contract";
 import { UserStateGroup } from "./modules/user-state/contract";
 
@@ -32,6 +32,7 @@ export const AppContract = HttpApi.make("ryot")
 	.add(UserPreferencesGroup)
 	.add(EventsGroup)
 	.add(UploadsGroup)
+	.add(LocalUploadsGroup)
 	.add(SavedViewsGroup)
 	.add(CollectionsGroup)
 	.add(GodModeGroup)

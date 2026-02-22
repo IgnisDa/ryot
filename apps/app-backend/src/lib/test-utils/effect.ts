@@ -61,8 +61,12 @@ export const makeRedisService = (
 		get: () => Effect.die("unused"),
 		set: () => Effect.die("unused"),
 		claim: () => Effect.die("unused"),
+		zadd: () => Effect.die("unused"),
+		zrem: () => Effect.die("unused"),
 		getdel: () => Effect.die("unused"),
 		publish: () => Effect.die("unused"),
+		setAndIndex: () => Effect.die("unused"),
+		setAndRemoveFromIndex: () => Effect.die("unused"),
 		...overrides,
 	});
 
@@ -104,13 +108,15 @@ export const makeAppConfigLayer = (
 		fileStorage: {
 			url: Option.none(),
 			region: Option.none(),
+			localDir: Option.none(),
 			bucketName: Option.none(),
 			accessKeyId: Option.none(),
 			secretAccessKey: Option.none(),
+			localSigningSecret: Option.none(),
 		},
 		server: {
-			logFile: Option.none(),
 			logLevel: "Info",
+			logFile: Option.none(),
 			corsOrigins: Option.none(),
 			otlpEndpoint: Option.none(),
 			disableNotifications: false,
@@ -128,17 +134,17 @@ export const makeAppConfigLayer = (
 		...defaults,
 		...overrides,
 		users: { ...defaults.users, ...overrides?.users },
+		sandbox: { ...defaults.sandbox, ...overrides?.sandbox },
+		frontend: { ...defaults.frontend, ...overrides?.frontend },
+		database: { ...defaults.database, ...overrides?.database },
+		scheduler: { ...defaults.scheduler, ...overrides?.scheduler },
+		fileStorage: { ...defaults.fileStorage, ...overrides?.fileStorage },
 		server: {
 			...defaults.server,
 			...overrides?.server,
 			oidc: { ...defaults.server.oidc, ...overrides?.server?.oidc },
 			smtp: { ...defaults.server.smtp, ...overrides?.server?.smtp },
 		},
-		frontend: { ...defaults.frontend, ...overrides?.frontend },
-		database: { ...defaults.database, ...overrides?.database },
-		sandbox: { ...defaults.sandbox, ...overrides?.sandbox },
-		scheduler: { ...defaults.scheduler, ...overrides?.scheduler },
-		fileStorage: { ...defaults.fileStorage, ...overrides?.fileStorage },
 	});
 };
 
