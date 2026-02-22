@@ -1,9 +1,8 @@
 import { Redirect } from "expo-router";
-import { useAtomValue } from "jotai";
-import { serverUrlAtom } from "@/lib/atoms";
+import { useServerUrl } from "@/lib/atoms";
 
 export default function Index() {
-	const serverUrl = useAtomValue(serverUrlAtom);
+	const serverUrl = useServerUrl();
 	if (!serverUrl) {
 		return <Redirect href="/onboarding" />;
 	}

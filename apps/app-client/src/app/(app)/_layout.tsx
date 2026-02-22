@@ -1,14 +1,13 @@
 import { router, Stack } from "expo-router";
-import { useAtomValue } from "jotai";
 import { useEffect } from "react";
 import { SpineNavigation } from "@/components/spine";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
 import { Text } from "@/components/ui/text";
-import { authClientAtom } from "@/lib/auth";
+import { useAuthClient } from "@/lib/atoms";
 
 export default function AppLayout() {
-	const authClient = useAtomValue(authClientAtom);
+	const authClient = useAuthClient();
 	const { data: session, isPending } = authClient.useSession();
 
 	useEffect(() => {

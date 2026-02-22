@@ -1,6 +1,5 @@
 import clsx from "clsx";
 import { router, usePathname } from "expo-router";
-import { useAtomValue, useSetAtom } from "jotai";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react-native";
 import { useState } from "react";
 import { ScrollView } from "react-native";
@@ -14,11 +13,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { navSheetOpenAtom, type Tracker, trackersAtom } from "@/lib/navigation";
+import {
+	type Tracker,
+	useSetNavSheetOpen,
+	useTrackers,
+} from "@/lib/navigation";
 
 export function TrackerSheet() {
-	const setOpen = useSetAtom(navSheetOpenAtom);
-	const trackers = useAtomValue(trackersAtom);
+	const setOpen = useSetNavSheetOpen();
+	const trackers = useTrackers();
 	const pathname = usePathname();
 	const segments = pathname.split("/").filter(Boolean);
 	const activeTrackerId = segments[0] || "home";

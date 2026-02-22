@@ -1,7 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import clsx from "clsx";
 import { router } from "expo-router";
-import { useSetAtom } from "jotai";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform } from "react-native";
 import { Box } from "@/components/ui/box";
@@ -10,7 +9,7 @@ import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { createApiClient } from "@/lib/api";
-import { CLOUD_URL, serverUrlAtom } from "@/lib/atoms";
+import { CLOUD_URL, useSetServerUrl } from "@/lib/atoms";
 
 type ServerMode = "cloud" | "self-hosted";
 
@@ -28,7 +27,7 @@ const options: { mode: ServerMode; label: string; subtitle: string }[] = [
 ];
 
 export default function Onboarding() {
-	const setServerUrl = useSetAtom(serverUrlAtom);
+	const setServerUrl = useSetServerUrl();
 	const [mode, setMode] = useState<ServerMode>("cloud");
 	const [url, setUrl] = useState(
 		Platform.OS === "web" ? window.location.origin : "",

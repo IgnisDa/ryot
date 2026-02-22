@@ -1,4 +1,4 @@
-import { atom } from "jotai";
+import { atom, useAtomValue, useSetAtom } from "jotai";
 
 export type Tracker = {
 	id: string;
@@ -26,7 +26,13 @@ const HARDCODED_TRACKERS: Tracker[] = [
 	{ id: "whiskey", name: "Whiskey" },
 ];
 
-export const trackersAtom = atom<Tracker[]>(HARDCODED_TRACKERS);
+const trackersAtom = atom<Tracker[]>(HARDCODED_TRACKERS);
 
-export const navSheetOpenAtom = atom(false);
-export const searchOpenAtom = atom(false);
+const navSheetOpenAtom = atom(false);
+const searchOpenAtom = atom(false);
+
+export const useTrackers = () => useAtomValue(trackersAtom);
+export const useNavSheetOpen = () => useAtomValue(navSheetOpenAtom);
+export const useSetNavSheetOpen = () => useSetAtom(navSheetOpenAtom);
+export const useSearchOpen = () => useAtomValue(searchOpenAtom);
+export const useSetSearchOpen = () => useSetAtom(searchOpenAtom);
