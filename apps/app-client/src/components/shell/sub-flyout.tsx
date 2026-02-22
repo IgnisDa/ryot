@@ -18,7 +18,7 @@ type Props = {
 	pinned?: boolean;
 };
 
-export function SpineSubFlyout({ pinned = false }: Props) {
+export function ShellSubFlyout({ pinned = false }: Props) {
 	const pathname = usePathname();
 	const { trackers } = useNavigationData();
 	const segments = pathname.split("/").filter(Boolean);

@@ -7,16 +7,16 @@ import {
 	useNavSheetOpen,
 	useSearchOpen,
 } from "@/lib/navigation";
-import { SpineRail } from "./rail";
+import { ShellRail } from "./rail";
 import { SearchOverlay } from "./search-overlay";
-import { SpineSubFlyout } from "./sub-flyout";
+import { ShellSubFlyout } from "./sub-flyout";
 import { TrackerSheet } from "./tracker-sheet";
 
 const TABLET_BREAKPOINT = 768;
 
 type Props = { children: ReactNode };
 
-export function SpineNavigation({ children }: Props) {
+export function ShellNavigation({ children }: Props) {
 	const pathname = usePathname();
 	const searchOpen = useSearchOpen();
 	const navSheetOpen = useNavSheetOpen();
@@ -38,8 +38,8 @@ export function SpineNavigation({ children }: Props) {
 	const layout = isTablet ? (
 		<Box className="flex-1 flex-row">
 			<Box className="flex-1">{children}</Box>
-			{subFlyoutOpen && <SpineSubFlyout pinned />}
-			<SpineRail pinned onClose={() => {}} />
+			{subFlyoutOpen && <ShellSubFlyout pinned />}
+			<ShellRail pinned onClose={() => {}} />
 		</Box>
 	) : (
 		<Box className="flex-1">

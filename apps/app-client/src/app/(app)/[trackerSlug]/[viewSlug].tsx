@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from "expo-router";
-import { gridStyles, PageHeader } from "@/components/spine/page-header";
+import { gridStyles, PageHeader } from "@/components/shell/page-header";
 import { Box } from "@/components/ui/box";
 import { useNavigationData } from "@/lib/navigation";
 
