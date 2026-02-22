@@ -1,3 +1,4 @@
+import { generateId } from "better-auth";
 import { Hono } from "hono";
 import { requireAuth } from "../auth/middleware";
 import { getQueues } from "../queue";
@@ -10,7 +11,7 @@ export const protectedApi = new Hono()
 
 		const queues = getQueues();
 		await queues.exampleQueue.add("user-login", {
-			message: `User ${user.id} accessed /me endpoint`,
+			message: `User ${user.id} accessed /me endpoint and id is ${generateId()}`,
 		});
 
 		return c.json({ user, session });
