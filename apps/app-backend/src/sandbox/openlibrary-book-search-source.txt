@@ -1,0 +1,76 @@
+const pageSize = 20;
+const currentPage = Number.isFinite(Number(context?.page))
+	? Math.max(1, Math.floor(Number(context.page)))
+	: 1;
+const query = typeof context?.query === "string" ? context.query.trim() : "";
+
+if (!query) throw new Error("query is required");
+
+const params = new URLSearchParams({
+	q: query,
+	type: "work",
+	limit: String(pageSize),
+	offset: String((currentPage - 1) * pageSize),
+	fields: "key,title,author_name,cover_i,first_publish_year",
+});
+
+const response = await httpCall(
+	"GET",
+	"https://openlibrary.org/search.json?" + params.toString(),
+);
+
+if (!response?.success) {
+	throw new Error(response?.error ?? "OpenLibrary search request failed");
+}
+
+let payload;
+try {
+	payload = JSON.parse(response.data.body);
+} catch {
+	throw new Error("OpenLibrary returned invalid JSON");
+}
+
+const totalItems =
+	typeof payload?.num_found === "number" && Number.isFinite(payload.num_found)
+		? payload.num_found
+		: 0;
+
+const docs = Array.isArray(payload?.docs) ? payload.docs : [];
+const items = docs
+	.map((doc) => {
+		const key = typeof doc?.key === "string" ? doc.key : "";
+		const identifier = key.split("/").filter(Boolean).pop();
+		if (!identifier) return null;
+
+		const title = typeof doc?.title === "string" ? doc.title : "";
+		const publishYear =
+			typeof doc?.first_publish_year === "number" &&
+			Number.isFinite(doc.first_publish_year)
+				? doc.first_publish_year
+				: null;
+		const coverId =
+			typeof doc?.cover_i === "number" && Number.isFinite(doc.cover_i)
+				? doc.cover_i
+				: null;
+
+		return {
+			title,
+			identifier,
+			publish_year: publishYear,
+			image:
+				coverId === null
+					? null
+					: "https://covers.openlibrary.org/b/id/" +
+						String(coverId) +
+						"-M.jpg?default=false",
+		};
+	})
+	.filter((item) => item !== null);
+
+return {
+	items,
+	details: {
+		total_items: totalItems,
+		next_page: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+	},
+};
