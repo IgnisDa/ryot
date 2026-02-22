@@ -34,12 +34,12 @@ const makeLayer = () => {
 		Layer.provide(
 			Layer.succeed(
 				RedisService,
-				Object.assign(Object.create(null), {
-					...makeRedisService(),
+				makeRedisService({
 					client,
 					del: (...keys: string[]) =>
 						Effect.sync(() => {
 							keys.forEach((key) => hashes.delete(key));
+							return keys.length;
 						}),
 				}),
 			),
