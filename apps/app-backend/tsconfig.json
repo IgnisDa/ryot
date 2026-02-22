@@ -2,7 +2,11 @@
 	"compilerOptions": {
 		"noEmit": true,
 		"strict": true,
+		"target": "ES2022",
 		"jsx": "react-jsx",
+		"module": "ESNext",
+		"skipLibCheck": true,
+		"moduleResolution": "bundler",
 		"jsxImportSource": "hono/jsx"
 	}
 }
