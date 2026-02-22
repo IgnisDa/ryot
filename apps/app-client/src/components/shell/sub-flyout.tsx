@@ -47,8 +47,14 @@ export function ShellSubFlyout({ pinned = false }: Props) {
 							accessibilityRole="button"
 							accessibilityLabel={item.name}
 							href={`/${activeTrackerSlug}/${item.slug}`}
-							className="min-h-11 py-2 px-2 flex-row items-center flex"
+							className="min-h-11 py-2 px-2 flex-row items-center flex relative"
 						>
+							{isActive && (
+								<Box
+									className="absolute left-0 top-2 bottom-2 w-0.75"
+									style={{ backgroundColor: item.accentColor ?? undefined }}
+								/>
+							)}
 							<Box className="mr-2">
 								<TrackerIcon icon={item.icon} size={14} />
 							</Box>
