@@ -1,8 +1,8 @@
 FROM oven/bun:1.3.9-debian AS backend-builder
 WORKDIR /app
 COPY . .
-WORKDIR /app/apps/app-backend
-RUN bun install && bun run build
+RUN bun install --frozen-lockfile
+RUN bun run --filter @ryot/app-backend build
 
 FROM oven/bun:1.3.9-debian AS frontend-builder
 WORKDIR /app
