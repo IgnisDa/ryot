@@ -13,6 +13,7 @@ import {
 	shutdownWorkers,
 } from "./queue";
 import { protectedApi } from "./routes/protected";
+import { initializeSandboxService, shutdownSandboxService } from "./sandbox";
 
 const apiApp = new Hono<{ Variables: MaybeAuthType }>();
 
@@ -35,6 +36,7 @@ const main = async () => {
 	await migrateDB();
 	await initializeQueues();
 	await initializeWorkers();
+	await initializeSandboxService();
 
 	const server = serve({ port: config.PORT, fetch: app.fetch }, (c) => {
 		console.info(`Server listening on port ${c.port}...`);
@@ -49,6 +51,7 @@ const main = async () => {
 		console.info("Shutting down server...");
 		await shutdownWorkers();
 		await shutdownQueues();
+		await shutdownSandboxService();
 		server.close(() => {
 			console.info("Server closed");
 			process.exit(0);
