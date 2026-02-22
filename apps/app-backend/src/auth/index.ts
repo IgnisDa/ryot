@@ -1,8 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { anonymous } from "better-auth/plugins";
-import { db } from "./db";
-import * as schema from "./db/schema";
+import { db, schema } from "../db";
 
 export const auth = betterAuth({
 	plugins: [anonymous()],
