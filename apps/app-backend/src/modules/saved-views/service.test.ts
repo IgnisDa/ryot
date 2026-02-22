@@ -6,8 +6,9 @@ import type {
 	ListedSavedView,
 } from "@ryot/contract/modules/saved-views/schemas";
 import { SavedViewId, UserId } from "@ryot/contract/schema/brands";
-import { Effect, Exit, Layer } from "effect";
+import { Effect, Layer } from "effect";
 
+import { assertExitFails } from "#lib/test-utils/assertions";
 import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -185,8 +186,9 @@ it.effect("reports a duplicate when a concurrent create wins the unique insert",
 		const service = yield* SavedViewsService;
 		const exit = yield* Effect.exit(service.create(user, createBody));
 
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "A saved view with this name already exists" })),
+		assertExitFails(
+			exit,
+			new BadRequest({ message: "A saved view with this name already exists" }),
 		);
 	}).pipe(Effect.provide(layer));
 });
@@ -198,7 +200,7 @@ it.effect("returns not found when getting a view the user does not own", () => {
 		const service = yield* SavedViewsService;
 		const exit = yield* Effect.exit(service.get(user, "non-existent"));
 
-		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Saved view not found" })));
+		assertExitFails(exit, new NotFound({ message: "Saved view not found" }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -217,9 +219,7 @@ it.effect("returns bad request when deleting a built-in view", () => {
 		const service = yield* SavedViewsService;
 		const exit = yield* Effect.exit(service.delete(user, "builtin-view"));
 
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Cannot modify built-in saved views" })),
-		);
+		assertExitFails(exit, new BadRequest({ message: "Cannot modify built-in saved views" }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -326,9 +326,7 @@ it.effect("rejects updating a built-in view name", () => {
 			}),
 		);
 
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Cannot modify built-in saved views" })),
-		);
+		assertExitFails(exit, new BadRequest({ message: "Cannot modify built-in saved views" }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -358,9 +356,7 @@ it.effect("rejects updating a built-in view's queryDocument", () => {
 			}),
 		);
 
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Cannot modify built-in saved views" })),
-		);
+		assertExitFails(exit, new BadRequest({ message: "Cannot modify built-in saved views" }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -453,8 +449,9 @@ it.effect("rejects reorder requests containing unknown slugs", () => {
 		const service = yield* SavedViewsService;
 		const exit = yield* Effect.exit(service.reorder(user, { viewSlugs: ["view-a", "view-b"] }));
 
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Saved view slugs contain unknown saved views" })),
+		assertExitFails(
+			exit,
+			new BadRequest({ message: "Saved view slugs contain unknown saved views" }),
 		);
 	}).pipe(Effect.provide(layer));
 });
@@ -521,9 +518,7 @@ it.effect("rejects creating a saved view with a semantically invalid v2 query do
 			service.create(user, { ...createBody, queryDocument: invalidQueryDocument }),
 		);
 
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Unknown source alias 'unknownAlias'" })),
-		);
+		assertExitFails(exit, new BadRequest({ message: "Unknown source alias 'unknownAlias'" }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -546,13 +541,12 @@ it.effect(
 				service.create(user, { ...createBody, displayConfiguration: badDisplayConfig }),
 			);
 
-			expect(exit).toEqual(
-				Exit.fail(
-					new BadRequest({
-						message:
-							"Display configuration references entity schema 'wrong-schema' which is not in the query document source",
-					}),
-				),
+			assertExitFails(
+				exit,
+				new BadRequest({
+					message:
+						"Display configuration references entity schema 'wrong-schema' which is not in the query document source",
+				}),
 			);
 		}).pipe(Effect.provide(layer));
 	},
@@ -586,13 +580,12 @@ it.effect(
 				}),
 			);
 
-			expect(exit).toEqual(
-				Exit.fail(
-					new BadRequest({
-						message:
-							"Display configuration references entity schema 'nonexistent' which is not in the query document source",
-					}),
-				),
+			assertExitFails(
+				exit,
+				new BadRequest({
+					message:
+						"Display configuration references entity schema 'nonexistent' which is not in the query document source",
+				}),
 			);
 		}).pipe(Effect.provide(layer));
 	},

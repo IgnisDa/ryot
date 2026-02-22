@@ -9,8 +9,9 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import { Effect, Exit, Layer } from "effect";
+import { Effect, Layer } from "effect";
 
+import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
@@ -164,8 +165,9 @@ it.effect("rejects clearing library user state", () => {
 		const service = yield* UserStateService;
 		const exit = yield* Effect.exit(service.clearUserState(user, EntityId.make("library-entity")));
 
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Library entity user state cannot be cleared" })),
+		assertExitFails(
+			exit,
+			new BadRequest({ message: "Library entity user state cannot be cleared" }),
 		);
 	}).pipe(Effect.provide(layer));
 });
@@ -225,9 +227,7 @@ it.effect("rejects merging an entity into itself", () => {
 			}),
 		);
 
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Cannot merge an entity into itself" })),
-		);
+		assertExitFails(exit, new BadRequest({ message: "Cannot merge an entity into itself" }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -248,7 +248,7 @@ it.effect("returns not found when one merge entity is not visible", () => {
 			}),
 		);
 
-		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity not found" })));
+		assertExitFails(exit, new NotFound({ message: "Entity not found" }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -277,9 +277,7 @@ it.effect("rejects merging entities from different schemas", () => {
 			}),
 		);
 
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Entities must belong to the same schema" })),
-		);
+		assertExitFails(exit, new BadRequest({ message: "Entities must belong to the same schema" }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -337,8 +335,9 @@ it.effect("rejects merging entities with mismatched declared identity properties
 			}),
 		);
 
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Entities must have the same 'kind' property" })),
+		assertExitFails(
+			exit,
+			new BadRequest({ message: "Entities must have the same 'kind' property" }),
 		);
 	}).pipe(Effect.provide(layer));
 });
