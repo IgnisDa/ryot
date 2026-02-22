@@ -1,19 +1,28 @@
-import "dotenv/config";
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
+import "dotenv/config";
 import { Hono } from "hono";
 import { auth, type MaybeAuthType } from "./auth";
 import { withSession } from "./auth/middleware";
 import { migrateDB } from "./db";
 import { protectedApi } from "./routes/protected";
 
-const app = new Hono<{ Variables: MaybeAuthType }>().basePath("/api");
+const apiApp = new Hono<{ Variables: MaybeAuthType }>();
 
-const route = app
+const route = apiApp
 	.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw))
 	.use("*", withSession)
 	.route("/protected", protectedApi);
 
 export type AppType = typeof route;
+
+const app = new Hono();
+
+app.route("/api", apiApp);
+
+app.use("*", serveStatic({ root: "./client" }));
+
+app.use("*", serveStatic({ path: "./client/_shell.html" }));
 
 const main = async () => {
 	await migrateDB();
