@@ -83,7 +83,10 @@ const makeRelationshipSchemasRepository = (
 		_tag: "RelationshipSchemasRepository",
 	});
 
-const makeDefinitionRegistryLayer = (mergeIdentityProperties: ReadonlyArray<string> = []) =>
+const makeDefinitionRegistryLayer = (
+	mergeIdentityProperties: ReadonlyArray<string> = [],
+	deniedOperationsBySchema: Readonly<Record<string, ReadonlyArray<"clear" | "merge">>> = {},
+) =>
 	Layer.succeed(DefinitionRegistry, {
 		_tag: "DefinitionRegistry",
 		...makeDefinitionRegistry({
@@ -95,25 +98,40 @@ const makeDefinitionRegistryLayer = (mergeIdentityProperties: ReadonlyArray<stri
 					icon: "book",
 					name: "Book",
 					slug: "book",
-					pluginSlug: "test",
 					eventSchemas: [],
+					pluginSlug: "test",
 					accentColor: "blue",
 					mergeIdentityProperties,
 					propertiesSchema: {
 						fields: { kind: { type: "string", label: "Kind", description: "Book kind" } },
 					},
+					userState: deniedOperationsBySchema["book"]
+						? { deniedOperations: deniedOperationsBySchema["book"] }
+						: undefined,
 				},
+				...Object.entries(deniedOperationsBySchema)
+					.filter(([slug]) => slug !== "book")
+					.map(([slug, deniedOperations]) => ({
+						slug,
+						icon: "box",
+						name: slug,
+						eventSchemas: [],
+						pluginSlug: "test",
+						accentColor: "blue",
+						userState: { deniedOperations },
+						propertiesSchema: { fields: {} },
+					})),
 			],
 		}),
 	});
 
 const makeServiceLayer = (
 	options: {
-		definitionRegistry?: ReturnType<typeof makeDefinitionRegistryLayer>;
-		eventsRepository?: ReturnType<typeof makeEventsRepository>;
 		eventsService?: ReturnType<typeof makeEventsService>;
+		eventsRepository?: ReturnType<typeof makeEventsRepository>;
 		entitiesRepository?: ReturnType<typeof makeEntitiesRepository>;
 		relationshipsService?: ReturnType<typeof makeRelationshipsService>;
+		definitionRegistry?: ReturnType<typeof makeDefinitionRegistryLayer>;
 		relationshipsRepository?: ReturnType<typeof makeRelationshipsRepository>;
 		relationshipSchemasRepository?: ReturnType<typeof makeRelationshipSchemasRepository>;
 	} = {},
@@ -146,17 +164,18 @@ const makeMergeScope = (overrides: {
 	entitySchemaSlug: EntitySchemaSlug.make(overrides.entitySchemaSlug ?? "book"),
 });
 
-it.effect("rejects clearing library user state", () => {
+it.effect("rejects clearing user state when the entity schema denies it", () => {
 	const layer = makeServiceLayer({
+		definitionRegistry: makeDefinitionRegistryLayer([], { library: ["clear", "merge"] }),
 		entitiesRepository: makeEntitiesRepository({
 			getEntityScopeForUser: () =>
 				Effect.succeed({
 					isBuiltin: true,
 					entityName: "Library",
 					entityUserId: user.id,
+					propertiesSchema: { fields: {} },
 					entityId: EntityId.make("library-entity"),
 					entitySchemaSlug: EntitySchemaSlug.make("library"),
-					propertiesSchema: { fields: {} },
 				}),
 		}),
 	});
@@ -165,10 +184,7 @@ it.effect("rejects clearing library user state", () => {
 		const service = yield* UserStateService;
 		const exit = yield* Effect.exit(service.clearUserState(user, EntityId.make("library-entity")));
 
-		assertExitFails(
-			exit,
-			new BadRequest({ message: "Library entity user state cannot be cleared" }),
-		);
+		assertExitFails(exit, new BadRequest({ message: "Entity user state cannot be cleared" }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -249,6 +265,41 @@ it.effect("returns not found when one merge entity is not visible", () => {
 		);
 
 		assertExitFails(exit, new NotFound({ message: "Entity not found" }));
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("rejects merging when either source or destination schema denies it", () => {
+	const layer = makeServiceLayer({
+		definitionRegistry: makeDefinitionRegistryLayer([], { blocked: ["merge"] }),
+		entitiesRepository: makeEntitiesRepository({
+			getEntityMergeScopeForUser: ({ entityId }) =>
+				Effect.succeed(
+					makeMergeScope({
+						entityId,
+						entitySchemaSlug: entityId.includes("blocked") ? "blocked" : "book",
+					}),
+				),
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* UserStateService;
+		const sourceDenied = yield* Effect.exit(
+			service.mergeUserState(user, {
+				mergeFrom: EntityId.make("blocked-source"),
+				mergeInto: EntityId.make("allowed-destination"),
+			}),
+		);
+		const destinationDenied = yield* Effect.exit(
+			service.mergeUserState(user, {
+				mergeFrom: EntityId.make("allowed-source"),
+				mergeInto: EntityId.make("blocked-destination"),
+			}),
+		);
+
+		const expected = new BadRequest({ message: "Entity user state cannot be merged" });
+		assertExitFails(sourceDenied, expected);
+		assertExitFails(destinationDenied, expected);
 	}).pipe(Effect.provide(layer));
 });
 

@@ -648,6 +648,12 @@ export const mediaPlugin = definePlugin({
 					scriptSlug: "policy.media-library-membership",
 				})),
 			),
+			{
+				kind: "policy",
+				position: 1000,
+				scriptSlug: "policy.media-library-membership",
+				eventSchemaSlug: "collection:add-entity-to-collection",
+			},
 			...[...eventSlugs("review"), "collection:review"].map((eventSchemaSlug) => ({
 				eventSchemaSlug,
 				kind: "subscription" as const,
