@@ -1,12 +1,10 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Plus } from "lucide-react-native";
-import { useEffect } from "react";
 import Animated, {
+	FadeIn,
+	FadeOut,
 	SlideInRight,
 	SlideOutRight,
-	useAnimatedStyle,
-	useSharedValue,
-	withTiming,
 } from "react-native-reanimated";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
@@ -22,35 +20,22 @@ import { RAIL_WIDTH } from "./rail";
 export const FLYOUT_WIDTH = 220;
 
 type Props = {
-	open?: boolean;
 	pinned?: boolean;
 	onNavigate: () => void;
 };
 
-export function SpineSubFlyout({
-	onNavigate,
-	open = true,
-	pinned = false,
-}: Props) {
+export function SpineSubFlyout({ onNavigate, pinned = false }: Props) {
 	const trackers = useAtomValue(trackersAtom);
 	const activeTrackerId = useAtomValue(activeTrackerIdAtom);
 	const [activeSubItem, setActiveSubItem] = useAtom(activeSubItemAtom);
 	const setSubFlyoutOpen = useSetAtom(subFlyoutOpenAtom);
-	const animatedWidth = useSharedValue(open ? FLYOUT_WIDTH : 0);
-
-	useEffect(() => {
-		animatedWidth.value = withTiming(open ? FLYOUT_WIDTH : 0, {
-			duration: open ? 220 : 180,
-		});
-	}, [open]);
-
-	const pinnedStyle = useAnimatedStyle(() => ({
-		width: animatedWidth.value,
-		overflow: "hidden" as const,
-	}));
 
 	const activeTracker = trackers.find((t) => t.id === activeTrackerId);
 	const subItems = activeTracker?.subItems ?? [];
+
+	if (!subItems.length) {
+		return null;
+	}
 
 	function handleSubItemPress(item: string) {
 		setActiveSubItem(item);
@@ -99,16 +84,13 @@ export function SpineSubFlyout({
 	if (pinned) {
 		return (
 			<Animated.View
-				style={pinnedStyle}
-				className="pt-16 pb-20 border-l-[0.5px] border-l-border bg-background"
+				entering={FadeIn.duration(180)}
+				exiting={FadeOut.duration(150)}
+				className="w-55 pt-16 pb-20 border-l-[0.5px] border-l-border bg-background"
 			>
 				{content}
 			</Animated.View>
 		);
-	}
-
-	if (!subItems.length) {
-		return null;
 	}
 
 	return (
