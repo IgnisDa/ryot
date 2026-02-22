@@ -207,22 +207,6 @@ export const enqueueEntitySearch = (executingUserId: string, body: EnqueueEntity
 		};
 	});
 
-export const pollEntitySearchResult = (executingUserId: string, jobId: string) =>
-	pollUntil(
-		`entity search job '${jobId}'`,
-		Effect.gen(function* () {
-			const result = yield* getBackendClient().call(
-				(c) =>
-					c.testSupport.getSandboxResult({
-						path: { jobId },
-						urlParams: { executingUserId: UserId.make(executingUserId) },
-					}),
-				adminHeaders,
-			);
-			return result.status !== "pending" ? result : null;
-		}),
-	);
-
 export const enqueueEntityImport = (client: Client, body: EnqueueEntityImportBody) =>
 	Effect.gen(function* () {
 		const result = yield* client.call((c) => c.entityImport.import({ payload: body }));

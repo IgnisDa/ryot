@@ -13,7 +13,7 @@ import {
 	getBackendClient,
 	installTestProvider,
 	pollEntityImportResult,
-	pollEntitySearchResult,
+	pollSandboxResult,
 	providerSandboxSource,
 	replaceSandboxScriptCompiledRepresentation,
 	uninstallTestProvider,
@@ -139,7 +139,7 @@ describe("plugins", () => {
 					context: { query: "hot", page: 1, pageSize: 5 },
 					scriptId: reingestedSearchScriptId,
 				});
-				const searchResult = yield* pollEntitySearchResult(userId, search.jobId);
+				const searchResult = yield* pollSandboxResult(userId, search.jobId);
 				assertCompleted(searchResult, "hot-installed provider search");
 				const searchValue = requireObjectRecord(
 					searchResult.value,
