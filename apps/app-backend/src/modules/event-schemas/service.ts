@@ -6,7 +6,7 @@ import { Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { parseLabeledPropertySchemaInput } from "#lib/property-schema/property-schema-runtime";
-import { requireSlug } from "#lib/shared/slug";
+import { slugify } from "#lib/shared/slug";
 import { requireText } from "#lib/shared/validation";
 import { builtinEntitySchemas } from "#modules/builtins/entity-schemas";
 
@@ -22,11 +22,21 @@ const reservedEventSchemaSlugsByEntitySchema = new Map(
 	),
 );
 
+const resolveEventSchemaSlug = (input: { name: string; slug?: string | undefined }) => {
+	const candidate = input.slug?.trim() ?? input.name;
+	const slug = candidate ? slugify(candidate) : null;
+	if (!slug) {
+		return badRequest("Event schema slug is required");
+	}
+
+	return Effect.succeed(slug);
+};
+
 const resolveEventSchemaCreateInput = Effect.fn(function* (
 	input: Pick<CreateEventSchemaBody, "name" | "slug">,
 ) {
 	const name = yield* requireText(input.name, "Event schema name is required");
-	const slug = yield* requireSlug({ label: "Event schema", name, slug: input.slug });
+	const slug = yield* resolveEventSchemaSlug({ name, slug: input.slug });
 	return { name, slug };
 });
 

@@ -3,14 +3,11 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import {
 	createAuthenticatedClient,
 	createIntegration,
-	createNotificationChannel,
+	createNotificationPlatform,
 	getImportRun,
 	getIntegration,
 	pollImportRunUntilTerminal,
 	postIntegrationWebhook,
-	queryRecipientUserIds,
-	querySignalBySlug,
-	querySubscriptionRuns,
 	startFakeAppriseServer,
 } from "../fixtures";
 import { pollUntil } from "../fixtures/polling";
@@ -28,17 +25,18 @@ afterAll(() => {
 });
 
 describe("integration auto-disable on continuous errors", () => {
-	it("disables after 5 consecutive failed runs and notifies enabled channels once", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+	it("disables after 5 consecutive failed runs and notifies only subscribed platforms once", async () => {
+		const { client } = await createAuthenticatedClient();
 
-		await createNotificationChannel(client, {
-			kind: "apprise",
-			specifics: { baseUrl: fakeApprise.url, key: "subscribed", kind: "apprise" },
+		await createNotificationPlatform(client, {
+			platform: "apprise",
+			configuredEvents: ["integration_disabled_due_to_too_many_errors"],
+			platformSpecifics: { baseUrl: fakeApprise.url, key: "subscribed", kind: "apprise" },
 		});
-		await createNotificationChannel(client, {
-			isDisabled: true,
-			kind: "apprise",
-			specifics: { baseUrl: fakeApprise.url, key: "disabled", kind: "apprise" },
+		await createNotificationPlatform(client, {
+			platform: "apprise",
+			configuredEvents: [],
+			platformSpecifics: { baseUrl: fakeApprise.url, key: "unsubscribed", kind: "apprise" },
 		});
 
 		const { id } = await createIntegration(client, {
@@ -73,10 +71,12 @@ describe("integration auto-disable on continuous errors", () => {
 			title: "Ryot",
 			body: "Integration kodi has been disabled due to too many errors",
 		});
-		expect(fakeApprise.requests.filter((request) => request.path === "/notify/disabled")).toEqual(
-			[],
-		);
+		expect(
+			fakeApprise.requests.filter((request) => request.path === "/notify/unsubscribed"),
+		).toEqual([]);
 
+		// A further webhook fails fast at the disabled-integration guard without
+		// running the workflow, so no duplicate notification is produced.
 		const afterDisable = await postIntegrationWebhook(client, id, {});
 		const afterDisableRunId = requirePresent(afterDisable.runId, "Expected runId from webhook");
 		const afterDisableRun = await getImportRun(client, afterDisableRunId);
@@ -86,20 +86,5 @@ describe("integration auto-disable on continuous errors", () => {
 		expect(
 			fakeApprise.requests.filter((request) => request.path === "/notify/subscribed"),
 		).toHaveLength(1);
-
-		const signal = await querySignalBySlug({ slug: "integration.disabled", actorUserId: userId });
-		expect(signal).not.toBeNull();
-		if (!signal) {
-			throw new Error("Expected integration.disabled signal");
-		}
-		expect(signal.actorUserId).toBe(userId);
-		expect(signal.properties.providerName).toBe("kodi");
-		expect(signal.properties.integrationId).toBe(id);
-		expect(await queryRecipientUserIds(signal.id)).toEqual([userId]);
-
-		const signalRuns = await querySubscriptionRuns({ signalId: signal.id, status: "succeeded" });
-		expect(signalRuns).toHaveLength(1);
-		expect(signalRuns[0]?.operation).toBe("signal");
-		expect(signalRuns[0]?.executionUserId).toBe(userId);
 	});
 });

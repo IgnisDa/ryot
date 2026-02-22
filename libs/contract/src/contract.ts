@@ -1,7 +1,6 @@
 import { HttpApi, OpenApi } from "@effect/platform";
 
 import { BadRequest } from "./errors";
-import { AutomationsGroup } from "./modules/automations/contract";
 import { CollectionsGroup } from "./modules/collections/contract";
 import { EntitiesGroup } from "./modules/entities/contract";
 import { InterestGroup } from "./modules/entity-interest/contract";
@@ -51,6 +50,5 @@ export const AppContract = HttpApi.make("ryot")
 	.add(InterestGroup)
 	.add(MediaMonitoringGroup)
 	.add(NotificationsGroup)
-	.add(AutomationsGroup)
 	.annotate(OpenApi.Title, "Ryot API")
 	.annotate(OpenApi.Description, "API documentation for the Ryot backend");

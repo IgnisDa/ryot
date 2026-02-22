@@ -83,7 +83,7 @@ const setupGetById = (row: Record<string, FieldValue>) => {
 	return { layer };
 };
 
-it.effect("returns a noop outcome when provenance already exists", () => {
+it.effect("returns existing entity when provenance already exists", () => {
 	let createCalled = false;
 
 	const layer = makeServiceLayer(
@@ -92,18 +92,15 @@ it.effect("returns a noop outcome when provenance already exists", () => {
 				Effect.sync(() => {
 					createCalled = true;
 					return {
-						operation: "create" as const,
-						entity: {
-							createdAt: now,
-							updatedAt: now,
-							properties: {},
-							name: "Created",
-							populatedAt: null,
-							externalId: "ext-1",
-							id: EntityId.make("created-entity"),
-							entitySchemaId: EntitySchemaId.make("schema-id"),
-							sandboxScriptId: SandboxScriptId.make("script-id"),
-						},
+						createdAt: now,
+						updatedAt: now,
+						properties: {},
+						name: "Created",
+						populatedAt: null,
+						externalId: "ext-1",
+						id: EntityId.make("created-entity"),
+						entitySchemaId: EntitySchemaId.make("schema-id"),
+						sandboxScriptId: SandboxScriptId.make("script-id"),
 					};
 				}),
 			getEntitySchemaScopeForUser: () =>
@@ -133,7 +130,7 @@ it.effect("returns a noop outcome when provenance already exists", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* EntitiesService;
-		const result = yield* service.create(user.id, {
+		const entity = yield* service.create(user, {
 			name: "Existing",
 			externalId: "ext-1",
 			properties: { title: "Existing" },
@@ -141,9 +138,7 @@ it.effect("returns a noop outcome when provenance already exists", () => {
 			sandboxScriptId: SandboxScriptId.make("script-id"),
 		});
 
-		expect(result.operation).toBe("noop");
-		expect(result.entity.id).toBe("existing-entity");
-		expect(result.entitySchemaSlug).toBe("book");
+		expect(entity.id).toBe("existing-entity");
 		expect(createCalled).toBe(false);
 	}).pipe(Effect.provide(layer));
 });
@@ -156,7 +151,7 @@ it.effect("returns not found when entity schema is not visible", () => {
 	return Effect.gen(function* () {
 		const service = yield* EntitiesService;
 		const exit = yield* Effect.exit(
-			service.create(user.id, {
+			service.create(user, {
 				properties: {},
 				name: "Hidden Schema Entity",
 				entitySchemaId: EntitySchemaId.make("schema-id"),
@@ -164,96 +159,6 @@ it.effect("returns not found when entity schema is not visible", () => {
 		);
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity schema not found" })));
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("classifies a fresh save as a create outcome with the schema slug", () => {
-	const entitySchemaId = EntitySchemaId.make("workout-schema");
-	const layer = makeServiceLayer(
-		makeEntitiesRepository({
-			getEntitySchemaScopeForUser: () =>
-				Effect.succeed({
-					userId: null,
-					entitySchemaId,
-					slug: "workout",
-					isBuiltin: true,
-					id: entitySchemaId,
-					propertiesSchema: { fields: {} },
-				}),
-			saveEntity: () =>
-				Effect.succeed({
-					operation: "create" as const,
-					entity: {
-						createdAt: now,
-						updatedAt: now,
-						properties: {},
-						entitySchemaId,
-						name: "Push Day",
-						externalId: null,
-						populatedAt: null,
-						sandboxScriptId: null,
-						id: EntityId.make("workout-1"),
-					},
-				}),
-		}),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* EntitiesService;
-		const result = yield* service.create(user.id, {
-			properties: {},
-			entitySchemaId,
-			name: "Push Day",
-		});
-
-		expect(result.operation).toBe("create");
-		expect(result.entity.id).toBe("workout-1");
-		expect(result.entitySchemaSlug).toBe("workout");
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("passes through a noop save outcome without a create classification", () => {
-	const entitySchemaId = EntitySchemaId.make("workout-schema");
-	const layer = makeServiceLayer(
-		makeEntitiesRepository({
-			getEntitySchemaScopeForUser: () =>
-				Effect.succeed({
-					userId: null,
-					entitySchemaId,
-					slug: "workout",
-					isBuiltin: true,
-					id: entitySchemaId,
-					propertiesSchema: { fields: {} },
-				}),
-			saveEntity: () =>
-				Effect.succeed({
-					operation: "noop" as const,
-					entity: {
-						createdAt: now,
-						updatedAt: now,
-						properties: {},
-						entitySchemaId,
-						name: "Push Day",
-						externalId: null,
-						populatedAt: null,
-						sandboxScriptId: null,
-						id: EntityId.make("workout-1"),
-					},
-				}),
-		}),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* EntitiesService;
-		const result = yield* service.create(user.id, {
-			properties: {},
-			entitySchemaId,
-			name: "Push Day",
-		});
-
-		expect(result.operation).toBe("noop");
-		expect(result.entity.id).toBe("workout-1");
-		expect(result.entitySchemaSlug).toBe("workout");
 	}).pipe(Effect.provide(layer));
 });
 

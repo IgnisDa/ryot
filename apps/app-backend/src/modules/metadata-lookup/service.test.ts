@@ -38,14 +38,12 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 		findEntitySchemaSandboxScriptBySlug: (slug) => {
 			if (slug === "movie.tmdb") {
 				return Effect.succeed({
-					entitySchemaSlug: "movie",
 					sandboxScriptId: movieScriptId,
 					entitySchemaId: EntitySchemaId.make("movie-schema"),
 				});
 			}
 			if (slug === "show.tmdb") {
 				return Effect.succeed({
-					entitySchemaSlug: "show",
 					sandboxScriptId: showScriptId,
 					entitySchemaId: EntitySchemaId.make("show-schema"),
 				});
@@ -70,12 +68,11 @@ const makeSandboxRepository = (overrides: MockOverrides<typeof mockSandboxReposi
 		getScriptForUser: ({ scriptId }) =>
 			Effect.succeed({
 				scriptId,
+				code: "// tmdb",
 				id: scriptId,
 				userId: null,
-				code: "// tmdb",
 				isBuiltin: true,
 				metadata: { allowedHostFunctions: [] },
-				updatedAt: new Date("2026-01-01T00:00:00.000Z"),
 			}),
 		...overrides,
 		_tag: "SandboxRepository",
