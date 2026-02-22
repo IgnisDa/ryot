@@ -5,7 +5,7 @@
 		"typecheck": "tsc",
 		"lint": "biome check .",
 		"dev": "bun --hot src/index.ts",
-		"db:generate": "drizzle-kit generate",
+		"db:generate": "bun --bun drizzle-kit generate",
 		"build": "bun build src/index.ts --outdir dist --target bun --sourcemap"
 	},
 	"dependencies": {
