@@ -62,16 +62,20 @@ export const projectWorkflowJournalWithRedis = (
 		const key = redisKeys.sandboxWorkflowJournal(executionId);
 		const rawHighWater = yield* Effect.tryPromise(() => redis.client.hget(key, highWaterField));
 		const highWater = rawHighWater === null ? 0 : Number(rawHighWater);
-		if (Number.isSafeInteger(highWater) && highWater === journal.length) {
+		const canContinueFromHighWater =
+			Number.isSafeInteger(highWater) && highWater >= 0 && highWater <= journal.length;
+		if (canContinueFromHighWater && highWater === journal.length) {
 			yield* Effect.tryPromise(() => redis.client.expire(key, projectionTtlSeconds));
 			return;
 		}
 
+		const projectionStart = canContinueFromHighWater ? highWater : 0;
 		const pipeline = redis.client.pipeline();
-		journal.forEach(({ request, value }, index) => {
+		journal.slice(projectionStart).forEach(({ request, value }, index) => {
+			const journalIndex = projectionStart + index;
 			pipeline.hsetnx(
 				key,
-				String(index),
+				String(journalIndex),
 				encodeJson({
 					value,
 					kind: request.kind,
@@ -80,7 +84,6 @@ export const projectWorkflowJournalWithRedis = (
 				}),
 			);
 		});
-		// Each body pass rebuilds the visible prefix from zero; entries remain immutable via HSETNX.
 		pipeline.hset(key, highWaterField, String(journal.length));
 		pipeline.expire(key, projectionTtlSeconds);
 		yield* Effect.tryPromise(() => pipeline.exec());
