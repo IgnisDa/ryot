@@ -74,6 +74,11 @@ export const listRelationshipSchemas = (
 							options.targetEntitySchemaSlug === undefined ||
 							schema.targetEntitySchemaSlug === options.targetEntitySchemaSlug,
 					)
-					.map((schema) => Object.assign({}, schema, { id: schema.slug, isBuiltin: true })),
+					.map((schema) =>
+						Object.assign({}, schema, {
+							isBuiltin: true,
+							id: RelationshipSchemaSlug.make(schema.slug),
+						}),
+					),
 			),
 		);
