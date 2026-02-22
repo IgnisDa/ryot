@@ -2,6 +2,7 @@
 	"main": "src/index.ts",
 	"name": "@ryot/app-backend",
 	"scripts": {
+		"typecheck": "tsc",
 		"lint": "biome check .",
 		"dev": "bun run --hot src/index.ts",
 		"db:generate": "drizzle-kit generate"
