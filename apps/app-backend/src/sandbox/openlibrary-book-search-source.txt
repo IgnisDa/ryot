@@ -16,12 +16,11 @@ const params = new URLSearchParams({
 
 const response = await httpCall(
 	"GET",
-	"https://openlibrary.org/search.json?" + params.toString(),
+	`https://openlibrary.org/search.json?${params.toString()}`,
 );
 
-if (!response?.success) {
+if (!response?.success)
 	throw new Error(response?.error ?? "OpenLibrary search request failed");
-}
 
 let payload;
 try {
