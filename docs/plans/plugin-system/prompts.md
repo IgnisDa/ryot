@@ -1,66 +1,58 @@
-# Prompts to use
+# Plugin-system workflow prompts
 
-Here are the four prompts, parameterized with {N} — swap the phase number and file names each cycle.
+These templates are parameterized. Replace `{N}`, `{phase-file}`, `{task-dir}`, `{task-number}`, and
+`{task-file}` before use. Completed phase-specific instructions belong in that phase's historical PRD,
+not in this reusable file.
 
-1. PRD (fresh agent, start of phase)
+## 1. Write the PRD
 
-Read docs/plans/plugin-system/00-overview.md fully, then
-docs/plans/plugin-system/03-phase-3-\*.md. Then use the write-a-prd skill to
-produce a PRD for Phase 3 at docs/tasks/plugin-system-phase-3/README.md.
+Read `docs/plans/plugin-system/00-overview.md` and `{phase-file}` completely. Then use the
+`write-a-prd` skill to produce `docs/tasks/{task-dir}/README.md` for Phase `{N}`.
 
-The design phase is already complete: the two plan files are the authoritative
-spec. Do not re-interview me, do not redesign, do not contradict [DECIDED]
-items. Skip the skill's interview and exploration steps except to verify facts
-you rely on. Write the PRD as a thin framing layer (problem statement,
-solution, user stories, testing decisions) that references the plan files for
-all technical decisions instead of restating them. Where the skill's template
-conflicts with the plan (e.g. its "no file paths" rule), the plan wins.
-For Phase 3, treat steps 0-2 as completed prerequisites and scope new work to
-step 3 onward. The completed sandbox single-entrypoint plan is the runtime
-baseline: manifest sections reference direct scripts, not named drivers.
+The plan files are the authoritative architecture and decision record. Do not contradict `[DECIDED]`
+items. Verify current code facts before relying on them. Resolve genuinely open owner decisions before
+writing. The finished PRD must identify the phase boundary, implementation decisions, external
+behavior, testing decisions, cleanup expectations, and explicit non-goals. If the PRD and plan appear
+to conflict, stop and reconcile the plan rather than silently choosing one.
 
-2. Issues (same agent, immediately after)
+## 2. Convert the PRD to issues
 
-Now use the prd-to-issues skill on docs/tasks/plugin-system-phase-3/README.md.
+Use the `prd-to-issues` skill on `docs/tasks/{task-dir}/README.md`.
 
-Slicing constraints: prefer honest slices over thin ones — a slice must
-compile and pass gates on its own. Order tasks so registry/infrastructure
-lands before its consumers. Every task file must instruct its implementer to
-first read docs/plans/plugin-system/00-overview.md and the Phase 3 plan
-file, and must derive acceptance criteria from the phase file's done criteria
-where they apply.
+Prefer honest vertical slices over thin infrastructure tasks. Every task must leave the branch
+shippable and have exclusive or clearly coordinated ownership. Order shared contracts and generic
+capabilities before consumers, correctness/liveness decisions before cleanup that depends on them,
+and measurements before and after performance changes. Add the mandatory final `codebase-cleanup`
+task over touched files and directly affected modules.
 
-1. Task implementation (fresh agent per task)
+Every task file instructs its implementer to read, in order:
 
-Read, in order: docs/plans/plugin-system/00-overview.md,
-docs/plans/plugin-system/03-phase-3-\*.md,
-docs/tasks/plugin-system-phase-3/README.md, and
-docs/tasks/plugin-system-phase-3/01-\*.md. Then implement that task.
+1. `docs/plans/plugin-system/00-overview.md`
+2. `{phase-file}`
+3. `docs/tasks/{task-dir}/README.md`
+4. Its own task file
+
+Acceptance criteria come from the phase plan and PRD. E2e assertions may be re-plumbed or moved but
+never weakened without owner approval.
+
+## 3. Implement one task
+
+Read the four documents listed above, ending with `{task-file}`, then implement task `{task-number}`.
 
 Rules:
 
-- [DECIDED] items are settled. If implementation evidence contradicts one,
-  stop and report; never silently deviate.
-- If you exercise an [IMPLEMENTER-DECIDES] or deviate from a [RECOMMENDED],
-  confirm it with the user and arrive at a consensus. Then
-  record the choice and rationale in the relevant file under
-  docs/plans/plugin-system/ as part of this task — later phases are
-  implemented by fresh agents who read only those plan files.
-- E2e tests: re-plumb, never weaken. Assertions are preserved behavior; a
-  behavioral change requires my sign-off.
-- Gates before claiming done: bun turbo --filter=@ryot/app-backend check;
-  cd apps/app-backend && bun run test; cd tests && bun run test (affected
-  suites at minimum).
-- Update the task file status and the PRD tracking table, then commit this
-  task's changes with a message explaining why, not what.
+- `[DECIDED]` items are settled. If implementation evidence contradicts one, stop and report it.
+- Confirm `[IMPLEMENTER-DECIDES]` choices and deviations from `[RECOMMENDED]` with the owner, then
+  record the result in the owning plan.
+- Preserve behavior asserted by e2e tests unless the owner explicitly approves a change.
+- Use Turbo for frontend/monorepo commands and run tests from the individual app/package directory.
+- Run the task's focused checks plus the phase's required gates before marking it complete.
+- Update the task status and PRD tracking table only after verification.
+- Commit only when explicitly requested, with a message explaining why the change exists.
 
-Phase 3 variant
+## 4. Review the completed phase
 
-Same four prompts run per step, with two substitutions: in prompts 1–3, scope to "Phase 3 step
-{S}" and name the step's section of 03-phase-3-capability-migrations.md as the spec; and in prompt
-2 for step 3 add: "The replay-determinism spike is its own HITL task ordered before every
-workflow-engine task; its findings get recorded in the plan file before those tasks start." Step
-0 is intentionally two tasks: Step 0a performs the Effect-native cutover, then Step 0b adds
-structured observability.
-
-Two usage notes: keep prompt 2's quiz interactive — the granularity check is where you catch bad slicing cheaply. And for prompt 4, capture {start-ref} by tagging the commit at each phase start (git tag phase-{N}-start), so the review diff is exact.
+Review the complete diff from the captured phase start reference through the final task. Check every
+phase acceptance criterion, decision record, task status, test gate, purity/cleanup search, and
+documentation owner. Findings come first. Do not treat task completion checkboxes as proof when the
+final code or tests disagree.

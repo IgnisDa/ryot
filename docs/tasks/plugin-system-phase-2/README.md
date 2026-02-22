@@ -37,7 +37,7 @@ open, and you record the choice you make in the plan file.
 | 03  | [Plugin Packages and Boot Cutover](./03-plugin-packages-and-boot-cutover.md)        | AFK  | done   |
 | 04  | [Admin Install Surface and Test Fixture](./04-admin-install-surface-and-fixture.md) | AFK  | done   |
 | 05  | [Notification Subscription State Table](./05-notification-subscription-state.md)    | AFK  | done   |
-| 06  | [Notification Automation Ownership](./06-notification-automation-ownership.md)         | AFK  | done   |
+| 06  | [Notification Automation Ownership](./06-notification-automation-ownership.md)      | AFK  | done   |
 | 07  | [Remove the Per-User Sandbox-Script Feature](./07-remove-user-sandbox-scripts.md)   | AFK  | done   |
 | 08  | [Codebase Cleanup](./08-codebase-cleanup.md)                                        | AFK  | done   |
 
@@ -357,10 +357,10 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
 - **Purity enforcement, performance work, plugin GC, limits, and the test-tree
   reorganization** — all Phase 4 (`00-overview.md` phase table; plan §4 notes GC is "Phase 4 at
   the earliest").
-- **The general YAGNI non-goals of the whole plan:** no plugin-dependency resolution, no plugin
-  marketplace/signing, no public (non-admin) install endpoint, no speculative manifest fields
-  (cross-phase invariant 5; plan §1).
-- `apps/app-client-backup` (slated for removal — ignore entirely) and the legacy
+- **The YAGNI non-goals through Phase 4:** no plugin-dependency resolution, marketplace/signing,
+  user-level installation, or speculative Phase 5 manifest fields (cross-phase invariant 5;
+  plan §1).
+- `apps/app-client-backup` (retained as a reference; deletion explicitly deferred) and the legacy
   `apps/backend`/`apps/frontend` system (untouched by this plan; Decision 17).
 
 ## Further Notes
