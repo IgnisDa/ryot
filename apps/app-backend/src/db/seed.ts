@@ -85,8 +85,8 @@ export const seedEntitySchemas = async () => {
 		name: "Book",
 		isBuiltin: true,
 		eventSchemas: bookEventSchemas,
-		searchScriptId: openLibraryScriptId,
 		propertiesSchema: bookPropertiesSchema,
+		searchSandboxScriptId: openLibraryScriptId,
 	};
 
 	if (existingBookSchema)
