@@ -1,6 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import type { ExecutionAuthority } from "@ryot/contract/modules/sandbox/schemas";
 import {
+	EntityId,
 	EntitySchemaSlug,
 	IntegrationId,
 	RelationshipId,
@@ -467,6 +468,140 @@ describe("changeUserRelationships", () => {
 			expect(writes).toBe(0);
 		});
 	});
+});
+
+const runEnsureUserEntities = (options: {
+	schemaPluginSlug?: string;
+	authority: ExecutionAuthority;
+	caller: { pluginSlug: string; entitySchemaSlugs: string[] } | null;
+	ensure?: (
+		userId: UserId,
+		items: ReadonlyArray<{ name: string; properties: unknown; entitySchemaSlug: EntitySchemaSlug }>,
+	) => Effect.Effect<Array<{ entityId: EntityId; wasInserted: boolean }>>;
+}) =>
+	makeAdditionalSandboxApiFunctions().pipe(
+		Effect.flatMap((functions) =>
+			Effect.either(
+				functions.ensureUserEntities(runInput(options.authority), [
+					{ name: "Workspace", properties: {}, entitySchemaSlug: "workspace" },
+				]),
+			),
+		),
+		Effect.provide(
+			Layer.mergeAll(
+				dbRunnerLayer,
+				transactionLayer,
+				makeAppConfigLayer(),
+				Layer.succeed(RedisService, makeRedisService()),
+				Layer.mock(EventsService)({ _tag: "EventsService" }),
+				Layer.mock(QueryEngineService)({ _tag: "QueryEngineService" }),
+				Layer.mock(IntegrationsRepository)({ _tag: "IntegrationsRepository" }),
+				Layer.mock(RelationshipsRepository)({ _tag: "RelationshipsRepository" }),
+				Layer.mock(EntitiesRepository)({ _tag: "EntitiesRepository" }),
+				Layer.mock(EntitiesService)({
+					_tag: "EntitiesService",
+					ensureUserEntities:
+						options.ensure ??
+						(() =>
+							Effect.succeed([{ entityId: EntityId.make("workspace-id"), wasInserted: true }])),
+				}),
+				Layer.mock(PluginRuntimeResolver)({
+					_tag: "PluginRuntimeResolver",
+					resolveTrustedUserBootstrapCaller: () => Effect.succeed(options.caller),
+				}),
+				Layer.succeed(DefinitionRegistry, {
+					_tag: "DefinitionRegistry",
+					...makeDefinitionRegistry(),
+					getEntitySchema: () => ({
+						icon: "box",
+						eventSchemas: {},
+						slug: "workspace",
+						name: "Workspace",
+						accentColor: "blue",
+						mergeIdentityProperties: [],
+						propertiesSchema: { fields: {} },
+						pluginSlug: options.schemaPluginSlug ?? "media",
+					}),
+				}),
+			),
+		),
+	);
+
+describe("ensureUserEntities", () => {
+	it.effect("binds the direct user and preserves first-create/idempotent results", () => {
+		const calls: Array<unknown> = [];
+		let attempt = 0;
+		return Effect.gen(function* () {
+			const run = () =>
+				runEnsureUserEntities({
+					authority: { type: "user", userId: UserId.make("trusted-user") },
+					caller: { pluginSlug: "media", entitySchemaSlugs: ["workspace"] },
+					ensure: (userId, items) => {
+						calls.push({ userId, items });
+						attempt += 1;
+						return Effect.succeed([
+							{ entityId: EntityId.make("workspace-id"), wasInserted: attempt === 1 },
+						]);
+					},
+				});
+			expect(Either.getOrThrow(yield* run())).toEqual([
+				{ entityId: "workspace-id", wasInserted: true },
+			]);
+			expect(Either.getOrThrow(yield* run())).toEqual([
+				{ entityId: "workspace-id", wasInserted: false },
+			]);
+			expect(calls).toEqual([
+				{
+					userId: "trusted-user",
+					items: [{ name: "Workspace", properties: {}, entitySchemaSlug: "workspace" }],
+				},
+				{
+					userId: "trusted-user",
+					items: [{ name: "Workspace", properties: {}, entitySchemaSlug: "workspace" }],
+				},
+			]);
+		});
+	});
+
+	it.effect("rejects delegated, system, untrusted, and foreign-schema executions", () =>
+		Effect.gen(function* () {
+			const trusted = { pluginSlug: "media", entitySchemaSlugs: ["workspace"] };
+			const delegated = yield* runEnsureUserEntities({
+				caller: trusted,
+				authority: subscriptionAuthority({ kind: "api" }),
+			});
+			const system = yield* runEnsureUserEntities({
+				caller: trusted,
+				authority: { type: "system" },
+			});
+			const untrusted = yield* runEnsureUserEntities({
+				caller: null,
+				authority: { type: "user", userId: UserId.make("user-1") },
+			});
+			const foreign = yield* runEnsureUserEntities({
+				caller: trusted,
+				schemaPluginSlug: "fitness",
+				authority: { type: "user", userId: UserId.make("user-1") },
+			});
+
+			expect(Either.getLeft(delegated)).toEqual(
+				Option.some({ message: "ensureUserEntities is available only to user executions" }),
+			);
+			expect(Either.getLeft(system)).toEqual(
+				Option.some({ message: "ensureUserEntities is not available for system executions" }),
+			);
+			expect(Either.getLeft(untrusted)).toEqual(
+				Option.some({
+					message: "ensureUserEntities is available only to trusted user bootstrap scripts",
+				}),
+			);
+			expect(Either.getLeft(foreign)).toEqual(
+				Option.some({
+					message: "ensureUserEntities cannot write foreign entity schema: workspace",
+				}),
+			);
+		}),
+	);
 });
 
 describe("toSandboxCreateEventsResult", () => {

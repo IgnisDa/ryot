@@ -62,7 +62,7 @@ export class FirstPartyPluginBootstrap extends Effect.Service<FirstPartyPluginBo
 				yield* ingestKernelScripts();
 				for (const source of bootPluginSources) {
 					const sourceEffect = loadPluginSource(source.packageRoot, source.manifest).pipe(
-						Effect.flatMap(ingestion.ingestPlugin),
+						Effect.flatMap(ingestion.ingestTrustedPlugin),
 					);
 					yield* sourceEffect;
 				}

@@ -40,7 +40,7 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.configSchema.fields.tmdbAccessToken?.secret).toBe(true);
 	expect(mediaPlugin.configSchema.fields.progressUpdateThresholdHours?.defaultValue).toBe(2);
 	expect(mediaPlugin.providers).toHaveLength(51);
-	expect(mediaPlugin.scripts).toHaveLength(177);
+	expect(mediaPlugin.scripts).toHaveLength(178);
 	expect(mediaPlugin.integrationProviders).toHaveLength(13);
 	expect(mediaPlugin.scripts.every((script) => !("providerInformation" in script))).toBe(true);
 	expect(
@@ -101,6 +101,13 @@ it("declares the complete media-owned source", () => {
 		},
 	]);
 	expect(mediaPlugin.boot).toEqual([]);
+	expect(mediaPlugin.userBootstrap).toEqual([
+		{
+			slug: "initialize-workspace",
+			scriptSlug: "bootstrap.media-workspace",
+			description: "Initialize the user's media workspace",
+		},
+	]);
 	expect(mediaPlugin.importSources.map(({ slug }) => slug)).toEqual([
 		"netflix",
 		"goodreads",

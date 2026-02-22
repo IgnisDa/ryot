@@ -15,12 +15,6 @@ const temporary = (
 		kind: "temporary" as const,
 	}));
 
-const userBootstrap = temporary(
-	2,
-	"Task 02 moves media library creation into trusted plugin bootstrap",
-	[["apps/app-backend/src/modules/user-bootstrap/bootstrap.ts", "library"]],
-);
-
 const importEventMembership = temporary(
 	3,
 	"Task 03 moves import and event library membership into the media plugin",
@@ -153,7 +147,6 @@ const permanent = [
 
 export const kernelPurityAllowlist = [
 	...permanent,
-	...userBootstrap,
 	...importEventMembership,
 	...collectionUserStateMembership,
 	...importEnvelope,

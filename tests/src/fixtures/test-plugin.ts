@@ -73,15 +73,15 @@ export type TestPluginOperation = {
 
 export const testPluginManifest = (input: {
 	pluginSlug: string;
-	configSchema?: PluginConfigSchema;
-	linkToEntitySchemaSlug?: string;
 	linkToProviderSlug?: string;
+	linkToEntitySchemaSlug?: string;
+	crons?: ReadonlyArray<PluginCron>;
+	configSchema?: PluginConfigSchema;
 	providers?: ReadonlyArray<TestPluginProvider>;
 	operations?: ReadonlyArray<TestPluginOperation>;
 	scripts?: ReadonlyArray<TestPluginScript & { entry: string }>;
-	boot?: ReadonlyArray<{ slug: string; scriptSlug: string; description: string }>;
 	workflows?: ReadonlyArray<{ slug: string; scriptSlug: string }>;
-	crons?: ReadonlyArray<PluginCron>;
+	boot?: ReadonlyArray<{ slug: string; scriptSlug: string; description: string }>;
 	entitySchemas?: ReadonlyArray<{
 		icon: string;
 		name: string;
@@ -98,19 +98,20 @@ export const testPluginManifest = (input: {
 		targetEntitySchemaSlug: string | null;
 	}>;
 }) => ({
-	configSchema: input.configSchema ?? { fields: {}, unknownKeys: "strict" as const },
-	workflows: input.workflows ?? [],
 	savedViews: [],
+	userBootstrap: [],
 	importSources: [],
 	signalSchemas: [],
 	boot: input.boot ?? [],
 	integrationProviders: [],
 	crons: input.crons ?? [],
 	scripts: input.scripts ?? [],
+	workflows: input.workflows ?? [],
 	providers: input.providers ?? [],
 	operations: input.operations ?? [],
 	entitySchemas: input.entitySchemas ?? [],
 	relationshipSchemas: input.relationshipSchemas ?? [],
+	configSchema: input.configSchema ?? { fields: {}, unknownKeys: "strict" as const },
 	metadata: {
 		version: "1.0.0",
 		icon: "flask-conical",
@@ -127,8 +128,8 @@ export const testPluginManifest = (input: {
 		schemaProviderLinks: input.linkToEntitySchemaSlug
 			? [
 					{
-						providerSlug: input.linkToProviderSlug ?? input.providers?.[0]?.slug ?? "",
 						entitySchemaSlug: input.linkToEntitySchemaSlug,
+						providerSlug: input.linkToProviderSlug ?? input.providers?.[0]?.slug ?? "",
 					},
 				]
 			: [],
