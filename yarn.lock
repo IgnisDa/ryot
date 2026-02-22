@@ -7386,13 +7386,14 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/app-backend@workspace:apps/app-backend"
   dependencies:
-    "@types/bun": "npm:1.3.9"
     better-auth: "npm:1.4.18"
     dotenv: "npm:17.3.1"
     drizzle-kit: "npm:0.31.9"
     drizzle-orm: "npm:0.45.1"
     hono: "npm:4.12.1"
     pg: "npm:8.18.0"
+    tsx: "npm:4.21.0"
+    typescript: "npm:5.9.3"
     zod: "npm:4.3.6"
   languageName: unknown
   linkType: soft
@@ -9259,15 +9260,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/bun@npm:1.3.9":
-  version: 1.3.9
-  resolution: "@types/bun@npm:1.3.9"
-  dependencies:
-    bun-types: "npm:1.3.9"
-  checksum: 10/0d27ecd41c2e5ba8b0f0af301565299a2450ec900b31281c72308cd5f6768c20c8a03eb30d78099e35235b039ab527e401b28985545e41b906b2ba7d00a57ee5
-  languageName: node
-  linkType: hard
-
 "@types/chai@npm:^5.2.2":
   version: 5.2.2
   resolution: "@types/chai@npm:5.2.2"
@@ -11106,15 +11098,6 @@ __metadata:
   version: 0.0.6
   resolution: "buildcheck@npm:0.0.6"
   checksum: 10/194ee8d3b0926fd6f3e799732130ad7ab194882c56900b8670ad43c81326f64871f49b7d9f1e9baad91ca3070eb4e8b678797fe9ae78cf87dde86d8916eb25d2
-  languageName: node
-  linkType: hard
-
-"bun-types@npm:1.3.9":
-  version: 1.3.9
-  resolution: "bun-types@npm:1.3.9"
-  dependencies:
-    "@types/node": "npm:*"
-  checksum: 10/453761ff1edd664d740655020e70a42bcd6bcaf6537540c1fcfa262d0f779ae29e37b44f0ed8771817376887b8be211d8a02ea46aebd524a827b06e47727c91f
   languageName: node
   linkType: hard
 
@@ -21273,7 +21256,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tsx@npm:^4.19.2":
+"tsx@npm:4.21.0, tsx@npm:^4.19.2":
   version: 4.21.0
   resolution: "tsx@npm:4.21.0"
   dependencies:
