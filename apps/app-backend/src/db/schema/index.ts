@@ -47,10 +47,10 @@ export const entitySchema = pgTable(
 		eventSchemas: jsonb().notNull().default([]),
 		displayConfig: jsonb().notNull().default({}),
 		isBuiltin: boolean().notNull().default(false),
-		searchScriptId: text().references(() => sandboxScript.id, {
-			onDelete: "set null",
-		}),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		searchSandboxScriptId: text().references(() => sandboxScript.id, {
+			onDelete: "cascade",
+		}),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
@@ -58,8 +58,10 @@ export const entitySchema = pgTable(
 	(table) => [
 		index("entity_schema_slug_idx").on(table.slug),
 		index("entity_schema_user_id_idx").on(table.userId),
-		index("entity_schema_search_script_id_idx").on(table.searchScriptId),
 		unique("entity_schema_user_slug_unique").on(table.userId, table.slug),
+		index("entity_schema_search_sandbox_script_id_idx").on(
+			table.searchSandboxScriptId,
+		),
 	],
 );
 
@@ -177,7 +179,7 @@ export const entitySchemaRelations = relations(
 		entities: many(entity),
 		searchScript: one(sandboxScript, {
 			references: [sandboxScript.id],
-			fields: [entitySchema.searchScriptId],
+			fields: [entitySchema.searchSandboxScriptId],
 		}),
 		user: one(user, {
 			references: [user.id],
