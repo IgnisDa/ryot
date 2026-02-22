@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { Cause, Exit } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { router } from "expo-router";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { appQueryClient } from "@/api/query-client";
 import { useAuthClient } from "@/modules/auth/client";
@@ -57,7 +57,7 @@ export default function AppHome() {
 	}
 
 	return (
-		<ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center px-6 py-10">
+		<View className="w-full items-center">
 			<View className="w-full max-w-2xl gap-5">
 				<Text className="font-display-semibold text-3xl text-text">You're in.</Text>
 				<Text className="font-ui text-base leading-6 text-text-muted">
@@ -122,6 +122,6 @@ export default function AppHome() {
 					<Text className="font-ui-medium text-accent-text">Sign out</Text>
 				</Pressable>
 			</View>
-		</ScrollView>
+		</View>
 	);
 }
