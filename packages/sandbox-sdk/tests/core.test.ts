@@ -66,9 +66,9 @@ describe("shared value contracts", () => {
 			decode(httpCallResultSchema)({
 				success: false,
 				error: "HTTP 429",
-				data: { status: 429 },
+				data: { body: "rate limited", status: 429 },
 			}),
-		).toEqual({ error: "HTTP 429", data: { status: 429 }, success: false });
+		).toEqual({ error: "HTTP 429", data: { body: "rate limited", status: 429 }, success: false });
 		expect(
 			decode(claimPersistentValueResultSchema)({
 				success: true,

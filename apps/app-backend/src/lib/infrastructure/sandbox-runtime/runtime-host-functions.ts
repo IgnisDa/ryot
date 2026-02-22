@@ -204,9 +204,7 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 					const [response, body] = yield* httpClient.execute(request).pipe(
 						(effect) => applySandboxHttpRequestInit(effect, options?.allowInsecureConnections),
 						Effect.flatMap((res) =>
-							res.status < 200 || res.status >= 300
-								? Effect.succeed([res, ""] as const)
-								: Effect.map(readSandboxHttpResponseText(res), (text) => [res, text] as const),
+							Effect.map(readSandboxHttpResponseText(res), (text) => [res, text] as const),
 						),
 						Effect.timeout(Duration.millis(httpCallTimeoutMs)),
 						Effect.mapError(unknownToMessage),
@@ -215,7 +213,7 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 					if (response.status < 200 || response.status >= 300) {
 						return yield* Effect.fail({
 							message: `HTTP ${response.status}`,
-							data: { status: response.status },
+							data: { body, status: response.status },
 						});
 					}
 
