@@ -1,6 +1,5 @@
 import clsx from "clsx";
-import type { Href } from "expo-router";
-import { router, usePathname } from "expo-router";
+import { router } from "expo-router";
 import { ChevronRight } from "lucide-react-native";
 import { ScrollView } from "react-native";
 import type { SharedValue } from "react-native-reanimated";
@@ -15,7 +14,12 @@ import { Text } from "@/components/ui/text";
 import { useUser } from "@/lib/atoms";
 import { TrackerIcon } from "@/lib/icons";
 import type { NavigationItem } from "@/lib/navigation";
-import { useNavigationData, useSetSubFlyoutOpen } from "@/lib/navigation";
+import {
+	navHref,
+	useActiveNav,
+	useNavigationData,
+	useSetSubFlyoutOpen,
+} from "@/lib/navigation";
 
 export const RAIL_WIDTH = 168;
 export const SPRING_CONFIG = { damping: 22, stiffness: 280 };
@@ -77,40 +81,20 @@ export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 	const { trackers, libraryViews, userItem, isLoading } = useNavigationData(
 		user?.name,
 	);
-	const pathname = usePathname();
-	const segments = pathname.split("/").filter(Boolean);
-	const isViewPath = segments[0] === "views";
-	const activeViewSlug = isViewPath ? (segments[1] ?? null) : null;
-	const activeTrackerSlug = isViewPath
-		? (trackers.find((t) => t.subItems.some((s) => s.slug === activeViewSlug))
-				?.slug ?? "home")
-		: segments[0] || "home";
+	const { isViewPath, activeTrackerSlug, activeSubItemSlug } = useActiveNav();
 
 	const railStyle = useAnimatedStyle(() => ({
 		transform: [{ translateX: translateX?.value ?? 0 }],
 	}));
 
 	function handlePress(item: NavigationItem) {
-		if (item.kind === "view") {
-			if (isViewPath && item.slug === activeViewSlug) {
-				return;
-			}
-			router.push(`/views/${item.slug}` as Href);
-			if (!pinned && translateX) {
-				translateX.value = withSpring(RAIL_WIDTH, SPRING_CONFIG, () => {
-					scheduleOnRN(onClose);
-				});
-			}
-			return;
-		}
 		if (item.slug === activeTrackerSlug) {
 			if (item.subItems.length > 0) {
 				setSubFlyoutOpen((prev) => !prev);
 			}
 			return;
 		}
-		const href: Href = item.kind === "home" ? "/" : (`/${item.slug}` as Href);
-		router.push(href);
+		router.push(navHref(item));
 		if (!pinned && translateX) {
 			translateX.value = withSpring(RAIL_WIDTH, SPRING_CONFIG, () => {
 				scheduleOnRN(onClose);
@@ -157,7 +141,7 @@ export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 									key={view.key}
 									item={view}
 									onPress={() => handlePress(view)}
-									isActive={isViewPath && view.slug === activeViewSlug}
+									isActive={isViewPath && view.slug === activeSubItemSlug}
 								/>
 							))}
 						</>
