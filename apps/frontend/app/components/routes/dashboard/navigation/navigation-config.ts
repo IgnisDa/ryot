@@ -1,0 +1,96 @@
+import type { UserPreferences } from "@ryot/generated/graphql/backend/graphql";
+import { MediaLot, UserLot } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase } from "@ryot/ts-utils";
+import { IconMoon, IconSun } from "@tabler/icons-react";
+import { $path } from "safe-routes";
+import { joinURL } from "ufo";
+import type { useUserDetails } from "~/lib/shared/hooks";
+import { OnboardingTourStepTarget } from "~/lib/state/onboarding-tour";
+
+export const getMediaLinks = (userPreferences: UserPreferences) =>
+	[
+		...userPreferences.featuresEnabled.media.specific.map((f) => {
+			return {
+				label: changeCase(f),
+				link: $path("/media/:action/:lot", {
+					action: "list",
+					lot: f.toLowerCase(),
+				}),
+				tourControlTarget:
+					f === MediaLot.AudioBook
+						? `${OnboardingTourStepTarget.FirstSidebar} ${OnboardingTourStepTarget.GoBackToAudiobooksSection}`
+						: undefined,
+			};
+		}),
+		userPreferences.featuresEnabled.media.groups
+			? {
+					label: "Groups",
+					link: $path("/media/groups/:action", { action: "list" }),
+				}
+			: undefined,
+		userPreferences.featuresEnabled.media.people
+			? {
+					label: "People",
+					link: $path("/media/people/:action", { action: "list" }),
+				}
+			: undefined,
+		userPreferences.featuresEnabled.media.genres
+			? {
+					label: "Genres",
+					link: $path("/media/genre/list"),
+				}
+			: undefined,
+	].filter((link) => link !== undefined);
+
+export const getFitnessLinks = (userPreferences: UserPreferences) =>
+	[
+		...(Object.entries(userPreferences.featuresEnabled.fitness || {})
+			.filter(([v, _]) => !["enabled"].includes(v))
+			.map(([name, enabled]) => ({ name, enabled }))
+			?.filter((f) => f.enabled)
+			.map((f) => ({
+				label: changeCase(f.name.toString()),
+				link: joinURL("/fitness", f.name, "list"),
+				tourControlTarget:
+					f.name === "workouts"
+						? OnboardingTourStepTarget.OpenWorkoutsSection
+						: f.name === "templates"
+							? OnboardingTourStepTarget.ClickOnTemplatesSidebarSection
+							: f.name === "measurements"
+								? OnboardingTourStepTarget.ClickOnMeasurementSidebarSection
+								: undefined,
+			})) || []),
+		{ label: "Exercises", link: $path("/fitness/exercises/list") },
+	].filter((link) => link !== undefined);
+
+export const getSettingsLinks = (
+	userDetails: ReturnType<typeof useUserDetails>,
+) =>
+	[
+		{
+			label: "Preferences",
+			link: $path("/settings/preferences"),
+			tourControlTarget: OnboardingTourStepTarget.OpenSettingsPreferences,
+		},
+		{
+			label: "Imports and Exports",
+			link: $path("/settings/imports-and-exports"),
+		},
+		{
+			label: "Security",
+			link: $path("/settings/security"),
+		},
+		{
+			label: "Sharing",
+			link: $path("/settings/sharing"),
+		},
+		{ label: "Integrations", link: $path("/settings/integrations") },
+		{ label: "Notifications", link: $path("/settings/notifications") },
+		{ label: "Miscellaneous", link: $path("/settings/miscellaneous") },
+		userDetails.lot === UserLot.Admin
+			? { label: "Users", link: $path("/settings/users") }
+			: undefined,
+	].filter((link) => link !== undefined);
+
+export const getThemeIcon = (currentColorScheme: string) =>
+	currentColorScheme === "dark" ? IconSun : IconMoon;

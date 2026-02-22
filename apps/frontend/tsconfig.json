@@ -1,0 +1,29 @@
+{
+	"include": ["**/*.ts", "**/*.tsx", ".react-router/types/**/*"],
+	"compilerOptions": {
+		"baseUrl": ".",
+		"strict": true,
+		"noEmit": true,
+		"allowJs": true,
+		"jsx": "react-jsx",
+		"module": "ESNext",
+		"target": "es2022",
+		"skipLibCheck": true,
+		"noUnusedLocals": true,
+		"isolatedModules": true,
+		"esModuleInterop": true,
+		"resolveJsonModule": true,
+		"moduleResolution": "bundler",
+		"forceConsistentCasingInFileNames": true,
+		"rootDirs": [".", "./.react-router/types"],
+		"lib": ["DOM", "DOM.Iterable", "ES2022", "WebWorker"],
+		"types": ["@react-router/node", "vite/client", "vite-plugin-pwa/client"],
+		"paths": {
+			"~/*": ["./app/*"],
+			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
+			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"],
+			"@ryot/generated/*": ["../../libs/generated/src/*"],
+			"@ryot/ts-utils": ["../../libs/ts-utils/src/index.ts"]
+		}
+	}
+}

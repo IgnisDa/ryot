@@ -1,0 +1,419 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
+import {
+	ActionIcon,
+	Box,
+	Button,
+	Checkbox,
+	Container,
+	Flex,
+	Group,
+	Indicator,
+	Modal,
+	NumberInput,
+	Paper,
+	Skeleton,
+	Stack,
+	Text,
+	TextInput,
+	ThemeIcon,
+	Title,
+	Tooltip,
+} from "@mantine/core";
+import { DateTimePicker } from "@mantine/dates";
+import { useDisclosure } from "@mantine/hooks";
+import {
+	CreateAccessLinkDocument,
+	RevokeAccessLinkDocument,
+	UserAccessLinksDocument,
+	type UserAccessLinksQuery,
+} from "@ryot/generated/graphql/backend/graphql";
+import {
+	formatQuantityWithCompactNotation,
+	getActionIntent,
+	isNumber,
+	isString,
+	processSubmission,
+	zodCheckboxAsString,
+	zodIntAsString,
+} from "@ryot/ts-utils";
+import {
+	IconEye,
+	IconEyeClosed,
+	IconLock,
+	IconLockAccess,
+} from "@tabler/icons-react";
+import { data, Form, useLoaderData } from "react-router";
+import { ClientOnly } from "remix-utils/client-only";
+import { match } from "ts-pattern";
+import { withQuery } from "ufo";
+import { z } from "zod";
+import { CopyableTextInput } from "~/components/common";
+import { applicationBaseUrl } from "~/lib/shared/constants";
+import { dayjsLib } from "~/lib/shared/date-utils";
+import {
+	useConfirmSubmit,
+	useCoreDetails,
+	useDashboardLayoutData,
+	useUserDetails,
+} from "~/lib/shared/hooks";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
+import {
+	createToastHeaders,
+	redirectIfNotAuthenticatedOrUpdated,
+	serverGqlService,
+} from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.settings.sharing";
+
+export const loader = async ({ request }: Route.LoaderArgs) => {
+	const [{ userAccessLinks }, userDetails] = await Promise.all([
+		serverGqlService.authenticatedRequest(request, UserAccessLinksDocument, {}),
+		redirectIfNotAuthenticatedOrUpdated(request),
+	]);
+	return { userAccessLinks, activeAccessLinkId: userDetails.accessLinkId };
+};
+
+export const meta = () => {
+	return [{ title: "Sharing | Ryot" }];
+};
+
+export const action = async ({ request }: Route.ActionArgs) => {
+	const formData = await request.formData();
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("revokeAccessLink", async () => {
+			const submission = processSubmission(
+				formData,
+				revokeAccessLinkFormSchema,
+			);
+			await serverGqlService.authenticatedRequest(
+				request,
+				RevokeAccessLinkDocument,
+				submission,
+			);
+			return data({ status: "success" } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Access link revoked successfully",
+				}),
+			});
+		})
+		.with("createAccessLink", async () => {
+			const submission = processSubmission(
+				formData,
+				createAccessLinkFormSchema,
+			);
+			submission.expiresOn = submission.expiresOn
+				? dayjsLib(submission.expiresOn).toISOString()
+				: undefined;
+			submission.isMutationAllowed = submission.isMutationAllowed === true;
+			await serverGqlService.authenticatedRequest(
+				request,
+				CreateAccessLinkDocument,
+				{ input: submission },
+			);
+			return data({ status: "success" } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Access link created successfully",
+				}),
+			});
+		})
+		.with("createDefaultAccessLink", async () => {
+			await serverGqlService.authenticatedRequest(
+				request,
+				CreateAccessLinkDocument,
+				{ input: { name: "Account default", isAccountDefault: true } },
+			);
+			return data({ status: "success" } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Account default access link created successfully",
+				}),
+			});
+		})
+		.run();
+};
+
+const revokeAccessLinkFormSchema = z.object({
+	accessLinkId: z.string(),
+});
+
+const createAccessLinkFormSchema = z.object({
+	name: z.string(),
+	expiresOn: z.string().optional(),
+	redirectTo: z.string().optional(),
+	maximumUses: zodIntAsString.optional(),
+	isMutationAllowed: zodCheckboxAsString.optional(),
+});
+
+export default function Page() {
+	const userDetails = useUserDetails();
+	const dashboardData = useDashboardLayoutData();
+	const loaderData = useLoaderData<typeof loader>();
+	const [
+		createAccessLinkModalOpened,
+		{ open: openCreateAccessLinkModal, close: closeCreateAccessLinkModal },
+	] = useDisclosure(false);
+
+	const isEditDisabled = dashboardData.isDemoInstance;
+	const defaultAccountLink = loaderData.userAccessLinks.find(
+		(acl) => acl.isAccountDefault,
+	);
+	const hasDefaultAccountLink =
+		defaultAccountLink && defaultAccountLink?.isRevoked !== true;
+
+	return (
+		<Container size="xs">
+			<Stack>
+				<ClientOnly fallback={<Skeleton h={90} />}>
+					{() => (
+						<Paper withBorder p="md">
+							<Form
+								method="POST"
+								action={withQuery(".", {
+									intent: hasDefaultAccountLink
+										? "revokeAccessLink"
+										: "createDefaultAccessLink",
+								})}
+							>
+								{hasDefaultAccountLink ? (
+									<input
+										readOnly
+										type="hidden"
+										name="accessLinkId"
+										value={defaultAccountLink.id}
+									/>
+								) : null}
+								<Group wrap="nowrap">
+									<Box>
+										<Text>Make my account public</Text>
+										<Text size="xs" c="dimmed">
+											Anyone would be able to view your profile by visiting{" "}
+											{applicationBaseUrl}/u/{userDetails.name}
+										</Text>
+									</Box>
+									<Tooltip
+										disabled={!isEditDisabled}
+										label="Can not change default access links for demo user"
+									>
+										<Button
+											w="30%"
+											type="submit"
+											variant="light"
+											disabled={isEditDisabled}
+											color={hasDefaultAccountLink ? "blue" : "green"}
+										>
+											{hasDefaultAccountLink ? "Disable" : "Enable"}
+										</Button>
+									</Tooltip>
+								</Group>
+							</Form>
+						</Paper>
+					)}
+				</ClientOnly>
+				{loaderData.userAccessLinks.length > 0 ? (
+					loaderData.userAccessLinks.map((link, idx) => (
+						<DisplayAccessLink
+							accessLink={link}
+							key={`${link.id}-${idx}`}
+							isEditDisabled={isEditDisabled}
+						/>
+					))
+				) : (
+					<Text>No access links configured</Text>
+				)}
+				<Flex w="100%">
+					<Button
+						size="xs"
+						ml="auto"
+						radius="md"
+						variant="light"
+						onClick={openCreateAccessLinkModal}
+					>
+						Create new access link
+					</Button>
+					<CreateAccessLinkModal
+						closeModal={closeCreateAccessLinkModal}
+						createModalOpened={createAccessLinkModalOpened}
+					/>
+				</Flex>
+			</Stack>
+		</Container>
+	);
+}
+
+type AccessLink = UserAccessLinksQuery["userAccessLinks"][number];
+
+const DisplayAccessLink = (props: {
+	accessLink: AccessLink;
+	isEditDisabled: boolean;
+}) => {
+	const [parent] = useAutoAnimate();
+	const submit = useConfirmSubmit();
+	const userDetails = useUserDetails();
+	const loaderData = useLoaderData<typeof loader>();
+	const [inputOpened, { toggle: inputToggle }] = useDisclosure(false);
+
+	const accessLinkUrl = `${applicationBaseUrl}/${
+		props.accessLink.isAccountDefault
+			? `u/${userDetails.name}`
+			: `_s/${props.accessLink.id}`
+	}`;
+
+	const optionalDetails = [
+		props.accessLink.expiresOn
+			? `Expiry: ${dayjsLib(props.accessLink.expiresOn).fromNow()}`
+			: null,
+		isNumber(props.accessLink.maximumUses)
+			? `Maximum uses: ${props.accessLink.maximumUses}`
+			: null,
+		props.accessLink.isMutationAllowed ? "Mutation allowed" : null,
+	]
+		.filter(isString)
+		.join(", ");
+
+	return (
+		<Paper p="xs" withBorder>
+			<Stack ref={parent}>
+				<Flex align="center" justify="space-between">
+					<Box>
+						<Indicator
+							inline
+							disabled={loaderData.activeAccessLinkId !== props.accessLink.id}
+						>
+							<Text fw="bold" span>
+								{props.accessLink.name}
+							</Text>
+						</Indicator>
+						<Text size="sm">
+							Created: {dayjsLib(props.accessLink.createdOn).fromNow()}, Times
+							Used:{" "}
+							{formatQuantityWithCompactNotation(props.accessLink.timesUsed)}
+						</Text>
+						{optionalDetails ? <Text size="xs">{optionalDetails}</Text> : null}
+					</Box>
+					<Group wrap="nowrap">
+						{props.accessLink.isRevoked !== true ? (
+							<>
+								<ActionIcon color="blue" onClick={inputToggle}>
+									{inputOpened ? <IconEyeClosed /> : <IconEye />}
+								</ActionIcon>
+								<Form
+									method="POST"
+									action={withQuery(".", { intent: "revokeAccessLink" })}
+								>
+									<input
+										type="hidden"
+										name="accessLinkId"
+										defaultValue={props.accessLink.id}
+									/>
+									<Tooltip
+										label="Can not revoke access links for demo user"
+										disabled={!props.isEditDisabled}
+									>
+										<ActionIcon
+											mt={4}
+											color="red"
+											type="submit"
+											variant="subtle"
+											disabled={props.isEditDisabled || undefined}
+											onClick={(e) => {
+												const form = e.currentTarget.form;
+												e.preventDefault();
+												openConfirmationModal(
+													"Are you sure you want to revoke this access link?",
+													() => submit(form),
+												);
+											}}
+										>
+											<IconLock />
+										</ActionIcon>
+									</Tooltip>
+								</Form>
+							</>
+						) : (
+							<>
+								<ThemeIcon color="red" size="lg" variant="outline">
+									<IconLockAccess />
+								</ThemeIcon>
+								<Text size="xs" c="dimmed">
+									Revoked
+								</Text>
+							</>
+						)}
+					</Group>
+				</Flex>
+				{inputOpened ? (
+					<CopyableTextInput
+						value={accessLinkUrl}
+						description="Share this link with others to give them access to your data"
+					/>
+				) : null}
+			</Stack>
+		</Paper>
+	);
+};
+
+const CreateAccessLinkModal = (props: {
+	createModalOpened: boolean;
+	closeModal: () => void;
+}) => {
+	const coreDetails = useCoreDetails();
+	const defaultExpiresAtValue = dayjsLib()
+		.add(coreDetails.tokenValidForDays, "day")
+		.toDate();
+
+	return (
+		<Modal
+			centered
+			withCloseButton={false}
+			onClose={props.closeModal}
+			opened={props.createModalOpened}
+		>
+			<Form
+				replace
+				method="POST"
+				onSubmit={() => props.closeModal()}
+				action={withQuery(".", { intent: "createAccessLink" })}
+			>
+				<Stack>
+					<Title order={3}>Create new access link</Title>
+					<Text size="xs" c="dimmed">
+						Once a link becomes invalid or has been revoked, it will be
+						automatically deleted.
+					</Text>
+					<TextInput
+						required
+						name="name"
+						label="Name"
+						description="A descriptive name for this link."
+					/>
+					<DateTimePicker
+						clearable
+						name="expiresOn"
+						label="Expires at"
+						defaultValue={defaultExpiresAtValue}
+						description="This link will become invalid after this timestamp. Leave empty for no expiration."
+					/>
+					<NumberInput
+						name="maximumUses"
+						label="Maximum uses"
+						description="This link will become invalid after this number of uses. Leave empty for unlimited uses"
+					/>
+					<TextInput
+						name="redirectTo"
+						label="Redirect to"
+						placeholder="/media/item/met_S3id90GDhICM"
+						description="Redirect to this URL when the link is used."
+					/>
+					<Checkbox
+						label="Allow mutation"
+						name="isMutationAllowed"
+						description="Allow users to able to change your data?"
+					/>
+					<Button type="submit">Submit</Button>
+				</Stack>
+			</Form>
+		</Modal>
+	);
+};

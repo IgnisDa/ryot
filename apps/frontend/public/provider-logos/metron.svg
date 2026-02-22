@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <rect width="100" height="100" rx="12" fill="#1a1a2e"/>
+  <text x="50" y="62" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="36" fill="#e94560">M</text>
+  <text x="50" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#a8a8b3" letter-spacing="2">METRON</text>
+</svg>

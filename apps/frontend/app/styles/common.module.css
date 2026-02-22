@@ -1,0 +1,29 @@
+.text {
+  @mixin dark {
+    color: white;
+  }
+}
+
+.imagesContainer {
+  flex: none;
+  width: 100%;
+  @media (min-width: $mantine-breakpoint-md) {
+    width: 35%;
+  }
+}
+
+.fadeInOut {
+  animation: fadeInOut 1.5s ease-in-out infinite;
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
+}
