@@ -8,7 +8,10 @@ RUN turbo prune @ryot/app-frontend --docker
 
 FROM base AS builder
 COPY --from=prepare /app/out/json/ .
-RUN bun install --frozen-lockfile
+# Skip postinstall scripts to avoid native binary download failures in Docker
+# msgpackr-extract (optional dep of BullMQ's msgpackr) fails to install its native bindings
+# The packages work fine without postinstall - msgpackr falls back to pure JS implementation
+RUN bun install --frozen-lockfile --ignore-scripts
 COPY --from=prepare /app/out/full/ .
 RUN bun run --filter @ryot/app-backend build
 RUN bun run --filter @ryot/app-frontend build
