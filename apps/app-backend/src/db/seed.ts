@@ -1,5 +1,6 @@
 import { generateId } from "better-auth";
 import { and, eq, isNull } from "drizzle-orm";
+import { bookPropertiesJsonSchema } from "../entity-schema-import";
 import openLibraryBookDetailsScriptCode from "../sandbox/openlibrary-book-details-source.txt";
 import openLibraryBookSearchScriptCode from "../sandbox/openlibrary-book-search-source.txt";
 import { db } from ".";
@@ -33,38 +34,6 @@ const bookEventSchemas = [
 		},
 	},
 ];
-
-const bookPropertiesSchema = {
-	type: "object",
-	properties: {
-		isCompilation: { type: "boolean" },
-		pages: { type: ["number", "null"] },
-		description: { type: ["string", "null"] },
-		publish_year: { type: ["number", "null"] },
-		genres: { type: "array", items: { type: "string" } },
-		source_url: { type: ["string", "null"], format: "uri" },
-		people: {
-			type: "array",
-			items: {
-				type: "object",
-				properties: {
-					role: { type: "string" },
-					source: { type: "string" },
-					identifier: { type: "string" },
-				},
-			},
-		},
-		assets: {
-			type: "object",
-			properties: {
-				remote_images: {
-					type: "array",
-					items: { type: "string", format: "uri" },
-				},
-			},
-		},
-	},
-};
 
 const ensureBuiltinSandboxScript = async (input: {
 	slug: string;
@@ -124,7 +93,7 @@ export const seedEntitySchemas = async () => {
 		name: "Book",
 		isBuiltin: true,
 		eventSchemas: bookEventSchemas,
-		propertiesSchema: bookPropertiesSchema,
+		propertiesSchema: bookPropertiesJsonSchema,
 		searchSandboxScriptId: openLibrarySearchScriptId,
 		detailsSandboxScriptId: openLibraryImportScriptId,
 	};
