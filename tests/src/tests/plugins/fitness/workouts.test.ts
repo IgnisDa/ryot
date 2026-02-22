@@ -7,6 +7,7 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
+	createEntity,
 	createWorkoutEntityFixture,
 	executeQueryEngine,
 	findBuiltinRelationshipSchemaSlug,
@@ -48,9 +49,19 @@ describe("Workouts E2E", () => {
 
 			expect(workoutSchema.propertiesSchema.fields).toMatchObject({
 				comment: {
-					label: "Comment",
 					type: "string",
+					label: "Comment",
 					description: "Optional notes or comments about this workout",
+				},
+				images: {
+					type: "array",
+					label: "Images",
+					description: "Images attached to this workout",
+				},
+				videos: {
+					type: "array",
+					label: "Videos",
+					description: "Videos attached to this workout",
 				},
 				endedAt: {
 					type: "datetime",
@@ -67,6 +78,29 @@ describe("Workouts E2E", () => {
 					label: "Calories Burnt",
 					description: "Estimated calories burned during this workout",
 				},
+			});
+		}),
+	);
+
+	it.live("persists normalized workout media", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
+			const workout = yield* createEntity(client, {
+				entitySchemaSlug: workoutSchema.id,
+				name: `Workout ${crypto.randomUUID()}`,
+				properties: {
+					endedAt: "2026-04-27T11:00:00Z",
+					startedAt: "2026-04-27T10:00:00Z",
+					videos: [{ type: "s3", key: "workouts/video.mp4" }],
+					images: [{ type: "remote", url: "https://example.com/workout.jpg" }],
+				},
+			});
+			const entity = yield* getEntity(client, workout.id);
+
+			expect(entity.properties).toMatchObject({
+				videos: [{ type: "s3", key: "workouts/video.mp4" }],
+				images: [{ type: "remote", url: "https://example.com/workout.jpg" }],
 			});
 		}),
 	);
@@ -145,6 +179,14 @@ describe("Workouts E2E", () => {
 								setOrder: 0,
 								setLot: "normal",
 								exerciseOrder: 0,
+								images: [
+									{ type: "remote", url: "https://example.com/workout-image.jpg" },
+									{ type: "s3", key: "workouts/image.jpg" },
+								],
+								videos: [
+									{ type: "remote", url: "https://example.com/workout-video.mp4" },
+									{ type: "s3", key: "workouts/video.mp4" },
+								],
 							},
 						},
 					],
@@ -156,6 +198,16 @@ describe("Workouts E2E", () => {
 			const events = yield* waitForSessionEventCount(client, workoutId, 1);
 			expect(events[0]?.sessionEntityId).toBe(workoutId);
 			expect(events[0]?.entityId).toBe(exerciseId);
+			expect(events[0]?.properties).toMatchObject({
+				images: [
+					{ type: "remote", url: "https://example.com/workout-image.jpg" },
+					{ type: "s3", key: "workouts/image.jpg" },
+				],
+				videos: [
+					{ type: "remote", url: "https://example.com/workout-video.mp4" },
+					{ type: "s3", key: "workouts/video.mp4" },
+				],
+			});
 		}),
 	);
 
