@@ -80,16 +80,16 @@ export function SpineRail({ translateX, onClose, pinned = false }: Props) {
 						onPress={() => handleTrackerPress(tracker)}
 					>
 						{isActive && (
-							<Box className="absolute top-2 left-0 w-0.75 bottom-2 bg-terra" />
+							<Box className="absolute top-2 left-0 w-0.75 bottom-2 bg-primary" />
 						)}
 						<Text
-							className={`text-[17px] tracking-[0.2px] ${isActive ? "text-ink font-serif-medium-italic" : "text-ink-soft font-serif"}`}
+							className={`text-[17px] tracking-[0.2px] ${isActive ? "text-foreground font-heading-semibold" : "text-muted-foreground font-heading"}`}
 						>
 							{tracker.name}
 						</Text>
 						{tracker.subItems?.length ? (
 							<Box className="opacity-60 ml-1">
-								<ChevronRight size={14} color="#8a8378" strokeWidth={1.5} />
+								<ChevronRight size={14} color="#78716c" strokeWidth={1.5} />
 							</Box>
 						) : null}
 					</Pressable>
@@ -100,10 +100,10 @@ export function SpineRail({ translateX, onClose, pinned = false }: Props) {
 
 	if (pinned) {
 		return (
-			<Box className="w-42 border-l-[0.5px] border-l-ink/20 bg-paper-deep">
+			<Box className="w-42 border-l-[0.5px] border-l-border bg-stone-200">
 				{items}
 				<Box
-					className="absolute top-0 left-0 w-px bottom-0 opacity-[0.08] bg-ink"
+					className="absolute top-0 left-0 w-px bottom-0 opacity-[0.08] bg-foreground"
 					pointerEvents="none"
 				/>
 			</Box>
@@ -112,7 +112,7 @@ export function SpineRail({ translateX, onClose, pinned = false }: Props) {
 
 	return (
 		<Animated.View
-			className="absolute top-0 right-0 bottom-0 z-30 w-42 border-l-[0.5px] border-l-ink/20 bg-paper-deep"
+			className="absolute top-0 right-0 bottom-0 z-30 w-42 border-l-[0.5px] border-l-border bg-stone-200"
 			style={[
 				railStyle,
 				{
@@ -127,7 +127,7 @@ export function SpineRail({ translateX, onClose, pinned = false }: Props) {
 			{items}
 			<Box
 				pointerEvents="none"
-				className="absolute top-0 left-0 w-px bottom-0 opacity-[0.08] bg-ink"
+				className="absolute top-0 left-0 w-px bottom-0 opacity-[0.08] bg-foreground"
 			/>
 		</Animated.View>
 	);

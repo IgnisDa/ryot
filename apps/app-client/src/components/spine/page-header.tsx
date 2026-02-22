@@ -23,7 +23,7 @@ export function PageHeader({ eyebrow, title, children }: Props) {
 	const setNavSheetOpen = useSetAtom(navSheetOpenAtom);
 
 	return (
-		<Box className="flex-1 bg-paper">
+		<Box className="flex-1 bg-background">
 			<ScrollView
 				showsVerticalScrollIndicator={false}
 				contentContainerStyle={{
@@ -43,17 +43,17 @@ export function PageHeader({ eyebrow, title, children }: Props) {
 								accessibilityLabel="Open navigation"
 								onPress={() => setNavSheetOpen(true)}
 							>
-								<Menu size={20} color="#8a8378" strokeWidth={1.5} />
+								<Menu size={20} color="#78716c" strokeWidth={1.5} />
 							</Pressable>
 						)}
 					</Box>
-					<Text className="text-[10px] mt-[14] tracking-[2px] text-ink-soft font-sans uppercase">
+					<Text className="text-[10px] mt-[14] tracking-[2px] text-muted-foreground font-sans uppercase">
 						{eyebrow}
 					</Text>
-					<Text className="text-[38px] text-ink mt-1 leading-[40px] font-serif tracking-[-0.5px]">
+					<Text className="text-[38px] text-foreground mt-1 leading-[40px] font-heading-semibold tracking-[-0.5px]">
 						{title}
 					</Text>
-					<Box className="h-[0.5px] mt-[18] bg-ink/20" />
+					<Box className="h-[0.5px] mt-[18] bg-border" />
 					{children}
 				</SafeAreaView>
 			</ScrollView>
@@ -63,5 +63,5 @@ export function PageHeader({ eyebrow, title, children }: Props) {
 
 export const gridStyles = {
 	grid: "gap-3 mt-4 flex-wrap flex-row",
-	card: "w-[46%] aspect-[2/3] bg-paper-deep",
+	card: "w-[46%] aspect-[2/3] bg-stone-200",
 };

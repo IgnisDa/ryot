@@ -4,41 +4,58 @@
 @import "nativewind/theme";
 
 @theme {
-	/* ─── Paper / ink palette ─────────────────────────────────────── */
-	--color-ink: #1a1814;
-	--color-ink-soft: #5a5347;
-	--color-ink-mid: #8a8378;
-	--color-ink-dark: #0e1f24;
-	--color-paper: #f4ecdf;
-	--color-paper-deep: #ebe1cf;
-	--color-paper-warm: #fbf7ee;
-	--color-parch: #ebe2cf;
-	--color-terra: #a83c1e;
+	/* ─── Stone neutrals (warm, not blue-tinted) ─────────────────── */
+	--color-stone-50: #fafaf9;
+	--color-stone-100: #f5f5f4;
+	--color-stone-200: #e7e5e4;
+	--color-stone-300: #d6d3d1;
+	--color-stone-400: #a8a29e;
+	--color-stone-500: #78716c;
+	--color-stone-600: #57534e;
+	--color-stone-700: #44403c;
+	--color-stone-800: #292524;
+	--color-stone-900: #1c1917;
+	--color-stone-950: #0c0a09;
 
-	/* ─── Semantic tokens (wired to paper / ink) ──────────────────── */
-	--color-background: #f4ecdf;
-	--color-foreground: #1a1814;
-	--color-primary: #1a1814;
-	--color-primary-foreground: #f4ecdf;
-	--color-secondary: #ebe1cf;
-	--color-secondary-foreground: #1a1814;
-	--color-muted: #ebe1cf;
-	--color-muted-foreground: #5a5347;
-	--color-accent: #fbf7ee;
-	--color-accent-foreground: #1a1814;
+	/* ─── Accent — warm gold ─────────────────────────────────────── */
+	--color-accent-50: #fffbeb;
+	--color-accent-100: #fef3c7;
+	--color-accent-200: #fde68a;
+	--color-accent-300: #e8c872;
+	--color-accent-400: #dbb26a;
+	--color-accent-500: #d4a574;
+	--color-accent-600: #b8875a;
+	--color-accent-700: #92673e;
+	--color-accent-800: #6d4c2e;
+	--color-accent-900: #5a4318;
+
+	/* ─── Semantic tokens ────────────────────────────────────────── */
+	--color-background: #f5f5f4;
+	--color-foreground: #1c1917;
+	--color-primary: #d4a574;
+	--color-primary-foreground: #1c1917;
+	--color-secondary: #e7e5e4;
+	--color-secondary-foreground: #1c1917;
+	--color-muted: #e7e5e4;
+	--color-muted-foreground: #78716c;
+	--color-accent: #fafaf9;
+	--color-accent-foreground: #1c1917;
 	--color-destructive: #e7000b;
-	--color-border: rgb(26 24 20 / 0.12);
-	--color-input: rgb(26 24 20 / 0.12);
-	--color-ring: #8a8378;
-	--color-card: #f4ecdf;
+	--color-border: rgb(28 25 23 / 0.12);
+	--color-input: rgb(28 25 23 / 0.12);
+	--color-ring: #d4a574;
+	--color-card: #ffffff;
 
 	/* ─── Fonts ───────────────────────────────────────────────────── */
-	--font-body: "Inter_400Regular";
-	--font-sans: "Inter_400Regular";
-	--font-sans-medium: "Inter_500Medium";
-	--font-sans-semibold: "Inter_600SemiBold";
-	--font-serif: "Spectral_400Regular";
-	--font-serif-medium: "Spectral_500Medium";
-	--font-serif-italic: "Spectral_400Regular_Italic";
-	--font-serif-medium-italic: "Spectral_500Medium_Italic";
+	--font-heading: "SpaceGrotesk_400Regular";
+	--font-heading-medium: "SpaceGrotesk_500Medium";
+	--font-heading-semibold: "SpaceGrotesk_600SemiBold";
+	--font-body: "Outfit_400Regular";
+	--font-sans: "Outfit_400Regular";
+	--font-sans-medium: "Outfit_500Medium";
+	--font-sans-semibold: "Outfit_600SemiBold";
+	--font-mono: "IBMPlexMono_400Regular";
+
+	/* ─── Radii ───────────────────────────────────────────────────── */
+	--radius-card: 12px;
 }
