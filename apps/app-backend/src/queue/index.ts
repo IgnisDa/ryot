@@ -30,7 +30,7 @@ export const getWorkers = () => {
 
 export const shutdownQueues = async () => {
 	if (queues) {
-		await queues.exampleQueue.close();
+		await queues.sandboxScriptQueue.close();
 		queues = null;
 		console.info("Queues shut down");
 	}
