@@ -34,7 +34,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "8000:8000"
     environment:
       NODE_ENV: production
       FRONTEND_URL: http://localhost:3000
