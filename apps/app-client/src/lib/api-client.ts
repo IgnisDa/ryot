@@ -15,6 +15,6 @@ export function useApiClient() {
 				baseUrl: `${baseUrl}/api`,
 				headers: { Cookie: cookie },
 			}),
-		[baseUrl],
+		[baseUrl, cookie],
 	);
 }
