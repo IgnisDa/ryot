@@ -1,6 +1,7 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest, DbError, NotFound, dieOnDbError } from "@ryot/contract/errors";
 import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
+import type { PluginSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -122,7 +123,7 @@ export class QueryEngineService extends Effect.Service<QueryEngineService>()("Qu
 			executeForUser(user.id, user.preferences.language, doc);
 
 		const executeSystem = Effect.fn("QueryEngineService.executeSystem")(function* (
-			input: { readonly pluginSlug: string } & PluginQuerySchemaOwnership,
+			input: { readonly pluginSlug: PluginSlug } & PluginQuerySchemaOwnership,
 			doc: QueryDocument,
 		) {
 			const executionScope = { type: "system" as const, ...input };
