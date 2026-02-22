@@ -5,7 +5,9 @@ import {
 	createTransformExpression,
 } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
+
 import type { ViewExpression } from "~/lib/views/expression";
+
 import type {
 	DisplayConfiguration,
 	GridConfig,
@@ -37,35 +39,16 @@ const buildSecondarySubtitleForSlug = (slug: string): ViewExpression | null => {
 	return match(slug)
 		.with("book", () => buildConditionalConcatProperty(slug, "pages", " pages"))
 		.with("exercise", () =>
-			createTransformExpression(
-				"titleCase",
-				createEntityPropertyExpression(slug, "equipment"),
-			),
+			createTransformExpression("titleCase", createEntityPropertyExpression(slug, "equipment")),
 		)
-		.with("show", () =>
-			createEntityPropertyExpression(slug, "productionStatus"),
-		)
-		.with("movie", () =>
-			buildConditionalConcatProperty(slug, "runtime", " min"),
-		)
-		.with("anime", () =>
-			buildConditionalConcatProperty(slug, "episodes", " eps"),
-		)
-		.with("manga", () =>
-			buildConditionalConcatProperty(slug, "chapters", " ch"),
-		)
-		.with("audiobook", () =>
-			buildConditionalConcatProperty(slug, "runtime", " min"),
-		)
-		.with("podcast", () =>
-			buildConditionalConcatProperty(slug, "totalEpisodes", " eps"),
-		)
-		.with("visual-novel", () =>
-			buildConditionalConcatProperty(slug, "lengthMinutes", " min"),
-		)
-		.with("comic-book", () =>
-			buildConditionalConcatProperty(slug, "pages", " pages"),
-		)
+		.with("show", () => createEntityPropertyExpression(slug, "productionStatus"))
+		.with("movie", () => buildConditionalConcatProperty(slug, "runtime", " min"))
+		.with("anime", () => buildConditionalConcatProperty(slug, "episodes", " eps"))
+		.with("manga", () => buildConditionalConcatProperty(slug, "chapters", " ch"))
+		.with("audiobook", () => buildConditionalConcatProperty(slug, "runtime", " min"))
+		.with("podcast", () => buildConditionalConcatProperty(slug, "totalEpisodes", " eps"))
+		.with("visual-novel", () => buildConditionalConcatProperty(slug, "lengthMinutes", " min"))
+		.with("comic-book", () => buildConditionalConcatProperty(slug, "pages", " pages"))
 		.otherwise(() => null);
 };
 
@@ -224,14 +207,8 @@ const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 	if (slug === "person") {
 		return {
 			calloutProperty: null,
-			primarySubtitleProperty: createEntityPropertyExpression(
-				slug,
-				"birthPlace",
-			),
-			secondarySubtitleProperty: createEntityPropertyExpression(
-				slug,
-				"birthDate",
-			),
+			primarySubtitleProperty: createEntityPropertyExpression(slug, "birthPlace"),
+			secondarySubtitleProperty: createEntityPropertyExpression(slug, "birthDate"),
 		};
 	}
 	if (slug === "exercise") {
@@ -250,55 +227,34 @@ const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 	if (slug === "workout") {
 		return {
 			calloutProperty: null,
-			primarySubtitleProperty: createEntityPropertyExpression(
-				slug,
-				"startedAt",
-			),
-			secondarySubtitleProperty: createEntityPropertyExpression(
-				slug,
-				"endedAt",
-			),
+			primarySubtitleProperty: createEntityPropertyExpression(slug, "startedAt"),
+			secondarySubtitleProperty: createEntityPropertyExpression(slug, "endedAt"),
 		};
 	}
 	if (slug === "measurement") {
 		return {
 			calloutProperty: null,
-			primarySubtitleProperty: createEntityPropertyExpression(
-				slug,
-				"recordedAt",
-			),
+			primarySubtitleProperty: createEntityPropertyExpression(slug, "recordedAt"),
 			secondarySubtitleProperty: createEntityPropertyExpression(slug, "weight"),
 		};
 	}
 	return {
 		secondarySubtitleProperty: buildSecondarySubtitleForSlug(slug),
-		calloutProperty: createEventAggregateExpression(
-			"review",
-			["properties", "rating"],
-			"avg",
-		),
-		primarySubtitleProperty: createEntityPropertyExpression(
-			slug,
-			"publishYear",
-		),
+		calloutProperty: createEventAggregateExpression("review", ["properties", "rating"], "avg"),
+		primarySubtitleProperty: createEntityPropertyExpression(slug, "publishYear"),
 	};
 };
 
 export const createDefaultDisplayConfiguration = (
 	entitySchemaSlug?: string,
 ): DisplayConfiguration => {
-	const {
-		calloutProperty,
-		primarySubtitleProperty,
-		secondarySubtitleProperty,
-	} = createEntityCardConfig(entitySchemaSlug);
+	const { calloutProperty, primarySubtitleProperty, secondarySubtitleProperty } =
+		createEntityCardConfig(entitySchemaSlug);
 	const cardConfig = {
 		calloutProperty,
 		primarySubtitleProperty,
 		secondarySubtitleProperty,
-		titleProperty: entitySchemaSlug
-			? createEntityColumnExpression(entitySchemaSlug, "name")
-			: null,
+		titleProperty: entitySchemaSlug ? createEntityColumnExpression(entitySchemaSlug, "name") : null,
 		imageProperty: entitySchemaSlug
 			? createEntityColumnExpression(entitySchemaSlug, "image")
 			: null,
@@ -307,9 +263,7 @@ export const createDefaultDisplayConfiguration = (
 		grid: cardConfig,
 		list: cardConfig,
 		table: {
-			columns: entitySchemaSlug
-				? buildTableColumnsForSlug(entitySchemaSlug)
-				: [],
+			columns: entitySchemaSlug ? buildTableColumnsForSlug(entitySchemaSlug) : [],
 		},
 	};
 };
@@ -317,10 +271,7 @@ export const createDefaultDisplayConfiguration = (
 export const createDefaultQueryDefinition = (
 	scope: string[],
 	options?: {
-		relationships?: Extract<
-			SavedViewQueryDefinition,
-			{ mode: "entities" }
-		>["relationships"];
+		relationships?: Extract<SavedViewQueryDefinition, { mode: "entities" }>["relationships"];
 	},
 ): SavedViewQueryDefinition => ({
 	scope,

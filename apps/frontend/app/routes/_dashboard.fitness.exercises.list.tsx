@@ -47,12 +47,7 @@ import {
 	snakeCase,
 	startCase,
 } from "@ryot/ts-utils";
-import {
-	IconAlertCircle,
-	IconCheck,
-	IconFilter,
-	IconPlus,
-} from "@tabler/icons-react";
+import { IconAlertCircle, IconCheck, IconFilter, IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import {
@@ -68,21 +63,15 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+
 import {
 	ApplicationPagination,
 	DisplayListDetailsAndRefresh,
 	SkeletonLoader,
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/bulk-collection-editing-affix";
-import {
-	FilterPresetBar,
-	FilterPresetModalManager,
-} from "~/components/common/filter-presets";
-import {
-	CollectionsFilter,
-	DebouncedSearchInput,
-	FiltersModal,
-} from "~/components/common/filters";
+import { FilterPresetBar, FilterPresetModalManager } from "~/components/common/filter-presets";
+import { CollectionsFilter, DebouncedSearchInput, FiltersModal } from "~/components/common/filters";
 import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
 import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
 import { useFiltersState } from "~/lib/hooks/filters/use-state";
@@ -96,10 +85,7 @@ import {
 } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
-import {
-	convertEnumToSelectData,
-	openConfirmationModal,
-} from "~/lib/shared/ui-utils";
+import { convertEnumToSelectData, openConfirmationModal } from "~/lib/shared/ui-utils";
 import { parseAsCollectionsFilter } from "~/lib/shared/validation";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
@@ -114,33 +100,22 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
 import { redirectWithToast, serverGqlService } from "~/lib/utilities.server";
+
 import type { Route } from "./+types/_dashboard.fitness.exercises.list";
 
 const defaultQueryState = {
 	page: parseAsInteger.withDefault(1),
 	query: parseAsString.withDefault(""),
 	collections: parseAsCollectionsFilter.withDefault([]),
-	types: parseAsArrayOf(
-		parseAsStringEnum(Object.values(ExerciseLot)),
-	).withDefault([]),
+	types: parseAsArrayOf(parseAsStringEnum(Object.values(ExerciseLot))).withDefault([]),
 	sortBy: parseAsStringEnum(Object.values(ExerciseSortBy)).withDefault(
 		ExerciseSortBy.TimesPerformed,
 	),
-	levels: parseAsArrayOf(
-		parseAsStringEnum(Object.values(ExerciseLevel)),
-	).withDefault([]),
-	forces: parseAsArrayOf(
-		parseAsStringEnum(Object.values(ExerciseForce)),
-	).withDefault([]),
-	muscles: parseAsArrayOf(
-		parseAsStringEnum(Object.values(ExerciseMuscle)),
-	).withDefault([]),
-	mechanics: parseAsArrayOf(
-		parseAsStringEnum(Object.values(ExerciseMechanic)),
-	).withDefault([]),
-	equipments: parseAsArrayOf(
-		parseAsStringEnum(Object.values(ExerciseEquipment)),
-	).withDefault([]),
+	levels: parseAsArrayOf(parseAsStringEnum(Object.values(ExerciseLevel))).withDefault([]),
+	forces: parseAsArrayOf(parseAsStringEnum(Object.values(ExerciseForce))).withDefault([]),
+	muscles: parseAsArrayOf(parseAsStringEnum(Object.values(ExerciseMuscle))).withDefault([]),
+	mechanics: parseAsArrayOf(parseAsStringEnum(Object.values(ExerciseMechanic))).withDefault([]),
+	equipments: parseAsArrayOf(parseAsStringEnum(Object.values(ExerciseEquipment))).withDefault([]),
 };
 
 type FilterState = inferParserType<typeof defaultQueryState>;
@@ -155,11 +130,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	return await match(intent)
 		.with("mergeExercise", async () => {
 			const submission = processSubmission(formData, mergeExerciseSchema);
-			await serverGqlService.authenticatedRequest(
-				request,
-				MergeExerciseDocument,
-				submission,
-			);
+			await serverGqlService.authenticatedRequest(request, MergeExerciseDocument, submission);
 			return redirectWithToast(getExerciseDetailsPath(submission.mergeInto), {
 				type: "success",
 				message: "Exercise merged successfully",
@@ -183,19 +154,14 @@ export default function Page() {
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [mergingExercise, setMergingExercise] = useMergingExercise();
-	const [selectedExercises, setSelectedExercises] =
-		useListState<SelectExercise>([]);
+	const [selectedExercises, setSelectedExercises] = useListState<SelectExercise>([]);
 	const { filters, resetFilters, updateFilters, haveFiltersChanged } =
 		useFiltersState(defaultQueryState);
 
-	const [
-		filtersModalOpened,
-		{ open: openFiltersModal, close: closeFiltersModal },
-	] = useDisclosure(false);
-	const [
-		presetModalOpened,
-		{ open: openPresetModal, close: closePresetModal },
-	] = useDisclosure(false);
+	const [filtersModalOpened, { open: openFiltersModal, close: closeFiltersModal }] =
+		useDisclosure(false);
+	const [presetModalOpened, { open: openPresetModal, close: closePresetModal }] =
+		useDisclosure(false);
 
 	const bulkEditingState =
 		bulkEditingCollection.state === false ? null : bulkEditingCollection.state;
@@ -224,14 +190,13 @@ export default function Page() {
 		[filters],
 	);
 
-	const { data: userExercisesList, refetch: refetchUserExercisesList } =
-		useQuery({
-			queryKey: queryFactory.fitness.userExercisesList(queryInput).queryKey,
-			queryFn: () =>
-				clientGqlService
-					.request(UserExercisesListDocument, { input: queryInput })
-					.then((data) => data.userExercisesList),
-		});
+	const { data: userExercisesList, refetch: refetchUserExercisesList } = useQuery({
+		queryKey: queryFactory.fitness.userExercisesList(queryInput).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(UserExercisesListDocument, { input: queryInput })
+				.then((data) => data.userExercisesList),
+	});
 
 	const replacingExerciseId =
 		currentWorkout?.replacingExerciseIdx &&
@@ -243,9 +208,7 @@ export default function Page() {
 	);
 
 	const allowAddingExerciseToWorkout =
-		currentWorkout &&
-		isFitnessActionActive &&
-		!isNumber(currentWorkout.replacingExerciseIdx);
+		currentWorkout && isFitnessActionActive && !isNumber(currentWorkout.replacingExerciseIdx);
 
 	return (
 		<>
@@ -265,10 +228,9 @@ export default function Page() {
 						page: 1,
 					};
 
-					const { userExercisesList } = await clientGqlService.request(
-						UserExercisesListDocument,
-						{ input: bulkQueryInput },
-					);
+					const { userExercisesList } = await clientGqlService.request(UserExercisesListDocument, {
+						input: bulkQueryInput,
+					});
 					return userExercisesList.response.items.map((exerciseId) => ({
 						entityId: exerciseId,
 						entityLot: EntityLot.Exercise,
@@ -304,10 +266,7 @@ export default function Page() {
 								},
 							}}
 						/>
-						<ActionIcon
-							onClick={openFiltersModal}
-							color={haveFiltersChanged ? "blue" : "gray"}
-						>
+						<ActionIcon onClick={openFiltersModal} color={haveFiltersChanged ? "blue" : "gray"}>
 							<IconFilter size={24} />
 						</ActionIcon>
 						<FiltersModal
@@ -329,9 +288,7 @@ export default function Page() {
 						</Alert>
 					) : null}
 					{mergingExercise ? (
-						<Alert icon={<IconAlertCircle />}>
-							You are merging exercise: {mergingExercise}
-						</Alert>
+						<Alert icon={<IconAlertCircle />}>You are merging exercise: {mergingExercise}</Alert>
 					) : null}
 					{userExercisesList ? (
 						<>
@@ -341,9 +298,7 @@ export default function Page() {
 										cacheId={userExercisesList.cacheId}
 										onRefreshButtonClicked={refetchUserExercisesList}
 										total={userExercisesList.response.details.totalItems}
-										isRandomSortOrderSelected={
-											filters.sortBy === ExerciseSortBy.Random
-										}
+										isRandomSortOrderSelected={filters.sortBy === ExerciseSortBy.Random}
 										rightSection={
 											allowAddingExerciseToWorkout ? (
 												<>
@@ -365,9 +320,7 @@ export default function Page() {
 												mergingExercise={mergingExercise}
 												setMergingExercise={setMergingExercise}
 												setSelectedExercises={setSelectedExercises}
-												allowAddingExerciseToWorkout={
-													allowAddingExerciseToWorkout
-												}
+												allowAddingExerciseToWorkout={allowAddingExerciseToWorkout}
 											/>
 										))}
 									</SimpleGrid>
@@ -431,14 +384,7 @@ const FiltersModalForm = (props: {
 				onChange={(v) => props.updateFilter("sortBy", v as ExerciseSortBy)}
 			/>
 			<Stack gap={2}>
-				{[
-					"types",
-					"levels",
-					"forces",
-					"muscles",
-					"mechanics",
-					"equipments",
-				].map((f) => {
+				{["types", "levels", "forces", "muscles", "mechanics", "equipments"].map((f) => {
 					const singularKey = f.endsWith("s") ? f.slice(0, -1) : f;
 					return (
 						<MultiSelect
@@ -447,17 +393,15 @@ const FiltersModalForm = (props: {
 							clearable
 							searchable
 							label={startCase(f)}
-							// biome-ignore lint/suspicious/noExplicitAny: required here
+							// oxlint-disable-next-line typescript/no-explicit-any
 							value={(props.filter as any)[f]}
 							onChange={(v) =>
-								// biome-ignore lint/suspicious/noExplicitAny: required here
+								// oxlint-disable-next-line typescript/no-explicit-any
 								props.updateFilter(f as keyof FilterState, v as any)
 							}
-							// biome-ignore lint/suspicious/noExplicitAny: required here
-							data={(coreDetails.exerciseParameters.filters as any)[
-								singularKey
-							].map(
-								// biome-ignore lint/suspicious/noExplicitAny: required here
+							// oxlint-disable-next-line typescript/no-explicit-any
+							data={(coreDetails.exerciseParameters.filters as any)[singularKey].map(
+								// oxlint-disable-next-line typescript/no-explicit-any
 								(v: any) => ({
 									value: v,
 									label: startCase(snakeCase(v)),
@@ -489,21 +433,16 @@ const ExerciseItemDisplay = (props: {
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const { data: exercise } = useExerciseDetails(props.exerciseId, inViewport);
-	const { data: userExerciseDetails } = useUserExerciseDetails(
-		props.exerciseId,
-		inViewport,
-	);
+	const { data: userExerciseDetails } = useUserExerciseDetails(props.exerciseId, inViewport);
 	const bulkEditingCollection = useBulkEditCollection();
 	const rawBulkEditingState = bulkEditingCollection.state;
-	const bulkEditingState =
-		rawBulkEditingState === false ? null : rawBulkEditingState;
+	const bulkEditingState = rawBulkEditingState === false ? null : rawBulkEditingState;
 	const becItem = { entityId: props.exerciseId, entityLot: EntityLot.Exercise };
 	const isAlreadyPresent = bulkEditingCollection.isAlreadyPresent(becItem);
 	const isAdded = bulkEditingCollection.isAdded(becItem);
 
 	const firstMuscle = exercise?.muscles?.at(0);
-	const numTimesInteracted =
-		userExerciseDetails?.details?.exerciseNumTimesInteracted;
+	const numTimesInteracted = userExerciseDetails?.details?.exerciseNumTimesInteracted;
 	const lastUpdatedOn = userExerciseDetails?.details?.lastUpdatedOn;
 	const isTourTargetExercise = props.exerciseId === TOUR_EXERCISE_TARGET_ID;
 	const images = useExerciseImages(exercise);
@@ -511,11 +450,7 @@ const ExerciseItemDisplay = (props: {
 	return (
 		<Box
 			data-exercise-id={props.exerciseId}
-			className={
-				isTourTargetExercise
-					? OnboardingTourStepTarget.SelectExercise
-					: undefined
-			}
+			className={isTourTargetExercise ? OnboardingTourStepTarget.SelectExercise : undefined}
 		>
 			{exercise && userExerciseDetails ? (
 				<Flex gap="lg" align="center">
@@ -528,10 +463,7 @@ const ExerciseItemDisplay = (props: {
 										id: props.exerciseId,
 									});
 									if (isTourTargetExercise) advanceOnboardingTourStep();
-								} else
-									props.setSelectedExercises.filter(
-										(item) => item.id !== props.exerciseId,
-									);
+								} else props.setSelectedExercises.filter((item) => item.id !== props.exerciseId);
 							}}
 						/>
 					) : null}
@@ -543,12 +475,7 @@ const ExerciseItemDisplay = (props: {
 						disabled={!numTimesInteracted}
 						label={numTimesInteracted ?? ""}
 					>
-						<Avatar
-							size="lg"
-							radius="xl"
-							src={images.at(0)}
-							imageProps={{ loading: "lazy" }}
-						/>
+						<Avatar size="lg" radius="xl" src={images.at(0)} imageProps={{ loading: "lazy" }} />
 					</Indicator>
 					<Link
 						style={{ all: "unset", cursor: "pointer" }}
@@ -561,8 +488,7 @@ const ExerciseItemDisplay = (props: {
 									"Are you sure you want to merge this exercise? This will replace this exercise in all workouts.",
 									() => {
 										const formData = new FormData();
-										if (props.mergingExercise)
-											formData.append("mergeFrom", props.mergingExercise);
+										if (props.mergingExercise) formData.append("mergeFrom", props.mergingExercise);
 										formData.append("mergeInto", props.exerciseId);
 										props.setMergingExercise(null);
 										submit(formData, {
@@ -580,9 +506,8 @@ const ExerciseItemDisplay = (props: {
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
 										if (!isNumber(currentWorkout.replacingExerciseIdx)) return;
-										draft.exercises[
-											currentWorkout.replacingExerciseIdx
-										].exerciseId = props.exerciseId;
+										draft.exercises[currentWorkout.replacingExerciseIdx].exerciseId =
+											props.exerciseId;
 										draft.replacingExerciseIdx = undefined;
 									}),
 								);
@@ -594,21 +519,16 @@ const ExerciseItemDisplay = (props: {
 						<Flex direction="column" justify="space-around">
 							<Text>{exercise.name}</Text>
 							<Flex>
-								{firstMuscle ? (
-									<Text size="xs">{startCase(snakeCase(firstMuscle))}</Text>
-								) : null}
+								{firstMuscle ? <Text size="xs">{startCase(snakeCase(firstMuscle))}</Text> : null}
 								{lastUpdatedOn ? (
 									<Text size="xs" c="dimmed">
-										{firstMuscle ? "," : null}{" "}
-										{dayjsLib(lastUpdatedOn).format("D MMM")}
+										{firstMuscle ? "," : null} {dayjsLib(lastUpdatedOn).format("D MMM")}
 									</Text>
 								) : null}
 							</Flex>
 						</Flex>
 					</Link>
-					{bulkEditingState &&
-					bulkEditingState.data.action === "add" &&
-					!isAlreadyPresent ? (
+					{bulkEditingState && bulkEditingState.data.action === "add" && !isAlreadyPresent ? (
 						<ActionIcon
 							ml="auto"
 							color="green"

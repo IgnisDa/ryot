@@ -1,20 +1,12 @@
 import { dayjs } from "@ryot/ts-utils";
+
 import type { ApiPostRequestBody } from "~/lib/api/types";
+
 import type { AppEventSchema } from "../event-schemas/model";
 
-const lifecycleEventSlugs = [
-	"backlog",
-	"complete",
-	"progress",
-	"review",
-] as const;
+const lifecycleEventSlugs = ["backlog", "complete", "progress", "review"] as const;
 
-export type MediaSearchDoneAction =
-	| "track"
-	| "log"
-	| "backlog"
-	| "rate"
-	| "collection";
+export type MediaSearchDoneAction = "track" | "log" | "backlog" | "rate" | "collection";
 
 export type MediaSearchLogDateOption = "now" | "unknown" | "custom" | "started";
 
@@ -60,9 +52,7 @@ export function getMediaDoneActionLabel(
 	return options?.rateStars ? `Rated ${options.rateStars}/5` : "Rated";
 }
 
-export function getMediaLifecycleUnavailableMessage(
-	eventSchemas: AppEventSchema[],
-) {
+export function getMediaLifecycleUnavailableMessage(eventSchemas: AppEventSchema[]) {
 	const missingSlugs = lifecycleEventSlugs.filter(
 		(slug) => !eventSchemas.find((schema) => schema.slug === slug),
 	);
@@ -243,10 +233,7 @@ export function createLogEventPayload(input: {
 
 function resolveLifecycleEventSchemas(eventSchemas: AppEventSchema[]) {
 	const schemas = Object.fromEntries(
-		lifecycleEventSlugs.map((slug) => [
-			slug,
-			eventSchemas.find((schema) => schema.slug === slug),
-		]),
+		lifecycleEventSlugs.map((slug) => [slug, eventSchemas.find((schema) => schema.slug === slug)]),
 	) as Partial<LifecycleEventSchemas>;
 
 	const missingSlugs = lifecycleEventSlugs.filter((slug) => !schemas[slug]);

@@ -44,8 +44,7 @@ export const systemConfigDef = group("Core system configuration", {
 		}),
 		bucketName: field("FILE_STORAGE_S3_BUCKET_NAME", {
 			optional: true,
-			description:
-				"Name of the storage bucket. Required to enable file storage",
+			description: "Name of the storage bucket. Required to enable file storage",
 		}),
 		accessKeyId: field("FILE_STORAGE_S3_ACCESS_KEY_ID", {
 			optional: true,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import { getNameFromEmail } from "./user";
 
 describe("getNameFromEmail", () => {

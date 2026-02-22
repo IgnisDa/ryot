@@ -1,6 +1,8 @@
 import { zodNonEmptyTrimmedString } from "@ryot/ts-utils";
 import type { z } from "zod";
+
 import type { ApiPostRequestBody } from "~/lib/api/types";
+
 import {
 	buildDefaultPropertySchemaRow,
 	buildPropertiesSchema,
@@ -11,26 +13,20 @@ import {
 	type PropertySchemaInput,
 } from "../property-schemas/form";
 
-export type CreateEntitySchemaFormValues = z.infer<
-	typeof createEntitySchemaFormSchema
->;
+export type CreateEntitySchemaFormValues = z.infer<typeof createEntitySchemaFormSchema>;
 
-type EntitySchemaFormInput = Partial<
-	Omit<CreateEntitySchemaFormValues, "properties">
-> & {
+type EntitySchemaFormInput = Partial<Omit<CreateEntitySchemaFormValues, "properties">> & {
 	properties?: PropertySchemaInput[];
 };
 
-export const buildDefaultEntitySchemaPropertyRow =
-	buildDefaultPropertySchemaRow;
+export const buildDefaultEntitySchemaPropertyRow = buildDefaultPropertySchemaRow;
 
 export const isEntitySchemaPropertyRowsValid = isPropertySchemaRowsValid;
 
-export const createEntitySchemaFormSchema =
-	createPropertySchemaFormSchema.extend({
-		icon: zodNonEmptyTrimmedString("Icon is required"),
-		accentColor: zodNonEmptyTrimmedString("Accent color is required"),
-	});
+export const createEntitySchemaFormSchema = createPropertySchemaFormSchema.extend({
+	icon: zodNonEmptyTrimmedString("Icon is required"),
+	accentColor: zodNonEmptyTrimmedString("Accent color is required"),
+});
 
 export function buildEntitySchemaFormValues(
 	values?: EntitySchemaFormInput,
@@ -48,8 +44,7 @@ export function buildEntitySchemaFormValues(
 
 export const buildEntitySchemaPropertiesSchema = buildPropertiesSchema;
 
-export const defaultCreateEntitySchemaFormValues =
-	buildEntitySchemaFormValues();
+export const defaultCreateEntitySchemaFormValues = buildEntitySchemaFormValues();
 
 export type CreateEntitySchemaPayload = ApiPostRequestBody<"/entity-schemas">;
 
@@ -63,8 +58,6 @@ export function toCreateEntitySchemaPayload(
 		name: input.name.trim(),
 		accentColor: input.accentColor.trim(),
 		propertiesSchema: buildEntitySchemaPropertiesSchema(input.properties),
-		...(normalizeOptionalSlug(input.slug)
-			? { slug: normalizeOptionalSlug(input.slug) }
-			: {}),
+		...(normalizeOptionalSlug(input.slug) ? { slug: normalizeOptionalSlug(input.slug) } : {}),
 	};
 }

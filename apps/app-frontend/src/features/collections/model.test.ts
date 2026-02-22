@@ -1,9 +1,11 @@
 import { describe, expect, it } from "bun:test";
+
 import { createSavedViewFixture } from "~/features/test-fixtures";
 import {
 	createQueryEngineCollectionFixture,
 	createQueryEngineCollectionWithSchema,
 } from "~/features/test-fixtures/collections";
+
 import {
 	extractMembershipPropertiesSchema,
 	findBuiltinCollectionsView,
@@ -24,9 +26,7 @@ describe("extractMembershipPropertiesSchema", () => {
 	});
 
 	it("returns null when membershipPropertiesSchema field is not json kind", () => {
-		const fields = [
-			{ key: "membershipPropertiesSchema", kind: "text" as const, value: "{}" },
-		];
+		const fields = [{ key: "membershipPropertiesSchema", kind: "text" as const, value: "{}" }];
 
 		const result = extractMembershipPropertiesSchema(fields);
 
@@ -95,11 +95,7 @@ describe("toAppCollection", () => {
 				rating: { type: "integer", label: "Rating", description: "Rating" },
 			},
 		};
-		const entity = createQueryEngineCollectionWithSchema(
-			"col-2",
-			"Favorites",
-			schema,
-		);
+		const entity = createQueryEngineCollectionWithSchema("col-2", "Favorites", schema);
 
 		const result = toAppCollection(entity);
 

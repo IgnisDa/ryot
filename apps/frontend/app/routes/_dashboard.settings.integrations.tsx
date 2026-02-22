@@ -42,22 +42,15 @@ import {
 	processSubmission,
 	zodCheckboxAsString,
 } from "@ryot/ts-utils";
-import {
-	IconEye,
-	IconEyeClosed,
-	IconPencil,
-	IconTrash,
-} from "@tabler/icons-react";
+import { IconEye, IconEyeClosed, IconPencil, IconTrash } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
 import { data, Form, useActionData, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+
 import { CopyableTextInput } from "~/components/common";
-import {
-	applicationBaseUrl,
-	PRO_REQUIRED_MESSAGE,
-} from "~/lib/shared/constants";
+import { applicationBaseUrl, PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useApplicationEvents,
@@ -66,21 +59,15 @@ import {
 	useDashboardLayoutData,
 	useNonHiddenUserCollections,
 } from "~/lib/shared/hooks";
-import {
-	convertEnumToSelectData,
-	openConfirmationModal,
-} from "~/lib/shared/ui-utils";
+import { convertEnumToSelectData, openConfirmationModal } from "~/lib/shared/ui-utils";
 import { zodCommaDelimitedString } from "~/lib/shared/validation";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
+
 import type { Route } from "./+types/_dashboard.settings.integrations";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const [{ userIntegrations }] = await Promise.all([
-		serverGqlService.authenticatedRequest(
-			request,
-			UserIntegrationsDocument,
-			undefined,
-		),
+		serverGqlService.authenticatedRequest(request, UserIntegrationsDocument, undefined),
 	]);
 	return { userIntegrations };
 };
@@ -97,11 +84,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
 			// DEV: Reason for this: https://stackoverflow.com/a/11424089/11667450
 			submission.isDisabled = submission.isDisabled === true;
-			await serverGqlService.authenticatedRequest(
-				request,
-				CreateOrUpdateUserIntegrationDocument,
-				{ input: submission },
-			);
+			await serverGqlService.authenticatedRequest(request, CreateOrUpdateUserIntegrationDocument, {
+				input: submission,
+			});
 
 			const isUpdate = Boolean(submission.integrationId);
 			return data({ status: "success", generateAuthToken: false } as const, {
@@ -139,9 +124,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
-	const [createOrUpdateData, setCreateOrUpdateData] = useState<
-		Integration | null | undefined
-	>();
+	const [createOrUpdateData, setCreateOrUpdateData] = useState<Integration | null | undefined>();
 
 	return (
 		<Container size="xs">
@@ -160,19 +143,8 @@ export default function Page() {
 				)}
 				<Box w="100%">
 					<Group justify="space-between">
-						<Form
-							replace
-							method="POST"
-							action={withQuery(".", { intent: "generateAuthToken" })}
-						>
-							<Button
-								variant="light"
-								color="orange"
-								radius="md"
-								type="submit"
-								size="xs"
-								fullWidth
-							>
+						<Form replace method="POST" action={withQuery(".", { intent: "generateAuthToken" })}>
+							<Button variant="light" color="orange" radius="md" type="submit" size="xs" fullWidth>
 								Create API token
 							</Button>
 						</Form>
@@ -211,20 +183,14 @@ const DisplayIntegration = (props: {
 }) => {
 	const { isAccessLinkSession } = useDashboardLayoutData();
 	const [parent] = useAutoAnimate();
-	const [integrationUrlOpened, { toggle: integrationUrlToggle }] =
+	const [integrationUrlOpened, { toggle: integrationUrlToggle }] = useDisclosure(false);
+	const [integrationTriggerResultOpened, { toggle: integrationTriggerResultToggle }] =
 		useDisclosure(false);
-	const [
-		integrationTriggerResultOpened,
-		{ toggle: integrationTriggerResultToggle },
-	] = useDisclosure(false);
 	const submit = useConfirmSubmit();
 
 	const integrationUrl = `${applicationBaseUrl}/_i/${props.integration.id}`;
 
-	const integrationDisplayName = [
-		changeCase(props.integration.provider),
-		props.integration.name,
-	]
+	const integrationDisplayName = [changeCase(props.integration.provider), props.integration.name]
 		.filter(Boolean)
 		.join(" - ");
 
@@ -238,11 +204,7 @@ const DisplayIntegration = (props: {
 			</Text>
 		) : undefined,
 		props.integration.triggerResult.length > 0 ? (
-			<Anchor
-				size="sm"
-				key="triggerResult"
-				onClick={() => integrationTriggerResultToggle()}
-			>
+			<Anchor size="sm" key="triggerResult" onClick={() => integrationTriggerResultToggle()}>
 				Show logs
 			</Anchor>
 		) : undefined,
@@ -273,13 +235,10 @@ const DisplayIntegration = (props: {
 					<Flex align="center" justify="space-between">
 						<Box>
 							<Group gap={4}>{firstRow}</Group>
-							<Text size="xs">
-								Created: {dayjsLib(props.integration.createdOn).fromNow()}
-							</Text>
+							<Text size="xs">Created: {dayjsLib(props.integration.createdOn).fromNow()}</Text>
 							{props.integration.lastFinishedAt ? (
 								<Text size="xs">
-									Last finished:{" "}
-									{dayjsLib(props.integration.lastFinishedAt).fromNow()}
+									Last finished: {dayjsLib(props.integration.lastFinishedAt).fromNow()}
 								</Text>
 							) : null}
 							{props.integration.syncToOwnedCollection ? (
@@ -299,8 +258,7 @@ const DisplayIntegration = (props: {
 									if (isAccessLinkSession) {
 										notifications.show({
 											color: "red",
-											message:
-												"You do not have permission to edit integrations",
+											message: "You do not have permission to edit integrations",
 										});
 										return;
 									}
@@ -310,11 +268,7 @@ const DisplayIntegration = (props: {
 								<IconPencil />
 							</ActionIcon>
 							<Form method="POST" action={withQuery(".", { intent: "delete" })}>
-								<input
-									type="hidden"
-									name="integrationId"
-									defaultValue={props.integration.id}
-								/>
+								<input type="hidden" name="integrationId" defaultValue={props.integration.id} />
 								<ActionIcon
 									mt={4}
 									color="red"
@@ -326,14 +280,12 @@ const DisplayIntegration = (props: {
 										if (isAccessLinkSession) {
 											notifications.show({
 												color: "red",
-												message:
-													"You do not have permission to delete integrations",
+												message: "You do not have permission to delete integrations",
 											});
 											return;
 										}
-										openConfirmationModal(
-											"Are you sure you want to delete this integration?",
-											() => submit(form),
+										openConfirmationModal("Are you sure you want to delete this integration?", () =>
+											submit(form),
 										);
 									}}
 								>
@@ -342,22 +294,14 @@ const DisplayIntegration = (props: {
 							</Form>
 						</Group>
 					</Flex>
-					{integrationUrlOpened ? (
-						<CopyableTextInput value={integrationUrl} />
-					) : null}
+					{integrationUrlOpened ? <CopyableTextInput value={integrationUrl} /> : null}
 				</Stack>
 			</Paper>
 		</>
 	);
 };
 
-type FieldType =
-	| "text"
-	| "number"
-	| "select"
-	| "password"
-	| "textarea"
-	| "multiselect";
+type FieldType = "text" | "number" | "select" | "password" | "textarea" | "multiselect";
 
 interface FieldConfig {
 	name: string;
@@ -672,8 +616,7 @@ const deleteSchema = z.object({
 const getProviderCapabilities = (provider: IntegrationProvider) =>
 	PROVIDER_CONFIGS[provider]?.capabilities || {};
 
-const isProProvider = (provider: IntegrationProvider) =>
-	!!getProviderCapabilities(provider).isPro;
+const isProProvider = (provider: IntegrationProvider) => !!getProviderCapabilities(provider).isPro;
 
 const supportsSyncToOwnedCollection = (provider: IntegrationProvider) =>
 	!!getProviderCapabilities(provider).syncToOwnedCollection;
@@ -684,10 +627,7 @@ const shouldShowUrl = (provider: IntegrationProvider) =>
 const supportsProgressAdjustment = (provider: IntegrationProvider) =>
 	!!getProviderCapabilities(provider).progressAdjustment;
 
-const ProviderField = (props: {
-	field: FieldConfig;
-	defaultValue?: unknown;
-}) => {
+const ProviderField = (props: { field: FieldConfig; defaultValue?: unknown }) => {
 	const collections = useNonHiddenUserCollections();
 
 	const fieldName = `providerSpecifics.${props.field.name}`;
@@ -759,9 +699,7 @@ const ProviderField = (props: {
 					description={props.field.description}
 					placeholder={props.field.placeholder}
 					defaultValue={
-						Array.isArray(value)
-							? (value as string[]).join("\n")
-							: (value as string) || undefined
+						Array.isArray(value) ? (value as string[]).join("\n") : (value as string) || undefined
 					}
 				/>
 			);
@@ -799,8 +737,7 @@ const CreateOrUpdateModal = (props: {
 	const [provider, setProvider] = useState<IntegrationProvider | undefined>(
 		props.integrationData?.provider,
 	);
-	const [isAdvancedSettingsOpened, { toggle: toggleAdvancedSettings }] =
-		useDisclosure(false);
+	const [isAdvancedSettingsOpened, { toggle: toggleAdvancedSettings }] = useDisclosure(false);
 
 	const isUpdating = Boolean(props.integrationData?.id);
 	const disableCreationButtonBecauseProRequired =
@@ -823,16 +760,10 @@ const CreateOrUpdateModal = (props: {
 				action={withQuery(".", { intent: "createOrUpdate" })}
 			>
 				{props.integrationData && (
-					<input
-						type="hidden"
-						name="integrationId"
-						defaultValue={props.integrationData.id}
-					/>
+					<input type="hidden" name="integrationId" defaultValue={props.integrationData.id} />
 				)}
 				<Stack>
-					<Title order={3}>
-						{isUpdating ? "Update" : "Create"} integration
-					</Title>
+					<Title order={3}>{isUpdating ? "Update" : "Create"} integration</Title>
 					{!isUpdating ? (
 						<Select
 							required
@@ -854,10 +785,7 @@ const CreateOrUpdateModal = (props: {
 						</Anchor>
 					) : null}
 					{provider && (
-						<ProviderFields
-							provider={provider}
-							integrationData={props.integrationData}
-						/>
+						<ProviderFields provider={provider} integrationData={props.integrationData} />
 					)}
 					{provider && supportsSyncToOwnedCollection(provider) ? (
 						<Tooltip
@@ -870,9 +798,7 @@ const CreateOrUpdateModal = (props: {
 								disabled={!coreDetails.isServerKeyValidated}
 								styles={{ body: { display: "flex", alignItems: "center" } }}
 								description={`Checking this will also sync items in your library to the "Owned" collection`}
-								defaultChecked={
-									props.integrationData?.syncToOwnedCollection || undefined
-								}
+								defaultChecked={props.integrationData?.syncToOwnedCollection || undefined}
 							/>
 						</Tooltip>
 					) : undefined}
@@ -883,11 +809,7 @@ const CreateOrUpdateModal = (props: {
 					/>
 					{provider && (
 						<Group justify="end">
-							<Button
-								size="compact-xs"
-								variant="subtle"
-								onClick={toggleAdvancedSettings}
-							>
+							<Button size="compact-xs" variant="subtle" onClick={toggleAdvancedSettings}>
 								{isAdvancedSettingsOpened ? "Hide" : "Show"} advanced settings
 							</Button>
 						</Group>
@@ -909,9 +831,7 @@ const CreateOrUpdateModal = (props: {
 										name="minimumProgress"
 										label="Minimum progress"
 										description="Progress will not be synced below this value"
-										defaultValue={
-											props.integrationData?.minimumProgress || MINIMUM_PROGRESS
-										}
+										defaultValue={props.integrationData?.minimumProgress || MINIMUM_PROGRESS}
 									/>
 									<NumberInput
 										min={0}
@@ -921,9 +841,7 @@ const CreateOrUpdateModal = (props: {
 										name="maximumProgress"
 										label="Maximum progress"
 										description="After this value, progress will be marked as completed"
-										defaultValue={
-											props.integrationData?.maximumProgress || MAXIMUM_PROGRESS
-										}
+										defaultValue={props.integrationData?.maximumProgress || MAXIMUM_PROGRESS}
 									/>
 								</Group>
 							) : null}
@@ -932,20 +850,13 @@ const CreateOrUpdateModal = (props: {
 								name="extraSettings.disableOnContinuousErrors"
 								description="If the integration fails 5 times in a row, it will be disabled"
 								defaultChecked={
-									props.integrationData?.extraSettings
-										.disableOnContinuousErrors || undefined
+									props.integrationData?.extraSettings.disableOnContinuousErrors || undefined
 								}
 							/>
 						</Stack>
 					</Collapse>
-					<Tooltip
-						label={PRO_REQUIRED_MESSAGE}
-						disabled={!disableCreationButtonBecauseProRequired}
-					>
-						<Button
-							type="submit"
-							disabled={disableCreationButtonBecauseProRequired}
-						>
+					<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={!disableCreationButtonBecauseProRequired}>
+						<Button type="submit" disabled={disableCreationButtonBecauseProRequired}>
 							{isUpdating ? "Update" : "Create"}
 						</Button>
 					</Tooltip>

@@ -3,15 +3,12 @@ import { PlayIcon } from "lucide-react";
 import { Form, Link } from "react-router";
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
+
 import { GoogleLogo } from "~/lib/components/icons/GoogleLogo";
 import { SectionHeader } from "~/lib/components/SectionHeader";
 import { Button } from "~/lib/components/ui/button";
 import { Input } from "~/lib/components/ui/input";
-import {
-	InputOTP,
-	InputOTPGroup,
-	InputOTPSlot,
-} from "~/lib/components/ui/input-otp";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "~/lib/components/ui/input-otp";
 import { LoadingSpinner } from "~/lib/components/ui/loading-spinner";
 import { TurnstileWidget } from "~/lib/components/ui/turnstile";
 
@@ -57,19 +54,12 @@ export const RegistrationSection = (props: RegistrationSectionProps) => {
 								method="POST"
 								className="flex flex-col sm:flex-row gap-4 justify-center"
 								action={withQuery(".?index", {
-									intent: props.query.email
-										? "registerWithEmail"
-										: "sendLoginCode",
+									intent: props.query.email ? "registerWithEmail" : "sendLoginCode",
 								})}
 							>
 								{props.query.email ? (
 									<>
-										<input
-											readOnly
-											name="email"
-											type="hidden"
-											value={props.query.email}
-										/>
+										<input readOnly name="email" type="hidden" value={props.query.email} />
 										<InputOTP
 											maxLength={6}
 											name="otpCode"
@@ -120,10 +110,7 @@ export const RegistrationSection = (props: RegistrationSectionProps) => {
 								)}
 							</Form>
 							<p className="text-xs">OR</p>
-							<Form
-								method="POST"
-								action={withQuery(".?index", { intent: "registerWithOidc" })}
-							>
+							<Form method="POST" action={withQuery(".?index", { intent: "registerWithOidc" })}>
 								<Button
 									size="lg"
 									variant="outline"
@@ -138,10 +125,7 @@ export const RegistrationSection = (props: RegistrationSectionProps) => {
 							</p>
 							<p className="text-xs text-muted-foreground">
 								Sign up to get started with Ryot.{" "}
-								<Link
-									to={$path("/terms")}
-									className="underline underline-offset-2"
-								>
+								<Link to={$path("/terms")} className="underline underline-offset-2">
 									Terms &amp; Conditions
 								</Link>
 							</p>

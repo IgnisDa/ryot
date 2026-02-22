@@ -22,7 +22,5 @@ export function findEnabledTrackerBySlug(
 	trackers: AppTracker[],
 	slug: string,
 ): AppTracker | undefined {
-	return trackers.find(
-		(tracker) => !tracker.isDisabled && tracker.slug === slug,
-	);
+	return trackers.find((tracker) => !tracker.isDisabled && tracker.slug === slug);
 }

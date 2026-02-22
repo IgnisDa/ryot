@@ -1,5 +1,6 @@
 import { Card, Group, Stack, Text } from "@mantine/core";
 import { TrendingUp } from "lucide-react";
+
 import { useThemeTokens } from "~/hooks/theme";
 
 export interface StatsCardProps {

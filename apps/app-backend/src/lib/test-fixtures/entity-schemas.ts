@@ -8,10 +8,7 @@ import type {
 	EntitySearchDeps,
 	ListedEntitySchema,
 } from "~/modules/entity-schemas";
-import type {
-	PollSandboxResult,
-	SandboxEnqueueResult,
-} from "~/modules/sandbox";
+import type { PollSandboxResult, SandboxEnqueueResult } from "~/modules/sandbox";
 
 const listedEntitySchemaDefaults: ListedEntitySchema = {
 	slug: "books",

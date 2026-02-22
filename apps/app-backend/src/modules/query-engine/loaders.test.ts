@@ -1,8 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import {
-	QueryEngineNotFoundError,
-	QueryEngineValidationError,
-} from "~/lib/views/errors";
+
+import { QueryEngineNotFoundError, QueryEngineValidationError } from "~/lib/views/errors";
+
 import {
 	validateEventSchemaSlugs,
 	validateRelationshipSlugs,
@@ -20,23 +19,19 @@ const makeSchemaRow = (slug: string, id: string): QueryEngineSchemaRow => ({
 describe("validateUniqueSchemaSlugs", () => {
 	it("passes when all slugs are found exactly once", () => {
 		const schemas = [makeSchemaRow("books", "1"), makeSchemaRow("movies", "2")];
-		expect(() =>
-			validateUniqueSchemaSlugs(["books", "movies"], schemas),
-		).not.toThrow();
+		expect(() => validateUniqueSchemaSlugs(["books", "movies"], schemas)).not.toThrow();
 	});
 
 	it("throws NOT_FOUND when a slug is missing", () => {
 		const schemas = [makeSchemaRow("books", "1")];
-		expect(() =>
-			validateUniqueSchemaSlugs(["books", "movies"], schemas),
-		).toThrow(QueryEngineNotFoundError);
+		expect(() => validateUniqueSchemaSlugs(["books", "movies"], schemas)).toThrow(
+			QueryEngineNotFoundError,
+		);
 	});
 
 	it("throws VALIDATION when a slug resolves to multiple schemas", () => {
 		const schemas = [makeSchemaRow("books", "1"), makeSchemaRow("books", "2")];
-		expect(() => validateUniqueSchemaSlugs(["books"], schemas)).toThrow(
-			QueryEngineValidationError,
-		);
+		expect(() => validateUniqueSchemaSlugs(["books"], schemas)).toThrow(QueryEngineValidationError);
 	});
 
 	it("passes when no slugs are requested", () => {
@@ -81,9 +76,7 @@ describe("validateVisibleEventJoins", () => {
 				kind: "latestEvent" as const,
 			},
 		];
-		expect(() => validateVisibleEventJoins(joins, [])).toThrow(
-			QueryEngineValidationError,
-		);
+		expect(() => validateVisibleEventJoins(joins, [])).toThrow(QueryEngineValidationError);
 	});
 
 	it("throws when event schema resolves to multiple slugs for the same entity schema", () => {
@@ -98,42 +91,34 @@ describe("validateVisibleEventJoins", () => {
 			makeEventSchema("review", "es1", "s1", "books"),
 			makeEventSchema("review", "es2", "s2", "books"),
 		];
-		expect(() => validateVisibleEventJoins(joins, schemas)).toThrow(
-			QueryEngineValidationError,
-		);
+		expect(() => validateVisibleEventJoins(joins, schemas)).toThrow(QueryEngineValidationError);
 	});
 });
 
 describe("validateEventSchemaSlugs", () => {
 	it("passes when all slugs are found in rows", () => {
 		expect(() =>
-			validateEventSchemaSlugs(
-				["review", "complete"],
-				[{ slug: "review" }, { slug: "complete" }],
-			),
+			validateEventSchemaSlugs(["review", "complete"], [{ slug: "review" }, { slug: "complete" }]),
 		).not.toThrow();
 	});
 
 	it("throws NOT_FOUND when a slug is missing", () => {
-		expect(() =>
-			validateEventSchemaSlugs(["review", "missing"], [{ slug: "review" }]),
-		).toThrow(QueryEngineNotFoundError);
+		expect(() => validateEventSchemaSlugs(["review", "missing"], [{ slug: "review" }])).toThrow(
+			QueryEngineNotFoundError,
+		);
 	});
 });
 
 describe("validateRelationshipSlugs", () => {
 	it("passes when all slugs are found", () => {
 		expect(() =>
-			validateRelationshipSlugs(
-				["owner", "editor"],
-				new Set(["owner", "editor"]),
-			),
+			validateRelationshipSlugs(["owner", "editor"], new Set(["owner", "editor"])),
 		).not.toThrow();
 	});
 
 	it("throws NOT_FOUND when a slug is missing", () => {
-		expect(() =>
-			validateRelationshipSlugs(["owner", "editor"], new Set(["owner"])),
-		).toThrow(QueryEngineNotFoundError);
+		expect(() => validateRelationshipSlugs(["owner", "editor"], new Set(["owner"]))).toThrow(
+			QueryEngineNotFoundError,
+		);
 	});
 });

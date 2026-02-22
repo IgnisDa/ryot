@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
+
 import { createQueryDefinition } from "~/lib/test-fixtures";
 import { createDefaultDisplayConfiguration } from "~/modules/saved-views/constants";
+
 import {
 	buildAuthenticationSavedViewInputs,
 	buildAuthenticationTrackerEntitySchemaLinks,
@@ -15,9 +17,7 @@ describe("resolveAuthenticationName", () => {
 	});
 
 	it("throws when the signup name is blank", () => {
-		expect(() => resolveAuthenticationName("   ")).toThrow(
-			"Signup name is required",
-		);
+		expect(() => resolveAuthenticationName("   ")).toThrow("Signup name is required");
 	});
 });
 

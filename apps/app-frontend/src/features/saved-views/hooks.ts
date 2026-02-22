@@ -1,11 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query";
+
 import { useApiClient } from "~/hooks/api";
+
 import { applySavedViewReorderPatch } from "./cache";
 import type { AppSavedView } from "./model";
 
-function isQueryDataWithSavedViews(
-	data: unknown,
-): data is { data: AppSavedView[] } {
+function isQueryDataWithSavedViews(data: unknown): data is { data: AppSavedView[] } {
 	if (data === null || typeof data !== "object") {
 		return false;
 	}
@@ -24,15 +24,11 @@ function extractSavedViewReorderInput(
 		return undefined;
 	}
 	const trackerId =
-		"trackerId" in body && typeof body.trackerId === "string"
-			? body.trackerId
-			: undefined;
+		"trackerId" in body && typeof body.trackerId === "string" ? body.trackerId : undefined;
 
 	return Array.isArray(body.viewSlugs)
 		? {
-				viewSlugs: body.viewSlugs.filter(
-					(slug): slug is string => typeof slug === "string",
-				),
+				viewSlugs: body.viewSlugs.filter((slug): slug is string => typeof slug === "string"),
 				...(trackerId ? { trackerId } : {}),
 			}
 		: undefined;
@@ -128,10 +124,7 @@ export function useSavedViewMutations() {
 		queryClient,
 	);
 
-	const toggleViewBySlug = async (
-		viewSlug: string,
-		savedViews: AppSavedView[],
-	) => {
+	const toggleViewBySlug = async (viewSlug: string, savedViews: AppSavedView[]) => {
 		const view = savedViews.find((v) => v.slug === viewSlug);
 		if (!view) {
 			return;
@@ -150,10 +143,7 @@ export function useSavedViewMutations() {
 		});
 	};
 
-	const reorderViewSlugs = async (input: {
-		trackerId?: string;
-		viewSlugs: string[];
-	}) => {
+	const reorderViewSlugs = async (input: { trackerId?: string; viewSlugs: string[] }) => {
 		await reorder.mutateAsync({
 			body: {
 				viewSlugs: input.viewSlugs,
@@ -179,10 +169,6 @@ export function useSavedViewMutations() {
 		deleteViewBySlug,
 		toggleViewBySlug,
 		reorderViewSlugs,
-		isPending:
-			update.isPending ||
-			reorder.isPending ||
-			remove.isPending ||
-			clone.isPending,
+		isPending: update.isPending || reorder.isPending || remove.isPending || clone.isPending,
 	};
 }

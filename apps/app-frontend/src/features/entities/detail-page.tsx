@@ -13,8 +13,10 @@ import {
 	Title,
 } from "@mantine/core";
 import { Calendar, ExternalLink, Hash } from "lucide-react";
+
 import type { AppEntity } from "~/features/entities/model";
 import { useEventsQuery } from "~/features/events/hooks";
+
 import type { EntityDetailProperty } from "./detail";
 import { useResolvedEntityImageUrl } from "./image";
 
@@ -35,9 +37,7 @@ export function EntityDetailIdentityHeader(props: {
 	const imageQuery = useResolvedEntityImageUrl(props.entity);
 	const hasImage = !!imageQuery.imageUrl;
 	const isLoadingImage =
-		props.entity.image?.kind === "s3" &&
-		imageQuery.isLoading &&
-		!imageQuery.imageUrl;
+		props.entity.image?.kind === "s3" && imageQuery.isLoading && !imageQuery.imageUrl;
 
 	return (
 		<Box mb="xl">
@@ -79,11 +79,7 @@ export function EntityDetailIdentityHeader(props: {
 							{props.entity.externalId ? (
 								<Group gap={6}>
 									<ExternalLink size={16} strokeWidth={2} />
-									<Text
-										size="sm"
-										c="dimmed"
-										ff="var(--mantine-font-family-monospace)"
-									>
+									<Text size="sm" c="dimmed" ff="var(--mantine-font-family-monospace)">
 										{props.entity.externalId}
 									</Text>
 								</Group>
@@ -233,11 +229,7 @@ export function EntityDetailEventTimeline(props: {
 					<Text c="red" size="sm">
 						Failed to load activity timeline.
 					</Text>
-					<Button
-						size="xs"
-						variant="light"
-						onClick={() => eventsQuery.refetch()}
-					>
+					<Button size="xs" variant="light" onClick={() => eventsQuery.refetch()}>
 						Retry
 					</Button>
 				</Stack>
@@ -254,8 +246,7 @@ export function EntityDetailEventTimeline(props: {
 							Activity Timeline
 						</Text>
 						<Text c="dimmed" size="sm">
-							{events.length}{" "}
-							{events.length === 1 ? "event logged" : "events logged"}
+							{events.length} {events.length === 1 ? "event logged" : "events logged"}
 						</Text>
 					</Box>
 					<Button size="xs" variant="light" onClick={props.onLogEvent}>
@@ -272,13 +263,7 @@ export function EntityDetailEventTimeline(props: {
 							<Text c="dimmed" size="sm" ta="center">
 								Start tracking by logging your first event for this entity.
 							</Text>
-							<Button
-								mt="sm"
-								size="sm"
-								color="accent"
-								variant="light"
-								onClick={props.onLogEvent}
-							>
+							<Button mt="sm" size="sm" color="accent" variant="light" onClick={props.onLogEvent}>
 								Log First Event
 							</Button>
 						</Stack>
@@ -293,29 +278,17 @@ export function EntityDetailEventTimeline(props: {
 									eventTarget.currentTarget.style.backgroundColor = "";
 								}}
 								onMouseEnter={(eventTarget) => {
-									eventTarget.currentTarget.style.backgroundColor =
-										props.surfaceHover;
+									eventTarget.currentTarget.style.backgroundColor = props.surfaceHover;
 								}}
 								style={{
 									transition: "background-color 0.15s ease",
 									borderLeft: `3px solid ${props.entitySchemaColor.base}`,
-									borderBottom:
-										idx < events.length - 1
-											? `1px solid ${props.border}`
-											: "none",
+									borderBottom: idx < events.length - 1 ? `1px solid ${props.border}` : "none",
 								}}
 							>
 								<Stack gap={6}>
-									<Group
-										wrap="nowrap"
-										align="flex-start"
-										justify="space-between"
-									>
-										<Text
-											fw={600}
-											size="sm"
-											ff="var(--mantine-headings-font-family)"
-										>
+									<Group wrap="nowrap" align="flex-start" justify="space-between">
+										<Text fw={600} size="sm" ff="var(--mantine-headings-font-family)">
 											{event.eventSchemaName}
 										</Text>
 										<Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>
@@ -382,10 +355,7 @@ export function EntityDetailSidebar(props: {
 						</Text>
 					</Stack>
 
-					<Box
-						h={1}
-						style={{ backgroundColor: "var(--mantine-color-default-border)" }}
-					/>
+					<Box h={1} style={{ backgroundColor: "var(--mantine-color-default-border)" }} />
 
 					<Stack gap="xs">
 						<Text size="xs" c="dimmed">
@@ -414,12 +384,7 @@ export function EntityDetailSidebar(props: {
 				</Stack>
 			</Paper>
 
-			<Button
-				fullWidth
-				color="accent"
-				variant="light"
-				onClick={props.onLogEvent}
-			>
+			<Button fullWidth color="accent" variant="light" onClick={props.onLogEvent}>
 				Log Event
 			</Button>
 		</Stack>

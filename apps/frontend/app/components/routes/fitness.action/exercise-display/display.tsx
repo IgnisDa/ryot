@@ -38,6 +38,7 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { v4 as randomUUID } from "uuid";
+
 import { getDurationUnitLabel } from "~/components/fitness/utils";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
@@ -52,10 +53,8 @@ import {
 	useCurrentWorkoutTimerAtom,
 	useGetExerciseAtIndex,
 } from "~/lib/state/fitness";
-import {
-	OnboardingTourStepTarget,
-	useOnboardingTour,
-} from "~/lib/state/onboarding-tour";
+import { OnboardingTourStepTarget, useOnboardingTour } from "~/lib/state/onboarding-tour";
+
 import {
 	focusOnExercise,
 	getProgressOfExercise,
@@ -91,23 +90,19 @@ export const ExerciseDisplay = (props: {
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const coreDetails = useCoreDetails();
-	const { data: userExerciseDetails } = useUserExerciseDetails(
-		exercise.exerciseId,
-	);
+	const { data: userExerciseDetails } = useUserExerciseDetails(exercise.exerciseId);
 	const { data: exerciseDetails } = useExerciseDetails(exercise.exerciseId);
 
 	const { advanceOnboardingTourStep } = useOnboardingTour();
-	const [
-		isDetailsModalOpen,
-		{ open: openDetailsModal, close: closeDetailsModal },
-	] = useDisclosure(false);
+	const [isDetailsModalOpen, { open: openDetailsModal, close: closeDetailsModal }] =
+		useDisclosure(false);
 
 	const playAddSetSound = usePlayFitnessSound("add-set");
 
 	const selectedUnitSystem = exercise.unitSystem;
 	const durationUnit =
-		userExerciseDetails?.details?.exerciseExtraInformation?.settings
-			.defaultDurationUnit || ExerciseDurationUnit.Minutes;
+		userExerciseDetails?.details?.exerciseExtraInformation?.settings.defaultDurationUnit ||
+		ExerciseDurationUnit.Minutes;
 	const isOnboardingTourStep = props.exerciseIdx === 0;
 	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
 		.with(ExerciseLot.Reps, () => [false, false, false, true])
@@ -115,20 +110,12 @@ export const ExerciseDisplay = (props: {
 		.with(ExerciseLot.RepsAndWeight, () => [false, false, true, true])
 		.with(ExerciseLot.RepsAndDuration, () => [true, false, false, true])
 		.with(ExerciseLot.DistanceAndDuration, () => [true, true, false, false])
-		.with(ExerciseLot.RepsAndDurationAndDistance, () => [
-			true,
-			true,
-			false,
-			true,
-		])
+		.with(ExerciseLot.RepsAndDurationAndDistance, () => [true, true, false, true])
 		.exhaustive();
 	const toBeDisplayedColumns =
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
 
-	const exerciseProgress = getProgressOfExercise(
-		currentWorkout,
-		props.exerciseIdx,
-	);
+	const exerciseProgress = getProgressOfExercise(currentWorkout, props.exerciseIdx);
 	const partOfSuperset = currentWorkout.supersets.find((s) =>
 		s.exercises.includes(exercise.identifier),
 	);
@@ -174,27 +161,20 @@ export const ExerciseDisplay = (props: {
 										variant="light"
 										color={theme.colors[partOfSuperset.color][6]}
 										onClick={() => {
-											const sortedExercises =
-												sortSupersetExercisesByWorkoutOrder(
-													partOfSuperset.exercises,
-													currentWorkout.exercises,
-												);
-											const currentIdx = sortedExercises.indexOf(
-												exercise.identifier,
+											const sortedExercises = sortSupersetExercisesByWorkoutOrder(
+												partOfSuperset.exercises,
+												currentWorkout.exercises,
 											);
+											const currentIdx = sortedExercises.indexOf(exercise.identifier);
 											const nextIdx = (currentIdx + 1) % sortedExercises.length;
 											const nextExerciseIdentifier = sortedExercises[nextIdx];
-											const nextExerciseIdx =
-												currentWorkout.exercises.findIndex(
-													(e) => e.identifier === nextExerciseIdentifier,
-												);
-											if (nextExerciseIdx !== -1)
-												focusOnExercise(nextExerciseIdx);
+											const nextExerciseIdx = currentWorkout.exercises.findIndex(
+												(e) => e.identifier === nextExerciseIdentifier,
+											);
+											if (nextExerciseIdx !== -1) focusOnExercise(nextExerciseIdx);
 										}}
 									>
-										<IconCirclesRelation
-											style={{ width: "90%", height: "90%" }}
-										/>
+										<IconCirclesRelation style={{ width: "90%", height: "90%" }} />
 									</ActionIcon>
 								) : null}
 								<Anchor
@@ -212,9 +192,7 @@ export const ExerciseDisplay = (props: {
 							</Group>
 							<Group wrap="nowrap" mr={-10}>
 								{didExerciseActivateTimer ? (
-									<DisplayExerciseSetRestTimer
-										openTimerDrawer={props.openTimerDrawer}
-									/>
+									<DisplayExerciseSetRestTimer openTimerDrawer={props.openTimerDrawer} />
 								) : null}
 								<ActionIcon
 									variant="transparent"
@@ -237,8 +215,7 @@ export const ExerciseDisplay = (props: {
 											if (isOnboardingTourStep) advanceOnboardingTourStep();
 										}}
 										className={clsx(
-											isOnboardingTourStep &&
-												OnboardingTourStepTarget.OpenExerciseMenuDetails,
+											isOnboardingTourStep && OnboardingTourStepTarget.OpenExerciseMenuDetails,
 										)}
 									>
 										<IconDotsVertical size={20} />
@@ -249,9 +226,7 @@ export const ExerciseDisplay = (props: {
 						<Menu.Dropdown>
 							<Menu.Item
 								leftSection={<IconClipboard size={14} />}
-								rightSection={
-									exercise.notes.length > 0 ? exercise.notes.length : null
-								}
+								rightSection={exercise.notes.length > 0 ? exercise.notes.length : null}
 								onClick={() => {
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
@@ -271,12 +246,8 @@ export const ExerciseDisplay = (props: {
 							<Menu.Item
 								leftSection={<IconPhoto size={14} />}
 								onClick={() => props.setOpenAssetsModal(exercise.identifier)}
-								style={
-									props.isCreatingTemplate ? { display: "none" } : undefined
-								}
-								rightSection={
-									exercise.images.length > 0 ? exercise.images.length : null
-								}
+								style={props.isCreatingTemplate ? { display: "none" } : undefined}
+								rightSection={exercise.images.length > 0 ? exercise.images.length : null}
 							>
 								Images
 							</Menu.Item>
@@ -366,12 +337,7 @@ export const ExerciseDisplay = (props: {
 										REPS
 									</Text>
 								) : null}
-								<Box
-									w="10%"
-									style={
-										props.isCreatingTemplate ? { display: "none" } : undefined
-									}
-								/>
+								<Box w="10%" style={props.isCreatingTemplate ? { display: "none" } : undefined} />
 							</Flex>
 							{exercise.sets.map((_, idx) => (
 								<SetDisplay
@@ -405,16 +371,13 @@ export const ExerciseDisplay = (props: {
 									);
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
-											const currentSet =
-												draft.exercises[props.exerciseIdx].sets.at(-1);
+											const currentSet = draft.exercises[props.exerciseIdx].sets.at(-1);
 											draft.exercises[props.exerciseIdx].sets.push({
 												lot: setLot,
 												confirmedAt: null,
 												identifier: randomUUID(),
 												statistic: currentSet?.statistic ?? {},
-												restTimer: restTimer
-													? { duration: restTimer }
-													: undefined,
+												restTimer: restTimer ? { duration: restTimer } : undefined,
 											});
 										}),
 									);

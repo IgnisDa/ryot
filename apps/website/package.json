@@ -1,27 +1,13 @@
 {
 	"name": "@ryot/website",
 	"private": true,
-	"sideEffects": false,
 	"type": "module",
+	"sideEffects": false,
 	"scripts": {
 		"typecheck": "tsc",
-		"lint": "biome check .",
+		"lint": "oxlint . && oxfmt --check .",
 		"build": "bun --bun react-router build",
 		"dev": "bun --bun react-router dev --port 5200 --host"
-	},
-	"installConfig": {
-		"hoistingLimits": "workspaces"
-	},
-	"devDependencies": {
-		"@react-router/dev": "7.13.0",
-		"@types/nodemailer": "7.0.9",
-		"@types/react": "19.2.14",
-		"@types/react-dom": "19.2.3",
-		"drizzle-kit": "0.31.9",
-		"tailwindcss": "4.1.18",
-		"typescript": "5.9.3",
-		"vite": "7.3.1",
-		"vite-tsconfig-paths": "6.1.1"
 	},
 	"dependencies": {
 		"@conform-to/zod": "1.17.0",
@@ -72,5 +58,19 @@
 		"ts-pattern": "5.9.0",
 		"ufo": "1.6.3",
 		"zod": "4.3.6"
+	},
+	"devDependencies": {
+		"@react-router/dev": "7.13.0",
+		"@types/nodemailer": "7.0.9",
+		"@types/react": "19.2.14",
+		"@types/react-dom": "19.2.3",
+		"drizzle-kit": "0.31.9",
+		"tailwindcss": "4.1.18",
+		"typescript": "5.9.3",
+		"vite": "7.3.1",
+		"vite-tsconfig-paths": "6.1.1"
+	},
+	"installConfig": {
+		"hoistingLimits": "workspaces"
 	}
 }

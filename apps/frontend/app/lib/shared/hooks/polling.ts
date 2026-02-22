@@ -11,11 +11,8 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-	clientGqlService,
-	queryFactory,
-	refreshEntityDetails,
-} from "~/lib/shared/react-query";
+
+import { clientGqlService, queryFactory, refreshEntityDetails } from "~/lib/shared/react-query";
 
 export const createDeployMediaEntityJob =
 	(entityId: string | undefined, entityLot: EntityLot) => () => {
@@ -39,16 +36,13 @@ export const useEntityUpdateMonitor = (props: {
 	const [isPartialStatusActive, setIsPartialStatusActive] = useState(false);
 	const jobDeployedForEntityRef = useRef<string | null>(null);
 	const pollingEntityIdRef = useRef<string | null>(null);
-	const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-		undefined,
-	);
+	const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
 	const scheduleNextPoll = useCallback(() => {
 		if (!isPollingRef.current) return;
 
 		if (attemptCountRef.current >= 30) {
-			if (pollingEntityIdRef.current)
-				refreshEntityDetails(pollingEntityIdRef.current);
+			if (pollingEntityIdRef.current) refreshEntityDetails(pollingEntityIdRef.current);
 			onUpdate();
 			isPollingRef.current = false;
 			setIsPartialStatusActive(false);
@@ -177,17 +171,13 @@ export const useTranslationValue = (props: {
 	const result = translationQuery.data;
 	const hasTranslationValue = result?.__typename === "MediaTranslationValue";
 	const isPending = result?.__typename === "MediaTranslationPending";
-	const isNotFetched =
-		isPending && result.status === MediaTranslationPendingStatus.NotFetched;
+	const isNotFetched = isPending && result.status === MediaTranslationPendingStatus.NotFetched;
 
 	useEntityUpdateMonitor({
 		entityId: props.entityId,
 		entityLot: props.entityLot,
 		onUpdate: () => translationQuery.refetch(),
-		needsRefetch:
-			props.enabled !== false &&
-			isPending &&
-			props.mediaSource !== MediaSource.Custom,
+		needsRefetch: props.enabled !== false && isPending && props.mediaSource !== MediaSource.Custom,
 		deployJob: () => {
 			if (props.entityId && isNotFetched)
 				clientGqlService.request(DeployUpdateMediaTranslationsJobDocument, {

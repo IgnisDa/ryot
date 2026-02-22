@@ -1,14 +1,6 @@
-import {
-	Button,
-	Checkbox,
-	Group,
-	Paper,
-	Select,
-	Stack,
-	Text,
-	TextInput,
-} from "@mantine/core";
+import { Button, Checkbox, Group, Paper, Select, Stack, Text, TextInput } from "@mantine/core";
 import type { ReactNode } from "react";
+
 import {
 	buildDefaultPropertySchemaRow,
 	type CreatePropertySchemaFormValues,
@@ -24,9 +16,7 @@ type PropertySchemaFieldMeta = {
 };
 
 type PropertySchemaArrayField = {
-	pushValue: (
-		value: CreatePropertySchemaFormValues["properties"][number],
-	) => void;
+	pushValue: (value: CreatePropertySchemaFormValues["properties"][number]) => void;
 	removeValue: (index: number) => void;
 	state: {
 		meta: PropertySchemaFieldMeta;
@@ -88,8 +78,7 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 		<props.form.AppField name="properties" mode="array">
 			{(propertiesField) => {
 				const arrayField = propertiesField as PropertySchemaArrayField;
-				const properties = arrayField.state
-					.value as CreatePropertySchemaFormValues["properties"];
+				const properties = arrayField.state.value as CreatePropertySchemaFormValues["properties"];
 				const propertiesError = !arrayField.state.meta.isValid
 					? getErrorMessage(arrayField.state.meta.errors)
 					: undefined;
@@ -111,14 +100,12 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 									<Group grow align="flex-start">
 										<props.form.AppField name={`properties[${index}].key`}>
 											{(keyField) => {
-												const field =
-													keyField as PropertySchemaValueField<string>;
+												const field = keyField as PropertySchemaValueField<string>;
 												const keyValue = field.state.value;
 												const keyError =
 													getErrorMessage(field.state.meta.errors) ??
 													(keyValue.trim().length === 0 &&
-													(field.state.meta.isBlurred ||
-														field.state.meta.isDirty)
+													(field.state.meta.isBlurred || field.state.meta.isDirty)
 														? "Key is required"
 														: undefined);
 
@@ -131,9 +118,7 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 														onBlur={field.handleBlur}
 														disabled={props.isLoading}
 														placeholder={props.placeholder}
-														onChange={(event) =>
-															field.handleChange(event.currentTarget.value)
-														}
+														onChange={(event) => field.handleChange(event.currentTarget.value)}
 													/>
 												);
 											}}
@@ -141,14 +126,12 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 
 										<props.form.AppField name={`properties[${index}].label`}>
 											{(labelField) => {
-												const field =
-													labelField as PropertySchemaValueField<string>;
+												const field = labelField as PropertySchemaValueField<string>;
 												const labelValue = field.state.value;
 												const labelError =
 													getErrorMessage(field.state.meta.errors) ??
 													(labelValue.trim().length === 0 &&
-													(field.state.meta.isBlurred ||
-														field.state.meta.isDirty)
+													(field.state.meta.isBlurred || field.state.meta.isDirty)
 														? "Label is required"
 														: undefined);
 
@@ -161,9 +144,7 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 														onBlur={field.handleBlur}
 														disabled={props.isLoading}
 														placeholder="Display label"
-														onChange={(event) =>
-															field.handleChange(event.currentTarget.value)
-														}
+														onChange={(event) => field.handleChange(event.currentTarget.value)}
 													/>
 												);
 											}}
@@ -171,8 +152,7 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 
 										<props.form.AppField name={`properties[${index}].type`}>
 											{(typeField) => {
-												const field =
-													typeField as PropertySchemaValueField<PropertySchemaType>;
+												const field = typeField as PropertySchemaValueField<PropertySchemaType>;
 												const typeValue = field.state.value;
 
 												return (
@@ -184,9 +164,7 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 														disabled={props.isLoading}
 														data={propertySchemaTypeOptions}
 														onChange={(value) =>
-															field.handleChange(
-																(value ?? "string") as PropertySchemaType,
-															)
+															field.handleChange((value ?? "string") as PropertySchemaType)
 														}
 													/>
 												);
@@ -194,12 +172,9 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 										</props.form.AppField>
 									</Group>
 
-									<props.form.AppField
-										name={`properties[${index}].description`}
-									>
+									<props.form.AppField name={`properties[${index}].description`}>
 										{(descriptionField) => {
-											const field =
-												descriptionField as PropertySchemaValueField<string>;
+											const field = descriptionField as PropertySchemaValueField<string>;
 											const descriptionValue = field.state.value;
 											const descriptionError =
 												getErrorMessage(field.state.meta.errors) ??
@@ -217,9 +192,7 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 													onBlur={field.handleBlur}
 													disabled={props.isLoading}
 													placeholder="Property description"
-													onChange={(event) =>
-														field.handleChange(event.currentTarget.value)
-													}
+													onChange={(event) => field.handleChange(event.currentTarget.value)}
 												/>
 											);
 										}}
@@ -228,8 +201,7 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 									<Group justify="space-between" align="center">
 										<props.form.AppField name={`properties[${index}].required`}>
 											{(requiredField) => {
-												const field =
-													requiredField as PropertySchemaValueField<boolean>;
+												const field = requiredField as PropertySchemaValueField<boolean>;
 												const requiredValue = field.state.value;
 
 												return (
@@ -238,9 +210,7 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 														checked={requiredValue}
 														onBlur={field.handleBlur}
 														disabled={props.isLoading}
-														onChange={(event) =>
-															field.handleChange(event.currentTarget.checked)
-														}
+														onChange={(event) => field.handleChange(event.currentTarget.checked)}
 													/>
 												);
 											}}
@@ -271,9 +241,7 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 							type="button"
 							variant="light"
 							disabled={props.isLoading}
-							onClick={() =>
-								arrayField.pushValue(buildDefaultPropertySchemaRow())
-							}
+							onClick={() => arrayField.pushValue(buildDefaultPropertySchemaRow())}
 						>
 							Add property
 						</Button>

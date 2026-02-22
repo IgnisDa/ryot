@@ -1,12 +1,11 @@
 import { describe, expect, it } from "bun:test";
+
 import { createEntityPropertyExpression } from "@ryot/ts-utils";
 import { PgDialect } from "drizzle-orm/pg-core";
-import {
-	createSmartphoneSchema,
-	createTabletSchema,
-	literalExpression,
-} from "~/lib/test-fixtures";
+
+import { createSmartphoneSchema, createTabletSchema, literalExpression } from "~/lib/test-fixtures";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
+
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildPredicateClause } from "./predicate-clause-builder";
@@ -22,10 +21,7 @@ const context: QueryEngineContext = {
 };
 
 const createTestCompiler = (
-	input: Omit<
-		Parameters<typeof createScalarExpressionCompiler>[0],
-		"getTypeInfo"
-	>,
+	input: Omit<Parameters<typeof createScalarExpressionCompiler>[0], "getTypeInfo">,
 ) => {
 	const getTypeInfo = createExpressionTypeResolver({
 		context: input.context,
@@ -46,10 +42,7 @@ describe("buildPredicateClause", () => {
 				},
 				predicate: {
 					type: "isNull",
-					expression: createEntityPropertyExpression(
-						"smartphones",
-						"nameplate",
-					),
+					expression: createEntityPropertyExpression("smartphones", "nameplate"),
 				},
 			});
 
@@ -67,10 +60,7 @@ describe("buildPredicateClause", () => {
 				},
 				predicate: {
 					type: "isNotNull",
-					expression: createEntityPropertyExpression(
-						"smartphones",
-						"nameplate",
-					),
+					expression: createEntityPropertyExpression("smartphones", "nameplate"),
 				},
 			});
 
@@ -102,10 +92,7 @@ describe("buildPredicateClause", () => {
 							operator: "gte",
 							type: "comparison",
 							right: literalExpression(2020),
-							left: createEntityPropertyExpression(
-								"smartphones",
-								"releaseYear",
-							),
+							left: createEntityPropertyExpression("smartphones", "releaseYear"),
 						},
 					],
 				},
@@ -214,15 +201,8 @@ describe("buildPredicateClause", () => {
 				compiler: { compile: compiler.compile, getTypeInfo },
 				predicate: {
 					type: "in",
-					expression: createEntityPropertyExpression(
-						"smartphones",
-						"nameplate",
-					),
-					values: [
-						literalExpression("a"),
-						literalExpression("b"),
-						literalExpression("c"),
-					],
+					expression: createEntityPropertyExpression("smartphones", "nameplate"),
+					values: [literalExpression("a"), literalExpression("b"), literalExpression("c")],
 				},
 			});
 

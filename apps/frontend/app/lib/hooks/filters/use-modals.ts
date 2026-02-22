@@ -1,14 +1,10 @@
 import { useDisclosure } from "@mantine/hooks";
 
 export const useFilterModals = () => {
-	const [
-		filtersModalOpened,
-		{ open: openFiltersModal, close: closeFiltersModal },
-	] = useDisclosure(false);
-	const [
-		presetModalOpened,
-		{ open: openPresetModal, close: closePresetModal },
-	] = useDisclosure(false);
+	const [filtersModalOpened, { open: openFiltersModal, close: closeFiltersModal }] =
+		useDisclosure(false);
+	const [presetModalOpened, { open: openPresetModal, close: closePresetModal }] =
+		useDisclosure(false);
 
 	return {
 		filtersModal: {

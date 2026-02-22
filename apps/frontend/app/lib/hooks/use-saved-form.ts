@@ -2,6 +2,7 @@ import type { UseFormInput, UseFormReturnType } from "@mantine/form";
 import { useForm } from "@mantine/form";
 import { useEffect } from "react";
 import { useLocalStorage } from "usehooks-ts";
+
 import { useUserDetails } from "../shared/hooks";
 
 interface UseSavedFormConfig<TValues> extends UseFormInput<TValues> {

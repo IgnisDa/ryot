@@ -16,10 +16,12 @@ import { dayjs } from "@ryot/ts-utils";
 import { Link } from "@tanstack/react-router";
 import { Play, Star } from "lucide-react";
 import { useState } from "react";
+
 import { createReviewEventPayload } from "~/features/entities/search-modal-media-actions";
 import type { AppEntitySchema } from "~/features/entity-schemas/model";
 import { useEventSchemasQuery } from "~/features/event-schemas/hooks";
 import { useApiClient } from "~/hooks/api";
+
 import {
 	colorMix,
 	GOLD,
@@ -51,9 +53,7 @@ export function ContinueCard(props: ContinueCardProps) {
 	const color = schema?.accentColor ?? STONE;
 	const progressLabel = props.item.labels.progress;
 	const pct = props.item.progress.progressPercent ?? null;
-	const lastActivity = getLastActivityLabel(
-		dayjs(props.item.progressAt).toDate(),
-	);
+	const lastActivity = getLastActivityLabel(dayjs(props.item.progressAt).toDate());
 
 	return (
 		<GradientPaper
@@ -101,42 +101,23 @@ export function ContinueCard(props: ContinueCardProps) {
 						to="/entities/$entityId"
 						params={{ entityId: props.item.id }}
 					>
-						<CardTitle textPrimary={props.textPrimary}>
-							{props.item.title}
-						</CardTitle>
+						<CardTitle textPrimary={props.textPrimary}>{props.item.title}</CardTitle>
 					</Link>
-					<CardSubtitle textMuted={props.textMuted}>
-						{props.item.subtitle.label}
-					</CardSubtitle>
+					<CardSubtitle textMuted={props.textMuted}>{props.item.subtitle.label}</CardSubtitle>
 
 					<Box mt={2}>
 						<Group gap={6} mb={4}>
-							<Text
-								fz={10}
-								c={props.textMuted}
-								ff="var(--mantine-font-family-monospace)"
-							>
+							<Text fz={10} c={props.textMuted} ff="var(--mantine-font-family-monospace)">
 								{progressLabel}
 							</Text>
 							{pct !== null ? (
-								<Text
-									fz={10}
-									fw={600}
-									c={color}
-									ff="var(--mantine-font-family-monospace)"
-								>
+								<Text fz={10} fw={600} c={color} ff="var(--mantine-font-family-monospace)">
 									{pct}%
 								</Text>
 							) : null}
 						</Group>
 						{pct !== null ? (
-							<Progress
-								size={5}
-								value={pct}
-								radius="xl"
-								color={color}
-								bg={props.border}
-							/>
+							<Progress size={5} value={pct} radius="xl" color={color} bg={props.border} />
 						) : null}
 					</Box>
 
@@ -233,9 +214,7 @@ export function BacklogCard(props: BacklogCardProps) {
 							{props.item.title}
 						</CardTitle>
 					</Link>
-					<CardSubtitle textMuted={props.textMuted}>
-						{props.item.subtitle.label}
-					</CardSubtitle>
+					<CardSubtitle textMuted={props.textMuted}>{props.item.subtitle.label}</CardSubtitle>
 					<Text fz={10} c={props.textMuted}>
 						Added {getLastActivityLabel(backlogAt.toDate())}
 					</Text>
@@ -264,15 +243,10 @@ export function RateCard(props: RateCardProps) {
 	const createEvents = apiClient.useMutation("post", "/events");
 	const schema = props.schemaBySlug.get(props.item.entitySchemaSlug);
 	const entitySchemaId = schema?.id ?? "";
-	const eventSchemasQuery = useEventSchemasQuery(
-		entitySchemaId,
-		!!entitySchemaId,
-	);
+	const eventSchemasQuery = useEventSchemasQuery(entitySchemaId, !!entitySchemaId);
 	const color = schema?.accentColor ?? STONE;
 	const icon = schema?.icon ?? "circle";
-	const completedDate = getLastActivityLabel(
-		dayjs(props.item.completedAt).toDate(),
-	);
+	const completedDate = getLastActivityLabel(dayjs(props.item.completedAt).toDate());
 
 	const saveRating = useDebouncedCallback(async (stars: number) => {
 		try {
@@ -339,9 +313,7 @@ export function RateCard(props: RateCardProps) {
 							{props.item.title}
 						</Text>
 					</Link>
-					<CardSubtitle textMuted={props.textMuted}>
-						{props.item.subtitle.label}
-					</CardSubtitle>
+					<CardSubtitle textMuted={props.textMuted}>{props.item.subtitle.label}</CardSubtitle>
 					<Group
 						mt={2}
 						px={6}
@@ -375,13 +347,7 @@ export function RateCard(props: RateCardProps) {
 							</Tooltip>
 						))}
 						{selected > 0 && (
-							<Text
-								ml={2}
-								fz={10}
-								fw={600}
-								c={GOLD}
-								ff="var(--mantine-font-family-monospace)"
-							>
+							<Text ml={2} fz={10} fw={600} c={GOLD} ff="var(--mantine-font-family-monospace)">
 								{selected}/5
 							</Text>
 						)}

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createAddToCollectionData,
 	createAddToCollectionDeps,
@@ -7,6 +8,7 @@ import {
 	createRemoveFromCollectionDeps,
 } from "~/lib/test-fixtures";
 import { expectDataResult, expectErrorResult } from "~/lib/test-helpers";
+
 import {
 	addToCollection,
 	createCollection,
@@ -20,15 +22,11 @@ describe("resolveCollectionName", () => {
 	});
 
 	it("throws when name is empty", () => {
-		expect(() => resolveCollectionName("")).toThrow(
-			"Collection name is required",
-		);
+		expect(() => resolveCollectionName("")).toThrow("Collection name is required");
 	});
 
 	it("throws when name is whitespace", () => {
-		expect(() => resolveCollectionName("   ")).toThrow(
-			"Collection name is required",
-		);
+		expect(() => resolveCollectionName("   ")).toThrow("Collection name is required");
 	});
 });
 
@@ -94,10 +92,7 @@ describe("createCollection", () => {
 
 	it("returns validation error for empty name", async () => {
 		const err = expectErrorResult(
-			await createCollection(
-				{ body: { name: "" }, userId: "user-1" },
-				createCollectionDeps(),
-			),
+			await createCollection({ body: { name: "" }, userId: "user-1" }, createCollectionDeps()),
 		);
 
 		expect(err.error).toBe("validation");
@@ -133,9 +128,7 @@ describe("createCollection", () => {
 		);
 
 		expect(err.error).toBe("validation");
-		expect(err.message).toContain(
-			"membershipPropertiesSchema must be a valid AppSchema",
-		);
+		expect(err.message).toContain("membershipPropertiesSchema must be a valid AppSchema");
 	});
 
 	it("returns validation error for membershipPropertiesSchema without fields", async () => {
@@ -153,9 +146,7 @@ describe("createCollection", () => {
 		);
 
 		expect(err.error).toBe("validation");
-		expect(err.message).toContain(
-			"membershipPropertiesSchema must be a valid AppSchema",
-		);
+		expect(err.message).toContain("membershipPropertiesSchema must be a valid AppSchema");
 	});
 
 	it("returns validation error for membershipPropertiesSchema with invalid property type", async () => {
@@ -181,9 +172,7 @@ describe("createCollection", () => {
 		);
 
 		expect(err.error).toBe("validation");
-		expect(err.message).toContain(
-			"membershipPropertiesSchema must be a valid AppSchema",
-		);
+		expect(err.message).toContain("membershipPropertiesSchema must be a valid AppSchema");
 	});
 
 	it("propagates repository errors", async () => {
@@ -309,9 +298,7 @@ describe("createCollection", () => {
 			);
 
 			expect(err.error).toBe("validation");
-			expect(err.message).toContain(
-				"membershipPropertiesSchema must be a valid AppSchema",
-			);
+			expect(err.message).toContain("membershipPropertiesSchema must be a valid AppSchema");
 		});
 
 		it("returns validation error for invalid array item type", async () => {
@@ -342,9 +329,7 @@ describe("createCollection", () => {
 			);
 
 			expect(err.error).toBe("validation");
-			expect(err.message).toContain(
-				"membershipPropertiesSchema must be a valid AppSchema",
-			);
+			expect(err.message).toContain("membershipPropertiesSchema must be a valid AppSchema");
 		});
 
 		it("accepts complex deeply nested schema with multiple levels", async () => {
@@ -657,9 +642,7 @@ describe("addToCollection", () => {
 
 		expect(result).toEqual({
 			error: "validation",
-			message: expect.stringContaining(
-				"Membership properties validation failed",
-			),
+			message: expect.stringContaining("Membership properties validation failed"),
 		});
 		expect(upsertCalls).toBe(0);
 	});

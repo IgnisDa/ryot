@@ -1,9 +1,7 @@
 import type { ViewComputedField } from "~/lib/views/expression";
 import type { ViewPredicate } from "~/lib/views/filtering";
-import {
-	createScalarExpressionCompiler,
-	type ExpressionCompiler,
-} from "./expression-compiler";
+
+import { createScalarExpressionCompiler, type ExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildPredicateClause } from "./predicate-clause-builder";
 import type { QueryEngineContext } from "./schemas";

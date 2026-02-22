@@ -1,4 +1,5 @@
 import type { AppSchema } from "@ryot/ts-utils";
+
 import type { AppTracker } from "~/features/trackers/model";
 import type { ApiPostResponseData } from "~/lib/api/types";
 
@@ -8,9 +9,7 @@ export type AppEntitySchema = Omit<ApiEntitySchema, "propertiesSchema"> & {
 	propertiesSchema: AppSchema;
 };
 
-export function sortEntitySchemas(
-	entitySchemas: AppEntitySchema[],
-): AppEntitySchema[] {
+export function sortEntitySchemas(entitySchemas: AppEntitySchema[]): AppEntitySchema[] {
 	return [...entitySchemas].sort((a, b) => {
 		if (a.name !== b.name) {
 			return a.name.localeCompare(b.name);

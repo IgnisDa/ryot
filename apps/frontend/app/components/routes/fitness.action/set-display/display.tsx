@@ -12,22 +12,15 @@ import {
 } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import {
-	type ExerciseDurationUnit,
-	SetLot,
-} from "@ryot/generated/graphql/backend/graphql";
+import { type ExerciseDurationUnit, SetLot } from "@ryot/generated/graphql/backend/graphql";
 import { isString, snakeCase, startCase } from "@ryot/ts-utils";
-import {
-	IconClipboard,
-	IconHeartSpark,
-	IconTrash,
-	IconZzz,
-} from "@tabler/icons-react";
+import { IconClipboard, IconHeartSpark, IconTrash, IconZzz } from "@tabler/icons-react";
 import clsx from "clsx";
 import { produce } from "immer";
 import { useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+
 import { DisplaySetStatistics } from "~/components/fitness/utils";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { useCoreDetails, useUserPreferences } from "~/lib/shared/hooks";
@@ -40,10 +33,8 @@ import {
 	useGetExerciseAtIndex,
 	useGetSetAtIndex,
 } from "~/lib/state/fitness";
-import {
-	OnboardingTourStepTarget,
-	useOnboardingTour,
-} from "~/lib/state/onboarding-tour";
+import { OnboardingTourStepTarget, useOnboardingTour } from "~/lib/state/onboarding-tour";
+
 import { StatInput } from "../stat-display-and-input";
 import type { FuncStartTimer } from "../types";
 import { formatTimerDuration } from "../utils";
@@ -126,8 +117,7 @@ export const SetDisplay = (props: {
 									if (isOnboardingTourStep) advanceOnboardingTourStep();
 								}}
 								className={clsx(
-									isOnboardingTourStep &&
-										OnboardingTourStepTarget.OpenSetMenuDetails,
+									isOnboardingTourStep && OnboardingTourStepTarget.OpenSetMenuDetails,
 								)}
 							>
 								<Text mt={2} fw="bold" c={getSetColor(set.lot)} ta="center">
@@ -157,8 +147,7 @@ export const SetDisplay = (props: {
 										);
 										setCurrentWorkout(
 											produce(currentWorkout, (draft) => {
-												const currentSet =
-													draft.exercises[props.exerciseIdx].sets[props.setIdx];
+												const currentSet = draft.exercises[props.exerciseIdx].sets[props.setIdx];
 												currentSet.lot = lot;
 												if (!hasRestTimerOfThisSetElapsed && restTime)
 													currentSet.restTimer = { duration: restTime };
@@ -186,13 +175,10 @@ export const SetDisplay = (props: {
 										produce(currentWorkout, (draft) => {
 											const hasNote = !!set.note;
 											let currentSetNote =
-												draft.exercises[props.exerciseIdx].sets[props.setIdx]
-													.note;
+												draft.exercises[props.exerciseIdx].sets[props.setIdx].note;
 											if (!hasNote) currentSetNote = true;
 											else currentSetNote = undefined;
-											draft.exercises[props.exerciseIdx].sets[
-												props.setIdx
-											].note = currentSetNote;
+											draft.exercises[props.exerciseIdx].sets[props.setIdx].note = currentSetNote;
 										}),
 									);
 								}}
@@ -207,13 +193,11 @@ export const SetDisplay = (props: {
 										produce(currentWorkout, (draft) => {
 											const hasRestTimer = !!set.restTimer;
 											if (hasRestTimer)
-												draft.exercises[props.exerciseIdx].sets[
-													props.setIdx
-												].restTimer = undefined;
+												draft.exercises[props.exerciseIdx].sets[props.setIdx].restTimer = undefined;
 											else
-												draft.exercises[props.exerciseIdx].sets[
-													props.setIdx
-												].restTimer = { duration: 60 };
+												draft.exercises[props.exerciseIdx].sets[props.setIdx].restTimer = {
+													duration: 60,
+												};
 										}),
 									);
 								}}
@@ -235,10 +219,7 @@ export const SetDisplay = (props: {
 									const deleteCurrentSet = () => {
 										setCurrentWorkout(
 											produce(currentWorkout, (draft) => {
-												draft.exercises[props.exerciseIdx].sets.splice(
-													props.setIdx,
-													1,
-												);
+												draft.exercises[props.exerciseIdx].sets.splice(props.setIdx, 1);
 											}),
 										);
 									};
@@ -266,11 +247,8 @@ export const SetDisplay = (props: {
 								onClick={() => {
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
-											const idxToTarget = set.confirmedAt
-												? props.setIdx + 1
-												: props.setIdx;
-											const setToTarget =
-												draft.exercises[props.exerciseIdx].sets[idxToTarget];
+											const idxToTarget = set.confirmedAt ? props.setIdx + 1 : props.setIdx;
+											const setToTarget = draft.exercises[props.exerciseIdx].sets[idxToTarget];
 											if (setToTarget) setToTarget.statistic = previousSetData;
 										}),
 									);
@@ -307,18 +285,10 @@ export const SetDisplay = (props: {
 						/>
 					) : null}
 					{props.weightCol ? (
-						<StatInput
-							stat="weight"
-							setIdx={props.setIdx}
-							exerciseIdx={props.exerciseIdx}
-						/>
+						<StatInput stat="weight" setIdx={props.setIdx} exerciseIdx={props.exerciseIdx} />
 					) : null}
 					{props.repsCol ? (
-						<StatInput
-							stat="reps"
-							setIdx={props.setIdx}
-							exerciseIdx={props.exerciseIdx}
-						/>
+						<StatInput stat="reps" setIdx={props.setIdx} exerciseIdx={props.exerciseIdx} />
 					) : null}
 					<Group
 						w="10%"
@@ -379,10 +349,7 @@ export const SetDisplay = (props: {
 						/>
 					) : null}
 					{didCurrentSetActivateTimer ? (
-						<DisplaySetRestTimer
-							currentTimer={currentTimer}
-							onClick={props.openTimerDrawer}
-						/>
+						<DisplaySetRestTimer currentTimer={currentTimer} onClick={props.openTimerDrawer} />
 					) : null}
 				</Box>
 			</Paper>

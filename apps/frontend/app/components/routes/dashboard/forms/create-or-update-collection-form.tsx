@@ -23,6 +23,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconTrash } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
+
 import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
@@ -31,17 +32,11 @@ import {
 	useUserDetails,
 	useUsersList,
 } from "~/lib/shared/hooks";
-import {
-	clientGqlService,
-	queryClient,
-	queryFactory,
-} from "~/lib/shared/react-query";
+import { clientGqlService, queryClient, queryFactory } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { useCreateOrUpdateCollectionModal } from "~/lib/state/collection";
 
-export const CreateOrUpdateCollectionModal = (props: {
-	onClose: () => void;
-}) => {
+export const CreateOrUpdateCollectionModal = (props: { onClose: () => void }) => {
 	const [parent] = useAutoAnimate();
 	const coreDetails = useCoreDetails();
 	const userDetails = useUserDetails();
@@ -65,13 +60,10 @@ export const CreateOrUpdateCollectionModal = (props: {
 			name: toUpdateCollection?.name || "",
 			description: toUpdateCollection?.description || "",
 			informationTemplate: toUpdateCollection?.informationTemplate || [],
-			collaborators: (toUpdateCollection?.collaborators || []).map(
-				(c) => c.collaborator.id,
-			),
+			collaborators: (toUpdateCollection?.collaborators || []).map((c) => c.collaborator.id),
 			isHidden: Boolean(
-				toUpdateCollection?.collaborators?.find(
-					(c) => c.collaborator.id === userDetails.id,
-				)?.extraInformation?.isHidden,
+				toUpdateCollection?.collaborators?.find((c) => c.collaborator.id === userDetails.id)
+					?.extraInformation?.isHidden,
 			),
 		},
 		validate: {
@@ -79,10 +71,7 @@ export const CreateOrUpdateCollectionModal = (props: {
 		},
 	});
 
-	const updateTemplateField = (
-		index: number,
-		updates: Partial<CollectionExtraInformation>,
-	) => {
+	const updateTemplateField = (index: number, updates: Partial<CollectionExtraInformation>) => {
 		const newTemplate = [...form.values.informationTemplate];
 		newTemplate[index] = { ...newTemplate[index], ...updates };
 		form.setFieldValue("informationTemplate", newTemplate);
@@ -99,17 +88,13 @@ export const CreateOrUpdateCollectionModal = (props: {
 					collaborators: values.collaborators,
 					extraInformation: { isHidden: values.isHidden },
 					informationTemplate:
-						values.informationTemplate.length > 0
-							? values.informationTemplate
-							: undefined,
+						values.informationTemplate.length > 0 ? values.informationTemplate : undefined,
 				},
 			}),
 		onSuccess: () => {
 			notifications.show({
 				color: "green",
-				message: toUpdateCollection?.id
-					? "Collection updated"
-					: "Collection created",
+				message: toUpdateCollection?.id ? "Collection updated" : "Collection created",
 			});
 			queryClient.invalidateQueries({
 				queryKey: queryFactory.collections.userCollectionsList().queryKey,
@@ -117,8 +102,7 @@ export const CreateOrUpdateCollectionModal = (props: {
 			form.clearSavedState();
 			props.onClose();
 		},
-		onError: (_error) =>
-			notifications.show({ color: "red", message: "An error occurred" }),
+		onError: (_error) => notifications.show({ color: "red", message: "An error occurred" }),
 	});
 
 	return (
@@ -128,39 +112,25 @@ export const CreateOrUpdateCollectionModal = (props: {
 			})}
 		>
 			<Stack>
-				<Title order={3}>
-					{toUpdateCollection?.id ? "Update" : "Create"} collection
-				</Title>
+				<Title order={3}>{toUpdateCollection?.id ? "Update" : "Create"} collection</Title>
 				<TextInput
 					required
 					label="Name"
 					readOnly={toUpdateCollection?.isDefault}
 					description={
-						toUpdateCollection?.isDefault
-							? "Can not edit a default collection"
-							: undefined
+						toUpdateCollection?.isDefault ? "Can not edit a default collection" : undefined
 					}
 					{...form.getInputProps("name")}
 				/>
-				<Textarea
-					autosize
-					label="Description"
-					{...form.getInputProps("description")}
-				/>
-				<Tooltip
-					label={PRO_REQUIRED_MESSAGE}
-					disabled={coreDetails.isServerKeyValidated}
-				>
+				<Textarea autosize label="Description" {...form.getInputProps("description")} />
+				<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isServerKeyValidated}>
 					<Checkbox
 						label="Hide collection"
 						disabled={!coreDetails.isServerKeyValidated}
 						{...form.getInputProps("isHidden", { type: "checkbox" })}
 					/>
 				</Tooltip>
-				<Tooltip
-					label={PRO_REQUIRED_MESSAGE}
-					disabled={coreDetails.isServerKeyValidated}
-				>
+				<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isServerKeyValidated}>
 					<MultiSelect
 						searchable
 						disabled={!coreDetails.isServerKeyValidated}
@@ -212,18 +182,14 @@ export const CreateOrUpdateCollectionModal = (props: {
 									size="xs"
 									label="Name"
 									value={field.name}
-									onChange={(e) =>
-										updateTemplateField(index, { name: e.target.value })
-									}
+									onChange={(e) => updateTemplateField(index, { name: e.target.value })}
 								/>
 								<Textarea
 									required
 									size="xs"
 									label="Description"
 									value={field.description}
-									onChange={(e) =>
-										updateTemplateField(index, { description: e.target.value })
-									}
+									onChange={(e) => updateTemplateField(index, { description: e.target.value })}
 								/>
 								<Group wrap="nowrap">
 									<Select
@@ -232,9 +198,7 @@ export const CreateOrUpdateCollectionModal = (props: {
 										size="xs"
 										label="Input type"
 										value={field.lot}
-										data={convertEnumToSelectData(
-											CollectionExtraInformationLot,
-										)}
+										data={convertEnumToSelectData(CollectionExtraInformationLot)}
 										onChange={(v) =>
 											updateTemplateField(index, {
 												lot: v as CollectionExtraInformationLot,
@@ -260,9 +224,7 @@ export const CreateOrUpdateCollectionModal = (props: {
 										size="xs"
 										label="Possible values"
 										value={field.possibleValues || []}
-										onChange={(value) =>
-											updateTemplateField(index, { possibleValues: value })
-										}
+										onChange={(value) => updateTemplateField(index, { possibleValues: value })}
 									/>
 								) : null}
 								<Group mt="xs" justify="space-around">
@@ -270,9 +232,7 @@ export const CreateOrUpdateCollectionModal = (props: {
 										size="sm"
 										label="Required"
 										checked={field.required || false}
-										onChange={(e) =>
-											updateTemplateField(index, { required: e.target.checked })
-										}
+										onChange={(e) => updateTemplateField(index, { required: e.target.checked })}
 									/>
 									<Button
 										size="xs"
@@ -292,11 +252,7 @@ export const CreateOrUpdateCollectionModal = (props: {
 						))}
 					</Stack>
 				</Input.Wrapper>
-				<Button
-					type="submit"
-					variant="outline"
-					loading={createOrUpdateMutation.isPending}
-				>
+				<Button type="submit" variant="outline" loading={createOrUpdateMutation.isPending}>
 					{toUpdateCollection?.id ? "Update" : "Create"}
 				</Button>
 			</Stack>

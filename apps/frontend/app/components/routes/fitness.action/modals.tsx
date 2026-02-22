@@ -3,8 +3,10 @@ import { useDisclosure } from "@mantine/hooks";
 import { IconBellRinging } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { useLocalStorage } from "usehooks-ts";
+
 import { useUserDetails } from "~/lib/shared/hooks";
 import type { Exercise } from "~/lib/state/fitness";
+
 import { BulkDeleteModal } from "./bulk-delete-modal";
 import { UploadAssetsModal } from "./miscellaneous";
 import { ReorderDrawer } from "./reorder";
@@ -14,18 +16,11 @@ import type { FuncStartTimer } from "./types";
 
 const useNotificationPermissionAsked = () => {
 	const userDetails = useUserDetails();
-	return useLocalStorage(
-		`HasAskedForNotificationPermission-${userDetails.id}`,
-		false,
-	);
+	return useLocalStorage(`HasAskedForNotificationPermission-${userDetails.id}`, false);
 };
 
-const NotificationPermissionModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-}) => {
-	const [, setHasAskedForNotificationPermission] =
-		useNotificationPermissionAsked();
+const NotificationPermissionModal = (props: { opened: boolean; onClose: () => void }) => {
+	const [, setHasAskedForNotificationPermission] = useNotificationPermissionAsked();
 
 	const handleClose = () => {
 		setHasAskedForNotificationPermission(true);
@@ -55,17 +50,14 @@ const NotificationPermissionModal = (props: {
 		>
 			<Stack gap="md">
 				<Text>
-					Allow notifications to stay on track with your workout. You'll receive
-					alerts when your rest timer completes, even when the app is in the
-					background.
+					Allow notifications to stay on track with your workout. You'll receive alerts when your
+					rest timer completes, even when the app is in the background.
 				</Text>
 				<Group justify="flex-end">
 					<Button variant="subtle" onClick={handleClose}>
 						Not Now
 					</Button>
-					<Button onClick={handleEnableNotifications}>
-						Enable Notifications
-					</Button>
+					<Button onClick={handleEnableNotifications}>Enable Notifications</Button>
 				</Group>
 			</Stack>
 		</Modal>
@@ -130,24 +122,14 @@ export const WorkoutModals = (props: ModalsProps) => (
 );
 
 export function useWorkoutModals() {
-	const [assetsModalOpened, setAssetsModalOpened] = useState<
-		string | null | undefined
-	>(undefined);
+	const [assetsModalOpened, setAssetsModalOpened] = useState<string | null | undefined>(undefined);
 	const [
 		timerDrawerOpened,
-		{
-			open: openTimerDrawer,
-			close: closeTimerDrawer,
-			toggle: toggleTimerDrawer,
-		},
+		{ open: openTimerDrawer, close: closeTimerDrawer, toggle: toggleTimerDrawer },
 	] = useDisclosure(false);
-	const [isReorderDrawerOpened, setIsReorderDrawerOpened] = useState<
-		string | null
-	>();
+	const [isReorderDrawerOpened, setIsReorderDrawerOpened] = useState<string | null>();
 	const [exerciseToDelete, setExerciseToDelete] = useState<string | null>();
-	const [supersetWithExerciseIdentifier, setSupersetModalOpened] = useState<
-		string | null
-	>(null);
+	const [supersetWithExerciseIdentifier, setSupersetModalOpened] = useState<string | null>(null);
 	const [hasAskedForNotificationPermission] = useNotificationPermissionAsked();
 	const [notificationModalOpened, setNotificationModalOpened] = useState(false);
 

@@ -1,6 +1,8 @@
 import { useRef } from "react";
+
 import { useAppForm } from "~/hooks/forms";
 import { createNameFieldListeners } from "~/lib/slug-sync";
+
 import {
 	buildPropertySchemaFormValues,
 	type CreatePropertySchemaFormValues,
@@ -12,9 +14,7 @@ export type UsePropertySchemaFormProps<TPayload> = {
 	toPayload: (input: CreatePropertySchemaFormValues) => TPayload;
 };
 
-export function usePropertySchemaForm<TPayload>(
-	props: UsePropertySchemaFormProps<TPayload>,
-) {
+export function usePropertySchemaForm<TPayload>(props: UsePropertySchemaFormProps<TPayload>) {
 	const form = useAppForm({
 		defaultValues: buildPropertySchemaFormValues(),
 		validators: { onChange: createPropertySchemaFormSchema },

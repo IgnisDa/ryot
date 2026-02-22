@@ -1,4 +1,5 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
+
 import type { Client } from "./auth";
 import { createTrackerWithSchema } from "./entity-schemas";
 
@@ -6,11 +7,7 @@ type CreateEntityBody = NonNullable<
 	paths["/entities"]["post"]["requestBody"]
 >["content"]["application/json"];
 
-export async function createEntity(
-	client: Client,
-	cookies: string,
-	body: CreateEntityBody,
-) {
+export async function createEntity(client: Client, cookies: string, body: CreateEntityBody) {
 	const { data, response } = await client.POST("/entities", {
 		body,
 		headers: { Cookie: cookies },
@@ -23,11 +20,7 @@ export async function createEntity(
 	return data.data;
 }
 
-export async function getEntity(
-	client: Client,
-	cookies: string,
-	entityId: string,
-) {
+export async function getEntity(client: Client, cookies: string, entityId: string) {
 	const { data, response } = await client.GET("/entities/{entityId}", {
 		headers: { Cookie: cookies },
 		params: { path: { entityId } },
@@ -40,14 +33,8 @@ export async function getEntity(
 	return data.data;
 }
 
-export async function createTrackerWithSchemaAndEntity(
-	client: Client,
-	cookies: string,
-) {
-	const { trackerId, schemaId } = await createTrackerWithSchema(
-		client,
-		cookies,
-	);
+export async function createTrackerWithSchemaAndEntity(client: Client, cookies: string) {
+	const { trackerId, schemaId } = await createTrackerWithSchema(client, cookies);
 	const entity = await createEntity(client, cookies, {
 		image: null,
 		name: "Test Entity",

@@ -36,8 +36,7 @@ export const MultiSelectCreatable = (props: MultiSelectCreatableProps) => {
 		setSearch("");
 	};
 
-	const handleValueRemove = (val: string) =>
-		props.setValue(props.values.filter((v) => v !== val));
+	const handleValueRemove = (val: string) => props.setValue(props.values.filter((v) => v !== val));
 
 	const values = props.values?.map((item) => (
 		<Pill key={item} withRemoveButton onRemove={() => handleValueRemove(item)}>
@@ -48,11 +47,7 @@ export const MultiSelectCreatable = (props: MultiSelectCreatableProps) => {
 	const options = data
 		.filter((item) => item.toLowerCase().includes(search.trim().toLowerCase()))
 		.map((item) => (
-			<Combobox.Option
-				key={item}
-				value={item}
-				active={props.values?.includes(item)}
-			>
+			<Combobox.Option key={item} value={item} active={props.values?.includes(item)}>
 				<Group gap="sm">
 					{props.values?.includes(item) ? <IconCheck size={12} /> : null}
 					<span>{item}</span>
@@ -61,11 +56,7 @@ export const MultiSelectCreatable = (props: MultiSelectCreatableProps) => {
 		));
 
 	return (
-		<Combobox
-			store={combobox}
-			withinPortal={false}
-			onOptionSubmit={handleValueSelect}
-		>
+		<Combobox store={combobox} withinPortal={false} onOptionSubmit={handleValueSelect}>
 			<Combobox.DropdownTarget>
 				<PillsInput
 					label={props.label}
@@ -103,11 +94,9 @@ export const MultiSelectCreatable = (props: MultiSelectCreatableProps) => {
 					{!exactOptionMatch && search.trim().length > 0 && (
 						<Combobox.Option value="$create">+ Create {search}</Combobox.Option>
 					)}
-					{exactOptionMatch &&
-						search.trim().length > 0 &&
-						options.length === 0 && (
-							<Combobox.Empty>Nothing found</Combobox.Empty>
-						)}
+					{exactOptionMatch && search.trim().length > 0 && options.length === 0 && (
+						<Combobox.Empty>Nothing found</Combobox.Empty>
+					)}
 				</Combobox.Options>
 			</Combobox.Dropdown>
 		</Combobox>

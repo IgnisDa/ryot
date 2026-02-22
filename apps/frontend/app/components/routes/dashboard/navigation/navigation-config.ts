@@ -4,6 +4,7 @@ import { changeCase } from "@ryot/ts-utils";
 import { IconMoon, IconSun } from "@tabler/icons-react";
 import { $path } from "safe-routes";
 import { joinURL } from "ufo";
+
 import type { useUserDetails } from "~/lib/shared/hooks";
 import { OnboardingTourStepTarget } from "~/lib/state/onboarding-tour";
 
@@ -63,9 +64,7 @@ export const getFitnessLinks = (userPreferences: UserPreferences) =>
 		{ label: "Exercises", link: $path("/fitness/exercises/list") },
 	].filter((link) => link !== undefined);
 
-export const getSettingsLinks = (
-	userDetails: ReturnType<typeof useUserDetails>,
-) =>
+export const getSettingsLinks = (userDetails: ReturnType<typeof useUserDetails>) =>
 	[
 		{
 			label: "Preferences",

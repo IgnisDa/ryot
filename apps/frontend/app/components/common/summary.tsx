@@ -8,32 +8,18 @@ import {
 	Tooltip,
 	useMantineTheme,
 } from "@mantine/core";
-import {
-	MediaLot,
-	type UserAnalytics,
-} from "@ryot/generated/graphql/backend/graphql";
-import {
-	formatQuantityWithCompactNotation,
-	humanizeDuration,
-	isNumber,
-} from "@ryot/ts-utils";
-import {
-	IconBarbell,
-	IconFriends,
-	IconScaleOutline,
-	IconServer,
-} from "@tabler/icons-react";
+import { MediaLot, type UserAnalytics } from "@ryot/generated/graphql/backend/graphql";
+import { formatQuantityWithCompactNotation, humanizeDuration, isNumber } from "@ryot/ts-utils";
+import { IconBarbell, IconFriends, IconScaleOutline, IconServer } from "@tabler/icons-react";
 import { Fragment, type ReactNode } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
+
 import { dayjsLib } from "~/lib/shared/date-utils";
-import {
-	useGetMantineColors,
-	useUserPreferences,
-	useUserUnitSystem,
-} from "~/lib/shared/hooks";
+import { useGetMantineColors, useUserPreferences, useUserUnitSystem } from "~/lib/shared/hooks";
 import { getMetadataIcon, MediaColors } from "~/lib/shared/media-utils";
+
 import { displayWeightWithUnit } from "../fitness/utils";
 
 export const DisplaySummarySection = (props: {
@@ -44,11 +30,7 @@ export const DisplaySummarySection = (props: {
 	const userPreferences = useUserPreferences();
 
 	return (
-		<SimpleGrid
-			spacing="xs"
-			cols={{ base: 1, sm: 2, md: 3 }}
-			style={{ alignItems: "center" }}
-		>
+		<SimpleGrid spacing="xs" cols={{ base: 1, sm: 2, md: 3 }} style={{ alignItems: "center" }}>
 			<DisplayStatForMediaType
 				lot={MediaLot.Movie}
 				data={[
@@ -330,22 +312,18 @@ const ActualDisplayStat = (props: {
 					const numDisplay = match(d.type)
 						.with("string", () => d.value)
 						.with("duration", () =>
-							humanizeDuration(
-								dayjsLib.duration(Number(d.value), "minutes").asMilliseconds(),
-								{ round: true, largest: 3 },
-							),
+							humanizeDuration(dayjsLib.duration(Number(d.value), "minutes").asMilliseconds(), {
+								round: true,
+								largest: 3,
+							}),
 						)
-						.with("number", () =>
-							formatQuantityWithCompactNotation(Number(d.value)),
-						)
+						.with("number", () => formatQuantityWithCompactNotation(Number(d.value)))
 						.exhaustive();
 					return (
 						<Fragment key={idx.toString()}>
 							{isNumber(d.type) && d.value === 0 && d.hideIfZero ? undefined : (
 								<Box mx="xs">
-									<Tooltip
-										label={`${d.value} ${d.type === "duration" ? "minutes" : ""}`}
-									>
+									<Tooltip label={`${d.value} ${d.type === "duration" ? "minutes" : ""}`}>
 										<Text
 											display="inline"
 											fz={{ base: "md", md: "sm", xl: "md" }}
@@ -354,11 +332,7 @@ const ActualDisplayStat = (props: {
 											{numDisplay}
 										</Text>
 									</Tooltip>
-									<Text
-										ml="4px"
-										display="inline"
-										fz={{ base: "md", md: "sm", xl: "md" }}
-									>
+									<Text ml="4px" display="inline" fz={{ base: "md", md: "sm", xl: "md" }}>
 										{d.label !== "Runtime" ? d.label : undefined}
 									</Text>
 								</Box>
@@ -381,9 +355,7 @@ const DisplayStatForMediaType = (props: {
 	}>;
 }) => {
 	const userPreferences = useUserPreferences();
-	const isEnabled = userPreferences.featuresEnabled.media.specific.includes(
-		props.lot,
-	);
+	const isEnabled = userPreferences.featuresEnabled.media.specific.includes(props.lot);
 	const Icon = getMetadataIcon(props.lot);
 	const icon = <Icon size={24} stroke={1.5} />;
 

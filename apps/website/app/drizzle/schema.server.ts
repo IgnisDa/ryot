@@ -17,12 +17,7 @@ export const ProductTypes = z.enum(productTypes.enumValues);
 
 export type TProductTypes = z.infer<typeof ProductTypes>;
 
-export const planTypes = pgEnum("plan_type", [
-	"free",
-	"monthly",
-	"yearly",
-	"lifetime",
-]);
+export const planTypes = pgEnum("plan_type", ["free", "monthly", "yearly", "lifetime"]);
 
 export const PlanTypes = z.enum(planTypes.enumValues);
 
@@ -42,12 +37,8 @@ export const customers = pgTable("customer", {
 	id: uuid("id").notNull().primaryKey().defaultRandom(),
 	paddleCustomerId: text("paddle_customer_id").unique(),
 	polarCustomerId: text("polar_customer_id").unique(),
-	paymentProvider: paymentProviders("payment_provider")
-		.notNull()
-		.default("paddle"),
-	createdOn: timestamp("created_on", { withTimezone: true })
-		.defaultNow()
-		.notNull(),
+	paymentProvider: paymentProviders("payment_provider").notNull().default("paddle"),
+	createdOn: timestamp("created_on", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const ticketNumberSequence = pgSequence("ticket_number_seq", {
@@ -78,16 +69,10 @@ export const customerPurchases = pgTable(
 		customerId: uuid("customer_id")
 			.notNull()
 			.references(() => customers.id),
-		createdOn: timestamp("created_on", { withTimezone: true })
-			.defaultNow()
-			.notNull(),
-		updatedOn: timestamp("updated_on", { withTimezone: true })
-			.defaultNow()
-			.notNull(),
+		createdOn: timestamp("created_on", { withTimezone: true }).defaultNow().notNull(),
+		updatedOn: timestamp("updated_on", { withTimezone: true }).defaultNow().notNull(),
 	},
 	(table) => ({
-		customerIdIdx: index("customer_purchase_customer_id_idx").on(
-			table.customerId,
-		),
+		customerIdIdx: index("customer_purchase_customer_id_idx").on(table.customerId),
 	}),
 );

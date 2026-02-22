@@ -1,4 +1,5 @@
 import { storage } from "#imports";
+
 import { STORAGE_KEYS } from "./constants";
 
 type LogLevel = "debug" | "info" | "warn" | "error";

@@ -4,6 +4,7 @@ import type { Scalars } from "@ryot/generated/graphql/backend/graphql";
 import { groupBy } from "@ryot/ts-utils";
 import { useMemo } from "react";
 import { Fragment } from "react/jsx-runtime";
+
 import { CollectionTemplateRenderer } from "~/components/common/collection-template-renderer";
 import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import {
@@ -15,6 +16,7 @@ import {
 } from "~/lib/shared/hooks";
 import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { useAddEntityToCollections } from "~/lib/state/media";
+
 import type { Collection } from "../types";
 
 export const AddEntityToCollectionsForm = (props: {
@@ -31,24 +33,19 @@ export const AddEntityToCollectionsForm = (props: {
 	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
 
 	const form = useSavedForm<{
-		selectedCollections: Array<
-			Collection & { userExtraInformationData: Scalars["JSON"]["input"] }
-		>;
+		selectedCollections: Array<Collection & { userExtraInformationData: Scalars["JSON"]["input"] }>;
 	}>({
 		initialValues: { selectedCollections: [] },
 		storageKeyPrefix: `AddEntityToCollectionsForm-${addEntityToCollectionData?.entityId}`,
 		validate: {
-			selectedCollections: (value) =>
-				value.length > 0 ? null : "Select at least one collection",
+			selectedCollections: (value) => (value.length > 0 ? null : "Select at least one collection"),
 		},
 	});
 
 	const selectData = useMemo(
 		() =>
 			Object.entries(
-				groupBy(collections, (c) =>
-					c.creator.id === userDetails.id ? "You" : c.creator.name,
-				),
+				groupBy(collections, (c) => (c.creator.id === userDetails.id ? "You" : c.creator.name)),
 			).map(([g, items]) => ({
 				group: g,
 				items: items.map((c) => ({
@@ -78,20 +75,12 @@ export const AddEntityToCollectionsForm = (props: {
 			}
 		}
 
-		const filteredCollections = newCollections.filter((c) =>
-			ids.includes(c.id),
-		);
+		const filteredCollections = newCollections.filter((c) => ids.includes(c.id));
 		form.setFieldValue("selectedCollections", filteredCollections);
 	};
 
-	const handleCustomFieldChange = (
-		colId: string,
-		field: string,
-		value: unknown,
-	) => {
-		const idx = form.values.selectedCollections.findIndex(
-			(c) => c.id === colId,
-		);
+	const handleCustomFieldChange = (colId: string, field: string, value: unknown) => {
+		const idx = form.values.selectedCollections.findIndex((c) => c.id === colId);
 		if (idx !== -1) {
 			const newCollections = [...form.values.selectedCollections];
 			newCollections[idx] = {
@@ -153,18 +142,12 @@ export const AddEntityToCollectionsForm = (props: {
 								key={template.name}
 								template={template}
 								value={col.userExtraInformationData[template.name]}
-								onChange={(value) =>
-									handleCustomFieldChange(col.id, template.name, value)
-								}
+								onChange={(value) => handleCustomFieldChange(col.id, template.name, value)}
 							/>
 						))}
 					</Fragment>
 				))}
-				<Button
-					type="submit"
-					variant="outline"
-					loading={addEntitiesToCollection.isPending}
-				>
+				<Button type="submit" variant="outline" loading={addEntitiesToCollection.isPending}>
 					Set
 				</Button>
 			</Stack>

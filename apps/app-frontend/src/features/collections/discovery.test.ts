@@ -1,9 +1,11 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createAppCollectionFixture,
 	createQueryEngineCollectionFixture,
 	createQueryEngineCollectionWithSchema,
 } from "~/features/test-fixtures/collections";
+
 import { getCollectionDiscoveryState, toAppCollection } from "./model";
 
 describe("collection discovery data flow", () => {
@@ -33,11 +35,7 @@ describe("collection discovery data flow", () => {
 					},
 				},
 			};
-			const entity = createQueryEngineCollectionWithSchema(
-				"col-2",
-				"Favorites",
-				schema,
-			);
+			const entity = createQueryEngineCollectionWithSchema("col-2", "Favorites", schema);
 
 			const result = toAppCollection(entity);
 
@@ -67,11 +65,7 @@ describe("collection discovery data flow", () => {
 					},
 				},
 			};
-			const entity = createQueryEngineCollectionWithSchema(
-				"col-3",
-				"Watchlist",
-				schema,
-			);
+			const entity = createQueryEngineCollectionWithSchema("col-3", "Watchlist", schema);
 
 			const result = toAppCollection(entity);
 
@@ -111,12 +105,8 @@ describe("collection discovery data flow", () => {
 			};
 			const schemaB = { fields: {} };
 			const collections = [
-				toAppCollection(
-					createQueryEngineCollectionWithSchema("col-a", "Rated", schemaA),
-				),
-				toAppCollection(
-					createQueryEngineCollectionWithSchema("col-b", "Simple", schemaB),
-				),
+				toAppCollection(createQueryEngineCollectionWithSchema("col-a", "Rated", schemaA)),
+				toAppCollection(createQueryEngineCollectionWithSchema("col-b", "Simple", schemaB)),
 				toAppCollection(
 					createQueryEngineCollectionFixture({
 						id: "col-c",
@@ -162,11 +152,7 @@ describe("collection discovery data flow", () => {
 					},
 				},
 			};
-			const entity = createQueryEngineCollectionWithSchema(
-				"form-test",
-				"Form Collection",
-				schema,
-			);
+			const entity = createQueryEngineCollectionWithSchema("form-test", "Form Collection", schema);
 
 			const result = toAppCollection(entity);
 
@@ -191,9 +177,7 @@ describe("collection discovery data flow", () => {
 				membershipPropertiesSchema: null,
 			});
 
-			const result = getCollectionDiscoveryState(false, false, [
-				simpleCollection,
-			]);
+			const result = getCollectionDiscoveryState(false, false, [simpleCollection]);
 
 			expect(result.type).toBe("collections");
 			if (result.type === "collections") {

@@ -1,13 +1,4 @@
-import {
-	Box,
-	Button,
-	Center,
-	Loader,
-	Paper,
-	Stack,
-	Text,
-	Title,
-} from "@mantine/core";
+import { Box, Button, Center, Loader, Paper, Stack, Text, Title } from "@mantine/core";
 import { X } from "lucide-react";
 
 export function LoadingState() {
@@ -29,11 +20,7 @@ export function FormError(props: { message: string | null | undefined }) {
 	);
 }
 
-export function ErrorState(props: {
-	title: string;
-	description: string;
-	onRetry?: () => void;
-}) {
+export function ErrorState(props: { title: string; description: string; onRetry?: () => void }) {
 	return (
 		<Box py={80} px="xl">
 			<Stack align="center" gap="lg" maw={600} mx="auto">

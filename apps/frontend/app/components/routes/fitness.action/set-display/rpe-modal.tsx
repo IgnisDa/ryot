@@ -13,6 +13,7 @@ import { isNumber } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { useState } from "react";
 import invariant from "tiny-invariant";
+
 import { useCurrentWorkout } from "~/lib/state/fitness";
 
 interface RpeModalProps {
@@ -58,8 +59,7 @@ export const RpeModal = (props: RpeModalProps) => {
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {
 									const value = isNumber(v) ? v : null;
-									const currentSet =
-										draft.exercises[props.exerciseIdx].sets[props.setIdx];
+									const currentSet = draft.exercises[props.exerciseIdx].sets[props.setIdx];
 									currentSet.rpe = value;
 								}),
 							);
@@ -72,10 +72,9 @@ export const RpeModal = (props: RpeModalProps) => {
 				<Collapse in={isRpeDetailsOpen}>
 					<Stack gap="xs">
 						<Text size="xs">
-							Your rate of perceived exertion (RPE) refers to how hard you think
-							you're pushing yourself during exercise. It's subjective, which
-							means that you decide how hard you feel you're working during
-							physical activity.
+							Your rate of perceived exertion (RPE) refers to how hard you think you're pushing
+							yourself during exercise. It's subjective, which means that you decide how hard you
+							feel you're working during physical activity.
 							<Anchor
 								ml={2}
 								size="xs"

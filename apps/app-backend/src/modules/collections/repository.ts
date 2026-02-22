@@ -1,7 +1,9 @@
 import { and, desc, eq, isNull, or } from "drizzle-orm";
+
 import { assertPersisted, type DbClient, db } from "~/lib/db";
 import { entity, entitySchema, relationship } from "~/lib/db/schema";
 import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
+
 import type { AddToCollectionData, CollectionResponse } from "./schemas";
 
 const collectionSelection = {
@@ -34,12 +36,7 @@ export const getBuiltinCollectionSchema = async () => {
 			propertiesSchema: entitySchema.propertiesSchema,
 		})
 		.from(entitySchema)
-		.where(
-			and(
-				eq(entitySchema.slug, "collection"),
-				eq(entitySchema.isBuiltin, true),
-			),
-		)
+		.where(and(eq(entitySchema.slug, "collection"), eq(entitySchema.isBuiltin, true)))
 		.limit(1);
 
 	return foundEntitySchema;
@@ -101,9 +98,7 @@ export const createCollectionForUser = async (input: {
 		})
 		.returning(collectionSelection);
 
-	return toCollectionResponse(
-		assertPersisted(createdEntity, "collection") as CollectionRow,
-	);
+	return toCollectionResponse(assertPersisted(createdEntity, "collection") as CollectionRow);
 };
 
 const membershipSelection = {
@@ -124,9 +119,7 @@ type MembershipRow = {
 	relationshipSchemaId: string;
 };
 
-const toMembershipResponse = (
-	row: MembershipRow,
-): AddToCollectionData["memberOf"] => ({
+const toMembershipResponse = (row: MembershipRow): AddToCollectionData["memberOf"] => ({
 	...row,
 	createdAt: row.createdAt.toISOString(),
 	properties: row.properties as Record<string, unknown>,

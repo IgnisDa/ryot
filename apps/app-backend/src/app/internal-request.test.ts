@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
+
 import { getInternalRequestAuth } from "./internal-auth";
 import {
 	executeInternalAppRequest,
@@ -12,21 +13,17 @@ afterEach(() => {
 
 describe("normalizeBaseAppPath", () => {
 	it("normalizes /api-prefixed paths", () => {
-		expect(normalizeBaseAppPath("/api/query-engine/execute?x=1")).toBe(
-			"/query-engine/execute?x=1",
-		);
+		expect(normalizeBaseAppPath("/api/query-engine/execute?x=1")).toBe("/query-engine/execute?x=1");
 	});
 
 	it("keeps base-app-relative paths", () => {
-		expect(normalizeBaseAppPath("/query-engine/execute")).toBe(
-			"/query-engine/execute",
-		);
+		expect(normalizeBaseAppPath("/query-engine/execute")).toBe("/query-engine/execute");
 	});
 
 	it("rejects full URLs", () => {
-		expect(() =>
-			normalizeBaseAppPath("https://example.com/query-engine"),
-		).toThrow("appApiCall expects a base-app path, not a full URL");
+		expect(() => normalizeBaseAppPath("https://example.com/query-engine")).toThrow(
+			"appApiCall expects a base-app path, not a full URL",
+		);
 	});
 
 	it("rejects /api/auth routes", () => {
@@ -61,13 +58,9 @@ describe("executeInternalAppRequest", () => {
 
 		expect(response.status).toBe(200);
 		expect(capturedRequest).toBeDefined();
-		expect(capturedRequest?.url).toBe(
-			"http://ryot.internal/query-engine/execute",
-		);
+		expect(capturedRequest?.url).toBe("http://ryot.internal/query-engine/execute");
 		expect(capturedRequest?.headers.get("x-test")).toBe("1");
-		expect(capturedRequest?.headers.get("content-type")).toBe(
-			"application/json",
-		);
+		expect(capturedRequest?.headers.get("content-type")).toBe("application/json");
 		expect(getInternalRequestAuth(capturedRequest as Request)).toEqual({
 			userId: "user_1",
 		});

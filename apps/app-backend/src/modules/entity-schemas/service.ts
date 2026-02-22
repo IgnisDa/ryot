@@ -1,24 +1,16 @@
 import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
+
 import { checkCustomAccess, checkReadAccess } from "~/lib/access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import type { AppConfigPath } from "~/lib/config";
 import { appConfigEnvIndex, appConfigPathIndex } from "~/lib/config";
 import { getQueues } from "~/lib/queue";
 import { resolveJobPollState } from "~/lib/queue/utils";
-import {
-	type ServiceResult,
-	serviceData,
-	serviceError,
-	wrapServiceValidator,
-} from "~/lib/result";
+import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import { sandboxScriptMetadataSchema } from "~/lib/sandbox/types";
 import type { ListedEntity } from "~/modules/entities";
-import {
-	type MediaImportJobData,
-	mediaImportJobData,
-	mediaImportJobName,
-} from "~/modules/media";
+import { type MediaImportJobData, mediaImportJobData, mediaImportJobName } from "~/modules/media";
 import {
 	type EnqueueSandboxBody,
 	enqueueSandbox,
@@ -27,6 +19,7 @@ import {
 	type SandboxEnqueueResult,
 	type SandboxServiceResult,
 } from "~/modules/sandbox";
+
 import { authenticationBuiltinEntitySchemas } from "../authentication/bootstrap/manifests";
 import { parseLabeledPropertySchemaInput } from "../property-schemas/service";
 import { getTrackerScopeForUser } from "../trackers/repository";
@@ -45,8 +38,7 @@ import type {
 	ListedEntitySchema,
 } from "./schemas";
 
-export type EntitySchemaPropertiesShape =
-	CreateEntitySchemaBody["propertiesSchema"];
+export type EntitySchemaPropertiesShape = CreateEntitySchemaBody["propertiesSchema"];
 
 type EntitySchemaMutationError = "not_found" | "validation";
 
@@ -60,35 +52,27 @@ export type EntitySchemaServiceDeps = {
 
 const isProviderUsable = (provider: { scriptMetadata?: unknown }): boolean => {
 	const parsed = sandboxScriptMetadataSchema.safeParse(provider.scriptMetadata);
-	const requiredKeys = parsed.success
-		? (parsed.data.requiredAppConfigKeys ?? [])
-		: [];
+	const requiredKeys = parsed.success ? (parsed.data.requiredAppConfigKeys ?? []) : [];
 	return requiredKeys.every((key) => {
 		const envKey = appConfigPathIndex[key as AppConfigPath];
 		return envKey && appConfigEnvIndex[envKey] != null;
 	});
 };
 
-const stripProviderMetadata = (
-	schema: ListedEntitySchemaWithMetadata,
-): ListedEntitySchema => ({
+const stripProviderMetadata = (schema: ListedEntitySchemaWithMetadata): ListedEntitySchema => ({
 	...schema,
 	providers: schema.providers
 		.filter(isProviderUsable)
 		.map(({ scriptMetadata: _m, ...provider }) => provider),
 });
 
-export type EntitySchemaServiceResult<T> = ServiceResult<
-	T,
-	EntitySchemaMutationError
->;
+export type EntitySchemaServiceResult<T> = ServiceResult<T, EntitySchemaMutationError>;
 
 const duplicateSlugError = "Entity schema slug already exists";
 const entitySchemaNotFoundError = "Entity schema not found";
 const entitySchemaUniqueConstraint = "entity_schema_user_slug_unique";
 const trackerNotFoundError = "Tracker not found";
-const customTrackerError =
-	"Built-in trackers do not support entity schema creation";
+const customTrackerError = "Built-in trackers do not support entity schema creation";
 
 const entitySchemaServiceDeps: EntitySchemaServiceDeps = {
 	getTrackerScopeForUser,
@@ -99,10 +83,7 @@ const entitySchemaServiceDeps: EntitySchemaServiceDeps = {
 };
 
 const resolveEntitySchemaTrackerIdResult = (trackerId: string) =>
-	wrapServiceValidator(
-		() => resolveEntitySchemaTrackerId(trackerId),
-		"Tracker id is required",
-	);
+	wrapServiceValidator(() => resolveEntitySchemaTrackerId(trackerId), "Tracker id is required");
 
 export const resolveEntitySchemaName = (name: string) =>
 	resolveRequiredString(name, "Entity schema name");
@@ -116,9 +97,7 @@ export const resolveEntitySchemaIcon = (icon: string) =>
 export const resolveEntitySchemaAccentColor = (accentColor: string) =>
 	resolveRequiredString(accentColor, "Entity schema accent color");
 
-export const resolveEntitySchemaSlug = (
-	input: Pick<CreateEntitySchemaBody, "name" | "slug">,
-) => {
+export const resolveEntitySchemaSlug = (input: Pick<CreateEntitySchemaBody, "name" | "slug">) => {
 	return resolveRequiredSlug({
 		name: input.name,
 		slug: input.slug,
@@ -126,9 +105,7 @@ export const resolveEntitySchemaSlug = (
 	});
 };
 
-export const parseEntitySchemaPropertiesSchema = (
-	input: unknown,
-): EntitySchemaPropertiesShape => {
+export const parseEntitySchemaPropertiesSchema = (input: unknown): EntitySchemaPropertiesShape => {
 	return parseLabeledPropertySchemaInput(
 		input,
 		"Entity schema properties",
@@ -140,9 +117,7 @@ export const validateSlugNotReserved = (slug: string): void => {
 	const reservedSlugs = builtinEntitySchemas.map((s) => s.slug);
 
 	if (reservedSlugs.includes(slug)) {
-		throw new Error(
-			`Entity schema slug "${slug}" is reserved for built-in schemas`,
-		);
+		throw new Error(`Entity schema slug "${slug}" is reserved for built-in schemas`);
 	}
 };
 
@@ -153,18 +128,14 @@ export const resolveEntitySchemaCreateInput = (
 	const name = resolveEntitySchemaName(input.name);
 	const slug = resolveEntitySchemaSlug({ name, slug: input.slug });
 	const accentColor = resolveEntitySchemaAccentColor(input.accentColor);
-	const propertiesSchema = parseEntitySchemaPropertiesSchema(
-		input.propertiesSchema,
-	);
+	const propertiesSchema = parseEntitySchemaPropertiesSchema(input.propertiesSchema);
 
 	validateSlugNotReserved(slug);
 
 	return { icon, name, slug, accentColor, propertiesSchema };
 };
 
-const resolveEntitySchemaCreateInputResult = (
-	input: Omit<CreateEntitySchemaBody, "trackerId">,
-) =>
+const resolveEntitySchemaCreateInputResult = (input: Omit<CreateEntitySchemaBody, "trackerId">) =>
 	wrapServiceValidator(
 		() => resolveEntitySchemaCreateInput(input),
 		"Entity schema payload is invalid",
@@ -210,9 +181,7 @@ export const createEntitySchema = async (
 	input: { body: CreateEntitySchemaBody; userId: string },
 	deps: EntitySchemaServiceDeps = entitySchemaServiceDeps,
 ): Promise<EntitySchemaServiceResult<ListedEntitySchema>> => {
-	const trackerIdResult = resolveEntitySchemaTrackerIdResult(
-		input.body.trackerId,
-	);
+	const trackerIdResult = resolveEntitySchemaTrackerIdResult(input.body.trackerId);
 	if ("error" in trackerIdResult) {
 		return trackerIdResult;
 	}
@@ -339,13 +308,8 @@ type ImportQueueJob = {
 };
 
 export type EntityImportDeps = {
-	getJobFromQueue: (
-		jobId: string,
-	) => Promise<ImportQueueJob | null | undefined>;
-	addJobToQueue: (input: {
-		jobId: string;
-		payload: MediaImportJobData;
-	}) => Promise<void>;
+	getJobFromQueue: (jobId: string) => Promise<ImportQueueJob | null | undefined>;
+	addJobToQueue: (input: { jobId: string; payload: MediaImportJobData }) => Promise<void>;
 };
 
 const defaultEntityImportDeps: EntityImportDeps = {

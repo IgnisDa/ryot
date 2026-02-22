@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createAuthenticatedClient,
 	createEntity,
@@ -99,11 +100,7 @@ describe("POST /entities", () => {
 
 	it("creates a built-in workout entity through the generic entity endpoint", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaBySlug(
-			client,
-			cookies,
-			"workout",
-		);
+		const { schema } = await findBuiltinSchemaBySlug(client, cookies, "workout");
 
 		const entity = await createEntity(client, cookies, {
 			image: null,
@@ -170,11 +167,7 @@ describe("POST /entities", () => {
 
 describe("GET /entities/:id — global entity read access", () => {
 	it("returns 200 for the importing user and for a second user who never imported", async () => {
-		const {
-			userId,
-			client: clientA,
-			cookies: cookiesA,
-		} = await createAuthenticatedClient();
+		const { userId, client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(clientA, cookiesA);
 		const providerScriptId = getFirstProviderScriptId(schema);
 
@@ -198,8 +191,7 @@ describe("GET /entities/:id — global entity read access", () => {
 		});
 		expect(responseA.status).toBe(200);
 
-		const { client: clientB, cookies: cookiesB } =
-			await createAuthenticatedClient();
+		const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
 		const { response: responseB } = await clientB.GET("/entities/{entityId}", {
 			headers: { Cookie: cookiesB },
 			params: { path: { entityId } },

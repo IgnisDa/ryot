@@ -60,6 +60,7 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
+
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useCoreDetails,
@@ -70,8 +71,10 @@ import {
 import { clientGqlService, queryClient } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { FitnessEntity } from "~/lib/types";
-import classes from "~/styles/preferences.module.css";
+
 import type { Route } from "./+types/_dashboard.settings.preferences";
+
+import classes from "~/styles/preferences.module.css";
 
 const EDITABLE_NUM_DAYS_AHEAD = [DashboardElementLot.Upcoming];
 const EDITABLE_DEDUPLICATE_MEDIA = [DashboardElementLot.Upcoming];
@@ -99,9 +102,10 @@ const updateCollectionInArray = <T extends { lot: unknown; values: string[] }>(
 
 type MeasurementStatistic = { name: string; unit?: string | null };
 
-const addMeasurementStatistic = (
-	statistics: MeasurementStatistic[],
-): MeasurementStatistic[] => [...statistics, { name: "<name>" }];
+const addMeasurementStatistic = (statistics: MeasurementStatistic[]): MeasurementStatistic[] => [
+	...statistics,
+	{ name: "<name>" },
+];
 
 const updateMeasurementStatistic = (
 	statistics: MeasurementStatistic[],
@@ -122,10 +126,7 @@ const removeMeasurementStatistic = (
 	return newStats;
 };
 
-const reorder = <T,>(
-	array: Array<T>,
-	details: { from: number; to: number },
-) => {
+const reorder = <T,>(array: Array<T>, details: { from: number; to: number }) => {
 	const cloned = [...array];
 	const item = array[details.from];
 	cloned.splice(details.from, 1);
@@ -138,7 +139,7 @@ const searchSchema = z.object({
 });
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	// biome-ignore lint/suspicious/noExplicitAny: can't use correct types here
+	// oxlint-disable-next-line typescript/no-explicit-any
 	const userPreferenceLandingPaths: any = [
 		{ label: "Dashboard", value: $path("/") },
 		{ label: "Analytics", value: $path("/analytics") },
@@ -185,9 +186,7 @@ export default function Page() {
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const loaderData = useLoaderData<typeof loader>();
-	const [defaultTab, setDefaultTab] = useState(
-		loaderData.query.defaultTab || "dashboard",
-	);
+	const [defaultTab, setDefaultTab] = useState(loaderData.query.defaultTab || "dashboard");
 	const dashboardData = useDashboardLayoutData();
 	const invalidateUserDetails = useInvalidateUserDetails();
 	const isEditDisabled = dashboardData.isDemoInstance;
@@ -199,10 +198,7 @@ export default function Page() {
 			await clientGqlService.request(UpdateUserPreferenceDocument, {
 				input: values,
 			});
-			await Promise.all([
-				invalidateUserDetails(),
-				queryClient.invalidateQueries(),
-			]);
+			await Promise.all([invalidateUserDetails(), queryClient.invalidateQueries()]);
 		},
 		onSuccess: () => {
 			notifications.show({
@@ -216,11 +212,7 @@ export default function Page() {
 
 	return (
 		<Container size="xs">
-			<form
-				onSubmit={form.onSubmit((values) =>
-					updateUserPreferencesMutation.mutate(values),
-				)}
-			>
+			<form onSubmit={form.onSubmit((values) => updateUserPreferencesMutation.mutate(values))}>
 				<Stack>
 					<Group justify="space-between" align="center">
 						<Title>Preferences</Title>
@@ -266,8 +258,8 @@ export default function Page() {
 						</Tabs.List>
 						<Tabs.Panel value="dashboard">
 							<Text mb="md">
-								The different sections on the dashboard. Drag and drop using the
-								handle to re-arrange them.
+								The different sections on the dashboard. Drag and drop using the handle to
+								re-arrange them.
 							</Text>
 							<DragDropContext
 								onDragEnd={({ destination, source }) => {
@@ -303,53 +295,49 @@ export default function Page() {
 						<Tabs.Panel value="features">
 							<Stack>
 								<Text>Features that you want to use.</Text>
-								{(["media", "fitness", "analytics", "others"] as const).map(
-									(facet) => {
-										const entries = Object.entries(
-											form.values.featuresEnabled[facet],
-										);
+								{(["media", "fitness", "analytics", "others"] as const).map((facet) => {
+									const entries = Object.entries(form.values.featuresEnabled[facet]);
 
-										return (
-											<Fragment key={facet}>
-												<Title order={4}>{startCase(facet)}</Title>
-												<SimpleGrid cols={2}>
-													{entries.map(([name, isEnabled]) =>
-														isBoolean(isEnabled) ? (
-															<Switch
-																key={name}
-																size="xs"
-																checked={isEnabled}
-																disabled={!!isEditDisabled}
-																label={changeCase(snakeCase(name))}
-																onChange={(ev) => {
-																	form.setFieldValue(
-																		`featuresEnabled.${facet}.${name}`,
-																		ev.currentTarget.checked,
-																	);
-																}}
-															/>
-														) : null,
-													)}
-												</SimpleGrid>
-												{facet === "media" ? (
-													<MultiSelect
-														disabled={!!isEditDisabled}
-														data={convertEnumToSelectData(MediaLot)}
-														value={form.values.featuresEnabled[facet].specific}
-														onChange={(val) => {
-															if (val) {
+									return (
+										<Fragment key={facet}>
+											<Title order={4}>{startCase(facet)}</Title>
+											<SimpleGrid cols={2}>
+												{entries.map(([name, isEnabled]) =>
+													isBoolean(isEnabled) ? (
+														<Switch
+															key={name}
+															size="xs"
+															checked={isEnabled}
+															disabled={!!isEditDisabled}
+															label={changeCase(snakeCase(name))}
+															onChange={(ev) => {
 																form.setFieldValue(
-																	`featuresEnabled.${facet}.specific`,
-																	val as MediaLot[],
+																	`featuresEnabled.${facet}.${name}`,
+																	ev.currentTarget.checked,
 																);
-															}
-														}}
-													/>
-												) : null}
-											</Fragment>
-										);
-									},
-								)}
+															}}
+														/>
+													) : null,
+												)}
+											</SimpleGrid>
+											{facet === "media" ? (
+												<MultiSelect
+													disabled={!!isEditDisabled}
+													data={convertEnumToSelectData(MediaLot)}
+													value={form.values.featuresEnabled[facet].specific}
+													onChange={(val) => {
+														if (val) {
+															form.setFieldValue(
+																`featuresEnabled.${facet}.specific`,
+																val as MediaLot[],
+															);
+														}
+													}}
+												/>
+											) : null}
+										</Fragment>
+									);
+								})}
 							</Stack>
 						</Tabs.Panel>
 						<Tabs.Panel value="general">
@@ -371,30 +359,15 @@ export default function Page() {
 											disabled={!!isEditDisabled}
 											checked={form.values.general[name]}
 											onChange={(ev) => {
-												form.setFieldValue(
-													`general.${name}`,
-													ev.currentTarget.checked,
-												);
+												form.setFieldValue(`general.${name}`, ev.currentTarget.checked);
 											}}
 											label={match(name)
-												.with(
-													"displayNsfw",
-													() => "Whether NSFW will be displayed",
-												)
-												.with(
-													"disableIntegrations",
-													() => "Disable all integrations",
-												)
-												.with(
-													"disableNavigationAnimation",
-													() => "Disable navigation animation",
-												)
+												.with("displayNsfw", () => "Whether NSFW will be displayed")
+												.with("disableIntegrations", () => "Disable all integrations")
+												.with("disableNavigationAnimation", () => "Disable navigation animation")
 												.with("disableVideos", () => "Do not display videos")
 												.with("disableReviews", () => "Do not display reviews")
-												.with(
-													"disableWatchProviders",
-													() => 'Do not display the "Watch On" tab',
-												)
+												.with("disableWatchProviders", () => 'Do not display the "Watch On" tab')
 												.exhaustive()}
 										/>
 									))}
@@ -417,8 +390,7 @@ export default function Page() {
 													});
 													return;
 												}
-												if (value)
-													form.setFieldValue("general.landingPath", value);
+												if (value) form.setFieldValue("general.landingPath", value);
 											}}
 										/>
 										<NumberInput
@@ -448,10 +420,7 @@ export default function Page() {
 											value={form.values.general.reviewScale}
 											onChange={(val) => {
 												if (val) {
-													form.setFieldValue(
-														"general.reviewScale",
-														val as UserReviewScale,
-													);
+													form.setFieldValue("general.reviewScale", val as UserReviewScale);
 												}
 											}}
 										/>
@@ -489,12 +458,10 @@ export default function Page() {
 							<Stack>
 								<Title order={4}>Providers</Title>
 								{Object.values(MediaSource).map((source) => {
-									const languagesForThisSource =
-										coreDetails.providerLanguages.find(
-											(l) => l.source === source,
-										);
-									if ((languagesForThisSource?.supported.length || 0) <= 1)
-										return null;
+									const languagesForThisSource = coreDetails.providerLanguages.find(
+										(l) => l.source === source,
+									);
+									if ((languagesForThisSource?.supported.length || 0) <= 1) return null;
 
 									invariant(languagesForThisSource);
 
@@ -507,18 +474,13 @@ export default function Page() {
 												disabled={!!isEditDisabled}
 												data={languagesForThisSource.supported}
 												value={
-													form.values.languages.providers.find(
-														(p) => p.source === source,
-													)?.preferredLanguage
+													form.values.languages.providers.find((p) => p.source === source)
+														?.preferredLanguage
 												}
 												onChange={(val) => {
 													if (val) {
-														const providers = [
-															...form.values.languages.providers,
-														];
-														const existingIndex = providers.findIndex(
-															(p) => p.source === source,
-														);
+														const providers = [...form.values.languages.providers];
+														const existingIndex = providers.findIndex((p) => p.source === source);
 														if (existingIndex !== -1) {
 															providers[existingIndex] = {
 																...providers[existingIndex],
@@ -552,10 +514,7 @@ export default function Page() {
 									value={form.values.fitness.exercises.unitSystem}
 									onChange={(val) => {
 										if (val) {
-											form.setFieldValue(
-												"fitness.exercises.unitSystem",
-												val as UserUnitSystem,
-											);
+											form.setFieldValue("fitness.exercises.unitSystem", val as UserUnitSystem);
 										}
 									}}
 								/>
@@ -564,62 +523,40 @@ export default function Page() {
 									description="When adding an exercise to your workout, these timer values will be used if you have not configured a rest timer for that exercise."
 								>
 									<SimpleGrid cols={{ base: 2, md: 4 }}>
-										{(["normal", "warmup", "drop", "failure"] as const).map(
-											(name) => {
-												const value =
-													form.values.fitness.exercises.setRestTimers[name];
-												return (
-													<NumberInput
-														suffix="s"
-														size="xs"
-														key={name}
-														disabled={!!isEditDisabled}
-														label={changeCase(snakeCase(name))}
-														value={isNumber(value) ? value : undefined}
-														onChange={(val) => {
-															if (isNumber(val)) {
-																form.setFieldValue(
-																	`fitness.exercises.setRestTimers.${name}`,
-																	val,
-																);
-															}
-														}}
-													/>
-												);
-											},
-										)}
+										{(["normal", "warmup", "drop", "failure"] as const).map((name) => {
+											const value = form.values.fitness.exercises.setRestTimers[name];
+											return (
+												<NumberInput
+													suffix="s"
+													size="xs"
+													key={name}
+													disabled={!!isEditDisabled}
+													label={changeCase(snakeCase(name))}
+													value={isNumber(value) ? value : undefined}
+													onChange={(val) => {
+														if (isNumber(val)) {
+															form.setFieldValue(`fitness.exercises.setRestTimers.${name}`, val);
+														}
+													}}
+												/>
+											);
+										})}
 									</SimpleGrid>
 								</Input.Wrapper>
 								<Divider />
 								<Title order={4}>Workout logging</Title>
 								{(
-									[
-										"muteSounds",
-										"promptForRestTimer",
-										"startTimerForDurationExercises",
-									] as const
+									["muteSounds", "promptForRestTimer", "startTimerForDurationExercises"] as const
 								).map((option) => {
-									const [label, isGatedBehindServerKeyValidation] = match(
-										option,
-									)
-										.with(
-											"muteSounds",
-											() => ["Mute all sounds for actions"] as const,
-										)
+									const [label, isGatedBehindServerKeyValidation] = match(option)
+										.with("muteSounds", () => ["Mute all sounds for actions"] as const)
 										.with(
 											"promptForRestTimer",
-											() =>
-												[
-													"Prompt for rest timer when confirming sets",
-													true,
-												] as const,
+											() => ["Prompt for rest timer when confirming sets", true] as const,
 										)
 										.with(
 											"startTimerForDurationExercises",
-											() =>
-												[
-													"Start timer for exercises where duration is set",
-												] as const,
+											() => ["Start timer for exercises where duration is set"] as const,
 										)
 										.exhaustive();
 
@@ -631,20 +568,14 @@ export default function Page() {
 											disabled={!!isEditDisabled}
 											checked={form.values.fitness.logging[option]}
 											onChange={(ev) => {
-												if (
-													isGatedBehindServerKeyValidation &&
-													!coreDetails.isServerKeyValidated
-												) {
+												if (isGatedBehindServerKeyValidation && !coreDetails.isServerKeyValidated) {
 													notifications.show({
 														color: "red",
 														message: PRO_REQUIRED_MESSAGE,
 													});
 													return;
 												}
-												form.setFieldValue(
-													`fitness.logging.${option}`,
-													ev.currentTarget.checked,
-												);
+												form.setFieldValue(`fitness.logging.${option}`, ev.currentTarget.checked);
 											}}
 										/>
 									);
@@ -657,18 +588,12 @@ export default function Page() {
 									value={form.values.fitness.logging.caloriesBurntUnit}
 									onChange={(val) => {
 										if (val) {
-											form.setFieldValue(
-												"fitness.logging.caloriesBurntUnit",
-												val.target.value,
-											);
+											form.setFieldValue("fitness.logging.caloriesBurntUnit", val.target.value);
 										}
 									}}
 								/>
 								<Divider />
-								<MeasurementsSection
-									form={form}
-									isEditDisabled={isEditDisabled}
-								/>
+								<MeasurementsSection form={form} isEditDisabled={isEditDisabled} />
 							</Stack>
 						</Tabs.Panel>
 					</Tabs>
@@ -693,9 +618,7 @@ const MeasurementsSection = (props: {
 				onClick={() =>
 					props.form.setFieldValue(
 						"fitness.measurements.statistics",
-						addMeasurementStatistic(
-							props.form.values.fitness.measurements.statistics,
-						),
+						addMeasurementStatistic(props.form.values.fitness.measurements.statistics),
 					)
 				}
 			>
@@ -703,19 +626,16 @@ const MeasurementsSection = (props: {
 			</Button>
 		</Group>
 		<Text size="xs" c="dimmed">
-			Removing a measurement will hide its past values from history. If you add
-			it again, those values will show back up.
+			Removing a measurement will hide its past values from history. If you add it again, those
+			values will show back up.
 		</Text>
 		<DragDropContext
 			onDragEnd={({ destination, source }) => {
 				if (!props.isEditDisabled) {
-					const newOrder = reorder(
-						props.form.values.fitness.measurements.statistics,
-						{
-							from: source.index,
-							to: destination?.index || 0,
-						},
-					);
+					const newOrder = reorder(props.form.values.fitness.measurements.statistics, {
+						from: source.index,
+						to: destination?.index || 0,
+					});
 					props.form.setFieldValue("fitness.measurements.statistics", newOrder);
 				} else {
 					notifications.show(disabledNotificationContent);
@@ -725,108 +645,102 @@ const MeasurementsSection = (props: {
 			<Droppable droppableId="measurements-list">
 				{(provided) => (
 					<Stack gap="xs" {...provided.droppableProps} ref={provided.innerRef}>
-						{props.form.values.fitness.measurements.statistics.map(
-							(s, index) => (
-								<Draggable
-									index={index}
-									key={`measurement-${
-										// biome-ignore lint/suspicious/noArrayIndexKey: index is unique
-										index
-									}`}
-									draggableId={`measurement-${index}`}
-								>
-									{(provided, snapshot) => (
-										<Paper
-											p="xs"
-											withBorder
-											ref={provided.innerRef}
-											{...provided.draggableProps}
-											className={cn({
-												[classes.itemDragging]: snapshot.isDragging,
-											})}
-										>
-											<Group wrap="nowrap">
-												<div
-													{...provided.dragHandleProps}
+						{props.form.values.fitness.measurements.statistics.map((s, index) => (
+							<Draggable
+								index={index}
+								key={`measurement-${
+									// oxlint-disable-next-line react/no-array-index-key
+									index
+								}`}
+								draggableId={`measurement-${index}`}
+							>
+								{(provided, snapshot) => (
+									<Paper
+										p="xs"
+										withBorder
+										ref={provided.innerRef}
+										{...provided.draggableProps}
+										className={cn({
+											[classes.itemDragging]: snapshot.isDragging,
+										})}
+									>
+										<Group wrap="nowrap">
+											<div
+												{...provided.dragHandleProps}
+												style={{
+													height: "100%",
+													cursor: "grab",
+													display: "flex",
+													alignItems: "center",
+												}}
+											>
+												<IconGripVertical
+													stroke={1.5}
 													style={{
-														height: "100%",
-														cursor: "grab",
-														display: "flex",
-														alignItems: "center",
+														width: rem(18),
+														height: rem(18),
 													}}
-												>
-													<IconGripVertical
-														stroke={1.5}
-														style={{
-															width: rem(18),
-															height: rem(18),
-														}}
-													/>
-												</div>
-												<TextInput
-													size="xs"
-													label="Name"
-													value={s.name}
-													disabled={!!props.isEditDisabled}
-													onChange={(val) =>
-														props.form.setFieldValue(
-															"fitness.measurements.statistics",
-															updateMeasurementStatistic(
-																props.form.values.fitness.measurements
-																	.statistics,
-																index,
-																{ name: val.target.value },
-															),
-														)
-													}
 												/>
-												<TextInput
-													size="xs"
-													label="Unit"
-													value={s.unit || undefined}
-													disabled={!!props.isEditDisabled}
-													onChange={(val) =>
-														props.form.setFieldValue(
-															"fitness.measurements.statistics",
-															updateMeasurementStatistic(
-																props.form.values.fitness.measurements
-																	.statistics,
-																index,
-																{ unit: val.target.value },
-															),
-														)
-													}
-												/>
-												<ActionIcon
-													mt={14}
-													size="xs"
-													color="red"
-													type="button"
-													variant="outline"
-													disabled={
-														!!props.isEditDisabled ||
-														props.form.values.fitness.measurements.statistics
-															.length === 1
-													}
-													onClick={() =>
-														props.form.setFieldValue(
-															"fitness.measurements.statistics",
-															removeMeasurementStatistic(
-																props.form.values.fitness.measurements
-																	.statistics,
-																index,
-															),
-														)
-													}
-												>
-													<IconMinus />
-												</ActionIcon>
-											</Group>
-										</Paper>
-									)}
-								</Draggable>
-							),
-						)}
+											</div>
+											<TextInput
+												size="xs"
+												label="Name"
+												value={s.name}
+												disabled={!!props.isEditDisabled}
+												onChange={(val) =>
+													props.form.setFieldValue(
+														"fitness.measurements.statistics",
+														updateMeasurementStatistic(
+															props.form.values.fitness.measurements.statistics,
+															index,
+															{ name: val.target.value },
+														),
+													)
+												}
+											/>
+											<TextInput
+												size="xs"
+												label="Unit"
+												value={s.unit || undefined}
+												disabled={!!props.isEditDisabled}
+												onChange={(val) =>
+													props.form.setFieldValue(
+														"fitness.measurements.statistics",
+														updateMeasurementStatistic(
+															props.form.values.fitness.measurements.statistics,
+															index,
+															{ unit: val.target.value },
+														),
+													)
+												}
+											/>
+											<ActionIcon
+												mt={14}
+												size="xs"
+												color="red"
+												type="button"
+												variant="outline"
+												disabled={
+													!!props.isEditDisabled ||
+													props.form.values.fitness.measurements.statistics.length === 1
+												}
+												onClick={() =>
+													props.form.setFieldValue(
+														"fitness.measurements.statistics",
+														removeMeasurementStatistic(
+															props.form.values.fitness.measurements.statistics,
+															index,
+														),
+													)
+												}
+											>
+												<IconMinus />
+											</ActionIcon>
+										</Group>
+									</Paper>
+								)}
+							</Draggable>
+						))}
 						{provided.placeholder}
 					</Stack>
 				)}
@@ -872,20 +786,13 @@ const EditDashboardElement = (props: {
 									justifyContent: "center",
 								}}
 							>
-								<IconGripVertical
-									stroke={1.5}
-									style={{ width: rem(18), height: rem(18) }}
-								/>
+								<IconGripVertical stroke={1.5} style={{ width: rem(18), height: rem(18) }} />
 							</div>
 							<Text fw="bold" fz={{ md: "lg", lg: "xl" }}>
 								{changeCase(props.lot)}
 							</Text>
 						</Group>
-						<ActionIcon
-							color="gray"
-							variant="subtle"
-							onClick={() => setIsOpen(!isOpen)}
-						>
+						<ActionIcon color="gray" variant="subtle" onClick={() => setIsOpen(!isOpen)}>
 							<IconSettings size={20} />
 						</ActionIcon>
 					</Group>
@@ -896,9 +803,7 @@ const EditDashboardElement = (props: {
 								label="Hidden"
 								checked={focusedElement.hidden}
 								disabled={!!props.isEditDisabled}
-								onChange={(ev) =>
-									updateDashboardElement("hidden", ev.currentTarget.checked)
-								}
+								onChange={(ev) => updateDashboardElement("hidden", ev.currentTarget.checked)}
 							/>
 							{EDITABLE_DEDUPLICATE_MEDIA.includes(props.lot) ? (
 								<Switch
@@ -908,10 +813,7 @@ const EditDashboardElement = (props: {
 									checked={focusedElement.deduplicateMedia ?? undefined}
 									description="If there's more than one episode of a media, keep the first one"
 									onChange={(ev) =>
-										updateDashboardElement(
-											"deduplicateMedia",
-											ev.currentTarget.checked,
-										)
+										updateDashboardElement("deduplicateMedia", ev.currentTarget.checked)
 									}
 								/>
 							) : null}

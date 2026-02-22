@@ -1,4 +1,5 @@
 import { Box, Group, Paper, Stack, Text } from "@mantine/core";
+
 import { colorMix, getSectionBackground } from "../shared";
 
 interface SectionHeaderProps {
@@ -16,11 +17,7 @@ export function SectionHeader(props: SectionHeaderProps) {
 			<Stack gap={4}>
 				{props.eyebrow ? (
 					<Group gap={8}>
-						<Box
-							h={2}
-							w={18}
-							style={{ borderRadius: 999, backgroundColor: props.accentColor }}
-						/>
+						<Box h={2} w={18} style={{ borderRadius: 999, backgroundColor: props.accentColor }} />
 						<Text
 							fz={10}
 							fw={700}

@@ -1,12 +1,7 @@
 import { cn } from "@ryot/ts-utils";
 import { OTPInput, OTPInputContext } from "input-otp";
 import { Dot } from "lucide-react";
-import {
-	type ComponentPropsWithoutRef,
-	type ComponentRef,
-	forwardRef,
-	useContext,
-} from "react";
+import { type ComponentPropsWithoutRef, type ComponentRef, forwardRef, useContext } from "react";
 
 const InputOTP = forwardRef<
 	ComponentRef<typeof OTPInput>,
@@ -16,10 +11,7 @@ const InputOTP = forwardRef<
 	return (
 		<OTPInput
 			ref={ref}
-			containerClassName={cn(
-				"flex items-center gap-2 has-disabled:opacity-50",
-				containerClassName,
-			)}
+			containerClassName={cn("flex items-center gap-2 has-disabled:opacity-50", containerClassName)}
 			className={cn("disabled:cursor-not-allowed", className)}
 			{...rest}
 		/>
@@ -27,15 +19,12 @@ const InputOTP = forwardRef<
 });
 InputOTP.displayName = "InputOTP";
 
-const InputOTPGroup = forwardRef<
-	ComponentRef<"div">,
-	ComponentPropsWithoutRef<"div">
->((props, ref) => {
-	const { className, ...rest } = props;
-	return (
-		<div ref={ref} className={cn("flex items-center", className)} {...rest} />
-	);
-});
+const InputOTPGroup = forwardRef<ComponentRef<"div">, ComponentPropsWithoutRef<"div">>(
+	(props, ref) => {
+		const { className, ...rest } = props;
+		return <div ref={ref} className={cn("flex items-center", className)} {...rest} />;
+	},
+);
 InputOTPGroup.displayName = "InputOTPGroup";
 
 const InputOTPSlot = forwardRef<
@@ -67,14 +56,13 @@ const InputOTPSlot = forwardRef<
 });
 InputOTPSlot.displayName = "InputOTPSlot";
 
-const InputOTPSeparator = forwardRef<
-	ComponentRef<"div">,
-	ComponentPropsWithoutRef<"div">
->((props, ref) => (
-	<div ref={ref} {...props} aria-hidden>
-		<Dot />
-	</div>
-));
+const InputOTPSeparator = forwardRef<ComponentRef<"div">, ComponentPropsWithoutRef<"div">>(
+	(props, ref) => (
+		<div ref={ref} {...props} aria-hidden>
+			<Dot />
+		</div>
+	),
+);
 InputOTPSeparator.displayName = "InputOTPSeparator";
 
 export { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot };

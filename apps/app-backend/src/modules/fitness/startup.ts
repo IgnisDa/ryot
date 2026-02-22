@@ -1,8 +1,10 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
+
 import { db } from "~/lib/db";
 import { entity } from "~/lib/db/schema";
 import { getQueues } from "~/lib/queue";
 import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas/repository";
+
 import { exerciseSeedJobName } from "./jobs";
 
 const expectedBuiltinExerciseSeedCount = 873;

@@ -7,10 +7,7 @@ export interface ResolveNextSlugInput {
 }
 
 export const resolveNextSlug = (input: ResolveNextSlugInput) => {
-	if (
-		input.slug.trim() !== "" &&
-		input.slug.trim() !== input.previousDerivedSlug?.trim()
-	) {
+	if (input.slug.trim() !== "" && input.slug.trim() !== input.previousDerivedSlug?.trim()) {
 		return input.slug;
 	}
 
@@ -28,8 +25,7 @@ export function syncSlugOnNameChange(props: {
 	previousDerivedSlug: string;
 }) {
 	const slug = props.form.getFieldValue("slug");
-	const isAutoDerivedSlug =
-		slug.trim() === "" || slug.trim() === props.previousDerivedSlug.trim();
+	const isAutoDerivedSlug = slug.trim() === "" || slug.trim() === props.previousDerivedSlug.trim();
 	const nextSlug = resolveNextSlug({
 		slug,
 		name: props.name,

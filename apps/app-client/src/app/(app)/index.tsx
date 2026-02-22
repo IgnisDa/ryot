@@ -1,6 +1,7 @@
 import { dayjs } from "@ryot/ts-utils";
 import { Plus } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { PageHeader } from "@/components/shell/page-header";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonIcon, ButtonText } from "@/components/ui/button";
@@ -14,10 +15,7 @@ export default function HomeScreen() {
 	if (isLoading) {
 		const today = dayjs();
 		return (
-			<PageHeader
-				title={today.format("dddd")}
-				eyebrow={`Today · ${today.format("DD MMM")}`}
-			/>
+			<PageHeader title={today.format("dddd")} eyebrow={`Today · ${today.format("DD MMM")}`} />
 		);
 	}
 
@@ -33,8 +31,7 @@ export default function HomeScreen() {
 							{"Your journal\nis empty."}
 						</Text>
 						<Text className="text-[15px] mt-[18] leading-5.5 text-muted-foreground font-sans text-center">
-							Add your first tracker to start.{"\n"}Built-in: Media, Fitness. Or
-							build your own.
+							Add your first tracker to start.{"\n"}Built-in: Media, Fitness. Or build your own.
 						</Text>
 						<Button className="mt-9 rounded" size="lg">
 							<ButtonIcon as={Plus} />
@@ -49,10 +46,7 @@ export default function HomeScreen() {
 	const today = dayjs();
 
 	return (
-		<PageHeader
-			title={today.format("dddd")}
-			eyebrow={`Today · ${today.format("DD MMM")}`}
-		>
+		<PageHeader title={today.format("dddd")} eyebrow={`Today · ${today.format("DD MMM")}`}>
 			<Box className="gap-[14] mt-[16]">
 				<Box className="h-[100] bg-stone-200 opacity-100" />
 				<Box className="h-[100] bg-stone-200 opacity-70" />

@@ -9,27 +9,19 @@ import { RESET } from "jotai/utils";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
+
 import { displayWeightWithUnit } from "~/components/fitness/utils";
 import {
 	useApplicationEvents,
 	useDeleteS3AssetMutation,
 	useUserUnitSystem,
 } from "~/lib/shared/hooks";
-import {
-	clientGqlService,
-	queryClient,
-	queryFactory,
-} from "~/lib/shared/react-query";
+import { clientGqlService, queryClient, queryFactory } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
-import {
-	currentWorkoutToCreateWorkoutInput,
-	useCurrentWorkout,
-} from "~/lib/state/fitness";
-import {
-	OnboardingTourStepTarget,
-	useOnboardingTour,
-} from "~/lib/state/onboarding-tour";
+import { currentWorkoutToCreateWorkoutInput, useCurrentWorkout } from "~/lib/state/fitness";
+import { OnboardingTourStepTarget, useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { FitnessAction, FitnessEntity } from "~/lib/types";
+
 import { NameAndOtherInputs } from "./miscellaneous";
 import { RestTimer, WorkoutDurationTimer } from "./rest-timer";
 import { StatDisplay } from "./stat-display-and-input";
@@ -97,8 +89,7 @@ export function WorkoutHeader(props: HeaderProps) {
 								.flatMap((e) => e.sets)
 								.flatMap((s) =>
 									props.loaderData.isCreatingTemplate || s.confirmedAt
-										? Number(s.statistic.reps || 0) *
-											Number(s.statistic.weight || 0)
+										? Number(s.statistic.reps || 0) * Number(s.statistic.weight || 0)
 										: 0,
 								),
 						).toFixed(),
@@ -109,9 +100,7 @@ export function WorkoutHeader(props: HeaderProps) {
 					value={sum(
 						currentWorkout.exercises
 							.flatMap((e) => e.sets)
-							.flatMap((s) =>
-								props.loaderData.isCreatingTemplate || s.confirmedAt ? 1 : 0,
-							),
+							.flatMap((s) => (props.loaderData.isCreatingTemplate || s.confirmedAt ? 1 : 0)),
 					).toString()}
 				/>
 			</Group>
@@ -180,9 +169,8 @@ export function WorkoutHeader(props: HeaderProps) {
 									);
 									for (const exercise of currentWorkout.exercises) {
 										queryClient.removeQueries({
-											queryKey: queryFactory.fitness.userExerciseDetails(
-												exercise.exerciseId,
-											).queryKey,
+											queryKey: queryFactory.fitness.userExerciseDetails(exercise.exerciseId)
+												.queryKey,
 										});
 									}
 									props.stopTimer();
@@ -192,10 +180,7 @@ export function WorkoutHeader(props: HeaderProps) {
 										)
 											.with(true, () =>
 												clientGqlService
-													.request(
-														CreateOrUpdateUserWorkoutTemplateDocument,
-														input,
-													)
+													.request(CreateOrUpdateUserWorkoutTemplateDocument, input)
 													.then((c) => [
 														c.createOrUpdateUserWorkoutTemplate,
 														FitnessEntity.Templates,
@@ -204,10 +189,7 @@ export function WorkoutHeader(props: HeaderProps) {
 											.with(false, () =>
 												clientGqlService
 													.request(CreateOrUpdateUserWorkoutDocument, input)
-													.then((c) => [
-														c.createOrUpdateUserWorkout,
-														FitnessEntity.Workouts,
-													]),
+													.then((c) => [c.createOrUpdateUserWorkout, FitnessEntity.Workouts]),
 											)
 											.exhaustive();
 										if (props.loaderData.action === FitnessAction.LogWorkout)
@@ -230,8 +212,7 @@ export function WorkoutHeader(props: HeaderProps) {
 							);
 						}}
 					>
-						{props.loaderData.isCreatingTemplate ||
-						props.loaderData.isUpdatingWorkout
+						{props.loaderData.isCreatingTemplate || props.loaderData.isUpdatingWorkout
 							? "Save"
 							: "Finish"}
 					</Button>

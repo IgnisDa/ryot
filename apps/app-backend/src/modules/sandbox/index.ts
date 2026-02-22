@@ -1,7 +1,4 @@
-export {
-	getBuiltinSandboxScriptBySlug,
-	getSandboxScriptForUser,
-} from "./repository";
+export { getBuiltinSandboxScriptBySlug, getSandboxScriptForUser } from "./repository";
 export type {
 	CreateSandboxScriptBody,
 	EnqueueSandboxBody,
@@ -16,11 +13,7 @@ export {
 	sandboxJobParams,
 	sandboxPendingResultSchema,
 } from "./schemas";
-export type {
-	SandboxScriptServiceDeps,
-	SandboxServiceDeps,
-	SandboxServiceResult,
-} from "./service";
+export type { SandboxScriptServiceDeps, SandboxServiceDeps, SandboxServiceResult } from "./service";
 export {
 	createSandboxScript,
 	enqueueSandbox,

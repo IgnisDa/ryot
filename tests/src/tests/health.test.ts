@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import { getBackendClient } from "../setup";
 
 describe("Health endpoint", () => {

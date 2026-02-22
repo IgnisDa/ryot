@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
+
 import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
@@ -8,6 +9,7 @@ import {
 	jsonBody,
 } from "~/lib/openapi";
 import { sandboxJobParams } from "~/modules/sandbox";
+
 import {
 	createEntitySchemaBody,
 	createEntitySchemaResponseSchema,
@@ -112,8 +114,7 @@ const enqueueEntitySearchRoute = createAuthRoute(
 		path: "/search",
 		tags: ["entity-schemas"],
 		request: { body: jsonBody(entitySearchBody) },
-		summary:
-			"Enqueue an entity search using the search driver of a sandbox script",
+		summary: "Enqueue an entity search using the search driver of a sandbox script",
 		responses: createStandardResponses({
 			successSchema: entitySearchResponseSchema,
 			notFoundDescription: "Sandbox script not found",

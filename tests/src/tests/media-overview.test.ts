@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
 import { dayjs } from "@ryot/ts-utils";
+
 import {
 	createAuthenticatedClient,
 	findBuiltinTracker,
@@ -17,14 +19,8 @@ async function createBuiltInMediaEvent(input: {
 	eventSchemaSlug: "backlog" | "progress" | "complete" | "review";
 	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"];
 }) {
-	const eventSchemas = await listEventSchemas(
-		input.client,
-		input.cookies,
-		input.entitySchemaId,
-	);
-	const eventSchema = eventSchemas.find(
-		(item) => item.slug === input.eventSchemaSlug,
-	);
+	const eventSchemas = await listEventSchemas(input.client, input.cookies, input.entitySchemaId);
+	const eventSchema = eventSchemas.find((item) => item.slug === input.eventSchemaSlug);
 	if (!eventSchema) {
 		throw new Error(`Missing built-in event schema '${input.eventSchemaSlug}'`);
 	}
@@ -50,12 +46,7 @@ async function createBuiltInMediaEvent(input: {
 		throw new Error(`Failed to create '${input.eventSchemaSlug}' event`);
 	}
 
-	await waitForEventCount(
-		input.client,
-		input.cookies,
-		input.entityId,
-		beforeCount + 1,
-	);
+	await waitForEventCount(input.client, input.cookies, input.entityId, beforeCount + 1);
 }
 
 describe("GET /media/overview/continue", () => {
@@ -176,9 +167,7 @@ describe("GET /media/overview/continue", () => {
 		expect(response.status).toBe(200);
 		expect(data?.data).toBeDefined();
 
-		const continueItem = data?.data.items.find(
-			(item) => item.id === testBook.id,
-		);
+		const continueItem = data?.data.items.find((item) => item.id === testBook.id);
 		expect(continueItem).toBeDefined();
 
 		const progressAt = (continueItem as { progressAt?: string })?.progressAt;
@@ -288,9 +277,7 @@ describe("GET /media/overview/up-next", () => {
 		});
 		expect(upNextResponse.response.status).toBe(200);
 		expect(
-			upNextResponse.data?.data.items.find(
-				(item) => item.id === completedAnime.id,
-			),
+			upNextResponse.data?.data.items.find((item) => item.id === completedAnime.id),
 		).toBeUndefined();
 
 		const reviewResponse = await client.GET("/media/overview/review", {
@@ -298,9 +285,7 @@ describe("GET /media/overview/up-next", () => {
 		});
 		expect(reviewResponse.response.status).toBe(200);
 		expect(
-			reviewResponse.data?.data.items.find(
-				(item) => item.id === completedAnime.id,
-			),
+			reviewResponse.data?.data.items.find((item) => item.id === completedAnime.id),
 		).toBeDefined();
 	});
 
@@ -344,9 +329,7 @@ describe("GET /media/overview/up-next", () => {
 
 		expect(response.status).toBe(200);
 
-		const upNextItem = data?.data.items.find(
-			(item) => item.id === testAnime.id,
-		);
+		const upNextItem = data?.data.items.find((item) => item.id === testAnime.id);
 		expect(upNextItem).toBeDefined();
 
 		const backlogAt = upNextItem?.backlogAt;
@@ -483,9 +466,7 @@ describe("GET /media/overview/activity", () => {
 		expect(response.status).toBe(200);
 		expect(data?.data).toBeDefined();
 		const reviewedItem = data?.data.items.find(
-			(item) =>
-				item.eventSchemaSlug === "review" &&
-				item.entity.name === "Recent Activity Manga",
+			(item) => item.eventSchemaSlug === "review" && item.entity.name === "Recent Activity Manga",
 		);
 		expect(reviewedItem).toMatchObject({
 			rating: 4,

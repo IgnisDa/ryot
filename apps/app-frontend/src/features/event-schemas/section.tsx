@@ -1,19 +1,11 @@
-import {
-	Button,
-	Center,
-	Code,
-	Group,
-	Loader,
-	Modal,
-	Paper,
-	Stack,
-	Text,
-} from "@mantine/core";
+import { Button, Center, Code, Group, Loader, Modal, Paper, Stack, Text } from "@mantine/core";
+
 import { FormError } from "~/components/PageStates";
 import { SectionHeader } from "~/components/SectionHeader";
 import type { AppEntitySchema } from "~/features/entity-schemas/model";
 import { createFormSubmitHandler } from "~/hooks/forms";
 import { useModalForm } from "~/hooks/modal-form";
+
 import type { CreateEventSchemaPayload } from "./form";
 import { useEventSchemaMutations, useEventSchemasQuery } from "./hooks";
 import { getEntityEventSchemaViewState } from "./model";
@@ -26,9 +18,7 @@ function EventSchemaList(props: {
 	return (
 		<Stack gap="xs">
 			{props.eventSchemas.map((eventSchema) => {
-				const propertyCount = Object.keys(
-					eventSchema.propertiesSchema.fields,
-				).length;
+				const propertyCount = Object.keys(eventSchema.propertiesSchema.fields).length;
 
 				return (
 					<Paper p="sm" withBorder radius="md" key={eventSchema.id}>
@@ -38,8 +28,7 @@ function EventSchemaList(props: {
 								<Code>{eventSchema.slug}</Code>
 							</Stack>
 							<Text c="dimmed" size="sm">
-								{propertyCount}{" "}
-								{propertyCount === 1 ? "property" : "properties"}
+								{propertyCount} {propertyCount === 1 ? "property" : "properties"}
 							</Text>
 						</Group>
 					</Paper>
@@ -76,10 +65,7 @@ export function CreateEventSchemaModal(props: {
 					<Stack gap="md">
 						<FormError message={props.errorMessage} />
 
-						<eventSchemaForm.AppField
-							name="name"
-							listeners={eventSchemaForm.nameFieldListeners}
-						>
+						<eventSchemaForm.AppField name="name" listeners={eventSchemaForm.nameFieldListeners}>
 							{(field) => (
 								<field.TextField
 									required
@@ -100,10 +86,7 @@ export function CreateEventSchemaModal(props: {
 							)}
 						</eventSchemaForm.AppField>
 
-						<EventSchemaPropertiesBuilder
-							form={eventSchemaForm}
-							isLoading={props.isLoading}
-						/>
+						<EventSchemaPropertiesBuilder form={eventSchemaForm} isLoading={props.isLoading} />
 
 						<Group justify="flex-end" gap="md">
 							<Button
@@ -130,9 +113,7 @@ export function CreateEventSchemaModal(props: {
 export function EventSchemasSection(props: { entitySchema: AppEntitySchema }) {
 	const eventSchemasQuery = useEventSchemasQuery(props.entitySchema.id);
 	const eventSchemaMutations = useEventSchemaMutations(props.entitySchema.id);
-	const viewState = getEntityEventSchemaViewState(
-		eventSchemasQuery.eventSchemas,
-	);
+	const viewState = getEntityEventSchemaViewState(eventSchemasQuery.eventSchemas);
 	const createModal = useModalForm((payload: CreateEventSchemaPayload) =>
 		eventSchemaMutations.create.mutateAsync({ body: payload }),
 	);
@@ -158,11 +139,7 @@ export function EventSchemasSection(props: { entitySchema: AppEntitySchema }) {
 					<Stack gap="xs">
 						<FormError message="Failed to load event schemas." />
 						<Group>
-							<Button
-								size="xs"
-								variant="light"
-								onClick={() => eventSchemasQuery.refetch()}
-							>
+							<Button size="xs" variant="light" onClick={() => eventSchemasQuery.refetch()}>
 								Retry
 							</Button>
 						</Group>

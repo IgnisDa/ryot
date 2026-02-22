@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+
 import { dataSchema, itemDataSchema, listDataSchema } from "~/lib/openapi";
 import {
 	createIdParamsSchema,
@@ -15,16 +16,14 @@ import {
 	sandboxFailedResultSchema,
 	sandboxPendingResultSchema,
 } from "~/modules/sandbox";
+
 import { createLabeledPropertySchemas } from "../property-schemas/schemas";
 
-const entitySchemaProperties = createLabeledPropertySchemas(
-	"Entity schema properties",
-);
+const entitySchemaProperties = createLabeledPropertySchemas("Entity schema properties");
 
 export const entitySchemaPropertiesObjectSchema = entitySchemaProperties.schema;
 
-export const entitySchemaPropertiesInputSchema =
-	entitySchemaProperties.inputSchema;
+export const entitySchemaPropertiesInputSchema = entitySchemaProperties.inputSchema;
 
 export const providerSchema = z.object({
 	name: z.string(),
@@ -42,13 +41,9 @@ export const listedEntitySchemaSchema = z.object({
 	...iconAndAccentColorFields,
 });
 
-export const listEntitySchemasResponseSchema = listDataSchema(
-	listedEntitySchemaSchema,
-);
+export const listEntitySchemasResponseSchema = listDataSchema(listedEntitySchemaSchema);
 
-export const createEntitySchemaResponseSchema = itemDataSchema(
-	listedEntitySchemaSchema,
-);
+export const createEntitySchemaResponseSchema = itemDataSchema(listedEntitySchemaSchema);
 
 export const entitySchemaParams = createIdParamsSchema("entitySchemaId");
 
@@ -71,9 +66,7 @@ export const entitySearchBody = z.object({
 	context: stringUnknownRecordSchema.optional(),
 });
 
-export const entitySearchResponseSchema = dataSchema(
-	z.object({ jobId: nonEmptyStringSchema }),
-);
+export const entitySearchResponseSchema = dataSchema(z.object({ jobId: nonEmptyStringSchema }));
 
 export const entitySearchResultResponseSchema = dataSchema(
 	z.discriminatedUnion("status", [
@@ -89,9 +82,7 @@ export const importEntityBody = z.object({
 	entitySchemaId: nonEmptyStringSchema,
 });
 
-export const importEntityResponseSchema = dataSchema(
-	z.object({ jobId: nonEmptyStringSchema }),
-);
+export const importEntityResponseSchema = dataSchema(z.object({ jobId: nonEmptyStringSchema }));
 
 export const entityImportJobParams = createIdParamsSchema("jobId");
 
@@ -113,6 +104,4 @@ export type ImportEntityBody = z.infer<typeof importEntityBody>;
 export type EntitySearchBody = z.infer<typeof entitySearchBody>;
 export type ListedEntitySchema = z.infer<typeof listedEntitySchemaSchema>;
 export type CreateEntitySchemaBody = z.infer<typeof createEntitySchemaBody>;
-export type ImportEntityResult = z.infer<
-	typeof importEntityResultResponseSchema.shape.data
->;
+export type ImportEntityResult = z.infer<typeof importEntityResultResponseSchema.shape.data>;

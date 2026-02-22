@@ -14,8 +14,7 @@ export const MEDIA_DETAILS_HEIGHT = {
 	"4xl": "75vh",
 };
 
-export const applicationBaseUrl =
-	typeof window !== "undefined" ? window.location.origin : "";
+export const applicationBaseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
 declare global {
 	interface Window {

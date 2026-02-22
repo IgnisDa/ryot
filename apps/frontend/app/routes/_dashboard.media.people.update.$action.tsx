@@ -1,12 +1,4 @@
-import {
-	Button,
-	Container,
-	Group,
-	Stack,
-	Textarea,
-	TextInput,
-	Title,
-} from "@mantine/core";
+import { Button, Container, Group, Stack, Textarea, TextInput, Title } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import {
 	CreateCustomPersonDocument,
@@ -17,15 +9,14 @@ import { IconCalendar } from "@tabler/icons-react";
 import { useEffect } from "react";
 import { useLoaderData } from "react-router";
 import { z } from "zod";
-import {
-	CustomEntityImageInput,
-	ExistingImageList,
-} from "~/components/common/custom-entities";
+
+import { CustomEntityImageInput, ExistingImageList } from "~/components/common/custom-entities";
 import { useEntityCrud } from "~/lib/hooks/use-entity-crud";
 import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { useCoreDetails, usePersonDetails } from "~/lib/shared/hooks";
 import { buildImageAssets } from "~/lib/shared/image-utils";
 import { getPersonDetailsPath } from "~/lib/shared/media-utils";
+
 import type { Route } from "./+types/_dashboard.media.people.update.$action";
 
 enum Action {
@@ -40,10 +31,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ params, request }: Route.LoaderArgs) => {
-	const { action } = parseParameters(
-		params,
-		z.object({ action: z.enum(Action) }),
-	);
+	const { action } = parseParameters(params, z.object({ action: z.enum(Action) }));
 	const query = parseSearchQuery(request, searchParamsSchema);
 	return { query, action };
 };
@@ -87,9 +75,7 @@ export default function Page() {
 				if (!value || !values.birthDate) return null;
 				const birthDate = new Date(values.birthDate);
 				const deathDate = new Date(value);
-				return deathDate >= birthDate
-					? null
-					: "Death date cannot be before birth date";
+				return deathDate >= birthDate ? null : "Death date cannot be before birth date";
 			},
 		},
 	});
@@ -169,22 +155,10 @@ export default function Page() {
 
 	return (
 		<Container>
-			<form
-				onSubmit={form.onSubmit(handleSubmit)}
-				encType="multipart/form-data"
-			>
+			<form onSubmit={form.onSubmit(handleSubmit)} encType="multipart/form-data">
 				<Stack>
-					<Title>
-						{details?.details
-							? `Updating ${details.details.name}`
-							: "Create Person"}
-					</Title>
-					<TextInput
-						required
-						autoFocus
-						label="Name"
-						{...form.getInputProps("name")}
-					/>
+					<Title>{details?.details ? `Updating ${details.details.name}` : "Create Person"}</Title>
+					<TextInput required autoFocus label="Name" {...form.getInputProps("name")} />
 					<TextInput
 						label="Alternate Names"
 						placeholder="Comma separated names"
@@ -203,16 +177,9 @@ export default function Page() {
 							label="Birth date"
 							valueFormat="YYYY-MM-DD"
 							leftSection={<IconCalendar />}
-							value={
-								form.values.birthDate
-									? new Date(form.values.birthDate)
-									: undefined
-							}
+							value={form.values.birthDate ? new Date(form.values.birthDate) : undefined}
 							onChange={(d) =>
-								form.setFieldValue(
-									"birthDate",
-									d ? new Date(d).toISOString().slice(0, 10) : "",
-								)
+								form.setFieldValue("birthDate", d ? new Date(d).toISOString().slice(0, 10) : "")
 							}
 						/>
 						<DateInput
@@ -220,16 +187,9 @@ export default function Page() {
 							label="Death date"
 							valueFormat="YYYY-MM-DD"
 							leftSection={<IconCalendar />}
-							value={
-								form.values.deathDate
-									? new Date(form.values.deathDate)
-									: undefined
-							}
+							value={form.values.deathDate ? new Date(form.values.deathDate) : undefined}
 							onChange={(d) =>
-								form.setFieldValue(
-									"deathDate",
-									d ? new Date(d).toISOString().slice(0, 10) : "",
-								)
+								form.setFieldValue("deathDate", d ? new Date(d).toISOString().slice(0, 10) : "")
 							}
 						/>
 					</Group>
@@ -260,9 +220,7 @@ export default function Page() {
 							onRemove={(key) => {
 								form.setFieldValue(
 									"existingImages",
-									form.values.existingImages.filter(
-										(imageKey) => imageKey !== key,
-									),
+									form.values.existingImages.filter((imageKey) => imageKey !== key),
 								);
 							}}
 						/>

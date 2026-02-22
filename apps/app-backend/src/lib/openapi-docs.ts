@@ -1,6 +1,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+
 import openapiTS, { astToString } from "openapi-typescript";
+
 import { getAppBackendOpenApiDocument } from "../app/api";
 
 const generatedFileHeader = `/**
@@ -10,13 +12,8 @@ const generatedFileHeader = `/**
 
 `;
 
-export const generateOpenApiTypes = async (
-	outputPath: string,
-	origin: string,
-) => {
-	const document = JSON.parse(
-		JSON.stringify(getAppBackendOpenApiDocument(origin)),
-	);
+export const generateOpenApiTypes = async (outputPath: string, origin: string) => {
+	const document = JSON.parse(JSON.stringify(getAppBackendOpenApiDocument(origin)));
 	const ast = await openapiTS(document);
 	const contents = generatedFileHeader + astToString(ast);
 

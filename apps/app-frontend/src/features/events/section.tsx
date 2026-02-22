@@ -11,12 +11,14 @@ import {
 	Text,
 } from "@mantine/core";
 import { useMemo } from "react";
+
 import { FormError } from "~/components/PageStates";
 import { SectionHeader } from "~/components/SectionHeader";
 import type { AppEntity } from "~/features/entities/model";
 import { GeneratedPropertyField } from "~/features/generated-property-fields";
 import { createFormSubmitHandler } from "~/hooks/forms";
 import { useModalForm } from "~/hooks/modal-form";
+
 import type { AppEventSchema } from "../event-schemas/model";
 import {
 	buildEventSchemaSelectionPatch,
@@ -74,9 +76,7 @@ function EventList(props: {
 									{event.createdAt.toLocaleString()}
 								</Text>
 							</Group>
-							{properties.length > 0 && (
-								<Code block>{properties.join("\n")}</Code>
-							)}
+							{properties.length > 0 && <Code block>{properties.join("\n")}</Code>}
 						</Stack>
 					</Paper>
 				);
@@ -112,16 +112,11 @@ function LogEventForm(props: {
 	return (
 		<eventForm.Subscribe selector={(state) => state.values.eventSchemaId}>
 			{(eventSchemaId) => {
-				const selectedEventSchema = getSelectedEventSchema(
-					props.eventSchemas,
-					eventSchemaId,
+				const selectedEventSchema = getSelectedEventSchema(props.eventSchemas, eventSchemaId);
+				const unsupportedRequiredProperties = getUnsupportedRequiredEventProperties(
+					selectedEventSchema?.propertiesSchema ?? { fields: {} },
 				);
-				const unsupportedRequiredProperties =
-					getUnsupportedRequiredEventProperties(
-						selectedEventSchema?.propertiesSchema ?? { fields: {} },
-					);
-				const hasUnsupportedRequiredProperties =
-					unsupportedRequiredProperties.length > 0;
+				const hasUnsupportedRequiredProperties = unsupportedRequiredProperties.length > 0;
 
 				if (!selectedEventSchema) {
 					return (
@@ -133,9 +128,7 @@ function LogEventForm(props: {
 					);
 				}
 
-				const propertyFields = Object.entries(
-					selectedEventSchema.propertiesSchema.fields,
-				)
+				const propertyFields = Object.entries(selectedEventSchema.propertiesSchema.fields)
 					.map(([propertyKey, propertyDef]) => (
 						<GeneratedPropertyField
 							form={eventForm}
@@ -155,9 +148,7 @@ function LogEventForm(props: {
 
 								{hasUnsupportedRequiredProperties && (
 									<FormError
-										message={getUnsupportedRequiredPropertiesMessage(
-											unsupportedRequiredProperties,
-										)}
+										message={getUnsupportedRequiredPropertiesMessage(unsupportedRequiredProperties)}
 									/>
 								)}
 
@@ -170,15 +161,9 @@ function LogEventForm(props: {
 												eventForm.state.values,
 												value,
 											);
-											eventForm.setFieldValue(
-												"properties",
-												nextValues.properties,
-											);
+											eventForm.setFieldValue("properties", nextValues.properties);
 											if (nextValues.eventSchemaId !== value) {
-												eventForm.setFieldValue(
-													"eventSchemaId",
-													nextValues.eventSchemaId,
-												);
+												eventForm.setFieldValue("eventSchemaId", nextValues.eventSchemaId);
 											}
 										},
 									}}
@@ -192,9 +177,7 @@ function LogEventForm(props: {
 											disabled={props.isLoading}
 											value={field.state.value || null}
 											onChange={(value) =>
-												field.handleChange(
-													value ?? props.eventSchemas[0]?.id ?? "",
-												)
+												field.handleChange(value ?? props.eventSchemas[0]?.id ?? "")
 											}
 										/>
 									)}
@@ -214,9 +197,7 @@ function LogEventForm(props: {
 									<eventForm.SubmitButton
 										label="Log event"
 										pendingLabel="Logging..."
-										disabled={
-											props.isLoading || hasUnsupportedRequiredProperties
-										}
+										disabled={props.isLoading || hasUnsupportedRequiredProperties}
 									/>
 								</Group>
 							</Stack>
@@ -271,9 +252,7 @@ export function EntityEventsSection(props: {
 	const eventMutations = useEventMutations(props.entity.id);
 	const viewState = getEventListViewState(eventsQuery.events);
 	const canLogEvent =
-		!props.eventSchemasError &&
-		!props.eventSchemasLoading &&
-		props.eventSchemas.length > 0;
+		!props.eventSchemasError && !props.eventSchemasLoading && props.eventSchemas.length > 0;
 	const logEventButtonLabel = props.eventSchemasLoading
 		? "Loading schemas..."
 		: props.eventSchemas.length > 0
@@ -291,11 +270,7 @@ export function EntityEventsSection(props: {
 			return "Add an event schema to start logging.";
 		}
 		return null;
-	}, [
-		props.eventSchemas.length,
-		props.eventSchemasError,
-		props.eventSchemasLoading,
-	]);
+	}, [props.eventSchemas.length, props.eventSchemasError, props.eventSchemasLoading]);
 
 	const logEventModal = useModalForm((payload: CreateEventPayload) =>
 		eventMutations.create.mutateAsync({ body: payload }),
@@ -305,9 +280,7 @@ export function EntityEventsSection(props: {
 		<Stack gap="sm">
 			<SectionHeader
 				title={props.title ?? "EVENTS"}
-				description={
-					props.description ?? "Recent logged events for this entity."
-				}
+				description={props.description ?? "Recent logged events for this entity."}
 				action={{
 					disabled: !canLogEvent,
 					label: logEventButtonLabel,
@@ -332,11 +305,7 @@ export function EntityEventsSection(props: {
 					<Stack gap="xs">
 						<FormError message="Failed to load events." />
 						<Group>
-							<Button
-								size="xs"
-								variant="light"
-								onClick={() => eventsQuery.refetch()}
-							>
+							<Button size="xs" variant="light" onClick={() => eventsQuery.refetch()}>
 								Retry
 							</Button>
 						</Group>

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
+
 import { redis } from "~/lib/redis";
 import { apiFailure, apiSuccess } from "~/lib/sandbox/types";
+
 import { setCachedValue } from "./set-cached-value";
 
 const ctx = { scriptId: "test-script" };
@@ -20,12 +22,7 @@ describe("setCachedValue", () => {
 		}) as never;
 
 		try {
-			const result = await setCachedValue(
-				ctx,
-				"my-key",
-				{ hello: "world" },
-				60,
-			);
+			const result = await setCachedValue(ctx, "my-key", { hello: "world" }, 60);
 			expect(result).toEqual(apiSuccess(null));
 			expect(capturedKey).toBe("sandbox:cache:test-script:my-key");
 			expect(capturedExpiry).toBe(60);
@@ -59,9 +56,7 @@ describe("setCachedValue", () => {
 	});
 
 	it("returns failure when the context has no scriptId", async () => {
-		expect(
-			await setCachedValue({ scriptId: "   " }, "key", "value", 60),
-		).toEqual(
+		expect(await setCachedValue({ scriptId: "   " }, "key", "value", 60)).toEqual(
 			apiFailure("setCachedValue requires a non-empty scriptId in context"),
 		);
 	});
@@ -104,9 +99,7 @@ describe("setCachedValue", () => {
 			throw new Error("write failed");
 		};
 		try {
-			expect(await setCachedValue(ctx, "key", "value", 60)).toEqual(
-				apiFailure("write failed"),
-			);
+			expect(await setCachedValue(ctx, "key", "value", 60)).toEqual(apiFailure("write failed"));
 		} finally {
 			redis.setex = originalSetex;
 		}

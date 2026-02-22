@@ -1,6 +1,7 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { Scalar } from "@scalar/hono-api-reference";
 import { HTTPException } from "hono/http-exception";
+
 import { auth, type MaybeAuthType } from "~/lib/auth";
 import { ERROR_CODES, errorResponse } from "~/lib/openapi";
 import { authenticationApi } from "~/modules/authentication/routes";
@@ -16,13 +17,13 @@ import { savedViewsApi } from "~/modules/saved-views/routes";
 import { systemApi } from "~/modules/system/routes";
 import { trackersApi } from "~/modules/trackers/routes";
 import { uploadsApi } from "~/modules/uploads/routes";
+
 import { registerInternalAppRequestHandler } from "./internal-request";
 
 const openApiTags = [
 	{
 		name: "system",
-		description:
-			"Health checks, system monitoring, and application configuration",
+		description: "Health checks, system monitoring, and application configuration",
 	},
 	{
 		name: "authentication",
@@ -43,13 +44,11 @@ const openApiTags = [
 	},
 	{
 		name: "entity-schemas",
-		description:
-			"Define the structure and properties of entities within a tracker",
+		description: "Define the structure and properties of entities within a tracker",
 	},
 	{
 		name: "entities",
-		description:
-			"Items being tracked within a tracker (e.g., specific books, games, workouts)",
+		description: "Items being tracked within a tracker (e.g., specific books, games, workouts)",
 	},
 	{
 		name: "event-schemas",
@@ -70,8 +69,7 @@ const openApiTags = [
 	},
 	{
 		name: "collections",
-		description:
-			"User-defined collections of entities with custom membership metadata",
+		description: "User-defined collections of entities with custom membership metadata",
 	},
 	{
 		name: "query-engine",
@@ -96,23 +94,14 @@ const createOpenApiDocumentConfig = (origin: string) => ({
 const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.onError((error, c) => {
 		if (error instanceof HTTPException) {
-			return c.json(
-				errorResponse(ERROR_CODES.INTERNAL_ERROR, error.message),
-				error.status,
-			);
+			return c.json(errorResponse(ERROR_CODES.INTERNAL_ERROR, error.message), error.status);
 		}
 
 		if (error instanceof Error) {
-			return c.json(
-				errorResponse(ERROR_CODES.INTERNAL_ERROR, error.message),
-				500,
-			);
+			return c.json(errorResponse(ERROR_CODES.INTERNAL_ERROR, error.message), 500);
 		}
 
-		return c.json(
-			errorResponse(ERROR_CODES.INTERNAL_ERROR, "An unexpected error occurred"),
-			500,
-		);
+		return c.json(errorResponse(ERROR_CODES.INTERNAL_ERROR, "An unexpected error occurred"), 500);
 	})
 	.route("/system", systemApi)
 	.route("/authentication", authenticationApi)
@@ -134,9 +123,7 @@ export const getAppBackendOpenApiDocument = (origin: string) =>
 	baseApp.getOpenAPIDocument(createOpenApiDocumentConfig(origin));
 
 export const apiApp = baseApp
-	.doc("/openapi.json", (c) =>
-		createOpenApiDocumentConfig(new URL(c.req.url).origin),
-	)
+	.doc("/openapi.json", (c) => createOpenApiDocumentConfig(new URL(c.req.url).origin))
 	.get("/docs", Scalar({ url: "/api/openapi.json" }))
 	.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw));
 

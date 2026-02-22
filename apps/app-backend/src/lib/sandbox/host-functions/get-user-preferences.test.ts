@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
+
 import { apiFailure, apiSuccess } from "~/lib/sandbox/types";
 import { defaultUserPreferences } from "~/modules/authentication";
+
 import { createGetUserPreferencesHostFunction } from "./get-user-preferences";
 
 const ctx = { userId: "user-1" };
@@ -12,9 +14,7 @@ describe("getUserPreferences", () => {
 		});
 		const fn = createGetUserPreferencesHostFunction(getUser);
 		const result = await fn(ctx);
-		expect(result).toEqual(
-			apiSuccess({ ...defaultUserPreferences, isNsfw: true }),
-		);
+		expect(result).toEqual(apiSuccess({ ...defaultUserPreferences, isNsfw: true }));
 	});
 
 	it("defaults isNsfw to false when preferences stored without it", async () => {
@@ -23,9 +23,7 @@ describe("getUserPreferences", () => {
 		});
 		const fn = createGetUserPreferencesHostFunction(getUser);
 		const result = await fn(ctx);
-		expect(result).toEqual(
-			apiSuccess({ ...defaultUserPreferences, isNsfw: false }),
-		);
+		expect(result).toEqual(apiSuccess({ ...defaultUserPreferences, isNsfw: false }));
 	});
 
 	it("returns failure when user is not found", async () => {
@@ -48,9 +46,7 @@ describe("getUserPreferences", () => {
 		});
 		const fn = createGetUserPreferencesHostFunction(getUser);
 		expect(await fn(ctx)).toEqual(
-			apiFailure(
-				"Invalid user preferences: Invalid input: expected boolean, received string",
-			),
+			apiFailure("Invalid user preferences: Invalid input: expected boolean, received string"),
 		);
 	});
 });

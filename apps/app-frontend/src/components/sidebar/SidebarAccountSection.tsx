@@ -28,15 +28,14 @@ import {
 	Settings,
 	Sun,
 } from "lucide-react";
+
 import { useIsMobileScreen } from "~/hooks/screen";
 import { useThemeTokens } from "~/hooks/theme";
 import { authClient } from "~/lib/auth";
+
+import { formatSidebarAccountDate, getSidebarAccountInitials } from "./sidebar-account";
 import type { SidebarAccount } from "./Sidebar.types";
 import { SidebarApiKeysSection } from "./SidebarApiKeysSection";
-import {
-	formatSidebarAccountDate,
-	getSidebarAccountInitials,
-} from "./sidebar-account";
 
 const ABOUT_LINKS = [
 	{
@@ -74,13 +73,7 @@ const ABOUT_LINKS = [
 function AccountMetaItem(props: { label: string; value: string }) {
 	return (
 		<Box>
-			<Text
-				fw={600}
-				size="xs"
-				c="dimmed"
-				tt="uppercase"
-				style={{ letterSpacing: "0.5px" }}
-			>
+			<Text fw={600} size="xs" c="dimmed" tt="uppercase" style={{ letterSpacing: "0.5px" }}>
 				{props.label}
 			</Text>
 			<Text size="md" fw={500} mt={6}>
@@ -97,10 +90,7 @@ export function SidebarAccountSection(props: { account: SidebarAccount }) {
 	const [opened, { close, open }] = useDisclosure(false);
 	const { isDark, border, textMuted, textPrimary } = useThemeTokens();
 	const borderAccent = "var(--mantine-color-accent-5)";
-	const initials = getSidebarAccountInitials(
-		props.account.name,
-		props.account.email,
-	);
+	const initials = getSidebarAccountInitials(props.account.name, props.account.email);
 
 	const handleLogout = async () => {
 		await authClient.signOut();
@@ -127,9 +117,7 @@ export function SidebarAccountSection(props: { account: SidebarAccount }) {
 								: "rgba(212, 165, 116, 0.09)"
 							: "transparent",
 						transition: "all 140ms ease",
-						borderLeft: hovered
-							? `2px solid ${borderAccent}`
-							: "2px solid transparent",
+						borderLeft: hovered ? `2px solid ${borderAccent}` : "2px solid transparent",
 					}}
 				>
 					<Group gap="sm" wrap="nowrap">
@@ -205,12 +193,7 @@ export function SidebarAccountSection(props: { account: SidebarAccount }) {
 									{initials}
 								</Avatar>
 								<Box miw={0} style={{ flex: 1 }}>
-									<Text
-										fw={600}
-										size="xl"
-										truncate="end"
-										ff="var(--mantine-headings-font-family)"
-									>
+									<Text fw={600} size="xl" truncate="end" ff="var(--mantine-headings-font-family)">
 										{props.account.name}
 									</Text>
 									<Text c={textMuted} size="sm" mt={4} truncate="end">
@@ -224,23 +207,13 @@ export function SidebarAccountSection(props: { account: SidebarAccount }) {
 								style={{
 									borderRadius: "14px",
 									border: `1px solid ${border}`,
-									background: isDark
-										? "rgba(255, 255, 255, 0.02)"
-										: "rgba(255, 255, 255, 0.82)",
+									background: isDark ? "rgba(255, 255, 255, 0.02)" : "rgba(255, 255, 255, 0.82)",
 								}}
 							>
 								<Stack gap="md">
-									<Group
-										wrap="nowrap"
-										align="flex-start"
-										justify="space-between"
-									>
+									<Group wrap="nowrap" align="flex-start" justify="space-between">
 										<Box>
-											<Text
-												fw={600}
-												size="md"
-												ff="var(--mantine-headings-font-family)"
-											>
+											<Text fw={600} size="md" ff="var(--mantine-headings-font-family)">
 												Appearance
 											</Text>
 											<Text c={textMuted} size="sm" mt={4}>
@@ -331,11 +304,7 @@ export function SidebarAccountSection(props: { account: SidebarAccount }) {
 					<Tabs.Panel value="about" style={{ flex: 1 }}>
 						<Stack gap="lg">
 							<Box>
-								<Text
-									fw={600}
-									size="xl"
-									ff="var(--mantine-headings-font-family)"
-								>
+								<Text fw={600} size="xl" ff="var(--mantine-headings-font-family)">
 									About Ryot
 								</Text>
 								<Text c={textMuted} size="sm" mt={4}>
@@ -347,9 +316,7 @@ export function SidebarAccountSection(props: { account: SidebarAccount }) {
 									<Anchor
 										key={link.label}
 										href={link.href}
-										target={
-											link.href.startsWith("mailto:") ? undefined : "_blank"
-										}
+										target={link.href.startsWith("mailto:") ? undefined : "_blank"}
 										rel="noopener noreferrer"
 										underline="never"
 										style={{ display: "block" }}
@@ -364,10 +331,7 @@ export function SidebarAccountSection(props: { account: SidebarAccount }) {
 										>
 											<Group justify="space-between" wrap="nowrap">
 												<Group gap="sm" wrap="nowrap">
-													<Box
-														c={borderAccent}
-														style={{ display: "flex", alignItems: "center" }}
-													>
+													<Box c={borderAccent} style={{ display: "flex", alignItems: "center" }}>
 														<link.icon size={18} />
 													</Box>
 													<Box>

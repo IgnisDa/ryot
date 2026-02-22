@@ -9,6 +9,7 @@ import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import { useInterval } from "usehooks-ts";
 import { z } from "zod";
+
 import { ExerciseDisplay } from "~/components/routes/fitness.action/exercise-display/display";
 import { WorkoutHeader } from "~/components/routes/fitness.action/header";
 import {
@@ -16,10 +17,7 @@ import {
 	usePerformTasksAfterSetConfirmed,
 	usePlayFitnessSound,
 } from "~/components/routes/fitness.action/hooks";
-import {
-	useWorkoutModals,
-	WorkoutModals,
-} from "~/components/routes/fitness.action/modals";
+import { useWorkoutModals, WorkoutModals } from "~/components/routes/fitness.action/modals";
 import { handleSetConfirmation } from "~/components/routes/fitness.action/set-display/functions";
 import type { FuncStartTimer } from "~/components/routes/fitness.action/types";
 import { DEFAULT_SET_TIMEOUT_DELAY_MS } from "~/components/routes/fitness.action/utils";
@@ -34,18 +32,13 @@ import {
 	useCurrentWorkoutTimerAtom,
 	useMeasurementsDrawer,
 } from "~/lib/state/fitness";
-import {
-	OnboardingTourStepTarget,
-	useOnboardingTour,
-} from "~/lib/state/onboarding-tour";
+import { OnboardingTourStepTarget, useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { FitnessAction } from "~/lib/types";
+
 import type { Route } from "./+types/_dashboard.fitness.$action";
 
 export const loader = async ({ params }: Route.LoaderArgs) => {
-	const { action } = parseParameters(
-		params,
-		z.object({ action: z.enum(FitnessAction) }),
-	);
+	const { action } = parseParameters(params, z.object({ action: z.enum(FitnessAction) }));
 	return {
 		action,
 		isUpdatingWorkout: action === FitnessAction.UpdateWorkout,
@@ -93,17 +86,14 @@ export default function Page() {
 
 	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
 	const numberOfExercises = currentWorkout?.exercises.length || 0;
-	const shouldDisplayWorkoutTimer = Boolean(
-		loaderData.action === FitnessAction.LogWorkout,
-	);
+	const shouldDisplayWorkoutTimer = Boolean(loaderData.action === FitnessAction.LogWorkout);
 	const shouldDisplayCancelButton = true;
 	const shouldDisplayReorderButton = Boolean(numberOfExercises > 1);
 	const shouldDisplayFinishButton = Boolean(
 		loaderData.isCreatingTemplate
 			? numberOfExercises > 0
 			: currentWorkout?.exercises.some(
-					(_e, idx) =>
-						getProgressOfExercise(currentWorkout, idx) !== "not-started",
+					(_e, idx) => getProgressOfExercise(currentWorkout, idx) !== "not-started",
 				),
 	);
 
@@ -133,9 +123,7 @@ export default function Page() {
 					draft.willEndAt = dayjsLib(draft.willEndAt)
 						.add(dayjsLib().diff(draft.wasPausedAt, "second"), "second")
 						.toISOString();
-					draft.wasPausedAt = draft.wasPausedAt
-						? undefined
-						: dayjsLib().toISOString();
+					draft.wasPausedAt = draft.wasPausedAt ? undefined : dayjsLib().toISOString();
 				}),
 			);
 	};
@@ -189,10 +177,7 @@ export default function Page() {
 			});
 	}, 5000);
 	useInterval(() => {
-		const timeRemaining = dayjsLib(currentTimer?.willEndAt).diff(
-			dayjsLib(),
-			"second",
-		);
+		const timeRemaining = dayjsLib(currentTimer?.willEndAt).diff(dayjsLib(), "second");
 		if (!currentTimer?.wasPausedAt && timeRemaining && timeRemaining <= 3) {
 			if (navigator.vibrate) navigator.vibrate(200);
 			if (timeRemaining <= 1) {
@@ -253,8 +238,7 @@ export default function Page() {
 		acquireWakeLock();
 
 		const handleVisibilityChange = () => {
-			if (document.visibilityState === "visible" && !wakeLockRef.current)
-				acquireWakeLock();
+			if (document.visibilityState === "visible" && !wakeLockRef.current) acquireWakeLock();
 		};
 		document.addEventListener("visibilitychange", handleVisibilityChange);
 
@@ -320,9 +304,7 @@ export default function Page() {
 										openBulkDeleteModal={openBulkDeleteModal}
 										isCreatingTemplate={loaderData.isCreatingTemplate}
 										openSupersetModal={(s) => setSupersetModalOpened(s)}
-										setOpenAssetsModal={() =>
-											setAssetsModalOpened(ex.identifier)
-										}
+										setOpenAssetsModal={() => setAssetsModalOpened(ex.identifier)}
 									/>
 								))}
 								<Group justify="center">
@@ -331,11 +313,7 @@ export default function Page() {
 											color="teal"
 											variant="subtle"
 											onClick={() => setMeasurementsDrawerData(null)}
-											style={
-												loaderData.isCreatingTemplate
-													? { display: "none" }
-													: undefined
-											}
+											style={loaderData.isCreatingTemplate ? { display: "none" } : undefined}
 										>
 											Add measurement
 										</Button>
@@ -344,9 +322,7 @@ export default function Page() {
 										component={Link}
 										variant="subtle"
 										to={$path("/fitness/exercises/list")}
-										className={
-											OnboardingTourStepTarget.ClickOnAddAnExerciseButton
-										}
+										className={OnboardingTourStepTarget.ClickOnAddAnExerciseButton}
 										onClick={() => {
 											setCurrentWorkout(
 												produce(currentWorkout, (draft) => {

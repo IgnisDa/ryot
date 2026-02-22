@@ -6,15 +6,13 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconSearch } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
+
 import {
 	useAddEntitiesToCollectionMutation,
 	useRemoveEntitiesFromCollectionMutation,
 	useUserDetails,
 } from "~/lib/shared/hooks";
-import {
-	clientGqlService,
-	refreshEntityDetails,
-} from "~/lib/shared/react-query";
+import { clientGqlService, refreshEntityDetails } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 
 export const ToggleMediaMonitorMenuItem = (props: {
@@ -25,8 +23,7 @@ export const ToggleMediaMonitorMenuItem = (props: {
 	const isMonitored = props.inCollections.includes("Monitoring");
 	const userDetails = useUserDetails();
 	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
-	const removeEntitiesFromCollection =
-		useRemoveEntitiesFromCollectionMutation();
+	const removeEntitiesFromCollection = useRemoveEntitiesFromCollectionMutation();
 
 	const handleToggleMonitoring = () => {
 		const entityData = {
@@ -54,10 +51,7 @@ export const ToggleMediaMonitorMenuItem = (props: {
 	return (
 		<Menu.Item
 			onClick={handleToggleMonitoring}
-			disabled={
-				addEntitiesToCollection.isPending ||
-				removeEntitiesFromCollection.isPending
-			}
+			disabled={addEntitiesToCollection.isPending || removeEntitiesFromCollection.isPending}
 		>
 			{isMonitored ? "Stop" : "Start"} monitoring
 		</Menu.Item>
@@ -78,10 +72,7 @@ export const WebSearchMenuItem = (props: { title: string }) => {
 	);
 };
 
-export const MarkEntityAsPartialMenuItem = (props: {
-	entityId: string;
-	entityLot: EntityLot;
-}) => {
+export const MarkEntityAsPartialMenuItem = (props: { entityId: string; entityLot: EntityLot }) => {
 	const mutation = useMutation({
 		mutationFn: async (input: { entityId: string; entityLot: EntityLot }) =>
 			clientGqlService.request(MarkEntityAsPartialDocument, { input }),

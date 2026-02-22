@@ -1,9 +1,5 @@
 import { closestCenter, DndContext, type DragEndEvent } from "@dnd-kit/core";
-import {
-	SortableContext,
-	useSortable,
-	verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
 	ActionIcon,
@@ -33,12 +29,10 @@ import {
 	ToggleRight,
 } from "lucide-react";
 import { useState } from "react";
+
 import { toSidebarAccount } from "~/components/sidebar/sidebar-account";
 import { toSidebarData } from "~/components/sidebar/sidebar-data";
-import {
-	useSavedViewMutations,
-	useSavedViewsQuery,
-} from "~/features/saved-views/hooks";
+import { useSavedViewMutations, useSavedViewsQuery } from "~/features/saved-views/hooks";
 import { TrackerIcon } from "~/features/trackers/icons";
 import {
 	useTrackerSidebarActions,
@@ -48,11 +42,8 @@ import { useProtectedUser } from "~/hooks/protected-user";
 import { useIsMobileScreen } from "~/hooks/screen";
 import { useThemeTokens } from "~/hooks/theme";
 import { STORAGE_KEYS } from "~/lib/storage-keys";
-import type {
-	SidebarProps,
-	SidebarTracker,
-	SidebarView,
-} from "./Sidebar.types";
+
+import type { SidebarProps, SidebarTracker, SidebarView } from "./Sidebar.types";
 import { SidebarAccountSection } from "./SidebarAccountSection";
 
 function getTrackerColor(tracker: SidebarTracker) {
@@ -61,10 +52,7 @@ function getTrackerColor(tracker: SidebarTracker) {
 
 function ViewIcon(props: { view: SidebarView }) {
 	return (
-		<Box
-			c={props.view.accentColor}
-			style={{ display: "flex", alignItems: "center" }}
-		>
+		<Box c={props.view.accentColor} style={{ display: "flex", alignItems: "center" }}>
 			<TrackerIcon icon={props.view.icon} size={16} />
 		</Box>
 	);
@@ -81,14 +69,9 @@ function SortableView(props: {
 	onToggleViewEnabled: (viewSlug: string) => void;
 }) {
 	const { isDark } = useThemeTokens();
-	const {
-		attributes,
-		listeners,
-		setNodeRef,
-		transform,
-		transition,
-		isDragging,
-	} = useSortable({ id: props.view.id });
+	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+		id: props.view.id,
+	});
 
 	const style = {
 		transition,
@@ -132,11 +115,7 @@ function SortableView(props: {
 					props.isCustomizeMode
 						? undefined
 						: (rootProps) => (
-								<Link
-									{...rootProps}
-									to="/views/$viewSlug"
-									params={{ viewSlug: props.view.slug }}
-								/>
+								<Link {...rootProps} to="/views/$viewSlug" params={{ viewSlug: props.view.slug }} />
 							)
 				}
 				rightSection={
@@ -146,9 +125,7 @@ function SortableView(props: {
 								size="sm"
 								variant="subtle"
 								disabled={props.isMutationBusy}
-								aria-label={
-									props.view.isDisabled ? "Enable view" : "Disable view"
-								}
+								aria-label={props.view.isDisabled ? "Enable view" : "Disable view"}
 								onClick={(event) => {
 									event.preventDefault();
 									event.stopPropagation();
@@ -193,14 +170,9 @@ function SortableTracker(props: {
 }) {
 	const { isDark } = useThemeTokens();
 	const color = getTrackerColor(props.tracker);
-	const {
-		attributes,
-		listeners,
-		setNodeRef,
-		transform,
-		transition,
-		isDragging,
-	} = useSortable({ id: props.tracker.id });
+	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+		id: props.tracker.id,
+	});
 
 	const style = {
 		transition,
@@ -271,10 +243,7 @@ function SortableTracker(props: {
 								<GripVertical size={16} />
 							</Box>
 						)}
-						<Box
-							c={color.base}
-							style={{ display: "flex", alignItems: "center" }}
-						>
+						<Box c={color.base} style={{ display: "flex", alignItems: "center" }}>
 							<TrackerIcon icon={props.tracker.icon} size={18} />
 						</Box>
 					</Group>
@@ -302,11 +271,7 @@ function SortableTracker(props: {
 									size="sm"
 									variant="subtle"
 									disabled={props.isMutationBusy}
-									aria-label={
-										props.tracker.isDisabled
-											? "Enable tracker"
-											: "Disable tracker"
-									}
+									aria-label={props.tracker.isDisabled ? "Enable tracker" : "Disable tracker"}
 									onClick={(event) => {
 										event.preventDefault();
 										event.stopPropagation();
@@ -325,9 +290,7 @@ function SortableTracker(props: {
 							<ActionIcon
 								size="xs"
 								variant="subtle"
-								aria-label={
-									props.isExpanded ? "Collapse tracker" : "Expand tracker"
-								}
+								aria-label={props.isExpanded ? "Collapse tracker" : "Expand tracker"}
 								onClick={(event) => {
 									event.preventDefault();
 									event.stopPropagation();
@@ -436,9 +399,10 @@ export function Sidebar(props: SidebarProps) {
 	const savedViewMutations = useSavedViewMutations();
 	const { hovered, ref } = useHover<HTMLDivElement>();
 	const [searchQuery, setSearchQuery] = useState("");
-	const [expandedTrackers, setExpandedTrackers] = useLocalStorage<
-		Record<string, boolean>
-	>({ key: STORAGE_KEYS.sidebarExpandedTrackers, defaultValue: {} });
+	const [expandedTrackers, setExpandedTrackers] = useLocalStorage<Record<string, boolean>>({
+		key: STORAGE_KEYS.sidebarExpandedTrackers,
+		defaultValue: {},
+	});
 	const sidebarData = toSidebarData({
 		trackers: state.isCustomizeMode
 			? state.trackers
@@ -446,8 +410,7 @@ export function Sidebar(props: SidebarProps) {
 		views: savedViewsQuery.savedViews,
 	});
 
-	const { isDark, surface, border, textPrimary, textMuted, textSecondary } =
-		useThemeTokens();
+	const { isDark, surface, border, textPrimary, textMuted, textSecondary } = useThemeTokens();
 	const borderAccent = "var(--mantine-color-accent-5)";
 
 	const handleSearchChange = (value: string) => {
@@ -477,12 +440,8 @@ export function Sidebar(props: SidebarProps) {
 		const activeId = String(active.id);
 		const overId = String(over.id);
 
-		const activeIndex = sidebarData.trackers.findIndex(
-			(tracker) => tracker.id === activeId,
-		);
-		const overIndex = sidebarData.trackers.findIndex(
-			(tracker) => tracker.id === overId,
-		);
+		const activeIndex = sidebarData.trackers.findIndex((tracker) => tracker.id === activeId);
+		const overIndex = sidebarData.trackers.findIndex((tracker) => tracker.id === overId);
 
 		if (activeIndex !== -1 && overIndex !== -1) {
 			const nextTrackers = Array.from(sidebarData.trackers);
@@ -510,12 +469,8 @@ export function Sidebar(props: SidebarProps) {
 			activeTracker.id === overTracker.id
 		) {
 			const currentViews = activeTracker.views ?? [];
-			const activeViewIndex = currentViews.findIndex(
-				(view) => view.id === activeId,
-			);
-			const overViewIndex = currentViews.findIndex(
-				(view) => view.id === overId,
-			);
+			const activeViewIndex = currentViews.findIndex((view) => view.id === activeId);
+			const overViewIndex = currentViews.findIndex((view) => view.id === overId);
 
 			if (activeViewIndex === -1 || overViewIndex === -1) {
 				return;
@@ -536,12 +491,8 @@ export function Sidebar(props: SidebarProps) {
 			return;
 		}
 
-		const activeStandaloneIndex = sidebarData.views.findIndex(
-			(view) => view.id === activeId,
-		);
-		const overStandaloneIndex = sidebarData.views.findIndex(
-			(view) => view.id === overId,
-		);
+		const activeStandaloneIndex = sidebarData.views.findIndex((view) => view.id === activeId);
+		const overStandaloneIndex = sidebarData.views.findIndex((view) => view.id === overId);
 
 		if (activeStandaloneIndex === -1 || overStandaloneIndex === -1) {
 			return;
@@ -588,12 +539,7 @@ export function Sidebar(props: SidebarProps) {
 								src="https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png"
 							/>
 						</Box>
-						<Text
-							fw={600}
-							size="xl"
-							c={textPrimary}
-							ff="var(--mantine-headings-font-family)"
-						>
+						<Text fw={600} size="xl" c={textPrimary} ff="var(--mantine-headings-font-family)">
 							Ryot
 						</Text>
 					</Group>
@@ -607,8 +553,7 @@ export function Sidebar(props: SidebarProps) {
 							root: {
 								transition: "opacity 120ms ease",
 								color: state.isCustomizeMode ? borderAccent : textMuted,
-								pointerEvents:
-									hovered || state.isCustomizeMode ? "auto" : "none",
+								pointerEvents: hovered || state.isCustomizeMode ? "auto" : "none",
 							},
 						}}
 					>
@@ -641,9 +586,7 @@ export function Sidebar(props: SidebarProps) {
 								boxShadow: "0 0 0 2px rgba(212, 165, 116, 0.15)",
 							},
 							"&::placeholder": {
-								color: isDark
-									? "var(--mantine-color-dark-4)"
-									: "var(--mantine-color-stone-4)",
+								color: isDark ? "var(--mantine-color-dark-4)" : "var(--mantine-color-stone-4)",
 							},
 						},
 					}}
@@ -675,11 +618,7 @@ export function Sidebar(props: SidebarProps) {
 				/>
 
 				<Box mb="sm" mt="xl">
-					<Box
-						px="md"
-						py="xs"
-						style={{ borderLeft: `2px solid ${borderAccent}` }}
-					>
+					<Box px="md" py="xs" style={{ borderLeft: `2px solid ${borderAccent}` }}>
 						<Text
 							fw={600}
 							size="xs"
@@ -693,17 +632,13 @@ export function Sidebar(props: SidebarProps) {
 					</Box>
 				</Box>
 
-				<DndContext
-					onDragEnd={handleDragEnd}
-					collisionDetection={closestCenter}
-				>
+				<DndContext onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
 					<SortableContext
 						strategy={verticalListSortingStrategy}
 						items={sidebarData.trackers.map((tracker) => tracker.id)}
 					>
 						{sidebarData.trackers.map((tracker) => {
-							const isExpanded =
-								expandedTrackers[tracker.id] ?? tracker.isExpanded ?? false;
+							const isExpanded = expandedTrackers[tracker.id] ?? tracker.isExpanded ?? false;
 
 							return (
 								<SortableTracker
@@ -719,14 +654,9 @@ export function Sidebar(props: SidebarProps) {
 									isMutationBusy={state.isMutationBusy}
 									isCustomizeMode={state.isCustomizeMode}
 									isViewMutationBusy={savedViewMutations.isPending}
-									onToggleTrackerEnabled={(trackerId) =>
-										void actions.toggleTrackerById(trackerId)
-									}
+									onToggleTrackerEnabled={(trackerId) => void actions.toggleTrackerById(trackerId)}
 									onToggleViewEnabled={(viewSlug) =>
-										void savedViewMutations.toggleViewBySlug(
-											viewSlug,
-											savedViewsQuery.savedViews,
-										)
+										void savedViewMutations.toggleViewBySlug(viewSlug, savedViewsQuery.savedViews)
 									}
 								/>
 							);
@@ -772,10 +702,7 @@ export function Sidebar(props: SidebarProps) {
 					</Box>
 				</Box>
 
-				<DndContext
-					onDragEnd={handleDragEnd}
-					collisionDetection={closestCenter}
-				>
+				<DndContext onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
 					<SortableStandaloneViews
 						views={sidebarData.views}
 						textSecondary={textSecondary}
@@ -784,10 +711,7 @@ export function Sidebar(props: SidebarProps) {
 						isCustomizeMode={state.isCustomizeMode}
 						isMutationBusy={savedViewMutations.isPending}
 						onToggleViewEnabled={(viewSlug) =>
-							void savedViewMutations.toggleViewBySlug(
-								viewSlug,
-								savedViewsQuery.savedViews,
-							)
+							void savedViewMutations.toggleViewBySlug(viewSlug, savedViewsQuery.savedViews)
 						}
 					/>
 				</DndContext>
@@ -839,10 +763,7 @@ export function Sidebar(props: SidebarProps) {
 	);
 }
 
-export function MobileSidebarBurger(props: {
-	opened: boolean;
-	onClick: () => void;
-}) {
+export function MobileSidebarBurger(props: { opened: boolean; onClick: () => void }) {
 	const isMobile = useIsMobileScreen();
 	const { textLink } = useThemeTokens();
 
@@ -850,12 +771,5 @@ export function MobileSidebarBurger(props: {
 		return null;
 	}
 
-	return (
-		<Burger
-			size="sm"
-			color={textLink}
-			opened={props.opened}
-			onClick={props.onClick}
-		/>
-	);
+	return <Burger size="sm" color={textLink} opened={props.opened} onClick={props.onClick} />;
 }

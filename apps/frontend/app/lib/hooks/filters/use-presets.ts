@@ -12,6 +12,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ClientError } from "graphql-request";
 import type { ParserMap, Values } from "nuqs";
 import { useEffect, useRef, useState } from "react";
+
 import { clientGqlService } from "~/lib/shared/react-query";
 
 interface UseFilterPresetsConfig<TFilter> {
@@ -136,9 +137,7 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 
 		if (!activePresetId || !filterPresets) return;
 
-		const activePreset = filterPresets.response.find(
-			(p) => p.id === activePresetId,
-		);
+		const activePreset = filterPresets.response.find((p) => p.id === activePresetId);
 		if (!activePreset) return;
 
 		const savedFilters = activePreset.filters;

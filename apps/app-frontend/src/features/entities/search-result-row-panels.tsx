@@ -13,6 +13,7 @@ import {
 } from "@mantine/core";
 import { Link } from "@tanstack/react-router";
 import { Star } from "lucide-react";
+
 import {
 	buildCollectionSelectionPatch,
 	buildDefaultMembershipFormValues,
@@ -24,6 +25,7 @@ import {
 } from "~/features/collections";
 import { GeneratedPropertyField } from "~/features/generated-property-fields";
 import { useAppForm } from "~/hooks/forms";
+
 import {
 	getOptionalInteger,
 	getOptionalNumber,
@@ -75,21 +77,16 @@ export function SearchResultLogPanel(props: {
 		value: episode.number.toString(),
 		label: `${episode.number}. ${episode.label}`,
 	}));
-	const podcastEpisodeOptions = getPodcastEpisodes(props.entityProperties).map(
-		(episode) => ({
-			value: episode.number.toString(),
-			label: `${episode.number}. ${episode.label}`,
-		}),
-	);
-	const animeEpisodeLimit = getOptionalInteger(
-		props.entityProperties?.episodes,
-	);
+	const podcastEpisodeOptions = getPodcastEpisodes(props.entityProperties).map((episode) => ({
+		value: episode.number.toString(),
+		label: `${episode.number}. ${episode.label}`,
+	}));
+	const animeEpisodeLimit = getOptionalInteger(props.entityProperties?.episodes);
 	const mangaChapterLimit = getOptionalNumber(props.entityProperties?.chapters);
 	const mangaVolumeLimit = getOptionalInteger(props.entityProperties?.volumes);
 	const isDisabled = props.isLoadingEntityProperties;
 	const requiresSelection =
-		isEpisodic &&
-		!hasRequiredEpisodicSelection(props.entitySchemaSlug, props.actionState);
+		isEpisodic && !hasRequiredEpisodicSelection(props.entitySchemaSlug, props.actionState);
 
 	return (
 		<Box mt="xs" pt="sm" style={{ borderTop: `1px solid ${props.border}` }}>
@@ -117,9 +114,7 @@ export function SearchResultLogPanel(props: {
 						podcastEpisodeOptions={podcastEpisodeOptions}
 						showEpisodeOptions={showEpisodeOptions ?? []}
 						onPatchActionState={props.onPatchActionState}
-						entitySchemaSlug={
-							episodicEntitySchemaSlug as EpisodicEntitySchemaSlug
-						}
+						entitySchemaSlug={episodicEntitySchemaSlug as EpisodicEntitySchemaSlug}
 					/>
 				) : null
 			) : null}
@@ -134,12 +129,8 @@ export function SearchResultLogPanel(props: {
 						<Button
 							size="compact-xs"
 							key={option.value}
-							onClick={() =>
-								props.onPatchActionState({ logDate: option.value })
-							}
-							variant={
-								props.actionState.logDate === option.value ? "filled" : "subtle"
-							}
+							onClick={() => props.onPatchActionState({ logDate: option.value })}
+							variant={props.actionState.logDate === option.value ? "filled" : "subtle"}
 							style={
 								props.actionState.logDate === option.value
 									? { backgroundColor: props.accentColor, color: "white" }
@@ -185,8 +176,7 @@ export function SearchResultLogPanel(props: {
 					onClick={props.onSaveLog}
 					style={{ backgroundColor: props.accentColor, color: "white" }}
 					disabled={
-						(props.actionState.logDate === "custom" &&
-							!props.actionState.logCompletedOn) ||
+						(props.actionState.logDate === "custom" && !props.actionState.logCompletedOn) ||
 						requiresSelection ||
 						!!props.propertyLoadError ||
 						isDisabled
@@ -379,9 +369,7 @@ export function SearchResultReviewPanel(props: {
 						key={star}
 						size="sm"
 						variant="transparent"
-						onMouseEnter={() =>
-							props.onPatchActionState({ rateStarsHover: star })
-						}
+						onMouseEnter={() => props.onPatchActionState({ rateStarsHover: star })}
 						onMouseLeave={() => props.onPatchActionState({ rateStarsHover: 0 })}
 						onClick={() =>
 							props.onPatchActionState({
@@ -393,9 +381,7 @@ export function SearchResultReviewPanel(props: {
 							size={20}
 							color={props.accentColor}
 							fill={
-								star <=
-								(props.actionState.rateStarsHover ||
-									props.actionState.rateStars)
+								star <= (props.actionState.rateStarsHover || props.actionState.rateStars)
 									? props.accentColor
 									: "transparent"
 							}
@@ -422,9 +408,7 @@ export function SearchResultReviewPanel(props: {
 				maxRows={4}
 				placeholder="Write a review (optional)..."
 				value={props.actionState.rateReview}
-				onChange={(event) =>
-					props.onPatchActionState({ rateReview: event.currentTarget.value })
-				}
+				onChange={(event) => props.onPatchActionState({ rateReview: event.currentTarget.value })}
 			/>
 			<Group gap="xs">
 				<Button
@@ -456,15 +440,11 @@ export function SearchResultCollectionPanel(props: {
 	collectionState: CollectionDiscoveryState;
 	onPatchActionState: (patch: Partial<SearchResultRowActionState>) => void;
 	collectionsDestination: { type: "view"; viewSlug: string } | { type: "none" };
-	onSaveCollection: (
-		values: CollectionMembershipFormValues,
-	) => Promise<void> | void;
+	onSaveCollection: (values: CollectionMembershipFormValues) => Promise<void> | void;
 }) {
 	const isDisabled = props.isEnsuringEntity;
 	const collections =
-		props.collectionState.type === "collections"
-			? props.collectionState.collections
-			: [];
+		props.collectionState.type === "collections" ? props.collectionState.collections : [];
 	const defaultCollection = getSelectedCollection(collections);
 	const form = useAppForm({
 		validators: { onChange: buildMembershipFormSchema(collections) },
@@ -493,11 +473,7 @@ export function SearchResultCollectionPanel(props: {
 						Could not load collections.
 					</Text>
 					<Group gap="xs">
-						<Button
-							variant="subtle"
-							size="compact-xs"
-							onClick={props.onRetryCollectionDiscovery}
-						>
+						<Button variant="subtle" size="compact-xs" onClick={props.onRetryCollectionDiscovery}>
 							Retry
 						</Button>
 						<Button
@@ -561,12 +537,10 @@ export function SearchResultCollectionPanel(props: {
 							const propertyEntries = getMembershipPropertyEntries(
 								selectedCollection?.membershipPropertiesSchema,
 							);
-							const validationResult =
-								buildMembershipFormSchema(collections).safeParse(values);
+							const validationResult = buildMembershipFormSchema(collections).safeParse(values);
 							const validationMessage = validationResult.success
 								? null
-								: (validationResult.error.issues[0]?.message ??
-									"Collection details are invalid.");
+								: (validationResult.error.issues[0]?.message ?? "Collection details are invalid.");
 							const canSave = !isDisabled && validationResult.success;
 
 							return (
@@ -581,20 +555,14 @@ export function SearchResultCollectionPanel(props: {
 												const nextCollection = collections.find(
 													(collection) => collection.id === value,
 												);
-												const nextValues = buildCollectionSelectionPatch(
-													nextCollection,
-													{
-														collectionId: value,
-														properties: form.state.values.properties,
-													},
-												);
+												const nextValues = buildCollectionSelectionPatch(nextCollection, {
+													collectionId: value,
+													properties: form.state.values.properties,
+												});
 
 												form.setFieldValue("properties", nextValues.properties);
 												if (nextValues.collectionId !== value) {
-													form.setFieldValue(
-														"collectionId",
-														nextValues.collectionId,
-													);
+													form.setFieldValue("collectionId", nextValues.collectionId);
 												}
 											},
 										}}
@@ -660,9 +628,7 @@ export function SearchResultCollectionPanel(props: {
 											variant="subtle"
 											size="compact-xs"
 											disabled={isDisabled}
-											onClick={() =>
-												props.onPatchActionState({ openPanel: null })
-											}
+											onClick={() => props.onPatchActionState({ openPanel: null })}
 										>
 											Cancel
 										</Button>

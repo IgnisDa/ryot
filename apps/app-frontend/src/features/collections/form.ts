@@ -1,5 +1,6 @@
 import type { AppSchema } from "@ryot/ts-utils";
 import { z } from "zod";
+
 import {
 	buildPropertiesSchema,
 	type PropertySchemaRow,
@@ -19,9 +20,7 @@ export const createCollectionFormSchema = z.object({
 	name: z.string().trim().min(1, "Name is required"),
 });
 
-export type CreateCollectionFormValues = z.infer<
-	typeof createCollectionFormSchema
->;
+export type CreateCollectionFormValues = z.infer<typeof createCollectionFormSchema>;
 
 export type CreateCollectionPayload = {
 	name: string;

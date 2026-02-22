@@ -1,11 +1,10 @@
 import { sql } from "drizzle-orm";
+
 import { event } from "~/lib/db/schema";
 import type { QueryEngineEventJoinLike } from "~/lib/views/reference";
+
 import { getEventJoinCteName } from "./query-cte-shared";
-import {
-	getEventJoinColumnName,
-	sanitizeIdentifier,
-} from "./sql-expression-helpers";
+import { getEventJoinColumnName, sanitizeIdentifier } from "./sql-expression-helpers";
 
 export const buildLatestEventJoinCte = (input: {
 	join: QueryEngineEventJoinLike;
@@ -65,9 +64,7 @@ export const buildJoinedCte = (input: {
 	`;
 };
 
-export const buildJoinedEntitiesCte = (
-	eventJoins: QueryEngineEventJoinLike[],
-) =>
+export const buildJoinedEntitiesCte = (eventJoins: QueryEngineEventJoinLike[]) =>
 	buildJoinedCte({
 		eventJoins,
 		entityIdColumn: "id",

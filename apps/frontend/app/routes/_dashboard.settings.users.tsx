@@ -39,25 +39,18 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
+
 import { CopyableTextInput } from "~/components/common";
 import { DebouncedSearchInput } from "~/components/common/filters";
 import { redirectToQueryParam } from "~/lib/shared/constants";
 import { useUserDetails, useUsersList } from "~/lib/shared/hooks";
-import {
-	clientGqlService,
-	queryClient,
-	queryFactory,
-} from "~/lib/shared/react-query";
+import { clientGqlService, queryClient, queryFactory } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 
 export default function Page() {
-	const [
-		registerUserModalOpened,
-		{ open: openRegisterUserModal, close: closeRegisterUserModal },
-	] = useDisclosure(false);
-	const [urlDisplayData, setUrlDisplayData] = useState<UrlDisplayData | null>(
-		null,
-	);
+	const [registerUserModalOpened, { open: openRegisterUserModal, close: closeRegisterUserModal }] =
+		useDisclosure(false);
+	const [urlDisplayData, setUrlDisplayData] = useState<UrlDisplayData | null>(null);
 	const [query, setQuery] = useState("");
 
 	const { data: usersList } = useUsersList(query);
@@ -75,11 +68,7 @@ export default function Page() {
 			<Stack>
 				<Flex align="center" gap="md">
 					<Title>Users settings</Title>
-					<ActionIcon
-						color="green"
-						variant="outline"
-						onClick={openRegisterUserModal}
-					>
+					<ActionIcon color="green" variant="outline" onClick={openRegisterUserModal}>
 						<IconPlus size={20} />
 					</ActionIcon>
 				</Flex>
@@ -126,11 +115,7 @@ export default function Page() {
 							title: "Role",
 							accessor: "lot",
 							render: ({ lot }) => (
-								<Badge
-									size="sm"
-									variant="light"
-									color={lot === UserLot.Admin ? "red" : "blue"}
-								>
+								<Badge size="sm" variant="light" color={lot === UserLot.Admin ? "red" : "blue"}>
 									{changeCase(lot)}
 								</Badge>
 							),
@@ -139,11 +124,7 @@ export default function Page() {
 							title: "Status",
 							accessor: "isDisabled",
 							render: ({ isDisabled }) => (
-								<Badge
-									size="sm"
-									color={isDisabled ? "red" : "green"}
-									variant="light"
-								>
+								<Badge size="sm" color={isDisabled ? "red" : "green"} variant="light">
 									{isDisabled ? "Disabled" : "Active"}
 								</Badge>
 							),
@@ -153,12 +134,7 @@ export default function Page() {
 							title: "Actions",
 							accessor: "actions",
 							textAlign: "center",
-							render: (user) => (
-								<UserActions
-									user={user}
-									setUrlDisplayData={setUrlDisplayData}
-								/>
-							),
+							render: (user) => <UserActions user={user} setUrlDisplayData={setUrlDisplayData} />,
 						},
 					]}
 				/>
@@ -174,19 +150,13 @@ export default function Page() {
 
 type User = UsersListQuery["usersList"][number];
 
-const UserActions = (props: {
-	user: User;
-	setUrlDisplayData: (data: UrlDisplayData) => void;
-}) => {
+const UserActions = (props: { user: User; setUrlDisplayData: (data: UrlDisplayData) => void }) => {
 	const navigate = useNavigate();
 	const userDetails = useUserDetails();
 
 	const toggleUserStatusMutation = useMutation({
 		mutationFn: async (input: UpdateUserInput) => {
-			const { updateUser } = await clientGqlService.request(
-				UpdateUserDocument,
-				{ input },
-			);
+			const { updateUser } = await clientGqlService.request(UpdateUserDocument, { input });
 			return { updateUser, input };
 		},
 		onSuccess: async ({ input }) => {
@@ -200,17 +170,12 @@ const UserActions = (props: {
 
 	const deleteUserMutation = useMutation({
 		mutationFn: async (toDeleteUserId: string) => {
-			const { deleteUser } = await clientGqlService.request(
-				DeleteUserDocument,
-				{ toDeleteUserId },
-			);
+			const { deleteUser } = await clientGqlService.request(DeleteUserDocument, { toDeleteUserId });
 			return deleteUser;
 		},
 		onSuccess: async (deleteUser) => {
 			invalidateUsersList();
-			const message = deleteUser
-				? "User deleted successfully"
-				: "User cannot be deleted";
+			const message = deleteUser ? "User deleted successfully" : "User cannot be deleted";
 			const color = deleteUser ? "green" : "red";
 			notifications.show({
 				color,
@@ -251,8 +216,7 @@ const UserActions = (props: {
 	});
 
 	const getPasswordChangeSessionMutation = useMutation({
-		onError: () =>
-			showErrorNotification("Failed to get password change session"),
+		onError: () => showErrorNotification("Failed to get password change session"),
 		mutationFn: async (userId: string) => {
 			const { getPasswordChangeSession } = await clientGqlService.request(
 				GetPasswordChangeSessionDocument,
@@ -318,9 +282,7 @@ const UserActions = (props: {
 						? "Are you sure you want to reset your own account? This action will permanently delete all your data including progress, collections, and preferences. You will be logged out and redirected to set a new password."
 						: "Are you sure you want to reset this user? This action will permanently delete all user data including progress, collections, and preferences. This cannot be undone.";
 
-					openConfirmationModal(confirmationMessage, () =>
-						resetUserMutation.mutate(props.user.id),
-					);
+					openConfirmationModal(confirmationMessage, () => resetUserMutation.mutate(props.user.id));
 				}}
 			>
 				<IconRotateClockwise size={18} />
@@ -330,9 +292,8 @@ const UserActions = (props: {
 				variant="subtle"
 				loading={deleteUserMutation.isPending}
 				onClick={() => {
-					openConfirmationModal(
-						"Are you sure you want to delete this user?",
-						() => deleteUserMutation.mutate(props.user.id),
+					openConfirmationModal("Are you sure you want to delete this user?", () =>
+						deleteUserMutation.mutate(props.user.id),
 					);
 				}}
 			>
@@ -394,13 +355,11 @@ const UserInvitationModal = (props: {
 
 	const createInvitationMutation = useMutation({
 		mutationFn: async (username: string) => {
-			const { registerUser } = await clientGqlService.request(
-				RegisterUserDocument,
-				{ input: { data: { password: { username, password: "" } } } },
-			);
+			const { registerUser } = await clientGqlService.request(RegisterUserDocument, {
+				input: { data: { password: { username, password: "" } } },
+			});
 
-			if (registerUser.__typename !== "StringIdObject")
-				throw new Error("Failed to register user");
+			if (registerUser.__typename !== "StringIdObject") throw new Error("Failed to register user");
 
 			const { getPasswordChangeSession } = await clientGqlService.request(
 				GetPasswordChangeSessionDocument,
@@ -424,24 +383,14 @@ const UserInvitationModal = (props: {
 	});
 
 	return (
-		<Modal
-			centered
-			opened={props.opened}
-			onClose={handleClose}
-			title="Create User Invitation"
-		>
+		<Modal centered opened={props.opened} onClose={handleClose} title="Create User Invitation">
 			<form
 				onSubmit={form.onSubmit((values) => {
 					createInvitationMutation.mutate(values.username.trim());
 				})}
 			>
 				<Stack>
-					<TextInput
-						required
-						data-autofocus
-						label="Username"
-						{...form.getInputProps("username")}
-					/>
+					<TextInput required data-autofocus label="Username" {...form.getInputProps("username")} />
 					{!createInvitationMutation.data && (
 						<Button type="submit" loading={createInvitationMutation.isPending}>
 							Create Invitation
@@ -453,23 +402,11 @@ const UserInvitationModal = (props: {
 	);
 };
 
-const UrlDisplayModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-	data: UrlDisplayData;
-}) => {
+const UrlDisplayModal = (props: { opened: boolean; onClose: () => void; data: UrlDisplayData }) => {
 	return (
-		<Modal
-			centered
-			opened={props.opened}
-			onClose={props.onClose}
-			title={props.data?.title}
-		>
+		<Modal centered opened={props.opened} onClose={props.onClose} title={props.data?.title}>
 			<Stack>
-				<CopyableTextInput
-					value={props.data?.url}
-					description={props.data?.description}
-				/>
+				<CopyableTextInput value={props.data?.url} description={props.data?.description} />
 				<Button onClick={props.onClose}>Close</Button>
 			</Stack>
 		</Modal>

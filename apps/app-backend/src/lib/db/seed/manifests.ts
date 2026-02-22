@@ -34,9 +34,7 @@ import youtubeMusicPersonScriptCode from "~/lib/sandbox/scripts/providers/person
 import autoCompleteOnFullProgressScriptCode from "~/lib/sandbox/scripts/triggers/auto-complete-on-full-progress.txt";
 import type { SandboxScriptMetadata } from "~/lib/sandbox/types";
 
-const BUILTIN_ALLOWED_HOST_FUNCTIONS: NonNullable<
-	SandboxScriptMetadata["allowedHostFunctions"]
-> = [
+const BUILTIN_ALLOWED_HOST_FUNCTIONS: NonNullable<SandboxScriptMetadata["allowedHostFunctions"]> = [
 	"httpCall",
 	"getCachedValue",
 	"setCachedValue",
@@ -84,12 +82,8 @@ export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
 	script("MusicBrainz", "person.musicbrainz", musicbrainzPersonScriptCode),
 	script("YouTube Music", "music.youtube-music", youtubeMusicScriptCode),
 	script("YouTube Music", "person.youtube-music", youtubeMusicPersonScriptCode),
-	script("Hardcover", "book.hardcover", hardcoverBookScriptCode, [
-		"books.hardcover.apiKey",
-	]),
-	script("Hardcover", "person.hardcover", hardcoverPersonScriptCode, [
-		"books.hardcover.apiKey",
-	]),
+	script("Hardcover", "book.hardcover", hardcoverBookScriptCode, ["books.hardcover.apiKey"]),
+	script("Hardcover", "person.hardcover", hardcoverPersonScriptCode, ["books.hardcover.apiKey"]),
 	script("Google Books", "book.google-book", googleBooksBookScriptCode, [
 		"books.googleBooks.apiKey",
 	]),
@@ -99,24 +93,12 @@ export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
 	script("GiantBomb", "video-game.giant-bomb", giantBombVideoGameScriptCode, [
 		"videoGames.giantBomb.apiKey",
 	]),
-	script("TMDB", "movie.tmdb", tmdbMovieScriptCode, [
-		"moviesAndShows.tmdb.accessToken",
-	]),
-	script("TMDB", "show.tmdb", tmdbShowScriptCode, [
-		"moviesAndShows.tmdb.accessToken",
-	]),
-	script("TMDB", "person.tmdb", tmdbPersonScriptCode, [
-		"moviesAndShows.tmdb.accessToken",
-	]),
-	script("TVDB", "movie.tvdb", tvdbMovieScriptCode, [
-		"moviesAndShows.tvdb.apiKey",
-	]),
-	script("TVDB", "show.tvdb", tvdbShowScriptCode, [
-		"moviesAndShows.tvdb.apiKey",
-	]),
-	script("TVDB", "person.tvdb", tvdbPersonScriptCode, [
-		"moviesAndShows.tvdb.apiKey",
-	]),
+	script("TMDB", "movie.tmdb", tmdbMovieScriptCode, ["moviesAndShows.tmdb.accessToken"]),
+	script("TMDB", "show.tmdb", tmdbShowScriptCode, ["moviesAndShows.tmdb.accessToken"]),
+	script("TMDB", "person.tmdb", tmdbPersonScriptCode, ["moviesAndShows.tmdb.accessToken"]),
+	script("TVDB", "movie.tvdb", tvdbMovieScriptCode, ["moviesAndShows.tvdb.apiKey"]),
+	script("TVDB", "show.tvdb", tvdbShowScriptCode, ["moviesAndShows.tvdb.apiKey"]),
+	script("TVDB", "person.tvdb", tvdbPersonScriptCode, ["moviesAndShows.tvdb.apiKey"]),
 	script("MyAnimeList", "anime.myanimelist", myanimelistAnimeScriptCode, [
 		"animeAndManga.mal.clientId",
 	]),

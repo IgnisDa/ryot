@@ -1,9 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import {
-	createAuthenticatedClient,
-	createTracker,
-	disableTracker,
-} from "../fixtures";
+
+import { createAuthenticatedClient, createTracker, disableTracker } from "../fixtures";
 
 describe("Trackers E2E", () => {
 	it("lists only enabled trackers by default", async () => {
@@ -26,15 +23,9 @@ describe("Trackers E2E", () => {
 		});
 
 		expect(result.response.status).toBe(200);
-		expect(result.data?.data.map((tracker) => tracker.id)).toContain(
-			enabledTracker.trackerId,
-		);
-		expect(result.data?.data.map((tracker) => tracker.id)).not.toContain(
-			disabledTracker.trackerId,
-		);
-		expect(result.data?.data.every((tracker) => !tracker.isDisabled)).toBe(
-			true,
-		);
+		expect(result.data?.data.map((tracker) => tracker.id)).toContain(enabledTracker.trackerId);
+		expect(result.data?.data.map((tracker) => tracker.id)).not.toContain(disabledTracker.trackerId);
+		expect(result.data?.data.every((tracker) => !tracker.isDisabled)).toBe(true);
 	});
 
 	it("includes disabled trackers when includeDisabled is true", async () => {
@@ -58,12 +49,8 @@ describe("Trackers E2E", () => {
 		});
 
 		expect(result.response.status).toBe(200);
-		expect(result.data?.data.map((tracker) => tracker.id)).toContain(
-			enabledTracker.trackerId,
-		);
-		expect(result.data?.data.map((tracker) => tracker.id)).toContain(
-			disabledTracker.trackerId,
-		);
+		expect(result.data?.data.map((tracker) => tracker.id)).toContain(enabledTracker.trackerId);
+		expect(result.data?.data.map((tracker) => tracker.id)).toContain(disabledTracker.trackerId);
 
 		const states = result.data?.data.map((tracker) => tracker.isDisabled) ?? [];
 		const firstDisabledIndex = states.indexOf(true);

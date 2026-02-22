@@ -1,16 +1,16 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createComputedFieldExpression,
 	createEntityPropertyExpression,
 	createEntitySchemaExpression,
 } from "@ryot/ts-utils";
 import { PgDialect } from "drizzle-orm/pg-core";
-import {
-	createSmartphoneSchema,
-	transformExpression,
-} from "~/lib/test-fixtures";
+
+import { createSmartphoneSchema, transformExpression } from "~/lib/test-fixtures";
 import type { ViewExpression } from "~/lib/views/expression";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
+
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 
@@ -21,10 +21,7 @@ const context = {
 };
 
 const createTestCompiler = (
-	input: Omit<
-		Parameters<typeof createScalarExpressionCompiler>[0],
-		"getTypeInfo"
-	>,
+	input: Omit<Parameters<typeof createScalarExpressionCompiler>[0], "getTypeInfo">,
 ) => {
 	const getTypeInfo = createExpressionTypeResolver({
 		context: input.context,
@@ -33,10 +30,7 @@ const createTestCompiler = (
 	return createScalarExpressionCompiler({ ...input, getTypeInfo });
 };
 
-const yearExpression = createEntityPropertyExpression(
-	"smartphones",
-	"releaseYear",
-);
+const yearExpression = createEntityPropertyExpression("smartphones", "releaseYear");
 
 describe("createScalarExpressionCompiler", () => {
 	it("compiles nested computed fields for scalar query stages", () => {
@@ -66,9 +60,7 @@ describe("createScalarExpressionCompiler", () => {
 			],
 		});
 
-		const query = dialect.sqlToQuery(
-			compiler.compile(createComputedFieldExpression("label")),
-		);
+		const query = dialect.sqlToQuery(compiler.compile(createComputedFieldExpression("label")));
 
 		expect(query.sql.toLowerCase()).toContain("concat(");
 		expect(query.sql).toContain("entities.properties ->>");
@@ -91,18 +83,9 @@ describe("createScalarExpressionCompiler", () => {
 			],
 		});
 
-		const first = compiler.compile(
-			createComputedFieldExpression("nextYear"),
-			"integer",
-		);
-		const second = compiler.compile(
-			createComputedFieldExpression("nextYear"),
-			"integer",
-		);
-		const third = compiler.compile(
-			createComputedFieldExpression("nextYear"),
-			"number",
-		);
+		const first = compiler.compile(createComputedFieldExpression("nextYear"), "integer");
+		const second = compiler.compile(createComputedFieldExpression("nextYear"), "integer");
+		const third = compiler.compile(createComputedFieldExpression("nextYear"), "number");
 
 		expect(first).toBe(second);
 		expect(first).not.toBe(third);
@@ -124,9 +107,7 @@ describe("createScalarExpressionCompiler", () => {
 
 		expect(query.sql).toContain("entities.properties ->");
 		expect(query.sql).toContain("->>");
-		expect(query.params.indexOf("metadata")).toBeLessThan(
-			query.params.indexOf("source"),
-		);
+		expect(query.params.indexOf("metadata")).toBeLessThan(query.params.indexOf("source"));
 	});
 
 	it("rejects image computed fields in scalar sort and filter contexts", () => {
@@ -148,9 +129,7 @@ describe("createScalarExpressionCompiler", () => {
 			],
 		});
 
-		expect(() =>
-			compiler.compile(createComputedFieldExpression("cover"), "string"),
-		).toThrow(
+		expect(() => compiler.compile(createComputedFieldExpression("cover"), "string")).toThrow(
 			"Image expressions are display-only and cannot be compiled for sort or filter usage",
 		);
 	});
@@ -417,9 +396,7 @@ describe("createScalarExpressionCompiler", () => {
 				},
 			};
 
-			expect(() => compiler.compile(imageTransform)).toThrow(
-				"Image expressions are display-only",
-			);
+			expect(() => compiler.compile(imageTransform)).toThrow("Image expressions are display-only");
 		});
 	});
 
@@ -427,9 +404,7 @@ describe("createScalarExpressionCompiler", () => {
 		it("compiles entity schema slug as a text extraction", () => {
 			const compiler = createTestCompiler({ context, alias: "entities" });
 
-			const query = dialect.sqlToQuery(
-				compiler.compile(createEntitySchemaExpression("slug")),
-			);
+			const query = dialect.sqlToQuery(compiler.compile(createEntitySchemaExpression("slug")));
 
 			expect(query.sql).toContain("entity_schema_data ->>");
 			expect(query.params).toContain("slug");
@@ -438,9 +413,7 @@ describe("createScalarExpressionCompiler", () => {
 		it("compiles entity schema name as a text extraction", () => {
 			const compiler = createTestCompiler({ context, alias: "entities" });
 
-			const query = dialect.sqlToQuery(
-				compiler.compile(createEntitySchemaExpression("name")),
-			);
+			const query = dialect.sqlToQuery(compiler.compile(createEntitySchemaExpression("name")));
 
 			expect(query.sql).toContain("entity_schema_data ->>");
 			expect(query.params).toContain("name");
@@ -449,9 +422,7 @@ describe("createScalarExpressionCompiler", () => {
 		it("compiles entity schema isBuiltin with boolean cast", () => {
 			const compiler = createTestCompiler({ context, alias: "entities" });
 
-			const query = dialect.sqlToQuery(
-				compiler.compile(createEntitySchemaExpression("isBuiltin")),
-			);
+			const query = dialect.sqlToQuery(compiler.compile(createEntitySchemaExpression("isBuiltin")));
 
 			expect(query.sql).toContain("entity_schema_data ->>");
 			expect(query.sql).toContain("::boolean");
@@ -461,9 +432,7 @@ describe("createScalarExpressionCompiler", () => {
 		it("compiles entity schema createdAt with timestamptz cast", () => {
 			const compiler = createTestCompiler({ context, alias: "entities" });
 
-			const query = dialect.sqlToQuery(
-				compiler.compile(createEntitySchemaExpression("createdAt")),
-			);
+			const query = dialect.sqlToQuery(compiler.compile(createEntitySchemaExpression("createdAt")));
 
 			expect(query.sql).toContain("entity_schema_data ->>");
 			expect(query.sql).toContain("::timestamptz");
@@ -473,9 +442,7 @@ describe("createScalarExpressionCompiler", () => {
 		it("compiles entity schema updatedAt with timestamptz cast", () => {
 			const compiler = createTestCompiler({ context, alias: "entities" });
 
-			const query = dialect.sqlToQuery(
-				compiler.compile(createEntitySchemaExpression("updatedAt")),
-			);
+			const query = dialect.sqlToQuery(compiler.compile(createEntitySchemaExpression("updatedAt")));
 
 			expect(query.sql).toContain("entity_schema_data ->>");
 			expect(query.sql).toContain("::timestamptz");
@@ -485,17 +452,15 @@ describe("createScalarExpressionCompiler", () => {
 		it("rejects unsupported entity schema columns", () => {
 			const compiler = createTestCompiler({ context, alias: "entities" });
 
-			expect(() =>
-				compiler.compile(createEntitySchemaExpression("propertiesSchema")),
-			).toThrow("Unsupported entity schema column");
+			expect(() => compiler.compile(createEntitySchemaExpression("propertiesSchema"))).toThrow(
+				"Unsupported entity schema column",
+			);
 		});
 
 		it("does not apply multi-schema CASE WHEN wrapping", () => {
 			const compiler = createTestCompiler({ context, alias: "entities" });
 
-			const query = dialect.sqlToQuery(
-				compiler.compile(createEntitySchemaExpression("slug")),
-			);
+			const query = dialect.sqlToQuery(compiler.compile(createEntitySchemaExpression("slug")));
 
 			expect(query.sql).not.toContain("case when");
 		});

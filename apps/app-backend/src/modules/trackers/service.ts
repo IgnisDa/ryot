@@ -1,12 +1,9 @@
 import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
+
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { buildReorderedIds } from "~/lib/reorder";
-import {
-	type ServiceResult,
-	serviceData,
-	serviceError,
-	wrapServiceValidator,
-} from "~/lib/result";
+import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
+
 import {
 	countVisibleTrackersByIdsForUser,
 	createTrackerForUser,
@@ -62,9 +59,7 @@ const trackerServiceDeps: TrackerServiceDeps = {
 	updateTrackerForUser,
 };
 
-export const resolveTrackerSlug = (
-	input: Pick<CreateTrackerBody, "name" | "slug">,
-) => {
+export const resolveTrackerSlug = (input: Pick<CreateTrackerBody, "name" | "slug">) => {
 	return resolveRequiredSlug({
 		name: input.name,
 		label: "Tracker",
@@ -75,25 +70,17 @@ export const resolveTrackerSlug = (
 export const resolveTrackerId = (trackerId: string) =>
 	resolveRequiredString(trackerId, "Tracker id");
 
-export const resolveTrackerPatch = (input: {
-	current: TrackerState;
-	input: UpdateTrackerBody;
-}) => {
+export const resolveTrackerPatch = (input: { current: TrackerState; input: UpdateTrackerBody }) => {
 	const name = input.input.name ?? input.current.name;
 
 	return {
 		name,
 		slug: input.current.slug,
-		icon:
-			input.input.icon === undefined ? input.current.icon : input.input.icon,
+		icon: input.input.icon === undefined ? input.current.icon : input.input.icon,
 		description:
-			input.input.description === undefined
-				? input.current.description
-				: input.input.description,
+			input.input.description === undefined ? input.current.description : input.input.description,
 		accentColor:
-			input.input.accentColor === undefined
-				? input.current.accentColor
-				: input.input.accentColor,
+			input.input.accentColor === undefined ? input.current.accentColor : input.input.accentColor,
 	};
 };
 
@@ -106,28 +93,14 @@ export const buildTrackerOrder = (input: {
 		requestedIds: input.requestedTrackerIds,
 	});
 
-const resolveTrackerSlugResult = (
-	input: Pick<CreateTrackerBody, "name" | "slug">,
-) =>
-	wrapServiceValidator(
-		() => resolveTrackerSlug(input),
-		"Tracker slug is required",
-	);
+const resolveTrackerSlugResult = (input: Pick<CreateTrackerBody, "name" | "slug">) =>
+	wrapServiceValidator(() => resolveTrackerSlug(input), "Tracker slug is required");
 
-const resolveTrackerPatchResult = (input: {
-	current: TrackerState;
-	input: UpdateTrackerBody;
-}) =>
-	wrapServiceValidator(
-		() => resolveTrackerPatch(input),
-		"Tracker payload is invalid",
-	);
+const resolveTrackerPatchResult = (input: { current: TrackerState; input: UpdateTrackerBody }) =>
+	wrapServiceValidator(() => resolveTrackerPatch(input), "Tracker payload is invalid");
 
 const resolveTrackerIdResult = (trackerId: string) =>
-	wrapServiceValidator(
-		() => resolveTrackerId(trackerId),
-		"Tracker id is required",
-	);
+	wrapServiceValidator(() => resolveTrackerId(trackerId), "Tracker id is required");
 
 export const createTracker = async (
 	input: { body: CreateTrackerBody; userId: string },

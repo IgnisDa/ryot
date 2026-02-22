@@ -7,6 +7,7 @@ import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
 import { useLocation, useNavigate } from "react-router";
+
 import { clientGqlService } from "~/lib/shared/react-query";
 
 type Entity = { entityId: string; entityLot: EntityLot };
@@ -56,8 +57,7 @@ export const useBulkEditCollection = () => {
 	return {
 		start,
 		isAdded: (entity: Entity) => findIndex(entity, bec?.targetEntities) !== -1,
-		isAlreadyPresent: (entity: Entity) =>
-			findIndex(entity, bec?.alreadyPresentEntities) !== -1,
+		isAlreadyPresent: (entity: Entity) => findIndex(entity, bec?.alreadyPresentEntities) !== -1,
 		state: bec
 			? {
 					data: bec,
@@ -130,8 +130,7 @@ type EditEntityCollectionInformationData = {
 	existingInformation: Scalars["JSON"]["input"];
 };
 
-const editEntityCollectionInformationAtom =
-	atom<EditEntityCollectionInformationData | null>(null);
+const editEntityCollectionInformationAtom = atom<EditEntityCollectionInformationData | null>(null);
 
 export const useEditEntityCollectionInformation = () => {
 	return useAtom(editEntityCollectionInformationAtom);

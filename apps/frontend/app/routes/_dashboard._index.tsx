@@ -1,13 +1,4 @@
-import {
-	ActionIcon,
-	Alert,
-	Button,
-	Container,
-	Drawer,
-	Group,
-	Stack,
-	Text,
-} from "@mantine/core";
+import { ActionIcon, Alert, Button, Container, Drawer, Group, Stack, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
 	type CalendarEventPartFragment,
@@ -24,11 +15,7 @@ import {
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
-import {
-	IconInfoCircle,
-	IconPlayerPlay,
-	IconRotateClockwise,
-} from "@tabler/icons-react";
+import { IconInfoCircle, IconPlayerPlay, IconRotateClockwise } from "@tabler/icons-react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import CryptoJS from "crypto-js";
 import { type ReactNode, useMemo } from "react";
@@ -37,11 +24,8 @@ import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import {
-	DisplayCollectionEntity,
-	ProRequiredAlert,
-	SkeletonLoader,
-} from "~/components/common";
+
+import { DisplayCollectionEntity, ProRequiredAlert, SkeletonLoader } from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
 import { DisplaySummarySection } from "~/components/common/summary";
 import { MetadataDisplayItem } from "~/components/media/display-items";
@@ -59,6 +43,7 @@ import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { getUserPreferences } from "~/lib/utilities.server";
+
 import type { Route } from "./+types/_dashboard._index";
 
 const searchParamsSchema = z.object({
@@ -71,8 +56,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	const preferences = await getUserPreferences(request);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const landingPath = preferences.general.landingPath;
-	if (landingPath !== "/" && !query.ignoreLandingPath)
-		throw redirect(landingPath);
+	if (landingPath !== "/" && !query.ignoreLandingPath) throw redirect(landingPath);
 	return {};
 };
 
@@ -103,9 +87,7 @@ export default function Page() {
 	const takeInProgress = dbElm(DashboardElementLot.InProgress)?.numElements;
 	const daysAheadUpcoming = dbElm(DashboardElementLot.Upcoming)?.numDaysAhead;
 
-	const inProgressCollection = userCollections.find(
-		(c) => c.name === "In Progress",
-	);
+	const inProgressCollection = userCollections.find((c) => c.name === "In Progress");
 
 	const collectionContentsInput: CollectionContentsInput = {
 		search: { take: takeInProgress },
@@ -116,9 +98,7 @@ export default function Page() {
 		},
 	};
 	const inProgressCollectionContentsQuery = useQuery({
-		queryKey: queryFactory.collections.collectionContents(
-			collectionContentsInput,
-		).queryKey,
+		queryKey: queryFactory.collections.collectionContents(collectionContentsInput).queryKey,
 		queryFn: inProgressCollection?.id
 			? () =>
 					clientGqlService.request(CollectionContentsDocument, {
@@ -133,8 +113,7 @@ export default function Page() {
 			? { nextDays: daysAheadUpcoming }
 			: { nextMedia: 8 };
 	const userUpcomingCalendarEventsQuery = useQuery({
-		queryKey:
-			queryFactory.calendar.userUpcomingCalendarEvents(upcomingInput).queryKey,
+		queryKey: queryFactory.calendar.userUpcomingCalendarEvents(upcomingInput).queryKey,
 		queryFn: () =>
 			clientGqlService.request(UserUpcomingCalendarEventsDocument, {
 				input: upcomingInput,
@@ -155,8 +134,7 @@ export default function Page() {
 			}),
 	});
 
-	const latestUserSummary =
-		userAnalyticsQuery.data?.userAnalytics.response.activities.items.at(0);
+	const latestUserSummary = userAnalyticsQuery.data?.userAnalytics.response.activities.items.at(0);
 
 	return (
 		<Container>
@@ -193,17 +171,11 @@ export default function Page() {
 							<Section key={v} lot={v}>
 								<SectionTitle text="Upcoming" />
 								{userUpcomingCalendarEventsQuery.data ? (
-									userUpcomingCalendarEventsQuery.data
-										.userUpcomingCalendarEvents.length > 0 ? (
+									userUpcomingCalendarEventsQuery.data.userUpcomingCalendarEvents.length > 0 ? (
 										<ApplicationGrid>
-											{userUpcomingCalendarEventsQuery.data.userUpcomingCalendarEvents.map(
-												(um) => (
-													<UpcomingMediaSection
-														um={um}
-														key={um.calendarEventId}
-													/>
-												),
-											)}
+											{userUpcomingCalendarEventsQuery.data.userUpcomingCalendarEvents.map((um) => (
+												<UpcomingMediaSection um={um} key={um.calendarEventId} />
+											))}
 										</ApplicationGrid>
 									) : (
 										<Text c="dimmed">No upcoming media.</Text>
@@ -217,8 +189,8 @@ export default function Page() {
 							<Section key={v} lot={v}>
 								<SectionTitle text="In Progress" />
 								{inProgressCollectionContentsQuery.data ? (
-									inProgressCollectionContentsQuery.data.collectionContents
-										.response.results.items.length > 0 ? (
+									inProgressCollectionContentsQuery.data.collectionContents.response.results.items
+										.length > 0 ? (
 										<ApplicationGrid>
 											{inProgressCollectionContentsQuery.data.collectionContents.response.results.items.map(
 												(lm) => (
@@ -248,13 +220,10 @@ export default function Page() {
 								<SectionTitle text="Summary" />
 								{userAnalyticsQuery.data ? (
 									latestUserSummary ? (
-										<DisplaySummarySection
-											latestUserSummary={latestUserSummary}
-										/>
+										<DisplaySummarySection latestUserSummary={latestUserSummary} />
 									) : (
 										<Text c="dimmed">
-											No summary available. Please add some media to your
-											watched history.
+											No summary available. Please add some media to your watched history.
 										</Text>
 									)
 								) : (
@@ -279,8 +248,7 @@ const RecommendationsSection = () => {
 
 	const { data, refetch, isFetching } = useQuery({
 		queryKey: queryFactory.media.userMetadataRecommendations().queryKey,
-		queryFn: () =>
-			clientGqlService.request(UserMetadataRecommendationsDocument),
+		queryFn: () => clientGqlService.request(UserMetadataRecommendationsDocument),
 	});
 	const expireCacheKey = useExpireCacheKeyMutation();
 
@@ -296,9 +264,7 @@ const RecommendationsSection = () => {
 							openConfirmationModal(
 								"Are you sure you want to refresh the recommendations?",
 								async () => {
-									await expireCacheKey.mutateAsync(
-										data.userMetadataRecommendations.cacheId,
-									);
+									await expireCacheKey.mutateAsync(data.userMetadataRecommendations.cacheId);
 									refetch();
 								},
 							);
@@ -313,11 +279,7 @@ const RecommendationsSection = () => {
 					data.userMetadataRecommendations.response.length > 0 ? (
 						<ApplicationGrid>
 							{data.userMetadataRecommendations.response.map((lm) => (
-								<MetadataDisplayItem
-									key={lm}
-									metadataId={lm}
-									shouldHighlightNameIfInteracted
-								/>
+								<MetadataDisplayItem key={lm} metadataId={lm} shouldHighlightNameIfInteracted />
 							))}
 						</ApplicationGrid>
 					) : (
@@ -336,21 +298,18 @@ const RecommendationsSection = () => {
 const TrendingSection = () => {
 	const userPreferences = useUserPreferences();
 
-	const [isTrendingMetadataListOpen, { toggle: toggleTrendingMetadataList }] =
-		useDisclosure(false);
+	const [isTrendingMetadataListOpen, { toggle: toggleTrendingMetadataList }] = useDisclosure(false);
 
 	const trendingMetadata = useQuery({
 		queryKey: queryFactory.media.trendingMetadata().queryKey,
 		queryFn: () => clientGqlService.request(TrendingMetadataDocument),
 	});
 
-	const trendingMetadataSelection =
-		trendingMetadata.data?.trendingMetadata.slice(
-			0,
-			userPreferences.general.dashboard.find(
-				(de) => de.section === DashboardElementLot.Trending,
-			)?.numElements || 1,
-		);
+	const trendingMetadataSelection = trendingMetadata.data?.trendingMetadata.slice(
+		0,
+		userPreferences.general.dashboard.find((de) => de.section === DashboardElementLot.Trending)
+			?.numElements || 1,
+	);
 
 	return (
 		<>
@@ -364,11 +323,7 @@ const TrendingSection = () => {
 				{trendingMetadata.data ? (
 					<ApplicationGrid>
 						{trendingMetadata.data.trendingMetadata.map((lm) => (
-							<MetadataDisplayItem
-								key={lm}
-								metadataId={lm}
-								shouldHighlightNameIfInteracted
-							/>
+							<MetadataDisplayItem key={lm} metadataId={lm} shouldHighlightNameIfInteracted />
 						))}
 					</ApplicationGrid>
 				) : (
@@ -379,13 +334,8 @@ const TrendingSection = () => {
 				<SectionTitle text="Trending" />
 				{trendingMetadata.data &&
 				trendingMetadataSelection &&
-				trendingMetadata.data.trendingMetadata.length >
-					trendingMetadataSelection.length ? (
-					<Button
-						size="xs"
-						variant="subtle"
-						onClick={toggleTrendingMetadataList}
-					>
+				trendingMetadata.data.trendingMetadata.length > trendingMetadataSelection.length ? (
+					<Button size="xs" variant="subtle" onClick={toggleTrendingMetadataList}>
 						View All
 					</Button>
 				) : null}
@@ -394,11 +344,7 @@ const TrendingSection = () => {
 				trendingMetadataSelection.length > 0 ? (
 					<ApplicationGrid>
 						{trendingMetadataSelection.map((lm) => (
-							<MetadataDisplayItem
-								key={lm}
-								metadataId={lm}
-								shouldHighlightNameIfInteracted
-							/>
+							<MetadataDisplayItem key={lm} metadataId={lm} shouldHighlightNameIfInteracted />
 						))}
 					</ApplicationGrid>
 				) : (
@@ -424,34 +370,26 @@ const UpcomingMediaSection = (props: { um: CalendarEventPartFragment }) => {
 	const extraInformation = useMemo(() => {
 		if (props.um.showExtraInformation)
 			return `S${props.um.showExtraInformation.season}-E${props.um.showExtraInformation.episode}`;
-		if (props.um.podcastExtraInformation)
-			return `EP-${props.um.podcastExtraInformation.episode}`;
+		if (props.um.podcastExtraInformation) return `EP-${props.um.podcastExtraInformation.episode}`;
 	}, [props.um]);
 
 	const daysInformation = useMemo(() => {
 		return numDaysLeft === 0
 			? "Today"
-			: `In ${numDaysLeft === 1 ? "a" : numDaysLeft} day${
-					numDaysLeft === 1 ? "" : "s"
-				}`;
+			: `In ${numDaysLeft === 1 ? "a" : numDaysLeft} day${numDaysLeft === 1 ? "" : "s"}`;
 	}, [numDaysLeft]);
 
 	return (
 		<MetadataDisplayItem
 			metadataId={props.um.metadataId}
 			additionalInformation={
-				extraInformation
-					? `${extraInformation} ${daysInformation}`
-					: daysInformation
+				extraInformation ? `${extraInformation} ${daysInformation}` : daysInformation
 			}
 		/>
 	);
 };
 
-const Section = (props: {
-	lot: DashboardElementLot;
-	children: ReactNode | Array<ReactNode>;
-}) => (
+const Section = (props: { lot: DashboardElementLot; children: ReactNode | Array<ReactNode> }) => (
 	<Stack gap="sm" id={props.lot}>
 		{props.children}
 	</Stack>

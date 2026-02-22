@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
 import { createOptionalRatingPropertiesSchema } from "~/lib/test-fixtures";
+
 import { parsePropertySchemaInput } from "./service";
 
 describe("parsePropertySchemaInput", () => {
@@ -15,10 +17,7 @@ describe("parsePropertySchemaInput", () => {
 
 	it("rejects an empty properties map", () => {
 		expect(() =>
-			parsePropertySchemaInput(
-				{ fields: {} },
-				{ propertiesLabel: "Entity schema properties" },
-			),
+			parsePropertySchemaInput({ fields: {} }, { propertiesLabel: "Entity schema properties" }),
 		).toThrow("Entity schema properties must contain at least one property");
 	});
 

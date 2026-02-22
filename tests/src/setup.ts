@@ -1,20 +1,14 @@
 import { afterAll, beforeAll } from "bun:test";
 import { type ChildProcess, spawn } from "node:child_process";
+
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import type { paths } from "@ryot/generated/openapi/app-backend";
-import {
-	PostgreSqlContainer,
-	type StartedPostgreSqlContainer,
-} from "@testcontainers/postgresql";
+import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { config } from "dotenv";
 import getPort from "get-port";
 import createClient from "openapi-fetch";
 import { Client as PgClient } from "pg";
-import {
-	GenericContainer,
-	type StartedTestContainer,
-	Wait,
-} from "testcontainers";
+import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 
 config({ path: ".env" });
 
@@ -30,11 +24,7 @@ let s3Container: StartedTestContainer;
 let redisContainer: StartedTestContainer;
 let pgContainer: StartedPostgreSqlContainer;
 
-async function waitForHealthCheck(
-	url: string,
-	maxRetries = 30,
-	retryDelay = 1000,
-) {
+async function waitForHealthCheck(url: string, maxRetries = 30, retryDelay = 1000) {
 	for (let i = 0; i < maxRetries; i++) {
 		try {
 			const response = await fetch(url);
@@ -88,9 +78,7 @@ beforeAll(async () => {
 	});
 
 	await s3Client.send(new CreateBucketCommand({ Bucket: S3_BUCKET_NAME }));
-	console.log(
-		`[E2E Setup] S3 bucket '${S3_BUCKET_NAME}' created at ${s3Endpoint}`,
-	);
+	console.log(`[E2E Setup] S3 bucket '${S3_BUCKET_NAME}' created at ${s3Endpoint}`);
 
 	backendPort = await getPort();
 

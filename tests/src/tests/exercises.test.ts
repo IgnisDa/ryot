@@ -1,9 +1,11 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 	createTransformExpression,
 } from "@ryot/ts-utils";
+
 import type { Client } from "../fixtures";
 import {
 	buildGridRequest,
@@ -61,11 +63,7 @@ const waitForSeededExercise = async (client: Client, cookies: string) => {
 describe("Exercises E2E", () => {
 	it("links the built-in exercise schema to the fitness tracker", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const fitnessTracker = await findBuiltinTrackerBySlug(
-			client,
-			cookies,
-			"fitness",
-		);
+		const fitnessTracker = await findBuiltinTrackerBySlug(client, cookies, "fitness");
 		const schemas = await listEntitySchemas(client, cookies, {
 			trackerId: fitnessTracker.id,
 		});
@@ -98,17 +96,11 @@ describe("Exercises E2E", () => {
 
 	it("creates the built-in All Exercises saved view with exercise defaults", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const fitnessTracker = await findBuiltinTrackerBySlug(
-			client,
-			cookies,
-			"fitness",
-		);
+		const fitnessTracker = await findBuiltinTrackerBySlug(client, cookies, "fitness");
 		const views = await listSavedViews(client, cookies, {
 			trackerId: fitnessTracker.id,
 		});
-		const allExercisesView = views.find(
-			(view) => view.name === "All Exercises",
-		);
+		const allExercisesView = views.find((view) => view.name === "All Exercises");
 
 		expect(allExercisesView).toBeDefined();
 		expect(allExercisesView).toMatchObject({

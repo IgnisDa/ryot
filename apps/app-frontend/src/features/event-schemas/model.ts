@@ -1,4 +1,5 @@
 import type { AppSchema } from "@ryot/ts-utils";
+
 import type { ApiGetResponseData } from "~/lib/api/types";
 
 type ApiEventSchema = ApiGetResponseData<"/event-schemas">[number];

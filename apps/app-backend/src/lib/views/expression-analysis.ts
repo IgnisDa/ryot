@@ -1,5 +1,6 @@
 import type { AppPropertyDefinition } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
+
 import { getComputedFieldOrThrow } from "./computed-fields";
 import { QueryEngineValidationError } from "./errors";
 import type { ViewComputedField, ViewExpression } from "./expression";
@@ -43,9 +44,7 @@ const createPropertyTypeInfo = (
 	propertyDefinition: propertyDefinition ?? undefined,
 });
 
-const createLiteralTypeInfo = (
-	value: unknown | null,
-): ViewExpressionTypeInfo => {
+const createLiteralTypeInfo = (value: unknown | null): ViewExpressionTypeInfo => {
 	if (value === null) {
 		return { kind: "null" };
 	}
@@ -94,9 +93,7 @@ export const normalizeExpressionPropertyType = (propertyType: PropertyType) => {
 		.otherwise((value) => value);
 };
 
-const unifyPropertyDefinitions = (
-	definitions: (AppPropertyDefinition | undefined)[],
-) => {
+const unifyPropertyDefinitions = (definitions: (AppPropertyDefinition | undefined)[]) => {
 	const serialized = [...new Set(definitions.map(serializePropertyDefinition))];
 	if (serialized.length !== 1) {
 		return undefined;
@@ -110,9 +107,7 @@ const getUnifiedEventPropertyDefinition = (
 	propertyPath: string[],
 ) => {
 	return unifyPropertyDefinitions(
-		eventSchemas.map(
-			(schema) => getPropertyDefinition(schema, propertyPath) ?? undefined,
-		),
+		eventSchemas.map((schema) => getPropertyDefinition(schema, propertyPath) ?? undefined),
 	);
 };
 
@@ -133,9 +128,7 @@ const isConcatCompatibleType = (input: ViewExpressionTypeInfo) => {
 		return false;
 	}
 
-	return !["array", "object"].includes(
-		normalizeExpressionPropertyType(input.propertyType),
-	);
+	return !["array", "object"].includes(normalizeExpressionPropertyType(input.propertyType));
 };
 
 export const unifyTypeInfos = (typeInfos: ViewExpressionTypeInfo[]) => {
@@ -161,11 +154,7 @@ export const unifyTypeInfos = (typeInfos: ViewExpressionTypeInfo[]) => {
 	}
 
 	const normalizedTypes = [
-		...new Set(
-			propertyInfos.map((info) =>
-				normalizeExpressionPropertyType(info.propertyType),
-			),
-		),
+		...new Set(propertyInfos.map((info) => normalizeExpressionPropertyType(info.propertyType))),
 	];
 	if (normalizedTypes.length === 1) {
 		const propertyType = normalizedTypes[0];
@@ -175,9 +164,7 @@ export const unifyTypeInfos = (typeInfos: ViewExpressionTypeInfo[]) => {
 
 		return createPropertyTypeInfo(
 			propertyType,
-			unifyPropertyDefinitions(
-				propertyInfos.map((info) => info.propertyDefinition),
-			),
+			unifyPropertyDefinitions(propertyInfos.map((info) => info.propertyDefinition)),
 		);
 	}
 
@@ -190,10 +177,7 @@ export const unifyTypeInfos = (typeInfos: ViewExpressionTypeInfo[]) => {
 	);
 };
 
-export const assertNumericExpression = (
-	input: ViewExpressionTypeInfo,
-	context: string,
-) => {
+export const assertNumericExpression = (input: ViewExpressionTypeInfo, context: string) => {
 	assertFilterCompatibleExpression(input, context);
 	if (input.kind !== "property" || !isNumericPropertyType(input.propertyType)) {
 		throw new QueryEngineValidationError(
@@ -202,9 +186,7 @@ export const assertNumericExpression = (
 	}
 };
 
-export const assertConcatCompatibleExpression = (
-	input: ViewExpressionTypeInfo,
-) => {
+export const assertConcatCompatibleExpression = (input: ViewExpressionTypeInfo) => {
 	assertFilterCompatibleExpression(input, "string composition");
 	if (!isConcatCompatibleType(input)) {
 		throw new QueryEngineValidationError(
@@ -222,10 +204,8 @@ export const inferViewExpressionType = <
 	computedFieldMap?: Map<string, ViewComputedField>;
 	context: QueryEngineReferenceContext<TSchema, TJoin>;
 }): ViewExpressionTypeInfo => {
-	const typeCache =
-		input.typeCache ?? new Map<string, ViewExpressionTypeInfo>();
-	const computedFieldMap =
-		input.computedFieldMap ?? new Map<string, ViewComputedField>();
+	const typeCache = input.typeCache ?? new Map<string, ViewExpressionTypeInfo>();
+	const computedFieldMap = input.computedFieldMap ?? new Map<string, ViewComputedField>();
 
 	if (input.expression.type === "literal") {
 		return createLiteralTypeInfo(input.expression.value);
@@ -260,9 +240,7 @@ export const inferViewExpressionType = <
 		assertNumericExpression(leftType, "Arithmetic");
 		assertNumericExpression(rightType, "Arithmetic");
 		if (leftType.kind !== "property" || rightType.kind !== "property") {
-			throw new QueryEngineValidationError(
-				"Arithmetic requires numeric property expressions",
-			);
+			throw new QueryEngineValidationError("Arithmetic requires numeric property expressions");
 		}
 
 		return input.expression.operator === "divide" ||
@@ -357,10 +335,7 @@ export const inferViewExpressionType = <
 			return cached;
 		}
 
-		const computedField = getComputedFieldOrThrow(
-			computedFieldMap,
-			reference.key,
-		);
+		const computedField = getComputedFieldOrThrow(computedFieldMap, reference.key);
 
 		const inferred = inferViewExpressionType({
 			typeCache,
@@ -392,9 +367,7 @@ export const inferViewExpressionType = <
 
 		const [column] = reference.path;
 		if (!column) {
-			throw new QueryEngineValidationError(
-				"Entity reference path must not be empty",
-			);
+			throw new QueryEngineValidationError("Entity reference path must not be empty");
 		}
 		if (column === "image") {
 			return { kind: "image" };
@@ -414,8 +387,7 @@ export const inferViewExpressionType = <
 	}
 
 	if (reference.type === "event-aggregate") {
-		const propertyType =
-			reference.aggregation === "count" ? "integer" : "number";
+		const propertyType = reference.aggregation === "count" ? "integer" : "number";
 		return createPropertyTypeInfo(propertyType, {
 			type: propertyType,
 			label: "Event Aggregate",
@@ -426,9 +398,7 @@ export const inferViewExpressionType = <
 	if (reference.type === "entity-schema") {
 		const [column] = reference.path;
 		if (!column) {
-			throw new QueryEngineValidationError(
-				"Entity schema reference path must not be empty",
-			);
+			throw new QueryEngineValidationError("Entity schema reference path must not be empty");
 		}
 		if (reference.path.length > 1) {
 			throw new QueryEngineValidationError(
@@ -452,15 +422,11 @@ export const inferViewExpressionType = <
 		if (reference.path[0] !== "properties") {
 			const [column] = reference.path;
 			if (!column) {
-				throw new QueryEngineValidationError(
-					"Event reference path must not be empty",
-				);
+				throw new QueryEngineValidationError("Event reference path must not be empty");
 			}
 			const propertyDefinition = getEventColumnPropertyDefinition(column);
 			if (!propertyDefinition) {
-				throw new QueryEngineValidationError(
-					`Unsupported event column 'event.${column}'`,
-				);
+				throw new QueryEngineValidationError(`Unsupported event column 'event.${column}'`);
 			}
 			return createPropertyTypeInfo(
 				normalizeExpressionPropertyType(propertyDefinition.type),
@@ -475,10 +441,7 @@ export const inferViewExpressionType = <
 		if (eventSchemaSlug && input.context.eventSchemaMap) {
 			const eventSchemas = input.context.eventSchemaMap.get(eventSchemaSlug);
 			if (eventSchemas?.length) {
-				const propertyDefinition = getUnifiedEventPropertyDefinition(
-					eventSchemas,
-					propertyPath,
-				);
+				const propertyDefinition = getUnifiedEventPropertyDefinition(eventSchemas, propertyPath);
 				if (propertyDefinition) {
 					return createPropertyTypeInfo(
 						normalizeExpressionPropertyType(propertyDefinition.type),
@@ -499,9 +462,7 @@ export const inferViewExpressionType = <
 	if (reference.type === "event-schema") {
 		const [column] = reference.path;
 		if (!column) {
-			throw new QueryEngineValidationError(
-				"Event schema reference path must not be empty",
-			);
+			throw new QueryEngineValidationError("Event schema reference path must not be empty");
 		}
 		if (reference.path.length > 1) {
 			throw new QueryEngineValidationError(
@@ -524,10 +485,7 @@ export const inferViewExpressionType = <
 
 	if (reference.path[0] === "properties") {
 		const propertyPath = reference.path.slice(1);
-		const propertyDefinition = getEventJoinPropertyDefinition(
-			join,
-			propertyPath,
-		);
+		const propertyDefinition = getEventJoinPropertyDefinition(join, propertyPath);
 
 		return createPropertyTypeInfo(
 			normalizeExpressionPropertyType(propertyDefinition.type),
@@ -537,9 +495,7 @@ export const inferViewExpressionType = <
 
 	const [column] = reference.path;
 	if (!column) {
-		throw new QueryEngineValidationError(
-			"Event join reference path must not be empty",
-		);
+		throw new QueryEngineValidationError("Event join reference path must not be empty");
 	}
 	const propertyDefinition = getEventJoinColumnPropertyDefinition(column);
 	if (!propertyDefinition) {
@@ -567,39 +523,25 @@ export const assertFilterCompatibleExpression = (
 
 export const assertSortableExpression = (input: ViewExpressionTypeInfo) => {
 	assertFilterCompatibleExpression(input, "sorting");
-	if (
-		input.kind !== "property" ||
-		!supportsComparableFilter(input.propertyType)
-	) {
+	if (input.kind !== "property" || !supportsComparableFilter(input.propertyType)) {
 		throw new QueryEngineValidationError(
 			`Sort expressions must resolve to a sortable scalar value, received '${input.kind === "property" ? input.propertyType : input.kind}'`,
 		);
 	}
 };
 
-export const assertContainsCompatibleExpression = (
-	input: ViewExpressionTypeInfo,
-) => {
+export const assertContainsCompatibleExpression = (input: ViewExpressionTypeInfo) => {
 	assertFilterCompatibleExpression(input, "filtering");
-	if (
-		input.kind !== "property" ||
-		!supportsContainsFilter(input.propertyType)
-	) {
+	if (input.kind !== "property" || !supportsContainsFilter(input.propertyType)) {
 		throw new QueryEngineValidationError(
 			`Filter operator 'contains' is not supported for expression type '${input.kind === "property" ? input.propertyType : input.kind}'`,
 		);
 	}
 };
 
-export const assertComparableExpression = (
-	input: ViewExpressionTypeInfo,
-	operator: string,
-) => {
+export const assertComparableExpression = (input: ViewExpressionTypeInfo, operator: string) => {
 	assertFilterCompatibleExpression(input, "filtering");
-	if (
-		input.kind !== "property" ||
-		!supportsComparableFilter(input.propertyType)
-	) {
+	if (input.kind !== "property" || !supportsComparableFilter(input.propertyType)) {
 		throw new QueryEngineValidationError(
 			`Filter operator '${operator}' is not supported for expression type '${input.kind === "property" ? input.propertyType : input.kind}'`,
 		);
@@ -614,20 +556,14 @@ export const assertCompatibleComparisonTypes = (input: {
 	assertComparableExpression(input.left, input.operator);
 	assertComparableExpression(input.right, input.operator);
 
-	const leftType =
-		input.left.kind === "property" ? input.left.propertyType : input.left.kind;
-	const rightType =
-		input.right.kind === "property"
-			? input.right.propertyType
-			: input.right.kind;
+	const leftType = input.left.kind === "property" ? input.left.propertyType : input.left.kind;
+	const rightType = input.right.kind === "property" ? input.right.propertyType : input.right.kind;
 
 	if (leftType === rightType) {
 		return;
 	}
 
-	if (
-		[leftType, rightType].every((type) => ["integer", "number"].includes(type))
-	) {
+	if ([leftType, rightType].every((type) => ["integer", "number"].includes(type))) {
 		return;
 	}
 

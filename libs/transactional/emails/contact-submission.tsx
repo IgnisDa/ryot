@@ -1,4 +1,5 @@
 import { Text } from "@react-email/components";
+
 import Layout from "../layout";
 
 type ContactSubmissionEmailProps = {

@@ -1,15 +1,15 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createComputedFieldExpression,
 	createEntityColumnExpression,
 	createEventAggregateExpression,
 } from "@ryot/ts-utils";
+
 import { createSmartphoneSchema } from "~/lib/test-fixtures";
+
 import { buildSchemaMap, displayBuiltins } from "./reference";
-import {
-	validateQueryEngineReferences,
-	validateRuntimeReferenceAgainstSchemas,
-} from "./validator";
+import { validateQueryEngineReferences, validateRuntimeReferenceAgainstSchemas } from "./validator";
 
 const context = {
 	eventJoinMap: new Map(),
@@ -38,9 +38,7 @@ describe("validateRuntimeReferenceAgainstSchemas", () => {
 				context,
 				displayBuiltins,
 			),
-		).toThrow(
-			"Primary event schema references are not supported in this query mode",
-		);
+		).toThrow("Primary event schema references are not supported in this query mode");
 	});
 
 	it("rejects non-numeric aggregate expressions", () => {
@@ -85,11 +83,7 @@ describe("validateRuntimeReferenceAgainstSchemas", () => {
 					fields: [
 						{
 							key: "avgReviewLabel",
-							expression: createEventAggregateExpression(
-								"review",
-								["properties", "label"],
-								"avg",
-							),
+							expression: createEventAggregateExpression("review", ["properties", "label"], "avg"),
 						},
 					],
 					filter: null,
@@ -130,9 +124,7 @@ describe("validateRuntimeReferenceAgainstSchemas", () => {
 					]),
 				},
 			),
-		).toThrow(
-			"avg event aggregate requires a numeric property, received 'string'",
-		);
+		).toThrow("avg event aggregate requires a numeric property, received 'string'");
 	});
 
 	it("accepts primary event property references when matching event schemas share a compatible definition", () => {
@@ -225,9 +217,7 @@ describe("validateRuntimeReferenceAgainstSchemas", () => {
 				},
 				displayBuiltins,
 			),
-		).toThrow(
-			"Primary event property references in this context must specify eventSchemaSlug",
-		);
+		).toThrow("Primary event property references in this context must specify eventSchemaSlug");
 	});
 
 	it("rejects countBy expressions that are not comparable scalars", () => {
@@ -259,9 +249,7 @@ describe("validateRuntimeReferenceAgainstSchemas", () => {
 				},
 				context,
 			),
-		).toThrow(
-			"Filter operator 'countBy' is not supported for expression type 'object'",
-		);
+		).toThrow("Filter operator 'countBy' is not supported for expression type 'object'");
 	});
 
 	it("rejects countWhere predicates that use unsupported primary event refs", () => {
@@ -363,9 +351,7 @@ describe("validateRuntimeReferenceAgainstSchemas", () => {
 					]),
 				},
 			),
-		).toThrow(
-			"Primary event property references in this context must specify eventSchemaSlug",
-		);
+		).toThrow("Primary event property references in this context must specify eventSchemaSlug");
 	});
 
 	it("rejects unslugged primary event refs inside conditional sort predicates", () => {
@@ -428,9 +414,7 @@ describe("validateRuntimeReferenceAgainstSchemas", () => {
 					]),
 				},
 			),
-		).toThrow(
-			"Primary event property references in this context must specify eventSchemaSlug",
-		);
+		).toThrow("Primary event property references in this context must specify eventSchemaSlug");
 	});
 
 	it("rejects primary event property references when matching event schemas disagree", () => {

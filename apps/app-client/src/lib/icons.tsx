@@ -109,11 +109,7 @@ function FallbackIcon({ size = 16 }: { size?: number }) {
 	);
 }
 
-export function TrackerIcon({
-	icon,
-	size = 16,
-	strokeWidth = 1.5,
-}: TrackerIconProps) {
+export function TrackerIcon({ icon, size = 16, strokeWidth = 1.5 }: TrackerIconProps) {
 	const IconComponent = iconRegistry[icon];
 	if (!IconComponent) {
 		return <FallbackIcon size={size} />;

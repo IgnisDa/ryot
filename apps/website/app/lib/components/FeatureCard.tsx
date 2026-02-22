@@ -1,10 +1,6 @@
 import type { LucideIcon } from "lucide-react";
-import {
-	Card,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "~/lib/components/ui/card";
+
+import { Card, CardDescription, CardHeader, CardTitle } from "~/lib/components/ui/card";
 import { FEATURE_CARD } from "~/lib/styles";
 
 type FeatureCardProps = {
@@ -23,9 +19,7 @@ export function FeatureCard(props: FeatureCardProps) {
 					<Icon className="w-6 h-6 text-primary" />
 				</div>
 				<CardTitle className="text-xl mb-4">{props.title}</CardTitle>
-				<CardDescription className="text-base">
-					{props.description}
-				</CardDescription>
+				<CardDescription className="text-base">{props.description}</CardDescription>
 			</CardHeader>
 		</Card>
 	);

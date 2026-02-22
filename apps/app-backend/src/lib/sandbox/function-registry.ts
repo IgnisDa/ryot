@@ -4,11 +4,7 @@ import { getCachedValue } from "./host-functions/get-cached-value";
 import { getUserPreferences } from "./host-functions/get-user-preferences";
 import { httpCall } from "./host-functions/http-call";
 import { setCachedValue } from "./host-functions/set-cached-value";
-import type {
-	ApiFunctionDescriptor,
-	HostFunction,
-	HostFunctionFactory,
-} from "./types";
+import type { ApiFunctionDescriptor, HostFunction, HostFunctionFactory } from "./types";
 
 const createHostFunctionFactory = <TContext extends Record<string, unknown>>(
 	hostFunction: HostFunction<TContext>,

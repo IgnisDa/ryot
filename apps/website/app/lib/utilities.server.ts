@@ -9,8 +9,10 @@ import type { ReactElement } from "react";
 import { data } from "react-router";
 import { match } from "ts-pattern";
 import z from "zod";
+
 import type { TPlanTypes } from "~/drizzle/schema.server";
 import * as schema from "~/drizzle/schema.server";
+
 import {
 	getDb,
 	getPrices,
@@ -36,8 +38,7 @@ export const getClientIp = (request: Request): string | undefined => {
 export const getProductAndPlanTypeByPriceId = (priceId: string) => {
 	for (const product of getPrices())
 		for (const price of product.prices)
-			if (price.priceId === priceId)
-				return { productType: product.type, planType: price.name };
+			if (price.priceId === priceId) return { productType: product.type, planType: price.name };
 	throw new Error("Price ID not found");
 };
 
@@ -54,9 +55,7 @@ export const oauthConfig = async () => {
 export const getPaddleServerClient = () => {
 	const serverVariables = getServerVariables();
 	return new Paddle(serverVariables.PADDLE_SERVER_TOKEN, {
-		environment: serverVariables.PADDLE_SANDBOX
-			? Environment.sandbox
-			: undefined,
+		environment: serverVariables.PADDLE_SANDBOX ? Environment.sandbox : undefined,
 	});
 };
 
@@ -74,9 +73,7 @@ export const sendEmail = async (input: {
 	const client = createTransport({
 		host: serverVariables.SERVER_SMTP_SERVER,
 		secure: serverVariables.SERVER_SMTP_SECURE,
-		port: serverVariables.SERVER_SMTP_PORT
-			? Number(serverVariables.SERVER_SMTP_PORT)
-			: undefined,
+		port: serverVariables.SERVER_SMTP_PORT ? Number(serverVariables.SERVER_SMTP_PORT) : undefined,
 		auth: {
 			user: serverVariables.SERVER_SMTP_USER,
 			pass: serverVariables.SERVER_SMTP_PASSWORD,
@@ -102,10 +99,7 @@ export const sendEmail = async (input: {
 	return resp.messageId;
 };
 
-export const calculateRenewalDate = (
-	planType: TPlanTypes,
-	baseDate?: Date | dayjs.Dayjs,
-) => {
+export const calculateRenewalDate = (planType: TPlanTypes, baseDate?: Date | dayjs.Dayjs) => {
 	const date = baseDate ? dayjs(baseDate) : dayjs();
 	return match(planType)
 		.with("free", "lifetime", () => null)
@@ -142,15 +136,9 @@ export const getCustomerWithActivePurchase = async (request: Request) => {
 		planType: activePurchase?.planType || null,
 		hasCancelled: !!activePurchase?.cancelledOn,
 		productType: activePurchase?.productType || null,
-		ryotUserId:
-			activePurchase?.productType === "cloud" ? customer.ryotUserId : null,
-		renewOn: activePurchase?.renewOn
-			? formatDateToNaiveDate(activePurchase.renewOn)
-			: null,
-		unkeyKeyId:
-			activePurchase?.productType === "self_hosted"
-				? customer.unkeyKeyId
-				: null,
+		ryotUserId: activePurchase?.productType === "cloud" ? customer.ryotUserId : null,
+		renewOn: activePurchase?.renewOn ? formatDateToNaiveDate(activePurchase.renewOn) : null,
+		unkeyKeyId: activePurchase?.productType === "self_hosted" ? customer.unkeyKeyId : null,
 	};
 };
 
@@ -169,26 +157,20 @@ export const createUnkeyKey = async (
 	return created.data;
 };
 
-export const verifyTurnstileToken = async (input: {
-	token: string;
-	remoteIp?: string;
-}) => {
+export const verifyTurnstileToken = async (input: { token: string; remoteIp?: string }) => {
 	const serverVariables = getServerVariables();
 	try {
-		const response = await fetch(
-			"https://challenges.cloudflare.com/turnstile/v0/siteverify",
-			{
-				method: "POST",
-				headers: {
-					"Content-Type": "application/x-www-form-urlencoded",
-				},
-				body: new URLSearchParams({
-					response: input.token,
-					secret: serverVariables.TURNSTILE_SECRET_KEY,
-					...(input.remoteIp && { remoteip: input.remoteIp }),
-				}),
+		const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/x-www-form-urlencoded",
 			},
-		);
+			body: new URLSearchParams({
+				response: input.token,
+				secret: serverVariables.TURNSTILE_SECRET_KEY,
+				...(input.remoteIp && { remoteip: input.remoteIp }),
+			}),
+		});
 
 		const jsonData = await response.json();
 		return jsonData.success === true;
@@ -204,9 +186,6 @@ export const validateTurnstile = async (request: Request, token: string) => {
 		remoteIp: getClientIp(request),
 	});
 	if (!isTurnstileValid) {
-		throw data(
-			{ message: "CAPTCHA verification failed. Please try again." },
-			{ status: 400 },
-		);
+		throw data({ message: "CAPTCHA verification failed. Please try again." }, { status: 400 });
 	}
 };

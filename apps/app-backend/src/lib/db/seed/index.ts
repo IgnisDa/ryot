@@ -1,10 +1,12 @@
 import { and, eq, isNull } from "drizzle-orm";
+
 import type { DbClient } from "~/lib/db";
 import { eventSchema as eventSchemaTable } from "~/lib/db/schema";
 import {
 	authenticationBuiltinEntitySchemas,
 	authenticationBuiltinRelationshipSchemas,
 } from "~/modules/authentication/bootstrap/manifests";
+
 import {
 	ensureBuiltinEntitySchema,
 	ensureBuiltinEntitySchemaEventSchemas,
@@ -54,10 +56,7 @@ export const seedInitialDatabase = async (database: DbClient) => {
 			scriptIds.set(script.slug, scriptId);
 		}
 
-		for (const link of [
-			...entitySchemaScriptLinks(),
-			...personSchemaScriptLinks(),
-		]) {
+		for (const link of [...entitySchemaScriptLinks(), ...personSchemaScriptLinks()]) {
 			const entitySchemaId = schemaIds.get(link.schemaSlug);
 			const scriptId = scriptIds.get(link.scriptSlug);
 
@@ -79,9 +78,7 @@ export const seedInitialDatabase = async (database: DbClient) => {
 		for (const triggerLink of builtinEventSchemaTriggerLinks()) {
 			const scriptId = scriptIds.get(triggerLink.scriptSlug);
 			if (!scriptId) {
-				throw new Error(
-					`Missing script id for trigger script ${triggerLink.scriptSlug}`,
-				);
+				throw new Error(`Missing script id for trigger script ${triggerLink.scriptSlug}`);
 			}
 
 			const matchingEventSchemas = await tx

@@ -1,9 +1,8 @@
 import { match } from "ts-pattern";
+
 import { ThreePointSmileyRating } from "~/lib/types";
 
-export const convertThreePointSmileyToDecimal = (
-	rating: ThreePointSmileyRating,
-) =>
+export const convertThreePointSmileyToDecimal = (rating: ThreePointSmileyRating) =>
 	match(rating)
 		.with(ThreePointSmileyRating.Happy, () => 100)
 		.with(ThreePointSmileyRating.Neutral, () => 66.66)

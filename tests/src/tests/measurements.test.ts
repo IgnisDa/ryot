@@ -1,8 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import {
-	createEntityColumnExpression,
-	createEntityPropertyExpression,
-} from "@ryot/ts-utils";
+
+import { createEntityColumnExpression, createEntityPropertyExpression } from "@ryot/ts-utils";
+
 import {
 	buildGridRequest,
 	createAuthenticatedClient,
@@ -19,17 +18,11 @@ import {
 describe("Measurements E2E", () => {
 	it("links the built-in measurement schema to the fitness tracker", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const fitnessTracker = await findBuiltinTrackerBySlug(
-			client,
-			cookies,
-			"fitness",
-		);
+		const fitnessTracker = await findBuiltinTrackerBySlug(client, cookies, "fitness");
 		const schemas = await listEntitySchemas(client, cookies, {
 			trackerId: fitnessTracker.id,
 		});
-		const measurementSchema = schemas.find(
-			(schema) => schema.slug === "measurement",
-		);
+		const measurementSchema = schemas.find((schema) => schema.slug === "measurement");
 
 		expect(measurementSchema).toBeDefined();
 		expect(measurementSchema?.name).toBe("Measurement");
@@ -66,17 +59,11 @@ describe("Measurements E2E", () => {
 
 	it("creates the built-in All Measurements saved view with measurement defaults", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const fitnessTracker = await findBuiltinTrackerBySlug(
-			client,
-			cookies,
-			"fitness",
-		);
+		const fitnessTracker = await findBuiltinTrackerBySlug(client, cookies, "fitness");
 		const views = await listSavedViews(client, cookies, {
 			trackerId: fitnessTracker.id,
 		});
-		const allMeasurementsView = views.find(
-			(view) => view.name === "All Measurements",
-		);
+		const allMeasurementsView = views.find((view) => view.name === "All Measurements");
 
 		expect(allMeasurementsView).toBeDefined();
 		expect(allMeasurementsView).toMatchObject({
@@ -95,14 +82,8 @@ describe("Measurements E2E", () => {
 					calloutProperty: null,
 					titleProperty: createEntityColumnExpression("measurement", "name"),
 					imageProperty: createEntityColumnExpression("measurement", "image"),
-					primarySubtitleProperty: createEntityPropertyExpression(
-						"measurement",
-						"recordedAt",
-					),
-					secondarySubtitleProperty: createEntityPropertyExpression(
-						"measurement",
-						"weight",
-					),
+					primarySubtitleProperty: createEntityPropertyExpression("measurement", "recordedAt"),
+					secondarySubtitleProperty: createEntityPropertyExpression("measurement", "weight"),
 				},
 			},
 		});
@@ -110,10 +91,7 @@ describe("Measurements E2E", () => {
 
 	it("creates a measurement entity and retrieves it by id", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { measurementId } = await createMeasurementEntityFixture(
-			client,
-			cookies,
-		);
+		const { measurementId } = await createMeasurementEntityFixture(client, cookies);
 		const entity = await getEntity(client, cookies, measurementId);
 
 		expect(entity.id).toBe(measurementId);
@@ -146,9 +124,8 @@ describe("Measurements E2E", () => {
 
 		expect(result.response.status).toBe(200);
 		expect(result.data?.data.items.length).toBeGreaterThan(0);
-		expect(
-			getQueryEngineFieldOrThrow(result.data?.data.items[0], "primarySubtitle")
-				.key,
-		).toBe("primarySubtitle");
+		expect(getQueryEngineFieldOrThrow(result.data?.data.items[0], "primarySubtitle").key).toBe(
+			"primarySubtitle",
+		);
 	});
 });
