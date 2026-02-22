@@ -15,7 +15,7 @@ import { Text } from "@/components/ui/text";
 import { useUser } from "@/lib/atoms";
 import { TrackerIcon } from "@/lib/icons";
 import type { NavigationItem } from "@/lib/navigation";
-import { useNavigationData } from "@/lib/navigation";
+import { useNavigationData, useSetSubFlyoutOpen } from "@/lib/navigation";
 
 export const RAIL_WIDTH = 168;
 export const SPRING_CONFIG = { damping: 22, stiffness: 280 };
@@ -73,6 +73,7 @@ function RailItem({
 
 export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 	const user = useUser();
+	const setSubFlyoutOpen = useSetSubFlyoutOpen();
 	const { trackers, libraryViews, userItem, isLoading } = useNavigationData(
 		user?.name,
 	);
@@ -86,6 +87,9 @@ export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 
 	function handlePress(item: NavigationItem) {
 		if (item.slug === activeTrackerSlug) {
+			if (item.subItems.length > 0) {
+				setSubFlyoutOpen((prev) => !prev);
+			}
 			return;
 		}
 		const href: Href = item.kind === "home" ? "/" : (`/${item.slug}` as Href);
