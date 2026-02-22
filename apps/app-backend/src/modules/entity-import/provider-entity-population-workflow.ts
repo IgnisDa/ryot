@@ -6,15 +6,21 @@ import { Cause, DateTime, Effect, Schedule, Schema } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
+import {
+	dispatchLifecycleSubscriptions,
+	LifecycleOccurrence,
+} from "#modules/automations/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 
 import { EntityImportPayload } from "./entity-import-workflow";
+import { buildLifecycleOccurrences } from "./lifecycle-occurrences";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import {
 	EntityDetailsChildEntity,
 	EntityDetailsRelationshipGroup,
 	decodeEntityDetailsResult,
+	type PopulationMutationResult,
 	processChildEntityTree,
 } from "./population";
 import { syncRelatedEntityGroup } from "./relationship-population";
@@ -31,8 +37,9 @@ const CHILD_ENTITY_SCHEMA_SLUGS: Readonly<Record<string, string>> = {
 const REDIS_RETRY_SCHEDULE = Schedule.spaced("30 seconds");
 
 type SynchronizeOptions = {
-	entitySchemaSlug?: string;
+	entitySchemaSlug: string;
 	mode: "initial" | "refresh";
+	rootPreviouslyPopulated: boolean;
 	childEntitySchemaSlugs?: Readonly<Record<string, string>>;
 };
 
@@ -44,6 +51,11 @@ const ValidatedEntityDetails = Schema.Struct({
 });
 
 type ValidatedEntityDetails = typeof ValidatedEntityDetails.Type;
+
+const GraphWriteResult = Schema.Struct({
+	entity: ListedEntity,
+	occurrences: Schema.Array(LifecycleOccurrence),
+});
 
 const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 	payload: EntityImportPayload,
@@ -91,15 +103,22 @@ const writeRelatedEntities = Effect.fn("writeProviderRelatedEntities")(function*
 	entity: ListedEntity,
 	groups: ReadonlyArray<EntityDetailsRelationshipGroup>,
 ) {
-	yield* Effect.forEach(
-		groups,
-		(group) =>
-			syncRelatedEntityGroup({
-				group,
-				primaryEntityId: entity.id,
-				primaryEntitySchemaId: payload.entitySchemaId,
-			}),
-		{ discard: true },
+	return yield* Effect.forEach(groups, (group) =>
+		syncRelatedEntityGroup({
+			group,
+			primaryEntityId: entity.id,
+			primaryEntitySchemaId: payload.entitySchemaId,
+		}).pipe(
+			Effect.map((result) => ({
+				entities: result.relatedEntityMutations,
+				relationship: {
+					outcome: result.outcome,
+					anchorEntityId: entity.id,
+					direction: group.direction,
+					relationshipSchemaId: result.relationshipSchemaId,
+				},
+			})),
+		),
 	);
 });
 
@@ -113,9 +132,9 @@ const writeChildEntities = Effect.fn("writeProviderChildEntities")(function* (
 		details.childEntities.length === 0 &&
 		(!options.entitySchemaSlug || !options.childEntitySchemaSlugs?.[options.entitySchemaSlug])
 	) {
-		return;
+		return { entities: [], relationships: [] } satisfies PopulationMutationResult;
 	}
-	yield* processChildEntityTree({
+	return yield* processChildEntityTree({
 		parentEntityId: entity.id,
 		sandboxScriptId: payload.scriptId,
 		childEntities: details.childEntities,
@@ -129,18 +148,19 @@ const writeChildEntities = Effect.fn("writeProviderChildEntities")(function* (
 const writeEntityGraph = Effect.fn("writeProviderEntityGraph")(function* (
 	payload: EntityImportPayload,
 	details: ValidatedEntityDetails,
+	executionId: string,
 	options: SynchronizeOptions,
 ) {
 	const entities = yield* EntitiesService;
 	const runInTransaction = yield* TransactionRunner;
 
 	return yield* Activity.make({
-		success: ListedEntity,
 		error: SandboxRunError,
+		success: GraphWriteResult,
 		name: "write-entity-graph",
 		execute: runInTransaction(
 			Effect.gen(function* () {
-				const entity = yield* entities.save({
+				const initialOutcome = yield* entities.save({
 					scope: "global",
 					populatedAt: null,
 					name: details.name,
@@ -150,11 +170,14 @@ const writeEntityGraph = Effect.fn("writeProviderEntityGraph")(function* (
 					entitySchemaId: payload.entitySchemaId,
 					onConflict: options.mode === "refresh" ? undefined : "replaceExisting",
 				});
-				yield* writeRelatedEntities(payload, entity, details.relatedEntityGroups);
-				yield* writeChildEntities(payload, entity, details, options);
+				const entity = initialOutcome.entity;
+				const related = yield* writeRelatedEntities(payload, entity, details.relatedEntityGroups);
+				const relatedRelationships = related.map((group) => group.relationship);
+				const relatedEntityMutations = related.flatMap((group) => group.entities);
+				const childMutations = yield* writeChildEntities(payload, entity, details, options);
 
 				const populatedAt = yield* DateTime.nowAsDate;
-				return yield* entities.save({
+				const finalOutcome = yield* entities.save({
 					populatedAt,
 					scope: "global",
 					name: details.name,
@@ -164,6 +187,29 @@ const writeEntityGraph = Effect.fn("writeProviderEntityGraph")(function* (
 					sandboxScriptId: payload.scriptId,
 					entitySchemaId: payload.entitySchemaId,
 				});
+				const rootOutcome =
+					finalOutcome.operation === "noop" && initialOutcome.operation === "create"
+						? initialOutcome
+						: finalOutcome;
+				const mutations: PopulationMutationResult = {
+					relationships: [...relatedRelationships, ...childMutations.relationships],
+					entities: [
+						{ outcome: rootOutcome, entitySchemaSlug: options.entitySchemaSlug },
+						...relatedEntityMutations,
+						...childMutations.entities,
+					],
+				};
+				return {
+					entity: finalOutcome.entity,
+					occurrences: buildLifecycleOccurrences({
+						mutations,
+						executionId,
+						origin: payload.origin,
+						root: finalOutcome.entity,
+						rootSchemaSlug: options.entitySchemaSlug,
+						rootPreviouslyPopulated: options.rootPreviouslyPopulated,
+					}),
+				};
 			}),
 		).pipe(
 			dieOnDbError,
@@ -206,9 +252,15 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	}
 
 	const details = yield* validateEntityDetails(sandboxResult.value);
-	const entity = yield* writeEntityGraph(payload, details, options);
-	yield* publishPrimaryEntity(entity);
-	return entity;
+	const result = yield* writeEntityGraph(payload, details, executionId, options);
+	for (const occurrence of result.occurrences) {
+		yield* dispatchLifecycleSubscriptions(occurrence).pipe(
+			dieOnDbError,
+			Effect.mapError((error) => new SandboxRunError({ message: error.message })),
+		);
+	}
+	yield* publishPrimaryEntity(result.entity);
+	return result.entity;
 });
 
 // `Workflow.make` requires a struct payload, so the ensure/refresh discriminator
@@ -242,7 +294,24 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("runProviderEntityP
 			if (existing && existing.populatedAt !== null) {
 				return existing;
 			}
-			return yield* synchronizeEntityGraph(payload, executionId, { mode: "initial" });
+			const runWithDb = yield* DbRunner;
+			const repository = yield* EntitiesRepository;
+			const entitySchema = yield* Activity.make({
+				name: "load-provider-entity-schema",
+				success: Schema.NullOr(Schema.Struct({ slug: Schema.String })),
+				execute: runWithDb(repository.findEntitySchemaById(payload.entitySchemaId)).pipe(
+					Effect.map((value) => (value ? { slug: value.slug } : null)),
+					dieOnDbError,
+				),
+			});
+			if (!entitySchema) {
+				return yield* new SandboxRunError({ message: "Provider entity schema not found" });
+			}
+			return yield* synchronizeEntityGraph(payload, executionId, {
+				mode: "initial",
+				rootPreviouslyPopulated: false,
+				entitySchemaSlug: entitySchema.slug,
+			});
 		}
 
 		// Refresh reconciles stale children via `entitySchemaSlug`. Without it, a provider
@@ -254,16 +323,15 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("runProviderEntityP
 			);
 		}
 
+		const existing = yield* checkExistingEntity(payload);
 		return yield* synchronizeEntityGraph(payload, executionId, {
 			mode: "refresh",
 			entitySchemaSlug: payload.entitySchemaSlug,
 			childEntitySchemaSlugs: CHILD_ENTITY_SCHEMA_SLUGS,
+			rootPreviouslyPopulated: existing?.populatedAt !== null && existing !== null,
 		});
 	},
 );
 
-const ProviderEntityPopulationWorkflowLive = ProviderEntityPopulationWorkflow.toLayer(
-	runProviderEntityPopulationWorkflow,
-);
-
-export const ProviderEntityPopulationWorkflowDefinitionsLive = ProviderEntityPopulationWorkflowLive;
+export const ProviderEntityPopulationWorkflowDefinitionsLive =
+	ProviderEntityPopulationWorkflow.toLayer(runProviderEntityPopulationWorkflow);

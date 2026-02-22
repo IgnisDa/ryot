@@ -3,12 +3,9 @@ import { SandboxRunError } from "@ryot/contract/errors";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
+import { ProviderEntityPopulationWorkflow } from "#modules/entity-import/provider-entity-population-workflow";
 import type { CronTask } from "#modules/scheduler/types";
 
-import {
-	mediaMonitoringPayloadFromTarget,
-	MediaMonitoringRefreshWorkflow,
-} from "./refresh-workflow";
 import { MediaMonitoringRepository } from "./repository";
 
 type MediaMonitoringInfrequentCronTask = CronTask<
@@ -27,12 +24,21 @@ export const mediaMonitoringInfrequentTask: MediaMonitoringInfrequentCronTask = 
 				Effect.mapError((error) => new SandboxRunError({ message: error.message })),
 			);
 			for (const target of targets) {
-				const targetExecutionId = `${executionId}-${target.entityId}`;
+				const targetExecutionId = `${executionId}-${target.entityId}-provider-refresh`;
 				yield* engine
-					.execute(MediaMonitoringRefreshWorkflow, {
+					.execute(ProviderEntityPopulationWorkflow, {
 						discard: true,
 						executionId: targetExecutionId,
-						payload: mediaMonitoringPayloadFromTarget(target, targetExecutionId),
+						payload: {
+							userId: null,
+							mode: "refresh",
+							externalId: target.externalId,
+							executionId: targetExecutionId,
+							scriptId: target.sandboxScriptId,
+							origin: { kind: "provider_refresh" },
+							entitySchemaId: target.entitySchemaId,
+							entitySchemaSlug: target.entitySchemaSlug,
+						},
 					})
 					.pipe(
 						Effect.catchAllCause((cause) =>

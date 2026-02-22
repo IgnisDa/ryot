@@ -1,121 +1,31 @@
+import { RelationshipSchemaId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { generateId } from "better-auth";
-import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect, TransactionRunner } from "#lib/infrastructure/db/service";
 
 import { builtinEntitySchemas } from "./entity-schemas";
+import { builtinMediaEntitySchemaSlugs } from "./media-schema-slugs";
+import { builtinSandboxScripts } from "./registry";
 import {
-	builtinEventSchemaTriggerLinks,
-	builtinSandboxScripts,
+	builtinEventAutomationRuleLinks,
 	companySchemaSandboxScriptLinks,
 	entitySchemaSandboxScriptLinks,
 	fitnessSchemaSandboxScriptLinks,
 	groupSchemaSandboxScriptLinks,
 	personSchemaSandboxScriptLinks,
-} from "./registry";
+} from "./registry-links";
 import { builtinRelationshipSchemas } from "./relationship-schemas";
-
-const ensureBuiltinEntitySchema = Effect.fn(function* (input: {
-	slug: string;
-	name: string;
-	icon: string;
-	accentColor: string;
-	propertiesSchema: AppSchema;
-}) {
-	const db = yield* CurrentDb;
-	const [existing] = yield* dbEffect(() =>
-		db
-			.select({ id: schema.entitySchema.id })
-			.from(schema.entitySchema)
-			.where(and(eq(schema.entitySchema.slug, input.slug), isNull(schema.entitySchema.userId)))
-			.limit(1),
-	);
-
-	if (existing) {
-		yield* dbEffect(() =>
-			db
-				.update(schema.entitySchema)
-				.set({
-					isBuiltin: true,
-					name: input.name,
-					icon: input.icon,
-					accentColor: input.accentColor,
-					propertiesSchema: input.propertiesSchema,
-				})
-				.where(eq(schema.entitySchema.id, existing.id)),
-		);
-		return existing.id;
-	}
-
-	const schemaId = generateId();
-	yield* dbEffect(() =>
-		db.insert(schema.entitySchema).values({
-			id: schemaId,
-			isBuiltin: true,
-			name: input.name,
-			slug: input.slug,
-			icon: input.icon,
-			accentColor: input.accentColor,
-			propertiesSchema: input.propertiesSchema,
-		}),
-	);
-	return schemaId;
-});
-
-const ensureBuiltinEntitySchemaEventSchemas = Effect.fn(function* (input: {
-	entitySchemaId: string;
-	eventSchemas: Array<{ slug: string; name: string; propertiesSchema: AppSchema }>;
-}) {
-	const db = yield* CurrentDb;
-	const expectedSlugs = input.eventSchemas.map((s) => s.slug);
-
-	if (expectedSlugs.length === 0) {
-		yield* dbEffect(() =>
-			db
-				.delete(schema.eventSchema)
-				.where(
-					and(
-						eq(schema.eventSchema.entitySchemaId, input.entitySchemaId),
-						isNull(schema.eventSchema.userId),
-					),
-				),
-		);
-	} else {
-		yield* dbEffect(() =>
-			db
-				.delete(schema.eventSchema)
-				.where(
-					and(
-						eq(schema.eventSchema.entitySchemaId, input.entitySchemaId),
-						isNull(schema.eventSchema.userId),
-						notInArray(schema.eventSchema.slug, expectedSlugs),
-					),
-				),
-		);
-	}
-
-	for (const eventSchema of input.eventSchemas) {
-		yield* dbEffect(() =>
-			db.execute(
-				sql`insert into "event_schema" (
-						"id", "slug", "name", "entity_schema_id", "properties_schema", "is_builtin"
-					) values (
-						${generateId()}, ${eventSchema.slug}, ${eventSchema.name},
-						${input.entitySchemaId}, ${JSON.stringify(eventSchema.propertiesSchema)}::jsonb, true
-					)
-						on conflict ("entity_schema_id", "slug")
-						where "user_id" is null
-						do update set
-							"name" = excluded."name",
-							"is_builtin" = true,
-							"properties_schema" = excluded."properties_schema"`,
-			),
-		);
-	}
-});
+import {
+	ensureBuiltinAutomationRule,
+	ensureBuiltinEntitySchema,
+	ensureBuiltinEntitySchemaEventSchemas,
+	ensureBuiltinSignalSchema,
+} from "./seed-schema-helpers";
+import { builtinSignalSchemas } from "./signal-schemas";
 
 const ensureBuiltinSandboxScript = Effect.fn(function* (input: {
 	code: string;
@@ -185,63 +95,6 @@ const linkScriptToEntitySchema = Effect.fn(function* (input: {
 			sandboxScriptId: input.sandboxScriptId,
 		}),
 	);
-});
-
-const ensureBuiltinEventSchemaTrigger = Effect.fn(function* (input: {
-	name: string;
-	phase: string;
-	position: number;
-	eventSchemaId: string;
-	sandboxScriptId: string;
-	metadata: Record<string, unknown>;
-}) {
-	const db = yield* CurrentDb;
-	const [existing] = yield* dbEffect(() =>
-		db
-			.select({ id: schema.eventSchemaTrigger.id })
-			.from(schema.eventSchemaTrigger)
-			.where(
-				and(
-					isNull(schema.eventSchemaTrigger.userId),
-					eq(schema.eventSchemaTrigger.eventSchemaId, input.eventSchemaId),
-					eq(schema.eventSchemaTrigger.sandboxScriptId, input.sandboxScriptId),
-				),
-			)
-			.limit(1),
-	);
-
-	if (existing) {
-		yield* dbEffect(() =>
-			db
-				.update(schema.eventSchemaTrigger)
-				.set({
-					isActive: true,
-					isBuiltin: true,
-					name: input.name,
-					phase: input.phase,
-					position: input.position,
-					metadata: input.metadata,
-				})
-				.where(eq(schema.eventSchemaTrigger.id, existing.id)),
-		);
-		return existing.id;
-	}
-
-	const triggerId = generateId();
-	yield* dbEffect(() =>
-		db.insert(schema.eventSchemaTrigger).values({
-			id: triggerId,
-			isActive: true,
-			isBuiltin: true,
-			name: input.name,
-			phase: input.phase,
-			position: input.position,
-			metadata: input.metadata,
-			eventSchemaId: input.eventSchemaId,
-			sandboxScriptId: input.sandboxScriptId,
-		}),
-	);
-	return triggerId;
 });
 
 const ensureBuiltinRelationshipSchema = Effect.fn(function* (input: {
@@ -350,11 +203,11 @@ const seedInitialDatabase = Effect.gen(function* () {
 		});
 	}
 
-	for (const triggerLink of builtinEventSchemaTriggerLinks()) {
-		const scriptId = scriptIds.get(triggerLink.scriptSlug);
+	for (const ruleLink of builtinEventAutomationRuleLinks()) {
+		const scriptId = scriptIds.get(ruleLink.scriptSlug);
 		if (!scriptId) {
 			return yield* Effect.die(
-				new Error(`Missing script id for trigger script ${triggerLink.scriptSlug}`),
+				new Error(`Missing script id for automation script ${ruleLink.scriptSlug}`),
 			);
 		}
 
@@ -364,26 +217,28 @@ const seedInitialDatabase = Effect.gen(function* () {
 				.from(schema.eventSchema)
 				.where(
 					and(
-						eq(schema.eventSchema.slug, triggerLink.eventSchemaSlug),
+						eq(schema.eventSchema.slug, ruleLink.eventSchemaSlug),
 						isNull(schema.eventSchema.userId),
 					),
 				),
 		);
 
 		for (const es of matchingEventSchemas) {
-			yield* ensureBuiltinEventSchemaTrigger({
-				eventSchemaId: es.id,
-				phase: triggerLink.phase,
+			yield* ensureBuiltinAutomationRule({
+				kind: ruleLink.kind,
+				name: ruleLink.name,
+				operation: "create",
 				sandboxScriptId: scriptId,
-				name: triggerLink.triggerName,
-				position: triggerLink.position,
-				metadata: triggerLink.metadata,
+				position: ruleLink.position,
+				metadata: ruleLink.metadata,
+				target: { kind: "event", id: es.id },
 			});
 		}
 	}
 
 	yield* Effect.logInfo("Seeding relationship schemas...");
 
+	const relationshipSchemaIds = new Map<string, string>();
 	for (const relationshipSchema of builtinRelationshipSchemas()) {
 		const sourceEntitySchemaId = relationshipSchema.sourceEntitySchemaSlug
 			? schemaIds.get(relationshipSchema.sourceEntitySchemaSlug)
@@ -407,13 +262,153 @@ const seedInitialDatabase = Effect.gen(function* () {
 			);
 		}
 
-		yield* ensureBuiltinRelationshipSchema({
+		const relationshipSchemaId = yield* ensureBuiltinRelationshipSchema({
+			sourceEntitySchemaId,
+			targetEntitySchemaId,
 			slug: relationshipSchema.slug,
 			name: relationshipSchema.name,
 			propertiesSchema: relationshipSchema.propertiesSchema,
-			sourceEntitySchemaId,
-			targetEntitySchemaId,
 		});
+		relationshipSchemaIds.set(relationshipSchema.slug, relationshipSchemaId);
+	}
+
+	const mediaMonitoringRelationshipSchemaId = relationshipSchemaIds.get("media-monitoring");
+	if (!mediaMonitoringRelationshipSchemaId) {
+		return yield* Effect.die(new Error("Missing media-monitoring relationship schema"));
+	}
+	const signalSchemaIds = new Map<string, string>();
+	for (const signalSchema of builtinSignalSchemas(
+		RelationshipSchemaId.make(mediaMonitoringRelationshipSchemaId),
+	)) {
+		const signalSchemaId = yield* ensureBuiltinSignalSchema(signalSchema);
+		signalSchemaIds.set(signalSchema.slug, signalSchemaId);
+	}
+
+	const reviewSignalSchemaId = signalSchemaIds.get("review.created");
+	const reviewDetectorScriptId = scriptIds.get("automation.review-created");
+	if (!reviewSignalSchemaId || !reviewDetectorScriptId) {
+		return yield* Effect.die(new Error("Missing review-created automation dependency"));
+	}
+	const reviewEventSchemas = yield* dbEffect(() =>
+		db
+			.select({ id: schema.eventSchema.id })
+			.from(schema.eventSchema)
+			.where(and(eq(schema.eventSchema.slug, "review"), isNull(schema.eventSchema.userId))),
+	);
+	for (const eventSchema of reviewEventSchemas) {
+		yield* ensureBuiltinAutomationRule({
+			operation: "create",
+			name: "Review Created Detector",
+			sandboxScriptId: reviewDetectorScriptId,
+			target: { kind: "event", id: eventSchema.id },
+			metadata: { signalSchemaId: reviewSignalSchemaId },
+		});
+	}
+
+	const workoutSchemaId = schemaIds.get("workout");
+	const workoutSignalSchemaId = signalSchemaIds.get("workout.created");
+	const workoutDetectorScriptId = scriptIds.get("automation.workout-created");
+	if (!workoutSchemaId || !workoutSignalSchemaId || !workoutDetectorScriptId) {
+		return yield* Effect.die(new Error("Missing workout-created automation dependency"));
+	}
+	yield* ensureBuiltinAutomationRule({
+		operation: "create",
+		name: "Workout Created Detector",
+		sandboxScriptId: workoutDetectorScriptId,
+		target: { kind: "entity", id: workoutSchemaId },
+		metadata: { signalSchemaId: workoutSignalSchemaId },
+	});
+
+	const mediaEntityDetectorScriptId = scriptIds.get("automation.media-entity-changed");
+	const mediaRelationshipDetectorScriptId = scriptIds.get("automation.media-relationship-changed");
+	const mediaSignals = {
+		status: signalSchemaIds.get("media.status.changed"),
+		episodeName: signalSchemaIds.get("media.episode.name.changed"),
+		releaseDate: signalSchemaIds.get("media.release-date.changed"),
+		contentCount: signalSchemaIds.get("media.content-count.changed"),
+		episodeImages: signalSchemaIds.get("media.episode.images.changed"),
+	};
+	if (
+		!mediaEntityDetectorScriptId ||
+		!mediaRelationshipDetectorScriptId ||
+		Object.values(mediaSignals).some((id) => !id)
+	) {
+		return yield* Effect.die(new Error("Missing media automation dependency"));
+	}
+	for (const slug of [...builtinMediaEntitySchemaSlugs, "show-episode", "podcast-episode"]) {
+		const entitySchemaId = schemaIds.get(slug);
+		if (!entitySchemaId) {
+			return yield* Effect.die(new Error(`Missing media entity schema: ${slug}`));
+		}
+		yield* ensureBuiltinAutomationRule({
+			operation: "update",
+			metadata: { signals: mediaSignals },
+			sandboxScriptId: mediaEntityDetectorScriptId,
+			target: { kind: "entity", id: entitySchemaId },
+			name: `Media Entity Changed Detector (${slug})`,
+		});
+	}
+
+	const relationshipDetectorRules: Array<{
+		slug: string;
+		detector: string;
+		signalSlug: string;
+		operations: ReadonlyArray<"create" | "update" | "delete">;
+	}> = [
+		{
+			detector: "season-count",
+			slug: "show-to-show-season",
+			signalSlug: "media.season-count.changed",
+			operations: ["create", "update", "delete"] as const,
+		},
+		{
+			detector: "episode-discovery",
+			slug: "show-season-to-show-episode",
+			signalSlug: "media.episode.discovered",
+			operations: ["create", "update", "delete"] as const,
+		},
+		{
+			detector: "episode-discovery",
+			slug: "podcast-to-podcast-episode",
+			signalSlug: "media.episode.discovered",
+			operations: ["create", "update", "delete"] as const,
+		},
+	];
+	for (const definition of builtinRelationshipSchemas()) {
+		if (
+			!["person", "company"].includes(definition.sourceEntitySchemaSlug ?? "") ||
+			!definition.targetEntitySchemaSlug
+		) {
+			continue;
+		}
+		const targetSlug = definition.targetEntitySchemaSlug;
+		const targetKind = targetSlug.endsWith("-group") ? "media-group" : "media";
+		const signalSlug = `${definition.sourceEntitySchemaSlug}.${targetKind}.associated`;
+		if (!signalSchemaIds.has(signalSlug)) {
+			continue;
+		}
+		relationshipDetectorRules.push({
+			signalSlug,
+			slug: definition.slug,
+			detector: "association",
+			operations: ["create", "update"] as const,
+		});
+	}
+	for (const rule of relationshipDetectorRules) {
+		const relationshipSchemaId = relationshipSchemaIds.get(rule.slug);
+		const signalSchemaId = signalSchemaIds.get(rule.signalSlug);
+		if (!relationshipSchemaId || !signalSchemaId) {
+			return yield* Effect.die(new Error(`Missing relationship detector dependency: ${rule.slug}`));
+		}
+		for (const operation of rule.operations) {
+			yield* ensureBuiltinAutomationRule({
+				operation,
+				sandboxScriptId: mediaRelationshipDetectorScriptId,
+				metadata: { detector: rule.detector, signalSchemaId },
+				target: { kind: "relationship", id: relationshipSchemaId },
+				name: `Media Relationship Changed Detector (${rule.slug}:${operation})`,
+			});
+		}
 	}
 
 	yield* Effect.logInfo("Entity schemas seeded successfully");

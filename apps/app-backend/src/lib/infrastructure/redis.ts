@@ -12,6 +12,10 @@ export const redisKeys = {
 	importAdapterResult: (runId: string) => `ryot:imports:adapter-result:${runId}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
 	sandboxCache: (scriptId: string, key: string) => `ryot:sandbox:cache:${scriptId}:${key}`,
+	importAdapterChunk: (runId: string, index: number) =>
+		`ryot:imports:adapter-result:${runId}:chunk:${index}`,
+	importNonMediaChunk: (runId: string, index: number) =>
+		`ryot:imports:non-media:${runId}:chunk:${index}`,
 	integrationCache: (integrationId: string, key: string) =>
 		`ryot:integrations:cache:${integrationId}:${key}`,
 	sandboxRunCache: (serverRunId: string, scriptId: string, key: string) =>

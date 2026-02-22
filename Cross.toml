@@ -3,3 +3,9 @@ passthrough = ["APP_VERSION", "UNKEY_ROOT_KEY"]
 
 [build]
 pre-build = "ci/cross-pre-build.sh"
+
+[target.x86_64-unknown-linux-gnu]
+image = "@sha256:1ff3c0fab9b39ccd9383368e484413881ce46d05d7329b5e148c406154c702ca"
+
+[target.aarch64-unknown-linux-gnu]
+image = "@sha256:1811a69aab16f39de09df72a991b4d7b33a0337686a827bea4890ccc399ff8f0"

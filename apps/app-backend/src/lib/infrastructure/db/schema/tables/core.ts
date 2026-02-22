@@ -122,6 +122,17 @@ export const sandboxScript = pgTable(
 	],
 );
 
+export const sandboxArtifact = pgTable(
+	"sandbox_artifact",
+	{
+		id: text().primaryKey(),
+		executionId: text().notNull(),
+		value: jsonb().$type<unknown>().notNull(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [unique("sandbox_artifact_execution_id_unique").on(table.executionId)],
+);
+
 export const entitySchemaSandboxScript = pgTable(
 	"entity_schema_sandbox_script",
 	{
