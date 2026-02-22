@@ -1,5 +1,5 @@
 import { unknownToMessage } from "@ryot/contract/errors";
-import { Duration, Effect, Match, Schema, Stream } from "effect";
+import { Duration, Effect, Match, Schema } from "effect";
 import {
 	FetchHttpClient,
 	HttpClient,
@@ -24,6 +24,7 @@ import {
 	sandboxRunUserId,
 	type SandboxHostImplementationMap,
 } from "./shared";
+import { readSandboxByteLimitedStream } from "./stream-utils";
 
 const httpCallTimeoutMs = 8_000;
 const decoder = new TextDecoder();
@@ -37,24 +38,29 @@ export type RuntimeSandboxHostImplementationMap = Pick<
 >;
 
 export const readSandboxHttpResponseText = (response: HttpClientResponse.HttpClientResponse) =>
-	response.stream.pipe(
-		Stream.runFoldEffect(
-			() => ({ bytes: 0, chunks: [] as Uint8Array[] }),
-			(state, chunk) => {
-				const bytes = state.bytes + chunk.byteLength;
-				return bytes > SANDBOX_LIMITS.http.responseBytes
-					? Effect.fail(`httpCall response body exceeds ${SANDBOX_LIMITS.http.responseBytes} bytes`)
-					: Effect.succeed({ bytes, chunks: [...state.chunks, chunk] });
-			},
-		),
-		Effect.map(({ bytes, chunks }) => {
-			const body = new Uint8Array(bytes);
-			let offset = 0;
-			for (const chunk of chunks) {
-				body.set(chunk, offset);
-				offset += chunk.byteLength;
-			}
-			return decoder.decode(body);
+	readSandboxByteLimitedStream(
+		response.stream,
+		SANDBOX_LIMITS.http.responseBytes,
+		`httpCall response body exceeds ${SANDBOX_LIMITS.http.responseBytes} bytes`,
+	).pipe(Effect.map((body) => decoder.decode(body)));
+
+const sandboxCacheInputError = (fnName: string, key: unknown, ttl?: unknown, ttlLabel?: string) => {
+	const keyError = sandboxCacheKeyError(fnName, key);
+	if (keyError) {
+		return keyError;
+	}
+	if (ttlLabel !== undefined) {
+		return sandboxCacheTtlError(fnName, ttl, ttlLabel);
+	}
+	return null;
+};
+
+const encodeSandboxCacheValue = (fnName: string, value: unknown) =>
+	Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(value).pipe(
+		Effect.mapError(() => `${fnName} value must be JSON-serializable`),
+		Effect.flatMap((serialized) => {
+			const valueError = sandboxCacheValueError(fnName, serialized);
+			return valueError ? Effect.fail(valueError) : Effect.succeed(serialized);
 		}),
 	);
 
@@ -77,13 +83,9 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 
 	return {
 		claimPersistentValue: (input, key, value, ttlSeconds) => {
-			const keyError = sandboxCacheKeyError("claimPersistentValue", key);
-			if (keyError) {
-				return sandboxHostFailure(keyError);
-			}
-			const ttlError = sandboxCacheTtlError("claimPersistentValue", ttlSeconds, "TTL");
-			if (ttlError) {
-				return sandboxHostFailure(ttlError);
+			const inputError = sandboxCacheInputError("claimPersistentValue", key, ttlSeconds, "TTL");
+			if (inputError) {
+				return sandboxHostFailure(inputError);
 			}
 
 			const redisKey = redisKeys.sandboxCache(
@@ -94,15 +96,7 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 
 			return sandboxHostEffect(
 				Effect.gen(function* () {
-					const serialized = yield* Schema.encodeUnknownEffect(
-						Schema.fromJsonString(Schema.Unknown),
-					)(value).pipe(
-						Effect.mapError(() => "claimPersistentValue value must be JSON-serializable"),
-					);
-					const valueError = sandboxCacheValueError("claimPersistentValue", serialized);
-					if (valueError) {
-						return yield* Effect.fail(valueError);
-					}
+					const serialized = yield* encodeSandboxCacheValue("claimPersistentValue", value);
 
 					const setResult = yield* Effect.tryPromise({
 						try: () => redis.client.set(redisKey, serialized, "EX", ttlSeconds, "NX"),
@@ -141,9 +135,9 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 			);
 		},
 		getCachedValue: (input, key) => {
-			const keyError = sandboxCacheKeyError("getCachedValue", key);
-			if (keyError) {
-				return sandboxHostFailure(keyError);
+			const inputError = sandboxCacheInputError("getCachedValue", key);
+			if (inputError) {
+				return sandboxHostFailure(inputError);
 			}
 
 			return sandboxHostEffect(
@@ -230,35 +224,27 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 			);
 		},
 		setCachedValue: (input, key, value, expiry) => {
-			const keyError = sandboxCacheKeyError("setCachedValue", key);
-			if (keyError) {
-				return sandboxHostFailure(keyError);
-			}
-			const ttlError = sandboxCacheTtlError("setCachedValue", expiry, "expiry");
-			if (ttlError) {
-				return sandboxHostFailure(ttlError);
+			const inputError = sandboxCacheInputError("setCachedValue", key, expiry, "expiry");
+			if (inputError) {
+				return sandboxHostFailure(inputError);
 			}
 
 			return sandboxHostEffect(
-				Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(value).pipe(
-					Effect.mapError(() => "setCachedValue value must be JSON-serializable"),
-					Effect.flatMap((serialized) => {
-						const valueError = sandboxCacheValueError("setCachedValue", serialized);
-						return valueError
-							? Effect.fail(valueError)
-							: redis
-									.set(
-										redisKeys.sandboxRunCache(
-											serverRun.id,
-											sandboxRunUserId(input),
-											input.cacheNamespace,
-											key.trim(),
-										),
-										serialized,
-										expiry,
-									)
-									.pipe(Effect.as(null));
-					}),
+				encodeSandboxCacheValue("setCachedValue", value).pipe(
+					Effect.flatMap((serialized) =>
+						redis
+							.set(
+								redisKeys.sandboxRunCache(
+									serverRun.id,
+									sandboxRunUserId(input),
+									input.cacheNamespace,
+									key.trim(),
+								),
+								serialized,
+								expiry,
+							)
+							.pipe(Effect.as(null)),
+					),
 				),
 			);
 		},
