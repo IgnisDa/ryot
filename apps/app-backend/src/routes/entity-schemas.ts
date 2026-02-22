@@ -37,7 +37,7 @@ const getSchemaBySlug = async (schemaSlug: string, userId: string) => {
 		.select({
 			id: entitySchema.id,
 			slug: entitySchema.slug,
-			searchScriptId: entitySchema.searchScriptId,
+			searchSandboxScriptId: entitySchema.searchSandboxScriptId,
 		})
 		.from(entitySchema)
 		.where(
@@ -51,7 +51,7 @@ const getSchemaBySlug = async (schemaSlug: string, userId: string) => {
 		.select({
 			id: entitySchema.id,
 			slug: entitySchema.slug,
-			searchScriptId: entitySchema.searchScriptId,
+			searchSandboxScriptId: entitySchema.searchSandboxScriptId,
 		})
 		.from(entitySchema)
 		.where(and(eq(entitySchema.slug, schemaSlug), isNull(entitySchema.userId)))
@@ -71,7 +71,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>().post(
 
 		const schema = await getSchemaBySlug(params.schemaSlug, user.id);
 		if (!schema) return c.json({ error: "Entity schema not found" }, 404);
-		if (!schema.searchScriptId)
+		if (!schema.searchSandboxScriptId)
 			return c.json({ error: "Entity schema search is not configured" }, 400);
 
 		const [script] = await db
@@ -79,7 +79,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>().post(
 			.from(sandboxScript)
 			.where(
 				and(
-					eq(sandboxScript.id, schema.searchScriptId),
+					eq(sandboxScript.id, schema.searchSandboxScriptId),
 					or(eq(sandboxScript.userId, user.id), isNull(sandboxScript.userId)),
 				),
 			)
