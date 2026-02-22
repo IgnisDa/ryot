@@ -20,7 +20,7 @@
   ```bash
   cargo run
   caddy run --config 'ci/Caddyfile'
-  yarn turbo run dev --filter=@ryot/frontend
+  bun run turbo dev --filter=@ryot/frontend
   ```
 
 - The frontend will be available at `http://localhost:8000`.

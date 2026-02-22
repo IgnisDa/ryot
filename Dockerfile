@@ -4,17 +4,16 @@ COPY apps/app-backend/package.json apps/app-backend/tsconfig.json ./
 COPY apps/app-backend/src ./src
 RUN bun install && bun run build
 
-FROM node:24.4.0-bookworm-slim AS frontend-builder
+FROM oven/bun:1.3.9-debian AS frontend-builder
 WORKDIR /app
-COPY package.json yarn.lock .yarnrc.yml ./
-COPY .yarn ./.yarn
+COPY package.json bun.lock ./
 COPY apps/app-frontend/package.json ./apps/app-frontend/
 COPY apps/app-backend/package.json ./apps/app-backend/
-RUN yarn install
+RUN bun install --frozen-lockfile
 COPY apps/app-frontend ./apps/app-frontend
 COPY apps/app-backend/src ./apps/app-backend/src
 COPY tsconfig.options.json ./
-RUN yarn workspace @ryot/app-frontend build
+RUN bun run --filter @ryot/app-frontend build
 
 FROM oven/bun:1.3.9-debian
 RUN useradd -m -u 1001 ryot

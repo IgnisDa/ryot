@@ -40,8 +40,8 @@ Run the relevant commands before committing to ensure changes do not break anyth
 
 ```bash
 cargo clippy
-yarn turbo run typecheck
-yarn turbo run build --filter=@ryot/docs
+bun run turbo typecheck
+bun run turbo build --filter=@ryot/docs
 ```
 
 ### Testing Workflow
@@ -50,14 +50,14 @@ When running tests:
 
 1. Implement the feature first
 2. Always ask the user's approval to run tests
-3. Compile the backend in release mode (`cargo build --release`) and then run `yarn turbo run test --filter=@ryot/tests`
+3. Compile the backend in release mode (`cargo build --release`) and then run `bun run turbo test --filter=@ryot/tests`
 
 ### GraphQL Code Generation
 
 After adding a GraphQL query or mutation to the backend:
 
 1. Start the backend server in debug mode in the background (`cargo run`)
-2. Run `yarn turbo run backend-graphql --filter=@ryot/generated` to generate frontend types
+2. Run `bun run turbo backend-graphql --filter=@ryot/generated` to generate frontend types
 3. Stop the backend server after generation completes
 
 This ensures the frontend can use the new query or mutation with proper type safety.
