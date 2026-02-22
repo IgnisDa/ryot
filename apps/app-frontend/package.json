@@ -6,11 +6,11 @@
 		"#/*": "./src/*"
 	},
 	"scripts": {
-		"dev": "vite dev",
 		"typecheck": "tsc",
 		"build": "vite build",
 		"lint": "biome check .",
-		"preview": "vite preview"
+		"preview": "vite preview",
+		"dev": "bun --bun vite dev"
 	},
 	"installConfig": {
 		"hoistingLimits": "workspaces"
