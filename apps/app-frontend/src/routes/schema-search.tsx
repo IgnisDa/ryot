@@ -14,20 +14,18 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import type { AppType } from "@ryot/app-backend";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { hc } from "hono/client";
 import { useEffect, useState } from "react";
+import { useApiClient } from "@/hooks/api";
 import { useAuthClient } from "@/hooks/auth";
 
 export const Route = createFileRoute("/schema-search")({
 	component: SchemaSearchPage,
 });
 
-const api = hc<AppType>("/api");
-
 function SchemaSearchPage() {
+	const apiClient = useApiClient();
 	const authClient = useAuthClient();
 	const [page, setPage] = useState(1);
 	const [query, setQuery] = useState("harry potter");
@@ -41,7 +39,7 @@ function SchemaSearchPage() {
 		queryKey: ["entity-schema-search", schemaSlug, query.trim(), page],
 		enabled: Boolean(schemaSlug.trim()) && Boolean(query.trim()),
 		queryFn: async () => {
-			const response = await api.protected["entity-schemas"][
+			const response = await apiClient.protected["entity-schemas"][
 				":schemaSlug"
 			].search.$post({
 				json: { page, query: query.trim() },
