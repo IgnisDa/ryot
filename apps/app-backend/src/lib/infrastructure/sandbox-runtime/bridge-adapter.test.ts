@@ -37,10 +37,10 @@ const makeImplementations = (
 	listEventSchemas: () => Effect.fail({ message: "unused" }),
 	listIntegrations: () => Effect.fail({ message: "unused" }),
 	sendNotification: () => Effect.fail({ message: "unused" }),
-	claimCachedValue: () => Effect.fail({ message: "unused" }),
 	executeQueryEngine: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
 	ensureUserEntities: () => Effect.fail({ message: "unused" }),
+	claimPersistentValue: () => Effect.fail({ message: "unused" }),
 	upsertGlobalEntities: () => Effect.fail({ message: "unused" }),
 	getCurrentIntegration: () => Effect.fail({ message: "unused" }),
 	changeUserRelationships: () => Effect.fail({ message: "unused" }),
@@ -426,8 +426,8 @@ describe("bindSandboxHostFunctions", () => {
 		Effect.gen(function* () {
 			const calls: Array<{ fnName: string; value: unknown }> = [];
 			const implementations = makeImplementations({
-				claimCachedValue: (_runInput, key, value, ttlSeconds) => {
-					calls.push({ fnName: "claimCachedValue", value: { key, ttlSeconds, value } });
+				claimPersistentValue: (_runInput, key, value, ttlSeconds) => {
+					calls.push({ fnName: "claimPersistentValue", value: { key, ttlSeconds, value } });
 					return Effect.succeed({ claimed: true as const });
 				},
 				getPluginConfig: (_runInput, keys) => {
@@ -441,21 +441,21 @@ describe("bindSandboxHostFunctions", () => {
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
 
-			expect(yield* bound.claimCachedValue(["lock", { owner: "user-1" }, 60])).toEqual({
-				data: { claimed: true },
+			expect(yield* bound.claimPersistentValue(["lock", { owner: "user-1" }, 60])).toEqual({
 				success: true,
+				data: { claimed: true },
 			});
 			expect(yield* bound.getPluginConfig([["apiToken"]])).toEqual({
-				data: { apiToken: "token" },
 				success: true,
+				data: { apiToken: "token" },
 			});
 			expect(yield* bound.getSystemConfig([["timezone"]])).toEqual({
-				data: { timezone: "UTC" },
 				success: true,
+				data: { timezone: "UTC" },
 			});
-			expect(yield* bound.claimCachedValue(["lock", { owner: "user-1" }, 1.5])).toEqual({
+			expect(yield* bound.claimPersistentValue(["lock", { owner: "user-1" }, 1.5])).toEqual({
 				success: false,
-				error: "claimCachedValue expects a positive integer ttlSeconds",
+				error: "claimPersistentValue expects a positive integer ttlSeconds",
 			});
 			expect(yield* bound.getPluginConfig([["apiToken"], "surplus"])).toEqual({
 				success: false,
@@ -467,7 +467,7 @@ describe("bindSandboxHostFunctions", () => {
 			});
 			expect(calls).toEqual([
 				{
-					fnName: "claimCachedValue",
+					fnName: "claimPersistentValue",
 					value: { key: "lock", ttlSeconds: 60, value: { owner: "user-1" } },
 				},
 				{ fnName: "getPluginConfig", value: ["apiToken"] },
