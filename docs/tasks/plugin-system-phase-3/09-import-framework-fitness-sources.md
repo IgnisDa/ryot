@@ -44,7 +44,7 @@ assertions, which are the behavioral spec for failure reporting through the new 
 - [x] `hevy`, `strong-app`, and `open-scale` run as `plugins/fitness` import adapters declared
       through `importSources`, parsing inside the sandbox via `artifact-read` + `papaparse`
 - [x] Adapter output crosses via scratch-dir chunk files plus a small return manifest; the kernel
-      harvests it and performs every entity/event/relationship write
+      harvests it into opaque handles and performs every entity/event/relationship write
 - [x] One registry-driven import dispatch path remains; the non-media orchestration, `workout/`,
       and `measurement/` directories are deleted
 - [x] `imports/runtime/` retains no fitness parsing or source metadata; task 10 owns the remaining

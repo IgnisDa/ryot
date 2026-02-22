@@ -12,6 +12,7 @@ import { installTestPluginBundle } from "./test-plugin";
 
 export const FIXTURE_IMPORT_SOURCE = "e2e_archive_import_v2";
 export const FIXTURE_CONFIG_IMPORT_SOURCE = "e2e_archive_import_config_v2";
+export const FIXTURE_HANDLE_IMPORT_SOURCE = "e2e_harvest_handle_import_v1";
 
 const FIXTURE_IMPORT_WORKFLOW_SOURCE = `
 import {
@@ -43,8 +44,8 @@ export default defineWorkflow({
   run: (input, replay) =>
     replay.child("complete-import", kernelImport, {
       totalItems: 0,
-      chunkFiles: [],
       failureCount: 0,
+      chunkHandles: [],
       writeItemCount: 0,
       runId: input.runId,
     }),
@@ -108,6 +109,140 @@ export const installTestImportPlugin = Effect.suspend(() => {
 	});
 });
 
+const FIXTURE_HANDLE_IMPORT_WORKFLOW_SOURCE = `
+import {
+  genericImportKernelInputSchema,
+  genericImportWorkflowManifestSchema,
+  genericImportWorkflowInputSchema,
+  genericImportWorkflowResultSchema,
+} from "@ryot/sandbox-sdk/imports";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot/sandbox-sdk/workflow";
+
+export const manifest = defineManifest({
+  kind: "workflow",
+  capabilities: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+  name: "E2E harvest handle import",
+  slug: "workflow.e2e-harvest-handle-import",
+});
+
+const writeChunk = {
+  input: Schema.Struct({}),
+  output: genericImportWorkflowManifestSchema,
+  scriptSlug: "activity.e2e-write-harvest-chunk",
+};
+
+const kernelImport = {
+  input: genericImportKernelInputSchema,
+  output: genericImportWorkflowResultSchema,
+  workflowSlug: "kernel:process-import-chunks",
+};
+
+export default defineWorkflow({
+  manifest,
+  input: genericImportWorkflowInputSchema,
+  output: genericImportWorkflowResultSchema,
+  run: (input, replay) =>
+    Effect.gen(function* () {
+      const manifest = yield* replay.activity("write-chunk", writeChunk, {});
+      return yield* replay.child("process-chunk", kernelImport, {
+        ...manifest,
+        failRun: true,
+        runId: input.runId,
+      });
+    }),
+});
+`;
+
+const FIXTURE_HANDLE_IMPORT_ACTIVITY_SOURCE = `
+import { defineActivity } from "@ryot/sandbox-sdk/activity";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";
+import { genericImportAdapterManifestSchema } from "@ryot/sandbox-sdk/imports";
+
+export const manifest = defineManifest({
+  kind: "activity",
+  capabilities: ["scratch"],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+  name: "E2E write harvest chunk",
+  slug: "activity.e2e-write-harvest-chunk",
+});
+
+export default defineActivity({
+  manifest,
+  input: Schema.Struct({}),
+  output: genericImportAdapterManifestSchema,
+  run: () =>
+    writeScratchChunks([
+      {
+        name: "fixture.json",
+        contents: JSON.stringify({
+          failures: [
+            {
+              itemIndex: 0,
+              stage: "input_transformation",
+              sourceIdentifier: "fixture-0",
+              sourceLabel: "Harvest fixture",
+              message: "harvest handle fixture failure",
+            },
+          ],
+          items: [],
+        }),
+      },
+    ]).pipe(
+      Effect.map(({ chunkFiles }) => ({
+        chunkFiles,
+        totalItems: 1,
+        failureCount: 1,
+        writeItemCount: 0,
+      })),
+    ),
+});
+`;
+
+export const installTestHarvestHandleImportPlugin = Effect.suspend(() =>
+	installTestPluginBundle({
+		files: {
+			"scripts/import.sandbox.ts": FIXTURE_HANDLE_IMPORT_WORKFLOW_SOURCE,
+			"scripts/write-chunk.sandbox.ts": FIXTURE_HANDLE_IMPORT_ACTIVITY_SOURCE,
+		},
+		workflows: [{ slug: "import", scriptSlug: "workflow.e2e-harvest-handle-import" }],
+		scripts: [
+			{
+				kind: "workflow",
+				capabilities: [],
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+				name: "E2E harvest handle import",
+				entry: "scripts/import.sandbox.ts",
+				slug: "workflow.e2e-harvest-handle-import",
+			},
+			{
+				kind: "activity",
+				capabilities: ["scratch"],
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+				name: "E2E write harvest chunk",
+				entry: "scripts/write-chunk.sandbox.ts",
+				slug: "activity.e2e-write-harvest-chunk",
+			},
+		],
+		importSources: [
+			{
+				input: "payload",
+				workflowSlug: "import",
+				requiredPluginConfigKeys: [],
+				name: "E2E harvest handle import",
+				slug: FIXTURE_HANDLE_IMPORT_SOURCE,
+				description: "Import fixture for opaque harvest handles",
+			},
+		],
+	}),
+);
+
 const testImportPinningWorkflowSource = (scriptSlug: string) => `
 import {
   genericImportKernelInputSchema,
@@ -140,8 +275,8 @@ export default defineWorkflow({
       yield* replay.sleep("hold-plugin-pin", 30_000);
       return yield* replay.child("complete-import", kernelImport, {
         totalItems: 0,
-        chunkFiles: [],
         failureCount: 0,
+        chunkHandles: [],
         writeItemCount: 0,
         runId: input.runId,
       });
