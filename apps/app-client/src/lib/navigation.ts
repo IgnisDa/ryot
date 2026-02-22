@@ -12,13 +12,10 @@ import {
 export type { NavigationItem, NavigationSubItem };
 
 const navSheetOpenAtom = atom(false);
-const searchOpenAtom = atom(false);
 const subFlyoutOpenAtom = atom(false);
 
 export const useNavSheetOpen = () => useAtomValue(navSheetOpenAtom);
 export const useSetNavSheetOpen = () => useSetAtom(navSheetOpenAtom);
-export const useSearchOpen = () => useAtomValue(searchOpenAtom);
-export const useSetSearchOpen = () => useSetAtom(searchOpenAtom);
 export const useSubFlyoutOpen = () => useAtomValue(subFlyoutOpenAtom);
 export const useSetSubFlyoutOpen = () => useSetAtom(subFlyoutOpenAtom);
 
