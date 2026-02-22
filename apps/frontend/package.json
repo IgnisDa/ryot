@@ -6,13 +6,14 @@
 	"scripts": {
 		"typecheck": "tsc",
 		"lint": "biome check .",
-		"build": "react-router build",
-		"dev": "react-router dev --port 3000 --host"
+		"build": "bun --bun react-router build",
+		"dev": "bun --bun react-router dev --port 3000 --host"
 	},
 	"installConfig": {
 		"hoistingLimits": "workspaces"
 	},
 	"devDependencies": {
+		"@graphql-typed-document-node/core": "3.2.0",
 		"@react-router/dev": "7.13.0",
 		"@types/cookie": "1.0.0",
 		"@types/crypto-js": "4.2.2",
