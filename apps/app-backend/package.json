@@ -8,6 +8,7 @@
 		"db:generate": "drizzle-kit generate"
 	},
 	"dependencies": {
+		"@hono/node-server": "1.19.9",
 		"better-auth": "1.4.18",
 		"drizzle-orm": "0.45.1",
 		"hono": "4.12.1",
