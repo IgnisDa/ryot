@@ -8,7 +8,13 @@ import type {
 	ImportRunSource,
 	ImportRunStatus,
 } from "@ryot/contract/modules/imports/types";
-import { ImportRunId, type IntegrationId, type UserId } from "@ryot/contract/schema/brands";
+import {
+	EntitySchemaSlug,
+	EventSchemaSlug,
+	ImportRunId,
+	type IntegrationId,
+	type UserId,
+} from "@ryot/contract/schema/brands";
 import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -47,9 +53,10 @@ const normalizeFailure = (row: ImportRunFailureRow): ListedImportRunFailure => (
 	context: row.context,
 	itemIndex: row.itemIndex,
 	sourceLabel: row.sourceLabel,
-	eventSchemaSlug: row.eventSchemaSlug,
 	sourceIdentifier: row.sourceIdentifier,
-	entitySchemaSlug: row.entitySchemaSlug,
+	eventSchemaSlug: row.eventSchemaSlug === null ? null : EventSchemaSlug.make(row.eventSchemaSlug),
+	entitySchemaSlug:
+		row.entitySchemaSlug === null ? null : EntitySchemaSlug.make(row.entitySchemaSlug),
 	createdAt: row.createdAt.toISOString(),
 });
 

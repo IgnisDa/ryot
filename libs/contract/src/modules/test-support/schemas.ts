@@ -4,6 +4,7 @@ import {
 	EntityId,
 	EntitySchemaSlug,
 	ImportRunId,
+	PluginSlug,
 	RelationshipId,
 	RelationshipSchemaSlug,
 	SandboxProviderId,
@@ -38,7 +39,7 @@ export type TestSupportEnqueueSandboxBody = typeof TestSupportEnqueueSandboxBody
 
 export const TestSupportTriggerPluginCronBody = strictStruct({
 	cronSlug: Schema.String,
-	pluginSlug: Schema.String,
+	pluginSlug: PluginSlug,
 });
 
 export type TestSupportTriggerPluginCronBody = typeof TestSupportTriggerPluginCronBody.Type;
@@ -47,14 +48,14 @@ export const TestSupportPluginCronResult = Schema.Union(
 	Schema.Struct({
 		status: Schema.Literal("notFound"),
 		cronSlug: Schema.String,
-		pluginSlug: Schema.String,
+		pluginSlug: PluginSlug,
 	}),
 	Schema.Struct({
 		lot: Schema.Literal("script", "workflow"),
 		result: Schema.Unknown,
 		status: Schema.Literal("executed"),
 		cronSlug: Schema.String,
-		pluginSlug: Schema.String,
+		pluginSlug: PluginSlug,
 		executionId: Schema.String,
 	}),
 );
