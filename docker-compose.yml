@@ -4,19 +4,29 @@ services:
     restart: unless-stopped
     ports:
       - "6379:6379"
+    healthcheck:
+      retries: 5
+      timeout: 5s
+      interval: 2s
+      test: ["CMD", "redis-cli", "ping"]
 
   backend-postgres:
-    image: postgres:18-alpine
     restart: unless-stopped
+    image: postgres:18-alpine
+    command: postgres -c shared_preload_libraries=pg_stat_statements -c wal_level=logical
     volumes:
-      - backend_postgres_storage:/var/lib/postgresql/data
+      - backend_postgres_storage:/var/lib/postgresql
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_USER: postgres
       POSTGRES_DB: postgres
-    command: postgres -c shared_preload_libraries=pg_stat_statements -c wal_level=logical
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      retries: 5
+      timeout: 5s
+      interval: 2s
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
 
   app-backend:
     build:
@@ -31,8 +41,10 @@ services:
       REDIS_URL: redis://backend-redis:6379
       DATABASE_URL: postgresql://postgres:postgres@backend-postgres:5432/postgres
     depends_on:
-      - backend-redis
-      - backend-postgres
+      backend-redis:
+        condition: service_healthy
+      backend-postgres:
+        condition: service_healthy
 
 volumes:
   backend_postgres_storage:
