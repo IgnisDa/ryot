@@ -8,6 +8,9 @@
 		"dev": "email dev --port 6200",
 		"copy-templates": "cp -r out/. ../../crates/services/notification/templates"
 	},
+	"devDependencies": {
+		"@types/react": "19.2.14"
+	},
 	"dependencies": {
 		"@react-email/components": "1.0.7",
 		"@ryot/ts-utils": "workspace:*",
