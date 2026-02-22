@@ -28,9 +28,7 @@ const input: SandboxRunInput = {
 	compiledCode: "",
 	compiledFormat: 1,
 	scriptId: "script-1",
-	scriptIsBuiltin: false,
 	executionId: "execution-1",
-	cacheNamespace: "script-1",
 	allowedHostFunctions: ["log", "span"],
 	authority: { type: "user", userId: UserId.make("user-1") },
 };

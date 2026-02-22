@@ -86,7 +86,6 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	if (!script) {
 		return yield* new SandboxRunError({ message: "Sandbox script not found" });
 	}
-	const scriptIsBuiltin = !(yield* runWithDb(repository.isPluginScript(payload.scriptId)));
 	const workflowExecutionId =
 		payload.workflowExecutionId ??
 		(script.metadata.kind === "workflow"
@@ -94,7 +93,6 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			: undefined);
 
 	const result = yield* sandbox.run({
-		scriptIsBuiltin,
 		scriptId: script.id,
 		context: payload.context,
 		metadata: script.metadata,
@@ -103,7 +101,6 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 		executionId: payload.executionId,
 		compiledCode: script.compiledCode,
 		compiledFormat: script.compiledFormat,
-		cacheNamespace: script.providerId ?? script.id,
 		...(payload.grants ? { grants: payload.grants } : {}),
 		...(workflowExecutionId ? { workflowExecutionId } : {}),
 		allowedHostFunctions: script.metadata.capabilities ?? [],
