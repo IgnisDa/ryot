@@ -22,6 +22,8 @@ The model is:
 ## How one execution works
 
 1. `SandboxService.run(...)` receives `{ code, context, apiFunctions, timeoutMs, maxHeapMB }`.
+   - `httpCall` is always injected as a default host function.
+   - Any functions passed in `apiFunctions` are merged on top.
 2. The service creates a unique `executionId` and one-time bearer token.
 3. The bridge session is registered:
    - Redis stores `{ token, expiresAt }` under `sandbox:session:<executionId>` with TTL.
