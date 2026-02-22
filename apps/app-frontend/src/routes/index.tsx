@@ -12,7 +12,7 @@ import {
 } from "@mantine/core";
 import type { AppType } from "@ryot/app-backend";
 import { useMutation } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { hc } from "hono/client";
 import { useEffect, useState } from "react";
 import { useAuthClient } from "@/hooks/auth";
@@ -137,7 +137,12 @@ function App() {
 			<Container size="lg" py="xl">
 				<Stack gap="lg">
 					<Stack gap={4}>
-						<Title order={2}>Sandbox Playground</Title>
+						<Group justify="space-between" align="center">
+							<Title order={2}>Sandbox Playground</Title>
+							<Button component={Link} to="/schema-search" variant="light">
+								Open schema search
+							</Button>
+						</Group>
 						<Text c="dimmed">
 							Write JavaScript for an async function body. Use `return` for
 							value and `console.log` for logs. Host helpers: `addNumbers(a, b)`
