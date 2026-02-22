@@ -21,6 +21,12 @@ RUN bun run --filter @ryot/app-frontend build
 
 FROM oven/bun:1.3.9-debian AS runner
 RUN useradd -m -u 1001 ryot
+RUN apt-get update && apt-get install -y curl unzip && \
+    curl -fsSL https://deno.land/install.sh | sh -s -- --yes v2.6.10 && \
+    mv /root/.deno/bin/deno /usr/local/bin/deno && \
+    apt-get remove -y curl unzip && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
 WORKDIR /home/ryot
 COPY --chown=ryot:ryot apps/app-backend/drizzle ./drizzle
 COPY --from=builder --chown=ryot:ryot /app/apps/app-backend/dist ./dist
