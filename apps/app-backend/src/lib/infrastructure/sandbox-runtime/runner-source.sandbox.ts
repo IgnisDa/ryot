@@ -345,22 +345,16 @@ const createApiStub = (fnName: string, payload: SandboxRunnerPayload, budget: Ho
 		);
 };
 
-const createHost = (payload: SandboxRunnerPayload, declaredCapabilities: unknown) => {
+const createHost = (payload: SandboxRunnerPayload) => {
 	const approved = arrayIsArray(payload.apiFunctions) ? payload.apiFunctions : [];
-	const declared = arrayIsArray(declaredCapabilities) ? declaredCapabilities : [];
 	const budget: HostBudget = { http: 0, total: 0 };
 	const host: Record<string, unknown> = createDictionary(null);
-	for (let declaredIndex = 0; declaredIndex < declared.length; declaredIndex += 1) {
-		const fnName = declared[declaredIndex];
+	for (let index = 0; index < approved.length; index += 1) {
+		const fnName = approved[index];
 		if (typeof fnName !== "string") {
 			continue;
 		}
-		for (let approvedIndex = 0; approvedIndex < approved.length; approvedIndex += 1) {
-			if (approved[approvedIndex] === fnName) {
-				host[fnName] = createApiStub(fnName, payload, budget);
-				break;
-			}
-		}
+		host[fnName] = createApiStub(fnName, payload, budget);
 	}
 	return host;
 };
@@ -450,7 +444,6 @@ const isSandboxDefinition = (definition: unknown): definition is SandboxDefiniti
 const executeDefinition = async (
 	definition: unknown,
 	payload: SandboxRunnerPayload,
-	host: Record<string, unknown>,
 	setPhase: (phase: string) => void,
 ): Promise<unknown> => {
 	if (!isRecord(definition)) {
@@ -462,6 +455,7 @@ const executeDefinition = async (
 	if (!manifestsMatch(definition.manifest, payload.metadata)) {
 		return throwPhase("load", "Compiled sandbox manifest does not match persisted metadata");
 	}
+	const host = createHost(payload);
 	const run = definition.run;
 	const input = definition.input;
 	const output = definition.output;
@@ -549,11 +543,6 @@ void (async () => {
 			disableCodeGeneration();
 
 			phase = "load";
-			const declaredCapabilities =
-				isRecord(payload.metadata) && payload.metadata.kind !== "workflow"
-					? payload.metadata.capabilities
-					: payload.apiFunctions;
-			const host = createHost(payload, declaredCapabilities);
 			const restoreWorkflowGlobals =
 				isRecord(payload.metadata) && payload.metadata.kind === "workflow"
 					? installWorkflowDeterminismGuard()
@@ -561,7 +550,7 @@ void (async () => {
 			let value: unknown;
 			try {
 				const compiledModule = await importCompiledModule(payload);
-				value = await executeDefinition(compiledModule.default, payload, host, (nextPhase) => {
+				value = await executeDefinition(compiledModule.default, payload, (nextPhase) => {
 					phase = nextPhase;
 				});
 			} finally {
