@@ -2,22 +2,22 @@ CREATE TABLE "account" (
 	"scope" text,
 	"id_token" text,
 	"password" text,
-	"id" text PRIMARY KEY NOT NULL,
 	"access_token" text,
 	"refresh_token" text,
+	"id" text PRIMARY KEY NOT NULL,
 	"account_id" text NOT NULL,
 	"provider_id" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
 	"access_token_expires_at" timestamp,
 	"refresh_token_expires_at" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL,
 	"user_id" text NOT NULL,
 	"updated_at" timestamp NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "session" (
-	"id" text PRIMARY KEY NOT NULL,
 	"ip_address" text,
 	"user_agent" text,
+	"id" text PRIMARY KEY NOT NULL,
 	"token" text NOT NULL,
 	"expires_at" timestamp NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
@@ -28,11 +28,11 @@ CREATE TABLE "session" (
 --> statement-breakpoint
 CREATE TABLE "user" (
 	"image" text,
-	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
 	"email" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
 	"is_anonymous" boolean DEFAULT false,
+	"created_at" timestamp DEFAULT now() NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "user_email_unique" UNIQUE("email")
