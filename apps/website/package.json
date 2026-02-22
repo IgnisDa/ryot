@@ -6,8 +6,8 @@
 	"scripts": {
 		"typecheck": "tsc",
 		"lint": "biome check .",
-		"build": "react-router build",
-		"dev": "react-router dev --port 5200 --host"
+		"build": "bun --bun react-router build",
+		"dev": "bun --bun react-router dev --port 5200 --host"
 	},
 	"installConfig": {
 		"hoistingLimits": "workspaces"
