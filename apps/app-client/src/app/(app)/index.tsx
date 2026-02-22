@@ -5,12 +5,23 @@ import { PageHeader } from "@/components/spine/page-header";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonIcon, ButtonText } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
-import { useTrackers } from "@/lib/navigation";
+import { useNavigationData } from "@/lib/navigation";
 
 export default function HomeScreen() {
-	const trackers = useTrackers();
+	const { trackers, isLoading } = useNavigationData();
+	const hasRealTrackers = trackers.some((t) => t.kind === "tracker");
 
-	if (!trackers.length) {
+	if (isLoading) {
+		const today = dayjs();
+		return (
+			<PageHeader
+				title={today.format("dddd")}
+				eyebrow={`Today · ${today.format("DD MMM")}`}
+			/>
+		);
+	}
+
+	if (!hasRealTrackers) {
 		return (
 			<Box className="flex-1 bg-background">
 				<SafeAreaView className="flex-1">

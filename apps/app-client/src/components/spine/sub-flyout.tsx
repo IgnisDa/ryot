@@ -1,6 +1,5 @@
 import clsx from "clsx";
 import { Link, usePathname } from "expo-router";
-import { Plus } from "lucide-react-native";
 import Animated, {
 	FadeIn,
 	FadeOut,
@@ -8,9 +7,9 @@ import Animated, {
 	SlideOutRight,
 } from "react-native-reanimated";
 import { Box } from "@/components/ui/box";
-import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { useTrackers } from "@/lib/navigation";
+import { TrackerIcon } from "@/lib/icons";
+import { useNavigationData } from "@/lib/navigation";
 import { RAIL_WIDTH } from "./rail";
 
 export const FLYOUT_WIDTH = 220;
@@ -20,13 +19,13 @@ type Props = {
 };
 
 export function SpineSubFlyout({ pinned = false }: Props) {
-	const trackers = useTrackers();
 	const pathname = usePathname();
+	const { trackers } = useNavigationData();
 	const segments = pathname.split("/").filter(Boolean);
-	const activeTrackerId = segments[0] || "home";
+	const activeTrackerSlug = segments[0] || "home";
 	const activeSubItem = segments[1] || null;
 
-	const activeTracker = trackers.find((t) => t.id === activeTrackerId);
+	const activeTracker = trackers.find((t) => t.slug === activeTrackerSlug);
 	const subItems = activeTracker?.subItems ?? [];
 
 	if (!subItems.length) {
@@ -36,19 +35,23 @@ export function SpineSubFlyout({ pinned = false }: Props) {
 	const content = (
 		<>
 			<Text className="text-[10px] text-muted-foreground tracking-[2px] pb-3.5 font-sans px-6 uppercase">
-				{activeTracker?.name} · {subItems.length} schemas
+				{activeTracker?.name} · {subItems.length}{" "}
+				{subItems.length === 1 ? "view" : "views"}
 			</Text>
-			<Box className="gap-1 flex-wrap flex-row px-4">
+			<Box className="gap-1 px-4">
 				{subItems.map((item) => {
-					const isActive = item === activeSubItem;
+					const isActive = item.slug === activeSubItem;
 					return (
 						<Link
-							key={item}
-							accessibilityLabel={item}
+							key={item.key}
 							accessibilityRole="button"
-							href={`/${activeTrackerId}/${item}`}
-							className="min-h-11 py-2 px-2 justify-center"
+							accessibilityLabel={item.name}
+							href={`/${activeTrackerSlug}/${item.slug}`}
+							className="min-h-11 py-2 px-2 flex-row items-center flex"
 						>
+							<Box className="mr-2">
+								<TrackerIcon icon={item.icon} size={14} />
+							</Box>
 							<Text
 								className={clsx(
 									"text-[18px]",
@@ -57,22 +60,12 @@ export function SpineSubFlyout({ pinned = false }: Props) {
 										: "text-foreground font-heading",
 								)}
 							>
-								{item}
+								{item.name}
 							</Text>
 						</Link>
 					);
 				})}
 			</Box>
-			<Box className="h-[0.5px] mt-3.5 mb-3.5 mx-6 bg-border" />
-			<Pressable
-				className="flex-row items-center gap-1.5 px-6 min-h-11"
-				accessibilityRole="button"
-			>
-				<Plus size={12} color="#78716c" strokeWidth={1.5} />
-				<Text className="text-[12px] text-muted-foreground font-sans">
-					new schema
-				</Text>
-			</Pressable>
 		</>
 	);
 
