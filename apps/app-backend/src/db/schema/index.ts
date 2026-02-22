@@ -27,7 +27,7 @@ export const entitySchema = pgTable(
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
 			.primaryKey()
-			.$defaultFn(() => generateId()),
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
 	},
 	(table) => [
 		index("entity_schema_slug_idx").on(table.slug),
@@ -47,13 +47,13 @@ export const entity = pgTable(
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
 			.primaryKey()
-			.$defaultFn(() => generateId()),
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		schemaId: text()
 			.notNull()
 			.references(() => entitySchema.id, { onDelete: "cascade" }),
 		updatedAt: timestamp()
 			.defaultNow()
-			.$onUpdate(() => new Date())
+			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
 	},
 	(table) => [
@@ -77,7 +77,7 @@ export const event = pgTable(
 		properties: jsonb().notNull().default({}),
 		id: text()
 			.primaryKey()
-			.$defaultFn(() => generateId()),
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -107,7 +107,7 @@ export const relationship = pgTable(
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
 			.primaryKey()
-			.$defaultFn(() => generateId()),
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		sourceEntityId: text()
 			.notNull()
 			.references(() => entity.id, { onDelete: "cascade" }),
@@ -132,13 +132,13 @@ export const savedView = pgTable(
 		displayConfig: jsonb().notNull().default({}),
 		id: text()
 			.primaryKey()
-			.$defaultFn(() => generateId()),
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		updatedAt: timestamp()
 			.defaultNow()
-			.$onUpdate(() => new Date())
+			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
 	},
 	(table) => [index("saved_view_user_id_idx").on(table.userId)],
