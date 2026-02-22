@@ -12,6 +12,7 @@ import {
 	queryEngineField,
 	queryEngineIsNull,
 	queryEngineLiteral,
+	queryEnginePropertyRef,
 	queryEngineSystemRef,
 } from "@ryot/query-engine/primitives";
 import { DateTime, Effect } from "effect";
@@ -65,6 +66,36 @@ export const queryInLibraryRelationship = (
 			alias: "entity",
 			schemas: [entitySchemaSlug],
 			fields: [queryEngineField("id", queryEngineSystemRef("entity", "id"))],
+			include: [
+				{
+					limit: 1,
+					key: "libraries",
+					fields: [
+						queryEngineField("owned", queryEnginePropertyRef("inLibrary", "in-library", "owned")),
+						queryEngineField(
+							"ownershipSources",
+							queryEnginePropertyRef("inLibrary", "in-library", "ownershipSources"),
+						),
+						queryEngineField(
+							"ownershipSyncedAt",
+							queryEnginePropertyRef("inLibrary", "in-library", "ownershipSyncedAt"),
+						),
+					],
+					orderBy: [{ order: "asc", expr: queryEngineSystemRef("library", "id") }],
+					source: {
+						where: null,
+						alias: "library",
+						type: "entities",
+						schemas: ["library"],
+						via: {
+							alias: "inLibrary",
+							entityRef: "entity",
+							schema: "in-library",
+							direction: "outgoing" as const,
+						},
+					},
+				},
+			],
 			where: queryEngineAnd(
 				queryEngineComparison(
 					"eq",
@@ -74,12 +105,12 @@ export const queryInLibraryRelationship = (
 				queryEngineExists(
 					queryEngineEntitySource({
 						where: null,
-						alias: "library",
 						schemas: ["library"],
+						alias: "membershipLibrary",
 						via: {
-							alias: "inLibrary",
 							entityRef: "entity",
 							schema: "in-library",
+							alias: "membershipEdge",
 							direction: "outgoing" as const,
 						},
 					}),
@@ -347,7 +378,10 @@ export const seedGlobalShowEpisodeTree = (client: Client, options: { showName: s
 		return { tmdbId, showId: show.id, seasonId: season.id, episodeId: episode.id };
 	});
 
-export const insertLibraryMembership = (client: Client, input: { mediaEntityId: string }) =>
+export const insertLibraryMembership = (
+	client: Client,
+	input: { mediaEntityId: string; properties?: Record<string, unknown> },
+) =>
 	Effect.gen(function* () {
 		const libraryResult = yield* executeQueryEngine(
 			client,
@@ -365,7 +399,7 @@ export const insertLibraryMembership = (client: Client, input: { mediaEntityId: 
 		const inLibrarySchema = requireRelationshipSchemaBySlug(schemas, "in-library");
 
 		yield* createRelationship(client, {
-			properties: {},
+			properties: input.properties ?? {},
 			relationshipSchemaSlug: inLibrarySchema.id,
 			targetEntityId: EntityId.make(libraryEntityId),
 			sourceEntityId: EntityId.make(input.mediaEntityId),

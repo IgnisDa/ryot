@@ -125,9 +125,28 @@ const resolveEntityIntents = Effect.fn("imports.resolveGenericEntityIntents")(fu
 					entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
 				}),
 			);
+			const scopedCandidates = intent.scope
+				? yield* runWithDb(
+						Effect.forEach(candidates, (candidate) =>
+							repository
+								.getEntityScopeForUser({ userId, entityId: candidate.id })
+								.pipe(
+									Effect.map((scope) =>
+										(
+											intent.scope === "user"
+												? scope?.entityUserId === userId
+												: scope?.entityUserId === null
+										)
+											? [candidate]
+											: [],
+									),
+								),
+						).pipe(Effect.map((groups) => groups.flat())),
+					)
+				: candidates;
 			const expectedName =
 				intent.match.nameNormalization === "slug" ? slugify(intent.match.name) : intent.match.name;
-			const existing = candidates.find((candidate) => {
+			const existing = scopedCandidates.find((candidate) => {
 				const candidateName =
 					intent.match?.nameNormalization === "slug" ? slugify(candidate.name) : candidate.name;
 				return (
@@ -137,6 +156,19 @@ const resolveEntityIntents = Effect.fn("imports.resolveGenericEntityIntents")(fu
 				);
 			});
 			entityId = existing?.id;
+		}
+		if (entityId && intent.scope && intent.entityId) {
+			const scope = yield* runWithDb(repository.getEntityScopeForUser({ userId, entityId }));
+			const matchesScope =
+				intent.scope === "user" ? scope?.entityUserId === userId : scope?.entityUserId === null;
+			if (!matchesScope) {
+				entityId = undefined;
+			}
+		}
+		if (!entityId && intent.existingOnly) {
+			return yield* new ImportRunError({
+				message: `Required import entity '${intent.alias}' was not found`,
+			});
 		}
 		entityId ??= (yield* entities.create({
 			userId,
@@ -163,6 +195,11 @@ const writeGenericItem = (item: GenericImportWriteItem, userId: UserId, index: n
 			const entitySchemasByAlias = new Map(
 				item.entities.map(({ alias, entitySchemaSlug }) => [alias, entitySchemaSlug]),
 			);
+			if (!entitySchemasByAlias.has(item.subjectEntityAlias)) {
+				return yield* new ImportRunError({
+					message: "Import subject references an unknown entity alias",
+				});
+			}
 			for (const event of item.events) {
 				const subject =
 					event.subjectEntityId !== undefined
@@ -220,7 +257,7 @@ const writeGenericItem = (item: GenericImportWriteItem, userId: UserId, index: n
 						message: `Relationship schema '${intent.relationshipSchemaSlug}' not found`,
 					});
 				}
-				yield* relationships.create({
+				const input = {
 					userId,
 					scope: "user",
 					sourceEntityId,
@@ -228,7 +265,10 @@ const writeGenericItem = (item: GenericImportWriteItem, userId: UserId, index: n
 					properties: intent.properties,
 					propertiesSchema: relationshipSchema.propertiesSchema,
 					relationshipSchemaSlug: RelationshipSchemaSlug.make(intent.relationshipSchemaSlug),
-				});
+				} as const;
+				yield* intent.propertiesMode === "merge"
+					? relationships.mergeUserProperties(input)
+					: relationships.create(input);
 			}
 			const events: CreateEventItem[] = [];
 			const collectionMemberships: Array<{ entityId: EntityId; collectionId: EntityId }> = [];
@@ -251,21 +291,6 @@ const writeGenericItem = (item: GenericImportWriteItem, userId: UserId, index: n
 					occurredAt: intent.occurredAt,
 					eventSchemaSlug: EventSchemaSlug.make(intent.eventSchemaSlug),
 					...(sessionEntityId ? { sessionEntityId } : {}),
-				});
-			}
-			const ownershipSyncedAt = (yield* DateTime.nowAsDate).toISOString();
-			for (const ownership of item.ownerships ?? []) {
-				const entityId = aliases.get(ownership.entityAlias);
-				if (!entityId) {
-					return yield* new ImportRunError({
-						message: "Import ownership references an unknown entity alias",
-					});
-				}
-				yield* collections.markEntityOwnedInLibrary({
-					userId,
-					entityId,
-					syncedAt: ownershipSyncedAt,
-					provider: ownership.provider,
 				});
 			}
 			for (const membership of item.collectionMemberships ?? []) {
@@ -425,7 +450,9 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 							itemIndex: item.itemIndex,
 							sourceLabel: item.sourceLabel,
 							sourceIdentifier: item.sourceIdentifier,
-							entitySchemaSlug: item.entities.at(-1)?.entitySchemaSlug ?? null,
+							entitySchemaSlug:
+								item.entities.find(({ alias }) => alias === item.subjectEntityAlias)
+									?.entitySchemaSlug ?? null,
 						}).pipe(Effect.mapError(toWorkflowError)),
 					});
 				} else {

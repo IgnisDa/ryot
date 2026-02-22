@@ -4,8 +4,8 @@ import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { Effect, Layer, Schema } from "effect";
 
 import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
-import { EntityImportPayload } from "#modules/entity-import/entity-import-workflow";
 import { ProviderEntityPopulationWorkflow } from "#modules/entity-import/provider-entity-population-workflow";
+import { EntityImportPayload } from "#modules/entity-import/schemas";
 
 import {
 	LibraryEntityImportOperationWorkflowDefinitionsLive,
@@ -39,12 +39,10 @@ export const runLibraryEntityImportWorkflow = Effect.fn("LibraryEntityImportWork
 		});
 		const engine = yield* WorkflowEngine;
 		const operations = yield* LibraryEntityImportWorkflowOperations;
-
 		const userId = payload.userId;
 		if (!userId) {
 			return yield* Effect.die("LibraryEntityImportWorkflow: userId is required");
 		}
-
 		const populationExecutionId = `${executionId}-provider-population`;
 		const entity = yield* engine
 			.execute(ProviderEntityPopulationWorkflow, {
@@ -65,7 +63,6 @@ export const runLibraryEntityImportWorkflow = Effect.fn("LibraryEntityImportWork
 					(error) => new LibraryEntityImportError({ stage: "population", message: error.message }),
 				),
 			);
-
 		yield* operations
 			.ensureLibraryMembership({
 				userId,
@@ -77,7 +74,6 @@ export const runLibraryEntityImportWorkflow = Effect.fn("LibraryEntityImportWork
 					(error) => new LibraryEntityImportError({ stage: "membership", message: error.message }),
 				),
 			);
-
 		return entity;
 	},
 	(effect, _payload, executionId) =>
