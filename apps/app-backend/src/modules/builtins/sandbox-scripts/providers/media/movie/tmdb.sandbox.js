@@ -303,8 +303,7 @@ function collectPeople(cast, crew) {
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjsModule = await import("npm:dayjs");
-	const dayjs = dayjsModule.default;
+	const { default: dayjs } = await import("npm:dayjs");
 
 	const {
 		query,
@@ -396,8 +395,7 @@ driver("trending", async function (_context, { metadata }) {
 
 driver("details", async function (context, { metadata }) {
 	const { z } = await import("npm:zod");
-	const dayjsModule = await import("npm:dayjs");
-	const dayjs = dayjsModule.default;
+	const { default: dayjs } = await import("npm:dayjs");
 
 	const { externalId } = z
 		.object({

@@ -386,8 +386,7 @@ query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: Med
 
 driver("details", async function (context, { metadata }) {
 	const { z } = await import("npm:zod");
-	const dayjsModule = await import("npm:dayjs");
-	const dayjs = dayjsModule.default;
+	const { default: dayjs } = await import("npm:dayjs");
 
 	const { externalId: contextIdentifier } = z
 		.object({
