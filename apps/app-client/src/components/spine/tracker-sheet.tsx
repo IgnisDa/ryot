@@ -34,8 +34,7 @@ export function TrackerSheet() {
 		if (tracker.subItems?.length) {
 			setExpandedId((prev) => (prev === tracker.id ? null : tracker.id));
 		} else {
-			const path = tracker.id === "home" ? "/" : `/${tracker.id}`;
-			router.push(path);
+			router.push(tracker.id === "home" ? "/" : `/${tracker.id}`);
 			close();
 		}
 	}
