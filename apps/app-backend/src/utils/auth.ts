@@ -11,3 +11,12 @@ export const auth = betterAuth({
 	secret: process.env.SERVER_ADMIN_ACCESS_TOKEN,
 	database: drizzleAdapter(db, { provider: "pg", schema }),
 });
+
+export type AuthType = {
+	user: typeof auth.$Infer.Session.user;
+	session: typeof auth.$Infer.Session.session;
+};
+
+export type MaybeAuthType = {
+	[K in keyof AuthType]: AuthType[K] | null;
+};
