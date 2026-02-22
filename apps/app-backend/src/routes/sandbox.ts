@@ -4,7 +4,6 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { db } from "../db";
 import { getSandboxService } from "../sandbox";
-import { httpCall } from "../sandbox/host-functions";
 
 const runSandboxSchema = z.object({
 	code: z.string().min(1).max(20_000),
@@ -69,7 +68,7 @@ export const sandboxApi = new Hono().post(
 			maxHeapMB: 64,
 			timeoutMs: 10_000,
 			code: parsed.code,
-			apiFunctions: { addNumbers, httpCall },
+			apiFunctions: { addNumbers },
 		});
 
 		return c.json({ ...result, durationMs: Date.now() - startedAt });
