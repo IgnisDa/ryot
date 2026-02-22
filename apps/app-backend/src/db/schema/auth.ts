@@ -2,14 +2,14 @@ import { relations } from "drizzle-orm";
 import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
-	image: text("image"),
-	id: text("id").primaryKey(),
-	name: text("name").notNull(),
-	email: text("email").notNull().unique(),
-	createdAt: timestamp("created_at").defaultNow().notNull(),
-	isAnonymous: boolean("is_anonymous").default(false),
-	emailVerified: boolean("email_verified").default(false).notNull(),
-	updatedAt: timestamp("updated_at")
+	image: text(),
+	name: text().notNull(),
+	id: text().primaryKey(),
+	email: text().notNull().unique(),
+	isAnonymous: boolean().default(false),
+	createdAt: timestamp().defaultNow().notNull(),
+	emailVerified: boolean().default(false).notNull(),
+	updatedAt: timestamp()
 		.defaultNow()
 		.$onUpdate(() => /* @__PURE__ */ new Date())
 		.notNull(),
@@ -18,16 +18,16 @@ export const user = pgTable("user", {
 export const session = pgTable(
 	"session",
 	{
-		id: text("id").primaryKey(),
-		ipAddress: text("ip_address"),
-		userAgent: text("user_agent"),
-		token: text("token").notNull().unique(),
-		expiresAt: timestamp("expires_at").notNull(),
-		createdAt: timestamp("created_at").defaultNow().notNull(),
-		updatedAt: timestamp("updated_at")
+		ipAddress: text(),
+		userAgent: text(),
+		id: text().primaryKey(),
+		token: text().notNull().unique(),
+		expiresAt: timestamp().notNull(),
+		createdAt: timestamp().defaultNow().notNull(),
+		updatedAt: timestamp()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
-		userId: text("user_id")
+		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 	},
@@ -37,21 +37,21 @@ export const session = pgTable(
 export const account = pgTable(
 	"account",
 	{
-		scope: text("scope"),
-		idToken: text("id_token"),
-		password: text("password"),
-		id: text("id").primaryKey(),
-		accessToken: text("access_token"),
-		refreshToken: text("refresh_token"),
-		accountId: text("account_id").notNull(),
-		providerId: text("provider_id").notNull(),
-		createdAt: timestamp("created_at").defaultNow().notNull(),
-		accessTokenExpiresAt: timestamp("access_token_expires_at"),
-		refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
-		userId: text("user_id")
+		scope: text(),
+		idToken: text(),
+		password: text(),
+		accessToken: text(),
+		refreshToken: text(),
+		id: text().primaryKey(),
+		accountId: text().notNull(),
+		providerId: text().notNull(),
+		accessTokenExpiresAt: timestamp(),
+		refreshTokenExpiresAt: timestamp(),
+		createdAt: timestamp().defaultNow().notNull(),
+		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		updatedAt: timestamp("updated_at")
+		updatedAt: timestamp()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
 	},
@@ -61,12 +61,12 @@ export const account = pgTable(
 export const verification = pgTable(
 	"verification",
 	{
-		id: text("id").primaryKey(),
-		value: text("value").notNull(),
-		identifier: text("identifier").notNull(),
-		expiresAt: timestamp("expires_at").notNull(),
-		createdAt: timestamp("created_at").defaultNow().notNull(),
-		updatedAt: timestamp("updated_at")
+		id: text().primaryKey(),
+		value: text().notNull(),
+		identifier: text().notNull(),
+		expiresAt: timestamp().notNull(),
+		createdAt: timestamp().defaultNow().notNull(),
+		updatedAt: timestamp()
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
