@@ -19,7 +19,7 @@ const godModeListQuery = (search?: string) => ({
 	offset: 0,
 	...(search ? { search } : {}),
 });
-const workspaceListQuery = { includeDisabled: false };
+const pluginListQuery = { includeDisabled: false };
 const uniqueTimestamp = () => DateTime.toEpochMillis(DateTime.nowUnsafe());
 
 const getUserIdByEmail = (email: string) =>
@@ -288,11 +288,11 @@ describe("God-mode disable set", () => {
 			const userId = yield* getUserIdByEmail(email);
 			const apiKey = yield* createApiKey(cookies);
 
-			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				Cookie: cookies,
 			});
 
-			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				"X-Api-Key": apiKey,
 			});
 
@@ -309,14 +309,14 @@ describe("God-mode disable set", () => {
 			expect(listData.users[0]?.disabledAt).toBe(disabledData.disabledAt);
 
 			const revokedSession = yield* Effect.flip(
-				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 					Cookie: cookies,
 				}),
 			);
 			assertTaggedError(revokedSession, "Unauthorized");
 
 			const blockedApiKey = yield* Effect.flip(
-				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 					"X-Api-Key": apiKey,
 				}),
 			);
@@ -369,7 +369,7 @@ describe("Reset link generation and completion for credential user", () => {
 			const signInRes = yield* signInWithPassword(email, newPassword);
 			expect(signInRes.error).toBeNull();
 			assertPresent(signInRes.cookies, "Expected session cookies after sign-in");
-			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				Cookie: signInRes.cookies,
 			});
 		}),
@@ -380,7 +380,7 @@ describe("Reset link generation and completion for credential user", () => {
 			const client = getBackendClient();
 			const { cookies, email } = yield* createTestUser();
 
-			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				Cookie: cookies,
 			});
 
@@ -404,7 +404,7 @@ describe("Reset link generation and completion for credential user", () => {
 			expect(resetError).toBeNull();
 
 			const oldSessionError = yield* Effect.flip(
-				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 					Cookie: cookies,
 				}),
 			);
@@ -413,7 +413,7 @@ describe("Reset link generation and completion for credential user", () => {
 			const signInRes = yield* signInWithPassword(email, newPassword);
 			expect(signInRes.error).toBeNull();
 			assertPresent(signInRes.cookies, "Expected session cookies after re-sign-in");
-			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				Cookie: signInRes.cookies,
 			});
 		}),

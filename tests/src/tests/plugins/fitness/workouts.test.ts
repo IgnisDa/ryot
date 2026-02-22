@@ -11,7 +11,7 @@ import {
 	executeQueryEngine,
 	findBuiltinRelationshipSchemaSlug,
 	findBuiltinSchemaBySlug,
-	findBuiltinWorkspaceBySlug,
+	findBuiltinPluginBySlug,
 	findWorkoutSetEventSchema,
 	getEntity,
 	getQueryEngineFieldOrThrow,
@@ -28,15 +28,15 @@ describe("Workouts E2E", () => {
 	it.live("links the built-in workout schema to the fitness plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessWorkspace = yield* findBuiltinWorkspaceBySlug(client, "fitness");
+			const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
 			const schemas = yield* listEntitySchemas(client, {
-				pluginSlug: fitnessWorkspace.slug,
+				pluginSlug: fitnessPlugin.slug,
 			});
 			const workoutSchema = schemas.find((schema) => schema.slug === "workout");
 
 			expect(workoutSchema).toBeDefined();
 			expect(workoutSchema?.name).toBe("Workout");
-			expect(workoutSchema?.pluginSlug).toBe(fitnessWorkspace.slug);
+			expect(workoutSchema?.pluginSlug).toBe(fitnessPlugin.slug);
 			expect(workoutSchema?.isBuiltin).toBe(true);
 		}),
 	);
@@ -74,9 +74,9 @@ describe("Workouts E2E", () => {
 	it.live("creates the built-in All Workouts saved view with workout defaults", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessWorkspace = yield* findBuiltinWorkspaceBySlug(client, "fitness");
+			const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
 			const views = yield* listSavedViews(client, {
-				pluginSlug: fitnessWorkspace.slug,
+				pluginSlug: fitnessPlugin.slug,
 			});
 			const allWorkoutsView = views.find((view) => view.name === "All Workouts");
 
@@ -84,7 +84,7 @@ describe("Workouts E2E", () => {
 			expect(allWorkoutsView).toMatchObject({
 				isBuiltin: true,
 				name: "All Workouts",
-				pluginSlug: fitnessWorkspace.slug,
+				pluginSlug: fitnessPlugin.slug,
 				queryDocument: { source: { schemas: ["workout"] } },
 				displayConfiguration: {
 					grid: {
