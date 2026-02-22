@@ -19,7 +19,6 @@
 		"apps/app-frontend",
 		"apps/browser-extension",
 		"apps/docs",
-		"apps/frontend",
 		"apps/website",
 		"libs/generated",
 		"libs/graphql",
