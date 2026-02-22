@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { router, usePathname } from "expo-router";
+import { Link, usePathname } from "expo-router";
 import { useAtomValue } from "jotai";
 import { Plus } from "lucide-react-native";
 import Animated, {
@@ -34,10 +34,6 @@ export function SpineSubFlyout({ pinned = false }: Props) {
 		return null;
 	}
 
-	function handleSubItemPress(item: string) {
-		router.push(`/${activeTrackerId}/${item}`);
-	}
-
 	const content = (
 		<>
 			<Text className="text-[10px] text-muted-foreground tracking-[2px] pb-3.5 font-sans px-6 uppercase">
@@ -47,11 +43,11 @@ export function SpineSubFlyout({ pinned = false }: Props) {
 				{subItems.map((item) => {
 					const isActive = item === activeSubItem;
 					return (
-						<Pressable
+						<Link
 							key={item}
 							accessibilityLabel={item}
 							accessibilityRole="button"
-							onPress={() => handleSubItemPress(item)}
+							href={`/${activeTrackerId}/${item}`}
 							className="min-h-11 py-2 px-2 justify-center"
 						>
 							<Text
@@ -64,7 +60,7 @@ export function SpineSubFlyout({ pinned = false }: Props) {
 							>
 								{item}
 							</Text>
-						</Pressable>
+						</Link>
 					);
 				})}
 			</Box>
