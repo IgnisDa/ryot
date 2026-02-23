@@ -23,7 +23,6 @@ export const entitySchema = pgTable(
 		eventSchemas: jsonb().notNull().default([]),
 		displayConfig: jsonb().notNull().default({}),
 		isBuiltin: boolean().notNull().default(false),
-		externalSources: jsonb().notNull().default([]),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
 			.primaryKey()

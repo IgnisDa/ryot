@@ -34,7 +34,6 @@ CREATE TABLE "entity_schema" (
 	"event_schemas" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"display_config" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
-	"external_sources" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"user_id" text,
 	"id" text PRIMARY KEY NOT NULL,
 	CONSTRAINT "entity_schema_user_slug_unique" UNIQUE("user_id","slug")
