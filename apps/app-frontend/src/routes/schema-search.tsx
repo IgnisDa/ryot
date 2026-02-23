@@ -38,17 +38,12 @@ function SchemaSearchPage() {
 		void authClient.signIn.anonymous();
 	}, [authClient]);
 
-	const searchJobRequest = useQuery({
+	const searchRequest = useQuery({
 		refetchOnMount: false,
 		refetchOnReconnect: false,
 		refetchOnWindowFocus: false,
 		enabled: Boolean(trimmedSchemaSlug) && Boolean(trimmedQuery),
-		queryKey: [
-			"entity-schema-search-job",
-			trimmedSchemaSlug,
-			trimmedQuery,
-			page,
-		],
+		queryKey: ["entity-schema-search", trimmedSchemaSlug, trimmedQuery, page],
 		queryFn: async () => {
 			const response = await apiClient.protected["entity-schemas"][
 				":schemaSlug"
@@ -60,63 +55,14 @@ function SchemaSearchPage() {
 			const payload = await response.json();
 			if ("error" in payload) throw new Error(payload.error);
 
-			return payload.jobId;
-		},
-	});
-
-	const searchStatus = useQuery({
-		enabled: Boolean(trimmedSchemaSlug) && Boolean(searchJobRequest.data),
-		queryKey: [
-			"entity-schema-search-status",
-			trimmedSchemaSlug,
-			searchJobRequest.data,
-		],
-		queryFn: async () => {
-			const jobId = searchJobRequest.data;
-			if (!jobId) throw new Error("Missing search job id");
-
-			const response = await apiClient.protected["entity-schemas"][
-				":schemaSlug"
-			].search.jobs[":jobId"].$get({
-				param: { jobId, schemaSlug: trimmedSchemaSlug },
-			});
-
-			const payload = await response.json();
-			if ("error" in payload) throw new Error(payload.error);
-
 			return payload;
 		},
-		refetchInterval: (context) =>
-			context.state.data && "state" in context.state.data ? 1000 : false,
 	});
 
-	const failedStatus =
-		searchStatus.data &&
-		"error" in searchStatus.data &&
-		typeof searchStatus.data.error === "string"
-			? searchStatus.data.error
-			: null;
-	const pendingState =
-		searchStatus.data && "state" in searchStatus.data
-			? searchStatus.data.state
-			: null;
-	const completedResult =
-		searchStatus.data && "result" in searchStatus.data
-			? searchStatus.data.result
-			: null;
-
-	const isQueueing = searchJobRequest.isPending;
-	const isPolling = Boolean(searchJobRequest.data) && searchStatus.isFetching;
-	const isSearching = isQueueing || isPolling || Boolean(pendingState);
-
-	const loadingLabel = isQueueing
-		? "Queueing search..."
-		: pendingState
-			? `Search running (${pendingState})...`
-			: "Checking search status...";
-
-	const pollingError = searchStatus.error?.message;
-	const requestError = searchJobRequest.error?.message;
+	const completedResult = searchRequest.data;
+	const isSearching = searchRequest.isFetching || searchRequest.isPending;
+	const loadingLabel = "Searching...";
+	const searchError = searchRequest.error?.message;
 
 	return (
 		<Box
@@ -130,9 +76,8 @@ function SchemaSearchPage() {
 					<Stack gap={4}>
 						<Title order={2}>Entity Schema Search</Title>
 						<Text c="dimmed">
-							Queues `/api/protected/entity-schemas/:schemaSlug/search`, then
-							polls
-							`/api/protected/entity-schemas/:schemaSlug/search/jobs/:jobId`.
+							Runs `/api/protected/entity-schemas/:schemaSlug/search` and
+							returns results directly.
 						</Text>
 					</Stack>
 
@@ -164,21 +109,9 @@ function SchemaSearchPage() {
 						</Group>
 					) : null}
 
-					{requestError ? (
+					{searchError ? (
 						<Alert color="red" title="Search failed">
-							{requestError}
-						</Alert>
-					) : null}
-
-					{pollingError ? (
-						<Alert color="red" title="Search failed">
-							{pollingError}
-						</Alert>
-					) : null}
-
-					{failedStatus ? (
-						<Alert color="red" title="Search failed">
-							{failedStatus}
+							{searchError}
 						</Alert>
 					) : null}
 
