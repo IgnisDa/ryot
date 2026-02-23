@@ -27,50 +27,6 @@ export const Route = createFileRoute("/schema-search")({
 
 const api = hc<AppType>("/api");
 
-const parseErrorMessage = (payload: unknown) => {
-	if (!payload || typeof payload !== "object") return "Search request failed";
-
-	if (!("error" in payload)) return "Search request failed";
-
-	return typeof payload.error === "string"
-		? payload.error
-		: "Search request failed";
-};
-
-const parseSearchResponse = (payload: unknown) => {
-	if (!payload || typeof payload !== "object")
-		throw new Error("Invalid search response");
-
-	const body = payload as Record<string, unknown>;
-	const rawItems = Array.isArray(body.items) ? body.items : [];
-	const rawDetails =
-		body.details && typeof body.details === "object"
-			? (body.details as Record<string, unknown>)
-			: {};
-
-	const items = rawItems.map((item) => {
-		const value = item as Record<string, unknown>;
-		return {
-			title: typeof value.title === "string" ? value.title : "Untitled",
-			identifier:
-				typeof value.identifier === "string" ? value.identifier : "unknown",
-			image: typeof value.image === "string" ? value.image : null,
-			publish_year:
-				typeof value.publish_year === "number" ? value.publish_year : null,
-		};
-	});
-
-	return {
-		items,
-		details: {
-			next_page:
-				typeof rawDetails.next_page === "number" ? rawDetails.next_page : null,
-			total_items:
-				typeof rawDetails.total_items === "number" ? rawDetails.total_items : 0,
-		},
-	};
-};
-
 function SchemaSearchPage() {
 	const authClient = useAuthClient();
 	const [page, setPage] = useState(1);
@@ -93,9 +49,9 @@ function SchemaSearchPage() {
 			});
 
 			const payload = await response.json();
-			if (!response.ok) throw new Error(parseErrorMessage(payload));
+			if ("error" in payload) throw new Error(payload.error);
 
-			return parseSearchResponse(payload);
+			return payload;
 		},
 	});
 
