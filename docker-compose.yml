@@ -1,4 +1,12 @@
 services:
+  backend-bullboard:
+    restart: unless-stopped
+    image: venatum/bull-board
+    ports:
+      - "3002:3000"
+    environment:
+      REDIS_HOST: backend-redis
+
   backend-redis:
     image: redis:alpine
     restart: unless-stopped
