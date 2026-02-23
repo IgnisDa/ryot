@@ -14,8 +14,8 @@ import sandboxRunnerSource from "./runner-source.txt";
 import type { ApiFunction, SandboxResult, SandboxRunOptions } from "./types";
 
 const defaultMaxHeapMB = 64;
-const defaultTimeoutMs = 10_000;
 const forceKillDelayMs = 500;
+const defaultTimeoutMs = 10_000;
 const requestBodyLimit = 128_000;
 
 type ProcessExit = {
