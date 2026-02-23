@@ -23,15 +23,36 @@ const api = hc<AppType>("/api");
 
 const defaultCode = `console.log("calling addNumbers in host API...");
 
-const result = await addNumbers(21, 21);
+const mathResult = await addNumbers(21, 21);
 
-if (result.success === true) {
-  console.log("sum from db:", result.data);
-  return result;
+if (mathResult.success !== true) {
+  console.log("addNumbers failed:", mathResult.error);
+  return mathResult;
 }
 
-console.log("addNumbers failed:", result.error);
-return result;`;
+console.log("sum from db:", mathResult.data);
+
+const apiResult = await httpCall("GET", "https://httpbin.org/get", {
+  headers: { Accept: "application/json" },
+});
+
+if (apiResult.success !== true) {
+  console.log("httpCall failed:", apiResult.error);
+  return {
+    mathResult,
+    apiResult,
+  };
+}
+
+console.log("http status:", apiResult.data.status);
+
+return {
+  mathResult,
+  apiResult: {
+    status: apiResult.data.status,
+    statusText: apiResult.data.statusText,
+  },
+};`;
 
 type SandboxRunResponse = {
 	durationMs: number;
@@ -119,7 +140,8 @@ function App() {
 						<Title order={2}>Sandbox Playground</Title>
 						<Text c="dimmed">
 							Write JavaScript for an async function body. Use `return` for
-							value and `console.log` for logs. Host helper: `addNumbers(a, b)`.
+							value and `console.log` for logs. Host helpers: `addNumbers(a, b)`
+							and `httpCall(method, url, options)`.
 						</Text>
 					</Stack>
 
