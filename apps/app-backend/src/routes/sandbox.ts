@@ -64,9 +64,6 @@ export const sandboxApi = new Hono().post(
 		const startedAt = Date.now();
 		const sandbox = getSandboxService();
 		const result = await sandbox.run({
-			context: {},
-			maxHeapMB: 64,
-			timeoutMs: 10_000,
 			code: parsed.code,
 			apiFunctions: { addNumbers },
 		});
