@@ -3,10 +3,8 @@ import { getRedisConnection } from "./connection";
 
 export const createQueues = () => {
 	const connection = getRedisConnection();
-
-	const exampleQueue = new Queue("example", { connection });
-
-	return { exampleQueue };
+	const sandboxScriptQueue = new Queue("sandboxScript", { connection });
+	return { sandboxScriptQueue };
 };
 
 export type Queues = ReturnType<typeof createQueues>;

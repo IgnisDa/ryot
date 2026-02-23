@@ -1,7 +1,5 @@
-import { generateId } from "better-auth";
 import { Hono } from "hono";
 import { requireAuth } from "../auth/middleware";
-import { getQueues } from "../queue";
 import { entitySchemasApi } from "./entity-schemas";
 import { sandboxApi } from "./sandbox";
 
@@ -10,12 +8,6 @@ export const protectedApi = new Hono()
 	.get("/me", async (c) => {
 		const user = c.get("user");
 		const session = c.get("session");
-
-		const queues = getQueues();
-		await queues.exampleQueue.add("user-login", {
-			message: `User ${user.id} accessed /me endpoint and id is ${generateId()}`,
-		});
-
 		return c.json({ user, session });
 	})
 	.route("/sandbox", sandboxApi)
