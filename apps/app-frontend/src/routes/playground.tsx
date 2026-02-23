@@ -91,7 +91,7 @@ const parseSandboxResponse = (payload: unknown): SandboxRunResponse => {
 		error,
 		durationMs,
 		value: body.value,
-	}
+	};
 };
 
 function App() {
@@ -107,7 +107,7 @@ function App() {
 		mutationFn: async (scriptCode: string) => {
 			const response = await apiClient.protected.sandbox.run.$post({
 				json: { code: scriptCode },
-			})
+			});
 			const payload = await response.json();
 
 			if (!response.ok) {
@@ -116,7 +116,7 @@ function App() {
 
 			return parseSandboxResponse(payload);
 		},
-	})
+	});
 
 	const valueText = runMutation.data
 		? JSON.stringify(runMutation.data.value ?? null, null, 2)
@@ -235,5 +235,5 @@ function App() {
 				</Stack>
 			</Container>
 		</Box>
-	)
+	);
 }
