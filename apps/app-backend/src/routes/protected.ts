@@ -2,6 +2,7 @@ import { generateId } from "better-auth";
 import { Hono } from "hono";
 import { requireAuth } from "../auth/middleware";
 import { getQueues } from "../queue";
+import { entitySchemasApi } from "./entity-schemas";
 import { sandboxApi } from "./sandbox";
 
 export const protectedApi = new Hono()
@@ -17,4 +18,5 @@ export const protectedApi = new Hono()
 
 		return c.json({ user, session });
 	})
-	.route("/sandbox", sandboxApi);
+	.route("/sandbox", sandboxApi)
+	.route("/entity-schemas", entitySchemasApi);
