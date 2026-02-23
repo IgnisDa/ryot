@@ -12,6 +12,7 @@ import {
 	shutdownQueues,
 	shutdownWorkers,
 } from "./queue";
+import { initializeRedis, shutdownRedis } from "./redis";
 import { protectedApi } from "./routes/protected";
 import { initializeSandboxService, shutdownSandboxService } from "./sandbox";
 
@@ -34,6 +35,7 @@ app.use("*", serveStatic({ path: "./client/_shell.html" }));
 
 const main = async () => {
 	await migrateDB();
+	await initializeRedis();
 	await initializeQueues();
 	await initializeWorkers();
 	await initializeSandboxService();
@@ -52,6 +54,7 @@ const main = async () => {
 		await shutdownWorkers();
 		await shutdownQueues();
 		await shutdownSandboxService();
+		await shutdownRedis();
 		server.close(() => {
 			console.info("Server closed");
 			process.exit(0);

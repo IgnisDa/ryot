@@ -4,6 +4,7 @@ import {
 	type Server,
 	type ServerResponse,
 } from "node:http";
+import { redis } from "../redis";
 import { requestBodyLimit } from "./constants";
 import type { ApiFunction } from "./types";
 import { sendJson } from "./utils";
@@ -17,7 +18,11 @@ export interface ExecutionSession {
 export class BridgeServer {
 	private port: number | null = null;
 	private server: Server | null = null;
-	private readonly sessions = new Map<string, ExecutionSession>();
+	private readonly keyPrefix = "sandbox:session:";
+	private readonly apiFunctions = new Map<
+		string,
+		Record<string, ApiFunction>
+	>();
 
 	async start() {
 		this.server = createServer((req, res) => {
@@ -70,16 +75,32 @@ export class BridgeServer {
 		return this.port;
 	}
 
-	addSession(executionId: string, session: ExecutionSession) {
-		this.sessions.set(executionId, session);
+	async addSession(executionId: string, session: ExecutionSession) {
+		const key = this.getKey(executionId);
+		const ttlSeconds = Math.ceil((session.expiresAt - Date.now()) / 1000);
+		const data = {
+			token: session.token,
+			expiresAt: session.expiresAt,
+		};
+		await redis.setex(key, ttlSeconds, JSON.stringify(data));
+		this.apiFunctions.set(executionId, session.apiFunctions);
 	}
 
-	removeSession(executionId: string) {
-		this.sessions.delete(executionId);
+	async removeSession(executionId: string) {
+		const key = this.getKey(executionId);
+		await redis.del(key);
+		this.apiFunctions.delete(executionId);
 	}
 
-	clearSessions() {
-		this.sessions.clear();
+	async clearSessions() {
+		const pattern = `${this.keyPrefix}*`;
+		const keys = await redis.keys(pattern);
+		if (keys.length > 0) await redis.del(...keys);
+		this.apiFunctions.clear();
+	}
+
+	private getKey(executionId: string): string {
+		return `${this.keyPrefix}${executionId}`;
 	}
 
 	private async handleRequest(req: IncomingMessage, res: ServerResponse) {
@@ -98,25 +119,38 @@ export class BridgeServer {
 
 			const executionId = decodeURIComponent(segments[1] ?? "");
 			const fnName = decodeURIComponent(segments[2] ?? "");
-			const session = this.sessions.get(executionId);
-			if (!session) {
+
+			const key = this.getKey(executionId);
+			const value = await redis.get(key);
+			if (!value) {
 				sendJson(res, 404, { error: "Execution not found" });
 				return;
 			}
 
-			if (Date.now() > session.expiresAt) {
-				this.sessions.delete(executionId);
+			const sessionData = JSON.parse(value) as {
+				token: string;
+				expiresAt: number;
+			};
+
+			if (Date.now() > sessionData.expiresAt) {
+				await this.removeSession(executionId);
 				sendJson(res, 410, { error: "Execution expired" });
 				return;
 			}
 
 			const authHeader = req.headers.authorization;
-			if (authHeader !== `Bearer ${session.token}`) {
+			if (authHeader !== `Bearer ${sessionData.token}`) {
 				sendJson(res, 401, { error: "Unauthorized" });
 				return;
 			}
 
-			const fn = session.apiFunctions[fnName];
+			const executionFunctions = this.apiFunctions.get(executionId);
+			if (!executionFunctions) {
+				sendJson(res, 404, { error: "Execution functions not found" });
+				return;
+			}
+
+			const fn = executionFunctions[fnName];
 			if (!fn) {
 				sendJson(res, 404, { error: "Unknown function" });
 				return;
