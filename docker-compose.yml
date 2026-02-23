@@ -1,5 +1,5 @@
 services:
-  backend-bullboard:
+  backend-bull-board:
     restart: unless-stopped
     image: venatum/bull-board
     ports:
