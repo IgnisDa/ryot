@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { generateId } from "better-auth";
 import { BridgeServer } from "./bridge";
 import { defaultMaxHeapMB, defaultTimeoutMs } from "./constants";
+import { httpCall } from "./host-functions";
 import { RunnerFileManager } from "./runner";
 import type { SandboxResult, SandboxRunOptions } from "./types";
 import {
@@ -35,9 +36,12 @@ export class SandboxService {
 			throw new Error("Sandbox service is not initialized");
 
 		const context = options.context ?? {};
-		const apiFunctions = options.apiFunctions ?? {};
 		const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
 		const maxHeapMB = options.maxHeapMB ?? defaultMaxHeapMB;
+		const apiFunctions = {
+			httpCall,
+			...(options.apiFunctions ?? {}),
+		};
 
 		const executionId = generateId();
 		const token = randomBytes(32).toString("hex");
