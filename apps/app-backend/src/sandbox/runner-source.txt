@@ -11,7 +11,7 @@ const apiFunctions = payload.apiFunctions ?? [];
 const stderrEncoder = new TextEncoder();
 
 const writeStderr = (value) => {
-	Deno.stderr.writeSync(stderrEncoder.encode(String(value) + "\\n"));
+	Deno.stderr.writeSync(stderrEncoder.encode(`${String(value)}\\n`));
 };
 
 const formatArg = (value) => {
@@ -24,9 +24,10 @@ const formatArg = (value) => {
 };
 
 console.log = (...args) => writeStderr(args.map(formatArg).join(" "));
-console.warn = (...args) => writeStderr("[warn] " + args.map(formatArg).join(" "));
+console.warn = (...args) =>
+	writeStderr(`[warn] ${args.map(formatArg).join(" ")}`);
 console.error = (...args) =>
-	writeStderr("[error] " + args.map(formatArg).join(" "));
+	writeStderr(`[error] ${args.map(formatArg).join(" ")}`);
 console.info = console.log;
 console.debug = console.log;
 
@@ -36,22 +37,18 @@ const writeResult = (payload) => {
 
 const createApiStub = (fnName) => {
 	return async (...args) => {
-		const response = await fetch(
-			apiBase + "/rpc/" + executionId + "/" + fnName,
-			{
-				method: "POST",
-				body: JSON.stringify({ args }),
-				headers: {
-					Authorization: "Bearer " + token,
-					"Content-Type": "application/json",
-				},
+		const response = await fetch(`${apiBase}/rpc/${executionId}/${fnName}`, {
+			method: "POST",
+			body: JSON.stringify({ args }),
+			headers: {
+				Authorization: "Bearer " + token,
+				"Content-Type": "application/json",
 			},
-		);
+		});
 
 		const body = await response.json();
 
-		if (!response.ok)
-			throw new Error(body.error ?? "API call failed");
+		if (!response.ok) throw new Error(body.error ?? "API call failed");
 
 		return body.result;
 	};
