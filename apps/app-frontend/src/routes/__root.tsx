@@ -8,6 +8,7 @@ import {
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import ApiClientProvider from "@/hooks/api";
 import AuthClientProvider from "@/hooks/auth";
 import ReactQueryProvider from "../hooks/react-query";
 import appCss from "../styles.css?url";
@@ -36,26 +37,28 @@ function RootDocument(props: { children: React.ReactNode }) {
 				<HeadContent />
 			</head>
 			<body>
-				<AuthClientProvider>
-					<MantineProvider>
-						<ReactQueryProvider>
-							{props.children}
-							<TanStackDevtools
-								config={{ position: "bottom-right" }}
-								plugins={[
-									{
-										name: "Tanstack Query",
-										render: <ReactQueryDevtoolsPanel />,
-									},
-									{
-										name: "Tanstack Router",
-										render: <TanStackRouterDevtoolsPanel />,
-									},
-								]}
-							/>
-						</ReactQueryProvider>
-					</MantineProvider>
-				</AuthClientProvider>
+				<ApiClientProvider>
+					<AuthClientProvider>
+						<MantineProvider>
+							<ReactQueryProvider>
+								{props.children}
+								<TanStackDevtools
+									config={{ position: "bottom-right" }}
+									plugins={[
+										{
+											name: "Tanstack Query",
+											render: <ReactQueryDevtoolsPanel />,
+										},
+										{
+											name: "Tanstack Router",
+											render: <TanStackRouterDevtoolsPanel />,
+										},
+									]}
+								/>
+							</ReactQueryProvider>
+						</MantineProvider>
+					</AuthClientProvider>
+				</ApiClientProvider>
 				<Scripts />
 			</body>
 		</html>
