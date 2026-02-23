@@ -14,6 +14,30 @@ CREATE TABLE "account" (
 	"updated_at" timestamp NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "apikey" (
+	"name" text,
+	"start" text,
+	"prefix" text,
+	"metadata" text,
+	"permissions" text,
+	"remaining" integer,
+	"key" text NOT NULL,
+	"expires_at" timestamp,
+	"refill_amount" integer,
+	"id" text PRIMARY KEY NOT NULL,
+	"last_request" timestamp,
+	"refill_interval" integer,
+	"last_refill_at" timestamp,
+	"created_at" timestamp NOT NULL,
+	"updated_at" timestamp NOT NULL,
+	"enabled" boolean DEFAULT true,
+	"request_count" integer DEFAULT 0,
+	"rate_limit_max" integer DEFAULT 10,
+	"rate_limit_enabled" boolean DEFAULT true,
+	"rate_limit_time_window" integer DEFAULT 86400000,
+	"user_id" text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "entity" (
 	"search_vector" text,
 	"name" text NOT NULL,
@@ -117,6 +141,7 @@ CREATE TABLE "verification" (
 );
 --> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "apikey" ADD CONSTRAINT "apikey_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity_schema" ADD CONSTRAINT "entity_schema_search_script_id_sandbox_script_id_fk" FOREIGN KEY ("search_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -131,6 +156,8 @@ ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_user_id_user_id_fk" 
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "account_userId_idx" ON "account" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "apikey_key_idx" ON "apikey" USING btree ("key");--> statement-breakpoint
+CREATE INDEX "apikey_userId_idx" ON "apikey" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "entity_user_id_idx" ON "entity" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "entity_schema_id_idx" ON "entity" USING btree ("schema_id");--> statement-breakpoint
 CREATE INDEX "entity_properties_idx" ON "entity" USING gin ("properties");--> statement-breakpoint
