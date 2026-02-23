@@ -4,7 +4,7 @@
 	"scripts": {
 		"typecheck": "tsc",
 		"lint": "biome check .",
-		"dev": "bun --hot src/index.ts",
+		"dev": "bun run --watch src/index.ts",
 		"db:generate": "bun --bun drizzle-kit generate",
 		"build": "bun build src/index.ts --outdir dist --target bun --sourcemap"
 	},
