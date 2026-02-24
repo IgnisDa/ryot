@@ -5,7 +5,10 @@ import { z } from "zod";
 import type { AuthType } from "../auth";
 import { db } from "../db";
 import { entity, entitySchema, sandboxScript } from "../db/schema";
-import { schemaImportResponse } from "../entity-schema-import";
+import {
+	type SchemaImportResponse,
+	schemaImportResponse,
+} from "../entity-schema-import";
 import { schemaSearchResponse } from "../entity-schema-search";
 import { getSandboxService } from "../sandbox";
 
@@ -25,7 +28,7 @@ const schemaImportBody = z.object({
 const upsertImportedEntity = async (input: {
 	userId: string;
 	schemaId: string;
-	payload: z.infer<typeof schemaImportResponse>;
+	payload: SchemaImportResponse;
 }) => {
 	const externalWorkId = input.payload.external_ids.openlibrary_work;
 
