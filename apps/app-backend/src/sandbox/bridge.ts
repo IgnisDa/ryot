@@ -150,8 +150,13 @@ export class BridgeServer {
 				return;
 			}
 
+			if (!Object.hasOwn(executionFunctions, fnName)) {
+				sendJson(res, 404, { error: "Unknown function" });
+				return;
+			}
+
 			const fn = executionFunctions[fnName];
-			if (!fn) {
+			if (typeof fn !== "function") {
 				sendJson(res, 404, { error: "Unknown function" });
 				return;
 			}
