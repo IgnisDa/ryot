@@ -1,14 +1,10 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { z } from "zod";
+import { fromJSONSchema, z } from "zod";
 import type { AuthType } from "../auth";
 import { db } from "../db";
 import { entity, entitySchema, sandboxScript } from "../db/schema";
-import {
-	type SchemaImportResponse,
-	schemaImportResponse,
-} from "../entity-schema-import";
 import { schemaSearchResponse } from "../entity-schema-search";
 import { getSandboxService } from "../sandbox";
 
@@ -25,10 +21,24 @@ const schemaImportBody = z.object({
 	identifier: z.string().trim().min(1),
 });
 
+const importEnvelope = z
+	.object({
+		name: z.string(),
+		properties: z.unknown(),
+		external_ids: z.object({ openlibrary_work: z.string() }).strict(),
+	})
+	.strict();
+
+type ParsedImportPayload = {
+	name: string;
+	properties: Record<string, unknown>;
+	external_ids: { openlibrary_work: string };
+};
+
 const upsertImportedEntity = async (input: {
 	userId: string;
 	schemaId: string;
-	payload: SchemaImportResponse;
+	payload: ParsedImportPayload;
 }) => {
 	const externalWorkId = input.payload.external_ids.openlibrary_work;
 
@@ -78,6 +88,7 @@ const getSchemaBySlug = async (schemaSlug: string, userId: string) => {
 		.select({
 			id: entitySchema.id,
 			slug: entitySchema.slug,
+			propertiesSchema: entitySchema.propertiesSchema,
 			searchSandboxScriptId: entitySchema.searchSandboxScriptId,
 			detailsSandboxScriptId: entitySchema.detailsSandboxScriptId,
 		})
@@ -93,6 +104,7 @@ const getSchemaBySlug = async (schemaSlug: string, userId: string) => {
 		.select({
 			id: entitySchema.id,
 			slug: entitySchema.slug,
+			propertiesSchema: entitySchema.propertiesSchema,
 			searchSandboxScriptId: entitySchema.searchSandboxScriptId,
 			detailsSandboxScriptId: entitySchema.detailsSandboxScriptId,
 		})
@@ -199,15 +211,50 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 				return c.json({ error: errorMessage }, 500);
 			}
 
-			const parsedResult = schemaImportResponse.safeParse(result.value);
-			if (!parsedResult.success)
+			const parsedEnvelope = importEnvelope.safeParse(result.value);
+			if (!parsedEnvelope.success)
 				return c.json({ error: "Import script returned invalid payload" }, 500);
+
+			const propertiesParser = (() => {
+				try {
+					return fromJSONSchema(
+						schema.propertiesSchema as Parameters<typeof fromJSONSchema>[0],
+					);
+				} catch {
+					return null;
+				}
+			})();
+			if (!propertiesParser)
+				return c.json(
+					{ error: "Entity schema properties schema is invalid" },
+					500,
+				);
+
+			const parsedProperties = propertiesParser.safeParse(
+				parsedEnvelope.data.properties,
+			);
+			if (!parsedProperties.success)
+				return c.json({ error: "Import script returned invalid payload" }, 500);
+
+			const properties = parsedProperties.data;
+			if (
+				typeof properties !== "object" ||
+				properties === null ||
+				Array.isArray(properties)
+			)
+				return c.json({ error: "Import script returned invalid payload" }, 500);
+
+			const parsedResult: ParsedImportPayload = {
+				name: parsedEnvelope.data.name,
+				external_ids: parsedEnvelope.data.external_ids,
+				properties: properties as Record<string, unknown>,
+			};
 
 			try {
 				const persistedEntity = await upsertImportedEntity({
 					userId: user.id,
 					schemaId: schema.id,
-					payload: parsedResult.data,
+					payload: parsedResult,
 				});
 
 				return c.json({
