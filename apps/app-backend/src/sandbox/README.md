@@ -51,7 +51,7 @@ The model is:
 
 - **Process isolation:** user code runs in a separate Deno process per execution.
 - **Deno restrictions:**
-  - denied: `--deny-run`, `--deny-env`, `--deny-ffi`, `--deny-write`
+  - denied: `--deny-run`, `--deny-env`, `--deny-ffi`, `--deny-write`, `--no-remote`, `--no-npm`
   - allowed: `--allow-read=<runner-file>`, `--allow-net=127.0.0.1:<bridge-port>`
 - **Network boundary:** sandbox can only talk to the local bridge; external network access must go through explicit host functions.
 - **Auth boundary:** each execution has a random bearer token checked by bridge routes.
