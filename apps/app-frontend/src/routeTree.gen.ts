@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SchemaSearchRouteImport } from './routes/schema-search'
 import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as EntitiesEntityIdRouteImport } from './routes/entities.$entityId'
 
 const SchemaSearchRoute = SchemaSearchRouteImport.update({
   id: '/schema-search',
@@ -28,35 +29,49 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EntitiesEntityIdRoute = EntitiesEntityIdRouteImport.update({
+  id: '/entities/$entityId',
+  path: '/entities/$entityId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/playground': typeof PlaygroundRoute
   '/schema-search': typeof SchemaSearchRoute
+  '/entities/$entityId': typeof EntitiesEntityIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/playground': typeof PlaygroundRoute
   '/schema-search': typeof SchemaSearchRoute
+  '/entities/$entityId': typeof EntitiesEntityIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/playground': typeof PlaygroundRoute
   '/schema-search': typeof SchemaSearchRoute
+  '/entities/$entityId': typeof EntitiesEntityIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/playground' | '/schema-search'
+  fullPaths: '/' | '/playground' | '/schema-search' | '/entities/$entityId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/playground' | '/schema-search'
-  id: '__root__' | '/' | '/playground' | '/schema-search'
+  to: '/' | '/playground' | '/schema-search' | '/entities/$entityId'
+  id:
+    | '__root__'
+    | '/'
+    | '/playground'
+    | '/schema-search'
+    | '/entities/$entityId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   PlaygroundRoute: typeof PlaygroundRoute
   SchemaSearchRoute: typeof SchemaSearchRoute
+  EntitiesEntityIdRoute: typeof EntitiesEntityIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +97,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/entities/$entityId': {
+      id: '/entities/$entityId'
+      path: '/entities/$entityId'
+      fullPath: '/entities/$entityId'
+      preLoaderRoute: typeof EntitiesEntityIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +111,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PlaygroundRoute: PlaygroundRoute,
   SchemaSearchRoute: SchemaSearchRoute,
+  EntitiesEntityIdRoute: EntitiesEntityIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
