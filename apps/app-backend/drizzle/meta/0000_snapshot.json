@@ -1,5 +1,5 @@
 {
-	"id": "cfac60f9-c642-48fe-8474-07df466325fa",
+	"id": "3c7909ce-5d63-4302-9172-6a27a0fa9800",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -535,6 +535,12 @@
 					"primaryKey": false,
 					"notNull": false
 				},
+				"details_sandbox_script_id": {
+					"name": "details_sandbox_script_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
 				"id": {
 					"name": "id",
 					"type": "text",
@@ -587,6 +593,21 @@
 					"concurrently": false,
 					"method": "btree",
 					"with": {}
+				},
+				"entity_schema_details_sandbox_script_id_idx": {
+					"name": "entity_schema_details_sandbox_script_id_idx",
+					"columns": [
+						{
+							"expression": "details_sandbox_script_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
 				}
 			},
 			"foreignKeys": {
@@ -604,6 +625,15 @@
 					"tableFrom": "entity_schema",
 					"tableTo": "sandbox_script",
 					"columnsFrom": ["search_sandbox_script_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"entity_schema_details_sandbox_script_id_sandbox_script_id_fk": {
+					"name": "entity_schema_details_sandbox_script_id_sandbox_script_id_fk",
+					"tableFrom": "entity_schema",
+					"tableTo": "sandbox_script",
+					"columnsFrom": ["details_sandbox_script_id"],
 					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
