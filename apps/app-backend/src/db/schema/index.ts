@@ -51,6 +51,9 @@ export const entitySchema = pgTable(
 		searchSandboxScriptId: text().references(() => sandboxScript.id, {
 			onDelete: "cascade",
 		}),
+		detailsSandboxScriptId: text().references(() => sandboxScript.id, {
+			onDelete: "cascade",
+		}),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
@@ -61,6 +64,9 @@ export const entitySchema = pgTable(
 		unique("entity_schema_user_slug_unique").on(table.userId, table.slug),
 		index("entity_schema_search_sandbox_script_id_idx").on(
 			table.searchSandboxScriptId,
+		),
+		index("entity_schema_details_sandbox_script_id_idx").on(
+			table.detailsSandboxScriptId,
 		),
 	],
 );
@@ -177,13 +183,19 @@ export const entitySchemaRelations = relations(
 	entitySchema,
 	({ one, many }) => ({
 		entities: many(entity),
-		searchScript: one(sandboxScript, {
-			references: [sandboxScript.id],
-			fields: [entitySchema.searchSandboxScriptId],
-		}),
 		user: one(user, {
 			references: [user.id],
 			fields: [entitySchema.userId],
+		}),
+		searchScript: one(sandboxScript, {
+			references: [sandboxScript.id],
+			relationName: "entitySchemaSearchScript",
+			fields: [entitySchema.searchSandboxScriptId],
+		}),
+		detailsScript: one(sandboxScript, {
+			references: [sandboxScript.id],
+			relationName: "entitySchemaDetailsScript",
+			fields: [entitySchema.detailsSandboxScriptId],
 		}),
 	}),
 );
@@ -191,7 +203,12 @@ export const entitySchemaRelations = relations(
 export const sandboxScriptRelations = relations(
 	sandboxScript,
 	({ one, many }) => ({
-		entitySchemas: many(entitySchema),
+		detailsSchemas: many(entitySchema, {
+			relationName: "entitySchemaDetailsScript",
+		}),
+		searchSchemas: many(entitySchema, {
+			relationName: "entitySchemaSearchScript",
+		}),
 		user: one(user, {
 			references: [user.id],
 			fields: [sandboxScript.userId],

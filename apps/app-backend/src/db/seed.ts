@@ -1,9 +1,11 @@
 import { generateId } from "better-auth";
 import { and, eq, isNull } from "drizzle-orm";
+import openLibraryBookDetailsScriptCode from "../sandbox/openlibrary-book-details-source.txt";
 import openLibraryBookSearchScriptCode from "../sandbox/openlibrary-book-search-source.txt";
 import { db } from ".";
 import { entitySchema, sandboxScript } from "./schema";
 
+const openLibraryImportScriptSlug = "openlibrary.book.details";
 const openLibrarySearchScriptSlug = "openlibrary.book.search";
 
 const bookEventSchemas = [
@@ -40,39 +42,52 @@ const bookPropertiesSchema = {
 	},
 };
 
-export const seedEntitySchemas = async () => {
-	console.info("Seeding entity schemas...");
-
-	const [existingOpenLibraryScript] = await db
+const ensureBuiltinSandboxScript = async (input: {
+	slug: string;
+	name: string;
+	code: string;
+}) => {
+	const [existingScript] = await db
 		.select({ id: sandboxScript.id })
 		.from(sandboxScript)
 		.where(
-			and(
-				eq(sandboxScript.slug, openLibrarySearchScriptSlug),
-				isNull(sandboxScript.userId),
-			),
+			and(eq(sandboxScript.slug, input.slug), isNull(sandboxScript.userId)),
 		)
 		.limit(1);
 
-	const openLibraryScriptId = existingOpenLibraryScript?.id ?? generateId();
+	const scriptId = existingScript?.id ?? generateId();
 
-	if (existingOpenLibraryScript)
+	if (existingScript)
 		await db
 			.update(sandboxScript)
-			.set({
-				isBuiltin: true,
-				name: "OpenLibrary Book Search",
-				code: openLibraryBookSearchScriptCode,
-			})
-			.where(eq(sandboxScript.id, openLibraryScriptId));
+			.set({ isBuiltin: true, code: input.code, name: input.name })
+			.where(eq(sandboxScript.id, scriptId));
 	else
 		await db.insert(sandboxScript).values({
+			id: scriptId,
 			isBuiltin: true,
-			id: openLibraryScriptId,
-			name: "OpenLibrary Book Search",
-			slug: openLibrarySearchScriptSlug,
-			code: openLibraryBookSearchScriptCode,
+			code: input.code,
+			name: input.name,
+			slug: input.slug,
 		});
+
+	return scriptId;
+};
+
+export const seedEntitySchemas = async () => {
+	console.info("Seeding entity schemas...");
+
+	const openLibrarySearchScriptId = await ensureBuiltinSandboxScript({
+		name: "OpenLibrary Book Search",
+		slug: openLibrarySearchScriptSlug,
+		code: openLibraryBookSearchScriptCode,
+	});
+
+	const openLibraryImportScriptId = await ensureBuiltinSandboxScript({
+		name: "OpenLibrary Book Import",
+		slug: openLibraryImportScriptSlug,
+		code: openLibraryBookDetailsScriptCode,
+	});
 
 	const [existingBookSchema] = await db
 		.select({ id: entitySchema.id })
@@ -86,7 +101,8 @@ export const seedEntitySchemas = async () => {
 		isBuiltin: true,
 		eventSchemas: bookEventSchemas,
 		propertiesSchema: bookPropertiesSchema,
-		searchSandboxScriptId: openLibraryScriptId,
+		searchSandboxScriptId: openLibrarySearchScriptId,
+		detailsSandboxScriptId: openLibraryImportScriptId,
 	};
 
 	if (existingBookSchema)
