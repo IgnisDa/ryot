@@ -5,12 +5,8 @@ import { z } from "zod";
 import type { AuthType } from "../auth";
 import { db } from "../db";
 import { entitySchema, sandboxScript } from "../db/schema";
-import {
-	entitySchemaSearchJobName,
-	entitySchemaSearchJobWaitTimeoutMs,
-	schemaSearchResponse,
-} from "../entity-schema-search";
-import { getQueues } from "../queue";
+import { schemaSearchResponse } from "../entity-schema-search";
+import { getSandboxService } from "../sandbox";
 
 const schemaSearchParams = z.object({
 	schemaSlug: z.string().trim().min(1),
@@ -85,36 +81,30 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>().post(
 
 		if (!script) return c.json({ error: "Search script not found" }, 404);
 
-		const queues = getQueues();
-		const job = await queues.sandboxScriptQueue.add(entitySchemaSearchJobName, {
-			page: body.page,
-			query: body.query,
-			scriptCode: script.code,
-			schemaSlug: params.schemaSlug,
+		const sandbox = getSandboxService();
+		const result = await sandbox.run({
+			code: script.code,
+			context: {
+				page: body.page,
+				query: body.query,
+				schemaSlug: params.schemaSlug,
+			},
 		});
 
-		if (!job.id) return c.json({ error: "Could not create search job" }, 500);
-
-		try {
-			const result = await job.waitUntilFinished(
-				queues.sandboxScriptQueueEvents,
-				entitySchemaSearchJobWaitTimeoutMs,
-			);
-			const parsedResult = schemaSearchResponse.safeParse(result);
-			if (!parsedResult.success)
-				return c.json({ error: "Search script returned invalid payload" }, 500);
-
-			return c.json(parsedResult.data);
-		} catch (error) {
-			if (
-				error instanceof Error &&
-				error.message.toLowerCase().includes("timed out")
-			)
+		if (!result.success) {
+			if (result.error?.toLowerCase().includes("timed out"))
 				return c.json({ error: "Search job timed out" }, 504);
 
-			if (error instanceof Error) return c.json({ error: error.message }, 500);
-
-			return c.json({ error: "Search job failed" }, 500);
+			let errorMessage = "Search script execution failed";
+			if (result.error) errorMessage = `${errorMessage}: ${result.error}`;
+			if (result.logs) errorMessage = `${errorMessage}\n${result.logs}`;
+			return c.json({ error: errorMessage }, 500);
 		}
+
+		const parsedResult = schemaSearchResponse.safeParse(result.value);
+		if (!parsedResult.success)
+			return c.json({ error: "Search script returned invalid payload" }, 500);
+
+		return c.json(parsedResult.data);
 	},
 );

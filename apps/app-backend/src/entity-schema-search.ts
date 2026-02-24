@@ -1,8 +1,5 @@
 import { z } from "zod";
 
-export const entitySchemaSearchJobName = "entity-schema-search";
-export const entitySchemaSearchJobWaitTimeoutMs = 30_000;
-
 export const schemaSearchResponse = z.object({
 	details: z.object({
 		total_items: z.number().int().nonnegative(),
@@ -19,14 +16,3 @@ export const schemaSearchResponse = z.object({
 });
 
 export type SchemaSearchResponse = z.infer<typeof schemaSearchResponse>;
-
-export const entitySchemaSearchJobData = z.object({
-	page: z.number().int().min(1),
-	query: z.string().trim().min(1),
-	schemaSlug: z.string().trim().min(1),
-	scriptCode: z.string().trim().min(1),
-});
-
-export type EntitySchemaSearchJobData = z.infer<
-	typeof entitySchemaSearchJobData
->;

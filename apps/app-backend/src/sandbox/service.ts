@@ -4,8 +4,14 @@ import { generateId } from "better-auth";
 import { BridgeServer } from "./bridge";
 import { defaultMaxHeapMB, defaultTimeoutMs } from "./constants";
 import { httpCall } from "./host-functions";
+import {
+	type SandboxRunJobData,
+	sandboxRunJobName,
+	sandboxRunJobResult,
+	sandboxRunJobWaitTimeoutMs,
+} from "./jobs";
 import { RunnerFileManager } from "./runner";
-import type { SandboxResult, SandboxRunOptions } from "./types";
+import type { ApiFunction, SandboxResult, SandboxRunOptions } from "./types";
 import {
 	attachTimeoutGuard,
 	formatExit,
@@ -16,6 +22,10 @@ import {
 export class SandboxService {
 	private readonly bridgeServer = new BridgeServer();
 	private readonly runnerManager = new RunnerFileManager();
+	private readonly queuedApiFunctions = new Map<
+		string,
+		Record<string, ApiFunction>
+	>();
 
 	async start() {
 		await this.bridgeServer.start();
@@ -23,12 +33,81 @@ export class SandboxService {
 	}
 
 	async stop() {
+		this.queuedApiFunctions.clear();
 		await this.bridgeServer.clearSessions();
 		await this.bridgeServer.stop();
 		await this.runnerManager.remove();
 	}
 
 	async run(options: SandboxRunOptions): Promise<SandboxResult> {
+		const apiFunctionsId = this.setQueuedApiFunctions(options.apiFunctions);
+
+		try {
+			const queues = await this.getQueues();
+			const waitTimeoutMs = Math.max(
+				sandboxRunJobWaitTimeoutMs,
+				(options.timeoutMs ?? defaultTimeoutMs) + 5_000,
+			);
+
+			const job = await queues.sandboxScriptQueue.add(sandboxRunJobName, {
+				apiFunctionsId,
+				code: options.code,
+				context: options.context,
+				timeoutMs: options.timeoutMs,
+				maxHeapMB: options.maxHeapMB,
+			});
+
+			if (!job.id)
+				return {
+					success: false,
+					error: "Could not create sandbox run job",
+				};
+
+			const result = await job.waitUntilFinished(
+				queues.sandboxScriptQueueEvents,
+				waitTimeoutMs,
+			);
+
+			const parsedResult = sandboxRunJobResult.safeParse(result);
+			if (!parsedResult.success)
+				return {
+					success: false,
+					error: "Sandbox job returned invalid payload",
+				};
+
+			return parsedResult.data;
+		} catch (error) {
+			if (
+				error instanceof Error &&
+				error.message.toLowerCase().includes("timed out")
+			)
+				return {
+					success: false,
+					error: "Sandbox job timed out",
+				};
+
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : "Sandbox job failed",
+			};
+		} finally {
+			if (apiFunctionsId) this.queuedApiFunctions.delete(apiFunctionsId);
+		}
+	}
+
+	async executeQueuedRun(jobData: SandboxRunJobData): Promise<SandboxResult> {
+		const apiFunctions = this.consumeQueuedApiFunctions(jobData.apiFunctionsId);
+
+		return this.execute({
+			apiFunctions,
+			code: jobData.code,
+			context: jobData.context,
+			timeoutMs: jobData.timeoutMs,
+			maxHeapMB: jobData.maxHeapMB,
+		});
+	}
+
+	async execute(options: SandboxRunOptions): Promise<SandboxResult> {
 		const bridgePort = this.bridgeServer.getPort();
 		const runnerPath = this.runnerManager.getPath();
 
@@ -140,5 +219,30 @@ export class SandboxService {
 		} finally {
 			await this.bridgeServer.removeSession(executionId);
 		}
+	}
+
+	private consumeQueuedApiFunctions(apiFunctionsId?: string) {
+		if (!apiFunctionsId) return undefined;
+
+		const apiFunctions = this.queuedApiFunctions.get(apiFunctionsId);
+		this.queuedApiFunctions.delete(apiFunctionsId);
+		if (!apiFunctions)
+			throw new Error("Sandbox run API functions are unavailable");
+
+		return apiFunctions;
+	}
+
+	private async getQueues() {
+		const { getQueues } = await import("../queue");
+		return getQueues();
+	}
+
+	private setQueuedApiFunctions(apiFunctions?: Record<string, ApiFunction>) {
+		if (!apiFunctions || Object.keys(apiFunctions).length === 0)
+			return undefined;
+
+		const apiFunctionsId = generateId();
+		this.queuedApiFunctions.set(apiFunctionsId, apiFunctions);
+		return apiFunctionsId;
 	}
 }
