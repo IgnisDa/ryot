@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { db } from "../db";
 import { getSandboxService } from "../sandbox";
+import { getConfigValue } from "../sandbox/host-functions";
 
 const runSandboxSchema = z.object({
 	code: z.string().min(1).max(20_000),
@@ -65,7 +66,7 @@ export const sandboxApi = new Hono().post(
 		const sandbox = getSandboxService();
 		const result = await sandbox.run({
 			code: parsed.code,
-			apiFunctions: { addNumbers },
+			apiFunctions: { getConfigValue, addNumbers },
 		});
 
 		return c.json({ ...result, durationMs: Date.now() - startedAt });

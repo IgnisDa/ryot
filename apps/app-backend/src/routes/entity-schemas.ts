@@ -7,6 +7,7 @@ import { db } from "../db";
 import { entity, entitySchema, sandboxScript } from "../db/schema";
 import { schemaSearchResponse } from "../entity-schema-search";
 import { getSandboxService } from "../sandbox";
+import { getConfigValue } from "../sandbox/host-functions";
 
 const schemaParams = z.object({
 	schemaSlug: z.string().trim().min(1),
@@ -151,6 +152,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 			const sandbox = getSandboxService();
 			const result = await sandbox.run({
 				code: script.code,
+				apiFunctions: { getConfigValue },
 				context: {
 					page: body.page,
 					query: body.query,
@@ -198,6 +200,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 			const sandbox = getSandboxService();
 			const result = await sandbox.run({
 				code: script.code,
+				apiFunctions: { getConfigValue },
 				context: { identifier: body.identifier, schemaSlug: params.schemaSlug },
 			});
 
