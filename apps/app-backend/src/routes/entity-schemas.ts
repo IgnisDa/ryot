@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { fromJSONSchema, z } from "zod";
 import type { AuthType } from "../auth";
@@ -26,14 +26,16 @@ const importEnvelope = z
 	.object({
 		name: z.string(),
 		properties: z.unknown(),
-		external_ids: z.object({ openlibrary_work: z.string() }).strict(),
+		external_ids: z
+			.record(z.string().trim().min(1), z.string().trim().min(1))
+			.refine((value) => Object.keys(value).length > 0),
 	})
 	.strict();
 
 type ParsedImportPayload = {
 	name: string;
 	properties: Record<string, unknown>;
-	external_ids: { openlibrary_work: string };
+	external_ids: Record<string, string>;
 };
 
 const upsertImportedEntity = async (input: {
@@ -41,7 +43,17 @@ const upsertImportedEntity = async (input: {
 	schemaId: string;
 	payload: ParsedImportPayload;
 }) => {
-	const externalWorkId = input.payload.external_ids.openlibrary_work;
+	const externalIdConditions = Object.entries(input.payload.external_ids).map(
+		([idKey, idValue]) => sql`${entity.externalIds} ->> ${idKey} = ${idValue}`,
+	);
+
+	const externalIdCondition =
+		externalIdConditions.length === 1
+			? externalIdConditions[0]
+			: or(...externalIdConditions);
+
+	if (!externalIdCondition)
+		throw new Error("Imported payload is missing external IDs");
 
 	return db.transaction(async (tx) => {
 		const [existingEntity] = await tx
@@ -51,7 +63,7 @@ const upsertImportedEntity = async (input: {
 				and(
 					eq(entity.schemaId, input.schemaId),
 					eq(entity.userId, input.userId),
-					sql`${entity.externalIds} ->> 'openlibrary_work' = ${externalWorkId}`,
+					externalIdCondition,
 				),
 			)
 			.orderBy(asc(entity.createdAt))
@@ -155,6 +167,42 @@ const getDetailsScriptCode = async (schemaId: string, userId: string) => {
 	return builtin;
 };
 
+const getDetailsScriptCodeBySlug = async (input: {
+	userId: string;
+	schemaId: string;
+	scriptSlug: string;
+}) => {
+	const [userOwned] = await db
+		.select({ code: sandboxScript.code })
+		.from(sandboxScript)
+		.where(
+			and(
+				eq(sandboxScript.slug, input.scriptSlug),
+				eq(sandboxScript.userId, input.userId),
+				eq(sandboxScript.detailsForEntitySchemaId, input.schemaId),
+			),
+		)
+		.orderBy(asc(sandboxScript.createdAt))
+		.limit(1);
+
+	if (userOwned) return userOwned;
+
+	const [builtin] = await db
+		.select({ code: sandboxScript.code })
+		.from(sandboxScript)
+		.where(
+			and(
+				eq(sandboxScript.slug, input.scriptSlug),
+				isNull(sandboxScript.userId),
+				eq(sandboxScript.detailsForEntitySchemaId, input.schemaId),
+			),
+		)
+		.orderBy(asc(sandboxScript.createdAt))
+		.limit(1);
+
+	return builtin;
+};
+
 export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 	.post("/search", zValidator("json", schemaSearchBody), async (c) => {
 		const user = c.get("user");
@@ -200,7 +248,18 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 		);
 		if (!searchScript) return c.json({ error: "Search script not found" }, 404);
 
-		const script = await getDetailsScriptCode(searchScript.schemaId, user.id);
+		const detailsScriptSlug = body.search_script_slug.endsWith(".search")
+			? `${body.search_script_slug.slice(0, -".search".length)}.details`
+			: null;
+
+		const script =
+			(detailsScriptSlug
+				? await getDetailsScriptCodeBySlug({
+						userId: user.id,
+						schemaId: searchScript.schemaId,
+						scriptSlug: detailsScriptSlug,
+					})
+				: null) ?? (await getDetailsScriptCode(searchScript.schemaId, user.id));
 		if (!script)
 			return c.json({ error: "Entity schema import is not configured" }, 400);
 

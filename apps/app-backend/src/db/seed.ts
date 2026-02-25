@@ -1,12 +1,14 @@
 import { generateId } from "better-auth";
 import { and, eq, isNull } from "drizzle-orm";
 import { bookPropertiesJsonSchema } from "../entity-schema-import";
+import googleBooksBookDetailsScriptCode from "../sandbox/google-books-book-details-source.txt";
 import googleBooksBookSearchScriptCode from "../sandbox/google-books-book-search-source.txt";
 import openLibraryBookDetailsScriptCode from "../sandbox/openlibrary-book-details-source.txt";
 import openLibraryBookSearchScriptCode from "../sandbox/openlibrary-book-search-source.txt";
 import { db } from ".";
 import { entitySchema, sandboxScript } from "./schema";
 
+const googleBooksImportScriptSlug = "google-books.book.details";
 const googleBooksSearchScriptSlug = "google-books.book.search";
 const openLibraryImportScriptSlug = "openlibrary.book.details";
 const openLibrarySearchScriptSlug = "openlibrary.book.search";
@@ -126,6 +128,13 @@ export const seedEntitySchemas = async () => {
 		name: "OpenLibrary Book Import",
 		slug: openLibraryImportScriptSlug,
 		code: openLibraryBookDetailsScriptCode,
+		detailsForEntitySchemaId: bookSchemaId,
+	});
+
+	await ensureBuiltinSandboxScript({
+		name: "Google Books Book Import",
+		slug: googleBooksImportScriptSlug,
+		code: googleBooksBookDetailsScriptCode,
 		detailsForEntitySchemaId: bookSchemaId,
 	});
 
