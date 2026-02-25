@@ -1,39 +1,9 @@
-import { type Config, config } from "../config";
-
-type HttpCallOptions = {
-	body?: string;
-	headers?: Record<string, string>;
-};
-
-type HttpCallSuccess = {
-	success: true;
-	data: {
-		body: string;
-		status: number;
-		statusText: string;
-		headers: Record<string, string>;
-	};
-};
-
-type HttpCallFailure = {
-	error: string;
-	success: false;
-	status?: number;
-};
-
-export type HttpCallResult = HttpCallFailure | HttpCallSuccess;
-
-type ConfigValueSuccess = {
-	success: true;
-	data: Config[keyof Config];
-};
-
-type ConfigValueFailure = {
-	error: string;
-	success: false;
-};
-
-export type ConfigValueResult = ConfigValueFailure | ConfigValueSuccess;
+import { type Config, config } from "../lib/config";
+import type {
+	ConfigValueResult,
+	HttpCallOptions,
+	HttpCallResult,
+} from "./types";
 
 const httpCallTimeoutMs = 8_000;
 

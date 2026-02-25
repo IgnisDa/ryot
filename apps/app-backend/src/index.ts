@@ -4,15 +4,15 @@ import "dotenv/config";
 import { Hono } from "hono";
 import { auth, type MaybeAuthType } from "./auth";
 import { withSession } from "./auth/middleware";
-import { config } from "./config";
 import { migrateDB } from "./db";
+import { config } from "./lib/config";
+import { initializeRedis, shutdownRedis } from "./lib/redis";
 import {
 	initializeQueues,
 	initializeWorkers,
 	shutdownQueues,
 	shutdownWorkers,
 } from "./queue";
-import { initializeRedis, shutdownRedis } from "./redis";
 import { protectedApi } from "./routes/protected";
 import { initializeSandboxService, shutdownSandboxService } from "./sandbox";
 
