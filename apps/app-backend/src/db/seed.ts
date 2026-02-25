@@ -6,6 +6,7 @@ import openLibraryBookDetailsScriptCode from "../sandbox/scripts/openlibrary-boo
 import openLibraryBookSearchScriptCode from "../sandbox/scripts/openlibrary-book-search-source.txt";
 import { db } from ".";
 import {
+	type EntitySchemaScriptType,
 	entitySchema,
 	entitySchemaSandboxScript,
 	sandboxScript,
@@ -108,7 +109,7 @@ const ensureBuiltinSandboxScript = async (input: {
 const linkScriptToEntitySchema = async (input: {
 	scriptId: string;
 	entitySchemaId: string;
-	scriptType: "search" | "details";
+	scriptType: EntitySchemaScriptType;
 }) => {
 	const [existing] = await db
 		.select({ id: entitySchemaSandboxScript.id })

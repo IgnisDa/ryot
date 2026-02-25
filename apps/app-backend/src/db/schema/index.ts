@@ -59,11 +59,13 @@ export const sandboxScript = pgTable(
 	],
 );
 
+export type EntitySchemaScriptType = "details" | "search";
+
 export const entitySchemaSandboxScript = pgTable(
 	"entity_schema_sandbox_script",
 	{
-		scriptType: text().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
+		scriptType: text().notNull().$type<EntitySchemaScriptType>(),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),

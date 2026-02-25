@@ -5,6 +5,7 @@ import { fromJSONSchema, z } from "zod";
 import type { AuthType } from "../auth";
 import { db } from "../db";
 import {
+	type EntitySchemaScriptType,
 	entity,
 	entitySchema,
 	entitySchemaSandboxScript,
@@ -228,7 +229,11 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 					id: string;
 					slug: string;
 					name: string;
-					scripts: Array<{ id: string; name: string; type: string }>;
+					scripts: Array<{
+						id: string;
+						name: string;
+						type: EntitySchemaScriptType;
+					}>;
 				}
 			>,
 		);
