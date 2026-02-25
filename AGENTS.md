@@ -62,25 +62,6 @@ After adding a GraphQL query or mutation to the backend:
 
 This ensures the frontend can use the new query or mutation with proper type safety.
 
-## Database & Migrations
-
-### Migration Strategy
-
-This project uses a forward-only migration approach:
-
-- When adding a migration with a schema change for an existing table, also apply the same change to the migration where that table was first created
-- This ensures new Ryot instances have the correct table structure from the start
-
-### Migration File Naming
-
-Name migration files using the pattern: `m<YYYYMMDD>_changes_for_issue_<number>`
-
-Review existing migration files for examples.
-
-### Down Migrations
-
-Down migrations are not used since we always roll forward. They should be empty blocks returning `Ok(())`.
-
 ## Coding Standards
 
 ### Code Comments
