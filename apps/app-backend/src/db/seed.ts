@@ -38,9 +38,11 @@ const bookEventSchemas = [
 ];
 
 const ensureBuiltinSandboxScript = async (input: {
-	slug: string;
-	name: string;
 	code: string;
+	name: string;
+	slug: string;
+	searchForEntitySchemaId?: string;
+	detailsForEntitySchemaId?: string;
 }) => {
 	const [existingScript] = await db
 		.select({ id: sandboxScript.id })
@@ -55,15 +57,23 @@ const ensureBuiltinSandboxScript = async (input: {
 	if (existingScript)
 		await db
 			.update(sandboxScript)
-			.set({ isBuiltin: true, code: input.code, name: input.name })
+			.set({
+				name: input.name,
+				code: input.code,
+				isBuiltin: true,
+				detailsForEntitySchemaId: input.detailsForEntitySchemaId,
+				searchForEntitySchemaId: input.searchForEntitySchemaId,
+			})
 			.where(eq(sandboxScript.id, scriptId));
 	else
 		await db.insert(sandboxScript).values({
 			id: scriptId,
-			isBuiltin: true,
-			code: input.code,
-			name: input.name,
 			slug: input.slug,
+			name: input.name,
+			code: input.code,
+			isBuiltin: true,
+			detailsForEntitySchemaId: input.detailsForEntitySchemaId,
+			searchForEntitySchemaId: input.searchForEntitySchemaId,
 		});
 
 	return scriptId;
@@ -72,29 +82,13 @@ const ensureBuiltinSandboxScript = async (input: {
 export const seedEntitySchemas = async () => {
 	console.info("Seeding entity schemas...");
 
-	const openLibrarySearchScriptId = await ensureBuiltinSandboxScript({
-		name: "OpenLibrary Book Search",
-		slug: openLibrarySearchScriptSlug,
-		code: openLibraryBookSearchScriptCode,
-	});
-
-	await ensureBuiltinSandboxScript({
-		name: "Google Books Book Search",
-		slug: googleBooksSearchScriptSlug,
-		code: googleBooksBookSearchScriptCode,
-	});
-
-	const openLibraryImportScriptId = await ensureBuiltinSandboxScript({
-		name: "OpenLibrary Book Import",
-		slug: openLibraryImportScriptSlug,
-		code: openLibraryBookDetailsScriptCode,
-	});
-
 	const [existingBookSchema] = await db
 		.select({ id: entitySchema.id })
 		.from(entitySchema)
 		.where(and(eq(entitySchema.slug, "book"), isNull(entitySchema.userId)))
 		.limit(1);
+
+	const bookSchemaId = existingBookSchema?.id ?? generateId();
 
 	const bookSchemaValues = {
 		slug: "book",
@@ -102,8 +96,6 @@ export const seedEntitySchemas = async () => {
 		isBuiltin: true,
 		eventSchemas: bookEventSchemas,
 		propertiesSchema: bookPropertiesJsonSchema,
-		searchSandboxScriptId: openLibrarySearchScriptId,
-		detailsSandboxScriptId: openLibraryImportScriptId,
 	};
 
 	if (existingBookSchema)
@@ -114,7 +106,28 @@ export const seedEntitySchemas = async () => {
 	else
 		await db
 			.insert(entitySchema)
-			.values({ ...bookSchemaValues, id: generateId() });
+			.values({ id: bookSchemaId, ...bookSchemaValues });
+
+	await ensureBuiltinSandboxScript({
+		name: "OpenLibrary Book Search",
+		slug: openLibrarySearchScriptSlug,
+		code: openLibraryBookSearchScriptCode,
+		searchForEntitySchemaId: bookSchemaId,
+	});
+
+	await ensureBuiltinSandboxScript({
+		name: "Google Books Book Search",
+		slug: googleBooksSearchScriptSlug,
+		code: googleBooksBookSearchScriptCode,
+		searchForEntitySchemaId: bookSchemaId,
+	});
+
+	await ensureBuiltinSandboxScript({
+		name: "OpenLibrary Book Import",
+		slug: openLibraryImportScriptSlug,
+		code: openLibraryBookDetailsScriptCode,
+		detailsForEntitySchemaId: bookSchemaId,
+	});
 
 	console.info("Entity schemas seeded successfully");
 };
