@@ -26,19 +26,6 @@ export const Route = createFileRoute("/schema-search")({
 	component: SchemaSearchPage,
 });
 
-type EntitySchemaScript = {
-	id: string;
-	name: string;
-	type: string;
-};
-
-type EntitySchema = {
-	id: string;
-	slug: string;
-	name: string;
-	scripts: EntitySchemaScript[];
-};
-
 function SchemaSearchPage() {
 	const apiClient = useApiClient();
 	const authClient = useAuthClient();
@@ -66,9 +53,7 @@ function SchemaSearchPage() {
 		queryFn: async () => {
 			const response = await apiClient.protected["entity-schemas"].list.$get();
 			const payload = await response.json();
-			if ("error" in payload && typeof payload.error === "string")
-				throw new Error(payload.error);
-			return payload as { schemas: EntitySchema[] };
+			return payload;
 		},
 	});
 
@@ -77,8 +62,8 @@ function SchemaSearchPage() {
 			.filter((script) => script.type === "search")
 			.map((script) => ({
 				value: script.id,
-				label: `${schema.name} - ${script.name}`,
 				schemaId: schema.id,
+				label: `${schema.name} - ${script.name}`,
 			})),
 	);
 
@@ -139,34 +124,15 @@ function SchemaSearchPage() {
 			if (!detailsScript) throw new Error("No details script available");
 
 			const response = await apiClient.protected["entity-schemas"].import.$post(
-				{
-					json: { identifier, details_script_id: detailsScript.id },
-				},
+				{ json: { identifier, details_script_id: detailsScript.id } },
 			);
 
 			const payload = await response.json();
 
-			if (!response.ok) {
-				if (
-					payload &&
-					typeof payload === "object" &&
-					"error" in payload &&
-					typeof payload.error === "string"
-				)
-					throw new Error(payload.error);
-
-				throw new Error("Import failed");
-			}
-
-			if (
-				!payload ||
-				typeof payload !== "object" ||
-				!("entity_id" in payload) ||
-				typeof payload.entity_id !== "string"
-			)
+			if ("error" in payload)
 				throw new Error("Import returned invalid payload");
 
-			return payload.entity_id;
+			return payload.entityId;
 		},
 		onMutate: (identifier) => {
 			setImportingIdentifier(identifier);
