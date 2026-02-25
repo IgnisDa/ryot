@@ -39,6 +39,38 @@ const bookEventSchemas = [
 	},
 ];
 
+const ensureBuiltinEntitySchema = async (input: {
+	slug: string;
+	name: string;
+	eventSchemas: unknown;
+	propertiesSchema: unknown;
+}) => {
+	const [existing] = await db
+		.select({ id: entitySchema.id })
+		.from(entitySchema)
+		.where(and(eq(entitySchema.slug, input.slug), isNull(entitySchema.userId)))
+		.limit(1);
+
+	const schemaId = existing?.id ?? generateId();
+
+	const values = {
+		name: input.name,
+		slug: input.slug,
+		isBuiltin: true,
+		eventSchemas: input.eventSchemas,
+		propertiesSchema: input.propertiesSchema,
+	};
+
+	if (existing)
+		await db
+			.update(entitySchema)
+			.set(values)
+			.where(eq(entitySchema.id, schemaId));
+	else await db.insert(entitySchema).values({ id: schemaId, ...values });
+
+	return schemaId;
+};
+
 const ensureBuiltinSandboxScript = async (input: {
 	code: string;
 	name: string;
@@ -84,31 +116,12 @@ const ensureBuiltinSandboxScript = async (input: {
 export const seedEntitySchemas = async () => {
 	console.info("Seeding entity schemas...");
 
-	const [existingBookSchema] = await db
-		.select({ id: entitySchema.id })
-		.from(entitySchema)
-		.where(and(eq(entitySchema.slug, "book"), isNull(entitySchema.userId)))
-		.limit(1);
-
-	const bookSchemaId = existingBookSchema?.id ?? generateId();
-
-	const bookSchemaValues = {
+	const bookSchemaId = await ensureBuiltinEntitySchema({
 		slug: "book",
 		name: "Book",
-		isBuiltin: true,
 		eventSchemas: bookEventSchemas,
 		propertiesSchema: bookPropertiesJsonSchema,
-	};
-
-	if (existingBookSchema)
-		await db
-			.update(entitySchema)
-			.set(bookSchemaValues)
-			.where(eq(entitySchema.id, existingBookSchema.id));
-	else
-		await db
-			.insert(entitySchema)
-			.values({ id: bookSchemaId, ...bookSchemaValues });
+	});
 
 	await ensureBuiltinSandboxScript({
 		name: "OpenLibrary Book Search",
