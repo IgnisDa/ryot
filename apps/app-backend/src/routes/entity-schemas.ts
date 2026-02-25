@@ -208,14 +208,13 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 
 		const groupedSchemas = schemas.reduce(
 			(acc, row) => {
-				if (!acc[row.id]) {
+				if (!acc[row.id])
 					acc[row.id] = {
 						id: row.id,
 						scripts: [],
 						slug: row.slug,
 						name: row.name,
 					};
-				}
 				acc[row.id].scripts.push({
 					id: row.scriptId,
 					name: row.scriptName,
