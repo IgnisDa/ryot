@@ -9,6 +9,7 @@ import {
 	Image,
 	Loader,
 	NumberInput,
+	SegmentedControl,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -25,6 +26,9 @@ export const Route = createFileRoute("/schema-search")({
 	component: SchemaSearchPage,
 });
 
+const openLibrarySearchScriptSlug = "openlibrary.book.search";
+const googleBooksSearchScriptSlug = "google-books.book.search";
+
 function SchemaSearchPage() {
 	const apiClient = useApiClient();
 	const authClient = useAuthClient();
@@ -32,6 +36,9 @@ function SchemaSearchPage() {
 	const [page, setPage] = useState(1);
 	const [query, setQuery] = useState("harry potter");
 	const [schemaSlug, setSchemaSlug] = useState("book");
+	const [searchScriptSlug, setSearchScriptSlug] = useState(
+		openLibrarySearchScriptSlug,
+	);
 	const [importingIdentifier, setImportingIdentifier] = useState<string | null>(
 		null,
 	);
@@ -48,12 +55,22 @@ function SchemaSearchPage() {
 		refetchOnReconnect: false,
 		refetchOnWindowFocus: false,
 		enabled: Boolean(trimmedSchemaSlug) && Boolean(trimmedQuery),
-		queryKey: ["entity-schema-search", trimmedSchemaSlug, trimmedQuery, page],
+		queryKey: [
+			"entity-schema-search",
+			trimmedSchemaSlug,
+			trimmedQuery,
+			searchScriptSlug,
+			page,
+		],
 		queryFn: async () => {
 			const response = await apiClient.protected["entity-schemas"][
 				":schemaSlug"
 			].search.$post({
-				json: { page, query: trimmedQuery },
+				json: {
+					page,
+					query: trimmedQuery,
+					search_script_slug: searchScriptSlug,
+				},
 				param: { schemaSlug: trimmedSchemaSlug },
 			});
 
@@ -130,7 +147,8 @@ function SchemaSearchPage() {
 						<Title order={2}>Entity Schema Search</Title>
 						<Text c="dimmed">
 							Runs `/api/protected/entity-schemas/:schemaSlug/search` and
-							returns results directly.
+							returns results directly. Use the source picker below to switch
+							between OpenLibrary and Google Books.
 						</Text>
 					</Stack>
 
@@ -152,6 +170,16 @@ function SchemaSearchPage() {
 							onChange={(value) => setPage(Number(value) || 1)}
 						/>
 					</Group>
+
+					<SegmentedControl
+						fullWidth
+						value={searchScriptSlug}
+						data={[
+							{ label: "OpenLibrary", value: openLibrarySearchScriptSlug },
+							{ label: "Google Books", value: googleBooksSearchScriptSlug },
+						]}
+						onChange={(value) => setSearchScriptSlug(value)}
+					/>
 
 					{isSearching ? (
 						<Group>

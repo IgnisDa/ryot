@@ -1,0 +1,110 @@
+const pageSize = 20;
+const currentPage = Number.isFinite(Number(context?.page))
+	? Math.max(1, Math.floor(Number(context.page)))
+	: 1;
+const query = typeof context?.query === "string" ? context.query.trim() : "";
+
+if (!query) throw new Error("query is required");
+
+const configValueResponse = await getConfigValue("BOOKS_GOOGLE_BOOKS_API_KEY");
+if (!configValueResponse?.success)
+	throw new Error(
+		configValueResponse?.error ?? "Could not load Google Books API key",
+	);
+
+const apiKey =
+	typeof configValueResponse.data === "string"
+		? configValueResponse.data.trim()
+		: "";
+if (!apiKey) throw new Error("BOOKS_GOOGLE_BOOKS_API_KEY is not configured");
+
+const params = new URLSearchParams({
+	printType: "books",
+	q: `intitle:${query}`,
+	maxResults: String(pageSize),
+	startIndex: String((currentPage - 1) * pageSize),
+});
+
+const response = await httpCall(
+	"GET",
+	`https://www.googleapis.com/books/v1/volumes?${params.toString()}`,
+	{ headers: { "x-goog-api-key": apiKey } },
+);
+
+if (!response?.success)
+	throw new Error(response?.error ?? "Google Books search request failed");
+
+let payload;
+try {
+	payload = JSON.parse(response.data.body);
+} catch {
+	throw new Error("Google Books returned invalid JSON");
+}
+
+const parsePublishYear = (publishedDate) => {
+	if (typeof publishedDate !== "string") return null;
+
+	const trimmedDate = publishedDate.trim();
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) return null;
+
+	const year = Number(trimmedDate.slice(0, 4));
+	if (!Number.isFinite(year)) return null;
+
+	return year;
+};
+
+const pickImage = (imageLinks) => {
+	if (!imageLinks || typeof imageLinks !== "object") return null;
+
+	const candidates = [
+		imageLinks.thumbnail,
+		imageLinks.smallThumbnail,
+		imageLinks.small,
+		imageLinks.medium,
+		imageLinks.large,
+		imageLinks.extraLarge,
+	];
+
+	for (const candidate of candidates) {
+		if (typeof candidate === "string" && candidate.trim()) return candidate;
+	}
+
+	return null;
+};
+
+const totalItems =
+	typeof payload?.totalItems === "number" && Number.isFinite(payload.totalItems)
+		? Math.max(0, Math.trunc(payload.totalItems))
+		: 0;
+
+const volumes = Array.isArray(payload?.items) ? payload.items : [];
+const items = volumes
+	.map((volume) => {
+		const identifier = typeof volume?.id === "string" ? volume.id : "";
+		if (!identifier) return null;
+
+		const volumeInfo =
+			volume?.volumeInfo && typeof volume.volumeInfo === "object"
+				? volume.volumeInfo
+				: null;
+
+		const image = pickImage(volumeInfo?.imageLinks);
+		const publishYear = parsePublishYear(volumeInfo?.publishedDate);
+		const title = typeof volumeInfo?.title === "string" ? volumeInfo.title : "";
+
+		return {
+			title,
+			image,
+			identifier,
+			publish_year: publishYear,
+		};
+	})
+	.filter((item) => item !== null);
+
+return {
+	items,
+	details: {
+		total_items: totalItems,
+		next_page: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+	},
+};
