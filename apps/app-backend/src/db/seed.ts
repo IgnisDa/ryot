@@ -5,7 +5,11 @@ import googleBooksBookSearchScriptCode from "../sandbox/scripts/google-books-boo
 import openLibraryBookDetailsScriptCode from "../sandbox/scripts/openlibrary-book-details-source.txt";
 import openLibraryBookSearchScriptCode from "../sandbox/scripts/openlibrary-book-search-source.txt";
 import { db } from ".";
-import { entitySchema, sandboxScript } from "./schema";
+import {
+	entitySchema,
+	entitySchemaSandboxScript,
+	sandboxScript,
+} from "./schema";
 import { bookPropertiesJsonSchema } from "./schema/book";
 
 const googleBooksImportScriptSlug = "google-books.book.details";
@@ -75,8 +79,6 @@ const ensureBuiltinSandboxScript = async (input: {
 	code: string;
 	name: string;
 	slug: string;
-	searchForEntitySchemaId?: string;
-	detailsForEntitySchemaId?: string;
 }) => {
 	const [existingScript] = await db
 		.select({ id: sandboxScript.id })
@@ -88,29 +90,45 @@ const ensureBuiltinSandboxScript = async (input: {
 
 	const scriptId = existingScript?.id ?? generateId();
 
+	const values = { isBuiltin: true, code: input.code, name: input.name };
+
 	if (existingScript)
 		await db
 			.update(sandboxScript)
-			.set({
-				name: input.name,
-				code: input.code,
-				isBuiltin: true,
-				detailsForEntitySchemaId: input.detailsForEntitySchemaId,
-				searchForEntitySchemaId: input.searchForEntitySchemaId,
-			})
+			.set(values)
 			.where(eq(sandboxScript.id, scriptId));
 	else
-		await db.insert(sandboxScript).values({
-			id: scriptId,
-			slug: input.slug,
-			name: input.name,
-			code: input.code,
-			isBuiltin: true,
-			detailsForEntitySchemaId: input.detailsForEntitySchemaId,
-			searchForEntitySchemaId: input.searchForEntitySchemaId,
-		});
+		await db
+			.insert(sandboxScript)
+			.values({ id: scriptId, slug: input.slug, ...values });
 
 	return scriptId;
+};
+
+const linkScriptToEntitySchema = async (input: {
+	scriptId: string;
+	entitySchemaId: string;
+	scriptType: "search" | "details";
+}) => {
+	const [existing] = await db
+		.select({ id: entitySchemaSandboxScript.id })
+		.from(entitySchemaSandboxScript)
+		.where(
+			and(
+				eq(entitySchemaSandboxScript.scriptType, input.scriptType),
+				eq(entitySchemaSandboxScript.sandboxScriptId, input.scriptId),
+				eq(entitySchemaSandboxScript.entitySchemaId, input.entitySchemaId),
+			),
+		)
+		.limit(1);
+
+	if (existing) return;
+
+	await db.insert(entitySchemaSandboxScript).values({
+		scriptType: input.scriptType,
+		sandboxScriptId: input.scriptId,
+		entitySchemaId: input.entitySchemaId,
+	});
 };
 
 export const seedEntitySchemas = async () => {
@@ -123,32 +141,52 @@ export const seedEntitySchemas = async () => {
 		propertiesSchema: bookPropertiesJsonSchema,
 	});
 
-	await ensureBuiltinSandboxScript({
+	const openLibrarySearchScriptId = await ensureBuiltinSandboxScript({
 		name: "OpenLibrary Book Search",
 		slug: openLibrarySearchScriptSlug,
 		code: openLibraryBookSearchScriptCode,
-		searchForEntitySchemaId: bookSchemaId,
 	});
 
-	await ensureBuiltinSandboxScript({
+	await linkScriptToEntitySchema({
+		scriptType: "search",
+		entitySchemaId: bookSchemaId,
+		scriptId: openLibrarySearchScriptId,
+	});
+
+	const googleBooksSearchScriptId = await ensureBuiltinSandboxScript({
 		name: "Google Books Book Search",
 		slug: googleBooksSearchScriptSlug,
 		code: googleBooksBookSearchScriptCode,
-		searchForEntitySchemaId: bookSchemaId,
 	});
 
-	await ensureBuiltinSandboxScript({
+	await linkScriptToEntitySchema({
+		scriptType: "search",
+		entitySchemaId: bookSchemaId,
+		scriptId: googleBooksSearchScriptId,
+	});
+
+	const openLibraryImportScriptId = await ensureBuiltinSandboxScript({
 		name: "OpenLibrary Book Import",
 		slug: openLibraryImportScriptSlug,
 		code: openLibraryBookDetailsScriptCode,
-		detailsForEntitySchemaId: bookSchemaId,
 	});
 
-	await ensureBuiltinSandboxScript({
+	await linkScriptToEntitySchema({
+		scriptType: "details",
+		entitySchemaId: bookSchemaId,
+		scriptId: openLibraryImportScriptId,
+	});
+
+	const googleBooksImportScriptId = await ensureBuiltinSandboxScript({
 		name: "Google Books Book Import",
 		slug: googleBooksImportScriptSlug,
 		code: googleBooksBookDetailsScriptCode,
-		detailsForEntitySchemaId: bookSchemaId,
+	});
+
+	await linkScriptToEntitySchema({
+		scriptType: "details",
+		entitySchemaId: bookSchemaId,
+		scriptId: googleBooksImportScriptId,
 	});
 
 	console.info("Entity schemas seeded successfully");

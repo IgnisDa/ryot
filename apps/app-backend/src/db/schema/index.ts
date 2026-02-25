@@ -44,12 +44,6 @@ export const sandboxScript = pgTable(
 		createdAt: timestamp().defaultNow().notNull(),
 		isBuiltin: boolean().notNull().default(false),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
-		detailsForEntitySchemaId: text().references(() => entitySchema.id, {
-			onDelete: "cascade",
-		}),
-		searchForEntitySchemaId: text().references(() => entitySchema.id, {
-			onDelete: "cascade",
-		}),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
@@ -62,11 +56,36 @@ export const sandboxScript = pgTable(
 		index("sandbox_script_slug_idx").on(table.slug),
 		index("sandbox_script_user_id_idx").on(table.userId),
 		unique("sandbox_script_user_slug_unique").on(table.userId, table.slug),
-		index("sandbox_script_details_for_entity_schema_id_idx").on(
-			table.detailsForEntitySchemaId,
+	],
+);
+
+export const entitySchemaSandboxScript = pgTable(
+	"entity_schema_sandbox_script",
+	{
+		scriptType: text().notNull(),
+		createdAt: timestamp().defaultNow().notNull(),
+		id: text()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		entitySchemaId: text()
+			.notNull()
+			.references(() => entitySchema.id, { onDelete: "cascade" }),
+		sandboxScriptId: text()
+			.notNull()
+			.references(() => sandboxScript.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		index("entity_schema_sandbox_script_script_type_idx").on(table.scriptType),
+		index("entity_schema_sandbox_script_entity_schema_id_idx").on(
+			table.entitySchemaId,
 		),
-		index("sandbox_script_search_for_entity_schema_id_idx").on(
-			table.searchForEntitySchemaId,
+		index("entity_schema_sandbox_script_sandbox_script_id_idx").on(
+			table.sandboxScriptId,
+		),
+		unique("entity_schema_sandbox_script_unique").on(
+			table.scriptType,
+			table.entitySchemaId,
+			table.sandboxScriptId,
 		),
 	],
 );
@@ -182,13 +201,8 @@ export const savedView = pgTable(
 export const entitySchemaRelations = relations(
 	entitySchema,
 	({ one, many }) => ({
-		detailsScripts: many(sandboxScript, {
-			relationName: "entitySchemaDetailsScripts",
-		}),
+		entitySchemaSandboxScripts: many(entitySchemaSandboxScript),
 		entities: many(entity),
-		searchScripts: many(sandboxScript, {
-			relationName: "entitySchemaSearchScripts",
-		}),
 		user: one(user, {
 			references: [user.id],
 			fields: [entitySchema.userId],
@@ -196,22 +210,30 @@ export const entitySchemaRelations = relations(
 	}),
 );
 
-export const sandboxScriptRelations = relations(sandboxScript, ({ one }) => ({
-	detailsForEntitySchema: one(entitySchema, {
-		references: [entitySchema.id],
-		relationName: "entitySchemaDetailsScripts",
-		fields: [sandboxScript.detailsForEntitySchemaId],
+export const sandboxScriptRelations = relations(
+	sandboxScript,
+	({ one, many }) => ({
+		entitySchemaSandboxScripts: many(entitySchemaSandboxScript),
+		user: one(user, {
+			references: [user.id],
+			fields: [sandboxScript.userId],
+		}),
 	}),
-	searchForEntitySchema: one(entitySchema, {
-		references: [entitySchema.id],
-		relationName: "entitySchemaSearchScripts",
-		fields: [sandboxScript.searchForEntitySchemaId],
+);
+
+export const entitySchemaSandboxScriptRelations = relations(
+	entitySchemaSandboxScript,
+	({ one }) => ({
+		entitySchema: one(entitySchema, {
+			references: [entitySchema.id],
+			fields: [entitySchemaSandboxScript.entitySchemaId],
+		}),
+		sandboxScript: one(sandboxScript, {
+			references: [sandboxScript.id],
+			fields: [entitySchemaSandboxScript.sandboxScriptId],
+		}),
 	}),
-	user: one(user, {
-		references: [user.id],
-		fields: [sandboxScript.userId],
-	}),
-}));
+);
 
 export const entityRelations = relations(entity, ({ one, many }) => ({
 	events: many(event),
