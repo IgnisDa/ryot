@@ -58,13 +58,15 @@ function SchemaSearchPage() {
 	});
 
 	const searchScripts = schemasQuery.data?.schemas.flatMap((schema) =>
-		schema.scripts
-			.filter((script) => script.type === "search")
-			.map((script) => ({
-				value: script.id,
-				schemaId: schema.id,
-				label: `${schema.name} - ${script.name}`,
-			})),
+		schema.scriptPairs.map((pair) => ({
+			value: pair.searchScriptId,
+			label: `${schema.name} - ${pair.searchScriptName}`,
+			detailsScriptId: pair.detailsScriptId,
+		})),
+	);
+
+	const selectedSearchScript = searchScripts?.find(
+		(script) => script.value === selectedSearchScriptId,
 	);
 
 	useEffect(() => {
@@ -109,22 +111,13 @@ function SchemaSearchPage() {
 	const loadingLabel = "Searching...";
 	const searchError = searchRequest.error?.message;
 
-	const detailsScripts = schemasQuery.data?.schemas
-		.find((schema) =>
-			schema.scripts.some(
-				(script) =>
-					script.type === "search" && script.id === selectedSearchScriptId,
-			),
-		)
-		?.scripts.filter((script) => script.type === "details");
-
 	const importEntityRequest = useMutation({
 		mutationFn: async (identifier: string) => {
-			const detailsScript = detailsScripts?.[0];
-			if (!detailsScript) throw new Error("No details script available");
+			const detailsScriptId = selectedSearchScript?.detailsScriptId;
+			if (!detailsScriptId) throw new Error("No details script available");
 
 			const response = await apiClient.protected["entity-schemas"].import.$post(
-				{ json: { identifier, details_script_id: detailsScript.id } },
+				{ json: { identifier, details_script_id: detailsScriptId } },
 			);
 
 			const payload = await response.json();

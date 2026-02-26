@@ -1,11 +1,11 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { type Context, Hono } from "hono";
 import { fromJSONSchema, z } from "zod";
 import type { AuthType } from "../auth";
 import { db } from "../db";
 import {
-	type EntitySchemaScriptType,
 	entity,
 	entitySchema,
 	entitySchemaSandboxScript,
@@ -144,7 +144,10 @@ const getScriptById = async (scriptId: string, userId: string) => {
 		.from(sandboxScript)
 		.innerJoin(
 			entitySchemaSandboxScript,
-			eq(entitySchemaSandboxScript.sandboxScriptId, sandboxScript.id),
+			or(
+				eq(entitySchemaSandboxScript.searchSandboxScriptId, sandboxScript.id),
+				eq(entitySchemaSandboxScript.detailsSandboxScriptId, sandboxScript.id),
+			),
 		)
 		.innerJoin(
 			entitySchema,
@@ -164,15 +167,18 @@ const getScriptById = async (scriptId: string, userId: string) => {
 export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 	.get("/list", async (c) => {
 		const user = c.get("user");
+		const detailsSandboxScript = alias(sandboxScript, "details_sandbox_script");
+		const searchSandboxScript = alias(sandboxScript, "search_sandbox_script");
 
 		const schemas = await db
 			.select({
 				id: entitySchema.id,
 				slug: entitySchema.slug,
 				name: entitySchema.name,
-				scriptId: sandboxScript.id,
-				scriptName: sandboxScript.name,
-				scriptType: entitySchemaSandboxScript.scriptType,
+				detailsScriptId: entitySchemaSandboxScript.detailsSandboxScriptId,
+				detailsScriptName: detailsSandboxScript.name,
+				searchScriptId: entitySchemaSandboxScript.searchSandboxScriptId,
+				searchScriptName: searchSandboxScript.name,
 			})
 			.from(entitySchema)
 			.innerJoin(
@@ -180,33 +186,53 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 				eq(entitySchemaSandboxScript.entitySchemaId, entitySchema.id),
 			)
 			.innerJoin(
-				sandboxScript,
-				eq(sandboxScript.id, entitySchemaSandboxScript.sandboxScriptId),
+				detailsSandboxScript,
+				eq(
+					detailsSandboxScript.id,
+					entitySchemaSandboxScript.detailsSandboxScriptId,
+				),
+			)
+			.innerJoin(
+				searchSandboxScript,
+				eq(
+					searchSandboxScript.id,
+					entitySchemaSandboxScript.searchSandboxScriptId,
+				),
 			)
 			.where(
 				or(
-					and(isNull(entitySchema.userId), isNull(sandboxScript.userId)),
+					and(
+						isNull(entitySchema.userId),
+						isNull(detailsSandboxScript.userId),
+						isNull(searchSandboxScript.userId),
+					),
 					and(
 						eq(entitySchema.userId, user.id),
-						eq(sandboxScript.userId, user.id),
+						eq(detailsSandboxScript.userId, user.id),
+						eq(searchSandboxScript.userId, user.id),
 					),
 				),
 			)
-			.orderBy(asc(entitySchema.name), asc(sandboxScript.name));
+			.orderBy(
+				asc(entitySchema.name),
+				asc(searchSandboxScript.name),
+				asc(detailsSandboxScript.name),
+			);
 
 		const groupedSchemas = schemas.reduce(
 			(acc, row) => {
 				if (!acc[row.id])
 					acc[row.id] = {
 						id: row.id,
-						scripts: [],
+						scriptPairs: [],
 						slug: row.slug,
 						name: row.name,
 					};
-				acc[row.id].scripts.push({
-					id: row.scriptId,
-					name: row.scriptName,
-					type: row.scriptType,
+				acc[row.id].scriptPairs.push({
+					detailsScriptId: row.detailsScriptId,
+					detailsScriptName: row.detailsScriptName,
+					searchScriptId: row.searchScriptId,
+					searchScriptName: row.searchScriptName,
 				});
 				return acc;
 			},
@@ -216,10 +242,11 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 					id: string;
 					slug: string;
 					name: string;
-					scripts: Array<{
-						id: string;
-						name: string;
-						type: EntitySchemaScriptType;
+					scriptPairs: Array<{
+						detailsScriptId: string;
+						detailsScriptName: string;
+						searchScriptId: string;
+						searchScriptName: string;
 					}>;
 				}
 			>,
