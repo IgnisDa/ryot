@@ -1,0 +1,104 @@
+const pageSize =
+	Number.isFinite(Number(context?.pageSize)) &&
+	Number(context.pageSize) > 0 &&
+	Number(context.pageSize) <= 100
+		? Math.floor(Number(context.pageSize))
+		: 20;
+const currentPage = Number.isFinite(Number(context?.page))
+	? Math.max(1, Math.floor(Number(context.page)))
+	: 1;
+const query = typeof context?.query === "string" ? context.query.trim() : "";
+
+if (!query) throw new Error("query is required");
+
+const configValueResponse = await getAppConfigValue("BOOKS_HARDCOVER_API_KEY");
+if (!configValueResponse?.success)
+	throw new Error(
+		configValueResponse?.error ?? "Could not load Hardcover API key",
+	);
+
+const apiKey =
+	typeof configValueResponse.data === "string"
+		? configValueResponse.data.trim()
+		: "";
+if (!apiKey) throw new Error("BOOKS_HARDCOVER_API_KEY is not configured");
+
+const graphqlQuery = `
+query {
+  search(
+    page: ${currentPage},
+    per_page: ${pageSize},
+    query: "${query.replace(/"/g, '\\"')}",
+    query_type: "book"
+  ) {
+    results
+  }
+}
+`;
+
+const response = await httpCall(
+	"POST",
+	"https://api.hardcover.app/v1/graphql",
+	{
+		headers: { Authorization: apiKey },
+		body: JSON.stringify({ query: graphqlQuery }),
+	},
+);
+
+if (!response?.success)
+	throw new Error(response?.error ?? "Hardcover search request failed");
+
+let payload;
+try {
+	payload = JSON.parse(response.data.body);
+} catch {
+	throw new Error("Hardcover returned invalid JSON");
+}
+
+const resultsData =
+	payload?.data?.search?.results && typeof payload.data.search.results === "object"
+		? payload.data.search.results
+		: null;
+
+if (!resultsData) throw new Error("Hardcover returned invalid response structure");
+
+const totalItems =
+	typeof resultsData.found === "number" && Number.isFinite(resultsData.found)
+		? Math.max(0, Math.trunc(resultsData.found))
+		: 0;
+
+const hits = Array.isArray(resultsData.hits) ? resultsData.hits : [];
+const items = hits
+	.map((hit) => {
+		const doc = hit?.document;
+		if (!doc || typeof doc !== "object") return null;
+
+		const identifier = typeof doc.id === "string" ? doc.id : "";
+		if (!identifier) return null;
+
+		const title = typeof doc.title === "string" ? doc.title : "";
+		const releaseYear =
+			typeof doc.release_year === "number" && Number.isFinite(doc.release_year)
+				? doc.release_year
+				: null;
+
+		let image = null;
+		if (doc.image && typeof doc.image === "object" && typeof doc.image.url === "string")
+			image = doc.image.url;
+
+		return {
+			title,
+			image,
+			identifier,
+			publish_year: releaseYear,
+		};
+	})
+	.filter((item) => item !== null);
+
+return {
+	items,
+	details: {
+		total_items: totalItems,
+		next_page: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+	},
+};
