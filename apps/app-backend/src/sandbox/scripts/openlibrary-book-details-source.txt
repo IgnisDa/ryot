@@ -211,7 +211,7 @@ for (const subject of subjects) {
 
 return {
 	name: title,
-	external_ids: { openlibrary_work: identifier },
+	external_id: identifier,
 	properties: {
 		pages,
 		people,

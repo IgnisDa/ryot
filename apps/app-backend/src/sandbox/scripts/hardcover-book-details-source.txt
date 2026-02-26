@@ -186,7 +186,7 @@ const sourceUrl = slug
 
 return {
 	name: title,
-	external_ids: { hardcover: identifier },
+	external_id: identifier,
 	properties: {
 		pages,
 		people: collectPeople(bookData.contributions),

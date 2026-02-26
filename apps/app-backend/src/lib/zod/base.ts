@@ -11,10 +11,6 @@ export const stringUnknownRecordSchema = z.record(z.string(), z.unknown());
 
 export const nonEmptyTrimmedStringSchema = z.string().trim().min(1);
 
-export const nonEmptyTrimmedStringRecordSchema = z
-	.record(nonEmptyTrimmedStringSchema, nonEmptyTrimmedStringSchema)
-	.refine((value) => Object.keys(value).length > 0);
-
 export const createImportEnvelopeSchema = <TProperties extends z.ZodType>(
 	propertiesSchema: TProperties,
 ) =>
@@ -22,7 +18,7 @@ export const createImportEnvelopeSchema = <TProperties extends z.ZodType>(
 		.object({
 			name: z.string(),
 			properties: propertiesSchema,
-			external_ids: nonEmptyTrimmedStringRecordSchema,
+			external_id: nonEmptyTrimmedStringSchema,
 		})
 		.strict();
 

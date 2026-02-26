@@ -101,7 +101,7 @@ export const entity = pgTable(
 		name: text().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
 		properties: jsonb().notNull().default({}),
-		externalIds: jsonb().notNull().default({}),
+		externalId: text().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
 			.primaryKey()
@@ -109,6 +109,9 @@ export const entity = pgTable(
 		schemaId: text()
 			.notNull()
 			.references(() => entitySchema.id, { onDelete: "cascade" }),
+		detailsSandboxScriptId: text()
+			.notNull()
+			.references(() => sandboxScript.id, { onDelete: "cascade" }),
 		updatedAt: timestamp()
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
@@ -117,8 +120,17 @@ export const entity = pgTable(
 	(table) => [
 		index("entity_user_id_idx").on(table.userId),
 		index("entity_schema_id_idx").on(table.schemaId),
+		index("entity_external_id_idx").on(table.externalId),
 		index("entity_properties_idx").using("gin", table.properties),
-		index("entity_external_ids_idx").using("gin", table.externalIds),
+		index("entity_details_sandbox_script_id_idx").on(
+			table.detailsSandboxScriptId,
+		),
+		unique("entity_user_schema_script_external_id_unique").on(
+			table.userId,
+			table.schemaId,
+			table.externalId,
+			table.detailsSandboxScriptId,
+		),
 		index("entity_search_vector_idx").using(
 			"gin",
 			sql`to_tsvector('english', ${table.name})`,
@@ -140,7 +152,7 @@ export const event = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		sessionEntityId: text().references(() => entity.id, {
-			onDelete: "set null",
+			onDelete: "cascade",
 		}),
 		entityId: text()
 			.notNull()
@@ -217,6 +229,7 @@ export const entitySchemaRelations = relations(
 export const sandboxScriptRelations = relations(
 	sandboxScript,
 	({ one, many }) => ({
+		entities: many(entity),
 		detailsEntitySchemaSandboxScripts: many(entitySchemaSandboxScript, {
 			relationName: "detailsSandboxScript",
 		}),
@@ -264,6 +277,10 @@ export const entityRelations = relations(entity, ({ one, many }) => ({
 	schema: one(entitySchema, {
 		fields: [entity.schemaId],
 		references: [entitySchema.id],
+	}),
+	detailsSandboxScript: one(sandboxScript, {
+		fields: [entity.detailsSandboxScriptId],
+		references: [sandboxScript.id],
 	}),
 	user: one(user, {
 		references: [user.id],

@@ -161,7 +161,7 @@ const pages =
 
 return {
 	name: title,
-	external_ids: { google_books: identifier },
+	external_id: identifier,
 	properties: {
 		pages,
 		people: collectPeople(volumeInfo?.authors, volumeInfo?.publisher),
