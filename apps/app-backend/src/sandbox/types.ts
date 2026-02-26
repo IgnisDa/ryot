@@ -1,4 +1,4 @@
-import type { Config } from "../lib/config";
+import type { Config } from "~/lib/config";
 
 export type ApiFunction = (
 	...args: Array<unknown>

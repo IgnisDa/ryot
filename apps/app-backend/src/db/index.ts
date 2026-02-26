@@ -3,7 +3,7 @@ export * as schema from "./schema";
 import { resolve } from "node:path";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { config } from "../lib/config";
+import { config } from "~/lib/config";
 import { seedEntitySchemas } from "./seed";
 
 const migrationsFolder = resolve(process.cwd(), "drizzle");

@@ -4,7 +4,7 @@ import {
 	type Server,
 	type ServerResponse,
 } from "node:http";
-import { redis } from "../lib/redis";
+import { redis } from "~/lib/redis";
 import { requestBodyLimit } from "./constants";
 import type { ApiFunction } from "./types";
 import { sendJson } from "./utils";

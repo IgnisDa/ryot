@@ -3,7 +3,7 @@ import {
 	apiSuccess,
 	type HttpCallOptions,
 	type HttpCallResult,
-} from "../types";
+} from "~/sandbox/types";
 
 const httpCallTimeoutMs = 8_000;
 
