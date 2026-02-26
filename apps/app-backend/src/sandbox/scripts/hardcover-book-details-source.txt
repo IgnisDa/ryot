@@ -1,0 +1,199 @@
+const parseJsonResponse = (responseBody) => {
+	try {
+		return JSON.parse(responseBody);
+	} catch {
+		throw new Error("Hardcover returned invalid JSON");
+	}
+};
+
+const toTitleCase = (value) => {
+	const words = value
+		.toLowerCase()
+		.split(/\s+/)
+		.filter((word) => word.length > 0);
+
+	return words
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join(" ");
+};
+
+const collectImages = (imageField, imagesArray) => {
+	const imageSet = new Set();
+
+	if (imageField && typeof imageField === "object" && typeof imageField.url === "string") {
+		const trimmed = imageField.url.trim();
+		if (trimmed) imageSet.add(trimmed);
+	}
+
+	if (Array.isArray(imagesArray)) {
+		for (const img of imagesArray) {
+			if (img && typeof img === "object" && typeof img.url === "string") {
+				const trimmed = img.url.trim();
+				if (trimmed) imageSet.add(trimmed);
+			}
+		}
+	}
+
+	return [...imageSet];
+};
+
+const collectPeople = (contributions) => {
+	if (!Array.isArray(contributions)) return [];
+
+	const people = [];
+	for (const contrib of contributions) {
+		if (!contrib || typeof contrib !== "object") continue;
+
+		const authorId = contrib.author_id;
+		if (authorId === null || authorId === undefined) continue;
+
+		const personIdentifier = String(authorId).trim();
+		if (!personIdentifier) continue;
+
+		const role = typeof contrib.contribution === "string" && contrib.contribution.trim()
+			? contrib.contribution.trim()
+			: "Author";
+
+		people.push({
+			role,
+			source: "hardcover",
+			identifier: personIdentifier,
+		});
+	}
+
+	return people;
+};
+
+const collectGenres = (cachedTags) => {
+	const genreSet = new Set();
+
+	if (!cachedTags || typeof cachedTags !== "object") return [];
+
+	const genreArray = cachedTags.Genre;
+	if (!Array.isArray(genreArray)) return [];
+
+	for (const genreItem of genreArray) {
+		if (!genreItem || typeof genreItem !== "object") continue;
+
+		const tag = genreItem.tag;
+		if (typeof tag !== "string") continue;
+
+		const titleTag = toTitleCase(tag.trim());
+		if (titleTag) genreSet.add(titleTag);
+	}
+
+	return [...genreSet];
+};
+
+const configValueResponse = await getAppConfigValue("BOOKS_HARDCOVER_API_KEY");
+if (!configValueResponse?.success)
+	throw new Error(
+		configValueResponse?.error ?? "Could not load Hardcover API key",
+	);
+
+const apiKey =
+	typeof configValueResponse.data === "string"
+		? configValueResponse.data.trim()
+		: "";
+if (!apiKey) throw new Error("BOOKS_HARDCOVER_API_KEY is not configured");
+
+const contextIdentifier =
+	typeof context?.identifier === "string" ? context.identifier.trim() : "";
+if (!contextIdentifier) throw new Error("identifier is required");
+
+if (!/^\d+$/.test(contextIdentifier))
+	throw new Error("identifier must be a numeric Hardcover book id");
+
+const bookId = Number(contextIdentifier);
+if (!Number.isSafeInteger(bookId))
+	throw new Error("identifier must be a safe integer Hardcover book id");
+
+const graphqlQuery = `
+query GetHardcoverBookDetails($id: Int!) {
+  books_by_pk(id: $id) {
+    id
+    slug
+    pages
+    title
+    description
+    release_year
+    image { url }
+    images { url }
+    cached_tags
+    contributions {
+      contribution
+      author_id
+    }
+  }
+}
+`;
+
+const response = await httpCall(
+	"POST",
+	"https://api.hardcover.app/v1/graphql",
+	{
+		headers: { Authorization: apiKey },
+		body: JSON.stringify({ query: graphqlQuery, variables: { id: bookId } }),
+	},
+);
+
+if (!response?.success)
+	throw new Error(response?.error ?? "Hardcover details request failed");
+
+const payload = parseJsonResponse(response.data.body);
+
+if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
+	const firstError = payload.errors[0];
+	const errorMessage =
+		firstError && typeof firstError.message === "string"
+			? firstError.message
+			: "unknown GraphQL error";
+	throw new Error(`Hardcover details GraphQL error: ${errorMessage}`);
+}
+
+const bookData =
+	payload?.data?.books_by_pk && typeof payload.data.books_by_pk === "object"
+		? payload.data.books_by_pk
+		: null;
+
+if (!bookData) throw new Error("Hardcover returned no book data");
+
+const title = typeof bookData.title === "string" ? bookData.title : "";
+if (!title) throw new Error("Hardcover book data is missing title");
+
+const identifier =
+	typeof bookData.id === "string" && bookData.id.trim()
+		? bookData.id
+		: contextIdentifier;
+
+const pages =
+	typeof bookData.pages === "number" && Number.isFinite(bookData.pages)
+		? Math.max(0, Math.trunc(bookData.pages))
+		: null;
+
+const releaseYear =
+	typeof bookData.release_year === "number" && Number.isFinite(bookData.release_year)
+		? bookData.release_year
+		: null;
+
+const slug = typeof bookData.slug === "string" ? bookData.slug.trim() : "";
+const sourceUrl = slug
+	? `https://hardcover.app/books/${slug}`
+	: `https://hardcover.app/books/${identifier}`;
+
+return {
+	name: title,
+	external_ids: { hardcover: identifier },
+	properties: {
+		pages,
+		people: collectPeople(bookData.contributions),
+		genres: collectGenres(bookData.cached_tags),
+		publish_year: releaseYear,
+		description:
+			typeof bookData.description === "string" ? bookData.description : null,
+		source_url: sourceUrl,
+		assets: {
+			remote_images: collectImages(bookData.image, bookData.images),
+		},
+	},
+};

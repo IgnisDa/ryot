@@ -262,6 +262,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 				schemaSlug: script.schemaSlug,
 			},
 		});
+		console.log(result);
 
 		if (!result.success) return handleFailedSandboxResult(c, result, "Search");
 
