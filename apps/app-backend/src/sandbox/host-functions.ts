@@ -1,8 +1,10 @@
 import { type Config, config } from "../lib/config";
-import type {
-	ConfigValueResult,
-	HttpCallOptions,
-	HttpCallResult,
+import {
+	apiFailure,
+	apiSuccess,
+	type ConfigValueResult,
+	type HttpCallOptions,
+	type HttpCallResult,
 } from "./types";
 
 const httpCallTimeoutMs = 8_000;
@@ -59,35 +61,23 @@ const isConfigKey = (key: string): key is keyof Config =>
 
 export const getAppConfigValue = (key: unknown): ConfigValueResult => {
 	if (typeof key !== "string" || !key.trim())
-		return {
-			success: false,
-			error: "getAppConfigValue expects a non-empty key string",
-		};
+		return apiFailure("getAppConfigValue expects a non-empty key string");
 
 	const trimmedKey = key.trim();
 	if (!isConfigKey(trimmedKey))
-		return {
-			success: false,
-			error: `Config key "${trimmedKey}" does not exist`,
-		};
+		return apiFailure(`Config key "${trimmedKey}" does not exist`);
 
-	return { success: true, data: config[trimmedKey] };
+	return apiSuccess(config[trimmedKey]);
 };
 
 export const getUserConfigValue = (key: unknown): ConfigValueResult => {
 	if (typeof key !== "string" || !key.trim())
-		return {
-			success: false,
-			error: "getUserConfigValue expects a non-empty key string",
-		};
+		return apiFailure("getUserConfigValue expects a non-empty key string");
 
 	const trimmedKey = key.trim();
-	if (trimmedKey === "pageSize") return { success: true, data: 20 };
+	if (trimmedKey === "pageSize") return apiSuccess(20);
 
-	return {
-		success: false,
-		error: `User config key "${trimmedKey}" does not exist`,
-	};
+	return apiFailure(`User config key "${trimmedKey}" does not exist`);
 };
 
 export const httpCall = async (
@@ -96,36 +86,25 @@ export const httpCall = async (
 	options?: unknown,
 ): Promise<HttpCallResult> => {
 	if (typeof method !== "string" || !method.trim())
-		return {
-			success: false,
-			error: "httpCall expects a non-empty method string",
-		};
+		return apiFailure("httpCall expects a non-empty method string");
 
 	if (typeof url !== "string" || !url.trim())
-		return {
-			success: false,
-			error: "httpCall expects a non-empty URL string",
-		};
+		return apiFailure("httpCall expects a non-empty URL string");
 
 	let requestUrl: URL;
 	try {
 		requestUrl = new URL(url);
 	} catch {
-		return {
-			success: false,
-			error: "httpCall URL is invalid",
-		};
+		return apiFailure("httpCall URL is invalid");
 	}
 
 	let parsedOptions: HttpCallOptions;
 	try {
 		parsedOptions = parseHttpCallOptions(options);
 	} catch (error) {
-		return {
-			success: false,
-			error:
-				error instanceof Error ? error.message : "httpCall options are invalid",
-		};
+		return apiFailure(
+			error instanceof Error ? error.message : "httpCall options are invalid",
+		);
 	}
 
 	try {
@@ -139,25 +118,20 @@ export const httpCall = async (
 		const responseBody = await response.text();
 		if (!response.ok) {
 			return {
-				success: false,
-				status: response.status,
-				error: `HTTP ${response.status} ${response.statusText}`,
+				...apiFailure(`HTTP ${response.status} ${response.statusText}`),
+				data: { status: response.status },
 			};
 		}
 
-		return {
-			success: true,
-			data: {
-				body: responseBody,
-				status: response.status,
-				statusText: response.statusText,
-				headers: mapHeadersToObject(response.headers),
-			},
-		};
+		return apiSuccess({
+			body: responseBody,
+			status: response.status,
+			statusText: response.statusText,
+			headers: mapHeadersToObject(response.headers),
+		});
 	} catch (error) {
-		return {
-			success: false,
-			error: error instanceof Error ? error.message : "httpCall failed",
-		};
+		return apiFailure(
+			error instanceof Error ? error.message : "httpCall failed",
+		);
 	}
 };
