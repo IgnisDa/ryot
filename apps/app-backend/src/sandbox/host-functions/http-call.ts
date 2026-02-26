@@ -1,19 +1,11 @@
-import { type Config, config } from "../lib/config";
 import {
 	apiFailure,
 	apiSuccess,
-	type ConfigValueResult,
 	type HttpCallOptions,
 	type HttpCallResult,
-} from "./types";
+} from "../types";
 
 const httpCallTimeoutMs = 8_000;
-
-const mapHeadersToObject = (headers: Headers) => {
-	const headerObject: Record<string, string> = {};
-	for (const [key, value] of headers.entries()) headerObject[key] = value;
-	return headerObject;
-};
 
 const parseHttpCallOptions = (options: unknown): HttpCallOptions => {
 	if (options === undefined || options === null) return {};
@@ -42,9 +34,8 @@ const parseHttpCallOptions = (options: unknown): HttpCallOptions => {
 			const headers: Record<string, string> = {};
 			for (const key of Object.keys(headerRecord)) {
 				const value = headerRecord[key];
-				if (typeof value !== "string") {
+				if (typeof value !== "string")
 					throw new Error("httpCall headers must be string values");
-				}
 				headers[key] = value;
 			}
 			parsed.headers = headers;
@@ -56,28 +47,10 @@ const parseHttpCallOptions = (options: unknown): HttpCallOptions => {
 	return parsed;
 };
 
-const isConfigKey = (key: string): key is keyof Config =>
-	Object.hasOwn(config, key);
-
-export const getAppConfigValue = (key: unknown): ConfigValueResult => {
-	if (typeof key !== "string" || !key.trim())
-		return apiFailure("getAppConfigValue expects a non-empty key string");
-
-	const trimmedKey = key.trim();
-	if (!isConfigKey(trimmedKey))
-		return apiFailure(`Config key "${trimmedKey}" does not exist`);
-
-	return apiSuccess(config[trimmedKey]);
-};
-
-export const getUserConfigValue = (key: unknown): ConfigValueResult => {
-	if (typeof key !== "string" || !key.trim())
-		return apiFailure("getUserConfigValue expects a non-empty key string");
-
-	const trimmedKey = key.trim();
-	if (trimmedKey === "pageSize") return apiSuccess(20);
-
-	return apiFailure(`User config key "${trimmedKey}" does not exist`);
+const mapHeadersToObject = (headers: Headers) => {
+	const headerObject: Record<string, string> = {};
+	for (const [key, value] of headers.entries()) headerObject[key] = value;
+	return headerObject;
 };
 
 export const httpCall = async (
