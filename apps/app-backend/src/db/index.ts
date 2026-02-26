@@ -11,6 +11,11 @@ const migrationsFolder = resolve(process.cwd(), "drizzle");
 export const db = drizzle(config.DATABASE_URL, { casing: "snake_case" });
 
 export const migrateDB = async () => {
-	await migrate(db, { migrationsFolder });
-	await seedEntitySchemas();
+	try {
+		await migrate(db, { migrationsFolder });
+		await seedEntitySchemas();
+	} catch (error) {
+		console.error("Database migration failed:", error);
+		throw error;
+	}
 };

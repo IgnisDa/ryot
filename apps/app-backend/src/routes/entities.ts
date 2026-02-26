@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { AuthType } from "../auth";
 import { db } from "../db";
 import { entity, entitySchema } from "../db/schema";
+import { errorResponse, successResponse } from "../lib/response";
 
 const entityParams = z.object({
 	entityId: z.string().trim().min(1),
@@ -34,8 +35,8 @@ export const entitiesApi = new Hono<{ Variables: AuthType }>().get(
 			.where(and(eq(entity.id, params.entityId), eq(entity.userId, user.id)))
 			.limit(1);
 
-		if (!foundEntity) return c.json({ error: "Entity not found" }, 404);
+		if (!foundEntity) return errorResponse(c, "Entity not found", 404);
 
-		return c.json(foundEntity);
+		return successResponse(c, foundEntity);
 	},
 );

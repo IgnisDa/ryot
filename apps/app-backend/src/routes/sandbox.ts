@@ -2,6 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AuthType } from "../auth";
+import { successResponse } from "../lib/response";
 import { getSandboxService } from "../sandbox";
 import {
 	getAppConfigValue,
@@ -27,6 +28,9 @@ export const sandboxApi = new Hono<{ Variables: AuthType }>().post(
 			apiFunctions: { getAppConfigValue, getUserConfigValue },
 		});
 
-		return c.json({ ...result, durationMs: Date.now() - startedAt });
+		return successResponse(c, {
+			...result,
+			durationMs: Date.now() - startedAt,
+		});
 	},
 );
