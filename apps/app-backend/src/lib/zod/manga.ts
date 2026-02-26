@@ -3,7 +3,7 @@ import {
 	nullableNumberSchema,
 	nullableStringSchema,
 	toStableJsonSchema,
-} from "../../lib/zod";
+} from "./base";
 import { animeMangaPropertiesSchema } from "./media";
 
 export const mangaPropertiesSchema = animeMangaPropertiesSchema.extend({

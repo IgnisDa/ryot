@@ -3,7 +3,7 @@ import {
 	createImportEnvelopeSchema,
 	nullableIntSchema,
 	toStableJsonSchema,
-} from "../../lib/zod";
+} from "./base";
 import { mediaPropertiesSchema } from "./media";
 
 const schemaImportPerson = z

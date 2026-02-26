@@ -1,5 +1,8 @@
 import { generateId } from "better-auth";
 import { and, eq, isNull } from "drizzle-orm";
+import { animePropertiesJsonSchema } from "../lib/zod/anime";
+import { bookPropertiesJsonSchema } from "../lib/zod/book";
+import { mangaPropertiesJsonSchema } from "../lib/zod/manga";
 import googleBooksBookDetailsScriptCode from "../sandbox/scripts/google-books-book-details-source.txt";
 import googleBooksBookSearchScriptCode from "../sandbox/scripts/google-books-book-search-source.txt";
 import hardcoverBookDetailsScriptCode from "../sandbox/scripts/hardcover-book-details-source.txt";
@@ -16,9 +19,6 @@ import {
 	entitySchemaSandboxScript,
 	sandboxScript,
 } from "./schema";
-import { animePropertiesJsonSchema } from "./schema/anime";
-import { bookPropertiesJsonSchema } from "./schema/book";
-import { mangaPropertiesJsonSchema } from "./schema/manga";
 
 const googleBooksImportScriptSlug = "google-books.book.details";
 const googleBooksSearchScriptSlug = "google-books.book.search";

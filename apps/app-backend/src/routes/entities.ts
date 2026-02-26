@@ -6,7 +6,7 @@ import type { AuthType } from "../auth";
 import { db } from "../db";
 import { entity, entitySchema } from "../db/schema";
 import { errorResponse, successResponse } from "../lib/response";
-import { nonEmptyTrimmedStringSchema } from "../lib/zod";
+import { nonEmptyTrimmedStringSchema } from "../lib/zod/base";
 
 const entityParams = z.object({
 	entityId: nonEmptyTrimmedStringSchema,
