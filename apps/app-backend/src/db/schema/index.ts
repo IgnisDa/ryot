@@ -2,6 +2,7 @@ import { generateId } from "better-auth";
 import { relations, sql } from "drizzle-orm";
 import {
 	boolean,
+	customType,
 	index,
 	jsonb,
 	pgTable,
@@ -12,6 +13,10 @@ import {
 import { user } from "./auth";
 
 export * from "./auth";
+
+const tsvector = customType<{ data: string }>({
+	dataType: () => "tsvector",
+});
 
 export const entitySchema = pgTable(
 	"entity_schema",
@@ -97,12 +102,14 @@ export const entitySchemaSandboxScript = pgTable(
 export const entity = pgTable(
 	"entity",
 	{
-		searchVector: text(),
 		name: text().notNull(),
+		externalId: text().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
 		properties: jsonb().notNull().default({}),
-		externalId: text().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		searchVector: tsvector()
+			.notNull()
+			.generatedAlwaysAs(sql`to_tsvector('english', name)`),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
@@ -122,6 +129,7 @@ export const entity = pgTable(
 		index("entity_schema_id_idx").on(table.schemaId),
 		index("entity_external_id_idx").on(table.externalId),
 		index("entity_properties_idx").using("gin", table.properties),
+		index("entity_search_vector_idx").using("gin", table.searchVector),
 		index("entity_details_sandbox_script_id_idx").on(
 			table.detailsSandboxScriptId,
 		),
@@ -130,10 +138,6 @@ export const entity = pgTable(
 			table.schemaId,
 			table.externalId,
 			table.detailsSandboxScriptId,
-		),
-		index("entity_search_vector_idx").using(
-			"gin",
-			sql`to_tsvector('english', ${table.name})`,
 		),
 	],
 );

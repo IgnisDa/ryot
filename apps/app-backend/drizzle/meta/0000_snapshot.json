@@ -1,5 +1,5 @@
 {
-	"id": "f6a58e29-889a-46b9-a3ff-cdf714e6ed7b",
+	"id": "3d0b6ed0-8716-4d0d-b1bc-de5933e2fdc8",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -311,14 +311,14 @@
 			"name": "entity",
 			"schema": "",
 			"columns": {
-				"search_vector": {
-					"name": "search_vector",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false
-				},
 				"name": {
 					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"external_id": {
+					"name": "external_id",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": true
@@ -337,17 +337,21 @@
 					"notNull": true,
 					"default": "'{}'::jsonb"
 				},
-				"external_id": {
-					"name": "external_id",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
 				"user_id": {
 					"name": "user_id",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": false
+				},
+				"search_vector": {
+					"name": "search_vector",
+					"type": "tsvector",
+					"primaryKey": false,
+					"notNull": true,
+					"generated": {
+						"as": "to_tsvector('english', name)",
+						"type": "stored"
+					}
 				},
 				"id": {
 					"name": "id",
@@ -436,6 +440,21 @@
 					"method": "gin",
 					"with": {}
 				},
+				"entity_search_vector_idx": {
+					"name": "entity_search_vector_idx",
+					"columns": [
+						{
+							"expression": "\"search_vector\"",
+							"asc": true,
+							"isExpression": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "gin",
+					"with": {}
+				},
 				"entity_details_sandbox_script_id_idx": {
 					"name": "entity_details_sandbox_script_id_idx",
 					"columns": [
@@ -449,21 +468,6 @@
 					"isUnique": false,
 					"concurrently": false,
 					"method": "btree",
-					"with": {}
-				},
-				"entity_search_vector_idx": {
-					"name": "entity_search_vector_idx",
-					"columns": [
-						{
-							"expression": "to_tsvector('english', \"name\")",
-							"asc": true,
-							"isExpression": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "gin",
 					"with": {}
 				}
 			},
