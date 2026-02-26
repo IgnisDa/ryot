@@ -1,0 +1,114 @@
+const pageSize =
+	Number.isFinite(Number(context?.pageSize)) &&
+	Number(context.pageSize) > 0 &&
+	Number(context.pageSize) <= 100
+		? Math.floor(Number(context.pageSize))
+		: 20;
+const currentPage = Number.isFinite(Number(context?.page))
+	? Math.max(1, Math.floor(Number(context.page)))
+	: 1;
+const query = typeof context?.query === "string" ? context.query.trim() : "";
+
+if (!query) throw new Error("query is required");
+
+const configValueResponse = await getAppConfigValue(
+	"ANIME_AND_MANGA_MAL_CLIENT_ID",
+);
+if (!configValueResponse?.success)
+	throw new Error(
+		configValueResponse?.error ?? "Could not load MyAnimeList client ID",
+	);
+
+const clientId =
+	typeof configValueResponse.data === "string"
+		? configValueResponse.data.trim()
+		: "";
+if (!clientId)
+	throw new Error("ANIME_AND_MANGA_MAL_CLIENT_ID is not configured");
+
+const parsePublishYear = (startDate) => {
+	if (typeof startDate !== "string") return null;
+
+	const trimmedDate = startDate.trim();
+	if (!trimmedDate) return null;
+
+	const yearToken = trimmedDate.split("-")[0];
+	if (!/^\d{4}$/.test(yearToken)) return null;
+
+	const year = Number(yearToken);
+	if (!Number.isFinite(year)) return null;
+
+	return year;
+};
+
+const pickImage = (mainPicture) => {
+	if (!mainPicture || typeof mainPicture !== "object") return null;
+
+	const candidates = [mainPicture.large, mainPicture.medium];
+	for (const candidate of candidates) {
+		if (typeof candidate !== "string") continue;
+		const trimmedCandidate = candidate.trim();
+		if (trimmedCandidate) return trimmedCandidate;
+	}
+
+	return null;
+};
+
+const params = new URLSearchParams({
+	q: query,
+	fields: "start_date,main_picture",
+	offset: String((currentPage - 1) * pageSize),
+	limit: String(pageSize),
+});
+
+const response = await httpCall(
+	"GET",
+	`https://api.myanimelist.net/v2/anime?${params.toString()}`,
+	{ headers: { "X-MAL-CLIENT-ID": clientId } },
+);
+
+if (!response?.success)
+	throw new Error(response?.error ?? "MyAnimeList anime search request failed");
+
+let payload;
+try {
+	payload = JSON.parse(response.data.body);
+} catch {
+	throw new Error("MyAnimeList returned invalid JSON");
+}
+
+const hasNextPage =
+	typeof payload?.paging?.next === "string" && payload.paging.next.trim();
+
+const data = Array.isArray(payload?.data) ? payload.data : [];
+const items = data
+	.map((entry) => {
+		const node = entry?.node && typeof entry.node === "object" ? entry.node : null;
+		if (!node) return null;
+
+		const nodeId =
+			typeof node.id === "number" && Number.isFinite(node.id)
+				? Math.trunc(node.id)
+				: null;
+		if (nodeId === null || nodeId <= 0) return null;
+
+		const title = typeof node.title === "string" ? node.title : "";
+
+		return {
+			title,
+			image: pickImage(node.main_picture),
+			identifier: String(nodeId),
+			publish_year: parsePublishYear(node.start_date),
+		};
+	})
+	.filter((item) => item !== null);
+
+const minimumTotalItems = (currentPage - 1) * pageSize + items.length;
+
+return {
+	items,
+	details: {
+		total_items: hasNextPage ? minimumTotalItems + 1 : minimumTotalItems,
+		next_page: hasNextPage ? currentPage + 1 : null,
+	},
+};

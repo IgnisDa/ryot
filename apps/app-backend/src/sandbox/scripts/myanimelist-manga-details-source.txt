@@ -1,0 +1,143 @@
+const parseJsonResponse = (responseBody) => {
+	try {
+		return JSON.parse(responseBody);
+	} catch {
+		throw new Error("MyAnimeList returned invalid JSON");
+	}
+};
+
+const toTitleCase = (value) => {
+	const words = value
+		.toLowerCase()
+		.replace(/[_-]+/g, " ")
+		.split(/\s+/)
+		.filter((word) => word.length > 0);
+
+	return words
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join(" ");
+};
+
+const parsePublishYear = (startDate) => {
+	if (typeof startDate !== "string") return null;
+
+	const trimmedDate = startDate.trim();
+	if (!trimmedDate) return null;
+
+	const yearToken = trimmedDate.split("-")[0];
+	if (!/^\d{4}$/.test(yearToken)) return null;
+
+	const year = Number(yearToken);
+	if (!Number.isFinite(year)) return null;
+
+	return year;
+};
+
+const parseIsNsfw = (nsfw) => {
+	if (typeof nsfw !== "string" || !nsfw.trim()) return null;
+	return nsfw.trim().toLowerCase() !== "white";
+};
+
+const collectImages = (mainPicture) => {
+	if (!mainPicture || typeof mainPicture !== "object") return [];
+
+	const imageSet = new Set();
+	const candidates = [mainPicture.large, mainPicture.medium];
+
+	for (const candidate of candidates) {
+		if (typeof candidate !== "string") continue;
+		const trimmedCandidate = candidate.trim();
+		if (trimmedCandidate) imageSet.add(trimmedCandidate);
+	}
+
+	return [...imageSet];
+};
+
+const collectGenres = (genres) => {
+	if (!Array.isArray(genres)) return [];
+
+	const genreSet = new Set();
+	for (const genre of genres) {
+		const name = typeof genre?.name === "string" ? genre.name.trim() : "";
+		if (name) genreSet.add(name);
+	}
+
+	return [...genreSet];
+};
+
+const configValueResponse = await getAppConfigValue(
+	"ANIME_AND_MANGA_MAL_CLIENT_ID",
+);
+if (!configValueResponse?.success)
+	throw new Error(
+		configValueResponse?.error ?? "Could not load MyAnimeList client ID",
+	);
+
+const clientId =
+	typeof configValueResponse.data === "string"
+		? configValueResponse.data.trim()
+		: "";
+if (!clientId)
+	throw new Error("ANIME_AND_MANGA_MAL_CLIENT_ID is not configured");
+
+const contextIdentifier =
+	typeof context?.identifier === "string" ? context.identifier.trim() : "";
+if (!contextIdentifier) throw new Error("identifier is required");
+
+const params = new URLSearchParams({
+	fields: "start_date,synopsis,genres,status,num_volumes,num_chapters,mean,nsfw,main_picture",
+});
+
+const response = await httpCall(
+	"GET",
+	`https://api.myanimelist.net/v2/manga/${encodeURIComponent(contextIdentifier)}?${params.toString()}`,
+	{ headers: { "X-MAL-CLIENT-ID": clientId } },
+);
+
+if (!response?.success)
+	throw new Error(response?.error ?? "MyAnimeList manga details request failed");
+
+const payload = parseJsonResponse(response.data.body);
+
+const payloadIdentifier =
+	typeof payload?.id === "number" && Number.isFinite(payload.id)
+		? String(Math.trunc(payload.id))
+		: contextIdentifier;
+
+const title = typeof payload?.title === "string" ? payload.title : "";
+if (!title) throw new Error("MyAnimeList manga payload is missing title");
+
+const volumes =
+	typeof payload?.num_volumes === "number" && Number.isFinite(payload.num_volumes)
+		? Math.max(0, Math.trunc(payload.num_volumes))
+		: null;
+
+const chapters =
+	typeof payload?.num_chapters === "number" && Number.isFinite(payload.num_chapters)
+		? payload.num_chapters
+		: null;
+
+const productionStatus =
+	typeof payload?.status === "string" && payload.status.trim()
+		? toTitleCase(payload.status)
+		: null;
+
+return {
+	name: title,
+	external_ids: { myanimelist: payloadIdentifier },
+	properties: {
+		url: `https://myanimelist.net/manga/${payloadIdentifier}/${encodeURIComponent(title)}`,
+		genres: collectGenres(payload?.genres),
+		assets: { remote_images: collectImages(payload?.main_picture) },
+		volumes,
+		chapters,
+		is_nsfw: parseIsNsfw(payload?.nsfw),
+		description: typeof payload?.synopsis === "string" ? payload.synopsis : null,
+		publish_year: parsePublishYear(payload?.start_date),
+		provider_rating:
+			typeof payload?.mean === "number" && Number.isFinite(payload.mean)
+				? payload.mean
+				: null,
+		production_status: productionStatus,
+	},
+};
