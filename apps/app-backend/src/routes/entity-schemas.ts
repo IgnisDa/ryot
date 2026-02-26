@@ -12,6 +12,13 @@ import {
 	sandboxScript,
 } from "../db/schema";
 import { errorResponse, successResponse } from "../lib/response";
+import {
+	createImportEnvelopeSchema,
+	nonEmptyTrimmedStringSchema,
+	nullableIntSchema,
+	nullableStringSchema,
+	positiveIntSchema,
+} from "../lib/zod";
 import { getSandboxService } from "../sandbox";
 import {
 	getAppConfigValue,
@@ -19,37 +26,29 @@ import {
 } from "../sandbox/host-functions";
 
 const schemaSearchBody = z.object({
-	query: z.string().trim().min(1),
-	page: z.number().int().min(1).default(1),
-	search_script_id: z.string().trim().min(1),
+	query: nonEmptyTrimmedStringSchema,
+	page: positiveIntSchema.default(1),
+	search_script_id: nonEmptyTrimmedStringSchema,
 });
 
 const schemaImportBody = z.object({
-	identifier: z.string().trim().min(1),
-	details_script_id: z.string().trim().min(1),
+	identifier: nonEmptyTrimmedStringSchema,
+	details_script_id: nonEmptyTrimmedStringSchema,
 });
 
-const importEnvelope = z
-	.object({
-		name: z.string(),
-		properties: z.unknown(),
-		external_ids: z
-			.record(z.string().trim().min(1), z.string().trim().min(1))
-			.refine((value) => Object.keys(value).length > 0),
-	})
-	.strict();
+const importEnvelope = createImportEnvelopeSchema(z.unknown());
 
 const schemaSearchResponse = z.object({
 	details: z.object({
 		total_items: z.number().int().nonnegative(),
-		next_page: z.number().int().min(1).nullable(),
+		next_page: positiveIntSchema.nullable(),
 	}),
 	items: z.array(
 		z.object({
 			title: z.string(),
 			identifier: z.string(),
-			image: z.string().nullable().optional(),
-			publish_year: z.number().int().nullable().optional(),
+			image: nullableStringSchema.optional(),
+			publish_year: nullableIntSchema.optional(),
 		}),
 	),
 });
