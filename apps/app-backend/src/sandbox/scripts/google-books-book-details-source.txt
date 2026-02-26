@@ -115,7 +115,7 @@ const collectGenres = (categories, mainCategory) => {
 	return [...genreSet];
 };
 
-const configValueResponse = await getConfigValue("BOOKS_GOOGLE_BOOKS_API_KEY");
+const configValueResponse = await getAppConfigValue("BOOKS_GOOGLE_BOOKS_API_KEY");
 if (!configValueResponse?.success)
 	throw new Error(
 		configValueResponse?.error ?? "Could not load Google Books API key",

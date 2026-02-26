@@ -57,11 +57,11 @@ const parseHttpCallOptions = (options: unknown): HttpCallOptions => {
 const isConfigKey = (key: string): key is keyof Config =>
 	Object.hasOwn(config, key);
 
-export const getConfigValue = (key: unknown): ConfigValueResult => {
+export const getAppConfigValue = (key: unknown): ConfigValueResult => {
 	if (typeof key !== "string" || !key.trim())
 		return {
 			success: false,
-			error: "getConfigValue expects a non-empty key string",
+			error: "getAppConfigValue expects a non-empty key string",
 		};
 
 	const trimmedKey = key.trim();
@@ -72,6 +72,22 @@ export const getConfigValue = (key: unknown): ConfigValueResult => {
 		};
 
 	return { success: true, data: config[trimmedKey] };
+};
+
+export const getUserConfigValue = (key: unknown): ConfigValueResult => {
+	if (typeof key !== "string" || !key.trim())
+		return {
+			success: false,
+			error: "getUserConfigValue expects a non-empty key string",
+		};
+
+	const trimmedKey = key.trim();
+	if (trimmedKey === "pageSize") return { success: true, data: 20 };
+
+	return {
+		success: false,
+		error: `User config key "${trimmedKey}" does not exist`,
+	};
 };
 
 export const httpCall = async (

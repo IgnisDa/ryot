@@ -1,4 +1,9 @@
-const pageSize = 20;
+const pageSize =
+	Number.isFinite(Number(context?.pageSize)) &&
+	Number(context.pageSize) > 0 &&
+	Number(context.pageSize) <= 100
+		? Math.floor(Number(context.pageSize))
+		: 20;
 const currentPage = Number.isFinite(Number(context?.page))
 	? Math.max(1, Math.floor(Number(context.page)))
 	: 1;
