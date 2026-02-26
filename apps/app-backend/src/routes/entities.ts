@@ -33,7 +33,7 @@ export const entitiesApi = new Hono<{ Variables: AuthType }>().get(
 		const [foundEntity] = await db
 			.select(entitySelect)
 			.from(entity)
-			.innerJoin(entitySchema, eq(entity.schemaId, entitySchema.id))
+			.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
 			.where(and(eq(entity.id, params.entityId), eq(entity.userId, user.id)))
 			.limit(1);
 

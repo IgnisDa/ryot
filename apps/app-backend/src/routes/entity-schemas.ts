@@ -75,7 +75,7 @@ const handleFailedSandboxResult = (
 
 const upsertImportedEntity = async (input: {
 	userId: string;
-	schemaId: string;
+	entitySchemaId: string;
 	payload: ParsedImportPayload;
 	detailsSandboxScriptId: string;
 }) => {
@@ -85,7 +85,7 @@ const upsertImportedEntity = async (input: {
 			.from(entity)
 			.where(
 				and(
-					eq(entity.schemaId, input.schemaId),
+					eq(entity.entitySchemaId, input.entitySchemaId),
 					eq(entity.userId, input.userId),
 					eq(entity.externalId, input.payload.external_id),
 					eq(entity.detailsSandboxScriptId, input.detailsSandboxScriptId),
@@ -98,9 +98,9 @@ const upsertImportedEntity = async (input: {
 		const values = {
 			userId: input.userId,
 			name: input.payload.name,
-			schemaId: input.schemaId,
-			externalId: input.payload.external_id,
 			properties: input.payload.properties,
+			entitySchemaId: input.entitySchemaId,
+			externalId: input.payload.external_id,
 			detailsSandboxScriptId: input.detailsSandboxScriptId,
 		};
 
@@ -332,7 +332,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 			const persistedEntity = await upsertImportedEntity({
 				userId: user.id,
 				payload: parsedResult,
-				schemaId: script.schemaId,
+				entitySchemaId: script.schemaId,
 				detailsSandboxScriptId: script.id,
 			});
 
