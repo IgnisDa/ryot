@@ -1,7 +1,5 @@
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { and, eq } from "drizzle-orm";
-import { Hono } from "hono";
-import { describeRoute, validator as zValidator } from "hono-openapi";
-import { z } from "zod";
 import type { AuthType } from "~/auth";
 import { db } from "~/db";
 import { entity, entitySchema } from "~/db/schema";
@@ -9,9 +7,7 @@ import {
 	errorJsonResponse,
 	jsonResponse,
 	pathParamValidationErrorResponse,
-	protectedRouteSpec,
 } from "~/lib/openapi";
-import { errorResponse, successResponse } from "~/lib/response";
 import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
 
 const entityParams = z.object({
@@ -40,20 +36,22 @@ const foundEntityResponseSchema = z.object({
 	details_script_id: z.string(),
 });
 
-export const entitiesApi = new Hono<{ Variables: AuthType }>().get(
-	"/:entityId",
-	describeRoute(
-		protectedRouteSpec({
-			tags: ["entities"],
-			summary: "Get a single entity by id",
-			responses: {
-				400: pathParamValidationErrorResponse,
-				404: errorJsonResponse("Entity does not exist for this user"),
-				200: jsonResponse("Entity was found", foundEntityResponseSchema),
-			},
-		}),
-	),
-	zValidator("param", entityParams),
+const entityRoute = createRoute({
+	method: "get",
+	tags: ["entities"],
+	path: "/{entityId}",
+	request: { params: entityParams },
+	summary: "Get a single entity by id",
+	responses: {
+		400: pathParamValidationErrorResponse,
+		401: errorJsonResponse("Request is unauthenticated"),
+		404: errorJsonResponse("Entity does not exist for this user"),
+		200: jsonResponse("Entity was found", foundEntityResponseSchema),
+	},
+});
+
+export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>().openapi(
+	entityRoute,
 	async (c) => {
 		const user = c.get("user");
 		const params = c.req.valid("param");
@@ -65,8 +63,15 @@ export const entitiesApi = new Hono<{ Variables: AuthType }>().get(
 			.where(and(eq(entity.id, params.entityId), eq(entity.userId, user.id)))
 			.limit(1);
 
-		if (!foundEntity) return errorResponse(c, "Entity not found", 404);
+		if (!foundEntity) return c.json({ error: "Entity not found" }, 404);
 
-		return successResponse(c, foundEntity);
+		return c.json(
+			{
+				...foundEntity,
+				created_at: foundEntity.created_at.toISOString(),
+				updated_at: foundEntity.updated_at.toISOString(),
+			},
+			200,
+		);
 	},
 );
