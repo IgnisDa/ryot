@@ -29,9 +29,9 @@ export const paginatedSchema = <T extends z.ZodType>(itemSchema: T) =>
 	z.object({
 		data: z.array(itemSchema),
 		meta: z.object({
-			total: z.number().int().nonnegative(),
-			page: z.number().int().positive(),
 			hasMore: z.boolean(),
+			page: z.number().int().positive(),
+			total: z.number().int().nonnegative(),
 		}),
 	});
 
