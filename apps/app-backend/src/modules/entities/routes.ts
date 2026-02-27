@@ -5,9 +5,13 @@ import { db } from "~/db";
 import { entity, entitySchema } from "~/db/schema";
 import {
 	createAuthRoute,
+	dataSchema,
+	ERROR_CODES,
 	errorJsonResponse,
+	errorResponse,
 	jsonResponse,
 	pathParamValidationErrorResponse,
+	successResponse,
 } from "~/lib/openapi";
 import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
 
@@ -26,16 +30,18 @@ const entitySelect = {
 	details_script_id: entity.detailsSandboxScriptId,
 };
 
-const foundEntityResponseSchema = z.object({
-	id: z.string(),
-	name: z.string(),
-	properties: z.unknown(),
-	created_at: z.string(),
-	updated_at: z.string(),
-	schema_slug: z.string(),
-	external_id: z.string(),
-	details_script_id: z.string(),
-});
+const foundEntityResponseSchema = dataSchema(
+	z.object({
+		id: z.string(),
+		name: z.string(),
+		properties: z.unknown(),
+		created_at: z.string(),
+		updated_at: z.string(),
+		schema_slug: z.string(),
+		external_id: z.string(),
+		details_script_id: z.string(),
+	}),
+);
 
 const entityRoute = createAuthRoute(
 	createRoute({
@@ -46,8 +52,14 @@ const entityRoute = createAuthRoute(
 		summary: "Get a single entity by id",
 		responses: {
 			400: pathParamValidationErrorResponse,
-			401: errorJsonResponse("Request is unauthenticated"),
-			404: errorJsonResponse("Entity does not exist for this user"),
+			401: errorJsonResponse(
+				"Request is unauthenticated",
+				ERROR_CODES.UNAUTHENTICATED,
+			),
+			404: errorJsonResponse(
+				"Entity does not exist for this user",
+				ERROR_CODES.NOT_FOUND,
+			),
 			200: jsonResponse("Entity was found", foundEntityResponseSchema),
 		},
 	}),
@@ -66,14 +78,18 @@ export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>().openapi(
 			.where(and(eq(entity.id, params.entityId), eq(entity.userId, user.id)))
 			.limit(1);
 
-		if (!foundEntity) return c.json({ error: "Entity not found" }, 404);
+		if (!foundEntity)
+			return c.json(
+				errorResponse(ERROR_CODES.NOT_FOUND, "Entity not found"),
+				404,
+			);
 
 		return c.json(
-			{
+			successResponse({
 				...foundEntity,
 				created_at: foundEntity.created_at.toISOString(),
 				updated_at: foundEntity.updated_at.toISOString(),
-			},
+			}),
 			200,
 		);
 	},
