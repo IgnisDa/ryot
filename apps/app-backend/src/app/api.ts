@@ -1,8 +1,11 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { auth, type MaybeAuthType } from "~/auth";
-import { requireAuth } from "~/auth/middleware";
-import { errorJsonResponse, jsonResponse } from "~/lib/openapi";
+import {
+	createAuthRoute,
+	errorJsonResponse,
+	jsonResponse,
+} from "~/lib/openapi";
 import { appConfigApi } from "~/modules/app-config/routes";
 import { entitiesApi } from "~/modules/entities/routes";
 import { entitySchemasApi } from "~/modules/entity-schemas/routes";
@@ -20,17 +23,18 @@ const meResponseSchema = z.object({
 	session: z.unknown().nullable(),
 });
 
-const meRoute = createRoute({
-	path: "/me",
-	method: "get",
-	tags: ["protected"],
-	middleware: [requireAuth],
-	summary: "Get the current user session",
-	responses: {
-		200: jsonResponse("Authenticated session details", meResponseSchema),
-		401: errorJsonResponse("Request is unauthenticated"),
-	},
-});
+const meRoute = createAuthRoute(
+	createRoute({
+		path: "/me",
+		method: "get",
+		tags: ["protected"],
+		summary: "Get the current user session",
+		responses: {
+			401: errorJsonResponse("Request is unauthenticated"),
+			200: jsonResponse("Authenticated session details", meResponseSchema),
+		},
+	}),
+);
 
 const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/health", healthApi)
@@ -45,12 +49,18 @@ const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/entity-schemas", entitySchemasApi);
 
 export const apiApp = baseApp
-	.doc("/openapi.json", {
+	.doc("/openapi.json", (c) => ({
 		openapi: "3.0.0",
 		info: openApiInfo,
-		servers: [{ url: "/api" }],
-	})
+		servers: [{ url: `${new URL(c.req.url).origin}/api` }],
+	}))
 	.get("/docs", swaggerUI({ url: "/api/openapi.json" }))
 	.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw));
+
+baseApp.openAPIRegistry.registerComponent("securitySchemes", "X-Api-Key", {
+	in: "header",
+	type: "apiKey",
+	name: "X-Api-Key",
+});
 
 export type AppType = typeof baseApp;

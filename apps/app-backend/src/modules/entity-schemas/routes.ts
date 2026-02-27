@@ -1,7 +1,7 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AuthType } from "~/auth";
-import { requireAuth } from "~/auth/middleware";
 import {
+	createAuthRoute,
 	errorJsonResponse,
 	jsonResponse,
 	payloadValidationErrorResponse,
@@ -37,61 +37,64 @@ const schemaImportResponseSchema = z.object({
 	entityId: z.string(),
 });
 
-const listEntitySchemasRoute = createRoute({
-	path: "/list",
-	method: "get",
-	tags: ["entity-schemas"],
-	middleware: [requireAuth],
-	summary: "List available entity schemas",
-	responses: {
-		401: errorJsonResponse("Request is unauthenticated"),
-		200: jsonResponse(
-			"Schemas available for the user",
-			listEntitySchemasResponseSchema,
-		),
-	},
-});
+const listEntitySchemasRoute = createAuthRoute(
+	createRoute({
+		path: "/list",
+		method: "get",
+		tags: ["entity-schemas"],
+		summary: "List available entity schemas",
+		responses: {
+			401: errorJsonResponse("Request is unauthenticated"),
+			200: jsonResponse(
+				"Schemas available for the user",
+				listEntitySchemasResponseSchema,
+			),
+		},
+	}),
+);
 
-const searchEntitySchemasRoute = createRoute({
-	path: "/search",
-	method: "post",
-	tags: ["entity-schemas"],
-	middleware: [requireAuth],
-	summary: "Search entities for a schema",
-	request: {
-		body: { content: { "application/json": { schema: schemaSearchBody } } },
-	},
-	responses: {
-		400: payloadValidationErrorResponse,
-		401: errorJsonResponse("Request is unauthenticated"),
-		404: errorJsonResponse("Search script is missing"),
-		504: errorJsonResponse("Search sandbox job timed out"),
-		500: errorJsonResponse("Search execution or payload parsing failed"),
-		200: jsonResponse(
-			"Search results for the schema query",
-			schemaSearchResponse,
-		),
-	},
-});
+const searchEntitySchemasRoute = createAuthRoute(
+	createRoute({
+		method: "post",
+		path: "/search",
+		tags: ["entity-schemas"],
+		summary: "Search entities for a schema",
+		request: {
+			body: { content: { "application/json": { schema: schemaSearchBody } } },
+		},
+		responses: {
+			400: payloadValidationErrorResponse,
+			404: errorJsonResponse("Search script is missing"),
+			401: errorJsonResponse("Request is unauthenticated"),
+			504: errorJsonResponse("Search sandbox job timed out"),
+			500: errorJsonResponse("Search execution or payload parsing failed"),
+			200: jsonResponse(
+				"Search results for the schema query",
+				schemaSearchResponse,
+			),
+		},
+	}),
+);
 
-const importEntitySchemasRoute = createRoute({
-	path: "/import",
-	method: "post",
-	tags: ["entity-schemas"],
-	middleware: [requireAuth],
-	summary: "Import an entity from schema scripts",
-	request: {
-		body: { content: { "application/json": { schema: schemaImportBody } } },
-	},
-	responses: {
-		400: payloadValidationErrorResponse,
-		401: errorJsonResponse("Request is unauthenticated"),
-		404: errorJsonResponse("Details script is missing"),
-		504: errorJsonResponse("Import sandbox job timed out"),
-		500: errorJsonResponse("Import execution or persistence failed"),
-		200: jsonResponse("Entity import persisted", schemaImportResponseSchema),
-	},
-});
+const importEntitySchemasRoute = createAuthRoute(
+	createRoute({
+		path: "/import",
+		method: "post",
+		tags: ["entity-schemas"],
+		summary: "Import an entity from schema scripts",
+		request: {
+			body: { content: { "application/json": { schema: schemaImportBody } } },
+		},
+		responses: {
+			400: payloadValidationErrorResponse,
+			401: errorJsonResponse("Request is unauthenticated"),
+			404: errorJsonResponse("Details script is missing"),
+			504: errorJsonResponse("Import sandbox job timed out"),
+			500: errorJsonResponse("Import execution or persistence failed"),
+			200: jsonResponse("Entity import persisted", schemaImportResponseSchema),
+		},
+	}),
+);
 
 export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(listEntitySchemasRoute, async (c) => {

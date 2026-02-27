@@ -1,4 +1,6 @@
+import type { RouteConfig } from "@hono/zod-openapi";
 import { z } from "@hono/zod-openapi";
+import { requireAuth } from "~/auth/middleware";
 
 export const errorResponseSchema = z.object({
 	error: z.string(),
@@ -27,3 +29,13 @@ export const pathParamValidationErrorResponse = jsonResponse(
 
 export const errorJsonResponse = (description: string) =>
 	jsonResponse(description, errorResponseSchema);
+
+export const createAuthRoute = <TRoute extends RouteConfig>(
+	route: TRoute,
+): TRoute => {
+	return {
+		...route,
+		middleware: [requireAuth],
+		security: [{ "X-Api-Key": [] }],
+	};
+};
