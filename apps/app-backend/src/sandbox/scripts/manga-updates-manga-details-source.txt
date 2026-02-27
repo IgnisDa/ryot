@@ -1,0 +1,127 @@
+const parseJsonResponse = (responseBody) => {
+	try {
+		return JSON.parse(responseBody);
+	} catch {
+		throw new Error("MangaUpdates returned invalid JSON");
+	}
+};
+
+const parsePublishYear = (value) => {
+	if (typeof value !== "string") return null;
+	const trimmedValue = value.trim();
+	if (!/^\d{4}$/.test(trimmedValue)) return null;
+
+	const year = Number(trimmedValue);
+	if (!Number.isFinite(year)) return null;
+
+	return year;
+};
+
+const extractStatus = (input) => {
+	if (typeof input !== "string") return { volumes: null, productionStatus: null };
+
+	const firstPart = input.split("<BR>")[0]?.trim() ?? "";
+	if (!firstPart) return { volumes: null, productionStatus: null };
+
+	const parts = firstPart.split(/\s+/).filter(Boolean);
+	const firstToken = parts[0];
+	const statusToken = parts[2];
+
+	const parsedVolumes = Number(firstToken);
+	const volumes = Number.isFinite(parsedVolumes)
+		? Math.max(0, Math.trunc(parsedVolumes))
+		: null;
+
+	const productionStatus =
+		typeof statusToken === "string" &&
+		statusToken.startsWith("(") &&
+		statusToken.endsWith(")") &&
+		statusToken.length > 2
+			? statusToken.slice(1, -1)
+			: null;
+
+	return { volumes, productionStatus };
+};
+
+const collectGenres = (genres, categories) => {
+	const genreSet = new Set();
+
+	if (Array.isArray(genres)) {
+		for (const genreEntry of genres) {
+			const genre =
+				typeof genreEntry?.genre === "string" ? genreEntry.genre.trim() : "";
+			if (genre) genreSet.add(genre);
+		}
+	}
+
+	if (Array.isArray(categories)) {
+		for (const categoryEntry of categories) {
+			const category =
+				typeof categoryEntry?.category === "string"
+					? categoryEntry.category.trim()
+					: "";
+			if (category) genreSet.add(category);
+		}
+	}
+
+	return [...genreSet];
+};
+
+const collectImages = (image) => {
+	const candidate = image?.url?.original;
+	if (typeof candidate !== "string") return [];
+
+	const trimmedCandidate = candidate.trim();
+	return trimmedCandidate ? [trimmedCandidate] : [];
+};
+
+const contextIdentifier =
+	typeof context?.identifier === "string" ? context.identifier.trim() : "";
+if (!contextIdentifier) throw new Error("identifier is required");
+
+const response = await httpCall(
+	"GET",
+	`https://api.mangaupdates.com/v1/series/${encodeURIComponent(contextIdentifier)}`,
+);
+
+if (!response?.success)
+	throw new Error(response?.error ?? "MangaUpdates details request failed");
+
+const payload = parseJsonResponse(response.data.body);
+
+const payloadIdentifier =
+	typeof payload?.series_id === "number" && Number.isFinite(payload.series_id)
+		? String(Math.trunc(payload.series_id))
+		: contextIdentifier;
+
+const title = typeof payload?.title === "string" ? payload.title : "";
+if (!title) throw new Error("MangaUpdates payload is missing title");
+
+const chapters =
+	typeof payload?.latest_chapter === "number" &&
+	Number.isFinite(payload.latest_chapter)
+		? payload.latest_chapter
+		: null;
+
+const { volumes, productionStatus } = extractStatus(payload?.status);
+
+return {
+	name: title,
+	external_id: payloadIdentifier,
+	properties: {
+		url: typeof payload?.url === "string" ? payload.url : null,
+		genres: collectGenres(payload?.genres, payload?.categories),
+		assets: { remote_images: collectImages(payload?.image) },
+		volumes,
+		chapters,
+		is_nsfw: null,
+		description: typeof payload?.description === "string" ? payload.description : null,
+		publish_year: parsePublishYear(payload?.year),
+		provider_rating:
+			typeof payload?.bayesian_rating === "number" &&
+			Number.isFinite(payload.bayesian_rating)
+				? payload.bayesian_rating
+				: null,
+		production_status: productionStatus,
+	},
+};
