@@ -1,10 +1,16 @@
-import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { describeRoute, validator as zValidator } from "hono-openapi";
 import { z } from "zod";
 import type { AuthType } from "~/auth";
 import { db } from "~/db";
 import { entity, entitySchema } from "~/db/schema";
+import {
+	errorJsonResponse,
+	jsonResponse,
+	pathParamValidationErrorResponse,
+	protectedRouteSpec,
+} from "~/lib/openapi";
 import { errorResponse, successResponse } from "~/lib/response";
 import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
 
@@ -23,8 +29,30 @@ const entitySelect = {
 	details_script_id: entity.detailsSandboxScriptId,
 };
 
+const foundEntityResponseSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	properties: z.unknown(),
+	created_at: z.string(),
+	updated_at: z.string(),
+	schema_slug: z.string(),
+	external_id: z.string(),
+	details_script_id: z.string(),
+});
+
 export const entitiesApi = new Hono<{ Variables: AuthType }>().get(
 	"/:entityId",
+	describeRoute(
+		protectedRouteSpec({
+			tags: ["entities"],
+			summary: "Get a single entity by id",
+			responses: {
+				400: pathParamValidationErrorResponse,
+				404: errorJsonResponse("Entity does not exist for this user"),
+				200: jsonResponse("Entity was found", foundEntityResponseSchema),
+			},
+		}),
+	),
 	zValidator("param", entityParams),
 	async (c) => {
 		const user = c.get("user");

@@ -1,7 +1,12 @@
-import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
+import { describeRoute, validator as zValidator } from "hono-openapi";
 import { z } from "zod";
 import type { AuthType } from "~/auth";
+import {
+	jsonResponse,
+	payloadValidationErrorResponse,
+	protectedRouteSpec,
+} from "~/lib/openapi";
 import { successResponse } from "~/lib/response";
 import { nonEmptyStringSchema } from "~/lib/zod/base";
 import { getSandboxService } from "~/sandbox";
@@ -14,8 +19,26 @@ const runSandboxSchema = z.object({
 	code: nonEmptyStringSchema.max(20_000),
 });
 
+const runSandboxResponseSchema = z.object({
+	success: z.boolean(),
+	logs: z.string().optional(),
+	error: z.string().optional(),
+	value: z.unknown().optional(),
+	durationMs: z.number().int().nonnegative(),
+});
+
 export const sandboxApi = new Hono<{ Variables: AuthType }>().post(
 	"/run",
+	describeRoute(
+		protectedRouteSpec({
+			tags: ["sandbox"],
+			summary: "Run a sandbox script",
+			responses: {
+				400: payloadValidationErrorResponse,
+				200: jsonResponse("Sandbox run completed", runSandboxResponseSchema),
+			},
+		}),
+	),
 	zValidator("json", runSandboxSchema),
 	async (c) => {
 		const user = c.get("user");
