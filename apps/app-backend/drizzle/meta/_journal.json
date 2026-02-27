@@ -5,15 +5,8 @@
 		{
 			"idx": 0,
 			"version": "7",
-			"when": 1772128851182,
-			"tag": "0000_spotty_swarm",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1772159935160,
-			"tag": "0001_ambiguous_tinkerer",
+			"when": 1772217407701,
+			"tag": "0000_right_glorian",
 			"breakpoints": true
 		}
 	]
