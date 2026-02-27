@@ -5,6 +5,7 @@ import {
 	dataSchema,
 	ERROR_CODES,
 	errorJsonResponse,
+	errorResponse,
 	jsonResponse,
 	payloadValidationErrorResponse,
 	successResponse,
@@ -33,10 +34,12 @@ const listedEntitySchema = z.object({
 
 const listEntitySchemasResponseSchema = dataSchema(z.array(listedEntitySchema));
 
-const schemaImportResponseSchema = z.object({
-	created: z.boolean(),
-	entityId: z.string(),
-});
+const schemaImportResponseSchema = dataSchema(
+	z.object({
+		created: z.boolean(),
+		entityId: z.string(),
+	}),
+);
 
 const listEntitySchemasRoute = createAuthRoute(
 	createRoute({
@@ -68,10 +71,19 @@ const searchEntitySchemasRoute = createAuthRoute(
 		},
 		responses: {
 			400: payloadValidationErrorResponse,
-			404: errorJsonResponse("Search script is missing"),
-			401: errorJsonResponse("Request is unauthenticated"),
-			504: errorJsonResponse("Search sandbox job timed out"),
-			500: errorJsonResponse("Search execution or payload parsing failed"),
+			401: errorJsonResponse(
+				"Request is unauthenticated",
+				ERROR_CODES.UNAUTHENTICATED,
+			),
+			404: errorJsonResponse("Search script is missing", ERROR_CODES.NOT_FOUND),
+			500: errorJsonResponse(
+				"Search execution or payload parsing failed",
+				ERROR_CODES.INTERNAL_ERROR,
+			),
+			504: errorJsonResponse(
+				"Search sandbox job timed out",
+				ERROR_CODES.TIMEOUT,
+			),
 			200: jsonResponse(
 				"Search results for the schema query",
 				schemaSearchResponse,
@@ -91,10 +103,22 @@ const importEntitySchemasRoute = createAuthRoute(
 		},
 		responses: {
 			400: payloadValidationErrorResponse,
-			401: errorJsonResponse("Request is unauthenticated"),
-			404: errorJsonResponse("Details script is missing"),
-			504: errorJsonResponse("Import sandbox job timed out"),
-			500: errorJsonResponse("Import execution or persistence failed"),
+			401: errorJsonResponse(
+				"Request is unauthenticated",
+				ERROR_CODES.UNAUTHENTICATED,
+			),
+			404: errorJsonResponse(
+				"Details script is missing",
+				ERROR_CODES.NOT_FOUND,
+			),
+			500: errorJsonResponse(
+				"Import execution or persistence failed",
+				ERROR_CODES.INTERNAL_ERROR,
+			),
+			504: errorJsonResponse(
+				"Import sandbox job timed out",
+				ERROR_CODES.TIMEOUT,
+			),
 			200: jsonResponse("Entity import persisted", schemaImportResponseSchema),
 		},
 	}),
@@ -112,9 +136,14 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const result = await runSchemaSearch({ userId: user.id, body });
 
 		if (!result.success) {
-			if (result.status === 404) return c.json({ error: result.error }, 404);
-			if (result.status === 504) return c.json({ error: result.error }, 504);
-			return c.json({ error: result.error }, 500);
+			if (result.status === 404)
+				return c.json(errorResponse(ERROR_CODES.NOT_FOUND, result.error), 404);
+			if (result.status === 504)
+				return c.json(errorResponse(ERROR_CODES.TIMEOUT, result.error), 504);
+			return c.json(
+				errorResponse(ERROR_CODES.INTERNAL_ERROR, result.error),
+				500,
+			);
 		}
 
 		return c.json(result.data, 200);
@@ -125,10 +154,15 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const result = await runSchemaImport({ userId: user.id, body });
 
 		if (!result.success) {
-			if (result.status === 404) return c.json({ error: result.error }, 404);
-			if (result.status === 504) return c.json({ error: result.error }, 504);
-			return c.json({ error: result.error }, 500);
+			if (result.status === 404)
+				return c.json(errorResponse(ERROR_CODES.NOT_FOUND, result.error), 404);
+			if (result.status === 504)
+				return c.json(errorResponse(ERROR_CODES.TIMEOUT, result.error), 504);
+			return c.json(
+				errorResponse(ERROR_CODES.INTERNAL_ERROR, result.error),
+				500,
+			);
 		}
 
-		return c.json(result.data, 200);
+		return c.json(successResponse(result.data), 200);
 	});

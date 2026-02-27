@@ -1,5 +1,6 @@
 import type { StatusCode } from "hono/utils/http-status";
-import { fromJSONSchema } from "zod";
+import { fromJSONSchema, z } from "zod";
+import { positiveIntSchema } from "~/lib/zod/base";
 import {
 	getScriptById,
 	upsertImportedEntity,
@@ -13,7 +14,7 @@ import {
 	importEnvelope,
 	type SchemaImportBody,
 	type SchemaSearchBody,
-	schemaSearchResponse,
+	schemaSearchItemSchema,
 } from "./schemas";
 
 const failure = (error: string, status: StatusCode) => ({
@@ -23,6 +24,14 @@ const failure = (error: string, status: StatusCode) => ({
 });
 
 const success = <T>(data: T) => ({ data, success: true as const });
+
+const sandboxSearchResponseSchema = z.object({
+	details: z.object({
+		total_items: z.number().int().nonnegative(),
+		next_page: positiveIntSchema.nullable(),
+	}),
+	items: z.array(schemaSearchItemSchema),
+});
 
 const parseSandboxFailure = (
 	result: { error?: string; logs?: string },
@@ -60,11 +69,20 @@ export const runSchemaSearch = async (input: {
 
 	if (!result.success) return parseSandboxFailure(result, "Search");
 
-	const parsedResult = schemaSearchResponse.safeParse(result.value);
+	const parsedResult = sandboxSearchResponseSchema.safeParse(result.value);
 	if (!parsedResult.success)
 		return failure("Search script returned invalid payload", 500);
 
-	return success(parsedResult.data);
+	const transformedData = {
+		data: parsedResult.data.items,
+		meta: {
+			total: parsedResult.data.details.total_items,
+			page: input.body.page,
+			hasMore: parsedResult.data.details.next_page !== null,
+		},
+	};
+
+	return success(transformedData);
 };
 
 const parseImportedPayload = (input: {
