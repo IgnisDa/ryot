@@ -2,9 +2,12 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AuthType } from "~/auth";
 import {
 	createAuthRoute,
+	dataSchema,
+	ERROR_CODES,
 	errorJsonResponse,
 	jsonResponse,
 	payloadValidationErrorResponse,
+	successResponse,
 } from "~/lib/openapi";
 import { listEntitySchemasByUser } from "./repository";
 import {
@@ -28,9 +31,7 @@ const listedEntitySchema = z.object({
 	scriptPairs: z.array(scriptPairSchema),
 });
 
-const listEntitySchemasResponseSchema = z.object({
-	schemas: z.array(listedEntitySchema),
-});
+const listEntitySchemasResponseSchema = dataSchema(z.array(listedEntitySchema));
 
 const schemaImportResponseSchema = z.object({
 	created: z.boolean(),
@@ -44,7 +45,10 @@ const listEntitySchemasRoute = createAuthRoute(
 		tags: ["entity-schemas"],
 		summary: "List available entity schemas",
 		responses: {
-			401: errorJsonResponse("Request is unauthenticated"),
+			401: errorJsonResponse(
+				"Request is unauthenticated",
+				ERROR_CODES.UNAUTHENTICATED,
+			),
 			200: jsonResponse(
 				"Schemas available for the user",
 				listEntitySchemasResponseSchema,
@@ -100,7 +104,7 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(listEntitySchemasRoute, async (c) => {
 		const user = c.get("user");
 		const schemas = await listEntitySchemasByUser(user.id);
-		return c.json({ schemas }, 200);
+		return c.json(successResponse(schemas), 200);
 	})
 	.openapi(searchEntitySchemasRoute, async (c) => {
 		const user = c.get("user");
