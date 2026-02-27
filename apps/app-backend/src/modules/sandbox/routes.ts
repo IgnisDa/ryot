@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AuthType } from "~/auth";
+import { requireAuth } from "~/auth/middleware";
 import {
 	errorJsonResponse,
 	jsonResponse,
@@ -28,6 +29,7 @@ const runSandboxRoute = createRoute({
 	path: "/run",
 	method: "post",
 	tags: ["sandbox"],
+	middleware: [requireAuth],
 	summary: "Run a sandbox script",
 	request: {
 		body: {

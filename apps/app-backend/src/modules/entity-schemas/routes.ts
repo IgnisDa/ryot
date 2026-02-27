@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AuthType } from "~/auth";
+import { requireAuth } from "~/auth/middleware";
 import {
 	errorJsonResponse,
 	jsonResponse,
@@ -40,6 +41,7 @@ const listEntitySchemasRoute = createRoute({
 	path: "/list",
 	method: "get",
 	tags: ["entity-schemas"],
+	middleware: [requireAuth],
 	summary: "List available entity schemas",
 	responses: {
 		401: errorJsonResponse("Request is unauthenticated"),
@@ -54,15 +56,10 @@ const searchEntitySchemasRoute = createRoute({
 	path: "/search",
 	method: "post",
 	tags: ["entity-schemas"],
+	middleware: [requireAuth],
 	summary: "Search entities for a schema",
 	request: {
-		body: {
-			content: {
-				"application/json": {
-					schema: schemaSearchBody,
-				},
-			},
-		},
+		body: { content: { "application/json": { schema: schemaSearchBody } } },
 	},
 	responses: {
 		400: payloadValidationErrorResponse,
@@ -81,15 +78,10 @@ const importEntitySchemasRoute = createRoute({
 	path: "/import",
 	method: "post",
 	tags: ["entity-schemas"],
+	middleware: [requireAuth],
 	summary: "Import an entity from schema scripts",
 	request: {
-		body: {
-			content: {
-				"application/json": {
-					schema: schemaImportBody,
-				},
-			},
-		},
+		body: { content: { "application/json": { schema: schemaImportBody } } },
 	},
 	responses: {
 		400: payloadValidationErrorResponse,
