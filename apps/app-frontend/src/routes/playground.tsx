@@ -105,7 +105,7 @@ function App() {
 
 	const runMutation = useMutation({
 		mutationFn: async (scriptCode: string) => {
-			const response = await apiClient.protected.sandbox.run.$post({
+			const response = await apiClient.sandbox.run.$post({
 				json: { code: scriptCode },
 			});
 			const payload = await response.json();

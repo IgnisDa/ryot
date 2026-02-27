@@ -51,7 +51,7 @@ function SchemaSearchPage() {
 		refetchOnWindowFocus: false,
 		queryKey: ["entity-schemas-list"],
 		queryFn: async () => {
-			const response = await apiClient.protected["entity-schemas"].list.$get();
+			const response = await apiClient["entity-schemas"].list.$get();
 			const payload = await response.json();
 			return payload;
 		},
@@ -89,15 +89,13 @@ function SchemaSearchPage() {
 		queryFn: async () => {
 			if (!selectedSearchScriptId) throw new Error("No search script selected");
 
-			const response = await apiClient.protected["entity-schemas"].search.$post(
-				{
-					json: {
-						page,
-						query: trimmedQuery,
-						search_script_id: selectedSearchScriptId,
-					},
+			const response = await apiClient["entity-schemas"].search.$post({
+				json: {
+					page,
+					query: trimmedQuery,
+					search_script_id: selectedSearchScriptId,
 				},
-			);
+			});
 
 			const payload = await response.json();
 			if ("error" in payload) throw new Error(payload.error);
@@ -116,9 +114,9 @@ function SchemaSearchPage() {
 			const detailsScriptId = selectedSearchScript?.detailsScriptId;
 			if (!detailsScriptId) throw new Error("No details script available");
 
-			const response = await apiClient.protected["entity-schemas"].import.$post(
-				{ json: { identifier, details_script_id: detailsScriptId } },
-			);
+			const response = await apiClient["entity-schemas"].import.$post({
+				json: { identifier, details_script_id: detailsScriptId },
+			});
 
 			const payload = await response.json();
 
