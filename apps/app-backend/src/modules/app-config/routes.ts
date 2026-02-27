@@ -3,9 +3,12 @@ import type { AuthType } from "~/auth";
 import { appConfigKeys } from "~/lib/app-config";
 import {
 	createAuthRoute,
+	dataSchema,
+	ERROR_CODES,
 	errorJsonResponse,
 	jsonResponse,
 	payloadValidationErrorResponse,
+	successResponse,
 } from "~/lib/openapi";
 import { setAppConfigValue } from "./repository";
 
@@ -14,16 +17,14 @@ const setAppConfigBody = z.object({
 	key: z.enum(appConfigKeys),
 });
 
-const appConfigValueSchema = z.object({
-	key: z.string(),
-	updatedAt: z.string(),
-	value: z.string().nullable(),
-	updatedByUserId: z.string().nullable(),
-});
-
-const setAppConfigResponseSchema = z.object({
-	config_value: appConfigValueSchema,
-});
+const setAppConfigResponseSchema = dataSchema(
+	z.object({
+		key: z.string(),
+		updatedAt: z.string(),
+		value: z.string().nullable(),
+		updatedByUserId: z.string().nullable(),
+	}),
+);
 
 const setAppConfigRoute = createAuthRoute(
 	createRoute({
@@ -36,7 +37,10 @@ const setAppConfigRoute = createAuthRoute(
 		},
 		responses: {
 			400: payloadValidationErrorResponse,
-			401: errorJsonResponse("Request is unauthenticated"),
+			401: errorJsonResponse(
+				"Request is unauthenticated",
+				ERROR_CODES.UNAUTHENTICATED,
+			),
 			200: jsonResponse("Config value was saved", setAppConfigResponseSchema),
 		},
 	}),
@@ -56,12 +60,10 @@ export const appConfigApi = new OpenAPIHono<{ Variables: AuthType }>().openapi(
 		});
 
 		return c.json(
-			{
-				config_value: {
-					...configValue,
-					updatedAt: configValue.updatedAt.toISOString(),
-				},
-			},
+			successResponse({
+				...configValue,
+				updatedAt: configValue.updatedAt.toISOString(),
+			}),
 			200,
 		);
 	},
