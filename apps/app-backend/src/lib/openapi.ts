@@ -13,10 +13,18 @@ export const ERROR_CODES = {
 
 export const successResponse = <T>(data: T) => ({ data });
 
-export const paginatedResponse = <T>(
-	data: T[],
-	meta: { total: number; page: number; hasMore: boolean },
-) => ({ data, meta });
+export const paginationMetaSchema = z.object({
+	page: z.number().int().positive(),
+	total: z.number().int().nonnegative(),
+	hasMore: z.boolean(),
+});
+
+export type PaginationMeta = z.infer<typeof paginationMetaSchema>;
+
+export const paginatedResponse = <T>(data: T[], meta: PaginationMeta) => ({
+	data,
+	meta,
+});
 
 export const errorResponse = (code: string, message: string) => ({
 	error: { code, message },
@@ -28,11 +36,7 @@ export const dataSchema = <T extends z.ZodType>(schema: T) =>
 export const paginatedSchema = <T extends z.ZodType>(itemSchema: T) =>
 	z.object({
 		data: z.array(itemSchema),
-		meta: z.object({
-			hasMore: z.boolean(),
-			page: z.number().int().positive(),
-			total: z.number().int().nonnegative(),
-		}),
+		meta: paginationMetaSchema,
 	});
 
 export const errorSchema = z.object({
