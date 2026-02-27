@@ -1,12 +1,21 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { sql } from "drizzle-orm";
 import { db } from "~/db";
-import { errorJsonResponse, jsonResponse } from "~/lib/openapi";
+import {
+	dataSchema,
+	ERROR_CODES,
+	errorJsonResponse,
+	errorResponse,
+	jsonResponse,
+	successResponse,
+} from "~/lib/openapi";
 import { redis } from "~/lib/redis";
 
-const healthResponseSchema = z.object({
-	status: z.literal("healthy"),
-});
+const healthResponseSchema = dataSchema(
+	z.object({
+		status: z.literal("healthy"),
+	}),
+);
 
 const healthRoute = createRoute({
 	tags: ["health"],
@@ -14,7 +23,10 @@ const healthRoute = createRoute({
 	method: "get",
 	summary: "Check backend health",
 	responses: {
-		503: errorJsonResponse("Database or Redis checks failed"),
+		503: errorJsonResponse(
+			"Database or Redis checks failed",
+			ERROR_CODES.HEALTH_CHECK_FAILED,
+		),
 		200: jsonResponse("Database and Redis checks passed", healthResponseSchema),
 	},
 });
@@ -24,9 +36,10 @@ export const healthApi = new OpenAPIHono().openapi(healthRoute, async (c) => {
 		await db.execute(sql`SELECT 1`);
 	} catch (error) {
 		return c.json(
-			{
-				error: `Database check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-			},
+			errorResponse(
+				ERROR_CODES.HEALTH_CHECK_FAILED,
+				`Database check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+			),
 			503,
 		);
 	}
@@ -35,12 +48,13 @@ export const healthApi = new OpenAPIHono().openapi(healthRoute, async (c) => {
 		await redis.ping();
 	} catch (error) {
 		return c.json(
-			{
-				error: `Redis check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-			},
+			errorResponse(
+				ERROR_CODES.HEALTH_CHECK_FAILED,
+				`Redis check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+			),
 			503,
 		);
 	}
 
-	return c.json({ status: "healthy" } as const, 200);
+	return c.json(successResponse({ status: "healthy" as const }), 200);
 });
