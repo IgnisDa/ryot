@@ -1,16 +1,31 @@
-import { type Config, config } from "~/lib/config";
-import { apiFailure, apiSuccess } from "~/sandbox/types";
+import { eq } from "drizzle-orm";
+import { db } from "~/db";
+import { appConfig } from "~/db/schema";
+import { isAppConfigKey } from "~/lib/app-config";
+import {
+	apiFailure,
+	apiSuccess,
+	type ConfigValueResult,
+} from "~/sandbox/types";
 
-const isConfigKey = (key: string): key is keyof Config =>
-	Object.hasOwn(config, key);
-
-export const getAppConfigValue = (key: unknown) => {
+export const getAppConfigValue = async (
+	key: unknown,
+): Promise<ConfigValueResult> => {
 	if (typeof key !== "string" || !key.trim())
 		return apiFailure("getAppConfigValue expects a non-empty key string");
 
 	const trimmedKey = key.trim();
-	if (!isConfigKey(trimmedKey))
+	if (!isAppConfigKey(trimmedKey))
 		return apiFailure(`Config key "${trimmedKey}" does not exist`);
 
-	return apiSuccess(config[trimmedKey]);
+	const [foundConfig] = await db
+		.select({ value: appConfig.value })
+		.from(appConfig)
+		.where(eq(appConfig.key, trimmedKey))
+		.limit(1);
+
+	if (!foundConfig)
+		return apiFailure(`Config key "${trimmedKey}" does not exist`);
+
+	return apiSuccess(foundConfig.value);
 };
