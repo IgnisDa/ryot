@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginatedSchema } from "~/lib/openapi";
 import {
 	createImportEnvelopeSchema,
 	nonEmptyTrimmedStringSchema,
@@ -27,14 +28,7 @@ export const schemaSearchItemSchema = z.object({
 	publish_year: nullableIntSchema.optional(),
 });
 
-export const schemaSearchResponse = z.object({
-	data: z.array(schemaSearchItemSchema),
-	meta: z.object({
-		hasMore: z.boolean(),
-		page: z.number().int().positive(),
-		total: z.number().int().nonnegative(),
-	}),
-});
+export const schemaSearchResponse = paginatedSchema(schemaSearchItemSchema);
 
 export type SchemaSearchBody = z.infer<typeof schemaSearchBody>;
 export type SchemaImportBody = z.infer<typeof schemaImportBody>;
