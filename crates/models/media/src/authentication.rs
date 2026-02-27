@@ -106,7 +106,7 @@ pub struct OidcTokenOutput {
     pub subject: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateAccessLinkInput {
     pub name: String,
     pub maximum_uses: Option<i32>,
@@ -213,4 +213,16 @@ pub struct SetPasswordViaSessionInput {
     #[graphql(secret)]
     pub password: String,
     pub session_id: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct GenerateUserImpersonationLinkInput {
+    pub user_id: String,
+    #[graphql(secret)]
+    pub admin_access_token: String,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct GenerateUserImpersonationLinkResponse {
+    pub impersonation_url: String,
 }
