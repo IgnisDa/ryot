@@ -1,4 +1,4 @@
-import type { AppType } from "@ryot/app-backend";
+import type { AppType } from "@ryot/app-backend/app/api";
 import { hc } from "hono/client";
 import { createContext, type ReactNode, useContext } from "react";
 
