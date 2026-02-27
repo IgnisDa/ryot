@@ -2,6 +2,46 @@ import type { RouteConfig } from "@hono/zod-openapi";
 import { z } from "@hono/zod-openapi";
 import { requireAuth } from "~/auth/middleware";
 
+export const ERROR_CODES = {
+	UNAUTHENTICATED: "unauthenticated",
+	VALIDATION_FAILED: "validation_failed",
+	NOT_FOUND: "not_found",
+	INTERNAL_ERROR: "internal_error",
+	TIMEOUT: "timeout",
+	HEALTH_CHECK_FAILED: "health_check_failed",
+} as const;
+
+export const successResponse = <T>(data: T) => ({ data });
+
+export const paginatedResponse = <T>(
+	data: T[],
+	meta: { total: number; page: number; hasMore: boolean },
+) => ({ data, meta });
+
+export const errorResponse = (code: string, message: string) => ({
+	error: { code, message },
+});
+
+export const dataSchema = <T extends z.ZodType>(schema: T) =>
+	z.object({ data: schema });
+
+export const paginatedSchema = <T extends z.ZodType>(itemSchema: T) =>
+	z.object({
+		data: z.array(itemSchema),
+		meta: z.object({
+			total: z.number().int().nonnegative(),
+			page: z.number().int().positive(),
+			hasMore: z.boolean(),
+		}),
+	});
+
+export const errorSchema = z.object({
+	error: z.object({
+		code: z.string(),
+		message: z.string(),
+	}),
+});
+
 export const errorResponseSchema = z.object({
 	error: z.string(),
 });
@@ -27,8 +67,8 @@ export const pathParamValidationErrorResponse = jsonResponse(
 	unknownObjectSchema,
 );
 
-export const errorJsonResponse = (description: string) =>
-	jsonResponse(description, errorResponseSchema);
+export const errorJsonResponse = (description: string, code: string) =>
+	jsonResponse(description, errorSchema);
 
 export const createAuthRoute = <TRoute extends RouteConfig>(
 	route: TRoute,
