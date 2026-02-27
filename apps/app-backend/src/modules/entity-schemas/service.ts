@@ -1,5 +1,6 @@
 import type { StatusCode } from "hono/utils/http-status";
 import { fromJSONSchema, z } from "zod";
+import { paginatedResponse } from "~/lib/openapi";
 import { positiveIntSchema } from "~/lib/zod/base";
 import {
 	getScriptById,
@@ -73,16 +74,13 @@ export const runSchemaSearch = async (input: {
 	if (!parsedResult.success)
 		return failure("Search script returned invalid payload", 500);
 
-	const transformedData = {
-		data: parsedResult.data.items,
-		meta: {
+	return success(
+		paginatedResponse(parsedResult.data.items, {
 			page: input.body.page,
 			total: parsedResult.data.details.total_items,
 			hasMore: parsedResult.data.details.next_page !== null,
-		},
-	};
-
-	return success(transformedData);
+		}),
+	);
 };
 
 const parseImportedPayload = (input: {
