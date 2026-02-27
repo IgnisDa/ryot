@@ -1,10 +1,6 @@
-import {
-	apiFailure,
-	apiSuccess,
-	type ConfigValueResult,
-} from "~/sandbox/types";
+import { apiFailure, apiSuccess } from "~/sandbox/types";
 
-export const getUserConfigValue = (key: unknown): ConfigValueResult => {
+export const getUserConfigValue = (key: unknown) => {
 	if (typeof key !== "string" || !key.trim())
 		return apiFailure("getUserConfigValue expects a non-empty key string");
 
