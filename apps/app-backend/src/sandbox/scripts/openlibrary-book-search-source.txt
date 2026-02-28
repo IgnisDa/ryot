@@ -16,7 +16,7 @@ const params = new URLSearchParams({
 	type: "work",
 	limit: String(pageSize),
 	offset: String((currentPage - 1) * pageSize),
-	fields: "key,title,author_name,cover_i,first_publishYear",
+	fields: "key,title,author_name,cover_i,first_publish_year",
 });
 
 const response = await httpCall(
