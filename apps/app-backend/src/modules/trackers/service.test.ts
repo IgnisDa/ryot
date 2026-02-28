@@ -84,21 +84,56 @@ it.effect("returns not found when updating a tracker the user does not own", () 
 });
 
 it.effect("reorders requested trackers and appends the remaining ids", () => {
-	let persistedIds: ReadonlyArray<string> = [];
+	const persistedOrder: Array<{ trackerId: string; sortOrder: number | undefined }> = [];
+	const sortOrderById = new Map([
+		["tracker-a", 0],
+		["tracker-b", 1],
+		["tracker-c", 2],
+	]);
 
 	const layer = makeServiceLayer(
 		makeTrackersRepository({
 			countOwnedByIds: () => Effect.succeed(2),
-			listIdsInOrder: () =>
-				Effect.succeed([
-					TrackerId.make("tracker-a"),
-					TrackerId.make("tracker-b"),
-					TrackerId.make("tracker-c"),
-				]),
-			persistOrder: (_userId, trackerIds) =>
+			listInOrder: () =>
+				Effect.succeed(
+					["tracker-a", "tracker-b", "tracker-c"].map((id) => ({
+						config: {},
+						icon: "rocket",
+						name: id,
+						slug: id,
+						description: null,
+						isBuiltin: false,
+						isDisabled: false,
+						accentColor: "#FF5733",
+						id: TrackerId.make(id),
+						sortOrder: sortOrderById.get(id) ?? 0,
+					})),
+				),
+			getOwnedById: (_userId, trackerId) =>
+				Effect.succeed({
+					id: trackerId,
+					slug: trackerId,
+					name: trackerId,
+					icon: "rocket",
+					description: null,
+					isBuiltin: false,
+					accentColor: "#FF5733",
+				}),
+			updateOwned: (input) =>
 				Effect.sync(() => {
-					persistedIds = trackerIds;
-					return trackerIds;
+					persistedOrder.push({ trackerId: input.trackerId, sortOrder: input.sortOrder });
+					return {
+						config: {},
+						icon: input.icon,
+						name: input.name,
+						slug: input.slug,
+						isBuiltin: false,
+						isDisabled: input.isDisabled,
+						id: input.trackerId,
+						accentColor: input.accentColor,
+						description: input.description,
+						sortOrder: input.sortOrder ?? 0,
+					};
 				}),
 		}),
 	);
@@ -110,7 +145,11 @@ it.effect("reorders requested trackers and appends the remaining ids", () => {
 		});
 
 		expect(reordered).toEqual({ trackerIds: ["tracker-c", "tracker-a", "tracker-b"] });
-		expect(persistedIds).toEqual(["tracker-c", "tracker-a", "tracker-b"]);
+		expect(persistedOrder).toEqual([
+			{ trackerId: "tracker-c", sortOrder: 0 },
+			{ trackerId: "tracker-a", sortOrder: 1 },
+			{ trackerId: "tracker-b", sortOrder: 2 },
+		]);
 	}).pipe(Effect.provide(layer));
 });
 
