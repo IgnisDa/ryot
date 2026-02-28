@@ -55,9 +55,9 @@ Derived from the plan §2 done criteria and cross-phase invariants:
       browser-extension integration suites are re-pointed with assertions preserved
 - [x] The branch stays shippable: backend `check` + unit tests and the `app-client` /
       `browser-extension` checks pass; the e2e suite is green for everything this step touches
-      (a new `tests/src/tests/plugins/operations.test.ts` covers dispatch, unknown plugin/operation,
+      (a new `tests/src/tests/kernel/plugins/operations.test.ts` covers dispatch, unknown plugin/operation,
       input-schema violation, and declared-auth enforcement). **Resolved as a task-03 follow-up:**
-      `tests/src/tests/fitness/workout-templates.test.ts` and `tests/src/tests/fitness/workouts.test.ts`
+      `tests/src/tests/plugins/fitness/workout-templates.test.ts` and `tests/src/tests/plugins/fitness/workouts.test.ts`
       had no exercise-seeding source once task 03 moved exercise preload behind a manual cron trigger
       that only `exercises.test.ts` / `god-mode/cron-trending.test.ts` called; `waitForSeededExerciseIds`
       polled but nothing seeded the catalog. The fix moves exercise preload off the periodic `crons`

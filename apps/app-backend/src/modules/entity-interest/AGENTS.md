@@ -130,5 +130,5 @@ The module deliberately reuses existing infrastructure rather than reimplementin
 
 - Keep `routes.ts` thin. Interest registration and declaration orchestration live in `InterestService`, row reconciliation lives in `InterestReconciler`, and transport lives in `stream.ts`/`registry.ts`.
 - Wire schemas and the `reason` vocabulary both stay in `messages.ts`. Don't redefine either inline.
-- When the protocol or behavior changes, update this file, the reference client `tests/src/fixtures/interest-sse.ts`, and the e2e tests (`tests/src/tests/entity-interest/authz.test.ts`, `tests/src/tests/entity-interest/population-dispatch.test.ts`, `tests/src/tests/query-engine/translation-status.test.ts`).
+- When the protocol or behavior changes, update this file, the reference client `tests/src/fixtures/interest-sse.ts`, and the e2e tests (`tests/src/tests/kernel/entity-interest/authz.test.ts`, `tests/src/tests/kernel/entity-interest/population-dispatch.test.ts`, `tests/src/tests/kernel/query-engine/translation-status.test.ts`).
 - Any new completion `reason` must be added to `EntityUpdatedReason` in `messages.ts` and threaded through `handleRow`'s terminal mapping and both publisher workflows.

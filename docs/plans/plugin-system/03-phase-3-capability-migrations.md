@@ -143,7 +143,7 @@ query-engine-based; if any native read code remains, it moves to a saved view / 
 waits for step 2's operations.
 
 Delete: `modules/media-trending`, `modules/exercises` (and their contract surface if any —
-check `libs/contract`). E2e: `tests/src/tests/exercises/` re-pointed to rely on boot dispatch
+check `libs/contract`). E2e: `tests/src/tests/plugins/fitness/exercises.test.ts` re-pointed to rely on boot dispatch
 (no manual trigger needed) + trending coverage re-pointed (cron trigger fixture already
 exists: `triggerPluginCron`).
 
@@ -546,7 +546,7 @@ The redaction is a **deliberate behavioral change with owner sign-off**, not a q
 so every read of an integration hands the client the stored API keys, passwords, and auth cookies
 in plaintext. Redaction composes correctly with the existing merge-preserve on update
 (`service.ts` spreads existing specifics then the request body), which is the behavior asserted by
-`tests/src/tests/integrations/integrations.test.ts` and stays intact. Credentials remain plaintext
+`tests/src/tests/kernel/integrations/integrations.test.ts` and stays intact. Credentials remain plaintext
 `jsonb` at rest; encryption at rest is explicitly out of scope for this plan.
 
 **Manifest section `importSources`, and one import dispatch path** [DECIDED]. A plugin declares:
