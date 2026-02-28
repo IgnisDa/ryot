@@ -1,14 +1,12 @@
 import {
 	buildQueryEngineEntityRowsDocument,
 	buildQueryEngineEventRowsDocument,
-	queryEngineEntitySource,
 	queryEngineFields,
 } from "../documents";
 import {
 	queryEngineAnd,
 	queryEngineComparison,
 	queryEngineComputedRef,
-	queryEngineExists,
 	queryEngineField,
 	queryEngineIdentityFields,
 	queryEngineLiteral,
@@ -153,35 +151,17 @@ export const buildEventHistoryQueryDocument = (input: {
 export const buildDefaultSavedViewQueryDocument = <
 	TOrderBy extends QueryEngineNonEmptyArray<unknown> | undefined,
 >(input: {
-	schemas: QueryEngineNonEmptyArray<string>;
-	requireInLibrary?: boolean | undefined;
 	orderBy?: TOrderBy;
 	page?: number | undefined;
 	limit?: number | undefined;
-}) => {
-	const where = input.requireInLibrary
-		? queryEngineExists(
-				queryEngineEntitySource({
-					alias: "library",
-					schemas: ["library"],
-					where: null,
-					via: {
-						alias: "inLibrary",
-						entityRef: entityAlias,
-						direction: "outgoing" as const,
-						schema: "in-library",
-					},
-				}),
-			)
-		: null;
-
-	return buildQueryEngineEntityRowsDocument({
-		alias: entityAlias,
+	schemas: QueryEngineNonEmptyArray<string>;
+}) =>
+	buildQueryEngineEntityRowsDocument({
+		where: null,
 		page: input.page,
 		limit: input.limit,
+		alias: entityAlias,
 		schemas: input.schemas,
-		where,
-		fields: queryEngineIdentityFields(entityAlias),
 		orderBy: input.orderBy,
+		fields: queryEngineIdentityFields(entityAlias),
 	});
-};

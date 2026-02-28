@@ -10,6 +10,10 @@
 			"types": "./import-sources.ts",
 			"default": "./import-sources.ts"
 		},
+		"./query-recipes": {
+			"types": "./query-recipes.ts",
+			"default": "./query-recipes.ts"
+		},
 		"./schemas/property-schemas": {
 			"types": "./schemas/property-schemas.ts",
 			"default": "./schemas/property-schemas.ts"
