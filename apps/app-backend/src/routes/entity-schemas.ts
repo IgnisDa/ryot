@@ -18,7 +18,7 @@ import {
 	nullableIntSchema,
 	nullableStringSchema,
 	positiveIntSchema,
-} from "../lib/zod";
+} from "../lib/zod/base";
 import { getSandboxService } from "../sandbox";
 import {
 	getAppConfigValue,
