@@ -196,6 +196,7 @@ export function MediaTrackerOverview() {
 	const insets = useSafeAreaInsets();
 	const { width } = useWindowDimensions();
 	const isTablet = width >= 768;
+	const isDesktop = width >= 1024;
 	const setNavSheetOpen = useSetNavSheetOpen();
 
 	return (
@@ -204,7 +205,7 @@ export function MediaTrackerOverview() {
 				showsVerticalScrollIndicator={false}
 				contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
 			>
-				<Box className="w-full web:mx-auto web:max-w-[860px]">
+				<Box className="w-full web:mx-auto web:max-w-screen-xl">
 					{/* Page header */}
 					<Box className="px-[28]" style={{ paddingTop: insets.top + 16 }}>
 						{!isTablet && (
@@ -232,17 +233,34 @@ export function MediaTrackerOverview() {
 						</Box>
 					</Box>
 
-					{/* Story rings — scrolls edge-to-edge with its own padding */}
-					<Box className="mt-6">
-						<StoryRingRow items={FAKE_CONTINUE} />
-					</Box>
+					{isDesktop ? (
+						<Box className="mt-6 flex-row px-[28]" style={{ gap: 32 }}>
+							{/* Left column — main content (~65%) */}
+							<Box className="flex-1">
+								<StoryRingRow items={FAKE_CONTINUE} wrap />
+								<UpNextSection items={FAKE_UP_NEXT} />
+							</Box>
+							{/* Right column — sidebar (~35%) */}
+							<Box style={{ width: "35%" }}>
+								<RateTheseSection items={FAKE_RATE_THESE} />
+								<ActivitySection items={FAKE_ACTIVITY} />
+							</Box>
+						</Box>
+					) : (
+						<>
+							{/* Story rings — scrolls edge-to-edge with its own padding */}
+							<Box className="mt-6">
+								<StoryRingRow items={FAKE_CONTINUE} />
+							</Box>
 
-					{/* Feed sections */}
-					<Box className="px-[28]">
-						<UpNextSection items={FAKE_UP_NEXT} />
-						<RateTheseSection items={FAKE_RATE_THESE} />
-						<ActivitySection items={FAKE_ACTIVITY} />
-					</Box>
+							{/* Feed sections */}
+							<Box className="px-[28]">
+								<UpNextSection items={FAKE_UP_NEXT} />
+								<RateTheseSection items={FAKE_RATE_THESE} />
+								<ActivitySection items={FAKE_ACTIVITY} />
+							</Box>
+						</>
+					)}
 				</Box>
 			</ScrollView>
 
