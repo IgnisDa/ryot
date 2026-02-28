@@ -8,6 +8,13 @@
 			"when": 1771991162055,
 			"tag": "0000_normal_meltdown",
 			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1772080200000,
+			"tag": "0001_sturdy_script_pairing",
+			"breakpoints": true
 		}
 	]
 }
