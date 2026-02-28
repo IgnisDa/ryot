@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { AuthType } from "../auth";
 import { successResponse } from "../lib/response";
-import { nonEmptyStringSchema } from "../lib/zod";
+import { nonEmptyStringSchema } from "../lib/zod/base";
 import { getSandboxService } from "../sandbox";
 import {
 	getAppConfigValue,
