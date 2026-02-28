@@ -22,7 +22,7 @@ import type {
 	SavedViewQueryDefinition,
 } from "../saved-views/schemas";
 import { executeAggregateQuery } from "./aggregate-query-builder";
-import { type PreparedQueryContext } from "./context";
+import type { PreparedQueryContext } from "./context";
 import { executePreparedQuery } from "./entity-query-builder";
 import { executeEventQuery } from "./event-query-builder";
 import {
