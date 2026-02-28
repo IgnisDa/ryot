@@ -389,28 +389,51 @@ the existing entity-language row and delegates the write to the appropriate serv
 
 ### Current state
 
-`ImportsService` exposes orchestration methods such as `startImportRun`, `createRunForIntegration`,
-`removeImportRun`, and `failRunForIntegration`. The repository has the row-level `createRun`,
-`updateRun`, and `deleteRunById` operations, but import workflows call `updateRun` directly. The
-separate `import_run_failure` table is also written directly through `ImportsRepository.createFailure`.
+Implemented. `ImportsService` exposes canonical `create`, `update`, and `delete` entry points for
+single `import_run` rows. Import orchestration, status helpers, and import workflows delegate their
+writes through that service. `ImportRunFailuresService` separately owns single-row
+`import_run_failure` creation, while read-only import-run queries remain in `ImportsRepository`.
 
 ### Checklist
 
-- [ ] Keep `create` as the single canonical `import_run` creation entry point for one run at a time.
+- [x] Keep `create` as the single canonical `import_run` creation entry point for one run at a time.
   File claiming, source-payload storage, queueing, and failure compensation remain orchestration in
   `startImportRun`, `createRunForIntegration`, and related helpers; those helpers must delegate to
   `create` rather than implement creation modes.
-- [ ] Keep `update` as the single canonical `import_run` update entry point for one run at a time.
+- [x] Keep `update` as the single canonical `import_run` update entry point for one run at a time.
   Status, progress, finalization, and failure helpers may remain service-level wrappers, but they must
   delegate to `update` without adding independent write methods such as `markStarted`, `fail`, or
   `updateProgress`.
-- [ ] Keep `delete` as the single canonical `import_run` deletion entry point for one run at a time.
+- [x] Keep `delete` as the single canonical `import_run` deletion entry point for one run at a time.
   `removeImportRun` may remain as a convenience wrapper that retains the existing terminal-status
   check before delegating to `delete`; it must not implement a second write path.
-- [ ] Give `import_run_failure` an explicit owning service with its own narrow `create` entry point.
+- [x] Give `import_run_failure` an explicit owning service with its own narrow `create` entry point.
   Failure creation must not be folded into `import_run` CRUD.
-- [ ] Stop all import workflows and status helpers from using repository write helpers directly while
+- [x] Stop all import workflows and status helpers from using repository write helpers directly while
   preserving asynchronous status updates, failure recording, cleanup, and queue behavior.
+
+### Implementation notes
+
+- `ImportsService.create`, `update`, and `delete` accept branded, single-run inputs and are the only
+  service methods that call `ImportsRepository.createRun`, `updateRun`, and `deleteRunById`.
+  `startImportRun`, its file/source-payload branches, `createRunForIntegration`, and
+  `removeImportRun` retain their orchestration and validation while delegating the row writes.
+- `ImportRunFailuresService.create` is a separate owning service for `import_run_failure`. Status and
+  workflow failure helpers use it for failure rows and use `ImportsService.update` for run state.
+  The service is included in application layer wiring alongside `ImportsService`.
+- Non-media progress/finalization, normalized-media progress/finalization, shared media progress
+  reporting, integration failure handling, and import lifecycle failure handling no longer use import
+  repository write helpers directly. Integration worker repository access remains read-only for run
+  status inspection.
+- The `ProcessImportRunWorkflow` definition now lives in a leaf module and its live implementation is
+  in `import-run-workflow-live.ts`. `ImportRunError` and its error conversion were also extracted to a
+  leaf module. This avoids the `ImportsService` to workflow to status-helper cycle introduced when
+  status helpers began using `ImportsService`; runtime behavior and activity boundaries are unchanged.
+- `failRunForIntegration` keeps its existing failure row and failed-run count behavior by directly
+  orchestrating `ImportRunFailuresService.create` followed by `ImportsService.update`, rather than
+  importing the status-helper module through that cycle.
+- Focused service, failure-service, status, media, non-media, normalized-media, and integration
+  workflow tests cover the delegated write inputs and preserved orchestration behavior.
 
 ## God Mode Service
 

@@ -4,33 +4,45 @@ import { Effect, Layer } from "effect";
 import { expect as vitestExpect } from "vitest";
 
 import type { MockOverrides } from "#lib/test-support/effect";
-import { dbRunnerLayer } from "#lib/test-support/effect";
 
-import { ImportsRepository } from "../repository";
+import { ImportRunFailuresService } from "../failure-service";
+import { ImportsService } from "../service";
 import { failImportRunWithFailures, markImportRunStarted } from "./import-run-status";
 
-const mockImportsRepository = Layer.mock(ImportsRepository);
+const mockImportRunFailuresService = Layer.mock(ImportRunFailuresService);
+const mockImportsService = Layer.mock(ImportsService);
 
-const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
-	mockImportsRepository({
-		_tag: "ImportsRepository",
-		updateRun: () => Effect.void,
-		createFailure: () => Effect.void,
+const makeImportRunFailuresService = (
+	overrides: MockOverrides<typeof mockImportRunFailuresService> = {},
+) =>
+	mockImportRunFailuresService({
+		_tag: "ImportRunFailuresService",
+		create: () => Effect.void,
 		...overrides,
 	});
 
-const makeTestLayer = (importsRepository: Layer.Layer<ImportsRepository>) =>
-	Layer.mergeAll(dbRunnerLayer, importsRepository);
+const makeImportsService = (overrides: MockOverrides<typeof mockImportsService> = {}) =>
+	mockImportsService({
+		_tag: "ImportsService",
+		update: () => Effect.void,
+		...overrides,
+	});
+
+const makeTestLayer = (
+	importsService: Layer.Layer<ImportsService>,
+	importRunFailuresService: Layer.Layer<ImportRunFailuresService>,
+) => Layer.mergeAll(importsService, importRunFailuresService);
 
 it.effect("marks import runs as running", () => {
 	const updates: Array<Record<string, unknown>> = [];
 	const layer = makeTestLayer(
-		makeImportsRepository({
-			updateRun: (input) => {
+		makeImportsService({
+			update: (input) => {
 				updates.push(input);
 				return Effect.void;
 			},
 		}),
+		makeImportRunFailuresService(),
 	);
 
 	return Effect.gen(function* () {
@@ -43,16 +55,18 @@ it.effect("marks import runs as running", () => {
 });
 
 it.effect("records failures and final failed run counts", () => {
-	const failures: Array<Record<string, unknown>> = [];
 	const updates: Array<Record<string, unknown>> = [];
+	const failures: Array<Record<string, unknown>> = [];
 	const layer = makeTestLayer(
-		makeImportsRepository({
-			createFailure: (input) => {
-				failures.push(input);
+		makeImportsService({
+			update: (input) => {
+				updates.push(input);
 				return Effect.void;
 			},
-			updateRun: (input) => {
-				updates.push(input);
+		}),
+		makeImportRunFailuresService({
+			create: (input) => {
+				failures.push(input);
 				return Effect.void;
 			},
 		}),
