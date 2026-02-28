@@ -3,7 +3,7 @@ import { BunContext, BunRuntime } from "@effect/platform-bun";
 import { renderConfigReference } from "@ryot/config";
 import { Config, ConfigProvider, Effect, Layer } from "effect";
 
-import { AppLive, MigrationOnlyLive, SandboxCacheOnlyLive } from "./app/layers";
+import { AppLive, MigrationOnlyLive } from "./app/layers";
 import { appConfigDefinition } from "./lib/infrastructure/config/definition";
 import { bootPluginSources } from "./modules/plugins/boot-sources";
 
@@ -19,23 +19,15 @@ const onShutdownSignal = () => {
 process.on("SIGINT", onShutdownSignal);
 process.on("SIGTERM", onShutdownSignal);
 
-const { nodeEnv, runMigrationOnly, prepareSandboxRuntimeOnly } = await Effect.runPromise(
+const { nodeEnv, runMigrationOnly } = await Effect.runPromise(
 	Config.all({
 		nodeEnv: Config.string("NODE_ENV").pipe(Config.withDefault("development")),
 		runMigrationOnly: Config.boolean("RUN_MIGRATION_ONLY").pipe(Config.withDefault(false)),
-		prepareSandboxRuntimeOnly: Config.boolean("PREPARE_SANDBOX_RUNTIME_ONLY").pipe(
-			Config.withDefault(false),
-		),
 	}).pipe(Effect.withConfigProvider(ConfigProvider.fromEnv())),
 );
 
 if (runMigrationOnly) {
 	await Effect.runPromise(Effect.scoped(Layer.build(MigrationOnlyLive)));
-	process.exit(0);
-}
-
-if (prepareSandboxRuntimeOnly) {
-	await Effect.runPromise(Effect.scoped(Layer.build(SandboxCacheOnlyLive)));
 	process.exit(0);
 }
 
