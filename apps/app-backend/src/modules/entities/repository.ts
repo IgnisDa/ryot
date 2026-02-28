@@ -14,7 +14,7 @@ import {
 	toListedEntity,
 } from "./repository-support";
 
-export type SaveEntityInputBase = {
+export type InsertEntityInputBase = {
 	name: string;
 	entitySchemaId: EntitySchemaId;
 } & (
@@ -23,18 +23,23 @@ export type SaveEntityInputBase = {
 			externalId: string;
 			populatedAt: Date | null;
 			sandboxScriptId: SandboxScriptId;
-			onConflict?: "preserveExisting" | "replaceExisting" | undefined;
 	  }
 	| {
 			scope: "user";
 			userId: UserId;
 			externalId?: string | undefined;
 			sandboxScriptId?: SandboxScriptId | undefined;
-			onConflict?: "preserveExisting" | "replaceExisting" | undefined;
 	  }
 );
 
-export type SaveEntityInput = SaveEntityInputBase & { properties: Record<string, unknown> };
+export type InsertEntityInput = InsertEntityInputBase & { properties: Record<string, unknown> };
+
+export type UpdateEntityInput = {
+	name: string;
+	entityId: EntityId;
+	populatedAt: Date | null;
+	properties: Record<string, unknown>;
+};
 
 export type {
 	EntityScope,
@@ -310,8 +315,8 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				: null;
 		});
 
-		const saveEntity = Effect.fn("EntitiesRepository.saveEntity")(function* (
-			input: SaveEntityInput,
+		const insertEntity = Effect.fn("EntitiesRepository.insertEntity")(function* (
+			input: InsertEntityInput,
 		) {
 			const db = yield* CurrentDb;
 
@@ -351,42 +356,6 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 
 				if (!existing) {
 					return yield* new DbError({ message: "Global entity insert conflict but not found" });
-				}
-
-				if (input.onConflict === "replaceExisting") {
-					const [updated] = yield* dbEffect(() =>
-						db
-							.update(schema.entity)
-							.set({
-								name: input.name,
-								properties: input.properties,
-								populatedAt: input.populatedAt,
-							})
-							.where(eq(schema.entity.id, existing.id))
-							.returning(entitySelection),
-					);
-
-					if (updated) {
-						return toListedEntity(updated);
-					}
-				}
-
-				if (input.populatedAt !== null && existing.populatedAt === null) {
-					const [updated] = yield* dbEffect(() =>
-						db
-							.update(schema.entity)
-							.set({
-								name: input.name,
-								properties: input.properties,
-								populatedAt: input.populatedAt,
-							})
-							.where(and(eq(schema.entity.id, existing.id), isNull(schema.entity.populatedAt)))
-							.returning(entitySelection),
-					);
-
-					if (updated) {
-						return toListedEntity(updated);
-					}
 				}
 
 				return toListedEntity(existing);
@@ -459,17 +428,41 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			return toListedEntity(row);
 		});
 
+		const updateEntity = Effect.fn("EntitiesRepository.updateEntity")(function* (
+			input: UpdateEntityInput,
+		) {
+			const db = yield* CurrentDb;
+			const [updated] = yield* dbEffect(() =>
+				db
+					.update(schema.entity)
+					.set({
+						name: input.name,
+						properties: input.properties,
+						populatedAt: input.populatedAt,
+					})
+					.where(eq(schema.entity.id, input.entityId))
+					.returning(entitySelection),
+			);
+
+			if (!updated) {
+				return yield* new DbError({ message: "Entity update returned no row" });
+			}
+
+			return toListedEntity(updated);
+		});
+
 		return {
-			saveEntity,
+			insertEntity,
+			updateEntity,
 			getByIdForUser,
 			findEntitySchemaById,
 			getEntityScopeForUser,
 			getEntityMergeScopeForUser,
 			listMatchCandidatesBySchema,
 			getEntitySchemaScopeForUser,
-			findEntitySchemaSandboxScriptBySlug,
 			findGlobalEntityByExternalId,
 			findEntityByExternalIdForUser,
+			findEntitySchemaSandboxScriptBySlug,
 		};
 	},
 }) {}

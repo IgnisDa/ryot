@@ -169,23 +169,60 @@ remains an API route.
 
 ### Current state
 
-`EntitiesService` exposes both `save` and `create`. `create` handles request-specific normalization,
-validation, and provenance deduplication before delegating to `save`. `save` is also used by internal
-workflows and currently contains conflict behavior that can replace an existing global entity.
+Implemented. `EntitiesService` exposes one canonical `create` and one `update` entry point; the public
+`save` method is gone. `create` is idempotent (insert-or-return-existing) and never modifies an
+existing entity. `update` is the sole path for changing an existing entity, including the
+global-entity replacement behavior; every caller resolves the existing entity before invoking it.
+There is no `delete`.
 
 ### Checklist
 
-- [ ] Keep `create` as the single entity creation entry point for API and internal callers.
-- [ ] Allow `create` to be idempotent when a matching entity already exists, but do not let it modify
+- [x] Keep `create` as the single entity creation entry point for API and internal callers.
+- [x] Allow `create` to be idempotent when a matching entity already exists, but do not let it modify
   that existing entity.
-- [ ] Keep `update` as the single entry point for changes to an existing entity, including the current
+- [x] Keep `update` as the single entry point for changes to an existing entity, including the current
   global-entity replacement behavior. Callers must resolve the existing entity before invoking it;
   `create` must not replace an existing entity as a conflict mode.
-- [ ] Do not retain `save` as a public service write method.
-- [ ] Do not add entity deletion through this plan. If supported later, it will use the service's
+- [x] Do not retain `save` as a public service write method.
+- [x] Do not add entity deletion through this plan. If supported later, it will use the service's
   single `delete` entry point.
-- [ ] Keep the `create` and `update` inputs typed and focused on one entity operation. Callers must
+- [x] Keep the `create` and `update` inputs typed and focused on one entity operation. Callers must
   perform source-specific normalization and conflict resolution before invoking them.
+
+### Implementation notes
+
+- The repository `saveEntity` was split into `insertEntity` and `updateEntity`. `insertEntity` keeps
+  the idempotent `ON CONFLICT DO NOTHING` insert-or-return for both global and user-with-provenance
+  rows and drops the `onConflict` discriminator along with the two modify-existing branches
+  (`replaceExisting` and the `populatedAt` first-population upgrade). `updateEntity` writes `name`,
+  `properties`, and `populatedAt` by id. `SaveEntityInputBase`/`SaveEntityInput` were renamed to
+  `InsertEntityInputBase`/`InsertEntityInput`, and `UpdateEntityInput` was added.
+- `EntitiesService.create` takes a typed, scope-discriminated `CreateEntityInput` (the old
+  `SaveEntityInput` minus `onConflict`) rather than `(user, CreateEntityBody)`. HTTP-specific
+  normalization — provenance trimming, both/neither provenance shaping, and the empty-`entitySchemaId`
+  check — moved to the route, which builds the user-scoped input. `update` takes
+  `{ entityId, entitySchemaId, name, properties, populatedAt }`; it re-reads the schema by
+  `entitySchemaId` to validate properties before writing.
+- `create` now enforces the non-empty-name invariant (`requireText`) for every scope. Previously only
+  the API/user path validated the name; global provider-population writes accepted any string. This is
+  a deliberate, minor tightening (provider `details` drivers always supply a name) plus name trimming
+  for global rows.
+- Global-entity replacement is now caller-orchestrated. `provider-entity-population-workflow`'s
+  `writeEntityGraph` reads `findGlobalEntityByExternalId` inside its transaction, then `create`s a new
+  skeleton or, when the row exists, `update`s it on initial population / preserves it on refresh; the
+  final `populatedAt` stamp is a second `update`. `population.ts` `processNode` reads the same helper
+  per child and chooses `create` (absent), `update` (refresh, or an existing unpopulated skeleton), or
+  preserve (already-populated child). `media-trending`, `relationship-population`, the workout and
+  measurement importers, and the collections service call only `create`.
+- Known behavior consequence: the old first-population upgrade carried a `WHERE populatedAt IS NULL`
+  concurrency guard; the read-then-`update` flow replaces it with a caller-side
+  `existing.populatedAt === null` check performed inside the same transaction. This mirrors the
+  saved-views/trackers reorder refactors' read-modify-write window and is a direct consequence of the
+  plan's requirement that callers resolve the existing entity before calling `update`.
+- Test consequence: the "writes child entity trees idempotently" case now asserts the second run
+  performs zero entity writes (it reads the existing row and preserves it) instead of re-invoking an
+  idempotent writer. Workflow tests that keyed on the removed `onConflict` argument now assert the
+  `create`-versus-`update` selection driven by `findGlobalEntityByExternalId`.
 
 ## Relationships Service
 
