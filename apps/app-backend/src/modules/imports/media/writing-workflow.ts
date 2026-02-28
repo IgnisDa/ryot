@@ -16,7 +16,7 @@ import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
 
 import type { ImportRunJobData } from "../jobs";
-import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
+import { ImportRunError, toWorkflowError } from "../runtime/workflow-errors";
 import { resolveMediaEventTarget } from "./event-target-workflow";
 import { mediaEntityGroupItemIndex } from "./groups";
 import {
