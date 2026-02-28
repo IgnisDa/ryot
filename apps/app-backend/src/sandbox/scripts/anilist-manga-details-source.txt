@@ -158,19 +158,19 @@ return {
 	name: title,
 	externalId: payloadIdentifier,
 	properties: {
-		url: `https://anilist.co/manga/${payloadIdentifier}/${encodeURIComponent(title)}`,
-		genres: collectGenres(media.genres, media.tags),
-		assets: { remote_images: collectImages(media.coverImage, media.bannerImage) },
 		volumes,
 		chapters,
-		is_nsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
-		description: typeof media?.description === "string" ? media.description : null,
+		production_status: productionStatus,
+		genres: collectGenres(media.genres, media.tags),
 		publish_year: parsePublishYear(media.startDate),
+		is_nsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
+		assets: { remoteImages: collectImages(media.coverImage, media.bannerImage) },
+		description: typeof media?.description === "string" ? media.description : null,
+		url: `https://anilist.co/manga/${payloadIdentifier}/${encodeURIComponent(title)}`,
 		provider_rating:
 			typeof media?.averageScore === "number" &&
 			Number.isFinite(media.averageScore)
 				? media.averageScore
 				: null,
-		production_status: productionStatus,
 	},
 };

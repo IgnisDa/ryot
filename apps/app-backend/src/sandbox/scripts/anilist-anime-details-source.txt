@@ -200,21 +200,21 @@ return {
 	name: title,
 	externalId: payloadIdentifier,
 	properties: {
-		genres: collectGenres(media.genres, media.tags),
-		assets: { remote_images: collectImages(media.coverImage, media.bannerImage) },
-		is_nsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
 		episodes,
-		description: typeof media?.description === "string" ? media.description : null,
+		production_status: productionStatus,
 		publish_year: parsePublishYear(media.startDate),
+		genres: collectGenres(media.genres, media.tags),
+		is_nsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
+		assets: { remoteImages: collectImages(media.coverImage, media.bannerImage) },
+		description: typeof media?.description === "string" ? media.description : null,
+		airingSchedule: parseAiringSchedule(
+			media.airingSchedule,
+			media.nextAiringEpisode,
+		),
 		provider_rating:
 			typeof media?.averageScore === "number" &&
 			Number.isFinite(media.averageScore)
 				? media.averageScore
 				: null,
-		production_status: productionStatus,
-		airingSchedule: parseAiringSchedule(
-			media.airingSchedule,
-			media.nextAiringEpisode,
-		),
 	},
 };

@@ -220,7 +220,7 @@ return {
 		description: parseDescription(workPayload?.description),
 		sourceUrl: `https://openlibrary.org/works/${identifier}/${title}`,
 		assets: {
-			remote_images: [...coverIdSet].map(
+			remoteImages: [...coverIdSet].map(
 				(coverId) =>
 					`https://covers.openlibrary.org/b/id/${coverId}-M.jpg?default=false`,
 			),

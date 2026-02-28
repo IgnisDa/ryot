@@ -164,16 +164,14 @@ return {
 	externalId: identifier,
 	properties: {
 		pages,
+		publish_year: parsePublishYear(volumeInfo?.publishedDate),
+		assets: { remoteImages: collectImages(volumeInfo?.imageLinks) },
 		people: collectPeople(volumeInfo?.authors, volumeInfo?.publisher),
 		genres: collectGenres(volumeInfo?.categories, volumeInfo?.mainCategory),
-		publish_year: parsePublishYear(volumeInfo?.publishedDate),
+		sourceUrl: `https://www.google.co.in/books/edition/${title}/${identifier}`,
 		description:
 			typeof volumeInfo?.description === "string"
 				? volumeInfo.description
 				: null,
-		sourceUrl: `https://www.google.co.in/books/edition/${title}/${identifier}`,
-		assets: {
-			remote_images: collectImages(volumeInfo?.imageLinks),
-		},
 	},
 };
