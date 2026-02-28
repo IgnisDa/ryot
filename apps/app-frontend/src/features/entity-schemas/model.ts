@@ -10,7 +10,7 @@ export type AppEntitySchema = Omit<ApiEntitySchema, "propertiesSchema"> & {
 };
 
 export function sortEntitySchemas(entitySchemas: AppEntitySchema[]): AppEntitySchema[] {
-	return [...entitySchemas].sort((a, b) => {
+	return entitySchemas.toSorted((a, b) => {
 		if (a.name !== b.name) {
 			return a.name.localeCompare(b.name);
 		}

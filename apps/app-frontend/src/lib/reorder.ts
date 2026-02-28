@@ -20,8 +20,5 @@ export function applyReorderPatch<T extends { id: string; sortOrder: number }>(
 		}
 	}
 
-	return reordered.map((item, index) => ({
-		...item,
-		sortOrder: index + 1,
-	}));
+	return reordered.map((item, index) => Object.assign(item, { sortOrder: index + 1 }));
 }

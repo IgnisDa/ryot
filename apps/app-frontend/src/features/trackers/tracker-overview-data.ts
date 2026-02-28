@@ -56,7 +56,7 @@ export interface TrackerOverviewData {
 }
 
 function sortEntitiesByRecent(entities: AppEntity[]) {
-	return [...entities].sort((a, b) => {
+	return entities.toSorted((a, b) => {
 		const updatedAtDiff = dayjs(b.updatedAt).valueOf() - dayjs(a.updatedAt).valueOf();
 		if (updatedAtDiff !== 0) {
 			return updatedAtDiff;
@@ -189,7 +189,7 @@ export function useTrackerOverviewData(input: {
 			label: `Added ${entity.name}`,
 		})),
 	]
-		.sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf())
+		.toSorted((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf())
 		.slice(0, 5);
 
 	const recentEntityCards = recentEntities

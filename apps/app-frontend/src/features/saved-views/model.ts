@@ -8,7 +8,7 @@ export function isEntitySavedView(view: AppSavedView): view is AppEntitySavedVie
 }
 
 export function sortSavedViewsByOrder(views: AppSavedView[]): AppSavedView[] {
-	return [...views].sort((a, b) => {
+	return views.toSorted((a, b) => {
 		if (a.sortOrder !== b.sortOrder) {
 			return a.sortOrder - b.sortOrder;
 		}

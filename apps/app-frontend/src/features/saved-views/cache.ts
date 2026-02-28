@@ -24,10 +24,7 @@ export function applySavedViewReorderPatch(
 		}
 	}
 
-	const reorderedWithOrder = reordered.map((view, index) => ({
-		...view,
-		sortOrder: index + 1,
-	}));
+	const reorderedWithOrder = reordered.map((view, index) => Object.assign(view, { sortOrder: index + 1 }));
 
 	const reorderedMap = new Map(reorderedWithOrder.map((view) => [view.slug, view]));
 

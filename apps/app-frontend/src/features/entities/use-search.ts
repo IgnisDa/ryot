@@ -95,6 +95,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 
 			while (true) {
 				throwIfAborted(signal);
+				// oxlint-disable-next-line no-await-in-loop
 				const result = await queryClient.fetchQuery({
 					staleTime: 0,
 					...apiClient.queryOptions("get", "/entity-schemas/search/{jobId}", {
@@ -108,6 +109,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 					if (dayjs().diff(startedAt) >= SANDBOX_TIMEOUT_MS) {
 						throw new Error("Timed out waiting for entity search result");
 					}
+					// oxlint-disable-next-line no-await-in-loop
 					await sleep(POLL_MS, signal);
 					continue;
 				}
@@ -142,6 +144,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 				const startedAt = dayjs();
 				while (true) {
 					throwIfAborted(signal);
+					// oxlint-disable-next-line no-await-in-loop
 					const result = await queryClient.fetchQuery({
 						...apiClient.queryOptions("get", "/entity-schemas/import/{jobId}", {
 							params: { path: { jobId } },
@@ -155,6 +158,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 						if (dayjs().diff(startedAt) >= SANDBOX_TIMEOUT_MS) {
 							throw new Error("Timed out waiting for entity import");
 						}
+						// oxlint-disable-next-line no-await-in-loop
 						await sleep(POLL_MS, signal);
 						continue;
 					}
