@@ -1,34 +1,26 @@
-import { toJSONSchema, z } from "zod";
+import { z } from "zod";
+import {
+	createImportEnvelopeSchema,
+	nullableIntSchema,
+	toStableJsonSchema,
+} from "../../lib/zod";
+import { mediaPropertiesSchema } from "./media";
 
 const schemaImportPerson = z
 	.object({ role: z.string(), source: z.string(), identifier: z.string() })
 	.strict();
 
-export const bookPropertiesSchema = z
-	.object({
-		source_url: z.string(),
-		pages: z.number().int().nullable(),
-		description: z.string().nullable(),
-		genres: z.array(z.string()),
-		isCompilation: z.boolean().optional(),
-		publish_year: z.number().int().nullable(),
-		people: z.array(schemaImportPerson),
-		assets: z.object({ remote_images: z.array(z.string()) }).strict(),
-	})
-	.strict();
+export const bookPropertiesSchema = mediaPropertiesSchema.extend({
+	source_url: z.string(),
+	pages: nullableIntSchema,
+	isCompilation: z.boolean().optional(),
+	people: z.array(schemaImportPerson),
+});
 
-export const bookPropertiesJsonSchema = JSON.parse(
-	JSON.stringify(toJSONSchema(bookPropertiesSchema)),
-);
+export const bookPropertiesJsonSchema =
+	toStableJsonSchema(bookPropertiesSchema);
 
-export const schemaImportResponse = z
-	.object({
-		name: z.string(),
-		properties: bookPropertiesSchema,
-		external_ids: z
-			.record(z.string().trim().min(1), z.string().trim().min(1))
-			.refine((value) => Object.keys(value).length > 0),
-	})
-	.strict();
+export const schemaImportResponse =
+	createImportEnvelopeSchema(bookPropertiesSchema);
 
 export type SchemaImportResponse = z.infer<typeof schemaImportResponse>;

@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { AuthType } from "../auth";
 import { successResponse } from "../lib/response";
+import { nonEmptyStringSchema } from "../lib/zod";
 import { getSandboxService } from "../sandbox";
 import {
 	getAppConfigValue,
@@ -10,7 +11,7 @@ import {
 } from "../sandbox/host-functions";
 
 const runSandboxSchema = z.object({
-	code: z.string().min(1).max(20_000),
+	code: nonEmptyStringSchema.max(20_000),
 });
 
 export const sandboxApi = new Hono<{ Variables: AuthType }>().post(
