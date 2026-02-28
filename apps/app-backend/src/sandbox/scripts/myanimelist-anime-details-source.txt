@@ -145,7 +145,7 @@ return {
 		airingSchedule: parseAiringSchedule(payload?.start_date),
 		assets: { remoteImages: collectImages(payload?.main_picture) },
 		description: typeof payload?.synopsis === "string" ? payload.synopsis : null,
-		provider_rating:
+		providerRating:
 			typeof payload?.mean === "number" && Number.isFinite(payload.mean)
 				? payload.mean
 				: null,

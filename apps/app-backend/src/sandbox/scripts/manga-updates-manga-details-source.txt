@@ -118,7 +118,7 @@ return {
 		genres: collectGenres(payload?.genres, payload?.categories),
 		sourceUrl: typeof payload?.url === "string" ? payload.url : null,
 		description: typeof payload?.description === "string" ? payload.description : null,
-		provider_rating:
+		providerRating:
 			typeof payload?.bayesian_rating === "number" &&
 			Number.isFinite(payload.bayesian_rating)
 				? payload.bayesian_rating

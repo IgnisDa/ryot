@@ -15,11 +15,11 @@ export const mediaPropertiesSchema = z
 		publishYear: nullableIntSchema,
 		assets: remoteImagesAssetsSchema,
 		description: nullableStringSchema,
+		providerRating: nullableNumberSchema,
 		sourceUrl: nullableStringSchema.optional(),
 	})
 	.strict();
 
 export const animeMangaPropertiesSchema = mediaPropertiesSchema.extend({
-	provider_rating: nullableNumberSchema,
 	production_status: nullableStringSchema,
 });

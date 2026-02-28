@@ -211,7 +211,7 @@ return {
 			media.airingSchedule,
 			media.nextAiringEpisode,
 		),
-		provider_rating:
+		providerRating:
 			typeof media?.averageScore === "number" &&
 			Number.isFinite(media.averageScore)
 				? media.averageScore
