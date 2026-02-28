@@ -450,6 +450,13 @@ const appSchemaBase = strictStruct({
 export const AppSchema: Schema.Codec<AppSchema, unknown> = appSchemaBase;
 
 /**
+ * Returns whether a property must be present in a payload, as declared by its
+ * `validation.required` flag.
+ */
+export const isAppPropertyRequired = (property: AppPropertyDefinition) =>
+	property.validation?.required === true;
+
+/**
  * Returns the top-level property keys a schema declares as translatable. These are
  * the only properties a translation overlay is allowed to localize; everything else
  * (genres, runtimes, dates, ...) always renders in the canonical language.
