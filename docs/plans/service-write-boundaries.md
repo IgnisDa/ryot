@@ -301,26 +301,47 @@ writes through `RelationshipsService`.
 
 ### Current state
 
-`EventsService` exposes `create` and `listForUser`, but no `delete` or `update`. Event creation is
-workflow-backed: `create` validates and enqueues the durable event-create workflow, which persists
-events through `EventsRepository`. `UserStateService` also writes to the event table directly through
-repository operations that delete events for an entity and move events during an entity merge.
+Implemented. `EventsService` exposes one canonical `create`, `update`, and `delete` entry point for
+event rows, plus `listForUser`. Event creation remains workflow-backed: `create` validates and enqueues
+the durable event-create workflow, which persists events through `EventsRepository`. `UserStateService`
+reads matching event ids and delegates individual deletes and entity-reference moves to `EventsService`
+inside its existing transaction.
 
 ### Checklist
 
-- [ ] Keep `create` as the single event creation entry point. Preserve its workflow-backed validation,
+- [x] Keep `create` as the single event creation entry point. Preserve its workflow-backed validation,
   before/after triggers, and execution-id idempotency. The durable workflow and its repository insert
   are implementation details of this service-owned create path.
-- [ ] Keep `update` as the single event update entry point for moving one event's entity references
+- [x] Keep `update` as the single event update entry point for moving one event's entity references
   during an entity merge. It must not modify event properties, timestamps, or schemas.
-- [ ] Keep `delete` as the single event deletion entry point for one event. `UserStateService` will
+- [x] Keep `delete` as the single event deletion entry point for one event. `UserStateService` will
   read the events matching its clear-state criteria and orchestrate individual deletes. No API endpoint
   or single-event deletion route is required.
-- [ ] Route `UserStateService` event-table writes through `EventsService` while preserving the
+- [x] Route `UserStateService` event-table writes through `EventsService` while preserving the
   transaction that coordinates event and relationship changes.
-- [ ] Keep event content append-only; do not add a general event edit or upsert method.
-- [ ] Keep any direct event-workflow invocation that creates rows part of the canonical create path;
+- [x] Keep event content append-only; do not add a general event edit or upsert method.
+- [x] Keep any direct event-workflow invocation that creates rows part of the canonical create path;
   it must not bypass event validation, triggers, or idempotency.
+
+### Implementation notes
+
+- `EventsRepository` retains the workflow's `createEvent` write and read-only query/trigger helpers,
+  but its bulk user-state delete and move helpers were replaced by `listUserEventIdsForEntity`,
+  `deleteEvent`, and `updateEventEntityReferences`. The list locks matching rows for the caller's
+  transaction. The update is scoped to one user-owned event and changes only `entity_id` and
+  `session_entity_id`; raw SQL avoids the event table's automatic update timestamp behavior.
+- `EventsService.update` accepts only the event identity and merge source/target ids, while
+  `EventsService.delete` accepts only a user-scoped event identity. Both pass through the active
+  database executor and return `null` when the scoped row no longer exists, allowing user-state
+  aggregate counts to reflect successful individual mutations.
+- `UserStateService` keeps ownership validation and its existing transaction boundary. It reads and
+  locks matching event ids through the repository, then calls `EventsService.delete` or
+  `EventsService.update` once per event before coordinating relationship changes. It retains direct
+  repository access only for this read operation.
+- The collection add workflow still dispatches `EventCreateWorkflow` directly from its workflow body.
+  This remains the canonical event-create workflow, including scope/property validation, before/after
+  triggers, and execution-id idempotency; moving that dispatch into an activity would violate the
+  workflow boundary because activities must not start durable work.
 
 ## Translations Service
 
