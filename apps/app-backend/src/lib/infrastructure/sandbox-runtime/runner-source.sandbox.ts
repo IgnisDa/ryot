@@ -409,14 +409,17 @@ const importCompiledModule = async (
 			"Unsupported sandbox compiled format: " + nativeString(payload.compiledFormat),
 		);
 	}
-	if (typeof payload.compiledCode !== "string" || !payload.compiledCode.trim()) {
-		throwPhase("load", "Compiled sandbox module is empty");
+	if (
+		typeof payload.moduleUrl !== "string" ||
+		!payload.moduleUrl.startsWith("file:///") ||
+		!/\/[a-f0-9]{64}\.mjs$/.test(payload.moduleUrl) ||
+		payload.moduleUrl.includes("/../")
+	) {
+		throwPhase("load", "Compiled sandbox module path is invalid");
 	}
 
 	try {
-		return await import(
-			"data:text/javascript;charset=utf-8," + encodeComponent(payload.compiledCode)
-		);
+		return await import(payload.moduleUrl);
 	} catch (error) {
 		return throwPhase("load", error);
 	}

@@ -99,6 +99,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 		context: payload.context,
 		metadata: script.metadata,
 		authority: payload.authority,
+		contentHash: script.contentHash,
 		executionId: payload.executionId,
 		compiledCode: script.compiledCode,
 		compiledFormat: script.compiledFormat,
