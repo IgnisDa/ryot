@@ -211,7 +211,7 @@ for (const subject of subjects) {
 
 return {
 	name: title,
-	external_id: identifier,
+	externalId: identifier,
 	properties: {
 		pages,
 		people,

@@ -5,13 +5,13 @@ import { animeMangaPropertiesSchema } from "./media";
 const animeAiringScheduleSpecificsSchema = z
 	.object({
 		episode: z.number().int(),
-		airing_at: z.string().datetime(),
+		airingAt: z.string().datetime(),
 	})
 	.strict();
 
 export const animePropertiesSchema = animeMangaPropertiesSchema.extend({
 	episodes: nullableIntSchema,
-	airing_schedule: z.array(animeAiringScheduleSpecificsSchema).nullable(),
+	airingSchedule: z.array(animeAiringScheduleSpecificsSchema).nullable(),
 });
 
 export const animePropertiesJsonSchema = toStableJsonSchema(

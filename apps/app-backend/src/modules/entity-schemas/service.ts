@@ -117,7 +117,7 @@ const parseImportedPayload = (input: {
 
 	return {
 		name: parsedEnvelope.data.name,
-		external_id: parsedEnvelope.data.external_id,
+		externalId: parsedEnvelope.data.externalId,
 		properties: properties as Record<string, unknown>,
 	};
 };

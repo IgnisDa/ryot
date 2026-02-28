@@ -17,7 +17,7 @@ export const createImportEnvelopeSchema = <TProperties extends z.ZodType>(
 		.object({
 			name: z.string(),
 			properties: propertiesSchema,
-			external_id: nonEmptyTrimmedStringSchema,
+			externalId: nonEmptyTrimmedStringSchema,
 		})
 		.strict();
 

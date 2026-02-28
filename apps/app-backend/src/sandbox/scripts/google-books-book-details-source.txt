@@ -161,7 +161,7 @@ const pages =
 
 return {
 	name: title,
-	external_id: identifier,
+	externalId: identifier,
 	properties: {
 		pages,
 		people: collectPeople(volumeInfo?.authors, volumeInfo?.publisher),

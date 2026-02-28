@@ -35,6 +35,6 @@ export type SchemaImportBody = z.infer<typeof schemaImportBody>;
 
 export type ParsedImportPayload = {
 	name: string;
-	external_id: string;
+	externalId: string;
 	properties: Record<string, unknown>;
 };

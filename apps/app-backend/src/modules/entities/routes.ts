@@ -25,8 +25,8 @@ const entitySelect = {
 	created_at: entity.createdAt,
 	updated_at: entity.updatedAt,
 	properties: entity.properties,
+	externalId: entity.externalId,
 	schema_slug: entitySchema.slug,
-	external_id: entity.externalId,
 	details_script_id: entity.detailsSandboxScriptId,
 };
 
@@ -37,7 +37,7 @@ const foundEntityResponseSchema = dataSchema(
 		created_at: z.string(),
 		updated_at: z.string(),
 		schema_slug: z.string(),
-		external_id: z.string(),
+		externalId: z.string(),
 		properties: z.unknown(),
 		details_script_id: z.string(),
 	}),
