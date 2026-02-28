@@ -7,6 +7,8 @@ import googleBooksBookDetailsScriptCode from "~/sandbox/scripts/google-books-boo
 import googleBooksBookSearchScriptCode from "~/sandbox/scripts/google-books-book-search-source.txt";
 import hardcoverBookDetailsScriptCode from "~/sandbox/scripts/hardcover-book-details-source.txt";
 import hardcoverBookSearchScriptCode from "~/sandbox/scripts/hardcover-book-search-source.txt";
+import mangaUpdatesMangaDetailsScriptCode from "~/sandbox/scripts/manga-updates-manga-details-source.txt";
+import mangaUpdatesMangaSearchScriptCode from "~/sandbox/scripts/manga-updates-manga-search-source.txt";
 import myanimelistAnimeDetailsScriptCode from "~/sandbox/scripts/myanimelist-anime-details-source.txt";
 import myanimelistAnimeSearchScriptCode from "~/sandbox/scripts/myanimelist-anime-search-source.txt";
 import myanimelistMangaDetailsScriptCode from "~/sandbox/scripts/myanimelist-manga-details-source.txt";
@@ -20,16 +22,18 @@ import {
 	sandboxScript,
 } from "./schema";
 
-const googleBooksImportScriptSlug = "google-books.book.details";
-const googleBooksSearchScriptSlug = "google-books.book.search";
-const hardcoverImportScriptSlug = "hardcover.book.details";
 const hardcoverSearchScriptSlug = "hardcover.book.search";
-const myanimelistAnimeImportScriptSlug = "myanimelist.anime.details";
-const myanimelistAnimeSearchScriptSlug = "myanimelist.anime.search";
-const myanimelistMangaImportScriptSlug = "myanimelist.manga.details";
-const myanimelistMangaSearchScriptSlug = "myanimelist.manga.search";
-const openLibraryImportScriptSlug = "openlibrary.book.details";
+const hardcoverImportScriptSlug = "hardcover.book.details";
 const openLibrarySearchScriptSlug = "openlibrary.book.search";
+const openLibraryImportScriptSlug = "openlibrary.book.details";
+const googleBooksSearchScriptSlug = "google-books.book.search";
+const googleBooksImportScriptSlug = "google-books.book.details";
+const myanimelistMangaSearchScriptSlug = "myanimelist.manga.search";
+const myanimelistAnimeSearchScriptSlug = "myanimelist.anime.search";
+const myanimelistAnimeImportScriptSlug = "myanimelist.anime.details";
+const myanimelistMangaImportScriptSlug = "myanimelist.manga.details";
+const mangaUpdatesMangaSearchScriptSlug = "manga-updates.manga.search";
+const mangaUpdatesMangaImportScriptSlug = "manga-updates.manga.details";
 
 const mediaEventSchemas = [
 	{
@@ -216,6 +220,12 @@ export const seedEntitySchemas = async () => {
 		code: myanimelistMangaSearchScriptCode,
 	});
 
+	const mangaUpdatesMangaSearchScriptId = await ensureBuiltinSandboxScript({
+		name: "MangaUpdates Manga Search",
+		slug: mangaUpdatesMangaSearchScriptSlug,
+		code: mangaUpdatesMangaSearchScriptCode,
+	});
+
 	const openLibraryDetailsScriptId = await ensureBuiltinSandboxScript({
 		name: "OpenLibrary Book Import",
 		slug: openLibraryImportScriptSlug,
@@ -246,6 +256,12 @@ export const seedEntitySchemas = async () => {
 		code: myanimelistMangaDetailsScriptCode,
 	});
 
+	const mangaUpdatesMangaDetailsScriptId = await ensureBuiltinSandboxScript({
+		name: "MangaUpdates Manga Import",
+		slug: mangaUpdatesMangaImportScriptSlug,
+		code: mangaUpdatesMangaDetailsScriptCode,
+	});
+
 	await linkScriptPairToEntitySchema({
 		entitySchemaId: bookSchemaId,
 		searchScriptId: openLibrarySearchScriptId,
@@ -274,6 +290,12 @@ export const seedEntitySchemas = async () => {
 		entitySchemaId: mangaSchemaId,
 		searchScriptId: myanimelistMangaSearchScriptId,
 		detailsScriptId: myanimelistMangaDetailsScriptId,
+	});
+
+	await linkScriptPairToEntitySchema({
+		entitySchemaId: mangaSchemaId,
+		searchScriptId: mangaUpdatesMangaSearchScriptId,
+		detailsScriptId: mangaUpdatesMangaDetailsScriptId,
 	});
 
 	console.info("Entity schemas seeded successfully");
