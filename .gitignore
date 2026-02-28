@@ -47,6 +47,7 @@ node_modules
 .cache
 .astro
 dist
+types-dist
 .vscode/settings.json
 templates
 .claude/settings.local.json

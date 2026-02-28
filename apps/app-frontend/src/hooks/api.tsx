@@ -1,8 +1,7 @@
-import type { AppType } from "@ryot/app-backend/app/api";
-import { hc } from "hono/client";
+import { hcWithType } from "@ryot/app-backend/hc";
 import { createContext, type ReactNode, useContext } from "react";
 
-const api = hc<AppType>("/api");
+const api = hcWithType("/api");
 
 const AuthClientContext = createContext<typeof api | undefined>(undefined);
 

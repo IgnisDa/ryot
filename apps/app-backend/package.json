@@ -1,10 +1,20 @@
 {
 	"main": "src/index.ts",
 	"name": "@ryot/app-backend",
+	"exports": {
+		"./hc": {
+			"import": {
+				"types": "./types-dist/hc.d.ts",
+				"default": "./types-dist/hc.js"
+			}
+		}
+	},
 	"scripts": {
 		"typecheck": "tsc",
 		"lint": "biome check .",
+		"prebuild": "bun run build:types",
 		"dev": "bun run --watch src/index.ts",
+		"build:types": "tsc -p tsconfig.build.json",
 		"db:generate": "bun --bun drizzle-kit generate",
 		"build": "bun build src/index.ts --outdir dist --target bun --sourcemap"
 	},
