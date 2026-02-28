@@ -132,7 +132,7 @@ return {
 		chapters,
 		sourceUrl: sourceUrl,
 		isNsfw: parseIsNsfw(payload?.nsfw),
-		production_status: productionStatus,
+		productionStatus: productionStatus,
 		genres: collectGenres(payload?.genres),
 		publishYear: parsePublishYear(payload?.start_date),
 		assets: { remoteImages: collectImages(payload?.main_picture) },

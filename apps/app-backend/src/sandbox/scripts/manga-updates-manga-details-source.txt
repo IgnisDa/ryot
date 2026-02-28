@@ -112,7 +112,7 @@ return {
 		volumes,
 		chapters,
 		isNsfw: null,
-		production_status: productionStatus,
+		productionStatus: productionStatus,
 		publishYear: parsePublishYear(payload?.year),
 		assets: { remoteImages: collectImages(payload?.image) },
 		genres: collectGenres(payload?.genres, payload?.categories),
