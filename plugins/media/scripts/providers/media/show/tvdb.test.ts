@@ -31,6 +31,38 @@ describe("show.tvdb sandbox script", () => {
 			["show.tvdb.translate", "translate"],
 		]);
 	});
+	it("fetches and caches a token before searching on a cache miss", () => {
+		const cacheWrites: Array<readonly [string, unknown, number]> = [];
+		const host = defineSandboxTestHost(manifest, {
+			getCachedValue: () => Effect.succeed(null),
+			getPluginConfigValue: (key) => {
+				expect(key).toBe("tvdbApiKey");
+				return Effect.succeed("test-api-key");
+			},
+			setCachedValue: (key, value, ttl) => {
+				cacheWrites.push([key, value, ttl]);
+				return Effect.succeed(null);
+			},
+			httpCall: (_method, url) => {
+				const requestUrl = new URL(url);
+				expect(requestUrl.host).toBe("api4.thetvdb.com");
+				if (requestUrl.pathname === "/v4/login") {
+					return httpSuccess({ status: "success", data: { token: "test-token" } });
+				}
+				expect(requestUrl.pathname).toBe("/v4/search");
+				return httpSuccess({ status: "success", links: { next: null }, data: [] });
+			},
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(search, { query: "show", page: 1, pageSize: 20 }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(cacheWrites).toEqual([["tvdb_access_token", "Bearer test-token", 82_800]]);
+					expect(result.items).toEqual([]);
+					return undefined;
+				}),
+			),
+		);
+	});
 	it("dedupes seasons by number, keeps only official ones sorted by number", () => {
 		const requested: string[] = [];
 		const host = makeHost((_method, url) => {
