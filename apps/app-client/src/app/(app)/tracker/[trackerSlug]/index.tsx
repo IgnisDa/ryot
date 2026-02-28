@@ -2,11 +2,17 @@ import { useLocalSearchParams } from "expo-router";
 
 import { gridStyles, PageHeader } from "@/components/shell/page-header";
 import { Box } from "@/components/ui/box";
+import { MediaTrackerOverview } from "@/features/media/overview_example";
 import { useNavigationData } from "@/lib/navigation";
 
 export default function TrackerScreen() {
 	const { trackerSlug } = useLocalSearchParams<{ trackerSlug: string }>();
 	const { trackers } = useNavigationData();
+
+	if (trackerSlug === "media") {
+		return <MediaTrackerOverview />;
+	}
+
 	const name = trackers.find((t) => t.slug === trackerSlug)?.name ?? trackerSlug;
 
 	return (
