@@ -20,7 +20,6 @@
 		}
 	},
 	"scripts": {
-		"build": "tsc",
 		"test": "bun --bun run vitest run",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
