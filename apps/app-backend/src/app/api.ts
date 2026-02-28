@@ -35,7 +35,10 @@ const meRoute = createAuthRoute(
 		tags: ["protected"],
 		summary: "Get the current user session",
 		responses: {
-			401: errorJsonResponse("Request is unauthenticated"),
+			401: errorJsonResponse(
+				"Request is unauthenticated",
+				ERROR_CODES.UNAUTHENTICATED,
+			),
 			200: jsonResponse("Authenticated session details", meResponseSchema),
 		},
 	}),
@@ -46,7 +49,7 @@ const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.openapi(meRoute, async (c) => {
 		const user = c.get("user");
 		const session = c.get("session");
-		return c.json({ user, session }, 200);
+		return c.json(successResponse({ user, session }), 200);
 	})
 	.route("/app-config", appConfigApi)
 	.route("/sandbox", sandboxApi)
