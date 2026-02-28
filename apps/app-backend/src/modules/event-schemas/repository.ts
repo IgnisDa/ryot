@@ -26,12 +26,7 @@ export class EventSchemasRepository extends Effect.Service<EventSchemasRepositor
 				const definition = definitions.getEntitySchema(input.entitySchemaSlug);
 				return Effect.succeed(
 					definition
-						? {
-								userId: null,
-								slug: definition.slug,
-								id: input.entitySchemaSlug,
-								isBuiltin: definitions.isEntitySchemaBuiltin(input.entitySchemaSlug),
-							}
+						? { userId: null, isBuiltin: true, slug: definition.slug, id: input.entitySchemaSlug }
 						: null,
 				);
 			};

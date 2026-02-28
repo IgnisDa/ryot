@@ -88,16 +88,6 @@ export type DefinitionSnapshot = {
 	readonly relationshipSchemas: Readonly<Record<string, RelationshipSchemaDefinition>>;
 };
 
-export type DefinitionProvenance = {
-	readonly nonBuiltinEntitySchemaSlugs: ReadonlySet<string>;
-	readonly nonBuiltinRelationshipSchemaSlugs: ReadonlySet<string>;
-};
-
-const builtinDefinitionProvenance = (): DefinitionProvenance => ({
-	nonBuiltinEntitySchemaSlugs: new Set(),
-	nonBuiltinRelationshipSchemaSlugs: new Set(),
-});
-
 export class DefinitionNotFound extends Data.TaggedError("DefinitionNotFound")<{
 	readonly kind: string;
 	readonly slug: string;
@@ -235,29 +225,16 @@ export const definitionSourceFromSnapshot = (snapshot: DefinitionSnapshot): Defi
 	),
 });
 
-export const makeDefinitionRegistry = (
-	source: DefinitionSource = kernelDefinitionSource(),
-	initialProvenance: DefinitionProvenance = builtinDefinitionProvenance(),
-) => {
+export const makeDefinitionRegistry = (source: DefinitionSource = kernelDefinitionSource()) => {
 	let snapshot = buildDefinitionSnapshot(source);
-	let provenance = initialProvenance;
 	const getSnapshot = () => snapshot;
-	const replace = (
-		nextSource: DefinitionSource,
-		nextProvenance: DefinitionProvenance = builtinDefinitionProvenance(),
-	) => {
+	const replace = (nextSource: DefinitionSource) => {
 		snapshot = buildDefinitionSnapshot(nextSource);
-		provenance = nextProvenance;
 	};
 	const getEntitySchema = (slug: string) => snapshot.entitySchemas[slug];
 	const getSignalSchema = (slug: string) => snapshot.signalSchemas[slug];
 	const getSavedView = (slug: string) => snapshot.savedViews[slug];
 	const getRelationshipSchema = (slug: string) => snapshot.relationshipSchemas[slug];
-	const isEntitySchemaBuiltin = (slug: string) =>
-		getEntitySchema(slug) !== undefined && !provenance.nonBuiltinEntitySchemaSlugs.has(slug);
-	const isRelationshipSchemaBuiltin = (slug: string) =>
-		getRelationshipSchema(slug) !== undefined &&
-		!provenance.nonBuiltinRelationshipSchemaSlugs.has(slug);
 	const getEventSchema = (entitySchemaSlug: string, eventSchemaSlug: string) =>
 		getEntitySchema(entitySchemaSlug)?.eventSchemas[eventSchemaSlug];
 	const validateProperties = (
@@ -300,11 +277,9 @@ export const makeDefinitionRegistry = (
 		getEntitySchema,
 		getSignalSchema,
 		getRelationshipSchema,
-		isEntitySchemaBuiltin,
 		validateEventProperties,
 		validateEntityProperties,
 		validateSignalProperties,
-		isRelationshipSchemaBuiltin,
 		validateRelationshipProperties,
 	};
 };
