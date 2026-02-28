@@ -1,4 +1,3 @@
-import { ColorSchemeScript, MantineProvider } from "@mantine/core";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
@@ -8,6 +7,7 @@ import {
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import { Reshaped } from "reshaped";
 import ApiClientProvider from "@/hooks/api";
 import AuthClientProvider from "@/hooks/auth";
 import ReactQueryProvider from "../hooks/react-query";
@@ -33,13 +33,12 @@ function RootDocument(props: { children: React.ReactNode }) {
 	return (
 		<html lang="en">
 			<head>
-				<ColorSchemeScript />
 				<HeadContent />
 			</head>
 			<body>
 				<ApiClientProvider>
 					<AuthClientProvider>
-						<MantineProvider>
+						<Reshaped theme="reshaped">
 							<ReactQueryProvider>
 								{props.children}
 								<TanStackDevtools
@@ -56,7 +55,7 @@ function RootDocument(props: { children: React.ReactNode }) {
 									]}
 								/>
 							</ReactQueryProvider>
-						</MantineProvider>
+						</Reshaped>
 					</AuthClientProvider>
 				</ApiClientProvider>
 				<Scripts />
