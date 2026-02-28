@@ -6,6 +6,7 @@ const configSchema = z.object({
 	FRONTEND_URL: z.string(),
 	SERVER_ADMIN_ACCESS_TOKEN: z.string(),
 	BOOKS_GOOGLE_BOOKS_API_KEY: z.string().optional(),
+	BOOKS_HARDCOVER_API_KEY: z.string().optional(),
 	PORT: z
 		.string()
 		.default("8000")
