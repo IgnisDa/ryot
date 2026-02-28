@@ -14,6 +14,7 @@ export const redisKeys = {
 	importSourcePayload: (runId: string) => `ryot:imports:source-payload:${runId}`,
 	importAdapterResult: (runId: string) => `ryot:imports:adapter-result:${runId}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
+	uploadIntentCleanupLock: (intentId: string) => `ryot:upload:intent-cleanup-lock:${intentId}`,
 	sandboxWorkflowJournal: (executionId: string) => `ryot:sandbox:workflow:${executionId}:journal`,
 	integrationCache: (integrationId: string, key: string) =>
 		`ryot:integrations:cache:${integrationId}:${key}`,
@@ -52,6 +53,36 @@ export class RedisService extends Context.Service<RedisService>()("RedisService"
 					Effect.map((result) => result !== null),
 					Effect.orDie,
 				),
+			acquireLease: (key: string, ttlSeconds: number) =>
+				Effect.gen(function* () {
+					const owner = crypto.randomUUID();
+					const result = yield* Effect.tryPromise(() =>
+						client.set(key, owner, "EX", ttlSeconds, "NX"),
+					);
+					return result === null ? null : owner;
+				}).pipe(Effect.orDie),
+			releaseLease: (key: string, owner: string) =>
+				Effect.tryPromise(() =>
+					client.eval(
+						"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+						1,
+						key,
+						owner,
+					),
+				).pipe(Effect.asVoid, Effect.orDie),
+			renewLease: (key: string, owner: string, ttlSeconds: number) =>
+				Effect.tryPromise(() =>
+					client.eval(
+						"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('expire', KEYS[1], ARGV[2]) else return 0 end",
+						1,
+						key,
+						owner,
+						String(ttlSeconds),
+					),
+				).pipe(
+					Effect.map((result) => result === 1),
+					Effect.orDie,
+				),
 			zadd: (key: string, score: number, member: string) =>
 				Effect.tryPromise(() => client.zadd(key, score, member)).pipe(Effect.asVoid, Effect.orDie),
 			zrem: (key: string, ...members: ReadonlyArray<string>) =>
@@ -69,6 +100,35 @@ export class RedisService extends Context.Service<RedisService>()("RedisService"
 					Effect.asVoid,
 					Effect.orDie,
 				),
+			setAndIndexAndDelete: (
+				key: string,
+				value: string,
+				indexKey: string,
+				score: number,
+				member: string,
+				deleteKey: string,
+			) =>
+				Effect.tryPromise(() =>
+					client.multi().set(key, value).zadd(indexKey, score, member).del(deleteKey).exec(),
+				).pipe(Effect.asVoid, Effect.orDie),
+			setAndIndexAndSet: (
+				key: string,
+				value: string,
+				indexKey: string,
+				score: number,
+				member: string,
+				secondaryKey: string,
+				secondaryValue: string,
+				secondaryTtlSeconds: number,
+			) =>
+				Effect.tryPromise(() =>
+					client
+						.multi()
+						.set(key, value)
+						.zadd(indexKey, score, member)
+						.set(secondaryKey, secondaryValue, "EX", secondaryTtlSeconds)
+						.exec(),
+				).pipe(Effect.asVoid, Effect.orDie),
 		};
 	}),
 }) {

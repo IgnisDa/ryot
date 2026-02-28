@@ -116,7 +116,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			registered: RegisteredImportSource,
 			workflowScriptId: SandboxScriptId,
 		) {
-			const tempDir = config.tmpDir;
+			const tempDir = config.fileStorage.localTempDir;
 			const queuedFilePaths: string[] = [];
 			const claimedFilePaths: string[] = [];
 			const namedArtifactPaths: Record<string, string> = {};
