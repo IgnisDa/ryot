@@ -122,11 +122,12 @@ const productionStatus =
 		? toTitleCase(payload.status)
 		: null;
 
+const sourceUrl = `https://myanimelist.net/manga/${payloadIdentifier}/${title}`;
+
 return {
 	name: title,
 	external_id: payloadIdentifier,
 	properties: {
-		url: `https://myanimelist.net/manga/${payloadIdentifier}/${encodeURIComponent(title)}`,
 		genres: collectGenres(payload?.genres),
 		assets: { remote_images: collectImages(payload?.main_picture) },
 		volumes,
@@ -139,5 +140,6 @@ return {
 				? payload.mean
 				: null,
 		production_status: productionStatus,
+		source_url: sourceUrl,
 	},
 };

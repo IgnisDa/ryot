@@ -130,6 +130,8 @@ const productionStatus =
 		? toTitleCase(payload.status)
 		: null;
 
+const sourceUrl = `https://myanimelist.net/anime/${payloadIdentifier}/${title}`;
+
 return {
 	name: title,
 	external_id: payloadIdentifier,
@@ -145,6 +147,7 @@ return {
 				? payload.mean
 				: null,
 		production_status: productionStatus,
+		source_url: sourceUrl,
 		airing_schedule: parseAiringSchedule(payload?.start_date),
 	},
 };
