@@ -13,7 +13,7 @@ export const seedEntitySchemas = async () => {
 	console.info("Seeding entity schemas...");
 
 	const schemaIds = new Map<string, string>();
-	for (const schema of builtinEntitySchemas) {
+	for (const schema of builtinEntitySchemas()) {
 		const schemaId = await ensureBuiltinEntitySchema({
 			slug: schema.slug,
 			name: schema.name,
@@ -24,7 +24,7 @@ export const seedEntitySchemas = async () => {
 	}
 
 	const scriptIds = new Map<string, string>();
-	for (const script of builtinSandboxScripts) {
+	for (const script of builtinSandboxScripts()) {
 		const scriptId = await ensureBuiltinSandboxScript({
 			code: script.code,
 			name: script.name,
@@ -33,7 +33,7 @@ export const seedEntitySchemas = async () => {
 		scriptIds.set(script.slug, scriptId);
 	}
 
-	for (const link of entitySchemaScriptLinks) {
+	for (const link of entitySchemaScriptLinks()) {
 		const entitySchemaId = schemaIds.get(link.schemaSlug);
 		const searchScriptId = scriptIds.get(link.searchScriptSlug);
 		const detailsScriptId = scriptIds.get(link.detailsScriptSlug);
