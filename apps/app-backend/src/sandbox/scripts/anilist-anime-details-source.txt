@@ -202,7 +202,7 @@ return {
 	properties: {
 		episodes,
 		production_status: productionStatus,
-		publish_year: parsePublishYear(media.startDate),
+		publishYear: parsePublishYear(media.startDate),
 		genres: collectGenres(media.genres, media.tags),
 		isNsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
 		assets: { remoteImages: collectImages(media.coverImage, media.bannerImage) },

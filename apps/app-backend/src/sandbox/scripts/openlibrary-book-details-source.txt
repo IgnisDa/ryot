@@ -216,7 +216,7 @@ return {
 		pages,
 		people,
 		genres: [...genreSet],
-		publish_year: publishYear,
+		publishYear: publishYear,
 		description: parseDescription(workPayload?.description),
 		sourceUrl: `https://openlibrary.org/works/${identifier}/${title}`,
 		assets: {

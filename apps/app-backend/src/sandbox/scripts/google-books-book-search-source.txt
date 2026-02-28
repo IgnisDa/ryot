@@ -101,7 +101,7 @@ const items = volumes
 			title,
 			image,
 			identifier,
-			publish_year: publishYear,
+			publishYear: publishYear,
 		};
 	})
 	.filter((item) => item !== null);

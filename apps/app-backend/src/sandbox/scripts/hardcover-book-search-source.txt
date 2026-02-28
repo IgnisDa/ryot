@@ -93,7 +93,7 @@ const items = hits
 			title,
 			image,
 			identifier,
-			publish_year: releaseYear,
+			publishYear: releaseYear,
 		};
 	})
 	.filter((item) => item !== null);

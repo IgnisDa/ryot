@@ -12,7 +12,7 @@ export const mediaPropertiesSchema = z
 	.object({
 		genres: stringArraySchema,
 		isNsfw: nullableBooleanSchema,
-		publish_year: nullableIntSchema,
+		publishYear: nullableIntSchema,
 		assets: remoteImagesAssetsSchema,
 		description: nullableStringSchema,
 		sourceUrl: nullableStringSchema.optional(),

@@ -80,7 +80,7 @@ const items = results
 			title,
 			identifier: String(seriesId),
 			image: pickImage(record),
-			publish_year: parsePublishYear(record.year),
+			publishYear: parsePublishYear(record.year),
 		};
 	})
 	.filter((item) => item !== null);

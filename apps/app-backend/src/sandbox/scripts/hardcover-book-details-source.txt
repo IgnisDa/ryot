@@ -190,7 +190,7 @@ return {
 	properties: {
 		pages,
 		sourceUrl: sourceUrl,
-		publish_year: releaseYear,
+		publishYear: releaseYear,
 		genres: collectGenres(bookData.cached_tags),
 		people: collectPeople(bookData.contributions),
 		assets: { remoteImages: collectImages(bookData.image, bookData.images) },

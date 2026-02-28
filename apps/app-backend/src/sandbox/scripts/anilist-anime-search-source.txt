@@ -122,7 +122,7 @@ const items = mediaItems
 			title,
 			image: pickImage(item.coverImage, item.bannerImage),
 			identifier: String(mediaId),
-			publish_year: parsePublishYear(item.startDate),
+			publishYear: parsePublishYear(item.startDate),
 		};
 	})
 	.filter((item) => item !== null);
