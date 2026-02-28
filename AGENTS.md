@@ -12,6 +12,10 @@ Use tools from the Serena MCP (if available) for faster code navigation and retr
 
 The project uses `turbo` for monorepo management. All frontend-related commands (type checking, running tests, etc.) must use `turbo` commands.
 
+### Package Installation
+
+Always install dependencies using `bun add -E` to add them as exact versions (no version range prefixes).
+
 ### Project Overview
 
 Read `apps/docs/src/contributing.md` for an overview of the project architecture and common commands.
