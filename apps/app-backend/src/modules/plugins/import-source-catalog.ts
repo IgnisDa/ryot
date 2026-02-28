@@ -1,7 +1,7 @@
 import type { PluginConfigSchema, PluginImportSource } from "@ryot/plugin-kit/manifest";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 
-import { PluginLoader, PluginLoaderLive, type PluginRegistrySnapshot } from "./loader";
+import { PluginLoader, type PluginRegistrySnapshot } from "./loader";
 import { findActiveWorkflowScriptInSnapshot } from "./runtime-resolver";
 
 export type RegisteredImportSource = PluginImportSource & {
@@ -51,7 +51,3 @@ export class ImportSourceCatalog extends Effect.Service<ImportSourceCatalog>()(
 		}),
 	},
 ) {}
-
-export const ImportSourceCatalogLive = ImportSourceCatalog.Default.pipe(
-	Layer.provideMerge(PluginLoaderLive),
-);
