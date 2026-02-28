@@ -1,14 +1,16 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AuthType } from "~/auth";
 import {
+	commonErrors,
 	createAuthRoute,
+	createErrorResponse,
 	dataSchema,
 	ERROR_CODES,
-	errorJsonResponse,
 	errorResponse,
 	jsonResponse,
-	payloadValidationErrorResponse,
+	payloadErrorResponse,
 	successResponse,
+	unauthenticatedResponse,
 } from "~/lib/openapi";
 import { listEntitySchemasByUser } from "./repository";
 import {
@@ -48,10 +50,7 @@ const listEntitySchemasRoute = createAuthRoute(
 		tags: ["entity-schemas"],
 		summary: "List available entity schemas",
 		responses: {
-			401: errorJsonResponse(
-				"Request is unauthenticated",
-				ERROR_CODES.UNAUTHENTICATED,
-			),
+			401: unauthenticatedResponse(),
 			200: jsonResponse(
 				"Schemas available for the user",
 				listEntitySchemasResponseSchema,
@@ -70,19 +69,19 @@ const searchEntitySchemasRoute = createAuthRoute(
 			body: { content: { "application/json": { schema: schemaSearchBody } } },
 		},
 		responses: {
-			400: payloadValidationErrorResponse,
-			401: errorJsonResponse(
-				"Request is unauthenticated",
-				ERROR_CODES.UNAUTHENTICATED,
+			400: payloadErrorResponse(),
+			401: unauthenticatedResponse(),
+			404: createErrorResponse(
+				"Search script is missing",
+				commonErrors.notFound,
 			),
-			404: errorJsonResponse("Search script is missing", ERROR_CODES.NOT_FOUND),
-			500: errorJsonResponse(
+			500: createErrorResponse(
 				"Search execution or payload parsing failed",
-				ERROR_CODES.INTERNAL_ERROR,
+				commonErrors.internalError,
 			),
-			504: errorJsonResponse(
+			504: createErrorResponse(
 				"Search sandbox job timed out",
-				ERROR_CODES.TIMEOUT,
+				commonErrors.timeout,
 			),
 			200: jsonResponse(
 				"Search results for the schema query",
@@ -102,22 +101,19 @@ const importEntitySchemasRoute = createAuthRoute(
 			body: { content: { "application/json": { schema: schemaImportBody } } },
 		},
 		responses: {
-			400: payloadValidationErrorResponse,
-			401: errorJsonResponse(
-				"Request is unauthenticated",
-				ERROR_CODES.UNAUTHENTICATED,
-			),
-			404: errorJsonResponse(
+			400: payloadErrorResponse(),
+			401: unauthenticatedResponse(),
+			404: createErrorResponse(
 				"Details script is missing",
-				ERROR_CODES.NOT_FOUND,
+				commonErrors.notFound,
 			),
-			500: errorJsonResponse(
+			500: createErrorResponse(
 				"Import execution or persistence failed",
-				ERROR_CODES.INTERNAL_ERROR,
+				commonErrors.internalError,
 			),
-			504: errorJsonResponse(
+			504: createErrorResponse(
 				"Import sandbox job timed out",
-				ERROR_CODES.TIMEOUT,
+				commonErrors.timeout,
 			),
 			200: jsonResponse("Entity import persisted", schemaImportResponseSchema),
 		},
