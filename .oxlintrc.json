@@ -1,4 +1,5 @@
 {
+	// TODO: Enable https://oxc.rs/docs/guide/usage/linter/rules/typescript/no-deprecated.html#typescript-no-deprecated when https://github.com/oxc-project/oxc/issues/19932 is fixed
 	"env": { "node": true, "browser": true },
 	"settings": { "react": { "version": "19.0.0" } },
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
