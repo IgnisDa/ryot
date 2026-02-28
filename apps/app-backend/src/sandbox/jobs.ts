@@ -1,15 +1,20 @@
 import { z } from "zod";
+import {
+	nonEmptyStringSchema,
+	positiveIntSchema,
+	stringUnknownRecordSchema,
+} from "../lib/zod";
 
 export const sandboxRunJobName = "sandbox-run";
 export const sandboxRunJobWaitTimeoutMs = 30_000;
 
 export const sandboxRunJobData = z.object({
-	code: z.string().min(1),
-	userId: z.string().min(1),
-	timeoutMs: z.number().int().positive().optional(),
-	maxHeapMB: z.number().int().positive().optional(),
-	apiFunctionsId: z.string().min(1).optional(),
-	context: z.record(z.string(), z.unknown()).optional(),
+	code: nonEmptyStringSchema,
+	userId: nonEmptyStringSchema,
+	timeoutMs: positiveIntSchema.optional(),
+	maxHeapMB: positiveIntSchema.optional(),
+	context: stringUnknownRecordSchema.optional(),
+	apiFunctionsId: nonEmptyStringSchema.optional(),
 });
 
 export const sandboxRunJobResult = z.object({

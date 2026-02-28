@@ -1,20 +1,17 @@
-import { toJSONSchema, z } from "zod";
+import {
+	nullableIntSchema,
+	nullableNumberSchema,
+	nullableStringSchema,
+	toStableJsonSchema,
+} from "../../lib/zod";
+import { animeMangaPropertiesSchema } from "./media";
 
-export const mangaPropertiesSchema = z
-	.object({
-		url: z.string().nullable(),
-		chapters: z.number().nullable(),
-		is_nsfw: z.boolean().nullable(),
-		description: z.string().nullable(),
-		genres: z.array(z.string()),
-		volumes: z.number().int().nullable(),
-		provider_rating: z.number().nullable(),
-		production_status: z.string().nullable(),
-		publish_year: z.number().int().nullable(),
-		assets: z.object({ remote_images: z.array(z.string()) }).strict(),
-	})
-	.strict();
+export const mangaPropertiesSchema = animeMangaPropertiesSchema.extend({
+	url: nullableStringSchema,
+	volumes: nullableIntSchema,
+	chapters: nullableNumberSchema,
+});
 
-export const mangaPropertiesJsonSchema = JSON.parse(
-	JSON.stringify(toJSONSchema(mangaPropertiesSchema)),
+export const mangaPropertiesJsonSchema = toStableJsonSchema(
+	mangaPropertiesSchema,
 );
