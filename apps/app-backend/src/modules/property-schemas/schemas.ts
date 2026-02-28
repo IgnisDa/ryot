@@ -21,8 +21,7 @@ const createPropertySchemaMessage = (label: string) =>
 const validRegexSchema = z.string().refine(
 	(value) => {
 		try {
-			new RegExp(value);
-			return true;
+			return new RegExp(value) instanceof RegExp;
 		} catch {
 			return false;
 		}

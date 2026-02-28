@@ -344,7 +344,6 @@ const collectComputedFieldsInExpression = (
 	seen = new Set<string>(),
 ): ViewComputedField[] => {
 	const dependencies = getComputedFieldDependencies(expression);
-	// oxlint-disable-next-line oxc/no-map-spread
 	return dependencies.flatMap((key) => {
 		if (seen.has(key)) {
 			return [];
@@ -352,7 +351,9 @@ const collectComputedFieldsInExpression = (
 
 		const field = getComputedFieldOrThrow(computedFieldMap, key);
 		seen.add(key);
-		return [field, ...collectComputedFieldsInExpression(field.expression, computedFieldMap, seen)];
+		return [field].concat(
+			collectComputedFieldsInExpression(field.expression, computedFieldMap, seen),
+		);
 	});
 };
 
