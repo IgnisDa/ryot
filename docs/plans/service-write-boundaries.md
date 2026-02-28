@@ -199,30 +199,38 @@ There is no `delete`.
   `InsertEntityInputBase`/`InsertEntityInput`, and `UpdateEntityInput` was added.
 - `EntitiesService.create` takes a typed, scope-discriminated `CreateEntityInput` (the old
   `SaveEntityInput` minus `onConflict`) rather than `(user, CreateEntityBody)`. HTTP-specific
-  normalization — provenance trimming, both/neither provenance shaping, and the empty-`entitySchemaId`
-  check — moved to the route, which builds the user-scoped input. `update` takes
-  `{ entityId, entitySchemaId, name, properties, populatedAt }`; it re-reads the schema by
-  `entitySchemaId` to validate properties before writing.
+  normalization now lives in the `CreateEntityBody` Effect schema (`libs/contract`): `entitySchemaId`
+  trims and requires non-empty (`Schema.Trim` + filter + brand), and `externalId`/`sandboxScriptId`
+  trim and drop to `undefined` when empty via a `Schema.transform`. The route just forwards the
+  decoded, user-scoped payload. `update` takes `{ entityId, entitySchemaId, name, properties,
+  populatedAt }`; it re-reads the schema by `entitySchemaId` to validate properties before writing.
+- `EntitiesService.upsert` is a convenience wrapper (not a fourth canonical write) that resolves the
+  existing global entity via `findGlobalEntityByExternalId`, then delegates to canonical `create`
+  (absent), `update` (`updateExisting`, or an existing unpopulated skeleton), or preserves the
+  existing row. Its selection logic is unit-tested in `entities/service.test.ts`.
 - `create` now enforces the non-empty-name invariant (`requireText`) for every scope. Previously only
   the API/user path validated the name; global provider-population writes accepted any string. This is
   a deliberate, minor tightening (provider `details` drivers always supply a name) plus name trimming
   for global rows.
-- Global-entity replacement is now caller-orchestrated. `provider-entity-population-workflow`'s
-  `writeEntityGraph` reads `findGlobalEntityByExternalId` inside its transaction, then `create`s a new
-  skeleton or, when the row exists, `update`s it on initial population / preserves it on refresh; the
-  final `populatedAt` stamp is a second `update`. `population.ts` `processNode` reads the same helper
-  per child and chooses `create` (absent), `update` (refresh, or an existing unpopulated skeleton), or
-  preserve (already-populated child). `media-trending`, `relationship-population`, the workout and
-  measurement importers, and the collections service call only `create`.
+- Global-entity replacement is now caller-orchestrated through `upsert`.
+  `provider-entity-population-workflow`'s `writeEntityGraph` calls `entities.upsert` inside its
+  transaction (`updateExisting = mode !== "refresh"`, `populatedAt: null`) to create the skeleton or
+  update-on-initial / preserve-on-refresh, then stamps `populatedAt` with a second `update`.
+  `population.ts` `processNode` calls `entities.upsert` per child (`updateExisting = syncExisting`).
+  This replaced the duplicated read-then-`create`/`update` blocks at both sites. `media-trending`,
+  `relationship-population`, the workout and measurement importers, and the collections service call
+  only `create`.
 - Known behavior consequence: the old first-population upgrade carried a `WHERE populatedAt IS NULL`
   concurrency guard; the read-then-`update` flow replaces it with a caller-side
   `existing.populatedAt === null` check performed inside the same transaction. This mirrors the
   saved-views/trackers reorder refactors' read-modify-write window and is a direct consequence of the
   plan's requirement that callers resolve the existing entity before calling `update`.
-- Test consequence: the "writes child entity trees idempotently" case now asserts the second run
-  performs zero entity writes (it reads the existing row and preserves it) instead of re-invoking an
-  idempotent writer. Workflow tests that keyed on the removed `onConflict` argument now assert the
-  `create`-versus-`update` selection driven by `findGlobalEntityByExternalId`.
+- Test consequence: the `create`-versus-`update`-versus-preserve selection is owned by `upsert` and
+  unit-tested in `entities/service.test.ts` (real service + mocked repository). The
+  provider-population workflow tests mock `EntitiesService`, so they are now orchestration tests: they
+  assert the workflow passes the right `upsert` arguments (notably `updateExisting`) for the primary
+  and each child, that related placeholders still go through `create`, and that the final stamp goes
+  through `update`.
 
 ## Relationships Service
 
