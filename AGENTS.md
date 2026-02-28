@@ -6,7 +6,7 @@ This file contains coding conventions, workflows, and best practices for AI agen
 
 ### Code Navigation
 
-Use tools from the Serena MCP (if available) for faster code navigation and retrieval. It supports Rust and TypeScript.
+Use tools from the Serena MCP (if available) for faster code navigation and retrieval. It supports TypeScript.
 
 ### Monorepo Management
 
@@ -24,13 +24,7 @@ Example: `git add 'path/with-special-chars/file.ts'`
 
 ### GitHub Data Access
 
-Use the `gh` CLI for GitHub operations. Only make raw API requests when the `gh` CLI does not support the required functionality. The `gh` CLI is particularly useful for fetching source code of libraries that the project depends on.
-
-Example: To view a file from the `apalis` dependency:
-
-```bash
-gh api -H "Accept: application/vnd.github.raw" repos/apalis-dev/apalis/contents/apalis/src/layers/opentelemetry/mod.rs
-```
+Use the `gh` CLI for GitHub operations. Only make raw API requests when the `gh` CLI does not support the required functionality.
 
 ## Development Workflow
 
@@ -39,7 +33,6 @@ gh api -H "Accept: application/vnd.github.raw" repos/apalis-dev/apalis/contents/
 Run the relevant commands before committing to ensure changes do not break anything:
 
 ```bash
-cargo clippy
 bun run turbo typecheck
 bun run turbo build --filter=@ryot/docs
 ```
@@ -50,13 +43,13 @@ When running tests:
 
 1. Implement the feature first
 2. Always ask the user's approval to run tests
-3. Compile the backend in release mode (`cargo build --release`) and then run `bun run turbo test --filter=@ryot/tests`
+3. Run `bun run turbo test --filter=@ryot/tests`
 
 ### GraphQL Code Generation
 
 After adding a GraphQL query or mutation to the backend:
 
-1. Start the backend server in debug mode in the background (`cargo run`)
+1. Start the backend server in debug mode in the background
 2. Run `bun run turbo backend-graphql --filter=@ryot/generated` to generate frontend types
 3. Stop the backend server after generation completes
 
@@ -103,30 +96,12 @@ Explicit return types may be necessary when:
 
 ### Field Ordering by Line Length
 
-When initializing structs (Rust) or object literals (TypeScript), order fields by ascending line length - shorter lines first, longer lines last. This applies to:
+When initializing object literals (TypeScript), order fields by ascending line length - shorter lines first, longer lines last. This applies to:
 
-- Rust struct initializations
 - TypeScript/JavaScript object literals
 - JSX component props
 
-**Rust Example:**
-
-```rust
-Ok(MetadataDetails {
-    people,                                          // shortest
-    watch_providers,
-    description: data.overview,
-    external_identifiers: Some(external_identifiers),
-    original_language: self.0.get_language_name(data.original_language.clone()),
-    publish_date: data
-        .release_date
-        .clone()
-        .and_then(|r| convert_string_to_date(&r)),   // longer multi-line expressions last
-    ..Default::default()                             // always at the end
-})
-```
-
-**TypeScript Example:**
+**Example:**
 
 ```typescript
 const notification = {
@@ -138,16 +113,8 @@ const notification = {
 
 **Exceptions (correctness takes precedence):**
 
-- `..Default::default()` in Rust must always be last (language requirement)
 - Semantic grouping may override length ordering when it improves readability
-- Shorthand fields (just the field name) typically come before assignment expressions of similar length:
-
-```rust
-MyStruct {
-    name,              // shorthand comes first
-    age: user.age,     // assignment of similar length comes after
-}
-```
+- Shorthand fields (just the field name) typically come before assignment expressions of similar length
 
 ### Variable Declaration Ordering by Line Length
 
