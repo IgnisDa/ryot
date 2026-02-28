@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Durable Sandbox - Phase 1](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -20,21 +20,44 @@ transparent artifact return type.
 
 ## Acceptance criteria
 
-- [ ] Every business host capability has one explicit backend durable-dispatch classification.
-- [ ] Activities never directly or indirectly start workflows or durable queues.
-- [ ] Every write capability is idempotent, deduplicated by deterministic call identity, delegated
+- [x] Every business host capability has one explicit backend durable-dispatch classification.
+- [x] Activities never directly or indirectly start workflows or durable queues.
+- [x] Every write capability is idempotent, deduplicated by deterministic call identity, delegated
       to an owning child workflow, or explicitly accepted/documented as external at-least-once.
-- [ ] Crash-window tests cover each distinct write strategy and prove application writes do not
+- [x] Crash-window tests cover each distinct write strategy and prove application writes do not
       duplicate.
-- [ ] Mutable reads, config/preferences, cache calls, queries, and typed failures replay recorded
+- [x] Mutable reads, config/preferences, cache calls, queries, and typed failures replay recorded
       values consistently.
-- [ ] Diagnostics are replay-tagged, excluded from business journal entries, and redact secrets.
-- [ ] Immediate durable HTTP preserves current request/TLS/private-destination behavior and returns
+- [x] Diagnostics are replay-tagged, excluded from business journal entries, and redact secrets.
+- [x] Immediate durable HTTP preserves current request/TLS/private-destination behavior and returns
       the existing inline response shape.
-- [ ] The 10-MiB HTTP, 100-MiB cumulative journal, and 4-MiB terminal-output limits fail
+- [x] The 10-MiB HTTP, 100-MiB cumulative journal, and 4-MiB terminal-output limits fail
       deterministically at their separate boundaries without unbounded intermediate copies.
-- [ ] Focused capability, authorization, dispatcher, replay, redaction, and limit tests pass.
-- [ ] The write-host audit is recorded in the Phase 1 plan or its linked current-state documentation.
+- [x] Focused capability, authorization, dispatcher, replay, redaction, and limit tests pass.
+- [x] The write-host audit is recorded in the Phase 1 plan or its linked current-state documentation.
+
+## Completion notes
+
+- Added one exhaustive backend classification for all bridge host capabilities: activity, owning
+  event workflow, owning notification workflow, service workflow child, or diagnostic.
+- Kept workflow-starting entity, signal, event, and notification paths out of activities. Durable
+  child IDs and write identities derive from the sandbox workflow and call index.
+- Preserved the inline HTTP response contract and added response headers to structured non-2xx
+  failures. The existing TLS, private-origin, request, timeout, and streamed response limits remain in
+  the shared HTTP implementation.
+- Made persistent claims reproduce their original successful durable result through an internal
+  envelope, and added replay-correlated diagnostic redaction for credential-shaped data and text.
+- Recorded the complete owner/retry proof table in the Phase 1 plan.
+
+## Verification
+
+- `bun turbo --filter=@ryot/app-backend check`
+- `bun turbo --filter=@ryot/sandbox-sdk check`
+- `bun turbo --filter=@ryot/tests check`
+- `bun turbo --filter=@ryot/app-backend test`
+- Focused backend suites: 73 tests passed across dispatcher, replay, entity lifecycle, claim,
+  diagnostics, limits, and runner boundaries.
+- `bun turbo --force --filter=@ryot/tests test --only -- 'src/tests/kernel/sandbox/durable-tracer.test.ts'`
 
 ## User stories addressed
 
