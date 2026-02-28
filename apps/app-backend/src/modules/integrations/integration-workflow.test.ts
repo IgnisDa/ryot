@@ -169,6 +169,7 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		makeIntegrationOperations(options.integrationOperations),
 		Layer.mock(IntegrationProviderCatalog)({
 			list: () => [],
+			resolve: () => null,
 			_tag: "IntegrationProviderCatalog",
 			find: () => ({
 				lot: "sink",

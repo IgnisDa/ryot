@@ -86,28 +86,37 @@ const layer = Layer.mergeAll(
 	}),
 	Layer.mock(PluginRuntimeResolver)({
 		_tag: "PluginRuntimeResolver",
-		findActiveScript: (slug) =>
-			Effect.succeed({
-				name: slug,
-				slug,
-				source: "source",
-				providerId: null,
-				compiledFormat: 1,
-				pluginSlug: "media",
-				compiledCode: "compiled",
-				contentHash: `${slug}-hash`,
-				createdAt: new Date(0),
-				updatedAt: new Date(0),
-				id: SandboxScriptId.make(`${slug}-id`),
-				metadata: {
-					slug,
-					name: slug,
-					kind: "script",
-					capabilities: [],
-					requiredPluginConfigKeys: [],
-					requiredSystemConfigKeys: [],
-				},
-			} satisfies ActiveScript),
+		resolveActivePluginUserBootstrap: ({ bootstrapSlug, pluginSlug }) => {
+			const bootstrap = loader
+				.getSnapshot()
+				.plugins[pluginSlug]?.manifest.userBootstrap.find(({ slug }) => slug === bootstrapSlug);
+			return bootstrap
+				? Effect.succeed({
+						bootstrap,
+						script: {
+							pluginSlug,
+							source: "source",
+							providerId: null,
+							compiledFormat: 1,
+							compiledCode: "compiled",
+							name: bootstrap.scriptSlug,
+							slug: bootstrap.scriptSlug,
+							createdAt: new Date(0),
+							updatedAt: new Date(0),
+							contentHash: `${bootstrap.scriptSlug}-hash`,
+							id: SandboxScriptId.make(`${bootstrap.scriptSlug}-id`),
+							metadata: {
+								kind: "script",
+								capabilities: [],
+								slug: bootstrap.scriptSlug,
+								name: bootstrap.scriptSlug,
+								requiredPluginConfigKeys: [],
+								requiredSystemConfigKeys: [],
+							},
+						} satisfies ActiveScript,
+					})
+				: Effect.succeed(null);
+		},
 	}),
 );
 
