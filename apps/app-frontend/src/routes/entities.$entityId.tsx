@@ -114,7 +114,7 @@ function EntityDetailPage() {
 	const title = toStringValue(entityRequest.data?.data.name) ?? "Untitled";
 	const pages = toNumberValue(properties?.pages);
 	const description = toStringValue(properties?.description);
-	const publishYear = toNumberValue(properties?.publish_year);
+	const publishYear = toNumberValue(properties?.publishYear);
 	const sourceUrl = toStringValue(properties?.sourceUrl);
 	const genres = toStringArray(properties?.genres);
 	const people = toPeopleEntries(properties?.people);
