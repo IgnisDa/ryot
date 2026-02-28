@@ -6,7 +6,6 @@ import {
 	jsonResponse,
 	payloadErrorResponse,
 	successResponse,
-	unauthenticatedResponse,
 } from "~/lib/openapi";
 import { nonEmptyStringSchema } from "~/lib/zod/base";
 import { getSandboxService } from "~/sandbox";
@@ -39,7 +38,6 @@ const runSandboxRoute = createAuthRoute(
 		},
 		responses: {
 			400: payloadErrorResponse(),
-			401: unauthenticatedResponse(),
 			200: jsonResponse("Sandbox run completed", runSandboxResponseSchema),
 		},
 	}),
