@@ -74,7 +74,7 @@ const items = docs
 return {
 	items,
 	details: {
-		total_items: totalItems,
-		next_page: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+		totalItems,
+		nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
 	},
 };

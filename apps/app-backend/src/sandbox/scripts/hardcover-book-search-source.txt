@@ -101,7 +101,7 @@ const items = hits
 return {
 	items,
 	details: {
-		total_items: totalItems,
-		next_page: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+		totalItems: totalItems,
+		nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
 	},
 };
