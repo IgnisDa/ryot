@@ -1,16 +1,11 @@
-import type { JsonValue } from "@ryot/sandbox-sdk/wire";
+import { hostFailure, hostSuccess, type JsonValue } from "@ryot/sandbox-sdk/wire";
 import type { WorkflowDurableCallRequest } from "@ryot/sandbox-sdk/workflow";
 import { sha256Base64Url } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Effect, Schema } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import {
-	apiFailure,
-	apiSuccess,
-	type BoundHostFunction,
-	isJsonValue,
-} from "#lib/infrastructure/sandbox-runtime/shared";
+import { type BoundHostFunction, isJsonValue } from "#lib/infrastructure/sandbox-runtime/shared";
 
 const projectionTtlSeconds = 24 * 60 * 60;
 const highWaterField = "high-water";
@@ -104,16 +99,16 @@ export const makeWorkflowDurableCallsHostFunction =
 		Effect.gen(function* () {
 			const decoded = decodeBootstrapArgs(args);
 			if (decoded._tag === "Failure") {
-				return apiFailure("durableCalls does not accept arguments");
+				return hostFailure("durableCalls does not accept arguments");
 			}
 			if (!workflowExecutionId) {
-				return apiFailure("durableCalls is available only to workflow executions");
+				return hostFailure("durableCalls is available only to workflow executions");
 			}
 			const key = redisKeys.sandboxWorkflowJournal(workflowExecutionId);
 			const rawHighWater = yield* Effect.promise(() => redis.client.hget(key, highWaterField));
 			const highWater = rawHighWater === null ? 0 : Number(rawHighWater);
 			if (!Number.isSafeInteger(highWater) || highWater < 0) {
-				return apiFailure("Sandbox workflow journal high-water mark is corrupt");
+				return hostFailure("Sandbox workflow journal high-water mark is corrupt");
 			}
 			const fields = Array.from({ length: highWater }, (_, index) => String(index));
 			const rawEntries =
@@ -122,15 +117,15 @@ export const makeWorkflowDurableCallsHostFunction =
 			for (let index = 0; index < rawEntries.length; index += 1) {
 				const raw = rawEntries[index];
 				if (raw === null || raw === undefined) {
-					return apiFailure(`Sandbox workflow journal[${index}] is missing`);
+					return hostFailure(`Sandbox workflow journal[${index}] is missing`);
 				}
 
 				const entry = decodeJournalEntry(raw);
 				if (entry._tag === "Failure" || !isJsonValue(entry.success.value)) {
-					return apiFailure(`Sandbox workflow journal[${index}] is corrupt`);
+					return hostFailure(`Sandbox workflow journal[${index}] is corrupt`);
 				}
 				values.push(entry.success.value);
 			}
 
-			return apiSuccess(values);
+			return hostSuccess(values);
 		});
