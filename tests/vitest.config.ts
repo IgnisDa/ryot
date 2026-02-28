@@ -9,13 +9,14 @@ export default mergeConfig(
 		resolve: { alias: [{ find: /^~\//, replacement: srcDir }] },
 		test: {
 			bail: 1,
+			maxWorkers: 3,
 			isolate: false,
 			testTimeout: 180_000,
 			hookTimeout: 180_000,
 			setupFiles: ["./test-setup.ts"],
 			globalSetup: ["./global-setup.ts"],
 			include: ["src/tests/**/*.test.ts"],
-			reporters: process.env.AGENT === "1" ? ["hanging-process"] : ["hanging-process", "default"],
+			reporters: ["hanging-process", "default"],
 		},
 	}),
 );
