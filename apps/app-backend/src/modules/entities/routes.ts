@@ -7,11 +7,12 @@ import {
 	createAuthRoute,
 	dataSchema,
 	ERROR_CODES,
-	errorJsonResponse,
 	errorResponse,
 	jsonResponse,
-	pathParamValidationErrorResponse,
+	notFoundResponse,
+	pathParamErrorResponse,
 	successResponse,
+	unauthenticatedResponse,
 } from "~/lib/openapi";
 import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
 
@@ -51,15 +52,9 @@ const entityRoute = createAuthRoute(
 		request: { params: entityParams },
 		summary: "Get a single entity by id",
 		responses: {
-			400: pathParamValidationErrorResponse,
-			401: errorJsonResponse(
-				"Request is unauthenticated",
-				ERROR_CODES.UNAUTHENTICATED,
-			),
-			404: errorJsonResponse(
-				"Entity does not exist for this user",
-				ERROR_CODES.NOT_FOUND,
-			),
+			400: pathParamErrorResponse(),
+			401: unauthenticatedResponse(),
+			404: notFoundResponse("Entity does not exist for this user"),
 			200: jsonResponse("Entity was found", foundEntityResponseSchema),
 		},
 	}),
