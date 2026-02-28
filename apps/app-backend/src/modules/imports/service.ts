@@ -147,7 +147,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 
 				queuedFilePaths.push(safePath);
 				if (sourceFileInput.payloadKey) {
-					sourcePayload[sourceFileInput.payloadKey] = safePath;
+					sourcePayload[sourceFileInput.payloadKey] = sourceFileInput.payloadKey;
 				}
 				if (sourceFileInput.artifactKey) {
 					namedArtifactPaths[sourceFileInput.artifactKey] = safePath;

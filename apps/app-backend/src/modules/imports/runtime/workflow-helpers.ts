@@ -1,13 +1,7 @@
-import { Context, Effect, FileSystem, Layer, Path } from "effect";
+import { Context, Effect, Layer } from "effect";
 import { Activity } from "effect/unstable/workflow";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
 import { RedisService } from "#lib/infrastructure/redis";
-import {
-	removeSandboxHarvestDirectories,
-	SANDBOX_HARVEST_DIRECTORY_PREFIX,
-} from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
-import { ServerRun } from "#lib/infrastructure/server-run";
 import { UploadsService } from "#modules/uploads/service";
 
 import type { ImportRunJobData } from "../jobs";
@@ -19,13 +13,8 @@ export class ImportRunArtifacts extends Context.Service<ImportRunArtifacts>()(
 	"ImportRunArtifacts",
 	{
 		make: Effect.gen(function* () {
-			const path = yield* Path.Path;
-			const config = yield* AppConfig;
 			const redis = yield* RedisService;
-			const serverRun = yield* ServerRun;
 			const uploads = yield* UploadsService;
-			const fs = yield* FileSystem.FileSystem;
-			const localTempRoot = yield* fs.realPath(config.fileStorage.localTempDir).pipe(Effect.orDie);
 
 			const cleanupArtifacts = Effect.fn("imports.cleanupArtifacts")(function* (input: {
 				sourcePayloadKey?: string | undefined;
@@ -47,19 +36,7 @@ export class ImportRunArtifacts extends Context.Service<ImportRunArtifacts>()(
 				);
 			});
 
-			const cleanupHarvestedDirectories = (executionPrefix: string) =>
-				removeSandboxHarvestDirectories({
-					executionPrefix,
-					harvestRoot: path.join(
-						localTempRoot,
-						`${SANDBOX_HARVEST_DIRECTORY_PREFIX}${serverRun.id}`,
-					),
-				}).pipe(
-					Effect.provideService(Path.Path, path),
-					Effect.provideService(FileSystem.FileSystem, fs),
-				);
-
-			return { cleanupArtifacts, cleanupHarvestedDirectories, cleanupUploads };
+			return { cleanupArtifacts, cleanupUploads };
 		}),
 	},
 ) {
@@ -98,14 +75,6 @@ export const createImportRunLifecycle = (
 		}).pipe(Effect.ignore);
 		return Activity.make({ name, execute: cleanupBestEffortEffect });
 	};
-	const cleanupHarvestedDirectoriesBestEffort = (name: string, executionPrefix: string) => {
-		const cleanupBestEffortEffect = Effect.gen(function* () {
-			const artifacts = yield* ImportRunArtifacts;
-			yield* artifacts.cleanupHarvestedDirectories(executionPrefix);
-		}).pipe(Effect.ignore);
-		return Activity.make({ name, execute: cleanupBestEffortEffect });
-	};
-
 	const markRunFailed = (name: string, message: string) => {
 		const markFailedEffect = failImportRun(payload.runId, message).pipe(
 			Effect.mapError(toWorkflowError),
@@ -137,6 +106,5 @@ export const createImportRunLifecycle = (
 		failRunAndCleanup,
 		cleanupUploadsBestEffort,
 		cleanupArtifactsBestEffort,
-		cleanupHarvestedDirectoriesBestEffort,
 	};
 };

@@ -19,8 +19,8 @@ import { Activity, DurableClock, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { sanitizeSandboxExecutionSegment } from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
-import { SandboxHarvestHandleStore } from "#lib/infrastructure/sandbox-runtime/harvest-handles";
 import {
 	jsonByteLength,
 	SANDBOX_LIMITS,
@@ -36,7 +36,10 @@ import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/w
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { processSandboxExecutionQueue, resolveSandboxExecutionPayload } from "./durable-queues";
 import type { SandboxExecutionResult } from "./execution-result";
-import { KernelWorkflowReferences } from "./kernel-workflow-references";
+import {
+	KernelWorkflowReferences,
+	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+} from "./kernel-workflow-references";
 import { SandboxRepository } from "./repository";
 import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
 
@@ -134,21 +137,26 @@ export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPi
 const processPinnedSandbox = (payload: SandboxExecutionPayload) =>
 	processSandboxExecutionQueue(payload);
 
-const completedValue = (result: SandboxExecutionResult, label: string) =>
-	result.error
+const completedValue = (result: SandboxExecutionResult, label: string) => {
+	const output =
+		isObjectRecord(result.value) && result.value["state"] === "completed"
+			? result.value["output"]
+			: result.value;
+	return result.error
 		? Effect.fail(sandboxFailure(`${label} failed: ${result.error.phase}: ${result.error.message}`))
 		: Schema.decodeUnknownEffect(jsonValueSchema)(
-				result.harvest && isObjectRecord(result.value)
+				result.harvest && isObjectRecord(output)
 					? (() => {
-							const { chunkFiles: _chunkFiles, ...value } = result.value;
+							const { chunkFiles: _chunkFiles, ...value } = output;
 							return { ...value, chunkHandles: result.harvest.chunkHandles };
 						})()
-					: result.value,
+					: output,
 			).pipe(
 				Effect.mapError((error) =>
 					sandboxFailure(`${label} returned invalid JSON: ${unknownToMessage(error)}`),
 				),
 			);
+};
 
 export const sandboxWorkflowChildExecutionId = (
 	executionId: string,
@@ -373,36 +381,68 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 	requestIndex: number,
 ) {
 	const childExecutionId = sandboxWorkflowChildExecutionId(executionId, request.name, requestIndex);
-	if (request.args.workflowSlug.startsWith("kernel:")) {
-		const references = yield* KernelWorkflowReferences;
-		return yield* references
-			.execute(
-				request.args.workflowSlug,
-				request.args.input,
-				payload.authority,
-				childExecutionId,
-				executionId,
-				payload.scriptId,
-			)
-			.pipe(withoutWorkflowParent);
-	}
-	if (!targetScriptId) {
+	const artifactOwnerExecutionId = payload.grants?.artifactOwnerExecutionId ?? executionId;
+	const kernel = request.args.workflowSlug.startsWith("kernel:");
+	if (!kernel && !targetScriptId) {
 		return yield* sandboxFailure("Child workflow script was not resolved");
 	}
-	const engine = yield* WorkflowEngine;
-	return yield* engine
-		.execute(SandboxScriptWorkflow, {
-			executionId: childExecutionId,
-			payload: {
-				resolutionMode: "exact",
-				scriptId: targetScriptId,
-				input: request.args.input,
-				authority: payload.authority,
-				executionId: childExecutionId,
-				...(payload.grants ? { grants: payload.grants } : {}),
-			},
-		})
-		.pipe(withoutWorkflowParent);
+	const usesArtifacts =
+		!kernel || request.args.workflowSlug === KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW;
+	const dispatchReferenceExecutionId = `${childExecutionId}-artifact-dispatch`;
+	const artifactReference = (operation: "release" | "retain") =>
+		Activity.make({
+			error: SandboxRunError,
+			name: `${operation}-sandbox-child-artifacts-${requestIndex}`,
+			execute: Effect.gen(function* () {
+				const artifacts = yield* SandboxArtifactStore;
+				yield* artifacts[operation](artifactOwnerExecutionId, dispatchReferenceExecutionId);
+			}).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error)))),
+		});
+	if (usesArtifacts) {
+		yield* artifactReference("retain");
+	}
+
+	const child = yield* Effect.exit(
+		kernel
+			? Effect.flatMap(KernelWorkflowReferences, (references) =>
+					references
+						.execute(
+							request.args.workflowSlug,
+							request.args.input,
+							payload.authority,
+							childExecutionId,
+							executionId,
+							payload.scriptId,
+							artifactOwnerExecutionId,
+						)
+						.pipe(withoutWorkflowParent),
+				)
+			: Effect.flatMap(WorkflowEngine, (engine) =>
+					engine
+						.execute(SandboxScriptWorkflow, {
+							executionId: childExecutionId,
+							payload: {
+								resolutionMode: "exact",
+								scriptId: targetScriptId as SandboxScriptId,
+								input: request.args.input,
+								authority: payload.authority,
+								executionId: childExecutionId,
+								grants: {
+									...payload.grants,
+									artifactOwnerExecutionId,
+								},
+							},
+						})
+						.pipe(withoutWorkflowParent),
+				),
+	);
+	if (usesArtifacts) {
+		const instance = yield* WorkflowInstance;
+		if (child._tag === "Success" || !instance.suspended || !Cause.hasInterruptsOnly(child.cause)) {
+			yield* artifactReference("release");
+		}
+	}
+	return child._tag === "Success" ? child.value : yield* Effect.failCause(child.cause);
 });
 
 export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(function* <R>(
@@ -422,16 +462,21 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				payload,
 				executionId,
 			);
+			const artifacts = yield* SandboxArtifactStore;
+			yield* artifacts.retain(payload.grants?.artifactOwnerExecutionId ?? executionId, executionId);
 			return { scriptId, startedAt, pluginSlug, contentHash };
-		}),
+		}).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error)))),
 	});
 
 	const releaseReference = Activity.make({
 		error: SandboxRunError,
 		name: "release-sandbox-workflow-reference",
 		execute: Effect.gen(function* () {
-			const handles = yield* SandboxHarvestHandleStore;
-			yield* handles.release(executionId);
+			const artifacts = yield* SandboxArtifactStore;
+			yield* artifacts.release(
+				payload.grants?.artifactOwnerExecutionId ?? executionId,
+				executionId,
+			);
 			if (pin.pluginSlug) {
 				const runWithDb = yield* DbRunner;
 				const references = yield* SandboxWorkflowReferenceRepository;
