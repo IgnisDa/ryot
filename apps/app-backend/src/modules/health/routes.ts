@@ -2,9 +2,10 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { sql } from "drizzle-orm";
 import { db } from "~/db";
 import {
+	commonErrors,
+	createErrorResponse,
 	dataSchema,
 	ERROR_CODES,
-	errorJsonResponse,
 	errorResponse,
 	jsonResponse,
 	successResponse,
@@ -23,9 +24,9 @@ const healthRoute = createRoute({
 	method: "get",
 	summary: "Check backend health",
 	responses: {
-		503: errorJsonResponse(
+		503: createErrorResponse(
 			"Database or Redis checks failed",
-			ERROR_CODES.HEALTH_CHECK_FAILED,
+			commonErrors.healthCheckFailed,
 		),
 		200: jsonResponse("Database and Redis checks passed", healthResponseSchema),
 	},

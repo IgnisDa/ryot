@@ -4,11 +4,10 @@ import { appConfigKeys } from "~/lib/app-config";
 import {
 	createAuthRoute,
 	dataSchema,
-	ERROR_CODES,
-	errorJsonResponse,
 	jsonResponse,
-	payloadValidationErrorResponse,
+	payloadErrorResponse,
 	successResponse,
+	unauthenticatedResponse,
 } from "~/lib/openapi";
 import { setAppConfigValue } from "./repository";
 
@@ -36,11 +35,8 @@ const setAppConfigRoute = createAuthRoute(
 			body: { content: { "application/json": { schema: setAppConfigBody } } },
 		},
 		responses: {
-			400: payloadValidationErrorResponse,
-			401: errorJsonResponse(
-				"Request is unauthenticated",
-				ERROR_CODES.UNAUTHENTICATED,
-			),
+			400: payloadErrorResponse(),
+			401: unauthenticatedResponse(),
 			200: jsonResponse("Config value was saved", setAppConfigResponseSchema),
 		},
 	}),
