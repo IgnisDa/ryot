@@ -1,6 +1,6 @@
 import type { ConnectionOptions } from "bullmq";
 import Redis from "ioredis";
-import { config } from "../lib/config";
+import { config } from "~/lib/config";
 
 let sharedRedisConnection: Redis | null = null;
 
