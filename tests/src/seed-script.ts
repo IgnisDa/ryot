@@ -988,12 +988,29 @@ async function seedWhiskeys(client: APIClient) {
 				distillery: {
 					type: "string",
 					label: "Distillery",
+					description: "Distillery that produced the whiskey",
 					validation: { required: true },
 				},
-				age: { type: "integer", label: "Age" },
-				region: { type: "string", label: "Region" },
-				proof: { type: "number", label: "Proof" },
-				type: { type: "string", label: "Type" },
+				age: {
+					type: "integer",
+					label: "Age",
+					description: "Age of the whiskey in years",
+				},
+				region: {
+					type: "string",
+					label: "Region",
+					description: "Region where the whiskey was produced",
+				},
+				proof: {
+					type: "number",
+					label: "Proof",
+					description: "Proof of the whiskey",
+				},
+				type: {
+					type: "string",
+					label: "Type",
+					description: "Type of whiskey",
+				},
 			},
 		},
 	);
@@ -1003,10 +1020,19 @@ async function seedWhiskeys(client: APIClient) {
 			rating: {
 				type: "integer",
 				label: "Rating",
+				description: "Rating for the tasting",
 				validation: { required: true, maximum: 10, minimum: 1 },
 			},
-			notes: { type: "string", label: "Notes" },
-			location: { type: "string", label: "Location" },
+			notes: {
+				type: "string",
+				label: "Notes",
+				description: "Tasting notes",
+			},
+			location: {
+				type: "string",
+				label: "Location",
+				description: "Location where the tasting took place",
+			},
 		},
 	});
 
@@ -1015,10 +1041,19 @@ async function seedWhiskeys(client: APIClient) {
 			price: {
 				type: "number",
 				label: "Price",
+				description: "Purchase price",
 				validation: { required: true },
 			},
-			store: { type: "string", label: "Store" },
-			bottle_size: { type: "integer", label: "Bottle Size" },
+			store: {
+				type: "string",
+				label: "Store",
+				description: "Store where the whiskey was purchased",
+			},
+			bottle_size: {
+				type: "integer",
+				label: "Bottle Size",
+				description: "Bottle size in ml",
+			},
 		},
 	});
 
@@ -1090,26 +1125,65 @@ async function seedPlaces(client: APIClient) {
 		"#3B82F6",
 		{
 			fields: {
-				city: { type: "string", label: "City", validation: { required: true } },
+				city: {
+					type: "string",
+					label: "City",
+					description: "City where the place is located",
+					validation: { required: true },
+				},
 				country: {
 					type: "string",
 					label: "Country",
+					description: "Country where the place is located",
 					validation: { required: true },
 				},
-				type: { type: "string", label: "Type" },
-				address: { type: "string", label: "Address" },
-				latitude: { type: "number", label: "Latitude" },
-				longitude: { type: "number", label: "Longitude" },
+				type: {
+					type: "string",
+					label: "Type",
+					description: "Type of place",
+				},
+				address: {
+					type: "string",
+					label: "Address",
+					description: "Street address of the place",
+				},
+				latitude: {
+					type: "number",
+					label: "Latitude",
+					description: "Latitude coordinate",
+				},
+				longitude: {
+					type: "number",
+					label: "Longitude",
+					description: "Longitude coordinate",
+				},
 			},
 		},
 	);
 
 	const visitSchema = await createEventSchema(client, "Visit", "visit", entitySchema.id, {
 		fields: {
-			date: { type: "date", label: "Date", validation: { required: true } },
-			duration_hours: { type: "number", label: "Duration Hours" },
-			companions: { type: "string", label: "Companions" },
-			notes: { type: "string", label: "Notes" },
+			date: {
+				type: "date",
+				label: "Date",
+				description: "Date of the visit",
+				validation: { required: true },
+			},
+			duration_hours: {
+				type: "number",
+				label: "Duration Hours",
+				description: "Duration of the visit in hours",
+			},
+			companions: {
+				type: "string",
+				label: "Companions",
+				description: "People who accompanied you",
+			},
+			notes: {
+				type: "string",
+				label: "Notes",
+				description: "Notes about the visit",
+			},
 		},
 	});
 
@@ -1118,17 +1192,34 @@ async function seedPlaces(client: APIClient) {
 			rating: {
 				type: "integer",
 				label: "Rating",
+				description: "Rating for the place",
 				validation: { required: true, maximum: 5, minimum: 1 },
 			},
-			review: { type: "string", label: "Review" },
-			would_return: { type: "boolean", label: "Would Return" },
+			review: {
+				type: "string",
+				label: "Review",
+				description: "Written review",
+			},
+			would_return: {
+				type: "boolean",
+				label: "Would Return",
+				description: "Whether you would return to this place",
+			},
 		},
 	});
 
 	const photoSchema = await createEventSchema(client, "Photo", "photo", entitySchema.id, {
 		fields: {
-			photo_url: { type: "string", label: "Photo URL" },
-			caption: { type: "string", label: "Caption" },
+			photo_url: {
+				type: "string",
+				label: "Photo URL",
+				description: "URL of the photo",
+			},
+			caption: {
+				type: "string",
+				label: "Caption",
+				description: "Caption for the photo",
+			},
 		},
 	});
 
@@ -1210,14 +1301,39 @@ async function seedMobilePhones(client: APIClient) {
 				manufacturer: {
 					type: "string",
 					label: "Manufacturer",
+					description: "Manufacturer of the smartphone",
 					validation: { required: true },
 				},
-				year: { type: "integer", label: "Year" },
-				os: { type: "string", label: "OS" },
-				screen_size: { type: "number", label: "Screen Size" },
-				storage_gb: { type: "integer", label: "Storage GB" },
-				ram_gb: { type: "integer", label: "RAM GB" },
-				price_usd: { type: "number", label: "Price USD" },
+				year: {
+					type: "integer",
+					label: "Year",
+					description: "Release year",
+				},
+				os: {
+					type: "string",
+					label: "OS",
+					description: "Operating system",
+				},
+				screen_size: {
+					type: "number",
+					label: "Screen Size",
+					description: "Screen size in inches",
+				},
+				storage_gb: {
+					type: "integer",
+					label: "Storage GB",
+					description: "Storage capacity in GB",
+				},
+				ram_gb: {
+					type: "integer",
+					label: "RAM GB",
+					description: "RAM capacity in GB",
+				},
+				price_usd: {
+					type: "number",
+					label: "Price USD",
+					description: "Price in USD",
+				},
 			},
 		},
 	);
@@ -1234,12 +1350,29 @@ async function seedMobilePhones(client: APIClient) {
 				manufacturer: {
 					type: "string",
 					label: "Manufacturer",
+					description: "Manufacturer of the feature phone",
 					validation: { required: true },
 				},
-				year: { type: "integer", label: "Year" },
-				has_camera: { type: "boolean", label: "Has Camera" },
-				battery_mah: { type: "integer", label: "Battery mAh" },
-				color: { type: "string", label: "Color" },
+				year: {
+					type: "integer",
+					label: "Year",
+					description: "Release year",
+				},
+				has_camera: {
+					type: "boolean",
+					label: "Has Camera",
+					description: "Whether the phone has a camera",
+				},
+				battery_mah: {
+					type: "integer",
+					label: "Battery mAh",
+					description: "Battery capacity in mAh",
+				},
+				color: {
+					type: "string",
+					label: "Color",
+					description: "Color of the phone",
+				},
 			},
 		},
 	);
@@ -1256,13 +1389,34 @@ async function seedMobilePhones(client: APIClient) {
 				manufacturer: {
 					type: "string",
 					label: "Manufacturer",
+					description: "Manufacturer of the tablet",
 					validation: { required: true },
 				},
-				year: { type: "integer", label: "Year" },
-				screen_size: { type: "number", label: "Screen Size" },
-				os: { type: "string", label: "OS" },
-				storage_gb: { type: "integer", label: "Storage GB" },
-				has_cellular: { type: "boolean", label: "Has Cellular" },
+				year: {
+					type: "integer",
+					label: "Year",
+					description: "Release year",
+				},
+				screen_size: {
+					type: "number",
+					label: "Screen Size",
+					description: "Screen size in inches",
+				},
+				os: {
+					type: "string",
+					label: "OS",
+					description: "Operating system",
+				},
+				storage_gb: {
+					type: "integer",
+					label: "Storage GB",
+					description: "Storage capacity in GB",
+				},
+				has_cellular: {
+					type: "boolean",
+					label: "Has Cellular",
+					description: "Whether the tablet has cellular connectivity",
+				},
 			},
 		},
 	);
@@ -1766,20 +1920,46 @@ async function seedCollections(
 				tags: {
 					type: "array" as const,
 					label: "Tags",
-					items: { type: "string" as const, label: "Tag" },
+					description: "Tags for the whiskey",
+					items: {
+						type: "string" as const,
+						label: "Tag",
+						description: "A single tag",
+					},
 				},
-				notes: { type: "string" as const, label: "Notes" },
-				rating: { type: "integer" as const, label: "Rating" },
+				notes: {
+					type: "string" as const,
+					label: "Notes",
+					description: "Notes about the whiskey",
+				},
+				rating: {
+					type: "integer" as const,
+					label: "Rating",
+					description: "Rating for the whiskey",
+				},
 				context: {
 					type: "object" as const,
 					label: "Context",
+					description: "Context for the recommendation",
 					unknownKeys: "passthrough" as const,
 					properties: {
-						mood: { type: "string" as const, label: "Mood" },
-						venue: { type: "string" as const, label: "Venue" },
+						mood: {
+							type: "string" as const,
+							label: "Mood",
+							description: "Mood while drinking",
+						},
+						venue: {
+							type: "string" as const,
+							label: "Venue",
+							description: "Venue where the whiskey was enjoyed",
+						},
 					},
 				},
-				recommendedBy: { type: "string" as const, label: "Recommended By" },
+				recommendedBy: {
+					type: "string" as const,
+					label: "Recommended By",
+					description: "Person who recommended the whiskey",
+				},
 			},
 		},
 	} as unknown as CreateCollectionBody);
@@ -1789,10 +1969,26 @@ async function seedCollections(
 		description: "Places worth a short trip or a spontaneous Saturday",
 		membershipPropertiesSchema: {
 			fields: {
-				notes: { type: "string" as const, label: "Notes" },
-				priority: { type: "integer" as const, label: "Priority" },
-				idealSeason: { type: "string" as const, label: "Ideal Season" },
-				visitWindow: { type: "string" as const, label: "Visit Window" },
+				notes: {
+					type: "string" as const,
+					label: "Notes",
+					description: "Notes about the place",
+				},
+				priority: {
+					type: "integer" as const,
+					label: "Priority",
+					description: "Visit priority",
+				},
+				idealSeason: {
+					type: "string" as const,
+					label: "Ideal Season",
+					description: "Ideal season to visit",
+				},
+				visitWindow: {
+					type: "string" as const,
+					label: "Visit Window",
+					description: "Preferred time of day to visit",
+				},
 			},
 		},
 	});
@@ -1802,9 +1998,21 @@ async function seedCollections(
 		description: "Phones and tablets that feel great to keep around",
 		membershipPropertiesSchema: {
 			fields: {
-				notes: { type: "string" as const, label: "Notes" },
-				status: { type: "string" as const, label: "Status" },
-				carryScore: { type: "integer" as const, label: "Carry Score" },
+				notes: {
+					type: "string" as const,
+					label: "Notes",
+					description: "Notes about the device",
+				},
+				status: {
+					type: "string" as const,
+					label: "Status",
+					description: "Current status of the device",
+				},
+				carryScore: {
+					type: "integer" as const,
+					label: "Carry Score",
+					description: "How often the device is carried",
+				},
 			},
 		},
 	});
@@ -1819,9 +2027,21 @@ async function seedCollections(
 		description: "A collection of collections for browsing the seeded demo shelves",
 		membershipPropertiesSchema: {
 			fields: {
-				blurb: { type: "string" as const, label: "Blurb" },
-				section: { type: "string" as const, label: "Section" },
-				priority: { type: "integer" as const, label: "Priority" },
+				blurb: {
+					type: "string" as const,
+					label: "Blurb",
+					description: "Short description of the collection",
+				},
+				section: {
+					type: "string" as const,
+					label: "Section",
+					description: "Section this collection belongs to",
+				},
+				priority: {
+					type: "integer" as const,
+					label: "Priority",
+					description: "Display priority",
+				},
 			},
 		},
 	});
