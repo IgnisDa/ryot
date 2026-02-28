@@ -22,13 +22,14 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { ImportsRepository } from "#modules/imports/repository";
 import { loadImportAdapterResult } from "#modules/imports/runtime/source-payload-store";
 
+import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
+import { runIntegrationRunWorkflow } from "./integration-workflow-live";
 import {
 	IntegrationRunOperations,
 	type IntegrationRunOperationsValue,
-	ProcessIntegrationRunWorkflow,
-	runIntegrationRunWorkflow,
-} from "./integration-workflow";
+} from "./operations-workflow";
 import { IntegrationsRepository } from "./repository";
+import { IntegrationsService } from "./service";
 import {
 	makeIntegration,
 	makeKomgaIntegration,
@@ -40,6 +41,7 @@ const now = "2026-06-17T00:00:00.000Z";
 
 const mockImportsRepository = Layer.mock(ImportsRepository);
 const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
+const mockIntegrationsService = Layer.mock(IntegrationsService);
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 
 const mangaGroup = (overrides: Record<string, unknown> = {}) => ({
@@ -70,11 +72,17 @@ const makeIntegrationsRepository = (
 	overrides: MockOverrides<typeof mockIntegrationsRepository> = {},
 ) =>
 	mockIntegrationsRepository({
-		updateForUser: () => Effect.succeed(null),
 		getByIdAnyUser: () => Effect.succeed(makeIntegration()),
 		getUserDisableIntegrations: () => Effect.succeed(false),
 		...overrides,
 		_tag: "IntegrationsRepository",
+	});
+
+const makeIntegrationsService = (overrides: MockOverrides<typeof mockIntegrationsService> = {}) =>
+	mockIntegrationsService({
+		update: () => Effect.succeed(makeIntegration()),
+		...overrides,
+		_tag: "IntegrationsService",
 	});
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
@@ -139,6 +147,7 @@ const makeRedisLayer = () => {
 type TestLayerOptions = {
 	importsRepository?: Layer.Layer<ImportsRepository>;
 	integrationsRepository?: Layer.Layer<IntegrationsRepository>;
+	integrationsService?: Layer.Layer<IntegrationsService>;
 	integrationOperations?: Partial<IntegrationRunOperationsValue>;
 };
 
@@ -160,6 +169,7 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		makeIntegrationOperations(options.integrationOperations),
 		options.importsRepository ?? makeImportsRepository(),
 		options.integrationsRepository ?? makeIntegrationsRepository(),
+		options.integrationsService ?? makeIntegrationsService(),
 		makeEntitiesRepository(),
 	);
 
@@ -216,9 +226,9 @@ it.effect("persists the sink adapter result and dispatches the normalized child"
 				return Effect.void;
 			},
 		}),
-		integrationsRepository: makeIntegrationsRepository({
-			updateForUser: (input) => {
-				integrationUpdates.push(input);
+		integrationsService: makeIntegrationsService({
+			update: (userId, integrationId, body) => {
+				integrationUpdates.push({ userId, integrationId, ...body });
 				return Effect.succeed(makeIntegration());
 			},
 		}),
@@ -386,8 +396,10 @@ it.effect("persists the komga yank adapter result and dispatches the normalized 
 		}),
 		integrationsRepository: makeIntegrationsRepository({
 			getByIdAnyUser: () => Effect.succeed(makeKomgaIntegration()),
-			updateForUser: (input) => {
-				integrationUpdates.push(input);
+		}),
+		integrationsService: makeIntegrationsService({
+			update: (userId, integrationId, body) => {
+				integrationUpdates.push({ userId, integrationId, ...body });
 				return Effect.succeed(makeKomgaIntegration());
 			},
 		}),
@@ -479,7 +491,6 @@ it.effect("persists synced yank ownership items into the adapter artifact", () =
 		}),
 		integrationsRepository: makeIntegrationsRepository({
 			getByIdAnyUser: () => Effect.succeed(makeKomgaIntegration({ syncOwnership: true })),
-			updateForUser: () => Effect.succeed(makeKomgaIntegration()),
 		}),
 	} satisfies TestLayerOptions;
 
@@ -516,7 +527,6 @@ it.effect("runs a YouTube Music yank through workflow-owned sandbox execution", 
 				}),
 		},
 		integrationsRepository: makeIntegrationsRepository({
-			updateForUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
 			getByIdAnyUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
 		}),
 		importsRepository: makeImportsRepository({
@@ -572,8 +582,10 @@ it.effect("records a YouTube Music sandbox failure as a source-fetch failure", (
 		},
 		integrationsRepository: makeIntegrationsRepository({
 			getByIdAnyUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
-			updateForUser: (input) => {
-				integrationUpdates.push(input);
+		}),
+		integrationsService: makeIntegrationsService({
+			update: (userId, integrationId, body) => {
+				integrationUpdates.push({ userId, integrationId, ...body });
 				return Effect.succeed(makeYoutubeMusicIntegration());
 			},
 		}),
@@ -642,8 +654,10 @@ it.effect("disables a yank integration after continuous failures during finaliza
 				Effect.succeed(
 					makeKomgaIntegration({ extraSettings: { disableOnContinuousErrors: true } }),
 				),
-			updateForUser: (input) => {
-				integrationUpdates.push(input);
+		}),
+		integrationsService: makeIntegrationsService({
+			update: (userId, integrationId, body) => {
+				integrationUpdates.push({ userId, integrationId, ...body });
 				return Effect.succeed(makeKomgaIntegration({ isDisabled: true }));
 			},
 		}),
