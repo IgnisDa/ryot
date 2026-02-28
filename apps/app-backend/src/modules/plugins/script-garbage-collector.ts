@@ -30,9 +30,12 @@ export class ScriptGarbageCollector extends Effect.Service<ScriptGarbageCollecto
 				const localPlugins = Object.values(loader.getSnapshot().plugins);
 				const plugins = yield* repository.list();
 				const references = yield* workflowReferences.listReferences();
+				const persistedHashes = yield* repository.listPersistedLivenessContentHashes(
+					new Set(references.map(({ pluginSlug }) => pluginSlug)),
+				);
 				return new Set([
 					...kernelHashes,
-					...references.map(({ contentHash }) => contentHash),
+					...persistedHashes,
 					...plugins.flatMap(({ scripts }) => scripts.map(({ contentHash }) => contentHash)),
 					...localPlugins.flatMap(({ scripts }) => scripts.map(({ contentHash }) => contentHash)),
 				]);

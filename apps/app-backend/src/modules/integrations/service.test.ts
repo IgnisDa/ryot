@@ -10,28 +10,8 @@ import {
 } from "#modules/plugins/integration-provider-catalog";
 
 import { IntegrationsRepository } from "./repository";
-import { IntegrationsService, resolveIntegrationLot, validateProgressThresholds } from "./service";
+import { IntegrationsService, validateProgressThresholds } from "./service";
 import { makeIntegration } from "./test-support";
-
-describe("resolveIntegrationLot", () => {
-	const registered = {
-		lot: "sink",
-		name: "Test provider",
-		slug: "test-provider",
-		pluginSlug: "media",
-		scriptSlug: "integration.test-provider",
-		description: "Test sink",
-		settingsSchema: { fields: {} },
-	} satisfies RegisteredIntegrationProvider;
-
-	it("prefers the registry lot over the hardcoded table", () => {
-		expect(resolveIntegrationLot(() => registered, "test-provider")).toBe("sink");
-	});
-
-	it("returns null when the registry does not know the provider", () => {
-		expect(resolveIntegrationLot(() => null, "test-provider")).toBeNull();
-	});
-});
 
 describe("validateProgressThresholds", () => {
 	it("returns null for valid thresholds", () => {
@@ -114,8 +94,9 @@ describe("update", () => {
 		const providerCatalog = Layer.mock(IntegrationProviderCatalog)({
 			find: () => registered,
 			list: () => [registered],
+			findOwned: () => registered,
 			_tag: "IntegrationProviderCatalog",
-			resolve: () => ({ provider: registered, script: Effect.succeed(null) }),
+			resolveOwned: () => ({ provider: registered, script: Effect.succeed(null) }),
 		});
 		const layer = IntegrationsService.Default.pipe(
 			Layer.provide(
@@ -145,6 +126,63 @@ describe("update", () => {
 				baseUrl: "https://new.example.com",
 			});
 			expect(state.providerSpecifics).toEqual(updated.providerSpecifics);
+		}).pipe(Effect.provide(layer));
+	});
+
+	it.effect("does not expose stored settings to a replacement provider owner", () => {
+		const existing = makeIntegration({
+			provider: "shared-provider",
+			pluginSlug: "original-owner",
+			providerSpecifics: { token: "stored-token" },
+		});
+		let updated = false;
+		const replacement = {
+			lot: "yank",
+			name: "Replacement",
+			slug: "shared-provider",
+			settingsSchema: { fields: {} },
+			pluginSlug: "replacement-owner",
+			description: "Replacement provider",
+			scriptSlug: "replacement.integration",
+		} satisfies RegisteredIntegrationProvider;
+		const repository = Layer.mock(IntegrationsRepository)({
+			_tag: "IntegrationsRepository",
+			getForUser: () => Effect.succeed(existing),
+			updateForUser: () => {
+				updated = true;
+				return Effect.succeed(existing);
+			},
+		});
+		const providerCatalog = Layer.mock(IntegrationProviderCatalog)({
+			findOwned: () => null,
+			find: () => replacement,
+			resolveOwned: () => null,
+			list: () => [replacement],
+			_tag: "IntegrationProviderCatalog",
+		});
+		const layer = IntegrationsService.Default.pipe(
+			Layer.provide(
+				Layer.mergeAll(
+					dbRunnerLayer,
+					transactionLayer,
+					repository,
+					providerCatalog,
+					Layer.mock(ImportsService, { _tag: "ImportsService" }),
+					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+				),
+			),
+		);
+
+		return Effect.gen(function* () {
+			const service = yield* IntegrationsService;
+			const error = yield* Effect.flip(
+				service.update(existing.userId, existing.id, {
+					providerSpecifics: { token: "replacement-token" },
+				}),
+			);
+
+			expect(error.message).toBe("Integration provider 'shared-provider' is not registered");
+			expect(updated).toBe(false);
 		}).pipe(Effect.provide(layer));
 	});
 });

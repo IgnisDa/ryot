@@ -15,24 +15,10 @@ import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
-type IntegrationRow = {
-	readonly id: string;
-	readonly userId: string;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-	readonly name: string | null;
-	readonly isDisabled: boolean;
-	readonly lot: IntegrationLot;
-	readonly syncOwnership: boolean;
-	readonly minimumProgress: string;
-	readonly maximumProgress: string;
-	readonly lastFinishedAt: Date | null;
-	readonly provider: IntegrationProvider;
-	readonly extraSettings: IntegrationExtraSettings;
-	readonly providerSpecifics: IntegrationProviderSettings;
-};
+type IntegrationRow = typeof schema.integration.$inferSelect;
 
-export type IntegrationRecord = ListedIntegration & { readonly userId: UserId };
+export type IntegrationRecord = ListedIntegration &
+	Pick<IntegrationRow, "pluginSlug"> & { readonly userId: UserId };
 
 const integrationSelection = {
 	id: schema.integration.id,
@@ -42,6 +28,7 @@ const integrationSelection = {
 	provider: schema.integration.provider,
 	createdAt: schema.integration.createdAt,
 	updatedAt: schema.integration.updatedAt,
+	pluginSlug: schema.integration.pluginSlug,
 	isDisabled: schema.integration.isDisabled,
 	extraSettings: schema.integration.extraSettings,
 	syncOwnership: schema.integration.syncOwnership,
@@ -52,20 +39,21 @@ const integrationSelection = {
 };
 
 const normalizeIntegration = (frontendUrl: string, row: IntegrationRow): IntegrationRecord => ({
-	id: IntegrationId.make(row.id),
 	lot: row.lot,
 	name: row.name,
-	userId: UserId.make(row.userId),
 	provider: row.provider,
+	pluginSlug: row.pluginSlug,
 	isDisabled: row.isDisabled,
 	syncOwnership: row.syncOwnership,
 	extraSettings: row.extraSettings,
+	id: IntegrationId.make(row.id),
+	userId: UserId.make(row.userId),
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	providerSpecifics: row.providerSpecifics,
+	lastFinishedAt: row.lastFinishedAt?.toISOString() ?? null,
 	minimumProgress: Number.parseFloat(row.minimumProgress),
 	maximumProgress: Number.parseFloat(row.maximumProgress),
-	lastFinishedAt: row.lastFinishedAt?.toISOString() ?? null,
 	webhookUrl: row.lot === "sink" ? `${frontendUrl}/_i/${row.id}` : undefined,
 });
 
@@ -80,6 +68,7 @@ export class IntegrationsRepository extends Effect.Service<IntegrationsRepositor
 
 			const createForUser = Effect.fn("IntegrationsRepository.createForUser")(function* (input: {
 				userId: UserId;
+				pluginSlug: string;
 				lot: IntegrationLot;
 				isDisabled: boolean;
 				name?: string | null;
@@ -97,8 +86,9 @@ export class IntegrationsRepository extends Effect.Service<IntegrationsRepositor
 						.values({
 							lot: input.lot,
 							userId: input.userId,
-							provider: input.provider,
 							name: input.name ?? null,
+							provider: input.provider,
+							pluginSlug: input.pluginSlug,
 							isDisabled: input.isDisabled,
 							extraSettings: input.extraSettings,
 							syncOwnership: input.syncOwnership,
