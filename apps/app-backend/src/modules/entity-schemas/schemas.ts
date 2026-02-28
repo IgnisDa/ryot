@@ -20,19 +20,20 @@ export const schemaImportBody = z.object({
 
 export const importEnvelope = createImportEnvelopeSchema(z.unknown());
 
+export const schemaSearchItemSchema = z.object({
+	title: z.string(),
+	identifier: z.string(),
+	image: nullableStringSchema.optional(),
+	publish_year: nullableIntSchema.optional(),
+});
+
 export const schemaSearchResponse = z.object({
-	details: z.object({
-		total_items: z.number().int().nonnegative(),
-		next_page: positiveIntSchema.nullable(),
+	data: z.array(schemaSearchItemSchema),
+	meta: z.object({
+		total: z.number().int().nonnegative(),
+		page: z.number().int().positive(),
+		hasMore: z.boolean(),
 	}),
-	items: z.array(
-		z.object({
-			title: z.string(),
-			identifier: z.string(),
-			image: nullableStringSchema.optional(),
-			publish_year: nullableIntSchema.optional(),
-		}),
-	),
 });
 
 export type SchemaSearchBody = z.infer<typeof schemaSearchBody>;
