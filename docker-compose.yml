@@ -58,6 +58,14 @@ services:
       REDIS_URL: redis://ryot-redis:6379
       SERVER_ADMIN_ACCESS_TOKEN: super-secret-token-that-should-be-changed
       DATABASE_URL: postgresql://postgres:postgres@ryot-postgres:5432/postgres
+      FILE_STORAGE_LOCAL_DIR: /home/ryot/storage
+      FILE_STORAGE_LOCAL_TEMP_DIR: /home/ryot/work
+      FILE_STORAGE_LOCAL_SIGNING_SECRET: change-this-local-signing-secret
+    volumes:
+      - ryot_local_storage:/home/ryot/storage
+    tmpfs:
+      - /home/ryot/work:uid=1001,gid=1001,mode=1770
 
 volumes:
   ryot_postgres_storage:
+  ryot_local_storage:
