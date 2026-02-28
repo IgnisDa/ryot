@@ -116,12 +116,11 @@ export const httpCall = async (
 		});
 
 		const responseBody = await response.text();
-		if (!response.ok) {
+		if (!response.ok)
 			return {
 				...apiFailure(`HTTP ${response.status} ${response.statusText}`),
 				data: { status: response.status },
 			};
-		}
 
 		return apiSuccess({
 			body: responseBody,
