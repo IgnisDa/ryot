@@ -37,12 +37,12 @@ export const commonErrors = {
 
 export const createErrorUnion = <T extends z.ZodTypeAny[]>(...errors: T) => {
 	if (errors.length === 1) return errors[0];
-	return z.discriminatedUnion("code", errors as any);
+	return z.discriminatedUnion("code", errors as never);
 };
 
 export const createErrorResponse = (
 	description: string,
-	...errors: z.ZodObject<any>[]
+	...errors: z.ZodObject<z.ZodRawShape>[]
 ) => {
 	const errorUnion = createErrorUnion(...errors);
 	const schema = z.object({ error: errorUnion });
