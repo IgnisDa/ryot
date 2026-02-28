@@ -1,6 +1,10 @@
 import { animePropertiesJsonSchema } from "~/lib/zod/anime";
 import { bookPropertiesJsonSchema } from "~/lib/zod/book";
 import { mangaPropertiesJsonSchema } from "~/lib/zod/manga";
+import anilistAnimeDetailsScriptCode from "~/sandbox/scripts/anilist-anime-details-source.txt";
+import anilistAnimeSearchScriptCode from "~/sandbox/scripts/anilist-anime-search-source.txt";
+import anilistMangaDetailsScriptCode from "~/sandbox/scripts/anilist-manga-details-source.txt";
+import anilistMangaSearchScriptCode from "~/sandbox/scripts/anilist-manga-search-source.txt";
 import googleBooksBookDetailsScriptCode from "~/sandbox/scripts/google-books-book-details-source.txt";
 import googleBooksBookSearchScriptCode from "~/sandbox/scripts/google-books-book-search-source.txt";
 import hardcoverBookDetailsScriptCode from "~/sandbox/scripts/hardcover-book-details-source.txt";
@@ -93,6 +97,26 @@ export const builtinSandboxScripts = [
 		code: googleBooksBookDetailsScriptCode,
 	},
 	{
+		name: "Anilist Anime Search",
+		slug: "anilist.anime.search",
+		code: anilistAnimeSearchScriptCode,
+	},
+	{
+		name: "Anilist Anime Import",
+		slug: "anilist.anime.details",
+		code: anilistAnimeDetailsScriptCode,
+	},
+	{
+		name: "Anilist Manga Search",
+		slug: "anilist.manga.search",
+		code: anilistMangaSearchScriptCode,
+	},
+	{
+		name: "Anilist Manga Import",
+		slug: "anilist.manga.details",
+		code: anilistMangaDetailsScriptCode,
+	},
+	{
 		name: "MyAnimeList Manga Search",
 		slug: "myanimelist.manga.search",
 		code: myanimelistMangaSearchScriptCode,
@@ -139,6 +163,16 @@ export const entitySchemaScriptLinks = [
 		schemaSlug: "book",
 		searchScriptSlug: "hardcover.book.search",
 		detailsScriptSlug: "hardcover.book.details",
+	},
+	{
+		schemaSlug: "anime",
+		searchScriptSlug: "anilist.anime.search",
+		detailsScriptSlug: "anilist.anime.details",
+	},
+	{
+		schemaSlug: "manga",
+		searchScriptSlug: "anilist.manga.search",
+		detailsScriptSlug: "anilist.manga.details",
 	},
 	{
 		schemaSlug: "anime",
