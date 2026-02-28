@@ -38,9 +38,7 @@ export default function Onboarding() {
 	const connectMutation = useMutation({
 		mutationFn: async (targetUrl: string) => {
 			if (mode === "self-hosted") {
-				try {
-					new URL(targetUrl);
-				} catch {
+				if (!URL.canParse(targetUrl)) {
 					throw new Error("Please enter a valid URL");
 				}
 			}
