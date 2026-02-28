@@ -8,7 +8,6 @@ import openLibraryBookDetailsScriptCode from "../sandbox/scripts/openlibrary-boo
 import openLibraryBookSearchScriptCode from "../sandbox/scripts/openlibrary-book-search-source.txt";
 import { db } from ".";
 import {
-	type EntitySchemaScriptType,
 	entitySchema,
 	entitySchemaSandboxScript,
 	sandboxScript,
@@ -121,19 +120,25 @@ const ensureBuiltinSandboxScript = async (input: {
 	return scriptId;
 };
 
-const linkScriptToEntitySchema = async (input: {
-	scriptId: string;
+const linkScriptPairToEntitySchema = async (input: {
 	entitySchemaId: string;
-	scriptType: EntitySchemaScriptType;
+	searchScriptId: string;
+	detailsScriptId: string;
 }) => {
 	const [existing] = await db
 		.select({ id: entitySchemaSandboxScript.id })
 		.from(entitySchemaSandboxScript)
 		.where(
 			and(
-				eq(entitySchemaSandboxScript.scriptType, input.scriptType),
-				eq(entitySchemaSandboxScript.sandboxScriptId, input.scriptId),
 				eq(entitySchemaSandboxScript.entitySchemaId, input.entitySchemaId),
+				eq(
+					entitySchemaSandboxScript.searchSandboxScriptId,
+					input.searchScriptId,
+				),
+				eq(
+					entitySchemaSandboxScript.detailsSandboxScriptId,
+					input.detailsScriptId,
+				),
 			),
 		)
 		.limit(1);
@@ -141,9 +146,9 @@ const linkScriptToEntitySchema = async (input: {
 	if (existing) return;
 
 	await db.insert(entitySchemaSandboxScript).values({
-		scriptType: input.scriptType,
-		sandboxScriptId: input.scriptId,
 		entitySchemaId: input.entitySchemaId,
+		searchSandboxScriptId: input.searchScriptId,
+		detailsSandboxScriptId: input.detailsScriptId,
 	});
 };
 
@@ -163,22 +168,10 @@ export const seedEntitySchemas = async () => {
 		code: openLibraryBookSearchScriptCode,
 	});
 
-	await linkScriptToEntitySchema({
-		scriptType: "search",
-		entitySchemaId: bookSchemaId,
-		scriptId: openLibrarySearchScriptId,
-	});
-
 	const googleBooksSearchScriptId = await ensureBuiltinSandboxScript({
 		name: "Google Books Book Search",
 		slug: googleBooksSearchScriptSlug,
 		code: googleBooksBookSearchScriptCode,
-	});
-
-	await linkScriptToEntitySchema({
-		scriptType: "search",
-		entitySchemaId: bookSchemaId,
-		scriptId: googleBooksSearchScriptId,
 	});
 
 	const hardcoverSearchScriptId = await ensureBuiltinSandboxScript({
@@ -187,46 +180,40 @@ export const seedEntitySchemas = async () => {
 		code: hardcoverBookSearchScriptCode,
 	});
 
-	await linkScriptToEntitySchema({
-		scriptType: "search",
-		entitySchemaId: bookSchemaId,
-		scriptId: hardcoverSearchScriptId,
-	});
-
-	const openLibraryImportScriptId = await ensureBuiltinSandboxScript({
+	const openLibraryDetailsScriptId = await ensureBuiltinSandboxScript({
 		name: "OpenLibrary Book Import",
 		slug: openLibraryImportScriptSlug,
 		code: openLibraryBookDetailsScriptCode,
 	});
 
-	await linkScriptToEntitySchema({
-		scriptType: "details",
-		entitySchemaId: bookSchemaId,
-		scriptId: openLibraryImportScriptId,
-	});
-
-	const googleBooksImportScriptId = await ensureBuiltinSandboxScript({
+	const googleBooksDetailsScriptId = await ensureBuiltinSandboxScript({
 		name: "Google Books Book Import",
 		slug: googleBooksImportScriptSlug,
 		code: googleBooksBookDetailsScriptCode,
 	});
 
-	await linkScriptToEntitySchema({
-		scriptType: "details",
-		entitySchemaId: bookSchemaId,
-		scriptId: googleBooksImportScriptId,
-	});
-
-	const hardcoverImportScriptId = await ensureBuiltinSandboxScript({
+	const hardcoverDetailsScriptId = await ensureBuiltinSandboxScript({
 		name: "Hardcover Book Import",
 		slug: hardcoverImportScriptSlug,
 		code: hardcoverBookDetailsScriptCode,
 	});
 
-	await linkScriptToEntitySchema({
-		scriptType: "details",
+	await linkScriptPairToEntitySchema({
 		entitySchemaId: bookSchemaId,
-		scriptId: hardcoverImportScriptId,
+		searchScriptId: openLibrarySearchScriptId,
+		detailsScriptId: openLibraryDetailsScriptId,
+	});
+
+	await linkScriptPairToEntitySchema({
+		entitySchemaId: bookSchemaId,
+		searchScriptId: googleBooksSearchScriptId,
+		detailsScriptId: googleBooksDetailsScriptId,
+	});
+
+	await linkScriptPairToEntitySchema({
+		entitySchemaId: bookSchemaId,
+		searchScriptId: hardcoverSearchScriptId,
+		detailsScriptId: hardcoverDetailsScriptId,
 	});
 
 	console.info("Entity schemas seeded successfully");
