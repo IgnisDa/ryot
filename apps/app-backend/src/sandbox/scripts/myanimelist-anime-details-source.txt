@@ -132,7 +132,7 @@ const productionStatus =
 
 return {
 	name: title,
-	external_ids: { myanimelist: payloadIdentifier },
+	external_id: payloadIdentifier,
 	properties: {
 		genres: collectGenres(payload?.genres),
 		assets: { remote_images: collectImages(payload?.main_picture) },

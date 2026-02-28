@@ -19,7 +19,8 @@ const entitySelect = {
 	updated_at: entity.updatedAt,
 	properties: entity.properties,
 	schema_slug: entitySchema.slug,
-	external_ids: entity.externalIds,
+	external_id: entity.externalId,
+	details_script_id: entity.detailsSandboxScriptId,
 };
 
 export const entitiesApi = new Hono<{ Variables: AuthType }>().get(
