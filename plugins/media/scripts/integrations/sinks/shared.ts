@@ -15,6 +15,7 @@ export const parseMediaServer = (
 	provider: "Emby" | "Jellyfin",
 	rawBody: string,
 	integrationSpecifics: unknown,
+	occurredAt: string,
 ) =>
 	Effect.try(() => {
 		const payload = JSON.parse(rawBody) as unknown;
@@ -81,9 +82,10 @@ export const parseMediaServer = (
 			return failureResult(`${provider} webhook payload is missing show episode coordinates`);
 		}
 		return progressResult({
-			entityRef: resolvedMediaRef(entitySchemaSlug, metadataProvider, id, label),
+			occurredAt,
 			progressPercent: percent,
 			consumedOn: provider === "Jellyfin" ? "jellyfin_sink" : "emby",
 			...(locator ? { unresolvedEpisode: locator } : {}),
+			entityRef: resolvedMediaRef(entitySchemaSlug, metadataProvider, id, label),
 		});
 	}).pipe(Effect.orElseSucceed(() => failureResult(`Could not parse ${provider} webhook payload`)));

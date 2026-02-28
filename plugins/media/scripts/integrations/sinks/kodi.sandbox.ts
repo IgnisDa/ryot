@@ -1,13 +1,19 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
 import { resolvedMediaRef } from "../../../imports/source-helpers";
-import { failureResult, jsonRecord, progressResult, showEpisodeRef, SinkInput } from "../shared";
+import {
+	executionStartedAt,
+	failureResult,
+	jsonRecord,
+	progressResult,
+	showEpisodeRef,
+	SinkInput,
+} from "../shared";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
 	name: "Kodi sink",
 	slug: "integration.kodi",
 	requiredPluginConfigKeys: [],
@@ -15,7 +21,7 @@ export const manifest = defineManifest({
 	capabilities: ["getCurrentIntegration"],
 });
 
-export const parseKodi = (rawBody: string) =>
+export const parseKodi = (rawBody: string, occurredAt: string) =>
 	Effect.try(() => {
 		const payload = jsonRecord(rawBody);
 		const lot = payload["lot"];
@@ -55,15 +61,20 @@ export const parseKodi = (rawBody: string) =>
 		return progressResult({
 			entityRef: resolvedMediaRef(lot, "tmdb", id, id),
 			consumedOn: "kodi",
+			occurredAt,
 			progressPercent: progress,
 			...(locator ? { unresolvedEpisode: locator } : {}),
 		});
 	}).pipe(Effect.orElseSucceed(() => failureResult("Could not parse Kodi webhook payload")));
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: SinkInput,
 	output: MediaIntegrationAdapterResult,
-	run: (input, host) =>
-		host.getCurrentIntegration().pipe(Effect.flatMap(() => parseKodi(input.rawBody))),
+	run: (input, host, execution) =>
+		Effect.gen(function* () {
+			const occurredAt = yield* executionStartedAt(execution);
+			yield* host.getCurrentIntegration();
+			return yield* parseKodi(input.rawBody, occurredAt);
+		}),
 });

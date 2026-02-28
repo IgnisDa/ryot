@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Durable Sandbox - Phase 1](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -19,16 +19,38 @@ for remaining fitness imports.
 
 ## Acceptance criteria
 
-- [ ] Every media yank and sink integration executes as a universal replayable sandbox workflow.
-- [ ] Private Plex/Jellyfin/Kodi/Emby/Komga/Audiobookshelf and similar destinations remain usable.
-- [ ] Credentials remain available only through authorized host calls and never enter diagnostics.
-- [ ] External mutations have no new automatic business retry and are documented as at-least-once.
-- [ ] Current-time fields derive from deterministic execution metadata rather than ambient Date APIs.
-- [ ] Completed durable reads/writes are replayed without repetition; accepted external crash-window
+- [x] Every media yank and sink integration executes as a universal replayable sandbox workflow.
+- [x] Private Plex/Jellyfin/Kodi/Emby/Komga/Audiobookshelf and similar destinations remain usable.
+- [x] Credentials remain available only through authorized host calls and never enter diagnostics.
+- [x] External mutations have no new automatic business retry and are documented as at-least-once.
+- [x] Current-time fields derive from deterministic execution metadata rather than ambient Date APIs.
+- [x] Completed durable reads/writes are replayed without repetition; accepted external crash-window
       duplication is covered/documented separately from application-write idempotency.
-- [ ] Migrated integration activity definitions and manifest references are deleted.
-- [ ] Focused integration/plugin/backend tests and affected integration E2E pass with assertions
+- [x] Migrated integration activity definitions and manifest references are deleted.
+- [x] Focused integration/plugin/backend tests and affected integration E2E pass with assertions
       preserved.
+
+## Completion Notes
+
+- Converted all four media yank and six media sink definitions from `defineActivity` to `defineScript`
+  with `script` manifests, so the existing universal resolver dispatches them as durable sandbox child
+  workflows.
+- Routed integration-generated event timestamps and YouTube Music deduplication windows through the
+  persisted execution `startedAt` metadata. Historical timestamps supplied by Plex remain unchanged.
+- Preserved authorized integration host access, private/local destination settings, insecure-TLS
+  behavior, and at-least-once external mutation semantics without adding retries.
+- Kept the temporary internal activity request shape used by the remaining import and fitness migration
+  compatibility; the backend already resolves migrated `script` targets as `SandboxScriptWorkflow`
+  children.
+
+## Verification
+
+- `bun turbo --filter=@ryot/media-plugin check`
+- `bun --bun run vitest run scripts/integrations/integration-adapters.test.ts scripts/integrations/yank-adapters.test.ts manifest.test.ts`
+- `bun --bun run vitest run src/modules/integrations/integration-workflow.test.ts src/modules/integrations/service.test.ts src/modules/plugins/integration-provider-catalog.test.ts`
+- `bun turbo --filter=@ryot/tests test --only -- 'src/tests/plugins/media/integrations/integrations.test.ts'`
+- `bun turbo --filter=@ryot/tests test --only -- 'src/tests/kernel/integrations/integrations.test.ts'`
+- `bun turbo --filter=@ryot/tests test --only -- 'src/tests/kernel/sandbox/integrations.test.ts'`
 
 ## User stories addressed
 
