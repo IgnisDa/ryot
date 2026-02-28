@@ -111,7 +111,6 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 					...installed.manifest,
 					crons: [
 						{
-							lot: "script",
 							scriptSlug: SCRIPT_SLUG,
 							slug: "e2e-test-trending",
 							schedule: { cron: "0 0 * * *" },

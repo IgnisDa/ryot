@@ -4,12 +4,10 @@ import type { UserId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
-import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { bootConfiguredPluginSlugs } from "#modules/plugins/boot-sources";
 import { PluginLoader } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { executeSandboxExecution } from "#modules/sandbox/durable-queues";
-import { SandboxRepository } from "#modules/sandbox/repository";
+import { SandboxExecutionService } from "#modules/sandbox/service";
 
 export const userBootstrapExecutionId = (
 	userId: string,
@@ -90,15 +88,15 @@ export class PluginUserBootstrapDispatcher extends Context.Service<PluginUserBoo
 		make: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
 			const loader = yield* PluginLoader;
-			const sandbox = yield* SandboxService;
-			const repository = yield* SandboxRepository;
+			const sandbox = yield* SandboxExecutionService;
 			const runtime = yield* PluginRuntimeResolver;
 			return yield* makePluginUserBootstrapDispatcher((payload) =>
-				executeSandboxExecution(payload).pipe(
-					Effect.provideService(DbRunner, runWithDb),
-					Effect.provideService(SandboxService, sandbox),
-					Effect.provideService(SandboxRepository, repository),
-				),
+				sandbox.executeScript({
+					input: payload.context,
+					scriptId: payload.scriptId,
+					authority: payload.authority,
+					executionId: payload.executionId,
+				}),
 			).pipe(
 				Effect.provideService(DbRunner, runWithDb),
 				Effect.provideService(PluginLoader, loader),

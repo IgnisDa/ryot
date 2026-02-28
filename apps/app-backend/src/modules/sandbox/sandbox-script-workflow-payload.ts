@@ -11,6 +11,7 @@ export const SandboxScriptWorkflowPayload = Schema.Struct({
 	startedAt: Schema.optional(Schema.String),
 	grants: Schema.optional(SandboxExecutionGrants),
 	resolutionMode: Schema.Literals(["active", "exact"]),
+	resultMode: Schema.optional(Schema.Literal("execution")),
 });
 
 export type SandboxScriptWorkflowPayload = Schema.Schema.Type<typeof SandboxScriptWorkflowPayload>;
