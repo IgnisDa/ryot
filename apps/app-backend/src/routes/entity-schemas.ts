@@ -4,21 +4,24 @@ import { type Context, Hono } from "hono";
 import { fromJSONSchema, z } from "zod";
 import type { AuthType } from "../auth";
 import { db } from "../db";
-import { entity, entitySchema, sandboxScript } from "../db/schema";
+import {
+	entity,
+	entitySchema,
+	entitySchemaSandboxScript,
+	sandboxScript,
+} from "../db/schema";
 import { getSandboxService } from "../sandbox";
 import { getConfigValue } from "../sandbox/host-functions";
 
-const searchScriptSlug = z.string().trim().min(1);
-
 const schemaSearchBody = z.object({
-	page: z.number().int().min(1).default(1),
 	query: z.string().trim().min(1),
-	search_script_slug: searchScriptSlug,
+	page: z.number().int().min(1).default(1),
+	search_script_id: z.string().trim().min(1),
 });
 
 const schemaImportBody = z.object({
 	identifier: z.string().trim().min(1),
-	search_script_slug: searchScriptSlug,
+	details_script_id: z.string().trim().min(1),
 });
 
 const importEnvelope = z
@@ -124,91 +127,120 @@ const upsertImportedEntity = async (input: {
 	});
 };
 
-const getSearchScript = async (scriptSlug: string, userId: string) => {
-	const select = {
-		code: sandboxScript.code,
-		schemaId: entitySchema.id,
-		schemaSlug: entitySchema.slug,
-		propertiesSchema: entitySchema.propertiesSchema,
-	};
-
+const getScriptById = async (scriptId: string, userId: string) => {
 	const [userOwned] = await db
-		.select(select)
+		.select({
+			code: sandboxScript.code,
+			schemaId: entitySchema.id,
+			schemaSlug: entitySchema.slug,
+			propertiesSchema: entitySchema.propertiesSchema,
+		})
 		.from(sandboxScript)
 		.innerJoin(
+			entitySchemaSandboxScript,
+			eq(entitySchemaSandboxScript.sandboxScriptId, sandboxScript.id),
+		)
+		.innerJoin(
 			entitySchema,
-			eq(entitySchema.id, sandboxScript.searchForEntitySchemaId),
+			eq(entitySchema.id, entitySchemaSandboxScript.entitySchemaId),
 		)
 		.where(
-			and(eq(sandboxScript.slug, scriptSlug), eq(sandboxScript.userId, userId)),
+			and(eq(sandboxScript.id, scriptId), eq(sandboxScript.userId, userId)),
 		)
-		.orderBy(asc(sandboxScript.createdAt))
 		.limit(1);
 
 	if (userOwned) return userOwned;
 
 	const [builtin] = await db
-		.select(select)
+		.select({
+			code: sandboxScript.code,
+			schemaId: entitySchema.id,
+			schemaSlug: entitySchema.slug,
+			propertiesSchema: entitySchema.propertiesSchema,
+		})
 		.from(sandboxScript)
 		.innerJoin(
+			entitySchemaSandboxScript,
+			eq(entitySchemaSandboxScript.sandboxScriptId, sandboxScript.id),
+		)
+		.innerJoin(
 			entitySchema,
-			eq(entitySchema.id, sandboxScript.searchForEntitySchemaId),
+			eq(entitySchema.id, entitySchemaSandboxScript.entitySchemaId),
 		)
-		.where(
-			and(eq(sandboxScript.slug, scriptSlug), isNull(sandboxScript.userId)),
-		)
-		.orderBy(asc(sandboxScript.createdAt))
-		.limit(1);
-
-	return builtin;
-};
-
-const getDetailsScript = async (input: {
-	userId: string;
-	schemaId: string;
-	scriptSlug?: string;
-}) => {
-	const slugCondition = input.scriptSlug
-		? eq(sandboxScript.slug, input.scriptSlug)
-		: undefined;
-
-	const [userOwned] = await db
-		.select({ code: sandboxScript.code })
-		.from(sandboxScript)
-		.where(
-			and(
-				slugCondition,
-				eq(sandboxScript.userId, input.userId),
-				eq(sandboxScript.detailsForEntitySchemaId, input.schemaId),
-			),
-		)
-		.orderBy(asc(sandboxScript.createdAt))
-		.limit(1);
-
-	if (userOwned) return userOwned;
-
-	const [builtin] = await db
-		.select({ code: sandboxScript.code })
-		.from(sandboxScript)
-		.where(
-			and(
-				slugCondition,
-				isNull(sandboxScript.userId),
-				eq(sandboxScript.detailsForEntitySchemaId, input.schemaId),
-			),
-		)
-		.orderBy(asc(sandboxScript.createdAt))
+		.where(and(eq(sandboxScript.id, scriptId), isNull(sandboxScript.userId)))
 		.limit(1);
 
 	return builtin;
 };
 
 export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
+	.get("/list", async (c) => {
+		const user = c.get("user");
+
+		const schemas = await db
+			.select({
+				id: entitySchema.id,
+				slug: entitySchema.slug,
+				name: entitySchema.name,
+				scriptId: sandboxScript.id,
+				scriptName: sandboxScript.name,
+				scriptType: entitySchemaSandboxScript.scriptType,
+			})
+			.from(entitySchema)
+			.innerJoin(
+				entitySchemaSandboxScript,
+				eq(entitySchemaSandboxScript.entitySchemaId, entitySchema.id),
+			)
+			.innerJoin(
+				sandboxScript,
+				eq(sandboxScript.id, entitySchemaSandboxScript.sandboxScriptId),
+			)
+			.where(
+				or(
+					and(isNull(entitySchema.userId), isNull(sandboxScript.userId)),
+					and(
+						eq(entitySchema.userId, user.id),
+						eq(sandboxScript.userId, user.id),
+					),
+				),
+			)
+			.orderBy(asc(entitySchema.name), asc(sandboxScript.name));
+
+		const groupedSchemas = schemas.reduce(
+			(acc, row) => {
+				if (!acc[row.id]) {
+					acc[row.id] = {
+						id: row.id,
+						scripts: [],
+						slug: row.slug,
+						name: row.name,
+					};
+				}
+				acc[row.id].scripts.push({
+					id: row.scriptId,
+					name: row.scriptName,
+					type: row.scriptType,
+				});
+				return acc;
+			},
+			{} as Record<
+				string,
+				{
+					id: string;
+					slug: string;
+					name: string;
+					scripts: Array<{ id: string; name: string; type: string }>;
+				}
+			>,
+		);
+
+		return c.json({ schemas: Object.values(groupedSchemas) });
+	})
 	.post("/search", zValidator("json", schemaSearchBody), async (c) => {
 		const user = c.get("user");
 		const body = c.req.valid("json");
 
-		const script = await getSearchScript(body.search_script_slug, user.id);
+		const script = await getScriptById(body.search_script_id, user.id);
 		if (!script) return c.json({ error: "Search script not found" }, 404);
 
 		const sandbox = getSandboxService();
@@ -234,30 +266,8 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const body = c.req.valid("json");
 
-		const searchScript = await getSearchScript(
-			body.search_script_slug,
-			user.id,
-		);
-		if (!searchScript) return c.json({ error: "Search script not found" }, 404);
-
-		const detailsScriptSlug = body.search_script_slug.endsWith(".search")
-			? `${body.search_script_slug.slice(0, -".search".length)}.details`
-			: undefined;
-
-		const script =
-			(detailsScriptSlug
-				? await getDetailsScript({
-						userId: user.id,
-						schemaId: searchScript.schemaId,
-						scriptSlug: detailsScriptSlug,
-					})
-				: undefined) ??
-			(await getDetailsScript({
-				userId: user.id,
-				schemaId: searchScript.schemaId,
-			}));
-		if (!script)
-			return c.json({ error: "Entity schema import is not configured" }, 400);
+		const script = await getScriptById(body.details_script_id, user.id);
+		if (!script) return c.json({ error: "Details script not found" }, 404);
 
 		const sandbox = getSandboxService();
 		const result = await sandbox.run({
@@ -265,7 +275,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 			apiFunctions: { getConfigValue },
 			context: {
 				identifier: body.identifier,
-				schemaSlug: searchScript.schemaSlug,
+				schemaSlug: script.schemaSlug,
 			},
 		});
 
@@ -278,7 +288,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 		const propertiesParser = (() => {
 			try {
 				return fromJSONSchema(
-					searchScript.propertiesSchema as Parameters<typeof fromJSONSchema>[0],
+					script.propertiesSchema as Parameters<typeof fromJSONSchema>[0],
 				);
 			} catch {
 				return null;
@@ -313,14 +323,11 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 		try {
 			const persistedEntity = await upsertImportedEntity({
 				userId: user.id,
-				schemaId: searchScript.schemaId,
 				payload: parsedResult,
+				schemaId: script.schemaId,
 			});
 
-			return c.json({
-				entity_id: persistedEntity.entityId,
-				created: persistedEntity.created,
-			});
+			return c.json(persistedEntity);
 		} catch (error) {
 			let errorMessage = "Import persistence failed";
 			if (error instanceof Error)
