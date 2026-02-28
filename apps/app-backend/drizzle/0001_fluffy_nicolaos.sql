@@ -1,3 +1,0 @@
-ALTER TABLE "entity_schema" ADD COLUMN "details_sandbox_script_id" text;--> statement-breakpoint
-ALTER TABLE "entity_schema" ADD CONSTRAINT "entity_schema_details_sandbox_script_id_sandbox_script_id_fk" FOREIGN KEY ("details_sandbox_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "entity_schema_details_sandbox_script_id_idx" ON "entity_schema" USING btree ("details_sandbox_script_id");
