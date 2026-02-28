@@ -31,19 +31,54 @@ function SchemaSearchPage() {
 	const [query, setQuery] = useState("harry potter");
 	const [schemaSlug, setSchemaSlug] = useState("book");
 
+	const trimmedQuery = query.trim();
+	const trimmedSchemaSlug = schemaSlug.trim();
+
 	useEffect(() => {
 		void authClient.signIn.anonymous();
 	}, [authClient]);
 
-	const search = useQuery({
-		queryKey: ["entity-schema-search", schemaSlug, query.trim(), page],
-		enabled: Boolean(schemaSlug.trim()) && Boolean(query.trim()),
+	const searchJobRequest = useQuery({
+		refetchOnMount: false,
+		refetchOnReconnect: false,
+		refetchOnWindowFocus: false,
+		enabled: Boolean(trimmedSchemaSlug) && Boolean(trimmedQuery),
+		queryKey: [
+			"entity-schema-search-job",
+			trimmedSchemaSlug,
+			trimmedQuery,
+			page,
+		],
 		queryFn: async () => {
 			const response = await apiClient.protected["entity-schemas"][
 				":schemaSlug"
 			].search.$post({
-				json: { page, query: query.trim() },
-				param: { schemaSlug: schemaSlug.trim() },
+				json: { page, query: trimmedQuery },
+				param: { schemaSlug: trimmedSchemaSlug },
+			});
+
+			const payload = await response.json();
+			if ("error" in payload) throw new Error(payload.error);
+
+			return payload.jobId;
+		},
+	});
+
+	const searchStatus = useQuery({
+		enabled: Boolean(trimmedSchemaSlug) && Boolean(searchJobRequest.data),
+		queryKey: [
+			"entity-schema-search-status",
+			trimmedSchemaSlug,
+			searchJobRequest.data,
+		],
+		queryFn: async () => {
+			const jobId = searchJobRequest.data;
+			if (!jobId) throw new Error("Missing search job id");
+
+			const response = await apiClient.protected["entity-schemas"][
+				":schemaSlug"
+			].search.jobs[":jobId"].$get({
+				param: { jobId, schemaSlug: trimmedSchemaSlug },
 			});
 
 			const payload = await response.json();
@@ -51,7 +86,29 @@ function SchemaSearchPage() {
 
 			return payload;
 		},
+		refetchInterval: (context) =>
+			context.state.data?.status === "pending" ? 1000 : false,
 	});
+
+	const failedStatus =
+		searchStatus.data?.status === "failed" ? searchStatus.data.error : null;
+	const pendingState =
+		searchStatus.data?.status === "pending" ? searchStatus.data.state : null;
+	const completedResult =
+		searchStatus.data?.status === "completed" ? searchStatus.data.result : null;
+
+	const isQueueing = searchJobRequest.isPending;
+	const isPolling = Boolean(searchJobRequest.data) && searchStatus.isFetching;
+	const isSearching = isQueueing || isPolling || Boolean(pendingState);
+
+	const loadingLabel = isQueueing
+		? "Queueing search..."
+		: pendingState
+			? `Search running (${pendingState})...`
+			: "Checking search status...";
+
+	const pollingError = searchStatus.error?.message;
+	const requestError = searchJobRequest.error?.message;
 
 	return (
 		<Box
@@ -65,8 +122,9 @@ function SchemaSearchPage() {
 					<Stack gap={4}>
 						<Title order={2}>Entity Schema Search</Title>
 						<Text c="dimmed">
-							Calls `/api/protected/entity-schemas/:schemaSlug/search` with
-							React Query.
+							Queues `/api/protected/entity-schemas/:schemaSlug/search`, then
+							polls
+							`/api/protected/entity-schemas/:schemaSlug/search/jobs/:jobId`.
 						</Text>
 					</Stack>
 
@@ -89,34 +147,46 @@ function SchemaSearchPage() {
 						/>
 					</Group>
 
-					{search.isLoading ? (
+					{isSearching ? (
 						<Group>
 							<Loader size="sm" />
 							<Text size="sm" c="dimmed">
-								Searching...
+								{loadingLabel}
 							</Text>
 						</Group>
 					) : null}
 
-					{search.error ? (
+					{requestError ? (
 						<Alert color="red" title="Search failed">
-							{search.error.message}
+							{requestError}
 						</Alert>
 					) : null}
 
-					{search.data ? (
+					{pollingError ? (
+						<Alert color="red" title="Search failed">
+							{pollingError}
+						</Alert>
+					) : null}
+
+					{failedStatus ? (
+						<Alert color="red" title="Search failed">
+							{failedStatus}
+						</Alert>
+					) : null}
+
+					{completedResult ? (
 						<Group>
 							<Badge color="blue" variant="light">
-								Total: {search.data.details.total_items}
+								Total: {completedResult.details.total_items}
 							</Badge>
 							<Badge color="teal" variant="light">
-								Next page: {search.data.details.next_page ?? "none"}
+								Next page: {completedResult.details.next_page ?? "none"}
 							</Badge>
 						</Group>
 					) : null}
 
 					<SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-						{search.data?.items.map((item) => (
+						{completedResult?.items.map((item) => (
 							<Card key={item.identifier} withBorder radius="md" padding="md">
 								<Stack gap="sm">
 									{item.image ? (
