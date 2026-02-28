@@ -1,11 +1,10 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { fromJSONSchema, z } from "zod";
 import type { AuthType } from "../auth";
 import { db } from "../db";
 import { entity, entitySchema, sandboxScript } from "../db/schema";
-import { schemaSearchResponse } from "../entity-schema-search";
 import { getSandboxService } from "../sandbox";
 import { getConfigValue } from "../sandbox/host-functions";
 
@@ -32,10 +31,39 @@ const importEnvelope = z
 	})
 	.strict();
 
+const schemaSearchResponse = z.object({
+	details: z.object({
+		total_items: z.number().int().nonnegative(),
+		next_page: z.number().int().min(1).nullable(),
+	}),
+	items: z.array(
+		z.object({
+			title: z.string(),
+			identifier: z.string(),
+			image: z.string().nullable().optional(),
+			publish_year: z.number().int().nullable().optional(),
+		}),
+	),
+});
+
 type ParsedImportPayload = {
 	name: string;
 	properties: Record<string, unknown>;
 	external_ids: Record<string, string>;
+};
+
+const handleFailedSandboxResult = (
+	c: Context,
+	result: { error?: string; logs?: string },
+	label: string,
+) => {
+	if (result.error?.toLowerCase().includes("timed out"))
+		return c.json({ error: `${label} job timed out` }, 504);
+
+	let errorMessage = `${label} script execution failed`;
+	if (result.error) errorMessage = `${errorMessage}: ${result.error}`;
+	if (result.logs) errorMessage = `${errorMessage}\n${result.logs}`;
+	return c.json({ error: errorMessage }, 500);
 };
 
 const upsertImportedEntity = async (input: {
@@ -95,14 +123,17 @@ const upsertImportedEntity = async (input: {
 		return { created: true, entityId: createdEntity.id };
 	});
 };
-const getSearchScriptCode = async (scriptSlug: string, userId: string) => {
+
+const getSearchScript = async (scriptSlug: string, userId: string) => {
+	const select = {
+		code: sandboxScript.code,
+		schemaId: entitySchema.id,
+		schemaSlug: entitySchema.slug,
+		propertiesSchema: entitySchema.propertiesSchema,
+	};
+
 	const [userOwned] = await db
-		.select({
-			code: sandboxScript.code,
-			schemaId: entitySchema.id,
-			schemaSlug: entitySchema.slug,
-			propertiesSchema: entitySchema.propertiesSchema,
-		})
+		.select(select)
 		.from(sandboxScript)
 		.innerJoin(
 			entitySchema,
@@ -117,12 +148,7 @@ const getSearchScriptCode = async (scriptSlug: string, userId: string) => {
 	if (userOwned) return userOwned;
 
 	const [builtin] = await db
-		.select({
-			code: sandboxScript.code,
-			schemaId: entitySchema.id,
-			schemaSlug: entitySchema.slug,
-			propertiesSchema: entitySchema.propertiesSchema,
-		})
+		.select(select)
 		.from(sandboxScript)
 		.innerJoin(
 			entitySchema,
@@ -137,47 +163,21 @@ const getSearchScriptCode = async (scriptSlug: string, userId: string) => {
 	return builtin;
 };
 
-const getDetailsScriptCode = async (schemaId: string, userId: string) => {
-	const [userOwned] = await db
-		.select({ code: sandboxScript.code })
-		.from(sandboxScript)
-		.where(
-			and(
-				eq(sandboxScript.userId, userId),
-				eq(sandboxScript.detailsForEntitySchemaId, schemaId),
-			),
-		)
-		.orderBy(asc(sandboxScript.createdAt))
-		.limit(1);
-
-	if (userOwned) return userOwned;
-
-	const [builtin] = await db
-		.select({ code: sandboxScript.code })
-		.from(sandboxScript)
-		.where(
-			and(
-				isNull(sandboxScript.userId),
-				eq(sandboxScript.detailsForEntitySchemaId, schemaId),
-			),
-		)
-		.orderBy(asc(sandboxScript.createdAt))
-		.limit(1);
-
-	return builtin;
-};
-
-const getDetailsScriptCodeBySlug = async (input: {
+const getDetailsScript = async (input: {
 	userId: string;
 	schemaId: string;
-	scriptSlug: string;
+	scriptSlug?: string;
 }) => {
+	const slugCondition = input.scriptSlug
+		? eq(sandboxScript.slug, input.scriptSlug)
+		: undefined;
+
 	const [userOwned] = await db
 		.select({ code: sandboxScript.code })
 		.from(sandboxScript)
 		.where(
 			and(
-				eq(sandboxScript.slug, input.scriptSlug),
+				slugCondition,
 				eq(sandboxScript.userId, input.userId),
 				eq(sandboxScript.detailsForEntitySchemaId, input.schemaId),
 			),
@@ -192,7 +192,7 @@ const getDetailsScriptCodeBySlug = async (input: {
 		.from(sandboxScript)
 		.where(
 			and(
-				eq(sandboxScript.slug, input.scriptSlug),
+				slugCondition,
 				isNull(sandboxScript.userId),
 				eq(sandboxScript.detailsForEntitySchemaId, input.schemaId),
 			),
@@ -208,7 +208,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const body = c.req.valid("json");
 
-		const script = await getSearchScriptCode(body.search_script_slug, user.id);
+		const script = await getSearchScript(body.search_script_slug, user.id);
 		if (!script) return c.json({ error: "Search script not found" }, 404);
 
 		const sandbox = getSandboxService();
@@ -222,15 +222,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 			},
 		});
 
-		if (!result.success) {
-			if (result.error?.toLowerCase().includes("timed out"))
-				return c.json({ error: "Search job timed out" }, 504);
-
-			let errorMessage = "Search script execution failed";
-			if (result.error) errorMessage = `${errorMessage}: ${result.error}`;
-			if (result.logs) errorMessage = `${errorMessage}\n${result.logs}`;
-			return c.json({ error: errorMessage }, 500);
-		}
+		if (!result.success) return handleFailedSandboxResult(c, result, "Search");
 
 		const parsedResult = schemaSearchResponse.safeParse(result.value);
 		if (!parsedResult.success)
@@ -242,7 +234,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const body = c.req.valid("json");
 
-		const searchScript = await getSearchScriptCode(
+		const searchScript = await getSearchScript(
 			body.search_script_slug,
 			user.id,
 		);
@@ -250,16 +242,20 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 
 		const detailsScriptSlug = body.search_script_slug.endsWith(".search")
 			? `${body.search_script_slug.slice(0, -".search".length)}.details`
-			: null;
+			: undefined;
 
 		const script =
 			(detailsScriptSlug
-				? await getDetailsScriptCodeBySlug({
+				? await getDetailsScript({
 						userId: user.id,
 						schemaId: searchScript.schemaId,
 						scriptSlug: detailsScriptSlug,
 					})
-				: null) ?? (await getDetailsScriptCode(searchScript.schemaId, user.id));
+				: undefined) ??
+			(await getDetailsScript({
+				userId: user.id,
+				schemaId: searchScript.schemaId,
+			}));
 		if (!script)
 			return c.json({ error: "Entity schema import is not configured" }, 400);
 
@@ -273,15 +269,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 			},
 		});
 
-		if (!result.success) {
-			if (result.error?.toLowerCase().includes("timed out"))
-				return c.json({ error: "Import job timed out" }, 504);
-
-			let errorMessage = "Import script execution failed";
-			if (result.error) errorMessage = `${errorMessage}: ${result.error}`;
-			if (result.logs) errorMessage = `${errorMessage}\n${result.logs}`;
-			return c.json({ error: errorMessage }, 500);
-		}
+		if (!result.success) return handleFailedSandboxResult(c, result, "Import");
 
 		const parsedEnvelope = importEnvelope.safeParse(result.value);
 		if (!parsedEnvelope.success)
