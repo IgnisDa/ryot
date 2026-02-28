@@ -121,14 +121,27 @@ export const jsonResponse = <TSchema extends z.ZodType>(
 	schema: TSchema,
 ) => ({ description, content: jsonContent(schema) });
 
+/**
+ * @deprecated Use createErrorResponse() with commonErrors instead.
+ * This function will be removed in a future version.
+ * Example: createErrorResponse('Description', commonErrors.notFound)
+ */
 export const errorJsonResponse = (description: string, _code: string) =>
 	jsonResponse(description, errorSchema);
 
+/**
+ * @deprecated Use payloadErrorResponse() instead.
+ * This function will be removed in a future version.
+ */
 export const payloadValidationErrorResponse = errorJsonResponse(
 	"Request payload validation failed",
 	ERROR_CODES.VALIDATION_FAILED,
 );
 
+/**
+ * @deprecated Use pathParamErrorResponse() instead.
+ * This function will be removed in a future version.
+ */
 export const pathParamValidationErrorResponse = errorJsonResponse(
 	"Path parameter validation failed",
 	ERROR_CODES.VALIDATION_FAILED,
