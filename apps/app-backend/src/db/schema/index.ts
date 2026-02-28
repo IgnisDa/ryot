@@ -59,35 +59,37 @@ export const sandboxScript = pgTable(
 	],
 );
 
-export type EntitySchemaScriptType = "details" | "search";
-
 export const entitySchemaSandboxScript = pgTable(
 	"entity_schema_sandbox_script",
 	{
 		createdAt: timestamp().defaultNow().notNull(),
-		scriptType: text().notNull().$type<EntitySchemaScriptType>(),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		entitySchemaId: text()
 			.notNull()
 			.references(() => entitySchema.id, { onDelete: "cascade" }),
-		sandboxScriptId: text()
+		searchSandboxScriptId: text()
+			.notNull()
+			.references(() => sandboxScript.id, { onDelete: "cascade" }),
+		detailsSandboxScriptId: text()
 			.notNull()
 			.references(() => sandboxScript.id, { onDelete: "cascade" }),
 	},
 	(table) => [
-		index("entity_schema_sandbox_script_script_type_idx").on(table.scriptType),
 		index("entity_schema_sandbox_script_entity_schema_id_idx").on(
 			table.entitySchemaId,
 		),
-		index("entity_schema_sandbox_script_sandbox_script_id_idx").on(
-			table.sandboxScriptId,
+		index("entity_schema_sandbox_script_search_script_id_idx").on(
+			table.searchSandboxScriptId,
+		),
+		index("entity_schema_sandbox_script_details_script_id_idx").on(
+			table.detailsSandboxScriptId,
 		),
 		unique("entity_schema_sandbox_script_unique").on(
-			table.scriptType,
 			table.entitySchemaId,
-			table.sandboxScriptId,
+			table.searchSandboxScriptId,
+			table.detailsSandboxScriptId,
 		),
 	],
 );
@@ -215,7 +217,12 @@ export const entitySchemaRelations = relations(
 export const sandboxScriptRelations = relations(
 	sandboxScript,
 	({ one, many }) => ({
-		entitySchemaSandboxScripts: many(entitySchemaSandboxScript),
+		detailsEntitySchemaSandboxScripts: many(entitySchemaSandboxScript, {
+			relationName: "detailsSandboxScript",
+		}),
+		searchEntitySchemaSandboxScripts: many(entitySchemaSandboxScript, {
+			relationName: "searchSandboxScript",
+		}),
 		user: one(user, {
 			references: [user.id],
 			fields: [sandboxScript.userId],
@@ -230,9 +237,15 @@ export const entitySchemaSandboxScriptRelations = relations(
 			references: [entitySchema.id],
 			fields: [entitySchemaSandboxScript.entitySchemaId],
 		}),
-		sandboxScript: one(sandboxScript, {
+		searchSandboxScript: one(sandboxScript, {
 			references: [sandboxScript.id],
-			fields: [entitySchemaSandboxScript.sandboxScriptId],
+			relationName: "searchSandboxScript",
+			fields: [entitySchemaSandboxScript.searchSandboxScriptId],
+		}),
+		detailsSandboxScript: one(sandboxScript, {
+			references: [sandboxScript.id],
+			relationName: "detailsSandboxScript",
+			fields: [entitySchemaSandboxScript.detailsSandboxScriptId],
 		}),
 	}),
 );
