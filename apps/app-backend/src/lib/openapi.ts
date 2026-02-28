@@ -40,6 +40,13 @@ export const commonErrors = {
 	),
 } as const;
 
+export const createErrorUnion = <T extends z.ZodTypeAny[]>(...errors: T) => {
+	if (errors.length === 1) {
+		return errors[0];
+	}
+	return z.discriminatedUnion("code", errors as any);
+};
+
 export const successResponse = <T>(data: T) => ({ data });
 
 export const paginationMetaSchema = z.object({
