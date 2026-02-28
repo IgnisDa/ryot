@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AuthType } from "~/auth";
+import { requireAuth } from "~/auth/middleware";
 import { appConfigKeys } from "~/lib/app-config";
 import {
 	errorJsonResponse,
@@ -28,6 +29,7 @@ const setAppConfigRoute = createRoute({
 	path: "/set",
 	method: "post",
 	tags: ["app-config"],
+	middleware: [requireAuth],
 	summary: "Set an app config key",
 	request: {
 		body: { content: { "application/json": { schema: setAppConfigBody } } },
