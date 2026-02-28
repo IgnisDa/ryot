@@ -1,8 +1,8 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { anonymous, apiKey } from "better-auth/plugins";
-import { db, schema } from "../db";
-import { config } from "../lib/config";
+import { db, schema } from "~/db";
+import { config } from "~/lib/config";
 
 export const auth = betterAuth({
 	baseURL: config.FRONTEND_URL,
