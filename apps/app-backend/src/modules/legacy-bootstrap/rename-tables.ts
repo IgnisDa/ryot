@@ -51,6 +51,21 @@ BEGIN
 END $$;
 `;
 
+const renameLegacyEntityTranslationTableSql = `
+DO $$
+DECLARE started_at timestamptz := clock_timestamp();
+BEGIN
+	IF to_regclass('"old_entity_translation"') IS NOT NULL THEN RETURN; END IF;
+	IF to_regclass('"entity_translation"') IS NULL THEN
+		RAISE EXCEPTION 'Expected V1 entity_translation table to exist but it was not found; cannot rename';
+	END IF;
+	ALTER TABLE "entity_translation" RENAME TO old_entity_translation;
+	ALTER TABLE "old_entity_translation" RENAME CONSTRAINT "entity_translation_pkey" TO "old_entity_translation_pkey";
+	RAISE NOTICE 'rename: entity_translation -> old_entity_translation (% seconds elapsed)',
+		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+END $$;
+`;
+
 export const renameLegacyTables = Effect.gen(function* () {
 	const gate = yield* legacyBootstrapGate;
 	if (!gate) {
@@ -61,6 +76,7 @@ export const renameLegacyTables = Effect.gen(function* () {
 		client
 			.query(renameLegacyUserTableSql)
 			.then(() => client.query(renameLegacyIntegrationTableSql))
-			.then(() => client.query(renameLegacyNotificationPlatformTableSql)),
+			.then(() => client.query(renameLegacyNotificationPlatformTableSql))
+			.then(() => client.query(renameLegacyEntityTranslationTableSql)),
 	);
 });
