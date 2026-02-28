@@ -7,7 +7,6 @@ import {
 	jsonResponse,
 	payloadErrorResponse,
 	successResponse,
-	unauthenticatedResponse,
 } from "~/lib/openapi";
 import { setAppConfigValue } from "./repository";
 
@@ -36,7 +35,6 @@ const setAppConfigRoute = createAuthRoute(
 		},
 		responses: {
 			400: payloadErrorResponse(),
-			401: unauthenticatedResponse(),
 			200: jsonResponse("Config value was saved", setAppConfigResponseSchema),
 		},
 	}),

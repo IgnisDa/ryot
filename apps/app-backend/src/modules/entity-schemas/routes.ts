@@ -8,9 +8,9 @@ import {
 	ERROR_CODES,
 	errorResponse,
 	jsonResponse,
+	notFoundResponse,
 	payloadErrorResponse,
 	successResponse,
-	unauthenticatedResponse,
 } from "~/lib/openapi";
 import { listEntitySchemasByUser } from "./repository";
 import {
@@ -50,7 +50,6 @@ const listEntitySchemasRoute = createAuthRoute(
 		tags: ["entity-schemas"],
 		summary: "List available entity schemas",
 		responses: {
-			401: unauthenticatedResponse(),
 			200: jsonResponse(
 				"Schemas available for the user",
 				listEntitySchemasResponseSchema,
@@ -70,11 +69,7 @@ const searchEntitySchemasRoute = createAuthRoute(
 		},
 		responses: {
 			400: payloadErrorResponse(),
-			401: unauthenticatedResponse(),
-			404: createErrorResponse(
-				"Search script is missing",
-				commonErrors.notFound,
-			),
+			404: notFoundResponse("Search script is missing"),
 			500: createErrorResponse(
 				"Search execution or payload parsing failed",
 				commonErrors.internalError,
@@ -102,11 +97,7 @@ const importEntitySchemasRoute = createAuthRoute(
 		},
 		responses: {
 			400: payloadErrorResponse(),
-			401: unauthenticatedResponse(),
-			404: createErrorResponse(
-				"Details script is missing",
-				commonErrors.notFound,
-			),
+			404: notFoundResponse("Details script is missing"),
 			500: createErrorResponse(
 				"Import execution or persistence failed",
 				commonErrors.internalError,

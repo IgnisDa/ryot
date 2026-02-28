@@ -6,7 +6,6 @@ import {
 	dataSchema,
 	jsonResponse,
 	successResponse,
-	unauthenticatedResponse,
 } from "~/lib/openapi";
 import { appConfigApi } from "~/modules/app-config/routes";
 import { entitiesApi } from "~/modules/entities/routes";
@@ -34,7 +33,6 @@ const meRoute = createAuthRoute(
 		tags: ["protected"],
 		summary: "Get the current user session",
 		responses: {
-			401: unauthenticatedResponse(),
 			200: jsonResponse("Authenticated session details", meResponseSchema),
 		},
 	}),
