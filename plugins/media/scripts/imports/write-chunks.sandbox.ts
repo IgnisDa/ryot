@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { DateTime, Effect } from "@ryot/sandbox-sdk/effect";
 import { writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";
 import { genericImportAdapterManifestSchema } from "@ryot/sandbox-sdk/imports";
@@ -8,15 +7,15 @@ import { createMediaImportChunk } from "../../imports/chunks";
 import { MediaImportWriteChunkInput } from "../../imports/schemas";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
 	capabilities: ["scratch"],
+	slug: "import.write-chunks",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	name: "Write media import chunks",
-	slug: "activity.import.write-chunks",
 });
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: MediaImportWriteChunkInput,
 	output: genericImportAdapterManifestSchema,

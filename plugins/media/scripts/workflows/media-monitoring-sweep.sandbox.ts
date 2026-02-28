@@ -10,21 +10,22 @@ import {
 export const manifest = defineManifest({
 	kind: "workflow",
 	capabilities: [],
-	name: "Media monitoring sweep",
-	slug: "workflow.media-monitoring-sweep",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	name: "Media monitoring sweep",
+	slug: "workflow.media-monitoring-sweep",
 });
 
 const BATCH_SIZE = 100;
 
 const listTargets = {
+	scriptSlug: "media-monitoring-targets",
 	input: MediaMonitoringTargetsActivityInput,
 	output: MediaMonitoringTargetsActivityOutput,
-	scriptSlug: "activity.media-monitoring-targets",
 };
 
 const providerEntityPopulation = {
+	output: Schema.Array(Schema.Unknown),
 	workflowSlug: "kernel:provider-entity-population",
 	input: Schema.Struct({
 		mode: Schema.Literal("refresh"),
@@ -36,7 +37,6 @@ const providerEntityPopulation = {
 			}),
 		),
 	}),
-	output: Schema.Array(Schema.Unknown),
 };
 
 export default defineWorkflow({

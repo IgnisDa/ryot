@@ -46,13 +46,10 @@ const completeReplay = async <Input extends JsonValue>(
 it("keeps 205 resolution results aligned during in-process replay", async () => {
 	const items = Array.from({ length: 205 }, (_, index) => ({
 		index,
-		value: `value-${index}`,
 		identifierType: "isbn",
+		value: `value-${index}`,
 		candidates: [
-			{
-				providerSlug: "book.openlibrary",
-				scriptSlug: "activity.media-import-resolve.book.openlibrary",
-			},
+			{ providerSlug: "book.openlibrary", scriptSlug: "media-import-resolve.book.openlibrary" },
 		],
 	}));
 	const output = await completeReplay(resolutionWorkflow.run, { items }, (request) => ({
@@ -64,8 +61,8 @@ it("keeps 205 resolution results aligned during in-process replay", async () => 
 		results: items.map(({ index }) => ({
 			index,
 			status: "resolved",
-			providerSlug: "book.openlibrary",
 			externalId: `resolved-${index}`,
+			providerSlug: "book.openlibrary",
 		})),
 	});
 });

@@ -64,6 +64,7 @@ const ObservedWorkflowReplay = Schema.Union([
 			Schema.Struct({
 				request: workflowDurableCallRequestSchema,
 				targetScriptId: Schema.optional(SandboxScriptId),
+				targetScriptKind: Schema.optional(Schema.String),
 			}),
 		),
 	}),
@@ -258,7 +259,7 @@ const observeWorkflowReplay = (
 			const repository = yield* SandboxRepository;
 			const requests = yield* Effect.forEach(validated.requests, ({ request }) =>
 				Effect.gen(function* () {
-					const targetScriptId = yield* runWithDb(
+					const target = yield* runWithDb(
 						repository.resolveWorkflowCallScript(workflowScriptId, request),
 					);
 					if (
@@ -268,13 +269,15 @@ const observeWorkflowReplay = (
 							(request.kind === "child" || request.kind === "workflow-child") &&
 							request.args.workflowSlug.startsWith("kernel:")
 						) &&
-						targetScriptId === null
+						target === null
 					) {
 						return yield* sandboxFailure(
 							`Workflow ${request.kind} reference could not be resolved`,
 						);
 					}
-					return { request, ...(targetScriptId ? { targetScriptId } : {}) };
+					return target
+						? { request, targetScriptKind: target.kind, targetScriptId: target.scriptId }
+						: { request };
 				}),
 			);
 			return { requests, state: "pending" as const };
@@ -286,6 +289,7 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 >(
 	request: WorkflowDurableCallRequest,
 	targetScriptId: SandboxScriptId | undefined,
+	targetScriptKind: string | undefined,
 	payload: SandboxScriptWorkflowPayloadValue,
 	executionId: string,
 	requestIndex: number,
@@ -307,6 +311,20 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 	}
 
 	if (request.kind === "activity") {
+		if (targetScriptKind === "script") {
+			return yield* performSandboxWorkflowChild(
+				{
+					name: request.name,
+					index: request.index,
+					kind: "workflow-child",
+					args: { input: request.args.input, workflowSlug: request.args.scriptSlug },
+				},
+				targetScriptId,
+				payload,
+				executionId,
+				requestIndex,
+			);
+		}
 		return yield* performSandboxWorkflowActivity(
 			request,
 			targetScriptId,
@@ -508,6 +526,10 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				return yield* sandboxFailure(`Workflow replay ${step} failed: ${observed.error}`);
 			}
 			if (observed.state === "completed") {
+				if (replay.harvest && isObjectRecord(observed.output)) {
+					const { chunkFiles: _chunkFiles, ...output } = observed.output;
+					return { ...output, chunkHandles: replay.harvest.chunkHandles };
+				}
 				return observed.output;
 			}
 			if (observed.state === "projection-stale") {
@@ -524,10 +546,11 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			}
 			const values = yield* Effect.forEach(
 				observed.requests,
-				({ request, targetScriptId }) =>
+				({ request, targetScriptId, targetScriptKind }) =>
 					performSandboxWorkflowRequest(
 						request,
 						targetScriptId,
+						targetScriptKind,
 						{ ...payload, scriptId: pin.scriptId, startedAt: pin.startedAt },
 						executionId,
 						request.index,
