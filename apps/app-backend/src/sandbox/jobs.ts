@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
 	nonEmptyStringSchema,
+	nullableStringSchema,
 	positiveIntSchema,
 	stringUnknownRecordSchema,
 } from "~/lib/zod/base";
@@ -19,8 +20,8 @@ export const sandboxRunJobData = z.object({
 
 export const sandboxRunJobResult = z.object({
 	success: z.boolean(),
-	logs: z.string().optional(),
-	error: z.string().optional(),
+	logs: nullableStringSchema,
+	error: nullableStringSchema,
 	value: z.unknown().optional(),
 });
 
