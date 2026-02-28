@@ -15,7 +15,7 @@ export const manifest = defineManifest({
 	requiredSystemConfigKeys: [],
 });
 
-const activityReference = (scriptSlug: string) => ({
+const scriptReference = (scriptSlug: string) => ({
 	scriptSlug,
 	input: Schema.Struct({}),
 	output: genericImportWorkflowManifestSchema,
@@ -33,16 +33,16 @@ export default defineWorkflow({
 	output: genericImportWorkflowResultSchema,
 	run: (input, replay) =>
 		Effect.gen(function* () {
-			let scriptSlug = "activity.import.open-scale";
+			let scriptSlug = "import.open-scale";
 			if (input.source === "hevy") {
-				scriptSlug = "activity.import.hevy";
+				scriptSlug = "import.hevy";
 			}
 			if (input.source === "strong_app") {
-				scriptSlug = "activity.import.strong-app";
+				scriptSlug = "import.strong-app";
 			}
 			const adapterManifest = yield* replay.activity(
 				"parse-artifact",
-				activityReference(scriptSlug),
+				scriptReference(scriptSlug),
 				{},
 			);
 			return yield* replay.child("write-import", kernelImport, {

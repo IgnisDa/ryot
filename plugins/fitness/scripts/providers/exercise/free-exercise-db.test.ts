@@ -70,7 +70,11 @@ const makeStatefulHost = (
 	return { host, setCalls, httpCallCount: () => httpCallCount };
 };
 
-const execution = { metadata: {}, sandboxScriptId: "script_test" };
+const execution = {
+	metadata: {},
+	sandboxScriptId: "script_test",
+	startedAt: "2026-08-06T00:00:00.000Z",
+};
 
 describe("exercise.free-exercise-db sandbox script", () => {
 	it("uses matching narrow capabilities for search and details", () => {
@@ -110,6 +114,7 @@ describe("exercise.free-exercise-db sandbox script", () => {
 			expect(metadata["chunkCount"]).toBe(1);
 			const version = metadata["version"];
 			assert(typeof version === "string");
+			expect(version).toBe(execution.startedAt);
 
 			const chunkKeys = setCalls.map((call) => call.key).filter((key) => key !== CACHE_KEY);
 			expect(chunkKeys).toEqual([`${CACHE_KEY}:${version}:chunk:0`]);
