@@ -39,7 +39,7 @@ export class SandboxService {
 		await this.runnerManager.remove();
 	}
 
-	async run(options: SandboxRunOptions): Promise<SandboxResult> {
+	async run(options: SandboxRunOptions) {
 		const apiFunctionsId = this.setQueuedApiFunctions(options.apiFunctions);
 
 		try {
@@ -96,7 +96,7 @@ export class SandboxService {
 		}
 	}
 
-	async executeQueuedRun(jobData: SandboxRunJobData): Promise<SandboxResult> {
+	async executeQueuedRun(jobData: SandboxRunJobData) {
 		const apiFunctions = this.consumeQueuedApiFunctions(jobData.apiFunctionsId);
 
 		return this.execute({
@@ -109,7 +109,7 @@ export class SandboxService {
 		});
 	}
 
-	async execute(options: SandboxRunOptions): Promise<SandboxResult> {
+	async execute(options: SandboxRunOptions) {
 		const bridgePort = this.bridgeServer.getPort();
 		const runnerPath = this.runnerManager.getPath();
 
