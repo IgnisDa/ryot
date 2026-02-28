@@ -18,7 +18,7 @@ import {
 	buildPodcastDetailQueryDocument,
 	buildShowDetailQueryDocument,
 	buildTrendingMediaQueryDocument,
-} from "@ryot/media-fitness/query-recipes";
+} from "@ryot/media-plugin/query-recipes";
 import {
 	buildDefaultSavedViewQueryDocument,
 	buildEntityDetailQueryDocument,
