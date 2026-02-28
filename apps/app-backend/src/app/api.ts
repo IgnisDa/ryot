@@ -22,7 +22,7 @@ const openApiInfo = {
 const meResponseSchema = dataSchema(
 	z.object({
 		user: z.unknown(),
-		session: z.unknown().nullable(),
+		session: z.unknown().nullish(),
 	}),
 );
 
