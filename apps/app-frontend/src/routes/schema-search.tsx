@@ -27,8 +27,8 @@ export const Route = createFileRoute("/schema-search")({
 
 function SchemaSearchPage() {
 	const apiClient = useApiClient();
-	const navigate = Route.useNavigate();
 	const authClient = useAuthClient();
+	const navigate = Route.useNavigate();
 	const [page, setPage] = useState(1);
 	const [query, setQuery] = useState("harry potter");
 	const [schemaSlug, setSchemaSlug] = useState("book");
