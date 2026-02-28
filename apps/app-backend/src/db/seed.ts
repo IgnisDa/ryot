@@ -1,12 +1,12 @@
 import { generateId } from "better-auth";
 import { and, eq, isNull } from "drizzle-orm";
-import { bookPropertiesJsonSchema } from "../entity-schema-import";
-import googleBooksBookDetailsScriptCode from "../sandbox/google-books-book-details-source.txt";
-import googleBooksBookSearchScriptCode from "../sandbox/google-books-book-search-source.txt";
-import openLibraryBookDetailsScriptCode from "../sandbox/openlibrary-book-details-source.txt";
-import openLibraryBookSearchScriptCode from "../sandbox/openlibrary-book-search-source.txt";
+import googleBooksBookDetailsScriptCode from "../sandbox/scripts/google-books-book-details-source.txt";
+import googleBooksBookSearchScriptCode from "../sandbox/scripts/google-books-book-search-source.txt";
+import openLibraryBookDetailsScriptCode from "../sandbox/scripts/openlibrary-book-details-source.txt";
+import openLibraryBookSearchScriptCode from "../sandbox/scripts/openlibrary-book-search-source.txt";
 import { db } from ".";
 import { entitySchema, sandboxScript } from "./schema";
+import { bookPropertiesJsonSchema } from "./schema/book";
 
 const googleBooksImportScriptSlug = "google-books.book.details";
 const googleBooksSearchScriptSlug = "google-books.book.search";
