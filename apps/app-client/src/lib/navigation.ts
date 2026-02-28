@@ -56,8 +56,8 @@ export function useNavigationData(userName?: string): UseNavigationDataResult {
 		},
 	});
 
-	const isLoading = trackersQuery.isLoading || viewsQuery.isLoading;
 	const isError = trackersQuery.isError || viewsQuery.isError;
+	const isLoading = trackersQuery.isLoading || viewsQuery.isLoading;
 
 	const homeItem: NavigationItem = {
 		key: "home",
