@@ -11,6 +11,7 @@ import {
 export const mediaPropertiesSchema = z
 	.object({
 		genres: stringArraySchema,
+		isNsfw: nullableBooleanSchema,
 		publish_year: nullableIntSchema,
 		assets: remoteImagesAssetsSchema,
 		description: nullableStringSchema,
@@ -19,7 +20,6 @@ export const mediaPropertiesSchema = z
 	.strict();
 
 export const animeMangaPropertiesSchema = mediaPropertiesSchema.extend({
-	is_nsfw: nullableBooleanSchema,
 	provider_rating: nullableNumberSchema,
 	production_status: nullableStringSchema,
 });
