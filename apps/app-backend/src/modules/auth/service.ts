@@ -15,23 +15,29 @@ import { UserId } from "@ryot/contract/schema/brands";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { genericOAuth, twoFactor } from "better-auth/plugins";
-import { Effect, Layer, Option, Redacted, Runtime, Schema } from "effect";
+import { Context, Effect, Layer, Option, Redacted, Runtime, Schema } from "effect";
 import type Redis from "ioredis";
 
 import { AppConfig, type AppConfigValue, isOidcEnabled } from "#lib/infrastructure/config/service";
 import * as schemaAuth from "#lib/infrastructure/db/schema/tables/auth";
 import * as schemaTables from "#lib/infrastructure/db/schema/tables/combined";
 import * as schemaRelations from "#lib/infrastructure/db/schema/tables/relations";
-import type { DbRoot } from "#lib/infrastructure/db/service";
-import { CurrentDb, DbService, TransactionRunner } from "#lib/infrastructure/db/service";
+import {
+	CurrentDb,
+	DbService,
+	type DbRoot,
+	type TransactionRunner,
+} from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
-import { bootstrapNewUser } from "#modules/user-bootstrap/bootstrap";
-import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
 
 import { gateSessionCreation } from "./session-gate";
 
 const schema = { ...schemaAuth, ...schemaTables, ...schemaRelations };
+
+export class AuthUserBootstrap extends Context.Tag("AuthUserBootstrap")<
+	AuthUserBootstrap,
+	{ run: (userId: string) => Effect.Effect<void, unknown> }
+>() {}
 
 const makeAuthInstance = (args: {
 	readonly db: DbRoot;
@@ -200,22 +206,14 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 		const db = yield* DbService;
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
-		const runInTransaction = yield* TransactionRunner;
-		const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
-		const notificationSubscriptions = yield* NotificationSubscriptionsService;
+		const userBootstrap = yield* AuthUserBootstrap;
 		const runtime = yield* Effect.runtime<DbService | RedisService | TransactionRunner>();
-		const runBootstrap = (userId: string) =>
-			bootstrapNewUser(userId).pipe(
-				Effect.provideService(PluginUserBootstrapDispatcher, pluginBootstrap),
-				Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
-				Effect.provideService(TransactionRunner, runInTransaction),
-			);
 		const auth = makeAuthInstance({
 			config,
 			runtime,
 			db: db.db,
 			redis: redis.client,
-			bootstrapNewUser: runBootstrap,
+			bootstrapNewUser: userBootstrap.run,
 		});
 		const withInternalAdapter = <A>(operation: (context: AuthContextValue) => Promise<A>) =>
 			Effect.gen(function* () {

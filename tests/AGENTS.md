@@ -37,7 +37,7 @@ Every provider-driven test except the live smoke suite runs offline against a fa
 
 Admin-only fixture operations use the typed `testSupport` contract group with `adminHeaders` from `fixtures/admin.ts`.
 
-- Sandbox execution coverage installs scripts with `installTestPlugin`, then uses the admin-gated `testSupport.enqueueSandbox` and `testSupport.getSandboxResult` hooks with an explicit executing-user ID. Use `reinstallTestPluginScript` to compile changed source and obtain its new content-addressed script ID before rerunning. Do not mutate stored script rows or add a public script-authoring or execution fixture.
+- Sandbox execution coverage installs scripts with `installTestPlugin`, then uses the admin-gated `testSupport.enqueueSandbox` and `testSupport.getSandboxResult` hooks with an explicit executing-user ID. `installTestPlugin` builds a collision-free manifest and source map, installs through the real admin plugin endpoint, resolves persisted content-addressed script IDs, and tracks them for reinstall. Use `installTestPluginBundle` when behavior requires multiple scripts or workflows. Use `reinstallTestPluginScript` to install changed source and obtain its new script ID before rerunning; retained installed handles are updated in place. Pair installation with `uninstallTestPluginStrict` when successful removal is part of the assertion, or `uninstallTestPlugin` for non-fatal cleanup when production reference guards may correctly refuse removal. Do not mutate stored script rows or add a public script-authoring or execution fixture.
 - `plugins/operations.test.ts` covers the public `plugins.invoke` endpoint. It installs an `operation`-kind script from `operationSandboxSource` plus a manifest `operations` entry (`installTestPlugin`'s `operations` option) and calls the operation through the typed contract client, so dispatch, slug resolution, script input decoding, and the operation's declared `auth` mode are exercised against the real loader rather than the admin sandbox hooks.
 - Entity, event, and relationship definition fixtures install scriptless plugins through the real admin plugins endpoint. Slugs and plugin slugs must be collision-free across the sequential run; definitions are persisted and visible as plugin workspaces.
 - `seedGlobalShowEpisodeTree` and `seedMediaEntity` use `createGlobalEntity` and `upsertGlobalRelationship`; user-scoped entities continue through the authenticated entities API.
@@ -63,7 +63,17 @@ Coverage is intentionally minimal (a drift signal, not exhaustive): OpenLibrary 
 
 ## Operational Gates
 
-`tests/src/tests/plugins/media/imports/media-population-operational-gate.test.ts` preserves the full-size Phase 3 load measurement against the real workflow pool, Redis projection, sandbox processes, and database. It is discoverable but skipped by default because the successful measurement can consume up to its full 15-minute budget. Run it explicitly from this package with `RUN_OPERATIONAL_GATES=1 bun run test -- src/tests/plugins/media/imports/media-population-operational-gate.test.ts`; `true` is also accepted. Do not reduce its workload, timeout, assertions, or infrastructure path.
+Standard e2e is every discovered file except the two opt-in media gates. For final acceptance, run each
+standard file in its own vitest invocation rather than treating one all-files process as evidence; use
+`bun turbo --filter=@ryot/tests test -- <file>` from repository root. Individual invocations preserve
+the owner-requested isolation while still using each file's normal shared-backend harness internally.
+
+`tests/src/tests/plugins/media/imports/media-population-operational-gate.test.ts` preserves the full-size Phase 3 load measurement against the real workflow pool, Redis projection, sandbox processes, and database. It is discoverable but skipped by default because the successful measurement can consume up to its full 15-minute budget. Run it alone from repository root with `RUN_OPERATIONAL_GATES=1 bun turbo --filter=@ryot/tests test -- src/tests/plugins/media/imports/media-population-operational-gate.test.ts`; `true` is also accepted. Do not combine it with standard files or reduce its workload, timeout, assertions, or infrastructure path.
+
+The live provider smoke file is also standalone, but it is not the operational gate: run only
+`src/tests/plugins/media/smoke/providers-live-smoke.test.ts` with `RUN_LIVE_PROVIDER_TESTS=1` when
+external-provider drift coverage is requested. Standard runs discover both standalone files and skip
+them because their gate variables are absent.
 
 ## Query-Engine Parity
 
@@ -87,7 +97,7 @@ Coverage is intentionally minimal (a drift signal, not exhaustive): OpenLibrary 
 ## Timeouts & Pool Sizing
 
 - Inner poll budgets (event waits in `fixtures/events.ts`, sandbox polls in `fixtures/sandbox.ts`) are sized generously and kept comfortably below the outer 180s per-test timeout (`testTimeout`/`hookTimeout` in `vitest.config.ts`), so a genuine hang still fails. Automation and sandbox results flow through the durable-queue pipeline, whose p99 latency spikes under full-suite load — that's what the headroom is for.
-- Keep shared-harness `maxWorkers=3`, `SANDBOX_WORKER_CONCURRENCY=32`, and app/workflow pool maxima at 100 each. The cluster `SingleRunner` reserves one workflow connection, leaving 99; two `DurableQueue` workers consume up to two more, so workflow headroom for file-parallel durable work is `99 - 32 - 2 = 65` connections. The configured app and workflow maxima total 200 against the test Postgres `max_connections=400`, leaving capacity for server overhead. These are test-harness settings; production defaults remain 5 sandbox workers and 10 connections in each pool.
+- Keep shared-harness `maxWorkers=3`, `SANDBOX_WORKER_CONCURRENCY=32`, and app/workflow pool maxima at 100 each. Final workflow arithmetic: 100 configured connections minus one cluster `SingleRunner`, 32 sandbox workers, and two `DurableQueue` workers leaves `100 - 1 - 32 - 2 = 65` workflow connections for file-parallel durable work. App plus workflow maxima are `100 + 100 = 200`; test Postgres allows 400, leaving 200 connections for server/test/container overhead. These are test-harness settings; production defaults remain 5 sandbox workers and 10 connections in each pool.
 - Retain these values without fresh load evidence. A prior full-suite measurement peaked at 120 total database connections and 4 active connections after the pool increase; the separate successful full-size operational run recorded zero app-pool waits. This is historical evidence, not a fresh Task 12 measurement.
 - Diagnose pressure from the combined signals: app-pool `waitingCount > 0`, random cross-suite 180s timeouts, active or total connections nearing a ceiling, advisory/lock waits, deadlock deltas, Redis projection errors or stalled high-water progress, and overlapping sandbox work. Pool starvation can surface as cross-cutting timeouts rather than an explicit exhaustion error. Keep the operational gate separate and opt-in for fresh load evidence.
 

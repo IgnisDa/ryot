@@ -9,6 +9,7 @@ import { assert } from "vitest";
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { dbRunnerLayer } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
+import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
 import type { IntegrationRecord } from "#modules/integrations/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
@@ -103,10 +104,18 @@ const makeLayer = (input: {
 	integration?: IntegrationRecord | null;
 	operationScript?: () => ReturnType<typeof makeActiveScript>;
 }) => {
+	const integrationsRepository = Layer.mock(IntegrationsRepository)({
+		_tag: "IntegrationsRepository",
+		getByIdAnyUser: () => Effect.succeed(input.integration ?? null),
+	});
+	const integrationScopeResolver = IntegrationOperationScopeResolverLive.pipe(
+		Layer.provide(Layer.mergeAll(dbRunnerLayer, integrationsRepository)),
+	);
 	return OperationsService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
+				integrationScopeResolver,
 				Layer.mock(AuthService)({
 					_tag: "AuthService",
 					// oxlint-disable-next-line no-unsafe-type-assertion -- the better-auth client is never touched by these tests
@@ -122,10 +131,6 @@ const makeLayer = (input: {
 									}),
 								)
 							: Effect.fail(unauthorized()),
-				}),
-				Layer.mock(IntegrationsRepository)({
-					_tag: "IntegrationsRepository",
-					getByIdAnyUser: () => Effect.succeed(input.integration ?? null),
 				}),
 				Layer.mock(PluginRuntimeResolver)({
 					_tag: "PluginRuntimeResolver",

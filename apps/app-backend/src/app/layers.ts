@@ -61,6 +61,7 @@ import { ImportWorkflowDefinitionsLive } from "#modules/imports/import-run-workf
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
 import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/integration-workflow-live";
+import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
 import { IntegrationReconciliationWorkflowDefinitionsLive } from "#modules/integrations/reconciliation-workflow";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsService } from "#modules/integrations/service";
@@ -75,6 +76,7 @@ import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
 import { OperationsService } from "#modules/plugins/operations-service";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { PluginSandboxScriptResolverLive } from "#modules/plugins/sandbox-plugin-script-resolver-live";
 import { ScriptGarbageCollector } from "#modules/plugins/script-garbage-collector";
 import { PluginIngestionService, PluginInvalidationSubscriber } from "#modules/plugins/service";
 import { QueryEngineService } from "#modules/query-engine/service";
@@ -100,6 +102,7 @@ import { SignalSchemasRepository } from "#modules/signals/signal-schemas-reposit
 import { OperationalGateService } from "#modules/test-support/operational-gate-service";
 import { TestSupportService } from "#modules/test-support/service";
 import { UploadsService } from "#modules/uploads/service";
+import { AuthUserBootstrapLive } from "#modules/user-bootstrap/bootstrap";
 import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
 import { UserPreferencesService } from "#modules/user-preferences/service";
 import { UserStateService } from "#modules/user-state/service";
@@ -155,6 +158,10 @@ const PluginLoaderLive = Layer.mergeAll(
 const PluginRuntimeResolverLive = PluginRuntimeResolver.Default.pipe(
 	Layer.provideMerge(PluginLoaderLive),
 );
+const SandboxPluginScriptResolverLive = Layer.provideMerge(
+	PluginSandboxScriptResolverLive,
+	PluginRuntimeResolverLive,
+);
 const ImportSourceCatalogLive = Layer.provide(ImportSourceCatalog.Default, PluginLoaderLive);
 const IntegrationProviderCatalogLive = Layer.provide(
 	IntegrationProviderCatalog.Default,
@@ -180,7 +187,7 @@ const PluginIngestionServiceLive = Layer.provide(
 );
 const RepositoriesLive = Layer.provideMerge(
 	Layer.mergeAll(ContentRepositoriesLive, PlatformRepositoriesLive),
-	PluginRuntimeResolverLive,
+	SandboxPluginScriptResolverLive,
 );
 
 const MigrationBootstrapRepositoriesLive = Layer.mergeAll(
@@ -221,19 +228,29 @@ const NotificationSubscriptionsServiceLive = Layer.provide(
 );
 
 const LifecycleDispatchLayerLive = Layer.provide(LifecycleDispatchLive, AutomationsService.Default);
+
 const EntitiesServiceLive = Layer.provide(
 	EntitiesService.Default,
 	Layer.mergeAll(QueryEngineServiceLive, LifecycleDispatchLayerLive),
 );
+
 const SavedViewsServiceLive = Layer.provide(SavedViewsService.Default, QueryEngineServiceLive);
+
 const DefinitionsServiceLive = DefinitionsService.Default;
+
 const BootstrapServicesLive = Layer.mergeAll(
 	EntitiesServiceLive,
 	NotificationSubscriptionsServiceLive,
 );
+
+const AuthUserBootstrapProvidedLive = Layer.provideMerge(
+	AuthUserBootstrapLive,
+	BootstrapServicesLive,
+);
+
 const AuthAndBootstrapServicesLive = Layer.mergeAll(
 	BootstrapServicesLive,
-	Layer.provide(AuthService.Default, BootstrapServicesLive),
+	Layer.provide(AuthService.Default, AuthUserBootstrapProvidedLive),
 );
 const AuthDependentServicesLive = Layer.provideMerge(
 	Layer.mergeAll(UserPreferencesService.Default, GodModeService.Default),
@@ -268,16 +285,19 @@ const RuntimeSandboxServiceLive = Layer.provide(
 
 const SandboxExecutionServiceLive = Layer.provide(
 	SandboxExecutionService.Default,
-	PluginRuntimeResolverLive,
+	SandboxPluginScriptResolverLive,
 );
+
 const PluginUserBootstrapDispatcherDependenciesLive = Layer.provideMerge(
 	Layer.mergeAll(RuntimeSandboxServiceLive, SandboxRepository.Default),
 	PluginRuntimeResolverLive,
 );
+
 const PluginUserBootstrapDispatcherLive = Layer.provide(
 	PluginUserBootstrapDispatcher.Default,
 	PluginUserBootstrapDispatcherDependenciesLive,
 );
+
 const SandboxServicesLive = Layer.mergeAll(
 	SandboxExecutionServiceLive,
 	RuntimeSandboxServiceLive,
@@ -340,7 +360,7 @@ const ContentAndSandboxServicesLive = Layer.provideMerge(ServicesBaseLive, Sandb
 
 const OperationsServiceLive = Layer.provide(
 	OperationsService.Default,
-	ContentAndSandboxServicesLive,
+	Layer.mergeAll(ContentAndSandboxServicesLive, IntegrationOperationScopeResolverLive),
 );
 
 const ServicesLive = Layer.mergeAll(
