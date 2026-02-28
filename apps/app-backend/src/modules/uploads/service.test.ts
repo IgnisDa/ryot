@@ -43,12 +43,11 @@ const makeS3Layer = (overrides: S3Overrides = {}) =>
 
 type LocalStorageOverrides = Omit<
 	Parameters<typeof mockLocalStorageService>[0],
-	"_tag" | "isConfigured" | "isConfiguredForKind"
-> & { isConfigured?: Parameters<typeof mockLocalStorageService>[0]["isConfigured"] };
+	"_tag" | "isConfiguredForKind"
+>;
 
 const makeLocalStorageLayer = (overrides: LocalStorageOverrides = {}) =>
 	mockLocalStorageService({
-		isConfigured: true,
 		statObject: () => Effect.succeed(defaultFileInfo),
 		resolveObjectPath: () => Effect.succeed("/tmp/object"),
 		isConfiguredForKind: () => true,
@@ -68,7 +67,6 @@ const makeRedisLayer = (overrides: Partial<RedisService["Service"]> = {}) =>
 			client: makeRedisClient(),
 			releaseLease: () => Effect.void,
 			del: () => Effect.succeed(0),
-			claim: () => Effect.succeed(true),
 			renewLease: () => Effect.succeed(true),
 			setAndIndexAndSet: () => Effect.die("unused"),
 			setAndIndexAndDelete: () => Effect.die("unused"),
