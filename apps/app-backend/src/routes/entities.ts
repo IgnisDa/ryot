@@ -6,9 +6,10 @@ import type { AuthType } from "../auth";
 import { db } from "../db";
 import { entity, entitySchema } from "../db/schema";
 import { errorResponse, successResponse } from "../lib/response";
+import { nonEmptyTrimmedStringSchema } from "../lib/zod";
 
 const entityParams = z.object({
-	entityId: z.string().trim().min(1),
+	entityId: nonEmptyTrimmedStringSchema,
 });
 
 const entitySelect = {
