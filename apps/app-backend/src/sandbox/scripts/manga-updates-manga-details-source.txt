@@ -109,19 +109,19 @@ return {
 	name: title,
 	externalId: payloadIdentifier,
 	properties: {
-		url: typeof payload?.url === "string" ? payload.url : null,
-		genres: collectGenres(payload?.genres, payload?.categories),
-		assets: { remote_images: collectImages(payload?.image) },
 		volumes,
 		chapters,
 		is_nsfw: null,
-		description: typeof payload?.description === "string" ? payload.description : null,
+		production_status: productionStatus,
 		publish_year: parsePublishYear(payload?.year),
+		assets: { remote_images: collectImages(payload?.image) },
+		genres: collectGenres(payload?.genres, payload?.categories),
+		sourceUrl: typeof payload?.url === "string" ? payload.url : null,
+		description: typeof payload?.description === "string" ? payload.description : null,
 		provider_rating:
 			typeof payload?.bayesian_rating === "number" &&
 			Number.isFinite(payload.bayesian_rating)
 				? payload.bayesian_rating
 				: null,
-		production_status: productionStatus,
 	},
 };

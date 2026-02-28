@@ -218,7 +218,7 @@ return {
 		genres: [...genreSet],
 		publish_year: publishYear,
 		description: parseDescription(workPayload?.description),
-		source_url: `https://openlibrary.org/works/${identifier}/${title}`,
+		sourceUrl: `https://openlibrary.org/works/${identifier}/${title}`,
 		assets: {
 			remote_images: [...coverIdSet].map(
 				(coverId) =>

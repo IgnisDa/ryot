@@ -171,7 +171,7 @@ return {
 			typeof volumeInfo?.description === "string"
 				? volumeInfo.description
 				: null,
-		source_url: `https://www.google.co.in/books/edition/${title}/${identifier}`,
+		sourceUrl: `https://www.google.co.in/books/edition/${title}/${identifier}`,
 		assets: {
 			remote_images: collectImages(volumeInfo?.imageLinks),
 		},
