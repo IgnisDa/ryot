@@ -403,7 +403,7 @@ it.effect("dispatches EventCreateWorkflow only on first add, not on upsert", () 
 				}),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			saveRelationship: () => Effect.succeed(membership),
+			createRelationship: () => Effect.succeed(membership),
 		}),
 	});
 
@@ -435,7 +435,8 @@ it.effect("does not dispatch EventCreateWorkflow on upsert update", () => {
 
 	const layer = makeServiceLayer({
 		relationshipsRepository: makeRelationshipsRepository({
-			saveRelationship: () => Effect.succeed(membership),
+			createRelationship: () => Effect.succeed(membership),
+			updateRelationship: () => Effect.succeed(membership),
 		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
@@ -473,7 +474,7 @@ it.effect("does not dispatch EventCreateWorkflow on upsert update", () => {
 it.effect("returns not found when removing entity not in collection", () => {
 	const layer = makeServiceLayer({
 		relationshipsRepository: makeRelationshipsRepository({
-			deleteUserRelationship: () => Effect.succeed(null),
+			deleteRelationship: () => Effect.succeed(null),
 		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
@@ -532,7 +533,7 @@ it.effect("creates remove event on successful membership deletion", () => {
 	const layer = makeServiceLayer({
 		eventsService,
 		relationshipsRepository: makeRelationshipsRepository({
-			deleteUserRelationship: () => Effect.succeed(deletedMembership),
+			deleteRelationship: () => Effect.succeed(deletedMembership),
 		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
@@ -578,7 +579,7 @@ it.effect("merges ownership sources when marking an entity owned in the library"
 		relationshipsRepository: makeRelationshipsRepository({
 			findRelationshipProperties: () =>
 				Effect.succeed({ owned: true, ownershipSources: ["plex_yank"] }),
-			saveRelationship: (input: { properties: Record<string, unknown> }) => {
+			updateRelationship: (input: { properties: Record<string, unknown> }) => {
 				upserted = input;
 				return Effect.succeed({
 					createdAt: now,
@@ -606,6 +607,56 @@ it.effect("merges ownership sources when marking an entity owned in the library"
 			owned: true,
 			ownershipSyncedAt: now,
 			ownershipSources: ["plex_yank", "komga"],
+		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("merges ownership sources after a create conflict", () => {
+	let retried: { properties: Record<string, unknown> } | undefined;
+	const layer = makeServiceLayer({
+		collectionsRepository: makeCollectionsRepository({
+			getUserLibraryEntityId: () => Effect.succeed(EntityId.make("library-entity-id")),
+		}),
+		relationshipsRepository: makeRelationshipsRepository({
+			findRelationshipProperties: () => Effect.succeed(null),
+			createRelationship: () =>
+				Effect.succeed({
+					createdAt: now,
+					wasInserted: false,
+					properties: { owned: true, ownershipSources: ["plex_yank"] },
+					id: RelationshipId.make("rel-id"),
+					sourceEntityId: EntityId.make("entity-id"),
+					targetEntityId: EntityId.make("library-entity-id"),
+					relationshipSchemaId: RelationshipSchemaId.make("in-library-schema-id"),
+				}),
+			updateRelationship: (input: { properties: Record<string, unknown> }) => {
+				retried = input;
+				return Effect.succeed({
+					createdAt: now,
+					wasInserted: false,
+					properties: input.properties,
+					id: RelationshipId.make("rel-id"),
+					sourceEntityId: EntityId.make("entity-id"),
+					targetEntityId: EntityId.make("library-entity-id"),
+					relationshipSchemaId: RelationshipSchemaId.make("in-library-schema-id"),
+				});
+			},
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* CollectionsService;
+		yield* service.markEntityOwnedInLibrary({
+			syncedAt: now,
+			userId: user.id,
+			provider: "komga",
+			entityId: EntityId.make("entity-id"),
+		});
+
+		expect(retried?.properties).toEqual({
+			owned: true,
+			ownershipSources: ["plex_yank", "komga"],
+			ownershipSyncedAt: now,
 		});
 	}).pipe(Effect.provide(layer));
 });

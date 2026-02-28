@@ -2,13 +2,16 @@ import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type { MergeUserStateBody } from "@ryot/contract/modules/user-state/schemas";
 import { EntityId } from "@ryot/contract/schema/brands";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { trimToNull } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
+import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
+import { RelationshipsService } from "#modules/relationships/service";
 
 const entityNotFoundError = "Entity not found";
 const sameEntityMergeError = "Cannot merge an entity into itself";
@@ -26,9 +29,11 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const eventsRepository = yield* EventsRepository;
+		const relationships = yield* RelationshipsService;
 		const runInTransaction = yield* TransactionRunner;
 		const entitiesRepository = yield* EntitiesRepository;
 		const relationshipsRepository = yield* RelationshipsRepository;
+		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
 		const clearUserState = Effect.fn("UserStateService.clearUserState")(function* (
 			user: CurrentUserValue,
@@ -57,11 +62,23 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 						entityId,
 						userId: user.id,
 					});
-					const deletedRelationshipsCount =
-						yield* relationshipsRepository.deleteUserRelationshipsForEntity({
-							entityId,
+					const relationshipRows = yield* relationshipsRepository.listUserRelationshipsForEntity({
+						entityId,
+						userId: user.id,
+					});
+					let deletedRelationshipsCount = 0;
+					for (const relationship of relationshipRows) {
+						const deleted = yield* relationships.delete({
+							scope: "user",
 							userId: user.id,
+							sourceEntityId: relationship.sourceEntityId,
+							targetEntityId: relationship.targetEntityId,
+							relationshipSchemaId: relationship.relationshipSchemaId,
 						});
+						if (deleted) {
+							deletedRelationshipsCount += 1;
+						}
+					}
 
 					return { entityId, deletedEventsCount, deletedRelationshipsCount };
 				}),
@@ -126,12 +143,62 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 						mergeInto,
 						userId: user.id,
 					});
-					const movedRelationshipsCount =
-						yield* relationshipsRepository.moveUserRelationshipsBetweenEntities({
-							mergeFrom,
-							mergeInto,
+					const relationshipRows = yield* relationshipsRepository.listUserRelationshipsForEntity({
+						userId: user.id,
+						entityId: mergeFrom,
+					});
+					const propertiesSchemas = new Map<string, AppSchema>();
+					const getPropertiesSchema = Effect.fn("UserStateService.getRelationshipPropertiesSchema")(
+						function* (
+							relationshipSchemaId: (typeof relationshipRows)[number]["relationshipSchemaId"],
+						) {
+							const cached = propertiesSchemas.get(relationshipSchemaId);
+							if (cached) {
+								return cached;
+							}
+
+							const relationshipSchema = yield* runWithDb(
+								relationshipSchemasRepository.findById(relationshipSchemaId, user.id),
+							);
+							if (!relationshipSchema) {
+								return yield* Effect.die("Relationship schema not found during entity merge");
+							}
+
+							propertiesSchemas.set(relationshipSchemaId, relationshipSchema.propertiesSchema);
+							return relationshipSchema.propertiesSchema;
+						},
+					);
+
+					let movedRelationshipsCount = 0;
+					for (const relationship of relationshipRows) {
+						const sourceEntityId =
+							relationship.sourceEntityId === mergeFrom ? mergeInto : relationship.sourceEntityId;
+						const targetEntityId =
+							relationship.targetEntityId === mergeFrom ? mergeInto : relationship.targetEntityId;
+
+						if (sourceEntityId !== targetEntityId) {
+							yield* relationships.create({
+								scope: "user",
+								sourceEntityId,
+								targetEntityId,
+								userId: user.id,
+								properties: relationship.properties,
+								relationshipSchemaId: relationship.relationshipSchemaId,
+								propertiesSchema: yield* getPropertiesSchema(relationship.relationshipSchemaId),
+							});
+						}
+
+						const deleted = yield* relationships.delete({
+							scope: "user",
 							userId: user.id,
+							sourceEntityId: relationship.sourceEntityId,
+							targetEntityId: relationship.targetEntityId,
+							relationshipSchemaId: relationship.relationshipSchemaId,
 						});
+						if (deleted) {
+							movedRelationshipsCount += 1;
+						}
+					}
 
 					return { mergeFrom, mergeInto, movedEventsCount, movedRelationshipsCount };
 				}),
