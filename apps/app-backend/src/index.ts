@@ -13,12 +13,14 @@ import {
 	shutdownQueues,
 	shutdownWorkers,
 } from "./queue";
+import { healthApi } from "./routes/health";
 import { protectedApi } from "./routes/protected";
 import { initializeSandboxService, shutdownSandboxService } from "./sandbox";
 
 const apiApp = new Hono<{ Variables: MaybeAuthType }>();
 
 const route = apiApp
+	.route("/health", healthApi)
 	.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw))
 	.use("*", withSession)
 	.route("/protected", protectedApi);
@@ -51,14 +53,30 @@ const main = async () => {
 		isShuttingDown = true;
 
 		console.info("Shutting down server...");
-		await shutdownWorkers();
-		await shutdownQueues();
-		await shutdownSandboxService();
-		await shutdownRedis();
-		server.close(() => {
-			console.info("Server closed");
-			process.exit(0);
-		});
+
+		const gracefulShutdownTimeout = 30_000;
+		const forceExitTimeout = setTimeout(() => {
+			console.error(
+				"Graceful shutdown timed out, forcing exit after 30 seconds",
+			);
+			process.exit(1);
+		}, gracefulShutdownTimeout);
+
+		try {
+			await shutdownWorkers();
+			await shutdownQueues();
+			await shutdownSandboxService();
+			await shutdownRedis();
+			server.close(() => {
+				console.info("Server closed");
+				clearTimeout(forceExitTimeout);
+				process.exit(0);
+			});
+		} catch (error) {
+			console.error("Error during shutdown:", error);
+			clearTimeout(forceExitTimeout);
+			process.exit(1);
+		}
 	};
 
 	process.on("SIGINT", shutdown);
