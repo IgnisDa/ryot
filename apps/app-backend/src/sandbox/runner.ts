@@ -1,7 +1,7 @@
 import { rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import sandboxRunnerSource from "./runner-source.txt";
+import sandboxRunnerSource from "./scripts/runner-source.txt";
 
 export class RunnerFileManager {
 	private runnerPath: string | null = null;
