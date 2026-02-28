@@ -1,4 +1,8 @@
-import { apiFailure, apiSuccess, type ConfigValueResult } from "../types";
+import {
+	apiFailure,
+	apiSuccess,
+	type ConfigValueResult,
+} from "~/sandbox/types";
 
 export const getUserConfigValue = (key: unknown): ConfigValueResult => {
 	if (typeof key !== "string" || !key.trim())
