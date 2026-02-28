@@ -1,8 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
-import { sha256Base64Url } from "@ryot/ts-utils/crypto";
-import { stableStringify } from "@ryot/ts-utils/json";
-import { Effect } from "effect";
+import { workflowReplayJournalEntrySchema } from "@ryot/sandbox-sdk/workflow";
+import { Effect, Schema } from "effect";
 
 import { selectSandboxHostFunctions } from "./service";
 import type { SandboxRunInput } from "./shared";
@@ -32,10 +31,11 @@ const request = (index: number, name: string, input: JsonValue = { index }) => (
 	args: { input, scriptSlug: "activity-script" },
 });
 
-const journalEntry = (name: string, argsHash: string, value: unknown) =>
-	JSON.stringify({ name, value, argsHash, kind: "activity" });
-
-const hash = (value: unknown) => sha256Base64Url(stableStringify(value));
+const journalEntry = (requestValue: ReturnType<typeof request>, value: unknown) =>
+	JSON.stringify({ value, request: requestValue });
+const decodeJournalEntry = Schema.decodeUnknownSync(
+	Schema.fromJsonString(workflowReplayJournalEntrySchema),
+);
 
 const unusedHostFunction = () => Effect.succeed(null);
 
@@ -54,8 +54,8 @@ it.effect("returns the full projected journal from one argument-free bootstrap c
 	const first = request(0, "first");
 	const second = request(1, "second");
 	const redis = makeRedis([
-		journalEntry(first.name, hash(first.args), { result: 1 }),
-		journalEntry(second.name, hash(second.args), { result: 2 }),
+		journalEntry(first, { result: 1 }),
+		journalEntry(second, { result: 2 }),
 	]);
 	const durableCalls = makeWorkflowDurableCallsHostFunction(
 		workflowInput.workflowExecutionId,
@@ -65,7 +65,10 @@ it.effect("returns the full projected journal from one argument-free bootstrap c
 	return Effect.gen(function* () {
 		expect(yield* durableCalls([])).toEqual({
 			success: true,
-			data: [{ result: 1 }, { result: 2 }],
+			data: [
+				{ request: first, value: { result: 1 } },
+				{ request: second, value: { result: 2 } },
+			],
 		});
 	});
 });
@@ -81,6 +84,22 @@ it.effect("rejects request-bearing calls instead of retaining the growing-prefix
 		expect(yield* durableCalls([[request(0, "old-protocol")]])).toEqual({
 			success: false,
 			error: "durableCalls does not accept arguments",
+		});
+	});
+});
+
+it.effect("rejects a projection high-water mark above the workflow call limit", () => {
+	const client = {
+		hmget: () => Promise.reject(new Error("unused")),
+		hget: (_key: string, field: string) =>
+			Promise.resolve(field === "high-water" ? "1001" : "unused"),
+	};
+	const durableCalls = makeWorkflowDurableCallsHostFunction("bounded", { client });
+
+	return Effect.gen(function* () {
+		expect(yield* durableCalls([])).toEqual({
+			success: false,
+			error: "Sandbox workflow journal high-water mark is corrupt",
 		});
 	});
 });
@@ -121,6 +140,8 @@ it.effect("rebuilds a deleted Redis projection from the durable journal", () => 
 	const client = {
 		expire: () => Promise.resolve(1),
 		hget: (key: string, field: string) => Promise.resolve(hashes.get(key)?.get(field) ?? null),
+		hmget: (key: string, ...fields: string[]) =>
+			Promise.resolve(fields.map((field) => hashes.get(key)?.get(field) ?? null)),
 		pipeline: () => {
 			const writes: Array<() => void> = [];
 			return {
@@ -129,14 +150,6 @@ it.effect("rebuilds a deleted Redis projection from the durable journal", () => 
 					writes.push(() => {
 						const fields = hashes.get(key) ?? new Map<string, string>();
 						fields.set(field, value);
-						hashes.set(key, fields);
-					}),
-				hsetnx: (key: string, field: string, value: string) =>
-					writes.push(() => {
-						const fields = hashes.get(key) ?? new Map<string, string>();
-						if (!fields.has(field)) {
-							fields.set(field, value);
-						}
 						hashes.set(key, fields);
 					}),
 				exec: () => {
@@ -165,32 +178,28 @@ it.effect("rebuilds a deleted Redis projection from the durable journal", () => 
 	});
 });
 
-it.effect("projects only journal entries beyond the stored high-water mark", () => {
+it.effect("repairs missing and stale projection entries from the authoritative journal", () => {
 	const first = request(0, "first");
 	const second = request(1, "second");
 	const fields = new Map<string, string>([
-		["0", journalEntry(first.name, hash(first.args), { result: 1 })],
+		["0", journalEntry(first, { result: 1 })],
 		["high-water", "1"],
 	]);
-	const hsetnxFields: string[] = [];
+	const hsetFields: string[] = [];
 	let pipelineCalls = 0;
 	const client = {
 		expire: () => Promise.resolve(1),
 		hget: (_key: string, field: string) => Promise.resolve(fields.get(field) ?? null),
+		hmget: (_key: string, ...names: string[]) =>
+			Promise.resolve(names.map((name) => fields.get(name) ?? null)),
 		pipeline: () => {
 			pipelineCalls += 1;
 			const writes: Array<() => void> = [];
 			return {
 				expire: () => undefined,
-				hset: (_key: string, field: string, value: string) =>
-					writes.push(() => fields.set(field, value)),
-				hsetnx: (_key: string, field: string, value: string) => {
-					hsetnxFields.push(field);
-					writes.push(() => {
-						if (!fields.has(field)) {
-							fields.set(field, value);
-						}
-					});
+				hset: (_key: string, field: string, value: string) => {
+					hsetFields.push(field);
+					writes.push(() => fields.set(field, value));
 				},
 				exec: () => {
 					writes.forEach((write) => write());
@@ -206,22 +215,27 @@ it.effect("projects only journal entries beyond the stored high-water mark", () 
 
 	return Effect.gen(function* () {
 		yield* projectWorkflowJournalWithRedis({ client }, "incremental", journal);
-		expect(hsetnxFields).toEqual(["1"]);
+		expect(hsetFields.filter((field) => /^\d+$/.test(field))).toEqual(["0", "1"]);
 		expect(pipelineCalls).toBe(1);
 		expect(fields.get("0")).toBeTruthy();
 		expect(fields.get("1")).toBeTruthy();
 		expect(fields.get("high-water")).toBe("2");
 
 		yield* projectWorkflowJournalWithRedis({ client }, "incremental", journal);
-		expect(hsetnxFields).toEqual(["1"]);
 		expect(pipelineCalls).toBe(1);
+
+		fields.delete("1");
+		hsetFields.length = 0;
+		yield* projectWorkflowJournalWithRedis({ client }, "incremental", journal);
+		expect(hsetFields.filter((field) => /^\d+$/.test(field))).toEqual(["1"]);
+		expect(pipelineCalls).toBe(2);
 
 		fields.set("high-water", "invalid");
 		fields.delete("0");
 		fields.delete("1");
-		hsetnxFields.length = 0;
+		hsetFields.length = 0;
 		yield* projectWorkflowJournalWithRedis({ client }, "incremental", journal);
-		expect(hsetnxFields).toEqual(["0", "1"]);
+		expect(hsetFields.filter((field) => /^\d+$/.test(field))).toEqual(["0", "1"]);
 		expect(fields.get("high-water")).toBe("2");
 	});
 });
@@ -229,8 +243,8 @@ it.effect("projects only journal entries beyond the stored high-water mark", () 
 it.effect("hides an ahead projection until durable memos rebuild the journal after restart", () => {
 	const first = request(0, "first");
 	const second = request(1, "second");
-	const firstEntry = journalEntry(first.name, hash(first.args), { result: 1 });
-	const secondEntry = journalEntry(second.name, hash(second.args), { result: 2 });
+	const firstEntry = journalEntry(first, { result: 1 });
+	const secondEntry = journalEntry(second, { result: 2 });
 	const fields = new Map<string, string>([
 		["0", firstEntry],
 		["1", secondEntry],
@@ -276,16 +290,28 @@ it.effect("hides an ahead projection until durable memos rebuild the journal aft
 		expect(hmgetCalls).toBe(0);
 
 		yield* projectWorkflowJournalWithRedis({ client }, "reconstructed", rebuiltJournal.slice(0, 1));
-		expect(yield* durableCalls([])).toEqual({ success: true, data: [{ result: 1 }] });
-		expect(hmgetCalls).toBe(1);
+		expect(yield* durableCalls([])).toEqual({
+			success: true,
+			data: [{ request: first, value: { result: 1 } }],
+		});
+		expect(hmgetCalls).toBe(2);
 
 		yield* projectWorkflowJournalWithRedis({ client }, "reconstructed", rebuiltJournal);
 		expect(yield* durableCalls([])).toEqual({
 			success: true,
-			data: [{ result: 1 }, { result: 2 }],
+			data: [
+				{ request: first, value: { result: 1 } },
+				{ request: second, value: { result: 2 } },
+			],
 		});
-		expect(hmgetCalls).toBe(2);
-		expect(fields.get("0")).toBe(firstEntry);
-		expect(fields.get("1")).toBe(secondEntry);
+		expect(hmgetCalls).toBe(4);
+		expect(decodeJournalEntry(fields.get("0") ?? "")).toEqual({
+			request: first,
+			value: { result: 1 },
+		});
+		expect(decodeJournalEntry(fields.get("1") ?? "")).toEqual({
+			request: second,
+			value: { result: 2 },
+		});
 	});
 });

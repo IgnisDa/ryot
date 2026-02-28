@@ -9,7 +9,8 @@ import {
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import type { MockOverrides } from "#lib/test-utils/effect";
+import { RedisService } from "#lib/infrastructure/redis";
+import { makeRedisService, type MockOverrides } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { AutomationsService } from "#modules/automations/service";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
@@ -65,6 +66,7 @@ const makeServiceLayer = (
 				mockAuth({ auth: Object.create(null) }),
 				mockAutomations({}),
 				mockSignals({}),
+				Layer.succeed(RedisService, makeRedisService()),
 				Layer.succeed(DefinitionRegistry, { ...definitions }),
 				mockEntities({ ...overrides.entities }),
 				mockSandbox({ ...overrides.sandbox }),
@@ -179,7 +181,7 @@ it.effect("delegates sandbox execution with the explicit executing user", () => 
 			enqueue: (userId, payload) =>
 				Effect.sync(() => {
 					enqueueInput = { userId, payload };
-					return { jobId: "job-id" };
+					return { executionId: "execution-id", jobId: "job-id" };
 				}),
 		},
 	});
@@ -187,6 +189,7 @@ it.effect("delegates sandbox execution with the explicit executing user", () => 
 	return Effect.gen(function* () {
 		const service = yield* TestSupportService;
 		expect(yield* service.enqueueSandbox({ executingUserId, scriptId })).toEqual({
+			executionId: "execution-id",
 			jobId: "job-id",
 		});
 		expect(enqueueInput).toEqual({
