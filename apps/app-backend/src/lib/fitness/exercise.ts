@@ -79,11 +79,11 @@ const exercisePropertiesZodSchema = z
 	})
 	.strict();
 
-const _base = toAppSchemaProperties(exercisePropertiesZodSchema);
+const base = toAppSchemaProperties(exercisePropertiesZodSchema);
 
 export const exercisePropertiesJsonSchema: AppSchema = {
 	fields: {
-		..._base.fields,
+		...base.fields,
 		muscles: {
 			label: "Muscles",
 			type: "enum-array",

@@ -1,8 +1,11 @@
 import { z } from "@hono/zod-openapi";
 
 import { dataSchema } from "~/lib/openapi";
-import { computedFieldArraySchema, viewExpressionSchema } from "~/lib/views/expression";
-import { nullableViewPredicateSchema } from "~/lib/views/filtering";
+import {
+	computedFieldArraySchema,
+	nullableViewPredicateSchema,
+	viewExpressionSchema,
+} from "~/lib/views/expression";
 import type {
 	QueryEngineEventJoinLike,
 	QueryEngineReferenceContext,
