@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
 	createImportEnvelopeSchema,
+	nullableBooleanSchema,
 	nullableIntSchema,
 	toStableJsonSchema,
 } from "./base";
@@ -12,7 +13,7 @@ const schemaImportPerson = z
 
 export const bookPropertiesSchema = mediaPropertiesSchema.extend({
 	pages: nullableIntSchema,
-	isCompilation: z.boolean().optional(),
+	isCompilation: nullableBooleanSchema,
 	people: z.array(schemaImportPerson),
 });
 
