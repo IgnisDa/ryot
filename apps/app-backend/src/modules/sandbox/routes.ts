@@ -7,7 +7,7 @@ import {
 	payloadErrorResponse,
 	successResponse,
 } from "~/lib/openapi";
-import { nonEmptyStringSchema } from "~/lib/zod/base";
+import { nonEmptyStringSchema, nullableStringSchema } from "~/lib/zod/base";
 import { getSandboxService } from "~/sandbox";
 import {
 	getAppConfigValue,
@@ -20,8 +20,8 @@ const runSandboxSchema = z.object({
 
 const runSandboxResponseSchema = dataSchema(
 	z.object({
-		logs: z.string().optional(),
-		error: z.string().optional(),
+		logs: nullableStringSchema,
+		error: nullableStringSchema,
 		value: z.unknown().optional(),
 		durationMs: z.number().int().nonnegative(),
 	}),
