@@ -1,4 +1,4 @@
-import { Queue } from "bullmq";
+import { Queue, QueueEvents } from "bullmq";
 import { getRedisConnection } from "./connection";
 
 export const createQueues = () => {
@@ -10,7 +10,10 @@ export const createQueues = () => {
 			removeOnComplete: { age: 600, count: 1000 },
 		},
 	});
-	return { sandboxScriptQueue };
+	const sandboxScriptQueueEvents = new QueueEvents("sandboxScript", {
+		connection,
+	});
+	return { sandboxScriptQueue, sandboxScriptQueueEvents };
 };
 
 export type Queues = ReturnType<typeof createQueues>;
