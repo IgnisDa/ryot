@@ -20,37 +20,46 @@ export interface SandboxResult {
 	success: boolean;
 }
 
+export type ApiSuccess<T> = {
+	success: true;
+	data: T;
+};
+
+export type ApiFailure = {
+	success: false;
+	error: string;
+};
+
+export type ApiResult<T> = ApiSuccess<T> | ApiFailure;
+
+export const apiSuccess = <T>(data: T): ApiSuccess<T> => ({
+	data,
+	success: true,
+});
+
+export const apiFailure = (error: string): ApiFailure => ({
+	error,
+	success: false,
+});
+
 export type HttpCallOptions = {
 	body?: string;
 	headers?: Record<string, string>;
 };
 
-export type HttpCallSuccess = {
-	success: true;
-	data: {
-		body: string;
-		status: number;
-		statusText: string;
-		headers: Record<string, string>;
-	};
+export type HttpCallSuccessData = {
+	body: string;
+	status: number;
+	statusText: string;
+	headers: Record<string, string>;
 };
 
-export type HttpCallFailure = {
-	error: string;
-	success: false;
+export type HttpCallErrorData = {
 	status?: number;
 };
 
-export type HttpCallResult = HttpCallFailure | HttpCallSuccess;
+export type HttpCallResult =
+	| ApiSuccess<HttpCallSuccessData>
+	| (ApiFailure & { data?: HttpCallErrorData });
 
-export type ConfigValueSuccess = {
-	success: true;
-	data: Config[keyof Config];
-};
-
-export type ConfigValueFailure = {
-	error: string;
-	success: false;
-};
-
-export type ConfigValueResult = ConfigValueFailure | ConfigValueSuccess;
+export type ConfigValueResult = ApiResult<Config[keyof Config]>;
