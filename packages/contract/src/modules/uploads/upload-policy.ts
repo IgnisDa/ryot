@@ -1,6 +1,4 @@
 export const UPLOAD_MAX_FILE_BYTES = 50 * 1024 * 1024;
-export const TEMPORARY_UPLOAD_MAX_FILE_BYTES = UPLOAD_MAX_FILE_BYTES;
-export const TEMPORARY_UPLOAD_MAX_REQUEST_BYTES = TEMPORARY_UPLOAD_MAX_FILE_BYTES + 256 * 1024;
 
 export const uploadContentTypes = [
 	"text/csv",

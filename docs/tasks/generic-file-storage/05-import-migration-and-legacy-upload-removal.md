@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Generic File Storage](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -22,19 +22,29 @@ all upload-token/path helpers that exist only for that flow.
 
 ## Acceptance criteria
 
-- [ ] Shared import upload fixtures use local create-intent, signed PUT, and completion rather than multipart temporary upload
-- [ ] All kernel and plugin import integration suites use the migrated fixture through production routes
-- [ ] Imports claim temporary tokens through the uploads service and reject non-local storage locators
-- [ ] A claimed local upload resolves to a path beneath `fileStorage.localTempDir` before sandbox use
-- [ ] Required-file and source-specific extension validation remains import-owned and behaviorally unchanged
-- [ ] A stable upload cleanup handle is carried into durable import processing
-- [ ] Validation, pinning, enqueue, workflow success, and workflow failure paths delete claimed uploads through the uploads service
-- [ ] The 24-hour processing lease remains a fallback when ordinary cleanup cannot run
-- [ ] Imports no longer directly delete uploaded source files or treat arbitrary paths as upload ownership
-- [ ] Sandbox scratch, harvest, ZIP extraction, and generic chunk cleanup remain with their existing owners
-- [ ] The old multipart temporary route, middleware-only branches, service method, response shape, and fixture are removed without aliases
-- [ ] Import service/workflow tests and end-to-end import suites cover local claims, S3 rejection, and every cleanup termination path
-- [ ] Raw requests to the removed temporary upload path no longer match a route
+- [x] Shared import upload fixtures use local create-intent, signed PUT, and completion rather than multipart temporary upload
+- [x] All kernel and plugin import integration suites use the migrated fixture through production routes
+- [x] Imports claim temporary tokens through the uploads service and reject non-local storage locators
+- [x] A claimed local upload resolves to a path beneath `fileStorage.localTempDir` before sandbox use
+- [x] Required-file and source-specific extension validation remains import-owned and behaviorally unchanged
+- [x] A stable upload cleanup handle is carried into durable import processing
+- [x] Validation, pinning, enqueue, workflow success, and workflow failure paths delete claimed uploads through the uploads service
+- [x] The 24-hour processing lease remains a fallback when ordinary cleanup cannot run
+- [x] Imports no longer directly delete uploaded source files or treat arbitrary paths as upload ownership
+- [x] Sandbox scratch, harvest, ZIP extraction, and generic chunk cleanup remain with their existing owners
+- [x] The old multipart temporary route, middleware-only branches, service method, response shape, and fixture are removed without aliases
+- [x] Import service/workflow tests and end-to-end import suites cover local claims, S3 rejection, and every cleanup termination path
+- [x] Raw requests to the removed temporary upload path no longer match a route
+
+## Verification
+
+- `bun turbo --filter=@ryot/app-backend check`
+- `bun turbo --filter=@ryot/app-backend test --only -- src/app/kernel-workflow-references.test.ts src/modules/imports/service.test.ts src/modules/imports/import-run-workflow-live.test.ts src/modules/uploads/service.test.ts`
+- `bun turbo --filter=@ryot/tests check`
+- `bun turbo --filter=@ryot/tests test --only -- 'src/tests/kernel/imports/imports.test.ts'`
+- `bun turbo --filter=@ryot/tests test --only -- 'src/tests/plugins/media/imports/imports.test.ts'`
+- `bun turbo --filter=@ryot/tests test --only -- 'src/tests/plugins/fitness/imports/imports.test.ts'`
+- `bun turbo --filter=@ryot/tests test --only -- 'src/tests/kernel/uploads/uploads.test.ts'`
 
 ## User stories addressed
 
