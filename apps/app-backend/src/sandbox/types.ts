@@ -32,14 +32,14 @@ export type ApiFailure = {
 
 export type ApiResult<T> = ApiSuccess<T> | ApiFailure;
 
-export const apiSuccess = <T>(data: T): ApiSuccess<T> => ({
+export const apiSuccess = <T>(data: T) => ({
 	data,
-	success: true,
+	success: true as const,
 });
 
-export const apiFailure = (error: string): ApiFailure => ({
+export const apiFailure = (error: string) => ({
 	error,
-	success: false,
+	success: false as const,
 });
 
 export type HttpCallOptions = {
