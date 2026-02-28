@@ -11,7 +11,7 @@ build order agreed while planning. The old app lives in `apps/app-client-backup/
   instance-URL resolution) — that logic is being re-implemented, not the UI.
 - **No gluestack UI.** Dropped entirely. Disliked the look/feel.
 - **No jotai, no react-query.** This is an Effect-heavy app. State + data come from
-  **effect-atom** (`@effect-atom/atom-react`). effect-atom ships an `HttpClient`
+  **effect-atom** (`@effect/atom-react`). effect-atom ships an `HttpClient`
   integration, so react-query is unnecessary.
 - **Contract-derived client.** `AppContract` is an Effect Platform `HttpApi`, so the
   typed client is derived from it (`AtomHttpApi` / `HttpApiClient.make(AppContract)`)
@@ -34,8 +34,8 @@ build order agreed while planning. The old app lives in `apps/app-client-backup/
 - **Surfaces:** custom cards, rounded pills/chips, custom bottom tab bar.
 - **Status semantics:** Done (green), Playing (orange), Planned (blue).
 - **Both light and dark** ramps required.
-- **Tabs:** Home / Search / Library / You — generic, *not* per-tracker.
-- **Library pills:** All / Movies / Shows / Books — these are entity schemas *within*
+- **Tabs:** Home / Search / Library / You — generic, _not_ per-tracker.
+- **Library pills:** All / Movies / Shows / Books — these are entity schemas _within_
   one tracker, not trackers.
 
 ## Tokens vs. primitives (the Phase 0 vs Phase 4 question)
@@ -43,7 +43,7 @@ build order agreed while planning. The old app lives in `apps/app-client-backup/
 - **Tokens ≠ design system.** `global.css` holds Phase 0 **tokens** (raw values: colors,
   fonts, radii, spacing).
 - **Primitives** (`Text`, `Screen`, `Card`, `Pill`/`Chip`, `Button`, `ProgressBar`,
-  cover `Image`, `StatusBadge`, rating stars) are Phase 4 — components that *spend* those
+  cover `Image`, `StatusBadge`, rating stars) are Phase 4 — components that _spend_ those
   tokens. They don't exist yet. That's why the design system reappears in Phase 4.
 
 ## Refactoring already-built components
@@ -51,7 +51,7 @@ build order agreed while planning. The old app lives in `apps/app-client-backup/
 - The auth screens built in Phase 3 (`modules/auth/form.tsx`) already use the tokens
   correctly but **copy-paste recipes** (accent button, input, card styles inline).
 - **Yes, they get a light refactor** to consume the primitives — but **defer it until the
-  film tracer bullet** (Phase 5) gives a *second* consumer, so the primitive isn't designed
+  film tracer bullet** (Phase 5) gives a _second_ consumer, so the primitive isn't designed
   around auth alone.
 
 ## Tracker model (the key architectural decision)
@@ -70,8 +70,8 @@ Backend hierarchy (in `app-backend`): **Tracker → entity schemas → saved vie
 2. The mockups assume it (generic tabs, no tracker tree anywhere).
 3. A multi-level tree is high-friction for a 2-item list.
 
-**Correction — it's a context swap, not a filter.** The tracker *redefines what every tab
-means* (Search in media = TMDB movie lookup; Search in fitness = exercise database. Home in
+**Correction — it's a context swap, not a filter.** The tracker _redefines what every tab
+means_ (Search in media = TMDB movie lookup; Search in fitness = exercise database. Home in
 media = "Continue watching"; Home in fitness = today's workout). The verb changes too
 ("Mark watched" vs. log a set). So budget for **N tabs × M trackers** (per-tracker screens),
 not one shared screen with a `where tracker = …` clause.
