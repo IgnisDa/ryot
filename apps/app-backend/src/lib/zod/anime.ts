@@ -11,7 +11,7 @@ const animeAiringScheduleSpecificsSchema = z
 
 export const animePropertiesSchema = animeMangaPropertiesSchema.extend({
 	episodes: nullableIntSchema,
-	airingSchedule: z.array(animeAiringScheduleSpecificsSchema).nullable(),
+	airingSchedule: z.array(animeAiringScheduleSpecificsSchema).nullish(),
 });
 
 export const animePropertiesJsonSchema = toStableJsonSchema(

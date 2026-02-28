@@ -1,10 +1,10 @@
 import { toJSONSchema, z } from "zod";
 
-export const nullableStringSchema = z.string().nullable();
-export const nullableNumberSchema = z.number().nullable();
-export const nullableBooleanSchema = z.boolean().nullable();
+export const nullableStringSchema = z.string().nullish();
+export const nullableNumberSchema = z.number().nullish();
+export const nullableBooleanSchema = z.boolean().nullish();
+export const nullableIntSchema = z.number().int().nullish();
 export const positiveIntSchema = z.number().int().positive();
-export const nullableIntSchema = z.number().int().nullable();
 export const stringArraySchema = z.array(z.string());
 export const nonEmptyStringSchema = z.string().min(1);
 export const nonEmptyTrimmedStringSchema = z.string().trim().min(1);

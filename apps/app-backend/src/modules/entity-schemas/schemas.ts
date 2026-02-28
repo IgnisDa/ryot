@@ -24,8 +24,8 @@ export const importEnvelope = createImportEnvelopeSchema(z.unknown());
 export const schemaSearchItemSchema = z.object({
 	title: z.string(),
 	identifier: z.string(),
-	image: nullableStringSchema.optional(),
-	publishYear: nullableIntSchema.optional(),
+	image: nullableStringSchema,
+	publishYear: nullableIntSchema,
 });
 
 export const schemaSearchResponse = paginatedSchema(schemaSearchItemSchema);
