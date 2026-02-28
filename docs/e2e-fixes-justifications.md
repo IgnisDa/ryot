@@ -22,17 +22,16 @@ resource use.
 
 ## Fixes
 
-### Integration adapters are workflow activities
+### Integration adapters are durable script requests
 
 The ten media integration adapters were authored with `defineScript` and `kind: "script"`, while
 the media import workflow invokes the selected adapter through `replay.activity`. The kernel's
-workflow resolver intentionally accepts only `kind: "activity"` at that boundary. This structural
-guard prevents a deterministic workflow from invoking an arbitrary direct script as durable work.
+workflow resolver resolves that durable request only to a script in the owning plugin and dispatches
+the exact script pin through `SandboxScriptWorkflow`.
 
-All sink and yank adapters under `plugins/media/scripts/integrations/` now use `defineActivity` and
-`kind: "activity"`. Their input/output schemas, capabilities, provider declarations, and adapter
-logic are unchanged. The previous definitions were wrong because the migration changed who invokes
-the adapters without changing their script kind to match that invocation contract.
+All sink and yank adapters under `plugins/media/scripts/integrations/` use `defineScript` and
+`kind: "script"`. Their input/output schemas, capabilities, provider declarations, and adapter logic
+are unchanged; durability belongs to the universal runtime rather than a separate definition kind.
 
 ### Normal workflow suspension is not failure
 
@@ -128,9 +127,9 @@ journal validation, and result/error propagation are preserved.
 The same direct queue boundary also existed in active-script sandbox calls used by provider details,
 translation, event policy, and integration operations. A loaded media-monitoring baseline cron
 entered provider population and then held its HTTP request for the remaining 179 seconds of the test.
-`processSandboxExecution` still resolves and journals the active script first, then delegates its
-deterministically keyed work to `SandboxExecutionQueue` through the shared queue processor. The queue
-payload and active-script pin are unchanged.
+Those callers now compose `SandboxScriptWorkflow`; its deterministic execution id, authority, and
+exact script pin preserve the existing ownership while the queue remains only the local replay
+executor.
 
 The full-size operational gate exposed one final failure inside that owner. Under sustained load,
 `SandboxExecutionQueue` processing could remain suspended after the sandbox work had stopped making

@@ -1,6 +1,5 @@
 import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
 import {
-	SANDBOX_SDK_ACTIVITY_IMPORT,
 	SANDBOX_SDK_AUTOMATION_IMPORT,
 	SANDBOX_SDK_IMPORTS,
 	SANDBOX_SDK_PROVIDER_IMPORT,
@@ -187,7 +186,6 @@ export const inspectWorkflowImports = (file: ts.SourceFile) => {
 
 const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 	const scriptHelpers = new Set<string>();
-	const activityHelpers = new Set<string>();
 	const providerHelpers = new Set<string>();
 	const manifestHelpers = new Set<string>();
 	const operationHelpers = new Set<string>();
@@ -226,7 +224,6 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 			if (
 				ts.isImportDeclaration(statement) &&
 				(specifier === SANDBOX_SDK_ROOT_IMPORT ||
-					specifier === SANDBOX_SDK_ACTIVITY_IMPORT ||
 					specifier === SANDBOX_SDK_AUTOMATION_IMPORT ||
 					specifier === SANDBOX_SDK_PROVIDER_IMPORT ||
 					specifier === SANDBOX_SDK_WORKFLOW_IMPORT ||
@@ -251,9 +248,6 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 						}
 						if (importedName === "defineScript") {
 							scriptHelpers.add(element.name.text);
-						}
-						if (importedName === "defineActivity") {
-							activityHelpers.add(element.name.text);
 						}
 						if (importedName === "defineAutomation" || importedName === "defineAutomationPolicy") {
 							automationHelpers.add(element.name.text);
@@ -311,7 +305,6 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 	return {
 		diagnostics,
 		scriptHelpers,
-		activityHelpers,
 		manifestHelpers,
 		providerHelpers,
 		operationHelpers,
@@ -323,7 +316,6 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 const inspectScriptDefinition = (
 	file: ts.SourceFile,
 	scriptHelpers: ReadonlySet<string>,
-	activityHelpers: ReadonlySet<string>,
 	automationHelpers: ReadonlySet<string>,
 	providerHelpers: ReadonlySet<string>,
 	operationHelpers: ReadonlySet<string>,
@@ -353,8 +345,6 @@ const inspectScriptDefinition = (
 	if (call && ts.isCallExpression(call) && ts.isIdentifier(call.expression)) {
 		if (scriptHelpers.has(call.expression.text)) {
 			definitionKind = "script";
-		} else if (activityHelpers.has(call.expression.text)) {
-			definitionKind = "activity";
 		} else if (automationHelpers.has(call.expression.text)) {
 			definitionKind = "automation";
 		} else if (providerHelpers.has(call.expression.text)) {
@@ -380,7 +370,7 @@ const inspectScriptDefinition = (
 				diagnosticAt(
 					assignment ?? file,
 					"RYOT_DEFINITION",
-					"The default export must be a direct activity, automation, operation, script, provider, or workflow definition call",
+					"The default export must be a direct automation, operation, script, provider, or workflow definition call",
 				),
 			],
 		};
@@ -451,10 +441,7 @@ const inspectScriptDefinition = (
 		};
 	}
 	const requiresSchemas =
-		definitionKind === "activity" ||
-		definitionKind === "script" ||
-		definitionKind === "operation" ||
-		definitionKind === "workflow";
+		definitionKind === "script" || definitionKind === "operation" || definitionKind === "workflow";
 	const validProviderOperation =
 		definitionKind !== "provider" ||
 		providerOperation === "details" ||
@@ -492,9 +479,7 @@ export const sandboxDefinitionMismatch = (
 	manifest: SandboxManifest,
 ) => {
 	let helper = "defineScript";
-	if (manifest.kind === "activity") {
-		helper = "defineActivity";
-	} else if (manifest.kind === "provider") {
+	if (manifest.kind === "provider") {
 		helper = "defineProvider";
 	} else if (manifest.kind === "automation") {
 		helper = "defineAutomation";
@@ -526,7 +511,6 @@ export const inspectSandboxSource = (
 	const definition = inspectScriptDefinition(
 		file,
 		imports.scriptHelpers,
-		imports.activityHelpers,
 		imports.automationHelpers,
 		imports.providerHelpers,
 		imports.operationHelpers,

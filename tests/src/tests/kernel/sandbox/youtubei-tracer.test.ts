@@ -83,7 +83,6 @@ describe("Youtubei durable tracer", () => {
 				uninstallTestPlugin,
 			);
 			const { executionId, jobId } = yield* enqueueSandboxScript(userId, {
-				durable: true,
 				scriptId: plugin.scriptIds[scriptSlug] ?? plugin.scriptId,
 				context: { firstUrl: `${http.url}/first`, secondUrl: `${http.url}/second` },
 			});

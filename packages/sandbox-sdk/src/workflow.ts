@@ -103,8 +103,8 @@ export const workflowReplayEnvelopeSchema = Schema.Union([
 ]);
 export type WorkflowReplayEnvelope = Schema.Schema.Type<typeof workflowReplayEnvelopeSchema>;
 
-export type WorkflowSandboxHost = {
-	readonly durableCalls: () => RuntimeEffect.Effect<
+export type WorkflowReplayHost = {
+	readonly replayJournal: () => RuntimeEffect.Effect<
 		ReadonlyArray<JsonValue | WorkflowReplayJournalEntry>,
 		SandboxHostError
 	>;
@@ -174,7 +174,7 @@ export type WorkflowDefinition<
 	readonly definitionType: typeof SANDBOX_SCRIPT_DEFINITION;
 	readonly run: (
 		input: Input["Type"],
-		host: WorkflowSandboxHost,
+		host: WorkflowReplayHost,
 		execution: ExecutionMetadata,
 	) => RuntimeEffect.Effect<WorkflowReplayEnvelope, SandboxHostError>;
 };
@@ -277,7 +277,7 @@ export const defineWorkflow = <
 	definitionType: SANDBOX_SCRIPT_DEFINITION,
 	run: (input, host, execution) => {
 		const requests: WorkflowDurableCallRequest[] = [];
-		return host.durableCalls().pipe(
+		return host.replayJournal().pipe(
 			RuntimeEffect.flatMap((journal) => {
 				const replayIdentity = { journalLength: journal.length };
 				return definition.run(input, makeWorkflowReplay(journal, requests), execution).pipe(

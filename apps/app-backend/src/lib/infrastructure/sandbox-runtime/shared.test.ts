@@ -65,8 +65,6 @@ describe("requireSandboxCapabilityInput", () => {
 	});
 
 	it("limits system query access to approved metadata kinds", () => {
-		const input = makeRunInput({ type: "system" }, null, { kind: "activity" });
-		expect(Effect.runSync(requireSandboxCapabilityInput(input, "executeQueryEngine"))).toBe(input);
 		const script = makeRunInput({ type: "system" }, null, { kind: "script" });
 		expect(Effect.runSync(requireSandboxCapabilityInput(script, "executeQueryEngine"))).toBe(
 			script,
