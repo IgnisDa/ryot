@@ -94,7 +94,7 @@ function SchemaSearchPage() {
 				json: {
 					page,
 					query: trimmedQuery,
-					search_script_id: selectedSearchScriptId,
+					searchScriptId: selectedSearchScriptId,
 				},
 			});
 
@@ -116,7 +116,7 @@ function SchemaSearchPage() {
 			if (!detailsScriptId) throw new Error("No details script available");
 
 			const response = await apiClient["entity-schemas"].import.$post({
-				json: { identifier, details_script_id: detailsScriptId },
+				json: { identifier, detailsScriptId },
 			});
 
 			const payload = await response.json();
@@ -237,7 +237,7 @@ function SchemaSearchPage() {
 										Identifier: {item.identifier}
 									</Text>
 									<Text size="sm" c="dimmed">
-										Publish year: {item.publish_year ?? "unknown"}
+										Publish year: {item.publishYear ?? "unknown"}
 									</Text>
 									<Button
 										variant="light"

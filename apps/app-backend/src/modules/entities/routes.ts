@@ -22,24 +22,24 @@ const entityParams = z.object({
 const entitySelect = {
 	id: entity.id,
 	name: entity.name,
-	created_at: entity.createdAt,
-	updated_at: entity.updatedAt,
+	createdAt: entity.createdAt,
+	updatedAt: entity.updatedAt,
 	properties: entity.properties,
 	externalId: entity.externalId,
-	schema_slug: entitySchema.slug,
-	details_script_id: entity.detailsSandboxScriptId,
+	schemaSlug: entitySchema.slug,
+	detailsScriptId: entity.detailsSandboxScriptId,
 };
 
 const foundEntityResponseSchema = dataSchema(
 	z.object({
 		id: z.string(),
 		name: z.string(),
-		created_at: z.string(),
-		updated_at: z.string(),
-		schema_slug: z.string(),
+		createdAt: z.string(),
+		updatedAt: z.string(),
+		schemaSlug: z.string(),
 		externalId: z.string(),
 		properties: z.unknown(),
-		details_script_id: z.string(),
+		detailsScriptId: z.string(),
 	}),
 );
 
@@ -80,8 +80,8 @@ export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>().openapi(
 		return c.json(
 			successResponse({
 				...foundEntity,
-				created_at: foundEntity.created_at.toISOString(),
-				updated_at: foundEntity.updated_at.toISOString(),
+				createdAt: foundEntity.createdAt.toISOString(),
+				updatedAt: foundEntity.updatedAt.toISOString(),
 			}),
 			200,
 		);

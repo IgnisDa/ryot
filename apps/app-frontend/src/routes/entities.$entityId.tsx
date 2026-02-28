@@ -134,7 +134,7 @@ function EntityDetailPage() {
 						<Group gap="xs">
 							<Badge color="blue" variant="light">
 								Schema:{" "}
-								{String(entityRequest.data?.data.schema_slug ?? "unknown")}
+								{String(entityRequest.data?.data.schemaSlug ?? "unknown")}
 							</Badge>
 							<Badge color="gray" variant="light">
 								Entity ID: {params.entityId}
