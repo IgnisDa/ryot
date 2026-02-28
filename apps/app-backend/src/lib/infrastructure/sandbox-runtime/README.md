@@ -2,11 +2,18 @@
 
 This folder implements the backend sandbox runtime used by plugin and kernel scripts.
 
-The sandbox runs untrusted script code in single-use Deno subprocesses, exposes selected app capabilities through a localhost bridge, and keeps subprocess startup costs low with a pre-warmed pool.
+Every sandbox invocation is owned by `SandboxScriptWorkflow`. The workflow pins the root script,
+replays its body from the top, and turns mutable host calls into durable requests. Each replay runs
+untrusted code in a single-use Deno subprocess and uses the localhost bridge only for the duration of
+that replay. Durable waits happen in the workflow engine; no sandbox process or bridge session is held
+while a request is dispatched.
 
 ## Components
 
 - `service.ts`: builds execution payloads, registers bridge sessions, checks out Deno subprocesses, and returns sandbox results.
+- `modules/sandbox/sandbox-script-workflow.ts`: pins scripts, replays bodies, dispatches durable requests, and retains workflow-owned artifacts through suspension.
+- `modules/sandbox/durable-host-dispatcher.ts`: maps typed host capabilities to their owning activity, child workflow, artifact operation, or diagnostic path.
+- `workflow-journal.ts`: projects completed durable request results to Redis for replay and validates bounded journal state.
 - `runtime.ts`: owns the Deno runner file, process pool, package cache, and bridge server.
 - `runner-source.sandbox.ts` + `runner-utilities.sandbox.ts`: the TypeScript-authored Deno runner. `sandbox:compile-runner` bundles them ahead of execution into the ignored `runner.generated.ts`, and `sandbox:check-runner` (`deno check` with `deno.json`) type-checks them with Deno globals outside the backend `tsc`.
 - `host-implementations.ts`: typed injection contract for app-owned host implementation maps.
@@ -25,13 +32,29 @@ The sandbox runs untrusted script code in single-use Deno subprocesses, exposes 
 ## Execution Flow
 
 1. Plugin or kernel ingestion validates and compiles source, then persists source and immutable format-1 JavaScript separately.
-2. A trusted caller starts execution with a persisted `scriptId`, optional context, and an `ExecutionAuthority`. Authority is schema-defined in `@ryot/contract/modules/sandbox/schemas` as a `system`, `user`, or `subscription` variant; only trusted kernel dispatch constructs it, so a script can never widen its own credential scope. The workflow loads compiled code and capabilities from validated manifest metadata.
-3. The service registers an in-memory bridge session keyed by `executionId`. It stores `{ token, expiresAt }`, allowed host-function handlers, and the live execution parent span for that run.
-4. A pre-warmed Deno process is checked out, or a fresh one is spawned if the pool is empty. Each process handles exactly one execution.
-5. The service acquires an execution-scoped hard link to the verified content-addressed module, then writes one JSON payload to stdin containing its file URL, compiled format, context, bridge URL, token, function names, execution id, script id, limits, any filesystem grants, and execution metadata. The cache namespace stays host-side: it never enters the payload, and the cache host functions apply it when a script calls them.
-6. The runner captures console calls into `logs`, imports the compiled file ES module, validates the definition, input, and output, and writes the final JSON result to stdout.
-7. Host-function stubs call `POST /rpc/:executionId/:fnName`; the bridge validates expiry, bearer token, request body, and function name before dispatching.
-8. The service adds server timing, removes the bridge session with an Effect finalizer, and returns the job result.
+2. A trusted caller starts `SandboxScriptWorkflow` with a persisted `scriptId`, optional context, an `ExecutionAuthority`, and an execution identity. Authority is schema-defined in `@ryot/contract/modules/sandbox/schemas` as a `system`, `user`, or `subscription` variant; only trusted kernel dispatch constructs it, so a script cannot widen its own credential scope.
+3. The workflow pins the root script and records its `startedAt` value before the first replay. Nested script targets resolve on first observation and are pinned for that durable request.
+4. Each replay checks out a pre-warmed or dedicated single-use Deno process, acquires an execution-scoped hard link to the verified module, and registers a short-lived bridge session. The runner receives the context, metadata, limits, and filesystem grants in one JSON request.
+5. The runner captures diagnostics, imports the compiled module, validates the definition and input, and returns a completed, failed, or pending replay envelope. A mutable `host.*` call becomes a typed durable request; an unrecorded request ends the replay without waiting inside Deno.
+6. The workflow dispatches each pending request through the owning activity, child workflow, artifact operation, or diagnostic path. Completed successes and typed failures are appended to the workflow journal and projected to Redis for the next replay.
+7. The workflow replays the body from the top. Recorded requests return their journaled results without repeating the backend operation; once no request remains, the validated role-specific output is returned through the existing async job contract.
+8. Process, bridge-session, and temporary filesystem finalizers run after every replay. Workflow completion releases pinned references and artifacts; active workflow references retain them through suspension.
+
+## Durable Boundaries And Storage
+
+- PostgreSQL workflow persistence is authoritative for workflow execution, durable request completion,
+  child/activity results, and terminal output.
+- Redis stores only the reconstructible replay projection with request identity, argument hashes, and
+  encoded results. The projection may be rebuilt from workflow persistence after loss or expiry.
+- The durable host dispatcher preserves backend ownership: idempotent services run as activities,
+  workflow-owning services compose as deterministic children, and artifact publication returns opaque
+  workflow-scoped handles.
+- `httpCall` executes immediately as a bounded durable activity in Phase 1. External mutations are
+  explicitly at-least-once across the crash window before result persistence and receive no automatic
+  business retry.
+- Logs, spans, and console diagnostics are replay-tagged operational data, not journal entries.
+- Immutable input artifacts are pinned for the active workflow lifetime. Generated chunk handles remain
+  resolvable until terminal completion or cancellation cleanup; TTLs are leak cleanup only.
 
 Compilation is implemented by the `@ryot/sandbox-compiler` workspace. Compiler concurrency, time, process-tree memory, and source-size limits apply during ingestion.
 
@@ -69,7 +92,7 @@ Because `ProcessPool` pre-warms processes before an execution's grants are known
 
 The scratch quota is 5 MiB (`SANDBOX_LIMITS.scratch.totalBytes`), enforced after the run because Deno offers no preventive filesystem quota; exceeding it fails the execution before anything is harvested.
 
-An execution whose output exceeds `execution.resultBytes` writes chunk files into its scratch directory and returns a manifest naming those scratch-local files. The kernel — never a second sandbox execution — copies exactly the named files into run-scoped kernel-owned storage under `config.tmpDir`, registers opaque workflow-scoped handles in Redis, and exposes handles rather than host paths to workflow scripts. Kernel consumers resolve handles only against their trusted parent execution and reject missing or escaping paths. Public sandbox results omit harvest metadata. Scratch cleanup is unconditional and kernel-owned: the removal finalizer is registered before the process and bridge-session finalizers, so LIFO teardown deletes the directory last, after the script's process is dead, on success, quota failure, script error, timeout, and process kill alike.
+An execution whose output exceeds `execution.resultBytes` writes chunk files into its scratch directory and returns a manifest naming those scratch-local files. The kernel — never a second sandbox execution — copies exactly the named files into workflow-owned storage under `config.tmpDir`, registers opaque workflow-scoped handles in Redis, and exposes handles rather than host paths to workflow scripts. Kernel consumers resolve handles only against their trusted parent execution and reject missing or escaping paths. Public sandbox results omit harvest metadata. Scratch cleanup is unconditional and kernel-owned: the removal finalizer is registered before the process and bridge-session finalizers, so LIFO teardown deletes the directory last, after the script's process is dead, on success, quota failure, script error, timeout, and process kill alike. Artifact references retain active parent/child data through suspension and are released after terminal completion or cancellation.
 
 ## Approved Dependencies
 
@@ -87,13 +110,13 @@ Host functions are bridge handlers exposed only when listed in the compiled modu
 
 | Scope                                                | Functions                                                                                                                                                                  |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Any non-workflow run                                 | `httpCall`, `log`, `span`, `getPluginConfig`, `getSystemConfig`, `getCachedValue`, `setCachedValue`, `claimPersistentValue`                                                |
+| Universal sandbox workflow                           | `httpCall`, `log`, `span`, `getPluginConfig`, `getSystemConfig`, `getCachedValue`, `setCachedValue`, `claimPersistentValue`                                                |
 | User or subscription                                 | `changeUserRelationships`, `createEvents`, `executeQueryEngine`, `getCurrentIntegration`, `getEntitySchemas`, `getUserPreferences`, `listEventSchemas`, `listIntegrations` |
 | User only                                            | `ensureUserEntities`                                                                                                                                                       |
 | System script                                        | `executeQueryEngine`, `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                  |
 | Automation subscription or trusted system automation | `emitSignal`; `sendNotification` remains subscription-only                                                                                                                 |
 
-Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require the executing user's `userId` and are unavailable for system executions, except `executeQueryEngine` for system scripts. Entity and event data reads use `executeQueryEngine`; schema functions expose metadata only. `claimPersistentValue` atomically writes a persistent value only when the key does not already exist.
+Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require the executing user's `userId` and are unavailable for system executions, except `executeQueryEngine` for system scripts. Entity and event data reads use `executeQueryEngine`; schema functions expose metadata only. `claimPersistentValue` atomically writes a persistent value only when the key does not already exist. During a workflow replay, the runner observes these calls and the backend dispatcher records their result; the private `replayJournal` bridge method is only the SDK/runtime bootstrap for named workflow replay and is not a general authoring API.
 
 `ensureUserEntities` is narrower than ordinary user scope: only a trusted boot-configured plugin's
 declared `userBootstrap` script receives it, and it may write only entity schemas owned by that plugin.
@@ -122,7 +145,7 @@ Cache keys are isolated per `(executing user, providerId)`. Cache host functions
 
 ## Script Definitions
 
-A format-1 script default-exports exactly one definition carrying its `manifest` plus SDK `input`, `output`, and `run`. There is no driver map and no driver name on the wire: enqueueing a `scriptId` selects the definition, and the runner validates `input` before invoking `run` and `output` before returning it.
+A format-1 script default-exports exactly one definition carrying its `manifest` plus SDK `input`, `output`, and `run`. There is no driver map and no driver name on the wire: starting `SandboxScriptWorkflow` with a `scriptId` selects the definition, and the runner validates `input` before invoking `run` and `output` before returning it. Provider, automation, operation, generic script, and named workflow definitions all use this same workflow shell while retaining their role-specific contracts.
 
 ```ts
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
@@ -154,8 +177,8 @@ export default defineScript({
 
 ## Durable Workflow Semantics
 
-The workflow shell pins its workflow script row before the first replay, so a hot swap cannot change
-that execution's workflow module. Durable script and plugin-child targets are resolved when each
+The workflow shell pins its script row before the first replay, so a hot swap cannot change that
+execution's root module. Durable script and plugin-child targets are resolved when each
 step is first observed and that exact target is then memoized with the step. A long-running workflow
 can therefore use script versions from different active plugin installations when those steps are
 first reached at different times; each individual step still executes exactly once against its
@@ -198,6 +221,7 @@ durable requests. Durable waits happen outside the sandbox process and bridge se
 | Compiler concurrency / time / process-tree memory     | 2 / 5 seconds / 256 MiB       |
 | Runner request                                        | 2 MiB                         |
 | Bridge request / response                             | 1 MiB / 10 MiB                |
+| Durable workflow journal                              | 100 MiB encoded              |
 | Concurrent in-flight host calls per execution         | 4                             |
 | Deno stderr diagnostics                               | 20 lines / 64 KiB             |
 | HTTP request / streamed response body / call timeout  | 1 MiB / 10 MiB / 8 seconds    |
