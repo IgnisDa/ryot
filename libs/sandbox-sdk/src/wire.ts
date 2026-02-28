@@ -18,7 +18,7 @@ export const jsonValueSchema: Schema.Schema<JsonValue, JsonValue> = Schema.suspe
 		Schema.Array(jsonValueSchema),
 		Schema.Record({ key: Schema.String, value: jsonValueSchema }),
 	),
-);
+).pipe(Schema.annotations({ identifier: "JsonValue" }));
 const sandboxHostErrorSchema = strictStruct({
 	message: Schema.String,
 	data: Schema.optional(jsonValueSchema),

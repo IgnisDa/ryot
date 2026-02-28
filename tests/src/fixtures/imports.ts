@@ -6,6 +6,105 @@ import { getBackendUrl } from "~/support/backend";
 
 import type { Client } from "./auth";
 import { pollUntil } from "./polling";
+import { installTestPluginBundle } from "./test-plugin";
+
+export const FIXTURE_IMPORT_SOURCE = "e2e_archive_import_v2";
+export const FIXTURE_CONFIG_IMPORT_SOURCE = "e2e_archive_import_config_v2";
+
+const FIXTURE_IMPORT_WORKFLOW_SOURCE = `
+import {
+  genericImportKernelInputSchema,
+  genericImportWorkflowInputSchema,
+  genericImportWorkflowResultSchema,
+} from "@ryot/sandbox-sdk/imports";
+import { defineManifest, defineWorkflow } from "@ryot/sandbox-sdk/workflow";
+
+export const manifest = defineManifest({
+  kind: "workflow",
+  capabilities: [],
+  name: "E2E archive import",
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+  slug: "workflow.e2e-archive-import",
+});
+
+const kernelImport = {
+  input: genericImportKernelInputSchema,
+  output: genericImportWorkflowResultSchema,
+  workflowSlug: "kernel:process-import-chunks",
+};
+
+export default defineWorkflow({
+  manifest,
+  input: genericImportWorkflowInputSchema,
+  output: genericImportWorkflowResultSchema,
+  run: (input, replay) =>
+    replay.child("complete-import", kernelImport, {
+      totalItems: 0,
+      chunkFiles: [],
+      failureCount: 0,
+      writeItemCount: 0,
+      runId: input.runId,
+    }),
+});
+`;
+
+export const installTestImportPlugin = () => {
+	const entry = "scripts/import.sandbox.ts";
+	return installTestPluginBundle({
+		files: { [entry]: FIXTURE_IMPORT_WORKFLOW_SOURCE },
+		workflows: [{ slug: "import", scriptSlug: "workflow.e2e-archive-import" }],
+		configSchema: {
+			unknownKeys: "strict",
+			fields: {
+				fixtureToken: {
+					type: "string",
+					label: "Fixture token",
+					validation: { required: true },
+					description: "Intentionally absent E2E import configuration",
+				},
+			},
+		},
+		scripts: [
+			{
+				entry,
+				kind: "workflow",
+				capabilities: [],
+				name: "E2E archive import",
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+				slug: "workflow.e2e-archive-import",
+			},
+		],
+		importSources: [
+			{
+				lot: "named",
+				input: "file",
+				name: "E2E archive",
+				workflowSlug: "import",
+				slug: FIXTURE_IMPORT_SOURCE,
+				requiredPluginConfigKeys: [],
+				description: "Import an E2E archive",
+				artifacts: [
+					{
+						required: true,
+						key: "archiveFilePath",
+						allowedFileExtensions: ["csv"],
+						uploadTokenField: "archiveUploadToken",
+					},
+				],
+			},
+			{
+				input: "payload",
+				workflowSlug: "import",
+				name: "E2E configured archive",
+				slug: FIXTURE_CONFIG_IMPORT_SOURCE,
+				requiredPluginConfigKeys: ["fixtureToken"],
+				description: "Import an E2E archive with required configuration",
+			},
+		],
+	});
+};
 
 const OPENSCALE_SAMPLE_CSV = `dateTime,weight,bmi,fat,water,muscle,comment
 2026-04-01 08:00:00,75.0,22.5,15.0,60.0,40.0,Morning weight

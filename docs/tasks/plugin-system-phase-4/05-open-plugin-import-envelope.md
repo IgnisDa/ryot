@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Plugin System - Phase 4](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -19,16 +19,16 @@ all current sources.
 
 ## Acceptance criteria
 
-- [ ] The central request contract accepts a non-empty source slug without enumerating first-party sources
-- [ ] Unknown and inactive source slugs fail before uploads are claimed or workflows start
-- [ ] Only declared payload fields or artifact token fields reach the selected source workflow
-- [ ] Single and named file declarations retain required/optional and extension validation
-- [ ] First-party source-specific client helpers remain typed and compose into the generic envelope
-- [ ] A newly installed fixture source is invoked through the public import endpoint and reaches terminal success
-- [ ] Tests cover malformed payloads, undeclared tokens, missing required artifacts, unknown source, and config failure
-- [ ] Media and fitness source names are absent from the generic contract implementation
-- [ ] No source-listing endpoint or speculative manifest schema is added
-- [ ] The corresponding purity exception is removed
+- [x] The central request contract accepts a non-empty source slug without enumerating first-party sources
+- [x] Unknown and inactive source slugs fail before uploads are claimed or workflows start
+- [x] Only declared payload fields or artifact token fields reach the selected source workflow
+- [x] Single and named file declarations retain required/optional and extension validation
+- [x] First-party source-specific client helpers remain typed and compose into the generic envelope
+- [x] A newly installed fixture source is invoked through the public import endpoint and reaches terminal success
+- [x] Tests cover malformed payloads, undeclared tokens, missing required artifacts, unknown source, and config failure
+- [x] Media and fitness source names are absent from the generic contract implementation
+- [x] No source-listing endpoint or speculative manifest schema is added
+- [x] The corresponding purity exception is removed
 
 ## User stories addressed
 
