@@ -142,7 +142,7 @@ export const upsertImportedEntity = async (input: {
 				and(
 					eq(entity.entitySchemaId, input.entitySchemaId),
 					eq(entity.userId, input.userId),
-					eq(entity.externalId, input.payload.external_id),
+					eq(entity.externalId, input.payload.externalId),
 					eq(entity.detailsSandboxScriptId, input.detailsSandboxScriptId),
 				),
 			)
@@ -155,7 +155,7 @@ export const upsertImportedEntity = async (input: {
 			name: input.payload.name,
 			properties: input.payload.properties,
 			entitySchemaId: input.entitySchemaId,
-			externalId: input.payload.external_id,
+			externalId: input.payload.externalId,
 			detailsSandboxScriptId: input.detailsSandboxScriptId,
 		};
 
