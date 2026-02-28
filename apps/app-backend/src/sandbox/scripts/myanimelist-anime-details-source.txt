@@ -139,7 +139,7 @@ return {
 		episodes,
 		sourceUrl,
 		isNsfw: parseIsNsfw(payload?.nsfw),
-		production_status: productionStatus,
+		productionStatus: productionStatus,
 		genres: collectGenres(payload?.genres),
 		publishYear: parsePublishYear(payload?.start_date),
 		airingSchedule: parseAiringSchedule(payload?.start_date),
