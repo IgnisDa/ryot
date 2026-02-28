@@ -136,18 +136,18 @@ return {
 	name: title,
 	externalId: payloadIdentifier,
 	properties: {
-		genres: collectGenres(payload?.genres),
-		assets: { remote_images: collectImages(payload?.main_picture) },
-		is_nsfw: parseIsNsfw(payload?.nsfw),
 		episodes,
-		description: typeof payload?.synopsis === "string" ? payload.synopsis : null,
+		sourceUrl: sourceUrl,
+		is_nsfw: parseIsNsfw(payload?.nsfw),
+		production_status: productionStatus,
+		genres: collectGenres(payload?.genres),
 		publish_year: parsePublishYear(payload?.start_date),
+		airingSchedule: parseAiringSchedule(payload?.start_date),
+		assets: { remoteImages: collectImages(payload?.main_picture) },
+		description: typeof payload?.synopsis === "string" ? payload.synopsis : null,
 		provider_rating:
 			typeof payload?.mean === "number" && Number.isFinite(payload.mean)
 				? payload.mean
 				: null,
-		production_status: productionStatus,
-		sourceUrl: sourceUrl,
-		airingSchedule: parseAiringSchedule(payload?.start_date),
 	},
 };
