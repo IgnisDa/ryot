@@ -1,14 +1,14 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import type { AuthType } from "../auth";
-import { successResponse } from "../lib/response";
-import { nonEmptyStringSchema } from "../lib/zod/base";
-import { getSandboxService } from "../sandbox";
+import type { AuthType } from "~/auth";
+import { successResponse } from "~/lib/response";
+import { nonEmptyStringSchema } from "~/lib/zod/base";
+import { getSandboxService } from "~/sandbox";
 import {
 	getAppConfigValue,
 	getUserConfigValue,
-} from "../sandbox/host-functions";
+} from "~/sandbox/host-functions";
 
 const runSandboxSchema = z.object({
 	code: nonEmptyStringSchema.max(20_000),

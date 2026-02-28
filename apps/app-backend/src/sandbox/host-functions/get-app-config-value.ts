@@ -1,5 +1,9 @@
-import { type Config, config } from "../../lib/config";
-import { apiFailure, apiSuccess, type ConfigValueResult } from "../types";
+import { type Config, config } from "~/lib/config";
+import {
+	apiFailure,
+	apiSuccess,
+	type ConfigValueResult,
+} from "~/sandbox/types";
 
 const isConfigKey = (key: string): key is keyof Config =>
 	Object.hasOwn(config, key);
