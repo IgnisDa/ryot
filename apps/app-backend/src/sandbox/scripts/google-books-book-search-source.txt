@@ -1,4 +1,9 @@
-const pageSize = 20;
+const pageSize =
+	Number.isFinite(Number(context?.pageSize)) &&
+	Number(context.pageSize) > 0 &&
+	Number(context.pageSize) <= 100
+		? Math.floor(Number(context.pageSize))
+		: 20;
 const currentPage = Number.isFinite(Number(context?.page))
 	? Math.max(1, Math.floor(Number(context.page)))
 	: 1;
@@ -6,7 +11,7 @@ const query = typeof context?.query === "string" ? context.query.trim() : "";
 
 if (!query) throw new Error("query is required");
 
-const configValueResponse = await getConfigValue("BOOKS_GOOGLE_BOOKS_API_KEY");
+const configValueResponse = await getAppConfigValue("BOOKS_GOOGLE_BOOKS_API_KEY");
 if (!configValueResponse?.success)
 	throw new Error(
 		configValueResponse?.error ?? "Could not load Google Books API key",
