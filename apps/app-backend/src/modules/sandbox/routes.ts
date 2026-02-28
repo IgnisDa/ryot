@@ -3,11 +3,10 @@ import type { AuthType } from "~/auth";
 import {
 	createAuthRoute,
 	dataSchema,
-	ERROR_CODES,
-	errorJsonResponse,
 	jsonResponse,
-	payloadValidationErrorResponse,
+	payloadErrorResponse,
 	successResponse,
+	unauthenticatedResponse,
 } from "~/lib/openapi";
 import { nonEmptyStringSchema } from "~/lib/zod/base";
 import { getSandboxService } from "~/sandbox";
@@ -39,11 +38,8 @@ const runSandboxRoute = createAuthRoute(
 			body: { content: { "application/json": { schema: runSandboxSchema } } },
 		},
 		responses: {
-			400: payloadValidationErrorResponse,
-			401: errorJsonResponse(
-				"Request is unauthenticated",
-				ERROR_CODES.UNAUTHENTICATED,
-			),
+			400: payloadErrorResponse(),
+			401: unauthenticatedResponse(),
 			200: jsonResponse("Sandbox run completed", runSandboxResponseSchema),
 		},
 	}),
