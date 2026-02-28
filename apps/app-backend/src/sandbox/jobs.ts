@@ -5,6 +5,7 @@ export const sandboxRunJobWaitTimeoutMs = 30_000;
 
 export const sandboxRunJobData = z.object({
 	code: z.string().min(1),
+	userId: z.string().min(1),
 	timeoutMs: z.number().int().positive().optional(),
 	maxHeapMB: z.number().int().positive().optional(),
 	apiFunctionsId: z.string().min(1).optional(),

@@ -12,7 +12,10 @@ import {
 	sandboxScript,
 } from "../db/schema";
 import { getSandboxService } from "../sandbox";
-import { getConfigValue } from "../sandbox/host-functions";
+import {
+	getAppConfigValue,
+	getUserConfigValue,
+} from "../sandbox/host-functions";
 
 const schemaSearchBody = z.object({
 	query: z.string().trim().min(1),
@@ -249,9 +252,11 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 
 		const sandbox = getSandboxService();
 		const result = await sandbox.run({
+			userId: user.id,
 			code: script.code,
-			apiFunctions: { getConfigValue },
+			apiFunctions: { getAppConfigValue, getUserConfigValue },
 			context: {
+				pageSize: 20,
 				page: body.page,
 				query: body.query,
 				schemaSlug: script.schemaSlug,
@@ -275,8 +280,9 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 
 		const sandbox = getSandboxService();
 		const result = await sandbox.run({
+			userId: user.id,
 			code: script.code,
-			apiFunctions: { getConfigValue },
+			apiFunctions: { getAppConfigValue, getUserConfigValue },
 			context: {
 				identifier: body.identifier,
 				schemaSlug: script.schemaSlug,
