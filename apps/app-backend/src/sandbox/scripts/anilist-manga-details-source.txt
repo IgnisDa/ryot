@@ -1,0 +1,176 @@
+const parseJsonResponse = (responseBody) => {
+	try {
+		return JSON.parse(responseBody);
+	} catch {
+		throw new Error("Anilist returned invalid JSON");
+	}
+};
+
+const extractGraphQlErrorMessage = (payload) => {
+	if (!Array.isArray(payload?.errors) || payload.errors.length === 0) return null;
+
+	const firstError = payload.errors[0];
+	const message =
+		typeof firstError?.message === "string" ? firstError.message.trim() : "";
+
+	return message || "unknown GraphQL error";
+};
+
+const toTitleCase = (value) => {
+	const words = value
+		.toLowerCase()
+		.replace(/[_-]+/g, " ")
+		.split(/\s+/)
+		.filter((word) => word.length > 0);
+
+	return words
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join(" ");
+};
+
+const collectImages = (coverImage, bannerImage) => {
+	const imageSet = new Set();
+	const candidates = [coverImage?.extraLarge, bannerImage];
+
+	for (const candidate of candidates) {
+		if (typeof candidate !== "string") continue;
+
+		const trimmedCandidate = candidate.trim();
+		if (trimmedCandidate) imageSet.add(trimmedCandidate);
+	}
+
+	return [...imageSet];
+};
+
+const collectGenres = (genres, tags) => {
+	const genreSet = new Set();
+
+	if (Array.isArray(genres)) {
+		for (const genre of genres) {
+			if (typeof genre !== "string") continue;
+			const trimmedGenre = genre.trim();
+			if (trimmedGenre) genreSet.add(trimmedGenre);
+		}
+	}
+
+	if (Array.isArray(tags)) {
+		for (const tag of tags) {
+			const name = typeof tag?.name === "string" ? tag.name.trim() : "";
+			if (name) genreSet.add(name);
+		}
+	}
+
+	return [...genreSet];
+};
+
+const parsePublishYear = (startDate) => {
+	const year = startDate?.year;
+	if (typeof year !== "number" || !Number.isFinite(year)) return null;
+
+	return Math.trunc(year);
+};
+
+const contextIdentifier =
+	typeof context?.identifier === "string" ? context.identifier.trim() : "";
+if (!contextIdentifier) throw new Error("identifier is required");
+
+if (!/^\d+$/.test(contextIdentifier))
+	throw new Error("identifier must be a numeric Anilist media id");
+
+const mediaId = Number(contextIdentifier);
+if (!Number.isSafeInteger(mediaId) || mediaId <= 0)
+	throw new Error("identifier must be a positive safe integer Anilist media id");
+
+const graphqlQuery = `
+query MediaDetailsQuery($id: Int!) {
+  Media(id: $id) {
+    id
+    type
+    genres
+    status
+    volumes
+    isAdult
+    chapters
+    description
+    bannerImage
+    averageScore
+    tags { name }
+    startDate { year }
+    title { userPreferred }
+    coverImage { extraLarge }
+  }
+}
+`;
+
+const response = await httpCall("POST", "https://graphql.anilist.co", {
+	body: JSON.stringify({ query: graphqlQuery, variables: { id: mediaId } }),
+	headers: {
+		Accept: "application/json",
+		"Content-Type": "application/json",
+	},
+});
+
+if (!response?.success)
+	throw new Error(response?.error ?? "Anilist manga details request failed");
+
+const payload = parseJsonResponse(response.data.body);
+
+const graphQlErrorMessage = extractGraphQlErrorMessage(payload);
+if (graphQlErrorMessage)
+	throw new Error(`Anilist manga details GraphQL error: ${graphQlErrorMessage}`);
+
+const media =
+	payload?.data?.Media && typeof payload.data.Media === "object"
+		? payload.data.Media
+		: null;
+
+if (!media) throw new Error("Anilist returned no media data");
+
+if (media.type !== "MANGA")
+	throw new Error("Anilist media is not a manga entry");
+
+const payloadIdentifier =
+	typeof media.id === "number" && Number.isFinite(media.id)
+		? String(Math.trunc(media.id))
+		: contextIdentifier;
+
+const title = typeof media?.title?.userPreferred === "string"
+	? media.title.userPreferred
+	: "";
+if (!title) throw new Error("Anilist manga payload is missing title");
+
+const volumes =
+	typeof media?.volumes === "number" && Number.isFinite(media.volumes)
+		? Math.max(0, Math.trunc(media.volumes))
+		: null;
+
+const chapters =
+	typeof media?.chapters === "number" && Number.isFinite(media.chapters)
+		? media.chapters
+		: null;
+
+const productionStatus =
+	typeof media?.status === "string" && media.status.trim()
+		? toTitleCase(media.status)
+		: null;
+
+return {
+	name: title,
+	external_id: payloadIdentifier,
+	properties: {
+		url: `https://anilist.co/manga/${payloadIdentifier}/${encodeURIComponent(title)}`,
+		genres: collectGenres(media.genres, media.tags),
+		assets: { remote_images: collectImages(media.coverImage, media.bannerImage) },
+		volumes,
+		chapters,
+		is_nsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
+		description: typeof media?.description === "string" ? media.description : null,
+		publish_year: parsePublishYear(media.startDate),
+		provider_rating:
+			typeof media?.averageScore === "number" &&
+			Number.isFinite(media.averageScore)
+				? media.averageScore
+				: null,
+		production_status: productionStatus,
+	},
+};

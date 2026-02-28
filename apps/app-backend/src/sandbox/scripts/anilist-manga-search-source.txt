@@ -1,0 +1,136 @@
+const pageSize =
+	Number.isFinite(Number(context?.pageSize)) &&
+	Number(context.pageSize) > 0 &&
+	Number(context.pageSize) <= 100
+		? Math.floor(Number(context.pageSize))
+		: 20;
+const currentPage = Number.isFinite(Number(context?.page))
+	? Math.max(1, Math.floor(Number(context.page)))
+	: 1;
+const query = typeof context?.query === "string" ? context.query.trim() : "";
+
+if (!query) throw new Error("query is required");
+
+const parseJsonResponse = (responseBody) => {
+	try {
+		return JSON.parse(responseBody);
+	} catch {
+		throw new Error("Anilist returned invalid JSON");
+	}
+};
+
+const extractGraphQlErrorMessage = (payload) => {
+	if (!Array.isArray(payload?.errors) || payload.errors.length === 0) return null;
+
+	const firstError = payload.errors[0];
+	const message =
+		typeof firstError?.message === "string" ? firstError.message.trim() : "";
+
+	return message || "unknown GraphQL error";
+};
+
+const pickImage = (coverImage, bannerImage) => {
+	const candidates = [coverImage?.extraLarge, bannerImage];
+
+	for (const candidate of candidates) {
+		if (typeof candidate !== "string") continue;
+
+		const trimmedCandidate = candidate.trim();
+		if (trimmedCandidate) return trimmedCandidate;
+	}
+
+	return null;
+};
+
+const parsePublishYear = (startDate) => {
+	const year = startDate?.year;
+	if (typeof year !== "number" || !Number.isFinite(year)) return null;
+
+	return Math.trunc(year);
+};
+
+const graphqlQuery = `
+query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: MediaType!) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo { total }
+    media(search: $search, type: $type) {
+      id
+      bannerImage
+      startDate { year }
+      title { userPreferred }
+      coverImage { extraLarge }
+    }
+  }
+}
+`;
+
+const response = await httpCall("POST", "https://graphql.anilist.co", {
+	body: JSON.stringify({
+		query: graphqlQuery,
+		variables: {
+			page: currentPage,
+			search: query,
+			type: "MANGA",
+			perPage: pageSize,
+		},
+	}),
+	headers: {
+		Accept: "application/json",
+		"Content-Type": "application/json",
+	},
+});
+
+if (!response?.success)
+	throw new Error(response?.error ?? "Anilist manga search request failed");
+
+const payload = parseJsonResponse(response.data.body);
+
+const graphQlErrorMessage = extractGraphQlErrorMessage(payload);
+if (graphQlErrorMessage)
+	throw new Error(`Anilist manga search GraphQL error: ${graphQlErrorMessage}`);
+
+const pageData =
+	payload?.data?.Page && typeof payload.data.Page === "object"
+		? payload.data.Page
+		: null;
+
+if (!pageData) throw new Error("Anilist returned invalid response structure");
+
+const totalItems =
+	typeof pageData?.pageInfo?.total === "number" &&
+	Number.isFinite(pageData.pageInfo.total)
+		? Math.max(0, Math.trunc(pageData.pageInfo.total))
+		: 0;
+
+const mediaItems = Array.isArray(pageData.media) ? pageData.media : [];
+const items = mediaItems
+	.map((item) => {
+		if (!item || typeof item !== "object") return null;
+
+		const mediaId =
+			typeof item.id === "number" && Number.isFinite(item.id)
+				? Math.trunc(item.id)
+				: null;
+		if (mediaId === null || mediaId <= 0) return null;
+
+		const title =
+			typeof item?.title?.userPreferred === "string"
+				? item.title.userPreferred
+				: "";
+
+		return {
+			title,
+			image: pickImage(item.coverImage, item.bannerImage),
+			identifier: String(mediaId),
+			publish_year: parsePublishYear(item.startDate),
+		};
+	})
+	.filter((item) => item !== null);
+
+return {
+	items,
+	details: {
+		total_items: totalItems,
+		next_page: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+	},
+};
