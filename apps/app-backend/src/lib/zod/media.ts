@@ -14,6 +14,7 @@ export const mediaPropertiesSchema = z
 		publish_year: nullableIntSchema,
 		assets: remoteImagesAssetsSchema,
 		description: nullableStringSchema,
+		source_url: nullableStringSchema.optional(),
 	})
 	.strict();
 
