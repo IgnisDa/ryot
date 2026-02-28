@@ -25,7 +25,7 @@ export const schemaSearchItemSchema = z.object({
 	title: z.string(),
 	identifier: z.string(),
 	image: nullableStringSchema.optional(),
-	publish_year: nullableIntSchema.optional(),
+	publishYear: nullableIntSchema.optional(),
 });
 
 export const schemaSearchResponse = paginatedSchema(schemaSearchItemSchema);

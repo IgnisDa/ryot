@@ -162,7 +162,7 @@ return {
 		chapters,
 		production_status: productionStatus,
 		genres: collectGenres(media.genres, media.tags),
-		publish_year: parsePublishYear(media.startDate),
+		publishYear: parsePublishYear(media.startDate),
 		isNsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
 		assets: { remoteImages: collectImages(media.coverImage, media.bannerImage) },
 		description: typeof media?.description === "string" ? media.description : null,
