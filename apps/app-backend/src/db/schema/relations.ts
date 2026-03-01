@@ -6,6 +6,7 @@ import {
 	entitySchema,
 	entitySchemaSandboxScript,
 	event,
+	eventSchema,
 	relationship,
 	sandboxScript,
 	savedView,
@@ -14,6 +15,7 @@ import {
 export const entitySchemaRelations = relations(
 	entitySchema,
 	({ one, many }) => ({
+		eventSchemas: many(eventSchema),
 		entitySchemaSandboxScripts: many(entitySchemaSandboxScript),
 		entities: many(entity),
 		user: one(user, {
@@ -22,6 +24,14 @@ export const entitySchemaRelations = relations(
 		}),
 	}),
 );
+
+export const eventSchemaRelations = relations(eventSchema, ({ one, many }) => ({
+	entitySchema: one(entitySchema, {
+		references: [entitySchema.id],
+		fields: [eventSchema.entitySchemaId],
+	}),
+	events: many(event),
+}));
 
 export const sandboxScriptRelations = relations(
 	sandboxScript,
@@ -89,6 +99,10 @@ export const eventRelations = relations(event, ({ one }) => ({
 	user: one(user, {
 		references: [user.id],
 		fields: [event.userId],
+	}),
+	eventSchema: one(eventSchema, {
+		references: [eventSchema.id],
+		fields: [event.eventSchemaId],
 	}),
 	entity: one(entity, {
 		references: [entity.id],

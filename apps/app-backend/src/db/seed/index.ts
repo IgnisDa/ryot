@@ -1,5 +1,6 @@
 import {
 	ensureBuiltinEntitySchema,
+	ensureBuiltinEntitySchemaEventSchemas,
 	ensureBuiltinSandboxScript,
 	linkScriptPairToEntitySchema,
 } from "./helpers";
@@ -17,8 +18,11 @@ export const seedEntitySchemas = async () => {
 		const schemaId = await ensureBuiltinEntitySchema({
 			slug: schema.slug,
 			name: schema.name,
-			eventSchemas: schema.eventSchemas,
 			propertiesSchema: schema.propertiesSchema,
+		});
+		await ensureBuiltinEntitySchemaEventSchemas({
+			entitySchemaId: schemaId,
+			eventSchemas: schema.eventSchemas,
 		});
 		schemaIds.set(schema.slug, schemaId);
 	}

@@ -1,5 +1,5 @@
 {
-	"id": "b90a53f9-d169-41ac-a1c9-31553f4a1ea2",
+	"id": "f118d10e-0da5-434b-b08c-fe7ce6dd6ff6",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -617,13 +617,6 @@
 					"notNull": true,
 					"default": "now()"
 				},
-				"event_schemas": {
-					"name": "event_schemas",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "'[]'::jsonb"
-				},
 				"display_config": {
 					"name": "display_config",
 					"type": "jsonb",
@@ -838,12 +831,6 @@
 			"name": "event",
 			"schema": "",
 			"columns": {
-				"event_type": {
-					"name": "event_type",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
 				"created_at": {
 					"name": "created_at",
 					"type": "timestamp",
@@ -883,6 +870,12 @@
 					"primaryKey": false,
 					"notNull": false
 				},
+				"event_schema_id": {
+					"name": "event_schema_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
 				"entity_id": {
 					"name": "entity_id",
 					"type": "text",
@@ -891,21 +884,6 @@
 				}
 			},
 			"indexes": {
-				"event_type_idx": {
-					"name": "event_type_idx",
-					"columns": [
-						{
-							"expression": "event_type",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				},
 				"event_user_id_idx": {
 					"name": "event_user_id_idx",
 					"columns": [
@@ -941,6 +919,21 @@
 					"columns": [
 						{
 							"expression": "occurred_at",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"event_event_schema_id_idx": {
+					"name": "event_event_schema_id_idx",
+					"columns": [
+						{
+							"expression": "event_schema_id",
 							"isExpression": false,
 							"asc": true,
 							"nulls": "last"
@@ -1001,6 +994,15 @@
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				},
+				"event_event_schema_id_event_schema_id_fk": {
+					"name": "event_event_schema_id_event_schema_id_fk",
+					"tableFrom": "event",
+					"tableTo": "event_schema",
+					"columnsFrom": ["event_schema_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
 				"event_entity_id_entity_id_fk": {
 					"name": "event_entity_id_entity_id_fk",
 					"tableFrom": "event",
@@ -1013,6 +1015,103 @@
 			},
 			"compositePrimaryKeys": {},
 			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.event_schema": {
+			"name": "event_schema",
+			"schema": "",
+			"columns": {
+				"slug": {
+					"name": "slug",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"properties_schema": {
+					"name": "properties_schema",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"entity_schema_id": {
+					"name": "entity_schema_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"event_schema_slug_idx": {
+					"name": "event_schema_slug_idx",
+					"columns": [
+						{
+							"expression": "slug",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"event_schema_entity_schema_id_idx": {
+					"name": "event_schema_entity_schema_id_idx",
+					"columns": [
+						{
+							"expression": "entity_schema_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"event_schema_entity_schema_id_entity_schema_id_fk": {
+					"name": "event_schema_entity_schema_id_entity_schema_id_fk",
+					"tableFrom": "event_schema",
+					"tableTo": "entity_schema",
+					"columnsFrom": ["entity_schema_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"event_schema_entity_schema_slug_unique": {
+					"name": "event_schema_entity_schema_slug_unique",
+					"nullsNotDistinct": false,
+					"columns": ["entity_schema_id", "slug"]
+				}
+			},
 			"policies": {},
 			"checkConstraints": {},
 			"isRLSEnabled": false
