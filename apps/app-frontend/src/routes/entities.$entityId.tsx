@@ -13,7 +13,6 @@ import {
 	View,
 } from "reshaped";
 import { useApiClient } from "@/hooks/api";
-import { useAuthClient } from "@/hooks/auth";
 
 export const Route = createFileRoute("/entities/$entityId")({
 	component: EntityDetailPage,
@@ -82,7 +81,6 @@ const toPeopleEntries = (value: unknown) => {
 function EntityDetailPage() {
 	const params = Route.useParams();
 	const apiClient = useApiClient();
-	const authClient = useAuthClient();
 
 	const entityRequest = useQuery({
 		queryKey: ["entity", params.entityId],
