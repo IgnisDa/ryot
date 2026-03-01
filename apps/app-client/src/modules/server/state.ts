@@ -1,6 +1,7 @@
-import { Atom, useAtomSet, useAtomValue } from "@effect-atom/atom-react";
-import * as KeyValueStore from "@effect/platform/KeyValueStore";
-import { Effect, Layer, Option, Schema } from "effect";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { Effect, Layer, Schema } from "effect";
+import { KeyValueStore } from "effect/unstable/persistence";
+import { Atom } from "effect/unstable/reactivity";
 import { Platform } from "react-native";
 import { createMMKV } from "react-native-mmkv";
 
@@ -19,7 +20,7 @@ export const serverStorageLayer =
 					clear: Effect.sync(() => storage.clearAll()),
 					remove: (key) => Effect.sync(() => void storage.remove(key)),
 					set: (key, value) => Effect.sync(() => storage.set(key, value)),
-					get: (key) => Effect.sync(() => Option.fromNullable(storage.getString(key))),
+					get: (key) => Effect.sync(() => storage.getString(key)),
 				});
 			});
 
@@ -34,14 +35,16 @@ export const serverUrlAtom = Atom.kvs({
 
 export const useServerUrl = () => useAtomValue(serverUrlAtom);
 export const useSetServerUrl = () => useAtomSet(serverUrlAtom);
+const decodeServerUrl = Schema.decodeEffect(
+	Schema.fromJsonString(Schema.toCodecJson(serverUrlSchema)),
+);
 export const serverUrlReader = Effect.map(KeyValueStore.KeyValueStore, (store) => {
-	const serverUrls = store.forSchema(serverUrlSchema);
 	return () =>
-		serverUrls
-			.get(serverUrlKey)
-			.pipe(
-				Effect.orDie,
-				Effect.map(Option.flatMap(Option.fromNullable)),
-				Effect.map(Option.getOrElse(() => CLOUD_URL)),
-			);
+		store.get(serverUrlKey).pipe(
+			Effect.flatMap((serverUrl) =>
+				serverUrl === undefined ? Effect.succeed(undefined) : decodeServerUrl(serverUrl),
+			),
+			Effect.orDie,
+			Effect.map((serverUrl) => serverUrl ?? CLOUD_URL),
+		);
 });
