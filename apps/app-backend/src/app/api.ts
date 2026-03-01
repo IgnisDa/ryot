@@ -15,6 +15,7 @@ import { entitiesApi } from "~/modules/entities/routes";
 import { entitySchemasApi } from "~/modules/entity-schemas/routes";
 import { eventSchemasApi } from "~/modules/event-schemas/routes";
 import { healthApi } from "~/modules/health/routes";
+import { metricsApi } from "~/modules/metrics/routes";
 import { sandboxApi } from "~/modules/sandbox/routes";
 
 const openApiInfo = {
@@ -62,6 +63,7 @@ export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 		);
 	})
 	.route("/health", healthApi)
+	.route("/metrics", metricsApi)
 	.openapi(meRoute, async (c) => {
 		const user = c.get("user");
 		const session = c.get("session");
