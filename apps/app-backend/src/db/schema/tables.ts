@@ -42,8 +42,8 @@ export const eventSchema = pgTable(
 	{
 		slug: text().notNull(),
 		name: text().notNull(),
-		createdAt: timestamp().defaultNow().notNull(),
 		propertiesSchema: jsonb().notNull(),
+		createdAt: timestamp().defaultNow().notNull(),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
