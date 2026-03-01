@@ -86,6 +86,7 @@ const parseSandboxResponse = (payload: unknown): SandboxRunResponse => {
 function App() {
 	const apiClient = useApiClient();
 	const authClient = useAuthClient();
+	const navigate = Route.useNavigate();
 	const [code, setCode] = useState(defaultCode);
 
 	useEffect(() => {
@@ -128,7 +129,10 @@ function App() {
 							<Text variant="title-2" as="h2">
 								Sandbox Playground
 							</Text>
-							<Button href="/schema-search" variant="faded">
+							<Button
+								onClick={() => navigate({ to: "/schema-search" })}
+								variant="faded"
+							>
 								Open schema search
 							</Button>
 						</View>
@@ -141,9 +145,11 @@ function App() {
 
 					<TextArea
 						name="code"
+						resize="auto"
 						value={code}
 						onChange={(event) => setCode(event.value)}
 						inputAttributes={{
+							rows: 16,
 							style: { fontFamily: "ui-monospace, monospace" },
 						}}
 					/>
