@@ -9,6 +9,7 @@ import openapiTS, { astToString } from "openapi-typescript";
 import { defineConfig, type Plugin } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
+const openApiRefreshInterval = 10 * 1000;
 const openApiTypesPath = fileURLToPath(
 	new URL("./src/lib/api/openapi.d.ts", import.meta.url),
 );
@@ -81,7 +82,7 @@ const createOpenApiTypesPlugin = (): Plugin => {
 			await refreshTypes();
 			timer = setInterval(() => {
 				void refreshTypes();
-			}, 1500);
+			}, openApiRefreshInterval);
 
 			server.httpServer?.once("close", () => {
 				if (!timer) return;
