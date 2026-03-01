@@ -146,6 +146,24 @@ it.effect("trims and slugifies saved view names before creating", () => {
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("reports a duplicate when a concurrent create wins the unique insert", () => {
+	const layer = makeServiceLayer(
+		makeRepository({
+			findBySlug: () => Effect.succeed(null),
+			create: () => Effect.succeed(null),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SavedViewsService;
+		const exit = yield* Effect.exit(service.create(user, createBody));
+
+		expect(exit).toEqual(
+			Exit.fail(new BadRequest({ message: "A saved view with this name already exists" })),
+		);
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("returns not found when getting a view the user does not own", () => {
 	const layer = makeServiceLayer(makeRepository({ findBySlug: () => Effect.succeed(null) }));
 

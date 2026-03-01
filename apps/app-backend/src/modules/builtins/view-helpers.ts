@@ -108,6 +108,25 @@ const buildCardConfig = (slug: string) => {
 				primarySubtitleProperty: entityProperty(slug, "birthPlace"),
 				secondarySubtitleProperty: entityProperty(slug, "birthDate"),
 			};
+		case "company":
+			return {
+				calloutProperty: avgRatingCallout,
+				eyebrowProperty: eyebrowSchemaName,
+				primarySubtitleProperty: entityProperty(slug, "foundedYear"),
+				secondarySubtitleProperty: null,
+			};
+		case "book-group":
+		case "movie-group":
+		case "music-group":
+		case "audiobook-group":
+		case "comic-book-group":
+		case "video-game-group":
+			return {
+				calloutProperty: avgRatingCallout,
+				eyebrowProperty: eyebrowSchemaName,
+				primarySubtitleProperty: entityProperty(slug, "parts"),
+				secondarySubtitleProperty: null,
+			};
 		case "collection":
 			return {
 				calloutProperty: null,
@@ -133,6 +152,8 @@ const buildTableColumns = (slug: string) => {
 	switch (slug) {
 		case "person":
 			return [nameCol, { expression: entityProperty(slug, "birthPlace"), label: "Birth Place" }];
+		case "company":
+			return [nameCol, { expression: entityProperty(slug, "foundedYear"), label: "Founded Year" }];
 		case "exercise":
 			return [
 				nameCol,
@@ -157,6 +178,13 @@ const buildTableColumns = (slug: string) => {
 				{ expression: entityProperty(slug, "comment"), label: "Comment" },
 				{ expression: entityProperty(slug, "recordedAt"), label: "Recorded At" },
 			];
+		case "book-group":
+		case "movie-group":
+		case "music-group":
+		case "audiobook-group":
+		case "comic-book-group":
+		case "video-game-group":
+			return [nameCol, { expression: entityProperty(slug, "parts"), label: "Parts" }];
 		case "collection":
 			return [nameCol];
 		case "book":
