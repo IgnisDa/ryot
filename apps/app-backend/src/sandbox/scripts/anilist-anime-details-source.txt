@@ -104,7 +104,7 @@ const parseAiringSchedule = (airingSchedule, nextAiringEpisode) => {
 
 	const schedule = [...scheduleByEpisode.entries()]
 		.sort((a, b) => a[0] - b[0])
-		.map(([episode, airingAt]) => ({ episode, airing_at: airingAt }));
+		.map(([episode, airingAt]) => ({ episode, airingAt }));
 
 	return schedule.length > 0 ? schedule : null;
 };
@@ -198,7 +198,7 @@ const productionStatus =
 
 return {
 	name: title,
-	external_id: payloadIdentifier,
+	externalId: payloadIdentifier,
 	properties: {
 		genres: collectGenres(media.genres, media.tags),
 		assets: { remote_images: collectImages(media.coverImage, media.bannerImage) },
@@ -212,7 +212,7 @@ return {
 				? media.averageScore
 				: null,
 		production_status: productionStatus,
-		airing_schedule: parseAiringSchedule(
+		airingSchedule: parseAiringSchedule(
 			media.airingSchedule,
 			media.nextAiringEpisode,
 		),

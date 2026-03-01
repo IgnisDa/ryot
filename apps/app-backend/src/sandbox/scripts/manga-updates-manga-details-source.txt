@@ -107,7 +107,7 @@ const { volumes, productionStatus } = extractStatus(payload?.status);
 
 return {
 	name: title,
-	external_id: payloadIdentifier,
+	externalId: payloadIdentifier,
 	properties: {
 		url: typeof payload?.url === "string" ? payload.url : null,
 		genres: collectGenres(payload?.genres, payload?.categories),
