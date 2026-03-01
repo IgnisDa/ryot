@@ -18,5 +18,8 @@
 		"apps/*",
 		"libs/*",
 		"tests*"
-	]
+	],
+	"dependencies": {
+		"prom-client": "15.1.3"
+	}
 }
