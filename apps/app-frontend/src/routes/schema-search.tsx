@@ -38,12 +38,54 @@ const getPayloadErrorMessage = (payload: unknown) => {
 	return typeof message === "string" ? message : "Request failed";
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null;
+
+const hasErrorPayload = (payload: unknown): payload is { error: unknown } =>
+	isRecord(payload) && Object.hasOwn(payload, "error");
+
+const hasSchemasData = (
+	payload: unknown,
+): payload is {
+	data: Array<{
+		scriptPairs: Array<{
+			searchScriptId: string;
+			detailsScriptId: string;
+			searchScriptName: string;
+		}>;
+		name: string;
+	}>;
+} => isRecord(payload) && Array.isArray(payload.data);
+
+const hasSearchResultData = (
+	payload: unknown,
+): payload is {
+	data: Array<{
+		title: string;
+		identifier: string;
+		image?: string | null;
+		publishYear?: number | null;
+	}>;
+	meta: {
+		total: number;
+		page: number;
+		hasMore: boolean;
+	};
+} =>
+	isRecord(payload) &&
+	Array.isArray(payload.data) &&
+	isRecord(payload.meta) &&
+	typeof payload.meta.total === "number" &&
+	typeof payload.meta.page === "number" &&
+	typeof payload.meta.hasMore === "boolean";
+
 function SchemaSearchPage() {
 	const apiClient = useApiClient();
 	const authClient = useAuthClient();
 	const navigate = Route.useNavigate();
 	const [page, setPage] = useState(1);
 	const [query, setQuery] = useState("harry potter");
+	const [scriptFilter, setScriptFilter] = useState("");
 	const [selectedSearchScriptId, setSelectedSearchScriptId] = useState("");
 	const [importingIdentifier, setImportingIdentifier] = useState<string | null>(
 		null,
@@ -63,7 +105,7 @@ function SchemaSearchPage() {
 		queryFn: async () => {
 			const response = await apiClient["entity-schemas"].list.$get();
 			const payload = await response.json();
-			if ("error" in payload) {
+			if (hasErrorPayload(payload)) {
 				const errorMessage = getPayloadErrorMessage(payload) ?? "Request failed";
 				throw new Error(errorMessage);
 			}
@@ -71,10 +113,7 @@ function SchemaSearchPage() {
 		},
 	});
 
-	const schemasData =
-		schemasQuery.data && "data" in schemasQuery.data
-			? schemasQuery.data.data
-			: [];
+	const schemasData = hasSchemasData(schemasQuery.data) ? schemasQuery.data.data : [];
 
 	const searchScripts = schemasData.flatMap((schema) =>
 		schema.scriptPairs.map((pair) => ({
@@ -87,6 +126,22 @@ function SchemaSearchPage() {
 	const selectedSearchScript = searchScripts?.find(
 		(script) => script.value === selectedSearchScriptId,
 	);
+
+	const normalizedScriptFilter = scriptFilter.trim().toLowerCase();
+
+	const filteredSearchScripts = normalizedScriptFilter
+		? searchScripts.filter((script) =>
+				script.label.toLowerCase().includes(normalizedScriptFilter),
+			)
+		: searchScripts;
+
+	const searchScriptOptions =
+		selectedSearchScript &&
+		!filteredSearchScripts.some(
+			(script) => script.value === selectedSearchScript.value,
+		)
+			? [selectedSearchScript, ...filteredSearchScripts]
+			: filteredSearchScripts;
 
 	useEffect(() => {
 		if (searchScripts.length > 0 && !selectedSearchScriptId) {
@@ -117,7 +172,7 @@ function SchemaSearchPage() {
 			});
 
 			const payload = await response.json();
-			if ("error" in payload) {
+			if (hasErrorPayload(payload)) {
 				const errorMessage = getPayloadErrorMessage(payload) ?? "Request failed";
 				throw new Error(errorMessage);
 			}
@@ -126,12 +181,9 @@ function SchemaSearchPage() {
 		},
 	});
 
-	const completedResult =
-		searchRequest.data &&
-		"data" in searchRequest.data &&
-		"meta" in searchRequest.data
-			? searchRequest.data
-			: null;
+	const completedResult = hasSearchResultData(searchRequest.data)
+		? searchRequest.data
+		: null;
 	const isSearching = searchRequest.isFetching || searchRequest.isPending;
 	const loadingLabel = "Searching...";
 	const searchError = searchRequest.error?.message;
@@ -147,7 +199,7 @@ function SchemaSearchPage() {
 
 			const payload = await response.json();
 
-			if ("error" in payload)
+			if (hasErrorPayload(payload))
 				throw new Error("Import returned invalid payload");
 
 			return payload.data.entityId;
@@ -206,7 +258,7 @@ function SchemaSearchPage() {
 
 					<Select
 						name="Search Script"
-						options={searchScripts}
+						options={searchScriptOptions}
 						value={selectedSearchScriptId}
 						onChange={(event) => setSelectedSearchScriptId(event.value)}
 						placeholder={
@@ -214,6 +266,14 @@ function SchemaSearchPage() {
 								? "Loading schemas..."
 								: "Select a search script"
 						}
+						disabled={schemasQuery.isPending || !searchScripts.length}
+					/>
+
+					<TextField
+						name="Search Script Filter"
+						value={scriptFilter}
+						onChange={(event) => setScriptFilter(event.value)}
+						placeholder="Filter search scripts"
 						disabled={schemasQuery.isPending || !searchScripts.length}
 					/>
 
