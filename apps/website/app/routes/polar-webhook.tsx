@@ -33,7 +33,9 @@ function findPlanAndProductType(
 
 	for (const product of products) {
 		const matchingPrice = product.prices.find((p) => p.productId === productId);
-		if (matchingPrice) return { productType: product.type, planType: matchingPrice.name };
+		if (matchingPrice) {
+			return { productType: product.type, planType: matchingPrice.name };
+		}
 	}
 
 	return null;
@@ -42,7 +44,9 @@ function findPlanAndProductType(
 async function handleOrderPaid(
 	event: ReturnType<typeof validateEvent>,
 ): Promise<{ error?: string; message?: string }> {
-	if (event.type !== "order.paid") return { error: "Invalid event type" };
+	if (event.type !== "order.paid") {
+		return { error: "Invalid event type" };
+	}
 
 	const { data: order } = event;
 	const polarCustomerId = order.customer.id;
@@ -54,16 +58,21 @@ async function handleOrderPaid(
 	});
 
 	const customer = await findCustomer(polarCustomerId, externalCustomerId);
-	if (!customer)
+	if (!customer) {
 		return {
 			error: `No customer found for Polar customer ID: ${polarCustomerId}`,
 		};
+	}
 
 	const productId = order.productId;
-	if (!productId) return { error: "Product ID not found in order" };
+	if (!productId) {
+		return { error: "Product ID not found in order" };
+	}
 
 	const planAndProduct = findPlanAndProductType(productId);
-	if (!planAndProduct) return { error: `No matching product found for product ID: ${productId}` };
+	if (!planAndProduct) {
+		return { error: `No matching product found for product ID: ${productId}` };
+	}
 
 	const { planType, productType } = planAndProduct;
 
@@ -76,7 +85,9 @@ async function handleOrderPaid(
 async function handleSubscriptionRevoked(
 	event: ReturnType<typeof validateEvent>,
 ): Promise<{ error?: string; message?: string }> {
-	if (event.type !== "subscription.revoked") return { error: "Invalid event type" };
+	if (event.type !== "subscription.revoked") {
+		return { error: "Invalid event type" };
+	}
 
 	const { data: subscription } = event;
 	const polarCustomerId = subscription.customer.id;
@@ -88,7 +99,9 @@ async function handleSubscriptionRevoked(
 	});
 
 	const customer = await findCustomer(polarCustomerId, externalCustomerId);
-	if (!customer) return { error: "No customer found" };
+	if (!customer) {
+		return { error: "No customer found" };
+	}
 
 	await revokePurchase(customer);
 	revokeCancellation(customer.id);

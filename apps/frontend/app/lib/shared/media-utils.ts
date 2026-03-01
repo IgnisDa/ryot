@@ -26,7 +26,9 @@ import { ThreePointSmileyRating, Verb } from "../types";
 import { clientGqlService } from "./react-query";
 
 export const getLot = (lot: unknown) => {
-	if (!lot) return undefined;
+	if (!lot) {
+		return undefined;
+	}
 	const newLot = (lot as string).toLowerCase();
 	return match(newLot)
 		.with("music", () => MediaLot.Music)
@@ -117,9 +119,13 @@ export const convertRatingToUserScale = (
 	rating: string | null | undefined,
 	scale: UserReviewScale,
 ) => {
-	if (rating == null) return null;
+	if (rating == null) {
+		return null;
+	}
 	const value = Number(rating);
-	if (Number.isNaN(value)) return null;
+	if (Number.isNaN(value)) {
+		return null;
+	}
 
 	const scaled = match(scale)
 		.with(UserReviewScale.OutOfHundred, () => value)

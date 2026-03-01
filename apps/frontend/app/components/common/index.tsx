@@ -306,7 +306,9 @@ export const ApplicationPagination = (props: {
 	const pageSize = userPreferences.general.listPageSize;
 	const totalPages = Math.ceil(props.totalItems / pageSize);
 
-	if (!props.totalItems || totalPages <= 1) return null;
+	if (!props.totalItems || totalPages <= 1) {
+		return null;
+	}
 
 	if (totalPages <= 7) {
 		return (
@@ -419,7 +421,9 @@ export const EditButton = (props: EditButtonProps) => {
 		}
 	}, [props.editRouteType, props.entityId]);
 
-	if (!canCurrentUserUpdate) return null;
+	if (!canCurrentUserUpdate) {
+		return null;
+	}
 
 	return (
 		<Button component={Link} variant="outline" to={editPath}>

@@ -57,7 +57,9 @@ export const StatInput = (props: {
 
 	const getDisplayValue = () => {
 		const backendValue = set.statistic[props.stat];
-		if (!isString(backendValue)) return undefined;
+		if (!isString(backendValue)) {
+			return undefined;
+		}
 
 		if (props.stat === "duration" && props.durationUnit) {
 			return convertDurationFromMinutes(backendValue, props.durationUnit);
@@ -79,7 +81,7 @@ export const StatInput = (props: {
 			: undefined;
 
 	useDidUpdate(() => {
-		if (currentWorkout)
+		if (currentWorkout) {
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
 					let val: string | null = null;
@@ -102,10 +104,13 @@ export const StatInput = (props: {
 						advanceOnboardingTourStep();
 				}),
 			);
+		}
 	}, [value, props.stat, props.setIdx, props.exerciseIdx, props.durationUnit]);
 
 	const getInputStep = () => {
-		if (props.inputStep !== undefined) return props.inputStep;
+		if (props.inputStep !== undefined) {
+			return props.inputStep;
+		}
 		if (props.stat === "duration" && props.durationUnit === ExerciseDurationUnit.Seconds) {
 			return 1;
 		}

@@ -12,13 +12,17 @@ export const forcedDashboardPath = $path("/", { ignoreLandingPath: true });
 export const generateColor = (seed: number) => {
 	const color = Math.floor(Math.abs(Math.sin(seed) * 16777215));
 	let newColor = color.toString(16);
-	while (newColor.length < 6) newColor = `0${color}`;
+	while (newColor.length < 6) {
+		newColor = `0${color}`;
+	}
 	return `#${newColor}`;
 };
 
 export const getStringAsciiValue = (input: string) => {
 	let total = 0;
-	for (let i = 0; i < input.length; i++) total += input.charCodeAt(i);
+	for (let i = 0; i < input.length; i++) {
+		total += input.charCodeAt(i);
+	}
 	return total;
 };
 
@@ -26,10 +30,16 @@ export const selectRandomElement = <T,>(array: T[], input: string): T =>
 	array[(getStringAsciiValue(input) + array.length) % array.length];
 
 export function getSurroundingElements<T>(array: Array<T>, elementIndex: number): Array<number> {
-	if (array.length === 1) return [0];
+	if (array.length === 1) {
+		return [0];
+	}
 	const lastIndex = array.length - 1;
-	if (elementIndex === 0) return [lastIndex, elementIndex, elementIndex + 1];
-	if (elementIndex === lastIndex) return [elementIndex - 1, elementIndex, 0];
+	if (elementIndex === 0) {
+		return [lastIndex, elementIndex, elementIndex + 1];
+	}
+	if (elementIndex === lastIndex) {
+		return [elementIndex - 1, elementIndex, 0];
+	}
 	return [elementIndex - 1, elementIndex, elementIndex + 1];
 }
 

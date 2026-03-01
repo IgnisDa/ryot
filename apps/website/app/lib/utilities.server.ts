@@ -24,7 +24,9 @@ import {
 
 export const getClientIp = (request: Request): string | undefined => {
 	const cfConnectingIp = request.headers.get("cf-connecting-ip");
-	if (cfConnectingIp) return cfConnectingIp.trim();
+	if (cfConnectingIp) {
+		return cfConnectingIp.trim();
+	}
 
 	const xForwardedFor = request.headers.get("x-forwarded-for");
 	if (xForwardedFor) {
@@ -36,9 +38,11 @@ export const getClientIp = (request: Request): string | undefined => {
 };
 
 export const getProductAndPlanTypeByPriceId = (priceId: string) => {
-	for (const product of getPrices())
-		for (const price of product.prices)
+	for (const product of getPrices()) {
+		for (const price of product.prices) {
 			if (price.priceId === priceId) return { productType: product.type, planType: price.name };
+		}
+	}
 	throw new Error("Price ID not found");
 };
 
@@ -110,7 +114,9 @@ export const calculateRenewalDate = (planType: TPlanTypes, baseDate?: Date | day
 
 export const getCustomerFromCookie = async (request: Request) => {
 	const cookie = await websiteAuthCookie.parse(request.headers.get("cookie"));
-	if (!cookie || Object.keys(cookie).length === 0) return null;
+	if (!cookie || Object.keys(cookie).length === 0) {
+		return null;
+	}
 	const customerId = z.string().parse(cookie);
 
 	return await getDb().query.customers.findFirst({
@@ -120,7 +126,9 @@ export const getCustomerFromCookie = async (request: Request) => {
 
 export const getCustomerWithActivePurchase = async (request: Request) => {
 	const customer = await getCustomerFromCookie(request);
-	if (!customer) return null;
+	if (!customer) {
+		return null;
+	}
 
 	const activePurchase = await getDb().query.customerPurchases.findFirst({
 		orderBy: [desc(schema.customerPurchases.createdOn)],

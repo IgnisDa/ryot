@@ -138,7 +138,9 @@ export default function Layout() {
 		<>
 			<ClientOnly>
 				{() => {
-					if (!isOnboardingTourInProgress) return null;
+					if (!isOnboardingTourInProgress) {
+						return null;
+					}
 					return (
 						<Joyride
 							hideBackButton
@@ -253,7 +255,9 @@ export default function Layout() {
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
 										produce(openedSidebarLinks, (draft) => {
-											if (draft) draft.media = k;
+											if (draft) {
+												draft.media = k;
+											}
 										}),
 									)
 								}
@@ -270,7 +274,9 @@ export default function Layout() {
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
 										produce(openedSidebarLinks, (draft) => {
-											if (draft) draft.fitness = k;
+											if (draft) {
+												draft.fitness = k;
+											}
 										}),
 									)
 								}
@@ -319,7 +325,9 @@ export default function Layout() {
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
 										produce(openedSidebarLinks, (draft) => {
-											if (draft) draft.settings = k;
+											if (draft) {
+												draft.settings = k;
+											}
 										}),
 									)
 								}

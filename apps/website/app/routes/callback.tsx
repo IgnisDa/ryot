@@ -22,9 +22,13 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	callbackUrl.search = requestUrl.search;
 	const tokenSet = await openidClient.authorizationCodeGrant(config, callbackUrl);
 	const claims = tokenSet.claims();
-	if (!claims) throw new Error("No claims found in token set");
+	if (!claims) {
+		throw new Error("No claims found in token set");
+	}
 	const email = claims.email?.toString();
-	if (!email || !claims.sub) throw new Error("Invalid claims");
+	if (!email || !claims.sub) {
+		throw new Error("Invalid claims");
+	}
 	const alreadyCustomer = await getDb().query.customers.findFirst({
 		where: eq(customers.email, email),
 	});
@@ -42,7 +46,9 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 			return dbCustomer.at(0)?.id;
 		})
 		.otherwise((value) => value.id);
-	if (!customerId) throw new Error("There was an error registering the user.");
+	if (!customerId) {
+		throw new Error("There was an error registering the user.");
+	}
 	console.log("Customer login successful:", { customerId });
 	return redirect($path("/me"), {
 		headers: { "set-cookie": await websiteAuthCookie.serialize(customerId) },

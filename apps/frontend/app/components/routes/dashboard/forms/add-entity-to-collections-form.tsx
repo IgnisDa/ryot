@@ -57,7 +57,9 @@ export const AddEntityToCollectionsForm = (props: {
 		[collections, userDetails.id, alreadyInCollectionIds],
 	);
 
-	if (!addEntityToCollectionData) return null;
+	if (!addEntityToCollectionData) {
+		return null;
+	}
 
 	const handleCollectionChange = (ids: string[]) => {
 		const currentCollections = form.values.selectedCollections;
@@ -97,7 +99,9 @@ export const AddEntityToCollectionsForm = (props: {
 	return (
 		<form
 			onSubmit={form.onSubmit(async (values) => {
-				if (!addEntityToCollectionData) return;
+				if (!addEntityToCollectionData) {
+					return;
+				}
 
 				await Promise.all(
 					values.selectedCollections.map((col) =>

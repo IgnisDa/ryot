@@ -117,8 +117,12 @@ const formatBaseEntityDisplayItemRating = (rating: number, scale: UserReviewScal
 		case UserReviewScale.OutOfFive:
 			return `${(rating / 20).toFixed(1)}/5`;
 		case UserReviewScale.ThreePointSmiley:
-			if (rating >= 67) return "😊";
-			if (rating >= 34) return "😐";
+			if (rating >= 67) {
+				return "😊";
+			}
+			if (rating >= 34) {
+				return "😐";
+			}
 			return "😞";
 	}
 };
@@ -132,7 +136,9 @@ const BaseEntityDisplayItemReason = (props: { reason: UserToMediaReason }) => {
 		)
 		.otherwise(() => [null, null] as const);
 
-	if (!Icon || !color) return null;
+	if (!Icon || !color) {
+		return null;
+	}
 
 	return (
 		<Tooltip label={changeCase(props.reason)}>
@@ -279,7 +285,9 @@ const BaseEntityDisplayItemComponent = forwardRef<HTMLDivElement, BaseEntityDisp
 		const shouldHighlightImage = coreDetails.isServerKeyValidated && props.wasRecentlyConsumed;
 
 		const progress = useMemo(() => {
-			if (props.progress === undefined || props.progress === null) return undefined;
+			if (props.progress === undefined || props.progress === null) {
+				return undefined;
+			}
 			const value = Number(props.progress);
 			return Number.isNaN(value) ? undefined : value;
 		}, [props.progress]);
@@ -288,7 +296,9 @@ const BaseEntityDisplayItemComponent = forwardRef<HTMLDivElement, BaseEntityDisp
 		);
 
 		const entityInformation = useMemo(() => {
-			if (!props.additionalInformation) return "";
+			if (!props.additionalInformation) {
+				return "";
+			}
 			return props.additionalInformation.filter(Boolean).join(" • ");
 		}, [props.additionalInformation]);
 		const cardStyle = useMemo<MantineStyleProp>(

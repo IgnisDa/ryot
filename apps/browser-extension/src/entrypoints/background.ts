@@ -14,7 +14,7 @@ function extractGraphQLEndpoint(integrationUrl: string) {
 		const url = new URL(integrationUrl);
 		return `${url.origin}/backend/graphql`;
 	} catch (_error) {
-		throw new Error(`Invalid integration URL: ${integrationUrl}`);
+		throw new Error(`Invalid integration URL: ${integrationUrl}`, { cause: _error });
 	}
 }
 

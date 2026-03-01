@@ -73,7 +73,9 @@ export const MetadataNewProgressUpdateForm = (props: MetadataNewProgressFormProp
 			.run();
 	};
 
-	if (!metadataToUpdate || !metadataDetails) return null;
+	if (!metadataToUpdate || !metadataDetails) {
+		return null;
+	}
 
 	const handleProviderChange = (providers: string[]) => {
 		form.setFieldValue("providersConsumedOn", providers);

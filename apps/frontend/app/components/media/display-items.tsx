@@ -76,12 +76,16 @@ export const MetadataDisplayItem = (props: {
 	);
 
 	const isCalendarEventWatched = useMemo(() => {
-		if (!userMetadataDetails) return false;
+		if (!userMetadataDetails) {
+			return false;
+		}
 		if (props.calendarEventShowInfo) {
 			const seasonProgress = userMetadataDetails.showProgress?.find(
 				(s) => s.seasonNumber === props.calendarEventShowInfo?.season,
 			);
-			if (!seasonProgress) return false;
+			if (!seasonProgress) {
+				return false;
+			}
 			const episodeProgress = seasonProgress.episodes.find(
 				(e) => e.episodeNumber === props.calendarEventShowInfo?.episode,
 			);
@@ -97,21 +101,28 @@ export const MetadataDisplayItem = (props: {
 	}, [userMetadataDetails, props.calendarEventShowInfo, props.calendarEventPodcastInfo]);
 
 	const extraInformation = useMemo(() => {
-		if (!metadataDetails || !userMetadataDetails) return "";
+		if (!metadataDetails || !userMetadataDetails) {
+			return "";
+		}
 
 		const inProgress = userMetadataDetails.inProgress;
 		if (inProgress) {
-			if (inProgress.podcastExtraInformation)
+			if (inProgress.podcastExtraInformation) {
 				return `Current: EP-${inProgress.podcastExtraInformation.episode}`;
-			if (inProgress.showExtraInformation)
+			}
+			if (inProgress.showExtraInformation) {
 				return `Current: S${inProgress.showExtraInformation.season}-E${inProgress.showExtraInformation.episode}`;
+			}
 		}
 
 		const nextEntry = userMetadataDetails.nextEntry;
 		if (nextEntry) {
-			if (metadataDetails.lot === MediaLot.Show)
+			if (metadataDetails.lot === MediaLot.Show) {
 				return `Next: S${nextEntry.season}-E${nextEntry.episode}`;
-			if (metadataDetails.lot === MediaLot.Podcast) return `Next: EP-${nextEntry.episode}`;
+			}
+			if (metadataDetails.lot === MediaLot.Podcast) {
+				return `Next: EP-${nextEntry.episode}`;
+			}
 		}
 
 		return "";
@@ -193,10 +204,13 @@ export const MetadataGroupDisplayItem = (props: {
 
 	const defaultAdditionalInformation = useMemo(() => {
 		const final = [];
-		if (!props.noEntityLot) final.push(changeCase(snakeCase(EntityLot.MetadataGroup)));
+		if (!props.noEntityLot) {
+			final.push(changeCase(snakeCase(EntityLot.MetadataGroup)));
+		}
 
-		if (metadataGroupDetails?.details.parts)
+		if (metadataGroupDetails?.details.parts) {
 			final.push(`${metadataGroupDetails.details.parts} items`);
+		}
 
 		return final;
 	}, [metadataGroupDetails, props.noEntityLot]);
@@ -262,8 +276,9 @@ export const PersonDisplayItem = (props: {
 	const defaultAdditionalInformation = useMemo(() => {
 		const final = [];
 
-		if (personDetails?.details.associatedEntityCount)
+		if (personDetails?.details.associatedEntityCount) {
 			final.push(`${personDetails.details.associatedEntityCount} items`);
+		}
 
 		return final;
 	}, [personDetails]);

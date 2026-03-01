@@ -67,7 +67,9 @@ export const EditHistoryItemModal = (props: {
 	const episodes = selectedSeason?.episodes ?? [];
 	const podcastEpisodes = metadataDetails?.podcastSpecifics?.episodes ?? [];
 
-	if (!metadataDetails) return null;
+	if (!metadataDetails) {
+		return null;
+	}
 
 	return (
 		<Modal centered opened={props.opened} onClose={props.onClose} withCloseButton={false}>

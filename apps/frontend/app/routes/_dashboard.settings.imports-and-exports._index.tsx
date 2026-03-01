@@ -583,7 +583,9 @@ export default function Page() {
 																				color="blue"
 																				variant="light"
 																				onClick={() => {
-																					if (!report.details) return;
+																					if (!report.details) {
+																						return;
+																					}
 																					const json = JSON.stringify(
 																						report.details.failedItems,
 																						null,
@@ -710,7 +712,9 @@ const DisplayExport = (props: ExportItemProps) => {
 
 	const duration = useMemo(() => {
 		const seconds = dayjsLib(props.item.endedAt).diff(dayjsLib(props.item.startedAt), "second");
-		if (seconds < 60) return `${seconds}s`;
+		if (seconds < 60) {
+			return `${seconds}s`;
+		}
 		const minutes = Math.floor(seconds / 60);
 		const remainingSeconds = seconds % 60;
 		return `${minutes}m ${remainingSeconds}s`;

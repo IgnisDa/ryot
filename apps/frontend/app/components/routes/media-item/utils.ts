@@ -4,7 +4,9 @@ import { SECONDS_IN_MONTH } from "./constants";
 import type { DurationInput } from "./types";
 
 export const convertSecondsToDuration = (totalSeconds?: string | null) => {
-	if (!totalSeconds) return {};
+	if (!totalSeconds) {
+		return {};
+	}
 	const seconds = Number(totalSeconds);
 	const mo = Math.floor(seconds / SECONDS_IN_MONTH);
 	const remainingSeconds = seconds - mo * SECONDS_IN_MONTH;

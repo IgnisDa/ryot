@@ -56,9 +56,13 @@ export default defineContentScript({
 
 		async function getOrLookupMetadata(): Promise<MetadataLookupData | null> {
 			const title = extractMetadataTitle();
-			if (!title) return null;
+			if (!title) {
+				return null;
+			}
 
-			if (!metadataCache) return null;
+			if (!metadataCache) {
+				return null;
+			}
 
 			let metadata = await metadataCache.getMetadataForCurrentPage();
 
@@ -87,9 +91,15 @@ export default defineContentScript({
 				}
 
 				let score = 0;
-				if (!video.paused && !video.ended) score += 10;
-				if (video.readyState > 2) score += 5;
-				if (video.duration > 0) score += 1;
+				if (!video.paused && !video.ended) {
+					score += 10;
+				}
+				if (video.readyState > 2) {
+					score += 5;
+				}
+				if (video.duration > 0) {
+					score += 1;
+				}
 
 				if (score > highestScore) {
 					highestScore = score;
@@ -102,7 +112,9 @@ export default defineContentScript({
 
 		function extractProgressData(video: HTMLVideoElement): RawMediaData | null {
 			const title = extractMetadataTitle();
-			if (!title || !video.duration || video.duration < MIN_VIDEO_DURATION_SECONDS) return null;
+			if (!title || !video.duration || video.duration < MIN_VIDEO_DURATION_SECONDS) {
+				return null;
+			}
 
 			return {
 				title,
@@ -262,7 +274,9 @@ export default defineContentScript({
 
 			const checkForVideos = debounce(async () => {
 				const hasFoundVideo = await getHasFoundVideo();
-				if (!isRunning || currentUrl !== window.location.href || hasFoundVideo) return;
+				if (!isRunning || currentUrl !== window.location.href || hasFoundVideo) {
+					return;
+				}
 				detectVideoWithRetry();
 			}, 500);
 

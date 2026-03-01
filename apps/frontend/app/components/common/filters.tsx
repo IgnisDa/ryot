@@ -240,8 +240,11 @@ export const SortOrderToggle = (props: {
 }) => (
 	<ActionIcon
 		onClick={() => {
-			if (props.currentOrder === GraphqlSortOrder.Asc) props.onOrderChange(GraphqlSortOrder.Desc);
-			else props.onOrderChange(GraphqlSortOrder.Asc);
+			if (props.currentOrder === GraphqlSortOrder.Asc) {
+				props.onOrderChange(GraphqlSortOrder.Desc);
+			} else {
+				props.onOrderChange(GraphqlSortOrder.Asc);
+			}
 		}}
 	>
 		{props.currentOrder === GraphqlSortOrder.Asc ? <IconSortAscending /> : <IconSortDescending />}
