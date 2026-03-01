@@ -1,12 +1,9 @@
-import { useForm } from "@tanstack/react-form";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuthClient } from "@/hooks/auth";
+import { useAppForm } from "@/hooks/forms";
 
 export const Route = createFileRoute("/start")({ component: StartPage });
 
@@ -97,7 +94,7 @@ function StartPage() {
 	const [mode, setMode] = useState<AuthMode>("login");
 	const [submitError, setSubmitError] = useState<string | null>(null);
 
-	const authForm = useForm({
+	const authForm = useAppForm({
 		defaultValues: { email: "", password: "" },
 		onSubmit: async ({ value }) => {
 			setSubmitError(null);
@@ -158,99 +155,61 @@ function StartPage() {
 								void authForm.handleSubmit();
 							}}
 						>
-							<div className="space-y-4">
-								<authForm.Field
-									name="email"
-									validators={{
-										onBlur: ({ value }) => validateEmail(value),
-										onChange: ({ value }) => validateEmail(value),
-									}}
-								>
-									{(field) => {
-										const errorMessage = field.state.meta.isTouched
-											? getFieldErrorMessage(field.state.meta.errors)
-											: null;
+							<authForm.AppForm>
+								<div className="space-y-4">
+									<authForm.AppField
+										name="email"
+										validators={{
+											onBlur: ({ value }) => validateEmail(value),
+											onChange: ({ value }) => validateEmail(value),
+										}}
+									>
+										{(field) => (
+											<field.TextField
+												type="email"
+												label="Email"
+												autoComplete="email"
+												className="bg-background/65"
+												placeholder="you@example.com"
+												getErrorMessage={getFieldErrorMessage}
+											/>
+										)}
+									</authForm.AppField>
 
-										return (
-											<div className="space-y-2">
-												<Label htmlFor="email">Email</Label>
-												<Input
-													autoComplete="email"
-													className="bg-background/65"
-													id="email"
-													type="email"
-													value={field.state.value}
-													onBlur={field.handleBlur}
-													onChange={(event) =>
-														field.handleChange(event.target.value)
-													}
-													placeholder="you@example.com"
-												/>
-												{errorMessage ? (
-													<p className="text-destructive text-xs">
-														{errorMessage}
-													</p>
-												) : null}
-											</div>
-										);
-									}}
-								</authForm.Field>
-
-								<authForm.Field
-									name="password"
-									validators={{
-										onBlur: ({ value }) => validatePassword(value, mode),
-										onChange: ({ value }) => validatePassword(value, mode),
-									}}
-								>
-									{(field) => {
-										const errorMessage = field.state.meta.isTouched
-											? getFieldErrorMessage(field.state.meta.errors)
-											: null;
-
-										return (
-											<div className="space-y-2">
-												<Label htmlFor="password">Password</Label>
-												<Input
-													className="bg-background/65"
-													id="password"
+									<authForm.AppField
+										name="password"
+										validators={{
+											onBlur: ({ value }) => validatePassword(value, mode),
+											onChange: ({ value }) => validatePassword(value, mode),
+										}}
+									>
+										{(field) => (
+											<>
+												<field.TextField
 													type="password"
-													value={field.state.value}
-													onBlur={field.handleBlur}
-													autoComplete={modeContent.passwordAutoComplete}
-													onChange={(event) =>
-														field.handleChange(event.target.value)
-													}
+													label="Password"
+													className="bg-background/65"
 													placeholder="Enter your password"
+													getErrorMessage={getFieldErrorMessage}
+													autoComplete={modeContent.passwordAutoComplete}
 												/>
-												{errorMessage ? (
+
+												{submitError ? (
 													<p className="text-destructive text-xs">
-														{errorMessage}
+														{submitError}
 													</p>
 												) : null}
-											</div>
-										);
-									}}
-								</authForm.Field>
 
-								{submitError ? (
-									<p className="text-destructive text-xs">{submitError}</p>
-								) : null}
-
-								<authForm.Subscribe selector={(state) => state.isSubmitting}>
-									{(isSubmitting) => (
-										<Button
-											className="w-full"
-											type="submit"
-											disabled={isSubmitting}
-										>
-											{isSubmitting
-												? "Please wait..."
-												: modeContent.actionLabel}
-										</Button>
-									)}
-								</authForm.Subscribe>
-							</div>
+												<authForm.SubmitButton
+													className="w-full"
+													label={modeContent.actionLabel}
+													pendingLabel="Please wait..."
+												/>
+											</>
+										)}
+									</authForm.AppField>
+								</div>
+							</authForm.AppForm>
 						</form>
 					</CardContent>
 				</Card>
