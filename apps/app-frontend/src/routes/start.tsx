@@ -1,6 +1,10 @@
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuthClient } from "@/hooks/auth";
 
 export const Route = createFileRoute("/start")({ component: StartPage });
@@ -123,169 +127,147 @@ function StartPage() {
 	const isSignupMode = mode === "signup";
 
 	return (
-		<div
-			style={{
-				minHeight: "100vh",
-				background: "linear-gradient(130deg, #f5f5f5 0%, #eef5ff 100%)",
-			}}
-		>
-			<Container width="800px" padding={8}>
-				<View
-					align="center"
-					justify="center"
-					paddingTop={18}
-					paddingBottom={18}
-				>
-					<View.Item columns={{ s: 12, m: 8 }}>
-						<Card padding={7}>
-							<View gap={6}>
-								<View gap={2}>
-									<Text as="h1" variant="title-4" weight="medium">
-										{modeContent.title}
-									</Text>
-									<Text color="neutral-faded">{modeContent.subtitle}</Text>
-								</View>
+		<div className="page-wrap px-4 py-10 md:py-14">
+			<div className="mx-auto w-full max-w-xl rise-in">
+				<Card className="island-shell rounded-xl border-border/80">
+					<CardHeader className="space-y-2 pb-3">
+						<CardTitle className="display-title text-3xl font-semibold">
+							{modeContent.title}
+						</CardTitle>
+						<p className="text-muted-foreground text-sm">
+							{modeContent.subtitle}
+						</p>
+					</CardHeader>
+					<CardContent className="space-y-5">
+						<div className="bg-muted/60 grid w-full grid-cols-2 rounded-md border border-border/70 p-1">
+							<Button
+								className="flex-1"
+								type="button"
+								onClick={() => {
+									setMode("login");
+									setSubmitError(null);
+								}}
+								variant={isLoginMode ? "default" : "ghost"}
+							>
+								Login
+							</Button>
+							<Button
+								className="flex-1"
+								type="button"
+								onClick={() => {
+									setMode("signup");
+									setSubmitError(null);
+								}}
+								variant={isSignupMode ? "default" : "ghost"}
+							>
+								Sign Up
+							</Button>
+						</div>
 
-								<View
-									gap={2}
-									padding={1}
-									direction="row"
-									backgroundColor="neutral-faded"
-									borderRadius="medium"
-								>
-									<Button
-										fullWidth
-										type="button"
-										variant={isLoginMode ? "solid" : "faded"}
-										onClick={() => {
-											setMode("login");
-											setSubmitError(null);
-										}}
-									>
-										Login
-									</Button>
-									<Button
-										fullWidth
-										type="button"
-										variant={isSignupMode ? "solid" : "faded"}
-										onClick={() => {
-											setMode("signup");
-											setSubmitError(null);
-										}}
-									>
-										Sign Up
-									</Button>
-								</View>
-
-								<form
-									onSubmit={(event) => {
-										event.preventDefault();
-										event.stopPropagation();
-										void authForm.handleSubmit();
+						<form
+							onSubmit={(event) => {
+								event.preventDefault();
+								event.stopPropagation();
+								void authForm.handleSubmit();
+							}}
+						>
+							<div className="space-y-4">
+								<authForm.Field
+									name="email"
+									validators={{
+										onBlur: ({ value }) => validateEmail(value),
+										onChange: ({ value }) => validateEmail(value),
 									}}
 								>
-									<View gap={4}>
-										<authForm.Field
-											name="email"
-											validators={{
-												onBlur: ({ value }) => validateEmail(value),
-												onChange: ({ value }) => validateEmail(value),
-											}}
+									{(field) => {
+										const errorMessage = field.state.meta.isTouched
+											? getFieldErrorMessage(field.state.meta.errors)
+											: null;
+
+										return (
+											<div className="space-y-2">
+												<Label htmlFor="email">Email</Label>
+												<Input
+													autoComplete="email"
+													className="bg-background/65"
+													id="email"
+													type="email"
+													value={field.state.value}
+													onBlur={field.handleBlur}
+													onChange={(event) =>
+														field.handleChange(event.target.value)
+													}
+													placeholder="you@example.com"
+												/>
+												{errorMessage ? (
+													<p className="text-destructive text-xs">
+														{errorMessage}
+													</p>
+												) : null}
+											</div>
+										);
+									}}
+								</authForm.Field>
+
+								<authForm.Field
+									name="password"
+									validators={{
+										onBlur: ({ value }) => validatePassword(value, mode),
+										onChange: ({ value }) => validatePassword(value, mode),
+									}}
+								>
+									{(field) => {
+										const errorMessage = field.state.meta.isTouched
+											? getFieldErrorMessage(field.state.meta.errors)
+											: null;
+
+										return (
+											<div className="space-y-2">
+												<Label htmlFor="password">Password</Label>
+												<Input
+													className="bg-background/65"
+													id="password"
+													type="password"
+													value={field.state.value}
+													onBlur={field.handleBlur}
+													autoComplete={modeContent.passwordAutoComplete}
+													onChange={(event) =>
+														field.handleChange(event.target.value)
+													}
+													placeholder="Enter your password"
+												/>
+												{errorMessage ? (
+													<p className="text-destructive text-xs">
+														{errorMessage}
+													</p>
+												) : null}
+											</div>
+										);
+									}}
+								</authForm.Field>
+
+								{submitError ? (
+									<p className="text-destructive text-xs">{submitError}</p>
+								) : null}
+
+								<authForm.Subscribe selector={(state) => state.isSubmitting}>
+									{(isSubmitting) => (
+										<Button
+											className="w-full"
+											type="submit"
+											disabled={isSubmitting}
 										>
-											{(field) => {
-												const errorMessage = field.state.meta.isTouched
-													? getFieldErrorMessage(field.state.meta.errors)
-													: null;
-
-												return (
-													<View gap={2}>
-														<TextField
-															name="Email"
-															value={field.state.value}
-															onBlur={field.handleBlur}
-															placeholder="you@example.com"
-															onChange={(event) =>
-																field.handleChange(event.value)
-															}
-															inputAttributes={{
-																autoComplete: "email",
-																type: "email",
-															}}
-														/>
-														{errorMessage ? (
-															<Text color="critical" variant="caption-1">
-																{errorMessage}
-															</Text>
-														) : null}
-													</View>
-												);
-											}}
-										</authForm.Field>
-
-										<authForm.Field
-											name="password"
-											validators={{
-												onBlur: ({ value }) => validatePassword(value, mode),
-												onChange: ({ value }) => validatePassword(value, mode),
-											}}
-										>
-											{(field) => {
-												const errorMessage = field.state.meta.isTouched
-													? getFieldErrorMessage(field.state.meta.errors)
-													: null;
-
-												return (
-													<View gap={2}>
-														<TextField
-															name="Password"
-															value={field.state.value}
-															onBlur={field.handleBlur}
-															placeholder="Enter your password"
-															onChange={(event) =>
-																field.handleChange(event.value)
-															}
-															inputAttributes={{
-																autoComplete: modeContent.passwordAutoComplete,
-																type: "password",
-															}}
-														/>
-														{errorMessage ? (
-															<Text color="critical" variant="caption-1">
-																{errorMessage}
-															</Text>
-														) : null}
-													</View>
-												);
-											}}
-										</authForm.Field>
-
-										{submitError ? (
-											<Text color="critical" variant="caption-1">
-												{submitError}
-											</Text>
-										) : null}
-
-										<authForm.Subscribe
-											selector={(state) => state.isSubmitting}
-										>
-											{(isSubmitting) => (
-												<Button
-													fullWidth
-													type="submit"
-													loading={isSubmitting}
-													disabled={isSubmitting}
-												>
-													{modeContent.actionLabel}
-												</Button>
-											)}
-										</authForm.Subscribe>
-									</View>
-								</form>
-							</View>
-						</Card>
-					</View.Item>
-				</View>
-			</Container>
+											{isSubmitting
+												? "Please wait..."
+												: modeContent.actionLabel}
+										</Button>
+									)}
+								</authForm.Subscribe>
+							</div>
+						</form>
+					</CardContent>
+				</Card>
+			</div>
 		</div>
 	);
 }
