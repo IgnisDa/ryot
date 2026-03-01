@@ -6,18 +6,18 @@ import { strictStruct } from "../../schema/utils";
 const SystemFieldSelector = strictStruct({
 	name: Schema.String,
 	type: Schema.Literal("system"),
-}).annotations({ identifier: "SystemFieldSelector" });
+}).annotate({ identifier: "SystemFieldSelector" });
 
 const PropertyFieldSelector = strictStruct({
 	schema: Schema.String,
 	type: Schema.Literal("property"),
 	path: Schema.NonEmptyArray(Schema.String),
-}).annotations({ identifier: "PropertyFieldSelector" });
+}).annotate({ identifier: "PropertyFieldSelector" });
 
 const SchemaMetadataFieldSelector = strictStruct({
 	type: Schema.Literal("schema"),
-	name: Schema.Literal("slug", "name"),
-}).annotations({ identifier: "SchemaMetadataFieldSelector" });
+	name: Schema.Literals(["slug", "name"]),
+}).annotate({ identifier: "SchemaMetadataFieldSelector" });
 
 // A server-derived value that is not a physical column: it is computed in SQL at read time. Valid
 // on the root entity source only (see the validator). `translationStatus` reports the localization
@@ -25,14 +25,14 @@ const SchemaMetadataFieldSelector = strictStruct({
 const SystemComputedFieldSelector = strictStruct({
 	type: Schema.Literal("systemComputed"),
 	name: Schema.Literal("translationStatus"),
-}).annotations({ identifier: "SystemComputedFieldSelector" });
+}).annotate({ identifier: "SystemComputedFieldSelector" });
 
-export const FieldSelector = Schema.Union(
+export const FieldSelector = Schema.Union([
 	SystemFieldSelector,
 	PropertyFieldSelector,
 	SchemaMetadataFieldSelector,
 	SystemComputedFieldSelector,
-).annotations({ identifier: "FieldSelector" });
+]).annotate({ identifier: "FieldSelector" });
 export type FieldSelector = typeof FieldSelector.Type;
 
 export type Expr =
@@ -75,21 +75,21 @@ const LiteralExpr = strictStruct({
 	value: Schema.Unknown,
 	type: Schema.Literal("literal"),
 	valueType: Schema.optional(Schema.Literal("date")),
-}).annotations({ identifier: "LiteralExpr" });
+}).annotate({ identifier: "LiteralExpr" });
 
 const RefExpr = strictStruct({
 	field: FieldSelector,
 	sourceAlias: Schema.String,
 	type: Schema.Literal("ref"),
-}).annotations({ identifier: "RefExpr" });
+}).annotate({ identifier: "RefExpr" });
 
 const MeasureRefExpr = strictStruct({
 	key: Schema.String,
 	type: Schema.Literal("measureRef"),
-}).annotations({ identifier: "MeasureRefExpr" });
+}).annotate({ identifier: "MeasureRefExpr" });
 
-export const Expr: Schema.Schema<Expr> = Schema.suspend(() =>
-	Schema.Union(
+export const Expr: Schema.Codec<Expr, unknown> = Schema.suspend(() =>
+	Schema.Union([
 		RefExpr,
 		LiteralExpr,
 		MeasureRefExpr,
@@ -124,22 +124,25 @@ export const Expr: Schema.Schema<Expr> = Schema.suspend(() =>
 			type: Schema.Literal("comparison"),
 			operator: ComparisonOperator,
 		}),
-	),
-).annotations({ identifier: "Expr" });
+	]),
+).annotate({ identifier: "Expr" });
 
-const AggregationSpec: Schema.Schema<AggregationSpec> = Schema.suspend(() =>
-	Schema.Union(
+const AggregationSpec: Schema.Codec<AggregationSpec, unknown> = Schema.suspend(() =>
+	Schema.Union([
 		strictStruct({ function: Schema.Literal("count"), distinctBy: Schema.optional(Expr) }),
-		strictStruct({ expr: Expr, function: Schema.Literal("sum", "average", "minimum", "maximum") }),
-	),
-).annotations({ identifier: "AggregationSpec" });
+		strictStruct({
+			expr: Expr,
+			function: Schema.Literals(["sum", "average", "minimum", "maximum"]),
+		}),
+	]),
+).annotate({ identifier: "AggregationSpec" });
 
 const RelationshipVia = strictStruct({
 	alias: Schema.String,
 	schema: Schema.String,
 	entityRef: Schema.String,
-	direction: Schema.Literal("outgoing", "incoming"),
-}).annotations({ identifier: "RelationshipVia" });
+	direction: Schema.Literals(["outgoing", "incoming"]),
+}).annotate({ identifier: "RelationshipVia" });
 export type RelationshipVia = typeof RelationshipVia.Type;
 
 const EntitySource = strictStruct({
@@ -148,13 +151,13 @@ const EntitySource = strictStruct({
 	type: Schema.Literal("entities"),
 	schemas: Schema.NonEmptyArray(Schema.String),
 	via: Schema.optional(RelationshipVia),
-}).annotations({ identifier: "EntitySource" });
+}).annotate({ identifier: "EntitySource" });
 export type EntitySource = typeof EntitySource.Type;
 
 const RootEventEntity = strictStruct({
 	alias: Schema.String,
 	schemas: Schema.NonEmptyArray(Schema.String),
-}).annotations({ identifier: "RootEventEntity" });
+}).annotate({ identifier: "RootEventEntity" });
 export type RootEventEntity = typeof RootEventEntity.Type;
 
 const NestedEventSource = strictStruct({
@@ -163,7 +166,7 @@ const NestedEventSource = strictStruct({
 	type: Schema.Literal("events"),
 	where: Schema.NullOr(Expr),
 	schemas: Schema.NonEmptyArray(Schema.String),
-}).annotations({ identifier: "NestedEventSource" });
+}).annotate({ identifier: "NestedEventSource" });
 export type NestedEventSource = typeof NestedEventSource.Type;
 
 const RootEventSource = strictStruct({
@@ -172,10 +175,10 @@ const RootEventSource = strictStruct({
 	type: Schema.Literal("events"),
 	where: Schema.NullOr(Expr),
 	schemas: Schema.NonEmptyArray(Schema.String),
-}).annotations({ identifier: "RootEventSource" });
+}).annotate({ identifier: "RootEventSource" });
 export type RootEventSource = typeof RootEventSource.Type;
 
-const EventSource = Schema.Union(NestedEventSource, RootEventSource).annotations({
+const EventSource = Schema.Union([NestedEventSource, RootEventSource]).annotate({
 	identifier: "EventSource",
 });
 export type EventSource = typeof EventSource.Type;
@@ -183,7 +186,7 @@ export type EventSource = typeof EventSource.Type;
 const RelationshipEndpoint = strictStruct({
 	alias: Schema.String,
 	schemas: Schema.NonEmptyArray(Schema.String),
-}).annotations({ identifier: "RelationshipEndpoint" });
+}).annotate({ identifier: "RelationshipEndpoint" });
 export type RelationshipEndpoint = typeof RelationshipEndpoint.Type;
 
 const RelationshipSource = strictStruct({
@@ -193,30 +196,30 @@ const RelationshipSource = strictStruct({
 	targetEntity: RelationshipEndpoint,
 	type: Schema.Literal("relationships"),
 	schemas: Schema.NonEmptyArray(Schema.String),
-}).annotations({ identifier: "RelationshipSource" });
+}).annotate({ identifier: "RelationshipSource" });
 export type RelationshipSource = typeof RelationshipSource.Type;
 
-const Source = Schema.Union(EntitySource, NestedEventSource).annotations({
+const Source = Schema.Union([EntitySource, NestedEventSource]).annotate({
 	identifier: "Source",
 });
 export type Source = typeof Source.Type;
 
-const RootSource = Schema.Union(EntitySource, RootEventSource, RelationshipSource).annotations({
+const RootSource = Schema.Union([EntitySource, RootEventSource, RelationshipSource]).annotate({
 	identifier: "RootSource",
 });
 export type RootSource = typeof RootSource.Type;
 
 const Pagination = strictStruct({
-	page: Schema.Int.pipe(Schema.positive()),
-	limit: Schema.Int.pipe(Schema.positive()),
-}).annotations({ identifier: "Pagination" });
+	page: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
+	limit: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
+}).annotate({ identifier: "Pagination" });
 
-const OrderByEntry = strictStruct({ expr: Expr, order: Schema.Literal("asc", "desc") }).annotations(
+const OrderByEntry = strictStruct({ expr: Expr, order: Schema.Literals(["asc", "desc"]) }).annotate(
 	{ identifier: "OrderByEntry" },
 );
 export type OrderByEntry = typeof OrderByEntry.Type;
 
-const FieldDef = strictStruct({ expr: Expr, key: Schema.String }).annotations({
+const FieldDef = strictStruct({ expr: Expr, key: Schema.String }).annotate({
 	identifier: "FieldDef",
 });
 export type FieldDef = typeof FieldDef.Type;
@@ -224,7 +227,7 @@ export type FieldDef = typeof FieldDef.Type;
 const AggregateMeasureDef = strictStruct({
 	key: Schema.String,
 	aggregation: AggregationSpec,
-}).annotations({ identifier: "AggregateMeasureDef" });
+}).annotate({ identifier: "AggregateMeasureDef" });
 export type AggregateMeasureDef = typeof AggregateMeasureDef.Type;
 
 export type IncludeEntry = {
@@ -236,16 +239,16 @@ export type IncludeEntry = {
 	readonly orderBy: readonly [typeof OrderByEntry.Type, ...Array<typeof OrderByEntry.Type>];
 };
 
-const IncludeEntry: Schema.Schema<IncludeEntry> = Schema.suspend(() =>
+const IncludeEntry: Schema.Codec<IncludeEntry, unknown> = Schema.suspend(() =>
 	strictStruct({
 		key: Schema.String,
 		fields: Schema.Array(FieldDef),
-		limit: Schema.Int.pipe(Schema.positive()),
+		limit: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
 		orderBy: Schema.NonEmptyArray(OrderByEntry),
-		source: Schema.Union(EntitySource, NestedEventSource),
+		source: Schema.Union([EntitySource, NestedEventSource]),
 		include: Schema.optional(Schema.Array(IncludeEntry)),
 	}),
-).annotations({ identifier: "IncludeEntry" });
+).annotate({ identifier: "IncludeEntry" });
 
 export const RowsOutput = strictStruct({
 	pagination: Pagination,
@@ -253,57 +256,57 @@ export const RowsOutput = strictStruct({
 	fields: Schema.Array(FieldDef),
 	orderBy: Schema.NonEmptyArray(OrderByEntry),
 	include: Schema.optional(Schema.Array(IncludeEntry)),
-}).annotations({ identifier: "RowsOutput" });
+}).annotate({ identifier: "RowsOutput" });
 export type RowsOutput = typeof RowsOutput.Type;
 
 const AggregateOutput = strictStruct({
 	type: Schema.Literal("aggregate"),
 	measures: Schema.NonEmptyArray(AggregateMeasureDef),
 	groupBy: Schema.optional(Schema.Array(FieldDef)),
-	limit: Schema.optional(Schema.Int.pipe(Schema.positive())),
+	limit: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
 	orderBy: Schema.optional(Schema.NonEmptyArray(OrderByEntry)),
-}).annotations({ identifier: "AggregateOutput" });
+}).annotate({ identifier: "AggregateOutput" });
 export type AggregateOutput = typeof AggregateOutput.Type;
 
 const TimeSeriesMeasureDef = strictStruct({
 	aggregation: AggregationSpec,
-}).annotations({ identifier: "TimeSeriesMeasureDef" });
+}).annotate({ identifier: "TimeSeriesMeasureDef" });
 
 const TimeSeriesRange = strictStruct({
 	endAt: Schema.String,
 	startAt: Schema.String,
-}).annotations({ identifier: "TimeSeriesRange" });
+}).annotate({ identifier: "TimeSeriesRange" });
 
 const TimeSeriesTimeDef = strictStruct({
 	expr: Expr,
 	range: TimeSeriesRange,
-	bucket: Schema.Literal("hour", "day", "week", "month"),
-}).annotations({ identifier: "TimeSeriesTimeDef" });
+	bucket: Schema.Literals(["hour", "day", "week", "month"]),
+}).annotate({ identifier: "TimeSeriesTimeDef" });
 
 const TimeSeriesOutput = strictStruct({
 	time: TimeSeriesTimeDef,
 	measure: TimeSeriesMeasureDef,
 	type: Schema.Literal("timeSeries"),
-}).annotations({ identifier: "TimeSeriesOutput" });
+}).annotate({ identifier: "TimeSeriesOutput" });
 export type TimeSeriesOutput = typeof TimeSeriesOutput.Type;
 
-const Output = Schema.Union(RowsOutput, AggregateOutput, TimeSeriesOutput).annotations({
+const Output = Schema.Union([RowsOutput, AggregateOutput, TimeSeriesOutput]).annotate({
 	identifier: "Output",
 });
 export type Output = typeof Output.Type;
 
-export const QueryDocument = strictStruct({ output: Output, source: RootSource }).annotations({
+export const QueryDocument = strictStruct({ output: Output, source: RootSource }).annotate({
 	identifier: "QueryDocument",
 });
 export type QueryDocument = typeof QueryDocument.Type;
 
 const FieldValue = strictStruct({
 	value: Schema.Unknown,
-	kind: Schema.Literal("boolean", "date", "json", "null", "number", "text"),
-}).annotations({ identifier: "FieldValue" });
+	kind: Schema.Literals(["boolean", "date", "json", "null", "number", "text"]),
+}).annotate({ identifier: "FieldValue" });
 export type FieldValue = typeof FieldValue.Type;
 
-const LimitedPageInfo = strictStruct({ limit: Schema.Int, hasMore: Schema.Boolean }).annotations({
+const LimitedPageInfo = strictStruct({ limit: Schema.Int, hasMore: Schema.Boolean }).annotate({
 	identifier: "LimitedPageInfo",
 });
 
@@ -315,56 +318,56 @@ export type IncludedRowsValue = {
 export type RowValue = FieldValue | IncludedRowsValue;
 export type RowItem = Readonly<Record<string, RowValue>>;
 
-const RowValue: Schema.Schema<RowValue> = Schema.suspend(() =>
-	Schema.Union(
+const RowValue: Schema.Codec<RowValue, unknown> = Schema.suspend(() =>
+	Schema.Union([
 		FieldValue,
 		strictStruct({
 			pageInfo: LimitedPageInfo,
-			items: Schema.Array(Schema.Record({ key: Schema.String, value: RowValue })),
+			items: Schema.Array(Schema.Record(Schema.String, RowValue)),
 		}),
-	),
-).annotations({ identifier: "RowValue" });
+	]),
+).annotate({ identifier: "RowValue" });
 
 const RowsPageInfo = strictStruct({
 	page: Schema.Int,
 	limit: Schema.Int,
 	total: Schema.Int,
 	hasMore: Schema.Boolean,
-}).annotations({ identifier: "RowsPageInfo" });
+}).annotate({ identifier: "RowsPageInfo" });
 
 const RowsResponse = strictStruct({
 	type: Schema.Literal("rows"),
 	data: strictStruct({
 		pageInfo: RowsPageInfo,
-		items: Schema.Array(Schema.Record({ key: Schema.String, value: RowValue })),
+		items: Schema.Array(Schema.Record(Schema.String, RowValue)),
 	}),
-}).annotations({ identifier: "RowsResponse" });
+}).annotate({ identifier: "RowsResponse" });
 export type RowsResponse = typeof RowsResponse.Type;
 
 const AggregateResponse = strictStruct({
 	type: Schema.Literal("aggregate"),
 	data: strictStruct({
 		pageInfo: Schema.optional(LimitedPageInfo),
-		items: Schema.Array(Schema.Record({ key: Schema.String, value: RowValue })),
+		items: Schema.Array(Schema.Record(Schema.String, RowValue)),
 	}),
-}).annotations({ identifier: "AggregateResponse" });
+}).annotate({ identifier: "AggregateResponse" });
 export type AggregateResponse = typeof AggregateResponse.Type;
 
 const TimeSeriesBucket = strictStruct({
 	value: Schema.Number,
 	endAt: Schema.String,
 	startAt: Schema.String,
-}).annotations({ identifier: "TimeSeriesBucket" });
+}).annotate({ identifier: "TimeSeriesBucket" });
 
 const TimeSeriesResponse = strictStruct({
 	type: Schema.Literal("timeSeries"),
 	data: strictStruct({ buckets: Schema.Array(TimeSeriesBucket) }),
-}).annotations({ identifier: "TimeSeriesResponse" });
+}).annotate({ identifier: "TimeSeriesResponse" });
 export type TimeSeriesResponse = typeof TimeSeriesResponse.Type;
 
-export const QueryResponse = Schema.Union(
+export const QueryResponse = Schema.Union([
 	RowsResponse,
 	AggregateResponse,
 	TimeSeriesResponse,
-).annotations({ identifier: "QueryResponse" });
+]).annotate({ identifier: "QueryResponse" });
 export type QueryResponse = typeof QueryResponse.Type;

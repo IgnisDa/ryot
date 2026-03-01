@@ -1,7 +1,7 @@
-import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "@effect/platform";
 import { Schema } from "effect";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
-import { HealthCheckFailedError } from "../../errors";
+import { BadRequest, HealthCheckFailedError } from "../../errors";
 
 const HealthResponse = Schema.Struct({ status: Schema.Literal("healthy") });
 
@@ -19,13 +19,17 @@ const ConfigResponse = Schema.Struct({ auth: AuthConfig, notifications: Notifica
 export const SystemGroup = HttpApiGroup.make("system")
 	.annotate(OpenApi.Description, "Provides system health and public configuration.")
 	.add(
-		HttpApiEndpoint.get("health", "/system/health")
-			.annotate(OpenApi.Description, "Checks whether the system is healthy.")
-			.addSuccess(HealthResponse, { status: 200 })
-			.addError(HealthCheckFailedError, { status: 503 }),
+		HttpApiEndpoint.get("health", "/system/health", {
+			success: HealthResponse.pipe(HttpApiSchema.status(200)),
+			error: [
+				BadRequest.pipe(HttpApiSchema.status(400)),
+				HealthCheckFailedError.pipe(HttpApiSchema.status(503)),
+			],
+		}).annotate(OpenApi.Description, "Checks whether the system is healthy."),
 	)
 	.add(
-		HttpApiEndpoint.get("config", "/system/config")
-			.annotate(OpenApi.Description, "Returns the public system configuration.")
-			.addSuccess(ConfigResponse, { status: 200 }),
+		HttpApiEndpoint.get("config", "/system/config", {
+			success: ConfigResponse.pipe(HttpApiSchema.status(200)),
+			error: BadRequest.pipe(HttpApiSchema.status(400)),
+		}).annotate(OpenApi.Description, "Returns the public system configuration."),
 	);

@@ -1,27 +1,24 @@
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "@effect/platform";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
-import { NotFound, RateLimited, Unauthorized } from "../../errors";
+import { BadRequest, NotFound } from "../../errors";
 import { EntityId } from "../../schema/brands";
 import { ClearUserStateResponse, MergeUserStateBody, MergeUserStateResponse } from "./schemas";
 
-const entityIdParam = HttpApiSchema.param("entityId", EntityId);
-
 export const UserStateGroup = HttpApiGroup.make("userState")
 	.annotate(OpenApi.Description, "Manage user state for entities.")
-	.addError(Unauthorized, { status: 401 })
-	.addError(RateLimited, { status: 429 })
-	.middleware(AuthMiddleware)
 	.add(
-		HttpApiEndpoint.del("clearUserState")`/user-state/clear/${entityIdParam}`
-			.annotate(OpenApi.Description, "Clear the user's state for an entity.")
-			.addSuccess(ClearUserStateResponse)
-			.addError(NotFound, { status: 404 }),
+		HttpApiEndpoint.delete("clearUserState", "/user-state/clear/:entityId", {
+			params: { entityId: EntityId },
+			success: ClearUserStateResponse,
+			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "Clear the user's state for an entity."),
 	)
 	.add(
-		HttpApiEndpoint.post("mergeUserState", "/user-state/merge")
-			.annotate(OpenApi.Description, "Merge changes into the user's entity state.")
-			.setPayload(MergeUserStateBody)
-			.addSuccess(MergeUserStateResponse)
-			.addError(NotFound, { status: 404 }),
-	);
+		HttpApiEndpoint.post("mergeUserState", "/user-state/merge", {
+			payload: MergeUserStateBody,
+			success: MergeUserStateResponse,
+			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "Merge changes into the user's entity state."),
+	)
+	.middleware(AuthMiddleware);
