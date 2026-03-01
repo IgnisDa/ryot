@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { requireSandboxRunInput, requireUserSandboxRunInput } from "./shared";
+import { isJsonValue, requireUserSandboxRunInput } from "./shared";
 
 const makeRunInput = (userId: string | null) => ({
 	userId,
 	context: {},
+	metadata: {},
 	compiledCode: "",
 	compiledFormat: 1,
 	scriptId: "script_1",
@@ -17,19 +18,19 @@ const makeRunInput = (userId: string | null) => ({
 describe("requireUserSandboxRunInput", () => {
 	it("returns the input when a user context is present", () => {
 		const input = makeRunInput("user_1");
-		expect(requireUserSandboxRunInput([input], 0, "getUserPreferences")).toBe(input);
+		expect(requireUserSandboxRunInput(input, "getUserPreferences")).toBe(input);
 	});
 
 	it("rejects user-scoped host functions for system executions", () => {
-		expect(() => requireUserSandboxRunInput([makeRunInput(null)], 0, "getUserPreferences")).toThrow(
+		expect(() => requireUserSandboxRunInput(makeRunInput(null), "getUserPreferences")).toThrow(
 			"getUserPreferences is not available for system executions",
 		);
 	});
 });
 
-describe("requireSandboxRunInput", () => {
-	it("accepts system executions for user-agnostic host functions", () => {
-		const input = makeRunInput(null);
-		expect(requireSandboxRunInput([input], 0, "getCachedValue")).toBe(input);
+describe("isJsonValue", () => {
+	it("accepts nested JSON and rejects non-JSON objects", () => {
+		expect(isJsonValue({ nested: [true, 42, null] })).toBe(true);
+		expect(isJsonValue(new Date(0))).toBe(false);
 	});
 });
