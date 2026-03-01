@@ -1,9 +1,13 @@
 import { swaggerUI } from "@hono/swagger-ui";
-import { OpenAPIHono } from "@hono/zod-openapi";
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { auth, type MaybeAuthType } from "~/auth";
 import { requireAuth, withSession } from "~/auth/middleware";
+import { errorJsonResponse, jsonResponse } from "~/lib/openapi";
+import { appConfigApi } from "~/modules/app-config/routes";
+import { entitiesApi } from "~/modules/entities/routes";
+import { entitySchemasApi } from "~/modules/entity-schemas/routes";
 import { healthApi } from "~/modules/health/routes";
-import { protectedApi } from "~/modules/protected/routes";
+import { sandboxApi } from "~/modules/sandbox/routes";
 
 const openApiInfo = {
 	version: "1.0.0",
@@ -11,9 +15,33 @@ const openApiInfo = {
 	description: "OpenAPI specification for app-owned backend routes",
 };
 
+const meResponseSchema = z.object({
+	user: z.unknown(),
+	session: z.unknown().nullable(),
+});
+
+const meRoute = createRoute({
+	path: "/me",
+	method: "get",
+	tags: ["protected"],
+	summary: "Get the current user session",
+	responses: {
+		200: jsonResponse("Authenticated session details", meResponseSchema),
+		401: errorJsonResponse("Request is unauthenticated"),
+	},
+});
+
 const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/health", healthApi)
-	.route("/protected", protectedApi);
+	.openapi(meRoute, async (c) => {
+		const user = c.get("user");
+		const session = c.get("session");
+		return c.json({ user, session }, 200);
+	})
+	.route("/app-config", appConfigApi)
+	.route("/sandbox", sandboxApi)
+	.route("/entities", entitiesApi)
+	.route("/entity-schemas", entitySchemasApi);
 
 export const apiApp = baseApp
 	.doc("/openapi.json", {
@@ -24,6 +52,10 @@ export const apiApp = baseApp
 	.get("/docs", swaggerUI({ url: "/api/openapi.json" }))
 	.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw))
 	.use("*", withSession)
-	.use("/protected/*", requireAuth);
+	.use("/me", requireAuth)
+	.use("/app-config/*", requireAuth)
+	.use("/sandbox/*", requireAuth)
+	.use("/entities/*", requireAuth)
+	.use("/entity-schemas/*", requireAuth);
 
 export type AppType = typeof baseApp;
