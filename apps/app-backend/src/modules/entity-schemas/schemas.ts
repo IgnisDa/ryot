@@ -30,9 +30,9 @@ export const schemaSearchItemSchema = z.object({
 export const schemaSearchResponse = z.object({
 	data: z.array(schemaSearchItemSchema),
 	meta: z.object({
-		total: z.number().int().nonnegative(),
-		page: z.number().int().positive(),
 		hasMore: z.boolean(),
+		page: z.number().int().positive(),
+		total: z.number().int().nonnegative(),
 	}),
 });
 
