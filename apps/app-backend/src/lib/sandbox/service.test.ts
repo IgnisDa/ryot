@@ -1,14 +1,14 @@
 import { describe, expect, it } from "bun:test";
 
-import { type SandboxRunJobData, sandboxRunJobName } from "./jobs";
-import { SandboxService } from "./service";
+import { type QueuedRunResult, type SandboxRunJobData, sandboxRunJobName } from "./jobs";
+import { type SandboxExecutionOptions, SandboxService } from "./service";
 
 type TestSandboxExecutor = {
-	execute: (options: unknown) => Promise<unknown>;
+	execute: (options: SandboxExecutionOptions) => Promise<unknown>;
 	executeQueuedRun: (
 		jobData: SandboxRunJobData,
 		scriptFetcher?: (scriptId: string) => Promise<{ code: string; metadata: object } | null>,
-	) => Promise<unknown>;
+	) => Promise<QueuedRunResult>;
 };
 
 type TestSandboxWorkerProcessor = {
@@ -17,7 +17,10 @@ type TestSandboxWorkerProcessor = {
 };
 
 type TestSandboxQueueAccessor = {
-	getQueue: () => { getJob: (jobId: string) => Promise<unknown> };
+	getQueue: () => {
+		add?: (name: string, data: unknown, opts: unknown) => Promise<{ id: string }>;
+		getJob: (jobId: string) => Promise<unknown>;
+	};
 };
 
 const createJobData = (overrides: Partial<SandboxRunJobData> = {}): SandboxRunJobData => ({
@@ -51,9 +54,9 @@ describe("SandboxService.executeQueuedRun", () => {
 		const service = new SandboxService();
 		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxExecutor;
-		let capturedOptions: unknown;
+		let capturedOptions: SandboxExecutionOptions | undefined;
 
-		testService.execute = (options: unknown) => {
+		testService.execute = (options) => {
 			capturedOptions = options;
 			return Promise.resolve({ value: "ok", success: true, logs: null, error: null });
 		};
@@ -69,12 +72,7 @@ describe("SandboxService.executeQueuedRun", () => {
 			code: 'driver("main", async function() { return 1; });',
 		});
 
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		const apiFunctions = (
-			capturedOptions as {
-				apiFunctions: Record<string, (...args: Array<unknown>) => Promise<unknown>>;
-			}
-		).apiFunctions;
+		const apiFunctions = capturedOptions?.apiFunctions ?? {};
 		expect(Object.keys(apiFunctions).toSorted()).toEqual(["getAppConfigValue"]);
 	});
 
@@ -82,21 +80,16 @@ describe("SandboxService.executeQueuedRun", () => {
 		const service = new SandboxService();
 		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxExecutor;
-		let capturedOptions: unknown;
+		let capturedOptions: SandboxExecutionOptions | undefined;
 
-		testService.execute = (options: unknown) => {
+		testService.execute = (options) => {
 			capturedOptions = options;
 			return Promise.resolve({ value: "ok", success: true, logs: null, error: null });
 		};
 
 		await testService.executeQueuedRun(createJobData(), createScriptFetcher());
 
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		const apiFunctions = (
-			capturedOptions as {
-				apiFunctions: Record<string, (...args: Array<unknown>) => Promise<unknown>>;
-			}
-		).apiFunctions;
+		const apiFunctions = capturedOptions?.apiFunctions ?? {};
 		expect(Object.keys(apiFunctions).toSorted()).toEqual([]);
 	});
 
@@ -116,10 +109,8 @@ describe("SandboxService.executeQueuedRun", () => {
 			createScriptFetcher({ allowedHostFunctions: "not-an-array" }),
 		);
 
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		expect((result as { success: boolean }).success).toBe(false);
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		expect((result as { error: string }).error).toContain("Sandbox script metadata is invalid");
+		expect(result.success).toBe(false);
+		expect(result.error).toContain("Sandbox script metadata is invalid");
 		expect(executeCalled).toBe(false);
 	});
 
@@ -139,12 +130,8 @@ describe("SandboxService.executeQueuedRun", () => {
 			createScriptFetcher({ allowedHostFunctions: ["missingFunction"] }),
 		);
 
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		expect((result as { success: boolean }).success).toBe(false);
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		expect((result as { error: string }).error).toBe(
-			"Unknown sandbox host function: missingFunction",
-		);
+		expect(result.success).toBe(false);
+		expect(result.error).toBe("Unknown sandbox host function: missingFunction");
 		expect(executeCalled).toBe(false);
 	});
 
@@ -152,9 +139,9 @@ describe("SandboxService.executeQueuedRun", () => {
 		const service = new SandboxService();
 		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxExecutor;
-		let capturedOptions: unknown;
+		let capturedOptions: SandboxExecutionOptions | undefined;
 
-		testService.execute = (options: unknown) => {
+		testService.execute = (options) => {
 			capturedOptions = options;
 			return Promise.resolve({ value: "ok", success: true, logs: null, error: null });
 		};
@@ -290,15 +277,13 @@ describe("SandboxService.enqueue", () => {
 		const testService = service as unknown as TestSandboxQueueAccessor;
 		const addedJobs: Array<{ name: string; data: unknown; opts: unknown }> = [];
 
-		testService.getQueue = () =>
-			// oxlint-disable-next-line no-unsafe-type-assertion
-			({
-				add: (name: string, data: unknown, opts: unknown) => {
-					addedJobs.push({ name, data, opts });
-					return Promise.resolve({ id: "job_1" });
-				},
-				getJob: () => Promise.resolve(null),
-			}) as unknown as ReturnType<TestSandboxQueueAccessor["getQueue"]>;
+		testService.getQueue = () => ({
+			getJob: () => Promise.resolve(null),
+			add: (name: string, data: unknown, opts: unknown) => {
+				addedJobs.push({ name, data, opts });
+				return Promise.resolve({ id: "job_1" });
+			},
+		});
 
 		await service.enqueue({
 			userId: "user_1",
@@ -307,8 +292,6 @@ describe("SandboxService.enqueue", () => {
 		});
 
 		expect(addedJobs).toHaveLength(1);
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		const jobData = addedJobs[0]?.data as { driverName?: string } | undefined;
-		expect(jobData?.driverName).toBe("search");
+		expect(addedJobs[0]?.data).toMatchObject({ driverName: "search" });
 	});
 });
