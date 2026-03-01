@@ -5,15 +5,15 @@
 	"imports": {
 		"#/*": "./src/*"
 	},
+	"installConfig": {
+		"hoistingLimits": "workspaces"
+	},
 	"scripts": {
 		"typecheck": "tsc",
 		"build": "vite build",
 		"lint": "biome check .",
 		"preview": "vite preview",
 		"dev": "bun --bun vite dev"
-	},
-	"installConfig": {
-		"hoistingLimits": "workspaces"
 	},
 	"dependencies": {
 		"@ryot/app-backend": "workspace:*",
@@ -35,13 +35,16 @@
 		"zod": "4.3.6"
 	},
 	"devDependencies": {
+		"@csstools/postcss-global-data": "4.0.0",
 		"@tanstack/devtools-vite": "0.5.1",
 		"@types/node": "22.10.2",
 		"@types/react": "19.2.14",
 		"@types/react-dom": "19.2.3",
 		"@vitejs/plugin-react": "5.1.4",
 		"babel-plugin-react-compiler": "1.0.0",
+		"cssnano": "7.1.2",
 		"postcss": "8.5.6",
+		"postcss-custom-media": "12.0.1",
 		"typescript": "5.9.3",
 		"vite": "7.3.1",
 		"vite-tsconfig-paths": "6.1.1"
