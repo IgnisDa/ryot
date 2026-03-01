@@ -10,6 +10,7 @@ import {
 import { appConfigApi } from "~/modules/app-config/routes";
 import { entitiesApi } from "~/modules/entities/routes";
 import { entitySchemasApi } from "~/modules/entity-schemas/routes";
+import { eventSchemasApi } from "~/modules/event-schemas/routes";
 import { healthApi } from "~/modules/health/routes";
 import { sandboxApi } from "~/modules/sandbox/routes";
 
@@ -48,7 +49,8 @@ export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/app-config", appConfigApi)
 	.route("/sandbox", sandboxApi)
 	.route("/entities", entitiesApi)
-	.route("/entity-schemas", entitySchemasApi);
+	.route("/entity-schemas", entitySchemasApi)
+	.route("/event-schemas", eventSchemasApi);
 
 export const apiApp = baseApp
 	.doc("/openapi.json", (c) => ({
