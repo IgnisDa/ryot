@@ -1,0 +1,15 @@
+{
+	"version": 1,
+	"git": false,
+	"tailwind": true,
+	"addOnOptions": {},
+	"envVarValues": {},
+	"typescript": true,
+	"routerOnly": false,
+	"framework": "react",
+	"mode": "file-router",
+	"packageManager": "bun",
+	"includeExamples": false,
+	"chosenAddOns": ["shadcn"],
+	"projectName": "@ryot/app-frontend"
+}
