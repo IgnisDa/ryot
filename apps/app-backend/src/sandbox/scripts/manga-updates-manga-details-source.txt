@@ -113,7 +113,7 @@ return {
 		chapters,
 		isNsfw: null,
 		production_status: productionStatus,
-		publish_year: parsePublishYear(payload?.year),
+		publishYear: parsePublishYear(payload?.year),
 		assets: { remoteImages: collectImages(payload?.image) },
 		genres: collectGenres(payload?.genres, payload?.categories),
 		sourceUrl: typeof payload?.url === "string" ? payload.url : null,
