@@ -6,6 +6,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 const config = defineConfig({
 	server: { host: true, port: 3005, strictPort: true, allowedHosts: true },
+	ssr: { noExternal: ["reshaped"] },
 	plugins: [
 		devtools(),
 		tanstackStart({ spa: { enabled: true } }),
