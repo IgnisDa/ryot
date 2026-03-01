@@ -45,8 +45,4 @@ const notification = {
 
 ## Git Workflow
 
-When creating commits:
-
-1. Read all dirty changes
-2. Group related changes into logical commits
-3. Write verbose messages focused on _why_, not _what_
+- Group related changes into logical commits. Messages focus on _why_, not _what_.
