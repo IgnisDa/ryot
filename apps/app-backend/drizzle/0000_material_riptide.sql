@@ -65,7 +65,6 @@ CREATE TABLE "entity_schema" (
 	"name" text NOT NULL,
 	"properties_schema" jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
-	"display_config" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
 	"user_id" text,
 	"id" text PRIMARY KEY NOT NULL,
@@ -133,7 +132,6 @@ CREATE TABLE "saved_view" (
 	"name" text NOT NULL,
 	"query_definition" jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
-	"display_config" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
