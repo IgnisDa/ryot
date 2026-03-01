@@ -54,7 +54,7 @@ describe("Youtubei sandbox adapter", () => {
 		const pending = Symbol("pending");
 		const host = {
 			httpCall: () => Effect.fail(pending),
-		} as unknown as YoutubeiHost;
+		} satisfies YoutubeiHost;
 		const client = await Effect.runPromise(
 			createYoutubeMusicClient(host, undefined, {
 				retrievePlayer: false,
