@@ -49,6 +49,7 @@ export const eventSchema = pgTable(
 		name: text().notNull(),
 		propertiesSchema: jsonb().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
+		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		entitySchemaId: text()
 			.notNull()
 			.references(() => entitySchema.id, { onDelete: "cascade" }),
@@ -64,7 +65,8 @@ export const eventSchema = pgTable(
 	(table) => [
 		index("event_schema_slug_idx").on(table.slug),
 		index("event_schema_entity_schema_id_idx").on(table.entitySchemaId),
-		unique("event_schema_entity_schema_slug_unique").on(
+		unique("event_schema_user_entity_schema_slug_unique").on(
+			table.userId,
 			table.entitySchemaId,
 			table.slug,
 		),
