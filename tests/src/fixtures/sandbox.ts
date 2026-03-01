@@ -48,7 +48,8 @@ const legacySandboxSource = (body: LegacyCreateSandboxScriptBody) => {
 	const hostDeclarations = capabilities
 		.map(
 			(capability) =>
-				`  const ${capability} = (...args: unknown[]) => hostRecord[${JSON.stringify(capability)}]?.(...args);`,
+				`  const ${capability} = (...args: Parameters<SandboxHostMethodMap[${JSON.stringify(capability)}]>) =>
+    hostRecord[${JSON.stringify(capability)}]!(...args);`,
 		)
 		.join("\n");
 
@@ -58,6 +59,7 @@ import {
   defineManifest,
   defineScript,
   type ExecutionMetadata,
+  type SandboxHostMethodMap,
 } from "@ryot/sandbox-sdk";
 import * as z from "@ryot/sandbox-sdk/zod";
 
@@ -81,7 +83,7 @@ const runLegacyDriver = async (
   const driver = (name: string, run: LegacyRun) => {
     drivers[name] = run;
   };
-  const hostRecord = host as Record<string, (...args: unknown[]) => Promise<unknown>>;
+  const hostRecord = host as Partial<SandboxHostMethodMap>;
 ${hostDeclarations}
   await (async () => {
 ${body.code}
