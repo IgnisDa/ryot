@@ -1,4 +1,10 @@
-import type { CoreSandboxHostMethodMap } from "@ryot/sandbox-sdk";
+import {
+	type CoreSandboxHostMethodMap,
+	createEventItemSchema,
+	listEventsQuerySchema,
+	listIntegrationsOptionsSchema,
+	z,
+} from "@ryot/sandbox-sdk";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 
 import {
@@ -64,14 +70,54 @@ export const bindSandboxHostFunctions = (
 	implementations: SandboxHostImplementationMap,
 	input: SandboxRunInput,
 ): Record<keyof SandboxHostImplementationMap, BoundHostFunction> => ({
-	listEvents: (args) => implementations.listEvents(input, args[0]),
-	getEntity: (args) => implementations.getEntity(input, args[0]),
-	createEvents: (args) => implementations.createEvents(input, args[0]),
-	listIntegrations: (args) => implementations.listIntegrations(input, args[0]),
-	getIntegration: (args) => implementations.getIntegration(input, args[0]),
-	executeQueryEngine: (args) => implementations.executeQueryEngine(input, args[0]),
-	getEntitySchema: (args) => implementations.getEntitySchema(input, args[0]),
-	listEventSchemas: (args) => implementations.listEventSchemas(input, args[0]),
+	getEntity: (args) => {
+		const entityId = args[0];
+		return typeof entityId === "string"
+			? implementations.getEntity(input, entityId)
+			: Promise.resolve(apiFailure("getEntity expects a non-empty entityId string"));
+	},
+	getEntitySchema: (args) => {
+		const entitySchemaId = args[0];
+		return typeof entitySchemaId === "string"
+			? implementations.getEntitySchema(input, entitySchemaId)
+			: Promise.resolve(apiFailure("getEntitySchema expects a non-empty entitySchemaId string"));
+	},
+	getIntegration: (args) => {
+		const integrationId = args[0];
+		return typeof integrationId === "string"
+			? implementations.getIntegration(input, integrationId)
+			: Promise.resolve(apiFailure("getIntegration expects a non-empty integrationId string"));
+	},
+	listEventSchemas: (args) => {
+		const entitySchemaId = args[0];
+		return typeof entitySchemaId === "string"
+			? implementations.listEventSchemas(input, entitySchemaId)
+			: Promise.resolve(apiFailure("listEventSchemas expects a non-empty entitySchemaId string"));
+	},
+	listEvents: (args) => {
+		const query = listEventsQuerySchema.optional().safeParse(args[0]);
+		return query.success
+			? implementations.listEvents(input, query.data)
+			: Promise.resolve(apiFailure("listEvents received invalid query options"));
+	},
+	listIntegrations: (args) => {
+		const options = listIntegrationsOptionsSchema.optional().safeParse(args[0]);
+		return options.success
+			? implementations.listIntegrations(input, options.data)
+			: Promise.resolve(apiFailure("listIntegrations received invalid options"));
+	},
+	createEvents: (args) => {
+		const items = z.array(createEventItemSchema).safeParse(args[0]);
+		return items.success
+			? implementations.createEvents(input, items.data)
+			: Promise.resolve(apiFailure("createEvents expects an array of event items"));
+	},
+	executeQueryEngine: (args) => {
+		const query = args[0];
+		return isJsonValue(query)
+			? implementations.executeQueryEngine(input, query)
+			: Promise.resolve(apiFailure("executeQueryEngine expects a JSON query document"));
+	},
 	getCachedValue: (args) => {
 		if (args.length !== 1) {
 			return invalidArgumentCount("getCachedValue");

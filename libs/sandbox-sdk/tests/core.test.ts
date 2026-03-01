@@ -101,3 +101,52 @@ describe("sandbox test hosts", () => {
 		).toBe(42);
 	});
 });
+
+describe("domain host contracts", () => {
+	test("invokes domain host stubs and keeps query-engine output unparsed", async () => {
+		const manifest = defineManifest({
+			kind: "script",
+			name: "Domain reader",
+			slug: "domain-reader",
+			requiredAppConfigKeys: [],
+			capabilities: ["getEntity", "executeQueryEngine"],
+		});
+		const main = defineDriver(manifest, {
+			input: z.object({ entityId: z.string() }),
+			output: z.object({ name: z.string(), rows: z.number() }),
+			run: async (input, host) => {
+				const entity = unwrapHostResult(await host.getEntity(input.entityId));
+				const result = unwrapHostResult(
+					await host.executeQueryEngine({ source: { type: "entities" } }),
+				);
+				return { name: entity.name, rows: Array.isArray(result) ? result.length : 0 };
+			},
+		});
+		const host = defineSandboxTestHost(manifest, {
+			getEntity: (entityId) =>
+				Promise.resolve({
+					success: true,
+					data: {
+						id: entityId,
+						name: "Inception",
+						populatedAt: null,
+						sandboxScriptId: null,
+						externalId: "tt1375666",
+						entitySchemaId: "movie",
+						properties: { runtime: 148 },
+						createdAt: "2024-01-01T00:00:00.000Z",
+						updatedAt: "2024-01-01T00:00:00.000Z",
+					},
+				}),
+			executeQueryEngine: () =>
+				Promise.resolve({ success: true, data: [{ id: "a" }, { id: "b" }] }),
+		});
+
+		expect(
+			await runSandboxTestDriver(main, { entityId: "entity-1" }, host, {
+				metadata: {},
+				sandboxScriptId: "script-1",
+			}),
+		).toEqual({ name: "Inception", rows: 2 });
+	});
+});
