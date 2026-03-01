@@ -1,10 +1,9 @@
 #!/usr/bin/env bun
 
-import { FileSystem, Path } from "@effect/platform";
 import { BunFileSystem, BunPath, BunRuntime } from "@effect/platform-bun";
 import fitnessPlugin from "@ryot/plugin-fitness";
 import mediaPlugin from "@ryot/plugin-media";
-import { Data, Effect, Layer } from "effect";
+import { Data, Effect, Layer, FileSystem, Path } from "effect";
 
 import {
 	applyPurityAllowlist,
