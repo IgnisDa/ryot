@@ -25,7 +25,7 @@ export default defineActivity({
 			const text = yield* readImportArtifactText();
 			const timezone = yield* host
 				.getSystemConfigValue("timezone")
-				.pipe(Effect.catchAll(() => Effect.succeed("Etc/GMT")));
+				.pipe(Effect.catch(() => Effect.succeed("Etc/GMT")));
 			const result = adaptStrongAppCsv(text, typeof timezone === "string" ? timezone : "UTC");
 			return yield* writeImportChunks(result.failures, result.items.map(toWorkoutWriteItem));
 		}),
