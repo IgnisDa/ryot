@@ -32,20 +32,6 @@ const getTextFromUnknown = (value: unknown) => {
 	return trimmed.length > 0 ? trimmed : null;
 };
 
-const getAuthErrorMessage = (value: unknown) => {
-	if (!value || typeof value !== "object")
-		return "Authentication failed. Please try again.";
-
-	const asRecord = value as Record<string, unknown>;
-	const message = getTextFromUnknown(asRecord.message);
-	if (message) return message;
-
-	const statusText = getTextFromUnknown(asRecord.statusText);
-	if (statusText) return statusText;
-
-	return "Authentication failed. Please try again.";
-};
-
 const getFieldErrorMessage = (errors: Array<unknown>) => {
 	for (const entry of errors) {
 		const message = getTextFromUnknown(entry);
@@ -82,9 +68,8 @@ const validateEmail = (value: string) => {
 
 const validatePassword = (value: string, mode: AuthMode) => {
 	if (!value) return "Password is required";
-	if (mode === "signup" && value.length < 8) {
+	if (mode === "signup" && value.length < 8)
 		return "Password must be at least 8 characters";
-	}
 	return undefined;
 };
 
@@ -112,7 +97,7 @@ function StartPage() {
 						});
 
 			if (response.error) {
-				setSubmitError(getAuthErrorMessage(response.error));
+				setSubmitError(response.error.message || "An unknown error occurred");
 				return;
 			}
 
