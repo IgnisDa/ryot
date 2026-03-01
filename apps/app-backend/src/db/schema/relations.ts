@@ -37,12 +37,7 @@ export const sandboxScriptRelations = relations(
 	sandboxScript,
 	({ one, many }) => ({
 		entities: many(entity),
-		detailsEntitySchemaSandboxScripts: many(entitySchemaSandboxScript, {
-			relationName: "detailsSandboxScript",
-		}),
-		searchEntitySchemaSandboxScripts: many(entitySchemaSandboxScript, {
-			relationName: "searchSandboxScript",
-		}),
+		entitySchemaSandboxScripts: many(entitySchemaSandboxScript),
 		user: one(user, {
 			references: [user.id],
 			fields: [sandboxScript.userId],
@@ -57,15 +52,9 @@ export const entitySchemaSandboxScriptRelations = relations(
 			references: [entitySchema.id],
 			fields: [entitySchemaSandboxScript.entitySchemaId],
 		}),
-		searchSandboxScript: one(sandboxScript, {
+		sandboxScript: one(sandboxScript, {
 			references: [sandboxScript.id],
-			relationName: "searchSandboxScript",
-			fields: [entitySchemaSandboxScript.searchSandboxScriptId],
-		}),
-		detailsSandboxScript: one(sandboxScript, {
-			references: [sandboxScript.id],
-			relationName: "detailsSandboxScript",
-			fields: [entitySchemaSandboxScript.detailsSandboxScriptId],
+			fields: [entitySchemaSandboxScript.sandboxScriptId],
 		}),
 	}),
 );

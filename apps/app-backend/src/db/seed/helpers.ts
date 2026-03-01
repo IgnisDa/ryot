@@ -2,6 +2,7 @@ import { generateId } from "better-auth";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "~/db";
 import {
+	EntitySchemaSandboxScriptKind,
 	entitySchema,
 	entitySchemaSandboxScript,
 	eventSchema,
@@ -105,10 +106,10 @@ export const ensureBuiltinSandboxScript = async (input: {
 	return scriptId;
 };
 
-export const linkScriptPairToEntitySchema = async (input: {
+const ensureScriptLinkToEntitySchema = async (input: {
 	entitySchemaId: string;
-	searchScriptId: string;
-	detailsScriptId: string;
+	sandboxScriptId: string;
+	kind: EntitySchemaSandboxScriptKind;
 }) => {
 	const [existing] = await db
 		.select({ id: entitySchemaSandboxScript.id })
@@ -116,14 +117,8 @@ export const linkScriptPairToEntitySchema = async (input: {
 		.where(
 			and(
 				eq(entitySchemaSandboxScript.entitySchemaId, input.entitySchemaId),
-				eq(
-					entitySchemaSandboxScript.searchSandboxScriptId,
-					input.searchScriptId,
-				),
-				eq(
-					entitySchemaSandboxScript.detailsSandboxScriptId,
-					input.detailsScriptId,
-				),
+				eq(entitySchemaSandboxScript.kind, input.kind),
+				eq(entitySchemaSandboxScript.sandboxScriptId, input.sandboxScriptId),
 			),
 		)
 		.limit(1);
@@ -131,8 +126,25 @@ export const linkScriptPairToEntitySchema = async (input: {
 	if (existing) return;
 
 	await db.insert(entitySchemaSandboxScript).values({
+		kind: input.kind,
 		entitySchemaId: input.entitySchemaId,
-		searchSandboxScriptId: input.searchScriptId,
-		detailsSandboxScriptId: input.detailsScriptId,
+		sandboxScriptId: input.sandboxScriptId,
+	});
+};
+
+export const linkScriptPairToEntitySchema = async (input: {
+	entitySchemaId: string;
+	searchScriptId: string;
+	detailsScriptId: string;
+}) => {
+	await ensureScriptLinkToEntitySchema({
+		entitySchemaId: input.entitySchemaId,
+		sandboxScriptId: input.searchScriptId,
+		kind: EntitySchemaSandboxScriptKind.search,
+	});
+	await ensureScriptLinkToEntitySchema({
+		entitySchemaId: input.entitySchemaId,
+		sandboxScriptId: input.detailsScriptId,
+		kind: EntitySchemaSandboxScriptKind.details,
 	});
 };

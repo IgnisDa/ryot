@@ -2,6 +2,7 @@ import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "~/db";
 import {
+	EntitySchemaSandboxScriptKind,
 	entity,
 	entitySchema,
 	entitySchemaSandboxScript,
@@ -10,6 +11,14 @@ import {
 import type { ParsedImportPayload } from "./schemas";
 
 export const listEntitySchemasByUser = async (userId: string) => {
+	const detailsScriptLink = alias(
+		entitySchemaSandboxScript,
+		"details_script_link",
+	);
+	const searchScriptLink = alias(
+		entitySchemaSandboxScript,
+		"search_script_link",
+	);
 	const detailsSandboxScript = alias(sandboxScript, "details_sandbox_script");
 	const searchSandboxScript = alias(sandboxScript, "search_sandbox_script");
 
@@ -20,27 +29,31 @@ export const listEntitySchemasByUser = async (userId: string) => {
 			name: entitySchema.name,
 			searchScriptName: searchSandboxScript.name,
 			detailsScriptName: detailsSandboxScript.name,
-			searchScriptId: entitySchemaSandboxScript.searchSandboxScriptId,
-			detailsScriptId: entitySchemaSandboxScript.detailsSandboxScriptId,
+			searchScriptId: searchScriptLink.sandboxScriptId,
+			detailsScriptId: detailsScriptLink.sandboxScriptId,
 		})
 		.from(entitySchema)
 		.innerJoin(
-			entitySchemaSandboxScript,
-			eq(entitySchemaSandboxScript.entitySchemaId, entitySchema.id),
+			detailsScriptLink,
+			and(
+				eq(detailsScriptLink.entitySchemaId, entitySchema.id),
+				eq(detailsScriptLink.kind, EntitySchemaSandboxScriptKind.details),
+			),
+		)
+		.innerJoin(
+			searchScriptLink,
+			and(
+				eq(searchScriptLink.entitySchemaId, entitySchema.id),
+				eq(searchScriptLink.kind, EntitySchemaSandboxScriptKind.search),
+			),
 		)
 		.innerJoin(
 			detailsSandboxScript,
-			eq(
-				detailsSandboxScript.id,
-				entitySchemaSandboxScript.detailsSandboxScriptId,
-			),
+			eq(detailsSandboxScript.id, detailsScriptLink.sandboxScriptId),
 		)
 		.innerJoin(
 			searchSandboxScript,
-			eq(
-				searchSandboxScript.id,
-				entitySchemaSandboxScript.searchSandboxScriptId,
-			),
+			eq(searchSandboxScript.id, searchScriptLink.sandboxScriptId),
 		)
 		.where(
 			or(
@@ -101,7 +114,10 @@ export const listEntitySchemasByUser = async (userId: string) => {
 	return Object.values(groupedSchemas);
 };
 
-export const getScriptById = async (scriptId: string) => {
+export const getScriptById = async (input: {
+	kind: EntitySchemaSandboxScriptKind;
+	scriptId: string;
+}) => {
 	const [script] = await db
 		.select({
 			id: sandboxScript.id,
@@ -113,16 +129,16 @@ export const getScriptById = async (scriptId: string) => {
 		.from(sandboxScript)
 		.innerJoin(
 			entitySchemaSandboxScript,
-			or(
-				eq(entitySchemaSandboxScript.searchSandboxScriptId, sandboxScript.id),
-				eq(entitySchemaSandboxScript.detailsSandboxScriptId, sandboxScript.id),
+			and(
+				eq(entitySchemaSandboxScript.kind, input.kind),
+				eq(entitySchemaSandboxScript.sandboxScriptId, sandboxScript.id),
 			),
 		)
 		.innerJoin(
 			entitySchema,
 			eq(entitySchema.id, entitySchemaSandboxScript.entitySchemaId),
 		)
-		.where(eq(sandboxScript.id, scriptId))
+		.where(eq(sandboxScript.id, input.scriptId))
 		.limit(1);
 
 	return script;
