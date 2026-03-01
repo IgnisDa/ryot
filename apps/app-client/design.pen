@@ -4638,7 +4638,7 @@
       "y": 114,
       "width": 281,
       "height": 62,
-      "content": "- this avatar switcher will open up the settings tab etc. clicking on it will open up the settings etc.\n- the workspace switcher on the right (works like the swipeable account switcher of gmail) will allow you to switch between workspaces (media and fitness)"
+      "content": "- clicking on the avatar switcher will open up the settings page.\n\n- the workspace switcher on the right (works like the swipeable account switcher of gmail) will allow you to switch between workspaces (media and fitness)\n\n- clicking on it it will open up a bottom sheet which have 4 different targets: media, fitness (like before), Collections and \"More Saved Views\"."
     }
   ],
   "themes": {
