@@ -131,7 +131,7 @@ return {
 		volumes,
 		chapters,
 		sourceUrl: sourceUrl,
-		is_nsfw: parseIsNsfw(payload?.nsfw),
+		isNsfw: parseIsNsfw(payload?.nsfw),
 		production_status: productionStatus,
 		genres: collectGenres(payload?.genres),
 		publish_year: parsePublishYear(payload?.start_date),
