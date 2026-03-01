@@ -29,7 +29,7 @@ const success = <T>(data: T) => ({ data, success: true as const });
 const sandboxSearchResponseSchema = z.object({
 	items: z.array(schemaSearchItemSchema),
 	details: z.object({
-		nextPage: positiveIntSchema.nullable(),
+		nextPage: positiveIntSchema.nullish(),
 		totalItems: z.number().int().nonnegative(),
 	}),
 });
