@@ -5,8 +5,8 @@ import { SANDBOX_SCRIPT_DEFINITION, type GenericScriptDefinition } from "./drive
 
 export const defineActivity = <
 	const Manifest extends ActivityManifest,
-	Input extends Schema.Schema.AnyNoContext,
-	Output extends Schema.Schema.AnyNoContext,
+	Input extends Schema.Codec<unknown, unknown>,
+	Output extends Schema.Codec<unknown, unknown>,
 >(
 	definition: Omit<GenericScriptDefinition<Manifest, Input, Output>, "definitionType">,
 ): GenericScriptDefinition<Manifest, Input, Output> => ({
