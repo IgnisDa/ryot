@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuthClient } from "@/hooks/auth";
 
 export const Route = createFileRoute("/start")({ component: StartPage });
@@ -123,15 +124,19 @@ function StartPage() {
 	});
 
 	const modeContent = authModes[mode];
-	const isLoginMode = mode === "login";
-	const isSignupMode = mode === "signup";
+
+	const handleModeChange = (value: string) => {
+		if (value !== "login" && value !== "signup") return;
+		setMode(value);
+		setSubmitError(null);
+	};
 
 	return (
 		<div className="page-wrap px-4 py-10 md:py-14">
 			<div className="mx-auto w-full max-w-xl rise-in">
 				<Card className="island-shell rounded-xl border-border/80">
 					<CardHeader className="space-y-2 pb-3">
-						<CardTitle className="display-title text-3xl font-semibold">
+						<CardTitle className="text-3xl font-semibold">
 							{modeContent.title}
 						</CardTitle>
 						<p className="text-muted-foreground text-sm">
@@ -139,30 +144,12 @@ function StartPage() {
 						</p>
 					</CardHeader>
 					<CardContent className="space-y-5">
-						<div className="bg-muted/60 grid w-full grid-cols-2 rounded-md border border-border/70 p-1">
-							<Button
-								className="flex-1"
-								type="button"
-								onClick={() => {
-									setMode("login");
-									setSubmitError(null);
-								}}
-								variant={isLoginMode ? "default" : "ghost"}
-							>
-								Login
-							</Button>
-							<Button
-								className="flex-1"
-								type="button"
-								onClick={() => {
-									setMode("signup");
-									setSubmitError(null);
-								}}
-								variant={isSignupMode ? "default" : "ghost"}
-							>
-								Sign Up
-							</Button>
-						</div>
+						<Tabs value={mode} onValueChange={handleModeChange}>
+							<TabsList className="grid w-full grid-cols-2 border border-border/70 bg-muted/60">
+								<TabsTrigger value="login">Login</TabsTrigger>
+								<TabsTrigger value="signup">Sign Up</TabsTrigger>
+							</TabsList>
+						</Tabs>
 
 						<form
 							onSubmit={(event) => {
