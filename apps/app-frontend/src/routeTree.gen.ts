@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as StartRouteImport } from './routes/start'
 import { Route as SchemaSearchRouteImport } from './routes/schema-search'
 import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EntitiesEntityIdRouteImport } from './routes/entities.$entityId'
 
+const StartRoute = StartRouteImport.update({
+  id: '/start',
+  path: '/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SchemaSearchRoute = SchemaSearchRouteImport.update({
   id: '/schema-search',
   path: '/schema-search',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/playground': typeof PlaygroundRoute
   '/schema-search': typeof SchemaSearchRoute
+  '/start': typeof StartRoute
   '/entities/$entityId': typeof EntitiesEntityIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/playground': typeof PlaygroundRoute
   '/schema-search': typeof SchemaSearchRoute
+  '/start': typeof StartRoute
   '/entities/$entityId': typeof EntitiesEntityIdRoute
 }
 export interface FileRoutesById {
@@ -52,18 +60,25 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/playground': typeof PlaygroundRoute
   '/schema-search': typeof SchemaSearchRoute
+  '/start': typeof StartRoute
   '/entities/$entityId': typeof EntitiesEntityIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/playground' | '/schema-search' | '/entities/$entityId'
+  fullPaths:
+    | '/'
+    | '/playground'
+    | '/schema-search'
+    | '/start'
+    | '/entities/$entityId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/playground' | '/schema-search' | '/entities/$entityId'
+  to: '/' | '/playground' | '/schema-search' | '/start' | '/entities/$entityId'
   id:
     | '__root__'
     | '/'
     | '/playground'
     | '/schema-search'
+    | '/start'
     | '/entities/$entityId'
   fileRoutesById: FileRoutesById
 }
@@ -71,11 +86,19 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   PlaygroundRoute: typeof PlaygroundRoute
   SchemaSearchRoute: typeof SchemaSearchRoute
+  StartRoute: typeof StartRoute
   EntitiesEntityIdRoute: typeof EntitiesEntityIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/start': {
+      id: '/start'
+      path: '/start'
+      fullPath: '/start'
+      preLoaderRoute: typeof StartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/schema-search': {
       id: '/schema-search'
       path: '/schema-search'
@@ -111,6 +134,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PlaygroundRoute: PlaygroundRoute,
   SchemaSearchRoute: SchemaSearchRoute,
+  StartRoute: StartRoute,
   EntitiesEntityIdRoute: EntitiesEntityIdRoute,
 }
 export const routeTree = rootRouteImport
