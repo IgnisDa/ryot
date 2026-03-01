@@ -1,3 +1,4 @@
+import { dayjs } from "@ryot/ts-utils";
 import clsx from "clsx";
 import { LinearGradient } from "expo-linear-gradient";
 import { Star } from "lucide-react-native";
@@ -8,21 +9,9 @@ import Svg, { Circle } from "react-native-svg";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
+import type { EntityImage } from "@/lib/image";
 
-// ─── Design tokens ────────────────────────────────────────────────────────────
-
-const SCHEMA_COLORS: Record<string, string> = {
-	"comic-book": "#45AAF2",
-	anime: "#E55B7A",
-	audiobook: "#2E86AB",
-	book: "#5B8A5F",
-	manga: "#9B59B6",
-	movie: "#E09840",
-	music: "#FC5C65",
-	podcast: "#F7B731",
-	show: "#5B7FFF",
-	tv: "#5B7FFF",
-};
+const FALLBACK_COLOR = "#78716c";
 
 export const SECTION_ACCENTS = {
 	activity: "#6F8B75",
@@ -31,12 +20,9 @@ export const SECTION_ACCENTS = {
 	upNext: "#8E6A4D",
 };
 
-// Story ring geometry configs
 const RING_SM = { gap: 2.5, size: 72, stroke: 3.5 };
 const RING_LG = { gap: 3, size: 96, stroke: 4 };
 const RING_XL = { gap: 3, size: 112, stroke: 4 };
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 export function hexToRgba(hex: string, alpha: number) {
 	const r = Number.parseInt(hex.slice(1, 3), 16);
@@ -45,25 +31,20 @@ export function hexToRgba(hex: string, alpha: number) {
 	return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export function schemaColor(slug: string) {
-	return SCHEMA_COLORS[slug] ?? "#78716c";
-}
-
-function timeAgo(date: Date) {
-	const diffMs = Date.now() - date.getTime();
-	const diffMins = Math.floor(diffMs / 60000);
-	if (diffMins < 60) {
-		return `${diffMins}m ago`;
+function timeAgo(dateString: string) {
+	const diff = dayjs().diff(dayjs(dateString), "minute");
+	if (diff < 60) {
+		return `${diff}m ago`;
 	}
-	const diffHours = Math.floor(diffMins / 60);
-	if (diffHours < 24) {
-		return `${diffHours}h ago`;
+	const hours = Math.floor(diff / 60);
+	if (hours < 24) {
+		return `${hours}h ago`;
 	}
-	const diffDays = Math.floor(diffHours / 24);
-	if (diffDays < 7) {
-		return `${diffDays}d ago`;
+	const days = Math.floor(hours / 24);
+	if (days < 7) {
+		return `${days}d ago`;
 	}
-	return `${Math.floor(diffDays / 7)}w ago`;
+	return `${Math.floor(days / 7)}w ago`;
 }
 
 function activityLabel(eventSchemaSlug: string, rating: number | null) {
@@ -82,47 +63,49 @@ function activityLabel(eventSchemaSlug: string, rating: number | null) {
 	return "Updated";
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export type ContinueItem = {
 	id: string;
-	entitySchemaSlug: string;
-	imageUri: string | null;
-	labels: { cta: string; progress: string };
-	progress: { currentUnits: number; progressPercent: number; totalUnits: number };
 	title: string;
+	image: EntityImage;
+	entitySchemaSlug: string;
+	labels: { cta: string; progress: string };
+	progress: {
+		totalUnits?: number | null;
+		currentUnits?: number | null;
+		progressPercent?: number | null;
+	};
 };
 
 export type UpNextItem = {
 	id: string;
-	entitySchemaSlug: string;
-	imageUri: string | null;
-	labels: { cta: string };
-	subtitle: { label: string | null; raw: number | null };
 	title: string;
+	image: EntityImage;
+	labels: { cta: string };
+	entitySchemaSlug: string;
+	subtitle: { raw?: number | null; label?: string | null };
 };
 
 export type RateItem = {
 	id: string;
-	completedAt: Date;
-	entitySchemaSlug: string;
-	imageUri: string | null;
-	rating: number | null;
 	title: string;
+	image: EntityImage;
+	rating: number | null;
+	completedAt: string;
+	entitySchemaSlug: string;
 };
 
 export type ActivityItem = {
 	id: string;
 	entityId: string;
-	entityName: string;
-	entitySchemaSlug: string;
-	eventSchemaSlug: string;
-	imageUri: string | null;
-	occurredAt: Date;
+	occurredAt: string;
 	rating: number | null;
+	eventSchemaSlug: string;
+	entity: {
+		name: string;
+		image: EntityImage;
+		entitySchemaSlug: string;
+	};
 };
-
-// ─── Shared primitives ────────────────────────────────────────────────────────
 
 export function StatPill({ color, label }: { color: string; label: string }) {
 	return (
@@ -190,14 +173,16 @@ function StarRating({ rating, onChange }: { rating: number; onChange: (r: number
 	);
 }
 
-// ─── Story rings (Continue section) ──────────────────────────────────────────
-
 function StoryRing({
 	item,
+	color,
 	large,
 	xlarge,
+	imageUrl,
 }: {
 	item: ContinueItem;
+	color: string;
+	imageUrl: string | undefined;
 	large?: boolean;
 	xlarge?: boolean;
 }) {
@@ -205,16 +190,14 @@ function StoryRing({
 	const thumbSize = size - stroke * 2 - gap * 2;
 	const r = (size - stroke) / 2;
 	const circ = 2 * Math.PI * r;
-	const color = schemaColor(item.entitySchemaSlug);
-	const dashOffset = circ * (1 - item.progress.progressPercent / 100);
+	const progressPercent = item.progress.progressPercent ?? 0;
+	const dashOffset = circ * (1 - progressPercent / 100);
 	const ringWidth = size + 8;
 
 	return (
 		<Pressable style={{ alignItems: "center", width: ringWidth }}>
 			<Box style={{ height: size, width: size }}>
-				{/* SVG progress ring */}
 				<Svg width={size} height={size} style={{ position: "absolute", left: 0, top: 0 }}>
-					{/* Track */}
 					<Circle
 						cx={size / 2}
 						cy={size / 2}
@@ -223,7 +206,6 @@ function StoryRing({
 						strokeWidth={stroke}
 						fill="none"
 					/>
-					{/* Progress arc */}
 					<Circle
 						cx={size / 2}
 						cy={size / 2}
@@ -237,7 +219,6 @@ function StoryRing({
 						transform={`rotate(-90 ${size / 2} ${size / 2})`}
 					/>
 				</Svg>
-				{/* Circular thumbnail */}
 				<Box
 					style={{
 						borderRadius: thumbSize / 2,
@@ -250,9 +231,9 @@ function StoryRing({
 						backgroundColor: hexToRgba(color, 0.18),
 					}}
 				>
-					{item.imageUri ? (
+					{imageUrl ? (
 						<Image
-							source={{ uri: item.imageUri }}
+							source={{ uri: imageUrl }}
 							style={{ height: thumbSize, width: thumbSize }}
 							resizeMode="cover"
 						/>
@@ -293,8 +274,12 @@ export function StoryRingRow({
 	wrap,
 	wrapGap,
 	xlarge,
+	imageUrls,
+	schemaColorMap,
 }: {
 	items: ContinueItem[];
+	imageUrls: Map<string, string | undefined>;
+	schemaColorMap: Map<string, string>;
 	large?: boolean;
 	wrap?: boolean;
 	wrapGap?: number;
@@ -307,7 +292,14 @@ export function StoryRingRow({
 		return (
 			<Box className="flex-row flex-wrap" style={{ gap: wrapGap ?? 16 }}>
 				{items.map((item) => (
-					<StoryRing key={item.id} item={item} large={large} xlarge={xlarge} />
+					<StoryRing
+						key={item.id}
+						item={item}
+						large={large}
+						xlarge={xlarge}
+						imageUrl={imageUrls.get(item.id)}
+						color={schemaColorMap.get(item.entitySchemaSlug) ?? FALLBACK_COLOR}
+					/>
 				))}
 			</Box>
 		);
@@ -319,21 +311,38 @@ export function StoryRingRow({
 			contentContainerStyle={{ gap: 16, paddingHorizontal: 28 }}
 		>
 			{items.map((item) => (
-				<StoryRing key={item.id} item={item} large={large} xlarge={xlarge} />
+				<StoryRing
+					key={item.id}
+					item={item}
+					large={large}
+					xlarge={xlarge}
+					imageUrl={imageUrls.get(item.id)}
+					color={schemaColorMap.get(item.entitySchemaSlug) ?? FALLBACK_COLOR}
+				/>
 			))}
 		</ScrollView>
 	);
 }
 
-// ─── Backlog (responsive grid) ────────────────────────────────────────────────
-
-export function UpNextSection({ items }: { items: UpNextItem[] }) {
+export function UpNextSection({
+	items,
+	imageUrls,
+	schemaColorMap,
+}: {
+	items: UpNextItem[];
+	imageUrls: Map<string, string | undefined>;
+	schemaColorMap: Map<string, string>;
+}) {
+	if (items.length === 0) {
+		return null;
+	}
 	return (
 		<Box>
 			<SectionLabel color={SECTION_ACCENTS.upNext} label="Backlog" />
 			<Box className="flex-row flex-wrap gap-3">
 				{items.map((item) => {
-					const color = schemaColor(item.entitySchemaSlug);
+					const color = schemaColorMap.get(item.entitySchemaSlug) ?? FALLBACK_COLOR;
+					const imageUrl = imageUrls.get(item.id);
 					return (
 						<Pressable key={item.id} className="w-[48%] sm:w-[32%]">
 							<Box
@@ -344,8 +353,8 @@ export function UpNextSection({ items }: { items: UpNextItem[] }) {
 									backgroundColor: hexToRgba(color, 0.13),
 								}}
 							>
-								{item.imageUri ? (
-									<Image source={{ uri: item.imageUri }} style={{ flex: 1 }} resizeMode="cover" />
+								{imageUrl ? (
+									<Image source={{ uri: imageUrl }} style={{ flex: 1 }} resizeMode="cover" />
 								) : (
 									<Box className="flex-1 items-center justify-center px-3">
 										<Text
@@ -362,23 +371,23 @@ export function UpNextSection({ items }: { items: UpNextItem[] }) {
 									style={{ backgroundColor: hexToRgba(color, 0.32) }}
 								>
 									<Text
-								className="text-[10px] font-sans-medium uppercase tracking-[0.5px] web:text-xs"
-								style={{ color }}
-							>
-								{item.entitySchemaSlug}
-							</Text>
-						</Box>
-					</Box>
-					<Text
-						className="mt-1.5 text-[13px] font-sans-medium text-foreground web:text-[15px]"
+										className="text-[10px] font-sans-medium uppercase tracking-[0.5px] web:text-xs"
+										style={{ color }}
+									>
+										{item.entitySchemaSlug}
+									</Text>
+								</Box>
+							</Box>
+							<Text
+								className="mt-1.5 text-[13px] font-sans-medium text-foreground web:text-[15px]"
 								numberOfLines={2}
 							>
 								{item.title}
 							</Text>
 							{item.subtitle.label ? (
-				<Text className="text-xs font-mono text-muted-foreground web:text-[14px]">
-								{item.subtitle.label}
-							</Text>
+								<Text className="text-xs font-mono text-muted-foreground web:text-[14px]">
+									{item.subtitle.label}
+								</Text>
 							) : null}
 						</Pressable>
 					);
@@ -388,13 +397,20 @@ export function UpNextSection({ items }: { items: UpNextItem[] }) {
 	);
 }
 
-// ─── Rate These (stacked deck, one card at a time) ────────────────────────────
-
-function RateCard({ item, onNext }: { item: RateItem; onNext: () => void }) {
+function RateCard({
+	item,
+	color,
+	imageUrl,
+	onNext,
+}: {
+	item: RateItem;
+	color: string;
+	imageUrl: string | undefined;
+	onNext: () => void;
+}) {
 	const [cardWidth, setCardWidth] = useState(0);
 	const [rating, setRating] = useState(0);
 	const posterHeight = cardWidth > 0 ? Math.min(Math.round(cardWidth * 0.65), 300) : 210;
-	const color = schemaColor(item.entitySchemaSlug);
 	const gradientColors: [string, string] = ["transparent", "rgba(0,0,0,0.55)"];
 
 	return (
@@ -408,10 +424,9 @@ function RateCard({ item, onNext }: { item: RateItem; onNext: () => void }) {
 			}}
 			onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
 		>
-			{/* Poster */}
 			<Box style={{ height: posterHeight, backgroundColor: hexToRgba(color, 0.13) }}>
 				<ImageBackground
-					source={item.imageUri ? { uri: item.imageUri } : undefined}
+					source={imageUrl ? { uri: imageUrl } : undefined}
 					resizeMode="cover"
 					style={{ flex: 1 }}
 				>
@@ -420,7 +435,6 @@ function RateCard({ item, onNext }: { item: RateItem; onNext: () => void }) {
 						locations={[0.5, 1]}
 						style={{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }}
 					/>
-					{/* Title overlay at bottom of image */}
 					<Box style={{ bottom: 14, left: 14, position: "absolute", right: 14 }}>
 						<Box
 							className="mb-1 self-start rounded px-1.5 py-0.5"
@@ -443,7 +457,6 @@ function RateCard({ item, onNext }: { item: RateItem; onNext: () => void }) {
 					</Box>
 				</ImageBackground>
 			</Box>
-			{/* Action area */}
 			<Box className="px-4 py-4">
 				<Text className="mb-3 text-[13px] font-sans text-muted-foreground web:text-[15px]">
 					How would you rate this?
@@ -452,8 +465,8 @@ function RateCard({ item, onNext }: { item: RateItem; onNext: () => void }) {
 					<StarRating rating={rating} onChange={setRating} />
 					<Pressable onPress={onNext} hitSlop={8}>
 						<Text
-						className={clsx(
-							"text-sm font-sans-medium web:text-[16px]",
+							className={clsx(
+								"text-sm font-sans-medium web:text-[16px]",
 								rating > 0 ? "font-sans-semibold" : "text-muted-foreground",
 							)}
 							style={rating > 0 ? { color } : undefined}
@@ -467,7 +480,15 @@ function RateCard({ item, onNext }: { item: RateItem; onNext: () => void }) {
 	);
 }
 
-export function RateTheseSection({ items }: { items: RateItem[] }) {
+export function RateTheseSection({
+	items,
+	imageUrls,
+	schemaColorMap,
+}: {
+	items: RateItem[];
+	imageUrls: Map<string, string | undefined>;
+	schemaColorMap: Map<string, string>;
+}) {
 	const [idx, setIdx] = useState(0);
 
 	if (items.length === 0) {
@@ -489,8 +510,6 @@ export function RateTheseSection({ items }: { items: RateItem[] }) {
 					{idx + 1 < items.length ? (
 						<Box
 							style={{
-								backgroundColor: hexToRgba(schemaColor(items[idx + 1].entitySchemaSlug), 0.07),
-								borderColor: hexToRgba(schemaColor(items[idx + 1].entitySchemaSlug), 0.14),
 								borderRadius: 14,
 								borderWidth: 1,
 								bottom: 0,
@@ -498,29 +517,48 @@ export function RateTheseSection({ items }: { items: RateItem[] }) {
 								position: "absolute",
 								right: 12,
 								top: 10,
+								backgroundColor: hexToRgba(
+									schemaColorMap.get(items[idx + 1].entitySchemaSlug) ?? FALLBACK_COLOR,
+									0.07,
+								),
+								borderColor: hexToRgba(
+									schemaColorMap.get(items[idx + 1].entitySchemaSlug) ?? FALLBACK_COLOR,
+									0.14,
+								),
 							}}
 						/>
 					) : null}
-					{/* Front card */}
-					<RateCard key={items[idx].id} item={items[idx]} onNext={() => setIdx((i) => i + 1)} />
+					<RateCard
+						key={items[idx].id}
+						item={items[idx]}
+						imageUrl={imageUrls.get(items[idx].id)}
+						color={schemaColorMap.get(items[idx].entitySchemaSlug) ?? FALLBACK_COLOR}
+						onNext={() => setIdx((i) => i + 1)}
+					/>
 				</Box>
 			)}
 		</Box>
 	);
 }
 
-// ─── Activity (timeline) ──────────────────────────────────────────────────────
-
-export function ActivitySection({ items }: { items: ActivityItem[] }) {
+export function ActivitySection({
+	items,
+	schemaColorMap,
+}: {
+	items: ActivityItem[];
+	schemaColorMap: Map<string, string>;
+}) {
+	if (items.length === 0) {
+		return null;
+	}
 	return (
 		<Box>
 			<SectionLabel color={SECTION_ACCENTS.activity} label="Recent Activity" />
 			{items.map((item, idx) => {
-				const color = schemaColor(item.entitySchemaSlug);
+				const color = schemaColorMap.get(item.entity.entitySchemaSlug) ?? FALLBACK_COLOR;
 				const isLast = idx === items.length - 1;
 				return (
 					<Box key={item.id} className="flex-row">
-						{/* Spine */}
 						<Box className="items-center" style={{ paddingTop: 4, width: 20 }}>
 							<Box
 								style={{
@@ -541,14 +579,13 @@ export function ActivitySection({ items }: { items: ActivityItem[] }) {
 								/>
 							) : null}
 						</Box>
-						{/* Content */}
 						<Box className={clsx("flex-1 pl-3", isLast ? "pb-2" : "pb-4")}>
 							<Box className="flex-row items-baseline gap-2">
-							<Text
-								className="flex-1 text-[15px] font-sans-medium text-foreground web:text-[17px]"
+								<Text
+									className="flex-1 text-[15px] font-sans-medium text-foreground web:text-[17px]"
 									numberOfLines={1}
 								>
-									{item.entityName}
+									{item.entity.name}
 								</Text>
 								<Text className="text-xs font-mono text-stone-400 web:text-[14px]">
 									{timeAgo(item.occurredAt)}
@@ -563,11 +600,11 @@ export function ActivitySection({ items }: { items: ActivityItem[] }) {
 									style={{ backgroundColor: hexToRgba(color, 0.12) }}
 								>
 									<Text
-								className="text-[10px] font-sans-medium uppercase tracking-[0.5px] web:text-xs"
-								style={{ color }}
-							>
-								{item.entitySchemaSlug}
-							</Text>
+										className="text-[10px] font-sans-medium uppercase tracking-[0.5px] web:text-xs"
+										style={{ color }}
+									>
+										{item.entity.entitySchemaSlug}
+									</Text>
 								</Box>
 							</Box>
 						</Box>
