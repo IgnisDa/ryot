@@ -1,6 +1,5 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AuthType } from "~/auth";
-import { requireAuth } from "~/auth/middleware";
 import { errorJsonResponse, jsonResponse } from "~/lib/openapi";
 import { appConfigApi } from "~/modules/app-config/routes";
 import { entitiesApi } from "~/modules/entities/routes";
@@ -23,15 +22,13 @@ const meRoute = createRoute({
 	},
 });
 
-export const protectedApi = new OpenAPIHono<{ Variables: AuthType }>();
-
-protectedApi.use("*", requireAuth);
-protectedApi.openapi(meRoute, async (c) => {
-	const user = c.get("user");
-	const session = c.get("session");
-	return c.json({ user, session }, 200);
-});
-protectedApi.route("/app-config", appConfigApi);
-protectedApi.route("/sandbox", sandboxApi);
-protectedApi.route("/entities", entitiesApi);
-protectedApi.route("/entity-schemas", entitySchemasApi);
+export const protectedApi = new OpenAPIHono<{ Variables: AuthType }>()
+	.openapi(meRoute, async (c) => {
+		const user = c.get("user");
+		const session = c.get("session");
+		return c.json({ user, session }, 200);
+	})
+	.route("/app-config", appConfigApi)
+	.route("/sandbox", sandboxApi)
+	.route("/entities", entitiesApi)
+	.route("/entity-schemas", entitySchemasApi);
