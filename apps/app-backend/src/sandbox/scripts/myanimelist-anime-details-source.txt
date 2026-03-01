@@ -74,7 +74,7 @@ const parseAiringSchedule = (startDate) => {
 	const scheduleDate = new Date(`${trimmedDate}T00:00:00Z`);
 	if (Number.isNaN(scheduleDate.valueOf())) return null;
 
-	return [{ episode: 1, airing_at: scheduleDate.toISOString() }];
+	return [{ episode: 1, airingAt: scheduleDate.toISOString() }];
 };
 
 const configValueResponse = await getAppConfigValue(
@@ -134,7 +134,7 @@ const sourceUrl = `https://myanimelist.net/anime/${payloadIdentifier}/${title}`;
 
 return {
 	name: title,
-	external_id: payloadIdentifier,
+	externalId: payloadIdentifier,
 	properties: {
 		genres: collectGenres(payload?.genres),
 		assets: { remote_images: collectImages(payload?.main_picture) },
@@ -148,6 +148,6 @@ return {
 				: null,
 		production_status: productionStatus,
 		source_url: sourceUrl,
-		airing_schedule: parseAiringSchedule(payload?.start_date),
+		airingSchedule: parseAiringSchedule(payload?.start_date),
 	},
 };
