@@ -58,7 +58,7 @@ function StartPage() {
 	const [submitError, setSubmitError] = useState<string | null>(null);
 
 	const authForm = useAppForm({
-		validators: { onBlur: schema },
+		validators: { onChange: schema },
 		defaultValues: { email: "", password: "" },
 		onSubmit: async ({ value }) => {
 			setSubmitError(null);
