@@ -1,18 +1,7 @@
-import {
-	Box,
-	Button,
-	Card,
-	Container,
-	Group,
-	SimpleGrid,
-	Stack,
-	Text,
-	Textarea,
-	Title,
-} from "@mantine/core";
 import { useMutation } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { Button, Card, Container, Grid, Text, TextArea, View } from "reshaped";
 import { useApiClient } from "@/hooks/api";
 import { useAuthClient } from "@/hooks/auth";
 
@@ -126,38 +115,41 @@ function App() {
 		: "No logs yet.";
 
 	return (
-		<Box
+		<div
 			style={{
 				minHeight: "100vh",
 				background: "linear-gradient(180deg, #f5f6f8 0%, #eceff4 100%)",
 			}}
 		>
-			<Container size="lg" py="xl">
-				<Stack gap="lg">
-					<Stack gap={4}>
-						<Group justify="space-between" align="center">
-							<Title order={2}>Sandbox Playground</Title>
-							<Button component={Link} to="/schema-search" variant="light">
+			<Container width="964px" padding={8}>
+				<View gap={6}>
+					<View gap={1}>
+						<View direction="row" justify="space-between" align="center">
+							<Text variant="title-2" as="h2">
+								Sandbox Playground
+							</Text>
+							<Button href="/schema-search" variant="faded">
 								Open schema search
 							</Button>
-						</Group>
-						<Text c="dimmed">
+						</View>
+						<Text color="neutral-faded">
 							Write JavaScript for an async function body. Use `return` for
 							value and `console.log` for logs. Host helpers: `addNumbers(a, b)`
 							and `httpCall(method, url, options)`.
 						</Text>
-					</Stack>
+					</View>
 
-					<Textarea
-						autosize
-						minRows={16}
+					<TextArea
+						name="code"
 						value={code}
-						onChange={(event) => setCode(event.currentTarget.value)}
-						styles={{ input: { fontFamily: "ui-monospace, monospace" } }}
+						onChange={(event) => setCode(event.value)}
+						inputAttributes={{
+							style: { fontFamily: "ui-monospace, monospace" },
+						}}
 					/>
 
-					<Group justify="space-between">
-						<Text c="dimmed" size="sm">
+					<View direction="row" justify="space-between">
+						<Text color="neutral-faded" variant="caption-1">
 							{runMutation.isPending
 								? "Running..."
 								: runMutation.data
@@ -171,69 +163,75 @@ function App() {
 						>
 							Run code
 						</Button>
-					</Group>
+					</View>
 
 					{runMutation.error ? (
-						<Text c="red" size="sm">
+						<Text color="critical" variant="caption-1">
 							{runMutation.error.message}
 						</Text>
 					) : null}
 
 					{runMutation.data?.error ? (
-						<Text c="orange" size="sm">
+						<Text color="warning" variant="caption-1">
 							Sandbox error: {runMutation.data.error}
 						</Text>
 					) : null}
 
-					<SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-						<Card withBorder radius="md" padding="md">
-							<Stack gap="sm">
-								<Title order={4}>value</Title>
-								<Box
-									component="pre"
-									style={{
-										margin: 0,
-										fontSize: "0.85rem",
-										maxHeight: 320,
-										overflow: "auto",
-										padding: "0.75rem",
-										borderRadius: "0.5rem",
-										whiteSpace: "pre-wrap",
-										background: "#0f172a",
-										fontFamily: "ui-monospace, monospace",
-										color: "#e2e8f0",
-									}}
-								>
-									{valueText}
-								</Box>
-							</Stack>
-						</Card>
+					<Grid columns={{ s: 1, m: 2 }}>
+						<Grid.Item>
+							<Card padding={4}>
+								<View gap={3}>
+									<Text variant="title-4" as="h4">
+										value
+									</Text>
+									<pre
+										style={{
+											margin: 0,
+											fontSize: "0.85rem",
+											maxHeight: 320,
+											overflow: "auto",
+											padding: "0.75rem",
+											borderRadius: "0.5rem",
+											whiteSpace: "pre-wrap",
+											background: "#0f172a",
+											fontFamily: "ui-monospace, monospace",
+											color: "#e2e8f0",
+										}}
+									>
+										{valueText}
+									</pre>
+								</View>
+							</Card>
+						</Grid.Item>
 
-						<Card withBorder radius="md" padding="md">
-							<Stack gap="sm">
-								<Title order={4}>logs</Title>
-								<Box
-									component="pre"
-									style={{
-										margin: 0,
-										fontSize: "0.85rem",
-										maxHeight: 320,
-										overflow: "auto",
-										padding: "0.75rem",
-										borderRadius: "0.5rem",
-										whiteSpace: "pre-wrap",
-										background: "#111827",
-										fontFamily: "ui-monospace, monospace",
-										color: "#d1d5db",
-									}}
-								>
-									{logsText}
-								</Box>
-							</Stack>
-						</Card>
-					</SimpleGrid>
-				</Stack>
+						<Grid.Item>
+							<Card padding={4}>
+								<View gap={3}>
+									<Text variant="title-4" as="h4">
+										logs
+									</Text>
+									<pre
+										style={{
+											margin: 0,
+											fontSize: "0.85rem",
+											maxHeight: 320,
+											overflow: "auto",
+											padding: "0.75rem",
+											borderRadius: "0.5rem",
+											whiteSpace: "pre-wrap",
+											background: "#111827",
+											fontFamily: "ui-monospace, monospace",
+											color: "#d1d5db",
+										}}
+									>
+										{logsText}
+									</pre>
+								</View>
+							</Card>
+						</Grid.Item>
+					</Grid>
+				</View>
 			</Container>
-		</Box>
+		</div>
 	);
 }
