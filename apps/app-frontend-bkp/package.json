@@ -1,7 +1,7 @@
 {
 	"private": true,
 	"type": "module",
-	"name": "@ryot/app-frontend",
+	"name": "@ryot/app-frontend-bkp",
 	"imports": {
 		"#/*": "./src/*"
 	},
