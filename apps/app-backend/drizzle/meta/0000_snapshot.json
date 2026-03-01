@@ -1,5 +1,5 @@
 {
-	"id": "88b5b89a-ec56-423f-9bbf-40d74887ddc5",
+	"id": "ed2d0871-dcdb-4f9a-9b50-1a224c7f32d4",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -298,6 +298,77 @@
 					"columnsFrom": ["user_id"],
 					"columnsTo": ["id"],
 					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.app_config": {
+			"name": "app_config",
+			"schema": "",
+			"columns": {
+				"value": {
+					"name": "value",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"key": {
+					"name": "key",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updated_by_user_id": {
+					"name": "updated_by_user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"app_config_updated_by_user_id_idx": {
+					"name": "app_config_updated_by_user_id_idx",
+					"columns": [
+						{
+							"expression": "updated_by_user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"app_config_updated_by_user_id_user_id_fk": {
+					"name": "app_config_updated_by_user_id_user_id_fk",
+					"tableFrom": "app_config",
+					"tableTo": "user",
+					"columnsFrom": ["updated_by_user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
 					"onUpdate": "no action"
 				}
 			},
