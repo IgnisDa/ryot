@@ -14,13 +14,6 @@ type TextFieldProps = {
 	type?: HTMLInputTypeAttribute;
 };
 
-type SubmitButtonProps = {
-	label: string;
-	className?: string;
-	disabled?: boolean;
-	pendingLabel?: string;
-} & Pick<ComponentPropsWithoutRef<typeof Button>, "variant">;
-
 function TextField(props: TextFieldProps) {
 	const field = useFieldContext<string>();
 
@@ -43,6 +36,13 @@ function TextField(props: TextFieldProps) {
 		</div>
 	);
 }
+
+type SubmitButtonProps = {
+	label: string;
+	className?: string;
+	disabled?: boolean;
+	pendingLabel?: string;
+} & Pick<ComponentPropsWithoutRef<typeof Button>, "variant">;
 
 function SubmitButton(props: SubmitButtonProps) {
 	const form = useFormContext();
