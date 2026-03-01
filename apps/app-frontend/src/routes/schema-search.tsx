@@ -53,11 +53,12 @@ function SchemaSearchPage() {
 		queryFn: async () => {
 			const response = await apiClient["entity-schemas"].list.$get();
 			const payload = await response.json();
+			if ("error" in payload) throw new Error(payload.error.message);
 			return payload;
 		},
 	});
 
-	const searchScripts = schemasQuery.data?.schemas.flatMap((schema) =>
+	const searchScripts = schemasQuery.data?.data.flatMap((schema) =>
 		schema.scriptPairs.map((pair) => ({
 			value: pair.searchScriptId,
 			label: `${schema.name} - ${pair.searchScriptName}`,
@@ -98,7 +99,7 @@ function SchemaSearchPage() {
 			});
 
 			const payload = await response.json();
-			if ("error" in payload) throw new Error(payload.error);
+			if ("error" in payload) throw new Error(payload.error.message);
 
 			return payload;
 		},
@@ -123,7 +124,7 @@ function SchemaSearchPage() {
 			if ("error" in payload)
 				throw new Error("Import returned invalid payload");
 
-			return payload.entityId;
+			return payload.data.entityId;
 		},
 		onMutate: (identifier) => {
 			setImportingIdentifier(identifier);
@@ -207,16 +208,19 @@ function SchemaSearchPage() {
 					{completedResult ? (
 						<Group>
 							<Badge color="blue" variant="light">
-								Total: {completedResult.details.total_items}
+								Total: {completedResult.meta.total}
 							</Badge>
 							<Badge color="teal" variant="light">
-								Next page: {completedResult.details.next_page ?? "none"}
+								Next page:{" "}
+								{completedResult.meta.hasMore
+									? completedResult.meta.page + 1
+									: "none"}
 							</Badge>
 						</Group>
 					) : null}
 
 					<SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-						{completedResult?.items.map((item) => (
+						{completedResult?.data.map((item) => (
 							<Card key={item.identifier} withBorder radius="md" padding="md">
 								<Stack gap="sm">
 									{item.image ? (
