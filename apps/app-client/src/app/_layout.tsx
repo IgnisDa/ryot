@@ -25,10 +25,10 @@ export const queryClient = new QueryClient();
 
 export { ErrorBoundary } from "expo-router";
 
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync();
 
 if (__DEV__ && Platform.OS !== "web") {
-	DevClient.registerDevMenuItems([
+	void DevClient.registerDevMenuItems([
 		{ name: "Clear app storage", callback: () => clearAppStorage() },
 	]);
 }
@@ -46,7 +46,7 @@ export default function RootLayout() {
 
 	useEffect(() => {
 		if (fontsLoaded) {
-			SplashScreen.hideAsync();
+			void SplashScreen.hideAsync();
 		}
 	}, [fontsLoaded]);
 

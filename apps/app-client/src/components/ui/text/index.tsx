@@ -24,14 +24,14 @@ const Text = React.forwardRef<React.ComponentRef<typeof RNText>, ITextProps>(fun
 	return (
 		<RNText
 			className={textStyle({
-				isTruncated: isTruncated as boolean,
-				bold: bold as boolean,
-				underline: underline as boolean,
-				strikeThrough: strikeThrough as boolean,
+				isTruncated: isTruncated ?? false,
+				bold: bold ?? false,
+				underline: underline ?? false,
+				strikeThrough: strikeThrough ?? false,
 				size,
-				sub: sub as boolean,
-				italic: italic as boolean,
-				highlight: highlight as boolean,
+				sub: sub ?? false,
+				italic: italic ?? false,
+				highlight: highlight ?? false,
 				class: className,
 			})}
 			{...props}

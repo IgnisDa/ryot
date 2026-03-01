@@ -153,7 +153,7 @@ export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 				<Text className="text-[13px] text-muted-foreground font-sans">{userItem.name}</Text>
 			</Box>
 			<Pressable
-				onPress={handleLogout}
+				onPress={() => void handleLogout()}
 				accessibilityRole="button"
 				accessibilityLabel="Log Out"
 				className="flex-row items-center gap-2 min-h-8"
