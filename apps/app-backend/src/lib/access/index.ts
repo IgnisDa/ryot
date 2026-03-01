@@ -13,7 +13,7 @@ const defaultMessages: Record<AccessError, string> = {
  * existence check (`scope === undefined → not_found`). Individual rule objects
  * carry their own `message` field and are unaffected by `messages`.
  */
-export const checkAccess = <T>(check: AccessCheck<T>): AccessResult<T, AccessError> => {
+export const checkAccess = <T>(check: AccessCheck<T>): AccessResult<T> => {
 	const messages = { ...defaultMessages, ...check.messages };
 
 	if (!check.scope) {

@@ -14,11 +14,12 @@ describe("setCachedValue", () => {
 		let capturedExpiry: number | undefined;
 		const originalSetex = redis.setex.bind(redis);
 
-		redis.setex = (async (key: string, expiry: number, value: string) => {
+		// oxlint-disable-next-line no-unsafe-type-assertion
+		redis.setex = ((key: string, expiry: number, value: string) => {
 			capturedKey = key;
 			capturedValue = value;
 			capturedExpiry = expiry;
-			return "OK";
+			return Promise.resolve("OK");
 		}) as never;
 
 		try {
@@ -36,9 +37,10 @@ describe("setCachedValue", () => {
 		const originalSetex = redis.setex.bind(redis);
 		let capturedKey: string | undefined;
 
-		redis.setex = (async (key: string) => {
+		// oxlint-disable-next-line no-unsafe-type-assertion
+		redis.setex = ((key: string) => {
 			capturedKey = key;
-			return "OK";
+			return Promise.resolve("OK");
 		}) as never;
 
 		try {
@@ -95,7 +97,7 @@ describe("setCachedValue", () => {
 
 	it("returns failure when redis throws", async () => {
 		const originalSetex = redis.setex.bind(redis);
-		redis.setex = async () => {
+		redis.setex = () => {
 			throw new Error("write failed");
 		};
 		try {

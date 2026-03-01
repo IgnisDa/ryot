@@ -70,28 +70,32 @@ export const createReorderTrackersBody = (
 export const createTrackerDeps = (
 	overrides: Partial<TrackerServiceDeps> = {},
 ): TrackerServiceDeps => ({
-	createTrackerForUser: async (input) =>
-		createListedTracker({
-			slug: input.slug,
-			name: input.name,
-			icon: input.icon,
-			accentColor: input.accentColor,
-			description: input.description ?? null,
-		}),
-	countVisibleTrackersByIdsForUser: async (input) => input.trackerIds.length,
-	getOwnedTrackerById: async (input) => createOwnedTracker({ id: input.trackerId }),
-	getTrackerBySlugForUser: async () => undefined,
-	listUserTrackerIdsInOrder: async () => ["tracker_1", "tracker_2", "tracker_3"],
-	persistTrackerOrderForUser: async (input) => input.trackerIds,
-	updateTrackerForUser: async (input) =>
-		createListedTracker({
-			icon: input.icon,
-			name: input.name,
-			slug: input.slug,
-			id: input.trackerId,
-			isDisabled: input.isDisabled,
-			description: input.description,
-			accentColor: input.accentColor,
-		}),
+	createTrackerForUser: (input) =>
+		Promise.resolve(
+			createListedTracker({
+				slug: input.slug,
+				name: input.name,
+				icon: input.icon,
+				accentColor: input.accentColor,
+				description: input.description ?? null,
+			}),
+		),
+	countVisibleTrackersByIdsForUser: (input) => Promise.resolve(input.trackerIds.length),
+	getOwnedTrackerById: (input) => Promise.resolve(createOwnedTracker({ id: input.trackerId })),
+	getTrackerBySlugForUser: () => Promise.resolve(undefined),
+	listUserTrackerIdsInOrder: () => Promise.resolve(["tracker_1", "tracker_2", "tracker_3"]),
+	persistTrackerOrderForUser: (input) => Promise.resolve(input.trackerIds),
+	updateTrackerForUser: (input) =>
+		Promise.resolve(
+			createListedTracker({
+				icon: input.icon,
+				name: input.name,
+				slug: input.slug,
+				id: input.trackerId,
+				isDisabled: input.isDisabled,
+				description: input.description,
+				accentColor: input.accentColor,
+			}),
+		),
 	...overrides,
 });

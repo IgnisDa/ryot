@@ -64,13 +64,14 @@ describe("enqueueSandbox", () => {
 				},
 			},
 			createSandboxDeps({
-				getSandboxScriptForUser: async () => ({
-					isBuiltin: true,
-					userId: "user_2",
-				}),
-				enqueueSandboxJob: async (input) => {
+				getSandboxScriptForUser: () =>
+					Promise.resolve({
+						isBuiltin: true,
+						userId: "user_2",
+					}),
+				enqueueSandboxJob: (input) => {
 					queuedInput = input;
-					return { jobId: "job_1" };
+					return Promise.resolve({ jobId: "job_1" });
 				},
 			}),
 		);
@@ -113,24 +114,25 @@ describe("getSandboxResult", () => {
 		const result = await getSandboxResult(
 			{ jobId: "job_1", userId: "user_1" },
 			createSandboxDeps({
-				getSandboxJobByIdForUser: async () => ({
-					jobData: {
-						code: "run()",
-						userId: "user_1",
-						driverName: "main",
-						scriptId: "script_1",
-					},
-					job: {
-						data: {},
-						getState: async () => "completed",
-						returnvalue: {
-							error: null,
-							logs: "done",
-							success: true,
-							value: undefined,
+				getSandboxJobByIdForUser: () =>
+					Promise.resolve({
+						jobData: {
+							code: "run()",
+							userId: "user_1",
+							driverName: "main",
+							scriptId: "script_1",
 						},
-					},
-				}),
+						job: {
+							data: {},
+							getState: () => Promise.resolve("completed" as const),
+							returnvalue: {
+								error: null,
+								logs: "done",
+								success: true,
+								value: undefined,
+							},
+						},
+					}),
 			}),
 		);
 
@@ -149,19 +151,20 @@ describe("getSandboxResult", () => {
 		const result = await getSandboxResult(
 			{ jobId: "job_1", userId: "user_1" },
 			createSandboxDeps({
-				getSandboxJobByIdForUser: async () => ({
-					job: {
-						data: {},
-						returnvalue: { nope: true },
-						getState: async () => "completed",
-					},
-					jobData: {
-						code: "run()",
-						userId: "user_1",
-						driverName: "main",
-						scriptId: "script_1",
-					},
-				}),
+				getSandboxJobByIdForUser: () =>
+					Promise.resolve({
+						job: {
+							data: {},
+							returnvalue: { nope: true },
+							getState: () => Promise.resolve("completed" as const),
+						},
+						jobData: {
+							code: "run()",
+							userId: "user_1",
+							driverName: "main",
+							scriptId: "script_1",
+						},
+					}),
 			}),
 		);
 
@@ -187,8 +190,8 @@ describe("createSandboxScript", () => {
 		const result = await createSandboxScript(
 			{ userId: "user_1", body: { name: "My Script", code: mockCode } },
 			createSandboxScriptDeps({
-				getSandboxScriptBySlugForUser: async () => ({ id: "existing_script" }),
-				createSandboxScriptForUser: async () => {
+				getSandboxScriptBySlugForUser: () => Promise.resolve({ id: "existing_script" }),
+				createSandboxScriptForUser: () => {
 					throw new Error("should not be called");
 				},
 			}),
@@ -204,11 +207,11 @@ describe("createSandboxScript", () => {
 		const result = await createSandboxScript(
 			{ userId: "user_1", body: { name: "My Script", code: mockCode } },
 			createSandboxScriptDeps({
-				createSandboxScriptForUser: async () => {
-					throw {
+				createSandboxScriptForUser: () => {
+					throw Object.assign(new Error("unique constraint violated"), {
 						code: "23505",
 						constraint: "sandbox_script_user_slug_unique",
-					};
+					});
 				},
 			}),
 		);
@@ -249,15 +252,15 @@ describe("createSandboxScript", () => {
 				},
 			},
 			createSandboxScriptDeps({
-				createSandboxScriptForUser: async (input) => {
+				createSandboxScriptForUser: (input) => {
 					capturedMetadata = input.metadata;
-					return {
+					return Promise.resolve({
 						id: "script_1",
 						code: input.code,
 						name: input.name,
 						slug: input.slug,
 						metadata: input.metadata,
-					};
+					});
 				},
 			}),
 		);
@@ -276,7 +279,7 @@ describe("createSandboxScript", () => {
 				},
 			},
 			createSandboxScriptDeps({
-				createSandboxScriptForUser: async () => {
+				createSandboxScriptForUser: () => {
 					throw new Error("should not be called");
 				},
 			}),
@@ -288,12 +291,12 @@ describe("createSandboxScript", () => {
 		});
 	});
 
-	it("rethrows unexpected repository failures", async () => {
-		expect(
+	it("rethrows unexpected repository failures", () => {
+		return expect(
 			createSandboxScript(
 				{ userId: "user_1", body: { name: "My Script", code: mockCode } },
 				createSandboxScriptDeps({
-					createSandboxScriptForUser: async () => {
+					createSandboxScriptForUser: () => {
 						throw new Error("database offline");
 					},
 				}),

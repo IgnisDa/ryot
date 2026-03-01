@@ -30,6 +30,7 @@ export const optionalIconAndAccentColorFields = {
 } satisfies z.ZodRawShape;
 
 export const createIdParamsSchema = <TParamName extends string>(paramName: TParamName) =>
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	z.object({
 		[paramName]: nonEmptyTrimmedStringSchema,
 	} as Record<TParamName, typeof nonEmptyTrimmedStringSchema>);
@@ -50,7 +51,7 @@ export const createUniqueNonEmptyTrimmedStringArraySchema = (input: {
 			}
 
 			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
+				code: "custom",
 				message: input.duplicateMessage,
 			});
 		});
@@ -73,7 +74,7 @@ const remoteImageUrlSchema = z
 			}
 		} catch {
 			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
+				code: "custom",
 				message: "Entity image remote url must be a valid URL",
 			});
 		}

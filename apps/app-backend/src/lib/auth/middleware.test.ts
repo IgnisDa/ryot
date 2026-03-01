@@ -23,13 +23,13 @@ describe("resolveAuthenticatedUser", () => {
 		});
 
 		const result = await resolveAuthenticatedUser(request, {
-			getSession: async (_input) => {
+			getSession: (_input) => {
 				throw new Error("should not be called");
 			},
 			getInternalRequestAuth: () => ({ userId: "user_1" }),
-			getUserById: async (userId: string) => {
+			getUserById: (userId: string) => {
 				expect(userId).toBe("user_1");
-				return authUser;
+				return Promise.resolve(authUser);
 			},
 		});
 
@@ -40,11 +40,11 @@ describe("resolveAuthenticatedUser", () => {
 		const request = new Request("http://ryot.internal/a");
 
 		const result = await resolveAuthenticatedUser(request, {
-			getSession: async (_input) => {
+			getSession: (_input) => {
 				throw new Error("should not be called");
 			},
 			getInternalRequestAuth: () => ({ userId: "   " }),
-			getUserById: async () => authUser,
+			getUserById: () => Promise.resolve(authUser),
 		});
 
 		expect(result).toBeNull();
@@ -54,9 +54,9 @@ describe("resolveAuthenticatedUser", () => {
 		const request = new Request("http://ryot.internal/a");
 
 		const result = await resolveAuthenticatedUser(request, {
-			getUserById: async () => null,
+			getUserById: () => Promise.resolve(null),
 			getInternalRequestAuth: () => ({ userId: "deleted-user" }),
-			getSession: async (_input) => {
+			getSession: (_input) => {
 				throw new Error("should not be called");
 			},
 		});
@@ -70,12 +70,12 @@ describe("resolveAuthenticatedUser", () => {
 		});
 
 		const result = await resolveAuthenticatedUser(request, {
-			getSession: async ({ headers }) => {
+			getSession: ({ headers }) => {
 				expect(headers.get("cookie")).toBe("session=1");
-				return { user: authUser };
+				return Promise.resolve({ user: authUser });
 			},
 			getInternalRequestAuth: () => null,
-			getUserById: async () => {
+			getUserById: () => {
 				throw new Error("should not be called");
 			},
 		});

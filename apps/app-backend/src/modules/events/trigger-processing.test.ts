@@ -22,26 +22,28 @@ const createProgressEvent = (overrides: Partial<CreatedEventData> = {}): Created
 const createDeps = (
 	overrides: Partial<Parameters<typeof processEventSchemaTriggers>[1]> = {},
 ): NonNullable<Parameters<typeof processEventSchemaTriggers>[1]> => ({
-	listEventsByEntityForUser: async () => [],
-	upsertInLibraryRelationship: async () => {},
-	getEntityScopeForUser: async () => undefined,
-	getUserLibraryEntityId: async () => undefined,
-	getEventCreateScopeForUser: async () => undefined,
-	getSessionEntityScopeForUser: async () => undefined,
-	createEventForUser: async () => {
+	listEventsByEntityForUser: () => Promise.resolve([]),
+	upsertInLibraryRelationship: () => Promise.resolve(),
+	getEntityScopeForUser: () => Promise.resolve(undefined),
+	getUserLibraryEntityId: () => Promise.resolve(undefined),
+	getEventCreateScopeForUser: () => Promise.resolve(undefined),
+	getSessionEntityScopeForUser: () => Promise.resolve(undefined),
+	createEventForUser: () => {
 		throw new Error("not used");
 	},
-	getActiveEventSchemaTriggersForEventSchemas: async (input) =>
-		input.eventSchemaIds.length > 0
-			? [
-					{
-						id: "trigger_1",
-						sandboxScriptId: "script_1",
-						eventSchemaId: input.eventSchemaIds[0] ?? "event_schema_1",
-					},
-				]
-			: [],
-	enqueueEventSchemaTriggerJob: async () => {},
+	getActiveEventSchemaTriggersForEventSchemas: (input) =>
+		Promise.resolve(
+			input.eventSchemaIds.length > 0
+				? [
+						{
+							id: "trigger_1",
+							sandboxScriptId: "script_1",
+							eventSchemaId: input.eventSchemaIds[0] ?? "event_schema_1",
+						},
+					]
+				: [],
+		),
+	enqueueEventSchemaTriggerJob: () => Promise.resolve(),
 	...overrides,
 });
 
@@ -52,8 +54,9 @@ describe("processEventSchemaTriggers", () => {
 		await processEventSchemaTriggers(
 			{ userId: "user_1", createdEvents: [] },
 			createDeps({
-				enqueueEventSchemaTriggerJob: async (input) => {
+				enqueueEventSchemaTriggerJob: (input) => {
 					queued.push(input);
+					return Promise.resolve();
 				},
 			}),
 		);
@@ -67,9 +70,10 @@ describe("processEventSchemaTriggers", () => {
 		await processEventSchemaTriggers(
 			{ userId: "user_1", createdEvents: [createProgressEvent()] },
 			createDeps({
-				getActiveEventSchemaTriggersForEventSchemas: async () => [],
-				enqueueEventSchemaTriggerJob: async (input) => {
+				getActiveEventSchemaTriggersForEventSchemas: () => Promise.resolve([]),
+				enqueueEventSchemaTriggerJob: (input) => {
 					queued.push(input);
+					return Promise.resolve();
 				},
 			}),
 		);
@@ -83,15 +87,17 @@ describe("processEventSchemaTriggers", () => {
 		await processEventSchemaTriggers(
 			{ userId: "user_1", createdEvents: [createProgressEvent()] },
 			createDeps({
-				getActiveEventSchemaTriggersForEventSchemas: async () => [
-					{
-						id: "trigger_1",
-						sandboxScriptId: "script_1",
-						eventSchemaId: "event_schema_1",
-					},
-				],
-				enqueueEventSchemaTriggerJob: async (input) => {
+				getActiveEventSchemaTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							id: "trigger_1",
+							sandboxScriptId: "script_1",
+							eventSchemaId: "event_schema_1",
+						},
+					]),
+				enqueueEventSchemaTriggerJob: (input) => {
 					queued.push({ jobId: input.jobId, scriptId: input.scriptId });
+					return Promise.resolve();
 				},
 			}),
 		);
@@ -113,15 +119,17 @@ describe("processEventSchemaTriggers", () => {
 				createdEvents: [createProgressEvent({ id: "event_abc" })],
 			},
 			createDeps({
-				getActiveEventSchemaTriggersForEventSchemas: async () => [
-					{
-						id: "trigger_xyz",
-						sandboxScriptId: "script_1",
-						eventSchemaId: "event_schema_1",
-					},
-				],
-				enqueueEventSchemaTriggerJob: async (input) => {
+				getActiveEventSchemaTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							id: "trigger_xyz",
+							sandboxScriptId: "script_1",
+							eventSchemaId: "event_schema_1",
+						},
+					]),
+				enqueueEventSchemaTriggerJob: (input) => {
 					capturedJobId = input.jobId;
+					return Promise.resolve();
 				},
 			}),
 		);
@@ -138,20 +146,22 @@ describe("processEventSchemaTriggers", () => {
 				createdEvents: [createProgressEvent({ eventSchemaId: "schema_progress" })],
 			},
 			createDeps({
-				getActiveEventSchemaTriggersForEventSchemas: async () => [
-					{
-						id: "trigger_1",
-						sandboxScriptId: "script_1",
-						eventSchemaId: "schema_progress",
-					},
-					{
-						id: "trigger_2",
-						sandboxScriptId: "script_2",
-						eventSchemaId: "schema_complete",
-					},
-				],
-				enqueueEventSchemaTriggerJob: async (input) => {
+				getActiveEventSchemaTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							id: "trigger_1",
+							sandboxScriptId: "script_1",
+							eventSchemaId: "schema_progress",
+						},
+						{
+							id: "trigger_2",
+							sandboxScriptId: "script_2",
+							eventSchemaId: "schema_complete",
+						},
+					]),
+				enqueueEventSchemaTriggerJob: (input) => {
 					queued.push(input.jobId);
+					return Promise.resolve();
 				},
 			}),
 		);
@@ -175,15 +185,17 @@ describe("processEventSchemaTriggers", () => {
 				],
 			},
 			createDeps({
-				getActiveEventSchemaTriggersForEventSchemas: async () => [
-					{
-						id: "trigger_1",
-						sandboxScriptId: "script_1",
-						eventSchemaId: "event_schema_1",
-					},
-				],
-				enqueueEventSchemaTriggerJob: async (input) => {
+				getActiveEventSchemaTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							id: "trigger_1",
+							sandboxScriptId: "script_1",
+							eventSchemaId: "event_schema_1",
+						},
+					]),
+				enqueueEventSchemaTriggerJob: (input) => {
 					capturedContext = input.context;
+					return Promise.resolve();
 				},
 			}),
 		);
@@ -207,18 +219,19 @@ describe("processEventSchemaTriggers", () => {
 		await processEventSchemaTriggers(
 			{ userId: "user_2", createdEvents: [createProgressEvent()] },
 			createDeps({
-				getActiveEventSchemaTriggersForEventSchemas: async (input) => {
+				getActiveEventSchemaTriggersForEventSchemas: (input) => {
 					expect(input.userId).toBe("user_2");
-					return [
+					return Promise.resolve([
 						{
 							id: "trigger_1",
 							sandboxScriptId: "script_1",
 							eventSchemaId: "event_schema_1",
 						},
-					];
+					]);
 				},
-				enqueueEventSchemaTriggerJob: async (input) => {
+				enqueueEventSchemaTriggerJob: (input) => {
 					capturedUserId = input.userId;
+					return Promise.resolve();
 				},
 			}),
 		);
@@ -226,19 +239,20 @@ describe("processEventSchemaTriggers", () => {
 		expect(capturedUserId).toBe("user_2");
 	});
 
-	it("swallows queueing errors without throwing", async () => {
-		expect(
+	it("swallows queueing errors without throwing", () => {
+		return expect(
 			processEventSchemaTriggers(
 				{ userId: "user_1", createdEvents: [createProgressEvent()] },
 				createDeps({
-					getActiveEventSchemaTriggersForEventSchemas: async () => [
-						{
-							id: "trigger_1",
-							sandboxScriptId: "script_1",
-							eventSchemaId: "event_schema_1",
-						},
-					],
-					enqueueEventSchemaTriggerJob: async () => {
+					getActiveEventSchemaTriggersForEventSchemas: () =>
+						Promise.resolve([
+							{
+								id: "trigger_1",
+								sandboxScriptId: "script_1",
+								eventSchemaId: "event_schema_1",
+							},
+						]),
+					enqueueEventSchemaTriggerJob: () => {
 						throw new Error("Redis connection failed");
 					},
 				}),
@@ -246,12 +260,12 @@ describe("processEventSchemaTriggers", () => {
 		).resolves.toBeUndefined();
 	});
 
-	it("swallows DB errors when querying triggers without throwing", async () => {
-		expect(
+	it("swallows DB errors when querying triggers without throwing", () => {
+		return expect(
 			processEventSchemaTriggers(
 				{ userId: "user_1", createdEvents: [createProgressEvent()] },
 				createDeps({
-					getActiveEventSchemaTriggersForEventSchemas: async () => {
+					getActiveEventSchemaTriggersForEventSchemas: () => {
 						throw new Error("DB connection failed");
 					},
 				}),
@@ -271,15 +285,17 @@ describe("processEventSchemaTriggers", () => {
 				],
 			},
 			createDeps({
-				getActiveEventSchemaTriggersForEventSchemas: async () => [
-					{
-						id: "trigger_1",
-						eventSchemaId: "event_schema_1",
-						sandboxScriptId: "script_1",
-					},
-				],
-				enqueueEventSchemaTriggerJob: async (input) => {
+				getActiveEventSchemaTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							id: "trigger_1",
+							eventSchemaId: "event_schema_1",
+							sandboxScriptId: "script_1",
+						},
+					]),
+				enqueueEventSchemaTriggerJob: (input) => {
 					queued.push(input.jobId);
+					return Promise.resolve();
 				},
 			}),
 		);
@@ -299,20 +315,22 @@ describe("processEventSchemaTriggers", () => {
 				createdEvents: [createProgressEvent({ id: "event_1" })],
 			},
 			createDeps({
-				getActiveEventSchemaTriggersForEventSchemas: async () => [
-					{
-						id: "trigger_a",
-						sandboxScriptId: "script_a",
-						eventSchemaId: "event_schema_1",
-					},
-					{
-						id: "trigger_b",
-						sandboxScriptId: "script_b",
-						eventSchemaId: "event_schema_1",
-					},
-				],
-				enqueueEventSchemaTriggerJob: async (input) => {
+				getActiveEventSchemaTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							id: "trigger_a",
+							sandboxScriptId: "script_a",
+							eventSchemaId: "event_schema_1",
+						},
+						{
+							id: "trigger_b",
+							sandboxScriptId: "script_b",
+							eventSchemaId: "event_schema_1",
+						},
+					]),
+				enqueueEventSchemaTriggerJob: (input) => {
 					queued.push(input.jobId);
+					return Promise.resolve();
 				},
 			}),
 		);

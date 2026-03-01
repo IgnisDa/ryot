@@ -130,7 +130,7 @@ describe("listEventSchemas", () => {
 		const result = await listEventSchemas(
 			{ entitySchemaId: "schema_1", userId: "user_1" },
 			createEventSchemaDeps({
-				getEntitySchemaScopeForUser: async () => undefined,
+				getEntitySchemaScopeForUser: () => Promise.resolve(undefined),
 			}),
 		);
 
@@ -147,13 +147,14 @@ describe("listEventSchemas", () => {
 			await listEventSchemas(
 				{ entitySchemaId: "schema_1", userId: "user_1" },
 				createEventSchemaDeps({
-					listEventSchemasByEntitySchemaForUser: async () => eventSchemas,
-					getEntitySchemaScopeForUser: async (input) => ({
-						slug: "book",
-						isBuiltin: true,
-						userId: input.userId,
-						id: input.entitySchemaId,
-					}),
+					listEventSchemasByEntitySchemaForUser: () => Promise.resolve(eventSchemas),
+					getEntitySchemaScopeForUser: (input) =>
+						Promise.resolve({
+							slug: "book",
+							isBuiltin: true,
+							userId: input.userId,
+							id: input.entitySchemaId,
+						}),
 				}),
 			),
 		);
@@ -166,9 +167,9 @@ describe("createEventSchema", () => {
 	it("normalizes the payload before persisting", async () => {
 		let createdSlug: string | undefined;
 		const deps = createEventSchemaDeps({
-			createEventSchemaForUser: async (input) => {
+			createEventSchemaForUser: (input) => {
 				createdSlug = input.slug;
-				return createListedEventSchema({ slug: input.slug, name: input.name });
+				return Promise.resolve(createListedEventSchema({ slug: input.slug, name: input.name }));
 			},
 		});
 
@@ -208,12 +209,13 @@ describe("createEventSchema", () => {
 		const result = await createEventSchema(
 			{ userId: "user_1", body: createEventSchemaBody() },
 			createEventSchemaDeps({
-				getEntitySchemaScopeForUser: async (input) => ({
-					slug: "book",
-					isBuiltin: true,
-					userId: input.userId,
-					id: input.entitySchemaId,
-				}),
+				getEntitySchemaScopeForUser: (input) =>
+					Promise.resolve({
+						slug: "book",
+						isBuiltin: true,
+						userId: input.userId,
+						id: input.entitySchemaId,
+					}),
 			}),
 		);
 

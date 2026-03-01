@@ -15,7 +15,7 @@ export const initializeMetrics = () => {
 
 	setInterval(() => {
 		updateDbMetrics();
-		updateRedisMetrics();
+		void updateRedisMetrics();
 	}, 5000);
 };
 

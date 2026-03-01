@@ -18,10 +18,11 @@ export const commonErrors = {
 	healthCheckFailed: createErrorSchema(ERROR_CODES.HEALTH_CHECK_FAILED, "HealthCheckFailedError"),
 } as const;
 
-export const createErrorUnion = <T extends z.ZodTypeAny[]>(...errors: T) => {
+export const createErrorUnion = (...errors: z.ZodType[]) => {
 	if (errors.length === 1) {
 		return errors[0];
 	}
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	return z.discriminatedUnion("code", errors as never);
 };
 
@@ -72,6 +73,7 @@ export const createServiceErrorResult = <E extends string>(
 	result: Extract<ServiceResult<never, E>, { error: E }>,
 	input?: { notFoundErrors?: readonly E[] },
 ) => {
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	const notFoundErrors = input?.notFoundErrors ?? (["not_found"] as E[]);
 
 	return notFoundErrors.includes(result.error)
@@ -112,7 +114,9 @@ export const resolveValidationData = <T>(
 	return result;
 };
 
-export const dataSchema = <T extends z.ZodType>(schema: T) => z.object({ data: schema });
+export const dataSchema = <T extends z.ZodType>(schema: T) =>
+	// oxlint-disable-next-line no-unsafe-type-assertion
+	z.object({ data: schema });
 
 export const itemDataSchema = <T extends z.ZodType>(schema: T) => dataSchema(schema);
 
@@ -124,11 +128,12 @@ export const jsonBody = <TSchema extends z.ZodType>(schema: TSchema) => ({
 	content: { "application/json": { schema } },
 });
 
-export const createNullableOpenApiRefSchema = <TSchema extends z.ZodTypeAny>(
+export const createNullableOpenApiRefSchema = <TSchema extends z.ZodType>(
 	schema: TSchema,
 	input: { ref: string; name: string },
-) =>
-	z
+) => {
+	// oxlint-disable no-unsafe-type-assertion
+	return z
 		.any()
 		.transform((value, ctx) => {
 			const result = schema.safeParse(value);
@@ -146,6 +151,8 @@ export const createNullableOpenApiRefSchema = <TSchema extends z.ZodTypeAny>(
 			nullable: true,
 			allOf: [{ $ref: `#/components/schemas/${input.ref}` }],
 		} as never) as unknown as z.ZodType<z.infer<TSchema>>;
+	// oxlint-enable no-unsafe-type-assertion
+};
 
 export const createStandardResponses = <TSchema extends z.ZodType>(input: {
 	successSchema: TSchema;

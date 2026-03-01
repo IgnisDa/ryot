@@ -155,7 +155,7 @@ const waitForSandboxChildRun = async (job: Job, token: string | undefined) => {
 };
 
 const getSandboxChildRunResult = async (job: Job) => {
-	const childrenValues = (await job.getChildrenValues()) ?? {};
+	const childrenValues = await job.getChildrenValues();
 	const [childValue] = Object.values(childrenValues);
 	if (Object.keys(childrenValues).length !== 1) {
 		throw new Error("Sandbox child job did not complete successfully");
@@ -309,8 +309,9 @@ export const processMediaImportJob = async (
 		step = mediaJobWaitingForSandboxStep;
 	}
 
+	// oxlint-disable-next-line no-unnecessary-condition
 	if (step !== mediaJobWaitingForSandboxStep) {
-		throw new Error(`Unsupported media import job step: ${step}`);
+		throw new Error(`Unsupported media import job step: ${String(step)}`);
 	}
 
 	await waitForSandboxChildRun(job, token);
@@ -337,7 +338,10 @@ export const processMediaImportJob = async (
 	if (!scope) {
 		throw new Error("Entity schema not found");
 	}
-	const schemaFieldKeys = Object.keys((scope.propertiesSchema as AppSchema).fields);
+	const schemaFieldKeys = Object.keys(
+		// oxlint-disable-next-line no-unsafe-type-assertion
+		(scope.propertiesSchema as AppSchema).fields,
+	);
 	const properties: Record<string, unknown> = {};
 	for (const key of schemaFieldKeys) {
 		if (details.properties[key] !== undefined) {
@@ -347,6 +351,7 @@ export const processMediaImportJob = async (
 	const validatedProperties = parseAppSchemaProperties({
 		properties,
 		kind: "Media",
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		propertiesSchema: scope.propertiesSchema as AppSchema,
 	});
 	const parsedImages = imagesSchema.safeParse(validatedProperties.images);
@@ -437,8 +442,9 @@ export const processPersonPopulateJob = async (
 		step = mediaJobWaitingForSandboxStep;
 	}
 
+	// oxlint-disable-next-line no-unnecessary-condition
 	if (step !== mediaJobWaitingForSandboxStep) {
-		throw new Error(`Unsupported person populate job step: ${step}`);
+		throw new Error(`Unsupported person populate job step: ${String(step)}`);
 	}
 
 	await waitForSandboxChildRun(job, token);
@@ -458,6 +464,7 @@ export const processPersonPopulateJob = async (
 	}
 
 	const details = detailsParsed.data;
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	const schemaFieldKeys = Object.keys((personSchema.propertiesSchema as AppSchema).fields);
 	const filteredProperties: Record<string, unknown> = {};
 	for (const key of schemaFieldKeys) {

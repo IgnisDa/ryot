@@ -222,7 +222,7 @@ describe("listEntityEvents", () => {
 	it("returns not found when the entity does not exist", async () => {
 		const result = await listEntityEvents(
 			{ entityId: "entity_1", userId: "user_1" },
-			createEventDeps({ getEntityScopeForUser: async () => undefined }),
+			createEventDeps({ getEntityScopeForUser: () => Promise.resolve(undefined) }),
 		);
 
 		expect(result).toEqual({
@@ -240,12 +240,12 @@ describe("listEntityEvents", () => {
 		const result = await listEntityEvents(
 			{ sessionEntityId: "workout_1", userId: "user_1" },
 			createEventDeps({
-				listEventsByEntityForUser: async (input) => {
+				listEventsByEntityForUser: (input) => {
 					expect(input).toEqual({
 						userId: "user_1",
 						sessionEntityId: "workout_1",
 					});
-					return [listedEvent];
+					return Promise.resolve([listedEvent]);
 				},
 			}),
 		);
@@ -257,7 +257,7 @@ describe("listEntityEvents", () => {
 		const result = await listEntityEvents(
 			{ sessionEntityId: "workout_1", userId: "user_1" },
 			createEventDeps({
-				getSessionEntityScopeForUser: async () => undefined,
+				getSessionEntityScopeForUser: () => Promise.resolve(undefined),
 			}),
 		);
 
@@ -272,11 +272,13 @@ describe("createEvent", () => {
 	it("normalizes event payload before persisting", async () => {
 		let createdEventSchemaId: string | undefined;
 		const deps = createEventDeps({
-			createEventForUser: async (input) => {
+			createEventForUser: (input) => {
 				createdEventSchemaId = input.eventSchemaId;
-				return createListedEvent({
-					properties: input.properties,
-				});
+				return Promise.resolve(
+					createListedEvent({
+						properties: input.properties,
+					}),
+				);
 			},
 		});
 
@@ -314,16 +316,18 @@ describe("createEvent", () => {
 				}),
 			},
 			createBuiltinWorkoutSetEventDeps({
-				createEventForUser: async (input) => {
+				createEventForUser: (input) => {
 					capturedSessionEntityId = input.sessionEntityId;
-					return createListedEvent({
-						entityId: input.entityId,
-						properties: input.properties,
-						eventSchemaId: input.eventSchemaId,
-						eventSchemaName: input.eventSchemaName,
-						eventSchemaSlug: input.eventSchemaSlug,
-						sessionEntityId: input.sessionEntityId ?? null,
-					});
+					return Promise.resolve(
+						createListedEvent({
+							entityId: input.entityId,
+							properties: input.properties,
+							eventSchemaId: input.eventSchemaId,
+							eventSchemaName: input.eventSchemaName,
+							eventSchemaSlug: input.eventSchemaSlug,
+							sessionEntityId: input.sessionEntityId ?? null,
+						}),
+					);
 				},
 			}),
 		);
@@ -349,16 +353,18 @@ describe("createEvent", () => {
 				}),
 			},
 			createBuiltinWorkoutSetEventDeps({
-				createEventForUser: async (input) => {
+				createEventForUser: (input) => {
 					capturedSessionEntityId = input.sessionEntityId ?? "undefined";
-					return createListedEvent({
-						entityId: input.entityId,
-						properties: input.properties,
-						eventSchemaId: input.eventSchemaId,
-						eventSchemaName: input.eventSchemaName,
-						eventSchemaSlug: input.eventSchemaSlug,
-						sessionEntityId: input.sessionEntityId ?? null,
-					});
+					return Promise.resolve(
+						createListedEvent({
+							entityId: input.entityId,
+							properties: input.properties,
+							eventSchemaId: input.eventSchemaId,
+							eventSchemaName: input.eventSchemaName,
+							eventSchemaSlug: input.eventSchemaSlug,
+							sessionEntityId: input.sessionEntityId ?? null,
+						}),
+					);
 				},
 			}),
 		);
@@ -383,7 +389,7 @@ describe("createEvent", () => {
 				}),
 			},
 			createBuiltinWorkoutSetEventDeps({
-				getSessionEntityScopeForUser: async () => undefined,
+				getSessionEntityScopeForUser: () => Promise.resolve(undefined),
 			}),
 		);
 
@@ -409,7 +415,7 @@ describe("createEvent", () => {
 				}),
 			},
 			createBuiltinWorkoutSetEventDeps({
-				getSessionEntityScopeForUser: async () => undefined,
+				getSessionEntityScopeForUser: () => Promise.resolve(undefined),
 			}),
 		);
 
@@ -429,15 +435,18 @@ describe("createEvent", () => {
 		const result = await createEvent(
 			{ body: createEventBody(), userId: "user_1" },
 			createEventDeps({
-				getEventCreateScopeForUser: async (input) =>
-					createEventCreateScope({
-						entityUserId: null,
-						entityId: input.entityId,
-						eventSchemaId: input.eventSchemaId,
-					}),
-				getUserLibraryEntityId: async () => "library_123",
-				upsertInLibraryRelationship: async (input) => {
+				getEventCreateScopeForUser: (input) =>
+					Promise.resolve(
+						createEventCreateScope({
+							entityUserId: null,
+							entityId: input.entityId,
+							eventSchemaId: input.eventSchemaId,
+						}),
+					),
+				getUserLibraryEntityId: () => Promise.resolve("library_123"),
+				upsertInLibraryRelationship: (input) => {
 					calls.push(input);
+					return Promise.resolve();
 				},
 			}),
 		);
@@ -458,14 +467,17 @@ describe("createEvent", () => {
 		const result = await createEvent(
 			{ body: createEventBody(), userId: "user_1" },
 			createEventDeps({
-				getEventCreateScopeForUser: async (input) =>
-					createEventCreateScope({
-						entityUserId: null,
-						entityId: input.entityId,
-						eventSchemaId: input.eventSchemaId,
-					}),
-				upsertInLibraryRelationship: async () => {
+				getEventCreateScopeForUser: (input) =>
+					Promise.resolve(
+						createEventCreateScope({
+							entityUserId: null,
+							entityId: input.entityId,
+							eventSchemaId: input.eventSchemaId,
+						}),
+					),
+				upsertInLibraryRelationship: () => {
 					upsertCalls++;
+					return Promise.resolve();
 				},
 			}),
 		);
@@ -480,15 +492,18 @@ describe("createEvent", () => {
 		const result = await createEvent(
 			{ body: createEventBody(), userId: "user_1" },
 			createEventDeps({
-				upsertInLibraryRelationship: async () => {
+				upsertInLibraryRelationship: () => {
 					upsertCalls++;
+					return Promise.resolve();
 				},
-				getEventCreateScopeForUser: async (input) =>
-					createEventCreateScope({
-						entityUserId: "user_1",
-						entityId: input.entityId,
-						eventSchemaId: input.eventSchemaId,
-					}),
+				getEventCreateScopeForUser: (input) =>
+					Promise.resolve(
+						createEventCreateScope({
+							entityUserId: "user_1",
+							entityId: input.entityId,
+							eventSchemaId: input.eventSchemaId,
+						}),
+					),
 			}),
 		);
 
@@ -500,13 +515,15 @@ describe("createEvent", () => {
 		const result = await createEvent(
 			{ body: createEventBody(), userId: "user_1" },
 			createEventDeps({
-				getEventCreateScopeForUser: async (input) =>
-					createEventCreateScope({
-						entityUserId: null,
-						entityId: input.entityId,
-						eventSchemaId: input.eventSchemaId,
-					}),
-				getUserLibraryEntityId: async () => undefined,
+				getEventCreateScopeForUser: (input) =>
+					Promise.resolve(
+						createEventCreateScope({
+							entityUserId: null,
+							entityId: input.entityId,
+							eventSchemaId: input.eventSchemaId,
+						}),
+					),
+				getUserLibraryEntityId: () => Promise.resolve(undefined),
 			}),
 		);
 
@@ -525,15 +542,18 @@ describe("createEvent", () => {
 				body: createEventBody({ properties: { note: "Missing rating" } }),
 			},
 			createEventDeps({
-				upsertInLibraryRelationship: async () => {
+				upsertInLibraryRelationship: () => {
 					upsertCalls++;
+					return Promise.resolve();
 				},
-				getEventCreateScopeForUser: async (input) =>
-					createEventCreateScope({
-						entityUserId: null,
-						entityId: input.entityId,
-						eventSchemaId: input.eventSchemaId,
-					}),
+				getEventCreateScopeForUser: (input) =>
+					Promise.resolve(
+						createEventCreateScope({
+							entityUserId: null,
+							entityId: input.entityId,
+							eventSchemaId: input.eventSchemaId,
+						}),
+					),
 			}),
 		);
 
@@ -548,22 +568,24 @@ describe("createEvent", () => {
 		const result = await createEvent(
 			{ body: createEventBody(), userId: "user_1" },
 			createEventDeps({
-				getEventCreateScopeForUser: async (input) =>
-					createEventCreateScope({
-						entityId: input.entityId,
-						eventSchemaId: input.eventSchemaId,
-						eventSchemaEntitySchemaId: "schema_2",
-						propertiesSchema: {
-							fields: {
-								rating: {
-									label: "Rating",
-									type: "number" as const,
-									description: "Rating score",
-									validation: { required: true as const },
+				getEventCreateScopeForUser: (input) =>
+					Promise.resolve(
+						createEventCreateScope({
+							entityId: input.entityId,
+							eventSchemaId: input.eventSchemaId,
+							eventSchemaEntitySchemaId: "schema_2",
+							propertiesSchema: {
+								fields: {
+									rating: {
+										label: "Rating",
+										type: "number" as const,
+										description: "Rating score",
+										validation: { required: true as const },
+									},
 								},
 							},
-						},
-					}),
+						}),
+					),
 			}),
 		);
 

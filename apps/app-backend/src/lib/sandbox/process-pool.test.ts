@@ -34,6 +34,7 @@ function makeExited(exitCode = 0): FakeProcess {
 }
 
 function asSpawned(p: FakeProcess): SpawnedProcess {
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	return p as unknown as SpawnedProcess;
 }
 
@@ -88,6 +89,7 @@ describe("ProcessPool.checkout", () => {
 		pool.fill();
 
 		const proc = pool.checkout();
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		expect(proc).toBe(alive as unknown as SpawnedProcess);
 	});
 

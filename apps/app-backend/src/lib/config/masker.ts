@@ -11,7 +11,7 @@ function maskNode(node: ConfigNode, envIndex: EnvIndex): unknown {
 		return node.sensitive ? "****" : raw;
 	}
 	const result: Record<string, unknown> = {};
-	for (const [key, child] of Object.entries(node.children as Record<string, ConfigNode>)) {
+	for (const [key, child] of Object.entries(node.children)) {
 		result[key] = maskNode(child, envIndex);
 	}
 	return result;

@@ -11,6 +11,7 @@ const createHostFunctionFactory = <TContext extends Record<string, unknown>>(
 ): HostFunctionFactory => {
 	return (context) =>
 		(...args) =>
+			// oxlint-disable-next-line no-unsafe-type-assertion
 			hostFunction(context as TContext, ...args);
 };
 

@@ -45,12 +45,13 @@ describe("createSavedView", () => {
 		let validated = false;
 		let createdName: string | undefined;
 		const deps = createSavedViewDeps({
-			prepareForValidation: async () => {
+			prepareForValidation: () => {
 				validated = true;
+				return Promise.resolve();
 			},
-			createSavedViewForUser: async (input) => {
+			createSavedViewForUser: (input) => {
 				createdName = input.name;
-				return createListedSavedView({ name: input.name });
+				return Promise.resolve(createListedSavedView({ name: input.name }));
 			},
 		});
 
@@ -72,12 +73,12 @@ describe("createSavedView", () => {
 	it("returns validation before persisting an invalid definition", async () => {
 		let wasPersisted = false;
 		const deps = createSavedViewDeps({
-			prepareForValidation: async () => {
+			prepareForValidation: () => {
 				throw new QueryEngineValidationError("Invalid filter predicate");
 			},
-			createSavedViewForUser: async () => {
+			createSavedViewForUser: () => {
 				wasPersisted = true;
-				return createListedSavedView();
+				return Promise.resolve(createListedSavedView());
 			},
 		});
 
@@ -90,14 +91,14 @@ describe("createSavedView", () => {
 		expect(wasPersisted).toBe(false);
 	});
 
-	it("rethrows unexpected validation failures", async () => {
+	it("rethrows unexpected validation failures", () => {
 		const deps = createSavedViewDeps({
-			prepareForValidation: async () => {
+			prepareForValidation: () => {
 				throw new Error("Database connection lost");
 			},
 		});
 
-		expect(
+		return expect(
 			createSavedView({ userId: "user_1", body: createSavedViewBody() }, deps),
 		).rejects.toThrow("Database connection lost");
 	});
@@ -105,14 +106,14 @@ describe("createSavedView", () => {
 	it("returns validation before persisting unsupported saved view query modes", async () => {
 		let wasPersisted = false;
 		const deps = createSavedViewDeps({
-			prepareForValidation: async () => {
+			prepareForValidation: () => {
 				throw new QueryEngineValidationError(
 					"Saved view display configuration only supports entity mode queries",
 				);
 			},
-			createSavedViewForUser: async () => {
+			createSavedViewForUser: () => {
 				wasPersisted = true;
-				return createListedSavedView();
+				return Promise.resolve(createListedSavedView());
 			},
 		});
 
@@ -129,8 +130,8 @@ describe("createSavedView", () => {
 describe("updateSavedView", () => {
 	it("rejects built-in definition changes while still allowing disable toggles", async () => {
 		const deps = createSavedViewDeps({
-			getSavedViewBySlugForUser: async () =>
-				createListedSavedView({ isBuiltin: true, name: "Books" }),
+			getSavedViewBySlugForUser: () =>
+				Promise.resolve(createListedSavedView({ isBuiltin: true, name: "Books" })),
 		});
 
 		const result = await updateSavedView(
@@ -151,13 +152,13 @@ describe("updateSavedView", () => {
 	it("returns validation error before persisting an invalid definition", async () => {
 		let wasPersisted = false;
 		const deps = createSavedViewDeps({
-			getSavedViewBySlugForUser: async () => createListedSavedView(),
-			prepareForValidation: async () => {
+			getSavedViewBySlugForUser: () => Promise.resolve(createListedSavedView()),
+			prepareForValidation: () => {
 				throw new QueryEngineValidationError("Invalid sort expression");
 			},
-			updateSavedViewBySlugForUser: async () => {
+			updateSavedViewBySlugForUser: () => {
 				wasPersisted = true;
-				return createListedSavedView();
+				return Promise.resolve(createListedSavedView());
 			},
 		});
 
@@ -181,17 +182,21 @@ describe("updateSavedView", () => {
 		let validated = false;
 		let currentTrackerId: string | null | undefined;
 		const deps = createSavedViewDeps({
-			prepareForValidation: async () => {
+			prepareForValidation: () => {
 				validated = true;
+				return Promise.resolve();
 			},
-			getSavedViewBySlugForUser: async () => createListedSavedView({ trackerId: "tracker_1" }),
-			updateSavedViewBySlugForUser: async (input) => {
+			getSavedViewBySlugForUser: () =>
+				Promise.resolve(createListedSavedView({ trackerId: "tracker_1" })),
+			updateSavedViewBySlugForUser: (input) => {
 				currentTrackerId = input.currentTrackerId;
-				return createListedSavedView({
-					slug: input.viewSlug,
-					name: input.data.name,
-					trackerId: input.data.trackerId ?? null,
-				});
+				return Promise.resolve(
+					createListedSavedView({
+						slug: input.viewSlug,
+						name: input.data.name,
+						trackerId: input.data.trackerId ?? null,
+					}),
+				);
 			},
 		});
 
@@ -219,7 +224,7 @@ describe("updateSavedView", () => {
 describe("deleteSavedView", () => {
 	it("rejects deleting built-in views", async () => {
 		const deps = createSavedViewDeps({
-			getSavedViewBySlugForUser: async () => createListedSavedView({ isBuiltin: true }),
+			getSavedViewBySlugForUser: () => Promise.resolve(createListedSavedView({ isBuiltin: true })),
 		});
 
 		const result = await deleteSavedView({ userId: "user_1", viewSlug: "view_1" }, deps);
@@ -235,14 +240,16 @@ describe("cloneSavedView", () => {
 	it("clones through the validation boundary with a generated name", async () => {
 		let clonedName: string | undefined;
 		const deps = createSavedViewDeps({
-			getSavedViewBySlugForUser: async () =>
-				createListedSavedView({ name: "Reading", trackerId: null }),
-			createSavedViewForUser: async (input) => {
+			getSavedViewBySlugForUser: () =>
+				Promise.resolve(createListedSavedView({ name: "Reading", trackerId: null })),
+			createSavedViewForUser: (input) => {
 				clonedName = input.name;
-				return createListedSavedView({
-					name: input.name,
-					trackerId: input.trackerId ?? null,
-				});
+				return Promise.resolve(
+					createListedSavedView({
+						name: input.name,
+						trackerId: input.trackerId ?? null,
+					}),
+				);
 			},
 		});
 
@@ -259,7 +266,7 @@ describe("cloneSavedView", () => {
 describe("reorderSavedViews", () => {
 	it("rejects reorder requests containing unknown scoped ids", async () => {
 		const deps = createSavedViewDeps({
-			countSavedViewsBySlugForUser: async () => 1,
+			countSavedViewsBySlugForUser: () => Promise.resolve(1),
 		});
 
 		const result = await reorderSavedViews(

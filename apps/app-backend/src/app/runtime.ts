@@ -31,7 +31,7 @@ export const startServer = async () => {
 	await initializeRedis();
 	await initializeQueues();
 	await initializeSandboxService();
-	await initializeWorkers();
+	initializeWorkers();
 	await dispatchExerciseSeedJob();
 
 	const app = getServer();
@@ -72,6 +72,6 @@ export const startServer = async () => {
 		}
 	};
 
-	process.on("SIGINT", shutdown);
-	process.on("SIGTERM", shutdown);
+	process.on("SIGINT", () => void shutdown());
+	process.on("SIGTERM", () => void shutdown());
 };

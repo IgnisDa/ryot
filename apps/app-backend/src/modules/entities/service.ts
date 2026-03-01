@@ -124,7 +124,7 @@ export const upsertInLibraryIfGlobal = async (
 	},
 ) => {
 	if (input.entityUserId !== null) {
-		return;
+		return undefined;
 	}
 	const libraryEntityId = await deps.getUserLibraryEntityId({
 		userId: input.userId,
@@ -137,6 +137,8 @@ export const upsertInLibraryIfGlobal = async (
 		userId: input.userId,
 		mediaEntityId: input.entityId,
 	});
+
+	return undefined;
 };
 
 export const getEntityDetail = async (
@@ -216,6 +218,7 @@ export const createEntity = async (
 		name: input.body.name,
 		image: input.body.image,
 		properties: input.body.properties,
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		propertiesSchema: scope.propertiesSchema as AppSchema,
 	});
 	if ("error" in entityInput) {

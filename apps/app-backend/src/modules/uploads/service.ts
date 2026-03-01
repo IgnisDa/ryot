@@ -36,6 +36,7 @@ const resolveContentType = (contentType: string) => {
 		throw new Error("Upload content type must be a supported MIME type");
 	}
 
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	return normalizedContentType as UploadContentType;
 };
 
@@ -50,7 +51,7 @@ export const resolvePresignedUploadInput = (
 const resolveExtension = (contentType: UploadContentType) =>
 	uploadContentTypeExtensions[contentType][0];
 
-const signUploadUrl = async (input: SignUploadUrlInput) => {
+const signUploadUrl = (input: SignUploadUrlInput) => {
 	if (!s3 || !s3BucketName) {
 		throw new Error("S3 uploads are not configured for app-backend");
 	}
@@ -62,7 +63,7 @@ const signUploadUrl = async (input: SignUploadUrlInput) => {
 	});
 };
 
-const signDownloadUrl = async (key: string) => {
+const signDownloadUrl = (key: string) => {
 	if (!s3 || !s3BucketName) {
 		throw new Error("S3 uploads are not configured for app-backend");
 	}

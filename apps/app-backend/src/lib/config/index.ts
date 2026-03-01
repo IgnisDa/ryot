@@ -45,10 +45,12 @@ export type AppConfig = typeof rawApp;
 
 export type AppConfigEnvKey = ExtractEnvKeys<typeof appConfigDef.children>;
 
+// oxlint-disable-next-line no-unsafe-type-assertion
 export const appConfigEnvIndex = rawAppEnvIndex as Record<AppConfigEnvKey, string | undefined>;
 
 export type AppConfigPath = ExtractPaths<typeof appConfigDef.children>;
 
+// oxlint-disable-next-line no-unsafe-type-assertion
 export const appConfigPathIndex = buildPathIndex(appConfigDef) as Record<
 	AppConfigPath,
 	AppConfigEnvKey
