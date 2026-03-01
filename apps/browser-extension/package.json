@@ -4,10 +4,10 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"typecheck": "tsc",
 		"build-chrome": "wxt zip -b chrome",
 		"build-firefox": "wxt zip -b firefox",
 		"lint": "oxlint . --fix && oxfmt . --write",
+		"typecheck": "tsc && oxlint . --type-aware",
 		"build": "bun run build-chrome && bun run build-firefox"
 	},
 	"dependencies": {
