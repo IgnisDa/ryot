@@ -1,7 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Button, Card, Container, Text, TextField, View } from "reshaped";
 import { useAuthClient } from "@/hooks/auth";
 
 export const Route = createFileRoute("/start")({ component: StartPage });
