@@ -96,7 +96,7 @@ class SharedAdmissionRedis {
 
 			return Promise.resolve(["corrupt"]);
 		},
-	}) as RedisClient;
+	}) satisfies RedisClient;
 }
 
 describe("ProviderHttpAdmissionService", () => {
@@ -253,7 +253,7 @@ describe("ProviderHttpAdmissionService", () => {
 	it.effect("returns a typed unavailable failure for operational Redis errors", () => {
 		const client = Object.assign(Object.create(null), {
 			eval: () => Promise.reject(new Error("connection lost")),
-		}) as RedisClient;
+		}) satisfies RedisClient;
 
 		return Effect.gen(function* () {
 			const exit = yield* Effect.exit(
@@ -294,7 +294,7 @@ describe("ProviderHttpAdmissionService", () => {
 			for (const { response, message } of invalidResponses) {
 				const client = Object.assign(Object.create(null), {
 					eval: () => Promise.resolve(response),
-				}) as RedisClient;
+				}) satisfies RedisClient;
 				const exit = yield* Effect.exit(
 					withAdmission(client, (service) => service.reserve(declaration)),
 				);

@@ -184,7 +184,11 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 				expectSuccessfulHttpCall(value);
 			}
 			expect(timestamps).toHaveLength(3);
-			const gaps = timestamps.slice(1).map((timestamp, index) => timestamp - timestamps[index]!);
+			const gaps = timestamps
+				.slice(1)
+				.map(
+					(timestamp, index) => timestamp - requirePresent(timestamps[index], "Missing timestamp"),
+				);
 			expect(gaps.every((gap) => gap >= 650)).toBe(true);
 		}),
 	);
@@ -263,7 +267,10 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 				),
 			);
 			expect(retryTimestamps).toHaveLength(2);
-			expect(retryTimestamps[1]! - retryTimestamps[0]!).toBeGreaterThanOrEqual(3_500);
+			expect(
+				requirePresent(retryTimestamps[1], "Missing retry timestamp") -
+					requirePresent(retryTimestamps[0], "Missing retry timestamp"),
+			).toBeGreaterThanOrEqual(3_500);
 		}),
 	);
 
@@ -494,7 +501,10 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 					),
 				);
 				expect(requestTimestamps).toHaveLength(2);
-				expect(requestTimestamps[1]! - requestTimestamps[0]!).toBeGreaterThanOrEqual(18_500);
+				expect(
+					requirePresent(requestTimestamps[1], "Missing request timestamp") -
+						requirePresent(requestTimestamps[0], "Missing request timestamp"),
+				).toBeGreaterThanOrEqual(18_500);
 			}),
 	);
 });
