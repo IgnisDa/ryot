@@ -1,21 +1,18 @@
 import {
 	Alert,
 	Badge,
-	Box,
 	Button,
 	Card,
 	Container,
-	Group,
+	Grid,
 	Image,
 	Loader,
-	NumberInput,
+	NumberField,
 	Select,
-	SimpleGrid,
-	Stack,
 	Text,
-	TextInput,
-	Title,
-} from "@mantine/core";
+	TextField,
+	View,
+} from "reshaped";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
@@ -26,15 +23,28 @@ export const Route = createFileRoute("/schema-search")({
 	component: SchemaSearchPage,
 });
 
+const getPayloadErrorMessage = (payload: unknown) => {
+	if (!payload || typeof payload !== "object" || !Object.hasOwn(payload, "error")) {
+		return null;
+	}
+
+	const { error } = payload as { error?: unknown };
+	if (!error) return null;
+	if (typeof error === "string") return error;
+	if (typeof error !== "object") return "Request failed";
+	if (!Object.hasOwn(error, "message")) return "Request failed";
+
+	const { message } = error as { message?: unknown };
+	return typeof message === "string" ? message : "Request failed";
+};
+
 function SchemaSearchPage() {
 	const apiClient = useApiClient();
 	const authClient = useAuthClient();
 	const navigate = Route.useNavigate();
 	const [page, setPage] = useState(1);
 	const [query, setQuery] = useState("harry potter");
-	const [selectedSearchScriptId, setSelectedSearchScriptId] = useState<
-		string | null
-	>(null);
+	const [selectedSearchScriptId, setSelectedSearchScriptId] = useState("");
 	const [importingIdentifier, setImportingIdentifier] = useState<string | null>(
 		null,
 	);
@@ -53,12 +63,20 @@ function SchemaSearchPage() {
 		queryFn: async () => {
 			const response = await apiClient["entity-schemas"].list.$get();
 			const payload = await response.json();
-			if ("error" in payload) throw new Error(payload.error.message);
+			if ("error" in payload) {
+				const errorMessage = getPayloadErrorMessage(payload) ?? "Request failed";
+				throw new Error(errorMessage);
+			}
 			return payload;
 		},
 	});
 
-	const searchScripts = schemasQuery.data?.data.flatMap((schema) =>
+	const schemasData =
+		schemasQuery.data && "data" in schemasQuery.data
+			? schemasQuery.data.data
+			: [];
+
+	const searchScripts = schemasData.flatMap((schema) =>
 		schema.scriptPairs.map((pair) => ({
 			value: pair.searchScriptId,
 			label: `${schema.name} - ${pair.searchScriptName}`,
@@ -71,7 +89,7 @@ function SchemaSearchPage() {
 	);
 
 	useEffect(() => {
-		if (searchScripts && searchScripts.length > 0 && !selectedSearchScriptId) {
+		if (searchScripts.length > 0 && !selectedSearchScriptId) {
 			setSelectedSearchScriptId(searchScripts[0].value);
 		}
 	}, [searchScripts, selectedSearchScriptId]);
@@ -99,13 +117,21 @@ function SchemaSearchPage() {
 			});
 
 			const payload = await response.json();
-			if ("error" in payload) throw new Error(payload.error.message);
+			if ("error" in payload) {
+				const errorMessage = getPayloadErrorMessage(payload) ?? "Request failed";
+				throw new Error(errorMessage);
+			}
 
 			return payload;
 		},
 	});
 
-	const completedResult = searchRequest.data;
+	const completedResult =
+		searchRequest.data &&
+		"data" in searchRequest.data &&
+		"meta" in searchRequest.data
+			? searchRequest.data
+			: null;
 	const isSearching = searchRequest.isFetching || searchRequest.isPending;
 	const loadingLabel = "Searching...";
 	const searchError = searchRequest.error?.message;
@@ -140,122 +166,133 @@ function SchemaSearchPage() {
 	const importError = importEntityRequest.error?.message;
 
 	return (
-		<Box
+		<div
 			style={{
 				minHeight: "100vh",
 				background: "linear-gradient(180deg, #f7fafc 0%, #edf2f7 100%)",
 			}}
 		>
-			<Container size="lg" py="xl">
-				<Stack gap="lg">
-					<Stack gap={4}>
-						<Title order={2}>Entity Schema Search</Title>
-						<Text c="dimmed">
+			<Container width="964px" padding={8}>
+				<View gap={6}>
+					<View gap={1}>
+						<Text variant="title-2" as="h2">
+							Entity Schema Search
+						</Text>
+						<Text color="neutral-faded">
 							Search and import entities from various sources. Select a search
 							script below to get started.
 						</Text>
-					</Stack>
+					</View>
 
-					<Group grow align="start">
-						<TextInput
-							label="Query"
-							value={query}
-							onChange={(event) => setQuery(event.currentTarget.value)}
-						/>
-						<NumberInput
-							min={1}
-							label="Page"
-							value={page}
-							onChange={(value) => setPage(Number(value) || 1)}
-						/>
-					</Group>
+					<View direction="row" gap={4} align="start">
+						<View.Item grow>
+							<TextField
+								name="Query"
+								value={query}
+								onChange={(event) => setQuery(event.value)}
+							/>
+						</View.Item>
+						<View.Item grow>
+							<NumberField
+								min={1}
+								name="Page"
+								value={page}
+								onChange={(event) => setPage(Number(event.value) || 1)}
+								increaseAriaLabel="Increase page"
+								decreaseAriaLabel="Decrease page"
+							/>
+						</View.Item>
+					</View>
 
 					<Select
-						searchable
-						label="Search Script"
-						data={searchScripts ?? []}
+						name="Search Script"
+						options={searchScripts}
 						value={selectedSearchScriptId}
-						onChange={(value) => setSelectedSearchScriptId(value)}
+						onChange={(event) => setSelectedSearchScriptId(event.value)}
 						placeholder={
 							schemasQuery.isPending
 								? "Loading schemas..."
 								: "Select a search script"
 						}
-						disabled={schemasQuery.isPending || !searchScripts?.length}
+						disabled={schemasQuery.isPending || !searchScripts.length}
 					/>
 
 					{isSearching ? (
-						<Group>
-							<Loader size="sm" />
-							<Text size="sm" c="dimmed">
+						<View direction="row" gap={3} align="center">
+							<Loader size="small" />
+							<Text variant="caption-1" color="neutral-faded">
 								{loadingLabel}
 							</Text>
-						</Group>
+						</View>
 					) : null}
 
 					{searchError ? (
-						<Alert color="red" title="Search failed">
+						<Alert color="critical" title="Search failed">
 							{searchError}
 						</Alert>
 					) : null}
 
 					{importError ? (
-						<Alert color="red" title="Import failed">
+						<Alert color="critical" title="Import failed">
 							{importError}
 						</Alert>
 					) : null}
 
 					{completedResult ? (
-						<Group>
-							<Badge color="blue" variant="light">
+						<View direction="row" gap={2} wrap>
+							<Badge color="primary" variant="faded">
 								Total: {completedResult.meta.total}
 							</Badge>
-							<Badge color="teal" variant="light">
+							<Badge color="positive" variant="faded">
 								Next page:{" "}
 								{completedResult.meta.hasMore
 									? completedResult.meta.page + 1
 									: "none"}
 							</Badge>
-						</Group>
+						</View>
 					) : null}
 
-					<SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+					<Grid columns={{ s: 1, m: 2 }} gap={4}>
 						{completedResult?.data.map((item) => (
-							<Card key={item.identifier} withBorder radius="md" padding="md">
-								<Stack gap="sm">
-									{item.image ? (
-										<Image
-											h={180}
-											radius="sm"
-											fit="contain"
-											src={item.image}
-											alt={item.title}
-										/>
-									) : null}
-									<Title order={4}>{item.title}</Title>
-									<Text size="sm" c="dimmed">
-										Identifier: {item.identifier}
-									</Text>
-									<Text size="sm" c="dimmed">
-										Publish year: {item.publishYear ?? "unknown"}
-									</Text>
-									<Button
-										variant="light"
-										disabled={importEntityRequest.isPending}
-										loading={
-											importEntityRequest.isPending &&
-											importingIdentifier === item.identifier
-										}
-										onClick={() => importEntityRequest.mutate(item.identifier)}
-									>
-										Import
-									</Button>
-								</Stack>
-							</Card>
+							<Grid.Item key={item.identifier}>
+								<Card padding={4}>
+									<View gap={3}>
+										{item.image ? (
+											<Image
+												height={180}
+												src={item.image}
+												alt={item.title}
+												displayMode="contain"
+												borderRadius="small"
+											/>
+										) : null}
+										<Text variant="title-4" as="h4">
+											{item.title}
+										</Text>
+										<Text variant="caption-1" color="neutral-faded">
+											Identifier: {item.identifier}
+										</Text>
+										<Text variant="caption-1" color="neutral-faded">
+											Publish year: {item.publishYear ?? "unknown"}
+										</Text>
+										<Button
+											variant="faded"
+											disabled={importEntityRequest.isPending}
+											loading={
+												importEntityRequest.isPending &&
+												importingIdentifier === item.identifier
+											}
+											onClick={() => importEntityRequest.mutate(item.identifier)}
+										>
+											Import
+										</Button>
+									</View>
+								</Card>
+							</Grid.Item>
 						))}
-					</SimpleGrid>
-				</Stack>
+					</Grid>
+				</View>
 			</Container>
-		</Box>
+		</div>
 	);
 }
