@@ -23,7 +23,6 @@ export const entitySchema = pgTable(
 		name: text().notNull(),
 		propertiesSchema: jsonb().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
-		eventSchemas: jsonb().notNull().default([]),
 		displayConfig: jsonb().notNull().default({}),
 		isBuiltin: boolean().notNull().default(false),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
@@ -35,6 +34,30 @@ export const entitySchema = pgTable(
 		index("entity_schema_slug_idx").on(table.slug),
 		index("entity_schema_user_id_idx").on(table.userId),
 		unique("entity_schema_user_slug_unique").on(table.userId, table.slug),
+	],
+);
+
+export const eventSchema = pgTable(
+	"event_schema",
+	{
+		slug: text().notNull(),
+		name: text().notNull(),
+		createdAt: timestamp().defaultNow().notNull(),
+		propertiesSchema: jsonb().notNull(),
+		id: text()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		entitySchemaId: text()
+			.notNull()
+			.references(() => entitySchema.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		index("event_schema_slug_idx").on(table.slug),
+		index("event_schema_entity_schema_id_idx").on(table.entitySchemaId),
+		unique("event_schema_entity_schema_slug_unique").on(
+			table.entitySchemaId,
+			table.slug,
+		),
 	],
 );
 
@@ -143,7 +166,6 @@ export const entity = pgTable(
 export const event = pgTable(
 	"event",
 	{
-		eventType: text().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
 		occurredAt: timestamp().notNull().defaultNow(),
 		properties: jsonb().notNull().default({}),
@@ -156,15 +178,18 @@ export const event = pgTable(
 		sessionEntityId: text().references(() => entity.id, {
 			onDelete: "cascade",
 		}),
+		eventSchemaId: text()
+			.notNull()
+			.references(() => eventSchema.id, { onDelete: "cascade" }),
 		entityId: text()
 			.notNull()
 			.references(() => entity.id, { onDelete: "cascade" }),
 	},
 	(table) => [
-		index("event_type_idx").on(table.eventType),
 		index("event_user_id_idx").on(table.userId),
 		index("event_entity_id_idx").on(table.entityId),
 		index("event_occurred_at_idx").on(table.occurredAt),
+		index("event_event_schema_id_idx").on(table.eventSchemaId),
 		index("event_session_entity_id_idx").on(table.sessionEntityId),
 		index("event_properties_idx").using("gin", table.properties),
 	],
