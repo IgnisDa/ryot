@@ -1641,8 +1641,8 @@
     {
       "type": "frame",
       "id": "d7wLO",
-      "x": 3214,
-      "y": 0,
+      "x": 3371,
+      "y": 30,
       "name": "Collapsing Chrome / Topbar Search",
       "theme": {
         "Mode": "Dark"
@@ -4630,6 +4630,15 @@
           "letterSpacing": 1.1
         }
       ]
+    },
+    {
+      "type": "note",
+      "id": "hj4j8",
+      "x": 3090,
+      "y": 114,
+      "width": 281,
+      "height": 62,
+      "content": "- this avatar switcher will open up the settings tab etc. clicking on it will open up the settings etc.\n- the workspace switcher on the right (works like the swipeable account switcher of gmail) will allow you to switch between workspaces (media and fitness)"
     }
   ],
   "themes": {
