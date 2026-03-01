@@ -36,7 +36,6 @@ export const entitySchema = pgTable(
 			.notNull(),
 	},
 	(table) => [
-		index("entity_schema_slug_idx").on(table.slug),
 		index("entity_schema_user_id_idx").on(table.userId),
 		unique("entity_schema_user_slug_unique").on(table.userId, table.slug),
 	],
@@ -63,7 +62,6 @@ export const eventSchema = pgTable(
 			.notNull(),
 	},
 	(table) => [
-		index("event_schema_slug_idx").on(table.slug),
 		index("event_schema_entity_schema_id_idx").on(table.entitySchemaId),
 		unique("event_schema_user_entity_schema_slug_unique").on(
 			table.userId,
@@ -92,7 +90,6 @@ export const sandboxScript = pgTable(
 			.notNull(),
 	},
 	(table) => [
-		index("sandbox_script_slug_idx").on(table.slug),
 		index("sandbox_script_user_id_idx").on(table.userId),
 		unique("sandbox_script_user_slug_unique").on(table.userId, table.slug),
 	],

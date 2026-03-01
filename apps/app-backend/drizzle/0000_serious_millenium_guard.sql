@@ -100,10 +100,11 @@ CREATE TABLE "event_schema" (
 	"name" text NOT NULL,
 	"properties_schema" jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
+	"user_id" text,
 	"entity_schema_id" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "event_schema_entity_schema_slug_unique" UNIQUE("entity_schema_id","slug")
+	CONSTRAINT "event_schema_user_entity_schema_slug_unique" UNIQUE("user_id","entity_schema_id","slug")
 );
 --> statement-breakpoint
 CREATE TABLE "relationship" (
@@ -184,6 +185,7 @@ ALTER TABLE "event" ADD CONSTRAINT "event_session_entity_id_entity_id_fk" FOREIG
 ALTER TABLE "event" ADD CONSTRAINT "event_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_event_schema_id_event_schema_id_fk" FOREIGN KEY ("event_schema_id") REFERENCES "public"."event_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_entity_id_entity_id_fk" FOREIGN KEY ("entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "event_schema" ADD CONSTRAINT "event_schema_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event_schema" ADD CONSTRAINT "event_schema_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_id_fk" FOREIGN KEY ("source_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -201,7 +203,6 @@ CREATE INDEX "entity_entity_schema_id_idx" ON "entity" USING btree ("entity_sche
 CREATE INDEX "entity_properties_idx" ON "entity" USING gin ("properties");--> statement-breakpoint
 CREATE INDEX "entity_search_vector_idx" ON "entity" USING gin ("search_vector");--> statement-breakpoint
 CREATE INDEX "entity_details_sandbox_script_id_idx" ON "entity" USING btree ("details_sandbox_script_id");--> statement-breakpoint
-CREATE INDEX "entity_schema_slug_idx" ON "entity_schema" USING btree ("slug");--> statement-breakpoint
 CREATE INDEX "entity_schema_user_id_idx" ON "entity_schema" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "entity_schema_sandbox_script_entity_schema_id_idx" ON "entity_schema_sandbox_script" USING btree ("entity_schema_id");--> statement-breakpoint
 CREATE INDEX "entity_schema_sandbox_script_search_script_id_idx" ON "entity_schema_sandbox_script" USING btree ("search_sandbox_script_id");--> statement-breakpoint
@@ -212,13 +213,11 @@ CREATE INDEX "event_occurred_at_idx" ON "event" USING btree ("occurred_at");--> 
 CREATE INDEX "event_event_schema_id_idx" ON "event" USING btree ("event_schema_id");--> statement-breakpoint
 CREATE INDEX "event_session_entity_id_idx" ON "event" USING btree ("session_entity_id");--> statement-breakpoint
 CREATE INDEX "event_properties_idx" ON "event" USING gin ("properties");--> statement-breakpoint
-CREATE INDEX "event_schema_slug_idx" ON "event_schema" USING btree ("slug");--> statement-breakpoint
 CREATE INDEX "event_schema_entity_schema_id_idx" ON "event_schema" USING btree ("entity_schema_id");--> statement-breakpoint
 CREATE INDEX "relationship_rel_type_idx" ON "relationship" USING btree ("rel_type");--> statement-breakpoint
 CREATE INDEX "relationship_source_entity_id_idx" ON "relationship" USING btree ("source_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_target_entity_id_idx" ON "relationship" USING btree ("target_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_properties_idx" ON "relationship" USING gin ("properties");--> statement-breakpoint
-CREATE INDEX "sandbox_script_slug_idx" ON "sandbox_script" USING btree ("slug");--> statement-breakpoint
 CREATE INDEX "sandbox_script_user_id_idx" ON "sandbox_script" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_view_user_id_idx" ON "saved_view" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" USING btree ("user_id");--> statement-breakpoint

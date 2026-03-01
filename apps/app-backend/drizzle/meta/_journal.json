@@ -5,15 +5,8 @@
 		{
 			"idx": 0,
 			"version": "7",
-			"when": 1772383910781,
-			"tag": "0000_short_sprite",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1772384102281,
-			"tag": "0001_serious_gambit",
+			"when": 1772384192144,
+			"tag": "0000_serious_millenium_guard",
 			"breakpoints": true
 		}
 	]
