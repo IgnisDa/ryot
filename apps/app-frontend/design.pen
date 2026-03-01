@@ -3538,7 +3538,7 @@
                   "type": "ref",
                   "ref": "C3KOZ",
                   "x": 24,
-                  "y": 24.019943701668048,
+                  "y": 24.01994370166805,
                   "width": "fill_container",
                   "descendants": {
                     "NEMHS": {
@@ -5252,7 +5252,7 @@
                                   "id": "vEOQJ",
                                   "width": 18,
                                   "height": 18,
-                                  "iconFontName": "tv",
+                                  "iconFontName": "clapperboard",
                                   "iconFontFamily": "lucide",
                                   "fill": "$--foreground"
                                 }
@@ -5262,7 +5262,7 @@
                               "type": "text",
                               "id": "tzCRb",
                               "fill": "$--foreground",
-                              "content": "media.seen",
+                              "content": "Movie: seen",
                               "lineHeight": 1.3846153846153846,
                               "fontFamily": "Inter",
                               "fontSize": 13,
@@ -5315,7 +5315,7 @@
                                   "id": "prD5k",
                                   "width": 18,
                                   "height": 18,
-                                  "iconFontName": "map-pin",
+                                  "iconFontName": "book-open",
                                   "iconFontFamily": "lucide",
                                   "fill": "$--foreground"
                                 }
@@ -5325,7 +5325,7 @@
                               "type": "text",
                               "id": "cFGX1",
                               "fill": "$--foreground",
-                              "content": "place.visited",
+                              "content": "Book: read",
                               "lineHeight": 1.3846153846153846,
                               "fontFamily": "Inter",
                               "fontSize": 13,
@@ -5378,7 +5378,7 @@
                                   "id": "GtkY0",
                                   "width": 18,
                                   "height": 18,
-                                  "iconFontName": "wine",
+                                  "iconFontName": "headphones",
                                   "iconFontFamily": "lucide",
                                   "fill": "$--foreground"
                                 }
@@ -5388,7 +5388,7 @@
                               "type": "text",
                               "id": "TqdOZ",
                               "fill": "$--foreground",
-                              "content": "whiskey.drink",
+                              "content": "Show: watched",
                               "lineHeight": 1.3846153846153846,
                               "fontFamily": "Inter",
                               "fontSize": 13,
@@ -5441,7 +5441,7 @@
                                   "id": "tR7mO",
                                   "width": 18,
                                   "height": 18,
-                                  "iconFontName": "dumbbell",
+                                  "iconFontName": "gamepad-2",
                                   "iconFontFamily": "lucide",
                                   "fill": "$--foreground"
                                 }
@@ -5451,7 +5451,7 @@
                               "type": "text",
                               "id": "tsDNP",
                               "fill": "$--foreground",
-                              "content": "workout.session",
+                              "content": "Game: played",
                               "lineHeight": 1.3846153846153846,
                               "fontFamily": "Inter",
                               "fontSize": 13,
@@ -5504,7 +5504,7 @@
                                   "id": "dIm7V",
                                   "width": 18,
                                   "height": 18,
-                                  "iconFontName": "activity",
+                                  "iconFontName": "map-pin",
                                   "iconFontFamily": "lucide",
                                   "fill": "$--foreground"
                                 }
@@ -5514,7 +5514,7 @@
                               "type": "text",
                               "id": "G8uSs",
                               "fill": "$--foreground",
-                              "content": "measurement",
+                              "content": "Place: visited",
                               "lineHeight": 1.3846153846153846,
                               "fontFamily": "Inter",
                               "fontSize": 13,
@@ -5840,7 +5840,7 @@
                                   "id": "ySyhq",
                                   "width": 16,
                                   "height": 16,
-                                  "iconFontName": "tv",
+                                  "iconFontName": "clapperboard",
                                   "iconFontFamily": "lucide",
                                   "fill": "$--foreground"
                                 }
@@ -5875,7 +5875,7 @@
                                       "ref": "WuUMk",
                                       "descendants": {
                                         "zHpCv": {
-                                          "content": "media.seen"
+                                          "content": "seen"
                                         }
                                       }
                                     },
@@ -5975,7 +5975,7 @@
                                       "ref": "WuUMk",
                                       "descendants": {
                                         "zHpCv": {
-                                          "content": "place.visited"
+                                          "content": "visited"
                                         }
                                       }
                                     },
@@ -6092,7 +6092,7 @@
                                       "ref": "WuUMk",
                                       "descendants": {
                                         "zHpCv": {
-                                          "content": "whiskey.drink"
+                                          "content": "drink"
                                         }
                                       }
                                     },
@@ -6836,7 +6836,7 @@
                               "id": "uMrp1",
                               "width": 14,
                               "height": 14,
-                              "iconFontName": "tv",
+                              "iconFontName": "book-open",
                               "iconFontFamily": "lucide",
                               "fill": "$--foreground"
                             }
@@ -6846,7 +6846,7 @@
                           "type": "text",
                           "id": "iQMCq",
                           "fill": "$--foreground",
-                          "content": "media.seen",
+                          "content": "Book → read",
                           "lineHeight": 1.4285714285714286,
                           "fontFamily": "Inter",
                           "fontSize": 14,
@@ -6983,7 +6983,7 @@
                               "type": "text",
                               "id": "RhIvM",
                               "fill": "$--muted-foreground",
-                              "content": "OPEN LIBRARY",
+                              "content": "OPEN LIBRARY — BOOKS",
                               "lineHeight": 1.6,
                               "fontFamily": "Inter",
                               "fontSize": 10,
@@ -7259,7 +7259,7 @@
                               "type": "text",
                               "id": "1hzeS",
                               "fill": "$--primary",
-                              "content": "Create new book entity",
+                              "content": "Create new book",
                               "lineHeight": 1.3846153846153846,
                               "fontFamily": "Inter",
                               "fontSize": 13,
