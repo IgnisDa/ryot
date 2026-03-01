@@ -7,7 +7,7 @@ import { entity, relationship } from "./entities";
 import { event } from "./events";
 import { importRun, importRunFailure, integration } from "./imports";
 import { notificationChannel } from "./notifications";
-import { savedView, savedViewState } from "./views";
+import { savedView } from "./views";
 
 export const pluginStateRelations = relations(pluginState, ({ one }) => ({
 	user: one(user, { references: [user.id], fields: [pluginState.userId] }),
@@ -67,10 +67,6 @@ export const relationshipRelations = relations(relationship, ({ one }) => ({
 
 export const savedViewRelations = relations(savedView, ({ one }) => ({
 	user: one(user, { references: [user.id], fields: [savedView.userId] }),
-}));
-
-export const savedViewStateRelations = relations(savedViewState, ({ one }) => ({
-	user: one(user, { references: [user.id], fields: [savedViewState.userId] }),
 }));
 
 export const integrationRelations = relations(integration, ({ one, many }) => ({

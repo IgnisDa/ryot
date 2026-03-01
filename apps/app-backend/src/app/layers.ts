@@ -250,6 +250,7 @@ const DefinitionsServiceLive = DefinitionsService.layer;
 const BootstrapServicesLive = Layer.mergeAll(
 	EntitiesServiceLive,
 	NotificationSubscriptionsServiceLive,
+	SavedViewsServiceLive,
 );
 
 const AuthUserBootstrapProvidedLive = Layer.provideMerge(
@@ -450,6 +451,7 @@ const MigrationBootstrapServicesLive = Layer.provide(
 	Layer.provideMerge(
 		Layer.mergeAll(
 			Layer.provideMerge(NotificationSubscriptionsService.layer, AutomationsService.layer),
+			SavedViewsServiceLive,
 			Layer.fresh(EntitiesService.layer),
 			SignalSchemasService.layer,
 		),

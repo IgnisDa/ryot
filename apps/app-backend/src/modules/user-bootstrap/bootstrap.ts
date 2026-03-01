@@ -6,6 +6,7 @@ import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect, TransactionRunner } from "#lib/infrastructure/db/service";
 import { AuthUserBootstrap } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
+import { SavedViewsService } from "#modules/saved-views/service";
 
 import { PluginUserBootstrapDispatcher } from "./plugin-dispatch";
 
@@ -50,6 +51,7 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 	if (alreadyComplete) {
 		return;
 	}
+	const savedViews = yield* SavedViewsService;
 	const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
 	yield* pluginBootstrap.dispatchAll(user);
 	yield* runner(
@@ -58,6 +60,7 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 			if ((yield* readBootstrapMarker(userId)) !== null) {
 				return;
 			}
+			yield* savedViews.ensureBuiltinViews(user);
 			const notificationSubscriptions = yield* NotificationSubscriptionsService;
 			yield* notificationSubscriptions.ensureDefaultRules(user);
 			yield* markBootstrapComplete(userId);
@@ -71,6 +74,7 @@ export const bootstrapNewUser = (userId: string) =>
 export const AuthUserBootstrapLive = Layer.effect(
 	AuthUserBootstrap,
 	Effect.gen(function* () {
+		const savedViews = yield* SavedViewsService;
 		const transactionRunner = yield* TransactionRunner;
 		const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
 		const notificationSubscriptions = yield* NotificationSubscriptionsService;
@@ -81,6 +85,7 @@ export const AuthUserBootstrapLive = Layer.effect(
 					Effect.provideService(TransactionRunner, transactionRunner),
 					Effect.provideService(PluginUserBootstrapDispatcher, pluginBootstrap),
 					Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
+					Effect.provideService(SavedViewsService, savedViews),
 				),
 		};
 	}),
