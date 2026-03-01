@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button, Card, Container, Grid, Text, TextArea, View } from "reshaped";
 import { useApiClient } from "@/hooks/api";
 import { useAuthClient } from "@/hooks/auth";
@@ -88,10 +88,6 @@ function App() {
 	const authClient = useAuthClient();
 	const navigate = Route.useNavigate();
 	const [code, setCode] = useState(defaultCode);
-
-	useEffect(() => {
-		void authClient.signIn.anonymous();
-	}, [authClient]);
 
 	const runMutation = useMutation({
 		mutationFn: async (scriptCode: string) => {

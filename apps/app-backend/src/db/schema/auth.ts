@@ -13,7 +13,6 @@ export const user = pgTable("user", {
 	name: text().notNull(),
 	id: text().primaryKey(),
 	email: text().notNull().unique(),
-	isAnonymous: boolean().default(false),
 	createdAt: timestamp().defaultNow().notNull(),
 	emailVerified: boolean().default(false).notNull(),
 	updatedAt: timestamp()

@@ -97,10 +97,6 @@ function SchemaSearchPage() {
 
 	const trimmedQuery = query.trim();
 
-	useEffect(() => {
-		void authClient.signIn.anonymous();
-	}, [authClient]);
-
 	const schemasQuery = useQuery({
 		refetchOnMount: false,
 		refetchOnReconnect: false,

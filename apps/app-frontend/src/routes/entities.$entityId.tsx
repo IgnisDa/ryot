@@ -1,3 +1,5 @@
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
 import {
 	Alert,
 	Badge,
@@ -10,9 +12,6 @@ import {
 	Text,
 	View,
 } from "reshaped";
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect } from "react";
 import { useApiClient } from "@/hooks/api";
 import { useAuthClient } from "@/hooks/auth";
 
@@ -85,10 +84,6 @@ function EntityDetailPage() {
 	const apiClient = useApiClient();
 	const authClient = useAuthClient();
 
-	useEffect(() => {
-		void authClient.signIn.anonymous();
-	}, [authClient]);
-
 	const entityRequest = useQuery({
 		queryKey: ["entity", params.entityId],
 		queryFn: async () => {
@@ -132,7 +127,8 @@ function EntityDetailPage() {
 						</Text>
 						<View direction="row" gap={2} wrap>
 							<Badge color="primary" variant="faded">
-								Schema: {String(entityRequest.data?.data.schemaSlug ?? "unknown")}
+								Schema:{" "}
+								{String(entityRequest.data?.data.schemaSlug ?? "unknown")}
 							</Badge>
 							<Badge color="neutral" variant="faded">
 								Entity ID: {params.entityId}
