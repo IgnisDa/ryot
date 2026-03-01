@@ -42,12 +42,13 @@ export const ensureBuiltinEntitySchema = async (input: {
 
 export const ensureBuiltinEntitySchemaEventSchemas = async (input: {
 	entitySchemaId: string;
-	eventSchemas: Array<{
+	eventSchemas?: Array<{
 		slug: string;
 		name: string;
-		properties_schema: unknown;
+		propertiesSchema: unknown;
 	}>;
 }) => {
+	if (!input.eventSchemas) return;
 	await db
 		.delete(eventSchema)
 		.where(eq(eventSchema.entitySchemaId, input.entitySchemaId));
@@ -59,7 +60,7 @@ export const ensureBuiltinEntitySchemaEventSchemas = async (input: {
 			slug: schema.slug,
 			name: schema.name,
 			entitySchemaId: input.entitySchemaId,
-			propertiesSchema: schema.properties_schema,
+			propertiesSchema: schema.propertiesSchema,
 		})),
 	);
 };
