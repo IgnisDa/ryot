@@ -48,13 +48,13 @@ function SubmitButton(props: SubmitButtonProps) {
 	const form = useFormContext();
 
 	return (
-		<form.Subscribe selector={(state) => state.isSubmitting}>
-			{(isSubmitting) => (
+		<form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
+			{([canSubmit, isSubmitting]) => (
 				<Button
 					type="submit"
 					variant={props.variant}
 					className={props.className}
-					disabled={props.disabled || isSubmitting}
+					disabled={props.disabled || isSubmitting || !canSubmit}
 				>
 					{isSubmitting ? (props.pendingLabel ?? props.label) : props.label}
 				</Button>
