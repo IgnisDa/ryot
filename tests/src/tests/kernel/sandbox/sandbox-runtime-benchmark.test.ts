@@ -1,5 +1,6 @@
 import os from "node:os";
 
+import type { ContractPayload } from "@ryot/contract/client";
 import { UserId } from "@ryot/contract/schema/brands";
 import { Clock, Effect } from "effect";
 
@@ -435,7 +436,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 						name: "Benchmark controlled HTTP provider",
 						entry: "scripts/provider-search.sandbox.ts",
 					},
-				];
+				] satisfies ContractPayload<"plugins", "install">["manifest"]["scripts"];
 				const benchmarkPlugin = yield* Effect.acquireRelease(
 					installTestPluginBundle({
 						scripts,

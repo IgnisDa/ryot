@@ -1,7 +1,7 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
 import { Conflict } from "@ryot/contract/errors";
-import type { PluginManifest } from "@ryot/plugin-kit/manifest";
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Queue, Ref } from "effect";
 
 import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";

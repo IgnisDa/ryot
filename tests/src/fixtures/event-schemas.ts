@@ -1,5 +1,5 @@
+import type { ContractPayload } from "@ryot/contract/client";
 import { EntitySchemaSlug, EventSchemaSlug } from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
@@ -7,12 +7,14 @@ import { requirePresent } from "~/support/assertions";
 import type { Client } from "./auth";
 import { installTestDefinitions } from "./test-plugin";
 
-export interface CreateEventSchemaOptions {
-	name: string;
-	slug: string;
-	entitySchemaSlug: string;
-	propertiesSchema?: AppSchema;
-}
+type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
+type PluginEntitySchema = PluginManifest["entitySchemas"][number];
+type PluginEventSchema = PluginEntitySchema["eventSchemas"][number];
+
+export type CreateEventSchemaOptions = Pick<PluginEventSchema, "name" | "slug"> & {
+	entitySchemaSlug: PluginEntitySchema["slug"];
+	propertiesSchema?: PluginEventSchema["propertiesSchema"];
+};
 
 export function requireEventSchemaBySlug<T extends { slug: string }>(
 	schemas: readonly T[],

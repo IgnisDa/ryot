@@ -1,5 +1,5 @@
+import type { PluginIntegrationProvider } from "@ryot/contract/modules/plugins/manifest";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import type { PluginIntegrationProvider } from "@ryot/plugin-kit/manifest";
 import { Context, Effect, Layer } from "effect";
 
 import { PluginLoader, PluginLoaderLive, type PluginRegistrySnapshot } from "./loader";

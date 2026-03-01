@@ -1,6 +1,5 @@
 import type { ContractPayload, ContractSuccess } from "@ryot/contract/client";
 import { UserId } from "@ryot/contract/schema/brands";
-import type { PluginConfigSchema } from "@ryot/plugin-kit/manifest";
 import { Effect } from "effect";
 
 import { assertCompleted, requirePresent } from "~/support/assertions";
@@ -8,7 +7,7 @@ import { assertCompleted, requirePresent } from "~/support/assertions";
 import { adminHeaders } from "./admin";
 import { getBackendClient } from "./contract-client";
 import { pollUntil } from "./polling";
-import { installTestPlugin, uninstallTestPlugin } from "./test-plugin";
+import { installTestPlugin, type TestPluginScript, uninstallTestPlugin } from "./test-plugin";
 
 type SandboxExecutionError = NonNullable<CompletedSandboxResult["error"]>;
 type CompletedSandboxResult = Extract<SandboxResult, { status: "completed" }>;
@@ -17,17 +16,21 @@ type SandboxResult = Exclude<
 	ContractSuccess<"testSupport", "getSandboxResult">,
 	{ status: "pending" }
 >;
+type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
+type GenericTestPluginScript = Extract<TestPluginScript, { kind: "script" }>;
+type InstallSandboxScriptInput = Pick<GenericTestPluginScript, "name" | "slug"> &
+	Partial<
+		Pick<
+			GenericTestPluginScript,
+			"capabilities" | "requiredPluginConfigKeys" | "requiredSystemConfigKeys"
+		>
+	> & {
+		source: string;
+		pluginSlug?: PluginManifest["metadata"]["slug"];
+		configSchema?: PluginManifest["configSchema"];
+	};
 
-export const installSandboxScript = (input: {
-	name: string;
-	slug: string;
-	source: string;
-	pluginSlug?: string;
-	configSchema?: PluginConfigSchema;
-	capabilities?: ReadonlyArray<string>;
-	requiredPluginConfigKeys?: ReadonlyArray<string>;
-	requiredSystemConfigKeys?: ReadonlyArray<string>;
-}) =>
+export const installSandboxScript = (input: InstallSandboxScriptInput) =>
 	installTestPlugin({
 		source: input.source,
 		pluginSlug: input.pluginSlug,

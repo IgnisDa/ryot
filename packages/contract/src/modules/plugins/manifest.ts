@@ -1,9 +1,10 @@
-import { pluginConfigEnvironmentKey } from "@ryot/config";
-import { DisplayConfiguration } from "@ryot/contract/display-configuration";
-import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
-import { AppSchema } from "@ryot/contract/schema/property-schema";
 import { SANDBOX_HOST_CAPABILITIES } from "@ryot/sandbox-sdk/core";
 import { Result, Schema, SchemaGetter } from "effect";
+
+import { DisplayConfiguration } from "../../display-configuration";
+import { AppSchema } from "../../schema/property-schema";
+import { QueryDocument } from "../query-engine/language";
+import { pluginConfigEnvironmentKey } from "./plugin-config";
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
 	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" } });

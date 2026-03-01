@@ -1,6 +1,6 @@
 import { unknownToMessage } from "@ryot/contract/errors";
+import type { PluginCron } from "@ryot/contract/modules/plugins/manifest";
 import type { PluginSlug } from "@ryot/contract/schema/brands";
-import type { PluginCron } from "@ryot/plugin-kit/manifest";
 import { Cause, Clock, Context, Cron, Duration, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
