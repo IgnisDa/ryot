@@ -1,8 +1,6 @@
+import { Button, Text, TextInput } from "@mantine/core";
 import { createFormHook, createFormHookContexts } from "@tanstack/react-form";
-import type { ComponentPropsWithoutRef, HTMLInputTypeAttribute } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import type { HTMLInputTypeAttribute } from "react";
 
 type TextFieldProps = {
 	id?: string;
@@ -17,10 +15,13 @@ function TextField(props: TextFieldProps) {
 	const field = useFieldContext<string>();
 
 	return (
-		<div className="space-y-2">
-			<Label htmlFor={props.id}>{props.label}</Label>
-			<Input
+		<div>
+			<Text component="label" htmlFor={props.id} size="sm" fw={500}>
+				{props.label}
+			</Text>
+			<TextInput
 				id={props.id}
+				error={!field.state.meta.isValid}
 				value={field.state.value}
 				onBlur={field.handleBlur}
 				className={props.className}
@@ -30,9 +31,9 @@ function TextField(props: TextFieldProps) {
 				onChange={(event) => field.handleChange(event.target.value)}
 			/>
 			{!field.state.meta.isValid && (
-				<p className="text-destructive text-xs">
+				<Text c="red" size="xs">
 					{field.state.meta.errors.map((e) => e?.message).join(", ")}
-				</p>
+				</Text>
 			)}
 		</div>
 	);
@@ -40,10 +41,11 @@ function TextField(props: TextFieldProps) {
 
 type SubmitButtonProps = {
 	label: string;
+	variant?: string;
 	className?: string;
 	disabled?: boolean;
 	pendingLabel?: string;
-} & Pick<ComponentPropsWithoutRef<typeof Button>, "variant">;
+};
 
 function SubmitButton(props: SubmitButtonProps) {
 	const form = useFormContext();
