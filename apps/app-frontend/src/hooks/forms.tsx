@@ -10,7 +10,6 @@ type TextFieldProps = {
 	className?: string;
 	placeholder?: string;
 	autoComplete?: string;
-	errorMessage?: string;
 	type?: HTMLInputTypeAttribute;
 };
 
@@ -30,9 +29,11 @@ function TextField(props: TextFieldProps) {
 				autoComplete={props.autoComplete}
 				onChange={(event) => field.handleChange(event.target.value)}
 			/>
-			{props.errorMessage ? (
-				<p className="text-destructive text-xs">{props.errorMessage}</p>
-			) : null}
+			{!field.state.meta.isValid && (
+				<p className="text-destructive text-xs">
+					{field.state.meta.errors.map((e) => e?.message).join(", ")}
+				</p>
+			)}
 		</div>
 	);
 }

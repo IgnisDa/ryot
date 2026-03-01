@@ -123,9 +123,6 @@ function StartPage() {
 												label="Email"
 												autoComplete="email"
 												placeholder="you@example.com"
-												errorMessage={field.state.meta.errors
-													.map((e) => e?.message)
-													.join(", ")}
 											/>
 										)}
 									</authForm.AppField>
@@ -138,9 +135,6 @@ function StartPage() {
 													label="Password"
 													placeholder="Enter your password"
 													autoComplete={modeContent.passwordAutoComplete}
-													errorMessage={field.state.meta.errors
-														.map((e) => e?.message)
-														.join(", ")}
 												/>
 
 												{submitError ? (
