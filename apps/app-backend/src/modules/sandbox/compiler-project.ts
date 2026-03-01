@@ -12,14 +12,16 @@ class TypeScriptProjectError extends Data.TaggedError("TypeScriptProjectError")<
 
 const isVirtualPath = (path: string) => path === virtualRoot || path.startsWith(`${virtualRoot}/`);
 
-const compilerFileSystem = (source: string, sdkEntry: string) => {
+const compilerFileSystem = (source: string, sdkEntries: Readonly<Record<string, string>>) => {
 	const virtual = createVirtualFileSystem({
 		[virtualSourceFile]: source,
 		[virtualConfigFile]: JSON.stringify({
 			files: [virtualSourceFile],
 			compilerOptions: {
 				lib: ["ES2022", "DOM"],
-				paths: { "@ryot/sandbox-sdk": [sdkEntry] },
+				paths: Object.fromEntries(
+					Object.entries(sdkEntries).map(([specifier, entry]) => [specifier, [entry]]),
+				),
 				types: [],
 				module: "ESNext",
 				strict: true,
@@ -47,14 +49,18 @@ const compilerFileSystem = (source: string, sdkEntry: string) => {
 	} satisfies FileSystem;
 };
 
-export const createTypeScriptProject = (source: string, sdkEntry: string, tsserverPath: string) =>
+export const createTypeScriptProject = (
+	source: string,
+	sdkEntries: Readonly<Record<string, string>>,
+	tsserverPath: string,
+) =>
 	Effect.acquireUseRelease(
 		Effect.sync(
 			() =>
 				new API({
 					cwd: "/",
 					tsserverPath,
-					fs: compilerFileSystem(source, sdkEntry),
+					fs: compilerFileSystem(source, sdkEntries),
 				}),
 		),
 		(api) =>

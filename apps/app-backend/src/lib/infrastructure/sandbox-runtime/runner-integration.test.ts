@@ -1,11 +1,54 @@
+import { FileSystem } from "@effect/platform";
+import { BunFileSystem } from "@effect/platform-bun";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import { Effect, Schema } from "effect";
-import { assert, expect, it } from "vitest";
+import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
 import { SandboxCompiler, type CompiledSandboxModule } from "#modules/sandbox/compiler";
+import { compileLegacySandboxModule } from "#modules/sandbox/legacy-module";
+
+import {
+	ensureSandboxRuntimeDependencies,
+	SANDBOX_APPROVED_DEPENDENCIES,
+	type SandboxRuntimePaths,
+} from "./dependencies";
+
+let dependencyRuntimeRoot: string | undefined;
+let dependencyRuntime: SandboxRuntimePaths | undefined;
+
+beforeAll(
+	() =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const root = yield* fs.makeTempDirectory({ prefix: "ryot-sandbox-runner-" });
+				const runtime = yield* ensureSandboxRuntimeDependencies(root);
+				dependencyRuntimeRoot = root;
+				dependencyRuntime = runtime;
+			}).pipe(Effect.provide(BunFileSystem.layer)),
+		),
+	120_000,
+);
+
+afterAll(() => {
+	const root = dependencyRuntimeRoot;
+	const runtime = dependencyRuntime;
+	if (!root || !runtime) {
+		return Promise.resolve();
+	}
+
+	return Effect.runPromise(
+		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
+			yield* fs.chmod(runtime.directory, 0o755).pipe(Effect.ignore);
+			yield* fs.remove(root, { recursive: true });
+		}).pipe(Effect.provide(BunFileSystem.layer)),
+	);
+});
 
 const source = `
-import { defineDriver, defineManifest, defineScript, z } from "@ryot/sandbox-sdk";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -27,7 +70,26 @@ const invalidOutput = defineDriver(manifest, {
   run: async () => "wrong" as never,
 });
 
-export default defineScript({ manifest, drivers: { main, invalidOutput } });
+const codeGeneration = defineDriver(manifest, {
+  input: z.object({}),
+  output: z.null(),
+  run: async () => {
+    const functionConstructor = (() => {}).constructor;
+    const asyncFunctionConstructor = Object.getPrototypeOf(async function () {}).constructor;
+    if (
+      globalThis.Function !== undefined ||
+      globalThis.eval !== undefined ||
+      functionConstructor !== undefined ||
+      asyncFunctionConstructor !== undefined ||
+      Reflect.get(globalThis, "Worker") !== undefined
+    ) {
+      throw new Error("String code generation is available");
+    }
+    return null;
+  },
+});
+
+export default defineScript({ manifest, drivers: { main, invalidOutput, codeGeneration } });
 `;
 
 const coreHostSource = `
@@ -40,8 +102,8 @@ import {
   jsonValueSchema,
   unwrapHostResult,
   userPreferencesSchema,
-  z,
 } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -98,8 +160,8 @@ import {
   defineManifest,
   defineScript,
   jsonValueSchema,
-  z,
 } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -146,8 +208,8 @@ import {
   eventSchemaRecordSchema,
   integrationRecordSchema,
   unwrapHostResult,
-  z,
 } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -207,6 +269,53 @@ const main = defineDriver(manifest, {
 export default defineScript({ manifest, drivers: { main } });
 `;
 
+const dependencySource = (name: string, sdkImport: string) => `
+import "${sdkImport}";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
+
+export const manifest = defineManifest({
+  kind: "script",
+  name: "${name} dependency load",
+  slug: "${name}-dependency-load",
+  capabilities: [],
+  requiredAppConfigKeys: [],
+});
+
+const main = defineDriver(manifest, {
+  input: z.object({}),
+  output: z.null(),
+  run: async () => null,
+});
+
+export default defineScript({ manifest, drivers: { main } });
+`;
+
+const generatedNpmImportSource = `
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
+
+export const manifest = defineManifest({
+  kind: "script",
+  name: "Generated npm import",
+  slug: "generated-npm-import",
+  capabilities: [],
+  requiredAppConfigKeys: [],
+});
+
+const main = defineDriver(manifest, {
+  input: z.object({}),
+  output: z.null(),
+  run: async () => {
+    const load = Function('return im' + 'port("npm:zod")');
+    await load();
+    return null;
+  },
+});
+
+export default defineScript({ manifest, drivers: { main } });
+`;
+
 const encodeRunnerRequest = Schema.encodeSync(Schema.parseJson(Schema.Unknown));
 const decodeRunnerResponse = Schema.decodeUnknownSync(Schema.parseJson(Schema.Unknown));
 type RunnerCompiledModule = Omit<CompiledSandboxModule, "format"> & { readonly format: number };
@@ -225,9 +334,10 @@ const runInDeno = (
 	options: RunnerOptions = {},
 ) =>
 	Effect.gen(function* () {
+		assert(dependencyRuntime);
 		const runnerPath = Bun.fileURLToPath(new URL("./runner-source.sandbox.js", import.meta.url));
 		const apiBase = options.apiBase ?? "http://127.0.0.1:1";
-		const process = Bun.spawn(
+		const denoProcess = Bun.spawn(
 			[
 				"deno",
 				"run",
@@ -236,13 +346,22 @@ const runInDeno = (
 				"--deny-ffi",
 				"--deny-write",
 				"--no-prompt",
+				"--no-config",
+				"--no-lock",
+				"--no-npm",
 				"--no-remote",
 				"--cached-only",
+				`--import-map=${dependencyRuntime.importMapPath}`,
 				`--allow-net=${new URL(apiBase).host}`,
-				`--allow-read=${runnerPath}`,
+				`--allow-read=${runnerPath},${dependencyRuntime.directory}`,
 				runnerPath,
 			],
-			{ stdin: "pipe", stdout: "pipe", stderr: "pipe" },
+			{
+				stdin: "pipe",
+				stdout: "pipe",
+				stderr: "pipe",
+				env: { ...process.env, DENO_DIR: dependencyRuntime.cacheDirectory },
+			},
 		);
 		const request = `${encodeRunnerRequest({
 			context,
@@ -257,16 +376,17 @@ const runInDeno = (
 			executionId: options.executionId ?? "execution-1",
 		})}\n`;
 		yield* Effect.tryPromise({
-			try: () => Promise.resolve(process.stdin.write(request)).then(() => process.stdin.end()),
+			try: () =>
+				Promise.resolve(denoProcess.stdin.write(request)).then(() => denoProcess.stdin.end()),
 			catch: (error) => new SandboxRunError({ message: unknownToMessage(error) }),
 		});
 
 		const [stdout, stderr, exitCode] = yield* Effect.tryPromise({
 			try: () =>
 				Promise.all([
-					new Response(process.stdout).text(),
-					new Response(process.stderr).text(),
-					process.exited,
+					new Response(denoProcess.stdout).text(),
+					new Response(denoProcess.stderr).text(),
+					denoProcess.exited,
 				]),
 			catch: (error) => new SandboxRunError({ message: unknownToMessage(error) }),
 		});
@@ -366,6 +486,7 @@ it("loads compiled ESM in Deno and validates driver input and output", () =>
 
 			const success = yield* runInDeno(compiled, "main", { value: 42 });
 			assert(success !== null && typeof success === "object");
+			expect(Reflect.get(success, "error")).toBeUndefined();
 			expect(success).toMatchObject({ success: true, value: 42 });
 
 			const invalidInput = yield* runInDeno(compiled, "main", { value: "wrong" });
@@ -376,11 +497,73 @@ it("loads compiled ESM in Deno and validates driver input and output", () =>
 			assert(invalidOutput !== null && typeof invalidOutput === "object");
 			expect(Reflect.get(invalidOutput, "error")).toContain("Driver output validation failed");
 
+			const codeGeneration = yield* runInDeno(compiled, "codeGeneration", {});
+			assert(codeGeneration !== null && typeof codeGeneration === "object");
+			expect(codeGeneration).toMatchObject({ success: true, value: null });
+
 			const unsupported = yield* runInDeno({ ...compiled, format: 2 }, "main", {
 				value: 42,
 			});
 			assert(unsupported !== null && typeof unsupported === "object");
 			expect(Reflect.get(unsupported, "error")).toBe("Unsupported sandbox compiled format: 2");
+		}).pipe(Effect.provide(SandboxCompiler.Default)),
+	));
+
+it("loads one compiled fixture for each approved SDK dependency without remote modules", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const compiler = yield* SandboxCompiler;
+			for (const dependency of SANDBOX_APPROVED_DEPENDENCIES) {
+				const compiled = yield* compiler.compile(
+					dependencySource(dependency.name, dependency.sdkImport),
+				);
+				const result = yield* runInDeno(compiled, "main", {});
+				assert(result !== null && typeof result === "object");
+				expect(Reflect.get(result, "error"), dependency.name).toBeUndefined();
+				expect(result).toMatchObject({ success: true, value: null });
+			}
+		}).pipe(Effect.provide(SandboxCompiler.Default)),
+	));
+
+it("loads temporary format-0 dependency aliases from the local runtime", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const compiler = yield* SandboxCompiler;
+			const compiled = yield* compiler.compile(source);
+			const legacyModule = compileLegacySandboxModule(`
+const dependencies = await Promise.all([
+  import("npm:zod"),
+  import("npm:dayjs"),
+  import("npm:cheerio"),
+  import("npm:youtubei.js"),
+  import("npm:dayjs/plugin/customParseFormat.js"),
+]);
+driver("main", async () => dependencies[3].Platform.shim.server);
+`);
+			expect(legacyModule).not.toContain("npm:");
+			const result = yield* runInDeno(
+				{
+					...compiled,
+					format: 0,
+					javascript: legacyModule,
+				},
+				"main",
+				{},
+			);
+			assert(result !== null && typeof result === "object");
+			expect(Reflect.get(result, "error")).toBeUndefined();
+			expect(result).toMatchObject({ success: true, value: true });
+		}).pipe(Effect.provide(SandboxCompiler.Default)),
+	));
+
+it("disables obfuscated string-generated imports at runtime", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const compiler = yield* SandboxCompiler;
+			const compiled = yield* compiler.compile(generatedNpmImportSource);
+			const result = yield* runInDeno(compiled, "main", {});
+			assert(result !== null && typeof result === "object");
+			expect(Reflect.get(result, "error")).toContain("Function is not a function");
 		}).pipe(Effect.provide(SandboxCompiler.Default)),
 	));
 

@@ -45,15 +45,21 @@ const legacySandboxSource = (body: LegacyCreateSandboxScriptBody) => {
 	const driverEntries = uniqueDriverNames
 		.map((driverName, index) => `    ${JSON.stringify(driverName)}: legacyDriver${index},`)
 		.join("\n");
+	const hostDeclarations = capabilities
+		.map(
+			(capability) =>
+				`  const ${capability} = (...args: unknown[]) => hostRecord[${JSON.stringify(capability)}]?.(...args);`,
+		)
+		.join("\n");
 
 	return `
 import {
   defineDriver,
   defineManifest,
   defineScript,
-  z,
   type ExecutionMetadata,
 } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -76,12 +82,10 @@ const runLegacyDriver = async (
     drivers[name] = run;
   };
   const hostRecord = host as Record<string, (...args: unknown[]) => Promise<unknown>>;
-  const hostNames = Object.keys(hostRecord);
-  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (
-    ...parameters: string[]
-  ) => (...args: unknown[]) => Promise<void>;
-  const register = new AsyncFunction("driver", ...hostNames, ${JSON.stringify(body.code)});
-  await register(driver, ...hostNames.map((hostName) => hostRecord[hostName]));
+${hostDeclarations}
+  await (async () => {
+${body.code}
+  })();
   const run = drivers[driverName];
   if (!run) throw new Error('Driver "' + driverName + '" is not defined in this script');
   return await run(input, execution);
@@ -104,7 +108,8 @@ export function literalSandboxSource(input: {
 	value: boolean | number | string;
 }) {
 	return `
-import { defineDriver, defineManifest, defineScript, z } from "@ryot/sandbox-sdk";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
   kind: "script",

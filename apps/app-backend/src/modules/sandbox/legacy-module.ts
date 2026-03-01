@@ -1,6 +1,19 @@
+import { SANDBOX_LEGACY_RUNTIME_IMPORTS } from "#lib/infrastructure/sandbox-runtime/dependencies";
+
 import { SANDBOX_HOST_CAPABILITIES } from "./capabilities";
 
 export const LEGACY_SANDBOX_COMPILED_FORMAT = 0 as const;
+
+const rewriteLegacyRuntimeImports = (source: string) =>
+	Object.entries(SANDBOX_LEGACY_RUNTIME_IMPORTS).reduce(
+		(rewritten, [legacyImport, sdkImport]) =>
+			['"', "'", "`"].reduce(
+				(code, quote) =>
+					code.replaceAll(`${quote}${legacyImport}${quote}`, `${quote}${sdkImport}${quote}`),
+				rewritten,
+			),
+		source,
+	);
 
 export const compileLegacySandboxModule = (source: string) => `
 const definition = {
@@ -13,7 +26,7 @@ const definition = {
     };
 
     await (async () => {
-${source}
+${rewriteLegacyRuntimeImports(source)}
     })();
 
     const run = drivers[driverName];
