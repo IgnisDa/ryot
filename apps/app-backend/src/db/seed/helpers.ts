@@ -42,13 +42,12 @@ export const ensureBuiltinEntitySchema = async (input: {
 
 export const ensureBuiltinEntitySchemaEventSchemas = async (input: {
 	entitySchemaId: string;
-	eventSchemas?: Array<{
+	eventSchemas: Array<{
 		slug: string;
 		name: string;
 		propertiesSchema: unknown;
 	}>;
 }) => {
-	if (!input.eventSchemas) return;
 	await db
 		.delete(eventSchema)
 		.where(eq(eventSchema.entitySchemaId, input.entitySchemaId));
