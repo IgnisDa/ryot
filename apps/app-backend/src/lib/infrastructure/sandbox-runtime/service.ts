@@ -1,6 +1,3 @@
-import type { HttpClientResponse } from "@effect/platform";
-import { FetchHttpClient, FileSystem, HttpClient, HttpClientRequest, Path } from "@effect/platform";
-import { isHttpMethod } from "@effect/platform/HttpMethod";
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot/contract/errors";
 import { SandboxExecutionError } from "@ryot/contract/modules/sandbox/schemas";
 import {
@@ -8,7 +5,28 @@ import {
 	SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES,
 } from "@ryot/sandbox-sdk/core";
 import { generateId } from "better-auth";
-import { Clock, Duration, Effect, Match, Option, Schema, Stream } from "effect";
+import {
+	Clock,
+	Context,
+	Duration,
+	Effect,
+	Layer,
+	Match,
+	Option,
+	Pool,
+	Queue,
+	Schema,
+	Stream,
+	FileSystem,
+	Path,
+} from "effect";
+import {
+	FetchHttpClient,
+	HttpClient,
+	HttpClientRequest,
+	HttpMethod,
+	type HttpClientResponse,
+} from "effect/unstable/http";
 
 import { AppConfig } from "../config/service";
 import { redisKeys, RedisService } from "../redis";
@@ -128,12 +146,15 @@ export const selectSandboxHostFunctions = (
 
 export const readSandboxHttpResponseText = (response: HttpClientResponse.HttpClientResponse) =>
 	response.stream.pipe(
-		Stream.runFoldEffect({ bytes: 0, chunks: [] as Uint8Array[] }, (state, chunk) => {
-			const bytes = state.bytes + chunk.byteLength;
-			return bytes > SANDBOX_LIMITS.http.responseBytes
-				? Effect.fail(`httpCall response body exceeds ${SANDBOX_LIMITS.http.responseBytes} bytes`)
-				: Effect.succeed({ bytes, chunks: [...state.chunks, chunk] });
-		}),
+		Stream.runFoldEffect(
+			() => ({ bytes: 0, chunks: [] as Uint8Array[] }),
+			(state, chunk) => {
+				const bytes = state.bytes + chunk.byteLength;
+				return bytes > SANDBOX_LIMITS.http.responseBytes
+					? Effect.fail(`httpCall response body exceeds ${SANDBOX_LIMITS.http.responseBytes} bytes`)
+					: Effect.succeed({ bytes, chunks: [...state.chunks, chunk] });
+			},
+		),
 		Effect.map(({ bytes, chunks }) => {
 			const body = new Uint8Array(bytes);
 			let offset = 0;
@@ -161,16 +182,14 @@ const SandboxRunnerRequest = Schema.Struct({
 	metadata: Schema.Unknown,
 	moduleUrl: Schema.String,
 	executionId: Schema.String,
-	compiledFormat: Schema.Number,
+	compiledFormat: Schema.Finite,
 	apiFunctions: Schema.Array(Schema.String),
-	limits: Schema.Record({ key: Schema.String, value: Schema.Union(Schema.Number, Schema.String) }),
+	limits: Schema.Record(Schema.String, Schema.Union([Schema.Finite, Schema.String])),
 	filesystem: Schema.optional(
 		Schema.Struct({
 			artifactPath: Schema.optional(Schema.String),
 			scratchDirectory: Schema.optional(Schema.String),
-			namedArtifactPaths: Schema.optional(
-				Schema.Record({ key: Schema.String, value: Schema.String }),
-			),
+			namedArtifactPaths: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 		}),
 	),
 });
@@ -180,19 +199,18 @@ const SandboxRunnerResponse = Schema.Struct({
 	value: Schema.optional(Schema.Unknown),
 	logs: Schema.optional(Schema.Array(Schema.String)),
 	error: Schema.optional(Schema.NullOr(SandboxExecutionError)),
-	timing: Schema.optional(Schema.Struct({ executionMs: Schema.Number })),
+	timing: Schema.optional(Schema.Struct({ executionMs: Schema.Finite })),
 });
 
-const encodeSandboxRunnerRequest = Schema.encodeSync(Schema.parseJson(SandboxRunnerRequest));
+const encodeSandboxRunnerRequest = Schema.encodeSync(Schema.fromJsonString(SandboxRunnerRequest));
 const decodeSandboxRunnerResponse = Schema.decodeUnknownSync(
-	Schema.parseJson(SandboxRunnerResponse),
+	Schema.fromJsonString(SandboxRunnerResponse),
 );
 
 const makeInvalidResponse = () => new SandboxRunError({ message: invalidResponseMessage });
 
-export class SandboxService extends Effect.Service<SandboxService>()("SandboxService", {
-	dependencies: [FetchHttpClient.layer, ProcessPool.Default, BridgeService.Default],
-	effect: Effect.gen(function* () {
+export class SandboxService extends Context.Service<SandboxService>()("SandboxService", {
+	make: Effect.gen(function* () {
 		const path = yield* Path.Path;
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
@@ -315,7 +333,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						scratchDirectory !== undefined;
 					const worker = dedicated
 						? yield* processes.spawnDedicated(grants)
-						: yield* processes.pool.get;
+						: yield* Pool.get(processes.pool);
 					recordSandboxExecutionStarted();
 					yield* Effect.addFinalizer(() => Effect.sync(recordSandboxExecutionFinished));
 					if (!dedicated) {
@@ -323,7 +341,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 							invalidateProcess(processes.pool, worker).pipe(Effect.orDie),
 						);
 					}
-					yield* worker.responseQueue.takeAll.pipe(Effect.asVoid);
+					yield* Queue.takeAll(worker.responseQueue).pipe(Effect.asVoid);
 
 					const workflow = isWorkflowSandboxMetadata(input.metadata);
 					const timeoutMs = workflow
@@ -344,12 +362,12 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						bridge.removeSession(input.executionId).pipe(Effect.orDie),
 					);
 
-					yield* worker.stdinQueue.offer(encoder.encode(requestLine));
+					yield* Queue.offer(worker.stdinQueue, encoder.encode(requestLine));
 
 					const responseLine = yield* Effect.raceFirst(
-						worker.responseQueue.take,
+						Queue.take(worker.responseQueue),
 						Effect.sleep(Duration.millis(timeoutMs)).pipe(
-							Effect.zipRight(
+							Effect.andThen(
 								Effect.fail(
 									new TimeoutError({
 										message: `Sandbox timed out after ${timeoutMs}ms`,
@@ -452,7 +470,9 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 
 				return sandboxHostEffect(
 					Effect.gen(function* () {
-						const serialized = yield* Schema.encode(Schema.parseJson(Schema.Unknown))(value).pipe(
+						const serialized = yield* Schema.encodeUnknownEffect(
+							Schema.fromJsonString(Schema.Unknown),
+						)(value).pipe(
 							Effect.mapError(() => "claimCachedValue value must be JSON-serializable"),
 						);
 						const valueError = sandboxCacheValueError("claimCachedValue", serialized);
@@ -484,7 +504,9 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 							return yield* Effect.fail(existingValueError);
 						}
 
-						return yield* Schema.decode(Schema.parseJson(Schema.Unknown))(existing).pipe(
+						return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
+							existing,
+						).pipe(
 							Effect.map((decoded) => ({
 								claimed: false as const,
 								value: isJsonValue(decoded) ? decoded : null,
@@ -519,7 +541,9 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 								if (valueError) {
 									return Effect.fail(valueError);
 								}
-								return Schema.decode(Schema.parseJson(Schema.Unknown))(cached).pipe(
+								return Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
+									cached,
+								).pipe(
 									Effect.flatMap((value) =>
 										isJsonValue(value)
 											? Effect.succeed(value)
@@ -550,7 +574,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 							catch: () => "httpCall URL is invalid",
 						});
 						const httpMethod = yield* Match.value(method.trim().toUpperCase()).pipe(
-							Match.when(isHttpMethod, (m) => Effect.succeed(m)),
+							Match.when(HttpMethod.isHttpMethod, (m) => Effect.succeed(m)),
 							Match.orElse(() => Effect.fail("httpCall method is not a valid HTTP method")),
 						);
 						let request = HttpClientRequest.make(httpMethod)(requestUrl.toString());
@@ -594,7 +618,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 				}
 
 				return sandboxHostEffect(
-					Schema.encode(Schema.parseJson(Schema.Unknown))(value).pipe(
+					Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(value).pipe(
 						Effect.mapError(() => "setCachedValue value must be JSON-serializable"),
 						Effect.flatMap((serialized) => {
 							const valueError = sandboxCacheValueError("setCachedValue", serialized);
@@ -622,4 +646,8 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 
 		return { run: runSandbox };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(Layer.mergeAll(FetchHttpClient.layer, ProcessPool.layer, BridgeService.layer)),
+	);
+}

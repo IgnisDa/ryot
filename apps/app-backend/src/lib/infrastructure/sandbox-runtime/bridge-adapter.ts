@@ -4,7 +4,7 @@ import {
 	domainSandboxHostContracts,
 } from "@ryot/sandbox-sdk/core";
 import type { SandboxHostError } from "@ryot/sandbox-sdk/wire";
-import { Effect, ParseResult, Schema } from "effect";
+import { Effect, Schema, SchemaIssue } from "effect";
 
 import {
 	apiFailure,
@@ -16,36 +16,54 @@ import {
 
 type HostFailure = ReturnType<typeof apiFailure>;
 
-const parseIssues = (error: ParseResult.ParseError) =>
-	ParseResult.ArrayFormatter.formatErrorSync(error);
+const formatIssue = SchemaIssue.makeFormatterStandardSchemaV1();
+const formatArgumentCountIssue = SchemaIssue.makeFormatterStandardSchemaV1({
+	checkHook: () => "Filter",
+	leafHook: (issue) => issue._tag,
+});
 
-const hasInvalidArgumentCount = (error: ParseResult.ParseError) =>
-	parseIssues(error).some(
-		(issue) =>
-			issue.path.length === 1 &&
-			typeof issue.path[0] === "number" &&
-			(issue._tag === "Missing" || issue._tag === "Unexpected"),
+const parseIssues = (error: Schema.SchemaError) => formatIssue(error.issue).issues;
+const parseIssueTags = (error: Schema.SchemaError) => formatArgumentCountIssue(error.issue).issues;
+
+const pathKey = (
+	segment: NonNullable<ReturnType<typeof formatIssue>["issues"][number]["path"]>[number],
+) => (typeof segment === "object" ? segment.key : segment);
+
+const hasInvalidArgumentCount = (error: Schema.SchemaError) => {
+	const issues = parseIssueTags(error);
+	return (
+		issues.length > 0 &&
+		issues.every((issue) => {
+			const [segment] = issue.path ?? [];
+			return (
+				issue.path?.length === 1 &&
+				segment !== undefined &&
+				typeof pathKey(segment) === "number" &&
+				(issue.message === "MissingKey" || issue.message === "UnexpectedKey")
+			);
+		})
 	);
+};
 
-const invalidArguments = (fnName: string, error: ParseResult.ParseError, message: string) =>
+const invalidArguments = (fnName: string, error: Schema.SchemaError, message: string) =>
 	hasInvalidArgumentCount(error)
 		? apiFailure(`${fnName} received an invalid number of arguments`)
 		: apiFailure(message);
 
-const invalidHttpCallArguments = (error: ParseResult.ParseError) => {
+const invalidHttpCallArguments = (error: Schema.SchemaError) => {
 	if (hasInvalidArgumentCount(error)) {
 		return apiFailure("httpCall received an invalid number of arguments");
 	}
 
 	const issue = parseIssues(error)[0];
-	const [position, field] = issue?.path ?? [];
+	const [position, field] = issue?.path?.map(pathKey) ?? [];
 	if (position === 0) {
 		return apiFailure("httpCall expects a non-empty method string");
 	}
 	if (position === 1) {
 		return apiFailure("httpCall expects a non-empty URL string");
 	}
-	if (position === 2 && issue?._tag === "Unexpected") {
+	if (position === 2 && parseIssueTags(error)[0]?.message === "UnexpectedKey") {
 		return apiFailure(`httpCall options.${String(field ?? "value")} is not supported`);
 	}
 	if (position === 2 && field === "body") {
@@ -53,7 +71,7 @@ const invalidHttpCallArguments = (error: ParseResult.ParseError) => {
 	}
 	if (position === 2 && field === "headers") {
 		return apiFailure(
-			(issue?.path.length ?? 0) > 2
+			(issue?.path?.length ?? 0) > 2
 				? "httpCall headers must be string values"
 				: "httpCall options.headers must be an object",
 		);
@@ -78,26 +96,21 @@ const normalizeOptionalNull = (args: ReadonlyArray<unknown>, index: number) => {
 	return normalized;
 };
 
-type HostContract = {
-	readonly args: Schema.Schema.AnyNoContext;
-	readonly result: Schema.Schema.AnyNoContext;
+type HostContract<Args extends ReadonlyArray<unknown>, Result> = {
+	readonly args: Schema.ConstraintCodec<Readonly<Args>, unknown>;
+	readonly result: Schema.ConstraintCodec<Result, unknown>;
 };
 
-type ContractArgs<Contract extends HostContract> =
-	Schema.Schema.Type<Contract["args"]> extends ReadonlyArray<unknown>
-		? Schema.Schema.Type<Contract["args"]>
-		: never;
-
 const bindHostFunction =
-	<Contract extends HostContract, Success>(
-		contract: Contract,
-		implementation: (...args: ContractArgs<Contract>) => Effect.Effect<Success, SandboxHostError>,
-		invalid: (error: ParseResult.ParseError) => HostFailure,
+	<Args extends ReadonlyArray<unknown>, Result, Success>(
+		contract: HostContract<Args, Result>,
+		implementation: (...args: Args) => Effect.Effect<Success, SandboxHostError>,
+		invalid: (error: Schema.SchemaError) => HostFailure,
 		normalize: (args: ReadonlyArray<unknown>) => ReadonlyArray<unknown> = (args) => args,
 		failure: (error: SandboxHostError) => unknown = (error) => apiFailure(error.message),
 	): BoundHostFunction =>
 	(args) =>
-		Schema.decodeUnknown(contract.args)(normalize(args)).pipe(
+		Schema.decodeUnknownEffect(contract.args)(normalize(args)).pipe(
 			Effect.matchEffect({
 				onFailure: (error) => Effect.succeed(invalid(error)),
 				onSuccess: (parsed) =>
@@ -105,10 +118,10 @@ const bindHostFunction =
 						Effect.match({ onFailure: failure, onSuccess: apiSuccess }),
 					),
 			}),
-			Effect.flatMap(Schema.encodeUnknown(contract.result)),
+			Effect.flatMap(Schema.encodeUnknownEffect(contract.result)),
 		);
 
-const defaultFailure = (fnName: string, message: string) => (error: ParseResult.ParseError) =>
+const defaultFailure = (fnName: string, message: string) => (error: Schema.SchemaError) =>
 	invalidArguments(fnName, error, message);
 
 const preserveHttpFailureDetails = (error: SandboxHostError) =>
@@ -229,7 +242,8 @@ export const bindSandboxHostFunctions = (
 		coreSandboxHostContracts.setCachedValue,
 		(...args) => implementations.setCachedValue(input, ...args),
 		(error) => {
-			const position = parseIssues(error)[0]?.path[0];
+			const segment = parseIssues(error)[0]?.path?.[0];
+			const position = segment === undefined ? undefined : pathKey(segment);
 			let message = "setCachedValue expects a positive integer expiry in seconds";
 			if (position === 0) {
 				message = "setCachedValue expects a non-empty key string";
@@ -243,7 +257,8 @@ export const bindSandboxHostFunctions = (
 		coreSandboxHostContracts.claimCachedValue,
 		(...args) => implementations.claimCachedValue(input, ...args),
 		(error) => {
-			const position = parseIssues(error)[0]?.path[0];
+			const segment = parseIssues(error)[0]?.path?.[0];
+			const position = segment === undefined ? undefined : pathKey(segment);
 			let message = "claimCachedValue expects a positive integer ttlSeconds";
 			if (position === 0) {
 				message = "claimCachedValue expects a non-empty key string";

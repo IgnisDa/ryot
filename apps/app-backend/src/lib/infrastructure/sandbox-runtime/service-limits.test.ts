@@ -1,5 +1,5 @@
-import { FetchHttpClient, HttpClientRequest, HttpClientResponse } from "@effect/platform";
 import { Effect } from "effect";
+import { FetchHttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 import { assert, describe, expect, it } from "vitest";
 
 import { SANDBOX_LIMITS, utf8ByteLength } from "./limits";
