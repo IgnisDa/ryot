@@ -1,10 +1,9 @@
-import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import type { AuthType } from "~/auth";
 import {
 	commonErrors,
 	createAuthRoute,
 	createErrorResponse,
-	dataSchema,
 	ERROR_CODES,
 	errorResponse,
 	jsonResponse,
@@ -14,34 +13,13 @@ import {
 } from "~/lib/openapi";
 import { listEntitySchemasByUser } from "./repository";
 import {
+	listEntitySchemasResponseSchema,
 	schemaImportBody,
+	schemaImportResponseSchema,
 	schemaSearchBody,
 	schemaSearchResponse,
 } from "./schemas";
 import { runSchemaImport, runSchemaSearch } from "./service";
-
-const scriptPairSchema = z.object({
-	searchScriptId: z.string(),
-	detailsScriptId: z.string(),
-	searchScriptName: z.string(),
-	detailsScriptName: z.string(),
-});
-
-const listedEntitySchema = z.object({
-	id: z.string(),
-	slug: z.string(),
-	name: z.string(),
-	scriptPairs: z.array(scriptPairSchema),
-});
-
-const listEntitySchemasResponseSchema = dataSchema(z.array(listedEntitySchema));
-
-const schemaImportResponseSchema = dataSchema(
-	z.object({
-		created: z.boolean(),
-		entityId: z.string(),
-	}),
-);
 
 const listEntitySchemasRoute = createAuthRoute(
 	createRoute({
