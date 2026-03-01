@@ -56,6 +56,24 @@ export const createErrorResponse = (
 	return jsonResponse(description, schema);
 };
 
+export const unauthenticatedResponse = () =>
+	createErrorResponse(
+		"Request is unauthenticated",
+		commonErrors.unauthenticated,
+	);
+
+export const notFoundResponse = (description = "Resource not found") =>
+	createErrorResponse(description, commonErrors.notFound);
+
+export const validationErrorResponse = (description = "Validation failed") =>
+	createErrorResponse(description, commonErrors.validationFailed);
+
+export const pathParamErrorResponse = () =>
+	validationErrorResponse("Path parameter validation failed");
+
+export const payloadErrorResponse = () =>
+	validationErrorResponse("Request payload validation failed");
+
 export const successResponse = <T>(data: T) => ({ data });
 
 export const paginationMetaSchema = z.object({
