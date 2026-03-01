@@ -1,9 +1,9 @@
 import { Activity } from "@effect/workflow";
 import { unknownToMessage } from "@ryot/contract/errors";
+import type { ProviderSearchItem } from "@ryot/sandbox-sdk/provider";
 import { Cause, Effect, Schema } from "effect";
 
 import type { RedisService } from "#lib/infrastructure/redis";
-import type { EntitySearchItem } from "#modules/entity-import/population";
 
 import type { ImportRunJobData } from "../jobs";
 import { storeImportAdapterResult } from "../runtime/source-payload-store";
@@ -15,8 +15,8 @@ import { LoadedMediaImportAdapterNetflixSearchPlanned } from "./source-loaders";
 import { MediaImportWorkflowOperations } from "./types-workflow";
 
 const LoadMediaImportLoaded = Schema.TaggedStruct("loaded", {
-	cleanupPaths: Schema.Array(Schema.String),
 	summary: MediaImportAdapterSummarySchema,
+	cleanupPaths: Schema.Array(Schema.String),
 });
 
 const LoadMediaImportActivityOutcome = Schema.Union(
@@ -99,7 +99,7 @@ export const loadMediaAdapterResult = Effect.fn("loadMediaAdapterResult")(functi
 				onFailure: (error) => ({
 					error: error.message,
 					jobKey: searchJob.jobKey,
-					items: [] as ReadonlyArray<EntitySearchItem>,
+					items: [] as ReadonlyArray<ProviderSearchItem>,
 				}),
 			}),
 		),
@@ -127,9 +127,5 @@ export const loadMediaAdapterResult = Effect.fn("loadMediaAdapterResult")(functi
 		),
 	});
 
-	return {
-		_tag: "loaded" as const,
-		summary,
-		cleanupPaths: [...loadOutcome.cleanupPaths],
-	};
+	return { summary, _tag: "loaded" as const, cleanupPaths: [...loadOutcome.cleanupPaths] };
 });

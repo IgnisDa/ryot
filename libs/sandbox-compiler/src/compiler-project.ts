@@ -4,37 +4,48 @@ import { createVirtualFileSystem, type FileSystem } from "typescript/unstable/fs
 
 const virtualRoot = "/__ryot_sandbox__";
 const virtualConfigFile = `${virtualRoot}/tsconfig.json`;
-const virtualSourceFile = `${virtualRoot}/script.ts`;
 
 class TypeScriptProjectError extends Data.TaggedError("TypeScriptProjectError")<{
 	message: string;
 }> {}
 
+export type SandboxTypeScriptSources = {
+	readonly entry: string;
+	readonly files: Readonly<Record<string, string>>;
+};
+
+const virtualPath = (path: string) => `${virtualRoot}/${path}`;
 const isVirtualPath = (path: string) => path === virtualRoot || path.startsWith(`${virtualRoot}/`);
 
-const compilerFileSystem = (source: string, sdkEntries: Readonly<Record<string, string>>) => {
+const compilerFileSystem = (
+	sources: SandboxTypeScriptSources,
+	sdkEntries: Readonly<Record<string, string>>,
+) => {
+	const sourceFiles = Object.fromEntries(
+		Object.entries(sources.files).map(([path, source]) => [virtualPath(path), source]),
+	);
 	const virtual = createVirtualFileSystem({
-		[virtualSourceFile]: source,
+		...sourceFiles,
 		[virtualConfigFile]: JSON.stringify({
-			files: [virtualSourceFile],
+			files: [virtualPath(sources.entry)],
 			compilerOptions: {
-				lib: ["ES2022", "DOM"],
-				paths: Object.fromEntries(
-					Object.entries(sdkEntries).map(([specifier, entry]) => [specifier, [entry]]),
-				),
 				types: [],
-				module: "ESNext",
 				strict: true,
-				target: "ES2022",
 				noEmit: true,
+				target: "ES2022",
+				module: "ESNext",
 				skipLibCheck: true,
 				isolatedModules: true,
+				lib: ["ES2022", "DOM"],
+				noImplicitReturns: true,
 				moduleDetection: "force",
 				moduleResolution: "bundler",
-				noImplicitReturns: true,
 				noUncheckedIndexedAccess: true,
 				exactOptionalPropertyTypes: true,
 				allowSyntheticDefaultImports: true,
+				paths: Object.fromEntries(
+					Object.entries(sdkEntries).map(([specifier, entry]) => [specifier, [entry]]),
+				),
 			},
 		}),
 	});
@@ -49,19 +60,14 @@ const compilerFileSystem = (source: string, sdkEntries: Readonly<Record<string, 
 	} satisfies FileSystem;
 };
 
-export const createTypeScriptProject = (
-	source: string,
+export const createTypeScriptSourcesProject = (
+	sources: SandboxTypeScriptSources,
 	sdkEntries: Readonly<Record<string, string>>,
 	tsserverPath: string,
 ) =>
 	Effect.acquireUseRelease(
 		Effect.sync(
-			() =>
-				new API({
-					cwd: "/",
-					tsserverPath,
-					fs: compilerFileSystem(source, sdkEntries),
-				}),
+			() => new API({ cwd: "/", tsserverPath, fs: compilerFileSystem(sources, sdkEntries) }),
 		),
 		(api) =>
 			Effect.gen(function* () {
@@ -76,26 +82,52 @@ export const createTypeScriptProject = (
 				}
 
 				const program = project.program;
-				const sourceFile = yield* Effect.tryPromise(() => program.getSourceFile(virtualSourceFile));
+				const loadedSourceFiles = yield* Effect.forEach(Object.keys(sources.files), (path) =>
+					Effect.tryPromise(() => program.getSourceFile(virtualPath(path))),
+				);
+				const sourceFiles = loadedSourceFiles.filter((file) => file !== undefined);
+				const sourceFile = sourceFiles.find((file) => file.fileName === virtualPath(sources.entry));
 				if (!sourceFile) {
 					return yield* new TypeScriptProjectError({
-						message: "TypeScript did not load the sandbox source file",
+						message: "TypeScript did not load the sandbox entry file",
 					});
 				}
 
-				const diagnostics = (yield* Effect.all(
+				const projectDiagnostics = yield* Effect.all(
 					[
 						Effect.tryPromise(() => program.getProgramDiagnostics()),
 						Effect.tryPromise(() => program.getGlobalDiagnostics()),
 						Effect.tryPromise(() => program.getConfigFileParsingDiagnostics()),
-						Effect.tryPromise(() => program.getBindDiagnostics(virtualSourceFile)),
-						Effect.tryPromise(() => program.getSemanticDiagnostics(virtualSourceFile)),
-						Effect.tryPromise(() => program.getSyntacticDiagnostics(virtualSourceFile)),
 					],
 					{ concurrency: "unbounded" },
-				)).flat();
+				);
+				const sourceDiagnostics = yield* Effect.forEach(sourceFiles, (file) =>
+					Effect.all(
+						[
+							Effect.tryPromise(() => program.getBindDiagnostics(file.fileName)),
+							Effect.tryPromise(() => program.getSemanticDiagnostics(file.fileName)),
+							Effect.tryPromise(() => program.getSyntacticDiagnostics(file.fileName)),
+						],
+						{ concurrency: "unbounded" },
+					),
+				);
 
-				return { sourceFile, diagnostics };
+				return {
+					sourceFile,
+					sourceFiles,
+					diagnostics: [...projectDiagnostics.flat(), ...sourceDiagnostics.flat(2)],
+				};
 			}),
 		(api) => Effect.promise(() => api.close()),
+	);
+
+export const createTypeScriptProject = (
+	source: string,
+	sdkEntries: Readonly<Record<string, string>>,
+	tsserverPath: string,
+) =>
+	createTypeScriptSourcesProject(
+		{ entry: "script.ts", files: { "script.ts": source } },
+		sdkEntries,
+		tsserverPath,
 	);
