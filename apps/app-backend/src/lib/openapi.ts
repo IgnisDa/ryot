@@ -11,6 +11,35 @@ export const ERROR_CODES = {
 	HEALTH_CHECK_FAILED: "health_check_failed",
 } as const;
 
+const createErrorSchema = (code: string, name: string) =>
+	z
+		.object({
+			code: z.literal(code),
+			message: z.string(),
+		})
+		.openapi(name);
+
+export const commonErrors = {
+	notFound: createErrorSchema(ERROR_CODES.NOT_FOUND, "NotFoundError"),
+	unauthenticated: createErrorSchema(
+		ERROR_CODES.UNAUTHENTICATED,
+		"UnauthenticatedError",
+	),
+	validationFailed: createErrorSchema(
+		ERROR_CODES.VALIDATION_FAILED,
+		"ValidationFailedError",
+	),
+	timeout: createErrorSchema(ERROR_CODES.TIMEOUT, "TimeoutError"),
+	internalError: createErrorSchema(
+		ERROR_CODES.INTERNAL_ERROR,
+		"InternalServerError",
+	),
+	healthCheckFailed: createErrorSchema(
+		ERROR_CODES.HEALTH_CHECK_FAILED,
+		"HealthCheckFailedError",
+	),
+} as const;
+
 export const successResponse = <T>(data: T) => ({ data });
 
 export const paginationMetaSchema = z.object({
