@@ -27,6 +27,7 @@ export const entitySchema = pgTable(
 		isBuiltin: boolean().notNull().default(false),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
+			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		updatedAt: timestamp()
@@ -48,12 +49,13 @@ export const eventSchema = pgTable(
 		name: text().notNull(),
 		propertiesSchema: jsonb().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
-		id: text()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		entitySchemaId: text()
 			.notNull()
 			.references(() => entitySchema.id, { onDelete: "cascade" }),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		updatedAt: timestamp()
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
@@ -79,6 +81,7 @@ export const sandboxScript = pgTable(
 		isBuiltin: boolean().notNull().default(false),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
+			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		updatedAt: timestamp()
@@ -98,6 +101,7 @@ export const entitySchemaSandboxScript = pgTable(
 	{
 		createdAt: timestamp().defaultNow().notNull(),
 		id: text()
+			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		entitySchemaId: text()
@@ -143,15 +147,16 @@ export const entity = pgTable(
 		searchVector: tsvector()
 			.notNull()
 			.generatedAlwaysAs(sql`to_tsvector('english', name)`),
-		id: text()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		entitySchemaId: text()
 			.notNull()
 			.references(() => entitySchema.id, { onDelete: "cascade" }),
 		detailsSandboxScriptId: text()
 			.notNull()
 			.references(() => sandboxScript.id, { onDelete: "cascade" }),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		updatedAt: timestamp()
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
@@ -181,15 +186,16 @@ export const event = pgTable(
 		createdAt: timestamp().defaultNow().notNull(),
 		occurredAt: timestamp().notNull().defaultNow(),
 		properties: jsonb().notNull().default({}),
-		id: text()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		userId: text()
-			.notNull()
-			.references(() => user.id, { onDelete: "cascade" }),
 		sessionEntityId: text().references(() => entity.id, {
 			onDelete: "cascade",
 		}),
+		userId: text()
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		eventSchemaId: text()
 			.notNull()
 			.references(() => eventSchema.id, { onDelete: "cascade" }),
@@ -218,15 +224,16 @@ export const relationship = pgTable(
 		createdAt: timestamp().defaultNow().notNull(),
 		properties: jsonb().notNull().default({}),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
-		id: text()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		sourceEntityId: text()
 			.notNull()
 			.references(() => entity.id, { onDelete: "cascade" }),
 		targetEntityId: text()
 			.notNull()
 			.references(() => entity.id, { onDelete: "cascade" }),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
 	},
 	(table) => [
 		index("relationship_rel_type_idx").on(table.relType),
