@@ -22,7 +22,7 @@ const mediaEventSchemas = () => [
 	{
 		name: "Seen",
 		slug: "media.seen",
-		properties_schema: {
+		propertiesSchema: {
 			type: "object",
 			properties: {
 				platform: { type: "string" },
@@ -33,7 +33,7 @@ const mediaEventSchemas = () => [
 	{
 		name: "Progress",
 		slug: "media.progress",
-		properties_schema: {
+		propertiesSchema: {
 			type: "object",
 			required: ["progress_percent"],
 			properties: {
@@ -54,13 +54,11 @@ export const builtinEntitySchemas = () => [
 	{
 		slug: "anime",
 		name: "Anime",
-		eventSchemas: mediaEventSchemas(),
 		propertiesSchema: animePropertiesJsonSchema,
 	},
 	{
 		slug: "manga",
 		name: "Manga",
-		eventSchemas: mediaEventSchemas(),
 		propertiesSchema: mangaPropertiesJsonSchema,
 	},
 ];
