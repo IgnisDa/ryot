@@ -5,6 +5,7 @@ import { requireAuth } from "~/auth/middleware";
 export const ERROR_CODES = {
 	TIMEOUT: "timeout",
 	NOT_FOUND: "not_found",
+	RATE_LIMITED: "rate_limited",
 	INTERNAL_ERROR: "internal_error",
 	UNAUTHENTICATED: "unauthenticated",
 	VALIDATION_FAILED: "validation_failed",
