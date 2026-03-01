@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { Link } from "expo-router";
-import Animated, { FadeIn, FadeOut, SlideInRight, SlideOutRight } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 
 import { Box } from "@/components/ui/box";
 import { Text } from "@/components/ui/text";
@@ -9,11 +9,7 @@ import { useActiveNav, useNavigationData } from "@/lib/navigation";
 
 import { RAIL_WIDTH } from "./rail";
 
-type Props = {
-	pinned?: boolean;
-};
-
-export function ShellSubFlyout({ pinned = false }: Props) {
+export function ShellSubFlyout() {
 	const { trackers } = useNavigationData();
 	const { activeTrackerSlug, activeSubItemSlug } = useActiveNav();
 
@@ -24,8 +20,13 @@ export function ShellSubFlyout({ pinned = false }: Props) {
 		return null;
 	}
 
-	const content = (
-		<>
+	return (
+		<Animated.View
+			entering={FadeIn.duration(180)}
+			exiting={FadeOut.duration(150)}
+			className="absolute top-0 bottom-0 z-25 pt-16 pb-20 bg-background w-55 border-l-[0.5px] border-l-border"
+			style={{ right: RAIL_WIDTH }}
+		>
 			<Text className="text-[10px] text-muted-foreground tracking-[2px] pb-3.5 font-sans px-6 uppercase">
 				{activeTracker?.name} · {subItems.length} {subItems.length === 1 ? "view" : "views"}
 			</Text>
@@ -61,36 +62,6 @@ export function ShellSubFlyout({ pinned = false }: Props) {
 					);
 				})}
 			</Box>
-		</>
-	);
-
-	if (pinned) {
-		return (
-			<Animated.View
-				entering={FadeIn.duration(180)}
-				exiting={FadeOut.duration(150)}
-				className="w-55 pt-16 pb-20 border-l-[0.5px] border-l-border bg-background"
-			>
-				{content}
-			</Animated.View>
-		);
-	}
-
-	return (
-		<Animated.View
-			entering={SlideInRight.duration(220)}
-			exiting={SlideOutRight.duration(180)}
-			className="absolute top-0 bottom-0 z-25 pt-16 pb-20 bg-background w-55"
-			style={{
-				elevation: 10,
-				shadowRadius: 24,
-				right: RAIL_WIDTH,
-				shadowColor: "#000",
-				shadowOpacity: 0.12,
-				shadowOffset: { width: -8, height: 0 },
-			}}
-		>
-			{content}
 		</Animated.View>
 	);
 }
