@@ -372,6 +372,10 @@ export const mediaPlugin = definePlugin({
 	savedViews: mediaSavedViews(),
 	configSchema: mediaConfigSchema,
 	signalSchemas: mediaSignalSchemas("media-monitoring"),
+	httpRateLimits: [
+		{ requests: 90, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },
+		{ requests: 1, intervalMs: 1_000, key: "musicbrainz", origins: ["https://musicbrainz.org"] },
+	],
 	userBootstrap: [
 		{
 			slug: "initialize-workspace",

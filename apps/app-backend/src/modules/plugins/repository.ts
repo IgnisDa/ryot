@@ -87,6 +87,17 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			);
 		});
 
+		const listActiveManifests = Effect.fn("PluginRepository.listActiveManifests")(function* () {
+			const db = yield* CurrentDb;
+			const rows = yield* dbEffect(() =>
+				db
+					.select({ manifest: schema.plugin.manifest })
+					.from(schema.plugin)
+					.where(eq(schema.plugin.status, "active")),
+			);
+			return rows.map(({ manifest }) => manifest);
+		});
+
 		const hasEntityReferences = Effect.fn("PluginRepository.hasEntityReferences")(
 			function* (input: { pluginSlug: string; entitySchemaSlugs: ReadonlyArray<string> }) {
 				const db = yield* CurrentDb;
@@ -356,6 +367,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			deactivate,
 			lockIngestion,
 			findBySourceHash,
+			listActiveManifests,
 			persistKernelScript,
 			hasEntityReferences,
 			hasIntegrationReferences,

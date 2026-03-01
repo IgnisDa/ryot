@@ -1,6 +1,8 @@
 # Phase 1 - Universal Replayable Sandbox Runtime
 
-Status: done.
+Status: done (completed 2026-08-06). Phase 2 now builds on the single durable HTTP boundary described
+here; references to immediate HTTP behavior are the completed Phase 1 state, not the current Phase 2
+admission behavior.
 
 Goal: every sandbox body executes as one replayable durable workflow. Every business host call is a
 typed durable request; completed calls never repeat during ordinary replay, write operations are

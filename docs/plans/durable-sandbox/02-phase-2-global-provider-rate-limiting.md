@@ -1,6 +1,7 @@
 # Phase 2 - Global Provider Rate Limiting
 
-Status: planned; blocked on every Phase 1 done criterion.
+Status: done (completed 2026-08-07). Phase 1 is complete, and the focused, benchmark, hermetic E2E,
+and standard-suite Phase 2 gates passed with live-provider smoke excluded as documented.
 
 Goal: trusted installed plugins declare deployment-global request limits for external provider
 origins, and the sole durable HTTP executor enforces those limits across users, workflows, scripts,
@@ -50,6 +51,10 @@ bucket even though the application has several logical providers and script role
 Add declarations only for external provider APIs with known global limits. Do not add entries for
 Plex, Jellyfin, Radarr, Sonarr, notification delivery, or arbitrary integration endpoints merely
 because they use HTTP.
+
+Implementer decision: the first-party catalog declares exactly AniList at 90 requests per minute for
+`https://graphql.anilist.co` and MusicBrainz at one request per second for
+`https://musicbrainz.org`. Cover Art Archive and every other origin remain unmatched.
 
 ## 2. Authoritative Policy Resolution
 
@@ -109,9 +114,12 @@ State requirements:
 - expose typed unavailable/corrupt-state failures to workflow code;
 - fail closed when Redis is unavailable.
 
-**[IMPLEMENTER-DECIDES]** the exact Redis primitive (script/function/transaction) and idle-key TTL.
-Record the choice here with concurrency tests. Do not add a third-party rate-limit or job-queue
-library.
+Implementer decision: use Redis Lua `EVAL`, with `TIME` read inside the script so classification does
+not trust an application clock. Each prefixed policy key is a hash containing declaration hash `h`,
+next eligible timestamp `n`, and blocked-until timestamp `b`. Its base TTL is
+`max(10 * intervalMs, 60 seconds)` and is extended past a future blocked-until timestamp. Reservation,
+confirmation, block advancement, state validation, and expiry refresh are atomic in that script. No
+third-party rate-limit or job-queue library is used.
 
 ## 4. Durable HTTP Admission Flow
 
@@ -152,6 +160,10 @@ backoff, increments a deterministic coordination-attempt counter, and invokes a 
 activity. This avoids replaying one persisted failed activity forever and does not occupy a worker
 while coordination is unavailable.
 
+Implementer decision: coordination starts with a deterministic one-second durable backoff, doubles
+after each consecutive failure, and is capped at 30 seconds. Every retry receives a new deterministic
+activity identity; a successful coordination call resets the failure streak.
+
 ## 5. 429 and Retry-After
 
 The HTTP activity must preserve response headers on non-2xx failures so the workflow executor can
@@ -171,6 +183,10 @@ For a policy-matched `429`:
 Do not journal intermediate 429 responses as the call's terminal failure. Cancellation ends the
 retry loop. Non-429 HTTP errors, invalid request errors, response-limit failures, and exhausted
 network-attempt behavior become normal durable failures and replay to plugin code.
+
+MusicBrainz can return HTTP `503`; this is a normal non-`429` failure and is not retried
+automatically. Generic automatic recovery is only for policy-matched HTTP `429`; unmatched failures
+and all other status failures receive no automatic retry.
 
 Do not parse or adapt to provider-specific remaining/reset headers in this phase.
 
@@ -203,6 +219,8 @@ Add bounded backend observability for:
 - coordination failure/recovery;
 - cancellation before admission;
 - network-attempt duration after admission.
+- authoritative policy-resolution and Redis-admission duration, correlated by sandbox workflow
+  execution ID.
 
 Never attach request headers, bodies, credentials, full URLs with sensitive query strings, user IDs,
 or response bodies. Observability must not become correctness state.
@@ -220,6 +238,53 @@ An added p95 orchestration cost greater than `1 second` triggers review. This is
 may be accepted by the owner with the measured result and rationale recorded here. Delayed calls are
 judged by accuracy of their scheduled wait and by holding no sandbox/worker resource, not by being as
 fast as unrestricted calls.
+
+The benchmark remains intentionally log-correlated rather than adding timing storage, an endpoint, or
+test-support log plumbing. Backend records keyed by `sandboxWorkflowExecutionId` separately emit
+authoritative policy-resolution, Redis-reservation, and durable-network-activity `durationMs`; the
+benchmark summary separately reports total orchestration for matched-immediate and unmatched runs.
+Exact automated aggregation of the three activity timings is therefore unavailable in the benchmark
+JSON and must be derived from emitted backend logs for the recorded run.
+
+### Phase 2 benchmark rerun (2026-08-07)
+
+Run on the Phase 1 baseline Apple M4 host with Bun 1.3.14, three warm-ups, and 15 measured samples:
+
+```bash
+RUN_SANDBOX_BENCHMARKS=1 bun turbo --env-mode=loose --force --output-logs=full --filter=@ryot/tests test --only -- 'src/tests/kernel/sandbox/sandbox-runtime-benchmark.test.ts'
+```
+
+The command passed after the Redis `observedAtMs` clock-source fix. The controlled provider used two
+sequential 25-ms local requests. Its unmatched total orchestration was 348/453 ms p50/p95. The matched
+fast-policy workload was 377/553 ms, an added 100-ms p95 below the one-second review threshold.
+
+| Workload                         | Policy resolution p50 / p95 | Redis reservation p50 / p95 | Network activity p50 / p95 | Total orchestration p50 / p95 |
+| -------------------------------- | ---------------------------: | ---------------------------: | ----------------------------: | -----------------------------: |
+| Unmatched controlled local origin |                     5 / 9 ms |                          n/a |                    31 / 45 ms |                   348 / 453 ms |
+| Matched fast-policy local origin  |                     5 / 8 ms |                     1 / 4 ms |                    32 / 39 ms |                   377 / 553 ms |
+
+The activity percentiles were derived from emitted safe timing records. Policy and reservation logs
+are replay-tagged and can repeat, so those distributions cover emitted records rather than unique
+logical calls. The unmatched network records also include the Youtubei workload because both used the
+same unmatched controlled origin and the safe log contract intentionally omits script identity; its
+total orchestration column remains the exact controlled-provider summary.
+
+Immediate admission is verified for this run: all 90 emitted matched reservation records across 18
+workflow executions, including warm-ups and replay-tagged repeats, reported `status=immediate` and
+`waitMs=0`. No intentional GCRA or `429` wait is included in the matched timing comparison.
+
+### Phase 2 verification (2026-08-07)
+
+- Plugin-kit, media, fitness, backend, sandbox SDK, sandbox compiler, and tests package checks passed.
+- Their affected unit/integration suites passed; the complete backend suite passed 19 Turbo tasks.
+- `global-provider-rate-limiting.test.ts` passed all four hermetic cases separately, including real
+  container-backed Redis coordination across two backend processes and restart recovery.
+- The standard discovered `tests/` suite passed all 22 Turbo tasks with
+  `providers-live-smoke.test.ts` explicitly excluded. This workspace's local environment opts into
+  live smoke, so exclusion preserves the documented standard-suite boundary rather than treating
+  external provider availability as a Phase 2 prerequisite.
+- The benchmark command above passed and stayed below the one-second added-p95 review threshold.
+- The required codebase cleanup pass completed before the final verification runs.
 
 ### Unit and backend integration tests
 

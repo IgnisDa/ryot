@@ -176,7 +176,7 @@ export default defineAutomation({
 });
 `;
 
-const providerSearchSource = (serverUrl: string) => `
+const providerSearchSource = (matchedServerUrl: string, unmatchedServerUrl: string) => `
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
@@ -193,9 +193,12 @@ export const manifest = defineManifest({
 export default defineProvider({
   manifest,
   operation: "search",
-  run: (_input, host) => Effect.gen(function* () {
-    yield* host.httpCall("GET", ${JSON.stringify(`${serverUrl}/provider-first`)});
-    yield* host.httpCall("GET", ${JSON.stringify(`${serverUrl}/provider-second`)});
+  run: (input, host) => Effect.gen(function* () {
+    const serverUrl = input.query === "matched-immediate"
+      ? ${JSON.stringify(matchedServerUrl)}
+      : ${JSON.stringify(unmatchedServerUrl)};
+    yield* host.httpCall("GET", serverUrl + "/provider-first");
+    yield* host.httpCall("GET", serverUrl + "/provider-second");
     return { items: [{ externalId: "benchmark", titleProperty: { kind: "text", value: "Benchmark" } }] };
   }),
 });
@@ -382,10 +385,15 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 		"records warm hermetic representative workloads",
 		() =>
 			Effect.gen(function* () {
-				const httpServer = yield* startFakeHttpServerScoped(async () => {
+				const unmatchedHttpServer = yield* startFakeHttpServerScoped(async () => {
 					await Bun.sleep(UPSTREAM_DELAY_MS);
 					return Response.json({ ok: true });
 				});
+				const matchedHttpServer = yield* startFakeHttpServerScoped(async () => {
+					await Bun.sleep(UPSTREAM_DELAY_MS);
+					return Response.json({ ok: true });
+				});
+				const policyKey = `sandbox-benchmark-${crypto.randomUUID()}`;
 				const scripts = [
 					{
 						capabilities: [],
@@ -435,9 +443,20 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 						files: {
 							"scripts/automation-full.sandbox.ts": fullAutomationSource,
 							"scripts/automation-no-host.sandbox.ts": noHostAutomationSource,
-							"scripts/provider-search.sandbox.ts": providerSearchSource(httpServer.url),
-							"scripts/provider-details.sandbox.ts": youtubeiDetailsSource(httpServer.url),
+							"scripts/provider-details.sandbox.ts": youtubeiDetailsSource(unmatchedHttpServer.url),
+							"scripts/provider-search.sandbox.ts": providerSearchSource(
+								matchedHttpServer.url,
+								unmatchedHttpServer.url,
+							),
 						},
+						httpRateLimits: [
+							{
+								key: policyKey,
+								requests: 1_000,
+								intervalMs: 1_000,
+								origins: [matchedHttpServer.url],
+							},
+						],
 						providers: [
 							{
 								name: "Benchmark provider",
@@ -487,14 +506,24 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 						context: automationContext(100),
 					}),
 				);
-				const provider = yield* collectSamples(
+				const unmatchedProvider = yield* collectSamples(
 					WARM_UP_COUNT,
 					SAMPLE_COUNT,
 					runDirectSample({
 						userId,
 						upstreamDelayMs: UPSTREAM_DELAY_MS * 2,
 						scriptId: scriptId(PROVIDER_SEARCH_SLUG),
-						context: { page: 1, pageSize: 1, query: "benchmark" },
+						context: { page: 1, pageSize: 1, query: "unmatched" },
+					}),
+				);
+				const matchedImmediateProvider = yield* collectSamples(
+					WARM_UP_COUNT,
+					SAMPLE_COUNT,
+					runDirectSample({
+						userId,
+						upstreamDelayMs: UPSTREAM_DELAY_MS * 2,
+						scriptId: scriptId(PROVIDER_SEARCH_SLUG),
+						context: { page: 1, pageSize: 1, query: "matched-immediate" },
 					}),
 				);
 				const youtubei = yield* collectSamples(
@@ -517,7 +546,8 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 					}),
 				);
 
-				expect(httpServer.requests.length).toBe((WARM_UP_COUNT + SAMPLE_COUNT) * 4);
+				expect(unmatchedHttpServer.requests.length).toBe((WARM_UP_COUNT + SAMPLE_COUNT) * 4);
+				expect(matchedHttpServer.requests.length).toBe((WARM_UP_COUNT + SAMPLE_COUNT) * 2);
 				yield* Effect.log(
 					"SANDBOX_RUNTIME_BASELINE",
 					JSON.stringify(
@@ -539,6 +569,9 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 								importSampleCount: IMPORT_SAMPLE_COUNT,
 								importWarmUpCount: IMPORT_WARM_UP_COUNT,
 								fixedUpstreamDelayMs: UPSTREAM_DELAY_MS,
+								matchedImmediatePolicy: { spacingMs: 1, requests: 1_000, intervalMs: 1_000 },
+								durableHttpTimingSource:
+									"Correlate backend logs by sandboxWorkflowExecutionId: policy resolution, Redis reservation, and network activity report their own durationMs; this harness intentionally adds no log transport or timing storage API.",
 								workflowRedisCounterCaveat:
 									"The current runtime exposes journal projection keys and maximum high-water only; exact workflow-engine and Redis transport round trips are not instrumented without changing production runtime code.",
 							},
@@ -547,7 +580,8 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 								youtubeiProvider: summarize(youtubei),
 								boundedPopulation: summarize(population),
 								fullAutomation: summarize(fullAutomation),
-								controlledHttpProvider: summarize(provider),
+								controlledHttpProvider: summarize(unmatchedProvider),
+								matchedImmediateControlledHttpProvider: summarize(matchedImmediateProvider),
 							},
 						},
 						null,

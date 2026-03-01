@@ -6,6 +6,7 @@ import { definePlugin, PluginManifest } from "./manifest";
 const manifest = definePlugin({
 	savedViews: [],
 	entitySchemas: [],
+	httpRateLimits: [],
 	relationshipSchemas: [],
 	configSchema: {
 		unknownKeys: "strict",
@@ -218,6 +219,99 @@ describe("definePlugin", () => {
 
 	it("decodes the manifest with the canonical Effect schema", () => {
 		expect(Schema.decodeUnknownSync(PluginManifest)(manifest)).toEqual(manifest);
+	});
+
+	it("normalizes strict HTTP rate limit declarations", () => {
+		const decoded = Schema.decodeUnknownSync(PluginManifest)({
+			...manifest,
+			httpRateLimits: [
+				{
+					requests: 90,
+					intervalMs: 60_000,
+					key: "catalog.anilist",
+					origins: ["HTTPS://GRAPHQL.ANILIST.CO:443/"],
+				},
+			],
+		});
+
+		expect(decoded.httpRateLimits).toEqual([
+			{
+				requests: 90,
+				intervalMs: 60_000,
+				key: "catalog.anilist",
+				origins: ["https://graphql.anilist.co"],
+			},
+		]);
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				httpRateLimits: [
+					{
+						requests: 90,
+						unsupported: true,
+						intervalMs: 60_000,
+						key: "catalog.anilist",
+						origins: ["https://graphql.anilist.co"],
+					},
+				],
+			}),
+		).toThrow();
+	});
+
+	it("rejects invalid HTTP rate limit declaration forms", () => {
+		const declaration = {
+			requests: 1,
+			intervalMs: 1_000,
+			key: "catalog.test",
+			origins: ["https://example.com"],
+		};
+		for (const candidate of [
+			{ ...declaration, key: "Catalog Test" },
+			{ ...declaration, origins: [] },
+			{ ...declaration, requests: 0 },
+			{ ...declaration, requests: 1.5 },
+			{ ...declaration, intervalMs: Number.MAX_SAFE_INTEGER + 1 },
+			{ ...declaration, origins: ["ftp://example.com"] },
+			{ ...declaration, origins: ["https://example.com/path"] },
+			{ ...declaration, origins: ["https://example.com?"] },
+			{ ...declaration, origins: ["https://example.com?query=true"] },
+			{ ...declaration, origins: ["https://example.com#"] },
+			{ ...declaration, origins: ["https://example.com#fragment"] },
+			{ ...declaration, origins: ["https://user:pass@example.com"] },
+			{ ...declaration, origins: ["https://*.example.com"] },
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)({
+					...manifest,
+					httpRateLimits: [candidate],
+				}),
+			).toThrow();
+		}
+		expect(() => {
+			const { httpRateLimits: _httpRateLimits, ...missing } = manifest;
+			return Schema.decodeUnknownSync(PluginManifest)(missing);
+		}).toThrow();
+	});
+
+	it("rejects duplicate normalized HTTP rate limit keys and origins", () => {
+		const declaration = {
+			requests: 1,
+			intervalMs: 1_000,
+			key: "catalog.test",
+			origins: ["https://example.com"],
+		};
+		for (const httpRateLimits of [
+			[declaration, { ...declaration, origins: ["https://other.example.com"] }],
+			[
+				declaration,
+				{ ...declaration, key: "catalog.other", origins: ["HTTPS://EXAMPLE.COM:443/"] },
+			],
+			[{ ...declaration, origins: ["https://example.com", "HTTPS://EXAMPLE.COM:443/"] }],
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)({ ...manifest, httpRateLimits }),
+			).toThrow();
+		}
 	});
 
 	it("rejects excess properties throughout the manifest", () => {
