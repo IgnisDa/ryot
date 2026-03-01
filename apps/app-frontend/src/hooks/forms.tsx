@@ -4,16 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type GetErrorMessage = (errors: Array<unknown>) => string | null;
-
 type TextFieldProps = {
 	id?: string;
 	label: string;
 	className?: string;
 	placeholder?: string;
 	autoComplete?: string;
+	errorMessage?: string;
 	type?: HTMLInputTypeAttribute;
-	getErrorMessage?: GetErrorMessage;
 };
 
 type SubmitButtonProps = {
@@ -25,9 +23,6 @@ type SubmitButtonProps = {
 
 function TextField(props: TextFieldProps) {
 	const field = useFieldContext<string>();
-	const errorMessage = field.state.meta.isTouched
-		? (props.getErrorMessage?.(field.state.meta.errors) ?? null)
-		: null;
 
 	return (
 		<div className="space-y-2">
@@ -42,8 +37,8 @@ function TextField(props: TextFieldProps) {
 				autoComplete={props.autoComplete}
 				onChange={(event) => field.handleChange(event.target.value)}
 			/>
-			{errorMessage ? (
-				<p className="text-destructive text-xs">{errorMessage}</p>
+			{props.errorMessage ? (
+				<p className="text-destructive text-xs">{props.errorMessage}</p>
 			) : null}
 		</div>
 	);
