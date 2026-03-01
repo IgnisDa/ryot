@@ -1,80 +1,34 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { badRequest, conflict, notFound } from "@ryot/contract/errors";
-import {
-	SandboxScriptMetadata,
-	type CreateSandboxScriptBody,
-	type EnqueueSandboxBody,
+import { conflict, notFound } from "@ryot/contract/errors";
+import type {
+	CreateSandboxScriptBody,
+	EnqueueSandboxBody,
 } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
-import { Effect, Redacted, Schema } from "effect";
+import { Effect, Redacted } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { pollWorkflowWithResumeNudge } from "#lib/infrastructure/workflow";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job-id";
-import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 
+import { SandboxCompiler } from "./compiler";
 import { SandboxRepository } from "./repository";
 import { RunSandboxWorkflow } from "./sandbox-run-workflow";
 import { toSandboxRunResult } from "./sandbox-workflow-live";
 
-const allowedHostFunctions = new Set([
-	"httpCall",
-	"getEntity",
-	"listEvents",
-	"createEvents",
-	"getCachedValue",
-	"getIntegration",
-	"setCachedValue",
-	"getEntitySchema",
-	"listEventSchemas",
-	"listIntegrations",
-	"claimCachedValue",
-	"getAppConfigValue",
-	"getUserPreferences",
-	"executeQueryEngine",
-]);
 const sandboxJobNotFoundError = "Sandbox job not found";
 const sandboxScriptNotFoundError = "Sandbox script not found";
-
-const decodeMetadata = Schema.decodeUnknown(SandboxScriptMetadata);
-
-const resolveScriptSlug = (payload: CreateSandboxScriptBody) => {
-	const name = payload.name === undefined ? null : trimToNull(payload.name);
-	const candidate = payload.slug?.trim() ?? name;
-	const slug = candidate ? slugify(candidate) : null;
-
-	if (!slug) {
-		return Effect.fail(badRequest("Sandbox script slug is required"));
-	}
-	if (!trimToNull(payload.code)) {
-		return Effect.fail(badRequest("Sandbox script code is required"));
-	}
-
-	return Effect.succeed({ slug, name: name ?? slug });
-};
-
-const resolveMetadata = (metadata: unknown) =>
-	decodeMetadata(metadata ?? {}).pipe(
-		Effect.mapError((error) => badRequest(error.message)),
-		Effect.flatMap((decoded) => {
-			for (const functionKey of decoded.allowedHostFunctions ?? []) {
-				if (!allowedHostFunctions.has(functionKey)) {
-					return Effect.fail(badRequest(`Unknown sandbox host function: ${functionKey}`));
-				}
-			}
-			return Effect.succeed(decoded);
-		}),
-	);
 
 export class SandboxApiService extends Effect.Service<SandboxApiService>()("SandboxApiService", {
 	effect: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const runWithDb = yield* DbRunner;
 		const engine = yield* WorkflowEngine;
+		const compiler = yield* SandboxCompiler;
 		const repository = yield* SandboxRepository;
 		const jobIdSecret = Redacted.value(config.sandbox.jobIdSecret);
 
@@ -82,11 +36,17 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 			user: CurrentUserValue,
 			payload: CreateSandboxScriptBody,
 		) {
-			const resolved = yield* resolveScriptSlug(payload);
-			const metadata = yield* resolveMetadata(payload.metadata);
+			const compiled = yield* compiler.compile(payload.source);
+			const manifest = {
+				kind: compiled.manifest.kind,
+				name: compiled.manifest.name,
+				slug: compiled.manifest.slug,
+				capabilities: [...compiled.manifest.capabilities],
+				requiredAppConfigKeys: [...compiled.manifest.requiredAppConfigKeys],
+			};
 
 			const existing = yield* runWithDb(
-				repository.findScriptBySlugForUser({ userId: user.id, slug: resolved.slug }),
+				repository.findScriptBySlugForUser({ userId: user.id, slug: manifest.slug }),
 			);
 			if (existing) {
 				return yield* conflict("A sandbox script with this slug already exists");
@@ -94,11 +54,13 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 
 			return yield* runWithDb(
 				repository.createScript({
-					metadata,
+					manifest,
 					userId: user.id,
-					code: payload.code,
-					slug: resolved.slug,
-					name: resolved.name,
+					slug: manifest.slug,
+					name: manifest.name,
+					source: payload.source,
+					compiledFormat: compiled.format,
+					compiledCode: compiled.javascript,
 				}),
 			);
 		});
