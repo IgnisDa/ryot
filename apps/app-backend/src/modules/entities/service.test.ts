@@ -314,9 +314,11 @@ describe("createEntity", () => {
 						slug: "book",
 						isBuiltin: true,
 						id: "schema_book",
-						propertiesSchema: {
-							fields: { title: { type: "string" as const } },
+					propertiesSchema: {
+						fields: {
+							title: { type: "string" as const, label: "Title", description: "Title" },
 						},
+					},
 					}),
 			}),
 		);
@@ -344,12 +346,12 @@ describe("createEntity", () => {
 						slug: "workout",
 						isBuiltin: true,
 						id: "schema_workout",
-						propertiesSchema: {
-							fields: {
-								endedAt: { label: "Ended At", type: "datetime" as const },
-								startedAt: { label: "Started At", type: "datetime" as const },
-							},
+					propertiesSchema: {
+						fields: {
+							endedAt: { label: "Ended At", type: "datetime" as const, description: "Ended At" },
+							startedAt: { label: "Started At", type: "datetime" as const, description: "Started At" },
 						},
+					},
 					}),
 			}),
 		);

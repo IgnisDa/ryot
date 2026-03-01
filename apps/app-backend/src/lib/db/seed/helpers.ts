@@ -1,3 +1,4 @@
+import type { AppSchema } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
 import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
 
@@ -17,7 +18,7 @@ export const ensureBuiltinEntitySchema = async (input: {
 	icon: string;
 	database: DbClient;
 	accentColor: string;
-	propertiesSchema: unknown;
+	propertiesSchema: AppSchema;
 }) => {
 	const [existing] = await input.database
 		.select({ id: entitySchema.id })
@@ -60,7 +61,7 @@ export const ensureBuiltinEntitySchemaEventSchemas = async (input: {
 	eventSchemas: Array<{
 		slug: string;
 		name: string;
-		propertiesSchema: unknown;
+		propertiesSchema: AppSchema;
 	}>;
 }) => {
 	const expectedSlugs = input.eventSchemas.map((schema) => schema.slug);

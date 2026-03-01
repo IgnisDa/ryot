@@ -1,4 +1,3 @@
-import type { AppSchema } from "@ryot/ts-utils";
 import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 
 import { assertPersisted, db } from "~/lib/db";
@@ -11,12 +10,7 @@ import {
 	eventSchemaTrigger,
 } from "~/lib/db/schema";
 
-import type { ListedEvent } from "./schemas";
 import type { EventPropertiesShape } from "./service";
-
-type EventRow = Omit<ListedEvent, "properties"> & {
-	properties: unknown;
-};
 
 const listedEventSelection = {
 	id: event.id,
@@ -39,12 +33,6 @@ const createdEventSelection = {
 	eventSchemaId: event.eventSchemaId,
 	sessionEntityId: event.sessionEntityId,
 };
-
-const toListedEvent = (row: EventRow): ListedEvent => ({
-	...row,
-	// oxlint-disable-next-line no-unsafe-type-assertion
-	properties: row.properties as EventPropertiesShape,
-});
 
 const eventSchemaVisibleToUserClause = (userId: string) => {
 	return or(isNull(eventSchema.userId), eq(eventSchema.userId, userId));
@@ -98,13 +86,7 @@ export const getEventCreateScopeForUser = async (input: {
 		)
 		.limit(1);
 
-	return foundScope
-		? {
-				...foundScope,
-				// oxlint-disable-next-line no-unsafe-type-assertion
-				propertiesSchema: foundScope.propertiesSchema as AppSchema | null,
-			}
-		: foundScope;
+	return foundScope;
 };
 
 export const listEventsByEntityForUser = async (input: {
@@ -133,7 +115,7 @@ export const listEventsByEntityForUser = async (input: {
 		)
 		.orderBy(desc(event.createdAt));
 
-	return rows.map(toListedEvent);
+	return rows;
 };
 
 export const createEventForUser = async (input: {
@@ -156,11 +138,11 @@ export const createEventForUser = async (input: {
 		})
 		.returning(createdEventSelection);
 
-	return toListedEvent({
+	return {
 		...assertPersisted(createdEvent, "event"),
 		eventSchemaName: input.eventSchemaName,
 		eventSchemaSlug: input.eventSchemaSlug,
-	});
+	};
 };
 
 export type ActiveEventSchemaTriggerRow = {

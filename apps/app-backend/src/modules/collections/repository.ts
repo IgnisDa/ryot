@@ -112,17 +112,16 @@ const membershipSelection = {
 type MembershipRow = {
 	id: string;
 	createdAt: Date;
-	properties: unknown;
 	sourceEntityId: string;
 	targetEntityId: string;
 	relationshipSchemaId: string;
+	properties: Record<string, unknown>;
 };
 
 const toMembershipResponse = (row: MembershipRow): AddToCollectionData["memberOf"] => ({
 	...row,
+	properties: row.properties,
 	createdAt: row.createdAt.toISOString(),
-	// oxlint-disable-next-line no-unsafe-type-assertion
-	properties: row.properties as Record<string, unknown>,
 });
 
 export const getExistingMembership = async (
