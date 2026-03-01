@@ -31,7 +31,7 @@ const Episode = Schema.Struct({
 	number: Schema.optional(Schema.Number),
 	sequence: Schema.optional(Schema.Number),
 	episodeNumber: Schema.optional(Schema.Number),
-	episode: Schema.optional(Schema.Union(Schema.Number, Schema.String)),
+	episode: Schema.optional(Schema.Union([Schema.Number, Schema.String])),
 });
 
 const Progress = Schema.Struct({ isFinished: Schema.optional(Schema.Boolean) });
@@ -40,7 +40,7 @@ const Item = Schema.Struct({
 	id: Schema.String,
 	name: Schema.optional(Schema.String),
 	userMediaProgress: Schema.optional(Progress),
-	mediaType: Schema.optional(Schema.Literal("book", "podcast")),
+	mediaType: Schema.optional(Schema.Literals(["book", "podcast"])),
 	media: Schema.optional(
 		Schema.Struct({
 			metadata: Schema.optional(Metadata),
@@ -56,7 +56,7 @@ const LibrariesResponse = Schema.Struct({
 			Schema.Struct({
 				id: Schema.String,
 				name: Schema.optional(Schema.String),
-				mediaType: Schema.optional(Schema.Literal("book", "podcast")),
+				mediaType: Schema.optional(Schema.Literals(["book", "podcast"])),
 			}),
 		),
 	),
@@ -139,7 +139,7 @@ export default defineActivity({
 			const url = root.endsWith("/api") ? root : `${root}/api`;
 			const headers = { Accept: "application/json", Authorization: `Bearer ${token}` };
 			const libraries = yield* requestJson(host, "GET", `${url}/libraries`, { headers }).pipe(
-				Effect.flatMap(Schema.decodeUnknown(LibrariesResponse)),
+				Effect.flatMap(Schema.decodeUnknownEffect(LibrariesResponse)),
 			);
 			const failures: Array<MediaIntegrationAdapterResult["failures"][number]> = [];
 			const entityGroups: Array<MediaIntegrationAdapterResult["entityGroups"][number]> = [];
@@ -152,7 +152,7 @@ export default defineActivity({
 					"GET",
 					`${url}/libraries/${library.id}/items?expanded=1${filter}`,
 					{ headers },
-				).pipe(Effect.flatMap(Schema.decodeUnknown(ListingResponse)), Effect.option);
+				).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ListingResponse)), Effect.option);
 				if (Option.isNone(listingResult)) {
 					failures.push(
 						sourceFetchFailure({
@@ -200,7 +200,7 @@ export default defineActivity({
 							"GET",
 							`${url}/items/${item.id}?expanded=1&include=progress`,
 							{ headers },
-						).pipe(Effect.flatMap(Schema.decodeUnknown(DetailsResponse)), Effect.option);
+						).pipe(Effect.flatMap(Schema.decodeUnknownEffect(DetailsResponse)), Effect.option);
 						if (Option.isNone(detailsResult)) {
 							failures.push(
 								sourceFetchFailure({
@@ -228,7 +228,7 @@ export default defineActivity({
 									"GET",
 									`${url}/items/${item.id}?expanded=1&include=progress&episode=${episode.id}`,
 									{ headers },
-								).pipe(Effect.flatMap(Schema.decodeUnknown(ProgressResponse)), Effect.option);
+								).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ProgressResponse)), Effect.option);
 								if (Option.isNone(progressResult)) {
 									failures.push(
 										sourceFetchFailure({
@@ -287,7 +287,7 @@ export default defineActivity({
 						"GET",
 						`${url}/libraries/${library.id}/items?expanded=1`,
 						{ headers },
-					).pipe(Effect.flatMap(Schema.decodeUnknown(ListingResponse)), Effect.option);
+					).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ListingResponse)), Effect.option);
 					if (Option.isSome(ownedResult)) {
 						for (const item of ownedResult.value.results ?? []) {
 							const ref = itemRef(item);

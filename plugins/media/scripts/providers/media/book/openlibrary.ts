@@ -124,7 +124,7 @@ const loadAuthorName = (host: OpenLibraryHost, cache: Map<string, string>, autho
 		"OpenLibrary author",
 	).pipe(
 		Effect.map((payload) => stringValue(asRecord(payload)?.["name"]) ?? "Loading..."),
-		Effect.catchAll(() => Effect.succeed("Loading...")),
+		Effect.catch(() => Effect.succeed("Loading...")),
 		Effect.map((name) => {
 			cache.set(authorIdentifier, name);
 			return name;
@@ -197,7 +197,7 @@ export const details = defineProvider({
 				host,
 				`https://openlibrary.org/works/${requestedIdentifier}/editions.json`,
 				"OpenLibrary editions",
-			).pipe(Effect.catchAll(() => Effect.succeed(null)));
+			).pipe(Effect.catch(() => Effect.succeed(null)));
 			const workPayload = asRecord(workValue);
 			const title = typeof workPayload?.["title"] === "string" ? workPayload["title"] : "";
 			if (!title) {
