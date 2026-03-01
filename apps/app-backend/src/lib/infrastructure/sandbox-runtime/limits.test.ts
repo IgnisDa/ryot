@@ -1,9 +1,8 @@
-import { describe, expect, it } from "vitest";
-
 import {
 	limitSandboxCompilationDiagnostics,
 	sandboxCompilerDiagnostic,
-} from "#modules/sandbox/compiler-diagnostics";
+} from "@ryot/sandbox-compiler/diagnostics";
+import { describe, expect, it } from "vitest";
 
 import {
 	consumeSandboxHostCall,
