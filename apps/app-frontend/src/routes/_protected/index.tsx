@@ -1,4 +1,15 @@
-import { Anchor, Box, Button, Container, Flex, Grid, Paper, Stack, Text, Title } from "@mantine/core";
+import {
+	Anchor,
+	Box,
+	Button,
+	Container,
+	Flex,
+	Grid,
+	Paper,
+	Stack,
+	Text,
+	Title,
+} from "@mantine/core";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useApiClient } from "#/hooks/api";
@@ -24,7 +35,13 @@ function App() {
 
 	return (
 		<Container size="lg" px="md" pb={32} pt={56}>
-			<Paper shadow="md" radius="xl" p={{ base: 24, sm: 40 }} pos="relative" style={{ overflow: "hidden" }}>
+			<Paper
+				shadow="md"
+				radius="xl"
+				p={{ base: 24, sm: 40 }}
+				pos="relative"
+				style={{ overflow: "hidden" }}
+			>
 				<Button onClick={() => runMutation.mutate()}>Create API Key</Button>
 				{runMutation.data?.key && <Text>API Key: {runMutation.data.key}</Text>}
 				<pre>{JSON.stringify(entitySchemasQuery.data, null, 2)}</pre>
@@ -37,7 +54,8 @@ function App() {
 					w={224}
 					style={{
 						borderRadius: "50%",
-						background: "radial-gradient(circle, rgba(79, 184, 178, 0.32), transparent 66%)",
+						background:
+							"radial-gradient(circle, rgba(79, 184, 178, 0.32), transparent 66%)",
 						pointerEvents: "none",
 					}}
 				/>
@@ -49,7 +67,8 @@ function App() {
 					w={224}
 					style={{
 						borderRadius: "50%",
-						background: "radial-gradient(circle, rgba(47, 106, 74, 0.18), transparent 66%)",
+						background:
+							"radial-gradient(circle, rgba(47, 106, 74, 0.18), transparent 66%)",
 						pointerEvents: "none",
 					}}
 				/>
