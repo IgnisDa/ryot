@@ -48,10 +48,6 @@ const searchEntitySchemasRoute = createAuthRoute(
 		responses: {
 			400: payloadErrorResponse(),
 			404: notFoundResponse("Search script is missing"),
-			500: createErrorResponse(
-				"Search execution or payload parsing failed",
-				commonErrors.internalError,
-			),
 			504: createErrorResponse(
 				"Search sandbox job timed out",
 				commonErrors.timeout,
@@ -59,6 +55,10 @@ const searchEntitySchemasRoute = createAuthRoute(
 			200: jsonResponse(
 				"Search results for the schema query",
 				schemaSearchResponse,
+			),
+			500: createErrorResponse(
+				"Search execution or payload parsing failed",
+				commonErrors.internalError,
 			),
 		},
 	}),
@@ -76,6 +76,7 @@ const importEntitySchemasRoute = createAuthRoute(
 		responses: {
 			400: payloadErrorResponse(),
 			404: notFoundResponse("Details script is missing"),
+			200: jsonResponse("Entity import persisted", schemaImportResponseSchema),
 			500: createErrorResponse(
 				"Import execution or persistence failed",
 				commonErrors.internalError,
@@ -84,7 +85,6 @@ const importEntitySchemasRoute = createAuthRoute(
 				"Import sandbox job timed out",
 				commonErrors.timeout,
 			),
-			200: jsonResponse("Entity import persisted", schemaImportResponseSchema),
 		},
 	}),
 );
