@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import tailwindcss from "@tailwindcss/vite";
 import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
@@ -98,7 +97,6 @@ const config = defineConfig({
 		devtools(),
 		createOpenApiTypesPlugin(),
 		tsconfigPaths({ projects: ["./tsconfig.json"] }),
-		tailwindcss(),
 		tanstackStart({ spa: { enabled: true } }),
 		viteReact(),
 	],
