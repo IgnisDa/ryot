@@ -4,6 +4,7 @@ import {
 	boolean,
 	customType,
 	index,
+	integer,
 	jsonb,
 	pgTable,
 	text,
@@ -21,14 +22,23 @@ export enum EntitySchemaSandboxScriptKind {
 	details = "details",
 }
 
-export const entitySchema = pgTable(
-	"entity_schema",
+export enum FacetMode {
+	curated = "curated",
+	generated = "generated",
+}
+
+export const facet = pgTable(
+	"facet",
 	{
+		icon: text(),
+		accentColor: text(),
+		description: text(),
 		slug: text().notNull(),
 		name: text().notNull(),
-		propertiesSchema: jsonb().notNull(),
+		config: jsonb().notNull().default({}),
 		createdAt: timestamp().defaultNow().notNull(),
 		isBuiltin: boolean().notNull().default(false),
+		mode: text().$type<FacetMode>().notNull().default(FacetMode.generated),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
 			.notNull()
@@ -40,6 +50,62 @@ export const entitySchema = pgTable(
 			.notNull(),
 	},
 	(table) => [
+		index("facet_user_id_idx").on(table.userId),
+		unique("facet_user_slug_unique").on(table.userId, table.slug),
+	],
+);
+
+export const userFacet = pgTable(
+	"user_facet",
+	{
+		createdAt: timestamp().defaultNow().notNull(),
+		sortOrder: integer().notNull().default(0),
+		enabled: boolean().notNull().default(true),
+		userId: text()
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		facetId: text()
+			.notNull()
+			.references(() => facet.id, { onDelete: "cascade" }),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		updatedAt: timestamp()
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
+	},
+	(table) => [
+		index("user_facet_user_id_idx").on(table.userId),
+		index("user_facet_facet_id_idx").on(table.facetId),
+		unique("user_facet_user_facet_unique").on(table.userId, table.facetId),
+	],
+);
+
+export const entitySchema = pgTable(
+	"entity_schema",
+	{
+		slug: text().notNull(),
+		name: text().notNull(),
+		propertiesSchema: jsonb().notNull(),
+		createdAt: timestamp().defaultNow().notNull(),
+		isBuiltin: boolean().notNull().default(false),
+		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		facetId: text()
+			.notNull()
+			.references(() => facet.id, { onDelete: "cascade" }),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		updatedAt: timestamp()
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
+	},
+	(table) => [
+		index("entity_schema_facet_id_idx").on(table.facetId),
 		index("entity_schema_user_id_idx").on(table.userId),
 		unique("entity_schema_user_slug_unique").on(table.userId, table.slug),
 	],
