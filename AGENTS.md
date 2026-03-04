@@ -14,7 +14,7 @@ The project uses `turbo` for monorepo management. All frontend-related commands 
 
 ### Package Installation
 
-Always install dependencies using `bun add -E` to add them as exact versions (no version range prefixes).
+Always install dependencies using `cd <whatever-app-needs-dependency> && bun add -E` to add them as exact versions (no version range prefixes).
 
 ### Project Overview
 
