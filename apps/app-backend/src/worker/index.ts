@@ -1,0 +1,34 @@
+import { type Runner, run } from "graphile-worker";
+import { getWorkerPool, shutdownWorkerPool } from "./connection";
+import { taskList } from "./runners";
+
+let runner: Runner | null = null;
+
+export const initializeWorker = async () => {
+	const pgPool = getWorkerPool();
+
+	runner = await run({
+		pgPool,
+		taskList,
+		concurrency: 5,
+	});
+
+	console.info("Graphile Worker initialized");
+	return runner;
+};
+
+export const getRunner = () => {
+	if (!runner) {
+		throw new Error("Worker not initialized. Call initializeWorker() first.");
+	}
+	return runner;
+};
+
+export const shutdownWorker = async () => {
+	if (runner) {
+		await runner.stop();
+		runner = null;
+		await shutdownWorkerPool();
+		console.info("Graphile Worker shut down");
+	}
+};
