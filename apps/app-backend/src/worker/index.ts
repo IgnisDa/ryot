@@ -5,17 +5,15 @@ import { taskList } from "./runners";
 let runner: Runner | null = null;
 
 export const initializeWorker = async () => {
-	if (runner) {
-		return runner;
-	}
+	if (runner) return runner;
 
 	const pgPool = getWorkerPool();
 
 	runner = await run({
 		pgPool,
 		taskList,
-		noHandleSignals: true,
 		concurrency: 5,
+		noHandleSignals: true,
 	});
 
 	console.info("Graphile Worker initialized");
@@ -23,17 +21,14 @@ export const initializeWorker = async () => {
 };
 
 export const getRunner = () => {
-	if (!runner) {
+	if (!runner)
 		throw new Error("Worker not initialized. Call initializeWorker() first.");
-	}
 	return runner;
 };
 
 export const shutdownWorker = async () => {
 	try {
-		if (runner) {
-			await runner.stop();
-		}
+		if (runner) await runner.stop();
 	} finally {
 		runner = null;
 		await shutdownWorkerPool();
