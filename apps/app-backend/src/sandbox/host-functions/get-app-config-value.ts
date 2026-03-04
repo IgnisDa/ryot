@@ -1,7 +1,4 @@
-import { eq } from "drizzle-orm";
-import { db } from "~/db";
-import { appConfig } from "~/db/schema";
-import { isAppConfigKey } from "~/lib/app-config";
+import { appConfig } from "~/lib/config";
 import {
 	apiFailure,
 	apiSuccess,
@@ -14,18 +11,12 @@ export const getAppConfigValue = async (
 	if (typeof key !== "string" || !key.trim())
 		return apiFailure("getAppConfigValue expects a non-empty key string");
 
-	const trimmedKey = key.trim();
-	if (!isAppConfigKey(trimmedKey))
+	const trimmedKey = key.trim() as keyof typeof appConfig;
+
+	if (!(trimmedKey in appConfig))
 		return apiFailure(`Config key "${trimmedKey}" does not exist`);
 
-	const [foundConfig] = await db
-		.select({ value: appConfig.value })
-		.from(appConfig)
-		.where(eq(appConfig.key, trimmedKey))
-		.limit(1);
+	const value = appConfig[trimmedKey];
 
-	if (!foundConfig)
-		return apiFailure(`Config key "${trimmedKey}" does not exist`);
-
-	return apiSuccess(foundConfig.value);
+	return apiSuccess(value ?? null);
 };

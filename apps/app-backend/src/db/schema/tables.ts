@@ -262,20 +262,3 @@ export const savedView = pgTable(
 	},
 	(table) => [index("saved_view_user_id_idx").on(table.userId)],
 );
-
-export const appConfig = pgTable(
-	"app_config",
-	{
-		value: text(),
-		key: text().primaryKey(),
-		createdAt: timestamp().defaultNow().notNull(),
-		updatedByUserId: text().references(() => user.id, { onDelete: "set null" }),
-		updatedAt: timestamp()
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
-	},
-	(table) => [
-		index("app_config_updated_by_user_id_idx").on(table.updatedByUserId),
-	],
-);
