@@ -6,8 +6,9 @@ use database_models::{
     prelude::{AccessLink, User},
     user,
 };
-use database_utils::{apply_columns_search, get_enabled_users_query};
+use database_utils::{apply_columns_search, get_enabled_users_query, user_by_id};
 use dependent_models::BasicUserDetails;
+use enum_models::UserLot;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QueryTrait, prelude::Expr};
 use supporting_service::SupportingService;
 
@@ -24,9 +25,11 @@ pub async fn user_access_links(
 }
 
 pub async fn users_list(
-    ss: &Arc<SupportingService>,
+    user_id: &String,
     query: Option<String>,
+    ss: &Arc<SupportingService>,
 ) -> Result<Vec<BasicUserDetails>> {
+    let main_user = user_by_id(user_id, ss).await?;
     let users = User::find()
         .apply_if(query, |query, value| {
             apply_columns_search(
@@ -41,10 +44,13 @@ pub async fn users_list(
     let users = users
         .into_iter()
         .map(|user| BasicUserDetails {
-            id: user.id,
             lot: user.lot,
-            name: user.name,
+            id: user.id.clone(),
             is_disabled: user.is_disabled,
+            name: match main_user.lot == UserLot::Admin {
+                false => user.id,
+                true => user.name,
+            },
         })
         .collect();
     Ok(users)
