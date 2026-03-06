@@ -1,17 +1,16 @@
 import { describe, expect, it } from "bun:test";
+import { iconNames } from "lucide-react/dynamic";
 import { facetIconOptions, getFacetIconOption } from "./icons";
 
 describe("facetIconOptions", () => {
-	it("stores lucide icon keys with lucide prefix", () => {
-		const hasOnlyLucidePrefixedKeys = facetIconOptions.every((option) =>
-			option.value.startsWith("lucide:"),
-		);
+	it("exposes all lucide icons", () => {
+		const values = facetIconOptions.map((option) => option.value);
 
-		expect(hasOnlyLucidePrefixedKeys).toBe(true);
+		expect(values).toEqual(iconNames);
 	});
 
 	it("resolves known lucide icon values", () => {
-		const option = getFacetIconOption("lucide:book-open");
+		const option = getFacetIconOption("book-open");
 
 		expect(option?.label).toBe("Book Open");
 	});

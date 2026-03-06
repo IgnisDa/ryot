@@ -32,14 +32,14 @@ describe("toCreateFacetPayload", () => {
 
 	it("includes optional fields when provided", () => {
 		const input = v({
-			icon: "lucide:target",
+			icon: "target",
 			accentColor: "#ff0000",
 			description: "A test facet",
 		});
 
 		const payload = toCreateFacetPayload(input);
 
-		expect(payload.icon).toBe("lucide:target");
+		expect(payload.icon).toBe("target");
 		expect(payload.description).toBe("A test facet");
 		expect(payload.accentColor).toBe("#ff0000");
 	});
@@ -72,7 +72,7 @@ describe("toCreateFacetPayload", () => {
 describe("toUpdateFacetPayload", () => {
 	it("converts input with allowed fields", () => {
 		const input = v({
-			icon: "lucide:sparkles",
+			icon: "sparkles",
 			accentColor: "#00ff00",
 			description: "Updated description",
 		});
@@ -80,7 +80,7 @@ describe("toUpdateFacetPayload", () => {
 		const payload = toUpdateFacetPayload(input);
 
 		expect(payload).toEqual({
-			icon: "lucide:sparkles",
+			icon: "sparkles",
 			name: "Facet",
 			slug: "facet",
 			accentColor: "#00ff00",
@@ -90,7 +90,7 @@ describe("toUpdateFacetPayload", () => {
 
 	it("trims string inputs", () => {
 		const input = v({
-			icon: "  lucide:sparkles  ",
+			icon: "  sparkles  ",
 			name: "  Facet Name  ",
 			slug: "  facet-name  ",
 			accentColor: "  #00ff00  ",
@@ -101,7 +101,7 @@ describe("toUpdateFacetPayload", () => {
 
 		expect(payload.name).toBe("Facet Name");
 		expect(payload.slug).toBe("facet-name");
-		expect(payload.icon).toBe("lucide:sparkles");
+		expect(payload.icon).toBe("sparkles");
 		expect(payload.description).toBe("New description");
 		expect(payload.accentColor).toBe("#00ff00");
 	});
@@ -118,7 +118,7 @@ describe("toUpdateFacetPayload", () => {
 
 	it("includes name and slug in update payload", () => {
 		const input = v({
-			icon: "lucide:sparkles",
+			icon: "sparkles",
 			accentColor: "#0000ff",
 			name: "  Should Update  ",
 			slug: "  should-update  ",
@@ -129,7 +129,7 @@ describe("toUpdateFacetPayload", () => {
 
 		expect(payload.name).toBe("Should Update");
 		expect(payload.slug).toBe("should-update");
-		expect(payload.icon).toBe("lucide:sparkles");
+		expect(payload.icon).toBe("sparkles");
 		expect(payload.description).toBe("Update this");
 		expect(payload.accentColor).toBe("#0000ff");
 	});
@@ -173,7 +173,7 @@ describe("createFacetFormSchema", () => {
 
 	it("accepts valid values", () => {
 		const parsed = createFacetFormSchema.safeParse({
-			icon: "lucide:target",
+			icon: "target",
 			name: "My Facet",
 			slug: "my-facet",
 			description: "A facet",
@@ -199,7 +199,7 @@ describe("buildFacetFormValues", () => {
 
 	it("maps existing values into form defaults", () => {
 		const values = buildFacetFormValues({
-			icon: "lucide:film",
+			icon: "film",
 			name: "Media",
 			slug: "media",
 			description: "Track media",
@@ -207,7 +207,7 @@ describe("buildFacetFormValues", () => {
 		});
 
 		expect(values).toEqual({
-			icon: "lucide:film",
+			icon: "film",
 			slug: "media",
 			name: "Media",
 			description: "Track media",
