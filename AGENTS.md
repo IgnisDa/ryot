@@ -30,35 +30,6 @@ Example: `git add 'path/with-special-chars/file.ts'`
 
 Use the `gh` CLI for GitHub operations. Only make raw API requests when the `gh` CLI does not support the required functionality.
 
-## Development Workflow
-
-### Code Quality Checks
-
-Run the relevant commands before committing to ensure changes do not break anything:
-
-```bash
-bun run turbo typecheck
-bun run turbo build --filter=@ryot/docs
-```
-
-### Testing Workflow
-
-When running tests:
-
-1. Implement the feature first
-2. Always ask the user's approval to run tests
-3. Run `bun run turbo test --filter=@ryot/tests`
-
-### GraphQL Code Generation
-
-After adding a GraphQL query or mutation to the backend:
-
-1. Start the backend server in debug mode in the background
-2. Run `bun run turbo backend-graphql --filter=@ryot/generated` to generate frontend types
-3. Stop the backend server after generation completes
-
-This ensures the frontend can use the new query or mutation with proper type safety.
-
 ## Coding Standards
 
 ### Code Comments
