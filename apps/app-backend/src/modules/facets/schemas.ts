@@ -40,8 +40,45 @@ export const createFacetBody = z.object({
 	accentColor: nonEmptyTrimmedStringSchema.optional(),
 });
 
+const nullableTextInputSchema = z
+	.union([nonEmptyTrimmedStringSchema, z.null()])
+	.optional();
+
+export const updateFacetBody = z
+	.object({
+		icon: nullableTextInputSchema,
+		description: nullableTextInputSchema,
+		accentColor: nullableTextInputSchema,
+		name: nonEmptyTrimmedStringSchema.optional(),
+		slug: nonEmptyTrimmedStringSchema.optional(),
+	})
+	.refine((value) => Object.keys(value).length > 0, {
+		message: "At least one field must be provided",
+	});
+
+export const reorderFacetsBody = z
+	.object({
+		facetIds: z.array(nonEmptyTrimmedStringSchema).min(1),
+	})
+	.superRefine((value, ctx) => {
+		const uniqueFacetIds = new Set(value.facetIds);
+		if (uniqueFacetIds.size === value.facetIds.length) return;
+
+		ctx.addIssue({
+			path: ["facetIds"],
+			code: z.ZodIssueCode.custom,
+			message: "Facet ids must be unique",
+		});
+	});
+
+export const reorderFacetsResponseSchema = dataSchema(
+	z.object({ facetIds: z.array(z.string()) }),
+);
+
 export const facetParams = z.object({
 	facetId: nonEmptyTrimmedStringSchema,
 });
 
 export type CreateFacetBody = z.infer<typeof createFacetBody>;
+export type UpdateFacetBody = z.infer<typeof updateFacetBody>;
+export type ReorderFacetsBody = z.infer<typeof reorderFacetsBody>;
