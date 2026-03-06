@@ -31,7 +31,7 @@ These are non-negotiable. Every feature, design decision, and technical choice s
 
 ### 1. Your data, your server, your rules
 
-Ryot is self-hosted first. Users run it on their own hardware and own their data completely. A hosted cloud option exists for convenience, but the self-hosted experience is never degraded to push people toward the cloud. Every feature works in both deployment models. There is no telemetry, no analytics, no phone-home behavior unless the user explicitly opts in.
+Ryot is self-hosted first. Users run it on their own hardware and own their data completely. A hosted cloud option exists for convenience, but the self-hosted experience is never degraded to push people toward the cloud. Core functionality works in both deployment models; optional Pro capabilities can be license-gated on self-hosted and are fully available on cloud plans.
 
 ### 2. Everything is an entity
 
@@ -104,7 +104,7 @@ For rendering mixed-entity collections, items display in a uniform card format: 
 
 ### Saved views are facet-scoped, collections are not
 
-Saved views depend on the query builder, which needs to know property types to offer the right filter operators. A saved view is always scoped to a specific entity schema (or a specific facet's schemas) because "Rating >= 8" means something for movies but is meaningless across whiskeys and places that might not have a "Rating" property.
+Saved views depend on the query builder, which needs to know property types to offer the right filter operators. Saved views can target one schema, multiple schemas, or full facets. Filters are schema-aware: operators are offered only where they are valid, and conditions against missing properties evaluate predictably rather than breaking the query.
 
 Collections have no such constraint. They're just buckets of entities.
 
@@ -117,7 +117,7 @@ Scripts (stored in the `sandbox_script` table) are the primary mechanism for ext
 - **Dashboard widgets**: query data and return structured output (stat cards, charts, lists, maps) for display on the home dashboard
 - **Custom search sources**: add external search providers for entity creation
 
-Each script has a `kind` that determines when and how it runs. Scripts receive a read-only database context and return structured data — they don't have direct write access or DOM access. This keeps them safe and predictable.
+Each script has a `kind` that determines when and how it runs. Scripts receive a read-only database context and return structured data — they don't have direct write access or DOM access. When automations need to change data, scripts emit action intents that are validated and executed by core application services. This keeps scripts safe and predictable while still enabling controlled writes.
 
 For dashboard widgets specifically, scripts return a render spec (type: stat/chart/list/table/map/progress, plus data) rather than HTML. The app handles all rendering. This ensures visual consistency and prevents scripts from breaking the dashboard layout.
 
@@ -253,9 +253,9 @@ A whiskey entity detail page is generated from the schema: properties rendered a
 
 ### Visual query builder
 
-The query builder is a stepped interface: (1) select base entity type, (2) add attribute filters on entity properties, (3) add event logic (aggregations on events). Results show as a live preview below the builder. Queries can be saved as views that appear in the sidebar.
+The query builder is a stepped interface: (1) select the base scope (one schema, many schemas, or a facet), (2) add attribute filters on entity properties, (3) add event logic (aggregations on events). Results show as a live preview below the builder. Queries can be saved as views that appear in the sidebar.
 
-The query builder is scoped to a single entity schema because filter operators depend on knowing the property types. Cross-facet querying (e.g., "show me everything I tracked in March") is handled by the dashboard activity feed and timeline views, not the query builder.
+The query builder is schema-aware, not single-schema-only. It supports multi-schema and facet-level queries while preserving type safety by exposing operators and fields that are valid for the selected scope.
 
 Critically, the query builder is not a separate system from entity list pages. Every entity list page (Movies, Whiskey, etc.) is a saved view. The query builder is just the editing interface for a saved view's query definition and display configuration. When a user clicks "Save View" in the query builder, they're creating the same object that powers sidebar navigation. This unification means one renderer, one component, one data model for all browsing experiences.
 
@@ -263,17 +263,17 @@ Critically, the query builder is not a separate system from entity list pages. E
 
 ## Monetization Model
 
-Ryot follows a freemium, source-available model with two deployment options:
+Ryot follows a freemium, open-source model with two deployment options:
 
 **Self-hosted (free):** Users run the open-source core on their own infrastructure. This includes the full entity-schema-event system, all built-in facets, custom facet creation, collections, saved views, the query builder, scripting, integrations, and the complete API. The free self-hosted experience is never artificially degraded.
 
 **Self-hosted Pro:** Users purchase a license key to unlock additional features on their self-hosted instance. This is the same binary — the license key activates gated functionality.
 
-**Cloud (hosted):** Ryot hosts and manages the instance for users who don't want to self-host. The cloud version runs the Pro feature set. Users pay a subscription.
+**Cloud (hosted):** Ryot hosts and manages the instance for users who don't want to self-host. Cloud subscriptions include all features.
 
 The specific features gated behind Pro are not defined in this document and will evolve based on what users value most. The guiding principle for the paywall boundary: **core tracking functionality is always free. Pro features enhance the experience (convenience, power-user capabilities, polish) but never hold basic tracking hostage.** A free self-hosted user should be able to track everything they care about without ever feeling like the app is incomplete.
 
-The licensing model is AGPL-3.0, consistent with the original Ryot.
+The licensing model is GNU GPL v3.0, consistent with the `LICENSE` file in this repository.
 
 ---
 
