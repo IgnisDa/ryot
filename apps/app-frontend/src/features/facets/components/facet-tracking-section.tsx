@@ -9,13 +9,18 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { Plus } from "lucide-react";
+import type { RefCallback } from "react";
 import {
 	useFacetSidebarActions,
 	useFacetSidebarState,
 } from "../sidebar-context";
 import { FacetNavItem } from "./facet-nav-item";
 
-export function FacetTrackingSection() {
+interface FacetTrackingSectionProps {
+	autoAnimateRef: RefCallback<HTMLDivElement>;
+}
+
+export function FacetTrackingSection(props: FacetTrackingSectionProps) {
 	const state = useFacetSidebarState();
 	const actions = useFacetSidebarActions();
 	const isCreateVisible = state.isCustomizeMode;
@@ -24,7 +29,7 @@ export function FacetTrackingSection() {
 		: state.navItems.filter((item) => item.enabled);
 
 	return (
-		<Box>
+		<Box ref={props.autoAnimateRef}>
 			<Group justify="space-between" mb={12} gap="xs" wrap="nowrap">
 				<Text fw={600} size="sm" c="dimmed">
 					TRACKING
