@@ -6,10 +6,32 @@ import {
 	entitySchemaSandboxScript,
 	event,
 	eventSchema,
+	facet,
 	relationship,
 	sandboxScript,
 	savedView,
+	userFacet,
 } from "./tables";
+
+export const facetRelations = relations(facet, ({ one, many }) => ({
+	userFacets: many(userFacet),
+	entitySchemas: many(entitySchema),
+	user: one(user, {
+		references: [user.id],
+		fields: [facet.userId],
+	}),
+}));
+
+export const userFacetRelations = relations(userFacet, ({ one }) => ({
+	facet: one(facet, {
+		references: [facet.id],
+		fields: [userFacet.facetId],
+	}),
+	user: one(user, {
+		references: [user.id],
+		fields: [userFacet.userId],
+	}),
+}));
 
 export const entitySchemaRelations = relations(
 	entitySchema,
@@ -17,6 +39,10 @@ export const entitySchemaRelations = relations(
 		eventSchemas: many(eventSchema),
 		entitySchemaSandboxScripts: many(entitySchemaSandboxScript),
 		entities: many(entity),
+		facet: one(facet, {
+			references: [facet.id],
+			fields: [entitySchema.facetId],
+		}),
 		user: one(user, {
 			references: [user.id],
 			fields: [entitySchema.userId],
@@ -25,11 +51,11 @@ export const entitySchemaRelations = relations(
 );
 
 export const eventSchemaRelations = relations(eventSchema, ({ one, many }) => ({
+	events: many(event),
 	entitySchema: one(entitySchema, {
 		references: [entitySchema.id],
 		fields: [eventSchema.entitySchemaId],
 	}),
-	events: many(event),
 }));
 
 export const sandboxScriptRelations = relations(

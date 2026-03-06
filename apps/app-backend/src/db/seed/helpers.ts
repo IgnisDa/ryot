@@ -6,12 +6,43 @@ import {
 	entitySchema,
 	entitySchemaSandboxScript,
 	eventSchema,
+	type FacetMode,
+	facet,
 	sandboxScript,
 } from "~/db/schema";
+
+export const ensureBuiltinFacet = async (input: {
+	slug: string;
+	name: string;
+	mode: FacetMode;
+	description?: string;
+}) => {
+	const [existing] = await db
+		.select({ id: facet.id })
+		.from(facet)
+		.where(and(eq(facet.slug, input.slug), isNull(facet.userId)))
+		.limit(1);
+
+	const facetId = existing?.id ?? generateId();
+
+	const values = {
+		isBuiltin: true,
+		name: input.name,
+		slug: input.slug,
+		mode: input.mode,
+		description: input.description ?? null,
+	};
+
+	if (existing) await db.update(facet).set(values).where(eq(facet.id, facetId));
+	else await db.insert(facet).values({ id: facetId, ...values });
+
+	return facetId;
+};
 
 export const ensureBuiltinEntitySchema = async (input: {
 	slug: string;
 	name: string;
+	facetId: string;
 	propertiesSchema: unknown;
 }) => {
 	const [existing] = await db
@@ -26,17 +57,16 @@ export const ensureBuiltinEntitySchema = async (input: {
 		isBuiltin: true,
 		name: input.name,
 		slug: input.slug,
+		facetId: input.facetId,
 		propertiesSchema: input.propertiesSchema,
 	};
 
-	if (existing) {
+	if (existing)
 		await db
 			.update(entitySchema)
 			.set(values)
 			.where(eq(entitySchema.id, schemaId));
-	} else {
-		await db.insert(entitySchema).values({ id: schemaId, ...values });
-	}
+	else await db.insert(entitySchema).values({ id: schemaId, ...values });
 
 	return schemaId;
 };
