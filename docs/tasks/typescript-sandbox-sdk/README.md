@@ -385,9 +385,9 @@ The Deno runner will load the compiled JavaScript as an in-memory ES module inst
 
 ## Tasks
 
-**Overall Progress:** 10 of 18 tasks completed
+**Overall Progress:** 11 of 18 tasks completed
 
-**Current Task:** [Task 11](./11-anime-and-manga-providers.md) (todo)
+**Current Task:** [Task 12](./12-book-providers.md) (todo)
 
 ### Task List
 
@@ -403,7 +403,7 @@ The Deno runner will load the compiled JavaScript as an in-memory ES module inst
 | 08  | [End-to-End Sandbox Fixtures](./08-end-to-end-sandbox-fixtures.md)                             | AFK  | done   |
 | 09  | [TMDB Provider Family](./09-tmdb-provider-family.md)                                           | AFK  | done   |
 | 10  | [TVDB Provider Family](./10-tvdb-provider-family.md)                                           | AFK  | done   |
-| 11  | [Anime and Manga Providers](./11-anime-and-manga-providers.md)                                 | AFK  | todo   |
+| 11  | [Anime and Manga Providers](./11-anime-and-manga-providers.md)                                 | AFK  | done   |
 | 12  | [Book Providers](./12-book-providers.md)                                                       | AFK  | todo   |
 | 13  | [Audiobook and Podcast Providers](./13-audiobook-and-podcast-providers.md)                     | AFK  | todo   |
 | 14  | [Music Providers](./14-music-providers.md)                                                     | AFK  | todo   |

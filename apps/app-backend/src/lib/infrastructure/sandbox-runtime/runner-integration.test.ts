@@ -1316,9 +1316,7 @@ it("loads and executes the generated AniList anime module in Deno with bundled h
 							direction: "outgoing",
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
-							entities: [
-								{ name: "Suggested Manga", externalId: "8", scriptSlug: "manga.anilist" },
-							],
+							entities: [{ name: "Suggested Manga", externalId: "8", scriptSlug: "manga.anilist" }],
 						},
 					],
 					properties: {
