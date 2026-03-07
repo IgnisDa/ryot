@@ -40,7 +40,9 @@ export const executeAggregateQuery = Effect.fn("executeAggregateQuery")(function
 
 	// Validation guarantees a grouped return carries a limit and a measureRef orderBy.
 	if (output.limit === undefined || output.orderBy === undefined) {
-		return yield* Effect.dieMessage("Grouped aggregate is missing limit/orderBy after validation");
+		return yield* Effect.die(
+			new Error("Grouped aggregate is missing limit/orderBy after validation"),
+		);
 	}
 	const groups = groupColumnsSql(groupBy, scope);
 	const measureKeyToIndex = new Map(measures.map((measure, index) => [measure.key, index]));
