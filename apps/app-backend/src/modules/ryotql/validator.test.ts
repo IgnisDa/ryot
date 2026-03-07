@@ -1,5 +1,19 @@
 import { expect, it } from "@effect/vitest";
-import { column, document, field, join, literal, rows, table } from "@ryot/ryotql";
+import {
+	and,
+	castDate,
+	castNumber,
+	column,
+	contains,
+	document,
+	eq,
+	field,
+	join,
+	jsonPath,
+	literal,
+	rows,
+	table,
+} from "@ryot/ryotql";
 
 import { getCatalogTable } from "./catalog";
 import { validateRyotQLDocument } from "./validator";
@@ -13,8 +27,8 @@ it("exposes only approved entity fields", () => {
 		"updatedAt",
 		"properties",
 		"externalId",
-		"populatedAt",
 		"providerId",
+		"populatedAt",
 		"entitySchemaSlug",
 	]);
 });
@@ -99,24 +113,51 @@ it("rejects document and join counts above the retained limits", () => {
 	);
 });
 
-it("rejects expressions outside the initial rows subset", () => {
+it("validates nested expression aliases, fields, JSON paths, and scalar kinds", () => {
 	const entity = table("entity", "entity");
+	const missing = table("entity", "missing");
 	expect(
 		validateRyotQLDocument(
-			document({ entities: rows(entity, { fields: [field("constant", literal(true))] }) }),
+			document({
+				entities: rows(entity, {
+					fields: [
+						field("value", castNumber(jsonPath(column(missing, "properties"), "nested", "score"))),
+					],
+				}),
+			}),
 		),
-	).toBe("Query 'entities': Literal field projections are not supported yet");
+	).toBe("Query 'entities': Unknown table alias 'missing'");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [field("value", jsonPath(column(entity, "name"), "nested"))],
+				}),
+			}),
+		),
+	).toBe("Query 'entities': JSON paths require a JSON expression");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [field("constant", literal(true))],
+					where: and(
+						eq(
+							castDate(jsonPath(column(entity, "properties"), "date")),
+							castDate(literal("2026-08-07")),
+						),
+						contains(column(entity, "name"), literal("RyotQL")),
+					),
+				}),
+			}),
+		),
+	).toBeNull();
 	expect(
 		validateRyotQLDocument(
 			document({
 				entities: rows(entity, {
 					fields: [],
-					where: {
-						operator: "eq",
-						type: "comparison",
-						left: column(entity, "createdAt"),
-						right: literal("2026-08-07T12:00:00.000Z"),
-					},
+					where: eq(column(entity, "createdAt"), literal("2026-08-07T12:00:00.000Z")),
 				}),
 			}),
 		),
