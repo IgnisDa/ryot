@@ -40,8 +40,7 @@ export type QueryEngineRequest = Omit<ExecuteQueryEngineBody, "fields" | "mode">
 	mode?: ExecuteQueryEngineBody["mode"];
 };
 
-type GridDisplayConfiguration = CardDisplayConfigurationInput;
-type ListDisplayConfiguration = CardDisplayConfigurationInput;
+type CardDisplayConfiguration = CardDisplayConfigurationInput;
 type TableDisplayConfiguration = DisplayConfigurationInput["table"];
 
 type RuntimeFieldsInput =
@@ -51,7 +50,7 @@ type RuntimeFieldsInput =
 	  }
 	| {
 			layout: "grid" | "list";
-			displayConfiguration: GridDisplayConfiguration | ListDisplayConfiguration;
+			displayConfiguration: CardDisplayConfiguration;
 	  };
 
 interface CreateEntityInput {
@@ -80,31 +79,31 @@ type QueryEngineEntityFixture = {
 
 const buildCardDisplayConfiguration = (
 	schemaSlugs: string[],
-	overrides: Partial<GridDisplayConfiguration> = {},
-): GridDisplayConfiguration => {
+	overrides: Partial<CardDisplayConfiguration> = {},
+): CardDisplayConfiguration => {
 	const schemaSlug = schemaSlugs[0];
 
 	return {
+		secondarySubtitleProperty: null,
 		calloutProperty: schemaSlug ? [entityField(schemaSlug, "category")] : null,
+		primarySubtitleProperty: schemaSlug ? [entityField(schemaSlug, "year")] : null,
 		titleProperty: schemaSlugs.length ? qualifyBuiltinFields(schemaSlugs, "name") : null,
 		imageProperty: schemaSlugs.length ? qualifyBuiltinFields(schemaSlugs, "image") : null,
-		primarySubtitleProperty: schemaSlug ? [entityField(schemaSlug, "year")] : null,
-		secondarySubtitleProperty: null,
 		...overrides,
 	};
 };
 
 export function buildGridDisplayConfiguration(
-	overrides: Partial<GridDisplayConfiguration> = {},
+	overrides: Partial<CardDisplayConfiguration> = {},
 	schemaSlugs: string[] = [],
-): GridDisplayConfiguration {
+): CardDisplayConfiguration {
 	return buildCardDisplayConfiguration(schemaSlugs, overrides);
 }
 
 export function buildListDisplayConfiguration(
-	overrides: Partial<ListDisplayConfiguration> = {},
+	overrides: Partial<CardDisplayConfiguration> = {},
 	schemaSlugs: string[] = [],
-): ListDisplayConfiguration {
+): CardDisplayConfiguration {
 	return buildCardDisplayConfiguration(schemaSlugs, overrides);
 }
 
@@ -197,8 +196,8 @@ export function buildComputedField(key: string, expression: ExpressionInput): Co
 
 export function buildGridRequest(
 	overrides: Partial<Omit<QueryEngineRequest, "fields">> & {
-		displayConfiguration?: GridDisplayConfiguration;
 		scope: string[];
+		displayConfiguration?: CardDisplayConfiguration;
 	},
 ): QueryEngineRequest {
 	const {
@@ -219,7 +218,7 @@ export function buildGridRequest(
 export function buildListRequest(
 	overrides: Partial<Omit<QueryEngineRequest, "fields">> & {
 		scope: string[];
-		displayConfiguration?: ListDisplayConfiguration;
+		displayConfiguration?: CardDisplayConfiguration;
 	},
 ): QueryEngineRequest {
 	const {
