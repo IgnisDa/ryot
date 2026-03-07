@@ -35,7 +35,6 @@ export const addJob = async (taskIdentifier: string, payload: unknown) => {
 			? {
 					jobKey: DEMO_JOB,
 					maxAttempts: 1,
-					jobKeyMode: "unsafe_dedupe" as const,
 				}
 			: undefined;
 	await quickAddJob(
