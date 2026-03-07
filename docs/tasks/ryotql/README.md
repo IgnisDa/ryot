@@ -1,8 +1,8 @@
 ## Tasks
 
-**Overall Progress:** 3 of 15 tasks completed
+**Overall Progress:** 4 of 15 tasks completed
 
-**Current Task:** [Task 04](./04-event-history-migration.md) (todo)
+**Current Task:** [Task 05](./05-relationship-rows-and-includes.md) (todo)
 
 ### Task List
 
@@ -11,7 +11,7 @@
 | 01  | [Collections Tracer](./01-collections-tracer.md)                           | completed |
 | 02  | [Typed JSON Entity Queries](./02-typed-json-entity-queries.md)             | completed |
 | 03  | [Localized Entity Reads](./03-localized-entity-reads.md)                   | completed |
-| 04  | [Event History Migration](./04-event-history-migration.md)                 | todo      |
+| 04  | [Event History Migration](./04-event-history-migration.md)                 | completed |
 | 05  | [Relationship Rows And Includes](./05-relationship-rows-and-includes.md)   | todo      |
 | 06  | [Correlated Query Expressions](./06-correlated-query-expressions.md)       | todo      |
 | 07  | [Aggregate Outputs](./07-aggregate-outputs.md)                             | todo      |

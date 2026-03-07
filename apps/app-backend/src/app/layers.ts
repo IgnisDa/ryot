@@ -261,7 +261,7 @@ const InterestReconcilerLive = InterestReconciler.layer.pipe(
 const InterestServicesLive = InterestService.layer.pipe(
 	Layer.provideMerge(Layer.mergeAll(StreamRegistry.layer, InterestReconcilerLive)),
 );
-const EventsServiceLive = EventsService.layer.pipe(Layer.provide(QueryEngineServiceLive));
+const EventsServiceLive = EventsService.layer.pipe(Layer.provide(RyotQLServiceLive));
 const SignalDispatchServiceLive = SignalDispatchLive.pipe(Layer.provide(AutomationsService.layer));
 const SignalEmissionServiceLive = SignalEmissionService.layer.pipe(
 	Layer.provide(SignalDispatchServiceLive),
