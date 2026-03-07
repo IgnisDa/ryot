@@ -10,7 +10,6 @@ import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 
-import { compileLegacySandboxModule, LEGACY_SANDBOX_COMPILED_FORMAT } from "./legacy-module";
 import { SandboxRepository } from "./repository";
 
 export const SandboxExecutionQueue = DurableQueue.make({
@@ -36,13 +35,8 @@ const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 				if (!script) {
 					return yield* new SandboxRunError({ message: "Sandbox script not found" });
 				}
-				const compiledCode =
-					script.compiledFormat === LEGACY_SANDBOX_COMPILED_FORMAT && !script.compiledCode
-						? compileLegacySandboxModule(script.code)
-						: script.compiledCode;
 
 				const result = yield* sandbox.run({
-					compiledCode,
 					scriptId: script.id,
 					userId: payload.userId,
 					context: payload.context,
@@ -50,6 +44,7 @@ const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 					driverName: payload.driverName,
 					executionId: payload.executionId,
 					scriptIsBuiltin: script.isBuiltin,
+					compiledCode: script.compiledCode,
 					compiledFormat: script.compiledFormat,
 					allowedHostFunctions:
 						script.metadata.capabilities ?? script.metadata.allowedHostFunctions ?? [],
