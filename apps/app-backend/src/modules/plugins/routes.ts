@@ -1,7 +1,8 @@
-import { HttpApiBuilder, HttpServerRequest } from "@effect/platform";
 import { AppContract } from "@ryot/contract/contract";
 import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
+import { HttpServerRequest } from "effect/unstable/http";
+import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { OperationsService } from "./operations-service";
 import { PluginIngestionService } from "./service";
@@ -20,13 +21,13 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 				return yield* service.installPlugin(payload).pipe(dieOnDbError);
 			}),
 		)
-		.handle("uninstall", ({ path }) =>
+		.handle("uninstall", ({ params }) =>
 			Effect.gen(function* () {
 				const service = yield* PluginIngestionService;
-				return yield* service.uninstallPlugin(path.pluginSlug).pipe(dieOnDbError);
+				return yield* service.uninstallPlugin(params.pluginSlug).pipe(dieOnDbError);
 			}),
 		)
-		.handle("invoke", ({ path, payload }) =>
+		.handle("invoke", ({ params, payload }) =>
 			Effect.gen(function* () {
 				const request = yield* HttpServerRequest.HttpServerRequest;
 				const service = yield* OperationsService;
@@ -34,8 +35,8 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 					.invoke({
 						payload: payload.payload,
 						headers: request.headers,
-						pluginSlug: path.pluginSlug,
-						operationSlug: path.operationSlug,
+						pluginSlug: params.pluginSlug,
+						operationSlug: params.operationSlug,
 					})
 					.pipe(dieOnDbError);
 				return { result };
