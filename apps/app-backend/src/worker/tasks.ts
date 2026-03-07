@@ -32,7 +32,11 @@ export const addJob = async (taskIdentifier: string, payload: unknown) => {
 	const validatedPayload = getValidatedPayload(taskIdentifier, payload);
 	const jobOptions =
 		taskIdentifier === DEMO_JOB
-			? { jobKey: DEMO_JOB, maxAttempts: 1 }
+			? {
+					jobKey: DEMO_JOB,
+					maxAttempts: 1,
+					jobKeyMode: "unsafe_dedupe" as const,
+				}
 			: undefined;
 	await quickAddJob(
 		{ pgPool: pool },
