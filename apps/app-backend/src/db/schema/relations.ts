@@ -1,7 +1,6 @@
 import { relations } from "drizzle-orm";
 import { user } from "./auth";
 import {
-	appConfig,
 	entity,
 	entitySchema,
 	entitySchemaSandboxScript,
@@ -125,12 +124,5 @@ export const savedViewRelations = relations(savedView, ({ one }) => ({
 	user: one(user, {
 		references: [user.id],
 		fields: [savedView.userId],
-	}),
-}));
-
-export const appConfigRelations = relations(appConfig, ({ one }) => ({
-	updatedByUser: one(user, {
-		references: [user.id],
-		fields: [appConfig.updatedByUserId],
 	}),
 }));
