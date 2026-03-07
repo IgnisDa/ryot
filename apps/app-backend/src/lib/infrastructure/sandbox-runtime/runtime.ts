@@ -46,7 +46,7 @@ type ActiveExecutionSession = {
 	readonly apiFunctions: Record<string, BoundHostFunction>;
 };
 
-export type PooledProcess = {
+type PooledProcess = {
 	readonly process: CommandExecutor.Process;
 	readonly responseQueue: Queue.Queue<string>;
 	readonly stdinQueue: Queue.Queue<Uint8Array>;

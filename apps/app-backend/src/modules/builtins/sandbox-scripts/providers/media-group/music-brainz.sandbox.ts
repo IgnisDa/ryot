@@ -2,14 +2,12 @@ import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import {
+	type UnknownRecord,
 	asRecord,
-	buildLuceneQuery,
-	fetchCoverArtUrl,
-	mbGet,
 	numberValue,
 	stringValue,
-	type UnknownRecord,
-} from "../music-brainz-shared";
+} from "../../script-helpers/records";
+import { buildLuceneQuery, fetchCoverArtUrl, mbGet } from "../music-brainz-shared";
 
 export const manifest = defineManifest({
 	kind: "provider",

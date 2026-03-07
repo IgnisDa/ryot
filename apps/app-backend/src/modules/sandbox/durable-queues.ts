@@ -46,8 +46,7 @@ const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 					scriptIsBuiltin: script.isBuiltin,
 					compiledCode: script.compiledCode,
 					compiledFormat: script.compiledFormat,
-					allowedHostFunctions:
-						script.metadata.capabilities ?? script.metadata.allowedHostFunctions ?? [],
+					allowedHostFunctions: script.metadata.capabilities ?? [],
 				});
 
 				return {

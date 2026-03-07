@@ -1,45 +1,23 @@
 import type { JsonValue, SandboxHost } from "@ryot/sandbox-sdk";
 
+import {
+	asRecord,
+	numberValue,
+	parseJsonResponse,
+	stringValue,
+	type UnknownRecord,
+} from "../script-helpers/records";
+
 export type MangaUpdatesHost = SandboxHost<readonly ["httpCall"]>;
 
-export type UnknownRecord = Record<string, unknown>;
-
 const MANGA_UPDATES_API_BASE_URL = "https://api.mangaupdates.com/v1";
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-export const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
-
-export const recordsValue = (value: unknown) =>
-	Array.isArray(value)
-		? value.flatMap((item) => {
-				const record = asRecord(item);
-				return record ? [record] : [];
-			})
-		: [];
-
-export const stringValue = (value: unknown) =>
-	typeof value === "string" && value.trim() ? value.trim() : null;
-
-export const numberValue = (value: unknown) =>
-	typeof value === "number" && Number.isFinite(value) ? value : null;
-
-const parseJsonResponse = (responseBody: string) => {
-	try {
-		const value: unknown = JSON.parse(responseBody);
-		return value;
-	} catch {
-		throw new Error("MangaUpdates returned invalid JSON");
-	}
-};
 
 export const mangaUpdatesGet = (host: MangaUpdatesHost, path: string, label: string) =>
 	host.httpCall("GET", `${MANGA_UPDATES_API_BASE_URL}${path}`).then((response) => {
 		if (!response.success) {
 			throw new Error(response.error || `MangaUpdates ${label} request failed`);
 		}
-		return parseJsonResponse(response.data.body);
+		return parseJsonResponse(response.data.body, "MangaUpdates");
 	});
 
 export const mangaUpdatesGetOptional = (host: MangaUpdatesHost, path: string) =>
@@ -70,7 +48,7 @@ export const mangaUpdatesPost = (
 			if (!response.success) {
 				throw new Error(response.error || `MangaUpdates ${label} request failed`);
 			}
-			return parseJsonResponse(response.data.body);
+			return parseJsonResponse(response.data.body, "MangaUpdates");
 		});
 
 export const searchTotalItems = (payload: UnknownRecord | null) => {

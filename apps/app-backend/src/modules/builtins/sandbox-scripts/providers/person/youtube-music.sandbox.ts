@@ -1,16 +1,14 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import { type UnknownRecord, asRecord, stringValue } from "../../script-helpers/records";
 import {
 	type ArtistClient,
-	asRecord,
 	coerceTrimmed,
 	createYoutubeMusicClient,
 	getBestThumbnailUrl,
 	getThumbnailUrls,
 	type MusicSearchClient,
-	stringValue,
-	type UnknownRecord,
 } from "../youtube-music-shared";
 
 export const manifest = defineManifest({

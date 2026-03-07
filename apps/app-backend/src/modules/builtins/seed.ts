@@ -123,7 +123,7 @@ const ensureBuiltinSandboxScript = Effect.fn(function* (input: {
 	source: string;
 	compiledCode: string;
 	compiledFormat: number;
-	metadata: Record<string, unknown>;
+	manifest: Record<string, unknown>;
 }) {
 	const db = yield* CurrentDb;
 	const [existingScript] = yield* dbEffect(() =>
@@ -139,7 +139,7 @@ const ensureBuiltinSandboxScript = Effect.fn(function* (input: {
 		isBuiltin: true,
 		name: input.name,
 		source: input.source,
-		metadata: input.metadata,
+		metadata: input.manifest,
 		compiledCode: input.compiledCode,
 		compiledFormat: input.compiledFormat,
 	};

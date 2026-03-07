@@ -1,22 +1,21 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
-import {
-	defineProvider,
-	defineProviderDriver,
-	type ProviderDetailsRelatedEntity,
-} from "@ryot/sandbox-sdk/provider";
+import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import { cleanHtmlDescription } from "../../script-helpers/clean-html-description";
+import {
+	type UnknownRecord,
+	asRecord,
+	numberValue,
+	stringValue,
+} from "../../script-helpers/records";
+import type { RoleRelatedEntity } from "../../script-helpers/role-accumulator";
 import {
 	anilistGraphql,
-	asRecord,
 	mediaScriptSlug,
-	numberValue,
 	parseAnilistId,
 	pickPreferredMediaName,
-	stringValue,
-	cleanHtmlDescription,
 	type AnilistHost,
-	type UnknownRecord,
 } from "../anilist-shared";
 
 export const manifest = defineManifest({
@@ -189,10 +188,6 @@ const collectStaffPages = (
 		};
 	});
 
-type RelatedEntityWithRoles = Omit<ProviderDetailsRelatedEntity, "relationshipProperties"> & {
-	relationshipProperties: { roles: string[] };
-};
-
 export const details = defineProviderDriver(manifest, "details", (input, host) => {
 	const staffId = parseAnilistId(input.externalId, "staff");
 	return collectStaffPages(host, staffId, 1, {
@@ -205,7 +200,7 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 			throw new Error("Anilist staff data is missing name");
 		}
 
-		const relatedByKey = new Map<string, RelatedEntityWithRoles>();
+		const relatedByKey = new Map<string, RoleRelatedEntity>();
 		const addMedia = (media: unknown, role: string) => {
 			const record = asRecord(media);
 			if (!record) {

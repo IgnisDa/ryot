@@ -1,14 +1,8 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
-import {
-	asRecord,
-	buildLuceneQuery,
-	mbGet,
-	numberValue,
-	stringValue,
-	trimmedString,
-} from "../music-brainz-shared";
+import { asRecord, numberValue, stringValue, trimmedString } from "../../script-helpers/records";
+import { buildLuceneQuery, mbGet } from "../music-brainz-shared";
 
 export const manifest = defineManifest({
 	kind: "provider",

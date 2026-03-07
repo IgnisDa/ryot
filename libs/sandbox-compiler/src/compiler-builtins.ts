@@ -1,14 +1,12 @@
 import { Effect } from "effect";
-import type * as ts from "typescript/unstable/ast";
-import { DiagnosticCategory, type Diagnostic } from "typescript/unstable/async";
+import { DiagnosticCategory } from "typescript/unstable/async";
 
 import { bundleBuiltInScript } from "./compiler-bundle";
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
 import {
-	type SandboxCompilerDiagnostic,
 	sandboxCompilationFailure,
 	sandboxCompilerDiagnostic,
-	sandboxLogicalFile,
+	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";
 import { createTypeScriptSourcesProject, type SandboxTypeScriptSources } from "./compiler-project";
@@ -26,39 +24,6 @@ export type CompiledBuiltInSandboxEntry = {
 	readonly entry: string;
 	readonly source: string;
 	readonly compiled: CompiledSandboxModule;
-};
-
-const diagnosticSeverity = (category: DiagnosticCategory) => {
-	if (category === DiagnosticCategory.Warning) {
-		return "warning" as const;
-	}
-	if (category === DiagnosticCategory.Message || category === DiagnosticCategory.Suggestion) {
-		return "info" as const;
-	}
-	return "error" as const;
-};
-
-const diagnosticMessage = (diagnostic: Diagnostic): string =>
-	[diagnostic.text, ...(diagnostic.messageChain ?? []).map(diagnosticMessage)].join("\n");
-
-const toTypeScriptDiagnostic = (
-	diagnostic: Diagnostic,
-	files: readonly ts.SourceFile[],
-	entry: ts.SourceFile,
-): SandboxCompilerDiagnostic => {
-	const file = files.find((sourceFile) => sourceFile.fileName === diagnostic.fileName) ?? entry;
-	const start = Math.max(0, diagnostic.pos);
-	const location = diagnostic.fileName ? file.getLineAndCharacterOfPosition(start) : undefined;
-
-	return {
-		code: `TS${diagnostic.code}`,
-		line: (location?.line ?? 0) + 1,
-		column: (location?.character ?? 0) + 1,
-		message: diagnosticMessage(diagnostic),
-		severity: diagnosticSeverity(diagnostic.category),
-		file: sandboxLogicalFile(diagnostic.fileName ?? entry.fileName),
-		...(diagnostic.end > diagnostic.pos ? { length: diagnostic.end - diagnostic.pos } : {}),
-	};
 };
 
 export const compileBuiltInSandboxEntry = (sources: BuiltInSandboxEntry) =>

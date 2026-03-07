@@ -4,22 +4,24 @@ import type {
 	ProviderDetailsResult,
 } from "@ryot/sandbox-sdk/provider";
 
+import { parsePublishYear } from "../../../script-helpers/parse-publish-year";
 import {
+	type UnknownRecord,
 	asRecord,
+	numberValue,
+	recordsValue,
+	stringValue,
+} from "../../../script-helpers/records";
+import {
 	bcp47ToTvdb,
 	collectCompanies,
 	collectGenres,
 	collectImages,
 	collectPeople,
 	getTranslationFields,
-	numberValue,
-	parsePublishYear,
-	recordsValue,
-	stringValue,
 	tvdbGet,
 	tvdbGetOptional,
 	type TvdbHost,
-	type UnknownRecord,
 } from "../../tvdb-shared";
 
 const buildSeason = (
