@@ -44,8 +44,7 @@ describe("resolveCustomEntityAccessError", () => {
 					"Built-in entity schemas do not support generated event logging",
 			}),
 		).toEqual({
-			kind: "not_found",
-			status: 404,
+			error: "not_found",
 			message: "Entity not found",
 		});
 	});
@@ -59,8 +58,7 @@ describe("resolveCustomEntityAccessError", () => {
 					"Built-in entity schemas do not support generated event logging",
 			}),
 		).toEqual({
-			kind: "validation",
-			status: 400,
+			error: "builtin",
 			message: "Built-in entity schemas do not support generated event logging",
 		});
 	});
