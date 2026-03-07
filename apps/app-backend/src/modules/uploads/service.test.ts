@@ -1,6 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest } from "@ryot/contract/errors";
+import { UPLOAD_MAX_FILE_BYTES } from "@ryot/contract/modules/uploads/upload-policy";
 import { UserId } from "@ryot/contract/schema/brands";
 import { Effect, FileSystem, Inspectable, Layer, Option, Path, Redacted } from "effect";
 import { Multipart } from "effect/unstable/http";
@@ -511,6 +512,141 @@ it.effect("completes, claims, and deletes a local temporary intent", () => {
 							method: "PUT" as const,
 							expiresAt: 1_700_000_900,
 							uploadUrl: `/uploads/local/${createdIntentId}?expires=1700000900&signature=signature`,
+						}),
+					deleteObject: (key) => {
+						deleted.push(key);
+						return Effect.void;
+					},
+				}),
+			}),
+		),
+	);
+});
+
+it.effect("completes, claims, and deletes an S3 temporary intent", () => {
+	const stored = new Map<string, string>();
+	const deleted: string[] = [];
+
+	return Effect.gen(function* () {
+		const service = yield* UploadsService;
+		const intent = yield* service.createUploadIntent(user, {
+			provider: "s3",
+			kind: "temporary",
+			fileName: "report.csv",
+			contentType: "text/csv",
+		});
+		const completed = yield* service.completeUploadIntent(user, intent.intentId);
+		if (!("token" in completed)) {
+			throw new Error("Expected a temporary upload token");
+		}
+		const claimed = yield* service.claimTemporaryUpload(completed.token, user.id);
+		expect(claimed.locator).toMatchObject({ type: "s3" });
+		expect(claimed.locator.key).toMatch(/^temporary\/.+\.csv$/);
+		expect("resolvedPath" in claimed).toBe(false);
+		yield* service.deleteTemporaryUpload(intent.intentId);
+		expect(deleted).toEqual([claimed.locator.key]);
+		expect(stored.has(redisKeys.uploadIntent(intent.intentId))).toBe(false);
+	}).pipe(
+		Effect.provide(
+			makeUploadsLayer({
+				redisService: makeRedisLayer({
+					setAndIndex: (key, value) => {
+						stored.set(key, value);
+						return Effect.void;
+					},
+					setAndIndexAndDelete: (key, value, _indexKey, _score, _member, deleteKey) => {
+						stored.set(key, value);
+						stored.delete(deleteKey);
+						return Effect.void;
+					},
+					setAndIndexAndSet: (
+						key,
+						value,
+						_indexKey,
+						_score,
+						_member,
+						secondaryKey,
+						secondaryValue,
+					) => {
+						stored.set(key, value);
+						stored.set(secondaryKey, secondaryValue);
+						return Effect.void;
+					},
+					get: (key) => Effect.succeed(stored.get(key) ?? null),
+					zrem: () => Effect.void,
+					del: (...keys) => {
+						for (const key of keys) {
+							stored.delete(key);
+						}
+						return Effect.succeed(keys.length);
+					},
+				}),
+				s3Service: makeS3Layer({
+					statObject: () =>
+						Effect.succeed({ size: 100, etag: "etag", type: "text/csv", lastModified: new Date() }),
+					deleteObject: (key) => {
+						deleted.push(key);
+						return Effect.void;
+					},
+				}),
+			}),
+		),
+	);
+});
+
+it.effect("deletes invalid S3 objects when completion rejects them", () => {
+	const intentIds = ["oversized-s3-intent", "mismatched-s3-intent"];
+	const stored = new Map(
+		intentIds.map((intentId) => [
+			redisKeys.uploadIntent(intentId),
+			JSON.stringify({
+				intentId,
+				createdAt: 1,
+				provider: "s3",
+				state: "pending",
+				kind: "temporary",
+				userId: "user-id",
+				contentType: "text/csv",
+				expiresAt: 4_102_444_800,
+				objectKey: `temporary/${intentId}.csv`,
+			}),
+		]),
+	);
+	const deleted: string[] = [];
+
+	return Effect.gen(function* () {
+		const service = yield* UploadsService;
+		const oversized = yield* Effect.exit(service.completeUploadIntent(user, "oversized-s3-intent"));
+		assertExitFails(
+			oversized,
+			new BadRequest({
+				message: `Upload exceeds maximum allowed size of ${UPLOAD_MAX_FILE_BYTES} bytes`,
+			}),
+		);
+		const mismatched = yield* Effect.exit(
+			service.completeUploadIntent(user, "mismatched-s3-intent"),
+		);
+		assertExitFails(
+			mismatched,
+			new BadRequest({ message: "Upload content type does not match the upload intent" }),
+		);
+		expect(deleted).toEqual([
+			"temporary/oversized-s3-intent.csv",
+			"temporary/mismatched-s3-intent.csv",
+		]);
+	}).pipe(
+		Effect.provide(
+			makeUploadsLayer({
+				redisService: makeRedisLayer({
+					get: (key) => Effect.succeed(stored.get(key) ?? null),
+				}),
+				s3Service: makeS3Layer({
+					statObject: (key) =>
+						Effect.succeed({
+							etag: "etag",
+							lastModified: new Date(),
+							size: key.includes("oversized") ? UPLOAD_MAX_FILE_BYTES + 1 : 100,
+							type: key.includes("mismatched") ? "application/json" : "text/csv",
 						}),
 					deleteObject: (key) => {
 						deleted.push(key);
