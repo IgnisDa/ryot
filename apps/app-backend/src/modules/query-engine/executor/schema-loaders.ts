@@ -42,16 +42,6 @@ export const loadVisibleEntityPropertySchemas = Effect.fn("loadVisibleEntityProp
 	},
 );
 
-export const loadVisibleEntitySchemaSlugs = Effect.fn("loadVisibleEntitySchemaSlugs")(function* (
-	input: QueryExecutionScope | string,
-) {
-	const scope = typeof input === "string" ? { type: "user" as const, userId: input } : input;
-	const definitions = yield* DefinitionRegistry;
-	return Object.keys(definitions.getSnapshot().entitySchemas).filter((slug) =>
-		ownsEntitySchema(scope, slug),
-	);
-});
-
 export const loadVisibleEntitySchemas = Effect.fn("loadVisibleEntitySchemas")(function* (
 	scope: QueryExecutionScope,
 	slugs: readonly [string, ...string[]],

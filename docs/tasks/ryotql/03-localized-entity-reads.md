@@ -2,7 +2,7 @@
 
 **Parent Plan:** [RyotQL](./README.md)
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -12,16 +12,16 @@ User execution must propagate the authenticated language through selection, filt
 
 ## Acceptance criteria
 
-- [ ] Physical, localized, and derived fields use the same catalog field resolution interface with no table-specific branch in the expression compiler
-- [ ] Entity name and properties resolve translated values for language-aware users and canonical values otherwise
-- [ ] Translated properties merge over canonical properties without discarding untranslated canonical fields
-- [ ] Selection, predicates, ordering, and JSON paths all operate on the same localized field value
-- [ ] Translation status is selected as a normal entity field and preserves ready, pending, none, negative-cache, provider, populated, and canonical-language semantics
-- [ ] Translation-status SQL is absent when no expression references the field
-- [ ] Entity-detail and entity-interest recipes and production consumers use RyotQL directly
-- [ ] Focused localization, entity service, recipe, and end-to-end tests cover canonical fallback, partial translation, localized filtering/ordering, and translation status
-- [ ] The legacy entity-independent query-engine consumers and tests remain green
-- [ ] The RyotQL guide documents localized and backend-derived field behavior
+- [x] Physical, localized, and derived fields use the same catalog field resolution interface with no table-specific branch in the expression compiler
+- [x] Entity name and properties resolve translated values for language-aware users and canonical values otherwise
+- [x] Translated properties merge over canonical properties without discarding untranslated canonical fields
+- [x] Selection, predicates, ordering, and JSON paths all operate on the same localized field value
+- [x] Translation status is selected as a normal entity field and preserves ready, pending, none, negative-cache, provider, populated, and canonical-language semantics
+- [x] Translation-status SQL is absent when no expression references the field
+- [x] Entity-detail and entity-interest recipes and production consumers use RyotQL directly
+- [x] Focused localization, entity service, recipe, and end-to-end tests cover canonical fallback, partial translation, localized filtering/ordering, and translation status
+- [x] The legacy entity-independent query-engine consumers and tests remain green
+- [x] The RyotQL guide documents localized and backend-derived field behavior
 
 ## User stories addressed
 

@@ -230,7 +230,7 @@ const LifecycleDispatchServiceLive = LifecycleDispatchLive.pipe(
 );
 
 const EntitiesServiceLive = EntitiesService.layer.pipe(
-	Layer.provide([QueryEngineServiceLive, LifecycleDispatchServiceLive]),
+	Layer.provide([RyotQLServiceLive, LifecycleDispatchServiceLive]),
 );
 
 const SavedViewsServiceLive = SavedViewsService.layer.pipe(Layer.provide(QueryEngineServiceLive));
@@ -255,7 +255,7 @@ const AuthDependentServicesLive = Layer.mergeAll(
 ).pipe(Layer.provideMerge(AuthAndBootstrapServicesLive));
 
 const InterestReconcilerLive = InterestReconciler.layer.pipe(
-	Layer.provide([QueryEngineServiceLive, EntityPopulationTriggerLive, TranslationsService.layer]),
+	Layer.provide([RyotQLServiceLive, EntityPopulationTriggerLive, TranslationsService.layer]),
 );
 
 const InterestServicesLive = InterestService.layer.pipe(
@@ -417,6 +417,7 @@ const FirstPartyPluginBootstrapLive = FirstPartyPluginBootstrap.layer.pipe(
 const MigrationBootstrapDependenciesLive = Layer.mergeAll(
 	LifecycleDispatchNoop,
 	QueryEngineServiceLive,
+	RyotQLServiceLive,
 	MigrationBootstrapRepositoriesLive,
 ).pipe(Layer.provideMerge(PluginRuntimeResolverLive));
 
