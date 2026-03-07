@@ -7,19 +7,13 @@ This skill will be invoked when the user wants to create a PRD. You may skip ste
 
 **Core principle:** The finished PRD must be entirely self-contained. A fresh agent with no prior context must be able to read it and have everything needed to understand the problem, the technical decisions, and what to implement — without exploring the codebase or asking follow-up questions.
 
-1. Ask the user for a long, detailed description of the problem they want to solve and any potential ideas for solutions.
-
-2. Explore the repo to verify their assertions and understand the current state of the codebase.
-
-3. Interview the user relentlessly about every aspect of this plan until you reach a shared understanding. Walk down each branch of the design tree, resolving open questions one-by-one.
-
-4. Sketch out the major modules you will need to build or modify to complete the implementation. Actively look for opportunities to extract deep modules that can be tested in isolation.
+1. Sketch out the major modules you will need to build or modify to complete the implementation. Actively look for opportunities to extract deep modules that can be tested in isolation.
 
 A deep module (as opposed to a shallow module) is one which encapsulates a lot of functionality in a simple, testable interface which rarely changes.
 
 Check with the user that these modules match their expectations. Check with the user which modules they want tests written for.
 
-5. Once you have a complete understanding of the problem and solution, use the template below to write the PRD. Note that when the PRD is later broken into tasks via the `prd-to-issues` skill, a **mandatory final cleanup task** will always be appended. That task must follow the `codebase-cleanup` skill and should be described as a final pass over the touched files and directly affected modules. The PRD should be written to `docs/tasks/{feature-name}/README.md` where `{feature-name}` is in kebab-case based on the feature name.
+2. Once you have a complete understanding of the problem and solution, use the template below to write the PRD. Note that when the PRD is later broken into tasks via the `prd-to-issues` skill, a **mandatory final cleanup task** will always be appended. That task must follow the `codebase-cleanup` skill and should be described as a final pass over the touched files and directly affected modules. The PRD should be written to `docs/tasks/{feature-name}/README.md` where `{feature-name}` is in kebab-case based on the feature name.
 
 <prd-template>
 
