@@ -1,0 +1,15 @@
+{
+	"git": true,
+	"version": 1,
+	"tailwind": true,
+	"typescript": true,
+	"envVarValues": {},
+	"addOnOptions": {},
+	"chosenAddOns": [],
+	"routerOnly": false,
+	"framework": "react",
+	"mode": "file-router",
+	"packageManager": "bun",
+	"includeExamples": true,
+	"projectName": "@ryot/app-frontend"
+}
