@@ -1,6 +1,6 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { PluginBoot } from "@ryot/plugin-kit/manifest";
-import { Clock, Effect, Layer } from "effect";
+import { Clock, Context, Effect, Layer } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -24,8 +24,8 @@ export const pluginBootExecutionId = (
 	bootMs: number | string,
 ) => `plugin-boot-${pluginSlug.length}-${pluginSlug}-${bootSlug.length}-${bootSlug}-${bootMs}`;
 
-export class PluginBootService extends Effect.Service<PluginBootService>()("PluginBootService", {
-	effect: Effect.gen(function* () {
+export class PluginBootService extends Context.Service<PluginBootService>()("PluginBootService", {
+	make: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const loader = yield* PluginLoader;
 		const engine = yield* WorkflowEngine;
@@ -74,7 +74,7 @@ export class PluginBootService extends Effect.Service<PluginBootService>()("Plug
 				entries,
 				([entry, executionId]) =>
 					dispatch(entry, executionId).pipe(
-						Effect.catchAllCause((cause) =>
+						Effect.catchCause((cause) =>
 							Effect.logError("plugin boot dispatch failed", cause).pipe(
 								Effect.annotateLogs({
 									executionId,
@@ -105,9 +105,11 @@ export class PluginBootService extends Effect.Service<PluginBootService>()("Plug
 
 		return { dispatchAll, triggerAll };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
-export const PluginBootDispatcherLive = Layer.scopedDiscard(
+export const PluginBootDispatcherLive = Layer.effectDiscard(
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
 		if (config.scheduler.disableDispatchers) {

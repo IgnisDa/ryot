@@ -1,13 +1,13 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { generateId } from "better-auth";
 import { Effect, Layer, Schedule } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 
 import { DEFAULT_FREQUENT_INTERVAL, parseFrequentSchedule } from "./cron";
 import { FrequentCronWorkflow } from "./cron-workflow";
 
-export const FrequentCronSchedulerLive = Layer.scopedDiscard(
+export const FrequentCronSchedulerLive = Layer.effectDiscard(
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
 
@@ -34,9 +34,7 @@ export const FrequentCronSchedulerLive = Layer.scopedDiscard(
 					discard: true,
 					payload: { executionId },
 				})
-				.pipe(
-					Effect.catchAllCause((cause) => Effect.logError("frequent cron enqueue failed", cause)),
-				);
+				.pipe(Effect.catchCause((cause) => Effect.logError("frequent cron enqueue failed", cause)));
 		});
 
 		yield* enqueueRun.pipe(

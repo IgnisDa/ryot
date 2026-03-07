@@ -1,7 +1,7 @@
 import type { UserId } from "@ryot/contract/schema/brands";
 import { PluginSlug, SavedViewId } from "@ryot/contract/schema/brands";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
@@ -49,10 +49,10 @@ const toListedSavedView = (row: SavedViewRow) => ({
 const withSavedViewScope = (pluginSlug?: PluginSlug) =>
 	pluginSlug ? eq(schema.savedView.pluginSlug, pluginSlug) : isNull(schema.savedView.pluginSlug);
 
-export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()(
+export class SavedViewsRepository extends Context.Service<SavedViewsRepository>()(
 	"SavedViewsRepository",
 	{
-		sync: () => {
+		make: Effect.sync(() => {
 			const listByUser = Effect.fn("SavedViewsRepository.listByUser")(function* (
 				userId: UserId,
 				input: { pluginSlug?: PluginSlug | undefined; includeDisabled: boolean },
@@ -293,9 +293,11 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				upsertBuiltinState,
 				updateDisabledBySlug,
 			};
-		},
+		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
 const getNextSortOrder = Effect.fn(function* (userId: UserId, pluginSlug: PluginSlug | null) {
 	const db = yield* CurrentDb;
