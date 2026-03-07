@@ -17,7 +17,7 @@ export type PopulationRequest = {
 	entitySchemaSlug: EntitySchemaSlug;
 };
 
-export class EntityPopulationTrigger extends Context.Tag("EntityPopulationTrigger")<
+export class EntityPopulationTrigger extends Context.Service<
 	EntityPopulationTrigger,
 	{ request: (input: PopulationRequest) => Effect.Effect<void> }
->() {}
+>()("EntityPopulationTrigger") {}
