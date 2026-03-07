@@ -1,3 +1,9 @@
+import {
+	trimmedOrNull,
+	trimmedOrUndefined,
+	zodRequiredName,
+	zodRequiredSlug,
+} from "@ryot/ts-utils";
 import { z } from "zod";
 
 export interface FacetFormValues {
@@ -10,14 +16,10 @@ export interface FacetFormValues {
 
 export const createFacetFormSchema = z.object({
 	icon: z.string(),
-	accentColor: z.string(),
+	name: zodRequiredName,
+	slug: zodRequiredSlug,
 	description: z.string(),
-	name: z
-		.string()
-		.refine((value) => value.trim().length > 0, "Name is required"),
-	slug: z
-		.string()
-		.refine((value) => value.trim().length > 0, "Slug is required"),
+	accentColor: z.string(),
 });
 
 export type CreateFacetFormValues = z.infer<typeof createFacetFormSchema>;
@@ -61,14 +63,14 @@ export function toCreateFacetPayload(
 		slug: input.slug.trim(),
 	};
 
-	const trimmedIcon = input.icon.trim();
-	if (trimmedIcon !== "") payload.icon = trimmedIcon;
+	const icon = trimmedOrUndefined(input.icon);
+	if (icon !== undefined) payload.icon = icon;
 
-	const trimmedDescription = input.description.trim();
-	if (trimmedDescription !== "") payload.description = trimmedDescription;
+	const description = trimmedOrUndefined(input.description);
+	if (description !== undefined) payload.description = description;
 
-	const trimmedAccentColor = input.accentColor.trim();
-	if (trimmedAccentColor !== "") payload.accentColor = trimmedAccentColor;
+	const accentColor = trimmedOrUndefined(input.accentColor);
+	if (accentColor !== undefined) payload.accentColor = accentColor;
 
 	return payload;
 }
@@ -76,25 +78,17 @@ export function toCreateFacetPayload(
 export function toUpdateFacetPayload(
 	input: CreateFacetFormValues,
 ): UpdateFacetPayload {
-	const payload: UpdateFacetPayload = {
+	return {
 		name: input.name.trim(),
 		slug: input.slug.trim(),
+		icon: input.icon !== undefined ? trimmedOrNull(input.icon) : undefined,
+		description:
+			input.description !== undefined
+				? trimmedOrNull(input.description)
+				: undefined,
+		accentColor:
+			input.accentColor !== undefined
+				? trimmedOrNull(input.accentColor)
+				: undefined,
 	};
-
-	if (input.icon !== undefined) {
-		const trimmed = input.icon.trim();
-		payload.icon = trimmed === "" ? null : trimmed;
-	}
-
-	if (input.description !== undefined) {
-		const trimmed = input.description.trim();
-		payload.description = trimmed === "" ? null : trimmed;
-	}
-
-	if (input.accentColor !== undefined) {
-		const trimmed = input.accentColor.trim();
-		payload.accentColor = trimmed === "" ? null : trimmed;
-	}
-
-	return payload;
 }
