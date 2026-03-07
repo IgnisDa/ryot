@@ -6,7 +6,7 @@ import type {
 import type { NotificationChannelKind } from "@ryot/contract/modules/notifications/types";
 import { NotificationChannelId, UserId } from "@ryot/contract/schema/brands";
 import { and, desc, eq } from "drizzle-orm";
-import { Effect, Match, Option } from "effect";
+import { Context, Effect, Layer, Match, Option } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
@@ -79,10 +79,10 @@ const ownedChannelWhere = (input: { channelId: NotificationChannelId; userId: Us
 		eq(schema.notificationChannel.userId, input.userId),
 	);
 
-export class NotificationsRepository extends Effect.Service<NotificationsRepository>()(
+export class NotificationsRepository extends Context.Service<NotificationsRepository>()(
 	"NotificationsRepository",
 	{
-		sync: () => {
+		make: Effect.sync(() => {
 			const listForUser = Effect.fn("NotificationsRepository.listForUser")(function* (
 				userId: UserId,
 			) {
@@ -197,6 +197,8 @@ export class NotificationsRepository extends Effect.Service<NotificationsReposit
 				updateForUser,
 				listEnabledForUser,
 			};
-		},
+		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
