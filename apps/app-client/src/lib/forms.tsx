@@ -6,15 +6,7 @@ import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
 import { Input, InputField } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 
-function resolveError(error: unknown): string | undefined {
-	if (typeof error === "string") {
-		return error;
-	}
-	if (error && typeof error === "object" && "message" in error) {
-		return String((error as { message: unknown }).message);
-	}
-	return undefined;
-}
+import { resolveError } from "./form-utils";
 
 type TextFieldProps = Pick<
 	ComponentProps<typeof InputField>,
