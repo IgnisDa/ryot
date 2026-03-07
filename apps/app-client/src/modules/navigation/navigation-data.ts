@@ -1,5 +1,5 @@
 import type { ListedPlugin } from "@ryot/contract/modules/definitions/schemas";
-import type { QueryResponse, RowItem } from "@ryot/contract/modules/query-engine/language";
+import type { RowItem, RyotQLResponse } from "@ryot/contract/modules/ryotql/language";
 import type { ListedSavedView } from "@ryot/contract/modules/saved-views/schemas";
 
 type NavigationPlugin = Omit<
@@ -52,12 +52,8 @@ function getTextField(row: RowItem, key: string) {
 	return field.value;
 }
 
-export function mapCollectionsResponse(response: QueryResponse) {
-	if (response.type !== "rows") {
-		return [];
-	}
-
-	return response.data.items.flatMap((row, index) => {
+export function mapCollectionsResponse(response: RyotQLResponse) {
+	return response.data.collections.items.flatMap((row, index) => {
 		const slug = getTextField(row, "id");
 		const name = getTextField(row, "name");
 		if (!slug || !name) {
@@ -85,7 +81,7 @@ export function getEnabledItems<T extends Pick<NavigationView, "isDisabled" | "s
 }
 
 export function buildNavigationData(props: {
-	collections: QueryResponse;
+	collections: RyotQLResponse;
 	plugins: readonly NavigationPlugin[];
 	savedViews: readonly NavigationView[];
 }) {

@@ -18,7 +18,7 @@
 		"@expo-google-fonts/outfit": "^0.4.3",
 		"@ryot/app-backend": "workspace:*",
 		"@ryot/contract": "workspace:*",
-		"@ryot/query-engine": "workspace:*",
+		"@ryot/ryotql-recipes": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"@tailwindcss/postcss": "^4.1.13",
 		"better-auth": "1.6.15",

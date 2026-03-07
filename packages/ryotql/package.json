@@ -1,0 +1,21 @@
+{
+	"name": "@ryot/ryotql",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		}
+	},
+	"scripts": {
+		"test": "bun --bun run vitest run",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"devDependencies": {
+		"@ryot/contract": "workspace:*",
+		"@ryot/testing": "workspace:*",
+		"vitest": "4.1.9"
+	},
+	"peerDependencies": {
+		"@ryot/contract": "workspace:*"
+	}
+}
