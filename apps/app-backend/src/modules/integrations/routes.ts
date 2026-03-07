@@ -1,8 +1,8 @@
-import { HttpApiBuilder } from "@effect/platform";
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
 import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
+import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { IntegrationsService } from "./service";
 
@@ -11,11 +11,11 @@ export const IntegrationsRoutesLive = HttpApiBuilder.group(
 	"integrations",
 	(handlers) =>
 		handlers
-			.handle("list", ({ urlParams }) =>
+			.handle("list", ({ query }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* IntegrationsService;
-					return yield* service.listForClient(user, urlParams).pipe(dieOnDbError);
+					return yield* service.listForClient(user, query).pipe(dieOnDbError);
 				}),
 			)
 			.handle("create", ({ payload }) =>
@@ -25,41 +25,41 @@ export const IntegrationsRoutesLive = HttpApiBuilder.group(
 					return yield* service.create(user, payload).pipe(dieOnDbError);
 				}),
 			)
-			.handle("get", ({ path }) =>
+			.handle("get", ({ params }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* IntegrationsService;
-					return yield* service.getForClient(user, path.integrationId).pipe(dieOnDbError);
+					return yield* service.getForClient(user, params.integrationId).pipe(dieOnDbError);
 				}),
 			)
-			.handle("update", ({ path, payload }) =>
+			.handle("update", ({ params, payload }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* IntegrationsService;
 					return yield* service
-						.updateForClient(user.id, path.integrationId, payload)
+						.updateForClient(user.id, params.integrationId, payload)
 						.pipe(dieOnDbError);
 				}),
 			)
-			.handle("delete", ({ path }) =>
+			.handle("delete", ({ params }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* IntegrationsService;
-					return yield* service.delete(user, path.integrationId).pipe(dieOnDbError);
+					return yield* service.delete(user, params.integrationId).pipe(dieOnDbError);
 				}),
 			)
-			.handle("getRuns", ({ path }) =>
+			.handle("getRuns", ({ params }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* IntegrationsService;
-					return yield* service.listRuns(user, path.integrationId).pipe(dieOnDbError);
+					return yield* service.listRuns(user, params.integrationId).pipe(dieOnDbError);
 				}),
 			)
-			.handle("webhook", ({ path, payload }) =>
+			.handle("webhook", ({ params, payload }) =>
 				Effect.gen(function* () {
 					const service = yield* IntegrationsService;
 					return yield* service
-						.handleWebhook({ payload, integrationId: path.integrationId })
+						.handleWebhook({ payload, integrationId: params.integrationId })
 						.pipe(dieOnDbError);
 				}),
 			),
