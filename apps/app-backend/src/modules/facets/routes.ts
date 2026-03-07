@@ -7,7 +7,6 @@ import {
 	errorResponse,
 	jsonResponse,
 	notFoundResponse,
-	pathParamErrorResponse,
 	payloadErrorResponse,
 	successResponse,
 } from "~/lib/openapi";
@@ -26,7 +25,6 @@ import {
 import {
 	createFacetBody,
 	createFacetResponseSchema,
-	facetMutationResponseSchema,
 	facetParams,
 	listFacetsResponseSchema,
 	reorderFacetsBody,
@@ -70,42 +68,12 @@ const createFacetRoute = createAuthRoute(
 	}),
 );
 
-const enableFacetRoute = createAuthRoute(
-	createRoute({
-		method: "post",
-		tags: ["facets"],
-		path: "/{facetId}/enable",
-		summary: "Enable a facet for the user",
-		request: { params: facetParams },
-		responses: {
-			400: pathParamErrorResponse(),
-			404: notFoundResponse("Facet does not exist for this user"),
-			200: jsonResponse("Facet was enabled", facetMutationResponseSchema),
-		},
-	}),
-);
-
-const disableFacetRoute = createAuthRoute(
-	createRoute({
-		method: "post",
-		tags: ["facets"],
-		path: "/{facetId}/disable",
-		summary: "Disable a facet for the user",
-		request: { params: facetParams },
-		responses: {
-			400: pathParamErrorResponse(),
-			404: notFoundResponse("Facet does not exist for this user"),
-			200: jsonResponse("Facet was disabled", facetMutationResponseSchema),
-		},
-	}),
-);
-
 const updateFacetRoute = createAuthRoute(
 	createRoute({
 		method: "patch",
 		tags: ["facets"],
 		path: "/{facetId}",
-		summary: "Update a custom facet",
+		summary: "Update a facet",
 		request: {
 			params: facetParams,
 			body: { content: { "application/json": { schema: updateFacetBody } } },
@@ -178,60 +146,56 @@ export const facetsApi = new OpenAPIHono<{ Variables: AuthType }>()
 
 		return c.json(successResponse(createdFacet), 200);
 	})
-	.openapi(enableFacetRoute, async (c) => {
-		const user = c.get("user");
-		const params = c.req.valid("param");
-
-		const foundFacet = await getVisibleFacetById({
-			userId: user.id,
-			facetId: params.facetId,
-		});
-		if (!foundFacet)
-			return c.json(
-				errorResponse(ERROR_CODES.NOT_FOUND, "Facet not found"),
-				404,
-			);
-
-		await setFacetEnabledForUser({
-			enabled: true,
-			userId: user.id,
-			facetId: params.facetId,
-		});
-
-		return c.json(
-			successResponse({ enabled: true, facetId: params.facetId }),
-			200,
-		);
-	})
-	.openapi(disableFacetRoute, async (c) => {
-		const user = c.get("user");
-		const params = c.req.valid("param");
-
-		const foundFacet = await getVisibleFacetById({
-			userId: user.id,
-			facetId: params.facetId,
-		});
-		if (!foundFacet)
-			return c.json(
-				errorResponse(ERROR_CODES.NOT_FOUND, "Facet not found"),
-				404,
-			);
-
-		await setFacetEnabledForUser({
-			enabled: false,
-			userId: user.id,
-			facetId: params.facetId,
-		});
-
-		return c.json(
-			successResponse({ enabled: false, facetId: params.facetId }),
-			200,
-		);
-	})
 	.openapi(updateFacetRoute, async (c) => {
 		const user = c.get("user");
 		const body = c.req.valid("json");
 		const params = c.req.valid("param");
+		const enabled = body.enabled;
+		const hasEnabledUpdate = enabled !== undefined;
+		const hasFacetConfigUpdate =
+			body.icon !== undefined ||
+			body.slug !== undefined ||
+			body.name !== undefined ||
+			body.description !== undefined ||
+			body.accentColor !== undefined;
+
+		if (!hasFacetConfigUpdate) {
+			if (enabled === undefined)
+				return c.json(
+					errorResponse(
+						ERROR_CODES.VALIDATION_FAILED,
+						"At least one field must be provided",
+					),
+					400,
+				);
+
+			const visibleFacet = await getVisibleFacetById({
+				userId: user.id,
+				facetId: params.facetId,
+			});
+			if (!visibleFacet)
+				return c.json(
+					errorResponse(ERROR_CODES.NOT_FOUND, "Facet not found"),
+					404,
+				);
+
+			await setFacetEnabledForUser({
+				enabled,
+				userId: user.id,
+				facetId: params.facetId,
+			});
+
+			const facets = await listFacetsByUser(user.id);
+			const foundFacet = facets.find((facet) => facet.id === params.facetId);
+
+			if (!foundFacet)
+				return c.json(
+					errorResponse(ERROR_CODES.NOT_FOUND, "Facet not found"),
+					404,
+				);
+
+			return c.json(successResponse(foundFacet), 200);
+		}
 
 		const ownedFacet = await getOwnedFacetById({
 			userId: user.id,
@@ -243,7 +207,7 @@ export const facetsApi = new OpenAPIHono<{ Variables: AuthType }>()
 				404,
 			);
 
-		let patch;
+		let patch: ReturnType<typeof resolveFacetPatch>;
 		try {
 			patch = resolveFacetPatch({ current: ownedFacet, input: body });
 		} catch (error) {
@@ -276,7 +240,32 @@ export const facetsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			accentColor: patch.accentColor,
 		});
 
-		return c.json(successResponse(updatedFacet), 200);
+		if (!hasEnabledUpdate) return c.json(successResponse(updatedFacet), 200);
+		if (enabled === undefined)
+			return c.json(
+				errorResponse(
+					ERROR_CODES.VALIDATION_FAILED,
+					"At least one field must be provided",
+				),
+				400,
+			);
+
+		await setFacetEnabledForUser({
+			enabled,
+			userId: user.id,
+			facetId: params.facetId,
+		});
+
+		const facets = await listFacetsByUser(user.id);
+		const foundFacet = facets.find((facet) => facet.id === params.facetId);
+
+		if (!foundFacet)
+			return c.json(
+				errorResponse(ERROR_CODES.NOT_FOUND, "Facet not found"),
+				404,
+			);
+
+		return c.json(successResponse(foundFacet), 200);
 	})
 	.openapi(reorderFacetsRoute, async (c) => {
 		const user = c.get("user");
