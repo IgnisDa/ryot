@@ -1,7 +1,7 @@
-import { Box, Button, Container } from "@mantine/core";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { Button, Container, View } from "reshaped";
 import { useAuthClient } from "@/hooks/auth";
 
 export const Route = createFileRoute("/")({ component: App });
@@ -21,20 +21,20 @@ function App() {
 	});
 
 	return (
-		<Box
+		<div
 			style={{
 				minHeight: "100vh",
 				background: "linear-gradient(180deg, #f5f6f8 0%, #eceff4 100%)",
 			}}
 		>
-			<Container size="lg" py="xl">
-				<Box>
-					API Key: {runMutation.data?.key || "No API Key generated yet."}
-				</Box>
-				<Button onClick={() => runMutation.mutate()} mt="md">
-					Generate API Key
-				</Button>
+			<Container width="964px" padding={8}>
+				<View gap={4}>
+					<View>
+						API Key: {runMutation.data?.key || "No API Key generated yet."}
+					</View>
+					<Button onClick={() => runMutation.mutate()}>Generate API Key</Button>
+				</View>
 			</Container>
-		</Box>
+		</div>
 	);
 }
