@@ -1,5 +1,4 @@
-const slugPunctuationRegex = /[^a-z0-9]+/g;
-const edgeHyphenRegex = /^-+|-+$/g;
+import { resolveRequiredSlug } from "~/lib/slug";
 
 type FacetState = {
 	slug: string;
@@ -17,21 +16,12 @@ type FacetPatchInput = {
 	accentColor?: string | null;
 };
 
-export const normalizeFacetSlug = (slug: string) => {
-	return slug
-		.trim()
-		.toLowerCase()
-		.replace(slugPunctuationRegex, "-")
-		.replace(edgeHyphenRegex, "");
-};
-
 export const resolveFacetSlug = (input: { name: string; slug?: string }) => {
-	const candidate = input.slug ?? input.name;
-	const resolvedSlug = normalizeFacetSlug(candidate);
-
-	if (!resolvedSlug) throw new Error("Facet slug is required");
-
-	return resolvedSlug;
+	return resolveRequiredSlug({
+		name: input.name,
+		label: "Facet",
+		slug: input.slug,
+	});
 };
 
 export const resolveFacetPatch = (input: {
