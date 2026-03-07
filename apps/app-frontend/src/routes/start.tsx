@@ -88,7 +88,7 @@ function StartPage() {
 	};
 
 	return (
-		<div className="page-wrap px-4 py-10 md:py-14">
+		<div className="px-4 py-10 md:py-14">
 			<div className="mx-auto w-full max-w-xl rise-in">
 				<Card className="island-shell rounded-xl border-border/80">
 					<CardHeader className="space-y-2 pb-3">
