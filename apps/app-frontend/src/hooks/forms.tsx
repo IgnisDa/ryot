@@ -5,6 +5,8 @@ import type { HTMLInputTypeAttribute } from "react";
 type TextFieldProps = {
 	id?: string;
 	label: string;
+	required?: boolean;
+	disabled?: boolean;
 	className?: string;
 	placeholder?: string;
 	autoComplete?: string;
@@ -21,12 +23,14 @@ function TextField(props: TextFieldProps) {
 			</Text>
 			<TextInput
 				id={props.id}
-				error={!field.state.meta.isValid}
+				required={props.required}
+				disabled={props.disabled}
 				value={field.state.value}
 				onBlur={field.handleBlur}
 				className={props.className}
 				type={props.type ?? "text"}
 				placeholder={props.placeholder}
+				error={!field.state.meta.isValid}
 				autoComplete={props.autoComplete}
 				onChange={(event) => field.handleChange(event.target.value)}
 			/>
@@ -55,8 +59,8 @@ function SubmitButton(props: SubmitButtonProps) {
 			{([canSubmit, isSubmitting]) => (
 				<Button
 					type="submit"
-					fullWidth={props.fullWidth}
 					variant={props.variant}
+					fullWidth={props.fullWidth}
 					disabled={props.disabled || isSubmitting || !canSubmit}
 				>
 					{isSubmitting ? (props.pendingLabel ?? props.label) : props.label}
