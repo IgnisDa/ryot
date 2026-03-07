@@ -328,6 +328,26 @@ export const RyotQLDocument = strictStruct({
 }).annotate({ identifier: "RyotQLDocument" });
 export type RyotQLDocument = typeof RyotQLDocument.Type;
 
+export const BooleanFieldValue = strictStruct({
+	value: Schema.Boolean,
+	kind: Schema.Literal("boolean"),
+}).annotate({ identifier: "RyotQLBooleanFieldValue" });
+
+export const NullFieldValue = strictStruct({
+	value: Schema.Null,
+	kind: Schema.Literal("null"),
+}).annotate({ identifier: "RyotQLNullFieldValue" });
+
+export const NumberFieldValue = strictStruct({
+	value: Schema.Number,
+	kind: Schema.Literal("number"),
+}).annotate({ identifier: "RyotQLNumberFieldValue" });
+
+export const TextFieldValue = strictStruct({
+	value: Schema.String,
+	kind: Schema.Literal("text"),
+}).annotate({ identifier: "RyotQLTextFieldValue" });
+
 export const FieldValue = strictStruct({
 	value: Schema.Unknown,
 	kind: Schema.Literals(["boolean", "date", "json", "null", "number", "text"]),
@@ -355,18 +375,23 @@ const RowValue: Schema.Codec<FieldValue | IncludeResult, unknown> = Schema.suspe
 	]),
 ).annotate({ identifier: "RyotQLRowValue" });
 
-const RowsPageInfo = strictStruct({
+export const RowsPageInfo = strictStruct({
 	page: Schema.Int,
 	limit: Schema.Int,
 	total: Schema.Int,
 	hasMore: Schema.Boolean,
 }).annotate({ identifier: "RyotQLRowsPageInfo" });
 
-export const RowsResult = strictStruct({
-	pageInfo: RowsPageInfo,
-	type: Schema.Literal("rows"),
-	items: Schema.Array(Schema.Record(Schema.String, RowValue)),
-}).annotate({ identifier: "RyotQLRowsResult" });
+export const rowsResultSchema = <A, I>(item: Schema.Codec<A, I>) =>
+	strictStruct({
+		pageInfo: RowsPageInfo,
+		items: Schema.Array(item),
+		type: Schema.Literal("rows"),
+	});
+
+export const RowsResult = rowsResultSchema(Schema.Record(Schema.String, RowValue)).annotate({
+	identifier: "RyotQLRowsResult",
+});
 export type RowsResult = typeof RowsResult.Type;
 
 export const AggregateResult = strictStruct({

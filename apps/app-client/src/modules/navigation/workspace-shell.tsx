@@ -1,6 +1,11 @@
 import { useAtomValue } from "@effect/atom-react";
+import {
+	decodeNavigationResponse,
+	type NavigationData,
+	type NavigationWorkspace,
+} from "@ryot/ryotql-recipes/navigation";
 import clsx from "clsx";
-import { Cause } from "effect";
+import { Cause, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { router, Slot, useGlobalSearchParams, usePathname } from "expo-router";
 import { useState, type ReactNode } from "react";
@@ -15,15 +20,13 @@ import { useSetWorkspace, useWorkspace } from "@/modules/server/state";
 import {
 	getActiveNavigationKey,
 	getCurrentWorkspace,
+	getEnabledItems,
 	getNavigationHref,
 	getNavigationItems,
 	getWorkspaceSummary,
 	getWorkspacePickerSummary,
-	mapNavigationResponse,
-	type NavigationData,
 	type NavigationItem,
 	type NavigationItems,
-	type NavigationWorkspace,
 } from "./navigation-data";
 
 function NavigationRow(props: {
@@ -598,7 +601,14 @@ export function WorkspaceShell() {
 		return <NavigationStatus title="Loading navigation..." />;
 	}
 
-	const data = mapNavigationResponse(navigationResult.value);
+	const decoded = decodeNavigationResponse(navigationResult.value);
+	if (Result.isFailure(decoded)) {
+		return <NavigationStatus title="Unable to load navigation" detail={String(decoded.failure)} />;
+	}
+	const data = {
+		...decoded.success,
+		workspaces: getEnabledItems(decoded.success.workspaces),
+	} satisfies NavigationData;
 	if (data.workspaces.length === 0) {
 		return (
 			<NavigationStatus
