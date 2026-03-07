@@ -1,5 +1,5 @@
 {
-	"id": "be1b4611-0f23-4293-b9fa-c95429d17ca7",
+	"id": "b90a53f9-d169-41ac-a1c9-31553f4a1ea2",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1479,13 +1479,6 @@
 					"type": "text",
 					"primaryKey": false,
 					"notNull": true
-				},
-				"is_anonymous": {
-					"name": "is_anonymous",
-					"type": "boolean",
-					"primaryKey": false,
-					"notNull": false,
-					"default": false
 				},
 				"created_at": {
 					"name": "created_at",
