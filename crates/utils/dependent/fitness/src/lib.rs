@@ -468,15 +468,26 @@ pub async fn create_or_update_user_workout_template(
     let processed_exercises = information.exercises.clone();
     summary.focused =
         get_focused_workout_summary_with_exercises(&processed_exercises, &db_exercises)?;
+    let template_id = match &input.update_workout_template_id {
+        Some(id) => {
+            if WorkoutTemplate::find_by_id(id)
+                .filter(workout_template::Column::UserId.eq(user_id))
+                .one(&ss.db)
+                .await?
+                .is_none()
+            {
+                bail!("Workout template does not exist for user");
+            }
+            id.clone()
+        }
+        None => format!("wktpl_{}", nanoid!(12)),
+    };
     let template = workout_template::ActiveModel {
+        id: ActiveValue::Set(template_id),
         name: ActiveValue::Set(input.name),
         summary: ActiveValue::Set(summary),
         user_id: ActiveValue::Set(user_id.clone()),
         information: ActiveValue::Set(information),
-        id: match input.update_workout_template_id {
-            Some(id) => ActiveValue::Set(id),
-            None => ActiveValue::Set(format!("wktpl_{}", nanoid!(12))),
-        },
         ..Default::default()
     };
     let template = WorkoutTemplate::insert(template)
