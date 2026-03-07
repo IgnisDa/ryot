@@ -378,8 +378,15 @@ const compilePredicate = (predicate: Predicate, scope: CompileScope): SqlFragmen
 	)}), false)`;
 };
 
-const authorizedTable = (table: CatalogTable, userId: string): SqlFragment =>
-	sql`(SELECT * FROM ${sql.raw(table.name)} WHERE (${sql.raw(table.userIdColumn)} = ${userId} OR ${sql.raw(table.userIdColumn)} IS NULL))`;
+const authorizedTable = (table: CatalogTable, userId: string): SqlFragment => {
+	if (table.visibility.type === "public") {
+		return sql`(SELECT * FROM ${sql.raw(table.name)})`;
+	}
+	const column = sql.raw(table.visibility.column);
+	return table.visibility.includeGlobal
+		? sql`(SELECT * FROM ${sql.raw(table.name)} WHERE (${column} = ${userId} OR ${column} IS NULL))`
+		: sql`(SELECT * FROM ${sql.raw(table.name)} WHERE ${column} = ${userId})`;
+};
 
 const outputKind = (expr: ScalarExpression, scope: CompileScope): SqlFragment => {
 	if (expr.type === "jsonPath") {
