@@ -41,6 +41,7 @@ web-build/
 docs/site
 apps/docs/.vitepress/dist
 apps/docs/.vitepress/cache
+.worktrees
 .wxt
 web-ext.config.ts
 node_modules
