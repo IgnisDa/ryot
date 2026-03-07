@@ -1,4 +1,6 @@
-import type { EntityDetail, EntityImage } from "./types";
+import type { EntityImage } from "@/lib/entity-image";
+
+import type { EntityDetail } from "./types";
 
 const img = (url: string): EntityImage => ({ kind: "remote", url });
 

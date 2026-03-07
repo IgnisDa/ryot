@@ -21,8 +21,7 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 	const firstImage = entity.images[0];
 	const imageUrl = firstImage?.kind === "remote" ? firstImage.url : undefined;
 	const primaryCreator = getPrimaryCreator(entity);
-	const runtime =
-		"runtime" in entity ? (entity as EntityDetail & { runtime: number }).runtime : undefined;
+	const runtime = "runtime" in entity ? entity.runtime : undefined;
 	const providerRating = entity.providerRating ?? undefined;
 
 	return (
@@ -100,10 +99,8 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 
 						{/* Title */}
 						<Text
-							className="font-heading-semibold leading-tight text-white web:text-[42px]"
+							className="font-heading-semibold leading-tight text-white text-[28px] md:text-[36px] lg:text-[42px]"
 							style={{
-								fontSize: isTablet ? 36 : 28,
-								lineHeight: isTablet ? 40 : 32,
 								textShadowColor: "rgba(0,0,0,0.4)",
 								textShadowOffset: { width: 0, height: 2 },
 								textShadowRadius: 20,
