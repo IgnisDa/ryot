@@ -1,10 +1,10 @@
-import { HttpApiBuilder } from "@effect/platform";
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
 import { badRequest, dieOnDbError, notFound } from "@ryot/contract/errors";
 import type { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { DateTime, Effect } from "effect";
+import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { LifecycleDispatch } from "#modules/entities/lifecycle-dispatch";
