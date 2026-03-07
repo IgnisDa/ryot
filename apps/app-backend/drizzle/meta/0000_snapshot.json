@@ -1,5 +1,5 @@
 {
-	"id": "f118d10e-0da5-434b-b08c-fe7ce6dd6ff6",
+	"id": "c2611899-6b13-4425-a2dc-f9e84cab94e3",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -642,6 +642,13 @@
 					"type": "text",
 					"primaryKey": true,
 					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
 				}
 			},
 			"indexes": {
@@ -733,6 +740,13 @@
 					"type": "text",
 					"primaryKey": false,
 					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
 				}
 			},
 			"indexes": {
@@ -881,6 +895,13 @@
 					"type": "text",
 					"primaryKey": false,
 					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
 				}
 			},
 			"indexes": {
@@ -1035,18 +1056,18 @@
 					"primaryKey": false,
 					"notNull": true
 				},
+				"properties_schema": {
+					"name": "properties_schema",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
+				},
 				"created_at": {
 					"name": "created_at",
 					"type": "timestamp",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
-				},
-				"properties_schema": {
-					"name": "properties_schema",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true
 				},
 				"id": {
 					"name": "id",
@@ -1059,6 +1080,13 @@
 					"type": "text",
 					"primaryKey": false,
 					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
 				}
 			},
 			"indexes": {
