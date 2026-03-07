@@ -7,10 +7,15 @@ import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
 import {
 	sandboxCompanyDotTmdbScript,
+	sandboxCompanyDotTvdbScript,
 	sandboxMovieDashGroupDotTmdbScript,
+	sandboxMovieDashGroupDotTvdbScript,
 	sandboxMovieDotTmdbScript,
+	sandboxMovieDotTvdbScript,
 	sandboxPersonDotTmdbScript,
+	sandboxPersonDotTvdbScript,
 	sandboxShowDotTmdbScript,
+	sandboxShowDotTvdbScript,
 	sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript,
 	sandboxTriggerDotIntegrationDashProgressDashPolicyScript,
 } from "#modules/builtins/generated-sandbox/registry";
@@ -1060,6 +1065,166 @@ it("loads and executes the remaining generated TMDB provider family in Deno", ()
 						],
 					});
 				}
+			}),
+		),
+	));
+
+it("loads and executes the generated TVDB Show module in Deno through the token flow", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							appConfigValue: "tvdb-api-key",
+							httpResponse: (url) => {
+								const path = new URL(url).pathname;
+								if (path === "/v4/login") {
+									return { status: "success", data: { token: "generated-token" } };
+								}
+								expect(path).toBe("/v4/search");
+								return {
+									status: "success",
+									links: { next: null, total_items: 1 },
+									data: [
+										{
+											tvdb_id: "42",
+											name: "Generated Series",
+											poster: "https://example.com/poster.jpg",
+										},
+									],
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const compiled = {
+					manifest: sandboxShowDotTvdbScript.manifest,
+					format: sandboxShowDotTvdbScript.compiledFormat,
+					javascript: sandboxShowDotTvdbScript.compiledCode,
+				};
+				const result = yield* runInDeno(
+					compiled,
+					"search",
+					{ query: "Generated", page: 1, pageSize: 20 },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(result).toMatchObject({ success: true });
+				expect(Reflect.get(result, "value")).toEqual({
+					details: { totalItems: 1, nextPage: null },
+					items: [
+						{
+							externalId: "42",
+							calloutProperty: { kind: "null", value: null },
+							titleProperty: { kind: "text", value: "Generated Series" },
+							primarySubtitleProperty: { kind: "null", value: null },
+							secondarySubtitleProperty: { kind: "null", value: null },
+							imageProperty: {
+								kind: "image",
+								value: { type: "remote", url: "https://example.com/poster.jpg" },
+							},
+						},
+					],
+				});
+				const cacheWrite = bridge.calls.find((call) => call.fnName === "setCachedValue");
+				expect(cacheWrite?.args).toEqual(["tvdb_access_token", "Bearer generated-token", 82800]);
+			}),
+		),
+	));
+
+it("loads and executes the remaining generated TVDB provider family in Deno", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							appConfigValue: "tvdb-api-key",
+							httpResponse: (url) => {
+								const requestUrl = new URL(url);
+								if (requestUrl.pathname === "/v4/login") {
+									return { status: "success", data: { token: "generated-token" } };
+								}
+								if (requestUrl.pathname === "/v4/lists/4/translations/eng") {
+									return {
+										status: "success",
+										data: [
+											{ isPrimary: true, name: "Generated List", overview: "Translated overview" },
+										],
+									};
+								}
+								expect(requestUrl.pathname).toBe("/v4/search");
+								const searchType = requestUrl.searchParams.get("type");
+								const results: Readonly<Record<string, { tvdb_id: string; name: string }>> = {
+									movie: { tvdb_id: "1", name: "Generated Movie" },
+									person: { tvdb_id: "2", name: "Generated Person" },
+									company: { tvdb_id: "3", name: "Generated Company" },
+								};
+								const result = searchType === null ? undefined : results[searchType];
+								expect(result).toBeDefined();
+								return {
+									status: "success",
+									data: result === undefined ? [] : [result],
+									links: { next: null, total_items: 1 },
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const apiBase = `http://127.0.0.1:${bridge.port}`;
+				const searchCases = [
+					{ entry: sandboxMovieDotTvdbScript, title: "Generated Movie", externalId: "1" },
+					{ entry: sandboxPersonDotTvdbScript, title: "Generated Person", externalId: "2" },
+					{ entry: sandboxCompanyDotTvdbScript, title: "Generated Company", externalId: "3" },
+				];
+				for (const scenario of searchCases) {
+					const compiled = {
+						manifest: scenario.entry.manifest,
+						format: scenario.entry.compiledFormat,
+						javascript: scenario.entry.compiledCode,
+					};
+					const result = yield* runInDeno(
+						compiled,
+						"search",
+						{ query: "Generated", page: 1, pageSize: 20 },
+						{ apiBase, apiFunctions: compiled.manifest.capabilities },
+					);
+					assert(result !== null && typeof result === "object");
+					expect(result).toMatchObject({ success: true });
+					expect(Reflect.get(result, "value")).toMatchObject({
+						details: { totalItems: 1, nextPage: null },
+						items: [
+							{
+								externalId: scenario.externalId,
+								titleProperty: { kind: "text", value: scenario.title },
+							},
+						],
+					});
+				}
+
+				const groupEntry = sandboxMovieDashGroupDotTvdbScript;
+				const translated = yield* runInDeno(
+					{
+						manifest: groupEntry.manifest,
+						format: groupEntry.compiledFormat,
+						javascript: groupEntry.compiledCode,
+					},
+					"translate",
+					{ externalId: "4", language: "en", entitySchemaSlug: "movie-group" },
+					{ apiBase, apiFunctions: groupEntry.manifest.capabilities },
+				);
+				assert(translated !== null && typeof translated === "object");
+				expect(translated).toMatchObject({ success: true });
+				expect(Reflect.get(translated, "value")).toEqual({
+					name: "Generated List",
+					properties: { description: "Translated overview" },
+				});
 			}),
 		),
 	));
