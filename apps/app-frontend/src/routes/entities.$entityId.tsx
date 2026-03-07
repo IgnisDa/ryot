@@ -1,18 +1,15 @@
 import {
 	Alert,
-	Anchor,
 	Badge,
-	Box,
 	Card,
 	Container,
-	Group,
+	Grid,
 	Image,
+	Link,
 	Loader,
-	SimpleGrid,
-	Stack,
 	Text,
-	Title,
-} from "@mantine/core";
+	View,
+} from "reshaped";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
@@ -121,98 +118,106 @@ function EntityDetailPage() {
 	const remoteImages = toStringArray(assets?.remote_images);
 
 	return (
-		<Box
+		<div
 			style={{
 				minHeight: "100vh",
 				background: "linear-gradient(180deg, #f7fafc 0%, #edf2f7 100%)",
 			}}
 		>
-			<Container size="lg" py="xl">
-				<Stack gap="lg">
-					<Stack gap={4}>
-						<Title order={2}>{title}</Title>
-						<Group gap="xs">
-							<Badge color="blue" variant="light">
-								Schema:{" "}
-								{String(entityRequest.data?.data.schemaSlug ?? "unknown")}
+			<Container width="964px" padding={8}>
+				<View gap={6}>
+					<View gap={1}>
+						<Text variant="title-2" as="h2">
+							{title}
+						</Text>
+						<View direction="row" gap={2} wrap>
+							<Badge color="primary" variant="faded">
+								Schema: {String(entityRequest.data?.data.schemaSlug ?? "unknown")}
 							</Badge>
-							<Badge color="gray" variant="light">
+							<Badge color="neutral" variant="faded">
 								Entity ID: {params.entityId}
 							</Badge>
-						</Group>
-					</Stack>
+						</View>
+					</View>
 
 					{entityRequest.isPending ? (
-						<Group>
-							<Loader size="sm" />
-							<Text c="dimmed" size="sm">
+						<View direction="row" gap={3} align="center">
+							<Loader size="small" />
+							<Text variant="caption-1" color="neutral-faded">
 								Loading entity...
 							</Text>
-						</Group>
+						</View>
 					) : null}
 
 					{entityRequest.error ? (
-						<Alert color="red" title="Entity load failed">
+						<Alert color="critical" title="Entity load failed">
 							{entityRequest.error.message}
 						</Alert>
 					) : null}
 
 					{entityRequest.data ? (
 						<>
-							<Card withBorder radius="md" padding="md">
-								<Stack gap="sm">
-									<Title order={4}>Overview</Title>
+							<Card padding={4}>
+								<View gap={3}>
+									<Text variant="title-4" as="h4">
+										Overview
+									</Text>
 									<Text>
 										{description ?? "No description available for this entity."}
 									</Text>
-									<Group gap="lg">
-										<Text size="sm" c="dimmed">
+									<View direction="row" gap={4} wrap>
+										<Text variant="caption-1" color="neutral-faded">
 											Publish year: {publishYear ?? "unknown"}
 										</Text>
-										<Text size="sm" c="dimmed">
+										<Text variant="caption-1" color="neutral-faded">
 											Pages: {pages ?? "unknown"}
 										</Text>
-									</Group>
-									<Stack gap={6}>
-										<Text fw={600} size="sm">
+									</View>
+									<View gap={1}>
+										<Text variant="body-3" weight="medium">
 											Genres
 										</Text>
 										{genres.length > 0 ? (
-											<Group gap="xs">
+											<View direction="row" gap={2} wrap>
 												{genres.map((genre) => (
-													<Badge key={genre} color="teal" variant="light">
+													<Badge key={genre} color="positive" variant="faded">
 														{genre}
 													</Badge>
 												))}
-											</Group>
+											</View>
 										) : (
-											<Text size="sm" c="dimmed">
+											<Text variant="caption-1" color="neutral-faded">
 												No genres stored.
 											</Text>
 										)}
-									</Stack>
-									<Stack gap={6}>
-										<Text fw={600} size="sm">
+									</View>
+									<View gap={1}>
+										<Text variant="body-3" weight="medium">
 											Source URL
 										</Text>
 										{sourceUrl ? (
-											<Anchor href={sourceUrl} target="_blank" rel="noreferrer">
+											<Link
+												href={sourceUrl}
+												attributes={{ target: "_blank", rel: "noreferrer" }}
+											>
 												{sourceUrl}
-											</Anchor>
+											</Link>
 										) : (
-											<Text size="sm" c="dimmed">
+											<Text variant="caption-1" color="neutral-faded">
 												No source URL stored.
 											</Text>
 										)}
-									</Stack>
-								</Stack>
+									</View>
+								</View>
 							</Card>
 
-							<Card withBorder radius="md" padding="md">
-								<Stack gap="sm">
-									<Title order={4}>People</Title>
+							<Card padding={4}>
+								<View gap={3}>
+									<Text variant="title-4" as="h4">
+										People
+									</Text>
 									{people.length > 0 ? (
-										<Stack gap={6}>
+										<View gap={2}>
 											{people.map((person) => {
 												const key = [
 													person.role ?? "unknown-role",
@@ -221,49 +226,52 @@ function EntityDetailPage() {
 												].join(":");
 
 												return (
-													<Text key={key} size="sm">
+													<Text key={key} variant="body-3">
 														{person.role ?? "Unknown role"} -{" "}
 														{person.identifier ?? "Unknown identifier"}
 														{person.source ? ` (${person.source})` : ""}
 													</Text>
 												);
 											})}
-										</Stack>
+										</View>
 									) : (
-										<Text size="sm" c="dimmed">
+										<Text variant="caption-1" color="neutral-faded">
 											No people stored.
 										</Text>
 									)}
-								</Stack>
+								</View>
 							</Card>
 
-							<Card withBorder radius="md" padding="md">
-								<Stack gap="sm">
-									<Title order={4}>Images</Title>
+							<Card padding={4}>
+								<View gap={3}>
+									<Text variant="title-4" as="h4">
+										Images
+									</Text>
 									{remoteImages.length > 0 ? (
-										<SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
+										<Grid columns={{ s: 1, m: 2, l: 3 }} gap={4}>
 											{remoteImages.map((imageUrl) => (
-												<Image
-													fit="contain"
-													h={220}
-													key={imageUrl}
-													radius="sm"
-													src={imageUrl}
-													alt={title}
-												/>
+												<Grid.Item key={imageUrl}>
+													<Image
+														height={220}
+														src={imageUrl}
+														alt={title}
+														displayMode="contain"
+														borderRadius="small"
+													/>
+												</Grid.Item>
 											))}
-										</SimpleGrid>
+										</Grid>
 									) : (
-										<Text size="sm" c="dimmed">
+										<Text variant="caption-1" color="neutral-faded">
 											No remote images stored.
 										</Text>
 									)}
-								</Stack>
+								</View>
 							</Card>
 						</>
 					) : null}
-				</Stack>
+				</View>
 			</Container>
-		</Box>
+		</div>
 	);
 }
