@@ -140,6 +140,7 @@ pub enum ImportCompletedItem {
     Collection(CreateOrUpdateCollectionInput),
     MetadataGroup(ImportOrExportMetadataGroupItem),
     ApplicationWorkout(Box<ImportOrExportWorkoutItem>),
+    ApplicationWorkoutTemplate(Box<ImportOrExportWorkoutTemplateItem>),
 }
 
 #[derive(Debug, Default, Clone, Serialize)]
