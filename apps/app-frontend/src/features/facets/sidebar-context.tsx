@@ -32,6 +32,7 @@ interface FacetSidebarActions {
 	openCreateModal: () => void;
 	toggleCustomizeMode: () => void;
 	toggleActiveFacet: () => Promise<void>;
+	toggleFacetById: (facetId: string) => Promise<void>;
 	openEditModal: (facetId: string) => void;
 	moveFacetById: (facetId: string, direction: "up" | "down") => Promise<void>;
 	submitModal: (
@@ -131,6 +132,19 @@ export default function FacetSidebarProvider(props: { children: ReactNode }) {
 		[facetsQuery.facets, mutations.reorder],
 	);
 
+	const toggleFacetById = useCallback(
+		async (facetId: string) => {
+			const targetFacet = facetsQuery.facets.find(
+				(facet) => facet.id === facetId,
+			);
+
+			if (!targetFacet) return;
+
+			await toggleFacet(targetFacet);
+		},
+		[facetsQuery.facets, toggleFacet],
+	);
+
 	const submitModal = useCallback(
 		async (payload: CreateFacetPayload | UpdateFacetPayload) => {
 			if (activeFacet !== undefined) {
@@ -183,10 +197,10 @@ export default function FacetSidebarProvider(props: { children: ReactNode }) {
 	const stateValue = useMemo(
 		() => ({
 			navItems,
-			isCustomizeMode,
 			activeFacet,
 			modalOpened,
 			isMutationBusy,
+			isCustomizeMode,
 			isDisablePending,
 			isModalSubmitting,
 			isError: facetsQuery.isError,
@@ -195,10 +209,10 @@ export default function FacetSidebarProvider(props: { children: ReactNode }) {
 		}),
 		[
 			navItems,
-			isCustomizeMode,
 			activeFacet,
 			modalOpened,
 			isMutationBusy,
+			isCustomizeMode,
 			isDisablePending,
 			isModalSubmitting,
 			facetsQuery.isError,
@@ -212,21 +226,23 @@ export default function FacetSidebarProvider(props: { children: ReactNode }) {
 			retry,
 			closeModal,
 			submitModal,
-			toggleCustomizeMode,
 			openEditModal,
 			moveFacetById,
 			openCreateModal,
+			toggleFacetById,
 			toggleActiveFacet,
+			toggleCustomizeMode,
 		}),
 		[
 			retry,
 			closeModal,
 			submitModal,
-			toggleCustomizeMode,
 			openEditModal,
 			moveFacetById,
 			openCreateModal,
+			toggleFacetById,
 			toggleActiveFacet,
+			toggleCustomizeMode,
 		],
 	);
 
