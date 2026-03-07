@@ -4,11 +4,11 @@ import { config } from "~/lib/config";
 let sharedWorkerPool: Pool | null = null;
 
 export const getWorkerPool = () => {
-	if (!sharedWorkerPool) {
+	if (!sharedWorkerPool)
 		sharedWorkerPool = new Pool({
 			connectionString: config.DATABASE_URL,
 		});
-	}
+
 	return sharedWorkerPool;
 };
 
