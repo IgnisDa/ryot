@@ -31,10 +31,14 @@ import { describe, expect, it } from "~/support/effect-test";
 
 type WorkoutTemplateProperties = {
 	comment?: string;
+	images?: Array<{ type: "s3"; key: string } | { type: "remote"; url: string }>;
+	videos?: Array<{ type: "s3"; key: string } | { type: "remote"; url: string }>;
 	exercises: Array<{
 		exerciseId: string;
 		exerciseOrder: number;
 		notes?: string[];
+		images?: Array<{ type: "s3"; key: string } | { type: "remote"; url: string }>;
+		videos?: Array<{ type: "s3"; key: string } | { type: "remote"; url: string }>;
 		sets: Array<{
 			setOrder: number;
 			setLot: "normal" | "warm_up" | "drop" | "failure";
@@ -83,6 +87,16 @@ describe("Workout Templates E2E", () => {
 					label: "Comment",
 					description: "Optional notes about this workout template",
 				},
+				images: {
+					type: "array",
+					label: "Images",
+					description: "Images attached to this template",
+				},
+				videos: {
+					type: "array",
+					label: "Videos",
+					description: "Videos attached to this template",
+				},
 				exercises: {
 					type: "array",
 					label: "Exercises",
@@ -95,6 +109,16 @@ describe("Workout Templates E2E", () => {
 								type: "string",
 								label: "Exercise Id",
 								description: "Entity id of the exercise",
+							},
+							images: {
+								type: "array",
+								label: "Images",
+								description: "Images attached to this exercise in the template",
+							},
+							videos: {
+								type: "array",
+								label: "Videos",
+								description: "Videos attached to this exercise in the template",
 							},
 							exerciseOrder: {
 								type: "integer",
@@ -255,6 +279,8 @@ describe("Workout Templates E2E", () => {
 			assertPresent(firstExerciseId, "Missing seeded exercise ids for workout template fixture");
 			assertPresent(secondExerciseId, "Missing seeded exercise ids for workout template fixture");
 			const workoutTemplateProperties = {
+				images: [{ type: "remote", url: "https://example.com/template.jpg" }],
+				videos: [{ type: "s3", key: "templates/video.mp4" }],
 				supersets: [
 					{ color: "#84CC16", exercises: [0, 1] },
 					{ color: "#22C55E", exercises: [1] },
@@ -264,6 +290,8 @@ describe("Workout Templates E2E", () => {
 						notes: [],
 						exerciseOrder: 0,
 						exerciseId: firstExerciseId,
+						images: [{ type: "remote", url: "https://example.com/template-image.jpg" }],
+						videos: [{ type: "s3", key: "templates/video.mp4" }],
 						sets: [
 							{ setOrder: 0, setLot: "normal" },
 							{ setOrder: 1, note: "Ramp up", setLot: "warm_up" },
