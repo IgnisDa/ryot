@@ -13,7 +13,7 @@ export async function createEntity(client: Client, cookies: string, body: Create
 		headers: { Cookie: cookies },
 	});
 
-	if (response.status !== 200 || !data?.data?.id) {
+	if (response.status !== 200 || !data?.data.id) {
 		throw new Error("Failed to create entity");
 	}
 

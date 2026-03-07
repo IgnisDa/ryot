@@ -228,6 +228,7 @@ describe("Events bulk POST", () => {
 		expect(events).toHaveLength(2);
 		expect(events.map((event) => event.eventSchemaSlug)).toEqual(["progress", "progress"]);
 		expect(
+			// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
 			events.map((event) => event.properties.progressPercent as number).toSorted((a, b) => a - b),
 		).toEqual([25.56, 50.44]);
 	});
