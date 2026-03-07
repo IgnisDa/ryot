@@ -1,7 +1,9 @@
 import { pluginConfigEnvironmentKey } from "@ryot/config";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { ConfigProvider, Effect } from "effect";
+import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
+
+import { makeConfigProviderLayer } from "#lib/test-utils/effect";
 
 import { getPluginConfig, getSystemConfig } from "./app-config";
 
@@ -33,13 +35,11 @@ const runPluginConfig = (
 	values: Readonly<Record<string, string>>,
 	requiredPluginConfigKeys: ReadonlyArray<string> = keys,
 ) => {
-	const configProvider = ConfigProvider.fromUnknown(
-		Object.fromEntries(
-			Object.entries(values).map(([configKey, value]) => [
-				pluginConfigEnvironmentKey(pluginSlug, configKey),
-				value,
-			]),
-		),
+	const configValues = Object.fromEntries(
+		Object.entries(values).map(([configKey, value]) => [
+			pluginConfigEnvironmentKey(pluginSlug, configKey),
+			value,
+		]),
 	);
 	return Effect.runSync(
 		getPluginConfig({
@@ -47,7 +47,7 @@ const runPluginConfig = (
 			pluginSlug,
 			configSchema: pluginConfigSchema,
 			metadata: { requiredPluginConfigKeys },
-		}).pipe(Effect.result, Effect.provide(ConfigProvider.layer(configProvider))),
+		}).pipe(Effect.result, Effect.provide(makeConfigProviderLayer(configValues))),
 	);
 };
 
@@ -58,7 +58,7 @@ const runSystemConfig = (
 	Effect.runSync(
 		getSystemConfig(keys, { requiredSystemConfigKeys }).pipe(
 			Effect.result,
-			Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({}))),
+			Effect.provide(makeConfigProviderLayer()),
 		),
 	);
 
