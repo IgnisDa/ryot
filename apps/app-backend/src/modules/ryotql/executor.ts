@@ -779,10 +779,10 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 	query: NamedQuery,
 ) {
 	if (query.output.type === "aggregate") {
-		return yield* executeAggregateQuery(userId, language, query as AggregateQuery);
+		return yield* executeAggregateQuery(userId, language, { ...query, output: query.output });
 	}
 	const db = yield* CurrentDb;
-	const rowsQuery = query as RowsQuery;
+	const rowsQuery = { ...query, output: query.output };
 	const raw = yield* dbEffect(() => db.execute(compileRowsQuery(rowsQuery, userId, language)));
 	const rows = raw.rows as readonly Record<string, unknown>[];
 	const first = rows[0];
