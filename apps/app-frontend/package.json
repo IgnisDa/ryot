@@ -7,10 +7,10 @@
 	},
 	"scripts": {
 		"typecheck": "tsc",
-		"build": "vite build",
 		"lint": "biome check .",
 		"preview": "vite preview",
-		"dev": "bun --bun vite dev"
+		"dev": "bun --bun vite dev",
+		"build": "bun --bun vite build"
 	},
 	"dependencies": {
 		"@ryot/app-backend": "workspace:*",
