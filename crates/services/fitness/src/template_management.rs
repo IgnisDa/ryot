@@ -4,7 +4,7 @@ use anyhow::{Result, bail};
 use database_models::{prelude::WorkoutTemplate, workout_template};
 use database_utils::server_key_validation_guard;
 use dependent_core_utils::is_server_key_validated;
-use dependent_fitness_utils::create_or_update_user_workout_template as upsert_workout_template;
+use dependent_fitness_utils::upsert_workout_template;
 use dependent_utility_utils::expire_user_workout_templates_list_cache;
 use fitness_models::UserWorkoutInput;
 use sea_orm::{ColumnTrait, EntityTrait, ModelTrait, QueryFilter};

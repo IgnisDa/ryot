@@ -403,7 +403,7 @@ pub fn db_workout_template_to_workout_input(
     }
 }
 
-pub async fn create_or_update_user_workout_template(
+pub async fn upsert_workout_template(
     user_id: &String,
     input: UserWorkoutInput,
     ss: &Arc<SupportingService>,

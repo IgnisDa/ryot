@@ -18,8 +18,8 @@ use dependent_collection_utils::{add_entities_to_collection, create_or_update_co
 use dependent_entity_utils::{commit_metadata, commit_metadata_group, commit_person};
 use dependent_fitness_utils::{
     create_custom_exercise, create_or_update_user_measurement, create_or_update_user_workout,
-    create_or_update_user_workout_template, db_workout_template_to_workout_input,
-    db_workout_to_workout_input, generate_exercise_id,
+    db_workout_template_to_workout_input, db_workout_to_workout_input, generate_exercise_id,
+    upsert_workout_template,
 };
 use dependent_jobs_utils::deploy_update_media_entity_job;
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
@@ -569,13 +569,7 @@ where
             ImportCompletedItem::ApplicationWorkoutTemplate(workout_template) => {
                 let workout_template_input =
                     db_workout_template_to_workout_input(workout_template.details);
-                match create_or_update_user_workout_template(
-                    user_id,
-                    workout_template_input.clone(),
-                    ss,
-                )
-                .await
-                {
+                match upsert_workout_template(user_id, workout_template_input.clone(), ss).await {
                     Err(err) => {
                         import.failed.push(ImportFailedItem {
                             error: Some(err.to_string()),
