@@ -1,4 +1,3 @@
-import { Activity, Workflow } from "@effect/workflow";
 import { SandboxRunError, mapDbErrorToSandbox } from "@ryot/contract/errors";
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { encodeEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
@@ -10,9 +9,11 @@ import type {
 import { stableStringify } from "@ryot/ts-utils/json";
 import { asRecord } from "@ryot/ts-utils/predicates";
 import { Cause, DateTime, Effect, Schedule, Schema } from "effect";
+import { Activity, Workflow } from "effect/unstable/workflow";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
+import { withoutSchemaServices } from "#lib/shared/schema";
 import {
 	LifecycleDispatch,
 	type LifecyclePopulationContext,
@@ -54,10 +55,7 @@ const ValidatedEntityDetails = Schema.Struct({
 
 type ValidatedEntityDetails = typeof ValidatedEntityDetails.Type;
 
-const SandboxJsonObjectSchema = Schema.Record({
-	key: Schema.String,
-	value: SandboxJsonValueSchema,
-});
+const SandboxJsonObjectSchema = Schema.Record(Schema.String, SandboxJsonValueSchema);
 
 type ChildEntitySetScope = {
 	parentName: string;
@@ -87,9 +85,9 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 	const repository = yield* EntitiesRepository;
 
 	return yield* Activity.make({
-		error: SandboxRunError,
+		error: withoutSchemaServices(SandboxRunError),
 		name: "check-existing-entity",
-		success: Schema.NullOr(ListedEntity),
+		success: withoutSchemaServices(Schema.NullOr(ListedEntity)),
 		execute: runWithDb(
 			repository.findGlobalEntityByExternalId({
 				externalId: payload.externalId,
@@ -102,8 +100,8 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 
 const validateEntityDetails = Effect.fn("validateEntityDetails")(function* (value: unknown) {
 	return yield* Activity.make({
-		error: SandboxRunError,
-		success: ValidatedEntityDetails,
+		error: withoutSchemaServices(SandboxRunError),
+		success: withoutSchemaServices(ValidatedEntityDetails),
 		name: "validate-entity-details",
 		execute: Effect.gen(function* () {
 			const details = yield* decodeProviderDetailsResult(value).pipe(
@@ -134,9 +132,9 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 	const runInTransaction = yield* TransactionRunner;
 
 	return yield* Activity.make({
-		error: SandboxRunError,
+		error: withoutSchemaServices(SandboxRunError),
 		name: "upsert-root-entity",
-		success: ProviderEntitySaveEnvelope,
+		success: withoutSchemaServices(ProviderEntitySaveEnvelope),
 		// A brand-new or not-yet-populated entity is written with a null populatedAt so
 		// children can reference it before the final stamp activity; refresh preserves an
 		// already-populated entity until then. Initial population replaces the skeleton.
@@ -166,8 +164,8 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 	const runInTransaction = yield* TransactionRunner;
 
 	return yield* Activity.make({
-		error: SandboxRunError,
-		success: RelationshipSyncEnvelope,
+		error: withoutSchemaServices(SandboxRunError),
+		success: withoutSchemaServices(RelationshipSyncEnvelope),
 		name: `sync-related-entity-group:${index}:${group.relationshipSchemaSlug}`,
 		execute: runInTransaction(
 			Effect.gen(function* () {
@@ -190,8 +188,8 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 	const runInTransaction = yield* TransactionRunner;
 
 	return yield* Activity.make({
-		error: SandboxRunError,
-		success: ChildEntitySetWriteResult,
+		error: withoutSchemaServices(SandboxRunError),
+		success: withoutSchemaServices(ChildEntitySetWriteResult),
 		name: `write-child-entity-set:${scope.parentExternalId}`,
 		execute: runInTransaction(
 			writeChildEntitySet({
@@ -214,9 +212,9 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 	const runInTransaction = yield* TransactionRunner;
 
 	return yield* Activity.make({
-		error: SandboxRunError,
+		error: withoutSchemaServices(SandboxRunError),
 		name: "stamp-root-populated-at",
-		success: ProviderEntitySaveEnvelope,
+		success: withoutSchemaServices(ProviderEntitySaveEnvelope),
 		execute: runInTransaction(
 			Effect.gen(function* () {
 				const populatedAt = yield* DateTime.nowAsDate;
@@ -241,7 +239,7 @@ const publishPrimaryEntity = Effect.fn("publishProviderPrimaryEntity")(function*
 	const redis = yield* RedisService;
 
 	yield* Activity.make({
-		error: SandboxRunError,
+		error: withoutSchemaServices(SandboxRunError),
 		name: "publish-primary-entity",
 		execute: redis
 			.publish(redisKeys.entityUpdatedChannel, encodeEntityUpdatedMessage(entity.id, "populated"))
@@ -250,9 +248,9 @@ const publishPrimaryEntity = Effect.fn("publishProviderPrimaryEntity")(function*
 				Effect.sandbox,
 				Effect.retry({
 					schedule: REDIS_RETRY_SCHEDULE,
-					while: (cause) => !Cause.isInterrupted(cause),
+					while: (cause) => !Cause.hasInterrupts(cause),
 				}),
-				Effect.unsandbox,
+				Effect.catch((cause) => Effect.failCause(cause)),
 			),
 	});
 });
@@ -525,16 +523,15 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 
 export const ProviderEntityPopulationPayload = Schema.Struct({
 	...EntityImportPayload.fields,
-	mode: Schema.Literal("ensure", "refresh"),
+	mode: Schema.Literals(["ensure", "refresh"]),
 });
 
 export type ProviderEntityPopulationPayload = typeof ProviderEntityPopulationPayload.Type;
 
-export const ProviderEntityPopulationWorkflow = Workflow.make({
-	success: ListedEntity,
-	error: SandboxRunError,
-	name: "ProviderEntityPopulationWorkflow",
-	payload: ProviderEntityPopulationPayload,
+export const ProviderEntityPopulationWorkflow = Workflow.make("ProviderEntityPopulationWorkflow", {
+	success: withoutSchemaServices(ListedEntity),
+	error: withoutSchemaServices(SandboxRunError),
+	payload: withoutSchemaServices(ProviderEntityPopulationPayload),
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
