@@ -1,5 +1,4 @@
 import { changeCase } from "@ryot/ts-utils";
-import clsx from "clsx";
 import { LinearGradient } from "expo-linear-gradient";
 import { Check, Library, Plus } from "lucide-react-native";
 import { Image, useWindowDimensions } from "react-native";
@@ -18,7 +17,6 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 	const insets = useSafeAreaInsets();
 	const { width } = useWindowDimensions();
 	const isTablet = width >= 768;
-	const isSmall = width < 480;
 
 	const firstImage = entity.images[0];
 	const imageUrl = firstImage?.kind === "remote" ? firstImage.url : undefined;
@@ -27,22 +25,16 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 		"runtime" in entity ? (entity as EntityDetail & { runtime: number }).runtime : undefined;
 	const providerRating = entity.providerRating ?? undefined;
 
-	const heroMinHeight = isTablet ? 480 : isSmall ? 340 : 400;
-	const posterWidth = isTablet ? 220 : isSmall ? 100 : 140;
-
 	return (
-		<Box
-			className="w-full overflow-hidden"
-			style={{ position: "relative", minHeight: heroMinHeight }}
-		>
+		<Box className="relative w-full overflow-hidden min-h-100 md:min-h-120">
 			{/* Backdrop */}
 			{imageUrl ? (
 				<Image
+					blurRadius={2}
+					resizeMode="cover"
+					style={{ opacity: 0.45 }}
 					source={{ uri: imageUrl }}
 					className="absolute inset-0 h-full w-full"
-					style={{ opacity: 0.45 }}
-					resizeMode="cover"
-					blurRadius={2}
 				/>
 			) : (
 				<Box className="absolute inset-0" style={{ backgroundColor: "rgba(201,148,58,0.12)" }} />
@@ -66,30 +58,20 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 
 			{/* Content */}
 			<Box
-				className="relative z-10 justify-end"
-				style={{
-					paddingTop: insets.top + (isTablet ? 64 : 40),
-					paddingBottom: isTablet ? 40 : 24,
-					paddingHorizontal: 28,
-				}}
+				style={{ paddingTop: insets.top + (isTablet ? 64 : 40) }}
+				className="relative z-10 justify-end pb-6 px-7 md:pb-10 md:px-10 web:mx-auto web:max-w-7xl web:w-full"
 			>
-				<Box
-					className={clsx(
-						"flex",
-						isTablet ? "flex-row items-end gap-10" : "flex-col items-start gap-5",
-					)}
-				>
+				<Box className="flex flex-col items-start gap-5 md:flex-row md:items-end md:gap-10">
 					{/* Poster */}
 					{imageUrl && (
 						<Box
-							className="overflow-hidden rounded-lg"
+							className="w-35 overflow-hidden rounded-lg md:w-55"
 							style={{
-								width: posterWidth,
+								elevation: 20,
+								shadowRadius: 50,
+								shadowOpacity: 0.5,
 								shadowColor: "#000",
 								shadowOffset: { width: 0, height: 16 },
-								shadowOpacity: 0.5,
-								shadowRadius: 50,
-								elevation: 20,
 							}}
 						>
 							<Image
@@ -196,7 +178,7 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 									<Text className="text-[13px] font-sans-semibold text-[#4ade80]">Completed</Text>
 								</Box>
 								<Box className="flex-row items-center gap-2">
-									<Box className="flex-row gap-[3px]">
+									<Box className="flex-row gap-0.75">
 										{[1, 2, 3, 4, 5].map((i) => {
 											const filled = i <= Math.round(providerRating / 2);
 											return (
@@ -230,8 +212,8 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 							<Pressable
 								className="flex-row items-center gap-2 rounded-full border px-4 py-2.5"
 								style={{
-									backgroundColor: "rgba(255,255,255,0.12)",
 									borderColor: "rgba(255,255,255,0.2)",
+									backgroundColor: "rgba(255,255,255,0.12)",
 								}}
 							>
 								<Library size={16} color="#fff" strokeWidth={2} />
