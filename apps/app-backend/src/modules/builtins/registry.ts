@@ -2,6 +2,8 @@ import {
 	type GeneratedBuiltinSandboxScript,
 	sandboxAnimeDotAnilistScript,
 	sandboxAnimeDotMyanimelistScript,
+	sandboxAudiobookDashGroupDotAudibleScript,
+	sandboxAudiobookDotAudibleScript,
 	sandboxBookDashGroupDotHardcoverScript,
 	sandboxBookDotGoogleDashBooksScript,
 	sandboxBookDotHardcoverScript,
@@ -18,11 +20,14 @@ import {
 	sandboxMovieDotTmdbScript,
 	sandboxMovieDotTvdbScript,
 	sandboxPersonDotAnilistScript,
+	sandboxPersonDotAudibleScript,
 	sandboxPersonDotHardcoverScript,
 	sandboxPersonDotMangaDashUpdatesScript,
 	sandboxPersonDotOpenlibraryScript,
 	sandboxPersonDotTmdbScript,
 	sandboxPersonDotTvdbScript,
+	sandboxPodcastDotItunesScript,
+	sandboxPodcastDotListennotesScript,
 	sandboxShowDotTmdbScript,
 	sandboxShowDotTvdbScript,
 	sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript,
@@ -31,29 +36,23 @@ import {
 	sandboxTriggerDotRadarrDashPushScript,
 	sandboxTriggerDotSonarrDashPushScript,
 } from "./generated-sandbox/registry";
-import { withTitleCaseHelper } from "./legacy-sandbox-helpers";
 import giantBombCompanyScriptCode from "./sandbox-scripts/providers/company/giant-bomb.sandbox.js" with { type: "text" };
 import igdbCompanyScriptCode from "./sandbox-scripts/providers/company/igdb.sandbox.js" with { type: "text" };
 import vndbCompanyScriptCode from "./sandbox-scripts/providers/company/vndb.sandbox.js" with { type: "text" };
 import freeExerciseDbScriptCode from "./sandbox-scripts/providers/fitness/exercise/free-exercise-db.sandbox.js" with { type: "text" };
-import audibleAudiobookGroupScriptCode from "./sandbox-scripts/providers/media-group/audible.sandbox.js" with { type: "text" };
 import giantBombVideoGameGroupScriptCode from "./sandbox-scripts/providers/media-group/giant-bomb.sandbox.js" with { type: "text" };
 import igdbVideoGameGroupScriptCode from "./sandbox-scripts/providers/media-group/igdb.sandbox.js" with { type: "text" };
 import metronComicBookGroupScriptCode from "./sandbox-scripts/providers/media-group/metron.sandbox.js" with { type: "text" };
 import musicBrainzMusicGroupScriptCode from "./sandbox-scripts/providers/media-group/music-brainz.sandbox.js" with { type: "text" };
 import spotifyMusicGroupScriptCode from "./sandbox-scripts/providers/media-group/spotify.sandbox.js" with { type: "text" };
 import youtubeMusicGroupScriptCode from "./sandbox-scripts/providers/media-group/youtube-music.sandbox.js" with { type: "text" };
-import audibleAudiobookScriptCode from "./sandbox-scripts/providers/media/audiobook/audible.sandbox.js" with { type: "text" };
 import metronComicBookScriptCode from "./sandbox-scripts/providers/media/comic-book/metron.sandbox.js" with { type: "text" };
 import musicBrainzMusicScriptCode from "./sandbox-scripts/providers/media/music/music-brainz.sandbox.js" with { type: "text" };
 import spotifyMusicScriptCode from "./sandbox-scripts/providers/media/music/spotify.sandbox.js" with { type: "text" };
 import youtubeMusicScriptCode from "./sandbox-scripts/providers/media/music/youtube-music.sandbox.js" with { type: "text" };
-import itunesPodcastScriptCode from "./sandbox-scripts/providers/media/podcast/itunes.sandbox.js" with { type: "text" };
-import listennotesPodcastScriptCode from "./sandbox-scripts/providers/media/podcast/listennotes.sandbox.js" with { type: "text" };
 import giantBombVideoGameScriptCode from "./sandbox-scripts/providers/media/video-game/giant-bomb.sandbox.js" with { type: "text" };
 import igdbVideoGameScriptCode from "./sandbox-scripts/providers/media/video-game/igdb.sandbox.js" with { type: "text" };
 import vndbVisualNovelScriptCode from "./sandbox-scripts/providers/media/visual-novel/vndb.sandbox.js" with { type: "text" };
-import audiblePersonScriptCode from "./sandbox-scripts/providers/person/audible.sandbox.js" with { type: "text" };
 import giantBombPersonScriptCode from "./sandbox-scripts/providers/person/giant-bomb.sandbox.js" with { type: "text" };
 import metronPersonScriptCode from "./sandbox-scripts/providers/person/metron.sandbox.js" with { type: "text" };
 import musicBrainzPersonScriptCode from "./sandbox-scripts/providers/person/music-brainz.sandbox.js" with { type: "text" };
@@ -110,13 +109,8 @@ export const builtinSandboxScripts = () => [
 		"free-exercise-db",
 	),
 	sandboxBookDotOpenlibraryScript,
-	providerScript(
-		"Audible",
-		"audiobook.audible",
-		withTitleCaseHelper(audibleAudiobookScriptCode),
-		"audible",
-	),
-	translatedProviderScript("iTunes", "podcast.itunes", itunesPodcastScriptCode, "itunes", "en"),
+	sandboxAudiobookDotAudibleScript,
+	sandboxPodcastDotItunesScript,
 	providerScript("VNDB", "visual-novel.vndb", vndbVisualNovelScriptCode, "vndb"),
 	sandboxAnimeDotAnilistScript,
 	sandboxMangaDotAnilistScript,
@@ -133,7 +127,7 @@ export const builtinSandboxScripts = () => [
 	sandboxCompanyDotTvdbScript,
 	providerScript("VNDB", "company.vndb", vndbCompanyScriptCode, "vndb"),
 	sandboxPersonDotAnilistScript,
-	providerScript("Audible", "person.audible", audiblePersonScriptCode, "audible"),
+	sandboxPersonDotAudibleScript,
 	providerScript("GiantBomb", "person.giant-bomb", giantBombPersonScriptCode, "giant-bomb", [
 		"providers.giantBombApiKey",
 	]),
@@ -159,13 +153,7 @@ export const builtinSandboxScripts = () => [
 	sandboxBookDotHardcoverScript,
 	sandboxPersonDotHardcoverScript,
 	sandboxBookDotGoogleDashBooksScript,
-	providerScript(
-		"ListenNotes",
-		"podcast.listennotes",
-		listennotesPodcastScriptCode,
-		"listennotes",
-		["providers.listennotesApiKey"],
-	),
+	sandboxPodcastDotListennotesScript,
 	providerScript("GiantBomb", "video-game.giant-bomb", giantBombVideoGameScriptCode, "giant-bomb", [
 		"providers.giantBombApiKey",
 	]),
@@ -199,7 +187,7 @@ export const builtinSandboxScripts = () => [
 	]),
 	sandboxMovieDashGroupDotTmdbScript,
 	sandboxMovieDashGroupDotTvdbScript,
-	providerScript("Audible", "audiobook-group.audible", audibleAudiobookGroupScriptCode, "audible"),
+	sandboxAudiobookDashGroupDotAudibleScript,
 	sandboxBookDashGroupDotHardcoverScript,
 	providerScript("Metron", "comic-book-group.metron", metronComicBookGroupScriptCode, "metron", [
 		"providers.metronUsername",
