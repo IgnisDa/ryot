@@ -1,6 +1,5 @@
 import { getQueryEngineField } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
 
 import { useApiClient } from "@/lib/api-client";
 import { toEntityImage, useResolvedImageUrls } from "@/lib/image";
@@ -19,59 +18,6 @@ const MEDIA_SCOPE_SLUGS = [
 	"video-game",
 	"visual-novel",
 ];
-
-function toActivityItems(rawItems: Array<Array<{ key: string; kind: string; value?: unknown }>>) {
-	const items = rawItems.flatMap((item) => {
-		const getVal = (key: string) => getQueryEngineField(item, key)?.value;
-
-		const eventId = getVal("eventId");
-		const entityId = getVal("entityId");
-		const entityName = getVal("entityName");
-		const eventCreatedAt = getVal("eventCreatedAt");
-		const eventSchemaSlug = getVal("eventSchemaSlug");
-		const entitySchemaSlug = getVal("entitySchemaSlug");
-
-		if (
-			typeof eventId !== "string" ||
-			typeof entityId !== "string" ||
-			typeof entityName !== "string" ||
-			typeof eventCreatedAt !== "string" ||
-			typeof eventSchemaSlug !== "string" ||
-			typeof entitySchemaSlug !== "string"
-		) {
-			return [];
-		}
-
-		const completedOn = getVal("eventCompletedOn");
-		const occurredAt =
-			eventSchemaSlug === "complete" && typeof completedOn === "string"
-				? completedOn
-				: eventCreatedAt;
-
-		const ratingVal = getVal("eventRating");
-		const rating = typeof ratingVal === "number" ? ratingVal : null;
-
-		return [
-			{
-				rating,
-				entityId,
-				occurredAt,
-				id: eventId,
-				eventSchemaSlug,
-				entity: {
-					name: entityName,
-					entitySchemaSlug,
-					image: toEntityImage(getQueryEngineField(item, "entityImage")?.value),
-				},
-			},
-		];
-	});
-
-	return items.toSorted((a, b) => {
-		const diff = new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime();
-		return diff !== 0 ? diff : b.id.localeCompare(a.id);
-	});
-}
 
 export function useMediaOverviewData() {
 	const apiClient = useApiClient();
@@ -101,11 +47,207 @@ export function useMediaOverviewData() {
 	const rateTheseQuery = useQuery({
 		queryKey: ["media", "overview", "review"],
 		queryFn: async () => {
-			const response = await apiClient.GET("/media/overview/review");
+			const response = await apiClient.POST("/query-engine/execute", {
+				body: {
+					mode: "entities",
+					scope: MEDIA_SCOPE_SLUGS,
+					relationships: [{ relationshipSchemaSlug: "in-library" }],
+					eventJoins: [
+						{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
+						{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
+					],
+					pagination: { page: 1, limit: 6 },
+					sort: {
+						direction: "desc",
+						expression: {
+							type: "coalesce",
+							values: [
+								{
+									type: "reference",
+									reference: {
+										type: "event-join",
+										joinKey: "complete",
+										path: ["properties", "completedOn"],
+									},
+								},
+								{
+									type: "reference",
+									reference: {
+										type: "event-join",
+										joinKey: "complete",
+										path: ["createdAt"],
+									},
+								},
+							],
+						},
+					},
+					filter: {
+						type: "and",
+						predicates: [
+							{
+								type: "isNotNull",
+								expression: {
+									type: "reference",
+									reference: {
+										type: "event-join",
+										joinKey: "complete",
+										path: ["createdAt"],
+									},
+								},
+							},
+							{
+								type: "or",
+								predicates: [
+									{
+										type: "isNull",
+										expression: {
+											type: "reference",
+											reference: {
+												type: "event-join",
+												joinKey: "review",
+												path: ["createdAt"],
+											},
+										},
+									},
+									{
+										type: "comparison",
+										operator: "gt",
+										left: {
+											type: "reference",
+											reference: {
+												type: "event-join",
+												joinKey: "complete",
+												path: ["properties", "completedOn"],
+											},
+										},
+										right: {
+											type: "reference",
+											reference: {
+												type: "event-join",
+												joinKey: "review",
+												path: ["createdAt"],
+											},
+										},
+									},
+								],
+							},
+						],
+					},
+					fields: [
+						{
+							key: "entityId",
+							expression: {
+								type: "coalesce",
+								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
+									type: "reference" as const,
+									reference: { type: "entity" as const, slug, path: ["id"] },
+								})),
+							},
+						},
+						{
+							key: "entityName",
+							expression: {
+								type: "coalesce",
+								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
+									type: "reference" as const,
+									reference: { type: "entity" as const, slug, path: ["name"] },
+								})),
+							},
+						},
+						{
+							key: "entityImage",
+							expression: {
+								type: "coalesce",
+								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
+									type: "reference" as const,
+									reference: { type: "entity" as const, slug, path: ["image"] },
+								})),
+							},
+						},
+						{
+							key: "entitySchemaSlug",
+							expression: {
+								type: "reference",
+								reference: { type: "entity-schema", path: ["slug"] },
+							},
+						},
+						{
+							key: "completeAt",
+							expression: {
+								type: "reference",
+								reference: {
+									type: "event-join",
+									joinKey: "complete",
+									path: ["createdAt"],
+								},
+							},
+						},
+						{
+							key: "completedOn",
+							expression: {
+								type: "reference",
+								reference: {
+									type: "event-join",
+									joinKey: "complete",
+									path: ["properties", "completedOn"],
+								},
+							},
+						},
+						{
+							key: "reviewRating",
+							expression: {
+								type: "reference",
+								reference: {
+									type: "event-join",
+									joinKey: "review",
+									path: ["properties", "rating"],
+								},
+							},
+						},
+					],
+				},
+			});
 			if (response.error) {
 				throw new Error(JSON.stringify(response.error));
 			}
-			return response.data;
+			const data = response.data.data;
+			if (data.mode !== "entities") {
+				return [];
+			}
+			return data.data.items.flatMap((item) => {
+				const getVal = (key: string) => getQueryEngineField(item, key)?.value;
+
+				const id = getVal("entityId");
+				const title = getVal("entityName");
+				const completeAt = getVal("completeAt");
+				const entitySchemaSlug = getVal("entitySchemaSlug");
+
+				if (
+					typeof id !== "string" ||
+					typeof title !== "string" ||
+					typeof completeAt !== "string" ||
+					typeof entitySchemaSlug !== "string"
+				) {
+					return [];
+				}
+
+				const completedOnVal = getVal("completedOn");
+				const completedAt = typeof completedOnVal === "string" ? completedOnVal : completeAt;
+
+				const ratingVal = getVal("reviewRating");
+				const rating = typeof ratingVal === "number" ? ratingVal : null;
+
+				return [
+					{
+						id,
+						title,
+						rating,
+						completedAt,
+						entitySchemaSlug,
+						image: toEntityImage(getQueryEngineField(item, "entityImage")?.value),
+					},
+				];
+			});
 		},
 	});
 
@@ -203,7 +345,55 @@ export function useMediaOverviewData() {
 			if (response.error) {
 				throw new Error(JSON.stringify(response.error));
 			}
-			return response.data;
+			const data = response.data.data;
+			if (data.mode !== "events") {
+				return [];
+			}
+			return data.data.items.flatMap((item) => {
+				const getVal = (key: string) => getQueryEngineField(item, key)?.value;
+
+				const eventId = getVal("eventId");
+				const entityId = getVal("entityId");
+				const entityName = getVal("entityName");
+				const eventCreatedAt = getVal("eventCreatedAt");
+				const eventSchemaSlug = getVal("eventSchemaSlug");
+				const entitySchemaSlug = getVal("entitySchemaSlug");
+
+				if (
+					typeof eventId !== "string" ||
+					typeof entityId !== "string" ||
+					typeof entityName !== "string" ||
+					typeof eventCreatedAt !== "string" ||
+					typeof eventSchemaSlug !== "string" ||
+					typeof entitySchemaSlug !== "string"
+				) {
+					return [];
+				}
+
+				const completedOn = getVal("eventCompletedOn");
+				const occurredAt =
+					eventSchemaSlug === "complete" && typeof completedOn === "string"
+						? completedOn
+						: eventCreatedAt;
+
+				const ratingVal = getVal("eventRating");
+				const rating = typeof ratingVal === "number" ? ratingVal : null;
+
+				return [
+					{
+						rating,
+						entityId,
+						occurredAt,
+						id: eventId,
+						eventSchemaSlug,
+						entity: {
+							name: entityName,
+							entitySchemaSlug,
+							image: toEntityImage(getQueryEngineField(item, "entityImage")?.value),
+						},
+					},
+				];
+			});
 		},
 	});
 
@@ -225,22 +415,9 @@ export function useMediaOverviewData() {
 		entitySchemaSlug: item.entitySchemaSlug,
 	}));
 
-	const rateTheseItems = (rateTheseQuery.data?.data.items ?? []).map((item) => ({
-		id: item.id,
-		title: item.title,
-		rating: item.rating,
-		completedAt: item.completedAt,
-		image: toEntityImage(item.image),
-		entitySchemaSlug: item.entitySchemaSlug,
-	}));
+	const rateTheseItems = rateTheseQuery.data ?? [];
 
-	const activityItems = useMemo(() => {
-		const data = activityQuery.data?.data;
-		if (data?.mode !== "events") {
-			return [];
-		}
-		return toActivityItems(data.data.items);
-	}, [activityQuery.data?.data]);
+	const activityItems = activityQuery.data ?? [];
 
 	const imageEntries = [
 		...upNextItems.map((item) => ({ id: item.id, image: item.image })),
