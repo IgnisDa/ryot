@@ -122,7 +122,6 @@ function StartPage() {
 												type="email"
 												label="Email"
 												autoComplete="email"
-												className="bg-background/65"
 												placeholder="you@example.com"
 												errorMessage={field.state.meta.errors
 													.map((e) => e?.message)
@@ -137,7 +136,6 @@ function StartPage() {
 												<field.TextField
 													type="password"
 													label="Password"
-													className="bg-background/65"
 													placeholder="Enter your password"
 													autoComplete={modeContent.passwordAutoComplete}
 													errorMessage={field.state.meta.errors
