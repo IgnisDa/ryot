@@ -1,7 +1,6 @@
-import { FileSystem, Path } from "@effect/platform";
-import { BunContext, BunRuntime } from "@effect/platform-bun";
+import { BunServices, BunRuntime } from "@effect/platform-bun";
 import { renderConfigReference } from "@ryot/config";
-import { Config, ConfigProvider, Effect, Layer } from "effect";
+import { Config, ConfigProvider, Effect, Layer, FileSystem, Path } from "effect";
 
 import { AppLive, MigrationOnlyLive } from "./app/layers";
 import { appConfigDefinition } from "./lib/infrastructure/config/definition";
@@ -23,7 +22,7 @@ const { nodeEnv, runMigrationOnly } = await Effect.runPromise(
 	Config.all({
 		nodeEnv: Config.string("NODE_ENV").pipe(Config.withDefault("development")),
 		runMigrationOnly: Config.boolean("RUN_MIGRATION_ONLY").pipe(Config.withDefault(false)),
-	}).pipe(Effect.withConfigProvider(ConfigProvider.fromEnv())),
+	}).pipe(Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv())),
 );
 
 if (runMigrationOnly) {
@@ -45,10 +44,8 @@ if (nodeEnv !== "production") {
 				schema: manifest.configSchema,
 			}));
 			yield* fs.writeFileString(outputPath, renderConfigReference(appConfigDefinition, plugins));
-		}).pipe(Effect.provide(BunContext.layer)),
+		}).pipe(Effect.provide(BunServices.layer)),
 	);
 }
 
-BunRuntime.runMain(Layer.launch(AppLive), {
-	disablePrettyLogger: true,
-});
+BunRuntime.runMain(Layer.launch(AppLive));
