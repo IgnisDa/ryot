@@ -1,13 +1,13 @@
+import { useStore } from "@tanstack/react-form";
 import {
 	Button,
-	Select as MantineSelect,
-	Slider as MantineSlider,
-	Switch as MantineSwitch,
+	Select as ReshapedSelect,
+	Slider as ReshapedSlider,
+	Switch as ReshapedSwitch,
+	TextArea as ReshapedTextArea,
+	TextField as ReshapedTextField,
 	Text,
-	Textarea,
-	TextInput,
-} from "@mantine/core";
-import { useStore } from "@tanstack/react-form";
+} from "reshaped";
 import { useFieldContext, useFormContext } from "@/hooks/forms";
 
 export function SubscribeButton(props: { label: string }) {
@@ -29,10 +29,9 @@ function ErrorMessages(props: { errors: Array<string | { message: string }> }) {
 			{props.errors.map((error) => (
 				<Text
 					key={typeof error === "string" ? error : error.message}
-					c="red"
-					fw="bold"
-					size="sm"
-					mt={4}
+					color="critical"
+					weight="bold"
+					variant="caption-1"
 				>
 					{typeof error === "string" ? error : error.message}
 				</Text>
@@ -47,12 +46,12 @@ export function TextField(props: { label: string; placeholder?: string }) {
 
 	return (
 		<div>
-			<TextInput
-				label={props.label}
+			<ReshapedTextField
+				name={props.label}
 				placeholder={props.placeholder}
 				value={field.state.value}
 				onBlur={field.handleBlur}
-				onChange={(e) => field.handleChange(e.currentTarget.value)}
+				onChange={(event) => field.handleChange(event.value)}
 			/>
 			{field.state.meta.isTouched && <ErrorMessages errors={errors} />}
 		</div>
@@ -65,12 +64,11 @@ export function TextArea(props: { label: string; rows?: number }) {
 
 	return (
 		<div>
-			<Textarea
-				label={props.label}
-				rows={props.rows ?? 3}
+			<ReshapedTextArea
+				name={props.label}
 				value={field.state.value}
 				onBlur={field.handleBlur}
-				onChange={(e) => field.handleChange(e.currentTarget.value)}
+				onChange={(event) => field.handleChange(event.value)}
 			/>
 			{field.state.meta.isTouched && <ErrorMessages errors={errors} />}
 		</div>
@@ -87,12 +85,12 @@ export function Select(props: {
 
 	return (
 		<div>
-			<MantineSelect
-				label={props.label}
+			<ReshapedSelect
+				name={props.label}
 				placeholder={props.placeholder}
-				data={props.values}
+				options={props.values}
 				value={field.state.value}
-				onChange={(value) => field.handleChange(value ?? "")}
+				onChange={(event) => field.handleChange(event.value ?? "")}
 			/>
 			{field.state.meta.isTouched && <ErrorMessages errors={errors} />}
 		</div>
@@ -105,13 +103,13 @@ export function Slider(props: { label: string }) {
 
 	return (
 		<div>
-			<Text fw="bold" size="xl" mb={8}>
+			<Text weight="bold" variant="featured-3">
 				{props.label}
 			</Text>
-			<MantineSlider
+			<ReshapedSlider
+				name={props.label}
 				value={field.state.value}
-				onChange={(value) => field.handleChange(value)}
-				onMouseLeave={field.handleBlur}
+				onChange={(event) => field.handleChange(event.value)}
 			/>
 			{field.state.meta.isTouched && <ErrorMessages errors={errors} />}
 		</div>
@@ -124,11 +122,11 @@ export function Switch(props: { label: string }) {
 
 	return (
 		<div>
-			<MantineSwitch
-				label={props.label}
+			<ReshapedSwitch
+				name={props.label}
 				checked={field.state.value}
 				onBlur={field.handleBlur}
-				onChange={(e) => field.handleChange(e.currentTarget.checked)}
+				onChange={(event) => field.handleChange(event.checked)}
 			/>
 			{field.state.meta.isTouched && <ErrorMessages errors={errors} />}
 		</div>
