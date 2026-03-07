@@ -29,4 +29,4 @@ The `/health` endpoint can be used for checking service healthiness. More inform
 Please refer to the `@env` annotations to know which environment variable to use for a
 given configuration option.
 
-<<< @/includes/backend-config-schema.yaml
+<<< @/includes/app-backend-config-schema.md
