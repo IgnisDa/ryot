@@ -13,13 +13,17 @@
 		"build": "bun --bun vite build"
 	},
 	"dependencies": {
+		"@ryot/app-backend": "workspace:*",
 		"@tailwindcss/vite": "^4.1.18",
 		"@tanstack/react-devtools": "^0.7.0",
+		"@tanstack/react-form": "1.28.3",
+		"@tanstack/react-query": "5.90.21",
 		"@tanstack/react-router": "^1.132.0",
 		"@tanstack/react-router-devtools": "^1.132.0",
 		"@tanstack/react-router-ssr-query": "^1.131.7",
 		"@tanstack/react-start": "^1.132.0",
 		"@tanstack/router-plugin": "^1.132.0",
+		"better-auth": "1.5.0",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"lucide-react": "^0.561.0",
