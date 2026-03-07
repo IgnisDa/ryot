@@ -1,8 +1,8 @@
 ## Tasks
 
-**Overall Progress:** 2 of 8 tasks completed
+**Overall Progress:** 3 of 8 tasks completed
 
-**Current Task:** [Task 03](./03-temporary-local-lifecycle-and-cleanup.md) (todo)
+**Current Task:** [Task 04](./04-temporary-s3-lifecycle-and-cleanup.md) (todo)
 
 ### Task List
 
@@ -10,7 +10,7 @@
 | --- | ------------------------------------------------------------------------------------------------------------ | ------ |
 | 01  | [Local Permanent Upload Intents](./01-local-permanent-upload-intents.md)                                     | done   |
 | 02  | [S3 Permanent Intents And Generic Downloads](./02-s3-permanent-intents-and-downloads.md)                     | done   |
-| 03  | [Temporary Local Lifecycle And Cleanup](./03-temporary-local-lifecycle-and-cleanup.md)                       | todo   |
+| 03  | [Temporary Local Lifecycle And Cleanup](./03-temporary-local-lifecycle-and-cleanup.md)                       | done   |
 | 04  | [Temporary S3 Lifecycle And Cleanup](./04-temporary-s3-lifecycle-and-cleanup.md)                             | todo   |
 | 05  | [Import Migration And Legacy Upload Removal](./05-import-migration-and-legacy-upload-removal.md)             | todo   |
 | 06  | [Cross-Provider Contract Hardening](./06-cross-provider-contract-hardening.md)                               | todo   |

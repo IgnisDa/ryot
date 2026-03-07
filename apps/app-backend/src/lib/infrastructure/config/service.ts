@@ -43,6 +43,11 @@ const isNonEmptyRedacted = (
 ): opt is Option.Some<Redacted.Redacted> =>
 	Option.isSome(opt) && Redacted.value(opt.value).length > 0;
 
+const normalizePath = (path: string) => path.replaceAll("\\", "/").replace(/\/+$/, "");
+
+const pathsOverlap = (root: string, target: string) =>
+	target === root || target.startsWith(`${root}/`);
+
 export const isOidcEnabled = (config: AppConfigValue): boolean => {
 	const { clientId, clientSecret, issuerUrl } = config.server.oidc;
 	return isNonEmpty(clientId) && isNonEmpty(issuerUrl) && isNonEmptyRedacted(clientSecret);
@@ -103,15 +108,32 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 
 		const localDirConfigured = isNonEmpty(config.fileStorage.localDir);
 		const localSecretConfigured = isNonEmptyRedacted(config.fileStorage.localSigningSecret);
-		if (localDirConfigured !== localSecretConfigured) {
+		if (localDirConfigured && !localSecretConfigured) {
 			return yield* Effect.fail(
 				configError(
-					"Partial local file storage configuration detected. Set both FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_SIGNING_SECRET, or neither of them.",
+					"Partial local file storage configuration detected. Set the local directory settings and FILE_STORAGE_LOCAL_SIGNING_SECRET together, or configure none of them.",
 				),
 			);
 		}
 		if (localDirConfigured && !/^([A-Za-z]:[\\/]|\/)/.test(config.fileStorage.localDir.value)) {
 			return yield* Effect.fail(configError("FILE_STORAGE_LOCAL_DIR must be an absolute path."));
+		}
+		if (!/^([A-Za-z]:[\\/]|\/)/.test(config.fileStorage.localTempDir)) {
+			return yield* Effect.fail(
+				configError("FILE_STORAGE_LOCAL_TEMP_DIR must be an absolute path."),
+			);
+		}
+		if (localDirConfigured) {
+			const permanentPath = normalizePath(config.fileStorage.localDir.value);
+			const temporaryPath = normalizePath(config.fileStorage.localTempDir);
+			if (
+				pathsOverlap(permanentPath, temporaryPath) ||
+				pathsOverlap(temporaryPath, permanentPath)
+			) {
+				return yield* Effect.fail(
+					configError("FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_TEMP_DIR must not overlap."),
+				);
+			}
 		}
 
 		// The cluster SQL runner permanently reserves one workflow-pool connection,

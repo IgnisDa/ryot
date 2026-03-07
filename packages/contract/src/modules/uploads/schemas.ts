@@ -31,7 +31,13 @@ export const UploadIntentResponse = Schema.Struct({
 });
 export type UploadIntentResponse = typeof UploadIntentResponse.Type;
 
-export const CompleteUploadResponse = ManagedAssetLocator;
+export const TemporaryUploadToken = Schema.Struct({
+	token: Schema.String,
+	expiresAt: Schema.String,
+});
+export type TemporaryUploadToken = typeof TemporaryUploadToken.Type;
+
+export const CompleteUploadResponse = Schema.Union([ManagedAssetLocator, TemporaryUploadToken]);
 export type CompleteUploadResponse = typeof CompleteUploadResponse.Type;
 
 export const DownloadResolutionInput = Schema.Struct({
