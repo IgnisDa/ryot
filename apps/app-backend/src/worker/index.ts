@@ -14,6 +14,7 @@ export const initializeWorker = async () => {
 	runner = await run({
 		pgPool,
 		taskList,
+		noHandleSignals: true,
 		concurrency: 5,
 	});
 
