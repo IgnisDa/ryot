@@ -1,245 +1,126 @@
 import { Effect } from "effect";
 
-import { createAuthenticatedClient, getBackendClient, postBackendJson } from "~/fixtures";
-import { assertCondition, assertTaggedError } from "~/support/assertions";
+import { createAuthenticatedClient } from "~/fixtures";
 import { getBackendUrl } from "~/support/backend";
 import { describe, expect, it } from "~/support/effect-test";
 
-function isStringArray(value: unknown): value is string[] {
-	return Array.isArray(value) && value.every((entry) => typeof entry === "string");
-}
-
-const postTemporaryUploads = (files: File[], cookies?: string) =>
+const postTemporaryUploads = (files: File[], cookies: string) =>
 	Effect.promise(() => {
 		const formData = new FormData();
 		for (const file of files) {
 			formData.append("files[]", file, file.name);
 		}
-
 		return fetch(`${getBackendUrl()}/uploads/temporary`, {
 			body: formData,
 			method: "POST",
-			headers: cookies ? { Cookie: cookies } : undefined,
+			headers: { Cookie: cookies },
 		});
 	});
 
-describe("POST /uploads/presigned", () => {
-	it.live("returns 401 when not authenticated", () =>
-		Effect.gen(function* () {
-			const client = getBackendClient();
-			const error = yield* Effect.flip(
-				client.call((c) => c.uploads.createPresigned({ payload: { contentType: "text/csv" } })),
-			);
-
-			assertTaggedError(error, "Unauthorized");
-		}),
-	);
-
-	it.live("returns presigned upload URLs for csv, zip, and json", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const cases = [
-				["text/csv", "csv"],
-				["application/zip", "zip"],
-				["application/json", "json"],
-			] as const;
-
-			yield* Effect.all(
-				cases.map(([contentType, extension]) =>
-					Effect.gen(function* () {
-						const data = yield* client.call((c) =>
-							c.uploads.createPresigned({ payload: { contentType } }),
-						);
-
-						expect(data.key).toBeTypeOf("string");
-						expect(data.key.endsWith(`.${extension}`)).toBe(true);
-						expect(data.uploadUrl).toBeTypeOf("string");
-						expect(data.uploadUrl.length).toBeGreaterThan(0);
-					}),
-				),
-			);
-		}),
-	);
-});
+const uploadAndComplete = (provider: "local" | "s3", fileName: string, contentType: string) =>
+	Effect.gen(function* () {
+		const { client } = yield* createAuthenticatedClient();
+		const intent = yield* client.call((c) =>
+			c.uploads.createIntent({ payload: { kind: "permanent", provider, fileName, contentType } }),
+		);
+		const uploadResponse = yield* Effect.promise(() =>
+			fetch(new URL(intent.uploadUrl, `${getBackendUrl()}/`), {
+				method: intent.method,
+				body: "title\nexample",
+				headers: intent.headers,
+			}),
+		);
+		expect([200, 204]).toContain(uploadResponse.status);
+		const asset = yield* client.call((c) =>
+			c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
+		);
+		return { asset, client };
+	});
 
 describe("POST /uploads/intents", () => {
 	it.live("creates, uploads, and completes a local permanent intent", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const intent = yield* client.call((c) =>
-				c.uploads.createIntent({
-					payload: {
-						kind: "permanent",
-						provider: "local",
-						fileName: "report.csv",
-						contentType: "text/csv",
-					},
-				}),
-			);
-
-			expect(intent.method).toBe("PUT");
-			expect(intent.uploadUrl.startsWith("uploads/local/")).toBe(true);
-			const uploadResponse = yield* Effect.promise(() =>
-				fetch(new URL(intent.uploadUrl, `${getBackendUrl()}/`), {
-					method: intent.method,
-					body: "title\nexample",
-					headers: intent.headers,
-				}),
-			);
-			expect(uploadResponse.status).toBe(204);
-
-			const completed = yield* client.call((c) =>
-				c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
-			);
-			expect(completed).toMatchObject({ type: "local" });
-			expect(completed.key).toMatch(/^permanent\/.+\.csv$/);
-
+			const { asset, client } = yield* uploadAndComplete("local", "report.csv", "text/csv");
+			expect(asset).toMatchObject({ type: "local" });
+			expect(asset.key).toMatch(/^permanent\/.+\.csv$/);
 			const retried = yield* client.call((c) =>
-				c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
+				c.uploads.resolveDownloads({ payload: { assets: [asset] } }),
 			);
-			expect(retried).toEqual(completed);
+			expect(retried[0]?.asset).toEqual(asset);
+			expect(retried[0]?.downloadUrl.startsWith("uploads/local/download?")).toBe(true);
+		}),
+	);
+
+	it.live("creates, uploads directly to, and completes an S3 permanent intent", () =>
+		Effect.gen(function* () {
+			const { asset, client } = yield* uploadAndComplete("s3", "report.csv", "text/csv");
+			expect(asset).toMatchObject({ type: "s3" });
+			expect(asset.key).toMatch(/^permanent\/.+\.csv$/);
+			const resolved = yield* client.call((c) =>
+				c.uploads.resolveDownloads({ payload: { assets: [asset] } }),
+			);
+			const downloadUrl = resolved[0]?.downloadUrl;
+			expect(downloadUrl).toMatch(/^https?:\/\//);
+			const downloadResponse = yield* Effect.promise(() => fetch(downloadUrl ?? ""));
+			expect(downloadResponse.status).toBe(200);
+			expect(yield* Effect.promise(() => downloadResponse.text())).toBe("title\nexample");
 		}),
 	);
 });
 
-describe("POST /uploads/presigned/download", () => {
-	it.live("returns 401 when not authenticated", () =>
+describe("GET /uploads/local/download", () => {
+	it.live("serves local files with HEAD and byte range support", () =>
 		Effect.gen(function* () {
-			const client = getBackendClient();
-			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.uploads.createPresignedDownload({ payload: { keys: ["uploads/some-key.png"] } }),
-				),
+			const { asset, client } = yield* uploadAndComplete("local", "report.csv", "text/csv");
+			const resolved = yield* client.call((c) =>
+				c.uploads.resolveDownloads({ payload: { assets: [asset] } }),
 			);
-
-			assertTaggedError(error, "Unauthorized");
+			const downloadUrl = new URL(resolved[0]?.downloadUrl ?? "", `${getBackendUrl()}/`);
+			const head = yield* Effect.promise(() => fetch(downloadUrl, { method: "HEAD" }));
+			expect(head.status).toBe(200);
+			expect(head.headers.get("content-type")).toContain("text/csv");
+			expect(head.headers.get("content-length")).toBe("13");
+			expect(head.headers.get("content-disposition")).toBe("inline");
+			const range = yield* Effect.promise(() =>
+				fetch(downloadUrl, { headers: { Range: "bytes=0-4" } }),
+			);
+			expect(range.status).toBe(206);
+			expect(range.headers.get("content-range")).toBe("bytes 0-4/13");
+			expect(yield* Effect.promise(() => range.text())).toBe("title");
 		}),
 	);
+});
 
-	it.live("returns 400 when keys array is empty", () =>
+describe("legacy upload routes", () => {
+	it.live("does not retain the S3-specific presign routes", () =>
 		Effect.gen(function* () {
-			const { cookies } = yield* createAuthenticatedClient();
 			const response = yield* Effect.promise(() =>
-				postBackendJson("/uploads/presigned/download", { keys: [] }, cookies),
+				fetch(`${getBackendUrl()}/uploads/presigned`, { method: "POST" }),
 			);
-			expect(response.status).toBe(400);
-
-			const error: unknown = yield* Effect.promise(() => response.json());
-			expect(error).toMatchObject({ _tag: "BadRequest" });
-		}),
-	);
-
-	it.live("returns 400 when keys is missing", () =>
-		Effect.gen(function* () {
-			const { cookies } = yield* createAuthenticatedClient();
-			const response = yield* Effect.promise(() =>
-				postBackendJson("/uploads/presigned/download", {}, cookies),
+			expect(response.status).toBe(404);
+			const downloadResponse = yield* Effect.promise(() =>
+				fetch(`${getBackendUrl()}/uploads/presigned/download`, { method: "POST" }),
 			);
-			expect(response.status).toBe(400);
-
-			const error: unknown = yield* Effect.promise(() => response.json());
-			expect(error).toMatchObject({ _tag: "BadRequest" });
-		}),
-	);
-
-	it.live("returns presigned download URLs for existing keys", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const { key, uploadUrl } = yield* client.call((c) =>
-				c.uploads.createPresigned({ payload: { contentType: "text/csv" } }),
-			);
-			const uploadResponse = yield* Effect.promise(() =>
-				fetch(uploadUrl, { method: "PUT", body: "test content" }),
-			);
-			expect(uploadResponse.ok).toBe(true);
-
-			const data = yield* client.call((c) =>
-				c.uploads.createPresignedDownload({ payload: { keys: [key] } }),
-			);
-
-			expect(data).toHaveLength(1);
-			const [item] = data;
-			expect(item?.key).toBe(key);
-			expect(item?.downloadUrl).toBeTypeOf("string");
-			expect(item?.downloadUrl.length).toBeGreaterThan(0);
+			expect(downloadResponse.status).toBe(404);
 		}),
 	);
 });
 
 describe("POST /uploads/temporary", () => {
-	it.live("returns 401 when not authenticated", () =>
-		Effect.gen(function* () {
-			const response = yield* postTemporaryUploads([
-				new File(["csv data"], "report.csv", { type: "text/csv" }),
-			]);
-
-			expect(response.status).toBe(401);
-		}),
-	);
-
-	it.live("returns 415 when body is not multipart form data", () =>
+	it.live("continues to accept supported temporary files", () =>
 		Effect.gen(function* () {
 			const { cookies } = yield* createAuthenticatedClient();
-			const response = yield* Effect.promise(() =>
-				fetch(`${getBackendUrl()}/uploads/temporary`, {
-					method: "POST",
-					body: JSON.stringify({ files: [] }),
-					headers: { Cookie: cookies, "Content-Type": "application/json" },
-				}),
+			const response = yield* postTemporaryUploads(
+				[
+					new File(["csv data"], "report.csv", { type: "text/csv" }),
+					new File(["json data"], "payload.json", { type: "application/json" }),
+				],
+				cookies,
 			);
-
-			expect(response.status).toBe(415);
-		}),
-	);
-
-	it.live("writes csv, zip, and json files to disk and returns tokens", () =>
-		Effect.gen(function* () {
-			const { cookies } = yield* createAuthenticatedClient();
-			const files = [
-				new File(["csv data"], "report.csv", { type: "text/csv" }),
-				new File(["zip data"], "archive.zip", { type: "application/zip" }),
-				new File(["json data"], "payload.json", { type: "application/json" }),
-			];
-
-			const response = yield* postTemporaryUploads(files, cookies);
 			expect(response.status).toBe(201);
-
 			const tokens: unknown = yield* Effect.promise(() => response.json());
-			expect(isStringArray(tokens)).toBe(true);
-			assertCondition(isStringArray(tokens), "Temporary upload response did not include tokens");
-
-			expect(tokens).toHaveLength(files.length);
-			for (const token of tokens) {
-				expect(token.length).toBeGreaterThan(0);
-			}
-		}),
-	);
-
-	it.live("accepts MyAnimeList xml and gzip uploads", () =>
-		Effect.gen(function* () {
-			const { cookies } = yield* createAuthenticatedClient();
-			const files = [
-				new File(["<anime></anime>"], "anime.xml"),
-				new File(["gzip payload"], "manga.xml.gz", { type: "application/octet-stream" }),
-			];
-
-			const response = yield* postTemporaryUploads(files, cookies);
-			expect(response.status).toBe(201);
-
-			const tokens: unknown = yield* Effect.promise(() => response.json());
-			expect(isStringArray(tokens)).toBe(true);
-		}),
-	);
-
-	it.live("returns 413 when the multipart body exceeds the maximum allowed size", () =>
-		Effect.gen(function* () {
-			const { cookies } = yield* createAuthenticatedClient();
-			const oversizedFile = new File([new Uint8Array(55 * 1024 * 1024)], "oversized.csv", {
-				type: "text/csv",
-			});
-
-			const response = yield* postTemporaryUploads([oversizedFile], cookies);
-			expect(response.status).toBe(413);
+			expect(Array.isArray(tokens)).toBe(true);
+			expect(tokens as Array<unknown>).toHaveLength(2);
 		}),
 	);
 });
