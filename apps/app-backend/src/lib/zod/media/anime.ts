@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { nullableIntSchema, toStableJsonSchema } from "./base";
-import { animeMangaPropertiesSchema } from "./media";
+import { nullableIntSchema, toStableJsonSchema } from "../base";
+import { animeMangaPropertiesSchema } from "./common";
 
 const animeAiringScheduleSpecificsSchema = z
 	.object({
