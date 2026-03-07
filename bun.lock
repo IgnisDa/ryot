@@ -310,6 +310,7 @@
       "dependencies": {
         "@effect/platform": "0.96.2",
         "@ryot/query-engine": "workspace:*",
+        "@ryot/sandbox-sdk": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "effect": "3.21.4",
       },
@@ -384,6 +385,7 @@
         "@ryot/app-backend": "workspace:*",
         "@ryot/contract": "workspace:*",
         "@ryot/query-engine": "workspace:*",
+        "@ryot/sandbox-sdk": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "@testcontainers/postgresql": "11.14.0",
         "@types/pg": "8.20.0",
