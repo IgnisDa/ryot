@@ -1,6 +1,5 @@
-import { FileSystem, Path } from "@effect/platform";
-import { Activity } from "@effect/workflow";
-import { Effect } from "effect";
+import { Context, Effect, FileSystem, Layer, Path } from "effect";
+import { Activity } from "effect/unstable/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { RedisService } from "#lib/infrastructure/redis";
@@ -16,52 +15,60 @@ import { failImportRun } from "./import-run-status";
 import { deleteImportSourcePayload } from "./source-payload-store";
 import { ImportRunError, toWorkflowError } from "./workflow-errors";
 
-export class ImportRunArtifacts extends Effect.Service<ImportRunArtifacts>()("ImportRunArtifacts", {
-	effect: Effect.gen(function* () {
-		const config = yield* AppConfig;
-		const redis = yield* RedisService;
-		const path = yield* Path.Path;
-		const fs = yield* FileSystem.FileSystem;
-		const serverRun = yield* ServerRun;
+export class ImportRunArtifacts extends Context.Service<ImportRunArtifacts>()(
+	"ImportRunArtifacts",
+	{
+		make: Effect.gen(function* () {
+			const config = yield* AppConfig;
+			const redis = yield* RedisService;
+			const path = yield* Path.Path;
+			const fs = yield* FileSystem.FileSystem;
+			const serverRun = yield* ServerRun;
 
-		const cleanupArtifacts = Effect.fn("imports.cleanupArtifacts")(function* (input: {
-			runId?: string | undefined;
-			sourcePayloadKey?: string | undefined;
-			cleanupPaths: ReadonlyArray<string>;
-		}) {
-			if (input.sourcePayloadKey) {
-				yield* deleteImportSourcePayload(input.sourcePayloadKey).pipe(
-					Effect.provideService(RedisService, redis),
-				);
-			}
+			const cleanupArtifacts = Effect.fn("imports.cleanupArtifacts")(function* (input: {
+				runId?: string | undefined;
+				sourcePayloadKey?: string | undefined;
+				cleanupPaths: ReadonlyArray<string>;
+			}) {
+				if (input.sourcePayloadKey) {
+					yield* deleteImportSourcePayload(input.sourcePayloadKey).pipe(
+						Effect.provideService(RedisService, redis),
+					);
+				}
 
-			yield* Effect.forEach(
-				new Set(input.cleanupPaths),
-				(cleanupPath) =>
-					!cleanupPath.trim()
-						? Effect.void
-						: resolveSafeImportFilePath(cleanupPath, config.tmpDir).pipe(
-								Effect.mapError(
-									() => new ImportRunError({ message: "Import cleanup path is invalid" }),
+				yield* Effect.forEach(
+					new Set(input.cleanupPaths),
+					(cleanupPath) =>
+						!cleanupPath.trim()
+							? Effect.void
+							: resolveSafeImportFilePath(cleanupPath, config.tmpDir).pipe(
+									Effect.mapError(
+										() => new ImportRunError({ message: "Import cleanup path is invalid" }),
+									),
+									Effect.flatMap((safePath) => fs.remove(safePath, { recursive: true })),
 								),
-								Effect.flatMap((safePath) => fs.remove(safePath, { recursive: true })),
-							),
-				{ discard: true },
-			);
-		});
+					{ discard: true },
+				);
+			});
 
-		const cleanupHarvestedDirectories = (executionPrefix: string) =>
-			removeSandboxHarvestDirectories({
-				executionPrefix,
-				harvestRoot: path.join(config.tmpDir, `${SANDBOX_HARVEST_DIRECTORY_PREFIX}${serverRun.id}`),
-			}).pipe(
-				Effect.provideService(Path.Path, path),
-				Effect.provideService(FileSystem.FileSystem, fs),
-			);
+			const cleanupHarvestedDirectories = (executionPrefix: string) =>
+				removeSandboxHarvestDirectories({
+					executionPrefix,
+					harvestRoot: path.join(
+						config.tmpDir,
+						`${SANDBOX_HARVEST_DIRECTORY_PREFIX}${serverRun.id}`,
+					),
+				}).pipe(
+					Effect.provideService(Path.Path, path),
+					Effect.provideService(FileSystem.FileSystem, fs),
+				);
 
-		return { cleanupArtifacts, cleanupHarvestedDirectories };
-	}),
-}) {}
+			return { cleanupArtifacts, cleanupHarvestedDirectories };
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
 export const createImportRunLifecycle = (
 	payload: Pick<ImportRunJobData, "runId" | "sourcePayloadKey">,
@@ -89,7 +96,7 @@ export const createImportRunLifecycle = (
 				runId: payload.runId,
 				sourcePayloadKey: payload.sourcePayloadKey,
 			});
-		}).pipe(Effect.catchAll(() => Effect.void));
+		}).pipe(Effect.ignore);
 		return Activity.make({
 			name,
 			execute: cleanupBestEffortEffect,
@@ -99,7 +106,7 @@ export const createImportRunLifecycle = (
 		const cleanupBestEffortEffect = Effect.gen(function* () {
 			const artifacts = yield* ImportRunArtifacts;
 			yield* artifacts.cleanupHarvestedDirectories(executionPrefix);
-		}).pipe(Effect.catchAll(() => Effect.void));
+		}).pipe(Effect.ignore);
 		return Activity.make({ name, execute: cleanupBestEffortEffect });
 	};
 
