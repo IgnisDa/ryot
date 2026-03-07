@@ -24,9 +24,9 @@ export function selectEnabledFacets(facets: AppFacet[]): AppFacet[] {
 	return facets.filter((facet) => facet.enabled);
 }
 
-export function findFacetBySlug(
+export function findEnabledFacetBySlug(
 	facets: AppFacet[],
 	slug: string,
 ): AppFacet | undefined {
-	return facets.find((facet) => facet.slug === slug);
+	return facets.find((facet) => facet.enabled && facet.slug === slug);
 }

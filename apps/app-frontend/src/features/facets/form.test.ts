@@ -53,6 +53,20 @@ describe("toCreateFacetPayload", () => {
 		expect(payload).not.toHaveProperty("description");
 		expect(payload).not.toHaveProperty("accentColor");
 	});
+
+	it("excludes optional fields when values are whitespace-only", () => {
+		const input = v({
+			icon: "   ",
+			description: "\n\t",
+			accentColor: "   ",
+		});
+
+		const payload = toCreateFacetPayload(input);
+
+		expect(payload).not.toHaveProperty("icon");
+		expect(payload).not.toHaveProperty("description");
+		expect(payload).not.toHaveProperty("accentColor");
+	});
 });
 
 describe("toUpdateFacetPayload", () => {
