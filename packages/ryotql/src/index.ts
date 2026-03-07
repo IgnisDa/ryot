@@ -18,6 +18,7 @@ import type {
 	RowsOutput,
 	ScalarExpression,
 	TableReference,
+	TimeSeriesOutput,
 } from "@ryot/contract/modules/ryotql/language";
 
 type CastExpression = Extract<ScalarExpression, { type: "cast" }>;
@@ -292,6 +293,32 @@ export const aggregate = (
 		...(input.orderBy && input.orderBy.length > 0
 			? { orderBy: [...input.orderBy] as [AggregateOrderBy, ...AggregateOrderBy[]] }
 			: {}),
+	},
+});
+
+export const timeSeries = (
+	from: TableReference,
+	input: {
+		readonly endAt: string;
+		readonly startAt: string;
+		readonly time: ScalarExpression;
+		readonly where?: Predicate | undefined;
+		readonly joins?: readonly Join[] | undefined;
+		readonly bucket: TimeSeriesOutput["time"]["bucket"];
+		readonly measure: TimeSeriesOutput["measure"]["aggregation"];
+	},
+): NamedQuery & { readonly output: TimeSeriesOutput } => ({
+	from,
+	...(input.where ? { where: input.where } : {}),
+	...(isNonEmpty(input.joins) ? { joins: [...input.joins] } : {}),
+	output: {
+		type: "timeSeries",
+		measure: { aggregation: input.measure },
+		time: {
+			expr: input.time,
+			bucket: input.bucket,
+			range: { endAt: input.endAt, startAt: input.startAt },
+		},
 	},
 });
 

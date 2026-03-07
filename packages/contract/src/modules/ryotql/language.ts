@@ -287,11 +287,39 @@ export const AggregateOutput = strictStruct({
 }).annotate({ identifier: "RyotQLAggregateOutput" });
 export type AggregateOutput = typeof AggregateOutput.Type;
 
+const TimeSeriesMeasure = strictStruct({
+	aggregation: Schema.Union([
+		strictStruct({ function: Schema.Literal("count") }),
+		strictStruct({
+			expr: ScalarExpression,
+			function: Schema.Literals(["average", "maximum", "minimum", "sum"]),
+		}),
+	]),
+}).annotate({ identifier: "RyotQLTimeSeriesMeasure" });
+
+const TimeSeriesRange = strictStruct({
+	endAt: Schema.String,
+	startAt: Schema.String,
+}).annotate({ identifier: "RyotQLTimeSeriesRange" });
+
+const TimeSeriesTime = strictStruct({
+	expr: ScalarExpression,
+	range: TimeSeriesRange,
+	bucket: Schema.Literals(["hour", "day", "week", "month"]),
+}).annotate({ identifier: "RyotQLTimeSeriesTime" });
+
+export const TimeSeriesOutput = strictStruct({
+	time: TimeSeriesTime,
+	measure: TimeSeriesMeasure,
+	type: Schema.Literal("timeSeries"),
+}).annotate({ identifier: "RyotQLTimeSeriesOutput" });
+export type TimeSeriesOutput = typeof TimeSeriesOutput.Type;
+
 export const NamedQuery = strictStruct({
 	from: TableReference,
 	where: Schema.optional(Predicate),
-	output: Schema.Union([RowsOutput, AggregateOutput]),
 	joins: Schema.optional(Schema.NonEmptyArray(Join)),
+	output: Schema.Union([RowsOutput, AggregateOutput, TimeSeriesOutput]),
 }).annotate({ identifier: "RyotQLNamedQuery" });
 export type NamedQuery = typeof NamedQuery.Type;
 
@@ -348,7 +376,19 @@ export const AggregateResult = strictStruct({
 }).annotate({ identifier: "RyotQLAggregateResult" });
 export type AggregateResult = typeof AggregateResult.Type;
 
-export const RyotQLResult = Schema.Union([RowsResult, AggregateResult]).annotate({
+const TimeSeriesBucket = strictStruct({
+	value: Schema.Number,
+	endAt: Schema.String,
+	startAt: Schema.String,
+}).annotate({ identifier: "RyotQLTimeSeriesBucket" });
+
+export const TimeSeriesResult = strictStruct({
+	type: Schema.Literal("timeSeries"),
+	buckets: Schema.Array(TimeSeriesBucket),
+}).annotate({ identifier: "RyotQLTimeSeriesResult" });
+export type TimeSeriesResult = typeof TimeSeriesResult.Type;
+
+export const RyotQLResult = Schema.Union([RowsResult, AggregateResult, TimeSeriesResult]).annotate({
 	identifier: "RyotQLResult",
 });
 export type RyotQLResult = typeof RyotQLResult.Type;

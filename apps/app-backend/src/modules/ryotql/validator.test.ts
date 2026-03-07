@@ -22,6 +22,7 @@ import {
 	rows,
 	sum,
 	table,
+	timeSeries,
 } from "@ryot/ryotql";
 
 import { getCatalogTable } from "./catalog";
@@ -211,6 +212,70 @@ it("validates aggregate keys, grouped requirements, ordering, and limits", () =>
 			}),
 		),
 	).toBe("Query 'entities': Duplicate aggregate output key 'count'");
+});
+
+it("validates time-series ranges, expressions, measures, and bucket limits", () => {
+	const entity = table("entity", "entity");
+	const input = {
+		bucket: "day" as const,
+		endAt: "2026-01-03T00:00:00.000Z",
+		startAt: "2026-01-01T00:00:00.000Z",
+		measure: { function: "count" } as const,
+		time: column(entity, "createdAt"),
+	};
+
+	expect(validateRyotQLDocument(document({ entities: timeSeries(entity, input) }))).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: timeSeries(entity, {
+					...input,
+					time: castDate(jsonPath(column(entity, "properties"), "publishedAt")),
+					measure: {
+						function: "sum",
+						expr: castNumber(jsonPath(column(entity, "properties"), "duration")),
+					},
+				}),
+			}),
+		),
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({ entities: timeSeries(entity, { ...input, time: column(entity, "name") }) }),
+		),
+	).toBe(
+		"Query 'entities': Time-series time expressions require a date field or explicit date cast",
+	);
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: timeSeries(entity, { ...input, endAt: "2026-01-01T00:00:00.000Z" }),
+			}),
+		),
+	).toBe("Query 'entities': Time-series range startAt must be before endAt");
+	expect(
+		validateRyotQLDocument(
+			document({ entities: timeSeries(entity, { ...input, endAt: "not-a-date" }) }),
+		),
+	).toBe("Query 'entities': Time-series range startAt and endAt must be valid dates");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: timeSeries(entity, { ...input, endAt: "2028-10-01T00:00:00.000Z" }),
+			}),
+		),
+	).toBe("Query 'entities': Time-series bucket count exceeds maximum of 1000");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: timeSeries(entity, {
+					...input,
+					endAt: "2022-09-27T00:00:00.000500Z",
+					startAt: "2020-01-01T01:00:00.000+01:00",
+				}),
+			}),
+		),
+	).toBeNull();
 });
 
 it("rejects document and join counts above the retained limits", () => {
