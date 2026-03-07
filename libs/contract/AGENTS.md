@@ -10,7 +10,7 @@ This package is the client-safe wire boundary consumed by `app-backend`, `app-cl
 
 This package must never import `drizzle-orm`, `ioredis`, `pg`, `better-auth`, Node/Bun built-ins, or any `#lib/infrastructure/db` / `#lib/infrastructure/redis` / `#lib/infrastructure/config` / service / repository code from `app-backend` — not even as `import type`. TypeScript erases type-only imports, but that erasure is easy to lose (a later edit that turns a type import into a value import, or a bundler that doesn't tree-shake it) and it still reaches into the wrong dependency graph. The one confirmed leak this package was extracted to fix was exactly this shape: `entity-interest/messages.ts` importing `EntityUpdatedReason` as a value from a file (`#lib/infrastructure/redis`) that also did `import Redis from "ioredis"`, pulling a real TCP/TLS client into the mobile bundle.
 
-If a type must be shared across the boundary, define it here and have the backend-only file import it back — never the reverse. This package's `auth-middleware.ts`'s `CachedUserPreferences` (moved here from the backend-only `apps/app-backend/src/modules/builtins/bootstrap.ts`, which now imports it back) is the reference example.
+If a type must be shared across the boundary, define it here and have backend consumers import it — never the reverse. This package's `auth-middleware.ts`'s `CachedUserPreferences`, moved here from the former backend bootstrap module, is the reference example.
 
 ## Keeping This In Sync
 
