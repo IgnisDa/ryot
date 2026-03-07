@@ -58,6 +58,29 @@ export const zodNumAsString = z
 	.regex(/^-?\d*\.?\d+$/, "Must be a number string")
 	.transform(Number);
 
+export const zodNonEmptyTrimmedString = (errorMessage: string) =>
+	z.string().refine((value) => value.trim().length > 0, errorMessage);
+
+export const zodRequiredName = zodNonEmptyTrimmedString("Name is required");
+
+export const zodRequiredSlug = zodNonEmptyTrimmedString("Slug is required");
+
+/**
+ * Trims a string and returns it if non-empty, otherwise returns undefined (for create payloads).
+ */
+export const trimmedOrUndefined = (value: string): string | undefined => {
+	const trimmed = value.trim();
+	return trimmed === "" ? undefined : trimmed;
+};
+
+/**
+ * Trims a string and returns it if non-empty, otherwise returns null (for update payloads).
+ */
+export const trimmedOrNull = (value: string): string | null => {
+	const trimmed = value.trim();
+	return trimmed === "" ? null : trimmed;
+};
+
 /**
  * Humanize a duration.
  */
@@ -169,3 +192,16 @@ export {
 	truncate,
 	union,
 };
+
+export {
+	type AppArrayProperty,
+	type AppObjectProperty,
+	type AppPrimitiveProperty,
+	type AppPropertyDefinition,
+	type AppPropertyPrimitiveType,
+	type AppSchema,
+	appPropertyPrimitiveTypes,
+	fromAppSchema,
+	toAppSchema,
+	toAppSchemaProperties,
+} from "./app-schema";
