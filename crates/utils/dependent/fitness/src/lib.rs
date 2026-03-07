@@ -371,6 +371,10 @@ pub fn db_workout_template_to_workout_input(
 ) -> UserWorkoutInput {
     UserWorkoutInput {
         name: workout_template.name,
+        assets: workout_template.information.assets,
+        comment: workout_template.information.comment,
+        supersets: workout_template.information.supersets,
+        update_workout_template_id: Some(workout_template.id),
         exercises: workout_template
             .information
             .exercises
@@ -395,10 +399,6 @@ pub fn db_workout_template_to_workout_input(
                     .collect(),
             })
             .collect(),
-        comment: workout_template.information.comment,
-        assets: workout_template.information.assets,
-        supersets: workout_template.information.supersets,
-        update_workout_template_id: Some(workout_template.id),
         ..Default::default()
     }
 }
