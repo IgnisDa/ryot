@@ -112,8 +112,9 @@ type SavedViewSpec = {
 type PropertiesSchemaField = {
 	type: string;
 	label?: string;
-	items?: PropertiesSchemaField;
+	description: string;
 	unknownKeys?: string;
+	items?: PropertiesSchemaField;
 	transform?: Record<string, unknown>;
 	validation?: Record<string, unknown>;
 	properties?: Record<string, PropertiesSchemaField>;
