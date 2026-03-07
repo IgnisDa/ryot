@@ -1,14 +1,6 @@
 {
 	"name": "@ryot/app-backend",
 	"main": "src/main.ts",
-	"imports": {
-		"#*": [
-			"./src/*.ts"
-		]
-	},
-	"exports": {
-		".": "./src/main.ts"
-	},
 	"scripts": {
 		"dev": "bun run scripts/develop.ts",
 		"db:generate": "bun --bun drizzle-kit generate",
