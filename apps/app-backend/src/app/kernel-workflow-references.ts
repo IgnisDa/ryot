@@ -9,7 +9,7 @@ import {
 import { genericImportKernelInputSchema } from "@ryot/sandbox-sdk/imports";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
-import { Effect, Exit, Layer, Schema, Path } from "effect";
+import { Effect, Exit, FileSystem, Layer, Schema, Path } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -87,10 +87,12 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 		const config = yield* AppConfig;
 		const runWithDb = yield* DbRunner;
 		const serverRun = yield* ServerRun;
+		const fs = yield* FileSystem.FileSystem;
 		const imports = yield* ImportsRepository;
 		const integrations = yield* IntegrationsRepository;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const harvestHandles = yield* SandboxHarvestHandleStore;
+		const localTempRoot = yield* fs.realPath(config.fileStorage.localTempDir).pipe(Effect.orDie);
 
 		const validateAttribution = (input: {
 			userId: UserId;
@@ -216,7 +218,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 					const engine = yield* WorkflowEngine;
 					if (workflowSlug === KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW) {
 						const expectedHarvestDirectoryPrefix = path.join(
-							config.fileStorage.localTempDir,
+							localTempRoot,
 							`${SANDBOX_HARVEST_DIRECTORY_PREFIX}${serverRun.id}`,
 							`${sanitizeSandboxExecutionSegment(parentExecutionId)}-activity-`,
 						);

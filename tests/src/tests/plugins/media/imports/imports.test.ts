@@ -7,7 +7,7 @@ import {
 	pollImportRunUntilTerminal,
 	queryInLibraryRelationship,
 	seedGlobalShowEpisodeTree,
-	uploadTemporaryFile,
+	uploadImportFile,
 	waitForEventSlugs,
 } from "~/fixtures";
 import { describe, expect, it } from "~/support/effect-test";
@@ -50,7 +50,7 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 						],
 					},
 				]);
-				const uploadToken = yield* uploadTemporaryFile(
+				const uploadToken = yield* uploadImportFile(
 					cookies,
 					watcharrExport,
 					"watcharr.json",

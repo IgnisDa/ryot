@@ -1,15 +1,8 @@
 import { Schema } from "effect";
-import { Multipart } from "effect/unstable/http";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { BadRequest } from "../../errors";
-import {
-	MultipartInternalErrorSchema,
-	MultipartLimitErrorSchema,
-	MultipartParseErrorSchema,
-	UploadBodyLimitMiddleware,
-} from "./middleware";
 import {
 	CompleteUploadResponse,
 	DownloadResolutionInput,
@@ -17,10 +10,6 @@ import {
 	UploadIntentInput,
 	UploadIntentResponse,
 } from "./schemas";
-import {
-	TEMPORARY_UPLOAD_MAX_FILE_BYTES,
-	TEMPORARY_UPLOAD_MAX_REQUEST_BYTES,
-} from "./upload-policy";
 
 export const UploadsGroup = HttpApiGroup.make("uploads")
 	.annotate(OpenApi.Description, "Creates upload and download URLs and accepts temporary files")
@@ -44,26 +33,6 @@ export const UploadsGroup = HttpApiGroup.make("uploads")
 			success: DownloadResolutionResponse,
 			error: [BadRequest.pipe(HttpApiSchema.status(400))],
 		}).annotate(OpenApi.Description, "Resolves download URLs for stored files"),
-	)
-	.add(
-		HttpApiEndpoint.post("uploadTemporary", "/uploads/temporary", {
-			payload: Schema.Struct({ "files[]": Multipart.FilesSchema }).pipe(
-				HttpApiSchema.asMultipart({
-					fieldMimeTypes: [],
-					maxFileSize: TEMPORARY_UPLOAD_MAX_FILE_BYTES,
-					maxTotalSize: TEMPORARY_UPLOAD_MAX_REQUEST_BYTES,
-				}),
-			),
-			success: Schema.Array(Schema.String).pipe(HttpApiSchema.status(201)),
-			error: [
-				BadRequest.pipe(HttpApiSchema.status(400)),
-				MultipartLimitErrorSchema,
-				MultipartParseErrorSchema,
-				MultipartInternalErrorSchema,
-			],
-		})
-			.middleware(UploadBodyLimitMiddleware)
-			.annotate(OpenApi.Description, "Uploads files to temporary storage"),
 	)
 	.middleware(AuthMiddleware);
 
