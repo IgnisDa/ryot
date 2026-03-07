@@ -1,5 +1,9 @@
 import {
 	type GeneratedBuiltinSandboxScript,
+	sandboxCompanyDotTmdbScript,
+	sandboxMovieDashGroupDotTmdbScript,
+	sandboxMovieDotTmdbScript,
+	sandboxPersonDotTmdbScript,
 	sandboxShowDotTmdbScript,
 	sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript,
 	sandboxTriggerDotIntegrationDashProgressDashPolicyScript,
@@ -12,7 +16,6 @@ import anilistCompanyScriptCode from "./sandbox-scripts/providers/company/anilis
 import giantBombCompanyScriptCode from "./sandbox-scripts/providers/company/giant-bomb.sandbox.js" with { type: "text" };
 import hardcoverCompanyScriptCode from "./sandbox-scripts/providers/company/hardcover.sandbox.js" with { type: "text" };
 import igdbCompanyScriptCode from "./sandbox-scripts/providers/company/igdb.sandbox.js" with { type: "text" };
-import tmdbCompanyScriptCode from "./sandbox-scripts/providers/company/tmdb.sandbox.js" with { type: "text" };
 import tvdbCompanyScriptCode from "./sandbox-scripts/providers/company/tvdb.sandbox.js" with { type: "text" };
 import vndbCompanyScriptCode from "./sandbox-scripts/providers/company/vndb.sandbox.js" with { type: "text" };
 import freeExerciseDbScriptCode from "./sandbox-scripts/providers/fitness/exercise/free-exercise-db.sandbox.js" with { type: "text" };
@@ -23,7 +26,6 @@ import igdbVideoGameGroupScriptCode from "./sandbox-scripts/providers/media-grou
 import metronComicBookGroupScriptCode from "./sandbox-scripts/providers/media-group/metron.sandbox.js" with { type: "text" };
 import musicBrainzMusicGroupScriptCode from "./sandbox-scripts/providers/media-group/music-brainz.sandbox.js" with { type: "text" };
 import spotifyMusicGroupScriptCode from "./sandbox-scripts/providers/media-group/spotify.sandbox.js" with { type: "text" };
-import tmdbMovieGroupScriptCode from "./sandbox-scripts/providers/media-group/tmdb.sandbox.js" with { type: "text" };
 import tvdbMovieGroupScriptCode from "./sandbox-scripts/providers/media-group/tvdb.sandbox.js" with { type: "text" };
 import youtubeMusicGroupScriptCode from "./sandbox-scripts/providers/media-group/youtube-music.sandbox.js" with { type: "text" };
 import anilistAnimeScriptCode from "./sandbox-scripts/providers/media/anime/anilist.sandbox.js" with { type: "text" };
@@ -36,7 +38,6 @@ import metronComicBookScriptCode from "./sandbox-scripts/providers/media/comic-b
 import anilistMangaScriptCode from "./sandbox-scripts/providers/media/manga/anilist.sandbox.js" with { type: "text" };
 import mangaUpdatesMangaScriptCode from "./sandbox-scripts/providers/media/manga/manga-updates.sandbox.js" with { type: "text" };
 import myanimelistMangaScriptCode from "./sandbox-scripts/providers/media/manga/myanimelist.sandbox.js" with { type: "text" };
-import tmdbMovieScriptCode from "./sandbox-scripts/providers/media/movie/tmdb.sandbox.js" with { type: "text" };
 import tvdbMovieScriptCode from "./sandbox-scripts/providers/media/movie/tvdb.sandbox.js" with { type: "text" };
 import musicBrainzMusicScriptCode from "./sandbox-scripts/providers/media/music/music-brainz.sandbox.js" with { type: "text" };
 import spotifyMusicScriptCode from "./sandbox-scripts/providers/media/music/spotify.sandbox.js" with { type: "text" };
@@ -56,7 +57,6 @@ import metronPersonScriptCode from "./sandbox-scripts/providers/person/metron.sa
 import musicBrainzPersonScriptCode from "./sandbox-scripts/providers/person/music-brainz.sandbox.js" with { type: "text" };
 import openLibraryPersonScriptCode from "./sandbox-scripts/providers/person/openlibrary.sandbox.js" with { type: "text" };
 import spotifyPersonScriptCode from "./sandbox-scripts/providers/person/spotify.sandbox.js" with { type: "text" };
-import tmdbPersonScriptCode from "./sandbox-scripts/providers/person/tmdb.sandbox.js" with { type: "text" };
 import tvdbPersonScriptCode from "./sandbox-scripts/providers/person/tvdb.sandbox.js" with { type: "text" };
 import youtubeMusicPersonScriptCode from "./sandbox-scripts/providers/person/youtube-music.sandbox.js" with { type: "text" };
 
@@ -148,9 +148,7 @@ export const builtinSandboxScripts = () => [
 		"providers.twitchClientId",
 		"providers.twitchClientSecret",
 	]),
-	providerScript("TMDB", "company.tmdb", tmdbCompanyScriptCode, "tmdb", [
-		"providers.tmdbAccessToken",
-	]),
+	sandboxCompanyDotTmdbScript,
 	providerScript("TVDB", "company.tvdb", tvdbCompanyScriptCode, "tvdb", ["providers.tvdbApiKey"]),
 	providerScript("VNDB", "company.vndb", vndbCompanyScriptCode, "vndb"),
 	providerScript("Anilist", "person.anilist", anilistPersonScriptCode, "anilist"),
@@ -214,13 +212,9 @@ export const builtinSandboxScripts = () => [
 	providerScript("GiantBomb", "video-game.giant-bomb", giantBombVideoGameScriptCode, "giant-bomb", [
 		"providers.giantBombApiKey",
 	]),
-	translatedProviderScript("TMDB", "movie.tmdb", tmdbMovieScriptCode, "tmdb", "en", [
-		"providers.tmdbAccessToken",
-	]),
+	sandboxMovieDotTmdbScript,
 	sandboxShowDotTmdbScript,
-	translatedProviderScript("TMDB", "person.tmdb", tmdbPersonScriptCode, "tmdb", "en", [
-		"providers.tmdbAccessToken",
-	]),
+	sandboxPersonDotTmdbScript,
 	translatedProviderScript("TVDB", "movie.tvdb", tvdbMovieScriptCode, "tvdb", "en", [
 		"providers.tvdbApiKey",
 	]),
@@ -264,9 +258,7 @@ export const builtinSandboxScripts = () => [
 		"providers.twitchClientId",
 		"providers.twitchClientSecret",
 	]),
-	translatedProviderScript("TMDB", "movie-group.tmdb", tmdbMovieGroupScriptCode, "tmdb", "en", [
-		"providers.tmdbAccessToken",
-	]),
+	sandboxMovieDashGroupDotTmdbScript,
 	translatedProviderScript("TVDB", "movie-group.tvdb", tvdbMovieGroupScriptCode, "tvdb", "en", [
 		"providers.tvdbApiKey",
 	]),
