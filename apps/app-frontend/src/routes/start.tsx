@@ -150,15 +150,14 @@ function StartPage() {
 														{submitError}
 													</p>
 												) : null}
-
-												<authForm.SubmitButton
-													className="w-full"
-													label={modeContent.actionLabel}
-													pendingLabel="Please wait..."
-												/>
 											</>
 										)}
 									</authForm.AppField>
+									<authForm.SubmitButton
+										className="w-full"
+										pendingLabel="Please wait..."
+										label={modeContent.actionLabel}
+									/>
 								</div>
 							</authForm.AppForm>
 						</form>
