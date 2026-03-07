@@ -1,5 +1,3 @@
-import { Activity } from "@effect/workflow";
-import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { SandboxRunError } from "@ryot/contract/errors";
 import { badRequest, unknownToMessage } from "@ryot/contract/errors";
 import {
@@ -21,8 +19,11 @@ import {
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import type { AutomationPolicyInput } from "@ryot/sandbox-sdk/automation";
 import { Effect, Match, Schema } from "effect";
+import { Activity } from "effect/unstable/workflow";
+import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
+import { withoutSchemaServices } from "#lib/shared/schema";
 
 import { EventCreateWorkflowError, type EventCreateWorkflowPayload } from "./event-create-workflow";
 import { resolveEventCreateItemScopes } from "./event-creation";
@@ -40,7 +41,7 @@ export type EventPolicyDraft = typeof EventPolicyDraft.Type;
 
 export const PreparedEventPolicy = Schema.Struct({
 	id: AutomationRuleId,
-	position: Schema.Number,
+	position: Schema.Finite,
 	sandboxScriptId: SandboxScriptId,
 	metadata: Schema.NullOr(AutomationRuleMetadata),
 });
@@ -61,7 +62,7 @@ type ProcessSandboxExecution = (
 ) => Effect.Effect<SandboxCompletedResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 
 export const decodeEventPolicyProperties = (properties: unknown) =>
-	Schema.decodeUnknown(AutomationProperties)(properties).pipe(
+	Schema.decodeUnknownEffect(AutomationProperties)(properties).pipe(
 		Effect.mapError(() => badRequest("Event properties must be JSON-serializable")),
 	);
 
@@ -102,9 +103,9 @@ const validateEventDraft = Effect.fn("validateEventPolicyDraft")(function* (
 	draft: { properties: unknown; occurredAt: string; sessionEntityId?: EntityId | undefined },
 ) {
 	return yield* Activity.make({
-		error: EventCreateWorkflowError,
+		error: withoutSchemaServices(EventCreateWorkflowError),
 		name: `validate-policy-draft-${itemIndex}-${stepId}`,
-		success: EventPolicyDraft,
+		success: withoutSchemaServices(EventPolicyDraft),
 		execute: Effect.gen(function* () {
 			const scopes = yield* resolveEventCreateItemScopes({
 				userId: payload.userId,
@@ -185,9 +186,9 @@ export const runEventCreatePolicies = Effect.fn(function* (
 		if (sandboxResult.error) {
 			return yield* policyFailed(sandboxResult.error.message);
 		}
-		const result = yield* Schema.decodeUnknown(AutomationPolicyResult)(sandboxResult.value).pipe(
-			Effect.mapError(() => badRequest(invalidPolicyResultShape)),
-		);
+		const result = yield* Schema.decodeUnknownEffect(AutomationPolicyResult)(
+			sandboxResult.value,
+		).pipe(Effect.mapError(() => badRequest(invalidPolicyResultShape)));
 		if (result.action === "skip") {
 			return { kind: "skipped" as const, reason: result.reason };
 		}
