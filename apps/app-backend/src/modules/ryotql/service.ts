@@ -1,6 +1,6 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest, DbError, dieOnDbError } from "@ryot/contract/errors";
-import type { RyotQLDocument, RowsResult } from "@ryot/contract/modules/ryotql/language";
+import type { RyotQLDocument, RyotQLResult } from "@ryot/contract/modules/ryotql/language";
 import { sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -39,7 +39,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 				Effect.gen(function* () {
 					yield* configureTransaction;
 					yield* setLocalStatementTimeout(RYOTQL_STATEMENT_TIMEOUT_MS);
-					const results: Array<readonly [string, RowsResult]> = [];
+					const results: Array<readonly [string, RyotQLResult]> = [];
 					for (const [name, query] of Object.entries(document.queries)) {
 						results.push([name, yield* executeNamedQuery(userId, language, query)]);
 					}
