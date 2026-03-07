@@ -1,6 +1,6 @@
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { and, eq, sql } from "drizzle-orm";
-import { Effect, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -12,11 +12,11 @@ type SandboxWorkflowReference = Omit<WorkflowReferenceRow, "scriptId"> & {
 	readonly scriptId: SandboxScriptId;
 };
 
-export class SandboxWorkflowReferenceRegistrationError extends Schema.TaggedError<SandboxWorkflowReferenceRegistrationError>()(
+export class SandboxWorkflowReferenceRegistrationError extends Schema.TaggedErrorClass<SandboxWorkflowReferenceRegistrationError>()(
 	"SandboxWorkflowReferenceRegistrationError",
 	{
 		message: Schema.String,
-		reason: Schema.Literal("plugin-inactive", "execution-conflict"),
+		reason: Schema.Literals(["plugin-inactive", "execution-conflict"]),
 	},
 ) {}
 
@@ -25,10 +25,10 @@ const toReference = (row: WorkflowReferenceRow): SandboxWorkflowReference => ({
 	scriptId: SandboxScriptId.make(row.scriptId),
 });
 
-export class SandboxWorkflowReferenceRepository extends Effect.Service<SandboxWorkflowReferenceRepository>()(
+export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxWorkflowReferenceRepository>()(
 	"SandboxWorkflowReferenceRepository",
 	{
-		sync: () => {
+		make: Effect.sync(() => {
 			const lockIngestionShared = Effect.fn(
 				"SandboxWorkflowReferenceRepository.lockIngestionShared",
 			)(function* () {
@@ -139,6 +139,8 @@ export class SandboxWorkflowReferenceRepository extends Effect.Service<SandboxWo
 				lockIngestionShared,
 				registerInTransaction,
 			};
-		},
+		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

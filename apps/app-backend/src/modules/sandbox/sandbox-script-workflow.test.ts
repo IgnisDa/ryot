@@ -1,14 +1,14 @@
-import { Command } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { Workflow } from "@effect/workflow";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { workflowReplayEnvelopeSchema } from "@ryot/sandbox-sdk/workflow";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer, Schema, Stream } from "effect";
+import { ChildProcess } from "effect/unstable/process";
+import { Workflow } from "effect/unstable/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { RedisService } from "#lib/infrastructure/redis";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
@@ -143,7 +143,7 @@ fi
 	const registrations: unknown[] = [];
 	const executedContent: string[] = [];
 	const hashes = new Map<string, Map<string, string>>();
-	const redisClient: RedisService["client"] = Object.assign(Object.create(null), {
+	const redisClient: RedisService["Service"]["client"] = Object.assign(Object.create(null), {
 		hget: (key: string, field: string) => Promise.resolve(hashes.get(key)?.get(field) ?? null),
 		hmget: (key: string, ...fields: string[]) =>
 			Promise.resolve(fields.map((field) => hashes.get(key)?.get(field) ?? null)),
@@ -199,11 +199,13 @@ fi
 	const executionId = "workflow-execution";
 	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
 	const engine = makeWorkflowActivityEngine(instance);
-	const durableCallsResult = Schema.decodeUnknown(
+	const durableCallsResult = Schema.decodeUnknownEffect(
 		Schema.Struct({ data: Schema.Array(jsonValueSchema), success: Schema.Literal(true) }),
 	);
-	const encodeJson = Schema.encodeSync(Schema.parseJson(Schema.Unknown));
-	const decodeEnvelope = Schema.decodeUnknown(Schema.parseJson(workflowReplayEnvelopeSchema));
+	const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+	const decodeEnvelope = Schema.decodeUnknownEffect(
+		Schema.fromJsonString(workflowReplayEnvelopeSchema),
+	);
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
 		transactionLayer,
@@ -211,7 +213,6 @@ fi
 		Layer.succeed(WorkflowInstance, instance),
 		Layer.succeed(RedisService, makeRedisService({ client: redisClient })),
 		Layer.mock(SandboxRepository)({
-			_tag: "SandboxRepository",
 			isPluginScript: () =>
 				Effect.sync(() => {
 					pinEvents.push("resolve-owned");
@@ -244,7 +245,6 @@ fi
 				}),
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
-			_tag: "SandboxWorkflowReferenceRepository",
 			lockIngestionShared: () => Effect.sync(() => pinEvents.push("lock")),
 			registerInTransaction: (input) =>
 				Effect.sync(() => {
@@ -258,7 +258,6 @@ fi
 				}),
 		}),
 		Layer.mock(RuntimeSandboxService)({
-			_tag: "SandboxService",
 			run: (input) =>
 				Effect.gen(function* () {
 					executedContent.push(input.compiledCode);
@@ -266,11 +265,18 @@ fi
 						client: redisClient,
 					});
 					const journal = yield* durableCalls([]).pipe(Effect.flatMap(durableCallsResult));
-					const output = yield* Command.make("/bin/sh", "-c", input.compiledCode).pipe(
-						Command.env({ JOURNAL: encodeJson(journal.data), REQUEST: encodeJson(request) }),
-						Command.string,
-						Effect.provide(BunContext.layer),
-					);
+					const output = yield* Effect.gen(function* () {
+						const process = yield* ChildProcess.make("/bin/sh", ["-c", input.compiledCode], {
+							env: { JOURNAL: encodeJson(journal.data), REQUEST: encodeJson(request) },
+						});
+						return yield* process.stdout.pipe(
+							Stream.decodeText(),
+							Stream.runFold(
+								() => "",
+								(content, chunk) => content + chunk,
+							),
+						);
+					}).pipe(Effect.scoped, Effect.provide(BunServices.layer));
 					activeId = replacementScriptId;
 					return {
 						logs: [],
@@ -354,12 +360,10 @@ it.effect("retains a plugin workflow reference while durably suspended", () => {
 		Layer.succeed(WorkflowEngine, engine),
 		Layer.succeed(WorkflowInstance, instance),
 		Layer.mock(SandboxRepository)({
-			_tag: "SandboxRepository",
 			getScriptPin: () =>
 				Effect.succeed({ scriptId, pluginSlug: "plugin", contentHash: "content-hash" }),
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
-			_tag: "SandboxWorkflowReferenceRepository",
 			lockIngestionShared: () => Effect.void,
 			registerInTransaction: () =>
 				Effect.sync(() => {
@@ -416,12 +420,10 @@ it.effect("releases a plugin workflow reference before returning terminal failur
 		Layer.succeed(WorkflowInstance, instance),
 		Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 		Layer.mock(SandboxRepository)({
-			_tag: "SandboxRepository",
 			getScriptPin: () =>
 				Effect.succeed({ scriptId, pluginSlug: "plugin", contentHash: "content-hash" }),
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
-			_tag: "SandboxWorkflowReferenceRepository",
 			lockIngestionShared: () => Effect.void,
 			registerInTransaction: () =>
 				Effect.sync(() => {
@@ -471,12 +473,10 @@ it.effect("maps inactive plugin pin registration to SandboxRunError", () => {
 		Layer.succeed(WorkflowInstance, instance),
 		Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 		Layer.mock(SandboxRepository)({
-			_tag: "SandboxRepository",
 			getScriptPin: () =>
 				Effect.succeed({ scriptId, pluginSlug: "plugin", contentHash: "content-hash" }),
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
-			_tag: "SandboxWorkflowReferenceRepository",
 			lockIngestionShared: () => Effect.void,
 			registerInTransaction: () =>
 				Effect.fail(
@@ -577,7 +577,7 @@ it.effect("accepts completion output only after the encountered trace matches th
 
 it.effect("dispatches plugin children as child workflows with an exact script pin", () => {
 	let capturedWorkflow: unknown;
-	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
+	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
 	const engine = makeWorkflowEngine({
 		execute: (workflow, options) =>
 			Effect.sync(() => {
