@@ -5,6 +5,7 @@ import { FetchHttpClient } from "effect/unstable/http";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "#lib/infrastructure/db/migrate";
 import { DbService, DbRunnerLive, TransactionRunnerLive } from "#lib/infrastructure/db/service";
+import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { ObservabilityLive } from "#lib/infrastructure/observability";
 import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
@@ -124,6 +125,7 @@ const BaseInfrastructureServicesLive = Layer.provideMerge(
 	Layer.mergeAll(
 		DbService.layer,
 		RedisService.layer,
+		LocalStorageService.layer,
 		ServerRun.layer,
 		S3Service.layer,
 		FetchHttpClient.layer,

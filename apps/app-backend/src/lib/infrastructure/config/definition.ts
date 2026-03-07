@@ -108,8 +108,19 @@ const sandbox = group(
 );
 
 const fileStorage = group(
-	{ label: "File storage", description: "S3-compatible file storage" },
+	{ label: "File storage", description: "S3-compatible and local file storage" },
 	{
+		localDir: stringField({
+			envKey: "FILE_STORAGE_LOCAL_DIR",
+			label: "Local permanent directory",
+			description: "Writable persistent directory for permanent local objects",
+		}),
+		localSigningSecret: stringField({
+			secret: true,
+			label: "Local signing secret",
+			envKey: "FILE_STORAGE_LOCAL_SIGNING_SECRET",
+			description: "Secret used to sign local upload and download paths",
+		}),
 		url: stringField({
 			label: "S3 URL",
 			envKey: "FILE_STORAGE_S3_URL",
