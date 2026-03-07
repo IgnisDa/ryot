@@ -1,3 +1,6 @@
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import {
 	Alert,
 	Badge,
@@ -13,9 +16,6 @@ import {
 	TextField,
 	View,
 } from "reshaped";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
 import { useApiClient } from "@/hooks/api";
 import { useAuthClient } from "@/hooks/auth";
 
@@ -24,7 +24,11 @@ export const Route = createFileRoute("/schema-search")({
 });
 
 const getPayloadErrorMessage = (payload: unknown) => {
-	if (!payload || typeof payload !== "object" || !Object.hasOwn(payload, "error")) {
+	if (
+		!payload ||
+		typeof payload !== "object" ||
+		!Object.hasOwn(payload, "error")
+	) {
 		return null;
 	}
 
@@ -106,14 +110,17 @@ function SchemaSearchPage() {
 			const response = await apiClient["entity-schemas"].list.$get();
 			const payload = await response.json();
 			if (hasErrorPayload(payload)) {
-				const errorMessage = getPayloadErrorMessage(payload) ?? "Request failed";
+				const errorMessage =
+					getPayloadErrorMessage(payload) ?? "Request failed";
 				throw new Error(errorMessage);
 			}
 			return payload;
 		},
 	});
 
-	const schemasData = hasSchemasData(schemasQuery.data) ? schemasQuery.data.data : [];
+	const schemasData = hasSchemasData(schemasQuery.data)
+		? schemasQuery.data.data
+		: [];
 
 	const searchScripts = schemasData.flatMap((schema) =>
 		schema.scriptPairs.map((pair) => ({
@@ -173,7 +180,8 @@ function SchemaSearchPage() {
 
 			const payload = await response.json();
 			if (hasErrorPayload(payload)) {
-				const errorMessage = getPayloadErrorMessage(payload) ?? "Request failed";
+				const errorMessage =
+					getPayloadErrorMessage(payload) ?? "Request failed";
 				throw new Error(errorMessage);
 			}
 
@@ -236,7 +244,7 @@ function SchemaSearchPage() {
 						</Text>
 					</View>
 
-					<View direction="row" gap={4} align="start">
+					<View direction={{ s: "column", m: "row" }} gap={4} align="start">
 						<View.Item grow>
 							<TextField
 								name="Query"
@@ -342,7 +350,9 @@ function SchemaSearchPage() {
 												importEntityRequest.isPending &&
 												importingIdentifier === item.identifier
 											}
-											onClick={() => importEntityRequest.mutate(item.identifier)}
+											onClick={() =>
+												importEntityRequest.mutate(item.identifier)
+											}
 										>
 											Import
 										</Button>
