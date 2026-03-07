@@ -22,7 +22,7 @@ export const requireFieldValue = Effect.fn("requireRyotQLFieldValue")(function* 
 	key: string,
 ) {
 	const value = item[key];
-	if (!value) {
+	if (!value || !("kind" in value)) {
 		return yield* Effect.die(`Expected RyotQL field '${key}'`);
 	}
 	return value;

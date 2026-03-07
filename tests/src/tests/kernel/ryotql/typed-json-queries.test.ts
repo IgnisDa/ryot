@@ -33,6 +33,7 @@ import {
 	createQueryEngineEntity,
 	createQueryEnginePluginSchema,
 	executeRyotQL,
+	requireRyotQLFieldValue,
 } from "~/fixtures";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -205,8 +206,8 @@ describe("RyotQL typed JSON entity queries", () => {
 			]);
 			expect(
 				requireRows(result.data["media"], "media").items.map((item) => [
-					item["name"]?.value,
-					item["creator"]?.value,
+					requireRyotQLFieldValue(item, "name").value,
+					requireRyotQLFieldValue(item, "creator").value,
 				]),
 			).toEqual([
 				["Book Alpha", "Author A"],
@@ -286,7 +287,9 @@ describe("RyotQL typed JSON entity queries", () => {
 
 			const casts = requireRows(result.data["casts"], "casts");
 			expect(casts.items).toHaveLength(2);
-			const byName = new Map(casts.items.map((item) => [item["name"]?.value, item]));
+			const byName = new Map(
+				casts.items.map((item) => [requireRyotQLFieldValue(item, "name").value, item]),
+			);
 			expect(byName.get("Cast Invalid")).toEqual({
 				text: { kind: "null", value: null },
 				date: { kind: "null", value: null },
