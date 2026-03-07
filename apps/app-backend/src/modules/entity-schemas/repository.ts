@@ -1,29 +1,7 @@
-import { and, asc, eq, isNull, or } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "~/db";
-import { entitySchema, facet } from "~/db/schema";
+import { entitySchema } from "~/db/schema";
 import type { EntitySchemaPropertiesShape } from "./service";
-
-export const getFacetScopeForEntitySchemas = async (input: {
-	userId: string;
-	facetId: string;
-}) => {
-	const [foundFacet] = await db
-		.select({
-			id: facet.id,
-			userId: facet.userId,
-			isBuiltin: facet.isBuiltin,
-		})
-		.from(facet)
-		.where(
-			and(
-				eq(facet.id, input.facetId),
-				or(isNull(facet.userId), eq(facet.userId, input.userId)),
-			),
-		)
-		.limit(1);
-
-	return foundFacet;
-};
 
 export const listEntitySchemasByFacetForUser = async (input: {
 	userId: string;
