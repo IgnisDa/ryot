@@ -203,20 +203,20 @@ failures discovered after a valid adapter group reaches resolution, population, 
 their existing completion semantics. Finalizing in the kernel child also prevents terminal polling
 from observing a transient `completed` status before the parent integration workflow can react.
 
-### Built-in schema lookup does not refetch catalogs per workspace
+### Built-in schema lookup does not refetch catalogs per plugin
 
 The next fail-fast run timed out in the first
 `tests/src/tests/plugins/media/query-engine/media-suggestions.test.ts` case after 180 seconds. The query itself was not the
 bottleneck: both cases passed independently in 5.17 seconds before the fix. Each global-book fixture
 called `findBuiltinSchemaBySlug`, which fetched all entity definitions and sandbox scripts, then
-repeated those same two full-catalog requests for every installed plugin workspace before filtering
+repeated those same two full-catalog requests for every installed plugin before filtering
 the already-returned data locally. The media-suggestions setup called the fixture six times, and the
 full suite had accumulated enough temporary plugin workspaces to amplify that scan into thousands of
 redundant requests.
 
-`findBuiltinSchemaBySlug` now fetches the schema/script catalogs once, lists workspaces once, and
-selects the matching schema from the original result in workspace order. Selection behavior is
-unchanged, but request growth is constant rather than proportional to the number of workspaces. The
+`findBuiltinSchemaBySlug` now fetches the schema/script catalogs once, lists plugins once, and
+selects the matching schema from the original result in plugin order. Selection behavior is
+unchanged, but request growth is constant rather than proportional to the number of plugins. The
 focused file now completes both cases in 2.39 seconds.
 
 ### The isolated observability backend gets its hook's startup budget

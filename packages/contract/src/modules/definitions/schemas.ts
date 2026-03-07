@@ -34,7 +34,7 @@ export const RelationshipDefinition = Schema.Struct({
 	targetEntitySchemaSlug: Schema.NullOr(EntitySchemaSlug),
 });
 
-export const ListedWorkspace = Schema.Struct({
+export const ListedPlugin = Schema.Struct({
 	slug: PluginSlug,
 	name: Schema.String,
 	icon: Schema.String,
@@ -46,12 +46,12 @@ export const ListedWorkspace = Schema.Struct({
 	description: Schema.String,
 });
 
-export type ListedWorkspace = typeof ListedWorkspace.Type;
+export type ListedPlugin = typeof ListedPlugin.Type;
 
-export const UpdateWorkspaceStateBody = Schema.Struct({
+export const UpdatePluginStateBody = Schema.Struct({
 	sortOrder: Schema.optional(Schema.Number),
 	isDisabled: Schema.optional(Schema.Boolean),
 	config: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 });
 
-export type UpdateWorkspaceStateBody = typeof UpdateWorkspaceStateBody.Type;
+export type UpdatePluginStateBody = typeof UpdatePluginStateBody.Type;

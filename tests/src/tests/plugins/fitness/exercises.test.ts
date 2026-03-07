@@ -13,7 +13,7 @@ import {
 	createAuthenticatedClient,
 	createWorkoutEntityFixture,
 	executeQueryEngine,
-	findBuiltinWorkspaceBySlug,
+	findBuiltinPluginBySlug,
 	findBuiltinSchemaBySlug,
 	findWorkoutSetEventSchema,
 	getQueryEngineFieldOrThrow,
@@ -50,9 +50,9 @@ describe("Exercises E2E", () => {
 	it.live("links the built-in exercise schema to the fitness plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessWorkspace = yield* findBuiltinWorkspaceBySlug(client, "fitness");
+			const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
 			const schemas = yield* listEntitySchemas(client, {
-				pluginSlug: fitnessWorkspace.slug,
+				pluginSlug: fitnessPlugin.slug,
 			});
 			const exerciseSchema = schemas.find((schema) => schema.slug === "exercise");
 
@@ -61,7 +61,7 @@ describe("Exercises E2E", () => {
 			expect(exerciseSchema?.slug).toBe("exercise");
 			expect(exerciseSchema?.icon).toBe("zap");
 			expect(exerciseSchema?.isBuiltin).toBe(true);
-			expect(exerciseSchema?.pluginSlug).toBe(fitnessWorkspace.slug);
+			expect(exerciseSchema?.pluginSlug).toBe(fitnessPlugin.slug);
 			expect(exerciseSchema?.accentColor).toBe("#14B8A6");
 			expect(exerciseSchema?.providers).toHaveLength(1);
 			expect(exerciseSchema?.providers[0]).toMatchObject({
@@ -85,9 +85,9 @@ describe("Exercises E2E", () => {
 	it.live("creates the built-in All Exercises saved view with exercise defaults", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessWorkspace = yield* findBuiltinWorkspaceBySlug(client, "fitness");
+			const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
 			const views = yield* listSavedViews(client, {
-				pluginSlug: fitnessWorkspace.slug,
+				pluginSlug: fitnessPlugin.slug,
 			});
 			const allExercisesView = views.find((view) => view.name === "All Exercises");
 
@@ -95,7 +95,7 @@ describe("Exercises E2E", () => {
 			expect(allExercisesView).toMatchObject({
 				isBuiltin: true,
 				name: "All Exercises",
-				pluginSlug: fitnessWorkspace.slug,
+				pluginSlug: fitnessPlugin.slug,
 				queryDocument: { source: { schemas: ["exercise"] } },
 				displayConfiguration: {
 					table: {
