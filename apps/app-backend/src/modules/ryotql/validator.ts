@@ -1,4 +1,5 @@
 import type {
+	CorrelatedQuerySet,
 	Include,
 	NamedQuery,
 	Predicate,
@@ -13,6 +14,7 @@ export const MAX_QUERY_JOINS = 8;
 export const MAX_INCLUDE_DEPTH = 3;
 export const MAX_INCLUDE_LIMIT = 100;
 export const MAX_ROOT_PAGE_SIZE = 100;
+export const MAX_CORRELATED_DEPTH = 3;
 export const MAX_DOCUMENT_QUERIES = 10;
 
 type AliasScope = ReadonlyMap<string, CatalogTable>;
@@ -21,18 +23,59 @@ type ScalarKind = CatalogTable["fields"][string]["kind"] | "null";
 const requiredNameError = (value: string, label: string) =>
 	value.trim().length === 0 ? `${label} must not be empty` : null;
 
-const validateExpression = (expr: ScalarExpression, scope: AliasScope): string | null => {
+const validateExpression = (
+	expr: ScalarExpression,
+	scope: AliasScope,
+	correlatedDepth: number,
+): string | null => {
 	if (expr.type === "literal") {
 		return null;
 	}
 	if (expr.type === "cast") {
-		return validateExpression(expr.expr, scope);
+		return validateExpression(expr.expr, scope, correlatedDepth);
 	}
 	if (expr.type === "coalesce") {
-		return expr.values.map((value) => validateExpression(value, scope)).find(Boolean) ?? null;
+		return (
+			expr.values.map((value) => validateExpression(value, scope, correlatedDepth)).find(Boolean) ??
+			null
+		);
+	}
+	if (expr.type === "arithmetic") {
+		return (
+			validateExpression(expr.left, scope, correlatedDepth) ??
+			validateExpression(expr.right, scope, correlatedDepth)
+		);
+	}
+	if (expr.type === "exists" || expr.type === "aggregate" || expr.type === "first") {
+		if (correlatedDepth >= MAX_CORRELATED_DEPTH) {
+			return `Correlated query depth must not exceed ${MAX_CORRELATED_DEPTH}`;
+		}
+		const nested = validateQuerySet(expr.query, scope, correlatedDepth + 1);
+		if (nested.error || !nested.scope) {
+			return nested.error;
+		}
+		if (expr.type === "aggregate" && expr.aggregation.function !== "count") {
+			return validateExpression(expr.aggregation.expr, nested.scope, correlatedDepth + 1);
+		}
+		if (expr.type === "first") {
+			const selectionError = validateExpression(expr.select, nested.scope, correlatedDepth + 1);
+			if (selectionError) {
+				return selectionError;
+			}
+			for (const order of expr.orderBy) {
+				const orderError = validateExpression(order.expr, nested.scope, correlatedDepth + 1);
+				if (orderError) {
+					return orderError;
+				}
+				if (expressionKind(order.expr, nested.scope) === "json") {
+					return "Ordering expressions must resolve to scalar values";
+				}
+			}
+		}
+		return null;
 	}
 	if (expr.type === "jsonPath") {
-		const expressionError = validateExpression(expr.expr, scope);
+		const expressionError = validateExpression(expr.expr, scope, correlatedDepth);
 		if (expressionError) {
 			return expressionError;
 		}
@@ -68,6 +111,15 @@ const expressionKind = (expr: ScalarExpression, scope: AliasScope): ScalarKind |
 	if (expr.type === "cast") {
 		return expr.target;
 	}
+	if (expr.type === "exists") {
+		return "boolean";
+	}
+	if (expr.type === "arithmetic" || expr.type === "aggregate") {
+		return "number";
+	}
+	if (expr.type === "first") {
+		return expressionKind(expr.select, expressionScope(expr.query, scope));
+	}
 	if (expr.type === "jsonPath") {
 		return "json";
 	}
@@ -84,10 +136,18 @@ const expressionKind = (expr: ScalarExpression, scope: AliasScope): ScalarKind |
 const compatibleKinds = (left: ScalarKind | undefined, right: ScalarKind | undefined) =>
 	left === "null" || right === "null" || left === right;
 
-const validatePredicate = (predicate: Predicate, scope: AliasScope): string | null => {
+const validatePredicate = (
+	predicate: Predicate,
+	scope: AliasScope,
+	correlatedDepth: number,
+): string | null => {
+	if (predicate.type === "exists") {
+		return validateExpression(predicate, scope, correlatedDepth);
+	}
 	if (predicate.type === "comparison") {
 		const expressionError =
-			validateExpression(predicate.left, scope) ?? validateExpression(predicate.right, scope);
+			validateExpression(predicate.left, scope, correlatedDepth) ??
+			validateExpression(predicate.right, scope, correlatedDepth);
 		if (expressionError) {
 			return expressionError;
 		}
@@ -102,18 +162,21 @@ const validatePredicate = (predicate: Predicate, scope: AliasScope): string | nu
 	}
 	if (predicate.type === "and" || predicate.type === "or") {
 		return (
-			predicate.predicates.map((value) => validatePredicate(value, scope)).find(Boolean) ?? null
+			predicate.predicates
+				.map((value) => validatePredicate(value, scope, correlatedDepth))
+				.find(Boolean) ?? null
 		);
 	}
 	if (predicate.type === "not") {
-		return validatePredicate(predicate.predicate, scope);
+		return validatePredicate(predicate.predicate, scope, correlatedDepth);
 	}
 	if (predicate.type === "isNull" || predicate.type === "isNotNull") {
-		return validateExpression(predicate.expr, scope);
+		return validateExpression(predicate.expr, scope, correlatedDepth);
 	}
 	if (predicate.type === "contains") {
 		const expressionError =
-			validateExpression(predicate.left, scope) ?? validateExpression(predicate.right, scope);
+			validateExpression(predicate.left, scope, correlatedDepth) ??
+			validateExpression(predicate.right, scope, correlatedDepth);
 		if (expressionError) {
 			return expressionError;
 		}
@@ -124,8 +187,10 @@ const validatePredicate = (predicate: Predicate, scope: AliasScope): string | nu
 			: "Containment operands must both be text or JSON";
 	}
 	const expressionError =
-		validateExpression(predicate.expr, scope) ??
-		predicate.values.map((value) => validateExpression(value, scope)).find(Boolean) ??
+		validateExpression(predicate.expr, scope, correlatedDepth) ??
+		predicate.values
+			.map((value) => validateExpression(value, scope, correlatedDepth))
+			.find(Boolean) ??
 		null;
 	if (expressionError) {
 		return expressionError;
@@ -154,9 +219,20 @@ const addTable = (scope: Map<string, CatalogTable>, reference: TableReference): 
 	return null;
 };
 
-type QuerySet = Pick<NamedQuery, "from" | "joins" | "where"> | Include;
+type QuerySet = Pick<NamedQuery, "from" | "joins" | "where"> | CorrelatedQuerySet | Include;
 
-const validateQuerySet = (query: QuerySet, ancestors: AliasScope) => {
+const expressionScope = (query: CorrelatedQuerySet, ancestors: AliasScope) => {
+	const scope = new Map(ancestors);
+	for (const reference of [query.from, ...(query.joins ?? []).map((join) => join.table)]) {
+		const table = getCatalogTable(reference.table);
+		if (table) {
+			scope.set(reference.alias, table);
+		}
+	}
+	return scope;
+};
+
+const validateQuerySet = (query: QuerySet, ancestors: AliasScope, correlatedDepth: number) => {
 	const joins = query.joins ?? [];
 	if (joins.length > MAX_QUERY_JOINS) {
 		return { error: `A query may contain at most ${MAX_QUERY_JOINS} joins`, scope: null };
@@ -171,12 +247,12 @@ const validateQuerySet = (query: QuerySet, ancestors: AliasScope) => {
 		if (tableError) {
 			return { error: tableError, scope: null };
 		}
-		const onError = validatePredicate(join.on, scope);
+		const onError = validatePredicate(join.on, scope, correlatedDepth);
 		if (onError) {
 			return { error: onError, scope: null };
 		}
 	}
-	const whereError = query.where ? validatePredicate(query.where, scope) : null;
+	const whereError = query.where ? validatePredicate(query.where, scope, correlatedDepth) : null;
 	return whereError ? { error: whereError, scope: null } : { error: null, scope };
 };
 
@@ -197,7 +273,7 @@ const validateSelections = (
 			return `Duplicate output field key '${field.key}'`;
 		}
 		keys.add(field.key);
-		const fieldError = validateExpression(field.expr, scope);
+		const fieldError = validateExpression(field.expr, scope, 0);
 		if (fieldError) {
 			return fieldError;
 		}
@@ -217,7 +293,7 @@ const validateSelections = (
 		if (nested.limit > MAX_INCLUDE_LIMIT) {
 			return `Include limit must not exceed ${MAX_INCLUDE_LIMIT}`;
 		}
-		const nestedQuerySet = validateQuerySet(nested, scope);
+		const nestedQuerySet = validateQuerySet(nested, scope, 0);
 		if (nestedQuerySet.error || !nestedQuerySet.scope) {
 			return `Include '${nested.key}': ${nestedQuerySet.error}`;
 		}
@@ -233,7 +309,7 @@ const validateSelections = (
 		}
 	}
 	for (const order of orderBy) {
-		const expressionError = validateExpression(order.expr, scope);
+		const expressionError = validateExpression(order.expr, scope, 0);
 		if (expressionError) {
 			return expressionError;
 		}
@@ -248,7 +324,7 @@ const validateNamedQuery = (query: NamedQuery): string | null => {
 	if (query.output.pagination.limit > MAX_ROOT_PAGE_SIZE) {
 		return `Rows limit must not exceed ${MAX_ROOT_PAGE_SIZE}`;
 	}
-	const querySet = validateQuerySet(query, new Map());
+	const querySet = validateQuerySet(query, new Map(), 0);
 	return querySet.error || !querySet.scope
 		? querySet.error
 		: validateSelections(
