@@ -7,7 +7,9 @@ import { createMMKV } from "react-native-mmkv";
 
 import { CLOUD_URL } from "@/modules/server/url";
 
+const workspaceKey = "workspace";
 const serverUrlKey = "server-url";
+const workspaceSchema = Schema.String;
 const serverUrlSchema = Schema.NullOr(Schema.String);
 
 export const serverStorageLayer =
@@ -33,8 +35,17 @@ export const serverUrlAtom = Atom.kvs({
 	defaultValue: () => null,
 });
 
+export const workspaceAtom = Atom.kvs({
+	key: workspaceKey,
+	runtime: storageRuntime,
+	schema: workspaceSchema,
+	defaultValue: () => "media",
+});
+
 export const useServerUrl = () => useAtomValue(serverUrlAtom);
+export const useWorkspace = () => useAtomValue(workspaceAtom);
 export const useSetServerUrl = () => useAtomSet(serverUrlAtom);
+export const useSetWorkspace = () => useAtomSet(workspaceAtom);
 const decodeServerUrl = Schema.decodeEffect(
 	Schema.fromJsonString(Schema.toCodecJson(serverUrlSchema)),
 );
