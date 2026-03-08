@@ -1,6 +1,6 @@
 import type { AppSchema } from "@ryot/ts-utils";
 import { resolveRequiredSlug, resolveRequiredString } from "~/lib/slug";
-import { parsePropertySchemaInput } from "../property-schemas/service";
+import { parseLabeledPropertySchemaInput } from "../property-schemas/service";
 
 export type EventSchemaPropertiesShape = AppSchema;
 
@@ -22,10 +22,10 @@ export const resolveEventSchemaSlug = (input: {
 };
 
 export const parseEventSchemaPropertiesSchema = (input: unknown) =>
-	parsePropertySchemaInput(input, {
-		propertiesLabel: "Event schema properties",
-		schemaLabel: "Event schema properties schema",
-	}) as EventSchemaPropertiesShape;
+	parseLabeledPropertySchemaInput(
+		input,
+		"Event schema properties",
+	) as EventSchemaPropertiesShape;
 
 export const resolveEventSchemaCreateInput = (input: {
 	name: string;

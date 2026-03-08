@@ -7,6 +7,7 @@ import {
 } from "~/lib/entity-schema-access";
 import {
 	createAuthRoute,
+	createCustomEntityAccessErrorResult,
 	createNotFoundErrorResult,
 	createValidationErrorResult,
 	jsonResponse,
@@ -97,47 +98,23 @@ const customEntityDetailError =
 const entityNotFoundError = "Entity not found";
 
 const resolveEntitySchemaAccessError = (error: "builtin" | "not_found") => {
-	const accessError = resolveCustomEntityAccessError({
-		error,
-		builtinMessage: customEntitySchemaError,
-		notFoundMessage: entitySchemaNotFoundError,
-	});
-
-	return {
-		status: accessError.status,
-		body:
-			accessError.kind === "not_found"
-				? createNotFoundErrorResult(accessError.message).body
-				: createValidationErrorResult(accessError.message).body,
-	};
-};
-
-const resolveAccessibleEntitySchema = async (input: {
-	entitySchemaId: string;
-	userId: string;
-}) => {
-	return resolveCustomEntitySchemaAccess(
-		await getEntitySchemaScopeForUser({
-			userId: input.userId,
-			entitySchemaId: input.entitySchemaId,
+	return createCustomEntityAccessErrorResult(
+		resolveCustomEntityAccessError({
+			error,
+			builtinMessage: customEntitySchemaError,
+			notFoundMessage: entitySchemaNotFoundError,
 		}),
 	);
 };
 
 const resolveEntityAccessError = (error: "builtin" | "not_found") => {
-	const accessError = resolveCustomEntityAccessError({
-		error,
-		notFoundMessage: entityNotFoundError,
-		builtinMessage: customEntityDetailError,
-	});
-
-	return {
-		status: accessError.status,
-		body:
-			accessError.kind === "not_found"
-				? createNotFoundErrorResult(accessError.message).body
-				: createValidationErrorResult(accessError.message).body,
-	};
+	return createCustomEntityAccessErrorResult(
+		resolveCustomEntityAccessError({
+			error,
+			notFoundMessage: entityNotFoundError,
+			builtinMessage: customEntityDetailError,
+		}),
+	);
 };
 
 export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
@@ -146,14 +123,16 @@ export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const query = c.req.valid("query");
 		const entitySchemaId = resolveEntitySchemaId(query.entitySchemaId);
 
-		const foundEntitySchema = await resolveAccessibleEntitySchema({
-			entitySchemaId,
-			userId: user.id,
-		});
-		if ("error" in foundEntitySchema) {
-			const accessError =
-				foundEntitySchema.error === "builtin" ? "builtin" : "not_found";
-			const errorResult = resolveEntitySchemaAccessError(accessError);
+		const foundEntitySchema = resolveCustomEntitySchemaAccess(
+			await getEntitySchemaScopeForUser({
+				entitySchemaId,
+				userId: user.id,
+			}),
+		);
+		if (!("entitySchema" in foundEntitySchema)) {
+			const errorResult = resolveEntitySchemaAccessError(
+				foundEntitySchema.error,
+			);
 			return c.json(errorResult.body, errorResult.status);
 		}
 
@@ -188,18 +167,20 @@ export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const body = c.req.valid("json");
 		const entitySchemaId = resolveEntitySchemaId(body.entitySchemaId);
 
-		const foundEntitySchema = await resolveAccessibleEntitySchema({
-			entitySchemaId,
-			userId: user.id,
-		});
-		if ("error" in foundEntitySchema) {
-			const accessError =
-				foundEntitySchema.error === "builtin" ? "builtin" : "not_found";
-			const errorResult = resolveEntitySchemaAccessError(accessError);
+		const foundEntitySchema = resolveCustomEntitySchemaAccess(
+			await getEntitySchemaScopeForUser({
+				entitySchemaId,
+				userId: user.id,
+			}),
+		);
+		if (!("entitySchema" in foundEntitySchema)) {
+			const errorResult = resolveEntitySchemaAccessError(
+				foundEntitySchema.error,
+			);
 			return c.json(errorResult.body, errorResult.status);
 		}
 
-		const entityInputResult = resolveValidationResult(
+		const entityInput = resolveValidationResult(
 			() =>
 				resolveEntityCreateInput({
 					name: body.name,
@@ -209,16 +190,15 @@ export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
 				}),
 			"Entity payload is invalid",
 		);
-		if ("body" in entityInputResult)
-			return c.json(entityInputResult.body, entityInputResult.status);
-
-		const entityInput = entityInputResult.data;
+		if ("error" in entityInput)
+			return c.json(createValidationErrorResult(entityInput.error).body, 400);
+		const entityData = entityInput.data;
 
 		const createdEntity = await createEntityForUser({
 			entitySchemaId,
 			userId: user.id,
-			name: entityInput.name,
-			properties: entityInput.properties,
+			name: entityData.name,
+			properties: entityData.properties,
 		});
 
 		return c.json(successResponse(createdEntity), 200);

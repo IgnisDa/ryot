@@ -4,20 +4,14 @@ import {
 	createNameWithOptionalSlugSchema,
 	nonEmptyTrimmedStringSchema,
 } from "~/lib/zod/base";
-import {
-	createPropertySchemaInputSchema,
-	createPropertySchemaObjectSchema,
-} from "../property-schemas/schemas";
+import { createLabeledPropertySchemas } from "../property-schemas/schemas";
 
-export const entitySchemaPropertiesObjectSchema =
-	createPropertySchemaObjectSchema(
-		"Entity schema properties must contain at least one property",
-	);
+export const entitySchemaPropertiesObjectSchema = createLabeledPropertySchemas(
+	"Entity schema properties",
+).schema;
 
 export const entitySchemaPropertiesInputSchema =
-	createPropertySchemaInputSchema(
-		"Entity schema properties must contain at least one property",
-	);
+	entitySchemaPropertiesObjectSchema;
 
 export const listedEntitySchemaSchema = z.object({
 	id: z.string(),
