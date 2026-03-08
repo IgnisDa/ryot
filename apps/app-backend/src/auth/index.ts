@@ -1,8 +1,10 @@
 import { apiKey } from "@better-auth/api-key";
+import { redisStorage } from "@better-auth/redis-storage";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db, schema } from "~/db";
 import { config } from "~/lib/config";
+import { redis } from "~/lib/redis";
 
 export type AuthType = {
 	user: typeof auth.$Infer.Session.user;
@@ -17,6 +19,7 @@ export const auth = betterAuth({
 	baseURL: config.FRONTEND_URL,
 	emailAndPassword: { enabled: true },
 	secret: config.SERVER_ADMIN_ACCESS_TOKEN,
+	secondaryStorage: redisStorage({ client: redis }),
 	database: drizzleAdapter(db, { provider: "pg", schema }),
 	plugins: [
 		apiKey({
