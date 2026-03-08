@@ -24,6 +24,14 @@ export const serverStorageLayer =
 				});
 			});
 
+export function clearServerStorage() {
+	if (Platform.OS === "web") {
+		localStorage.clear();
+	} else {
+		createMMKV().clearAll();
+	}
+}
+
 const decodeServerUrl = Schema.decodeEffect(
 	Schema.fromJsonString(Schema.toCodecJson(serverUrlSchema)),
 );
