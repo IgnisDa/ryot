@@ -87,8 +87,8 @@ describe("OpenScale Import E2E", () => {
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.imports.getRun({
-						path: { runId: ImportRunId.make("nonexistent-run-id") },
-						urlParams: {},
+						params: { runId: ImportRunId.make("nonexistent-run-id") },
+						query: {},
 					}),
 				),
 			);
@@ -135,11 +135,13 @@ describe("OpenScale Import E2E", () => {
 			const { client, cookies } = yield* createAuthenticatedClient();
 			const { runId } = yield* runOpenScaleImportFixture(client, cookies);
 
-			yield* client.call((c) => c.imports.deleteRun({ path: { runId: ImportRunId.make(runId) } }));
+			yield* client.call((c) =>
+				c.imports.deleteRun({ params: { runId: ImportRunId.make(runId) } }),
+			);
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.imports.getRun({ path: { runId: ImportRunId.make(runId) }, urlParams: {} }),
+					c.imports.getRun({ params: { runId: ImportRunId.make(runId) }, query: {} }),
 				),
 			);
 
@@ -173,8 +175,8 @@ describe("OpenScale Import E2E", () => {
 
 			const runData = yield* client.call((c) =>
 				c.imports.getRun({
-					urlParams: { page: 1, limit: 20 },
-					path: { runId: ImportRunId.make(runId) },
+					query: { page: 1, limit: 20 },
+					params: { runId: ImportRunId.make(runId) },
 				}),
 			);
 
