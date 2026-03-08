@@ -4,7 +4,7 @@ import { match } from "ts-pattern";
 
 import { QueryEngineValidationError } from "~/lib/views/errors";
 import { normalizeExpressionPropertyType } from "~/lib/views/expression-analysis";
-import type { PropertyType } from "~/lib/views/reference";
+import type { EntityColumnOverrides, PropertyType } from "~/lib/views/reference";
 import {
 	getEntityColumnPropertyType,
 	getEntitySchemaColumnPropertyType,
@@ -18,6 +18,22 @@ import {
 	castExpressionToType,
 	sanitizeIdentifier,
 } from "./sql-expression-helpers";
+
+const resolveEntityColumn = (
+	column: string,
+	overrides: EntityColumnOverrides | undefined,
+): string | null => {
+	if (column === "id") {
+		return overrides?.id ?? "id";
+	}
+	if (column === "createdAt") {
+		return overrides?.created_at ?? "created_at";
+	}
+	if (column === "updatedAt") {
+		return overrides?.updated_at ?? "updated_at";
+	}
+	return null;
+};
 
 export const buildEntityExpression = (input: {
 	alias: string;
@@ -58,18 +74,7 @@ export const buildEntityExpression = (input: {
 		throw new QueryEngineValidationError("Entity reference path must not be empty");
 	}
 
-	const sqlCol = (() => {
-		if (column === "id") {
-			return overrides?.id ?? "id";
-		}
-		if (column === "createdAt") {
-			return overrides?.created_at ?? "created_at";
-		}
-		if (column === "updatedAt") {
-			return overrides?.updated_at ?? "updated_at";
-		}
-		return null;
-	})();
+	const sqlCol = resolveEntityColumn(column, overrides);
 
 	const expression = sqlCol
 		? sql`${sql.raw(`${safeAlias}.${sqlCol}`)}`
