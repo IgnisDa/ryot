@@ -1,11 +1,8 @@
 import { expect, it } from "@effect/vitest";
+import { jsonByteLength, utf8ByteLength } from "@ryot/sandbox-compiler/limits";
 import { Effect } from "effect";
 
-import {
-	jsonByteLength,
-	SANDBOX_LIMITS,
-	utf8ByteLength,
-} from "#lib/infrastructure/sandbox-runtime/limits";
+import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 
 import {
 	compileSandboxSourceForTest as compile,
