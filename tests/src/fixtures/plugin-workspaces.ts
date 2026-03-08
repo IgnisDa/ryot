@@ -10,7 +10,7 @@ export const createPluginScope = (slug = `plugin-${crypto.randomUUID()}`) => Plu
 export const listPluginWorkspaces = (client: Client, options: { includeDisabled?: boolean } = {}) =>
 	client.call((c) =>
 		c.definitions.listWorkspaces({
-			urlParams: { includeDisabled: options.includeDisabled ?? false },
+			query: { includeDisabled: options.includeDisabled ?? false },
 		}),
 	);
 
@@ -35,6 +35,6 @@ export const updatePluginWorkspaceState = (
 	client.call((c) =>
 		c.definitions.updateWorkspaceState({
 			payload,
-			path: { pluginSlug: PluginSlug.make(pluginSlug) },
+			params: { pluginSlug: PluginSlug.make(pluginSlug) },
 		}),
 	);
