@@ -18,6 +18,29 @@ it.effect("catalogs every sandbox script exactly once", () =>
 	}).pipe(Effect.provide(BunFileSystem.layer)),
 );
 
+it("routes person and company providers through provider scripts", () => {
+	const providerSlugs = new Set(
+		mediaPlugin.providers
+			.filter(({ slug }) => slug.startsWith("person.") || slug.startsWith("company."))
+			.map(({ slug }) => slug),
+	);
+	const providerScripts = mediaPlugin.scripts.flatMap((script) =>
+		script.kind === "provider" && providerSlugs.has(script.providerSlug) ? [script] : [],
+	);
+
+	expect(providerScripts.every(({ kind }) => kind === "provider")).toBe(true);
+	expect(new Set(providerScripts.map(({ providerSlug }) => providerSlug))).toEqual(providerSlugs);
+
+	for (const provider of mediaPlugin.providers.filter(({ slug }) => providerSlugs.has(slug))) {
+		expect(
+			providerScripts
+				.filter(({ providerSlug }) => providerSlug === provider.slug)
+				.map(({ providerOperation }) => providerOperation)
+				.sort(),
+		).toEqual(Object.keys(provider.operations).sort());
+	}
+});
+
 it("declares the complete media-owned source", () => {
 	expect(() => Schema.decodeUnknownSync(PluginManifest)(mediaPlugin)).not.toThrow();
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug)).toContain("library");
