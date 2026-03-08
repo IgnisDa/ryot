@@ -6,9 +6,10 @@ import {
 	entity,
 	entitySchema,
 	entitySchemaSandboxScript,
+	eventSchema,
 	sandboxScript,
 } from "~/db/schema";
-import type { ParsedImportPayload } from "./schemas";
+import type { EventSchema, ParsedImportPayload, ScriptPair } from "./schemas";
 
 export const listEntitySchemasByUser = async (userId: string) => {
 	const detailsScriptLink = alias(
@@ -27,53 +28,65 @@ export const listEntitySchemasByUser = async (userId: string) => {
 			id: entitySchema.id,
 			slug: entitySchema.slug,
 			name: entitySchema.name,
+			eventSchemaId: eventSchema.id,
+			eventSchemaSlug: eventSchema.slug,
+			eventSchemaName: eventSchema.name,
 			searchScriptName: searchSandboxScript.name,
 			detailsScriptName: detailsSandboxScript.name,
 			searchScriptId: searchScriptLink.sandboxScriptId,
 			detailsScriptId: detailsScriptLink.sandboxScriptId,
 		})
 		.from(entitySchema)
-		.innerJoin(
+		.leftJoin(
 			detailsScriptLink,
 			and(
 				eq(detailsScriptLink.entitySchemaId, entitySchema.id),
 				eq(detailsScriptLink.kind, EntitySchemaSandboxScriptKind.details),
 			),
 		)
-		.innerJoin(
+		.leftJoin(
 			searchScriptLink,
 			and(
 				eq(searchScriptLink.entitySchemaId, entitySchema.id),
 				eq(searchScriptLink.kind, EntitySchemaSandboxScriptKind.search),
 			),
 		)
-		.innerJoin(
+		.leftJoin(
 			detailsSandboxScript,
 			eq(detailsSandboxScript.id, detailsScriptLink.sandboxScriptId),
 		)
-		.innerJoin(
+		.leftJoin(
 			searchSandboxScript,
 			eq(searchSandboxScript.id, searchScriptLink.sandboxScriptId),
 		)
+		.leftJoin(eventSchema, eq(eventSchema.entitySchemaId, entitySchema.id))
 		.where(
 			or(
 				and(
 					isNull(entitySchema.userId),
-					isNull(detailsSandboxScript.userId),
-					isNull(searchSandboxScript.userId),
+					or(
+						isNull(detailsSandboxScript.userId),
+						isNull(detailsScriptLink.sandboxScriptId),
+					),
+					or(
+						isNull(searchSandboxScript.userId),
+						isNull(searchScriptLink.sandboxScriptId),
+					),
 				),
 				and(
 					eq(entitySchema.userId, userId),
-					eq(detailsSandboxScript.userId, userId),
-					eq(searchSandboxScript.userId, userId),
+					or(
+						isNull(detailsScriptLink.sandboxScriptId),
+						eq(detailsSandboxScript.userId, userId),
+					),
+					or(
+						isNull(searchScriptLink.sandboxScriptId),
+						eq(searchSandboxScript.userId, userId),
+					),
 				),
 			),
 		)
-		.orderBy(
-			asc(entitySchema.name),
-			asc(searchSandboxScript.name),
-			asc(detailsSandboxScript.name),
-		);
+		.orderBy(asc(entitySchema.name));
 
 	const groupedSchemas = rows.reduce(
 		(acc, row) => {
@@ -83,15 +96,44 @@ export const listEntitySchemasByUser = async (userId: string) => {
 					slug: row.slug,
 					name: row.name,
 					scriptPairs: [],
+					eventSchemas: [],
+					seenScriptPairs: new Set<string>(),
+					seenEventSchemas: new Set<string>(),
 				};
 			}
 
-			acc[row.id].scriptPairs.push({
-				searchScriptId: row.searchScriptId,
-				detailsScriptId: row.detailsScriptId,
-				searchScriptName: row.searchScriptName,
-				detailsScriptName: row.detailsScriptName,
-			});
+			if (
+				row.searchScriptId &&
+				row.detailsScriptId &&
+				row.searchScriptName &&
+				row.detailsScriptName
+			) {
+				const scriptPairKey = `${row.searchScriptId}-${row.detailsScriptId}`;
+
+				if (!acc[row.id].seenScriptPairs.has(scriptPairKey)) {
+					acc[row.id].seenScriptPairs.add(scriptPairKey);
+					acc[row.id].scriptPairs.push({
+						searchScriptId: row.searchScriptId,
+						detailsScriptId: row.detailsScriptId,
+						searchScriptName: row.searchScriptName,
+						detailsScriptName: row.detailsScriptName,
+					});
+				}
+			}
+
+			if (
+				row.eventSchemaId &&
+				row.eventSchemaSlug &&
+				row.eventSchemaName &&
+				!acc[row.id].seenEventSchemas.has(row.eventSchemaId)
+			) {
+				acc[row.id].seenEventSchemas.add(row.eventSchemaId);
+				acc[row.id].eventSchemas.push({
+					id: row.eventSchemaId,
+					slug: row.eventSchemaSlug,
+					name: row.eventSchemaName,
+				});
+			}
 
 			return acc;
 		},
@@ -101,17 +143,17 @@ export const listEntitySchemasByUser = async (userId: string) => {
 				id: string;
 				slug: string;
 				name: string;
-				scriptPairs: Array<{
-					searchScriptId: string;
-					detailsScriptId: string;
-					searchScriptName: string;
-					detailsScriptName: string;
-				}>;
+				seenScriptPairs: Set<string>;
+				seenEventSchemas: Set<string>;
+				scriptPairs: Array<ScriptPair>;
+				eventSchemas: Array<EventSchema>;
 			}
 		>,
 	);
 
-	return Object.values(groupedSchemas);
+	return Object.values(groupedSchemas).map(
+		({ seenScriptPairs, seenEventSchemas, ...schema }) => schema,
+	);
 };
 
 export const getScriptById = async (input: {
