@@ -2,7 +2,7 @@ import { Schema } from "effect";
 
 import { DisplayConfiguration } from "../../display-configuration";
 import { PluginSlug, SavedViewId } from "../../schema/brands";
-import { QueryDocument } from "../query-engine/language";
+import { RyotQLDocument } from "../ryotql/language";
 
 export const ListedSavedView = Schema.Struct({
 	id: SavedViewId,
@@ -15,7 +15,7 @@ export const ListedSavedView = Schema.Struct({
 	isBuiltin: Schema.Boolean,
 	isDisabled: Schema.Boolean,
 	accentColor: Schema.String,
-	queryDocument: QueryDocument,
+	queryDocument: RyotQLDocument,
 	pluginSlug: Schema.NullOr(PluginSlug),
 	displayConfiguration: DisplayConfiguration,
 });
@@ -26,7 +26,7 @@ export const CreateSavedViewBody = Schema.Struct({
 	icon: Schema.String,
 	name: Schema.String,
 	accentColor: Schema.String,
-	queryDocument: QueryDocument,
+	queryDocument: RyotQLDocument,
 	displayConfiguration: DisplayConfiguration,
 	pluginSlug: Schema.optional(PluginSlug),
 });
@@ -38,7 +38,7 @@ export const UpdateSavedViewBody = Schema.Struct({
 	name: Schema.String,
 	isDisabled: Schema.Boolean,
 	accentColor: Schema.String,
-	queryDocument: QueryDocument,
+	queryDocument: RyotQLDocument,
 	displayConfiguration: DisplayConfiguration,
 	pluginSlug: Schema.optional(PluginSlug),
 });

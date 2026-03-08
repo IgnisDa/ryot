@@ -233,7 +233,7 @@ const EntitiesServiceLive = EntitiesService.layer.pipe(
 	Layer.provide([RyotQLServiceLive, LifecycleDispatchServiceLive]),
 );
 
-const SavedViewsServiceLive = SavedViewsService.layer.pipe(Layer.provide(QueryEngineServiceLive));
+const SavedViewsServiceLive = SavedViewsService.layer.pipe(Layer.provide(RyotQLServiceLive));
 
 const BootstrapServicesLive = Layer.mergeAll(
 	EntitiesServiceLive,

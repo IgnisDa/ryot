@@ -198,24 +198,22 @@ describe("Workout Templates E2E", () => {
 					pluginSlug: fitnessPlugin.slug,
 					name: "All Workout Templates",
 					queryDocument: {
-						source: { schemas: ["workout-template"] },
-						output: {
-							orderBy: [
-								{
-									order: "desc",
-									expr: {
-										type: "ref",
-										sourceAlias: "entity",
-										field: { type: "system", name: "createdAt" },
-									},
+						queries: {
+							savedView: {
+								output: {
+									orderBy: [{ direction: "desc", expr: { type: "column", field: "createdAt" } }],
 								},
-							],
+								where: {
+									right: { value: "workout-template" },
+									left: { field: "entitySchemaSlug", tableAlias: "entity" },
+								},
+							},
 						},
 					},
 					displayConfiguration: {
 						grid: {
-							calloutProperty: null,
 							imageProperty: null,
+							calloutProperty: null,
 							titleProperty: createEntityColumnExpression("workout-template", "name"),
 							primarySubtitleProperty: createEntityColumnExpression(
 								"workout-template",
