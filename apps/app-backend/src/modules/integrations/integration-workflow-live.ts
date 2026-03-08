@@ -1,6 +1,6 @@
 import { ListedIntegration } from "@ryot/contract/modules/integrations/schemas";
+import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import { UserId } from "@ryot/contract/schema/brands";
-import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Cause, DateTime, Effect, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 
