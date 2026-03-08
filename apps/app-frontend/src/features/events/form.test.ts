@@ -3,6 +3,7 @@ import type { AppEventSchema } from "../event-schemas/model";
 import {
 	buildCreateEventFormSchema,
 	buildDefaultEventFormValues,
+	buildEventSchemaSelectionPatch,
 	formatOccurredAtInputValue,
 	getEventFormReconciliationState,
 	getSelectedEventSchema,
@@ -449,6 +450,38 @@ describe("syncCreateEventFormValues", () => {
 		).toEqual({
 			properties: { pages: 0 },
 			eventSchemaId: "schema-1",
+		});
+	});
+});
+
+describe("buildEventSchemaSelectionPatch", () => {
+	it("reconciles properties for the newly selected schema", () => {
+		expect(
+			buildEventSchemaSelectionPatch(
+				[
+					createEventSchemaFixture({
+						id: "schema-1",
+						propertiesSchema: { pages: { type: "integer", required: true } },
+					}),
+					createEventSchemaFixture({
+						id: "schema-2",
+						name: "Finished",
+						propertiesSchema: {
+							completed: { type: "boolean", required: true },
+							notes: { type: "string" },
+						},
+					}),
+				],
+				{
+					eventSchemaId: "schema-1",
+					occurredAt: "2026-03-08T10:15",
+					properties: { pages: 20, completed: true, notes: "keep me" },
+				},
+				"schema-2",
+			),
+		).toEqual({
+			eventSchemaId: "schema-2",
+			properties: { completed: true, notes: "keep me" },
 		});
 	});
 });

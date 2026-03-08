@@ -9,6 +9,19 @@ export interface AppEntity {
 	detailsSandboxScriptId: string | null;
 }
 
+export function toAppEntity(
+	entity: Omit<AppEntity, "createdAt" | "updatedAt"> & {
+		createdAt: string;
+		updatedAt: string;
+	},
+): AppEntity {
+	return {
+		...entity,
+		createdAt: new Date(entity.createdAt),
+		updatedAt: new Date(entity.updatedAt),
+	};
+}
+
 export function sortEntities(entities: AppEntity[]) {
 	return [...entities].sort((a, b) => {
 		if (a.name !== b.name) return a.name.localeCompare(b.name);

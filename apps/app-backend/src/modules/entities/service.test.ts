@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	parseEntityProperties,
 	resolveEntityCreateInput,
+	resolveEntityId,
 	resolveEntityName,
 	resolveEntitySchemaId,
 } from "./service";
@@ -25,6 +26,16 @@ describe("resolveEntitySchemaId", () => {
 		expect(() => resolveEntitySchemaId("   ")).toThrow(
 			"Entity schema id is required",
 		);
+	});
+});
+
+describe("resolveEntityId", () => {
+	it("trims the provided entity id", () => {
+		expect(resolveEntityId("  entity_123  ")).toBe("entity_123");
+	});
+
+	it("throws when the entity id is blank", () => {
+		expect(() => resolveEntityId("   ")).toThrow("Entity id is required");
 	});
 });
 

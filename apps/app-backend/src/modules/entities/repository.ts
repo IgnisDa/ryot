@@ -7,6 +7,17 @@ const entitySchemaVisibleToUserClause = (userId: string) => {
 	return or(isNull(entitySchema.userId), eq(entitySchema.userId, userId));
 };
 
+const entitySelection = {
+	id: entity.id,
+	name: entity.name,
+	createdAt: entity.createdAt,
+	updatedAt: entity.updatedAt,
+	externalId: entity.externalId,
+	properties: entity.properties,
+	entitySchemaId: entity.entitySchemaId,
+	detailsSandboxScriptId: entity.detailsSandboxScriptId,
+};
+
 export const getEntitySchemaScopeForUser = async (input: {
 	userId: string;
 	entitySchemaId: string;
@@ -30,21 +41,48 @@ export const getEntitySchemaScopeForUser = async (input: {
 	return foundEntitySchema;
 };
 
+export const getEntityScopeForUser = async (input: {
+	userId: string;
+	entityId: string;
+}) => {
+	const [foundEntity] = await db
+		.select({
+			entityId: entity.id,
+			isBuiltin: entitySchema.isBuiltin,
+			entitySchemaId: entity.entitySchemaId,
+		})
+		.from(entity)
+		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
+		.where(and(eq(entity.id, input.entityId), eq(entity.userId, input.userId)))
+		.limit(1);
+
+	return foundEntity;
+};
+
+export const getEntityByIdForUser = async (input: {
+	userId: string;
+	entityId: string;
+}) => {
+	const [foundEntity] = await db
+		.select(entitySelection)
+		.from(entity)
+		.where(and(eq(entity.id, input.entityId), eq(entity.userId, input.userId)))
+		.limit(1);
+
+	return foundEntity
+		? {
+				...foundEntity,
+				properties: foundEntity.properties as EntityPropertiesShape,
+			}
+		: foundEntity;
+};
+
 export const listEntitiesByEntitySchemaForUser = async (input: {
 	userId: string;
 	entitySchemaId: string;
 }) => {
 	const rows = await db
-		.select({
-			id: entity.id,
-			name: entity.name,
-			createdAt: entity.createdAt,
-			updatedAt: entity.updatedAt,
-			externalId: entity.externalId,
-			properties: entity.properties,
-			entitySchemaId: entity.entitySchemaId,
-			detailsSandboxScriptId: entity.detailsSandboxScriptId,
-		})
+		.select(entitySelection)
 		.from(entity)
 		.where(
 			and(
@@ -76,16 +114,7 @@ export const createEntityForUser = async (input: {
 			detailsSandboxScriptId: null,
 			entitySchemaId: input.entitySchemaId,
 		})
-		.returning({
-			id: entity.id,
-			name: entity.name,
-			createdAt: entity.createdAt,
-			updatedAt: entity.updatedAt,
-			externalId: entity.externalId,
-			properties: entity.properties,
-			entitySchemaId: entity.entitySchemaId,
-			detailsSandboxScriptId: entity.detailsSandboxScriptId,
-		});
+		.returning(entitySelection);
 
 	if (!createdEntity) throw new Error("Could not persist entity");
 
