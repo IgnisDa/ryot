@@ -6,16 +6,17 @@ import {
 } from "@ryot/media-plugin/operations/recipes";
 import { invokeOperationRecipe } from "@ryot/plugin-kit/operations";
 import {
-	buildQueryEngineRowsDocument,
-	queryEngineRelationshipSource,
-} from "@ryot/query-engine/documents";
-import {
-	queryEngineComparison,
-	queryEngineField,
-	queryEngineLiteral,
-	queryEngineOrder,
-	queryEngineSystemRef,
-} from "@ryot/query-engine/primitives";
+	and,
+	ascending,
+	column,
+	document,
+	eq,
+	field,
+	join,
+	literal,
+	rows,
+	table,
+} from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import { assertCondition } from "~/support/assertions";
@@ -24,7 +25,7 @@ import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
 import { openInterestStreamScoped } from "./interest-sse";
-import { executeQueryEngine } from "./query-engine-core";
+import { executeRyotQL } from "./ryotql";
 
 export const triggerCronAndWaitForEntity = (
 	auth: { cookies: string; userId: string },
@@ -105,24 +106,36 @@ export const countMediaMonitoringRelationships = (input: {
 	entitySchemaSlug: string;
 }) =>
 	Effect.gen(function* () {
-		const result = yield* executeQueryEngine(
+		const relationship = table("relationship", "relationship");
+		const media = table("entity", "media");
+		const library = table("entity", "library");
+		const result = yield* executeRyotQL(
 			input.client,
-			buildQueryEngineRowsDocument({
-				limit: 1,
-				fields: [queryEngineField("id", queryEngineSystemRef("relationship", "id"))],
-				orderBy: [queryEngineOrder("asc", queryEngineSystemRef("relationship", "id"))],
-				source: queryEngineRelationshipSource({
-					alias: "relationship",
-					schemas: ["media-monitoring"],
-					targetEntity: { alias: "library", schemas: ["library"] },
-					sourceEntity: { alias: "media", schemas: [input.entitySchemaSlug] },
-					where: queryEngineComparison(
-						"eq",
-						queryEngineSystemRef("media", "id"),
-						queryEngineLiteral(input.entityId),
+			document({
+				relationships: rows(relationship, {
+					limit: 1,
+					fields: [field("id", column(relationship, "id"))],
+					orderBy: [ascending(column(relationship, "id"))],
+					where: and(
+						eq(column(relationship, "relationshipSchemaSlug"), literal("media-monitoring")),
+						eq(column(media, "id"), literal(input.entityId)),
+						eq(column(media, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
+						eq(column(library, "entitySchemaSlug"), literal("library")),
 					),
+					joins: [
+						join("inner", media, eq(column(relationship, "sourceEntityId"), column(media, "id"))),
+						join(
+							"inner",
+							library,
+							eq(column(relationship, "targetEntityId"), column(library, "id")),
+						),
+					],
 				}),
 			}),
 		);
-		return result.data.pageInfo.total;
+		const relationships = result.data.relationships;
+		if (relationships?.type !== "rows") {
+			throw new Error("Expected relationship rows");
+		}
+		return relationships.pageInfo.total;
 	});

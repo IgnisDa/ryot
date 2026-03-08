@@ -285,7 +285,7 @@ import {
   integrationRecordSchema,
 } from "@ryot/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { queryEngineRows } from "@ryot/sandbox-sdk/query-engine";
+import { ryotqlRows } from "@ryot/sandbox-sdk/ryotql";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -297,7 +297,7 @@ export const manifest = defineManifest({
     "createEvents",
     "getEntitySchemas",
     "listEventSchemas",
-    "executeQueryEngine",
+    "executeRyotql",
     "getCurrentIntegration",
   ],
 });
@@ -319,8 +319,8 @@ export default defineScript({
     const created = yield* host.createEvents([
         { entityId: "entity-1", eventSchemaSlug: "event-schema-1", properties: { watched: true } },
       ]);
-    const query = yield* host.executeQueryEngine({ source: { type: "entities" } });
-    const rows = queryEngineRows(query);
+    const query = yield* host.executeRyotql({ queries: {} });
+    const rows = ryotqlRows(query, "entities").items;
     return {
       created,
       integration,
@@ -1763,15 +1763,18 @@ const startDomainHostBridge = () =>
 							const items = args[0];
 							createdEvents.push(Array.isArray(items) ? items : []);
 							result = { data: { count: Array.isArray(items) ? items.length : 0 }, success: true };
-						} else if (fnName === "executeQueryEngine") {
+						} else if (fnName === "executeRyotql") {
 							result = {
 								data: {
-									type: "rows",
 									data: {
-										items: [
-											{ id: { kind: "text", value: "a" } },
-											{ id: { kind: "text", value: "b" } },
-										],
+										entities: {
+											type: "rows",
+											items: [
+												{ id: { kind: "text", value: "a" } },
+												{ id: { kind: "text", value: "b" } },
+											],
+											pageInfo: { page: 1, limit: 20, total: 2, hasMore: false },
+										},
 									},
 								},
 								success: true,
@@ -1806,12 +1809,14 @@ it("executes typed domain host methods through Deno", () =>
 					{ apiBase, apiFunctions: compiled.manifest.capabilities },
 				);
 				assert(result !== null && typeof result === "object");
-				expect(Reflect.get(result, "value")).toMatchObject({
-					queryRows: 2,
-					created: { count: 1 },
-					entitySchemas: [{ id: "movie", name: "Movie" }],
-					integration: { id: "integration-1", provider: "plex_yank" },
-					eventSchemas: [{ id: "watched", entitySchemaSlug: "movie" }],
+				expect(result).toMatchObject({
+					value: {
+						queryRows: 2,
+						created: { count: 1 },
+						entitySchemas: [{ id: "movie", name: "Movie" }],
+						integration: { id: "integration-1", provider: "plex_yank" },
+						eventSchemas: [{ id: "watched", entitySchemaSlug: "movie" }],
+					},
 				});
 				expect(bridge.createdEvents).toHaveLength(1);
 			}).pipe(Effect.provide(SandboxCompiler.layer)),

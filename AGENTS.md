@@ -17,7 +17,7 @@
 
 - Do not add un-requested functionality, abstractions, or generalization.
 - Derive types from schemas and existing types instead of writing mirrors. Use Effect Schema.
-- Build application-owned query documents with `@ryot/query-engine` and use named recipes when available.
+- Build application-owned query documents with `@ryot/ryotql` and use named recipes when available.
 - Colocate app-owned RyotQL result schemas, decoders, and decoded types with their recipes. Consumers must not parse generic `RowItem` values directly; reusable wire codecs belong in `@ryot/contract`, while presentation-only transformations remain consumer-owned.
 - Prefer `Match` from `effect` over `switch`.
 - If you are writing code, use an `explore` subagent only to find existing patterns.

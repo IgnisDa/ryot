@@ -255,7 +255,7 @@ Ryot is self-hosted and, in practice, single-instance, so there is no meaningful
 **Reconciler (unchanged glue, different caller).** The reconciler (`modules/entity-interest/service.ts`, `InterestReconciler`) is transport-agnostic and unchanged by this migration:
 
 1. `InterestService.declareInterest` (`modules/entity-interest/service.ts`) updates the `StreamRegistry` interest set for that `streamId` first, so a workflow that publishes mid-reconcile still finds the stream. The `POST /api/entity-interest` handler in `modules/entity-interest/routes.ts` only delegates to this service.
-2. It reads the interest set through the query engine, chunked into batches of at most `MAX_ROOT_PAGE_SIZE` ids (there is no `in` operator, so the id filter is an `or`-of-`eq`), scoped to the entity-schema slugs visible to the caller. Per-user visibility, localization, and the `translationStatus` computed field all fall out of the engine for free.
+2. It reads the interest set through RyotQL, chunked into batches of at most `MAX_ROOT_PAGE_SIZE` ids, scoped to the entity-schema slugs visible to the caller. Per-user visibility, localization, and the `translationStatus` field all come from the same focused read path.
 3. It enqueues the existing idempotent bricks: `populatedAt === null` ⇒ `EntityPopulationTrigger.request`; populated with `translationStatus === "pending"` ⇒ `TranslationsService.requestFill`. Idempotency is `@effect/workflow` execution-id coalescing.
 4. `InterestService.declareInterest` returns the already-terminal ids, filtered down to the ids still present in that `streamId`'s current interest set (a later POST for the same stream may have changed the set while this one awaited reconcile). The route handler returns that service result directly.
 
@@ -293,14 +293,14 @@ In V1 the frontend dispatched population jobs, coupling data-fetching to job mec
 
 ### Decision
 
-`GET /entities/{entityId}` and `POST /query-engine/execute` are **purely read-only**. Neither enqueues anything. All demand-driven population and translation is triggered by client-declared interest via the SSE stream and interest POST (Decision 3).
+`GET /entities/{entityId}` and `POST /ryotql/execute` are **purely read-only**. Neither enqueues anything. All demand-driven population and translation is triggered by client-declared interest via the SSE stream and interest POST (Decision 3).
 
 `getById` still returns a localized entity and its localization state, but sources both from the read path itself rather than side effects:
 
-- **Localized `name`/`properties`** come from the query engine's entity source, which overlays the `(entity_id, language)` translation row for a non-canonical viewer (byte-identical to the bare table for canonical/no-language viewers).
-- **`translationStatus`** is a new opt-in query-engine computed field, exposed via a `systemComputed` `FieldSelector` variant valid on the **root entity source only**. It returns `"pending" | "ready" | "none"` and is computed entirely in SQL via its own correlated read of `entity_translation` (the localized source coalesces that row away, so it cannot be derived from the merged columns). For a canonical reader (null session language) it constant-folds to `to_jsonb('none'::text)` with no join, keeping canonical SQL byte-identical to a query that never referenced translations. `getById` requests this field; `EntityDetail.translationStatus` stays required.
+- **Localized `name`/`properties`** come from RyotQL's entity resolver, which overlays the `(entity_id, language)` translation row for a non-canonical viewer (byte-identical to the bare table for canonical/no-language viewers).
+- **`translationStatus`** is a normal RyotQL entity field. It returns `"pending" | "ready" | "none"` and is computed entirely in SQL via its own correlated read of `entity_translation` (the localized source coalesces that row away, so it cannot be derived from the merged columns). For a canonical reader (null session language) it constant-folds to `to_jsonb('none'::text)` with no join, keeping canonical SQL byte-identical to a query that never referenced translations. `getById` requests this field; `EntityDetail.translationStatus` stays required.
 
-The `translationStatus` truth table (row absent ⇒ `pending`; row present with null name and empty properties ⇒ `none` negative cache; otherwise `ready`) mirrors `modules/entity-translation/overlay-merge.ts`, and its canonical language is read from a `ProviderConfig` map (`sandbox_script.metadata.providerInformation.canonicalLanguage`). The query engine is built as a runtime dependency before the migrate/seed chain runs, so this map cannot be read at boot; it is loaded lazily on first use (always post-seed) and the success is memoized — safe because the builtin values are immutable once seeded.
+The `translationStatus` truth table (row absent ⇒ `pending`; row present with null name and empty properties ⇒ `none` negative cache; otherwise `ready`) mirrors `modules/entity-translation/overlay-merge.ts`, and its canonical language is read from a `ProviderConfig` map (`sandbox_script.metadata.providerInformation.canonicalLanguage`). RyotQL is built as a runtime dependency before the migrate/seed chain runs, so this map cannot be read at boot; it is loaded lazily on first use (always post-seed) and the success is memoized — safe because the builtin values are immutable once seeded.
 
 ### Why Read-Only Reads
 
@@ -312,8 +312,8 @@ Population and translation are `@effect/workflow` workflows keyed by a determini
 
 ### Summary
 
-- Reads (`getById`, query-engine `execute`) are side-effect-free; the client never sees or drives job dispatch.
-- `translationStatus` is an opt-in `systemComputed` query-engine field, root-entity-source only, computed in SQL and no-op for canonical readers.
+- Reads (`getById`, RyotQL `execute`) are side-effect-free; the client never sees or drives job dispatch.
+- `translationStatus` is a RyotQL entity field computed in SQL and no-op for canonical readers.
 - `getById` localizes via the entity source overlay and reports status via the field; `EntityDetail.translationStatus` remains required.
 - Idempotency is `@effect/workflow` execution-id coalescing (`populate-${id}`, `translate-${id}-${lang}`).
 
