@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { getEntityListViewState, sortEntities } from "./model";
+import { getEntityListViewState, sortEntities, toAppEntity } from "./model";
 
 const createMockEntity = (overrides: {
 	id: string;
@@ -90,5 +90,25 @@ describe("getEntityListViewState", () => {
 			expect(state.entities[0]?.name).toBe("Apple");
 			expect(state.entities[1]?.name).toBe("Zebra");
 		}
+	});
+});
+
+describe("toAppEntity", () => {
+	it("converts serialized dates into Date instances", () => {
+		const entity = toAppEntity({
+			id: "entity-1",
+			name: "Apple",
+			properties: {},
+			externalId: null,
+			entitySchemaId: "schema-1",
+			detailsSandboxScriptId: null,
+			createdAt: "2026-03-08T10:15:00.000Z",
+			updatedAt: "2026-03-08T10:20:00.000Z",
+		});
+
+		expect(entity.createdAt).toBeInstanceOf(Date);
+		expect(entity.updatedAt).toBeInstanceOf(Date);
+		expect(entity.createdAt.toISOString()).toBe("2026-03-08T10:15:00.000Z");
+		expect(entity.updatedAt.toISOString()).toBe("2026-03-08T10:20:00.000Z");
 	});
 });

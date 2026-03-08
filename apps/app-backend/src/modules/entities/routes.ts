@@ -1,7 +1,10 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import type { AppSchema } from "@ryot/ts-utils";
 import type { AuthType } from "~/auth";
-import { resolveCustomEntitySchemaAccess } from "~/lib/entity-schema-access";
+import {
+	resolveCustomEntityAccessError,
+	resolveCustomEntitySchemaAccess,
+} from "~/lib/entity-schema-access";
 import {
 	createAuthRoute,
 	createNotFoundErrorResult,
@@ -14,16 +17,25 @@ import {
 } from "~/lib/openapi";
 import {
 	createEntityForUser,
+	getEntityByIdForUser,
 	getEntitySchemaScopeForUser,
+	getEntityScopeForUser,
 	listEntitiesByEntitySchemaForUser,
 } from "./repository";
 import {
 	createEntityBody,
 	createEntityResponseSchema,
+	entityParams,
+	getEntityResponseSchema,
 	listEntitiesQuery,
 	listEntitiesResponseSchema,
 } from "./schemas";
-import { resolveEntityCreateInput, resolveEntitySchemaId } from "./service";
+import {
+	resolveEntityCreateInput,
+	resolveEntityDetailAccess,
+	resolveEntityId,
+	resolveEntitySchemaId,
+} from "./service";
 
 const listEntitiesRoute = createAuthRoute(
 	createRoute({
@@ -62,20 +74,41 @@ const createEntityRoute = createAuthRoute(
 	}),
 );
 
+const getEntityRoute = createAuthRoute(
+	createRoute({
+		method: "get",
+		path: "/{entityId}",
+		tags: ["entities"],
+		summary: "Get a single custom entity",
+		request: { params: entityParams },
+		responses: {
+			400: payloadErrorResponse(),
+			404: notFoundResponse("Entity does not exist for this user"),
+			200: jsonResponse("Requested entity", getEntityResponseSchema),
+		},
+	}),
+);
+
 const customEntitySchemaError =
 	"Built-in entity schemas do not support manual entity creation";
 const entitySchemaNotFoundError = "Entity schema not found";
+const customEntityDetailError =
+	"Built-in entity schemas do not support generated entity detail pages";
+const entityNotFoundError = "Entity not found";
 
 const resolveEntitySchemaAccessError = (error: "builtin" | "not_found") => {
-	if (error === "not_found")
-		return {
-			status: 404 as const,
-			body: createNotFoundErrorResult(entitySchemaNotFoundError).body,
-		};
+	const accessError = resolveCustomEntityAccessError({
+		error,
+		builtinMessage: customEntitySchemaError,
+		notFoundMessage: entitySchemaNotFoundError,
+	});
 
 	return {
-		status: 400 as const,
-		body: createValidationErrorResult(customEntitySchemaError).body,
+		status: accessError.status,
+		body:
+			accessError.kind === "not_found"
+				? createNotFoundErrorResult(accessError.message).body
+				: createValidationErrorResult(accessError.message).body,
 	};
 };
 
@@ -89,6 +122,22 @@ const resolveAccessibleEntitySchema = async (input: {
 			entitySchemaId: input.entitySchemaId,
 		}),
 	);
+};
+
+const resolveEntityAccessError = (error: "builtin" | "not_found") => {
+	const accessError = resolveCustomEntityAccessError({
+		error,
+		notFoundMessage: entityNotFoundError,
+		builtinMessage: customEntityDetailError,
+	});
+
+	return {
+		status: accessError.status,
+		body:
+			accessError.kind === "not_found"
+				? createNotFoundErrorResult(accessError.message).body
+				: createValidationErrorResult(accessError.message).body,
+	};
 };
 
 export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
@@ -114,6 +163,25 @@ export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
 		});
 
 		return c.json(successResponse(entities), 200);
+	})
+	.openapi(getEntityRoute, async (c) => {
+		const user = c.get("user");
+		const params = c.req.valid("param");
+		const entityId = resolveEntityId(params.entityId);
+
+		const foundEntity = resolveEntityDetailAccess(
+			await getEntityScopeForUser({ entityId, userId: user.id }),
+		);
+		if ("error" in foundEntity) {
+			const errorResult = resolveEntityAccessError(foundEntity.error);
+			return c.json(errorResult.body, errorResult.status);
+		}
+
+		const entity = await getEntityByIdForUser({ entityId, userId: user.id });
+		if (!entity)
+			return c.json(createNotFoundErrorResult(entityNotFoundError).body, 404);
+
+		return c.json(successResponse(entity), 200);
 	})
 	.openapi(createEntityRoute, async (c) => {
 		const user = c.get("user");

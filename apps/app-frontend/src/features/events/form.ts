@@ -210,6 +210,17 @@ export function syncCreateEventFormValues(
 	};
 }
 
+export function buildEventSchemaSelectionPatch(
+	eventSchemas: AppEventSchema[],
+	values: CreateEventFormValues,
+	eventSchemaId: string,
+) {
+	return syncCreateEventFormValues(eventSchemas, {
+		...values,
+		eventSchemaId,
+	});
+}
+
 export function getEventFormReconciliationState(
 	eventSchemas: AppEventSchema[],
 	eventSchemaId?: string,
