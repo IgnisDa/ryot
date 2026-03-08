@@ -274,6 +274,65 @@ Critically, the query builder is not a separate system from entity list pages. E
 
 ---
 
+## Design Language
+
+Ryot's visual identity is rooted in the concept of a **personal journal** — warm, considered, and quietly confident. The tagline "A journal of personal tracking" frames every design decision. The interface should feel like opening a well-made notebook, not launching a SaaS dashboard.
+
+### Typography
+
+| Role      | Family        | Rationale                                                                                                                               |
+| --------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Headings  | Space Grotesk | Geometric, modern, high readability at large sizes. Gives UI elements a structured, editorial quality.                                  |
+| Body      | Outfit        | Clean sans-serif optimized for data-dense layouts. Excellent legibility at small sizes for event logs, property labels, and table rows. |
+| Monospace | IBM Plex Mono | Used for code snippets, IDs, and technical values. Pairs well with the geometric heading font.                                          |
+
+Heading weight is 600 (semi-bold). Body text uses regular weight. This separation creates clear visual hierarchy without relying on size differences alone.
+
+### Color System
+
+**Primary accent:** Warm gold (#D4A574). Used for the logo, active states, primary buttons, and accent borders. Chosen over standard blues/greens to reinforce the journal/personal quality and distinguish Ryot from typical developer tools.
+
+**Dark mode:** Warm stone grays, not blue-tinted. The base is #1A1816 (near-black with a warm undertone). Surface colors step up through #23211F, #302E2B, #44403C. This palette avoids the cold, clinical feel of standard dark themes and stays visually cohesive with the gold accent.
+
+**Light mode:** Stone-tinted whites. Background is stone-1 (#F5F5F4), surfaces are white, borders are stone-3 (#D6D3D1). The slight warmth prevents the sterile look of pure whites.
+
+Both modes share the same accent and facet color palettes, ensuring brand consistency across user preference.
+
+### Per-Facet Color Coding
+
+Each facet has a dedicated color pair (base + muted background) used consistently across badges, stat card borders, activity log accent bars, and entity cards:
+
+| Facet   | Base             | Usage                                                   |
+| ------- | ---------------- | ------------------------------------------------------- |
+| Media   | #5B7FFF (blue)   | Default for content-consumption facets                  |
+| Fitness | #2DD4BF (teal)   | Active/physical tracking facets                         |
+| Whiskey | #D4A574 (gold)   | Matches the primary accent; tasting/appreciation facets |
+| Places  | #A78BFA (violet) | Location and travel facets                              |
+
+User-created facets receive colors from a predefined palette that maintains sufficient contrast in both light and dark modes. The palette avoids reds (which imply errors) and the exact shades already assigned to built-in facets.
+
+### Component Patterns
+
+**Border radius:** `sm` globally. Rounded enough to feel approachable, sharp enough to feel structured. Not zero (aggressive) and not `xl` (bubbly).
+
+**Section headers:** Left-border accent bars mark section boundaries in the sidebar and content areas. This is a brutalist-inspired element that adds visual anchoring without heavy decoration.
+
+**Stat cards:** Top-border color bars (3px) in the facet's color. Creates an immediate visual association between the stat and its facet without overwhelming the card.
+
+**Entity cards:** Image region with gradient overlay, facet-colored badge, Space Grotesk title. Rating badges use the facet color as background. Cards without images show a neutral placeholder — never a broken image state.
+
+**Activity log:** Left-border accent bars (3px) in each event's facet color. Events are compact single-line entries with facet badge, timestamp, and property pills. The log is dense but scannable.
+
+**Hover interactions:** Subtle elevation shifts (translateY -3px to -4px) with soft shadows. On mobile, hover effects are disabled entirely — they serve no purpose on touch devices and cause visual glitches.
+
+### Density
+
+The interface leans compact. Cards use tight padding, event logs are single-line, and stat numbers are large but surrounded by minimal whitespace. The goal is information density without claustrophobia — a user with 10 active facets should see meaningful data on every screen without excessive scrolling.
+
+Spacing between sections uses clear visual breaks (dividers, section headers with subtitles) rather than large empty gaps.
+
+---
+
 ## Monetization Model
 
 Ryot follows a freemium, open-source model with two deployment options:
