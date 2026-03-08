@@ -19,11 +19,12 @@ describe("resolveEntitySchemaName", () => {
 });
 
 describe("parseEntitySchemaPropertiesSchema", () => {
-	it("accepts flat properties map (new format)", () => {
+	it("accepts flat properties map", () => {
 		expect(
-			parseEntitySchemaPropertiesSchema(
-				'{"title":{"type":"string"},"pages":{"type":"integer"}}',
-			),
+			parseEntitySchemaPropertiesSchema({
+				title: { type: "string" },
+				pages: { type: "integer" },
+			}),
 		).toEqual({
 			title: { type: "string" },
 			pages: { type: "integer" },
@@ -39,47 +40,47 @@ describe("parseEntitySchemaPropertiesSchema", () => {
 		expect(parseEntitySchemaPropertiesSchema(schema)).toEqual(schema);
 	});
 
-	it("rejects invalid JSON", () => {
-		expect(() => parseEntitySchemaPropertiesSchema("{")).toThrow(
-			"Entity schema properties schema must be valid JSON",
-		);
-	});
-
 	it("rejects non-object root like array, string, or null", () => {
-		for (const input of ["[]", '"hello"', "null"]) {
+		for (const input of [[], "hello", null]) {
 			expect(() => parseEntitySchemaPropertiesSchema(input)).toThrow(
 				"Entity schema properties schema must be a JSON object",
 			);
 		}
 	});
 
+	it("rejects string inputs", () => {
+		expect(() =>
+			parseEntitySchemaPropertiesSchema('{"title":{"type":"string"}}'),
+		).toThrow("Entity schema properties schema must be a JSON object");
+	});
+
 	it("rejects empty properties map", () => {
-		expect(() => parseEntitySchemaPropertiesSchema("{}")).toThrow(
+		expect(() => parseEntitySchemaPropertiesSchema({})).toThrow(
 			"Entity schema properties must contain at least one property",
 		);
 	});
 
 	it("rejects property without type field", () => {
 		expect(() =>
-			parseEntitySchemaPropertiesSchema('{"title":{"required":true}}'),
+			parseEntitySchemaPropertiesSchema({ title: { required: true } }),
 		).toThrow('Property "title" must have a type field');
 	});
 
 	it("rejects property with invalid type", () => {
 		expect(() =>
-			parseEntitySchemaPropertiesSchema('{"title":{"type":"invalid"}}'),
+			parseEntitySchemaPropertiesSchema({ title: { type: "invalid" } }),
 		).toThrow('Property "title" has invalid type "invalid"');
 	});
 
 	it("rejects array property without items", () => {
 		expect(() =>
-			parseEntitySchemaPropertiesSchema('{"tags":{"type":"array"}}'),
+			parseEntitySchemaPropertiesSchema({ tags: { type: "array" } }),
 		).toThrow('Property "tags" with type "array" must have an items field');
 	});
 
 	it("rejects object property without properties", () => {
 		expect(() =>
-			parseEntitySchemaPropertiesSchema('{"metadata":{"type":"object"}}'),
+			parseEntitySchemaPropertiesSchema({ metadata: { type: "object" } }),
 		).toThrow(
 			'Property "metadata" with type "object" must have a properties field',
 		);
@@ -123,7 +124,7 @@ describe("resolveEntitySchemaCreateInput", () => {
 			resolveEntitySchemaCreateInput({
 				name: "  Book Details  ",
 				slug: "  My_Custom Schema  ",
-				propertiesSchema: '{"title":{"type":"string"}}',
+				propertiesSchema: { title: { type: "string" } },
 			}),
 		).toEqual({
 			name: "Book Details",

@@ -1,8 +1,6 @@
-import { useAppForm } from "#/hooks/forms";
+import { usePropertySchemaForm } from "../property-schemas/use-form";
 import {
-	buildEntitySchemaFormValues,
 	type CreateEntitySchemaPayload,
-	createEntitySchemaFormSchema,
 	toCreateEntitySchemaPayload,
 } from "./form";
 
@@ -14,12 +12,9 @@ type UseCreateEntitySchemaFormProps = {
 export function useCreateEntitySchemaForm(
 	props: UseCreateEntitySchemaFormProps,
 ) {
-	return useAppForm({
-		defaultValues: buildEntitySchemaFormValues(),
-		validators: { onChange: createEntitySchemaFormSchema },
-		onSubmit: async ({ value }) => {
-			await props.onSubmit(toCreateEntitySchemaPayload(value, props.facetId));
-		},
+	return usePropertySchemaForm({
+		onSubmit: props.onSubmit,
+		toPayload: (value) => toCreateEntitySchemaPayload(value, props.facetId),
 	});
 }
 
