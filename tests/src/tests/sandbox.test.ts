@@ -129,7 +129,7 @@ driver("main", async function() {
   if (!result.success) {
     throw new Error(result.error);
   }
-  return result.data.body.data.items.map((fields) => Object.fromEntries(fields.map((field) => [field.key, field.value])));
+  return result.data.body.data.items;
 });
 `,
 		});
@@ -148,12 +148,15 @@ driver("main", async function() {
 		expect(result.error).toBeNull();
 
 		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-		const value = result.value as Array<{ id?: string; name?: string }>;
+		const value = result.value as Array<{
+			id?: { kind: "text"; value: string };
+			name?: { kind: "text"; value: string };
+		}>;
 
 		expect(Array.isArray(value)).toBe(true);
 		expect(value.length).toBe(1);
-		expect(value[0]?.name).toBe("Test Entity");
-		expect(value[0]?.id).toBeDefined();
+		expect(value[0]?.name?.value).toBe("Test Entity");
+		expect(value[0]?.id?.value).toBeDefined();
 	});
 
 	it("returns an error when appApiCall hits query-engine with a missing schema slug", async () => {

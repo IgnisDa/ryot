@@ -18,6 +18,7 @@ import { EmptyState, ErrorState, LoadingState } from "~/components/PageStates";
 import { useResolvedImageUrls } from "~/features/entities/image";
 import {
 	type AppEntityImage,
+	type AppEntity,
 	isQueryEngineEntitiesResponse,
 	toAppEntity,
 	toAppEntityImage,
@@ -99,10 +100,13 @@ export function SavedViewPage(props: {
 		const entries: Array<{ id: string; image: AppEntityImage }> = [];
 		for (const item of items) {
 			if (layout === "table") {
-				for (const field of item.fields ?? []) {
+				const fields = Object.entries(item.fields ?? {}) as Array<
+					[string, NonNullable<AppEntity["fields"]>[string]]
+				>;
+				for (const [fieldKey, field] of fields) {
 					if (field.kind === "image") {
 						entries.push({
-							id: `${item.id}:${field.key}`,
+							id: `${item.id}:${fieldKey}`,
 							image: toAppEntityImage(field.value),
 						});
 					}
