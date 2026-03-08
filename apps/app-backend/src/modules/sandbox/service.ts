@@ -25,13 +25,24 @@ import {
 	type SandboxPluginScriptResolverValue,
 } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
-import { establishSandboxWorkflowPin, SandboxScriptWorkflow } from "./sandbox-script-workflow";
+import {
+	executeSandboxScriptWorkflow,
+	establishSandboxWorkflowPin,
+	SandboxScriptWorkflow,
+} from "./sandbox-script-workflow";
 import { SandboxSubmissionWorkflow } from "./sandbox-submission-workflow";
 import { toSandboxRunResult } from "./sandbox-workflow-live";
 import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
 
 const sandboxJobNotFoundError = "Sandbox job not found";
 const sandboxScriptNotFoundError = "Sandbox script not found";
+
+const sandboxExecutionFailure = (error: SandboxRunError) => ({
+	logs: [],
+	value: null,
+	status: "completed" as const,
+	error: { phase: "execute" as const, message: error.message },
+});
 
 const toPluginWorkflowResult = (result: Workflow.Result<JsonValue, SandboxRunError> | undefined) =>
 	toWorkflowRunResult(result, {
@@ -236,6 +247,39 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				},
 			);
 
+			const executeScript = Effect.fn("SandboxExecutionService.executeScript")(function* (input: {
+				input: unknown;
+				executionId: string;
+				scriptId: SandboxScriptId;
+				authority: ExecutionAuthority;
+				grants?: SandboxExecutionGrants;
+			}) {
+				return yield* Effect.gen(function* () {
+					const contextError = sandboxContextError(input.input, undefined, true);
+					if (contextError) {
+						return yield* new SandboxRunError({ message: contextError });
+					}
+					const scriptInput = yield* Schema.decodeUnknownEffect(jsonValueSchema)(input.input).pipe(
+						Effect.mapError(
+							() => new SandboxRunError({ message: "Sandbox script input must be JSON" }),
+						),
+					);
+					return yield* executeSandboxScriptWorkflow({
+						input: scriptInput,
+						resolutionMode: "exact",
+						resultMode: "execution",
+						scriptId: input.scriptId,
+						authority: input.authority,
+						executionId: input.executionId,
+						...(input.grants ? { grants: input.grants } : {}),
+					}).pipe(Effect.provideService(WorkflowEngine, engine));
+				}).pipe(
+					Effect.catchTag("SandboxRunError", (error) =>
+						Effect.succeed(sandboxExecutionFailure(error)),
+					),
+				);
+			});
+
 			const preRegisterPluginWorkflow = Effect.fn(
 				"SandboxExecutionService.preRegisterPluginWorkflow",
 			)(function* (input: {
@@ -334,6 +378,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 			return {
 				enqueue,
 				getResult,
+				executeScript,
 				enqueueDurable,
 				executeWorkflow,
 				getStoredScript,

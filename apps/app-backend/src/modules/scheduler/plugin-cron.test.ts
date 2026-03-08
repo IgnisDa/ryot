@@ -46,7 +46,6 @@ const normalizedPlugin = (
 			{
 				schedule,
 				scriptSlug,
-				lot: "script",
 				slug: `${pluginSlug}-cron`,
 				description: `${pluginSlug} cron`,
 			},
@@ -88,10 +87,9 @@ const normalizedWorkflowPlugin = (pluginSlug: string): NormalizedPlugin => {
 			workflows: [{ slug: workflowSlug, scriptSlug: workflowScript.slug }],
 			crons: [
 				{
-					workflowSlug,
-					lot: "workflow",
 					slug: `${pluginSlug}-cron`,
 					schedule: { cron: "* * * * *" },
+					scriptSlug: workflowScript.slug,
 					description: `${pluginSlug} cron`,
 				},
 			],
@@ -121,7 +119,10 @@ const makeLayer = (
 							if (!cron) {
 								return Effect.succeed(null);
 							}
-							const slug = cron.lot === "script" ? cron.scriptSlug : cron.workflowSlug;
+							const slug = cron.scriptSlug;
+							const kind =
+								plugin?.manifest.scripts.find((script) => script.slug === slug)?.kind ??
+								"automation";
 							return Effect.succeed({
 								cron,
 								script: {
@@ -137,12 +138,12 @@ const makeLayer = (
 									updatedAt: new Date(0),
 									id: SandboxScriptId.make(`${slug}-id`),
 									metadata: {
+										kind,
 										slug,
 										name: slug,
 										capabilities: [],
 										requiredPluginConfigKeys: [],
 										requiredSystemConfigKeys: [],
-										kind: cron.lot === "script" ? "automation" : "workflow",
 									},
 								},
 							});
@@ -176,7 +177,8 @@ it.effect("dispatches due plugin crons as deterministic system sandbox runs", ()
 			{
 				executionId: "plugin-cron-7-fixture-12-fixture-cron-60000",
 				payload: {
-					context: {},
+					input: {},
+					resolutionMode: "exact",
 					authority: { type: "system" },
 					scriptId: SandboxScriptId.make("fixture-script-id"),
 					executionId: "plugin-cron-7-fixture-12-fixture-cron-60000",
@@ -218,7 +220,6 @@ it.effect("targets exactly one script cron", () => {
 	return Effect.gen(function* () {
 		const service = yield* PluginCronService;
 		expect(yield* service.trigger(PluginSlug.make("second"), "second-cron", "parent-id")).toEqual({
-			lot: "script",
 			status: "executed",
 			pluginSlug: "second",
 			cronSlug: "second-cron",
@@ -242,7 +243,6 @@ it.effect("targets one workflow cron through the durable workflow shell", () => 
 		const service = yield* PluginCronService;
 		const result = yield* service.trigger(PluginSlug.make("fixture"), "fixture-cron", "parent-id");
 		expect(result).toMatchObject({
-			lot: "workflow",
 			status: "executed",
 			pluginSlug: "fixture",
 			cronSlug: "fixture-cron",
@@ -253,7 +253,7 @@ it.effect("targets one workflow cron through the durable workflow shell", () => 
 			input: {},
 			resolutionMode: "exact",
 			authority: { type: "system" },
-			scriptId: SandboxScriptId.make("fixture-workflow-id"),
+			scriptId: SandboxScriptId.make("fixture-script-id"),
 		});
 	}).pipe(Effect.provide(makeLayer(loader, captured)));
 });
@@ -272,6 +272,28 @@ it.effect("returns notFound without dispatching an unknown cron", () => {
 		});
 		expect(captured).toEqual([]);
 	}).pipe(Effect.provide(makeLayer(loader, captured)));
+});
+
+it.effect("reports workflow failures from manual cron triggers", () => {
+	const captured: Array<CapturedRun> = [];
+	const loader = makePluginLoader(makeDefinitionRegistry());
+	loader.load(normalizedPlugin("fixture"));
+
+	return Effect.gen(function* () {
+		const service = yield* PluginCronService;
+		const result = yield* service.trigger(PluginSlug.make("fixture"), "fixture-cron", "parent-id");
+		expect(result).toMatchObject({
+			status: "failed",
+			pluginSlug: "fixture",
+			cronSlug: "fixture-cron",
+			result: {
+				error: { phase: "execute", message: "dispatch failed" },
+			},
+		});
+		expect(captured).toEqual([]);
+	}).pipe(
+		Effect.provide(makeLayer(loader, captured, "plugin-cron-7-fixture-12-fixture-cron-parent-id")),
+	);
 });
 
 it.effect("observes hot-loaded snapshots without scheduler registration", () => {
@@ -310,7 +332,6 @@ it.effect(
 					const cron = plugin?.manifest.crons.find(({ slug }) => slug === identity.cronSlug);
 					assert(plugin);
 					assert(cron);
-					assert(cron.lot === "script");
 					const script = plugin.scripts.find(({ slug }) => slug === cron.scriptSlug);
 					assert(script);
 					yield* Deferred.succeed(selected, undefined);

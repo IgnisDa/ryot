@@ -132,7 +132,8 @@ it.effect("awaits every plugin boot entry as a deterministic system sandbox run"
 			{
 				executionId: "plugin-boot-7-fixture-12-fixture-boot-60000",
 				payload: {
-					context: {},
+					input: {},
+					resolutionMode: "exact",
 					authority: { type: "system" },
 					scriptId: SandboxScriptId.make("fixture-script-id"),
 					executionId: "plugin-boot-7-fixture-12-fixture-boot-60000",
@@ -154,7 +155,8 @@ it.effect("awaits terminal plugin boot runs when manually triggered", () => {
 			{
 				executionId: "plugin-boot-7-fixture-12-fixture-boot-parent-id",
 				payload: {
-					context: {},
+					input: {},
+					resolutionMode: "exact",
 					authority: { type: "system" },
 					scriptId: SandboxScriptId.make("fixture-script-id"),
 					executionId: "plugin-boot-7-fixture-12-fixture-boot-parent-id",

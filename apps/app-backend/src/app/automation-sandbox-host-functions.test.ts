@@ -219,7 +219,7 @@ it("filters user-context and user-only capabilities by authority", () => {
 
 	expect(user).toEqual({ ensureUserEntities, executeQueryEngine, getUserPreferences });
 	expect(subscription).toEqual({ executeQueryEngine, getUserPreferences });
-	expect(system).toEqual({});
+	expect(system).toEqual({ executeQueryEngine });
 });
 
 it("exposes declared user relationship changes only to user-bound authority", () => {
