@@ -66,6 +66,7 @@
         "react-dom": "19.2.4",
       },
       "devDependencies": {
+        "@storybook/addon-themes": "10.2.17",
         "@storybook/react-vite": "10.2.17",
         "@tanstack/devtools-vite": "0.5.2",
         "@types/node": "22.10.2",
@@ -1410,6 +1411,8 @@
     "@standard-schema/spec": ["@standard-schema/spec@1.0.0", "", {}, "sha512-m2bOd0f2RT9k8QJx1JN85cZYyH1RqFBdlwtkSlf4tBDYLCiiZnv1fIIwacK6cqwXavOydf0NPToMQgpKq+dVlA=="],
 
     "@standard-schema/utils": ["@standard-schema/utils@0.3.0", "", {}, "sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g=="],
+
+    "@storybook/addon-themes": ["@storybook/addon-themes@10.2.17", "", { "dependencies": { "ts-dedent": "^2.0.0" }, "peerDependencies": { "storybook": "^10.2.17" } }, "sha512-5AJ6h/i967CEDG3DNstfgKo9ysDNIOb1pnbn8VbcD/Fw8D2dZm7pLkTAQOnxu6lFQaIU10DIiVp7cviBMasDUg=="],
 
     "@storybook/builder-vite": ["@storybook/builder-vite@10.2.17", "", { "dependencies": { "@storybook/csf-plugin": "10.2.17", "ts-dedent": "^2.0.0" }, "peerDependencies": { "storybook": "^10.2.17", "vite": "^5.0.0 || ^6.0.0 || ^7.0.0" } }, "sha512-m/OBveTLm5ds/tUgHmmbKzgSi/oeCpQwm5rZa49vP2BpAd41Q7ER6TzkOoISzPoNNMAcbVmVc5vn7k6hdbPSHw=="],
 
