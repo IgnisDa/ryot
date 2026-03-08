@@ -33,7 +33,6 @@ export type TestSupportStoredSandboxScript = typeof TestSupportStoredSandboxScri
 export const TestSupportEnqueueSandboxBody = strictStruct({
 	...EnqueueSandboxBody.fields,
 	executingUserId: UserId,
-	durable: Schema.optional(Schema.Boolean),
 });
 
 export type TestSupportEnqueueSandboxBody = typeof TestSupportEnqueueSandboxBody.Type;

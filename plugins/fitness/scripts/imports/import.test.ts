@@ -1,5 +1,5 @@
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
-import type { WorkflowReplayEnvelope, WorkflowSandboxHost } from "@ryot/sandbox-sdk/workflow";
+import type { WorkflowReplayEnvelope, WorkflowReplayHost } from "@ryot/sandbox-sdk/workflow";
 import { Effect } from "effect";
 import { assert, expect, it } from "vitest";
 
@@ -12,7 +12,7 @@ it("orchestrates the source script and kernel chunk consumer", async () => {
 		Effect.runPromise(
 			workflow.run(
 				{ runId: "run-1", source: "strong_app" },
-				{ durableCalls: () => Effect.succeed(journal) } satisfies WorkflowSandboxHost,
+				{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
 				{ metadata: {}, sandboxScriptId: "fitness-import" },
 			),
 		).then((envelope) => {

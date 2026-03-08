@@ -74,7 +74,7 @@ describe("workflow definitions", () => {
 			workflow.run(
 				{ value: 1 },
 				{
-					durableCalls: () => {
+					replayJournal: () => {
 						calls.push("bootstrap");
 						return Effect.succeed(journal);
 					},
@@ -133,7 +133,7 @@ describe("workflow definitions", () => {
 				workflow.run(
 					null,
 					{
-						durableCalls: () =>
+						replayJournal: () =>
 							Effect.succeed(
 								values.map((value, index) => {
 									const request = requests[index];
@@ -187,7 +187,7 @@ describe("workflow definitions", () => {
 			workflow.run(
 				null,
 				{
-					durableCalls: () =>
+					replayJournal: () =>
 						Effect.succeed([
 							{
 								value: null,
@@ -242,7 +242,7 @@ describe("workflow definitions", () => {
 		const output = await RuntimeEffect.runPromise(
 			workflow.run(
 				undefined,
-				{ durableCalls: () => Effect.succeed([]) },
+				{ replayJournal: () => Effect.succeed([]) },
 				{ metadata: {}, sandboxScriptId: "workflow-1" },
 			),
 		);
@@ -326,7 +326,7 @@ describe("workflow definitions", () => {
 			workflow.run(
 				{},
 				{
-					durableCalls: () =>
+					replayJournal: () =>
 						RuntimeEffect.succeed([
 							{
 								value: "recorded",

@@ -294,7 +294,6 @@ const pollSandboxResult = (executingUserId: string, jobId: string) =>
 const runDirectSample = (input: {
 	userId: string;
 	context: unknown;
-	durable?: boolean;
 	upstreamDelayMs: number;
 	scriptId: Parameters<typeof enqueueSandboxScript>[1]["scriptId"];
 }) =>
@@ -304,16 +303,13 @@ const runDirectSample = (input: {
 		const { executionId, jobId } = yield* enqueueSandboxScript(input.userId, {
 			context: input.context,
 			scriptId: input.scriptId,
-			...(input.durable ? { durable: true } : {}),
 		});
 		const result = yield* pollSandboxResult(input.userId, jobId);
 		const latencyMs = (yield* Clock.currentTimeMillis) - startedAt;
 		const after = yield* sampleOperationalPressure([executionId]);
 		assertCompleted(result, "sandbox benchmark sample");
 		expect(result.error).toBeNull();
-		if (!input.durable) {
-			assertPresent(result.timing, "Sandbox benchmark result did not include timing");
-		}
+		assertPresent(result.timing, "Sandbox benchmark result did not include timing");
 		const sandboxExecutions = after.sandbox.totalExecutions - before.sandbox.totalExecutions;
 		return {
 			latencyMs,
@@ -322,7 +318,7 @@ const runDirectSample = (input: {
 			moduleLoads: sandboxExecutions,
 			...(result.timing ? { sandboxExecutionMs: result.timing.totalMs } : {}),
 			orchestrationMs: Math.max(0, latencyMs - input.upstreamDelayMs),
-			maxWorkflowActivityChildRoundTrips: input.durable ? after.redis.maxHighWater : 0,
+			maxWorkflowActivityChildRoundTrips: after.redis.maxHighWater,
 			redisProjectionKeys: Math.max(0, after.redis.projectionCount - before.redis.projectionCount),
 		} satisfies BenchmarkSample;
 	});
@@ -500,17 +496,6 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 						context: { page: 1, pageSize: 1, query: "benchmark" },
 					}),
 				);
-				const durableProvider = yield* collectSamples(
-					WARM_UP_COUNT,
-					SAMPLE_COUNT,
-					runDirectSample({
-						userId,
-						durable: true,
-						upstreamDelayMs: UPSTREAM_DELAY_MS * 2,
-						scriptId: scriptId(PROVIDER_SEARCH_SLUG),
-						context: { page: 1, pageSize: 1, query: "benchmark" },
-					}),
-				);
 				const youtubei = yield* collectSamples(
 					WARM_UP_COUNT,
 					SAMPLE_COUNT,
@@ -531,7 +516,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 					}),
 				);
 
-				expect(httpServer.requests.length).toBe((WARM_UP_COUNT + SAMPLE_COUNT) * 6);
+				expect(httpServer.requests.length).toBe((WARM_UP_COUNT + SAMPLE_COUNT) * 4);
 				yield* Effect.log(
 					"SANDBOX_RUNTIME_BASELINE",
 					JSON.stringify(
@@ -562,7 +547,6 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 								boundedPopulation: summarize(population),
 								fullAutomation: summarize(fullAutomation),
 								controlledHttpProvider: summarize(provider),
-								durableControlledHttpProvider: summarize(durableProvider),
 							},
 						},
 						null,

@@ -14,12 +14,7 @@ import {
 	SANDBOX_APPROVED_DEPENDENCIES,
 	type SandboxRuntimePaths,
 } from "#lib/infrastructure/sandbox-runtime/dependencies";
-import {
-	SANDBOX_LIMITS,
-	SANDBOX_RUNNER_LIMITS,
-	WORKFLOW_SANDBOX_LIMITS,
-	WORKFLOW_SANDBOX_RUNNER_LIMITS,
-} from "#lib/infrastructure/sandbox-runtime/limits";
+import { SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import type { SandboxRunnerLimits } from "#lib/infrastructure/sandbox-runtime/runner-utilities.sandbox";
 import { sandboxRunnerSource } from "#lib/infrastructure/sandbox-runtime/runner.generated";
 import { kernelScripts } from "#modules/definition-registry/kernel-source";
@@ -142,13 +137,12 @@ export default defineScript({
 `;
 
 const filesystemSource = `
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { readArtifact, readNamedArtifact, sandboxScratchManifestSchema, writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";
 
 export const manifest = defineManifest({
-  kind: "activity",
+  kind: "script",
   name: "Filesystem",
   slug: "filesystem",
   requiredPluginConfigKeys: [],
@@ -156,7 +150,7 @@ export const manifest = defineManifest({
   capabilities: ["artifact-read", "scratch"],
 });
 
-export default defineActivity({
+export default defineScript({
   manifest,
   output: sandboxScratchManifestSchema,
   input: Schema.Struct({ chunkName: Schema.String, artifactKey: Schema.optional(Schema.String) }),
@@ -381,7 +375,7 @@ export default {
     journal: Schema.Array(Schema.Unknown),
   }),
   run: (_input, host) => Effect.gen(function* () {
-    const journal = yield* host.durableCalls();
+    const journal = yield* host.replayJournal();
     return { journal, keys: Object.keys(host).sort() };
   }),
 };
@@ -718,7 +712,7 @@ const startCoreHostBridge = (
 	options: {
 		readonly pluginConfigValue?: unknown;
 		readonly systemConfigValue?: unknown;
-		readonly durableCallsResult?: unknown;
+		readonly replayJournalResult?: unknown;
 		readonly getCachedValueResult?: unknown;
 		readonly httpResponse?: (url: string) => unknown;
 	} = {},
@@ -802,8 +796,8 @@ const startCoreHostBridge = (
 							};
 						} else if (fnName === "getUserPreferences") {
 							result = { success: true, data: { isNsfw: false, disableIntegrations: true } };
-						} else if (fnName === "durableCalls") {
-							result = { success: true, data: options.durableCallsResult ?? [] };
+						} else if (fnName === "replayJournal") {
+							result = { success: true, data: options.replayJournalResult ?? [] };
 						} else {
 							result = { error: "Unknown function", success: false };
 						}
@@ -958,32 +952,6 @@ it("enforces direct-definition output and log limits", () =>
 			assert(Array.isArray(logs));
 			expect(logs).toHaveLength(SANDBOX_LIMITS.logs.entryCount);
 			expect(logs.at(-1)).toBe("[sandbox logs truncated]");
-		}).pipe(Effect.provide(SandboxCompiler.layer)),
-	));
-
-it("enforces the independent workflow terminal-output boundary", () =>
-	Effect.runPromise(
-		Effect.gen(function* () {
-			const compiler = yield* SandboxCompiler;
-			const compiled = yield* compiler.compile(limitsSource);
-			const accepted = yield* runInDeno(
-				compiled,
-				{ mode: "output", bytes: WORKFLOW_SANDBOX_LIMITS.execution.resultBytes - 2 },
-				{ limits: WORKFLOW_SANDBOX_RUNNER_LIMITS },
-			);
-			assert(accepted !== null && typeof accepted === "object");
-			expect(Reflect.get(accepted, "success")).toBe(true);
-
-			const overflow = yield* runInDeno(
-				compiled,
-				{ mode: "output", bytes: WORKFLOW_SANDBOX_LIMITS.execution.resultBytes - 1 },
-				{ limits: WORKFLOW_SANDBOX_RUNNER_LIMITS },
-			);
-			assert(overflow !== null && typeof overflow === "object");
-			expect(Reflect.get(overflow, "error")).toEqual({
-				phase: "output",
-				message: `Sandbox definition result exceeds ${WORKFLOW_SANDBOX_LIMITS.execution.resultBytes} UTF-8 bytes`,
-			});
 		}).pipe(Effect.provide(SandboxCompiler.layer)),
 	));
 
@@ -1364,7 +1332,7 @@ it("keeps caught durable pending control flow pending and collects parallel call
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* startCoreHostBridge({ durableCallsResult: [] });
+				const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
 				const manifest = {
 					name: "Durable role",
 					slug: "durable-role",
@@ -1374,7 +1342,7 @@ it("keeps caught durable pending control flow pending and collects parallel call
 					capabilities: ["getCachedValue"] as const,
 				};
 				const options = {
-					apiFunctions: ["durableCalls"],
+					apiFunctions: ["replayJournal"],
 					workflowExecutionId: "durable-parent",
 					apiBase: `http://127.0.0.1:${bridge.port}`,
 				};
@@ -1391,8 +1359,8 @@ it("keeps caught durable pending control flow pending and collects parallel call
 				expect(caught).toMatchObject({
 					success: true,
 					value: {
-						journalLength: 0,
 						state: "pending",
+						journalLength: 0,
 						requests: [
 							{
 								index: 0,
@@ -1414,7 +1382,10 @@ it("keeps caught durable pending control flow pending and collects parallel call
 						],
 					},
 				});
-				expect(bridge.calls.map(({ fnName }) => fnName)).toEqual(["durableCalls", "durableCalls"]);
+				expect(bridge.calls.map(({ fnName }) => fnName)).toEqual([
+					"replayJournal",
+					"replayJournal",
+				]);
 			}),
 		),
 	));
@@ -1424,7 +1395,7 @@ it("replays durable host successes and typed failures without bridge redispatch"
 		Effect.scoped(
 			Effect.gen(function* () {
 				const bridge = yield* startCoreHostBridge({
-					durableCallsResult: [
+					replayJournalResult: [
 						{
 							value: { state: "success", value: "recorded" },
 							request: {
@@ -1460,7 +1431,7 @@ it("replays durable host successes and typed failures without bridge redispatch"
 					{ manifest, format: 1, javascript: durableRoleSource },
 					{ mode: "replay" },
 					{
-						apiFunctions: ["durableCalls"],
+						apiFunctions: ["replayJournal"],
 						workflowExecutionId: "durable-parent",
 						apiBase: `http://127.0.0.1:${bridge.port}`,
 					},
@@ -1478,7 +1449,7 @@ it("replays durable host successes and typed failures without bridge redispatch"
 						},
 					},
 				});
-				expect(bridge.calls.map(({ fnName }) => fnName)).toEqual(["durableCalls"]);
+				expect(bridge.calls.map(({ fnName }) => fnName)).toEqual(["replayJournal"]);
 			}),
 		),
 	));
@@ -1487,7 +1458,7 @@ it("rejects a durable role that returns with detached host work", () =>
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* startCoreHostBridge({ durableCallsResult: [] });
+				const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
 				const manifest = {
 					name: "Durable role",
 					slug: "durable-role",
@@ -1500,8 +1471,8 @@ it("rejects a durable role that returns with detached host work", () =>
 					{ manifest, format: 1, javascript: durableRoleSource },
 					{ mode: "detached" },
 					{
+						apiFunctions: ["replayJournal"],
 						workflowExecutionId: "durable-parent",
-						apiFunctions: ["durableCalls"],
 						apiBase: `http://127.0.0.1:${bridge.port}`,
 					},
 				);
@@ -1523,7 +1494,7 @@ it("exposes only kernel-selected workflow host functions despite an empty manife
 		Effect.scoped(
 			Effect.gen(function* () {
 				const bridge = yield* startCoreHostBridge({
-					durableCallsResult: [{ recorded: true }],
+					replayJournalResult: [{ recorded: true }],
 				});
 				const manifest = {
 					name: "Workflow host",
@@ -1536,15 +1507,15 @@ it("exposes only kernel-selected workflow host functions despite an empty manife
 				const result = yield* runInDeno(
 					{ manifest, format: 1, javascript: workflowHostSource },
 					{},
-					{ apiFunctions: ["durableCalls"], apiBase: `http://127.0.0.1:${bridge.port}` },
+					{ apiFunctions: ["replayJournal"], apiBase: `http://127.0.0.1:${bridge.port}` },
 				);
 
 				expect(result).toMatchObject({
 					success: true,
-					value: { keys: ["durableCalls"], journal: [{ recorded: true }] },
+					value: { keys: ["replayJournal"], journal: [{ recorded: true }] },
 				});
 				expect(bridge.calls).toEqual([
-					expect.objectContaining({ fnName: "durableCalls", args: [] }),
+					expect.objectContaining({ fnName: "replayJournal", args: [] }),
 				]);
 			}),
 		),

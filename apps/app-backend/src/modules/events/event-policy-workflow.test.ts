@@ -126,7 +126,7 @@ const run = (input: {
 		}),
 		Layer.mock(EventCreateWorkflowOperations, {
 			dispatchLifecycleOccurrence: () => Effect.void,
-			processSandboxExecution: (sandboxPayload) => {
+			executeSandboxScript: (sandboxPayload) => {
 				sandboxPayloads.push(sandboxPayload);
 				return Effect.succeed({
 					logs: [],
