@@ -424,9 +424,7 @@ function SelectField(props: SelectFieldProps) {
 				renderOption={props.renderOption}
 				error={!field.state.meta.isValid}
 				value={props.value !== undefined ? props.value : field.state.value || null}
-				onChange={
-					props.onChange ?? ((value) => field.handleChange(value ?? ""))
-				}
+				onChange={props.onChange ?? ((value) => field.handleChange(value ?? ""))}
 			/>
 			{!field.state.meta.isValid && <FieldErrors errors={field.state.meta.errors} />}
 		</div>
@@ -575,7 +573,7 @@ function SubmitButton(props: SubmitButtonProps) {
 					type="submit"
 					variant={props.variant}
 					fullWidth={props.fullWidth}
-					disabled={(props.disabled ?? isSubmitting) ?? !canSubmit}
+					disabled={props.disabled ?? isSubmitting ?? !canSubmit}
 				>
 					{isSubmitting ? (props.pendingLabel ?? props.label) : props.label}
 				</Button>
