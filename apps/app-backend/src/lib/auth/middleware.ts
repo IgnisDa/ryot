@@ -1,6 +1,6 @@
 import { isAPIError } from "better-auth/api";
 import { createMiddleware } from "hono/factory";
-import { ERROR_CODES, errorResponse } from "../lib/openapi";
+import { ERROR_CODES, errorResponse } from "../openapi";
 import { auth, type MaybeAuthType } from ".";
 
 export const requireAuth = createMiddleware<{ Variables: MaybeAuthType }>(
