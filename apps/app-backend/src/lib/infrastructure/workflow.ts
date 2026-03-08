@@ -43,7 +43,10 @@ export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 	Layer.provide(
 		SingleRunner.layer({
 			runnerStorage: "sql",
-			shardingConfig: { entityMessagePollInterval: Duration.millis(250) },
+			shardingConfig: {
+				shardLockDisableAdvisory: true,
+				entityMessagePollInterval: Duration.millis(250),
+			},
 		}).pipe(Layer.tap(() => widenClusterMessageIdColumn)),
 	),
 	Layer.provide(WorkflowPgClientLive),
