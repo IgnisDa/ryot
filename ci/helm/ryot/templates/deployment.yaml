@@ -15,6 +15,7 @@ spec:
         # Roll the pods when the rendered config/secret changes.
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        checksum/redis-secret: {{ include (print $.Template.BasePath "/redis-secret.yaml") . | sha256sum }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -61,6 +62,7 @@ spec:
                   key: {{ include "ryot.proKey.secretKey" . }}
             {{- end }}
             {{- include "ryot.databaseEnv" . | nindent 12 }}
+            {{- include "ryot.redisEnv" . | nindent 12 }}
             {{- range $key, $val := .Values.secretEnv }}
             - name: {{ $key }}
               valueFrom:

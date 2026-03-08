@@ -17,7 +17,7 @@ is a non-exhaustive set of guides to deploy Ryot to alternative platforms.
    "New Variable" and then "Add Reference". Click on "Add".
 5. Go to the "Settings" tab and then click on "Generate Domain".
 6. Optionally, you can set the [health-check](https://docs.railway.app/deploy/healthchecks)
-   path to `/health`.
+   path to `/api/health`.
 
 ## Dokku
 
@@ -105,8 +105,8 @@ are required to deploy to Fly.
 ## Kubernetes (Helm)
 
 A Helm chart is published to GitHub Container Registry as an OCI artifact
-(requires Helm 3.8+). It deploys the Ryot container with an optional bundled
-PostgreSQL database, and supports bringing your own database instead.
+(requires Helm 3.8+). It deploys the Ryot container with bundled PostgreSQL and
+Redis by default, and supports bringing your own databases instead.
 
 ```bash
 helm install ryot oci://ghcr.io/ignisda/charts/ryot \
@@ -117,7 +117,7 @@ helm install ryot oci://ghcr.io/ignisda/charts/ryot \
 
 See the chart's
 <a :href="`${variables.filePath}/ci/helm/ryot/README.md`" target="_blank">README</a>
-for details on database modes, ingress and secrets, and
+for details on database and Redis modes, ingress and secrets, and
 <a :href="`${variables.filePath}/ci/helm/ryot/VALUES.md`" target="_blank">VALUES.md</a>
 for the full list of configurable values.
 

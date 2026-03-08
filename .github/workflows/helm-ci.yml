@@ -78,7 +78,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
 
-      - name: Install the chart (bundled PostgreSQL)
+      - name: Install the chart (bundled PostgreSQL and Redis)
         # --wait blocks until the Deployment and StatefulSet are Ready, so the
         # subsequent `helm test` runs against a live, healthy release.
         run: |
@@ -89,7 +89,7 @@ jobs:
             --set config.frontendUrl=http://ryot.ci.local \
             --wait --timeout 10m
 
-      - name: Run helm test (http + DATABASE_URL connectivity)
+      - name: Run helm test (HTTP + database connectivity)
         run: helm test ryot --namespace ryot --logs
 
       - name: Diagnostics on failure
@@ -97,5 +97,6 @@ jobs:
         run: |
           kubectl get pods -n ryot -o wide || true
           kubectl describe pods -n ryot || true
-          kubectl logs -n ryot -l app.kubernetes.io/name=ryot --tail=200 --all-containers || true
-          kubectl logs -n ryot -l app.kubernetes.io/component=database --tail=200 || true
+           kubectl logs -n ryot -l app.kubernetes.io/name=ryot --tail=200 --all-containers || true
+           kubectl logs -n ryot -l app.kubernetes.io/component=database --tail=200 || true
+           kubectl logs -n ryot -l app.kubernetes.io/component=cache --tail=200 || true
