@@ -117,7 +117,6 @@ const fields = {
 	adminAccessToken: secretField(
 		"SERVER_ADMIN_ACCESS_TOKEN",
 		"Bearer token required for god-mode admin endpoints",
-		{ default: "changeme" },
 	),
 	nodeEnv: strField("NODE_ENV", "Runtime environment name", {
 		hidden: true,
