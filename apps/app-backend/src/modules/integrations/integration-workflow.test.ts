@@ -29,15 +29,9 @@ import { SignalEmissionService, type EmitSignalInput } from "#modules/signals/se
 
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import { runIntegrationRunWorkflow } from "./integration-workflow-live";
-import {
-	IntegrationRunOperations,
-	type IntegrationRunOperationsValue,
-} from "./operations-workflow";
 import { IntegrationsRepository } from "./repository";
 import { IntegrationsService } from "./service";
 import { makeIntegration, makeRun } from "./test-support";
-
-const now = "2026-06-17T00:00:00.000Z";
 
 const mockImportsService = Layer.mock(ImportsService);
 const mockImportsRepository = Layer.mock(ImportsRepository);
@@ -45,19 +39,6 @@ const mockIntegrationsService = Layer.mock(IntegrationsService);
 const mockSignalEmissionService = Layer.mock(SignalEmissionService);
 const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
 const mockImportRunFailuresService = Layer.mock(ImportRunFailuresService);
-
-const movieGroup = () => ({
-	itemIndex: 0,
-	collectionMemberships: [],
-	events: [{ occurredAt: now, eventSchemaSlug: "progress", properties: { progressPercent: 30 } }],
-	entityRef: {
-		externalId: "603",
-		sourceLabel: "603",
-		entitySchemaSlug: "movie",
-		kind: "resolved" as const,
-		providerSlug: "movie.tmdb",
-	},
-});
 
 const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
 	mockImportsRepository({
@@ -139,21 +120,8 @@ type TestLayerOptions = {
 	integrationsService?: Layer.Layer<IntegrationsService>;
 	signalEmissionService?: Layer.Layer<SignalEmissionService>;
 	integrationsRepository?: Layer.Layer<IntegrationsRepository>;
-	integrationOperations?: Partial<IntegrationRunOperationsValue>;
 	importRunFailuresService?: Layer.Layer<ImportRunFailuresService>;
 };
-
-const makeIntegrationOperations = (overrides: Partial<IntegrationRunOperationsValue> = {}) =>
-	Layer.mock(IntegrationRunOperations, {
-		runAdapter: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				status: "completed" as const,
-				value: { failures: [], entityGroups: [movieGroup()] },
-			}),
-		...overrides,
-	});
 
 const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
@@ -161,7 +129,6 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		makeAppConfigLayer(),
 		BunFileSystem.layer,
 		makeRedisLayer(),
-		makeIntegrationOperations(options.integrationOperations),
 		Layer.mock(IntegrationProviderCatalog)({
 			list: () => [],
 			resolveOwned: () => null,
@@ -362,9 +329,6 @@ it.effect("fails the whole run on catastrophic yank provider failure", () => {
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("failed")),
 		}),
-		integrationOperations: {
-			runAdapter: () => Effect.fail(new SandboxRunError({ message: "Failed to run integration" })),
-		},
 		importsService: makeImportsService({
 			update: (input) => {
 				recordedUpdates.push(input);
@@ -424,9 +388,6 @@ it.effect("disables a yank integration after continuous failures during finaliza
 	const integrationUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
-		integrationOperations: {
-			runAdapter: () => Effect.fail(new SandboxRunError({ message: "Failed to run integration" })),
-		},
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("failed")),
 			listRecentStatusesByIntegrationId: () =>
