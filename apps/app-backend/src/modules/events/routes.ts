@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import type { AuthType } from "~/auth";
+import { resolveCustomEntityAccessError } from "~/lib/entity-schema-access";
 import {
 	createAuthRoute,
 	createNotFoundErrorResult,
@@ -75,15 +76,18 @@ const eventSchemaMismatchError =
 	"Event schema does not belong to the entity schema";
 
 const resolveEntityAccessError = (error: "builtin" | "not_found") => {
-	if (error === "not_found")
-		return {
-			status: 404 as const,
-			body: createNotFoundErrorResult(entityNotFoundError).body,
-		};
+	const accessError = resolveCustomEntityAccessError({
+		error,
+		notFoundMessage: entityNotFoundError,
+		builtinMessage: customEntitySchemaError,
+	});
 
 	return {
-		status: 400 as const,
-		body: createValidationErrorResult(customEntitySchemaError).body,
+		status: accessError.status,
+		body:
+			accessError.kind === "not_found"
+				? createNotFoundErrorResult(accessError.message).body
+				: createValidationErrorResult(accessError.message).body,
 	};
 };
 
