@@ -1,9 +1,5 @@
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
-import {
-	ExecutionAuthority,
-	SandboxExecutionGrants,
-	type SandboxExecutionPayload,
-} from "@ryot/contract/modules/sandbox/schemas";
+import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import {
@@ -24,6 +20,7 @@ import { sanitizeSandboxExecutionSegment } from "#lib/infrastructure/sandbox-run
 import {
 	jsonByteLength,
 	SANDBOX_LIMITS,
+	sandboxWorkflowJournalByteError,
 	WORKFLOW_SANDBOX_LIMITS,
 } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
@@ -41,6 +38,10 @@ import {
 	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 } from "./kernel-workflow-references";
 import { SandboxRepository } from "./repository";
+import {
+	SandboxScriptWorkflowPayload,
+	type SandboxScriptWorkflowPayload as SandboxScriptWorkflowPayloadValue,
+} from "./sandbox-script-workflow-payload";
 import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
 
 export const SANDBOX_WORKFLOW_MAX_STEPS = 1_000;
@@ -69,18 +70,6 @@ const ObservedWorkflowReplay = Schema.Union([
 ]);
 type ObservedWorkflowReplay = Schema.Schema.Type<typeof ObservedWorkflowReplay>;
 
-export const SandboxScriptWorkflowPayload = Schema.Struct({
-	input: jsonValueSchema,
-	scriptId: SandboxScriptId,
-	executionId: Schema.String,
-	authority: ExecutionAuthority,
-	startedAt: Schema.optional(Schema.String),
-	grants: Schema.optional(SandboxExecutionGrants),
-	resolutionMode: Schema.Literals(["active", "exact"]),
-});
-
-export type SandboxScriptWorkflowPayload = Schema.Schema.Type<typeof SandboxScriptWorkflowPayload>;
-
 export const SandboxScriptWorkflow = Workflow.make("SandboxScriptWorkflow", {
 	error: SandboxRunError satisfies DurableSchema,
 	success: jsonValueSchema satisfies DurableSchema,
@@ -91,7 +80,7 @@ export const SandboxScriptWorkflow = Workflow.make("SandboxScriptWorkflow", {
 const sandboxFailure = (message: string) => new SandboxRunError({ message });
 
 export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPin")(function* (
-	payload: SandboxScriptWorkflowPayload,
+	payload: SandboxScriptWorkflowPayloadValue,
 	executionId: string,
 	expectedPluginSlug?: string,
 ) {
@@ -297,7 +286,7 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 >(
 	request: WorkflowDurableCallRequest,
 	targetScriptId: SandboxScriptId | undefined,
-	payload: SandboxScriptWorkflowPayload,
+	payload: SandboxScriptWorkflowPayloadValue,
 	executionId: string,
 	requestIndex: number,
 	processSandbox: (
@@ -351,7 +340,7 @@ export const performSandboxWorkflowActivity = Effect.fn("performSandboxWorkflowA
 	function* <R>(
 		request: Extract<WorkflowDurableCallRequest, { readonly kind: "activity" }>,
 		targetScriptId: SandboxScriptId | undefined,
-		payload: SandboxScriptWorkflowPayload,
+		payload: SandboxScriptWorkflowPayloadValue,
 		executionId: string,
 		requestIndex: number,
 		processSandbox: (
@@ -376,7 +365,7 @@ export const performSandboxWorkflowActivity = Effect.fn("performSandboxWorkflowA
 export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChild")(function* (
 	request: Extract<WorkflowDurableCallRequest, { readonly kind: "child" | "workflow-child" }>,
 	targetScriptId: SandboxScriptId | undefined,
-	payload: SandboxScriptWorkflowPayload,
+	payload: SandboxScriptWorkflowPayloadValue,
 	executionId: string,
 	requestIndex: number,
 ) {
@@ -446,7 +435,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 });
 
 export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(function* <R>(
-	payload: SandboxScriptWorkflowPayload,
+	payload: SandboxScriptWorkflowPayloadValue,
 	executionId: string,
 	processReplay: (
 		payload: SandboxExecutionPayload,
@@ -565,14 +554,18 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 					value: journalValue,
 					request: observedRequest.request,
 				});
-				if (
-					entryBytes === null ||
-					journalBytes + entryBytes + (journal.length === 0 ? 0 : 1) >
-						WORKFLOW_SANDBOX_LIMITS.journalBytes
-				) {
+				if (entryBytes === null) {
 					return yield* sandboxFailure(
 						`Sandbox workflow durable journal exceeds ${WORKFLOW_SANDBOX_LIMITS.journalBytes} UTF-8 bytes`,
 					);
+				}
+				const journalByteError = sandboxWorkflowJournalByteError(
+					journalBytes,
+					entryBytes,
+					journal.length,
+				);
+				if (journalByteError) {
+					return yield* sandboxFailure(journalByteError);
 				}
 				journalBytes += entryBytes + (journal.length === 0 ? 0 : 1);
 				journal.push({ value: journalValue, request: observedRequest.request });
@@ -596,7 +589,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 });
 
 export const runSandboxScriptWorkflow = Effect.fn("SandboxScriptWorkflow")(function* (
-	payload: SandboxScriptWorkflowPayload,
+	payload: SandboxScriptWorkflowPayloadValue,
 	executionId: string,
 ) {
 	return yield* runSandboxScriptWorkflowBody(payload, executionId, processPinnedSandbox);
