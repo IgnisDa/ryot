@@ -8,7 +8,7 @@ import definition, { manifest } from "./media-monitoring-targets.sandbox";
 
 const field = (value: string) => ({ kind: "text", value });
 
-describe("media monitoring target activity", () => {
+describe("media monitoring targets", () => {
 	it("extracts provider ids from global monitorable roots and preserves pagination", async () => {
 		const documents: unknown[] = [];
 		const host = defineSandboxTestHost(manifest, {

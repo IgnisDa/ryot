@@ -24,7 +24,7 @@ it("dispatches every declared source to its matching parser activity", () => {
 		"audiobookshelf",
 		"media_tracker",
 	]) {
-		expect(mediaImportParser(source).scriptSlug).toBe(`activity.import.${source}`);
+		expect(mediaImportParser(source).scriptSlug).toBe(`import.${source}`);
 	}
 });
 
@@ -42,7 +42,7 @@ it("passes Netflix profile selection from source payload to its parser activity"
 			{
 				kind: "activity",
 				args: {
-					scriptSlug: "activity.import.netflix",
+					scriptSlug: "import.netflix",
 					input: { start: 0, limit: 25, profileName: "Kids" },
 				},
 			},
@@ -54,8 +54,8 @@ it("passes credentialed source payload fields to its parser activity", async () 
 	const envelope = await Effect.runPromise(
 		workflow.run(
 			{
-				runId: "run-plex",
 				source: "plex",
+				runId: "run-plex",
 				sourcePayload: {
 					apiKey: "token",
 					apiUrl: "https://plex.example",
@@ -71,7 +71,7 @@ it("passes credentialed source payload fields to its parser activity", async () 
 			{
 				kind: "activity",
 				args: {
-					scriptSlug: "activity.import.plex",
+					scriptSlug: "import.plex",
 					input: {
 						start: 0,
 						limit: 25,
@@ -102,7 +102,7 @@ it("selects optional MyAnimeList artifacts from source payload path identities",
 			{
 				kind: "activity",
 				args: {
-					scriptSlug: "activity.import.myanimelist",
+					scriptSlug: "import.myanimelist",
 					input: { start: 0, limit: 25, hasAnimeFile: false, hasMangaFile: true },
 				},
 			},
@@ -143,7 +143,7 @@ it("marks adapter-only integration failures as failed kernel runs", async () => 
 	envelope = await replay();
 	const chunkRequest = envelope.requests[journal.length];
 	assert(chunkRequest?.kind === "activity");
-	expect(chunkRequest.args.scriptSlug).toBe("activity.import.write-chunks");
+	expect(chunkRequest.args.scriptSlug).toBe("import.write-chunks");
 	journal.push({
 		totalItems: 1,
 		failureCount: 1,
@@ -202,7 +202,7 @@ const driveWatcharrImport = (input: {
 			}
 			const request = envelope.requests[journal.length];
 			assert(request);
-			if (request.kind === "activity" && request.args.scriptSlug === "activity.import.watcharr") {
+			if (request.kind === "activity" && request.args.scriptSlug === "import.watcharr") {
 				journal.push({
 					failures: [],
 					totalItems: 1,
@@ -215,13 +215,10 @@ const driveWatcharrImport = (input: {
 				journal.push({ results: [...input.populationResults] });
 			} else if (
 				request.kind === "activity" &&
-				request.args.scriptSlug === "activity.import.resolve-episodes"
+				request.args.scriptSlug === "import.resolve-episodes"
 			) {
 				journal.push(input.episodeResults);
-			} else if (
-				request.kind === "activity" &&
-				request.args.scriptSlug === "activity.import.write-chunks"
-			) {
+			} else if (request.kind === "activity" && request.args.scriptSlug === "import.write-chunks") {
 				journal.push({
 					totalItems: 1,
 					failureCount: 1,
@@ -291,16 +288,10 @@ it("deterministically composes Watcharr parsing, population, episode resolution,
 	});
 	expect(requests[2]).toMatchObject({
 		args: {
-			scriptSlug: "activity.import.resolve-episodes",
+			scriptSlug: "import.resolve-episodes",
 			input: {
 				refs: [
-					{
-						index: 0,
-						kind: "show",
-						showEntityId: "show-1",
-						seasonNumber: 1,
-						episodeNumber: 99,
-					},
+					{ index: 0, kind: "show", seasonNumber: 1, episodeNumber: 99, showEntityId: "show-1" },
 				],
 			},
 		},
@@ -340,7 +331,7 @@ it("subjects resolved episodes, omits unresolved ones as failures, and keeps sib
 
 	const writeRequest = requests[3];
 	assert(writeRequest?.kind === "activity");
-	expect(writeRequest.args.scriptSlug).toBe("activity.import.write-chunks");
+	expect(writeRequest.args.scriptSlug).toBe("import.write-chunks");
 	expect(writeRequest.args.input).toMatchObject({
 		failures: [
 			{

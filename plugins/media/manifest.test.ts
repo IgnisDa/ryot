@@ -50,23 +50,23 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.integrationProviders).toHaveLength(13);
 	expect(mediaPlugin.scripts.every((script) => !("providerInformation" in script))).toBe(true);
 	expect(
-		mediaPlugin.scripts.filter(({ slug }) => slug.startsWith("activity.media-import-resolve.")),
+		mediaPlugin.scripts.filter(({ slug }) => slug.startsWith("media-import-resolve.")),
 	).toHaveLength(5);
 	expect(
 		mediaPlugin.scripts
-			.filter(({ slug }) => slug.startsWith("activity.media-import-resolve."))
-			.every(({ kind }) => kind === "activity"),
+			.filter(({ slug }) => slug.startsWith("media-import-resolve."))
+			.every(({ kind }) => kind === "script"),
 	).toBe(true);
 	expect(mediaPlugin.scripts.filter(({ slug }) => slug.endsWith(".tmdb.trending"))).toEqual([
 		expect.objectContaining({
 			kind: "script",
-			slug: "movie.tmdb.trending",
 			providerSlug: "movie.tmdb",
+			slug: "movie.tmdb.trending",
 		}),
 		expect.objectContaining({
 			kind: "script",
-			slug: "show.tmdb.trending",
 			providerSlug: "show.tmdb",
+			slug: "show.tmdb.trending",
 		}),
 	]);
 	expect(
@@ -78,20 +78,20 @@ it("declares the complete media-owned source", () => {
 		{
 			auth: "user",
 			slug: "media-monitoring-status",
-			scriptSlug: "operation.media-monitoring-status",
 			description: "Read media monitoring status",
+			scriptSlug: "operation.media-monitoring-status",
 		},
 		{
 			auth: "user",
 			slug: "media-monitoring-enable",
-			scriptSlug: "operation.media-monitoring-enable",
 			description: "Enable media monitoring",
+			scriptSlug: "operation.media-monitoring-enable",
 		},
 		{
 			auth: "user",
 			slug: "media-monitoring-disable",
-			scriptSlug: "operation.media-monitoring-disable",
 			description: "Disable media monitoring",
+			scriptSlug: "operation.media-monitoring-disable",
 		},
 		{
 			auth: "integration",
@@ -154,9 +154,9 @@ it("declares the complete media-owned source", () => {
 	});
 	expect(mediaPlugin.scripts).toContainEqual(
 		expect.objectContaining({
-			kind: "activity",
+			kind: "script",
 			capabilities: ["executeQueryEngine"],
-			slug: "activity.media-monitoring-targets",
+			slug: "media-monitoring-targets",
 		}),
 	);
 	expect(mediaPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "media")).toBe(true);

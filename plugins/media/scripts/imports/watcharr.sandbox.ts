@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { readArtifact } from "@ryot/sandbox-sdk/filesystem";
 
@@ -7,17 +6,17 @@ import { MediaImportAdapterBatch, MediaImportParserInput } from "../../imports/s
 import { adaptWatcharrExportBatch } from "../../imports/watcharr";
 
 export const manifest = defineManifest({
-	kind: "activity",
-	name: "Parse Watcharr import",
+	kind: "script",
+	slug: "import.watcharr",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	slug: "activity.import.watcharr",
+	name: "Parse Watcharr import",
 	capabilities: ["artifact-read"],
 });
 
 const decoder = new TextDecoder();
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: MediaImportParserInput,
 	output: MediaImportAdapterBatch,
