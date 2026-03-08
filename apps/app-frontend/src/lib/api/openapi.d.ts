@@ -682,6 +682,170 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List entities for a custom entity schema */
+        get: {
+            parameters: {
+                query: {
+                    entitySchemaId: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Entities for the requested entity schema */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                id: string;
+                                name: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                                /** Format: date-time */
+                                updatedAt: string;
+                                entitySchemaId: string;
+                                externalId: string | null;
+                                detailsSandboxScriptId: string | null;
+                                properties: {
+                                    [key: string]: unknown;
+                                };
+                            }[];
+                        };
+                    };
+                };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Entity schema does not exist for this user */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["NotFoundError"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create an entity for a custom entity schema */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        name: string;
+                        entitySchemaId: string;
+                        properties: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Entity was created */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                id: string;
+                                name: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                                /** Format: date-time */
+                                updatedAt: string;
+                                entitySchemaId: string;
+                                externalId: string | null;
+                                detailsSandboxScriptId: string | null;
+                                properties: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Entity schema does not exist for this user */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["NotFoundError"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/event-schemas": {
         parameters: {
             query?: never;

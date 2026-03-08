@@ -22,6 +22,13 @@
 			"when": 1772651885417,
 			"tag": "0002_curved_firebird",
 			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1772954689405,
+			"tag": "0003_gifted_vance_astro",
+			"breakpoints": true
 		}
 	]
 }

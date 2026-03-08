@@ -16,6 +16,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
+import { EntitiesSection } from "#/features/entities/section";
 import type { CreateEntitySchemaPayload } from "#/features/entity-schemas/form";
 import {
 	useEntitySchemaMutations,
@@ -135,6 +136,8 @@ function EntitySchemaList(props: { entitySchemas: AppEntitySchema[] }) {
 									{propertyCount === 1 ? "property" : "properties"}
 								</Text>
 							</Group>
+
+							<EntitiesSection entitySchema={entitySchema} />
 
 							<EventSchemasSection entitySchema={entitySchema} />
 						</Stack>

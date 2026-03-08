@@ -205,8 +205,8 @@ export const entitySchemaSandboxScript = pgTable(
 export const entity = pgTable(
 	"entity",
 	{
+		externalId: text(),
 		name: text().notNull(),
-		externalId: text().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
 		properties: jsonb().notNull().default({}),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
@@ -216,9 +216,9 @@ export const entity = pgTable(
 		entitySchemaId: text()
 			.notNull()
 			.references(() => entitySchema.id, { onDelete: "cascade" }),
-		detailsSandboxScriptId: text()
-			.notNull()
-			.references(() => sandboxScript.id, { onDelete: "cascade" }),
+		detailsSandboxScriptId: text().references(() => sandboxScript.id, {
+			onDelete: "cascade",
+		}),
 		id: text()
 			.notNull()
 			.primaryKey()
