@@ -17,7 +17,11 @@ import audiobookshelfDefinition, {
 } from "./yanks/audiobookshelf.sandbox";
 import komgaDefinition, { extractMangaRef, manifest as komgaManifest } from "./yanks/komga.sandbox";
 import plexDefinition, { manifest as plexManifest } from "./yanks/plex.sandbox";
-import { deduplicateWindow } from "./yanks/youtube-music.sandbox";
+import {
+	deduplicateWindow,
+	manifest as youtubeMusicManifest,
+	runYoutubeMusicYank,
+} from "./yanks/youtube-music.sandbox";
 
 const failure = Symbol("failure");
 type Route = JsonValue | typeof failure;
@@ -540,5 +544,43 @@ describe("YouTube Music yank", () => {
 		const { localDate, ttlSeconds } = deduplicateWindow("Not/AZone", "2026-01-01T00:00:00.000Z");
 		expect(localDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 		expect(ttlSeconds).toBe(86_400);
+	});
+
+	it("uses the workflow timestamp when reading history", async () => {
+		const host = defineSandboxTestHost(youtubeMusicManifest, {
+			httpCall: httpCall({}),
+			getCurrentIntegration: () =>
+				hostSuccess(
+					integrationRecord({
+						lot: "yank",
+						provider: "youtube_music",
+						providerSpecifics: { authCookie: "cookie", timezone: "UTC" },
+					}),
+				),
+			claimPersistentValue: () => hostSuccess({ claimed: true }),
+		});
+		const result = await Effect.runPromise(
+			runYoutubeMusicYank({}, host, execution, () =>
+				Effect.succeed({
+					getHistory: () =>
+						Promise.resolve({
+							sections: [
+								{
+									header: {
+										type: "ItemSectionHeader",
+										title: { text: "January 1, 2026" },
+									},
+									contents: [{ type: "Video", video_id: "v1", title: { text: "First" } }],
+								},
+							],
+						}),
+				}),
+			),
+		);
+		expect(result.entityGroups).toHaveLength(1);
+		expect(result.entityGroups[0]?.entityRef).toMatchObject({
+			externalId: "v1",
+			providerSlug: "music.youtube-music",
+		});
 	});
 });
