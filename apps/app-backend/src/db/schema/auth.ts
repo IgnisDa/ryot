@@ -91,25 +91,25 @@ export const apikey = pgTable(
 		remaining: integer(),
 		key: text().notNull(),
 		expiresAt: timestamp(),
-		refillAmount: integer(),
 		id: text().primaryKey(),
+		refillAmount: integer(),
 		lastRequest: timestamp(),
 		refillInterval: integer(),
 		lastRefillAt: timestamp(),
+		referenceId: text().notNull(),
 		createdAt: timestamp().notNull(),
 		updatedAt: timestamp().notNull(),
 		enabled: boolean().default(true),
 		requestCount: integer().default(0),
 		rateLimitMax: integer().default(10),
 		rateLimitEnabled: boolean().default(true),
+		configId: text().default("default").notNull(),
 		rateLimitTimeWindow: integer().default(86400000),
-		userId: text()
-			.notNull()
-			.references(() => user.id, { onDelete: "cascade" }),
 	},
 	(table) => [
+		index("apikey_configId_idx").on(table.configId),
+		index("apikey_referenceId_idx").on(table.referenceId),
 		index("apikey_key_idx").on(table.key),
-		index("apikey_userId_idx").on(table.userId),
 	],
 );
 
@@ -129,12 +129,5 @@ export const accountRelations = relations(account, ({ one }) => ({
 	user: one(user, {
 		references: [user.id],
 		fields: [account.userId],
-	}),
-}));
-
-export const apikeyRelations = relations(apikey, ({ one }) => ({
-	user: one(user, {
-		references: [user.id],
-		fields: [apikey.userId],
 	}),
 }));
