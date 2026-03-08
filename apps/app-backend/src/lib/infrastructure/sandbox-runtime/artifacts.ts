@@ -29,7 +29,7 @@ const materializeBytes = Effect.fn("sandbox.materializeArtifactBytes")(function*
 			return yield* Effect.fail("Sandbox artifact destination contains different bytes");
 		}
 		yield* fs.chmod(target, 0o444);
-		return;
+		return void 0;
 	}
 
 	const path = yield* Path.Path;
@@ -51,6 +51,7 @@ const materializeBytes = Effect.fn("sandbox.materializeArtifactBytes")(function*
 		),
 	);
 	yield* fs.remove(temporaryDirectory, { force: true, recursive: true });
+	return void 0;
 });
 
 export class SandboxArtifactStore extends Context.Service<SandboxArtifactStore>()(
