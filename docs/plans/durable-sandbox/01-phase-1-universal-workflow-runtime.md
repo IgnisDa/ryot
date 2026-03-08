@@ -103,16 +103,38 @@ Task 02 reran the same warm hermetic harness after adding the universal durable 
 controlled endpoint still added two sequential 25-ms delays. Three warm-ups preceded 15 measured
 runs on the same Apple M4, 16-GiB host and Bun 1.3.14 configuration used for the baseline.
 
-| Workload                            | Submission-to-terminal p50 / p95 | Ryot orchestration p50 / p95 | Sandbox execution p50 / p95 | Executions / body replays / module loads | Workflow / Redis observation        |
-| ----------------------------------- | -------------------------------: | ---------------------------: | --------------------------: | ---------------------------------------: | ----------------------------------- |
-| Standard controlled HTTP provider   |                     253 / 471 ms |                 203 / 421 ms |                103 / 154 ms |                                1 / 1 / 1 | 0 projections; high-water 0         |
-| Durable controlled HTTP provider    |                   858 / 1,352 ms |               808 / 1,302 ms |                         n/a |                                3 / 3 / 3 | 1 projection key; high-water 2      |
+| Workload                          | Submission-to-terminal p50 / p95 | Ryot orchestration p50 / p95 | Sandbox execution p50 / p95 | Executions / body replays / module loads | Workflow / Redis observation   |
+| --------------------------------- | -------------------------------: | ---------------------------: | --------------------------: | ---------------------------------------: | ------------------------------ |
+| Standard controlled HTTP provider |                     253 / 471 ms |                 203 / 421 ms |                103 / 154 ms |                                1 / 1 / 1 | 0 projections; high-water 0    |
+| Durable controlled HTTP provider  |                   858 / 1,352 ms |               808 / 1,302 ms |                         n/a |                                3 / 3 / 3 | 1 projection key; high-water 2 |
 
 The durable p95 was `2.87x` and `881 ms` above its same-run standard comparator. The interactive
 provider guardrail requires both greater than `3x` and more than `1 second`, so it did not trigger.
 The three executions are the expected initial replay, replay after the first durable HTTP boundary,
 and terminal replay after the second boundary. Catalog migration remains blocked until the Youtubei
 tracer in Task 03 passes its replay and benchmark gates.
+
+### Youtubei tracer comparison (2026-08-06)
+
+Task 03 reran the same warm hermetic harness after moving the Youtubei transport into the sandbox SDK
+and adding deterministic dependency globals. The run used the baseline Apple M4, 16-GiB host and Bun
+1.3.14 configuration with three warm-ups and 15 samples per direct workload, plus one warm-up and
+five measured 10-item population chunks.
+
+| Workload                          | Submission-to-terminal p50 / p95 | Ryot orchestration p50 / p95 | Sandbox execution p50 / p95 | Executions / body replays / module loads | Workflow / Redis observation   |
+| --------------------------------- | -------------------------------: | ---------------------------: | --------------------------: | ---------------------------------------: | ------------------------------ |
+| No-host automation early return   |                     211 / 266 ms |                 211 / 266 ms |                   7 / 15 ms |                                1 / 1 / 1 | 0 projections; high-water 0    |
+| Full automation                   |                     227 / 268 ms |                 227 / 268 ms |                  18 / 28 ms |                                1 / 1 / 1 | 0 projections; high-water 0    |
+| Standard controlled HTTP provider |                     239 / 404 ms |                 189 / 354 ms |                 78 / 106 ms |                                1 / 1 / 1 | 0 projections; high-water 0    |
+| Youtubei controlled HTTP provider |                     232 / 410 ms |                 182 / 360 ms |                 99 / 128 ms |                                1 / 1 / 1 | 0 projections; high-water 0    |
+| Durable controlled HTTP provider  |                     741 / 968 ms |                 691 / 918 ms |                         n/a |                                3 / 3 / 3 | 1 projection key; high-water 2 |
+
+The bounded population measured `8,017 / 10,400 ms` p50/p95 and `1.247` items/s p50. Its p50
+throughput is `82%` of the `1.524` items/s baseline, above the `50%` review threshold. Youtubei p95
+was `20 ms` below baseline. The durable provider was `2.40x` and `564 ms` above its same-run standard
+comparator, below the interactive-provider review conditions. Its three executions and high-water of
+two are the expected initial run and two sequential durable HTTP boundaries. No owner waiver or
+optimization is required before Task 04.
 
 ## 1. Establish the Two Tracers
 
