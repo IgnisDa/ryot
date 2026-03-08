@@ -12,6 +12,8 @@ import { useDisclosure } from "@mantine/hooks";
 import type { AppPropertyDefinition } from "@ryot/ts-utils";
 import { useCallback, useState } from "react";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
+import { useEventSchemasQuery } from "#/features/event-schemas/hooks";
+import { EntityEventsSection } from "#/features/events/section";
 import type { CreateEntityPayload } from "./form";
 import { useEntitiesQuery, useEntityMutations } from "./hooks";
 import { getEntityListViewState } from "./model";
@@ -34,6 +36,9 @@ function getErrorMessage(error: unknown) {
 
 function EntityList(props: {
 	entities: ReturnType<typeof useEntitiesQuery>["entities"];
+	eventSchemas: ReturnType<typeof useEventSchemasQuery>["eventSchemas"];
+	eventSchemasError: boolean;
+	eventSchemasLoading: boolean;
 }) {
 	return (
 		<Stack gap="xs">
@@ -45,14 +50,23 @@ function EntityList(props: {
 					key={entity.id}
 					style={{ backgroundColor: "var(--mantine-color-gray-0)" }}
 				>
-					<Group justify="space-between" align="flex-start">
-						<Stack gap={2}>
-							<Text fw={500}>{entity.name}</Text>
-							<Text c="dimmed" size="xs">
-								{new Date(entity.createdAt).toLocaleDateString()}
-							</Text>
-						</Stack>
-					</Group>
+					<Stack gap="md">
+						<Group justify="space-between" align="flex-start">
+							<Stack gap={2}>
+								<Text fw={500}>{entity.name}</Text>
+								<Text c="dimmed" size="xs">
+									{new Date(entity.createdAt).toLocaleDateString()}
+								</Text>
+							</Stack>
+						</Group>
+
+						<EntityEventsSection
+							entity={entity}
+							eventSchemas={props.eventSchemas}
+							eventSchemasError={props.eventSchemasError}
+							eventSchemasLoading={props.eventSchemasLoading}
+						/>
+					</Stack>
 				</Paper>
 			))}
 		</Stack>
@@ -217,6 +231,7 @@ export function EntitiesSection(props: { entitySchema: AppEntitySchema }) {
 		null,
 	);
 	const entitiesQuery = useEntitiesQuery(props.entitySchema.id);
+	const eventSchemasQuery = useEventSchemasQuery(props.entitySchema.id);
 	const entityMutations = useEntityMutations(props.entitySchema.id);
 	const viewState = getEntityListViewState(entitiesQuery.entities);
 
@@ -310,7 +325,12 @@ export function EntitiesSection(props: { entitySchema: AppEntitySchema }) {
 						</Stack>
 					</Paper>
 				) : (
-					<EntityList entities={viewState.entities} />
+					<EntityList
+						entities={viewState.entities}
+						eventSchemas={eventSchemasQuery.eventSchemas}
+						eventSchemasError={eventSchemasQuery.isError}
+						eventSchemasLoading={eventSchemasQuery.isLoading}
+					/>
 				))}
 
 			{opened && (
