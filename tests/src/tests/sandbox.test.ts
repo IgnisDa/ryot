@@ -232,9 +232,7 @@ driver("main", async function() {
 
 		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
 		const prefs = result.value as {
-			languages: {
-				providers: Array<{ source: string; preferredLanguage: string }>;
-			};
+			languages: { providers: Array<{ source: string; preferredLanguage: string }> };
 		};
 		expect(prefs.languages.providers.length).toBeGreaterThan(1);
 		expect(prefs.languages.providers[0]?.source).toBe("audible");
@@ -377,10 +375,9 @@ describe("sandbox cache functions", () => {
 		}
 		expect(result.error).toBeNull();
 		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
 		const value = result.value as { success: boolean; data: unknown };
 		expect(value.success).toBe(true);
-		expect(value.data).toBeNull();
+		expect(value.data).toEqual({ value: 42 });
 	});
 
 	it("getCachedValue returns null for a key that was never set", async () => {
@@ -605,10 +602,7 @@ describe("sandbox result observability", () => {
 			slug: `observability-check-${crypto.randomUUID()}`,
 			code: 'driver("main", async function() { return true; });',
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			scriptId,
-			driverName: "main",
-		});
+		const { jobId } = await enqueueSandboxScript(client, cookies, { scriptId, driverName: "main" });
 
 		const result = await pollSandboxResult(client, cookies, jobId);
 		expect(result.status).toBe("completed");
