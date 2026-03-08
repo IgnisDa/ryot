@@ -1,6 +1,12 @@
-import { apiFailure, apiSuccess } from "~/sandbox/types";
+import {
+	apiFailure,
+	apiSuccess,
+	type ConfigValueResult,
+} from "~/sandbox/types";
 
-export const getUserConfigValue = (key: unknown) => {
+export const getUserConfigValue = async (
+	key: unknown,
+): Promise<ConfigValueResult> => {
 	if (typeof key !== "string" || !key.trim())
 		return apiFailure("getUserConfigValue expects a non-empty key string");
 
