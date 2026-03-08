@@ -3,11 +3,11 @@ import { createAuthClient } from "better-auth/client";
 import { tanstackStartCookies } from "better-auth/tanstack-start/solid";
 import { createContext, type ReactNode, useContext } from "react";
 
-const authClientInstance = createAuthClient({
+export const authClientInstance = createAuthClient({
 	plugins: [apiKeyClient(), tanstackStartCookies()],
 });
 
-type AuthClient = typeof authClientInstance;
+export type AuthClient = typeof authClientInstance;
 
 const AuthClientContext = createContext<AuthClient | undefined>(undefined);
 
