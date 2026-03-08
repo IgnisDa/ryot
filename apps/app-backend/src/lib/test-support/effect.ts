@@ -2,13 +2,13 @@ import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Effect, Layer, Option, Redacted } from "effect";
 
-export type MockOverrides<T> = T extends (...args: infer TArgs) => unknown
-	? Omit<TArgs[0], "_tag">
-	: never;
-
 import { AppConfig, type AppConfigValue } from "#lib/infrastructure/config/service";
 import { CurrentDb, DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import type { RedisService } from "#lib/infrastructure/redis";
+
+export type MockOverrides<T> = T extends (...args: infer TArgs) => unknown
+	? Omit<TArgs[0], "_tag">
+	: never;
 
 const provideEmptyDb = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	Effect.provideService(effect, CurrentDb, Object.create(null));
