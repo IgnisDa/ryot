@@ -2,7 +2,7 @@
 
 **Parent Plan:** [RyotQL](./README.md)
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -12,18 +12,18 @@ Pinned plugin metadata determines plugin authority. Documents never carry a scop
 
 ## Acceptance criteria
 
-- [ ] The sandbox SDK re-exports the shared RyotQL builders and sandbox recipes rather than implementing another builder language
-- [ ] Strict sandbox response helpers accept only the RyotQL named data envelope and dynamic field-value shape
-- [ ] The new host capability is independently capability-gated and derives user or pinned-plugin authority from trusted execution context
-- [ ] Sandbox callers cannot supply a user ID, plugin slug, execution scope, or grant in a document or host call
-- [ ] Plugin entity visibility is global and restricted to plugin-owned discriminator definitions
-- [ ] Plugin event and relationship visibility spans users only for plugin-owned definitions, while application tables remain denied
-- [ ] Visibility is applied to every sandbox query table occurrence, join, include, and correlated query before caller predicates
-- [ ] User monitoring status sees only the current user's monitoring relationship and obtains the library identifier from targetEntityId
-- [ ] The scheduled sweep finds global provider-backed media monitored by any user without selecting user-owned library endpoint fields
-- [ ] Media-monitoring multi-user, cron, notification, unsupported-target, sandbox authority, and host capability tests pass
-- [ ] The legacy executeQueryEngine capability and all unmigrated scripts remain operational
-- [ ] The RyotQL guide documents user and plugin execution semantics
+- [x] The sandbox SDK re-exports the shared RyotQL builders and sandbox recipes rather than implementing another builder language
+- [x] Strict sandbox response helpers accept only the RyotQL named data envelope and dynamic field-value shape
+- [x] The new host capability is independently capability-gated and derives user or pinned-plugin authority from trusted execution context
+- [x] Sandbox callers cannot supply a user ID, plugin slug, execution scope, or grant in a document or host call
+- [x] Plugin entity visibility is global and restricted to plugin-owned discriminator definitions
+- [x] Plugin event and relationship visibility spans users only for plugin-owned definitions, while application tables remain denied
+- [x] Visibility is applied to every sandbox query table occurrence, join, include, and correlated query before caller predicates
+- [x] User monitoring status sees only the current user's monitoring relationship and obtains the library identifier from targetEntityId
+- [x] The scheduled sweep finds global provider-backed media monitored by any user without selecting user-owned library endpoint fields
+- [x] Media-monitoring multi-user, cron, notification, unsupported-target, sandbox authority, and host capability tests pass
+- [x] The legacy executeQueryEngine capability and all unmigrated scripts remain operational
+- [x] The RyotQL guide documents user and plugin execution semantics
 
 ## User stories addressed
 

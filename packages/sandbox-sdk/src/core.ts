@@ -1,3 +1,5 @@
+import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
+import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
 import type { Effect } from "@ryot/sandbox-sdk/effect";
 import { Schema } from "@ryot/sandbox-sdk/effect";
 
@@ -178,6 +180,7 @@ export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
 	"getEntitySchemas",
 	"listEventSchemas",
 	"listIntegrations",
+	"executeRyotql",
 	"executeQueryEngine",
 	"ensureUserEntities",
 	"upsertGlobalEntities",
@@ -424,13 +427,19 @@ export const listIntegrationsOptionsSchema = strictStruct({
 	provider: Schema.optional(integrationProviderSchema),
 });
 export const queryDocumentSchema = jsonValueSchema;
+export const ryotqlDocumentSchema = jsonValueSchema as unknown as Schema.Codec<
+	RyotQLDocument,
+	typeof jsonValueSchema.Encoded
+>;
 export type QueryDocument = Schema.Schema.Type<typeof queryDocumentSchema>;
 export type ListIntegrationsOptions = Schema.Schema.Type<typeof listIntegrationsOptionsSchema>;
 
 export const getCurrentIntegrationArgsSchema = Schema.Tuple([]);
 export const executeQueryEngineDataSchema = Schema.Unknown;
+export const executeRyotqlDataSchema = Schema.Unknown;
 export const getEntitySchemasArgsSchema = Schema.Tuple([sandboxEntitySchemaSlugListSchema]);
 export const executeQueryEngineArgsSchema = Schema.Tuple([queryDocumentSchema]);
+export const executeRyotqlArgsSchema = Schema.Tuple([ryotqlDocumentSchema]);
 export const listEventSchemasDataSchema = Schema.Array(eventSchemaRecordSchema);
 export const listIntegrationsDataSchema = Schema.Array(integrationRecordSchema);
 export const getCurrentIntegrationResultSchema = hostResultSchema(integrationRecordSchema);
@@ -444,6 +453,7 @@ export const listEventSchemasResultSchema = hostResultSchema(listEventSchemasDat
 export const listIntegrationsResultSchema = hostResultSchema(listIntegrationsDataSchema);
 export const upsertGlobalEntitiesDataSchema = Schema.Array(upsertGlobalEntityResultSchema);
 export const executeQueryEngineResultSchema = hostResultSchema(executeQueryEngineDataSchema);
+export const executeRyotqlResultSchema = hostResultSchema(executeRyotqlDataSchema);
 export const upsertGlobalEntitiesResultSchema = hostResultSchema(upsertGlobalEntitiesDataSchema);
 export const listIntegrationsArgsSchema = Schema.Tuple([
 	Schema.optionalKey(listIntegrationsOptionsSchema),
@@ -533,6 +543,11 @@ export const domainSandboxHostContracts = {
 		success: executeQueryEngineDataSchema,
 		result: executeQueryEngineResultSchema,
 	},
+	executeRyotql: {
+		args: executeRyotqlArgsSchema,
+		success: executeRyotqlDataSchema,
+		result: executeRyotqlResultSchema,
+	},
 } as const;
 
 export type DomainSandboxHostMethodMap = SandboxHostMethodMapFromContracts<
@@ -599,9 +614,8 @@ export const SANDBOX_HOST_CAPABILITIES = [
 	...DOMAIN_SANDBOX_HOST_CAPABILITIES,
 	...AUTOMATION_SANDBOX_HOST_CAPABILITIES,
 	...FILESYSTEM_GRANT_SANDBOX_CAPABILITIES,
-] as const;
+] as const satisfies readonly SandboxHostCapability[];
 export const sandboxHostCapabilitySchema = Schema.Literals([...SANDBOX_HOST_CAPABILITIES]);
-export type SandboxHostCapability = Schema.Schema.Type<typeof sandboxHostCapabilitySchema>;
 
 export type SandboxCapabilityAuthority = "user" | "subscription" | "system";
 export type SandboxCapabilitySystemKind = "automation" | "script";
@@ -638,6 +652,11 @@ export const SANDBOX_CAPABILITY_REQUIREMENTS = {
 		systemKinds: ["script"] as const,
 	},
 	executeQueryEngine: {
+		bridge: true,
+		systemKinds: ["script"] as const,
+		authorities: ["user", "subscription", "system"],
+	},
+	executeRyotql: {
 		bridge: true,
 		systemKinds: ["script"] as const,
 		authorities: ["user", "subscription", "system"],

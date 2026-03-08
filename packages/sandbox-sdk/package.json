@@ -59,6 +59,10 @@
 			"types": "./src/query-engine.ts",
 			"default": "./src/query-engine.ts"
 		},
+		"./ryotql": {
+			"types": "./src/ryotql.ts",
+			"default": "./src/ryotql.ts"
+		},
 		"./wire": {
 			"types": "./src/wire.ts",
 			"default": "./src/wire.ts"
@@ -77,7 +81,10 @@
 		"check": "tsc && tsc --project tests/tsconfig.json && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
+		"@ryot/contract": "workspace:*",
 		"@ryot/query-engine": "workspace:*",
+		"@ryot/ryotql": "workspace:*",
+		"@ryot/ryotql-recipes": "workspace:*",
 		"@types/papaparse": "5.5.2",
 		"cheerio": "1.2.0",
 		"effect": "4.0.0-beta.105",
