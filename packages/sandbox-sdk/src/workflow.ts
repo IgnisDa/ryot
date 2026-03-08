@@ -1,10 +1,14 @@
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import { Effect as RuntimeEffect, Schema } from "@ryot/sandbox-sdk/effect";
 
 import type { ExecutionMetadata, SandboxWorkflowReference, WorkflowManifest } from "./core";
 import { sandboxHostCapabilitySchema } from "./core";
 import { SANDBOX_SCRIPT_DEFINITION } from "./driver";
-import { jsonValueSchema, sandboxHostErrorSchema, type SandboxHostError } from "./wire";
+import {
+	type JsonValue,
+	jsonValueSchema,
+	sandboxHostErrorSchema,
+	type SandboxHostError,
+} from "./wire";
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
 	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
