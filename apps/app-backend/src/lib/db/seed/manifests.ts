@@ -31,6 +31,8 @@ import tmdbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/tmdb.tx
 import tvdbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/tvdb.txt";
 import vndbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/vndb.txt";
 import youtubeMusicPersonScriptCode from "~/lib/sandbox/scripts/providers/person/youtube-music.txt";
+import titleCaseDelimiterHelperCode from "~/lib/sandbox/scripts/shared/title-case-delimiters.txt";
+import titleCaseHelperCode from "~/lib/sandbox/scripts/shared/title-case.txt";
 import autoCompleteOnFullProgressScriptCode from "~/lib/sandbox/scripts/triggers/auto-complete-on-full-progress.txt";
 import type { SandboxScriptMetadata } from "~/lib/sandbox/types";
 
@@ -67,13 +69,17 @@ const script = (
 	},
 });
 
+const withTitleCaseHelper = (code: string) => `${titleCaseHelperCode}\n\n${code}`;
+
+const withDelimiterTitleCaseHelper = (code: string) => `${titleCaseDelimiterHelperCode}\n\n${code}`;
+
 export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
-	script("OpenLibrary", "book.openlibrary", openLibraryBookScriptCode),
-	script("Audible", "audiobook.audible", audibleAudiobookScriptCode),
+	script("OpenLibrary", "book.openlibrary", withTitleCaseHelper(openLibraryBookScriptCode)),
+	script("Audible", "audiobook.audible", withTitleCaseHelper(audibleAudiobookScriptCode)),
 	script("iTunes", "podcast.itunes", itunesPodcastScriptCode),
 	script("VNDB", "visual-novel.vndb", vndbVisualNovelScriptCode),
-	script("Anilist", "anime.anilist", anilistAnimeScriptCode),
-	script("Anilist", "manga.anilist", anilistMangaScriptCode),
+	script("Anilist", "anime.anilist", withDelimiterTitleCaseHelper(anilistAnimeScriptCode)),
+	script("Anilist", "manga.anilist", withDelimiterTitleCaseHelper(anilistMangaScriptCode)),
 	script("Anilist", "person.anilist", anilistPersonScriptCode),
 	script("Audible", "person.audible", audiblePersonScriptCode),
 	script("VNDB", "person.vndb", vndbPersonScriptCode),
@@ -82,9 +88,11 @@ export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
 	script("MusicBrainz", "person.musicbrainz", musicbrainzPersonScriptCode),
 	script("YouTube Music", "music.youtube-music", youtubeMusicScriptCode),
 	script("YouTube Music", "person.youtube-music", youtubeMusicPersonScriptCode),
-	script("Hardcover", "book.hardcover", hardcoverBookScriptCode, ["books.hardcover.apiKey"]),
+	script("Hardcover", "book.hardcover", withTitleCaseHelper(hardcoverBookScriptCode), [
+		"books.hardcover.apiKey",
+	]),
 	script("Hardcover", "person.hardcover", hardcoverPersonScriptCode, ["books.hardcover.apiKey"]),
-	script("Google Books", "book.google-book", googleBooksBookScriptCode, [
+	script("Google Books", "book.google-book", withTitleCaseHelper(googleBooksBookScriptCode), [
 		"books.googleBooks.apiKey",
 	]),
 	script("ListenNotes", "podcast.listennotes", listennotesPodcastScriptCode, [
@@ -99,12 +107,18 @@ export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
 	script("TVDB", "movie.tvdb", tvdbMovieScriptCode, ["moviesAndShows.tvdb.apiKey"]),
 	script("TVDB", "show.tvdb", tvdbShowScriptCode, ["moviesAndShows.tvdb.apiKey"]),
 	script("TVDB", "person.tvdb", tvdbPersonScriptCode, ["moviesAndShows.tvdb.apiKey"]),
-	script("MyAnimeList", "anime.myanimelist", myanimelistAnimeScriptCode, [
-		"animeAndManga.mal.clientId",
-	]),
-	script("MyAnimeList", "manga.myanimelist", myanimelistMangaScriptCode, [
-		"animeAndManga.mal.clientId",
-	]),
+	script(
+		"MyAnimeList",
+		"anime.myanimelist",
+		withDelimiterTitleCaseHelper(myanimelistAnimeScriptCode),
+		["animeAndManga.mal.clientId"],
+	),
+	script(
+		"MyAnimeList",
+		"manga.myanimelist",
+		withDelimiterTitleCaseHelper(myanimelistMangaScriptCode),
+		["animeAndManga.mal.clientId"],
+	),
 	script("Metron", "comic-book.metron", metronComicBookScriptCode, [
 		"comicBooks.metron.username",
 		"comicBooks.metron.password",

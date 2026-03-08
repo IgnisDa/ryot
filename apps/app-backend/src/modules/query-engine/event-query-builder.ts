@@ -1,79 +1,68 @@
-import { sql } from "drizzle-orm";
-
-import { buildQueryContext, type PreparedQueryContext } from "./context";
-import { buildResolvedFieldsExpression } from "./display-builder";
-import { buildLatestEventJoinCte, buildJoinedCte } from "./event-join-ctes";
+import type { PreparedQueryContext } from "./context";
+import { buildJoinedCte } from "./event-join-ctes";
 import { buildEventFirstCte } from "./event-query-ctes";
-import { createQueryCompiler } from "./expression-compiler";
-import { createExpressionTypeResolver } from "./expression-type-resolver";
-import { buildFilterWhereClause } from "./filter-builder";
 import { executePaginatedQuery } from "./paginated-query-sql";
+import {
+	buildLatestEventJoinCtes,
+	buildQueryFilterClause,
+	buildQueryResolvedFields,
+	buildQueryRuntime,
+	buildQuerySortExpression,
+	buildSortDirection,
+	resolveRequestedEventSchemaSlugs,
+} from "./query-builder-shared";
 import { EVENT_FIRST_ENTITY_COLUMN_OVERRIDES, EVENT_CTE_ALIASES } from "./query-cte-shared";
 import type { EventsQueryEngineRequest, QueryEngineEventsResponse } from "./schemas";
-import { buildSortExpression } from "./sort-builder";
 
 export const executeEventQuery = async (input: {
 	userId: string;
 	context: PreparedQueryContext;
 	request: EventsQueryEngineRequest;
 }): Promise<QueryEngineEventsResponse> => {
-	const queryContext = buildQueryContext(input.userId, input.context, {
-		eventSchemaMap: input.context.eventSchemaMap,
-		entityColumnOverrides: EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
-	});
-	const getTypeInfo = createExpressionTypeResolver({
-		context: queryContext,
+	const runtime = buildQueryRuntime({
+		userId: input.userId,
+		context: input.context,
 		computedFields: input.request.computedFields,
+		overrides: {
+			eventSchemaMap: input.context.eventSchemaMap,
+			entityColumnOverrides: EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
+		},
 	});
 	const baseEventsCte = buildEventFirstCte({
 		userId: input.userId,
 		cteName: EVENT_CTE_ALIASES.base,
 		entitySchemaIds: input.context.runtimeSchemas.map((s) => s.id),
-		eventSchemaSlugs: input.request.eventSchemas?.length
-			? input.request.eventSchemas
-			: [...input.context.eventSchemaSlugs],
+		eventSchemaSlugs: resolveRequestedEventSchemaSlugs(
+			input.request.eventSchemas,
+			input.context.eventSchemaSlugs,
+		),
 	});
-	const latestEventJoinCtes = input.context.eventJoins.map((join) => {
-		return buildLatestEventJoinCte({ join, userId: input.userId });
-	});
+	const latestEventJoinCtes = buildLatestEventJoinCtes(input.userId, input.context.eventJoins);
 	const joinedEventsCte = buildJoinedCte({
 		entityIdColumn: "entity_id",
 		baseCte: EVENT_CTE_ALIASES.base,
 		cteName: EVENT_CTE_ALIASES.joined,
 		eventJoins: input.context.eventJoins,
 	});
-	const filterCompiler = createQueryCompiler({
-		getTypeInfo,
-		context: queryContext,
+	const filterClause = buildQueryFilterClause({
+		runtime,
 		alias: EVENT_CTE_ALIASES.joined,
-		computedFields: input.request.computedFields,
-	});
-	const filterClause = buildFilterWhereClause({
-		context: queryContext,
-		compiler: filterCompiler,
 		predicate: input.request.filter,
 		computedFields: input.request.computedFields,
 	});
-	const sortCompiler = createQueryCompiler({
-		getTypeInfo,
-		context: queryContext,
+	const sortExpression = buildQuerySortExpression({
+		runtime,
 		alias: EVENT_CTE_ALIASES.filtered,
-		computedFields: input.request.computedFields,
-	});
-	const sortExpression = buildSortExpression({
-		context: queryContext,
-		compiler: sortCompiler,
 		expression: input.request.sort.expression,
 		computedFields: input.request.computedFields,
 	});
-	const resolvedFields = buildResolvedFieldsExpression({
-		getTypeInfo,
-		context: queryContext,
+	const resolvedFields = buildQueryResolvedFields({
+		runtime,
 		fields: input.request.fields,
 		alias: EVENT_CTE_ALIASES.paginated,
 		computedFields: input.request.computedFields,
 	});
-	const direction = sql.raw(input.request.sort.direction.toUpperCase());
+	const direction = buildSortDirection(input.request.sort.direction);
 
 	const { pagination, items } = await executePaginatedQuery({
 		direction,

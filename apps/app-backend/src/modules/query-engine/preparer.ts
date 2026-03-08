@@ -205,7 +205,7 @@ const prepareContext = async (input: {
 	]);
 
 	const eventSchemaMap = isEventMode
-		? await loadEventSchemasBySlug({
+		? await loadEventSchemaMap({
 				runtimeSchemas,
 				userId: input.userId,
 				eventSchemaSlugs:
@@ -229,6 +229,29 @@ const prepareContext = async (input: {
 	};
 };
 
+const loadEventSchemaMap = (input: {
+	userId: string;
+	eventSchemaSlugs: string[];
+	runtimeSchemas: PreparedQueryContext["runtimeSchemas"];
+}) => {
+	return loadEventSchemasBySlug(input);
+};
+
+const loadOptionalEventSchemaMap = (input: {
+	userId: string;
+	shouldLoad: boolean;
+	eventSchemaSlugs: Iterable<string>;
+	runtimeSchemas: PreparedQueryContext["runtimeSchemas"];
+}) => {
+	return input.shouldLoad
+		? loadEventSchemaMap({
+				runtimeSchemas: input.runtimeSchemas,
+				userId: input.userId,
+				eventSchemaSlugs: [...input.eventSchemaSlugs],
+			})
+		: Promise.resolve(new Map());
+};
+
 export const prepareAndExecute = async (input: {
 	userId: string;
 	request: QueryEngineRequest;
@@ -239,13 +262,12 @@ export const prepareAndExecute = async (input: {
 
 	const eventSchemaMap =
 		context.eventSchemaMap ??
-		(hasEventAggregateRef(input.request)
-			? await loadEventSchemasBySlug({
-					runtimeSchemas: context.runtimeSchemas,
-					userId: input.userId,
-					eventSchemaSlugs: [...context.eventSchemaSlugs],
-				})
-			: new Map());
+		(await loadOptionalEventSchemaMap({
+			userId: input.userId,
+			shouldLoad: hasEventAggregateRef(input.request),
+			runtimeSchemas: context.runtimeSchemas,
+			eventSchemaSlugs: context.eventSchemaSlugs,
+		}));
 
 	validateQueryEngineReferences(input.request, {
 		eventSchemaMap,
@@ -314,14 +336,14 @@ export const loadAndValidateQueryContext = async (input: {
 		},
 	});
 
-	const eventSchemaMap =
-		hasEventAggregateRef(input.queryDefinition) || hasEventAggregateRef(input.displayConfiguration)
-			? await loadEventSchemasBySlug({
-					userId: input.userId,
-					runtimeSchemas: context.runtimeSchemas,
-					eventSchemaSlugs: [...context.eventSchemaSlugs],
-				})
-			: new Map();
+	const eventSchemaMap = await loadOptionalEventSchemaMap({
+		userId: input.userId,
+		runtimeSchemas: context.runtimeSchemas,
+		eventSchemaSlugs: context.eventSchemaSlugs,
+		shouldLoad:
+			hasEventAggregateRef(input.queryDefinition) ||
+			hasEventAggregateRef(input.displayConfiguration),
+	});
 
 	validateSavedViewDefinition({
 		eventSchemaMap,
@@ -360,14 +382,13 @@ export const prepareSavedView = async (input: {
 		},
 	});
 
-	const eventSchemaMap =
-		hasEventAggregateRef(queryDefinition) || hasEventAggregateRef(savedView.displayConfiguration)
-			? await loadEventSchemasBySlug({
-					userId: input.userId,
-					runtimeSchemas: context.runtimeSchemas,
-					eventSchemaSlugs: [...context.eventSchemaSlugs],
-				})
-			: new Map();
+	const eventSchemaMap = await loadOptionalEventSchemaMap({
+		userId: input.userId,
+		runtimeSchemas: context.runtimeSchemas,
+		eventSchemaSlugs: context.eventSchemaSlugs,
+		shouldLoad:
+			hasEventAggregateRef(queryDefinition) || hasEventAggregateRef(savedView.displayConfiguration),
+	});
 
 	validateSavedViewDefinition({
 		eventSchemaMap,

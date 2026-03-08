@@ -1,17 +1,15 @@
 import { describe, expect, it } from "bun:test";
 
 import { createEntityPropertyExpression } from "@ryot/ts-utils";
-import { PgDialect } from "drizzle-orm/pg-core";
 
 import { createSmartphoneSchema, createTabletSchema, literalExpression } from "~/lib/test-fixtures";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
 
-import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildPredicateClause } from "./predicate-clause-builder";
 import type { QueryEngineContext } from "./schemas";
+import { createScalarTestCompiler, dialect } from "./test-support";
 
-const dialect = new PgDialect();
 const smartphoneSchema = createSmartphoneSchema();
 const tabletSchema = createTabletSchema();
 const schemaMap = buildSchemaMap([smartphoneSchema, tabletSchema]);
@@ -20,20 +18,12 @@ const context: QueryEngineContext = {
 	eventJoinMap: buildEventJoinMap([]),
 };
 
-const createTestCompiler = (
-	input: Omit<Parameters<typeof createScalarExpressionCompiler>[0], "getTypeInfo">,
-) => {
-	const getTypeInfo = createExpressionTypeResolver({
-		context: input.context,
-		computedFields: input.computedFields,
-	});
-	return createScalarExpressionCompiler({ ...input, getTypeInfo });
-};
+const createTestCompiler = createScalarTestCompiler;
 
 describe("buildPredicateClause", () => {
 	describe("isNull / isNotNull", () => {
 		it("builds isNull predicate for entity properties", () => {
-			const compiler = createTestCompiler({ context, alias: "entities" });
+			const compiler = createScalarTestCompiler({ context, alias: "entities" });
 
 			const clause = buildPredicateClause({
 				compiler: {
@@ -51,7 +41,7 @@ describe("buildPredicateClause", () => {
 		});
 
 		it("builds isNotNull predicate for entity properties", () => {
-			const compiler = createTestCompiler({ context, alias: "entities" });
+			const compiler = createScalarTestCompiler({ context, alias: "entities" });
 
 			const clause = buildPredicateClause({
 				compiler: {

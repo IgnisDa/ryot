@@ -1,3 +1,5 @@
+import { extractErrorMessage } from "@ryot/ts-utils";
+
 import { redis } from "~/lib/redis";
 import {
 	apiFailure,
@@ -30,6 +32,6 @@ export const getCachedValue: HostFunction<CachedValueContext> = async (
 			return apiFailure("getCachedValue: stored value is not valid JSON");
 		}
 	} catch (error) {
-		return apiFailure(error instanceof Error ? error.message : "getCachedValue failed");
+		return apiFailure(extractErrorMessage(error, "getCachedValue failed"));
 	}
 };

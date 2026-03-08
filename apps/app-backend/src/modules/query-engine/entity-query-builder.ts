@@ -1,52 +1,39 @@
-import { sql } from "drizzle-orm";
-
-import { buildQueryContext, type PreparedQueryContext } from "./context";
-import { buildResolvedFieldsExpression } from "./display-builder";
+import type { PreparedQueryContext } from "./context";
 import { buildBaseEntitiesCte } from "./entity-query-ctes";
-import { buildLatestEventJoinCte, buildJoinedEntitiesCte } from "./event-join-ctes";
-import { createQueryCompiler } from "./expression-compiler";
-import { createExpressionTypeResolver } from "./expression-type-resolver";
-import { buildFilterWhereClause } from "./filter-builder";
+import { buildJoinedEntitiesCte } from "./event-join-ctes";
 import { executePaginatedQuery } from "./paginated-query-sql";
-import { ENTITY_CTE_ALIASES } from "./query-cte-shared";
 import {
-	buildLatestRelationshipJoinCte,
-	buildRequiredJoinWhereClause,
-} from "./relationship-join-ctes";
+	appendRequiredJoinFilterClause,
+	buildLatestEventJoinCtes,
+	buildLatestRelationshipJoinCtes,
+	buildQueryFilterClause,
+	buildQueryResolvedFields,
+	buildQueryRuntime,
+	buildQuerySortExpression,
+	buildSortDirection,
+} from "./query-builder-shared";
+import { ENTITY_CTE_ALIASES } from "./query-cte-shared";
 import type { EntityQueryEngineRequest, QueryEngineEntityResponse } from "./schemas";
-import { buildSortExpression } from "./sort-builder";
 
 export const executePreparedQuery = async (input: {
 	userId: string;
 	context: PreparedQueryContext;
 	request: EntityQueryEngineRequest;
 }): Promise<QueryEngineEntityResponse> => {
-	const queryContext = buildQueryContext(input.userId, input.context);
-	const getTypeInfo = createExpressionTypeResolver({
-		context: queryContext,
+	const runtime = buildQueryRuntime({
+		userId: input.userId,
+		context: input.context,
 		computedFields: input.request.computedFields,
 	});
-	const filterCompiler = createQueryCompiler({
-		getTypeInfo,
-		context: queryContext,
+	const filterWhereClause = buildQueryFilterClause({
+		runtime,
+		predicate: input.request.filter,
 		alias: ENTITY_CTE_ALIASES.joined,
 		computedFields: input.request.computedFields,
 	});
-	const filterWhereClause = buildFilterWhereClause({
-		context: queryContext,
-		compiler: filterCompiler,
-		predicate: input.request.filter,
-		computedFields: input.request.computedFields,
-	});
-	const sortCompiler = createQueryCompiler({
-		getTypeInfo,
-		context: queryContext,
+	const sortExpression = buildQuerySortExpression({
+		runtime,
 		alias: ENTITY_CTE_ALIASES.filtered,
-		computedFields: input.request.computedFields,
-	});
-	const sortExpression = buildSortExpression({
-		context: queryContext,
-		compiler: sortCompiler,
 		expression: input.request.sort.expression,
 		computedFields: input.request.computedFields,
 	});
@@ -54,28 +41,26 @@ export const executePreparedQuery = async (input: {
 		userId: input.userId,
 		entitySchemaIds: input.context.runtimeSchemas.map((schema) => schema.id),
 	});
-	const latestEventJoinCtes = input.context.eventJoins.map((join) => {
-		return buildLatestEventJoinCte({ join, userId: input.userId });
-	});
-	const latestRelationshipJoinCtes = input.context.relationshipJoins.map((join) => {
-		return buildLatestRelationshipJoinCte({ join, userId: input.userId });
-	});
+	const latestEventJoinCtes = buildLatestEventJoinCtes(input.userId, input.context.eventJoins);
+	const latestRelationshipJoinCtes = buildLatestRelationshipJoinCtes(
+		input.userId,
+		input.context.relationshipJoins,
+	);
 	const joinedEntitiesCte = buildJoinedEntitiesCte({
 		eventJoins: input.context.eventJoins,
 		relationshipJoins: input.context.relationshipJoins,
 	});
-	const resolvedFields = buildResolvedFieldsExpression({
-		getTypeInfo,
-		context: queryContext,
+	const resolvedFields = buildQueryResolvedFields({
+		runtime,
 		fields: input.request.fields,
 		alias: ENTITY_CTE_ALIASES.paginated,
 		computedFields: input.request.computedFields,
 	});
-	const direction = sql.raw(input.request.sort.direction.toUpperCase());
-	const requiredJoinClause = buildRequiredJoinWhereClause(input.context.relationshipJoins);
-	const filterClause = requiredJoinClause
-		? sql`${filterWhereClause} and ${requiredJoinClause}`
-		: filterWhereClause;
+	const direction = buildSortDirection(input.request.sort.direction);
+	const filterClause = appendRequiredJoinFilterClause(
+		filterWhereClause,
+		input.context.relationshipJoins,
+	);
 
 	const { pagination, items } = await executePaginatedQuery({
 		direction,
