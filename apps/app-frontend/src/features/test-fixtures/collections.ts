@@ -1,11 +1,10 @@
 import type { AppCollection } from "~/features/collections/model";
-import { queryEngineEntityFieldKeys } from "~/features/entities/model";
-import type { ApiPostResponseData } from "~/lib/api/types";
+import {
+	queryEngineEntityFieldKeys,
+	type QueryEngineEntitiesItem,
+} from "~/features/entities/model";
 
-type ApiQueryEngineCollection = Extract<
-	ApiPostResponseData<"/query-engine/execute">,
-	{ mode: "entities" }
->["data"]["items"][number];
+type ApiQueryEngineCollection = QueryEngineEntitiesItem;
 
 type CollectionField = ApiQueryEngineCollection[number];
 

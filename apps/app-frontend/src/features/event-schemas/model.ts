@@ -9,7 +9,7 @@ export type AppEventSchema = Omit<ApiEventSchema, "propertiesSchema"> & {
 };
 
 export function sortEventSchemas(eventSchemas: AppEventSchema[]) {
-	return eventSchemas.toSorted((a, b) => {
+	return [...eventSchemas].toSorted((a, b) => {
 		if (a.name !== b.name) {
 			return a.name.localeCompare(b.name);
 		}

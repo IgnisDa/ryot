@@ -1,18 +1,33 @@
 import { createEntityColumnExpression, dayjs, getQueryEngineField } from "@ryot/ts-utils";
 
-import type { ApiGetResponseData, ApiPostRequestBody, ApiPostResponseData } from "~/lib/api/types";
+import type {
+	ApiGetResponseData,
+	ApiPostRequestBody,
+	ApiPostResponseEnvelope,
+} from "~/lib/api/types";
 
 type QueryEngineRequest = Extract<
 	ApiPostRequestBody<"/query-engine/execute">,
 	{ mode: "entities" }
 >;
 type ApiEntity = ApiGetResponseData<"/entities/{entityId}">;
-type QueryEngineResponse = Extract<
-	ApiPostResponseData<"/query-engine/execute">,
+export type QueryEngineEntitiesResponse = Extract<
+	ApiPostResponseEnvelope<"/query-engine/execute">,
 	{ mode: "entities" }
 >;
-type QueryEngineItem = QueryEngineResponse["data"]["items"][number];
-type ApiEntityInput = ApiEntity | QueryEngineItem;
+export type QueryEngineEntitiesItem = QueryEngineEntitiesResponse["data"]["items"][number];
+type QueryEngineItem = QueryEngineEntitiesItem;
+type ApiEntityInput = ApiEntity | QueryEngineEntitiesItem;
+
+function hasQueryEngineMode(value: unknown): value is { mode: unknown } {
+	return !!value && typeof value === "object" && "mode" in value;
+}
+
+export function isQueryEngineEntitiesResponse(
+	value: unknown,
+): value is QueryEngineEntitiesResponse {
+	return hasQueryEngineMode(value) && value.mode === "entities" && "data" in value;
+}
 
 export type SearchResultItem = {
 	externalId: string;
@@ -221,7 +236,7 @@ export function toAppEntity(entity: ApiEntityInput): AppEntity {
 }
 
 export function sortEntities(entities: AppEntity[]) {
-	return entities.toSorted((a, b) => {
+	return [...entities].toSorted((a, b) => {
 		if (a.name !== b.name) {
 			return a.name.localeCompare(b.name);
 		}
