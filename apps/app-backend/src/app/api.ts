@@ -18,6 +18,7 @@ import { facetsApi } from "~/modules/facets/routes";
 import { healthApi } from "~/modules/health/routes";
 import { metricsApi } from "~/modules/metrics/routes";
 import { sandboxApi } from "~/modules/sandbox/routes";
+import { savedViewsApi } from "~/modules/saved-views/routes";
 
 const openApiInfo = {
 	version: "1.0.0",
@@ -75,7 +76,8 @@ export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/entity-schemas", entitySchemasApi)
 	.route("/entities", entitiesApi)
 	.route("/event-schemas", eventSchemasApi)
-	.route("/events", eventsApi);
+	.route("/events", eventsApi)
+	.route("/saved-views", savedViewsApi);
 
 export const apiApp = baseApp
 	.doc("/openapi.json", (c) => ({

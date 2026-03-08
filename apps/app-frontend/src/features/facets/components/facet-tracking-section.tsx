@@ -10,6 +10,7 @@ import {
 } from "@mantine/core";
 import { Plus } from "lucide-react";
 import type { RefCallback } from "react";
+import { useSavedViewsQuery } from "#/features/saved-views/hooks";
 import {
 	useFacetSidebarActions,
 	useFacetSidebarState,
@@ -23,6 +24,7 @@ interface FacetTrackingSectionProps {
 export function FacetTrackingSection(props: FacetTrackingSectionProps) {
 	const state = useFacetSidebarState();
 	const actions = useFacetSidebarActions();
+	const savedViewsQuery = useSavedViewsQuery();
 	const isCreateVisible = state.isCustomizeMode;
 	const visibleItems = state.isCustomizeMode
 		? state.navItems
@@ -83,6 +85,7 @@ export function FacetTrackingSection(props: FacetTrackingSectionProps) {
 					facet={item}
 					key={item.facetId}
 					isFirst={index === 0}
+					savedViews={savedViewsQuery.savedViews}
 					isLast={index === visibleItems.length - 1}
 				/>
 			))}
