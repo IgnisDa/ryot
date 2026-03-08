@@ -40,7 +40,7 @@ function providerScriptId(
 
 describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 	it("searches OpenLibrary and imports a real result into the library", async () => {
-		const { client, email } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaBySlug(client, "book");
 		const scriptId = providerScriptId(schema, "OpenLibrary");
 
@@ -73,8 +73,8 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 		expect(imported.data.name.length).toBeGreaterThan(0);
 		expect(imported.data.entitySchemaId).toBe(schema.id);
 
-		const inLibrary = await queryInLibraryRelationship(client, imported.data.id, email);
-		expect(inLibrary.rowCount).toBeGreaterThan(0);
+		const inLibrary = await queryInLibraryRelationship(client, imported.data.id, schema.slug);
+		expect(inLibrary.data.items.length).toBeGreaterThan(0);
 	});
 
 	it("translates a real TMDB movie on interest (requires tmdbAccessToken)", async () => {

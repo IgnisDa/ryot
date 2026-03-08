@@ -161,7 +161,7 @@ describe("entity translation via client-declared interest", () => {
 		const { client } = auth;
 		const { schema } = await findBuiltinSchemaBySlug(client, "movie");
 		const provenance = {
-			entitySchemaId: schema.id,
+			entitySchemaSlug: schema.slug,
 			sandboxScriptId: providerScript.scriptId,
 			externalId: `e2e-translate-unpopulated-${crypto.randomUUID()}`,
 		};
@@ -184,7 +184,7 @@ describe("entity translation via client-declared interest", () => {
 			});
 			expect(event.reason).toBe("populated");
 
-			const populated = await waitForEntityPopulated(provenance);
+			const populated = await waitForEntityPopulated(client, provenance);
 			expect(populated.populatedAt).not.toBeNull();
 
 			// Give any (incorrect) translate enqueue a chance to land, then prove none did.

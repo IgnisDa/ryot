@@ -159,7 +159,7 @@ describe("POST /library/import — provider entity import", () => {
 
 describe("GET /library/import/:jobId — provider entity import result", () => {
 	it("enqueues a provider import and adds entity to library when completed", async () => {
-		const { client, email } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaBySlug(client, "audiobook");
 
 		const { jobId } = await enqueueEntityImport(client, {
@@ -175,7 +175,7 @@ describe("GET /library/import/:jobId — provider entity import result", () => {
 		expect(result.data.name).toBe(IMPORTED_NAME);
 		expect(result.data.entitySchemaId).toBe(schema.id);
 
-		const inLibrary = await queryInLibraryRelationship(client, result.data.id, email);
-		expect(inLibrary.rowCount).toBeGreaterThan(0);
+		const inLibrary = await queryInLibraryRelationship(client, result.data.id, schema.slug);
+		expect(inLibrary.data.items.length).toBeGreaterThan(0);
 	});
 });

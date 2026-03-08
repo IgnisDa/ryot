@@ -292,8 +292,8 @@ describe("GET /library/import/{jobId}", () => {
 		expect(properties).not.toEqual({});
 		expect(properties.populatedAt).toBeUndefined();
 
-		const relatedEntity = await getGlobalEntityByProvenance({
-			entitySchemaId: companySchema.id,
+		const relatedEntity = await getGlobalEntityByProvenance(client, {
+			entitySchemaSlug: companySchema.slug,
 			externalId: RELATED_COMPANY_EXTERNAL_ID,
 			sandboxScriptId: companyProvider.scriptId,
 		});
