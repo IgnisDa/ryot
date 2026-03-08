@@ -34,7 +34,7 @@ describe("parseEntitySchemaPropertiesSchema", () => {
 	it("accepts already-parsed properties map", () => {
 		const schema = {
 			title: { type: "string" as const },
-			pages: { type: "integer" as const, nullable: true as const },
+			pages: { type: "integer" as const },
 		};
 
 		expect(parseEntitySchemaPropertiesSchema(schema)).toEqual(schema);

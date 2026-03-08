@@ -19,7 +19,7 @@ const isJsonObject = (value: unknown) => {
 
 const validateOptionalTrueFlag = (
 	key: string,
-	name: "required" | "nullable",
+	name: "required",
 	value: unknown,
 ) => {
 	if (value !== undefined && value !== true)
@@ -47,7 +47,6 @@ const validatePropertyDefinition = (key: string, property: unknown): void => {
 
 	const type = prop.type;
 	validateOptionalTrueFlag(key, "required", prop.required);
-	validateOptionalTrueFlag(key, "nullable", prop.nullable);
 
 	if (
 		!appPropertyPrimitiveTypes.includes(type as never) &&
@@ -57,12 +56,12 @@ const validatePropertyDefinition = (key: string, property: unknown): void => {
 		throw new Error(`Property "${key}" has invalid type "${type}"`);
 
 	if (appPropertyPrimitiveTypes.includes(type as never)) {
-		validateAllowedKeys(key, prop, ["nullable", "required", "type"]);
+		validateAllowedKeys(key, prop, ["required", "type"]);
 		return;
 	}
 
 	if (type === "array") {
-		validateAllowedKeys(key, prop, ["items", "nullable", "required", "type"]);
+		validateAllowedKeys(key, prop, ["items", "required", "type"]);
 		if (!prop.items)
 			throw new Error(
 				`Property "${key}" with type "array" must have an items field`,
@@ -72,12 +71,7 @@ const validatePropertyDefinition = (key: string, property: unknown): void => {
 	}
 
 	if (type === "object") {
-		validateAllowedKeys(key, prop, [
-			"nullable",
-			"properties",
-			"required",
-			"type",
-		]);
+		validateAllowedKeys(key, prop, ["properties", "required", "type"]);
 		if (!isJsonObject(prop.properties))
 			throw new Error(
 				`Property "${key}" with type "object" must have a properties field`,

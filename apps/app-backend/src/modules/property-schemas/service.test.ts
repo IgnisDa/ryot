@@ -57,7 +57,7 @@ describe("parsePropertySchemaInput", () => {
 		).toThrow('Property "rating" has unsupported key "items"');
 	});
 
-	it("rejects non-literal required and nullable flags", () => {
+	it("rejects non-literal required flag", () => {
 		expect(() =>
 			parsePropertySchemaInput(
 				{ rating: { type: "number", required: false } },
@@ -67,16 +67,6 @@ describe("parsePropertySchemaInput", () => {
 				},
 			),
 		).toThrow('Property "rating" must have required=true when present');
-
-		expect(() =>
-			parsePropertySchemaInput(
-				{ rating: { type: "number", nullable: "yes" } },
-				{
-					propertiesLabel: "Entity schema properties",
-					schemaLabel: "Entity schema properties schema",
-				},
-			),
-		).toThrow('Property "rating" must have nullable=true when present');
 	});
 
 	it("rejects extra keys on array and object properties", () => {
