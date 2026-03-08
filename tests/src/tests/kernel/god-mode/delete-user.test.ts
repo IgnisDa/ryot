@@ -39,7 +39,7 @@ describe("Delete user admin token enforcement", () => {
 		Effect.gen(function* () {
 			const error = yield* Effect.flip(
 				getBackendClient().call((c) =>
-					c.godMode.deleteUser({ path: { userId: UserId.make("any-id") } }),
+					c.godMode.deleteUser({ params: { userId: UserId.make("any-id") } }),
 				),
 			);
 			assertTaggedError(error, "Unauthorized");
@@ -50,7 +50,7 @@ describe("Delete user admin token enforcement", () => {
 		Effect.gen(function* () {
 			const error = yield* Effect.flip(
 				getBackendClient().call(
-					(c) => c.godMode.deleteUser({ path: { userId: UserId.make("any-id") } }),
+					(c) => c.godMode.deleteUser({ params: { userId: UserId.make("any-id") } }),
 					adminAccessTokenHeaders(WRONG_TOKEN),
 				),
 			);
@@ -66,7 +66,7 @@ describe("Delete user", () => {
 				getBackendClient().call(
 					(c) =>
 						c.godMode.deleteUser({
-							path: { userId: UserId.make(`missing-${crypto.randomUUID()}`) },
+							params: { userId: UserId.make(`missing-${crypto.randomUUID()}`) },
 						}),
 					adminAccessTokenHeaders(ADMIN_TOKEN),
 				),
@@ -93,39 +93,39 @@ describe("Delete user", () => {
 			expect(configuredWorkspace.config).toEqual({ fixture: true });
 			const apiKey = yield* createApiKey(cookies);
 
-			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 				Cookie: cookies,
 			});
-			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 				"X-Api-Key": apiKey,
 			});
 
 			const deleted = yield* client.call(
-				(c) => c.godMode.deleteUser({ path: { userId } }),
+				(c) => c.godMode.deleteUser({ params: { userId } }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(deleted.id).toBe(userId);
 
 			const listed = yield* client.call(
-				(c) => c.godMode.listUsers({ urlParams: { limit: 50, offset: 0, search: email } }),
+				(c) => c.godMode.listUsers({ query: { limit: 50, offset: 0, search: email } }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(listed.users).toHaveLength(0);
 
 			const workspaces = yield* observerClient.call((c) =>
-				c.definitions.listWorkspaces({ urlParams: { includeDisabled: true } }),
+				c.definitions.listWorkspaces({ query: { includeDisabled: true } }),
 			);
 			expect(workspaces.some((candidate) => candidate.slug === workspace.slug)).toBe(true);
 
 			const revokedSession = yield* Effect.flip(
-				client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 					Cookie: cookies,
 				}),
 			);
 			assertTaggedError(revokedSession, "Unauthorized");
 
 			const revokedApiKey = yield* Effect.flip(
-				client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 					"X-Api-Key": apiKey,
 				}),
 			);
@@ -155,7 +155,7 @@ describe("Delete user automation data cleanup", () => {
 			yield* pollTerminalSubscriptionRuns({ executionUserId: rawUserId, signalId });
 
 			yield* client.call(
-				(c) => c.godMode.deleteUser({ path: { userId } }),
+				(c) => c.godMode.deleteUser({ params: { userId } }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 
@@ -166,7 +166,7 @@ describe("Delete user automation data cleanup", () => {
 		}),
 	);
 
-	it.scopedLive(
+	it.live(
 		"removes only the deleted recipient's row from a shared signal, preserving it for other recipients",
 		() =>
 			Effect.gen(function* () {
@@ -221,7 +221,7 @@ describe("Delete user automation data cleanup", () => {
 					providerId: personProvider.providerId,
 				});
 
-				const fakeApprise = yield* startFakeAppriseServerScoped();
+				const fakeApprise = yield* startFakeAppriseServerScoped;
 				const firstMonitor = yield* createAuthenticatedClient();
 				const secondMonitor = yield* createAuthenticatedClient();
 				const importer = yield* createAuthenticatedClient();
@@ -260,7 +260,7 @@ describe("Delete user automation data cleanup", () => {
 				expect(rulesBeforeDeletion).toBeGreaterThan(0);
 
 				yield* getBackendClient().call(
-					(c) => c.godMode.deleteUser({ path: { userId: UserId.make(firstMonitor.userId) } }),
+					(c) => c.godMode.deleteUser({ params: { userId: UserId.make(firstMonitor.userId) } }),
 					adminAccessTokenHeaders(ADMIN_TOKEN),
 				);
 

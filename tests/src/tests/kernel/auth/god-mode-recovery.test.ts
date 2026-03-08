@@ -20,12 +20,12 @@ const godModeListQuery = (search?: string) => ({
 	...(search ? { search } : {}),
 });
 const workspaceListQuery = { includeDisabled: false };
-const uniqueTimestamp = () => DateTime.toEpochMillis(DateTime.unsafeNow());
+const uniqueTimestamp = () => DateTime.toEpochMillis(DateTime.nowUnsafe());
 
 const getUserIdByEmail = (email: string) =>
 	Effect.gen(function* () {
 		const data = yield* getBackendClient().call(
-			(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+			(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
 			adminAccessTokenHeaders(ADMIN_TOKEN),
 		);
 		const user = data.users[0];
@@ -66,7 +66,7 @@ describe("God-mode admin token enforcement", () => {
 		Effect.gen(function* () {
 			const client = getBackendClient();
 			const error = yield* Effect.flip(
-				client.call((c) => c.godMode.listUsers({ urlParams: godModeListQuery() })),
+				client.call((c) => c.godMode.listUsers({ query: godModeListQuery() })),
 			);
 			assertTaggedError(error, "Unauthorized");
 		}),
@@ -77,7 +77,7 @@ describe("God-mode admin token enforcement", () => {
 			const client = getBackendClient();
 			const error = yield* Effect.flip(
 				client.call(
-					(c) => c.godMode.listUsers({ urlParams: godModeListQuery() }),
+					(c) => c.godMode.listUsers({ query: godModeListQuery() }),
 					adminAccessTokenHeaders(WRONG_TOKEN),
 				),
 			);
@@ -90,7 +90,7 @@ describe("God-mode admin token enforcement", () => {
 			const client = getBackendClient();
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.godMode.resetUserPassword({ path: { userId: UserId.make("any-id") } }),
+					c.godMode.resetUserPassword({ params: { userId: UserId.make("any-id") } }),
 				),
 			);
 			assertTaggedError(error, "Unauthorized");
@@ -102,7 +102,7 @@ describe("God-mode admin token enforcement", () => {
 			const client = getBackendClient();
 			const error = yield* Effect.flip(
 				client.call(
-					(c) => c.godMode.resetUserPassword({ path: { userId: UserId.make("any-id") } }),
+					(c) => c.godMode.resetUserPassword({ params: { userId: UserId.make("any-id") } }),
 					adminAccessTokenHeaders(WRONG_TOKEN),
 				),
 			);
@@ -117,7 +117,7 @@ describe("God-mode admin token enforcement", () => {
 				client.call((c) =>
 					c.godMode.setUserDisabled({
 						payload: { disabled: true },
-						path: { userId: UserId.make("any-id") },
+						params: { userId: UserId.make("any-id") },
 					}),
 				),
 			);
@@ -133,7 +133,7 @@ describe("God-mode admin token enforcement", () => {
 					(c) =>
 						c.godMode.setUserDisabled({
 							payload: { disabled: true },
-							path: { userId: UserId.make("any-id") },
+							params: { userId: UserId.make("any-id") },
 						}),
 					adminAccessTokenHeaders(WRONG_TOKEN),
 				),
@@ -150,7 +150,7 @@ describe("User listing with correct admin token", () => {
 			const { email } = yield* createNoAccountUser("NoneUser");
 
 			const data = yield* client.call(
-				(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			const user = data.users[0];
@@ -165,7 +165,7 @@ describe("User listing with correct admin token", () => {
 			const { email } = yield* createOidcUser("ListOidcUser");
 
 			const data = yield* client.call(
-				(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(data.users[0]?.authState).toBe("oidc");
@@ -178,7 +178,7 @@ describe("User listing with correct admin token", () => {
 			const { email } = yield* createTestUser();
 
 			const data = yield* client.call(
-				(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(data.users[0]?.authState).toBe("credential");
@@ -205,7 +205,7 @@ describe("User listing with correct admin token", () => {
 			);
 
 			const data = yield* client.call(
-				(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(data.users[0]?.authState).toBe("mixed");
@@ -228,7 +228,7 @@ describe("User provisioning", () => {
 			);
 
 			const listData = yield* client.call(
-				(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(listData.users[0]?.authState).toBe("none");
@@ -254,7 +254,7 @@ describe("User provisioning", () => {
 			);
 
 			const listData = yield* client.call(
-				(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(listData.users[0]?.authState).toBe("oidc");
@@ -288,35 +288,35 @@ describe("God-mode disable set", () => {
 			const userId = yield* getUserIdByEmail(email);
 			const apiKey = yield* createApiKey(cookies);
 
-			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 				Cookie: cookies,
 			});
 
-			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 				"X-Api-Key": apiKey,
 			});
 
 			const disabledData = yield* client.call(
-				(c) => c.godMode.setUserDisabled({ payload: { disabled: true }, path: { userId } }),
+				(c) => c.godMode.setUserDisabled({ payload: { disabled: true }, params: { userId } }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(typeof disabledData.disabledAt).toBe("string");
 
 			const listData = yield* client.call(
-				(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(listData.users[0]?.disabledAt).toBe(disabledData.disabledAt);
 
 			const revokedSession = yield* Effect.flip(
-				client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 					Cookie: cookies,
 				}),
 			);
 			assertTaggedError(revokedSession, "Unauthorized");
 
 			const blockedApiKey = yield* Effect.flip(
-				client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 					"X-Api-Key": apiKey,
 				}),
 			);
@@ -326,7 +326,7 @@ describe("God-mode disable set", () => {
 			expect(blockedSignIn.error?.status).toBe(403);
 
 			const enableData = yield* client.call(
-				(c) => c.godMode.setUserDisabled({ payload: { disabled: false }, path: { userId } }),
+				(c) => c.godMode.setUserDisabled({ payload: { disabled: false }, params: { userId } }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(enableData.disabledAt).toBeNull();
@@ -346,7 +346,7 @@ describe("Reset link generation and completion for credential user", () => {
 			const userId = yield* getUserIdByEmail(email);
 
 			const resetData = yield* client.call(
-				(c) => c.godMode.resetUserPassword({ path: { userId } }),
+				(c) => c.godMode.resetUserPassword({ params: { userId } }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(resetData.email).toBe(email);
@@ -369,7 +369,7 @@ describe("Reset link generation and completion for credential user", () => {
 			const signInRes = yield* signInWithPassword(email, newPassword);
 			expect(signInRes.error).toBeNull();
 			assertPresent(signInRes.cookies, "Expected session cookies after sign-in");
-			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 				Cookie: signInRes.cookies,
 			});
 		}),
@@ -380,14 +380,14 @@ describe("Reset link generation and completion for credential user", () => {
 			const client = getBackendClient();
 			const { cookies, email } = yield* createTestUser();
 
-			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 				Cookie: cookies,
 			});
 
 			const userId = yield* getUserIdByEmail(email);
 
 			const resetData = yield* client.call(
-				(c) => c.godMode.resetUserPassword({ path: { userId } }),
+				(c) => c.godMode.resetUserPassword({ params: { userId } }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			const token = new URL(resetData.resetUrl).searchParams.get("token");
@@ -404,7 +404,7 @@ describe("Reset link generation and completion for credential user", () => {
 			expect(resetError).toBeNull();
 
 			const oldSessionError = yield* Effect.flip(
-				client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 					Cookie: cookies,
 				}),
 			);
@@ -413,7 +413,7 @@ describe("Reset link generation and completion for credential user", () => {
 			const signInRes = yield* signInWithPassword(email, newPassword);
 			expect(signInRes.error).toBeNull();
 			assertPresent(signInRes.cookies, "Expected session cookies after re-sign-in");
-			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 				Cookie: signInRes.cookies,
 			});
 		}),
@@ -427,7 +427,7 @@ describe("Reset link generation and completion for no-account user", () => {
 			const { email, userId } = yield* createNoAccountUser("NoneReset");
 
 			const resetData = yield* client.call(
-				(c) => c.godMode.resetUserPassword({ path: { userId } }),
+				(c) => c.godMode.resetUserPassword({ params: { userId } }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(resetData.email).toBe(email);
@@ -448,7 +448,7 @@ describe("Reset link generation and completion for no-account user", () => {
 			expect(signInRes.error).toBeNull();
 
 			const listData = yield* client.call(
-				(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(listData.users[0]?.authState).toBe("credential");
@@ -464,7 +464,7 @@ describe("OIDC user restrictions", () => {
 
 			const error = yield* Effect.flip(
 				client.call(
-					(c) => c.godMode.resetUserPassword({ path: { userId } }),
+					(c) => c.godMode.resetUserPassword({ params: { userId } }),
 					adminAccessTokenHeaders(ADMIN_TOKEN),
 				),
 			);
@@ -495,7 +495,7 @@ describe("Mixed auth user restrictions", () => {
 
 			const error = yield* Effect.flip(
 				client.call(
-					(c) => c.godMode.resetUserPassword({ path: { userId } }),
+					(c) => c.godMode.resetUserPassword({ params: { userId } }),
 					adminAccessTokenHeaders(ADMIN_TOKEN),
 				),
 			);

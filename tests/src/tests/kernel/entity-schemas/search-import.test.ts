@@ -196,7 +196,7 @@ describe("GET /entity-import/{jobId}", () => {
 			const client = getBackendClient();
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.entityImport.getImportResult({ path: { jobId: crypto.randomUUID() } }),
+					c.entityImport.getImportResult({ params: { jobId: crypto.randomUUID() } }),
 				),
 			);
 
@@ -210,7 +210,7 @@ describe("GET /entity-import/{jobId}", () => {
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.entityImport.getImportResult({ path: { jobId: crypto.randomUUID() } }),
+					c.entityImport.getImportResult({ params: { jobId: crypto.randomUUID() } }),
 				),
 			);
 
@@ -233,7 +233,7 @@ describe("GET /entity-import/{jobId}", () => {
 			});
 
 			const error = yield* Effect.flip(
-				clientB.call((c) => c.entityImport.getImportResult({ path: { jobId } })),
+				clientB.call((c) => c.entityImport.getImportResult({ params: { jobId } })),
 			);
 
 			assertTaggedError(error, "NotFound");
@@ -322,7 +322,7 @@ describe("GET /entity-import/{jobId}", () => {
 
 			assertPresent(populatedAt, "Expected populatedAt to be present on the imported entity");
 			expect(typeof populatedAt).toBe("string");
-			expect(DateTime.formatIso(DateTime.unsafeMake(populatedAt))).toBe(populatedAt);
+			expect(DateTime.formatIso(DateTime.makeUnsafe(populatedAt))).toBe(populatedAt);
 		}),
 	);
 });

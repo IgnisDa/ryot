@@ -15,7 +15,7 @@ import {
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-const currentTime = () => DateTime.unsafeNow();
+const currentTime = () => DateTime.nowUnsafe();
 const startOfDay = (value = currentTime()) => DateTime.startOf(value, "day");
 const add = (
 	value: ReturnType<typeof currentTime>,
@@ -298,7 +298,7 @@ describe("event time series", () => {
 			expect(result.data.buckets[0]?.value).toBe(1);
 			const bucketStart = result.data.buckets[0]?.startAt;
 			expect(bucketStart).toBeDefined();
-			expect(DateTime.getPartUtc(DateTime.unsafeMake(bucketStart ?? ""), "weekDay")).toBe(1);
+			expect(DateTime.getPartUtc(DateTime.makeUnsafe(bucketStart ?? ""), "weekDay")).toBe(1);
 		}),
 	);
 
