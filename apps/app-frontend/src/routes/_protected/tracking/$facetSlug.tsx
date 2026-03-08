@@ -25,6 +25,7 @@ import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import { getFacetEntitySchemaViewState } from "#/features/entity-schemas/model";
 import { EntitySchemaPropertiesBuilder } from "#/features/entity-schemas/properties-builder";
 import { useCreateEntitySchemaForm } from "#/features/entity-schemas/use-form";
+import { EventSchemasSection } from "#/features/event-schemas/section";
 import { useFacetsQuery } from "#/features/facets/hooks";
 import { FacetIcon } from "#/features/facets/icons";
 import type { AppFacet } from "#/features/facets/model";
@@ -123,7 +124,7 @@ function EntitySchemaList(props: { entitySchemas: AppEntitySchema[] }) {
 
 				return (
 					<Paper key={entitySchema.id} p="lg" withBorder radius="md">
-						<Stack gap="xs">
+						<Stack gap="md">
 							<Group justify="space-between" align="flex-start">
 								<Stack gap={2}>
 									<Text fw={600}>{entitySchema.name}</Text>
@@ -134,6 +135,8 @@ function EntitySchemaList(props: { entitySchemas: AppEntitySchema[] }) {
 									{propertyCount === 1 ? "property" : "properties"}
 								</Text>
 							</Group>
+
+							<EventSchemasSection entitySchema={entitySchema} />
 						</Stack>
 					</Paper>
 				);
@@ -193,7 +196,6 @@ function EntitySchemaCreateModal(props: {
 						<entitySchemaForm.AppField name="slug">
 							{(field) => (
 								<field.TextField
-									required
 									label="Slug"
 									disabled={props.isLoading}
 									placeholder="custom-schema"
@@ -402,18 +404,6 @@ function RouteComponent() {
 				) : (
 					<CustomFacetSchemaSection facet={facet} />
 				)}
-
-				<Box
-					p="md"
-					style={{
-						borderRadius: "var(--mantine-radius-md)",
-						backgroundColor: "var(--mantine-color-gray-0)",
-					}}
-				>
-					<Text c="dimmed" size="sm">
-						Facet tracking content will be added here.
-					</Text>
-				</Box>
 			</Stack>
 		</Container>
 	);
