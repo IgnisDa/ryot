@@ -12,7 +12,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
-import { type MockOverrides, dbRunnerLayer, makeWorkflowEngine } from "#lib/test-support/effect";
+import { type MockOverrides, dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { QueryEngineService } from "#modules/query-engine/service";

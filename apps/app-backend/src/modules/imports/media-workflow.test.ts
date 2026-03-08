@@ -5,13 +5,13 @@ import { ImportRunId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";
-import type { MockOverrides, WorkflowEngineOverrides } from "#lib/test-support/effect";
+import type { MockOverrides, WorkflowEngineOverrides } from "#lib/test-utils/effect";
 import {
 	dbRunnerLayer,
 	makeAppConfigLayer,
 	makeRedisService,
 	makeWorkflowActivityEngine,
-} from "#lib/test-support/effect";
+} from "#lib/test-utils/effect";
 
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import { runOneTimeMediaImportWorkflow } from "./media-workflow";
