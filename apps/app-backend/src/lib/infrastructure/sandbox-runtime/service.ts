@@ -5,6 +5,7 @@ import {
 	type SandboxCapabilityRequirement,
 	type SandboxHostCapability,
 } from "@ryot/sandbox-sdk/core";
+import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { generateId } from "better-auth";
 import {
 	Clock,
@@ -24,6 +25,7 @@ import {
 import { AppConfig } from "../config/service";
 import { RedisService } from "../redis";
 import { ServerRun } from "../server-run";
+import { SandboxArtifactStore } from "./artifacts";
 import { bindSandboxHostFunctions } from "./bridge-adapter";
 import { acquireSandboxCompiledModule } from "./compiled-modules";
 import {
@@ -39,7 +41,6 @@ import {
 	sandboxGrantPathError,
 	type SandboxProcessGrants,
 } from "./filesystem-grants";
-import { SandboxHarvestHandleStore } from "./harvest-handles";
 import { SandboxHostImplementations } from "./host-implementations";
 import {
 	sandboxContextError,
@@ -176,8 +177,8 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 		const bridge = yield* BridgeService;
 		const processes = yield* ProcessPool;
 		const fs = yield* FileSystem.FileSystem;
+		const artifacts = yield* SandboxArtifactStore;
 		const hostImplementations = yield* SandboxHostImplementations;
-		const harvestHandles = yield* SandboxHarvestHandleStore;
 		const localTempRoot = yield* fs.realPath(config.fileStorage.localTempDir).pipe(Effect.orDie);
 
 		const harvestRoot = path.join(
@@ -381,9 +382,13 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						}
 					}
 
+					const completedOutput =
+						isObjectRecord(raw.value) && raw.value["state"] === "completed"
+							? raw.value["output"]
+							: raw.value;
 					const manifest =
 						scratchDirectory !== undefined && raw.success
-							? decodeSandboxScratchManifest(raw.value)
+							? decodeSandboxScratchManifest(completedOutput)
 							: Option.none();
 					const harvest = Option.isSome(manifest)
 						? {
@@ -408,9 +413,12 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							: [];
 					const chunkHandles =
 						harvest && input.workflowExecutionId
-							? yield* harvestHandles.register(input.workflowExecutionId, chunkPaths)
+							? yield* artifacts.materializeOutputs(
+									input.grants?.artifactOwnerExecutionId ?? input.workflowExecutionId,
+									chunkPaths,
+								)
 							: [];
-					if (harvest && !input.workflowExecutionId) {
+					if (harvest) {
 						yield* fs.remove(harvest.directory, { force: true, recursive: true });
 					}
 
@@ -451,7 +459,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 }) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
 		Layer.provide(
-			Layer.mergeAll(ProcessPool.layer, BridgeService.layer, SandboxHarvestHandleStore.layer),
+			Layer.mergeAll(ProcessPool.layer, BridgeService.layer, SandboxArtifactStore.layer),
 		),
 	);
 }

@@ -9,18 +9,10 @@ import {
 import { genericImportKernelInputSchema } from "@ryot/sandbox-sdk/imports";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
-import { Effect, Exit, FileSystem, Layer, Schema, Path } from "effect";
+import { Effect, Exit, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
-import {
-	SANDBOX_HARVEST_DIRECTORY_PREFIX,
-	sandboxHarvestPathError,
-	sanitizeSandboxExecutionSegment,
-} from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
-import { SandboxHarvestHandleStore } from "#lib/infrastructure/sandbox-runtime/harvest-handles";
-import { ServerRun } from "#lib/infrastructure/server-run";
 import type { EntityImportError } from "#modules/entity-import/entity-import-workflow";
 import { EntityImportWorkflow } from "#modules/entity-import/entity-import-workflow";
 import {
@@ -83,16 +75,10 @@ const requireOwned = <A, E>(lookup: Effect.Effect<A | null, E>, message: string)
 export const KernelWorkflowReferencesLive = Layer.effect(
 	KernelWorkflowReferences,
 	Effect.gen(function* () {
-		const path = yield* Path.Path;
-		const config = yield* AppConfig;
 		const runWithDb = yield* DbRunner;
-		const serverRun = yield* ServerRun;
-		const fs = yield* FileSystem.FileSystem;
 		const imports = yield* ImportsRepository;
 		const integrations = yield* IntegrationsRepository;
 		const pluginRuntime = yield* PluginRuntimeResolver;
-		const harvestHandles = yield* SandboxHarvestHandleStore;
-		const localTempRoot = yield* fs.realPath(config.fileStorage.localTempDir).pipe(Effect.orDie);
 
 		const validateAttribution = (input: {
 			userId: UserId;
@@ -115,8 +101,17 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 			]);
 
 		return {
-			execute: (workflowSlug, input, authority, executionId, parentExecutionId, callerScriptId) =>
+			execute: (
+				workflowSlug,
+				input,
+				authority,
+				executionId,
+				_parentExecutionId,
+				callerScriptId,
+				artifactOwnerExecutionId,
+			) =>
 				Effect.gen(function* () {
+					const artifactOwner = artifactOwnerExecutionId ?? _parentExecutionId;
 					if (
 						workflowSlug !== KERNEL_EVENT_CREATE_WORKFLOW &&
 						workflowSlug !== KERNEL_ENTITY_IMPORT_WORKFLOW &&
@@ -217,11 +212,6 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 					}
 					const engine = yield* WorkflowEngine;
 					if (workflowSlug === KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW) {
-						const expectedHarvestDirectoryPrefix = path.join(
-							localTempRoot,
-							`${SANDBOX_HARVEST_DIRECTORY_PREFIX}${serverRun.id}`,
-							`${sanitizeSandboxExecutionSegment(parentExecutionId)}-activity-`,
-						);
 						const decodedInput = yield* Schema.decodeUnknownEffect(genericImportKernelInputSchema)(
 							isObjectRecord(input) ? input : {},
 						).pipe(
@@ -232,30 +222,12 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 									}),
 							),
 						);
-						const chunkFiles = yield* harvestHandles
-							.resolve(parentExecutionId, decodedInput.chunkHandles)
-							.pipe(
-								Effect.mapError(
-									(error) => new SandboxRunError({ message: unknownToMessage(error) }),
-								),
-							);
-						const invalidChunkPath = chunkFiles.find((chunkFile) =>
-							sandboxHarvestPathError(path, chunkFile, expectedHarvestDirectoryPrefix),
-						);
-						if (invalidChunkPath) {
-							return yield* new SandboxRunError({
-								message:
-									sandboxHarvestPathError(path, invalidChunkPath, expectedHarvestDirectoryPrefix) ??
-									"Import chunk path is outside the trusted harvest",
-							});
-						}
-						const { chunkHandles: _chunkHandles, ...kernelInput } = decodedInput;
 						const payload = yield* Schema.decodeUnknownEffect(ProcessGenericImportChunksPayload)({
-							...kernelInput,
-							chunkFiles,
+							...decodedInput,
 							executionId,
 							userId: authority.userId,
-							expectedHarvestDirectoryPrefix,
+							artifactOwnerExecutionId: artifactOwner,
+							artifactReferenceExecutionId: executionId,
 							...("integrationId" in authority && authority.integrationId
 								? { integrationId: authority.integrationId }
 								: {}),
