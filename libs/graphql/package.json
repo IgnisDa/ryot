@@ -2,7 +2,7 @@
 	"name": "@ryot/graphql",
 	"scripts": {
 		"build": "tsc",
-		"typecheck": "tsc"
+		"check": "tsc"
 	},
 	"dependencies": {
 		"@ryot/generated": "workspace:*",

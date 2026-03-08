@@ -7,7 +7,7 @@
 	},
 	"scripts": {
 		"build": "tsc",
-		"typecheck": "tsc"
+		"check": "tsc"
 	},
 	"devDependencies": {
 		"@types/node": "25.3.0",
