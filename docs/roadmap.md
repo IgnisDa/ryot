@@ -264,7 +264,7 @@ A box is checked only when the capability is clearly implemented in the current 
 ### Custom tracker platform
 
 - [x] Custom entity and event schema builder
-- [ ] Generated custom entity CRUD
+- [x] Generated custom entity CRUD
 - [ ] Generated custom event logging
 - [ ] Generated custom entity detail pages
 - [ ] Generated custom facet overview pages
