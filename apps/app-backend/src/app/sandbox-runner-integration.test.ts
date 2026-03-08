@@ -484,6 +484,46 @@ export default defineScript({
 });
 `;
 
+const durableRoleSource = `
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+
+export const manifest = {
+  kind: "operation",
+  name: "Durable role",
+  slug: "durable-role",
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+  capabilities: ["getCachedValue"],
+};
+
+export default {
+	manifest,
+  output: Schema.Unknown,
+	definitionType: "ryot:sandbox-script",
+  input: Schema.Struct({ mode: Schema.String }),
+  run: (input, host, execution) => Effect.gen(function* () {
+    if (input.mode === "detached") {
+      host.getCachedValue("detached");
+      return { detached: true };
+    }
+    if (input.mode === "parallel") {
+      const values = yield* Effect.all([
+        host.getCachedValue("first"),
+        host.getCachedValue("second"),
+      ], { concurrency: "unbounded" });
+      return { values, startedAt: execution.startedAt };
+    }
+    const first = yield* host.getCachedValue("first").pipe(
+      Effect.catch(() => Effect.succeed("caught-pending")),
+    );
+    const second = yield* host.getCachedValue("second").pipe(
+      Effect.catch((error) => Effect.succeed({ error: error.message, data: error.data })),
+    );
+    return { first, second, startedAt: execution.startedAt };
+  }),
+};
+`;
+
 const encodeRunnerRequest = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const decodeRunnerResponse = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
 type RunnerCompiledModule = {
@@ -495,8 +535,10 @@ type RunnerCompiledModule = {
 type RunnerOptions = {
 	readonly apiBase?: string;
 	readonly scriptId?: string;
+	readonly startedAt?: string;
 	readonly moduleUrl?: string;
 	readonly executionId?: string;
+	readonly workflowExecutionId?: string;
 	readonly apiFunctions?: readonly string[];
 	readonly filesystem?: {
 		readonly artifactPath?: string;
@@ -518,8 +560,8 @@ const runInDenoRequest = ({ compiled, context, options = {} }: RunnerRequest) =>
 			assert(runtime);
 			assert(runnerPath);
 			const path = yield* Path.Path;
-			const apiBase = options.apiBase ?? "http://127.0.0.1:1";
 			const filesystem = options.filesystem;
+			const apiBase = options.apiBase ?? "http://127.0.0.1:1";
 			const moduleUrl = yield* materializeSandboxCompiledModule(
 				runtime,
 				sha256Hex(compiled.javascript),
@@ -540,6 +582,10 @@ const runInDenoRequest = ({ compiled, context, options = {} }: RunnerRequest) =>
 				apiFunctions: options.apiFunctions ?? [],
 				moduleUrl: options.moduleUrl ?? moduleUrl,
 				executionId: options.executionId ?? "execution-1",
+				startedAt: options.startedAt ?? "2026-08-06T00:00:00.000Z",
+				...(options.workflowExecutionId
+					? { workflowExecutionId: options.workflowExecutionId }
+					: {}),
 			})}\n`;
 			const command = ChildProcess.make(
 				"deno",
@@ -1252,6 +1298,164 @@ it(
 		),
 	120_000,
 );
+
+it("keeps caught durable pending control flow pending and collects parallel calls in source order", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* startCoreHostBridge({ durableCallsResult: [] });
+				const manifest = {
+					name: "Durable role",
+					slug: "durable-role",
+					kind: "operation" as const,
+					requiredPluginConfigKeys: [] as const,
+					requiredSystemConfigKeys: [] as const,
+					capabilities: ["getCachedValue"] as const,
+				};
+				const options = {
+					apiFunctions: ["durableCalls"],
+					workflowExecutionId: "durable-parent",
+					apiBase: `http://127.0.0.1:${bridge.port}`,
+				};
+				const caught = yield* runInDeno(
+					{ manifest, format: 1, javascript: durableRoleSource },
+					{ mode: "caught" },
+					options,
+				);
+				const parallel = yield* runInDeno(
+					{ manifest, format: 1, javascript: durableRoleSource },
+					{ mode: "parallel" },
+					options,
+				);
+				expect(caught).toMatchObject({
+					success: true,
+					value: {
+						journalLength: 0,
+						state: "pending",
+						requests: [
+							{
+								index: 0,
+								kind: "host",
+								name: "getCachedValue",
+								args: { args: ["first"], capability: "getCachedValue" },
+							},
+						],
+					},
+				});
+				expect(parallel).toMatchObject({
+					success: true,
+					value: {
+						journalLength: 0,
+						state: "pending",
+						requests: [
+							{ index: 0, args: { args: ["first"] } },
+							{ index: 1, args: { args: ["second"] } },
+						],
+					},
+				});
+				expect(bridge.calls.map(({ fnName }) => fnName)).toEqual(["durableCalls", "durableCalls"]);
+			}),
+		),
+	));
+
+it("replays durable host successes and typed failures without bridge redispatch", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* startCoreHostBridge({
+					durableCallsResult: [
+						{
+							value: { state: "success", value: "recorded" },
+							request: {
+								index: 0,
+								kind: "host",
+								name: "getCachedValue",
+								args: { args: ["first"], capability: "getCachedValue" },
+							},
+						},
+						{
+							request: {
+								index: 1,
+								kind: "host",
+								name: "getCachedValue",
+								args: { args: ["second"], capability: "getCachedValue" },
+							},
+							value: {
+								state: "failure",
+								error: { message: "recorded failure", data: { code: 7 } },
+							},
+						},
+					],
+				});
+				const manifest = {
+					name: "Durable role",
+					slug: "durable-role",
+					kind: "operation" as const,
+					requiredPluginConfigKeys: [] as const,
+					requiredSystemConfigKeys: [] as const,
+					capabilities: ["getCachedValue"] as const,
+				};
+				const result = yield* runInDeno(
+					{ manifest, format: 1, javascript: durableRoleSource },
+					{ mode: "replay" },
+					{
+						apiFunctions: ["durableCalls"],
+						workflowExecutionId: "durable-parent",
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+					},
+				);
+
+				expect(result).toMatchObject({
+					success: true,
+					value: {
+						journalLength: 2,
+						state: "completed",
+						output: {
+							first: "recorded",
+							startedAt: "2026-08-06T00:00:00.000Z",
+							second: { error: "recorded failure", data: { code: 7 } },
+						},
+					},
+				});
+				expect(bridge.calls.map(({ fnName }) => fnName)).toEqual(["durableCalls"]);
+			}),
+		),
+	));
+
+it("rejects a durable role that returns with detached host work", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* startCoreHostBridge({ durableCallsResult: [] });
+				const manifest = {
+					name: "Durable role",
+					slug: "durable-role",
+					kind: "operation" as const,
+					requiredPluginConfigKeys: [] as const,
+					requiredSystemConfigKeys: [] as const,
+					capabilities: ["getCachedValue"] as const,
+				};
+				const result = yield* runInDeno(
+					{ manifest, format: 1, javascript: durableRoleSource },
+					{ mode: "detached" },
+					{
+						workflowExecutionId: "durable-parent",
+						apiFunctions: ["durableCalls"],
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+					},
+				);
+
+				expect(result).toMatchObject({
+					success: true,
+					value: {
+						state: "failed",
+						journalLength: 0,
+						error: "Sandbox body returned with detached or in-flight durable host work",
+					},
+				});
+			}),
+		),
+	));
 
 it("exposes only kernel-selected workflow host functions despite an empty manifest", () =>
 	Effect.runPromise(

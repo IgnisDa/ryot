@@ -1,7 +1,7 @@
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxProviderId } from "@ryot/contract/schema/brands";
-import { Effect, Schedule } from "effect";
+import { Clock, DateTime, Effect, Schedule } from "effect";
 import { Activity, DurableQueue } from "effect/unstable/workflow";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -91,11 +91,14 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 		(script.metadata.kind === "workflow"
 			? /^(.*)-replay-\d+$/.exec(payload.executionId)?.[1]
 			: undefined);
+	const startedAt =
+		payload.startedAt ?? DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
 
 	const result = yield* sandbox.run({
 		scriptId: script.id,
 		context: payload.context,
 		metadata: script.metadata,
+		startedAt,
 		authority: payload.authority,
 		contentHash: script.contentHash,
 		executionId: payload.executionId,

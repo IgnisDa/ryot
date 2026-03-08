@@ -5,9 +5,9 @@ import type {
 	SandboxExecutionGrants,
 } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId, type UserId } from "@ryot/contract/schema/brands";
-import type { JsonValue } from "@ryot/sandbox-sdk/wire";
+import { type JsonValue, jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { generateId } from "better-auth";
-import { Context, Effect, Layer, Option, Redacted } from "effect";
+import { Context, Effect, Layer, Option, Redacted, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 import type { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
@@ -39,6 +39,14 @@ const toPluginWorkflowResult = (result: Workflow.Result<JsonValue, SandboxRunErr
 		onSuccess: (output) => ({ output }),
 	});
 
+const toDurableSandboxRunResult = (
+	result: Workflow.Result<JsonValue, SandboxRunError> | undefined,
+) =>
+	toWorkflowRunResult(result, {
+		onFailure: String,
+		onSuccess: (value) => ({ value, logs: [], error: null }),
+	});
+
 export class SandboxExecutionService extends Context.Service<SandboxExecutionService>()(
 	"SandboxExecutionService",
 	{
@@ -65,7 +73,6 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				if (contextError) {
 					return yield* badRequest(contextError);
 				}
-
 				const script = yield* runWithDb(repository.getScript(payload.scriptId));
 				if (!script) {
 					return yield* notFound(sandboxScriptNotFoundError);
@@ -93,7 +100,10 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					})
 					.pipe(Effect.orDie);
 
-				return { jobId: createWorkflowJobId(jobIdSecret, executionId, executingUserId) };
+				return {
+					executionId,
+					jobId: createWorkflowJobId(jobIdSecret, executionId, executingUserId),
+				};
 			});
 
 			const getResult = Effect.fn("SandboxExecutionService.getResult")(function* (
@@ -110,9 +120,52 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					return yield* notFound(sandboxJobNotFoundError);
 				}
 
-				return toSandboxRunResult(
-					Option.getOrUndefined(yield* engine.poll(SandboxSubmissionWorkflow, executionId)),
+				const submission = yield* engine.poll(SandboxSubmissionWorkflow, executionId);
+				return Option.isSome(submission)
+					? toSandboxRunResult(submission.value)
+					: toDurableSandboxRunResult(
+							Option.getOrUndefined(yield* engine.poll(SandboxScriptWorkflow, executionId)),
+						);
+			});
+
+			const enqueueDurable = Effect.fn("SandboxExecutionService.enqueueDurable")(function* (
+				executingUserId: UserId,
+				payload: EnqueueSandboxBody,
+			) {
+				const scriptId = trimToNull(payload.scriptId);
+				if (!scriptId) {
+					return yield* notFound(sandboxScriptNotFoundError);
+				}
+				const context = payload.context ?? {};
+				const contextError = sandboxContextError(context, undefined, true);
+				if (contextError) {
+					return yield* badRequest(contextError);
+				}
+				const input = yield* Schema.decodeUnknownEffect(jsonValueSchema)(context).pipe(
+					Effect.mapError(() => badRequest("Sandbox definition context must be JSON")),
 				);
+				const script = yield* runWithDb(repository.getScript(payload.scriptId));
+				if (!script) {
+					return yield* notFound(sandboxScriptNotFoundError);
+				}
+				const executionId = generateId();
+				yield* engine
+					.execute(SandboxScriptWorkflow, {
+						discard: true,
+						executionId,
+						payload: {
+							input,
+							executionId,
+							scriptId: script.id,
+							resolutionMode: "exact",
+							authority: { type: "user", userId: executingUserId },
+						},
+					})
+					.pipe(Effect.orDie);
+				return {
+					executionId,
+					jobId: createWorkflowJobId(jobIdSecret, executionId, executingUserId),
+				};
 			});
 
 			const getStoredScript = Effect.fn("SandboxExecutionService.getStoredScript")(function* (
@@ -281,6 +334,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 			return {
 				enqueue,
 				getResult,
+				enqueueDurable,
 				executeWorkflow,
 				getStoredScript,
 				enqueuePluginWorkflow,

@@ -50,13 +50,33 @@ describe("workflow definitions", () => {
 				}),
 		});
 		const calls: unknown[] = [];
+		const journal = [
+			{
+				value: "one",
+				request: {
+					index: 0,
+					name: "first",
+					kind: "activity" as const,
+					args: { input: { value: 1 }, scriptSlug: "activity.first" },
+				},
+			},
+			{
+				value: "two",
+				request: {
+					index: 1,
+					name: "second",
+					kind: "child" as const,
+					args: { input: { value: 1 }, workflowSlug: "workflow.second" },
+				},
+			},
+		];
 		const output = await RuntimeEffect.runPromise(
 			workflow.run(
 				{ value: 1 },
 				{
 					durableCalls: () => {
 						calls.push("bootstrap");
-						return Effect.succeed(["one", "two"]);
+						return Effect.succeed(journal);
 					},
 				},
 				{ metadata: {}, sandboxScriptId: "workflow-1" },
@@ -65,6 +85,7 @@ describe("workflow definitions", () => {
 
 		expect(output).toEqual({
 			state: "pending",
+			journalLength: 2,
 			requests: [
 				{
 					index: 0,
@@ -103,23 +124,40 @@ describe("workflow definitions", () => {
 					concurrency: "unbounded",
 				}).pipe(Effect.as(["first", "second"])),
 		});
-		const run = (journal: ReadonlyArray<null>) =>
+		const requests = [
+			{ index: 0, name: "first", kind: "sleep" as const, args: { durationMs: 10 } },
+			{ index: 1, name: "second", kind: "sleep" as const, args: { durationMs: 20 } },
+		];
+		const run = (values: ReadonlyArray<null>) =>
 			RuntimeEffect.runPromise(
 				workflow.run(
 					null,
-					{ durableCalls: () => Effect.succeed(journal) },
+					{
+						durableCalls: () =>
+							Effect.succeed(
+								values.map((value, index) => {
+									const request = requests[index];
+									if (!request) {
+										throw new Error("Missing test request");
+									}
+									return { value, request };
+								}),
+							),
+					},
 					{ metadata: {}, sandboxScriptId: "workflow-1" },
 				),
 			);
 
 		expect(await run([])).toEqual({
 			state: "pending",
+			journalLength: 0,
 			requests: [
 				{ index: 0, name: "first", kind: "sleep", args: { durationMs: 10 } },
 				{ index: 1, name: "second", kind: "sleep", args: { durationMs: 20 } },
 			],
 		});
 		expect(await run([null, null])).toEqual({
+			journalLength: 2,
 			state: "completed",
 			output: ["first", "second"],
 			requests: [
@@ -148,14 +186,28 @@ describe("workflow definitions", () => {
 		const output = await RuntimeEffect.runPromise(
 			workflow.run(
 				null,
-				{ durableCalls: () => Effect.succeed([null]) },
+				{
+					durableCalls: () =>
+						Effect.succeed([
+							{
+								value: null,
+								request: {
+									index: 0,
+									name: "done",
+									kind: "sleep" as const,
+									args: { durationMs: 10 },
+								},
+							},
+						]),
+				},
 				{ metadata: {}, sandboxScriptId: "workflow-1" },
 			),
 		);
 
 		expect(output).toEqual({
-			output: "completed-output",
+			journalLength: 1,
 			state: "completed",
+			output: "completed-output",
 			requests: [{ index: 0, name: "done", kind: "sleep", args: { durationMs: 10 } }],
 		});
 	});
@@ -200,14 +252,12 @@ describe("workflow definitions", () => {
 
 	test("validates direct durable call request shapes", () => {
 		const decode = Schema.decodeUnknownSync(workflowDurableCallRequestSchema);
-		expect(
-			decode({
-				index: 0,
-				name: "wait",
-				kind: "sleep",
-				args: { durationMs: 1000 },
-			}),
-		).toEqual({ index: 0, name: "wait", kind: "sleep", args: { durationMs: 1000 } });
+		expect(decode({ index: 0, name: "wait", kind: "sleep", args: { durationMs: 1000 } })).toEqual({
+			index: 0,
+			name: "wait",
+			kind: "sleep",
+			args: { durationMs: 1000 },
+		});
 		expect(() =>
 			decode({
 				index: 0,
@@ -250,10 +300,10 @@ describe("workflow definitions", () => {
 
 	test("turns a workflow body failure into a failed envelope keeping its durable requests", async () => {
 		const manifest = defineManifest({
-			kind: "workflow",
-			capabilities: [],
 			name: "Failing",
 			slug: "failing",
+			kind: "workflow",
+			capabilities: [],
 			requiredPluginConfigKeys: [],
 			requiredSystemConfigKeys: [],
 		});
@@ -275,13 +325,27 @@ describe("workflow definitions", () => {
 		const envelope = await RuntimeEffect.runPromise(
 			workflow.run(
 				{},
-				{ durableCalls: () => RuntimeEffect.succeed(["recorded"]) },
+				{
+					durableCalls: () =>
+						RuntimeEffect.succeed([
+							{
+								value: "recorded",
+								request: {
+									index: 0,
+									name: "step",
+									kind: "activity" as const,
+									args: { input: {}, scriptSlug: "activity.step" },
+								},
+							},
+						]),
+				},
 				{ metadata: {}, sandboxScriptId: "failing" },
 			),
 		);
 
 		expect(envelope).toEqual({
 			state: "failed",
+			journalLength: 1,
 			error: "Error: invariant violated",
 			requests: [
 				{

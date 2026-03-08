@@ -96,12 +96,27 @@ const isSandboxCapabilityAllowed = (
 
 export const selectSandboxHostFunctions = (
 	boundApiFunctions: Readonly<Record<string, BoundHostFunction>>,
-	input: Pick<SandboxRunInput, "allowedHostFunctions" | "authority" | "metadata">,
+	input: Pick<
+		SandboxRunInput,
+		"allowedHostFunctions" | "authority" | "metadata" | "workflowExecutionId"
+	>,
 ) => {
 	const selectedApiFunctions: Record<string, BoundHostFunction> = {};
-	if (isWorkflowSandboxMetadata(input.metadata)) {
+	if (input.workflowExecutionId || isWorkflowSandboxMetadata(input.metadata)) {
 		const durableCalls = boundApiFunctions["durableCalls"];
-		return durableCalls ? { durableCalls } : selectedApiFunctions;
+		if (durableCalls) {
+			selectedApiFunctions["durableCalls"] = durableCalls;
+		}
+		for (const key of input.allowedHostFunctions) {
+			if (key !== "log" && key !== "span") {
+				continue;
+			}
+			const fn = boundApiFunctions[key];
+			if (fn && isSandboxCapabilityAllowed(key, input)) {
+				selectedApiFunctions[key] = fn;
+			}
+		}
+		return selectedApiFunctions;
 	}
 	for (const key of input.allowedHostFunctions) {
 		// `artifact-read` and `scratch` are per-execution Deno permission grants honoured at spawn
@@ -123,10 +138,12 @@ const SandboxRunnerRequest = Schema.Struct({
 	context: Schema.Unknown,
 	scriptId: Schema.String,
 	metadata: Schema.Unknown,
+	startedAt: Schema.String,
 	moduleUrl: Schema.String,
 	executionId: Schema.String,
 	compiledFormat: Schema.Finite,
 	apiFunctions: Schema.Array(Schema.String),
+	workflowExecutionId: Schema.optional(Schema.String),
 	limits: Schema.Record(Schema.String, Schema.Union([Schema.Finite, Schema.String])),
 	filesystem: Schema.optional(
 		Schema.Struct({
@@ -178,7 +195,8 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 			Effect.scoped(
 				Effect.gen(function* () {
 					const context = input.context ?? {};
-					const contextError = sandboxContextError(context, input.metadata);
+					const workflow = input.workflowExecutionId !== undefined;
+					const contextError = sandboxContextError(context, input.metadata, workflow);
 					if (contextError) {
 						return yield* new SandboxRunError({ message: contextError });
 					}
@@ -249,8 +267,12 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						executionId: input.executionId,
 						compiledFormat: input.compiledFormat,
 						apiBase: `http://127.0.0.1:${bridge.port}`,
-						limits: sandboxRunnerLimits(input.metadata),
 						apiFunctions: Object.keys(selectedApiFunctions),
+						startedAt: input.startedAt ?? "1970-01-01T00:00:00.000Z",
+						limits: sandboxRunnerLimits(input.metadata, workflow),
+						...(input.workflowExecutionId
+							? { workflowExecutionId: input.workflowExecutionId }
+							: {}),
 						...(artifactPath !== undefined ||
 						namedArtifactPaths !== undefined ||
 						scratchDirectory !== undefined
@@ -285,7 +307,6 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 					}
 					yield* Queue.poll(worker.responseQueue).pipe(Effect.asVoid);
 
-					const workflow = isWorkflowSandboxMetadata(input.metadata);
 					const timeoutMs = workflow
 						? Math.max(SANDBOX_LIMITS.execution.timeoutMs, WORKFLOW_SANDBOX_LIMITS.timeoutMs)
 						: SANDBOX_LIMITS.execution.timeoutMs;
