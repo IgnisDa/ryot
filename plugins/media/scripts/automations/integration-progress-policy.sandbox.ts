@@ -1,9 +1,11 @@
 import { defineAutomationPolicy, type AutomationPolicyInput } from "@ryot/sandbox-sdk/automation";
-import type { EventRecord, SandboxHost } from "@ryot/sandbox-sdk/core";
+import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { buildEventReadQuery, queryEngineEventRows } from "@ryot/sandbox-sdk/query-engine";
+import { buildEventReadDocument } from "@ryot/sandbox-sdk/ryotql";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
+
+import { decodeProgressEvents, type MediaProgressEvent } from "../../shared/ryotql";
 
 const SUBITEM_KEYS = ["animeEpisode", "mangaVolume", "mangaChapter"] as const;
 const DEFAULT_THRESHOLD_SECONDS = 7200;
@@ -16,7 +18,7 @@ export const manifest = defineManifest({
 	requiredPluginConfigKeys: ["progressUpdateThresholdHours"],
 	capabilities: [
 		"getPluginConfig",
-		"executeQueryEngine",
+		"executeRyotql",
 		"claimPersistentValue",
 		"getCurrentIntegration",
 	],
@@ -78,7 +80,7 @@ const eventTimestamp = (value: string) => {
 	return Number.isFinite(timestamp) ? timestamp : 0;
 };
 
-const sortLatestFirst = (left: EventRecord, right: EventRecord) => {
+const sortLatestFirst = (left: MediaProgressEvent, right: MediaProgressEvent) => {
 	const occurredDiff = eventTimestamp(right.occurredAt) - eventTimestamp(left.occurredAt);
 	return occurredDiff !== 0
 		? occurredDiff
@@ -96,15 +98,15 @@ const getThresholdSeconds = (host: AutomationHost) =>
 
 const getMatchingEvents = (host: AutomationHost, draft: Draft, properties: Properties) =>
 	host
-		.executeQueryEngine(
-			buildEventReadQuery({
+		.executeRyotql(
+			buildEventReadDocument({
 				entityId: draft.entityId,
 				eventSchemaSlug: "progress",
 				entitySchemaSlug: draft.entitySchemaSlug,
 			}),
 		)
 		.pipe(
-			Effect.map(queryEngineEventRows),
+			Effect.map(decodeProgressEvents),
 			Effect.map((events) =>
 				[...events]
 					.filter((event) => {

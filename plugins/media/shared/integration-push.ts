@@ -5,15 +5,17 @@ import type {
 	SandboxHost,
 } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { buildEntityReadQuery, queryEngineEntityRows } from "@ryot/sandbox-sdk/query-engine";
+import { buildEntityReadDocument } from "@ryot/sandbox-sdk/ryotql";
+
+import { decodeEntityReadResponse } from "./ryotql";
 
 export type IntegrationPushHost = SandboxHost<
 	readonly [
 		"httpCall",
+		"executeRyotql",
 		"getEntitySchemas",
 		"listIntegrations",
 		"getUserPreferences",
-		"executeQueryEngine",
 	]
 >;
 
@@ -54,15 +56,10 @@ export const fetchEntity = (
 	entitySchemaSlug: string,
 ) =>
 	host
-		.executeQueryEngine(
-			buildEntityReadQuery({ entityIds: [entityId], entitySchemaSlugs: [entitySchemaSlug] }),
+		.executeRyotql(
+			buildEntityReadDocument({ entityIds: [entityId], entitySchemaSlugs: [entitySchemaSlug] }),
 		)
-		.pipe(
-			Effect.map(queryEngineEntityRows),
-			Effect.flatMap(([entity]) =>
-				entity ? Effect.succeed(entity) : Effect.fail({ message: "Entity not found" }),
-			),
-		);
+		.pipe(Effect.map(decodeEntityReadResponse));
 
 export const resolveEntityProviderName = (host: IntegrationPushHost, entity: EntityRecord) => {
 	if (!entity.providerId) {
