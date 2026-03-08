@@ -1,17 +1,17 @@
-import { HttpApiBuilder } from "@effect/platform";
 import { AppContract } from "@ryot/contract/contract";
 import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
+import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { OperationalGateService } from "./operational-gate-service";
 import { TestSupportService } from "./service";
 
 export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupport", (handlers) =>
 	handlers
-		.handle("getSandboxScript", ({ path }) =>
+		.handle("getSandboxScript", ({ params }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
-				return yield* svc.getSandboxScript(path.scriptId);
+				return yield* svc.getSandboxScript(params.scriptId);
 			}).pipe(dieOnDbError),
 		)
 		.handle("listSandboxScripts", () =>
@@ -26,10 +26,10 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.enqueueSandbox(payload);
 			}).pipe(dieOnDbError),
 		)
-		.handle("getSandboxResult", ({ path, urlParams }) =>
+		.handle("getSandboxResult", ({ params, query }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
-				return yield* svc.getSandboxResult(urlParams.executingUserId, path.jobId);
+				return yield* svc.getSandboxResult(query.executingUserId, params.jobId);
 			}).pipe(dieOnDbError),
 		)
 		.handle("startWorkflowLoadGate", ({ payload }) =>
@@ -80,16 +80,16 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.listGlobalRelationships(payload);
 			}).pipe(dieOnDbError),
 		)
-		.handle("getBuiltinEntitySchema", ({ path }) =>
+		.handle("getBuiltinEntitySchema", ({ params }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
-				return yield* svc.getBuiltinEntitySchema(path.slug);
+				return yield* svc.getBuiltinEntitySchema(params.slug);
 			}).pipe(dieOnDbError),
 		)
-		.handle("setEntityPopulatedAt", ({ path, payload }) =>
+		.handle("setEntityPopulatedAt", ({ params, payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
-				return yield* svc.setEntityPopulatedAt(path.entityId, payload.populatedAt);
+				return yield* svc.setEntityPopulatedAt(params.entityId, payload.populatedAt);
 			}).pipe(dieOnDbError),
 		)
 		.handle("upsertEntityTranslation", ({ payload }) =>
@@ -98,10 +98,10 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.upsertEntityTranslation(payload);
 			}).pipe(dieOnDbError),
 		)
-		.handle("listEntityTranslations", ({ path }) =>
+		.handle("listEntityTranslations", ({ params }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
-				return yield* svc.listEntityTranslations(path.entityId);
+				return yield* svc.listEntityTranslations(params.entityId);
 			}).pipe(dieOnDbError),
 		)
 		.handle("linkAuthAccount", ({ payload }) =>
@@ -119,7 +119,7 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 		.handle("triggerPluginBoot", () =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
-				return yield* svc.triggerPluginBoot();
+				return yield* svc.triggerPluginBoot;
 			}),
 		)
 		.handle("setEntityInterest", ({ payload }) =>
@@ -140,10 +140,10 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.listSubscriptionRuns(payload);
 			}).pipe(dieOnDbError),
 		)
-		.handle("countAutomationRules", ({ path }) =>
+		.handle("countAutomationRules", ({ params }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
-				return yield* svc.countAutomationRules(path.userId);
+				return yield* svc.countAutomationRules(params.userId);
 			}).pipe(dieOnDbError),
 		),
 );
