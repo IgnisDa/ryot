@@ -162,16 +162,16 @@ Relationship join references expose relationship row built-ins, schema-validated
 
 ## Tasks
 
-**Overall Progress:** 1 of 8 tasks completed
+**Overall Progress:** 2 of 8 tasks completed
 
-**Current Task:** [Task 02](./02-e2e-tests-schema-slug-collision-rules.md) (todo)
+**Current Task:** [Task 03](./03-replace-relationship-filters-with-required-relationship-joins.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                                                                   | Type | Status |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------- | ---- | ------ |
 | 01  | [Enforce Schema Slug Collision Rules](./01-enforce-schema-slug-collision-rules.md)                                                     | AFK  | done   |
-| 02  | [E2E Tests For Schema Slug Collision Rules](./02-e2e-tests-schema-slug-collision-rules.md)                                             | AFK  | todo   |
+| 02  | [E2E Tests For Schema Slug Collision Rules](./02-e2e-tests-schema-slug-collision-rules.md)                                             | AFK  | done   |
 | 03  | [Replace Relationship Filters With Required Relationship Joins](./03-replace-relationship-filters-with-required-relationship-joins.md) | AFK  | todo   |
 | 04  | [Return And Use Relationship Row Fields](./04-return-and-use-relationship-row-fields.md)                                               | AFK  | todo   |
 | 05  | [Add Join-Local Relationship Filtering](./05-add-join-local-relationship-filtering.md)                                                 | AFK  | todo   |
