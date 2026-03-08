@@ -68,16 +68,16 @@ export function SetupStepCard(props: SetupStepCardProps) {
 					</Box>
 				</Group>
 
-				{props.status === "active" && (props.onPrimaryAction || props.onSecondaryAction) && (
+				{props.status === "active" && (props.onPrimaryAction ?? props.onSecondaryAction) && (
 					<Group gap="sm" mt="xs">
 						{props.onPrimaryAction && (
 							<Button color="accent" variant="filled" onClick={props.onPrimaryAction}>
-								{props.primaryActionLabel || "Continue"}
+								{props.primaryActionLabel ?? "Continue"}
 							</Button>
 						)}
 						{props.onSecondaryAction && (
 							<Button variant="subtle" onClick={props.onSecondaryAction}>
-								{props.secondaryActionLabel || "Skip"}
+								{props.secondaryActionLabel ?? "Skip"}
 							</Button>
 						)}
 					</Group>

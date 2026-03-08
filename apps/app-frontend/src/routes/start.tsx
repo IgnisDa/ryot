@@ -18,7 +18,7 @@ export const Route = createFileRoute("/start")({
 	beforeLoad: async ({ search }) => {
 		const session = await authClient.getSession();
 		if (session.data) {
-			throw redirect({ to: search.redirect || "/" });
+			throw redirect({ to: search.redirect ?? "/" });
 		}
 	},
 });
@@ -84,11 +84,11 @@ function StartPage() {
 			});
 
 			if (response.error) {
-				setSubmitError(response.error.message || "An unknown error occurred");
+				setSubmitError(response.error.message ?? "An unknown error occurred");
 				return;
 			}
 
-			await navigate({ to: search.redirect || "/" });
+			await navigate({ to: search.redirect ?? "/" });
 		},
 	});
 
