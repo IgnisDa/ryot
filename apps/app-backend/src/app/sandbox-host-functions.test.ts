@@ -340,10 +340,11 @@ describe("executeRyotql", () => {
 
 	it.effect("rejects caller-supplied execution scope in the document", () =>
 		Effect.gen(function* () {
+			const callerSuppliedDocument = { ...ryotqlDocument, scope: "plugin" };
 			const execution = yield* runExecuteRyotql(
 				runInput({ type: "user", userId: UserId.make("user-1") }),
 				null,
-				{ ...ryotqlDocument, scope: "plugin" } as unknown as RyotQLDocument,
+				callerSuppliedDocument,
 			);
 
 			expect(Option.getOrThrow(Result.getFailure(execution.result))).toMatchObject({
