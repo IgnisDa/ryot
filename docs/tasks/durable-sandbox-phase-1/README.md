@@ -4,9 +4,9 @@ Pre-requisite: Please read [Durable Sandbox - Overview](../../plans/durable-sand
 
 ## Tasks
 
-**Overall Progress:** 12 of 16 tasks completed
+**Overall Progress:** 13 of 16 tasks completed
 
-**Current Task:** [Task 13](./13-migrate-media-group-providers.md) (todo)
+**Current Task:** [Task 14](./14-cut-over-universal-runtime.md) (todo)
 
 ### Task List
 
@@ -24,7 +24,7 @@ Pre-requisite: Please read [Durable Sandbox - Overview](../../plans/durable-sand
 | 10  | [Migrate Books and Serial Media Providers](./10-migrate-books-and-serial-media-providers.md) | done   |
 | 11  | [Migrate Screen, Music, and Game Providers](./11-migrate-screen-music-game-providers.md)     | done   |
 | 12  | [Migrate Person and Company Providers](./12-migrate-person-company-providers.md)             | done   |
-| 13  | [Migrate Media-Group Providers](./13-migrate-media-group-providers.md)                       | todo   |
+| 13  | [Migrate Media-Group Providers](./13-migrate-media-group-providers.md)                       | done   |
 | 14  | [Cut Over the Universal Sandbox Runtime](./14-cut-over-universal-runtime.md)                 | todo   |
 | 15  | [Close the Phase 1 Verification Gate](./15-close-phase-1-verification.md)                    | todo   |
 | 16  | [Codebase Cleanup](./16-codebase-cleanup.md)                                                 | todo   |
