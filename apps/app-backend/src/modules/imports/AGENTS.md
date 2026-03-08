@@ -6,7 +6,7 @@ This module owns one-time import runs. It normalizes third-party exports into Ry
 
 ## Directory layout
 
-- `routes.ts`, `service.ts`, `repository.ts`, `schemas.ts`, `jobs.ts`, `import-run-workflow.ts`: HTTP, workflow entry, persistence, and shared import-run types.
+- `routes.ts`, `service.ts`, `repository.ts`, `jobs.ts`, `import-run-workflow.ts`: HTTP, workflow entry, persistence, and shared import-run types. (`schemas.ts` lives in `@ryot/contract`.)
 - `runtime/`: file handling, source payload storage, shared failures, and workflow helpers.
 - `sources/`: source-specific adapters and loader helpers.
 - `media-workflow.ts`, `non-media-workflow.ts`, `non-media-operation-registry-workflow.ts`: import workflow orchestration and non-media source operation wiring.
