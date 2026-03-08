@@ -413,7 +413,8 @@ it.effect("preserves stale relationships during additive related-entity sync", (
 });
 
 it.effect("walks the child entity tree and upserts each node", () => {
-	const storedRelationships = new Set<string>();
+	const relationshipOperations: string[] = [];
+	const storedRelationships = new Map<string, typeof savedRelationship>();
 	const entityWrites: Array<{
 		name: string;
 		externalId: string;
@@ -499,19 +500,49 @@ it.effect("walks the child entity tree and upserts each node", () => {
 		relationshipsRepository: makeRelationshipsRepository({
 			createRelationship: (input) =>
 				Effect.sync(() => {
-					storedRelationships.add(
-						`${input.relationshipSchemaId}:${input.sourceEntityId}->${input.targetEntityId}`,
+					const identity = `${input.relationshipSchemaId}:${input.sourceEntityId}->${input.targetEntityId}`;
+					relationshipOperations.push(`create:${identity}`);
+					const existing = storedRelationships.get(identity);
+					if (existing) {
+						return { ...existing, wasInserted: false };
+					}
+					const relationship = {
+						...savedRelationship,
+						properties: input.properties,
+						sourceEntityId: input.sourceEntityId,
+						targetEntityId: input.targetEntityId,
+						relationshipSchemaId: input.relationshipSchemaId,
+						id: RelationshipId.make(`relationship-${storedRelationships.size + 1}`),
+					};
+					storedRelationships.set(identity, relationship);
+					return relationship;
+				}),
+			listGlobalRelationships: (input) =>
+				Effect.sync(() => {
+					relationshipOperations.push(
+						`list:${input.relationshipSchemaId}:${input.type === "anchored" ? input.anchorEntityId : "self"}`,
 					);
-					return savedRelationship;
+					return [...storedRelationships.values()].filter((relationship) => {
+						if (relationship.relationshipSchemaId !== input.relationshipSchemaId) {
+							return false;
+						}
+						if (input.type === "self") {
+							return relationship.sourceEntityId === relationship.targetEntityId;
+						}
+						return input.direction === "outgoing"
+							? relationship.sourceEntityId === input.anchorEntityId
+							: relationship.targetEntityId === input.anchorEntityId;
+					});
 				}),
 		}),
 	} satisfies TestLayerOptions;
 
-	const runProcessor = (executionId: string) =>
+	const runProcessor = (executionId: string, syncExisting: boolean, discoverEpisode: boolean) =>
 		withTestLayer(
 			options,
 			executionId,
 			processChildEntityTree({
+				syncExisting,
 				parentEntityId: baseEntity.id,
 				sandboxScriptId: SandboxScriptId.make("script-1"),
 				parentEntitySchemaId: EntitySchemaId.make("schema-1"),
@@ -539,6 +570,22 @@ it.effect("walks the child entity tree and upserts each node", () => {
 									publishDate: "2026-01-02",
 								},
 							},
+							...(discoverEpisode
+								? [
+										{
+											name: "Episode 2",
+											externalId: "episode-2",
+											entitySchemaSlug: "show-episode",
+											properties: {
+												runtime: 45,
+												seasonNumber: 1,
+												episodeNumber: 2,
+												description: "Episode",
+												publishDate: "2026-01-09",
+											},
+										},
+									]
+								: []),
 						],
 					},
 				],
@@ -546,11 +593,17 @@ it.effect("walks the child entity tree and upserts each node", () => {
 		);
 
 	return Effect.gen(function* () {
-		yield* runProcessor("exec-child-tree-1");
+		yield* runProcessor("exec-child-tree-initial", false, false);
 
 		expect(storedRelationships.size).toBe(2);
 		expect(entityWrites).toHaveLength(2);
 		expect(entityWrites.every((write) => !write.updateExisting)).toBe(true);
+		expect(relationshipOperations).toEqual([
+			"list:rel-season-episode:schema-season-season-1",
+			"create:rel-season-episode:schema-season-season-1->schema-episode-episode-1",
+			"list:rel-show-season:entity-1",
+			"create:rel-show-season:entity-1->schema-season-season-1",
+		]);
 
 		const season = entityWrites.find((write) => write.externalId === "season-1");
 		const episode = entityWrites.find((write) => write.externalId === "episode-1");
@@ -558,9 +611,9 @@ it.effect("walks the child entity tree and upserts each node", () => {
 		expect(season?.sandboxScriptId).toBe("script-1");
 		expect(season?.entitySchemaId).toBe("schema-season");
 		expect(season?.properties).toEqual({
+			seasonNumber: 1,
 			description: "Season",
 			releaseDate: "2026-01-01",
-			seasonNumber: 1,
 			images: [{ type: "remote", url: "https://example.com/season.jpg" }],
 		});
 		expect(episode?.entitySchemaId).toBe("schema-episode");
@@ -571,6 +624,19 @@ it.effect("walks the child entity tree and upserts each node", () => {
 			description: "Episode",
 			publishDate: "2026-01-02",
 		});
+
+		relationshipOperations.length = 0;
+		entityWrites.length = 0;
+		yield* runProcessor("exec-child-tree-refresh", true, true);
+
+		expect(storedRelationships.size).toBe(3);
+		expect(entityWrites).toHaveLength(3);
+		expect(entityWrites.every((write) => write.updateExisting)).toBe(true);
+		expect(relationshipOperations).toEqual([
+			"list:rel-season-episode:schema-season-season-1",
+			"create:rel-season-episode:schema-season-season-1->schema-episode-episode-2",
+			"list:rel-show-season:entity-1",
+		]);
 	});
 });
 
