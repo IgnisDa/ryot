@@ -7,6 +7,8 @@ description: Break a PRD into independently-grabbable task files using tracer-bu
 
 Break a PRD into independently-grabbable task markdown files using vertical slices (tracer bullets).
 
+**Core principle:** Each task file, read together with the parent PRD, must give a fresh agent with no prior context everything it needs to understand the work and implement the changes — including all relevant technical decisions. Never assume the agent has explored the codebase or has memory of prior conversations.
+
 ## Process
 
 ### 1. Locate the PRD
@@ -71,7 +73,7 @@ Create tasks in a sensible execution order so the task list reads cleanly from t
 
 ## What to build
 
-A concise description of this vertical slice. Describe the end-to-end behavior, not layer-by-layer implementation. Reference specific sections of the parent PRD rather than duplicating content.
+A concise description of this vertical slice. Describe the end-to-end behavior, not layer-by-layer implementation. Reference specific sections of the parent PRD rather than duplicating content. Supplement with any slice-specific technical decisions or constraints not already captured in the PRD, so that a fresh agent reading only this file and the parent PRD has everything it needs to implement the slice without further exploration.
 
 ## Acceptance criteria
 
