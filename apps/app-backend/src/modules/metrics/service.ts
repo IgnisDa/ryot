@@ -1,5 +1,5 @@
 import promClient from "prom-client";
-import { pool } from "~/db";
+import { pool } from "~/lib/db";
 import { redis } from "~/lib/redis";
 
 let metricsInitialized = false;

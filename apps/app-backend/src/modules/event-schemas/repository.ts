@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull, or } from "drizzle-orm";
-import { db } from "~/db";
-import { entitySchema, eventSchema } from "~/db/schema";
+import { db } from "~/lib/db";
+import { entitySchema, eventSchema } from "~/lib/db/schema";
 import type { EventSchemaPropertiesShape } from "./service";
 
 const entitySchemaVisibleToUserClause = (userId: string) => {
