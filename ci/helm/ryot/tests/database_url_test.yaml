@@ -1,0 +1,222 @@
+suite: DATABASE_URL creation
+release:
+  name: ryot
+  namespace: default
+tests:
+  # ---------- bundled postgres ----------
+  - it: composes the URL against the bundled postgres service (defaults)
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_USER
+            value: "postgres"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_DB
+            value: "postgres"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: ryot-postgres
+                key: postgres-password
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DATABASE_URL
+            value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@ryot-postgres:5432/$(POSTGRES_DB)"
+
+  - it: honours custom bundled username, database and service port
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      postgres.auth.username: admin
+      postgres.auth.database: ryotdb
+      postgres.service.port: 6543
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_USER
+            value: "admin"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_DB
+            value: "ryotdb"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DATABASE_URL
+            value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@ryot-postgres:6543/$(POSTGRES_DB)"
+
+  - it: reads the bundled password from an existing secret but still composes the URL
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.existingSecret: pg-secret
+      postgres.auth.existingSecretPasswordKey: pw-key
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: pg-secret
+                key: pw-key
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DATABASE_URL
+            value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@ryot-postgres:5432/$(POSTGRES_DB)"
+
+  # ---------- external full url ----------
+  - it: sources the URL from the chart secret for an inline external url
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+      externalDatabase.url: postgres://u:p@h:5432/d
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DATABASE_URL
+            valueFrom:
+              secretKeyRef:
+                name: ryot
+                key: database-url
+
+  - it: sources the URL from an existing secret with a custom key
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+      externalDatabase.existingSecret: ext-db
+      externalDatabase.existingSecretKey: connection-string
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DATABASE_URL
+            valueFrom:
+              secretKeyRef:
+                name: ext-db
+                key: connection-string
+
+  # ---------- external components ----------
+  - it: composes the URL from inline components with a custom port
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+      externalDatabase.host.value: db.example.com
+      externalDatabase.port.value: "7000"
+      externalDatabase.database.value: ryot
+      externalDatabase.username.value: ryotuser
+      externalDatabase.password.value: s3cret
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RYOT_DB_HOST
+            value: "db.example.com"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RYOT_DB_PORT
+            value: "7000"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RYOT_DB_USER
+            value: "ryotuser"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RYOT_DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: ryot
+                key: database-password
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DATABASE_URL
+            value: "postgres://$(RYOT_DB_USER):$(RYOT_DB_PASSWORD)@$(RYOT_DB_HOST):$(RYOT_DB_PORT)/$(RYOT_DB_NAME)"
+
+  - it: reads the component password from an existing secret
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+      externalDatabase.host.value: db.example.com
+      externalDatabase.database.value: ryot
+      externalDatabase.username.value: ryotuser
+      externalDatabase.password.existingSecret: db-creds
+      externalDatabase.password.existingSecretKey: password
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RYOT_DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: db-creds
+                key: password
+
+  - it: reads every component from an existing secret
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+      externalDatabase.host.existingSecret: db-conn
+      externalDatabase.host.existingSecretKey: host
+      externalDatabase.port.existingSecret: db-conn
+      externalDatabase.port.existingSecretKey: port
+      externalDatabase.database.existingSecret: db-conn
+      externalDatabase.database.existingSecretKey: dbname
+      externalDatabase.username.existingSecret: db-conn
+      externalDatabase.username.existingSecretKey: user
+      externalDatabase.password.existingSecret: db-conn
+      externalDatabase.password.existingSecretKey: pass
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RYOT_DB_HOST
+            valueFrom:
+              secretKeyRef:
+                name: db-conn
+                key: host
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RYOT_DB_PORT
+            valueFrom:
+              secretKeyRef:
+                name: db-conn
+                key: port
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DATABASE_URL
+            value: "postgres://$(RYOT_DB_USER):$(RYOT_DB_PASSWORD)@$(RYOT_DB_HOST):$(RYOT_DB_PORT)/$(RYOT_DB_NAME)"
