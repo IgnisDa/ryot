@@ -43,16 +43,16 @@ const arcTheme = createTheme({
 	defaultRadius: "xl",
 	colors: {
 		dark: [
-			"#F5F5F5",
+			"#EDEDED",
 			"#B0B0B0",
 			"#808080",
-			"#2E2E2E",
+			"#404040",
 			"#1E1E1E",
-			"#181818",
+			"#171717",
 			"#121212",
+			"#0E0E0E",
 			"#0A0A0A",
 			"#050505",
-			"#000000",
 		],
 		purple: [
 			"#FAF5FF",
@@ -90,6 +90,18 @@ const arcTheme = createTheme({
 			"#A16207",
 			"#854D0E",
 		],
+		cyan: [
+			"#ECFEFF",
+			"#CFFAFE",
+			"#A5F3FC",
+			"#67E8F9",
+			"#22D3EE",
+			"#06B6D4",
+			"#0891B2",
+			"#0E7490",
+			"#155E75",
+			"#164E63",
+		],
 	},
 });
 
@@ -98,7 +110,7 @@ function ArcTheme() {
 
 	return (
 		<MantineProvider theme={arcTheme} forceColorScheme={colorScheme}>
-			<Flex h="100vh" bg="dark.6">
+			<Flex h="100vh" bg="dark.8">
 				<Box
 					w={280}
 					bg="dark.7"
@@ -372,9 +384,11 @@ function ArcTheme() {
 									styles={{
 										root: {
 											boxShadow: "0 4px 12px rgba(167, 139, 250, 0.25)",
+											transition: "all 0.2s ease",
 											"&:hover": {
 												transform: "translateY(-1px)",
-												boxShadow: "0 6px 16px rgba(167, 139, 250, 0.35)",
+												boxShadow:
+													"0 8px 16px rgba(167, 139, 250, 0.5), 0 0 20px rgba(167, 139, 250, 0.3)",
 											},
 										},
 									}}
@@ -390,21 +404,44 @@ function ArcTheme() {
 									"linear-gradient(135deg, rgba(167, 139, 250, 0.15) 0%, rgba(147, 51, 234, 0.05) 100%)",
 									"linear-gradient(135deg, rgba(52, 211, 153, 0.15) 0%, rgba(34, 197, 94, 0.05) 100%)",
 									"linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(234, 179, 8, 0.05) 100%)",
-									"linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.05) 100%)",
+									"linear-gradient(135deg, rgba(34, 211, 238, 0.15) 0%, rgba(6, 182, 212, 0.05) 100%)",
+								];
+								const borderColors = [
+									"purple.6",
+									"green.5",
+									"yellow.5",
+									"cyan.5",
 								];
 								return (
 									<Grid.Col key={stat.label} span={3}>
 										<Card
 											p="lg"
-											bg="dark.4"
+											bg="dark.7"
 											radius="xl"
 											style={{
 												border: "1px solid rgba(255, 255, 255, 0.08)",
+												borderBottom: `3px solid var(--mantine-color-${borderColors[idx % borderColors.length]})`,
 												background: gradients[idx % 4],
+												transition: "all 0.2s ease",
+											}}
+											styles={{
+												root: {
+													"&:hover": {
+														transform: "translateY(-2px)",
+														boxShadow:
+															"0 8px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(147, 51, 234, 0.15)",
+													},
+												},
 											}}
 										>
 											<Stack gap={6}>
-												<Text size="xs" c="dark.1" tt="uppercase" fw={700}>
+												<Text
+													size="xs"
+													c="dark.1"
+													tt="uppercase"
+													fw={700}
+													style={{ letterSpacing: "0.5px" }}
+												>
 													{stat.label}
 												</Text>
 												<Text size="2rem" fw={700} c="dark.0" lh={1}>
@@ -436,17 +473,22 @@ function ArcTheme() {
 								<Grid.Col key={entity.id} span={4}>
 									<Card
 										p={0}
-										bg="dark.4"
+										bg="dark.7"
 										radius="xl"
 										style={{
 											border: "1px solid rgba(255, 255, 255, 0.08)",
 											cursor: "pointer",
 											transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
 											overflow: "hidden",
-											"&:hover": {
-												transform: "translateY(-4px)",
-												boxShadow: "0 12px 24px rgba(0, 0, 0, 0.3)",
-												borderColor: "rgba(167, 139, 250, 0.3)",
+										}}
+										styles={{
+											root: {
+												"&:hover": {
+													transform: "translateY(-4px)",
+													boxShadow:
+														"0 12px 24px rgba(0, 0, 0, 0.5), 0 0 24px rgba(167, 139, 250, 0.25)",
+													border: "1px solid rgba(167, 139, 250, 0.4)",
+												},
 											},
 										}}
 									>
