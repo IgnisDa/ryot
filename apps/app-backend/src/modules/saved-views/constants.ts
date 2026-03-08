@@ -271,7 +271,10 @@ export const createDefaultDisplayConfiguration = (
 export const createDefaultQueryDefinition = (
 	scope: string[],
 	options?: {
-		relationships?: Extract<SavedViewQueryDefinition, { mode: "entities" }>["relationships"];
+		relationshipJoins?: Extract<
+			SavedViewQueryDefinition,
+			{ mode: "entities" }
+		>["relationshipJoins"];
 	},
 ): SavedViewQueryDefinition => ({
 	scope,
@@ -279,7 +282,7 @@ export const createDefaultQueryDefinition = (
 	eventJoins: [],
 	mode: "entities",
 	computedFields: [],
-	relationships: options?.relationships ?? [],
+	relationshipJoins: options?.relationshipJoins ?? [],
 	sort: {
 		direction: "asc",
 		expression: scope[0]

@@ -136,7 +136,7 @@ driver("search", async function (context) {
 				imageProperty:
 					image === null
 						? { kind: "null", value: null }
-						: { kind: "image", value: { kind: "remote", url: image } },
+						: { kind: "image", value: { type: "remote", url: image } },
 			};
 		})
 		.filter((item) => item !== null)
@@ -214,7 +214,7 @@ driver("details", async function (context) {
 		properties: {
 			gender,
 			alternateNames,
-			images: profileImages.map((url) => ({ kind: "remote", url })),
+			images: profileImages.map((url) => ({ type: "remote", url })),
 			sourceUrl: `https://www.themoviedb.org/person/${externalId}`,
 			description:
 				typeof personData?.biography === "string" && personData.biography.trim()

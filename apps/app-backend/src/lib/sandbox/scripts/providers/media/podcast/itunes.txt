@@ -156,7 +156,7 @@ driver("search", async function(context) {
         imageProperty:
           image === null
             ? { kind: "null", value: null }
-            : { kind: "image", value: { kind: "remote", url: image } },
+            : { kind: "image", value: { type: "remote", url: image } },
       };
     })
     .filter((item) => item !== null);
@@ -265,7 +265,7 @@ driver("details", async function(context) {
       publishYear,
       description: getNullableString(podcast?.description),
       sourceUrl: buildSourceUrl(externalId, title),
-      images: image.map((url) => ({ kind: "remote", url })),
+      images: image.map((url) => ({ type: "remote", url })),
       freeCreators: creators,
       totalEpisodes: totalEpisodes ?? episodes.length,
       episodes,

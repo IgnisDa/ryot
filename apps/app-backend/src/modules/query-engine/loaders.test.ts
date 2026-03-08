@@ -4,7 +4,6 @@ import { QueryEngineNotFoundError, QueryEngineValidationError } from "~/lib/view
 
 import {
 	validateEventSchemaSlugs,
-	validateRelationshipSlugs,
 	validateUniqueSchemaSlugs,
 	validateVisibleEventJoins,
 	validateVisibleRelationshipSchemaRows,
@@ -103,23 +102,9 @@ describe("validateEventSchemaSlugs", () => {
 		).not.toThrow();
 	});
 
-	it("throws NOT_FOUND when a slug is missing", () => {
+	it("throws VALIDATION when a slug is missing", () => {
 		expect(() => validateEventSchemaSlugs(["review", "missing"], [{ slug: "review" }])).toThrow(
-			QueryEngineNotFoundError,
-		);
-	});
-});
-
-describe("validateRelationshipSlugs", () => {
-	it("passes when all slugs are found", () => {
-		expect(() =>
-			validateRelationshipSlugs(["owner", "editor"], new Set(["owner", "editor"])),
-		).not.toThrow();
-	});
-
-	it("throws NOT_FOUND when a slug is missing", () => {
-		expect(() => validateRelationshipSlugs(["owner", "editor"], new Set(["owner"]))).toThrow(
-			QueryEngineNotFoundError,
+			QueryEngineValidationError,
 		);
 	});
 });
@@ -137,13 +122,13 @@ describe("validateVisibleRelationshipSchemaRows", () => {
 		).not.toThrow();
 	});
 
-	it("throws NOT_FOUND when a slug is missing", () => {
+	it("throws VALIDATION when a slug is missing", () => {
 		expect(() =>
 			validateVisibleRelationshipSchemaRows(
 				["in-library", "missing"],
 				[{ id: "rs_1", slug: "in-library" }],
 			),
-		).toThrow(QueryEngineNotFoundError);
+		).toThrow(QueryEngineValidationError);
 	});
 
 	it("throws VALIDATION when a slug resolves to multiple schemas", () => {

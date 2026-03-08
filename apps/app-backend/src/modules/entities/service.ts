@@ -84,8 +84,8 @@ export const parseEntityImage = (image: unknown): ImageSchemaType | null => {
 	if (firstIssue.code === "invalid_type" && firstIssue.path.length === 0) {
 		throw new Error("Entity image must be an object");
 	}
-	if (firstIssue.code === "invalid_union" && firstIssue.path[0] === "kind") {
-		throw new Error("Entity image kind must be either remote or s3");
+	if (firstIssue.code === "invalid_union" && firstIssue.path[0] === "type") {
+		throw new Error("Entity image type must be either remote or s3");
 	}
 
 	throw new Error(firstIssue.message);

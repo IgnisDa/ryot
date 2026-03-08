@@ -154,7 +154,7 @@ query StaffSearchQuery($search: String!, $page: Int!, $perPage: Int!) {
 				imageProperty:
 					image === null
 						? { kind: "null", value: null }
-						: { kind: "image", value: { kind: "remote", url: image } },
+						: { kind: "image", value: { type: "remote", url: image } },
 			};
 		})
 		.filter((item) => item !== null);
@@ -264,7 +264,7 @@ query StaffQuery($id: Int!) {
 			birthPlace,
 			description,
 			alternateNames: [],
-			images: image ? [{ kind: "remote", url: image }] : [],
+			images: image ? [{ type: "remote", url: image }] : [],
 			sourceUrl: `https://anilist.co/staff/${staffId}`,
 			birthDate: formatDate(staffData.dateOfBirth, dayjs),
 			deathDate: formatDate(staffData.dateOfDeath, dayjs),

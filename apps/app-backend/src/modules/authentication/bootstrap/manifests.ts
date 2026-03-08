@@ -398,7 +398,15 @@ export const authenticationBuiltinSavedViews = () => [
 		name: "All Persons",
 		trackerSlug: "media",
 		entitySchemaSlug: "person",
-		relationships: [{ relationshipSchemaSlug: "in-library" as const }],
+		relationshipJoins: [
+			{
+				required: true,
+				key: "inLibrary",
+				direction: "outgoing" as const,
+				kind: "latestRelationship" as const,
+				relationshipSchemaSlug: "in-library" as const,
+			},
+		],
 		displayConfiguration: createDefaultDisplayConfiguration("person"),
 	},
 	{
@@ -427,7 +435,15 @@ export const authenticationBuiltinSavedViews = () => [
 		entitySchemaSlug: slug,
 		name: getBuiltInSavedViewName(slug),
 		slug: normalizeSlug(getBuiltInSavedViewName(slug)),
-		relationships: [{ relationshipSchemaSlug: "in-library" as const }],
+		relationshipJoins: [
+			{
+				key: "inLibrary",
+				kind: "latestRelationship" as const,
+				relationshipSchemaSlug: "in-library" as const,
+				direction: "outgoing" as const,
+				required: true,
+			},
+		],
 		displayConfiguration: createDefaultDisplayConfiguration(slug),
 	})),
 ];

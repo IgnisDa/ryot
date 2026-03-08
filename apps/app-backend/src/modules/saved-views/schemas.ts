@@ -23,9 +23,9 @@ const storedSavedViewScopeSchema = z.array(nonEmptyTrimmedStringSchema);
 
 const scopeSchema = createNonEmptyStringArraySchema("At least one entity schema slug is required");
 
-const eventJoinKeySchema = nonEmptyTrimmedStringSchema.regex(
+const joinKeySchema = nonEmptyTrimmedStringSchema.regex(
 	/^[A-Za-z_][A-Za-z0-9_]*$/,
-	"Event join keys must start with a letter or underscore and contain only letters, numbers, and underscores",
+	"Join keys must start with a letter or underscore and contain only letters, numbers, and underscores",
 );
 
 const createEntityCardDisplayConfigSchema = () =>
@@ -37,16 +37,20 @@ const createEntityCardDisplayConfigSchema = () =>
 		secondarySubtitleProperty: nullableViewExpressionSchema,
 	});
 
-export const sortDefinitionSchema = z.object({
-	expression: viewExpressionSchema,
-	direction: z.enum(["asc", "desc"]),
-});
+export const sortDefinitionSchema = z
+	.object({
+		expression: viewExpressionSchema,
+		direction: z.enum(["asc", "desc"]),
+	})
+	.strict();
 
-export const latestEventJoinDefinitionSchema = z.object({
-	key: eventJoinKeySchema,
-	kind: z.literal("latestEvent"),
-	eventSchemaSlug: nonEmptyTrimmedStringSchema,
-});
+export const latestEventJoinDefinitionSchema = z
+	.object({
+		key: joinKeySchema,
+		kind: z.literal("latestEvent"),
+		eventSchemaSlug: nonEmptyTrimmedStringSchema,
+	})
+	.strict();
 
 export const eventJoinDefinitionSchema = z.discriminatedUnion("kind", [
 	latestEventJoinDefinitionSchema,
@@ -62,19 +66,23 @@ export const eventJoinDefinitionArraySchema = z
 
 export type GridConfig = z.infer<typeof gridConfigSchema>;
 export type ListConfig = z.infer<typeof listConfigSchema>;
-
 export type TableConfig = z.infer<typeof tableConfigSchema>;
 export type SortDefinition = z.infer<typeof sortDefinitionSchema>;
 export type EventJoinDefinition = z.infer<typeof eventJoinDefinitionSchema>;
 export type LatestEventJoinDefinition = z.infer<typeof latestEventJoinDefinitionSchema>;
+
+export type LatestRelationshipJoinDefinition = z.infer<
+	typeof latestRelationshipJoinDefinitionSchema
+>;
+export type RelationshipJoinDefinition = z.infer<typeof relationshipJoinDefinitionSchema>;
 
 export const gridConfigSchema = createEntityCardDisplayConfigSchema();
 
 export const listConfigSchema = createEntityCardDisplayConfigSchema();
 
 export const tableColumnSchema = z.object({
-	label: nonEmptyTrimmedStringSchema,
 	expression: viewExpressionSchema,
+	label: nonEmptyTrimmedStringSchema,
 });
 
 export const tableConfigSchema = z.object({
@@ -89,11 +97,30 @@ export const displayConfigurationSchema = z.object({
 
 export type DisplayConfiguration = z.infer<typeof displayConfigurationSchema>;
 
-const relationshipFilterSchema = z.object({
-	relationshipSchemaSlug: nonEmptyTrimmedStringSchema,
-});
+export const latestRelationshipJoinDefinitionSchema = z
+	.object({
+		key: joinKeySchema,
+		sourceEntityId: z.string().optional(),
+		targetEntityId: z.string().optional(),
+		kind: z.literal("latestRelationship"),
+		filter: nullableViewPredicateSchema.optional(),
+		direction: z.enum(["outgoing", "incoming"]),
+		relationshipSchemaSlug: nonEmptyTrimmedStringSchema,
+		required: z.boolean().optional().default(false),
+	})
+	.strict();
 
-export const relationshipFilterArraySchema = z.array(relationshipFilterSchema).default([]);
+export const relationshipJoinDefinitionSchema = z.discriminatedUnion("kind", [
+	latestRelationshipJoinDefinitionSchema,
+]);
+
+export const relationshipJoinDefinitionArraySchema = z
+	.array(relationshipJoinDefinitionSchema)
+	.refine(
+		(joins) => new Set(joins.map((join) => join.key)).size === joins.length,
+		"Relationship join keys must be unique",
+	)
+	.default([]);
 
 export const timeSeriesMetricSchema = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("count") }).strict(),
@@ -102,12 +129,12 @@ export const timeSeriesMetricSchema = z.discriminatedUnion("type", [
 
 export const aggregateExpressionSchema = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("count") }).strict(),
-	z.object({ predicate: viewPredicateSchema, type: z.literal("countWhere") }).strict(),
 	z.object({ type: z.literal("sum"), expression: viewExpressionSchema }).strict(),
 	z.object({ type: z.literal("avg"), expression: viewExpressionSchema }).strict(),
 	z.object({ type: z.literal("min"), expression: viewExpressionSchema }).strict(),
 	z.object({ type: z.literal("max"), expression: viewExpressionSchema }).strict(),
 	z.object({ type: z.literal("countBy"), groupBy: viewExpressionSchema }).strict(),
+	z.object({ predicate: viewPredicateSchema, type: z.literal("countWhere") }).strict(),
 ]);
 
 export const aggregationFieldSchema = z
@@ -130,8 +157,8 @@ const createSavedViewQueryDefinitionBaseSchema = (scope: typeof storedSavedViewS
 		scope,
 		computedFields: computedFieldArraySchema,
 		eventJoins: eventJoinDefinitionArraySchema,
-		relationships: relationshipFilterArraySchema,
 		filter: nullableViewPredicateSchema.default(null),
+		relationshipJoins: relationshipJoinDefinitionArraySchema,
 	});
 
 const createEntitySavedViewQueryDefinitionSchema = (scope: typeof storedSavedViewScopeSchema) =>
@@ -163,10 +190,10 @@ export const storedSavedViewQueryDefinitionSchema = z.union([
 	createLegacyEntitySavedViewQueryDefinitionSchema(storedSavedViewScopeSchema),
 ]);
 
-export type SavedViewQueryDefinition = z.infer<typeof savedViewQueryDefinitionSchema>;
-export type AggregateExpression = z.infer<typeof aggregateExpressionSchema>;
 export type AggregationField = z.infer<typeof aggregationFieldSchema>;
 export type TimeSeriesMetric = z.infer<typeof timeSeriesMetricSchema>;
+export type AggregateExpression = z.infer<typeof aggregateExpressionSchema>;
+export type SavedViewQueryDefinition = z.infer<typeof savedViewQueryDefinitionSchema>;
 
 export const listedSavedViewSchema = z.object({
 	id: z.string(),
@@ -223,4 +250,3 @@ export type ListedSavedView = z.infer<typeof listedSavedViewSchema>;
 export type CreateSavedViewBody = z.infer<typeof createSavedViewBody>;
 export type UpdateSavedViewBody = z.infer<typeof updateSavedViewBody>;
 export type ReorderSavedViewsBody = z.infer<typeof reorderSavedViewsBody>;
-export type RelationshipFilter = z.infer<typeof relationshipFilterSchema>;

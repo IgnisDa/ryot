@@ -19,41 +19,41 @@ describe("toEntityImage", () => {
 		expect(toEntityImage(42)).toBeNull();
 	});
 
-	it("returns null for an object without a kind field", () => {
+	it("returns null for an object without a type field", () => {
 		expect(toEntityImage({ key: "foo" })).toBeNull();
 	});
 
-	it("returns null for an unknown kind", () => {
-		expect(toEntityImage({ kind: "blob", path: "/foo" })).toBeNull();
+	it("returns null for an unknown type", () => {
+		expect(toEntityImage({ type: "blob", path: "/foo" })).toBeNull();
 	});
 
 	it("returns the s3 image for a valid s3 object", () => {
-		expect(toEntityImage({ kind: "s3", key: "uploads/photo.jpg" })).toEqual({
+		expect(toEntityImage({ type: "s3", key: "uploads/photo.jpg" })).toEqual({
+			type: "s3",
 			key: "uploads/photo.jpg",
-			kind: "s3",
 		});
 	});
 
 	it("returns null when an s3 object is missing key", () => {
-		expect(toEntityImage({ kind: "s3" })).toBeNull();
+		expect(toEntityImage({ type: "s3" })).toBeNull();
 	});
 
 	it("returns null when an s3 key is not a string", () => {
-		expect(toEntityImage({ kind: "s3", key: 123 })).toBeNull();
+		expect(toEntityImage({ type: "s3", key: 123 })).toBeNull();
 	});
 
 	it("returns the remote image for a valid remote object", () => {
-		expect(toEntityImage({ kind: "remote", url: "https://example.com/photo.jpg" })).toEqual({
-			kind: "remote",
+		expect(toEntityImage({ type: "remote", url: "https://example.com/photo.jpg" })).toEqual({
+			type: "remote",
 			url: "https://example.com/photo.jpg",
 		});
 	});
 
 	it("returns null when a remote object is missing url", () => {
-		expect(toEntityImage({ kind: "remote" })).toBeNull();
+		expect(toEntityImage({ type: "remote" })).toBeNull();
 	});
 
 	it("returns null when a remote url is not a string", () => {
-		expect(toEntityImage({ kind: "remote", url: null })).toBeNull();
+		expect(toEntityImage({ type: "remote", url: null })).toBeNull();
 	});
 });

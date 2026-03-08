@@ -20,11 +20,19 @@ describe("createQueryEngineRequest", () => {
 		expect(result.fields?.some((field) => field.key === "entityImage")).toBe(false);
 	});
 
-	it("preserves saved view relationships in runtime requests", () => {
+	it("preserves saved view relationshipJoins in runtime requests", () => {
 		const view = createEntitySavedViewFixture({
 			queryDefinition: {
 				scope: ["show"],
-				relationships: [{ relationshipSchemaSlug: "in-library" }],
+				relationshipJoins: [
+					{
+						key: "inLibrary",
+						kind: "latestRelationship",
+						relationshipSchemaSlug: "in-library",
+						direction: "outgoing",
+						required: true,
+					},
+				],
 			},
 		});
 
@@ -35,6 +43,14 @@ describe("createQueryEngineRequest", () => {
 			layout: "grid",
 		});
 
-		expect(result.relationships).toEqual([{ relationshipSchemaSlug: "in-library" }]);
+		expect(result.relationshipJoins).toEqual([
+			{
+				key: "inLibrary",
+				kind: "latestRelationship",
+				relationshipSchemaSlug: "in-library",
+				direction: "outgoing",
+				required: true,
+			},
+		]);
 	});
 });

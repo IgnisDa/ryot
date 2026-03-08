@@ -3,6 +3,7 @@ import {
 	entityBuiltinColumns,
 	entitySchemaBuiltinColumns,
 	eventJoinBuiltinColumns,
+	relationshipJoinBuiltinColumns,
 	type RuntimeRef,
 } from "@ryot/ts-utils";
 
@@ -53,6 +54,47 @@ export const parseFieldPath = (field: string): RuntimeRef => {
 		return { joinKey: segment, path: [tail], type: "event-join" };
 	}
 
+	if (namespace === "relationship") {
+		if (!segment || !tail) {
+			throw new Error(`Invalid field path: ${field}`);
+		}
+
+		if (tail === "properties") {
+			if (rest.length === 0) {
+				throw new Error(`Invalid field path: ${field}`);
+			}
+
+			return { joinKey: segment, path: [tail, ...rest], type: "relationship-join" };
+		}
+
+		if (tail === "sourceEntity" || tail === "targetEntity") {
+			const [entityColumn, ...entityRest] = rest;
+			if (!entityColumn) {
+				throw new Error(`Invalid field path: ${field}`);
+			}
+			if (entityColumn === "properties") {
+				if (entityRest.length === 0) {
+					throw new Error(`Invalid field path: ${field}`);
+				}
+				return {
+					joinKey: segment,
+					type: "relationship-join",
+					path: [tail, "properties", ...entityRest],
+				};
+			}
+			if (entityRest.length > 0 || !entityBuiltinColumns.has(entityColumn)) {
+				throw new Error(`Invalid field path: ${field}`);
+			}
+			return { joinKey: segment, path: [tail, entityColumn], type: "relationship-join" };
+		}
+
+		if (rest.length > 0 || !relationshipJoinBuiltinColumns.has(tail)) {
+			throw new Error(`Invalid field path: ${field}`);
+		}
+
+		return { joinKey: segment, path: [tail], type: "relationship-join" };
+	}
+
 	if (namespace === "entity-schema") {
 		if (!segment || tail !== undefined || rest.length > 0) {
 			throw new Error(`Invalid field path: ${field}`);
@@ -89,6 +131,10 @@ export const entityField = (schemaSlug: string, property: string) => {
 	}
 
 	return `entity.${schemaSlug}.properties.${property}`;
+};
+
+export const relationshipJoinField = (joinKey: string, ...path: string[]) => {
+	return `relationship.${joinKey}.${path.join(".")}`;
 };
 
 export const qualifyBuiltinFields = (schemaSlugs: string[], property: string) => {

@@ -33,7 +33,7 @@ describe("buildExerciseSeedEntityValues", () => {
 				externalId: "EZ Bar Curl",
 				entitySchemaId: "exercise_schema_1",
 				image: {
-					kind: "remote",
+					type: "remote",
 					url: "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ_Bar_Curl/0.jpg",
 				},
 				properties: {
@@ -47,7 +47,7 @@ describe("buildExerciseSeedEntityValues", () => {
 					instructions: ["Curl the bar."],
 					images: [
 						{
-							kind: "remote",
+							type: "remote",
 							url: "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ_Bar_Curl/0.jpg",
 						},
 					],

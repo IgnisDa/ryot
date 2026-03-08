@@ -9,7 +9,7 @@ export type QueryEngineSchemaRow = QueryEngineSchemaLike & {
 	id: string;
 };
 
-export type PaginationConfig = {
+type PaginationConfig = {
 	limit: number;
 	offset: number;
 	countAlias: string;
@@ -36,6 +36,13 @@ export const EVENT_CTE_ALIASES = {
 	sorted: "sorted_events",
 	filtered: "filtered_events",
 	paginated: "paginated_events",
+} as const;
+
+export const TIMESERIES_CTE_ALIASES = {
+	bucketed: "bucketed",
+	bucketSeries: "bucket_series",
+	matchingEvents: "matching_events",
+	filteredEvents: "filtered_events",
 } as const;
 
 export const EVENT_FIRST_ENTITY_COLUMN_OVERRIDES: EntityColumnOverrides = {

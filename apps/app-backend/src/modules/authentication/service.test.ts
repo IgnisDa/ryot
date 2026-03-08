@@ -68,7 +68,15 @@ describe("authentication bootstrap helpers", () => {
 	it("builds built-in saved views from built-in manifests", () => {
 		const queryDefinition = createQueryDefinition({
 			scope: ["book"],
-			relationships: [{ relationshipSchemaSlug: "in-library" }],
+			relationshipJoins: [
+				{
+					required: true,
+					key: "inLibrary",
+					direction: "outgoing",
+					kind: "latestRelationship",
+					relationshipSchemaSlug: "in-library",
+				},
+			],
 			sort: {
 				direction: "asc",
 				expression: {
@@ -95,9 +103,17 @@ describe("authentication bootstrap helpers", () => {
 						slug: "all-books",
 						name: "All Books",
 						trackerSlug: "media",
-						relationships: [{ relationshipSchemaSlug: "in-library" }],
 						displayConfiguration,
 						entitySchemaSlug: "book",
+						relationshipJoins: [
+							{
+								required: true,
+								key: "inLibrary",
+								direction: "outgoing",
+								kind: "latestRelationship",
+								relationshipSchemaSlug: "in-library",
+							},
+						],
 					},
 				],
 			}),

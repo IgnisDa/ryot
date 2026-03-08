@@ -95,13 +95,13 @@ describe("toAppEntity", () => {
 			createdAt: "2026-03-08T10:15:00.000Z",
 			populatedAt: "2026-03-08T10:20:00.000Z",
 			updatedAt: "2026-03-08T10:20:00.000Z",
-			image: { kind: "remote", url: "https://example.com/apple.jpg" },
+			image: { type: "remote", url: "https://example.com/apple.jpg" },
 		});
 
 		expect(entity.createdAt).toBeInstanceOf(Date);
 		expect(entity.updatedAt).toBeInstanceOf(Date);
 		expect(entity.image).toEqual({
-			kind: "remote",
+			type: "remote",
 			url: "https://example.com/apple.jpg",
 		});
 		expect(dayjs(entity.createdAt).toISOString()).toBe("2026-03-08T10:15:00.000Z");

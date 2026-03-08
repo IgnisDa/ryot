@@ -75,7 +75,7 @@ export const buildEventAggregateExpression = (input: {
 		throw new QueryEngineValidationError("Event aggregate expressions require a user context");
 	}
 
-	const { aggregation, eventSchemaSlug, path } = input.reference;
+	const { aggregation, eventSchemaSlug } = input.reference;
 	const safeAlias = sanitizeIdentifier(input.alias, "table alias");
 	const entityIdExpr = sql`${sql.raw(safeAlias)}.id`;
 	const actualType: PropertyType = aggregation === "count" ? "integer" : "number";
@@ -91,6 +91,12 @@ export const buildEventAggregateExpression = (input: {
 				and es_agg.slug = ${eventSchemaSlug}
 		)`;
 	} else {
+		const { path } = input.reference;
+		if (!path) {
+			throw new QueryEngineValidationError(
+				"Event aggregate path is required for non-count aggregations",
+			);
+		}
 		const propertyPath = path.slice(1);
 		const propertiesBase = sql.raw("e_agg.properties");
 		const propertyJsonExpr = buildPropertyPathExpression(propertiesBase, propertyPath, "json");

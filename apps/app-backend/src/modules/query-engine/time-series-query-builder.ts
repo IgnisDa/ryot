@@ -6,10 +6,10 @@ import { db } from "~/lib/db";
 
 import { buildQueryContext, type PreparedQueryContext } from "./context";
 import { buildEventFirstCte } from "./event-query-ctes";
-import { createScalarExpressionCompiler } from "./expression-compiler";
+import { createQueryCompiler, createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
-import { EVENT_FIRST_ENTITY_COLUMN_OVERRIDES } from "./query-cte-shared";
+import { EVENT_FIRST_ENTITY_COLUMN_OVERRIDES, TIMESERIES_CTE_ALIASES } from "./query-cte-shared";
 import type { QueryEngineTimeSeriesResponse, TimeSeriesQueryEngineRequest } from "./schemas";
 
 type TimeSeriesRow = {
@@ -25,16 +25,26 @@ export const buildBucketInterval = (bucket: TimeSeriesQueryEngineRequest["bucket
 		.with("month", () => "1 month")
 		.exhaustive();
 
+const startOfIsoWeek = (value: string) => {
+	const date = dayjs.utc(value).startOf("day");
+	const dayOfWeek = date.day();
+	const daysSinceMonday = (dayOfWeek + 6) % 7;
+	return date.subtract(daysSinceMonday, "day");
+};
+
+const startOfBucket = (value: string, bucket: TimeSeriesQueryEngineRequest["bucket"]) => {
+	return bucket === "week" ? startOfIsoWeek(value) : dayjs.utc(value).startOf(bucket);
+};
+
 export const alignDateRangeToBucket = (input: {
 	bucket: TimeSeriesQueryEngineRequest["bucket"];
 	dateRange: TimeSeriesQueryEngineRequest["dateRange"];
 }) => {
-	const startAt = dayjs.utc(input.dateRange.startAt).startOf(input.bucket);
-	const endAt = dayjs
-		.utc(input.dateRange.endAt)
-		.subtract(1, "millisecond")
-		.startOf(input.bucket)
-		.add(1, input.bucket);
+	const startAt = startOfBucket(input.dateRange.startAt, input.bucket);
+	const endAt = startOfBucket(
+		dayjs.utc(input.dateRange.endAt).subtract(1, "millisecond").toISOString(),
+		input.bucket,
+	).add(1, input.bucket);
 
 	return {
 		startAt: startAt.toISOString(),
@@ -60,28 +70,34 @@ export const executeTimeSeriesQuery = async (input: {
 	});
 	const matchingEventsCte = buildEventFirstCte({
 		userId: input.userId,
-		cteName: "matching_events",
-		dateRange: alignedDateRange,
-		eventSchemaSlugs: input.request.eventSchemas,
+		dateRange: input.request.dateRange,
+		cteName: TIMESERIES_CTE_ALIASES.matchingEvents,
 		entitySchemaIds: input.context.runtimeSchemas.map((s) => s.id),
+		eventSchemaSlugs: input.request.eventSchemas?.length
+			? input.request.eventSchemas
+			: [...input.context.eventSchemaSlugs],
 	});
-
-	const filterWhereClause = buildFilterWhereClause({
-		context: queryContext,
-		alias: "matching_events",
-		predicate: input.request.filter,
-		computedFields: input.request.computedFields,
-	});
-	const filterClause = filterWhereClause ?? sql`true`;
 
 	const getTypeInfo = createExpressionTypeResolver({
 		context: queryContext,
 		computedFields: input.request.computedFields,
 	});
+
+	const filterWhereClause = buildFilterWhereClause({
+		context: queryContext,
+		predicate: input.request.filter,
+		computedFields: input.request.computedFields,
+		compiler: createQueryCompiler({
+			getTypeInfo,
+			context: queryContext,
+			alias: TIMESERIES_CTE_ALIASES.matchingEvents,
+			computedFields: input.request.computedFields,
+		}),
+	});
 	const compiler = createScalarExpressionCompiler({
 		getTypeInfo,
 		context: queryContext,
-		alias: "filtered_events",
+		alias: TIMESERIES_CTE_ALIASES.filteredEvents,
 		computedFields: input.request.computedFields,
 	});
 
@@ -92,30 +108,30 @@ export const executeTimeSeriesQuery = async (input: {
 
 	const result = await db.execute<TimeSeriesRow>(sql`
 		with
-			bucket_series as (
+			${sql.raw(TIMESERIES_CTE_ALIASES.bucketSeries)} as (
 				select generate_series(
-					date_trunc(${input.request.bucket}, ${input.request.dateRange.startAt}::timestamptz at time zone 'UTC'),
-					date_trunc(${input.request.bucket}, (${input.request.dateRange.endAt}::timestamptz - interval '1 microsecond') at time zone 'UTC'),
+					${alignedDateRange.startAt}::timestamptz at time zone 'UTC',
+					(${alignedDateRange.endAt}::timestamptz - ${bucketInterval}::interval) at time zone 'UTC',
 					${bucketInterval}::interval
 				) as bucket_start
 			),
 			${matchingEventsCte},
-			filtered_events as (
-				select * from matching_events where ${filterClause}
+			${sql.raw(TIMESERIES_CTE_ALIASES.filteredEvents)} as (
+				select * from ${sql.raw(TIMESERIES_CTE_ALIASES.matchingEvents)} where ${filterWhereClause}
 			),
-			bucketed as (
+			${sql.raw(TIMESERIES_CTE_ALIASES.bucketed)} as (
 				select
 					date_trunc(${input.request.bucket}, created_at at time zone 'UTC') as bucket,
 					${metricExpression} as value
-				from filtered_events
+				from ${sql.raw(TIMESERIES_CTE_ALIASES.filteredEvents)}
 				group by 1
 			)
 		select
-			bucket_series.bucket_start as date,
-			coalesce(bucketed.value, 0) as value
-		from bucket_series
-		left join bucketed on bucketed.bucket = bucket_series.bucket_start
-		order by bucket_series.bucket_start
+			${sql.raw(TIMESERIES_CTE_ALIASES.bucketSeries)}.bucket_start as date,
+			coalesce(${sql.raw(TIMESERIES_CTE_ALIASES.bucketed)}.value, 0) as value
+		from ${sql.raw(TIMESERIES_CTE_ALIASES.bucketSeries)}
+		left join ${sql.raw(TIMESERIES_CTE_ALIASES.bucketed)} on ${sql.raw(TIMESERIES_CTE_ALIASES.bucketed)}.bucket = ${sql.raw(TIMESERIES_CTE_ALIASES.bucketSeries)}.bucket_start
+		order by ${sql.raw(TIMESERIES_CTE_ALIASES.bucketSeries)}.bucket_start
 	`);
 
 	return {
@@ -125,6 +141,7 @@ export const executeTimeSeriesQuery = async (input: {
 				value: Number(row.value ?? 0),
 				date: row.date instanceof Date ? row.date.toISOString() : row.date,
 			})),
+			meta: { alignedDateRange },
 		},
 	};
 };

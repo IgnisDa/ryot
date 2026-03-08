@@ -252,7 +252,7 @@ async function createEntity(
 			name,
 			properties,
 			entitySchemaId,
-			image: imageUrl ? { kind: "remote", url: imageUrl } : null,
+			image: imageUrl ? { type: "remote", url: imageUrl } : null,
 		},
 	});
 

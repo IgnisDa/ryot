@@ -43,7 +43,7 @@ export function createSavedViewFixture(overrides: SavedViewFixtureOverrides = {}
 		mode: "entities",
 		filter: queryDefinitionOverride?.filter ?? null,
 		eventJoins: queryDefinitionOverride?.eventJoins ?? [],
-		relationships: queryDefinitionOverride?.relationships ?? [],
+		relationshipJoins: queryDefinitionOverride?.relationshipJoins ?? [],
 		computedFields: queryDefinitionOverride?.computedFields ?? [],
 		scope: queryDefinitionOverride?.scope ?? ["schema-1"],
 		sort: queryDefinitionOverride?.sort ?? {

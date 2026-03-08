@@ -162,9 +162,9 @@ Relationship join references expose relationship row built-ins, schema-validated
 
 ## Tasks
 
-**Overall Progress:** 2 of 8 tasks completed
+**Overall Progress:** 8 of 8 tasks completed
 
-**Current Task:** [Task 03](./03-replace-relationship-filters-with-required-relationship-joins.md) (todo)
+**Current Task:** [Task 08](./08-codebase-cleanup.md) (done)
 
 ### Task List
 
@@ -172,9 +172,9 @@ Relationship join references expose relationship row built-ins, schema-validated
 | --- | -------------------------------------------------------------------------------------------------------------------------------------- | ---- | ------ |
 | 01  | [Enforce Schema Slug Collision Rules](./01-enforce-schema-slug-collision-rules.md)                                                     | AFK  | done   |
 | 02  | [E2E Tests For Schema Slug Collision Rules](./02-e2e-tests-schema-slug-collision-rules.md)                                             | AFK  | done   |
-| 03  | [Replace Relationship Filters With Required Relationship Joins](./03-replace-relationship-filters-with-required-relationship-joins.md) | AFK  | todo   |
-| 04  | [Return And Use Relationship Row Fields](./04-return-and-use-relationship-row-fields.md)                                               | AFK  | todo   |
-| 05  | [Add Join-Local Relationship Filtering](./05-add-join-local-relationship-filtering.md)                                                 | AFK  | todo   |
-| 06  | [Expose Source And Target Entity Data](./06-expose-source-and-target-entity-data.md)                                                   | AFK  | todo   |
-| 07  | [Refresh Query Engine Docs And Generated Examples](./07-refresh-query-engine-docs-and-generated-examples.md)                          | AFK  | todo   |
-| 08  | [Codebase Cleanup](./08-codebase-cleanup.md)                                                                                          | AFK  | todo   |
+| 03  | [Replace Relationship Filters With Required Relationship Joins](./03-replace-relationship-filters-with-required-relationship-joins.md) | AFK  | done   |
+| 04  | [Return And Use Relationship Row Fields](./04-return-and-use-relationship-row-fields.md)                                               | AFK  | done   |
+| 05  | [Add Join-Local Relationship Filtering](./05-add-join-local-relationship-filtering.md)                                                 | AFK  | done   |
+| 06  | [Expose Source And Target Entity Data](./06-expose-source-and-target-entity-data.md)                                                   | AFK  | done   |
+| 07  | [Refresh Query Engine Docs And Generated Examples](./07-refresh-query-engine-docs-and-generated-examples.md)                          | AFK  | done   |
+| 08  | [Codebase Cleanup](./08-codebase-cleanup.md)                                                                                          | AFK  | done   |
