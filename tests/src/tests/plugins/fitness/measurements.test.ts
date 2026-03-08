@@ -8,14 +8,15 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createMeasurementEntityFixture,
-	executeQueryEngine,
+	executeRyotQL,
 	findBuiltinSchemaBySlug,
 	findBuiltinPluginBySlug,
 	getEntity,
-	getQueryEngineFieldOrThrow,
 	listEntitySchemas,
 	listSavedViews,
+	requireRyotQLFieldValue,
 } from "~/fixtures";
+import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Measurements E2E", () => {
@@ -126,10 +127,18 @@ describe("Measurements E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			yield* createMeasurementEntityFixture(client);
 
-			const result = yield* executeQueryEngine(client, buildMeasurementListQueryDocument({}));
+			const result = yield* executeRyotQL(client, buildMeasurementListQueryDocument({}));
+			const measurements = result.data["measurements"];
+			if (measurements?.type !== "rows") {
+				throw new Error("Expected measurements rows result");
+			}
 
-			expect(result.data.items.length).toBeGreaterThan(0);
-			expect(getQueryEngineFieldOrThrow(result.data.items[0], "recordedAt").key).toBe("recordedAt");
+			const firstItem = measurements.items[0];
+			assertPresent(firstItem, "Expected at least one measurement item");
+			expect(measurements.items.length).toBeGreaterThan(0);
+			expect(requireRyotQLFieldValue(firstItem, "recordedAt")).toMatchObject({
+				kind: "date",
+			});
 		}),
 	);
 });

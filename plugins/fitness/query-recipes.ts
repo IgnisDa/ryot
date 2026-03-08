@@ -1,196 +1,216 @@
 import {
-	buildQueryEngineEntityRowsDocument,
-	queryEngineEntitySource,
-	queryEngineInclude,
-} from "@ryot/query-engine/documents";
-import {
-	queryEngineAnd,
-	queryEngineComparison,
-	queryEngineField,
-	queryEngineIdentityFields,
-	queryEngineLiteral,
-	queryEngineOrder,
-	queryEnginePropertyRef,
-	queryEngineSystemRef,
-} from "@ryot/query-engine/primitives";
+	and,
+	ascending,
+	castDate,
+	castNumber,
+	castText,
+	column,
+	document,
+	descending,
+	eq,
+	field,
+	include,
+	join,
+	jsonPath,
+	literal,
+	rows,
+	table,
+} from "@ryot/ryotql";
 
 const entityAlias = "entity";
 
-const entityWhere = (input: { entityId?: string | undefined; name?: string | undefined }) => {
+type Table = ReturnType<typeof table>;
+
+const entityIdentityFields = (entity: Table) =>
+	[
+		field("id", column(entity, "id")),
+		field("name", column(entity, "name")),
+		field("schemaSlug", column(entity, "entitySchemaSlug")),
+	] as const;
+
+const entityWhere = (
+	entity: Table,
+	schemaSlug: string,
+	input: { entityId?: string | undefined; name?: string | undefined },
+) => {
 	const filters = [
-		...(input.entityId
-			? [
-					queryEngineComparison(
-						"eq",
-						queryEngineSystemRef(entityAlias, "id"),
-						queryEngineLiteral(input.entityId),
-					),
-				]
-			: []),
-		...(input.name
-			? [
-					queryEngineComparison(
-						"eq",
-						queryEngineSystemRef(entityAlias, "name"),
-						queryEngineLiteral(input.name),
-					),
-				]
-			: []),
+		eq(column(entity, "entitySchemaSlug"), literal(schemaSlug)),
+		...(input.entityId ? [eq(column(entity, "id"), literal(input.entityId))] : []),
+		...(input.name ? [eq(column(entity, "name"), literal(input.name))] : []),
 	];
-	const [first, ...rest] = filters;
-	if (first === undefined) {
-		return null;
-	}
-	return rest.length === 0 ? first : queryEngineAnd(first, ...rest);
+	return and(...filters);
 };
 
-const workoutFields = (alias: string) =>
+const property = (entity: Table, path: string) =>
+	castText(jsonPath(column(entity, "properties"), path));
+
+const propertyDate = (entity: Table, path: string) =>
+	castDate(jsonPath(column(entity, "properties"), path));
+
+const propertyNumber = (entity: Table, path: string) =>
+	castNumber(jsonPath(column(entity, "properties"), path));
+
+const workoutFields = (entity: Table) =>
 	[
-		...queryEngineIdentityFields(alias),
-		queryEngineField("startedAt", queryEnginePropertyRef(alias, "workout", "startedAt")),
-		queryEngineField("endedAt", queryEnginePropertyRef(alias, "workout", "endedAt")),
-		queryEngineField("comment", queryEnginePropertyRef(alias, "workout", "comment")),
-		queryEngineField("caloriesBurnt", queryEnginePropertyRef(alias, "workout", "caloriesBurnt")),
+		...entityIdentityFields(entity),
+		field("startedAt", propertyDate(entity, "startedAt")),
+		field("endedAt", propertyDate(entity, "endedAt")),
+		field("comment", property(entity, "comment")),
+		field("caloriesBurnt", propertyNumber(entity, "caloriesBurnt")),
 	] as const;
 
-const workoutTemplateFields = (alias: string) =>
+const workoutTemplateFields = (entity: Table) =>
 	[
-		...queryEngineIdentityFields(alias),
-		queryEngineField("createdAt", queryEngineSystemRef(alias, "createdAt")),
-		queryEngineField("comment", queryEnginePropertyRef(alias, "workout-template", "comment")),
+		...entityIdentityFields(entity),
+		field("createdAt", column(entity, "createdAt")),
+		field("comment", property(entity, "comment")),
 	] as const;
+
+const workoutTemplateInclude = (parent: Table, limit: number) => {
+	const template = table("entity", "template");
+	const relationship = table("relationship", "templateRelationship");
+	return include(relationship, {
+		limit,
+		key: "template",
+		fields: workoutTemplateFields(template),
+		orderBy: [ascending(column(template, "name"))],
+		joins: [
+			join("inner", template, eq(column(relationship, "targetEntityId"), column(template, "id"))),
+		],
+		where: and(
+			eq(column(relationship, "sourceEntityId"), column(parent, "id")),
+			eq(column(relationship, "relationshipSchemaSlug"), literal("workout-to-workout-template")),
+			eq(column(template, "entitySchemaSlug"), literal("workout-template")),
+		),
+	});
+};
+
+const workoutInclude = (parent: Table, limit: number) => {
+	const workout = table("entity", "workout");
+	const relationship = table("relationship", "workoutRelationship");
+	return include(relationship, {
+		limit,
+		key: "workouts",
+		fields: workoutFields(workout),
+		orderBy: [ascending(column(workout, "name"))],
+		joins: [
+			join("inner", workout, eq(column(relationship, "sourceEntityId"), column(workout, "id"))),
+		],
+		where: and(
+			eq(column(relationship, "targetEntityId"), column(parent, "id")),
+			eq(column(relationship, "relationshipSchemaSlug"), literal("workout-to-workout-template")),
+			eq(column(workout, "entitySchemaSlug"), literal("workout")),
+		),
+	});
+};
 
 export const buildExerciseListQueryDocument = (input: {
 	name?: string | undefined;
 	page?: number | undefined;
 	limit?: number | undefined;
 	entityId?: string | undefined;
-}) =>
-	buildQueryEngineEntityRowsDocument({
-		page: input.page,
-		alias: entityAlias,
-		limit: input.limit,
-		schemas: ["exercise"],
-		where: entityWhere(input),
-		fields: [
-			...queryEngineIdentityFields(entityAlias),
-			queryEngineField("image", queryEnginePropertyRef(entityAlias, "exercise", "images", "0")),
-			queryEngineField("level", queryEnginePropertyRef(entityAlias, "exercise", "level")),
-			queryEngineField("kind", queryEnginePropertyRef(entityAlias, "exercise", "kind")),
-			queryEngineField("equipment", queryEnginePropertyRef(entityAlias, "exercise", "equipment")),
-		],
+}) => {
+	const entity = table("entity", entityAlias);
+	return document({
+		exercises: rows(entity, {
+			page: input.page,
+			limit: input.limit,
+			where: entityWhere(entity, "exercise", input),
+			orderBy: [ascending(column(entity, "name"))],
+			fields: [
+				...entityIdentityFields(entity),
+				field("image", jsonPath(column(entity, "properties"), "images", 0)),
+				field("level", property(entity, "level")),
+				field("kind", property(entity, "kind")),
+				field("equipment", property(entity, "equipment")),
+			],
+		}),
 	});
+};
 
 export const buildWorkoutListQueryDocument = (input: {
 	page?: number | undefined;
 	limit?: number | undefined;
 	entityId?: string | undefined;
-}) =>
-	buildQueryEngineEntityRowsDocument({
-		page: input.page,
-		alias: entityAlias,
-		limit: input.limit,
-		schemas: ["workout"],
-		where: entityWhere(input),
-		fields: workoutFields(entityAlias),
+}) => {
+	const entity = table("entity", entityAlias);
+	return document({
+		workouts: rows(entity, {
+			page: input.page,
+			limit: input.limit,
+			fields: workoutFields(entity),
+			where: entityWhere(entity, "workout", input),
+			orderBy: [ascending(column(entity, "name"))],
+		}),
 	});
+};
 
 export const buildMeasurementListQueryDocument = (input: {
 	page?: number | undefined;
 	limit?: number | undefined;
 	entityId?: string | undefined;
-}) =>
-	buildQueryEngineEntityRowsDocument({
-		page: input.page,
-		limit: input.limit,
-		alias: entityAlias,
-		schemas: ["measurement"],
-		where: entityWhere(input),
-		fields: [
-			...queryEngineIdentityFields(entityAlias),
-			queryEngineField(
-				"recordedAt",
-				queryEnginePropertyRef(entityAlias, "measurement", "recordedAt"),
-			),
-			queryEngineField("comment", queryEnginePropertyRef(entityAlias, "measurement", "comment")),
-		],
+}) => {
+	const entity = table("entity", entityAlias);
+	return document({
+		measurements: rows(entity, {
+			page: input.page,
+			limit: input.limit,
+			where: entityWhere(entity, "measurement", input),
+			orderBy: [ascending(column(entity, "name"))],
+			fields: [
+				...entityIdentityFields(entity),
+				field("recordedAt", propertyDate(entity, "recordedAt")),
+				field("comment", property(entity, "comment")),
+			],
+		}),
 	});
+};
 
 export const buildWorkoutTemplateListQueryDocument = (input: {
 	page?: number | undefined;
 	limit?: number | undefined;
 	entityId?: string | undefined;
-}) =>
-	buildQueryEngineEntityRowsDocument({
-		page: input.page,
-		limit: input.limit,
-		alias: entityAlias,
-		where: entityWhere(input),
-		schemas: ["workout-template"],
-		fields: workoutTemplateFields(entityAlias),
-		orderBy: [queryEngineOrder("desc", queryEngineSystemRef(entityAlias, "createdAt"))],
+}) => {
+	const entity = table("entity", entityAlias);
+	return document({
+		workoutTemplates: rows(entity, {
+			page: input.page,
+			limit: input.limit,
+			fields: workoutTemplateFields(entity),
+			where: entityWhere(entity, "workout-template", input),
+			orderBy: [descending(column(entity, "createdAt"))],
+		}),
 	});
+};
 
 export const buildWorkoutDetailQueryDocument = (input: {
 	entityId: string;
 	templateLimit: number;
-}) =>
-	buildQueryEngineEntityRowsDocument({
-		limit: 1,
-		alias: entityAlias,
-		schemas: ["workout"],
-		where: entityWhere(input),
-		fields: workoutFields(entityAlias),
-		orderBy: [queryEngineOrder("asc", queryEngineSystemRef(entityAlias, "id"))],
-		include: [
-			queryEngineInclude({
-				key: "template",
-				limit: input.templateLimit,
-				fields: workoutTemplateFields("template"),
-				orderBy: [queryEngineOrder("asc", queryEngineSystemRef("template", "name"))],
-				source: queryEngineEntitySource({
-					where: null,
-					alias: "template",
-					schemas: ["workout-template"],
-					via: {
-						entityRef: entityAlias,
-						alias: "templateRelationship",
-						direction: "outgoing" as const,
-						schema: "workout-to-workout-template",
-					},
-				}),
-			}),
-		],
+}) => {
+	const entity = table("entity", entityAlias);
+	return document({
+		workout: rows(entity, {
+			limit: 1,
+			fields: workoutFields(entity),
+			where: entityWhere(entity, "workout", input),
+			orderBy: [ascending(column(entity, "id"))],
+			include: [workoutTemplateInclude(entity, input.templateLimit)],
+		}),
 	});
+};
 
 export const buildWorkoutTemplateDetailQueryDocument = (input: {
 	entityId: string;
 	workoutLimit: number;
-}) =>
-	buildQueryEngineEntityRowsDocument({
-		limit: 1,
-		alias: entityAlias,
-		where: entityWhere(input),
-		schemas: ["workout-template"],
-		fields: workoutTemplateFields(entityAlias),
-		orderBy: [queryEngineOrder("asc", queryEngineSystemRef(entityAlias, "id"))],
-		include: [
-			queryEngineInclude({
-				key: "workouts",
-				limit: input.workoutLimit,
-				fields: workoutFields("workout"),
-				orderBy: [queryEngineOrder("asc", queryEngineSystemRef("workout", "name"))],
-				source: queryEngineEntitySource({
-					alias: "workout",
-					schemas: ["workout"],
-					where: null,
-					via: {
-						entityRef: entityAlias,
-						alias: "workoutRelationship",
-						direction: "incoming" as const,
-						schema: "workout-to-workout-template",
-					},
-				}),
-			}),
-		],
+}) => {
+	const entity = table("entity", entityAlias);
+	return document({
+		workoutTemplate: rows(entity, {
+			limit: 1,
+			fields: workoutTemplateFields(entity),
+			where: entityWhere(entity, "workout-template", input),
+			orderBy: [ascending(column(entity, "id"))],
+			include: [workoutInclude(entity, input.workoutLimit)],
+		}),
 	});
+};

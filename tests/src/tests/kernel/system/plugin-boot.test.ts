@@ -4,7 +4,7 @@ import { buildExerciseListQueryDocument } from "@ryot/fitness-plugin/query-recip
 import { Duration, Effect } from "effect";
 import getPort from "get-port";
 
-import { createAuthenticatedClient, executeQueryEngine } from "~/fixtures";
+import { createAuthenticatedClient, executeRyotQL } from "~/fixtures";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import {
 	buildBackendEnv,
@@ -61,12 +61,16 @@ describe("Plugin boot dispatch", () => {
 
 			yield* Effect.sleep(Duration.seconds(5));
 
-			const { data } = yield* executeQueryEngine(
+			const result = yield* executeRyotQL(
 				client,
 				buildExerciseListQueryDocument({ limit: 1, name: SEEDED_EXERCISE_NAME }),
 			);
+			const exercises = result.data["exercises"];
+			if (exercises?.type !== "rows") {
+				throw new Error("Expected exercises rows result");
+			}
 
-			expect(data.items).toHaveLength(0);
+			expect(exercises.items).toHaveLength(0);
 		}),
 	);
 });
