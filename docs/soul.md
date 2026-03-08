@@ -230,14 +230,6 @@ API keys with configurable permissions and rate limiting are supported.
 
 ## UI/UX Decisions
 
-### Design language
-
-Dark mode is the default and primary design target. The app feels like a personal analytics platform — data-rich, information-dense, but not cluttered. The aesthetic is premium and modern, closer to a developer tool or financial dashboard than a social media app.
-
-**Color system**: a neutral dark base with facet-specific accent colors. Media uses violet, Fitness uses emerald, and user-created facets use amber/orange by default (customizable). This color-coding provides instant visual orientation — you always know which facet you're in.
-
-**Typography**: clean sans-serif (Inter), semibold headings, ALL CAPS overline labels with letter-spacing for section headers. The type scale is restrained — large bold titles for page headers, medium weight for card headers, regular weight for body text, small muted text for metadata.
-
 ### Sidebar navigation
 
 The sidebar is the primary navigation mechanism and is persistent across all screens. It has three sections:

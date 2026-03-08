@@ -16,6 +16,7 @@ import { Route as ThemesIndexRouteImport } from './routes/themes/index'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
 import { Route as ThemesTerminalIndexRouteImport } from './routes/themes/terminal/index'
 import { Route as ThemesPastelIndexRouteImport } from './routes/themes/pastel/index'
+import { Route as ThemesJournalIndexRouteImport } from './routes/themes/journal/index'
 import { Route as ThemesEditorialIndexRouteImport } from './routes/themes/editorial/index'
 import { Route as ThemesBrutalistIndexRouteImport } from './routes/themes/brutalist/index'
 import { Route as ProtectedTrackingFacetSlugIndexRouteImport } from './routes/_protected/tracking/$facetSlug/index'
@@ -56,6 +57,11 @@ const ThemesPastelIndexRoute = ThemesPastelIndexRouteImport.update({
   path: '/pastel/',
   getParentRoute: () => ThemesRouteRoute,
 } as any)
+const ThemesJournalIndexRoute = ThemesJournalIndexRouteImport.update({
+  id: '/journal/',
+  path: '/journal/',
+  getParentRoute: () => ThemesRouteRoute,
+} as any)
 const ThemesEditorialIndexRoute = ThemesEditorialIndexRouteImport.update({
   id: '/editorial/',
   path: '/editorial/',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/themes/': typeof ThemesIndexRoute
   '/themes/brutalist/': typeof ThemesBrutalistIndexRoute
   '/themes/editorial/': typeof ThemesEditorialIndexRoute
+  '/themes/journal/': typeof ThemesJournalIndexRoute
   '/themes/pastel/': typeof ThemesPastelIndexRoute
   '/themes/terminal/': typeof ThemesTerminalIndexRoute
   '/tracking/$facetSlug/': typeof ProtectedTrackingFacetSlugIndexRoute
@@ -104,6 +111,7 @@ export interface FileRoutesByTo {
   '/themes': typeof ThemesIndexRoute
   '/themes/brutalist': typeof ThemesBrutalistIndexRoute
   '/themes/editorial': typeof ThemesEditorialIndexRoute
+  '/themes/journal': typeof ThemesJournalIndexRoute
   '/themes/pastel': typeof ThemesPastelIndexRoute
   '/themes/terminal': typeof ThemesTerminalIndexRoute
   '/tracking/$facetSlug': typeof ProtectedTrackingFacetSlugIndexRoute
@@ -119,6 +127,7 @@ export interface FileRoutesById {
   '/themes/': typeof ThemesIndexRoute
   '/themes/brutalist/': typeof ThemesBrutalistIndexRoute
   '/themes/editorial/': typeof ThemesEditorialIndexRoute
+  '/themes/journal/': typeof ThemesJournalIndexRoute
   '/themes/pastel/': typeof ThemesPastelIndexRoute
   '/themes/terminal/': typeof ThemesTerminalIndexRoute
   '/_protected/tracking/$facetSlug/': typeof ProtectedTrackingFacetSlugIndexRoute
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
     | '/themes/'
     | '/themes/brutalist/'
     | '/themes/editorial/'
+    | '/themes/journal/'
     | '/themes/pastel/'
     | '/themes/terminal/'
     | '/tracking/$facetSlug/'
@@ -146,6 +156,7 @@ export interface FileRouteTypes {
     | '/themes'
     | '/themes/brutalist'
     | '/themes/editorial'
+    | '/themes/journal'
     | '/themes/pastel'
     | '/themes/terminal'
     | '/tracking/$facetSlug'
@@ -160,6 +171,7 @@ export interface FileRouteTypes {
     | '/themes/'
     | '/themes/brutalist/'
     | '/themes/editorial/'
+    | '/themes/journal/'
     | '/themes/pastel/'
     | '/themes/terminal/'
     | '/_protected/tracking/$facetSlug/'
@@ -224,6 +236,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ThemesPastelIndexRouteImport
       parentRoute: typeof ThemesRouteRoute
     }
+    '/themes/journal/': {
+      id: '/themes/journal/'
+      path: '/journal'
+      fullPath: '/themes/journal/'
+      preLoaderRoute: typeof ThemesJournalIndexRouteImport
+      parentRoute: typeof ThemesRouteRoute
+    }
     '/themes/editorial/': {
       id: '/themes/editorial/'
       path: '/editorial'
@@ -286,6 +305,7 @@ interface ThemesRouteRouteChildren {
   ThemesIndexRoute: typeof ThemesIndexRoute
   ThemesBrutalistIndexRoute: typeof ThemesBrutalistIndexRoute
   ThemesEditorialIndexRoute: typeof ThemesEditorialIndexRoute
+  ThemesJournalIndexRoute: typeof ThemesJournalIndexRoute
   ThemesPastelIndexRoute: typeof ThemesPastelIndexRoute
   ThemesTerminalIndexRoute: typeof ThemesTerminalIndexRoute
 }
@@ -294,6 +314,7 @@ const ThemesRouteRouteChildren: ThemesRouteRouteChildren = {
   ThemesIndexRoute: ThemesIndexRoute,
   ThemesBrutalistIndexRoute: ThemesBrutalistIndexRoute,
   ThemesEditorialIndexRoute: ThemesEditorialIndexRoute,
+  ThemesJournalIndexRoute: ThemesJournalIndexRoute,
   ThemesPastelIndexRoute: ThemesPastelIndexRoute,
   ThemesTerminalIndexRoute: ThemesTerminalIndexRoute,
 }
