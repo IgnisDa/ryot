@@ -39,7 +39,6 @@ describe("saved views execution", () => {
 		});
 
 		await insertLibraryMembership(userA.client, {
-			userId: userA.userId,
 			mediaEntityId: entity.id,
 		});
 
@@ -55,7 +54,7 @@ describe("saved views execution", () => {
 	});
 
 	it("keeps built-in media saved views executable after refetching their definitions", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaBySlug(client, "show");
 
 		const entity = await seedMediaEntity({
@@ -79,7 +78,7 @@ describe("saved views execution", () => {
 			},
 		});
 
-		await insertLibraryMembership(client, { userId, mediaEntityId: entity.id });
+		await insertLibraryMembership(client, { mediaEntityId: entity.id });
 
 		await getSavedView(client, "all-shows");
 		const refetchedView = await getSavedView(client, "all-shows");
