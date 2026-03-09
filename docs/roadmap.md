@@ -268,7 +268,7 @@ A box is checked only when the capability is clearly implemented in the current 
 - [x] Generated custom event logging
 - [x] Generated custom entity detail pages
 - [ ] Generated custom facet overview pages
-- [ ] Default saved views for custom facets
+- [x] Default saved views for custom facets
 
 ### Saved views and query builder
 
