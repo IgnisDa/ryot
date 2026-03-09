@@ -1,0 +1,1 @@
+ALTER TABLE "saved_view" ADD COLUMN "is_builtin" boolean DEFAULT false NOT NULL;
