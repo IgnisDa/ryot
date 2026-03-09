@@ -1,4 +1,9 @@
-import { apiFailure, apiSuccess, type HttpCallOptions } from "~/sandbox/types";
+import {
+	apiFailure,
+	apiSuccess,
+	type HttpCallOptions,
+	type HttpCallResult,
+} from "~/sandbox/types";
 
 const httpCallTimeoutMs = 8_000;
 
@@ -52,7 +57,7 @@ export const httpCall = async (
 	method: unknown,
 	url: unknown,
 	options?: unknown,
-) => {
+): Promise<HttpCallResult> => {
 	if (typeof method !== "string" || !method.trim())
 		return apiFailure("httpCall expects a non-empty method string");
 
