@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FacetMode } from "~/db/schema";
+import { FacetMode } from "~/lib/db/schema";
 import { dataSchema } from "~/lib/openapi";
 import {
 	createNameWithOptionalSlugSchema,

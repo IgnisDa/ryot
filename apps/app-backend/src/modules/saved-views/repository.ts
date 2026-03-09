@@ -1,6 +1,6 @@
 import { and, asc, eq } from "drizzle-orm";
-import { db } from "~/db";
-import { entitySchema, savedView } from "~/db/schema";
+import { db } from "~/lib/db";
+import { entitySchema, savedView } from "~/lib/db/schema";
 import type { SavedViewQueryDefinition } from "./schemas";
 
 export const listSavedViewsForUser = async (input: { userId: string }) => {

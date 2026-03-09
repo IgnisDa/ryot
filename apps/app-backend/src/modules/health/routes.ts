@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { sql } from "drizzle-orm";
-import { db } from "~/db";
+import { db } from "~/lib/db";
 import {
 	commonErrors,
 	createErrorResponse,
