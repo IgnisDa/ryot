@@ -1,4 +1,4 @@
-import { resolveRequiredSlug } from "~/lib/slug";
+import { resolveRequiredSlug } from "@ryot/ts-utils";
 
 type FacetState = {
 	slug: string;

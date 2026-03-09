@@ -5,6 +5,10 @@ import {
 	zodRequiredSlug,
 } from "@ryot/ts-utils";
 import { z } from "zod";
+import {
+	type ResolveNextSlugInput,
+	resolveNextSlug,
+} from "../../lib/slug-sync";
 
 export interface FacetFormValues {
 	name: string;
@@ -13,6 +17,8 @@ export interface FacetFormValues {
 	description: string;
 	accentColor: string;
 }
+
+export type ResolveNextFacetSlugInput = ResolveNextSlugInput;
 
 export const createFacetFormSchema = z.object({
 	icon: z.string(),
@@ -38,6 +44,8 @@ export function buildFacetFormValues(
 
 export const defaultCreateFacetFormValues: CreateFacetFormValues =
 	buildFacetFormValues();
+
+export const resolveNextFacetSlug = resolveNextSlug;
 
 export interface CreateFacetPayload {
 	name: string;
