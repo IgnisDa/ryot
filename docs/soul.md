@@ -80,6 +80,7 @@ Entity and event properties are stored as jsonb in Postgres and validated agains
 - **Full type coverage**: Supports strings, numbers, integers, booleans, dates, arrays (with recursive item types), objects (with nested properties), and required modifiers.
 
 Example AppSchema definition:
+
 ```json
 {
   "rating": { "type": "number" },
