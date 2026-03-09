@@ -1,7 +1,7 @@
 import { type AppSchema, resolveRequiredString } from "@ryot/ts-utils";
 import { z } from "zod";
-import { parseAppSchemaProperties } from "~/lib/app-schema-validation";
-import { resolveCustomEntitySchemaAccess } from "~/lib/entity-schema-access";
+import { resolveCustomEntitySchemaAccess } from "~/lib/app/entity-schema-access";
+import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 
 export type EventPropertiesShape = Record<string, unknown>;
 

@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
+import { resolveCustomEntityAccessError } from "~/lib/app/entity-schema-access";
 import type { AuthType } from "~/lib/auth";
-import { resolveCustomEntityAccessError } from "~/lib/entity-schema-access";
 import {
 	createAuthRoute,
 	createCustomEntityAccessErrorResult,

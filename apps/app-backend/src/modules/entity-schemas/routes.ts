@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
+import { isUniqueConstraintError } from "~/lib/app/postgres";
 import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
@@ -10,7 +11,6 @@ import {
 	resolveValidationResult,
 	successResponse,
 } from "~/lib/openapi";
-import { isUniqueConstraintError } from "~/lib/postgres";
 import {
 	customFacetError,
 	facetNotFoundError,

@@ -1,6 +1,6 @@
 import { type AppSchema, resolveRequiredString } from "@ryot/ts-utils";
-import { parseAppSchemaProperties } from "~/lib/app-schema-validation";
-import { resolveCustomEntitySchemaAccess } from "~/lib/entity-schema-access";
+import { resolveCustomEntitySchemaAccess } from "~/lib/app/entity-schema-access";
+import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 
 export type EntityPropertiesShape = Record<string, unknown>;
 
