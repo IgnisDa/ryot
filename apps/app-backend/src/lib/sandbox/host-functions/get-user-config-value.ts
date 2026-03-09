@@ -2,7 +2,7 @@ import {
 	apiFailure,
 	apiSuccess,
 	type ConfigValueResult,
-} from "~/sandbox/types";
+} from "~/lib/sandbox/types";
 
 export const getUserConfigValue = async (
 	key: unknown,

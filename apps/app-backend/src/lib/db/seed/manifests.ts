@@ -1,4 +1,20 @@
 import { FacetMode } from "~/lib/db/schema";
+import anilistAnimeDetailsScriptCode from "~/lib/sandbox/scripts/anilist-anime-details-source.txt";
+import anilistAnimeSearchScriptCode from "~/lib/sandbox/scripts/anilist-anime-search-source.txt";
+import anilistMangaDetailsScriptCode from "~/lib/sandbox/scripts/anilist-manga-details-source.txt";
+import anilistMangaSearchScriptCode from "~/lib/sandbox/scripts/anilist-manga-search-source.txt";
+import googleBooksBookDetailsScriptCode from "~/lib/sandbox/scripts/google-books-book-details-source.txt";
+import googleBooksBookSearchScriptCode from "~/lib/sandbox/scripts/google-books-book-search-source.txt";
+import hardcoverBookDetailsScriptCode from "~/lib/sandbox/scripts/hardcover-book-details-source.txt";
+import hardcoverBookSearchScriptCode from "~/lib/sandbox/scripts/hardcover-book-search-source.txt";
+import mangaUpdatesMangaDetailsScriptCode from "~/lib/sandbox/scripts/manga-updates-manga-details-source.txt";
+import mangaUpdatesMangaSearchScriptCode from "~/lib/sandbox/scripts/manga-updates-manga-search-source.txt";
+import myanimelistAnimeDetailsScriptCode from "~/lib/sandbox/scripts/myanimelist-anime-details-source.txt";
+import myanimelistAnimeSearchScriptCode from "~/lib/sandbox/scripts/myanimelist-anime-search-source.txt";
+import myanimelistMangaDetailsScriptCode from "~/lib/sandbox/scripts/myanimelist-manga-details-source.txt";
+import myanimelistMangaSearchScriptCode from "~/lib/sandbox/scripts/myanimelist-manga-search-source.txt";
+import openLibraryBookDetailsScriptCode from "~/lib/sandbox/scripts/openlibrary-book-details-source.txt";
+import openLibraryBookSearchScriptCode from "~/lib/sandbox/scripts/openlibrary-book-search-source.txt";
 import { animePropertiesJsonSchema } from "~/lib/zod/media/anime";
 import {
 	bookPropertiesJsonSchema,
@@ -6,22 +22,6 @@ import {
 	readEventPropertiesJsonSchema,
 } from "~/lib/zod/media/book";
 import { mangaPropertiesJsonSchema } from "~/lib/zod/media/manga";
-import anilistAnimeDetailsScriptCode from "~/sandbox/scripts/anilist-anime-details-source.txt";
-import anilistAnimeSearchScriptCode from "~/sandbox/scripts/anilist-anime-search-source.txt";
-import anilistMangaDetailsScriptCode from "~/sandbox/scripts/anilist-manga-details-source.txt";
-import anilistMangaSearchScriptCode from "~/sandbox/scripts/anilist-manga-search-source.txt";
-import googleBooksBookDetailsScriptCode from "~/sandbox/scripts/google-books-book-details-source.txt";
-import googleBooksBookSearchScriptCode from "~/sandbox/scripts/google-books-book-search-source.txt";
-import hardcoverBookDetailsScriptCode from "~/sandbox/scripts/hardcover-book-details-source.txt";
-import hardcoverBookSearchScriptCode from "~/sandbox/scripts/hardcover-book-search-source.txt";
-import mangaUpdatesMangaDetailsScriptCode from "~/sandbox/scripts/manga-updates-manga-details-source.txt";
-import mangaUpdatesMangaSearchScriptCode from "~/sandbox/scripts/manga-updates-manga-search-source.txt";
-import myanimelistAnimeDetailsScriptCode from "~/sandbox/scripts/myanimelist-anime-details-source.txt";
-import myanimelistAnimeSearchScriptCode from "~/sandbox/scripts/myanimelist-anime-search-source.txt";
-import myanimelistMangaDetailsScriptCode from "~/sandbox/scripts/myanimelist-manga-details-source.txt";
-import myanimelistMangaSearchScriptCode from "~/sandbox/scripts/myanimelist-manga-search-source.txt";
-import openLibraryBookDetailsScriptCode from "~/sandbox/scripts/openlibrary-book-details-source.txt";
-import openLibraryBookSearchScriptCode from "~/sandbox/scripts/openlibrary-book-search-source.txt";
 
 export const builtinFacets = () => [
 	{
