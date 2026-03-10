@@ -1211,9 +1211,11 @@ function TerminalTheme() {
 							</Stack>
 							<style>
 								{`
-									.terminal-activity-box:hover {
-										background-color: ${bgPurpleTransHover} !important;
-										box-shadow: ${glowPurpleHover};
+									@media (min-width: 769px) {
+										.terminal-activity-box:hover {
+											background-color: ${bgPurpleTransHover} !important;
+											box-shadow: ${glowPurpleHover};
+										}
 									}
 								`}
 							</style>

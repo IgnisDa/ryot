@@ -215,7 +215,7 @@ function PastelTheme() {
 					fw={600}
 					style={{ letterSpacing: "0.5px" }}
 				>
-					Arc Theme
+					Pastel Theme
 				</Text>
 			</Box>
 
@@ -703,18 +703,12 @@ function PastelTheme() {
 											"linear-gradient(135deg, rgba(251, 146, 60, 0.15) 0%, rgba(249, 115, 22, 0.08) 100%)",
 											"linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(14, 165, 233, 0.08) 100%)",
 										];
-								const borderColors = [
-									"bubblegum.5",
-									"mint.5",
-									"peach.4",
-									"sky.4",
-								];
-								const textColors = [
-									"bubblegum.8",
-									"mint.8",
-									"peach.8",
-									"sky.8",
-								];
+								const borderColors = isDark
+									? ["bubblegum.4", "mint.4", "peach.3", "sky.3"]
+									: ["bubblegum.5", "mint.5", "peach.4", "sky.4"];
+								const textColors = isDark
+									? ["bubblegum.4", "mint.4", "peach.4", "sky.4"]
+									: ["bubblegum.8", "mint.8", "peach.8", "sky.8"];
 								return (
 									<Grid.Col key={stat.label} span={{ base: 6, md: 3 }}>
 										<Card
