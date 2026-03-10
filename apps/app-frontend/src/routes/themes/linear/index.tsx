@@ -44,15 +44,15 @@ const linearTheme = createTheme({
 	colors: {
 		dark: [
 			"#EDEDED",
-			"#A0A0A0",
-			"#6B6B6B",
-			"#2A2A2A",
-			"#1A1A1A",
-			"#151515",
-			"#0F0F0F",
+			"#B0B0B0",
+			"#808080",
+			"#404040",
+			"#1E1E1E",
+			"#171717",
+			"#121212",
+			"#0E0E0E",
 			"#0A0A0A",
 			"#050505",
-			"#000000",
 		],
 		violet: [
 			"#F5F3FF",
@@ -60,10 +60,10 @@ const linearTheme = createTheme({
 			"#DDD6FE",
 			"#C4B5FD",
 			"#A78BFA",
-			"#8B5CF6",
-			"#7C3AED",
-			"#6D28D9",
-			"#5B21B6",
+			"#9333EA",
+			"#7E22CE",
+			"#6B21A8",
+			"#581C87",
 			"#4C1D95",
 		],
 		emerald: [
@@ -90,6 +90,18 @@ const linearTheme = createTheme({
 			"#92400E",
 			"#78350F",
 		],
+		cyan: [
+			"#ECFEFF",
+			"#CFFAFE",
+			"#A5F3FC",
+			"#67E8F9",
+			"#22D3EE",
+			"#06B6D4",
+			"#0891B2",
+			"#0E7490",
+			"#155E75",
+			"#164E63",
+		],
 	},
 });
 
@@ -98,11 +110,11 @@ function LinearTheme() {
 
 	return (
 		<MantineProvider theme={linearTheme} forceColorScheme={colorScheme}>
-			<Flex h="100vh" bg="dark.6">
+			<Flex h="100vh" bg="dark.8">
 				<Box
 					w={280}
-					bg="dark.7"
-					style={{ borderRight: "1px solid var(--mantine-color-dark-3)" }}
+					bg="dark.9"
+					style={{ borderRight: "1px solid rgba(255, 255, 255, 0.06)" }}
 				>
 					<Stack gap={0} h="100%">
 						<Box p="md">
@@ -121,18 +133,20 @@ function LinearTheme() {
 								size="sm"
 								styles={{
 									input: {
-										backgroundColor: "var(--mantine-color-dark-6)",
-										border: "1px solid var(--mantine-color-dark-3)",
+										backgroundColor: "var(--mantine-color-dark-8)",
+										border: "1px solid rgba(255, 255, 255, 0.08)",
 										color: "var(--mantine-color-dark.0)",
+										transition: "all 0.2s ease",
 										"&:focus": {
-											borderColor: "var(--mantine-color-violet-6)",
+											borderColor: "var(--mantine-color-violet-5)",
+											boxShadow: "0 0 0 2px rgba(147, 51, 234, 0.2)",
 										},
 									},
 								}}
 							/>
 						</Box>
 
-						<Divider color="dark.3" />
+						<Divider color="rgba(255, 255, 255, 0.06)" />
 
 						<Stack gap={2} p="xs" style={{ flex: 1, overflowY: "auto" }}>
 							<NavLink
@@ -273,8 +287,12 @@ function LinearTheme() {
 									color="violet"
 									styles={{
 										root: {
+											transition: "all 0.2s ease",
 											"&:hover": {
-												backgroundColor: "var(--mantine-color-violet-7)",
+												backgroundColor: "var(--mantine-color-violet-6)",
+												transform: "translateY(-1px)",
+												boxShadow:
+													"0 8px 16px rgba(147, 51, 234, 0.4), 0 0 20px rgba(147, 51, 234, 0.3)",
 											},
 										},
 									}}
@@ -285,35 +303,62 @@ function LinearTheme() {
 						</Group>
 
 						<Grid mb="xl">
-							{stats.map((stat) => (
-								<Grid.Col key={stat.label} span={3}>
-									<Card
-										p="lg"
-										bg="dark.4"
-										style={{ border: "1px solid var(--mantine-color-dark-3)" }}
-									>
-										<Stack gap={4}>
-											<Text size="xs" c="dark.2" tt="uppercase" fw={600}>
-												{stat.label}
-											</Text>
-											<Text size="2rem" fw={700} c="dark.0" lh={1}>
-												{stat.value}
-											</Text>
-											{stat.change && (
-												<Group gap={4}>
-													<TrendingUp
-														size={12}
-														color="var(--mantine-color-emerald-5)"
-													/>
-													<Text size="xs" c="emerald.5">
-														{stat.change}
-													</Text>
-												</Group>
-											)}
-										</Stack>
-									</Card>
-								</Grid.Col>
-							))}
+							{stats.map((stat, idx) => {
+								const borderColors = [
+									"violet.5",
+									"emerald.5",
+									"cyan.5",
+									"amber.5",
+								];
+								return (
+									<Grid.Col key={stat.label} span={3}>
+										<Card
+											p="lg"
+											bg="dark.7"
+											style={{
+												border: "1px solid rgba(255, 255, 255, 0.08)",
+												borderBottom: `3px solid var(--mantine-color-${borderColors[idx % borderColors.length]})`,
+												transition: "all 0.2s ease",
+											}}
+											styles={{
+												root: {
+													"&:hover": {
+														transform: "translateY(-2px)",
+														boxShadow:
+															"0 8px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(147, 51, 234, 0.15)",
+													},
+												},
+											}}
+										>
+											<Stack gap={4}>
+												<Text
+													size="xs"
+													c="dark.2"
+													tt="uppercase"
+													fw={600}
+													style={{ letterSpacing: "0.5px" }}
+												>
+													{stat.label}
+												</Text>
+												<Text size="2rem" fw={700} c="dark.0" lh={1}>
+													{stat.value}
+												</Text>
+												{stat.change && (
+													<Group gap={4}>
+														<TrendingUp
+															size={12}
+															color="var(--mantine-color-emerald-5)"
+														/>
+														<Text size="xs" c="emerald.5">
+															{stat.change}
+														</Text>
+													</Group>
+												)}
+											</Stack>
+										</Card>
+									</Grid.Col>
+								);
+							})}
 						</Grid>
 
 						<Title order={2} size="h3" c="dark.0" fw={600} mb="md">
@@ -324,13 +369,21 @@ function LinearTheme() {
 								<Grid.Col key={entity.id} span={4}>
 									<Card
 										p={0}
-										bg="dark.4"
+										bg="dark.7"
 										style={{
-											border: "1px solid var(--mantine-color-dark-3)",
+											border: "1px solid rgba(255, 255, 255, 0.08)",
 											cursor: "pointer",
-											transition: "border-color 0.2s",
-											"&:hover": {
-												borderColor: "var(--mantine-color-dark-2)",
+											transition: "all 0.25s ease",
+											overflow: "hidden",
+										}}
+										styles={{
+											root: {
+												"&:hover": {
+													transform: "translateY(-4px)",
+													boxShadow:
+														"0 12px 24px rgba(0, 0, 0, 0.5), 0 0 24px rgba(147, 51, 234, 0.2)",
+													border: "1px solid rgba(147, 51, 234, 0.3)",
+												},
 											},
 										}}
 									>
@@ -341,13 +394,15 @@ function LinearTheme() {
 													backgroundImage: `url(${entity.image})`,
 													backgroundSize: "cover",
 													backgroundPosition: "center",
+													transition: "all 0.3s ease",
 												}}
+												className="entity-image"
 											/>
 										)}
 										{!entity.image && (
 											<Box
 												h={180}
-												bg="dark.5"
+												bg="dark.8"
 												style={{
 													display: "grid",
 													placeItems: "center",
@@ -370,8 +425,9 @@ function LinearTheme() {
 														variant="light"
 														styles={{
 															root: {
-																backgroundColor: "rgba(139, 92, 246, 0.15)",
+																backgroundColor: "rgba(147, 51, 234, 0.2)",
 																color: "var(--mantine-color-violet-4)",
+																border: "1px solid rgba(147, 51, 234, 0.3)",
 															},
 														}}
 													>
