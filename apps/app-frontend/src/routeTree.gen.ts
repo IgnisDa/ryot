@@ -10,13 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StartRouteImport } from './routes/start'
+import { Route as ThemesRouteRouteImport } from './routes/themes/route'
 import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
 import { Route as ThemesIndexRouteImport } from './routes/themes/index'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
-import { Route as ThemesSupabaseIndexRouteImport } from './routes/themes/supabase/index'
-import { Route as ThemesRaycastIndexRouteImport } from './routes/themes/raycast/index'
-import { Route as ThemesLinearIndexRouteImport } from './routes/themes/linear/index'
-import { Route as ThemesArcIndexRouteImport } from './routes/themes/arc/index'
+import { Route as ThemesTerminalIndexRouteImport } from './routes/themes/terminal/index'
+import { Route as ThemesPastelIndexRouteImport } from './routes/themes/pastel/index'
+import { Route as ThemesEditorialIndexRouteImport } from './routes/themes/editorial/index'
+import { Route as ThemesBrutalistIndexRouteImport } from './routes/themes/brutalist/index'
 import { Route as ProtectedTrackingFacetSlugIndexRouteImport } from './routes/_protected/tracking/$facetSlug/index'
 import { Route as ProtectedTrackingFacetSlugViewsViewIdRouteImport } from './routes/_protected/tracking/$facetSlug/views/$viewId'
 import { Route as ProtectedTrackingFacetSlugEntitiesEntityIdRouteImport } from './routes/_protected/tracking/$facetSlug/entities/$entityId'
@@ -26,39 +27,44 @@ const StartRoute = StartRouteImport.update({
   path: '/start',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ThemesRouteRoute = ThemesRouteRouteImport.update({
+  id: '/themes',
+  path: '/themes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
   id: '/_protected',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ThemesIndexRoute = ThemesIndexRouteImport.update({
-  id: '/themes/',
-  path: '/themes/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => ThemesRouteRoute,
 } as any)
 const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
-const ThemesSupabaseIndexRoute = ThemesSupabaseIndexRouteImport.update({
-  id: '/themes/supabase/',
-  path: '/themes/supabase/',
-  getParentRoute: () => rootRouteImport,
+const ThemesTerminalIndexRoute = ThemesTerminalIndexRouteImport.update({
+  id: '/terminal/',
+  path: '/terminal/',
+  getParentRoute: () => ThemesRouteRoute,
 } as any)
-const ThemesRaycastIndexRoute = ThemesRaycastIndexRouteImport.update({
-  id: '/themes/raycast/',
-  path: '/themes/raycast/',
-  getParentRoute: () => rootRouteImport,
+const ThemesPastelIndexRoute = ThemesPastelIndexRouteImport.update({
+  id: '/pastel/',
+  path: '/pastel/',
+  getParentRoute: () => ThemesRouteRoute,
 } as any)
-const ThemesLinearIndexRoute = ThemesLinearIndexRouteImport.update({
-  id: '/themes/linear/',
-  path: '/themes/linear/',
-  getParentRoute: () => rootRouteImport,
+const ThemesEditorialIndexRoute = ThemesEditorialIndexRouteImport.update({
+  id: '/editorial/',
+  path: '/editorial/',
+  getParentRoute: () => ThemesRouteRoute,
 } as any)
-const ThemesArcIndexRoute = ThemesArcIndexRouteImport.update({
-  id: '/themes/arc/',
-  path: '/themes/arc/',
-  getParentRoute: () => rootRouteImport,
+const ThemesBrutalistIndexRoute = ThemesBrutalistIndexRouteImport.update({
+  id: '/brutalist/',
+  path: '/brutalist/',
+  getParentRoute: () => ThemesRouteRoute,
 } as any)
 const ProtectedTrackingFacetSlugIndexRoute =
   ProtectedTrackingFacetSlugIndexRouteImport.update({
@@ -81,12 +87,13 @@ const ProtectedTrackingFacetSlugEntitiesEntityIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof ProtectedIndexRoute
+  '/themes': typeof ThemesRouteRouteWithChildren
   '/start': typeof StartRoute
   '/themes/': typeof ThemesIndexRoute
-  '/themes/arc/': typeof ThemesArcIndexRoute
-  '/themes/linear/': typeof ThemesLinearIndexRoute
-  '/themes/raycast/': typeof ThemesRaycastIndexRoute
-  '/themes/supabase/': typeof ThemesSupabaseIndexRoute
+  '/themes/brutalist/': typeof ThemesBrutalistIndexRoute
+  '/themes/editorial/': typeof ThemesEditorialIndexRoute
+  '/themes/pastel/': typeof ThemesPastelIndexRoute
+  '/themes/terminal/': typeof ThemesTerminalIndexRoute
   '/tracking/$facetSlug/': typeof ProtectedTrackingFacetSlugIndexRoute
   '/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
   '/tracking/$facetSlug/views/$viewId': typeof ProtectedTrackingFacetSlugViewsViewIdRoute
@@ -95,10 +102,10 @@ export interface FileRoutesByTo {
   '/start': typeof StartRoute
   '/': typeof ProtectedIndexRoute
   '/themes': typeof ThemesIndexRoute
-  '/themes/arc': typeof ThemesArcIndexRoute
-  '/themes/linear': typeof ThemesLinearIndexRoute
-  '/themes/raycast': typeof ThemesRaycastIndexRoute
-  '/themes/supabase': typeof ThemesSupabaseIndexRoute
+  '/themes/brutalist': typeof ThemesBrutalistIndexRoute
+  '/themes/editorial': typeof ThemesEditorialIndexRoute
+  '/themes/pastel': typeof ThemesPastelIndexRoute
+  '/themes/terminal': typeof ThemesTerminalIndexRoute
   '/tracking/$facetSlug': typeof ProtectedTrackingFacetSlugIndexRoute
   '/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
   '/tracking/$facetSlug/views/$viewId': typeof ProtectedTrackingFacetSlugViewsViewIdRoute
@@ -106,13 +113,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_protected': typeof ProtectedRouteRouteWithChildren
+  '/themes': typeof ThemesRouteRouteWithChildren
   '/start': typeof StartRoute
   '/_protected/': typeof ProtectedIndexRoute
   '/themes/': typeof ThemesIndexRoute
-  '/themes/arc/': typeof ThemesArcIndexRoute
-  '/themes/linear/': typeof ThemesLinearIndexRoute
-  '/themes/raycast/': typeof ThemesRaycastIndexRoute
-  '/themes/supabase/': typeof ThemesSupabaseIndexRoute
+  '/themes/brutalist/': typeof ThemesBrutalistIndexRoute
+  '/themes/editorial/': typeof ThemesEditorialIndexRoute
+  '/themes/pastel/': typeof ThemesPastelIndexRoute
+  '/themes/terminal/': typeof ThemesTerminalIndexRoute
   '/_protected/tracking/$facetSlug/': typeof ProtectedTrackingFacetSlugIndexRoute
   '/_protected/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
   '/_protected/tracking/$facetSlug/views/$viewId': typeof ProtectedTrackingFacetSlugViewsViewIdRoute
@@ -121,12 +129,13 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/themes'
     | '/start'
     | '/themes/'
-    | '/themes/arc/'
-    | '/themes/linear/'
-    | '/themes/raycast/'
-    | '/themes/supabase/'
+    | '/themes/brutalist/'
+    | '/themes/editorial/'
+    | '/themes/pastel/'
+    | '/themes/terminal/'
     | '/tracking/$facetSlug/'
     | '/tracking/$facetSlug/entities/$entityId'
     | '/tracking/$facetSlug/views/$viewId'
@@ -135,23 +144,24 @@ export interface FileRouteTypes {
     | '/start'
     | '/'
     | '/themes'
-    | '/themes/arc'
-    | '/themes/linear'
-    | '/themes/raycast'
-    | '/themes/supabase'
+    | '/themes/brutalist'
+    | '/themes/editorial'
+    | '/themes/pastel'
+    | '/themes/terminal'
     | '/tracking/$facetSlug'
     | '/tracking/$facetSlug/entities/$entityId'
     | '/tracking/$facetSlug/views/$viewId'
   id:
     | '__root__'
     | '/_protected'
+    | '/themes'
     | '/start'
     | '/_protected/'
     | '/themes/'
-    | '/themes/arc/'
-    | '/themes/linear/'
-    | '/themes/raycast/'
-    | '/themes/supabase/'
+    | '/themes/brutalist/'
+    | '/themes/editorial/'
+    | '/themes/pastel/'
+    | '/themes/terminal/'
     | '/_protected/tracking/$facetSlug/'
     | '/_protected/tracking/$facetSlug/entities/$entityId'
     | '/_protected/tracking/$facetSlug/views/$viewId'
@@ -159,12 +169,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   ProtectedRouteRoute: typeof ProtectedRouteRouteWithChildren
+  ThemesRouteRoute: typeof ThemesRouteRouteWithChildren
   StartRoute: typeof StartRoute
-  ThemesIndexRoute: typeof ThemesIndexRoute
-  ThemesArcIndexRoute: typeof ThemesArcIndexRoute
-  ThemesLinearIndexRoute: typeof ThemesLinearIndexRoute
-  ThemesRaycastIndexRoute: typeof ThemesRaycastIndexRoute
-  ThemesSupabaseIndexRoute: typeof ThemesSupabaseIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -176,6 +182,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/themes': {
+      id: '/themes'
+      path: '/themes'
+      fullPath: '/themes'
+      preLoaderRoute: typeof ThemesRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_protected': {
       id: '/_protected'
       path: ''
@@ -185,10 +198,10 @@ declare module '@tanstack/react-router' {
     }
     '/themes/': {
       id: '/themes/'
-      path: '/themes'
+      path: '/'
       fullPath: '/themes/'
       preLoaderRoute: typeof ThemesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ThemesRouteRoute
     }
     '/_protected/': {
       id: '/_protected/'
@@ -197,33 +210,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedIndexRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
-    '/themes/supabase/': {
-      id: '/themes/supabase/'
-      path: '/themes/supabase'
-      fullPath: '/themes/supabase/'
-      preLoaderRoute: typeof ThemesSupabaseIndexRouteImport
-      parentRoute: typeof rootRouteImport
+    '/themes/terminal/': {
+      id: '/themes/terminal/'
+      path: '/terminal'
+      fullPath: '/themes/terminal/'
+      preLoaderRoute: typeof ThemesTerminalIndexRouteImport
+      parentRoute: typeof ThemesRouteRoute
     }
-    '/themes/raycast/': {
-      id: '/themes/raycast/'
-      path: '/themes/raycast'
-      fullPath: '/themes/raycast/'
-      preLoaderRoute: typeof ThemesRaycastIndexRouteImport
-      parentRoute: typeof rootRouteImport
+    '/themes/pastel/': {
+      id: '/themes/pastel/'
+      path: '/pastel'
+      fullPath: '/themes/pastel/'
+      preLoaderRoute: typeof ThemesPastelIndexRouteImport
+      parentRoute: typeof ThemesRouteRoute
     }
-    '/themes/linear/': {
-      id: '/themes/linear/'
-      path: '/themes/linear'
-      fullPath: '/themes/linear/'
-      preLoaderRoute: typeof ThemesLinearIndexRouteImport
-      parentRoute: typeof rootRouteImport
+    '/themes/editorial/': {
+      id: '/themes/editorial/'
+      path: '/editorial'
+      fullPath: '/themes/editorial/'
+      preLoaderRoute: typeof ThemesEditorialIndexRouteImport
+      parentRoute: typeof ThemesRouteRoute
     }
-    '/themes/arc/': {
-      id: '/themes/arc/'
-      path: '/themes/arc'
-      fullPath: '/themes/arc/'
-      preLoaderRoute: typeof ThemesArcIndexRouteImport
-      parentRoute: typeof rootRouteImport
+    '/themes/brutalist/': {
+      id: '/themes/brutalist/'
+      path: '/brutalist'
+      fullPath: '/themes/brutalist/'
+      preLoaderRoute: typeof ThemesBrutalistIndexRouteImport
+      parentRoute: typeof ThemesRouteRoute
     }
     '/_protected/tracking/$facetSlug/': {
       id: '/_protected/tracking/$facetSlug/'
@@ -269,14 +282,30 @@ const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
   ProtectedRouteRouteChildren,
 )
 
+interface ThemesRouteRouteChildren {
+  ThemesIndexRoute: typeof ThemesIndexRoute
+  ThemesBrutalistIndexRoute: typeof ThemesBrutalistIndexRoute
+  ThemesEditorialIndexRoute: typeof ThemesEditorialIndexRoute
+  ThemesPastelIndexRoute: typeof ThemesPastelIndexRoute
+  ThemesTerminalIndexRoute: typeof ThemesTerminalIndexRoute
+}
+
+const ThemesRouteRouteChildren: ThemesRouteRouteChildren = {
+  ThemesIndexRoute: ThemesIndexRoute,
+  ThemesBrutalistIndexRoute: ThemesBrutalistIndexRoute,
+  ThemesEditorialIndexRoute: ThemesEditorialIndexRoute,
+  ThemesPastelIndexRoute: ThemesPastelIndexRoute,
+  ThemesTerminalIndexRoute: ThemesTerminalIndexRoute,
+}
+
+const ThemesRouteRouteWithChildren = ThemesRouteRoute._addFileChildren(
+  ThemesRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   ProtectedRouteRoute: ProtectedRouteRouteWithChildren,
+  ThemesRouteRoute: ThemesRouteRouteWithChildren,
   StartRoute: StartRoute,
-  ThemesIndexRoute: ThemesIndexRoute,
-  ThemesArcIndexRoute: ThemesArcIndexRoute,
-  ThemesLinearIndexRoute: ThemesLinearIndexRoute,
-  ThemesRaycastIndexRoute: ThemesRaycastIndexRoute,
-  ThemesSupabaseIndexRoute: ThemesSupabaseIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
