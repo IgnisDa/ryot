@@ -14,11 +14,6 @@ import { Route as ThemesRouteRouteImport } from './routes/themes/route'
 import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
 import { Route as ThemesIndexRouteImport } from './routes/themes/index'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
-import { Route as ThemesTerminalIndexRouteImport } from './routes/themes/terminal/index'
-import { Route as ThemesPastelIndexRouteImport } from './routes/themes/pastel/index'
-import { Route as ThemesJournalIndexRouteImport } from './routes/themes/journal/index'
-import { Route as ThemesEditorialIndexRouteImport } from './routes/themes/editorial/index'
-import { Route as ThemesBrutalistIndexRouteImport } from './routes/themes/brutalist/index'
 import { Route as ProtectedTrackingFacetSlugIndexRouteImport } from './routes/_protected/tracking/$facetSlug/index'
 import { Route as ProtectedTrackingFacetSlugViewsViewIdRouteImport } from './routes/_protected/tracking/$facetSlug/views/$viewId'
 import { Route as ProtectedTrackingFacetSlugEntitiesEntityIdRouteImport } from './routes/_protected/tracking/$facetSlug/entities/$entityId'
@@ -47,31 +42,6 @@ const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
-const ThemesTerminalIndexRoute = ThemesTerminalIndexRouteImport.update({
-  id: '/terminal/',
-  path: '/terminal/',
-  getParentRoute: () => ThemesRouteRoute,
-} as any)
-const ThemesPastelIndexRoute = ThemesPastelIndexRouteImport.update({
-  id: '/pastel/',
-  path: '/pastel/',
-  getParentRoute: () => ThemesRouteRoute,
-} as any)
-const ThemesJournalIndexRoute = ThemesJournalIndexRouteImport.update({
-  id: '/journal/',
-  path: '/journal/',
-  getParentRoute: () => ThemesRouteRoute,
-} as any)
-const ThemesEditorialIndexRoute = ThemesEditorialIndexRouteImport.update({
-  id: '/editorial/',
-  path: '/editorial/',
-  getParentRoute: () => ThemesRouteRoute,
-} as any)
-const ThemesBrutalistIndexRoute = ThemesBrutalistIndexRouteImport.update({
-  id: '/brutalist/',
-  path: '/brutalist/',
-  getParentRoute: () => ThemesRouteRoute,
-} as any)
 const ProtectedTrackingFacetSlugIndexRoute =
   ProtectedTrackingFacetSlugIndexRouteImport.update({
     id: '/tracking/$facetSlug/',
@@ -96,11 +66,6 @@ export interface FileRoutesByFullPath {
   '/themes': typeof ThemesRouteRouteWithChildren
   '/start': typeof StartRoute
   '/themes/': typeof ThemesIndexRoute
-  '/themes/brutalist/': typeof ThemesBrutalistIndexRoute
-  '/themes/editorial/': typeof ThemesEditorialIndexRoute
-  '/themes/journal/': typeof ThemesJournalIndexRoute
-  '/themes/pastel/': typeof ThemesPastelIndexRoute
-  '/themes/terminal/': typeof ThemesTerminalIndexRoute
   '/tracking/$facetSlug/': typeof ProtectedTrackingFacetSlugIndexRoute
   '/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
   '/tracking/$facetSlug/views/$viewId': typeof ProtectedTrackingFacetSlugViewsViewIdRoute
@@ -109,11 +74,6 @@ export interface FileRoutesByTo {
   '/start': typeof StartRoute
   '/': typeof ProtectedIndexRoute
   '/themes': typeof ThemesIndexRoute
-  '/themes/brutalist': typeof ThemesBrutalistIndexRoute
-  '/themes/editorial': typeof ThemesEditorialIndexRoute
-  '/themes/journal': typeof ThemesJournalIndexRoute
-  '/themes/pastel': typeof ThemesPastelIndexRoute
-  '/themes/terminal': typeof ThemesTerminalIndexRoute
   '/tracking/$facetSlug': typeof ProtectedTrackingFacetSlugIndexRoute
   '/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
   '/tracking/$facetSlug/views/$viewId': typeof ProtectedTrackingFacetSlugViewsViewIdRoute
@@ -125,11 +85,6 @@ export interface FileRoutesById {
   '/start': typeof StartRoute
   '/_protected/': typeof ProtectedIndexRoute
   '/themes/': typeof ThemesIndexRoute
-  '/themes/brutalist/': typeof ThemesBrutalistIndexRoute
-  '/themes/editorial/': typeof ThemesEditorialIndexRoute
-  '/themes/journal/': typeof ThemesJournalIndexRoute
-  '/themes/pastel/': typeof ThemesPastelIndexRoute
-  '/themes/terminal/': typeof ThemesTerminalIndexRoute
   '/_protected/tracking/$facetSlug/': typeof ProtectedTrackingFacetSlugIndexRoute
   '/_protected/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
   '/_protected/tracking/$facetSlug/views/$viewId': typeof ProtectedTrackingFacetSlugViewsViewIdRoute
@@ -141,11 +96,6 @@ export interface FileRouteTypes {
     | '/themes'
     | '/start'
     | '/themes/'
-    | '/themes/brutalist/'
-    | '/themes/editorial/'
-    | '/themes/journal/'
-    | '/themes/pastel/'
-    | '/themes/terminal/'
     | '/tracking/$facetSlug/'
     | '/tracking/$facetSlug/entities/$entityId'
     | '/tracking/$facetSlug/views/$viewId'
@@ -154,11 +104,6 @@ export interface FileRouteTypes {
     | '/start'
     | '/'
     | '/themes'
-    | '/themes/brutalist'
-    | '/themes/editorial'
-    | '/themes/journal'
-    | '/themes/pastel'
-    | '/themes/terminal'
     | '/tracking/$facetSlug'
     | '/tracking/$facetSlug/entities/$entityId'
     | '/tracking/$facetSlug/views/$viewId'
@@ -169,11 +114,6 @@ export interface FileRouteTypes {
     | '/start'
     | '/_protected/'
     | '/themes/'
-    | '/themes/brutalist/'
-    | '/themes/editorial/'
-    | '/themes/journal/'
-    | '/themes/pastel/'
-    | '/themes/terminal/'
     | '/_protected/tracking/$facetSlug/'
     | '/_protected/tracking/$facetSlug/entities/$entityId'
     | '/_protected/tracking/$facetSlug/views/$viewId'
@@ -222,41 +162,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedIndexRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
-    '/themes/terminal/': {
-      id: '/themes/terminal/'
-      path: '/terminal'
-      fullPath: '/themes/terminal/'
-      preLoaderRoute: typeof ThemesTerminalIndexRouteImport
-      parentRoute: typeof ThemesRouteRoute
-    }
-    '/themes/pastel/': {
-      id: '/themes/pastel/'
-      path: '/pastel'
-      fullPath: '/themes/pastel/'
-      preLoaderRoute: typeof ThemesPastelIndexRouteImport
-      parentRoute: typeof ThemesRouteRoute
-    }
-    '/themes/journal/': {
-      id: '/themes/journal/'
-      path: '/journal'
-      fullPath: '/themes/journal/'
-      preLoaderRoute: typeof ThemesJournalIndexRouteImport
-      parentRoute: typeof ThemesRouteRoute
-    }
-    '/themes/editorial/': {
-      id: '/themes/editorial/'
-      path: '/editorial'
-      fullPath: '/themes/editorial/'
-      preLoaderRoute: typeof ThemesEditorialIndexRouteImport
-      parentRoute: typeof ThemesRouteRoute
-    }
-    '/themes/brutalist/': {
-      id: '/themes/brutalist/'
-      path: '/brutalist'
-      fullPath: '/themes/brutalist/'
-      preLoaderRoute: typeof ThemesBrutalistIndexRouteImport
-      parentRoute: typeof ThemesRouteRoute
-    }
     '/_protected/tracking/$facetSlug/': {
       id: '/_protected/tracking/$facetSlug/'
       path: '/tracking/$facetSlug'
@@ -303,20 +208,10 @@ const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
 
 interface ThemesRouteRouteChildren {
   ThemesIndexRoute: typeof ThemesIndexRoute
-  ThemesBrutalistIndexRoute: typeof ThemesBrutalistIndexRoute
-  ThemesEditorialIndexRoute: typeof ThemesEditorialIndexRoute
-  ThemesJournalIndexRoute: typeof ThemesJournalIndexRoute
-  ThemesPastelIndexRoute: typeof ThemesPastelIndexRoute
-  ThemesTerminalIndexRoute: typeof ThemesTerminalIndexRoute
 }
 
 const ThemesRouteRouteChildren: ThemesRouteRouteChildren = {
   ThemesIndexRoute: ThemesIndexRoute,
-  ThemesBrutalistIndexRoute: ThemesBrutalistIndexRoute,
-  ThemesEditorialIndexRoute: ThemesEditorialIndexRoute,
-  ThemesJournalIndexRoute: ThemesJournalIndexRoute,
-  ThemesPastelIndexRoute: ThemesPastelIndexRoute,
-  ThemesTerminalIndexRoute: ThemesTerminalIndexRoute,
 }
 
 const ThemesRouteRouteWithChildren = ThemesRouteRoute._addFileChildren(
