@@ -101,7 +101,7 @@ export function FacetForm() {
 						<facetForm.AppField name="icon">
 							{(field) => (
 								<Select
-									clearable
+									required
 									searchable
 									limit={100}
 									label="Icon"

@@ -5,11 +5,12 @@ export function createFacetFixture(
 	overrides: Partial<AppFacet> = {},
 ): AppFacet {
 	return {
-		id: "facet-id",
+		sortOrder: 1,
 		name: "Facet",
 		slug: "facet",
 		enabled: true,
-		sortOrder: 1,
+		id: "facet-id",
+		icon: "shapes",
 		...overrides,
 	};
 }
@@ -18,9 +19,9 @@ export function createFacetFormValuesFixture(
 	overrides: Partial<CreateFacetFormValues> = {},
 ): CreateFacetFormValues {
 	return {
-		icon: "",
 		name: "Facet",
 		slug: "facet",
+		icon: "shapes",
 		accentColor: "",
 		description: "",
 		...overrides,
