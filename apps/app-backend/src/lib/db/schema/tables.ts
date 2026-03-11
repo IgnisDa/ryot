@@ -30,11 +30,11 @@ export enum FacetMode {
 export const facet = pgTable(
 	"facet",
 	{
-		icon: text(),
 		accentColor: text(),
 		description: text(),
 		slug: text().notNull(),
 		name: text().notNull(),
+		icon: text().notNull(),
 		config: jsonb().notNull().default({}),
 		createdAt: timestamp().defaultNow().notNull(),
 		isBuiltin: boolean().notNull().default(false),
