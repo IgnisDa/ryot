@@ -1,3 +1,4 @@
+import { kebabCase } from "@ryot/ts-utils";
 import {
 	type AppFacet,
 	selectEnabledFacets,
@@ -28,7 +29,7 @@ export function toSidebarData(input: {
 					id: view.id,
 					icon: view.icon,
 					name: view.name,
-					slug: view.name,
+					slug: kebabCase(view.name),
 					facetId: view.facetId,
 					accentColor: view.accentColor,
 				})),
@@ -40,7 +41,7 @@ export function toSidebarData(input: {
 			id: view.id,
 			icon: view.icon,
 			name: view.name,
-			slug: view.name,
+			slug: kebabCase(view.name),
 			facetId: view.facetId,
 			accentColor: view.accentColor,
 		}));
