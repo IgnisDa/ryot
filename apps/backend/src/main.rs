@@ -51,12 +51,15 @@ static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-fn make_memory_job_storage<T: Send + 'static>() -> (MemoryStorage<T>, MemorySink<T, Extensions>) {
+fn make_memory_job_storage<T: Send + 'static>() -> (
+    Arc<Mutex<Option<MemoryStorage<T>>>>,
+    MemorySink<T, Extensions>,
+) {
     let (sender, receiver) = unbounded();
     let sender = Box::new(sender);
     let sender = MemorySink::new(Arc::new(FuturesMutex::new(sender)));
     let storage = MemoryStorage::new_with(sender.clone(), receiver.boxed());
-    (storage, sender)
+    (Arc::new(Mutex::new(Some(storage))), sender)
 }
 
 #[tokio::main]
@@ -115,10 +118,6 @@ async fn main() -> Result<()> {
     let (mp_application_job_storage, mp_application_job_sink) = make_memory_job_storage();
     let (hp_application_job_storage, hp_application_job_sink) = make_memory_job_storage();
     let (single_application_job_storage, single_application_job_sink) = make_memory_job_storage();
-    let lp_application_job_storage = Arc::new(Mutex::new(Some(lp_application_job_storage)));
-    let mp_application_job_storage = Arc::new(Mutex::new(Some(mp_application_job_storage)));
-    let hp_application_job_storage = Arc::new(Mutex::new(Some(hp_application_job_storage)));
-    let single_application_job_storage = Arc::new(Mutex::new(Some(single_application_job_storage)));
 
     let (app_router, supporting_service) = create_app_dependencies()
         .db(db)
