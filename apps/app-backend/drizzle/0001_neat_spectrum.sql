@@ -1,1 +1,0 @@
-ALTER TABLE "facet" ALTER COLUMN "icon" SET NOT NULL;

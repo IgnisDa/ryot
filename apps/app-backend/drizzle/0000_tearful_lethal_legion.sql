@@ -101,11 +101,11 @@ CREATE TABLE "event_schema" (
 );
 --> statement-breakpoint
 CREATE TABLE "facet" (
-	"icon" text,
-	"accent_color" text,
 	"description" text,
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
+	"icon" text NOT NULL,
+	"accent_color" text NOT NULL,
 	"config" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
