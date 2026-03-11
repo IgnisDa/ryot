@@ -14,7 +14,6 @@ export interface SidebarView {
 	id: string;
 	icon: string;
 	name: string;
-	slug: string;
 	accentColor: string;
 	facetId: string | null;
 }

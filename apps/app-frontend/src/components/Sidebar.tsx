@@ -121,7 +121,7 @@ function SortableFacet(props: {
 						component={Link}
 						label={view.name}
 						leftSection={<ViewIcon view={view} />}
-						to={`/tracking/${props.facet.slug}/views/${view.id}`}
+						to={`/tracking/random-slug/views/${view.id}`}
 						styles={{
 							root: {
 								paddingLeft: "40px",
@@ -377,11 +377,11 @@ export function Sidebar(props: SidebarProps) {
 
 					{props.views.map((view) => (
 						<NavLink
-							to="/"
 							key={view.id}
 							label={view.name}
 							component={Link}
 							leftSection={<ViewIcon view={view} />}
+							to={`/tracking/random-slug/views/${view.id}`}
 							styles={{
 								label: {
 									fontSize: "13px",
