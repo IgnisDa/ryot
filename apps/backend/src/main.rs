@@ -9,7 +9,7 @@ use std::{
 use anyhow::{Context, Result, bail};
 use apalis::{
     layers::WorkerBuilderExt,
-    prelude::{Extensions, MemoryStorage, Monitor, WorkerBuilder},
+    prelude::{MemoryStorage, Monitor, WorkerBuilder},
 };
 use apalis_core::backend::memory::MemorySink;
 use apalis_cron::CronStream;
@@ -24,6 +24,7 @@ use migrations_sql::Migrator;
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
+use supporting_service::JobStorage;
 #[cfg(not(target_env = "msvc"))]
 use tikv_jemallocator::Jemalloc;
 use tokio::{
@@ -51,10 +52,7 @@ static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-fn make_memory_job_storage<T: Send + 'static>() -> (
-    Arc<Mutex<Option<MemoryStorage<T>>>>,
-    MemorySink<T, Extensions>,
-) {
+fn make_job_storage<T: Send + 'static>() -> (Arc<Mutex<Option<MemoryStorage<T>>>>, JobStorage<T>) {
     let (sender, receiver) = unbounded();
     let sender = Box::new(sender);
     let sender = MemorySink::new(Arc::new(FuturesMutex::new(sender)));
@@ -114,10 +112,10 @@ async fn main() -> Result<()> {
         bail!("There was an error running the database migrations.");
     };
 
-    let (lp_application_job_storage, lp_application_job_sink) = make_memory_job_storage();
-    let (mp_application_job_storage, mp_application_job_sink) = make_memory_job_storage();
-    let (hp_application_job_storage, hp_application_job_sink) = make_memory_job_storage();
-    let (single_application_job_storage, single_application_job_sink) = make_memory_job_storage();
+    let (lp_application_job_storage, lp_application_job_sink) = make_job_storage();
+    let (mp_application_job_storage, mp_application_job_sink) = make_job_storage();
+    let (hp_application_job_storage, hp_application_job_sink) = make_job_storage();
+    let (single_application_job_storage, single_application_job_sink) = make_job_storage();
 
     let (app_router, supporting_service) = create_app_dependencies()
         .db(db)
