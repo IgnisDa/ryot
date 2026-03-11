@@ -16,6 +16,7 @@ export const ensureBuiltinFacet = async (input: {
 	icon: string;
 	name: string;
 	mode: FacetMode;
+	accentColor: string;
 	description?: string;
 }) => {
 	const [existing] = await db
@@ -32,6 +33,7 @@ export const ensureBuiltinFacet = async (input: {
 		name: input.name,
 		slug: input.slug,
 		mode: input.mode,
+		accentColor: input.accentColor,
 		description: input.description ?? null,
 	};
 

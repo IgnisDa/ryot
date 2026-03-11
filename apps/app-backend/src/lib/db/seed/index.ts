@@ -22,6 +22,7 @@ export const seedInitialDatabase = async () => {
 			name: facet.name,
 			mode: facet.mode,
 			icon: facet.icon,
+			accentColor: facet.accentColor,
 			description: facet.description,
 		});
 		facetIds.set(facet.slug, facetId);

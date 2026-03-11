@@ -11,8 +11,8 @@ export interface SidebarFacet {
 	name: string;
 	enabled: boolean;
 	sortOrder: number;
+	accentColor: string;
 	isExpanded?: boolean;
-	accentColor?: string | null;
 	entitySchemas: SidebarEntitySchema[];
 }
 

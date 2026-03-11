@@ -125,6 +125,7 @@ export function FacetForm() {
 						<facetForm.AppField name="accentColor">
 							{(field) => (
 								<ColorInput
+									required
 									label="Accent Color"
 									disabled={isLoading}
 									value={field.state.value}

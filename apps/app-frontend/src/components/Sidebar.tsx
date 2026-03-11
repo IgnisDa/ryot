@@ -22,23 +22,8 @@ import { useState } from "react";
 import { FacetIcon } from "#/features/facets/icons";
 import type { SidebarFacet, SidebarProps, SidebarView } from "./Sidebar.types";
 
-const DEFAULT_FACET_COLOR = {
-	base: "#5B7FFF",
-	muted: "rgba(91, 127, 255, 0.12)",
-};
-
-const facetColors: Record<string, { base: string; muted: string }> = {
-	media: DEFAULT_FACET_COLOR,
-	fitness: { base: "#2DD4BF", muted: "rgba(45, 212, 191, 0.12)" },
-	whiskey: { base: "#D4A574", muted: "rgba(212, 165, 116, 0.12)" },
-	places: { base: "#A78BFA", muted: "rgba(167, 139, 250, 0.12)" },
-};
-
 function getFacetColor(facet: SidebarFacet) {
-	if (facet.accentColor)
-		return { base: facet.accentColor, muted: rgba(facet.accentColor, 0) };
-
-	return facetColors[facet.slug] ?? DEFAULT_FACET_COLOR;
+	return { base: facet.accentColor, muted: rgba(facet.accentColor, 0) };
 }
 
 function ViewIcon(props: { borderAccent: string; view: SidebarView }) {
