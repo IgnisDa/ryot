@@ -92,6 +92,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/authentication/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a user account */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        name: string;
+                        /** Format: email */
+                        email: string;
+                        password: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description User account was created */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                /** @enum {boolean} */
+                                created: true;
+                            };
+                        };
+                    };
+                };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -1480,15 +1541,15 @@ export interface components {
             /** @enum {string} */
             code: "health_check_failed";
         };
-        UnauthenticatedError: {
-            message: string;
-            /** @enum {string} */
-            code: "unauthenticated";
-        };
         ValidationFailedError: {
             message: string;
             /** @enum {string} */
             code: "validation_failed";
+        };
+        UnauthenticatedError: {
+            message: string;
+            /** @enum {string} */
+            code: "unauthenticated";
         };
         NotFoundError: {
             message: string;
