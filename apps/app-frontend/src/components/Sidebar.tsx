@@ -137,11 +137,10 @@ function SortableFacet(props: {
 				<Stack gap={0}>
 					{props.entitySchemas.map((schema) => (
 						<Box
-							to="/"
 							p="md"
 							pt="sm"
 							pb="sm"
-							pl="lg"
+							to="/"
 							td="none"
 							key={schema.id}
 							component={Link}
@@ -152,9 +151,9 @@ function SortableFacet(props: {
 								setHoverStates((prev) => ({ ...prev, [schema.id]: false }))
 							}
 							style={{
+								paddingLeft: "50px",
 								transition: "all 0.2s ease",
 								borderLeft: "3px solid transparent",
-								paddingLeft: "calc(var(--mantine-spacing-lg) - 3px)",
 								borderLeftColor: hoverStates[schema.id]
 									? props.accentColor
 									: "transparent",
@@ -251,7 +250,9 @@ export function Sidebar(props: SidebarProps) {
 					component="div"
 					ff="var(--mantine-headings-font-family)"
 					style={{
+						display: "grid",
 						borderRadius: "6px",
+						placeItems: "center",
 						transition: "all 0.2s ease",
 						background: `linear-gradient(135deg, ${accentColor} 0%, #E6C9A0 100%)`,
 					}}
