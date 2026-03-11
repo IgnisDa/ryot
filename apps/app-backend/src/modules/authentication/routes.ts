@@ -1,7 +1,12 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import { isAPIError } from "better-auth/api";
 import { auth, type MaybeAuthType } from "~/lib/auth";
-import { builtinSavedViews } from "~/lib/db/seed/manifests";
+import { db } from "~/lib/db";
+import {
+	builtinEntitySchemas,
+	builtinFacets,
+	builtinSavedViews,
+} from "~/lib/db/seed/manifests";
 import {
 	createAuthRoute,
 	createValidationErrorResult,
@@ -10,10 +15,16 @@ import {
 	resolveValidationResult,
 	successResponse,
 } from "~/lib/openapi";
-import { listBuiltinEntitySchemas } from "../entity-schemas/repository";
+import {
+	createFacetEntitySchemas,
+	listBuiltinEntitySchemas,
+} from "../entity-schemas/repository";
+import { createBuiltinFacetsForUser } from "../facets/repository";
 import { createSavedViewsForUser } from "../saved-views/repository";
 import { meResponseSchema, signUpBody, signUpResponseSchema } from "./schemas";
 import {
+	buildAuthenticationFacetEntitySchemaLinks,
+	buildAuthenticationFacetInputs,
 	buildAuthenticationSavedViewInputs,
 	resolveAuthenticationName,
 } from "./service";
@@ -69,14 +80,37 @@ export const authenticationApi = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 				},
 			});
 
-			const savedViewInputs = buildAuthenticationSavedViewInputs({
-				savedViews: builtinSavedViews(),
-				entitySchemas: await listBuiltinEntitySchemas(),
-			});
+			await db.transaction(async (tx) => {
+				const createdFacets = await createBuiltinFacetsForUser({
+					database: tx,
+					userId: signUpResult.user.id,
+					facets: buildAuthenticationFacetInputs({ facets: builtinFacets() }),
+				});
 
-			await createSavedViewsForUser({
-				views: savedViewInputs,
-				userId: signUpResult.user.id,
+				const builtinEntitySchemaRows = await listBuiltinEntitySchemas({
+					database: tx,
+				});
+
+				await createFacetEntitySchemas({
+					database: tx,
+					links: buildAuthenticationFacetEntitySchemaLinks({
+						facets: createdFacets,
+						entitySchemas: builtinEntitySchemaRows,
+						schemaLinks: builtinEntitySchemas().map((schema) => ({
+							slug: schema.slug,
+							facetSlug: schema.facetSlug,
+						})),
+					}),
+				});
+
+				await createSavedViewsForUser({
+					database: tx,
+					userId: signUpResult.user.id,
+					views: buildAuthenticationSavedViewInputs({
+						entitySchemas: builtinEntitySchemaRows,
+						savedViews: builtinSavedViews(),
+					}),
+				});
 			});
 		} catch (error) {
 			if (isAPIError(error)) {

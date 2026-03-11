@@ -37,9 +37,13 @@ export const facet = pgTable(
 		accentColor: text().notNull(),
 		config: jsonb().notNull().default({}),
 		createdAt: timestamp().defaultNow().notNull(),
+		sortOrder: integer().notNull().default(0),
+		enabled: boolean().notNull().default(true),
 		isBuiltin: boolean().notNull().default(false),
 		mode: text().$type<FacetMode>().notNull().default(FacetMode.generated),
-		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		userId: text()
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
 		id: text()
 			.notNull()
 			.primaryKey()
@@ -55,34 +59,6 @@ export const facet = pgTable(
 	],
 );
 
-export const userFacet = pgTable(
-	"user_facet",
-	{
-		createdAt: timestamp().defaultNow().notNull(),
-		sortOrder: integer().notNull().default(0),
-		enabled: boolean().notNull().default(true),
-		userId: text()
-			.notNull()
-			.references(() => user.id, { onDelete: "cascade" }),
-		facetId: text()
-			.notNull()
-			.references(() => facet.id, { onDelete: "cascade" }),
-		id: text()
-			.notNull()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp()
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
-	},
-	(table) => [
-		index("user_facet_user_id_idx").on(table.userId),
-		index("user_facet_facet_id_idx").on(table.facetId),
-		unique("user_facet_user_facet_unique").on(table.userId, table.facetId),
-	],
-);
-
 export const entitySchema = pgTable(
 	"entity_schema",
 	{
@@ -94,9 +70,6 @@ export const entitySchema = pgTable(
 		createdAt: timestamp().defaultNow().notNull(),
 		isBuiltin: boolean().notNull().default(false),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
-		facetId: text()
-			.notNull()
-			.references(() => facet.id, { onDelete: "cascade" }),
 		id: text()
 			.notNull()
 			.primaryKey()
@@ -107,9 +80,38 @@ export const entitySchema = pgTable(
 			.notNull(),
 	},
 	(table) => [
-		index("entity_schema_facet_id_idx").on(table.facetId),
 		index("entity_schema_user_id_idx").on(table.userId),
 		unique("entity_schema_user_slug_unique").on(table.userId, table.slug),
+	],
+);
+
+export const facetEntitySchema = pgTable(
+	"facet_entity_schema",
+	{
+		createdAt: timestamp().defaultNow().notNull(),
+		isDisabled: boolean().notNull().default(false),
+		facetId: text()
+			.notNull()
+			.references(() => facet.id, { onDelete: "cascade" }),
+		entitySchemaId: text()
+			.notNull()
+			.references(() => entitySchema.id, { onDelete: "cascade" }),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		updatedAt: timestamp()
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
+	},
+	(table) => [
+		index("facet_entity_schema_facet_id_idx").on(table.facetId),
+		index("facet_entity_schema_entity_schema_id_idx").on(table.entitySchemaId),
+		unique("facet_entity_schema_unique").on(
+			table.facetId,
+			table.entitySchemaId,
+		),
 	],
 );
 
