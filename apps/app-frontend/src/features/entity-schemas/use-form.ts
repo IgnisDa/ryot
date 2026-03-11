@@ -1,6 +1,10 @@
-import { usePropertySchemaForm } from "../property-schemas/use-form";
+import { useRef } from "react";
+import { useAppForm } from "#/hooks/forms";
+import { createNameFieldListeners } from "#/lib/slug-sync";
 import {
+	buildEntitySchemaFormValues,
 	type CreateEntitySchemaPayload,
+	createEntitySchemaFormSchema,
 	toCreateEntitySchemaPayload,
 } from "./form";
 
@@ -12,9 +16,20 @@ type UseCreateEntitySchemaFormProps = {
 export function useCreateEntitySchemaForm(
 	props: UseCreateEntitySchemaFormProps,
 ) {
-	return usePropertySchemaForm({
-		onSubmit: props.onSubmit,
-		toPayload: (value) => toCreateEntitySchemaPayload(value, props.facetId),
+	const form = useAppForm({
+		defaultValues: buildEntitySchemaFormValues(),
+		validators: { onChange: createEntitySchemaFormSchema },
+		onSubmit: async ({ value }) => {
+			await props.onSubmit(toCreateEntitySchemaPayload(value, props.facetId));
+		},
+	});
+	const previousDerivedSlug = useRef("");
+
+	return Object.assign(form, {
+		nameFieldListeners: createNameFieldListeners({
+			form,
+			previousDerivedSlug,
+		}),
 	});
 }
 

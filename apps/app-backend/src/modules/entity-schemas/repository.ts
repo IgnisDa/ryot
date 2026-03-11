@@ -12,9 +12,11 @@ export const listEntitySchemasByFacetForUser = async (input: {
 		.select({
 			id: entitySchema.id,
 			name: entitySchema.name,
+			icon: entitySchema.icon,
 			slug: entitySchema.slug,
 			facetId: entitySchema.facetId,
 			isBuiltin: entitySchema.isBuiltin,
+			accentColor: entitySchema.accentColor,
 			propertiesSchema: entitySchema.propertiesSchema,
 		})
 		.from(entitySchema)
@@ -51,29 +53,35 @@ export const getEntitySchemaBySlugForUser = async (input: {
 };
 
 export const createEntitySchemaForUser = async (input: {
+	icon: string;
 	name: string;
 	slug: string;
 	userId: string;
 	facetId: string;
+	accentColor: string;
 	propertiesSchema: EntitySchemaPropertiesShape;
 }) => {
 	return await db.transaction(async (tx) => {
 		const [createdEntitySchema] = await tx
 			.insert(entitySchema)
 			.values({
+				icon: input.icon,
 				name: input.name,
 				slug: input.slug,
 				isBuiltin: false,
 				userId: input.userId,
 				facetId: input.facetId,
+				accentColor: input.accentColor,
 				propertiesSchema: input.propertiesSchema,
 			})
 			.returning({
 				id: entitySchema.id,
 				name: entitySchema.name,
 				slug: entitySchema.slug,
+				icon: entitySchema.icon,
 				facetId: entitySchema.facetId,
 				isBuiltin: entitySchema.isBuiltin,
+				accentColor: entitySchema.accentColor,
 				propertiesSchema: entitySchema.propertiesSchema,
 			});
 
