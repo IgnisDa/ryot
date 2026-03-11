@@ -10,6 +10,7 @@ import {
 	Box,
 	Group,
 	NavLink,
+	rgba,
 	Stack,
 	Text,
 	TextInput,
@@ -33,30 +34,9 @@ const facetColors: Record<string, { base: string; muted: string }> = {
 	places: { base: "#A78BFA", muted: "rgba(167, 139, 250, 0.12)" },
 };
 
-function hexToMutedRgba(color: string) {
-	const normalized = color.replace("#", "");
-	const expanded =
-		normalized.length === 3
-			? normalized
-					.split("")
-					.map((part) => `${part}${part}`)
-					.join("")
-			: normalized;
-
-	if (!/^[0-9a-fA-F]{6}$/.test(expanded)) return undefined;
-
-	const red = Number.parseInt(expanded.slice(0, 2), 16);
-	const green = Number.parseInt(expanded.slice(2, 4), 16);
-	const blue = Number.parseInt(expanded.slice(4, 6), 16);
-
-	return `rgba(${red}, ${green}, ${blue}, 0.12)`;
-}
-
 function getFacetColor(facet: SidebarFacet) {
-	if (facet.accentColor) {
-		const muted = hexToMutedRgba(facet.accentColor);
-		if (muted) return { muted, base: facet.accentColor };
-	}
+	if (facet.accentColor)
+		return { base: facet.accentColor, muted: rgba(facet.accentColor, 0) };
 
 	return facetColors[facet.slug] ?? DEFAULT_FACET_COLOR;
 }
