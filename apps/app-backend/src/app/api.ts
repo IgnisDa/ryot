@@ -10,6 +10,7 @@ import {
 	jsonResponse,
 	successResponse,
 } from "~/lib/openapi";
+import { authenticationApi } from "~/modules/authentication/routes";
 import { entitiesApi } from "~/modules/entities/routes";
 import { entitySchemasApi } from "~/modules/entity-schemas/routes";
 import { eventSchemasApi } from "~/modules/event-schemas/routes";
@@ -66,6 +67,7 @@ export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	})
 	.route("/health", healthApi)
 	.route("/metrics", metricsApi)
+	.route("/authentication", authenticationApi)
 	.openapi(meRoute, async (c) => {
 		const user = c.get("user");
 		const session = c.get("session");
