@@ -9,10 +9,10 @@ use std::{
 use anyhow::{Context, Result, bail};
 use apalis::{
     layers::WorkerBuilderExt,
-    prelude::{MakeShared, Monitor, WorkerBuilder},
+    prelude::{Monitor, WorkerBuilder},
 };
 use apalis_cron::CronStream;
-use apalis_sqlite::{SharedSqliteStorage, SqliteStorage};
+use apalis_file_storage::JsonStorage;
 use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
 use config_definition::AppConfig;
 use cron::Schedule;
@@ -102,16 +102,10 @@ async fn main() -> Result<()> {
         bail!("There was an error running the database migrations.");
     };
 
-    let jobs_directory =
-        PathBuf::from(get_temporary_directory()).join(format!("{PROJECT_NAME}_jobs"));
-    let mut store =
-        SharedSqliteStorage::new(&format!("sqlite:{}?mode=rwc", jobs_directory.display()));
-    SqliteStorage::setup(store.pool()).await?;
-
-    let lp_application_job_storage = store.make_shared()?;
-    let mp_application_job_storage = store.make_shared()?;
-    let hp_application_job_storage = store.make_shared()?;
-    let single_application_job_storage = store.make_shared()?;
+    let lp_application_job_storage = JsonStorage::new_temp()?;
+    let mp_application_job_storage = JsonStorage::new_temp()?;
+    let hp_application_job_storage = JsonStorage::new_temp()?;
+    let single_application_job_storage = JsonStorage::new_temp()?;
 
     let (app_router, supporting_service) = create_app_dependencies()
         .db(db)

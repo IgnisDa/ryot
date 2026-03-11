@@ -2,8 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Result;
 use apalis::prelude::TaskSink;
-use apalis_codec::json::JsonCodec;
-use apalis_sqlite::{SqliteStorage, shared::SharedFetcher};
+use apalis_file_storage::JsonStorage;
 use background_models::{
     ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob, SingleApplicationJob,
 };
@@ -12,7 +11,7 @@ use chrono::Utc;
 use config_definition::AppConfig;
 use sea_orm::{DatabaseConnection, prelude::DateTimeUtc};
 
-pub type JobStorage<T> = SqliteStorage<T, JsonCodec<Vec<u8>>, SharedFetcher<Vec<u8>>>;
+pub type JobStorage<T> = JsonStorage<T>;
 
 pub struct SupportingService {
     pub config: Arc<AppConfig>,
