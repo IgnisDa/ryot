@@ -3032,7 +3032,6 @@ dependencies = [
  "enum-models",
  "fitness-models",
  "futures",
- "nanoid",
  "reqwest 0.12.25",
  "sea-orm",
  "supporting-service",
