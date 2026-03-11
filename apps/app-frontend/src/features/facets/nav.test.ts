@@ -97,42 +97,39 @@ describe("toTrackingNavItemsWithViews", () => {
 	const savedView = (
 		id: string,
 		name: string,
-		schemaIds: string[],
+		facetId: string | null,
 	): AppSavedView => ({
 		id,
+		icon: "book-open",
 		name,
 		isBuiltin: true,
-		queryDefinition: { entitySchemaIds: schemaIds },
+		facetId,
+		accentColor: "#5B7FFF",
+		queryDefinition: { entitySchemaIds: ["schema-1"] },
 	});
 
-	it("returns facets with no sub-items when facet has no schemas", () => {
+	it("returns facets with no sub-items when facet has no matching views", () => {
 		const facets = [facet("facet-1", "Media", "media")];
-		const savedViews = [savedView("view-1", "All Whiskeys", ["schema-1"])];
-		const entitySchemasByFacet = new Map<string, string[]>();
+		const savedViews = [savedView("view-1", "All Whiskeys", "facet-2")];
 
 		const items = toTrackingNavItemsWithViews({
 			facets,
 			savedViews,
-			entitySchemasByFacet,
 		});
 
 		expect(items[0]?.savedViews).toBeUndefined();
 	});
 
-	it("returns facets with sub-items when facet has matching schemas", () => {
+	it("returns facets with sub-items when facet has matching views", () => {
 		const facets = [facet("facet-1", "Beverages", "beverages")];
 		const savedViews = [
-			savedView("view-1", "All Whiskeys", ["schema-1"]),
-			savedView("view-2", "All Wines", ["schema-2"]),
+			savedView("view-1", "All Whiskeys", "facet-1"),
+			savedView("view-2", "All Wines", "facet-1"),
 		];
-		const entitySchemasByFacet = new Map([
-			["facet-1", ["schema-1", "schema-2"]],
-		]);
 
 		const items = toTrackingNavItemsWithViews({
 			facets,
 			savedViews,
-			entitySchemasByFacet,
 		});
 
 		expect(items[0]?.savedViews?.length).toBe(2);
@@ -143,18 +140,16 @@ describe("toTrackingNavItemsWithViews", () => {
 		expect(items[0]?.savedViews?.[1]?.name).toBe("All Wines");
 	});
 
-	it("handles facets with multiple schemas and partial view matches", () => {
+	it("handles partial view matches by facet id", () => {
 		const facets = [facet("facet-1", "Mixed", "mixed")];
 		const savedViews = [
-			savedView("view-1", "All Whiskeys", ["schema-1"]),
-			savedView("view-2", "All Books", ["schema-99"]),
+			savedView("view-1", "All Whiskeys", "facet-1"),
+			savedView("view-2", "All Books", "facet-2"),
 		];
-		const entitySchemasByFacet = new Map([["facet-1", ["schema-1"]]]);
 
 		const items = toTrackingNavItemsWithViews({
 			facets,
 			savedViews,
-			entitySchemasByFacet,
 		});
 
 		expect(items[0]?.savedViews?.length).toBe(1);
@@ -164,12 +159,10 @@ describe("toTrackingNavItemsWithViews", () => {
 	it("handles built-in facets with no custom schemas", () => {
 		const facets = [facet("facet-builtin", "Movies", "movies")];
 		const savedViews: AppSavedView[] = [];
-		const entitySchemasByFacet = new Map<string, string[]>();
 
 		const items = toTrackingNavItemsWithViews({
 			facets,
 			savedViews,
-			entitySchemasByFacet,
 		});
 
 		expect(items[0]?.savedViews).toBeUndefined();

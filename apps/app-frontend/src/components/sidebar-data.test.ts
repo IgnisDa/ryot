@@ -35,8 +35,20 @@ describe("toSidebarData", () => {
 			{
 				id: "view-1",
 				isBuiltin: true,
+				icon: "book-open",
+				facetId: "facet-1",
+				accentColor: "#5B7FFF",
 				name: "Currently Reading",
 				queryDefinition: { entitySchemaIds: ["schema-1"] },
+			},
+			{
+				id: "view-2",
+				facetId: null,
+				icon: "sparkles",
+				isBuiltin: false,
+				name: "Favorites",
+				accentColor: "#2DD4BF",
+				queryDefinition: { entitySchemaIds: ["schema-2"] },
 			},
 		];
 
@@ -49,17 +61,26 @@ describe("toSidebarData", () => {
 				name: "Media",
 				slug: "media",
 				enabled: true,
-				entitySchemas: [],
+				views: [
+					{
+						id: "view-1",
+						icon: "book-open",
+						facetId: "facet-1",
+						accentColor: "#5B7FFF",
+						name: "Currently Reading",
+						slug: "currently-reading",
+					},
+				],
 				accentColor: "#5B7FFF",
 			},
 			{
+				views: [],
 				sortOrder: 2,
 				id: "facet-2",
 				enabled: true,
 				name: "Fitness",
 				slug: "fitness",
 				icon: "dumbbell",
-				entitySchemas: [],
 				accentColor: "#2DD4BF",
 			},
 		] as SidebarFacet[];
@@ -67,10 +88,12 @@ describe("toSidebarData", () => {
 		expect(result.facets).toEqual(expectedFacets);
 		expect(result.views).toEqual([
 			{
-				id: "view-1",
-				icon: "book-open",
-				name: "Currently Reading",
-				slug: "currently-reading",
+				id: "view-2",
+				facetId: null,
+				icon: "sparkles",
+				name: "Favorites",
+				slug: "favorites",
+				accentColor: "#2DD4BF",
 			},
 		]);
 	});

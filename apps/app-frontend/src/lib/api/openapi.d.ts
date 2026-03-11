@@ -1353,6 +1353,9 @@ export interface paths {
                                 id: string;
                                 name: string;
                                 isBuiltin: boolean;
+                                facetId: string | null;
+                                icon: string;
+                                accentColor: string;
                                 queryDefinition: {
                                     entitySchemaIds: string[];
                                 };
@@ -1396,7 +1399,10 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
+                        icon: string;
                         name: string;
+                        accentColor: string;
+                        facetId?: string;
                         queryDefinition: {
                             entitySchemaIds: string[];
                         };
@@ -1415,6 +1421,9 @@ export interface paths {
                                 id: string;
                                 name: string;
                                 isBuiltin: boolean;
+                                facetId: string | null;
+                                icon: string;
+                                accentColor: string;
                                 queryDefinition: {
                                     entitySchemaIds: string[];
                                 };
@@ -1485,6 +1494,9 @@ export interface paths {
                                 id: string;
                                 name: string;
                                 isBuiltin: boolean;
+                                facetId: string | null;
+                                icon: string;
+                                accentColor: string;
                                 queryDefinition: {
                                     entitySchemaIds: string[];
                                 };
