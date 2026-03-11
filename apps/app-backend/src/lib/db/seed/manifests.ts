@@ -85,6 +85,21 @@ export const builtinEntitySchemas = () => [
 	},
 ];
 
+export const builtinSavedViews = () => [
+	{
+		name: "All Books",
+		entitySchemaSlug: "book",
+	},
+	{
+		name: "All Animes",
+		entitySchemaSlug: "anime",
+	},
+	{
+		name: "All Mangas",
+		entitySchemaSlug: "manga",
+	},
+];
+
 export const builtinSandboxScripts = () => [
 	{
 		name: "Hardcover Book Search",

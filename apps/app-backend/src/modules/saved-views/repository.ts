@@ -92,6 +92,26 @@ export const createSavedViewForUser = async (input: {
 	};
 };
 
+export const createSavedViewsForUser = async (input: {
+	userId: string;
+	views: Array<{
+		name: string;
+		isBuiltin: boolean;
+		queryDefinition: SavedViewQueryDefinition;
+	}>;
+}) => {
+	if (!input.views.length) return;
+
+	await db.insert(savedView).values(
+		input.views.map((view) => ({
+			name: view.name,
+			userId: input.userId,
+			isBuiltin: view.isBuiltin,
+			queryDefinition: view.queryDefinition,
+		})),
+	);
+};
+
 export const deleteSavedViewByIdForUser = async (input: {
 	userId: string;
 	viewId: string;
