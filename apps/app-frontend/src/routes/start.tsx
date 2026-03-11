@@ -52,11 +52,7 @@ function StartPage() {
 	const signupMutation = apiClient.useMutation(
 		"post",
 		"/authentication/email",
-		{
-			onError: (error) => {
-				setSubmitError(error.error.message);
-			},
-		},
+		{ onError: (error) => setSubmitError(error.error.message) },
 	);
 
 	const authForm = useAppForm({
