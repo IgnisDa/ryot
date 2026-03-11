@@ -9,7 +9,7 @@ use std::{
 use anyhow::{Context, Result, bail};
 use apalis::{
     layers::WorkerBuilderExt,
-    prelude::{Extensions, MemoryStorage, Monitor, RandomId, Task, WorkerBuilder},
+    prelude::{Extensions, MemoryStorage, Monitor, WorkerBuilder},
 };
 use apalis_core::backend::memory::MemorySink;
 use apalis_cron::CronStream;
@@ -19,7 +19,7 @@ use cron::Schedule;
 use dependent_models::CompleteExport;
 use english_to_cron::str_cron_syntax;
 use env_utils::APP_VERSION;
-use futures::{Sink, StreamExt, channel::mpsc::unbounded, lock::Mutex as FuturesMutex};
+use futures::{StreamExt, channel::mpsc::unbounded, lock::Mutex as FuturesMutex};
 use migrations_sql::Migrator;
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
@@ -53,8 +53,7 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 fn make_memory_job_storage<T: Send + 'static>() -> (MemoryStorage<T>, MemorySink<T, Extensions>) {
     let (sender, receiver) = unbounded();
-    let sender = Box::new(sender)
-        as Box<dyn Sink<Task<T, Extensions, RandomId>, Error = _> + Send + Sync + Unpin>;
+    let sender = Box::new(sender);
     let sender = MemorySink::new(Arc::new(FuturesMutex::new(sender)));
     let storage = MemoryStorage::new_with(sender.clone(), receiver.boxed());
     (storage, sender)
