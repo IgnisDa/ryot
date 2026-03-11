@@ -1,13 +1,12 @@
 export * as schema from "./schema";
 
-import { resolve } from "node:path";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 import { config } from "~/lib/config";
 import { seedInitialDatabase } from "./seed";
 
-const migrationsFolder = resolve(process.cwd(), "drizzle");
+const migrationsFolder = `${process.cwd()}/drizzle`;
 
 export const pool = new Pool({ connectionString: config.DATABASE_URL });
 
