@@ -9,16 +9,17 @@ use std::{
 use anyhow::{Context, Result, bail};
 use apalis::{
     layers::WorkerBuilderExt,
-    prelude::{Monitor, WorkerBuilder},
+    prelude::{Extensions, MemoryStorage, Monitor, RandomId, Task, WorkerBuilder},
 };
+use apalis_core::backend::memory::MemorySink;
 use apalis_cron::CronStream;
-use apalis_file_storage::JsonStorage;
 use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
 use config_definition::AppConfig;
 use cron::Schedule;
 use dependent_models::CompleteExport;
 use english_to_cron::str_cron_syntax;
 use env_utils::APP_VERSION;
+use futures::{Sink, StreamExt, channel::mpsc::unbounded, lock::Mutex as FuturesMutex};
 use migrations_sql::Migrator;
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
@@ -49,6 +50,15 @@ static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
+
+fn make_memory_job_storage<T: Send + 'static>() -> (MemoryStorage<T>, MemorySink<T, Extensions>) {
+    let (sender, receiver) = unbounded();
+    let sender = Box::new(sender)
+        as Box<dyn Sink<Task<T, Extensions, RandomId>, Error = _> + Send + Sync + Unpin>;
+    let sender = MemorySink::new(Arc::new(FuturesMutex::new(sender)));
+    let storage = MemoryStorage::new_with(sender.clone(), receiver.boxed());
+    (storage, sender)
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -102,20 +112,24 @@ async fn main() -> Result<()> {
         bail!("There was an error running the database migrations.");
     };
 
-    let lp_application_job_storage = JsonStorage::new_temp()?;
-    let mp_application_job_storage = JsonStorage::new_temp()?;
-    let hp_application_job_storage = JsonStorage::new_temp()?;
-    let single_application_job_storage = JsonStorage::new_temp()?;
+    let (lp_application_job_storage, lp_application_job_sink) = make_memory_job_storage();
+    let (mp_application_job_storage, mp_application_job_sink) = make_memory_job_storage();
+    let (hp_application_job_storage, hp_application_job_sink) = make_memory_job_storage();
+    let (single_application_job_storage, single_application_job_sink) = make_memory_job_storage();
+    let lp_application_job_storage = Arc::new(Mutex::new(Some(lp_application_job_storage)));
+    let mp_application_job_storage = Arc::new(Mutex::new(Some(mp_application_job_storage)));
+    let hp_application_job_storage = Arc::new(Mutex::new(Some(hp_application_job_storage)));
+    let single_application_job_storage = Arc::new(Mutex::new(Some(single_application_job_storage)));
 
     let (app_router, supporting_service) = create_app_dependencies()
         .db(db)
         .timezone(tz)
         .config(config)
         .log_file_path(log_file_path)
-        .lp_application_job(lp_application_job_storage.clone())
-        .mp_application_job(mp_application_job_storage.clone())
-        .hp_application_job(hp_application_job_storage.clone())
-        .single_application_job(single_application_job_storage.clone())
+        .lp_application_job(lp_application_job_sink)
+        .mp_application_job(mp_application_job_sink)
+        .hp_application_job(hp_application_job_sink)
+        .single_application_job(single_application_job_sink)
         .call()
         .await;
 
@@ -186,7 +200,13 @@ async fn main() -> Result<()> {
             })
             .register(move |_runs| {
                 WorkerBuilder::new("perform_single_application_job")
-                    .backend(single_application_job_storage.clone())
+                    .backend(
+                        single_application_job_storage
+                            .lock()
+                            .unwrap()
+                            .take()
+                            .unwrap(),
+                    )
                     .catch_panic()
                     .enable_tracing()
                     .concurrency(1)
@@ -195,7 +215,7 @@ async fn main() -> Result<()> {
             })
             .register(move |_runs| {
                 WorkerBuilder::new("perform_hp_application_job")
-                    .backend(hp_application_job_storage.clone())
+                    .backend(hp_application_job_storage.lock().unwrap().take().unwrap())
                     .catch_panic()
                     .enable_tracing()
                     .data(ss4.clone())
@@ -203,7 +223,7 @@ async fn main() -> Result<()> {
             })
             .register(move |_runs| {
                 WorkerBuilder::new("perform_mp_application_job")
-                    .backend(mp_application_job_storage.clone())
+                    .backend(mp_application_job_storage.lock().unwrap().take().unwrap())
                     .catch_panic()
                     .enable_tracing()
                     .rate_limit(10, Duration::new(5, 0))
@@ -212,7 +232,7 @@ async fn main() -> Result<()> {
             })
             .register(move |_runs| {
                 WorkerBuilder::new("perform_lp_application_job")
-                    .backend(lp_application_job_storage.clone())
+                    .backend(lp_application_job_storage.lock().unwrap().take().unwrap())
                     .catch_panic()
                     .enable_tracing()
                     .rate_limit(40, Duration::new(5, 0))

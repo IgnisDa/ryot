@@ -1,17 +1,20 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Result;
-use apalis::prelude::TaskSink;
-use apalis_file_storage::JsonStorage;
+use apalis_core::{
+    backend::memory::MemorySink,
+    task::{Task, extensions::Extensions},
+};
 use background_models::{
     ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob, SingleApplicationJob,
 };
 use bon::bon;
 use chrono::Utc;
 use config_definition::AppConfig;
+use futures::SinkExt;
 use sea_orm::{DatabaseConnection, prelude::DateTimeUtc};
 
-pub type JobStorage<T> = JsonStorage<T>;
+pub type JobStorage<T> = MemorySink<T, Extensions>;
 
 pub struct SupportingService {
     pub config: Arc<AppConfig>,
@@ -54,10 +57,15 @@ impl SupportingService {
 
     pub async fn perform_application_job(&self, job: ApplicationJob) -> Result<()> {
         match job {
-            ApplicationJob::Lp(job) => self.lp_application_job.clone().push(job).await?,
-            ApplicationJob::Hp(job) => self.hp_application_job.clone().push(job).await?,
-            ApplicationJob::Mp(job) => self.mp_application_job.clone().push(job).await?,
-            ApplicationJob::Single(job) => self.single_application_job.clone().push(job).await?,
+            ApplicationJob::Lp(job) => self.lp_application_job.clone().send(Task::new(job)).await?,
+            ApplicationJob::Hp(job) => self.hp_application_job.clone().send(Task::new(job)).await?,
+            ApplicationJob::Mp(job) => self.mp_application_job.clone().send(Task::new(job)).await?,
+            ApplicationJob::Single(job) => {
+                self.single_application_job
+                    .clone()
+                    .send(Task::new(job))
+                    .await?
+            }
         }
         Ok(())
     }

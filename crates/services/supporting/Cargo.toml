@@ -5,11 +5,11 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-apalis = { workspace = true }
-apalis-file-storage = { workspace = true }
+apalis-core = { workspace = true }
 bon = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
+futures = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 

@@ -14,6 +14,7 @@ apalis = { version = "=1.0.0-rc.4", features = [
     "limit",
     "retry",
 ] }
+apalis-core = "=1.0.0-rc.4"
 apalis-codec = "=0.1.0-rc.4"
 apalis-cron = "=1.0.0-rc.3"
 apalis-file-storage = "=0.1.0-rc.4"
