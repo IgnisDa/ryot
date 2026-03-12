@@ -95,15 +95,13 @@ function SortableFacet(props: {
 		<Box ref={setNodeRef} style={style}>
 			<NavLink
 				component={Link}
+				to="/$facetSlug"
 				label={props.facet.name}
+				params={{ facetSlug: props.facet.slug }}
 				onClick={() => {
-					if (props.facet.views?.length) {
-						props.onToggleFacet(props.facet.id);
-					}
-
+					if (props.facet.views?.length) props.onToggleFacet(props.facet.id);
 					props.onNavLinkClick();
 				}}
-				to={`/tracking/${props.facet.slug}`}
 				styles={{
 					label: {
 						fontSize: "14px",
@@ -214,8 +212,8 @@ function SortableFacet(props: {
 							component={Link}
 							label={view.name}
 							onClick={props.onNavLinkClick}
+							to={`/random-slug/views/${view.id}`}
 							leftSection={<ViewIcon view={view} />}
-							to={`/tracking/random-slug/views/${view.id}`}
 							styles={{
 								root: {
 									paddingLeft: "40px",
@@ -507,11 +505,11 @@ export function Sidebar(props: SidebarProps) {
 				{sidebarData.views.map((view) => (
 					<NavLink
 						key={view.id}
-						label={view.name}
 						component={Link}
+						label={view.name}
 						onClick={handleNavLinkClick}
+						to={`/random-slug/views/${view.id}`}
 						leftSection={<ViewIcon view={view} />}
-						to={`/tracking/random-slug/views/${view.id}`}
 						styles={{
 							label: {
 								fontSize: "13px",
