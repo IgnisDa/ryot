@@ -22,11 +22,6 @@ export enum EntitySchemaSandboxScriptKind {
 	details = "details",
 }
 
-export enum FacetMode {
-	curated = "curated",
-	generated = "generated",
-}
-
 export const facet = pgTable(
 	"facet",
 	{
@@ -40,7 +35,6 @@ export const facet = pgTable(
 		sortOrder: integer().notNull().default(0),
 		enabled: boolean().notNull().default(true),
 		isBuiltin: boolean().notNull().default(false),
-		mode: text().$type<FacetMode>().notNull().default(FacetMode.generated),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
