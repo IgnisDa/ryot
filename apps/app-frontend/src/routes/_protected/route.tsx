@@ -1,15 +1,15 @@
 import { Box, Flex } from "@mantine/core";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { Sidebar } from "#/components/Sidebar";
-import { toSidebarAccount } from "#/components/sidebar-account";
-import { toSidebarData } from "#/components/sidebar-data";
+import { Sidebar } from "#/components/sidebar/Sidebar";
+import { toSidebarAccount } from "#/components/sidebar/sidebar-account";
+import { toSidebarData } from "#/components/sidebar/sidebar-data";
 import { FacetModal } from "#/features/facets/components/facet-modal";
 import FacetSidebarProvider, {
 	useFacetSidebarActions,
 	useFacetSidebarState,
 } from "#/features/facets/sidebar-context";
 import { useSavedViewsQuery } from "#/features/saved-views/hooks";
-import { useProtectedUser } from "#/lib/hooks/use-protected-user";
+import { useProtectedUser } from "#/hooks/protected-user";
 
 export const Route = createFileRoute("/_protected")({
 	component: RouteComponent,
