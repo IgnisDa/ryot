@@ -61,6 +61,7 @@ describe("toSidebarData", () => {
 				name: "Media",
 				slug: "media",
 				enabled: true,
+				isBuiltin: false,
 				accentColor: "#5B7FFF",
 				views: [
 					{
@@ -79,6 +80,7 @@ describe("toSidebarData", () => {
 				enabled: true,
 				name: "Fitness",
 				slug: "fitness",
+				isBuiltin: false,
 				icon: "dumbbell",
 				accentColor: "#2DD4BF",
 			},
@@ -94,5 +96,39 @@ describe("toSidebarData", () => {
 				accentColor: "#2DD4BF",
 			},
 		]);
+	});
+
+	it("includes disabled facets while customizing", () => {
+		const facets = [
+			createFacetFixture({
+				sortOrder: 2,
+				id: "facet-2",
+				name: "Hidden",
+				slug: "hidden",
+				enabled: false,
+				icon: "eye-off",
+				accentColor: "#A78BFA",
+			}),
+			createFacetFixture({
+				sortOrder: 1,
+				icon: "film",
+				id: "facet-1",
+				name: "Media",
+				slug: "media",
+				accentColor: "#5B7FFF",
+			}),
+		];
+
+		const result = toSidebarData({
+			views: [],
+			facets,
+			isCustomizeMode: true,
+		});
+
+		expect(result.facets.map((facet) => facet.id)).toEqual([
+			"facet-1",
+			"facet-2",
+		]);
+		expect(result.facets[1]?.enabled).toBe(false);
 	});
 });
