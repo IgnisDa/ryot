@@ -7,11 +7,11 @@ type SidebarApiKeyCreateResponse = Awaited<
 	ReturnType<AuthClient["apiKey"]["create"]>
 >;
 
+export type SidebarApiKey = SidebarApiKeyList["apiKeys"][number];
 export type SidebarApiKeyList = NonNullable<SidebarApiKeyListResponse["data"]>;
 export type SidebarCreatedApiKey = NonNullable<
 	SidebarApiKeyCreateResponse["data"]
 >;
-export type SidebarApiKey = SidebarApiKeyList["apiKeys"][number];
 
 export function getSidebarApiKeyDisplayName(key: Pick<SidebarApiKey, "name">) {
 	const name = key.name?.trim();
