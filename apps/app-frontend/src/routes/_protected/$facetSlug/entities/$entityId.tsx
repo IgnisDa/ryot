@@ -22,7 +22,7 @@ import { EntityEventsSection } from "#/features/events/section";
 import { useFacetsQuery } from "#/features/facets/hooks";
 
 export const Route = createFileRoute(
-	"/_protected/tracking/$facetSlug/entities/$entityId",
+	"/_protected/$facetSlug/entities/$entityId",
 )({
 	component: RouteComponent,
 });
@@ -204,7 +204,7 @@ function RouteComponent() {
 		<Container size="md" py={56}>
 			<Stack gap="xl">
 				<Stack gap="xs">
-					<Link to="/tracking/$facetSlug" params={{ facetSlug }}>
+					<Link to="/$facetSlug" params={{ facetSlug }}>
 						<Anchor component="span" size="sm">
 							Back to {facet.name}
 						</Anchor>

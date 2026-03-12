@@ -14,9 +14,9 @@ import { Route as ThemesRouteRouteImport } from './routes/themes/route'
 import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
 import { Route as ThemesIndexRouteImport } from './routes/themes/index'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
-import { Route as ProtectedTrackingFacetSlugIndexRouteImport } from './routes/_protected/tracking/$facetSlug/index'
-import { Route as ProtectedTrackingFacetSlugViewsViewIdRouteImport } from './routes/_protected/tracking/$facetSlug/views/$viewId'
-import { Route as ProtectedTrackingFacetSlugEntitiesEntityIdRouteImport } from './routes/_protected/tracking/$facetSlug/entities/$entityId'
+import { Route as ProtectedFacetSlugIndexRouteImport } from './routes/_protected/$facetSlug/index'
+import { Route as ProtectedFacetSlugViewsViewIdRouteImport } from './routes/_protected/$facetSlug/views/$viewId'
+import { Route as ProtectedFacetSlugEntitiesEntityIdRouteImport } from './routes/_protected/$facetSlug/entities/$entityId'
 
 const StartRoute = StartRouteImport.update({
   id: '/start',
@@ -42,22 +42,21 @@ const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
-const ProtectedTrackingFacetSlugIndexRoute =
-  ProtectedTrackingFacetSlugIndexRouteImport.update({
-    id: '/tracking/$facetSlug/',
-    path: '/tracking/$facetSlug/',
+const ProtectedFacetSlugIndexRoute = ProtectedFacetSlugIndexRouteImport.update({
+  id: '/$facetSlug/',
+  path: '/$facetSlug/',
+  getParentRoute: () => ProtectedRouteRoute,
+} as any)
+const ProtectedFacetSlugViewsViewIdRoute =
+  ProtectedFacetSlugViewsViewIdRouteImport.update({
+    id: '/$facetSlug/views/$viewId',
+    path: '/$facetSlug/views/$viewId',
     getParentRoute: () => ProtectedRouteRoute,
   } as any)
-const ProtectedTrackingFacetSlugViewsViewIdRoute =
-  ProtectedTrackingFacetSlugViewsViewIdRouteImport.update({
-    id: '/tracking/$facetSlug/views/$viewId',
-    path: '/tracking/$facetSlug/views/$viewId',
-    getParentRoute: () => ProtectedRouteRoute,
-  } as any)
-const ProtectedTrackingFacetSlugEntitiesEntityIdRoute =
-  ProtectedTrackingFacetSlugEntitiesEntityIdRouteImport.update({
-    id: '/tracking/$facetSlug/entities/$entityId',
-    path: '/tracking/$facetSlug/entities/$entityId',
+const ProtectedFacetSlugEntitiesEntityIdRoute =
+  ProtectedFacetSlugEntitiesEntityIdRouteImport.update({
+    id: '/$facetSlug/entities/$entityId',
+    path: '/$facetSlug/entities/$entityId',
     getParentRoute: () => ProtectedRouteRoute,
   } as any)
 
@@ -66,17 +65,17 @@ export interface FileRoutesByFullPath {
   '/themes': typeof ThemesRouteRouteWithChildren
   '/start': typeof StartRoute
   '/themes/': typeof ThemesIndexRoute
-  '/tracking/$facetSlug/': typeof ProtectedTrackingFacetSlugIndexRoute
-  '/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
-  '/tracking/$facetSlug/views/$viewId': typeof ProtectedTrackingFacetSlugViewsViewIdRoute
+  '/$facetSlug/': typeof ProtectedFacetSlugIndexRoute
+  '/$facetSlug/entities/$entityId': typeof ProtectedFacetSlugEntitiesEntityIdRoute
+  '/$facetSlug/views/$viewId': typeof ProtectedFacetSlugViewsViewIdRoute
 }
 export interface FileRoutesByTo {
   '/start': typeof StartRoute
   '/': typeof ProtectedIndexRoute
   '/themes': typeof ThemesIndexRoute
-  '/tracking/$facetSlug': typeof ProtectedTrackingFacetSlugIndexRoute
-  '/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
-  '/tracking/$facetSlug/views/$viewId': typeof ProtectedTrackingFacetSlugViewsViewIdRoute
+  '/$facetSlug': typeof ProtectedFacetSlugIndexRoute
+  '/$facetSlug/entities/$entityId': typeof ProtectedFacetSlugEntitiesEntityIdRoute
+  '/$facetSlug/views/$viewId': typeof ProtectedFacetSlugViewsViewIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -85,9 +84,9 @@ export interface FileRoutesById {
   '/start': typeof StartRoute
   '/_protected/': typeof ProtectedIndexRoute
   '/themes/': typeof ThemesIndexRoute
-  '/_protected/tracking/$facetSlug/': typeof ProtectedTrackingFacetSlugIndexRoute
-  '/_protected/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
-  '/_protected/tracking/$facetSlug/views/$viewId': typeof ProtectedTrackingFacetSlugViewsViewIdRoute
+  '/_protected/$facetSlug/': typeof ProtectedFacetSlugIndexRoute
+  '/_protected/$facetSlug/entities/$entityId': typeof ProtectedFacetSlugEntitiesEntityIdRoute
+  '/_protected/$facetSlug/views/$viewId': typeof ProtectedFacetSlugViewsViewIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -96,17 +95,17 @@ export interface FileRouteTypes {
     | '/themes'
     | '/start'
     | '/themes/'
-    | '/tracking/$facetSlug/'
-    | '/tracking/$facetSlug/entities/$entityId'
-    | '/tracking/$facetSlug/views/$viewId'
+    | '/$facetSlug/'
+    | '/$facetSlug/entities/$entityId'
+    | '/$facetSlug/views/$viewId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/start'
     | '/'
     | '/themes'
-    | '/tracking/$facetSlug'
-    | '/tracking/$facetSlug/entities/$entityId'
-    | '/tracking/$facetSlug/views/$viewId'
+    | '/$facetSlug'
+    | '/$facetSlug/entities/$entityId'
+    | '/$facetSlug/views/$viewId'
   id:
     | '__root__'
     | '/_protected'
@@ -114,9 +113,9 @@ export interface FileRouteTypes {
     | '/start'
     | '/_protected/'
     | '/themes/'
-    | '/_protected/tracking/$facetSlug/'
-    | '/_protected/tracking/$facetSlug/entities/$entityId'
-    | '/_protected/tracking/$facetSlug/views/$viewId'
+    | '/_protected/$facetSlug/'
+    | '/_protected/$facetSlug/entities/$entityId'
+    | '/_protected/$facetSlug/views/$viewId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -162,25 +161,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedIndexRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
-    '/_protected/tracking/$facetSlug/': {
-      id: '/_protected/tracking/$facetSlug/'
-      path: '/tracking/$facetSlug'
-      fullPath: '/tracking/$facetSlug/'
-      preLoaderRoute: typeof ProtectedTrackingFacetSlugIndexRouteImport
+    '/_protected/$facetSlug/': {
+      id: '/_protected/$facetSlug/'
+      path: '/$facetSlug'
+      fullPath: '/$facetSlug/'
+      preLoaderRoute: typeof ProtectedFacetSlugIndexRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
-    '/_protected/tracking/$facetSlug/views/$viewId': {
-      id: '/_protected/tracking/$facetSlug/views/$viewId'
-      path: '/tracking/$facetSlug/views/$viewId'
-      fullPath: '/tracking/$facetSlug/views/$viewId'
-      preLoaderRoute: typeof ProtectedTrackingFacetSlugViewsViewIdRouteImport
+    '/_protected/$facetSlug/views/$viewId': {
+      id: '/_protected/$facetSlug/views/$viewId'
+      path: '/$facetSlug/views/$viewId'
+      fullPath: '/$facetSlug/views/$viewId'
+      preLoaderRoute: typeof ProtectedFacetSlugViewsViewIdRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
-    '/_protected/tracking/$facetSlug/entities/$entityId': {
-      id: '/_protected/tracking/$facetSlug/entities/$entityId'
-      path: '/tracking/$facetSlug/entities/$entityId'
-      fullPath: '/tracking/$facetSlug/entities/$entityId'
-      preLoaderRoute: typeof ProtectedTrackingFacetSlugEntitiesEntityIdRouteImport
+    '/_protected/$facetSlug/entities/$entityId': {
+      id: '/_protected/$facetSlug/entities/$entityId'
+      path: '/$facetSlug/entities/$entityId'
+      fullPath: '/$facetSlug/entities/$entityId'
+      preLoaderRoute: typeof ProtectedFacetSlugEntitiesEntityIdRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
   }
@@ -188,18 +187,17 @@ declare module '@tanstack/react-router' {
 
 interface ProtectedRouteRouteChildren {
   ProtectedIndexRoute: typeof ProtectedIndexRoute
-  ProtectedTrackingFacetSlugIndexRoute: typeof ProtectedTrackingFacetSlugIndexRoute
-  ProtectedTrackingFacetSlugEntitiesEntityIdRoute: typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
-  ProtectedTrackingFacetSlugViewsViewIdRoute: typeof ProtectedTrackingFacetSlugViewsViewIdRoute
+  ProtectedFacetSlugIndexRoute: typeof ProtectedFacetSlugIndexRoute
+  ProtectedFacetSlugEntitiesEntityIdRoute: typeof ProtectedFacetSlugEntitiesEntityIdRoute
+  ProtectedFacetSlugViewsViewIdRoute: typeof ProtectedFacetSlugViewsViewIdRoute
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedIndexRoute: ProtectedIndexRoute,
-  ProtectedTrackingFacetSlugIndexRoute: ProtectedTrackingFacetSlugIndexRoute,
-  ProtectedTrackingFacetSlugEntitiesEntityIdRoute:
-    ProtectedTrackingFacetSlugEntitiesEntityIdRoute,
-  ProtectedTrackingFacetSlugViewsViewIdRoute:
-    ProtectedTrackingFacetSlugViewsViewIdRoute,
+  ProtectedFacetSlugIndexRoute: ProtectedFacetSlugIndexRoute,
+  ProtectedFacetSlugEntitiesEntityIdRoute:
+    ProtectedFacetSlugEntitiesEntityIdRoute,
+  ProtectedFacetSlugViewsViewIdRoute: ProtectedFacetSlugViewsViewIdRoute,
 }
 
 const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
