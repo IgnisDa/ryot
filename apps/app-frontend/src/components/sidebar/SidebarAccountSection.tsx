@@ -8,12 +8,12 @@ import {
 	Stack,
 	Tabs,
 	Text,
-	useComputedColorScheme,
 	useMantineColorScheme,
 } from "@mantine/core";
 import { useDisclosure, useHover } from "@mantine/hooks";
 import { Laptop, Moon, Sun } from "lucide-react";
 import { useIsMobileScreen } from "#/hooks/screen";
+import { useColorScheme } from "#/hooks/theme";
 import type { SidebarAccount } from "./Sidebar.types";
 import { SidebarApiKeysSection } from "./SidebarApiKeysSection";
 import {
@@ -43,12 +43,10 @@ export function SidebarAccountSection(props: {
 	account: SidebarAccount;
 }) {
 	const isMobile = useIsMobileScreen();
+	const computedColorScheme = useColorScheme();
 	const { hovered, ref } = useHover<HTMLButtonElement>();
 	const { colorScheme, setColorScheme } = useMantineColorScheme();
 	const [opened, { close, open }] = useDisclosure(false);
-	const computedColorScheme = useComputedColorScheme("light", {
-		getInitialValueInEffect: false,
-	});
 	const initials = getSidebarAccountInitials(
 		props.account.name,
 		props.account.email,
