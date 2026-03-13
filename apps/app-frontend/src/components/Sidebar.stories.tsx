@@ -23,7 +23,6 @@ const fakeFacets = [
 			{
 				icon: "film",
 				name: "Movies",
-				slug: "movies",
 				facetId: "media",
 				id: "movies-view",
 				accentColor: "#5B7FFF",
@@ -31,14 +30,12 @@ const fakeFacets = [
 			{
 				icon: "tv",
 				name: "TV Shows",
-				slug: "tv-shows",
 				facetId: "media",
 				id: "tv-shows-view",
 				accentColor: "#FB7185",
 			},
 			{
 				name: "Books",
-				slug: "books",
 				facetId: "media",
 				id: "books-view",
 				icon: "book-open",
@@ -59,7 +56,6 @@ const fakeFacets = [
 			{
 				icon: "dumbbell",
 				name: "Workouts",
-				slug: "workouts",
 				facetId: "fitness",
 				id: "workouts-view",
 				accentColor: "#2DD4BF",
@@ -67,7 +63,6 @@ const fakeFacets = [
 			{
 				icon: "apple",
 				name: "Nutrition",
-				slug: "nutrition",
 				facetId: "fitness",
 				id: "nutrition-view",
 				accentColor: "#84CC16",
@@ -87,14 +82,12 @@ const fakeFacets = [
 			{
 				icon: "wine",
 				name: "Bottles",
-				slug: "bottles",
 				id: "bottles-view",
 				facetId: "whiskey",
 				accentColor: "#D4A574",
 			},
 			{
 				name: "Tastings",
-				slug: "tastings",
 				facetId: "whiskey",
 				id: "tastings-view",
 				icon: "glass-water",
@@ -115,7 +108,6 @@ const fakeFacets = [
 			{
 				icon: "map-pin",
 				name: "Visited",
-				slug: "visited",
 				facetId: "places",
 				id: "visited-view",
 				accentColor: "#A78BFA",
@@ -123,7 +115,6 @@ const fakeFacets = [
 			{
 				icon: "bookmark",
 				name: "Wishlist",
-				slug: "wishlist",
 				facetId: "places",
 				id: "wishlist-view",
 				accentColor: "#60A5FA",
@@ -139,14 +130,12 @@ const fakeViews = [
 		accentColor: "#5B7FFF",
 		id: "currently-reading",
 		name: "Currently Reading",
-		slug: "currently-reading",
 	},
 	{
 		icon: "eye",
 		facetId: null,
 		id: "watchlist",
 		name: "Watchlist",
-		slug: "watchlist",
 		accentColor: "#FB7185",
 	},
 	{
@@ -154,7 +143,6 @@ const fakeViews = [
 		facetId: null,
 		id: "favorites",
 		name: "Favorites",
-		slug: "favorites",
 		accentColor: "#D4A574",
 	},
 	{
@@ -162,7 +150,6 @@ const fakeViews = [
 		icon: "clock",
 		facetId: null,
 		name: "Recent",
-		slug: "recent",
 		accentColor: "#2DD4BF",
 	},
 ];

@@ -149,11 +149,8 @@ export function FacetNavItem(props: FacetNavItemProps) {
 						renderRoot={(rootProps) => (
 							<Link
 								{...rootProps}
-								to="/tracking/$facetSlug/views/$viewId"
-								params={{
-									viewId: view.id,
-									facetSlug: props.facet.facetSlug,
-								}}
+								params={{ viewId: view.id }}
+								to="/tracking/random-slug/views/$viewId"
 							/>
 						)}
 					/>
