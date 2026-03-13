@@ -778,6 +778,16 @@ export interface paths {
                                 updatedAt: string;
                                 entitySchemaId: string;
                                 externalId: string | null;
+                                image: {
+                                    /** Format: uri */
+                                    url: string;
+                                    /** @enum {string} */
+                                    kind: "remote";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "s3";
+                                    key: string;
+                                } | unknown;
                                 detailsSandboxScriptId: string | null;
                                 properties: {
                                     [key: string]: unknown;
@@ -834,6 +844,16 @@ export interface paths {
                 content: {
                     "application/json": {
                         name: string;
+                        image: {
+                            /** Format: uri */
+                            url: string;
+                            /** @enum {string} */
+                            kind: "remote";
+                        } | {
+                            /** @enum {string} */
+                            kind: "s3";
+                            key: string;
+                        } | unknown;
                         entitySchemaId: string;
                         properties: {
                             [key: string]: unknown;
@@ -858,6 +878,16 @@ export interface paths {
                                 updatedAt: string;
                                 entitySchemaId: string;
                                 externalId: string | null;
+                                image: {
+                                    /** Format: uri */
+                                    url: string;
+                                    /** @enum {string} */
+                                    kind: "remote";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "s3";
+                                    key: string;
+                                } | unknown;
                                 detailsSandboxScriptId: string | null;
                                 properties: {
                                     [key: string]: unknown;
@@ -942,6 +972,16 @@ export interface paths {
                                 updatedAt: string;
                                 entitySchemaId: string;
                                 externalId: string | null;
+                                image: {
+                                    /** Format: uri */
+                                    url: string;
+                                    /** @enum {string} */
+                                    kind: "remote";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "s3";
+                                    key: string;
+                                } | unknown;
                                 detailsSandboxScriptId: string | null;
                                 properties: {
                                     [key: string]: unknown;
@@ -1306,6 +1346,59 @@ export interface paths {
                     content: {
                         "application/json": {
                             error: components["schemas"]["NotFoundError"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/uploads/images/presigned": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Get a presigned upload URL for an image */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Presigned upload URL for an image */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                /** Format: uri */
+                                uploadUrl: string;
+                                key: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
                         };
                     };
                 };
