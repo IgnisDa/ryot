@@ -17,7 +17,7 @@ import {
 	useMantineColorScheme,
 } from "@mantine/core";
 import { Link } from "@tanstack/react-router";
-import { BookOpen, GripVertical, Home, Search, Settings } from "lucide-react";
+import { GripVertical, Home, Search, Settings } from "lucide-react";
 import { useState } from "react";
 import { FacetIcon } from "#/features/facets/icons";
 import type { SidebarFacet, SidebarProps, SidebarView } from "./Sidebar.types";
@@ -26,13 +26,10 @@ function getFacetColor(facet: SidebarFacet) {
 	return { base: facet.accentColor, muted: rgba(facet.accentColor, 0) };
 }
 
-function ViewIcon(props: { borderAccent: string; view: SidebarView }) {
-	if (!props.view.icon)
-		return <BookOpen color={props.borderAccent} size={16} />;
-
+function ViewIcon(props: { view: SidebarView }) {
 	return (
 		<Box
-			c={props.borderAccent}
+			c={props.view.accentColor}
 			style={{ display: "flex", alignItems: "center" }}
 		>
 			<FacetIcon icon={props.view.icon} size={16} />
@@ -68,15 +65,32 @@ function SortableFacet(props: {
 	return (
 		<Box ref={setNodeRef} style={style}>
 			<NavLink
-				opened={props.isExpanded}
 				label={props.facet.name}
+				opened={props.isExpanded}
 				onClick={() => props.onToggleFacet(props.facet.id)}
+				styles={{
+					children: { padding: 0 },
+					chevron: { color: props.textPrimary },
+					label: {
+						fontSize: "14px",
+						fontWeight: 500,
+						color: props.textPrimary,
+					},
+					root: {
+						padding: "10px 14px",
+						borderLeft: "2px solid transparent",
+						"&:hover": {
+							borderLeftColor: color.base,
+							backgroundColor: color.muted,
+						},
+					},
+				}}
 				leftSection={
 					<Group gap={props.isCustomizeMode ? 8 : 0} wrap="nowrap">
 						{props.isCustomizeMode && (
 							<Box
-								c={props.isDark ? "dark.4" : "stone.5"}
 								component="button"
+								c={props.isDark ? "dark.4" : "stone.5"}
 								onClick={(event) => event.stopPropagation()}
 								style={{
 									padding: 0,
@@ -100,41 +114,14 @@ function SortableFacet(props: {
 						</Box>
 					</Group>
 				}
-				styles={{
-					children: { padding: 0 },
-					chevron: { color: props.textPrimary },
-					label: {
-						fontSize: "14px",
-						fontWeight: 500,
-						color: props.textPrimary,
-					},
-					root: {
-						padding: "10px 14px",
-						borderLeft: "2px solid transparent",
-						"&:hover": {
-							borderLeftColor: color.base,
-							backgroundColor: color.muted,
-						},
-					},
-				}}
 			>
-				{props.facet.entitySchemas.map((schema) => (
+				{props.facet.views?.map((view) => (
 					<NavLink
-						to="/"
-						key={schema.id}
+						key={view.id}
 						component={Link}
-						label={schema.name}
-						leftSection={
-							<Box
-								style={{
-									display: "flex",
-									alignItems: "center",
-									color: schema.accentColor,
-								}}
-							>
-								<FacetIcon icon={schema.icon} size={14} />
-							</Box>
-						}
+						label={view.name}
+						leftSection={<ViewIcon view={view} />}
+						to={`/tracking/${props.facet.slug}/views/${view.id}`}
 						styles={{
 							root: {
 								paddingLeft: "40px",
@@ -394,7 +381,7 @@ export function Sidebar(props: SidebarProps) {
 							key={view.id}
 							label={view.name}
 							component={Link}
-							leftSection={<ViewIcon borderAccent={borderAccent} view={view} />}
+							leftSection={<ViewIcon view={view} />}
 							styles={{
 								label: {
 									fontSize: "13px",

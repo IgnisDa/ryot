@@ -317,9 +317,12 @@ export const savedView = pgTable(
 	"saved_view",
 	{
 		name: text().notNull(),
+		icon: text().notNull(),
+		accentColor: text().notNull(),
 		queryDefinition: jsonb().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
 		isBuiltin: boolean().default(false).notNull(),
+		facetId: text().references(() => facet.id, { onDelete: "set null" }),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
@@ -331,5 +334,8 @@ export const savedView = pgTable(
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
 	},
-	(table) => [index("saved_view_user_id_idx").on(table.userId)],
+	(table) => [
+		index("saved_view_user_id_idx").on(table.userId),
+		index("saved_view_facet_id_idx").on(table.facetId),
+	],
 );

@@ -4,32 +4,34 @@ export interface SavedViewQueryDefinition {
 
 export interface AppSavedView {
 	id: string;
+	icon: string;
 	name: string;
 	isBuiltin: boolean;
+	accentColor: string;
+	facetId: string | null;
 	queryDefinition: SavedViewQueryDefinition;
 }
 
 export function toAppSavedView(raw: {
 	id: string;
+	icon: string;
 	name: string;
 	isBuiltin: boolean;
+	accentColor: string;
+	facetId: string | null;
 	queryDefinition: unknown;
 }): AppSavedView {
 	return {
 		id: raw.id,
+		icon: raw.icon,
 		name: raw.name,
+		facetId: raw.facetId,
 		isBuiltin: raw.isBuiltin,
+		accentColor: raw.accentColor,
 		queryDefinition: raw.queryDefinition as SavedViewQueryDefinition,
 	};
 }
 
-export function getSavedViewsForFacet(
-	views: AppSavedView[],
-	entitySchemaIds: string[],
-): AppSavedView[] {
-	const schemaIdSet = new Set(entitySchemaIds);
-
-	return views.filter((view) =>
-		view.queryDefinition.entitySchemaIds.some((id) => schemaIdSet.has(id)),
-	);
+export function getSavedViewsForFacet(views: AppSavedView[], facetId: string) {
+	return views.filter((view) => view.facetId === facetId);
 }
