@@ -8,8 +8,8 @@ license = "GPL-3.0"
 [dependencies]
 anyhow = { workspace = true }
 apalis = { workspace = true }
+apalis-core = { workspace = true }
 apalis-cron = { workspace = true }
-apalis-sqlite = { workspace = true }
 async-graphql = { workspace = true }
 async-graphql-axum = { workspace = true }
 axum = { workspace = true }
