@@ -1,6 +1,5 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import type { AuthType } from "~/lib/auth";
-import { FacetMode } from "~/lib/db/schema";
 import {
 	createAuthRoute,
 	createNotFoundErrorResult,
@@ -148,7 +147,6 @@ export const facetsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			name: body.name,
 			userId: user.id,
 			icon: body.icon,
-			mode: FacetMode.generated,
 			description: body.description,
 			accentColor: body.accentColor,
 		});
