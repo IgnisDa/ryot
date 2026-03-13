@@ -23,6 +23,10 @@ export function useEntitySchemaMutations(facetId: string) {
 	const listQueryKey = apiClient.queryOptions("get", "/entity-schemas", {
 		params: { query: { facetId } },
 	}).queryKey;
+	const savedViewsQueryKey = apiClient.queryOptions(
+		"get",
+		"/saved-views",
+	).queryKey;
 
 	const create = apiClient.useMutation(
 		"post",
@@ -30,6 +34,7 @@ export function useEntitySchemaMutations(facetId: string) {
 		{
 			onSuccess: () => {
 				queryClient.invalidateQueries({ queryKey: listQueryKey });
+				queryClient.invalidateQueries({ queryKey: savedViewsQueryKey });
 			},
 		},
 		queryClient,
