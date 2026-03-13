@@ -46,13 +46,7 @@ function EntityList(props: {
 	return (
 		<Stack gap="xs">
 			{props.entities.map((entity) => (
-				<Paper
-					p="sm"
-					withBorder
-					radius="md"
-					key={entity.id}
-					style={{ backgroundColor: "var(--mantine-color-gray-0)" }}
-				>
+				<Paper p="sm" withBorder radius="md" key={entity.id}>
 					<Stack gap="md">
 						<Group justify="space-between" align="flex-start">
 							<Stack gap={2}>
@@ -83,7 +77,8 @@ function EntityList(props: {
 		</Stack>
 	);
 }
-function CreateEntityModal(props: {
+
+export function CreateEntityModal(props: {
 	opened: boolean;
 	isLoading: boolean;
 	onClose: () => void;
@@ -256,12 +251,7 @@ export function EntitiesSection(props: {
 			{!entitiesQuery.isLoading &&
 				!entitiesQuery.isError &&
 				(viewState.type === "empty" ? (
-					<Paper
-						p="sm"
-						withBorder
-						radius="md"
-						style={{ backgroundColor: "var(--mantine-color-gray-0)" }}
-					>
+					<Paper p="sm" withBorder radius="md">
 						<Stack gap={2}>
 							<Text fw={500} size="sm">
 								No {props.entitySchema.name.toLowerCase()}s yet
