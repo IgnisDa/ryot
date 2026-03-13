@@ -2,13 +2,11 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { resolveRequiredString } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
-import { s3, s3BucketName } from "~/lib/s3";
 import { type UploadContentType, uploadContentTypeExtensions } from "./shared";
 
 const uploadUrlExpirySeconds = 15 * 60;
 
 type ResolvedPresignedUploadInput = {
-	fileName?: string;
 	contentType: UploadContentType;
 };
 
@@ -20,18 +18,6 @@ type SignUploadUrlInput = {
 type CreatePresignedUploadDeps = {
 	generateObjectId?: () => string;
 	signUploadUrl?: (input: SignUploadUrlInput) => Promise<string>;
-};
-
-const getExtensionFromFileName = (fileName?: string) => {
-	if (!fileName) return null;
-
-	const trimmedFileName = fileName.trim();
-	if (!trimmedFileName) return null;
-
-	const parts = trimmedFileName.split(".");
-	if (parts.length < 2) return null;
-
-	return parts.at(-1)?.toLowerCase() ?? null;
 };
 
 const resolveContentType = (contentType: string) => {
@@ -47,32 +33,19 @@ const resolveContentType = (contentType: string) => {
 };
 
 export const resolvePresignedUploadInput = (input: {
-	fileName?: string;
 	contentType: string;
 }): ResolvedPresignedUploadInput => {
 	return {
-		fileName: input.fileName?.trim() || undefined,
 		contentType: resolveContentType(input.contentType),
 	};
 };
 
-const resolveExtension = (input: {
-	fileName?: string;
-	contentType: UploadContentType;
-}) => {
-	const allowedExtensions = uploadContentTypeExtensions[input.contentType];
-	const fileNameExtension = getExtensionFromFileName(input.fileName);
-
-	if (
-		fileNameExtension &&
-		allowedExtensions.includes(fileNameExtension as never)
-	)
-		return fileNameExtension;
-
-	return allowedExtensions[0];
-};
+const resolveExtension = (contentType: UploadContentType) =>
+	uploadContentTypeExtensions[contentType][0];
 
 const signUploadUrl = async (input: SignUploadUrlInput) => {
+	const { s3, s3BucketName } = await import("~/lib/s3");
+
 	if (!s3 || !s3BucketName)
 		throw new Error("S3 uploads are not configured for app-backend");
 
@@ -88,16 +61,13 @@ const signUploadUrl = async (input: SignUploadUrlInput) => {
 };
 
 export const createPresignedUpload = async (
-	input: { contentType: string; fileName?: string },
+	input: { contentType: string },
 	deps: CreatePresignedUploadDeps = {},
 ) => {
 	const resolvedInput = resolvePresignedUploadInput(input);
 	const generateObjectId = deps.generateObjectId ?? generateId;
 	const signUploadUrlFn = deps.signUploadUrl ?? signUploadUrl;
-	const extension = resolveExtension({
-		contentType: resolvedInput.contentType,
-		fileName: resolvedInput.fileName,
-	});
+	const extension = resolveExtension(resolvedInput.contentType);
 	const key = `uploads/${generateObjectId()}.${extension}`;
 	const uploadUrl = await signUploadUrlFn({
 		key,
