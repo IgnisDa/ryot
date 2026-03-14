@@ -1,4 +1,5 @@
 import {
+	ArrowUpDown,
 	Book,
 	BookCopy,
 	BookHeart,
@@ -122,6 +123,7 @@ const rawIconRegistry: Record<string, LucideIcon> = {
 	clapperboard: Clapperboard,
 	"chevron-down": ChevronDown,
 	"monitor-play": MonitorPlay,
+	"arrow-up-down": ArrowUpDown,
 	"chevron-right": ChevronRight,
 	"folder-kanban": FolderKanban,
 	"grip-vertical": GripVertical,
