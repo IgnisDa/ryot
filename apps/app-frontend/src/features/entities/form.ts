@@ -1,18 +1,16 @@
 import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
 import { fromAppSchema, zodRequiredName } from "@ryot/ts-utils";
 import { z } from "zod";
+import type { ApiPostRequestBody } from "#/lib/api/types";
 
-export type EntityImageValue =
-	| { kind: "s3"; key: string }
-	| { kind: "remote"; url: string }
-	| null
-	| undefined;
+const entityImageSchema = z.union([
+	z.object({ kind: z.literal("s3"), key: z.string() }),
+	z.object({ kind: z.literal("remote"), url: z.string() }),
+	z.null(),
+	z.undefined(),
+]);
 
-export interface CreateEntityFormValues {
-	name: string;
-	image: EntityImageValue;
-	properties: Record<string, unknown>;
-}
+export type EntityImageValue = z.infer<typeof entityImageSchema>;
 
 export const buildCreateEntityFormSchema = (propertiesSchema: AppSchema) => {
 	const propertySchemas: Record<string, z.ZodType> = {};
@@ -26,15 +24,14 @@ export const buildCreateEntityFormSchema = (propertiesSchema: AppSchema) => {
 
 	return z.object({
 		name: zodRequiredName,
-		image: z.union([
-			z.object({ kind: z.literal("s3"), key: z.string() }),
-			z.object({ kind: z.literal("remote"), url: z.string() }),
-			z.null(),
-			z.undefined(),
-		]),
+		image: entityImageSchema,
 		properties: z.object(propertySchemas),
 	});
 };
+
+export type CreateEntityFormValues = z.infer<
+	ReturnType<typeof buildCreateEntityFormSchema>
+>;
 
 export const buildDefaultEntityFormValues = (
 	propertiesSchema: AppSchema,
@@ -71,12 +68,7 @@ const getDefaultValue = (propertyDef: AppPropertyDefinition): unknown => {
 	}
 };
 
-export interface CreateEntityPayload {
-	name: string;
-	entitySchemaId: string;
-	image: EntityImageValue;
-	properties: Record<string, unknown>;
-}
+export type CreateEntityPayload = ApiPostRequestBody<"/entities">;
 
 export function toCreateEntityPayload(
 	input: CreateEntityFormValues,

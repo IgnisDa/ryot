@@ -1,40 +1,35 @@
-import type { AppPropertyPrimitiveType, AppSchema } from "@ryot/ts-utils";
+import type { AppSchema } from "@ryot/ts-utils";
 import {
 	appPropertyPrimitiveTypes,
 	trimmedOrUndefined,
 	zodRequiredName,
 } from "@ryot/ts-utils";
 import { z } from "zod";
-import {
-	type ResolveNextSlugInput,
-	resolveNextSlug,
-} from "../../lib/slug-sync";
+import { resolveNextSlug } from "../../lib/slug-sync";
 
 export const propertySchemaTypes = appPropertyPrimitiveTypes;
 
-export type PropertySchemaType = AppPropertyPrimitiveType;
+const propertySchemaTypeSchema = z.enum(propertySchemaTypes);
 
-interface PropertySchemaBase {
-	key: string;
-	required: boolean;
-	type: PropertySchemaType;
-}
+const propertySchemaBaseSchema = z.object({
+	key: z.string(),
+	required: z.boolean(),
+	type: propertySchemaTypeSchema,
+});
 
-export interface PropertySchemaRow extends PropertySchemaBase {
-	id: string;
-}
+const propertySchemaRowSchema = propertySchemaBaseSchema.extend({
+	id: z.string(),
+});
 
-export interface PropertySchemaInput extends PropertySchemaBase {
-	id?: string;
-}
+const propertySchemaInputSchema = propertySchemaBaseSchema.extend({
+	id: z.string().optional(),
+});
 
-export interface PropertySchemaFormValues {
-	name: string;
-	slug: string;
-	properties: PropertySchemaInput[];
-}
+export type PropertySchemaType = z.infer<typeof propertySchemaTypeSchema>;
 
-export type ResolveNextPropertySchemaSlugInput = ResolveNextSlugInput;
+export type PropertySchemaRow = z.infer<typeof propertySchemaRowSchema>;
+
+export type PropertySchemaInput = z.infer<typeof propertySchemaInputSchema>;
 
 function buildPropertySchemaRow(row: PropertySchemaInput): PropertySchemaRow {
 	return {
@@ -67,14 +62,7 @@ export const createPropertySchemaFormSchema = z.object({
 	name: zodRequiredName,
 	slug: z.string(),
 	properties: z
-		.array(
-			z.object({
-				id: z.string(),
-				key: z.string(),
-				required: z.boolean(),
-				type: z.enum(propertySchemaTypes),
-			}),
-		)
+		.array(propertySchemaRowSchema)
 		.refine(
 			(properties) => isPropertySchemaRowsValid(properties),
 			"Properties must contain unique non-empty keys",
@@ -85,8 +73,14 @@ export type CreatePropertySchemaFormValues = z.infer<
 	typeof createPropertySchemaFormSchema
 >;
 
+type PropertySchemaFormInput = Partial<
+	Omit<CreatePropertySchemaFormValues, "properties">
+> & {
+	properties?: PropertySchemaInput[];
+};
+
 export function buildPropertySchemaFormValues(
-	values?: Partial<PropertySchemaFormValues>,
+	values?: PropertySchemaFormInput,
 ): CreatePropertySchemaFormValues {
 	const properties = values?.properties;
 

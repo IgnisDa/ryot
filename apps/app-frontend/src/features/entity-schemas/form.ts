@@ -1,6 +1,6 @@
-import type { AppSchema } from "@ryot/ts-utils";
 import { zodNonEmptyTrimmedString } from "@ryot/ts-utils";
 import type { z } from "zod";
+import type { ApiPostRequestBody } from "#/lib/api/types";
 import {
 	buildDefaultPropertySchemaRow,
 	buildPropertiesSchema,
@@ -8,29 +8,21 @@ import {
 	createPropertySchemaFormSchema,
 	isPropertySchemaRowsValid,
 	normalizeOptionalSlug,
-	type PropertySchemaFormValues,
 	type PropertySchemaInput,
-	type PropertySchemaRow,
-	type PropertySchemaType,
 	propertySchemaTypes,
 } from "../property-schemas/form";
 
 export const entitySchemaPropertyTypes = propertySchemaTypes;
 
-export type EntitySchemaPropertyType = PropertySchemaType;
-
-export type EntitySchemaPropertyRow = PropertySchemaRow;
-
-export type EntitySchemaPropertyInput = PropertySchemaInput;
-
-export interface EntitySchemaFormValues extends PropertySchemaFormValues {
-	icon: string;
-	accentColor: string;
-}
-
 export type CreateEntitySchemaFormValues = z.infer<
 	typeof createEntitySchemaFormSchema
 >;
+
+type EntitySchemaFormInput = Partial<
+	Omit<CreateEntitySchemaFormValues, "properties">
+> & {
+	properties?: PropertySchemaInput[];
+};
 
 export const buildDefaultEntitySchemaPropertyRow =
 	buildDefaultPropertySchemaRow;
@@ -44,7 +36,7 @@ export const createEntitySchemaFormSchema =
 	});
 
 export function buildEntitySchemaFormValues(
-	values?: Partial<EntitySchemaFormValues>,
+	values?: EntitySchemaFormInput,
 ): CreateEntitySchemaFormValues {
 	const propertyValues = buildPropertySchemaFormValues(values);
 
@@ -62,14 +54,7 @@ export const buildEntitySchemaPropertiesSchema = buildPropertiesSchema;
 export const defaultCreateEntitySchemaFormValues =
 	buildEntitySchemaFormValues();
 
-export interface CreateEntitySchemaPayload {
-	icon: string;
-	name: string;
-	slug?: string;
-	facetId: string;
-	accentColor: string;
-	propertiesSchema: AppSchema;
-}
+export type CreateEntitySchemaPayload = ApiPostRequestBody<"/entity-schemas">;
 
 export function toCreateEntitySchemaPayload(
 	input: CreateEntitySchemaFormValues,

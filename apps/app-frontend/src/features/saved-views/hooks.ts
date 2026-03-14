@@ -1,13 +1,11 @@
 import { useApiClient } from "#/hooks/api";
 import type { AppSavedView } from "./model";
-import { toAppSavedView } from "./model";
 
 export function useSavedViewsQuery() {
 	const apiClient = useApiClient();
 	const query = apiClient.useQuery("get", "/saved-views");
 
-	const rawViews = query.data?.data ?? [];
-	const savedViews: AppSavedView[] = rawViews.map((v) => toAppSavedView(v));
+	const savedViews: AppSavedView[] = query.data?.data ?? [];
 
 	return {
 		savedViews,
@@ -21,10 +19,9 @@ export function useSavedViewQuery(props: { viewId: string }) {
 	const apiClient = useApiClient();
 	const allViewsQuery = apiClient.useQuery("get", "/saved-views");
 
-	const rawViews = allViewsQuery.data?.data ?? [];
-	const savedView = rawViews
-		.map((v) => toAppSavedView(v))
-		.find((v) => v.id === props.viewId);
+	const savedView = (allViewsQuery.data?.data ?? []).find(
+		(v) => v.id === props.viewId,
+	);
 
 	return {
 		savedView,

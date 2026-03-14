@@ -1,14 +1,15 @@
-export interface AppEvent {
-	id: string;
+import type { ApiGetResponseData } from "#/lib/api/types";
+
+type ApiEvent = ApiGetResponseData<"/events">[number];
+
+export type AppEvent = Omit<
+	ApiEvent,
+	"createdAt" | "updatedAt" | "occurredAt"
+> & {
 	createdAt: Date;
 	updatedAt: Date;
 	occurredAt: Date;
-	entityId: string;
-	eventSchemaId: string;
-	eventSchemaName: string;
-	eventSchemaSlug: string;
-	properties: Record<string, unknown>;
-}
+};
 
 export type EventListViewState =
 	| { type: "empty" }
@@ -31,4 +32,13 @@ export function getEventListViewState(events: AppEvent[]): EventListViewState {
 
 export function getRecentEvents(events: AppEvent[], limit = 3) {
 	return sortEvents(events).slice(0, limit);
+}
+
+export function toAppEvent(event: ApiEvent): AppEvent {
+	return {
+		...event,
+		createdAt: new Date(event.createdAt),
+		updatedAt: new Date(event.updatedAt),
+		occurredAt: new Date(event.occurredAt),
+	};
 }
