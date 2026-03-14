@@ -15,7 +15,6 @@
 	"dependencies": {
 		"@better-auth/api-key": "1.6.9",
 		"@better-auth/expo": "1.6.9",
-		"@expo-google-fonts/ibm-plex-mono": "^0.4.1",
 		"@expo-google-fonts/lora": "0.4.2",
 		"@expo-google-fonts/outfit": "0.4.3",
 		"@expo/html-elements": "^0.12.5",

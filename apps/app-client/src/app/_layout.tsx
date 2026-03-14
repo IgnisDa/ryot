@@ -1,6 +1,5 @@
 // oxlint-disable-next-line import/no-unassigned-import
 import "@/global.css";
-import { IBMPlexMono_400Regular } from "@expo-google-fonts/ibm-plex-mono";
 import { Lora_400Regular, Lora_500Medium, Lora_600SemiBold } from "@expo-google-fonts/lora";
 import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold } from "@expo-google-fonts/outfit";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -33,7 +32,6 @@ export default function RootLayout() {
 		Lora_400Regular,
 		Lora_500Medium,
 		Lora_600SemiBold,
-		IBMPlexMono_400Regular,
 		Outfit_400Regular,
 		Outfit_500Medium,
 		Outfit_600SemiBold,

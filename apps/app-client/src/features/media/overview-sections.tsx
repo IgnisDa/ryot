@@ -171,7 +171,7 @@ function StoryRing(props: {
 			<Text
 				numberOfLines={1}
 				style={{ width: ringWidth }}
-				className="mt-1 text-center text-xs font-mono text-muted-foreground web:text-[14px]"
+				className="mt-1 text-center text-xs font-sans text-muted-foreground web:text-[14px]"
 			>
 				{item.labels.progress}
 			</Text>
@@ -298,7 +298,7 @@ export function UpNextSection(props: {
 								{item.title}
 							</Text>
 							{item.subtitle.label ? (
-								<Text className="text-xs font-mono text-muted-foreground web:text-[14px]">
+								<Text className="text-xs font-sans text-muted-foreground web:text-[14px]">
 									{item.subtitle.label}
 								</Text>
 							) : null}
@@ -487,7 +487,7 @@ export function ActivitySection(props: {
 								>
 									{item.entity.name}
 								</Text>
-								<Text className="text-xs font-mono text-stone-400 web:text-[14px]">
+								<Text className="text-xs font-sans text-stone-400 web:text-[14px]">
 									{timeAgo(item.occurredAt)}
 								</Text>
 							</Box>
