@@ -87,9 +87,9 @@ export function CreateEntityModal(props: {
 	onSubmit: (payload: CreateEntityPayload) => Promise<void>;
 }) {
 	const entityForm = useCreateEntityForm({
+		onSubmit: props.onSubmit,
 		entitySchemaId: props.entitySchema.id,
 		propertiesSchema: props.entitySchema.propertiesSchema,
-		onSubmit: props.onSubmit,
 	});
 
 	const propertyFields = Object.entries(
@@ -137,6 +137,12 @@ export function CreateEntityModal(props: {
 									disabled={props.isLoading}
 									placeholder={`Enter ${props.entitySchema.name.toLowerCase()} name`}
 								/>
+							)}
+						</entityForm.AppField>
+
+						<entityForm.AppField name="image">
+							{(field) => (
+								<field.ImageField label="Image" disabled={props.isLoading} />
 							)}
 						</entityForm.AppField>
 
