@@ -428,25 +428,6 @@ doesn't catch it because its one "nested workflow" test only ever awaits a singl
 **Workaround already applied** in `lib/workflow.ts`: lower `entityMessagePollInterval` to 250ms so
 the fallback poll fires quickly instead of eliminating the gap entirely.
 
-### Confirmed: `DurableQueue` deferred message ids overflow the storage column ([#6317](https://github.com/Effect-TS/effect/issues/6317))
-
-Filed by this team after it surfaced as e2e "flakiness". `SqlMessageStorage`'s migration creates
-`cluster_messages.message_id` as `VARCHAR(255)`, but the dedupe key stored there is
-`${entityType}/${executionId}/${tag}/${primaryKey}` (`Envelope.primaryKeyByAddress`), and a
-`DurableQueue` deferred's primaryKey — the `DurableDeferred` name — embeds the execution id and the
-queue name twice more via `Activity.idempotencyKey`. Because chained workflows compose execution
-ids by suffixing the parent id (the pattern this guide prescribes in
-[Determinism](#determinism-and-child-workflows)), deep chains (import → population → sandbox queue,
-interest population dispatch) exceed 255 chars. Every persist of the worker's deferred-done message
-then dies with `PersistenceError: value too long for type character varying(255)` in an endless
-requeue loop, and the awaiting workflow never resumes. Failures look flaky rather than
-deterministic because a fast in-memory deferred delivery — the job completing before the workflow
-suspends — never touches the storage path at all.
-**Workaround already applied** in `lib/infrastructure/workflow.ts`: `WorkflowEngineLive` widens the
-column to `text` (`Layer.tap` ALTER) right after cluster's migration runs; drop it once the
-upstream fix lands (the upstream source itself carries a "hash the entity address to save space?"
-note at the key-construction site).
-
 ### Reported, weaker evidence: `Activity.make` concurrency/nesting hazards ([#6014](https://github.com/Effect-TS/effect/issues/6014))
 
 A community-reported (not maintainer-confirmed) issue claiming two patterns can deadlock:
