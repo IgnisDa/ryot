@@ -8,6 +8,11 @@ type PropertySchemaLabels = {
 	propertiesLabel: string;
 };
 
+export const createPropertySchemaLabels = (propertiesLabel: string) => ({
+	propertiesLabel,
+	schemaLabel: `${propertiesLabel} schema`,
+});
+
 const isJsonObject = (value: unknown) => {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 };
@@ -103,3 +108,9 @@ export const parsePropertySchemaInput = (
 
 	return parsedObject as AppSchema;
 };
+
+export const parseLabeledPropertySchemaInput = (
+	input: unknown,
+	propertiesLabel: string,
+) =>
+	parsePropertySchemaInput(input, createPropertySchemaLabels(propertiesLabel));
