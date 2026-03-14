@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { buildQueryEngineEntityRowsDocument } from "./documents";
 import { queryEngineField, queryEngineSystemRef } from "./primitives";
-import { buildEntityDetailQueryDocument, buildEntityInterestQueryDocument } from "./recipes/app";
+import {
+	buildAllCollectionsQueryDocument,
+	buildEntityDetailQueryDocument,
+	buildEntityInterestQueryDocument,
+} from "./recipes/app";
 
 describe("query-engine builders", () => {
 	it("defaults entity rows to the identity contract and saved-view pagination", () => {
@@ -21,6 +25,29 @@ describe("query-engine builders", () => {
 					},
 				],
 			},
+		});
+	});
+
+	it("builds the collections recipe with default and requested pagination", () => {
+		expect(buildAllCollectionsQueryDocument({})).toEqual({
+			source: { type: "entities", alias: "entity", schemas: ["collection"], where: null },
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 20 },
+				orderBy: [{ order: "asc", expr: queryEngineSystemRef("entity", "name") }],
+				fields: [
+					queryEngineField("id", queryEngineSystemRef("entity", "id")),
+					queryEngineField("name", queryEngineSystemRef("entity", "name")),
+					{
+						key: "schemaSlug",
+						expr: { type: "ref", sourceAlias: "entity", field: { type: "schema", name: "slug" } },
+					},
+				],
+			},
+		});
+		expect(buildAllCollectionsQueryDocument({ page: 3, limit: 7 }).output.pagination).toEqual({
+			page: 3,
+			limit: 7,
 		});
 	});
 

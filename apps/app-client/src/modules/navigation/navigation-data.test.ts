@@ -1,43 +1,130 @@
+import type { QueryResponse } from "@ryot/contract/modules/query-engine/language";
 import { describe, expect, it } from "vitest";
 
 import {
+	buildNavigationData,
 	getActiveNavigationKey,
+	getCurrentWorkspace,
 	getEnabledItems,
 	getNavigationHref,
 	getNavigationItems,
-	navigationData,
+	mapCollectionsResponse,
 } from "./navigation-data";
+
+const plugins = [
+	{
+		sortOrder: 1,
+		name: "Media",
+		slug: "media",
+		isDisabled: false,
+		icon: "clapperboard",
+		accentColor: "#fd7e14",
+		description: "Media library",
+	},
+	{
+		sortOrder: 2,
+		name: "Fitness",
+		slug: "fitness",
+		icon: "dumbbell",
+		isDisabled: true,
+		accentColor: "#3d6d2f",
+		description: "Training and wellness",
+	},
+] satisfies Parameters<typeof buildNavigationData>[0]["plugins"];
+
+const savedViews = [
+	{
+		sortOrder: 1,
+		icon: "film",
+		name: "Movies",
+		slug: "movies",
+		isDisabled: false,
+		pluginSlug: "media",
+		accentColor: "#fd7e14",
+	},
+	{
+		sortOrder: 1,
+		icon: "dumbbell",
+		name: "Training",
+		slug: "training",
+		isDisabled: false,
+		pluginSlug: "fitness",
+		accentColor: "#3d6d2f",
+	},
+	{
+		sortOrder: 2,
+		icon: "bookmark",
+		pluginSlug: null,
+		isDisabled: false,
+		name: "Everything",
+		slug: "everything",
+		accentColor: "#a24e08",
+	},
+	{
+		sortOrder: 1,
+		name: "Hidden",
+		slug: "hidden",
+		icon: "bookmark",
+		pluginSlug: null,
+		isDisabled: true,
+		accentColor: "#a24e08",
+	},
+] satisfies Parameters<typeof buildNavigationData>[0]["savedViews"];
+
+const collectionsResponse = {
+	type: "rows",
+	data: {
+		pageInfo: { hasMore: false, limit: 100, page: 1, total: 2 },
+		items: [
+			{
+				id: { kind: "text", value: "collection-1" },
+				name: { kind: "text", value: "Sci-Fi Essentials" },
+			},
+			{ id: { kind: "number", value: 2 }, name: { kind: "text", value: "Malformed" } },
+		],
+	},
+} satisfies QueryResponse;
+
+const data = buildNavigationData({ collections: collectionsResponse, plugins, savedViews });
 
 describe("getEnabledItems", () => {
 	it("filters disabled items and sorts by sort order", () => {
-		const items = [
-			{ ...navigationData.views[2], kind: "view" as const },
-			{ ...navigationData.views[1], kind: "view" as const, isDisabled: true },
-			{ ...navigationData.views[0], kind: "home" as const },
-		];
+		expect(getEnabledItems(plugins).map((item) => item.slug)).toEqual(["media"]);
+	});
+});
 
-		expect(getEnabledItems(items).map((item) => item.slug)).toEqual(["home", "shows"]);
+describe("buildNavigationData", () => {
+	it("treats enabled plugins as workspaces and maps collection rows to entity routes", () => {
+		expect(data.workspaces.map((item) => item.slug)).toEqual(["media"]);
+		expect(data.collections.map((item) => ({ name: item.name, slug: item.slug }))).toEqual([
+			{ name: "Sci-Fi Essentials", slug: "collection-1" },
+		]);
+	});
+
+	it("skips rows without text ids or names", () => {
+		expect(mapCollectionsResponse(collectionsResponse)).toHaveLength(1);
 	});
 });
 
 describe("getNavigationItems", () => {
-	it("builds shared groups for desktop and mobile navigation", () => {
-		const items = getNavigationItems();
+	it("builds workspace views and lower global saved views from shared data", () => {
+		const items = getNavigationItems({ data, workspaceSlug: "media" });
 
-		expect(items.views.slice(0, 4).map((item) => item.name)).toEqual([
-			"Home",
-			"Movies",
-			"Shows",
-			"Books",
-		]);
-		expect(items.collections).toHaveLength(5);
-		expect(items.savedViews).toHaveLength(5);
+		expect(items.views.map((item) => item.name)).toEqual(["Home", "Movies"]);
+		expect(items.savedViews.map((item) => item.name)).toEqual(["Everything"]);
+		expect(items.collections.map((item) => item.slug)).toEqual(["collection-1"]);
+	});
+});
+
+describe("getCurrentWorkspace", () => {
+	it("prefers a valid route and falls back from an invalid persisted workspace", () => {
+		expect(getCurrentWorkspace(data.workspaces, "missing", "missing")?.slug).toBe("media");
 	});
 });
 
 describe("getNavigationHref", () => {
-	it("creates a workspace-scoped home route and standalone view and collection routes", () => {
-		const items = getNavigationItems();
+	it("creates workspace-scoped home and entity routes", () => {
+		const items = getNavigationItems({ data, workspaceSlug: "media" });
 
 		expect(getNavigationHref("media", items.views[0])).toEqual({
 			pathname: "/[workspace]",
@@ -49,7 +136,7 @@ describe("getNavigationHref", () => {
 		});
 		expect(getNavigationHref("media", items.collections[0])).toEqual({
 			pathname: "/e/[entityId]",
-			params: { entityId: "sci-fi-essentials" },
+			params: { entityId: "collection-1" },
 		});
 	});
 });
@@ -57,7 +144,7 @@ describe("getNavigationHref", () => {
 describe("getActiveNavigationKey", () => {
 	it.each([
 		["/media", "home"],
-		["/e/sci-fi-essentials", "collection:sci-fi-essentials"],
+		["/e/collection-1", "collection:collection-1"],
 		["/media/settings", "settings"],
 		["/v/movies", "view:movies"],
 	])("resolves %s to %s", (pathname, expected) => {
