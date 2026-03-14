@@ -100,7 +100,7 @@ function IdentityHeader(props: {
 			</Link>
 
 			<Grid mt="lg">
-				<Grid.Col span={{ base: 12, md: hasImage ? 8 : 12 }}>
+				<Grid.Col span={{ base: 12, md: 8 }}>
 					<Stack gap="md">
 						<Group gap="sm" wrap="wrap">
 							<Badge
