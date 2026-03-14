@@ -1,13 +1,11 @@
 import {
 	ensureBuiltinEntitySchema,
 	ensureBuiltinEntitySchemaEventSchemas,
-	ensureBuiltinFacet,
 	ensureBuiltinSandboxScript,
 	linkScriptPairToEntitySchema,
 } from "./helpers";
 import {
 	builtinEntitySchemas,
-	builtinFacets,
 	builtinSandboxScripts,
 	entitySchemaScriptLinks,
 } from "./manifests";
@@ -15,26 +13,9 @@ import {
 export const seedInitialDatabase = async () => {
 	console.info("Seeding entity schemas...");
 
-	const facetIds = new Map<string, string>();
-	for (const facet of builtinFacets()) {
-		const facetId = await ensureBuiltinFacet({
-			slug: facet.slug,
-			name: facet.name,
-			mode: facet.mode,
-			icon: facet.icon,
-			accentColor: facet.accentColor,
-			description: facet.description,
-		});
-		facetIds.set(facet.slug, facetId);
-	}
-
 	const schemaIds = new Map<string, string>();
 	for (const schema of builtinEntitySchemas()) {
-		const facetId = facetIds.get(schema.facetSlug);
-		if (!facetId) throw new Error(`Missing facet id for schema ${schema.slug}`);
-
 		const schemaId = await ensureBuiltinEntitySchema({
-			facetId,
 			slug: schema.slug,
 			icon: schema.icon,
 			name: schema.name,
