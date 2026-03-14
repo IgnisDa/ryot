@@ -1,7 +1,6 @@
 import { dayjs } from "@ryot/ts-utils";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { useState } from "react";
-import { match } from "ts-pattern";
 
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
@@ -9,7 +8,7 @@ import { Text } from "@/components/ui/text";
 import { hexToRgba } from "@/features/media/overview-utils";
 
 import { formatMinutes } from "./duration";
-import type { EntityDetail, PodcastDetail, ShowDetail, VideoGameDetail } from "./types";
+import type { AnimeDetail, PodcastDetail, ShowDetail, VideoGameDetail } from "./types";
 
 const ACCENT = "#C9943A";
 
@@ -48,7 +47,7 @@ function StatBlock(props: { label: string; value: string }) {
 	);
 }
 
-function ShowSeasonsList(props: { entity: ShowDetail }) {
+export function ShowSeasonsList(props: { entity: ShowDetail }) {
 	const [openId, setOpenId] = useState<number | null>(null);
 	const seasons = props.entity.properties.showSeasons;
 
@@ -119,7 +118,7 @@ function ShowSeasonsList(props: { entity: ShowDetail }) {
 	);
 }
 
-function PodcastEpisodesList(props: { entity: PodcastDetail }) {
+export function PodcastEpisodesList(props: { entity: PodcastDetail }) {
 	const episodes = props.entity.properties.episodes;
 
 	return (
@@ -158,7 +157,7 @@ function PodcastEpisodesList(props: { entity: PodcastDetail }) {
 	);
 }
 
-function VideoGameStats(props: { entity: VideoGameDetail }) {
+export function VideoGameStats(props: { entity: VideoGameDetail }) {
 	const timeToBeat = props.entity.properties.timeToBeat;
 	const platformReleases = props.entity.properties.platformReleases;
 
@@ -209,37 +208,33 @@ function VideoGameStats(props: { entity: VideoGameDetail }) {
 	);
 }
 
-export function TypeSpecificSection(props: { entity: EntityDetail }) {
-	return match(props.entity)
-		.with({ entitySchemaSlug: "show" }, (entity) => <ShowSeasonsList entity={entity} />)
-		.with({ entitySchemaSlug: "video-game" }, (entity) => <VideoGameStats entity={entity} />)
-		.with({ entitySchemaSlug: "podcast" }, (entity) => <PodcastEpisodesList entity={entity} />)
-		.with({ entitySchemaSlug: "anime" }, (entity) => (
-			<Box>
-				{entity.properties.airingSchedule && entity.properties.airingSchedule.length > 0 && (
-					<Box>
-						<SectionLabel label="Airing Schedule" />
-						{entity.properties.airingSchedule.map((item) => (
-							<Box
-								key={item.episode}
-								className="mb-2 flex-row items-center justify-between rounded-xl px-4 py-3"
-								style={{
-									borderWidth: 1,
-									borderColor: hexToRgba(ACCENT, 0.14),
-									backgroundColor: hexToRgba(ACCENT, 0.07),
-								}}
-							>
-								<Text className="text-[13px] font-sans-medium text-foreground web:text-[15px]">
-									{`Episode ${item.episode}`}
-								</Text>
-								<Text className="text-[12px] font-mono text-muted-foreground web:text-[14px]">
-									{dayjs(item.airingAt).format("MMM D, YYYY")}
-								</Text>
-							</Box>
-						))}
-					</Box>
-				)}
-			</Box>
-		))
-		.otherwise(() => null);
+export function AnimeAiringSchedule(props: { entity: AnimeDetail }) {
+	const schedule = props.entity.properties.airingSchedule;
+	if (!schedule || schedule.length === 0) {
+		return null;
+	}
+
+	return (
+		<Box>
+			<SectionLabel label="Airing Schedule" />
+			{schedule.map((item) => (
+				<Box
+					key={item.episode}
+					className="mb-2 flex-row items-center justify-between rounded-xl px-4 py-3"
+					style={{
+						borderWidth: 1,
+						borderColor: hexToRgba(ACCENT, 0.14),
+						backgroundColor: hexToRgba(ACCENT, 0.07),
+					}}
+				>
+					<Text className="text-[13px] font-sans-medium text-foreground web:text-[15px]">
+						{`Episode ${item.episode}`}
+					</Text>
+					<Text className="text-[12px] font-mono text-muted-foreground web:text-[14px]">
+						{dayjs(item.airingAt).format("MMM D, YYYY")}
+					</Text>
+				</Box>
+			))}
+		</Box>
+	);
 }
