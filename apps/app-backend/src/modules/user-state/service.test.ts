@@ -126,6 +126,7 @@ it.effect("rejects clearing library user state", () => {
 			getEntityScopeForUser: () =>
 				Effect.succeed({
 					isBuiltin: true,
+					entityName: "Library",
 					entityUserId: user.id,
 					entityId: EntityId.make("library-entity"),
 					entitySchemaSlug: "library",
@@ -152,6 +153,7 @@ it.effect("deletes matching events through EventsService when clearing user stat
 			getEntityScopeForUser: () =>
 				Effect.succeed({
 					isBuiltin: false,
+					entityName: "Dune",
 					entityUserId: user.id,
 					entitySchemaSlug: "book",
 					propertiesSchema: { fields: {} },

@@ -14,6 +14,11 @@ import {
 import { Effect, Exit, Layer } from "effect";
 
 import { type MockOverrides, dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import {
+	LifecycleDispatch,
+	LifecycleDispatchNoop,
+	type LifecycleDispatchInput,
+} from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 
@@ -42,6 +47,7 @@ const entityScope = {
 	entityId,
 	entitySchemaId,
 	isBuiltin: false,
+	entityName: "Dune",
 	entityUserId: userId,
 	entitySchemaSlug: "book",
 	propertiesSchema: { fields: {} },
@@ -122,6 +128,7 @@ it.effect("creates events inside workflow activities", () => {
 	const engine = makeCapturingWorkflowEngine(instance, activityNames);
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
+		LifecycleDispatchNoop,
 		Layer.mock(EventCreateWorkflowOperations, {
 			ensureLibraryMembership: () => Effect.void,
 			processSandboxExecution: () => Effect.die("unused"),
@@ -164,6 +171,121 @@ it.effect("creates events inside workflow activities", () => {
 	);
 });
 
+it.effect(
+	"dispatches a lifecycle occurrence per created event when a lifecycle origin is set",
+	() => {
+		const activityNames: string[] = [];
+		const dispatched: LifecycleDispatchInput[] = [];
+		const instance = WorkflowInstance.initial(EventCreateWorkflow, payload.executionId);
+		const engine = makeCapturingWorkflowEngine(instance, activityNames);
+		const layer = Layer.mergeAll(
+			dbRunnerLayer,
+			Layer.mock(LifecycleDispatch, {
+				dispatch: (input) => {
+					dispatched.push(input);
+					return Effect.void;
+				},
+			}),
+			Layer.mock(EventCreateWorkflowOperations, {
+				ensureLibraryMembership: () => Effect.void,
+				processSandboxExecution: () => Effect.die("unused"),
+			}),
+			makeEntitiesRepository({
+				getEntityScopeForUser: () => Effect.succeed(entityScope),
+			}),
+			makeEventSchemasRepository({
+				getScopeForUser: () => Effect.succeed(eventSchemaScope),
+			}),
+			makeEventsRepository({
+				createEvent: (input) =>
+					Effect.succeed({
+						createdAt: now,
+						updatedAt: now,
+						entityId: input.entityId,
+						properties: input.properties,
+						id: EventId.make("event-1"),
+						eventSchemaId: input.eventSchemaId,
+						eventSchemaName: input.eventSchemaName,
+						eventSchemaSlug: input.eventSchemaSlug,
+						sessionEntityId: input.sessionEntityId,
+						occurredAt: input.occurredAt.toISOString(),
+					}),
+			}),
+		);
+
+		return Effect.gen(function* () {
+			yield* runEventCreateWorkflow({ ...payload, lifecycleOrigin: { kind: "api" } });
+
+			expect(dispatched).toHaveLength(1);
+			const [occurrence] = dispatched;
+			expect(occurrence?.origin).toEqual({ kind: "api" });
+			expect(occurrence?.recordId).toBe("event-1");
+			expect(occurrence?.occurrenceId).toBe(`${payload.executionId}-lifecycle-0`);
+			expect(occurrence?.source).toEqual({
+				kind: "event",
+				after: {
+					eventSchemaId,
+					properties: {},
+					occurredAt: now,
+					eventSchemaSlug: "review",
+					id: EventId.make("event-1"),
+					subject: { id: entityId, name: "Dune", entitySchemaSlug: "book" },
+				},
+			});
+		}).pipe(
+			Effect.provide(layer),
+			Effect.provideService(WorkflowEngine, engine),
+			Effect.provideService(WorkflowInstance, instance),
+		);
+	},
+);
+
+it.effect("does not dispatch a lifecycle occurrence when no lifecycle origin is set", () => {
+	const activityNames: string[] = [];
+	let dispatchCalls = 0;
+	const instance = WorkflowInstance.initial(EventCreateWorkflow, payload.executionId);
+	const engine = makeCapturingWorkflowEngine(instance, activityNames);
+	const layer = Layer.mergeAll(
+		dbRunnerLayer,
+		Layer.mock(LifecycleDispatch, {
+			dispatch: () => {
+				dispatchCalls += 1;
+				return Effect.void;
+			},
+		}),
+		Layer.mock(EventCreateWorkflowOperations, {
+			ensureLibraryMembership: () => Effect.void,
+			processSandboxExecution: () => Effect.die("unused"),
+		}),
+		makeEntitiesRepository({ getEntityScopeForUser: () => Effect.succeed(entityScope) }),
+		makeEventSchemasRepository({ getScopeForUser: () => Effect.succeed(eventSchemaScope) }),
+		makeEventsRepository({
+			createEvent: (input) =>
+				Effect.succeed({
+					createdAt: now,
+					updatedAt: now,
+					entityId: input.entityId,
+					properties: input.properties,
+					id: EventId.make("event-1"),
+					eventSchemaId: input.eventSchemaId,
+					eventSchemaName: input.eventSchemaName,
+					eventSchemaSlug: input.eventSchemaSlug,
+					sessionEntityId: input.sessionEntityId,
+					occurredAt: input.occurredAt.toISOString(),
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		yield* runEventCreateWorkflow(payload);
+		expect(dispatchCalls).toBe(0);
+	}).pipe(
+		Effect.provide(layer),
+		Effect.provideService(WorkflowEngine, engine),
+		Effect.provideService(WorkflowInstance, instance),
+	);
+});
+
 it.effect("skips event creation when a before-create trigger returns skip", () => {
 	const activityNames: string[] = [];
 	let createEventCalls = 0;
@@ -171,6 +293,7 @@ it.effect("skips event creation when a before-create trigger returns skip", () =
 	const engine = makeCapturingWorkflowEngine(instance, activityNames);
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
+		LifecycleDispatchNoop,
 		Layer.mock(EventCreateWorkflowOperations, {
 			ensureLibraryMembership: () => Effect.void,
 			processSandboxExecution: () =>
@@ -219,6 +342,7 @@ it.effect("applies a before-create trigger replace to the created event", () => 
 	};
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
+		LifecycleDispatchNoop,
 		Layer.mock(EventCreateWorkflowOperations, {
 			ensureLibraryMembership: () => Effect.void,
 			processSandboxExecution: () =>
@@ -275,6 +399,7 @@ it.effect("fails the workflow when a before-create trigger reports an error", ()
 	const engine = makeCapturingWorkflowEngine(instance, activityNames);
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
+		LifecycleDispatchNoop,
 		Layer.mock(EventCreateWorkflowOperations, {
 			ensureLibraryMembership: () => Effect.void,
 			processSandboxExecution: () =>

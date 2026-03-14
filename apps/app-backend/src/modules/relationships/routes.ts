@@ -2,10 +2,13 @@ import { HttpApiBuilder } from "@effect/platform";
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
 import { badRequest, dieOnDbError, notFound } from "@ryot/contract/errors";
-import type { EntitySchemaId } from "@ryot/contract/schema/brands";
-import { Effect } from "effect";
+import type { EntityId, EntitySchemaId } from "@ryot/contract/schema/brands";
+import { generateId } from "better-auth";
+import { DateTime, Effect } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { LifecycleDispatch } from "#modules/entities/lifecycle-dispatch";
+import type { LifecycleEntityReference } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 
@@ -22,6 +25,7 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 				const runInTransaction = yield* TransactionRunner;
 				const service = yield* RelationshipsService;
 				const entitiesRepository = yield* EntitiesRepository;
+				const lifecycleDispatch = yield* LifecycleDispatch;
 				const schemasRepository = yield* RelationshipSchemasRepository;
 
 				const schema = yield* runWithDb(
@@ -65,16 +69,53 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 					relationshipSchemaId: payload.relationshipSchemaId,
 				} as const;
 
-				return yield* runInTransaction(
+				const outcome = yield* runInTransaction(
 					Effect.gen(function* () {
 						const created = yield* service.create(relationshipInput);
 						if (created.wasInserted) {
-							return created;
+							return { wasInserted: true as const, relationship: created };
 						}
 
-						return yield* service.update(relationshipInput);
+						const updated = yield* service.update(relationshipInput);
+						return { wasInserted: false as const, relationship: updated };
 					}),
 				);
+
+				if (outcome.wasInserted) {
+					const created = outcome.relationship;
+					const references = yield* runWithDb(
+						entitiesRepository.listEntityReferencesByIds([
+							payload.sourceEntityId,
+							payload.targetEntityId,
+						]),
+					);
+					const referenceFor = (entityId: EntityId): LifecycleEntityReference =>
+						references.find((candidate) => candidate.id === entityId) ?? {
+							name: "",
+							id: entityId,
+							entitySchemaSlug: "",
+						};
+					yield* lifecycleDispatch.dispatch({
+						rowUserId: user.id,
+						recordId: created.id,
+						origin: { kind: "api" },
+						occurrenceId: `occ_${generateId()}`,
+						occurredAt: (yield* DateTime.nowAsDate).toISOString(),
+						source: {
+							kind: "relationship",
+							after: {
+								id: created.id,
+								properties: created.properties,
+								relationshipSchemaSlug: schema.slug,
+								relationshipSchemaId: created.relationshipSchemaId,
+								target: referenceFor(payload.targetEntityId),
+								source: referenceFor(payload.sourceEntityId),
+							},
+						},
+					});
+				}
+
+				return outcome.relationship;
 			}).pipe(dieOnDbError),
 		),
 );
