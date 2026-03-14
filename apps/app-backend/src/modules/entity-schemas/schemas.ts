@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { dataSchema } from "~/lib/openapi";
-import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
+import {
+	createNameWithOptionalSlugSchema,
+	nonEmptyTrimmedStringSchema,
+} from "~/lib/zod/base";
 import { isEntitySchemaPropertiesString } from "./service";
 
 const entitySchemaPropertiesObjectSchema = z
@@ -38,10 +41,8 @@ export const listEntitySchemasQuery = z.object({
 	facetId: nonEmptyTrimmedStringSchema,
 });
 
-export const createEntitySchemaBody = z.object({
-	name: nonEmptyTrimmedStringSchema,
+export const createEntitySchemaBody = createNameWithOptionalSlugSchema({
 	facetId: nonEmptyTrimmedStringSchema,
-	slug: nonEmptyTrimmedStringSchema.optional(),
 	propertiesSchema: entitySchemaPropertiesInputSchema,
 });
 
