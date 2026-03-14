@@ -1,3 +1,16 @@
+import type { AuthenticatedUser } from "#/hooks/auth";
+
+export type SidebarAccount = Pick<
+	AuthenticatedUser,
+	| "id"
+	| "name"
+	| "email"
+	| "image"
+	| "emailVerified"
+	| "createdAt"
+	| "updatedAt"
+>;
+
 export interface SidebarFacet {
 	id: string;
 	icon: string;
@@ -22,6 +35,7 @@ export interface SidebarView {
 export interface SidebarProps {
 	views: SidebarView[];
 	facets: SidebarFacet[];
+	account: SidebarAccount;
 	isMutationBusy?: boolean;
 	isCustomizeMode: boolean;
 	onCreateFacet?: () => void;

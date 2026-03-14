@@ -1,4 +1,8 @@
-import { ColorSchemeScript, MantineProvider } from "@mantine/core";
+import {
+	ColorSchemeScript,
+	localStorageColorSchemeManager,
+	MantineProvider,
+} from "@mantine/core";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import {
 	createRootRouteWithContext,
@@ -25,15 +29,23 @@ export const Route = createRootRouteWithContext<{
 	}),
 });
 
+const colorSchemeManager = localStorageColorSchemeManager({
+	key: "ryot-color-scheme",
+});
+
 function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<head>
-				<ColorSchemeScript />
+				<ColorSchemeScript defaultColorScheme="auto" />
 				<HeadContent />
 			</head>
 			<body>
-				<MantineProvider theme={theme}>
+				<MantineProvider
+					theme={theme}
+					defaultColorScheme="auto"
+					colorSchemeManager={colorSchemeManager}
+				>
 					{children}
 					<TanStackDevtools
 						config={{ position: "bottom-right" }}
