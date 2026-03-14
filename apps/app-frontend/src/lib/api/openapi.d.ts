@@ -742,7 +742,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List entities for a custom entity schema */
+        /**
+         * List entities for a custom entity schema
+         * @deprecated
+         */
         get: {
             parameters: {
                 query: {
