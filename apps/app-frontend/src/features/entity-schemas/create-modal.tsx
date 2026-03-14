@@ -10,11 +10,11 @@ import {
 import type { CreateEntitySchemaPayload } from "#/features/entity-schemas/form";
 import { EntitySchemaPropertiesBuilder } from "#/features/entity-schemas/properties-builder";
 import { useCreateEntitySchemaForm } from "#/features/entity-schemas/use-form";
-import { FacetIcon, facetIconSelectData } from "#/features/facets/icons";
+import { TrackerIcon, trackerIconSelectData } from "#/features/trackers/icons";
 
 export interface EntitySchemaCreateModalProps {
 	opened: boolean;
-	facetId: string;
+	trackerId: string;
 	isLoading: boolean;
 	onClose: () => void;
 	errorMessage: string | null;
@@ -23,7 +23,7 @@ export interface EntitySchemaCreateModalProps {
 
 export function EntitySchemaCreateModal(props: EntitySchemaCreateModalProps) {
 	const entitySchemaForm = useCreateEntitySchemaForm({
-		facetId: props.facetId,
+		trackerId: props.trackerId,
 		onSubmit: props.onSubmit,
 	});
 
@@ -86,13 +86,13 @@ export function EntitySchemaCreateModal(props: EntitySchemaCreateModalProps) {
 										placeholder="Select icon"
 										onBlur={field.handleBlur}
 										disabled={props.isLoading}
-										data={facetIconSelectData}
+										data={trackerIconSelectData}
 										value={field.state.value || null}
-										leftSection={<FacetIcon icon={field.state.value} />}
+										leftSection={<TrackerIcon icon={field.state.value} />}
 										onChange={(value) => field.handleChange(value ?? "")}
 										renderOption={({ option }) => (
 											<Group gap={8} wrap="nowrap">
-												<FacetIcon icon={option.value} />
+												<TrackerIcon icon={option.value} />
 												<span>{option.label}</span>
 											</Group>
 										)}

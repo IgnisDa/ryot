@@ -60,8 +60,8 @@ export const ImageSchema = z.discriminatedUnion("kind", [
 
 export type ImageSchemaType = z.infer<typeof ImageSchema>;
 
-export const facet = pgTable(
-	"facet",
+export const tracker = pgTable(
+	"tracker",
 	{
 		description: text(),
 		slug: text().notNull(),
@@ -86,8 +86,8 @@ export const facet = pgTable(
 			.notNull(),
 	},
 	(table) => [
-		index("facet_user_id_idx").on(table.userId),
-		unique("facet_user_slug_unique").on(table.userId, table.slug),
+		index("tracker_user_id_idx").on(table.userId),
+		unique("tracker_user_slug_unique").on(table.userId, table.slug),
 	],
 );
 
@@ -117,14 +117,14 @@ export const entitySchema = pgTable(
 	],
 );
 
-export const facetEntitySchema = pgTable(
-	"facet_entity_schema",
+export const trackerEntitySchema = pgTable(
+	"tracker_entity_schema",
 	{
 		createdAt: timestamp().defaultNow().notNull(),
 		isDisabled: boolean().notNull().default(false),
-		facetId: text()
+		trackerId: text()
 			.notNull()
-			.references(() => facet.id, { onDelete: "cascade" }),
+			.references(() => tracker.id, { onDelete: "cascade" }),
 		entitySchemaId: text()
 			.notNull()
 			.references(() => entitySchema.id, { onDelete: "cascade" }),
@@ -138,10 +138,12 @@ export const facetEntitySchema = pgTable(
 			.notNull(),
 	},
 	(table) => [
-		index("facet_entity_schema_facet_id_idx").on(table.facetId),
-		index("facet_entity_schema_entity_schema_id_idx").on(table.entitySchemaId),
-		unique("facet_entity_schema_unique").on(
-			table.facetId,
+		index("tracker_entity_schema_tracker_id_idx").on(table.trackerId),
+		index("tracker_entity_schema_entity_schema_id_idx").on(
+			table.entitySchemaId,
+		),
+		unique("tracker_entity_schema_unique").on(
+			table.trackerId,
 			table.entitySchemaId,
 		),
 	],
@@ -355,7 +357,7 @@ export const savedView = pgTable(
 		queryDefinition: jsonb().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
 		isBuiltin: boolean().default(false).notNull(),
-		facetId: text().references(() => facet.id, { onDelete: "set null" }),
+		trackerId: text().references(() => tracker.id, { onDelete: "set null" }),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
@@ -369,6 +371,6 @@ export const savedView = pgTable(
 	},
 	(table) => [
 		index("saved_view_user_id_idx").on(table.userId),
-		index("saved_view_facet_id_idx").on(table.facetId),
+		index("saved_view_tracker_id_idx").on(table.trackerId),
 	],
 );

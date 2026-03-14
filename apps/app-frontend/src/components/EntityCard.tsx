@@ -7,7 +7,7 @@ export interface EntityCardProps {
 	image?: string;
 	rating?: string;
 	isDark?: boolean;
-	facetColor?: { base: string; muted: string };
+	trackerColor?: { base: string; muted: string };
 }
 
 export function EntityCard(props: EntityCardProps) {
@@ -30,7 +30,7 @@ export function EntityCard(props: EntityCardProps) {
 		? "var(--mantine-color-dark-4)"
 		: "var(--mantine-color-stone-5)";
 
-	const facetColor = props.facetColor ?? {
+	const trackerColor = props.trackerColor ?? {
 		base: "#5B7FFF",
 		muted: "rgba(91, 127, 255, 0.12)",
 	};
@@ -86,7 +86,7 @@ export function EntityCard(props: EntityCardProps) {
 								variant="filled"
 								styles={{
 									root: {
-										backgroundColor: facetColor.base,
+										backgroundColor: trackerColor.base,
 										color: "white",
 										fontFamily: '"Space Grotesk", sans-serif',
 										fontWeight: 700,
@@ -133,9 +133,9 @@ export function EntityCard(props: EntityCardProps) {
 					mb={8}
 					styles={{
 						root: {
-							backgroundColor: facetColor.muted,
-							color: facetColor.base,
-							border: `1px solid ${facetColor.base}33`,
+							backgroundColor: trackerColor.muted,
+							color: trackerColor.base,
+							border: `1px solid ${trackerColor.base}33`,
 							fontWeight: 600,
 							fontFamily: '"Space Grotesk", sans-serif',
 						},

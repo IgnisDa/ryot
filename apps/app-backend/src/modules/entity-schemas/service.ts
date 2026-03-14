@@ -8,8 +8,8 @@ export type EntitySchemaPropertiesShape =
 export const resolveEntitySchemaName = (name: string) =>
 	resolveRequiredString(name, "Entity schema name");
 
-export const resolveEntitySchemaFacetId = (facetId: string) =>
-	resolveRequiredString(facetId, "Facet id");
+export const resolveEntitySchemaTrackerId = (trackerId: string) =>
+	resolveRequiredString(trackerId, "Tracker id");
 
 export const resolveEntitySchemaIcon = (icon: string) =>
 	resolveRequiredString(icon, "Entity schema icon");
@@ -37,7 +37,7 @@ export const parseEntitySchemaPropertiesSchema = (
 };
 
 export const resolveEntitySchemaCreateInput = (
-	input: Omit<CreateEntitySchemaBody, "facetId">,
+	input: Omit<CreateEntitySchemaBody, "trackerId">,
 ) => {
 	const icon = resolveEntitySchemaIcon(input.icon);
 	const name = resolveEntitySchemaName(input.name);

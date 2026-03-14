@@ -11,19 +11,19 @@ The roadmap therefore follows dependencies in the product model:
 1. Build the unified platform primitives.
 2. Prove them through curated built-in experiences.
 3. Expose them as generated tools for custom trackers.
-4. Layer cross-facet power features on top.
+4. Layer cross-tracker power features on top.
 5. Add extensibility, polish, and scale work without violating the core model.
 
 ## Non-negotiable implementation principles
 
 Every phase should preserve these rules from the SOUL document:
 
-- Facets are the organizing principle, not the storage model.
+- Trackers are the organizing principle, not the storage model.
 - Everything important remains inside the unified `entity_schema -> entity -> event -> relationship` layer.
-- Built-in facets may have curated interfaces, but they cannot require a separate data architecture.
-- Custom facets must work through generated schema-driven experiences.
+- Built-in trackers may have curated interfaces, but they cannot require a separate data architecture.
+- Custom trackers must work through generated schema-driven experiences.
 - No part of the app may assume Media or Fitness exists.
-- Saved views, collections, search, and scripts must work across facets rather than inside silos.
+- Saved views, collections, search, and scripts must work across trackers rather than inside silos.
 - Sandbox scripts extend the platform; they do not replace core product capabilities.
 
 ## Implementation phases
@@ -49,40 +49,40 @@ This phase establishes the base model and the minimum application shell.
 - Baseline dashboard and activity feed
 - Global search foundation
 
-### Phase 2: Facets as the organizing layer
+### Phase 2: Trackers as the organizing layer
 
-This phase introduces facets as the product-level grouping and navigation concept.
+This phase introduces trackers as the product-level grouping and navigation concept.
 
 #### Goals
 
-- Model built-in and custom facets consistently.
-- Make the application shell adapt to active facets.
-- Support facet creation, update, enable, disable, and ordering.
-- Ensure every navigation surface works with zero facets, one facet, or many facets.
+- Model built-in and custom trackers consistently.
+- Make the application shell adapt to active trackers.
+- Support tracker creation, update, enable, disable, and ordering.
+- Ensure every navigation surface works with zero trackers, one tracker, or many trackers.
 
 #### Deliverables
 
-- Facet backend model and API
-- Facet management UI
+- Tracker backend model and API
+- Tracker management UI
 - Dynamic tracking navigation
-- Built-in facet registration and lifecycle rules
-- Custom facet creation flow
+- Built-in tracker registration and lifecycle rules
+- Custom tracker creation flow
 
-### Phase 3: Curated built-in facets
+### Phase 3: Curated built-in trackers
 
 This phase proves that Ryot can ship high-quality vertical experiences without breaking the shared platform.
 
 #### Goals
 
-- Build Media and Fitness as first-class built-in facets.
+- Build Media and Fitness as first-class built-in trackers.
 - Deliver hand-crafted detail pages, list experiences, and event logging flows for these domains.
 - Integrate external metadata sources where they improve the built-in experience.
 - Keep all built-in behavior anchored to the same unified data model.
 
 #### Deliverables
 
-- Media facet schema set and curated UI
-- Fitness facet schema set and curated UI
+- Media tracker schema set and curated UI
+- Fitness tracker schema set and curated UI
 - Built-in event logging flows
 - External search and detail fetch integrations for built-in domains
 - Built-in saved views and overview pages
@@ -91,24 +91,24 @@ This phase proves that Ryot can ship high-quality vertical experiences without b
 
 This phase turns Ryot from a product with built-in trackers into a true "track anything" platform.
 
-Current rewrite status: the custom-facet shell now matches the SOUL model. Facet root routes render generated overview pages for non-empty custom facets, empty facets stay in the guided setup flow, and schema-level browsing continues to live in saved views under the facet.
+Current rewrite status: the custom-tracker shell now matches the SOUL model. Tracker root routes render generated overview pages for non-empty custom trackers, empty trackers stay in the guided setup flow, and schema-level browsing continues to live in saved views under the tracker.
 
 #### Goals
 
-- Allow a user-created facet to own one or more schemas.
-- Let custom facets start empty and support user-managed entity and event schemas.
+- Allow a user-created tracker to own one or more schemas.
+- Let custom trackers start empty and support user-managed entity and event schemas.
 - Generate entity creation, editing, browsing, and detail experiences from schema definitions.
 - Generate event logging flows from event schemas.
-- Ensure custom facets receive the same structural benefits as built-in facets, even if the UI is less curated.
+- Ensure custom trackers receive the same structural benefits as built-in trackers, even if the UI is less curated.
 
 #### Deliverables
 
-- Schema builder for custom facets, including entity and event schema management
+- Schema builder for custom trackers, including entity and event schema management
 - Generated entity CRUD
 - Generated event logging
 - Generated entity detail pages
-- Default saved views for custom facets
-- Generated custom facet overview pages
+- Default saved views for custom trackers
+- Generated custom tracker overview pages
 
 ### Phase 5: Saved views and query-driven browsing
 
@@ -118,7 +118,7 @@ This phase establishes saved views as the universal browsing primitive for Ryot.
 
 - Make entity list pages saved-view-backed across the product.
 - Build the schema-aware query builder.
-- Support saved views scoped to schemas, multiple schemas, and facets.
+- Support saved views scoped to schemas, multiple schemas, and trackers.
 - Support display configuration for grid, table, list, grouping, promoted filters, and sorting.
 
 #### Deliverables
@@ -129,24 +129,24 @@ This phase establishes saved views as the universal browsing primitive for Ryot.
 - Sidebar integration for built-in and user-authored saved views
 - Display configuration editing
 
-### Phase 6: Cross-facet power features
+### Phase 6: Cross-tracker power features
 
 This phase makes the unified data model visible to users through features that intentionally cross tracker boundaries.
 
 #### Goals
 
-- Build collections that can mix entities from any facet.
+- Build collections that can mix entities from any tracker.
 - Strengthen global search across the whole library.
-- Build dashboards that aggregate contributions from active facets.
-- Support cross-facet browsing, grouping, and reflection workflows.
+- Build dashboards that aggregate contributions from active trackers.
+- Support cross-tracker browsing, grouping, and reflection workflows.
 
 #### Deliverables
 
 - Collections as entities plus relationships
 - Mixed-entity collection rendering
 - Stronger global search UX
-- Cross-facet dashboard composition
-- Cross-facet quick actions and activity surfaces
+- Cross-tracker dashboard composition
+- Cross-tracker quick actions and activity surfaces
 
 ### Phase 7: Scripted extensibility and integrations
 
@@ -196,14 +196,14 @@ These tracks span multiple phases and should be advanced whenever the underlying
 ### Search
 
 - Global search across all entities
-- External source search for built-in facets
+- External source search for built-in trackers
 - Create-new flows when no external source exists
 
 ### Navigation
 
-- Dynamic sidebar driven by active facets and saved views
-- Custom facet overview routes versus list routes
-- Mobile navigation that still respects the facet model
+- Dynamic sidebar driven by active trackers and saved views
+- Custom tracker overview routes versus list routes
+- Mobile navigation that still respects the tracker model
 
 ### Data safety and evolution
 
@@ -227,11 +227,11 @@ These tracks span multiple phases and should be advanced whenever the underlying
 
 A phase is not complete just because one happy-path demo exists. Each phase should satisfy the following before the project leans heavily on it:
 
-- The phase works with zero facets, one facet, and many facets where applicable.
+- The phase works with zero trackers, one tracker, and many trackers where applicable.
 - The phase uses the unified data model rather than bypassing it.
 - The phase is represented in both API and frontend behavior where needed.
 - The phase has basic verification coverage for the critical flows it introduces.
-- The phase does not hardcode built-in facet assumptions into generic surfaces.
+- The phase does not hardcode built-in tracker assumptions into generic surfaces.
 
 ## Master checklist
 
@@ -247,16 +247,16 @@ A box is checked only when the capability is clearly implemented in the current 
 - [x] Global app shell
 - [ ] Baseline dashboard and activity feed
 
-### Facet system
+### Tracker system
 
-- [x] Facet backend model and API
-- [x] Facet frontend management flows
+- [x] Tracker backend model and API
+- [x] Tracker frontend management flows
 - [x] Dynamic tracking navigation
-- [x] Built-in and custom facet enable and disable flows
-- [ ] Built-in facet registration model completed
-- [ ] Facet overview pages for all supported facet types
+- [x] Built-in and custom tracker enable and disable flows
+- [ ] Built-in tracker registration model completed
+- [ ] Tracker overview pages for all supported tracker types
 
-### Built-in curated facets
+### Built-in curated trackers
 
 - [ ] Media curated experience
 - [ ] Fitness curated experience
@@ -269,8 +269,8 @@ A box is checked only when the capability is clearly implemented in the current 
 - [x] Generated custom entity CRUD
 - [x] Generated custom event logging
 - [x] Generated custom entity detail pages
-- [x] Generated custom facet overview pages
-- [x] Default saved views for custom facets
+- [x] Generated custom tracker overview pages
+- [x] Default saved views for custom trackers
 
 ### Saved views and query builder
 
@@ -280,12 +280,12 @@ A box is checked only when the capability is clearly implemented in the current 
 - [ ] User-authored saved views
 - [ ] Display configuration editing
 
-### Cross-facet power features
+### Cross-tracker power features
 
 - [ ] Collections
 - [ ] Strong global search UX
-- [ ] Cross-facet dashboard composition
-- [ ] Cross-facet quick actions
+- [ ] Cross-tracker dashboard composition
+- [ ] Cross-tracker quick actions
 
 ### Scripts and integrations
 
@@ -310,9 +310,9 @@ A box is checked only when the capability is clearly implemented in the current 
 Ryot should be implemented as a layered system:
 
 1. Unified platform first
-2. Facet organization second
+2. Tracker organization second
 3. Curated built-in experiences and generated custom experiences on top of the same model
-4. Cross-facet power features next
+4. Cross-tracker power features next
 5. Sandbox-driven extensibility and long-term polish after the platform can carry them
 
 That sequencing preserves the product's main promise: one self-hosted place to track anything, without turning every new domain into a custom engineering project.

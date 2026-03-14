@@ -3,9 +3,9 @@ import {
 	parseEntitySchemaPropertiesSchema,
 	resolveEntitySchemaAccentColor,
 	resolveEntitySchemaCreateInput,
-	resolveEntitySchemaFacetId,
 	resolveEntitySchemaIcon,
 	resolveEntitySchemaName,
+	resolveEntitySchemaTrackerId,
 } from "./service";
 
 describe("resolveEntitySchemaName", () => {
@@ -187,14 +187,14 @@ describe("resolveEntitySchemaCreateInput", () => {
 	});
 });
 
-describe("resolveEntitySchemaFacetId", () => {
-	it("trims the provided facet id", () => {
-		expect(resolveEntitySchemaFacetId("  facet_123  ")).toBe("facet_123");
+describe("resolveEntitySchemaTrackerId", () => {
+	it("trims the provided tracker id", () => {
+		expect(resolveEntitySchemaTrackerId("  tracker_123  ")).toBe("tracker_123");
 	});
 
-	it("throws when the facet id is blank", () => {
-		expect(() => resolveEntitySchemaFacetId("   ")).toThrow(
-			"Facet id is required",
+	it("throws when the tracker id is blank", () => {
+		expect(() => resolveEntitySchemaTrackerId("   ")).toThrow(
+			"Tracker id is required",
 		);
 	});
 });

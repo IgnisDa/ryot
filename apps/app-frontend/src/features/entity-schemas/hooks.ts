@@ -2,12 +2,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "#/hooks/api";
 import { sortEntitySchemas } from "./model";
 
-export function useEntitySchemasQuery(facetId: string, enabled = true) {
+export function useEntitySchemasQuery(trackerId: string, enabled = true) {
 	const apiClient = useApiClient();
 	const query = apiClient.useQuery(
 		"get",
 		"/entity-schemas",
-		{ params: { query: { facetId } } },
+		{ params: { query: { trackerId } } },
 		{ enabled },
 	);
 
@@ -17,11 +17,11 @@ export function useEntitySchemasQuery(facetId: string, enabled = true) {
 	};
 }
 
-export function useEntitySchemaMutations(facetId: string) {
+export function useEntitySchemaMutations(trackerId: string) {
 	const apiClient = useApiClient();
 	const queryClient = useQueryClient();
 	const listQueryKey = apiClient.queryOptions("get", "/entity-schemas", {
-		params: { query: { facetId } },
+		params: { query: { trackerId } },
 	}).queryKey;
 	const savedViewsQueryKey = apiClient.queryOptions(
 		"get",
