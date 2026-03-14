@@ -1,8 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
 import clsx from "clsx";
 import { router } from "expo-router";
-import { useState } from "react";
-import { KeyboardAvoidingView, Platform } from "react-native";
+import { useRef, useState } from "react";
+import { KeyboardAvoidingView, Platform, type TextInputProps } from "react-native";
 import { z } from "zod";
 
 import { Box } from "@/components/ui/box";
@@ -43,6 +43,7 @@ export default function Auth() {
 	const setServerUrl = useSetServerUrl();
 	const authClient = useAuthClient();
 	const [mode, setMode] = useState<AuthMode>("login");
+	const passwordInputRef = useRef<(TextInputProps & { focus: () => void }) | null>(null);
 
 	const modeContent = modes[mode];
 	const apiClient = createApiClient(serverUrl ?? CLOUD_URL);
@@ -128,9 +129,13 @@ export default function Auth() {
 									{(field) => (
 										<field.TextField
 											autoCorrect={false}
+											returnKeyType="next"
 											autoCapitalize="none"
+											submitBehavior="submit"
+											inputRef={passwordInputRef}
 											keyboardType="email-address"
 											placeholder="you@example.com"
+											onSubmitEditing={() => passwordInputRef.current?.focus()}
 										/>
 									)}
 								</form.AppField>

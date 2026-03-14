@@ -29,19 +29,14 @@ type Props = {
 	translateX?: SharedValue<number>;
 };
 
-function RailItem({
-	item,
-	onPress,
-	isActive,
-	onHoverIn,
-	onHoverOut,
-}: {
+function RailItem(props: {
 	isActive: boolean;
 	onPress: () => void;
 	item: NavigationItem;
 	onHoverIn?: () => void;
 	onHoverOut?: () => void;
 }) {
+	const { item, onPress, isActive, onHoverIn, onHoverOut } = props;
 	return (
 		<Pressable
 			key={item.key}
@@ -78,7 +73,8 @@ function RailItem({
 	);
 }
 
-export function ShellRail({ translateX, onClose, pinned = false }: Props) {
+export function ShellRail(props: Props) {
+	const { translateX, onClose, pinned = false } = props;
 	const user = useUser();
 	const authClient = useAuthClient();
 	const openFlyout = useOpenFlyout();
@@ -177,7 +173,7 @@ export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 
 	if (pinned) {
 		return (
-			<Box className="w-42 border-l-[0.5px] border-l-border bg-stone-200">
+			<Box className="relative h-full w-42 border-l-[0.5px] border-l-border bg-stone-200">
 				<Box className="flex-1">{items}</Box>
 				{userSection}
 				<Box

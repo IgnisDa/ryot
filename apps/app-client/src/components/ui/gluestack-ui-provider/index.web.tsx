@@ -9,13 +9,8 @@ export type ModeType = "light" | "dark" | "system";
 
 export const useSafeLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
-export function GluestackUIProvider({
-	mode = "light",
-	...props
-}: {
-	mode?: ModeType;
-	children?: React.ReactNode;
-}) {
+export function GluestackUIProvider(props: { mode?: ModeType; children?: React.ReactNode }) {
+	const { mode = "light", ...rest } = props;
 	const handleMediaQuery = React.useCallback((e: MediaQueryListEvent) => {
 		script(e.matches ? "dark" : "light");
 	}, []);
@@ -50,7 +45,7 @@ export function GluestackUIProvider({
 				}}
 			/>
 			<OverlayProvider>
-				<ToastProvider>{props.children}</ToastProvider>
+				<ToastProvider>{rest.children}</ToastProvider>
 			</OverlayProvider>
 		</>
 	);

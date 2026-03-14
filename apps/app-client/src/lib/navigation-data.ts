@@ -78,7 +78,19 @@ export function navHref(item: NavigationItem): Href {
 		return "/";
 	}
 	if (item.kind === "view") {
-		return `/views/${item.slug}` as Href;
+		return viewHref(item.slug);
 	}
-	return `/tracker/${item.slug}` as Href;
+	return trackerHref(item.slug);
+}
+
+export function trackerHref(slug: string): Href {
+	return `/tracker/${slug}` as Href;
+}
+
+export function viewHref(slug: string): Href {
+	return `/views/${slug}` as Href;
+}
+
+export function entityHref(entityId: string): Href {
+	return `/entity/${entityId}` as Href;
 }
