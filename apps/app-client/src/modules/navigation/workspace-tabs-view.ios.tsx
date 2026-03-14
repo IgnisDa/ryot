@@ -8,7 +8,7 @@ import type { WorkspaceTabsViewProps } from "./workspace-tabs-view";
 
 export function WorkspaceTabsView(props: WorkspaceTabsViewProps) {
 	return (
-		<Host style={{ flex: 1 }}>
+		<Host seedColor="#fd7e14" style={{ flex: 1 }}>
 			<TabView
 				selection={props.selectedKey}
 				modifiers={[tabViewStyle({ type: "sidebarAdaptable" })]}
