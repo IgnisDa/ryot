@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -29,19 +29,19 @@ Follow the PRD's Persistence, Model (producers), Deterministic Identity, and Sec
 
 ## Acceptance criteria
 
-- [ ] The three tables exist with the specified columns, FK behaviors (subject set-null,
+- [x] The three tables exist with the specified columns, FK behaviors (subject set-null,
       recipient/user cascades), uniqueness conventions, and regenerated migrations
-- [ ] Seeding is idempotent across restarts, may update display name and catalog state, and fails
+- [x] Seeding is idempotent across restarts, may update display name and catalog state, and fails
       loudly when a contract field (slug, properties schema, audience policy) differs
-- [ ] Emission validates properties against the schema, derives the actor from the hidden
+- [x] Emission validates properties against the schema, derives the actor from the hidden
       principal, and rejects unauthorized or missing subjects per audience-policy prerequisites
-- [ ] The related-users resolver returns relationship owners for the configured schema and
+- [x] The related-users resolver returns relationship owners for the configured schema and
       subject side; a valid empty audience still persists the signal
-- [ ] Recipients are snapshotted atomically with the signal; no caller can supply recipient IDs
-- [ ] Duplicate emission returns the existing signal without re-resolving the audience; sibling
+- [x] Recipients are snapshotted atomically with the signal; no caller can supply recipient IDs
+- [x] Duplicate emission returns the existing signal without re-resolving the audience; sibling
       emissions of one schema in one execution get distinct deterministic IDs via the
       discriminator
-- [ ] Deleting a user removes their private actor-audience signals, recipient rows, and nothing
+- [x] Deleting a user removes their private actor-audience signals, recipient rows, and nothing
       of other recipients' shared history
 
 ## User stories addressed
