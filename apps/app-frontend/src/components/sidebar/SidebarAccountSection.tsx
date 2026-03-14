@@ -11,7 +11,7 @@ import {
 	useMantineColorScheme,
 } from "@mantine/core";
 import { useDisclosure, useHover } from "@mantine/hooks";
-import { Laptop, Moon, Sun } from "lucide-react";
+import { Key, Laptop, Moon, Settings, Sun } from "lucide-react";
 import { useIsMobileScreen } from "#/hooks/screen";
 import { useColorScheme } from "#/hooks/theme";
 import type { SidebarAccount } from "./Sidebar.types";
@@ -125,8 +125,12 @@ export function SidebarAccountSection(props: {
 							borderRight: isMobile ? "none" : `1px solid ${props.border}`,
 						}}
 					>
-						<Tabs.Tab value="general">General</Tabs.Tab>
-						<Tabs.Tab value="api-keys">API Keys</Tabs.Tab>
+						<Tabs.Tab value="general" leftSection={<Settings size={16} />}>
+							General
+						</Tabs.Tab>
+						<Tabs.Tab value="api-keys" leftSection={<Key size={16} />}>
+							API Keys
+						</Tabs.Tab>
 					</Tabs.List>
 
 					<Tabs.Panel value="general" style={{ flex: 1 }}>
