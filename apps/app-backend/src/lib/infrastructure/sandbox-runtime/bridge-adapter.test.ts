@@ -92,13 +92,13 @@ describe("bindSandboxHostFunctions", () => {
 
 			expect(result).toEqual({
 				success: false,
-				error: "2.body: Expected string | undefined, got 42",
+				error: "2.body: Expected string | undefined",
 			});
 			expect(
 				yield* bound.httpCall(["POST", "https://example.com", { allowInsecureConnections: "yes" }]),
 			).toEqual({
 				success: false,
-				error: '2.allowInsecureConnections: Expected boolean | undefined, got "yes"',
+				error: "2.allowInsecureConnections: Expected boolean | undefined",
 			});
 			expect(yield* bound.getUserPreferences(["unexpected"])).toEqual({
 				success: false,
@@ -125,11 +125,11 @@ describe("bindSandboxHostFunctions", () => {
 
 			expect(yield* bound.log([[{ level: "verbose", message: "nope" }]])).toEqual({
 				success: false,
-				error: '0.0.level: Expected "debug" | "info" | "warning" | "error", got "verbose"',
+				error: '0.0.level: Expected "debug" | "info" | "warning" | "error"',
 			});
 			expect(yield* bound.span([[{ name: "" }]])).toEqual({
 				success: false,
-				error: '0.0.name: Expected a value with a length of at least 1, got ""',
+				error: "0.0.name: Expected a value with a length of at least 1",
 			});
 			expect(yield* bound.log([[], "surplus"])).toEqual({
 				success: false,
@@ -185,7 +185,7 @@ describe("bindSandboxHostFunctions", () => {
 			).toEqual({ error: "reached", success: false });
 			expect(yield* bound.createEvents(["nope"])).toEqual({
 				success: false,
-				error: '0: Expected array, got "nope"',
+				error: "0: Expected array",
 			});
 			expect(
 				yield* bound.upsertGlobalEntities([
@@ -203,7 +203,7 @@ describe("bindSandboxHostFunctions", () => {
 			).toEqual({ data: [{ status: "skipped" }], success: true });
 			expect(yield* bound.upsertGlobalEntities([[], { maximumTotal: -1 }])).toEqual({
 				success: false,
-				error: "1.maximumTotal: Expected a value greater than or equal to 0, got -1",
+				error: "1.maximumTotal: Expected a value greater than or equal to 0",
 			});
 
 			expect(yield* bound.listIntegrations([{ provider: "plugin_defined_provider" }])).toEqual({
@@ -212,12 +212,12 @@ describe("bindSandboxHostFunctions", () => {
 			});
 			expect(yield* bound.listIntegrations([{ provider: 1 }])).toEqual({
 				success: false,
-				error: "0.provider: Expected string | undefined, got 1",
+				error: "0.provider: Expected string | undefined",
 			});
 
 			expect(yield* bound.executeQueryEngine([() => undefined])).toEqual({
 				success: false,
-				error: "0: Expected null | string | number | boolean | array | object, got () => undefined",
+				error: "0: Expected null | string | number | boolean | array | object",
 			});
 
 			expect(calls).toEqual([
@@ -276,7 +276,7 @@ describe("bindSandboxHostFunctions", () => {
 				yield* bound.changeUserRelationships([[{ ...batch, userId: "caller-selected" }]]),
 			).toEqual({
 				success: false,
-				error: '0.0.userId: Unexpected key with value "caller-selected"',
+				error: "0.0.userId: Expected no excess property",
 			});
 		}),
 	);
@@ -300,13 +300,13 @@ describe("bindSandboxHostFunctions", () => {
 			expect(calls).toEqual([{ runInput: input, items: [item] }]);
 			expect(yield* bound.ensureUserEntities([[{ ...item, userId: "caller-selected" }]])).toEqual({
 				success: false,
-				error: '0.0.userId: Unexpected key with value "caller-selected"',
+				error: "0.0.userId: Expected no excess property",
 			});
 			expect(
 				yield* bound.ensureUserEntities([[{ ...item, pluginSlug: "caller-selected" }]]),
 			).toEqual({
 				success: false,
-				error: '0.0.pluginSlug: Unexpected key with value "caller-selected"',
+				error: "0.0.pluginSlug: Expected no excess property",
 			});
 			expect(calls).toHaveLength(1);
 		}),
@@ -365,11 +365,11 @@ describe("bindSandboxHostFunctions", () => {
 				]),
 			).toEqual({
 				success: false,
-				error: '0.recipientUserIds: Unexpected key with value ["user-2"]',
+				error: "0.recipientUserIds: Expected no excess property",
 			});
 			expect(yield* bound.sendNotification(["   "])).toEqual({
 				success: false,
-				error: '0: Expected a value with a length of at least 1, got ""',
+				error: "0: Expected a value with a length of at least 1",
 			});
 			expect(calls).toBe(0);
 		}),
@@ -400,11 +400,11 @@ describe("bindSandboxHostFunctions", () => {
 			});
 			expect(yield* bound.getPluginConfig([[null]])).toEqual({
 				success: false,
-				error: "0.0: Expected string, got null",
+				error: "0.0: Expected string",
 			});
 			expect(yield* bound.getSystemConfig([[null]])).toEqual({
 				success: false,
-				error: "0.0: Expected string, got null",
+				error: "0.0: Expected string",
 			});
 			expect(calls).toEqual([
 				{ fnName: "httpCall", value: undefined },
@@ -464,11 +464,11 @@ describe("bindSandboxHostFunctions", () => {
 			});
 			expect(yield* bound.claimPersistentValue(["lock", { owner: "user-1" }, 1.5])).toEqual({
 				success: false,
-				error: "2: Expected an integer, got 1.5",
+				error: "2: Expected an integer",
 			});
 			expect(yield* bound.setCachedValue(["lock", { owner: "user-1" }, 1.5])).toEqual({
 				success: false,
-				error: "2: Expected an integer, got 1.5",
+				error: "2: Expected an integer",
 			});
 			expect(yield* bound.getPluginConfig([["apiToken"], "surplus"])).toEqual({
 				success: false,
