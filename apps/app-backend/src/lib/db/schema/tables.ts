@@ -12,7 +12,6 @@ import {
 	unique,
 } from "drizzle-orm/pg-core";
 import { z } from "zod";
-import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
 import { user } from "./auth";
 
 const tsvector = customType<{ data: string }>({
@@ -24,15 +23,39 @@ export enum EntitySchemaSandboxScriptKind {
 	details = "details",
 }
 
+const remoteImageUrlSchema = z
+	.string()
+	.trim()
+	.superRefine((value, ctx) => {
+		try {
+			const parsedUrl = new URL(value);
+			if (!["http:", "https:"].includes(parsedUrl.protocol)) throw new Error();
+		} catch {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "Entity image remote url must be a valid URL",
+			});
+		}
+	});
+
+const s3ImageKeySchema = z
+	.string()
+	.trim()
+	.min(1, "Entity image s3 key is required");
+
+export const remoteImageSchema = z.strictObject({
+	url: remoteImageUrlSchema,
+	kind: z.literal("remote"),
+});
+
+export const s3ImageSchema = z.strictObject({
+	key: s3ImageKeySchema,
+	kind: z.literal("s3"),
+});
+
 export const ImageSchema = z.discriminatedUnion("kind", [
-	z.object({
-		url: z.url(),
-		kind: z.literal("remote"),
-	}),
-	z.object({
-		kind: z.literal("s3"),
-		key: nonEmptyTrimmedStringSchema,
-	}),
+	s3ImageSchema,
+	remoteImageSchema,
 ]);
 
 export type ImageSchemaType = z.infer<typeof ImageSchema>;

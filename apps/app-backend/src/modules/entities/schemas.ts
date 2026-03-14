@@ -39,3 +39,4 @@ export const createEntityBody = z.object({
 });
 
 export type CreateEntityBody = z.infer<typeof createEntityBody>;
+export type ListedEntity = z.infer<typeof listedEntitySchema>;

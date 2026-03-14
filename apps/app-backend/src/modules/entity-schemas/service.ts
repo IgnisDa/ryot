@@ -1,11 +1,9 @@
-import {
-	type AppSchema,
-	resolveRequiredSlug,
-	resolveRequiredString,
-} from "@ryot/ts-utils";
+import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
 import { parseLabeledPropertySchemaInput } from "../property-schemas/service";
+import type { CreateEntitySchemaBody } from "./schemas";
 
-export type EntitySchemaPropertiesShape = AppSchema;
+export type EntitySchemaPropertiesShape =
+	CreateEntitySchemaBody["propertiesSchema"];
 
 export const resolveEntitySchemaName = (name: string) =>
 	resolveRequiredString(name, "Entity schema name");
@@ -19,10 +17,9 @@ export const resolveEntitySchemaIcon = (icon: string) =>
 export const resolveEntitySchemaAccentColor = (accentColor: string) =>
 	resolveRequiredString(accentColor, "Entity schema accent color");
 
-export const resolveEntitySchemaSlug = (input: {
-	name: string;
-	slug?: string;
-}) => {
+export const resolveEntitySchemaSlug = (
+	input: Pick<CreateEntitySchemaBody, "name" | "slug">,
+) => {
 	return resolveRequiredSlug({
 		name: input.name,
 		slug: input.slug,
@@ -39,13 +36,9 @@ export const parseEntitySchemaPropertiesSchema = (
 	) as EntitySchemaPropertiesShape;
 };
 
-export const resolveEntitySchemaCreateInput = (input: {
-	icon: string;
-	name: string;
-	slug?: string;
-	accentColor: string;
-	propertiesSchema: unknown;
-}) => {
+export const resolveEntitySchemaCreateInput = (
+	input: Omit<CreateEntitySchemaBody, "facetId">,
+) => {
 	const icon = resolveEntitySchemaIcon(input.icon);
 	const name = resolveEntitySchemaName(input.name);
 	const slug = resolveEntitySchemaSlug({ name, slug: input.slug });

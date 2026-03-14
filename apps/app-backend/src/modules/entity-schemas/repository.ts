@@ -7,7 +7,17 @@ import {
 	savedView,
 } from "~/lib/db/schema";
 import { buildBuiltinSavedViewName } from "../saved-views/service";
+import type { ListedEntitySchema } from "./schemas";
 import type { EntitySchemaPropertiesShape } from "./service";
+
+type EntitySchemaRow = Omit<ListedEntitySchema, "propertiesSchema"> & {
+	propertiesSchema: unknown;
+};
+
+const toListedEntitySchema = (row: EntitySchemaRow): ListedEntitySchema => ({
+	...row,
+	propertiesSchema: row.propertiesSchema as EntitySchemaPropertiesShape,
+});
 
 export const listEntitySchemasByFacetForUser = async (input: {
 	userId: string;
@@ -39,10 +49,7 @@ export const listEntitySchemasByFacetForUser = async (input: {
 		)
 		.orderBy(asc(entitySchema.name), asc(entitySchema.createdAt));
 
-	return rows.map((row) => ({
-		...row,
-		propertiesSchema: row.propertiesSchema as EntitySchemaPropertiesShape,
-	}));
+	return rows.map(toListedEntitySchema);
 };
 
 export const getEntitySchemaBySlugForUser = async (input: {
@@ -163,11 +170,9 @@ export const createEntitySchemaForUser = async (input: {
 		if (!createdSavedView)
 			throw new Error("Could not persist built-in saved view");
 
-		return {
+		return toListedEntitySchema({
 			...createdEntitySchema,
 			facetId: createdFacetEntitySchema.facetId,
-			propertiesSchema:
-				createdEntitySchema.propertiesSchema as EntitySchemaPropertiesShape,
-		};
+		});
 	});
 };

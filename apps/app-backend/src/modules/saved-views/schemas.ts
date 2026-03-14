@@ -41,3 +41,6 @@ export const createSavedViewResponseSchema = dataSchema(listedSavedViewSchema);
 export const deleteSavedViewParams = z.object({
 	viewId: nonEmptyTrimmedStringSchema,
 });
+
+export type ListedSavedView = z.infer<typeof listedSavedViewSchema>;
+export type CreateSavedViewBody = z.infer<typeof createSavedViewBody>;
