@@ -1,6 +1,7 @@
 export interface AppEntity {
 	id: string;
 	name: string;
+	image: AppEntityImage;
 	createdAt: Date;
 	updatedAt: Date;
 	entitySchemaId: string;
@@ -9,14 +10,35 @@ export interface AppEntity {
 	detailsSandboxScriptId: string | null;
 }
 
+export type AppEntityImage =
+	| { kind: "s3"; key: string }
+	| { kind: "remote"; url: string }
+	| null;
+
+function toAppEntityImage(image: unknown): AppEntityImage {
+	if (!image || typeof image !== "object") return null;
+
+	const parsed = image as { kind?: string; key?: string; url?: string };
+
+	if (parsed.kind === "remote" && parsed.url)
+		return { kind: "remote", url: parsed.url };
+
+	if (parsed.kind === "s3" && parsed.key)
+		return { kind: "s3", key: parsed.key };
+
+	return null;
+}
+
 export function toAppEntity(
-	entity: Omit<AppEntity, "createdAt" | "updatedAt"> & {
+	entity: Omit<AppEntity, "createdAt" | "updatedAt" | "image"> & {
+		image: unknown;
 		createdAt: string;
 		updatedAt: string;
 	},
 ): AppEntity {
 	return {
 		...entity,
+		image: toAppEntityImage(entity.image),
 		createdAt: new Date(entity.createdAt),
 		updatedAt: new Date(entity.updatedAt),
 	};
