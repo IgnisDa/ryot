@@ -261,7 +261,7 @@ describe("media monitoring infrequent refresh", () => {
 		]);
 
 		const baseline = await getBackendClient().run(
-			(contract) => contract.godMode.triggerInfrequentCron(),
+			(contract) => contract.testSupport.triggerInfrequentCron(),
 			adminHeaders,
 		);
 		await pollUntil("media monitoring baseline population", async () => {
@@ -285,7 +285,7 @@ describe("media monitoring infrequent refresh", () => {
 			}),
 		);
 		const changed = await getBackendClient().run(
-			(contract) => contract.godMode.triggerInfrequentCron(),
+			(contract) => contract.testSupport.triggerInfrequentCron(),
 			adminHeaders,
 		);
 		await pollUntil("media monitoring changed provider refresh", async () => {

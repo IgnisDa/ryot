@@ -68,8 +68,6 @@ const SetDisabledResponse = Schema.Struct({
 
 const DeleteUserResponse = Schema.Struct({ id: UserId });
 
-const TriggerInfrequentCronResponse = Schema.Struct({ executionId: Schema.String });
-
 const userIdParam = HttpApiSchema.param("userId", UserId);
 
 export const GodModeGroup = HttpApiGroup.make("godMode")
@@ -117,10 +115,5 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 			.addSuccess(DeleteUserResponse)
 			.addError(NotFound, { status: 404 })
 			.addError(InternalError, { status: 500 })
-			.middleware(AdminMiddleware),
-	)
-	.add(
-		HttpApiEndpoint.post("triggerInfrequentCron", "/god-mode/cron/infrequent")
-			.addSuccess(TriggerInfrequentCronResponse)
 			.middleware(AdminMiddleware),
 	);
