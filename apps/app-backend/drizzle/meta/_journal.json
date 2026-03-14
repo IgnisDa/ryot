@@ -15,6 +15,13 @@
 			"when": 1772593863981,
 			"tag": "0001_far_santa_claus",
 			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1772651885417,
+			"tag": "0002_curved_firebird",
+			"breakpoints": true
 		}
 	]
 }
