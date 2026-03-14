@@ -1,15 +1,8 @@
 import { swaggerUI } from "@hono/swagger-ui";
-import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import { auth, type MaybeAuthType } from "~/lib/auth";
-import {
-	createAuthRoute,
-	dataSchema,
-	ERROR_CODES,
-	errorResponse,
-	jsonResponse,
-	successResponse,
-} from "~/lib/openapi";
+import { ERROR_CODES, errorResponse } from "~/lib/openapi";
 import { authenticationApi } from "~/modules/authentication/routes";
 import { entitiesApi } from "~/modules/entities/routes";
 import { entitySchemasApi } from "~/modules/entity-schemas/routes";
@@ -26,25 +19,6 @@ const openApiInfo = {
 	title: "Ryot App Backend API",
 	description: "OpenAPI specification for app-owned backend routes",
 };
-
-const meResponseSchema = dataSchema(
-	z.object({
-		user: z.unknown(),
-		session: z.unknown().nullish(),
-	}),
-);
-
-const meRoute = createAuthRoute(
-	createRoute({
-		path: "/me",
-		method: "get",
-		tags: ["protected"],
-		summary: "Get the current user session",
-		responses: {
-			200: jsonResponse("Authenticated session details", meResponseSchema),
-		},
-	}),
-);
 
 export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.onError((error, c) => {
@@ -68,11 +42,6 @@ export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/health", healthApi)
 	.route("/metrics", metricsApi)
 	.route("/authentication", authenticationApi)
-	.openapi(meRoute, async (c) => {
-		const user = c.get("user");
-		const session = c.get("session");
-		return c.json(successResponse({ user, session }), 200);
-	})
 	.route("/sandbox", sandboxApi)
 	.route("/facets", facetsApi)
 	.route("/entity-schemas", entitySchemasApi)
