@@ -19,6 +19,7 @@
         "@hono/node-server": "1.19.9",
         "@hono/swagger-ui": "0.5.3",
         "@hono/zod-openapi": "1.2.2",
+        "@ryot/ts-utils": "workspace:*",
         "better-auth": "1.5.0",
         "bullmq": "5.70.0",
         "drizzle-orm": "0.45.1",
@@ -44,6 +45,7 @@
         "@formkit/auto-animate": "0.9.0",
         "@mantine/core": "9.0.0-alpha.3",
         "@mantine/hooks": "9.0.0-alpha.3",
+        "@ryot/ts-utils": "workspace:*",
         "@tanstack/react-devtools": "0.9.6",
         "@tanstack/react-form": "1.28.3",
         "@tanstack/react-query": "5.90.21",
@@ -169,6 +171,7 @@
         "usehooks-ts": "3.1.1",
         "uuid": "13.0.0",
         "vite-plugin-pwa": "1.2.0",
+        "workbox-window": "7.4.0",
         "zod": "4.3.6",
       },
       "devDependencies": {
