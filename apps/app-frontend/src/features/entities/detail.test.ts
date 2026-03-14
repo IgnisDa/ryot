@@ -1,9 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-	getEntityDetailPath,
-	getEntityDetailProperties,
-	hasDeferredEntityDetailProperties,
-} from "./detail";
+import { getEntityDetailProperties } from "./detail";
 import type { AppEntity } from "./model";
 
 function createEntityFixture(overrides: Partial<AppEntity> = {}): AppEntity {
@@ -20,14 +16,6 @@ function createEntityFixture(overrides: Partial<AppEntity> = {}): AppEntity {
 		...overrides,
 	};
 }
-
-describe("getEntityDetailPath", () => {
-	it("builds the generated tracking detail route path", () => {
-		expect(getEntityDetailPath("workouts", "entity-42")).toBe(
-			"/tracking/workouts/entities/entity-42",
-		);
-	});
-});
 
 describe("getEntityDetailProperties", () => {
 	it("formats primitive schema properties in schema order", () => {
@@ -52,19 +40,43 @@ describe("getEntityDetailProperties", () => {
 		);
 
 		expect(properties).toEqual([
-			{ key: "notes", label: "notes", value: "Easy pace" },
-			{ key: "completed", label: "completed", value: "Yes" },
-			{ key: "startedOn", label: "startedOn", value: "2026-03-08" },
-			{ key: "distanceKm", label: "distanceKm", value: "5.25" },
+			{
+				key: "notes",
+				type: "string",
+				label: "notes",
+				value: "Easy pace",
+				rawValue: "Easy pace",
+			},
+			{
+				key: "completed",
+				type: "boolean",
+				label: "completed",
+				value: "Yes",
+				rawValue: true,
+			},
+			{
+				key: "startedOn",
+				type: "date",
+				label: "startedOn",
+				value: "March 8, 2026",
+				rawValue: "2026-03-08",
+			},
+			{
+				key: "distanceKm",
+				type: "number",
+				label: "distanceKm",
+				value: "5.25",
+				rawValue: 5.25,
+			},
 		]);
 	});
 
-	it("skips unsupported object and array properties", () => {
+	it("includes array and object properties with basic formatting", () => {
 		const entity = createEntityFixture({
 			properties: {
 				mood: "strong",
-				tags: ["tempo"],
-				metadata: { source: "watch" },
+				tags: ["tempo", "morning"],
+				metadata: { source: "watch", version: "2.0" },
 			},
 		});
 
@@ -80,28 +92,27 @@ describe("getEntityDetailProperties", () => {
 			entity.properties,
 		);
 
-		expect(properties).toEqual([
-			{ key: "mood", label: "mood", value: "strong" },
-		]);
-	});
-
-	it("reports when unsupported relationship-style properties were deferred", () => {
-		expect(
-			hasDeferredEntityDetailProperties({
-				mood: { type: "string" },
-				tags: { type: "array", items: { type: "string" } },
-				metadata: {
-					type: "object",
-					properties: { source: { type: "string" } },
-				},
-			}),
-		).toBe(true);
-
-		expect(
-			hasDeferredEntityDetailProperties({
-				mood: { type: "string" },
-				completed: { type: "boolean" },
-			}),
-		).toBe(false);
+		expect(properties.length).toBe(3);
+		expect(properties[0]).toEqual({
+			key: "tags",
+			type: "array",
+			label: "tags",
+			value: "tempo, morning",
+			rawValue: ["tempo", "morning"],
+		});
+		expect(properties[1]).toEqual({
+			key: "mood",
+			type: "string",
+			label: "mood",
+			value: "strong",
+			rawValue: "strong",
+		});
+		expect(properties[2]).toEqual({
+			key: "metadata",
+			type: "object",
+			label: "metadata",
+			value: "source: watch, version: 2.0",
+			rawValue: { source: "watch", version: "2.0" },
+		});
 	});
 });
