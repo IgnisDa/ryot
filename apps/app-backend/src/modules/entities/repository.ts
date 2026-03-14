@@ -1,0 +1,96 @@
+import { and, asc, eq, isNull, or } from "drizzle-orm";
+import { db } from "~/db";
+import { entity, entitySchema } from "~/db/schema";
+import type { EntityPropertiesShape } from "./service";
+
+const entitySchemaVisibleToUserClause = (userId: string) => {
+	return or(isNull(entitySchema.userId), eq(entitySchema.userId, userId));
+};
+
+export const getEntitySchemaScopeForUser = async (input: {
+	userId: string;
+	entitySchemaId: string;
+}) => {
+	const [foundEntitySchema] = await db
+		.select({
+			id: entitySchema.id,
+			userId: entitySchema.userId,
+			isBuiltin: entitySchema.isBuiltin,
+			propertiesSchema: entitySchema.propertiesSchema,
+		})
+		.from(entitySchema)
+		.where(
+			and(
+				eq(entitySchema.id, input.entitySchemaId),
+				entitySchemaVisibleToUserClause(input.userId),
+			),
+		)
+		.limit(1);
+
+	return foundEntitySchema;
+};
+
+export const listEntitiesByEntitySchemaForUser = async (input: {
+	userId: string;
+	entitySchemaId: string;
+}) => {
+	const rows = await db
+		.select({
+			id: entity.id,
+			name: entity.name,
+			createdAt: entity.createdAt,
+			updatedAt: entity.updatedAt,
+			externalId: entity.externalId,
+			properties: entity.properties,
+			entitySchemaId: entity.entitySchemaId,
+			detailsSandboxScriptId: entity.detailsSandboxScriptId,
+		})
+		.from(entity)
+		.where(
+			and(
+				eq(entity.userId, input.userId),
+				eq(entity.entitySchemaId, input.entitySchemaId),
+			),
+		)
+		.orderBy(asc(entity.name), asc(entity.createdAt));
+
+	return rows.map((row) => ({
+		...row,
+		properties: row.properties as EntityPropertiesShape,
+	}));
+};
+
+export const createEntityForUser = async (input: {
+	name: string;
+	userId: string;
+	entitySchemaId: string;
+	properties: EntityPropertiesShape;
+}) => {
+	const [createdEntity] = await db
+		.insert(entity)
+		.values({
+			name: input.name,
+			externalId: null,
+			userId: input.userId,
+			properties: input.properties,
+			detailsSandboxScriptId: null,
+			entitySchemaId: input.entitySchemaId,
+		})
+		.returning({
+			id: entity.id,
+			name: entity.name,
+			createdAt: entity.createdAt,
+			updatedAt: entity.updatedAt,
+			externalId: entity.externalId,
+			properties: entity.properties,
+			entitySchemaId: entity.entitySchemaId,
+			detailsSandboxScriptId: entity.detailsSandboxScriptId,
+		});
+
+	if (!createdEntity) throw new Error("Could not persist entity");
+
+	return {
+		...createdEntity,
+		properties: createdEntity.properties as EntityPropertiesShape,
+	};
+};
