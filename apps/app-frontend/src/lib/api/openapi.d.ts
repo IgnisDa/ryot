@@ -842,7 +842,6 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        name: string;
                         image: {
                             key: string;
                             /** @enum {string} */
@@ -852,6 +851,7 @@ export interface paths {
                             /** @enum {string} */
                             kind: "remote";
                         } | unknown;
+                        name: string;
                         entitySchemaId: string;
                         properties: {
                             [key: string]: unknown;
