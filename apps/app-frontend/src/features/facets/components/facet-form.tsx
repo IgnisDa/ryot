@@ -18,7 +18,6 @@ import {
 	useFacetSidebarActions,
 	useFacetSidebarState,
 } from "../sidebar-context";
-import { getFacetToggleUi } from "./facet-form-ui";
 
 export function FacetForm() {
 	const state = useFacetSidebarState();
@@ -26,7 +25,6 @@ export function FacetForm() {
 	const activeFacet = state.activeFacet;
 	const isLoading = state.isModalSubmitting;
 	const isCreateMode = activeFacet === undefined;
-	const toggleUi = getFacetToggleUi(activeFacet);
 	const facetForm = useAppForm({
 		validators: { onChange: createFacetFormSchema },
 		defaultValues: buildFacetFormValues({
@@ -131,38 +129,20 @@ export function FacetForm() {
 						)}
 					</facetForm.AppField>
 
-					<Group
-						gap="md"
-						justify={toggleUi.visible ? "space-between" : "flex-end"}
-					>
-						{!toggleUi.visible ? undefined : (
-							<Button
-								size="sm"
-								disabled={isLoading}
-								color={toggleUi.color}
-								variant={toggleUi.variant}
-								loading={state.isDisablePending}
-								onClick={() => void actions.toggleActiveFacet()}
-							>
-								{toggleUi.label}
-							</Button>
-						)}
-
-						<Group gap="md">
-							<Button
-								type="button"
-								variant="subtle"
-								disabled={isLoading}
-								onClick={actions.closeModal}
-							>
-								Cancel
-							</Button>
-							<facetForm.SubmitButton
-								disabled={isLoading}
-								pendingLabel="Saving..."
-								label={isCreateMode ? "Create" : "Update"}
-							/>
-						</Group>
+					<Group gap="md" justify="flex-end">
+						<Button
+							type="button"
+							variant="subtle"
+							disabled={isLoading}
+							onClick={actions.closeModal}
+						>
+							Cancel
+						</Button>
+						<facetForm.SubmitButton
+							disabled={isLoading}
+							pendingLabel="Saving..."
+							label={isCreateMode ? "Create" : "Update"}
+						/>
 					</Group>
 				</Stack>
 			</facetForm.AppForm>
