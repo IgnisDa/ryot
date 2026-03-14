@@ -1,16 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
-import type { paths } from "@ryot/generated/openapi/app-backend";
-
 import { loadRelatedCollections } from "./collections";
-import type { QueryEngineClient } from "./query-engine";
-
-type QueryEngineRequestBody = Parameters<QueryEngineClient["POST"]>[1]["body"];
-type QueryEngineEntitiesRequestBody = Extract<QueryEngineRequestBody, { mode: "entities" }>;
-type QueryEngineResponse = NonNullable<
-	paths["/query-engine/execute"]["post"]["responses"][200]["content"]["application/json"]
->;
-type QueryEngineEntitiesResponse = Extract<QueryEngineResponse, { mode: "entities" }>;
+import type {
+	QueryEngineClient,
+	QueryEngineEntitiesRequestBody,
+	QueryEngineEntitiesResponse,
+	QueryEngineRequestBody,
+} from "./query-engine";
 
 describe("loadRelatedCollections", () => {
 	it("pages through all related collections", async () => {

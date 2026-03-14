@@ -41,6 +41,14 @@ export const mediaWithUnlinkedCreatorsPropertiesSchema = mediaPropertiesSchema.e
 	unlinkedCreators: z.array(unlinkedCreatorSchema),
 });
 
+export type MediaProperties = z.infer<typeof mediaPropertiesSchema>;
+
+export type MediaWithUnlinkedCreatorsProperties = z.infer<
+	typeof mediaWithUnlinkedCreatorsPropertiesSchema
+>;
+
+export type UnlinkedCreator = z.infer<typeof unlinkedCreatorSchema>;
+
 export const personStubSchema = z
 	.object({
 		role: z.string(),

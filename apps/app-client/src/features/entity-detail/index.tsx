@@ -153,12 +153,14 @@ export function EntityDetailScreen(props: { entityId: string }) {
 		entityData && entitySchemaSlug && isEntitySchemaSlug(entitySchemaSlug)
 			? toEntityDetail(entityData, entitySchemaSlug)
 			: null;
-	const people = entity
-		? mergeCreators(entity.unlinkedCreators, relatedCreatorsQuery.data ?? [])
+	const baseCreators = entity
+		? "unlinkedCreators" in entity.properties
+			? entity.properties.unlinkedCreators
+			: []
 		: [];
-	const entityWithPeople = entity ? { ...entity, unlinkedCreators: people } : null;
+	const people = entity ? mergeCreators(baseCreators, relatedCreatorsQuery.data ?? []) : [];
 
-	if (!entityWithPeople) {
+	if (!entity) {
 		return (
 			<ScreenState
 				title="Entity not supported"
@@ -173,16 +175,16 @@ export function EntityDetailScreen(props: { entityId: string }) {
 				showsVerticalScrollIndicator={false}
 				contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
 			>
-				<HeroSection entity={entityWithPeople} />
+				<HeroSection entity={entity} creators={people} />
 				<Box className="web:mx-auto web:max-w-7xl">
 					<Box className="px-7 pt-8 md:grid md:grid-cols-[2fr_1fr] md:items-start md:gap-10 md:px-10">
 						<Box>
-							<AboutSection entity={entityWithPeople} />
-							<CreatorsSection creators={entityWithPeople.unlinkedCreators} />
-							<TypeSpecificSection entity={entityWithPeople} />
+							<AboutSection entity={entity} creators={people} />
+							<CreatorsSection creators={people} />
+							<TypeSpecificSection entity={entity} />
 						</Box>
 						<Box>
-							<DetailsSection entity={entityWithPeople} />
+							<DetailsSection entity={entity} creators={people} />
 							<CollectionsSection collections={relatedCollectionsQuery.data ?? null} />
 						</Box>
 					</Box>

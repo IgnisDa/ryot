@@ -9,9 +9,9 @@ import Svg, { Circle } from "react-native-svg";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import type { EntityImage } from "@/lib/entity-image";
 
 import { activityLabel, hexToRgba, timeAgo } from "./overview-utils";
+import type { ActivityItem, ContinueItem, RateItem, UpNextItem } from "./use-overview-data";
 
 const FALLBACK_COLOR = "#78716c";
 
@@ -25,50 +25,6 @@ export const SECTION_ACCENTS = {
 const RING_LG = { gap: 3, size: 96, stroke: 4 };
 const RING_XL = { gap: 3, size: 112, stroke: 4 };
 const RING_SM = { gap: 2.5, size: 72, stroke: 3.5 };
-
-export type ContinueItem = {
-	id: string;
-	title: string;
-	image: EntityImage;
-	entitySchemaSlug: string;
-	labels: { cta: string; progress: string };
-	progress: {
-		totalUnits?: number | null;
-		currentUnits?: number | null;
-		progressPercent?: number | null;
-	};
-};
-
-export type UpNextItem = {
-	id: string;
-	title: string;
-	image: EntityImage;
-	labels: { cta: string };
-	entitySchemaSlug: string;
-	subtitle: { raw?: number | null; label?: string | null };
-};
-
-export type RateItem = {
-	id: string;
-	title: string;
-	image: EntityImage;
-	completedAt: string;
-	rating: number | null;
-	entitySchemaSlug: string;
-};
-
-export type ActivityItem = {
-	id: string;
-	entityId: string;
-	occurredAt: string;
-	rating: number | null;
-	eventSchemaSlug: string;
-	entity: {
-		name: string;
-		image: EntityImage;
-		entitySchemaSlug: string;
-	};
-};
 
 export function StatPill({ color, label }: { color: string; label: string }) {
 	return (

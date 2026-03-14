@@ -5,6 +5,7 @@ import { useApiClient } from "@/lib/api-client";
 import { toEntityImage } from "@/lib/entity-image";
 import { useResolvedImageUrls } from "@/lib/image";
 
+import type { QueryEngineEntityItem } from "../entity-detail/query-engine";
 import { MEDIA_SCOPE_SLUGS } from "./constants";
 
 const CONTINUE_UNIT_LABELS: Record<string, string> = {
@@ -55,7 +56,7 @@ const COMMON_ENTITY_FIELDS = [
 	},
 ];
 
-function extractEntityBase(item: QueryEngineItem | undefined) {
+function extractEntityBase(item: QueryEngineEntityItem | undefined) {
 	const getVal = (key: string) => getQueryEngineField(item, key)?.value;
 	const id = getVal("entityId");
 	const title = getVal("entityName");
@@ -751,9 +752,13 @@ export function useMediaOverviewData() {
 			entitySchemasQuery.isLoading,
 	};
 }
-type QueryEngineField = {
-	kind: string;
-	value: unknown;
-};
 
-type QueryEngineItem = Record<string, QueryEngineField>;
+export type MediaOverviewData = ReturnType<typeof useMediaOverviewData>;
+
+export type ContinueItem = MediaOverviewData["continueItems"][number];
+
+export type UpNextItem = MediaOverviewData["upNextItems"][number];
+
+export type RateItem = MediaOverviewData["rateTheseItems"][number];
+
+export type ActivityItem = MediaOverviewData["activityItems"][number];
