@@ -228,40 +228,49 @@ export const createLogCollector = (limits: SandboxRunnerLimits): SandboxLogColle
 	};
 };
 
-export const readBridgeResponse = async (
-	response: Response,
+type BridgeResponse = { body: string; oversized: boolean };
+type BridgeReader = {
+	read: () => Promise<{ done: true; value?: Uint8Array } | { done: false; value: Uint8Array }>;
+	cancel: () => Promise<void>;
+};
+
+const readBridgeChunks = (
+	reader: BridgeReader,
 	maximumBytes: number,
-): Promise<{ body: string; oversized: boolean }> => {
-	if (!response.body) {
-		return { body: "", oversized: false };
-	}
-	const reader = response.body.getReader();
-	const chunks: Uint8Array[] = [];
-	let bytes = 0;
-	for (;;) {
-		const next = await reader.read();
+	chunks: Uint8Array[],
+	bytes: number,
+): Promise<BridgeResponse> =>
+	reader.read().then((next) => {
 		if (next.done) {
-			break;
+			const body = new Uint8Array(bytes);
+			let offset = 0;
+			for (let index = 0; index < chunks.length; index += 1) {
+				const chunk = chunks[index];
+				if (!chunk) {
+					continue;
+				}
+				reflectApply(typedArraySet, body, [chunk, offset]);
+				offset += chunk.byteLength;
+			}
+			return { body: decodeText(body), oversized: false };
 		}
-		bytes += next.value.byteLength;
-		if (bytes > maximumBytes) {
-			await reader.cancel();
-			return { body: "", oversized: true };
+
+		const nextBytes = bytes + next.value.byteLength;
+		if (nextBytes > maximumBytes) {
+			return reader.cancel().then(() => ({ body: "", oversized: true }));
 		}
 		push(chunks, next.value);
-	}
+		return readBridgeChunks(reader, maximumBytes, chunks, nextBytes);
+	});
 
-	const body = new Uint8Array(bytes);
-	let offset = 0;
-	for (let index = 0; index < chunks.length; index += 1) {
-		const chunk = chunks[index];
-		if (!chunk) {
-			continue;
-		}
-		reflectApply(typedArraySet, body, [chunk, offset]);
-		offset += chunk.byteLength;
+export const readBridgeResponse = (
+	response: Response,
+	maximumBytes: number,
+): Promise<BridgeResponse> => {
+	if (!response.body) {
+		return Promise.resolve({ body: "", oversized: false });
 	}
-	return { body: decodeText(body), oversized: false };
+	return readBridgeChunks(response.body.getReader(), maximumBytes, [], 0);
 };
 
 export const throwPhase = (phase: string, error: unknown): never => {
@@ -399,5 +408,7 @@ export const validateLimits = (limits: unknown): limits is SandboxRunnerLimits =
 			return false;
 		}
 	}
-	return typeof limits.logTruncationMarker === "string" && limits.logTruncationMarker.length > 0;
+	return (
+		typeof limits["logTruncationMarker"] === "string" && limits["logTruncationMarker"].length > 0
+	);
 };
