@@ -18,8 +18,8 @@ export const listedFacetSchema = z.object({
 	mode: facetModeSchema,
 	isBuiltin: z.boolean(),
 	icon: nonEmptyTrimmedStringSchema,
-	accentColor: nullableStringSchema,
 	description: nullableStringSchema,
+	accentColor: nonEmptyTrimmedStringSchema,
 	sortOrder: z.number().int().nonnegative(),
 });
 
@@ -29,7 +29,7 @@ export const listFacetsResponseSchema = dataSchema(z.array(listedFacetSchema));
 export const createFacetBody = createNameWithOptionalSlugSchema({
 	icon: nonEmptyTrimmedStringSchema,
 	description: nonEmptyTrimmedStringSchema.optional(),
-	accentColor: nonEmptyTrimmedStringSchema.optional(),
+	accentColor: nonEmptyTrimmedStringSchema,
 });
 
 const nullableTextInputSchema = z
@@ -40,7 +40,7 @@ export const updateFacetBody = z
 	.object({
 		enabled: z.boolean().optional(),
 		description: nullableTextInputSchema,
-		accentColor: nullableTextInputSchema,
+		accentColor: nonEmptyTrimmedStringSchema.optional(),
 		icon: nonEmptyTrimmedStringSchema.optional(),
 		name: nonEmptyTrimmedStringSchema.optional(),
 		slug: nonEmptyTrimmedStringSchema.optional(),
@@ -61,13 +61,21 @@ export const updateFacetBody = z
 			value.description !== undefined ||
 			value.accentColor !== undefined;
 
-		if (!hasConfigUpdate || value.icon !== undefined) return;
+		if (!hasConfigUpdate) return;
 
-		ctx.addIssue({
-			path: ["icon"],
-			code: z.ZodIssueCode.custom,
-			message: "Icon is required",
-		});
+		if (value.icon === undefined)
+			ctx.addIssue({
+				path: ["icon"],
+				code: z.ZodIssueCode.custom,
+				message: "Icon is required",
+			});
+
+		if (value.accentColor === undefined)
+			ctx.addIssue({
+				path: ["accentColor"],
+				code: z.ZodIssueCode.custom,
+				message: "Accent color is required",
+			});
 	});
 
 export const reorderFacetsBody = z

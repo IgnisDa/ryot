@@ -23,6 +23,7 @@ describe("toCreateFacetPayload", () => {
 			icon: "target",
 			name: "Custom Facet",
 			slug: "custom-facet",
+			accentColor: "#5B7FFF",
 		});
 	});
 
@@ -35,6 +36,7 @@ describe("toCreateFacetPayload", () => {
 
 		const payload = toCreateFacetPayload(input);
 
+		expect(payload.accentColor).toBe("#5B7FFF");
 		expect(payload.icon).toBe("target");
 		expect(payload.name).toBe("My Facet");
 		expect(payload.slug).toBe("my-facet");
@@ -54,27 +56,26 @@ describe("toCreateFacetPayload", () => {
 		expect(payload.accentColor).toBe("#ff0000");
 	});
 
-	it("keeps icon when optional fields are not provided", () => {
+	it("keeps required fields when optional fields are not provided", () => {
 		const input = v();
 
 		const payload = toCreateFacetPayload(input);
 
+		expect(payload.accentColor).toBe("#5B7FFF");
 		expect(payload.icon).toBe("shapes");
 		expect(payload).not.toHaveProperty("description");
-		expect(payload).not.toHaveProperty("accentColor");
 	});
 
-	it("excludes optional fields when optional values are whitespace-only", () => {
+	it("excludes only optional fields when optional values are whitespace-only", () => {
 		const input = v({
 			description: "\n\t",
-			accentColor: "   ",
 		});
 
 		const payload = toCreateFacetPayload(input);
 
+		expect(payload.accentColor).toBe("#5B7FFF");
 		expect(payload.icon).toBe("shapes");
 		expect(payload).not.toHaveProperty("description");
-		expect(payload).not.toHaveProperty("accentColor");
 	});
 });
 
@@ -89,9 +90,9 @@ describe("toUpdateFacetPayload", () => {
 		const payload = toUpdateFacetPayload(input);
 
 		expect(payload).toEqual({
-			icon: "sparkles",
 			name: "Facet",
 			slug: "facet",
+			icon: "sparkles",
 			accentColor: "#00ff00",
 			description: "Updated description",
 		});
@@ -115,14 +116,14 @@ describe("toUpdateFacetPayload", () => {
 		expect(payload.accentColor).toBe("#00ff00");
 	});
 
-	it("keeps required icon when optional fields are blank", () => {
+	it("keeps required fields when optional fields are blank", () => {
 		const input = v();
 
 		const payload = toUpdateFacetPayload(input);
 
+		expect(payload.accentColor).toBe("#5B7FFF");
 		expect(payload.icon).toBe("shapes");
 		expect(payload.description).toBeNull();
-		expect(payload.accentColor).toBeNull();
 	});
 
 	it("includes name and slug in update payload", () => {
@@ -148,11 +149,12 @@ describe("toUpdateFacetPayload", () => {
 
 		const payload = toUpdateFacetPayload(input);
 
+		expect(payload.accentColor).toBe("#5B7FFF");
 		expect(payload.icon).toBe("shapes");
 		expect(payload.description).toBeNull();
 	});
 
-	it("returns required icon with nullables for blank optional fields", () => {
+	it("returns required fields with nullables for blank optional fields", () => {
 		const input = v();
 
 		const payload = toUpdateFacetPayload(input);
@@ -161,20 +163,32 @@ describe("toUpdateFacetPayload", () => {
 			icon: "shapes",
 			name: "Facet",
 			slug: "facet",
-			accentColor: null,
 			description: null,
+			accentColor: "#5B7FFF",
 		});
 	});
 });
 
 describe("createFacetFormSchema", () => {
+	it("rejects missing accent color", () => {
+		const parsed = createFacetFormSchema.safeParse({
+			icon: "film",
+			name: "Facet",
+			slug: "facet",
+			description: "",
+			accentColor: "",
+		});
+
+		expect(parsed.success).toBe(false);
+	});
+
 	it("rejects missing icon", () => {
 		const parsed = createFacetFormSchema.safeParse({
 			icon: "",
 			name: "Facet",
 			slug: "facet",
 			description: "",
-			accentColor: "",
+			accentColor: "#5B7FFF",
 		});
 
 		expect(parsed.success).toBe(false);
@@ -186,7 +200,7 @@ describe("createFacetFormSchema", () => {
 			name: "   ",
 			slug: "\n\t",
 			description: "",
-			accentColor: "",
+			accentColor: "#5B7FFF",
 		});
 
 		expect(parsed.success).toBe(false);

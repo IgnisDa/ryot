@@ -4,16 +4,16 @@ type FacetState = {
 	slug: string;
 	name: string;
 	icon: string;
+	accentColor: string;
 	description: string | null;
-	accentColor: string | null;
 };
 
 type FacetPatchInput = {
 	slug?: string;
 	name?: string;
 	icon?: string;
+	accentColor?: string;
 	description?: string | null;
-	accentColor?: string | null;
 };
 
 export const resolveFacetSlug = (input: { name: string; slug?: string }) => {
