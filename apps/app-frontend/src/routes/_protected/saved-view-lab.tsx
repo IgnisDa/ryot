@@ -601,7 +601,7 @@ function applyFiltersAndSort(
 
 			if (typeof entityValue === "number") {
 				if (value.includes("+")) {
-					const minRating = Number.parseInt(value.charAt(0));
+					const minRating = Number.parseInt(value.charAt(0), 10);
 					return (entity.rating ?? 0) >= minRating;
 				}
 				return entityValue.toString() === value;
