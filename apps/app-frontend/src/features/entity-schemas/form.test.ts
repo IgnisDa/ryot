@@ -6,7 +6,6 @@ import {
 	createEntitySchemaFormSchema,
 	defaultCreateEntitySchemaFormValues,
 	isEntitySchemaPropertyRowsValid,
-	serializeEntitySchemaProperties,
 	toCreateEntitySchemaPayload,
 } from "./form";
 
@@ -128,7 +127,7 @@ describe("isEntitySchemaPropertyRowsValid", () => {
 });
 
 describe("createEntitySchemaFormSchema", () => {
-	it("rejects whitespace-only name and slug values", () => {
+	it("rejects a whitespace-only name but allows a blank slug", () => {
 		const result = createEntitySchemaFormSchema.safeParse({
 			name: "  \n\t ",
 			slug: "  \n\t ",
@@ -146,11 +145,18 @@ describe("createEntitySchemaFormSchema", () => {
 			path: ["name"],
 			message: "Name is required",
 		});
-		expect(result.error.issues).toContainEqual({
-			code: "custom",
-			path: ["slug"],
-			message: "Slug is required",
+	});
+
+	it("accepts a blank slug so the backend can derive it", () => {
+		const result = createEntitySchemaFormSchema.safeParse({
+			name: "Books",
+			slug: "  \n\t ",
+			properties: [
+				{ id: "title", key: "title", type: "string", required: false },
+			],
 		});
+
+		expect(result.success).toBeTrue();
 	});
 
 	it("rejects empty property rows", () => {
@@ -269,25 +275,6 @@ describe("buildEntitySchemaPropertiesSchema", () => {
 	});
 });
 
-describe("serializeEntitySchemaProperties", () => {
-	it("returns deterministic JSON without required flag for optional rows", () => {
-		expect(
-			serializeEntitySchemaProperties([
-				{ key: " title ", type: "string", required: false },
-				{ key: "rating", type: "number", required: false },
-			]),
-		).toBe('{"title":{"type":"string"},"rating":{"type":"number"}}');
-	});
-
-	it("returns deterministic JSON with required flag for date rows", () => {
-		expect(
-			serializeEntitySchemaProperties([
-				{ key: "releasedOn", type: "date", required: true },
-			]),
-		).toBe('{"releasedOn":{"type":"date","required":true}}');
-	});
-});
-
 describe("toCreateEntitySchemaPayload", () => {
 	it("trims name and slug, includes facetId, and serializes property rows", () => {
 		expect(
@@ -316,8 +303,29 @@ describe("toCreateEntitySchemaPayload", () => {
 			name: "Books",
 			slug: "books",
 			facetId: "facet-123",
-			propertiesSchema:
-				'{"releasedOn":{"type":"date","required":true},"rating":{"type":"number"}}',
+			propertiesSchema: {
+				releasedOn: { type: "date", required: true },
+				rating: { type: "number" },
+			},
+		});
+	});
+
+	it("omits slug when the input is blank", () => {
+		expect(
+			toCreateEntitySchemaPayload(
+				{
+					slug: "  \n\t ",
+					name: "  Books  ",
+					properties: [
+						{ id: "title", key: "title", type: "string", required: false },
+					],
+				},
+				"facet-123",
+			),
+		).toEqual({
+			name: "Books",
+			facetId: "facet-123",
+			propertiesSchema: { title: { type: "string" } },
 		});
 	});
 });
