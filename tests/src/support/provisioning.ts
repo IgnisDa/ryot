@@ -80,7 +80,7 @@ export function buildBackendEnv(input: {
 	extraEnv?: Record<string, string | undefined>;
 }): NodeJS.ProcessEnv {
 	const safeLabel = input.label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-	const logFile = join(tmpdir(), `ryot-e2e-${safeLabel}-${input.port}-${Date.now()}.log`);
+	const logFile = join(tmpdir(), `ryot-e2e-${safeLabel}-${Date.now()}-${input.port}.log`);
 	console.log(`[${input.label}] backend logs -> ${logFile}`);
 
 	return {
