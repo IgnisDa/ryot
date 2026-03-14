@@ -32,8 +32,8 @@ export const listEntitiesQuery = z.object({
 });
 
 export const createEntityBody = z.object({
-	name: nonEmptyTrimmedStringSchema,
 	image: ImageSchema.nullable(),
+	name: nonEmptyTrimmedStringSchema,
 	entitySchemaId: nonEmptyTrimmedStringSchema,
 	properties: z.record(z.string(), z.unknown()),
 });
