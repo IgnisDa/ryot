@@ -157,7 +157,12 @@ export function DetailsSection(props: { creators: UnlinkedCreator[]; entity: Ent
 	const rows: { label: string; value: string }[] = [];
 	const primaryCreator = getPrimaryCreator(props.creators);
 
-	if (entity.properties.publishYear != null) {
+	if (entity.properties.publishDate != null) {
+		const [year, month, day] = entity.properties.publishDate.split("-").map(Number);
+		const d = new Date(year, month - 1, day);
+		const formatted = d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+		rows.push({ label: "Released", value: formatted });
+	} else if (entity.properties.publishYear != null) {
 		rows.push({ label: "Year", value: String(entity.properties.publishYear) });
 	}
 

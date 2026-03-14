@@ -11,10 +11,13 @@ import {
 export const mediaPropertiesSchema = z
 	.object({
 		genres: stringArraySchema.describe("List of genres this media is categorized under"),
+		publishYear: nullableIntSchema.describe("Year this media was first published or released"),
 		isNsfw: nullableBooleanSchema.describe(
 			"Whether this media contains adult or not-safe-for-work content",
 		),
-		publishYear: nullableIntSchema.describe("Year this media was first published or released"),
+		publishDate: nullableStringSchema.describe(
+			"Exact date this media was first published or released, as an ISO 8601 date string (YYYY-MM-DD)",
+		),
 		sourceUrl: nullableStringSchema.describe(
 			"Link to the original source or external provider page",
 		),

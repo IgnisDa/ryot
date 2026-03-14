@@ -423,6 +423,7 @@ driver("details", async function(context) {
       platformReleases,
       sourceUrl: `https://www.igdb.com/games/${gameSlug}`,
       publishYear: extractYear(game.first_release_date, dayjs),
+      publishDate: unixToIsoDate(game.first_release_date, dayjs),
     },
   };
 });
