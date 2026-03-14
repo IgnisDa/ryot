@@ -117,7 +117,6 @@ function collectGenres(genresArray) {
 
 function collectPeople(cast, crew) {
 	const people = [];
-	const freeCreators = [];
 	const seen = new Set();
 
 	const castList = Array.isArray(cast) ? cast : [];
@@ -147,8 +146,6 @@ function collectPeople(cast, crew) {
 				externalId: String(id),
 				scriptSlug: "person.tmdb",
 			});
-		} else {
-			freeCreators.push({ name, role });
 		}
 	}
 
@@ -183,12 +180,10 @@ function collectPeople(cast, crew) {
 				externalId: String(id),
 				scriptSlug: "person.tmdb",
 			});
-		} else {
-			freeCreators.push({ name, role: job });
 		}
 	}
 
-	return { people, freeCreators };
+	return { people };
 }
 
 driver("search", async function (context) {
