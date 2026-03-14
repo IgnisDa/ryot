@@ -28,9 +28,9 @@
         "@opentelemetry/api": "1.9.1",
         "@ryot/config": "workspace:*",
         "@ryot/contract": "workspace:*",
-        "@ryot/plugin-fitness": "workspace:*",
+        "@ryot/fitness-plugin": "workspace:*",
+        "@ryot/media-fitness": "workspace:*",
         "@ryot/plugin-kit": "workspace:*",
-        "@ryot/plugin-media": "workspace:*",
         "@ryot/query-engine": "workspace:*",
         "@ryot/sandbox-compiler": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
@@ -185,8 +185,8 @@
       "version": "0.1.0",
       "dependencies": {
         "@ryot/contract": "workspace:*",
+        "@ryot/media-fitness": "workspace:*",
         "@ryot/plugin-kit": "workspace:*",
-        "@ryot/plugin-media": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "@tailwindcss/vite": "4.1.18",
         "effect": "4.0.0-beta.102",
@@ -475,7 +475,7 @@
       },
     },
     "plugins/fitness": {
-      "name": "@ryot/plugin-fitness",
+      "name": "@ryot/fitness-plugin",
       "dependencies": {
         "@ryot/config": "workspace:*",
         "@ryot/contract": "workspace:*",
@@ -492,7 +492,7 @@
       },
     },
     "plugins/media": {
-      "name": "@ryot/plugin-media",
+      "name": "@ryot/media-fitness",
       "dependencies": {
         "@ryot/config": "workspace:*",
         "@ryot/contract": "workspace:*",
@@ -518,9 +518,9 @@
         "@faker-js/faker": "10.4.0",
         "@ryot/app-backend": "workspace:*",
         "@ryot/contract": "workspace:*",
-        "@ryot/plugin-fitness": "workspace:*",
+        "@ryot/fitness-plugin": "workspace:*",
+        "@ryot/media-fitness": "workspace:*",
         "@ryot/plugin-kit": "workspace:*",
-        "@ryot/plugin-media": "workspace:*",
         "@ryot/query-engine": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
         "@ryot/testing": "workspace:*",
@@ -1688,15 +1688,15 @@
 
     "@ryot/docs": ["@ryot/docs@workspace:apps/docs"],
 
+    "@ryot/fitness-plugin": ["@ryot/fitness-plugin@workspace:plugins/fitness"],
+
     "@ryot/frontend": ["@ryot/frontend@workspace:apps/frontend"],
 
     "@ryot/graphql": ["@ryot/graphql@workspace:libs/graphql"],
 
-    "@ryot/plugin-fitness": ["@ryot/plugin-fitness@workspace:plugins/fitness"],
+    "@ryot/media-fitness": ["@ryot/media-fitness@workspace:plugins/media"],
 
     "@ryot/plugin-kit": ["@ryot/plugin-kit@workspace:libs/plugin-kit"],
-
-    "@ryot/plugin-media": ["@ryot/plugin-media@workspace:plugins/media"],
 
     "@ryot/query-engine": ["@ryot/query-engine@workspace:libs/query-engine"],
 
