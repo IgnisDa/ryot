@@ -39,12 +39,12 @@ The chroma is tiny (0.01) but perceptible. It creates subconscious cohesion betw
 
 A complete system needs:
 
-| Role | Purpose | Example |
-|------|---------|---------|
-| **Primary** | Brand, CTAs, key actions | 1 color, 3-5 shades |
-| **Neutral** | Text, backgrounds, borders | 9-11 shade scale |
+| Role         | Purpose                       | Example                   |
+| ------------ | ----------------------------- | ------------------------- |
+| **Primary**  | Brand, CTAs, key actions      | 1 color, 3-5 shades       |
+| **Neutral**  | Text, backgrounds, borders    | 9-11 shade scale          |
 | **Semantic** | Success, error, warning, info | 4 colors, 2-3 shades each |
-| **Surface** | Cards, modals, overlays | 2-3 elevation levels |
+| **Surface**  | Cards, modals, overlays       | 2-3 elevation levels      |
 
 **Skip secondary/tertiary unless you need them.** Most apps work fine with one accent color. Adding more creates decision fatigue and visual noise.
 
@@ -62,12 +62,12 @@ The common mistake: using the accent color everywhere because it's "the brand co
 
 ### WCAG Requirements
 
-| Content Type | AA Minimum | AAA Target |
-|--------------|------------|------------|
-| Body text | 4.5:1 | 7:1 |
-| Large text (18px+ or 14px bold) | 3:1 | 4.5:1 |
-| UI components, icons | 3:1 | 4.5:1 |
-| Non-essential decorations | None | None |
+| Content Type                    | AA Minimum | AAA Target |
+| ------------------------------- | ---------- | ---------- |
+| Body text                       | 4.5:1      | 7:1        |
+| Large text (18px+ or 14px bold) | 3:1        | 4.5:1      |
+| UI components, icons            | 3:1        | 4.5:1      |
+| Non-essential decorations       | None       | None       |
 
 **The gotcha**: Placeholder text still needs 4.5:1. That light gray placeholder you see everywhere? Usually fails WCAG.
 
@@ -100,12 +100,12 @@ Don't trust your eyes. Use tools:
 
 You can't just swap colors. Dark mode requires different design decisions:
 
-| Light Mode | Dark Mode |
-|------------|-----------|
-| Shadows for depth | Lighter surfaces for depth (no shadows) |
-| Dark text on light | Light text on dark (reduce font weight) |
-| Vibrant accents | Desaturate accents slightly |
-| White backgrounds | Never pure black—use dark gray (oklch 12-18%) |
+| Light Mode         | Dark Mode                                     |
+| ------------------ | --------------------------------------------- |
+| Shadows for depth  | Lighter surfaces for depth (no shadows)       |
+| Dark text on light | Light text on dark (reduce font weight)       |
+| Vibrant accents    | Desaturate accents slightly                   |
+| White backgrounds  | Never pure black—use dark gray (oklch 12-18%) |
 
 ```css
 /* Dark mode depth via surface color, not shadow */
