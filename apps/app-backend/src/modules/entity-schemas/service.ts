@@ -13,6 +13,12 @@ export const resolveEntitySchemaName = (name: string) =>
 export const resolveEntitySchemaFacetId = (facetId: string) =>
 	resolveRequiredString(facetId, "Facet id");
 
+export const resolveEntitySchemaIcon = (icon: string) =>
+	resolveRequiredString(icon, "Entity schema icon");
+
+export const resolveEntitySchemaAccentColor = (accentColor: string) =>
+	resolveRequiredString(accentColor, "Entity schema accent color");
+
 export const resolveEntitySchemaSlug = (input: {
 	name: string;
 	slug?: string;
@@ -34,15 +40,19 @@ export const parseEntitySchemaPropertiesSchema = (
 };
 
 export const resolveEntitySchemaCreateInput = (input: {
+	icon: string;
 	name: string;
 	slug?: string;
+	accentColor: string;
 	propertiesSchema: unknown;
 }) => {
+	const icon = resolveEntitySchemaIcon(input.icon);
 	const name = resolveEntitySchemaName(input.name);
 	const slug = resolveEntitySchemaSlug({ name, slug: input.slug });
+	const accentColor = resolveEntitySchemaAccentColor(input.accentColor);
 	const propertiesSchema = parseEntitySchemaPropertiesSchema(
 		input.propertiesSchema,
 	);
 
-	return { name, slug, propertiesSchema };
+	return { icon, name, slug, accentColor, propertiesSchema };
 };

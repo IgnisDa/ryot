@@ -11,7 +11,9 @@ function createEntitySchemaFixture(
 		slug: "schema",
 		id: "schema-id",
 		isBuiltin: false,
+		icon: "book-open",
 		facetId: "facet-id",
+		accentColor: "#5B7FFF",
 		propertiesSchema: {},
 		...overrides,
 	};

@@ -19,6 +19,8 @@ export const listedEntitySchemaSchema = z.object({
 	slug: z.string(),
 	facetId: z.string(),
 	isBuiltin: z.boolean(),
+	icon: nonEmptyTrimmedStringSchema,
+	accentColor: nonEmptyTrimmedStringSchema,
 	propertiesSchema: entitySchemaPropertiesObjectSchema,
 });
 
@@ -35,7 +37,9 @@ export const listEntitySchemasQuery = z.object({
 });
 
 export const createEntitySchemaBody = createNameWithOptionalSlugSchema({
+	icon: nonEmptyTrimmedStringSchema,
 	facetId: nonEmptyTrimmedStringSchema,
+	accentColor: nonEmptyTrimmedStringSchema,
 	propertiesSchema: entitySchemaPropertiesInputSchema,
 });
 

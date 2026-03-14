@@ -36,7 +36,9 @@ export const seedInitialDatabase = async () => {
 		const schemaId = await ensureBuiltinEntitySchema({
 			facetId,
 			slug: schema.slug,
+			icon: schema.icon,
 			name: schema.name,
+			accentColor: schema.accentColor,
 			propertiesSchema: schema.propertiesSchema,
 		});
 		await ensureBuiltinEntitySchemaEventSchemas({

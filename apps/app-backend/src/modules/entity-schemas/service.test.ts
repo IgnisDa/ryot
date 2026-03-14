@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import {
 	parseEntitySchemaPropertiesSchema,
+	resolveEntitySchemaAccentColor,
 	resolveEntitySchemaCreateInput,
 	resolveEntitySchemaFacetId,
+	resolveEntitySchemaIcon,
 	resolveEntitySchemaName,
 } from "./service";
 
@@ -14,6 +16,30 @@ describe("resolveEntitySchemaName", () => {
 	it("throws when the name is blank", () => {
 		expect(() => resolveEntitySchemaName("   ")).toThrow(
 			"Entity schema name is required",
+		);
+	});
+});
+
+describe("resolveEntitySchemaIcon", () => {
+	it("trims the provided icon", () => {
+		expect(resolveEntitySchemaIcon("  book-open  ")).toBe("book-open");
+	});
+
+	it("throws when the icon is blank", () => {
+		expect(() => resolveEntitySchemaIcon("   ")).toThrow(
+			"Entity schema icon is required",
+		);
+	});
+});
+
+describe("resolveEntitySchemaAccentColor", () => {
+	it("trims the provided accent color", () => {
+		expect(resolveEntitySchemaAccentColor("  #5B7FFF  ")).toBe("#5B7FFF");
+	});
+
+	it("throws when the accent color is blank", () => {
+		expect(() => resolveEntitySchemaAccentColor("   ")).toThrow(
+			"Entity schema accent color is required",
 		);
 	});
 });
@@ -122,15 +148,41 @@ describe("resolveEntitySchemaCreateInput", () => {
 	it("returns normalized payload", () => {
 		expect(
 			resolveEntitySchemaCreateInput({
+				icon: "  book-open  ",
 				name: "  Book Details  ",
+				accentColor: "  #5B7FFF  ",
 				slug: "  My_Custom Schema  ",
 				propertiesSchema: { title: { type: "string" } },
 			}),
 		).toEqual({
+			icon: "book-open",
 			name: "Book Details",
 			slug: "my-custom-schema",
+			accentColor: "#5B7FFF",
 			propertiesSchema: { title: { type: "string" } },
 		});
+	});
+
+	it("throws when icon is blank", () => {
+		expect(() =>
+			resolveEntitySchemaCreateInput({
+				icon: "   ",
+				name: "Books",
+				accentColor: "#5B7FFF",
+				propertiesSchema: { title: { type: "string" } },
+			}),
+		).toThrow("Entity schema icon is required");
+	});
+
+	it("throws when accent color is blank", () => {
+		expect(() =>
+			resolveEntitySchemaCreateInput({
+				name: "Books",
+				icon: "book-open",
+				accentColor: "   ",
+				propertiesSchema: { title: { type: "string" } },
+			}),
+		).toThrow("Entity schema accent color is required");
 	});
 });
 

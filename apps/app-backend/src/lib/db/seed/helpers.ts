@@ -46,7 +46,9 @@ export const ensureBuiltinFacet = async (input: {
 export const ensureBuiltinEntitySchema = async (input: {
 	slug: string;
 	name: string;
+	icon: string;
 	facetId: string;
+	accentColor: string;
 	propertiesSchema: unknown;
 }) => {
 	const [existing] = await db
@@ -61,7 +63,9 @@ export const ensureBuiltinEntitySchema = async (input: {
 		isBuiltin: true,
 		name: input.name,
 		slug: input.slug,
+		icon: input.icon,
 		facetId: input.facetId,
+		accentColor: input.accentColor,
 		propertiesSchema: input.propertiesSchema,
 	};
 
