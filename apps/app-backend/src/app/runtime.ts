@@ -9,6 +9,7 @@ import {
 	shutdownWorkers,
 } from "~/queue";
 import { initializeSandboxService, shutdownSandboxService } from "~/sandbox";
+import { initializeWorker, shutdownWorker } from "~/worker";
 import { app } from "./server";
 
 export const startServer = async () => {
@@ -17,6 +18,7 @@ export const startServer = async () => {
 	await initializeQueues();
 	await initializeSandboxService();
 	await initializeWorkers();
+	await initializeWorker();
 
 	const server = serve({ port: config.PORT, fetch: app.fetch }, (c) => {
 		console.info(`Server listening on port ${c.port}...`);
@@ -39,6 +41,7 @@ export const startServer = async () => {
 		}, gracefulShutdownTimeout);
 
 		try {
+			await shutdownWorker();
 			await shutdownWorkers();
 			await shutdownQueues();
 			await shutdownSandboxService();
