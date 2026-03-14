@@ -1,13 +1,13 @@
+import type { ContractPayload, ContractSuccess } from "@ryot/contract/client";
 import { Effect } from "effect";
 
 import { getBackendUrl } from "~/support/backend";
 
 import { postBackendJson } from "./contract-client";
 
-export type EntityUpdatedFrame = {
-	entityId: string;
-	reason: "populated" | "translated";
-};
+type DeclareInterestPayload = ContractPayload<"entity-interest", "declareInterest">;
+type DeclareInterestResponse = ContractSuccess<"entity-interest", "declareInterest">;
+export type EntityUpdatedFrame = DeclareInterestResponse["terminal"][number];
 
 type WaitOptions = { timeoutMs?: number };
 
@@ -47,7 +47,9 @@ const parseEventBlock = (block: string): ParsedEvent => {
 export type InterestStream = {
 	close: () => void;
 	readonly streamId: string;
-	declareInterest: (entityIds: string[]) => Promise<EntityUpdatedFrame[]>;
+	declareInterest: (
+		entityIds: DeclareInterestPayload["entityIds"],
+	) => Promise<DeclareInterestResponse["terminal"]>;
 	expectNoEntityUpdated: (entityId: string, options: { windowMs: number }) => Promise<void>;
 	waitForEntityUpdated: (
 		entityId: string,
@@ -139,12 +141,11 @@ export async function openInterestStream(
 		}),
 	]);
 
-	const declareInterest = async (entityIds: string[]): Promise<EntityUpdatedFrame[]> => {
-		const interestResponse = await postBackendJson(
-			"/entity-interest",
-			{ streamId, entityIds },
-			auth.cookies,
-		);
+	const declareInterest = async (
+		entityIds: DeclareInterestPayload["entityIds"],
+	): Promise<DeclareInterestResponse["terminal"]> => {
+		const payload: DeclareInterestPayload = { streamId, entityIds };
+		const interestResponse = await postBackendJson("/entity-interest", payload, auth.cookies);
 		if (!interestResponse.ok) {
 			throw new Error(`Failed to declare interest: HTTP ${interestResponse.status}`);
 		}

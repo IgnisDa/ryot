@@ -1,3 +1,4 @@
+import type { ContractPayload } from "@ryot/contract/client";
 import {
 	AutomationRuleId,
 	EntityId,
@@ -47,11 +48,13 @@ export const deleteNotificationRule = (client: Client, ruleId: string) =>
 		c.automations.deleteRule({ params: { ruleId: AutomationRuleId.make(ruleId) } }),
 	);
 
-export interface SignalFilter {
-	schemaSlug: string;
-	actorUserId?: string;
-	subjectEntityId?: string;
-}
+export type SignalFilter = {
+	[Key in keyof ContractPayload<"testSupport", "listSignals">]: string;
+};
+
+type SubscriptionRunFilter = {
+	[Key in keyof ContractPayload<"testSupport", "listSubscriptionRuns">]: string;
+};
 
 /**
  * Inspects signals and their recipients through the admin `testSupport.listSignals` endpoint.
@@ -90,7 +93,7 @@ export const pollSignalWithRecipientCount = (filter: SignalFilter, count: number
 		}),
 	);
 
-export const listSubscriptionRuns = (input: { executionUserId: string; signalId?: string }) =>
+export const listSubscriptionRuns = (input: SubscriptionRunFilter) =>
 	getBackendClient().call(
 		(c) =>
 			c.testSupport.listSubscriptionRuns({
@@ -104,10 +107,7 @@ export const listSubscriptionRuns = (input: { executionUserId: string; signalId?
 
 const terminalRunStatuses = new Set(["succeeded", "failed", "skipped"]);
 
-export const pollTerminalSubscriptionRuns = (input: {
-	executionUserId: string;
-	signalId?: string;
-}) =>
+export const pollTerminalSubscriptionRuns = (input: SubscriptionRunFilter) =>
 	pollUntil(
 		`terminal subscription run(s) for user '${input.executionUserId}'`,
 		Effect.gen(function* () {

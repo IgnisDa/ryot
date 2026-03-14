@@ -1,7 +1,7 @@
 import type { DisplayConfiguration } from "@ryot/contract/display-configuration";
+import type { PluginEntitySchema } from "@ryot/contract/modules/plugins/manifest";
 import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import type { AppSchema, PropertyValidationError } from "@ryot/contract/schema/property-schema";
-import type { PluginEntitySchema } from "@ryot/plugin-kit/manifest";
 import { Context, Data, Effect, Layer } from "effect";
 
 import {

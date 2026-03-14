@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
+import type { PluginCron, PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { PluginSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
-import type { PluginCron, PluginManifest } from "@ryot/plugin-kit/manifest";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";

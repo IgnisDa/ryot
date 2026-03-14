@@ -3,6 +3,7 @@ import type {
 	AutomationRuleKind,
 	AutomationRuleMetadata,
 } from "@ryot/contract/modules/automations/schemas";
+import type { PluginProviderOperation } from "@ryot/contract/modules/plugins/manifest";
 import type { UserId } from "@ryot/contract/schema/brands";
 import {
 	AutomationRuleId,
@@ -13,7 +14,6 @@ import {
 	SandboxScriptId,
 	SignalSchemaSlug,
 } from "@ryot/contract/schema/brands";
-import type { PluginProviderOperation } from "@ryot/plugin-kit/manifest";
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { Context, Data, Effect, Layer } from "effect";
 

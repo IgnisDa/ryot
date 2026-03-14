@@ -1,5 +1,5 @@
-import { pluginConfigEnvironmentKey } from "@ryot/config";
-import type { PluginBindings, PluginManifest } from "@ryot/plugin-kit/manifest";
+import type { PluginBindings, PluginManifest } from "@ryot/contract/modules/plugins/manifest";
+import { pluginConfigEnvironmentKey } from "@ryot/contract/modules/plugins/plugin-config";
 import { Context, Effect, Layer } from "effect";
 
 import {

@@ -1,21 +1,42 @@
 import { randomUUID } from "node:crypto";
 
+import type { ContractPayload } from "@ryot/contract/client";
 import { PluginSlug, type SandboxScriptId } from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import type {
-	PluginManifest,
-	PluginCron,
-	PluginConfigSchema,
-	PluginEventAutomation,
-	PluginImportSource,
-	PluginOperationAuth,
-	PluginProviderInformation,
-	PluginProviderOperation,
-} from "@ryot/plugin-kit/manifest";
 import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";
 import { getBackendClient } from "./contract-client";
+
+type InstallPluginPayload = ContractPayload<"plugins", "install">;
+type TestPluginManifest = InstallPluginPayload["manifest"];
+type PluginScript = TestPluginManifest["scripts"][number];
+
+export type TestPluginScript = {
+	[Kind in PluginScript["kind"]]: Omit<Extract<PluginScript, { kind: Kind }>, "entry">;
+}[PluginScript["kind"]];
+
+type TestPluginManifestInput = Partial<
+	Pick<
+		TestPluginManifest,
+		| "boot"
+		| "crons"
+		| "scripts"
+		| "workflows"
+		| "providers"
+		| "operations"
+		| "configSchema"
+		| "importSources"
+		| "entitySchemas"
+		| "httpRateLimits"
+		| "relationshipSchemas"
+		| "integrationProviders"
+	>
+> & {
+	pluginSlug: TestPluginManifest["metadata"]["slug"];
+	linkToProviderSlug?: TestPluginManifest["bindings"]["schemaProviderLinks"][number]["providerSlug"];
+	linkToEntitySchemaSlug?: TestPluginManifest["bindings"]["schemaProviderLinks"][number]["entitySchemaSlug"];
+	eventAutomations?: TestPluginManifest["bindings"]["eventAutomations"];
+};
 
 export type InstalledTestPlugin = {
 	slug: string;
@@ -23,8 +44,8 @@ export type InstalledTestPlugin = {
 	pluginSlug: PluginSlug;
 	scriptId: SandboxScriptId;
 	scriptIds: Record<string, SandboxScriptId>;
-	files: Record<string, string>;
-	manifest: ReturnType<typeof testPluginManifest>;
+	files: InstallPluginPayload["files"];
+	manifest: TestPluginManifest;
 };
 
 type InstalledScriptRegistration = {
@@ -33,77 +54,9 @@ type InstalledScriptRegistration = {
 };
 
 const installedByScriptId = new Map<string, InstalledScriptRegistration>();
-const definitionManifests = new Map<string, ReturnType<typeof testPluginManifest>>();
+const definitionManifests = new Map<string, TestPluginManifest>();
 
-type TestPluginScriptBase = {
-	name: string;
-	slug: string;
-	capabilities: ReadonlyArray<string>;
-	requiredPluginConfigKeys: ReadonlyArray<string>;
-	requiredSystemConfigKeys: ReadonlyArray<string>;
-};
-
-export type TestPluginScript =
-	| (TestPluginScriptBase & { kind: "operation" })
-	| (TestPluginScriptBase & { kind: "automation" })
-	| (TestPluginScriptBase & { kind: "workflow" })
-	| (TestPluginScriptBase & { kind: "script"; providerSlug?: string })
-	| (TestPluginScriptBase & {
-			kind: "provider";
-			providerSlug: string;
-			providerOperation: PluginProviderOperation;
-	  });
-
-export type TestPluginProvider = {
-	name: string;
-	slug: string;
-	information: PluginProviderInformation;
-	operations: {
-		details: string;
-		search?: string;
-		resolve?: string;
-		translate?: string;
-	};
-};
-
-export type TestPluginOperation = {
-	slug: string;
-	scriptSlug: string;
-	description: string;
-	auth: PluginOperationAuth;
-};
-
-export const testPluginManifest = (input: {
-	pluginSlug: string;
-	linkToProviderSlug?: string;
-	linkToEntitySchemaSlug?: string;
-	crons?: ReadonlyArray<PluginCron>;
-	configSchema?: PluginConfigSchema;
-	providers?: ReadonlyArray<TestPluginProvider>;
-	operations?: ReadonlyArray<TestPluginOperation>;
-	httpRateLimits?: PluginManifest["httpRateLimits"];
-	importSources?: ReadonlyArray<PluginImportSource>;
-	eventAutomations?: ReadonlyArray<PluginEventAutomation>;
-	integrationProviders?: PluginManifest["integrationProviders"];
-	scripts?: ReadonlyArray<TestPluginScript & { entry: string }>;
-	workflows?: ReadonlyArray<{ slug: string; scriptSlug: string }>;
-	boot?: ReadonlyArray<{ slug: string; scriptSlug: string; description: string }>;
-	relationshipSchemas?: ReadonlyArray<{
-		name: string;
-		slug: string;
-		propertiesSchema: AppSchema;
-		sourceEntitySchemaSlug: string | null;
-		targetEntitySchemaSlug: string | null;
-	}>;
-	entitySchemas?: ReadonlyArray<{
-		icon: string;
-		name: string;
-		slug: string;
-		accentColor: string;
-		propertiesSchema: AppSchema;
-		eventSchemas: ReadonlyArray<{ name: string; slug: string; propertiesSchema: AppSchema }>;
-	}>;
-}) => ({
+export const testPluginManifest = (input: TestPluginManifestInput): TestPluginManifest => ({
 	savedViews: [],
 	userBootstrap: [],
 	signalSchemas: [],
@@ -163,13 +116,13 @@ export const installTestPlugin = (input: {
 	pluginSlug?: string;
 	script: TestPluginScript;
 	linkToEntitySchemaSlug?: string;
-	configSchema?: PluginConfigSchema;
-	boot?: Parameters<typeof testPluginManifest>[0]["boot"];
-	crons?: Parameters<typeof testPluginManifest>[0]["crons"];
-	providers?: Parameters<typeof testPluginManifest>[0]["providers"];
-	operations?: Parameters<typeof testPluginManifest>[0]["operations"];
-	entitySchemas?: Parameters<typeof testPluginManifest>[0]["entitySchemas"];
-	httpRateLimits?: Parameters<typeof testPluginManifest>[0]["httpRateLimits"];
+	boot?: TestPluginManifest["boot"];
+	crons?: TestPluginManifest["crons"];
+	providers?: TestPluginManifest["providers"];
+	operations?: TestPluginManifest["operations"];
+	configSchema?: TestPluginManifest["configSchema"];
+	entitySchemas?: TestPluginManifest["entitySchemas"];
+	httpRateLimits?: TestPluginManifest["httpRateLimits"];
 }) =>
 	Effect.gen(function* () {
 		const entry = `scripts/${input.script.kind}.sandbox.ts`;
@@ -213,20 +166,20 @@ export const installTestPlugin = (input: {
 
 export const installTestPluginBundle = (input: {
 	pluginSlug?: string;
-	files: Record<string, string>;
+	files: InstallPluginPayload["files"];
 	linkToEntitySchemaSlug?: string;
-	configSchema?: PluginConfigSchema;
-	providers?: ReadonlyArray<TestPluginProvider>;
-	operations?: ReadonlyArray<TestPluginOperation>;
-	crons?: Parameters<typeof testPluginManifest>[0]["crons"];
-	scripts: ReadonlyArray<TestPluginScript & { entry: string }>;
-	workflows?: Parameters<typeof testPluginManifest>[0]["workflows"];
-	importSources?: Parameters<typeof testPluginManifest>[0]["importSources"];
-	entitySchemas?: Parameters<typeof testPluginManifest>[0]["entitySchemas"];
-	httpRateLimits?: Parameters<typeof testPluginManifest>[0]["httpRateLimits"];
-	eventAutomations?: Parameters<typeof testPluginManifest>[0]["eventAutomations"];
-	relationshipSchemas?: Parameters<typeof testPluginManifest>[0]["relationshipSchemas"];
-	integrationProviders?: Parameters<typeof testPluginManifest>[0]["integrationProviders"];
+	crons?: TestPluginManifest["crons"];
+	scripts: TestPluginManifest["scripts"];
+	workflows?: TestPluginManifest["workflows"];
+	providers?: TestPluginManifest["providers"];
+	operations?: TestPluginManifest["operations"];
+	configSchema?: TestPluginManifest["configSchema"];
+	importSources?: TestPluginManifest["importSources"];
+	entitySchemas?: TestPluginManifest["entitySchemas"];
+	httpRateLimits?: TestPluginManifest["httpRateLimits"];
+	eventAutomations?: TestPluginManifest["bindings"]["eventAutomations"];
+	relationshipSchemas?: TestPluginManifest["relationshipSchemas"];
+	integrationProviders?: TestPluginManifest["integrationProviders"];
 }) =>
 	Effect.gen(function* () {
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
@@ -297,8 +250,8 @@ const mergeBySlug = <Definition extends { readonly slug: string }>(
 
 export const installTestDefinitions = (input: {
 	pluginSlug: string;
-	entitySchemas?: Parameters<typeof testPluginManifest>[0]["entitySchemas"];
-	relationshipSchemas?: Parameters<typeof testPluginManifest>[0]["relationshipSchemas"];
+	entitySchemas?: TestPluginManifest["entitySchemas"];
+	relationshipSchemas?: TestPluginManifest["relationshipSchemas"];
 }) =>
 	Effect.gen(function* () {
 		const current = definitionManifests.get(input.pluginSlug);
