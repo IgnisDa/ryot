@@ -30,12 +30,12 @@ export const facetIconSelectData = facetIconOptions.map((option) => ({
 }));
 
 interface FacetIconProps {
+	icon: string;
 	size?: number;
 	strokeWidth?: number;
-	icon: string | null | undefined;
 }
 
-export function getFacetIconOption(icon: string | null | undefined) {
+export function getFacetIconOption(icon: string) {
 	if (!icon) return undefined;
 	return facetIconOptionsByValue.get(icon);
 }

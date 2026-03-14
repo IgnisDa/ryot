@@ -3,7 +3,7 @@ import { resolveRequiredSlug } from "@ryot/ts-utils";
 type FacetState = {
 	slug: string;
 	name: string;
-	icon: string | null;
+	icon: string;
 	description: string | null;
 	accentColor: string | null;
 };
@@ -11,7 +11,7 @@ type FacetState = {
 type FacetPatchInput = {
 	slug?: string;
 	name?: string;
-	icon?: string | null;
+	icon?: string;
 	description?: string | null;
 	accentColor?: string | null;
 };

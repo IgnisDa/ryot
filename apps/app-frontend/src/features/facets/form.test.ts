@@ -11,21 +11,31 @@ const v = createFacetFormValuesFixture;
 
 describe("toCreateFacetPayload", () => {
 	it("converts input with required fields", () => {
-		const input = v({ name: "Custom Facet", slug: "custom-facet" });
+		const input = v({
+			icon: "target",
+			name: "Custom Facet",
+			slug: "custom-facet",
+		});
 
 		const payload = toCreateFacetPayload(input);
 
 		expect(payload).toEqual({
+			icon: "target",
 			name: "Custom Facet",
 			slug: "custom-facet",
 		});
 	});
 
 	it("trims string inputs", () => {
-		const input = v({ name: "  My Facet  ", slug: "  my-facet  " });
+		const input = v({
+			icon: "  target  ",
+			name: "  My Facet  ",
+			slug: "  my-facet  ",
+		});
 
 		const payload = toCreateFacetPayload(input);
 
+		expect(payload.icon).toBe("target");
 		expect(payload.name).toBe("My Facet");
 		expect(payload.slug).toBe("my-facet");
 	});
@@ -44,26 +54,25 @@ describe("toCreateFacetPayload", () => {
 		expect(payload.accentColor).toBe("#ff0000");
 	});
 
-	it("excludes optional fields when not provided", () => {
+	it("keeps icon when optional fields are not provided", () => {
 		const input = v();
 
 		const payload = toCreateFacetPayload(input);
 
-		expect(payload).not.toHaveProperty("icon");
+		expect(payload.icon).toBe("shapes");
 		expect(payload).not.toHaveProperty("description");
 		expect(payload).not.toHaveProperty("accentColor");
 	});
 
-	it("excludes optional fields when values are whitespace-only", () => {
+	it("excludes optional fields when optional values are whitespace-only", () => {
 		const input = v({
-			icon: "   ",
 			description: "\n\t",
 			accentColor: "   ",
 		});
 
 		const payload = toCreateFacetPayload(input);
 
-		expect(payload).not.toHaveProperty("icon");
+		expect(payload.icon).toBe("shapes");
 		expect(payload).not.toHaveProperty("description");
 		expect(payload).not.toHaveProperty("accentColor");
 	});
@@ -106,12 +115,12 @@ describe("toUpdateFacetPayload", () => {
 		expect(payload.accentColor).toBe("#00ff00");
 	});
 
-	it("converts empty string to null for nullable fields", () => {
+	it("keeps required icon when optional fields are blank", () => {
 		const input = v();
 
 		const payload = toUpdateFacetPayload(input);
 
-		expect(payload.icon).toBeNull();
+		expect(payload.icon).toBe("shapes");
 		expect(payload.description).toBeNull();
 		expect(payload.accentColor).toBeNull();
 	});
@@ -134,22 +143,22 @@ describe("toUpdateFacetPayload", () => {
 		expect(payload.accentColor).toBe("#0000ff");
 	});
 
-	it("handles partial input with whitespace-only fields", () => {
-		const input = v({ icon: "   ", description: "\t\n" });
+	it("handles optional whitespace-only fields", () => {
+		const input = v({ description: "\t\n" });
 
 		const payload = toUpdateFacetPayload(input);
 
-		expect(payload.icon).toBeNull();
+		expect(payload.icon).toBe("shapes");
 		expect(payload.description).toBeNull();
 	});
 
-	it("returns nullables when optional fields are blank", () => {
+	it("returns required icon with nullables for blank optional fields", () => {
 		const input = v();
 
 		const payload = toUpdateFacetPayload(input);
 
 		expect(payload).toEqual({
-			icon: null,
+			icon: "shapes",
 			name: "Facet",
 			slug: "facet",
 			accentColor: null,
@@ -159,6 +168,18 @@ describe("toUpdateFacetPayload", () => {
 });
 
 describe("createFacetFormSchema", () => {
+	it("rejects missing icon", () => {
+		const parsed = createFacetFormSchema.safeParse({
+			icon: "",
+			name: "Facet",
+			slug: "facet",
+			description: "",
+			accentColor: "",
+		});
+
+		expect(parsed.success).toBe(false);
+	});
+
 	it("rejects whitespace-only required fields", () => {
 		const parsed = createFacetFormSchema.safeParse({
 			icon: "",

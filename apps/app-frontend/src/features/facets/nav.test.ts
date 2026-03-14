@@ -74,8 +74,8 @@ describe("toTrackingNavItems", () => {
 		expect(items[0]).toEqual({
 			facetId: "1",
 			enabled: true,
+			icon: "shapes",
 			label: "Media",
-			icon: undefined,
 			isBuiltin: false,
 			facetSlug: "media",
 		});
