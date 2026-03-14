@@ -1,20 +1,8 @@
 import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
 import { fromAppSchema, trimmedOrUndefined } from "@ryot/ts-utils";
 import { z } from "zod";
+import type { ApiPostRequestBody } from "#/lib/api/types";
 import type { AppEventSchema } from "../event-schemas/model";
-
-export interface CreateEventFormValues {
-	occurredAt: string;
-	eventSchemaId: string;
-	properties: Record<string, unknown>;
-}
-
-export interface CreateEventPayload {
-	entityId: string;
-	occurredAt: string;
-	eventSchemaId: string;
-	properties: Record<string, unknown>;
-}
 
 const datetimeLocalPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 
@@ -72,6 +60,16 @@ const zodOccurredAt = z
 		message: "Occurred at is invalid",
 	});
 
+const createEventFormSchema = z.object({
+	occurredAt: zodOccurredAt,
+	eventSchemaId: zodRequiredEventSchemaId,
+	properties: z.record(z.string(), z.unknown()),
+});
+
+export type CreateEventFormValues = z.infer<typeof createEventFormSchema>;
+
+export type CreateEventPayload = ApiPostRequestBody<"/events">;
+
 export function getSelectedEventSchema(
 	eventSchemas: AppEventSchema[],
 	eventSchemaId?: string,
@@ -124,54 +122,47 @@ export function reconcileEventProperties(
 export const buildCreateEventFormSchema = (
 	eventSchemas: AppEventSchema[] = [],
 ) =>
-	z
-		.object({
-			occurredAt: zodOccurredAt,
-			eventSchemaId: zodRequiredEventSchemaId,
-			properties: z.record(z.string(), z.unknown()),
-		})
-		.superRefine((value, ctx) => {
-			const selectedEventSchema = findEventSchema(
-				eventSchemas,
-				value.eventSchemaId,
-			);
+	createEventFormSchema.superRefine((value, ctx) => {
+		const selectedEventSchema = findEventSchema(
+			eventSchemas,
+			value.eventSchemaId,
+		);
 
-			if (!selectedEventSchema) {
-				ctx.addIssue({
-					code: "custom",
-					path: ["eventSchemaId"],
-					message: "Event schema is invalid",
-				});
-				return;
-			}
+		if (!selectedEventSchema) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["eventSchemaId"],
+				message: "Event schema is invalid",
+			});
+			return;
+		}
 
-			const unsupportedRequiredProperties =
-				getUnsupportedRequiredEventProperties(
-					selectedEventSchema.propertiesSchema,
-				);
-			if (unsupportedRequiredProperties.length > 0) {
-				ctx.addIssue({
-					code: "custom",
-					path: ["properties"],
-					message: getUnsupportedRequiredPropertiesMessage(
-						unsupportedRequiredProperties,
-					),
-				});
-			}
+		const unsupportedRequiredProperties = getUnsupportedRequiredEventProperties(
+			selectedEventSchema.propertiesSchema,
+		);
+		if (unsupportedRequiredProperties.length > 0) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["properties"],
+				message: getUnsupportedRequiredPropertiesMessage(
+					unsupportedRequiredProperties,
+				),
+			});
+		}
 
-			const result = buildEventPropertiesSchema(
-				selectedEventSchema.propertiesSchema,
-			).safeParse(value.properties);
+		const result = buildEventPropertiesSchema(
+			selectedEventSchema.propertiesSchema,
+		).safeParse(value.properties);
 
-			if (result.success) return;
+		if (result.success) return;
 
-			for (const issue of result.error.issues) {
-				ctx.addIssue({
-					...issue,
-					path: ["properties", ...issue.path],
-				});
-			}
-		});
+		for (const issue of result.error.issues) {
+			ctx.addIssue({
+				...issue,
+				path: ["properties", ...issue.path],
+			});
+		}
+	});
 
 export const buildDefaultEventFormValues = (
 	eventSchemas: AppEventSchema[],

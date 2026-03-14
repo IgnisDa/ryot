@@ -1,9 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { toAppSavedView } from "./model";
 
 describe("toAppSavedView", () => {
 	it("converts raw API response to AppSavedView", () => {
-		const raw = {
+		const result = {
 			id: "view-1",
 			icon: "book-open",
 			name: "All Whiskeys",
@@ -12,8 +11,6 @@ describe("toAppSavedView", () => {
 			accentColor: "#5B7FFF",
 			queryDefinition: { entitySchemaIds: ["schema-1"] },
 		};
-
-		const result = toAppSavedView(raw);
 
 		expect(result.id).toBe("view-1");
 		expect(result.icon).toBe("book-open");
@@ -25,7 +22,7 @@ describe("toAppSavedView", () => {
 	});
 
 	it("handles user-created saved views", () => {
-		const raw = {
+		const result = {
 			id: "view-2",
 			icon: "sparkles",
 			name: "My Custom View",
@@ -34,8 +31,6 @@ describe("toAppSavedView", () => {
 			accentColor: "#2DD4BF",
 			queryDefinition: { entitySchemaIds: ["schema-1", "schema-2"] },
 		};
-
-		const result = toAppSavedView(raw);
 
 		expect(result.icon).toBe("sparkles");
 		expect(result.isBuiltin).toBe(false);

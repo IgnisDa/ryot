@@ -17,6 +17,7 @@ import { Link as LinkIcon, Upload } from "lucide-react";
 import type { HTMLInputTypeAttribute } from "react";
 import { useState } from "react";
 import { useApiClient } from "#/hooks/api";
+import type { ApiPostRequestBody } from "#/lib/api/types";
 
 type TextFieldProps = {
 	id?: string;
@@ -131,8 +132,7 @@ function CheckboxField(props: CheckboxFieldProps) {
 }
 
 type ImageFieldValue =
-	| { kind: "remote"; url: string }
-	| { kind: "s3"; key: string }
+	| ApiPostRequestBody<"/entities">["image"]
 	| null
 	| undefined;
 
