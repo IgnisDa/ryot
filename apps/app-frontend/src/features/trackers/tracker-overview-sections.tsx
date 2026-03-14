@@ -82,7 +82,7 @@ export function TrackerOverviewActivityItem(props: {
 					<Icon size={14} color={props.accentColor} />
 				</Box>
 				<Link
-					to="/$trackerSlug/entities/$entityId"
+					to="/$trackerSlug/$entityId"
 					params={{
 						entityId: props.entityId,
 						trackerSlug: props.trackerSlug,
