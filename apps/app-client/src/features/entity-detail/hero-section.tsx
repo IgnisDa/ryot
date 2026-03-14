@@ -8,7 +8,8 @@ import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 
-import { formatMinutes, getPrimaryCreator } from "./sections";
+import { formatMinutes } from "./duration";
+import { getPrimaryCreator } from "./people";
 import type { EntityDetail } from "./types";
 
 const ACCENT = "#C9943A";
@@ -23,7 +24,6 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 
 	return (
 		<Box className="relative w-full overflow-hidden min-h-100 md:min-h-120">
-			{/* Backdrop */}
 			{imageUrl ? (
 				<Image
 					blurRadius={2}
@@ -36,14 +36,12 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 				<Box className="absolute inset-0" style={{ backgroundColor: "rgba(201,148,58,0.12)" }} />
 			)}
 
-			{/* Bottom-to-top gradient */}
 			<LinearGradient
 				colors={["transparent", "rgba(0,0,0,0.5)", "rgba(0,0,0,0.82)"]}
 				locations={[0.3, 0.7, 1]}
 				style={{ position: "absolute", inset: 0 }}
 			/>
 
-			{/* Left-to-right gradient */}
 			<LinearGradient
 				colors={["rgba(10,10,15,0.85)", "rgba(10,10,15,0.3)", "transparent"]}
 				locations={[0, 0.6, 1]}
@@ -52,11 +50,9 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 				style={{ position: "absolute", inset: 0 }}
 			/>
 
-			{/* Content */}
 			<Box className="relative z-10 justify-end pt-10 pb-6 px-7 md:pt-16 md:pb-10 md:px-10 web:mx-auto web:max-w-7xl web:w-full">
 				<Box style={{ paddingTop: insets.top }}>
 					<Box className="flex flex-col items-start gap-5 md:flex-row md:items-end md:gap-10">
-						{/* Poster */}
 						{imageUrl && (
 							<Box
 								className="w-35 overflow-hidden rounded-lg md:w-55"
@@ -77,9 +73,7 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 							</Box>
 						)}
 
-						{/* Meta */}
 						<Box className="min-w-0 grow">
-							{/* Schema slug badge */}
 							<Box
 								className="mb-2 self-start rounded px-2 py-0.5"
 								style={{ backgroundColor: "rgba(201,148,58,0.35)" }}
@@ -92,7 +86,6 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 								</Text>
 							</Box>
 
-							{/* Title */}
 							<Text
 								numberOfLines={3}
 								className="font-heading-semibold leading-tight text-white text-[28px] md:text-[36px] lg:text-[42px]"
@@ -105,7 +98,6 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 								{entity.name}
 							</Text>
 
-							{/* Tagline */}
 							<Box className="mt-3 flex-row flex-wrap items-center gap-3">
 								{entity.publishYear && (
 									<Text
@@ -139,7 +131,6 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 								)}
 							</Box>
 
-							{/* Genres */}
 							{entity.genres.length > 0 && (
 								<Box className="mt-4 flex-row flex-wrap gap-2">
 									{entity.genres.map((g) => (
@@ -162,7 +153,6 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 								</Box>
 							)}
 
-							{/* User state */}
 							{providerRating && (
 								<Box className="mt-5 flex-row flex-wrap items-center gap-6 border-t border-white/12 pt-4">
 									<Box className="flex-row items-center gap-2">
@@ -193,7 +183,6 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 								</Box>
 							)}
 
-							{/* Actions */}
 							<Box className="mt-5 flex-row flex-wrap gap-3">
 								<Pressable className="flex-row items-center gap-2 rounded-full bg-[#C9943A] px-4 py-2.5">
 									<Plus size={16} color="#1c1917" strokeWidth={2} />

@@ -1,17 +1,16 @@
-import { changeCase } from "@ryot/ts-utils";
-import clsx from "clsx";
-import { Layers } from "lucide-react-native";
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { MEDIA_SCOPE_SLUGS } from "@/features/media/constants";
+import { useApiClient } from "@/lib/api-client";
 
-import { FAKE_ENTITY_DATA } from "./fake-data";
+import { loadRelatedCollections } from "./collections";
 import { HeroSection } from "./hero-section";
+import { isEntitySchemaSlug, toEntityDetail } from "./model";
+import { loadRelatedCreators, mergeCreators } from "./people";
 import {
 	AboutSection,
 	CollectionsSection,
@@ -19,83 +18,153 @@ import {
 	DetailsSection,
 	TypeSpecificSection,
 } from "./sections";
-import type { EntityDetail } from "./types";
 
-// Slugs that have fake data (excludes "person" which is not a media entity type yet)
-const DEMO_SLUGS = MEDIA_SCOPE_SLUGS.filter((s) => FAKE_ENTITY_DATA[s] !== undefined);
-
-function hasUnlinkedCreators(entity: EntityDetail) {
-	return "unlinkedCreators" in entity;
-}
-
-function TypeSwitcherFab({
-	onSelect,
-	activeSlug,
-}: {
-	activeSlug: string;
-	onSelect: (slug: string) => void;
+function ScreenState(props: {
+	title: string;
+	action?: () => void;
+	description: string;
+	actionLabel?: string;
 }) {
-	const [open, setOpen] = useState(false);
-	const insets = useSafeAreaInsets();
-
 	return (
-		<Box
-			style={{
-				alignItems: "flex-end",
-				bottom: insets.bottom + 16,
-				position: "absolute",
-				right: 20,
-			}}
-		>
-			{open && (
-				<ScrollView
-					showsVerticalScrollIndicator={false}
-					style={{ maxHeight: 300, marginBottom: 8 }}
-					contentContainerStyle={{ gap: 6, alignItems: "flex-end" }}
-				>
-					{DEMO_SLUGS.map((slug) => (
-						<Pressable
-							key={slug}
-							onPress={() => {
-								onSelect(slug);
-								setOpen(false);
-							}}
-							className={clsx(
-								"rounded-full px-3 py-2",
-								slug === activeSlug ? "bg-[#C9943A]" : "bg-stone-800",
-							)}
-						>
-							<Text
-								className={clsx(
-									"text-[13px] font-sans-medium web:text-[15px]",
-									slug === activeSlug ? "text-[#1c1917]" : "text-[#d6d3d1]",
-								)}
-							>
-								{changeCase(slug)}
-							</Text>
-						</Pressable>
-					))}
-				</ScrollView>
-			)}
-			<Pressable
-				className="rounded-full bg-[#C9943A] p-3 shadow-lg"
-				accessibilityLabel="Switch entity type"
-				accessibilityRole="button"
-				onPress={() => setOpen((v) => !v)}
-			>
-				<Layers color="#1c1917" size={20} strokeWidth={2} />
-			</Pressable>
+		<Box className="flex-1 items-center justify-center bg-background px-8">
+			<Text className="text-center font-heading-semibold text-[18px] text-foreground">
+				{props.title}
+			</Text>
+			<Text className="mt-2 text-center text-[14px] text-muted-foreground">
+				{props.description}
+			</Text>
+			{props.action ? (
+				<Pressable className="mt-5 rounded-full bg-[#C9943A] px-4 py-2" onPress={props.action}>
+					<Text className="font-sans-semibold text-[13px] text-[#1c1917]">
+						{props.actionLabel ?? "Retry"}
+					</Text>
+				</Pressable>
+			) : null}
 		</Box>
 	);
 }
 
-export function EntityDetailScreen() {
-	const [activeSlug, setActiveSlug] = useState("book");
+export function EntityDetailScreen(props: { entityId: string }) {
+	const apiClient = useApiClient();
 	const insets = useSafeAreaInsets();
-	const entity = FAKE_ENTITY_DATA[activeSlug];
+	const entityId = props.entityId.trim();
 
-	if (!entity) {
-		return null;
+	const entityQuery = useQuery({
+		enabled: entityId.length > 0,
+		queryKey: ["entity-detail", entityId],
+		queryFn: async () => {
+			const response = await apiClient.GET("/entities/{entityId}", {
+				params: { path: { entityId } },
+			});
+			if (response.error) {
+				throw new Error("Failed to load entity");
+			}
+
+			return response.data;
+		},
+	});
+
+	const entitySchemaId = entityQuery.data?.data.entitySchemaId;
+	const entitySchemaQuery = useQuery({
+		enabled: !!entitySchemaId,
+		queryKey: ["entity-schema", entitySchemaId],
+		queryFn: async () => {
+			if (!entitySchemaId) {
+				throw new Error("Failed to resolve entity schema");
+			}
+
+			const response = await apiClient.GET("/entity-schemas/{entitySchemaId}", {
+				params: { path: { entitySchemaId } },
+			});
+			if (response.error) {
+				throw new Error("Failed to load entity schema");
+			}
+
+			return response.data;
+		},
+	});
+
+	const relatedCreatorsQuery = useQuery({
+		enabled: !!entityQuery.data?.data && !!entitySchemaQuery.data?.data.slug,
+		queryKey: ["entity-detail", entityId, "people", entitySchemaQuery.data?.data.slug],
+		queryFn: async () => {
+			const entitySchemaSlug = entitySchemaQuery.data?.data.slug;
+			const entityData = entityQuery.data?.data;
+			if (!entityData || !entitySchemaSlug || !isEntitySchemaSlug(entitySchemaSlug)) {
+				return [];
+			}
+
+			try {
+				return await loadRelatedCreators(apiClient, { entityId, entitySchemaSlug });
+			} catch {
+				return [];
+			}
+		},
+	});
+
+	const relatedCollectionsQuery = useQuery({
+		enabled: !!entityQuery.data?.data,
+		queryKey: ["entity-detail", entityId, "collections"],
+		queryFn: async () => {
+			const entityData = entityQuery.data?.data;
+			if (!entityData) {
+				return [];
+			}
+
+			return loadRelatedCollections(apiClient, { entityId });
+		},
+	});
+
+	if (!entityId) {
+		return (
+			<ScreenState description="The route did not include an entity id." title="Entity not found" />
+		);
+	}
+
+	if (entityQuery.isLoading || entitySchemaQuery.isLoading) {
+		return <ScreenState description="Loading live entity data." title="Loading entity" />;
+	}
+
+	if (entityQuery.isError) {
+		return (
+			<ScreenState
+				actionLabel="Retry"
+				title="Failed to load entity"
+				action={() => void entityQuery.refetch()}
+				description="We could not load this entity from the backend."
+			/>
+		);
+	}
+
+	if (entitySchemaQuery.isError) {
+		return (
+			<ScreenState
+				actionLabel="Retry"
+				title="Failed to load entity schema"
+				action={() => void entitySchemaQuery.refetch()}
+				description="We could not resolve the entity schema for this item."
+			/>
+		);
+	}
+
+	const entityData = entityQuery.data?.data;
+	const entitySchemaSlug = entitySchemaQuery.data?.data.slug;
+	const entity =
+		entityData && entitySchemaSlug && isEntitySchemaSlug(entitySchemaSlug)
+			? toEntityDetail(entityData, entitySchemaSlug)
+			: null;
+	const people = entity
+		? mergeCreators(entity.unlinkedCreators, relatedCreatorsQuery.data ?? [])
+		: [];
+	const entityWithPeople = entity ? { ...entity, unlinkedCreators: people } : null;
+
+	if (!entityWithPeople) {
+		return (
+			<ScreenState
+				title="Entity not supported"
+				description="This entity type is not supported yet."
+			/>
+		);
 	}
 
 	return (
@@ -104,24 +173,21 @@ export function EntityDetailScreen() {
 				showsVerticalScrollIndicator={false}
 				contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
 			>
-				<HeroSection entity={entity} />
+				<HeroSection entity={entityWithPeople} />
 				<Box className="web:mx-auto web:max-w-7xl">
 					<Box className="px-7 pt-8 md:grid md:grid-cols-[2fr_1fr] md:items-start md:gap-10 md:px-10">
 						<Box>
-							<AboutSection entity={entity} />
-							{hasUnlinkedCreators(entity) && (
-								<CreatorsSection creators={entity.unlinkedCreators} />
-							)}
-							<TypeSpecificSection entity={entity} />
+							<AboutSection entity={entityWithPeople} />
+							<CreatorsSection creators={entityWithPeople.unlinkedCreators} />
+							<TypeSpecificSection entity={entityWithPeople} />
 						</Box>
 						<Box>
-							<DetailsSection entity={entity} />
-							<CollectionsSection collections={entity.collections} />
+							<DetailsSection entity={entityWithPeople} />
+							<CollectionsSection collections={relatedCollectionsQuery.data ?? null} />
 						</Box>
 					</Box>
 				</Box>
 			</ScrollView>
-			<TypeSwitcherFab activeSlug={activeSlug} onSelect={setActiveSlug} />
 		</Box>
 	);
 }

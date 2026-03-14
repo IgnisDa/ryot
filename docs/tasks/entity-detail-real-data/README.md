@@ -103,15 +103,15 @@ The UI should keep the existing structure: hero, about, people, type-specific se
 
 ## Tasks
 
-**Overall Progress:** 0 of 4 tasks completed
+**Overall Progress:** 4 of 4 tasks completed
 
-**Current Task:** [Task 01](./01-real-entity-route-and-direct-sections.md) (todo)
+**Current Task:** [Task 04](./04-codebase-cleanup.md) (done)
 
 ### Task List
 
-| #   | Task | Type | Status |
-| --- | --- | --- | --- |
-| 01  | [Real Entity Route And Direct Sections](./01-real-entity-route-and-direct-sections.md) | AFK | todo |
-| 02  | [Combined People List](./02-combined-people-list.md) | AFK | todo |
-| 03  | [Collections Section](./03-collections-section.md) | AFK | todo |
-| 04  | [Codebase Cleanup](./04-codebase-cleanup.md) | AFK | todo |
+| #   | Task                                                                                   | Type | Status |
+| --- | -------------------------------------------------------------------------------------- | ---- | ------ |
+| 01  | [Real Entity Route And Direct Sections](./01-real-entity-route-and-direct-sections.md) | AFK  | done   |
+| 02  | [Combined People List](./02-combined-people-list.md)                                   | AFK  | done   |
+| 03  | [Collections Section](./03-collections-section.md)                                     | AFK  | done   |
+| 04  | [Codebase Cleanup](./04-codebase-cleanup.md)                                           | AFK  | done   |

@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,11 +14,11 @@ The collections section should remain a simple list of related collections and s
 
 ## Acceptance criteria
 
-- [ ] The collections section is backed by `POST /query-engine/execute`, not fake client data.
-- [ ] The query uses the `member-of` relationship with the correct direction and entity id constraint for the current entity.
-- [ ] All related collection rows are rendered.
-- [ ] No pagination UI is shown for collections.
-- [ ] The section hides cleanly when the entity has no related collections.
+- [x] The collections section is backed by `POST /query-engine/execute`, not fake client data.
+- [x] The query uses the `member-of` relationship with the correct direction and entity id constraint for the current entity.
+- [x] All related collection rows are rendered.
+- [x] No pagination UI is shown for collections.
+- [x] The section hides cleanly when the entity has no related collections.
 
 ## User stories addressed
 
