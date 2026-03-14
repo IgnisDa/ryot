@@ -155,7 +155,7 @@ export function httpCallFailureSandboxSource(
     Effect.catch((error) => Effect.succeed({
       error: error.message,
       success: false as const,
-      data: error.data as { body: string; status: number },
+      data: error.data as { body: string; status: number; headers: Record<string, string> },
     })),
   )`,
 	});

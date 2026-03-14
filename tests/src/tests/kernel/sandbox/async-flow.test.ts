@@ -149,7 +149,7 @@ describe("sandbox async flow", () => {
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
-			expect(requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId))).toEqual({
+			expect(requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId))).toMatchObject({
 				success: false,
 				error: "HTTP 429",
 				data: { body: JSON.stringify({ error: "rate limited" }), status: 429 },
