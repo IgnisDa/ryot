@@ -1,3 +1,4 @@
+import { SandboxScriptId, SignalSchemaId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
@@ -5,9 +6,12 @@ import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect, TransactionRunner } from "#lib/infrastructure/db/service";
+import { AutomationsService } from "#modules/automations/service";
+import { SignalSchemasService } from "#modules/signals/service";
 
 import { builtinEntitySchemas } from "./entity-schemas";
 import {
+	builtinAutomationRuleLinks,
 	builtinEventSchemaTriggerLinks,
 	builtinSandboxScripts,
 	companySchemaSandboxScriptLinks,
@@ -17,6 +21,7 @@ import {
 	personSchemaSandboxScriptLinks,
 } from "./registry";
 import { builtinRelationshipSchemas } from "./relationship-schemas";
+import { builtinSignalSchemas } from "./signal-schemas";
 
 const ensureBuiltinEntitySchema = Effect.fn(function* (input: {
 	slug: string;
@@ -411,13 +416,36 @@ const seedInitialDatabase = Effect.gen(function* () {
 	}
 
 	yield* Effect.logInfo("Entity schemas seeded successfully");
-	return { done: true as const };
+	return { scriptIds };
 });
 
 export class SeedService extends Effect.Service<SeedService>()("SeedService", {
 	effect: Effect.gen(function* () {
 		const runner = yield* TransactionRunner;
-		yield* runner(seedInitialDatabase);
+		const automations = yield* AutomationsService;
+		const signalSchemas = yield* SignalSchemasService;
+		const { scriptIds } = yield* runner(seedInitialDatabase);
+		const signalSchemaIds = new Map<string, SignalSchemaId>();
+		for (const definition of builtinSignalSchemas()) {
+			const signalSchema = yield* signalSchemas.ensureBuiltin(definition);
+			signalSchemaIds.set(definition.slug, signalSchema.id);
+		}
+		for (const link of builtinAutomationRuleLinks()) {
+			const scriptId = scriptIds.get(link.scriptSlug);
+			const signalSchemaId = signalSchemaIds.get(link.signalSchemaSlug);
+			if (!scriptId || !signalSchemaId) {
+				return yield* Effect.die(
+					new Error(`Missing built-in automation references for ${link.name}`),
+				);
+			}
+			yield* automations.ensureBuiltin({
+				name: link.name,
+				operation: "signal",
+				kind: "subscription",
+				sandboxScriptId: SandboxScriptId.make(scriptId),
+				target: { id: SignalSchemaId.make(signalSchemaId), kind: "signal_schema" },
+			});
+		}
 		return { done: true as const };
 	}),
 }) {}

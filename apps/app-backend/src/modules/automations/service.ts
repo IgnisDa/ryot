@@ -3,6 +3,7 @@ import {
 	AutomationRuleMetadata,
 	type AutomationOperation,
 	type AutomationRuleKind,
+	type SubscriptionRunTiming,
 	type SubscriptionRunSourceKind,
 } from "@ryot/contract/modules/automations/schemas";
 import type {
@@ -13,9 +14,10 @@ import type {
 } from "@ryot/contract/schema/brands";
 import { SubscriptionRunId } from "@ryot/contract/schema/brands";
 import { stableStringify } from "@ryot/ts-utils/json";
-import { Effect, Schema } from "effect";
+import { DateTime, Effect, Schema } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { SANDBOX_LIMITS, utf8ByteLength } from "#lib/infrastructure/sandbox-runtime/limits";
 
 import {
 	AutomationsRepository,
@@ -46,6 +48,47 @@ export type QueueSubscriptionRunInput = {
 	executionUserId: UserId | null;
 	signalId?: SignalId | undefined;
 	sourceKind: SubscriptionRunSourceKind;
+};
+
+export type PrepareSubscriptionRunInput = Omit<QueueSubscriptionRunInput, "executionUserId"> & {
+	rowUserId: UserId | null;
+};
+
+export type CompleteSubscriptionRunInput = {
+	logs: unknown;
+	error: unknown;
+	value: unknown;
+	id: SubscriptionRunId;
+	timing?: SubscriptionRunTiming | undefined;
+};
+
+export const SUBSCRIPTION_RUN_ARTIFACT_BYTES = SANDBOX_LIMITS.logs.totalBytes;
+export const SUBSCRIPTION_RUN_TRUNCATION_MARKER = "[subscription run artifact truncated]";
+
+const truncateArtifact = (value: unknown) => {
+	const serialized = stableStringify(value);
+	if (utf8ByteLength(serialized) <= SUBSCRIPTION_RUN_ARTIFACT_BYTES) {
+		return Schema.decodeUnknownSync(Schema.parseJson(AutomationRuleMetadata))(serialized);
+	}
+
+	let low = 0;
+	let high = serialized.length;
+	while (low < high) {
+		const midpoint = Math.ceil((low + high) / 2);
+		const candidate = {
+			marker: SUBSCRIPTION_RUN_TRUNCATION_MARKER,
+			preview: serialized.slice(0, midpoint),
+		};
+		if (utf8ByteLength(stableStringify(candidate)) <= SUBSCRIPTION_RUN_ARTIFACT_BYTES) {
+			low = midpoint;
+		} else {
+			high = midpoint - 1;
+		}
+	}
+	return {
+		marker: SUBSCRIPTION_RUN_TRUNCATION_MARKER,
+		preview: serialized.slice(0, low),
+	};
 };
 
 const makeRunId = (occurrenceId: string, ruleId: AutomationRuleId) =>
@@ -269,10 +312,12 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 						ruleId: rule.id,
 						ruleName: rule.name,
 						operation: input.operation,
+						ruleMetadata: rule.metadata,
 						sourceKind: input.sourceKind,
 						occurrenceId: input.occurrenceId,
 						recordId: input.recordId ?? null,
 						signalId: input.signalId ?? null,
+						sandboxScriptId: rule.sandboxScriptId,
 						executionUserId: input.executionUserId,
 					});
 					if (inserted) {
@@ -287,6 +332,150 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 					return { run: existing, wasCreated: false };
 				}),
 			);
+		});
+
+		const prepareRun = Effect.fn("AutomationsService.prepareRun")(function* (
+			input: PrepareSubscriptionRunInput,
+		) {
+			return yield* runInTransaction(
+				Effect.gen(function* () {
+					const id = makeRunId(input.occurrenceId, input.ruleId);
+					const existing = yield* repository.findRunById(id);
+					if (existing) {
+						return {
+							run: existing,
+							execution: {
+								ruleId: existing.originalRuleId,
+								metadata: existing.ruleMetadata,
+								sandboxScriptId: existing.sandboxScriptId,
+							},
+						};
+					}
+					const rule = yield* repository.lockActiveSubscription(input.ruleId);
+					if (!rule) {
+						return null;
+					}
+					if (
+						rule.operation !== input.operation ||
+						!sourceMatchesTarget(input.sourceKind, rule.target)
+					) {
+						return yield* badRequest("Run source does not match its automation rule");
+					}
+
+					let executionUserId: UserId | null;
+					if (rule.userId) {
+						if (input.rowUserId !== rule.userId) {
+							return yield* badRequest("Automation rule does not match the row owner");
+						}
+						executionUserId = rule.userId;
+					} else {
+						if (!rule.isBuiltin) {
+							return yield* badRequest("Global subscription rules must be built-in");
+						}
+						executionUserId = input.rowUserId;
+						if (executionUserId === null) {
+							const script = yield* repository.findScriptScope(rule.sandboxScriptId);
+							if (!script?.isBuiltin || script.userId !== null) {
+								return yield* badRequest("System subscriptions require a built-in global script");
+							}
+						}
+					}
+
+					const inserted = yield* repository.insertRun({
+						id,
+						ruleId: rule.id,
+						executionUserId,
+						ruleName: rule.name,
+						operation: input.operation,
+						ruleMetadata: rule.metadata,
+						sourceKind: input.sourceKind,
+						occurrenceId: input.occurrenceId,
+						recordId: input.recordId ?? null,
+						signalId: input.signalId ?? null,
+						sandboxScriptId: rule.sandboxScriptId,
+					});
+					const run = inserted ?? (yield* repository.findRunById(id));
+					if (!run) {
+						return yield* new DbError({
+							message: "Subscription run insert conflicted but not found",
+						});
+					}
+					return {
+						run,
+						execution: {
+							ruleId: run.originalRuleId,
+							metadata: run.ruleMetadata,
+							sandboxScriptId: run.sandboxScriptId,
+						},
+					};
+				}),
+			);
+		});
+
+		const beginRun = Effect.fn("AutomationsService.beginRun")(function* (input: {
+			id: SubscriptionRunId;
+			sandboxScriptId: SandboxScriptId;
+		}) {
+			return yield* runInTransaction(
+				Effect.gen(function* () {
+					const run = yield* repository.findRunById(input.id);
+					if (!run) {
+						return yield* notFound("Subscription run not found");
+					}
+					if (run.status === "succeeded" || run.status === "failed" || run.status === "skipped") {
+						return { kind: "terminal" as const, run };
+					}
+					if (run.status === "running") {
+						return { kind: "ready" as const, run };
+					}
+					if (run.executionUserId && !(yield* repository.isUserEnabled(run.executionUserId))) {
+						const skipped = yield* repository.skipRun({
+							id: run.id,
+							reason: { kind: "user_disabled" },
+						});
+						return { kind: "terminal" as const, run: skipped ?? run };
+					}
+					const script = yield* repository.findScriptExecution(input.sandboxScriptId);
+					if (!script) {
+						return yield* notFound("Sandbox script not found");
+					}
+					if (run.executionUserId === null && (!script.isBuiltin || script.userId !== null)) {
+						return yield* badRequest("System subscriptions require a built-in global script");
+					}
+					const running = yield* repository.markRunRunning({
+						id: run.id,
+						scriptUpdatedAt: DateTime.toDate(DateTime.unsafeMake(script.updatedAt)),
+					});
+					if (!running) {
+						return yield* new DbError({ message: "Subscription run could not start" });
+					}
+					return { kind: "ready" as const, run: running };
+				}),
+			);
+		});
+
+		const completeRun = Effect.fn("AutomationsService.completeRun")(function* (
+			input: CompleteSubscriptionRunInput,
+		) {
+			const error = input.error === null ? null : truncateArtifact(input.error);
+			const finished = yield* runInTransaction(
+				repository.finishRun({
+					id: input.id,
+					sandboxError: error,
+					timing: input.timing ?? null,
+					logs: truncateArtifact(input.logs),
+					returnedValue: truncateArtifact(input.value),
+					status: error === null ? "succeeded" : "failed",
+				}),
+			);
+			if (finished) {
+				return finished;
+			}
+			const existing = yield* runWithDb(repository.findRunById(input.id));
+			if (!existing) {
+				return yield* notFound("Subscription run not found");
+			}
+			return existing;
 		});
 
 		const setUserRuleActive = Effect.fn("AutomationsService.setUserRuleActive")(function* (input: {
@@ -317,6 +506,9 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 
 		return {
 			queueRun,
+			beginRun,
+			prepareRun,
+			completeRun,
 			resolveActive,
 			ensureBuiltin,
 			createUserRule,

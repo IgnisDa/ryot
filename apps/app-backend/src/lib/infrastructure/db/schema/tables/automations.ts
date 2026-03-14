@@ -7,6 +7,7 @@ import type {
 	SubscriptionRunSkipReason,
 	SubscriptionRunSourceKind,
 	SubscriptionRunStatus,
+	SubscriptionRunTiming,
 } from "@ryot/contract/modules/automations/schemas";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { generateId } from "better-auth";
@@ -185,10 +186,13 @@ export const subscriptionRun = pgTable(
 		ruleName: text().notNull(),
 		occurrenceId: text().notNull(),
 		originalRuleId: text().notNull(),
+		sandboxScriptId: text().notNull(),
 		id: text().notNull().primaryKey(),
 		logs: jsonb().$type<AutomationRuleMetadata>(),
+		timing: jsonb().$type<SubscriptionRunTiming>(),
 		startedAt: timestamp({ withTimezone: true }),
 		finishedAt: timestamp({ withTimezone: true }),
+		ruleMetadata: jsonb().$type<AutomationRuleMetadata>(),
 		sandboxError: jsonb().$type<AutomationRuleMetadata>(),
 		skipReason: jsonb().$type<SubscriptionRunSkipReason>(),
 		returnedValue: jsonb().$type<AutomationRuleMetadata>(),
