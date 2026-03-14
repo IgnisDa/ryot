@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { iconNames } from "lucide-react/dynamic";
+import { iconNames } from "lucide-react/dynamic.mjs";
 import { facetIconOptions, getFacetIconOption } from "./icons";
 
 describe("facetIconOptions", () => {
