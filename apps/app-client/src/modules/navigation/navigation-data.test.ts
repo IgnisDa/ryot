@@ -129,7 +129,7 @@ describe("getCurrentWorkspace", () => {
 });
 
 describe("getNavigationHref", () => {
-	it("creates workspace-scoped home and entity routes", () => {
+	it("creates workspace home and global view and entity routes", () => {
 		const items = getNavigationItems({ data, workspaceSlug: "media" });
 
 		expect(getNavigationHref("media", items.views[0])).toEqual({
@@ -150,9 +150,9 @@ describe("getNavigationHref", () => {
 describe("getActiveNavigationKey", () => {
 	it.each([
 		["/media", "home"],
-		["/e/collection-1", "collection:collection-1"],
 		["/media/settings", "settings"],
 		["/v/movies", "view:movies"],
+		["/e/collection-1", "collection:collection-1"],
 	])("resolves %s to %s", (pathname, expected) => {
 		expect(getActiveNavigationKey(pathname)).toBe(expected);
 	});
