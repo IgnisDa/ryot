@@ -30,9 +30,12 @@ export interface SidebarProps {
 	views: SidebarView[];
 	facets: SidebarFacet[];
 	account: SidebarAccount;
+	drawerOpened?: boolean;
 	isMutationBusy?: boolean;
 	isCustomizeMode: boolean;
+	onOpenDrawer?: () => void;
 	onCreateFacet?: () => void;
+	onCloseDrawer?: () => void;
 	onToggleCustomizeMode: () => void;
 	onSearch?: (query: string) => void;
 	onEditFacet?: (facetId: string) => void;
