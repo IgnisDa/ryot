@@ -8,9 +8,7 @@ export const authClientInstance = createAuthClient({
 });
 
 export type AuthClient = typeof authClientInstance;
-export type AuthenticatedUser = NonNullable<
-	Awaited<ReturnType<typeof authClientInstance.getSession>>["data"]
->["user"];
+export type AuthenticatedUser = typeof authClientInstance.$Infer.Session;
 
 const AuthClientContext = createContext<AuthClient | undefined>(undefined);
 
