@@ -6,8 +6,8 @@ import { MediaTrackerOverview } from "@/features/media/overview";
 import { useNavigationData } from "@/lib/navigation";
 
 export default function TrackerScreen() {
-	const { trackerSlug } = useLocalSearchParams<{ trackerSlug: string }>();
 	const { trackers } = useNavigationData();
+	const { trackerSlug } = useLocalSearchParams<"/(app)/tracker/[trackerSlug]">();
 
 	if (trackerSlug === "media") {
 		return <MediaTrackerOverview />;
