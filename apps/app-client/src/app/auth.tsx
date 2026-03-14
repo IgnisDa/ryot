@@ -3,11 +3,11 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { Redirect, router } from "expo-router";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 
+import { systemConfigAtom } from "@/api/atoms";
 import { clearAuthStorage, useAuthClient } from "@/modules/auth/client";
 import { AuthForm, AuthUnavailable } from "@/modules/auth/form";
 import { getGateHref, getRedirectDestination } from "@/modules/navigation/redirect";
 import { useSafeRedirectTo } from "@/modules/navigation/use-safe-redirect-to";
-import { systemConfigAtom } from "@/modules/server/api";
 import { useServerUrl, useSetServerUrl } from "@/modules/server/state";
 
 function AuthLoading() {
