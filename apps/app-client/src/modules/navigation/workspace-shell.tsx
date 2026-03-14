@@ -11,12 +11,9 @@ import { router, Slot, useGlobalSearchParams, usePathname } from "expo-router";
 import { useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import Animated, {
-	FadeIn,
-	FadeInDown,
 	FadeInUp,
-	FadeOut,
-	FadeOutDown,
 	FadeOutUp,
+	LinearTransition,
 	ReduceMotion,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -43,10 +40,7 @@ const MOBILE_TOP_BAR_GAP = 12;
 const MOBILE_TOP_BAR_HEIGHT = 57;
 const MOBILE_TOP_BAR_ENTERING = FadeInUp.duration(200).reduceMotion(ReduceMotion.System);
 const MOBILE_TOP_BAR_EXITING = FadeOutUp.duration(160).reduceMotion(ReduceMotion.System);
-const MOBILE_TAB_BAR_ENTERING = FadeInDown.duration(200).reduceMotion(ReduceMotion.System);
-const MOBILE_TAB_BAR_EXITING = FadeOutDown.duration(160).reduceMotion(ReduceMotion.System);
-const MOBILE_COMPACT_NAV_ENTERING = FadeIn.duration(180).reduceMotion(ReduceMotion.System);
-const MOBILE_COMPACT_NAV_EXITING = FadeOut.duration(140).reduceMotion(ReduceMotion.System);
+const MOBILE_TAB_BAR_LAYOUT = LinearTransition.duration(200).reduceMotion(ReduceMotion.System);
 
 function NavigationRow(props: {
 	isActive: boolean;
@@ -325,45 +319,58 @@ function MobileTopBar(props: {
 
 function MobileTabBar(props: {
 	activeKey: string;
+	isCollapsed: boolean;
+	onExpand: () => void;
 	items: NavigationItems;
 	onMoreOpen: () => void;
 	onNavigate: (item: NavigationItem) => void;
 }) {
 	const items = props.items.views.slice(0, 4);
+	const activeItem = items.find((item) =>
+		item.kind === "home" ? props.activeKey === "home" : props.activeKey === `view:${item.slug}`,
+	);
+	const compactItem = activeItem ?? items[0];
+	const visibleItems = props.isCollapsed && compactItem ? [compactItem] : items;
+
 	return (
-		<View className="flex-row items-center gap-1 rounded-pill border border-nav-border bg-nav-surface p-1.5 shadow-card">
-			{items.map((item) => {
-				const isActive =
-					item.kind === "home"
-						? props.activeKey === "home"
-						: props.activeKey === `view:${item.slug}`;
+		<Animated.View
+			layout={MOBILE_TAB_BAR_LAYOUT}
+			className="flex-row items-center gap-1 overflow-hidden rounded-pill border border-nav-border bg-nav-surface p-1.5 shadow-card"
+		>
+			{visibleItems.map((item) => {
+				const isActive = item === activeItem;
 				return (
-					<Pressable
-						key={item.slug}
-						accessibilityRole="button"
-						accessibilityLabel={item.name}
-						onPress={() => props.onNavigate(item)}
-						className={clsx(
-							"h-10 flex-row items-center justify-center gap-1.5 rounded-pill px-3",
-							isActive ? "bg-nav-indicator text-accent-text" : "text-text-muted",
-						)}
-					>
-						<NavigationIcon name={item.icon} size={18} />
-						{isActive && (
-							<Text className="font-ui-medium text-xs text-accent-text">{item.name}</Text>
-						)}
-					</Pressable>
+					<Animated.View key={item.slug} layout={MOBILE_TAB_BAR_LAYOUT} className="overflow-hidden">
+						<Pressable
+							accessibilityRole="button"
+							accessibilityLabel={props.isCollapsed ? "Expand navigation" : item.name}
+							onPress={props.isCollapsed ? props.onExpand : () => props.onNavigate(item)}
+							className={clsx(
+								"h-10 flex-row items-center justify-center gap-1.5 rounded-pill",
+								props.isCollapsed ? "w-10 px-0 text-accent-text" : "px-3",
+								isActive && !props.isCollapsed && "bg-nav-indicator text-accent-text",
+								!isActive && !props.isCollapsed && "text-text-muted",
+							)}
+						>
+							<NavigationIcon name={item.icon} size={18} />
+							{isActive && !props.isCollapsed && (
+								<Text className="font-ui-medium text-xs text-accent-text">{item.name}</Text>
+							)}
+						</Pressable>
+					</Animated.View>
 				);
 			})}
-			<Pressable
-				accessibilityRole="button"
-				onPress={props.onMoreOpen}
-				accessibilityLabel="Open more navigation"
-				className="h-10 w-10 items-center justify-center rounded-pill text-text-muted"
-			>
-				<NavigationIcon name="more-horizontal" size={19} />
-			</Pressable>
-		</View>
+			{!props.isCollapsed && (
+				<Pressable
+					onPress={props.onMoreOpen}
+					accessibilityRole="button"
+					accessibilityLabel="Open more navigation"
+					className="h-10 w-10 items-center justify-center rounded-pill text-text-muted"
+				>
+					<NavigationIcon name="more-horizontal" size={19} />
+				</Pressable>
+			)}
+		</Animated.View>
 	);
 }
 
@@ -631,12 +638,6 @@ export function WorkspaceShell() {
 	const items = getNavigationItems({ data, workspaceSlug: currentWorkspace.slug });
 	const accountName = session?.user.name ?? session?.user.email ?? "Account";
 	const accountEmail = session?.user.email ?? "Email unavailable";
-	const selectedMobileTab = items.views
-		.slice(0, 4)
-		.find((item) =>
-			item.kind === "home" ? activeKey === "home" : activeKey === `view:${item.slug}`,
-		);
-
 	function navigate(item: NavigationItem) {
 		setMobileSheet(null);
 		setDesktopWorkspaceOpen(false);
@@ -700,35 +701,14 @@ export function WorkspaceShell() {
 							style={{ paddingBottom: insets.bottom + 12 }}
 							className="absolute inset-x-0 bottom-0 z-50 items-start px-4 md:hidden"
 						>
-							{isScrolled ? (
-								<Animated.View
-									key="compact-navigation"
-									exiting={MOBILE_COMPACT_NAV_EXITING}
-									entering={MOBILE_COMPACT_NAV_ENTERING}
-								>
-									<Pressable
-										accessibilityRole="button"
-										accessibilityLabel="Expand navigation"
-										onPress={() => setIsScrolled(false)}
-										className="h-14 w-14 items-center justify-center rounded-full border border-nav-border bg-nav-surface text-accent-text shadow-card"
-									>
-										<NavigationIcon name={selectedMobileTab?.icon ?? "panel-left"} size={20} />
-									</Pressable>
-								</Animated.View>
-							) : (
-								<Animated.View
-									key="tab-bar"
-									exiting={MOBILE_TAB_BAR_EXITING}
-									entering={MOBILE_TAB_BAR_ENTERING}
-								>
-									<MobileTabBar
-										items={items}
-										activeKey={activeKey}
-										onNavigate={navigate}
-										onMoreOpen={() => setMobileSheet("more")}
-									/>
-								</Animated.View>
-							)}
+							<MobileTabBar
+								items={items}
+								activeKey={activeKey}
+								onNavigate={navigate}
+								isCollapsed={isScrolled}
+								onExpand={() => setIsScrolled(false)}
+								onMoreOpen={() => setMobileSheet("more")}
+							/>
 						</View>
 					)}
 					{desktopWorkspaceOpen && (
