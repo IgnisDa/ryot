@@ -3,13 +3,12 @@ import { resolveCustomEntityAccessError } from "~/lib/app/entity-schema-access";
 import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
-	createCustomEntityAccessErrorResult,
 	createNotFoundErrorResult,
 	createValidationErrorResult,
 	jsonResponse,
 	notFoundResponse,
 	payloadErrorResponse,
-	resolveValidationResult,
+	resolveValidationData,
 	successResponse,
 } from "~/lib/openapi";
 import {
@@ -77,13 +76,18 @@ const eventSchemaMismatchError =
 	"Event schema does not belong to the entity schema";
 
 const resolveEntityAccessError = (error: "builtin" | "not_found") => {
-	return createCustomEntityAccessErrorResult(
-		resolveCustomEntityAccessError({
-			error,
-			notFoundMessage: entityNotFoundError,
-			builtinMessage: customEntitySchemaError,
-		}),
-	);
+	const result = resolveCustomEntityAccessError({
+		error,
+		notFoundMessage: entityNotFoundError,
+		builtinMessage: customEntitySchemaError,
+	});
+	return {
+		body:
+			result.error === "not_found"
+				? createNotFoundErrorResult(result.message).body
+				: createValidationErrorResult(result.message).body,
+		status: result.error === "not_found" ? (404 as const) : (400 as const),
+	};
 };
 
 const resolveCreateAccessError = (
@@ -147,7 +151,7 @@ export const eventsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			return c.json(errorResult.body, errorResult.status);
 		}
 
-		const eventInput = resolveValidationResult(
+		const eventInput = resolveValidationData(
 			() =>
 				resolveEventCreateInput({
 					entityId: body.entityId,
@@ -158,8 +162,8 @@ export const eventsApi = new OpenAPIHono<{ Variables: AuthType }>()
 				}),
 			"Event payload is invalid",
 		);
-		if ("error" in eventInput)
-			return c.json(createValidationErrorResult(eventInput.error).body, 400);
+		if ("status" in eventInput)
+			return c.json(eventInput.body, eventInput.status);
 		const eventData = eventInput.data;
 
 		const createdEvent = await createEventForUser({

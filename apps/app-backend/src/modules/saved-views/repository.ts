@@ -16,6 +16,16 @@ type SavedViewRow = Omit<ListedSavedView, "queryDefinition"> & {
 	queryDefinition: unknown;
 };
 
+const savedViewSelection = {
+	id: savedView.id,
+	icon: savedView.icon,
+	name: savedView.name,
+	facetId: savedView.facetId,
+	isBuiltin: savedView.isBuiltin,
+	accentColor: savedView.accentColor,
+	queryDefinition: savedView.queryDefinition,
+};
+
 const toSavedView = (row: SavedViewRow): ListedSavedView => ({
 	...row,
 	queryDefinition: row.queryDefinition as SavedViewQueryDefinition,
@@ -30,15 +40,7 @@ export const listSavedViewsForUser = async (input: {
 	if (input.facetId) whereClauses.push(eq(savedView.facetId, input.facetId));
 
 	const rows = await db
-		.select({
-			id: savedView.id,
-			icon: savedView.icon,
-			name: savedView.name,
-			facetId: savedView.facetId,
-			isBuiltin: savedView.isBuiltin,
-			accentColor: savedView.accentColor,
-			queryDefinition: savedView.queryDefinition,
-		})
+		.select(savedViewSelection)
 		.from(savedView)
 		.where(and(...whereClauses))
 		.orderBy(asc(savedView.name), asc(savedView.createdAt));
@@ -51,15 +53,7 @@ export const getSavedViewByIdForUser = async (input: {
 	viewId: string;
 }) => {
 	const [foundView] = await db
-		.select({
-			id: savedView.id,
-			icon: savedView.icon,
-			name: savedView.name,
-			facetId: savedView.facetId,
-			isBuiltin: savedView.isBuiltin,
-			accentColor: savedView.accentColor,
-			queryDefinition: savedView.queryDefinition,
-		})
+		.select(savedViewSelection)
 		.from(savedView)
 		.where(
 			and(eq(savedView.userId, input.userId), eq(savedView.id, input.viewId)),
@@ -83,15 +77,7 @@ export const createSavedViewForUser = async (input: SavedViewCreateInput) => {
 			accentColor: input.accentColor,
 			queryDefinition: input.queryDefinition,
 		})
-		.returning({
-			id: savedView.id,
-			icon: savedView.icon,
-			name: savedView.name,
-			facetId: savedView.facetId,
-			isBuiltin: savedView.isBuiltin,
-			accentColor: savedView.accentColor,
-			queryDefinition: savedView.queryDefinition,
-		});
+		.returning(savedViewSelection);
 
 	if (!createdView) throw new Error("Could not persist saved view");
 
@@ -129,15 +115,7 @@ export const deleteSavedViewByIdForUser = async (input: {
 		.where(
 			and(eq(savedView.userId, input.userId), eq(savedView.id, input.viewId)),
 		)
-		.returning({
-			id: savedView.id,
-			icon: savedView.icon,
-			name: savedView.name,
-			facetId: savedView.facetId,
-			isBuiltin: savedView.isBuiltin,
-			accentColor: savedView.accentColor,
-			queryDefinition: savedView.queryDefinition,
-		});
+		.returning(savedViewSelection);
 
 	if (!deletedView) return undefined;
 

@@ -20,6 +20,19 @@ const entitySelection = {
 	detailsSandboxScriptId: entity.detailsSandboxScriptId,
 };
 
+const entitySchemaScopeSelection = {
+	id: entitySchema.id,
+	userId: entitySchema.userId,
+	isBuiltin: entitySchema.isBuiltin,
+	propertiesSchema: entitySchema.propertiesSchema,
+};
+
+const entityScopeSelection = {
+	entityId: entity.id,
+	isBuiltin: entitySchema.isBuiltin,
+	entitySchemaId: entity.entitySchemaId,
+};
+
 type EntityRow = Omit<ListedEntity, "properties"> & {
 	properties: unknown;
 };
@@ -34,12 +47,7 @@ export const getEntitySchemaScopeForUser = async (input: {
 	entitySchemaId: string;
 }) => {
 	const [foundEntitySchema] = await db
-		.select({
-			id: entitySchema.id,
-			userId: entitySchema.userId,
-			isBuiltin: entitySchema.isBuiltin,
-			propertiesSchema: entitySchema.propertiesSchema,
-		})
+		.select(entitySchemaScopeSelection)
 		.from(entitySchema)
 		.where(
 			and(
@@ -57,11 +65,7 @@ export const getEntityScopeForUser = async (input: {
 	entityId: string;
 }) => {
 	const [foundEntity] = await db
-		.select({
-			entityId: entity.id,
-			isBuiltin: entitySchema.isBuiltin,
-			entitySchemaId: entity.entitySchemaId,
-		})
+		.select(entityScopeSelection)
 		.from(entity)
 		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
 		.where(and(eq(entity.id, input.entityId), eq(entity.userId, input.userId)))
