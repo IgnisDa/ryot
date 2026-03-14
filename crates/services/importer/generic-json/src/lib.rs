@@ -37,6 +37,11 @@ pub async fn import(input: DeployPathImportInput) -> Result<ImportResult> {
     for workout in complete_data.workouts.unwrap_or_default() {
         completed.push(ImportCompletedItem::ApplicationWorkout(Box::new(workout)));
     }
+    for workout_template in complete_data.workout_templates.unwrap_or_default() {
+        completed.push(ImportCompletedItem::ApplicationWorkoutTemplate(Box::new(
+            workout_template,
+        )));
+    }
     for media_group in complete_data.metadata_groups.unwrap_or_default() {
         completed.push(ImportCompletedItem::MetadataGroup(media_group));
     }
