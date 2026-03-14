@@ -3,11 +3,7 @@ import { Result, Schema } from "effect";
 import { strictStruct } from "./utils";
 
 const nonEmptyTrimmedString = Schema.String.pipe(
-	Schema.check(
-		Schema.makeFilter((schemaFilterInput) =>
-			((value) => value.trim().length > 0)(schemaFilterInput),
-		),
-	),
+	Schema.check(Schema.makeFilter((value) => value.trim().length > 0)),
 );
 
 const nonNegativeInteger = Schema.Number.pipe(
@@ -221,24 +217,20 @@ const numberValidationSchema = strictStruct({
 	exclusiveMinimum: Schema.optional(Schema.Number),
 }).pipe(
 	Schema.check(
-		Schema.makeFilter((schemaFilterInput2) =>
-			((value) =>
+		Schema.makeFilter(
+			(value) =>
 				!(value.minimum !== undefined && value.exclusiveMinimum !== undefined) &&
-				!(value.maximum !== undefined && value.exclusiveMaximum !== undefined))(schemaFilterInput2),
+				!(value.maximum !== undefined && value.exclusiveMaximum !== undefined),
 		),
 	),
-	Schema.check(
-		Schema.makeFilter((schemaFilterInput3) => hasValidNumericBounds(schemaFilterInput3)),
-	),
+	Schema.check(Schema.makeFilter(hasValidNumericBounds)),
 );
 
 const stringValidationSchema = strictStruct({
 	pattern: Schema.optional(
 		Schema.String.pipe(
 			Schema.check(
-				Schema.makeFilter((schemaFilterInput4) =>
-					((value) => Result.isSuccess(Result.try(() => new RegExp(value))))(schemaFilterInput4),
-				),
+				Schema.makeFilter((value) => Result.isSuccess(Result.try(() => new RegExp(value)))),
 			),
 		),
 	),
@@ -247,11 +239,11 @@ const stringValidationSchema = strictStruct({
 	minLength: Schema.optional(nonNegativeInteger),
 }).pipe(
 	Schema.check(
-		Schema.makeFilter((schemaFilterInput5) =>
-			((value) =>
+		Schema.makeFilter(
+			(value) =>
 				value.minLength === undefined ||
 				value.maxLength === undefined ||
-				value.minLength <= value.maxLength)(schemaFilterInput5),
+				value.minLength <= value.maxLength,
 		),
 	),
 );
@@ -262,11 +254,11 @@ const arrayValidationSchema = strictStruct({
 	required: Schema.optional(Schema.Literal(true)),
 }).pipe(
 	Schema.check(
-		Schema.makeFilter((schemaFilterInput6) =>
-			((value) =>
+		Schema.makeFilter(
+			(value) =>
 				value.minItems === undefined ||
 				value.maxItems === undefined ||
-				value.minItems <= value.maxItems)(schemaFilterInput6),
+				value.minItems <= value.maxItems,
 		),
 	),
 );
@@ -380,11 +372,8 @@ const AppPropertyDefinition: Schema.Codec<AppPropertyDefinition, unknown> = Sche
 			validation: Schema.optional(requiredValidationSchema),
 		}).pipe(
 			Schema.check(
-				Schema.makeFilter((schemaFilterInput7) =>
-					((value) =>
-						value.defaultValue === undefined || value.options.includes(value.defaultValue))(
-						schemaFilterInput7,
-					),
+				Schema.makeFilter(
+					(value) => value.defaultValue === undefined || value.options.includes(value.defaultValue),
 				),
 			),
 			Schema.annotate({ title: "Enum Property Definition", identifier: "EnumPropertyDefinition" }),
@@ -397,10 +386,10 @@ const AppPropertyDefinition: Schema.Codec<AppPropertyDefinition, unknown> = Sche
 			defaultValue: Schema.optional(Schema.Array(Schema.String)),
 		}).pipe(
 			Schema.check(
-				Schema.makeFilter((schemaFilterInput8) =>
-					((value) =>
+				Schema.makeFilter(
+					(value) =>
 						value.defaultValue === undefined ||
-						value.defaultValue.every((item) => value.options.includes(item)))(schemaFilterInput8),
+						value.defaultValue.every((item) => value.options.includes(item)),
 				),
 			),
 			Schema.annotate({
