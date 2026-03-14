@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ImageSchema } from "~/lib/db/schema";
 import { dataSchema } from "~/lib/openapi";
 import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
 
@@ -9,6 +10,7 @@ export const listedEntitySchema = z.object({
 	updatedAt: z.date(),
 	entitySchemaId: z.string(),
 	externalId: z.string().nullable(),
+	image: ImageSchema.nullable(),
 	detailsSandboxScriptId: z.string().nullable(),
 	properties: z.record(z.string(), z.unknown()),
 });
@@ -31,6 +33,7 @@ export const listEntitiesQuery = z.object({
 
 export const createEntityBody = z.object({
 	name: nonEmptyTrimmedStringSchema,
+	image: ImageSchema.nullable(),
 	entitySchemaId: nonEmptyTrimmedStringSchema,
 	properties: z.record(z.string(), z.unknown()),
 });
