@@ -132,7 +132,7 @@ export const createEntitySchemaForUser = async (input: {
 	accentColor: string;
 	propertiesSchema: EntitySchemaPropertiesShape;
 }) => {
-	return await db.transaction(async (tx) => {
+	return db.transaction(async (tx) => {
 		const [createdEntitySchema] = await tx
 			.insert(entitySchema)
 			.values({
