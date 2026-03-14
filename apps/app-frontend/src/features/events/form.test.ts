@@ -4,10 +4,12 @@ import {
 	buildCreateEventFormSchema,
 	buildDefaultEventFormValues,
 	formatOccurredAtInputValue,
+	getEventFormReconciliationState,
 	getSelectedEventSchema,
 	getUnsupportedRequiredEventProperties,
 	normalizeOccurredAtInputValue,
 	reconcileEventProperties,
+	syncCreateEventFormValues,
 	toCreateEventPayload,
 } from "./form";
 
@@ -389,5 +391,107 @@ describe("reconcileEventProperties", () => {
 				{ pages: 12, tags: ["a"] },
 			),
 		).toEqual({ pages: 12 });
+	});
+});
+
+describe("syncCreateEventFormValues", () => {
+	it("uses the current form schema selection to reconcile properties", () => {
+		expect(
+			syncCreateEventFormValues(
+				[
+					createEventSchemaFixture({
+						id: "schema-1",
+						propertiesSchema: { pages: { type: "integer", required: true } },
+					}),
+					createEventSchemaFixture({
+						id: "schema-2",
+						name: "Finished",
+						propertiesSchema: {
+							notes: { type: "string" },
+							completed: { type: "boolean", required: true },
+						},
+					}),
+				],
+				{
+					eventSchemaId: "schema-2",
+					occurredAt: "2026-03-08T10:15",
+					properties: { pages: 20, completed: true, notes: "keep me" },
+				},
+			),
+		).toEqual({
+			eventSchemaId: "schema-2",
+			properties: { completed: true, notes: "keep me" },
+		});
+	});
+
+	it("falls back to the first schema when the form selection becomes invalid", () => {
+		expect(
+			syncCreateEventFormValues(
+				[
+					createEventSchemaFixture({
+						id: "schema-1",
+						propertiesSchema: { pages: { type: "integer", required: true } },
+					}),
+					createEventSchemaFixture({
+						id: "schema-2",
+						name: "Finished",
+						propertiesSchema: {
+							completed: { type: "boolean", required: true },
+						},
+					}),
+				],
+				{
+					occurredAt: "2026-03-08T10:15",
+					properties: { completed: true },
+					eventSchemaId: "missing-schema",
+				},
+			),
+		).toEqual({
+			properties: { pages: 0 },
+			eventSchemaId: "schema-1",
+		});
+	});
+});
+
+describe("getEventFormReconciliationState", () => {
+	it("tracks the selected schema id and schema properties for reconciliation", () => {
+		expect(
+			getEventFormReconciliationState(
+				[
+					createEventSchemaFixture({
+						id: "schema-1",
+						propertiesSchema: { pages: { type: "integer", required: true } },
+					}),
+					createEventSchemaFixture({
+						id: "schema-2",
+						name: "Finished",
+						propertiesSchema: {
+							completed: { type: "boolean", required: true },
+						},
+					}),
+				],
+				"schema-2",
+			),
+		).toEqual({
+			eventSchemaId: "schema-2",
+			propertiesSchema: { completed: { type: "boolean", required: true } },
+		});
+	});
+
+	it("falls back to the first available schema when the selected id is invalid", () => {
+		expect(
+			getEventFormReconciliationState(
+				[
+					createEventSchemaFixture({
+						id: "schema-1",
+						propertiesSchema: { pages: { type: "integer", required: true } },
+					}),
+				],
+				"missing-schema",
+			),
+		).toEqual({
+			eventSchemaId: "schema-1",
+			propertiesSchema: { pages: { type: "integer", required: true } },
+		});
 	});
 });
