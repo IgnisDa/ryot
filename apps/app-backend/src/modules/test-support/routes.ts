@@ -7,11 +7,6 @@ import { TestSupportService } from "./service";
 
 export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupport", (handlers) =>
 	handlers
-		.handle("installBuiltinNotificationSubscription", ({ payload }) =>
-			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).installBuiltinNotificationSubscription(payload);
-			}).pipe(dieOnDbError),
-		)
 		.handle("getSandboxScript", ({ path }) =>
 			Effect.gen(function* () {
 				return yield* (yield* TestSupportService).getSandboxScript(path.scriptId);
