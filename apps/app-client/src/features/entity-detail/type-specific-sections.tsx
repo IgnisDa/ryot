@@ -103,7 +103,9 @@ export function ShowSeasonsList(props: { entity: ShowDetail }) {
 								</Text>
 								<Text className="mt-0.5 text-[12px] font-mono text-muted-foreground web:text-[14px]">
 									{season.episodes.length} episodes
-									{season.publishDate ? ` · ${dayjs(season.publishDate).format("YYYY")}` : ""}
+									{season.publishDate
+										? ` · ${dayjs(season.publishDate).format("MMM D, YYYY")}`
+										: ""}
 								</Text>
 							</Box>
 							<Box className="flex-row items-center gap-3">
@@ -168,12 +170,19 @@ export function ShowSeasonsList(props: { entity: ShowDetail }) {
 														>
 															{episode.name}
 														</Text>
-														{episode.runtime != null ? (
-															<Text className="ml-2 shrink-0 text-[12px] font-mono text-muted-foreground web:text-[14px]">
-																{formatMinutes(episode.runtime)}
-															</Text>
-														) : null}
 													</Box>
+													{episode.publishDate || episode.runtime != null ? (
+														<Text className="mt-0.5 text-[11px] font-mono text-muted-foreground web:text-[13px]">
+															{[
+																episode.publishDate
+																	? dayjs(episode.publishDate).format("MMM D, YYYY")
+																	: null,
+																episode.runtime != null ? formatMinutes(episode.runtime) : null,
+															]
+																.filter(Boolean)
+																.join(" · ")}
+														</Text>
+													) : null}
 												</Box>
 											</Box>
 											{episode.overview ? (
