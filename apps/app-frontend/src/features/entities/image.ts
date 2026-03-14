@@ -51,3 +51,12 @@ export function useResolvedEntityImageUrls(entities: AppEntity[]) {
 		isLoading: presignedQueries.some((query) => query.isLoading),
 	};
 }
+
+export function useResolvedEntityImageUrl(entity: AppEntity | undefined) {
+	const query = useResolvedEntityImageUrls(entity ? [entity] : []);
+
+	return {
+		...query,
+		imageUrl: entity ? query.imageUrlByEntityId.get(entity.id) : undefined,
+	};
+}
