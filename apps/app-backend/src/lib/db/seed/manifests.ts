@@ -25,6 +25,7 @@ import { mangaPropertiesJsonSchema } from "~/lib/zod/media/manga";
 
 export const builtinFacets = () => [
 	{
+		icon: "film",
 		slug: "media",
 		name: "Media",
 		mode: FacetMode.curated,
@@ -33,6 +34,7 @@ export const builtinFacets = () => [
 	{
 		slug: "fitness",
 		name: "Fitness",
+		icon: "dumbbell",
 		mode: FacetMode.curated,
 		description: "Track workouts, measurements, and progress.",
 	},
