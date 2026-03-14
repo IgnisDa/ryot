@@ -1,5 +1,3 @@
-import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { resolveRequiredString } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
 import { type UploadContentType, uploadContentTypeExtensions } from "./shared";
@@ -49,15 +47,11 @@ const signUploadUrl = async (input: SignUploadUrlInput) => {
 	if (!s3 || !s3BucketName)
 		throw new Error("S3 uploads are not configured for app-backend");
 
-	return getSignedUrl(
-		s3,
-		new PutObjectCommand({
-			Key: input.key,
-			Bucket: s3BucketName,
-			ContentType: input.contentType,
-		}),
-		{ expiresIn: uploadUrlExpirySeconds },
-	);
+	return s3.file(input.key).presign({
+		method: "PUT",
+		type: input.contentType,
+		expiresIn: uploadUrlExpirySeconds,
+	});
 };
 
 export const createPresignedUpload = async (
