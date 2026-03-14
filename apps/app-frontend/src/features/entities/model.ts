@@ -1,6 +1,6 @@
-import type { ApiGetResponseData } from "#/lib/api/types";
+import type { ApiPostResponseData } from "#/lib/api/types";
 
-type ApiEntity = ApiGetResponseData<"/entities">[number];
+type ApiEntity = ApiPostResponseData<"/view-runtime/execute">[number];
 
 export type AppEntityImage =
 	| { kind: "remote"; url: string }

@@ -15,20 +15,12 @@ export const listedEntitySchema = z.object({
 	properties: z.record(z.string(), z.unknown()),
 });
 
-export const listEntitiesResponseSchema = dataSchema(
-	z.array(listedEntitySchema),
-);
-
 export const getEntityResponseSchema = dataSchema(listedEntitySchema);
 
 export const createEntityResponseSchema = dataSchema(listedEntitySchema);
 
 export const entityParams = z.object({
 	entityId: nonEmptyTrimmedStringSchema,
-});
-
-export const listEntitiesQuery = z.object({
-	entitySchemaId: nonEmptyTrimmedStringSchema,
 });
 
 export const createEntityBody = z.object({

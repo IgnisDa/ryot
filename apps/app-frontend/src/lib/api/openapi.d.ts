@@ -735,29 +735,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/entities": {
+    "/entities/{entityId}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * List entities for a custom entity schema
-         * @deprecated
-         */
+        /** Get a single custom entity */
         get: {
             parameters: {
-                query: {
-                    entitySchemaId: string;
-                };
+                query?: never;
                 header?: never;
-                path?: never;
+                path: {
+                    entityId: string;
+                };
                 cookie?: never;
             };
             requestBody?: never;
             responses: {
-                /** @description Entities for the requested entity schema */
+                /** @description Requested entity */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -786,7 +783,7 @@ export interface paths {
                                 properties: {
                                     [key: string]: unknown;
                                 };
-                            }[];
+                            };
                         };
                     };
                 };
@@ -812,7 +809,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description Entity schema does not exist for this user */
+                /** @description Entity does not exist for this user */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -825,6 +822,22 @@ export interface paths {
                 };
             };
         };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
         put?: never;
         /** Create an entity for a custom entity schema */
         post: {
@@ -923,101 +936,6 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/entities/{entityId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a single custom entity */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    entityId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Requested entity */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            data: {
-                                id: string;
-                                name: string;
-                                /** Format: date-time */
-                                createdAt: string;
-                                /** Format: date-time */
-                                updatedAt: string;
-                                entitySchemaId: string;
-                                externalId: string | null;
-                                image: {
-                                    key: string;
-                                    /** @enum {string} */
-                                    kind: "s3";
-                                } | {
-                                    url: string;
-                                    /** @enum {string} */
-                                    kind: "remote";
-                                } | unknown;
-                                detailsSandboxScriptId: string | null;
-                                properties: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Request payload validation failed */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["ValidationFailedError"];
-                        };
-                    };
-                };
-                /** @description Request is unauthenticated */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["UnauthenticatedError"];
-                        };
-                    };
-                };
-                /** @description Entity does not exist for this user */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["NotFoundError"];
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1710,6 +1628,105 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/view-runtime/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Execute a view-runtime query for a custom entity schema */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        entitySchemaId: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Entities for the requested runtime query */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                id: string;
+                                name: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                                /** Format: date-time */
+                                updatedAt: string;
+                                entitySchemaId: string;
+                                externalId: string | null;
+                                image: {
+                                    key: string;
+                                    /** @enum {string} */
+                                    kind: "s3";
+                                } | {
+                                    url: string;
+                                    /** @enum {string} */
+                                    kind: "remote";
+                                } | unknown;
+                                detailsSandboxScriptId: string | null;
+                                properties: {
+                                    [key: string]: unknown;
+                                };
+                            }[];
+                        };
+                    };
+                };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Entity schema does not exist for this user */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["NotFoundError"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
