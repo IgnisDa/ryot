@@ -5,6 +5,10 @@ const configSchema = z.object({
 	DATABASE_URL: z.string(),
 	FRONTEND_URL: z.string(),
 	SERVER_ADMIN_ACCESS_TOKEN: z.string(),
+	USERS_ALLOW_REGISTRATION: z
+		.string()
+		.default("true")
+		.transform((val) => val === "true"),
 	PORT: z
 		.string()
 		.default("8000")
