@@ -5,6 +5,10 @@ import { taskList } from "./runners";
 let runner: Runner | null = null;
 
 export const initializeWorker = async () => {
+	if (runner) {
+		return runner;
+	}
+
 	const pgPool = getWorkerPool();
 
 	runner = await run({
@@ -25,8 +29,11 @@ export const getRunner = () => {
 };
 
 export const shutdownWorker = async () => {
-	if (runner) {
-		await runner.stop();
+	try {
+		if (runner) {
+			await runner.stop();
+		}
+	} finally {
 		runner = null;
 		await shutdownWorkerPool();
 		console.info("Graphile Worker shut down");
