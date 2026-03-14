@@ -8,7 +8,6 @@ export default mergeConfig(
 	defineConfig({
 		resolve: { alias: [{ find: /^~\//, replacement: srcDir }] },
 		test: {
-			bail: 1,
 			isolate: false,
 			testTimeout: 180_000,
 			hookTimeout: 180_000,
