@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -29,19 +29,19 @@ Lifecycle Occurrences (delivery rules), and Security sections.
 
 ## Acceptance criteria
 
-- [ ] Database checks enforce exactly one target, signal targets requiring subscription kind and
+- [x] Database checks enforce exactly one target, signal targets requiring subscription kind and
       signal operation, lifecycle targets rejecting the signal operation, and policies never
       targeting signal schemas
-- [ ] Partial unique indexes deduplicate user rules and global rules per the PRD definition
-- [ ] Service tests cover every allowed and forbidden ownership/visibility combination for rules
+- [x] Partial unique indexes deduplicate user rules and global rules per the PRD definition
+- [x] Service tests cover every allowed and forbidden ownership/visibility combination for rules
       referencing schemas and scripts
-- [ ] Rule resolution never matches a global row to user subscriptions and never lets a user rule
+- [x] Rule resolution never matches a global row to user subscriptions and never lets a user rule
       see another user's rows
-- [ ] Run IDs are deterministic from occurrence and rule IDs; duplicate insertion is a no-op
-- [ ] A rule deactivated or deleted before run insertion produces no run; once a run exists,
+- [x] Run IDs are deterministic from occurrence and rule IDs; duplicate insertion is a no-op
+- [x] A rule deactivated or deleted before run insertion produces no run; once a run exists,
       later rule changes cannot affect it
-- [ ] Deleting a rule preserves its runs, findable through the original-rule ID and rule name
-- [ ] Built-in rule seeding is idempotent and rule metadata is Effect Schema-validated
+- [x] Deleting a rule preserves its runs, findable through the original-rule ID and rule name
+- [x] Built-in rule seeding is idempotent and rule metadata is Effect Schema-validated
 
 ## User stories addressed
 
