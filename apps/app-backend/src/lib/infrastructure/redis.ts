@@ -18,6 +18,8 @@ export const redisKeys = {
 	sandboxWorkflowJournal: (executionId: string) => `ryot:sandbox:workflow:${executionId}:journal`,
 	integrationCache: (integrationId: string, key: string) =>
 		`ryot:integrations:cache:${integrationId}:${key}`,
+	providerHttpAdmission: (policyKey: string) =>
+		`ryot:provider-http-admission:${encodeURIComponent(policyKey)}`,
 	sandboxCache: (userId: string | null, scriptId: string, key: string) =>
 		`ryot:sandbox:cache:${userId === null ? "kernel" : `user:${userId}`}:${scriptId}:${key}`,
 	sandboxRunCache: (serverRunId: string, userId: string | null, scriptId: string, key: string) =>
