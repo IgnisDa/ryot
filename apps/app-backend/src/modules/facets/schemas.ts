@@ -100,3 +100,4 @@ export const facetParams = z.object({
 export type CreateFacetBody = z.infer<typeof createFacetBody>;
 export type UpdateFacetBody = z.infer<typeof updateFacetBody>;
 export type ReorderFacetsBody = z.infer<typeof reorderFacetsBody>;
+export type ListedFacet = z.infer<typeof listedFacetSchema>;

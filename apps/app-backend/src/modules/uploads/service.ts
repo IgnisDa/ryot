@@ -1,6 +1,10 @@
 import { resolveRequiredString } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
 import { s3, s3BucketName } from "~/lib/s3";
+import type {
+	GetPresignedUploadUrlBody,
+	GetPresignedUploadUrlQuery,
+} from "./schemas";
 import { type UploadContentType, uploadContentTypeExtensions } from "./shared";
 
 const uploadUrlExpirySeconds = 15 * 60;
@@ -35,9 +39,9 @@ const resolveContentType = (contentType: string) => {
 	return normalizedContentType as UploadContentType;
 };
 
-export const resolvePresignedUploadInput = (input: {
-	contentType: string;
-}): ResolvedPresignedUploadInput => {
+export const resolvePresignedUploadInput = (
+	input: GetPresignedUploadUrlBody,
+): ResolvedPresignedUploadInput => {
 	return {
 		contentType: resolveContentType(input.contentType),
 	};
@@ -67,7 +71,7 @@ const signDownloadUrl = async (key: string) => {
 };
 
 export const createPresignedUpload = async (
-	input: { contentType: string },
+	input: GetPresignedUploadUrlBody,
 	deps: CreatePresignedUploadDeps = {},
 ) => {
 	const resolvedInput = resolvePresignedUploadInput(input);
@@ -84,7 +88,7 @@ export const createPresignedUpload = async (
 };
 
 export const createPresignedDownload = async (
-	input: { key: string },
+	input: GetPresignedUploadUrlQuery,
 	deps: CreatePresignedDownloadDeps = {},
 ) => {
 	const key = resolveRequiredString(input.key, "Upload key");

@@ -18,3 +18,10 @@ export const presignedUploadUrlSchema = z.object({
 export const getPresignedUploadUrlResponseSchema = dataSchema(
 	presignedUploadUrlSchema,
 );
+
+export type GetPresignedUploadUrlBody = z.infer<
+	typeof getPresignedUploadUrlBody
+>;
+export type GetPresignedUploadUrlQuery = z.infer<
+	typeof getPresignedUploadUrlQuery
+>;

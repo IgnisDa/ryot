@@ -1,6 +1,16 @@
 import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { type DbClient, db } from "~/lib/db";
 import { facet } from "~/lib/db/schema";
+import type { ListedFacet } from "./schemas";
+
+type FacetRow = Omit<ListedFacet, "description"> & {
+	description: string | null;
+};
+
+const toListedFacet = (row: FacetRow): ListedFacet => ({
+	...row,
+	description: row.description ?? null,
+});
 
 export const listFacetsByUser = async (userId: string) => {
 	const rows = await db
@@ -20,10 +30,7 @@ export const listFacetsByUser = async (userId: string) => {
 		.where(eq(facet.userId, userId))
 		.orderBy(desc(facet.enabled), asc(facet.sortOrder), asc(facet.name));
 
-	return rows.map((row) => ({
-		...row,
-		description: row.description ?? null,
-	}));
+	return rows.map(toListedFacet);
 };
 
 export const getVisibleFacetById = async (input: {
@@ -141,7 +148,7 @@ export const createFacetForUser = async (input: {
 
 	if (!createdFacet) throw new Error("Could not persist facet");
 
-	return { ...createdFacet, description: createdFacet.description ?? null };
+	return toListedFacet(createdFacet);
 };
 
 export const createBuiltinFacetsForUser = async (input: {
@@ -269,5 +276,5 @@ export const updateFacetForUser = async (input: {
 
 	if (!updatedFacet) throw new Error("Could not update facet");
 
-	return { ...updatedFacet, description: updatedFacet.description ?? null };
+	return toListedFacet(updatedFacet);
 };

@@ -2,6 +2,7 @@ import { type AppSchema, resolveRequiredString } from "@ryot/ts-utils";
 import { z } from "zod";
 import { resolveCustomEntitySchemaAccess } from "~/lib/app/entity-schema-access";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
+import type { CreateEventBody } from "./schemas";
 
 export type EventPropertiesShape = Record<string, unknown>;
 
@@ -108,13 +109,9 @@ export const resolveEventCreateAccess = (
 	};
 };
 
-export const resolveEventCreateInput = (input: {
-	entityId: string;
-	occurredAt: unknown;
-	properties: unknown;
-	eventSchemaId: string;
-	propertiesSchema: AppSchema;
-}) => {
+export const resolveEventCreateInput = (
+	input: CreateEventBody & { propertiesSchema: AppSchema },
+) => {
 	const entityId = resolveEventEntityId(input.entityId);
 	const occurredAt = resolveOccurredAt(input.occurredAt);
 	const eventSchemaId = resolveEventSchemaId(input.eventSchemaId);
