@@ -4,13 +4,16 @@ import {
 	Group,
 	Modal,
 	SegmentedControl,
+	SimpleGrid,
 	Stack,
+	Tabs,
 	Text,
 	useComputedColorScheme,
 	useMantineColorScheme,
 } from "@mantine/core";
 import { useDisclosure, useHover } from "@mantine/hooks";
 import { Laptop, Moon, Sun } from "lucide-react";
+import { useIsMobileScreen } from "#/hooks/screen";
 import type { SidebarAccount } from "./Sidebar.types";
 import { SidebarApiKeysSection } from "./SidebarApiKeysSection";
 import {
@@ -21,10 +24,10 @@ import {
 function AccountMetaItem(props: { label: string; value: string }) {
 	return (
 		<Box>
-			<Text size="xs" c="dimmed" tt="uppercase" lts="0.8px">
+			<Text size="xs" c="dimmed" tt="uppercase" lts="0.5px" fw={600}>
 				{props.label}
 			</Text>
-			<Text size="sm" fw={500} mt={4}>
+			<Text size="md" fw={500} mt={6}>
 				{props.value}
 			</Text>
 		</Box>
@@ -39,9 +42,10 @@ export function SidebarAccountSection(props: {
 	borderAccent: string;
 	account: SidebarAccount;
 }) {
+	const isMobile = useIsMobileScreen();
+	const { hovered, ref } = useHover<HTMLButtonElement>();
 	const { colorScheme, setColorScheme } = useMantineColorScheme();
 	const [opened, { close, open }] = useDisclosure(false);
-	const { hovered, ref } = useHover<HTMLButtonElement>();
 	const computedColorScheme = useComputedColorScheme("light", {
 		getInitialValueInEffect: false,
 	});
@@ -98,138 +102,169 @@ export function SidebarAccountSection(props: {
 
 			<Modal
 				centered
-				size="lg"
+				size="xl"
 				radius="lg"
 				title={null}
 				opened={opened}
 				onClose={close}
 			>
-				<Stack gap="lg">
-					<Group justify="space-between" align="flex-start" wrap="nowrap">
-						<Group gap="md" wrap="nowrap">
-							<Avatar
-								size={56}
-								radius="md"
-								color="accent"
-								variant="light"
-								src={props.account.image || undefined}
-							>
-								{initials}
-							</Avatar>
-							<Box>
-								<Text
-									fw={600}
-									size="xl"
-									ff="var(--mantine-headings-font-family)"
-								>
-									{props.account.name}
-								</Text>
-								<Text c={props.textMuted} size="sm" mt={4}>
-									{props.account.email}
-								</Text>
-							</Box>
-						</Group>
-					</Group>
-
-					<Box
-						p="md"
+				<Tabs
+					defaultValue="general"
+					orientation={isMobile ? "horizontal" : "vertical"}
+					style={{
+						display: "flex",
+						gap: isMobile ? "0" : "32px",
+						flexDirection: isMobile ? "column" : "row",
+					}}
+				>
+					<Tabs.List
 						style={{
-							borderRadius: "14px",
-							border: `1px solid ${props.border}`,
-							background: props.isDark
-								? "rgba(255, 255, 255, 0.02)"
-								: "rgba(255, 255, 255, 0.82)",
+							paddingBottom: "0",
+							borderBottom: "none",
+							paddingRight: isMobile ? "0" : "24px",
+							marginBottom: isMobile ? "20px" : "0",
+							minWidth: isMobile ? "auto" : "150px",
+							borderRight: isMobile ? "none" : `1px solid ${props.border}`,
 						}}
 					>
-						<Stack gap="sm">
-							<Group justify="space-between" align="center">
-								<Box>
+						<Tabs.Tab value="general">General</Tabs.Tab>
+						<Tabs.Tab value="api-keys">API Keys</Tabs.Tab>
+					</Tabs.List>
+
+					<Tabs.Panel value="general" style={{ flex: 1 }}>
+						<Stack gap="lg">
+							<Group gap="md" wrap="nowrap">
+								<Avatar
+									size={64}
+									radius="md"
+									color="accent"
+									variant="light"
+									src={props.account.image || undefined}
+								>
+									{initials}
+								</Avatar>
+								<Box style={{ flex: 1, minWidth: 0 }}>
 									<Text
 										fw={600}
-										size="sm"
+										size="xl"
+										truncate="end"
 										ff="var(--mantine-headings-font-family)"
 									>
-										Appearance
+										{props.account.name}
 									</Text>
-									<Text c={props.textMuted} size="xs" mt={2}>
-										Theme follows your journal preference across the app.
+									<Text c={props.textMuted} size="sm" mt={4} truncate="end">
+										{props.account.email}
 									</Text>
 								</Box>
-								<Text c={props.textMuted} size="xs">
-									Active: {computedColorScheme}
-								</Text>
 							</Group>
-							<SegmentedControl
-								fullWidth
-								value={colorScheme}
-								onChange={(value) => setColorScheme(value)}
-								data={[
-									{
-										value: "auto",
-										label: (
-											<Group gap={6} wrap="nowrap">
-												<Laptop size={14} />
-												<span>Auto</span>
-											</Group>
-										),
-									},
-									{
-										value: "light",
-										label: (
-											<Group gap={6} wrap="nowrap">
-												<Sun size={14} />
-												<span>Light</span>
-											</Group>
-										),
-									},
-									{
-										value: "dark",
-										label: (
-											<Group gap={6} wrap="nowrap">
-												<Moon size={14} />
-												<span>Dark</span>
-											</Group>
-										),
-									},
-								]}
-							/>
+
+							<Box
+								p="md"
+								style={{
+									borderRadius: "14px",
+									border: `1px solid ${props.border}`,
+									background: props.isDark
+										? "rgba(255, 255, 255, 0.02)"
+										: "rgba(255, 255, 255, 0.82)",
+								}}
+							>
+								<Stack gap="md">
+									<Group
+										justify="space-between"
+										align="flex-start"
+										wrap="nowrap"
+									>
+										<Box>
+											<Text
+												fw={600}
+												size="md"
+												ff="var(--mantine-headings-font-family)"
+											>
+												Appearance
+											</Text>
+											<Text c={props.textMuted} size="sm" mt={4}>
+												Theme follows your journal preference across the app.
+											</Text>
+										</Box>
+										<Text c={props.textMuted} size="xs" mt={2}>
+											Active: {computedColorScheme}
+										</Text>
+									</Group>
+									<SegmentedControl
+										fullWidth
+										value={colorScheme}
+										onChange={(value) => setColorScheme(value)}
+										data={[
+											{
+												value: "auto",
+												label: (
+													<Group gap={6} wrap="nowrap">
+														<Laptop size={14} />
+														<span>Auto</span>
+													</Group>
+												),
+											},
+											{
+												value: "light",
+												label: (
+													<Group gap={6} wrap="nowrap">
+														<Sun size={14} />
+														<span>Light</span>
+													</Group>
+												),
+											},
+											{
+												value: "dark",
+												label: (
+													<Group gap={6} wrap="nowrap">
+														<Moon size={14} />
+														<span>Dark</span>
+													</Group>
+												),
+											},
+										]}
+									/>
+								</Stack>
+							</Box>
+
+							<SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+								<Box
+									p="lg"
+									style={{
+										borderRadius: "14px",
+										border: `1px solid ${props.border}`,
+									}}
+								>
+									<AccountMetaItem
+										label="Member since"
+										value={formatSidebarAccountDate(props.account.createdAt)}
+									/>
+								</Box>
+								<Box
+									p="lg"
+									style={{
+										borderRadius: "14px",
+										border: `1px solid ${props.border}`,
+									}}
+								>
+									<AccountMetaItem
+										label="Last updated"
+										value={formatSidebarAccountDate(props.account.updatedAt)}
+									/>
+								</Box>
+							</SimpleGrid>
 						</Stack>
-					</Box>
+					</Tabs.Panel>
 
-					<SidebarApiKeysSection
-						opened={opened}
-						border={props.border}
-						isDark={props.isDark}
-						textMuted={props.textMuted}
-					/>
-
-					<Group grow>
-						<Box
-							p="md"
-							style={{
-								borderRadius: "14px",
-								border: `1px solid ${props.border}`,
-							}}
-						>
-							<AccountMetaItem
-								label="Member since"
-								value={formatSidebarAccountDate(props.account.createdAt)}
-							/>
-						</Box>
-						<Box
-							p="md"
-							style={{
-								borderRadius: "14px",
-								border: `1px solid ${props.border}`,
-							}}
-						>
-							<AccountMetaItem
-								label="Last updated"
-								value={formatSidebarAccountDate(props.account.updatedAt)}
-							/>
-						</Box>
-					</Group>
-				</Stack>
+					<Tabs.Panel value="api-keys" style={{ flex: 1 }}>
+						<SidebarApiKeysSection
+							opened={opened}
+							border={props.border}
+							isDark={props.isDark}
+							textMuted={props.textMuted}
+						/>
+					</Tabs.Panel>
+				</Tabs>
 			</Modal>
 		</>
 	);

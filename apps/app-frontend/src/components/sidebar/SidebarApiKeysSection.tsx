@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, KeyRound, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useAuthClient } from "#/hooks/auth";
+import { useIsMobileScreen } from "#/hooks/screen";
 import {
 	getSidebarApiKeyDetails,
 	getSidebarApiKeyDisplayName,
@@ -33,6 +34,7 @@ export function SidebarApiKeysSection(props: {
 	isDark: boolean;
 	textMuted: string;
 }) {
+	const isMobile = useIsMobileScreen();
 	const authClient = useAuthClient();
 	const queryClient = useQueryClient();
 	const [draftName, setDraftName] = useState("");
@@ -114,32 +116,41 @@ export function SidebarApiKeysSection(props: {
 	};
 
 	return (
-		<Box
-			p="md"
-			style={{
-				borderRadius: "14px",
-				border: `1px solid ${props.border}`,
-				background: props.isDark
-					? "rgba(255, 255, 255, 0.02)"
-					: "rgba(255, 255, 255, 0.82)",
-			}}
-		>
-			<Stack gap="md">
-				<Group justify="space-between" align="flex-start" wrap="nowrap">
-					<Box>
-						<Text fw={600} size="sm" ff="var(--mantine-headings-font-family)">
-							API Keys
-						</Text>
-						<Text c={props.textMuted} size="xs" mt={2}>
-							Create and revoke personal keys for scripts, automations, and
-							local tooling.
-						</Text>
-					</Box>
+		<Stack gap="lg">
+			<Box>
+				<Group justify="space-between" align="center" mb="xs">
+					<Text fw={600} size="lg" ff="var(--mantine-headings-font-family)">
+						API Keys
+					</Text>
 					<Text c={props.textMuted} size="xs">
 						{apiKeys.length} key{apiKeys.length === 1 ? "" : "s"}
 					</Text>
 				</Group>
+				<Text c={props.textMuted} size="sm">
+					Create and revoke personal keys for scripts, automations, and local
+					tooling.
+				</Text>
+			</Box>
 
+			{isMobile ? (
+				<Stack gap="sm">
+					<TextInput
+						label="Key name"
+						value={draftName}
+						placeholder="Deploy script"
+						onChange={(event) => setDraftName(event.currentTarget.value)}
+					/>
+					<Button
+						fullWidth
+						disabled={!trimmedName}
+						onClick={handleCreateApiKey}
+						leftSection={<KeyRound size={14} />}
+						loading={createApiKeyMutation.isPending}
+					>
+						Create key
+					</Button>
+				</Stack>
+			) : (
 				<Group align="flex-end" wrap="nowrap">
 					<TextInput
 						label="Key name"
@@ -157,30 +168,32 @@ export function SidebarApiKeysSection(props: {
 						Create key
 					</Button>
 				</Group>
+			)}
 
-				<Stack gap="md" ref={animatedContentRef}>
-					{createApiKeyMutation.isError && (
-						<Text c="red" size="sm">
-							{getErrorMessage(
-								createApiKeyMutation.error,
-								"Failed to create API key.",
-							)}
-						</Text>
-					)}
+			<Stack gap="md" ref={animatedContentRef}>
+				{createApiKeyMutation.isError && (
+					<Text c="red" size="sm">
+						{getErrorMessage(
+							createApiKeyMutation.error,
+							"Failed to create API key.",
+						)}
+					</Text>
+				)}
 
-					{createdApiKey?.key && (
-						<Box
-							p="md"
-							style={{
-								borderRadius: "12px",
-								border: `1px dashed ${props.border}`,
-								background: props.isDark
-									? "rgba(212, 165, 116, 0.05)"
-									: "rgba(212, 165, 116, 0.06)",
-							}}
-						>
-							<Stack gap="sm">
-								<Group justify="space-between" align="flex-start" wrap="nowrap">
+				{createdApiKey?.key && (
+					<Box
+						p="md"
+						style={{
+							borderRadius: "12px",
+							border: `1px dashed ${props.border}`,
+							background: props.isDark
+								? "rgba(212, 165, 116, 0.05)"
+								: "rgba(212, 165, 116, 0.06)",
+						}}
+					>
+						<Stack gap="md">
+							{isMobile ? (
+								<>
 									<Box>
 										<Text
 											fw={600}
@@ -189,132 +202,196 @@ export function SidebarApiKeysSection(props: {
 										>
 											Copy this key now
 										</Text>
-										<Text c={props.textMuted} size="xs" mt={2}>
+										<Text c={props.textMuted} size="xs" mt={4}>
 											For security, this secret is only shown once.
 										</Text>
 									</Box>
+									<Code block>{createdApiKey.key}</Code>
 									<Button
-										size="xs"
+										fullWidth
+										size="sm"
 										variant="light"
 										onClick={() => void handleCopyCreatedKey()}
 										leftSection={
-											copiedKey ? <Check size={14} /> : <Copy size={14} />
+											copiedKey ? <Check size={16} /> : <Copy size={16} />
 										}
 									>
 										{copiedKey ? "Copied" : "Copy"}
 									</Button>
-								</Group>
-								<Code block>{createdApiKey.key}</Code>
-							</Stack>
-						</Box>
-					)}
-
-					{apiKeysQuery.isPending && (
-						<Group justify="center" py="xs">
-							<Loader size="sm" />
-						</Group>
-					)}
-
-					{apiKeysQuery.isError && (
-						<Group justify="space-between" align="center">
-							<Text c="red" size="sm">
-								{getErrorMessage(
-									apiKeysQuery.error,
-									"Failed to load API keys.",
-								)}
-							</Text>
-							<Button
-								size="xs"
-								variant="subtle"
-								onClick={() => void apiKeysQuery.refetch()}
-							>
-								Retry
-							</Button>
-						</Group>
-					)}
-
-					{!apiKeysQuery.isPending &&
-						!apiKeysQuery.isError &&
-						apiKeys.length === 0 && (
-							<Text c={props.textMuted} size="sm" lh={1.6}>
-								No API keys yet. Create one here when you need Ryot access from
-								a script or integration.
-							</Text>
-						)}
-
-					{apiKeys.map((key) => {
-						const details = getSidebarApiKeyDetails(key);
-						const status = { color: "teal", label: "Active" };
-						const keyName = getSidebarApiKeyDisplayName(key);
-						const isDeleting =
-							deleteApiKeyMutation.isPending &&
-							deleteApiKeyMutation.variables === key.id;
-
-						return (
-							<Box
-								key={key.id}
-								p="md"
-								style={{
-									borderRadius: "12px",
-									border: `1px solid ${props.border}`,
-								}}
-							>
-								<Stack gap="sm">
+								</>
+							) : (
+								<>
 									<Group
 										justify="space-between"
 										align="flex-start"
 										wrap="nowrap"
 									>
-										<Box style={{ flex: 1, minWidth: 0 }}>
-											<Group gap="xs" wrap="wrap">
-												<Text fw={500} size="sm" truncate="end">
-													{keyName}
-												</Text>
-												<Badge color={status.color} variant="light">
-													{status.label}
-												</Badge>
-											</Group>
+										<Box>
+											<Text
+												fw={600}
+												size="sm"
+												ff="var(--mantine-headings-font-family)"
+											>
+												Copy this key now
+											</Text>
 											<Text c={props.textMuted} size="xs" mt={4}>
-												{details.map((item, index) => (
-													<Text
-														component="span"
-														key={`${item.label}-${item.value}`}
-													>
-														{index > 0 ? " - " : ""}
-														{item.label ? `${item.label}: ` : ""}
-														<Text component="span" fw={600} inherit>
-															{item.value}
-														</Text>
-													</Text>
-												))}
+												For security, this secret is only shown once.
 											</Text>
 										</Box>
 										<Button
 											size="xs"
-											color="red"
-											variant="subtle"
-											loading={isDeleting}
-											leftSection={<Trash2 size={14} />}
-											onClick={() => handleDeleteApiKey(key.id, keyName)}
+											variant="light"
+											onClick={() => void handleCopyCreatedKey()}
+											leftSection={
+												copiedKey ? <Check size={14} /> : <Copy size={14} />
+											}
 										>
-											Remove
+											{copiedKey ? "Copied" : "Copy"}
 										</Button>
 									</Group>
-								</Stack>
-							</Box>
-						);
-					})}
-
-					{deleteApiKeyMutation.isError && (
-						<Text c="red" size="sm">
-							{getErrorMessage(
-								deleteApiKeyMutation.error,
-								"Failed to delete API key.",
+									<Code block>{createdApiKey.key}</Code>
+								</>
 							)}
+						</Stack>
+					</Box>
+				)}
+
+				{apiKeysQuery.isPending && (
+					<Group justify="center" py="xs">
+						<Loader size="sm" />
+					</Group>
+				)}
+
+				{apiKeysQuery.isError && (
+					<Group justify="space-between" align="center">
+						<Text c="red" size="sm">
+							{getErrorMessage(apiKeysQuery.error, "Failed to load API keys.")}
+						</Text>
+						<Button
+							size="xs"
+							variant="subtle"
+							onClick={() => void apiKeysQuery.refetch()}
+						>
+							Retry
+						</Button>
+					</Group>
+				)}
+
+				{!apiKeysQuery.isPending &&
+					!apiKeysQuery.isError &&
+					apiKeys.length === 0 && (
+						<Text c={props.textMuted} size="sm" lh={1.6}>
+							No API keys yet. Create one here when you need Ryot access from a
+							script or integration.
 						</Text>
 					)}
-				</Stack>
+
+				{apiKeys.map((key) => {
+					const details = getSidebarApiKeyDetails(key);
+					const status = { color: "teal", label: "Active" };
+					const keyName = getSidebarApiKeyDisplayName(key);
+					const isDeleting =
+						deleteApiKeyMutation.isPending &&
+						deleteApiKeyMutation.variables === key.id;
+
+					return (
+						<Box
+							key={key.id}
+							p="md"
+							style={{
+								borderRadius: "12px",
+								border: `1px solid ${props.border}`,
+							}}
+						>
+							{isMobile ? (
+								<Stack gap="md">
+									<Box>
+										<Group gap="xs" wrap="wrap" mb="xs">
+											<Text fw={500} size="sm">
+												{keyName}
+											</Text>
+											<Badge color={status.color} variant="light" size="sm">
+												{status.label}
+											</Badge>
+										</Group>
+										<Text c={props.textMuted} size="xs">
+											{details.map((item, index) => (
+												<Text
+													component="span"
+													key={`${item.label}-${item.value}`}
+												>
+													{index > 0 ? " - " : ""}
+													{item.label ? `${item.label}: ` : ""}
+													<Text component="span" fw={600} inherit>
+														{item.value}
+													</Text>
+												</Text>
+											))}
+										</Text>
+									</Box>
+									<Button
+										fullWidth
+										size="xs"
+										color="red"
+										variant="subtle"
+										loading={isDeleting}
+										leftSection={<Trash2 size={14} />}
+										onClick={() => handleDeleteApiKey(key.id, keyName)}
+									>
+										Remove
+									</Button>
+								</Stack>
+							) : (
+								<Group justify="space-between" align="flex-start" wrap="nowrap">
+									<Box style={{ flex: 1, minWidth: 0 }}>
+										<Group gap="xs" wrap="wrap" mb="xs">
+											<Text fw={500} size="sm" truncate="end">
+												{keyName}
+											</Text>
+											<Badge color={status.color} variant="light" size="sm">
+												{status.label}
+											</Badge>
+										</Group>
+										<Text c={props.textMuted} size="xs">
+											{details.map((item, index) => (
+												<Text
+													component="span"
+													key={`${item.label}-${item.value}`}
+												>
+													{index > 0 ? " - " : ""}
+													{item.label ? `${item.label}: ` : ""}
+													<Text component="span" fw={600} inherit>
+														{item.value}
+													</Text>
+												</Text>
+											))}
+										</Text>
+									</Box>
+									<Button
+										size="xs"
+										color="red"
+										variant="subtle"
+										loading={isDeleting}
+										leftSection={<Trash2 size={14} />}
+										onClick={() => handleDeleteApiKey(key.id, keyName)}
+									>
+										Remove
+									</Button>
+								</Group>
+							)}
+						</Box>
+					);
+				})}
+
+				{deleteApiKeyMutation.isError && (
+					<Text c="red" size="sm">
+						{getErrorMessage(
+							deleteApiKeyMutation.error,
+							"Failed to delete API key.",
+						)}
+					</Text>
+				)}
 			</Stack>
-		</Box>
+		</Stack>
 	);
 }
