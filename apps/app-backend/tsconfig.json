@@ -1,11 +1,15 @@
 {
-	"$schema": "https://raw.githubusercontent.com/Effect-TS/tsgo/refs/heads/main/schema.json",
+	"extends": "../../tsconfig.options.json",
 	"exclude": [
 		"node_modules",
 		"src/modules/plugins/test-fixtures/**/*.sandbox.ts",
-		"src/lib/infrastructure/sandbox-runtime/*.sandbox.ts"
+		"src/lib/infrastructure/sandbox-runtime/runner-source.sandbox.ts"
 	],
 	"compilerOptions": {
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false,
+		"emitDeclarationOnly": false,
 		"noEmit": true,
 		"strict": true,
 		"lib": ["ESNext"],
@@ -26,23 +30,6 @@
 		"noUncheckedIndexedAccess": true,
 		"exactOptionalPropertyTypes": true,
 		"noFallthroughCasesInSwitch": true,
-		"noPropertyAccessFromIndexSignature": true,
-		"plugins": [
-			{
-				"name": "@effect/language-service",
-				"diagnosticSeverity": {
-					"newPromise": "error",
-					"asyncFunction": "error",
-					"nodeBuiltinImport": "error",
-					"globalDateInEffect": "error",
-					"processEnvInEffect": "error",
-					"globalFetchInEffect": "error",
-					"globalTimersInEffect": "error",
-					"preferSchemaOverJson": "error",
-					"globalConsoleInEffect": "error",
-					"globalErrorInEffectFailure": "error"
-				}
-			}
-		]
+		"noPropertyAccessFromIndexSignature": true
 	}
 }
