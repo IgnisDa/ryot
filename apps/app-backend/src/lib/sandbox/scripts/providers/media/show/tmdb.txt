@@ -117,6 +117,7 @@ function collectGenres(genresArray) {
 
 function collectPeople(cast, crew, createdBy) {
 	const people = [];
+	const unlinkedCreators = [];
 	const seen = new Set();
 
 	const creatorList = Array.isArray(createdBy) ? createdBy : [];
@@ -141,6 +142,8 @@ function collectPeople(cast, crew, createdBy) {
 				externalId: String(id),
 				scriptSlug: "person.tmdb",
 			});
+		} else {
+			unlinkedCreators.push({ name, role: "Creator" });
 		}
 	}
 
@@ -171,6 +174,8 @@ function collectPeople(cast, crew, createdBy) {
 				externalId: String(id),
 				scriptSlug: "person.tmdb",
 			});
+		} else {
+			unlinkedCreators.push({ name, role });
 		}
 	}
 
@@ -205,10 +210,12 @@ function collectPeople(cast, crew, createdBy) {
 				externalId: String(id),
 				scriptSlug: "person.tmdb",
 			});
+		} else {
+			unlinkedCreators.push({ name, role: job });
 		}
 	}
 
-	return { people };
+	return { people, unlinkedCreators };
 }
 
 function buildSeason(seasonData, dayjs) {

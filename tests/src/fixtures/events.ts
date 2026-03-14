@@ -19,9 +19,9 @@ const defaultMediaProperties = {
 	productionStatus: null,
 };
 
-const defaultMediaPropertiesWithCreators = {
+const defaultMediaPropertiesWithUnlinkedCreators = {
 	...defaultMediaProperties,
-	freeCreators: [],
+	unlinkedCreators: [],
 };
 
 type BuiltinMediaLifecycleFixtureOptions = {
@@ -40,12 +40,12 @@ const propertiesBySchemaSlug: Record<string, Record<string, unknown>> = {
 		chapters: null,
 	},
 	show: {
-		...defaultMediaPropertiesWithCreators,
+		...defaultMediaPropertiesWithUnlinkedCreators,
 		images: [],
 		showSeasons: [],
 	},
 	podcast: {
-		...defaultMediaPropertiesWithCreators,
+		...defaultMediaPropertiesWithUnlinkedCreators,
 		images: [],
 		episodes: [],
 		totalEpisodes: null,

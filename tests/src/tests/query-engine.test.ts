@@ -131,10 +131,10 @@ describe("Query engine E2E", () => {
 				isNsfw: null,
 				sourceUrl: null,
 				showSeasons: [],
-				freeCreators: [],
 				description: null,
 				publishYear: 2016,
 				providerRating: 88.8,
+				unlinkedCreators: [],
 				productionStatus: "Ended",
 			},
 		});

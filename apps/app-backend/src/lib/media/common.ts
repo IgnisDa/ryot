@@ -30,15 +30,15 @@ export const mediaPropertiesSchema = z
 	})
 	.strict();
 
-export const freeCreatorSchema = z
+export const unlinkedCreatorSchema = z
 	.object({
 		role: z.string().describe("Role this creator held in the production"),
 		name: z.string().describe("Full name of the creator"),
 	})
 	.strict();
 
-export const mediaWithFreeCreatorsPropertiesSchema = mediaPropertiesSchema.extend({
-	freeCreators: z.array(freeCreatorSchema),
+export const mediaWithUnlinkedCreatorsPropertiesSchema = mediaPropertiesSchema.extend({
+	unlinkedCreators: z.array(unlinkedCreatorSchema),
 });
 
 export const personStubSchema = z

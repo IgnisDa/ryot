@@ -209,10 +209,10 @@ driver("details", async function(context) {
 
   const episodesPayload = await lookup(episodeLookup);
 
-  const creators = [];
+  const unlinkedCreators = [];
   const artistName = getString(podcast?.artistName);
   if (artistName) {
-    creators.push({ role: "Artist", name: artistName });
+    unlinkedCreators.push({ role: "Artist", name: artistName });
   }
 
   const episodes = (Array.isArray(episodesPayload?.results)
@@ -266,7 +266,7 @@ driver("details", async function(context) {
       description: getNullableString(podcast?.description),
       sourceUrl: buildSourceUrl(externalId, title),
       images: image.map((url) => ({ type: "remote", url })),
-      freeCreators: creators,
+      unlinkedCreators,
       totalEpisodes: totalEpisodes ?? episodes.length,
       episodes,
     },
