@@ -9,16 +9,16 @@ import {
 	Title,
 } from "@mantine/core";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useFacetsQuery } from "#/features/facets/hooks";
+import { useTrackersQuery } from "#/features/trackers/hooks";
 
 export const Route = createFileRoute("/_protected/")({
 	component: App,
 });
 
 function App() {
-	const facetsQuery = useFacetsQuery();
+	const trackersQuery = useTrackersQuery();
 
-	const hasEnabledFacets = facetsQuery.enabledFacets.length > 0;
+	const hasEnabledTrackers = trackersQuery.enabledTrackers.length > 0;
 
 	return (
 		<Container size="lg" px="md" pb={32} pt={56}>
@@ -66,13 +66,13 @@ function App() {
 					functions, streaming, and type-safe routing. Calm on the eyes. Fast in
 					production.
 				</Text>
-				{facetsQuery.isLoading && (
+				{trackersQuery.isLoading && (
 					<Flex justify="center" p={24}>
 						<Loader size="sm" />
 					</Flex>
 				)}
 
-				{!facetsQuery.isLoading && facetsQuery.isError && (
+				{!trackersQuery.isLoading && trackersQuery.isError && (
 					<Flex align="center" direction="column" gap="xs">
 						<Text c="red" size="sm">
 							Failed to load trackers.
@@ -80,47 +80,49 @@ function App() {
 						<Button
 							size="xs"
 							variant="light"
-							onClick={() => facetsQuery.refetch()}
+							onClick={() => trackersQuery.refetch()}
 						>
 							Retry
 						</Button>
 					</Flex>
 				)}
 
-				{!facetsQuery.isLoading &&
-					!facetsQuery.isError &&
-					!hasEnabledFacets && (
+				{!trackersQuery.isLoading &&
+					!trackersQuery.isError &&
+					!hasEnabledTrackers && (
 						<Text c="dimmed" size="sm">
 							No enabled trackers yet. Hover the Tracking header in the sidebar
 							and click + to create one.
 						</Text>
 					)}
 
-				{!facetsQuery.isLoading && !facetsQuery.isError && hasEnabledFacets && (
-					<Flex gap="md" wrap="wrap">
-						{facetsQuery.enabledFacets.map((facet) => (
-							<Link
-								key={facet.slug}
-								to="/$facetSlug"
-								params={{ facetSlug: facet.slug }}
-								style={{
-									fontWeight: 600,
-									borderRadius: 9999,
-									padding: "10px 20px",
-									fontSize: "0.875rem",
-									transition: "all 0.2s",
-									textDecoration: "none",
-									display: "inline-block",
-									color: "var(--mantine-color-teal-7)",
-									background: "rgba(79, 184, 178, 0.14)",
-									border: "1px solid rgba(50, 143, 151, 0.3)",
-								}}
-							>
-								{facet.name}
-							</Link>
-						))}
-					</Flex>
-				)}
+				{!trackersQuery.isLoading &&
+					!trackersQuery.isError &&
+					hasEnabledTrackers && (
+						<Flex gap="md" wrap="wrap">
+							{trackersQuery.enabledTrackers.map((tracker) => (
+								<Link
+									key={tracker.slug}
+									to="/$trackerSlug"
+									params={{ trackerSlug: tracker.slug }}
+									style={{
+										fontWeight: 600,
+										borderRadius: 9999,
+										padding: "10px 20px",
+										fontSize: "0.875rem",
+										transition: "all 0.2s",
+										textDecoration: "none",
+										display: "inline-block",
+										color: "var(--mantine-color-teal-7)",
+										background: "rgba(79, 184, 178, 0.14)",
+										border: "1px solid rgba(50, 143, 151, 0.3)",
+									}}
+								>
+									{tracker.name}
+								</Link>
+							))}
+						</Flex>
+					)}
 			</Paper>
 		</Container>
 	);

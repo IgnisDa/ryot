@@ -8,11 +8,11 @@ import { entitiesApi } from "~/modules/entities/routes";
 import { entitySchemasApi } from "~/modules/entity-schemas/routes";
 import { eventSchemasApi } from "~/modules/event-schemas/routes";
 import { eventsApi } from "~/modules/events/routes";
-import { facetsApi } from "~/modules/facets/routes";
 import { healthApi } from "~/modules/health/routes";
 import { metricsApi } from "~/modules/metrics/routes";
 import { sandboxApi } from "~/modules/sandbox/routes";
 import { savedViewsApi } from "~/modules/saved-views/routes";
+import { trackersApi } from "~/modules/trackers/routes";
 import { uploadsApi } from "~/modules/uploads/routes";
 
 const openApiInfo = {
@@ -44,7 +44,7 @@ export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/metrics", metricsApi)
 	.route("/authentication", authenticationApi)
 	.route("/sandbox", sandboxApi)
-	.route("/facets", facetsApi)
+	.route("/trackers", trackersApi)
 	.route("/entity-schemas", entitySchemasApi)
 	.route("/entities", entitiesApi)
 	.route("/event-schemas", eventSchemasApi)

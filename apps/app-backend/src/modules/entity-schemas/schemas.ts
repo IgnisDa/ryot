@@ -17,7 +17,7 @@ export const listedEntitySchemaSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	slug: z.string(),
-	facetId: z.string(),
+	trackerId: z.string(),
 	isBuiltin: z.boolean(),
 	icon: nonEmptyTrimmedStringSchema,
 	accentColor: nonEmptyTrimmedStringSchema,
@@ -33,12 +33,12 @@ export const createEntitySchemaResponseSchema = dataSchema(
 );
 
 export const listEntitySchemasQuery = z.object({
-	facetId: nonEmptyTrimmedStringSchema,
+	trackerId: nonEmptyTrimmedStringSchema,
 });
 
 export const createEntitySchemaBody = createNameWithOptionalSlugSchema({
 	icon: nonEmptyTrimmedStringSchema,
-	facetId: nonEmptyTrimmedStringSchema,
+	trackerId: nonEmptyTrimmedStringSchema,
 	accentColor: nonEmptyTrimmedStringSchema,
 	propertiesSchema: entitySchemaPropertiesInputSchema,
 });

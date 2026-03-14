@@ -12,15 +12,15 @@ import {
 	successResponse,
 } from "~/lib/openapi";
 import {
-	customFacetError,
-	facetNotFoundError,
-	resolveCustomFacetAccess,
-} from "../facets/access";
-import { getFacetScopeForUser } from "../facets/repository";
+	customTrackerError,
+	resolveCustomTrackerAccess,
+	trackerNotFoundError,
+} from "../trackers/access";
+import { getTrackerScopeForUser } from "../trackers/repository";
 import {
 	createEntitySchemaForUser,
 	getEntitySchemaBySlugForUser,
-	listEntitySchemasByFacetForUser,
+	listEntitySchemasByTrackerForUser,
 } from "./repository";
 import {
 	createEntitySchemaBody,
@@ -30,7 +30,7 @@ import {
 } from "./schemas";
 import {
 	resolveEntitySchemaCreateInput,
-	resolveEntitySchemaFacetId,
+	resolveEntitySchemaTrackerId,
 } from "./service";
 
 const listEntitySchemasRoute = createAuthRoute(
@@ -39,12 +39,12 @@ const listEntitySchemasRoute = createAuthRoute(
 		method: "get",
 		tags: ["entity-schemas"],
 		request: { query: listEntitySchemasQuery },
-		summary: "List entity schemas for a custom facet",
+		summary: "List entity schemas for a custom tracker",
 		responses: {
 			400: payloadErrorResponse(),
-			404: notFoundResponse("Facet does not exist for this user"),
+			404: notFoundResponse("Tracker does not exist for this user"),
 			200: jsonResponse(
-				"Entity schemas for the requested facet",
+				"Entity schemas for the requested tracker",
 				listEntitySchemasResponseSchema,
 			),
 		},
@@ -56,7 +56,7 @@ const createEntitySchemaRoute = createAuthRoute(
 		path: "/",
 		method: "post",
 		tags: ["entity-schemas"],
-		summary: "Create an entity schema for a custom facet",
+		summary: "Create an entity schema for a custom tracker",
 		request: {
 			body: {
 				content: { "application/json": { schema: createEntitySchemaBody } },
@@ -64,7 +64,7 @@ const createEntitySchemaRoute = createAuthRoute(
 		},
 		responses: {
 			400: payloadErrorResponse(),
-			404: notFoundResponse("Facet does not exist for this user"),
+			404: notFoundResponse("Tracker does not exist for this user"),
 			200: jsonResponse(
 				"Entity schema was created",
 				createEntitySchemaResponseSchema,
@@ -78,11 +78,11 @@ const entitySchemaUniqueConstraint = "entity_schema_user_slug_unique";
 const duplicateSlugErrorResult =
 	createValidationErrorResult(duplicateSlugError);
 
-const resolveFacetAccessError = (error: "builtin" | "not_found") => ({
+const resolveTrackerAccessError = (error: "builtin" | "not_found") => ({
 	body:
 		error === "not_found"
-			? createNotFoundErrorResult(facetNotFoundError).body
-			: createValidationErrorResult(customFacetError).body,
+			? createNotFoundErrorResult(trackerNotFoundError).body
+			: createValidationErrorResult(customTrackerError).body,
 	status: error === "not_found" ? (404 as const) : (400 as const),
 });
 
@@ -90,22 +90,22 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(listEntitySchemasRoute, async (c) => {
 		const user = c.get("user");
 		const query = c.req.valid("query");
-		const facetId = resolveEntitySchemaFacetId(query.facetId);
+		const trackerId = resolveEntitySchemaTrackerId(query.trackerId);
 
-		const foundFacet = resolveCustomFacetAccess(
-			await getFacetScopeForUser({
-				facetId,
+		const foundTracker = resolveCustomTrackerAccess(
+			await getTrackerScopeForUser({
+				trackerId,
 				userId: user.id,
 			}),
 		);
-		const listFacetError = foundFacet.error;
-		if (listFacetError) {
-			const errorResult = resolveFacetAccessError(listFacetError);
+		const listTrackerError = foundTracker.error;
+		if (listTrackerError) {
+			const errorResult = resolveTrackerAccessError(listTrackerError);
 			return c.json(errorResult.body, errorResult.status);
 		}
 
-		const entitySchemas = await listEntitySchemasByFacetForUser({
-			facetId,
+		const entitySchemas = await listEntitySchemasByTrackerForUser({
+			trackerId,
 			userId: user.id,
 		});
 
@@ -114,17 +114,17 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(createEntitySchemaRoute, async (c) => {
 		const user = c.get("user");
 		const body = c.req.valid("json");
-		const facetId = resolveEntitySchemaFacetId(body.facetId);
+		const trackerId = resolveEntitySchemaTrackerId(body.trackerId);
 
-		const foundFacet = resolveCustomFacetAccess(
-			await getFacetScopeForUser({
-				facetId,
+		const foundTracker = resolveCustomTrackerAccess(
+			await getTrackerScopeForUser({
+				trackerId,
 				userId: user.id,
 			}),
 		);
-		const createFacetError = foundFacet.error;
-		if (createFacetError) {
-			const errorResult = resolveFacetAccessError(createFacetError);
+		const createTrackerError = foundTracker.error;
+		if (createTrackerError) {
+			const errorResult = resolveTrackerAccessError(createTrackerError);
 			return c.json(errorResult.body, errorResult.status);
 		}
 
@@ -148,7 +148,7 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 
 		try {
 			const createdEntitySchema = await createEntitySchemaForUser({
-				facetId,
+				trackerId,
 				userId: user.id,
 				icon: entitySchemaData.icon,
 				name: entitySchemaData.name,

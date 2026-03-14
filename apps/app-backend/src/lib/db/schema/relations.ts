@@ -6,31 +6,31 @@ import {
 	entitySchemaSandboxScript,
 	event,
 	eventSchema,
-	facet,
-	facetEntitySchema,
 	relationship,
 	sandboxScript,
 	savedView,
+	tracker,
+	trackerEntitySchema,
 } from "./tables";
 
-export const facetRelations = relations(facet, ({ one, many }) => ({
-	facetEntitySchemas: many(facetEntitySchema),
+export const trackerRelations = relations(tracker, ({ one, many }) => ({
+	trackerEntitySchemas: many(trackerEntitySchema),
 	user: one(user, {
 		references: [user.id],
-		fields: [facet.userId],
+		fields: [tracker.userId],
 	}),
 }));
 
-export const facetEntitySchemaRelations = relations(
-	facetEntitySchema,
+export const trackerEntitySchemaRelations = relations(
+	trackerEntitySchema,
 	({ one }) => ({
-		facet: one(facet, {
-			references: [facet.id],
-			fields: [facetEntitySchema.facetId],
+		tracker: one(tracker, {
+			references: [tracker.id],
+			fields: [trackerEntitySchema.trackerId],
 		}),
 		entitySchema: one(entitySchema, {
 			references: [entitySchema.id],
-			fields: [facetEntitySchema.entitySchemaId],
+			fields: [trackerEntitySchema.entitySchemaId],
 		}),
 	}),
 );
@@ -40,7 +40,7 @@ export const entitySchemaRelations = relations(
 	({ one, many }) => ({
 		entities: many(entity),
 		eventSchemas: many(eventSchema),
-		facetEntitySchemas: many(facetEntitySchema),
+		trackerEntitySchemas: many(trackerEntitySchema),
 		entitySchemaSandboxScripts: many(entitySchemaSandboxScript),
 		user: one(user, {
 			references: [user.id],

@@ -1,6 +1,6 @@
 # Ryot — Project Soul Document
 
-> **Ryot** (Roll Your Own Tracker), pronounced "riot", is a self-hosted platform for tracking various facets of your life — media, fitness, and anything else you care about. This document defines what Ryot is, why it exists, and the principles that guide every decision made during its development.
+> **Ryot** (Roll Your Own Tracker), pronounced "riot", is a self-hosted platform for tracking various trackers of your life — media, fitness, and anything else you care about. This document defines what Ryot is, why it exists, and the principles that guide every decision made during its development.
 
 **Last updated:** March 2026
 **Status:** This is a living document. Update it as the project evolves.
@@ -13,7 +13,7 @@ Ryot is a ground-up rewrite of the original Ryot application. The core mission r
 
 The original Ryot tracked media consumption and fitness. The new Ryot tracks *anything*. Movies, workouts, whiskeys, places, coffee, wine — whatever matters to you. It ships with curated, polished experiences for media and fitness, and gives you the tools to build your own tracker for everything else.
 
-The elevator pitch: **A self-hosted personal data platform where every facet of your life — what you watch, what you lift, what you taste, where you go — lives in one place, owned entirely by you.**
+The elevator pitch: **A self-hosted personal data platform where every tracker of your life — what you watch, what you lift, what you taste, where you go — lives in one place, owned entirely by you.**
 
 ---
 
@@ -35,19 +35,19 @@ Ryot is self-hosted first. Users run it on their own hardware and own their data
 
 ### 2. Everything is an entity
 
-This is the foundational data model decision. There are no special-case tables for movies, books, whiskeys, or exercises. There is one `entity` table. An entity belongs to an `entity_schema` that defines its shape. Events happen to entities. Entities relate to other entities. This uniformity is what makes cross-facet features (collections, saved views, the query builder, global search) possible without special-casing each entity type.
+This is the foundational data model decision. There are no special-case tables for movies, books, whiskeys, or exercises. There is one `entity` table. An entity belongs to an `entity_schema` that defines its shape. Events happen to entities. Entities relate to other entities. This uniformity is what makes cross-tracker features (collections, saved views, the query builder, global search) possible without special-casing each entity type.
 
 ### 3. Curated where it matters, generated where it doesn't
 
 Media tracking has specific UX expectations — poster grids, season/episode hierarchies, external metadata from TMDB. Fitness has its own patterns — workout session builders, progressive overload charts, rest timers. These deserve hand-crafted interfaces that feel as good as purpose-built vertical apps. User-created entity types get a schema-driven generated UI that is functional and clean but not hand-crafted. Users who create a "whiskey" tracker understand they're building something custom — their expectations are calibrated accordingly.
 
-### 4. Facets are the organizing principle
+### 4. Trackers are the organizing principle
 
-A facet is a tracking domain — Media, Fitness, Whiskey, Places. Each facet owns one or more entity schemas, their event schemas, and their UI presentation. Facets can be enabled or disabled. The app adapts dynamically — a user tracking only whiskeys sees a focused single-purpose experience; a power user tracking ten things sees a rich dashboard. Media and Fitness are built-in facets that ship with the app. They are structurally identical to user-created facets — they just have hand-crafted UIs and pre-configured external data sources. No facet is assumed to exist. The sidebar, dashboard, quick actions, and every other surface are driven entirely by which facets are active.
+A tracker is a tracking domain — Media, Fitness, Whiskey, Places. Each tracker owns one or more entity schemas, their event schemas, and their UI presentation. Trackers can be enabled or disabled. The app adapts dynamically — a user tracking only whiskeys sees a focused single-purpose experience; a power user tracking ten things sees a rich dashboard. Media and Fitness are built-in trackers that ship with the app. They are structurally identical to user-created trackers — they just have hand-crafted UIs and pre-configured external data sources. No tracker is assumed to exist. The sidebar, dashboard, quick actions, and every other surface are driven entirely by which trackers are active.
 
 ### 5. The unified data layer is sacred
 
-Facets are a UI/presentation concept. Underneath, the data model is unified. A collection doesn't care whether it contains movies, whiskeys, or places — they're all entities. The query builder doesn't care which facet an entity belongs to — it queries the same tables. Global search spans everything. This unified layer is what makes Ryot more than the sum of its parts. Never break this by introducing facet-specific data models that can't participate in cross-facet features.
+Trackers are a UI/presentation concept. Underneath, the data model is unified. A collection doesn't care whether it contains movies, whiskeys, or places — they're all entities. The query builder doesn't care which tracker an entity belongs to — it queries the same tables. Global search spans everything. This unified layer is what makes Ryot more than the sum of its parts. Never break this by introducing tracker-specific data models that can't participate in cross-tracker features.
 
 ### 6. Privacy is a feature, not a constraint
 
@@ -76,7 +76,7 @@ Entity and event properties are stored as jsonb in Postgres and validated agains
 - **Simplicity**: AppSchema is a minimal, TypeScript-native format that defines property types (`string`, `number`, `integer`, `boolean`, `date`, `array`, `object`) with an optional `required` flag. No external dependencies or complex standards to integrate.
 - **Data-driven definitions**: Property definitions are stored as data (jsonb) rather than requiring schema migrations for each new entity type.
 - **Bidirectional conversion**: The `@ryot/ts-utils` package provides functions to convert between Zod schemas (used in code) and AppSchema (stored in the database), enabling type-safe validation at runtime.
-- **Form generation**: AppSchema's simple structure can be consumed by UI components to auto-generate input forms for custom facets without heavy dependencies like `react-jsonschema-form`.
+- **Form generation**: AppSchema's simple structure can be consumed by UI components to auto-generate input forms for custom trackers without heavy dependencies like `react-jsonschema-form`.
 - **Full type coverage**: Supports strings, numbers, integers, booleans, dates, arrays (with recursive item types), objects (with nested properties), and required modifiers.
 
 Example AppSchema definition:
@@ -90,36 +90,36 @@ Example AppSchema definition:
 }
 ```
 
-The tradeoff: querying into jsonb is less efficient than querying typed columns. For the built-in facets where we know the property shapes ahead of time, we accept this tradeoff because the unified data model is more valuable than per-facet query optimization. If specific queries become bottlenecks, Postgres generated columns or materialized views can index frequently-queried jsonb paths without breaking the model.
+The tradeoff: querying into jsonb is less efficient than querying typed columns. For the built-in trackers where we know the property shapes ahead of time, we accept this tradeoff because the unified data model is more valuable than per-tracker query optimization. If specific queries become bottlenecks, Postgres generated columns or materialized views can index frequently-queried jsonb paths without breaking the model.
 
-### Why facets instead of just entity schemas?
+### Why trackers instead of just entity schemas?
 
-An entity schema defines the shape of a single entity type. A facet groups related schemas and owns their UI presentation. The Media facet contains movie, show, book, podcast, video game, person, and group schemas. Fitness contains exercise, workout, and measurement schemas. A user-created whiskey facet contains just one schema.
+An entity schema defines the shape of a single entity type. A tracker groups related schemas and owns their UI presentation. The Media tracker contains movie, show, book, podcast, video game, person, and group schemas. Fitness contains exercise, workout, and measurement schemas. A user-created whiskey tracker contains just one schema.
 
-Without the facet concept, the app would have a flat list of entity schemas in the sidebar with no visual or logical grouping. Facets provide:
+Without the tracker concept, the app would have a flat list of entity schemas in the sidebar with no visual or logical grouping. Trackers provide:
 
-- **UI routing**: the app knows whether to render a curated hand-crafted UI (Media, Fitness) or a schema-generated UI (custom facets).
+- **UI routing**: the app knows whether to render a curated hand-crafted UI (Media, Fitness) or a schema-generated UI (custom trackers).
 - **Grouped navigation**: Media expands in the sidebar to show Movies, TV Shows, Books, etc.
-- **Dashboard contributions**: each facet contributes widgets, stat cards, and quick actions to the home dashboard.
-- **Enable/disable granularity**: turning off the Media facet hides all media-related schemas, not just one.
+- **Dashboard contributions**: each tracker contributes widgets, stat cards, and quick actions to the home dashboard.
+- **Enable/disable granularity**: turning off the Media tracker hides all media-related schemas, not just one.
 
-Facets are primarily a UI concept. In the database, the `entity_schema` table may have a `facet` or `facet_type` field, but the core entity/event/relationship tables don't know about facets at all.
+Trackers are primarily a UI concept. In the database, the `entity_schema` table may have a `tracker` or `tracker_type` field, but the core entity/event/relationship tables don't know about trackers at all.
 
-### Collections are cross-facet by design
+### Collections are cross-tracker by design
 
-Collections are not constrained to a single facet. A "Trip to Japan" collection can contain movies, whiskeys, places, and books. This is one of Ryot's most compelling features — your life doesn't organize itself by data type.
+Collections are not constrained to a single tracker. A "Trip to Japan" collection can contain movies, whiskeys, places, and books. This is one of Ryot's most compelling features — your life doesn't organize itself by data type.
 
 Structurally, a collection is itself an entity (with a "collection" entity schema), and membership is modeled as relationships. This keeps collections within the unified data model rather than introducing a parallel system.
 
 The Collections page in the sidebar is a built-in saved view that lists all collection entities. It follows the same pattern as "Movies" or "TV Shows" — clicking "Collections" navigates to a saved view with `queryDefinition: { entity_schema: "collection" }`. This means collections get the same browsing, filtering, and sorting capabilities as any other entity type, rendered through the unified saved view component.
 
-For rendering mixed-entity collections, items display in a uniform card format: entity name, schema type as a colored badge, thumbnail if available, and most recent event summary. This is intentionally less rich than a facet-specific view — the value of a cross-facet collection is seeing the breadth of what's in it, not the depth of each item.
+For rendering mixed-entity collections, items display in a uniform card format: entity name, schema type as a colored badge, thumbnail if available, and most recent event summary. This is intentionally less rich than a tracker-specific view — the value of a cross-tracker collection is seeing the breadth of what's in it, not the depth of each item.
 
 ### Saved views are query-scoped, collections are unrestricted
 
-Saved views depend on the query builder, which needs to know property types to offer the right filter operators. Saved views can target one schema, multiple schemas, or full facets. Filters are schema-aware: operators are offered only where they are valid, and conditions against missing properties evaluate predictably rather than breaking the query.
+Saved views depend on the query builder, which needs to know property types to offer the right filter operators. Saved views can target one schema, multiple schemas, or full trackers. Filters are schema-aware: operators are offered only where they are valid, and conditions against missing properties evaluate predictably rather than breaking the query.
 
-The scope of a saved view (which schemas/facets it targets) is stored within its `queryDefinition` jsonb, not as a foreign key reference. This allows saved views to flexibly target multiple schemas or entire facets without requiring complex junction tables. The sidebar rendering logic determines which facet a saved view belongs under by examining its query definition.
+The scope of a saved view (which schemas/trackers it targets) is stored within its `queryDefinition` jsonb, not as a foreign key reference. This allows saved views to flexibly target multiple schemas or entire trackers without requiring complex junction tables. The sidebar rendering logic determines which tracker a saved view belongs under by examining its query definition.
 
 Collections have no such constraint. They're just buckets of entities.
 
@@ -138,13 +138,13 @@ For dashboard widgets specifically, scripts return a render spec (type: stat/cha
 
 Script execution is subject to timeouts (2 seconds for dashboard widgets), result caching, and rate limits for external API calls.
 
-### No facet is assumed to exist
+### No tracker is assumed to exist
 
-This is a critical implementation principle. Every surface of the app — the sidebar, the dashboard, the quick actions, the onboarding flow — must function correctly with zero facets, one facet, or twenty facets active. The dashboard is not "a media dashboard with some other stuff." It's a composable widget surface where each active facet contributes its pieces.
+This is a critical implementation principle. Every surface of the app — the sidebar, the dashboard, the quick actions, the onboarding flow — must function correctly with zero trackers, one tracker, or twenty trackers active. The dashboard is not "a media dashboard with some other stuff." It's a composable widget surface where each active tracker contributes its pieces.
 
 This means:
 
-- The sidebar's TRACKING section is dynamically populated from active facets.
+- The sidebar's TRACKING section is dynamically populated from active trackers.
 - Dashboard stat cards, quick actions, and the activity feed are assembled from what's available.
 - The onboarding flow for a new user starts with "What do you want to track?" rather than assuming everyone wants media + fitness.
 - A user who disables Media and Fitness and only tracks whiskeys has a first-class experience.
@@ -157,9 +157,9 @@ Power users who understand the implications can make breaking changes through ra
 
 ### Entity list pages are pre-built saved views
 
-The sidebar sub-items under a facet (Movies, TV Shows, Books under Media; Workouts, Measurements under Fitness; or the single entry for a custom Whiskey facet) are not custom-built pages. They are **pre-built, non-deletable saved views** that ship with each facet. The "Movies" page is a saved view with the query `entity_schema = movie` and zero additional filters. When a user adds filters, sorts, or changes the layout, they're interacting with saved view configuration.
+The sidebar sub-items under a tracker (Movies, TV Shows, Books under Media; Workouts, Measurements under Fitness; or the single entry for a custom Whiskey tracker) are not custom-built pages. They are **pre-built, non-deletable saved views** that ship with each tracker. The "Movies" page is a saved view with the query `entity_schema = movie` and zero additional filters. When a user adds filters, sorts, or changes the layout, they're interacting with saved view configuration.
 
-This means there is no separate "entity list page" component. The saved view renderer *is* the entity list page. Custom facets get the exact same browsing experience for free — when a user creates a Whiskey facet, they automatically get a saved view in the sidebar that shows all whiskey entities.
+This means there is no separate "entity list page" component. The saved view renderer *is* the entity list page. Custom trackers get the exact same browsing experience for free — when a user creates a Whiskey tracker, they automatically get a saved view in the sidebar that shows all whiskey entities.
 
 In the database schema, saved views have an `isBuiltin` boolean flag. Views with `isBuiltin = true` cannot be deleted through the UI or API — this protects the essential entity list views that ship with each schema. User-created saved views have `isBuiltin = false` and are deletable.
 
@@ -186,9 +186,9 @@ A saved view carries two pieces of configuration:
 }
 ```
 
-For built-in facets, display configs are hand-tuned — movies default to a poster grid with genre/year/rating filters promoted. For custom facets, the display config is auto-generated from the schema: the first image property becomes the thumbnail, name is the title, the first 2-3 properties become subtitle fields, and the first numeric property becomes the badge.
+For built-in trackers, display configs are hand-tuned — movies default to a poster grid with genre/year/rating filters promoted. For custom trackers, the display config is auto-generated from the schema: the first image property becomes the thumbnail, name is the title, the first 2-3 properties become subtitle fields, and the first numeric property becomes the badge.
 
-**Facet landing pages vs entity list views are distinct.** Clicking "Media" in the sidebar navigates to a facet overview — a dashboard-like widget surface with multiple sections ("In Progress," "Recently Watched," "Upcoming") composed from multiple saved view queries. Clicking "Movies" navigates to the single saved view for all movies. This separation is natural: overview pages answer "what's happening in this facet?" while entity list pages answer "show me everything of this type." Facet overview pages are curated for built-in facets and auto-generated (recent activity + stats) for custom facets.
+**Tracker landing pages vs entity list views are distinct.** Clicking "Media" in the sidebar navigates to a tracker overview — a dashboard-like widget surface with multiple sections ("In Progress," "Recently Watched," "Upcoming") composed from multiple saved view queries. Clicking "Movies" navigates to the single saved view for all movies. This separation is natural: overview pages answer "what's happening in this tracker?" while entity list pages answer "show me everything of this type." Tracker overview pages are curated for built-in trackers and auto-generated (recent activity + stats) for custom trackers.
 
 The practical consequence of this decision: saved views are a core primitive, not a power-user feature. Every user interacts with saved views from their first session — they just don't know it. User-created saved views (via the query builder) are the same component with custom queries and display configs.
 
@@ -234,9 +234,9 @@ API keys with configurable permissions and rate limiting are supported.
 
 The sidebar is the primary navigation mechanism and is persistent across all screens. It has three sections:
 
-1. **Top**: Home (cross-facet dashboard) and Global Search.
-2. **TRACKING**: dynamically populated list of active facets. Built-in facets (Media, Fitness) are expandable with sub-items (Movies, TV Shows, etc.). Custom facets appear as single items. A "+ Add Tracker" link at the bottom is the entry point to create new facets.
-3. **LIBRARY**: Collections and Saved Views. These are always visible regardless of which facets are active because they are cross-facet features.
+1. **Top**: Home (cross-tracker dashboard) and Global Search.
+2. **TRACKING**: dynamically populated list of active trackers. Built-in trackers (Media, Fitness) are expandable with sub-items (Movies, TV Shows, etc.). Custom trackers appear as single items. A "+ Add Tracker" link at the bottom is the entry point to create new trackers.
+3. **LIBRARY**: Collections and Saved Views. These are always visible regardless of which trackers are active because they are cross-tracker features.
    - **Collections**: Navigates to a built-in saved view (`isBuiltin: true`) that lists all collection entities with `queryDefinition: { entity_schema: "collection" }`. Uses the same saved view renderer as entity list pages.
    - **Saved Views**: Navigates to a management page that lists user-created saved views (`isBuiltin: false`), allowing users to browse, edit, and delete their custom views created via the query builder.
 
@@ -244,31 +244,31 @@ On mobile, the sidebar collapses into a bottom tab bar with the most-used items 
 
 ### Dashboard as a widget surface
 
-The home dashboard is not a static layout. It's composed of widgets contributed by active facets, driven by scripts. The Phase 1 baseline is a minimal static activity feed; the full script-driven widget model is introduced in Phase 3. Each widget is one of a fixed set of render types (stat card, chart, list, table, map, progress bar). Users can customize which widgets appear and their arrangement.
+The home dashboard is not a static layout. It's composed of widgets contributed by active trackers, driven by scripts. The Phase 1 baseline is a minimal static activity feed; the full script-driven widget model is introduced in Phase 3. Each widget is one of a fixed set of render types (stat card, chart, list, table, map, progress bar). Users can customize which widgets appear and their arrangement.
 
-A user with only Whiskey active sees whiskey stat cards, a recent tastings feed, and whiskey-specific quick actions. A power user sees a dense grid of widgets from all their facets. The dashboard is never empty — it always shows at least the "Add Tracker" prompt for new users, and an activity feed plus stats for everyone else.
+A user with only Whiskey active sees whiskey stat cards, a recent tastings feed, and whiskey-specific quick actions. A power user sees a dense grid of widgets from all their trackers. The dashboard is never empty — it always shows at least the "Add Tracker" prompt for new users, and an activity feed plus stats for everyone else.
 
-### Global search is cross-facet
+### Global search is cross-tracker
 
-The global search (Cmd+K / Ctrl+K) searches across all entities regardless of facet. Results are grouped: "In Your Library" shows entities the user has already tracked with their ratings and last event. "Global Search Results" shows matches from external sources (TMDB, IGDB, etc.) for built-in facets. A "Create New" option at the bottom lets users create an entity that doesn't exist in any source.
+The global search (Cmd+K / Ctrl+K) searches across all entities regardless of tracker. Results are grouped: "In Your Library" shows entities the user has already tracked with their ratings and last event. "Global Search Results" shows matches from external sources (TMDB, IGDB, etc.) for built-in trackers. A "Create New" option at the bottom lets users create an entity that doesn't exist in any source.
 
 ### Event logging: curated forms vs generated forms
 
-For built-in facets, event logging uses hand-crafted forms. The "Log Watch" modal for a movie has purpose-built fields (date picker, platform dropdown, rating slider, review textarea) alongside contextual information (previous watches with ratings, total view count). These forms are designed to be fast — a user should be able to log a movie watch in under 10 seconds.
+For built-in trackers, event logging uses hand-crafted forms. The "Log Watch" modal for a movie has purpose-built fields (date picker, platform dropdown, rating slider, review textarea) alongside contextual information (previous watches with ratings, total view count). These forms are designed to be fast — a user should be able to log a movie watch in under 10 seconds.
 
-For custom facets, event logging uses forms generated from the event schema's AppSchema definition. The schema's type information controls widget selection (number input for `integer`/`number`, text input for `string`, date picker for `date`, etc.). These forms are functional but not as polished as the curated ones.
+For custom trackers, event logging uses forms generated from the event schema's AppSchema definition. The schema's type information controls widget selection (number input for `integer`/`number`, text input for `string`, date picker for `date`, etc.). These forms are functional but not as polished as the curated ones.
 
 ### Entity detail pages: curated vs generated
 
 The Interstellar movie detail page has a cinematic hero section with backdrop, poster, metadata pills, a hand-crafted properties panel, cast/relationships section, activity timeline, and personal notes. This level of craft is only possible because we know what a movie looks like.
 
-A whiskey entity detail page is generated from the schema: properties rendered as labeled fields, events shown as a timeline, relationships listed generically. It works well but doesn't have the cinematic flair of the movie page. This is the explicit tradeoff of the facet model — curated where it matters, generated where it doesn't.
+A whiskey entity detail page is generated from the schema: properties rendered as labeled fields, events shown as a timeline, relationships listed generically. It works well but doesn't have the cinematic flair of the movie page. This is the explicit tradeoff of the tracker model — curated where it matters, generated where it doesn't.
 
 ### Visual query builder
 
-The query builder is a stepped interface: (1) select the base scope (one schema, many schemas, or a facet), (2) add attribute filters on entity properties, (3) add event logic (aggregations on events). Results show as a live preview below the builder. Queries can be saved as views that appear in the sidebar.
+The query builder is a stepped interface: (1) select the base scope (one schema, many schemas, or a tracker), (2) add attribute filters on entity properties, (3) add event logic (aggregations on events). Results show as a live preview below the builder. Queries can be saved as views that appear in the sidebar.
 
-The query builder is schema-aware, not single-schema-only. It supports multi-schema and facet-level queries while preserving type safety by exposing operators and fields that are valid for the selected scope.
+The query builder is schema-aware, not single-schema-only. It supports multi-schema and tracker-level queries while preserving type safety by exposing operators and fields that are valid for the selected scope.
 
 Critically, the query builder is not a separate system from entity list pages. Every entity list page (Movies, Whiskey, etc.) is a saved view. The query builder is just the editing interface for a saved view's query definition and display configuration. When a user clicks "Save View" in the query builder, they're creating the same object that powers sidebar navigation. This unification means one renderer, one component, one data model for all browsing experiences.
 
@@ -296,20 +296,20 @@ Heading weight is 600 (semi-bold). Body text uses regular weight. This separatio
 
 **Light mode:** Stone-tinted whites. Background is stone-1 (#F5F5F4), surfaces are white, borders are stone-3 (#D6D3D1). The slight warmth prevents the sterile look of pure whites.
 
-Both modes share the same accent and facet color palettes, ensuring brand consistency across user preference.
+Both modes share the same accent and tracker color palettes, ensuring brand consistency across user preference.
 
-### Per-Facet Color Coding
+### Per-Tracker Color Coding
 
-Each facet has a dedicated color pair (base + muted background) used consistently across badges, stat card borders, activity log accent bars, and entity cards:
+Each tracker has a dedicated color pair (base + muted background) used consistently across badges, stat card borders, activity log accent bars, and entity cards:
 
-| Facet   | Base             | Usage                                                   |
+| Tracker   | Base             | Usage                                                   |
 | ------- | ---------------- | ------------------------------------------------------- |
-| Media   | #5B7FFF (blue)   | Default for content-consumption facets                  |
-| Fitness | #2DD4BF (teal)   | Active/physical tracking facets                         |
-| Whiskey | #D4A574 (gold)   | Matches the primary accent; tasting/appreciation facets |
-| Places  | #A78BFA (violet) | Location and travel facets                              |
+| Media   | #5B7FFF (blue)   | Default for content-consumption trackers                  |
+| Fitness | #2DD4BF (teal)   | Active/physical tracking trackers                         |
+| Whiskey | #D4A574 (gold)   | Matches the primary accent; tasting/appreciation trackers |
+| Places  | #A78BFA (violet) | Location and travel trackers                              |
 
-User-created facets receive colors from a predefined palette that maintains sufficient contrast in both light and dark modes. The palette avoids reds (which imply errors) and the exact shades already assigned to built-in facets.
+User-created trackers receive colors from a predefined palette that maintains sufficient contrast in both light and dark modes. The palette avoids reds (which imply errors) and the exact shades already assigned to built-in trackers.
 
 ### Component Patterns
 
@@ -317,17 +317,17 @@ User-created facets receive colors from a predefined palette that maintains suff
 
 **Section headers:** Left-border accent bars mark section boundaries in the sidebar and content areas. This is a brutalist-inspired element that adds visual anchoring without heavy decoration.
 
-**Stat cards:** Top-border color bars (3px) in the facet's color. Creates an immediate visual association between the stat and its facet without overwhelming the card.
+**Stat cards:** Top-border color bars (3px) in the tracker's color. Creates an immediate visual association between the stat and its tracker without overwhelming the card.
 
-**Entity cards:** Image region with gradient overlay, facet-colored badge, Space Grotesk title. Rating badges use the facet color as background. Cards without images show a neutral placeholder — never a broken image state.
+**Entity cards:** Image region with gradient overlay, tracker-colored badge, Space Grotesk title. Rating badges use the tracker color as background. Cards without images show a neutral placeholder — never a broken image state.
 
-**Activity log:** Left-border accent bars (3px) in each event's facet color. Events are compact single-line entries with facet badge, timestamp, and property pills. The log is dense but scannable.
+**Activity log:** Left-border accent bars (3px) in each event's tracker color. Events are compact single-line entries with tracker badge, timestamp, and property pills. The log is dense but scannable.
 
 **Hover interactions:** Subtle elevation shifts (translateY -3px to -4px) with soft shadows. On mobile, hover effects are disabled entirely — they serve no purpose on touch devices and cause visual glitches.
 
 ### Density
 
-The interface leans compact. Cards use tight padding, event logs are single-line, and stat numbers are large but surrounded by minimal whitespace. The goal is information density without claustrophobia — a user with 10 active facets should see meaningful data on every screen without excessive scrolling.
+The interface leans compact. Cards use tight padding, event logs are single-line, and stat numbers are large but surrounded by minimal whitespace. The goal is information density without claustrophobia — a user with 10 active trackers should see meaningful data on every screen without excessive scrolling.
 
 Spacing between sections uses clear visual breaks (dividers, section headers with subtitles) rather than large empty gaps.
 
@@ -337,7 +337,7 @@ Spacing between sections uses clear visual breaks (dividers, section headers wit
 
 Ryot follows a freemium, open-source model with two deployment options:
 
-**Self-hosted (free):** Users run the open-source core on their own infrastructure. This includes the full entity-schema-event system, all built-in facets, custom facet creation, collections, saved views, the query builder, scripting, integrations, and the complete API. The free self-hosted experience is never artificially degraded.
+**Self-hosted (free):** Users run the open-source core on their own infrastructure. This includes the full entity-schema-event system, all built-in trackers, custom tracker creation, collections, saved views, the query builder, scripting, integrations, and the complete API. The free self-hosted experience is never artificially degraded.
 
 **Self-hosted Pro:** Users purchase a license key to unlock additional features on their self-hosted instance. This is the same binary — the license key activates gated functionality.
 
@@ -354,7 +354,7 @@ The licensing model is GNU GPL v3.0, consistent with the `LICENSE` file in this 
 - **Not a social network.** There are no feeds, followers, or public profiles in v1. Social features may come later but will always be opt-in and secondary to the personal tracking experience.
 - **Not a recommendation engine.** Ryot doesn't tell you what to watch or drink. It helps you track and reflect on what you've already chosen.
 - **Not a data silo.** Import, export, and API access are first-class features. Users can always get their data out.
-- **Not opinionated about what you track.** The built-in facets are starting points, not boundaries. If you want to track your houseplants, you can.
+- **Not opinionated about what you track.** The built-in trackers are starting points, not boundaries. If you want to track your houseplants, you can.
 - **Not a Notion/Airtable competitor.** Ryot is purpose-built for tracking with events, timelines, and analytics. It doesn't try to be a general-purpose database or document editor.
 
 ---
@@ -367,13 +367,13 @@ This section guides what gets built first and what gets deferred.
 
 The entity-schema-event data model, the REST API with OpenAPI, user authentication (including API keys), and the basic CRUD operations for entities and events. The schema builder UI for creating custom entity types. Basic dashboard with activity feed. Global search across entities.
 
-### Phase 2: Built-in Facets
+### Phase 2: Built-in Trackers
 
-Media facet with curated UI: movie/show/book/podcast/game detail pages, logging modals, external source integration (TMDB, IGDB, Open Library, iTunes, etc.). Fitness facet with workout session logging, exercise database, body measurements. These need to feel as good as purpose-built vertical apps. Because entity list pages within these facets are pre-built saved views (per the architecture), this phase also establishes the core saved view data model and renderer.
+Media tracker with curated UI: movie/show/book/podcast/game detail pages, logging modals, external source integration (TMDB, IGDB, Open Library, iTunes, etc.). Fitness tracker with workout session logging, exercise database, body measurements. These need to feel as good as purpose-built vertical apps. Because entity list pages within these trackers are pre-built saved views (per the architecture), this phase also establishes the core saved view data model and renderer.
 
 ### Phase 3: Power Features
 
-Visual query builder and user-authored saved views (the saved view data model from Phase 2 is extended with schema-aware querying and display configuration). Collections (cross-facet). Sandbox scripting system with dashboard widgets. Integrations (Jellyfin, Plex, Kodi webhooks). Import from existing Ryot instances and other services (Goodreads, Trakt, MyAnimeList).
+Visual query builder and user-authored saved views (the saved view data model from Phase 2 is extended with schema-aware querying and display configuration). Collections (cross-tracker). Sandbox scripting system with dashboard widgets. Integrations (Jellyfin, Plex, Kodi webhooks). Import from existing Ryot instances and other services (Goodreads, Trakt, MyAnimeList).
 
 ### Phase 4: Polish and Scale
 
@@ -385,10 +385,10 @@ Dashboard customization (widget rearrangement). Mobile PWA optimization. Script 
 
 When making any product or technical decision, ask:
 
-1. **Does this work with zero facets, one facet, and twenty facets?** If not, it's hardcoding assumptions.
-2. **Does this stay within the unified data model?** If it requires facet-specific tables or queries that bypass the entity system, reconsider.
+1. **Does this work with zero trackers, one tracker, and twenty trackers?** If not, it's hardcoding assumptions.
+2. **Does this stay within the unified data model?** If it requires tracker-specific tables or queries that bypass the entity system, reconsider.
 3. **Would a self-hosted user on a Raspberry Pi be okay with this?** Keep resource usage minimal. No heavy background processes without user opt-in.
 4. **Can a user get their data out?** Every piece of data the user creates must be exportable.
-5. **Is this a curated facet concern or a platform concern?** Curated facets (Media, Fitness) can have special UI. Platform features (collections, query builder, dashboard, search) must work generically across all facets.
+5. **Is this a curated tracker concern or a platform concern?** Curated trackers (Media, Fitness) can have special UI. Platform features (collections, query builder, dashboard, search) must work generically across all trackers.
 6. **Can this be a saved view instead of a custom page?** Entity list pages are saved views. Before building a new browsing/listing surface, check if it's just a saved view with specific query and display configuration.
-7. **Would this be better as a script?** If a feature is facet-specific and not universally needed, consider implementing it as a built-in script rather than core platform code. This keeps the core lean and proves the scripting system's utility.
+7. **Would this be better as a script?** If a feature is tracker-specific and not universally needed, consider implementing it as a built-in script rather than core platform code. This keeps the core lean and proves the scripting system's utility.

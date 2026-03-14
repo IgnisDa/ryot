@@ -1,4 +1,4 @@
-import type { AppFacet } from "#/features/facets/model";
+import type { AppTracker } from "#/features/trackers/model";
 import type { ApiGetResponseData } from "#/lib/api/types";
 
 export type AppEntitySchema = ApiGetResponseData<"/entity-schemas">[number];
@@ -12,16 +12,16 @@ export function sortEntitySchemas(
 	});
 }
 
-type FacetEntitySchemaViewState =
+type TrackerEntitySchemaViewState =
 	| { type: "builtin" }
 	| { type: "empty" }
 	| { type: "list"; entitySchemas: AppEntitySchema[] };
 
-export function getFacetEntitySchemaViewState(input: {
-	facet: AppFacet;
+export function getTrackerEntitySchemaViewState(input: {
+	tracker: AppTracker;
 	entitySchemas: AppEntitySchema[];
-}): FacetEntitySchemaViewState {
-	if (input.facet.isBuiltin) return { type: "builtin" };
+}): TrackerEntitySchemaViewState {
+	if (input.tracker.isBuiltin) return { type: "builtin" };
 	if (input.entitySchemas.length === 0) return { type: "empty" };
 
 	return {

@@ -4,8 +4,8 @@ import type { SavedViewQueryDefinition } from "../saved-views/schemas";
 export const resolveAuthenticationName = (name: string) =>
 	resolveRequiredString(name, "Signup name");
 
-export const buildAuthenticationFacetInputs = (input: {
-	facets: Array<{
+export const buildAuthenticationTrackerInputs = (input: {
+	trackers: Array<{
 		slug: string;
 		icon: string;
 		name: string;
@@ -13,47 +13,47 @@ export const buildAuthenticationFacetInputs = (input: {
 		description?: string;
 	}>;
 }) => {
-	return input.facets.map((facet) => ({
-		slug: facet.slug,
-		name: facet.name,
-		icon: facet.icon,
-		accentColor: facet.accentColor,
-		description: facet.description,
+	return input.trackers.map((tracker) => ({
+		slug: tracker.slug,
+		name: tracker.name,
+		icon: tracker.icon,
+		accentColor: tracker.accentColor,
+		description: tracker.description,
 	}));
 };
 
-export const buildAuthenticationFacetEntitySchemaLinks = (input: {
-	facets: Array<{ id: string; slug: string }>;
+export const buildAuthenticationTrackerEntitySchemaLinks = (input: {
+	trackers: Array<{ id: string; slug: string }>;
 	entitySchemas: Array<{ id: string; slug: string }>;
-	schemaLinks: Array<{ slug: string; facetSlug: string }>;
+	schemaLinks: Array<{ slug: string; trackerSlug: string }>;
 }) => {
 	return input.schemaLinks.map((schemaLink) => {
-		const facet = input.facets.find(
-			(item) => item.slug === schemaLink.facetSlug,
+		const tracker = input.trackers.find(
+			(item) => item.slug === schemaLink.trackerSlug,
 		);
 		const entitySchema = input.entitySchemas.find(
 			(item) => item.slug === schemaLink.slug,
 		);
 
-		if (!facet)
+		if (!tracker)
 			throw new Error(
-				`Missing built-in facet for entity schema ${schemaLink.slug}`,
+				`Missing built-in tracker for entity schema ${schemaLink.slug}`,
 			);
 
 		if (!entitySchema)
 			throw new Error(
-				`Missing built-in entity schema for facet link ${schemaLink.slug}`,
+				`Missing built-in entity schema for tracker link ${schemaLink.slug}`,
 			);
 
 		return {
-			facetId: facet.id,
+			trackerId: tracker.id,
 			entitySchemaId: entitySchema.id,
 		};
 	});
 };
 
 export const buildAuthenticationSavedViewInputs = (input: {
-	facets: Array<{ id: string; slug: string }>;
+	trackers: Array<{ id: string; slug: string }>;
 	entitySchemas: Array<{
 		id: string;
 		slug: string;
@@ -62,21 +62,21 @@ export const buildAuthenticationSavedViewInputs = (input: {
 	}>;
 	savedViews: Array<{
 		name: string;
-		facetSlug: string;
+		trackerSlug: string;
 		entitySchemaSlug: string;
 	}>;
 }) => {
 	return input.savedViews.map((savedView) => {
-		const facet = input.facets.find(
-			(item) => item.slug === savedView.facetSlug,
+		const tracker = input.trackers.find(
+			(item) => item.slug === savedView.trackerSlug,
 		);
 		const entitySchema = input.entitySchemas.find(
 			(schema) => schema.slug === savedView.entitySchemaSlug,
 		);
 
-		if (!facet)
+		if (!tracker)
 			throw new Error(
-				`Missing built-in facet for saved view ${savedView.name}`,
+				`Missing built-in tracker for saved view ${savedView.name}`,
 			);
 
 		if (!entitySchema)
@@ -86,7 +86,7 @@ export const buildAuthenticationSavedViewInputs = (input: {
 
 		return {
 			isBuiltin: true,
-			facetId: facet.id,
+			trackerId: tracker.id,
 			name: savedView.name,
 			icon: entitySchema.icon,
 			accentColor: entitySchema.accentColor,
