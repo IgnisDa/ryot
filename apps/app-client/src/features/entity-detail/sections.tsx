@@ -160,7 +160,11 @@ export function DetailsSection(props: { creators: UnlinkedCreator[]; entity: Ent
 	if (entity.properties.publishDate != null) {
 		const [year, month, day] = entity.properties.publishDate.split("-").map(Number);
 		const d = new Date(year, month - 1, day);
-		const formatted = d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+		const formatted = d.toLocaleDateString("en-US", {
+			month: "long",
+			day: "numeric",
+			year: "numeric",
+		});
 		rows.push({ label: "Released", value: formatted });
 	} else if (entity.properties.publishYear != null) {
 		rows.push({ label: "Year", value: String(entity.properties.publishYear) });

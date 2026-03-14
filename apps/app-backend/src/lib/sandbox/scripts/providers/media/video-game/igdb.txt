@@ -229,7 +229,69 @@ const DETAIL_FIELDS = [
   "release_dates.date",
   "release_dates.platform.name",
   "release_dates.release_region.region",
+  "involved_companies.company.id",
+  "involved_companies.company.name",
+  "involved_companies.developer",
+  "involved_companies.publisher",
+  "involved_companies.porting",
+  "involved_companies.supporting",
 ].join(", ");
+
+function collectCompanies(involvedCompanies) {
+  if (!Array.isArray(involvedCompanies)) {
+    return [];
+  }
+
+  const companies = [];
+  const seen = new Set();
+
+  for (const ic of involvedCompanies) {
+    if (!ic || typeof ic !== "object" || !ic.company) {
+      continue;
+    }
+
+    const id =
+      typeof ic.company.id === "number" && Number.isFinite(ic.company.id)
+        ? Math.trunc(ic.company.id)
+        : null;
+    if (id === null) {
+      continue;
+    }
+
+    const name =
+      typeof ic.company.name === "string" && ic.company.name.trim()
+        ? ic.company.name.trim()
+        : null;
+    if (!name) {
+      continue;
+    }
+
+    const role = ic.developer
+      ? "Developer"
+      : ic.publisher
+        ? "Publisher"
+        : ic.porting
+          ? "Porting"
+          : ic.supporting
+            ? "Supporting"
+            : "Developer";
+
+    const key = `${id}:${role}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+
+    companies.push({
+      name,
+      role,
+      externalId: String(id),
+      scriptSlug: "company.igdb",
+    });
+  }
+
+  return companies;
+}
 
 driver("search", async function(context) {
   const { z } = await import("npm:zod");
@@ -422,8 +484,8 @@ driver("details", async function(context) {
       providerRating,
       platformReleases,
       sourceUrl: `https://www.igdb.com/games/${gameSlug}`,
+      companies: collectCompanies(game.involved_companies),
       publishYear: extractYear(game.first_release_date, dayjs),
-      publishDate: unixToIsoDate(game.first_release_date, dayjs),
     },
   };
 });

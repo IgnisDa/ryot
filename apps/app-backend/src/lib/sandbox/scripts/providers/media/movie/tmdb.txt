@@ -115,6 +115,46 @@ function collectGenres(genresArray) {
 	return genres;
 }
 
+function collectCompanies(productionCompanies) {
+	if (!Array.isArray(productionCompanies)) {
+		return [];
+	}
+
+	const companies = [];
+	const seen = new Set();
+
+	for (const company of productionCompanies) {
+		const id =
+			typeof company?.id === "number" && Number.isFinite(company.id)
+				? Math.trunc(company.id)
+				: null;
+		if (id === null) {
+			continue;
+		}
+		if (seen.has(id)) {
+			continue;
+		}
+		seen.add(id);
+
+		const name =
+			typeof company?.name === "string" && company.name.trim()
+				? company.name.trim()
+				: null;
+		if (!name) {
+			continue;
+		}
+
+		companies.push({
+			name,
+			role: "Production Company",
+			externalId: String(id),
+			scriptSlug: "company.tmdb",
+		});
+	}
+
+	return companies;
+}
+
 function collectPeople(cast, crew) {
 	const people = [];
 	const unlinkedCreators = [];
@@ -345,6 +385,7 @@ driver("details", async function (context) {
 			genres: collectGenres(movieData?.genres),
 			...collectPeople(creditsData?.cast, creditsData?.crew),
 			sourceUrl: `https://www.themoviedb.org/movie/${externalId}`,
+			companies: collectCompanies(movieData?.production_companies),
 			publishYear: parsePublishYear(movieData?.release_date, dayjs),
 			description:
 				typeof movieData?.overview === "string" && movieData.overview.trim()
