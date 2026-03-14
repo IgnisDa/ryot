@@ -78,3 +78,32 @@ it.effect("enqueues a fire-and-forget event delivery with the event payload", ()
 		expect(typeof capturedOptions?.payload.executionId).toBe("string");
 	}).pipe(Effect.provide(makeServiceLayer(workflowEngine)));
 });
+
+it.effect("enqueues a message delivery with a caller-supplied execution ID", () => {
+	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
+
+	const workflowEngine = makeWorkflowEngine({
+		execute: (_workflow, options) => {
+			capturedOptions = options;
+			return Effect.succeed(options.executionId);
+		},
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* NotificationsService;
+		yield* service.sendMessage({
+			userId: user.id,
+			message: "Subscription run completed",
+			executionId: "subscription-run-1-notification",
+		});
+
+		expect(capturedOptions).toMatchObject({
+			discard: true,
+			payload: {
+				userId: user.id,
+				executionId: "subscription-run-1-notification",
+				request: { kind: "message", message: "Subscription run completed" },
+			},
+		});
+	}).pipe(Effect.provide(makeServiceLayer(workflowEngine)));
+});

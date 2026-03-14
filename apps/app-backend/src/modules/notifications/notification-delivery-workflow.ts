@@ -15,6 +15,10 @@ export const NotificationDeliveryRequest = Schema.Union(
 		kind: Schema.Literal("event"),
 		eventType: NotificationEventType,
 	}),
+	Schema.Struct({
+		message: Schema.String,
+		kind: Schema.Literal("message"),
+	}),
 );
 
 export const NotificationDeliveryResult = Schema.Struct({
