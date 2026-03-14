@@ -1,3 +1,4 @@
+import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import type {
 	EntityId,
 	EntitySchemaId,
@@ -10,6 +11,7 @@ export type PopulationRequest = {
 	entityId: EntityId;
 	externalId: string;
 	userId: UserId | null;
+	origin: AutomationOrigin;
 	entitySchemaId: EntitySchemaId;
 	sandboxScriptId: SandboxScriptId;
 };

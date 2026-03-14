@@ -44,22 +44,21 @@ const rule = (id: string, owner: UserId | null): StoredAutomationRule => ({
 	target: { id: entitySchemaId, kind: "entity_schema" },
 });
 
+const entitySnapshot = {
+	name: "Dune",
+	entitySchemaId,
+	entitySchemaSlug: "book",
+	properties: { year: 1965 },
+	id: EntityId.make("entity-1"),
+};
+
 const entityInput: LifecycleDispatchInput = {
 	rowUserId: userId,
 	recordId: "entity-1",
 	origin: { kind: "api" },
 	occurrenceId: "occ_entity-1",
 	occurredAt: "2026-07-20T10:00:00.000Z",
-	source: {
-		kind: "entity",
-		after: {
-			name: "Dune",
-			entitySchemaId,
-			entitySchemaSlug: "book",
-			properties: { year: 1965 },
-			id: EntityId.make("entity-1"),
-		},
-	},
+	source: { kind: "entity", after: entitySnapshot },
 };
 
 const executionEngine = (
@@ -167,6 +166,62 @@ it.effect("derives the rule target from each lifecycle source kind", () => {
 		expect(resolvedTargets).toEqual([
 			{ id: entitySchemaId, kind: "entity_schema" },
 			{ id: eventSchemaId, kind: "event_schema" },
+		]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("forwards update snapshots and trusted population context", () => {
+	const executions: unknown[] = [];
+	const resolved: Array<{ target: AutomationRuleTarget; operation: string }> = [];
+	const updateRule = { ...rule("media-update", null), operation: "update" as const };
+	const instance = WorkflowInstance.initial(SubscriptionExecutionWorkflow, "update-test");
+	const engine = executionEngine(instance, (payload) => {
+		executions.push(payload);
+		return Effect.void;
+	});
+	const automations = Layer.mock(AutomationsService, {
+		_tag: "AutomationsService",
+		resolveActive: ({ target, operation }) => {
+			resolved.push({ target, operation });
+			return Effect.succeed([updateRule]);
+		},
+	});
+	const layer = Layer.provide(
+		LifecycleDispatchLive,
+		Layer.mergeAll(automations, Layer.succeed(WorkflowEngine, engine)),
+	);
+
+	return Effect.gen(function* () {
+		yield* (yield* LifecycleDispatch).dispatch({
+			...entityInput,
+			operation: "update",
+			source: {
+				kind: "entity",
+				after: entitySnapshot,
+				before: { ...entitySnapshot, name: "Old Dune" },
+			},
+			population: {
+				rootPreviouslyPopulated: true,
+				scopeEntity: {
+					entitySchemaId,
+					name: "Severance",
+					entitySchemaSlug: "show",
+					id: EntityId.make("show-1"),
+				},
+			},
+		});
+		expect(resolved).toEqual([
+			{ operation: "update", target: { id: entitySchemaId, kind: "entity_schema" } },
+		]);
+		expect(executions).toMatchObject([
+			{
+				operation: "update",
+				source: { kind: "entity", after: { name: "Dune" }, before: { name: "Old Dune" } },
+				population: {
+					rootPreviouslyPopulated: true,
+					scopeEntity: { id: "show-1", name: "Severance" },
+				},
+			},
 		]);
 	}).pipe(Effect.provide(layer));
 });
