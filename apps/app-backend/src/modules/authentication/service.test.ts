@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { createQueryDefinition } from "~/lib/test-fixtures";
-import { createDefaultDisplayConfiguration } from "~/modules/saved-views/constants";
+import { createDefaultDisplayConfiguration } from "~/modules/saved-views";
 
 import {
 	buildAuthenticationSavedViewInputs,

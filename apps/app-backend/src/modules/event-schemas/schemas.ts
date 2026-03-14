@@ -2,8 +2,7 @@ import { z } from "@hono/zod-openapi";
 
 import { itemDataSchema, listDataSchema } from "~/lib/openapi";
 import { createNameWithOptionalSlugSchema, nonEmptyTrimmedStringSchema } from "~/lib/zod";
-
-import { createLabeledPropertySchemas } from "../property-schemas/schemas";
+import { createLabeledPropertySchemas } from "~/modules/property-schemas";
 
 const eventSchemaProperties = createLabeledPropertySchemas("Event schema properties");
 

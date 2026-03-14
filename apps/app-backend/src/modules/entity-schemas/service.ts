@@ -9,8 +9,14 @@ import { getQueues } from "~/lib/queue";
 import { resolveJobPollState } from "~/lib/queue/utils";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import { sandboxScriptMetadataSchema } from "~/lib/sandbox/types";
+import { authenticationBuiltinEntitySchemas } from "~/modules/authentication";
 import type { ListedEntity } from "~/modules/entities";
-import { type MediaImportJobData, mediaImportJobData, mediaImportJobName } from "~/modules/media";
+import {
+	type MediaImportJobData,
+	mediaImportJobData,
+	mediaImportJobName,
+} from "~/modules/media/jobs";
+import { parseLabeledPropertySchemaInput } from "~/modules/property-schemas";
 import {
 	type EnqueueSandboxBody,
 	enqueueSandbox,
@@ -19,10 +25,8 @@ import {
 	type SandboxEnqueueResult,
 	type SandboxServiceResult,
 } from "~/modules/sandbox";
+import { getTrackerScopeForUser } from "~/modules/trackers";
 
-import { authenticationBuiltinEntitySchemas } from "../authentication/bootstrap/manifests";
-import { parseLabeledPropertySchemaInput } from "../property-schemas/service";
-import { getTrackerScopeForUser } from "../trackers/repository";
 import {
 	createEntitySchemaForUser,
 	getEntitySchemaByIdForUser,
