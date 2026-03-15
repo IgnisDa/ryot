@@ -341,6 +341,93 @@ it.effect("authorizes integrations in every query occurrence", () => {
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
+it.effect("constrains own and cross-user import run roots to the current user", () => {
+	const statements: string[] = [];
+	const own = table("importRun", "own");
+	const crossUser = table("importRun", "crossUser");
+	const document = {
+		queries: {
+			own: rows(own, {
+				fields: [field("id", column(own, "id"))],
+				where: eq(column(own, "id"), literal("own-run")),
+			}),
+			crossUser: rows(crossUser, {
+				fields: [field("id", column(crossUser, "id"))],
+				where: eq(column(crossUser, "id"), literal("cross-user-run")),
+			}),
+		},
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, document);
+
+		for (const statement of statements.slice(2)) {
+			expect(statement).toMatch(/FROM \(SELECT \* FROM import_run WHERE user_id = \$\d+\)/);
+		}
+		const empty = {
+			items: [],
+			type: "rows",
+			pageInfo: { page: 1, limit: 20, total: 0, hasMore: false },
+		};
+		expect(response.data["own"]).toEqual(empty);
+		expect(response.data["crossUser"]).toEqual(empty);
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect("authorizes import runs and failures in every query occurrence", () => {
+	const statements: string[] = [];
+	const run = table("importRun", "run");
+	const root = table("importRunFailure", "root");
+	const left = table("importRunFailure", "left");
+	const inner = table("importRunFailure", "inner");
+	const included = table("importRunFailure", "included");
+	const correlated = table("importRunFailure", "correlated");
+	const document = {
+		queries: {
+			failures: rows(root, {
+				fields: [field("id", column(root, "id"))],
+				where: exists(correlated, {
+					where: eq(column(correlated, "runId"), column(root, "runId")),
+				}),
+				joins: [
+					join("inner", inner, eq(column(root, "runId"), column(inner, "runId"))),
+					join("left", left, eq(column(root, "runId"), column(left, "runId"))),
+					join("inner", run, eq(column(root, "runId"), column(run, "id"))),
+				],
+				include: [
+					include(included, {
+						limit: 1,
+						key: "related",
+						fields: [field("id", column(included, "id"))],
+						orderBy: [ascending(column(included, "createdAt"))],
+						where: eq(column(included, "runId"), column(root, "runId")),
+					}),
+				],
+			}),
+		},
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, document);
+
+		const statement = statements[2];
+		expect(statement).toContain("INNER JOIN (SELECT * FROM import_run_failure WHERE EXISTS");
+		expect(statement).toContain("LEFT JOIN (SELECT * FROM import_run_failure WHERE EXISTS");
+		expect(statement).toMatch(/SELECT \* FROM import_run WHERE user_id = \$\d+/);
+		expect(statement?.match(/SELECT \* FROM import_run_failure WHERE EXISTS/g)).toHaveLength(9);
+		expect(statement).toMatch(
+			/import_run\.id = import_run_failure\.run_id AND import_run\.user_id = \$\d+/,
+		);
+		expect(response.data["failures"]).toEqual({
+			items: [],
+			type: "rows",
+			pageInfo: { page: 1, limit: 20, total: 0, hasMore: false },
+		});
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
 it.effect("applies plugin ownership to every allowed table occurrence", () => {
 	const statements: string[] = [];
 	const entity = table("entity", "entity");

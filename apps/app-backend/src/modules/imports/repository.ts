@@ -1,32 +1,18 @@
 import { DbError } from "@ryot/contract/errors";
-import type {
-	ListedImportRun,
-	ListedImportRunFailure,
-} from "@ryot/contract/modules/imports/schemas";
+import type { ListedImportRun } from "@ryot/contract/modules/imports/schemas";
 import type {
 	ImportRunFailureStage,
 	ImportRunSource,
 	ImportRunStatus,
 } from "@ryot/contract/modules/imports/types";
-import {
-	EntitySchemaSlug,
-	EventSchemaSlug,
-	ImportRunId,
-	type IntegrationId,
-	type UserId,
-} from "@ryot/contract/schema/brands";
-import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import { ImportRunId, type IntegrationId, type UserId } from "@ryot/contract/schema/brands";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 type ImportRunRow = typeof schema.importRun.$inferSelect;
-type ImportRunFailureRow = typeof schema.importRunFailure.$inferSelect;
-
-type ListImportRunsInput =
-	| { type: "manual"; userId: UserId }
-	| { type: "integration"; userId: UserId; integrationId: IntegrationId };
 
 const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 	id: ImportRunId.make(row.id),
@@ -43,21 +29,6 @@ const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 	updatedAt: row.updatedAt.toISOString(),
 	startedAt: row.startedAt?.toISOString() ?? null,
 	finishedAt: row.finishedAt?.toISOString() ?? null,
-});
-
-const normalizeFailure = (row: ImportRunFailureRow): ListedImportRunFailure => ({
-	id: row.id,
-	runId: ImportRunId.make(row.runId),
-	stage: row.stage,
-	message: row.message,
-	context: row.context,
-	itemIndex: row.itemIndex,
-	sourceLabel: row.sourceLabel,
-	sourceIdentifier: row.sourceIdentifier,
-	eventSchemaSlug: row.eventSchemaSlug === null ? null : EventSchemaSlug.make(row.eventSchemaSlug),
-	entitySchemaSlug:
-		row.entitySchemaSlug === null ? null : EntitySchemaSlug.make(row.entitySchemaSlug),
-	createdAt: row.createdAt.toISOString(),
 });
 
 export class ImportsRepository extends Context.Service<ImportsRepository>()("ImportsRepository", {
@@ -101,24 +72,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 					.limit(1),
 			);
 			return row ? normalizeRun(row) : null;
-		});
-
-		const listRuns = Effect.fn("ImportsRepository.listRuns")(function* (
-			input: ListImportRunsInput,
-		) {
-			const db = yield* CurrentDb;
-			const integrationCondition =
-				input.type === "manual"
-					? isNull(schema.importRun.integrationId)
-					: eq(schema.importRun.integrationId, input.integrationId);
-			const rows = yield* dbEffect(() =>
-				db
-					.select()
-					.from(schema.importRun)
-					.where(and(eq(schema.importRun.userId, input.userId), integrationCondition))
-					.orderBy(desc(schema.importRun.createdAt)),
-			);
-			return rows.map(normalizeRun);
 		});
 
 		const hasActiveRunForIntegration = Effect.fn("ImportsRepository.hasActiveRunForIntegration")(
@@ -244,41 +197,14 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			);
 		});
 
-		const listFailuresByRunId = Effect.fn("ImportsRepository.listFailuresByRunId")(
-			function* (input: { runId: ImportRunId; page: number; limit: number }) {
-				const db = yield* CurrentDb;
-				const offset = (input.page - 1) * input.limit;
-				const [rows, totals] = yield* Effect.all([
-					dbEffect(() =>
-						db
-							.select()
-							.from(schema.importRunFailure)
-							.where(eq(schema.importRunFailure.runId, input.runId))
-							.orderBy(asc(schema.importRunFailure.createdAt))
-							.limit(input.limit)
-							.offset(offset),
-					),
-					dbEffect(() =>
-						db
-							.select({ total: count() })
-							.from(schema.importRunFailure)
-							.where(eq(schema.importRunFailure.runId, input.runId)),
-					),
-				]);
-				return { total: totals[0]?.total ?? 0, items: rows.map(normalizeFailure) };
-			},
-		);
-
 		return {
 			createRun,
 			getRunById,
-			listRuns,
 			hasActiveRunForIntegration,
 			listRecentStatusesByIntegrationId,
 			updateRun,
 			deleteRunById,
 			createFailure,
-			listFailuresByRunId,
 		};
 	}),
 }) {
