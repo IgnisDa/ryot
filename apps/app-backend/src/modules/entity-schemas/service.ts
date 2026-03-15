@@ -1,6 +1,6 @@
 import type { AppSchema } from "@ryot/ts-utils";
 import { resolveRequiredSlug, resolveRequiredString } from "~/lib/slug";
-import { parsePropertySchemaInput } from "../property-schemas/service";
+import { parseLabeledPropertySchemaInput } from "../property-schemas/service";
 
 export type EntitySchemaPropertiesShape = AppSchema;
 
@@ -24,10 +24,10 @@ export const resolveEntitySchemaSlug = (input: {
 export const parseEntitySchemaPropertiesSchema = (
 	input: unknown,
 ): EntitySchemaPropertiesShape => {
-	return parsePropertySchemaInput(input, {
-		propertiesLabel: "Entity schema properties",
-		schemaLabel: "Entity schema properties schema",
-	}) as EntitySchemaPropertiesShape;
+	return parseLabeledPropertySchemaInput(
+		input,
+		"Entity schema properties",
+	) as EntitySchemaPropertiesShape;
 };
 
 export const resolveEntitySchemaCreateInput = (input: {
