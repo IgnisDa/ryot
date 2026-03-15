@@ -124,6 +124,17 @@ function SortableFacet(props: {
 						key={schema.id}
 						component={Link}
 						label={schema.name}
+						leftSection={
+							<Box
+								style={{
+									display: "flex",
+									alignItems: "center",
+									color: schema.accentColor,
+								}}
+							>
+								<FacetIcon icon={schema.icon} size={14} />
+							</Box>
+						}
 						styles={{
 							root: {
 								paddingLeft: "40px",
