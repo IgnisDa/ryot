@@ -36,6 +36,25 @@ const JsonPathSegment = Schema.Union([Schema.String, Schema.Number]);
 const CastTarget = Schema.Literals(["boolean", "date", "json", "number", "text"]);
 const JsonPath = Schema.NonEmptyArray(JsonPathSegment);
 
+export type CorrelatedQuerySet = {
+	readonly from: TableReference;
+	readonly where?: Predicate | undefined;
+	readonly joins?: readonly [Join, ...Join[]] | undefined;
+};
+
+export type AggregationSpec =
+	| { readonly function: "count" }
+	| { readonly expr: ScalarExpression; readonly function: "countDistinct" }
+	| {
+			readonly expr: ScalarExpression;
+			readonly function: "average" | "maximum" | "minimum" | "sum";
+	  };
+
+export type ExistsExpression = {
+	readonly type: "exists";
+	readonly query: CorrelatedQuerySet;
+};
+
 export type ScalarExpression =
 	| ColumnExpression
 	| LiteralExpression
@@ -52,12 +71,58 @@ export type ScalarExpression =
 	| {
 			readonly type: "coalesce";
 			readonly values: readonly [ScalarExpression, ...ScalarExpression[]];
+	  }
+	| ExistsExpression
+	| {
+			readonly type: "arithmetic";
+			readonly left: ScalarExpression;
+			readonly right: ScalarExpression;
+			readonly operator: "add" | "divide" | "multiply" | "subtract";
+	  }
+	| {
+			readonly type: "aggregate";
+			readonly query: CorrelatedQuerySet;
+			readonly aggregation: AggregationSpec;
+	  }
+	| {
+			readonly type: "first";
+			readonly select: ScalarExpression;
+			readonly query: CorrelatedQuerySet;
+			readonly orderBy: readonly [OrderBy, ...OrderBy[]];
 	  };
+
+export const CorrelatedQuerySet: Schema.Codec<CorrelatedQuerySet, unknown> = Schema.suspend(() =>
+	strictStruct({
+		from: TableReference,
+		where: Schema.optional(Predicate),
+		joins: Schema.optional(Schema.NonEmptyArray(Join)),
+	}),
+).annotate({ identifier: "RyotQLCorrelatedQuerySet" });
+
+export const AggregationSpec: Schema.Codec<AggregationSpec, unknown> = Schema.suspend(() =>
+	Schema.Union([
+		strictStruct({ function: Schema.Literal("count") }),
+		strictStruct({ expr: ScalarExpression, function: Schema.Literal("countDistinct") }),
+		strictStruct({
+			expr: ScalarExpression,
+			function: Schema.Literals(["average", "maximum", "minimum", "sum"]),
+		}),
+	]),
+).annotate({ identifier: "RyotQLAggregationSpec" });
+
+export const ExistsExpression: Schema.Codec<ExistsExpression, unknown> = Schema.suspend(() =>
+	strictStruct({ query: CorrelatedQuerySet, type: Schema.Literal("exists") }),
+).annotate({ identifier: "RyotQLExistsExpression" });
 
 export const ScalarExpression: Schema.Codec<ScalarExpression, unknown> = Schema.suspend(() =>
 	Schema.Union([
 		ColumnExpression,
 		LiteralExpression,
+		ExistsExpression,
+		strictStruct({
+			type: Schema.Literal("coalesce"),
+			values: Schema.NonEmptyArray(ScalarExpression),
+		}),
 		strictStruct({
 			target: CastTarget,
 			expr: ScalarExpression,
@@ -69,8 +134,21 @@ export const ScalarExpression: Schema.Codec<ScalarExpression, unknown> = Schema.
 			type: Schema.Literal("jsonPath"),
 		}),
 		strictStruct({
-			type: Schema.Literal("coalesce"),
-			values: Schema.NonEmptyArray(ScalarExpression),
+			query: CorrelatedQuerySet,
+			aggregation: AggregationSpec,
+			type: Schema.Literal("aggregate"),
+		}),
+		strictStruct({
+			left: ScalarExpression,
+			right: ScalarExpression,
+			type: Schema.Literal("arithmetic"),
+			operator: Schema.Literals(["add", "divide", "multiply", "subtract"]),
+		}),
+		strictStruct({
+			query: CorrelatedQuerySet,
+			select: ScalarExpression,
+			type: Schema.Literal("first"),
+			orderBy: Schema.NonEmptyArray(OrderBy),
 		}),
 	]),
 ).annotate({ identifier: "RyotQLScalarExpression" });
@@ -107,6 +185,7 @@ const ComparisonPredicate = strictStruct({
 });
 
 export type Predicate =
+	| ExistsExpression
 	| typeof InPredicate.Type
 	| typeof IsNullPredicate.Type
 	| typeof ContainsPredicate.Type
@@ -120,6 +199,7 @@ export const Predicate: Schema.Codec<Predicate, unknown> = Schema.suspend(() =>
 	Schema.Union([
 		InPredicate,
 		IsNullPredicate,
+		ExistsExpression,
 		ContainsPredicate,
 		IsNotNullPredicate,
 		ComparisonPredicate,

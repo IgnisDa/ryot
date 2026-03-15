@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	add,
 	and,
 	ascending,
+	average,
 	castBoolean,
 	castDate,
 	castJson,
@@ -11,11 +13,16 @@ import {
 	coalesce,
 	column,
 	contains,
+	count,
+	countDistinct,
 	document,
+	divide,
 	eq,
 	field,
+	first,
 	gt,
 	gte,
+	exists,
 	isNotNull,
 	isNull,
 	include,
@@ -24,10 +31,15 @@ import {
 	literal,
 	lt,
 	lte,
+	maximum,
+	minimum,
+	multiply,
 	neq,
 	not,
 	or,
 	rows,
+	subtract,
+	sum,
 	table,
 } from "./index";
 
@@ -168,5 +180,64 @@ describe("RyotQL builders", () => {
 				orderBy: [ascending(column(module, "id"))],
 			}),
 		).not.toHaveProperty("joins");
+	});
+
+	it("builds correlated, aggregate, and arithmetic expressions", () => {
+		const entity = table("entity", "entity");
+		const event = table("event", "event");
+		const related = {
+			where: eq(column(event, "entityId"), column(entity, "id")),
+		};
+		const eventCount = count(event, related);
+		const query = rows(entity, {
+			where: exists(event, related),
+			fields: [
+				field(
+					"latest",
+					first(event, {
+						...related,
+						select: column(event, "occurredAt"),
+						orderBy: [ascending(column(event, "occurredAt"))],
+					}),
+				),
+				field("count", eventCount),
+				field("distinct", countDistinct(event, column(event, "entityId"), related)),
+				field("sum", sum(event, literal(1), related)),
+				field("average", average(event, literal(1), related)),
+				field("minimum", minimum(event, literal(1), related)),
+				field("maximum", maximum(event, literal(1), related)),
+				field(
+					"arithmetic",
+					add(
+						subtract(eventCount, literal(1)),
+						multiply(divide(eventCount, literal(2)), literal(3)),
+					),
+				),
+			],
+		});
+
+		expect(query.where).toEqual({
+			type: "exists",
+			query: { where: related.where, from: { table: "event", alias: "event" } },
+		});
+		expect(query.output.fields).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					key: "latest",
+					expr: expect.objectContaining({ type: "first" }),
+				}),
+				expect.objectContaining({
+					key: "distinct",
+					expr: expect.objectContaining({
+						type: "aggregate",
+						aggregation: { function: "countDistinct", expr: column(event, "entityId") },
+					}),
+				}),
+				expect.objectContaining({
+					key: "arithmetic",
+					expr: expect.objectContaining({ type: "arithmetic", operator: "add" }),
+				}),
+			]),
+		);
 	});
 });
