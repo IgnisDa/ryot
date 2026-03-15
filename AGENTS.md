@@ -12,10 +12,6 @@ The project uses `turbo` for monorepo management. All frontend-related commands 
 
 Always install dependencies using `cd <whatever-app-needs-dependency> && bun add -E` to add them as exact versions (no version range prefixes).
 
-### Project Overview
-
-Read `apps/docs/src/contributing.md` for an overview of the project architecture and common commands.
-
 ### Command Line Usage
 
 When running bash commands (`git`, `sed`, etc.), always quote paths using single quotes since they often contain special characters.
