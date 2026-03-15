@@ -14,13 +14,13 @@ import {
 	findBuiltinSchemaBySlug,
 	getBackendClient,
 	getBuiltinEntitySchemaId,
+	listSubscriptionRuns,
 	listSignals,
 	pollEntityImportResult,
 	pollSignal,
 	pollSignalWithRecipientCount,
-	pollTerminalSubscriptionRunStatuses,
+	pollTerminalSubscriptionRuns,
 	queryAutomationRuleCount,
-	querySubscriptionRunStatuses,
 	seedBuiltinProviderScript,
 	seedMediaEntity,
 	startFakeAppriseServer,
@@ -144,7 +144,7 @@ describe("Delete user automation data cleanup", () => {
 			actorUserId: rawUserId,
 			schemaSlug: "workout.created",
 		});
-		await pollTerminalSubscriptionRunStatuses({ executionUserId: rawUserId, signalId });
+		await pollTerminalSubscriptionRuns({ executionUserId: rawUserId, signalId });
 
 		await client.run(
 			(c) => c.godMode.deleteUser({ path: { userId } }),
@@ -154,9 +154,7 @@ describe("Delete user automation data cleanup", () => {
 		expect(await listSignals({ schemaSlug: "workout.created", actorUserId: rawUserId })).toEqual(
 			[],
 		);
-		expect(await querySubscriptionRunStatuses({ executionUserId: rawUserId, signalId })).toEqual(
-			[],
-		);
+		expect(await listSubscriptionRuns({ executionUserId: rawUserId, signalId })).toEqual([]);
 	});
 
 	it("removes only the deleted recipient's row from a shared signal, preserving it for other recipients", async () => {
@@ -243,11 +241,11 @@ describe("Delete user automation data cleanup", () => {
 					2,
 				);
 				await Promise.all([
-					pollTerminalSubscriptionRunStatuses({
+					pollTerminalSubscriptionRuns({
 						signalId,
 						executionUserId: firstMonitor.userId,
 					}),
-					pollTerminalSubscriptionRunStatuses({
+					pollTerminalSubscriptionRuns({
 						signalId,
 						executionUserId: secondMonitor.userId,
 					}),
@@ -267,10 +265,10 @@ describe("Delete user automation data cleanup", () => {
 				expect(remainingSignal?.id).toBe(signalId);
 				expect(remainingSignal?.recipientUserIds).toEqual([UserId.make(secondMonitor.userId)]);
 				expect(
-					await querySubscriptionRunStatuses({ signalId, executionUserId: firstMonitor.userId }),
+					await listSubscriptionRuns({ signalId, executionUserId: firstMonitor.userId }),
 				).toEqual([]);
 				expect(
-					await querySubscriptionRunStatuses({ signalId, executionUserId: secondMonitor.userId }),
+					await listSubscriptionRuns({ signalId, executionUserId: secondMonitor.userId }),
 				).not.toEqual([]);
 				expect(await queryAutomationRuleCount(firstMonitor.userId)).toBe(0);
 				expect(await queryAutomationRuleCount(secondMonitor.userId)).toBe(rulesBeforeDeletion);

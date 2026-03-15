@@ -8,6 +8,7 @@ import {
 	EntitySchemaId,
 	RelationshipSchemaId,
 	SandboxScriptId,
+	SignalId,
 	UserId,
 } from "../../schema/brands";
 import { ListedEntity } from "../entities/schemas";
@@ -19,6 +20,7 @@ import {
 	TestSupportGlobalRelationship,
 	TestSupportSignal,
 	TestSupportStoredSandboxScript,
+	TestSupportSubscriptionRun,
 } from "./schemas";
 
 const slugParam = HttpApiSchema.param("slug", Schema.String);
@@ -190,4 +192,14 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 				}),
 			)
 			.addSuccess(Schema.Array(TestSupportSignal)),
+	)
+	.add(
+		HttpApiEndpoint.post("listSubscriptionRuns", "/test-support/subscription-runs/list")
+			.setPayload(
+				Schema.Struct({
+					executionUserId: UserId,
+					signalId: Schema.optional(SignalId),
+				}),
+			)
+			.addSuccess(Schema.Array(TestSupportSubscriptionRun)),
 	);

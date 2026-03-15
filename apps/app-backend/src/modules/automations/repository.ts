@@ -637,6 +637,25 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 				},
 			);
 
+			const listRunsByExecutionUserId = Effect.fn(
+				"AutomationsRepository.listRunsByExecutionUserId",
+			)(function* (input: { executionUserId: UserId; signalId?: SignalId | undefined }) {
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db
+						.select({ id: schema.subscriptionRun.id, status: schema.subscriptionRun.status })
+						.from(schema.subscriptionRun)
+						.where(
+							and(
+								eq(schema.subscriptionRun.executionUserId, input.executionUserId),
+								input.signalId ? eq(schema.subscriptionRun.signalId, input.signalId) : undefined,
+							),
+						)
+						.orderBy(asc(schema.subscriptionRun.queuedAt), asc(schema.subscriptionRun.id)),
+				);
+				return rows.map((row) => ({ id: SubscriptionRunId.make(row.id), status: row.status }));
+			});
+
 			const setUserRuleActive = Effect.fn("AutomationsRepository.setUserRuleActive")(
 				function* (input: { userId: UserId; ruleId: AutomationRuleId; isActive: boolean }) {
 					const db = yield* CurrentDb;
@@ -697,6 +716,7 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 				lockActiveSubscription,
 				findBuiltinScriptBySlug,
 				findUserNotificationRule,
+				listRunsByExecutionUserId,
 				listRunsByOriginalRuleId,
 				listUserNotificationRules,
 			};

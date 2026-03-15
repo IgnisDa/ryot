@@ -7,6 +7,7 @@ import { Effect, Layer } from "effect";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { makeWorkflowEngine, transactionLayer } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
+import { AutomationsService } from "#modules/automations/service";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
 import { TranslationsService } from "#modules/entity-translation/service";
@@ -25,6 +26,7 @@ const mockAuth = Layer.mock(AuthService);
 const mockSignals = Layer.mock(SignalsService);
 const mockEntities = Layer.mock(EntitiesService);
 const mockSandbox = Layer.mock(SandboxApiService);
+const mockAutomations = Layer.mock(AutomationsService);
 const mockTranslations = Layer.mock(TranslationsService);
 const mockRelationships = Layer.mock(RelationshipsService);
 const mockEntitySchemas = Layer.mock(EntitySchemasService);
@@ -47,6 +49,7 @@ const makeServiceLayer = (
 			Layer.mergeAll(
 				transactionLayer,
 				mockAuth({ _tag: "AuthService", auth: Object.create(null) }),
+				mockAutomations({ _tag: "AutomationsService" }),
 				mockSignals({ _tag: "SignalsService" }),
 				mockEntities({ _tag: "EntitiesService", ...overrides.entities }),
 				mockSandbox({ _tag: "SandboxApiService", ...overrides.sandbox }),
