@@ -63,7 +63,7 @@ const fakeFacets = [
 			{ id: "wishlist", name: "Wishlist", slug: "wishlist" },
 		],
 	},
-];
+] as SidebarFacet[];
 
 const fakeViews = [
 	{
