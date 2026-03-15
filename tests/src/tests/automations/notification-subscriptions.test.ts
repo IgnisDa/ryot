@@ -38,6 +38,8 @@ describe("notification subscription catalog and rules", () => {
 		const rules = await listNotificationRules(client);
 
 		expect(catalog.map((schema) => schema.slug).sort()).toEqual([
+			"company.media-group.associated",
+			"company.media.associated",
 			"integration.disabled",
 			"media.content-count.changed",
 			"media.episode.discovered",
@@ -46,6 +48,8 @@ describe("notification subscription catalog and rules", () => {
 			"media.release-date.changed",
 			"media.season-count.changed",
 			"media.status.changed",
+			"person.media-group.associated",
+			"person.media.associated",
 			"review.created",
 			"workout.created",
 		]);

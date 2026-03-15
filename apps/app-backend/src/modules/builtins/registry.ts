@@ -1,5 +1,6 @@
 import {
 	type GeneratedBuiltinSandboxScript,
+	sandboxAutomationDotMediaDashAssociationScript,
 	sandboxAutomationDotMediaDashEntityDashUpdatedScript,
 	sandboxAutomationDotMediaDashRelationshipDashSyncScript,
 	sandboxAutomationDotNotificationScript,
@@ -67,6 +68,7 @@ import {
 	sandboxTriggerDotSonarrDashPushScript,
 } from "./generated-sandbox/registry";
 import { builtinMediaEntitySchemaSlugs } from "./media-schema-slugs";
+import { builtinRelationshipSchemas } from "./relationship-schemas";
 
 const mediaUpdateEntitySchemaSlugs = [
 	...builtinMediaEntitySchemaSlugs,
@@ -74,8 +76,22 @@ const mediaUpdateEntitySchemaSlugs = [
 	"podcast-episode",
 ].filter((slug, index, slugs) => slug !== "show-season" && slugs.indexOf(slug) === index);
 
+const creditRelationshipSchemaSlugs = builtinRelationshipSchemas()
+	.filter(({ sourceEntitySchemaSlug, targetEntitySchemaSlug }) => {
+		const isCreditSource =
+			sourceEntitySchemaSlug === "person" || sourceEntitySchemaSlug === "company";
+		const isCreditTarget =
+			targetEntitySchemaSlug !== null &&
+			(targetEntitySchemaSlug.endsWith("-group")
+				? true
+				: builtinMediaEntitySchemaSlugs.includes(targetEntitySchemaSlug));
+		return isCreditSource && isCreditTarget;
+	})
+	.map(({ slug }) => slug);
+
 export const builtinSandboxScripts = () => [
 	sandboxAutomationDotNotificationScript,
+	sandboxAutomationDotMediaDashAssociationScript,
 	sandboxAutomationDotMediaDashEntityDashUpdatedScript,
 	sandboxAutomationDotMediaDashRelationshipDashSyncScript,
 	sandboxAutomationDotReviewDashCreatedScript,
@@ -165,8 +181,8 @@ export const builtinEntityAutomationRuleLinks = () => [
 	})),
 ];
 
-export const builtinRelationshipAutomationRuleLinks = () =>
-	["show-to-show-season", "show-season-to-show-episode", "podcast-to-podcast-episode"].flatMap(
+export const builtinRelationshipAutomationRuleLinks = () => [
+	...["show-to-show-season", "show-season-to-show-episode", "podcast-to-podcast-episode"].flatMap(
 		(relationshipSchemaSlug) =>
 			(["create", "update", "delete"] as const).map((operation) => ({
 				operation,
@@ -174,7 +190,16 @@ export const builtinRelationshipAutomationRuleLinks = () =>
 				name: sandboxAutomationDotMediaDashRelationshipDashSyncScript.name,
 				scriptSlug: sandboxAutomationDotMediaDashRelationshipDashSyncScript.slug,
 			})),
-	);
+	),
+	...creditRelationshipSchemaSlugs.flatMap((relationshipSchemaSlug) =>
+		(["create", "update", "delete"] as const).map((operation) => ({
+			operation,
+			relationshipSchemaSlug,
+			name: sandboxAutomationDotMediaDashAssociationScript.name,
+			scriptSlug: sandboxAutomationDotMediaDashAssociationScript.slug,
+		})),
+	),
+];
 
 export const entitySchemaSandboxScriptLinks = () =>
 	[
