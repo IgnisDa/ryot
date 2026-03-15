@@ -118,6 +118,16 @@ it("exposes only approved application-table fields", () => {
 			"updatedAt",
 		]),
 	);
+	expect(new Set(Object.keys(getCatalogTable("notificationChannel")?.fields ?? {}))).toEqual(
+		new Set(["id", "channel", "description", "isDisabled", "createdAt", "updatedAt"]),
+	);
+	const notificationChannel = getCatalogTable("notificationChannel");
+	expect(notificationChannel?.name).toBe("notification_channel");
+	expect(notificationChannel?.primaryKey).toBe("id");
+	expect(notificationChannel?.visibility).toEqual({
+		user: { type: "owned", column: "user_id", includeGlobal: false },
+	});
+	expect(notificationChannel && "plugin" in notificationChannel.visibility).toBe(false);
 });
 
 it("rejects hidden application-table fields", () => {
@@ -127,6 +137,9 @@ it("rejects hidden application-table fields", () => {
 		["pluginState", "config"],
 		["pluginState", "userId"],
 		["savedView", "userId"],
+		["notificationChannel", "userId"],
+		["notificationChannel", "channelSpecifics"],
+		["notificationChannel", "platform_specifics"],
 	] as const) {
 		const source = table(tableName, "source");
 		const catalogName = getCatalogTable(tableName)?.name;
@@ -146,6 +159,20 @@ it("rejects hidden application-table fields", () => {
 			),
 		).toBe(`Query 'rows': Unknown field '${fieldName}' on table '${catalogName}'`);
 	}
+});
+
+it("accepts notification channel descriptions as text fields", () => {
+	const channel = table("notificationChannel", "channel");
+	expect(
+		validateRyotQLDocument(
+			document({
+				channels: rows(channel, {
+					fields: [field("description", column(channel, "description"))],
+					where: contains(column(channel, "description"), literal("configured")),
+				}),
+			}),
+		),
+	).toBeNull();
 });
 
 it("rejects unknown fields and tables", () => {

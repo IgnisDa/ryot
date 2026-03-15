@@ -160,6 +160,66 @@ it.effect("applies public and user-only policies to navigation tables", () => {
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
+it.effect("selects notification channel descriptions with text output", () => {
+	const statements: string[] = [];
+	const channel = table("notificationChannel", "channel");
+	const document = {
+		queries: {
+			channels: rows(channel, { fields: [field("description", column(channel, "description"))] }),
+		},
+	};
+	const resultRows = [{ f0k: "text", f0v: "Discord configured", totalCount: 1, rowPresent: true }];
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, document);
+
+		expect(response.data["channels"]).toEqual({
+			type: "rows",
+			pageInfo: { page: 1, limit: 20, total: 1, hasMore: false },
+			items: [{ description: { kind: "text", value: "Discord configured" } }],
+		});
+	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
+});
+
+it.effect("authorizes notification channels in every query occurrence", () => {
+	const statements: string[] = [];
+	const root = table("notificationChannel", "root");
+	const joined = table("notificationChannel", "joined");
+	const included = table("notificationChannel", "included");
+	const correlated = table("notificationChannel", "correlated");
+	const document = {
+		queries: {
+			channels: rows(root, {
+				fields: [],
+				joins: [join("left", joined, eq(column(root, "id"), column(joined, "id")))],
+				where: exists(correlated, {
+					where: eq(column(correlated, "id"), column(root, "id")),
+				}),
+				include: [
+					include(included, {
+						limit: 1,
+						key: "related",
+						fields: [field("id", column(included, "id"))],
+						orderBy: [ascending(column(included, "createdAt"))],
+						where: eq(column(included, "id"), column(root, "id")),
+					}),
+				],
+			}),
+		},
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		yield* service.executeForUser("user-1", null, document);
+
+		const statement = statements[2];
+		expect(statement?.match(/SELECT \* FROM notification_channel WHERE user_id =/g)).toHaveLength(
+			7,
+		);
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
 it.effect("applies plugin ownership to every allowed table occurrence", () => {
 	const statements: string[] = [];
 	const entity = table("entity", "entity");
