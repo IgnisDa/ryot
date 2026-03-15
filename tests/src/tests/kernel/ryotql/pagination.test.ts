@@ -1,4 +1,4 @@
-import type { RowsResult, RyotQLResult } from "@ryot/contract/modules/ryotql/language";
+import type { RowsResult } from "@ryot/contract/modules/ryotql/language";
 import {
 	ascending,
 	castNumber,
@@ -19,16 +19,10 @@ import {
 	createEntityFixture,
 	createPluginEntitySchema,
 	executeRyotQL,
+	requireRows,
 	requireRyotQLFieldValue,
 } from "~/fixtures";
 import { describe, expect, it } from "~/support/effect-test";
-
-const requireRows = (result: RyotQLResult | undefined, name: string): RowsResult => {
-	if (result?.type !== "rows") {
-		throw new Error(`Expected '${name}' rows`);
-	}
-	return result;
-};
 
 const rowNames = (result: RowsResult) =>
 	result.items.map((item) => requireRyotQLFieldValue(item, "name").value);

@@ -1,4 +1,3 @@
-import type { RowsResult, RyotQLResult } from "@ryot/contract/modules/ryotql/language";
 import {
 	and,
 	castNumber,
@@ -24,18 +23,12 @@ import {
 	createEventFixture,
 	createPluginEntitySchema,
 	executeRyotQL,
+	requireRows,
 	requireRyotQLFieldValue,
 	type Client,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-
-const requireRows = (result: RyotQLResult | undefined, name: string): RowsResult => {
-	if (result?.type !== "rows") {
-		throw new Error(`Expected '${name}' rows`);
-	}
-	return result;
-};
 
 const createFixture = (client: Client, name: string) =>
 	Effect.gen(function* () {
