@@ -22,7 +22,7 @@ export const manifest = defineManifest({
 	slug: "trigger.sonarr-push",
 	capabilities: [
 		"httpCall",
-		"getEntity",
+		"getEntities",
 		"getEntitySchema",
 		"listIntegrations",
 		"getUserPreferences",
