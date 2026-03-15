@@ -13,6 +13,7 @@ import { TranslationsService } from "#modules/entity-translation/service";
 import { RelationshipSchemasService } from "#modules/relationship-schemas/service";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxApiService } from "#modules/sandbox/service";
+import { SignalsService } from "#modules/signals/service";
 
 import { TestSupportService } from "./service";
 
@@ -21,6 +22,7 @@ const scriptId = SandboxScriptId.make("script-id");
 const entitySchemaId = EntitySchemaId.make("entity-schema-id");
 
 const mockAuth = Layer.mock(AuthService);
+const mockSignals = Layer.mock(SignalsService);
 const mockEntities = Layer.mock(EntitiesService);
 const mockSandbox = Layer.mock(SandboxApiService);
 const mockTranslations = Layer.mock(TranslationsService);
@@ -45,6 +47,7 @@ const makeServiceLayer = (
 			Layer.mergeAll(
 				transactionLayer,
 				mockAuth({ _tag: "AuthService", auth: Object.create(null) }),
+				mockSignals({ _tag: "SignalsService" }),
 				mockEntities({ _tag: "EntitiesService", ...overrides.entities }),
 				mockSandbox({ _tag: "SandboxApiService", ...overrides.sandbox }),
 				mockTranslations({ _tag: "TranslationsService" }),

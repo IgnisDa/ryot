@@ -20,6 +20,7 @@ import { RelationshipSchemasService } from "#modules/relationship-schemas/servic
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxApiService } from "#modules/sandbox/service";
 import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
+import { SignalsService } from "#modules/signals/service";
 
 type CreateGlobalEntityInput = {
 	readonly name: string;
@@ -41,6 +42,7 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 	effect: Effect.gen(function* () {
 		const auth = yield* AuthService;
 		const engine = yield* WorkflowEngine;
+		const signals = yield* SignalsService;
 		const entities = yield* EntitiesService;
 		const sandbox = yield* SandboxApiService;
 		const translations = yield* TranslationsService;
@@ -168,6 +170,7 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 			triggerInfrequentCron,
 			upsertEntityTranslation,
 			upsertGlobalRelationship,
+			listSignals: signals.list,
 			getSandboxScript: sandbox.getStoredScript,
 			deleteGlobalEntities: entities.deleteByIds,
 			listSandboxScripts: sandbox.listStoredScripts,
