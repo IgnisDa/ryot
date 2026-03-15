@@ -1,28 +1,28 @@
 ## Tasks
 
-**Overall Progress:** 0 of 15 tasks completed
+**Overall Progress:** 1 of 15 tasks completed
 
-**Current Task:** [Task 01](./01-collections-tracer.md) (todo)
+**Current Task:** [Task 02](./02-typed-json-entity-queries.md) (todo)
 
 ### Task List
 
-| #   | Task                                                                       | Status |
-| --- | -------------------------------------------------------------------------- | ------ |
-| 01  | [Collections Tracer](./01-collections-tracer.md)                           | todo   |
-| 02  | [Typed JSON Entity Queries](./02-typed-json-entity-queries.md)             | todo   |
-| 03  | [Localized Entity Reads](./03-localized-entity-reads.md)                   | todo   |
-| 04  | [Event History Migration](./04-event-history-migration.md)                 | todo   |
-| 05  | [Relationship Rows And Includes](./05-relationship-rows-and-includes.md)   | todo   |
-| 06  | [Correlated Query Expressions](./06-correlated-query-expressions.md)       | todo   |
-| 07  | [Aggregate Outputs](./07-aggregate-outputs.md)                             | todo   |
-| 08  | [Time-Series Outputs](./08-time-series-outputs.md)                         | todo   |
-| 09  | [Focused Navigation Queries](./09-focused-navigation-queries.md)           | todo   |
-| 10  | [Sandbox Execution And Media Monitoring](./10-sandbox-media-monitoring.md) | todo   |
-| 11  | [Media Recipe Migration](./11-media-recipe-migration.md)                   | todo   |
-| 12  | [Fitness Recipe Migration](./12-fitness-recipe-migration.md)               | todo   |
-| 13  | [Saved-View Migration](./13-saved-view-migration.md)                       | todo   |
-| 14  | [Legacy Query Engine Deletion](./14-legacy-query-engine-deletion.md)       | todo   |
-| 15  | [Codebase Cleanup](./15-codebase-cleanup.md)                               | todo   |
+| #   | Task                                                                       | Status    |
+| --- | -------------------------------------------------------------------------- | --------- |
+| 01  | [Collections Tracer](./01-collections-tracer.md)                           | completed |
+| 02  | [Typed JSON Entity Queries](./02-typed-json-entity-queries.md)             | todo      |
+| 03  | [Localized Entity Reads](./03-localized-entity-reads.md)                   | todo      |
+| 04  | [Event History Migration](./04-event-history-migration.md)                 | todo      |
+| 05  | [Relationship Rows And Includes](./05-relationship-rows-and-includes.md)   | todo      |
+| 06  | [Correlated Query Expressions](./06-correlated-query-expressions.md)       | todo      |
+| 07  | [Aggregate Outputs](./07-aggregate-outputs.md)                             | todo      |
+| 08  | [Time-Series Outputs](./08-time-series-outputs.md)                         | todo      |
+| 09  | [Focused Navigation Queries](./09-focused-navigation-queries.md)           | todo      |
+| 10  | [Sandbox Execution And Media Monitoring](./10-sandbox-media-monitoring.md) | todo      |
+| 11  | [Media Recipe Migration](./11-media-recipe-migration.md)                   | todo      |
+| 12  | [Fitness Recipe Migration](./12-fitness-recipe-migration.md)               | todo      |
+| 13  | [Saved-View Migration](./13-saved-view-migration.md)                       | todo      |
+| 14  | [Legacy Query Engine Deletion](./14-legacy-query-engine-deletion.md)       | todo      |
+| 15  | [Codebase Cleanup](./15-codebase-cleanup.md)                               | todo      |
 
 ## Problem Statement
 

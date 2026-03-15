@@ -21,6 +21,7 @@ export * from "./media-monitoring";
 export * from "./polling";
 export * from "./query-engine";
 export * from "./query-engine-core";
+export * from "./ryotql";
 export * from "./relationship-schemas";
 export * from "./relationships";
 export * from "./sandbox";
