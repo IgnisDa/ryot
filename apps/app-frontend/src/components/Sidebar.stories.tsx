@@ -12,11 +12,11 @@ export default meta;
 const fakeFacets = [
 	{
 		id: "media",
+		icon: "film",
+		sortOrder: 0,
 		slug: "media",
 		name: "Media",
-		icon: "film",
 		enabled: true,
-		sortOrder: 0,
 		isExpanded: true,
 		entitySchemas: [
 			{ id: "movies", name: "Movies", slug: "movies" },
