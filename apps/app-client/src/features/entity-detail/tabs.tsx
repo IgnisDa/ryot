@@ -26,8 +26,15 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 
 import type { loadRelatedCollections } from "./collections";
+import type { RelatedCompany } from "./companies";
 import { HeroSection } from "./hero-section";
-import { AboutSection, CollectionsSection, CreatorsSection, DetailsSection } from "./sections";
+import {
+	AboutSection,
+	CollectionsSection,
+	CompaniesSection,
+	CreatorsSection,
+	DetailsSection,
+} from "./sections";
 import {
 	AnimeAiringSchedule,
 	PodcastEpisodesList,
@@ -46,8 +53,8 @@ type TabConfig = {
 
 const ACCENT = "#C9943A";
 const INACTIVE_COLOR = Platform.select({
-	ios: "rgba(255,255,255,0.82)",
 	default: "rgba(0,0,0,0.5)",
+	ios: "rgba(255,255,255,0.82)",
 });
 
 function getTypeSpecificTab(entity: EntityDetail): TabConfig | null {
@@ -77,6 +84,7 @@ function getTypeSpecificTab(entity: EntityDetail): TabConfig | null {
 function OverviewTab(props: {
 	entity: EntityDetail;
 	creators: UnlinkedCreator[];
+	companies: RelatedCompany[];
 	collections: Collections | null;
 }) {
 	return (
@@ -85,6 +93,7 @@ function OverviewTab(props: {
 				<Box>
 					<AboutSection entity={props.entity} creators={props.creators} />
 					<CreatorsSection creators={props.creators} />
+					<CompaniesSection companies={props.companies} />
 				</Box>
 				<Box>
 					<DetailsSection entity={props.entity} creators={props.creators} />
@@ -222,6 +231,7 @@ function TabBar(props: {
 export function EntityDetailTabs(props: {
 	entity: EntityDetail;
 	creators: UnlinkedCreator[];
+	companies: RelatedCompany[];
 	collections: Collections | null;
 }) {
 	const insets = useSafeAreaInsets();
@@ -246,6 +256,7 @@ export function EntityDetailTabs(props: {
 			<OverviewTab
 				entity={props.entity}
 				creators={props.creators}
+				companies={props.companies}
 				collections={props.collections}
 			/>
 		))

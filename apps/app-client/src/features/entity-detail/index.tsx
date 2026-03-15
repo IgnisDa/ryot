@@ -6,6 +6,7 @@ import { Text } from "@/components/ui/text";
 import { useApiClient } from "@/lib/api-client";
 
 import { loadRelatedCollections } from "./collections";
+import { loadRelatedCompanies } from "./companies";
 import { isEntitySchemaSlug, toEntityDetail } from "./model";
 import { loadRelatedCreators, mergeCreators } from "./people";
 import { EntityDetailTabs } from "./tabs";
@@ -92,6 +93,24 @@ export function EntityDetailScreen(props: { entityId: string }) {
 		},
 	});
 
+	const relatedCompaniesQuery = useQuery({
+		enabled: !!entityQuery.data?.data && !!entitySchemaQuery.data?.data.slug,
+		queryKey: ["entity-detail", entityId, "companies", entitySchemaQuery.data?.data.slug],
+		queryFn: async () => {
+			const entitySchemaSlug = entitySchemaQuery.data?.data.slug;
+			const entityData = entityQuery.data?.data;
+			if (!entityData || !entitySchemaSlug || !isEntitySchemaSlug(entitySchemaSlug)) {
+				return [];
+			}
+
+			try {
+				return await loadRelatedCompanies(apiClient, { entityId, entitySchemaSlug });
+			} catch {
+				return [];
+			}
+		},
+	});
+
 	const relatedCollectionsQuery = useQuery({
 		enabled: !!entityQuery.data?.data,
 		queryKey: ["entity-detail", entityId, "collections"],
@@ -163,6 +182,7 @@ export function EntityDetailScreen(props: { entityId: string }) {
 		<EntityDetailTabs
 			entity={entity}
 			creators={people}
+			companies={relatedCompaniesQuery.data ?? []}
 			collections={relatedCollectionsQuery.data ?? null}
 		/>
 	);
