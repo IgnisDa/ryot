@@ -91,7 +91,7 @@ export function TrackerForm() {
 							<field.TextField
 								required
 								label="Slug"
-								disabled={isLoading}
+								disabled={isLoading || !isCreateMode}
 								placeholder="enter-tracker-slug"
 							/>
 						)}

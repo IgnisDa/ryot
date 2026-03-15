@@ -432,11 +432,10 @@ export interface paths {
                     "application/json": {
                         enabled?: boolean;
                         description?: string | unknown;
-                        accentColor?: string;
                         /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                         icon?: string;
                         name?: string;
-                        slug?: string;
+                        accentColor?: string;
                     };
                 };
             };

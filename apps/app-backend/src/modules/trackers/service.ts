@@ -24,14 +24,10 @@ export const resolveTrackerPatch = (input: {
 	input: UpdateTrackerBody;
 }) => {
 	const name = input.input.name ?? input.current.name;
-	const slug =
-		input.input.name || input.input.slug
-			? resolveTrackerSlug({ name, slug: input.input.slug })
-			: input.current.slug;
 
 	return {
 		name,
-		slug,
+		slug: input.current.slug,
 		icon:
 			input.input.icon === undefined ? input.current.icon : input.input.icon,
 		description:
