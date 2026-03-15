@@ -287,13 +287,12 @@ const domainHostSource = `
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import {
   createEventsResultDataSchema,
-  entityRecordSchema,
   entitySchemaRecordSchema,
-  eventRecordSchema,
   eventSchemaRecordSchema,
   integrationRecordSchema,
 } from "@ryot/sandbox-sdk/core";
-import { Effect, Result, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { queryEngineRows } from "@ryot/sandbox-sdk/query-engine";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -302,8 +301,6 @@ export const manifest = defineManifest({
   name: "Domain host execution",
   slug: "domain-host-execution",
   capabilities: [
-    "getEntities",
-    "listEvents",
     "createEvents",
     "getIntegration",
     "getEntitySchemas",
@@ -317,37 +314,26 @@ export default defineScript({
   input: Schema.Struct({}),
   output: Schema.Struct({
     queryRows: Schema.Number,
-    missing: Schema.String,
-    entity: entityRecordSchema,
     integration: integrationRecordSchema,
     created: createEventsResultDataSchema,
-    events: Schema.Array(eventRecordSchema),
     eventSchemas: Schema.Array(eventSchemaRecordSchema),
     entitySchemas: Schema.Array(entitySchemaRecordSchema),
   }),
   run: (_input, host) => Effect.gen(function* () {
-    const entity = yield* host.getEntities(["entity-1"]).pipe(
-      Effect.flatMap(([entity]) => entity ? Effect.succeed(entity) : Effect.fail("Entity not found")),
-    );
-    const missingResult = yield* Effect.result(host.getEntities(["missing"]));
     const integration = yield* host.getIntegration();
-    const events = yield* host.listEvents({ entityId: "entity-1" });
-     const entitySchemas = yield* host.getEntitySchemas(["movie"]);
-     const eventSchemas = yield* host.listEventSchemas(["movie"]);
+    const entitySchemas = yield* host.getEntitySchemas(["movie"]);
+    const eventSchemas = yield* host.listEventSchemas(["movie"]);
     const created = yield* host.createEvents([
         { entityId: "entity-1", eventSchemaSlug: "event-schema-1", properties: { watched: true } },
       ]);
     const query = yield* host.executeQueryEngine({ source: { type: "entities" } });
-    const rows = yield* Schema.decodeUnknownEffect(Schema.Array(Schema.Struct({ id: Schema.String })))(query);
+    const rows = queryEngineRows(query);
     return {
-      entity,
       created,
       integration,
-       entitySchemas,
-      events: [...events],
+      entitySchemas,
       queryRows: rows.length,
       eventSchemas: [...eventSchemas],
-      missing: Result.isFailure(missingResult) ? missingResult.failure.message : "unexpected",
     };
   }),
 });
@@ -1488,17 +1474,6 @@ it("counts failed host-call attempts against total and HTTP budgets", () =>
 		),
 	));
 
-const domainEntityRecord = {
-	name: "Inception",
-	populatedAt: null,
-	providerId: "tmdb",
-	externalId: "tt1375666",
-	entitySchemaSlug: "movie",
-	properties: { runtime: 148 },
-	createdAt: "2024-01-01T00:00:00.000Z",
-	updatedAt: "2024-01-01T00:00:00.000Z",
-};
-
 const domainIntegrationRecord = {
 	name: null,
 	lot: "yank",
@@ -1514,17 +1489,6 @@ const domainIntegrationRecord = {
 	updatedAt: "2024-01-01T00:00:00.000Z",
 	providerSpecifics: { kind: "plex_yank" },
 	extraSettings: { disableOnContinuousErrors: false },
-};
-
-const domainEventRecord = {
-	id: "event-1",
-	entityId: "entity-1",
-	eventSchemaSlug: "watched",
-	eventSchemaName: "Watched",
-	properties: { watched: true },
-	createdAt: "2024-01-01T00:00:00.000Z",
-	updatedAt: "2024-01-01T00:00:00.000Z",
-	occurredAt: "2024-01-01T00:00:00.000Z",
 };
 
 const domainEntitySchemaRecord = {
@@ -1564,28 +1528,29 @@ const startDomainHostBridge = () =>
 						const args: readonly unknown[] = Array.isArray(argsValue) ? argsValue : [];
 
 						let result: unknown;
-						if (fnName === "getEntities") {
-							const ids = Array.isArray(args[0]) ? args[0] : [];
-							result = ids.includes("missing")
-								? { error: "Entity not found", success: false }
-								: {
-										success: true,
-										data: ids.map((id) => Object.assign({}, domainEntityRecord, { id })),
-									};
-						} else if (fnName === "getIntegration") {
+						if (fnName === "getIntegration") {
 							result = { data: domainIntegrationRecord, success: true };
 						} else if (fnName === "getEntitySchemas") {
 							result = { data: [domainEntitySchemaRecord], success: true };
 						} else if (fnName === "listEventSchemas") {
 							result = { data: [domainEventSchemaRecord], success: true };
-						} else if (fnName === "listEvents") {
-							result = { data: [domainEventRecord], success: true };
 						} else if (fnName === "createEvents") {
 							const items = args[0];
 							createdEvents.push(Array.isArray(items) ? items : []);
 							result = { data: { count: Array.isArray(items) ? items.length : 0 }, success: true };
 						} else if (fnName === "executeQueryEngine") {
-							result = { data: [{ id: "a" }, { id: "b" }], success: true };
+							result = {
+								data: {
+									type: "rows",
+									data: {
+										items: [
+											{ id: { kind: "text", value: "a" } },
+											{ id: { kind: "text", value: "b" } },
+										],
+									},
+								},
+								success: true,
+							};
 						} else {
 							result = { error: "Unknown function", success: false };
 						}
@@ -1619,8 +1584,6 @@ it("executes typed domain host methods through Deno", () =>
 				expect(Reflect.get(result, "value")).toMatchObject({
 					queryRows: 2,
 					created: { count: 1 },
-					missing: "Entity not found",
-					entity: { id: "entity-1", name: "Inception" },
 					entitySchemas: [{ id: "movie", name: "Movie" }],
 					integration: { id: "integration-1", provider: "plex_yank" },
 					eventSchemas: [{ id: "watched", entitySchemaSlug: "movie" }],
