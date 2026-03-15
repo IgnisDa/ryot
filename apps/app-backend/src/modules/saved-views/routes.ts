@@ -14,7 +14,6 @@ import {
 	createSavedViewForUser,
 	deleteSavedViewByIdForUser,
 	getSavedViewByIdForUser,
-	listEntitySchemaIdsByFacetForUser,
 	listSavedViewsForUser,
 } from "./repository";
 import {
@@ -89,24 +88,12 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const query = c.req.valid("query");
 
-		const allViews = await listSavedViewsForUser({ userId: user.id });
+		const views = await listSavedViewsForUser({
+			userId: user.id,
+			facetId: query.facetId,
+		});
 
-		if (!query.facetId) return c.json(successResponse(allViews), 200);
-
-		const facetEntitySchemaIds = new Set(
-			await listEntitySchemaIdsByFacetForUser({
-				userId: user.id,
-				facetId: query.facetId,
-			}),
-		);
-
-		const filteredViews = allViews.filter((view) =>
-			view.queryDefinition.entitySchemaIds.some((id) =>
-				facetEntitySchemaIds.has(id),
-			),
-		);
-
-		return c.json(successResponse(filteredViews), 200);
+		return c.json(successResponse(views), 200);
 	})
 	.openapi(createSavedViewRoute, async (c) => {
 		const user = c.get("user");
@@ -120,9 +107,12 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			return c.json(createValidationErrorResult(nameResult.error).body, 400);
 
 		const createdView = await createSavedViewForUser({
+			icon: body.icon,
 			userId: user.id,
 			isBuiltin: false,
 			name: nameResult.data,
+			facetId: body.facetId,
+			accentColor: body.accentColor,
 			queryDefinition: body.queryDefinition,
 		});
 
