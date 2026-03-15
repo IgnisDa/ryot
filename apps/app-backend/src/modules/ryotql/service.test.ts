@@ -36,13 +36,7 @@ import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
 
 import { RyotQLService } from "./service";
 
-const requireCollectionsQuery = () => {
-	const query = buildAllCollectionsDocument().queries["collections"];
-	if (!query) {
-		throw new Error("Expected collections query");
-	}
-	return query;
-};
+const getCollectionsQuery = () => buildAllCollectionsDocument().queries["collections"];
 
 const makeServiceLayer = (
 	statements: string[],
@@ -68,7 +62,7 @@ const makeServiceLayer = (
 
 it.effect("executes named queries sequentially in one configured transaction", () => {
 	const statements: string[] = [];
-	const collectionQuery = requireCollectionsQuery();
+	const collectionQuery = getCollectionsQuery();
 	const doc = { queries: { first: collectionQuery, second: collectionQuery } };
 
 	return Effect.gen(function* () {
@@ -108,7 +102,7 @@ it.effect("returns the real total for an empty page", () => {
 
 it.effect("validates the complete document before opening a transaction", () => {
 	const statements: string[] = [];
-	const collectionQuery = requireCollectionsQuery();
+	const collectionQuery = getCollectionsQuery();
 	const invalid = {
 		queries: {
 			valid: collectionQuery,
