@@ -12,6 +12,8 @@
 	"dependencies": {
 		"@better-auth/api-key": "1.5.5",
 		"@better-auth/redis-storage": "1.5.5",
+		"@bull-board/api": "6.20.5",
+		"@bull-board/hono": "6.20.5",
 		"@hono/node-server": "1.19.11",
 		"@hono/zod-openapi": "1.2.2",
 		"@ryot/ts-utils": "workspace:*",
