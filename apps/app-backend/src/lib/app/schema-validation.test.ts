@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { parseAppSchemaProperties } from "./app-schema-validation";
+import { parseAppSchemaProperties } from "./schema-validation";
 
 describe("parseAppSchemaProperties", () => {
 	it("validates properties against the provided app schema", () => {
