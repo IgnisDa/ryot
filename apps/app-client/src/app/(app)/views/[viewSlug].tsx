@@ -1,22 +1,10 @@
 import { useLocalSearchParams } from "expo-router";
 
-import { gridStyles, PageHeader } from "@/components/shell/page-header";
-import { Box } from "@/components/ui/box";
-import { useNavigationData } from "@/lib/navigation";
+import { SavedViewScreen } from "@/features/saved-view";
 
 export default function ViewScreen() {
-	const { trackers } = useNavigationData();
-	const { viewSlug } = useLocalSearchParams<"/(app)/views/[viewSlug]">();
-	const subItem = trackers.flatMap((t) => t.subItems).find((s) => s.slug === viewSlug);
-	const viewName = subItem?.name ?? viewSlug;
+	const { viewSlug: rawViewSlug } = useLocalSearchParams<"/(app)/views/[viewSlug]">();
+	const viewSlug = Array.isArray(rawViewSlug) ? (rawViewSlug[0] ?? "") : rawViewSlug;
 
-	return (
-		<PageHeader eyebrow={viewName} title="Entries">
-			<Box className={gridStyles.grid}>
-				{["one", "two", "three", "four", "five", "six"].map((skeletonKey, i) => (
-					<Box key={skeletonKey} className={gridStyles.card} style={{ opacity: 0.85 - i * 0.08 }} />
-				))}
-			</Box>
-		</PageHeader>
-	);
+	return <SavedViewScreen viewSlug={viewSlug} />;
 }
