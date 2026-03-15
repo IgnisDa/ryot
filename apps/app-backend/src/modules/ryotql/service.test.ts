@@ -65,7 +65,7 @@ it.effect("executes named queries sequentially in one configured transaction", (
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const response = yield* service.executeForUser("user-1", doc);
+		const response = yield* service.executeForUser("user-1", null, doc);
 
 		expect(Object.keys(response.data)).toEqual(["first", "second"]);
 		expect(statements[0]).toBe("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
@@ -86,6 +86,7 @@ it.effect("returns the real total for an empty page", () => {
 		const service = yield* RyotQLService;
 		const response = yield* service.executeForUser(
 			"user-1",
+			null,
 			buildAllCollectionsDocument({ page: 4, limit: 1 }),
 		);
 
@@ -108,7 +109,7 @@ it.effect("validates the complete document before opening a transaction", () => 
 	};
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const error = yield* Effect.flip(service.executeForUser("user-1", invalid));
+		const error = yield* Effect.flip(service.executeForUser("user-1", null, invalid));
 
 		expect(error.message).toBe("Query 'invalid': Unknown table 'auth'");
 		expect(statements).toEqual([]);
@@ -131,7 +132,7 @@ it.effect("collates text predicates and authorizes every joined table occurrence
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		yield* service.executeForUser("user-1", document);
+		yield* service.executeForUser("user-1", null, document);
 
 		const statement = statements[2];
 		expect(statement).toContain("LEFT JOIN (SELECT * FROM entity");
@@ -163,7 +164,7 @@ it.effect("preserves reserved result keys and non-text runtime kinds", () => {
 	];
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const response = yield* service.executeForUser("user-1", document);
+		const response = yield* service.executeForUser("user-1", null, document);
 		const result = response.data["__proto__"];
 		if (!result) {
 			throw new Error("Expected reserved query result");
@@ -209,7 +210,7 @@ it.effect("pushes typed JSON expressions into one rows statement", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		yield* service.executeForUser("user-1", document);
+		yield* service.executeForUser("user-1", null, document);
 
 		const statement = statements[2];
 		expect(statement).toContain("jsonb_extract_path");
@@ -217,6 +218,42 @@ it.effect("pushes typed JSON expressions into one rows statement", () => {
 		expect(statement).toContain(" ILIKE ");
 		expect(statement).toContain(" @> ");
 		expect(statements.filter((value) => value.includes('WITH "queryRows"'))).toHaveLength(1);
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect("resolves localized fields and emits translation-status SQL only when referenced", () => {
+	const statements: string[] = [];
+	const entity = table("entity", "entity");
+	const localizedDocument = {
+		queries: {
+			entities: rows(entity, {
+				where: contains(column(entity, "name"), literal("localized")),
+				fields: [
+					field("name", column(entity, "name")),
+					field("properties", column(entity, "properties")),
+				],
+			}),
+		},
+	};
+	const statusDocument = {
+		queries: {
+			entities: rows(entity, {
+				fields: [field("translationStatus", column(entity, "translationStatus"))],
+			}),
+		},
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		yield* service.executeForUser("user-1", "es", localizedDocument);
+		yield* service.executeForUser("user-1", "es", statusDocument);
+
+		const localizedStatement = statements[2];
+		const statusStatement = statements[5];
+		expect(localizedStatement).toContain("entity_translation");
+		expect(localizedStatement).not.toContain("sandbox_provider");
+		expect(statusStatement).toContain("entity_translation");
+		expect(statusStatement).toContain("sandbox_provider");
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
@@ -241,7 +278,7 @@ it.effect("maps statement timeouts to a bad request", () => {
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
 		const error = yield* Effect.flip(
-			service.executeForUser("user-1", buildAllCollectionsDocument()),
+			service.executeForUser("user-1", null, buildAllCollectionsDocument()),
 		);
 
 		expect(error.message).toBe("Query exceeded the maximum execution time of 30000ms");
