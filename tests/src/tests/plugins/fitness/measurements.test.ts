@@ -1,8 +1,6 @@
-import {
-	createEntityColumnExpression,
-	createEntityPropertyExpression,
-} from "@ryot/contract/display-configuration";
+import type { FieldSelection } from "@ryot/contract/modules/ryotql/language";
 import { buildMeasurementListQueryDocument } from "@ryot/fitness-plugin/query-recipes";
+import { column, field, jsonPath, literal, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import {
@@ -19,6 +17,22 @@ import {
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+
+const savedViewEntity = table("entity", "entity");
+const expectedSavedViewFields = [
+	field("entityId", column(savedViewEntity, "id")),
+	field("gridTitle", column(savedViewEntity, "name")),
+	field("gridEyebrow", literal("Measurement")),
+	field("gridPrimarySubtitle", jsonPath(column(savedViewEntity, "properties"), "recordedAt")),
+	field("gridSecondarySubtitle", jsonPath(column(savedViewEntity, "properties"), "comment")),
+	field("listTitle", column(savedViewEntity, "name")),
+	field("listEyebrow", literal("Measurement")),
+	field("listPrimarySubtitle", jsonPath(column(savedViewEntity, "properties"), "recordedAt")),
+	field("listSecondarySubtitle", jsonPath(column(savedViewEntity, "properties"), "comment")),
+	field("tableColumn0", column(savedViewEntity, "name")),
+	field("tableColumn1", jsonPath(column(savedViewEntity, "properties"), "comment")),
+	field("tableColumn2", jsonPath(column(savedViewEntity, "properties"), "recordedAt")),
+] satisfies readonly FieldSelection[];
 
 describe("Measurements E2E", () => {
 	it.live("links the built-in measurement schema to the fitness plugin", () =>
@@ -73,8 +87,13 @@ describe("Measurements E2E", () => {
 					pluginSlug: fitnessPlugin.slug,
 				});
 				const allMeasurementsView = views.find((view) => view.name === "All Measurements");
+				assertPresent(allMeasurementsView, "Expected the built-in All Measurements saved view");
+				const savedViewQuery = allMeasurementsView.queryDocument.queries.savedView;
+				assertPresent(savedViewQuery, "Expected the All Measurements saved-view query");
+				if (savedViewQuery.output.type !== "rows") {
+					throw new Error("Expected the All Measurements saved-view query to use rows output");
+				}
 
-				expect(allMeasurementsView).toBeDefined();
 				expect(allMeasurementsView).toMatchObject({
 					isBuiltin: true,
 					name: "All Measurements",
@@ -94,14 +113,32 @@ describe("Measurements E2E", () => {
 					},
 					displayConfiguration: {
 						grid: {
-							imageProperty: null,
-							calloutProperty: null,
-							titleProperty: createEntityColumnExpression("measurement", "name"),
-							secondarySubtitleProperty: createEntityPropertyExpression("measurement", "comment"),
-							primarySubtitleProperty: createEntityPropertyExpression("measurement", "recordedAt"),
+							imageField: null,
+							calloutField: null,
+							titleField: "gridTitle",
+							eyebrowField: "gridEyebrow",
+							secondarySubtitleField: "gridSecondarySubtitle",
+							primarySubtitleField: "gridPrimarySubtitle",
+						},
+						list: {
+							imageField: null,
+							calloutField: null,
+							titleField: "listTitle",
+							eyebrowField: "listEyebrow",
+							secondarySubtitleField: "listSecondarySubtitle",
+							primarySubtitleField: "listPrimarySubtitle",
+						},
+						entityIdField: "entityId",
+						table: {
+							columns: [
+								{ label: "Name", field: "tableColumn0" },
+								{ label: "Comment", field: "tableColumn1" },
+								{ label: "Recorded At", field: "tableColumn2" },
+							],
 						},
 					},
 				});
+				expect(savedViewQuery.output.fields).toEqual(expectedSavedViewFields);
 			}),
 	);
 

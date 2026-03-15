@@ -1,20 +1,10 @@
-import type { DisplayConfiguration } from "@ryot/contract/display-configuration";
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
+import { column, table } from "@ryot/ryotql";
+import { buildSavedViewProjection } from "@ryot/ryotql-recipes/saved-views";
 
 import { buildDefaultMediaSavedViewQueryDocument } from "./query-recipes";
 import { mediaEntitySchemas } from "./schemas/entity-schemas";
 import { slugify } from "./shared/slug";
-import { buildDisplayConfig } from "./shared/view-helpers";
-
-export type BuiltinSavedView = {
-	readonly name: string;
-	readonly slug: string;
-	readonly icon?: string;
-	readonly pluginSlug?: string;
-	readonly entitySchemaSlug?: string;
-	readonly queryDocument?: RyotQLDocument;
-	readonly displayConfiguration: DisplayConfiguration;
-};
+import { buildViewExpressions } from "./shared/view-helpers";
 
 const mediaEntitySchemaSlugs = [
 	"show",
@@ -56,55 +46,39 @@ const mediaViewName: Record<(typeof mediaEntitySchemaSlugs)[number], string> = {
 	"video-game-group": "All Video Game Franchises",
 };
 
-export const builtinSavedViews = (): BuiltinSavedView[] => [
-	{
-		name: "All Persons",
-		slug: "all-persons",
-		pluginSlug: "media",
-		entitySchemaSlug: "person",
-		displayConfiguration: buildDisplayConfig("person"),
-	},
-	{
-		pluginSlug: "media",
-		name: "All Companies",
-		slug: "all-companies",
-		entitySchemaSlug: "company",
-		displayConfiguration: buildDisplayConfig("company"),
-	},
-	...mediaEntitySchemaSlugs.map((slug) => {
-		const name = mediaViewName[slug];
-		return {
-			name,
-			pluginSlug: "media",
-			entitySchemaSlug: slug,
-			slug: slugify(name),
-			displayConfiguration: buildDisplayConfig(slug),
-		};
-	}),
-];
-
 export const mediaSavedViews = () => {
 	const schemas = new Map(mediaEntitySchemas().map((schema) => [schema.slug, schema]));
-	return builtinSavedViews().map((view, sortOrder) => {
-		if (!view.entitySchemaSlug) {
-			throw new Error(`Media saved view ${view.slug} has no schema`);
-		}
+	const entity = table("entity", "entity");
+	const definitions = [
+		{ name: "All Persons", slug: "all-persons", entitySchemaSlug: "person" },
+		{ name: "All Companies", slug: "all-companies", entitySchemaSlug: "company" },
+		...mediaEntitySchemaSlugs.map((entitySchemaSlug) => ({
+			entitySchemaSlug,
+			name: mediaViewName[entitySchemaSlug],
+			slug: slugify(mediaViewName[entitySchemaSlug]),
+		})),
+	] as const;
+
+	return definitions.map((view, sortOrder) => {
 		const schema = schemas.get(view.entitySchemaSlug);
 		if (!schema) {
 			throw new Error(`Missing media entity schema: ${view.entitySchemaSlug}`);
 		}
+		const projection = buildSavedViewProjection({
+			entityId: column(entity, "id"),
+			...buildViewExpressions(view.entitySchemaSlug, schema.name),
+		});
 		return {
 			sortOrder,
-			pluginSlug: "media",
 			name: view.name,
 			slug: view.slug,
-			icon: view.icon ?? schema.icon,
-			queryDocument:
-				view.queryDocument ??
-				buildDefaultMediaSavedViewQueryDocument({
-					schemas: [view.entitySchemaSlug],
-				}),
-			displayConfiguration: view.displayConfiguration,
+			icon: schema.icon,
+			pluginSlug: "media",
+			displayConfiguration: projection.displayConfiguration,
+			queryDocument: buildDefaultMediaSavedViewQueryDocument({
+				fields: projection.fields,
+				schemas: [view.entitySchemaSlug],
+			}),
 		};
 	});
 };

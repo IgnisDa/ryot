@@ -1,8 +1,3 @@
-import {
-	createEntityColumnExpression,
-	createEntitySchemaExpression,
-} from "@ryot/contract/display-configuration";
-import { aggregate, column, document, eq, literal, measure, table } from "@ryot/ryotql";
 import { buildSavedViewDocument } from "@ryot/ryotql-recipes/saved-views";
 import { Effect } from "effect";
 
@@ -13,51 +8,23 @@ import {
 	createSavedView,
 	createSavedViewWithQueryDocument,
 	deleteSavedView,
-	entityField,
 	findBuiltinSavedView,
 	getSavedView,
 	listSavedViews,
 	reorderSavedViews,
+	rowsDocument,
+	rowsFields,
 	updateSavedViewWithQueryDocument,
-	type SavedViewQueryDocument,
 } from "~/fixtures";
 import { describe, expect, it } from "~/support/effect-test";
 
-const rowsDocument: SavedViewQueryDocument = buildSavedViewDocument({
-	entitySchemaSlugs: ["book"],
-});
-
-const book = table("entity", "book");
-const aggregateDocument: SavedViewQueryDocument = document({
-	savedView: aggregate(book, {
-		measures: [measure("total", { function: "count" })],
-		where: eq(column(book, "entitySchemaSlug"), literal("book")),
-	}),
-});
-
-const buildSchemaRowsDocument = (slug: string): SavedViewQueryDocument =>
-	buildSavedViewDocument({ entitySchemaSlugs: [slug] });
-
-const buildSchemaDisplayConfiguration = (slug: string) => ({
-	entityIdProperty: createEntityColumnExpression(slug, "id"),
-	table: { columns: [{ label: "Name", expression: [entityField(slug, "name")] }] },
-	grid: {
-		imageProperty: null,
-		calloutProperty: null,
-		primarySubtitleProperty: null,
-		secondarySubtitleProperty: null,
-		eyebrowProperty: createEntitySchemaExpression("name"),
-		titleProperty: [entityField(slug, "name")],
-	},
-	list: {
-		imageProperty: null,
-		calloutProperty: null,
-		primarySubtitleProperty: null,
-		secondarySubtitleProperty: null,
-		eyebrowProperty: createEntitySchemaExpression("name"),
-		titleProperty: [entityField(slug, "name")],
-	},
-});
+const buildSchemaRowsDocument = (slug: string) =>
+	buildSavedViewDocument({
+		page: 1,
+		limit: 2,
+		entitySchemaSlugs: [slug],
+		fields: rowsFields,
+	});
 
 const buildBuiltinUpdatePayload = (view: Effect.Success<ReturnType<typeof getSavedView>>) => ({
 	icon: view.icon,
@@ -112,10 +79,10 @@ describe("saved views management", () => {
 			const updatedView = yield* updateSavedViewWithQueryDocument(
 				client,
 				createdView.slug,
-				aggregateDocument,
+				rowsDocument,
 				{ name: `${createdView.name} Updated` },
 			);
-			expect(updatedView.queryDocument).toEqual(aggregateDocument);
+			expect(updatedView.queryDocument).toEqual(rowsDocument);
 
 			const clonedView = yield* cloneSavedView(client, createdView.slug);
 			expect(clonedView.id).not.toBe(createdView.id);
@@ -226,22 +193,18 @@ describe("saved views management", () => {
 				schemaName: `SavedViewTracked ${crypto.randomUUID()}`,
 			});
 			const viewDocument = buildSchemaRowsDocument(slug);
-			const displayConfiguration = buildSchemaDisplayConfiguration(slug);
 
 			const trackerViewA = yield* createSavedViewWithQueryDocument(client, viewDocument, {
 				pluginSlug,
 				name: `Tracker View A ${crypto.randomUUID()}`,
-				displayConfiguration,
 			});
 			const trackerViewB = yield* createSavedViewWithQueryDocument(client, viewDocument, {
 				pluginSlug,
 				name: `Tracker View B ${crypto.randomUUID()}`,
-				displayConfiguration,
 			});
 			const trackerViewC = yield* createSavedViewWithQueryDocument(client, viewDocument, {
 				pluginSlug,
 				name: `Tracker View C ${crypto.randomUUID()}`,
-				displayConfiguration,
 			});
 			yield* createSavedView(client, { name: `Top Level View ${crypto.randomUUID()}` });
 

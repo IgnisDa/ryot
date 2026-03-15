@@ -1,228 +1,90 @@
 import type { ContractPayload } from "@ryot/contract/client";
-import {
-	createEntityColumnExpression,
-	createEntitySchemaExpression,
-	type DisplayConfiguration,
-} from "@ryot/contract/display-configuration";
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import { PluginSlug } from "@ryot/contract/schema/brands";
-import { aggregate, column, document, eq, literal, measure, table, timeSeries } from "@ryot/ryotql";
-import { buildSavedViewDocument } from "@ryot/ryotql-recipes/saved-views";
+import { column, jsonPath, literal, table } from "@ryot/ryotql";
+import { buildSavedViewDocument, buildSavedViewProjection } from "@ryot/ryotql-recipes/saved-views";
 import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
-import {
-	entityField,
-	entityImageField,
-	toRequiredExpression,
-	type ExpressionInput,
-} from "./view-language";
 
-type CardDisplayConfiguration = DisplayConfiguration["grid"];
-type DisplayColumn = DisplayConfiguration["table"]["columns"][number];
-
-export type DisplayColumnInput = Pick<DisplayColumn, "label"> & {
-	property?: string[];
-	expression?: ExpressionInput;
-};
-
-export type CardDisplayConfigurationInput = {
-	[K in keyof CardDisplayConfiguration]?: ExpressionInput | null;
-};
-
-export type DisplayConfigurationInput = Omit<
-	DisplayConfiguration,
-	"grid" | "list" | "entityIdProperty" | "table"
-> & {
-	grid: CardDisplayConfigurationInput;
-	list: CardDisplayConfigurationInput;
-	entityIdProperty?: ExpressionInput | null;
-	table: Omit<DisplayConfiguration["table"], "columns"> & {
-		columns: ReadonlyArray<DisplayColumnInput>;
-	};
-};
-
-export type SavedViewQueryDocument = RyotQLDocument;
 type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
 type UpdateSavedViewBody = ContractPayload<"savedViews", "update">;
 type ReorderSavedViewsBody = ContractPayload<"savedViews", "reorder">;
 
-export const rowsDocument: SavedViewQueryDocument = buildSavedViewDocument({
-	entitySchemaSlugs: ["book"],
-});
+export type SavedViewQueryDocument = CreateSavedViewBody["queryDocument"];
+type SavedViewDisplayConfiguration = CreateSavedViewBody["displayConfiguration"];
+type CreateSavedViewInput = Partial<CreateSavedViewBody>;
+type UpdateSavedViewInput = Partial<UpdateSavedViewBody>;
 
-const book = table("entity", "book");
+const entity = table("entity", "entity");
+const entityProperties = column(entity, "properties");
+const entityProperty = (...path: [string | number, ...(string | number)[]]) =>
+	jsonPath(entityProperties, ...path);
 
-export const aggregateDocument: SavedViewQueryDocument = document({
-	savedView: aggregate(book, {
-		measures: [measure("total", { function: "count" })],
-		where: eq(column(book, "entitySchemaSlug"), literal("book")),
-	}),
-});
-
-export const timeSeriesDocument: SavedViewQueryDocument = document({
-	savedView: timeSeries(book, {
-		bucket: "month",
-		measure: { function: "count" },
-		endAt: "2020-07-01T00:00:00.000Z",
-		startAt: "2020-01-01T00:00:00.000Z",
-		time: column(book, "createdAt"),
-		where: eq(column(book, "entitySchemaSlug"), literal("book")),
-	}),
-});
-
-type CreateSavedViewInput = Partial<Omit<CreateSavedViewBody, "displayConfiguration">> & {
-	displayConfiguration?: DisplayConfigurationInput;
-};
-
-type UpdateSavedViewInput = Partial<Omit<UpdateSavedViewBody, "displayConfiguration">> & {
-	displayConfiguration?: DisplayConfigurationInput;
-};
-
-const normalizeCardDisplayConfiguration = (
-	input: CardDisplayConfigurationInput,
-	allowNulls: boolean,
-): CardDisplayConfiguration => ({
-	eyebrowProperty:
-		(input.eyebrowProperty === null && allowNulls
-			? null
-			: toRequiredExpression(input.eyebrowProperty ?? null)) ?? null,
-	calloutProperty:
-		(input.calloutProperty === null && allowNulls
-			? null
-			: toRequiredExpression(input.calloutProperty ?? null)) ?? null,
-	titleProperty:
-		input.titleProperty === null && allowNulls
-			? toRequiredExpression(null)
-			: toRequiredExpression(input.titleProperty ?? null),
-	imageProperty:
-		(input.imageProperty === null && allowNulls
-			? null
-			: toRequiredExpression(input.imageProperty ?? null)) ?? null,
-	primarySubtitleProperty:
-		(input.primarySubtitleProperty === null && allowNulls
-			? null
-			: toRequiredExpression(input.primarySubtitleProperty ?? null)) ?? null,
-	secondarySubtitleProperty:
-		(input.secondarySubtitleProperty === null && allowNulls
-			? null
-			: toRequiredExpression(input.secondarySubtitleProperty ?? null)) ?? null,
-});
-
-const normalizeTableDisplayConfiguration = (input: {
-	columns: ReadonlyArray<DisplayColumnInput>;
-}): DisplayConfiguration["table"] => ({
-	columns: input.columns.map((displayColumn) => ({
-		label: displayColumn.label,
-		expression: toRequiredExpression(displayColumn.expression ?? displayColumn.property ?? []),
-	})),
-});
-
-const normalizeDisplayConfiguration = (
-	input: DisplayConfigurationInput,
-	allowNulls = true,
-): DisplayConfiguration => ({
-	table: normalizeTableDisplayConfiguration(input.table),
-	grid: normalizeCardDisplayConfiguration(input.grid, allowNulls),
-	list: normalizeCardDisplayConfiguration(input.list, allowNulls),
-	entityIdProperty: toRequiredExpression(
-		input.entityIdProperty === undefined
-			? defaultDisplayConfiguration.entityIdProperty
-			: input.entityIdProperty,
-	),
-});
-
-const mergeDisplayConfigurationInput = (
-	input: DisplayConfigurationInput,
-): DisplayConfigurationInput => ({
-	table: input.table,
-	grid: { ...defaultDisplayConfiguration.grid, ...input.grid },
-	list: { ...defaultDisplayConfiguration.list, ...input.list },
-	entityIdProperty:
-		input.entityIdProperty === undefined
-			? defaultDisplayConfiguration.entityIdProperty
-			: input.entityIdProperty,
-});
-
-const defaultDisplayConfiguration = {
-	entityIdProperty: createEntityColumnExpression("book", "id"),
-	table: { columns: [{ label: "Name", expression: [entityField("book", "name")] }] },
+const defaultProjection = buildSavedViewProjection({
+	entityId: column(entity, "id"),
 	grid: {
-		calloutProperty: null,
-		primarySubtitleProperty: null,
-		secondarySubtitleProperty: null,
-		imageProperty: [entityImageField("book")],
-		eyebrowProperty: createEntitySchemaExpression("name"),
-		titleProperty: [entityField("book", "name")],
+		title: column(entity, "name"),
+		image: entityProperty("images", 0),
+		eyebrow: literal("Book"),
+		callout: null,
+		primarySubtitle: entityProperty("publishYear"),
+		secondarySubtitle: null,
 	},
 	list: {
-		calloutProperty: null,
-		primarySubtitleProperty: null,
-		secondarySubtitleProperty: null,
-		imageProperty: [entityImageField("book")],
-		eyebrowProperty: createEntitySchemaExpression("name"),
-		titleProperty: [entityField("book", "name")],
+		title: column(entity, "name"),
+		image: entityProperty("images", 0),
+		eyebrow: literal("Book"),
+		callout: null,
+		primarySubtitle: entityProperty("publishYear"),
+		secondarySubtitle: null,
 	},
-} satisfies DisplayConfigurationInput;
+	table: [
+		{ label: "Name", expression: column(entity, "name") },
+		{ label: "Year", expression: entityProperty("publishYear") },
+	],
+});
 
-const defaultQueryDocument = rowsDocument;
+const defaultDisplayConfiguration =
+	defaultProjection.displayConfiguration satisfies SavedViewDisplayConfiguration;
+
+export const rowsDocument = buildSavedViewDocument({
+	page: 1,
+	limit: 2,
+	entitySchemaSlugs: ["book"],
+	fields: defaultProjection.fields,
+}) satisfies SavedViewQueryDocument;
+
+const rowsQuery = rowsDocument.queries.savedView;
+type SavedViewFieldSelection = Extract<
+	(typeof rowsQuery.output.fields)[number],
+	{ readonly key: string }
+>;
+export const rowsFields = rowsQuery.output.fields.filter(
+	(selection): selection is SavedViewFieldSelection => "key" in selection,
+);
 
 export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): CreateSavedViewBody {
-	const { displayConfiguration: displayOverride, queryDocument, ...rest } = overrides;
-	const displayConfiguration = displayOverride
-		? normalizeDisplayConfiguration(mergeDisplayConfigurationInput(displayOverride))
-		: normalizeDisplayConfiguration(defaultDisplayConfiguration);
-
 	return {
 		icon: "star",
-		displayConfiguration,
 		name: `Saved View ${crypto.randomUUID()}`,
-		queryDocument: queryDocument ?? defaultQueryDocument,
-		...rest,
+		queryDocument: rowsDocument,
+		displayConfiguration: defaultDisplayConfiguration,
+		...overrides,
 	};
 }
 
 export function buildUpdatedSavedViewBody(
 	overrides: UpdateSavedViewInput = {},
 ): UpdateSavedViewBody {
-	const { displayConfiguration: displayOverride, queryDocument, ...rest } = overrides;
-	const displayConfiguration = displayOverride
-		? normalizeDisplayConfiguration(mergeDisplayConfigurationInput(displayOverride), false)
-		: normalizeDisplayConfiguration({
-				entityIdProperty: createEntityColumnExpression("book", "id"),
-				table: {
-					columns: [
-						{ label: "Name", expression: [entityField("book", "name")] },
-						{ label: "Year", expression: [entityField("book", "publishYear")] },
-					],
-				},
-				grid: {
-					imageProperty: null,
-					calloutProperty: null,
-					primarySubtitleProperty: null,
-					secondarySubtitleProperty: null,
-					eyebrowProperty: createEntitySchemaExpression("name"),
-					titleProperty: [entityField("book", "name")],
-				},
-				list: {
-					calloutProperty: null,
-					secondarySubtitleProperty: null,
-					imageProperty: [entityImageField("book")],
-					eyebrowProperty: createEntitySchemaExpression("name"),
-					titleProperty: [entityField("book", "name")],
-					primarySubtitleProperty: [entityField("book", "publishYear")],
-				},
-			});
-
 	return {
 		icon: "heart",
-		isDisabled: false,
-		displayConfiguration,
 		name: `Updated View ${crypto.randomUUID()}`,
-		queryDocument: queryDocument ?? defaultQueryDocument,
-		...rest,
+		isDisabled: false,
+		queryDocument: rowsDocument,
+		displayConfiguration: defaultDisplayConfiguration,
+		...overrides,
 	};
 }
 
@@ -230,14 +92,14 @@ export function buildSavedViewQueryDocumentBody(
 	queryDocument: SavedViewQueryDocument,
 	overrides: CreateSavedViewInput = {},
 ): CreateSavedViewBody {
-	return { ...buildSavedViewBody(overrides), queryDocument };
+	return buildSavedViewBody({ ...overrides, queryDocument });
 }
 
 export function buildUpdatedSavedViewQueryDocumentBody(
 	queryDocument: SavedViewQueryDocument,
 	overrides: UpdateSavedViewInput = {},
 ): UpdateSavedViewBody {
-	return { ...buildUpdatedSavedViewBody(overrides), queryDocument };
+	return buildUpdatedSavedViewBody({ ...overrides, queryDocument });
 }
 
 export const createSavedView = (client: Client, overrides: CreateSavedViewInput = {}) =>
@@ -249,7 +111,9 @@ export const createSavedViewWithQueryDocument = (
 	overrides: CreateSavedViewInput = {},
 ) =>
 	client.call((c) =>
-		c.savedViews.create({ payload: buildSavedViewQueryDocumentBody(queryDocument, overrides) }),
+		c.savedViews.create({
+			payload: buildSavedViewQueryDocumentBody(queryDocument, overrides),
+		}),
 	);
 
 export const listSavedViews = (
@@ -282,7 +146,10 @@ export const updateSavedView = (
 	overrides: UpdateSavedViewInput = {},
 ) =>
 	client.call((c) =>
-		c.savedViews.update({ params: { viewSlug }, payload: buildUpdatedSavedViewBody(overrides) }),
+		c.savedViews.update({
+			params: { viewSlug },
+			payload: buildUpdatedSavedViewBody(overrides),
+		}),
 	);
 
 export const updateSavedViewWithQueryDocument = (
