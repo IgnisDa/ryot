@@ -16,6 +16,7 @@
       "name": "@ryot/app-backend",
       "dependencies": {
         "@better-auth/api-key": "1.5.0",
+        "@better-auth/redis-storage": "1.5.4",
         "@hono/node-server": "1.19.9",
         "@hono/swagger-ui": "0.5.3",
         "@hono/zod-openapi": "1.2.2",
@@ -632,6 +633,8 @@
     "@better-auth/mongo-adapter": ["@better-auth/mongo-adapter@1.5.0", "", { "peerDependencies": { "@better-auth/core": "1.5.0", "@better-auth/utils": "^0.3.0", "mongodb": "^6.0.0 || ^7.0.0" } }, "sha512-qI+MiewH6kzUbNkKBX4fdhPl1MkIXq8V7v3TEt/DLAHC4/QxmPqhxQHEDeZBxO+NH8+Zekr2sQzKRRFfbaQKbw=="],
 
     "@better-auth/prisma-adapter": ["@better-auth/prisma-adapter@1.5.0", "", { "dependencies": { "@prisma/client": "^7.4.1" }, "peerDependencies": { "@better-auth/core": "1.5.0", "@better-auth/utils": "^0.3.0", "prisma": "^5.0.0 || ^6.0.0 || ^7.0.0" } }, "sha512-Sga8DTeCCsamGZ7/54kH0HKlrCrgW4EApadAgsufsIcRqHteeKC5rNCLIppfyRa/xJxm5xImUeks6Nvz3zL1tw=="],
+
+    "@better-auth/redis-storage": ["@better-auth/redis-storage@1.5.4", "", { "peerDependencies": { "@better-auth/core": "1.5.4", "ioredis": "^5.0.0" } }, "sha512-g3gwGx+nLvnaz1E39quaYxcZTfCVfRosKw3t1EwPD/HG4EATnyHwDmc9danCZX1FeSCB/gFZ/zTgo93RnzyAjw=="],
 
     "@better-auth/telemetry": ["@better-auth/telemetry@1.5.0", "", { "dependencies": { "@better-auth/utils": "0.3.1", "@better-fetch/fetch": "1.1.21" }, "peerDependencies": { "@better-auth/core": "1.5.0" } }, "sha512-/6ThGSnGPVTR4A/6F8kv65UomDHtM24y2yRZuJfWYbqkve0jn8+WVsxOfQN9bx7J16zIvYw5hJAYCwxoj20BTQ=="],
 
