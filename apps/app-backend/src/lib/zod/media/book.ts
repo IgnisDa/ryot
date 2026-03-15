@@ -4,8 +4,8 @@ import {
 	nullableBooleanSchema,
 	nullableIntSchema,
 	toStableJsonSchema,
-} from "./base";
-import { mediaPropertiesSchema } from "./media";
+} from "../base";
+import { mediaPropertiesSchema } from "./common";
 
 const schemaImportPerson = z
 	.object({ role: z.string(), source: z.string(), identifier: z.string() })
