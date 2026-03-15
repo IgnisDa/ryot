@@ -1,6 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "~/db";
-import { entitySchema } from "~/db/schema";
+import { entitySchema, savedView } from "~/db/schema";
+import { buildBuiltinSavedViewName } from "../saved-views/service";
 import type { EntitySchemaPropertiesShape } from "./service";
 
 export const listEntitySchemasByFacetForUser = async (input: {
@@ -32,8 +33,8 @@ export const listEntitySchemasByFacetForUser = async (input: {
 };
 
 export const getEntitySchemaBySlugForUser = async (input: {
-	userId: string;
 	slug: string;
+	userId: string;
 }) => {
 	const [foundEntitySchema] = await db
 		.select({ id: entitySchema.id })
@@ -56,30 +57,46 @@ export const createEntitySchemaForUser = async (input: {
 	facetId: string;
 	propertiesSchema: EntitySchemaPropertiesShape;
 }) => {
-	const [createdEntitySchema] = await db
-		.insert(entitySchema)
-		.values({
-			name: input.name,
-			slug: input.slug,
-			isBuiltin: false,
-			userId: input.userId,
-			facetId: input.facetId,
-			propertiesSchema: input.propertiesSchema,
-		})
-		.returning({
-			id: entitySchema.id,
-			name: entitySchema.name,
-			slug: entitySchema.slug,
-			facetId: entitySchema.facetId,
-			isBuiltin: entitySchema.isBuiltin,
-			propertiesSchema: entitySchema.propertiesSchema,
-		});
+	return await db.transaction(async (tx) => {
+		const [createdEntitySchema] = await tx
+			.insert(entitySchema)
+			.values({
+				name: input.name,
+				slug: input.slug,
+				isBuiltin: false,
+				userId: input.userId,
+				facetId: input.facetId,
+				propertiesSchema: input.propertiesSchema,
+			})
+			.returning({
+				id: entitySchema.id,
+				name: entitySchema.name,
+				slug: entitySchema.slug,
+				facetId: entitySchema.facetId,
+				isBuiltin: entitySchema.isBuiltin,
+				propertiesSchema: entitySchema.propertiesSchema,
+			});
 
-	if (!createdEntitySchema) throw new Error("Could not persist entity schema");
+		if (!createdEntitySchema)
+			throw new Error("Could not persist entity schema");
 
-	return {
-		...createdEntitySchema,
-		propertiesSchema:
-			createdEntitySchema.propertiesSchema as EntitySchemaPropertiesShape,
-	};
+		const [createdSavedView] = await tx
+			.insert(savedView)
+			.values({
+				isBuiltin: true,
+				userId: input.userId,
+				name: buildBuiltinSavedViewName(input.name),
+				queryDefinition: { entitySchemaIds: [createdEntitySchema.id] },
+			})
+			.returning({ id: savedView.id });
+
+		if (!createdSavedView)
+			throw new Error("Could not persist built-in saved view");
+
+		return {
+			...createdEntitySchema,
+			propertiesSchema:
+				createdEntitySchema.propertiesSchema as EntitySchemaPropertiesShape,
+		};
+	});
 };

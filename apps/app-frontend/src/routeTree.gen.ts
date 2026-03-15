@@ -13,6 +13,7 @@ import { Route as StartRouteImport } from './routes/start'
 import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
 import { Route as ProtectedTrackingFacetSlugIndexRouteImport } from './routes/_protected/tracking/$facetSlug/index'
+import { Route as ProtectedTrackingFacetSlugViewsViewIdRouteImport } from './routes/_protected/tracking/$facetSlug/views/$viewId'
 import { Route as ProtectedTrackingFacetSlugEntitiesEntityIdRouteImport } from './routes/_protected/tracking/$facetSlug/entities/$entityId'
 
 const StartRoute = StartRouteImport.update({
@@ -35,6 +36,12 @@ const ProtectedTrackingFacetSlugIndexRoute =
     path: '/tracking/$facetSlug/',
     getParentRoute: () => ProtectedRouteRoute,
   } as any)
+const ProtectedTrackingFacetSlugViewsViewIdRoute =
+  ProtectedTrackingFacetSlugViewsViewIdRouteImport.update({
+    id: '/tracking/$facetSlug/views/$viewId',
+    path: '/tracking/$facetSlug/views/$viewId',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
 const ProtectedTrackingFacetSlugEntitiesEntityIdRoute =
   ProtectedTrackingFacetSlugEntitiesEntityIdRouteImport.update({
     id: '/tracking/$facetSlug/entities/$entityId',
@@ -47,12 +54,14 @@ export interface FileRoutesByFullPath {
   '/start': typeof StartRoute
   '/tracking/$facetSlug/': typeof ProtectedTrackingFacetSlugIndexRoute
   '/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
+  '/tracking/$facetSlug/views/$viewId': typeof ProtectedTrackingFacetSlugViewsViewIdRoute
 }
 export interface FileRoutesByTo {
   '/start': typeof StartRoute
   '/': typeof ProtectedIndexRoute
   '/tracking/$facetSlug': typeof ProtectedTrackingFacetSlugIndexRoute
   '/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
+  '/tracking/$facetSlug/views/$viewId': typeof ProtectedTrackingFacetSlugViewsViewIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -61,6 +70,7 @@ export interface FileRoutesById {
   '/_protected/': typeof ProtectedIndexRoute
   '/_protected/tracking/$facetSlug/': typeof ProtectedTrackingFacetSlugIndexRoute
   '/_protected/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
+  '/_protected/tracking/$facetSlug/views/$viewId': typeof ProtectedTrackingFacetSlugViewsViewIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -69,12 +79,14 @@ export interface FileRouteTypes {
     | '/start'
     | '/tracking/$facetSlug/'
     | '/tracking/$facetSlug/entities/$entityId'
+    | '/tracking/$facetSlug/views/$viewId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/start'
     | '/'
     | '/tracking/$facetSlug'
     | '/tracking/$facetSlug/entities/$entityId'
+    | '/tracking/$facetSlug/views/$viewId'
   id:
     | '__root__'
     | '/_protected'
@@ -82,6 +94,7 @@ export interface FileRouteTypes {
     | '/_protected/'
     | '/_protected/tracking/$facetSlug/'
     | '/_protected/tracking/$facetSlug/entities/$entityId'
+    | '/_protected/tracking/$facetSlug/views/$viewId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +132,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedTrackingFacetSlugIndexRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
+    '/_protected/tracking/$facetSlug/views/$viewId': {
+      id: '/_protected/tracking/$facetSlug/views/$viewId'
+      path: '/tracking/$facetSlug/views/$viewId'
+      fullPath: '/tracking/$facetSlug/views/$viewId'
+      preLoaderRoute: typeof ProtectedTrackingFacetSlugViewsViewIdRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
     '/_protected/tracking/$facetSlug/entities/$entityId': {
       id: '/_protected/tracking/$facetSlug/entities/$entityId'
       path: '/tracking/$facetSlug/entities/$entityId'
@@ -133,6 +153,7 @@ interface ProtectedRouteRouteChildren {
   ProtectedIndexRoute: typeof ProtectedIndexRoute
   ProtectedTrackingFacetSlugIndexRoute: typeof ProtectedTrackingFacetSlugIndexRoute
   ProtectedTrackingFacetSlugEntitiesEntityIdRoute: typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
+  ProtectedTrackingFacetSlugViewsViewIdRoute: typeof ProtectedTrackingFacetSlugViewsViewIdRoute
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
@@ -140,6 +161,8 @@ const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedTrackingFacetSlugIndexRoute: ProtectedTrackingFacetSlugIndexRoute,
   ProtectedTrackingFacetSlugEntitiesEntityIdRoute:
     ProtectedTrackingFacetSlugEntitiesEntityIdRoute,
+  ProtectedTrackingFacetSlugViewsViewIdRoute:
+    ProtectedTrackingFacetSlugViewsViewIdRoute,
 }
 
 const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
