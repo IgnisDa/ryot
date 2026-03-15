@@ -8,6 +8,7 @@ import {
 	getEnabledItems,
 	getNavigationHref,
 	getNavigationItems,
+	getWorkspacePickerSummary,
 	getWorkspaceSummary,
 	mapCollectionsResponse,
 } from "./navigation-data";
@@ -121,6 +122,32 @@ describe("getNavigationItems", () => {
 
 		expect(getWorkspaceSummary(items)).toBe("2 views · 1 saved view");
 		expect(getWorkspaceSummary({ ...items, savedViews: [] })).toBe("2 views · no saved views");
+	});
+
+	it("formats workspace picker labels from workspace views", () => {
+		const items = getNavigationItems({ data, workspaceSlug: "media" });
+		const emptyItems = getNavigationItems({ data, workspaceSlug: "missing" });
+		const mediaView = items.views.find((item) => item.kind === "view");
+		if (!mediaView) {
+			throw new Error("Expected a media workspace view");
+		}
+		const expandedItems = {
+			views: [
+				...items.views,
+				...["Shows", "Books", "Music", "Audio Books", "Video Games", "People"].map(
+					(name, index) => ({
+						...mediaView,
+						name,
+						slug: `extra-${index}`,
+						sortOrder: index + 2,
+					}),
+				),
+			],
+		};
+
+		expect(getWorkspacePickerSummary(items)).toBe("Movies");
+		expect(getWorkspacePickerSummary(expandedItems)).toBe("Movies, Shows, Books +4");
+		expect(getWorkspacePickerSummary(emptyItems)).toBe("Custom workspace · 0 views");
 	});
 });
 
