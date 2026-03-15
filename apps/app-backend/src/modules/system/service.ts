@@ -3,7 +3,6 @@ import { pool } from "~/lib/db";
 import { redis } from "~/lib/redis";
 
 let metricsInitialized = false;
-let metricsInterval: ReturnType<typeof setInterval> | null = null;
 
 export const initializeMetrics = () => {
 	if (metricsInitialized) return;
@@ -11,17 +10,10 @@ export const initializeMetrics = () => {
 
 	promClient.collectDefaultMetrics({ prefix: "app_" });
 
-	metricsInterval = setInterval(() => {
+	setInterval(() => {
 		updateDbMetrics();
 		updateRedisMetrics();
 	}, 5000);
-};
-
-export const shutdownMetrics = () => {
-	if (metricsInterval) {
-		clearInterval(metricsInterval);
-		metricsInterval = null;
-	}
 };
 
 export const httpRequestDuration = new promClient.Histogram({
