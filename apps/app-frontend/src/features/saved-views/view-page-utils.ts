@@ -21,7 +21,7 @@ type RuntimeField = QueryEngineEntitiesItem[string] & { key: string };
 type RuntimeRequestField = NonNullable<QueryEngineRequest["fields"]>[number];
 type ViewExpression = RuntimeRequestField["expression"];
 type CardDisplayConfiguration = SavedView["displayConfiguration"]["grid"];
-type ViewLayout = keyof SavedView["displayConfiguration"];
+type ViewLayout = keyof Pick<SavedView["displayConfiguration"], "grid" | "list" | "table">;
 
 export const GRID_LIMIT = 12;
 export const LIST_LIMIT = 15;
