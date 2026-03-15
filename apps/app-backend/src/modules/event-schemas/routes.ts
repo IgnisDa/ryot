@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import type { AuthType } from "~/auth";
+import { resolveCustomEntitySchemaAccess } from "~/lib/entity-schema-access";
 import {
 	createAuthRoute,
 	createNotFoundErrorResult,
@@ -11,7 +12,6 @@ import {
 	successResponse,
 } from "~/lib/openapi";
 import { isUniqueConstraintError } from "~/lib/postgres";
-import { resolveCustomEntitySchemaAccess } from "./access";
 import {
 	createEventSchemaForUser,
 	getEntitySchemaScopeForUser,
