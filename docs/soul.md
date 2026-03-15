@@ -61,23 +61,33 @@ The target audience — self-hosting enthusiasts, quantified-self advocates, pri
 
 The entire data model rests on three concepts:
 
-**Entity Schema** defines a type of thing you can track. It has a name, a slug, a JSON Schema defining its properties, and configuration for whether it's built-in or user-created. A movie schema, a whiskey schema, and a "places I've visited" schema are all entity schemas.
+**Entity Schema** defines a type of thing you can track. It has a name, a slug, a properties schema defining its shape, and configuration for whether it's built-in or user-created. A movie schema, a whiskey schema, and a "places I've visited" schema are all entity schemas.
 
-**Entity** is a specific instance of a schema. Interstellar is an entity belonging to the movie schema. Lagavulin 16 is an entity belonging to the whiskey schema. An entity has a name, an optional image, properties (stored as jsonb validated against its schema's JSON Schema), an optional external ID (for things sourced from TMDB, IGDB, etc.), and a search vector for full-text search.
+**Entity** is a specific instance of a schema. Interstellar is an entity belonging to the movie schema. Lagavulin 16 is an entity belonging to the whiskey schema. An entity has a name, an optional image, properties (stored as jsonb validated against its schema's properties definition), an optional external ID (for things sourced from TMDB, IGDB, etc.), and a search vector for full-text search.
 
 **Event** is something that happened to an entity. "I watched Interstellar" is an event. "I tasted Lagavulin 16" is an event. Events belong to an **Event Schema** that defines what properties the event captures (date watched, platform, rating, tasting notes, etc.). Events have a timestamp (`occurred_at`), properties (jsonb), and an optional reference to a session entity (for grouping events like sets within a workout session).
 
 **Relationships** connect entities to each other. "Matthew McConaughey acted in Interstellar as Cooper" is a relationship with a source entity (McConaughey), a target entity (Interstellar), a relationship type (`acted_in`), and properties (`{ role: "Cooper" }`). Relationships enable the people-to-media connections, group/collection memberships, and any other user-defined connections between entities.
 
-### Why JSON Schema for properties?
+### Why AppSchema for properties?
 
-Entity and event properties are stored as jsonb in Postgres and validated against JSON Schema definitions. This decision was made because:
+Entity and event properties are stored as jsonb in Postgres and validated against a lightweight custom schema format called **AppSchema**. This decision was made because:
 
-- JSON Schema is a well-established standard with mature tooling for validation, form generation, and documentation.
-- It allows property definitions to be stored as data rather than requiring schema migrations for each new entity type.
-- It supports the full range of types needed (strings, numbers, dates, booleans, arrays, enums) plus constraints (min, max, required, patterns).
-- Libraries like `react-jsonschema-form` can auto-generate input forms from schemas, which is critical for the custom facet experience.
-- Custom `x-display` extensions allow embedding rendering hints (widget type, step values, suggestions) within the schema without breaking validation.
+- **Simplicity**: AppSchema is a minimal, TypeScript-native format that defines property types (`string`, `number`, `integer`, `boolean`, `date`, `array`, `object`) with optional `required` and `nullable` flags. No external dependencies or complex standards to integrate.
+- **Data-driven definitions**: Property definitions are stored as data (jsonb) rather than requiring schema migrations for each new entity type.
+- **Bidirectional conversion**: The `@ryot/ts-utils` package provides functions to convert between Zod schemas (used in code) and AppSchema (stored in the database), enabling type-safe validation at runtime.
+- **Form generation**: AppSchema's simple structure can be consumed by UI components to auto-generate input forms for custom facets without heavy dependencies like `react-jsonschema-form`.
+- **Full type coverage**: Supports strings, numbers, integers, booleans, dates, arrays (with recursive item types), objects (with nested properties), and nullable/required modifiers.
+
+Example AppSchema definition:
+```json
+{
+  "title": { "type": "string", "required": true },
+  "rating": { "type": "number", "nullable": true },
+  "pages": { "type": "integer" },
+  "tags": { "type": "array", "items": { "type": "string" } }
+}
+```
 
 The tradeoff: querying into jsonb is less efficient than querying typed columns. For the built-in facets where we know the property shapes ahead of time, we accept this tradeoff because the unified data model is more valuable than per-facet query optimization. If specific queries become bottlenecks, Postgres generated columns or materialized views can index frequently-queried jsonb paths without breaking the model.
 
@@ -247,7 +257,7 @@ The global search (Cmd+K / Ctrl+K) searches across all entities regardless of fa
 
 For built-in facets, event logging uses hand-crafted forms. The "Log Watch" modal for a movie has purpose-built fields (date picker, platform dropdown, rating slider, review textarea) alongside contextual information (previous watches with ratings, total view count). These forms are designed to be fast — a user should be able to log a movie watch in under 10 seconds.
 
-For custom facets, event logging uses forms generated from the event schema's JSON Schema definition. The schema's `x-display` extensions control widget selection (slider vs input for numbers, tag input vs dropdown for arrays, etc.). These forms are functional but not as polished as the curated ones.
+For custom facets, event logging uses forms generated from the event schema's AppSchema definition. The schema's type information controls widget selection (number input for `integer`/`number`, text input for `string`, date picker for `date`, etc.). These forms are functional but not as polished as the curated ones.
 
 ### Entity detail pages: curated vs generated
 
