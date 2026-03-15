@@ -234,12 +234,12 @@ export const authenticationBuiltinEntitySchemas = () => [
 			(schema) => schema.slug === "review",
 		),
 	},
-	buildMediaGroupEntitySchema("movie-group", "Movie Group", "#FACC15"),
-	buildMediaGroupEntitySchema("audiobook-group", "Audiobook Group", "#F97316"),
-	buildMediaGroupEntitySchema("book-group", "Book Group", "#3B82F6"),
-	buildMediaGroupEntitySchema("comic-book-group", "Comic Book Group", "#FF6B35"),
-	buildMediaGroupEntitySchema("music-group", "Music Group", "#EC4899"),
-	buildMediaGroupEntitySchema("video-game-group", "Video Game Group", "#10B981"),
+	buildMediaGroupEntitySchema("movie-group", "Movie Collection", "#FACC15"),
+	buildMediaGroupEntitySchema("audiobook-group", "Audiobook Series", "#F97316"),
+	buildMediaGroupEntitySchema("book-group", "Book Series", "#3B82F6"),
+	buildMediaGroupEntitySchema("comic-book-group", "Comic Book Series", "#FF6B35"),
+	buildMediaGroupEntitySchema("music-group", "Music Album", "#EC4899"),
+	buildMediaGroupEntitySchema("video-game-group", "Video Game Collection", "#10B981"),
 	{
 		slug: "book",
 		name: "Book",
@@ -409,15 +409,15 @@ const getBuiltInSavedViewName = (slug: BuiltinMediaEntitySchemaSlug) => {
 		.with("movie", () => "All Movies")
 		.with("podcast", () => "All Podcasts")
 		.with("audiobook", () => "All Audiobooks")
-		.with("book-group", () => "All Book Groups")
+		.with("book-group", () => "All Book Series")
 		.with("comic-book", () => "All Comic Books")
 		.with("video-game", () => "All Video Games")
-		.with("movie-group", () => "All Movie Groups")
-		.with("music-group", () => "All Music Groups")
+		.with("movie-group", () => "All Movie Collections")
+		.with("music-group", () => "All Music Albums")
 		.with("visual-novel", () => "All Visual Novels")
-		.with("audiobook-group", () => "All Audiobook Groups")
-		.with("comic-book-group", () => "All Comic Book Groups")
-		.with("video-game-group", () => "All Video Game Groups")
+		.with("audiobook-group", () => "All Audiobook Series")
+		.with("comic-book-group", () => "All Comic Book Series")
+		.with("video-game-group", () => "All Video Game Collections")
 		.exhaustive();
 };
 
@@ -568,18 +568,22 @@ export const authenticationBuiltinRelationshipSchemas = (): BuiltinRelationshipS
 	}),
 	...(
 		[
-			{ group: "movie-group", media: "movie", name: "Movie Group to Movie" },
-			{ group: "audiobook-group", media: "audiobook", name: "Audiobook Group to Audiobook" },
-			{ group: "book-group", media: "book", name: "Book Group to Book" },
-			{ group: "comic-book-group", media: "comic-book", name: "Comic Book Group to Comic Book" },
-			{ group: "music-group", media: "music", name: "Music Group to Music" },
-			{ group: "video-game-group", media: "video-game", name: "Video Game Group to Video Game" },
+			{ group: "book-group", media: "book", name: "Book Series to Book" },
+			{ group: "music-group", media: "music", name: "Music Album to Music" },
+			{ group: "movie-group", media: "movie", name: "Movie Collection to Movie" },
+			{ group: "audiobook-group", media: "audiobook", name: "Audiobook Series to Audiobook" },
+			{ group: "comic-book-group", media: "comic-book", name: "Comic Book Series to Comic Book" },
+			{
+				media: "video-game",
+				group: "video-game-group",
+				name: "Video Game Collection to Video Game",
+			},
 		] as const
 	).map(({ group, media, name }) => ({
 		name,
 		slug: `${group}-to-${media}`,
-		propertiesSchema: groupRolesPropertiesSchema,
 		sourceEntitySchemaSlug: group,
 		targetEntitySchemaSlug: media,
+		propertiesSchema: groupRolesPropertiesSchema,
 	})),
 ];

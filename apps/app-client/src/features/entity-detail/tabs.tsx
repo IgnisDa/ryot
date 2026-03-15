@@ -102,7 +102,7 @@ function OverviewTab(props: {
 				</Box>
 				<Box>
 					<DetailsSection entity={props.entity} creators={props.creators} />
-					<GroupsSection groups={props.groups} />
+					<GroupsSection groups={props.groups} entitySchemaSlug={props.entity.entitySchemaSlug} />
 					<CollectionsSection collections={props.collections} />
 				</Box>
 			</Box>
