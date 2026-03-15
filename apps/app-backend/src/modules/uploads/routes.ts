@@ -50,7 +50,7 @@ const getPresignedDownloadUrlRoute = createAuthRoute(
 		method: "get",
 		tags: ["uploads"],
 		path: "/presigned",
-		summary: "Get a presigned URL for an uploaded file",
+		summary: "Get a presigned download URL for an uploaded file",
 		request: { query: getPresignedUploadUrlQuery },
 		responses: {
 			400: payloadErrorResponse(),
