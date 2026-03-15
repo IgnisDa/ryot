@@ -30,11 +30,35 @@ import type { FakeHttpServer } from "~/support/fake-http-server";
 const providerName = "Media Monitoring E2E Provider";
 const apiExternalId = `media-monitoring-api-${crypto.randomUUID()}`;
 const cronExternalId = `media-monitoring-cron-${crypto.randomUUID()}`;
+const discoveryExternalId = `media-monitoring-discovery-${crypto.randomUUID()}`;
 
 const providerDetails = (productionStatus: string) =>
 	fakeProviderDetailsResult({
 		name: "Media Monitoring Cron Target",
 		properties: { productionStatus, publishYear: 2026 },
+	});
+
+const discoveryProviderDetails = (episodeCount: number) =>
+	fakeProviderDetailsResult({
+		name: "Media Monitoring Discovery Target",
+		properties: { productionStatus: "Continuing", publishYear: 2026 },
+		childEntities:
+			episodeCount === 0
+				? []
+				: [
+						{
+							name: "Season 1",
+							properties: { seasonNumber: 1 },
+							entitySchemaSlug: "show-season",
+							externalId: "discovery-season-1",
+							childEntities: Array.from({ length: episodeCount }, (_, index) => ({
+								name: `Episode ${index + 1}`,
+								entitySchemaSlug: "show-episode",
+								externalId: `discovery-episode-${index + 1}`,
+								properties: { seasonNumber: 1, episodeNumber: index + 1 },
+							})),
+						},
+					],
 	});
 
 const waitForMediaMonitoringRefresh = (executionId: string) =>
@@ -57,10 +81,12 @@ const waitForMediaMonitoringRefresh = (executionId: string) =>
 let apiEntityId: string;
 let cronEntityId: string;
 let movieSchemaId: string;
+let discoveryEntityId: string;
 let fakeApprise: FakeHttpServer;
 let providerCompilerClient: Client;
 const extraEntityIds: string[] = [];
 let provider: Awaited<ReturnType<typeof seedBuiltinProviderScript>>;
+let discoveryProvider: Awaited<ReturnType<typeof seedBuiltinProviderScript>>;
 
 beforeAll(async () => {
 	const { client } = await createAuthenticatedClient();
@@ -69,15 +95,21 @@ beforeAll(async () => {
 	provider = await seedBuiltinProviderScript({
 		client,
 		name: providerName,
-		drivers: { details: providerDetails("Continuing") },
 		slug: `movie.media-monitoring-e2e-${crypto.randomUUID()}`,
+		drivers: { details: providerDetails("Continuing") },
+	});
+	discoveryProvider = await seedBuiltinProviderScript({
+		client,
+		name: `${providerName} Discovery`,
+		drivers: { details: discoveryProviderDetails(0) },
+		slug: `show.media-monitoring-discovery-e2e-${crypto.randomUUID()}`,
 	});
 	const apiEntity = await seedMediaEntity({
 		properties: {},
 		externalId: apiExternalId,
-		name: "Media Monitoring API Target",
 		entitySchemaId: movieSchemaId,
 		sandboxScriptId: provider.scriptId,
+		name: "Media Monitoring API Target",
 	});
 	const cronEntity = await seedMediaEntity({
 		properties: {},
@@ -86,8 +118,17 @@ beforeAll(async () => {
 		sandboxScriptId: provider.scriptId,
 		name: "Media Monitoring Cron Target",
 	});
+	const showSchemaId = await getBuiltinEntitySchemaId("show");
+	const discoveryEntity = await seedMediaEntity({
+		properties: {},
+		entitySchemaId: showSchemaId,
+		externalId: discoveryExternalId,
+		name: "Media Monitoring Discovery Target",
+		sandboxScriptId: discoveryProvider.scriptId,
+	});
 	apiEntityId = apiEntity.id;
 	cronEntityId = cronEntity.id;
+	discoveryEntityId = discoveryEntity.id;
 	await getBackendClient().run(
 		(c) =>
 			c.testSupport.setEntityPopulatedAt({
@@ -117,6 +158,7 @@ afterAll(async () => {
 			adminHeaders,
 		);
 	}
+	await cleanupBuiltinProviderScript(discoveryProvider);
 	await cleanupBuiltinProviderScript(provider);
 });
 
@@ -133,8 +175,8 @@ describe("media monitoring endpoints", () => {
 		const other = await createAuthenticatedClient();
 
 		expect(await getMediaMonitoringStatus(owner.client, apiEntityId)).toEqual({
-			entityId: EntityId.make(apiEntityId),
 			isMediaMonitored: false,
+			entityId: EntityId.make(apiEntityId),
 		});
 		await enableMediaMonitoring(owner.client, apiEntityId);
 		await enableMediaMonitoring(owner.client, apiEntityId);
@@ -142,12 +184,12 @@ describe("media monitoring endpoints", () => {
 			await countMediaMonitoringRelationships({ entityId: apiEntityId, userId: owner.userId }),
 		).toBe(1);
 		expect(await getMediaMonitoringStatus(owner.client, apiEntityId)).toEqual({
-			entityId: EntityId.make(apiEntityId),
 			isMediaMonitored: true,
+			entityId: EntityId.make(apiEntityId),
 		});
 		expect(await getMediaMonitoringStatus(other.client, apiEntityId)).toEqual({
-			entityId: EntityId.make(apiEntityId),
 			isMediaMonitored: false,
+			entityId: EntityId.make(apiEntityId),
 		});
 
 		await disableMediaMonitoring(owner.client, apiEntityId);
@@ -328,5 +370,56 @@ describe("media monitoring infrequent refresh", () => {
 				"Status of Media Monitoring Cron Target changed from Continuing to Ended",
 			);
 		}
+	});
+
+	it("keeps the baseline silent and independently notifies for a new season and its episode", async () => {
+		fakeApprise.requests.length = 0;
+		const owner = await createAuthenticatedClient();
+		await createNotificationChannel(owner.client, {
+			channel: "apprise",
+			channelSpecifics: { baseUrl: fakeApprise.url, key: "discovery", kind: "apprise" },
+		});
+		await enableMediaMonitoring(owner.client, discoveryEntityId);
+
+		const baseline = await getBackendClient().run(
+			(contract) => contract.testSupport.triggerInfrequentCron(),
+			adminHeaders,
+		);
+		await waitForMediaMonitoringRefresh(`${baseline.executionId}-${discoveryEntityId}`);
+		expect(fakeApprise.requests.filter(({ path }) => path === "/notify/discovery")).toEqual([]);
+
+		await replaceSandboxScriptCompiledRepresentation(
+			providerCompilerClient,
+			discoveryProvider.scriptId,
+			providerSandboxSource({
+				slug: discoveryProvider.slug,
+				name: `${providerName} Discovery`,
+				providerInformation: { source: "e2e" },
+				drivers: { details: discoveryProviderDetails(1) },
+			}),
+		);
+		const changed = await getBackendClient().run(
+			(contract) => contract.testSupport.triggerInfrequentCron(),
+			adminHeaders,
+		);
+		await waitForMediaMonitoringRefresh(`${changed.executionId}-${discoveryEntityId}`);
+		const expectedEpisodeBody =
+			"1 new episode discovered in season 1 for Media Monitoring Discovery Target";
+		const expectedSeasonBody =
+			"Number of seasons changed from 0 to 1 for Media Monitoring Discovery Target";
+		const delivered = await pollUntil("season and episode notification delivery", () => {
+			const requests = fakeApprise.requests.filter(({ path }) => path === "/notify/discovery");
+			const bodies = requests.map(({ body }) =>
+				requireObjectRecord(body, "Missing notification body"),
+			);
+			return Promise.resolve(
+				bodies.some(({ body }) => body === expectedEpisodeBody) &&
+					bodies.some(({ body }) => body === expectedSeasonBody)
+					? bodies
+					: null,
+			);
+		});
+		expect(delivered.some(({ body }) => body === expectedEpisodeBody)).toBe(true);
+		expect(delivered.some(({ body }) => body === expectedSeasonBody)).toBe(true);
 	});
 });

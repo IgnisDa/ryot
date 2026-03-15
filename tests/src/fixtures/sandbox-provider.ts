@@ -122,11 +122,12 @@ export function fakeProviderSearchResult(
 
 export function fakeProviderDetailsResult(
 	result: Pick<ProviderDetailsResult, "name"> &
-		Partial<Pick<ProviderDetailsResult, "properties" | "relatedEntityGroups">>,
+		Partial<Pick<ProviderDetailsResult, "childEntities" | "properties" | "relatedEntityGroups">>,
 ): ProviderDetailsResult {
 	return {
 		name: result.name,
 		properties: result.properties ?? {},
+		...(result.childEntities ? { childEntities: result.childEntities } : {}),
 		...(result.relatedEntityGroups ? { relatedEntityGroups: result.relatedEntityGroups } : {}),
 	};
 }
