@@ -5,6 +5,10 @@ import {
 	zodRequiredName,
 } from "@ryot/ts-utils";
 import { z } from "zod";
+import {
+	type ResolveNextSlugInput,
+	resolveNextSlug,
+} from "../../lib/slug-sync";
 
 export const propertySchemaTypes = appPropertyPrimitiveTypes;
 
@@ -29,6 +33,8 @@ export interface PropertySchemaFormValues {
 	slug: string;
 	properties: PropertySchemaInput[];
 }
+
+export type ResolveNextPropertySchemaSlugInput = ResolveNextSlugInput;
 
 function buildPropertySchemaRow(row: PropertySchemaInput): PropertySchemaRow {
 	return {
@@ -111,5 +117,7 @@ export const buildPropertiesSchema = (properties: PropertySchemaInput[]) => {
 
 	return propertiesMap;
 };
+
+export const resolveNextPropertySchemaSlug = resolveNextSlug;
 
 export const normalizeOptionalSlug = (slug: string) => trimmedOrUndefined(slug);
