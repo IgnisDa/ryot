@@ -1,5 +1,5 @@
-import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
+import { Scalar } from "@scalar/hono-api-reference";
 import { HTTPException } from "hono/http-exception";
 import { auth, type MaybeAuthType } from "~/lib/auth";
 import { ERROR_CODES, errorResponse } from "~/lib/openapi";
@@ -57,7 +57,7 @@ export const apiApp = baseApp
 		info: openApiInfo,
 		servers: [{ url: `${new URL(c.req.url).origin}/api` }],
 	}))
-	.get("/docs", swaggerUI({ url: "/api/openapi.json" }))
+	.get("/docs", Scalar({ url: "/api/openapi.json" }))
 	.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw));
 
 baseApp.openAPIRegistry.registerComponent("securitySchemes", "X-Api-Key", {
