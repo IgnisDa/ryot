@@ -1,6 +1,6 @@
 import { generateId } from "better-auth";
 import { and, eq, isNull } from "drizzle-orm";
-import { db } from "~/lib/db";
+import type { DbClient } from "~/lib/db";
 import {
 	EntitySchemaSandboxScriptKind,
 	entitySchema,
@@ -13,37 +13,34 @@ export const ensureBuiltinEntitySchema = async (input: {
 	slug: string;
 	name: string;
 	icon: string;
+	database: DbClient;
 	accentColor: string;
 	propertiesSchema: unknown;
 }) => {
-	const [existing] = await db
+	const [existing] = await input.database
 		.select({ id: entitySchema.id })
 		.from(entitySchema)
 		.where(and(eq(entitySchema.slug, input.slug), isNull(entitySchema.userId)))
 		.limit(1);
 
-	const schemaId = existing?.id ?? generateId();
+	if (existing) return existing.id;
 
-	const values = {
+	const schemaId = generateId();
+	await input.database.insert(entitySchema).values({
+		id: schemaId,
 		isBuiltin: true,
 		name: input.name,
 		slug: input.slug,
 		icon: input.icon,
 		accentColor: input.accentColor,
 		propertiesSchema: input.propertiesSchema,
-	};
-
-	if (existing)
-		await db
-			.update(entitySchema)
-			.set(values)
-			.where(eq(entitySchema.id, schemaId));
-	else await db.insert(entitySchema).values({ id: schemaId, ...values });
+	});
 
 	return schemaId;
 };
 
 export const ensureBuiltinEntitySchemaEventSchemas = async (input: {
+	database: DbClient;
 	entitySchemaId: string;
 	eventSchemas: Array<{
 		slug: string;
@@ -51,28 +48,39 @@ export const ensureBuiltinEntitySchemaEventSchemas = async (input: {
 		propertiesSchema: unknown;
 	}>;
 }) => {
-	await db
-		.delete(eventSchema)
-		.where(eq(eventSchema.entitySchemaId, input.entitySchemaId));
+	const existingSchemas = await input.database
+		.select({ id: eventSchema.id, slug: eventSchema.slug })
+		.from(eventSchema)
+		.where(
+			and(
+				eq(eventSchema.entitySchemaId, input.entitySchemaId),
+				isNull(eventSchema.userId),
+			),
+		);
 
-	if (!input.eventSchemas.length) return;
+	const existingBySlug = new Map(
+		existingSchemas.map((schema) => [schema.slug, schema.id]),
+	);
 
-	await db.insert(eventSchema).values(
-		input.eventSchemas.map((schema) => ({
+	for (const schema of input.eventSchemas) {
+		if (existingBySlug.has(schema.slug)) continue;
+
+		await input.database.insert(eventSchema).values({
 			slug: schema.slug,
 			name: schema.name,
 			entitySchemaId: input.entitySchemaId,
 			propertiesSchema: schema.propertiesSchema,
-		})),
-	);
+		});
+	}
 };
 
 export const ensureBuiltinSandboxScript = async (input: {
 	code: string;
 	name: string;
 	slug: string;
+	database: DbClient;
 }) => {
-	const [existingScript] = await db
+	const [existingScript] = await input.database
 		.select({
 			id: sandboxScript.id,
 			code: sandboxScript.code,
@@ -94,13 +102,16 @@ export const ensureBuiltinSandboxScript = async (input: {
 			existingScript.name !== input.name ||
 			!existingScript.isBuiltin;
 
-		if (shouldUpdateScript)
-			await db
+		if (shouldUpdateScript) {
+			// Builtin sandbox scripts intentionally refresh on every startup so the
+			// database always serves the latest bundled code.
+			await input.database
 				.update(sandboxScript)
 				.set(values)
 				.where(eq(sandboxScript.id, scriptId));
+		}
 	} else {
-		await db
+		await input.database
 			.insert(sandboxScript)
 			.values({ id: scriptId, slug: input.slug, ...values });
 	}
@@ -109,11 +120,12 @@ export const ensureBuiltinSandboxScript = async (input: {
 };
 
 const ensureScriptLinkToEntitySchema = async (input: {
+	database: DbClient;
 	entitySchemaId: string;
 	sandboxScriptId: string;
 	kind: EntitySchemaSandboxScriptKind;
 }) => {
-	const [existing] = await db
+	const [existing] = await input.database
 		.select({ id: entitySchemaSandboxScript.id })
 		.from(entitySchemaSandboxScript)
 		.where(
@@ -127,7 +139,7 @@ const ensureScriptLinkToEntitySchema = async (input: {
 
 	if (existing) return;
 
-	await db.insert(entitySchemaSandboxScript).values({
+	await input.database.insert(entitySchemaSandboxScript).values({
 		kind: input.kind,
 		entitySchemaId: input.entitySchemaId,
 		sandboxScriptId: input.sandboxScriptId,
@@ -135,16 +147,19 @@ const ensureScriptLinkToEntitySchema = async (input: {
 };
 
 export const linkScriptPairToEntitySchema = async (input: {
+	database: DbClient;
 	entitySchemaId: string;
 	searchScriptId: string;
 	detailsScriptId: string;
 }) => {
 	await ensureScriptLinkToEntitySchema({
+		database: input.database,
 		entitySchemaId: input.entitySchemaId,
 		sandboxScriptId: input.searchScriptId,
 		kind: EntitySchemaSandboxScriptKind.search,
 	});
 	await ensureScriptLinkToEntitySchema({
+		database: input.database,
 		entitySchemaId: input.entitySchemaId,
 		sandboxScriptId: input.detailsScriptId,
 		kind: EntitySchemaSandboxScriptKind.details,
