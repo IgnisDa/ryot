@@ -150,6 +150,17 @@ export function entitiesSandboxSource(input: SandboxSourceIdentity) {
 	});
 }
 
+export function entitySchemasSandboxSource(input: SandboxSourceIdentity) {
+	return scriptModuleSource({
+		...input,
+		capabilities: ["getEntitySchemas"],
+		sdkImports: ["entitySchemaRecordSchema"],
+		outputSchema: "Schema.Array(entitySchemaRecordSchema)",
+		run: "(input, host) => host.getEntitySchemas(input.slugs)",
+		inputSchema: "Schema.Struct({ slugs: Schema.Array(Schema.String) })",
+	});
+}
+
 export function pluginConfigSandboxSource(
 	input: SandboxSourceIdentity & {
 		readonly key: string;
