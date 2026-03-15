@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
-import { db } from "~/db";
-import { type FacetMode, facet, userFacet } from "~/db/schema";
+import { db } from "~/lib/db";
+import { type FacetMode, facet, userFacet } from "~/lib/db/schema";
 
 const facetVisibleToUserClause = (userId: string) => {
 	return or(isNull(facet.userId), eq(facet.userId, userId));

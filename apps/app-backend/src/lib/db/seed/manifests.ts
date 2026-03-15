@@ -1,4 +1,4 @@
-import { FacetMode } from "~/db/schema";
+import { FacetMode } from "~/lib/db/schema";
 import { animePropertiesJsonSchema } from "~/lib/zod/media/anime";
 import {
 	bookPropertiesJsonSchema,
