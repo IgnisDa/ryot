@@ -1,5 +1,6 @@
 import {
 	createEntityColumnExpression,
+	createEntitySchemaExpression,
 	createEntityPropertyExpression,
 	createEventAggregateExpression,
 	createTransformExpression,
@@ -186,7 +187,7 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 
 type EntityCardConfig = Pick<
 	GridConfig,
-	"calloutProperty" | "primarySubtitleProperty" | "secondarySubtitleProperty"
+	"eyebrowProperty" | "calloutProperty" | "primarySubtitleProperty" | "secondarySubtitleProperty"
 >;
 
 const createEntityCardConfig = (slug?: string): EntityCardConfig => {
@@ -195,6 +196,7 @@ const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 			calloutProperty: null,
 			primarySubtitleProperty: null,
 			secondarySubtitleProperty: null,
+			eyebrowProperty: createEntitySchemaExpression("name"),
 		};
 	}
 	if (slug === "collection") {
@@ -202,17 +204,20 @@ const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 			calloutProperty: null,
 			primarySubtitleProperty: null,
 			secondarySubtitleProperty: null,
+			eyebrowProperty: createEntitySchemaExpression("name"),
 		};
 	}
 	if (slug === "person") {
 		return {
 			calloutProperty: null,
+			eyebrowProperty: createEntitySchemaExpression("name"),
 			primarySubtitleProperty: createEntityPropertyExpression(slug, "birthPlace"),
 			secondarySubtitleProperty: createEntityPropertyExpression(slug, "birthDate"),
 		};
 	}
 	if (slug === "exercise") {
 		return {
+			eyebrowProperty: createEntitySchemaExpression("name"),
 			secondarySubtitleProperty: buildSecondarySubtitleForSlug(slug),
 			calloutProperty: createTransformExpression(
 				"titleCase",
@@ -227,6 +232,7 @@ const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 	if (slug === "workout") {
 		return {
 			calloutProperty: null,
+			eyebrowProperty: createEntitySchemaExpression("name"),
 			primarySubtitleProperty: createEntityPropertyExpression(slug, "startedAt"),
 			secondarySubtitleProperty: createEntityPropertyExpression(slug, "endedAt"),
 		};
@@ -234,37 +240,37 @@ const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 	if (slug === "measurement") {
 		return {
 			calloutProperty: null,
+			eyebrowProperty: createEntitySchemaExpression("name"),
 			primarySubtitleProperty: createEntityPropertyExpression(slug, "recordedAt"),
 			secondarySubtitleProperty: createEntityPropertyExpression(slug, "weight"),
 		};
 	}
 	return {
+		eyebrowProperty: createEntitySchemaExpression("name"),
 		secondarySubtitleProperty: buildSecondarySubtitleForSlug(slug),
-		calloutProperty: createEventAggregateExpression("review", ["properties", "rating"], "avg"),
 		primarySubtitleProperty: createEntityPropertyExpression(slug, "publishYear"),
+		calloutProperty: createEventAggregateExpression("review", ["properties", "rating"], "avg"),
 	};
 };
 
 export const createDefaultDisplayConfiguration = (
-	entitySchemaSlug?: string,
+	entitySchemaSlug: string,
 ): DisplayConfiguration => {
-	const { calloutProperty, primarySubtitleProperty, secondarySubtitleProperty } =
+	const { eyebrowProperty, calloutProperty, primarySubtitleProperty, secondarySubtitleProperty } =
 		createEntityCardConfig(entitySchemaSlug);
 	const cardConfig = {
+		eyebrowProperty,
 		calloutProperty,
 		primarySubtitleProperty,
 		secondarySubtitleProperty,
-		titleProperty: entitySchemaSlug ? createEntityColumnExpression(entitySchemaSlug, "name") : null,
-		imageProperty: entitySchemaSlug
-			? createEntityColumnExpression(entitySchemaSlug, "image")
-			: null,
+		titleProperty: createEntityColumnExpression(entitySchemaSlug, "name"),
+		imageProperty: createEntityColumnExpression(entitySchemaSlug, "image"),
 	} satisfies GridConfig;
 	return {
 		grid: cardConfig,
 		list: cardConfig,
-		table: {
-			columns: entitySchemaSlug ? buildTableColumnsForSlug(entitySchemaSlug) : [],
-		},
+		table: { columns: buildTableColumnsForSlug(entitySchemaSlug) },
+		entityIdProperty: createEntityColumnExpression(entitySchemaSlug, "id"),
 	};
 };
 

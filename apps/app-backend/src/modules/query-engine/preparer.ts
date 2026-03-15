@@ -44,7 +44,7 @@ import { executeTimeSeriesQuery } from "./time-series-query-builder";
 
 export type { PreparedQueryContext } from "./context";
 
-export type SavedViewLayout = keyof DisplayConfiguration;
+export type SavedViewLayout = keyof Pick<DisplayConfiguration, "grid" | "list" | "table">;
 
 export type SavedViewExecutionInput = {
 	layout: SavedViewLayout;
@@ -89,39 +89,48 @@ const buildPreparedFields = (input: {
 	layout: SavedViewLayout;
 	displayConfiguration: DisplayConfiguration;
 }): QueryEngineField[] => {
-	const buildCardPreparedFields = (configuration: DisplayConfiguration["grid"]) => {
+	const buildCardPreparedFields = (cardInput: {
+		configuration: DisplayConfiguration["grid"];
+		entityIdProperty: DisplayConfiguration["entityIdProperty"];
+	}) => {
 		return [
-			{
-				key: "image",
-				expression: configuration.imageProperty ?? nullViewExpression,
-			},
-			{
-				key: "title",
-				expression: configuration.titleProperty ?? nullViewExpression,
-			},
+			{ key: "entityId", expression: cardInput.entityIdProperty },
+			{ key: "eyebrow", expression: cardInput.configuration.eyebrowProperty ?? nullViewExpression },
+			{ key: "image", expression: cardInput.configuration.imageProperty ?? nullViewExpression },
+			{ key: "title", expression: cardInput.configuration.titleProperty },
 			{
 				key: "primarySubtitle",
-				expression: configuration.primarySubtitleProperty ?? nullViewExpression,
+				expression: cardInput.configuration.primarySubtitleProperty ?? nullViewExpression,
 			},
 			{
 				key: "secondarySubtitle",
-				expression: configuration.secondarySubtitleProperty ?? nullViewExpression,
+				expression: cardInput.configuration.secondarySubtitleProperty ?? nullViewExpression,
 			},
-			{
-				key: "callout",
-				expression: configuration.calloutProperty ?? nullViewExpression,
-			},
+			{ key: "callout", expression: cardInput.configuration.calloutProperty ?? nullViewExpression },
 		];
 	};
 
 	return match(input.layout)
-		.with("grid", () => buildCardPreparedFields(input.displayConfiguration.grid))
-		.with("list", () => buildCardPreparedFields(input.displayConfiguration.list))
+		.with("grid", () =>
+			buildCardPreparedFields({
+				configuration: input.displayConfiguration.grid,
+				entityIdProperty: input.displayConfiguration.entityIdProperty,
+			}),
+		)
+		.with("list", () =>
+			buildCardPreparedFields({
+				configuration: input.displayConfiguration.list,
+				entityIdProperty: input.displayConfiguration.entityIdProperty,
+			}),
+		)
 		.with("table", () => {
-			return input.displayConfiguration.table.columns.map((column, index) => ({
-				key: `column_${index}`,
-				expression: column.expression,
-			}));
+			return [
+				{ key: "entityId", expression: input.displayConfiguration.entityIdProperty },
+				...input.displayConfiguration.table.columns.map((column, index) => ({
+					key: `column_${index}`,
+					expression: column.expression,
+				})),
+			];
 		})
 		.exhaustive();
 };

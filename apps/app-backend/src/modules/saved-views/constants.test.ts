@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
+	createEntitySchemaExpression,
 	createEventAggregateExpression,
 	createTransformExpression,
 } from "@ryot/ts-utils";
@@ -13,6 +14,10 @@ describe("createDefaultDisplayConfiguration", () => {
 	it("uses average user rating for built-in media card callouts", () => {
 		const displayConfiguration = createDefaultDisplayConfiguration("show");
 
+		expect(displayConfiguration.entityIdProperty).toEqual(
+			createEntityColumnExpression("show", "id"),
+		);
+		expect(displayConfiguration.grid.eyebrowProperty).toEqual(createEntitySchemaExpression("name"));
 		expect(displayConfiguration.grid.calloutProperty).toEqual(
 			createEventAggregateExpression("review", ["properties", "rating"], "avg"),
 		);

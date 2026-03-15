@@ -30,9 +30,10 @@ const joinKeySchema = nonEmptyTrimmedStringSchema.regex(
 
 const createEntityCardDisplayConfigSchema = () =>
 	z.object({
+		titleProperty: viewExpressionSchema,
 		imageProperty: nullableViewExpressionSchema,
-		titleProperty: nullableViewExpressionSchema,
 		calloutProperty: nullableViewExpressionSchema,
+		eyebrowProperty: nullableViewExpressionSchema,
 		primarySubtitleProperty: nullableViewExpressionSchema,
 		secondarySubtitleProperty: nullableViewExpressionSchema,
 	});
@@ -86,13 +87,14 @@ export const tableColumnSchema = z.object({
 });
 
 export const tableConfigSchema = z.object({
-	columns: z.array(tableColumnSchema),
+	columns: z.array(tableColumnSchema).min(1, "At least one table column is required"),
 });
 
 export const displayConfigurationSchema = z.object({
 	grid: gridConfigSchema,
 	list: listConfigSchema,
 	table: tableConfigSchema,
+	entityIdProperty: viewExpressionSchema,
 });
 
 export type DisplayConfiguration = z.infer<typeof displayConfigurationSchema>;

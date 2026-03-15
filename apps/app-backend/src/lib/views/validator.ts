@@ -16,6 +16,7 @@ import {
 	assertNumericExpression,
 	assertSortableExpression,
 	inferViewExpressionType,
+	type ViewExpressionTypeInfo,
 } from "./expression-analysis";
 import { validateViewPredicateAgainstSchemas } from "./predicate-validator";
 import {
@@ -169,6 +170,16 @@ const isPrimaryEventMode = <
 >(
 	context: QueryEngineReferenceContext<TSchema, TJoin>,
 ) => context.supportsPrimaryEventRefs === true;
+
+const assertStringExpression = (input: ViewExpressionTypeInfo, context: string) => {
+	if (input.kind === "property" && input.propertyType === "string") {
+		return;
+	}
+
+	throw new QueryEngineValidationError(
+		`${context} requires a string expression, received '${input.kind === "property" ? input.propertyType : input.kind}'`,
+	);
+};
 
 export const validateRuntimeReferenceAgainstSchemas = (
 	reference: RuntimeRef,
@@ -1008,12 +1019,29 @@ export const validateSavedViewDisplayConfiguration = (
 		validBuiltins: displayBuiltins,
 	});
 
+	validateExpressionAgainstSchemas(
+		displayConfiguration.entityIdProperty,
+		context,
+		displayBuiltins,
+		computedFieldMap,
+	);
+	assertStringExpression(
+		inferViewExpressionType({
+			context,
+			computedFieldMap,
+			expression: displayConfiguration.entityIdProperty,
+		}),
+		"Saved view entityIdProperty",
+	);
+
 	for (const refs of [
+		displayConfiguration.grid.eyebrowProperty,
 		displayConfiguration.grid.imageProperty,
 		displayConfiguration.grid.titleProperty,
 		displayConfiguration.grid.calloutProperty,
 		displayConfiguration.grid.primarySubtitleProperty,
 		displayConfiguration.grid.secondarySubtitleProperty,
+		displayConfiguration.list.eyebrowProperty,
 		displayConfiguration.list.imageProperty,
 		displayConfiguration.list.titleProperty,
 		displayConfiguration.list.calloutProperty,
