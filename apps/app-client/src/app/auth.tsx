@@ -14,7 +14,7 @@ import { useServerUrl, useSetServerUrl } from "@/modules/server/state";
 function AuthLoading() {
 	return (
 		<View className="flex-1 items-center justify-center bg-bg px-6">
-			<Text className="font-ui text-text-muted">Checking your server...</Text>
+			<Text className="font-ui text-base text-text-muted">Checking your server...</Text>
 		</View>
 	);
 }

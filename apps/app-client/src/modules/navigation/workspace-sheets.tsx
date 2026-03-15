@@ -74,7 +74,7 @@ export function WorkspaceSheet(props: {
 			</View>
 			<View className="mt-3.5 gap-2">
 				<View className="flex-row items-center justify-between">
-					<Text className="font-mono text-[11px] font-bold uppercase tracking-[1.6px] text-text-subtle">
+					<Text className="font-mono text-xs font-bold uppercase tracking-[1.6px] text-text-subtle">
 						Saved Views
 					</Text>
 					<View className="flex-row items-center gap-1">
@@ -92,7 +92,7 @@ export function WorkspaceSheet(props: {
 								className="h-9 flex-row items-center gap-2 rounded-pill border border-border bg-surface-2 px-3"
 							>
 								<NavigationIcon className="text-text-muted" name={item.icon} size={15} />
-								<Text className="font-ui-medium text-[13.5px] text-text">{item.name}</Text>
+								<Text className="font-ui-medium text-sm text-text">{item.name}</Text>
 							</View>
 						))
 					)}
@@ -132,7 +132,7 @@ export function AccountSheet(props: {
 				<NavigationIcon className="text-text-subtle" name="chevron-right" size={17} />
 			</Pressable>
 			<View className="mt-4 gap-2">
-				<Text className="font-ui-semibold text-[10px] uppercase tracking-[1.6px] text-text-subtle">
+				<Text className="font-ui-semibold text-xs uppercase tracking-[1.6px] text-text-subtle">
 					Appearance
 				</Text>
 				<View className="flex-row rounded-lg border border-border bg-bg p-1">
