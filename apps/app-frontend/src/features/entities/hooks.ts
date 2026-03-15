@@ -5,9 +5,9 @@ import { sortEntities, toAppEntity } from "./model";
 export function useEntitiesQuery(entitySchemaId: string, enabled = true) {
 	const apiClient = useApiClient();
 	const query = apiClient.useQuery(
-		"get",
-		"/entities",
-		{ params: { query: { entitySchemaId } } },
+		"post",
+		"/view-runtime/execute",
+		{ body: { entitySchemaId } },
 		{ enabled },
 	);
 
@@ -35,8 +35,8 @@ export function useEntityQuery(entityId: string, enabled = true) {
 export function useEntityMutations(entitySchemaId: string) {
 	const apiClient = useApiClient();
 	const queryClient = useQueryClient();
-	const listQueryKey = apiClient.queryOptions("get", "/entities", {
-		params: { query: { entitySchemaId } },
+	const listQueryKey = apiClient.queryOptions("post", "/view-runtime/execute", {
+		body: { entitySchemaId },
 	}).queryKey;
 
 	const create = apiClient.useMutation(

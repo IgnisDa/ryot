@@ -30,6 +30,10 @@ export type ApiGetResponseData<TPath extends keyof paths> = ApiResponseData<
 	NonNullable<paths[TPath]["get"]>
 >;
 
+export type ApiPostResponseData<TPath extends keyof paths> = ApiResponseData<
+	NonNullable<paths[TPath]["post"]>
+>;
+
 export type ApiPostRequestBody<TPath extends keyof paths> = ApiRequestBody<
 	NonNullable<paths[TPath]["post"]>
 >;

@@ -20,15 +20,12 @@ import {
 	getEntityByIdForUser,
 	getEntitySchemaScopeForUser,
 	getEntityScopeForUser,
-	listEntitiesByEntitySchemaForUser,
 } from "./repository";
 import {
 	createEntityBody,
 	createEntityResponseSchema,
 	entityParams,
 	getEntityResponseSchema,
-	listEntitiesQuery,
-	listEntitiesResponseSchema,
 } from "./schemas";
 import {
 	resolveEntityCreateInput,
@@ -36,26 +33,6 @@ import {
 	resolveEntityId,
 	resolveEntitySchemaId,
 } from "./service";
-
-// TODO: delete this route eventually
-const listEntitiesRoute = createAuthRoute(
-	createRoute({
-		path: "/",
-		method: "get",
-		deprecated: true,
-		tags: ["entities"],
-		request: { query: listEntitiesQuery },
-		summary: "List entities for a custom entity schema",
-		responses: {
-			400: payloadErrorResponse(),
-			404: notFoundResponse("Entity schema does not exist for this user"),
-			200: jsonResponse(
-				"Entities for the requested entity schema",
-				listEntitiesResponseSchema,
-			),
-		},
-	}),
-);
 
 const createEntityRoute = createAuthRoute(
 	createRoute({
@@ -117,31 +94,6 @@ const resolveEntityAccessError = (error: "builtin" | "not_found") => {
 };
 
 export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
-	.openapi(listEntitiesRoute, async (c) => {
-		const user = c.get("user");
-		const query = c.req.valid("query");
-		const entitySchemaId = resolveEntitySchemaId(query.entitySchemaId);
-
-		const foundEntitySchema = resolveCustomEntitySchemaAccess(
-			await getEntitySchemaScopeForUser({
-				entitySchemaId,
-				userId: user.id,
-			}),
-		);
-		if (!("entitySchema" in foundEntitySchema)) {
-			const errorResult = resolveEntitySchemaAccessError(
-				foundEntitySchema.error,
-			);
-			return c.json(errorResult.body, errorResult.status);
-		}
-
-		const entities = await listEntitiesByEntitySchemaForUser({
-			entitySchemaId,
-			userId: user.id,
-		});
-
-		return c.json(successResponse(entities), 200);
-	})
 	.openapi(getEntityRoute, async (c) => {
 		const user = c.get("user");
 		const params = c.req.valid("param");
