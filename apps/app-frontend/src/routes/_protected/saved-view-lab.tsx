@@ -1482,7 +1482,7 @@ function SavedViewRenderer(props: {
 		sortKey,
 		sortDirection,
 	);
-	const pageSize = layout === "grid" ? 8 : 6;
+	const pageSize = 6;
 	const totalPages = Math.max(1, Math.ceil(filteredEntities.length / pageSize));
 	const currentPage = Math.min(page, totalPages);
 	const paginatedEntities = filteredEntities.slice(
