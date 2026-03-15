@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { sortBy } from "@ryot/ts-utils";
+
 import {
 	createAuthenticatedClient,
 	createEntitySchema,
@@ -17,7 +19,7 @@ describe("GET /event-schemas", () => {
 
 		const eventSchemas = await listEventSchemas(client, cookies, mediaSchema.id);
 
-		expect(eventSchemas.map((schema) => schema.slug).toSorted()).toEqual([
+		expect(sortBy(eventSchemas.map((schema) => schema.slug))).toEqual([
 			"backlog",
 			"complete",
 			"progress",

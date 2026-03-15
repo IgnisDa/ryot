@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { sortBy } from "@ryot/ts-utils";
+
 import {
 	createAuthenticatedClient,
 	createBuiltinMediaLifecycleFixture,
@@ -229,7 +231,7 @@ describe("Events bulk POST", () => {
 		expect(events.map((event) => event.eventSchemaSlug)).toEqual(["progress", "progress"]);
 		expect(
 			// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-			events.map((event) => event.properties.progressPercent as number).toSorted((a, b) => a - b),
+			sortBy(events.map((event) => event.properties.progressPercent as number)),
 		).toEqual([25.56, 50.44]);
 	});
 
