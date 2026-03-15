@@ -13,6 +13,8 @@ import { SandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./durabl
 import { RunSandboxWorkflow } from "./sandbox-run-workflow";
 import { runSandboxScriptWorkflow, SandboxScriptWorkflow } from "./sandbox-script-workflow";
 
+const sandboxRetrySchedule = Schedule.max([Schedule.exponential("1 second"), Schedule.recurs(2)]);
+
 const workflowFailureResult = (
 	cause: Cause.Cause<SandboxRunError>,
 ): Extract<SandboxRunResult, { status: "failed" }> =>
@@ -54,7 +56,7 @@ const runSandboxWorkflow = Effect.fn("RunSandboxWorkflow")(
 		};
 		return yield* DurableQueue.process(SandboxExecutionQueue, executionPayload).pipe(
 			Effect.timeout("1 minute"),
-			Effect.retry(Schedule.spaced("1 second")),
+			Effect.retry(sandboxRetrySchedule),
 			Effect.mapError(toSandboxRunError),
 		);
 	},
