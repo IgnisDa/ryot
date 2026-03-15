@@ -2,7 +2,7 @@ import { DbError } from "@ryot/contract/errors";
 import type { ListedEvent } from "@ryot/contract/modules/events/schemas";
 import type { UserId } from "@ryot/contract/schema/brands";
 import { EntityId, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands";
-import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -57,46 +57,6 @@ const toListedEvent = (row: EventRow): ListedEvent => ({
 
 export class EventsRepository extends Context.Service<EventsRepository>()("EventsRepository", {
 	make: Effect.sync(() => {
-		const listQueryScopesForUser = Effect.fn("EventsRepository.listQueryScopesForUser")(
-			function* (input: {
-				userId: UserId;
-				sessionEntityId: EntityId;
-				eventSchemaSlug?: string | undefined;
-			}) {
-				const db = yield* CurrentDb;
-				const conditions = [
-					eq(schema.event.userId, input.userId),
-					eq(schema.event.sessionEntityId, input.sessionEntityId),
-					or(eq(schema.entity.userId, input.userId), isNull(schema.entity.userId)),
-				];
-				if (input.eventSchemaSlug) {
-					conditions.push(eq(schema.event.eventSchemaSlug, input.eventSchemaSlug));
-				}
-
-				const rows = yield* dbEffect(() =>
-					db
-						.select({
-							eventSchemaSlug: schema.event.eventSchemaSlug,
-							entitySchemaSlug: schema.entity.entitySchemaSlug,
-						})
-						.from(schema.event)
-						.innerJoin(schema.entity, eq(schema.event.entityId, schema.entity.id))
-						.where(and(...conditions))
-						.orderBy(schema.entity.entitySchemaSlug, schema.event.eventSchemaSlug),
-				);
-
-				const seen = new Set<string>();
-				return rows.filter((row) => {
-					const key = `${row.entitySchemaSlug}:${row.eventSchemaSlug}`;
-					if (seen.has(key)) {
-						return false;
-					}
-					seen.add(key);
-					return true;
-				});
-			},
-		);
-
 		const createEvent = Effect.fn("EventsRepository.createEvent")(function* (input: {
 			id?: EventId;
 			userId: UserId;
@@ -213,7 +173,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 		return {
 			deleteEvent,
 			createEvent,
-			listQueryScopesForUser,
 			listUserEventIdsForEntity,
 			updateEventEntityReferences,
 		};
