@@ -12,13 +12,14 @@ import {
 } from "../script-helpers/records";
 import type { RoleRelatedEntity } from "../script-helpers/role-accumulator";
 
-export type TmdbHost = SandboxHost<readonly ["httpCall", "getPluginConfigValue"]>;
+export type TmdbHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
 
 export const getTmdbAccessToken = (host: TmdbHost) =>
-	host.getPluginConfigValue("tmdbAccessToken").pipe(
+	host.getPluginConfig(["tmdbAccessToken"]).pipe(
+		Effect.map(({ tmdbAccessToken }) => tmdbAccessToken),
 		Effect.map((value) => {
 			const token = stringValue(value);
 			if (!token) {

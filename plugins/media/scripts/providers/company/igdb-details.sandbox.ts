@@ -9,7 +9,7 @@ export const manifest = defineManifest({
 	slug: "company.igdb.details",
 	requiredPluginConfigKeys: ["twitchClientId", "twitchClientSecret"],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"],
+	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
 export default defineProvider({ manifest, operation: "details", run: details.run });

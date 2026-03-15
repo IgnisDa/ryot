@@ -11,7 +11,7 @@ export const manifest = defineManifest({
 	slug: "podcast.listennotes",
 	requiredPluginConfigKeys: ["listennotesApiKey"],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"],
+	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 type ListennotesHost = SandboxHost<typeof manifest.capabilities>;
 type UnknownRecord = Record<string, unknown>;
@@ -63,7 +63,8 @@ const parseJsonResponse = (responseBody: string): unknown => {
 	}
 };
 const getApiKey = (host: ListennotesHost) =>
-	host.getPluginConfigValue("listennotesApiKey").pipe(
+	host.getPluginConfig(["listennotesApiKey"]).pipe(
+		Effect.map(({ listennotesApiKey }) => listennotesApiKey),
 		Effect.flatMap((value) => {
 			const apiKey = typeof value === "string" ? value.trim() : "";
 			if (!apiKey) {

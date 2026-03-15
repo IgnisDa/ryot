@@ -19,8 +19,8 @@ const allCapabilitiesManifest = defineManifest({
 		"getCachedValue",
 		"setCachedValue",
 		"claimCachedValue",
-		"getPluginConfigValue",
-		"getSystemConfigValue",
+		"getPluginConfig",
+		"getSystemConfig",
 		"getUserPreferences",
 	],
 });
@@ -57,8 +57,12 @@ defineScript({
 				const value: JsonValue | null = claim.value;
 				void value;
 			}
-			const pluginConfig: string = yield* host.getPluginConfigValue<string>("timezone");
-			const systemConfig: JsonValue = yield* host.getSystemConfigValue("log-level");
+			const pluginConfig: Readonly<Record<string, JsonValue>> = yield* host.getPluginConfig([
+				"timezone",
+			]);
+			const systemConfig: Readonly<Record<string, JsonValue>> = yield* host.getSystemConfig([
+				"log-level",
+			]);
 			const preferences = yield* host.getUserPreferences();
 			const isNsfw: boolean = preferences.isNsfw;
 			void cached;

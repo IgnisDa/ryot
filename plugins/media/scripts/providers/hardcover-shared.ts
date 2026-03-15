@@ -9,7 +9,7 @@ import {
 	type UnknownRecord,
 } from "../script-helpers/records";
 
-export type HardcoverHost = SandboxHost<readonly ["httpCall", "getPluginConfigValue"]>;
+export type HardcoverHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
 
 const HARDCOVER_GQL_URL = "https://api.hardcover.app/v1/graphql";
 
@@ -25,7 +25,8 @@ export const idValue = (value: unknown) => {
 };
 
 export const getHardcoverApiKey = (host: HardcoverHost) =>
-	host.getPluginConfigValue("hardcoverApiKey").pipe(
+	host.getPluginConfig(["hardcoverApiKey"]).pipe(
+		Effect.map(({ hardcoverApiKey }) => hardcoverApiKey),
 		Effect.mapError((error) => new Error(error.message || "Could not load Hardcover API key")),
 		Effect.map((value) => {
 			const apiKey = stringValue(value);
