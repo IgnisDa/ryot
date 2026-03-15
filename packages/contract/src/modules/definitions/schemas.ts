@@ -19,7 +19,6 @@ export const EntityDefinition = Schema.Struct({
 	name: Schema.String,
 	icon: Schema.String,
 	slug: EntitySchemaSlug,
-	accentColor: Schema.String,
 	propertiesSchema: AppSchema,
 	eventSchemas: Schema.Array(EventDefinition),
 	pluginSlug: Schema.optional(Schema.NullOr(PluginSlug)),
@@ -42,7 +41,6 @@ export const ListedPlugin = Schema.Struct({
 	version: Schema.String,
 	sortOrder: Schema.Number,
 	isDisabled: Schema.Boolean,
-	accentColor: Schema.String,
 	description: Schema.String,
 });
 

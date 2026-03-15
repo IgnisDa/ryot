@@ -246,7 +246,6 @@ export const entitySchemaRecordSchema = strictStruct({
 	slug: Schema.String,
 	isBuiltin: Schema.Boolean,
 	pluginSlug: Schema.String,
-	accentColor: Schema.String,
 	propertiesSchema: jsonValueSchema,
 	providers: Schema.Array(entitySchemaProviderSchema),
 });

@@ -18,7 +18,7 @@ The event catalog exposes `id`, `userId`, `entityId`, `createdAt`, `updatedAt`, 
 
 The relationship catalog exposes `id`, `userId`, `sourceEntityId`, `targetEntityId`, `createdAt`, `properties`, and `relationshipSchemaSlug`.
 
-The plugin catalog exposes `slug`, `status`, `version`, `manifest`, and `ingestedAt`. The plugin-state catalog exposes `id`, `pluginSlug`, `sortOrder`, `isDisabled`, `createdAt`, and `updatedAt`. The saved-view catalog exposes `id`, `slug`, `name`, `icon`, `accentColor`, `sortOrder`, `isBuiltin`, `isDisabled`, `pluginSlug`, `queryDocument`, `displayConfiguration`, `createdAt`, and `updatedAt`. Plugin source and compiled hashes, plugin-state configuration, and application-table ownership columns are not queryable.
+The plugin catalog exposes `slug`, `status`, `version`, `manifest`, and `ingestedAt`. The plugin-state catalog exposes `id`, `pluginSlug`, `sortOrder`, `isDisabled`, `createdAt`, and `updatedAt`. The saved-view catalog exposes `id`, `slug`, `name`, `icon`, `sortOrder`, `isBuiltin`, `isDisabled`, `pluginSlug`, `queryDocument`, `displayConfiguration`, `createdAt`, and `updatedAt`. Plugin source and compiled hashes, plugin-state configuration, and application-table ownership columns are not queryable.
 
 ## Document Shape
 

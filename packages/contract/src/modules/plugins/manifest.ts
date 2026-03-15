@@ -21,7 +21,6 @@ export const PluginMetadata = strictStruct({
 	name: Schema.String,
 	slug: Schema.String,
 	version: Schema.String,
-	accentColor: Schema.String,
 	description: Schema.String,
 });
 
@@ -45,7 +44,6 @@ export const PluginEntitySchema = strictStruct({
 	icon: Schema.String,
 	name: Schema.String,
 	slug: Schema.String,
-	accentColor: Schema.String,
 	propertiesSchema: PluginAppSchema,
 	eventSchemas: Schema.Array(PluginEventSchema),
 	userState: Schema.optional(PluginEntityUserStatePolicy),
@@ -91,7 +89,6 @@ export const PluginSavedView = strictStruct({
 	name: Schema.String,
 	slug: Schema.String,
 	sortOrder: Schema.Number,
-	accentColor: Schema.String,
 	queryDocument: PluginQueryDocument,
 	displayConfiguration: PluginDisplayConfiguration,
 	pluginSlug: Schema.NullOr(Schema.String),

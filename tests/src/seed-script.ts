@@ -130,7 +130,6 @@ type SavedViewSpec = {
 	name: string;
 	icon: string;
 	pluginSlug?: PluginSlug;
-	accentColor: string;
 	queryDocument: SavedViewQueryDocument;
 	displayConfiguration: SavedViewDisplayConfigInput;
 };
@@ -279,7 +278,6 @@ async function createPluginScope(
 	name: string,
 	slug: string,
 	icon: string,
-	accentColor: string,
 	description?: string,
 ) {
 	console.log(`  Creating plugin scope: ${name}...`);
@@ -287,7 +285,6 @@ async function createPluginScope(
 		name,
 		slug,
 		icon,
-		accentColor,
 		description: description ?? null,
 		sortOrder: 0,
 	};
@@ -303,7 +300,6 @@ async function createEntitySchema(
 	slug: string,
 	pluginSlug: PluginSlug,
 	icon: string,
-	accentColor: string,
 	propertiesSchema: AppSchema,
 ) {
 	console.log(`    Creating entity schema: ${name}...`);
@@ -316,7 +312,6 @@ async function createEntitySchema(
 		name,
 		slug,
 		icon,
-		accentColor,
 		propertiesSchema: propertiesSchemaWithImages,
 		eventSchemas: [],
 	};
@@ -352,7 +347,6 @@ async function createEventSchema(
 				icon: entitySchema.icon,
 				name: entitySchema.name,
 				slug: entitySchema.slug,
-				accentColor: entitySchema.accentColor,
 				propertiesSchema: entitySchema.propertiesSchema,
 				eventSchemas: [
 					...entitySchema.eventSchemas.filter((schema) => schema.slug !== slug),
@@ -529,7 +523,6 @@ async function createSavedView(
 	apiClient: APIClient,
 	name: string,
 	icon: string,
-	accentColor: string,
 	queryDocument: SavedViewQueryDocument,
 	displayConfiguration: SavedViewDisplayConfigInput,
 	pluginSlug?: PluginSlug,
@@ -637,7 +630,6 @@ async function createSavedView(
 			payload: {
 				name,
 				icon,
-				accentColor,
 				pluginSlug,
 				queryDocument,
 				displayConfiguration: normalizedDisplayConfiguration,
@@ -873,7 +865,6 @@ async function seedWhiskeys(client: APIClient) {
 		"Whiskeys",
 		"whiskeys",
 		"wine",
-		"#D97706",
 		"Track your whiskey collection and tastings",
 	);
 
@@ -883,7 +874,6 @@ async function seedWhiskeys(client: APIClient) {
 		"whiskey",
 		pluginScope.id,
 		"wine",
-		"#D97706",
 		{
 			fields: {
 				distillery: {
@@ -1013,7 +1003,6 @@ async function seedPlaces(client: APIClient) {
 		"Places",
 		"places",
 		"map-pin",
-		"#3B82F6",
 		"Track places you've visited and want to visit",
 	);
 
@@ -1023,7 +1012,6 @@ async function seedPlaces(client: APIClient) {
 		"place",
 		pluginScope.id,
 		"map-pin",
-		"#3B82F6",
 		{
 			fields: {
 				city: {
@@ -1186,7 +1174,6 @@ async function seedMobilePhones(client: APIClient) {
 		"Mobile Phones",
 		"mobile-phones",
 		"smartphone",
-		"#6B7280",
 		"Track your mobile device collection",
 	);
 
@@ -1196,7 +1183,6 @@ async function seedMobilePhones(client: APIClient) {
 		"smartphone",
 		pluginScope.id,
 		"smartphone",
-		"#6B7280",
 		{
 			fields: {
 				manufacturer: {
@@ -1245,7 +1231,6 @@ async function seedMobilePhones(client: APIClient) {
 		"feature-phone",
 		pluginScope.id,
 		"phone",
-		"#9CA3AF",
 		{
 			fields: {
 				manufacturer: {
@@ -1284,7 +1269,6 @@ async function seedMobilePhones(client: APIClient) {
 		"tablet",
 		pluginScope.id,
 		"tablet",
-		"#4B5563",
 		{
 			fields: {
 				manufacturer: {
@@ -2105,7 +2089,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Premium Aged Whiskeys",
 			icon: "wine",
-			accentColor: "#D97706",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2126,7 +2109,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Scotch Whiskeys",
 			icon: "wine",
-			accentColor: "#B45309",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
@@ -2147,7 +2129,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "High Proof Whiskeys",
 			icon: "flame",
-			accentColor: "#DC2626",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
@@ -2169,7 +2150,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Recent Whiskey Additions",
 			icon: "clock",
-			accentColor: "#F59E0B",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2189,7 +2169,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Japanese Whiskeys",
 			icon: "wine",
-			accentColor: "#DC2626",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2209,7 +2188,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Whiskey Regions Atlas",
 			icon: "map",
-			accentColor: "#7C3AED",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2231,7 +2209,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Cask Strength Candidates",
 			icon: "flame",
-			accentColor: "#991B1B",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2255,7 +2232,6 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Restaurants & Cafes",
 			icon: "utensils",
-			accentColor: "#EF4444",
 			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
@@ -2276,7 +2252,6 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Cultural Venues",
 			icon: "landmark",
-			accentColor: "#8B5CF6",
 			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2297,7 +2272,6 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Parks & Outdoor Spaces",
 			icon: "tree",
-			accentColor: "#10B981",
 			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2317,7 +2291,6 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Recently Added Places",
 			icon: "clock",
-			accentColor: "#3B82F6",
 			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
@@ -2338,7 +2311,6 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Places by Country",
 			icon: "globe",
-			accentColor: "#06B6D4",
 			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
@@ -2360,7 +2332,6 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Mapped Places",
 			icon: "map-pin",
-			accentColor: "#0F766E",
 			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2381,7 +2352,6 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "City Address Book",
 			icon: "book-open",
-			accentColor: "#1D4ED8",
 			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
@@ -2406,7 +2376,6 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Modern Smartphones",
 			icon: "smartphone",
-			accentColor: "#6366F1",
 			queryDocument: savedViewQueryDocument(["smartphone"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2427,7 +2396,6 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "High Storage Devices",
 			icon: "hard-drive",
-			accentColor: "#EC4899",
 			queryDocument: savedViewQueryDocument(["smartphone", "tablet"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
@@ -2449,7 +2417,6 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Apple Ecosystem Devices",
 			icon: "apple",
-			accentColor: "#6B7280",
 			queryDocument: savedViewQueryDocument(["smartphone", "tablet"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
@@ -2471,7 +2438,6 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Android Devices",
 			icon: "android",
-			accentColor: "#22C55E",
 			queryDocument: savedViewQueryDocument(["smartphone", "tablet"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2492,7 +2458,6 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Premium Smartphones",
 			icon: "gem",
-			accentColor: "#A855F7",
 			queryDocument: savedViewQueryDocument(["smartphone"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
@@ -2515,7 +2480,6 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Budget-Friendly Phones",
 			icon: "dollar-sign",
-			accentColor: "#10B981",
 			queryDocument: savedViewQueryDocument(["smartphone"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
@@ -2536,7 +2500,6 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Large Screen Devices",
 			icon: "smartphone",
-			accentColor: "#F97316",
 			queryDocument: savedViewQueryDocument(["smartphone", "tablet"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2557,7 +2520,6 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Tablets with Cellular",
 			icon: "signal",
-			accentColor: "#EA580C",
 			queryDocument: savedViewQueryDocument(["tablet"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2578,7 +2540,6 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Feature Phones with Camera",
 			icon: "camera",
-			accentColor: "#84CC16",
 			queryDocument: savedViewQueryDocument(["feature-phone"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
@@ -2600,7 +2561,6 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "All Mobile Devices",
 			icon: "tablet",
-			accentColor: "#475569",
 			queryDocument: savedViewQueryDocument(["smartphone", "feature-phone", "tablet"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2632,7 +2592,6 @@ async function seedSavedViews(
 		{
 			name: "Everything Recently Added",
 			icon: "star",
-			accentColor: "#FFD700",
 			queryDocument: savedViewQueryDocument(allSchemaSlugs),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
@@ -2671,7 +2630,6 @@ async function seedSavedViews(
 		{
 			name: "All Items A-Z",
 			icon: "book",
-			accentColor: "#1F2937",
 			queryDocument: savedViewQueryDocument(allSchemaSlugs),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
@@ -2709,7 +2667,6 @@ async function seedSavedViews(
 		{
 			name: "Collection Showcase",
 			icon: "image",
-			accentColor: "#0F172A",
 			queryDocument: savedViewQueryDocument(allSchemaSlugs),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2753,7 +2710,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Latest Tasting",
 			icon: "star",
-			accentColor: "#F59E0B",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2775,7 +2731,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Highly Rated",
 			icon: "trophy",
-			accentColor: "#D97706",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2797,7 +2752,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Latest Purchase",
 			icon: "shopping-cart",
-			accentColor: "#059669",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2819,7 +2773,6 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Demo: Places – Last Visited",
 			icon: "calendar",
-			accentColor: "#3B82F6",
 			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2842,7 +2795,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – ABV Reference",
 			icon: "percent",
-			accentColor: "#7C3AED",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2864,7 +2816,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Quality Tiers",
 			icon: "layers",
-			accentColor: "#BE185D",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2886,7 +2837,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Full Description",
 			icon: "file-text",
-			accentColor: "#0284C7",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2906,7 +2856,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Rating with ABV",
 			icon: "activity",
-			accentColor: "#C026D3",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2928,7 +2877,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Rare Bourbons",
 			icon: "award",
-			accentColor: "#92400E",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2949,7 +2897,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Not Rye",
 			icon: "x-circle",
-			accentColor: "#6B7280",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2970,7 +2917,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Bourbon or Scotch, High Proof",
 			icon: "zap",
-			accentColor: "#B45309",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -2992,7 +2938,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Unknown Region",
 			icon: "help-circle",
-			accentColor: "#9CA3AF",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -3013,7 +2958,6 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Demo: Places – Has Full Address",
 			icon: "map-pin",
-			accentColor: "#0F766E",
 			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -3035,7 +2979,6 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Speyside",
 			icon: "map",
-			accentColor: "#064E3B",
 			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -3056,7 +2999,6 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Demo: Phones – Non-Apple",
 			icon: "smartphone",
-			accentColor: "#1E40AF",
 			queryDocument: savedViewQueryDocument(["smartphone", "tablet"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
@@ -3093,7 +3035,6 @@ async function seedSavedViews(
 					client,
 					view.name,
 					view.icon,
-					view.accentColor,
 					view.queryDocument,
 					view.displayConfiguration,
 					view.pluginSlug,

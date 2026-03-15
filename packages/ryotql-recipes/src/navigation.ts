@@ -27,7 +27,6 @@ const navigationResponse = Schema.Struct({
 				name: TextFieldValue,
 				slug: TextFieldValue,
 				icon: TextFieldValue,
-				accentColor: TextFieldValue,
 				sortOrder: Schema.Union([NumberFieldValue, NullFieldValue]),
 				isDisabled: Schema.Union([BooleanFieldValue, NullFieldValue]),
 			}),
@@ -38,7 +37,6 @@ const navigationResponse = Schema.Struct({
 				slug: TextFieldValue,
 				icon: TextFieldValue,
 				sortOrder: NumberFieldValue,
-				accentColor: TextFieldValue,
 				isDisabled: BooleanFieldValue,
 				pluginSlug: Schema.Union([TextFieldValue, NullFieldValue]),
 			}),
@@ -53,7 +51,6 @@ export const NavigationWorkspace = Schema.Struct({
 	icon: Schema.String,
 	sortOrder: Schema.Number,
 	isDisabled: Schema.Boolean,
-	accentColor: Schema.String,
 });
 export type NavigationWorkspace = typeof NavigationWorkspace.Type;
 
@@ -63,7 +60,6 @@ export const NavigationView = Schema.Struct({
 	icon: Schema.String,
 	sortOrder: Schema.Number,
 	isDisabled: Schema.Boolean,
-	accentColor: Schema.String,
 	pluginSlug: Schema.NullOr(Schema.String),
 });
 export type NavigationView = typeof NavigationView.Type;
@@ -94,7 +90,6 @@ export const buildNavigationDocument = () => {
 				field("slug", column(plugin, "slug")),
 				field("name", castText(jsonPath(metadata, "name"))),
 				field("icon", castText(jsonPath(metadata, "icon"))),
-				field("accentColor", castText(jsonPath(metadata, "accentColor"))),
 				field("sortOrder", column(state, "sortOrder")),
 				field("isDisabled", column(state, "isDisabled")),
 			],
@@ -110,7 +105,6 @@ export const buildNavigationDocument = () => {
 				field("slug", column(savedView, "slug")),
 				field("name", column(savedView, "name")),
 				field("icon", column(savedView, "icon")),
-				field("accentColor", column(savedView, "accentColor")),
 				field("sortOrder", column(savedView, "sortOrder")),
 				field("isDisabled", column(savedView, "isDisabled")),
 				field("pluginSlug", column(savedView, "pluginSlug")),
@@ -134,7 +128,6 @@ export const decodeNavigationResponse = (response: unknown) =>
 					name: row.name.value,
 					slug: row.slug.value,
 					icon: row.icon.value,
-					accentColor: row.accentColor.value,
 					sortOrder: row.sortOrder.kind === "number" ? row.sortOrder.value : index,
 					isDisabled: row.isDisabled.kind === "boolean" ? row.isDisabled.value : false,
 				})),
@@ -144,11 +137,9 @@ export const decodeNavigationResponse = (response: unknown) =>
 					icon: row.icon.value,
 					sortOrder: row.sortOrder.value,
 					isDisabled: row.isDisabled.value,
-					accentColor: row.accentColor.value,
 					pluginSlug: row.pluginSlug.kind === "text" ? row.pluginSlug.value : null,
 				})),
 				collections: data.collections.items.map((row, index) => ({
-					accentColor: "",
 					sortOrder: index,
 					icon: "layers-3",
 					pluginSlug: null,

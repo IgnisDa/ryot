@@ -39,7 +39,6 @@ const baseListedSavedView: ListedSavedView = {
 	pluginSlug: null,
 	isBuiltin: false,
 	isDisabled: false,
-	accentColor: "#FF5733",
 	queryDocument: sampleQueryDocument,
 	createdAt: new Date().toISOString(),
 	updatedAt: new Date().toISOString(),
@@ -101,7 +100,6 @@ const makeDefinitionRegistryLayer = (...views: ReadonlyArray<ListedSavedView>) =
 				slug: view.slug,
 				sortOrder: view.sortOrder,
 				pluginSlug: view.pluginSlug,
-				accentColor: view.accentColor,
 				queryDocument: view.queryDocument,
 				displayConfiguration: view.displayConfiguration,
 			})),
@@ -130,7 +128,6 @@ const makeServiceLayer = (
 const createBody = {
 	icon: "book",
 	name: "My View",
-	accentColor: "#FF5733",
 	queryDocument: sampleQueryDocument,
 	displayConfiguration: baseListedSavedView.displayConfiguration,
 };

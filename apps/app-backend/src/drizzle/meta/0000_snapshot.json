@@ -1,5 +1,5 @@
 {
-	"id": "caea755c-cdef-4c47-99e5-f580fbd2f712",
+	"id": "2153cf07-f918-43af-ac7c-c592c645a75b",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -2336,12 +2336,6 @@
 				},
 				"icon": {
 					"name": "icon",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"accent_color": {
-					"name": "accent_color",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": true

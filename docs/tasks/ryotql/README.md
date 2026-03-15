@@ -185,7 +185,7 @@ The initial catalog will support entity, event, relationship, plugin, plugin sta
 - Relationship fields are id, userId, sourceEntityId, targetEntityId, createdAt, properties, and relationshipSchemaSlug.
 - Plugin fields are slug, status, version, manifest, and ingestedAt.
 - Plugin-state fields are id, pluginSlug, sortOrder, isDisabled, createdAt, and updatedAt.
-- Saved-view fields are id, slug, name, icon, accentColor, sortOrder, isBuiltin, isDisabled, pluginSlug, queryDocument, displayConfiguration, createdAt, and updatedAt.
+- Saved-view fields are id, slug, name, icon, sortOrder, isBuiltin, isDisabled, pluginSlug, queryDocument, displayConfiguration, createdAt, and updatedAt.
 - Plugin source hashes, compiled hashes, plugin-state configuration, and omitted ownership columns are not public RyotQL fields.
 - Policy code may use internal columns that are not public fields.
 - New tables and fields are added only for concrete consumers in later work.
