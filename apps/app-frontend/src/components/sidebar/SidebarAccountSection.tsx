@@ -1,6 +1,7 @@
 import {
 	Avatar,
 	Box,
+	Button,
 	Group,
 	Modal,
 	SegmentedControl,
@@ -11,7 +12,8 @@ import {
 	useMantineColorScheme,
 } from "@mantine/core";
 import { useDisclosure, useHover } from "@mantine/hooks";
-import { Key, Laptop, Moon, Settings, Sun } from "lucide-react";
+import { Key, Laptop, LogOut, Moon, Settings, Sun } from "lucide-react";
+import { useAuthClient } from "#/hooks/auth";
 import { useIsMobileScreen } from "#/hooks/screen";
 import { useColorScheme } from "#/hooks/theme";
 import type { SidebarAccount } from "./Sidebar.types";
@@ -42,6 +44,7 @@ export function SidebarAccountSection(props: {
 	borderAccent: string;
 	account: SidebarAccount;
 }) {
+	const authClient = useAuthClient();
 	const isMobile = useIsMobileScreen();
 	const computedColorScheme = useColorScheme();
 	const { hovered, ref } = useHover<HTMLButtonElement>();
@@ -51,6 +54,11 @@ export function SidebarAccountSection(props: {
 		props.account.name,
 		props.account.email,
 	);
+
+	const handleLogout = async () => {
+		await authClient.signOut();
+		window.location.href = "/start";
+	};
 
 	return (
 		<>
@@ -256,6 +264,16 @@ export function SidebarAccountSection(props: {
 									/>
 								</Box>
 							</SimpleGrid>
+
+							<Button
+								fullWidth
+								color="red"
+								variant="light"
+								onClick={handleLogout}
+								leftSection={<LogOut size={16} />}
+							>
+								Log Out
+							</Button>
 						</Stack>
 					</Tabs.Panel>
 
