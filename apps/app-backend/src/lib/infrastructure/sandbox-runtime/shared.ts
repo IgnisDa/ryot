@@ -4,7 +4,12 @@ import type {
 	SandboxExecutionGrants,
 } from "@ryot/contract/modules/sandbox/schemas";
 import type { SandboxProviderId } from "@ryot/contract/schema/brands";
-import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } from "@ryot/sandbox-sdk/core";
+import {
+	SANDBOX_CAPABILITY_REQUIREMENTS,
+	type SandboxCapabilityRequirement,
+	type SandboxHostCapability,
+	type SandboxHostImplementationMap as SdkSandboxHostImplementationMap,
+} from "@ryot/sandbox-sdk/core";
 import type { JsonValue, SandboxHostError } from "@ryot/sandbox-sdk/wire";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Effect } from "effect";
@@ -32,20 +37,16 @@ export type UserSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput>
 	readonly authority: Extract<ExecutionAuthority, { readonly userId: string }>;
 };
 
+export type DirectUserSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
+	readonly authority: Extract<ExecutionAuthority, { readonly type: "user" }>;
+};
+
 export type SystemSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
 	readonly authority: Extract<ExecutionAuthority, { readonly type: "system" }>;
 };
 
 export type SystemProviderSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> =
 	SystemSandboxRunInput<Input> & { readonly providerId: SandboxProviderId };
-
-const hasSystemContext = <Input extends SandboxRunInput>(
-	input: Input,
-): input is SystemSandboxRunInput<Input> => input.authority.type === "system";
-
-const hasProviderContext = <Input extends SandboxRunInput>(
-	input: SystemSandboxRunInput<Input>,
-): input is SystemProviderSandboxRunInput<Input> => input.providerId !== null;
 
 export type SandboxHostImplementationMap = SdkSandboxHostImplementationMap<SandboxRunInput>;
 
@@ -114,58 +115,96 @@ export const sandboxRunIntegrationId = (input: UserSandboxRunInput) => {
 	return origin.kind === "integration" ? origin.integrationId : null;
 };
 
-const hasUserContext = <Input extends SandboxRunInput>(
-	input: Input,
-): input is UserSandboxRunInput<Input> => "userId" in input.authority;
-
-export type SubscriptionSandboxRunInput = SandboxRunInput & {
+export type SubscriptionSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
 	readonly authority: Extract<ExecutionAuthority, { readonly type: "subscription" }>;
 };
 
-const hasSubscriptionRun = (input: SandboxRunInput): input is SubscriptionSandboxRunInput =>
-	input.authority.type === "subscription";
+type CapabilityAuthority<Capability extends SandboxHostCapability> =
+	(typeof SANDBOX_CAPABILITY_REQUIREMENTS)[Capability]["authorities"][number];
 
-export const requireSubscriptionSandboxRunInput = (
-	input: SandboxRunInput,
-	fnName: string,
-): Effect.Effect<SubscriptionSandboxRunInput, SandboxHostError> => {
-	if (!hasSubscriptionRun(input)) {
-		return sandboxHostFailure(`${fnName} is available only to subscription executions`);
+type SandboxRunInputForAuthority<
+	Input extends SandboxRunInput,
+	Authority,
+> = Authority extends "user"
+	? DirectUserSandboxRunInput<Input>
+	: Authority extends "subscription"
+		? SubscriptionSandboxRunInput<Input>
+		: Authority extends "system"
+			? SystemSandboxRunInput<Input>
+			: never;
+
+const sandboxCapabilityRequirement = (
+	capability: SandboxHostCapability,
+): SandboxCapabilityRequirement => SANDBOX_CAPABILITY_REQUIREMENTS[capability];
+
+export type SandboxRunInputForCapability<
+	Capability extends SandboxHostCapability,
+	Input extends SandboxRunInput = SandboxRunInput,
+> = (typeof SANDBOX_CAPABILITY_REQUIREMENTS)[Capability] extends {
+	readonly requiresProvider: true;
+}
+	? SystemProviderSandboxRunInput<Input>
+	: SandboxRunInputForAuthority<Input, CapabilityAuthority<Capability>>;
+
+export const sandboxMetadataKind = (metadata: unknown) =>
+	typeof metadata === "object" &&
+	metadata !== null &&
+	"kind" in metadata &&
+	typeof metadata.kind === "string"
+		? metadata.kind
+		: undefined;
+
+const sandboxCapabilityError = (input: SandboxRunInput, capability: SandboxHostCapability) => {
+	const requirement = sandboxCapabilityRequirement(capability);
+	if (input.authority.type === "system") {
+		if (!requirement.authorities.includes("system")) {
+			if (requirement.authorities.length === 1 && requirement.authorities[0] === "subscription") {
+				return `${capability} is available only to subscription executions`;
+			}
+			return `${capability} is not available for system executions`;
+		}
+		if (
+			requirement.systemKinds &&
+			!requirement.systemKinds.some((kind) => kind === sandboxMetadataKind(input.metadata))
+		) {
+			return `${capability} is not available to this system execution`;
+		}
+	} else if (!requirement.authorities.includes(input.authority.type)) {
+		if (requirement.authorities.length === 1 && requirement.authorities[0] === "subscription") {
+			return `${capability} is available only to subscription executions`;
+		}
+		if (requirement.authorities.length === 1 && requirement.authorities[0] === "user") {
+			return `${capability} is available only to user executions`;
+		}
+		return `${capability} is not available to this execution`;
 	}
-
-	return Effect.succeed(input);
+	if (requirement.requiresProvider && input.providerId === null) {
+		return `${capability} is available only to provider-associated scripts`;
+	}
+	return undefined;
 };
 
-export const requireUserSandboxRunInput = <Input extends SandboxRunInput>(
+const isSandboxCapabilityInput = <
+	Capability extends SandboxHostCapability,
+	Input extends SandboxRunInput,
+>(
 	input: Input,
-	fnName: string,
-): Effect.Effect<UserSandboxRunInput<Input>, SandboxHostError> => {
-	if (!hasUserContext(input)) {
-		return sandboxHostFailure(`${fnName} is not available for system executions`);
-	}
+	capability: Capability,
+): input is SandboxRunInputForCapability<Capability, Input> =>
+	sandboxCapabilityError(input, capability) === undefined;
 
+export const requireSandboxCapabilityInput = <
+	Capability extends SandboxHostCapability,
+	Input extends SandboxRunInput,
+>(
+	input: Input,
+	capability: Capability,
+): Effect.Effect<SandboxRunInputForCapability<Capability, Input>, SandboxHostError> => {
+	if (!isSandboxCapabilityInput(input, capability)) {
+		return sandboxHostFailure(
+			sandboxCapabilityError(input, capability) ??
+				`${capability} is not available to this execution`,
+		);
+	}
 	return Effect.succeed(input);
 };
-
-export const requireSystemSandboxRunInput = <Input extends SandboxRunInput>(
-	input: Input,
-	fnName: string,
-): Effect.Effect<SystemSandboxRunInput<Input>, SandboxHostError> => {
-	if (!hasSystemContext(input)) {
-		return sandboxHostFailure(`${fnName} is available only to system executions`);
-	}
-
-	return Effect.succeed(input);
-};
-
-export const requireSystemProviderSandboxRunInput = <Input extends SandboxRunInput>(
-	input: Input,
-	fnName: string,
-): Effect.Effect<SystemProviderSandboxRunInput<Input>, SandboxHostError> =>
-	requireSystemSandboxRunInput(input, fnName).pipe(
-		Effect.flatMap((systemInput) =>
-			hasProviderContext(systemInput)
-				? Effect.succeed(systemInput)
-				: sandboxHostFailure(`${fnName} is available only to provider-associated scripts`),
-		),
-	);
