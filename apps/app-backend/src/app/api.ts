@@ -17,7 +17,8 @@ import { uploadsApi } from "~/modules/uploads/routes";
 const openApiInfo = {
 	version: "1.0.0",
 	title: "Ryot App Backend API",
-	description: "OpenAPI specification for app-owned backend routes",
+	description:
+		"OpenAPI specification for app-owned backend routes. Requests are limited to 60 per minute.",
 };
 
 export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
