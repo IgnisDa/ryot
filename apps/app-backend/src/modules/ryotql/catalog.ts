@@ -13,8 +13,35 @@ export type CatalogField = {
 };
 
 export type CatalogVisibility =
-	| { readonly type: "public" }
-	| { readonly type: "user"; readonly column: string; readonly includeGlobal: boolean };
+	| { readonly user: { readonly type: "public" } }
+	| {
+			readonly user: {
+				readonly type: "owned";
+				readonly column: string;
+				readonly includeGlobal: boolean;
+			};
+			readonly plugin?:
+				| { readonly type: "eventDefinition" }
+				| {
+						readonly column: string;
+						readonly globalOnly: boolean;
+						readonly type: "discriminator";
+						readonly ownership: "entitySchemaSlugs" | "relationshipSchemaSlugs";
+				  };
+	  };
+
+export type RyotQLExecutionScope =
+	| { readonly type: "user"; readonly userId: string; readonly language: string | null }
+	| {
+			readonly type: "plugin";
+			readonly pluginSlug: string;
+			readonly entitySchemaSlugs: readonly string[];
+			readonly relationshipSchemaSlugs: readonly string[];
+			readonly eventSchemas: readonly {
+				readonly eventSchemaSlug: string;
+				readonly entitySchemaSlug: string;
+			}[];
+	  };
 
 export type CatalogTable = {
 	readonly name: string;
@@ -69,7 +96,15 @@ const entityTranslationStatus: CatalogField = {
 const entity: CatalogTable = {
 	name: "entity",
 	primaryKey: "id",
-	visibility: { type: "user", column: "user_id", includeGlobal: true },
+	visibility: {
+		user: { type: "owned", column: "user_id", includeGlobal: true },
+		plugin: {
+			globalOnly: true,
+			type: "discriminator",
+			column: "entity_schema_slug",
+			ownership: "entitySchemaSlugs",
+		},
+	},
 	fields: {
 		name: localizedEntityName,
 		properties: localizedEntityProperties,
@@ -88,7 +123,10 @@ const entity: CatalogTable = {
 const event: CatalogTable = {
 	name: "event",
 	primaryKey: "id",
-	visibility: { type: "user", column: "user_id", includeGlobal: true },
+	visibility: {
+		user: { type: "owned", column: "user_id", includeGlobal: true },
+		plugin: { type: "eventDefinition" },
+	},
 	fields: {
 		id: physicalField("id", "text"),
 		userId: physicalField("user_id", "text"),
@@ -105,7 +143,15 @@ const event: CatalogTable = {
 const relationship: CatalogTable = {
 	primaryKey: "id",
 	name: "relationship",
-	visibility: { type: "user", column: "user_id", includeGlobal: true },
+	visibility: {
+		user: { type: "owned", column: "user_id", includeGlobal: true },
+		plugin: {
+			globalOnly: false,
+			type: "discriminator",
+			column: "relationship_schema_slug",
+			ownership: "relationshipSchemaSlugs",
+		},
+	},
 	fields: {
 		id: physicalField("id", "text"),
 		userId: physicalField("user_id", "text"),
@@ -120,7 +166,7 @@ const relationship: CatalogTable = {
 const plugin: CatalogTable = {
 	name: "plugin",
 	primaryKey: "slug",
-	visibility: { type: "public" },
+	visibility: { user: { type: "public" } },
 	fields: {
 		slug: physicalField("slug", "text"),
 		status: physicalField("status", "text"),
@@ -133,7 +179,7 @@ const plugin: CatalogTable = {
 const pluginState: CatalogTable = {
 	primaryKey: "id",
 	name: "plugin_state",
-	visibility: { type: "user", column: "user_id", includeGlobal: false },
+	visibility: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
 		id: physicalField("id", "text"),
 		createdAt: physicalField("created_at", "date"),
@@ -147,7 +193,7 @@ const pluginState: CatalogTable = {
 const savedView: CatalogTable = {
 	primaryKey: "id",
 	name: "saved_view",
-	visibility: { type: "user", column: "user_id", includeGlobal: false },
+	visibility: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
 		id: physicalField("id", "text"),
 		slug: physicalField("slug", "text"),
@@ -175,5 +221,11 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 };
 
 export const getCatalogTable = (name: string) => tables[name];
+
+export const canAccessCatalogTable = (
+	table: CatalogTable,
+	scope: Pick<RyotQLExecutionScope, "type">,
+) =>
+	scope.type === "user" || ("plugin" in table.visibility && table.visibility.plugin !== undefined);
 
 export const resolveCatalogField = (table: CatalogTable, name: string) => table.fields[name];

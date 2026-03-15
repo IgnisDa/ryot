@@ -1,4 +1,4 @@
-import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
+import { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
@@ -16,14 +16,27 @@ const target = (entityId: string, monitoringLibraryId: string | null = null) => 
 	providerId: field(`provider-${entityId}`),
 	entitySchemaSlug: field("movie"),
 	monitoringLibraries: {
-		items: monitoringLibraryId ? [{ entityId: field(monitoringLibraryId) }] : [],
+		items: monitoringLibraryId ? [{ libraryEntityId: field(monitoringLibraryId) }] : [],
+		pageInfo: { limit: 1, hasMore: false },
 	},
 });
 const rows = (items: unknown[]) => ({
-	type: "rows",
 	data: {
-		items,
-		pageInfo: { page: 1, limit: 50, total: items.length, hasMore: false },
+		targets: {
+			type: "rows",
+			items,
+			pageInfo: { page: 1, limit: 50, total: items.length, hasMore: false },
+		},
+	},
+});
+
+const libraryRows = (items: unknown[]) => ({
+	data: {
+		library: {
+			type: "rows",
+			items,
+			pageInfo: { page: 1, limit: 1, total: items.length, hasMore: false },
+		},
 	},
 });
 
@@ -31,7 +44,7 @@ describe("media monitoring operations", () => {
 	it("pushes monitorability and status into one query and keeps duplicate results aligned", async () => {
 		const documents: unknown[] = [];
 		const host = defineSandboxTestHost(statusManifest, {
-			executeQueryEngine: (document) =>
+			executeRyotql: (document) =>
 				Effect.sync(() => {
 					documents.push(document);
 					return rows([target("entity-a", "library-1")]);
@@ -55,43 +68,46 @@ describe("media monitoring operations", () => {
 			],
 		});
 		expect(documents).toHaveLength(1);
-		expect(Schema.is(QueryDocument)(documents[0])).toBe(true);
+		expect(Schema.is(RyotQLDocument)(documents[0])).toBe(true);
 		expect(documents[0]).toMatchObject({
-			source: {
-				type: "entities",
-				alias: "entity",
-				where: { type: "and" },
-				schemas: expect.arrayContaining(["movie", "company", "person"]),
-			},
-			output: {
-				type: "rows",
-				pagination: { page: 1, limit: 3 },
-				include: [
-					expect.objectContaining({
-						key: "monitoringLibraries",
-						source: expect.objectContaining({
-							via: expect.objectContaining({ schema: "media-monitoring" }),
-						}),
-					}),
-				],
+			queries: {
+				targets: {
+					from: { table: "entity", alias: "entity" },
+					where: { type: "and" },
+					output: {
+						type: "rows",
+						pagination: { page: 1, limit: 3 },
+						include: [
+							expect.objectContaining({
+								key: "monitoringLibraries",
+								from: { table: "relationship", alias: "monitoringRelationship" },
+							}),
+						],
+					},
+				},
 			},
 		});
-		expect(JSON.stringify(documents[0])).toContain('"name":"userId"');
-		expect(JSON.stringify(documents[0])).toContain('"name":"providerId"');
-		expect(JSON.stringify(documents[0])).toContain('"name":"externalId"');
-		expect(JSON.stringify(documents[0])).not.toContain("show-season");
+		const serialized = JSON.stringify(documents[0]);
+		expect(serialized).toContain('"field":"targetEntityId"');
+		expect(serialized).toContain(
+			'"field":"userId","type":"column","tableAlias":"monitoringRelationship"},"type":"isNotNull"',
+		);
+		expect(serialized).toContain('"field":"providerId"');
+		expect(serialized).toContain('"field":"externalId"');
+		expect(serialized).not.toContain('"table":"entity","alias":"library"');
+		expect(serialized).not.toContain("show-season");
 	});
 
 	it("enables valid targets with one atomic relationship batch and no user id", async () => {
 		const changes: unknown[] = [];
 		const documents: unknown[] = [];
-		const QuerySource = Schema.Struct({ source: Schema.Struct({ alias: Schema.String }) });
 		const host = defineSandboxTestHost(enableManifest, {
-			executeQueryEngine: (document) =>
+			executeRyotql: (document) =>
 				Effect.sync(() => {
 					documents.push(document);
-					return Schema.decodeUnknownSync(QuerySource)(document).source.alias === "library"
-						? rows([{ entityId: field("library-1") }])
+					const query = Schema.decodeUnknownSync(RyotQLDocument)(document);
+					return "library" in query.queries
+						? libraryRows([{ entityId: field("library-1") }])
 						: rows([target("entity-a")]);
 				}),
 			changeUserRelationships: (batches) =>
@@ -139,7 +155,7 @@ describe("media monitoring operations", () => {
 		]);
 		expect(documents).toHaveLength(2);
 		for (const document of documents) {
-			expect(Schema.is(QueryDocument)(document)).toBe(true);
+			expect(Schema.is(RyotQLDocument)(document)).toBe(true);
 		}
 		expect(JSON.stringify(changes)).not.toContain("userId");
 	});
@@ -147,7 +163,7 @@ describe("media monitoring operations", () => {
 	it("disables only existing monitoring edges and leaves ordinary library membership alone", async () => {
 		const changes: unknown[] = [];
 		const host = defineSandboxTestHost(disableManifest, {
-			executeQueryEngine: () =>
+			executeRyotql: () =>
 				Effect.succeed(rows([target("entity-a", "library-1"), target("entity-b")])),
 			changeUserRelationships: (batches) =>
 				Effect.sync(() => {

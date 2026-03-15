@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import type { ExecutionAuthority } from "@ryot/contract/modules/sandbox/schemas";
 import {
 	EntityId,
@@ -30,6 +31,7 @@ import { IntegrationsRepository, type IntegrationRecord } from "#modules/integra
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipsRepository } from "#modules/relationships/repository";
+import { RyotQLService } from "#modules/ryotql/service";
 
 import {
 	makeAdditionalSandboxApiFunctions,
@@ -114,6 +116,7 @@ const runGetCurrentIntegration = (
 				Layer.mock(EntitiesService)({}),
 				Layer.mock(EntitiesRepository)({}),
 				Layer.mock(QueryEngineService)({}),
+				Layer.mock(RyotQLService)({}),
 				Layer.succeed(DefinitionRegistry, {
 					...makeDefinitionRegistry(),
 				}),
@@ -123,6 +126,8 @@ const runGetCurrentIntegration = (
 			),
 		),
 	);
+
+const executeRyotql = () => Effect.void;
 
 describe("getCurrentIntegration", () => {
 	it.effect("resolves the integration the operation execution was dispatched for", () =>
@@ -272,6 +277,7 @@ const runExecuteQueryEngine = (input: SandboxRunInput, caller: typeof systemQuer
 						return Effect.succeed(queryResponse);
 					},
 				}),
+				Layer.mock(RyotQLService)({}),
 			),
 		),
 	);
@@ -344,6 +350,155 @@ describe("executeQueryEngine", () => {
 	});
 });
 
+const ryotqlDocument = {
+	queries: {
+		entities: {
+			from: { table: "entity", alias: "entity" },
+			output: { fields: [], orderBy: [], type: "rows", pagination: { page: 1, limit: 10 } },
+		},
+	},
+} as const satisfies RyotQLDocument;
+
+const ryotqlResponse = {
+	data: {
+		entities: {
+			items: [],
+			type: "rows" as const,
+			pageInfo: { page: 1, limit: 10, total: 0, hasMore: false },
+		},
+	},
+};
+
+const runExecuteRyotql = (
+	input: SandboxRunInput,
+	caller: typeof systemQueryCaller | null,
+	document: RyotQLDocument = ryotqlDocument,
+) => {
+	const userCalls: unknown[] = [];
+	const pluginCalls: unknown[] = [];
+	const resolvedScriptIds: string[] = [];
+	return makeAdditionalSandboxApiFunctions.pipe(
+		Effect.flatMap((functions) => Effect.result(functions.executeRyotql(input, document))),
+		Effect.map((result) => ({ result, resolvedScriptIds, pluginCalls, userCalls })),
+		Effect.provide(
+			Layer.mergeAll(
+				dbRunnerLayer,
+				transactionLayer,
+				makeAppConfigLayer(),
+				Layer.succeed(RedisService, makeRedisService()),
+				Layer.mock(EventsService)({}),
+				Layer.mock(EntitiesService)({}),
+				Layer.mock(EntitiesRepository)({}),
+				Layer.mock(IntegrationsRepository)({}),
+				Layer.mock(RelationshipsRepository)({}),
+				Layer.mock(QueryEngineService)({}),
+				Layer.succeed(DefinitionRegistry, makeDefinitionRegistry()),
+				Layer.mock(PluginRuntimeResolver)({
+					resolveSystemQueryScript: (scriptId) => {
+						resolvedScriptIds.push(scriptId);
+						return Effect.succeed(caller);
+					},
+				}),
+				Layer.mock(RyotQLService)({
+					executeForPlugin: (scope, doc) => {
+						pluginCalls.push({ scope, document: doc });
+						return Effect.succeed(ryotqlResponse);
+					},
+					executeForUser: (userId, language, doc) => {
+						userCalls.push({ userId, language, document: doc });
+						return Effect.succeed(ryotqlResponse);
+					},
+				}),
+			),
+		),
+	);
+};
+
+describe("executeRyotql", () => {
+	it.effect("derives plugin scope from the persisted plugin script identity", () =>
+		Effect.gen(function* () {
+			const execution = yield* runExecuteRyotql(
+				{ ...runInput({ type: "system" }), metadata: { kind: "script" } },
+				systemQueryCaller,
+			);
+
+			expect(Result.getOrThrow(execution.result)).toEqual(ryotqlResponse);
+			expect(execution.resolvedScriptIds).toEqual(["script-1"]);
+			expect(execution.pluginCalls).toEqual([
+				{
+					document: ryotqlDocument,
+					scope: {
+						eventSchemas: [],
+						pluginSlug: "media",
+						entitySchemaSlugs: ["media"],
+						relationshipSchemaSlugs: ["media-monitoring"],
+					},
+				},
+			]);
+			expect(execution.userCalls).toEqual([]);
+		}),
+	);
+
+	it.effect("keeps delegated execution in user scope", () =>
+		Effect.gen(function* () {
+			const execution = yield* runExecuteRyotql(
+				runInput(subscriptionAuthority({ kind: "api" })),
+				null,
+			);
+
+			expect(Result.getOrThrow(execution.result)).toEqual(ryotqlResponse);
+			expect(execution.resolvedScriptIds).toEqual([]);
+			expect(execution.pluginCalls).toEqual([]);
+			expect(execution.userCalls).toEqual([
+				{ userId: "user-1", language: null, document: ryotqlDocument },
+			]);
+		}),
+	);
+
+	it.effect("rejects unpinned system execution", () =>
+		Effect.gen(function* () {
+			const execution = yield* runExecuteRyotql(
+				{ ...runInput({ type: "system" }), metadata: { kind: "script" } },
+				null,
+			);
+
+			expect(Result.getFailure(execution.result)).toEqual(
+				Option.some({
+					message: "executeRyotql system access requires a pinned plugin script",
+				}),
+			);
+			expect(execution.pluginCalls).toEqual([]);
+		}),
+	);
+
+	it.effect("rejects caller-supplied execution scope in the document", () =>
+		Effect.gen(function* () {
+			const execution = yield* runExecuteRyotql(
+				runInput({ type: "user", userId: UserId.make("user-1") }),
+				null,
+				{ ...ryotqlDocument, scope: "plugin" } as unknown as RyotQLDocument,
+			);
+
+			expect(Option.getOrThrow(Result.getFailure(execution.result))).toMatchObject({
+				message: expect.stringContaining("scope"),
+			});
+			expect(execution.userCalls).toEqual([]);
+		}),
+	);
+
+	it("gates RyotQL independently while retaining the legacy capability", () => {
+		const bound = { executeRyotql, executeQueryEngine };
+		const selected = selectSandboxHostFunctions(bound, {
+			metadata: { kind: "script" },
+			authority: { type: "system" },
+			allowedHostFunctions: ["executeRyotql"],
+		});
+
+		expect(selected).toEqual({ executeRyotql });
+		expect(selected).not.toHaveProperty("executeQueryEngine");
+	});
+});
+
 const runChangeUserRelationships = (
 	authority: ExecutionAuthority,
 	batches: ReadonlyArray<ChangeUserRelationshipBatch>,
@@ -378,6 +533,7 @@ const runChangeUserRelationships = (
 				Layer.mock(EventsService)({}),
 				Layer.mock(EntitiesService)({}),
 				Layer.mock(QueryEngineService)({}),
+				Layer.mock(RyotQLService)({}),
 				Layer.mock(PluginRuntimeResolver)({}),
 				Layer.mock(IntegrationsRepository)({}),
 				repository,
@@ -581,6 +737,7 @@ const runEnsureUserEntities = (options: {
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.mock(EventsService)({}),
 				Layer.mock(QueryEngineService)({}),
+				Layer.mock(RyotQLService)({}),
 				Layer.mock(IntegrationsRepository)({}),
 				Layer.mock(RelationshipsRepository)({}),
 				Layer.mock(EntitiesRepository)({}),

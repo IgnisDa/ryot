@@ -218,8 +218,8 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.scripts).toContainEqual(
 		expect.objectContaining({
 			kind: "script",
+			capabilities: ["executeRyotql"],
 			slug: "media-monitoring-targets",
-			capabilities: ["executeQueryEngine"],
 		}),
 	);
 	expect(mediaPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "media")).toBe(true);

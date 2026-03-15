@@ -1,13 +1,10 @@
+import type { JsonPrimitive, JsonValue } from "@ryot/contract/modules/sandbox/wire";
 import { Schema } from "@ryot/sandbox-sdk/effect";
+
+export type { JsonPrimitive, JsonValue };
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
 	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
-
-export type JsonPrimitive = boolean | number | string | null;
-export type JsonValue =
-	| JsonPrimitive
-	| readonly JsonValue[]
-	| { readonly [key: string]: JsonValue };
 
 export const jsonValueSchema: Schema.Codec<JsonValue, JsonValue> = Schema.suspend(() =>
 	Schema.Union([
@@ -19,6 +16,7 @@ export const jsonValueSchema: Schema.Codec<JsonValue, JsonValue> = Schema.suspen
 		Schema.Record(Schema.String, jsonValueSchema),
 	]),
 ).pipe(Schema.annotate({ identifier: "JsonValue" }));
+
 export const sandboxHostErrorSchema = strictStruct({
 	message: Schema.String,
 	data: Schema.optional(jsonValueSchema),
