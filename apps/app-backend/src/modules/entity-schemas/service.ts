@@ -1,5 +1,4 @@
-const slugPunctuationRegex = /[^a-z0-9]+/g;
-const edgeHyphenRegex = /^-+|-+$/g;
+import { resolveRequiredSlug } from "~/lib/slug";
 
 type JsonObject = Record<string, unknown>;
 export type EntitySchemaPropertiesShape = {
@@ -49,24 +48,15 @@ export const resolveEntitySchemaFacetId = (facetId: string) => {
 	return resolvedFacetId;
 };
 
-export const normalizeEntitySchemaSlug = (slug: string) => {
-	return slug
-		.trim()
-		.toLowerCase()
-		.replace(slugPunctuationRegex, "-")
-		.replace(edgeHyphenRegex, "");
-};
-
 export const resolveEntitySchemaSlug = (input: {
 	name: string;
 	slug?: string;
 }) => {
-	const candidate = input.slug ?? input.name;
-	const resolvedSlug = normalizeEntitySchemaSlug(candidate);
-
-	if (!resolvedSlug) throw new Error("Entity schema slug is required");
-
-	return resolvedSlug;
+	return resolveRequiredSlug({
+		name: input.name,
+		label: "Entity schema",
+		slug: input.slug,
+	});
 };
 
 export const parseEntitySchemaPropertiesSchema = (input: unknown) => {
