@@ -34,22 +34,22 @@ These V1 areas have a working home in V2. Several are **partial** ports — the 
 | Media & collection recommendations (`user_metadata_recommendations`, `collection_recommendations`)                                                                | `media-suggestion` relationship schema (`lib/builtins/relationship-schemas.ts`) populated by `modules/entity-import/population.ts`'s `syncEntitySuggestions()`, triggered from `modules/entity-import/entity-import-workflow.ts`; consumed via ad hoc `modules/query-engine` documents                                                                                  | **Partial** — see [Recommendations — known gaps](#recommendations--known-gaps)                                                                                                 |
 | Media trending metadata                                                                                                                                           | `media-trending` relationship schema (`lib/builtins/relationship-schemas.ts`) populated by `modules/media-trending` refresh workflow, triggered from the shared infrequent cron tier (`modules/scheduler`); TMDB movie/show sandbox `trending` drivers persist global media self-edges and clients read them through relationship-root `modules/query-engine` documents | Full for V1 provider parity (TMDB movie/show); no dedicated endpoint or saved view                                                                                             |
 | Notification platforms                                                                                                                                            | `modules/notifications` authenticated platform CRUD/test endpoints and durable delivery workflow; supports Apprise, Discord, Telegram, ntfy, Gotify, PushOver, PushBullet, PushSafer, and email through the `notifications.smtp` configuration                                                                                                                          | Full for V1 platform parity                                                                                                                                                    |
-| Media monitoring                                                                                                                                                  | `media-monitoring` relationship schema (`lib/builtins/relationship-schemas.ts`) managed through `modules/media-monitoring` status/enable/disable endpoints; the shared infrequent cron refreshes provider details, diffs media/person/company snapshots, and dispatches deduplicated notification events to subscribers                                                 | Full for V1 provider-details diff parity                                                                                                                                       |
+| Media monitoring                                                                                                                                                  | `media-monitoring` relationship schema (`lib/builtins/relationship-schemas.ts`) managed through `modules/media-monitoring` status/enable/disable endpoints; the shared infrequent cron refreshes provider details, lifecycle detector automations emit semantic signals, and user-owned catalog subscriptions deliver notifications to the snapshotted monitoring audience | Full for V1 provider-details notification parity                                                                                                                               |
 
 ## Remaining Backlog (In-Scope)
 
 ### Tier 1 — Notification system
 
-Core platform delivery is in the baseline; the remaining gaps are notification-producing behaviors.
+Core platform delivery is in the baseline. Event-driven alerts use persisted signal producers and
+user-owned catalog subscriptions: workout creation, review creation, integration disablement, and
+media-monitoring changes are implemented. The remaining gaps are notification-producing behaviors.
 
 - **Reminders** _(depends on notifications)_ — reminder on an entity → scheduled notification, then automatically removed from the Reminders collection once it fires.
   - V1 event: `NotificationFromReminderCollection` (`crates/services/miscellaneous/background/src/calendar.rs`).
-- **Event-driven alerts** — wire these into the send path:
-  - `NewWorkoutCreated`
-  - `ReviewPosted` notifications - in V1, it worked by sending notifications to users monitoring an entity when a new public review was created. In V2, it will just be sent to the author of the review, since public reviews are no longer a thing. This is a behavior change, but it is intentional.
+- **Event-driven alerts** — add signal producers and catalog subscriptions for:
   - `MetadataMovedFromCompletedToWatchlistCollection` — fires from the smart-collection auto-management job below.
   - Outdated in-progress/on-hold nudges — user hasn't touched an in-progress item in 7 days, or an on-hold item in 14 days.
-  - Released-media-today — notify monitoring users when a calendar event lands on today's date.
+  - Released-media-today — deferred with calendar materialization; notify monitoring users when a calendar event lands on today's date.
 
 ### Tier 1 — Cleanup, maintenance & derived-state jobs
 

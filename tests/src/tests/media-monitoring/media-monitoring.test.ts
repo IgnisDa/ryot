@@ -281,7 +281,7 @@ describe("media monitoring endpoints", () => {
 });
 
 describe("media monitoring infrequent refresh", () => {
-	it("refreshes each target once, establishes a silent baseline, and delivers changed metadata", async () => {
+	it("refreshes each target once and delivers changed metadata through signal subscriptions", async () => {
 		fakeApprise.requests.length = 0;
 		const first = await createAuthenticatedClient();
 		const second = await createAuthenticatedClient();
@@ -336,27 +336,6 @@ describe("media monitoring infrequent refresh", () => {
 			return properties.productionStatus === "Ended" ? true : null;
 		});
 		await waitForMediaMonitoringRefresh(`${changed.executionId}-${cronEntityId}`);
-		const queuedDeliveries = await getPgClient().query<{ payload: string }>(
-			`select payload from cluster_messages
-			 where entity_type = 'Workflow/NotificationDeliveryWorkflow'
-			   and tag = 'run'
-			   and payload like ('%' || $1 || '%')`,
-			[changed.executionId],
-		);
-		if (queuedDeliveries.rows.length !== 2) {
-			const mediaMonitoringReplies = await getPgClient().query<{ payload: string }>(
-				`select r.payload
-				 from cluster_messages m
-				 inner join cluster_replies r on r.request_id = m.id
-				 where m.entity_type = 'Workflow/MediaMonitoringRefreshWorkflow'
-				   and m.tag = 'run'
-				   and m.payload like ('%' || $1 || '%')`,
-				[`${changed.executionId}-${cronEntityId}`],
-			);
-			throw new Error(
-				`Expected two notification workflows, got ${queuedDeliveries.rows.length}: ${JSON.stringify(mediaMonitoringReplies.rows)}`,
-			);
-		}
 		const delivered = await pollUntil("media monitoring status notification delivery", () => {
 			const paths = new Set(fakeApprise.requests.map((request) => request.path));
 			return Promise.resolve(
