@@ -1,6 +1,7 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
+import { decodeSavedViewRecordsResponse } from "@ryot/ryotql-recipes/saved-view-records";
 import clsx from "clsx";
-import { Cause, Exit } from "effect";
+import { Cause, Exit, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { router } from "expo-router";
 import { Pressable, Text, View } from "react-native";
@@ -22,7 +23,13 @@ export default function AppHome() {
 	const createSavedViewResult = useAtomValue(createSavedViewAtom);
 	const notificationChannels = useAtomValue(notificationChannelsAtom);
 	const createSavedView = useAtomSet(createSavedViewAtom, { mode: "promiseExit" });
-	const savedViewTemplate = AsyncResult.isSuccess(savedViews) ? savedViews.value[0] : undefined;
+	const decodedSavedViews = AsyncResult.isSuccess(savedViews)
+		? decodeSavedViewRecordsResponse(savedViews.value)
+		: undefined;
+	const savedViewTemplate =
+		decodedSavedViews && Result.isSuccess(decodedSavedViews)
+			? decodedSavedViews.success.items[0]
+			: undefined;
 
 	async function handleCreateSavedView() {
 		if (!savedViewTemplate) {
@@ -62,7 +69,7 @@ export default function AppHome() {
 				</Text>
 
 				<View className="gap-3 rounded-xl border border-border bg-surface p-5">
-					<Text className="font-ui-semibold text-base text-text">GET /api/saved-views</Text>
+					<Text className="font-ui-semibold text-base text-text">RyotQL saved-view records</Text>
 					<Pressable
 						accessibilityRole="button"
 						onPress={() => void handleCreateSavedView()}
@@ -88,26 +95,40 @@ export default function AppHome() {
 								{JSON.stringify({ error: Cause.pretty(cause) }, null, 2)}
 							</Text>
 						))
-						.onSuccess((response) => (
-							<View className="gap-2">
-								<Text className="font-ui text-sm text-text-muted">
-									Showing {Math.min(response.length, 10)} of {response.length} saved views
-								</Text>
-								<Text selectable className="font-mono text-sm text-text">
-									{JSON.stringify(
-										response.slice(0, 10).map((savedView) => ({
-											id: savedView.id,
-											icon: savedView.icon,
-											name: savedView.name,
-											slug: savedView.slug,
-											isDisabled: savedView.isDisabled,
-										})),
-										null,
-										2,
-									)}
-								</Text>
-							</View>
-						))
+						.onSuccess(() => {
+							if (!decodedSavedViews) {
+								return null;
+							}
+							if (Result.isFailure(decodedSavedViews)) {
+								return (
+									<Text selectable className="font-mono text-sm text-danger">
+										{JSON.stringify({ error: String(decodedSavedViews.failure) }, null, 2)}
+									</Text>
+								);
+							}
+
+							return (
+								<View className="gap-2">
+									<Text className="font-ui text-sm text-text-muted">
+										Showing {decodedSavedViews.success.items.length} of{" "}
+										{decodedSavedViews.success.pageInfo.total} saved views
+									</Text>
+									<Text selectable className="font-mono text-sm text-text">
+										{JSON.stringify(
+											decodedSavedViews.success.items.map((savedView) => ({
+												id: savedView.id,
+												icon: savedView.icon,
+												name: savedView.name,
+												slug: savedView.slug,
+												isDisabled: savedView.isDisabled,
+											})),
+											null,
+											2,
+										)}
+									</Text>
+								</View>
+							);
+						})
 						.render()}
 				</View>
 
