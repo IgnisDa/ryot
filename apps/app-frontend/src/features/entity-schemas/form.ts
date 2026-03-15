@@ -1,53 +1,59 @@
+import type { AppPropertyPrimitiveType } from "@ryot/ts-utils";
+import {
+	appPropertyPrimitiveTypes,
+	zodRequiredName,
+	zodRequiredSlug,
+} from "@ryot/ts-utils";
 import { z } from "zod";
+
+export const entitySchemaPropertyTypes = appPropertyPrimitiveTypes;
+
+export type EntitySchemaPropertyType = AppPropertyPrimitiveType;
+
+export interface EntitySchemaPropertyRow {
+	key: string;
+	required: boolean;
+	type: EntitySchemaPropertyType;
+}
 
 export interface EntitySchemaFormValues {
 	name: string;
 	slug: string;
-	propertiesSchema: string;
+	properties: EntitySchemaPropertyRow[];
 }
 
-export const defaultEntitySchemaPropertiesSchema =
-	'{"type":"object","properties":{}}';
+export const defaultEntitySchemaPropertiesSchema = "{}";
 
-function isPlainObject(value: unknown) {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
+export function buildDefaultEntitySchemaPropertyRow(): EntitySchemaPropertyRow {
+	return { key: "", type: "string", required: false };
 }
 
-function hasValidPropertiesSchemaShape(value: string) {
-	let parsed: unknown;
+export function isEntitySchemaPropertyRowsValid(
+	rows: EntitySchemaPropertyRow[],
+) {
+	if (rows.length === 0) return false;
 
-	try {
-		parsed = JSON.parse(value);
-	} catch {
-		return false;
-	}
+	const keys = rows.map((row) => row.key.trim());
 
-	if (!isPlainObject(parsed)) return false;
+	if (keys.some((key) => key.length === 0)) return false;
 
-	const parsedObject = parsed as { properties?: unknown; type?: unknown };
-	const keys = Object.keys(parsedObject);
-
-	if (keys.length !== 2) return false;
-	if (!keys.includes("type") || !keys.includes("properties")) return false;
-	if (parsedObject.type !== "object") return false;
-	if (!isPlainObject(parsedObject.properties)) return false;
-
-	return true;
+	return new Set(keys).size === keys.length;
 }
 
 export const createEntitySchemaFormSchema = z.object({
-	name: z
-		.string()
-		.refine((value) => value.trim().length > 0, "Name is required"),
-	slug: z
-		.string()
-		.refine((value) => value.trim().length > 0, "Slug is required"),
-	propertiesSchema: z
-		.string()
-		.refine((value) => value.trim().length > 0, "Properties schema is required")
+	name: zodRequiredName,
+	slug: zodRequiredSlug,
+	properties: z
+		.array(
+			z.object({
+				key: z.string(),
+				required: z.boolean(),
+				type: z.enum(entitySchemaPropertyTypes),
+			}),
+		)
 		.refine(
-			hasValidPropertiesSchemaShape,
-			"Properties schema must be valid JSON Schema object text",
+			(properties) => isEntitySchemaPropertyRowsValid(properties),
+			"Properties must contain unique non-empty keys",
 		),
 });
 
@@ -58,13 +64,41 @@ export type CreateEntitySchemaFormValues = z.infer<
 export function buildEntitySchemaFormValues(
 	values?: Partial<EntitySchemaFormValues>,
 ): CreateEntitySchemaFormValues {
+	const properties = values?.properties;
+
 	return {
 		name: values?.name ?? "",
 		slug: values?.slug ?? "",
-		propertiesSchema:
-			values?.propertiesSchema ?? defaultEntitySchemaPropertiesSchema,
+		properties:
+			properties && properties.length > 0
+				? properties
+				: [buildDefaultEntitySchemaPropertyRow()],
 	};
 }
+
+export const buildEntitySchemaPropertiesSchema = (
+	properties: EntitySchemaPropertyRow[],
+) => {
+	const propertiesMap: Record<string, unknown> = {};
+
+	for (const property of properties) {
+		const key = property.key.trim();
+		const propertyDef: Record<string, unknown> = { type: property.type };
+
+		if (property.required) propertyDef.required = true;
+
+		propertiesMap[key] = propertyDef;
+	}
+
+	return propertiesMap;
+};
+
+export const serializeEntitySchemaProperties = (
+	properties: EntitySchemaPropertyRow[],
+) => {
+	const schema = buildEntitySchemaPropertiesSchema(properties);
+	return JSON.stringify(schema);
+};
 
 export const defaultCreateEntitySchemaFormValues: CreateEntitySchemaFormValues =
 	buildEntitySchemaFormValues();
@@ -84,6 +118,6 @@ export function toCreateEntitySchemaPayload(
 		facetId,
 		name: input.name.trim(),
 		slug: input.slug.trim(),
-		propertiesSchema: input.propertiesSchema,
+		propertiesSchema: serializeEntitySchemaProperties(input.properties),
 	};
 }
