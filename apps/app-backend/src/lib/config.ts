@@ -7,6 +7,7 @@ const configSchema = z.object({
 	SERVER_ADMIN_ACCESS_TOKEN: z.string(),
 	FILE_STORAGE_S3_URL: z.string().nullish(),
 	FILE_STORAGE_S3_REGION: z.string().nullish(),
+	NODE_ENV: z.string().default("development"),
 	FILE_STORAGE_S3_BUCKET_NAME: z.string().nullish(),
 	FILE_STORAGE_S3_ACCESS_KEY_ID: z.string().nullish(),
 	FILE_STORAGE_S3_SECRET_ACCESS_KEY: z.string().nullish(),
@@ -23,6 +24,8 @@ const configSchema = z.object({
 export type Config = z.infer<typeof configSchema>;
 
 export const config = configSchema.parse(process.env);
+
+export const IS_DEVELOPMENT = config.NODE_ENV === "development";
 
 const appConfigSchema = z.object({
 	BOOKS_HARDCOVER_API_KEY: z.string().optional(),
