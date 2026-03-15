@@ -1715,7 +1715,9 @@ function RouteComponent() {
 	const [activeScenario, setActiveScenario] = useState("movies");
 	const scenario =
 		MOCK_SCENARIOS.find((item) => item.id === activeScenario) ??
-		MOCK_SCENARIOS[0]!;
+		MOCK_SCENARIOS[0];
+
+	if (!scenario) throw new Error("Scenario not found");
 
 	const textPrimary = isDark
 		? "var(--mantine-color-dark-0)"
