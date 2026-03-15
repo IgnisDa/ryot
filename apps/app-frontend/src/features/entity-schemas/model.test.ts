@@ -12,7 +12,7 @@ function createEntitySchemaFixture(
 		id: "schema-id",
 		isBuiltin: false,
 		facetId: "facet-id",
-		propertiesSchema: { type: "object", properties: {} },
+		propertiesSchema: {},
 		...overrides,
 	};
 }
