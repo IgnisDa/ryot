@@ -148,57 +148,29 @@ export class BridgeServer {
 		}
 	}
 
-	private async readJsonBody(req: Request) {
-		if (!req.body || typeof req.body.getReader !== "function") {
-			return {} as { args?: Array<unknown> };
+	private async readJsonBody(req: Request): Promise<{ args?: Array<unknown> }> {
+		if (!req.body) {
+			return {};
 		}
 
-		let offset = 0;
-		let size = 0;
-		const reader = req.body.getReader();
-		const chunks: Array<Uint8Array> = [];
-
-		try {
-			// oxlint-disable-next-line no-unnecessary-condition
-			while (true) {
-				// oxlint-disable-next-line no-await-in-loop
-				const { done, value } = await reader.read();
-				if (done) {
-					break;
-				}
-				if (!value) {
-					continue;
-				}
-
-				size += value.byteLength;
-				if (size > requestBodyLimit) {
-					throw new Error("Request body too large");
-				}
-				chunks.push(value);
-			}
-		} finally {
-			reader.releaseLock();
+		const contentLength = req.headers.get("content-length");
+		if (contentLength && Number(contentLength) > requestBodyLimit) {
+			throw new Error("Request body too large");
 		}
 
-		if (!chunks.length) {
-			return {} as { args?: Array<unknown> };
+		const text = await req.text();
+		const trimmedText = text.trim();
+		if (!trimmedText) {
+			return {};
 		}
 
-		const bytes = new Uint8Array(size);
-		for (const chunk of chunks) {
-			bytes.set(chunk, offset);
-			offset += chunk.byteLength;
-		}
-
-		const text = new TextDecoder().decode(bytes).trim();
-		if (!text) {
-			// oxlint-disable-next-line no-unsafe-type-assertion
-			return {} as { args?: Array<unknown> };
+		if (new TextEncoder().encode(trimmedText).byteLength > requestBodyLimit) {
+			throw new Error("Request body too large");
 		}
 
 		try {
 			// oxlint-disable-next-line no-unsafe-type-assertion
-			return JSON.parse(text) as { args?: Array<unknown> };
+			return JSON.parse(trimmedText) as { args?: Array<unknown> };
 		} catch {
 			throw new Error("Invalid JSON body");
 		}

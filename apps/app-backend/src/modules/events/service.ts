@@ -1,4 +1,4 @@
-import { type AppSchema, chunk, resolveRequiredString } from "@ryot/ts-utils";
+import { type AppSchema, resolveRequiredString } from "@ryot/ts-utils";
 
 import { checkReadAccess } from "~/lib/access";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
@@ -342,24 +342,19 @@ export const createEvent = async (
 	});
 };
 
-const BULK_CHUNK_SIZE = 1000;
-
 export const createEvents = async (
 	input: { body: CreateEventBulkBody; userId: string },
 	deps: EventServiceDeps = eventServiceDeps,
 ): Promise<EventServiceResult<{ count: number; createdEvents: CreatedEventData[] }>> => {
-	const chunks = chunk(input.body, BULK_CHUNK_SIZE);
 	const createdEvents: CreatedEventData[] = [];
 
-	for (const batch of chunks) {
-		for (const item of batch) {
-			// oxlint-disable-next-line no-await-in-loop
-			const result = await createEvent({ body: item, userId: input.userId }, deps);
-			if ("error" in result) {
-				return result;
-			}
-			createdEvents.push(result.data);
+	for (const item of input.body) {
+		// oxlint-disable-next-line no-await-in-loop
+		const result = await createEvent({ body: item, userId: input.userId }, deps);
+		if ("error" in result) {
+			return result;
 		}
+		createdEvents.push(result.data);
 	}
 
 	return serviceData({ count: createdEvents.length, createdEvents });
@@ -393,12 +388,12 @@ export const processEventSchemaTriggers = async (
 		return;
 	}
 
-	for (const createdEvent of input.createdEvents) {
+	const enqueueJobs = input.createdEvents.flatMap((createdEvent) => {
 		const matchingTriggers = triggers.filter(
 			(trigger) => trigger.eventSchemaId === createdEvent.eventSchemaId,
 		);
 
-		for (const trigger of matchingTriggers) {
+		return matchingTriggers.map(async (trigger) => {
 			const jobId = `event-schema-trigger-${trigger.id}-${createdEvent.id}`;
 			const context = {
 				trigger: {
@@ -412,20 +407,19 @@ export const processEventSchemaTriggers = async (
 				},
 			};
 
-			try {
-				// oxlint-disable-next-line no-await-in-loop
-				await deps.enqueueEventSchemaTriggerJob({
-					jobId,
-					context,
-					userId: input.userId,
-					scriptId: trigger.sandboxScriptId,
-				});
-			} catch (error) {
-				console.warn(
-					`processEventSchemaTriggers: failed to enqueue trigger ${trigger.id} for event ${createdEvent.id}`,
-					error,
-				);
-			}
+			await deps.enqueueEventSchemaTriggerJob({
+				jobId,
+				context,
+				userId: input.userId,
+				scriptId: trigger.sandboxScriptId,
+			});
+		});
+	});
+
+	const results = await Promise.allSettled(enqueueJobs);
+	for (const result of results) {
+		if (result.status === "rejected") {
+			console.warn("processEventSchemaTriggers: failed to enqueue trigger job", result.reason);
 		}
 	}
 };
