@@ -9,7 +9,7 @@ describe("resolveFacetPatch", () => {
 				slug: "media",
 				name: "Media",
 				description: null,
-				accentColor: null,
+				accentColor: "#5B7FFF",
 			},
 			input: { description: "Default media facet" },
 		});
@@ -25,7 +25,7 @@ describe("resolveFacetPatch", () => {
 				slug: "whiskey",
 				name: "Whiskey",
 				description: null,
-				accentColor: null,
+				accentColor: "#D4A574",
 			},
 			input: { name: "Whiskey Notes" },
 		});
@@ -41,7 +41,7 @@ describe("resolveFacetPatch", () => {
 				name: "Coffee",
 				icon: "cup-soda",
 				description: null,
-				accentColor: null,
+				accentColor: "#D4A574",
 			},
 			input: { name: "Coffee Notes", slug: "Cups_And_Brews" },
 		});
@@ -56,12 +56,27 @@ describe("resolveFacetPatch", () => {
 				slug: "media",
 				name: "Media",
 				description: null,
-				accentColor: null,
+				accentColor: "#5B7FFF",
 			},
 			input: { description: "Track media" },
 		});
 
 		expect(patch.icon).toBe("film");
+	});
+
+	it("keeps the current accent color when accentColor is omitted", () => {
+		const patch = resolveFacetPatch({
+			current: {
+				icon: "film",
+				slug: "media",
+				name: "Media",
+				description: null,
+				accentColor: "#5B7FFF",
+			},
+			input: { icon: "camera", description: "Track media" },
+		});
+
+		expect(patch.accentColor).toBe("#5B7FFF");
 	});
 });
 
