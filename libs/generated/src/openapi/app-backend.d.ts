@@ -496,7 +496,7 @@ export interface paths {
                                         label?: string | null;
                                     };
                                     /** @enum {string} */
-                                    entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music";
+                                    entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music" | "movie-group" | "audiobook-group" | "book-group" | "comic-book-group" | "music-group" | "video-game-group";
                                     /** Format: date-time */
                                     backlogAt: string;
                                     labels: {
@@ -594,7 +594,7 @@ export interface paths {
                                         label?: string | null;
                                     };
                                     /** @enum {string} */
-                                    entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music";
+                                    entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music" | "movie-group" | "audiobook-group" | "book-group" | "comic-book-group" | "music-group" | "video-game-group";
                                     /** Format: date-time */
                                     progressAt: string;
                                     labels: {
@@ -697,7 +697,7 @@ export interface paths {
                                         label?: string | null;
                                     };
                                     /** @enum {string} */
-                                    entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music";
+                                    entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music" | "movie-group" | "audiobook-group" | "book-group" | "comic-book-group" | "music-group" | "video-game-group";
                                     /** Format: date-time */
                                     completedAt: string;
                                     /** Format: date-time */
@@ -797,7 +797,7 @@ export interface paths {
                                             type: "remote";
                                         } | unknown;
                                         /** @enum {string} */
-                                        entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music";
+                                        entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music" | "movie-group" | "audiobook-group" | "book-group" | "comic-book-group" | "music-group" | "video-game-group";
                                     };
                                 }[];
                                 count: number;
@@ -967,6 +967,12 @@ export interface paths {
                                     "video-game"?: number;
                                     "visual-novel"?: number;
                                     music?: number;
+                                    "movie-group"?: number;
+                                    "audiobook-group"?: number;
+                                    "book-group"?: number;
+                                    "comic-book-group"?: number;
+                                    "music-group"?: number;
+                                    "video-game-group"?: number;
                                 };
                             };
                         };

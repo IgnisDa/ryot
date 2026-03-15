@@ -278,6 +278,30 @@ driver("details", async function(context) {
     }
   }
 
+  const groups = Array.isArray(product?.series)
+    ? product.series
+      .map((series) => {
+        const externalId =
+          typeof series?.asin === "string" && series.asin.trim()
+            ? series.asin.trim()
+            : null;
+        const name =
+          typeof series?.title === "string" && series.title.trim()
+            ? series.title.trim()
+            : null;
+        if (!externalId || !name) {
+          return null;
+        }
+
+        return {
+          name,
+          externalId,
+          scriptSlug: "audiobook-group.audible",
+        };
+      })
+      .filter((group) => group !== null)
+    : [];
+
   const sourceUrl = `https://www.audible.${localeSuffix}/pd/${externalId}`;
 
   return {
@@ -285,6 +309,7 @@ driver("details", async function(context) {
     properties: {
       images,
       people,
+      groups,
       isNsfw,
       runtime,
       sourceUrl,

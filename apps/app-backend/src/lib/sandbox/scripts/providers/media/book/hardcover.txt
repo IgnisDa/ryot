@@ -282,6 +282,10 @@ query GetHardcoverBookDetails($id: Int!) {
       author { name }
     }
     book_series {
+      series {
+        id
+        name
+      }
       publisher {
         id
         name
@@ -358,10 +362,27 @@ query GetHardcoverBookDetails($id: Int!) {
     ? `https://hardcover.app/books/${slug}`
     : `https://hardcover.app/books/${externalId}`;
 
+  const groups = [];
   const publishers = [];
   if (Array.isArray(bookData.book_series)) {
     const seen = new Set();
     for (const series of bookData.book_series) {
+      const bookSeries = series?.series;
+      if (bookSeries && typeof bookSeries === "object") {
+        const seriesId = bookSeries.id != null ? String(bookSeries.id) : null;
+        const seriesName =
+          typeof bookSeries.name === "string" && bookSeries.name.trim()
+            ? bookSeries.name.trim()
+            : null;
+        if (seriesId && seriesName && !seen.has(`group:${seriesId}`)) {
+          seen.add(`group:${seriesId}`);
+          groups.push({
+            name: seriesName,
+            externalId: seriesId,
+            scriptSlug: "book-group.hardcover",
+          });
+        }
+      }
       const pub = series?.publisher;
       if (!pub || typeof pub !== "object") {
         continue;
@@ -391,6 +412,7 @@ query GetHardcoverBookDetails($id: Int!) {
     name: title,
     properties: {
       pages,
+      groups,
       sourceUrl: sourceUrl,
       unlinkedCreators: [],
       companies: publishers,
