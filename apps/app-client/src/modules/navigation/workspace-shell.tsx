@@ -16,7 +16,7 @@ import { useWorkspaceDrawer, WorkspaceDrawer } from "./workspace-drawer";
 import { WorkspaceScreenFrame } from "./workspace-screen-frame";
 
 function WorkspaceShellContent() {
-	const { navigation, openAccount } = useWorkspaceDrawer();
+	const { navigation } = useWorkspaceDrawer();
 	const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
 
 	function navigate(item: NavigationItem) {
@@ -36,7 +36,6 @@ function WorkspaceShellContent() {
 					showSearch
 					onNavigate={navigate}
 					items={navigation.items}
-					onAccountOpen={openAccount}
 					key={navigation.workspace.slug}
 					activeKey={navigation.activeKey}
 					workspace={navigation.workspace}

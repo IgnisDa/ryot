@@ -1,8 +1,10 @@
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { NavigationWorkspace } from "@ryot/ryotql-recipes/navigation";
 import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
+import { themeAtom } from "@/api/atoms";
 import { AppIcon as NavigationIcon } from "@/modules/icons";
 
 import { getWorkspaceSummary, type NavigationItem, type NavigationItems } from "./navigation-data";
@@ -10,6 +12,8 @@ import { getWorkspaceSummary, type NavigationItem, type NavigationItems } from "
 const VIEWS_HEIGHT = 238;
 const COLLECTIONS_HEIGHT = 148;
 const SAVED_VIEWS_HEIGHT = 148;
+const THEME_ORDER = ["light", "dark", "system"] as const;
+const THEME_ICONS = { light: "sun", dark: "moon", system: "monitor" } as const;
 
 function NavigationRow(props: {
 	isActive: boolean;
@@ -106,14 +110,20 @@ export function Sidebar(props: {
 	accountName: string;
 	accountEmail: string;
 	items: NavigationItems;
-	onAccountOpen: () => void;
 	onWorkspaceOpen: () => void;
 	workspace: NavigationWorkspace;
 	onNavigate: (item: NavigationItem) => void;
 }) {
 	const items = props.items;
+	const theme = useAtomValue(themeAtom);
+	const setTheme = useAtomSet(themeAtom);
 	const [isReordering, setIsReordering] = useState(false);
 	const [viewOrder, setViewOrder] = useState(items.views);
+
+	function cycleTheme() {
+		const currentIndex = THEME_ORDER.indexOf(theme);
+		setTheme(THEME_ORDER[(currentIndex + 1) % THEME_ORDER.length]);
+	}
 
 	function moveView(index: number) {
 		setViewOrder((current) => {
@@ -249,12 +259,7 @@ export function Sidebar(props: {
 				</View>
 			</ScrollView>
 			<View className="border-t border-border px-3 py-3">
-				<Pressable
-					accessibilityRole="button"
-					onPress={props.onAccountOpen}
-					accessibilityLabel="Open account settings"
-					className="flex-row items-center gap-2 rounded-md px-2 py-1.5"
-				>
+				<View className="flex-row items-center gap-2 rounded-md px-2 py-1.5">
 					<View className="h-7 w-7 items-center justify-center rounded-full bg-surface-2">
 						<NavigationIcon className="text-text-muted" name="user" size={15} />
 					</View>
@@ -263,10 +268,24 @@ export function Sidebar(props: {
 						<Text className="font-ui text-xs text-text-muted">{props.accountEmail}</Text>
 					</View>
 					<View className="flex-row gap-2">
-						<NavigationIcon className="text-text-subtle" name="moon" size={15} />
-						<NavigationIcon className="text-text-subtle" name="settings" size={15} />
+						<Pressable
+							accessibilityRole="button"
+							onPress={cycleTheme}
+							accessibilityLabel={`Switch to ${THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length]} theme`}
+							className="p-1"
+						>
+							<NavigationIcon className="text-text-subtle" name={THEME_ICONS[theme]} size={15} />
+						</Pressable>
+						<Pressable
+							accessibilityRole="button"
+							accessibilityLabel="Settings"
+							disabled
+							className="p-1"
+						>
+							<NavigationIcon className="text-text-subtle" name="settings" size={15} />
+						</Pressable>
 					</View>
-				</Pressable>
+				</View>
 			</View>
 		</View>
 	);

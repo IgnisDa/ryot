@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NavigationItem } from "./navigation-data";
 import { Sidebar } from "./sidebar";
 import type { ReadyWorkspaceNavigation } from "./use-workspace-navigation";
-import { AccountSheet, WorkspaceSheet } from "./workspace-sheets";
+import { WorkspaceSheet } from "./workspace-sheets";
 
 const DRAWER_MAX_WIDTH = 320;
 const DRAWER_WIDTH_RATIO = 0.82;
@@ -26,7 +26,6 @@ function getDrawerWidth(screenWidth: number) {
 
 type WorkspaceDrawerValue = {
 	openDrawer: () => void;
-	openAccount: () => void;
 	navigation: ReadyWorkspaceNavigation;
 };
 
@@ -49,7 +48,7 @@ export function WorkspaceDrawer(props: {
 	const progress = useSharedValue(0);
 	const drawerWidth = getDrawerWidth(width);
 	const [isOpen, setIsOpen] = useState(false);
-	const [sheet, setSheet] = useState<"workspace" | "account" | null>(null);
+	const [sheet, setSheet] = useState<"workspace" | null>(null);
 
 	const scrimStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
 	const contentStyle = useAnimatedStyle(() => ({
@@ -81,7 +80,6 @@ export function WorkspaceDrawer(props: {
 	const drawerValue = useMemo<WorkspaceDrawerValue>(
 		() => ({
 			navigation: props.navigation,
-			openAccount: () => setSheet("account"),
 			openDrawer: () => {
 				setIsOpen(true);
 				progress.value = withTiming(1, DRAWER_TIMING);
@@ -144,27 +142,18 @@ export function WorkspaceDrawer(props: {
 						workspace={props.navigation.workspace}
 						accountName={props.navigation.accountName}
 						accountEmail={props.navigation.accountEmail}
-						onAccountOpen={() => setSheet("account")}
 						onWorkspaceOpen={() => setSheet("workspace")}
 					/>
 				</Animated.View>
 				{sheet !== null && (
 					<View pointerEvents="box-none" className="absolute inset-0 z-50">
-						{sheet === "workspace" ? (
-							<WorkspaceSheet
-								onSelect={selectWorkspace}
-								data={props.navigation.data}
-								items={props.navigation.items}
-								onClose={() => setSheet(null)}
-								currentWorkspaceSlug={props.navigation.workspace.slug}
-							/>
-						) : (
-							<AccountSheet
-								onClose={() => setSheet(null)}
-								accountName={props.navigation.accountName}
-								accountEmail={props.navigation.accountEmail}
-							/>
-						)}
+						<WorkspaceSheet
+							onSelect={selectWorkspace}
+							data={props.navigation.data}
+							items={props.navigation.items}
+							onClose={() => setSheet(null)}
+							currentWorkspaceSlug={props.navigation.workspace.slug}
+						/>
 					</View>
 				)}
 			</View>
