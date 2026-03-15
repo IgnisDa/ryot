@@ -59,12 +59,18 @@ The runtime request should grow into a compiled contract that can support both b
 
 Suggested request shape:
 
-- `entitySchemaIds: string[]`
-- `filters: []` or another validated filter structure
-- `sort: { field: string, direction: "asc" | "desc" }`
-- `page: { limit: number, offset: number }`
-- `fields: string[]` — which entity property keys to return in `propertyValues`
-- `include: { latestEvent?: boolean, eventCount?: boolean, schemaMeta?: boolean }`
+- `entitySchemaIds: string[]` — which schemas to query
+- `filters: FilterExpression[]` — flat array of filters with implicit AND logic (compound OR/nested logic deferred to Phase 2)
+- `sort: { field: string, direction: "asc" | "desc" }` — how to order results
+- `page: { limit: number, offset: number }` — pagination parameters
+- `fields: string[]` — which entity property keys to return in `propertyValues` (applies globally across all schemas)
+- `include: { schemaMeta?: boolean }` — optional metadata flags (event-related fields deferred to Phase 2)
+
+Each filter in the `filters` array has the shape:
+
+- `field: string` — property name to filter on (or "name" for the top-level name column)
+- `op: string` — operator: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `contains`, `in`, `isNull`
+- `value: any` — the value to compare against (type depends on the property being filtered)
 
 Suggested response shape:
 
@@ -75,13 +81,44 @@ Suggested response shape:
 
 Each item should include at least:
 
-- core entity fields (id, name, createdAt, etc.) — note that `name` is a top-level entity attribute, not in `propertyValues`
+- core entity fields (id, name, image, createdAt, etc.) — note that `name` and `image` are top-level entity columns, not in `propertyValues` (see "Entity Structure: Top-Level vs PropertyValues" section)
 - `propertyValues` — filtered to requested fields from the `fields` parameter
 - `entitySchemaId`
-- optional schema metadata when runtime spans multiple schemas
-- optional event summary fields needed by the saved-view UI
+- optional schema metadata when runtime spans multiple schemas (included when `include.schemaMeta: true`)
+
+**Note**: Event-related fields (lastEventDate, eventCount, averageRating) are intentionally excluded from Phase 1. These will be added in Phase 2 alongside event-based filtering capabilities.
 
 The runtime contract should stay generic enough that the frontend can compile both built-in curated views and user-authored saved views into the same payload.
+
+### Entity Structure: Top-Level vs PropertyValues
+
+Entities have a hybrid structure with both top-level database columns and schema-defined properties stored in jsonb:
+
+**Top-level columns (infrastructure + universal fields):**
+- `id` — entity primary key
+- `name` — required text column, universally present on all entities
+- `image` — optional text column for image URLs
+- `entitySchemaId` — foreign key to entity schema
+- `createdAt`, `updatedAt` — timestamps
+- `externalId` — optional external source identifier
+- `searchVector` — tsvector for full-text search
+
+**PropertyValues (schema-defined properties):**
+- All other entity properties defined in the entity schema's AppSchema are stored in the `propertyValues` jsonb column
+
+**Why keep name and image as top-level columns?**
+
+1. **Performance**: Name is accessed on every entity display — search results, collection items, relationship references, activity logs, grid/list views. Querying and sorting by a top-level indexed column is significantly faster than jsonb extraction.
+
+2. **Full-text search**: The `searchVector` generated column depends on `name` being a top-level field for efficient tsvector indexing. Extracting name from jsonb for search indexing would require triggers and complex generated column logic.
+
+3. **Database integrity**: Top-level columns can enforce `NOT NULL` constraints at the database level. Name is fundamental to entity identity and should be guaranteed by database structure, not just application-level validation.
+
+4. **API clarity**: Every entity always has a displayable name. This is a fundamental system guarantee. Keeping it top-level makes this contract explicit in the API response structure.
+
+5. **Relationship display cost**: Displaying relationships (cast lists, collection memberships, related entities) requires fetching names constantly. Direct column access is substantially faster than jsonb extraction at scale.
+
+**Filter handling**: The view-runtime query builder handles this hybrid structure by checking the filter field — filters on `name` query the top-level column, while all other filters query into `propertyValues`. This is a trivial special case that preserves significant performance benefits.
 
 ### Field Selection Design
 
@@ -96,6 +133,8 @@ The saved view should store which properties matter for that view's purpose. The
 
 This makes field selection explicit and forces callers to think about what data they actually need.
 
+**Cross-schema field selection**: For saved views that query multiple schemas (e.g., both "Movie" and "TV Show"), the `fields` parameter applies globally across all schemas. If a requested field exists in one schema but not another, entities from the schema without that property simply return null/undefined for that field. This design choice is driven by frontend rendering — since cross-schema views render a unified list with consistent card/table structure, all items must have the same field shape. Per-schema field selection would break unified rendering.
+
 ## Saved View Data Model Changes
 
 The current saved-view definition only stores:
@@ -109,17 +148,20 @@ The saved view schema should include:
 - `name: string` — view name
 - `icon?: string` — optional icon identifier
 - `accentColor?: string` — optional accent color
-- `trackerId?: string` — optional tracker FK
+- `trackerId?: string` — optional tracker FK for UI/sidebar placement hint (nullable, used for single-tracker views)
 - `isBuiltIn: boolean` — whether this is a built-in protected view
 - `queryDefinition: jsonb` — the data query (required)
 - `displayConfiguration: jsonb` — the presentation config (required)
 
+**Note on `trackerId`**: This field is purely for UI organization and determines which tracker's sidebar section should display the saved view. It is **not** the source of truth for query scope — the actual schemas/trackers being queried are stored within `queryDefinition.entitySchemaIds`. For cross-tracker views querying multiple schemas, `trackerId` may be null or point to the primary tracker for sidebar placement purposes. The frontend sidebar rendering logic may also examine `queryDefinition` directly to determine appropriate placement when `trackerId` is null.
+
 The `queryDefinition` column stores:
 
 - `entitySchemaIds: string[]` — which schemas to query
-- `filters: FilterExpression[]` — attribute filters to apply
+- `filters: FilterExpression[]` — flat array of attribute filters (implicit AND logic)
 - `sort: { field: string, direction: "asc" | "desc" }` — how to order results
-- `eventConditions: []` — event-based conditions (future)
+
+Event-based filtering (e.g., "movies I rated >8", "shows watched in 2024") is deferred to Phase 2 and will be added as an `eventConditions` field once event integration is implemented in the runtime.
 
 The `displayConfiguration` column stores:
 
@@ -161,8 +203,7 @@ Consider a "Smartphones" entity schema with properties:
       { "field": "manufacturer", "op": "eq", "value": "Samsung" },
       { "field": "year", "op": "lt", "value": 2025 }
     ],
-    "sort": { "field": "year", "direction": "desc" },
-    "eventConditions": []
+    "sort": { "field": "year", "direction": "desc" }
   },
   "displayConfiguration": {
     "layout": "grid",
@@ -204,8 +245,7 @@ Consider a "Smartphones" entity schema with properties:
       { "field": "year", "op": "gt", "value": 2001 },
       { "field": "os", "op": "eq", "value": "Android" }
     ],
-    "sort": { "field": "year", "direction": "asc" },
-    "eventConditions": []
+    "sort": { "field": "year", "direction": "asc" }
   },
   "displayConfiguration": {
     "layout": "list",
@@ -254,7 +294,7 @@ When the frontend loads View 1:
   }
   ```
 
-  The `fields` parameter is derived from the active layout's config (grid in this case): `imageProperty`, `subtitleProperties`, and `badgeProperty`. Note that `titleProperty` references `name`, which is a top-level entity attribute and doesn't need to be included in `fields`.
+  The `fields` parameter is derived from the active layout's config (grid in this case): `imageProperty`, `subtitleProperties`, and `badgeProperty`. Note that `titleProperty` references `name`, which is a top-level entity column (see "Entity Structure: Top-Level vs PropertyValues" section) and doesn't need to be included in `fields`. Similarly, `imageProperty` could reference the top-level `image` column or a schema-defined property in `propertyValues`.
 
 4. `POST /view-runtime/execute` → returns only requested properties in `propertyValues`
 5. Frontend renders using `layout` and the appropriate layout config from `displayConfiguration`
@@ -286,7 +326,7 @@ The existing module needs a fuller API surface so the frontend can support real 
 - `DELETE /saved-views/{viewId}`
 - `POST /saved-views/{viewId}/clone`
 
-`POST /saved-views/{viewId}/clone` is preferred over implementing clone purely in the frontend because clone is now a first-class action in the product.
+`POST /saved-views/{viewId}/clone` is preferred over implementing clone purely in the frontend because clone is now a first-class action in the product. The clone operation is a pure copy with no request body — it duplicates the entire saved view record with a new ID, sets `isBuiltIn: false` (so cloned views are deletable), and appends " (Copy)" to the name. If users want to customize the cloned view, they immediately edit it via `PATCH /saved-views/{viewId}` after cloning. This keeps the clone operation simple and predictable.
 
 ## Existing Endpoints That Need Changes
 
@@ -327,7 +367,7 @@ This is needed for editing non-built-in views.
 
 ### `POST /saved-views/{viewId}/clone`
 
-This is needed to support cloning built-in and custom views cleanly.
+This is needed to support cloning built-in and custom views cleanly. The operation takes no request body and performs a pure copy (new ID, `isBuiltIn: false`, name appended with " (Copy)").
 
 ## Existing Endpoints That Likely Do Not Need Changes
 
@@ -359,8 +399,8 @@ They should start producing the richer saved-view structure so built-in views an
 
 - add `GET /saved-views/{viewId}`
 - add `PATCH /saved-views/{viewId}`
-- add `POST /saved-views/{viewId}/clone`
-- add `queryDefinition` jsonb column to store query semantics (entitySchemaIds, filters, sort, eventConditions)
+- add `POST /saved-views/{viewId}/clone` (pure copy, no request body)
+- add `queryDefinition` jsonb column to store query semantics (entitySchemaIds, filters, sort)
 - add `displayConfiguration` jsonb column to store presentation config (layout, grid config, list config, table config)
 - make both columns required with validation
 - update bootstrap paths that create built-in views with all required fields
@@ -368,11 +408,12 @@ They should start producing the richer saved-view structure so built-in views an
 ### Phase 2: Build Real Runtime Execution
 
 - replace the placeholder `entitySchemaId` request with a compiled runtime request
-- add support for `fields` parameter to filter which entity properties are returned
+- add support for `fields` parameter to filter which entity properties are returned (global field selection across schemas)
 - validate access for all referenced schemas
-- support sort and pagination first
+- implement filter execution (flat array with implicit AND logic, operators: eq, ne, gt, gte, lt, lte, contains, in, isNull)
+- support sort and pagination
 - return `items + total + page metadata`
-- add optional event-derived fields only when requested by the payload
+- handle special case for `name` filter (top-level column vs propertyValues jsonb)
 
 ### Phase 3: Move Frontend View Route To Runtime
 
@@ -393,14 +434,59 @@ The runtime layer should preserve these constraints:
 - runtime execution should be generic and schema-aware, not hardcoded to one tracker
 - the contract should support future query-builder output without redesigning the module again
 
-## Open Questions
+## Deferred to Phase 2
 
-These should be resolved before implementation starts:
+The following features are intentionally excluded from the initial implementation to keep scope tight and deliver a working foundation quickly:
 
-- what exact filter grammar should the compiled runtime payload use?
-- should event-derived fields be in the initial runtime response, or added in a second pass?
-- does clone need any request body fields, or can it always derive from the existing saved view?
-- for cross-schema views, should field selection apply per-schema or globally? (probably globally, since frontend renders one unified list)
+### Event Integration
+
+**Event-based filtering**: The ability to filter entities based on their events (e.g., "movies I rated >8", "shows watched in 2024", "entities with no events", "entities with event count > 5"). This requires:
+
+- Adding `eventConditions` field to `queryDefinition` structure
+- Joining to the events table in view-runtime queries
+- Supporting event aggregation filters (count, avg, min, max, latest/earliest date)
+- Query builder UI for constructing event-based filter expressions
+
+**Event summary fields**: Including event-derived data in runtime responses (lastEventDate, eventCount, averageRating). Once event filtering is implemented, returning event summaries becomes trivial since the runtime will already be joining to the events table. These fields will be controlled by the `include` parameter (e.g., `include: { eventSummary: true }`).
+
+### Advanced Filter Logic
+
+**Compound filters**: Support for OR logic and nested filter groups. The Phase 1 flat array with implicit AND covers the majority of use cases. More complex boolean logic can be added when the query builder UI actually needs it.
+
+Filter structure for Phase 2 might look like:
+```json
+{
+  "and": [
+    { "field": "year", "op": "gte", "value": 2020 },
+    {
+      "or": [
+        { "field": "genre", "op": "contains", "value": "Sci-Fi" },
+        { "field": "genre", "op": "contains", "value": "Fantasy" }
+      ]
+    }
+  ]
+}
+```
+
+### Additional Filter Operators
+
+Type-specific operators that add convenience but aren't essential for v1:
+
+- `notIn` (inverse of `in`)
+- `notContains` (string negation)
+- `between` (range queries, syntactic sugar for `gte` + `lte`)
+- `regex` (pattern matching, use with caution for performance)
+- `isEmpty` / `isNotEmpty` (for array/object properties)
+
+### Schema-Aware Filter Validation
+
+Runtime validation that ensures:
+
+- Filter fields exist in the target schemas
+- Filter operators are valid for the property type (e.g., `contains` only for strings, `gt`/`lt` only for numbers/dates)
+- Filter values match the property type
+
+Phase 1 assumes the frontend (query builder) sends valid filters. Phase 2 adds backend validation for robustness and security (protecting against direct API access with malformed filters).
 
 ## Recommended First Step
 
