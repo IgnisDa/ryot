@@ -20,6 +20,7 @@ import {
 	measure,
 	measureDescending,
 	rows,
+	star,
 	sum,
 	table,
 	timeSeries,
@@ -202,6 +203,37 @@ it("accepts empty fields and rejects retained limits", () => {
 		),
 	).toBeNull();
 	expect(literal("unused")).toEqual({ type: "literal", value: "unused" });
+});
+
+it("expands qualified wildcards and validates their output keys", () => {
+	const entity = table("entity", "entity");
+	const joined = table("event", "joined");
+
+	expect(
+		validateRyotQLDocument(document({ entities: rows(entity, { fields: [star(entity)] }) })),
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [star(entity), field("id", column(entity, "id"))],
+				}),
+			}),
+		),
+	).toBe("Query 'entities': Duplicate output field key 'id'");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [star(joined)],
+					joins: [join("inner", joined, eq(column(entity, "id"), column(joined, "entityId")))],
+				}),
+			}),
+		),
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(document({ entities: rows(entity, { fields: [star(joined)] }) })),
+	).toBe("Query 'entities': Unknown table alias 'joined'");
 });
 
 it("validates aggregate keys, grouped requirements, ordering, and limits", () => {
