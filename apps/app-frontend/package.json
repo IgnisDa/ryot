@@ -42,7 +42,6 @@
 	},
 	"devDependencies": {
 		"@tanstack/devtools-vite": "0.5.2",
-		"@types/node": "22.10.2",
 		"@types/react": "19.2.14",
 		"@types/react-dom": "19.2.3",
 		"@vitejs/plugin-react": "5.1.4",
