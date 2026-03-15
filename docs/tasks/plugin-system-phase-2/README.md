@@ -65,7 +65,7 @@ record.
 
 ## Solution
 
-Define one plugin manifest contract (`libs/plugin-kit`), restructure the `builtins` module
+Define one plugin manifest contract (`packages/plugin-kit`), restructure the `builtins` module
 into two real source-code plugin packages (`plugins/media`, `plugins/fitness`) plus a small
 kernel-owned "definition source zero" set, and build the single ingestion pipeline and
 hot-capable loader that both boot-time first-party plugins and future runtime-installed
@@ -113,7 +113,7 @@ code inside a package), **admin** (installs/uninstalls plugins through the contr
    the definition files encode today (entity/relationship/signal schemas, saved views,
    scripts, bindings, workspace display metadata) and no more, so that I never interpret a
    field only one plugin exercises (Decision 2; plan §1).
-3. As the kernel, I want `libs/plugin-kit` kept dependency-light (types + `AppSchema`
+3. As the kernel, I want `packages/plugin-kit` kept dependency-light (types + `AppSchema`
    re-exports + builder), so that it can be imported by both plugin packages and app-backend
    without dragging in kernel internals (plan §1 placement rationale).
 4. As the owner, I want media definitions and scripts to live in a `plugins/media` package and
@@ -257,7 +257,7 @@ code inside a package), **admin** (installs/uninstalls plugins through the contr
 Every technical decision for this phase is already made and written down. Rather than restate
 them (and risk drift), this PRD points to the exact sections that own them:
 
-- **The manifest contract** — the new `libs/plugin-kit` workspace lib, the `definePlugin`
+- **The manifest contract** — the new `packages/plugin-kit` workspace lib, the `definePlugin`
   builder, the exact v1 manifest sections (and the explicit deferral of `crons`/`operations`/
   `workflows`/`capabilities` to Phase 3), version as a display/change-detection string with no
   inter-plugin dependency mechanism, and the dependency-light placement rationale: plan §1.
@@ -266,7 +266,7 @@ them (and risk drift), this PRD points to the exact sections that own them:
   the exact provider/automation/signal-schema lists), the `[IMPLEMENTER-DECIDES]` ambiguous
   split resolved by Decision 2's litmus, signal-owned notification formatters, and multi-file
   authoring via `shared/`: plan §2.
-- **Compiler extension** — extending `libs/sandbox-compiler` for plugin bundles with existing
+- **Compiler extension** — extending `packages/sandbox-compiler` for plugin bundles with existing
   approved-dependency enforcement and diagnostics, one reused worker session, and deterministic
   output ordering for stable hashes: plan §3.
 - **Ingestion pipeline and loader** — the five steps (validate → compile → content-address →
@@ -376,7 +376,7 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
   and `[IMPLEMENTER-DECIDES]` choices (bundle format, precompilation-cache question, ambiguous
   definition split) by editing the relevant plan file, not this PRD.
 - **Pattern discovery before writing.** Per `AGENTS.md`, launch an `explore` subagent to find
-  existing patterns to replicate — the existing `libs/sandbox-compiler` bundling path, the
+  existing patterns to replicate — the existing `packages/sandbox-compiler` bundling path, the
   runtime compiler invocation in `modules/sandbox/compiler.ts`, the Phase 1 per-user state-split
   pattern from Phase 1, the sandbox-runtime host-call bridge, and the existing provider fixture
   — before writing new code; `explore` is for discovery only.

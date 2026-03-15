@@ -34,7 +34,7 @@ export default defineConfig({
 			"link",
 			{
 				rel: "icon",
-				href: "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/favicon-32x32.png",
+				href: "https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/favicon-32x32.png",
 			},
 		],
 	],
@@ -42,7 +42,7 @@ export default defineConfig({
 		outline: "deep",
 		siteTitle: "Ryot",
 		search: { provider: "local" },
-		logo: "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png",
+		logo: "https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/icon-512x512.png",
 		socialLinks: [{ icon: "github", link: "https://github.com/ignisda/ryot" }],
 		sidebar: [
 			{ text: "Installation", link: "/" },
