@@ -16,8 +16,8 @@ export const manifest = defineManifest({
 	requiredPluginConfigKeys: ["progressUpdateThresholdHours"],
 	capabilities: [
 		"getPluginConfig",
-		"claimCachedValue",
 		"executeQueryEngine",
+		"claimPersistentValue",
 		"getCurrentIntegration",
 	],
 });
@@ -158,7 +158,7 @@ export default defineAutomationPolicy({
 				}
 				return Effect.gen(function* () {
 					const thresholdSeconds = yield* getThresholdSeconds(host);
-					const claim = yield* host.claimCachedValue(
+					const claim = yield* host.claimPersistentValue(
 						buildFingerprint(draft, properties),
 						true,
 						thresholdSeconds,

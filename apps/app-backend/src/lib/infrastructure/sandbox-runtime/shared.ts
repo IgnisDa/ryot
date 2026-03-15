@@ -57,8 +57,8 @@ export type AdditionalSandboxHostImplementationMap = Omit<
 	| "emitSignal"
 	| "setCachedValue"
 	| "getCachedValue"
-	| "claimCachedValue"
 	| "sendNotification"
+	| "claimPersistentValue"
 >;
 
 export const apiSuccess = <T>(data: T) => ({ data, success: true as const });
