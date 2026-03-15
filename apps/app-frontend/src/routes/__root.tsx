@@ -1,4 +1,4 @@
-import { ColorSchemeScript, createTheme, MantineProvider } from "@mantine/core";
+import { ColorSchemeScript, MantineProvider } from "@mantine/core";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import {
 	createRootRouteWithContext,
@@ -7,13 +7,8 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import type { AuthClient } from "#/hooks/auth";
+import { theme } from "#/lib/theme";
 import appCss from "../styles.css?url";
-
-const theme = createTheme({
-	primaryColor: "blue",
-	defaultRadius: "md",
-	fontFamily: "Manrope, sans-serif",
-});
 
 export const Route = createRootRouteWithContext<{
 	authClientInstance: AuthClient;
