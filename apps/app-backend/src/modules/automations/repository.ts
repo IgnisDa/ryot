@@ -22,8 +22,9 @@ import {
 	SubscriptionRunId,
 	UserId,
 } from "@ryot/contract/schema/brands";
+import { decodeStoredSchema } from "@ryot/contract/schema/core";
 import { and, asc, eq, isNotNull, isNull, or, type SQL } from "drizzle-orm";
-import { DateTime, Effect, Schema } from "effect";
+import { DateTime, Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
@@ -90,9 +91,6 @@ export type FinishSubscriptionRunInput = {
 	returnedValue: AutomationRuleMetadataValue | null;
 };
 
-const decodeStored = <A, I>(value: unknown, valueSchema: Schema.Schema<A, I>, message: string) =>
-	Schema.decodeUnknown(valueSchema)(value).pipe(Effect.mapError(() => new DbError({ message })));
-
 const targetValues = (target: AutomationRuleTarget) => {
 	if (target.kind === "entity_schema") {
 		return { entitySchemaId: target.id };
@@ -153,19 +151,19 @@ const toStoredRule = Effect.fn(function* (row: AutomationRuleRow) {
 	if (!target) {
 		return yield* new DbError({ message: `Automation rule ${row.id} has no target` });
 	}
-	const kind = yield* decodeStored(
+	const kind = yield* decodeStoredSchema(
 		row.kind,
 		AutomationRuleKind,
 		`Invalid kind for automation rule ${row.id}`,
 	);
-	const operation = yield* decodeStored(
+	const operation = yield* decodeStoredSchema(
 		row.operation,
 		AutomationOperation,
 		`Invalid operation for automation rule ${row.id}`,
 	);
 	const metadata =
 		row.metadata !== null
-			? yield* decodeStored(
+			? yield* decodeStoredSchema(
 					row.metadata,
 					AutomationRuleMetadata,
 					`Invalid metadata for automation rule ${row.id}`,
@@ -283,7 +281,7 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 				if (!row) {
 					return null;
 				}
-				const metadata = yield* decodeStored(
+				const metadata = yield* decodeStoredSchema(
 					row.metadata,
 					SandboxScriptMetadata,
 					`Invalid metadata for sandbox script ${scriptId}`,
