@@ -2,7 +2,6 @@ import type { RyotQLResponse } from "@ryot/contract/modules/ryotql/language";
 import { describe, expect, it } from "vitest";
 
 import {
-	buildNavigationData,
 	getActiveNavigationKey,
 	getCurrentWorkspace,
 	getEnabledItems,
@@ -10,71 +9,75 @@ import {
 	getNavigationItems,
 	getWorkspacePickerSummary,
 	getWorkspaceSummary,
-	mapCollectionsResponse,
+	mapNavigationResponse,
 } from "./navigation-data";
 
-const plugins = [
-	{
-		sortOrder: 1,
-		name: "Media",
-		slug: "media",
-		isDisabled: false,
-		icon: "clapperboard",
-		accentColor: "#fd7e14",
-		description: "Media library",
-	},
-	{
-		sortOrder: 2,
-		name: "Fitness",
-		slug: "fitness",
-		icon: "dumbbell",
-		isDisabled: true,
-		accentColor: "#3d6d2f",
-		description: "Training and wellness",
-	},
-] satisfies Parameters<typeof buildNavigationData>[0]["plugins"];
-
-const savedViews = [
-	{
-		sortOrder: 1,
-		icon: "film",
-		name: "Movies",
-		slug: "movies",
-		isDisabled: false,
-		pluginSlug: "media",
-		accentColor: "#fd7e14",
-	},
-	{
-		sortOrder: 1,
-		icon: "dumbbell",
-		name: "Training",
-		slug: "training",
-		isDisabled: false,
-		pluginSlug: "fitness",
-		accentColor: "#3d6d2f",
-	},
-	{
-		sortOrder: 2,
-		icon: "bookmark",
-		pluginSlug: null,
-		isDisabled: false,
-		name: "Everything",
-		slug: "everything",
-		accentColor: "#a24e08",
-	},
-	{
-		sortOrder: 1,
-		name: "Hidden",
-		slug: "hidden",
-		icon: "bookmark",
-		pluginSlug: null,
-		isDisabled: true,
-		accentColor: "#a24e08",
-	},
-] satisfies Parameters<typeof buildNavigationData>[0]["savedViews"];
-
-const collectionsResponse = {
+const navigationResponse = {
 	data: {
+		workspaces: {
+			type: "rows",
+			pageInfo: { hasMore: false, limit: 100, page: 1, total: 2 },
+			items: [
+				{
+					name: { kind: "text", value: "Media" },
+					slug: { kind: "text", value: "media" },
+					sortOrder: { kind: "null", value: null },
+					isDisabled: { kind: "null", value: null },
+					icon: { kind: "text", value: "clapperboard" },
+					accentColor: { kind: "text", value: "#fd7e14" },
+				},
+				{
+					sortOrder: { kind: "number", value: 2 },
+					name: { kind: "text", value: "Fitness" },
+					slug: { kind: "text", value: "fitness" },
+					icon: { kind: "text", value: "dumbbell" },
+					isDisabled: { kind: "boolean", value: true },
+					accentColor: { kind: "text", value: "#3d6d2f" },
+				},
+			],
+		},
+		savedViews: {
+			type: "rows",
+			pageInfo: { hasMore: false, limit: 100, page: 1, total: 4 },
+			items: [
+				{
+					icon: { kind: "text", value: "film" },
+					name: { kind: "text", value: "Movies" },
+					slug: { kind: "text", value: "movies" },
+					sortOrder: { kind: "number", value: 1 },
+					pluginSlug: { kind: "text", value: "media" },
+					isDisabled: { kind: "boolean", value: false },
+					accentColor: { kind: "text", value: "#fd7e14" },
+				},
+				{
+					sortOrder: { kind: "number", value: 1 },
+					name: { kind: "text", value: "Training" },
+					slug: { kind: "text", value: "training" },
+					icon: { kind: "text", value: "dumbbell" },
+					isDisabled: { kind: "boolean", value: false },
+					pluginSlug: { kind: "text", value: "fitness" },
+					accentColor: { kind: "text", value: "#3d6d2f" },
+				},
+				{
+					sortOrder: { kind: "number", value: 2 },
+					icon: { kind: "text", value: "bookmark" },
+					pluginSlug: { kind: "null", value: null },
+					name: { kind: "text", value: "Everything" },
+					slug: { kind: "text", value: "everything" },
+					isDisabled: { kind: "boolean", value: false },
+					accentColor: { kind: "text", value: "#a24e08" },
+				},
+				{
+					name: { kind: "text", value: "Hidden" },
+					slug: { kind: "text", value: "hidden" },
+					sortOrder: { kind: "number", value: 1 },
+					icon: { kind: "text", value: "bookmark" },
+					pluginSlug: { kind: "null", value: null },
+					isDisabled: { kind: "boolean", value: true },
+					accentColor: { kind: "text", value: "#a24e08" },
+				},
+			],
+		},
 		collections: {
 			type: "rows",
 			pageInfo: { hasMore: false, limit: 100, page: 1, total: 2 },
@@ -89,24 +92,40 @@ const collectionsResponse = {
 	},
 } satisfies RyotQLResponse;
 
-const data = buildNavigationData({ collections: collectionsResponse, plugins, savedViews });
+const data = mapNavigationResponse(navigationResponse);
 
 describe("getEnabledItems", () => {
 	it("filters disabled items and sorts by sort order", () => {
-		expect(getEnabledItems(plugins).map((item) => item.slug)).toEqual(["media"]);
+		expect(
+			getEnabledItems([
+				...data.workspaces,
+				{ ...data.workspaces[0], slug: "disabled", isDisabled: true },
+			]).map((item) => item.slug),
+		).toEqual(["media"]);
 	});
 });
 
-describe("buildNavigationData", () => {
-	it("treats enabled plugins as workspaces and maps collection rows to entity routes", () => {
+describe("mapNavigationResponse", () => {
+	it("maps enabled workspaces, saved views, and collection rows", () => {
 		expect(data.workspaces.map((item) => item.slug)).toEqual(["media"]);
+		expect(data.workspaces[0]).toMatchObject({ sortOrder: 0, isDisabled: false });
+		expect(data.savedViews).toHaveLength(4);
 		expect(data.collections.map((item) => ({ name: item.name, slug: item.slug }))).toEqual([
 			{ name: "Sci-Fi Essentials", slug: "collection-1" },
 		]);
 	});
 
-	it("skips rows without text ids or names", () => {
-		expect(mapCollectionsResponse(collectionsResponse)).toHaveLength(1);
+	it("maps valid empty row outputs to empty sections", () => {
+		const emptyRows = {
+			items: [],
+			type: "rows" as const,
+			pageInfo: { hasMore: false, limit: 100, page: 1, total: 0 },
+		};
+		expect(
+			mapNavigationResponse({
+				data: { workspaces: emptyRows, savedViews: emptyRows, collections: emptyRows },
+			}),
+		).toEqual({ workspaces: [], savedViews: [], collections: [] });
 	});
 });
 
@@ -136,13 +155,8 @@ describe("getNavigationItems", () => {
 		const expandedItems = {
 			views: [
 				...items.views,
-				...["Shows", "Books", "Music", "Audio Books", "Video Games", "People"].map(
-					(name, index) => ({
-						...mediaView,
-						name,
-						slug: `extra-${index}`,
-						sortOrder: index + 2,
-					}),
+				...["Shows", "Books", "Music", "Audio Books", "Video Games", "People"].map((name, index) =>
+					Object.assign(mediaView, { name, sortOrder: index + 2, slug: `extra-${index}` }),
 				),
 			],
 		};

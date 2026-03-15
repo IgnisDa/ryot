@@ -7,19 +7,19 @@ import { useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { collectionsAtom, pluginsAtom, savedViewsAtom } from "@/api/atoms";
+import { navigationAtom } from "@/api/atoms";
 import { useAuthClient } from "@/modules/auth/client";
 import { AppIcon as NavigationIcon } from "@/modules/icons";
 import { useSetWorkspace, useWorkspace } from "@/modules/server/state";
 
 import {
-	buildNavigationData,
 	getActiveNavigationKey,
 	getCurrentWorkspace,
 	getNavigationHref,
 	getNavigationItems,
 	getWorkspaceSummary,
 	getWorkspacePickerSummary,
+	mapNavigationResponse,
 	type NavigationData,
 	type NavigationItem,
 	type NavigationItems,
@@ -578,9 +578,7 @@ export function WorkspaceShell() {
 	const setWorkspace = useSetWorkspace();
 	const selectedWorkspace = useWorkspace();
 	const { data: session } = client.useSession();
-	const pluginsResult = useAtomValue(pluginsAtom);
-	const savedViewsResult = useAtomValue(savedViewsAtom);
-	const collectionsResult = useAtomValue(collectionsAtom);
+	const navigationResult = useAtomValue(navigationAtom);
 	const params = useGlobalSearchParams<{ workspace?: string }>();
 	const routeWorkspace = Array.isArray(params.workspace) ? params.workspace[0] : params.workspace;
 	const activeKey = getActiveNavigationKey(pathname);
@@ -588,43 +586,19 @@ export function WorkspaceShell() {
 	const [desktopWorkspaceOpen, setDesktopWorkspaceOpen] = useState(false);
 	const [isScrolled, setIsScrolled] = useState(false);
 
-	if (AsyncResult.isFailure(pluginsResult)) {
+	if (AsyncResult.isFailure(navigationResult)) {
 		return (
 			<NavigationStatus
-				title="Unable to load workspaces"
-				detail={Cause.pretty(pluginsResult.cause)}
+				title="Unable to load navigation"
+				detail={Cause.pretty(navigationResult.cause)}
 			/>
 		);
 	}
-	if (AsyncResult.isFailure(savedViewsResult)) {
-		return (
-			<NavigationStatus
-				title="Unable to load saved views"
-				detail={Cause.pretty(savedViewsResult.cause)}
-			/>
-		);
-	}
-	if (AsyncResult.isFailure(collectionsResult)) {
-		return (
-			<NavigationStatus
-				title="Unable to load collections"
-				detail={Cause.pretty(collectionsResult.cause)}
-			/>
-		);
-	}
-	if (
-		!AsyncResult.isSuccess(pluginsResult) ||
-		!AsyncResult.isSuccess(savedViewsResult) ||
-		!AsyncResult.isSuccess(collectionsResult)
-	) {
+	if (!AsyncResult.isSuccess(navigationResult)) {
 		return <NavigationStatus title="Loading navigation..." />;
 	}
 
-	const data = buildNavigationData({
-		collections: collectionsResult.value,
-		plugins: pluginsResult.value,
-		savedViews: savedViewsResult.value,
-	});
+	const data = mapNavigationResponse(navigationResult.value);
 	if (data.workspaces.length === 0) {
 		return (
 			<NavigationStatus
