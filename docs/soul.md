@@ -158,7 +158,7 @@ The sidebar sub-items under a facet (Movies, TV Shows, Books under Media; Workou
 
 This means there is no separate "entity list page" component. The saved view renderer *is* the entity list page. Custom facets get the exact same browsing experience for free — when a user creates a Whiskey facet, they automatically get a saved view in the sidebar that shows all whiskey entities.
 
-In the database schema, saved views have an `isBuiltin` boolean flag. Views with `isBuiltin = true` cannot be deleted through the UI or API — this protects the essential entity list views that ship with each schema. User-created saved views have `isBuiltin = false` and are deletable. No separate `isDeletable` column is needed; the built-in status determines this behavior at the application logic level.
+In the database schema, saved views have an `isBuiltin` boolean flag. Views with `isBuiltin = true` cannot be deleted through the UI or API — this protects the essential entity list views that ship with each schema. User-created saved views have `isBuiltin = false` and are deletable.
 
 A saved view carries two pieces of configuration:
 
