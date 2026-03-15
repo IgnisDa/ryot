@@ -1,26 +1,55 @@
-import { resolveRequiredSlug } from "~/lib/slug";
+import type { AppSchema } from "@ryot/ts-utils";
+import { appPropertyPrimitiveTypes } from "@ryot/ts-utils";
+import { resolveRequiredSlug, resolveRequiredString } from "~/lib/slug";
 
 type JsonObject = Record<string, unknown>;
-export type EntitySchemaPropertiesShape = {
-	type: "object";
-	properties: JsonObject;
-};
+
+/**
+ * Entity schema properties are stored as an AppSchema (flat properties map).
+ */
+export type EntitySchemaPropertiesShape = AppSchema;
 
 const isJsonObject = (value: unknown) => {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 };
 
-export const isEntitySchemaPropertiesShape = (value: unknown) => {
-	if (!isJsonObject(value)) return false;
+const validatePropertyDefinition = (key: string, property: unknown): void => {
+	if (!isJsonObject(property))
+		throw new Error(`Property "${key}" must be an object`);
 
-	const parsedValue = value as JsonObject;
+	const prop = property as JsonObject;
 
-	const keys = Object.keys(parsedValue);
-	if (keys.length !== 2) return false;
-	if (!keys.includes("type") || !keys.includes("properties")) return false;
-	if (parsedValue.type !== "object") return false;
+	if (!prop.type || typeof prop.type !== "string")
+		throw new Error(`Property "${key}" must have a type field`);
 
-	return isJsonObject(parsedValue.properties);
+	const type = prop.type;
+
+	if (
+		!appPropertyPrimitiveTypes.includes(type as never) &&
+		type !== "array" &&
+		type !== "object"
+	)
+		throw new Error(`Property "${key}" has invalid type "${type}"`);
+
+	if (type === "array") {
+		if (!prop.items)
+			throw new Error(
+				`Property "${key}" with type "array" must have an items field`,
+			);
+		// Recursively validate items
+		validatePropertyDefinition(`${key}[]`, prop.items);
+	}
+
+	if (type === "object") {
+		if (!isJsonObject(prop.properties))
+			throw new Error(
+				`Property "${key}" with type "object" must have a properties field`,
+			);
+		// Recursively validate nested properties
+		const nestedProps = prop.properties as JsonObject;
+		for (const [nestedKey, nestedValue] of Object.entries(nestedProps))
+			validatePropertyDefinition(`${key}.${nestedKey}`, nestedValue);
+	}
 };
 
 export const isEntitySchemaPropertiesString = (value: string) => {
@@ -32,21 +61,11 @@ export const isEntitySchemaPropertiesString = (value: string) => {
 	}
 };
 
-export const resolveEntitySchemaName = (name: string) => {
-	const resolvedName = name.trim();
+export const resolveEntitySchemaName = (name: string) =>
+	resolveRequiredString(name, "Entity schema name");
 
-	if (!resolvedName) throw new Error("Entity schema name is required");
-
-	return resolvedName;
-};
-
-export const resolveEntitySchemaFacetId = (facetId: string) => {
-	const resolvedFacetId = facetId.trim();
-
-	if (!resolvedFacetId) throw new Error("Facet id is required");
-
-	return resolvedFacetId;
-};
+export const resolveEntitySchemaFacetId = (facetId: string) =>
+	resolveRequiredString(facetId, "Facet id");
 
 export const resolveEntitySchemaSlug = (input: {
 	name: string;
@@ -54,12 +73,14 @@ export const resolveEntitySchemaSlug = (input: {
 }) => {
 	return resolveRequiredSlug({
 		name: input.name,
-		label: "Entity schema",
 		slug: input.slug,
+		label: "Entity schema",
 	});
 };
 
-export const parseEntitySchemaPropertiesSchema = (input: unknown) => {
+export const parseEntitySchemaPropertiesSchema = (
+	input: unknown,
+): EntitySchemaPropertiesShape => {
 	let parsed = input;
 
 	if (typeof input === "string") {
@@ -75,18 +96,16 @@ export const parseEntitySchemaPropertiesSchema = (input: unknown) => {
 
 	const parsedObject = parsed as JsonObject;
 
-	if (parsedObject.type !== "object")
-		throw new Error('Entity schema properties schema must have type "object"');
-
-	if (!isJsonObject(parsedObject.properties))
+	const keys = Object.keys(parsedObject);
+	if (keys.length === 0) {
 		throw new Error(
-			"Entity schema properties schema must define an object properties map",
+			"Entity schema properties must contain at least one property",
 		);
+	}
 
-	if (!isEntitySchemaPropertiesShape(parsedObject))
-		throw new Error(
-			"Entity schema properties schema may only contain type and properties",
-		);
+	// Validate each property definition
+	for (const [key, value] of Object.entries(parsedObject))
+		validatePropertyDefinition(key, value);
 
 	return parsedObject as EntitySchemaPropertiesShape;
 };

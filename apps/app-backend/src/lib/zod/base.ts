@@ -1,4 +1,4 @@
-import { toJSONSchema, z } from "zod";
+import { z } from "zod";
 
 export const nullableStringSchema = z.string().nullish();
 export const nullableNumberSchema = z.number().nullish();
@@ -33,7 +33,3 @@ export const createImportEnvelopeSchema = <TProperties extends z.ZodType>(
 export const remoteImagesAssetsSchema = z
 	.object({ remoteImages: stringArraySchema })
 	.strict();
-
-export const toStableJsonSchema = <TSchema extends z.ZodType>(
-	schema: TSchema,
-) => JSON.parse(JSON.stringify(toJSONSchema(schema)));
