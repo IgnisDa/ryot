@@ -9,6 +9,7 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
+import { PersistedQueue } from "effect/unstable/persistence";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
@@ -76,16 +77,16 @@ const payload = {
 	operation: "signal",
 	sourceKind: "signal",
 	occurrenceId: signalId,
-	occurredAt: "2026-07-20T10:00:00.000Z",
 	origin: { kind: "api" },
+	occurredAt: "2026-07-20T10:00:00.000Z",
 	source: {
 		kind: "signal",
 		signal: {
 			id: signalId,
 			origin: { kind: "api" },
 			properties: { message: "trace" },
-			occurredAt: "2026-07-20T10:00:00.000Z",
 			signalSchemaSlug: "review.created",
+			occurredAt: "2026-07-20T10:00:00.000Z",
 		},
 	},
 } as const satisfies SubscriptionExecutionWorkflowPayload;
@@ -96,7 +97,11 @@ const withWorkflowLayer = <A, E>(
 	effect: Effect.Effect<
 		A,
 		E,
-		AutomationsService | WorkflowEngine | WorkflowInstance | SubscriptionExecutionWorkflowOperations
+		| WorkflowEngine
+		| WorkflowInstance
+		| AutomationsService
+		| PersistedQueue.PersistedQueueFactory
+		| SubscriptionExecutionWorkflowOperations
 	>,
 ) => {
 	const instance = WorkflowInstance.initial(SubscriptionExecutionWorkflow, "workflow-1");
@@ -105,6 +110,7 @@ const withWorkflowLayer = <A, E>(
 			Layer.mergeAll(
 				service,
 				operations,
+				Layer.provide(PersistedQueue.layer, PersistedQueue.layerStoreMemory),
 				Layer.succeed(WorkflowInstance, instance),
 				Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 			),
