@@ -9,7 +9,6 @@ import {
 	Drawer,
 	Group,
 	Menu,
-	Modal,
 	Pagination,
 	Paper,
 	SegmentedControl,
@@ -1216,9 +1215,9 @@ function QueryBuilderDrawer(props: {
 								Built-in view
 							</Text>
 							<Text size="sm" c={textMuted}>
-								This is a built-in view. You can customize filters and layout,
-								but changes won't modify the original. Use "Save as new view" to
-								create your own version.
+								This is a built-in view. Use this drawer to inspect how the view
+								is configured. To make your own version, clone it from the view
+								menu.
 							</Text>
 						</Stack>
 					</Paper>
@@ -1436,101 +1435,17 @@ function QueryBuilderDrawer(props: {
 					<Button variant="subtle" onClick={props.onClose}>
 						Cancel
 					</Button>
-					<Group gap="xs">
-						{props.scenario.isBuiltin ? (
-							<Button
-								leftSection={<Save size={14} />}
-								style={{ backgroundColor: accentColor }}
-							>
-								Save as new view
-							</Button>
-						) : (
-							<>
-								<Button variant="light">Duplicate view</Button>
-								<Button
-									leftSection={<Save size={14} />}
-									style={{ backgroundColor: accentColor }}
-								>
-									Save changes
-								</Button>
-							</>
-						)}
-					</Group>
+					{props.scenario.isBuiltin ? null : (
+						<Button
+							leftSection={<Save size={14} />}
+							style={{ backgroundColor: accentColor }}
+						>
+							Save changes
+						</Button>
+					)}
 				</Group>
 			</Stack>
 		</Drawer>
-	);
-}
-
-function SaveViewModal(props: {
-	opened: boolean;
-	onClose: () => void;
-	scenario: SavedViewScenario;
-	isDark: boolean;
-}) {
-	const surface = props.isDark ? "var(--mantine-color-dark-8)" : "white";
-	const textMuted = props.isDark
-		? "var(--mantine-color-dark-4)"
-		: "var(--mantine-color-stone-5)";
-
-	const accentColor = props.scenario.accentColor;
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			title={
-				<Text
-					fw={600}
-					style={{ fontFamily: "var(--mantine-headings-font-family)" }}
-				>
-					{props.scenario.isBuiltin ? "Save as new view" : "Save changes"}
-				</Text>
-			}
-			centered
-			size="lg"
-			styles={{
-				body: { backgroundColor: surface },
-				header: { backgroundColor: surface },
-				content: { backgroundColor: surface },
-			}}
-		>
-			<Stack gap="md">
-				<TextInput label="View name" placeholder="Enter view name" required />
-				<Select
-					label="Icon"
-					placeholder="Choose icon"
-					data={["film", "wine", "sparkles", "bookmark", "star", "heart"]}
-				/>
-				<Select
-					label="Accent color"
-					placeholder="Choose color"
-					data={["Blue", "Gold", "Violet", "Teal", "Green"]}
-				/>
-				<Select
-					label="Placement"
-					placeholder="Where should this view appear?"
-					data={["In tracker sidebar", "In library section"]}
-				/>
-				<Text size="xs" c={textMuted}>
-					{props.scenario.isBuiltin
-						? "This will create a new saved view based on the current filters and configuration."
-						: "Changes will be saved to this view and reflected immediately."}
-				</Text>
-				<Group justify="flex-end" gap="xs">
-					<Button variant="subtle" onClick={props.onClose}>
-						Cancel
-					</Button>
-					<Button
-						leftSection={<Save size={14} />}
-						style={{ backgroundColor: accentColor }}
-						onClick={props.onClose}
-					>
-						{props.scenario.isBuiltin ? "Create view" : "Save changes"}
-					</Button>
-				</Group>
-			</Stack>
-		</Modal>
 	);
 }
 
@@ -1546,8 +1461,6 @@ function SavedViewRenderer(props: {
 		queryBuilderOpened,
 		{ open: openQueryBuilder, close: closeQueryBuilder },
 	] = useDisclosure(false);
-	const [saveModalOpened, { open: openSaveModal, close: closeSaveModal }] =
-		useDisclosure(false);
 
 	const surface = props.isDark ? "var(--mantine-color-dark-8)" : "white";
 	const textPrimary = props.isDark
@@ -1674,22 +1587,13 @@ function SavedViewRenderer(props: {
 								</Menu.Target>
 								<Menu.Dropdown>
 									{props.scenario.isBuiltin ? (
-										<Menu.Item
-											leftSection={<Save size={14} />}
-											onClick={openSaveModal}
-										>
-											Save as new view
+										<Menu.Item leftSection={<Plus size={14} />}>
+											Clone view
 										</Menu.Item>
 									) : (
 										<>
-											<Menu.Item
-												leftSection={<Save size={14} />}
-												onClick={openSaveModal}
-											>
-												Save changes
-											</Menu.Item>
 											<Menu.Item leftSection={<Plus size={14} />}>
-												Duplicate view
+												Clone view
 											</Menu.Item>
 											<Menu.Divider />
 											<Menu.Item color="red" leftSection={<X size={14} />}>
@@ -1800,13 +1704,6 @@ function SavedViewRenderer(props: {
 				onLayoutChange={(value) => setLayout(value)}
 				onSortKeyChange={(value) => setSortKey(value)}
 				onSortDirectionChange={(value) => setSortDirection(value)}
-			/>
-
-			<SaveViewModal
-				opened={saveModalOpened}
-				onClose={closeSaveModal}
-				scenario={props.scenario}
-				isDark={props.isDark}
 			/>
 		</Stack>
 	);
