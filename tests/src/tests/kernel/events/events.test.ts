@@ -8,20 +8,9 @@ import {
 	listEventsForEntity,
 	waitForEventCount,
 } from "~/fixtures";
-import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Events bulk POST", () => {
-	it.live("requires a scope when listing events", () =>
-		Effect.gen(function* () {
-			const { client: apiClient } = yield* createAuthenticatedClient();
-
-			const error = yield* Effect.flip(apiClient.call((c) => c.events.list({ query: {} })));
-
-			assertTaggedError(error, "BadRequest");
-		}),
-	);
-
 	it.live("creates multiple events and returns the count", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
@@ -153,20 +142,20 @@ describe("Events bulk POST", () => {
 
 			yield* waitForEventCount(apiClient, entityId, 2);
 
-			const allEvents = yield* listEventsForEntity(apiClient, entityId);
+			const allEvents = yield* listEventsForEntity(apiClient, entityId, 1, 100);
 			expect(allEvents).toHaveLength(2);
 
-			const progressEvents = yield* listEventsForEntity(apiClient, entityId, {
+			const progressEvents = yield* listEventsForEntity(apiClient, entityId, 1, 100, {
 				eventSchemaSlug: "progress",
 			});
 			expect(progressEvents.map((event) => event.eventSchemaSlug)).toEqual(["progress"]);
 
-			const completeEvents = yield* listEventsForEntity(apiClient, entityId, {
+			const completeEvents = yield* listEventsForEntity(apiClient, entityId, 1, 100, {
 				eventSchemaSlug: "complete",
 			});
 			expect(completeEvents.map((event) => event.eventSchemaSlug)).toEqual(["complete"]);
 
-			const missingEvents = yield* listEventsForEntity(apiClient, entityId, {
+			const missingEvents = yield* listEventsForEntity(apiClient, entityId, 1, 100, {
 				eventSchemaSlug: "nonexistent",
 			});
 			expect(missingEvents).toEqual([]);

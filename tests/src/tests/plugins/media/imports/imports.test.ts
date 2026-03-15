@@ -1,8 +1,8 @@
-import { ImportRunId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
+	getImportRun,
 	listEventSlugs,
 	pollImportRunUntilTerminal,
 	queryInLibraryRelationship,
@@ -75,12 +75,7 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 				expect(showEvents).not.toContain("progress");
 
 				// The unresolvable locator is reported as a failure, not mis-attached.
-				const runWithFailures = yield* client.call((c) =>
-					c.imports.getRun({
-						query: { page: 1, limit: 20 },
-						params: { runId: ImportRunId.make(created.id) },
-					}),
-				);
+				const runWithFailures = yield* getImportRun(client, created.id, 1, 20);
 				const failureMessages = runWithFailures.failures.items.map((failure) => failure.message);
 				expect(failureMessages.some((message) => message.includes("S1E99"))).toBe(true);
 			}),

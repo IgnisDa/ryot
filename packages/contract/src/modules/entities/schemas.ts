@@ -20,13 +20,6 @@ export const TranslationStatus = Schema.Literals(["pending", "ready", "none"]);
 
 export type TranslationStatus = typeof TranslationStatus.Type;
 
-export const EntityDetail = Schema.Struct({
-	...ListedEntity.fields,
-	translationStatus: TranslationStatus,
-});
-
-export type EntityDetail = typeof EntityDetail.Type;
-
 const RequiredEntitySchemaSlug = Schema.Trim.pipe(
 	Schema.check(Schema.makeFilter((value) => value.length > 0)),
 ).pipe(Schema.decodeTo(EntitySchemaSlug));
