@@ -471,9 +471,9 @@ export function Sidebar(props: SidebarProps) {
 
 							return (
 								<SortableTracker
-									tracker={tracker}
-									key={tracker.id}
 									isDark={isDark}
+									key={tracker.id}
+									tracker={tracker}
 									isExpanded={isExpanded}
 									textPrimary={textPrimary}
 									textSecondary={textSecondary}
