@@ -10,6 +10,15 @@ export const nonEmptyStringSchema = z.string().min(1);
 export const nonEmptyTrimmedStringSchema = z.string().trim().min(1);
 export const stringUnknownRecordSchema = z.record(z.string(), z.unknown());
 
+export const createNameWithOptionalSlugSchema = <TShape extends z.ZodRawShape>(
+	shape: TShape,
+) =>
+	z.object({
+		name: nonEmptyTrimmedStringSchema,
+		slug: nonEmptyTrimmedStringSchema.optional(),
+		...shape,
+	});
+
 export const createImportEnvelopeSchema = <TProperties extends z.ZodType>(
 	propertiesSchema: TProperties,
 ) =>
