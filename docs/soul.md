@@ -73,18 +73,18 @@ The entire data model rests on three concepts:
 
 Entity and event properties are stored as jsonb in Postgres and validated against a lightweight custom schema format called **AppSchema**. This decision was made because:
 
-- **Simplicity**: AppSchema is a minimal, TypeScript-native format that defines property types (`string`, `number`, `integer`, `boolean`, `date`, `array`, `object`) with optional `required` and `nullable` flags. No external dependencies or complex standards to integrate.
+- **Simplicity**: AppSchema is a minimal, TypeScript-native format that defines property types (`string`, `number`, `integer`, `boolean`, `date`, `array`, `object`) with an optional `required` flag. No external dependencies or complex standards to integrate.
 - **Data-driven definitions**: Property definitions are stored as data (jsonb) rather than requiring schema migrations for each new entity type.
 - **Bidirectional conversion**: The `@ryot/ts-utils` package provides functions to convert between Zod schemas (used in code) and AppSchema (stored in the database), enabling type-safe validation at runtime.
 - **Form generation**: AppSchema's simple structure can be consumed by UI components to auto-generate input forms for custom facets without heavy dependencies like `react-jsonschema-form`.
-- **Full type coverage**: Supports strings, numbers, integers, booleans, dates, arrays (with recursive item types), objects (with nested properties), and nullable/required modifiers.
+- **Full type coverage**: Supports strings, numbers, integers, booleans, dates, arrays (with recursive item types), objects (with nested properties), and required modifiers.
 
 Example AppSchema definition:
 ```json
 {
-  "title": { "type": "string", "required": true },
-  "rating": { "type": "number", "nullable": true },
+  "rating": { "type": "number" },
   "pages": { "type": "integer" },
+  "title": { "type": "string", "required": true },
   "tags": { "type": "array", "items": { "type": "string" } }
 }
 ```
