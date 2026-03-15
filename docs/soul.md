@@ -115,7 +115,7 @@ The Collections page in the sidebar is a built-in saved view that lists all coll
 
 For rendering mixed-entity collections, items display in a uniform card format: entity name, schema type as a colored badge, thumbnail if available, and most recent event summary. This is intentionally less rich than a facet-specific view — the value of a cross-facet collection is seeing the breadth of what's in it, not the depth of each item.
 
-### Saved views are facet-scoped, collections are not
+### Saved views are query-scoped, collections are unrestricted
 
 Saved views depend on the query builder, which needs to know property types to offer the right filter operators. Saved views can target one schema, multiple schemas, or full facets. Filters are schema-aware: operators are offered only where they are valid, and conditions against missing properties evaluate predictably rather than breaking the query.
 
@@ -252,7 +252,7 @@ On mobile, the sidebar collapses into a bottom tab bar with the most-used items 
 
 ### Dashboard as a widget surface
 
-The home dashboard is not a static layout. It's composed of widgets contributed by active facets, driven by scripts. Each widget is one of a fixed set of render types (stat card, chart, list, table, map, progress bar). Users can customize which widgets appear and their arrangement.
+The home dashboard is not a static layout. It's composed of widgets contributed by active facets, driven by scripts. The Phase 1 baseline is a minimal static activity feed; the full script-driven widget model is introduced in Phase 3. Each widget is one of a fixed set of render types (stat card, chart, list, table, map, progress bar). Users can customize which widgets appear and their arrangement.
 
 A user with only Whiskey active sees whiskey stat cards, a recent tastings feed, and whiskey-specific quick actions. A power user sees a dense grid of widgets from all their facets. The dashboard is never empty — it always shows at least the "Add Tracker" prompt for new users, and an activity feed plus stats for everyone else.
 
@@ -318,11 +318,11 @@ The entity-schema-event data model, the REST API with OpenAPI, user authenticati
 
 ### Phase 2: Built-in Facets
 
-Media facet with curated UI: movie/show/book/podcast/game detail pages, logging modals, external source integration (TMDB, IGDB, Open Library, iTunes, etc.). Fitness facet with workout session logging, exercise database, body measurements. These need to feel as good as purpose-built vertical apps.
+Media facet with curated UI: movie/show/book/podcast/game detail pages, logging modals, external source integration (TMDB, IGDB, Open Library, iTunes, etc.). Fitness facet with workout session logging, exercise database, body measurements. These need to feel as good as purpose-built vertical apps. Because entity list pages within these facets are pre-built saved views (per the architecture), this phase also establishes the core saved view data model and renderer.
 
 ### Phase 3: Power Features
 
-Query builder and saved views. Collections (cross-facet). Sandbox scripting system with dashboard widgets. Integrations (Jellyfin, Plex, Kodi webhooks). Import from existing Ryot instances and other services (Goodreads, Trakt, MyAnimeList).
+Visual query builder and user-authored saved views (the saved view data model from Phase 2 is extended with schema-aware querying and display configuration). Collections (cross-facet). Sandbox scripting system with dashboard widgets. Integrations (Jellyfin, Plex, Kodi webhooks). Import from existing Ryot instances and other services (Goodreads, Trakt, MyAnimeList).
 
 ### Phase 4: Polish and Scale
 
