@@ -1,29 +1,19 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { TranslationStatus } from "@ryot/contract/modules/entities/schemas";
 import {
 	type DeclareInterestBody,
 	type EntityUpdatedReason,
 	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot/contract/modules/entity-interest/messages";
-import type { RowItem } from "@ryot/contract/modules/ryotql/language";
+import type { EntityId, UserId } from "@ryot/contract/schema/brands";
 import {
-	EntityId,
-	EntitySchemaSlug,
-	SandboxProviderId,
-	type UserId,
-} from "@ryot/contract/schema/brands";
-import { buildEntityInterestDocument } from "@ryot/ryotql-recipes/entities";
-import { Context, Effect, Layer, Schema } from "effect";
+	buildEntityInterestDocument,
+	decodeEntityInterestResponse,
+	type EntityInterestRow,
+} from "@ryot/ryotql-recipes/entities";
+import { Context, Effect, Layer, Result } from "effect";
 
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
 import { TranslationsService } from "#modules/entity-translation/service";
-import {
-	getOptionalIsoStringField,
-	getOptionalStringField,
-	requireFieldValue,
-	requireRowsResult,
-	requireStringField,
-} from "#modules/ryotql/response-helpers";
 import { RyotQLService } from "#modules/ryotql/service";
 import { MAX_ROOT_PAGE_SIZE } from "#modules/ryotql/validator";
 
@@ -39,32 +29,6 @@ const chunk = <T>(items: readonly T[], size: number): T[][] => {
 
 type TerminalUpdate = { readonly entityId: EntityId; readonly reason: EntityUpdatedReason };
 
-type InterestRow = {
-	readonly id: EntityId;
-	readonly properties: unknown;
-	readonly externalId: string | null;
-	readonly populatedAt: string | null;
-	readonly entitySchemaSlug: EntitySchemaSlug;
-	readonly translationStatus: TranslationStatus;
-	readonly providerId: SandboxProviderId | null;
-};
-
-const toInterestRow = Effect.fn("toInterestRow")(function* (row: RowItem) {
-	const providerId = yield* getOptionalStringField(row, "providerId");
-	const translationStatus = yield* Schema.decodeUnknownEffect(TranslationStatus)(
-		yield* requireStringField(row, "translationStatus"),
-	).pipe(Effect.orDie);
-	return {
-		translationStatus,
-		id: EntityId.make(yield* requireStringField(row, "id")),
-		externalId: yield* getOptionalStringField(row, "externalId"),
-		properties: (yield* requireFieldValue(row, "properties")).value,
-		populatedAt: yield* getOptionalIsoStringField(row, "populatedAt"),
-		providerId: providerId ? SandboxProviderId.make(providerId) : null,
-		entitySchemaSlug: EntitySchemaSlug.make(yield* requireStringField(row, "entitySchemaSlug")),
-	} satisfies InterestRow;
-});
-
 export class InterestReconciler extends Context.Service<InterestReconciler>()(
 	"InterestReconciler",
 	{
@@ -75,7 +39,7 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 
 			const handleRow = (
 				user: CurrentUserValue,
-				row: InterestRow,
+				row: EntityInterestRow,
 			): Effect.Effect<TerminalUpdate | null> =>
 				Effect.gen(function* () {
 					if (row.populatedAt === null) {
@@ -132,9 +96,11 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 					}
 					const doc = buildEntityInterestDocument({ entityIds: [firstId, ...restIds] });
 					const response = yield* ryotql.execute(user, doc);
-					const rows = yield* requireRowsResult(response, "entities");
-					for (const item of rows.items) {
-						const result = yield* handleRow(user, yield* toInterestRow(item));
+					const rows = yield* Effect.sync(() =>
+						Result.getOrThrow(decodeEntityInterestResponse(response)),
+					);
+					for (const row of rows) {
+						const result = yield* handleRow(user, row);
 						if (result) {
 							terminal.push(result);
 						}
