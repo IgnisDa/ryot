@@ -27,6 +27,7 @@ import { Text } from "@/components/ui/text";
 
 import type { loadRelatedCollections } from "./collections";
 import type { RelatedCompany } from "./companies";
+import type { loadRelatedGroups } from "./groups";
 import { HeroSection } from "./hero-section";
 import {
 	AboutSection,
@@ -34,6 +35,7 @@ import {
 	CompaniesSection,
 	CreatorsSection,
 	DetailsSection,
+	GroupsSection,
 } from "./sections";
 import {
 	AnimeAiringSchedule,
@@ -44,6 +46,8 @@ import {
 import type { EntityDetail, UnlinkedCreator } from "./types";
 
 type Collections = Awaited<ReturnType<typeof loadRelatedCollections>>;
+
+type Groups = Awaited<ReturnType<typeof loadRelatedGroups>>;
 
 type TabConfig = {
 	key: string;
@@ -83,6 +87,7 @@ function getTypeSpecificTab(entity: EntityDetail): TabConfig | null {
 
 function OverviewTab(props: {
 	entity: EntityDetail;
+	groups: Groups | null;
 	creators: UnlinkedCreator[];
 	companies: RelatedCompany[];
 	collections: Collections | null;
@@ -97,6 +102,7 @@ function OverviewTab(props: {
 				</Box>
 				<Box>
 					<DetailsSection entity={props.entity} creators={props.creators} />
+					<GroupsSection groups={props.groups} />
 					<CollectionsSection collections={props.collections} />
 				</Box>
 			</Box>
@@ -230,6 +236,7 @@ function TabBar(props: {
 
 export function EntityDetailTabs(props: {
 	entity: EntityDetail;
+	groups: Groups | null;
 	creators: UnlinkedCreator[];
 	companies: RelatedCompany[];
 	collections: Collections | null;
@@ -254,6 +261,7 @@ export function EntityDetailTabs(props: {
 		))
 		.with("overview", () => (
 			<OverviewTab
+				groups={props.groups}
 				entity={props.entity}
 				creators={props.creators}
 				companies={props.companies}
