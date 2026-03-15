@@ -26,25 +26,34 @@ const completeSchema = {
 const createHost = (options: {
 	entityProperties?: JsonValue;
 	events?: ReturnType<typeof eventRecord>[];
+	eventPages?: ReturnType<typeof eventRecord>[][];
 }) => {
 	const created: (readonly CreateEventItem[])[] = [];
+	const documents: unknown[] = [];
 	let queryIndex = 0;
 	return {
 		created,
+		documents,
 		host: defineSandboxTestHost(manifest, {
 			listEventSchemas: () => hostSuccess([completeSchema]),
 			createEvents: (items) => {
 				created.push(items);
 				return hostSuccess({ count: items.length });
 			},
-			executeRyotql: () => {
+			executeRyotql: (document) => {
+				documents.push(document);
 				const index = queryIndex++;
+				const eventPages = options.eventPages ?? [options.events ?? []];
+				const eventPageIndex = index - 1;
 				return hostSuccess(
 					ryotqlRows(
 						index === 0 ? "entities" : "events",
 						index === 0
 							? [entityRecord({ properties: options.entityProperties ?? {} })]
-							: (options.events ?? []),
+							: (eventPages[eventPageIndex] ?? []),
+						index === 0
+							? { hasMore: false, page: 1 }
+							: { page: eventPageIndex + 1, hasMore: eventPageIndex < eventPages.length - 1 },
 					),
 				);
 			},
@@ -187,6 +196,44 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 			).pipe(
 				Effect.map(() => {
 					expect(created).toHaveLength(1);
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("combines every progress event page before checking coverage", () => {
+		const firstPage = Array.from({ length: 100 }, (_, index) =>
+			eventRecord({
+				id: `episode-${index + 1}`,
+				properties: { progressPercent: 100, animeEpisode: index + 1 },
+				occurredAt: new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString(),
+			}),
+		);
+		const finalEvent = eventRecord({
+			id: "episode-101",
+			properties: { progressPercent: 100, animeEpisode: 101 },
+			occurredAt: new Date(Date.UTC(2026, 0, 1, 0, 100)).toISOString(),
+		});
+		const { created, documents, host } = createHost({
+			entityProperties: { episodes: 101 },
+			eventPages: [firstPage, [finalEvent]],
+		});
+		return Effect.runPromise(
+			run(
+				eventAutomationContext({
+					id: finalEvent.id,
+					properties: { progressPercent: 100, animeEpisode: 101 },
+					subject: { id: "entity-1", name: "Anime", entitySchemaSlug: "anime" },
+				}),
+				host,
+			).pipe(
+				Effect.map(() => {
+					expect(created).toHaveLength(1);
+					expect(documents.slice(1)).toMatchObject([
+						{ queries: { events: { output: { pagination: { page: 1 } } } } },
+						{ queries: { events: { output: { pagination: { page: 2 } } } } },
+					]);
 					return undefined;
 				}),
 			),
