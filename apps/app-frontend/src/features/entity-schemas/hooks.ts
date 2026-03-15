@@ -1,6 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "#/hooks/api";
-import type { AppEntitySchema } from "./model";
 import { sortEntitySchemas } from "./model";
 
 export function useEntitySchemasQuery(facetId: string, enabled = true) {
@@ -14,11 +13,7 @@ export function useEntitySchemasQuery(facetId: string, enabled = true) {
 
 	return {
 		...query,
-		entitySchemas: sortEntitySchemas(
-			// OpenAPI spec types propertiesSchema as Record<string, unknown>,
-			// but our model uses stricter AppSchema type (Record<string, AppPropertyDefinition>)
-			(query.data?.data ?? []) as unknown as AppEntitySchema[],
-		),
+		entitySchemas: sortEntitySchemas(query.data?.data ?? []),
 	};
 }
 
