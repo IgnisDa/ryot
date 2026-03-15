@@ -2,13 +2,15 @@ type CustomEntityScope = {
 	isBuiltin: boolean;
 };
 
-type CustomEntityAccessError = "builtin" | "not_found";
+export type CustomEntityAccessError = "builtin" | "not_found";
 
-export const resolveCustomEntitySchemaAccess = <
-	T extends CustomEntityScope | undefined,
->(
-	entitySchema: T,
-) => {
+type CustomEntitySchemaAccessResult<T extends CustomEntityScope> =
+	| { error: CustomEntityAccessError }
+	| { entitySchema: T };
+
+export const resolveCustomEntitySchemaAccess = <T extends CustomEntityScope>(
+	entitySchema: T | undefined,
+): CustomEntitySchemaAccessResult<T> => {
 	if (!entitySchema) return { error: "not_found" as const };
 	if (entitySchema.isBuiltin) return { error: "builtin" as const };
 
@@ -22,14 +24,12 @@ export const resolveCustomEntityAccessError = (input: {
 }) => {
 	if (input.error === "not_found")
 		return {
-			status: 404 as const,
-			kind: "not_found" as const,
+			error: "not_found" as const,
 			message: input.notFoundMessage,
 		};
 
 	return {
-		status: 400 as const,
-		kind: "validation" as const,
+		error: "builtin" as const,
 		message: input.builtinMessage,
 	};
 };

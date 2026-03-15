@@ -28,8 +28,7 @@ export const resolveEntityDetailAccess = (
 	scope: EntityDetailScope | undefined,
 ): EntityDetailAccess => {
 	const entityAccess = resolveCustomEntitySchemaAccess(scope);
-	if ("error" in entityAccess && entityAccess.error)
-		return { error: entityAccess.error };
+	if (!("entitySchema" in entityAccess)) return { error: entityAccess.error };
 
 	return { access: entityAccess.entitySchema };
 };
