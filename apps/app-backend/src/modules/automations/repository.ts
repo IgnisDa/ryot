@@ -42,7 +42,7 @@ export type AutomationReferenceScope = {
 	userId: UserId | null;
 };
 
-export type AutomationScriptScope = AutomationReferenceScope & {
+type AutomationScriptScope = AutomationReferenceScope & {
 	capabilities: ReadonlyArray<string>;
 };
 

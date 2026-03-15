@@ -14,7 +14,7 @@ export type SignalDispatchInput = {
 	recipientUserIds: ReadonlyArray<UserId>;
 };
 
-export type SignalDispatchValue = {
+type SignalDispatchValue = {
 	dispatch: (input: SignalDispatchInput) => Effect.Effect<void, DbError>;
 };
 

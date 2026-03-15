@@ -35,8 +35,7 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 	entityIdsByKey: EntityIdsByKey;
 	reportProgress: ProgressReporter;
 	entityGroups: ImportMediaEntityGroup[];
-	options: { integrationId?: IntegrationId };
-	payload: Pick<ImportRunJobData, "runId" | "userId">;
+	payload: Pick<ImportRunJobData, "runId" | "userId"> & { integrationId?: IntegrationId };
 }) {
 	const runWithDb = yield* DbRunner;
 	const events = yield* EventsService;
@@ -237,12 +236,12 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 			const eventWrite = yield* events
 				.create({
 					payload: eventPayload,
-					executionId: eventExecutionId,
 					userId: input.payload.userId,
-					source: input.options.integrationId ? "integration" : "import",
+					executionId: eventExecutionId,
+					source: input.payload.integrationId ? "integration" : "import",
 					metadata: {
 						importRunId: input.payload.runId,
-						...(input.options.integrationId ? { integrationId: input.options.integrationId } : {}),
+						...(input.payload.integrationId ? { integrationId: input.payload.integrationId } : {}),
 					},
 				})
 				.pipe(
