@@ -12,9 +12,11 @@ import {
 	initializeSandboxService,
 	shutdownSandboxService,
 } from "~/lib/sandbox";
+import { initializeMetrics } from "~/modules/system/service";
 import { app } from "./server";
 
 export const startServer = async () => {
+	initializeMetrics();
 	await migrateDB();
 	await initializeRedis();
 	await initializeQueues();
