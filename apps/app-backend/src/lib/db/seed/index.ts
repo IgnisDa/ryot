@@ -1,22 +1,19 @@
 import type { DbClient } from "~/lib/db";
+import { authenticationBuiltinEntitySchemas } from "~/modules/authentication/bootstrap/manifests";
 import {
 	ensureBuiltinEntitySchema,
 	ensureBuiltinEntitySchemaEventSchemas,
 	ensureBuiltinSandboxScript,
 	linkScriptPairToEntitySchema,
 } from "./helpers";
-import {
-	builtinEntitySchemas,
-	builtinSandboxScripts,
-	entitySchemaScriptLinks,
-} from "./manifests";
+import { builtinSandboxScripts, entitySchemaScriptLinks } from "./manifests";
 
 export const seedInitialDatabase = async (database: DbClient) => {
 	console.info("Seeding entity schemas...");
 
 	await database.transaction(async (tx) => {
 		const schemaIds = new Map<string, string>();
-		for (const schema of builtinEntitySchemas()) {
+		for (const schema of authenticationBuiltinEntitySchemas()) {
 			const schemaId = await ensureBuiltinEntitySchema({
 				database: tx,
 				slug: schema.slug,
