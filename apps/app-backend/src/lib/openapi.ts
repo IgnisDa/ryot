@@ -70,6 +70,28 @@ export const payloadErrorResponse = () =>
 
 export const successResponse = <T>(data: T) => ({ data });
 
+export const createNotFoundErrorResult = (message = "Resource not found") => ({
+	body: errorResponse(ERROR_CODES.NOT_FOUND, message),
+	status: 404 as const,
+});
+
+export const createValidationErrorResult = (message: string) => ({
+	body: errorResponse(ERROR_CODES.VALIDATION_FAILED, message),
+	status: 400 as const,
+});
+
+export const resolveValidationResult = <T>(
+	callback: () => T,
+	fallback: string,
+) => {
+	try {
+		return { data: callback() } as const;
+	} catch (error) {
+		const message = error instanceof Error ? error.message : fallback;
+		return createValidationErrorResult(message);
+	}
+};
+
 export const paginationMetaSchema = z.object({
 	hasMore: z.boolean(),
 	page: z.number().int().positive(),
