@@ -307,6 +307,7 @@ export interface paths {
                                 config?: unknown;
                                 enabled: boolean;
                                 isBuiltin: boolean;
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 description?: string | null;
                                 accentColor: string;
@@ -342,6 +343,7 @@ export interface paths {
                     "application/json": {
                         name: string;
                         slug?: string;
+                        /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                         icon: string;
                         accentColor: string;
                         description?: string;
@@ -363,6 +365,7 @@ export interface paths {
                                 config?: unknown;
                                 enabled: boolean;
                                 isBuiltin: boolean;
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 description?: string | null;
                                 accentColor: string;
@@ -430,6 +433,7 @@ export interface paths {
                         enabled?: boolean;
                         description?: string | unknown;
                         accentColor?: string;
+                        /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                         icon?: string;
                         name?: string;
                         slug?: string;
@@ -451,6 +455,7 @@ export interface paths {
                                 config?: unknown;
                                 enabled: boolean;
                                 isBuiltin: boolean;
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 description?: string | null;
                                 accentColor: string;
@@ -596,6 +601,7 @@ export interface paths {
                                 slug: string;
                                 trackerId: string;
                                 isBuiltin: boolean;
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 accentColor: string;
                                 propertiesSchema: {
@@ -654,6 +660,7 @@ export interface paths {
                     "application/json": {
                         name: string;
                         slug?: string;
+                        /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                         icon: string;
                         trackerId: string;
                         accentColor: string;
@@ -677,6 +684,7 @@ export interface paths {
                                 slug: string;
                                 trackerId: string;
                                 isBuiltin: boolean;
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 accentColor: string;
                                 propertiesSchema: {
@@ -1510,6 +1518,7 @@ export interface paths {
                                 name: string;
                                 isBuiltin: boolean;
                                 trackerId: string | null;
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 accentColor: string;
                                 queryDefinition: {
@@ -1555,6 +1564,7 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
+                        /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                         icon: string;
                         name: string;
                         accentColor: string;
@@ -1578,6 +1588,7 @@ export interface paths {
                                 name: string;
                                 isBuiltin: boolean;
                                 trackerId: string | null;
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 accentColor: string;
                                 queryDefinition: {
@@ -1651,6 +1662,7 @@ export interface paths {
                                 name: string;
                                 isBuiltin: boolean;
                                 trackerId: string | null;
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 accentColor: string;
                                 queryDefinition: {

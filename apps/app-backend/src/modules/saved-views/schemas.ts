@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { dataSchema } from "~/lib/openapi";
-import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
+import {
+	applicationIconNameSchema,
+	nonEmptyTrimmedStringSchema,
+} from "~/lib/zod/base";
 
 export const savedViewQueryDefinitionSchema = z.object({
 	entitySchemaIds: z.array(z.string()),
@@ -15,7 +18,7 @@ export const listedSavedViewSchema = z.object({
 	name: z.string(),
 	isBuiltin: z.boolean(),
 	trackerId: z.string().nullable(),
-	icon: nonEmptyTrimmedStringSchema,
+	icon: applicationIconNameSchema,
 	accentColor: nonEmptyTrimmedStringSchema,
 	queryDefinition: savedViewQueryDefinitionSchema,
 });
@@ -29,7 +32,7 @@ export const listSavedViewsQuery = z.object({
 });
 
 export const createSavedViewBody = z.object({
-	icon: nonEmptyTrimmedStringSchema,
+	icon: applicationIconNameSchema,
 	name: nonEmptyTrimmedStringSchema,
 	accentColor: nonEmptyTrimmedStringSchema,
 	trackerId: nonEmptyTrimmedStringSchema.optional(),
