@@ -13,7 +13,7 @@ export const manifest = defineManifest({
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	slug: "integration.audiobookshelf",
-	capabilities: ["httpCall", "getIntegration"],
+	capabilities: ["httpCall", "getCurrentIntegration"],
 });
 
 const Input = Schema.Struct({});
@@ -132,7 +132,7 @@ export default defineActivity({
 	output: MediaIntegrationAdapterResult,
 	run: (_input, host) =>
 		Effect.gen(function* () {
-			const integration = yield* host.getIntegration();
+			const integration = yield* host.getCurrentIntegration();
 			const settings = specifics(integration.providerSpecifics);
 			const token = typeof settings?.["token"] === "string" ? settings["token"] : "";
 			const root = baseUrl(settings?.["baseUrl"]);

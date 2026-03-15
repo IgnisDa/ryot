@@ -48,7 +48,7 @@ const runPlex = (routes: Record<string, Route>, syncOwnership = false) =>
 			{},
 			defineSandboxTestHost(plexManifest, {
 				httpCall: httpCall(routes),
-				getIntegration: () =>
+				getCurrentIntegration: () =>
 					hostSuccess(
 						integrationRecord({
 							syncOwnership,
@@ -68,7 +68,7 @@ const runAudiobookshelf = (routes: Record<string, Route>, syncOwnership = false)
 			{},
 			defineSandboxTestHost(audiobookshelfManifest, {
 				httpCall: httpCall(routes),
-				getIntegration: () =>
+				getCurrentIntegration: () =>
 					hostSuccess(
 						integrationRecord({
 							syncOwnership,
@@ -506,7 +506,7 @@ describe("Komga yank", () => {
 						},
 						"/api/v1/books?page=0&size=500": { totalPages: 1, content: [book] },
 					}),
-					getIntegration: () =>
+					getCurrentIntegration: () =>
 						hostSuccess(
 							integrationRecord({
 								syncOwnership: true,
