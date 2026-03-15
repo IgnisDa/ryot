@@ -34,7 +34,7 @@ Host functions are assembled through `SandboxHostImplementations`, so orchestrat
 | --------------------------- | --------------------------------- |
 | `getEntities(ids[])`        | - [x] batch entity reads          |
 | `getEntitySchemas(slugs[])` | - [x] batch entity schema reads |
-| `listEventSchemas(slug)`    | - [ ] accept `slugs[]`            |
+| `listEventSchemas(slugs[])`  | - [x] accept `slugs[]`            |
 | `getPluginConfigValue(key)` | - [ ] `getPluginConfig(keys[])`   |
 | `getSystemConfigValue(key)` | - [ ] `getSystemConfig(keys[])`   |
 

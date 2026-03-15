@@ -542,26 +542,35 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				Effect.flatMap((input) => readUserPreferences(UserId.make(input.authority.userId))),
 				sandboxHostEffect,
 			),
-		listEventSchemas: (rawInput, entitySchemaSlug) =>
+		listEventSchemas: (rawInput, entitySchemaSlugs) =>
 			requireUserSandboxRunInput(rawInput, "listEventSchemas").pipe(
 				Effect.andThen(
-					requireNonEmptyString(
-						entitySchemaSlug,
-						"listEventSchemas expects a non-empty entitySchemaSlug",
+					Effect.forEach(entitySchemaSlugs, (entitySchemaSlug) =>
+						requireNonEmptyString(
+							entitySchemaSlug,
+							"listEventSchemas expects non-empty entitySchemaSlugs",
+						),
 					).pipe(
-						Effect.flatMap((resolvedEntitySchemaSlug) => {
-							const entitySchema = definitions.getEntitySchema(resolvedEntitySchemaSlug);
-							return entitySchema
-								? Effect.succeed(
-										Object.values(entitySchema.eventSchemas).map((eventSchema) => ({
-											id: eventSchema.slug,
-											slug: eventSchema.slug,
-											name: eventSchema.name,
-											entitySchemaSlug: resolvedEntitySchemaSlug,
-											propertiesSchema: toSandboxJsonValue(eventSchema.propertiesSchema),
-										})),
-									)
-								: Effect.fail("Entity schema not found");
+						Effect.flatMap((rawEntitySchemaSlugs) => {
+							const resolvedEntitySchemaSlugs = [...new Set(rawEntitySchemaSlugs)];
+							if (resolvedEntitySchemaSlugs.length === 0) {
+								return Effect.succeed([]);
+							}
+
+							return Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
+								const entitySchema = definitions.getEntitySchema(entitySchemaSlug);
+								return entitySchema
+									? Effect.succeed(
+											Object.values(entitySchema.eventSchemas).map((eventSchema) => ({
+												entitySchemaSlug,
+												id: eventSchema.slug,
+												slug: eventSchema.slug,
+												name: eventSchema.name,
+												propertiesSchema: toSandboxJsonValue(eventSchema.propertiesSchema),
+											})),
+										)
+									: Effect.fail("Entity schema not found");
+							}).pipe(Effect.map((schemas) => schemas.flat()));
 						}),
 					),
 				),

@@ -118,7 +118,7 @@ const getCompletionCandidates = (
 
 const getCompleteSchema = (host: AutomationHost, entitySchemaSlug: string) =>
 	host
-		.listEventSchemas(entitySchemaSlug)
+		.listEventSchemas([entitySchemaSlug])
 		.pipe(
 			Effect.map(
 				(schemas): EventSchemaRecord | null =>
