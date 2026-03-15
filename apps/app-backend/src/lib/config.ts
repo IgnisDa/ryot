@@ -7,7 +7,7 @@ const configSchema = z.object({
 	SERVER_ADMIN_ACCESS_TOKEN: z.string(),
 	FILE_STORAGE_S3_URL: z.string().nullish(),
 	FILE_STORAGE_S3_REGION: z.string().nullish(),
-	NODE_ENV: z.string().default("development"),
+	NODE_ENV: z.string().default("production"),
 	FILE_STORAGE_S3_BUCKET_NAME: z.string().nullish(),
 	FILE_STORAGE_S3_ACCESS_KEY_ID: z.string().nullish(),
 	FILE_STORAGE_S3_SECRET_ACCESS_KEY: z.string().nullish(),
