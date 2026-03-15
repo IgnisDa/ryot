@@ -106,6 +106,8 @@ For rendering mixed-entity collections, items display in a uniform card format: 
 
 Saved views depend on the query builder, which needs to know property types to offer the right filter operators. Saved views can target one schema, multiple schemas, or full facets. Filters are schema-aware: operators are offered only where they are valid, and conditions against missing properties evaluate predictably rather than breaking the query.
 
+The scope of a saved view (which schemas/facets it targets) is stored within its `queryDefinition` jsonb, not as a foreign key reference. This allows saved views to flexibly target multiple schemas or entire facets without requiring complex junction tables. The sidebar rendering logic determines which facet a saved view belongs under by examining its query definition.
+
 Collections have no such constraint. They're just buckets of entities.
 
 ### Sandbox scripts as the extensibility layer
@@ -145,6 +147,8 @@ Power users who understand the implications can make breaking changes through th
 The sidebar sub-items under a facet (Movies, TV Shows, Books under Media; Workouts, Measurements under Fitness; or the single entry for a custom Whiskey facet) are not custom-built pages. They are **pre-built, non-deletable saved views** that ship with each facet. The "Movies" page is a saved view with the query `entity_schema = movie` and zero additional filters. When a user adds filters, sorts, or changes the layout, they're interacting with saved view configuration.
 
 This means there is no separate "entity list page" component. The saved view renderer *is* the entity list page. Custom facets get the exact same browsing experience for free — when a user creates a Whiskey facet, they automatically get a saved view in the sidebar that shows all whiskey entities.
+
+In the database schema, saved views have an `isBuiltin` boolean flag. Views with `isBuiltin = true` cannot be deleted through the UI or API — this protects the essential entity list views that ship with each schema. User-created saved views have `isBuiltin = false` and are deletable. No separate `isDeletable` column is needed; the built-in status determines this behavior at the application logic level.
 
 A saved view carries two pieces of configuration:
 
