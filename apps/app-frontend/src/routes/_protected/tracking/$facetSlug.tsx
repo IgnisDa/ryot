@@ -27,7 +27,7 @@ function RouteComponent() {
 			<Center h="100vh">
 				<Loader size="lg" />
 			</Center>
-		);
+		)
 
 	if (!facet)
 		return (
@@ -39,7 +39,7 @@ function RouteComponent() {
 					</Text>
 				</Stack>
 			</Container>
-		);
+		)
 
 	return (
 		<Container size="md" py={56}>
@@ -100,5 +100,5 @@ function RouteComponent() {
 				</Box>
 			</Stack>
 		</Container>
-	);
+	)
 }
