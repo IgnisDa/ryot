@@ -6,7 +6,7 @@ import { Pool } from "pg";
 import { config } from "~/lib/config";
 import { seedInitialDatabase } from "./seed";
 
-const migrationsFolder = `${process.cwd()}/drizzle`;
+const migrationsFolder = `${process.cwd()}/src/drizzle`;
 
 export const pool = new Pool({ connectionString: config.DATABASE_URL });
 
