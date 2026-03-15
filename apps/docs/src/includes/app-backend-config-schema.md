@@ -16,6 +16,7 @@
 
 | Variable | Description | Required | Default | Sensitive |
 |---|---|---|---|---|
+| `SERVER_CORS_ORIGINS` | Comma-separated list of additional allowed CORS origins | No | `—` | No |
 | `SERVER_ADMIN_ACCESS_TOKEN` | Secret token required for admin API operations | Yes | `—` | Yes |
 
 ### User account settings

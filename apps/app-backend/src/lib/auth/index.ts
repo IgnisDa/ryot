@@ -19,6 +19,7 @@ export const auth = betterAuth({
 	secret: config.server.adminAccessToken,
 	secondaryStorage: redisStorage({ client: redis }),
 	database: drizzleAdapter(db, { provider: "pg", schema }),
+	trustedOrigins: [config.frontendUrl, ...config.server.corsOrigins],
 	emailAndPassword: {
 		enabled: true,
 		autoSignIn: false,
