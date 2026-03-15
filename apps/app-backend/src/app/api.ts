@@ -1,7 +1,7 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
-import { auth, type MaybeAuthType } from "~/auth";
+import { auth, type MaybeAuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
 	dataSchema,
