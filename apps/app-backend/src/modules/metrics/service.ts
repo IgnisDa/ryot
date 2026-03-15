@@ -1,4 +1,5 @@
 import promClient from "prom-client";
+import { pool } from "~/db";
 
 let metricsInitialized = false;
 
@@ -7,6 +8,10 @@ export const initializeMetrics = () => {
 	metricsInitialized = true;
 
 	promClient.collectDefaultMetrics({ prefix: "app_" });
+
+	setInterval(() => {
+		updateDbMetrics();
+	}, 5000);
 };
 
 export const httpRequestDuration = new promClient.Histogram({
@@ -32,6 +37,12 @@ export const dbConnectionPoolAvailable = new promClient.Gauge({
 	help: "Available database connections in pool",
 });
 
+export const updateDbMetrics = () => {
+	dbConnectionPoolSize.set(pool.totalCount);
+	dbConnectionPoolAvailable.set(pool.idleCount);
+};
+
 export const getMetricsAsText = async () => {
+	updateDbMetrics();
 	return promClient.register.metrics();
 };
