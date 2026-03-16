@@ -109,17 +109,28 @@ The saved view schema should include:
 - `name: string` — view name
 - `icon?: string` — optional icon identifier
 - `accentColor?: string` — optional accent color
-- `trackerId?: string` — optional tracker association
+- `trackerId?: string` — optional tracker FK for sidebar grouping (purely display-related)
 - `isBuiltIn: boolean` — whether this is a built-in protected view
+- `queryDefinition: jsonb` — the data query (required)
+- `displayConfiguration: jsonb` — the presentation config (required)
+
+The `queryDefinition` column stores:
+
 - `entitySchemaIds: string[]` — which schemas to query
 - `filters: FilterExpression[]` — attribute filters to apply
-- `displayFields: string[]` — which entity properties to show in the listing (required)
-- `sort: { key: string, direction: "asc" | "desc" }` — how to order results (required)
-- `layout: "grid" | "list" | "table"` — how to render the listing (required)
+- `sort: { key: string, direction: "asc" | "desc" }` — how to order results
+- `eventConditions: []` — event-based conditions (future)
 
-No split between "definition" and "presentation" is needed. All fields define what the view is and how it executes.
+The `displayConfiguration` column stores:
 
-This keeps the saved-view record aligned with product behavior without making `view-runtime` own persistence concerns.
+- `layout: "grid" | "list" | "table"` — currently active layout
+- `grid: {}` — grid layout configuration
+- `list: {}` — list layout configuration
+- `table: {}` — table layout configuration
+
+All three layout configurations are stored simultaneously so users can switch between layouts in the frontend without losing their configuration. Each layout specifies which entity properties to display and how.
+
+This separation keeps query logic distinct from presentation concerns while allowing the saved-view record to align with product behavior without making `view-runtime` own persistence concerns.
 
 ## Concrete Example
 
@@ -142,14 +153,40 @@ Consider a "Smartphones" entity schema with properties:
 ```json
 {
   "name": "Recent Samsung Phones",
-  "entitySchemaIds": ["smartphones-schema-id"],
-  "filters": [
-    { "field": "manufacturer", "op": "eq", "value": "Samsung" },
-    { "field": "year", "op": "lt", "value": 2025 }
-  ],
-  "displayFields": ["manufacturer", "year", "price_usd"],
-  "sort": { "key": "year", "direction": "desc" },
-  "layout": "grid"
+  "trackerId": "smartphones-tracker-id",
+  "isBuiltIn": false,
+  "queryDefinition": {
+    "entitySchemaIds": ["smartphones-schema-id"],
+    "filters": [
+      { "field": "manufacturer", "op": "eq", "value": "Samsung" },
+      { "field": "year", "op": "lt", "value": 2025 }
+    ],
+    "sort": { "field": "year", "direction": "desc" },
+    "eventConditions": []
+  },
+  "displayConfiguration": {
+    "layout": "grid",
+    "grid": {
+      "imageProperty": "product_image",
+      "titleProperty": "name",
+      "subtitleProperties": ["manufacturer", "year"],
+      "badgeProperty": "price_usd"
+    },
+    "list": {
+      "imageProperty": "product_image",
+      "titleProperty": "name",
+      "subtitleProperties": ["manufacturer", "year", "price_usd"],
+      "badgeProperty": null
+    },
+    "table": {
+      "columns": [
+        { "property": "name" },
+        { "property": "manufacturer" },
+        { "property": "year" },
+        { "property": "price_usd" }
+      ]
+    }
+  }
 }
 ```
 
@@ -158,15 +195,41 @@ Consider a "Smartphones" entity schema with properties:
 ```json
 {
   "name": "Older Android Phones",
-  "entitySchemaIds": ["smartphones-schema-id"],
-  "filters": [
-    { "field": "year", "op": "lt", "value": 2020 },
-    { "field": "year", "op": "gt", "value": 2001 },
-    { "field": "os", "op": "eq", "value": "Android" }
-  ],
-  "displayFields": ["os", "year", "screen_size"],
-  "sort": { "key": "year", "direction": "asc" },
-  "layout": "list"
+  "trackerId": "smartphones-tracker-id",
+  "isBuiltIn": false,
+  "queryDefinition": {
+    "entitySchemaIds": ["smartphones-schema-id"],
+    "filters": [
+      { "field": "year", "op": "lt", "value": 2020 },
+      { "field": "year", "op": "gt", "value": 2001 },
+      { "field": "os", "op": "eq", "value": "Android" }
+    ],
+    "sort": { "field": "year", "direction": "asc" },
+    "eventConditions": []
+  },
+  "displayConfiguration": {
+    "layout": "list",
+    "grid": {
+      "imageProperty": "product_image",
+      "titleProperty": "name",
+      "subtitleProperties": ["os", "year"],
+      "badgeProperty": "screen_size"
+    },
+    "list": {
+      "imageProperty": "product_image",
+      "titleProperty": "name",
+      "subtitleProperties": ["os", "year", "screen_size"],
+      "badgeProperty": null
+    },
+    "table": {
+      "columns": [
+        { "property": "name" },
+        { "property": "os" },
+        { "property": "year" },
+        { "property": "screen_size" }
+      ]
+    }
+  }
 }
 ```
 
@@ -175,7 +238,8 @@ Consider a "Smartphones" entity schema with properties:
 When the frontend loads View 1:
 
 1. `GET /saved-views/{view1Id}` → returns the saved view above
-2. Frontend compiles runtime request from saved view fields:
+2. Frontend extracts the current layout from `displayConfiguration.layout` (e.g., "grid")
+3. Frontend compiles runtime request from `queryDefinition` + active layout config:
 
   ```json
   {
@@ -184,18 +248,22 @@ When the frontend loads View 1:
       { "field": "manufacturer", "op": "eq", "value": "Samsung" },
       { "field": "year", "op": "lt", "value": 2025 }
     ],
-    "sort": { "key": "year", "direction": "desc" },
+    "sort": { "field": "year", "direction": "desc" },
     "page": { "limit": 6, "offset": 0 },
-    "fields": ["manufacturer", "year", "price_usd"]
+    "fields": ["name", "manufacturer", "year", "price_usd", "product_image"]
   }
   ```
 
-3. `POST /view-runtime/execute` → returns only requested properties in `propertyValues`
-4. Frontend renders using `layout` and `displayFields` from the saved view
+  The `fields` parameter is derived from the active layout's config (grid in this case): `imageProperty`, `titleProperty`, `subtitleProperties`, and `badgeProperty`.
 
-This design gives users full control over which properties matter for each view's purpose, without requiring backend inference or returning wasteful full property sets.
+4. `POST /view-runtime/execute` → returns only requested properties in `propertyValues`
+5. Frontend renders using `layout` and the appropriate layout config from `displayConfiguration`
 
-**Key constraint**: The saved view explicitly stores `displayFields`, `sort`, and `layout` (all required). The backend makes no assumptions - clients must be explicit about what data they need and how to present it.
+This design gives users full control over which properties matter for each layout view, without requiring backend inference or returning wasteful full property sets.
+
+When the user switches from grid to list view in the UI, the frontend simply changes `displayConfiguration.layout` and reruns the query with different `fields` derived from `displayConfiguration.list` instead of `displayConfiguration.grid`.
+
+**Key constraint**: The saved view explicitly stores all three layout configurations. The backend makes no assumptions - clients must be explicit about what data they need and how to present it.
 
 ## Proposed Endpoints
 
@@ -292,8 +360,9 @@ They should start producing the richer saved-view structure so built-in views an
 - add `GET /saved-views/{viewId}`
 - add `PATCH /saved-views/{viewId}`
 - add `POST /saved-views/{viewId}/clone`
-- expand saved-view schema to include filters, displayFields, sort, and layout
-- make displayFields, sort, and layout required fields
+- add `queryDefinition` jsonb column to store query semantics (entitySchemaIds, filters, sort, eventConditions)
+- add `displayConfiguration` jsonb column to store presentation config (layout, grid config, list config, table config)
+- make both columns required with validation
 - update bootstrap paths that create built-in views with all required fields
 
 ### Phase 2: Build Real Runtime Execution
@@ -309,9 +378,10 @@ They should start producing the richer saved-view structure so built-in views an
 
 - change frontend route to `/views/$viewId`
 - fetch saved view by id
-- compile saved view into the runtime payload (filters, sort, displayFields → fields)
+- extract active layout from `displayConfiguration.layout`
+- compile runtime payload from `queryDefinition` + active layout config (derive `fields` from layout properties)
 - execute via `POST /view-runtime/execute`
-- render returned entities using layout and displayFields from the saved view
+- render returned entities using the active layout config from `displayConfiguration`
 - remove assumptions that saved views live under a tracker route
 
 ## Design Constraints
