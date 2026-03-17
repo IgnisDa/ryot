@@ -528,20 +528,12 @@ When the frontend loads View 1:
   }
   ```
 
-  The `displayConfiguration` is passed to the runtime for COALESCE resolution. The backend derives which properties to extract from the displayConfiguration's property reference arrays.
+  The active layout's `displayConfiguration` is passed through unchanged so the runtime can resolve its property reference arrays using the rules described in "Display Configuration Property References".
 
 4. `POST /view-runtime/execute` → returns entities with `resolvedProperties`
 5. Frontend renders using `layout` and the `resolvedProperties` from the runtime response
 
-**Backend COALESCE resolution:**
-
-For each property reference array in displayConfiguration, the backend strips the schema slug prefix and extracts the property name for jsonb access. Top-level column references (prefixed with `@`) map directly to entity columns. See "Backend resolution" above for concrete examples and "Complete SQL Query Example" for the full SQL translation.
-
-**Layout switching:**
-
-When the user switches from grid to list view in the UI, the frontend simply changes the active layout and reruns the query with a different `displayConfiguration` derived from `displayConfiguration.list` instead of `displayConfiguration.grid`.
-
-**Key constraint**: The saved view explicitly stores all three layout configurations. The backend makes no assumptions - clients must be explicit about what data they need and how to present it.
+When the user switches from grid to list view in the UI, the frontend changes the active layout and reruns the query with `displayConfiguration.list` instead of `displayConfiguration.grid`. The saved view stores all three layout configurations, and the backend makes no layout assumptions - clients must be explicit about what data they need and how to present it.
 
 ### Complete SQL Query Example
 
@@ -629,7 +621,7 @@ FROM paginated_entities pe;
 2. **Top-level filters**: `AND e.name ILIKE '%Pro%'` applies to all entities regardless of schema
 3. **Schema-specific filters**: Grouped by schema slug with OR between schemas, AND within each schema group
 4. **COALESCE for sorting**: Handles different property names across schemas
-5. **Resolved properties**: Backend performs COALESCE resolution for each display property reference, deriving which properties to extract from the displayConfiguration arrays
+5. **Resolved properties**: Backend computes each requested display slot from the supplied displayConfiguration property reference arrays
 6. **Pagination**: LIMIT/OFFSET with total count for pagination metadata
 7. **Response fields**: Returns both `entity_schema_id` (UUID FK) and `entity_schema_slug` (human-readable)
 
@@ -675,46 +667,12 @@ The existing module needs a fuller API surface so the frontend can support real 
 
 `POST /saved-views/{viewId}/clone` is preferred over implementing clone purely in the frontend because clone is now a first-class action in the product. The clone operation is a pure copy with no request body — it duplicates the entire saved view record with a new ID, sets `isBuiltin: false` (so cloned views are deletable), and appends " (Copy)" to the name (always the same suffix, no smart numbering). If users want to customize the cloned view or rename it, they immediately edit it via `PATCH /saved-views/{viewId}` after cloning. This keeps the clone operation simple and predictable.
 
-## Existing Endpoints That Need Changes
+Route behavior notes:
 
-### `POST /view-runtime/execute`
-
-This route must change.
-
-Current problems:
-
-- accepts only one `entitySchemaId`
-- returns a raw array instead of paginated runtime data
-- uses custom-entity access logic, which is wrong for a universal saved-view renderer
-- cannot represent sorting, filtering, or cross-schema execution
-
-The route should be rebuilt around the compiled runtime contract.
-
-### `GET /saved-views`
-
-This route can stay, but its response schema likely needs to grow once the saved-view definition and presentation shape become richer.
-
-### `POST /saved-views`
-
-This route can stay, but its request body must expand to accept the richer saved-view structure.
-
-### `DELETE /saved-views/{viewId}`
-
-This route can stay largely as-is. The built-in protection rule still makes sense.
-
-## Existing Endpoints That Should Be Added
-
-### `GET /saved-views/{viewId}`
-
-This is needed because the new frontend route is `/views/$viewId` and should fetch the view directly rather than loading all views and searching client-side.
-
-### `PATCH /saved-views/{viewId}`
-
-This is needed for editing non-built-in views.
-
-### `POST /saved-views/{viewId}/clone`
-
-New endpoint for cloning views. See "Proposed Endpoints" section for details.
+- `POST /view-runtime/execute` must be rebuilt around the compiled runtime contract; the current `entitySchemaId` placeholder is insufficient.
+- `GET /saved-views` can keep its route name, but its response schema needs to grow with the richer saved-view definition.
+- `POST /saved-views` can keep its route name, but its request body must accept the richer saved-view structure.
+- `DELETE /saved-views/{viewId}` can stay largely as-is. The built-in protection rule still makes sense.
 
 ## Existing Endpoints That Likely Do Not Need Changes
 
