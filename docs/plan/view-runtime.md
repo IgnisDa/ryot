@@ -331,7 +331,7 @@ The saved view schema should include:
 - `queryDefinition: jsonb` — the data query (required)
 - `displayConfiguration: jsonb` — the presentation config (required)
 
-**Note on `trackerId`**: This field is purely for UI organization and determines which tracker's sidebar section should display the saved view. It is **not** the source of truth for query scope — the actual schemas/trackers being queried are stored within `queryDefinition.entitySchemaSlugs`. For cross-tracker views querying multiple schemas, `trackerId` may be null or point to the primary tracker for sidebar placement purposes. The frontend sidebar rendering logic may also examine `queryDefinition` directly to determine appropriate placement when `trackerId` is null.
+**Note on `trackerId`**: This field is purely for UI organization and determines which tracker's sidebar section should display the saved view. It is **not** the source of truth for query scope — the actual schemas/trackers being queried are stored within `queryDefinition.entitySchemaSlugs`.
 
 The `queryDefinition` column stores:
 
