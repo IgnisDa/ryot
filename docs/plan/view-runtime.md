@@ -63,8 +63,7 @@ Suggested request shape:
 - `filters: FilterExpression[]` — flat array of filters (AND within each schema, OR across schema boundaries; compound nested logic in Phase 2)
 - `sort: { field: string[], direction: "asc" | "desc" }` — how to order results (field is an array for COALESCE across schemas)
 - `page: { limit: number, offset: number }` — pagination parameters
-- `fields: string[]` — schema-qualified property paths to return (e.g., `["smartphones.manufacturer", "tablets.maker"]`)
-- `displayConfiguration: object` — active layout configuration with property reference arrays for COALESCE resolution
+- `displayConfiguration: object` — active layout configuration with property reference arrays; the backend derives which jsonb properties to extract from these arrays and performs COALESCE resolution
 
 Each filter in the `filters` array has the shape:
 
@@ -114,8 +113,11 @@ The `resolvedProperties` object contains the resolved values for each displayCon
 {
   "id": "entity-123",
   "name": "iPhone 15 Pro",
+  "image": "https://...",
   "entitySchemaId": "c3f8a9b2-...",
   "entitySchemaSlug": "smartphones",
+  "createdAt": "2024-09-15T10:30:00Z",
+  "updatedAt": "2024-12-01T14:22:00Z",
   "resolvedProperties": {
     "imageProperty": "https://...",
     "titleProperty": "iPhone 15 Pro",
@@ -145,7 +147,7 @@ To support cross-schema views where different entity schemas have different prop
    - References properties in the entity's `propertyValues` jsonb column
    - **Required for all entity schema properties** — no unqualified references allowed
    - Schema slugs are stable identifiers (e.g., "smartphones", "movies", "whiskeys")
-   - Used in filters, sorts, fields, and displayConfiguration
+   - Used in filters, sorts, and displayConfiguration
 
 **No unqualified properties:**
 
@@ -185,7 +187,6 @@ This syntax is used uniformly in:
 
 - `filters[].field` — filter by entity properties
 - `sort.field` — array of paths for COALESCE ordering
-- `fields[]` — which properties to extract from the jsonb column for COALESCE resolution
 - `displayConfiguration.*Property` — arrays of paths for COALESCE rendering
 - `eventConditions[].field` (Phase 2) — filter by event properties
 - `relationships[].propertyFilters[].field` (Phase 2) — filter by relationship properties
@@ -281,7 +282,7 @@ Display configurations use the schema-qualified property syntax with one key add
 }
 ```
 
-All property references are flat arrays of schema-qualified paths. The backend resolves each using COALESCE to return the first non-null value.
+All property references are flat arrays of schema-qualified paths. The backend resolves each using COALESCE to return the first non-null value. Each resolved property is a single value, not a concatenation — for example, `subtitleProperty: ["smartphones.manufacturer", "smartphones.year"]` returns the manufacturer if present, falling back to year only if manufacturer is null.
 
 Even for single-schema views, the array format is required for consistency:
 
@@ -292,21 +293,6 @@ Even for single-schema views, the array format is required for consistency:
   "subtitleProperty": ["smartphones.manufacturer", "smartphones.year"]
 }
 ```
-
-### Field Selection Design
-
-Different views over the same schema may need to display different properties based on their purpose.
-
-Example: A "Smartphones" schema with properties `[manufacturer, year, os, screen_size, storage_gb, ram_gb, price_usd]` might have:
-
-- View 1 filtered to Samsung phones from recent years → display `manufacturer` and `year`
-- View 2 filtered to older Android phones → display `os` and `year` (manufacturer irrelevant)
-
-The saved view should store which properties matter for that view's purpose. The runtime request requires a `fields` parameter that specifies which properties need to be extracted from the jsonb `propertyValues` column for COALESCE resolution in `resolvedProperties`.
-
-The `fields` parameter sent to the runtime is derived from the active layout's displayConfiguration by extracting all schema-qualified property paths from the property reference arrays (excluding top-level column references like `@name`).
-
-This makes field selection explicit and ensures the backend only extracts the properties actually needed for display resolution.
 
 ## Saved View Data Model Changes
 
@@ -330,9 +316,9 @@ The saved view schema should include:
 
 The `queryDefinition` column stores:
 
-- `entitySchemaSlugs: string[]` — which schemas to query (using schema slugs, e.g., `["smartphones", "tablets"]`)
-- `filters: FilterExpression[]` — flat array of filters using the schema-qualified property syntax (filters are implicitly AND'd within each schema group and OR'd across schema boundaries, since an entity belongs to exactly one schema and only its schema's filters apply)
-- `sort: { field: string[], direction: "asc" | "desc" }` — ordering (field is an array for COALESCE across schemas)
+- `entitySchemaSlugs: string[]` — which schemas to query
+- `filters: FilterExpression[]` — flat array of filters using the schema-qualified property syntax (see "Runtime Contract" for AND/OR semantics)
+- `sort: { field: string[], direction: "asc" | "desc" }` — ordering
 
 Event-based filtering (e.g., "movies I rated >8", "shows watched in 2024") is deferred to Phase 2 and will be added as an `eventConditions` field once event integration is implemented in the runtime.
 
@@ -467,60 +453,11 @@ This allows both entity types to render properly in the same unified list despit
 
 **Filter behavior:**
 
-Each filter is schema-qualified and only applies to entities from that specific schema. The backend groups schema-specific filters by schema slug, AND's them within each group, and OR's across schema boundaries (an entity belongs to exactly one schema, so only that schema's filters apply):
-
-```json
-"filters": [
-  { "field": "smartphones.year", "op": "gte", "value": 2020 },
-  { "field": "tablets.release_year", "op": "gte", "value": 2020 }
-]
-```
-
-```sql
-JOIN entity_schemas es ON es.id = e.entity_schema_id
-WHERE es.slug IN ('smartphones', 'tablets')
-  AND (
-    (es.slug = 'smartphones' AND (e.property_values->>'year')::integer >= 2020)
-    OR
-    (es.slug = 'tablets' AND (e.property_values->>'release_year')::integer >= 2020)
-  )
-```
-
-Top-level filters (`@name`, `@image`) apply to all entities regardless of schema and are AND'd at the outer level:
-
-```json
-"filters": [
-  { "field": "@name", "op": "contains", "value": "Pro" },
-  { "field": "smartphones.year", "op": "gte", "value": 2020 },
-  { "field": "tablets.release_year", "op": "gte", "value": 2020 }
-]
-```
-
-```sql
-JOIN entity_schemas es ON es.id = e.entity_schema_id
-WHERE es.slug IN ('smartphones', 'tablets')
-  AND e.name ILIKE '%Pro%'  -- top-level filter applied to all entities
-  AND (
-    (es.slug = 'smartphones' AND (e.property_values->>'year')::integer >= 2020)
-    OR
-    (es.slug = 'tablets' AND (e.property_values->>'release_year')::integer >= 2020)
-  )
-```
-
-Schemas listed in `entitySchemaSlugs` that have no schema-specific filters include all their entities unconditionally.
+Each filter is schema-qualified and only applies to entities from that schema. Top-level filters (`@name`, `@image`) apply to all entities regardless of schema. Schemas listed in `entitySchemaSlugs` that have no schema-specific filters include all their entities unconditionally. See "Complete SQL Query Example" for the full SQL translation.
 
 **Sort behavior:**
 
-The sort field `["smartphones.year", "tablets.release_year"]` uses COALESCE to handle different property names:
-
-```sql
-ORDER BY COALESCE(
-  (e.property_values->>'year')::integer,
-  (e.property_values->>'release_year')::integer
-) DESC
-```
-
-This allows unified sorting across schemas even when property names differ.
+The sort field `["smartphones.year", "tablets.release_year"]` uses COALESCE to handle different property names across schemas. See "Complete SQL Query Example" for the full SQL translation.
 
 ### View 3: Older Android Phones
 
@@ -581,12 +518,6 @@ When the frontend loads View 1:
     ],
     "sort": { "field": ["smartphones.year"], "direction": "desc" },
     "page": { "limit": 6, "offset": 0 },
-    "fields": [
-      "smartphones.manufacturer",
-      "smartphones.year",
-      "smartphones.price_usd",
-      "smartphones.product_image"
-    ],
     "displayConfiguration": {
       "imageProperty": ["smartphones.product_image"],
       "titleProperty": ["@name"],
@@ -596,36 +527,18 @@ When the frontend loads View 1:
   }
   ```
 
-  The `fields` parameter is derived from the active layout config (see "Field Selection Design" section). The `displayConfiguration` is passed to the runtime for COALESCE resolution.
+  The `displayConfiguration` is passed to the runtime for COALESCE resolution. The backend derives which properties to extract from the displayConfiguration's property reference arrays.
 
 4. `POST /view-runtime/execute` → returns entities with `resolvedProperties`
 5. Frontend renders using `layout` and the `resolvedProperties` from the runtime response
 
 **Backend COALESCE resolution:**
 
-For each property reference array in displayConfiguration, the backend strips the schema slug prefix and extracts the property name for jsonb access:
-
-```sql
--- displayConfiguration.imageProperty: ["smartphones.product_image", "tablets.device_image"]
--- "smartphones.product_image" → strip slug → propertyValues->>'product_image'
--- "tablets.device_image" → strip slug → propertyValues->>'device_image'
-COALESCE(
-  (propertyValues->>'product_image')::text,
-  (propertyValues->>'device_image')::text
-) as resolved_image_property
-```
-
-For top-level columns (prefixed with `@`):
-
-```sql
-entities.name as resolved_title_property  -- @name reference
-```
-
-The runtime response includes the resolved values, making frontend rendering simple.
+For each property reference array in displayConfiguration, the backend strips the schema slug prefix and extracts the property name for jsonb access. Top-level column references (prefixed with `@`) map directly to entity columns. See "Backend resolution" above for concrete examples and "Complete SQL Query Example" for the full SQL translation.
 
 **Layout switching:**
 
-When the user switches from grid to list view in the UI, the frontend simply changes the active layout and reruns the query with different `fields` and `displayConfiguration` derived from `displayConfiguration.list` instead of `displayConfiguration.grid`.
+When the user switches from grid to list view in the UI, the frontend simply changes the active layout and reruns the query with a different `displayConfiguration` derived from `displayConfiguration.list` instead of `displayConfiguration.grid`.
 
 **Key constraint**: The saved view explicitly stores all three layout configurations. The backend makes no assumptions - clients must be explicit about what data they need and how to present it.
 
@@ -645,7 +558,6 @@ Here is a complete SQL query demonstrating how the view-runtime translates a cro
   ],
   "sort": { "field": ["smartphones.year", "tablets.release_year"], "direction": "desc" },
   "page": { "limit": 20, "offset": 0 },
-  "fields": ["smartphones.product_image", "tablets.device_image", "smartphones.manufacturer", "tablets.maker", "smartphones.year", "tablets.release_year", "smartphones.price_usd", "tablets.retail_price"],
   "displayConfiguration": {
     "imageProperty": ["smartphones.product_image", "tablets.device_image"],
     "titleProperty": ["@name"],
@@ -716,7 +628,7 @@ FROM paginated_entities pe;
 2. **Top-level filters**: `AND e.name ILIKE '%Pro%'` applies to all entities regardless of schema
 3. **Schema-specific filters**: Grouped by schema slug with OR between schemas, AND within each schema group
 4. **COALESCE for sorting**: Handles different property names across schemas
-5. **Resolved properties**: Backend performs COALESCE resolution for each display property reference using the `fields` parameter to know which properties to extract
+5. **Resolved properties**: Backend performs COALESCE resolution for each display property reference, deriving which properties to extract from the displayConfiguration arrays
 6. **Pagination**: LIMIT/OFFSET with total count for pagination metadata
 7. **Response fields**: Returns both `entity_schema_id` (UUID FK) and `entity_schema_slug` (human-readable)
 
@@ -830,7 +742,6 @@ The runtime module should query against the underlying tables and repositories i
 ### Phase 2: Build Real Runtime Execution
 
 - replace the placeholder `entitySchemaId` request with a compiled runtime request
-- add support for `fields` parameter (schema-qualified property paths like `["smartphones.manufacturer", "tablets.maker"]`)
 - add support for `displayConfiguration` parameter with property reference arrays
 - implement COALESCE resolution for cross-schema property references in displayConfiguration
 - validate that all referenced schema slugs exist and user has access to them
@@ -849,7 +760,7 @@ The runtime module should query against the underlying tables and repositories i
 - fetch saved view by id
 - extract active layout from `displayConfiguration.layout`
 - compile runtime payload from `queryDefinition` + active layout config
-  - derive `fields` from the active layout config and pass `displayConfiguration` for COALESCE resolution
+  - pass the active layout's `displayConfiguration` for COALESCE resolution
 - execute via `POST /view-runtime/execute`
 - render returned entities using `resolvedProperties` from the runtime response
 - remove assumptions that saved views live under a tracker route
