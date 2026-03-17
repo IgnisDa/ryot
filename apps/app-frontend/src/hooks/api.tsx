@@ -1,7 +1,7 @@
+import type { paths } from "@ryot/generated/openapi/app-backend";
 import createFetchClient from "openapi-fetch";
 import createClient from "openapi-react-query";
 import { createContext, type ReactNode, useContext } from "react";
-import type { paths } from "@/lib/api/openapi";
 
 const fetchClient = createFetchClient<paths>({
 	baseUrl: "/api",

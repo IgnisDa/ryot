@@ -4,10 +4,11 @@
 		"strict": true,
 		"noEmit": true,
 		"outDir": "dist",
-		"module": "esnext",
+		"module": "ESNext",
 		"lib": ["ESNext", "DOM"],
-		"moduleResolution": "node",
 		"preserveConstEnums": true,
-		"verbatimModuleSyntax": false
+		"verbatimModuleSyntax": false,
+		"moduleResolution": "Bundler",
+		"noUncheckedIndexedAccess": true
 	}
 }

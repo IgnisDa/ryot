@@ -1,4 +1,4 @@
-import type { components, paths } from "./openapi";
+import type { components, paths } from "@ryot/generated/openapi/app-backend";
 
 type ApiJsonContent<TValue> = TValue extends {
 	content: { "application/json": infer TContent };
