@@ -4,7 +4,8 @@
 	"name": "@ryot/tests",
 	"scripts": {
 		"typecheck": "tsc",
-		"test": "bun test"
+		"test": "bun test",
+		"lint": "biome check ."
 	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "3.989.0",
@@ -13,6 +14,7 @@
 		"@testcontainers/postgresql": "11.11.0",
 		"dotenv": "17.3.1",
 		"get-port": "7.1.0",
+		"openapi-fetch": "0.17.0",
 		"testcontainers": "11.11.0"
 	}
 }
