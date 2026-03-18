@@ -1,0 +1,137 @@
+# View Runtime: Schema Introspection + Single-Schema Execution
+
+**Parent Plan:** [View Runtime Foundation](./README.md)
+
+**Type:** AFK
+
+**Status:** todo
+
+## What to build
+
+Build the schema introspection service and replace the view-runtime placeholder with a working single-schema execution engine. This delivers the core runtime pipeline: accept a compiled request, resolve entity schemas, execute a parameterized query, and return paginated results with COALESCE-resolved display properties.
+
+The end-to-end behavior: a client sends `POST /view-runtime/execute` with a single entity schema slug, a sort definition, pagination parameters, and a grid/list display configuration. The runtime returns paginated entity results with `resolvedProperties` containing the resolved display values. Pagination metadata includes total count, page info, and navigation booleans.
+
+### Schema Introspection Service
+
+Create `apps/app-backend/src/modules/view-runtime/schema-introspection.ts`:
+
+- `getPropertyType(schema, propertyName)` - returns property type from schema's propertiesSchema, or null if not found
+- `buildSchemaMap(schemas)` - converts array of entity schemas to Map keyed by slug for O(1) lookup
+- `parseFieldPath(field)` - parses `@name` as top-level column, `smartphones.year` as schema-qualified property
+- See PRD section "Schema Introspection Service" for full function signatures
+
+Unit tests for schema introspection (100% coverage):
+- Property type lookup for string, integer, number, boolean, date types
+- Property type lookup returns null for non-existent properties
+- Schema map building from array of schemas
+- Field path parsing: `@name` → top-level, `smartphones.year` → schema-property
+- Follow pattern in `apps/app-backend/src/modules/saved-views/service.test.ts`
+
+### View Runtime Request/Response Schemas
+
+Update `apps/app-backend/src/modules/view-runtime/schemas.ts`:
+
+Request schema (see PRD section "View Runtime Module Changes > Request schema structure"):
+- `entitySchemaSlugs: string[]`
+- `filters: FilterExpression[]` (empty array for this task)
+- `sort: { field: string[], direction: "asc" | "desc" }`
+- `page: { limit: number, offset: number }`
+- `layout: "grid" | "list" | "table"`
+- `displayConfiguration: GridConfig | ListConfig | TableConfig`
+
+Response schema (see PRD section "View Runtime Module Changes > Response schema structure"):
+- `items: Array<{ id, name, image, entitySchemaId, entitySchemaSlug, createdAt, updatedAt, resolvedProperties }>`
+- `meta: { pagination: { total, limit, offset, hasNextPage, hasPreviousPage, totalPages, currentPage } }`
+
+### Query Builder
+
+Create `apps/app-backend/src/modules/view-runtime/query-builder.ts`:
+
+For this task, implement single-schema execution only:
+1. Pre-fetch entity schema by slug (verify it exists and user has access)
+2. Build basic query: SELECT from entities JOIN entity_schemas WHERE slug matches
+3. Sort by top-level column (`@name`, `@createdAt`, `@updatedAt`) or single schema property
+4. Use Drizzle `sql` template tag for parameterized queries
+5. Generate CTEs: `filtered_entities`, `entity_count`, `sorted_entities`, `paginated_entities`
+6. Resolve display configuration properties for grid/list layouts (semantic keys: imageProperty, titleProperty, subtitleProperty, badgeProperty)
+7. Execute query and return results with pagination metadata
+
+See PRD sections "Query Builder Architecture" and "Execution flow."
+
+### Pagination
+
+Implement full pagination per PRD section "Pagination Behavior":
+- Offset clamping: `clampedOffset = min(offset, max(0, total - limit))`
+- Zero-result handling: `totalPages: 0`, `currentPage: 1`
+- Full metadata: total, limit, offset, hasNextPage, hasPreviousPage, totalPages, currentPage
+- Separate CTE for total count (not correlated subquery)
+
+Unit tests for pagination math:
+- Standard case (20 items, limit 5, offset 0 → page 1 of 4)
+- Offset clamping (request offset 100 with only 20 results → clamps to max valid offset)
+- Zero results (totalPages: 0, currentPage: 1, hasNextPage: false, hasPreviousPage: false)
+- Last page (hasNextPage: false, hasPreviousPage: true)
+
+### Route Handler
+
+Replace the placeholder in `apps/app-backend/src/modules/view-runtime/routes.ts`:
+- Accept the new request schema
+- Validate entity schema slugs exist and user has access
+- Call query builder
+- Return response with items and pagination metadata
+- Error handling: 404 for non-existent schema slug, 400 for missing sort field
+
+### Integration Tests
+
+- Simple single-schema query returns correct entities
+- Pagination returns correct page with correct metadata
+- Sort by `@name` orders alphabetically
+- Sort by schema property orders correctly
+- Grid layout resolvedProperties contain semantic keys (imageProperty, titleProperty, etc.)
+- List layout resolvedProperties contain semantic keys
+- Image fields returned as raw discriminated unions (not resolved to URLs)
+- Non-existent schema slug returns 404
+- Empty sort field returns 400
+
+## Acceptance criteria
+
+- [ ] Schema introspection service exists with `getPropertyType`, `buildSchemaMap`, `parseFieldPath`
+- [ ] Unit tests for schema introspection achieve 100% coverage
+- [ ] View runtime request/response Zod schemas are defined
+- [ ] Query builder accepts single-schema request and generates parameterized SQL via Drizzle
+- [ ] Pre-fetches entity schemas and validates access
+- [ ] Sort works for top-level columns (`@name`, `@createdAt`, `@updatedAt`) and schema properties
+- [ ] Pagination metadata is correct (total, limit, offset, hasNextPage, hasPreviousPage, totalPages, currentPage)
+- [ ] Offset clamping works (out-of-range offsets are clamped)
+- [ ] Zero-result queries return `totalPages: 0`, `currentPage: 1`
+- [ ] Grid/list display properties resolved with semantic keys (imageProperty, titleProperty, etc.)
+- [ ] Images returned as raw jsonb discriminated unions
+- [ ] Returns 404 for non-existent schema slugs
+- [ ] Returns 400 for missing/empty sort field
+- [ ] Runtime module does not load saved views by ID (execution-only)
+- [ ] Unit tests for pagination math pass
+- [ ] Integration tests pass
+- [ ] `turbo check` passes
+
+## Blocked by
+
+- [Task 01](./01-saved-views-data-model-bootstrap.md)
+
+## User stories addressed
+
+- User story 7 (paginated results)
+- User story 8 (backend resolves property values)
+- User story 19 (pagination metadata)
+- User story 20 (pagination offset clamping)
+- User story 22 (image fields as raw discriminated unions)
+- User story 24 (grid/list semantic keys)
+- User story 25 (property type introspection)
+- User story 27 (pre-fetch entity schemas)
+- User story 28 (Drizzle SQL template tag)
+- User story 30 (execution-only, no saved view loading)
+- User story 37 (error patterns)
+- User story 39 (sort field required)
+- User story 40 (zero-result pagination)
+- User story 41 (separate CTE for count)
+- User story 46 (schema introspection as separate service)
