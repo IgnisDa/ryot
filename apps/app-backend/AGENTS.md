@@ -55,3 +55,33 @@ The backend should favor explicit validation, stable contracts, and small compos
 - For backend-only changes, run `bun run typecheck`, `bun test`, and `bun run lint` in `apps/app-backend` unless the change is purely editorial.
 - When refactoring validation behavior, update tests to reflect the intended new contract instead of preserving legacy wording by default.
 - Prefer focused tests around service validation and schema behavior when changing input normalization rules.
+
+### Automated Code Review
+
+After completing a meaningful backend implementation chunk (new endpoints, service layer changes, repository updates, business logic), proactively launch the `backend-code-reviewer` agent to validate the work before marking tasks complete or creating commits.
+
+**Trigger code review after:**
+
+- Implementing new API endpoints or modifying existing ones
+- Adding or changing service layer business logic
+- Updating repository methods or persistence logic
+- Implementing authentication, authorization, or access control changes
+- Adding queue workers, background jobs, or scheduled tasks
+- Changes to error handling, validation, or data transformation logic
+
+**Skip code review for:**
+
+- Trivial changes (typo fixes, comment updates, formatting)
+- Pure refactoring that only moves code without changing behavior (if covered by existing tests)
+- Changes to frontend-only code
+
+**Review workflow:**
+
+1. Complete the implementation and ensure all tests pass
+2. Use the Task tool to launch the `backend-code-reviewer` agent with subagent_type `backend-code-reviewer`
+3. Provide context about what was changed and which files were modified
+4. Address any issues, bugs, or architectural concerns identified by the reviewer
+5. Re-run tests after addressing feedback
+6. Mark the task as complete only after review approval
+
+This proactive review catches logical errors, missing error handling, architectural misalignment, and maintainability issues before they reach production.
