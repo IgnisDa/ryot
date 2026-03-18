@@ -1,26 +1,25 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
-import {
-	resolveCustomEntityAccessError,
-	resolveCustomEntitySchemaAccess,
-} from "~/lib/app/entity-schema-access";
 import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
-	createCustomEntityAccessErrorResult,
+	createNotFoundErrorResult,
+	createValidationErrorResult,
 	jsonResponse,
 	notFoundResponse,
 	payloadErrorResponse,
 	successResponse,
 } from "~/lib/openapi";
 import {
-	getEntitySchemaScopeForUser,
-	listEntitiesByEntitySchemaForUser,
-} from "../entities/repository";
-import { resolveEntitySchemaId } from "../entities/service";
+	executeViewRuntimeQuery,
+	ViewRuntimeNotFoundError,
+	ViewRuntimeValidationError,
+} from "./query-builder";
 import {
 	executeViewRuntimeBody,
 	executeViewRuntimeResponseSchema,
 } from "./schemas";
+
+const sortFieldRequiredError = "Sort field is required";
 
 const executeViewRuntimeRoute = createAuthRoute(
 	createRoute({
@@ -32,7 +31,7 @@ const executeViewRuntimeRoute = createAuthRoute(
 				content: { "application/json": { schema: executeViewRuntimeBody } },
 			},
 		},
-		summary: "Execute a view-runtime query for a custom entity schema",
+		summary: "Execute a compiled view-runtime query",
 		responses: {
 			400: payloadErrorResponse(),
 			404: notFoundResponse("Entity schema does not exist for this user"),
@@ -44,42 +43,31 @@ const executeViewRuntimeRoute = createAuthRoute(
 	}),
 );
 
-const customEntitySchemaError =
-	"Built-in entity schemas do not support manual entity creation";
-const entitySchemaNotFoundError = "Entity schema not found";
-
-const resolveEntitySchemaAccessError = (error: "builtin" | "not_found") => {
-	return createCustomEntityAccessErrorResult(
-		resolveCustomEntityAccessError({
-			error,
-			builtinMessage: customEntitySchemaError,
-			notFoundMessage: entitySchemaNotFoundError,
-		}),
-	);
-};
-
 export const viewRuntimeApi = new OpenAPIHono<{
 	Variables: AuthType;
 }>().openapi(executeViewRuntimeRoute, async (c) => {
 	const user = c.get("user");
 	const body = c.req.valid("json");
-	const entitySchemaId = resolveEntitySchemaId(body.entitySchemaId);
 
-	const foundEntitySchema = resolveCustomEntitySchemaAccess(
-		await getEntitySchemaScopeForUser({
-			entitySchemaId,
-			userId: user.id,
-		}),
-	);
-	if (!("entitySchema" in foundEntitySchema)) {
-		const errorResult = resolveEntitySchemaAccessError(foundEntitySchema.error);
-		return c.json(errorResult.body, errorResult.status);
+	if (!body.sort.field.length) {
+		const error = createValidationErrorResult(sortFieldRequiredError);
+		return c.json(error.body, error.status);
 	}
 
-	const entities = await listEntitiesByEntitySchemaForUser({
-		entitySchemaId,
-		userId: user.id,
-	});
+	try {
+		const result = await executeViewRuntimeQuery(body, user.id);
+		return c.json(successResponse(result), 200);
+	} catch (error) {
+		if (error instanceof ViewRuntimeNotFoundError) {
+			const result = createNotFoundErrorResult(error.message);
+			return c.json(result.body, result.status);
+		}
 
-	return c.json(successResponse(entities), 200);
+		if (error instanceof ViewRuntimeValidationError) {
+			const result = createValidationErrorResult(error.message);
+			return c.json(result.body, result.status);
+		}
+
+		throw error;
+	}
 });

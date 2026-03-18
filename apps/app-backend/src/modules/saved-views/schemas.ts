@@ -36,27 +36,30 @@ export const sortDefinitionSchema = z.object({
 	direction: z.enum(["asc", "desc"]),
 });
 
+export type GridConfig = z.infer<typeof gridConfigSchema>;
+export type ListConfig = z.infer<typeof listConfigSchema>;
+export type TableConfig = z.infer<typeof tableConfigSchema>;
 export type SortDefinition = z.infer<typeof sortDefinitionSchema>;
 
-const gridConfigSchema = z.object({
+export const gridConfigSchema = z.object({
 	imageProperty: z.array(z.string()).nullable(),
 	titleProperty: z.array(z.string()).nullable(),
 	badgeProperty: z.array(z.string()).nullable(),
 	subtitleProperty: z.array(z.string()).nullable(),
 });
 
-const listConfigSchema = z.object({
+export const listConfigSchema = z.object({
 	imageProperty: z.array(z.string()).nullable(),
 	titleProperty: z.array(z.string()).nullable(),
 	badgeProperty: z.array(z.string()).nullable(),
 	subtitleProperty: z.array(z.string()).nullable(),
 });
 
-const tableColumnSchema = z.object({
+export const tableColumnSchema = z.object({
 	property: z.array(z.string()),
 });
 
-const tableConfigSchema = z.object({
+export const tableConfigSchema = z.object({
 	columns: z.array(tableColumnSchema),
 });
 
