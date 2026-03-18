@@ -58,21 +58,25 @@ export const updateTrackerBody = z
 			value.description !== undefined ||
 			value.accentColor !== undefined;
 
-		if (!hasConfigUpdate) return;
+		if (!hasConfigUpdate) {
+			return;
+		}
 
-		if (value.icon === undefined)
+		if (value.icon === undefined) {
 			ctx.addIssue({
 				path: ["icon"],
 				code: z.ZodIssueCode.custom,
 				message: "Icon is required",
 			});
+		}
 
-		if (value.accentColor === undefined)
+		if (value.accentColor === undefined) {
 			ctx.addIssue({
 				path: ["accentColor"],
 				code: z.ZodIssueCode.custom,
 				message: "Accent color is required",
 			});
+		}
 	});
 
 export const reorderTrackersBody = z
@@ -81,7 +85,9 @@ export const reorderTrackersBody = z
 	})
 	.superRefine((value, ctx) => {
 		const uniqueTrackerIds = new Set(value.trackerIds);
-		if (uniqueTrackerIds.size === value.trackerIds.length) return;
+		if (uniqueTrackerIds.size === value.trackerIds.length) {
+			return;
+		}
 
 		ctx.addIssue({
 			path: ["trackerIds"],

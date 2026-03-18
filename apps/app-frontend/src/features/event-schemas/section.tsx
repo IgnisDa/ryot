@@ -19,7 +19,9 @@ import { EventSchemaPropertiesBuilder } from "./properties-builder";
 import { useCreateEventSchemaForm } from "./use-form";
 
 function getErrorMessage(error: unknown) {
-	if (error instanceof Error && error.message) return error.message;
+	if (error instanceof Error && error.message) {
+		return error.message;
+	}
 
 	const parsed = error as {
 		message?: string;

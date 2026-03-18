@@ -68,8 +68,9 @@ export const authenticationApi = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 			() => resolveAuthenticationName(body.name),
 			"Signup name is invalid",
 		);
-		if ("status" in nameResult)
+		if ("status" in nameResult) {
 			return c.json(nameResult.body, nameResult.status);
+		}
 
 		try {
 			const signUpResult = await auth.api.signUpEmail({

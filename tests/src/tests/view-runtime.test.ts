@@ -19,7 +19,9 @@ async function createTracker(client: Client, cookies: string, name: string) {
 	});
 
 	const trackerId = data?.data?.id;
-	if (!trackerId) throw new Error("Failed to create tracker");
+	if (!trackerId) {
+		throw new Error("Failed to create tracker");
+	}
 	return trackerId;
 }
 
@@ -45,7 +47,9 @@ async function createEntitySchema(
 	});
 
 	const schemaId = data?.data?.id;
-	if (!schemaId) throw new Error("Failed to create entity schema");
+	if (!schemaId) {
+		throw new Error("Failed to create entity schema");
+	}
 
 	return { schemaId, slug };
 }
@@ -75,7 +79,9 @@ async function createEntity(input: {
 	});
 
 	const entityId = data?.data?.id;
-	if (!entityId) throw new Error("Failed to create entity");
+	if (!entityId) {
+		throw new Error("Failed to create entity");
+	}
 	return entityId;
 }
 

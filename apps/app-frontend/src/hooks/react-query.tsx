@@ -4,7 +4,9 @@ import type { ReactNode } from "react";
 let context: QueryClient | undefined;
 
 export function getContext() {
-	if (context) return context;
+	if (context) {
+		return context;
+	}
 
 	const queryClient = new QueryClient();
 	context = queryClient;

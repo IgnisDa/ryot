@@ -40,13 +40,17 @@ interface TrackerIconProps {
 }
 
 export function getTrackerIconOption(icon: string) {
-	if (!icon) return undefined;
+	if (!icon) {
+		return undefined;
+	}
 	return trackerIconOptionsByValue.get(icon);
 }
 
 export function TrackerIcon(props: TrackerIconProps) {
 	const option = getTrackerIconOption(props.icon);
-	if (!option) return null;
+	if (!option) {
+		return null;
+	}
 
 	return (
 		<DynamicIcon

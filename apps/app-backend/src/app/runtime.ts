@@ -31,7 +31,9 @@ export const startServer = async () => {
 	let isShuttingDown = false;
 
 	const shutdown = async () => {
-		if (isShuttingDown) return;
+		if (isShuttingDown) {
+			return;
+		}
 		isShuttingDown = true;
 
 		console.info("Shutting down server...");

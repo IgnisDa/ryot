@@ -32,6 +32,7 @@
 				"noParameterAssign": "error",
 				"noInferrableTypes": "error",
 				"useNumberNamespace": "error",
+				"useBlockStatements": "error",
 				"useAsConstAssertion": "error",
 				"useEnumInitializers": "error",
 				"useSingleVarDeclarator": "error",

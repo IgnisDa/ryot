@@ -30,7 +30,9 @@ describe("getEntityEventSchemaViewState", () => {
 		]);
 
 		expect(state.type).toBe("list");
-		if (state.type !== "list") throw new Error("Expected list state");
+		if (state.type !== "list") {
+			throw new Error("Expected list state");
+		}
 		expect(state.eventSchemas.map((schema) => schema.slug)).toEqual([
 			"alpha",
 			"zulu",

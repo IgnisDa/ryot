@@ -172,7 +172,7 @@ export function EntityDetailPropertiesSection(props: {
 	border: string;
 	properties: EntityDetailProperty[];
 }) {
-	if (props.properties.length === 0)
+	if (props.properties.length === 0) {
 		return (
 			<Paper p="lg" withBorder radius="sm">
 				<Stack gap="xs">
@@ -185,6 +185,7 @@ export function EntityDetailPropertiesSection(props: {
 				</Stack>
 			</Paper>
 		);
+	}
 
 	return (
 		<Paper p="lg" withBorder radius="sm">
@@ -243,7 +244,7 @@ export function EntityDetailEventTimeline(props: {
 	const eventsQuery = useEventsQuery(props.entity.id);
 	const events = eventsQuery.events;
 
-	if (eventsQuery.isLoading)
+	if (eventsQuery.isLoading) {
 		return (
 			<Paper p="lg" withBorder radius="sm">
 				<Center py="xl">
@@ -251,8 +252,9 @@ export function EntityDetailEventTimeline(props: {
 				</Center>
 			</Paper>
 		);
+	}
 
-	if (eventsQuery.isError)
+	if (eventsQuery.isError) {
 		return (
 			<Paper p="lg" withBorder radius="sm">
 				<Stack gap="md">
@@ -269,6 +271,7 @@ export function EntityDetailEventTimeline(props: {
 				</Stack>
 			</Paper>
 		);
+	}
 
 	return (
 		<Paper p="lg" withBorder radius="sm">
@@ -352,12 +355,15 @@ export function EntityDetailEventTimeline(props: {
 										<Code block style={{ fontSize: "0.75rem" }}>
 											{Object.entries(event.properties)
 												.map(([key, value]) => {
-													if (typeof value === "boolean")
+													if (typeof value === "boolean") {
 														return `${key}: ${value ? "Yes" : "No"}`;
-													if (typeof value === "number")
+													}
+													if (typeof value === "number") {
 														return `${key}: ${value}`;
-													if (typeof value === "string")
+													}
+													if (typeof value === "string") {
 														return `${key}: ${value}`;
+													}
 													return null;
 												})
 												.filter((value): value is string => value !== null)

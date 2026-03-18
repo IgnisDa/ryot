@@ -26,8 +26,11 @@ export function applyTrackerReorderPatch(
 		}
 	}
 
-	for (const tracker of trackers)
-		if (!seen.has(tracker.id)) reordered.push(tracker);
+	for (const tracker of trackers) {
+		if (!seen.has(tracker.id)) {
+			reordered.push(tracker);
+		}
+	}
 
 	return reordered.map((tracker, index) => ({
 		...tracker,

@@ -36,7 +36,7 @@ function RouteComponent() {
 		(schema) => schema.id === firstEntitySchemaId,
 	);
 
-	if (trackersQuery.isLoading || savedViewQuery.isLoading)
+	if (trackersQuery.isLoading || savedViewQuery.isLoading) {
 		return (
 			<Container size="xl" py="xl">
 				<Center py="xl">
@@ -44,8 +44,9 @@ function RouteComponent() {
 				</Center>
 			</Container>
 		);
+	}
 
-	if (!tracker)
+	if (!tracker) {
 		return (
 			<Container size="xl" py="xl">
 				<Paper p="xl">
@@ -53,8 +54,9 @@ function RouteComponent() {
 				</Paper>
 			</Container>
 		);
+	}
 
-	if (!savedViewQuery.savedView)
+	if (!savedViewQuery.savedView) {
 		return (
 			<Container size="xl" py="xl">
 				<Paper p="xl">
@@ -62,8 +64,9 @@ function RouteComponent() {
 				</Paper>
 			</Container>
 		);
+	}
 
-	if (!entitySchema)
+	if (!entitySchema) {
 		return (
 			<Container size="xl" py="xl">
 				<Paper p="xl">
@@ -71,6 +74,7 @@ function RouteComponent() {
 				</Paper>
 			</Container>
 		);
+	}
 
 	return (
 		<Container size="xl" py="xl">

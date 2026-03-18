@@ -18,7 +18,9 @@ function extractTrackerEnabledFromInput(
 	const trackerId = parsed.params?.path?.trackerId;
 	const enabled = parsed.body?.enabled;
 
-	if (!trackerId || enabled === undefined) return;
+	if (!trackerId || enabled === undefined) {
+		return;
+	}
 
 	return { enabled, trackerId };
 }
@@ -30,7 +32,9 @@ function extractTrackerIdsFromInput(input: unknown): string[] | undefined {
 function isQueryDataWithTrackers(
 	data: unknown,
 ): data is { data: AppTracker[] } {
-	if (data === null || typeof data !== "object") return false;
+	if (data === null || typeof data !== "object") {
+		return false;
+	}
 	return "data" in data;
 }
 
@@ -47,18 +51,20 @@ function createMutationHandler<T>(
 
 			if (isQueryDataWithTrackers(previousData)) {
 				const inputValue = extractInput(input);
-				if (inputValue)
+				if (inputValue) {
 					queryClient.setQueryData(listQueryKey, {
 						data: applyPatch(previousData.data, inputValue),
 					});
+				}
 			}
 
 			return { previousData };
 		},
 		onError: (_err: unknown, _variables: unknown, context: unknown) => {
 			const ctx = context as { previousData?: unknown } | undefined;
-			if (ctx?.previousData)
+			if (ctx?.previousData) {
 				queryClient.setQueryData(listQueryKey, ctx.previousData);
+			}
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: listQueryKey });

@@ -58,8 +58,12 @@ const resolveRuntimeReference = (
 	defaultSchemaSlug: string,
 ): RuntimeRef => {
 	try {
-		if (reference.startsWith("@")) return parseFieldPath(reference);
-		if (reference.includes(".")) return parseFieldPath(reference);
+		if (reference.startsWith("@")) {
+			return parseFieldPath(reference);
+		}
+		if (reference.includes(".")) {
+			return parseFieldPath(reference);
+		}
 	} catch (error) {
 		throw new ViewRuntimeValidationError(
 			error instanceof Error ? error.message : "Invalid field reference",
@@ -78,10 +82,11 @@ const getSchemaForReference = (
 	reference: Extract<RuntimeRef, { type: "schema-property" }>,
 ) => {
 	const foundSchema = schemaMap.get(reference.slug);
-	if (!foundSchema)
+	if (!foundSchema) {
 		throw new ViewRuntimeValidationError(
 			`Schema '${reference.slug}' is not part of this runtime request`,
 		);
+	}
 
 	return foundSchema;
 };
@@ -93,10 +98,11 @@ const buildPropertySortExpression = (input: {
 }) => {
 	const foundSchema = getSchemaForReference(input.schemaMap, input.reference);
 	const propertyType = getPropertyType(foundSchema, input.reference.property);
-	if (!propertyType)
+	if (!propertyType) {
 		throw new ViewRuntimeValidationError(
 			`Property '${input.reference.property}' not found in schema '${input.reference.slug}'`,
 		);
+	}
 
 	const propertyText = sql`${sql.raw(input.alias)}.properties ->> ${input.reference.property}`;
 	const propertyJson = sql`${sql.raw(input.alias)}.properties -> ${input.reference.property}`;
@@ -106,8 +112,9 @@ const buildPropertySortExpression = (input: {
 		propertyText,
 	});
 
-	if (input.schemaMap.size === 1 && input.reference.slug === foundSchema.slug)
+	if (input.schemaMap.size === 1 && input.reference.slug === foundSchema.slug) {
 		return valueExpression;
+	}
 
 	return sql`case when ${sql.raw(input.alias)}.entity_schema_slug = ${input.reference.slug} then ${valueExpression} else null end`;
 };
@@ -163,8 +170,9 @@ const buildSortExpression = (input: {
 			input.defaultSchemaSlug,
 		);
 
-		if (parsedReference.type === "top-level")
+		if (parsedReference.type === "top-level") {
 			return buildTopLevelSortExpression(input.alias, parsedReference.column);
+		}
 
 		return buildPropertySortExpression({
 			alias: input.alias,
@@ -173,7 +181,9 @@ const buildSortExpression = (input: {
 		});
 	});
 
-	if (expressions.length === 1) return expressions[0] ?? sql`null`;
+	if (expressions.length === 1) {
+		return expressions[0] ?? sql`null`;
+	}
 	return sql`coalesce(${sql.join(expressions, sql`, `)})`;
 };
 
@@ -200,29 +210,37 @@ const buildDisplayValueExpression = (input: {
 	schemaMap: Map<string, ViewRuntimeSchemaRow>;
 	defaultSchemaSlug: string;
 }) => {
-	if (!input.reference) return sql`null`;
+	if (!input.reference) {
+		return sql`null`;
+	}
 
 	const parsedReference = resolveRuntimeReference(
 		input.reference,
 		input.defaultSchemaSlug,
 	);
-	if (parsedReference.type === "top-level")
+	if (parsedReference.type === "top-level") {
 		return buildTopLevelDisplayExpression(input.alias, parsedReference.column);
+	}
 
 	const foundSchema = getSchemaForReference(input.schemaMap, parsedReference);
-	if (!getPropertyType(foundSchema, parsedReference.property))
+	if (!getPropertyType(foundSchema, parsedReference.property)) {
 		throw new ViewRuntimeValidationError(
 			`Property '${parsedReference.property}' not found in schema '${parsedReference.slug}'`,
 		);
+	}
 
 	const propertyValue = sql`${sql.raw(input.alias)}.properties -> ${parsedReference.property}`;
-	if (parsedReference.slug === input.defaultSchemaSlug) return propertyValue;
+	if (parsedReference.slug === input.defaultSchemaSlug) {
+		return propertyValue;
+	}
 
 	return sql`case when ${sql.raw(input.alias)}.entity_schema_slug = ${parsedReference.slug} then ${propertyValue} else null end`;
 };
 
 const normalizeReferences = (references: string[] | null) => {
-	if (!references?.length) return [null];
+	if (!references?.length) {
+		return [null];
+	}
 	return references;
 };
 
@@ -241,7 +259,9 @@ const buildCoalescedDisplayExpression = (input: {
 		});
 	});
 
-	if (expressions.length === 1) return expressions[0] ?? sql`null`;
+	if (expressions.length === 1) {
+		return expressions[0] ?? sql`null`;
+	}
 	return sql`coalesce(${sql.join(expressions, sql`, `)})`;
 };
 
@@ -266,7 +286,9 @@ const buildResolvedPropertiesExpression = (input: {
 			},
 		);
 
-		if (!columnPairs.length) return sql`'{}'::jsonb`;
+		if (!columnPairs.length) {
+			return sql`'{}'::jsonb`;
+		}
 		return sql`jsonb_build_object(${sql.join(columnPairs, sql`, `)})`;
 	}
 
@@ -362,23 +384,26 @@ const fetchRuntimeSchemas = async (input: {
 
 	const foundSchemaSlugs = new Set(schemasBySlug.keys());
 	for (const slug of uniqueSlugs) {
-		if (!foundSchemaSlugs.has(slug))
+		if (!foundSchemaSlugs.has(slug)) {
 			throw new ViewRuntimeNotFoundError(`Schema '${slug}' not found`);
+		}
 
-		if ((schemasBySlug.get(slug)?.length ?? 0) > 1)
+		if ((schemasBySlug.get(slug)?.length ?? 0) > 1) {
 			throw new ViewRuntimeValidationError(
 				`Schema '${slug}' resolves to multiple visible schemas`,
 			);
+		}
 	}
 
 	return schemas;
 };
 
 const assertSingleSchemaRequest = (slugs: string[]) => {
-	if (new Set(slugs).size !== 1)
+	if (new Set(slugs).size !== 1) {
 		throw new ViewRuntimeValidationError(
 			"Single-schema execution requires exactly one entity schema slug",
 		);
+	}
 
 	return slugs[0] ?? "";
 };
@@ -407,10 +432,11 @@ export const executeViewRuntimeQuery = async (
 	request: ViewRuntimeRequest,
 	userId: string,
 ): Promise<ViewRuntimeResponse> => {
-	if (request.filters.length)
+	if (request.filters.length) {
 		throw new ViewRuntimeValidationError(
 			"Filters are not supported for single-schema execution yet",
 		);
+	}
 
 	const runtimeSchemas = await fetchRuntimeSchemas({
 		userId,
