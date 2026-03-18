@@ -2084,6 +2084,136 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/saved-views/{viewId}/clone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Clone an existing saved view */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    viewId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Saved view was cloned */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                id: string;
+                                name: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                                /** Format: date-time */
+                                updatedAt: string;
+                                isBuiltin: boolean;
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                                icon: string;
+                                trackerId: string | null;
+                                accentColor: string;
+                                queryDefinition: {
+                                    sort: {
+                                        field: string[];
+                                        /** @enum {string} */
+                                        direction: "asc" | "desc";
+                                    };
+                                    entitySchemaSlugs: string[];
+                                    filters: ({
+                                        /** @enum {string} */
+                                        op: "in";
+                                        field: string[];
+                                        value: unknown[];
+                                    } | {
+                                        value?: unknown;
+                                        /** @enum {string} */
+                                        op: "isNull";
+                                        field: string[];
+                                    } | {
+                                        value?: unknown;
+                                        field: string[];
+                                        /** @enum {string} */
+                                        op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                                    })[];
+                                };
+                                displayConfiguration: {
+                                    grid: {
+                                        imageProperty: string[] | null;
+                                        titleProperty: string[] | null;
+                                        badgeProperty: string[] | null;
+                                        subtitleProperty: string[] | null;
+                                    };
+                                    list: {
+                                        imageProperty: string[] | null;
+                                        titleProperty: string[] | null;
+                                        badgeProperty: string[] | null;
+                                        subtitleProperty: string[] | null;
+                                    };
+                                    table: {
+                                        columns: {
+                                            property: string[];
+                                        }[];
+                                    };
+                                    /** @enum {string} */
+                                    layout: "grid" | "list" | "table";
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Saved view not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["NotFoundError"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/view-runtime/execute": {
         parameters: {
             query?: never;
