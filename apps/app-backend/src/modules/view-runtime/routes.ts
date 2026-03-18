@@ -9,11 +9,8 @@ import {
 	payloadErrorResponse,
 	successResponse,
 } from "~/lib/openapi";
-import {
-	executeViewRuntimeQuery,
-	ViewRuntimeNotFoundError,
-	ViewRuntimeValidationError,
-} from "./query-builder";
+import { ViewRuntimeNotFoundError, ViewRuntimeValidationError } from "./errors";
+import { executeViewRuntimeQuery } from "./query-builder";
 import {
 	executeViewRuntimeBody,
 	executeViewRuntimeResponseSchema,

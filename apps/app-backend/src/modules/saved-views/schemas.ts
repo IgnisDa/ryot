@@ -8,19 +8,19 @@ import {
 const filterExpressionIsNullSchema = z.object({
 	value: z.null().optional(),
 	op: z.literal("isNull"),
-	field: z.array(z.string()),
+	field: z.array(z.string()).min(1, "Filter field is required"),
 });
 
 const filterExpressionInSchema = z.object({
 	op: z.literal("in"),
-	field: z.array(z.string()),
 	value: z.array(z.unknown()),
+	field: z.array(z.string()).min(1, "Filter field is required"),
 });
 
 const filterExpressionComparisonSchema = z.object({
 	value: z.unknown(),
-	field: z.array(z.string()),
 	op: z.enum(["eq", "ne", "gt", "gte", "lt", "lte"]),
+	field: z.array(z.string()).min(1, "Filter field is required"),
 });
 
 export const filterExpressionSchema = z.discriminatedUnion("op", [
@@ -74,8 +74,10 @@ export type DisplayConfiguration = z.infer<typeof displayConfigurationSchema>;
 
 export const savedViewQueryDefinitionSchema = z.object({
 	sort: sortDefinitionSchema,
-	entitySchemaSlugs: z.array(z.string()),
 	filters: z.array(filterExpressionSchema),
+	entitySchemaSlugs: z
+		.array(z.string())
+		.min(1, "At least one entity schema slug is required"),
 });
 
 export type SavedViewQueryDefinition = z.infer<
