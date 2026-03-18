@@ -89,8 +89,43 @@ const getSchemaForReference = (
 	return foundSchema;
 };
 
+const getTopLevelSortType = (column: string): PropertyType => {
+	switch (column) {
+		case "name":
+			return "string";
+		case "createdAt":
+		case "updatedAt":
+			return "date";
+		default:
+			throw new ViewRuntimeValidationError(
+				`Unsupported sort column '@${column}'`,
+			);
+	}
+};
+
+const getCommonSortType = (propertyTypes: PropertyType[]) => {
+	const uniqueTypes = [...new Set(propertyTypes)];
+	const firstType = uniqueTypes[0];
+	if (!firstType) {
+		return "string" satisfies PropertyType;
+	}
+	if (uniqueTypes.length === 1) {
+		return firstType;
+	}
+	if (
+		uniqueTypes.every((propertyType) =>
+			["integer", "number"].includes(propertyType),
+		)
+	) {
+		return "number" satisfies PropertyType;
+	}
+
+	return "string" satisfies PropertyType;
+};
+
 const buildPropertySortExpression = (input: {
 	alias: string;
+	targetType: PropertyType;
 	schemaMap: Map<string, ViewRuntimeSchemaRow>;
 	reference: Extract<RuntimeRef, { type: "schema-property" }>;
 }) => {
@@ -105,7 +140,7 @@ const buildPropertySortExpression = (input: {
 	const propertyText = sql`${sql.raw(input.alias)}.properties ->> ${input.reference.property}`;
 	const propertyJson = sql`${sql.raw(input.alias)}.properties -> ${input.reference.property}`;
 
-	const valueExpression = buildCastedValueExpression(propertyType, {
+	const valueExpression = buildCastedValueExpression(input.targetType, {
 		propertyJson,
 		propertyText,
 	});
@@ -118,13 +153,13 @@ const buildPropertySortExpression = (input: {
 };
 
 const buildCastedValueExpression = (
-	propertyType: PropertyType,
+	targetType: PropertyType,
 	input: {
 		propertyText: ReturnType<typeof sql>;
 		propertyJson: ReturnType<typeof sql>;
 	},
 ) => {
-	switch (propertyType) {
+	switch (targetType) {
 		case "integer":
 			return sql`(${input.propertyText})::integer`;
 		case "number":
@@ -141,41 +176,124 @@ const buildCastedValueExpression = (
 	}
 };
 
-const buildTopLevelSortExpression = (alias: string, column: string) => {
-	switch (column) {
-		case "name":
-			return sql`${sql.raw(alias)}.name`;
-		case "createdAt":
-			return sql`${sql.raw(alias)}.created_at`;
-		case "updatedAt":
-			return sql`${sql.raw(alias)}.updated_at`;
+const buildTopLevelSortExpression = (input: {
+	alias: string;
+	column: string;
+	targetType: PropertyType;
+}) => {
+	const expression = (() => {
+		switch (input.column) {
+			case "name":
+				return sql`${sql.raw(input.alias)}.name`;
+			case "createdAt":
+				return sql`${sql.raw(input.alias)}.created_at`;
+			case "updatedAt":
+				return sql`${sql.raw(input.alias)}.updated_at`;
+			default:
+				throw new ViewRuntimeValidationError(
+					`Unsupported sort column '@${input.column}'`,
+				);
+		}
+	})();
+
+	switch (input.targetType) {
+		case "integer":
+			return sql`(${expression})::integer`;
+		case "number":
+			return sql`(${expression})::numeric`;
+		case "boolean":
+			return sql`(${expression})::boolean`;
+		case "date":
+			return sql`(${expression})::timestamp`;
+		case "array":
+		case "object":
+			return sql`to_jsonb(${expression})`;
 		default:
-			throw new ViewRuntimeValidationError(
-				`Unsupported sort column '@${column}'`,
-			);
+			return sql`(${expression})::text`;
+	}
+};
+
+const getSortExpressionType = (input: {
+	reference: string;
+	defaultSchemaSlug: string;
+	schemaMap: Map<string, ViewRuntimeSchemaRow>;
+}) => {
+	const parsedReference = resolveRuntimeReference(
+		input.reference,
+		input.defaultSchemaSlug,
+	);
+
+	if (parsedReference.type === "top-level") {
+		return {
+			parsedReference,
+			propertyType: getTopLevelSortType(parsedReference.column),
+		};
+	}
+
+	const foundSchema = getSchemaForReference(input.schemaMap, parsedReference);
+	const propertyType = getPropertyType(foundSchema, parsedReference.property);
+	if (!propertyType) {
+		throw new ViewRuntimeValidationError(
+			`Property '${parsedReference.property}' not found in schema '${parsedReference.slug}'`,
+		);
+	}
+
+	return { parsedReference, propertyType };
+};
+
+const requireSchemaQualifiedSortFields = (
+	field: string[],
+	isMultiSchema: boolean,
+) => {
+	if (!isMultiSchema) {
+		return;
+	}
+
+	for (const reference of field) {
+		if (reference.startsWith("@") || reference.includes(".")) {
+			continue;
+		}
+
+		throw new ViewRuntimeValidationError(
+			"Schema-qualified sort fields are required for multi-schema requests",
+		);
 	}
 };
 
 const buildSortExpression = (input: {
 	alias: string;
 	field: string[];
-	schemaMap: Map<string, ViewRuntimeSchemaRow>;
 	defaultSchemaSlug: string;
+	schemaMap: Map<string, ViewRuntimeSchemaRow>;
 }) => {
-	const expressions = input.field.map((reference) => {
-		const parsedReference = resolveRuntimeReference(
+	requireSchemaQualifiedSortFields(
+		input.field,
+		new Set(input.schemaMap.keys()).size > 1,
+	);
+	const resolvedFields = input.field.map((reference) => {
+		return getSortExpressionType({
 			reference,
-			input.defaultSchemaSlug,
-		);
-
-		if (parsedReference.type === "top-level") {
-			return buildTopLevelSortExpression(input.alias, parsedReference.column);
+			schemaMap: input.schemaMap,
+			defaultSchemaSlug: input.defaultSchemaSlug,
+		});
+	});
+	const targetType = getCommonSortType(
+		resolvedFields.map((field) => field.propertyType),
+	);
+	const expressions = resolvedFields.map((field) => {
+		if (field.parsedReference.type === "top-level") {
+			return buildTopLevelSortExpression({
+				alias: input.alias,
+				column: field.parsedReference.column,
+				targetType,
+			});
 		}
 
 		return buildPropertySortExpression({
+			targetType,
 			alias: input.alias,
 			schemaMap: input.schemaMap,
-			reference: parsedReference,
+			reference: field.parsedReference,
 		});
 	});
 
@@ -205,11 +323,11 @@ const buildTopLevelDisplayExpression = (alias: string, column: string) => {
 const buildDisplayValueExpression = (input: {
 	alias: string;
 	reference: string | null;
-	schemaMap: Map<string, ViewRuntimeSchemaRow>;
 	defaultSchemaSlug: string;
+	schemaMap: Map<string, ViewRuntimeSchemaRow>;
 }) => {
 	if (!input.reference) {
-		return sql`null`;
+		return sql`'null'::jsonb`;
 	}
 
 	const parsedReference = resolveRuntimeReference(
@@ -228,7 +346,10 @@ const buildDisplayValueExpression = (input: {
 	}
 
 	const propertyValue = sql`${sql.raw(input.alias)}.properties -> ${parsedReference.property}`;
-	if (parsedReference.slug === input.defaultSchemaSlug) {
+	if (
+		input.schemaMap.size === 1 &&
+		parsedReference.slug === input.defaultSchemaSlug
+	) {
 		return propertyValue;
 	}
 
@@ -270,24 +391,24 @@ const buildResolvedPropertiesExpression = (input: {
 	defaultSchemaSlug: string;
 }) => {
 	if (input.request.layout === "table") {
-		const columnPairs = input.request.displayConfiguration.columns.flatMap(
+		const columnExpressions = input.request.displayConfiguration.columns.map(
 			(column, index) => {
-				return [
-					sql`${`column_${index}`}`,
-					buildCoalescedDisplayExpression({
+				return sql`jsonb_build_object(
+					${sql.raw(`'column_${index}'::text`)},
+					${buildCoalescedDisplayExpression({
 						alias: input.alias,
 						schemaMap: input.schemaMap,
 						references: column.property,
 						defaultSchemaSlug: input.defaultSchemaSlug,
-					}),
-				];
+					})}
+				)`;
 			},
 		);
 
-		if (!columnPairs.length) {
+		if (!columnExpressions.length) {
 			return sql`'{}'::jsonb`;
 		}
-		return sql`jsonb_build_object(${sql.join(columnPairs, sql`, `)})`;
+		return sql.join(columnExpressions, sql` || `);
 	}
 
 	const displayConfiguration: GridConfig | ListConfig =
