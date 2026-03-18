@@ -706,9 +706,9 @@ After Phase 1 implementation is complete, the following work can begin:
 
 ## Tasks
 
-**Overall Progress:** 3 of 9 tasks completed
+**Overall Progress:** 4 of 9 tasks completed
 
-**Current Task:** [Task 04](./04-clone-saved-view.md) (todo)
+**Current Task:** [Task 05](./05-reserved-slug-validation.md) (todo)
 
 ### Task List
 
@@ -717,7 +717,7 @@ After Phase 1 implementation is complete, the following work can begin:
 | 01  | [Saved Views Data Model & Bootstrap Update](./01-saved-views-data-model-bootstrap.md)                        | AFK  | done   | None                     |
 | 02  | [GET Saved View by ID](./02-get-saved-view-by-id.md)                                                         | AFK  | done   | Task 01                  |
 | 03  | [PUT Saved View (Full Replacement)](./03-put-saved-view.md)                                                  | AFK  | done   | Task 01                  |
-| 04  | [Clone Saved View](./04-clone-saved-view.md)                                                                 | AFK  | todo   | Task 01                  |
+| 04  | [Clone Saved View](./04-clone-saved-view.md)                                                                 | AFK  | done   | Task 01                  |
 | 05  | [Reserved Slug Validation](./05-reserved-slug-validation.md)                                                 | AFK  | todo   | Task 01                  |
 | 06  | [View Runtime: Schema Introspection + Single-Schema Execution](./06-view-runtime-single-schema-execution.md) | AFK  | todo   | Task 01                  |
 | 07  | [View Runtime: Filter Execution](./07-view-runtime-filter-execution.md)                                      | AFK  | todo   | Task 06                  |
