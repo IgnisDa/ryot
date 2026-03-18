@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -42,16 +42,16 @@ Add to or create `apps/app-backend/src/modules/entity-schemas/service.test.ts`:
 
 ## Acceptance criteria
 
-- [ ] `validateSlugNotReserved` function exists in entity-schemas service
-- [ ] Reserved slug list is derived from bootstrap manifests (single source of truth)
-- [ ] Creating entity schema with slug "book" fails with validation error
-- [ ] Creating entity schema with slug "anime" fails with validation error
-- [ ] Creating entity schema with slug "manga" fails with validation error
-- [ ] Creating entity schema with non-reserved slug succeeds
-- [ ] Validation is called during entity schema creation flow
-- [ ] Unit tests cover all built-in slugs and non-reserved slugs
-- [ ] Existing entity schema tests pass
-- [ ] `turbo check` passes
+- [x] `validateSlugNotReserved` function exists in entity-schemas service
+- [x] Reserved slug list is derived from bootstrap manifests (single source of truth)
+- [x] Creating entity schema with slug "book" fails with validation error
+- [x] Creating entity schema with slug "anime" fails with validation error
+- [x] Creating entity schema with slug "manga" fails with validation error
+- [x] Creating entity schema with non-reserved slug succeeds
+- [x] Validation is called during entity schema creation flow
+- [x] Unit tests cover all built-in slugs and non-reserved slugs
+- [x] Existing entity schema tests pass
+- [x] `turbo check` passes
 
 ## Blocked by
 
