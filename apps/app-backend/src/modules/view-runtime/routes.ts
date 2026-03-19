@@ -16,8 +16,6 @@ import {
 	executeViewRuntimeResponseSchema,
 } from "./schemas";
 
-const sortFieldRequiredError = "Sort field is required";
-
 const executeViewRuntimeRoute = createAuthRoute(
 	createRoute({
 		method: "post",
@@ -45,11 +43,6 @@ export const viewRuntimeApi = new OpenAPIHono<{
 }>().openapi(executeViewRuntimeRoute, async (c) => {
 	const user = c.get("user");
 	const body = c.req.valid("json");
-
-	if (!body.sort.field.length) {
-		const error = createValidationErrorResult(sortFieldRequiredError);
-		return c.json(error.body, error.status);
-	}
 
 	try {
 		const result = await executeViewRuntimeQuery(body, user.id);
