@@ -3,6 +3,9 @@ import { faker } from "@faker-js/faker";
 
 const API_BASE_URL = "http://localhost:3000/api";
 const API_KEY = process.env.API_KEY;
+if (!API_KEY) {
+	throw new Error("API_KEY environment variable is not set");
+}
 
 type PropertyDefinition =
 	| {
@@ -92,7 +95,10 @@ class APIClient {
 		const response = await fetch(`${API_BASE_URL}${endpoint}`, {
 			method: "POST",
 			body: JSON.stringify(body),
-			headers: { "X-Api-Key": API_KEY, "Content-Type": "application/json" },
+			headers: {
+				"X-Api-Key": `${API_KEY}`,
+				"Content-Type": "application/json",
+			},
 		});
 
 		if (!response.ok) {
@@ -113,8 +119,8 @@ function randomInt(min: number, max: number): number {
 	return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function randomChoice<T>(array: T[]): T {
-	return array[Math.floor(Math.random() * array.length)];
+function randomChoice<T>(array: T[]) {
+	return array[Math.floor(Math.random() * array.length)] as T;
 }
 
 function generateImageUrl(seed: string, width: number, height: number): string {
@@ -1530,12 +1536,6 @@ async function seedSavedViews(client: APIClient) {
 async function main() {
 	console.log("🌱 Ryot Seed Script");
 	console.log("━".repeat(50));
-
-	if (!API_KEY) {
-		throw new Error(
-			"API_KEY environment variable is required. Usage: API_KEY=your-key bun run seed-script.ts",
-		);
-	}
 
 	console.log("✓ API Key validated");
 	console.log(`✓ API Base URL: ${API_BASE_URL}`);
