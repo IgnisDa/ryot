@@ -28,16 +28,16 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			client,
 			cookies,
 			buildGridRequest({
-				page: { limit: 1, offset: 0 },
 				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 1 },
 			}),
 		);
 		const listResult = await executeViewRuntime(
 			client,
 			cookies,
 			buildListRequest({
-				page: { limit: 1, offset: 0 },
 				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 1 },
 			}),
 		);
 
@@ -61,8 +61,8 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			client,
 			cookies,
 			buildTableRequest({
-				page: { limit: 1, offset: 0 },
 				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 1 },
 				displayConfiguration: buildTableDisplayConfiguration([
 					{ property: ["@name"] },
 					{ property: ["year"] },

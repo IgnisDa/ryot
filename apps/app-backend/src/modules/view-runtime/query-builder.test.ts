@@ -5,70 +5,59 @@ describe("calculatePagination", () => {
 	it("calculates the first page correctly", () => {
 		expect(
 			calculatePagination({
+				page: 1,
 				limit: 5,
 				total: 20,
-				offset: 0,
 			}),
 		).toEqual({
+			page: 1,
 			limit: 5,
 			total: 20,
-			offset: 0,
 			totalPages: 4,
-			currentPage: 1,
 			hasNextPage: true,
 			hasPreviousPage: false,
 		});
 	});
 
-	it("clamps offsets beyond the last page", () => {
-		expect(
-			calculatePagination({
-				limit: 5,
-				total: 20,
-				offset: 100,
-			}),
-		).toEqual({
+	it("keeps out-of-range pages unchanged", () => {
+		expect(calculatePagination({ limit: 5, total: 20, page: 100 })).toEqual({
 			limit: 5,
 			total: 20,
-			offset: 15,
+			page: 100,
 			totalPages: 4,
-			currentPage: 4,
 			hasNextPage: false,
 			hasPreviousPage: true,
 		});
 	});
 
 	it("returns consistent metadata for zero results", () => {
-		expect(
-			calculatePagination({
-				total: 0,
-				limit: 5,
-				offset: 0,
-			}),
-		).toEqual({
+		expect(calculatePagination({ page: 1, total: 0, limit: 5 })).toEqual({
+			page: 1,
 			total: 0,
 			limit: 5,
-			offset: 0,
 			totalPages: 0,
-			currentPage: 1,
 			hasNextPage: false,
 			hasPreviousPage: false,
 		});
 	});
 
 	it("marks the last page without a next page", () => {
-		expect(
-			calculatePagination({
-				limit: 5,
-				total: 20,
-				offset: 15,
-			}),
-		).toEqual({
+		expect(calculatePagination({ page: 4, limit: 5, total: 20 })).toEqual({
+			page: 4,
 			total: 20,
 			limit: 5,
-			offset: 15,
 			totalPages: 4,
-			currentPage: 4,
+			hasNextPage: false,
+			hasPreviousPage: true,
+		});
+	});
+
+	it("keeps the final partial page aligned to page boundaries", () => {
+		expect(calculatePagination({ page: 3, limit: 10, total: 23 })).toEqual({
+			page: 3,
+			total: 23,
+			limit: 10,
+			totalPages: 3,
 			hasNextPage: false,
 			hasPreviousPage: true,
 		});

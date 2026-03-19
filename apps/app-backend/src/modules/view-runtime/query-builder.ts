@@ -26,14 +26,13 @@ type QueryRow = {
 };
 
 type PaginationInput = {
+	page: number;
 	total: number;
 	limit: number;
-	offset: number;
 };
 
 type PaginationResult = PaginationInput & {
 	totalPages: number;
-	currentPage: number;
 	hasNextPage: boolean;
 	hasPreviousPage: boolean;
 };
@@ -127,20 +126,14 @@ const getDefaultSchemaSlug = (slugs: string[]) => slugs[0] ?? "";
 export const calculatePagination = (
 	input: PaginationInput,
 ): PaginationResult => {
-	const maxOffset = Math.max(0, input.total - input.limit);
-	const offset = Math.min(input.offset, maxOffset);
 	const totalPages =
 		input.total === 0 ? 0 : Math.ceil(input.total / input.limit);
-	const currentPage =
-		input.total === 0 ? 1 : Math.floor(offset / input.limit) + 1;
 
 	return {
 		...input,
-		offset,
 		totalPages,
-		currentPage,
-		hasPreviousPage: offset > 0,
-		hasNextPage: offset + input.limit < input.total,
+		hasNextPage: input.page < totalPages,
+		hasPreviousPage: totalPages > 0 && input.page > 1,
 	};
 };
 
@@ -188,9 +181,15 @@ export const executeViewRuntimeQuery = async (
 	const total = countResult.rows[0]?.total ?? 0;
 	const pagination = calculatePagination({
 		total,
-		limit: request.page.limit,
-		offset: request.page.offset,
+		page: request.pagination.page,
+		limit: request.pagination.limit,
 	});
+
+	if (total === 0 || pagination.page > pagination.totalPages) {
+		return { items: [], meta: { pagination } };
+	}
+
+	const offset = (pagination.page - 1) * pagination.limit;
 	const resolvedProperties = buildResolvedPropertiesExpression({
 		request,
 		schemaMap,
@@ -218,7 +217,7 @@ export const executeViewRuntimeQuery = async (
 				select *
 				from sorted_entities
 				order by sort_index
-				offset ${pagination.offset}
+				offset ${offset}
 				limit ${pagination.limit}
 			)
 		select

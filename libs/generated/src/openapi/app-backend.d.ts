@@ -610,6 +610,17 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
                 /** @description Request is unauthenticated */
                 401: {
                     headers: {
@@ -2223,14 +2234,14 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        page: {
-                            limit: number;
-                            offset: number;
-                        };
                         sort: {
                             /** @enum {string} */
                             direction: "asc" | "desc";
                             field: string[];
+                        };
+                        pagination: {
+                            page: number;
+                            limit: number;
                         };
                         /** @enum {string} */
                         layout: "grid";
@@ -2258,14 +2269,14 @@ export interface paths {
                         })[];
                         entitySchemaSlugs: string[];
                     } | {
-                        page: {
-                            limit: number;
-                            offset: number;
-                        };
                         sort: {
                             /** @enum {string} */
                             direction: "asc" | "desc";
                             field: string[];
+                        };
+                        pagination: {
+                            page: number;
+                            limit: number;
                         };
                         /** @enum {string} */
                         layout: "list";
@@ -2293,14 +2304,14 @@ export interface paths {
                         })[];
                         entitySchemaSlugs: string[];
                     } | {
-                        page: {
-                            limit: number;
-                            offset: number;
-                        };
                         sort: {
                             /** @enum {string} */
                             direction: "asc" | "desc";
                             field: string[];
+                        };
+                        pagination: {
+                            page: number;
+                            limit: number;
                         };
                         /** @enum {string} */
                         layout: "table";
@@ -2362,13 +2373,12 @@ export interface paths {
                                 }[];
                                 meta: {
                                     pagination: {
+                                        page: number;
                                         total: number;
                                         limit: number;
-                                        offset: number;
                                         hasNextPage: boolean;
                                         hasPreviousPage: boolean;
                                         totalPages: number;
-                                        currentPage: number;
                                     };
                                 };
                             };
