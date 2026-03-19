@@ -14,7 +14,7 @@ import type { ViewRuntimeRequest } from "./schemas";
 const buildTopLevelDisplayExpression = (alias: string, column: string) =>
 	match(column)
 		.with("name", () => sql`to_jsonb(${sql.raw(alias)}.name)`)
-		.with("image", () => sql`coalesce(${sql.raw(alias)}.image, 'null'::jsonb)`)
+		.with("image", () => sql`${sql.raw(alias)}.image`)
 		.with("createdAt", () => sql`to_jsonb(${sql.raw(alias)}.created_at)`)
 		.with("updatedAt", () => sql`to_jsonb(${sql.raw(alias)}.updated_at)`)
 		.otherwise(() => {
