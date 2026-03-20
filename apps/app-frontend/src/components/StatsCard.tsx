@@ -3,10 +3,10 @@ import { TrendingUp } from "lucide-react";
 
 export interface StatsCardProps {
 	label: string;
-	value: string | number;
-	change?: string;
 	color?: string;
+	change?: string;
 	isDark?: boolean;
+	value: string | number;
 }
 
 export function StatsCard(props: StatsCardProps) {
@@ -45,9 +45,9 @@ export function StatsCard(props: StatsCardProps) {
 					fw={600}
 					tt="uppercase"
 					style={{
-						fontFamily: '"Space Grotesk", sans-serif',
-						letterSpacing: "1px",
 						color: color,
+						letterSpacing: "1px",
+						fontFamily: '"Space Grotesk", sans-serif',
 					}}
 				>
 					{props.label}
@@ -57,8 +57,8 @@ export function StatsCard(props: StatsCardProps) {
 					fw={600}
 					lh={1}
 					style={{
-						fontFamily: '"Space Grotesk", sans-serif',
 						color: textPrimary,
+						fontFamily: '"Space Grotesk", sans-serif',
 					}}
 				>
 					{props.value}
