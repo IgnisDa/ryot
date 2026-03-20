@@ -19,8 +19,10 @@ const executeViewRuntimeGridBody = z.object({
 	sort: sortDefinitionSchema,
 	layout: z.literal("grid"),
 	displayConfiguration: gridConfigSchema,
-	entitySchemaSlugs: z.array(z.string()),
 	filters: z.array(filterExpressionSchema),
+	entitySchemaSlugs: z
+		.array(z.string())
+		.min(1, "At least one entity schema slug is required"),
 });
 
 const executeViewRuntimeListBody = z.object({
@@ -28,8 +30,10 @@ const executeViewRuntimeListBody = z.object({
 	sort: sortDefinitionSchema,
 	layout: z.literal("list"),
 	displayConfiguration: listConfigSchema,
-	entitySchemaSlugs: z.array(z.string()),
 	filters: z.array(filterExpressionSchema),
+	entitySchemaSlugs: z
+		.array(z.string())
+		.min(1, "At least one entity schema slug is required"),
 });
 
 const executeViewRuntimeTableBody = z.object({
@@ -37,8 +41,10 @@ const executeViewRuntimeTableBody = z.object({
 	sort: sortDefinitionSchema,
 	layout: z.literal("table"),
 	displayConfiguration: tableConfigSchema,
-	entitySchemaSlugs: z.array(z.string()),
 	filters: z.array(filterExpressionSchema),
+	entitySchemaSlugs: z
+		.array(z.string())
+		.min(1, "At least one entity schema slug is required"),
 });
 
 const viewRuntimeItemSchema = z.object({

@@ -3,6 +3,8 @@ import { db } from "~/lib/db";
 import { entity, entitySchema, type ImageSchemaType } from "~/lib/db/schema";
 import type { EntitySchemaPropertiesShape } from "../entity-schemas/service";
 import type { GridConfig, ListConfig } from "../saved-views/schemas";
+import { ViewRuntimeNotFoundError, ViewRuntimeValidationError } from "./errors";
+import { buildFilterWhereClause } from "./filter-builder";
 import {
 	buildSchemaMap,
 	getPropertyType,
@@ -44,10 +46,6 @@ type PaginationResult = PaginationInput & {
 type RuntimeRef =
 	| { type: "top-level"; column: string }
 	| { type: "schema-property"; slug: string; property: string };
-
-export class ViewRuntimeNotFoundError extends Error {}
-
-export class ViewRuntimeValidationError extends Error {}
 
 const entitySchemaVisibleToUserClause = (userId: string) => {
 	return or(isNull(entitySchema.userId), eq(entitySchema.userId, userId));
@@ -107,7 +105,7 @@ const buildPropertySortExpression = (input: {
 	const propertyText = sql`${sql.raw(input.alias)}.properties ->> ${input.reference.property}`;
 	const propertyJson = sql`${sql.raw(input.alias)}.properties -> ${input.reference.property}`;
 
-	const valueExpression = buildCastedSortExpression(propertyType, {
+	const valueExpression = buildCastedValueExpression(propertyType, {
 		propertyJson,
 		propertyText,
 	});
@@ -119,7 +117,7 @@ const buildPropertySortExpression = (input: {
 	return sql`case when ${sql.raw(input.alias)}.entity_schema_slug = ${input.reference.slug} then ${valueExpression} else null end`;
 };
 
-const buildCastedSortExpression = (
+const buildCastedValueExpression = (
 	propertyType: PropertyType,
 	input: {
 		propertyText: ReturnType<typeof sql>;
@@ -326,11 +324,15 @@ const buildResolvedPropertiesExpression = (input: {
 const buildFilteredEntitiesCte = (input: {
 	userId: string;
 	entitySchemaIds: string[];
+	filterWhereClause?: ReturnType<typeof sql>;
 }) => {
 	const entitySchemaIdList = sql.join(
 		input.entitySchemaIds.map((entitySchemaId) => sql`${entitySchemaId}`),
 		sql`, `,
 	);
+	const filterClause = input.filterWhereClause
+		? sql` and ${input.filterWhereClause}`
+		: sql``;
 
 	return sql`
 		filtered_entities as (
@@ -348,6 +350,7 @@ const buildFilteredEntitiesCte = (input: {
 				on ${entity.entitySchemaId} = ${entitySchema.id}
 			where ${entity.userId} = ${input.userId}
 				and ${entity.entitySchemaId} in (${entitySchemaIdList})
+				${filterClause}
 		)
 	`;
 };
@@ -398,15 +401,7 @@ const fetchRuntimeSchemas = async (input: {
 	return schemas;
 };
 
-const assertSingleSchemaRequest = (slugs: string[]) => {
-	if (new Set(slugs).size !== 1) {
-		throw new ViewRuntimeValidationError(
-			"Single-schema execution requires exactly one entity schema slug",
-		);
-	}
-
-	return slugs[0] ?? "";
-};
+const getDefaultSchemaSlug = (slugs: string[]) => slugs[0] ?? "";
 
 export const calculatePagination = (
 	input: PaginationInput,
@@ -432,22 +427,23 @@ export const executeViewRuntimeQuery = async (
 	request: ViewRuntimeRequest,
 	userId: string,
 ): Promise<ViewRuntimeResponse> => {
-	if (request.filters.length) {
-		throw new ViewRuntimeValidationError(
-			"Filters are not supported for single-schema execution yet",
-		);
-	}
-
 	const runtimeSchemas = await fetchRuntimeSchemas({
 		userId,
 		entitySchemaSlugs: request.entitySchemaSlugs,
 	});
-	const defaultSchemaSlug = assertSingleSchemaRequest(
-		request.entitySchemaSlugs,
-	);
+	const defaultSchemaSlug = getDefaultSchemaSlug(request.entitySchemaSlugs);
 	const schemaMap = buildSchemaMap(runtimeSchemas);
+	const filterWhereClause = buildFilterWhereClause({
+		schemaMap,
+		alias: "entity",
+		defaultSchemaSlug,
+		filters: request.filters,
+		entitySchemaSlugs: request.entitySchemaSlugs,
+		schemaSlugExpression: sql`${entitySchema.slug}`,
+	});
 	const filteredEntitiesCte = buildFilteredEntitiesCte({
 		userId,
+		filterWhereClause,
 		entitySchemaIds: runtimeSchemas.map((schema) => schema.id),
 	});
 	const sortExpression = buildSortExpression({
