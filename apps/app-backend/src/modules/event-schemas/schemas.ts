@@ -6,13 +6,16 @@ import {
 } from "~/lib/zod/base";
 import { createLabeledPropertySchemas } from "../property-schemas/schemas";
 
+const eventSchemaPropertiesSchema = createLabeledPropertySchemas(
+	"Event schema properties",
+).schema;
+
 export const listedEventSchemaSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	slug: z.string(),
 	entitySchemaId: z.string(),
-	propertiesSchema: createLabeledPropertySchemas("Event schema properties")
-		.schema,
+	propertiesSchema: eventSchemaPropertiesSchema,
 });
 
 export const listEventSchemasResponseSchema = dataSchema(
@@ -29,8 +32,7 @@ export const listEventSchemasQuery = z.object({
 
 export const createEventSchemaBody = createNameWithOptionalSlugSchema({
 	entitySchemaId: nonEmptyTrimmedStringSchema,
-	propertiesSchema: createLabeledPropertySchemas("Event schema properties")
-		.schema,
+	propertiesSchema: eventSchemaPropertiesSchema,
 });
 
 export type CreateEventSchemaBody = z.infer<typeof createEventSchemaBody>;
