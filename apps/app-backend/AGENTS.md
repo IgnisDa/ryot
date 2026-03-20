@@ -35,6 +35,7 @@ The backend should favor explicit validation, stable contracts, and small compos
 - Reuse `createAuthRoute`, shared error helpers, and shared access-error helpers instead of rebuilding response envelopes per route.
 - Keep OpenAPI request and response schemas colocated with the module they describe.
 - When multiple routes in the same module share identical not-found or validation results, extract small local constants/helpers instead of repeating literals.
+- If schemas change, update the OpenAPI spec by running `bun run --filter=@ryot/generated app-backend-openapi`. Make sure you have the dev server running before you run this command.
 
 ### Repositories And Drizzle
 
