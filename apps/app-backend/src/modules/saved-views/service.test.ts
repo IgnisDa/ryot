@@ -21,7 +21,7 @@ import {
 const createQueryDefinition = (): SavedViewQueryDefinition => ({
 	filters: [],
 	entitySchemaSlugs: ["books"],
-	sort: { field: ["@name"], direction: "asc" },
+	sort: { fields: ["@name"], direction: "asc" },
 });
 
 const createSavedViewBody = (): CreateSavedViewBody => ({

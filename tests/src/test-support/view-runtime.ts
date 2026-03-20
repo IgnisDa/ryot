@@ -62,7 +62,7 @@ export function buildGridRequest(
 		filters: [],
 		layout: "grid",
 		pagination: { page: 1, limit: 10 },
-		sort: { field: ["@name"], direction: "asc" },
+		sort: { fields: ["@name"], direction: "asc" },
 		displayConfiguration: buildGridDisplayConfiguration(),
 		...overrides,
 	};
@@ -76,7 +76,7 @@ export function buildListRequest(
 		filters: [],
 		layout: "list",
 		pagination: { page: 1, limit: 10 },
-		sort: { field: ["@name"], direction: "asc" },
+		sort: { fields: ["@name"], direction: "asc" },
 		displayConfiguration: buildListDisplayConfiguration(),
 		...overrides,
 	};
@@ -90,7 +90,7 @@ export function buildTableRequest(
 		filters: [],
 		layout: "table",
 		pagination: { page: 1, limit: 10 },
-		sort: { field: ["@name"], direction: "asc" },
+		sort: { fields: ["@name"], direction: "asc" },
 		displayConfiguration: buildTableDisplayConfiguration(),
 		...overrides,
 	};
