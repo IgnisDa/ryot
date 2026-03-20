@@ -26,7 +26,13 @@ import {
 function AccountMetaItem(props: { label: string; value: string }) {
 	return (
 		<Box>
-			<Text size="xs" c="dimmed" tt="uppercase" lts="0.5px" fw={600}>
+			<Text
+				fw={600}
+				size="xs"
+				c="dimmed"
+				tt="uppercase"
+				style={{ letterSpacing: "0.5px" }}
+			>
 				{props.label}
 			</Text>
 			<Text size="md" fw={500} mt={6}>
@@ -93,7 +99,7 @@ export function SidebarAccountSection(props: {
 						>
 							{initials}
 						</Avatar>
-						<Box style={{ flex: 1, minWidth: 0 }}>
+						<Box miw={0} style={{ flex: 1 }}>
 							<Text c={props.textPrimary} fw={500} size="sm" truncate="end">
 								{props.account.name}
 							</Text>
@@ -153,7 +159,7 @@ export function SidebarAccountSection(props: {
 								>
 									{initials}
 								</Avatar>
-								<Box style={{ flex: 1, minWidth: 0 }}>
+								<Box miw={0} style={{ flex: 1 }}>
 									<Text
 										fw={600}
 										size="xl"

@@ -79,13 +79,7 @@ function EventList(props: {
 					.filter((value): value is string => !!value);
 
 				return (
-					<Paper
-						p="xs"
-						withBorder
-						radius="md"
-						key={event.id}
-						style={{ backgroundColor: "var(--mantine-color-gray-0)" }}
-					>
+					<Paper p="xs" withBorder radius="md" bg="gray.0" key={event.id}>
 						<Stack gap={4}>
 							<Group justify="space-between" align="flex-start">
 								<Text fw={500} size="sm">
@@ -427,12 +421,7 @@ export function EntityEventsSection(props: {
 			{!eventsQuery.isLoading &&
 				!eventsQuery.isError &&
 				(viewState.type === "empty" ? (
-					<Paper
-						p="sm"
-						withBorder
-						radius="md"
-						style={{ backgroundColor: "var(--mantine-color-gray-0)" }}
-					>
+					<Paper p="sm" withBorder radius="md" bg="gray.0">
 						<Stack gap={2}>
 							<Text fw={500} size="sm">
 								No events yet

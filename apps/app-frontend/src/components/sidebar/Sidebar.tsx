@@ -670,7 +670,7 @@ export function Sidebar(props: SidebarProps) {
 				/>
 			</Box>
 
-			<Box h={1} mx="lg" style={{ backgroundColor: border }} />
+			<Box h={1} mx="lg" bg={border} />
 
 			<Stack gap={0} px="sm" py="md" style={{ flex: 1, overflowY: "auto" }}>
 				<NavLink
@@ -704,8 +704,9 @@ export function Sidebar(props: SidebarProps) {
 							fw={600}
 							size="xs"
 							c={textMuted}
+							tt="uppercase"
+							style={{ letterSpacing: "1px" }}
 							ff="var(--mantine-headings-font-family)"
-							style={{ letterSpacing: "1px", textTransform: "uppercase" }}
 						>
 							Trackers
 						</Text>
@@ -783,8 +784,9 @@ export function Sidebar(props: SidebarProps) {
 							fw={600}
 							size="xs"
 							c={textMuted}
+							tt="uppercase"
+							style={{ letterSpacing: "1px" }}
 							ff="var(--mantine-headings-font-family)"
-							style={{ letterSpacing: "1px", textTransform: "uppercase" }}
 						>
 							Views
 						</Text>
