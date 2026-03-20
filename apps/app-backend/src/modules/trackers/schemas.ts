@@ -37,21 +37,13 @@ const nullableTextInputSchema = z
 
 export const updateTrackerBody = z
 	.object({
-		isDisabled: z.boolean().optional(),
+		isDisabled: z.boolean(),
 		description: nullableTextInputSchema,
 		icon: applicationIconNameSchema.optional(),
 		name: nonEmptyTrimmedStringSchema.optional(),
 		accentColor: nonEmptyTrimmedStringSchema.optional(),
 	})
 	.superRefine((value, ctx) => {
-		if (Object.keys(value).length === 0) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				message: "At least one field must be provided",
-			});
-			return;
-		}
-
 		const hasConfigUpdate =
 			value.icon !== undefined ||
 			value.name !== undefined ||
