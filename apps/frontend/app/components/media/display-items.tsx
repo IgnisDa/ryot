@@ -30,6 +30,7 @@ export const MetadataDisplayItem = (props: {
 	imageClassName?: string;
 	centerElement?: ReactNode;
 	additionalInformation?: string;
+	isCalendarEventWatched?: boolean;
 	shouldHighlightNameIfInteracted?: boolean;
 	onImageClickBehavior?: () => Promise<void>;
 }) => {
@@ -114,6 +115,7 @@ export const MetadataDisplayItem = (props: {
 			imageClassName={props.imageClassName}
 			isDetailsLoading={isMetadataDetailsLoading}
 			wasRecentlyConsumed={isMetadataRecentlyConsumed}
+			isCalendarEventWatched={props.isCalendarEventWatched}
 			isPartialStatusActive={isMetadataPartialStatusActive}
 			image={metadataImageTranslation || images.at(0)}
 			title={metadataTitleTranslation || metadataDetails?.title}

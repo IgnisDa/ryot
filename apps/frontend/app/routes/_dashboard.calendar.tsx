@@ -24,6 +24,7 @@ import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib } from "~/lib/shared/date-utils";
+import { useUserMetadataDetails } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 
 const defaultFiltersState = {
@@ -109,6 +110,10 @@ type CalendarDate = UserCalendarEventsQuery["userCalendarEvents"][number];
 const CalendarEventMetadata = (props: {
 	item: CalendarDate["events"][number];
 }) => {
+	const { data: userMetadataDetails } = useUserMetadataDetails(
+		props.item.metadataId,
+	);
+
 	const additionalInformation = useMemo(() => {
 		if (props.item.showExtraInformation)
 			return `Upcoming: S${props.item.showExtraInformation?.season}-E${props.item.showExtraInformation?.episode}`;
@@ -116,10 +121,34 @@ const CalendarEventMetadata = (props: {
 			return `Upcoming: EP-${props.item.podcastExtraInformation?.episode}`;
 	}, [props.item]);
 
+	const isCalendarEventWatched = useMemo(() => {
+		if (!userMetadataDetails) return false;
+		const showInfo = props.item.showExtraInformation;
+		if (showInfo) {
+			const seasonProgress = userMetadataDetails.showProgress?.find(
+				(s) => s.seasonNumber === showInfo.season,
+			);
+			if (!seasonProgress) return false;
+			const episodeProgress = seasonProgress.episodes.find(
+				(e) => e.episodeNumber === showInfo.episode,
+			);
+			return (episodeProgress?.timesSeen ?? 0) > 0;
+		}
+		const podcastInfo = props.item.podcastExtraInformation;
+		if (podcastInfo) {
+			const episodeProgress = userMetadataDetails.podcastProgress?.find(
+				(e) => e.episodeNumber === podcastInfo.episode,
+			);
+			return (episodeProgress?.timesSeen ?? 0) > 0;
+		}
+		return false;
+	}, [userMetadataDetails, props.item]);
+
 	return (
 		<MetadataDisplayItem
 			metadataId={props.item.metadataId}
 			additionalInformation={additionalInformation}
+			isCalendarEventWatched={isCalendarEventWatched}
 		/>
 	);
 };
