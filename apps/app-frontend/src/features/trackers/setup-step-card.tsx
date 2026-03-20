@@ -42,27 +42,19 @@ export function SetupStepCard(props: SetupStepCardProps) {
 		<Paper
 			p="lg"
 			withBorder
-			style={{
-				borderWidth: 2,
-				opacity: styles.opacity,
-				borderColor: styles.borderColor,
-			}}
+			opacity={styles.opacity}
+			style={{ borderWidth: 2, borderColor: styles.borderColor }}
 		>
 			<Stack gap="md">
 				<Group gap="md" wrap="nowrap">
 					{props.status === "completed" ? (
-						<Badge
-							size="lg"
-							color="green"
-							variant="filled"
-							style={{ minWidth: 32 }}
-						>
+						<Badge size="lg" color="green" variant="filled" miw={32}>
 							<Check size={16} />
 						</Badge>
 					) : (
 						<Badge
+							miw={32}
 							size="lg"
-							style={{ minWidth: 32 }}
 							color={props.status === "active" ? "accent" : "gray"}
 							variant={props.status === "active" ? "filled" : "outline"}
 						>

@@ -218,7 +218,10 @@ function ImageField(props: ImageFieldProps) {
 					<Text size="sm" fw={500}>
 						{props.label}
 						{props.required && (
-							<span style={{ color: "var(--mantine-color-red-6)" }}> *</span>
+							<Text span c="red.6">
+								{" "}
+								*
+							</Text>
 						)}
 					</Text>
 				</Group>

@@ -62,7 +62,7 @@ export function StatsCard(props: StatsCardProps) {
 				{props.change && (
 					<Group gap={5} mt={2}>
 						<TrendingUp size={14} color={color} />
-						<Text size="xs" fw={500} style={{ color: color }}>
+						<Text size="xs" fw={500} c={color}>
 							{props.change}
 						</Text>
 					</Group>

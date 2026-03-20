@@ -308,7 +308,7 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 					</Paper>
 				))}
 
-				<Paper p="md" withBorder radius="md" style={{ textAlign: "center" }}>
+				<Paper p="md" withBorder radius="md" ta="center">
 					<Stack gap="sm" align="center">
 						<Text c="dimmed" size="sm">
 							Need to track another type of entity?
