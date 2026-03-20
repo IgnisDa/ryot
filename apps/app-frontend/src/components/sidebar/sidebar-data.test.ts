@@ -120,6 +120,17 @@ describe("toSidebarData", () => {
 				icon: "dumbbell",
 				accentColor: "#2DD4BF",
 			},
+			{
+				views: [],
+				sortOrder: 3,
+				icon: "shapes",
+				name: "Hidden",
+				slug: "hidden",
+				id: "tracker-3",
+				isBuiltin: false,
+				isDisabled: true,
+				accentColor: "#5B7FFF",
+			},
 		] as SidebarTracker[];
 
 		expect(result.trackers).toEqual(expectedTrackers);
@@ -135,7 +146,7 @@ describe("toSidebarData", () => {
 		]);
 	});
 
-	it("includes disabled trackers while customizing", () => {
+	it("keeps disabled trackers provided by the caller", () => {
 		const trackers = [
 			createTrackerFixture({
 				sortOrder: 2,
@@ -159,7 +170,6 @@ describe("toSidebarData", () => {
 		const result = toSidebarData({
 			views: [],
 			trackers,
-			isCustomizeMode: true,
 		});
 
 		expect(result.trackers.map((tracker) => tracker.id)).toEqual([
@@ -169,7 +179,7 @@ describe("toSidebarData", () => {
 		expect(result.trackers[1]?.isDisabled).toBe(true);
 	});
 
-	it("hides disabled tracker views in normal mode", () => {
+	it("keeps disabled tracker views provided by the caller", () => {
 		const trackers = [
 			createTrackerFixture({
 				name: "Media",
@@ -186,29 +196,32 @@ describe("toSidebarData", () => {
 		const result = toSidebarData({ trackers, views });
 
 		const mediaTracker = result.trackers.find((t) => t.id === "tracker-1");
-		expect(mediaTracker?.views?.map((v) => v.id)).toEqual(["view-enabled"]);
-	});
-
-	it("includes disabled tracker views while customizing", () => {
-		const trackers = [
-			createTrackerFixture({
-				name: "Media",
-				slug: "media",
-				id: "tracker-1",
-				accentColor: "#5B7FFF",
-			}),
-		];
-		const views = [
-			createSavedViewFixture({ id: "view-enabled", isDisabled: false }),
-			createSavedViewFixture({ id: "view-disabled", isDisabled: true }),
-		];
-
-		const result = toSidebarData({ trackers, views, isCustomizeMode: true });
-
-		const mediaTracker = result.trackers.find((t) => t.id === "tracker-1");
 		expect(mediaTracker?.views?.map((v) => v.id)).toEqual([
 			"view-enabled",
 			"view-disabled",
+		]);
+	});
+
+	it("keeps standalone disabled views provided by the caller", () => {
+		const trackers = [createTrackerFixture({ id: "tracker-1" })];
+		const views = [
+			createSavedViewFixture({
+				trackerId: null,
+				isDisabled: false,
+				id: "standalone-enabled",
+			}),
+			createSavedViewFixture({
+				trackerId: null,
+				isDisabled: true,
+				id: "standalone-disabled",
+			}),
+		];
+
+		const result = toSidebarData({ trackers, views });
+
+		expect(result.views.map((view) => view.id)).toEqual([
+			"standalone-enabled",
+			"standalone-disabled",
 		]);
 	});
 });

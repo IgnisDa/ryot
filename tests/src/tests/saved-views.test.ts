@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { createAuthenticatedClient } from "../helpers";
+import { createAuthenticatedClient, createTracker } from "../helpers";
 import {
 	buildSavedViewBody,
 	buildUpdatedSavedViewBody,
@@ -263,6 +263,58 @@ describe("Saved views E2E", () => {
 
 		expect(reEnabledView.isDisabled).toBe(false);
 		expect(fetchedReEnabled.isDisabled).toBe(false);
+	});
+
+	it("lists only enabled saved views by default", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const createdView = await createSavedView(client, cookies, {
+			name: `Filtered View ${crypto.randomUUID()}`,
+		});
+
+		await updateSavedView(client, cookies, createdView.id, {
+			isDisabled: true,
+		});
+
+		const listedViews = await listSavedViews(client, cookies);
+
+		expect(listedViews.map((view) => view.id)).not.toContain(createdView.id);
+		expect(listedViews.every((view) => !view.isDisabled)).toBe(true);
+	});
+
+	it("includes disabled saved views when includeDisabled is true and respects tracker filters", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: `Tracked Views ${crypto.randomUUID()}`,
+		});
+		const enabledTrackedView = await createSavedView(client, cookies, {
+			trackerId,
+			name: `Enabled Tracked View ${crypto.randomUUID()}`,
+		});
+		const disabledTrackedView = await createSavedView(client, cookies, {
+			trackerId,
+			name: `Disabled Tracked View ${crypto.randomUUID()}`,
+		});
+		await createSavedView(client, cookies, {
+			name: `Standalone View ${crypto.randomUUID()}`,
+		});
+
+		await updateSavedView(client, cookies, disabledTrackedView.id, {
+			isDisabled: true,
+		});
+
+		const listedViews = await listSavedViews(client, cookies, {
+			trackerId,
+			includeDisabled: true,
+		});
+
+		expect(new Set(listedViews.map((view) => view.id))).toEqual(
+			new Set([disabledTrackedView.id, enabledTrackedView.id]),
+		);
+		expect(listedViews.map((view) => view.trackerId)).toEqual([
+			trackerId,
+			trackerId,
+		]);
+		expect(listedViews.some((view) => view.isDisabled)).toBe(true);
 	});
 
 	it("rejects empty sort fields when creating or updating saved views", async () => {
