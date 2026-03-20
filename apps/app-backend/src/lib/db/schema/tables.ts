@@ -29,7 +29,9 @@ const remoteImageUrlSchema = z
 	.superRefine((value, ctx) => {
 		try {
 			const parsedUrl = new URL(value);
-			if (!["http:", "https:"].includes(parsedUrl.protocol)) throw new Error();
+			if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+				throw new Error();
+			}
 		} catch {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,

@@ -168,11 +168,12 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			viewId: params.viewId,
 		});
 
-		if (!view)
+		if (!view) {
 			return c.json(
 				savedViewNotFoundResult.body,
 				savedViewNotFoundResult.status,
 			);
+		}
 
 		return c.json(successResponse(view), 200);
 	})
@@ -186,22 +187,25 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			viewId: params.viewId,
 		});
 
-		if (!existingView)
+		if (!existingView) {
 			return c.json(
 				savedViewNotFoundResult.body,
 				savedViewNotFoundResult.status,
 			);
+		}
 
 		const protection = resolveIsBuiltinProtected(existingView.isBuiltin);
-		if (protection.protected)
+		if (protection.protected) {
 			return c.json(builtinViewErrorResult.body, builtinViewErrorResult.status);
+		}
 
 		const nameResult = resolveValidationData(
 			() => resolveSavedViewName(body.name),
 			"Saved view name is invalid",
 		);
-		if ("status" in nameResult)
+		if ("status" in nameResult) {
 			return c.json(nameResult.body, nameResult.status);
+		}
 
 		const updatedView = await updateSavedViewByIdForUser({
 			userId: user.id,
@@ -209,11 +213,12 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			data: { ...body, name: nameResult.data },
 		});
 
-		if (!updatedView)
+		if (!updatedView) {
 			return c.json(
 				savedViewNotFoundResult.body,
 				savedViewNotFoundResult.status,
 			);
+		}
 
 		return c.json(successResponse(updatedView), 200);
 	})
@@ -225,8 +230,9 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			() => resolveSavedViewName(body.name),
 			"Saved view name is invalid",
 		);
-		if ("status" in nameResult)
+		if ("status" in nameResult) {
 			return c.json(nameResult.body, nameResult.status);
+		}
 
 		const createdView = await createSavedViewForUser({
 			icon: body.icon,
@@ -250,26 +256,29 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			viewId: params.viewId,
 		});
 
-		if (!existingView)
+		if (!existingView) {
 			return c.json(
 				savedViewNotFoundResult.body,
 				savedViewNotFoundResult.status,
 			);
+		}
 
 		const protection = resolveIsBuiltinProtected(existingView.isBuiltin);
-		if (protection.protected)
+		if (protection.protected) {
 			return c.json(builtinViewErrorResult.body, builtinViewErrorResult.status);
+		}
 
 		const deletedView = await deleteSavedViewByIdForUser({
 			userId: user.id,
 			viewId: params.viewId,
 		});
 
-		if (!deletedView)
+		if (!deletedView) {
 			return c.json(
 				savedViewNotFoundResult.body,
 				savedViewNotFoundResult.status,
 			);
+		}
 
 		return c.json(successResponse(deletedView), 200);
 	})
@@ -282,19 +291,21 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			viewId: params.viewId,
 		});
 
-		if (!sourceView)
+		if (!sourceView) {
 			return c.json(
 				savedViewNotFoundResult.body,
 				savedViewNotFoundResult.status,
 			);
+		}
 
 		const clonedName = `${sourceView.name} (Copy)`;
 		const nameResult = resolveValidationData(
 			() => resolveSavedViewName(clonedName),
 			"Cloned view name is invalid",
 		);
-		if ("status" in nameResult)
+		if ("status" in nameResult) {
 			return c.json(nameResult.body, nameResult.status);
+		}
 
 		const clonedView = await cloneSavedViewByIdForUser({
 			userId: user.id,
@@ -302,11 +313,12 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			clonedName: nameResult.data,
 		});
 
-		if (!clonedView)
+		if (!clonedView) {
 			return c.json(
 				savedViewNotFoundResult.body,
 				savedViewNotFoundResult.status,
 			);
+		}
 
 		return c.json(successResponse(clonedView), 200);
 	});

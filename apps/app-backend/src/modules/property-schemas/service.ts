@@ -13,10 +13,14 @@ export const parsePropertySchemaInput = (
 		`${labels.propertiesLabel} must contain at least one property`,
 	);
 	const parsedObject = schema.safeParse(input);
-	if (parsedObject.success) return parsedObject.data;
+	if (parsedObject.success) {
+		return parsedObject.data;
+	}
 
 	const firstIssue = parsedObject.error.issues[0];
-	if (!firstIssue) throw new Error("Property schema is invalid");
+	if (!firstIssue) {
+		throw new Error("Property schema is invalid");
+	}
 
 	throw new Error(firstIssue.message);
 };

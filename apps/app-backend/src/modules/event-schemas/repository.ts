@@ -105,7 +105,9 @@ export const createEventSchemaForUser = async (input: {
 		})
 		.returning(listedEventSchemaSelection);
 
-	if (!createdEventSchema) throw new Error("Could not persist event schema");
+	if (!createdEventSchema) {
+		throw new Error("Could not persist event schema");
+	}
 
 	return toListedEventSchema(createdEventSchema);
 };

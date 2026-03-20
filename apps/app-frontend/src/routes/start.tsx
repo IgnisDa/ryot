@@ -16,7 +16,9 @@ export const Route = createFileRoute("/start")({
 	validateSearch: searchSchema,
 	beforeLoad: async ({ context, search }) => {
 		const session = await context.authClientInstance.getSession();
-		if (session.data) throw redirect({ to: search.redirect || "/" });
+		if (session.data) {
+			throw redirect({ to: search.redirect || "/" });
+		}
 	},
 });
 
@@ -92,7 +94,9 @@ function StartPage() {
 	const modeContent = authModes[mode];
 
 	const handleModeChange = (value: string | null) => {
-		if (value !== "login" && value !== "signup") return;
+		if (value !== "login" && value !== "signup") {
+			return;
+		}
 		setMode(value);
 		setSubmitError(null);
 	};

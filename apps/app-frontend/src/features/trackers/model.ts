@@ -4,8 +4,12 @@ export type AppTracker = ApiGetResponseData<"/trackers">[number];
 
 export function sortTrackersByOrder(trackers: AppTracker[]): AppTracker[] {
 	return [...trackers].sort((a, b) => {
-		if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-		if (a.name !== b.name) return a.name.localeCompare(b.name);
+		if (a.sortOrder !== b.sortOrder) {
+			return a.sortOrder - b.sortOrder;
+		}
+		if (a.name !== b.name) {
+			return a.name.localeCompare(b.name);
+		}
 		return a.slug.localeCompare(b.slug);
 	});
 }

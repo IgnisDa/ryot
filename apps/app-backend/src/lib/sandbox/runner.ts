@@ -21,7 +21,9 @@ export class RunnerFileManager {
 	}
 
 	async remove() {
-		if (!this.runnerPath) return;
+		if (!this.runnerPath) {
+			return;
+		}
 		try {
 			await Bun.file(this.runnerPath).delete();
 		} catch {}

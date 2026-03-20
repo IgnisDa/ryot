@@ -14,15 +14,19 @@ export type AppEntity = Omit<ApiEntity, "createdAt" | "updatedAt" | "image"> & {
 };
 
 function toAppEntityImage(image: unknown): AppEntityImage {
-	if (!image || typeof image !== "object") return null;
+	if (!image || typeof image !== "object") {
+		return null;
+	}
 
 	const parsed = image as { kind?: string; key?: string; url?: string };
 
-	if (parsed.kind === "remote" && parsed.url)
+	if (parsed.kind === "remote" && parsed.url) {
 		return { kind: "remote", url: parsed.url };
+	}
 
-	if (parsed.kind === "s3" && parsed.key)
+	if (parsed.kind === "s3" && parsed.key) {
 		return { kind: "s3", key: parsed.key };
+	}
 
 	return null;
 }
@@ -38,7 +42,9 @@ export function toAppEntity(entity: ApiEntity): AppEntity {
 
 export function sortEntities(entities: AppEntity[]) {
 	return [...entities].sort((a, b) => {
-		if (a.name !== b.name) return a.name.localeCompare(b.name);
+		if (a.name !== b.name) {
+			return a.name.localeCompare(b.name);
+		}
 		return a.createdAt.getTime() - b.createdAt.getTime();
 	});
 }
@@ -50,7 +56,9 @@ type EntityListViewState =
 export function getEntityListViewState(
 	entities: AppEntity[],
 ): EntityListViewState {
-	if (entities.length === 0) return { type: "empty" };
+	if (entities.length === 0) {
+		return { type: "empty" };
+	}
 
 	return {
 		type: "list",

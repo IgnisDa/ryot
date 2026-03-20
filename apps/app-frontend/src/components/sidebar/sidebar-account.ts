@@ -16,7 +16,9 @@ export function getSidebarAccountInitials(name: string, email: string) {
 	const source = name.trim() || email.trim();
 	const parts = source.split(/\s+/).filter(Boolean);
 
-	if (parts.length === 0) return "RY";
+	if (parts.length === 0) {
+		return "RY";
+	}
 
 	if (parts.length === 1) {
 		const first = parts[0];
@@ -27,10 +29,14 @@ export function getSidebarAccountInitials(name: string, email: string) {
 }
 
 export function formatSidebarAccountDate(value?: Date | string) {
-	if (!value) return "--";
+	if (!value) {
+		return "--";
+	}
 
 	const parsed = value instanceof Date ? value : new Date(value);
-	if (Number.isNaN(parsed.getTime())) return "--";
+	if (Number.isNaN(parsed.getTime())) {
+		return "--";
+	}
 
 	return new Intl.DateTimeFormat("en-US", {
 		month: "short",

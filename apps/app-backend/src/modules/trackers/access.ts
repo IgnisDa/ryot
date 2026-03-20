@@ -9,15 +9,21 @@ type TrackerScope = {
 };
 
 export const resolveTrackerReadAccess = (tracker: TrackerScope | undefined) => {
-	if (!tracker) return { error: "not_found" as const };
+	if (!tracker) {
+		return { error: "not_found" as const };
+	}
 	return { tracker };
 };
 
 export const resolveCustomTrackerAccess = (
 	tracker: TrackerScope | undefined,
 ) => {
-	if (!tracker) return { error: "not_found" as const };
-	if (tracker.isBuiltin) return { error: "builtin" as const };
+	if (!tracker) {
+		return { error: "not_found" as const };
+	}
+	if (tracker.isBuiltin) {
+		return { error: "builtin" as const };
+	}
 
 	return { tracker };
 };

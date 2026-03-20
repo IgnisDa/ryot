@@ -74,8 +74,9 @@ export const uploadsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			"Could not create presigned upload URL",
 		);
 
-		if ("status" in uploadInput)
+		if ("status" in uploadInput) {
 			return c.json(uploadInput.body, uploadInput.status);
+		}
 
 		return c.json(
 			successResponse(await createPresignedUpload(uploadInput.data)),

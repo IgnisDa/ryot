@@ -34,7 +34,9 @@ async function createTracker(
 	});
 
 	const trackerId = data?.data?.id;
-	if (!trackerId) throw new Error("Failed to create tracker");
+	if (!trackerId) {
+		throw new Error("Failed to create tracker");
+	}
 
 	return { trackerId, data: data.data };
 }
@@ -72,7 +74,9 @@ async function createEntitySchema(
 	});
 
 	const schemaId = data?.data?.id;
-	if (!schemaId) throw new Error("Failed to create entity schema");
+	if (!schemaId) {
+		throw new Error("Failed to create entity schema");
+	}
 
 	return { schemaId, data: data.data };
 }
@@ -83,7 +87,9 @@ async function findBuiltinTracker(client: Client, cookies: string) {
 	});
 
 	const builtinTracker = listData?.data?.find((t) => t.isBuiltin);
-	if (!builtinTracker) throw new Error("Built-in tracker not found");
+	if (!builtinTracker) {
+		throw new Error("Built-in tracker not found");
+	}
 
 	return builtinTracker;
 }

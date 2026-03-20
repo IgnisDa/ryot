@@ -27,8 +27,9 @@ export class BridgeServer {
 			fetch: (req) => this.handleRequest(req),
 		});
 
-		if (!this.server.port)
+		if (!this.server.port) {
 			throw new Error("Failed to allocate sandbox bridge port");
+		}
 
 		this.port = this.server.port;
 	}
@@ -72,7 +73,9 @@ export class BridgeServer {
 	async clearSessions() {
 		const pattern = `${this.keyPrefix}*`;
 		const keys = await redis.keys(pattern);
-		if (keys.length > 0) await redis.del(...keys);
+		if (keys.length > 0) {
+			await redis.del(...keys);
+		}
 		this.apiFunctions.clear();
 		this.userIds.clear();
 	}
@@ -83,19 +86,24 @@ export class BridgeServer {
 
 	private async handleRequest(req: Request) {
 		try {
-			if (req.method !== "POST") return sendJson(404, { error: "Not found" });
+			if (req.method !== "POST") {
+				return sendJson(404, { error: "Not found" });
+			}
 
 			const url = new URL(req.url);
 			const segments = url.pathname.split("/").filter(Boolean);
-			if (segments.length !== 3 || segments[0] !== "rpc")
+			if (segments.length !== 3 || segments[0] !== "rpc") {
 				return sendJson(404, { error: "Not found" });
+			}
 
 			const executionId = decodeURIComponent(segments[1] ?? "");
 			const fnName = decodeURIComponent(segments[2] ?? "");
 
 			const key = this.getKey(executionId);
 			const value = await redis.get(key);
-			if (!value) return sendJson(404, { error: "Execution not found" });
+			if (!value) {
+				return sendJson(404, { error: "Execution not found" });
+			}
 
 			const sessionData = JSON.parse(value) as {
 				token: string;
@@ -109,19 +117,23 @@ export class BridgeServer {
 			}
 
 			const authHeader = req.headers.get("authorization");
-			if (authHeader !== `Bearer ${sessionData.token}`)
+			if (authHeader !== `Bearer ${sessionData.token}`) {
 				return sendJson(401, { error: "Unauthorized" });
+			}
 
 			const executionFunctions = this.apiFunctions.get(executionId);
-			if (!executionFunctions)
+			if (!executionFunctions) {
 				return sendJson(404, { error: "Execution functions not found" });
+			}
 
-			if (!Object.hasOwn(executionFunctions, fnName))
+			if (!Object.hasOwn(executionFunctions, fnName)) {
 				return sendJson(404, { error: "Unknown function" });
+			}
 
 			const fn = executionFunctions[fnName];
-			if (typeof fn !== "function")
+			if (typeof fn !== "function") {
 				return sendJson(404, { error: "Unknown function" });
+			}
 
 			const requestBody = await this.readJsonBody(req);
 			const args = Array.isArray(requestBody.args)
@@ -144,8 +156,9 @@ export class BridgeServer {
 	}
 
 	private async readJsonBody(req: Request) {
-		if (!req.body || typeof req.body.getReader !== "function")
+		if (!req.body || typeof req.body.getReader !== "function") {
 			return {} as { args?: Array<unknown> };
+		}
 
 		let offset = 0;
 		let size = 0;
@@ -155,18 +168,26 @@ export class BridgeServer {
 		try {
 			while (true) {
 				const { done, value } = await reader.read();
-				if (done) break;
-				if (!value) continue;
+				if (done) {
+					break;
+				}
+				if (!value) {
+					continue;
+				}
 
 				size += value.byteLength;
-				if (size > requestBodyLimit) throw new Error("Request body too large");
+				if (size > requestBodyLimit) {
+					throw new Error("Request body too large");
+				}
 				chunks.push(value);
 			}
 		} finally {
 			reader.releaseLock();
 		}
 
-		if (!chunks.length) return {} as { args?: Array<unknown> };
+		if (!chunks.length) {
+			return {} as { args?: Array<unknown> };
+		}
 
 		const bytes = new Uint8Array(size);
 		for (const chunk of chunks) {
@@ -175,7 +196,9 @@ export class BridgeServer {
 		}
 
 		const text = new TextDecoder().decode(bytes).trim();
-		if (!text) return {} as { args?: Array<unknown> };
+		if (!text) {
+			return {} as { args?: Array<unknown> };
+		}
 
 		try {
 			return JSON.parse(text) as { args?: Array<unknown> };

@@ -88,8 +88,9 @@ export const getTrackerBySlugForUser = async (input: {
 		eq(tracker.userId, input.userId),
 	];
 
-	if (input.excludeTrackerId)
+	if (input.excludeTrackerId) {
 		whereClauses.push(ne(tracker.id, input.excludeTrackerId));
+	}
 
 	const [foundTracker] = await db
 		.select({ id: tracker.id })
@@ -147,7 +148,9 @@ export const createTrackerForUser = async (input: {
 		})
 		.returning(trackerSelection);
 
-	if (!createdTracker) throw new Error("Could not persist tracker");
+	if (!createdTracker) {
+		throw new Error("Could not persist tracker");
+	}
 
 	return toListedTracker(createdTracker);
 };
@@ -163,7 +166,9 @@ export const createBuiltinTrackersForUser = async (input: {
 		description?: string;
 	}>;
 }) => {
-	if (!input.trackers.length) return [];
+	if (!input.trackers.length) {
+		return [];
+	}
 
 	const database = input.database ?? db;
 
@@ -214,7 +219,9 @@ export const countVisibleTrackersByIdsForUser = async (input: {
 	userId: string;
 	trackerIds: string[];
 }) => {
-	if (!input.trackerIds.length) return 0;
+	if (!input.trackerIds.length) {
+		return 0;
+	}
 
 	const rows = await db
 		.select({ id: tracker.id })
@@ -270,7 +277,9 @@ export const updateTrackerForUser = async (input: {
 		)
 		.returning(trackerSelection);
 
-	if (!updatedTracker) throw new Error("Could not update tracker");
+	if (!updatedTracker) {
+		throw new Error("Could not update tracker");
+	}
 
 	return toListedTracker(updatedTracker);
 };

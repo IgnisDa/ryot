@@ -46,18 +46,21 @@ export const seedInitialDatabase = async (database: DbClient) => {
 			const searchScriptId = scriptIds.get(link.searchScriptSlug);
 			const detailsScriptId = scriptIds.get(link.detailsScriptSlug);
 
-			if (!entitySchemaId)
+			if (!entitySchemaId) {
 				throw new Error(`Missing schema id for ${link.schemaSlug}`);
+			}
 
-			if (!searchScriptId)
+			if (!searchScriptId) {
 				throw new Error(
 					`Missing search script id for ${link.searchScriptSlug}`,
 				);
+			}
 
-			if (!detailsScriptId)
+			if (!detailsScriptId) {
 				throw new Error(
 					`Missing details script id for ${link.detailsScriptSlug}`,
 				);
+			}
 
 			await linkScriptPairToEntitySchema({
 				database: tx,

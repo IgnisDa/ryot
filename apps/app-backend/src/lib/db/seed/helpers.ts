@@ -23,7 +23,9 @@ export const ensureBuiltinEntitySchema = async (input: {
 		.where(and(eq(entitySchema.slug, input.slug), isNull(entitySchema.userId)))
 		.limit(1);
 
-	if (existing) return existing.id;
+	if (existing) {
+		return existing.id;
+	}
 
 	const schemaId = generateId();
 	await input.database.insert(entitySchema).values({
@@ -63,7 +65,9 @@ export const ensureBuiltinEntitySchemaEventSchemas = async (input: {
 	);
 
 	for (const schema of input.eventSchemas) {
-		if (existingBySlug.has(schema.slug)) continue;
+		if (existingBySlug.has(schema.slug)) {
+			continue;
+		}
 
 		await input.database.insert(eventSchema).values({
 			slug: schema.slug,
@@ -137,7 +141,9 @@ const ensureScriptLinkToEntitySchema = async (input: {
 		)
 		.limit(1);
 
-	if (existing) return;
+	if (existing) {
+		return;
+	}
 
 	await input.database.insert(entitySchemaSandboxScript).values({
 		kind: input.kind,

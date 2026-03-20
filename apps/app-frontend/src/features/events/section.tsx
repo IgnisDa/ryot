@@ -28,7 +28,9 @@ import { getEventListViewState } from "./model";
 import { useCreateEventForm } from "./use-form";
 
 function getErrorMessage(error: unknown) {
-	if (error instanceof Error && error.message) return error.message;
+	if (error instanceof Error && error.message) {
+		return error.message;
+	}
 
 	const parsed = error as {
 		message?: string;
@@ -43,9 +45,15 @@ function getErrorMessage(error: unknown) {
 }
 
 function formatEventPropertyValue(value: unknown) {
-	if (typeof value === "boolean") return value ? "Yes" : "No";
-	if (typeof value === "number") return value.toString();
-	if (typeof value === "string") return value;
+	if (typeof value === "boolean") {
+		return value ? "Yes" : "No";
+	}
+	if (typeof value === "number") {
+		return value.toString();
+	}
+	if (typeof value === "string") {
+		return value;
+	}
 	return null;
 }
 
@@ -63,7 +71,9 @@ function EventList(props: {
 				const properties = Object.entries(event.properties)
 					.map(([key, value]) => {
 						const formattedValue = formatEventPropertyValue(value);
-						if (formattedValue === null) return null;
+						if (formattedValue === null) {
+							return null;
+						}
 						return `${key}: ${formattedValue}`;
 					})
 					.filter((value): value is string => !!value);
@@ -134,7 +144,7 @@ function LogEventForm(props: {
 				const hasUnsupportedRequiredProperties =
 					unsupportedRequiredProperties.length > 0;
 
-				if (!selectedEventSchema)
+				if (!selectedEventSchema) {
 					return (
 						<Paper p="sm" withBorder radius="md">
 							<Text c="dimmed" size="sm">
@@ -142,6 +152,7 @@ function LogEventForm(props: {
 							</Text>
 						</Paper>
 					);
+				}
 
 				const propertyFields = Object.entries(
 					selectedEventSchema.propertiesSchema,
@@ -321,10 +332,15 @@ export function EntityEventsSection(props: {
 			: "Add event schema first";
 
 	const eventAvailabilityMessage = useMemo(() => {
-		if (props.eventSchemasLoading) return null;
-		if (props.eventSchemasError) return "Event schemas failed to load.";
-		if (props.eventSchemas.length === 0)
+		if (props.eventSchemasLoading) {
+			return null;
+		}
+		if (props.eventSchemasError) {
+			return "Event schemas failed to load.";
+		}
+		if (props.eventSchemas.length === 0) {
 			return "Add an event schema to start logging.";
+		}
 		return null;
 	}, [
 		props.eventSchemas.length,

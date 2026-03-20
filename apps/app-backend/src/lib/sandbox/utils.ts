@@ -12,7 +12,9 @@ export const sendJson = (status: number, payload: Record<string, unknown>) => {
 };
 
 export const readStream = async (stream: ReadableStream | null) => {
-	if (!stream) return "";
+	if (!stream) {
+		return "";
+	}
 
 	return new Response(stream).text();
 };
@@ -43,15 +45,20 @@ export const attachTimeoutGuard = (
 
 	return () => {
 		clearTimeout(timeoutTimer);
-		if (forceKillTimer) clearTimeout(forceKillTimer);
+		if (forceKillTimer) {
+			clearTimeout(forceKillTimer);
+		}
 	};
 };
 
 export const formatExit = (exit: ProcessExit) => {
-	if (exit.signal) return `Sandbox terminated by signal ${exit.signal}`;
+	if (exit.signal) {
+		return `Sandbox terminated by signal ${exit.signal}`;
+	}
 
-	if (typeof exit.code === "number")
+	if (typeof exit.code === "number") {
 		return `Sandbox exited with code ${exit.code}`;
+	}
 
 	return "Sandbox exited unexpectedly";
 };

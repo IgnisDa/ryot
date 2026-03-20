@@ -18,31 +18,46 @@ function formatDatetimeLocalValue(value: Date) {
 
 function parseOccurredAtInputValue(value: string) {
 	const trimmedValue = value.trim();
-	if (!trimmedValue) return;
+	if (!trimmedValue) {
+		return;
+	}
 
 	const occurredAt = new Date(trimmedValue);
-	if (Number.isNaN(occurredAt.getTime())) return;
+	if (Number.isNaN(occurredAt.getTime())) {
+		return;
+	}
 
-	if (datetimeLocalPattern.test(trimmedValue))
-		if (formatDatetimeLocalValue(occurredAt) !== trimmedValue) return;
+	if (datetimeLocalPattern.test(trimmedValue)) {
+		if (formatDatetimeLocalValue(occurredAt) !== trimmedValue) {
+			return;
+		}
+	}
 
 	return occurredAt;
 }
 
 export function formatOccurredAtInputValue(value: string) {
 	const trimmedValue = value.trim();
-	if (!trimmedValue) return "";
-	if (datetimeLocalPattern.test(trimmedValue)) return trimmedValue;
+	if (!trimmedValue) {
+		return "";
+	}
+	if (datetimeLocalPattern.test(trimmedValue)) {
+		return trimmedValue;
+	}
 
 	const occurredAt = parseOccurredAtInputValue(trimmedValue);
-	if (!occurredAt) return "";
+	if (!occurredAt) {
+		return "";
+	}
 
 	return formatDatetimeLocalValue(occurredAt);
 }
 
 export function normalizeOccurredAtInputValue(value: string) {
 	const occurredAt = parseOccurredAtInputValue(value);
-	if (!occurredAt) return "";
+	if (!occurredAt) {
+		return "";
+	}
 
 	return occurredAt.toISOString();
 }
@@ -75,7 +90,9 @@ export function getSelectedEventSchema(
 	eventSchemaId?: string,
 ) {
 	const selectedEventSchema = findEventSchema(eventSchemas, eventSchemaId);
-	if (selectedEventSchema) return selectedEventSchema;
+	if (selectedEventSchema) {
+		return selectedEventSchema;
+	}
 
 	return eventSchemas[0];
 }
@@ -102,7 +119,9 @@ export function reconcileEventProperties(
 	const properties: Record<string, unknown> = {};
 
 	for (const [key, propertyDef] of Object.entries(propertiesSchema)) {
-		if (!isPrimitiveProperty(propertyDef)) continue;
+		if (!isPrimitiveProperty(propertyDef)) {
+			continue;
+		}
 
 		const currentValue = currentProperties[key];
 		if (isValidPropertyValue(propertyDef, currentValue)) {
@@ -154,7 +173,9 @@ export const buildCreateEventFormSchema = (
 			selectedEventSchema.propertiesSchema,
 		).safeParse(value.properties);
 
-		if (result.success) return;
+		if (result.success) {
+			return;
+		}
 
 		for (const issue of result.error.issues) {
 			ctx.addIssue({
@@ -284,7 +305,9 @@ const buildEventPropertiesSchema = (propertiesSchema: AppSchema) => {
 	const propertySchemas: Record<string, z.ZodType> = {};
 
 	for (const [key, propertyDef] of Object.entries(propertiesSchema)) {
-		if (!isPrimitiveProperty(propertyDef)) continue;
+		if (!isPrimitiveProperty(propertyDef)) {
+			continue;
+		}
 
 		const zodSchema = fromAppSchema(propertyDef);
 		propertySchemas[key] = propertyDef.required
@@ -300,7 +323,9 @@ function findEventSchema(
 	eventSchemaId?: string,
 ) {
 	const selectedEventSchemaId = trimmedOrUndefined(eventSchemaId ?? "");
-	if (!selectedEventSchemaId) return;
+	if (!selectedEventSchemaId) {
+		return;
+	}
 
 	return eventSchemas.find((schema) => schema.id === selectedEventSchemaId);
 }

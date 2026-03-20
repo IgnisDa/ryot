@@ -22,7 +22,9 @@ import { getEntityListViewState } from "./model";
 import { useCreateEntityForm } from "./use-form";
 
 function getErrorMessage(error: unknown) {
-	if (error instanceof Error && error.message) return error.message;
+	if (error instanceof Error && error.message) {
+		return error.message;
+	}
 
 	const parsed = error as {
 		message?: string;

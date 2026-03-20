@@ -22,10 +22,14 @@ export function getSidebarApiKeyHint(
 	key: Pick<SidebarApiKey, "id" | "start" | "prefix">,
 ) {
 	const start = key.start?.trim();
-	if (start) return start;
+	if (start) {
+		return start;
+	}
 
 	const prefix = key.prefix?.trim();
-	if (prefix) return `${prefix}...`;
+	if (prefix) {
+		return `${prefix}...`;
+	}
 
 	return key.id;
 }
@@ -50,10 +54,14 @@ export function formatSidebarApiKeyDate(
 	value?: Date | string | null,
 	fallback = "--",
 ) {
-	if (!value) return fallback;
+	if (!value) {
+		return fallback;
+	}
 
 	const parsed = value instanceof Date ? value : new Date(value);
-	if (Number.isNaN(parsed.getTime())) return fallback;
+	if (Number.isNaN(parsed.getTime())) {
+		return fallback;
+	}
 
 	return new Intl.DateTimeFormat("en-US", {
 		month: "short",

@@ -56,14 +56,15 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 		overview.recentEntities.map((item) => item.entity),
 	);
 
-	if (overview.isLoading)
+	if (overview.isLoading) {
 		return (
 			<Center py="xl">
 				<Loader size="sm" />
 			</Center>
 		);
+	}
 
-	if (overview.isError)
+	if (overview.isError) {
 		return (
 			<Stack gap="md">
 				<TrackerOverviewHeader
@@ -77,6 +78,7 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 				/>
 			</Stack>
 		);
+	}
 
 	const primarySchema = overview.primaryEntitySchema;
 	const entityActionLabel = primarySchema
@@ -234,7 +236,9 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 									return;
 								}
 
-								if (primarySchema) props.onAddEventSchema(primarySchema.id);
+								if (primarySchema) {
+									props.onAddEventSchema(primarySchema.id);
+								}
 							}}
 						/>
 
