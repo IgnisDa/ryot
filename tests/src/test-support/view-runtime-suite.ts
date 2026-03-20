@@ -83,10 +83,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			titleProperty: { kind: "text", value: "Alpha Phone" },
 			imageProperty: {
 				kind: "image",
-				value: {
-					kind: "remote",
-					url: "https://example.com/alpha-phone.png",
-				},
+				value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
 			},
 		} as const;
 
@@ -143,10 +140,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			titleProperty: { kind: "text", value: "Alpha Phone" },
 			imageProperty: {
 				kind: "image",
-				value: {
-					kind: "remote",
-					url: "https://example.com/alpha-phone.png",
-				},
+				value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
 			},
 		});
 	});
@@ -194,8 +188,8 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			buildGridRequest({
 				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
 				sort: {
-					field: [`${smartphoneSlug}.year`, `${tabletSlug}.releaseYear`],
 					direction: "asc",
+					field: [`${smartphoneSlug}.year`, `${tabletSlug}.releaseYear`],
 				},
 				displayConfiguration: buildGridDisplayConfiguration({
 					badgeProperty: [
@@ -217,10 +211,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			titleProperty: { kind: "text", value: "Alpha Phone" },
 			imageProperty: {
 				kind: "image",
-				value: {
-					kind: "remote",
-					url: "https://example.com/alpha-phone.png",
-				},
+				value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
 			},
 		});
 		expect(getSemanticItem(data?.data.items[1]).resolvedProperties).toEqual({
@@ -229,10 +220,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			titleProperty: { kind: "text", value: "Beta Tablet" },
 			imageProperty: {
 				kind: "image",
-				value: {
-					kind: "remote",
-					url: "https://example.com/beta-tablet.png",
-				},
+				value: { kind: "remote", url: "https://example.com/beta-tablet.png" },
 			},
 		});
 	});
