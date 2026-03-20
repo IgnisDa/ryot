@@ -29,7 +29,6 @@ const createSavedViewBody = (): CreateSavedViewBody => ({
 	accentColor: "#123456",
 	queryDefinition: createQueryDefinition(),
 	displayConfiguration: {
-		layout: "grid",
 		table: { columns: [{ property: ["@name"] }] },
 		grid: {
 			badgeProperty: null,
