@@ -37,7 +37,7 @@ function view(
 		queryDefinition: {
 			filters: [],
 			entitySchemaSlugs: ["schema-1"],
-			sort: { field: ["@name"], direction: "asc" },
+			sort: { fields: ["@name"], direction: "asc" },
 		},
 		displayConfiguration,
 	};

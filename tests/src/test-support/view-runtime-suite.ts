@@ -189,7 +189,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
 				sort: {
 					direction: "asc",
-					field: [`${smartphoneSlug}.year`, `${tabletSlug}.releaseYear`],
+					fields: [`${smartphoneSlug}.year`, `${tabletSlug}.releaseYear`],
 				},
 				displayConfiguration: buildGridDisplayConfiguration({
 					badgeProperty: [
@@ -233,12 +233,13 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [{ op: "eq", field: ["@name"], value: "No Image Device" }],
-				displayConfiguration: buildGridDisplayConfiguration({
+				filters: [{ op: "eq", field: "@name", value: "No Image Device" }],
+				displayConfiguration: {
 					badgeProperty: null,
 					subtitleProperty: null,
+					titleProperty: ["@name"],
 					imageProperty: ["@image", "category"],
-				}),
+				},
 			}),
 		);
 
@@ -260,7 +261,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			cookies,
 			buildListRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [{ op: "eq", field: ["@name"], value: "No Image Device" }],
+				filters: [{ op: "eq", field: "@name", value: "No Image Device" }],
 				displayConfiguration: {
 					badgeProperty: null,
 					subtitleProperty: null,
@@ -288,7 +289,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			cookies,
 			buildTableRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [{ op: "eq", field: ["@name"], value: "No Image Device" }],
+				filters: [{ op: "eq", field: "@name", value: "No Image Device" }],
 				displayConfiguration: buildTableDisplayConfiguration([
 					{ label: "Image", property: ["@image", "category"] },
 					{ label: "Name", property: ["@name"] },
@@ -325,7 +326,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [{ op: "eq", field: ["missingProperty"], value: "phone" }],
+				filters: [{ op: "eq", field: "missingProperty", value: "phone" }],
 			}),
 		);
 

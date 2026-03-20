@@ -38,7 +38,7 @@ function createSavedViewFixture(
 		queryDefinition: {
 			filters: [],
 			entitySchemaSlugs: ["schema-1"],
-			sort: { field: ["@name"], direction: "asc" },
+			sort: { fields: ["@name"], direction: "asc" },
 		},
 		...overrides,
 	};
@@ -83,7 +83,7 @@ describe("toSidebarData", () => {
 				queryDefinition: {
 					filters: [],
 					entitySchemaSlugs: ["schema-2"],
-					sort: { field: ["@name"], direction: "asc" },
+					sort: { fields: ["@name"], direction: "asc" },
 				},
 			}),
 		];

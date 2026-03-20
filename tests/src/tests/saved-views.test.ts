@@ -56,9 +56,9 @@ describe("Saved views E2E", () => {
 		const updatedCloneInput = buildUpdatedSavedViewBody({
 			name: "Lifecycle View (Copy) Revised",
 			queryDefinition: {
-				filters: [{ op: "eq", field: ["status"], value: "active" }],
 				entitySchemaSlugs: ["anime", "manga"],
-				sort: { field: ["@createdAt"], direction: "desc" },
+				sort: { fields: ["@createdAt"], direction: "desc" },
+				filters: [{ op: "eq", field: "status", value: "active" }],
 			},
 			displayConfiguration: {
 				grid: {
@@ -459,7 +459,7 @@ describe("Saved views E2E", () => {
 				queryDefinition: {
 					filters: [],
 					entitySchemaSlugs: ["book"],
-					sort: { field: [], direction: "asc" },
+					sort: { fields: [], direction: "asc" },
 				},
 			}),
 		});
@@ -470,7 +470,7 @@ describe("Saved views E2E", () => {
 				queryDefinition: {
 					filters: [],
 					entitySchemaSlugs: ["book"],
-					sort: { field: [], direction: "asc" },
+					sort: { fields: [], direction: "asc" },
 				},
 			}),
 		});
@@ -479,11 +479,11 @@ describe("Saved views E2E", () => {
 		expect(createResult.response.status).toBe(400);
 		expect(updateResult.response.status).toBe(400);
 		expect(createResult.error?.error?.message).toContain(
-			"Sort field is required",
+			"Sort fields are required",
 		);
 		expect(updateResult.error?.error?.message).toContain(
-			"Sort field is required",
+			"Sort fields are required",
 		);
-		expect(refreshedView.queryDefinition.sort.field).toEqual(["@name"]);
+		expect(refreshedView.queryDefinition.sort.fields).toEqual(["@name"]);
 	});
 });

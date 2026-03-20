@@ -9,12 +9,10 @@ import {
 	nonEmptyTrimmedStringSchema,
 } from "~/lib/zod/base";
 
-const runtimeFieldPathSchema = createNonEmptyStringArraySchema(
-	"Filter field is required",
-);
+const runtimeFieldPathSchema = nonEmptyTrimmedStringSchema;
 
-const sortFieldSchema = createNonEmptyStringArraySchema(
-	"Sort field is required",
+const sortFieldsSchema = createNonEmptyStringArraySchema(
+	"Sort fields are required",
 );
 
 const entitySchemaSlugArraySchema = createNonEmptyStringArraySchema(
@@ -58,7 +56,7 @@ export const filterExpressionSchema = z.discriminatedUnion("op", [
 export type FilterExpression = z.infer<typeof filterExpressionSchema>;
 
 export const sortDefinitionSchema = z.object({
-	field: sortFieldSchema,
+	fields: sortFieldsSchema,
 	direction: z.enum(["asc", "desc"]),
 });
 
