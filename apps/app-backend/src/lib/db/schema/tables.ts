@@ -123,7 +123,6 @@ export const trackerEntitySchema = pgTable(
 	"tracker_entity_schema",
 	{
 		createdAt: timestamp().defaultNow().notNull(),
-		isDisabled: boolean().notNull().default(false),
 		trackerId: text()
 			.notNull()
 			.references(() => tracker.id, { onDelete: "cascade" }),

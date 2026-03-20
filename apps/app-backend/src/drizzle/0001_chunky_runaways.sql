@@ -1,0 +1,1 @@
+ALTER TABLE "tracker_entity_schema" DROP COLUMN "is_disabled";
