@@ -61,7 +61,7 @@ Suggested request shape:
 
 - `entitySchemaSlugs: string[]` — which schemas to query (using schema slugs, e.g., `["smartphones", "tablets"]`)
 - `filters: FilterExpression[]` — flat array of filters (AND within each schema, OR across schema boundaries; compound nested logic in Phase 2)
-- `sort: { field: string[], direction: "asc" | "desc" }` — how to order results (field is an array for COALESCE across schemas)
+- `sort: { fields: string[], direction: "asc" | "desc" }` — how to order results (fields is an array for COALESCE across schemas)
 - `pagination: { page: number, limit: number }` — pagination parameters
 - `displayConfiguration: object` — active layout configuration with property reference arrays; the backend derives which jsonb properties to extract from these arrays and performs COALESCE resolution
 
@@ -73,7 +73,7 @@ Each filter in the `filters` array has the shape:
 
 **Note**: The `contains` operator is deferred to Phase 2 due to complexity with JSONB array/object containment vs string substring matching. Phase 1 focuses on exact comparisons, range queries, and null checks.
 
-The `sort.field` is an array of schema-qualified property paths:
+The `sort.fields` is an array of schema-qualified property paths:
 
 - Single-schema: `["smartphones.year"]`
 - Cross-schema: `["smartphones.year", "tablets.release_year"]` — resolved via COALESCE
@@ -271,7 +271,7 @@ Schema-qualified paths enable:
 This syntax is used uniformly in:
 
 - `filters[].field` — filter by entity properties
-- `sort.field` — array of paths for COALESCE ordering
+- `sort.fields` — array of paths for COALESCE ordering
 - `displayConfiguration.*Property` — arrays of paths for COALESCE rendering
 - `eventConditions[].field` (Phase 2) — filter by event properties
 - `relationships[].propertyFilters[].field` (Phase 2) — filter by relationship properties
@@ -287,7 +287,7 @@ Single-schema view:
     { "field": "smartphones.year", "op": "gte", "value": 2020 }
   ],
   "sort": {
-    "field": ["smartphones.year"],
+    "fields": ["smartphones.year"],
     "direction": "desc"
   },
   "displayConfiguration": {
@@ -307,7 +307,7 @@ Cross-schema view:
     { "field": "tablets.release_year", "op": "gte", "value": 2020 }
   ],
   "sort": {
-    "field": ["smartphones.year", "tablets.release_year"],
+    "fields": ["smartphones.year", "tablets.release_year"],
     "direction": "desc"
   },
   "displayConfiguration": {
@@ -401,7 +401,7 @@ The `queryDefinition` column stores:
 
 - `entitySchemaSlugs: string[]` — which schemas to query
 - `filters: FilterExpression[]` — flat array of filters using the schema-qualified property syntax (see "Runtime Contract" for AND/OR semantics)
-- `sort: { field: string[], direction: "asc" | "desc" }` — ordering
+- `sort: { fields: string[], direction: "asc" | "desc" }` — ordering
 
 Event-based filtering (e.g., "movies I rated >8", "shows watched in 2024") is deferred to Phase 2 and will be added as an `eventConditions` field once event integration is implemented in the runtime.
 
@@ -446,7 +446,7 @@ Consider a "Smartphones" entity schema with properties:
       { "field": "smartphones.manufacturer", "op": "eq", "value": "Samsung" },
       { "field": "smartphones.year", "op": "lt", "value": 2025 }
     ],
-    "sort": { "field": ["smartphones.year"], "direction": "desc" }
+    "sort": { "fields": ["smartphones.year"], "direction": "desc" }
   },
   "displayConfiguration": {
     "grid": {
@@ -488,7 +488,7 @@ This example demonstrates the COALESCE behavior for cross-schema views where dif
       { "field": "smartphones.year", "op": "gte", "value": 2020 },
       { "field": "tablets.release_year", "op": "gte", "value": 2020 }
     ],
-    "sort": { "field": ["smartphones.year", "tablets.release_year"], "direction": "desc" }
+    "sort": { "fields": ["smartphones.year", "tablets.release_year"], "direction": "desc" }
   },
   "displayConfiguration": {
     "grid": {
@@ -539,7 +539,7 @@ Each filter is schema-qualified and only applies to entities from that schema. T
 
 **Sort behavior:**
 
-The sort field `["smartphones.year", "tablets.release_year"]` uses COALESCE to handle different property names across schemas. See "Complete SQL Query Example" for the full SQL translation.
+The sort fields `["smartphones.year", "tablets.release_year"]` uses COALESCE to handle different property names across schemas. See "Complete SQL Query Example" for the full SQL translation.
 
 ### View 3: Older Android Phones
 
@@ -555,7 +555,7 @@ The sort field `["smartphones.year", "tablets.release_year"]` uses COALESCE to h
       { "field": "smartphones.year", "op": "gt", "value": 2001 },
       { "field": "smartphones.os", "op": "eq", "value": "Android" }
     ],
-    "sort": { "field": ["smartphones.year"], "direction": "asc" }
+    "sort": { "fields": ["smartphones.year"], "direction": "asc" }
   },
   "displayConfiguration": {
     "grid": {
@@ -597,7 +597,7 @@ When the frontend loads View 1:
       { "field": "smartphones.manufacturer", "op": "eq", "value": "Samsung" },
       { "field": "smartphones.year", "op": "lt", "value": 2025 }
     ],
-    "sort": { "field": ["smartphones.year"], "direction": "desc" },
+    "sort": { "fields": ["smartphones.year"], "direction": "desc" },
     "pagination": { "page": 1, "limit": 6 },
     "displayConfiguration": {
       "imageProperty": ["smartphones.product_image"],
@@ -628,7 +628,7 @@ Here is a complete SQL query demonstrating how the view-runtime translates a cro
     { "field": "smartphones.year", "op": "gte", "value": 2020 },
     { "field": "tablets.release_year", "op": "gte", "value": 2020 }
   ],
-  "sort": { "field": ["smartphones.year", "tablets.release_year"], "direction": "desc" },
+  "sort": { "fields": ["smartphones.year", "tablets.release_year"], "direction": "desc" },
   "pagination": { "page": 1, "limit": 20 },
   "displayConfiguration": {
     "imageProperty": ["smartphones.product_image", "tablets.device_image"],
@@ -1085,7 +1085,7 @@ Similarly, "Tom Hanks acted in Forrest Gump as Forrest" is a relationship: `Tom 
   "sort": {
     "source": "relationship",
     "relationshipIndex": 1,
-    "field": ["member_of.bought_when"],
+    "fields": ["member_of.bought_when"],
     "direction": "desc"
   },
   "include": {
