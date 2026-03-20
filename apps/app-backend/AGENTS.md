@@ -38,7 +38,8 @@ The backend powers a self-hosted personal tracking product. Favor explicit valid
 
 ### Testing
 
-- For backend changes, run `bun run typecheck`, `bun test`, and `bun run lint` in `apps/app-backend`.
+- For changes, run `bun run typecheck`, `bun test`, and `bun run lint` in `apps/app-backend`.
+- Add tests in `tests/src` as appropriate.
 
 ### Code Review
 
