@@ -306,7 +306,6 @@ const BaseEntityDisplayItemComponent = forwardRef<
 	const alreadyInWatchlist = alreadyInCollectionNames.includes("Watchlist");
 	const shouldHighlightImage =
 		coreDetails.isServerKeyValidated && props.wasRecentlyConsumed;
-	const isCalendarEventWatched = props.isCalendarEventWatched;
 
 	const progress = useMemo(() => {
 		if (props.progress === undefined || props.progress === null)
@@ -330,7 +329,7 @@ const BaseEntityDisplayItemComponent = forwardRef<
 		() => ({
 			overflow: "hidden",
 			transition: "box-shadow 200ms ease",
-			boxShadow: isCalendarEventWatched
+			boxShadow: props.isCalendarEventWatched
 				? mode === "dark"
 					? "0px 0px 4px 1px rgba(64, 192, 87, 1)"
 					: "0px 0px 8px 3px rgba(47, 158, 68, 1)"
@@ -340,7 +339,7 @@ const BaseEntityDisplayItemComponent = forwardRef<
 						: "0px 0px 8px 3px rgba(24, 142, 245, 1)"
 					: undefined,
 		}),
-		[mode, shouldHighlightImage, isCalendarEventWatched],
+		[mode, shouldHighlightImage, props.isCalendarEventWatched],
 	);
 	const gradientBackgroundStyle = useMemo<MantineStyleProp>(
 		() => ({
@@ -438,7 +437,7 @@ const BaseEntityDisplayItemComponent = forwardRef<
 			style={cardStyle}
 			ref={viewportRef}
 			className={props.imageClassName}
-			withBorder={!shouldHighlightImage && !isCalendarEventWatched}
+			withBorder={!shouldHighlightImage && !props.isCalendarEventWatched}
 		>
 			{props.centerElement ? (
 				<>

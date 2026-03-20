@@ -4,6 +4,8 @@ import {
 	EntityTranslationVariant,
 	MediaLot,
 	SeenState,
+	type SeenShowExtraInformationPartFragment,
+	type SeenPodcastExtraInformationPartFragment,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
@@ -30,7 +32,8 @@ export const MetadataDisplayItem = (props: {
 	imageClassName?: string;
 	centerElement?: ReactNode;
 	additionalInformation?: string;
-	isCalendarEventWatched?: boolean;
+	calendarEventShowInfo?: SeenShowExtraInformationPartFragment;
+	calendarEventPodcastInfo?: SeenPodcastExtraInformationPartFragment;
 	shouldHighlightNameIfInteracted?: boolean;
 	onImageClickBehavior?: () => Promise<void>;
 }) => {
@@ -72,6 +75,27 @@ export const MetadataDisplayItem = (props: {
 	const reasons = userMetadataDetails?.mediaReason?.filter((r) =>
 		[UserToMediaReason.Finished, UserToMediaReason.Owned].includes(r),
 	);
+
+	const isCalendarEventWatched = useMemo(() => {
+		if (!userMetadataDetails) return false;
+		if (props.calendarEventShowInfo) {
+			const seasonProgress = userMetadataDetails.showProgress?.find(
+				(s) => s.seasonNumber === props.calendarEventShowInfo?.season,
+			);
+			if (!seasonProgress) return false;
+			const episodeProgress = seasonProgress.episodes.find(
+				(e) => e.episodeNumber === props.calendarEventShowInfo?.episode,
+			);
+			return (episodeProgress?.timesSeen ?? 0) > 0;
+		}
+		if (props.calendarEventPodcastInfo) {
+			const episodeProgress = userMetadataDetails.podcastProgress?.find(
+				(e) => e.episodeNumber === props.calendarEventPodcastInfo?.episode,
+			);
+			return (episodeProgress?.timesSeen ?? 0) > 0;
+		}
+		return false;
+	}, [userMetadataDetails, props.calendarEventShowInfo, props.calendarEventPodcastInfo]);
 
 	const extraInformation = useMemo(() => {
 		if (!metadataDetails || !userMetadataDetails) return "";
@@ -115,7 +139,7 @@ export const MetadataDisplayItem = (props: {
 			imageClassName={props.imageClassName}
 			isDetailsLoading={isMetadataDetailsLoading}
 			wasRecentlyConsumed={isMetadataRecentlyConsumed}
-			isCalendarEventWatched={props.isCalendarEventWatched}
+			isCalendarEventWatched={isCalendarEventWatched}
 			isPartialStatusActive={isMetadataPartialStatusActive}
 			image={metadataImageTranslation || images.at(0)}
 			title={metadataTitleTranslation || metadataDetails?.title}
