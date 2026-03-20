@@ -706,9 +706,9 @@ After Phase 1 implementation is complete, the following work can begin:
 
 ## Tasks
 
-**Overall Progress:** 5 of 9 tasks completed
+**Overall Progress:** 6 of 9 tasks completed
 
-**Current Task:** [Task 06](./06-view-runtime-single-schema-execution.md) (todo)
+**Current Task:** [Task 07](./07-view-runtime-filter-execution.md) (todo)
 
 ### Task List
 
@@ -719,7 +719,7 @@ After Phase 1 implementation is complete, the following work can begin:
 | 03  | [PUT Saved View (Full Replacement)](./03-put-saved-view.md)                                                  | AFK  | done   | Task 01                  |
 | 04  | [Clone Saved View](./04-clone-saved-view.md)                                                                 | AFK  | done   | Task 01                  |
 | 05  | [Reserved Slug Validation](./05-reserved-slug-validation.md)                                                 | AFK  | done   | Task 01                  |
-| 06  | [View Runtime: Schema Introspection + Single-Schema Execution](./06-view-runtime-single-schema-execution.md) | AFK  | todo   | Task 01                  |
+| 06  | [View Runtime: Schema Introspection + Single-Schema Execution](./06-view-runtime-single-schema-execution.md) | AFK  | done   | Task 01                  |
 | 07  | [View Runtime: Filter Execution](./07-view-runtime-filter-execution.md)                                      | AFK  | todo   | Task 06                  |
 | 08  | [View Runtime: Cross-Schema COALESCE](./08-view-runtime-cross-schema-coalesce.md)                            | AFK  | todo   | Task 06                  |
 | 09  | [Comprehensive E2E Test Suite](./09-comprehensive-e2e-test-suite.md)                                         | AFK  | todo   | Tasks 02, 03, 04, 07, 08 |
