@@ -37,10 +37,8 @@ export function TrackerOverviewHeader(props: {
 					<Text
 						fw={700}
 						size="xl"
-						style={{
-							fontFamily: '"Space Grotesk", sans-serif',
-							lineHeight: 1.2,
-						}}
+						style={{ lineHeight: 1.2 }}
+						ff="var(--mantine-headings-font-family)"
 					>
 						{props.tracker.name}
 					</Text>
