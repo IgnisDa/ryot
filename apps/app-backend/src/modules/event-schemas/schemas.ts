@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { dataSchema } from "~/lib/openapi";
+import { itemDataSchema, listDataSchema } from "~/lib/openapi";
 import {
 	createNameWithOptionalSlugSchema,
 	nonEmptyTrimmedStringSchema,
@@ -18,11 +18,11 @@ export const listedEventSchemaSchema = z.object({
 	propertiesSchema: eventSchemaPropertiesSchema,
 });
 
-export const listEventSchemasResponseSchema = dataSchema(
-	z.array(listedEventSchemaSchema),
+export const listEventSchemasResponseSchema = listDataSchema(
+	listedEventSchemaSchema,
 );
 
-export const createEventSchemaResponseSchema = dataSchema(
+export const createEventSchemaResponseSchema = itemDataSchema(
 	listedEventSchemaSchema,
 );
 

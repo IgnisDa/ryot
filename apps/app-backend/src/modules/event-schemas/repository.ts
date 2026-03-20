@@ -1,17 +1,15 @@
 import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { db } from "~/lib/db";
-import { entitySchema, eventSchema } from "~/lib/db/schema";
+import {
+	entitySchema,
+	entitySchemaAccessScopeSelection,
+	eventSchema,
+} from "~/lib/db/schema";
 import type { ListedEventSchema } from "./schemas";
 import type { EventSchemaPropertiesShape } from "./service";
 
 type EventSchemaRow = Omit<ListedEventSchema, "propertiesSchema"> & {
 	propertiesSchema: unknown;
-};
-
-const entitySchemaScopeSelection = {
-	id: entitySchema.id,
-	userId: entitySchema.userId,
-	isBuiltin: entitySchema.isBuiltin,
 };
 
 const listedEventSchemaSelection = {
@@ -36,7 +34,7 @@ export const getEntitySchemaScopeForUser = async (input: {
 	entitySchemaId: string;
 }) => {
 	const [foundEntitySchema] = await db
-		.select(entitySchemaScopeSelection)
+		.select(entitySchemaAccessScopeSelection)
 		.from(entitySchema)
 		.where(
 			and(
