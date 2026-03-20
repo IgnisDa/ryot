@@ -22,6 +22,7 @@ function createSavedView(overrides: Partial<AppSavedView>): AppSavedView {
 		id: "view-1",
 		isBuiltin: true,
 		icon: "book-open",
+		isDisabled: false,
 		name: "All Whiskeys",
 		displayConfiguration,
 		trackerId: "tracker-1",

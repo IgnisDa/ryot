@@ -27,6 +27,7 @@ function createSavedViewFixture(
 		id: "view-1",
 		isBuiltin: true,
 		icon: "book-open",
+		isDisabled: false,
 		displayConfiguration,
 		trackerId: "tracker-1",
 		accentColor: "#5B7FFF",
@@ -101,7 +102,7 @@ describe("toSidebarData", () => {
 					{
 						id: "view-1",
 						icon: "book-open",
-						trackerSlug: "media",
+						isDisabled: false,
 						trackerId: "tracker-1",
 						accentColor: "#5B7FFF",
 						name: "Currently Reading",
@@ -126,8 +127,8 @@ describe("toSidebarData", () => {
 			{
 				id: "view-2",
 				trackerId: null,
-				trackerSlug: null,
 				icon: "sparkles",
+				isDisabled: false,
 				name: "Favorites",
 				accentColor: "#2DD4BF",
 			},
@@ -166,5 +167,48 @@ describe("toSidebarData", () => {
 			"tracker-2",
 		]);
 		expect(result.trackers[1]?.isDisabled).toBe(true);
+	});
+
+	it("hides disabled tracker views in normal mode", () => {
+		const trackers = [
+			createTrackerFixture({
+				name: "Media",
+				slug: "media",
+				id: "tracker-1",
+				accentColor: "#5B7FFF",
+			}),
+		];
+		const views = [
+			createSavedViewFixture({ id: "view-enabled", isDisabled: false }),
+			createSavedViewFixture({ id: "view-disabled", isDisabled: true }),
+		];
+
+		const result = toSidebarData({ trackers, views });
+
+		const mediaTracker = result.trackers.find((t) => t.id === "tracker-1");
+		expect(mediaTracker?.views?.map((v) => v.id)).toEqual(["view-enabled"]);
+	});
+
+	it("includes disabled tracker views while customizing", () => {
+		const trackers = [
+			createTrackerFixture({
+				name: "Media",
+				slug: "media",
+				id: "tracker-1",
+				accentColor: "#5B7FFF",
+			}),
+		];
+		const views = [
+			createSavedViewFixture({ id: "view-enabled", isDisabled: false }),
+			createSavedViewFixture({ id: "view-disabled", isDisabled: true }),
+		];
+
+		const result = toSidebarData({ trackers, views, isCustomizeMode: true });
+
+		const mediaTracker = result.trackers.find((t) => t.id === "tracker-1");
+		expect(mediaTracker?.views?.map((v) => v.id)).toEqual([
+			"view-enabled",
+			"view-disabled",
+		]);
 	});
 });
