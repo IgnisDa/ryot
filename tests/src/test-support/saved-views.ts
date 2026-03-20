@@ -47,6 +47,7 @@ export function buildUpdatedSavedViewBody(
 ): UpdateSavedViewBody {
 	return {
 		icon: "heart",
+		isDisabled: false,
 		accentColor: "#00AA88",
 		name: `Updated View ${crypto.randomUUID()}`,
 		queryDefinition: {
