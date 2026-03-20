@@ -71,6 +71,12 @@ const createListedSavedView = (
 const createDeps = (
 	overrides: Partial<SavedViewServiceDeps> = {},
 ): SavedViewServiceDeps => ({
+	deleteSavedViewByIdForUser: async (input) =>
+		createListedSavedView({ id: input.viewId }),
+	getSavedViewByIdForUser: async (input) =>
+		createListedSavedView({ id: input.viewId }),
+	updateSavedViewDisabledByIdForUser: async (input) =>
+		createListedSavedView({ id: input.viewId, isDisabled: input.isDisabled }),
 	createSavedViewForUser: async (input) =>
 		createListedSavedView({
 			icon: input.icon,
@@ -81,10 +87,6 @@ const createDeps = (
 			queryDefinition: input.queryDefinition,
 			displayConfiguration: input.displayConfiguration,
 		}),
-	deleteSavedViewByIdForUser: async (input) =>
-		createListedSavedView({ id: input.viewId }),
-	getSavedViewByIdForUser: async (input) =>
-		createListedSavedView({ id: input.viewId }),
 	updateSavedViewByIdForUser: async (input) =>
 		createListedSavedView({
 			id: input.viewId,
@@ -170,13 +172,65 @@ describe("createSavedView", () => {
 });
 
 describe("updateSavedView", () => {
-	it("prevents updates to built-in views", async () => {
-		let wasCalled = false;
+	it("allows toggling isDisabled on a built-in view without calling full update", async () => {
+		let fullUpdateCalled = false;
+		let disableToggleCalled = false;
+		const deps = createDeps({
+			getSavedViewByIdForUser: async () =>
+				createListedSavedView({ isBuiltin: true, isDisabled: false }),
+			updateSavedViewByIdForUser: async () => {
+				fullUpdateCalled = true;
+				return createListedSavedView();
+			},
+			updateSavedViewDisabledByIdForUser: async (input) => {
+				disableToggleCalled = true;
+				return createListedSavedView({ isDisabled: input.isDisabled });
+			},
+		});
+
+		const result = await updateSavedView(
+			{
+				viewId: "view_1",
+				userId: "user_1",
+				body: { ...createUpdateSavedViewBody(), isDisabled: true },
+			},
+			deps,
+		);
+
+		expect(fullUpdateCalled).toBe(false);
+		expect(disableToggleCalled).toBe(true);
+		expect("data" in result && result.data.isDisabled).toBe(true);
+	});
+
+	it("returns not_found when a built-in view row disappears during disable toggle", async () => {
 		const deps = createDeps({
 			getSavedViewByIdForUser: async () =>
 				createListedSavedView({ isBuiltin: true }),
-			updateSavedViewByIdForUser: async () => {
-				wasCalled = true;
+			updateSavedViewDisabledByIdForUser: async () => undefined,
+		});
+
+		const result = await updateSavedView(
+			{
+				viewId: "view_1",
+				userId: "user_1",
+				body: createUpdateSavedViewBody(),
+			},
+			deps,
+		);
+
+		expect(result).toEqual({
+			error: "not_found",
+			message: "Saved view not found",
+		});
+	});
+
+	it("returns not found when the row disappears before update", async () => {
+		let disableToggleCalled = false;
+		const deps = createDeps({
+			updateSavedViewByIdForUser: async () => undefined,
+			getSavedViewByIdForUser: async () => undefined,
+			updateSavedViewDisabledByIdForUser: async () => {
+				disableToggleCalled = true;
 				return createListedSavedView();
 			},
 		});
@@ -190,28 +244,7 @@ describe("updateSavedView", () => {
 			deps,
 		);
 
-		expect(result).toEqual({
-			error: "builtin",
-			message: "Cannot modify built-in saved views",
-		});
-		expect(wasCalled).toBe(false);
-	});
-
-	it("returns not found when the row disappears before update", async () => {
-		const deps = createDeps({
-			updateSavedViewByIdForUser: async () => undefined,
-			getSavedViewByIdForUser: async () => undefined,
-		});
-
-		const result = await updateSavedView(
-			{
-				viewId: "view_1",
-				userId: "user_1",
-				body: createUpdateSavedViewBody(),
-			},
-			deps,
-		);
-
+		expect(disableToggleCalled).toBe(false);
 		expect(result).toEqual({
 			error: "not_found",
 			message: "Saved view not found",

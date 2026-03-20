@@ -159,6 +159,26 @@ export const updateSavedViewByIdForUser = async (input: {
 	return toSavedView(updatedView);
 };
 
+export const updateSavedViewDisabledByIdForUser = async (input: {
+	userId: string;
+	viewId: string;
+	isDisabled: boolean;
+}) => {
+	const [updatedView] = await db
+		.update(savedView)
+		.set({ isDisabled: input.isDisabled })
+		.where(
+			and(eq(savedView.id, input.viewId), eq(savedView.userId, input.userId)),
+		)
+		.returning(savedViewSelection);
+
+	if (!updatedView) {
+		return undefined;
+	}
+
+	return toSavedView(updatedView);
+};
+
 export const deleteSavedViewByIdForUser = async (input: {
 	userId: string;
 	viewId: string;
