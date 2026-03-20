@@ -1454,13 +1454,13 @@ export interface paths {
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
-                                sortOrder: number;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 trackerId: string | null;
                                 accentColor: string;
+                                sortOrder: number;
                                 queryDefinition: {
                                     sort: {
                                         /** @enum {string} */
@@ -1500,6 +1500,7 @@ export interface paths {
                                     };
                                     table: {
                                         columns: {
+                                            label: string;
                                             property: string[];
                                         }[];
                                     };
@@ -1587,6 +1588,7 @@ export interface paths {
                             };
                             table: {
                                 columns: {
+                                    label: string;
                                     property: string[];
                                 }[];
                             };
@@ -1610,13 +1612,13 @@ export interface paths {
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
-                                sortOrder: number;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 trackerId: string | null;
                                 accentColor: string;
+                                sortOrder: number;
                                 queryDefinition: {
                                     sort: {
                                         /** @enum {string} */
@@ -1656,6 +1658,7 @@ export interface paths {
                                     };
                                     table: {
                                         columns: {
+                                            label: string;
                                             property: string[];
                                         }[];
                                     };
@@ -1727,13 +1730,13 @@ export interface paths {
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
-                                sortOrder: number;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 trackerId: string | null;
                                 accentColor: string;
+                                sortOrder: number;
                                 queryDefinition: {
                                     sort: {
                                         /** @enum {string} */
@@ -1773,6 +1776,7 @@ export interface paths {
                                     };
                                     table: {
                                         columns: {
+                                            label: string;
                                             property: string[];
                                         }[];
                                     };
@@ -1865,6 +1869,7 @@ export interface paths {
                             };
                             table: {
                                 columns: {
+                                    label: string;
                                     property: string[];
                                 }[];
                             };
@@ -1888,13 +1893,13 @@ export interface paths {
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
-                                sortOrder: number;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 trackerId: string | null;
                                 accentColor: string;
+                                sortOrder: number;
                                 queryDefinition: {
                                     sort: {
                                         /** @enum {string} */
@@ -1934,6 +1939,7 @@ export interface paths {
                                     };
                                     table: {
                                         columns: {
+                                            label: string;
                                             property: string[];
                                         }[];
                                     };
@@ -2004,13 +2010,13 @@ export interface paths {
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
-                                sortOrder: number;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 trackerId: string | null;
                                 accentColor: string;
+                                sortOrder: number;
                                 queryDefinition: {
                                     sort: {
                                         /** @enum {string} */
@@ -2050,6 +2056,7 @@ export interface paths {
                                     };
                                     table: {
                                         columns: {
+                                            label: string;
                                             property: string[];
                                         }[];
                                     };
@@ -2133,13 +2140,13 @@ export interface paths {
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
-                                sortOrder: number;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 trackerId: string | null;
                                 accentColor: string;
+                                sortOrder: number;
                                 queryDefinition: {
                                     sort: {
                                         /** @enum {string} */
@@ -2179,6 +2186,7 @@ export interface paths {
                                     };
                                     table: {
                                         columns: {
+                                            label: string;
                                             property: string[];
                                         }[];
                                     };
@@ -2248,8 +2256,8 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        viewIds: string[];
                         trackerId?: string;
+                        viewIds: string[];
                     };
                 };
             };
@@ -2400,6 +2408,7 @@ export interface paths {
                         layout: "table";
                         displayConfiguration: {
                             columns: {
+                                label: string;
                                 property: string[];
                             }[];
                         };
@@ -2432,7 +2441,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
-                                items: {
+                                items: ({
                                     id: string;
                                     name: string;
                                     /** Format: date-time */
@@ -2451,9 +2460,52 @@ export interface paths {
                                         kind: "remote";
                                     } | unknown;
                                     resolvedProperties: {
-                                        [key: string]: unknown;
+                                        imageProperty: {
+                                            value?: unknown;
+                                            /** @enum {string} */
+                                            kind: "text" | "number" | "boolean" | "date" | "image" | "json" | "null";
+                                        };
+                                        titleProperty: {
+                                            value?: unknown;
+                                            /** @enum {string} */
+                                            kind: "text" | "number" | "boolean" | "date" | "image" | "json" | "null";
+                                        };
+                                        subtitleProperty: {
+                                            value?: unknown;
+                                            /** @enum {string} */
+                                            kind: "text" | "number" | "boolean" | "date" | "image" | "json" | "null";
+                                        };
+                                        badgeProperty: {
+                                            value?: unknown;
+                                            /** @enum {string} */
+                                            kind: "text" | "number" | "boolean" | "date" | "image" | "json" | "null";
+                                        };
                                     };
-                                }[];
+                                } | {
+                                    id: string;
+                                    name: string;
+                                    /** Format: date-time */
+                                    createdAt: string;
+                                    /** Format: date-time */
+                                    updatedAt: string;
+                                    entitySchemaId: string;
+                                    entitySchemaSlug: string;
+                                    image: {
+                                        key: string;
+                                        /** @enum {string} */
+                                        kind: "s3";
+                                    } | {
+                                        url: string;
+                                        /** @enum {string} */
+                                        kind: "remote";
+                                    } | unknown;
+                                    cells: {
+                                        key: string;
+                                        value?: unknown;
+                                        /** @enum {string} */
+                                        kind: "text" | "number" | "boolean" | "date" | "image" | "json" | "null";
+                                    }[];
+                                })[];
                                 meta: {
                                     pagination: {
                                         page: number;
@@ -2462,6 +2514,12 @@ export interface paths {
                                         hasNextPage: boolean;
                                         hasPreviousPage: boolean;
                                         totalPages: number;
+                                    };
+                                    table?: {
+                                        columns: {
+                                            key: string;
+                                            label: string;
+                                        }[];
                                     };
                                 };
                             };

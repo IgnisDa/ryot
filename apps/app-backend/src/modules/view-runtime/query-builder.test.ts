@@ -61,42 +61,95 @@ describe("calculatePagination", () => {
 describe("mapQueryRowToItem", () => {
 	it("keeps rows with empty string names", () => {
 		expect(
-			mapQueryRowToItem({
-				total: 1,
-				name: "",
-				image: null,
-				id: "entity-1",
-				resolved_properties: {},
-				entity_schema_slug: "books",
-				entity_schema_id: "schema-1",
-				created_at: new Date("2024-01-01T00:00:00.000Z"),
-				updated_at: new Date("2024-01-02T00:00:00.000Z"),
-			}),
+			mapQueryRowToItem(
+				{
+					total: 1,
+					name: "",
+					image: null,
+					cells: null,
+					id: "entity-1",
+					entity_schema_slug: "books",
+					entity_schema_id: "schema-1",
+					created_at: new Date("2024-01-01T00:00:00.000Z"),
+					updated_at: new Date("2024-01-02T00:00:00.000Z"),
+					resolved_properties: {
+						titleProperty: { kind: "text", value: "" },
+						imageProperty: { kind: "null", value: null },
+						badgeProperty: { kind: "null", value: null },
+						subtitleProperty: { kind: "null", value: null },
+					},
+				},
+				"grid",
+			),
 		).toEqual({
 			name: "",
 			image: null,
 			id: "entity-1",
-			resolvedProperties: {},
 			entitySchemaSlug: "books",
 			entitySchemaId: "schema-1",
 			createdAt: new Date("2024-01-01T00:00:00.000Z"),
 			updatedAt: new Date("2024-01-02T00:00:00.000Z"),
+			resolvedProperties: {
+				titleProperty: { kind: "text", value: "" },
+				badgeProperty: { kind: "null", value: null },
+				imageProperty: { kind: "null", value: null },
+				subtitleProperty: { kind: "null", value: null },
+			},
 		});
 	});
 
 	it("drops the left join sentinel row", () => {
 		expect(
-			mapQueryRowToItem({
-				total: 0,
-				id: null,
-				name: null,
-				image: null,
-				created_at: null,
-				updated_at: null,
-				entity_schema_id: null,
-				entity_schema_slug: null,
-				resolved_properties: null,
-			}),
+			mapQueryRowToItem(
+				{
+					total: 0,
+					id: null,
+					name: null,
+					image: null,
+					cells: null,
+					created_at: null,
+					updated_at: null,
+					entity_schema_id: null,
+					entity_schema_slug: null,
+					resolved_properties: null,
+				},
+				"grid",
+			),
 		).toBeNull();
+	});
+
+	it("maps table rows to ordered cells", () => {
+		expect(
+			mapQueryRowToItem(
+				{
+					total: 1,
+					image: null,
+					id: "entity-1",
+					name: "Entity",
+					resolved_properties: null,
+					entity_schema_slug: "books",
+					entity_schema_id: "schema-1",
+					created_at: new Date("2024-01-01T00:00:00.000Z"),
+					updated_at: new Date("2024-01-02T00:00:00.000Z"),
+					cells: [
+						{ key: "column_0", kind: "text", value: "Entity" },
+						{ key: "column_1", kind: "number", value: 2024 },
+					],
+				},
+				"table",
+			),
+		).toEqual({
+			image: null,
+			id: "entity-1",
+			name: "Entity",
+			entitySchemaSlug: "books",
+			entitySchemaId: "schema-1",
+			createdAt: new Date("2024-01-01T00:00:00.000Z"),
+			updatedAt: new Date("2024-01-02T00:00:00.000Z"),
+			cells: [
+				{ key: "column_0", kind: "text", value: "Entity" },
+				{ key: "column_1", kind: "number", value: 2024 },
+			],
+		});
 	});
 });

@@ -9,6 +9,11 @@ type GridViewRuntimeRequest = Extract<ViewRuntimeRequest, { layout: "grid" }>;
 type ApiEntity = ApiGetResponseData<"/entities/{entityId}">;
 type ApiViewRuntimeEntity =
 	ApiPostResponseData<"/view-runtime/execute">["items"][number];
+type ApiResolvedRuntimeEntity = Extract<
+	ApiViewRuntimeEntity,
+	{ resolvedProperties: unknown }
+>;
+type ApiTableRuntimeEntity = Extract<ApiViewRuntimeEntity, { cells: unknown }>;
 type ApiEntityInput = ApiEntity | ApiViewRuntimeEntity;
 
 export type AppEntityImage =
@@ -17,11 +22,14 @@ export type AppEntityImage =
 	| null;
 
 export type AppEntity = Omit<ApiEntity, "createdAt" | "updatedAt" | "image"> & {
-	image: AppEntityImage;
 	createdAt: Date;
 	updatedAt: Date;
+	image: AppEntityImage;
+	cells?: ApiTableRuntimeEntity["cells"];
 	entitySchemaSlug?: ApiViewRuntimeEntity["entitySchemaSlug"];
-	resolvedProperties?: ApiViewRuntimeEntity["resolvedProperties"];
+	resolvedProperties?:
+		| ApiResolvedRuntimeEntity["resolvedProperties"]
+		| ApiEntity["properties"];
 };
 
 const defaultDisplayConfiguration: GridViewRuntimeRequest["displayConfiguration"] =
@@ -36,8 +44,8 @@ export function createEntityRuntimeRequest(
 	entitySchemaSlug: string,
 ): GridViewRuntimeRequest {
 	return {
-		layout: "grid",
 		filters: [],
+		layout: "grid",
 		entitySchemaSlugs: [entitySchemaSlug],
 		pagination: { page: 1, limit: 1000 },
 		sort: { field: ["@name"], direction: "asc" },
@@ -66,7 +74,7 @@ function toAppEntityImage(image: unknown): AppEntityImage {
 function isViewRuntimeEntity(
 	entity: ApiEntityInput,
 ): entity is ApiViewRuntimeEntity {
-	return "resolvedProperties" in entity;
+	return "entitySchemaSlug" in entity;
 }
 
 export function toAppEntity(entity: ApiEntityInput): AppEntity {
@@ -76,11 +84,18 @@ export function toAppEntity(entity: ApiEntityInput): AppEntity {
 		? null
 		: entity.detailsSandboxScriptId;
 	const resolvedProperties = isViewRuntimeEntity(entity)
-		? entity.resolvedProperties
+		? "resolvedProperties" in entity
+			? (entity.resolvedProperties as AppEntity["resolvedProperties"])
+			: undefined
 		: properties;
+	const cells =
+		isViewRuntimeEntity(entity) && "cells" in entity
+			? (entity.cells as AppEntity["cells"])
+			: undefined;
 
 	return {
 		...entity,
+		cells,
 		properties,
 		externalId,
 		resolvedProperties,
