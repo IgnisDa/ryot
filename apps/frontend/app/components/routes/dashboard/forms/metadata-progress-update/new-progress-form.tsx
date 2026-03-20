@@ -193,8 +193,8 @@ export const MetadataNewProgressUpdateForm = (
 				<Button
 					size="xs"
 					type="submit"
-					variant="outline"
 					data-autofocus
+					variant="outline"
 					className={OnboardingTourStepTarget.AddAudiobookToWatchedHistory}
 					loading={deployBulkMetadataProgressUpdate.isPending}
 				>
