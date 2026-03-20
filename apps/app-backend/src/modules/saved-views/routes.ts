@@ -17,6 +17,8 @@ import {
 	deleteSavedViewParams,
 	listSavedViewsQuery,
 	listSavedViewsResponseSchema,
+	reorderSavedViewsBody,
+	reorderSavedViewsResponseSchema,
 	savedViewParams,
 	updateSavedViewBody,
 	updateSavedViewResponseSchema,
@@ -25,6 +27,7 @@ import {
 	cloneSavedView,
 	createSavedView,
 	deleteSavedView,
+	reorderSavedViews,
 	updateSavedView,
 } from "./service";
 
@@ -141,6 +144,27 @@ const cloneSavedViewRoute = createAuthRoute(
 	}),
 );
 
+const reorderSavedViewsRoute = createAuthRoute(
+	createRoute({
+		method: "post",
+		path: "/reorder",
+		tags: ["saved-views"],
+		summary: "Reorder saved views for the authenticated user",
+		request: {
+			body: {
+				content: { "application/json": { schema: reorderSavedViewsBody } },
+			},
+		},
+		responses: {
+			400: payloadErrorResponse(),
+			200: jsonResponse(
+				"Saved view order was updated",
+				reorderSavedViewsResponseSchema,
+			),
+		},
+	}),
+);
+
 const savedViewNotFoundResult = createNotFoundErrorResult(
 	"Saved view not found",
 );
@@ -235,6 +259,19 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		});
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
+
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
+	})
+	.openapi(reorderSavedViewsRoute, async (c) => {
+		const user = c.get("user");
+		const body = c.req.valid("json");
+
+		const result = await reorderSavedViews({ body, userId: user.id });
+		if ("error" in result) {
+			const response = createValidationServiceErrorResult(result);
 			return c.json(response.body, response.status);
 		}
 
