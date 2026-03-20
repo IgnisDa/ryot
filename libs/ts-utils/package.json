@@ -7,18 +7,18 @@
 		"lint": "biome check ."
 	},
 	"devDependencies": {
-		"@types/lodash": "4.17.23"
+		"@types/lodash": "4.17.24"
 	},
 	"dependencies": {
-		"@conform-to/zod": "1.17.0",
+		"@conform-to/zod": "1.17.1",
 		"@ryot/generated": "workspace:*",
 		"clsx": "2.1.1",
-		"dayjs": "1.11.19",
+		"dayjs": "1.11.20",
 		"humanize-duration-ts": "2.1.1",
 		"lodash": "4.17.23",
-		"react-router": "7.13.0",
-		"slugify": "1.6.6",
-		"tailwind-merge": "3.4.0",
+		"react-router": "7.13.1",
+		"slugify": "1.6.8",
+		"tailwind-merge": "3.5.0",
 		"tiny-invariant": "1.3.3",
 		"zod": "4.3.6"
 	}
