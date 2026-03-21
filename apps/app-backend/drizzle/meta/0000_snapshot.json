@@ -1,5 +1,5 @@
 {
-	"id": "07ea121a-435f-4bd8-a555-e4bb88b0d236",
+	"id": "9da5d804-73d2-480a-a2fb-ece035903f8a",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -545,6 +545,18 @@
 					"primaryKey": false,
 					"notNull": true
 				},
+				"icon": {
+					"name": "icon",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"accent_color": {
+					"name": "accent_color",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
 				"properties_schema": {
 					"name": "properties_schema",
 					"type": "jsonb",
@@ -571,12 +583,6 @@
 					"primaryKey": false,
 					"notNull": false
 				},
-				"facet_id": {
-					"name": "facet_id",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
 				"id": {
 					"name": "id",
 					"type": "text",
@@ -592,21 +598,6 @@
 				}
 			},
 			"indexes": {
-				"entity_schema_facet_id_idx": {
-					"name": "entity_schema_facet_id_idx",
-					"columns": [
-						{
-							"expression": "facet_id",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				},
 				"entity_schema_user_id_idx": {
 					"name": "entity_schema_user_id_idx",
 					"columns": [
@@ -629,15 +620,6 @@
 					"tableFrom": "entity_schema",
 					"tableTo": "user",
 					"columnsFrom": ["user_id"],
-					"columnsTo": ["id"],
-					"onDelete": "cascade",
-					"onUpdate": "no action"
-				},
-				"entity_schema_facet_id_facet_id_fk": {
-					"name": "entity_schema_facet_id_facet_id_fk",
-					"tableFrom": "entity_schema",
-					"tableTo": "facet",
-					"columnsFrom": ["facet_id"],
 					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
@@ -1105,6 +1087,20 @@
 					"primaryKey": false,
 					"notNull": true
 				},
+				"enabled": {
+					"name": "enabled",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": true
+				},
+				"sort_order": {
+					"name": "sort_order",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
 				"accent_color": {
 					"name": "accent_color",
 					"type": "text",
@@ -1143,7 +1139,7 @@
 					"name": "user_id",
 					"type": "text",
 					"primaryKey": false,
-					"notNull": false
+					"notNull": true
 				},
 				"id": {
 					"name": "id",
@@ -1193,6 +1189,114 @@
 					"name": "facet_user_slug_unique",
 					"nullsNotDistinct": false,
 					"columns": ["user_id", "slug"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.facet_entity_schema": {
+			"name": "facet_entity_schema",
+			"schema": "",
+			"columns": {
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"is_disabled": {
+					"name": "is_disabled",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"facet_id": {
+					"name": "facet_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"entity_schema_id": {
+					"name": "entity_schema_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"facet_entity_schema_facet_id_idx": {
+					"name": "facet_entity_schema_facet_id_idx",
+					"columns": [
+						{
+							"expression": "facet_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"facet_entity_schema_entity_schema_id_idx": {
+					"name": "facet_entity_schema_entity_schema_id_idx",
+					"columns": [
+						{
+							"expression": "entity_schema_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"facet_entity_schema_facet_id_facet_id_fk": {
+					"name": "facet_entity_schema_facet_id_facet_id_fk",
+					"tableFrom": "facet_entity_schema",
+					"tableTo": "facet",
+					"columnsFrom": ["facet_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"facet_entity_schema_entity_schema_id_entity_schema_id_fk": {
+					"name": "facet_entity_schema_entity_schema_id_entity_schema_id_fk",
+					"tableFrom": "facet_entity_schema",
+					"tableTo": "entity_schema",
+					"columnsFrom": ["entity_schema_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"facet_entity_schema_unique": {
+					"name": "facet_entity_schema_unique",
+					"nullsNotDistinct": false,
+					"columns": ["facet_id", "entity_schema_id"]
 				}
 			},
 			"policies": {},
@@ -1677,121 +1781,6 @@
 					"name": "user_email_unique",
 					"nullsNotDistinct": false,
 					"columns": ["email"]
-				}
-			},
-			"policies": {},
-			"checkConstraints": {},
-			"isRLSEnabled": false
-		},
-		"public.user_facet": {
-			"name": "user_facet",
-			"schema": "",
-			"columns": {
-				"created_at": {
-					"name": "created_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				},
-				"sort_order": {
-					"name": "sort_order",
-					"type": "integer",
-					"primaryKey": false,
-					"notNull": true,
-					"default": 0
-				},
-				"enabled": {
-					"name": "enabled",
-					"type": "boolean",
-					"primaryKey": false,
-					"notNull": true,
-					"default": true
-				},
-				"user_id": {
-					"name": "user_id",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"facet_id": {
-					"name": "facet_id",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"id": {
-					"name": "id",
-					"type": "text",
-					"primaryKey": true,
-					"notNull": true
-				},
-				"updated_at": {
-					"name": "updated_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				}
-			},
-			"indexes": {
-				"user_facet_user_id_idx": {
-					"name": "user_facet_user_id_idx",
-					"columns": [
-						{
-							"expression": "user_id",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				},
-				"user_facet_facet_id_idx": {
-					"name": "user_facet_facet_id_idx",
-					"columns": [
-						{
-							"expression": "facet_id",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				}
-			},
-			"foreignKeys": {
-				"user_facet_user_id_user_id_fk": {
-					"name": "user_facet_user_id_user_id_fk",
-					"tableFrom": "user_facet",
-					"tableTo": "user",
-					"columnsFrom": ["user_id"],
-					"columnsTo": ["id"],
-					"onDelete": "cascade",
-					"onUpdate": "no action"
-				},
-				"user_facet_facet_id_facet_id_fk": {
-					"name": "user_facet_facet_id_facet_id_fk",
-					"tableFrom": "user_facet",
-					"tableTo": "facet",
-					"columnsFrom": ["facet_id"],
-					"columnsTo": ["id"],
-					"onDelete": "cascade",
-					"onUpdate": "no action"
-				}
-			},
-			"compositePrimaryKeys": {},
-			"uniqueConstraints": {
-				"user_facet_user_facet_unique": {
-					"name": "user_facet_user_facet_unique",
-					"nullsNotDistinct": false,
-					"columns": ["user_id", "facet_id"]
 				}
 			},
 			"policies": {},

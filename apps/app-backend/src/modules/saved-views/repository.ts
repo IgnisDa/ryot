@@ -1,6 +1,6 @@
 import { and, asc, eq } from "drizzle-orm";
-import { db } from "~/lib/db";
-import { entitySchema, savedView } from "~/lib/db/schema";
+import { type DbClient, db } from "~/lib/db";
+import { facet, facetEntitySchema, savedView } from "~/lib/db/schema";
 import type { SavedViewQueryDefinition } from "./schemas";
 
 export const listSavedViewsForUser = async (input: { userId: string }) => {
@@ -26,12 +26,14 @@ export const listEntitySchemaIdsByFacetForUser = async (input: {
 	facetId: string;
 }) => {
 	const rows = await db
-		.select({ id: entitySchema.id })
-		.from(entitySchema)
+		.select({ id: facetEntitySchema.entitySchemaId })
+		.from(facetEntitySchema)
+		.innerJoin(facet, eq(facet.id, facetEntitySchema.facetId))
 		.where(
 			and(
-				eq(entitySchema.userId, input.userId),
-				eq(entitySchema.facetId, input.facetId),
+				eq(facet.id, input.facetId),
+				eq(facet.userId, input.userId),
+				eq(facetEntitySchema.isDisabled, false),
 			),
 		);
 
@@ -94,6 +96,7 @@ export const createSavedViewForUser = async (input: {
 
 export const createSavedViewsForUser = async (input: {
 	userId: string;
+	database?: DbClient;
 	views: Array<{
 		name: string;
 		isBuiltin: boolean;
@@ -102,7 +105,9 @@ export const createSavedViewsForUser = async (input: {
 }) => {
 	if (!input.views.length) return;
 
-	await db.insert(savedView).values(
+	const database = input.database ?? db;
+
+	await database.insert(savedView).values(
 		input.views.map((view) => ({
 			name: view.name,
 			userId: input.userId,
