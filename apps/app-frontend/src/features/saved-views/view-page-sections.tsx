@@ -12,24 +12,19 @@ import { Link } from "@tanstack/react-router";
 import { Image as ImageIcon } from "lucide-react";
 import { DataTable, type DataTableColumn } from "mantine-datatable";
 import type { AppEntity } from "#/features/entities/model";
+import { useThemeTokens } from "#/hooks/theme";
 import type { ViewLayout, ViewRuntimeResponse } from "./view-page-utils";
 import { formatRuntimeValue, isRuntimeProperty } from "./view-page-utils";
 
 function EntityThumbnail(props: {
 	label?: string;
 	height: number;
-	isDark: boolean;
 	radius?: string;
 	iconSize?: number;
 	imageUrl?: string;
 	width: number | string;
 }) {
-	const surfaceHover = props.isDark
-		? "var(--mantine-color-dark-7)"
-		: "var(--mantine-color-stone-1)";
-	const textMuted = props.isDark
-		? "var(--mantine-color-dark-4)"
-		: "var(--mantine-color-stone-5)";
+	const { surfaceHover, textMuted } = useThemeTokens();
 
 	if (props.imageUrl) {
 		return (
@@ -76,16 +71,14 @@ function EntityThumbnail(props: {
 }
 
 export function SavedViewResults(props: {
-	isDark: boolean;
 	items: AppEntity[];
 	layout: ViewLayout;
 	accentColor: string;
 	accentMuted: string;
-	textPrimary: string;
-	textSecondary: string;
 	meta: ViewRuntimeResponse["meta"];
 	imageUrlById: Map<string, string | undefined>;
 }) {
+	const { isDark, textPrimary, textSecondary } = useThemeTokens();
 	if (props.layout === "grid") {
 		return (
 			<SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="md">
@@ -107,7 +100,6 @@ export function SavedViewResults(props: {
 									height={220}
 									width="100%"
 									iconSize={48}
-									isDark={props.isDark}
 									imageUrl={props.imageUrlById.get(item.id)}
 									label={
 										isRuntimeProperty(image) && image.kind !== "image"
@@ -120,7 +112,7 @@ export function SavedViewResults(props: {
 										fw={600}
 										size="md"
 										lineClamp={2}
-										c={props.textPrimary}
+										c={textPrimary}
 										ff="var(--mantine-headings-font-family)"
 									>
 										{isRuntimeProperty(title)
@@ -128,7 +120,7 @@ export function SavedViewResults(props: {
 											: item.name}
 									</Text>
 									{isRuntimeProperty(subtitle) && subtitle.kind !== "null" ? (
-										<Text size="sm" c={props.textSecondary} lineClamp={2}>
+										<Text size="sm" c={textSecondary} lineClamp={2}>
 											{formatRuntimeValue(subtitle.value)}
 										</Text>
 									) : null}
@@ -163,7 +155,7 @@ export function SavedViewResults(props: {
 					const badge = item.resolvedProperties?.badgeProperty;
 					const image = item.resolvedProperties?.imageProperty;
 					const subtitle = item.resolvedProperties?.subtitleProperty;
-					
+
 					return (
 						<Link
 							key={item.id}
@@ -182,7 +174,6 @@ export function SavedViewResults(props: {
 											width={60}
 											height={84}
 											iconSize={20}
-											isDark={props.isDark}
 											imageUrl={props.imageUrlById.get(item.id)}
 											label={
 												isRuntimeProperty(image) && image.kind !== "image"
@@ -194,7 +185,7 @@ export function SavedViewResults(props: {
 											<Text
 												fw={600}
 												size="md"
-												c={props.textPrimary}
+												c={textPrimary}
 												ff="var(--mantine-headings-font-family)"
 											>
 												{isRuntimeProperty(title)
@@ -203,7 +194,7 @@ export function SavedViewResults(props: {
 											</Text>
 											{isRuntimeProperty(subtitle) &&
 											subtitle.kind !== "null" ? (
-												<Text size="sm" c={props.textSecondary}>
+												<Text size="sm" c={textSecondary}>
 													{formatRuntimeValue(subtitle.value)}
 												</Text>
 											) : null}
@@ -260,7 +251,6 @@ export function SavedViewResults(props: {
 							width={40}
 							height={54}
 							iconSize={16}
-							isDark={props.isDark}
 							radius="var(--mantine-radius-xs)"
 							imageUrl={props.imageUrlById.get(`${item.id}:${cell.key}`)}
 						/>
@@ -282,7 +272,7 @@ export function SavedViewResults(props: {
 				}
 
 				return (
-					<Text size="sm" c={props.textSecondary}>
+					<Text size="sm" c={textSecondary}>
 						{formatRuntimeValue(cell?.value)}
 					</Text>
 				);
@@ -293,24 +283,22 @@ export function SavedViewResults(props: {
 	return (
 		<DataTable
 			striped
+			c={textPrimary}
 			withTableBorder
 			highlightOnHover
 			borderRadius="sm"
-			c={props.textPrimary}
 			records={props.items}
 			columns={dataColumns}
 			borderColor={props.accentMuted}
 			rowBorderColor={props.accentMuted}
-			stripedColor={props.isDark ? "var(--mantine-color-dark-7)" : "white"}
+			stripedColor={isDark ? "var(--mantine-color-dark-7)" : "white"}
+			highlightOnHoverColor={
+				isDark ? "var(--mantine-color-dark-6)" : "var(--mantine-color-stone-0)"
+			}
 			emptyState={
-				<Text size="sm" c={props.textSecondary}>
+				<Text size="sm" c={textSecondary}>
 					No rows available
 				</Text>
-			}
-			highlightOnHoverColor={
-				props.isDark
-					? "var(--mantine-color-dark-6)"
-					: "var(--mantine-color-stone-0)"
 			}
 		/>
 	);

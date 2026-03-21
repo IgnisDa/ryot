@@ -17,7 +17,7 @@ import type { CreateEventPayload } from "#/features/events/form";
 import { useEventMutations, useEventsQuery } from "#/features/events/hooks";
 import { LogEventModal } from "#/features/events/section";
 import { useTrackersQuery } from "#/features/trackers/hooks";
-import { useColorScheme } from "#/hooks/theme";
+import { useThemeTokens } from "#/hooks/theme";
 
 export const Route = createFileRoute("/_protected/entities/$entityId")({
 	component: RouteComponent,
@@ -26,7 +26,6 @@ export const Route = createFileRoute("/_protected/entities/$entityId")({
 function RouteComponent() {
 	const { entityId } = Route.useParams();
 	const trackersQuery = useTrackersQuery();
-	const computedColorScheme = useColorScheme();
 	const entityQuery = useEntityQuery(entityId);
 	const entitySchema = useEntitySchemaQuery(
 		entityQuery.entity?.entitySchemaId ?? "",
@@ -46,13 +45,7 @@ function RouteComponent() {
 		null,
 	);
 
-	const isDark = computedColorScheme === "dark";
-	const border = isDark
-		? "var(--mantine-color-dark-6)"
-		: "var(--mantine-color-stone-3)";
-	const surfaceHover = isDark
-		? "var(--mantine-color-dark-7)"
-		: "var(--mantine-color-stone-1)";
+	const { border, surfaceHover } = useThemeTokens();
 
 	const openLogEventModal = useCallback(() => {
 		setCreateErrorMessage(null);
