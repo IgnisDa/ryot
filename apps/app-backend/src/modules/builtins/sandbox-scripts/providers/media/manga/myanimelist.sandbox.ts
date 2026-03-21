@@ -20,7 +20,7 @@ export const manifest = defineManifest({
 	name: "MyAnimeList",
 	slug: "manga.myanimelist",
 	providerInformation: { source: "myanimelist" },
-	requiredAppConfigKeys: ["providers.malClientId"],
+	requiredAppConfigKeys: ["animeAndManga.malClientId"],
 	capabilities: ["httpCall", "getAppConfigValue", "getUserPreferences"],
 });
 

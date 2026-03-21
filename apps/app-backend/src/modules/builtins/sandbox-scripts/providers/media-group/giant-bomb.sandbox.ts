@@ -20,7 +20,7 @@ export const manifest = defineManifest({
 	slug: "video-game-group.giant-bomb",
 	providerInformation: { source: "giant-bomb" },
 	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["providers.giantBombApiKey"],
+	requiredAppConfigKeys: ["videoGames.giantBombApiKey"],
 });
 
 export const search = defineProviderDriver(manifest, "search", (input, host) =>

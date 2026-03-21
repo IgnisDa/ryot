@@ -261,7 +261,7 @@ describe("sandbox async flow", () => {
 			source: appConfigSandboxSource({
 				slug,
 				name: "get-app-config-value",
-				key: "scheduler.progressUpdateThresholdHours",
+				key: "server.progressUpdateThresholdHours",
 			}),
 		});
 		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });

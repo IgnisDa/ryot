@@ -24,8 +24,8 @@ const asCachedToken = (value: unknown): CachedToken | null => {
 
 export const getCredentials = (host: IgdbHost) =>
 	Promise.all([
-		host.getAppConfigValue("providers.twitchClientId"),
-		host.getAppConfigValue("providers.twitchClientSecret"),
+		host.getAppConfigValue("videoGames.twitchClientId"),
+		host.getAppConfigValue("videoGames.twitchClientSecret"),
 	]).then(([clientIdResp, clientSecretResp]) => {
 		if (!clientIdResp.success) {
 			throw new Error(clientIdResp.error || "Failed to retrieve Twitch Client ID");

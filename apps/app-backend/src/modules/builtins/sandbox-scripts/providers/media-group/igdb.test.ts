@@ -19,7 +19,7 @@ const makeHost = (overrides: Partial<IgdbGroupHost>): IgdbGroupHost =>
 		getAppConfigValue: (key) =>
 			Promise.resolve({
 				success: true as const,
-				data: key === "providers.twitchClientId" ? "client-id" : "client-secret",
+				data: key === "videoGames.twitchClientId" ? "client-id" : "client-secret",
 			}),
 		httpCall: () => Promise.resolve({ success: false as const, error: "no route" }),
 		...overrides,
