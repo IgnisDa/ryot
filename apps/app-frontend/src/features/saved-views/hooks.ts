@@ -58,6 +58,28 @@ export function useSavedViewMutations() {
 		queryClient,
 	);
 
+	const remove = apiClient.useMutation(
+		"delete",
+		"/saved-views/{viewId}",
+		{
+			onSuccess: () => {
+				queryClient.invalidateQueries({ queryKey: listQueryKey });
+			},
+		},
+		queryClient,
+	);
+
+	const clone = apiClient.useMutation(
+		"post",
+		"/saved-views/{viewId}/clone",
+		{
+			onSuccess: () => {
+				queryClient.invalidateQueries({ queryKey: listQueryKey });
+			},
+		},
+		queryClient,
+	);
+
 	const reorder = apiClient.useMutation(
 		"post",
 		"/saved-views/reorder",
@@ -123,11 +145,27 @@ export function useSavedViewMutations() {
 		});
 	};
 
+	const deleteViewById = async (viewId: string) => {
+		return await remove.mutateAsync({ params: { path: { viewId } } });
+	};
+
+	const cloneViewById = async (viewId: string) => {
+		return await clone.mutateAsync({ params: { path: { viewId } } });
+	};
+
 	return {
+		clone,
+		remove,
 		update,
 		reorder,
+		cloneViewById,
+		deleteViewById,
 		toggleViewById,
 		reorderViewIds,
-		isPending: update.isPending || reorder.isPending,
+		isPending:
+			update.isPending ||
+			reorder.isPending ||
+			remove.isPending ||
+			clone.isPending,
 	};
 }
