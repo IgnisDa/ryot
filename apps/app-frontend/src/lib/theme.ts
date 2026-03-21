@@ -1,5 +1,9 @@
 import { createTheme } from "@mantine/core";
 
+export function getAccentMuted(accentColor: string, opacity = 15) {
+	return `color-mix(in srgb, ${accentColor} ${opacity}%, transparent)`;
+}
+
 export const theme = createTheme({
 	defaultRadius: "sm",
 	primaryColor: "accent",

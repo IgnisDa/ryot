@@ -1,7 +1,5 @@
 import { Box, Grid, Stack } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
 import { ErrorState, LoadingState } from "#/components/PageStates";
 import { getEntityDetailProperties } from "#/features/entities/detail";
 import {
@@ -17,7 +15,9 @@ import type { CreateEventPayload } from "#/features/events/form";
 import { useEventMutations, useEventsQuery } from "#/features/events/hooks";
 import { LogEventModal } from "#/features/events/section";
 import { useTrackersQuery } from "#/features/trackers/hooks";
+import { useModalForm } from "#/hooks/modal-form";
 import { useThemeTokens } from "#/hooks/theme";
+import { getAccentMuted } from "#/lib/theme";
 
 export const Route = createFileRoute("/_protected/entities/$entityId")({
 	component: RouteComponent,
@@ -40,39 +40,11 @@ function RouteComponent() {
 		!!entityQuery.entity,
 	);
 	const eventMutations = useEventMutations(entityQuery.entity?.id ?? "");
-	const [opened, { close, open }] = useDisclosure(false);
-	const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(
-		null,
+	const logEventModal = useModalForm((payload: CreateEventPayload) =>
+		eventMutations.create.mutateAsync({ body: payload }),
 	);
 
 	const { border, surfaceHover } = useThemeTokens();
-
-	const openLogEventModal = useCallback(() => {
-		setCreateErrorMessage(null);
-		open();
-	}, [open]);
-
-	const closeLogEventModal = useCallback(() => {
-		setCreateErrorMessage(null);
-		close();
-	}, [close]);
-
-	const submitCreateEvent = useCallback(
-		async (payload: CreateEventPayload) => {
-			setCreateErrorMessage(null);
-			try {
-				await eventMutations.create.mutateAsync({ body: payload });
-				closeLogEventModal();
-			} catch (error) {
-				const message =
-					error instanceof Error
-						? error.message
-						: "Failed to log event. Please try again.";
-				setCreateErrorMessage(message);
-			}
-		},
-		[closeLogEventModal, eventMutations.create],
-	);
 
 	if (trackersQuery.isLoading || entityQuery.isLoading) {
 		return <LoadingState />;
@@ -114,7 +86,7 @@ function RouteComponent() {
 
 	const entitySchemaColor = {
 		base: entitySchema.entitySchema.accentColor,
-		muted: `color-mix(in srgb, ${entitySchema.entitySchema.accentColor} 12%, transparent)`,
+		muted: getAccentMuted(entitySchema.entitySchema.accentColor, 12),
 	};
 
 	return (
@@ -139,7 +111,7 @@ function RouteComponent() {
 								border={border}
 								entity={entityQuery.entity}
 								surfaceHover={surfaceHover}
-								onLogEvent={openLogEventModal}
+								onLogEvent={logEventModal.open}
 								entitySchemaColor={entitySchemaColor}
 							/>
 						</Stack>
@@ -148,20 +120,20 @@ function RouteComponent() {
 					<Grid.Col span={{ base: 12, md: 4 }}>
 						<EntityDetailSidebar
 							entity={entityQuery.entity}
-							onLogEvent={openLogEventModal}
+							onLogEvent={logEventModal.open}
 							eventCount={eventsQuery.events.length}
 							schemaName={entitySchema.entitySchema.name}
 						/>
 					</Grid.Col>
 				</Grid>
 
-				{opened && entityQuery.entity && (
+				{logEventModal.opened && entityQuery.entity && (
 					<LogEventModal
-						opened={opened}
 						entity={entityQuery.entity}
-						onSubmit={submitCreateEvent}
-						onClose={closeLogEventModal}
-						errorMessage={createErrorMessage}
+						opened={logEventModal.opened}
+						onClose={logEventModal.close}
+						onSubmit={logEventModal.submit}
+						errorMessage={logEventModal.errorMessage}
 						isLoading={eventMutations.create.isPending}
 						eventSchemas={eventSchemasQuery.eventSchemas}
 					/>

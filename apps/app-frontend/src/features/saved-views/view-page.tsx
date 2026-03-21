@@ -22,6 +22,7 @@ import { TrackerIcon } from "#/features/trackers/icons";
 import { useApiClient } from "#/hooks/api";
 import { useThemeTokens } from "#/hooks/theme";
 import { STORAGE_KEYS } from "#/lib/storage-keys";
+import { getAccentMuted } from "#/lib/theme";
 import { SavedViewResults } from "./view-page-sections";
 import {
 	createDisabledViewRuntimeRequest,
@@ -129,7 +130,7 @@ export function SavedViewPage(props: { viewId: string }) {
 	}
 
 	const accentColor = savedView.accentColor;
-	const accentMuted = `color-mix(in srgb, ${accentColor} 15%, transparent)`;
+	const accentMuted = getAccentMuted(accentColor);
 	const schemaSummary = savedView.queryDefinition.entitySchemaSlugs.join(", ");
 	const pageSummary =
 		meta.pagination.totalPages > 0
