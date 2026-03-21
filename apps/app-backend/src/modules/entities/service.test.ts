@@ -145,13 +145,68 @@ describe("resolveEntityCreateInput", () => {
 
 		expect(
 			resolveEntityCreateInput({
+				image: null,
+				propertiesSchema,
 				name: "  My Book  ",
 				properties: { title: "Test Book", pages: 200 },
-				propertiesSchema,
 			}),
 		).toEqual({
+			image: null,
 			name: "My Book",
 			properties: { title: "Test Book", pages: 200 },
 		});
+	});
+
+	it("accepts a remote image url", () => {
+		const propertiesSchema = {
+			title: { type: "string" as const, required: true as const },
+		};
+
+		expect(
+			resolveEntityCreateInput({
+				name: "Book",
+				propertiesSchema,
+				properties: { title: "Test Book" },
+				image: { kind: "remote", url: "https://example.com/image.jpg" },
+			}),
+		).toEqual({
+			name: "Book",
+			properties: { title: "Test Book" },
+			image: { kind: "remote", url: "https://example.com/image.jpg" },
+		});
+	});
+
+	it("accepts an s3 image key", () => {
+		const propertiesSchema = {
+			title: { type: "string" as const, required: true as const },
+		};
+
+		expect(
+			resolveEntityCreateInput({
+				name: "Book",
+				propertiesSchema,
+				properties: { title: "Test Book" },
+				image: { kind: "s3", key: "uploads/entities/entity-image-123" },
+			}),
+		).toEqual({
+			name: "Book",
+			properties: { title: "Test Book" },
+			image: { kind: "s3", key: "uploads/entities/entity-image-123" },
+		});
+	});
+
+	it("rejects invalid remote image urls", () => {
+		const propertiesSchema = {
+			title: { type: "string" as const, required: true as const },
+		};
+
+		expect(() =>
+			resolveEntityCreateInput({
+				name: "Book",
+				propertiesSchema,
+				properties: { title: "Test Book" },
+				image: { kind: "remote", url: "not-a-url" },
+			}),
+		).toThrow("Entity image remote url must be a valid URL");
 	});
 });
