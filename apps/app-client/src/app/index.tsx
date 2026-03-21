@@ -7,5 +7,5 @@ export default function Index() {
 	if (!serverUrl) {
 		return <Redirect href="/onboarding" />;
 	}
-	return <Redirect href="/" />;
+	return <Redirect href="/(app)" />;
 }
