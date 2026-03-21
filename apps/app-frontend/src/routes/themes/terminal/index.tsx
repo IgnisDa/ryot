@@ -1,9 +1,11 @@
 import {
 	Badge,
 	Box,
+	Burger,
 	Button,
 	Card,
 	createTheme,
+	Drawer,
 	Flex,
 	Grid,
 	Group,
@@ -14,6 +16,7 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import { createFileRoute } from "@tanstack/react-router";
 import {
 	BookOpen,
@@ -97,589 +100,708 @@ const terminalTheme = createTheme({
 
 function TerminalTheme() {
 	const [colorScheme, setColorScheme] = useState<"light" | "dark">("dark");
+	const [drawerOpened, { open: openDrawer, close: closeDrawer }] =
+		useDisclosure(false);
+	const isMobile = useMediaQuery("(max-width: 768px)") ?? false;
+	const isDark = colorScheme === "dark";
+
+	const bg = isDark ? "dark.9" : "green.0";
+	const surface = isDark ? "dark.9" : "#FFFFFF";
+	const surfaceAlt = isDark ? "dark.8" : "#F5F7F5";
+	const textPrimary = isDark ? "green.5" : "green.8";
+	const textSecondary = isDark ? "green.4" : "green.7";
+	const textMuted = isDark ? "green.3" : "green.6";
+	const textCyan = isDark ? "cyan.5" : "cyan.8";
+	const textCyanAlt = isDark ? "cyan.4" : "cyan.7";
+	const textPurple = isDark ? "purple.5" : "purple.8";
+	const textPurpleAlt = isDark ? "purple.4" : "purple.7";
+	const textPurpleMuted = isDark ? "purple.3" : "purple.6";
+	const borderGreen = isDark
+		? "var(--mantine-color-green-5)"
+		: "var(--mantine-color-green-6)";
+	const borderCyan = isDark
+		? "var(--mantine-color-cyan-5)"
+		: "var(--mantine-color-cyan-6)";
+	const borderPurple = isDark
+		? "var(--mantine-color-purple-5)"
+		: "var(--mantine-color-purple-6)";
+	const glowGreen = isDark ? "0 0 20px rgba(0, 255, 0, 0.3)" : "none";
+	const glowGreenStrong = isDark ? "0 0 30px rgba(0, 255, 0, 0.9)" : "none";
+	const glowCyan = isDark ? "0 0 10px rgba(0, 255, 255, 0.4)" : "none";
+	const glowPurple = isDark ? "0 0 15px rgba(255, 0, 255, 0.3)" : "none";
+	const glowPurpleHover = isDark ? "0 0 10px rgba(255, 0, 255, 0.3)" : "none";
+	const textShadowGreen = isDark ? "0 0 8px rgba(0, 255, 0, 0.8)" : "none";
+	const textShadowGreenMed = isDark ? "0 0 5px rgba(0, 255, 0, 0.6)" : "none";
+	const textShadowGreenLight = isDark ? "0 0 5px rgba(0, 255, 0, 0.5)" : "none";
+	const textShadowGreenTitle = isDark
+		? "0 0 10px rgba(0, 255, 0, 0.8)"
+		: "none";
+	const textShadowCyan = isDark ? "0 0 5px rgba(0, 255, 255, 0.6)" : "none";
+	const textShadowCyanLight = isDark
+		? "0 0 5px rgba(0, 255, 255, 0.5)"
+		: "none";
+	const textShadowPurple = isDark ? "0 0 10px rgba(255, 0, 255, 0.8)" : "none";
+	const textShadowPurpleLight = isDark
+		? "0 0 5px rgba(255, 0, 255, 0.5)"
+		: "none";
+	const bgGreenTrans = isDark
+		? "rgba(0, 255, 0, 0.15)"
+		: "rgba(0, 255, 0, 0.08)";
+	const bgGreenTransHover = isDark
+		? "rgba(0, 255, 0, 0.25)"
+		: "rgba(0, 255, 0, 0.15)";
+	const bgCyanTrans = isDark
+		? "rgba(0, 255, 255, 0.1)"
+		: "rgba(0, 255, 255, 0.05)";
+	const bgPurpleTrans = isDark
+		? "rgba(255, 0, 255, 0.1)"
+		: "rgba(255, 0, 255, 0.05)";
+	const bgPurpleTransCard = isDark
+		? "rgba(255, 0, 255, 0.05)"
+		: "rgba(255, 0, 255, 0.03)";
+	const bgPurpleTransHover = isDark
+		? "rgba(255, 0, 255, 0.1)"
+		: "rgba(255, 0, 255, 0.08)";
+	const searchBoxBg = isDark ? "rgba(0, 255, 0, 0.05)" : "#FFFFFF";
+	const searchBoxShadow = isDark
+		? "inset 0 0 10px rgba(0, 255, 0, 0.1)"
+		: "inset 0 0 5px rgba(0, 100, 0, 0.05)";
+	const scanLineGradient = isDark
+		? `repeating-linear-gradient(
+				0deg,
+				rgba(0, 255, 0, 0.03) 0px,
+				transparent 1px,
+				transparent 2px,
+				rgba(0, 255, 0, 0.03) 3px
+			)`
+		: `repeating-linear-gradient(
+				0deg,
+				rgba(0, 100, 0, 0.04) 0px,
+				transparent 1px,
+				transparent 2px,
+				rgba(0, 100, 0, 0.04) 3px
+			)`;
+
+	const accentColors = ["green.5", "cyan.5", "purple.5", "green.6"];
+	const accentColorsDark = [textPrimary, textCyan, textPurple, textPrimary];
+
+	const sidebarContent = (
+		<Stack gap={0} h="100%">
+			<Box
+				p="lg"
+				style={{
+					backgroundColor: surfaceAlt,
+					borderBottom: `2px solid ${borderGreen}`,
+					boxShadow: isDark ? "0 0 10px rgba(0, 255, 0, 0.3)" : "none",
+				}}
+			>
+				<Text
+					size="xl"
+					fw={700}
+					c={textPrimary}
+					style={{
+						fontFamily: "monospace",
+						textShadow: textShadowGreen,
+					}}
+				>
+					&gt; RYOT_TERMINAL
+				</Text>
+				<Text
+					size="xs"
+					c={textCyan}
+					mt={4}
+					style={{
+						fontFamily: "monospace",
+						textShadow: textShadowCyan,
+					}}
+				>
+					v2.0.26 [RETRO_MODE]
+				</Text>
+			</Box>
+
+			<Box p="md">
+				<Box
+					p="sm"
+					style={{
+						borderRadius: 0,
+						border: `1px solid ${borderGreen}`,
+						backgroundColor: searchBoxBg,
+						boxShadow: searchBoxShadow,
+					}}
+				>
+					<Group gap="xs" wrap="nowrap">
+						<Text
+							size="sm"
+							c={textPrimary}
+							fw={700}
+							style={{ fontFamily: "monospace" }}
+						>
+							&gt
+						</Text>
+						<Text
+							size="sm"
+							c={textSecondary}
+							fw={500}
+							style={{
+								fontFamily: "monospace",
+								opacity: 0.7,
+							}}
+						>
+							search_query...
+						</Text>
+					</Group>
+				</Box>
+			</Box>
+
+			<Box
+				h={2}
+				bg={textPrimary}
+				style={{
+					boxShadow: isDark ? "0 0 8px rgba(0, 255, 0, 0.5)" : "none",
+				}}
+			/>
+
+			<Stack gap={0} p="md" style={{ flex: 1, overflowY: "auto" }}>
+				<NavLink
+					label=">> HOME"
+					leftSection={<Home size={18} color={borderGreen} />}
+					color={textPrimary}
+					active
+					onClick={closeDrawer}
+					styles={{
+						root: {
+							borderRadius: 0,
+							backgroundColor: bgGreenTrans,
+							borderLeft: `3px solid ${borderGreen}`,
+							fontFamily: "monospace",
+							padding: "10px 12px",
+							"&:hover": {
+								backgroundColor: bgGreenTransHover,
+								boxShadow: isDark ? "0 0 10px rgba(0, 255, 0, 0.3)" : "none",
+							},
+						},
+						label: {
+							fontWeight: 700,
+							color: textSecondary,
+							textShadow: textShadowGreenLight,
+						},
+					}}
+				/>
+
+				<Box mt="lg">
+					<Box
+						px="sm"
+						py="xs"
+						mb="xs"
+						style={{
+							backgroundColor: bgCyanTrans,
+							borderLeft: `2px solid ${borderCyan}`,
+						}}
+					>
+						<Text
+							size="xs"
+							c={textCyan}
+							tt="uppercase"
+							fw={700}
+							style={{
+								fontFamily: "monospace",
+								letterSpacing: "2px",
+								textShadow: textShadowCyanLight,
+							}}
+						>
+							[MODULES]
+						</Text>
+					</Box>
+
+					<NavLink
+						label=">> MEDIA"
+						leftSection={<Film size={18} color={borderGreen} />}
+						color={textPrimary}
+						defaultOpened
+						onClick={closeDrawer}
+						styles={{
+							root: {
+								borderRadius: 0,
+								borderLeft: "3px solid transparent",
+								fontFamily: "monospace",
+								"&:hover": {
+									backgroundColor: isDark
+										? "rgba(0, 255, 0, 0.1)"
+										: "rgba(0, 255, 0, 0.05)",
+									borderLeftColor: borderGreen,
+								},
+							},
+							label: {
+								color: textSecondary,
+								fontWeight: 700,
+							},
+						}}
+					>
+						<NavLink
+							label=":: movies"
+							color={textPrimary}
+							onClick={closeDrawer}
+							styles={{
+								label: {
+									fontWeight: 500,
+									fontSize: 13,
+									fontFamily: "monospace",
+									color: textMuted,
+								},
+								root: { borderRadius: 0, paddingLeft: "40px" },
+							}}
+						/>
+						<NavLink
+							label=":: books"
+							color={textPrimary}
+							onClick={closeDrawer}
+							styles={{
+								label: {
+									fontWeight: 500,
+									fontSize: 13,
+									fontFamily: "monospace",
+									color: textMuted,
+								},
+								root: { borderRadius: 0, paddingLeft: "40px" },
+							}}
+						/>
+						<NavLink
+							label=":: tv_shows"
+							color={textPrimary}
+							onClick={closeDrawer}
+							styles={{
+								label: {
+									fontWeight: 500,
+									fontSize: 13,
+									fontFamily: "monospace",
+									color: textMuted,
+								},
+								root: { borderRadius: 0, paddingLeft: "40px" },
+							}}
+						/>
+					</NavLink>
+
+					<NavLink
+						label=">> FITNESS"
+						leftSection={<Dumbbell size={18} color={borderGreen} />}
+						color={textPrimary}
+						onClick={closeDrawer}
+						styles={{
+							root: {
+								borderRadius: 0,
+								borderLeft: "3px solid transparent",
+								fontFamily: "monospace",
+								"&:hover": {
+									backgroundColor: isDark
+										? "rgba(0, 255, 0, 0.1)"
+										: "rgba(0, 255, 0, 0.05)",
+									borderLeftColor: borderGreen,
+								},
+							},
+							label: {
+								color: textSecondary,
+								fontWeight: 700,
+							},
+						}}
+					>
+						<NavLink
+							label=":: workouts"
+							color={textPrimary}
+							onClick={closeDrawer}
+							styles={{
+								label: {
+									fontWeight: 500,
+									fontSize: 13,
+									fontFamily: "monospace",
+									color: textMuted,
+								},
+								root: { borderRadius: 0, paddingLeft: "40px" },
+							}}
+						/>
+						<NavLink
+							label=":: measurements"
+							color={textPrimary}
+							onClick={closeDrawer}
+							styles={{
+								label: {
+									fontWeight: 500,
+									fontSize: 13,
+									fontFamily: "monospace",
+									color: textMuted,
+								},
+								root: { borderRadius: 0, paddingLeft: "40px" },
+							}}
+						/>
+					</NavLink>
+
+					<NavLink
+						label=">> WHISKEY"
+						leftSection={<Wine size={18} color={borderGreen} />}
+						color={textPrimary}
+						onClick={closeDrawer}
+						styles={{
+							root: {
+								borderRadius: 0,
+								borderLeft: "3px solid transparent",
+								fontFamily: "monospace",
+								"&:hover": {
+									backgroundColor: isDark
+										? "rgba(0, 255, 0, 0.1)"
+										: "rgba(0, 255, 0, 0.05)",
+									borderLeftColor: borderGreen,
+								},
+							},
+							label: {
+								color: textSecondary,
+								fontWeight: 700,
+							},
+						}}
+					/>
+
+					<NavLink
+						label=">> PLACES"
+						leftSection={<MapPin size={18} color={borderGreen} />}
+						color={textPrimary}
+						onClick={closeDrawer}
+						styles={{
+							root: {
+								borderRadius: 0,
+								borderLeft: "3px solid transparent",
+								fontFamily: "monospace",
+								"&:hover": {
+									backgroundColor: isDark
+										? "rgba(0, 255, 0, 0.1)"
+										: "rgba(0, 255, 0, 0.05)",
+									borderLeftColor: borderGreen,
+								},
+							},
+							label: {
+								color: textSecondary,
+								fontWeight: 700,
+							},
+						}}
+					/>
+				</Box>
+
+				<Box mt="lg">
+					<Box
+						px="sm"
+						py="xs"
+						mb="xs"
+						style={{
+							backgroundColor: bgPurpleTrans,
+							borderLeft: `2px solid ${borderPurple}`,
+						}}
+					>
+						<Text
+							size="xs"
+							c={textPurple}
+							tt="uppercase"
+							fw={700}
+							style={{
+								fontFamily: "monospace",
+								letterSpacing: "2px",
+								textShadow: textShadowPurpleLight,
+							}}
+						>
+							[SAVED_VIEWS]
+						</Text>
+					</Box>
+					{savedViews.map((view) => (
+						<NavLink
+							key={view.id}
+							label={`:: ${view.name.toLowerCase().replace(/ /g, "_")}`}
+							leftSection={<BookOpen size={16} color={borderPurple} />}
+							color={textPurple}
+							onClick={closeDrawer}
+							styles={{
+								root: {
+									borderRadius: 0,
+									borderLeft: "3px solid transparent",
+									fontFamily: "monospace",
+									"&:hover": {
+										backgroundColor: bgPurpleTrans,
+										borderLeftColor: borderPurple,
+									},
+								},
+								label: {
+									color: textPurpleAlt,
+									fontSize: 13,
+									fontWeight: 600,
+								},
+							}}
+						/>
+					))}
+				</Box>
+			</Stack>
+		</Stack>
+	);
 
 	return (
 		<MantineProvider theme={terminalTheme} forceColorScheme={colorScheme}>
 			<Flex
 				h="100vh"
-				bg="dark.9"
+				bg={bg}
 				style={{
 					position: "relative",
-					backgroundImage: `
-						repeating-linear-gradient(
-							0deg,
-							rgba(0, 255, 0, 0.03) 0px,
-							transparent 1px,
-							transparent 2px,
-							rgba(0, 255, 0, 0.03) 3px
-						)
-					`,
+					backgroundImage: scanLineGradient,
 				}}
 			>
-				<Box
-					w={320}
-					bg="dark.9"
-					style={{
-						borderRight: "2px solid var(--mantine-color-green-5)",
-						boxShadow: "0 0 20px rgba(0, 255, 0, 0.3)",
-					}}
-				>
-					<Stack gap={0} h="100%">
-						<Box
-							p="lg"
-							style={{
-								backgroundColor: "var(--mantine-color-dark.8)",
-								borderBottom: "2px solid var(--mantine-color-green-5)",
-								boxShadow: "0 0 10px rgba(0, 255, 0, 0.3)",
-							}}
-						>
-							<Text
-								size="xl"
-								fw={700}
-								c="green.5"
-								style={{
-									fontFamily: "monospace",
-									textShadow: "0 0 8px rgba(0, 255, 0, 0.8)",
-								}}
-							>
-								&gt; RYOT_TERMINAL
-							</Text>
-							<Text
-								size="xs"
-								c="cyan.5"
-								mt={4}
-								style={{
-									fontFamily: "monospace",
-									textShadow: "0 0 5px rgba(0, 255, 255, 0.6)",
-								}}
-							>
-								v2.0.26 [RETRO_MODE]
-							</Text>
-						</Box>
+				{isMobile && (
+					<Drawer
+						opened={drawerOpened}
+						onClose={closeDrawer}
+						size={280}
+						padding={0}
+						styles={{
+							content: {
+								backgroundColor: surface,
+								borderRight: `2px solid ${borderGreen}`,
+								boxShadow: glowGreen,
+							},
+							header: { display: "none" },
+						}}
+					>
+						{sidebarContent}
+					</Drawer>
+				)}
 
-						<Box p="md">
-							<Box
-								p="sm"
-								style={{
-									borderRadius: 0,
-									border: "1px solid var(--mantine-color-green-5)",
-									backgroundColor: "rgba(0, 255, 0, 0.05)",
-									boxShadow: "inset 0 0 10px rgba(0, 255, 0, 0.1)",
-								}}
-							>
-								<Group gap="xs" wrap="nowrap">
-									<Text
-										size="sm"
-										c="green.5"
-										fw={700}
-										style={{ fontFamily: "monospace" }}
-									>
-										&gt
-									</Text>
-									<Text
-										size="sm"
-										c="green.4"
-										fw={500}
-										style={{
-											fontFamily: "monospace",
-											opacity: 0.7,
-										}}
-									>
-										search_query...
-									</Text>
-								</Group>
-							</Box>
-						</Box>
-
-						<Box
-							h={2}
-							bg="green.5"
-							style={{ boxShadow: "0 0 8px rgba(0, 255, 0, 0.5)" }}
-						/>
-
-						<Stack gap={0} p="md" style={{ flex: 1, overflowY: "auto" }}>
-							<NavLink
-								label=">> HOME"
-								leftSection={
-									<Home size={18} color="var(--mantine-color-green-5)" />
-								}
-								color="green.5"
-								active
-								styles={{
-									root: {
-										borderRadius: 0,
-										backgroundColor: "rgba(0, 255, 0, 0.15)",
-										borderLeft: "3px solid var(--mantine-color-green-5)",
-										fontFamily: "monospace",
-										padding: "10px 12px",
-										"&:hover": {
-											backgroundColor: "rgba(0, 255, 0, 0.25)",
-											boxShadow: "0 0 10px rgba(0, 255, 0, 0.3)",
-										},
-									},
-									label: {
-										fontWeight: 700,
-										color: "var(--mantine-color-green-4)",
-										textShadow: "0 0 5px rgba(0, 255, 0, 0.5)",
-									},
-								}}
-							/>
-
-							<Box mt="lg">
-								<Box
-									px="sm"
-									py="xs"
-									mb="xs"
-									style={{
-										backgroundColor: "rgba(0, 255, 255, 0.1)",
-										borderLeft: "2px solid var(--mantine-color-cyan-5)",
-									}}
-								>
-									<Text
-										size="xs"
-										c="cyan.5"
-										tt="uppercase"
-										fw={700}
-										style={{
-											fontFamily: "monospace",
-											letterSpacing: "2px",
-											textShadow: "0 0 5px rgba(0, 255, 255, 0.5)",
-										}}
-									>
-										[MODULES]
-									</Text>
-								</Box>
-
-								<NavLink
-									label=">> MEDIA"
-									leftSection={
-										<Film size={18} color="var(--mantine-color-green-5)" />
-									}
-									color="green.5"
-									defaultOpened
-									styles={{
-										root: {
-											borderRadius: 0,
-											borderLeft: "3px solid transparent",
-											fontFamily: "monospace",
-											"&:hover": {
-												backgroundColor: "rgba(0, 255, 0, 0.1)",
-												borderLeftColor: "var(--mantine-color-green-5)",
-											},
-										},
-										label: {
-											color: "var(--mantine-color-green-4)",
-											fontWeight: 700,
-										},
-									}}
-								>
-									<NavLink
-										label=":: movies"
-										color="green.5"
-										styles={{
-											label: {
-												fontWeight: 500,
-												fontSize: 13,
-												fontFamily: "monospace",
-												color: "var(--mantine-color-green-3)",
-											},
-											root: { borderRadius: 0, paddingLeft: "40px" },
-										}}
-									/>
-									<NavLink
-										label=":: books"
-										color="green.5"
-										styles={{
-											label: {
-												fontWeight: 500,
-												fontSize: 13,
-												fontFamily: "monospace",
-												color: "var(--mantine-color-green-3)",
-											},
-											root: { borderRadius: 0, paddingLeft: "40px" },
-										}}
-									/>
-									<NavLink
-										label=":: tv_shows"
-										color="green.5"
-										styles={{
-											label: {
-												fontWeight: 500,
-												fontSize: 13,
-												fontFamily: "monospace",
-												color: "var(--mantine-color-green-3)",
-											},
-											root: { borderRadius: 0, paddingLeft: "40px" },
-										}}
-									/>
-								</NavLink>
-
-								<NavLink
-									label=">> FITNESS"
-									leftSection={
-										<Dumbbell size={18} color="var(--mantine-color-green-5)" />
-									}
-									color="green.5"
-									styles={{
-										root: {
-											borderRadius: 0,
-											borderLeft: "3px solid transparent",
-											fontFamily: "monospace",
-											"&:hover": {
-												backgroundColor: "rgba(0, 255, 0, 0.1)",
-												borderLeftColor: "var(--mantine-color-green-5)",
-											},
-										},
-										label: {
-											color: "var(--mantine-color-green-4)",
-											fontWeight: 700,
-										},
-									}}
-								>
-									<NavLink
-										label=":: workouts"
-										color="green.5"
-										styles={{
-											label: {
-												fontWeight: 500,
-												fontSize: 13,
-												fontFamily: "monospace",
-												color: "var(--mantine-color-green-3)",
-											},
-											root: { borderRadius: 0, paddingLeft: "40px" },
-										}}
-									/>
-									<NavLink
-										label=":: measurements"
-										color="green.5"
-										styles={{
-											label: {
-												fontWeight: 500,
-												fontSize: 13,
-												fontFamily: "monospace",
-												color: "var(--mantine-color-green-3)",
-											},
-											root: { borderRadius: 0, paddingLeft: "40px" },
-										}}
-									/>
-								</NavLink>
-
-								<NavLink
-									label=">> WHISKEY"
-									leftSection={
-										<Wine size={18} color="var(--mantine-color-green-5)" />
-									}
-									color="green.5"
-									styles={{
-										root: {
-											borderRadius: 0,
-											borderLeft: "3px solid transparent",
-											fontFamily: "monospace",
-											"&:hover": {
-												backgroundColor: "rgba(0, 255, 0, 0.1)",
-												borderLeftColor: "var(--mantine-color-green-5)",
-											},
-										},
-										label: {
-											color: "var(--mantine-color-green-4)",
-											fontWeight: 700,
-										},
-									}}
-								/>
-
-								<NavLink
-									label=">> PLACES"
-									leftSection={
-										<MapPin size={18} color="var(--mantine-color-green-5)" />
-									}
-									color="green.5"
-									styles={{
-										root: {
-											borderRadius: 0,
-											borderLeft: "3px solid transparent",
-											fontFamily: "monospace",
-											"&:hover": {
-												backgroundColor: "rgba(0, 255, 0, 0.1)",
-												borderLeftColor: "var(--mantine-color-green-5)",
-											},
-										},
-										label: {
-											color: "var(--mantine-color-green-4)",
-											fontWeight: 700,
-										},
-									}}
-								/>
-							</Box>
-
-							<Box mt="lg">
-								<Box
-									px="sm"
-									py="xs"
-									mb="xs"
-									style={{
-										backgroundColor: "rgba(255, 0, 255, 0.1)",
-										borderLeft: "2px solid var(--mantine-color-purple-5)",
-									}}
-								>
-									<Text
-										size="xs"
-										c="purple.5"
-										tt="uppercase"
-										fw={700}
-										style={{
-											fontFamily: "monospace",
-											letterSpacing: "2px",
-											textShadow: "0 0 5px rgba(255, 0, 255, 0.5)",
-										}}
-									>
-										[SAVED_VIEWS]
-									</Text>
-								</Box>
-								{savedViews.map((view) => (
-									<NavLink
-										key={view.id}
-										label={`:: ${view.name.toLowerCase().replace(/ /g, "_")}`}
-										leftSection={
-											<BookOpen
-												size={16}
-												color="var(--mantine-color-purple-5)"
-											/>
-										}
-										color="purple.5"
-										styles={{
-											root: {
-												borderRadius: 0,
-												borderLeft: "3px solid transparent",
-												fontFamily: "monospace",
-												"&:hover": {
-													backgroundColor: "rgba(255, 0, 255, 0.1)",
-													borderLeftColor: "var(--mantine-color-purple-5)",
-												},
-											},
-											label: {
-												color: "var(--mantine-color-purple-4)",
-												fontSize: 13,
-												fontWeight: 600,
-											},
-										}}
-									/>
-								))}
-							</Box>
-
-							<Box mt="sm">
-								<Text
-									size="xs"
-									c="dark.1"
-									tt="uppercase"
-									px="sm"
-									mb={6}
-									fw={700}
-								>
-									Collections
-								</Text>
-								{savedViews.map((view) => (
-									<NavLink
-										key={view.id}
-										label={view.name}
-										leftSection={<BookOpen size={18} />}
-										color="dark.1"
-										styles={{
-											root: { borderRadius: 6 },
-											label: {
-												color: "var(--mantine-color-dark-1)",
-												fontWeight: 500,
-												fontSize: 13,
-											},
-										}}
-									/>
-								))}
-							</Box>
-						</Stack>
-
-						<Box
-							p="xs"
-							style={{
-								borderTop: "1px solid var(--mantine-color-dark-3)",
-								backgroundColor: "var(--mantine-color-dark-5)",
-							}}
-						>
-							<Group gap="xs" wrap="nowrap">
-								<Box
-									w={28}
-									h={28}
-									style={{
-										borderRadius: 6,
-										background:
-											"linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)",
-										display: "grid",
-										placeItems: "center",
-									}}
-								>
-									<Text size="xs" fw={700} c="white">
-										U
-									</Text>
-								</Box>
-								<Box flex={1}>
-									<Text size="xs" fw={600} c="dark.0">
-										User Account
-									</Text>
-									<Text size="10px" c="dark.2">
-										Settings & Preferences
-									</Text>
-								</Box>
-							</Group>
-						</Box>
-					</Stack>
-				</Box>
+				{!isMobile && (
+					<Box
+						w={320}
+						bg={surface}
+						style={{
+							borderRight: `2px solid ${borderGreen}`,
+							boxShadow: glowGreen,
+						}}
+					>
+						{sidebarContent}
+					</Box>
+				)}
 
 				<Box flex={1} style={{ overflowY: "auto" }}>
+					{isMobile && (
+						<Box
+							p="md"
+							style={{
+								borderBottom: `2px solid ${borderGreen}`,
+								backgroundColor: surfaceAlt,
+								boxShadow: isDark ? "0 0 10px rgba(0, 255, 0, 0.2)" : "none",
+							}}
+						>
+							<Group justify="space-between" align="center">
+								<Burger
+									opened={drawerOpened}
+									onClick={openDrawer}
+									color={borderGreen}
+									size="sm"
+								/>
+								<Text
+									size="lg"
+									fw={700}
+									c={textPrimary}
+									style={{
+										fontFamily: "monospace",
+										textShadow: textShadowGreen,
+									}}
+								>
+									&gt; RYOT_TERMINAL
+								</Text>
+								<Button
+									variant="outline"
+									color="green"
+									size="xs"
+									onClick={() =>
+										setColorScheme(colorScheme === "dark" ? "light" : "dark")
+									}
+									p={8}
+									styles={{
+										root: {
+											borderRadius: 0,
+											border: `1px solid ${borderGreen}`,
+											fontFamily: "monospace",
+											fontWeight: 700,
+											backgroundColor: isDark
+												? "rgba(0, 255, 0, 0.05)"
+												: "#FFFFFF",
+											minWidth: "auto",
+										},
+									}}
+								>
+									{colorScheme === "dark" ? (
+										<Sun size={16} color={borderGreen} />
+									) : (
+										<Moon size={16} color={borderGreen} />
+									)}
+								</Button>
+							</Group>
+						</Box>
+					)}
+
 					<Box
-						p="xl"
+						p={isMobile ? "md" : "xl"}
 						style={{
-							borderBottom: "2px solid var(--mantine-color-green-5)",
-							backgroundColor: "rgba(0, 0, 0, 0.3)",
-							boxShadow: "0 0 10px rgba(0, 255, 0, 0.2)",
+							borderBottom: `2px solid ${borderGreen}`,
+							backgroundColor: isDark
+								? "rgba(0, 0, 0, 0.3)"
+								: "rgba(255, 255, 255, 0.5)",
+							boxShadow: isDark ? "0 0 10px rgba(0, 255, 0, 0.2)" : "none",
 						}}
 					>
 						<Group justify="space-between" align="flex-start">
 							<Box>
 								<Title
 									order={1}
-									c="green.5"
+									c={textPrimary}
 									fw={700}
-									size="2.5rem"
+									size={isMobile ? "1.75rem" : "2.5rem"}
 									style={{
 										fontFamily: "monospace",
-										textShadow: "0 0 10px rgba(0, 255, 0, 0.8)",
+										textShadow: textShadowGreenTitle,
 									}}
 								>
 									&gt;&gt; DASHBOARD
 								</Title>
 								<Text
-									c="cyan.5"
+									c={textCyan}
 									size="sm"
 									mt={8}
 									fw={600}
 									style={{
 										fontFamily: "monospace",
-										textShadow: "0 0 5px rgba(0, 255, 255, 0.6)",
+										textShadow: textShadowCyan,
 									}}
 								>
 									{"// TRACKING_COMMAND_CENTER v2.0"}
 								</Text>
 							</Box>
-							<Group gap="md">
-								<Button
-									variant="outline"
-									color="green"
-									size="md"
-									onClick={() =>
-										setColorScheme(colorScheme === "dark" ? "light" : "dark")
-									}
-									leftSection={
-										colorScheme === "dark" ? (
-											<Sun size={18} color="var(--mantine-color-green-5)" />
-										) : (
-											<Moon size={18} color="var(--mantine-color-green-5)" />
-										)
-									}
-									styles={{
-										root: {
-											borderRadius: 0,
-											border: "2px solid var(--mantine-color-green-5)",
-											fontFamily: "monospace",
-											fontWeight: 700,
-											backgroundColor: "rgba(0, 255, 0, 0.05)",
-											transition: "all 0.1s ease",
-											"&:hover": {
-												backgroundColor: "rgba(0, 255, 0, 0.15)",
-												boxShadow: "0 0 15px rgba(0, 255, 0, 0.4)",
+							{!isMobile && (
+								<Group gap="md">
+									<Button
+										variant="outline"
+										color="green"
+										size="md"
+										onClick={() =>
+											setColorScheme(colorScheme === "dark" ? "light" : "dark")
+										}
+										leftSection={
+											colorScheme === "dark" ? (
+												<Sun size={18} color={borderGreen} />
+											) : (
+												<Moon size={18} color={borderGreen} />
+											)
+										}
+										styles={{
+											root: {
+												borderRadius: 0,
+												border: `2px solid ${borderGreen}`,
+												fontFamily: "monospace",
+												fontWeight: 700,
+												backgroundColor: isDark
+													? "rgba(0, 255, 0, 0.05)"
+													: "#FFFFFF",
+												transition: "all 0.1s ease",
+												"&:hover": {
+													backgroundColor: isDark
+														? "rgba(0, 255, 0, 0.15)"
+														: "rgba(0, 255, 0, 0.1)",
+													boxShadow: isDark
+														? "0 0 15px rgba(0, 255, 0, 0.4)"
+														: "none",
+												},
 											},
-										},
-									}}
-								>
-									{colorScheme === "dark" ? "[LIGHT]" : "[DARK]"}
-								</Button>
-								<Button
-									variant="filled"
-									color="green"
-									size="lg"
-									leftSection={<Zap size={20} color="black" />}
-									styles={{
-										root: {
-											borderRadius: 0,
-											fontFamily: "monospace",
-											fontWeight: 900,
-											backgroundColor: "var(--mantine-color-green-5)",
-											color: "black",
-											border: "2px solid var(--mantine-color-green-6)",
-											transition: "all 0.1s ease",
-											boxShadow: "0 0 20px rgba(0, 255, 0, 0.6)",
-											"&:hover": {
-												backgroundColor: "var(--mantine-color-green-4)",
-												boxShadow: "0 0 30px rgba(0, 255, 0, 0.9)",
+										}}
+									>
+										{colorScheme === "dark" ? "[LIGHT]" : "[DARK]"}
+									</Button>
+									<Button
+										variant="filled"
+										color="green"
+										size="lg"
+										leftSection={<Zap size={20} color="black" />}
+										styles={{
+											root: {
+												borderRadius: 0,
+												fontFamily: "monospace",
+												fontWeight: 900,
+												backgroundColor: isDark
+													? "var(--mantine-color-green-5)"
+													: "var(--mantine-color-green-6)",
+												color: "black",
+												border: isDark
+													? "2px solid var(--mantine-color-green-6)"
+													: "2px solid var(--mantine-color-green-7)",
+												transition: "all 0.1s ease",
+												boxShadow: isDark
+													? "0 0 20px rgba(0, 255, 0, 0.6)"
+													: "none",
+												"&:hover": {
+													backgroundColor: isDark
+														? "var(--mantine-color-green-4)"
+														: "var(--mantine-color-green-5)",
+													boxShadow: glowGreenStrong,
+												},
 											},
-										},
-									}}
-								>
-									QUICK_ACTION
-								</Button>
-							</Group>
+										}}
+									>
+										QUICK_ACTION
+									</Button>
+								</Group>
+							)}
 						</Group>
 					</Box>
 
-					<Box p="xl">
+					<Box p={isMobile ? "md" : "xl"}>
 						<Grid mb="xl">
 							{stats.map((stat, idx) => {
-								const accentColors = [
-									"green.5",
-									"cyan.5",
-									"purple.5",
-									"green.6",
-								];
+								const getRgba = (colorIdx: number) => {
+									if (colorIdx === 0 || colorIdx === 3) return "0, 255, 0";
+									if (colorIdx === 1) return "0, 255, 255";
+									return "255, 0, 255";
+								};
+								const rgba = getRgba(idx);
 								return (
-									<Grid.Col key={stat.label} span={3}>
+									<Grid.Col key={stat.label} span={{ base: 6, md: 3 }}>
 										<Card
 											p="lg"
-											bg="dark.9"
+											bg={surface}
+											className="terminal-stat-card"
 											style={{
 												borderRadius: 0,
 												border: `2px solid var(--mantine-color-${accentColors[idx]})`,
-												boxShadow: `0 0 15px rgba(${idx === 0 || idx === 3 ? "0, 255, 0" : idx === 1 ? "0, 255, 255" : "255, 0, 255"}, 0.3)`,
+												boxShadow: isDark
+													? `0 0 15px rgba(${rgba}, 0.3)`
+													: "none",
 												transition: "all 0.15s ease",
 												animation: `fadeIn 0.4s ease ${idx * 0.1}s backwards`,
-											}}
-											styles={{
-												root: {
-													"&:hover": {
-														transform: "scale(1.02)",
-														boxShadow: `0 0 25px rgba(${idx === 0 || idx === 3 ? "0, 255, 0" : idx === 1 ? "0, 255, 255" : "255, 0, 255"}, 0.6)`,
-													},
-												},
 											}}
 										>
 											<Stack gap={8}>
 												<Text
 													size="xs"
-													c={accentColors[idx]}
+													c={accentColorsDark[idx]}
 													tt="uppercase"
 													fw={900}
 													style={{
 														letterSpacing: "2px",
 														fontFamily: "monospace",
-														textShadow: `0 0 5px rgba(${idx === 0 || idx === 3 ? "0, 255, 0" : idx === 1 ? "0, 255, 255" : "255, 0, 255"}, 0.8)`,
+														textShadow: isDark
+															? `0 0 5px rgba(${rgba}, 0.8)`
+															: "none",
 													}}
 												>
 													[{stat.label.toUpperCase()}]
 												</Text>
 												<Text
-													size="3rem"
+													size={isMobile ? "1.75rem" : "3rem"}
 													fw={900}
-													c={accentColors[idx]}
+													c={accentColorsDark[idx]}
 													lh={1}
 													style={{
 														fontFamily: "monospace",
-														textShadow: `0 0 10px rgba(${idx === 0 || idx === 3 ? "0, 255, 0" : idx === 1 ? "0, 255, 255" : "255, 0, 255"}, 0.8)`,
+														textShadow: isDark
+															? `0 0 10px rgba(${rgba}, 0.8)`
+															: "none",
 													}}
 												>
 													{stat.value}
@@ -693,11 +815,13 @@ function TerminalTheme() {
 														/>
 														<Text
 															size="sm"
-															c={accentColors[idx]}
+															c={accentColorsDark[idx]}
 															fw={700}
 															style={{
 																fontFamily: "monospace",
-																textShadow: `0 0 5px rgba(${idx === 0 || idx === 3 ? "0, 255, 0" : idx === 1 ? "0, 255, 255" : "255, 0, 255"}, 0.6)`,
+																textShadow: isDark
+																	? `0 0 5px rgba(${rgba}, 0.6)`
+																	: "none",
 															}}
 														>
 															{stat.change.toUpperCase()}
@@ -714,12 +838,17 @@ function TerminalTheme() {
 							{`
 								@keyframes fadeIn {
 									from {
-										opacity: 0
-										transform: translateY(20px)
+										opacity: 0;
+										transform: translateY(20px);
 									}
 									to {
-										opacity: 1
-										transform: translateY(0)
+										opacity: 1;
+										transform: translateY(0);
+									}
+								}
+								@media (min-width: 769px) {
+									.terminal-stat-card:hover {
+										transform: scale(1.02) !important;
 									}
 								}
 							`}
@@ -729,11 +858,11 @@ function TerminalTheme() {
 							<Title
 								order={2}
 								size="xl"
-								c="green.5"
+								c={textPrimary}
 								fw={900}
 								style={{
 									fontFamily: "monospace",
-									textShadow: "0 0 10px rgba(0, 255, 0, 0.8)",
+									textShadow: textShadowGreenTitle,
 								}}
 							>
 								&gt;&gt; RECENT_ENTITIES
@@ -747,11 +876,15 @@ function TerminalTheme() {
 										borderRadius: 0,
 										fontFamily: "monospace",
 										fontWeight: 700,
-										border: "1px solid var(--mantine-color-cyan-5)",
-										backgroundColor: "rgba(0, 255, 255, 0.05)",
+										border: `1px solid ${borderCyan}`,
+										backgroundColor: isDark
+											? "rgba(0, 255, 255, 0.05)"
+											: "#FFFFFF",
 										"&:hover": {
-											backgroundColor: "rgba(0, 255, 255, 0.1)",
-											boxShadow: "0 0 10px rgba(0, 255, 255, 0.4)",
+											backgroundColor: isDark
+												? "rgba(0, 255, 255, 0.1)"
+												: "rgba(0, 255, 255, 0.08)",
+											boxShadow: glowCyan,
 										},
 									},
 								}}
@@ -761,32 +894,26 @@ function TerminalTheme() {
 						</Group>
 						<Grid mb="xl">
 							{entities.slice(0, 6).map((entity, idx) => (
-								<Grid.Col key={entity.id} span={4}>
+								<Grid.Col key={entity.id} span={{ base: 12, sm: 6, md: 4 }}>
 									<Card
 										p={0}
-										bg="dark.9"
+										bg={surface}
+										className="terminal-entity-card"
 										style={{
 											borderRadius: 0,
-											border: "2px solid var(--mantine-color-green-5)",
+											border: `2px solid ${borderGreen}`,
 											cursor: "pointer",
 											transition: "all 0.15s ease",
 											overflow: "hidden",
-											boxShadow: "0 0 15px rgba(0, 255, 0, 0.3)",
+											boxShadow: isDark
+												? "0 0 15px rgba(0, 255, 0, 0.3)"
+												: "none",
 											animation: `fadeIn 0.4s ease ${(idx + 4) * 0.1}s backwards`,
-										}}
-										styles={{
-											root: {
-												"&:hover": {
-													transform: "scale(1.02)",
-													boxShadow: "0 0 25px rgba(0, 255, 0, 0.6)",
-													borderColor: "var(--mantine-color-cyan-5)",
-												},
-											},
 										}}
 									>
 										{entity.image && (
 											<Box
-												h={220}
+												h={isMobile ? 180 : 220}
 												style={{
 													backgroundImage: `url(${entity.image})`,
 													backgroundSize: "cover",
@@ -819,12 +946,16 @@ function TerminalTheme() {
 																	borderRadius: 0,
 																	fontFamily: "monospace",
 																	fontWeight: 900,
-																	backgroundColor:
-																		"var(--mantine-color-green-5)",
+																	backgroundColor: isDark
+																		? "var(--mantine-color-green-5)"
+																		: "var(--mantine-color-green-6)",
 																	color: "black",
-																	border:
-																		"2px solid var(--mantine-color-green-6)",
-																	boxShadow: "0 0 10px rgba(0, 255, 0, 0.8)",
+																	border: isDark
+																		? "2px solid var(--mantine-color-green-6)"
+																		: "2px solid var(--mantine-color-green-7)",
+																	boxShadow: isDark
+																		? "0 0 10px rgba(0, 255, 0, 0.8)"
+																		: "none",
 																},
 															}}
 														>
@@ -836,8 +967,8 @@ function TerminalTheme() {
 										)}
 										{!entity.image && (
 											<Box
-												h={220}
-												bg="dark.8"
+												h={isMobile ? 180 : 220}
+												bg={surfaceAlt}
 												style={{
 													display: "grid",
 													placeItems: "center",
@@ -845,7 +976,7 @@ function TerminalTheme() {
 												}}
 											>
 												<Text
-													c="green.5"
+													c={textPrimary}
 													size="sm"
 													fw={900}
 													style={{ fontFamily: "monospace" }}
@@ -857,12 +988,12 @@ function TerminalTheme() {
 										<Box p="lg">
 											<Text
 												fw={900}
-												c="green.5"
+												c={textPrimary}
 												size="md"
 												mb={8}
 												style={{
 													fontFamily: "monospace",
-													textShadow: "0 0 5px rgba(0, 255, 0, 0.6)",
+													textShadow: textShadowGreenMed,
 												}}
 											>
 												{entity.name.toUpperCase()}
@@ -875,11 +1006,13 @@ function TerminalTheme() {
 												styles={{
 													root: {
 														borderRadius: 0,
-														backgroundColor: "rgba(0, 255, 255, 0.2)",
-														color: "var(--mantine-color-cyan-4)",
+														backgroundColor: isDark
+															? "rgba(0, 255, 255, 0.2)"
+															: "rgba(0, 255, 255, 0.15)",
+														color: textCyanAlt,
 														fontWeight: 700,
 														fontFamily: "monospace",
-														border: "1px solid var(--mantine-color-cyan-5)",
+														border: `1px solid ${borderCyan}`,
 													},
 												}}
 											>
@@ -887,7 +1020,7 @@ function TerminalTheme() {
 											</Badge>
 											<Text
 												size="xs"
-												c="green.4"
+												c={textSecondary}
 												style={{ fontFamily: "monospace" }}
 											>
 												{entity.lastEvent.toLowerCase()}
@@ -897,16 +1030,27 @@ function TerminalTheme() {
 								</Grid.Col>
 							))}
 						</Grid>
+						<style>
+							{`
+								@media (min-width: 769px) {
+									.terminal-entity-card:hover {
+										transform: scale(1.02) !important;
+										box-shadow: ${isDark ? "0 0 25px rgba(0, 255, 0, 0.6)" : "0 2px 8px rgba(0, 0, 0, 0.1)"} !important;
+										border-color: ${isDark ? "var(--mantine-color-cyan-5)" : "var(--mantine-color-green-7)"} !important;
+									}
+								}
+							`}
+						</style>
 
 						<Group justify="space-between" align="center" mb="lg">
 							<Title
 								order={2}
 								size="xl"
-								c="purple.5"
+								c={textPurple}
 								fw={900}
 								style={{
 									fontFamily: "monospace",
-									textShadow: "0 0 10px rgba(255, 0, 255, 0.8)",
+									textShadow: textShadowPurple,
 								}}
 							>
 								&gt;&gt; ACTIVITY_STREAM
@@ -920,11 +1064,13 @@ function TerminalTheme() {
 										borderRadius: 0,
 										fontFamily: "monospace",
 										fontWeight: 700,
-										border: "1px solid var(--mantine-color-purple-5)",
-										backgroundColor: "rgba(255, 0, 255, 0.05)",
+										border: `1px solid ${borderPurple}`,
+										backgroundColor: isDark
+											? "rgba(255, 0, 255, 0.05)"
+											: "#FFFFFF",
 										"&:hover": {
-											backgroundColor: "rgba(255, 0, 255, 0.1)",
-											boxShadow: "0 0 10px rgba(255, 0, 255, 0.4)",
+											backgroundColor: bgPurpleTransHover,
+											boxShadow: glowPurpleHover,
 										},
 									},
 								}}
@@ -932,26 +1078,55 @@ function TerminalTheme() {
 								[SHOW_MORE]
 							</Button>
 						</Group>
+						{isMobile && (
+							<Button
+								variant="filled"
+								color="green"
+								size="md"
+								fullWidth
+								mb="lg"
+								leftSection={<Zap size={18} color="black" />}
+								styles={{
+									root: {
+										borderRadius: 0,
+										fontFamily: "monospace",
+										fontWeight: 900,
+										backgroundColor: isDark
+											? "var(--mantine-color-green-5)"
+											: "var(--mantine-color-green-6)",
+										color: "black",
+										border: isDark
+											? "2px solid var(--mantine-color-green-6)"
+											: "2px solid var(--mantine-color-green-7)",
+										boxShadow: isDark
+											? "0 0 20px rgba(0, 255, 0, 0.6)"
+											: "none",
+									},
+								}}
+							>
+								QUICK_ACTION
+							</Button>
+						)}
 						<Paper
-							bg="dark.9"
-							p="xl"
+							bg={surface}
+							p={isMobile ? "md" : "xl"}
 							style={{
 								borderRadius: 0,
-								border: "2px solid var(--mantine-color-purple-5)",
-								boxShadow: "0 0 15px rgba(255, 0, 255, 0.3)",
+								border: `2px solid ${borderPurple}`,
+								boxShadow: glowPurple,
 							}}
 						>
 							<Stack gap="md">
 								{events.map((event) => (
 									<Box
 										key={event.id}
-										p="md"
+										p={isMobile ? "sm" : "md"}
 										className="terminal-activity-box"
 										style={{
 											borderRadius: 0,
-											border: "1px solid var(--mantine-color-purple-5)",
-											borderLeft: "3px solid var(--mantine-color-purple-5)",
-											backgroundColor: "rgba(255, 0, 255, 0.05)",
+											border: `1px solid ${borderPurple}`,
+											borderLeft: `3px solid ${borderPurple}`,
+											backgroundColor: bgPurpleTransCard,
 											transition: "all 0.15s ease",
 										}}
 									>
@@ -964,11 +1139,11 @@ function TerminalTheme() {
 												<Group gap="xs" mb={8}>
 													<Text
 														fw={900}
-														c="purple.4"
+														c={textPurpleAlt}
 														size="sm"
 														style={{
 															fontFamily: "monospace",
-															textShadow: "0 0 5px rgba(255, 0, 255, 0.5)",
+															textShadow: textShadowPurpleLight,
 														}}
 													>
 														{event.entityName.toUpperCase()}
@@ -980,12 +1155,13 @@ function TerminalTheme() {
 														styles={{
 															root: {
 																borderRadius: 0,
-																backgroundColor: "rgba(255, 0, 255, 0.3)",
-																color: "var(--mantine-color-purple-3)",
+																backgroundColor: isDark
+																	? "rgba(255, 0, 255, 0.3)"
+																	: "rgba(255, 0, 255, 0.2)",
+																color: textPurpleMuted,
 																fontWeight: 700,
 																fontFamily: "monospace",
-																border:
-																	"1px solid var(--mantine-color-purple-5)",
+																border: `1px solid ${borderPurple}`,
 															},
 														}}
 													>
@@ -994,7 +1170,7 @@ function TerminalTheme() {
 												</Group>
 												<Text
 													size="xs"
-													c="purple.3"
+													c={textPurpleMuted}
 													mb={8}
 													fw={600}
 													style={{ fontFamily: "monospace" }}
@@ -1014,7 +1190,7 @@ function TerminalTheme() {
 																		root: {
 																			borderRadius: 0,
 																			backgroundColor: "transparent",
-																			color: "var(--mantine-color-purple-4)",
+																			color: textPurpleAlt,
 																			textTransform: "none",
 																			fontFamily: "monospace",
 																			border:
@@ -1036,8 +1212,8 @@ function TerminalTheme() {
 							<style>
 								{`
 									.terminal-activity-box:hover {
-										background-color: rgba(255, 0, 255, 0.1) !important;
-										box-shadow: 0 0 10px rgba(255, 0, 255, 0.3);
+										background-color: ${bgPurpleTransHover} !important;
+										box-shadow: ${glowPurpleHover};
 									}
 								`}
 							</style>
