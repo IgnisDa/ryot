@@ -1,11 +1,4 @@
-import {
-	Button,
-	ColorInput,
-	Group,
-	Select,
-	Stack,
-	Textarea,
-} from "@mantine/core";
+import { Button, Group, Stack } from "@mantine/core";
 import { useEffect, useRef } from "react";
 import { useAppForm } from "#/hooks/forms";
 import { createNameFieldListeners } from "#/lib/slug-sync";
@@ -100,18 +93,15 @@ export function TrackerForm() {
 					<Group grow align="flex-start" wrap="nowrap">
 						<trackerForm.AppField name="icon">
 							{(field) => (
-								<Select
+								<field.SelectField
 									required
 									searchable
 									limit={100}
 									label="Icon"
 									disabled={isLoading}
 									placeholder="Select icon"
-									onBlur={field.handleBlur}
 									data={trackerIconSelectData}
-									value={field.state.value || null}
 									leftSection={<TrackerIcon icon={field.state.value} />}
-									onChange={(value) => field.handleChange(value ?? "")}
 									renderOption={({ option }) => (
 										<Group gap={8} wrap="nowrap">
 											<TrackerIcon icon={option.value} />
@@ -124,13 +114,11 @@ export function TrackerForm() {
 
 						<trackerForm.AppField name="accentColor">
 							{(field) => (
-								<ColorInput
+								<field.ColorInputField
 									required
 									label="Accent Color"
 									disabled={isLoading}
-									value={field.state.value}
 									placeholder="Choose color"
-									onChange={(value) => field.handleChange(value)}
 								/>
 							)}
 						</trackerForm.AppField>
@@ -138,16 +126,11 @@ export function TrackerForm() {
 
 					<trackerForm.AppField name="description">
 						{(field) => (
-							<Textarea
+							<field.TextareaField
 								rows={3}
 								label="Description"
 								disabled={isLoading}
-								onBlur={field.handleBlur}
-								value={field.state.value}
 								placeholder="Tracker description (optional)"
-								onChange={(event) =>
-									field.handleChange(event.currentTarget.value)
-								}
 							/>
 						)}
 					</trackerForm.AppField>
