@@ -8,6 +8,7 @@ import {
 	Stack,
 	Text,
 } from "@mantine/core";
+import { Link } from "@tanstack/react-router";
 import { Image as ImageIcon } from "lucide-react";
 import { DataTable, type DataTableColumn } from "mantine-datatable";
 import type { AppEntity } from "#/features/entities/model";
@@ -90,61 +91,64 @@ export function SavedViewResults(props: {
 			<SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="md">
 				{props.items.map((item) => {
 					const title = item.resolvedProperties?.titleProperty;
-					const subtitle = item.resolvedProperties?.subtitleProperty;
 					const badge = item.resolvedProperties?.badgeProperty;
 					const image = item.resolvedProperties?.imageProperty;
+					const subtitle = item.resolvedProperties?.subtitleProperty;
+
 					return (
-						<Card
-							p={0}
-							radius="sm"
+						<Link
 							key={item.id}
-							style={{ overflow: "hidden" }}
+							to="/entities/$entityId"
+							params={{ entityId: item.id }}
+							style={{ color: "inherit", textDecoration: "none" }}
 						>
-							<EntityThumbnail
-								height={220}
-								width="100%"
-								iconSize={48}
-								isDark={props.isDark}
-								imageUrl={props.imageUrlById.get(item.id)}
-								label={
-									isRuntimeProperty(image) && image.kind !== "image"
-										? formatRuntimeValue(image.value)
-										: undefined
-								}
-							/>
-							<Stack gap="xs" p="lg">
-								<Text
-									fw={600}
-									size="md"
-									lineClamp={2}
-									c={props.textPrimary}
-									ff="var(--mantine-headings-font-family)"
-								>
-									{isRuntimeProperty(title)
-										? formatRuntimeValue(title.value)
-										: item.name}
-								</Text>
-								{isRuntimeProperty(subtitle) && subtitle.kind !== "null" ? (
-									<Text size="sm" c={props.textSecondary} lineClamp={2}>
-										{formatRuntimeValue(subtitle.value)}
-									</Text>
-								) : null}
-								<Group justify="space-between" align="center">
-									<Badge
-										variant="light"
-										c={props.accentColor}
-										bg={props.accentMuted}
+							<Card p={0} radius="sm" style={{ overflow: "hidden" }}>
+								<EntityThumbnail
+									height={220}
+									width="100%"
+									iconSize={48}
+									isDark={props.isDark}
+									imageUrl={props.imageUrlById.get(item.id)}
+									label={
+										isRuntimeProperty(image) && image.kind !== "image"
+											? formatRuntimeValue(image.value)
+											: undefined
+									}
+								/>
+								<Stack gap="xs" p="lg">
+									<Text
+										fw={600}
+										size="md"
+										lineClamp={2}
+										c={props.textPrimary}
+										ff="var(--mantine-headings-font-family)"
 									>
-										{item.entitySchemaSlug ?? "Entity"}
-									</Badge>
-									{isRuntimeProperty(badge) && badge.kind !== "null" ? (
-										<Badge variant="filled" bg={props.accentColor} c="white">
-											{formatRuntimeValue(badge.value)}
-										</Badge>
+										{isRuntimeProperty(title)
+											? formatRuntimeValue(title.value)
+											: item.name}
+									</Text>
+									{isRuntimeProperty(subtitle) && subtitle.kind !== "null" ? (
+										<Text size="sm" c={props.textSecondary} lineClamp={2}>
+											{formatRuntimeValue(subtitle.value)}
+										</Text>
 									) : null}
-								</Group>
-							</Stack>
-						</Card>
+									<Group justify="space-between" align="center">
+										<Badge
+											variant="light"
+											c={props.accentColor}
+											bg={props.accentMuted}
+										>
+											{item.entitySchemaSlug ?? "Entity"}
+										</Badge>
+										{isRuntimeProperty(badge) && badge.kind !== "null" ? (
+											<Badge variant="filled" bg={props.accentColor} c="white">
+												{formatRuntimeValue(badge.value)}
+											</Badge>
+										) : null}
+									</Group>
+								</Stack>
+							</Card>
+						</Link>
 					);
 				})}
 			</SimpleGrid>
@@ -159,55 +163,68 @@ export function SavedViewResults(props: {
 					const badge = item.resolvedProperties?.badgeProperty;
 					const image = item.resolvedProperties?.imageProperty;
 					const subtitle = item.resolvedProperties?.subtitleProperty;
+					
 					return (
-						<Paper key={item.id} p="md" withBorder radius="sm">
-							<Group justify="space-between" align="flex-start" wrap="nowrap">
-								<Group gap="md" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-									<EntityThumbnail
-										width={60}
-										height={84}
-										iconSize={20}
-										isDark={props.isDark}
-										imageUrl={props.imageUrlById.get(item.id)}
-										label={
-											isRuntimeProperty(image) && image.kind !== "image"
-												? formatRuntimeValue(image.value)
-												: undefined
-										}
-									/>
-									<Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
-										<Text
-											fw={600}
-											size="md"
-											c={props.textPrimary}
-											ff="var(--mantine-headings-font-family)"
-										>
-											{isRuntimeProperty(title)
-												? formatRuntimeValue(title.value)
-												: item.name}
-										</Text>
-										{isRuntimeProperty(subtitle) && subtitle.kind !== "null" ? (
-											<Text size="sm" c={props.textSecondary}>
-												{formatRuntimeValue(subtitle.value)}
-											</Text>
-										) : null}
-										<Text size="xs" c="dimmed">
-											{item.entitySchemaSlug}
-										</Text>
-									</Stack>
-								</Group>
-								{isRuntimeProperty(badge) && badge.kind !== "null" ? (
-									<Badge
-										c="white"
-										size="lg"
-										variant="filled"
-										bg={props.accentColor}
+						<Link
+							key={item.id}
+							to="/entities/$entityId"
+							params={{ entityId: item.id }}
+							style={{ color: "inherit", textDecoration: "none" }}
+						>
+							<Paper p="md" withBorder radius="sm">
+								<Group justify="space-between" align="flex-start" wrap="nowrap">
+									<Group
+										gap="md"
+										wrap="nowrap"
+										style={{ flex: 1, minWidth: 0 }}
 									>
-										{formatRuntimeValue(badge.value)}
-									</Badge>
-								) : null}
-							</Group>
-						</Paper>
+										<EntityThumbnail
+											width={60}
+											height={84}
+											iconSize={20}
+											isDark={props.isDark}
+											imageUrl={props.imageUrlById.get(item.id)}
+											label={
+												isRuntimeProperty(image) && image.kind !== "image"
+													? formatRuntimeValue(image.value)
+													: undefined
+											}
+										/>
+										<Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
+											<Text
+												fw={600}
+												size="md"
+												c={props.textPrimary}
+												ff="var(--mantine-headings-font-family)"
+											>
+												{isRuntimeProperty(title)
+													? formatRuntimeValue(title.value)
+													: item.name}
+											</Text>
+											{isRuntimeProperty(subtitle) &&
+											subtitle.kind !== "null" ? (
+												<Text size="sm" c={props.textSecondary}>
+													{formatRuntimeValue(subtitle.value)}
+												</Text>
+											) : null}
+											<Text size="xs" c="dimmed">
+												{item.entitySchemaSlug}
+											</Text>
+										</Stack>
+									</Group>
+									{isRuntimeProperty(badge) && badge.kind !== "null" ? (
+										<Badge
+											c="white"
+											size="lg"
+											variant="filled"
+											bg={props.accentColor}
+										>
+											{formatRuntimeValue(badge.value)}
+										</Badge>
+									) : null}
+								</Group>
+							</Paper>
+						</Link>
 					);
 				})}
 			</Stack>
@@ -215,6 +232,13 @@ export function SavedViewResults(props: {
 	}
 
 	const tableColumns = "table" in props.meta ? props.meta.table.columns : [];
+	const linkColumnKey = tableColumns.find((column) =>
+		props.items.some(
+			(item) =>
+				item.cells?.find((entry) => entry.key === column.key)?.kind === "text",
+		),
+	)?.key;
+
 	const dataColumns: DataTableColumn<AppEntity>[] = tableColumns.map(
 		(column) => ({
 			title: column.label,
@@ -240,6 +264,20 @@ export function SavedViewResults(props: {
 							radius="var(--mantine-radius-xs)"
 							imageUrl={props.imageUrlById.get(`${item.id}:${cell.key}`)}
 						/>
+					);
+				}
+
+				if (column.key === linkColumnKey && cell?.kind === "text") {
+					return (
+						<Link
+							to="/entities/$entityId"
+							params={{ entityId: item.id }}
+							style={{ color: props.accentColor, textDecoration: "none" }}
+						>
+							<Text size="sm" fw={500} ff="var(--mantine-headings-font-family)">
+								{formatRuntimeValue(cell?.value)}
+							</Text>
+						</Link>
 					);
 				}
 
