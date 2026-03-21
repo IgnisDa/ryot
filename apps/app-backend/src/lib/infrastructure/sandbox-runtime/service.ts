@@ -287,8 +287,8 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 
 					const workflow = isWorkflowSandboxMetadata(input.metadata);
 					const timeoutMs = workflow
-						? Math.max(config.sandbox.timeoutMs, WORKFLOW_SANDBOX_LIMITS.timeoutMs)
-						: config.sandbox.timeoutMs;
+						? Math.max(SANDBOX_LIMITS.execution.timeoutMs, WORKFLOW_SANDBOX_LIMITS.timeoutMs)
+						: SANDBOX_LIMITS.execution.timeoutMs;
 					const now = yield* Clock.currentTimeMillis;
 					const parentSpan = yield* Effect.currentSpan;
 					yield* bridge.addSession(input.executionId, {

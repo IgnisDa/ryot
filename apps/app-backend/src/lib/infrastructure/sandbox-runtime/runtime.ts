@@ -19,7 +19,6 @@ import { HttpEffect, HttpServer } from "effect/unstable/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { sandboxDenoDirConfig } from "../config/definition";
-import { AppConfig } from "../config/service";
 import { redisKeys, RedisService } from "../redis";
 import { ensureSandboxRuntimeDependencies } from "./dependencies";
 import type { SandboxProcessGrants } from "./filesystem-grants";
@@ -439,7 +438,6 @@ export class PackageCacheManager extends Context.Service<PackageCacheManager>()(
 
 export class ProcessPool extends Context.Service<ProcessPool>()("ProcessPool", {
 	make: Effect.gen(function* () {
-		const config = yield* AppConfig;
 		const runner = yield* RunnerFile;
 		const bridge = yield* BridgeService;
 		const dependencies = yield* PackageCacheManager;
@@ -455,7 +453,7 @@ export class ProcessPool extends Context.Service<ProcessPool>()("ProcessPool", {
 				importMapPath: dependencies.importMapPath,
 				...(grants ? { grants } : {}),
 			}).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner));
-		const pool = yield* Pool.make({ acquire: spawn(), size: config.sandbox.workerConcurrency + 2 });
+		const pool = yield* Pool.make({ acquire: spawn(), size: SANDBOX_LIMITS.workerConcurrency + 2 });
 		return { pool, runtimePaths: dependencies, spawnDedicated: spawn };
 	}),
 }) {

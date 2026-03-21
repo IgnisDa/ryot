@@ -385,8 +385,8 @@ Everything else survived: `null`, empty objects/arrays, float artifacts
 bytes through the runner line protocol, `cluster_messages`, and Redis. Effect Schema is
 transparent here (`Schema.Unknown`); the losses are the JSON layer's.
 
-**Timeouts.** An activity exceeding `config.sandbox.timeoutMs` surfaces as a **typed failure**
-(`Sandbox timed out after 6000ms`) from `DurableQueue.process` via the `Effect.raceFirst` in
+**Timeouts.** An activity exceeding `SANDBOX_LIMITS.execution.timeoutMs` surfaces as a **typed failure**
+(`Sandbox timed out after 10000ms`) from `DurableQueue.process` via the `Effect.raceFirst` in
 `sandbox-runtime/service.ts` — not as a `SandboxCompletedResult` with `error` set. It is not
 retried, the failure itself is memoized (so a 60 s busy loop costs one 6 s timeout, not one per
 replay), the journal is not corrupted, and the workflow makes progress afterwards. Task 06 owns
@@ -674,8 +674,8 @@ The e2e runner now executes files in parallel against one shared backend. Migrat
 adapters added a sandbox queue stage before normalized import workflows; with the previous
 50-connection workflow pool, full-suite runs developed nondeterministic 180-second timeouts across
 otherwise unrelated workflow-backed suites while every affected suite passed in isolation. The
-owner chose to preserve file parallelism and raise test-only capacity rather than run the gate
-serially: the app and workflow pools are both 100 for 32 sandbox workers, and the test Postgres
+owner chose to preserve file parallelism while keeping the fixed five-worker sandbox limit
+rather than run the gate serially: the app and workflow pools are both 100, and the test Postgres
 `max_connections` ceiling is 400. Measurement after that increase peaked at 120 connections with
 only four active, disproving connection exhaustion; unrestricted Vitest workers instead consumed
 all ten logical cores alongside the backend, containers, and Deno workers. File parallelism is
