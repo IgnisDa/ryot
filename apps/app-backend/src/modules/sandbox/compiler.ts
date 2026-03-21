@@ -1,4 +1,4 @@
-import { Command, CommandExecutor, FileSystem } from "@effect/platform";
+import { Command, CommandExecutor, FileSystem, Path } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
 import { SandboxCompilationFailure } from "@ryot/contract/modules/sandbox/schemas";
 import {
@@ -22,19 +22,18 @@ const readProportionalBytes = (memory: string) => {
 	return match?.[1] ? Number(match[1]) * 2 ** 10 : 0;
 };
 
-const compilerWorkerPath = () => {
-	const current = new URL(import.meta.url);
-	return current.pathname.endsWith(".ts")
-		? Bun.resolveSync("@ryot/sandbox-compiler/worker", current.pathname)
-		: Bun.fileURLToPath(new URL("./compiler-worker.js", current));
-};
-
 export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxCompiler", {
 	dependencies: [BunContext.layer],
 	effect: Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
+		const path = yield* Path.Path;
 		const executor = yield* CommandExecutor.CommandExecutor;
 		const semaphore = yield* Effect.makeSemaphore(SANDBOX_LIMITS.compiler.concurrency);
+		const current = new URL(import.meta.url);
+		const currentPath = yield* path.fromFileUrl(current).pipe(Effect.orDie);
+		const compilerWorkerPath = currentPath.endsWith(".ts")
+			? Bun.resolveSync("@ryot/sandbox-compiler/worker", currentPath)
+			: yield* path.fromFileUrl(new URL("./compiler-worker.js", current)).pipe(Effect.orDie);
 
 		const processTreeMemoryBytes = (
 			pid: number,
@@ -79,7 +78,7 @@ export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxC
 						"--no-orphans",
 						"--no-install",
 						"--no-env-file",
-						compilerWorkerPath(),
+						compilerWorkerPath,
 					).pipe(Command.feed(source), Command.stdout("pipe"), Command.stderr("pipe"));
 					const worker = yield* executor.start(command);
 					yield* Effect.addFinalizer(() => worker.kill("SIGKILL").pipe(Effect.ignore));
