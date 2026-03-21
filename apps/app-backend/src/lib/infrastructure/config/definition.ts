@@ -1,4 +1,4 @@
-import { Config } from "effect";
+import { Config, ConfigError, Either, LogLevel } from "effect";
 
 import type { ConfigLeaf, FieldMeta } from "./builder";
 import { boolField, group, intField, optField, secretField, strField } from "./builder";
@@ -6,13 +6,18 @@ import { boolField, group, intField, optField, secretField, strField } from "./b
 const fields = {
 	redisUrl: secretField("REDIS_URL", "Redis connection string"),
 	databaseUrl: secretField("DATABASE_URL", "PostgreSQL connection string"),
+	smtpUser: optField(secretField("SERVER_SMTP_USER", "SMTP username")),
 	s3Region: optField(strField("FILE_STORAGE_S3_REGION", "S3 bucket region")),
 	oidcClientId: optField(strField("SERVER_OIDC_CLIENT_ID", "OIDC client ID")),
 	port: intField("PORT", "HTTP port the server listens on", { default: 8000 }),
+	smtpServer: optField(strField("SERVER_SMTP_SERVER", "SMTP server hostname")),
+	smtpPassword: optField(secretField("SERVER_SMTP_PASSWORD", "SMTP password")),
 	oidcIssuerUrl: optField(strField("SERVER_OIDC_ISSUER_URL", "OIDC issuer URL")),
 	s3Url: optField(strField("FILE_STORAGE_S3_URL", "S3-compatible endpoint URL")),
 	s3BucketName: optField(strField("FILE_STORAGE_S3_BUCKET_NAME", "S3 bucket name")),
+	logFile: optField(strField("SERVER_LOG_FILE", "File path for appended structured logs")),
 	tvdbApiKey: optField(secretField("MOVIES_AND_SHOWS_TVDB_API_KEY", "TVDB API key")),
+	otlpEndpoint: optField(strField("SERVER_OTLP_ENDPOINT", "Base URL for OTLP trace export")),
 	spotifyClientId: optField(strField("MUSIC_SPOTIFY_CLIENT_ID", "Spotify client ID")),
 	metronUsername: optField(strField("COMIC_BOOK_METRON_USERNAME", "Metron username")),
 	s3AccessKeyId: optField(secretField("FILE_STORAGE_S3_ACCESS_KEY_ID", "S3 access key ID")),
@@ -21,22 +26,19 @@ const fields = {
 	frontendUrl: strField("FRONTEND_URL", "Public URL of the frontend application", {
 		default: "http://localhost:3000",
 	}),
-	smtpServer: optField(strField("SERVER_SMTP_SERVER", "SMTP server hostname")),
-	smtpUser: optField(secretField("SERVER_SMTP_USER", "SMTP username")),
-	smtpPassword: optField(secretField("SERVER_SMTP_PASSWORD", "SMTP password")),
 	smtpMailbox: strField("SERVER_SMTP_MAILBOX", "SMTP sender mailbox", {
 		default: "Ryot <no-reply@ryot.io>",
 	}),
-	disableNotifications: boolField(
-		"SERVER_DISABLE_NOTIFICATIONS",
-		"Disable delivery of all notifications",
-		{ default: false },
-	),
 	jobIdSecret: secretField("SANDBOX_JOB_ID_SECRET", "Secret used to sign sandbox job identifiers", {
 		default: "changeme",
 	}),
 	s3SecretAccessKey: optField(
 		secretField("FILE_STORAGE_S3_SECRET_ACCESS_KEY", "S3 secret access key"),
+	),
+	disableNotifications: boolField(
+		"SERVER_DISABLE_NOTIFICATIONS",
+		"Disable delivery of all notifications",
+		{ default: false },
 	),
 	databaseConnectionTimeoutMs: intField(
 		"DATABASE_CONNECTION_TIMEOUT_MS",
@@ -155,6 +157,34 @@ const fields = {
 			"MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN",
 			"TMDB access token for movie and show lookups",
 		),
+	),
+};
+
+const logLevelField = strField("SERVER_LOG_LEVEL", "Minimum application log level", {
+	default: "info",
+});
+
+const logLevel = {
+	meta: logLevelField.meta,
+	config: logLevelField.config.pipe(
+		Config.mapOrFail((value) => {
+			const levels: Record<string, LogLevel.LogLevel> = {
+				all: LogLevel.All,
+				off: LogLevel.None,
+				info: LogLevel.Info,
+				none: LogLevel.None,
+				debug: LogLevel.Debug,
+				error: LogLevel.Error,
+				fatal: LogLevel.Fatal,
+				trace: LogLevel.Trace,
+				warn: LogLevel.Warning,
+				warning: LogLevel.Warning,
+			};
+			const level = levels[value.toLowerCase()];
+			return level
+				? Either.right(level)
+				: Either.left(ConfigError.InvalidData([], `Unsupported LOG_LEVEL '${value}'`));
+		}),
 	),
 };
 
@@ -281,14 +311,20 @@ const serverGroup = group(
 	"Server settings",
 	Config.all({
 		oidc: oidcGroup.config,
+		logLevel: logLevel.config,
+		logFile: fields.logFile.config,
 		corsOrigins: fields.corsOrigins.config,
+		otlpEndpoint: fields.otlpEndpoint.config,
 		adminAccessToken: fields.adminAccessToken.config,
 		disableNotifications: fields.disableNotifications.config,
 		disableBackgroundJobs: fields.disableBackgroundJobs.config,
 	}),
 	{
 		oidc: oidcGroup.meta,
+		logLevel: logLevel.meta,
+		logFile: fields.logFile.meta,
 		corsOrigins: fields.corsOrigins.meta,
+		otlpEndpoint: fields.otlpEndpoint.meta,
 		adminAccessToken: fields.adminAccessToken.meta,
 		disableNotifications: fields.disableNotifications.meta,
 		disableBackgroundJobs: fields.disableBackgroundJobs.meta,
