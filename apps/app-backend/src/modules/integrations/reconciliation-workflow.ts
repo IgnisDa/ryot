@@ -46,14 +46,20 @@ export const runIntegrationReconciliationWorkflow = Effect.fn(
 			})
 			.pipe(
 				Effect.catchAllCause((cause) =>
-					Effect.logError("integration reconciliation run dispatch failed", run.runId, cause),
+					Effect.logError("integration reconciliation run dispatch failed", cause).pipe(
+						Effect.annotateLogs({ runId: run.runId }),
+					),
 				),
 			);
 	}
 });
 
-const IntegrationReconciliationWorkflowLive = IntegrationReconciliationWorkflow.toLayer((payload) =>
-	runIntegrationReconciliationWorkflow(payload),
+const IntegrationReconciliationWorkflowLive = IntegrationReconciliationWorkflow.toLayer(
+	(payload, executionId) =>
+		runIntegrationReconciliationWorkflow(payload).pipe(
+			Effect.withSpan("IntegrationReconciliationWorkflow", { attributes: { executionId } }),
+			Effect.annotateLogs({ executionId, workflow: "IntegrationReconciliationWorkflow" }),
+		),
 );
 
 export const IntegrationReconciliationWorkflowDefinitionsLive = Layer.mergeAll(
