@@ -1,8 +1,8 @@
-import { FileSystem } from "@effect/platform";
+import { Command, CommandExecutor, FileSystem } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import type { CompiledSandboxModule } from "@ryot/sandbox-compiler/protocol";
-import { Effect, Schema } from "effect";
+import { Effect, Schema, Stream } from "effect";
 import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
 import {
@@ -500,12 +500,26 @@ const runInDeno = (
 	context: unknown,
 	options: RunnerOptions = {},
 ) =>
-	Effect.gen(function* () {
-		assert(dependencyRuntime);
-		assert(runnerPath);
-		const apiBase = options.apiBase ?? "http://127.0.0.1:1";
-		const denoProcess = Bun.spawn(
-			[
+	Effect.scoped(
+		Effect.gen(function* () {
+			assert(dependencyRuntime);
+			assert(runnerPath);
+			const apiBase = options.apiBase ?? "http://127.0.0.1:1";
+			const request = `${encodeRunnerRequest({
+				context,
+				apiBase,
+				limits: SANDBOX_RUNNER_LIMITS,
+				driverName,
+				token: "unused",
+				metadata: compiled.manifest,
+				compiledFormat: compiled.format,
+				compiledCode: compiled.javascript,
+				scriptId: options.scriptId ?? "script-1",
+				apiFunctions: options.apiFunctions ?? [],
+				executionId: options.executionId ?? "execution-1",
+			})}\n`;
+			const executor = yield* CommandExecutor.CommandExecutor;
+			const command = Command.make(
 				"deno",
 				"run",
 				"--deny-run",
@@ -523,49 +537,41 @@ const runInDeno = (
 				`--allow-net=${new URL(apiBase).host}`,
 				`--allow-read=${runnerPath},${dependencyRuntime.directory}`,
 				runnerPath,
-			],
-			{
-				stdin: "pipe",
-				stdout: "pipe",
-				stderr: "pipe",
-				env: { ...process.env, DENO_DIR: dependencyRuntime.cacheDirectory },
-			},
-		);
-		const request = `${encodeRunnerRequest({
-			context,
-			apiBase,
-			limits: SANDBOX_RUNNER_LIMITS,
-			driverName,
-			token: "unused",
-			metadata: compiled.manifest,
-			compiledFormat: compiled.format,
-			compiledCode: compiled.javascript,
-			scriptId: options.scriptId ?? "script-1",
-			apiFunctions: options.apiFunctions ?? [],
-			executionId: options.executionId ?? "execution-1",
-		})}\n`;
-		yield* Effect.tryPromise({
-			try: () =>
-				Promise.resolve(denoProcess.stdin.write(request)).then(() => denoProcess.stdin.end()),
-			catch: (error) => new SandboxRunError({ message: unknownToMessage(error) }),
-		});
+			).pipe(
+				Command.feed(request),
+				Command.stdout("pipe"),
+				Command.stderr("pipe"),
+				Command.env({ DENO_DIR: dependencyRuntime.cacheDirectory }),
+			);
+			const denoProcess = yield* executor
+				.start(command)
+				.pipe(
+					Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+				);
+			yield* Effect.addFinalizer(() => denoProcess.kill("SIGKILL").pipe(Effect.ignore));
 
-		const [stdout, stderr, exitCode] = yield* Effect.tryPromise({
-			try: () =>
-				Promise.all([
-					new Response(denoProcess.stdout).text(),
-					new Response(denoProcess.stderr).text(),
-					denoProcess.exited,
-				]),
-			catch: (error) => new SandboxRunError({ message: unknownToMessage(error) }),
-		});
-		expect(exitCode, stderr).toBe(0);
+			const [stdout, stderr, exitCode] = yield* Effect.all(
+				[
+					denoProcess.stdout.pipe(
+						Stream.decodeText("utf-8"),
+						Stream.runFold("", (a, b) => a + b),
+					),
+					denoProcess.stderr.pipe(
+						Stream.decodeText("utf-8"),
+						Stream.runFold("", (a, b) => a + b),
+					),
+					denoProcess.exitCode,
+				],
+				{ concurrency: "unbounded" },
+			).pipe(Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })));
+			expect(exitCode, stderr).toBe(0);
 
-		return yield* Effect.try({
-			try: () => decodeRunnerResponse(stdout.trim()),
-			catch: (error) => new SandboxRunError({ message: unknownToMessage(error) }),
-		});
-	});
+			return yield* Effect.try({
+				try: () => decodeRunnerResponse(stdout.trim()),
+				catch: (error) => new SandboxRunError({ message: unknownToMessage(error) }),
+			});
+		}),
+	).pipe(Effect.provide(BunContext.layer));
 
 const startCoreHostBridge = (
 	options: {
