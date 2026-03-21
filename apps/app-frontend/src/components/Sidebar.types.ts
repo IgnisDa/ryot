@@ -1,14 +1,8 @@
 import type { AuthenticatedUser } from "#/hooks/auth";
 
 export type SidebarAccount = Pick<
-	AuthenticatedUser,
-	| "id"
-	| "name"
-	| "email"
-	| "image"
-	| "emailVerified"
-	| "createdAt"
-	| "updatedAt"
+	AuthenticatedUser["user"],
+	"id" | "name" | "email" | "image" | "createdAt" | "updatedAt"
 >;
 
 export interface SidebarFacet {
