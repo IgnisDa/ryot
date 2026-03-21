@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { expectDataResult } from "~/lib/test-helpers";
 import type {
 	CreateTrackerBody,
 	ListedTracker,
@@ -11,7 +12,6 @@ import {
 	reorderTrackers,
 	resolveTrackerPatch,
 	type TrackerServiceDeps,
-	type TrackerServiceResult,
 	updateTracker,
 } from "./service";
 
@@ -103,14 +103,6 @@ const createDeps = (
 		}),
 	...overrides,
 });
-
-const expectDataResult = <T>(result: TrackerServiceResult<T>) => {
-	if ("error" in result) {
-		throw new Error(`Expected data result, got ${result.error}`);
-	}
-
-	return result.data;
-};
 
 describe("resolveTrackerPatch", () => {
 	it("keeps current slug when neither name nor slug changes", () => {
