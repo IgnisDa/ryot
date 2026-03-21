@@ -11,6 +11,7 @@ export function createFacetFixture(
 		enabled: true,
 		id: "facet-id",
 		icon: "shapes",
+		accentColor: "#5B7FFF",
 		...overrides,
 	};
 }
@@ -22,8 +23,8 @@ export function createFacetFormValuesFixture(
 		name: "Facet",
 		slug: "facet",
 		icon: "shapes",
-		accentColor: "",
 		description: "",
+		accentColor: "#5B7FFF",
 		...overrides,
 	};
 }
