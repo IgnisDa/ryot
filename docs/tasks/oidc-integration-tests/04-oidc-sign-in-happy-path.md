@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -50,11 +50,11 @@ The mock server (`ghcr.io/navikt/mock-oauth2-server`) derives the `email` claim 
 
 ## Acceptance criteria
 
-- [ ] Test 1 passes: OIDC sign-in produces a session cookie that authenticates a protected endpoint
-- [ ] Test 2 passes: a `user` row with `email = {username}@localhost` exists after the OIDC flow
-- [ ] Test 3 passes: at least one `tracker` row exists for the new OIDC user after the flow
-- [ ] Each test uses a unique `username` and does not share state with other tests
-- [ ] `bun run check`, `bun run test`, and `bun run format` pass in the `tests` directory
+- [x] Test 1 passes: OIDC sign-in produces a session cookie that authenticates a protected endpoint
+- [x] Test 2 passes: a `user` row with `email = {username}@localhost` exists after the OIDC flow
+- [x] Test 3 passes: at least one `tracker` row exists for the new OIDC user after the flow
+- [x] Each test uses a unique `username` and does not share state with other tests
+- [x] `bun run check`, `bun run test`, and `bun run format` pass in the `tests` directory
 
 ## User stories addressed
 

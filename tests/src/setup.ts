@@ -63,6 +63,7 @@ beforeAll(async () => {
 			.start(),
 	]);
 
+	const frontendPort = await getPort();
 	const redisHost = redisContainer.getHost();
 	const dbUrl = pgContainer.getConnectionUri();
 	const redisPort = redisContainer.getMappedPort(6379);
@@ -86,14 +87,17 @@ beforeAll(async () => {
 		...process.env,
 		NODE_ENV: "test",
 		DATABASE_URL: dbUrl,
+		SERVER_OIDC_CLIENT_ID: "",
+		SERVER_OIDC_ISSUER_URL: "",
 		PORT: backendPort.toString(),
+		SERVER_OIDC_CLIENT_SECRET: "",
 		FILE_STORAGE_S3_URL: s3Endpoint,
 		FILE_STORAGE_S3_REGION: "us-east-1",
-		FRONTEND_URL: "http://localhost:3000",
 		FILE_STORAGE_S3_BUCKET_NAME: S3_BUCKET_NAME,
 		FILE_STORAGE_S3_ACCESS_KEY_ID: S3_ACCESS_KEY,
 		SERVER_ADMIN_ACCESS_TOKEN: "test-admin-token",
 		REDIS_URL: `redis://${redisHost}:${redisPort}`,
+		FRONTEND_URL: `http://127.0.0.1:${frontendPort}`,
 		FILE_STORAGE_S3_SECRET_ACCESS_KEY: S3_SECRET_KEY,
 	};
 
