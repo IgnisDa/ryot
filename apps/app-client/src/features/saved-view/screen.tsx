@@ -3,7 +3,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { useRouter } from "expo-router";
 import { useMemo } from "react";
-import { FlatList, Image } from "react-native";
+import { FlatList, Image, Platform, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Box } from "@/components/ui/box";
@@ -193,6 +193,88 @@ function SavedViewResults(props: {
 }) {
 	const router = useRouter();
 	const isGrid = props.layout === "grid";
+
+	if (isGrid && Platform.OS === "web") {
+		return (
+			<ScrollView
+				scrollEventThrottle={400}
+				showsVerticalScrollIndicator={false}
+				contentContainerStyle={{
+					gap: 12,
+					paddingTop: 16,
+					paddingBottom: 40,
+					paddingHorizontal: 28,
+				}}
+				onScroll={({ nativeEvent }) => {
+					const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+					if (
+						layoutMeasurement.height + contentOffset.y >= contentSize.height - 200 &&
+						props.hasNextPage &&
+						!props.isFetchingNextPage
+					) {
+						props.onLoadMore();
+					}
+				}}
+			>
+				<Box className="mb-4">
+					<SavedViewHeader
+						layout={props.layout}
+						name={props.viewName}
+						count={props.totalCount}
+						onLayoutChange={props.onLayoutChange}
+						isLoadingMore={props.isFetching && props.rows.length === 0}
+					/>
+				</Box>
+				{props.rows.length === 0 ? (
+					props.isFetching ? (
+						<Box className="rounded-[22px] border border-border bg-card px-4 py-5">
+							<Text className="text-[14px] font-sans-medium text-foreground">Loading entries</Text>
+							<Text className="mt-1 text-[13px] text-muted-foreground">
+								Fetching the first page from the query engine.
+							</Text>
+						</Box>
+					) : (
+						<Box className="rounded-[22px] border border-border bg-card px-4 py-5">
+							<Text className="text-[14px] font-sans-medium text-foreground">No entries found</Text>
+							<Text className="mt-1 text-[13px] text-muted-foreground">
+								This saved view did not return any results.
+							</Text>
+						</Box>
+					)
+				) : (
+					<Box className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+						{props.rows.map((item, index) => {
+							const entityId = getEntityId(item);
+							const imageUrl = entityId
+								? props.imageUrlById.get(`${entityId}:${SAVED_VIEW_RUNTIME_FIELD_KEYS.image}`)
+								: undefined;
+							return (
+								<SavedViewCard
+									item={item}
+									entityId={entityId}
+									imageUrl={imageUrl}
+									key={entityId ?? `grid-${index}`}
+									onPress={() => {
+										if (entityId) {
+											router.push(entityHref(entityId));
+										}
+									}}
+								/>
+							);
+						})}
+					</Box>
+				)}
+				<Box className="pt-2">
+					<LoadMoreFooter
+						onPress={props.onLoadMore}
+						hasNextPage={props.hasNextPage}
+						errorMessage={props.loadMoreError}
+						isFetchingNextPage={props.isFetchingNextPage}
+					/>
+				</Box>
+			</ScrollView>
+		);
+	}
 
 	return (
 		<FlatList
