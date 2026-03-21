@@ -401,5 +401,21 @@ describe("View runtime E2E", () => {
 		});
 	});
 
+	it("rejects empty runtime sort fields at payload validation time", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaRuntimeFixture();
+		const result = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [schema.slug],
+				sort: { field: [], direction: "asc" },
+			}),
+		);
+
+		expect(result.response.status).toBe(400);
+		expect(result.error?.error?.message).toContain("Sort field is required");
+	});
+
 	registerViewRuntimePresentationAndErrorTests();
 });
