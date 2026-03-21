@@ -1,0 +1,295 @@
+import {
+	ActionIcon,
+	Badge,
+	Box,
+	Button,
+	Container,
+	Drawer,
+	Group,
+	Pagination,
+	Paper,
+	SegmentedControl,
+	Stack,
+	Text,
+} from "@mantine/core";
+import { useDisclosure, useLocalStorage } from "@mantine/hooks";
+import { Edit3, LayoutGrid, List, Table2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useResolvedImageUrls } from "#/features/entities/image";
+import { type AppEntityImage, toAppEntity } from "#/features/entities/model";
+import { TrackerIcon } from "#/features/trackers/icons";
+import { useApiClient } from "#/hooks/api";
+import { useColorScheme } from "#/hooks/theme";
+import { STORAGE_KEYS } from "#/lib/storage-keys";
+import {
+	EmptyState,
+	ErrorState,
+	LoadingState,
+	SavedViewResults,
+} from "./view-page-sections";
+import {
+	createDisabledViewRuntimeRequest,
+	createViewRuntimeRequest,
+	getPageLimit,
+	isRuntimeProperty,
+	toImageValue,
+	type ViewLayout,
+} from "./view-page-utils";
+
+export function SavedViewPage(props: { viewId: string }) {
+	const apiClient = useApiClient();
+	const colorScheme = useColorScheme();
+	const isDark = colorScheme === "dark";
+	const [drawerOpened, drawer] = useDisclosure(false);
+	const [layout, setLayout] = useLocalStorage<ViewLayout>({
+		key: `${STORAGE_KEYS.viewLayout}:${props.viewId}`,
+		defaultValue: "grid",
+	});
+	const [page, setPage] = useState(1);
+
+	const savedViewQuery = apiClient.useQuery("get", "/saved-views/{viewId}", {
+		params: { path: { viewId: props.viewId } },
+	});
+	const savedView = savedViewQuery.data?.data;
+	const runtimeRequest = useMemo(
+		() =>
+			savedView
+				? createViewRuntimeRequest({
+						view: savedView,
+						layout,
+						page,
+						limit: getPageLimit(layout),
+					})
+				: createDisabledViewRuntimeRequest(),
+		[savedView, layout, page],
+	);
+	const runtimeQuery = apiClient.useQuery(
+		"post",
+		"/view-runtime/execute",
+		{ body: runtimeRequest },
+		{ enabled: !!savedView },
+	);
+
+	const items = (runtimeQuery.data?.data.items ?? []).map(toAppEntity);
+	const meta = runtimeQuery.data?.data.meta;
+	const imageEntries = useMemo(() => {
+		const entries: Array<{ id: string; image: AppEntityImage }> = [];
+		for (const item of items) {
+			if (layout === "table") {
+				for (const cell of item.cells ?? []) {
+					if (cell.kind === "image") {
+						entries.push({
+							id: `${item.id}:${cell.key}`,
+							image: toImageValue(cell.value),
+						});
+					}
+				}
+				continue;
+			}
+
+			const imageSlot = item.resolvedProperties?.imageProperty;
+			if (isRuntimeProperty(imageSlot) && imageSlot.kind === "image") {
+				entries.push({ id: item.id, image: toImageValue(imageSlot.value) });
+			}
+		}
+		return entries;
+	}, [items, layout]);
+	const imageUrls = useResolvedImageUrls(imageEntries);
+
+	useEffect(() => {
+		setPage(1);
+	}, [layout, props.viewId, setPage]);
+
+	if (savedViewQuery.isLoading) {
+		return <LoadingState />;
+	}
+	if (savedViewQuery.isError) {
+		return (
+			<ErrorState
+				title="Failed to load view"
+				onRetry={() => savedViewQuery.refetch()}
+				description="We could not load this saved view right now."
+			/>
+		);
+	}
+	if (!savedView) {
+		return (
+			<ErrorState
+				title="View not found"
+				description="This saved view does not exist or is no longer available."
+			/>
+		);
+	}
+	if (runtimeQuery.isLoading) {
+		return <LoadingState />;
+	}
+	if (runtimeQuery.isError || !meta) {
+		return (
+			<ErrorState
+				title="Failed to load results"
+				onRetry={() => runtimeQuery.refetch()}
+				description="We could not render this view right now."
+			/>
+		);
+	}
+
+	const surface = isDark ? "var(--mantine-color-dark-8)" : "white";
+	const textPrimary = isDark
+		? "var(--mantine-color-dark-0)"
+		: "var(--mantine-color-dark-9)";
+	const textSecondary = isDark
+		? "var(--mantine-color-dark-2)"
+		: "var(--mantine-color-dark-6)";
+	const accentColor = savedView.accentColor;
+	const accentMuted = `color-mix(in srgb, ${accentColor} 15%, transparent)`;
+	const schemaSummary = savedView.queryDefinition.entitySchemaSlugs.join(", ");
+	const pageSummary =
+		meta.pagination.totalPages > 0
+			? `Page ${meta.pagination.page} of ${meta.pagination.totalPages}`
+			: "No pages";
+
+	return (
+		<Container size="xl" py="xl">
+			<Stack gap="xl">
+				<Paper
+					p="lg"
+					withBorder
+					radius="sm"
+					bg={surface}
+					style={{ borderTop: `3px solid ${accentColor}` }}
+				>
+					<Group justify="space-between" align="flex-start" gap="md">
+						<Stack gap={6} style={{ flex: 1 }}>
+							<Group gap="sm">
+								<Box
+									w={36}
+									h={36}
+									c={accentColor}
+									bg={accentMuted}
+									style={{
+										display: "grid",
+										placeItems: "center",
+										borderRadius: "var(--mantine-radius-sm)",
+									}}
+								>
+									<TrackerIcon icon={savedView.icon} size={18} />
+								</Box>
+								<Text
+									fw={700}
+									lh={1.1}
+									size="1.5rem"
+									c={textPrimary}
+									ff="var(--mantine-headings-font-family)"
+								>
+									{savedView.name}
+								</Text>
+								{savedView.isBuiltin ? (
+									<Badge
+										size="sm"
+										variant="light"
+										c={accentColor}
+										bg={accentMuted}
+									>
+										Built-in
+									</Badge>
+								) : null}
+							</Group>
+							<Text size="sm" c={textSecondary}>
+								Browsing {schemaSummary || "selected schemas"}
+							</Text>
+							<Group gap="xs">
+								<Badge variant="filled" bg={accentColor} c="white">
+									{meta.pagination.total} results
+								</Badge>
+								<Text size="xs" c="dimmed">
+									{pageSummary}
+								</Text>
+							</Group>
+						</Stack>
+						<Group gap="xs">
+							<SegmentedControl
+								value={layout}
+								onChange={(value) => setLayout(value as ViewLayout)}
+								data={[
+									{ label: <LayoutGrid size={14} />, value: "grid" },
+									{ label: <List size={14} />, value: "list" },
+									{ label: <Table2 size={14} />, value: "table" },
+								]}
+							/>
+							<ActionIcon
+								size="lg"
+								variant="light"
+								onClick={drawer.open}
+								style={{ backgroundColor: accentMuted, color: accentColor }}
+							>
+								<Edit3 size={18} />
+							</ActionIcon>
+						</Group>
+					</Group>
+				</Paper>
+
+				{items.length === 0 ? (
+					<EmptyState accentColor={accentColor} accentMuted={accentMuted} />
+				) : (
+					<SavedViewResults
+						meta={meta}
+						items={items}
+						layout={layout}
+						isDark={isDark}
+						accentColor={accentColor}
+						accentMuted={accentMuted}
+						textPrimary={textPrimary}
+						textSecondary={textSecondary}
+						imageUrlById={imageUrls.imageUrlByEntityId}
+					/>
+				)}
+
+				{meta.pagination.totalPages > 1 ? (
+					<Paper p="md" withBorder radius="sm" bg={surface}>
+						<Group justify="space-between" align="center">
+							<Text size="sm" c="dimmed">
+								Page {meta.pagination.page} of {meta.pagination.totalPages}
+							</Text>
+							<Pagination
+								size="sm"
+								siblings={1}
+								boundaries={1}
+								color="accent"
+								onChange={setPage}
+								value={meta.pagination.page}
+								total={meta.pagination.totalPages}
+							/>
+						</Group>
+					</Paper>
+				) : null}
+
+				<Drawer
+					size="md"
+					position="right"
+					title="Edit View"
+					opened={drawerOpened}
+					onClose={drawer.close}
+					styles={{
+						body: { backgroundColor: surface },
+						header: { backgroundColor: surface },
+						content: { backgroundColor: surface },
+					}}
+				>
+					<Stack gap="md">
+						<Text fw={600} ff="var(--mantine-headings-font-family)">
+							Under Construction
+						</Text>
+						<Text size="sm" c="dimmed">
+							Editing saved views is out of scope for this first phase. This
+							screen currently supports backend-backed rendering and layout
+							switching only.
+						</Text>
+						<Button variant="light" onClick={drawer.close}>
+							Close
+						</Button>
+					</Stack>
+				</Drawer>
+			</Stack>
+		</Container>
+	);
+}
