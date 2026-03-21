@@ -1,5 +1,3 @@
-import { expect } from "bun:test";
-
 import {
 	buildQueryEngineEntityRowsDocument,
 	buildQueryEngineEventRowsDocument,
@@ -8,6 +6,8 @@ import {
 	queryEngineSchemaRef,
 	queryEngineSystemRef,
 } from "@ryot/query-engine";
+import { Effect } from "effect";
+import { expect } from "vitest";
 
 import { requireObjectRecord, requireString } from "~/support/assertions";
 
@@ -21,49 +21,40 @@ export type QueryEngineRowItem = QueryEngineRowsResponse["data"]["items"][number
 export type QueryEngineFieldValue = Extract<QueryEngineRowValue, { kind: string }>;
 export type QueryEngineRowsResponse = Extract<QueryEngineExecuteResponse, { type: "rows" }>;
 export type QueryEngineRowsOutput = Extract<QueryEnginePayload["output"], { type: "rows" }>;
-type QueryEngineAggregateResponse = Extract<QueryEngineExecuteResponse, { type: "aggregate" }>;
-type QueryEngineTimeSeriesResponse = Extract<QueryEngineExecuteResponse, { type: "timeSeries" }>;
 type QueryEngineIncludeValue = Extract<
 	QueryEngineRowValue,
 	{ items: readonly QueryEngineRowItem[] }
 >;
 
-export async function executeQueryEngine(
-	client: Client,
-	doc: QueryEnginePayload,
-): Promise<QueryEngineRowsResponse> {
-	const result = await client.run((c) => c.queryEngine.execute({ payload: doc }));
-	if (result.type !== "rows") {
-		throw new Error(`Expected rows response, received ${result.type}`);
-	}
-	return result;
-}
+export const executeQueryEngine = (client: Client, doc: QueryEnginePayload) =>
+	Effect.gen(function* () {
+		const result = yield* client.call((c) => c.queryEngine.execute({ payload: doc }));
+		if (result.type !== "rows") {
+			throw new Error(`Expected rows response, received ${result.type}`);
+		}
+		return result;
+	});
 
-export async function executeAggregateQueryEngine(
-	client: Client,
-	doc: QueryEnginePayload,
-): Promise<QueryEngineAggregateResponse> {
-	const result = await client.run((c) => c.queryEngine.execute({ payload: doc }));
-	if (result.type !== "aggregate") {
-		throw new Error(`Expected aggregate response, received ${result.type}`);
-	}
-	return result;
-}
+export const executeAggregateQueryEngine = (client: Client, doc: QueryEnginePayload) =>
+	Effect.gen(function* () {
+		const result = yield* client.call((c) => c.queryEngine.execute({ payload: doc }));
+		if (result.type !== "aggregate") {
+			throw new Error(`Expected aggregate response, received ${result.type}`);
+		}
+		return result;
+	});
 
-export async function executeTimeSeriesQueryEngine(
-	client: Client,
-	doc: QueryEnginePayload,
-): Promise<QueryEngineTimeSeriesResponse> {
-	const result = await client.run((c) => c.queryEngine.execute({ payload: doc }));
-	if (result.type !== "timeSeries") {
-		throw new Error(`Expected timeSeries response, received ${result.type}`);
-	}
-	return result;
-}
+export const executeTimeSeriesQueryEngine = (client: Client, doc: QueryEnginePayload) =>
+	Effect.gen(function* () {
+		const result = yield* client.call((c) => c.queryEngine.execute({ payload: doc }));
+		if (result.type !== "timeSeries") {
+			throw new Error(`Expected timeSeries response, received ${result.type}`);
+		}
+		return result;
+	});
 
-export async function executeQueryEngineError(client: Client, doc: QueryEnginePayload) {
-	return client.runError((c) => c.queryEngine.execute({ payload: doc }));
-}
+export const executeQueryEngineError = (client: Client, doc: QueryEnginePayload) =>
+	Effect.flip(client.call((c) => c.queryEngine.execute({ payload: doc })));
 
 export const systemRef: (
 	alias: string,
@@ -154,13 +145,19 @@ export const buildRowsDoc = (
 	};
 };
 
-export const expectMalformedQueryBadRequest = async (body: unknown, cookies: string) => {
-	const response = await postBackendJson("/query-engine/execute", body, cookies);
-	const error = requireObjectRecord(await response.json(), "Expected BadRequest response");
+export const expectMalformedQueryBadRequest = (body: unknown, cookies: string) =>
+	Effect.gen(function* () {
+		const response = yield* Effect.promise(() =>
+			postBackendJson("/query-engine/execute", body, cookies),
+		);
+		const error = requireObjectRecord(
+			yield* Effect.promise(() => response.json()),
+			"Expected BadRequest response",
+		);
 
-	expect(response.status).toBe(400);
-	expect(requireString(error._tag, "Expected error tag")).toBe("BadRequest");
-};
+		expect(response.status).toBe(400);
+		expect(requireString(error._tag, "Expected error tag")).toBe("BadRequest");
+	});
 
 export const getQueryEngineFieldValue = (
 	item: QueryEngineRowItem,

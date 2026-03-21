@@ -1,6 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-
 import { AutomationRuleId } from "@ryot/contract/schema/brands";
+import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -15,12 +14,13 @@ import {
 	installNotificationRule,
 	listAutomationCatalog,
 	listNotificationRules,
+	pollUntil,
 	postBackendJson,
 	setNotificationRuleActive,
 	startFakeAppriseServer,
 } from "~/fixtures";
-import { pollUntil } from "~/fixtures/polling";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
+import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
 
 let fakeApprise: FakeHttpServer;
@@ -34,136 +34,156 @@ afterAll(() => {
 });
 
 describe("notification subscription catalog and rules", () => {
-	it("installs every active catalog schema by default at signup", async () => {
-		const { client } = await createAuthenticatedClient();
-		const catalog = await listAutomationCatalog(client);
-		const rules = await listNotificationRules(client);
+	it.live("installs every active catalog schema by default at signup", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const catalog = yield* listAutomationCatalog(client);
+			const rules = yield* listNotificationRules(client);
 
-		expect(catalog.map((schema) => schema.slug).sort()).toEqual([
-			"company.media-group.associated",
-			"company.media.associated",
-			"integration.disabled",
-			"media.content-count.changed",
-			"media.episode.discovered",
-			"media.episode.images.changed",
-			"media.episode.name.changed",
-			"media.release-date.changed",
-			"media.season-count.changed",
-			"media.status.changed",
-			"person.media-group.associated",
-			"person.media.associated",
-			"review.created",
-			"workout.created",
-		]);
-		expect(catalog.some((schema) => schema.slug.startsWith("automation.test-"))).toBe(false);
-		expect(rules).toHaveLength(catalog.length);
-		expect(rules.map((rule) => rule.signalSchema.id).sort()).toEqual(
-			catalog.map((schema) => schema.id).sort(),
-		);
-		expect(rules.every((rule) => rule.isActive)).toBe(true);
-		expect(
-			await Promise.all(catalog.map((schema) => getAutomationCatalogSchema(client, schema.id))),
-		).toEqual([...catalog]);
-	});
+			expect(catalog.map((schema) => schema.slug).sort()).toEqual([
+				"company.media-group.associated",
+				"company.media.associated",
+				"integration.disabled",
+				"media.content-count.changed",
+				"media.episode.discovered",
+				"media.episode.images.changed",
+				"media.episode.name.changed",
+				"media.release-date.changed",
+				"media.season-count.changed",
+				"media.status.changed",
+				"person.media-group.associated",
+				"person.media.associated",
+				"review.created",
+				"workout.created",
+			]);
+			expect(catalog.some((schema) => schema.slug.startsWith("automation.test-"))).toBe(false);
+			expect(rules).toHaveLength(catalog.length);
+			expect(rules.map((rule) => rule.signalSchema.id).sort()).toEqual(
+				catalog.map((schema) => schema.id).sort(),
+			);
+			expect(rules.every((rule) => rule.isActive)).toBe(true);
+			expect(
+				yield* Effect.all(catalog.map((schema) => getAutomationCatalogSchema(client, schema.id))),
+			).toEqual([...catalog]);
+		}),
+	);
 
-	it("manages only the authenticated user's rules and supports delete-reinstall", async () => {
-		const owner = await createAuthenticatedClient();
-		const other = await createAuthenticatedClient();
-		const ownerRules = await listNotificationRules(owner.client);
-		const reviewRule = requirePresent(
-			ownerRules.find((rule) => rule.signalSchema.slug === "review.created"),
-			"Expected the default review notification rule",
-		);
+	it.live("manages only the authenticated user's rules and supports delete-reinstall", () =>
+		Effect.gen(function* () {
+			const owner = yield* createAuthenticatedClient();
+			const other = yield* createAuthenticatedClient();
+			const ownerRules = yield* listNotificationRules(owner.client);
+			const reviewRule = requirePresent(
+				ownerRules.find((rule) => rule.signalSchema.slug === "review.created"),
+				"Expected the default review notification rule",
+			);
 
-		const inaccessible = await other.client.runError((c) =>
-			c.automations.getRule({ path: { ruleId: AutomationRuleId.make(reviewRule.id) } }),
-		);
-		assertTaggedError(inaccessible, "NotFound");
-		const nonexistent = await owner.client.runError((c) =>
-			c.automations.getRule({
-				path: { ruleId: AutomationRuleId.make(`missing-${crypto.randomUUID()}`) },
-			}),
-		);
-		assertTaggedError(nonexistent, "NotFound");
-		expect(inaccessible).toEqual(nonexistent);
+			const inaccessible = yield* Effect.flip(
+				other.client.call((c) =>
+					c.automations.getRule({ path: { ruleId: AutomationRuleId.make(reviewRule.id) } }),
+				),
+			);
+			assertTaggedError(inaccessible, "NotFound");
+			const nonexistent = yield* Effect.flip(
+				owner.client.call((c) =>
+					c.automations.getRule({
+						path: { ruleId: AutomationRuleId.make(`missing-${crypto.randomUUID()}`) },
+					}),
+				),
+			);
+			assertTaggedError(nonexistent, "NotFound");
+			expect(inaccessible).toEqual(nonexistent);
 
-		const deactivated = await setNotificationRuleActive(owner.client, reviewRule.id, false);
-		expect(deactivated.isActive).toBe(false);
-		const loadedDeactivated = await getNotificationRule(owner.client, reviewRule.id);
-		expect(loadedDeactivated.isActive).toBe(false);
-		const activated = await setNotificationRuleActive(owner.client, reviewRule.id, true);
-		expect(activated.isActive).toBe(true);
+			const deactivated = yield* setNotificationRuleActive(owner.client, reviewRule.id, false);
+			expect(deactivated.isActive).toBe(false);
+			const loadedDeactivated = yield* getNotificationRule(owner.client, reviewRule.id);
+			expect(loadedDeactivated.isActive).toBe(false);
+			const activated = yield* setNotificationRuleActive(owner.client, reviewRule.id, true);
+			expect(activated.isActive).toBe(true);
 
-		expect(await deleteNotificationRule(owner.client, reviewRule.id)).toEqual({
-			id: reviewRule.id,
-		});
-		const reinstalled = await installNotificationRule(owner.client, reviewRule.signalSchema.id);
-		expect(reinstalled.id).not.toBe(reviewRule.id);
-		expect(reinstalled.name).toBe(reviewRule.name);
-		expect(reinstalled.isActive).toBe(true);
-		expect(reinstalled.signalSchema).toEqual(reviewRule.signalSchema);
+			expect(yield* deleteNotificationRule(owner.client, reviewRule.id)).toEqual({
+				id: reviewRule.id,
+			});
+			const reinstalled = yield* installNotificationRule(owner.client, reviewRule.signalSchema.id);
+			expect(reinstalled.id).not.toBe(reviewRule.id);
+			expect(reinstalled.name).toBe(reviewRule.name);
+			expect(reinstalled.isActive).toBe(true);
+			expect(reinstalled.signalSchema).toEqual(reviewRule.signalSchema);
 
-		const conflict = await owner.client.runError((c) =>
-			c.automations.installRule({
-				payload: { signalSchemaId: reviewRule.signalSchema.id },
-			}),
-		);
-		assertTaggedError(conflict, "Conflict");
+			const conflict = yield* Effect.flip(
+				owner.client.call((c) =>
+					c.automations.installRule({
+						payload: { signalSchemaId: reviewRule.signalSchema.id },
+					}),
+				),
+			);
+			assertTaggedError(conflict, "Conflict");
 
-		const arbitraryFields = await postBackendJson(
-			"/automations/rules",
-			{
-				operation: "signal",
-				scriptId: "caller-selected-script",
-				signalSchemaId: reviewRule.signalSchema.id,
-			},
-			owner.cookies,
-		);
-		expect(arbitraryFields.status).toBe(400);
-	});
+			const arbitraryFields = yield* Effect.promise(() =>
+				postBackendJson(
+					"/automations/rules",
+					{
+						operation: "signal",
+						scriptId: "caller-selected-script",
+						signalSchemaId: reviewRule.signalSchema.id,
+					},
+					owner.cookies,
+				),
+			);
+			expect(arbitraryFields.status).toBe(400);
+		}),
+	);
 
-	it("delivers an API-created workout through its default subscription", async () => {
-		fakeApprise.requests.length = 0;
-		const { client } = await createAuthenticatedClient();
-		await createNotificationChannel(client, {
-			channel: "apprise",
-			channelSpecifics: { baseUrl: fakeApprise.url, key: "workout", kind: "apprise" },
-		});
-		const { schema } = await findBuiltinSchemaBySlug(client, "workout");
-		const workoutName = `E2E Workout ${crypto.randomUUID()}`;
-		await createEntity(client, {
-			name: workoutName,
-			entitySchemaId: schema.id,
-			properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
-		});
+	it.live("delivers an API-created workout through its default subscription", () =>
+		Effect.gen(function* () {
+			fakeApprise.requests.length = 0;
+			const { client } = yield* createAuthenticatedClient();
+			yield* createNotificationChannel(client, {
+				channel: "apprise",
+				channelSpecifics: { baseUrl: fakeApprise.url, key: "workout", kind: "apprise" },
+			});
+			const { schema } = yield* findBuiltinSchemaBySlug(client, "workout");
+			const workoutName = `E2E Workout ${crypto.randomUUID()}`;
+			yield* createEntity(client, {
+				name: workoutName,
+				entitySchemaId: schema.id,
+				properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
+			});
 
-		const delivered = await pollUntil("default workout notification delivery", () => {
-			const request = fakeApprise.requests.find((entry) => entry.path === "/notify/workout");
-			return Promise.resolve(request ?? null);
-		});
-		expect(delivered.body).toEqual({ title: "Ryot", body: `Workout ${workoutName} was created` });
-	});
+			const delivered = yield* pollUntil(
+				"default workout notification delivery",
+				Effect.sync(
+					() => fakeApprise.requests.find((entry) => entry.path === "/notify/workout") ?? null,
+				),
+			);
+			expect(delivered.body).toEqual({ title: "Ryot", body: `Workout ${workoutName} was created` });
+		}),
+	);
 
-	it("delivers an API-created review through its default subscription", async () => {
-		fakeApprise.requests.length = 0;
-		const { client } = await createAuthenticatedClient();
-		await createNotificationChannel(client, {
-			channel: "apprise",
-			channelSpecifics: { baseUrl: fakeApprise.url, key: "review", kind: "apprise" },
-		});
-		const { entityId, reviewEventSchemaId } = await createBuiltinMediaLifecycleFixture(client);
-		const entity = await getEntity(client, entityId);
+	it.live("delivers an API-created review through its default subscription", () =>
+		Effect.gen(function* () {
+			fakeApprise.requests.length = 0;
+			const { client } = yield* createAuthenticatedClient();
+			yield* createNotificationChannel(client, {
+				channel: "apprise",
+				channelSpecifics: { baseUrl: fakeApprise.url, key: "review", kind: "apprise" },
+			});
+			const { entityId, reviewEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(client);
+			const entity = yield* getEntity(client, entityId);
 
-		await client.run((c) =>
-			c.events.create({
-				payload: [{ entityId, eventSchemaId: reviewEventSchemaId, properties: { rating: 8 } }],
-			}),
-		);
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [{ entityId, eventSchemaId: reviewEventSchemaId, properties: { rating: 8 } }],
+				}),
+			);
 
-		const delivered = await pollUntil("default review notification delivery", () => {
-			const request = fakeApprise.requests.find((entry) => entry.path === "/notify/review");
-			return Promise.resolve(request ?? null);
-		});
-		expect(delivered.body).toEqual({ title: "Ryot", body: `Review posted for ${entity.name}` });
-	});
+			const delivered = yield* pollUntil(
+				"default review notification delivery",
+				Effect.sync(
+					() => fakeApprise.requests.find((entry) => entry.path === "/notify/review") ?? null,
+				),
+			);
+			expect(delivered.body).toEqual({ title: "Ryot", body: `Review posted for ${entity.name}` });
+		}),
+	);
 });
