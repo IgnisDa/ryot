@@ -392,6 +392,51 @@ describe("View runtime E2E", () => {
 		});
 	});
 
+	it("keeps empty pages aligned with filtered totals in the single-query path", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaRuntimeFixture();
+		const outOfRangeFilteredResult = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 2, limit: 5 },
+				filters: [{ op: "eq", field: ["category"], value: "phone" }],
+			}),
+		);
+		const zeroResultsLaterPage = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 3, limit: 2 },
+				filters: [{ op: "eq", field: ["category"], value: "console" }],
+			}),
+		);
+
+		expect(outOfRangeFilteredResult.response.status).toBe(200);
+		expect(outOfRangeFilteredResult.data?.data.items).toEqual([]);
+		expect(outOfRangeFilteredResult.data?.data.meta.pagination).toEqual({
+			page: 2,
+			total: 2,
+			limit: 5,
+			totalPages: 1,
+			hasNextPage: false,
+			hasPreviousPage: true,
+		});
+
+		expect(zeroResultsLaterPage.response.status).toBe(200);
+		expect(zeroResultsLaterPage.data?.data.items).toEqual([]);
+		expect(zeroResultsLaterPage.data?.data.meta.pagination).toEqual({
+			page: 3,
+			total: 0,
+			limit: 2,
+			totalPages: 0,
+			hasNextPage: false,
+			hasPreviousPage: false,
+		});
+	});
+
 	it("rejects empty runtime sort fields at payload validation time", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaRuntimeFixture();
