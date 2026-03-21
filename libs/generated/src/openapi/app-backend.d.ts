@@ -1549,6 +1549,8 @@ export interface paths {
                                 }[];
                                 propertiesSchema: {
                                     rules?: components["schemas"]["AppSchemaRule"][];
+                                    /** @enum {string} */
+                                    unknownKeys?: "strip" | "strict" | "passthrough";
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
@@ -1626,6 +1628,8 @@ export interface paths {
                         trackerId: string;
                         propertiesSchema: {
                             rules?: components["schemas"]["AppSchemaRule"][];
+                            /** @enum {string} */
+                            unknownKeys?: "strip" | "strict" | "passthrough";
                             fields: {
                                 [key: string]: components["schemas"]["AppPropertyDefinition"];
                             };
@@ -1656,6 +1660,8 @@ export interface paths {
                                 }[];
                                 propertiesSchema: {
                                     rules?: components["schemas"]["AppSchemaRule"][];
+                                    /** @enum {string} */
+                                    unknownKeys?: "strip" | "strict" | "passthrough";
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
@@ -1920,6 +1926,8 @@ export interface paths {
                                 }[];
                                 propertiesSchema: {
                                     rules?: components["schemas"]["AppSchemaRule"][];
+                                    /** @enum {string} */
+                                    unknownKeys?: "strip" | "strict" | "passthrough";
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
@@ -2220,6 +2228,8 @@ export interface paths {
                                 entitySchemaId: string;
                                 propertiesSchema: {
                                     rules?: components["schemas"]["AppSchemaRule"][];
+                                    /** @enum {string} */
+                                    unknownKeys?: "strip" | "strict" | "passthrough";
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
@@ -2280,6 +2290,8 @@ export interface paths {
                         entitySchemaId: string;
                         propertiesSchema: {
                             rules?: components["schemas"]["AppSchemaRule"][];
+                            /** @enum {string} */
+                            unknownKeys?: "strip" | "strict" | "passthrough";
                             fields: {
                                 [key: string]: components["schemas"]["AppPropertyDefinition"];
                             };
@@ -2302,6 +2314,8 @@ export interface paths {
                                 entitySchemaId: string;
                                 propertiesSchema: {
                                     rules?: components["schemas"]["AppSchemaRule"][];
+                                    /** @enum {string} */
+                                    unknownKeys?: "strip" | "strict" | "passthrough";
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };

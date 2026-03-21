@@ -27,7 +27,7 @@ export const parseAppSchemaProperties = (input: {
 	const result = validationSchema.safeParse(input.properties);
 
 	if (!result.success) {
-		throw new Error(`${input.kind} properties validation failed: ${result.error.message}`);
+		throw new Error(`${input.kind} payload is invalid: ${result.error.message}`);
 	}
 
 	return result.data;
@@ -74,3 +74,6 @@ export const parseAppSchemaPropertiesSafe = (input: {
 
 	return { success: true, data: result.data };
 };
+
+export const formatValidationIssues = (issues: ValidationIssue[]): string =>
+	issues.map((i) => (i.path ? `${i.path}: ${i.message}` : i.message)).join("; ");

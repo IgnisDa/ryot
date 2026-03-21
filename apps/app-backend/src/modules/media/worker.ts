@@ -2,11 +2,8 @@ import { z } from "@hono/zod-openapi";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { normalizeSlug } from "@ryot/ts-utils/slug";
 import { type Job, WaitingChildrenError, Worker } from "bullmq";
-import { and, eq, isNull } from "drizzle-orm";
 
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
-import { db } from "~/lib/db";
-import { entity, entitySchema } from "~/lib/db/schema";
 import { companyStubSchema, groupStubSchema, personStubSchema } from "~/lib/media/common";
 import { companyPropertiesSchema } from "~/lib/media/company";
 import { mediaGroupPropertiesSchema } from "~/lib/media/media-group";
@@ -24,7 +21,7 @@ import {
 	type ListedEntity,
 	updateGlobalEntityById,
 	upsertInLibraryRelationship,
-	upsertEntityRelationship,
+	writeEntityRelationship,
 } from "~/modules/entities";
 import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas";
 import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
@@ -87,6 +84,8 @@ export type MediaWorkerDeps = {
 	findGlobalEntityByExternalId: typeof findGlobalEntityByExternalId;
 	getBuiltinEntitySchemaBySlug: typeof getBuiltinEntitySchemaBySlug;
 	getBuiltinSandboxScriptBySlug: typeof getBuiltinSandboxScriptBySlug;
+	getBuiltinRelationshipSchemaBySlug: typeof getBuiltinRelationshipSchemaBySlug;
+	writeEntityRelationship: typeof writeEntityRelationship;
 };
 
 const mediaWorkerDeps: MediaWorkerDeps = {
@@ -99,6 +98,8 @@ const mediaWorkerDeps: MediaWorkerDeps = {
 	findGlobalEntityByExternalId,
 	getBuiltinEntitySchemaBySlug,
 	getBuiltinSandboxScriptBySlug,
+	getBuiltinRelationshipSchemaBySlug,
+	writeEntityRelationship,
 };
 
 const findImportedGlobalEntity = async (
@@ -184,39 +185,38 @@ const getSandboxChildRunResult = async (job: Job) => {
 	return parsed.data;
 };
 
-const processPersonStubs = async (input: {
-	userId: string;
-	mediaEntityId: string;
-	rawProperties: Record<string, unknown>;
-}) => {
+export const processPersonStubs = async (
+	input: {
+		userId: string;
+		mediaEntityId: string;
+		mediaEntitySchemaSlug: string;
+		rawProperties: Record<string, unknown>;
+	},
+	deps: Pick<
+		MediaWorkerDeps,
+		| "createGlobalEntity"
+		| "getBuiltinEntitySchemaBySlug"
+		| "getBuiltinRelationshipSchemaBySlug"
+		| "getBuiltinSandboxScriptBySlug"
+		| "writeEntityRelationship"
+	> = mediaWorkerDeps,
+) => {
 	const rawPeople = input.rawProperties.people;
 	if (!Array.isArray(rawPeople) || rawPeople.length === 0) {
 		return;
 	}
 
-	const personSchema = await getBuiltinEntitySchemaBySlug("person");
+	const personSchema = await deps.getBuiltinEntitySchemaBySlug("person");
 	if (!personSchema) {
 		return;
 	}
 
-	const [mediaEntityRow] = await db
-		.select({ entitySchemaSlug: entitySchema.slug })
-		.from(entity)
-		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
-		.where(and(eq(entity.id, input.mediaEntityId), isNull(entity.userId)))
-		.limit(1);
-
-	if (!mediaEntityRow) {
-		// Entity was removed after the job was queued; skip silently.
-		return;
-	}
-
-	const personToMediaSlug = normalizeSlug(`person to ${mediaEntityRow.entitySchemaSlug}`);
-	const mediaRelSchema = await getBuiltinRelationshipSchemaBySlug(personToMediaSlug);
+	const personToMediaSlug = normalizeSlug(`person to ${input.mediaEntitySchemaSlug}`);
+	const mediaRelSchema = await deps.getBuiltinRelationshipSchemaBySlug(personToMediaSlug);
 
 	if (!mediaRelSchema) {
 		throw new Error(
-			`No person relationship schema seeded for media type "${mediaEntityRow.entitySchemaSlug}" (slug: "${personToMediaSlug}") — check bootstrap manifests`,
+			`No person relationship schema seeded for media type "${input.mediaEntitySchemaSlug}" (slug: "${personToMediaSlug}") — check bootstrap manifests`,
 		);
 	}
 
@@ -229,13 +229,13 @@ const processPersonStubs = async (input: {
 		const stub = stubResult.data;
 
 		// oxlint-disable-next-line no-await-in-loop
-		const personScript = await getBuiltinSandboxScriptBySlug(stub.scriptSlug);
+		const personScript = await deps.getBuiltinSandboxScriptBySlug(stub.scriptSlug);
 		if (!personScript) {
 			continue;
 		}
 
 		// oxlint-disable-next-line no-await-in-loop
-		const { entity: existingOrCreated, isNew } = await createGlobalEntity({
+		const { entity: existingOrCreated, isNew } = await deps.createGlobalEntity({
 			name: stub.name,
 			externalId: stub.externalId,
 			entitySchemaId: personSchema.id,
@@ -253,13 +253,19 @@ const processPersonStubs = async (input: {
 		}
 
 		// oxlint-disable-next-line no-await-in-loop
-		await upsertEntityRelationship({
+		const personRelResult = await deps.writeEntityRelationship({
 			role: roleSlug,
 			extraProperties,
 			targetEntityId: input.mediaEntityId,
 			sourceEntityId: existingOrCreated.id,
 			relationshipSchemaId: mediaRelSchema.id,
 		});
+		if ("error" in personRelResult) {
+			if (personRelResult.error === "validation") {
+				continue;
+			}
+			throw new Error(`Failed to write person-to-media relationship: ${personRelResult.message}`);
+		}
 
 		if (isNew || !hasImportedEntityDetails(existingOrCreated)) {
 			// oxlint-disable-next-line no-await-in-loop
@@ -277,38 +283,38 @@ const processPersonStubs = async (input: {
 	}
 };
 
-const processCompanyStubs = async (input: {
-	userId: string;
-	mediaEntityId: string;
-	rawProperties: Record<string, unknown>;
-}) => {
+export const processCompanyStubs = async (
+	input: {
+		userId: string;
+		mediaEntityId: string;
+		mediaEntitySchemaSlug: string;
+		rawProperties: Record<string, unknown>;
+	},
+	deps: Pick<
+		MediaWorkerDeps,
+		| "createGlobalEntity"
+		| "getBuiltinEntitySchemaBySlug"
+		| "getBuiltinRelationshipSchemaBySlug"
+		| "getBuiltinSandboxScriptBySlug"
+		| "writeEntityRelationship"
+	> = mediaWorkerDeps,
+) => {
 	const rawCompanies = input.rawProperties.companies;
 	if (!Array.isArray(rawCompanies) || rawCompanies.length === 0) {
 		return;
 	}
 
-	const companySchema = await getBuiltinEntitySchemaBySlug("company");
+	const companySchema = await deps.getBuiltinEntitySchemaBySlug("company");
 	if (!companySchema) {
 		return;
 	}
 
-	const [mediaEntityRow] = await db
-		.select({ entitySchemaSlug: entitySchema.slug })
-		.from(entity)
-		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
-		.where(and(eq(entity.id, input.mediaEntityId), isNull(entity.userId)))
-		.limit(1);
-
-	if (!mediaEntityRow) {
-		return;
-	}
-
-	const companyToMediaSlug = normalizeSlug(`company to ${mediaEntityRow.entitySchemaSlug}`);
-	const mediaRelSchema = await getBuiltinRelationshipSchemaBySlug(companyToMediaSlug);
+	const companyToMediaSlug = normalizeSlug(`company to ${input.mediaEntitySchemaSlug}`);
+	const mediaRelSchema = await deps.getBuiltinRelationshipSchemaBySlug(companyToMediaSlug);
 
 	if (!mediaRelSchema) {
 		throw new Error(
-			`No company relationship schema seeded for media type "${mediaEntityRow.entitySchemaSlug}" (slug: "${companyToMediaSlug}") — check bootstrap manifests`,
+			`No company relationship schema seeded for media type "${input.mediaEntitySchemaSlug}" (slug: "${companyToMediaSlug}") — check bootstrap manifests`,
 		);
 	}
 
@@ -321,13 +327,13 @@ const processCompanyStubs = async (input: {
 		const stub = stubResult.data;
 
 		// oxlint-disable-next-line no-await-in-loop
-		const companyScript = await getBuiltinSandboxScriptBySlug(stub.scriptSlug);
+		const companyScript = await deps.getBuiltinSandboxScriptBySlug(stub.scriptSlug);
 		if (!companyScript) {
 			continue;
 		}
 
 		// oxlint-disable-next-line no-await-in-loop
-		const { entity: existingOrCreated, isNew } = await createGlobalEntity({
+		const { entity: existingOrCreated, isNew } = await deps.createGlobalEntity({
 			name: stub.name,
 			externalId: stub.externalId,
 			entitySchemaId: companySchema.id,
@@ -342,13 +348,19 @@ const processCompanyStubs = async (input: {
 		}
 
 		// oxlint-disable-next-line no-await-in-loop
-		await upsertEntityRelationship({
+		const companyRelResult = await deps.writeEntityRelationship({
 			role: roleSlug,
 			extraProperties,
 			targetEntityId: input.mediaEntityId,
 			sourceEntityId: existingOrCreated.id,
 			relationshipSchemaId: mediaRelSchema.id,
 		});
+		if ("error" in companyRelResult) {
+			if (companyRelResult.error === "validation") {
+				continue;
+			}
+			throw new Error(`Failed to write company-to-media relationship: ${companyRelResult.message}`);
+		}
 
 		if (isNew || !hasImportedEntityDetails(existingOrCreated)) {
 			// oxlint-disable-next-line no-await-in-loop
@@ -366,41 +378,39 @@ const processCompanyStubs = async (input: {
 	}
 };
 
-const processGroupStubs = async (input: {
-	userId: string;
-	mediaEntityId: string;
-	rawProperties: Record<string, unknown>;
-}) => {
+export const processGroupStubs = async (
+	input: {
+		userId: string;
+		mediaEntityId: string;
+		mediaEntitySchemaSlug: string;
+		rawProperties: Record<string, unknown>;
+	},
+	deps: Pick<
+		MediaWorkerDeps,
+		| "createGlobalEntity"
+		| "getBuiltinEntitySchemaBySlug"
+		| "getBuiltinRelationshipSchemaBySlug"
+		| "getBuiltinSandboxScriptBySlug"
+		| "writeEntityRelationship"
+	> = mediaWorkerDeps,
+) => {
 	const rawGroups = input.rawProperties.groups;
 	if (!Array.isArray(rawGroups) || rawGroups.length === 0) {
 		return;
 	}
 
-	const [mediaEntityRow] = await db
-		.select({ entitySchemaSlug: entitySchema.slug })
-		.from(entity)
-		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
-		.where(and(eq(entity.id, input.mediaEntityId), isNull(entity.userId)))
-		.limit(1);
-
-	if (!mediaEntityRow) {
-		return;
-	}
-
-	const groupSchemaSlug = normalizeSlug(`${mediaEntityRow.entitySchemaSlug}-group`);
-	const groupSchema = await getBuiltinEntitySchemaBySlug(groupSchemaSlug);
+	const groupSchemaSlug = normalizeSlug(`${input.mediaEntitySchemaSlug}-group`);
+	const groupSchema = await deps.getBuiltinEntitySchemaBySlug(groupSchemaSlug);
 	if (!groupSchema) {
 		return;
 	}
 
-	const groupToMediaSlug = normalizeSlug(
-		`${groupSchemaSlug} to ${mediaEntityRow.entitySchemaSlug}`,
-	);
-	const mediaRelSchema = await getBuiltinRelationshipSchemaBySlug(groupToMediaSlug);
+	const groupToMediaSlug = normalizeSlug(`${groupSchemaSlug} to ${input.mediaEntitySchemaSlug}`);
+	const mediaRelSchema = await deps.getBuiltinRelationshipSchemaBySlug(groupToMediaSlug);
 
 	if (!mediaRelSchema) {
 		throw new Error(
-			`No group relationship schema seeded for media type "${mediaEntityRow.entitySchemaSlug}" (slug: "${groupToMediaSlug}") — check bootstrap manifests`,
+			`No group relationship schema seeded for media type "${input.mediaEntitySchemaSlug}" (slug: "${groupToMediaSlug}") — check bootstrap manifests`,
 		);
 	}
 
@@ -413,13 +423,13 @@ const processGroupStubs = async (input: {
 		const stub = stubResult.data;
 
 		// oxlint-disable-next-line no-await-in-loop
-		const groupScript = await getBuiltinSandboxScriptBySlug(stub.scriptSlug);
+		const groupScript = await deps.getBuiltinSandboxScriptBySlug(stub.scriptSlug);
 		if (!groupScript) {
 			continue;
 		}
 
 		// oxlint-disable-next-line no-await-in-loop
-		const { entity: existingOrCreated, isNew } = await createGlobalEntity({
+		const { entity: existingOrCreated, isNew } = await deps.createGlobalEntity({
 			name: stub.name,
 			externalId: stub.externalId,
 			entitySchemaId: groupSchema.id,
@@ -427,13 +437,19 @@ const processGroupStubs = async (input: {
 		});
 
 		// oxlint-disable-next-line no-await-in-loop
-		await upsertEntityRelationship({
+		const groupRelResult = await deps.writeEntityRelationship({
 			role: "member",
 			extraProperties: {},
 			targetEntityId: input.mediaEntityId,
 			sourceEntityId: existingOrCreated.id,
 			relationshipSchemaId: mediaRelSchema.id,
 		});
+		if ("error" in groupRelResult) {
+			if (groupRelResult.error === "validation") {
+				continue;
+			}
+			throw new Error(`Failed to write group-to-media relationship: ${groupRelResult.message}`);
+		}
 
 		if (isNew || !hasImportedEntityDetails(existingOrCreated)) {
 			// oxlint-disable-next-line no-await-in-loop
@@ -567,23 +583,35 @@ export const processMediaImportJob = async (
 
 	await upsertMediaEntityInLibrary({ userId, mediaEntityId: mediaEntity.id }, deps);
 
-	await processPersonStubs({
-		userId,
-		mediaEntityId: mediaEntity.id,
-		rawProperties: details.properties,
-	});
+	await processPersonStubs(
+		{
+			userId,
+			mediaEntityId: mediaEntity.id,
+			mediaEntitySchemaSlug: scope.slug,
+			rawProperties: details.properties,
+		},
+		deps,
+	);
 
-	await processCompanyStubs({
-		userId,
-		mediaEntityId: mediaEntity.id,
-		rawProperties: details.properties,
-	});
+	await processCompanyStubs(
+		{
+			userId,
+			mediaEntityId: mediaEntity.id,
+			mediaEntitySchemaSlug: scope.slug,
+			rawProperties: details.properties,
+		},
+		deps,
+	);
 
-	await processGroupStubs({
-		userId,
-		mediaEntityId: mediaEntity.id,
-		rawProperties: details.properties,
-	});
+	await processGroupStubs(
+		{
+			userId,
+			mediaEntityId: mediaEntity.id,
+			mediaEntitySchemaSlug: scope.slug,
+			rawProperties: details.properties,
+		},
+		deps,
+	);
 
 	return updatedEntity;
 };
