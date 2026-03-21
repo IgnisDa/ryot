@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { FacetMode } from "~/lib/db/schema";
 import {
 	buildAuthenticationFacetEntitySchemaLinks,
 	buildAuthenticationFacetInputs,
@@ -29,7 +28,6 @@ describe("authentication bootstrap helpers", () => {
 						slug: "media",
 						name: "Media",
 						accentColor: "#5B7FFF",
-						mode: FacetMode.curated,
 					},
 				],
 			}),
@@ -40,7 +38,6 @@ describe("authentication bootstrap helpers", () => {
 				name: "Media",
 				accentColor: "#5B7FFF",
 				description: undefined,
-				mode: FacetMode.curated,
 			},
 		]);
 	});
