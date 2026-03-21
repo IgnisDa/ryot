@@ -1,12 +1,4 @@
-import {
-	Button,
-	ColorInput,
-	Group,
-	Modal,
-	Select,
-	Stack,
-	Text,
-} from "@mantine/core";
+import { Button, Group, Modal, Stack, Text } from "@mantine/core";
 import type { CreateEntitySchemaPayload } from "#/features/entity-schemas/form";
 import { EntitySchemaPropertiesBuilder } from "#/features/entity-schemas/properties-builder";
 import { useCreateEntitySchemaForm } from "#/features/entity-schemas/use-form";
@@ -78,18 +70,15 @@ export function EntitySchemaCreateModal(props: EntitySchemaCreateModalProps) {
 						<Group grow align="flex-start" wrap="nowrap">
 							<entitySchemaForm.AppField name="icon">
 								{(field) => (
-									<Select
+									<field.SelectField
 										required
 										searchable
 										limit={100}
 										label="Icon"
 										placeholder="Select icon"
-										onBlur={field.handleBlur}
 										disabled={props.isLoading}
 										data={trackerIconSelectData}
-										value={field.state.value || null}
 										leftSection={<TrackerIcon icon={field.state.value} />}
-										onChange={(value) => field.handleChange(value ?? "")}
 										renderOption={({ option }) => (
 											<Group gap={8} wrap="nowrap">
 												<TrackerIcon icon={option.value} />
@@ -102,13 +91,11 @@ export function EntitySchemaCreateModal(props: EntitySchemaCreateModalProps) {
 
 							<entitySchemaForm.AppField name="accentColor">
 								{(field) => (
-									<ColorInput
+									<field.ColorInputField
 										required
 										label="Accent Color"
-										value={field.state.value}
 										disabled={props.isLoading}
 										placeholder="Choose color"
-										onChange={(value) => field.handleChange(value)}
 									/>
 								)}
 							</entitySchemaForm.AppField>
