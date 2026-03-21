@@ -18047,18 +18047,18 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "#00000000",
+                                              "fill": "$--primary",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "book-open",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "hPDnR": {
                                                   "content": "All Books",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "h75uN": {
-                                                  "enabled": true,
+                                                  "enabled": false,
                                                   "content": "96",
                                                   "fill": "$--text-subtle"
                                                 }
@@ -18654,15 +18654,15 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "$--primary",
+                                              "fill": "#00000000",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "clock",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
                                                   "content": "Backlog",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
                                                   "enabled": false
@@ -18930,7 +18930,18 @@
                                   "type": "ref",
                                   "ref": "D1nlP",
                                   "name": "Page Header",
-                                  "width": "fill_container"
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "HWFg9": {
+                                      "content": "All Books"
+                                    },
+                                    "o0JEzz": {
+                                      "content": "10 out of 128"
+                                    },
+                                    "B9K5Re/SGNqQ": {
+                                      "content": "Search All Books"
+                                    }
+                                  }
                                 },
                                 {
                                   "type": "frame",
@@ -19796,18 +19807,18 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "#00000000",
+                                              "fill": "$--primary",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "book-open",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "hPDnR": {
                                                   "content": "All Books",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "h75uN": {
-                                                  "enabled": true,
+                                                  "enabled": false,
                                                   "content": "96",
                                                   "fill": "$--text-subtle"
                                                 }
@@ -20403,15 +20414,15 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "$--primary",
+                                              "fill": "#00000000",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "clock",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
                                                   "content": "Backlog",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
                                                   "enabled": false
@@ -20681,6 +20692,15 @@
                                   "name": "Page Header",
                                   "width": "fill_container",
                                   "descendants": {
+                                    "HWFg9": {
+                                      "content": "All Books"
+                                    },
+                                    "o0JEzz": {
+                                      "content": "10 out of 128"
+                                    },
+                                    "B9K5Re/SGNqQ": {
+                                      "content": "Search All Books"
+                                    },
                                     "e3dIs1/Ader7": {
                                       "fill": "#00000000"
                                     },
@@ -21456,18 +21476,18 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "#00000000",
+                                              "fill": "$--primary",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "book-open",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "hPDnR": {
                                                   "content": "All Books",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "h75uN": {
-                                                  "enabled": true,
+                                                  "enabled": false,
                                                   "content": "96",
                                                   "fill": "$--text-subtle"
                                                 }
@@ -22063,15 +22083,15 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "$--primary",
+                                              "fill": "#00000000",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "clock",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
                                                   "content": "Backlog",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
                                                   "enabled": false
@@ -22341,6 +22361,15 @@
                                   "name": "Page Header",
                                   "width": "fill_container",
                                   "descendants": {
+                                    "HWFg9": {
+                                      "content": "All Books"
+                                    },
+                                    "o0JEzz": {
+                                      "content": "10 out of 128"
+                                    },
+                                    "B9K5Re/SGNqQ": {
+                                      "content": "Search All Books"
+                                    },
                                     "e3dIs1/Ader7": {
                                       "fill": "#00000000"
                                     },
@@ -23215,18 +23244,18 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "#00000000",
+                                              "fill": "$--primary",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "book-open",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "hPDnR": {
                                                   "content": "All Books",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "h75uN": {
-                                                  "enabled": true,
+                                                  "enabled": false,
                                                   "content": "96",
                                                   "fill": "$--text-subtle"
                                                 }
@@ -23822,15 +23851,15 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "$--primary",
+                                              "fill": "#00000000",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "clock",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
                                                   "content": "Backlog",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
                                                   "enabled": false
@@ -24100,8 +24129,11 @@
                                   "name": "Search Active Header",
                                   "width": "fill_container",
                                   "descendants": {
+                                    "HWFg9": {
+                                      "content": "All Books"
+                                    },
                                     "o0JEzz": {
-                                      "content": "4 results in Backlog",
+                                      "content": "4 out of 128",
                                       "fill": "$--accent-text"
                                     },
                                     "B9K5Re": {
@@ -24648,18 +24680,18 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "#00000000",
+                                              "fill": "$--primary",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "book-open",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "hPDnR": {
                                                   "content": "All Books",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "h75uN": {
-                                                  "enabled": true,
+                                                  "enabled": false,
                                                   "content": "96",
                                                   "fill": "$--text-subtle"
                                                 }
@@ -25255,15 +25287,15 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "$--primary",
+                                              "fill": "#00000000",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "clock",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
                                                   "content": "Backlog",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
                                                   "enabled": false
@@ -25533,8 +25565,11 @@
                                   "name": "Search Empty Header",
                                   "width": "fill_container",
                                   "descendants": {
+                                    "HWFg9": {
+                                      "content": "All Books"
+                                    },
                                     "o0JEzz": {
-                                      "content": "No results in Backlog",
+                                      "content": "0 out of 128",
                                       "fill": "$--text-muted"
                                     },
                                     "B9K5Re": {
@@ -25654,7 +25689,7 @@
                                           "id": "AhvYs",
                                           "name": "No Matches Title",
                                           "fill": "$--text-primary",
-                                          "content": "No matches in Backlog",
+                                          "content": "No matches in All Books",
                                           "fontFamily": "$--font-display",
                                           "fontSize": 20,
                                           "fontWeight": "normal"
@@ -26086,18 +26121,18 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "#00000000",
+                                              "fill": "$--primary",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "book-open",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "hPDnR": {
                                                   "content": "All Books",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "h75uN": {
-                                                  "enabled": true,
+                                                  "enabled": false,
                                                   "content": "96",
                                                   "fill": "$--text-subtle"
                                                 }
@@ -26693,15 +26728,15 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "$--primary",
+                                              "fill": "#00000000",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "clock",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
                                                   "content": "Backlog",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
                                                   "enabled": false
@@ -26971,6 +27006,15 @@
                                   "name": "Filters Open Header",
                                   "width": "fill_container",
                                   "descendants": {
+                                    "HWFg9": {
+                                      "content": "All Books"
+                                    },
+                                    "o0JEzz": {
+                                      "content": "10 out of 128"
+                                    },
+                                    "B9K5Re/SGNqQ": {
+                                      "content": "Search All Books"
+                                    },
                                     "s6C8y": {
                                       "fill": "$--accent-soft",
                                       "stroke": "$--accent-text",
@@ -28127,18 +28171,18 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "#00000000",
+                                              "fill": "$--primary",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "book-open",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "hPDnR": {
                                                   "content": "All Books",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "h75uN": {
-                                                  "enabled": true,
+                                                  "enabled": false,
                                                   "content": "96",
                                                   "fill": "$--text-subtle"
                                                 }
@@ -28734,15 +28778,15 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "$--primary",
+                                              "fill": "#00000000",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "clock",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
                                                   "content": "Backlog",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
                                                   "enabled": false
@@ -29012,6 +29056,15 @@
                                   "name": "Saved View Header",
                                   "width": "fill_container",
                                   "descendants": {
+                                    "HWFg9": {
+                                      "content": "All Books"
+                                    },
+                                    "o0JEzz": {
+                                      "content": "10 out of 128"
+                                    },
+                                    "B9K5Re/SGNqQ": {
+                                      "content": "Search All Books"
+                                    },
                                     "s6C8y/kfdze": {
                                       "content": "3"
                                     }
@@ -30176,18 +30229,18 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "#00000000",
+                                              "fill": "$--primary",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "book-open",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "hPDnR": {
                                                   "content": "All Books",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "h75uN": {
-                                                  "enabled": true,
+                                                  "enabled": false,
                                                   "content": "96",
                                                   "fill": "$--text-subtle"
                                                 }
@@ -30783,15 +30836,15 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "$--primary",
+                                              "fill": "#00000000",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "clock",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
                                                   "content": "Backlog",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
                                                   "enabled": false
@@ -31061,6 +31114,15 @@
                                   "name": "Saved View Header",
                                   "width": "fill_container",
                                   "descendants": {
+                                    "HWFg9": {
+                                      "content": "All Books"
+                                    },
+                                    "o0JEzz": {
+                                      "content": "10 out of 128"
+                                    },
+                                    "B9K5Re/SGNqQ": {
+                                      "content": "Search All Books"
+                                    },
                                     "s6C8y/kfdze": {
                                       "content": "3"
                                     }
@@ -31844,18 +31906,18 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "#00000000",
+                                              "fill": "$--primary",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "book-open",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "hPDnR": {
                                                   "content": "All Books",
-                                                  "fill": "$--text-muted"
+                                                  "fill": "$--primary-foreground"
                                                 },
                                                 "h75uN": {
-                                                  "enabled": true,
+                                                  "enabled": false,
                                                   "content": "96",
                                                   "fill": "$--text-subtle"
                                                 }
@@ -32451,15 +32513,15 @@
                                                 5,
                                                 10
                                               ],
-                                              "fill": "$--primary",
+                                              "fill": "#00000000",
                                               "descendants": {
                                                 "wIHez": {
                                                   "icon": "clock",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
                                                   "content": "Backlog",
-                                                  "fill": "$--primary-foreground"
+                                                  "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
                                                   "enabled": false
@@ -32729,11 +32791,17 @@
                                   "name": "Saved View Header",
                                   "width": "fill_container",
                                   "descendants": {
+                                    "HWFg9": {
+                                      "content": "All Books"
+                                    },
                                     "o0JEzz": {
-                                      "content": "Books · no items yet"
+                                      "content": "0 out of 128"
                                     },
                                     "B9K5Re": {
                                       "opacity": 0.4
+                                    },
+                                    "B9K5Re/SGNqQ": {
+                                      "content": "Search All Books"
                                     },
                                     "e3dIs1": {
                                       "opacity": 0.4
@@ -32767,7 +32835,7 @@
                                       "type": "text",
                                       "id": "slDcn",
                                       "fill": "$--text-primary",
-                                      "content": "Backlog is empty",
+                                      "content": "All Books is empty",
                                       "fontFamily": "$--font-display",
                                       "fontSize": 22,
                                       "fontWeight": "normal"
