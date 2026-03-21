@@ -18,13 +18,13 @@ host-function stack over to Effect before adding new capabilities:
 - Vendor the host-pinned `effect` version as an approved sandbox dependency through
   `packages/sandbox-sdk` and the import map / `PackageCacheManager` mechanism in
   `sandbox-runtime/dependencies.ts`. Effect is runtime-provided and never bundled per script.
-- Replace the sandbox SDK's Zod schemas with Effect Schema for manifests, driver input/output,
+- Replace the sandbox SDK's Zod schemas with Effect Schema for manifests, entrypoint input/output,
   and host-function wire contracts; update compiler and runner decoding and remove Zod from the
   approved sandbox dependency surface. Declarative `AppSchema` property metadata is unchanged.
 - Make every script-facing host function return an `Effect` with a typed error. Remove the raw
   Promise host API rather than retaining wrappers or aliases.
-- Make generic, provider, and automation driver `run` functions return `Effect` values. Update
-  the Deno runner to execute drivers through the vendored Effect runtime.
+- Make generic, provider, and automation entrypoint `run` functions return `Effect` values. Update
+  the Deno runner to execute entrypoints through the vendored Effect runtime.
 - Make backend host-function implementations, `bridge-adapter.ts` validation/dispatch, and the
   typed bridge handler Effect-native. Promise-based platform operations such as loopback `fetch`
   stay private inside transport adapters and never appear in SDK or backend host contracts.
@@ -39,11 +39,11 @@ only on the Effect-native contract established here.
 
 - [x] `effect` is available inside the sandbox as one host-pinned approved dependency, resolved
       through the import map and never bundled per script
-- [x] Sandbox manifests, driver input/output, and host-function wire contracts use Effect Schema;
+- [x] Sandbox manifests, entrypoint input/output, and host-function wire contracts use Effect Schema;
       no Zod sandbox SDK or approved runtime dependency remains
 - [x] All script-facing host functions return typed `Effect` values; no raw Promise authoring API,
       wrapper, or alias remains
-- [x] Generic, provider, and automation drivers return `Effect`; the Deno runner executes them
+- [x] Generic, provider, and automation entrypoints return `Effect`; the Deno runner executes them
       through the vendored runtime
 - [x] Backend host implementations and typed bridge validation/dispatch are Effect-native;
       Promise use is confined to private platform transport adapters

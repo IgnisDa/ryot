@@ -151,8 +151,6 @@ const decodeSandboxRunnerResponse = Schema.decodeUnknownSync(
 	Schema.fromJsonString(SandboxRunnerResponse),
 );
 
-const makeInvalidResponse = () => new SandboxRunError({ message: invalidResponseMessage });
-
 export class SandboxService extends Context.Service<SandboxService>()("SandboxService", {
 	make: Effect.gen(function* () {
 		const path = yield* Path.Path;
@@ -348,7 +346,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 
 					const raw = yield* Effect.try({
 						try: () => decodeSandboxRunnerResponse(responseLine),
-						catch: makeInvalidResponse,
+						catch: () => new SandboxRunError({ message: invalidResponseMessage }),
 					});
 
 					// Deno offers no preventive filesystem quota, so the ceiling is measured once the run is

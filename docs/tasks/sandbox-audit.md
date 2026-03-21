@@ -211,20 +211,20 @@ The envelope already carries `requests` as an **array**. Before P3, the kernel r
 
 Confirmed by grep, non-test usage only:
 
-| Item                                          | Location                                   | Note                                                                                                                                       |
-| --------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| - [ ] `scriptIsBuiltin`                       | shared.ts:21, written durable-queues.ts:99 | **Never read** outside tests. Costs a DB query per execution (`repository.isPluginScript`) whose result is discarded.                      |
-| - [x] `RunSandboxWorkflowPayload`             | sandbox-submission-workflow.ts             | Removed redundant alias; `SandboxSubmissionWorkflow` uses `SandboxExecutionPayload` directly.                                              |
-| - [ ] runner `for(;;)` + console save/restore | runner-source.sandbox.ts:509-602           | Processes are strictly single-use (pool invalidated service.ts:340-343; dedicated killed by scope). Multi-payload handling is unreachable. |
-| - [ ] `Object.hasOwn` + null check            | runtime.ts:353-360                         | Two guards for one condition.                                                                                                              |
-| - [x] `parseSandboxSession`                   | runtime.ts:100                             | Wrapper that only calls `decodeSandboxSession`. Moot if P1 lands.                                                                          |
-| - [ ] `killProcess`                           | runtime.ts:173                             | Wrapper over `killProcessHandle`.                                                                                                          |
-| - [ ] `hashBytes`                             | compiled-modules.ts:12                     | Alias for `sha256Hex`.                                                                                                                     |
-| - [ ] `SandboxScratchManifest`                | filesystem-grants.ts:106                   | Alias for `sandboxScratchManifestSchema`.                                                                                                  |
-| - [ ] `makeInvalidResponse`                   | service.ts:210                             | Single call site.                                                                                                                          |
-| - [ ] `providerId` + `cacheNamespace`         | shared.ts:19,25                            | `cacheNamespace = providerId ?? scriptId` (durable-queues.ts:108). Both shipped on the input; derive one.                                  |
+| Item                                          | Location                           | Note                                                                                                                              |
+| --------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| - [x] `scriptIsBuiltin`                       | shared.ts:17, durable-queues.ts:89 | Removed unused execution input and per-execution `repository.isPluginScript` query; resolution still uses that repository method. |
+| - [x] `RunSandboxWorkflowPayload`             | sandbox-submission-workflow.ts     | Removed redundant alias; `SandboxSubmissionWorkflow` uses `SandboxExecutionPayload` directly.                                     |
+| - [x] runner `for(;;)` + console save/restore | runner-source.sandbox.ts:503-583   | Runner now consumes one request and exits; integration harness no longer sends multiple payloads to one process.                  |
+| - [x] `Object.hasOwn` + null check            | runtime.ts:377-387                 | Explicit own-property and value guards reject prototype names and narrow indexed host-function access.                            |
+| - [x] `parseSandboxSession`                   | runtime.ts:100                     | Wrapper that only calls `decodeSandboxSession`. Moot if P1 lands.                                                                 |
+| - [x] `killProcess`                           | runtime.ts:211                     | Inlined sole wrapper call into `invalidateProcess`.                                                                               |
+| - [x] `hashBytes`                             | compiled-modules.ts:12             | Replaced alias with direct `sha256Hex` calls.                                                                                     |
+| - [x] `SandboxScratchManifest`                | filesystem-grants.ts:151           | Decode directly from imported `sandboxScratchManifestSchema`.                                                                     |
+| - [x] `makeInvalidResponse`                   | service.ts:154                     | Inlined sole response-error construction at decode failure.                                                                       |
+| - [x] `providerId` + `cacheNamespace`         | shared.ts:17,28                    | Removed transport field; cache host functions derive `providerId ?? scriptId`; `providerId` remains for capability narrowing.     |
 
-- [ ] Remove confirmed dead code and redundant fields listed above.
+- [x] Remove confirmed dead code and redundant fields listed above.
 
 ## 7. Duplication
 
