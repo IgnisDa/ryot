@@ -10,6 +10,9 @@ if (!API_KEY) {
 }
 
 type Client = ReturnType<typeof createClient<paths>>;
+type CreateSavedViewBody = NonNullable<
+	paths["/saved-views"]["post"]["requestBody"]
+>["content"]["application/json"];
 
 type PropertiesSchema = Record<
 	string,
@@ -184,8 +187,10 @@ async function createSavedView(
 			icon,
 			accentColor,
 			trackerId,
-			queryDefinition: queryDefinition as any,
-			displayConfiguration: displayConfiguration as any,
+			queryDefinition:
+				queryDefinition as CreateSavedViewBody["queryDefinition"],
+			displayConfiguration:
+				displayConfiguration as CreateSavedViewBody["displayConfiguration"],
 		},
 	});
 
@@ -781,7 +786,10 @@ async function seedSavedViews(
 					subtitleProperty: ["region"],
 				},
 				table: {
-					columns: [{ property: ["@name"] }, { property: ["region"] }],
+					columns: [
+						{ label: "Name", property: ["@name"] },
+						{ label: "Region", property: ["region"] },
+					],
 				},
 			},
 			whiskeyTrackerId,
@@ -1882,7 +1890,10 @@ async function seedSavedViews(
 					subtitleProperty: null,
 				},
 				table: {
-					columns: [{ property: ["@name"] }, { property: ["@createdAt"] }],
+					columns: [
+						{ label: "Name", property: ["@name"] },
+						{ label: "Created", property: ["@createdAt"] },
+					],
 				},
 			},
 		),
@@ -1919,7 +1930,7 @@ async function seedSavedViews(
 					subtitleProperty: null,
 				},
 				table: {
-					columns: [{ property: ["@name"] }],
+					columns: [{ label: "Name", property: ["@name"] }],
 				},
 			},
 		),

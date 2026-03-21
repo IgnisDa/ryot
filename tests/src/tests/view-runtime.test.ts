@@ -33,13 +33,20 @@ describe("View runtime E2E", () => {
 			kind: "remote",
 			url: "https://example.com/alpha-phone.png",
 		});
-		expect(firstItem?.resolvedProperties).toEqual({
-			badgeProperty: "phone",
-			subtitleProperty: 2018,
-			titleProperty: "Alpha Phone",
+		expect(firstItem && "resolvedProperties" in firstItem).toBe(true);
+		if (!firstItem || !("resolvedProperties" in firstItem)) {
+			throw new Error("Expected grid runtime item");
+		}
+		expect(firstItem.resolvedProperties).toEqual({
+			badgeProperty: { kind: "text", value: "phone" },
+			subtitleProperty: { kind: "number", value: 2018 },
+			titleProperty: { kind: "text", value: "Alpha Phone" },
 			imageProperty: {
-				kind: "remote",
-				url: "https://example.com/alpha-phone.png",
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://example.com/alpha-phone.png",
+				},
 			},
 		});
 		expect(result?.meta.pagination).toEqual({

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ImageSchema } from "~/lib/db/schema";
-import { dataSchema, unknownObjectSchema } from "~/lib/openapi";
+import { dataSchema } from "~/lib/openapi";
 import {
 	filterExpressionSchema,
 	gridConfigSchema,
@@ -47,7 +47,29 @@ const executeViewRuntimeTableBody = z.object({
 		.min(1, "At least one entity schema slug is required"),
 });
 
-const viewRuntimeItemSchema = z.object({
+export const resolvedDisplayValueKindSchema = z.enum([
+	"json",
+	"null",
+	"date",
+	"text",
+	"image",
+	"number",
+	"boolean",
+]);
+
+export const resolvedDisplayValueSchema = z.object({
+	value: z.unknown().nullable(),
+	kind: resolvedDisplayValueKindSchema,
+});
+
+const semanticResolvedPropertiesSchema = z.object({
+	badgeProperty: resolvedDisplayValueSchema,
+	imageProperty: resolvedDisplayValueSchema,
+	titleProperty: resolvedDisplayValueSchema,
+	subtitleProperty: resolvedDisplayValueSchema,
+});
+
+const viewRuntimeBaseItemSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	createdAt: z.date(),
@@ -55,7 +77,20 @@ const viewRuntimeItemSchema = z.object({
 	entitySchemaId: z.string(),
 	entitySchemaSlug: z.string(),
 	image: ImageSchema.nullable(),
-	resolvedProperties: unknownObjectSchema,
+});
+
+const viewRuntimeSemanticItemSchema = viewRuntimeBaseItemSchema.extend({
+	resolvedProperties: semanticResolvedPropertiesSchema,
+});
+
+const viewRuntimeTableCellSchema = z.object({
+	key: z.string(),
+	value: z.unknown().nullable(),
+	kind: resolvedDisplayValueKindSchema,
+});
+
+const viewRuntimeTableItemSchema = viewRuntimeBaseItemSchema.extend({
+	cells: z.array(viewRuntimeTableCellSchema),
 });
 
 const viewRuntimePaginationSchema = z.object({
@@ -67,6 +102,10 @@ const viewRuntimePaginationSchema = z.object({
 	totalPages: z.number().int(),
 });
 
+const viewRuntimeTableMetaSchema = z.object({
+	columns: z.array(z.object({ key: z.string(), label: z.string() })),
+});
+
 export const executeViewRuntimeBody = z.discriminatedUnion("layout", [
 	executeViewRuntimeGridBody,
 	executeViewRuntimeListBody,
@@ -75,12 +114,18 @@ export const executeViewRuntimeBody = z.discriminatedUnion("layout", [
 
 export const executeViewRuntimeResponseSchema = dataSchema(
 	z.object({
-		items: z.array(viewRuntimeItemSchema),
-		meta: z.object({ pagination: viewRuntimePaginationSchema }),
+		items: z.array(
+			z.union([viewRuntimeSemanticItemSchema, viewRuntimeTableItemSchema]),
+		),
+		meta: z.object({
+			pagination: viewRuntimePaginationSchema,
+			table: viewRuntimeTableMetaSchema.optional(),
+		}),
 	}),
 );
 
 export type ViewRuntimeRequest = z.infer<typeof executeViewRuntimeBody>;
+export type ResolvedDisplayValue = z.infer<typeof resolvedDisplayValueSchema>;
 export type ViewRuntimeResponse = z.infer<
 	typeof executeViewRuntimeResponseSchema
 >["data"];

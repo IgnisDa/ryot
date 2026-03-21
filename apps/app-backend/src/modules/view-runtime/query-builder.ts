@@ -2,7 +2,10 @@ import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { entity, entitySchema, type ImageSchemaType } from "~/lib/db/schema";
 import type { EntitySchemaPropertiesShape } from "../entity-schemas/service";
-import { buildResolvedPropertiesExpression } from "./display-builder";
+import {
+	buildResolvedPropertiesExpression,
+	buildTableCellsExpression,
+} from "./display-builder";
 import { ViewRuntimeNotFoundError, ViewRuntimeValidationError } from "./errors";
 import { buildFilterWhereClause } from "./filter-builder";
 import type { ViewRuntimeSchemaLike } from "./runtime-reference";
@@ -23,10 +26,16 @@ type QueryRow = {
 	image: ImageSchemaType | null;
 	entity_schema_id: string | null;
 	entity_schema_slug: string | null;
-	resolved_properties: Record<string, unknown> | null;
+	cells: ViewRuntimeTableItem["cells"] | null;
+	resolved_properties: ViewRuntimeSemanticItem["resolvedProperties"] | null;
 };
 
 type ViewRuntimeItem = ViewRuntimeResponse["items"][number];
+type ViewRuntimeTableItem = Extract<ViewRuntimeItem, { cells: unknown }>;
+type ViewRuntimeSemanticItem = Extract<
+	ViewRuntimeItem,
+	{ resolvedProperties: unknown }
+>;
 
 type PaginationInput = {
 	page: number;
@@ -140,20 +149,31 @@ export const calculatePagination = (
 	};
 };
 
-export const mapQueryRowToItem = (row: QueryRow): ViewRuntimeItem | null => {
+const buildTableMeta = (
+	request: Extract<ViewRuntimeRequest, { layout: "table" }>,
+): NonNullable<ViewRuntimeResponse["meta"]["table"]> => ({
+	columns: request.displayConfiguration.columns.map((column, index) => ({
+		label: column.label,
+		key: `column_${index}`,
+	})),
+});
+
+export const mapQueryRowToItem = (
+	row: QueryRow,
+	layout: ViewRuntimeRequest["layout"],
+): ViewRuntimeItem | null => {
 	if (
 		row.id === null ||
 		row.name === null ||
 		row.created_at === null ||
 		row.updated_at === null ||
 		row.entity_schema_id === null ||
-		row.entity_schema_slug === null ||
-		row.resolved_properties === null
+		row.entity_schema_slug === null
 	) {
 		return null;
 	}
 
-	return {
+	const baseItem = {
 		id: row.id,
 		name: row.name,
 		image: row.image,
@@ -161,8 +181,27 @@ export const mapQueryRowToItem = (row: QueryRow): ViewRuntimeItem | null => {
 		updatedAt: row.updated_at,
 		entitySchemaId: row.entity_schema_id,
 		entitySchemaSlug: row.entity_schema_slug,
-		resolvedProperties: row.resolved_properties,
 	};
+
+	if (layout === "table") {
+		if (row.cells === null) {
+			return null;
+		}
+
+		return {
+			...baseItem,
+			cells: row.cells,
+		} satisfies ViewRuntimeTableItem;
+	}
+
+	if (row.resolved_properties === null) {
+		return null;
+	}
+
+	return {
+		...baseItem,
+		resolvedProperties: row.resolved_properties,
+	} satisfies ViewRuntimeSemanticItem;
 };
 
 export const executeViewRuntimeQuery = async (
@@ -195,12 +234,24 @@ export const executeViewRuntimeQuery = async (
 		alias: "filtered_entities",
 	});
 	const offset = (request.pagination.page - 1) * request.pagination.limit;
-	const resolvedProperties = buildResolvedPropertiesExpression({
-		request,
-		schemaMap,
-		defaultSchemaSlug,
-		alias: "paginated_entities",
-	});
+	const resolvedProperties =
+		request.layout === "table"
+			? sql`null::jsonb`
+			: buildResolvedPropertiesExpression({
+					request,
+					schemaMap,
+					defaultSchemaSlug,
+					alias: "paginated_entities",
+				});
+	const cells =
+		request.layout === "table"
+			? buildTableCellsExpression({
+					request,
+					schemaMap,
+					defaultSchemaSlug,
+					alias: "paginated_entities",
+				})
+			: sql`null::jsonb`;
 	const direction = sql.raw(request.sort.direction.toUpperCase());
 
 	const dataResult = await db.execute<QueryRow>(sql`
@@ -235,7 +286,8 @@ export const executeViewRuntimeQuery = async (
 			entity_schema_id,
 			entity_schema_slug,
 			entity_count.total,
-			${resolvedProperties} as resolved_properties
+			${resolvedProperties} as resolved_properties,
+			${cells} as cells
 		from entity_count
 		left join paginated_entities on true
 		order by sort_index
@@ -247,9 +299,15 @@ export const executeViewRuntimeQuery = async (
 		page: request.pagination.page,
 		limit: request.pagination.limit,
 	});
+	const meta: ViewRuntimeResponse["meta"] =
+		request.layout === "table"
+			? { pagination, table: buildTableMeta(request) }
+			: { pagination };
 
 	return {
-		meta: { pagination },
-		items: dataResult.rows.flatMap((row) => mapQueryRowToItem(row) ?? []),
+		meta,
+		items: dataResult.rows.flatMap(
+			(row) => mapQueryRowToItem(row, request.layout) ?? [],
+		),
 	};
 };

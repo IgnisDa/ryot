@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { type AppSavedView, sortSavedViewsByOrder } from "./model";
 
 const displayConfiguration: AppSavedView["displayConfiguration"] = {
-	table: { columns: [{ property: ["@name"] }] },
+	table: { columns: [{ label: "Name", property: ["@name"] }] },
 	grid: {
 		badgeProperty: null,
 		subtitleProperty: null,
