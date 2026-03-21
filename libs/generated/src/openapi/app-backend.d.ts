@@ -1788,7 +1788,10 @@ export interface paths {
                 };
             };
         };
-        /** Update a user-defined saved view by ID */
+        /**
+         * Update a saved view by ID
+         * @description For user-defined views, all fields are applied. For built-in views, only `isDisabled` is applied — all other fields in the request body are ignored.
+         */
         put: {
             parameters: {
                 query?: never;
