@@ -2,15 +2,8 @@ import { Box, Flex } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { MobileSidebarBurger, Sidebar } from "#/components/sidebar/Sidebar";
-import { toSidebarAccount } from "#/components/sidebar/sidebar-account";
-import { toSidebarData } from "#/components/sidebar/sidebar-data";
 import { FacetModal } from "#/features/facets/components/facet-modal";
-import FacetSidebarProvider, {
-	useFacetSidebarActions,
-	useFacetSidebarState,
-} from "#/features/facets/sidebar-context";
-import { useSavedViewsQuery } from "#/features/saved-views/hooks";
-import { useProtectedUser } from "#/hooks/protected-user";
+import FacetSidebarProvider from "#/features/facets/sidebar-context";
 import { useIsMobileScreen } from "#/hooks/screen";
 
 export const Route = createFileRoute("/_protected")({
@@ -48,7 +41,7 @@ function RouteComponent() {
 				)}
 
 				<Flex gap={0} style={{ flex: 1, overflow: "hidden" }}>
-					<ProtectedSidebar
+					<Sidebar
 						onOpenDrawer={openDrawer}
 						onCloseDrawer={closeDrawer}
 						drawerOpened={drawerOpened}
@@ -62,41 +55,5 @@ function RouteComponent() {
 
 			<FacetModal />
 		</FacetSidebarProvider>
-	);
-}
-
-function ProtectedSidebar(props: {
-	drawerOpened: boolean;
-	onOpenDrawer: () => void;
-	onCloseDrawer: () => void;
-}) {
-	const user = useProtectedUser();
-	const state = useFacetSidebarState();
-	const actions = useFacetSidebarActions();
-	const savedViewsQuery = useSavedViewsQuery();
-	const sidebarData = toSidebarData({
-		views: savedViewsQuery.savedViews,
-		facets: state.facets,
-		isCustomizeMode: state.isCustomizeMode,
-	});
-
-	return (
-		<Sidebar
-			views={sidebarData.views}
-			facets={sidebarData.facets}
-			drawerOpened={props.drawerOpened}
-			onOpenDrawer={props.onOpenDrawer}
-			onCloseDrawer={props.onCloseDrawer}
-			onEditFacet={actions.openEditModal}
-			isMutationBusy={state.isMutationBusy}
-			account={toSidebarAccount(user)}
-			isCustomizeMode={state.isCustomizeMode}
-			onCreateFacet={actions.openCreateModal}
-			onToggleCustomizeMode={actions.toggleCustomizeMode}
-			onToggleFacetEnabled={(facetId) => void actions.toggleFacetById(facetId)}
-			onReorderFacets={(facets) =>
-				void actions.reorderFacetIds(facets.map((facet) => facet.id))
-			}
-		/>
 	);
 }
