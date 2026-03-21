@@ -11,7 +11,6 @@ import {
 } from "@ryot/contract/schema/brands";
 import {
 	genericImportChunkSchema,
-	genericImportKernelInputSchema,
 	genericImportWorkflowResultSchema,
 	type GenericImportWriteItem,
 } from "@ryot/sandbox-sdk/imports";
@@ -21,6 +20,7 @@ import { Activity, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
+import { sandboxHarvestPathError } from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
 import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import { slugify } from "#lib/shared/slug";
 import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
@@ -36,11 +36,25 @@ import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
 import { ImportsService, type UpdateImportRunInput } from "./service";
 
 export const ProcessGenericImportChunksPayload = Schema.Struct({
-	...genericImportKernelInputSchema.fields,
 	userId: UserId,
+	runId: ImportRunId,
 	executionId: Schema.String,
-	integrationId: Schema.optional(IntegrationId),
+	chunkFiles: Schema.Array(Schema.String),
 	expectedHarvestDirectoryPrefix: Schema.String,
+	failRun: Schema.optional(Schema.Boolean),
+	integrationId: Schema.optional(IntegrationId),
+	failureCount: Schema.Finite.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	),
+	totalItems: Schema.Finite.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	),
+	writeItemCount: Schema.Finite.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	),
 });
 
 export const ProcessGenericImportChunksWorkflow = Workflow.make(
@@ -63,28 +77,16 @@ const ItemWriteOutcome = Schema.Union([
 	}),
 ]);
 
-const requireHarvestedChunkPath = Effect.fn("imports.requireHarvestedChunkPath")(function* (
+export const requireHarvestedChunkPath = Effect.fn("imports.requireHarvestedChunkPath")(function* (
 	filePath: string,
 	expectedDirectoryPrefix: string,
 ) {
 	const path = yield* Path.Path;
-	const resolvedFile = path.resolve(filePath);
-	const directory = path.dirname(resolvedFile);
-	const executionSegment = path.basename(directory);
-	const expectedRoot = path.dirname(expectedDirectoryPrefix);
-	const expectedExecutionPrefix = path.basename(expectedDirectoryPrefix);
-	const activityStep = executionSegment.slice(expectedExecutionPrefix.length);
-	if (
-		!path.isAbsolute(filePath) ||
-		resolvedFile !== filePath ||
-		path.dirname(directory) !== expectedRoot ||
-		!executionSegment.startsWith(expectedExecutionPrefix) ||
-		!/^(0|[1-9]\d*)$/.test(activityStep)
-	) {
-		return yield* new ImportRunError({
-			message: "Import chunk path is outside the trusted harvest",
-		});
+	const pathError = sandboxHarvestPathError(path, filePath, expectedDirectoryPrefix);
+	if (pathError) {
+		return yield* new ImportRunError({ message: pathError });
 	}
+	const directory = path.dirname(filePath);
 	return { directory, filePath };
 });
 
@@ -99,8 +101,8 @@ const resolveEntityIntents = Effect.fn("imports.resolveGenericEntityIntents")(fu
 ) {
 	const runWithDb = yield* DbRunner;
 	const entities = yield* EntitiesService;
-	const repository = yield* EntitiesRepository;
 	const aliases = new Map<string, EntityId>();
+	const repository = yield* EntitiesRepository;
 
 	for (const intent of item.entities) {
 		if (aliases.has(intent.alias)) {

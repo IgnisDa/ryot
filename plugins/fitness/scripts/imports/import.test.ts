@@ -31,7 +31,7 @@ it("orchestrates the source activity and kernel chunk consumer", async () => {
 							totalItems: 2,
 							failureCount: 1,
 							writeItemCount: 1,
-							chunkFiles: ["/tmp/ryot-sandbox-harvest-run/chunk-0.json"],
+							chunkHandles: ["harvest-handle-0"],
 						}
 					: { failedItems: 1, importedItems: 1, processedItems: 2 },
 			);
@@ -54,7 +54,7 @@ it("orchestrates the source activity and kernel chunk consumer", async () => {
 					runId: "run-1",
 					failureCount: 1,
 					writeItemCount: 1,
-					chunkFiles: ["/tmp/ryot-sandbox-harvest-run/chunk-0.json"],
+					chunkHandles: ["harvest-handle-0"],
 				},
 			},
 		}),

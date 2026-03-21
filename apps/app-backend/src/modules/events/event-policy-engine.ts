@@ -5,10 +5,7 @@ import {
 	AutomationProperties,
 	AutomationRuleMetadata,
 } from "@ryot/contract/modules/automations/schemas";
-import type {
-	SandboxCompletedResult,
-	SandboxExecutionPayload,
-} from "@ryot/contract/modules/sandbox/schemas";
+import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import type { EntitySchemaSlug, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import {
 	AutomationRuleId,
@@ -24,6 +21,7 @@ import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
+import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
 
 import { EventCreateWorkflowError, type EventCreateWorkflowPayload } from "./event-create-workflow";
 import { resolveEventCreateItemScopes } from "./event-creation";
@@ -59,7 +57,7 @@ type PolicyPreparation = {
 
 type ProcessSandboxExecution = (
 	payload: SandboxExecutionPayload,
-) => Effect.Effect<SandboxCompletedResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
+) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 
 export const decodeEventPolicyProperties = (properties: unknown) =>
 	Schema.decodeUnknownEffect(AutomationProperties)(properties).pipe(

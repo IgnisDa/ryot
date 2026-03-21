@@ -1,6 +1,5 @@
 import type { SandboxRunError } from "@ryot/contract/errors";
 import type {
-	SandboxCompletedResult as SandboxCompletedResultValue,
 	SandboxExecutionPayload,
 	SandboxRunResult,
 } from "@ryot/contract/modules/sandbox/schemas";
@@ -8,6 +7,7 @@ import { Cause, Effect, Exit, Layer, Match, Option } from "effect";
 import type { Workflow } from "effect/unstable/workflow";
 
 import { processSandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./durable-queues";
+import type { SandboxExecutionResult } from "./execution-result";
 import { runSandboxScriptWorkflow, SandboxScriptWorkflow } from "./sandbox-script-workflow";
 import { SandboxSubmissionWorkflow } from "./sandbox-submission-workflow";
 
@@ -23,7 +23,7 @@ const workflowFailureResult = (
 	});
 
 export const toSandboxRunResult = (
-	result: Workflow.Result<SandboxCompletedResultValue, SandboxRunError> | undefined,
+	result: Workflow.Result<SandboxExecutionResult, SandboxRunError> | undefined,
 ): SandboxRunResult => {
 	if (!result) {
 		return { status: "pending" };
@@ -34,7 +34,7 @@ export const toSandboxRunResult = (
 		Match.orElse(({ exit }) =>
 			Exit.match(exit, {
 				onFailure: workflowFailureResult,
-				onSuccess: (value) => value,
+				onSuccess: ({ harvest: _harvest, ...value }) => value,
 			}),
 		),
 	);

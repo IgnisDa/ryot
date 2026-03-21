@@ -629,8 +629,9 @@ above:
   modules (for example, sandbox dispatch). It is **correct**, not a violation; see the
   [durable primitives table](#durable-primitives-beyond-activity) above.
 - **Finalizers in workflow files**: the one workflow-body use is
-  `generic-import-workflow.ts`'s `Effect.ensuring(removeChunks(...))`, which scopes harvest-chunk
-  cleanup to the chunk-processing effect. It is scratch cleanup, not business compensation, so the
+  `generic-import-workflow.ts`'s `Effect.ensuring(removeChunks(...))`, which scopes harvested-chunk
+  cleanup to the chunk-processing effect. Opaque handle release is workflow-owned cleanup, while
+  this remains scratch cleanup rather than business compensation, so the
   [compensation-vs-finalizers](#compensation-vs-plain-finalizers) gotcha does not apply to it — a
   replay that re-enters the step re-reads chunk files it still owns. Every other
   `addFinalizer`/`ensuring`/`onExit`/`acquireRelease` use in `apps/app-backend/src` is a resource
