@@ -1,3 +1,4 @@
+import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import type {
 	AutomationInput,
 	AutomationPolicyInput,
@@ -10,7 +11,6 @@ import type {
 	IntegrationRecord,
 } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
