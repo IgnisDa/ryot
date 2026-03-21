@@ -47,6 +47,7 @@ const createSavedViewBody = (): CreateSavedViewBody => ({
 
 const createUpdateSavedViewBody = (): UpdateSavedViewBody => ({
 	...createSavedViewBody(),
+	isDisabled: false,
 	name: "Updated Reading",
 });
 
@@ -57,6 +58,7 @@ const createListedSavedView = (
 	icon: "book",
 	name: "Reading",
 	isBuiltin: false,
+	isDisabled: false,
 	trackerId: "tracker_1",
 	accentColor: "#123456",
 	queryDefinition: createQueryDefinition(),
