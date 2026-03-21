@@ -172,7 +172,6 @@ export function TrackerOverviewQuickActions(props: {
 export function TrackerOverviewSavedViews(props: {
 	isDark: boolean;
 	textLink: string;
-	trackerSlug: string;
 	views: AppSavedView[];
 }) {
 	const { surface } = getTrackerOverviewTokens(props.isDark);
@@ -198,8 +197,8 @@ export function TrackerOverviewSavedViews(props: {
 						{props.views.map((view) => (
 							<Link
 								key={view.id}
-								to="/$trackerSlug/views/$viewId"
-								params={{ trackerSlug: props.trackerSlug, viewId: view.id }}
+								to="/views/$viewId"
+								params={{ viewId: view.id }}
 							>
 								<Anchor size="sm" style={{ color: props.textLink }}>
 									{view.name}

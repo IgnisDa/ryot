@@ -235,11 +235,8 @@ function SortableTracker(props: {
 									: (rootProps) => (
 											<Link
 												{...rootProps}
-												to="/$trackerSlug/views/$viewId"
-												params={{
-													viewId: view.id,
-													trackerSlug: props.tracker.slug,
-												}}
+												to="/views/$viewId"
+												params={{ viewId: view.id }}
 											/>
 										)
 							}
@@ -557,11 +554,8 @@ export function Sidebar(props: SidebarProps) {
 								? (rootProps) => (
 										<Link
 											{...rootProps}
-											to="/$trackerSlug/views/$viewId"
-											params={{
-												viewId: view.id,
-												trackerSlug: view.trackerSlug,
-											}}
+											to="/views/$viewId"
+											params={{ viewId: view.id }}
 										/>
 									)
 								: undefined
