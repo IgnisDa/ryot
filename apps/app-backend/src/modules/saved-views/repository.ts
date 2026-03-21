@@ -3,17 +3,22 @@ import { type DbClient, db } from "~/lib/db";
 import { savedView } from "~/lib/db/schema";
 import type {
 	CreateSavedViewBody,
+	DisplayConfiguration,
 	ListedSavedView,
 	SavedViewQueryDefinition,
 } from "./schemas";
 
 type SavedViewCreateInput = CreateSavedViewBody & {
-	isBuiltin: boolean;
 	userId: string;
+	isBuiltin: boolean;
 };
 
-type SavedViewRow = Omit<ListedSavedView, "queryDefinition"> & {
+type SavedViewRow = Omit<
+	ListedSavedView,
+	"queryDefinition" | "displayConfiguration"
+> & {
 	queryDefinition: unknown;
+	displayConfiguration: unknown;
 };
 
 const savedViewSelection = {
@@ -24,11 +29,13 @@ const savedViewSelection = {
 	isBuiltin: savedView.isBuiltin,
 	accentColor: savedView.accentColor,
 	queryDefinition: savedView.queryDefinition,
+	displayConfiguration: savedView.displayConfiguration,
 };
 
 const toSavedView = (row: SavedViewRow): ListedSavedView => ({
 	...row,
 	queryDefinition: row.queryDefinition as SavedViewQueryDefinition,
+	displayConfiguration: row.displayConfiguration as DisplayConfiguration,
 });
 
 export const listSavedViewsForUser = async (input: {
@@ -77,6 +84,7 @@ export const createSavedViewForUser = async (input: SavedViewCreateInput) => {
 			isBuiltin: input.isBuiltin,
 			accentColor: input.accentColor,
 			queryDefinition: input.queryDefinition,
+			displayConfiguration: input.displayConfiguration,
 		})
 		.returning(savedViewSelection);
 
@@ -103,6 +111,7 @@ export const createSavedViewsForUser = async (input: {
 			isBuiltin: view.isBuiltin,
 			accentColor: view.accentColor,
 			queryDefinition: view.queryDefinition,
+			displayConfiguration: view.displayConfiguration,
 		})),
 	);
 };

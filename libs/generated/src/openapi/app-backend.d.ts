@@ -1442,7 +1442,49 @@ export interface paths {
                                 icon: string;
                                 accentColor: string;
                                 queryDefinition: {
-                                    entitySchemaIds: string[];
+                                    sort: {
+                                        field: string[];
+                                        /** @enum {string} */
+                                        direction: "asc" | "desc";
+                                    };
+                                    entitySchemaSlugs: string[];
+                                    filters: ({
+                                        /** @enum {string} */
+                                        op: "in";
+                                        field: string[];
+                                        value: unknown[];
+                                    } | {
+                                        value?: unknown;
+                                        /** @enum {string} */
+                                        op: "isNull";
+                                        field: string[];
+                                    } | {
+                                        value?: unknown;
+                                        field: string[];
+                                        /** @enum {string} */
+                                        op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                                    })[];
+                                };
+                                displayConfiguration: {
+                                    grid: {
+                                        imageProperty: string[] | null;
+                                        titleProperty: string[] | null;
+                                        badgeProperty: string[] | null;
+                                        subtitleProperty: string[] | null;
+                                    };
+                                    list: {
+                                        imageProperty: string[] | null;
+                                        titleProperty: string[] | null;
+                                        badgeProperty: string[] | null;
+                                        subtitleProperty: string[] | null;
+                                    };
+                                    table: {
+                                        columns: {
+                                            property: string[];
+                                        }[];
+                                    };
+                                    /** @enum {string} */
+                                    layout: "grid" | "list" | "table";
                                 };
                             }[];
                         };
@@ -1490,7 +1532,49 @@ export interface paths {
                         accentColor: string;
                         trackerId?: string;
                         queryDefinition: {
-                            entitySchemaIds: string[];
+                            sort: {
+                                field: string[];
+                                /** @enum {string} */
+                                direction: "asc" | "desc";
+                            };
+                            entitySchemaSlugs: string[];
+                            filters: ({
+                                /** @enum {string} */
+                                op: "in";
+                                field: string[];
+                                value: unknown[];
+                            } | {
+                                value?: unknown;
+                                /** @enum {string} */
+                                op: "isNull";
+                                field: string[];
+                            } | {
+                                value?: unknown;
+                                field: string[];
+                                /** @enum {string} */
+                                op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                            })[];
+                        };
+                        displayConfiguration: {
+                            grid: {
+                                imageProperty: string[] | null;
+                                titleProperty: string[] | null;
+                                badgeProperty: string[] | null;
+                                subtitleProperty: string[] | null;
+                            };
+                            list: {
+                                imageProperty: string[] | null;
+                                titleProperty: string[] | null;
+                                badgeProperty: string[] | null;
+                                subtitleProperty: string[] | null;
+                            };
+                            table: {
+                                columns: {
+                                    property: string[];
+                                }[];
+                            };
+                            /** @enum {string} */
+                            layout: "grid" | "list" | "table";
                         };
                     };
                 };
@@ -1512,7 +1596,49 @@ export interface paths {
                                 icon: string;
                                 accentColor: string;
                                 queryDefinition: {
-                                    entitySchemaIds: string[];
+                                    sort: {
+                                        field: string[];
+                                        /** @enum {string} */
+                                        direction: "asc" | "desc";
+                                    };
+                                    entitySchemaSlugs: string[];
+                                    filters: ({
+                                        /** @enum {string} */
+                                        op: "in";
+                                        field: string[];
+                                        value: unknown[];
+                                    } | {
+                                        value?: unknown;
+                                        /** @enum {string} */
+                                        op: "isNull";
+                                        field: string[];
+                                    } | {
+                                        value?: unknown;
+                                        field: string[];
+                                        /** @enum {string} */
+                                        op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                                    })[];
+                                };
+                                displayConfiguration: {
+                                    grid: {
+                                        imageProperty: string[] | null;
+                                        titleProperty: string[] | null;
+                                        badgeProperty: string[] | null;
+                                        subtitleProperty: string[] | null;
+                                    };
+                                    list: {
+                                        imageProperty: string[] | null;
+                                        titleProperty: string[] | null;
+                                        badgeProperty: string[] | null;
+                                        subtitleProperty: string[] | null;
+                                    };
+                                    table: {
+                                        columns: {
+                                            property: string[];
+                                        }[];
+                                    };
+                                    /** @enum {string} */
+                                    layout: "grid" | "list" | "table";
                                 };
                             };
                         };
@@ -1586,7 +1712,49 @@ export interface paths {
                                 icon: string;
                                 accentColor: string;
                                 queryDefinition: {
-                                    entitySchemaIds: string[];
+                                    sort: {
+                                        field: string[];
+                                        /** @enum {string} */
+                                        direction: "asc" | "desc";
+                                    };
+                                    entitySchemaSlugs: string[];
+                                    filters: ({
+                                        /** @enum {string} */
+                                        op: "in";
+                                        field: string[];
+                                        value: unknown[];
+                                    } | {
+                                        value?: unknown;
+                                        /** @enum {string} */
+                                        op: "isNull";
+                                        field: string[];
+                                    } | {
+                                        value?: unknown;
+                                        field: string[];
+                                        /** @enum {string} */
+                                        op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                                    })[];
+                                };
+                                displayConfiguration: {
+                                    grid: {
+                                        imageProperty: string[] | null;
+                                        titleProperty: string[] | null;
+                                        badgeProperty: string[] | null;
+                                        subtitleProperty: string[] | null;
+                                    };
+                                    list: {
+                                        imageProperty: string[] | null;
+                                        titleProperty: string[] | null;
+                                        badgeProperty: string[] | null;
+                                        subtitleProperty: string[] | null;
+                                    };
+                                    table: {
+                                        columns: {
+                                            property: string[];
+                                        }[];
+                                    };
+                                    /** @enum {string} */
+                                    layout: "grid" | "list" | "table";
                                 };
                             };
                         };
