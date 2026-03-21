@@ -26,7 +26,7 @@ The sandbox runs untrusted script code in single-use Deno subprocesses, exposes 
 
 1. Plugin or kernel ingestion validates and compiles source, then persists source and immutable format-1 JavaScript separately.
 2. A trusted caller starts execution with a persisted `scriptId`, optional context, and an `ExecutionAuthority`. Authority is schema-defined in `@ryot/contract/modules/sandbox/schemas` as a `system`, `user`, or `subscription` variant; only trusted kernel dispatch constructs it, so a script can never widen its own credential scope. The workflow loads compiled code and capabilities from validated manifest metadata.
-3. The service registers a bridge session keyed by `executionId`. Redis stores `{ token, expiresAt }` with a TTL, and memory stores the allowed host-function handlers and live execution parent span for that run.
+3. The service registers an in-memory bridge session keyed by `executionId`. It stores `{ token, expiresAt }`, allowed host-function handlers, and the live execution parent span for that run.
 4. A pre-warmed Deno process is checked out, or a fresh one is spawned if the pool is empty. Each process handles exactly one execution.
 5. The service acquires an execution-scoped hard link to the verified content-addressed module, then writes one JSON payload to stdin containing its file URL, compiled format, context, bridge URL, token, function names, execution id, script id, limits, any filesystem grants, and execution metadata. The cache namespace stays host-side: it never enters the payload, and the cache host functions apply it when a script calls them.
 6. The runner captures console calls into `logs`, imports the compiled file ES module, validates the definition, input, and output, and writes the final JSON result to stdout.
@@ -45,7 +45,7 @@ Scripts declare an exact manifest `capabilities` tuple. The SDK exposes only tho
 - Deno can only read the generated runner file, its execution-scoped compiled-module link, the read-only dependency runtime, any per-execution filesystem grant, and call the localhost bridge port.
 - Sandbox script network access must go through explicit host functions such as `httpCall`.
 - App-side source connectors are outside the sandbox runtime and use app runtime HTTP helpers.
-- Bridge calls require the per-execution bearer token and expire through Redis TTL.
+- Bridge calls require the per-execution bearer token and are rejected after the in-memory expiry timestamp.
 - Timeouts invalidate the pooled process and kill it.
 - Each Deno process starts with a 256 MiB V8 old-space limit.
 - Sandbox processes receive only `PATH` and `DENO_DIR`; script code cannot read env values because `--deny-env` is enabled.
