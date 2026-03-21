@@ -9,7 +9,7 @@ import { Effect } from "effect";
 import {
 	cloneSavedView,
 	createAuthenticatedClient,
-	createQueryEnginePluginSchema,
+	createPluginEntitySchema,
 	createSavedView,
 	createSavedViewWithQueryDocument,
 	deleteSavedView,
@@ -223,7 +223,7 @@ describe("saved views management", () => {
 	it.live("filters views by plugin and reorders them within the requested scope", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { pluginSlug, slug } = yield* createQueryEnginePluginSchema(client, {
+			const { pluginSlug, slug } = yield* createPluginEntitySchema(client, {
 				schemaName: `SavedViewTracked ${crypto.randomUUID()}`,
 			});
 			const viewDocument = buildSchemaRowsDocument(slug);

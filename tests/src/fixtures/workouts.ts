@@ -1,4 +1,5 @@
 import { EntityId } from "@ryot/contract/schema/brands";
+import { column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import { requireString } from "~/support/assertions";
@@ -8,12 +9,7 @@ import { createEntity } from "./entities";
 import { findBuiltinSchemaBySlug } from "./entity-schemas";
 import { listEventSchemas, requireEventSchemaBySlug } from "./event-schemas";
 import { pollUntil } from "./polling";
-import {
-	buildEntityRowsQueryDocument,
-	executeQueryEngine,
-	requireQueryEngineFieldValue,
-	systemRef,
-} from "./query-engine-core";
+import { executeRyotQL, requireRyotQLTextField } from "./ryotql";
 
 export const createWorkoutEntityFixture = (client: Client) =>
 	Effect.gen(function* () {
@@ -59,26 +55,23 @@ const pollSeededExerciseIds = (client: Client, count: number) =>
 	pollUntil(
 		count === 1 ? "seeded exercise id to be queryable" : "seeded exercise ids to be queryable",
 		Effect.gen(function* () {
-			const result = yield* executeQueryEngine(
+			const entity = table("entity", "exercise");
+			const result = yield* executeRyotQL(
 				client,
-				buildEntityRowsQueryDocument({
-					limit: count,
-					alias: "exercise",
-					schemas: ["exercise"],
-					fields: [{ key: "id", expr: systemRef("exercise", "id") }],
+				document({
+					exercises: rows(entity, {
+						limit: count,
+						fields: [field("id", column(entity, "id"))],
+						where: eq(column(entity, "entitySchemaSlug"), literal("exercise")),
+					}),
 				}),
 			);
 
-			const ids = result.data.items.flatMap((item) => {
-				const field = requireQueryEngineFieldValue(item, "id");
-				if (field.kind !== "text") {
-					return [];
-				}
-
-				return [
-					EntityId.make(requireString(field.value, "Expected seeded exercise id to be text")),
-				];
-			});
+			const exercises = result.data.exercises;
+			if (exercises?.type !== "rows") {
+				return null;
+			}
+			const ids = exercises.items.map((item) => EntityId.make(requireRyotQLTextField(item, "id")));
 
 			return ids.length >= count ? ids.slice(0, count) : null;
 		}),

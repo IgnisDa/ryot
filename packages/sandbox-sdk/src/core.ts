@@ -181,7 +181,6 @@ export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
 	"listEventSchemas",
 	"listIntegrations",
 	"executeRyotql",
-	"executeQueryEngine",
 	"ensureUserEntities",
 	"upsertGlobalEntities",
 	"getCurrentIntegration",
@@ -426,19 +425,15 @@ export const listIntegrationsOptionsSchema = strictStruct({
 	isDisabled: Schema.optional(Schema.Boolean),
 	provider: Schema.optional(integrationProviderSchema),
 });
-export const queryDocumentSchema = jsonValueSchema;
 export const ryotqlDocumentSchema = jsonValueSchema as unknown as Schema.Codec<
 	RyotQLDocument,
 	typeof jsonValueSchema.Encoded
 >;
-export type QueryDocument = Schema.Schema.Type<typeof queryDocumentSchema>;
 export type ListIntegrationsOptions = Schema.Schema.Type<typeof listIntegrationsOptionsSchema>;
 
 export const getCurrentIntegrationArgsSchema = Schema.Tuple([]);
-export const executeQueryEngineDataSchema = Schema.Unknown;
 export const executeRyotqlDataSchema = Schema.Unknown;
 export const getEntitySchemasArgsSchema = Schema.Tuple([sandboxEntitySchemaSlugListSchema]);
-export const executeQueryEngineArgsSchema = Schema.Tuple([queryDocumentSchema]);
 export const executeRyotqlArgsSchema = Schema.Tuple([ryotqlDocumentSchema]);
 export const listEventSchemasDataSchema = Schema.Array(eventSchemaRecordSchema);
 export const listIntegrationsDataSchema = Schema.Array(integrationRecordSchema);
@@ -452,7 +447,6 @@ export const listEventSchemasArgsSchema = Schema.Tuple([sandboxEntitySchemaSlugL
 export const listEventSchemasResultSchema = hostResultSchema(listEventSchemasDataSchema);
 export const listIntegrationsResultSchema = hostResultSchema(listIntegrationsDataSchema);
 export const upsertGlobalEntitiesDataSchema = Schema.Array(upsertGlobalEntityResultSchema);
-export const executeQueryEngineResultSchema = hostResultSchema(executeQueryEngineDataSchema);
 export const executeRyotqlResultSchema = hostResultSchema(executeRyotqlDataSchema);
 export const upsertGlobalEntitiesResultSchema = hostResultSchema(upsertGlobalEntitiesDataSchema);
 export const listIntegrationsArgsSchema = Schema.Tuple([
@@ -537,11 +531,6 @@ export const domainSandboxHostContracts = {
 		args: upsertGlobalRelationshipsArgsSchema,
 		success: upsertGlobalRelationshipsDataSchema,
 		result: upsertGlobalRelationshipsResultSchema,
-	},
-	executeQueryEngine: {
-		args: executeQueryEngineArgsSchema,
-		success: executeQueryEngineDataSchema,
-		result: executeQueryEngineResultSchema,
 	},
 	executeRyotql: {
 		args: executeRyotqlArgsSchema,
@@ -650,11 +639,6 @@ export const SANDBOX_CAPABILITY_REQUIREMENTS = {
 		bridge: true,
 		authorities: ["system"] as const,
 		systemKinds: ["script"] as const,
-	},
-	executeQueryEngine: {
-		bridge: true,
-		systemKinds: ["script"] as const,
-		authorities: ["user", "subscription", "system"],
 	},
 	executeRyotql: {
 		bridge: true,

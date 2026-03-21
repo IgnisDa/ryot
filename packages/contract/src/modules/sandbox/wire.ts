@@ -15,7 +15,6 @@ export const SANDBOX_HOST_CAPABILITIES = [
 	"listEventSchemas",
 	"listIntegrations",
 	"executeRyotql",
-	"executeQueryEngine",
 	"ensureUserEntities",
 	"upsertGlobalEntities",
 	"getCurrentIntegration",

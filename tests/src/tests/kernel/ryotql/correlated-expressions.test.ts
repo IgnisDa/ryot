@@ -34,8 +34,8 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createCourseLessonFilterFixture,
-	createQueryEngineEntity,
-	createQueryEnginePluginSchema,
+	createEntityFixture,
+	createPluginEntitySchema,
 	executeRyotQL,
 	requireRyotQLFieldValue,
 } from "~/fixtures";
@@ -277,7 +277,7 @@ describe("RyotQL correlated expressions", () => {
 	it.live("returns null for invalid arithmetic and division by zero", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
+			const { schemaId, slug } = yield* createPluginEntitySchema(client, {
 				schemaName: "RyotQLArithmeticCourse",
 				propertiesSchema: {
 					fields: {
@@ -286,7 +286,7 @@ describe("RyotQL correlated expressions", () => {
 					},
 				},
 			});
-			yield* createQueryEngineEntity(client, {
+			yield* createEntityFixture(client, {
 				name: "Empty Course",
 				entitySchemaSlug: schemaId,
 				properties: { total: 0, completed: 0 },
@@ -372,17 +372,17 @@ describe("RyotQL correlated expressions", () => {
 				createAuthenticatedClient(),
 				createAuthenticatedClient(),
 			]);
-			const ownerSchema = yield* createQueryEnginePluginSchema(owner.client, {
+			const ownerSchema = yield* createPluginEntitySchema(owner.client, {
 				schemaName: "RyotQLCorrelatedOwner",
 			});
-			const otherSchema = yield* createQueryEnginePluginSchema(other.client, {
+			const otherSchema = yield* createPluginEntitySchema(other.client, {
 				schemaName: "RyotQLCorrelatedHidden",
 			});
-			const ownEntity = yield* createQueryEngineEntity(owner.client, {
+			const ownEntity = yield* createEntityFixture(owner.client, {
 				name: "Visible Root",
 				entitySchemaSlug: ownerSchema.schemaId,
 			});
-			const hiddenEntity = yield* createQueryEngineEntity(other.client, {
+			const hiddenEntity = yield* createEntityFixture(other.client, {
 				name: "Hidden Child",
 				entitySchemaSlug: otherSchema.schemaId,
 			});

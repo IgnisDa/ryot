@@ -18,7 +18,7 @@ while a request is dispatched.
 - `runner-source.sandbox.ts` + `runner-utilities.sandbox.ts`: the TypeScript-authored Deno runner. `sandbox:compile-runner` bundles them ahead of execution into the ignored `runner.generated.ts`, and `sandbox:check-runner` (`deno check` with `deno.json`) type-checks them with Deno globals outside the backend `tsc`.
 - `host-implementations.ts`: typed injection contract for app-owned host implementation maps.
 - `shared.ts`: runtime contracts and helpers used by app-owned host implementations.
-- `src/app/sandbox-host-functions.ts` and `src/app/automation-sandbox-host-functions.ts`: app-bound bridge functions for user, entity, event, integration, query-engine, config, signal, and notification access.
+- `src/app/sandbox-host-functions.ts` and `src/app/automation-sandbox-host-functions.ts`: app-bound bridge functions for user, entity, event, integration, RyotQL, config, signal, and notification access.
 - Plugin scripts and script-side helpers live under `plugins/*/scripts/`; the generic notification script lives under `modules/definition-registry/kernel-scripts/`. This folder owns only execution runtime code.
 
 ## Compilation Pipeline
@@ -158,17 +158,17 @@ Deno receives the import map and runs with `--cached-only`, `--no-npm`, `--no-re
 
 Host functions are bridge handlers exposed only when listed in the compiled module's manifest `capabilities`. The backend intersects those declarations with its implementation registry, and the runner intersects the approved names with the compiled definition's manifest before constructing the script host.
 
-| Scope                                                | Functions                                                                                                                                                                  |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Universal sandbox workflow                           | `httpCall`, `log`, `span`, `getPluginConfig`, `getSystemConfig`, `getCachedValue`, `setCachedValue`, `claimPersistentValue`                                                |
-| User or subscription                                 | `changeUserRelationships`, `createEvents`, `executeQueryEngine`, `getCurrentIntegration`, `getEntitySchemas`, `getUserPreferences`, `listEventSchemas`, `listIntegrations` |
-| User only                                            | `ensureUserEntities`                                                                                                                                                       |
-| System script                                        | `executeQueryEngine`, `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                  |
-| Automation subscription or trusted system automation | `emitSignal`; `sendNotification` remains subscription-only                                                                                                                 |
+| Scope                                                | Functions                                                                                                                                                             |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Universal sandbox workflow                           | `httpCall`, `log`, `span`, `getPluginConfig`, `getSystemConfig`, `getCachedValue`, `setCachedValue`, `claimPersistentValue`                                           |
+| User or subscription                                 | `changeUserRelationships`, `createEvents`, `executeRyotql`, `getCurrentIntegration`, `getEntitySchemas`, `getUserPreferences`, `listEventSchemas`, `listIntegrations` |
+| User only                                            | `ensureUserEntities`                                                                                                                                                  |
+| System script                                        | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                  |
+| Automation subscription or trusted system automation | `emitSignal`; `sendNotification` remains subscription-only                                                                                                            |
 
-Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require the executing user's `userId` and are unavailable for system executions, except `executeQueryEngine` for system scripts. Entity and event data reads use `executeQueryEngine`; schema functions expose metadata only. `claimPersistentValue` atomically writes a persistent value only when the key does not already exist. During a workflow replay, the runner observes these calls and the backend dispatcher records their result; the private `replayJournal` bridge method is only the SDK/runtime bootstrap for named workflow replay and is not a general authoring API.
+Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require the executing user's `userId` and are unavailable for system executions. Entity and event data reads use `executeRyotql`; schema functions expose metadata only. `claimPersistentValue` atomically writes a persistent value only when the key does not already exist. During a workflow replay, the runner observes these calls and the backend dispatcher records their result; the private `replayJournal` bridge method is only the SDK/runtime bootstrap for named workflow replay and is not a general authoring API.
 
-`ensureUserEntities` is narrower than ordinary user scope: only a trusted boot-configured plugin's
+`executeRyotql` is available to user, subscription, and pinned plugin script executions. `ensureUserEntities` is narrower than ordinary user scope: only a trusted boot-configured plugin's
 declared `userBootstrap` script receives it, and it may write only entity schemas owned by that plugin.
 The SDK capability requirement table is exhaustive; the backend uses it for host selection and
 runtime input narrowing. Provider scope and trusted bootstrap status remain kernel-side checks.
