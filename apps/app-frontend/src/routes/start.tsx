@@ -2,6 +2,8 @@ import { Center, Paper, Stack, Tabs, Text, Title } from "@mantine/core";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
+import { getNameFromEmail } from "#/features/authentication/model";
+import { useApiClient } from "#/hooks/api";
 import { useAuthClient } from "#/hooks/auth";
 import { useAppForm } from "#/hooks/forms";
 
@@ -35,20 +37,6 @@ const authModes = {
 
 type AuthMode = keyof typeof authModes;
 
-const getNameFromEmail = (email: string) => {
-	const [localPart = ""] = email.split("@");
-	const normalized = localPart.replace(/[._-]+/g, " ").trim();
-	if (!normalized) return "New User";
-
-	return normalized
-		.split(/\s+/)
-		.map((segment) => {
-			if (!segment) return segment;
-			return `${segment.charAt(0).toUpperCase()}${segment.slice(1)}`;
-		})
-		.join(" ");
-};
-
 const schema = z.object({
 	email: z.email().min(1, "Email is required"),
 	password: z.string().min(8, "Password must be at least 8 characters"),
@@ -56,10 +44,20 @@ const schema = z.object({
 
 function StartPage() {
 	const search = Route.useSearch();
+	const apiClient = useApiClient();
 	const authClient = useAuthClient();
 	const navigate = Route.useNavigate();
 	const [mode, setMode] = useState<AuthMode>("login");
 	const [submitError, setSubmitError] = useState<string | null>(null);
+	const signupMutation = apiClient.useMutation(
+		"post",
+		"/authentication/email",
+		{
+			onError: (error) => {
+				setSubmitError(error.error.message);
+			},
+		},
+	);
 
 	const authForm = useAppForm({
 		validators: { onChange: schema },
@@ -70,14 +68,21 @@ function StartPage() {
 			const email = value.email.trim();
 			const password = value.password;
 
-			const response =
-				mode === "login"
-					? await authClient.signIn.email({ email, password })
-					: await authClient.signUp.email({
-							email,
-							password,
-							name: getNameFromEmail(email),
-						});
+			if (mode === "signup") {
+				try {
+					await signupMutation.mutateAsync({
+						body: { email, password, name: getNameFromEmail(email) },
+					});
+				} catch {
+					return;
+				}
+
+				authForm.setFieldValue("password", "");
+				setMode("login");
+				return;
+			}
+
+			const response = await authClient.signIn.email({ email, password });
 
 			if (response.error) {
 				setSubmitError(response.error.message || "An unknown error occurred");
