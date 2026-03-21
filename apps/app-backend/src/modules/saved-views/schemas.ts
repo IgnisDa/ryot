@@ -1,6 +1,6 @@
 import { zodBoolAsString } from "@ryot/ts-utils";
 import { z } from "zod";
-import { dataSchema } from "~/lib/openapi";
+import { itemDataSchema, listDataSchema } from "~/lib/openapi";
 import {
 	createIdParamsSchema,
 	createNonEmptyStringArraySchema,
@@ -112,8 +112,8 @@ export const listedSavedViewSchema = z.object({
 	...iconAndAccentColorFields,
 });
 
-export const listSavedViewsResponseSchema = dataSchema(
-	z.array(listedSavedViewSchema),
+export const listSavedViewsResponseSchema = listDataSchema(
+	listedSavedViewSchema,
 );
 
 export const listSavedViewsQuery = z.object({
@@ -131,7 +131,9 @@ const savedViewMutableFields = {
 
 export const createSavedViewBody = z.object(savedViewMutableFields);
 
-export const createSavedViewResponseSchema = dataSchema(listedSavedViewSchema);
+const savedViewResponseSchema = itemDataSchema(listedSavedViewSchema);
+
+export const createSavedViewResponseSchema = savedViewResponseSchema;
 
 export const savedViewParams = createIdParamsSchema("viewId");
 
@@ -142,7 +144,7 @@ export const updateSavedViewBody = z.object({
 	...savedViewMutableFields,
 });
 
-export const updateSavedViewResponseSchema = dataSchema(listedSavedViewSchema);
+export const updateSavedViewResponseSchema = savedViewResponseSchema;
 
 export const reorderSavedViewsBody = z.object({
 	trackerId: nonEmptyTrimmedStringSchema.optional(),
@@ -151,7 +153,7 @@ export const reorderSavedViewsBody = z.object({
 	}),
 });
 
-export const reorderSavedViewsResponseSchema = dataSchema(
+export const reorderSavedViewsResponseSchema = itemDataSchema(
 	z.object({ viewIds: z.array(z.string()) }),
 );
 

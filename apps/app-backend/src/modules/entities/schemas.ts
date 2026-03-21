@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ImageSchema } from "~/lib/db/schema";
-import { dataSchema } from "~/lib/openapi";
+import { itemDataSchema } from "~/lib/openapi";
 import {
 	createIdParamsSchema,
 	nonEmptyTrimmedStringSchema,
@@ -18,9 +18,11 @@ export const listedEntitySchema = z.object({
 	properties: z.record(z.string(), z.unknown()),
 });
 
-export const getEntityResponseSchema = dataSchema(listedEntitySchema);
+const entityResponseSchema = itemDataSchema(listedEntitySchema);
 
-export const createEntityResponseSchema = dataSchema(listedEntitySchema);
+export const getEntityResponseSchema = entityResponseSchema;
+
+export const createEntityResponseSchema = entityResponseSchema;
 
 export const entityParams = createIdParamsSchema("entityId");
 
