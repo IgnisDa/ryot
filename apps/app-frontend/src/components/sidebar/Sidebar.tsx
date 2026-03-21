@@ -596,9 +596,9 @@ export function Sidebar(props: SidebarProps) {
 				border={border}
 				isDark={isDark}
 				textMuted={textMuted}
-				account={toSidebarAccount(user)}
 				textPrimary={textPrimary}
 				borderAccent={borderAccent}
+				account={toSidebarAccount(user)}
 			/>
 		</Stack>
 	);
