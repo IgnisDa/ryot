@@ -5,6 +5,7 @@ import type { CreateEntitySchemaBody, ListedEntitySchema } from "./schemas";
 import {
 	createEntitySchema,
 	type EntitySchemaServiceDeps,
+	getEntitySchemaById,
 	listEntitySchemas,
 	parseEntitySchemaPropertiesSchema,
 	resolveEntitySchemaAccentColor,
@@ -40,6 +41,14 @@ const createListedEntitySchema = (
 const createDeps = (
 	overrides: Partial<EntitySchemaServiceDeps> = {},
 ): EntitySchemaServiceDeps => ({
+	getEntitySchemaByIdForUser: async () => undefined,
+	getEntitySchemaBySlugForUser: async () => undefined,
+	listEntitySchemasByTracker: async () => [createListedEntitySchema()],
+	getTrackerScopeForUser: async (input) => ({
+		isBuiltin: false,
+		id: input.trackerId,
+		userId: input.userId,
+	}),
 	createEntitySchemaForUser: async (input) =>
 		createListedEntitySchema({
 			name: input.name,
@@ -49,13 +58,6 @@ const createDeps = (
 			accentColor: input.accentColor,
 			propertiesSchema: input.propertiesSchema,
 		}),
-	getEntitySchemaBySlugForUser: async () => undefined,
-	getTrackerScopeForUser: async (input) => ({
-		isBuiltin: false,
-		id: input.trackerId,
-		userId: input.userId,
-	}),
-	listEntitySchemasByTracker: async () => [createListedEntitySchema()],
 	...overrides,
 });
 
@@ -366,6 +368,42 @@ describe("createEntitySchema", () => {
 		expect(result).toEqual({
 			error: "validation",
 			message: "Tracker id is required",
+		});
+	});
+});
+
+describe("getEntitySchemaById", () => {
+	it("returns the entity schema when it exists for the user", async () => {
+		const schema = createListedEntitySchema();
+		const result = await getEntitySchemaById(
+			{ entitySchemaId: "schema_1", userId: "user_1" },
+			createDeps({ getEntitySchemaByIdForUser: async () => schema }),
+		);
+
+		expect(result).toEqual({ data: schema });
+	});
+
+	it("returns not_found when entity schema does not exist", async () => {
+		const result = await getEntitySchemaById(
+			{ entitySchemaId: "non_existent", userId: "user_1" },
+			createDeps({ getEntitySchemaByIdForUser: async () => undefined }),
+		);
+
+		expect(result).toEqual({
+			error: "not_found",
+			message: "Entity schema not found",
+		});
+	});
+
+	it("returns not_found when the schema belongs to another user", async () => {
+		const result = await getEntitySchemaById(
+			{ entitySchemaId: "schema_1", userId: "other_user" },
+			createDeps({ getEntitySchemaByIdForUser: async () => undefined }),
+		);
+
+		expect(result).toEqual({
+			error: "not_found",
+			message: "Entity schema not found",
 		});
 	});
 });
