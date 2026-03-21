@@ -36,13 +36,11 @@ function RouteComponent() {
 
 	const handleDelete = async () => {
 		setActionError(null);
-		if (typeof window !== "undefined") {
-			const confirmed = window.confirm(
-				"Delete this saved view? This cannot be undone.",
-			);
-			if (!confirmed) {
-				return;
-			}
+		const confirmed = window.confirm(
+			"Delete this saved view? This cannot be undone.",
+		);
+		if (!confirmed) {
+			return;
 		}
 
 		try {
