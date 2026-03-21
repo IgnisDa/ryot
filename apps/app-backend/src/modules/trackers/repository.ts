@@ -194,22 +194,6 @@ export const createBuiltinTrackersForUser = async (input: {
 	return rows;
 };
 
-export const setTrackerIsDisabledForUser = async (input: {
-	userId: string;
-	trackerId: string;
-	isDisabled: boolean;
-}) => {
-	const [updatedTracker] = await db
-		.update(tracker)
-		.set({ isDisabled: input.isDisabled })
-		.where(
-			and(eq(tracker.id, input.trackerId), eq(tracker.userId, input.userId)),
-		)
-		.returning(trackerSelection);
-
-	return updatedTracker ? toListedTracker(updatedTracker) : updatedTracker;
-};
-
 export const listUserTrackerIdsInOrder = async (userId: string) => {
 	const rows = await db
 		.select({ trackerId: tracker.id })
@@ -265,6 +249,7 @@ export const updateTrackerForUser = async (input: {
 	name: string;
 	userId: string;
 	trackerId: string;
+	isDisabled: boolean;
 	accentColor: string;
 	description: string | null;
 }) => {
@@ -274,6 +259,7 @@ export const updateTrackerForUser = async (input: {
 			slug: input.slug,
 			name: input.name,
 			icon: input.icon,
+			isDisabled: input.isDisabled,
 			description: input.description,
 			accentColor: input.accentColor,
 		})

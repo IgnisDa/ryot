@@ -90,14 +90,13 @@ const createDeps = (
 		"tracker_3",
 	],
 	persistTrackerOrderForUser: async (input) => input.trackerIds,
-	setTrackerIsDisabledForUser: async (input) =>
-		createListedTracker({ isDisabled: input.isDisabled, id: input.trackerId }),
 	updateTrackerForUser: async (input) =>
 		createListedTracker({
 			icon: input.icon,
 			name: input.name,
 			slug: input.slug,
 			id: input.trackerId,
+			isDisabled: input.isDisabled,
 			description: input.description,
 			accentColor: input.accentColor,
 		}),
@@ -114,7 +113,7 @@ describe("resolveTrackerPatch", () => {
 				description: null,
 				accentColor: "#5B7FFF",
 			},
-			input: { description: "Default media tracker" },
+			input: { isDisabled: false, description: "Default media tracker" },
 		});
 
 		expect(patch.slug).toBe("media");
@@ -130,7 +129,7 @@ describe("resolveTrackerPatch", () => {
 				description: null,
 				accentColor: "#D4A574",
 			},
-			input: { name: "Whiskey Notes" },
+			input: { isDisabled: false, name: "Whiskey Notes" },
 		});
 
 		expect(patch.slug).toBe("whiskey");
@@ -146,7 +145,7 @@ describe("resolveTrackerPatch", () => {
 				description: null,
 				accentColor: "#5B7FFF",
 			},
-			input: { description: "Track media" },
+			input: { isDisabled: false, description: "Track media" },
 		});
 
 		expect(patch.icon).toBe("film");
@@ -161,7 +160,7 @@ describe("resolveTrackerPatch", () => {
 				description: null,
 				accentColor: "#5B7FFF",
 			},
-			input: { icon: "camera", description: "Track media" },
+			input: { isDisabled: false, icon: "camera", description: "Track media" },
 		});
 
 		expect(patch.accentColor).toBe("#5B7FFF");
@@ -228,7 +227,7 @@ describe("createTracker", () => {
 });
 
 describe("updateTracker", () => {
-	it("updates isDisabled-only changes through the dedicated repository path", async () => {
+	it("updates isDisabled-only changes through a single repository call", async () => {
 		const updatedTracker = expectDataResult(
 			await updateTracker(
 				{
@@ -241,6 +240,40 @@ describe("updateTracker", () => {
 		);
 
 		expect(updatedTracker.isDisabled).toBe(true);
+	});
+
+	it("updates isDisabled and config fields atomically through a single repository call", async () => {
+		let updateCallCount = 0;
+		const updatedTracker = expectDataResult(
+			await updateTracker(
+				{
+					userId: "user_1",
+					trackerId: "tracker_1",
+					body: {
+						isDisabled: true,
+						icon: "book",
+						name: "Books",
+						accentColor: "#FF0000",
+					},
+				},
+				createDeps({
+					updateTrackerForUser: async (input) => {
+						updateCallCount++;
+						return createListedTracker({
+							icon: input.icon,
+							name: input.name,
+							id: input.trackerId,
+							isDisabled: input.isDisabled,
+							accentColor: input.accentColor,
+						});
+					},
+				}),
+			),
+		);
+
+		expect(updateCallCount).toBe(1);
+		expect(updatedTracker.isDisabled).toBe(true);
+		expect(updatedTracker.name).toBe("Books");
 	});
 
 	it("returns not found when the tracker does not exist", async () => {
@@ -256,18 +289,6 @@ describe("updateTracker", () => {
 		expect(result).toEqual({
 			error: "not_found",
 			message: "Tracker not found",
-		});
-	});
-
-	it("returns validation when no update fields are provided", async () => {
-		const result = await updateTracker(
-			{ body: {}, userId: "user_1", trackerId: "tracker_1" },
-			createDeps(),
-		);
-
-		expect(result).toEqual({
-			error: "validation",
-			message: "At least one field must be provided",
 		});
 	});
 
