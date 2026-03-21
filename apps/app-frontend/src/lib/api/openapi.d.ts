@@ -306,8 +306,6 @@ export interface paths {
                                 name: string;
                                 config?: unknown;
                                 enabled: boolean;
-                                /** @enum {string} */
-                                mode: "curated" | "generated";
                                 isBuiltin: boolean;
                                 icon: string;
                                 description?: string | null;
@@ -361,8 +359,8 @@ export interface paths {
                         name: string;
                         slug?: string;
                         icon: string;
-                        description?: string;
                         accentColor: string;
+                        description?: string;
                     };
                 };
             };
@@ -380,8 +378,6 @@ export interface paths {
                                 name: string;
                                 config?: unknown;
                                 enabled: boolean;
-                                /** @enum {string} */
-                                mode: "curated" | "generated";
                                 isBuiltin: boolean;
                                 icon: string;
                                 description?: string | null;
@@ -470,8 +466,6 @@ export interface paths {
                                 name: string;
                                 config?: unknown;
                                 enabled: boolean;
-                                /** @enum {string} */
-                                mode: "curated" | "generated";
                                 isBuiltin: boolean;
                                 icon: string;
                                 description?: string | null;
