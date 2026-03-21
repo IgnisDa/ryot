@@ -11,6 +11,7 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import type { AuthClient } from "#/hooks/auth";
+import { STORAGE_KEYS } from "#/lib/storage-keys";
 import { theme } from "#/lib/theme";
 import appCss from "../styles.css?url";
 
@@ -30,7 +31,7 @@ export const Route = createRootRouteWithContext<{
 });
 
 const colorSchemeManager = localStorageColorSchemeManager({
-	key: "ryot-color-scheme",
+	key: STORAGE_KEYS.colorScheme,
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
