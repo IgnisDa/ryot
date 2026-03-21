@@ -1,19 +1,15 @@
 import {
 	Badge,
 	Box,
-	Button,
 	Card,
-	Center,
 	Group,
-	Loader,
 	Paper,
 	SimpleGrid,
 	Stack,
 	Table,
 	Text,
-	Title,
 } from "@mantine/core";
-import { Image as ImageIcon, X } from "lucide-react";
+import { Image as ImageIcon } from "lucide-react";
 import type { AppEntity } from "#/features/entities/model";
 import type { ViewLayout, ViewRuntimeResponse } from "./view-page-utils";
 import { formatRuntimeValue, isRuntimeProperty } from "./view-page-utils";
@@ -77,66 +73,6 @@ function EntityThumbnail(props: {
 		</Box>
 	);
 }
-
-export function LoadingState() {
-	return (
-		<Center h="100vh">
-			<Loader size="lg" />
-		</Center>
-	);
-}
-
-export function ErrorState(props: {
-	title: string;
-	description: string;
-	onRetry?: () => void;
-}) {
-	return (
-		<Box py={80} px="xl">
-			<Stack align="center" gap="lg" maw={600} mx="auto">
-				<Title order={1} ta="center">
-					{props.title}
-				</Title>
-				<Text c="dimmed" size="lg" ta="center">
-					{props.description}
-				</Text>
-				{props.onRetry ? (
-					<Button variant="light" onClick={props.onRetry}>
-						Retry
-					</Button>
-				) : null}
-			</Stack>
-		</Box>
-	);
-}
-
-export function EmptyState(props: {
-	accentColor: string;
-	accentMuted: string;
-}) {
-	return (
-		<Paper p="xl" withBorder radius="sm" ta="center">
-			<Stack gap="md" align="center">
-				<Box
-					w={64}
-					h={64}
-					c={props.accentColor}
-					bg={props.accentMuted}
-					style={{ display: "grid", borderRadius: "50%", placeItems: "center" }}
-				>
-					<X size={28} />
-				</Box>
-				<Text fw={600} size="lg" ff="var(--mantine-headings-font-family)">
-					No results found
-				</Text>
-				<Text size="sm" c="dimmed" maw={400}>
-					There are no entities matching this view yet.
-				</Text>
-			</Stack>
-		</Paper>
-	);
-}
-
 export function SavedViewResults(props: {
 	isDark: boolean;
 	items: AppEntity[];

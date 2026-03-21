@@ -1,17 +1,9 @@
-import {
-	Box,
-	Button,
-	Center,
-	Grid,
-	Loader,
-	Stack,
-	Text,
-	Title,
-} from "@mantine/core";
+import { Box, Grid, Stack } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { createFileRoute } from "@tanstack/react-router";
 import color from "color";
 import { useCallback, useState } from "react";
+import { ErrorState, LoadingState } from "#/components/PageStates";
 import { getEntityDetailProperties } from "#/features/entities/detail";
 import {
 	EntityDetailEventTimeline,
@@ -31,38 +23,6 @@ import { useColorScheme } from "#/hooks/theme";
 export const Route = createFileRoute("/_protected/entities/$entityId")({
 	component: RouteComponent,
 });
-
-function LoadingState() {
-	return (
-		<Center h="100vh">
-			<Loader size="lg" />
-		</Center>
-	);
-}
-
-function ErrorState(props: {
-	title: string;
-	description: string;
-	onRetry?: () => void;
-}) {
-	return (
-		<Box py={80} px="xl">
-			<Stack align="center" gap="lg" maw={600} mx="auto">
-				<Title order={1} ta="center">
-					{props.title}
-				</Title>
-				<Text c="dimmed" size="lg" ta="center">
-					{props.description}
-				</Text>
-				{props.onRetry ? (
-					<Button variant="light" onClick={props.onRetry}>
-						Retry
-					</Button>
-				) : null}
-			</Stack>
-		</Box>
-	);
-}
 
 function RouteComponent() {
 	const { entityId } = Route.useParams();
