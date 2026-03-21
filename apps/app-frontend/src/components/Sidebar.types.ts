@@ -1,11 +1,3 @@
-export interface SidebarEntitySchema {
-	id: string;
-	icon: string;
-	name: string;
-	slug: string;
-	accentColor: string;
-}
-
 export interface SidebarFacet {
 	id: string;
 	icon: string;
@@ -15,14 +7,16 @@ export interface SidebarFacet {
 	sortOrder: number;
 	accentColor: string;
 	isExpanded?: boolean;
-	entitySchemas: SidebarEntitySchema[];
+	views?: SidebarView[];
 }
 
 export interface SidebarView {
 	id: string;
+	icon: string;
 	name: string;
 	slug: string;
-	icon?: string | null;
+	accentColor: string;
+	facetId: string | null;
 }
 
 export interface SidebarProps {
