@@ -1,1 +1,0 @@
-ALTER TABLE "facet" ALTER COLUMN "accent_color" SET NOT NULL;
