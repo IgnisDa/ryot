@@ -35,7 +35,10 @@ import {
 import { useState } from "react";
 import { toSidebarAccount } from "#/components/sidebar/sidebar-account";
 import { toSidebarData } from "#/components/sidebar/sidebar-data";
-import { useSavedViewsQuery } from "#/features/saved-views/hooks";
+import {
+	useSavedViewMutations,
+	useSavedViewsQuery,
+} from "#/features/saved-views/hooks";
 import { TrackerIcon } from "#/features/trackers/icons";
 import {
 	useTrackerSidebarActions,
@@ -75,11 +78,13 @@ function SortableTracker(props: {
 	isMutationBusy: boolean;
 	tracker: SidebarTracker;
 	isCustomizeMode: boolean;
+	isViewMutationBusy: boolean;
 	onNavLinkClick: () => void;
 	onEditTracker?: (trackerId: string) => void;
 	onExpandTracker: (trackerId: string) => void;
 	onToggleTracker: (trackerId: string) => void;
 	onToggleTrackerEnabled?: (trackerId: string) => void;
+	onToggleViewEnabled?: (viewId: string) => void;
 }) {
 	const color = getTrackerColor(props.tracker);
 	const {
@@ -252,9 +257,33 @@ function SortableTracker(props: {
 											/>
 										)
 							}
+							rightSection={
+								props.isCustomizeMode ? (
+									<ActionIcon
+										size="sm"
+										variant="subtle"
+										disabled={props.isViewMutationBusy}
+										aria-label={
+											view.isDisabled ? "Enable view" : "Disable view"
+										}
+										onClick={(event) => {
+											event.preventDefault();
+											event.stopPropagation();
+											props.onToggleViewEnabled?.(view.id);
+										}}
+									>
+										{view.isDisabled ? (
+											<ToggleLeft size={14} strokeWidth={1.8} />
+										) : (
+											<ToggleRight size={14} strokeWidth={1.8} />
+										)}
+									</ActionIcon>
+								) : undefined
+							}
 							styles={{
 								root: {
 									paddingLeft: "40px",
+									opacity: view.isDisabled ? 0.48 : 1,
 									"&:hover": { backgroundColor: color.muted },
 								},
 								label: {
@@ -277,6 +306,7 @@ export function Sidebar(props: SidebarProps) {
 	const actions = useTrackerSidebarActions();
 	const computedColorScheme = useColorScheme();
 	const savedViewsQuery = useSavedViewsQuery();
+	const savedViewMutations = useSavedViewMutations();
 	const { hovered, ref } = useHover<HTMLDivElement>();
 	const [searchQuery, setSearchQuery] = useState("");
 	const [expandedTrackers, setExpandedTrackers] = useLocalStorage<
@@ -509,8 +539,15 @@ export function Sidebar(props: SidebarProps) {
 									onToggleTracker={handleToggleTracker}
 									isMutationBusy={state.isMutationBusy}
 									isCustomizeMode={state.isCustomizeMode}
+									isViewMutationBusy={savedViewMutations.isPending}
 									onToggleTrackerEnabled={(trackerId) =>
 										void actions.toggleTrackerById(trackerId)
+									}
+									onToggleViewEnabled={(viewId) =>
+										void savedViewMutations.toggleViewById(
+											viewId,
+											savedViewsQuery.savedViews,
+										)
 									}
 								/>
 							);
