@@ -9,7 +9,7 @@ import {
 	Table,
 	Text,
 } from "@mantine/core";
-import { isNumber } from "@ryot/ts-utils";
+import { isNumber } from "@ryot/ts-utils/lodash";
 import { produce } from "immer";
 import { useState } from "react";
 import invariant from "tiny-invariant";

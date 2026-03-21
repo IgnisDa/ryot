@@ -4,7 +4,7 @@ import {
 	createEntityPropertyExpression,
 	createEventAggregateExpression,
 	createTransformExpression,
-} from "@ryot/ts-utils";
+} from "@ryot/ts-utils/view-language";
 import { match } from "ts-pattern";
 
 import type { ViewExpression } from "~/lib/views/expression";

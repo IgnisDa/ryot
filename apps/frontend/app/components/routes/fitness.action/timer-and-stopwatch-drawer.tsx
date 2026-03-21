@@ -1,5 +1,5 @@
 import { Button, Divider, Drawer, Group, RingProgress, Stack, Text } from "@mantine/core";
-import { isNumber } from "@ryot/ts-utils";
+import { isNumber } from "@ryot/ts-utils/lodash";
 import { IconDeviceWatch, IconDeviceWatchCancel, IconDeviceWatchPause } from "@tabler/icons-react";
 import { produce } from "immer";
 import invariant from "tiny-invariant";

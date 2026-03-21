@@ -6,7 +6,7 @@ import {
 	createEntityPropertyExpression,
 	createEntitySchemaExpression,
 	createEventAggregateExpression,
-} from "@ryot/ts-utils";
+} from "@ryot/ts-utils/view-language";
 
 import {
 	buildQueryEngineField,

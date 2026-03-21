@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
-import type { AppSchema } from "@ryot/ts-utils";
-import { toAppSchemaProperties } from "@ryot/ts-utils";
+import type { AppSchema } from "@ryot/ts-utils/app-schema";
+import { toAppSchemaProperties } from "@ryot/ts-utils/app-schema";
 
 const workoutPropertiesSchema = z
 	.object({

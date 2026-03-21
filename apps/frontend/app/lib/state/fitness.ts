@@ -17,7 +17,10 @@ import {
 	type WorkoutSetStatistic,
 	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber, isString, mergeWith, sum } from "@ryot/ts-utils";
+import { isNumber } from "@ryot/ts-utils/lodash";
+import { isString } from "@ryot/ts-utils/lodash";
+import { mergeWith } from "@ryot/ts-utils/lodash";
+import { sum } from "@ryot/ts-utils/lodash";
 import { queryOptions } from "@tanstack/react-query";
 import { createDraft, finishDraft } from "immer";
 import { atom, useAtom } from "jotai";

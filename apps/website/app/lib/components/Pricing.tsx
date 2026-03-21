@@ -1,4 +1,5 @@
-import { changeCase, cn } from "@ryot/ts-utils";
+import { cn } from "@ryot/ts-utils/cn";
+import { changeCase } from "@ryot/ts-utils/string";
 import { CheckCircle, Cloud, Crown, PlayIcon, Server, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";

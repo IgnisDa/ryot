@@ -18,7 +18,7 @@ import {
 	GenerateLogDownloadUrlDocument,
 	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { processSubmission } from "@ryot/ts-utils";
+import { processSubmission } from "@ryot/ts-utils/request";
 import {
 	IconActivity,
 	IconBarbell,

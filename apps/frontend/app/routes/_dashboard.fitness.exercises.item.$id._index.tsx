@@ -28,7 +28,10 @@ import {
 	ExerciseSource,
 	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, parseParameters, parseSearchQuery, sortBy, startCase } from "@ryot/ts-utils";
+import { sortBy } from "@ryot/ts-utils/lodash";
+import { startCase } from "@ryot/ts-utils/lodash";
+import { parseParameters, parseSearchQuery } from "@ryot/ts-utils/request";
+import { changeCase } from "@ryot/ts-utils/string";
 import {
 	IconChartPie,
 	IconCheck,

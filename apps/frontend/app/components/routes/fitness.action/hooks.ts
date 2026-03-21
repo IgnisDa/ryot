@@ -2,7 +2,8 @@ import type {
 	ExerciseDetailsQuery,
 	UserExerciseDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber, sortBy } from "@ryot/ts-utils";
+import { isNumber } from "@ryot/ts-utils/lodash";
+import { sortBy } from "@ryot/ts-utils/lodash";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { useMemo } from "react";

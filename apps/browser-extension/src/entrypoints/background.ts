@@ -1,5 +1,5 @@
 import { MetadataLookupDocument } from "@ryot/generated/graphql/backend/graphql";
-import { isFiniteNumber } from "@ryot/ts-utils";
+import { isFiniteNumber } from "@ryot/ts-utils/lodash";
 import { GraphQLClient } from "graphql-request";
 
 import { storage } from "#imports";

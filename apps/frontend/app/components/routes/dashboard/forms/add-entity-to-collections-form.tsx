@@ -1,7 +1,7 @@
 import { Button, MultiSelect, Stack } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import type { Scalars } from "@ryot/generated/graphql/backend/graphql";
-import { groupBy } from "@ryot/ts-utils";
+import { groupBy } from "@ryot/ts-utils/lodash";
 import { useMemo } from "react";
 import { Fragment } from "react/jsx-runtime";
 

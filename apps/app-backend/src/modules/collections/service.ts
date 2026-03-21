@@ -1,5 +1,5 @@
-import type { AppSchema } from "@ryot/ts-utils";
-import { resolveRequiredString } from "@ryot/ts-utils";
+import type { AppSchema } from "@ryot/ts-utils/app-schema";
+import { resolveRequiredString } from "@ryot/ts-utils/slug";
 
 import { parseAppSchemaPropertiesSafe, type ValidationIssue } from "~/lib/app/schema-validation";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";

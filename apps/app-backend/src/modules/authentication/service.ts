@@ -1,4 +1,4 @@
-import { resolveRequiredString } from "@ryot/ts-utils";
+import { resolveRequiredString } from "@ryot/ts-utils/slug";
 
 import { createDefaultQueryDefinition } from "~/modules/saved-views";
 import type {

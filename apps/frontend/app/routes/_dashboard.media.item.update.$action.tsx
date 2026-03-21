@@ -21,7 +21,8 @@ import {
 	MediaSource,
 	UpdateCustomMetadataDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { camelCase, parseParameters, parseSearchQuery } from "@ryot/ts-utils";
+import { camelCase } from "@ryot/ts-utils/lodash";
+import { parseParameters, parseSearchQuery } from "@ryot/ts-utils/request";
 import { IconCalendar, IconCalendarEvent } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";

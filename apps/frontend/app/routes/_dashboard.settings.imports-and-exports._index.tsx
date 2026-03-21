@@ -31,7 +31,9 @@ import {
 	type UserExportsQuery,
 	UserImportReportsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getActionIntent, kebabCase, processSubmission } from "@ryot/ts-utils";
+import { kebabCase } from "@ryot/ts-utils/lodash";
+import { getActionIntent, processSubmission } from "@ryot/ts-utils/request";
+import { changeCase } from "@ryot/ts-utils/string";
 import { IconDownload, IconEye, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { filesize } from "filesize";

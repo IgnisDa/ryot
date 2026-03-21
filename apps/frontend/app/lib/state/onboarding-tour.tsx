@@ -1,6 +1,7 @@
 import { Box, Button, Group, Loader, Stack, Text } from "@mantine/core";
 import { MediaLot, UpdateUserPreferenceDocument } from "@ryot/generated/graphql/backend/graphql";
-import { cloneDeep, isNumber } from "@ryot/ts-utils";
+import { cloneDeep } from "@ryot/ts-utils/lodash";
+import { isNumber } from "@ryot/ts-utils/lodash";
 import { produce } from "immer";
 import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";

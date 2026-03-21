@@ -1,4 +1,4 @@
-import { extractErrorMessage } from "@ryot/ts-utils";
+import { extractErrorMessage } from "@ryot/ts-utils/error";
 
 import { executeInternalAppRequest } from "~/app/internal-request";
 import {

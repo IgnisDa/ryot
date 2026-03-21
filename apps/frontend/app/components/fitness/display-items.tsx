@@ -1,7 +1,9 @@
 import { Alert, Avatar } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
 import { EntityLot } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, isNumber, snakeCase } from "@ryot/ts-utils";
+import { isNumber } from "@ryot/ts-utils/lodash";
+import { snakeCase } from "@ryot/ts-utils/lodash";
+import { changeCase } from "@ryot/ts-utils/string";
 import { IconBellRinging } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { $path } from "safe-routes";

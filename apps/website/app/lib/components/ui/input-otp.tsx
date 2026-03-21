@@ -1,4 +1,4 @@
-import { cn } from "@ryot/ts-utils";
+import { cn } from "@ryot/ts-utils/cn";
 import { OTPInput, OTPInputContext } from "input-otp";
 import { Dot } from "lucide-react";
 import { type ComponentPropsWithoutRef, type ComponentRef, forwardRef, useContext } from "react";

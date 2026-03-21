@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 
 import { compareContinueItems, compareRateTheseItems, compareUpNextItems } from "./classification";
 

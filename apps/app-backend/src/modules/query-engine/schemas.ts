@@ -1,5 +1,5 @@
 import { z } from "@hono/zod-openapi";
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 
 import {
 	computedFieldArraySchema,

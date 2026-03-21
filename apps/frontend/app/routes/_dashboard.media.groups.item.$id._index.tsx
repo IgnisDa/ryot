@@ -1,6 +1,6 @@
 import { Button, Container, Flex, Group, Menu, SimpleGrid, Stack, Tabs, Text } from "@mantine/core";
 import { EntityLot, EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
-import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
+import { parseParameters, parseSearchQuery } from "@ryot/ts-utils/request";
 import { IconDeviceTv, IconInfoCircle, IconMessageCircle2, IconUser } from "@tabler/icons-react";
 import { useLoaderData } from "react-router";
 import { z } from "zod";

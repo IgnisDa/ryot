@@ -1,4 +1,7 @@
-import { createEntityPropertyExpression, createEntitySchemaExpression } from "@ryot/ts-utils";
+import {
+	createEntityPropertyExpression,
+	createEntitySchemaExpression,
+} from "@ryot/ts-utils/view-language";
 
 import {
 	createEntityRuntimeRequest,

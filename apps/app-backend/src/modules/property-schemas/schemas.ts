@@ -7,8 +7,11 @@ import type {
 	AppSchemaRuleCondition,
 	AppSchemaRuleValue,
 	AppSchemaUnknownKeysPolicy,
-} from "@ryot/ts-utils";
-import { appPropertyPrimitiveTypes, getAppPropertyDefinitionAtPath } from "@ryot/ts-utils";
+} from "@ryot/ts-utils/app-schema";
+import {
+	appPropertyPrimitiveTypes,
+	getAppPropertyDefinitionAtPath,
+} from "@ryot/ts-utils/app-schema";
 import { match } from "ts-pattern";
 
 import { getComparablePropertyType } from "~/lib/views/policy";

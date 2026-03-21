@@ -1,4 +1,4 @@
-import { getActionIntent } from "@ryot/ts-utils";
+import { getActionIntent } from "@ryot/ts-utils/request";
 import { data, redirect } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";

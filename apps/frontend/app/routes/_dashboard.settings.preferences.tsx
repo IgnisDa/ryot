@@ -35,16 +35,14 @@ import {
 	UserReviewScale,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	changeCase,
-	cloneDeep,
-	cn,
-	isBoolean,
-	isNumber,
-	parseSearchQuery,
-	snakeCase,
-	startCase,
-} from "@ryot/ts-utils";
+import { cn } from "@ryot/ts-utils/cn";
+import { cloneDeep } from "@ryot/ts-utils/lodash";
+import { isBoolean } from "@ryot/ts-utils/lodash";
+import { isNumber } from "@ryot/ts-utils/lodash";
+import { snakeCase } from "@ryot/ts-utils/lodash";
+import { startCase } from "@ryot/ts-utils/lodash";
+import { parseSearchQuery } from "@ryot/ts-utils/request";
+import { changeCase } from "@ryot/ts-utils/string";
 import {
 	IconAlertCircle,
 	IconCheckbox,

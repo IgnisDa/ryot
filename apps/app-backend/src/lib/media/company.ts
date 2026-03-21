@@ -1,5 +1,5 @@
 import { z } from "@hono/zod-openapi";
-import { toAppSchemaProperties } from "@ryot/ts-utils";
+import { toAppSchemaProperties } from "@ryot/ts-utils/app-schema";
 
 import { imagesSchema, nullableIntSchema, nullableStringSchema, stringArraySchema } from "../zod";
 

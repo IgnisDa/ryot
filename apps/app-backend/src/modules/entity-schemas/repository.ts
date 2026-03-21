@@ -1,4 +1,4 @@
-import { normalizeSlug } from "@ryot/ts-utils";
+import { normalizeSlug } from "@ryot/ts-utils/slug";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 
 import { assertPersisted, type DbClient, db } from "~/lib/db";

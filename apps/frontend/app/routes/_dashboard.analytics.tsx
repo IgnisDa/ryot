@@ -25,16 +25,16 @@ import {
 	type UserAnalyticsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
-	changeCase,
 	formatDateToNaiveDate,
 	formatQuantityWithCompactNotation,
 	humanizeDuration,
-	isBoolean,
-	mapValues,
-	pickBy,
-	snakeCase,
-	sum,
-} from "@ryot/ts-utils";
+} from "@ryot/ts-utils/format";
+import { isBoolean } from "@ryot/ts-utils/lodash";
+import { mapValues } from "@ryot/ts-utils/lodash";
+import { pickBy } from "@ryot/ts-utils/lodash";
+import { snakeCase } from "@ryot/ts-utils/lodash";
+import { sum } from "@ryot/ts-utils/lodash";
+import { changeCase } from "@ryot/ts-utils/string";
 import {
 	IconBarbell,
 	IconClock,

@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 
 export const cloneFixture = <T>(value: T): T => structuredClone(value);
 

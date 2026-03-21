@@ -1,4 +1,5 @@
-import { isEqual, resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
+import { isEqual } from "@ryot/ts-utils/lodash";
+import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils/slug";
 
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { buildReorderedIds } from "~/lib/reorder";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { createComputedFieldExpression } from "@ryot/ts-utils";
+import { createComputedFieldExpression } from "@ryot/ts-utils/view-language";
 
 import { literalExpression } from "~/lib/test-fixtures";
 

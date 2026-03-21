@@ -4,7 +4,8 @@ import {
 	ExerciseDurationUnit,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber, isString } from "@ryot/ts-utils";
+import { isNumber } from "@ryot/ts-utils/lodash";
+import { isString } from "@ryot/ts-utils/lodash";
 import clsx from "clsx";
 import { produce } from "immer";
 import invariant from "tiny-invariant";

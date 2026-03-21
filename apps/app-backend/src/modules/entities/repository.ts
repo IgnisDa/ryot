@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
 
 import { assertPersisted, type DbClient, db } from "~/lib/db";
