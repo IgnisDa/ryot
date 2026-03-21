@@ -1,5 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { UserId } from "@ryot/contract/schema/brands";
+import { hostSuccess } from "@ryot/sandbox-sdk/wire";
 import { Effect, Layer, Logger, Option, Tracer, type Exit, References } from "effect";
 import type { Logger as LoggerType } from "effect/Logger";
 import { describe } from "vitest";
@@ -12,7 +13,7 @@ import {
 } from "./observability-host-functions";
 import { runSandboxBridgeHostFunction } from "./runtime";
 import { selectSandboxHostFunctions } from "./service";
-import { apiSuccess, type BoundHostFunction, type SandboxRunInput } from "./shared";
+import { type BoundHostFunction, type SandboxRunInput } from "./shared";
 
 type CapturedLog = {
 	options: Parameters<LoggerType<unknown, unknown>["log"]>[0];
@@ -174,13 +175,13 @@ describe("sandbox observability host functions", () => {
 								attributes: { plugin: "media", executionId: "plugin-value" },
 							},
 						])
-						.pipe(Effect.map(apiSuccess));
+						.pipe(Effect.map(hostSuccess));
 				const span: BoundHostFunction = () =>
 					host
 						.span(input, [
 							{ name: "provider.run", attributes: { plugin: "media", scriptId: "plugin-value" } },
 						])
-						.pipe(Effect.map(apiSuccess));
+						.pipe(Effect.map(hostSuccess));
 
 				yield* runSandboxBridgeHostFunction(log, [], {
 					parentSpan,

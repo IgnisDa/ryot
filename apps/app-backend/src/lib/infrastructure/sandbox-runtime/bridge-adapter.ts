@@ -3,18 +3,16 @@ import {
 	coreSandboxHostContracts,
 	domainSandboxHostContracts,
 } from "@ryot/sandbox-sdk/core";
-import type { SandboxHostError } from "@ryot/sandbox-sdk/wire";
+import { hostFailure, hostSuccess, type SandboxHostError } from "@ryot/sandbox-sdk/wire";
 import { Effect, Schema, SchemaIssue } from "effect";
 
 import {
-	apiFailure,
-	apiSuccess,
 	type BoundHostFunction,
 	type SandboxHostImplementationMap,
 	type SandboxRunInput,
 } from "./shared";
 
-type HostFailure = ReturnType<typeof apiFailure>;
+type HostFailure = ReturnType<typeof hostFailure>;
 
 const formatIssue = SchemaIssue.makeFormatterStandardSchemaV1();
 const formatArgumentCountIssue = SchemaIssue.makeFormatterStandardSchemaV1({
@@ -47,40 +45,40 @@ const hasInvalidArgumentCount = (error: Schema.SchemaError) => {
 
 const invalidArguments = (fnName: string, error: Schema.SchemaError, message: string) =>
 	hasInvalidArgumentCount(error)
-		? apiFailure(`${fnName} received an invalid number of arguments`)
-		: apiFailure(message);
+		? hostFailure(`${fnName} received an invalid number of arguments`)
+		: hostFailure(message);
 
 const invalidHttpCallArguments = (error: Schema.SchemaError) => {
 	if (hasInvalidArgumentCount(error)) {
-		return apiFailure("httpCall received an invalid number of arguments");
+		return hostFailure("httpCall received an invalid number of arguments");
 	}
 
 	const issue = parseIssues(error)[0];
 	const [position, field] = issue?.path?.map(pathKey) ?? [];
 	if (position === 0) {
-		return apiFailure("httpCall expects a non-empty method string");
+		return hostFailure("httpCall expects a non-empty method string");
 	}
 	if (position === 1) {
-		return apiFailure("httpCall expects a non-empty URL string");
+		return hostFailure("httpCall expects a non-empty URL string");
 	}
 	if (position === 2 && parseIssueTags(error)[0]?.message === "UnexpectedKey") {
-		return apiFailure(`httpCall options.${String(field ?? "value")} is not supported`);
+		return hostFailure(`httpCall options.${String(field ?? "value")} is not supported`);
 	}
 	if (position === 2 && field === "body") {
-		return apiFailure("httpCall options.body must be a string");
+		return hostFailure("httpCall options.body must be a string");
 	}
 	if (position === 2 && field === "headers") {
-		return apiFailure(
+		return hostFailure(
 			(issue?.path?.length ?? 0) > 2
 				? "httpCall headers must be string values"
 				: "httpCall options.headers must be an object",
 		);
 	}
 	if (position === 2 && field === "allowInsecureConnections") {
-		return apiFailure("httpCall options.allowInsecureConnections must be a boolean");
+		return hostFailure("httpCall options.allowInsecureConnections must be a boolean");
 	}
 
-	return apiFailure("httpCall options must be an object");
+	return hostFailure("httpCall options must be an object");
 };
 
 const normalizeOptionalNull = (args: ReadonlyArray<unknown>, index: number) => {
@@ -107,7 +105,7 @@ const bindHostFunction =
 		implementation: (...args: Args) => Effect.Effect<Success, SandboxHostError>,
 		invalid: (error: Schema.SchemaError) => HostFailure,
 		normalize: (args: ReadonlyArray<unknown>) => ReadonlyArray<unknown> = (args) => args,
-		failure: (error: SandboxHostError) => unknown = (error) => apiFailure(error.message),
+		failure: (error: SandboxHostError) => unknown = (error) => hostFailure(error.message),
 	): BoundHostFunction =>
 	(args) =>
 		Schema.decodeUnknownEffect(contract.args)(normalize(args)).pipe(
@@ -115,7 +113,7 @@ const bindHostFunction =
 				onFailure: (error) => Effect.succeed(invalid(error)),
 				onSuccess: (parsed) =>
 					implementation(...parsed).pipe(
-						Effect.match({ onFailure: failure, onSuccess: apiSuccess }),
+						Effect.match({ onFailure: failure, onSuccess: hostSuccess }),
 					),
 			}),
 			Effect.flatMap(Schema.encodeUnknownEffect(contract.result)),
@@ -138,7 +136,7 @@ const cacheInvalidArguments =
 	};
 
 const preserveHttpFailureDetails = (error: SandboxHostError) =>
-	"data" in error ? { ...apiFailure(error.message), data: error.data } : apiFailure(error.message);
+	hostFailure(error.message, error.data);
 
 export const bindSandboxHostFunctions = (
 	implementations: SandboxHostImplementationMap,
