@@ -4,12 +4,12 @@ import type { AuthType } from "~/lib/auth";
 import {
 	commonErrors,
 	createAuthRoute,
+	createSuccessResult,
 	createInternalErrorResult,
 	createValidationErrorResult,
 	createErrorResponse,
 	createStandardResponses,
 	jsonBody,
-	successResponse,
 } from "~/lib/openapi";
 
 import {
@@ -63,22 +63,28 @@ export const uploadsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const result = await createPresignedUpload(body);
 		if ("error" in result) {
 			if (result.error === "validation") {
-				return c.json(createValidationErrorResult(result.message).body, 400);
+				const response = createValidationErrorResult(result.message);
+				return c.json(response.body, response.status);
 			}
-			return c.json(createInternalErrorResult(result.message).body, 500);
+			const response = createInternalErrorResult(result.message);
+			return c.json(response.body, response.status);
 		}
 
-		return c.json(successResponse(result.data), 200);
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
 	})
 	.openapi(getPresignedDownloadUrlRoute, async (c) => {
 		const body = c.req.valid("json");
 		const result = await createPresignedDownloads(body);
 		if ("error" in result) {
 			if (result.error === "validation") {
-				return c.json(createValidationErrorResult(result.message).body, 400);
+				const response = createValidationErrorResult(result.message);
+				return c.json(response.body, response.status);
 			}
-			return c.json(createInternalErrorResult(result.message).body, 500);
+			const response = createInternalErrorResult(result.message);
+			return c.json(response.body, response.status);
 		}
 
-		return c.json(successResponse(result.data), 200);
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
 	});

@@ -7,11 +7,11 @@ import { db } from "~/lib/db";
 import {
 	commonErrors,
 	createErrorResponse,
+	createHealthCheckFailedErrorResult,
+	createSuccessResult,
 	dataSchema,
 	jsonResponse,
-	successResponse,
 } from "~/lib/openapi";
-import { ERROR_CODES, errorResponse } from "~/lib/openapi/errors";
 import { redis } from "~/lib/redis";
 
 import { getMetricsAsText } from "./service";
@@ -68,28 +68,23 @@ export const systemApi = new OpenAPIHono()
 		try {
 			await db.execute(sql`SELECT 1`);
 		} catch (error) {
-			return c.json(
-				errorResponse(
-					ERROR_CODES.HEALTH_CHECK_FAILED,
-					`Database check failed: ${extractErrorMessage(error, "Unknown error")}`,
-				),
-				503,
+			const response = createHealthCheckFailedErrorResult(
+				`Database check failed: ${extractErrorMessage(error, "Unknown error")}`,
 			);
+			return c.json(response.body, response.status);
 		}
 
 		try {
 			await redis.ping();
 		} catch (error) {
-			return c.json(
-				errorResponse(
-					ERROR_CODES.HEALTH_CHECK_FAILED,
-					`Redis check failed: ${extractErrorMessage(error, "Unknown error")}`,
-				),
-				503,
+			const response = createHealthCheckFailedErrorResult(
+				`Redis check failed: ${extractErrorMessage(error, "Unknown error")}`,
 			);
+			return c.json(response.body, response.status);
 		}
 
-		return c.json(successResponse({ status: "healthy" as const }), 200);
+		const response = createSuccessResult({ status: "healthy" as const });
+		return c.json(response.body, response.status);
 	})
 	.openapi(metricsRoute, async (c) => {
 		const metricsText = await getMetricsAsText();
@@ -102,13 +97,11 @@ export const systemApi = new OpenAPIHono()
 			system: systemConfigEnvIndex,
 			providers: appConfigEnvIndex,
 		});
-		return c.json(
-			successResponse({
-				// oxlint-disable-next-line no-unsafe-type-assertion
-				system: masked.system as Record<string, unknown>,
-				// oxlint-disable-next-line no-unsafe-type-assertion
-				providers: masked.providers as Record<string, unknown>,
-			}),
-			200,
-		);
+		const response = createSuccessResult({
+			// oxlint-disable-next-line no-unsafe-type-assertion
+			system: masked.system as Record<string, unknown>,
+			// oxlint-disable-next-line no-unsafe-type-assertion
+			providers: masked.providers as Record<string, unknown>,
+		});
+		return c.json(response.body, response.status);
 	});

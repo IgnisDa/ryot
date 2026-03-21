@@ -5,7 +5,7 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { createSmartphoneSchema } from "~/lib/test-fixtures";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
 
-import { buildResolvedFieldsExpression } from "./display-builder";
+import { buildResolvedFieldsExpression } from "./display-sql-builder";
 
 const dialect = new PgDialect();
 const context = {

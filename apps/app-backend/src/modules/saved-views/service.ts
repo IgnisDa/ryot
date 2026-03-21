@@ -7,6 +7,7 @@ import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } f
 import { QueryEngineNotFoundError, QueryEngineValidationError } from "~/lib/views/errors";
 import { loadAndValidateQueryContext } from "~/modules/query-engine";
 
+import { buildBuiltinSavedViewName } from "./constants";
 import {
 	countSavedViewsBySlugForUser,
 	createSavedViewForUser,
@@ -69,8 +70,7 @@ const savedViewServiceDeps: SavedViewServiceDeps = {
 
 export const resolveSavedViewName = (name: string) =>
 	resolveRequiredString(name, "Saved view name");
-
-export const buildBuiltinSavedViewName = (entitySchemaName: string) => `All ${entitySchemaName}s`;
+export { buildBuiltinSavedViewName };
 
 const resolveSavedViewNameResult = (name: string, fallback: string) =>
 	wrapServiceValidator(() => resolveSavedViewName(name), fallback);
