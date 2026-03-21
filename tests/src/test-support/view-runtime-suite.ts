@@ -1,14 +1,43 @@
 import { expect, it } from "bun:test";
 import {
+	createAuthenticatedClient,
+	createEntitySchema,
+	createTracker,
+} from "src/helpers";
+import {
 	buildGridDisplayConfiguration,
 	buildGridRequest,
 	buildListRequest,
 	buildTableDisplayConfiguration,
 	buildTableRequest,
 	createCrossSchemaRuntimeFixture,
+	createEntity,
 	createSingleSchemaRuntimeFixture,
 	executeViewRuntime,
 } from "./view-runtime";
+
+async function createImageFallbackFixture() {
+	const { client, cookies } = await createAuthenticatedClient();
+	const { trackerId } = await createTracker(client, cookies, {
+		name: "Fallback Image Tracker",
+	});
+	const schema = await createEntitySchema(client, cookies, {
+		trackerId,
+		name: "Fallback Image Device",
+		propertiesSchema: { category: { type: "string" } },
+	});
+
+	await createEntity({
+		client,
+		cookies,
+		image: null,
+		name: "No Image Device",
+		entitySchemaId: schema.schemaId,
+		properties: { category: "fallback-image" },
+	});
+
+	return { client, cookies, schema };
+}
 
 export function registerViewRuntimePresentationAndErrorTests() {
 	it("returns semantic keys for grid and list layouts with raw image unions", async () => {
@@ -122,6 +151,85 @@ export function registerViewRuntimePresentationAndErrorTests() {
 				kind: "remote",
 				url: "https://example.com/beta-tablet.png",
 			},
+		});
+	});
+
+	it("falls through to later image references when @image is null", async () => {
+		const { client, cookies, schema } = await createImageFallbackFixture();
+
+		const { data, response } = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [schema.slug],
+				filters: [{ op: "eq", field: ["@name"], value: "No Image Device" }],
+				displayConfiguration: buildGridDisplayConfiguration({
+					badgeProperty: null,
+					subtitleProperty: null,
+					imageProperty: ["@image", "category"],
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items[0]?.image).toBeNull();
+		expect(data?.data.items[0]?.resolvedProperties).toEqual({
+			badgeProperty: null,
+			subtitleProperty: null,
+			imageProperty: "fallback-image",
+			titleProperty: "No Image Device",
+		});
+	});
+
+	it("falls through to later image references in list layout when @image is null", async () => {
+		const { client, cookies, schema } = await createImageFallbackFixture();
+
+		const { data, response } = await executeViewRuntime(
+			client,
+			cookies,
+			buildListRequest({
+				entitySchemaSlugs: [schema.slug],
+				filters: [{ op: "eq", field: ["@name"], value: "No Image Device" }],
+				displayConfiguration: {
+					badgeProperty: null,
+					subtitleProperty: null,
+					titleProperty: ["@name"],
+					imageProperty: ["@image", "category"],
+				},
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items[0]?.image).toBeNull();
+		expect(data?.data.items[0]?.resolvedProperties).toEqual({
+			badgeProperty: null,
+			subtitleProperty: null,
+			imageProperty: "fallback-image",
+			titleProperty: "No Image Device",
+		});
+	});
+
+	it("falls through to later image references in table layout when @image is null", async () => {
+		const { client, cookies, schema } = await createImageFallbackFixture();
+
+		const { data, response } = await executeViewRuntime(
+			client,
+			cookies,
+			buildTableRequest({
+				entitySchemaSlugs: [schema.slug],
+				filters: [{ op: "eq", field: ["@name"], value: "No Image Device" }],
+				displayConfiguration: buildTableDisplayConfiguration([
+					{ property: ["@image", "category"] },
+					{ property: ["@name"] },
+				]),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items[0]?.image).toBeNull();
+		expect(data?.data.items[0]?.resolvedProperties).toEqual({
+			column_0: "fallback-image",
+			column_1: "No Image Device",
 		});
 	});
 

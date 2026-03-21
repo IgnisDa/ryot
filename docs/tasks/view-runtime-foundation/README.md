@@ -313,7 +313,7 @@ function validateSlugNotReserved(slug: string): void
 - "All Mangas"
 - "Collections"
 
-**Known issue:** `@image` returns full jsonb object, not URL. This is acceptable for Phase 1. Full bootstrap implementation deferred to Phase 2.
+**Image behavior:** `@image` returns the raw image jsonb discriminated union, not a resolved URL. This is acceptable for Phase 1 because the frontend already knows how to resolve image objects. When `@image` is null inside a fallback array, it must fall through to later references instead of short-circuiting the COALESCE chain.
 
 ### Validation Strategy
 

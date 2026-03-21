@@ -19,7 +19,7 @@ interface CreateEntityInput {
 	cookies: string;
 	entitySchemaId: string;
 	properties: Record<string, unknown>;
-	image?: { kind: "remote"; url: string };
+	image?: { kind: "remote"; url: string } | null;
 }
 
 export function buildGridDisplayConfiguration(
@@ -107,8 +107,6 @@ export async function executeViewRuntime(
 	});
 }
 
-export { createTracker, createEntitySchema };
-
 export async function createEntity(input: CreateEntityInput) {
 	const { data, response } = await input.client.POST("/entities", {
 		headers: { Cookie: input.cookies },
@@ -117,11 +115,12 @@ export async function createEntity(input: CreateEntityInput) {
 			properties: input.properties,
 			entitySchemaId: input.entitySchemaId,
 			image:
-				input.image ??
-				({
-					kind: "remote",
-					url: `https://example.com/${input.name.toLowerCase().replace(/\s+/g, "-")}.png`,
-				} as const),
+				input.image === undefined
+					? ({
+							kind: "remote",
+							url: `https://example.com/${input.name.toLowerCase().replace(/\s+/g, "-")}.png`,
+						} as const)
+					: input.image,
 		},
 	});
 
