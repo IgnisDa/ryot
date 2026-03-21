@@ -141,7 +141,7 @@ export function SidebarAccountSection(props: {
 									radius="md"
 									color="accent"
 									variant="light"
-									src={props.account.image || undefined}
+									src={props.account.image}
 								>
 									{initials}
 								</Avatar>
@@ -172,9 +172,9 @@ export function SidebarAccountSection(props: {
 							>
 								<Stack gap="md">
 									<Group
-										justify="space-between"
-										align="flex-start"
 										wrap="nowrap"
+										align="flex-start"
+										justify="space-between"
 									>
 										<Box>
 											<Text
@@ -195,7 +195,7 @@ export function SidebarAccountSection(props: {
 									<SegmentedControl
 										fullWidth
 										value={colorScheme}
-										onChange={(value) => setColorScheme(value)}
+										onChange={setColorScheme}
 										data={[
 											{
 												value: "auto",
