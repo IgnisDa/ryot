@@ -92,13 +92,7 @@ export function getEntityDetailProperties(
 				return null;
 			}
 
-			return {
-				key,
-				value,
-				rawValue,
-				label: key,
-				type: propertyDef.type,
-			};
+			return { key, value, rawValue, label: key, type: propertyDef.type };
 		})
 		.filter((property): property is EntityDetailProperty => !!property);
 }
