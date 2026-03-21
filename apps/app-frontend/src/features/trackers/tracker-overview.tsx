@@ -16,6 +16,7 @@ import { useResolvedEntityImageUrls } from "#/features/entities/image";
 import type { AppEntity } from "#/features/entities/model";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import type { AppTracker } from "#/features/trackers/model";
+import { getAccentMuted } from "#/lib/theme";
 import {
 	getActivityTimeLabel,
 	getLastActivityLabel,
@@ -180,7 +181,7 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 												image={imageUrls.imageUrlByEntityId.get(item.entity.id)}
 												trackerColor={{
 													base: item.schema.accentColor,
-													muted: `color-mix(in srgb, ${item.schema.accentColor} 15%, transparent)`,
+													muted: getAccentMuted(item.schema.accentColor),
 												}}
 												lastEvent={
 													item.latestEvent
