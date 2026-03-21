@@ -5,7 +5,7 @@ import { MobileSidebarBurger, Sidebar } from "#/components/sidebar/Sidebar";
 import { TrackerModal } from "#/features/trackers/components/tracker-modal";
 import TrackerSidebarProvider from "#/features/trackers/sidebar-context";
 import { useIsMobileScreen } from "#/hooks/screen";
-import { useColorScheme } from "#/hooks/theme";
+import { useThemeTokens } from "#/hooks/theme";
 import { authClient } from "#/lib/auth";
 
 export const Route = createFileRoute("/_protected")({
@@ -25,10 +25,9 @@ export const Route = createFileRoute("/_protected")({
 
 function RouteComponent() {
 	const isMobile = useIsMobileScreen();
-	const colorScheme = useColorScheme();
+	const { surface, border } = useThemeTokens();
 	const [drawerOpened, { open: openDrawer, close: closeDrawer }] =
 		useDisclosure(false);
-	const isDark = colorScheme === "dark";
 
 	return (
 		<TrackerSidebarProvider>
@@ -37,10 +36,8 @@ function RouteComponent() {
 					<Box
 						p="md"
 						style={{
-							backgroundColor: isDark ? "var(--mantine-color-dark-8)" : "white",
-							borderBottom: isDark
-								? "1px solid var(--mantine-color-dark-6)"
-								: "1px solid var(--mantine-color-stone-3)",
+							backgroundColor: surface,
+							borderBottom: `1px solid ${border}`,
 						}}
 					>
 						<MobileSidebarBurger opened={drawerOpened} onClick={openDrawer} />
