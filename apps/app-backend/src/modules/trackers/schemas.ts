@@ -2,10 +2,13 @@ import { zodBoolAsString } from "@ryot/ts-utils";
 import { z } from "zod";
 import { dataSchema } from "~/lib/openapi";
 import {
-	applicationIconNameSchema,
+	createIdParamsSchema,
 	createNameWithOptionalSlugSchema,
+	createUniqueNonEmptyTrimmedStringArraySchema,
+	iconAndAccentColorFields,
 	nonEmptyTrimmedStringSchema,
 	nullableStringSchema,
+	optionalIconAndAccentColorFields,
 } from "~/lib/zod/base";
 
 export const listedTrackerSchema = z.object({
@@ -15,10 +18,9 @@ export const listedTrackerSchema = z.object({
 	config: z.unknown(),
 	isBuiltin: z.boolean(),
 	isDisabled: z.boolean(),
-	icon: applicationIconNameSchema,
 	description: nullableStringSchema,
-	accentColor: nonEmptyTrimmedStringSchema,
 	sortOrder: z.number().int().nonnegative(),
+	...iconAndAccentColorFields,
 });
 
 export const createTrackerResponseSchema = dataSchema(listedTrackerSchema);
@@ -31,9 +33,8 @@ export const listTrackersQuery = z.object({
 });
 
 export const createTrackerBody = createNameWithOptionalSlugSchema({
-	icon: applicationIconNameSchema,
-	accentColor: nonEmptyTrimmedStringSchema,
 	description: nonEmptyTrimmedStringSchema.optional(),
+	...iconAndAccentColorFields,
 });
 
 const nullableTextInputSchema = z
@@ -44,9 +45,8 @@ export const updateTrackerBody = z
 	.object({
 		isDisabled: z.boolean(),
 		description: nullableTextInputSchema,
-		icon: applicationIconNameSchema.optional(),
 		name: nonEmptyTrimmedStringSchema.optional(),
-		accentColor: nonEmptyTrimmedStringSchema.optional(),
+		...optionalIconAndAccentColorFields,
 	})
 	.superRefine((value, ctx) => {
 		const hasConfigUpdate =
@@ -76,32 +76,19 @@ export const updateTrackerBody = z
 		}
 	});
 
-export const reorderTrackersBody = z
-	.object({
-		trackerIds: z.array(nonEmptyTrimmedStringSchema).min(1),
-	})
-	.superRefine((value, ctx) => {
-		const uniqueTrackerIds = new Set(value.trackerIds);
-		if (uniqueTrackerIds.size === value.trackerIds.length) {
-			return;
-		}
-
-		ctx.addIssue({
-			path: ["trackerIds"],
-			code: z.ZodIssueCode.custom,
-			message: "Tracker ids must be unique",
-		});
-	});
+export const reorderTrackersBody = z.object({
+	trackerIds: createUniqueNonEmptyTrimmedStringArraySchema({
+		duplicateMessage: "Tracker ids must be unique",
+	}),
+});
 
 export const reorderTrackersResponseSchema = dataSchema(
 	z.object({ trackerIds: z.array(z.string()) }),
 );
 
-export const trackerParams = z.object({
-	trackerId: nonEmptyTrimmedStringSchema,
-});
+export const trackerParams = createIdParamsSchema("trackerId");
 
+export type ListedTracker = z.infer<typeof listedTrackerSchema>;
 export type CreateTrackerBody = z.infer<typeof createTrackerBody>;
 export type UpdateTrackerBody = z.infer<typeof updateTrackerBody>;
 export type ReorderTrackersBody = z.infer<typeof reorderTrackersBody>;
-export type ListedTracker = z.infer<typeof listedTrackerSchema>;
