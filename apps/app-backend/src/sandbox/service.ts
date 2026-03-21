@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { generateId } from "better-auth";
+import { getQueues } from "../queue";
 import { BridgeServer } from "./bridge";
 import { defaultMaxHeapMB, defaultTimeoutMs } from "./constants";
 import { httpCall } from "./host-functions";
@@ -43,7 +44,7 @@ export class SandboxService {
 		const apiFunctionsId = this.setQueuedApiFunctions(options.apiFunctions);
 
 		try {
-			const queues = await this.getQueues();
+			const queues = getQueues();
 			const waitTimeoutMs = Math.max(
 				sandboxRunJobWaitTimeoutMs,
 				(options.timeoutMs ?? defaultTimeoutMs) + 5_000,
@@ -235,11 +236,6 @@ export class SandboxService {
 			throw new Error("Sandbox run API functions are unavailable");
 
 		return apiFunctions;
-	}
-
-	private async getQueues() {
-		const { getQueues } = await import("../queue");
-		return getQueues();
 	}
 
 	private setQueuedApiFunctions(apiFunctions?: Record<string, ApiFunction>) {
