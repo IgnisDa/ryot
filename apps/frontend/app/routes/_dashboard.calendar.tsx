@@ -120,6 +120,8 @@ const CalendarEventMetadata = (props: {
 		<MetadataDisplayItem
 			metadataId={props.item.metadataId}
 			additionalInformation={additionalInformation}
+			calendarEventShowInfo={props.item.showExtraInformation ?? undefined}
+			calendarEventPodcastInfo={props.item.podcastExtraInformation ?? undefined}
 		/>
 	);
 };
