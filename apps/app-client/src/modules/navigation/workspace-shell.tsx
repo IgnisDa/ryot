@@ -29,6 +29,9 @@ import {
 	type NavigationItems,
 } from "./navigation-data";
 
+const MOBILE_TOP_BAR_GAP = 12;
+const MOBILE_TOP_BAR_HEIGHT = 57;
+
 function NavigationRow(props: {
 	isActive: boolean;
 	onPress: () => void;
@@ -279,7 +282,7 @@ function MobileTopBar(props: {
 	onAccountOpen: () => void;
 }) {
 	return (
-		<View className="flex-row items-center gap-3 rounded-xl border border-border bg-nav-surface px-3 py-2 shadow-sm">
+		<View className="flex-row items-center gap-3 py-2">
 			<Pressable
 				accessibilityRole="button"
 				onPress={props.onAccountOpen}
@@ -288,17 +291,17 @@ function MobileTopBar(props: {
 			>
 				<NavigationIcon name="user" size={18} />
 			</Pressable>
-			<View className="h-10 flex-1 flex-row items-center gap-2 rounded-lg bg-bg px-3 text-text-muted">
+			<View className="h-10 flex-1 flex-row items-center gap-2 rounded-pill border border-border-strong bg-surface-2 px-3.5 text-text-muted">
 				<NavigationIcon name="search" size={17} />
-				<Text className="font-ui text-sm text-text-muted">Search</Text>
+				<Text className="font-ui text-sm text-text-subtle">Search</Text>
 			</View>
 			<Pressable
 				accessibilityRole="button"
 				onPress={props.onWorkspaceOpen}
 				accessibilityLabel={`Switch workspace, current workspace ${props.workspaceName}`}
-				className="h-10 w-10 items-center justify-center rounded-lg bg-accent-soft text-accent-text"
+				className="h-10 w-10 items-center justify-center rounded-pill border border-border-strong bg-surface-2 text-accent"
 			>
-				<NavigationIcon name={props.workspaceIcon} size={17} />
+				<NavigationIcon name={props.workspaceIcon} size={18} />
 			</Pressable>
 		</View>
 	);
@@ -661,22 +664,28 @@ export function WorkspaceShell() {
 					<ScrollView
 						className="flex-1"
 						scrollEventThrottle={16}
+						contentContainerClassName="min-h-full px-4 pb-[120px] md:px-8 md:pb-8 md:pt-8"
 						onScroll={(event) => setIsScrolled(event.nativeEvent.contentOffset.y > 24)}
-						contentContainerClassName="min-h-full px-4 pb-[120px] pt-[110px] md:px-8 md:pb-8 md:pt-8"
 					>
+						<View
+							className="md:hidden"
+							style={{ height: insets.top + MOBILE_TOP_BAR_HEIGHT + MOBILE_TOP_BAR_GAP }}
+						/>
 						<Slot />
 					</ScrollView>
-					<View
-						className="absolute inset-x-0 top-0 z-20 px-4 md:hidden"
-						style={{ paddingTop: insets.top + 12 }}
-					>
-						<MobileTopBar
-							workspaceIcon={currentWorkspace.icon}
-							workspaceName={currentWorkspace.name}
-							onAccountOpen={() => setMobileSheet("account")}
-							onWorkspaceOpen={() => setMobileSheet("workspace")}
-						/>
-					</View>
+					{!isScrolled && (
+						<View
+							style={{ paddingTop: insets.top }}
+							className="absolute inset-x-0 top-0 z-20 border-b border-border bg-bg px-4 md:hidden"
+						>
+							<MobileTopBar
+								workspaceIcon={currentWorkspace.icon}
+								workspaceName={currentWorkspace.name}
+								onAccountOpen={() => setMobileSheet("account")}
+								onWorkspaceOpen={() => setMobileSheet("workspace")}
+							/>
+						</View>
+					)}
 					<View
 						className="absolute inset-x-0 bottom-0 z-50 items-start px-4 md:hidden"
 						style={{ paddingBottom: insets.bottom + 12 }}
