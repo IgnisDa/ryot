@@ -183,9 +183,6 @@ describe("RyotQL time-series outputs", () => {
 			});
 			const source = entities[0];
 			const target = entities[1];
-			if (!source || !target) {
-				throw new Error("Expected time-series entities");
-			}
 			yield* createRelationship(client, {
 				sourceEntityId: source.id,
 				targetEntityId: target.id,

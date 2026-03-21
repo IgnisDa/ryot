@@ -73,6 +73,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 			if (validationError) {
 				return yield* new BadRequest({ message: validationError });
 			}
+			return yield* Effect.void;
 		});
 
 		const execute = (user: CurrentUserValue, document: RyotQLDocument) =>
