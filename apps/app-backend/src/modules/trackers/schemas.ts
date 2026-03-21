@@ -12,8 +12,8 @@ export const listedTrackerSchema = z.object({
 	slug: z.string(),
 	name: z.string(),
 	config: z.unknown(),
-	enabled: z.boolean(),
 	isBuiltin: z.boolean(),
+	isDisabled: z.boolean(),
 	icon: applicationIconNameSchema,
 	description: nullableStringSchema,
 	accentColor: nonEmptyTrimmedStringSchema,
@@ -37,7 +37,7 @@ const nullableTextInputSchema = z
 
 export const updateTrackerBody = z
 	.object({
-		enabled: z.boolean().optional(),
+		isDisabled: z.boolean().optional(),
 		description: nullableTextInputSchema,
 		icon: applicationIconNameSchema.optional(),
 		name: nonEmptyTrimmedStringSchema.optional(),

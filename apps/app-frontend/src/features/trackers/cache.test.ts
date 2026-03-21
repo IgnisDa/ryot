@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { applyTrackerEnabledPatch, applyTrackerReorderPatch } from "./cache";
+import { applyTrackerIsDisabledPatch, applyTrackerReorderPatch } from "./cache";
 import { createTrackerFixture } from "./test-fixtures";
 
 const f = createTrackerFixture;
@@ -8,21 +8,21 @@ const tracker = (
 	name: string,
 	slug: string,
 	sortOrder = 1,
-	enabled = true,
-) => f({ id, name, slug, enabled, sortOrder });
+	isDisabled = false,
+) => f({ id, name, slug, isDisabled, sortOrder });
 
-describe("applyTrackerEnabledPatch", () => {
-	it("updates target tracker enabled status only", () => {
+describe("applyTrackerIsDisabledPatch", () => {
+	it("updates target tracker isDisabled status only", () => {
 		const trackers = [
 			tracker("1", "Media", "media"),
-			tracker("2", "People", "people", 2, false),
+			tracker("2", "People", "people", 2, true),
 			tracker("3", "Music", "music", 3),
 		];
 
-		const result = applyTrackerEnabledPatch(trackers, "2", true);
+		const result = applyTrackerIsDisabledPatch(trackers, "2", false);
 
 		expect(result[0]).toEqual(trackers[0]);
-		expect(result[1]?.enabled).toBe(true);
+		expect(result[1]?.isDisabled).toBe(false);
 		expect(result[1]?.id).toBe("2");
 		expect(result[2]).toEqual(trackers[2]);
 	});
@@ -30,21 +30,21 @@ describe("applyTrackerEnabledPatch", () => {
 	it("maintains immutability of input array", () => {
 		const trackers = [
 			tracker("1", "Media", "media"),
-			tracker("2", "People", "people", 2, false),
+			tracker("2", "People", "people", 2, true),
 		];
 
-		const originalEnabled = trackers[0]?.enabled;
-		const result = applyTrackerEnabledPatch(trackers, "1", false);
+		const originalIsDisabled = trackers[0]?.isDisabled;
+		const result = applyTrackerIsDisabledPatch(trackers, "1", true);
 
-		expect(trackers[0]?.enabled).toBe(originalEnabled);
-		expect(result[0]?.enabled).toBe(false);
+		expect(trackers[0]?.isDisabled).toBe(originalIsDisabled);
+		expect(result[0]?.isDisabled).toBe(true);
 		expect(result).not.toBe(trackers);
 	});
 
 	it("maintains immutability of tracker objects", () => {
 		const trackers = [tracker("1", "Media", "media")];
 
-		const result = applyTrackerEnabledPatch(trackers, "1", false);
+		const result = applyTrackerIsDisabledPatch(trackers, "1", true);
 
 		expect(result[0]).not.toBe(trackers[0]);
 	});
