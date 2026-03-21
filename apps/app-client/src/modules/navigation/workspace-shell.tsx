@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import BottomSheet, { BottomSheetView } from "@expo/ui/community/bottom-sheet";
 import {
 	decodeNavigationResponse,
 	type NavigationData,
@@ -8,7 +9,7 @@ import clsx from "clsx";
 import { Cause, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { router, Slot, useGlobalSearchParams, usePathname } from "expo-router";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -352,39 +353,39 @@ function MobileTabBar(props: {
 }
 
 function Sheet(props: {
-	title: string;
-	className?: string;
 	children: ReactNode;
 	onClose: () => void;
+	snapPoints: (string | number)[];
+	title: string;
 }) {
+	const sheetRef = useRef<BottomSheet>(null);
+
 	return (
-		<View
-			className={clsx(
-				"absolute inset-x-0 bottom-0 z-40 max-h-[75%] rounded-t-2xl border-t border-border bg-surface px-4 pb-4 pt-2 shadow-card",
-				props.className,
-			)}
+		<BottomSheet
+			index={0}
+			ref={sheetRef}
+			enablePanDownToClose
+			onClose={props.onClose}
+			snapPoints={props.snapPoints}
+			backgroundStyle={{ backgroundColor: "transparent" }}
 		>
-			<Pressable
-				onPress={props.onClose}
-				accessibilityRole="button"
-				className="h-1 items-center"
-				accessibilityLabel="Close sheet"
-			>
-				<View className="h-1 w-10 rounded-pill bg-border-strong" />
-			</Pressable>
-			<View className="flex-row items-center justify-between py-4">
-				<Text className="font-display-semibold text-xl text-text">{props.title}</Text>
-				<Pressable
-					onPress={props.onClose}
-					accessibilityRole="button"
-					className="p-1 text-text-muted"
-					accessibilityLabel="Close sheet"
-				>
-					<NavigationIcon name="x" size={17} />
-				</Pressable>
-			</View>
-			{props.children}
-		</View>
+			<BottomSheetView style={{ flex: 1 }}>
+				<View className="flex-1 rounded-t-2xl border-t border-border bg-surface px-4 pb-4 pt-2">
+					<View className="flex-row items-center justify-between py-4">
+						<Text className="font-display-semibold text-xl text-text">{props.title}</Text>
+						<Pressable
+							accessibilityRole="button"
+							className="p-1 text-text-muted"
+							accessibilityLabel="Close sheet"
+							onPress={() => sheetRef.current?.close()}
+						>
+							<NavigationIcon name="x" size={17} />
+						</Pressable>
+					</View>
+					{props.children}
+				</View>
+			</BottomSheetView>
+		</BottomSheet>
 	);
 }
 
@@ -396,7 +397,7 @@ function MobileWorkspaceSheet(props: {
 	onSelect: (slug: string) => void;
 }) {
 	return (
-		<Sheet title="Workspaces" onClose={props.onClose} className="h-116.25">
+		<Sheet title="Workspaces" onClose={props.onClose} snapPoints={[465]}>
 			<View className="gap-2">
 				{props.data.workspaces.map((workspace) => {
 					const items = getNavigationItems({ data: props.data, workspaceSlug: workspace.slug });
@@ -461,8 +462,12 @@ function MobileMoreSheet(props: {
 }) {
 	const items = props.items;
 	return (
-		<Sheet title="More Views" onClose={props.onClose} className="h-142.5">
-			<ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-2 pb-4">
+		<Sheet title="More Views" onClose={props.onClose} snapPoints={[570]}>
+			<ScrollView
+				className="flex-1"
+				showsVerticalScrollIndicator={false}
+				contentContainerClassName="gap-2 pb-4"
+			>
 				{items.views.slice(4).map((item) => (
 					<Pressable
 						key={item.slug}
@@ -522,7 +527,7 @@ function MobileAccountSheet(props: {
 	const setTheme = useAtomSet(themeAtom);
 
 	return (
-		<Sheet title="Account" onClose={props.onClose} className="h-75">
+		<Sheet title="Account" onClose={props.onClose} snapPoints={[300]}>
 			<Pressable
 				accessibilityRole="button"
 				accessibilityLabel="Open account profile"
@@ -633,6 +638,11 @@ export function WorkspaceShell() {
 	const items = getNavigationItems({ data, workspaceSlug: currentWorkspace.slug });
 	const accountName = session?.user.name ?? session?.user.email ?? "Account";
 	const accountEmail = session?.user.email ?? "Email unavailable";
+	const selectedMobileTab = items.views
+		.slice(0, 4)
+		.find((item) =>
+			item.kind === "home" ? activeKey === "home" : activeKey === `view:${item.slug}`,
+		);
 
 	function navigate(item: NavigationItem) {
 		setMobileSheet(null);
@@ -702,7 +712,7 @@ export function WorkspaceShell() {
 									onPress={() => setMobileSheet("more")}
 									className="h-14 w-14 items-center justify-center rounded-full border border-nav-border bg-nav-surface text-accent-text shadow-card"
 								>
-									<NavigationIcon name="panel-left" size={20} />
+									<NavigationIcon name={selectedMobileTab?.icon ?? "panel-left"} size={20} />
 								</Pressable>
 							) : (
 								<MobileTabBar
@@ -714,13 +724,12 @@ export function WorkspaceShell() {
 							)}
 						</View>
 					)}
-					{(mobileSheet ?? desktopWorkspaceOpen) && (
+					{desktopWorkspaceOpen && (
 						<Pressable
 							accessibilityRole="button"
 							accessibilityLabel="Close navigation overlay"
 							className="absolute inset-0 z-30 bg-black/40 md:bg-black/20"
 							onPress={() => {
-								setMobileSheet(null);
 								setDesktopWorkspaceOpen(false);
 							}}
 						/>
