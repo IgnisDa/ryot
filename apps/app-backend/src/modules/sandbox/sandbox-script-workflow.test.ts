@@ -68,10 +68,12 @@ const controlledWorkflowDependencies = Layer.mergeAll(
 	}),
 );
 
-it("derives child ids deterministically from the parent, call name, and step", () => {
-	expect(sandboxWorkflowChildExecutionId("parent", "events", 7)).toBe("parent-child-events-7");
-	expect(sandboxWorkflowChildExecutionId("parent", "events", 7)).toBe(
-		sandboxWorkflowChildExecutionId("parent", "events", 7),
+it("sanitizes child id names deterministically", () => {
+	expect(sandboxWorkflowChildExecutionId("parent", "events/import v1", 7)).toBe(
+		"parent-child-events-import-v1-7",
+	);
+	expect(sandboxWorkflowChildExecutionId("parent", "events/import v1", 7)).toBe(
+		sandboxWorkflowChildExecutionId("parent", "events/import v1", 7),
 	);
 });
 
@@ -592,7 +594,7 @@ it.effect("dispatches plugin children as child workflows with an exact script pi
 			{
 				index: 2,
 				kind: "child",
-				name: "events",
+				name: "events/import v1",
 				args: { input: { value: 1 }, workflowSlug: "plugin-child" },
 			},
 			SandboxScriptId.make("child-script"),
@@ -609,7 +611,7 @@ it.effect("dispatches plugin children as child workflows with an exact script pi
 		expect(result).toEqual({ child: true });
 		expect(capturedWorkflow).toBe(SandboxScriptWorkflow);
 		expect(capturedOptions).toMatchObject({
-			executionId: "parent-child-events-2",
+			executionId: "parent-child-events-import-v1-2",
 			payload: { scriptId: "child-script", resolutionMode: "exact" },
 		});
 	}).pipe(
