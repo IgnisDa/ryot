@@ -25,11 +25,13 @@ export const InterestRoutesLive = HttpApiBuilder.group(AppContract, "entity-inte
 
 				const entityIds = payload.entityIds.slice(0, MAX_INTEREST_ENTITY_IDS);
 				if (entityIds.length < payload.entityIds.length) {
-					yield* Effect.logWarning("Interest set truncated", {
-						cap: MAX_INTEREST_ENTITY_IDS,
-						streamId: payload.streamId,
-						declared: payload.entityIds.length,
-					});
+					yield* Effect.logWarning("interest set truncated").pipe(
+						Effect.annotateLogs({
+							streamId: payload.streamId,
+							cap: MAX_INTEREST_ENTITY_IDS,
+							declared: payload.entityIds.length,
+						}),
+					);
 				}
 
 				yield* registry.setInterestIfOwner(payload.streamId, user.id, entityIds);
@@ -38,7 +40,7 @@ export const InterestRoutesLive = HttpApiBuilder.group(AppContract, "entity-inte
 					.reconcile(user, entityIds)
 					.pipe(
 						Effect.catchAll((error) =>
-							Effect.logWarning("Interest reconcile failed", error).pipe(Effect.as([])),
+							Effect.logWarning("interest reconcile failed", error).pipe(Effect.as([])),
 						),
 					);
 

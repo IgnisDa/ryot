@@ -172,9 +172,7 @@ const ensureLibraryEntity = Effect.fn(function* (
 	const librarySchema = entitySchemas.find((s) => s.slug === "library");
 
 	if (!librarySchema) {
-		yield* Effect.logWarning(
-			"Missing builtin library entity schema; skipping library entity creation",
-		);
+		yield* Effect.logWarning("library entity creation skipped");
 		return;
 	}
 
@@ -244,7 +242,7 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 	const notificationSubscriptions = yield* NotificationSubscriptionsService;
 	const completedAt = yield* readBootstrapMarker(userId);
 	if (completedAt !== null) {
-		yield* Effect.logInfo(`Bootstrap already complete for user: ${userId}`);
+		yield* Effect.logInfo("user bootstrap already complete").pipe(Effect.annotateLogs({ userId }));
 		return;
 	}
 	const trackers = yield* createBuiltinTrackers(userId, trackersService);
@@ -254,7 +252,7 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 	yield* ensureLibraryEntity(user, entitySchemas, entitiesService);
 	yield* notificationSubscriptions.ensureDefaultRules(user);
 	yield* markBootstrapComplete(userId);
-	yield* Effect.logInfo(`Bootstrap complete for user: ${userId}`);
+	yield* Effect.logInfo("user bootstrap complete").pipe(Effect.annotateLogs({ userId }));
 });
 
 export const bootstrapNewUser = (userId: string) =>

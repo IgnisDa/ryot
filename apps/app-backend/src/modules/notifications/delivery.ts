@@ -100,9 +100,9 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 			}) {
 				const { message, channelSpecifics } = input;
 				if (config.server.disableNotifications) {
-					return yield* Effect.logWarning("Notification delivery disabled; skipping send", {
-						channel: channelSpecifics.kind,
-					});
+					return yield* Effect.logWarning("notification delivery disabled").pipe(
+						Effect.annotateLogs({ channel: channelSpecifics.kind }),
+					);
 				}
 				return yield* Match.value(channelSpecifics).pipe(
 					Match.when({ kind: "apprise" }, (specifics) =>
