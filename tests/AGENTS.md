@@ -67,7 +67,7 @@ Coverage is intentionally minimal (a drift signal, not exhaustive): OpenLibrary 
 
 ## Observability
 
-`tests/src/tests/system/observability.test.ts` uses an isolated backend and a local OTLP JSON receiver so tracing does not add load or timing noise to the shared E2E backend. It triggers one authenticated notification-delivery workflow, locates the exported span by its unique user id, and joins it to the completed-span log through `traceId` and `spanId`; do not broaden it into assertions over Effect's batching, generated identifier formats, or nested spans.
+`tests/src/tests/system/observability.test.ts` uses an isolated backend and a local OTLP JSON receiver so tracing does not add load or timing noise to the shared E2E backend. It triggers one authenticated notification-delivery workflow, joins the exported workflow span to its completion log through `traceId` and `spanId`, and joins the request span to its HTTP response log through `traceId` and `userId`; do not broaden it into assertions over Effect's batching, generated identifier formats, or nested spans.
 
 ## Timeouts & Pool Sizing
 

@@ -1,5 +1,11 @@
-import { FileSystem, HttpApiBuilder, HttpApiScalar } from "@effect/platform";
-import type { HttpApiError, HttpApp } from "@effect/platform";
+import {
+	FileSystem,
+	HttpApiBuilder,
+	HttpApiScalar,
+	HttpApp,
+	HttpMiddleware,
+} from "@effect/platform";
+import type { HttpApiError } from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
 import { AppContract } from "@ryot/contract/contract";
 import { BadRequest } from "@ryot/contract/errors";
@@ -128,8 +134,11 @@ export const ServerLive = Layer.scopedDiscard(
 			Layer.provide(Layer.succeedContext(apiContext)),
 			Layer.provideMerge(BunHttpServer.layerContext),
 		);
-
-		const { dispose, handler } = HttpApiBuilder.toWebHandler(apiLayer);
+		const apiRuntime = yield* Layer.toRuntime(
+			Layer.mergeAll(apiLayer, HttpApiBuilder.Router.Live, HttpApiBuilder.Middleware.layer),
+		);
+		const httpApp = yield* HttpApiBuilder.httpApp.pipe(Effect.provide(apiRuntime));
+		const handler = HttpApp.toWebHandlerRuntime(apiRuntime)(httpApp, HttpMiddleware.logger);
 
 		const runPromise = Runtime.runPromise(runtime);
 		const serveStatic = Effect.fn("serveStatic")(function* (pathname: string) {
@@ -163,9 +172,7 @@ export const ServerLive = Layer.scopedDiscard(
 			Effect.annotateLogs({ url: String(server.url) }),
 		);
 		yield* Effect.addFinalizer(() =>
-			Effect.promise(() => Promise.resolve(server.stop(true)).then(() => dispose())).pipe(
-				Effect.orDie,
-			),
+			Effect.promise(() => Promise.resolve(server.stop(true))).pipe(Effect.orDie),
 		);
 		return yield* Effect.never;
 	}),

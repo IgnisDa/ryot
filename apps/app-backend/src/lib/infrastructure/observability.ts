@@ -1,7 +1,7 @@
 import * as OtlpSerialization from "@effect/opentelemetry/OtlpSerialization";
 import * as OtlpTracer from "@effect/opentelemetry/OtlpTracer";
 import { FetchHttpClient, PlatformLogger } from "@effect/platform";
-import { Effect, Layer, Logger, Option, Runtime, Tracer } from "effect";
+import { Effect, Layer, Logger, LogLevel, Option, Runtime, Tracer } from "effect";
 
 import { AppConfig } from "./config/service";
 
@@ -70,7 +70,7 @@ const decorateTracer = (tracer: Tracer.Tracer, runtime: Runtime.Runtime<never>) 
 		},
 	});
 
-const makeTracerLayer = (endpoint: Option.Option<string>) => {
+const makeTracerLayer = (endpoint: Option.Option<string>, logLevel: LogLevel.LogLevel) => {
 	const inner = Option.match(endpoint, {
 		onNone: () => Layer.empty,
 		onSome: (baseUrl) =>
@@ -79,6 +79,9 @@ const makeTracerLayer = (endpoint: Option.Option<string>) => {
 				resource: { serviceName: "ryot-backend" },
 			}).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, OtlpSerialization.layerJson))),
 	});
+	if (!LogLevel.lessThanEqual(logLevel, LogLevel.Debug)) {
+		return inner;
+	}
 	const decorator = Layer.unwrapEffect(
 		Tracer.tracerWith((tracer) =>
 			Effect.map(Effect.runtime(), (runtime) => Layer.setTracer(decorateTracer(tracer, runtime))),
@@ -91,7 +94,9 @@ export const ObservabilityLive = Layer.unwrapEffect(
 	Effect.map(AppConfig, (config) => {
 		const logger = makeLoggerLayer(config.nodeEnv, config.server.logFile);
 		const logging = Layer.mergeAll(Logger.minimumLogLevel(config.server.logLevel), logger);
-		const tracer = makeTracerLayer(config.server.otlpEndpoint).pipe(Layer.provide(logging));
+		const tracer = makeTracerLayer(config.server.otlpEndpoint, config.server.logLevel).pipe(
+			Layer.provide(logging),
+		);
 		return Layer.mergeAll(logging, tracer);
 	}),
 );

@@ -20,7 +20,7 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 
 ## Observability
 
-- `SERVER_OTLP_ENDPOINT` enables OTLP JSON trace export under the `ryot-backend` service name. Completed-span debug logs carry `spanId`, `traceId`, `spanName`, and `durationMs` so an exported span can be located from its log entry.
+- `SERVER_OTLP_ENDPOINT` enables OTLP JSON trace export under the `ryot-backend` service name. Completed-span debug logs carry `spanId`, `traceId`, `spanName`, and `durationMs` so an exported span can be located from its log entry. Authenticated HTTP request logs carry `userId` and the request span's `traceId`.
 
 ## Sandbox Scripts
 
