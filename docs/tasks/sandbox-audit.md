@@ -231,7 +231,7 @@ Confirmed by grep, non-test usage only:
 - [x] **Metadata-kind checks.** Replace duplicated checks with one `sandboxMetadataKind(metadata)` returning the kind.
 - [x] **Byte-limited stream readers.** Consolidate `readSandboxHttpResponseText` and `readSandboxBridgeRequestBody` into one helper.
 - [x] **Budget accounting, twice.** Generate budget messages from one shared source while keeping both counters.
-- [ ] **Grant path helpers.** Replace `sandboxArtifactGrantPath` and `sandboxNamedArtifactGrantPaths` with one generic.
+- [x] **Grant path helpers.** Replace `sandboxArtifactGrantPath` and `sandboxNamedArtifactGrantPaths` with one generic.
 - [x] **Cache guard preludes.** Consolidate the shared key/TTL/value validation ladder into one guard combinator.
 - [x] **`apiFailure`.** Consider sourcing the cross-runtime error shape from the SDK wire package.
 - [x] **Result-to-status mapping.** Consolidate the shared `Match`/`Exit`/`Cause.pretty(...).slice(0,500)` pipeline used by `toSandboxRunResult` and `toPluginWorkflowResult`.
