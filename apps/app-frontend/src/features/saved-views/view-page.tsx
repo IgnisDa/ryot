@@ -15,18 +15,14 @@ import {
 import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { Edit3, LayoutGrid, List, Table2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { EmptyState, ErrorState, LoadingState } from "#/components/PageStates";
 import { useResolvedImageUrls } from "#/features/entities/image";
 import { type AppEntityImage, toAppEntity } from "#/features/entities/model";
 import { TrackerIcon } from "#/features/trackers/icons";
 import { useApiClient } from "#/hooks/api";
 import { useColorScheme } from "#/hooks/theme";
 import { STORAGE_KEYS } from "#/lib/storage-keys";
-import {
-	EmptyState,
-	ErrorState,
-	LoadingState,
-	SavedViewResults,
-} from "./view-page-sections";
+import { SavedViewResults } from "./view-page-sections";
 import {
 	createDisabledViewRuntimeRequest,
 	createViewRuntimeRequest,
@@ -229,7 +225,11 @@ export function SavedViewPage(props: { viewId: string }) {
 				</Paper>
 
 				{items.length === 0 ? (
-					<EmptyState accentColor={accentColor} accentMuted={accentMuted} />
+					<EmptyState
+						accentColor={accentColor}
+						accentMuted={accentMuted}
+						description="There are no entities matching this view yet."
+					/>
 				) : (
 					<SavedViewResults
 						meta={meta}
