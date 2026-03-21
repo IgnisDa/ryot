@@ -1,35 +1,20 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
-import { resolveCustomEntityAccessError } from "~/lib/app/entity-schema-access";
 import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
-	createNotFoundErrorResult,
-	createValidationErrorResult,
+	createServiceErrorResult,
+	createSuccessResult,
 	jsonResponse,
 	notFoundResponse,
 	payloadErrorResponse,
-	resolveValidationData,
-	successResponse,
 } from "~/lib/openapi";
-import {
-	createEventForUser,
-	getEntityScopeForUser,
-	getEventCreateScopeForUser,
-	listEventsByEntityForUser,
-} from "./repository";
 import {
 	createEventBody,
 	createEventResponseSchema,
 	listEventsQuery,
 	listEventsResponseSchema,
 } from "./schemas";
-import {
-	resolveEntityEventAccess,
-	resolveEventCreateAccess,
-	resolveEventCreateInput,
-	resolveEventEntityId,
-	resolveEventSchemaId,
-} from "./service";
+import { createEvent, listEntityEvents } from "./service";
 
 const listEventsRoute = createAuthRoute(
 	createRoute({
@@ -68,116 +53,33 @@ const createEventRoute = createAuthRoute(
 	}),
 );
 
-const customEntitySchemaError =
-	"Built-in entity schemas do not support generated event logging";
-const entityNotFoundError = "Entity not found";
-const eventSchemaNotFoundError = "Event schema not found";
-const eventSchemaMismatchError =
-	"Event schema does not belong to the entity schema";
-
-const resolveEntityAccessError = (error: "builtin" | "not_found") => {
-	const result = resolveCustomEntityAccessError({
-		error,
-		notFoundMessage: entityNotFoundError,
-		builtinMessage: customEntitySchemaError,
-	});
-	return {
-		body:
-			result.error === "not_found"
-				? createNotFoundErrorResult(result.message).body
-				: createValidationErrorResult(result.message).body,
-		status: result.error === "not_found" ? (404 as const) : (400 as const),
-	};
-};
-
-const resolveCreateAccessError = (
-	error:
-		| "builtin"
-		| "not_found"
-		| "event_schema_not_found"
-		| "event_schema_mismatch",
-) => {
-	if (error === "builtin" || error === "not_found") {
-		return resolveEntityAccessError(error);
-	}
-
-	if (error === "event_schema_not_found") {
-		return {
-			status: 404 as const,
-			body: createNotFoundErrorResult(eventSchemaNotFoundError).body,
-		};
-	}
-
-	return {
-		status: 400 as const,
-		body: createValidationErrorResult(eventSchemaMismatchError).body,
-	};
-};
-
 export const eventsApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(listEventsRoute, async (c) => {
 		const user = c.get("user");
 		const query = c.req.valid("query");
-		const entityId = resolveEventEntityId(query.entityId);
 
-		const foundEntity = resolveEntityEventAccess(
-			await getEntityScopeForUser({ entityId, userId: user.id }),
-		);
-		if ("error" in foundEntity) {
-			const errorResult = resolveEntityAccessError(foundEntity.error);
-			return c.json(errorResult.body, errorResult.status);
-		}
-
-		const events = await listEventsByEntityForUser({
-			entityId,
+		const result = await listEntityEvents({
+			entityId: query.entityId,
 			userId: user.id,
 		});
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
 
-		return c.json(successResponse(events), 200);
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
 	})
 	.openapi(createEventRoute, async (c) => {
 		const user = c.get("user");
 		const body = c.req.valid("json");
-		const entityId = resolveEventEntityId(body.entityId);
-		const eventSchemaId = resolveEventSchemaId(body.eventSchemaId);
 
-		const foundScope = resolveEventCreateAccess(
-			await getEventCreateScopeForUser({
-				entityId,
-				eventSchemaId,
-				userId: user.id,
-			}),
-		);
-		if ("error" in foundScope) {
-			const errorResult = resolveCreateAccessError(foundScope.error);
-			return c.json(errorResult.body, errorResult.status);
+		const result = await createEvent({ body, userId: user.id });
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
 		}
 
-		const eventInput = resolveValidationData(
-			() =>
-				resolveEventCreateInput({
-					entityId: body.entityId,
-					occurredAt: body.occurredAt,
-					properties: body.properties,
-					eventSchemaId: body.eventSchemaId,
-					propertiesSchema: foundScope.access.propertiesSchema,
-				}),
-			"Event payload is invalid",
-		);
-		if ("status" in eventInput) {
-			return c.json(eventInput.body, eventInput.status);
-		}
-		const eventData = eventInput.data;
-
-		const createdEvent = await createEventForUser({
-			userId: user.id,
-			entityId: eventData.entityId,
-			occurredAt: eventData.occurredAt,
-			properties: eventData.properties,
-			eventSchemaName: foundScope.access.eventSchemaName,
-			eventSchemaSlug: foundScope.access.eventSchemaSlug,
-			eventSchemaId: eventData.eventSchemaId,
-		});
-
-		return c.json(successResponse(createdEvent), 200);
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
 	});

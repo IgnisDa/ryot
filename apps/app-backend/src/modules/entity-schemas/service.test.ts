@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { authenticationBuiltinEntitySchemas } from "../authentication/bootstrap/manifests";
+import type { CreateEntitySchemaBody, ListedEntitySchema } from "./schemas";
 import {
+	createEntitySchema,
+	type EntitySchemaServiceDeps,
+	type EntitySchemaServiceResult,
+	listEntitySchemas,
 	parseEntitySchemaPropertiesSchema,
 	resolveEntitySchemaAccentColor,
 	resolveEntitySchemaCreateInput,
@@ -9,6 +14,58 @@ import {
 	resolveEntitySchemaTrackerId,
 	validateSlugNotReserved,
 } from "./service";
+
+const createEntitySchemaBody = (): CreateEntitySchemaBody => ({
+	name: "Books",
+	icon: "book-open",
+	trackerId: "tracker_1",
+	accentColor: "#5B7FFF",
+	propertiesSchema: { title: { type: "string" } },
+});
+
+const createListedEntitySchema = (
+	overrides: Partial<ListedEntitySchema> = {},
+): ListedEntitySchema => ({
+	slug: "books",
+	name: "Books",
+	id: "schema_1",
+	isBuiltin: false,
+	icon: "book-open",
+	trackerId: "tracker_1",
+	accentColor: "#5B7FFF",
+	propertiesSchema: { title: { type: "string" } },
+	...overrides,
+});
+
+const createDeps = (
+	overrides: Partial<EntitySchemaServiceDeps> = {},
+): EntitySchemaServiceDeps => ({
+	createEntitySchemaForUser: async (input) =>
+		createListedEntitySchema({
+			name: input.name,
+			slug: input.slug,
+			icon: input.icon,
+			trackerId: input.trackerId,
+			accentColor: input.accentColor,
+			propertiesSchema: input.propertiesSchema,
+		}),
+	getEntitySchemaBySlugForUser: async () => undefined,
+	getTrackerScopeForUser: async (input) => ({
+		isBuiltin: false,
+		id: input.trackerId,
+		userId: input.userId,
+	}),
+	listEntitySchemasByTracker: async () => [createListedEntitySchema()],
+	...overrides,
+});
+
+const expectDataResult = <T>(result: EntitySchemaServiceResult<T>) => {
+	if ("error" in result) {
+		throw new Error(`Expected data result, got ${result.error}`);
+	}
+
+	return result.data;
+};
 
 describe("resolveEntitySchemaName", () => {
 	it("trims the provided name", () => {
@@ -161,8 +218,8 @@ describe("resolveEntitySchemaCreateInput", () => {
 		).toEqual({
 			icon: "book-open",
 			name: "Book Details",
-			slug: "my-custom-schema",
 			accentColor: "#5B7FFF",
+			slug: "my-custom-schema",
 			propertiesSchema: { title: { type: "string" } },
 		});
 	});
@@ -243,5 +300,80 @@ describe("validateSlugNotReserved", () => {
 		expect(reservedSlugs).toContain("book");
 		expect(reservedSlugs).toContain("anime");
 		expect(reservedSlugs).toContain("manga");
+	});
+});
+
+describe("listEntitySchemas", () => {
+	it("returns not found when the tracker does not exist", async () => {
+		const result = await listEntitySchemas(
+			{ trackerId: "tracker_1", userId: "user_1" },
+			createDeps({ getTrackerScopeForUser: async () => undefined }),
+		);
+
+		expect(result).toEqual({
+			error: "not_found",
+			message: "Tracker not found",
+		});
+	});
+});
+
+describe("createEntitySchema", () => {
+	it("normalizes the payload before persisting", async () => {
+		let createdSlug: string | undefined;
+		const deps = createDeps({
+			createEntitySchemaForUser: async (input) => {
+				createdSlug = input.slug;
+				return createListedEntitySchema({ slug: input.slug, name: input.name });
+			},
+		});
+
+		const createdEntitySchema = expectDataResult(
+			await createEntitySchema(
+				{
+					userId: "user_1",
+					body: {
+						...createEntitySchemaBody(),
+						slug: "  My_Custom Schema  ",
+					},
+				},
+				deps,
+			),
+		);
+
+		expect(createdSlug).toBe("my-custom-schema");
+		expect(createdEntitySchema.slug).toBe("my-custom-schema");
+	});
+
+	it("returns validation when the tracker is built in", async () => {
+		const result = await createEntitySchema(
+			{ body: createEntitySchemaBody(), userId: "user_1" },
+			createDeps({
+				getTrackerScopeForUser: async () => ({
+					id: "tracker_1",
+					isBuiltin: true,
+					userId: "user_1",
+				}),
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Built-in trackers do not support entity schema creation",
+		});
+	});
+
+	it("returns validation for a blank tracker id", async () => {
+		const result = await createEntitySchema(
+			{
+				body: { ...createEntitySchemaBody(), trackerId: "   " },
+				userId: "user_1",
+			},
+			createDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Tracker id is required",
+		});
 	});
 });

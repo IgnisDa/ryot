@@ -197,12 +197,15 @@ export const setTrackerEnabledForUser = async (input: {
 	trackerId: string;
 	enabled: boolean;
 }) => {
-	await db
+	const [updatedTracker] = await db
 		.update(tracker)
 		.set({ enabled: input.enabled })
 		.where(
 			and(eq(tracker.id, input.trackerId), eq(tracker.userId, input.userId)),
-		);
+		)
+		.returning(trackerSelection);
+
+	return updatedTracker ? toListedTracker(updatedTracker) : updatedTracker;
 };
 
 export const listUserTrackerIdsInOrder = async (userId: string) => {
@@ -277,9 +280,5 @@ export const updateTrackerForUser = async (input: {
 		)
 		.returning(trackerSelection);
 
-	if (!updatedTracker) {
-		throw new Error("Could not update tracker");
-	}
-
-	return toListedTracker(updatedTracker);
+	return updatedTracker ? toListedTracker(updatedTracker) : updatedTracker;
 };

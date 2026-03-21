@@ -1,6 +1,7 @@
 import type { RouteConfig } from "@hono/zod-openapi";
 import { z } from "@hono/zod-openapi";
 import { requireAuth } from "~/lib/auth/middleware";
+import type { ServiceResult } from "~/lib/result";
 
 export const ERROR_CODES = {
 	TIMEOUT: "timeout",
@@ -69,6 +70,11 @@ export const payloadErrorResponse = () =>
 
 export const successResponse = <T>(data: T) => ({ data });
 
+export const createSuccessResult = <T>(data: T) => ({
+	status: 200 as const,
+	body: successResponse(data),
+});
+
 export const createNotFoundErrorResult = (message = "Resource not found") => ({
 	status: 404 as const,
 	body: errorResponse(ERROR_CODES.NOT_FOUND, message),
@@ -78,6 +84,22 @@ export const createValidationErrorResult = (message: string) => ({
 	status: 400 as const,
 	body: errorResponse(ERROR_CODES.VALIDATION_FAILED, message),
 });
+
+export const createValidationServiceErrorResult = (result: {
+	error: "validation";
+	message: string;
+}) => createValidationErrorResult(result.message);
+
+export const createServiceErrorResult = <E extends string>(
+	result: Extract<ServiceResult<never, E>, { error: E }>,
+	input?: { notFoundErrors?: readonly E[] },
+) => {
+	const notFoundErrors = input?.notFoundErrors ?? (["not_found"] as E[]);
+
+	return notFoundErrors.includes(result.error)
+		? createNotFoundErrorResult(result.message)
+		: createValidationErrorResult(result.message);
+};
 
 export const createCustomEntityAccessErrorResult = (input: {
 	message: string;

@@ -1,36 +1,20 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
-import {
-	resolveCustomEntityAccessError,
-	resolveCustomEntitySchemaAccess,
-} from "~/lib/app/entity-schema-access";
-import { isUniqueConstraintError } from "~/lib/app/postgres";
 import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
-	createNotFoundErrorResult,
-	createValidationErrorResult,
+	createServiceErrorResult,
+	createSuccessResult,
 	jsonResponse,
 	notFoundResponse,
 	payloadErrorResponse,
-	resolveValidationData,
-	successResponse,
 } from "~/lib/openapi";
-import {
-	createEventSchemaForUser,
-	getEntitySchemaScopeForUser,
-	getEventSchemaBySlugForUser,
-	listEventSchemasByEntitySchemaForUser,
-} from "./repository";
 import {
 	createEventSchemaBody,
 	createEventSchemaResponseSchema,
 	listEventSchemasQuery,
 	listEventSchemasResponseSchema,
 } from "./schemas";
-import {
-	resolveEventSchemaCreateInput,
-	resolveEventSchemaEntitySchemaId,
-} from "./service";
+import { createEventSchema, listEventSchemas } from "./service";
 
 const listEventSchemasRoute = createAuthRoute(
 	createRoute({
@@ -72,117 +56,33 @@ const createEventSchemaRoute = createAuthRoute(
 	}),
 );
 
-const customEntitySchemaError =
-	"Built-in entity schemas do not support event schemas";
-const duplicateSlugError = "Event schema slug already exists";
-const entitySchemaNotFoundError = "Entity schema not found";
-const eventSchemaUniqueConstraint =
-	"event_schema_user_entity_schema_slug_unique";
-const duplicateSlugErrorResult =
-	createValidationErrorResult(duplicateSlugError);
-
-const resolveEntitySchemaAccessError = (error: "builtin" | "not_found") => {
-	const result = resolveCustomEntityAccessError({
-		error,
-		builtinMessage: customEntitySchemaError,
-		notFoundMessage: entitySchemaNotFoundError,
-	});
-	return {
-		body:
-			result.error === "not_found"
-				? createNotFoundErrorResult(result.message).body
-				: createValidationErrorResult(result.message).body,
-		status: result.error === "not_found" ? (404 as const) : (400 as const),
-	};
-};
-
 export const eventSchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(listEventSchemasRoute, async (c) => {
 		const user = c.get("user");
 		const query = c.req.valid("query");
-		const entitySchemaId = resolveEventSchemaEntitySchemaId(
-			query.entitySchemaId,
-		);
 
-		const foundEntitySchema = resolveCustomEntitySchemaAccess(
-			await getEntitySchemaScopeForUser({
-				userId: user.id,
-				entitySchemaId,
-			}),
-		);
-		if (!("entitySchema" in foundEntitySchema)) {
-			const errorResult = resolveEntitySchemaAccessError(
-				foundEntitySchema.error,
-			);
-			return c.json(errorResult.body, errorResult.status);
-		}
-
-		const eventSchemas = await listEventSchemasByEntitySchemaForUser({
-			entitySchemaId,
+		const result = await listEventSchemas({
+			entitySchemaId: query.entitySchemaId,
 			userId: user.id,
 		});
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
 
-		return c.json(successResponse(eventSchemas), 200);
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
 	})
 	.openapi(createEventSchemaRoute, async (c) => {
 		const user = c.get("user");
 		const body = c.req.valid("json");
-		const entitySchemaId = resolveEventSchemaEntitySchemaId(
-			body.entitySchemaId,
-		);
 
-		const foundEntitySchema = resolveCustomEntitySchemaAccess(
-			await getEntitySchemaScopeForUser({
-				entitySchemaId,
-				userId: user.id,
-			}),
-		);
-		if (!("entitySchema" in foundEntitySchema)) {
-			const errorResult = resolveEntitySchemaAccessError(
-				foundEntitySchema.error,
-			);
-			return c.json(errorResult.body, errorResult.status);
+		const result = await createEventSchema({ body, userId: user.id });
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
 		}
 
-		const eventSchemaInput = resolveValidationData(
-			() => resolveEventSchemaCreateInput(body),
-			"Event schema payload is invalid",
-		);
-		if ("status" in eventSchemaInput) {
-			return c.json(eventSchemaInput.body, eventSchemaInput.status);
-		}
-		const eventSchemaData = eventSchemaInput.data;
-
-		const existingEventSchema = await getEventSchemaBySlugForUser({
-			entitySchemaId,
-			userId: user.id,
-			slug: eventSchemaData.slug,
-		});
-		if (existingEventSchema) {
-			return c.json(
-				duplicateSlugErrorResult.body,
-				duplicateSlugErrorResult.status,
-			);
-		}
-
-		try {
-			const createdEventSchema = await createEventSchemaForUser({
-				entitySchemaId,
-				userId: user.id,
-				name: eventSchemaData.name,
-				slug: eventSchemaData.slug,
-				propertiesSchema: eventSchemaData.propertiesSchema,
-			});
-
-			return c.json(successResponse(createdEventSchema), 200);
-		} catch (error) {
-			if (isUniqueConstraintError(error, eventSchemaUniqueConstraint)) {
-				return c.json(
-					duplicateSlugErrorResult.body,
-					duplicateSlugErrorResult.status,
-				);
-			}
-
-			throw error;
-		}
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
 	});
