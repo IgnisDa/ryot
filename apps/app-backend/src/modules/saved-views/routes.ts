@@ -7,7 +7,7 @@ import {
 	jsonResponse,
 	notFoundResponse,
 	payloadErrorResponse,
-	resolveValidationResult,
+	resolveValidationData,
 	successResponse,
 } from "~/lib/openapi";
 import {
@@ -82,6 +82,10 @@ const deleteSavedViewRoute = createAuthRoute(
 );
 
 const builtinViewError = "Cannot delete built-in saved views";
+const builtinViewErrorResult = createValidationErrorResult(builtinViewError);
+const savedViewNotFoundResult = createNotFoundErrorResult(
+	"Saved view not found",
+);
 
 export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(listSavedViewsRoute, async (c) => {
@@ -99,12 +103,12 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const body = c.req.valid("json");
 
-		const nameResult = resolveValidationResult(
+		const nameResult = resolveValidationData(
 			() => resolveSavedViewName(body.name),
 			"Saved view name is invalid",
 		);
-		if ("error" in nameResult)
-			return c.json(createValidationErrorResult(nameResult.error).body, 400);
+		if ("status" in nameResult)
+			return c.json(nameResult.body, nameResult.status);
 
 		const createdView = await createSavedViewForUser({
 			icon: body.icon,
@@ -129,13 +133,13 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 
 		if (!existingView)
 			return c.json(
-				createNotFoundErrorResult("Saved view not found").body,
-				404,
+				savedViewNotFoundResult.body,
+				savedViewNotFoundResult.status,
 			);
 
 		const protection = resolveIsBuiltinProtected(existingView.isBuiltin);
 		if (protection.protected)
-			return c.json(createValidationErrorResult(builtinViewError).body, 400);
+			return c.json(builtinViewErrorResult.body, builtinViewErrorResult.status);
 
 		const deletedView = await deleteSavedViewByIdForUser({
 			userId: user.id,
@@ -144,8 +148,8 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 
 		if (!deletedView)
 			return c.json(
-				createNotFoundErrorResult("Saved view not found").body,
-				404,
+				savedViewNotFoundResult.body,
+				savedViewNotFoundResult.status,
 			);
 
 		return c.json(successResponse(deletedView), 200);

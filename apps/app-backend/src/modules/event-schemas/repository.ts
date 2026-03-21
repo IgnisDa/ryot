@@ -8,6 +8,20 @@ type EventSchemaRow = Omit<ListedEventSchema, "propertiesSchema"> & {
 	propertiesSchema: unknown;
 };
 
+const entitySchemaScopeSelection = {
+	id: entitySchema.id,
+	userId: entitySchema.userId,
+	isBuiltin: entitySchema.isBuiltin,
+};
+
+const listedEventSchemaSelection = {
+	id: eventSchema.id,
+	name: eventSchema.name,
+	slug: eventSchema.slug,
+	entitySchemaId: eventSchema.entitySchemaId,
+	propertiesSchema: eventSchema.propertiesSchema,
+};
+
 const toListedEventSchema = (row: EventSchemaRow): ListedEventSchema => ({
 	...row,
 	propertiesSchema: row.propertiesSchema as EventSchemaPropertiesShape,
@@ -22,11 +36,7 @@ export const getEntitySchemaScopeForUser = async (input: {
 	entitySchemaId: string;
 }) => {
 	const [foundEntitySchema] = await db
-		.select({
-			id: entitySchema.id,
-			userId: entitySchema.userId,
-			isBuiltin: entitySchema.isBuiltin,
-		})
+		.select(entitySchemaScopeSelection)
 		.from(entitySchema)
 		.where(
 			and(
@@ -44,13 +54,7 @@ export const listEventSchemasByEntitySchemaForUser = async (input: {
 	entitySchemaId: string;
 }) => {
 	const rows = await db
-		.select({
-			id: eventSchema.id,
-			name: eventSchema.name,
-			slug: eventSchema.slug,
-			entitySchemaId: eventSchema.entitySchemaId,
-			propertiesSchema: eventSchema.propertiesSchema,
-		})
+		.select(listedEventSchemaSelection)
 		.from(eventSchema)
 		.where(
 			and(
@@ -99,13 +103,7 @@ export const createEventSchemaForUser = async (input: {
 			entitySchemaId: input.entitySchemaId,
 			propertiesSchema: input.propertiesSchema,
 		})
-		.returning({
-			id: eventSchema.id,
-			name: eventSchema.name,
-			slug: eventSchema.slug,
-			entitySchemaId: eventSchema.entitySchemaId,
-			propertiesSchema: eventSchema.propertiesSchema,
-		});
+		.returning(listedEventSchemaSelection);
 
 	if (!createdEventSchema) throw new Error("Could not persist event schema");
 
