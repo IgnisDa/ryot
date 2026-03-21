@@ -307,9 +307,9 @@ export function Sidebar(props: SidebarProps) {
 							styles={{
 								root: {
 									transition: "opacity 120ms ease",
+									color: props.isCustomizeMode ? borderAccent : textMuted,
 									pointerEvents:
 										hovered || props.isCustomizeMode ? "auto" : "none",
-									color: props.isCustomizeMode ? borderAccent : textMuted,
 								},
 							}}
 						>
