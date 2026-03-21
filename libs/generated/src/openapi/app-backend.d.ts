@@ -123,6 +123,12 @@ export interface paths {
                                 providers: {
                                     [key: string]: unknown;
                                 };
+                                auth: {
+                                    oidcEnabled: boolean;
+                                    signupAllowed: boolean;
+                                    localAuthDisabled: boolean;
+                                    oidcButtonLabel?: string;
+                                };
                             };
                         };
                     };
