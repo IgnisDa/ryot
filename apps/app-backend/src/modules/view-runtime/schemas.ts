@@ -10,13 +10,13 @@ import {
 } from "../saved-views/schemas";
 
 const paginationSchema = z.object({
+	page: z.number().int().min(1),
 	limit: z.number().int().min(1),
-	offset: z.number().int().min(0),
 });
 
 const executeViewRuntimeGridBody = z.object({
-	page: paginationSchema,
 	sort: sortDefinitionSchema,
+	pagination: paginationSchema,
 	layout: z.literal("grid"),
 	displayConfiguration: gridConfigSchema,
 	filters: z.array(filterExpressionSchema),
@@ -26,8 +26,8 @@ const executeViewRuntimeGridBody = z.object({
 });
 
 const executeViewRuntimeListBody = z.object({
-	page: paginationSchema,
 	sort: sortDefinitionSchema,
+	pagination: paginationSchema,
 	layout: z.literal("list"),
 	displayConfiguration: listConfigSchema,
 	filters: z.array(filterExpressionSchema),
@@ -37,8 +37,8 @@ const executeViewRuntimeListBody = z.object({
 });
 
 const executeViewRuntimeTableBody = z.object({
-	page: paginationSchema,
 	sort: sortDefinitionSchema,
+	pagination: paginationSchema,
 	layout: z.literal("table"),
 	displayConfiguration: tableConfigSchema,
 	filters: z.array(filterExpressionSchema),
@@ -59,13 +59,12 @@ const viewRuntimeItemSchema = z.object({
 });
 
 const viewRuntimePaginationSchema = z.object({
+	page: z.number().int(),
 	total: z.number().int(),
 	limit: z.number().int(),
-	offset: z.number().int(),
 	hasNextPage: z.boolean(),
 	hasPreviousPage: z.boolean(),
 	totalPages: z.number().int(),
-	currentPage: z.number().int(),
 });
 
 export const executeViewRuntimeBody = z.discriminatedUnion("layout", [

@@ -62,7 +62,7 @@ Suggested request shape:
 - `entitySchemaSlugs: string[]` — which schemas to query (using schema slugs, e.g., `["smartphones", "tablets"]`)
 - `filters: FilterExpression[]` — flat array of filters (AND within each schema, OR across schema boundaries; compound nested logic in Phase 2)
 - `sort: { field: string[], direction: "asc" | "desc" }` — how to order results (field is an array for COALESCE across schemas)
-- `page: { limit: number, offset: number }` — pagination parameters
+- `pagination: { page: number, limit: number }` — pagination parameters
 - `displayConfiguration: object` — active layout configuration with property reference arrays; the backend derives which jsonb properties to extract from these arrays and performs COALESCE resolution
 
 Each filter in the `filters` array has the shape:
@@ -86,13 +86,12 @@ Suggested response shape:
 
 Pagination metadata includes:
 
+- `page: number` — requested page number (1-indexed)
 - `total: number` — total number of entities matching the query
 - `limit: number` — page size
-- `offset: number` — current offset
 - `hasNextPage: boolean` — whether there are more pages
 - `hasPreviousPage: boolean` — whether there are previous pages
 - `totalPages: number` — total number of pages
-- `currentPage: number` — current page number (1-indexed)
 
 Each item should include at least:
 
@@ -142,7 +141,7 @@ The runtime request uses a discriminated union for display configuration with th
   entitySchemaSlugs: string[]
   filters: FilterExpression[]
   sort: SortDefinition
-  page: PaginationParams
+  pagination: PaginationParams
   layout: "grid" | "list" | "table"
   displayConfiguration: GridDisplayConfig | ListDisplayConfig | TableDisplayConfig
 }
@@ -586,7 +585,7 @@ When the frontend loads View 1:
       { "field": "smartphones.year", "op": "lt", "value": 2025 }
     ],
     "sort": { "field": ["smartphones.year"], "direction": "desc" },
-    "page": { "limit": 6, "offset": 0 },
+    "pagination": { "page": 1, "limit": 6 },
     "displayConfiguration": {
       "imageProperty": ["smartphones.product_image"],
       "titleProperty": ["@name"],
@@ -617,7 +616,7 @@ Here is a complete SQL query demonstrating how the view-runtime translates a cro
     { "field": "tablets.release_year", "op": "gte", "value": 2020 }
   ],
   "sort": { "field": ["smartphones.year", "tablets.release_year"], "direction": "desc" },
-  "page": { "limit": 20, "offset": 0 },
+  "pagination": { "page": 1, "limit": 20 },
   "displayConfiguration": {
     "imageProperty": ["smartphones.product_image", "tablets.device_image"],
     "titleProperty": ["@name"],
@@ -703,13 +702,12 @@ The response would include pagination metadata grouped under `meta`:
   "items": [ /* entities with resolved_properties */ ],
   "meta": {
     "pagination": {
+      "page": 1,
       "total": 47,
       "limit": 20,
-      "offset": 0,
       "hasNextPage": true,
       "hasPreviousPage": false,
-      "totalPages": 3,
-      "currentPage": 1
+      "totalPages": 3
     }
   }
 }
@@ -845,11 +843,12 @@ When a user creates a saved view, only the grid layout configuration is required
 
 ### Pagination Behavior
 
-**Pagination offsets are clamped to valid ranges.** If a client requests an offset beyond the total result count, the offset is clamped to `max(0, total - limit)` to prevent empty result pages with misleading pagination metadata.
+**Pagination uses page-based semantics.** Clients send `pagination: { page, limit }`, the backend derives SQL offsets internally, and out-of-range pages return an empty `items` array without clamping to the last page. The requested page is preserved in the response metadata so clients can reconcile their own navigation state cleanly.
 
 For zero results:
 - `totalPages: 0`
-- `currentPage: 1` (pages are always 1-indexed, even for empty results)
+- `hasNextPage: false`
+- `hasPreviousPage: false`
 
 ### Error Handling
 
@@ -1170,7 +1169,7 @@ Phase 1 delivers a working foundation for saved views and view-runtime execution
 - Pre-fetch entity schemas for type introspection
 - Implement filter execution (eq, ne, gt, gte, lt, lte, in, isNull)
 - Implement sort with COALESCE and NULLS LAST
-- Implement pagination with clamped offsets
+- Implement page-based pagination with empty out-of-range pages
 - Implement display configuration COALESCE resolution
 - Return resolved properties for grid/list/table layouts
 - Use Drizzle query builder for type-safe SQL generation
