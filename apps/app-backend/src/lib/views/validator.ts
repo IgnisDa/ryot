@@ -874,7 +874,6 @@ const validateEventsQueryEngineReferences = (
 	request: Extract<QueryEngineRequest, { mode: "events" }>,
 	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
 ): void => {
-	// Validate computed fields using display builtins combined with event builtins
 	const eventsDisplayBuiltins = new Set([
 		...displayBuiltins,
 		...eventDisplayBuiltins,

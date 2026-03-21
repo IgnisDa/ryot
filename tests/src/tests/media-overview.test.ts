@@ -599,7 +599,6 @@ describe("GET /media/overview/library", () => {
 			throw new Error("Missing built-in providers");
 		}
 
-		// Create entities in different states
 		const backlogBook = await seedMediaEntity({
 			userId,
 			image: null,
@@ -633,7 +632,6 @@ describe("GET /media/overview/library", () => {
 		await insertLibraryMembership({ userId, mediaEntityId: backlogBook.id });
 		await insertLibraryMembership({ userId, mediaEntityId: completedBook.id });
 		await insertLibraryMembership({ userId, mediaEntityId: inProgressManga.id });
-		// Add events
 		await createBuiltInMediaEvent({
 			client,
 			cookies,
@@ -661,7 +659,6 @@ describe("GET /media/overview/library", () => {
 			properties: { completionMode: "just_now" },
 		});
 
-		// Review the completed book
 		await createBuiltInMediaEvent({
 			client,
 			cookies,

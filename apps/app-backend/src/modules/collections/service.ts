@@ -89,7 +89,6 @@ export const createCollection = async (
 		return serviceError("not_found", collectionSchemaNotFoundError);
 	}
 
-	// Validate membershipPropertiesSchema as a valid AppSchema if provided
 	if (input.body.membershipPropertiesSchema !== undefined) {
 		try {
 			parseLabeledPropertySchemaInput(
@@ -101,7 +100,6 @@ export const createCollection = async (
 		}
 	}
 
-	// Build properties with membershipPropertiesSchema if provided
 	const properties: Record<string, unknown> = {};
 	if (input.body.description !== undefined) {
 		properties.description = input.body.description;
@@ -110,7 +108,6 @@ export const createCollection = async (
 		properties.membershipPropertiesSchema = input.body.membershipPropertiesSchema;
 	}
 
-	// Validate entity properties against the collection entity schema's propertiesSchema
 	const entityPropertiesResult = parseAppSchemaPropertiesSafe({
 		properties,
 		propertiesSchema: collectionSchema.propertiesSchema,
@@ -144,24 +141,20 @@ export const addToCollection = async (
 	input: { body: AddToCollectionBody; userId: string },
 	deps: AddToCollectionServiceDeps = addToCollectionServiceDeps,
 ): Promise<CollectionServiceResult<AddToCollectionData>> => {
-	// Prevent circular reference: cannot add a collection to itself
 	if (input.body.collectionId === input.body.entityId) {
 		return serviceError("validation", circularReferenceError);
 	}
 
-	// Verify the collection exists and belongs to the user
 	const collection = await deps.getCollectionById(input.body.collectionId, input.userId);
 	if (!collection) {
 		return serviceError("not_found", collectionNotFoundError);
 	}
 
-	// Verify the entity exists and belongs to the user
 	const entity = await deps.getEntityById(input.body.entityId, input.userId);
 	if (!entity) {
 		return serviceError("not_found", entityNotFoundError);
 	}
 
-	// Validate properties against collection's membershipPropertiesSchema if defined
 	// oxlint-disable-next-line no-unsafe-type-assertion
 	const membershipSchema = collection.properties.membershipPropertiesSchema as
 		| AppSchema
@@ -191,7 +184,6 @@ export const addToCollection = async (
 		return libraryError;
 	}
 
-	// Create the canonical member-of relationship
 	const relationships = await deps.addEntityToCollection({
 		userId: input.userId,
 		entityId: input.body.entityId,
@@ -212,19 +204,15 @@ export const removeFromCollection = async (
 	input: { body: RemoveFromCollectionBody; userId: string },
 	deps: RemoveFromCollectionServiceDeps = removeFromCollectionServiceDeps,
 ): Promise<CollectionServiceResult<RemoveFromCollectionData>> => {
-	// Verify the collection exists and belongs to the user
 	const collection = await deps.getCollectionById(input.body.collectionId, input.userId);
 	if (!collection) {
 		return serviceError("not_found", collectionNotFoundError);
 	}
 
-	// Verify the entity exists and belongs to the user
 	const entity = await deps.getEntityById(input.body.entityId, input.userId);
 	if (!entity) {
 		return serviceError("not_found", entityNotFoundError);
 	}
-
-	// Remove the canonical member-of relationship
 	const relationships = await deps.removeEntityFromCollection({
 		userId: input.userId,
 		entityId: input.body.entityId,

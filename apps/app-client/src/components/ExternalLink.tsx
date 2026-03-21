@@ -12,9 +12,7 @@ export function ExternalLink(props: React.ComponentProps<typeof Link>) {
 			href={href}
 			onPress={(e) => {
 				if (Platform.OS !== "web") {
-					// Prevent the default behavior of linking to the default browser on native.
 					e.preventDefault();
-					// Open the link in an in-app browser.
 					if (typeof href === "string") {
 						void WebBrowser.openBrowserAsync(href);
 					}
