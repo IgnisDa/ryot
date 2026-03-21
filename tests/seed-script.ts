@@ -53,6 +53,36 @@ interface Entity {
 	image: { kind: "remote"; url: string } | null;
 }
 
+interface SavedView {
+	id: string;
+	name: string;
+	icon: string;
+	accentColor: string;
+	queryDefinition: {
+		filters: unknown[];
+		entitySchemaSlugs: string[];
+		sort: { field: string[]; direction: "asc" | "desc" };
+	};
+	displayConfiguration: {
+		layout: "grid" | "list" | "table";
+		grid: {
+			imageProperty: string[] | null;
+			titleProperty: string[] | null;
+			badgeProperty: string[] | null;
+			subtitleProperty: string[] | null;
+		};
+		list: {
+			imageProperty: string[] | null;
+			titleProperty: string[] | null;
+			badgeProperty: string[] | null;
+			subtitleProperty: string[] | null;
+		};
+		table: {
+			columns: { property: string[] }[];
+		};
+	};
+}
+
 class APIClient {
 	private requestCount = 0;
 
@@ -62,7 +92,7 @@ class APIClient {
 		const response = await fetch(`${API_BASE_URL}${endpoint}`, {
 			method: "POST",
 			body: JSON.stringify(body),
-			headers: { "X-Api-Key": API_KEY!, "Content-Type": "application/json" },
+			headers: { "X-Api-Key": API_KEY, "Content-Type": "application/json" },
 		});
 
 		if (!response.ok) {
@@ -180,6 +210,24 @@ async function createEvent(
 		properties,
 		eventSchemaId,
 	});
+}
+
+async function createSavedView(
+	client: APIClient,
+	name: string,
+	icon: string,
+	accentColor: string,
+	queryDefinition: SavedView["queryDefinition"],
+	displayConfiguration: SavedView["displayConfiguration"],
+): Promise<SavedView> {
+	const savedView = await client.post<SavedView>("/saved-views", {
+		name,
+		icon,
+		accentColor,
+		queryDefinition,
+		displayConfiguration,
+	});
+	return savedView;
 }
 
 function generateWhiskey(): {
@@ -694,6 +742,791 @@ async function seedMobilePhones(client: APIClient) {
 	};
 }
 
+async function seedSavedViews(client: APIClient) {
+	console.log("\n💾 Seeding Saved Views...");
+
+	const savedViews: SavedView[] = [];
+
+	console.log("  Creating whiskey-related saved views...");
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Premium Aged Whiskeys",
+			"wine",
+			"#D97706",
+			{
+				filters: [{ op: "gte", field: ["age"], value: 18 }],
+				entitySchemaSlugs: ["whiskey"],
+				sort: { field: ["age"], direction: "desc" },
+			},
+			{
+				layout: "grid",
+				grid: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["age"],
+					subtitleProperty: ["distillery"],
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["age"],
+					subtitleProperty: ["distillery"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["age"] },
+						{ property: ["distillery"] },
+						{ property: ["proof"] },
+					],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Scotch Whiskeys",
+			"wine",
+			"#B45309",
+			{
+				filters: [{ op: "eq", field: ["type"], value: "Scotch" }],
+				entitySchemaSlugs: ["whiskey"],
+				sort: { field: ["@name"], direction: "asc" },
+			},
+			{
+				layout: "list",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["type"],
+					subtitleProperty: ["region"],
+				},
+				table: {
+					columns: [{ property: ["@name"] }, { property: ["region"] }],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"High Proof Whiskeys",
+			"flame",
+			"#DC2626",
+			{
+				filters: [{ op: "gte", field: ["proof"], value: 100 }],
+				entitySchemaSlugs: ["whiskey"],
+				sort: { field: ["proof"], direction: "desc" },
+			},
+			{
+				layout: "table",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["proof"],
+					subtitleProperty: ["type"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["proof"] },
+						{ property: ["type"] },
+						{ property: ["age"] },
+					],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Recent Whiskey Additions",
+			"clock",
+			"#F59E0B",
+			{
+				filters: [],
+				entitySchemaSlugs: ["whiskey"],
+				sort: { field: ["@createdAt"], direction: "desc" },
+			},
+			{
+				layout: "grid",
+				grid: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["type"],
+					subtitleProperty: ["distillery"],
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["type"],
+					subtitleProperty: ["distillery"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["@createdAt"] },
+						{ property: ["type"] },
+					],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Japanese Whiskeys",
+			"wine",
+			"#DC2626",
+			{
+				filters: [{ op: "eq", field: ["type"], value: "Japanese" }],
+				entitySchemaSlugs: ["whiskey"],
+				sort: { field: ["age"], direction: "desc" },
+			},
+			{
+				layout: "grid",
+				grid: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["age"],
+					subtitleProperty: ["distillery"],
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["age"],
+					subtitleProperty: ["distillery"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["age"] },
+						{ property: ["distillery"] },
+					],
+				},
+			},
+		),
+	);
+
+	console.log("  Creating place-related saved views...");
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Restaurants & Cafes",
+			"utensils",
+			"#EF4444",
+			{
+				filters: [{ op: "in", field: ["type"], value: ["Restaurant", "Cafe"] }],
+				entitySchemaSlugs: ["place"],
+				sort: { field: ["@name"], direction: "asc" },
+			},
+			{
+				layout: "list",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["type"],
+					subtitleProperty: ["city"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["type"] },
+						{ property: ["city"] },
+					],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Cultural Venues",
+			"landmark",
+			"#8B5CF6",
+			{
+				filters: [
+					{
+						op: "in",
+						field: ["type"],
+						value: ["Museum", "Gallery", "Theater"],
+					},
+				],
+				entitySchemaSlugs: ["place"],
+				sort: { field: ["city"], direction: "asc" },
+			},
+			{
+				layout: "grid",
+				grid: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["type"],
+					subtitleProperty: ["country"],
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["type"],
+					subtitleProperty: ["country"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["type"] },
+						{ property: ["city"] },
+						{ property: ["country"] },
+					],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Parks & Outdoor Spaces",
+			"tree",
+			"#10B981",
+			{
+				filters: [{ op: "eq", field: ["type"], value: "Park" }],
+				entitySchemaSlugs: ["place"],
+				sort: { field: ["@name"], direction: "asc" },
+			},
+			{
+				layout: "grid",
+				grid: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["city"],
+					subtitleProperty: ["country"],
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["city"],
+					subtitleProperty: ["country"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["city"] },
+						{ property: ["address"] },
+					],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Recently Added Places",
+			"clock",
+			"#3B82F6",
+			{
+				filters: [],
+				entitySchemaSlugs: ["place"],
+				sort: { field: ["@createdAt"], direction: "desc" },
+			},
+			{
+				layout: "list",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["type"],
+					subtitleProperty: ["city"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["@createdAt"] },
+						{ property: ["type"] },
+					],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Places by Country",
+			"globe",
+			"#06B6D4",
+			{
+				filters: [],
+				entitySchemaSlugs: ["place"],
+				sort: { field: ["country"], direction: "asc" },
+			},
+			{
+				layout: "table",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["country"],
+					subtitleProperty: ["city"],
+				},
+				table: {
+					columns: [
+						{ property: ["country"] },
+						{ property: ["city"] },
+						{ property: ["@name"] },
+						{ property: ["type"] },
+					],
+				},
+			},
+		),
+	);
+
+	console.log("  Creating phone-related saved views...");
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Modern Smartphones",
+			"smartphone",
+			"#6366F1",
+			{
+				filters: [{ op: "gte", field: ["year"], value: 2020 }],
+				entitySchemaSlugs: ["smartphone"],
+				sort: { field: ["year"], direction: "desc" },
+			},
+			{
+				layout: "grid",
+				grid: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["year"],
+					subtitleProperty: ["manufacturer"],
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["year"],
+					subtitleProperty: ["manufacturer"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["manufacturer"] },
+						{ property: ["year"] },
+						{ property: ["os"] },
+					],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"High Storage Devices",
+			"hard-drive",
+			"#EC4899",
+			{
+				filters: [{ op: "gte", field: ["storage_gb"], value: 256 }],
+				entitySchemaSlugs: ["smartphone", "tablet"],
+				sort: { field: ["storage_gb"], direction: "desc" },
+			},
+			{
+				layout: "table",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["storage_gb"],
+					subtitleProperty: ["manufacturer"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["storage_gb"] },
+						{ property: ["manufacturer"] },
+						{ property: ["year"] },
+					],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"iOS Devices",
+			"apple",
+			"#6B7280",
+			{
+				filters: [{ op: "in", field: ["os"], value: ["iOS", "iPadOS"] }],
+				entitySchemaSlugs: ["smartphone", "tablet"],
+				sort: { field: ["year"], direction: "desc" },
+			},
+			{
+				layout: "list",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["os"],
+					subtitleProperty: ["year"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["os"] },
+						{ property: ["year"] },
+					],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Android Devices",
+			"android",
+			"#22C55E",
+			{
+				filters: [{ op: "eq", field: ["os"], value: "Android" }],
+				entitySchemaSlugs: ["smartphone", "tablet"],
+				sort: { field: ["@name"], direction: "asc" },
+			},
+			{
+				layout: "grid",
+				grid: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["manufacturer"],
+					subtitleProperty: ["year"],
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["manufacturer"],
+					subtitleProperty: ["year"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["manufacturer"] },
+						{ property: ["year"] },
+					],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Premium Smartphones",
+			"gem",
+			"#A855F7",
+			{
+				filters: [{ op: "gte", field: ["price_usd"], value: 999 }],
+				entitySchemaSlugs: ["smartphone"],
+				sort: { field: ["price_usd"], direction: "desc" },
+			},
+			{
+				layout: "table",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["price_usd"],
+					subtitleProperty: ["manufacturer"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["price_usd"] },
+						{ property: ["manufacturer"] },
+						{ property: ["storage_gb"] },
+						{ property: ["ram_gb"] },
+					],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Budget-Friendly Phones",
+			"dollar-sign",
+			"#10B981",
+			{
+				filters: [{ op: "lte", field: ["price_usd"], value: 399 }],
+				entitySchemaSlugs: ["smartphone"],
+				sort: { field: ["price_usd"], direction: "asc" },
+			},
+			{
+				layout: "list",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["price_usd"],
+					subtitleProperty: ["manufacturer"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["price_usd"] },
+						{ property: ["manufacturer"] },
+					],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Tablets with Cellular",
+			"signal",
+			"#F97316",
+			{
+				filters: [{ op: "eq", field: ["has_cellular"], value: true }],
+				entitySchemaSlugs: ["tablet"],
+				sort: { field: ["screen_size"], direction: "desc" },
+			},
+			{
+				layout: "grid",
+				grid: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["screen_size"],
+					subtitleProperty: ["manufacturer"],
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["screen_size"],
+					subtitleProperty: ["manufacturer"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["screen_size"] },
+						{ property: ["manufacturer"] },
+						{ property: ["storage_gb"] },
+					],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Feature Phones with Camera",
+			"camera",
+			"#84CC16",
+			{
+				filters: [{ op: "eq", field: ["has_camera"], value: true }],
+				entitySchemaSlugs: ["feature-phone"],
+				sort: { field: ["year"], direction: "desc" },
+			},
+			{
+				layout: "list",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["year"],
+					subtitleProperty: ["manufacturer"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["manufacturer"] },
+						{ property: ["year"] },
+						{ property: ["battery_mah"] },
+					],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"All Mobile Devices",
+			"mobile-phone",
+			"#475569",
+			{
+				filters: [],
+				entitySchemaSlugs: ["smartphone", "feature-phone", "tablet"],
+				sort: { field: ["@name"], direction: "asc" },
+			},
+			{
+				layout: "grid",
+				grid: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["manufacturer"],
+					subtitleProperty: ["year"],
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["manufacturer"],
+					subtitleProperty: ["year"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["manufacturer"] },
+						{ property: ["year"] },
+					],
+				},
+			},
+		),
+	);
+
+	console.log("  Creating cross-tracker saved views...");
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Everything Recently Added",
+			"star",
+			"#FFD700",
+			{
+				filters: [],
+				entitySchemaSlugs: [
+					"whiskey",
+					"place",
+					"smartphone",
+					"feature-phone",
+					"tablet",
+				],
+				sort: { field: ["@createdAt"], direction: "desc" },
+			},
+			{
+				layout: "list",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				table: {
+					columns: [{ property: ["@name"] }, { property: ["@createdAt"] }],
+				},
+			},
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"All Items A-Z",
+			"book",
+			"#1F2937",
+			{
+				filters: [],
+				entitySchemaSlugs: [
+					"whiskey",
+					"place",
+					"smartphone",
+					"feature-phone",
+					"tablet",
+				],
+				sort: { field: ["@name"], direction: "asc" },
+			},
+			{
+				layout: "table",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				table: {
+					columns: [{ property: ["@name"] }],
+				},
+			},
+		),
+	);
+
+	console.log(`  ✓ Created ${savedViews.length} saved views`);
+	return savedViews.length;
+}
+
 async function main() {
 	console.log("🌱 Ryot Seed Script");
 	console.log("━".repeat(50));
@@ -713,6 +1546,7 @@ async function main() {
 	const whiskeyStats = await seedWhiskeys(client);
 	const placeStats = await seedPlaces(client);
 	const phoneStats = await seedMobilePhones(client);
+	const savedViewsCount = await seedSavedViews(client);
 
 	const duration = Math.floor((Date.now() - startTime) / 1000);
 	const minutes = Math.floor(duration / 60);
@@ -727,6 +1561,7 @@ async function main() {
 		`  Entities: ${whiskeyStats.entityCount + placeStats.entityCount + phoneStats.entityCount}`,
 	);
 	console.log(`  Events: ${whiskeyStats.eventCount + placeStats.eventCount}`);
+	console.log(`  Saved Views: ${savedViewsCount}`);
 	console.log(`  API Requests: ${client.getRequestCount()}`);
 	console.log(`  Duration: ${minutes}m ${seconds}s`);
 	console.log("━".repeat(50));
