@@ -273,8 +273,8 @@ type BaseEntityDisplayItemCard = {
 	centerElement?: ReactNode;
 	isDetailsLoading: boolean;
 	wasRecentlyConsumed?: boolean;
-	isCalendarEventWatched?: boolean;
 	isPartialStatusActive?: boolean;
+	isCalendarEventWatched?: boolean;
 	consumeButtonIndicatorLabel?: string;
 	userToMediaReasons?: UserToMediaReason[];
 	onImageClickBehavior: [string, (() => Promise<void>)?];

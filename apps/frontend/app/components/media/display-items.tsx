@@ -32,10 +32,10 @@ export const MetadataDisplayItem = (props: {
 	imageClassName?: string;
 	centerElement?: ReactNode;
 	additionalInformation?: string;
-	calendarEventShowInfo?: SeenShowExtraInformationPartFragment;
-	calendarEventPodcastInfo?: SeenPodcastExtraInformationPartFragment;
 	shouldHighlightNameIfInteracted?: boolean;
 	onImageClickBehavior?: () => Promise<void>;
+	calendarEventShowInfo?: SeenShowExtraInformationPartFragment;
+	calendarEventPodcastInfo?: SeenPodcastExtraInformationPartFragment;
 }) => {
 	const { ref, inViewport } = useInViewport();
 
@@ -95,7 +95,11 @@ export const MetadataDisplayItem = (props: {
 			return (episodeProgress?.timesSeen ?? 0) > 0;
 		}
 		return false;
-	}, [userMetadataDetails, props.calendarEventShowInfo, props.calendarEventPodcastInfo]);
+	}, [
+		userMetadataDetails,
+		props.calendarEventShowInfo,
+		props.calendarEventPodcastInfo,
+	]);
 
 	const extraInformation = useMemo(() => {
 		if (!metadataDetails || !userMetadataDetails) return "";
@@ -138,8 +142,8 @@ export const MetadataDisplayItem = (props: {
 			centerElement={props.centerElement}
 			imageClassName={props.imageClassName}
 			isDetailsLoading={isMetadataDetailsLoading}
-			wasRecentlyConsumed={isMetadataRecentlyConsumed}
 			isCalendarEventWatched={isCalendarEventWatched}
+			wasRecentlyConsumed={isMetadataRecentlyConsumed}
 			isPartialStatusActive={isMetadataPartialStatusActive}
 			image={metadataImageTranslation || images.at(0)}
 			title={metadataTitleTranslation || metadataDetails?.title}
