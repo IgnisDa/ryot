@@ -45,8 +45,13 @@ const toSavedView = (row: SavedViewRow): ListedSavedView => ({
 export const listSavedViewsForUser = async (input: {
 	userId: string;
 	trackerId?: string;
+	includeDisabled?: boolean;
 }) => {
 	const whereClauses = [eq(savedView.userId, input.userId)];
+
+	if (!input.includeDisabled) {
+		whereClauses.push(eq(savedView.isDisabled, false));
+	}
 
 	if (input.trackerId) {
 		whereClauses.push(eq(savedView.trackerId, input.trackerId));

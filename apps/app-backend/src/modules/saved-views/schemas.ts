@@ -1,3 +1,4 @@
+import { zodBoolAsString } from "@ryot/ts-utils";
 import { z } from "zod";
 import { dataSchema } from "~/lib/openapi";
 import {
@@ -103,6 +104,7 @@ export const listSavedViewsResponseSchema = dataSchema(
 
 export const listSavedViewsQuery = z.object({
 	trackerId: nonEmptyTrimmedStringSchema.optional(),
+	includeDisabled: zodBoolAsString.optional().default(false),
 });
 
 export const createSavedViewBody = z.object({
