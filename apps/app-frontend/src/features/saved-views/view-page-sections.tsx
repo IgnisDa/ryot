@@ -6,10 +6,10 @@ import {
 	Paper,
 	SimpleGrid,
 	Stack,
-	Table,
 	Text,
 } from "@mantine/core";
 import { Image as ImageIcon } from "lucide-react";
+import { DataTable, type DataTableColumn } from "mantine-datatable";
 import type { AppEntity } from "#/features/entities/model";
 import type { ViewLayout, ViewRuntimeResponse } from "./view-page-utils";
 import { formatRuntimeValue, isRuntimeProperty } from "./view-page-utils";
@@ -215,44 +215,65 @@ export function SavedViewResults(props: {
 	}
 
 	const tableColumns = "table" in props.meta ? props.meta.table.columns : [];
+	const dataColumns: DataTableColumn<AppEntity>[] = tableColumns.map(
+		(column) => ({
+			title: column.label,
+			accessor: column.key,
+			titleStyle: {
+				fontSize: "12px",
+				fontWeight: 600,
+				letterSpacing: "0.5px",
+				color: props.accentColor,
+				textTransform: "uppercase",
+				fontFamily: "var(--mantine-headings-font-family)",
+			},
+			render: (item) => {
+				const cell = item.cells?.find((entry) => entry.key === column.key);
+
+				if (cell?.kind === "image") {
+					return (
+						<EntityThumbnail
+							width={40}
+							height={54}
+							iconSize={16}
+							isDark={props.isDark}
+							radius="var(--mantine-radius-xs)"
+							imageUrl={props.imageUrlById.get(`${item.id}:${cell.key}`)}
+						/>
+					);
+				}
+
+				return (
+					<Text size="sm" c={props.textSecondary}>
+						{formatRuntimeValue(cell?.value)}
+					</Text>
+				);
+			},
+		}),
+	);
 
 	return (
-		<Paper withBorder radius="sm">
-			<Table striped highlightOnHover>
-				<Table.Thead>
-					<Table.Tr>
-						{tableColumns.map((column) => (
-							<Table.Th key={column.key}>{column.label}</Table.Th>
-						))}
-					</Table.Tr>
-				</Table.Thead>
-				<Table.Tbody>
-					{props.items.map((item) => (
-						<Table.Tr key={item.id}>
-							{item.cells?.map((cell) => (
-								<Table.Td key={cell.key}>
-									{cell.kind === "image" ? (
-										<EntityThumbnail
-											width={40}
-											height={54}
-											iconSize={16}
-											isDark={props.isDark}
-											radius="var(--mantine-radius-xs)"
-											imageUrl={props.imageUrlById.get(
-												`${item.id}:${cell.key}`,
-											)}
-										/>
-									) : (
-										<Text size="sm" c={props.textSecondary}>
-											{formatRuntimeValue(cell.value)}
-										</Text>
-									)}
-								</Table.Td>
-							))}
-						</Table.Tr>
-					))}
-				</Table.Tbody>
-			</Table>
-		</Paper>
+		<DataTable
+			striped
+			withTableBorder
+			highlightOnHover
+			borderRadius="sm"
+			c={props.textPrimary}
+			records={props.items}
+			columns={dataColumns}
+			borderColor={props.accentMuted}
+			rowBorderColor={props.accentMuted}
+			stripedColor={props.isDark ? "var(--mantine-color-dark-7)" : "white"}
+			emptyState={
+				<Text size="sm" c={props.textSecondary}>
+					No rows available
+				</Text>
+			}
+			highlightOnHoverColor={
+				props.isDark
+					? "var(--mantine-color-dark-6)"
+					: "var(--mantine-color-stone-0)"
+			}
+		/>
 	);
 }
