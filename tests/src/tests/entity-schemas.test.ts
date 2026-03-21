@@ -1,85 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import type { paths } from "@ryot/generated/openapi/app-backend";
-import type createClient from "openapi-fetch";
-import { createAuthenticatedClient } from "../helpers";
-
-type Client = ReturnType<typeof createClient<paths>>;
-
-interface CreateTrackerOptions {
-	icon?: string;
-	name?: string;
-	slug?: string;
-	enabled?: boolean;
-	accentColor?: string;
-	description?: string;
-}
-
-async function createTracker(
-	client: Client,
-	cookies: string,
-	options: CreateTrackerOptions = {},
-) {
-	const {
-		enabled = true,
-		icon = "rocket",
-		name = "Test Tracker",
-		accentColor = "#FF5733",
-		slug = `tracker-${Date.now()}`,
-		description = "Test tracker description",
-	} = options;
-
-	const { data } = await client.POST("/trackers", {
-		headers: { Cookie: cookies },
-		body: { icon, name, slug, enabled, accentColor, description },
-	});
-
-	const trackerId = data?.data?.id;
-	if (!trackerId) {
-		throw new Error("Failed to create tracker");
-	}
-
-	return { trackerId, data: data.data };
-}
-
-interface CreateEntitySchemaOptions {
-	icon?: string;
-	name?: string;
-	slug?: string;
-	trackerId: string;
-	accentColor?: string;
-	propertiesSchema?: {
-		[key: string]: {
-			type: "string" | "number" | "integer" | "boolean" | "date";
-		};
-	};
-}
-
-async function createEntitySchema(
-	client: Client,
-	cookies: string,
-	options: CreateEntitySchemaOptions,
-) {
-	const {
-		trackerId,
-		icon = "book",
-		name = "Test Schema",
-		accentColor = "#00FF00",
-		slug = `schema-${Date.now()}`,
-		propertiesSchema = { title: { type: "string" } },
-	} = options;
-
-	const { data } = await client.POST("/entity-schemas", {
-		headers: { Cookie: cookies },
-		body: { icon, name, slug, trackerId, accentColor, propertiesSchema },
-	});
-
-	const schemaId = data?.data?.id;
-	if (!schemaId) {
-		throw new Error("Failed to create entity schema");
-	}
-
-	return { schemaId, data: data.data };
-}
+import {
+	type Client,
+	createAuthenticatedClient,
+	createEntitySchema,
+	createTracker,
+} from "../helpers";
 
 async function findBuiltinTracker(client: Client, cookies: string) {
 	const { data: listData } = await client.GET("/trackers", {
