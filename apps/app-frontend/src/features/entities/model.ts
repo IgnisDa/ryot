@@ -1,19 +1,17 @@
-export interface AppEntity {
-	id: string;
-	name: string;
+import type { ApiGetResponseData } from "#/lib/api/types";
+
+type ApiEntity = ApiGetResponseData<"/entities">[number];
+
+export type AppEntityImage =
+	| { kind: "remote"; url: string }
+	| { kind: "s3"; key: string }
+	| null;
+
+export type AppEntity = Omit<ApiEntity, "createdAt" | "updatedAt" | "image"> & {
 	image: AppEntityImage;
 	createdAt: Date;
 	updatedAt: Date;
-	entitySchemaId: string;
-	externalId: string | null;
-	properties: Record<string, unknown>;
-	detailsSandboxScriptId: string | null;
-}
-
-export type AppEntityImage =
-	| { kind: "s3"; key: string }
-	| { kind: "remote"; url: string }
-	| null;
+};
 
 function toAppEntityImage(image: unknown): AppEntityImage {
 	if (!image || typeof image !== "object") return null;
@@ -29,13 +27,7 @@ function toAppEntityImage(image: unknown): AppEntityImage {
 	return null;
 }
 
-export function toAppEntity(
-	entity: Omit<AppEntity, "createdAt" | "updatedAt" | "image"> & {
-		image: unknown;
-		createdAt: string;
-		updatedAt: string;
-	},
-): AppEntity {
+export function toAppEntity(entity: ApiEntity): AppEntity {
 	return {
 		...entity,
 		image: toAppEntityImage(entity.image),
