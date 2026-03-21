@@ -20,9 +20,27 @@ const fakeFacets = [
 		isExpanded: true,
 		accentColor: "#5B7FFF",
 		entitySchemas: [
-			{ id: "movies", name: "Movies", slug: "movies" },
-			{ id: "tv-shows", name: "TV Shows", slug: "tv-shows" },
-			{ id: "books", name: "Books", slug: "books" },
+			{
+				id: "movies",
+				icon: "film",
+				name: "Movies",
+				slug: "movies",
+				accentColor: "#5B7FFF",
+			},
+			{
+				icon: "tv",
+				id: "tv-shows",
+				name: "TV Shows",
+				slug: "tv-shows",
+				accentColor: "#FB7185",
+			},
+			{
+				id: "books",
+				icon: "book-open",
+				name: "Books",
+				slug: "books",
+				accentColor: "#5B7FFF",
+			},
 		],
 	},
 	{
@@ -35,8 +53,20 @@ const fakeFacets = [
 		isExpanded: false,
 		accentColor: "#2DD4BF",
 		entitySchemas: [
-			{ id: "workouts", name: "Workouts", slug: "workouts" },
-			{ id: "nutrition", name: "Nutrition", slug: "nutrition" },
+			{
+				id: "workouts",
+				icon: "dumbbell",
+				name: "Workouts",
+				slug: "workouts",
+				accentColor: "#2DD4BF",
+			},
+			{
+				icon: "apple",
+				id: "nutrition",
+				name: "Nutrition",
+				slug: "nutrition",
+				accentColor: "#84CC16",
+			},
 		],
 	},
 	{
@@ -49,8 +79,20 @@ const fakeFacets = [
 		isExpanded: false,
 		accentColor: "#D4A574",
 		entitySchemas: [
-			{ id: "bottles", name: "Bottles", slug: "bottles" },
-			{ id: "tastings", name: "Tastings", slug: "tastings" },
+			{
+				id: "bottles",
+				icon: "wine",
+				name: "Bottles",
+				slug: "bottles",
+				accentColor: "#D4A574",
+			},
+			{
+				id: "tastings",
+				icon: "glass-water",
+				name: "Tastings",
+				slug: "tastings",
+				accentColor: "#F59E0B",
+			},
 		],
 	},
 	{
@@ -63,8 +105,20 @@ const fakeFacets = [
 		isExpanded: false,
 		accentColor: "#A78BFA",
 		entitySchemas: [
-			{ id: "visited", name: "Visited", slug: "visited" },
-			{ id: "wishlist", name: "Wishlist", slug: "wishlist" },
+			{
+				id: "visited",
+				icon: "map-pin",
+				name: "Visited",
+				slug: "visited",
+				accentColor: "#A78BFA",
+			},
+			{
+				id: "wishlist",
+				icon: "bookmark",
+				name: "Wishlist",
+				slug: "wishlist",
+				accentColor: "#60A5FA",
+			},
 		],
 	},
 ] as SidebarFacet[];

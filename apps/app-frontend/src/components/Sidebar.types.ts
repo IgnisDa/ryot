@@ -1,7 +1,9 @@
 export interface SidebarEntitySchema {
 	id: string;
+	icon: string;
 	name: string;
 	slug: string;
+	accentColor: string;
 }
 
 export interface SidebarFacet {

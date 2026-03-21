@@ -88,6 +88,8 @@ export const entitySchema = pgTable(
 	{
 		slug: text().notNull(),
 		name: text().notNull(),
+		icon: text().notNull(),
+		accentColor: text().notNull(),
 		propertiesSchema: jsonb().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
 		isBuiltin: boolean().notNull().default(false),
