@@ -15,6 +15,13 @@
 			"when": 1774010574409,
 			"tag": "0001_chunky_runaways",
 			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1774015494129,
+			"tag": "0002_legal_mantis",
+			"breakpoints": true
 		}
 	]
 }
