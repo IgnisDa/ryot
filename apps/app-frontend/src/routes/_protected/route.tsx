@@ -2,8 +2,8 @@ import { Box, Flex } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { MobileSidebarBurger, Sidebar } from "#/components/sidebar/Sidebar";
-import { FacetModal } from "#/features/facets/components/facet-modal";
-import FacetSidebarProvider from "#/features/facets/sidebar-context";
+import { TrackerModal } from "#/features/trackers/components/tracker-modal";
+import TrackerSidebarProvider from "#/features/trackers/sidebar-context";
 import { useIsMobileScreen } from "#/hooks/screen";
 import { useColorScheme } from "#/hooks/theme";
 
@@ -29,7 +29,7 @@ function RouteComponent() {
 	const isDark = colorScheme === "dark";
 
 	return (
-		<FacetSidebarProvider>
+		<TrackerSidebarProvider>
 			<Flex gap={0} h="100vh" direction="column">
 				{isMobile && (
 					<Box
@@ -58,7 +58,7 @@ function RouteComponent() {
 				</Flex>
 			</Flex>
 
-			<FacetModal />
-		</FacetSidebarProvider>
+			<TrackerModal />
+		</TrackerSidebarProvider>
 	);
 }

@@ -94,7 +94,7 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 
 		const views = await listSavedViewsForUser({
 			userId: user.id,
-			facetId: query.facetId,
+			trackerId: query.trackerId,
 		});
 
 		return c.json(successResponse(views), 200);
@@ -115,7 +115,7 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			userId: user.id,
 			isBuiltin: false,
 			name: nameResult.data,
-			facetId: body.facetId,
+			trackerId: body.trackerId,
 			accentColor: body.accentColor,
 			queryDefinition: body.queryDefinition,
 		});

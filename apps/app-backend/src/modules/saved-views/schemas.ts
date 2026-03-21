@@ -14,7 +14,7 @@ export const listedSavedViewSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	isBuiltin: z.boolean(),
-	facetId: z.string().nullable(),
+	trackerId: z.string().nullable(),
 	icon: nonEmptyTrimmedStringSchema,
 	accentColor: nonEmptyTrimmedStringSchema,
 	queryDefinition: savedViewQueryDefinitionSchema,
@@ -25,14 +25,14 @@ export const listSavedViewsResponseSchema = dataSchema(
 );
 
 export const listSavedViewsQuery = z.object({
-	facetId: nonEmptyTrimmedStringSchema.optional(),
+	trackerId: nonEmptyTrimmedStringSchema.optional(),
 });
 
 export const createSavedViewBody = z.object({
 	icon: nonEmptyTrimmedStringSchema,
 	name: nonEmptyTrimmedStringSchema,
 	accentColor: nonEmptyTrimmedStringSchema,
-	facetId: nonEmptyTrimmedStringSchema.optional(),
+	trackerId: nonEmptyTrimmedStringSchema.optional(),
 	queryDefinition: savedViewQueryDefinitionSchema,
 });
 
