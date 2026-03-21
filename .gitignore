@@ -52,3 +52,6 @@ types-dist
 .vscode/settings.json
 templates
 .claude/settings.local.json
+
+*storybook.log
+storybook-static
