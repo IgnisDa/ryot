@@ -57,7 +57,6 @@ export function TrackerOverviewActivityItem(props: {
 	time: string;
 	action: string;
 	entityId: string;
-	trackerSlug: string;
 	accentColor: string;
 	kind: "entity" | "event";
 }) {
@@ -79,10 +78,7 @@ export function TrackerOverviewActivityItem(props: {
 				>
 					<Icon size={14} color={props.accentColor} />
 				</Box>
-				<Link
-					to="/$trackerSlug/$entityId"
-					params={{ entityId: props.entityId, trackerSlug: props.trackerSlug }}
-				>
+				<Link to="/entities/$entityId" params={{ entityId: props.entityId }}>
 					<Anchor component="span" size="sm" pt={5}>
 						{props.action}
 					</Anchor>
