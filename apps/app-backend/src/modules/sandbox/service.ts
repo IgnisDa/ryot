@@ -7,7 +7,7 @@ import type {
 import { SandboxScriptId, type UserId } from "@ryot/contract/schema/brands";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { generateId } from "better-auth";
-import { Cause, Context, Effect, Exit, Layer, Match, Option, Redacted } from "effect";
+import { Context, Effect, Layer, Option, Redacted } from "effect";
 import { Activity } from "effect/unstable/workflow";
 import type { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
@@ -17,6 +17,7 @@ import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job-id";
 import { trimToNull } from "#lib/shared/validation";
+import { toWorkflowRunResult } from "#lib/shared/workflow-result";
 
 import { resolveSandboxExecutionPayload } from "./durable-queues";
 import {
@@ -32,28 +33,11 @@ import { SandboxWorkflowReferenceRepository } from "./workflow-reference-reposit
 const sandboxJobNotFoundError = "Sandbox job not found";
 const sandboxScriptNotFoundError = "Sandbox script not found";
 
-const toPluginWorkflowResult = (
-	result: Workflow.Result<JsonValue, SandboxRunError> | undefined,
-) => {
-	if (!result) {
-		return { status: "pending" as const };
-	}
-	return Match.value(result).pipe(
-		Match.tag("Suspended", () => ({ status: "pending" as const })),
-		Match.orElse(({ exit }) =>
-			Exit.match(exit, {
-				onSuccess: (output) => ({ output, status: "completed" as const }),
-				onFailure: (cause) => ({
-					status: "failed" as const,
-					error: Option.match(Cause.findErrorOption(cause), {
-						onSome: (error) => String(error),
-						onNone: () => Cause.pretty(cause).slice(0, 500),
-					}),
-				}),
-			}),
-		),
-	);
-};
+const toPluginWorkflowResult = (result: Workflow.Result<JsonValue, SandboxRunError> | undefined) =>
+	toWorkflowRunResult(result, {
+		onFailure: String,
+		onSuccess: (output) => ({ output }),
+	});
 
 export class SandboxExecutionService extends Context.Service<SandboxExecutionService>()(
 	"SandboxExecutionService",
