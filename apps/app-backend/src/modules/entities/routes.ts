@@ -184,6 +184,7 @@ export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
 			() =>
 				resolveEntityCreateInput({
 					name: body.name,
+					image: body.image,
 					properties: body.properties,
 					propertiesSchema: foundEntitySchema.entitySchema
 						.propertiesSchema as AppSchema,
@@ -198,6 +199,7 @@ export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
 			entitySchemaId,
 			userId: user.id,
 			name: entityData.name,
+			image: entityData.image,
 			properties: entityData.properties,
 		});
 
