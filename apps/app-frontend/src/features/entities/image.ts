@@ -1,15 +1,18 @@
 import { useQueries } from "@tanstack/react-query";
-import type { AppEntity } from "#/features/entities/model";
+import type { AppEntity, AppEntityImage } from "#/features/entities/model";
 import { useApiClient } from "#/hooks/api";
 
-export function useResolvedEntityImageUrls(entities: AppEntity[]) {
+interface ImageEntry {
+	id: string;
+	image: AppEntityImage;
+}
+
+export function useResolvedImageUrls(imageEntries: ImageEntry[]) {
 	const apiClient = useApiClient();
 	const s3Keys = Array.from(
 		new Set(
-			entities
-				.map((entity) =>
-					entity.image?.kind === "s3" ? entity.image.key : null,
-				)
+			imageEntries
+				.map((entry) => (entry.image?.kind === "s3" ? entry.image.key : null))
 				.filter((key): key is string => !!key),
 		),
 	);
@@ -36,18 +39,18 @@ export function useResolvedEntityImageUrls(entities: AppEntity[]) {
 	});
 
 	const imageUrlByEntityId = new Map<string, string | undefined>();
-	for (const entity of entities) {
-		if (entity.image?.kind === "remote") {
-			imageUrlByEntityId.set(entity.id, entity.image.url);
+	for (const entry of imageEntries) {
+		if (entry.image?.kind === "remote") {
+			imageUrlByEntityId.set(entry.id, entry.image.url);
 			continue;
 		}
 
-		if (entity.image?.kind === "s3") {
-			imageUrlByEntityId.set(entity.id, urlByKey.get(entity.image.key));
+		if (entry.image?.kind === "s3") {
+			imageUrlByEntityId.set(entry.id, urlByKey.get(entry.image.key));
 			continue;
 		}
 
-		imageUrlByEntityId.set(entity.id, undefined);
+		imageUrlByEntityId.set(entry.id, undefined);
 	}
 
 	return {
@@ -55,6 +58,12 @@ export function useResolvedEntityImageUrls(entities: AppEntity[]) {
 		isError: presignedQueries.some((query) => query.isError),
 		isLoading: presignedQueries.some((query) => query.isLoading),
 	};
+}
+
+export function useResolvedEntityImageUrls(entities: AppEntity[]) {
+	return useResolvedImageUrls(
+		entities.map((entity) => ({ id: entity.id, image: entity.image })),
+	);
 }
 
 export function useResolvedEntityImageUrl(entity: AppEntity | undefined) {
