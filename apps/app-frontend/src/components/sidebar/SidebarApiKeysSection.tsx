@@ -14,8 +14,8 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, KeyRound, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useAuthClient } from "#/hooks/auth";
 import { useIsMobileScreen } from "#/hooks/screen";
+import { authClient } from "#/lib/auth";
 import {
 	getSidebarApiKeyDetails,
 	getSidebarApiKeyDisplayName,
@@ -38,7 +38,6 @@ export function SidebarApiKeysSection(props: {
 	textMuted: string;
 }) {
 	const isMobile = useIsMobileScreen();
-	const authClient = useAuthClient();
 	const queryClient = useQueryClient();
 	const [draftName, setDraftName] = useState("");
 	const [animatedContentRef] = useAutoAnimate<HTMLDivElement>();

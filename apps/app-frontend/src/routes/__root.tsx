@@ -4,20 +4,13 @@ import {
 	MantineProvider,
 } from "@mantine/core";
 import { TanStackDevtools } from "@tanstack/react-devtools";
-import {
-	createRootRouteWithContext,
-	HeadContent,
-	Scripts,
-} from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import type { AuthClient } from "#/hooks/auth";
 import { STORAGE_KEYS } from "#/lib/storage-keys";
 import { theme } from "#/lib/theme";
 import appCss from "../styles.css?url";
 
-export const Route = createRootRouteWithContext<{
-	authClientInstance: AuthClient;
-}>()({
+export const Route = createRootRoute({
 	ssr: false,
 	shellComponent: RootDocument,
 	head: () => ({
