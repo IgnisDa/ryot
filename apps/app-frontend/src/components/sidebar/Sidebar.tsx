@@ -69,14 +69,15 @@ function ViewIcon(props: { view: SidebarView }) {
 
 function SortableTracker(props: {
 	isDark: boolean;
-	tracker: SidebarTracker;
 	isExpanded: boolean;
 	textPrimary: string;
 	textSecondary: string;
 	isMutationBusy: boolean;
+	tracker: SidebarTracker;
 	isCustomizeMode: boolean;
 	onNavLinkClick: () => void;
 	onEditTracker?: (trackerId: string) => void;
+	onExpandTracker: (trackerId: string) => void;
 	onToggleTracker: (trackerId: string) => void;
 	onToggleTrackerEnabled?: (trackerId: string) => void;
 }) {
@@ -105,7 +106,7 @@ function SortableTracker(props: {
 						return;
 					}
 					if (props.tracker.views?.length) {
-						props.onToggleTracker(props.tracker.id);
+						props.onExpandTracker(props.tracker.id);
 					}
 					props.onNavLinkClick();
 				}}
@@ -211,16 +212,24 @@ function SortableTracker(props: {
 							</Group>
 						) : undefined}
 						{props.tracker.views?.length ? (
-							<Box
-								aria-hidden="true"
-								style={{ display: "flex", alignItems: "center" }}
+							<ActionIcon
+								size="xs"
+								variant="subtle"
+								aria-label={
+									props.isExpanded ? "Collapse tracker" : "Expand tracker"
+								}
+								onClick={(event) => {
+									event.preventDefault();
+									event.stopPropagation();
+									props.onToggleTracker(props.tracker.id);
+								}}
 							>
 								{props.isExpanded ? (
 									<ChevronDown size={16} strokeWidth={1.8} />
 								) : (
 									<ChevronRight size={16} strokeWidth={1.8} />
 								)}
-							</Box>
+							</ActionIcon>
 						) : undefined}
 					</Group>
 				}
@@ -304,6 +313,10 @@ export function Sidebar(props: SidebarProps) {
 			...current,
 			[trackerId]: !(current[trackerId] ?? false),
 		}));
+	};
+
+	const handleExpandTracker = (trackerId: string) => {
+		setExpandedTrackers((current) => ({ ...current, [trackerId]: true }));
 	};
 
 	const handleDragEnd = (event: DragEndEvent) => {
@@ -490,11 +503,12 @@ export function Sidebar(props: SidebarProps) {
 									isExpanded={isExpanded}
 									textPrimary={textPrimary}
 									textSecondary={textSecondary}
-									onEditTracker={actions.openEditModal}
-									onToggleTracker={handleToggleTracker}
 									onNavLinkClick={handleNavLinkClick}
-									isCustomizeMode={state.isCustomizeMode}
+									onEditTracker={actions.openEditModal}
+									onExpandTracker={handleExpandTracker}
+									onToggleTracker={handleToggleTracker}
 									isMutationBusy={state.isMutationBusy}
+									isCustomizeMode={state.isCustomizeMode}
 									onToggleTrackerEnabled={(trackerId) =>
 										void actions.toggleTrackerById(trackerId)
 									}
