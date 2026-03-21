@@ -43,7 +43,6 @@ export type QueryEngineRequest = Omit<EntitiesBody, "fields" | "mode"> & {
 	mode?: ExecuteQueryEngineBody["mode"];
 };
 
-type CardDisplayConfiguration = CardDisplayConfigurationInput;
 type TableDisplayConfiguration = DisplayConfigurationInput["table"];
 
 type RuntimeFieldsInput =
@@ -53,7 +52,7 @@ type RuntimeFieldsInput =
 	  }
 	| {
 			layout: "grid" | "list";
-			displayConfiguration: CardDisplayConfiguration;
+			displayConfiguration: CardDisplayConfigurationInput;
 	  };
 
 export function toQueryEngineItem(fields: QueryEngineField[]): QueryEngineResponseItem {
@@ -88,8 +87,8 @@ type QueryEngineEntityFixture = {
 
 const buildCardDisplayConfiguration = (
 	schemaSlugs: string[],
-	overrides: Partial<CardDisplayConfiguration> = {},
-): CardDisplayConfiguration => {
+	overrides: Partial<CardDisplayConfigurationInput> = {},
+): CardDisplayConfigurationInput => {
 	const schemaSlug = schemaSlugs[0];
 
 	return {
@@ -103,13 +102,11 @@ const buildCardDisplayConfiguration = (
 };
 
 export function buildGridDisplayConfiguration(
-	overrides: Partial<CardDisplayConfiguration> = {},
+	overrides: Partial<CardDisplayConfigurationInput> = {},
 	schemaSlugs: string[] = [],
-): CardDisplayConfiguration {
+): CardDisplayConfigurationInput {
 	return buildCardDisplayConfiguration(schemaSlugs, overrides);
 }
-
-export const buildListDisplayConfiguration = buildGridDisplayConfiguration;
 
 export function buildTableDisplayConfiguration(
 	columns?: TableDisplayConfiguration["columns"],
@@ -239,7 +236,7 @@ export const buildInLibraryRelationshipJoin = (required = true) =>
 export function buildGridRequest(
 	overrides: Partial<Omit<QueryEngineRequest, "fields">> & {
 		scope: string[];
-		displayConfiguration?: CardDisplayConfiguration;
+		displayConfiguration?: CardDisplayConfigurationInput;
 	},
 ): QueryEngineRequest {
 	const {
@@ -260,7 +257,7 @@ export function buildGridRequest(
 export function buildListRequest(
 	overrides: Partial<Omit<QueryEngineRequest, "fields">> & {
 		scope: string[];
-		displayConfiguration?: CardDisplayConfiguration;
+		displayConfiguration?: CardDisplayConfigurationInput;
 	},
 ): QueryEngineRequest {
 	const {
@@ -269,7 +266,7 @@ export function buildListRequest(
 		...requestOverrides
 	} = overrides;
 	const displayConfiguration =
-		displayConfigurationOverride ?? buildListDisplayConfiguration({}, scope);
+		displayConfigurationOverride ?? buildGridDisplayConfiguration({}, scope);
 
 	return buildQueryEngineRequest({
 		scope,
@@ -377,7 +374,6 @@ export async function createQueryEngineEvent(input: CreateQueryEngineEventInput)
 	}
 
 	await waitForEventCount(input.client, input.cookies, input.entityId, beforeCount + 1);
-	return data.data.count;
 }
 
 const createQueryEngineEntities = async (input: {

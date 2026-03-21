@@ -16,5 +16,5 @@ export async function createMeasurementEntityFixture(client: Client, cookies: st
 		properties: { weight: 75.5, recordedAt: "2026-04-27T08:00:00Z" },
 	});
 
-	return { measurement, measurementId: measurement.id };
+	return { measurementId: measurement.id };
 }

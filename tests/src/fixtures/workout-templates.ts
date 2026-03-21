@@ -63,5 +63,5 @@ export async function createWorkoutTemplateEntityFixture(
 		},
 	});
 
-	return { exerciseId, workoutTemplate, workoutTemplateId: workoutTemplate.id };
+	return { workoutTemplate, workoutTemplateId: workoutTemplate.id };
 }

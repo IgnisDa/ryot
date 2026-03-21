@@ -34,12 +34,12 @@ export async function getEntity(client: Client, cookies: string, entityId: strin
 }
 
 export async function createTrackerWithSchemaAndEntity(client: Client, cookies: string) {
-	const { trackerId, schemaId } = await createTrackerWithSchema(client, cookies);
+	const { schemaId } = await createTrackerWithSchema(client, cookies);
 	const entity = await createEntity(client, cookies, {
 		image: null,
 		name: "Test Entity",
 		entitySchemaId: schemaId,
 		properties: { title: "Test Title" },
 	});
-	return { schemaId, trackerId, entityId: entity.id, entity };
+	return { entityId: entity.id };
 }

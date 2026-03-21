@@ -30,7 +30,7 @@ export async function createTracker(
 		throw new Error(`Failed to create tracker '${name}'`);
 	}
 
-	return { trackerId: data.data.id, data: data.data };
+	return { trackerId: data.data.id };
 }
 
 export async function listTrackers(
