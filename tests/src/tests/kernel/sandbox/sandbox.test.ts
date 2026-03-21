@@ -5,6 +5,7 @@ import {
 	enqueueSandboxScript,
 	installSandboxScriptScoped,
 	observabilitySandboxSource,
+	processFailureSandboxSource,
 	pollSandboxResult,
 } from "~/fixtures";
 import { assertCompleted, assertPresent } from "~/support/assertions";
@@ -39,6 +40,28 @@ describe("sandbox result observability", () => {
 			assertPresent(result.timing, "Expected timing to be present");
 			expect(result.timing.totalMs).toBeGreaterThan(0);
 			expect(result.timing.executionMs).toBeGreaterThanOrEqual(0);
+		}),
+	);
+});
+
+describe("sandbox process failures", () => {
+	it.live("includes Deno stderr when process exits before returning a result", () =>
+		Effect.gen(function* () {
+			const { userId } = yield* createAuthenticatedClient();
+			const slug = `process-failure-${crypto.randomUUID()}`;
+			const { scriptId } = yield* installSandboxScriptScoped({
+				slug,
+				name: "Process failure",
+				source: processFailureSandboxSource({ name: "Process failure", slug }),
+			});
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+
+			const result = yield* pollSandboxResult(userId, jobId);
+			if (result.status !== "failed") {
+				throw new Error(`Expected process failure, got '${result.status}'`);
+			}
+			expect(result.error).toContain("Sandbox process exited before returning a response");
+			expect(result.error).toContain("Sandbox stderr:");
 		}),
 	);
 });
