@@ -3,7 +3,6 @@ import type {
 	AutomationOperation,
 	AutomationOrigin,
 } from "@ryot/contract/modules/automations/schemas";
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import type {
 	EntityId,
 	EntitySchemaSlug,
@@ -13,6 +12,7 @@ import type {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Context, Effect, Layer } from "effect";
 
 export type LifecycleEntityReference = {

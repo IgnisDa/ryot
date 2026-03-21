@@ -42,7 +42,7 @@ const BooksResponse = Schema.Struct({
 	content: Schema.optional(Schema.Array(Book)),
 });
 
-export const mangaRef = (
+const mangaRef = (
 	links: ReadonlyArray<{ label: string; url: string }>,
 	title: string,
 ): ImportEntityRef | null => {
@@ -73,6 +73,8 @@ export const mangaRef = (
 	}
 	return null;
 };
+
+export { mangaRef as extractMangaRef };
 
 export default defineScript({
 	manifest,

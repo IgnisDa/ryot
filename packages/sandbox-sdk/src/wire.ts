@@ -1,5 +1,7 @@
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
+import type { JsonPrimitive, JsonValue } from "@ryot/contract/modules/sandbox/wire";
 import { Schema } from "@ryot/sandbox-sdk/effect";
+
+export type { JsonPrimitive, JsonValue };
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
 	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
