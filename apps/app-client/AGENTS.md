@@ -1,10 +1,6 @@
 # App Client Guidelines
 
-## Product Context
-
-- Ryot is a self-hosted personal tracker. The UI should feel like a crafted personal journal: warm, calm, and confident, not a generic SaaS dashboard.
-- Keep it compact and scannable; maintain WCAG AA.
-- Avoid cold enterprise dashboards, social-feed aesthetics, and novelty motion.
+Ryot is a self-hosted personal tracker. Keep the UI warm, calm, compact, scannable, WCAG AA compliant, and free of generic SaaS/social-feed aesthetics or novelty motion.
 
 ## Styling
 
@@ -13,9 +9,7 @@
 
 ## Type Safety
 
-- Prefer derived types (`ReturnType`, indexed access types, `z.infer`) and canonical imported backend/generated types over handwritten mirrors.
-- If multiple client files need the same shape, export it from one module and reuse it.
-- Avoid local aliases that only re-declare OpenAPI/backend shapes.
+- Prefer derived or canonical backend/generated types over handwritten mirrors, local aliases, and duplicate shared shapes.
 
 ## Components
 
