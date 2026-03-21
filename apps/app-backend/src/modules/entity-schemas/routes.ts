@@ -10,10 +10,15 @@ import {
 import {
 	createEntitySchemaBody,
 	createEntitySchemaResponseSchema,
+	entitySchemaParams,
 	listEntitySchemasQuery,
 	listEntitySchemasResponseSchema,
 } from "./schemas";
-import { createEntitySchema, listEntitySchemas } from "./service";
+import {
+	createEntitySchema,
+	getEntitySchemaById,
+	listEntitySchemas,
+} from "./service";
 
 const listEntitySchemasRoute = createAuthRoute(
 	createRoute({
@@ -45,6 +50,21 @@ const createEntitySchemaRoute = createAuthRoute(
 	}),
 );
 
+const getEntitySchemaRoute = createAuthRoute(
+	createRoute({
+		method: "get",
+		tags: ["entity-schemas"],
+		path: "/{entitySchemaId}",
+		request: { params: entitySchemaParams },
+		summary: "Get a single entity schema by ID",
+		responses: createStandardResponses({
+			successDescription: "Requested entity schema",
+			successSchema: createEntitySchemaResponseSchema,
+			notFoundDescription: "Entity schema does not exist for this user",
+		}),
+	}),
+);
+
 export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(listEntitySchemasRoute, async (c) => {
 		const user = c.get("user");
@@ -67,6 +87,22 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const body = c.req.valid("json");
 
 		const result = await createEntitySchema({ body, userId: user.id });
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
+
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
+	})
+	.openapi(getEntitySchemaRoute, async (c) => {
+		const user = c.get("user");
+		const params = c.req.valid("param");
+
+		const result = await getEntitySchemaById({
+			userId: user.id,
+			entitySchemaId: params.entitySchemaId,
+		});
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
 			return c.json(response.body, response.status);

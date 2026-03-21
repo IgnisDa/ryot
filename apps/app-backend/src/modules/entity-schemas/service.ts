@@ -11,6 +11,7 @@ import {
 import { getTrackerScopeForUser } from "../trackers/repository";
 import {
 	createEntitySchemaForUser,
+	getEntitySchemaByIdForUser,
 	getEntitySchemaBySlugForUser,
 	listEntitySchemasByTracker,
 } from "./repository";
@@ -25,6 +26,7 @@ export type EntitySchemaServiceDeps = {
 	getTrackerScopeForUser: typeof getTrackerScopeForUser;
 	createEntitySchemaForUser: typeof createEntitySchemaForUser;
 	listEntitySchemasByTracker: typeof listEntitySchemasByTracker;
+	getEntitySchemaByIdForUser: typeof getEntitySchemaByIdForUser;
 	getEntitySchemaBySlugForUser: typeof getEntitySchemaBySlugForUser;
 };
 
@@ -33,10 +35,12 @@ export type EntitySchemaServiceResult<T> =
 	| { error: EntitySchemaMutationError; message: string };
 
 const duplicateSlugError = "Entity schema slug already exists";
+const entitySchemaNotFoundError = "Entity schema not found";
 const entitySchemaUniqueConstraint = "entity_schema_user_slug_unique";
 
 const entitySchemaServiceDeps: EntitySchemaServiceDeps = {
 	createEntitySchemaForUser,
+	getEntitySchemaByIdForUser,
 	getEntitySchemaBySlugForUser,
 	getTrackerScopeForUser,
 	listEntitySchemasByTracker,
@@ -239,4 +243,22 @@ export const createEntitySchema = async (
 
 		throw error;
 	}
+};
+
+export const getEntitySchemaById = async (
+	input: { entitySchemaId: string; userId: string },
+	deps: EntitySchemaServiceDeps = entitySchemaServiceDeps,
+): Promise<EntitySchemaServiceResult<ListedEntitySchema>> => {
+	const foundEntitySchema = await deps.getEntitySchemaByIdForUser({
+		userId: input.userId,
+		entitySchemaId: input.entitySchemaId,
+	});
+	if (!foundEntitySchema) {
+		return createErrorResult({
+			error: "not_found",
+			message: entitySchemaNotFoundError,
+		});
+	}
+
+	return createDataResult(foundEntitySchema);
 };
