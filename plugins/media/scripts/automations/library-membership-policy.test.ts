@@ -7,12 +7,15 @@ import { expect, it } from "vitest";
 import { execution, hostSuccess, policyAutomationContext } from "./automation-test-utils";
 import definition, { manifest } from "./library-membership-policy.sandbox";
 
-const rows = (entityIds: string[]) => ({
+const rows = (queryName: string, entityIds: string[]) => ({
 	data: {
-		items: entityIds.map((entityId) => ({
-			entityId: { value: entityId, displayValue: entityId },
-		})),
-		pageInfo: { total: entityIds.length, hasMore: false, nextCursor: null },
+		[queryName]: {
+			items: entityIds.map((entityId) => ({
+				entityId: { kind: "text" as const, value: entityId },
+			})),
+			pageInfo: { hasMore: false, limit: 1, page: 1, total: entityIds.length },
+			type: "rows" as const,
+		},
 	},
 });
 
@@ -34,7 +37,12 @@ it("awaits membership for a referenced global media entity", () => {
 	const changes: JsonValue[] = [];
 	let queryIndex = 0;
 	const host = defineSandboxTestHost(manifest, {
-		executeQueryEngine: () => hostSuccess(rows(queryIndex++ === 0 ? ["media-1"] : ["library-1"])),
+		executeRyotql: () => {
+			const index = queryIndex++;
+			return hostSuccess(
+				rows(index === 0 ? "entity" : "library", index === 0 ? ["media-1"] : ["library-1"]),
+			);
+		},
 		changeUserRelationships: (batches) => {
 			changes.push(...batches);
 			return hostSuccess([{ created: 1, deleted: 0 }]);
@@ -67,7 +75,12 @@ it("does not add membership for a user-scoped media entity", () => {
 	let changeCalls = 0;
 	let queryIndex = 0;
 	const host = defineSandboxTestHost(manifest, {
-		executeQueryEngine: () => hostSuccess(rows(queryIndex++ === 0 ? [] : ["library-1"])),
+		executeRyotql: () => {
+			const index = queryIndex++;
+			return hostSuccess(
+				rows(index === 0 ? "entity" : "library", index === 0 ? [] : ["library-1"]),
+			);
+		},
 		changeUserRelationships: () => {
 			changeCalls += 1;
 			return hostSuccess([]);
@@ -88,7 +101,12 @@ it("awaits membership for an eligible global collection member", () => {
 	const changes: JsonValue[] = [];
 	let queryIndex = 0;
 	const host = defineSandboxTestHost(manifest, {
-		executeQueryEngine: () => hostSuccess(rows(queryIndex++ === 0 ? ["member-1"] : ["library-1"])),
+		executeRyotql: () => {
+			const index = queryIndex++;
+			return hostSuccess(
+				rows(index === 0 ? "entity" : "library", index === 0 ? ["member-1"] : ["library-1"]),
+			);
+		},
 		changeUserRelationships: (batches) => {
 			changes.push(...batches);
 			return hostSuccess([{ created: 1, deleted: 0 }]);
@@ -125,7 +143,12 @@ it("preserves merged ownership sources on an idempotent membership upsert", () =
 		ownershipSyncedAt: "2026-01-02T00:00:00.000Z",
 	};
 	const host = defineSandboxTestHost(manifest, {
-		executeQueryEngine: () => hostSuccess(rows(queryIndex++ === 0 ? ["member-1"] : ["library-1"])),
+		executeRyotql: () => {
+			const index = queryIndex++;
+			return hostSuccess(
+				rows(index === 0 ? "entity" : "library", index === 0 ? ["member-1"] : ["library-1"]),
+			);
+		},
 		changeUserRelationships: (batches) => {
 			const create = batches[0]?.creates[0];
 			expect(create).toEqual({
@@ -158,9 +181,9 @@ it.each(["workout", "fixture-entity"])(
 	(entitySchemaSlug) => {
 		let hostCalls = 0;
 		const host = defineSandboxTestHost(manifest, {
-			executeQueryEngine: () => {
+			executeRyotql: () => {
 				hostCalls += 1;
-				return hostSuccess(rows([]));
+				return hostSuccess(rows("entity", []));
 			},
 			changeUserRelationships: () => {
 				hostCalls += 1;
