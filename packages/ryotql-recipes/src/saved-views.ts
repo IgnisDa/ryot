@@ -35,42 +35,46 @@ export type SavedViewProjectionInput = {
 	readonly grid: CardExpressions;
 	readonly list: CardExpressions;
 	readonly entityId: ScalarExpression;
-	readonly table: readonly [TableColumnExpression, ...TableColumnExpression[]];
+	readonly table: {
+		readonly image: ScalarExpression | null;
+		readonly columns: readonly [TableColumnExpression, ...TableColumnExpression[]];
+	};
 };
 
 const cardFields = (layout: "grid" | "list", card: CardExpressions) => {
 	const title = `${layout}Title`;
 	const image = `${layout}Image`;
-	const eyebrow = `${layout}Eyebrow`;
 	const callout = `${layout}Callout`;
-	const primarySubtitle = `${layout}PrimarySubtitle`;
-	const secondarySubtitle = `${layout}SecondarySubtitle`;
+	const overline = `${layout}Overline`;
+	const primaryMetadata = `${layout}PrimaryMetadata`;
+	const secondaryMetadata = `${layout}SecondaryMetadata`;
 	return {
 		fields: [
 			field(title, card.title),
 			...(card.image === null ? [] : [field(image, card.image)]),
-			...(card.eyebrow === null ? [] : [field(eyebrow, card.eyebrow)]),
+			...(card.overline === null ? [] : [field(overline, card.overline)]),
 			...(card.callout === null ? [] : [field(callout, card.callout)]),
-			...(card.primarySubtitle === null ? [] : [field(primarySubtitle, card.primarySubtitle)]),
-			...(card.secondarySubtitle === null
+			...(card.primaryMetadata === null ? [] : [field(primaryMetadata, card.primaryMetadata)]),
+			...(card.secondaryMetadata === null
 				? []
-				: [field(secondarySubtitle, card.secondarySubtitle)]),
+				: [field(secondaryMetadata, card.secondaryMetadata)]),
 		] satisfies readonly FieldSelection[],
 		displayConfiguration: {
 			titleField: title,
 			imageField: card.image === null ? null : image,
-			eyebrowField: card.eyebrow === null ? null : eyebrow,
 			calloutField: card.callout === null ? null : callout,
-			primarySubtitleField: card.primarySubtitle === null ? null : primarySubtitle,
-			secondarySubtitleField: card.secondarySubtitle === null ? null : secondarySubtitle,
+			overlineField: card.overline === null ? null : overline,
+			primaryMetadataField: card.primaryMetadata === null ? null : primaryMetadata,
+			secondaryMetadataField: card.secondaryMetadata === null ? null : secondaryMetadata,
 		},
 	};
 };
 
 export const buildSavedViewProjection = (input: SavedViewProjectionInput) => {
+	const tableImage = "tableImage";
 	const grid = cardFields("grid", input.grid);
 	const list = cardFields("list", input.list);
-	const [firstTableColumn, ...remainingTableColumns] = input.table;
+	const [firstTableColumn, ...remainingTableColumns] = input.table.columns;
 	const tableDisplayColumns = [
 		{ field: "tableColumn0", label: firstTableColumn.label },
 		...remainingTableColumns.map((tableColumn, index) => ({
@@ -84,7 +88,8 @@ export const buildSavedViewProjection = (input: SavedViewProjectionInput) => {
 			field("entityId", input.entityId),
 			...grid.fields,
 			...list.fields,
-			...input.table.map((tableColumn, index) =>
+			...(input.table.image === null ? [] : [field(tableImage, input.table.image)]),
+			...input.table.columns.map((tableColumn, index) =>
 				field(`tableColumn${index}`, tableColumn.expression),
 			),
 		] satisfies readonly FieldSelection[],
@@ -92,7 +97,10 @@ export const buildSavedViewProjection = (input: SavedViewProjectionInput) => {
 			entityIdField: "entityId",
 			grid: grid.displayConfiguration,
 			list: list.displayConfiguration,
-			table: { columns: tableDisplayColumns },
+			table: {
+				columns: tableDisplayColumns,
+				imageField: input.table.image === null ? null : tableImage,
+			},
 		} satisfies SavedViewDisplayConfiguration,
 	};
 };
