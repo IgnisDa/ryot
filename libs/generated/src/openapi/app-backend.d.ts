@@ -575,7 +575,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List entity schemas for a custom tracker */
+        /** List entity schemas for a tracker */
         get: {
             parameters: {
                 query: {
@@ -607,17 +607,6 @@ export interface paths {
                                     [key: string]: components["schemas"]["AppPropertyDefinition"];
                                 };
                             }[];
-                        };
-                    };
-                };
-                /** @description Request payload validation failed */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["ValidationFailedError"];
                         };
                     };
                 };
