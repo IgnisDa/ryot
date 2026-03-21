@@ -1,7 +1,6 @@
 import { Box, Grid, Stack } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { createFileRoute } from "@tanstack/react-router";
-import color from "color";
 import { useCallback, useState } from "react";
 import { ErrorState, LoadingState } from "#/components/PageStates";
 import { getEntityDetailProperties } from "#/features/entities/detail";
@@ -122,7 +121,7 @@ function RouteComponent() {
 
 	const entitySchemaColor = {
 		base: entitySchema.entitySchema.accentColor,
-		muted: color(entitySchema.entitySchema.accentColor).lighten(0.12).hex(),
+		muted: `color-mix(in srgb, ${entitySchema.entitySchema.accentColor} 12%, transparent)`,
 	};
 
 	return (
