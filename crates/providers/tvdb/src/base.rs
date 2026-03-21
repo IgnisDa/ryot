@@ -121,9 +121,8 @@ impl TvdbService {
                 "{URL}/{entity_type}/{identifier}/translations/{target_language}",
             ))
             .send()
-            .await?
-            .json::<TvdbItemTranslationResponse>()
             .await?;
+        let response: TvdbItemTranslationResponse = response.json().await?;
 
         if response.status != "success" {
             bail!("Translation not found");

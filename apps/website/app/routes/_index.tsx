@@ -41,7 +41,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			await validateTurnstile(request, submission.turnstileToken);
 
 			const otpCode = setOtpCode(submission.email);
-			console.log("OTP code generated:", { email: submission.email, otpCode });
 			await sendEmail({
 				recipient: submission.email,
 				subject: LoginCodeEmail.subject,

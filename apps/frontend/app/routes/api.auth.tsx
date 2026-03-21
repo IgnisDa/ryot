@@ -27,7 +27,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const input = parseSearchQuery(request, searchParamsSchema);
 	const { getOidcToken } = await serverGqlService.request(GetOidcTokenDocument, input);
-	console.log("OIDC token response:", { getOidcToken });
+
 	const oidcInput = {
 		email: getOidcToken.email,
 		issuerId: getOidcToken.subject,
