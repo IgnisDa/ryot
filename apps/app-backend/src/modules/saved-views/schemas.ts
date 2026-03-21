@@ -82,6 +82,8 @@ export type SavedViewQueryDefinition = z.infer<
 export const listedSavedViewSchema = z.object({
 	id: z.string(),
 	name: z.string(),
+	createdAt: z.date(),
+	updatedAt: z.date(),
 	isBuiltin: z.boolean(),
 	icon: applicationIconNameSchema,
 	trackerId: z.string().nullable(),
@@ -115,5 +117,17 @@ export const savedViewParams = z.object({
 
 export const deleteSavedViewParams = savedViewParams;
 
+export const updateSavedViewBody = z.object({
+	icon: applicationIconNameSchema,
+	name: nonEmptyTrimmedStringSchema,
+	accentColor: nonEmptyTrimmedStringSchema,
+	queryDefinition: savedViewQueryDefinitionSchema,
+	displayConfiguration: displayConfigurationSchema,
+	trackerId: nonEmptyTrimmedStringSchema.optional(),
+});
+
+export const updateSavedViewResponseSchema = dataSchema(listedSavedViewSchema);
+
 export type ListedSavedView = z.infer<typeof listedSavedViewSchema>;
 export type CreateSavedViewBody = z.infer<typeof createSavedViewBody>;
+export type UpdateSavedViewBody = z.infer<typeof updateSavedViewBody>;
