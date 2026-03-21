@@ -16,6 +16,7 @@ import {
 	TextInput,
 	useMantineColorScheme,
 } from "@mantine/core";
+import { useHover } from "@mantine/hooks";
 import { Link } from "@tanstack/react-router";
 import {
 	GripVertical,
@@ -195,6 +196,7 @@ function SortableFacet(props: {
 
 export function Sidebar(props: SidebarProps) {
 	const { colorScheme } = useMantineColorScheme();
+	const { hovered, ref } = useHover<HTMLDivElement>();
 	const [searchQuery, setSearchQuery] = useState("");
 	const [expandedFacets, setExpandedFacets] = useState<Record<string, boolean>>(
 		{},
@@ -264,7 +266,7 @@ export function Sidebar(props: SidebarProps) {
 			}}
 		>
 			<Stack gap={0} h="100%">
-				<Box p="xl" pb="lg">
+				<Box ref={ref} p="xl" pb="lg">
 					<Group align="flex-start" justify="space-between" mb={4}>
 						<Group gap="sm">
 							<Box
@@ -300,9 +302,13 @@ export function Sidebar(props: SidebarProps) {
 						<ActionIcon
 							variant="subtle"
 							onClick={props.onToggleCustomizeMode}
+							opacity={hovered || props.isCustomizeMode ? 1 : 0}
 							color={props.isCustomizeMode ? "accent.5" : undefined}
 							styles={{
 								root: {
+									transition: "opacity 120ms ease",
+									pointerEvents:
+										hovered || props.isCustomizeMode ? "auto" : "none",
 									color: props.isCustomizeMode ? borderAccent : textMuted,
 								},
 							}}
