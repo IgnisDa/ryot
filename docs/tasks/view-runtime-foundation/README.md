@@ -116,8 +116,9 @@ Build a complete view-runtime execution engine that accepts compiled query reque
 
 **Add `display_configuration` column to `saved_view` table:**
 - Type: `jsonb NOT NULL`
-- Structure: `{ layout: "grid" | "list" | "table", grid: {}, list: {}, table: {} }`
+- Structure: `{ grid: {}, list: {}, table: {} }`
 - All three layout configurations stored simultaneously
+- Active layout is stored in `localStorage` per user per view (key: `view-layout:<viewId>`), defaulting to `"grid"` on first load
 - Migration includes default value for existing rows
 
 **Expand `query_definition` jsonb structure:**
@@ -288,7 +289,6 @@ function validateSlugNotReserved(slug: string): void
 **Hardcoded display configuration:**
 ```typescript
 {
-  layout: "grid",
   grid: {
     imageProperty: ["@image"],
     titleProperty: ["@name"],
