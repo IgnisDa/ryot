@@ -79,10 +79,14 @@ describe("requireSandboxCapabilityInput", () => {
 		).toThrow("executeQueryEngine is not available to this system execution");
 	});
 
-	it("restricts automation capabilities to subscriptions", () => {
+	it("restricts automation capabilities to trusted automation executions", () => {
+		const automation = makeRunInput({ type: "system" }, null, { kind: "automation" });
+		expect(Effect.runSync(requireSandboxCapabilityInput(automation, "emitSignal"))).toBe(
+			automation,
+		);
 		expect(() =>
 			Effect.runSync(requireSandboxCapabilityInput(makeRunInput({ type: "system" }), "emitSignal")),
-		).toThrow("emitSignal is available only to subscription executions");
+		).toThrow("emitSignal is not available to this system execution");
 	});
 });
 
