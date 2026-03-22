@@ -51,29 +51,6 @@ const toListedEntitySchema = (row: EntitySchemaRow): ListedEntitySchema => ({
 	propertiesSchema: row.propertiesSchema as EntitySchemaPropertiesShape,
 });
 
-export const listEntitySchemasByTracker = async (input: {
-	slugs?: string[];
-	trackerId: string;
-}) => {
-	const whereClauses = [eq(tracker.id, input.trackerId)];
-	if (input.slugs?.length) {
-		whereClauses.push(inArray(entitySchema.slug, input.slugs));
-	}
-
-	const rows = await db
-		.select(listedEntitySchemaSelection)
-		.from(trackerEntitySchema)
-		.innerJoin(tracker, eq(tracker.id, trackerEntitySchema.trackerId))
-		.innerJoin(
-			entitySchema,
-			eq(entitySchema.id, trackerEntitySchema.entitySchemaId),
-		)
-		.where(and(...whereClauses))
-		.orderBy(asc(entitySchema.name), asc(entitySchema.createdAt));
-
-	return rows.map(toListedEntitySchema);
-};
-
 export const listEntitySchemasForUser = async (input: {
 	userId: string;
 	slugs?: string[];
