@@ -3,11 +3,7 @@ import {
 	createSmartphoneSchema,
 	createTabletSchema,
 } from "~/lib/test-fixtures";
-import {
-	buildSchemaMap,
-	getPropertyType,
-	parseFieldPath,
-} from "./schema-introspection";
+import { buildSchemaMap, getPropertyType, parseFieldPath } from "./reference";
 
 const smartphoneSchema = createSmartphoneSchema();
 
