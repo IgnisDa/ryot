@@ -456,20 +456,6 @@ column to `text` (`Layer.tap` ALTER) right after cluster's migration runs; drop 
 upstream fix lands (the upstream source itself carries a "hash the entity address to save space?"
 note at the key-construction site).
 
-### Confirmed: a fast `DurableQueue` completion can race the Suspended reply and never resume ([#6318](https://github.com/Effect-TS/effect/issues/6318), related to #6294)
-
-Filed by this team after it surfaced as multi-minute e2e hangs on trivially fast jobs. When a
-`DurableQueue` worker finishes and calls `DurableDeferred.done` *before* the awaiting workflow has
-finished persisting its `Suspended` run reply, the workflow entity's `deferred` handler calls the
-engine's internal `resume()`, which reads storage for a Suspended `run` reply, finds none (it isn't
-written yet), and returns without doing anything. The deferred exit is recorded, the workflow then
-persists `Suspended` — and nothing ever wakes it: the API poll reports `pending` forever.
-**Workaround already applied** in `lib/infrastructure/workflow.ts`: result pollers go through
-`pollWorkflowWithResumeNudge`, which fires `engine.resume` when a workflow stays Suspended across
-polls. The nudge is safe for genuinely in-flight jobs: resume only resets a run whose persisted
-reply is Suspended, re-execution replays journaled activities and deduped queue offers, and a
-resolved deferred completes it immediately.
-
 ### Reported, weaker evidence: `Activity.make` concurrency/nesting hazards ([#6014](https://github.com/Effect-TS/effect/issues/6014))
 
 A community-reported (not maintainer-confirmed) issue claiming two patterns can deadlock:
