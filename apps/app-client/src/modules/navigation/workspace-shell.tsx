@@ -1,13 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import {
-	decodeNavigationResponse,
-	type NavigationData,
-	type NavigationWorkspace,
-} from "@ryot/ryotql-recipes/navigation";
+import type { NavigationData, NavigationWorkspace } from "@ryot/ryotql-recipes/navigation";
 import clsx from "clsx";
-import { Cause, Result } from "effect";
-import { AsyncResult } from "effect/unstable/reactivity";
-import { router, Slot, useGlobalSearchParams, usePathname } from "expo-router";
+import { Slot } from "expo-router";
 import { useRef, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import Animated, {
@@ -18,23 +12,21 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { navigationAtom, themeAtom } from "@/api/atoms";
-import { useAuthClient } from "@/modules/auth/client";
+import { themeAtom } from "@/api/atoms";
 import { AppIcon as NavigationIcon } from "@/modules/icons";
-import { useSetWorkspace, useWorkspace } from "@/modules/server/state";
 import { BottomSheet } from "@/modules/ui/bottom-sheet";
 
+import { MobileMoreSheet } from "./mobile-more-sheet";
 import {
-	getActiveNavigationKey,
-	getCurrentWorkspace,
-	getEnabledItems,
-	getNavigationHref,
 	getNavigationItems,
 	getWorkspaceSummary,
 	getWorkspacePickerSummary,
 	type NavigationItem,
 	type NavigationItems,
 } from "./navigation-data";
+import { NavigationStatus } from "./navigation-status";
+import { useWorkspaceNavigation } from "./use-workspace-navigation";
+import { DIRECT_WORKSPACE_TAB_COUNT } from "./workspace-tabs";
 
 const MOBILE_TOP_BAR_GAP = 12;
 const MOBILE_TOP_BAR_HEIGHT = 57;
@@ -302,11 +294,11 @@ function Sidebar(props: {
 	);
 }
 
-function MobileTopBar(props: {
+export function MobileTopBar(props: {
 	workspaceIcon: string;
 	workspaceName: string;
-	onWorkspaceOpen: () => void;
 	onAccountOpen: () => void;
+	onWorkspaceOpen: () => void;
 }) {
 	return (
 		<View className="flex-row items-center gap-3 py-2">
@@ -342,12 +334,12 @@ function MobileTabBar(props: {
 	onMoreOpen: () => void;
 	onNavigate: (item: NavigationItem) => void;
 }) {
-	const items = props.items.views.slice(0, 4);
+	const items = props.items.views.slice(0, DIRECT_WORKSPACE_TAB_COUNT);
 	const activeItem = items.find((item) =>
 		item.kind === "home" ? props.activeKey === "home" : props.activeKey === `view:${item.slug}`,
 	);
 	const compactItem = activeItem ?? items[0];
-	const visibleItems = props.isCollapsed && compactItem ? [compactItem] : items;
+	const visibleItems = props.isCollapsed ? [compactItem] : items;
 
 	return (
 		<Animated.View
@@ -397,7 +389,7 @@ function MobileTabBar(props: {
 	);
 }
 
-function MobileWorkspaceSheet(props: {
+export function MobileWorkspaceSheet(props: {
 	onClose: () => void;
 	data: NavigationData;
 	items: NavigationItems;
@@ -485,55 +477,9 @@ function MobileWorkspaceSheet(props: {
 	);
 }
 
-function MobileMoreSheet(props: {
+export function MobileAccountSheet(props: {
 	onClose: () => void;
-	items: NavigationItems;
-	onNavigate: (item: NavigationItem) => void;
-}) {
-	const items = props.items;
-	return (
-		<BottomSheet
-			title="More views"
-			snapPoints={[570]}
-			onClose={props.onClose}
-			description="Open and reorder additional views."
-			headerAction={
-				<View className="h-7.5 flex-row items-center gap-1.5 rounded-pill bg-surface-2 px-3">
-					<NavigationIcon className="text-accent-text" name="arrow-up-down" size={14} />
-					<Text className="font-ui-semibold text-[13px] text-accent-text">Reorder</Text>
-				</View>
-			}
-		>
-			<ScrollView
-				className="flex-1"
-				showsVerticalScrollIndicator={false}
-				contentContainerClassName="gap-1.5 pb-4"
-			>
-				{items.views.slice(4).map((item) => (
-					<Pressable
-						key={item.slug}
-						accessibilityRole="button"
-						accessibilityLabel={item.name}
-						onPress={() => props.onNavigate(item)}
-						className="h-13 flex-row items-center gap-3 rounded-md bg-surface-2 px-3"
-					>
-						<View className="h-8 w-8 items-center justify-center rounded-md bg-accent-soft">
-							<NavigationIcon className="text-accent-text" name={item.icon} size={17} />
-						</View>
-						<Text className="flex-1 font-ui-semibold text-[15px] text-text">
-							{item.name.replace(/^All /, "")}
-						</Text>
-						<NavigationIcon className="text-text-subtle" name="grip-vertical" size={17} />
-					</Pressable>
-				))}
-			</ScrollView>
-		</BottomSheet>
-	);
-}
-
-function MobileAccountSheet(props: {
 	accountName: string;
-	onClose: () => void;
 	accountEmail: string;
 }) {
 	const theme = useAtomValue(themeAtom);
@@ -597,85 +543,39 @@ function MobileAccountSheet(props: {
 	);
 }
 
-function NavigationStatus(props: { detail?: string; title: string }) {
-	return (
-		<View className="flex-1 items-center justify-center gap-2 bg-bg px-6">
-			<Text className="font-ui-medium text-base text-text">{props.title}</Text>
-			{props.detail && (
-				<Text className="max-w-xl text-center font-ui text-sm text-text-muted">{props.detail}</Text>
-			)}
-		</View>
-	);
-}
-
 export function WorkspaceShell() {
-	const client = useAuthClient();
-	const pathname = usePathname();
 	const insets = useSafeAreaInsets();
-	const setWorkspace = useSetWorkspace();
-	const selectedWorkspace = useWorkspace();
-	const { data: session } = client.useSession();
-	const navigationResult = useAtomValue(navigationAtom);
-	const params = useGlobalSearchParams<{ workspace?: string }>();
-	const routeWorkspace = Array.isArray(params.workspace) ? params.workspace[0] : params.workspace;
-	const activeKey = getActiveNavigationKey(pathname);
-	const [mobileSheet, setMobileSheet] = useState<"more" | "workspace" | "account" | null>(null);
-	const [desktopWorkspaceOpen, setDesktopWorkspaceOpen] = useState(false);
-	const [isScrolled, setIsScrolled] = useState(false);
+	const navigation = useWorkspaceNavigation();
 	const isDragging = useRef(false);
 	const previousScrollOffset = useRef(0);
+	const [isScrolled, setIsScrolled] = useState(false);
+	const [desktopWorkspaceOpen, setDesktopWorkspaceOpen] = useState(false);
+	const [mobileSheet, setMobileSheet] = useState<"more" | "workspace" | "account" | null>(null);
 
-	if (AsyncResult.isFailure(navigationResult)) {
-		return (
-			<NavigationStatus
-				title="Unable to load navigation"
-				detail={Cause.pretty(navigationResult.cause)}
-			/>
-		);
-	}
-	if (!AsyncResult.isSuccess(navigationResult)) {
+	if (navigation.status === "loading") {
 		return <NavigationStatus title="Loading navigation..." />;
 	}
-
-	const decoded = decodeNavigationResponse(navigationResult.value);
-	if (Result.isFailure(decoded)) {
-		return <NavigationStatus title="Unable to load navigation" detail={String(decoded.failure)} />;
-	}
-	const data = {
-		...decoded.success,
-		workspaces: getEnabledItems(decoded.success.workspaces),
-	} satisfies NavigationData;
-	if (data.workspaces.length === 0) {
-		return (
-			<NavigationStatus
-				title="No enabled workspaces"
-				detail="Enable a plugin to create a workspace."
-			/>
-		);
+	if (navigation.status === "error") {
+		return <NavigationStatus title={navigation.title} detail={navigation.detail} />;
 	}
 
-	const currentWorkspace = getCurrentWorkspace(data.workspaces, routeWorkspace, selectedWorkspace);
-	if (!currentWorkspace) {
-		return <NavigationStatus title="No workspace selected" />;
-	}
-	const currentWorkspaceSlug = currentWorkspace.slug;
-	const items = getNavigationItems({ data, workspaceSlug: currentWorkspace.slug });
-	const accountName = session?.user.name ?? session?.user.email ?? "Account";
-	const accountEmail = session?.user.email ?? "Email unavailable";
+	const data = navigation.data;
+	const items = navigation.items;
+	const readyNavigation = navigation;
+	const activeKey = navigation.activeKey;
+	const accountName = navigation.accountName;
+	const accountEmail = navigation.accountEmail;
+	const currentWorkspace = navigation.workspace;
 	function navigate(item: NavigationItem) {
 		setMobileSheet(null);
 		setDesktopWorkspaceOpen(false);
-		router.push(getNavigationHref(currentWorkspaceSlug, item));
+		readyNavigation.navigate(item);
 	}
 
 	function selectWorkspace(slug: string) {
-		if (!data.workspaces.some((item) => item.slug === slug)) {
-			return;
-		}
 		setMobileSheet(null);
 		setDesktopWorkspaceOpen(false);
-		setWorkspace(slug);
-		router.replace({ pathname: "/[workspace]", params: { workspace: slug } });
+		readyNavigation.selectWorkspace(slug);
 	}
 
 	return (
@@ -736,7 +636,7 @@ export function WorkspaceShell() {
 							/>
 						</Animated.View>
 					)}
-					{!mobileSheet && (
+					{!mobileSheet && activeKey !== "settings" && !activeKey.startsWith("collection:") && (
 						<View
 							style={{ paddingBottom: insets.bottom + 12 }}
 							className="absolute inset-x-0 bottom-0 z-50 items-start px-4 md:hidden"
@@ -754,18 +654,11 @@ export function WorkspaceShell() {
 					{desktopWorkspaceOpen && (
 						<Pressable
 							accessibilityRole="button"
-							accessibilityLabel="Close navigation overlay"
 							className="absolute inset-0 z-30 bg-overlay"
+							accessibilityLabel="Close navigation overlay"
 							onPress={() => {
 								setDesktopWorkspaceOpen(false);
 							}}
-						/>
-					)}
-					{mobileSheet === "more" && (
-						<MobileMoreSheet
-							items={items}
-							onNavigate={navigate}
-							onClose={() => setMobileSheet(null)}
 						/>
 					)}
 					{mobileSheet === "workspace" && (
@@ -775,6 +668,13 @@ export function WorkspaceShell() {
 							onSelect={selectWorkspace}
 							onClose={() => setMobileSheet(null)}
 							currentWorkspaceSlug={currentWorkspace.slug}
+						/>
+					)}
+					{mobileSheet === "more" && (
+						<MobileMoreSheet
+							items={items}
+							onNavigate={navigate}
+							onClose={() => setMobileSheet(null)}
 						/>
 					)}
 					{mobileSheet === "account" && (

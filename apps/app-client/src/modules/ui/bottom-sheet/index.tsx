@@ -2,6 +2,7 @@ import ExpoBottomSheet, {
 	BottomSheetView,
 	type BottomSheetProps as ExpoBottomSheetProps,
 } from "@expo/ui/community/bottom-sheet";
+import clsx from "clsx";
 import type { ReactNode } from "react";
 import { Text, View } from "react-native";
 
@@ -15,7 +16,9 @@ export function BottomSheet(props: {
 	children: ReactNode;
 	onClose: () => void;
 	description: string;
+	titleClassName?: string;
 	headerAction?: ReactNode;
+	contentClassName?: string;
 	snapPoints: NonNullable<ExpoBottomSheetProps["snapPoints"]>;
 }) {
 	return (
@@ -27,13 +30,21 @@ export function BottomSheet(props: {
 			backgroundStyle={{ padding: 0, backgroundColor: "transparent" }}
 		>
 			<BottomSheetView style={{ flex: 1 }}>
-				<View className="flex-1 rounded-t-2xl border-t border-border bg-surface px-4 pb-4 pt-2">
+				<View
+					className={clsx(
+						"flex-1 rounded-t-2xl border-t border-border bg-surface px-4 pb-4 pt-2",
+						props.contentClassName,
+					)}
+				>
 					<BottomSheetDialogDescription>
 						<Text className="sr-only">{props.description}</Text>
 					</BottomSheetDialogDescription>
 					<View className="flex-row items-center justify-between py-4">
 						<BottomSheetDialogTitle>
-							<Text accessibilityRole="header" className="font-display-semibold text-xl text-text">
+							<Text
+								accessibilityRole="header"
+								className={clsx("font-display-semibold text-xl text-text", props.titleClassName)}
+							>
 								{props.title}
 							</Text>
 						</BottomSheetDialogTitle>
