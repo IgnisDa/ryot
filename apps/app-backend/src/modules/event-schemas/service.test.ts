@@ -76,14 +76,14 @@ describe("parseEventSchemaPropertiesSchema", () => {
 
 	it("rejects non-object roots", () => {
 		expect(() => parseEventSchemaPropertiesSchema([])).toThrow(
-			"Event schema properties schema must be a JSON object",
+			"Invalid input: expected record, received array",
 		);
 	});
 
 	it("rejects string inputs", () => {
 		expect(() =>
 			parseEventSchemaPropertiesSchema('{"progress":{"type":"integer"}}'),
-		).toThrow("Event schema properties schema must be a JSON object");
+		).toThrow("Invalid input: expected record, received string");
 	});
 
 	it("rejects empty properties map", () => {
@@ -95,9 +95,7 @@ describe("parseEventSchemaPropertiesSchema", () => {
 	it("rejects array property without items", () => {
 		expect(() =>
 			parseEventSchemaPropertiesSchema({ checkpoints: { type: "array" } }),
-		).toThrow(
-			'Property "checkpoints" with type "array" must have an items field',
-		);
+		).toThrow("Invalid input: expected object, received undefined");
 	});
 });
 

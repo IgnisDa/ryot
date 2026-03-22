@@ -1,7 +1,17 @@
 import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { entitySchema, eventSchema } from "~/lib/db/schema";
+import type { ListedEventSchema } from "./schemas";
 import type { EventSchemaPropertiesShape } from "./service";
+
+type EventSchemaRow = Omit<ListedEventSchema, "propertiesSchema"> & {
+	propertiesSchema: unknown;
+};
+
+const toListedEventSchema = (row: EventSchemaRow): ListedEventSchema => ({
+	...row,
+	propertiesSchema: row.propertiesSchema as EventSchemaPropertiesShape,
+});
 
 const entitySchemaVisibleToUserClause = (userId: string) => {
 	return or(isNull(entitySchema.userId), eq(entitySchema.userId, userId));
@@ -50,10 +60,7 @@ export const listEventSchemasByEntitySchemaForUser = async (input: {
 		)
 		.orderBy(asc(eventSchema.name), asc(eventSchema.createdAt));
 
-	return rows.map((row) => ({
-		...row,
-		propertiesSchema: row.propertiesSchema as EventSchemaPropertiesShape,
-	}));
+	return rows.map(toListedEventSchema);
 };
 
 export const getEventSchemaBySlugForUser = async (input: {
@@ -102,9 +109,5 @@ export const createEventSchemaForUser = async (input: {
 
 	if (!createdEventSchema) throw new Error("Could not persist event schema");
 
-	return {
-		...createdEventSchema,
-		propertiesSchema:
-			createdEventSchema.propertiesSchema as EventSchemaPropertiesShape,
-	};
+	return toListedEventSchema(createdEventSchema);
 };
