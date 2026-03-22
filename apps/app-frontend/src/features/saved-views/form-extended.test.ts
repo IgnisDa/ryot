@@ -12,7 +12,7 @@ describe("savedViewExtendedFormSchema", () => {
 			filters: [],
 			entitySchemaSlugs: [],
 			displayConfiguration: {},
-			sort: { direction: "asc", fields: ["@name"] },
+			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
 		});
 
 		expect(result.success).toBe(false);
@@ -22,7 +22,7 @@ describe("savedViewExtendedFormSchema", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [],
 			entitySchemaSlugs: ["smartphones", "tablets"],
-			sort: { fields: ["@name"], direction: "desc" },
+			sort: { fields: [{ id: "1", value: "@name" }], direction: "desc" },
 			displayConfiguration: {
 				grid: { titleProperty: ["name"], imageProperty: ["image"] },
 			},
@@ -32,6 +32,44 @@ describe("savedViewExtendedFormSchema", () => {
 		if (result.success) {
 			expect(result.data.entitySchemaSlugs).toEqual(["smartphones", "tablets"]);
 			expect(result.data.sort.direction).toBe("desc");
+			expect(result.data.sort.fields[0]?.value).toBe("@name");
+		}
+	});
+
+	it("rejects empty sort fields array", () => {
+		const result = savedViewExtendedFormSchema.safeParse({
+			filters: [],
+			displayConfiguration: {},
+			entitySchemaSlugs: ["smartphones"],
+			sort: { direction: "asc", fields: [] },
+		});
+
+		expect(result.success).toBe(false);
+	});
+
+	it("accepts multiple sort fields", () => {
+		const result = savedViewExtendedFormSchema.safeParse({
+			filters: [],
+			entitySchemaSlugs: ["smartphones", "tablets"],
+			displayConfiguration: {},
+			sort: {
+				direction: "asc",
+				fields: [
+					{ id: "1", value: "@name" },
+					{ id: "2", value: "smartphones.year" },
+					{ id: "3", value: "tablets.release_year" },
+				],
+			},
+		});
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.sort.fields.map((f) => f.value)).toEqual([
+				"@name",
+				"smartphones.year",
+				"tablets.release_year",
+			]);
+			expect(result.data.sort.direction).toBe("asc");
 		}
 	});
 });
@@ -75,7 +113,8 @@ describe("buildSavedViewExtendedFormValues", () => {
 
 		expect(values.entitySchemaSlugs).toEqual(["smartphones", "tablets"]);
 		expect(values.filters).toEqual([]);
-		expect(values.sort.fields).toEqual(["@name"]);
+		expect(values.sort.fields.length).toBe(1);
+		expect(values.sort.fields[0]?.value).toBe("@name");
 		expect(values.sort.direction).toBe("asc");
 		expect(values.displayConfiguration).toEqual(view.displayConfiguration);
 	});
@@ -120,8 +159,11 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 			entitySchemaSlugs: ["smartphones", "tablets"],
 			filters: [{ field: "year", op: "gte" as const, value: 2020 }],
 			sort: {
-				fields: ["@name", "year"],
 				direction: "desc" as const,
+				fields: [
+					{ id: "1", value: "@name" },
+					{ id: "2", value: "year" },
+				],
 			},
 			displayConfiguration: {
 				grid: {
@@ -214,7 +256,10 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 			filters: [],
 			entitySchemaSlugs: ["new-schema"],
 			displayConfiguration: view.displayConfiguration,
-			sort: { fields: ["@name"], direction: "asc" as const },
+			sort: {
+				direction: "asc" as const,
+				fields: [{ id: "1", value: "@name" }],
+			},
 		};
 
 		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
