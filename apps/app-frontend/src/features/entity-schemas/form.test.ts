@@ -345,7 +345,7 @@ describe("buildEntitySchemaPropertiesSchema", () => {
 });
 
 describe("toCreateEntitySchemaPayload", () => {
-	it("trims name and slug, includes facetId, and serializes property rows", () => {
+	it("trims name and slug, includes trackerId, and serializes property rows", () => {
 		expect(
 			toCreateEntitySchemaPayload(
 				{
@@ -368,14 +368,14 @@ describe("toCreateEntitySchemaPayload", () => {
 						},
 					],
 				},
-				"facet-123",
+				"tracker-123",
 			),
 		).toEqual({
 			name: "Books",
 			slug: "books",
 			icon: "book-open",
 			accentColor: "#5B7FFF",
-			facetId: "facet-123",
+			trackerId: "tracker-123",
 			propertiesSchema: {
 				releasedOn: { type: "date", required: true },
 				rating: { type: "number" },
@@ -395,13 +395,13 @@ describe("toCreateEntitySchemaPayload", () => {
 						{ id: "title", key: "title", type: "string", required: false },
 					],
 				},
-				"facet-123",
+				"tracker-123",
 			),
 		).toEqual({
 			name: "Books",
 			icon: "book-open",
 			accentColor: "#5B7FFF",
-			facetId: "facet-123",
+			trackerId: "tracker-123",
 			propertiesSchema: { title: { type: "string" } },
 		});
 	});

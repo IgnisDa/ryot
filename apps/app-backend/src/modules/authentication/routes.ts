@@ -4,8 +4,8 @@ import { auth, type MaybeAuthType } from "~/lib/auth";
 import { db } from "~/lib/db";
 import {
 	builtinEntitySchemas,
-	builtinFacets,
 	builtinSavedViews,
+	builtinTrackers,
 } from "~/lib/db/seed/manifests";
 import {
 	createAuthRoute,
@@ -16,16 +16,16 @@ import {
 	successResponse,
 } from "~/lib/openapi";
 import {
-	createFacetEntitySchemas,
+	createTrackerEntitySchemas,
 	listBuiltinEntitySchemas,
 } from "../entity-schemas/repository";
-import { createBuiltinFacetsForUser } from "../facets/repository";
 import { createSavedViewsForUser } from "../saved-views/repository";
+import { createBuiltinTrackersForUser } from "../trackers/repository";
 import { meResponseSchema, signUpBody, signUpResponseSchema } from "./schemas";
 import {
-	buildAuthenticationFacetEntitySchemaLinks,
-	buildAuthenticationFacetInputs,
 	buildAuthenticationSavedViewInputs,
+	buildAuthenticationTrackerEntitySchemaLinks,
+	buildAuthenticationTrackerInputs,
 	resolveAuthenticationName,
 } from "./service";
 
@@ -81,24 +81,26 @@ export const authenticationApi = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 			});
 
 			await db.transaction(async (tx) => {
-				const createdFacets = await createBuiltinFacetsForUser({
+				const createdTrackers = await createBuiltinTrackersForUser({
 					database: tx,
 					userId: signUpResult.user.id,
-					facets: buildAuthenticationFacetInputs({ facets: builtinFacets() }),
+					trackers: buildAuthenticationTrackerInputs({
+						trackers: builtinTrackers(),
+					}),
 				});
 
 				const builtinEntitySchemaRows = await listBuiltinEntitySchemas({
 					database: tx,
 				});
 
-				await createFacetEntitySchemas({
+				await createTrackerEntitySchemas({
 					database: tx,
-					links: buildAuthenticationFacetEntitySchemaLinks({
-						facets: createdFacets,
+					links: buildAuthenticationTrackerEntitySchemaLinks({
+						trackers: createdTrackers,
 						entitySchemas: builtinEntitySchemaRows,
 						schemaLinks: builtinEntitySchemas().map((schema) => ({
 							slug: schema.slug,
-							facetSlug: schema.facetSlug,
+							trackerSlug: schema.trackerSlug,
 						})),
 					}),
 				});
@@ -107,7 +109,7 @@ export const authenticationApi = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 					database: tx,
 					userId: signUpResult.user.id,
 					views: buildAuthenticationSavedViewInputs({
-						facets: createdFacets,
+						trackers: createdTrackers,
 						savedViews: builtinSavedViews(),
 						entitySchemas: builtinEntitySchemaRows,
 					}),
