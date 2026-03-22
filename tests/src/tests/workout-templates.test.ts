@@ -28,6 +28,7 @@ import {
 	relationshipJoinField,
 	waitForSeededExerciseIds,
 } from "../fixtures";
+import { assertPresent } from "../test-support/assertions";
 
 describe("Workout Templates E2E", () => {
 	it("links the built-in workout-template schema to the fitness tracker", async () => {
@@ -216,9 +217,8 @@ describe("Workout Templates E2E", () => {
 		const exerciseIds = await waitForSeededExerciseIds(client, cookies, 2);
 		const firstExerciseId = exerciseIds[0];
 		const secondExerciseId = exerciseIds[1];
-		if (!firstExerciseId || !secondExerciseId) {
-			throw new Error("Missing seeded exercise ids for workout template fixture");
-		}
+		assertPresent(firstExerciseId, "Missing seeded exercise ids for workout template fixture");
+		assertPresent(secondExerciseId, "Missing seeded exercise ids for workout template fixture");
 		const workoutTemplateProperties = {
 			supersets: [
 				{ color: "#84CC16", exercises: [0, 1] },

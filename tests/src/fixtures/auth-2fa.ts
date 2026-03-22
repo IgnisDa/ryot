@@ -2,6 +2,8 @@ import { createHmac } from "node:crypto";
 
 import { base32 } from "rfc4648";
 
+import { requireNonEmptyArray, requirePresent, requireString } from "../test-support/assertions";
+
 type TwoFactorSetupResult = {
 	cookies: string;
 	backupCodes: string[];
@@ -9,10 +11,6 @@ type TwoFactorSetupResult = {
 
 export function cookieHeaderFromSetCookies(setCookies: string[]) {
 	return setCookies.map((cookie) => cookie.split(";")[0]).join("; ");
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
 }
 
 function parseTotpSecret(totpURI: string) {
@@ -24,11 +22,7 @@ function parseTotpSecret(totpURI: string) {
 	}
 
 	const secret = url.searchParams.get("secret");
-	if (!secret) {
-		throw new Error(`TOTP URI did not include a secret: ${totpURI}`);
-	}
-
-	return secret;
+	return requirePresent(secret, `TOTP URI did not include a secret: ${totpURI}`);
 }
 
 function decodeBase32(value: string) {
@@ -73,23 +67,27 @@ export async function enableTwoFactorForSession(input: {
 		throw new Error(`Two-factor enable failed: ${error}`);
 	}
 
-	const enableData: unknown = await enableResponse.json();
-	if (!isRecord(enableData)) {
+	const enableData: Record<string, unknown> = await enableResponse.json();
+	if (typeof enableData !== "object") {
 		throw new Error("Two-factor enable returned an invalid response");
 	}
 
-	const totpURI = enableData.totpURI;
-	if (typeof totpURI !== "string") {
-		throw new Error("Two-factor enable succeeded but no TOTP URI was returned");
-	}
+	const totpURI = requireString(
+		enableData.totpURI,
+		"Two-factor enable succeeded but no TOTP URI was returned",
+	);
 
-	const backupCodes = Array.isArray(enableData.backupCodes)
-		? enableData.backupCodes.filter((code): code is string => typeof code === "string")
-		: [];
-
-	if (!backupCodes.length) {
-		throw new Error("Two-factor enable succeeded but no backup codes were returned");
+	if (!Array.isArray(enableData.backupCodes)) {
+		throw new Error("Two-factor enable returned an invalid response");
 	}
+	const backupCodes = enableData.backupCodes.filter(
+		(code): code is string => typeof code === "string",
+	);
+
+	requireNonEmptyArray(
+		backupCodes,
+		"Two-factor enable succeeded but no backup codes were returned",
+	);
 
 	const verifyResponse = await fetch(`${input.baseUrl}/auth/two-factor/verify-totp`, {
 		method: "POST",

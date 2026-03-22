@@ -1,3 +1,4 @@
+import { assertPresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
 import { createTrackerWithSchema, findBuiltinSchemaBySlug } from "./entity-schemas";
@@ -157,9 +158,7 @@ export async function createBuiltinMediaLifecycleFixture(
 	);
 
 	const providerScriptId = selectedSchema.providers[0]?.scriptId;
-	if (!providerScriptId) {
-		throw new Error(`Missing built-in ${entitySchemaSlug} provider`);
-	}
+	assertPresent(providerScriptId, `Missing built-in ${entitySchemaSlug} provider`);
 
 	const eventSchemas = await listEventSchemas(client, cookies, selectedSchema.id);
 	const backlogEventSchema = requireEventSchemaBySlug(eventSchemas, "backlog");

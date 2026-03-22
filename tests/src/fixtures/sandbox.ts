@@ -1,5 +1,6 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 
+import { requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
 import { type PollOptions, pollUntil } from "./polling";
 
@@ -11,9 +12,6 @@ type EnqueueSandboxBody = NonNullable<
 	paths["/sandbox/enqueue"]["post"]["requestBody"]
 >["content"]["application/json"];
 
-type PollSandboxResponse =
-	paths["/sandbox/result/{jobId}"]["get"]["responses"][200]["content"]["application/json"]["data"];
-
 export async function createSandboxScript(
 	client: Client,
 	cookies: string,
@@ -24,11 +22,9 @@ export async function createSandboxScript(
 		headers: { Cookie: cookies },
 	});
 
-	if (response.status !== 200 || !data?.data.id) {
-		throw new Error("Failed to create sandbox script");
-	}
-
-	return data.data;
+	const script = requireResponseData(response, data, "Failed to create sandbox script");
+	requirePresent(script.id, "Failed to create sandbox script");
+	return script;
 }
 
 export async function enqueueSandboxScript(
@@ -41,11 +37,12 @@ export async function enqueueSandboxScript(
 		headers: { Cookie: cookies },
 	});
 
-	if (response.status !== 200 || !data?.data.jobId) {
-		throw new Error("Failed to enqueue sandbox script");
-	}
-
-	return { jobId: data.data.jobId };
+	return {
+		jobId: requirePresent(
+			requireResponseData(response, data, "Failed to enqueue sandbox script").jobId,
+			"Failed to enqueue sandbox script",
+		),
+	};
 }
 
 export async function pollSandboxResult(
@@ -61,10 +58,11 @@ export async function pollSandboxResult(
 				params: { path: { jobId } },
 				headers: { Cookie: cookies },
 			});
-			if (response.status !== 200 || !data?.data) {
-				throw new Error(`Failed to poll sandbox result '${jobId}'`);
-			}
-			const result: PollSandboxResponse = data.data;
+			const result = requireResponseData(
+				response,
+				data,
+				`Failed to poll sandbox result '${jobId}'`,
+			);
 			return result.status !== "pending" ? result : null;
 		},
 		options,

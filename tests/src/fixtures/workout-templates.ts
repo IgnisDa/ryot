@@ -1,4 +1,5 @@
 import { getPgClient } from "../setup";
+import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
 import { findBuiltinSchemaBySlug } from "./entity-schemas";
@@ -16,11 +17,7 @@ export async function findBuiltinRelationshipSchemaId(slug: string) {
 		[slug],
 	);
 	const id = result.rows[0]?.id;
-	if (!id) {
-		throw new Error(`Builtin relationship schema '${slug}' not found`);
-	}
-
-	return id;
+	return requirePresent(id, `Builtin relationship schema '${slug}' not found`);
 }
 
 export async function createWorkoutTemplateEntityFixture(

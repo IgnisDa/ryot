@@ -1,3 +1,4 @@
+import { requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
 
 export interface CreateTrackerOptions {
@@ -26,11 +27,8 @@ export async function createTracker(
 		body: { icon, name, slug, accentColor, description },
 	});
 
-	if (response.status !== 200 || !data?.data.id) {
-		throw new Error(`Failed to create tracker '${name}'`);
-	}
-
-	return { trackerId: data.data.id };
+	const tracker = requireResponseData(response, data, `Failed to create tracker '${name}'`);
+	return { trackerId: requirePresent(tracker.id, `Failed to create tracker '${name}'`) };
 }
 
 export async function listTrackers(
@@ -44,11 +42,7 @@ export async function listTrackers(
 		params: { query: { includeDisabled } },
 	});
 
-	if (response.status !== 200 || !data?.data) {
-		throw new Error("Failed to list trackers");
-	}
-
-	return data.data;
+	return requireResponseData(response, data, "Failed to list trackers");
 }
 
 export async function findBuiltinTracker(client: Client, cookies: string) {
@@ -56,12 +50,7 @@ export async function findBuiltinTracker(client: Client, cookies: string) {
 		includeDisabled: true,
 	});
 	const builtinTracker = trackers.find((tracker) => tracker.isBuiltin);
-
-	if (!builtinTracker) {
-		throw new Error("Built-in tracker not found");
-	}
-
-	return builtinTracker;
+	return requirePresent(builtinTracker, "Built-in tracker not found");
 }
 
 export async function findBuiltinTrackerBySlug(client: Client, cookies: string, slug: string) {
@@ -69,12 +58,7 @@ export async function findBuiltinTrackerBySlug(client: Client, cookies: string, 
 		includeDisabled: true,
 	});
 	const tracker = trackers.find((entry) => entry.isBuiltin && entry.slug === slug);
-
-	if (!tracker) {
-		throw new Error(`Built-in tracker '${slug}' not found`);
-	}
-
-	return tracker;
+	return requirePresent(tracker, `Built-in tracker '${slug}' not found`);
 }
 
 export async function disableTracker(input: {
@@ -88,9 +72,9 @@ export async function disableTracker(input: {
 		params: { path: { trackerId: input.trackerId } },
 	});
 
-	if (result.response.status !== 200 || !result.data?.data) {
-		throw new Error(`Failed to disable tracker '${input.trackerId}'`);
-	}
-
-	return result.data.data;
+	return requireResponseData(
+		result.response,
+		result.data,
+		`Failed to disable tracker '${input.trackerId}'`,
+	);
 }
