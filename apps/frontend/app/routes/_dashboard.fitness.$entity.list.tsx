@@ -28,8 +28,9 @@ import {
 	UserWorkoutTemplatesListDocument,
 	type WorkoutSummary,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, humanizeDuration, truncate } from "@ryot/ts-utils";
+import { changeCase, humanizeDuration } from "@ryot/ts-utils";
 import {
+	IconCalendar,
 	IconCheck,
 	IconChevronDown,
 	IconChevronUp,
@@ -408,6 +409,7 @@ const DisplayFitnessEntity = (props: {
 					<Box>
 						<Group wrap="nowrap">
 							<Anchor
+								lineClamp={1}
 								component={Link}
 								fz={{ base: "sm", md: "md" }}
 								to={$path("/fitness/:entity/:id", {
@@ -415,13 +417,14 @@ const DisplayFitnessEntity = (props: {
 									entity: props.entity,
 								})}
 							>
-								{truncate(entityInformation.name, { length: 20 })}
+								{entityInformation.name}
 							</Anchor>
-							<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
-								{dayjsLib(entityInformation.timestamp).format("dddd, LL")}
-							</Text>
 						</Group>
 						<Group mt="xs">
+							<DisplayStat
+								icon={<IconCalendar size={16} />}
+								data={dayjsLib(entityInformation.timestamp).format("dddd, LL")}
+							/>
 							<DisplayStat
 								data={entityInformation.detail}
 								icon={match(props.entity)
