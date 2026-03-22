@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { createNestedPeoplePropertySchema } from "~/lib/test-fixtures";
 import {
 	createPropertySchemaObjectSchema,
 	propertySchemaObjectSchema,
@@ -14,17 +15,9 @@ describe("propertySchemaObjectSchema", () => {
 	});
 
 	it("accepts nested array and object property definitions", () => {
-		const result = propertySchemaObjectSchema.safeParse({
-			people: {
-				type: "array",
-				items: {
-					type: "object",
-					properties: {
-						role: { type: "string", required: true },
-					},
-				},
-			},
-		});
+		const result = propertySchemaObjectSchema.safeParse(
+			createNestedPeoplePropertySchema(),
+		);
 
 		expect(result.success).toBeTrue();
 	});

@@ -1,9 +1,13 @@
 import { describe, expect, it } from "bun:test";
+import {
+	createEventSchemaBody,
+	createEventSchemaDeps,
+	createFlatNoteProgressPropertySchema,
+	createListedEventSchema,
+} from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
-import type { CreateEventSchemaBody, ListedEventSchema } from "./schemas";
 import {
 	createEventSchema,
-	type EventSchemaServiceDeps,
 	listEventSchemas,
 	parseEventSchemaPropertiesSchema,
 	resolveEventSchemaCreateInput,
@@ -11,45 +15,6 @@ import {
 	resolveEventSchemaName,
 	resolveEventSchemaSlug,
 } from "./service";
-
-const createEventSchemaBody = (): CreateEventSchemaBody => ({
-	name: "Finished",
-	entitySchemaId: "schema_1",
-	propertiesSchema: { rating: { type: "number" } },
-});
-
-const createListedEventSchema = (
-	overrides: Partial<ListedEventSchema> = {},
-): ListedEventSchema => ({
-	name: "Finished",
-	slug: "finished",
-	id: "event_schema_1",
-	entitySchemaId: "schema_1",
-	propertiesSchema: { rating: { type: "number" } },
-	...overrides,
-});
-
-const createDeps = (
-	overrides: Partial<EventSchemaServiceDeps> = {},
-): EventSchemaServiceDeps => ({
-	createEventSchemaForUser: async (input) =>
-		createListedEventSchema({
-			name: input.name,
-			slug: input.slug,
-			entitySchemaId: input.entitySchemaId,
-			propertiesSchema: input.propertiesSchema,
-		}),
-	getEntitySchemaScopeForUser: async (input) => ({
-		id: input.entitySchemaId,
-		userId: input.userId,
-		isBuiltin: false,
-	}),
-	getEventSchemaBySlugForUser: async () => undefined,
-	listEventSchemasByEntitySchemaForUser: async () => [
-		createListedEventSchema(),
-	],
-	...overrides,
-});
 
 describe("resolveEventSchemaName", () => {
 	it("trims the provided name", () => {
@@ -98,22 +63,13 @@ describe("resolveEventSchemaSlug", () => {
 
 describe("parseEventSchemaPropertiesSchema", () => {
 	it("accepts flat properties map", () => {
-		expect(
-			parseEventSchemaPropertiesSchema({
-				note: { type: "string" },
-				progress: { type: "integer" },
-			}),
-		).toEqual({
-			note: { type: "string" },
-			progress: { type: "integer" },
-		});
+		const schema = createFlatNoteProgressPropertySchema();
+
+		expect(parseEventSchemaPropertiesSchema(schema)).toEqual(schema);
 	});
 
 	it("accepts already-parsed properties map", () => {
-		const schema = {
-			note: { type: "string" as const },
-			progress: { type: "integer" as const },
-		};
+		const schema = createFlatNoteProgressPropertySchema();
 
 		expect(parseEventSchemaPropertiesSchema(schema)).toEqual(schema);
 	});
@@ -163,7 +119,9 @@ describe("listEventSchemas", () => {
 	it("returns not found when the entity schema does not exist", async () => {
 		const result = await listEventSchemas(
 			{ entitySchemaId: "schema_1", userId: "user_1" },
-			createDeps({ getEntitySchemaScopeForUser: async () => undefined }),
+			createEventSchemaDeps({
+				getEntitySchemaScopeForUser: async () => undefined,
+			}),
 		);
 
 		expect(result).toEqual({
@@ -176,7 +134,7 @@ describe("listEventSchemas", () => {
 describe("createEventSchema", () => {
 	it("normalizes the payload before persisting", async () => {
 		let createdSlug: string | undefined;
-		const deps = createDeps({
+		const deps = createEventSchemaDeps({
 			createEventSchemaForUser: async (input) => {
 				createdSlug = input.slug;
 				return createListedEventSchema({ slug: input.slug, name: input.name });
@@ -203,7 +161,7 @@ describe("createEventSchema", () => {
 	it("returns validation when the entity schema is built in", async () => {
 		const result = await createEventSchema(
 			{ body: createEventSchemaBody(), userId: "user_1" },
-			createDeps({
+			createEventSchemaDeps({
 				getEntitySchemaScopeForUser: async () => ({
 					userId: null,
 					id: "schema_1",
@@ -224,7 +182,7 @@ describe("createEventSchema", () => {
 				userId: "user_1",
 				body: { ...createEventSchemaBody(), entitySchemaId: "   " },
 			},
-			createDeps(),
+			createEventSchemaDeps(),
 		);
 
 		expect(result).toEqual({

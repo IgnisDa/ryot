@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { createEventCreateScope } from "~/lib/test-fixtures";
 import { resolveEventCreateAccess } from "./service";
 
 describe("resolveEventCreateAccess", () => {
@@ -8,16 +9,7 @@ describe("resolveEventCreateAccess", () => {
 
 	it("returns builtin when the entity schema is built in", () => {
 		expect(
-			resolveEventCreateAccess({
-				isBuiltin: true,
-				entityId: "entity-1",
-				propertiesSchema: {},
-				eventSchemaSlug: "log",
-				eventSchemaName: "Log",
-				entitySchemaId: "schema-1",
-				eventSchemaId: "event-schema-1",
-				eventSchemaEntitySchemaId: "schema-1",
-			}),
+			resolveEventCreateAccess(createEventCreateScope({ isBuiltin: true })),
 		).toEqual({ error: "builtin" });
 	});
 
@@ -38,30 +30,22 @@ describe("resolveEventCreateAccess", () => {
 
 	it("returns event_schema_mismatch when the event schema belongs elsewhere", () => {
 		expect(
-			resolveEventCreateAccess({
-				isBuiltin: false,
-				entityId: "entity-1",
-				propertiesSchema: {},
-				eventSchemaSlug: "log",
-				eventSchemaName: "Log",
-				entitySchemaId: "schema-1",
-				eventSchemaId: "event-schema-1",
-				eventSchemaEntitySchemaId: "schema-2",
-			}),
+			resolveEventCreateAccess(
+				createEventCreateScope({ eventSchemaEntitySchemaId: "schema-2" }),
+			),
 		).toEqual({ error: "event_schema_mismatch" });
 	});
 
 	it("returns the resolved scope when the event schema matches", () => {
-		const scope = {
-			isBuiltin: false,
+		const scope = createEventCreateScope({
 			entityId: "entity-1",
-			eventSchemaSlug: "log",
-			eventSchemaName: "Log",
 			entitySchemaId: "schema-1",
 			eventSchemaId: "event-schema-1",
+			eventSchemaSlug: "log",
+			eventSchemaName: "Log",
 			eventSchemaEntitySchemaId: "schema-1",
 			propertiesSchema: { rating: { type: "number" as const } },
-		};
+		});
 
 		expect(resolveEventCreateAccess(scope)).toEqual({
 			access: {

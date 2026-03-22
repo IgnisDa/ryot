@@ -1,14 +1,16 @@
 import { describe, expect, it } from "bun:test";
+import { createOptionalRatingPropertiesSchema } from "~/lib/test-fixtures";
 import { parsePropertySchemaInput } from "./service";
 
 describe("parsePropertySchemaInput", () => {
 	it("parses a flat properties map", () => {
+		const schema = createOptionalRatingPropertiesSchema();
+
 		expect(
-			parsePropertySchemaInput(
-				{ rating: { type: "number" } },
-				{ propertiesLabel: "Entity schema properties" },
-			),
-		).toEqual({ rating: { type: "number" } });
+			parsePropertySchemaInput(schema, {
+				propertiesLabel: "Entity schema properties",
+			}),
+		).toEqual(schema);
 	});
 
 	it("rejects an empty properties map", () => {
@@ -39,7 +41,12 @@ describe("parsePropertySchemaInput", () => {
 	it("rejects extra keys on primitive properties", () => {
 		expect(() =>
 			parsePropertySchemaInput(
-				{ rating: { type: "number", items: {} } },
+				{
+					rating: {
+						...createOptionalRatingPropertiesSchema().rating,
+						items: {},
+					},
+				},
 				{ propertiesLabel: "Entity schema properties" },
 			),
 		).toThrow('Unrecognized key: "items"');
@@ -48,7 +55,12 @@ describe("parsePropertySchemaInput", () => {
 	it("rejects non-literal required flag", () => {
 		expect(() =>
 			parsePropertySchemaInput(
-				{ rating: { type: "number", required: false } },
+				{
+					rating: {
+						...createOptionalRatingPropertiesSchema().rating,
+						required: false,
+					},
+				},
 				{ propertiesLabel: "Entity schema properties" },
 			),
 		).toThrow("Invalid input: expected true");

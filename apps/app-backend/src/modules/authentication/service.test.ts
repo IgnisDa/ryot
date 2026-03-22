@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { createQueryDefinition } from "~/lib/test-fixtures";
 import { defaultDisplayConfiguration } from "~/modules/saved-views/constants";
 import {
 	buildAuthenticationSavedViewInputs,
@@ -64,6 +65,8 @@ describe("authentication bootstrap helpers", () => {
 	});
 
 	it("builds built-in saved views from built-in manifests", () => {
+		const queryDefinition = createQueryDefinition();
+
 		expect(
 			buildAuthenticationSavedViewInputs({
 				trackers: [{ id: "tracker-1", slug: "media" }],
@@ -92,16 +95,14 @@ describe("authentication bootstrap helpers", () => {
 				trackerId: "tracker-1",
 				accentColor: "#5B7FFF",
 				displayConfiguration: defaultDisplayConfiguration,
-				queryDefinition: {
-					filters: [],
-					entitySchemaSlugs: ["book"],
-					sort: { fields: ["@name"], direction: "asc" },
-				},
+				queryDefinition: { ...queryDefinition, entitySchemaSlugs: ["book"] },
 			},
 		]);
 	});
 
 	it("builds built-in saved views without trackers", () => {
+		const queryDefinition = createQueryDefinition({ entitySchemaSlugs: [] });
+
 		expect(
 			buildAuthenticationSavedViewInputs({
 				entitySchemas: [],
@@ -109,30 +110,22 @@ describe("authentication bootstrap helpers", () => {
 				savedViews: [
 					{
 						icon: "folders",
+						queryDefinition,
 						name: "Collections",
 						accentColor: "#F59E0B",
 						displayConfiguration: defaultDisplayConfiguration,
-						queryDefinition: {
-							filters: [],
-							entitySchemaSlugs: [],
-							sort: { fields: ["@name"], direction: "asc" },
-						},
 					},
 				],
 			}),
 		).toEqual([
 			{
 				icon: "folders",
+				queryDefinition,
 				isBuiltin: true,
 				name: "Collections",
 				trackerId: undefined,
 				accentColor: "#F59E0B",
 				displayConfiguration: defaultDisplayConfiguration,
-				queryDefinition: {
-					filters: [],
-					entitySchemaSlugs: [],
-					sort: { fields: ["@name"], direction: "asc" },
-				},
 			},
 		]);
 	});
