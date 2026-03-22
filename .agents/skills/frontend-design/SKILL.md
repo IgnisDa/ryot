@@ -9,6 +9,7 @@ This skill guides creation of distinctive, production-grade frontend interfaces 
 ## Design Direction
 
 Commit to a BOLD aesthetic direction:
+
 - **Purpose**: What problem does this interface solve? Who uses it?
 - **Tone**: Pick an extreme: brutally minimal, maximalist chaos, retro-futuristic, organic/natural, luxury/refined, playful/toy-like, editorial/magazine, brutalist/raw, art deco/geometric, soft/pastel, industrial/utilitarian, etc. There are so many flavors to choose from. Use these for inspiration but design one that is true to the aesthetic direction.
 - **Constraints**: Technical requirements (framework, performance, accessibility).
@@ -17,6 +18,7 @@ Commit to a BOLD aesthetic direction:
 **CRITICAL**: Choose a clear conceptual direction and execute it with precision. Bold maximalism and refined minimalism both work—the key is intentionality, not intensity.
 
 Then implement working code that is:
+
 - Production-grade and functional
 - Visually striking and memorable
 - Cohesive with a clear aesthetic point-of-view
@@ -25,7 +27,8 @@ Then implement working code that is:
 ## Frontend Aesthetics Guidelines
 
 ### Typography
-→ *Consult [typography reference](reference/typography.md) for scales, pairing, and loading strategies.*
+
+→ _Consult [typography reference](reference/typography.md) for scales, pairing, and loading strategies._
 
 Choose fonts that are beautiful, unique, and interesting. Pair a distinctive display font with a refined body font.
 
@@ -36,7 +39,8 @@ Choose fonts that are beautiful, unique, and interesting. Pair a distinctive dis
 **DON'T**: Put large icons with rounded corners above every heading—they rarely add value and make sites look templated
 
 ### Color & Theme
-→ *Consult [color reference](reference/color-and-contrast.md) for OKLCH, palettes, and dark mode.*
+
+→ _Consult [color reference](reference/color-and-contrast.md) for OKLCH, palettes, and dark mode._
 
 Commit to a cohesive palette. Dominant colors with sharp accents outperform timid, evenly-distributed palettes.
 
@@ -49,7 +53,8 @@ Commit to a cohesive palette. Dominant colors with sharp accents outperform timi
 **DON'T**: Default to dark mode with glowing accents—it looks "cool" without requiring actual design decisions
 
 ### Layout & Space
-→ *Consult [spatial reference](reference/spatial-design.md) for grids, rhythm, and container queries.*
+
+→ _Consult [spatial reference](reference/spatial-design.md) for grids, rhythm, and container queries._
 
 Create visual rhythm through varied spacing—not the same padding everywhere. Embrace asymmetry and unexpected compositions. Break the grid intentionally for emphasis.
 
@@ -64,6 +69,7 @@ Create visual rhythm through varied spacing—not the same padding everywhere. E
 **DON'T**: Use the same spacing everywhere—without rhythm, layouts feel monotonous
 
 ### Visual Details
+
 **DO**: Use intentional, purposeful decorative elements that reinforce brand
 **DON'T**: Use glassmorphism everywhere—blur effects, glass cards, glow borders used decoratively rather than purposefully
 **DON'T**: Use rounded elements with thick colored border on one side—a lazy accent that almost never looks intentional
@@ -72,7 +78,8 @@ Create visual rhythm through varied spacing—not the same padding everywhere. E
 **DON'T**: Use modals unless there's truly no better alternative—modals are lazy
 
 ### Motion
-→ *Consult [motion reference](reference/motion-design.md) for timing, easing, and reduced motion.*
+
+→ _Consult [motion reference](reference/motion-design.md) for timing, easing, and reduced motion._
 
 Focus on high-impact moments: one well-orchestrated page load with staggered reveals creates more delight than scattered micro-interactions.
 
@@ -83,7 +90,8 @@ Focus on high-impact moments: one well-orchestrated page load with staggered rev
 **DON'T**: Use bounce or elastic easing—they feel dated and tacky; real objects decelerate smoothly
 
 ### Interaction
-→ *Consult [interaction reference](reference/interaction-design.md) for forms, focus, and loading patterns.*
+
+→ _Consult [interaction reference](reference/interaction-design.md) for forms, focus, and loading patterns._
 
 Make interactions feel fast. Use optimistic UI—update immediately, sync later.
 
@@ -94,14 +102,16 @@ Make interactions feel fast. Use optimistic UI—update immediately, sync later.
 **DON'T**: Make every button primary—use ghost buttons, text links, secondary styles; hierarchy matters
 
 ### Responsive
-→ *Consult [responsive reference](reference/responsive-design.md) for mobile-first, fluid design, and container queries.*
+
+→ _Consult [responsive reference](reference/responsive-design.md) for mobile-first, fluid design, and container queries._
 
 **DO**: Use container queries (@container) for component-level responsiveness
 **DO**: Adapt the interface for different contexts—don't just shrink it
 **DON'T**: Hide critical functionality on mobile—adapt the interface, don't amputate it
 
 ### UX Writing
-→ *Consult [ux-writing reference](reference/ux-writing.md) for labels, errors, and empty states.*
+
+→ _Consult [ux-writing reference](reference/ux-writing.md) for labels, errors, and empty states._
 
 **DO**: Make every word earn its place
 **DON'T**: Repeat information users can already see
@@ -124,4 +134,4 @@ Match implementation complexity to the aesthetic vision. Maximalist designs need
 
 Interpret creatively and make unexpected choices that feel genuinely designed for the context. No design should be the same. Vary between light and dark themes, different fonts, different aesthetics. NEVER converge on common choices across generations.
 
-Remember: Claude is capable of extraordinary creative work. Don't hold back—show what can truly be created when thinking outside the box and committing fully to a distinctive vision.
+Remember: You are capable of extraordinary creative work. Don't hold back—show what can truly be created when thinking outside the box and committing fully to a distinctive vision.

@@ -12,13 +12,13 @@ The common mistake: too many font sizes that are too close together (14px, 15px,
 
 **Use fewer sizes with more contrast.** A 5-size system covers most needs:
 
-| Role | Typical Ratio | Use Case |
-|------|---------------|----------|
-| xs | 0.75rem | Captions, legal |
-| sm | 0.875rem | Secondary UI, metadata |
-| base | 1rem | Body text |
-| lg | 1.25-1.5rem | Subheadings, lead text |
-| xl+ | 2-4rem | Headlines, hero text |
+| Role | Typical Ratio | Use Case               |
+| ---- | ------------- | ---------------------- |
+| xs   | 0.75rem       | Captions, legal        |
+| sm   | 0.875rem      | Secondary UI, metadata |
+| base | 1rem          | Body text              |
+| lg   | 1.25-1.5rem   | Subheadings, lead text |
+| xl+  | 2-4rem        | Headlines, hero text   |
 
 Popular ratios: 1.25 (major third), 1.333 (perfect fourth), 1.5 (perfect fifth). Pick one and commit.
 
