@@ -1,9 +1,26 @@
 import { z } from "zod";
 import type { AppSavedView } from "./model";
 
+const schemaQualifiedPropertyPattern = /^[^.\s]+\.[^.\s]+$/;
+const builtinPropertyPattern = /^@[^.\s]+$/;
+
+function isValidPropertyReference(value: string) {
+	return (
+		builtinPropertyPattern.test(value) ||
+		schemaQualifiedPropertyPattern.test(value)
+	);
+}
+
+const propertyReferenceSchema = z
+	.string()
+	.refine(
+		isValidPropertyReference,
+		"Use a built-in field or schema.property path",
+	);
+
 const sortFieldRowSchema = z.object({
 	id: z.string(),
-	value: z.string(),
+	value: propertyReferenceSchema,
 });
 
 export type SortFieldRow = z.infer<typeof sortFieldRowSchema>;
@@ -18,7 +35,7 @@ export function buildDefaultSortFieldRow(): SortFieldRow {
 
 const filterRowSchema = z.object({
 	id: z.string(),
-	field: z.string(),
+	field: propertyReferenceSchema,
 	value: z.union([z.string(), z.number(), z.boolean()]),
 	op: z.enum(["eq", "ne", "gt", "gte", "lt", "lte", "in", "isNull"]),
 });
@@ -40,7 +57,7 @@ export function buildDefaultFilterRow(): FilterRow {
 
 const propertyPathRowSchema = z.object({
 	id: z.string(),
-	value: z.string(),
+	value: propertyReferenceSchema,
 });
 
 export type PropertyPathRow = z.infer<typeof propertyPathRowSchema>;
