@@ -4,16 +4,16 @@ import {
 	RelationshipSchemaId,
 	SandboxScriptId,
 } from "@ryot/contract/schema/brands";
+import { queryEngineEntitySource } from "@ryot/query-engine/documents";
 import {
 	queryEngineAnd,
 	queryEngineComparison,
-	queryEngineEntitySource,
 	queryEngineExists,
 	queryEngineField,
 	queryEngineIsNull,
 	queryEngineLiteral,
 	queryEngineSystemRef,
-} from "@ryot/query-engine";
+} from "@ryot/query-engine/primitives";
 import { DateTime, Effect } from "effect";
 
 import { assertPresent, requirePresent } from "~/support/assertions";
