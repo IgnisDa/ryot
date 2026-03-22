@@ -241,3 +241,86 @@ describe("sandbox enqueue by script ID", () => {
 		);
 	});
 });
+
+function assertSearchItemShape(item: unknown) {
+	const i = item as Record<string, unknown>;
+
+	expect(typeof i.identifier).toBe("string");
+	expect((i.identifier as string).length).toBeGreaterThan(0);
+
+	const title = i.titleProperty as { kind?: unknown; value?: unknown };
+	expect(title?.kind).toBe("text");
+	expect(typeof title?.value).toBe("string");
+
+	const subtitle = i.subtitleProperty as { kind?: unknown; value?: unknown };
+	expect(subtitle?.kind === "number" || subtitle?.kind === "null").toBe(true);
+	if (subtitle?.kind === "number") {
+		expect(typeof subtitle?.value).toBe("number");
+	} else {
+		expect(subtitle?.value).toBeNull();
+	}
+
+	const badge = i.badgeProperty as { kind?: unknown; value?: unknown };
+	expect(badge?.kind).toBe("null");
+	expect(badge?.value).toBeNull();
+
+	const image = i.imageProperty as { kind?: unknown; value?: unknown };
+	expect(image?.kind === "image" || image?.kind === "null").toBe(true);
+	if (image?.kind === "image") {
+		const imageValue = image.value as { kind?: unknown; url?: unknown };
+		expect(imageValue?.kind).toBe("remote");
+		expect(typeof imageValue?.url).toBe("string");
+	} else {
+		expect(image?.value).toBeNull();
+	}
+}
+
+describe("search script contract", () => {
+	it("returns envelope and typed-slot item shape when a search script completes", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithSearchProviders(
+			client,
+			cookies,
+		);
+		const searchScriptId = schema.searchProviders[0]?.searchScriptId;
+		if (!searchScriptId) {
+			throw new Error("No search provider found");
+		}
+
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			kind: "script",
+			scriptId: searchScriptId,
+			context: { page: 1, pageSize: 5, query: "dune" },
+		});
+
+		const result = await pollSandboxResult(client, cookies, jobId, {
+			timeoutMs: 60_000,
+		});
+
+		// If the external API is unreachable (CI, rate-limit), skip shape assertions
+		if (result.status === "failed") {
+			return;
+		}
+
+		expect(result.status).toBe("completed");
+		if (result.status !== "completed") {
+			throw new Error("Expected sandbox job to complete");
+		}
+
+		const value = result.value as {
+			items?: unknown[];
+			details?: { totalItems?: unknown; nextPage?: unknown };
+		};
+
+		expect(Array.isArray(value?.items)).toBe(true);
+		expect(typeof value?.details?.totalItems).toBe("number");
+		expect(
+			value?.details?.nextPage === null ||
+				typeof value?.details?.nextPage === "number",
+		).toBe(true);
+
+		for (const item of value.items ?? []) {
+			assertSearchItemShape(item);
+		}
+	});
+});
