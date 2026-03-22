@@ -38,7 +38,7 @@ function getErrorMessage(error: unknown) {
 
 function EntityList(props: {
 	entities: ReturnType<typeof useEntitiesQuery>["entities"];
-	facetSlug: string;
+	trackerSlug: string;
 	eventSchemas: ReturnType<typeof useEventSchemasQuery>["eventSchemas"];
 	eventSchemasError: boolean;
 	eventSchemasLoading: boolean;
@@ -56,8 +56,8 @@ function EntityList(props: {
 								</Text>
 							</Stack>
 							<Link
-								to="/$facetSlug/entities/$entityId"
-								params={{ entityId: entity.id, facetSlug: props.facetSlug }}
+								to="/$trackerSlug/entities/$entityId"
+								params={{ entityId: entity.id, trackerSlug: props.trackerSlug }}
 							>
 								<Anchor component="span" size="sm">
 									View details
@@ -172,7 +172,7 @@ export function CreateEntityModal(props: {
 
 export function EntitiesSection(props: {
 	entitySchema: AppEntitySchema;
-	facetSlug: string;
+	trackerSlug: string;
 }) {
 	const [opened, { close, open }] = useDisclosure(false);
 	const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(
@@ -270,7 +270,7 @@ export function EntitiesSection(props: {
 				) : (
 					<EntityList
 						entities={viewState.entities}
-						facetSlug={props.facetSlug}
+						trackerSlug={props.trackerSlug}
 						eventSchemas={eventSchemasQuery.eventSchemas}
 						eventSchemasError={eventSchemasQuery.isError}
 						eventSchemasLoading={eventSchemasQuery.isLoading}

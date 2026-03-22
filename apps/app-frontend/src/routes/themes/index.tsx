@@ -32,41 +32,41 @@ import {
 	Wine,
 } from "lucide-react";
 import { useState } from "react";
-import { entities, events, facets, savedViews, stats } from "./-common-data";
+import { entities, events, savedViews, stats, trackers } from "./-common-data";
 
 export const Route = createFileRoute("/themes/")({
 	component: JournalTheme,
 });
 
-const DEFAULT_FACET_COLOR = {
+const DEFAULT_TRACKER_COLOR = {
 	base: "#5B7FFF",
 	muted: "rgba(91, 127, 255, 0.12)",
 };
 
-const facetColors: Record<string, { base: string; muted: string }> = {
-	media: DEFAULT_FACET_COLOR,
+const trackerColors: Record<string, { base: string; muted: string }> = {
+	media: DEFAULT_TRACKER_COLOR,
 	fitness: { base: "#2DD4BF", muted: "rgba(45, 212, 191, 0.12)" },
 	whiskey: { base: "#D4A574", muted: "rgba(212, 165, 116, 0.12)" },
 	places: { base: "#A78BFA", muted: "rgba(167, 139, 250, 0.12)" },
 };
 
-const facetIconMap: Record<string, typeof Film> = {
+const trackerIconMap: Record<string, typeof Film> = {
 	media: Film,
 	fitness: Dumbbell,
 	whiskey: Wine,
 	places: MapPin,
 };
 
-const schemaToFacet: Record<string, string> = {};
-for (const facet of facets) {
-	for (const schema of facet.entitySchemas) {
-		schemaToFacet[schema.name] = facet.slug;
+const schemaToTracker: Record<string, string> = {};
+for (const tracker of trackers) {
+	for (const schema of tracker.entitySchemas) {
+		schemaToTracker[schema.name] = tracker.slug;
 	}
 }
 
-function getFacetColor(schemaName: string) {
-	const slug = schemaToFacet[schemaName] ?? "media";
-	return facetColors[slug] ?? DEFAULT_FACET_COLOR;
+function getTrackerColor(schemaName: string) {
+	const slug = schemaToTracker[schemaName] ?? "media";
+	return trackerColors[slug] ?? DEFAULT_TRACKER_COLOR;
 }
 
 const journalTheme = createTheme({
@@ -238,20 +238,20 @@ function JournalTheme() {
 								textTransform: "uppercase",
 							}}
 						>
-							Facets
+							Trackers
 						</Text>
 					</Box>
 				</Box>
 
-				{facets.map((facet) => {
-					const color = facetColors[facet.slug] ?? DEFAULT_FACET_COLOR;
-					const Icon = facetIconMap[facet.slug] ?? Film;
+				{trackers.map((tracker) => {
+					const color = trackerColors[tracker.slug] ?? DEFAULT_TRACKER_COLOR;
+					const Icon = trackerIconMap[tracker.slug] ?? Film;
 					return (
 						<NavLink
-							key={facet.id}
-							label={facet.name}
+							key={tracker.id}
+							label={tracker.name}
 							leftSection={<Icon size={18} color={color.base} />}
-							defaultOpened={facet.slug === "media"}
+							defaultOpened={tracker.slug === "media"}
 							styles={{
 								root: {
 									padding: "10px 14px",
@@ -264,7 +264,7 @@ function JournalTheme() {
 								label: { fontWeight: 500, fontSize: "14px" },
 							}}
 						>
-							{facet.entitySchemas.map((schema) => (
+							{tracker.entitySchemas.map((schema) => (
 								<NavLink
 									key={schema.id}
 									label={schema.name}
@@ -506,8 +506,8 @@ function JournalTheme() {
 										Dashboard
 									</Title>
 									<Text c={textSecondary} size="sm" style={{ maxWidth: 420 }}>
-										Your tracking at a glance. 4 facets, 247 entities, always in
-										your control.
+										Your tracking at a glance. 4 trackers, 247 entities, always
+										in your control.
 									</Text>
 								</Box>
 								{!isMobile && (
@@ -644,13 +644,13 @@ function JournalTheme() {
 
 						<SectionHeader
 							title="Recent Entries"
-							subtitle="From across your facets"
+							subtitle="From across your trackers"
 							border={border}
 						/>
 
 						<Grid mb={isMobile ? "lg" : "2.5rem"}>
 							{entities.slice(0, 6).map((entity, idx) => {
-								const color = getFacetColor(entity.schemaName);
+								const color = getTrackerColor(entity.schemaName);
 								return (
 									<Grid.Col key={entity.id} span={{ base: 12, sm: 6, md: 4 }}>
 										<Card
@@ -770,7 +770,7 @@ function JournalTheme() {
 
 						<SectionHeader
 							title="Activity Log"
-							subtitle="Recent events across all facets"
+							subtitle="Recent events across all trackers"
 							border={border}
 						/>
 
@@ -782,7 +782,7 @@ function JournalTheme() {
 						>
 							<Stack gap={0}>
 								{events.map((event, idx) => {
-									const color = getFacetColor(event.schemaName);
+									const color = getTrackerColor(event.schemaName);
 									return (
 										<Box
 											key={event.id}
