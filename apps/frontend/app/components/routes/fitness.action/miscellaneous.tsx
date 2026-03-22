@@ -50,7 +50,7 @@ export const NameAndOtherInputs = (props: {
 
 	const [name, setName] = useDebouncedState(currentWorkout.name, 500);
 	const [comment, setComment] = useDebouncedState(currentWorkout.comment, 500);
-	const [isCaloriesBurntModalOpen, setIsCaloriesBurntModalOpen] =
+	const [isExtraInformationModalOpen, setIsExtraInformationModalOpen] =
 		useState(false);
 	const [caloriesBurnt, setCaloriesBurnt] = useDebouncedState(
 		currentWorkout.caloriesBurnt,
@@ -87,8 +87,8 @@ export const NameAndOtherInputs = (props: {
 		<>
 			<Modal
 				title="Additional details"
-				opened={isCaloriesBurntModalOpen}
-				onClose={() => setIsCaloriesBurntModalOpen(false)}
+				opened={isExtraInformationModalOpen}
+				onClose={() => setIsExtraInformationModalOpen(false)}
 			>
 				<Stack gap="xs">
 					{!props.isCreatingTemplate ? (
@@ -130,7 +130,10 @@ export const NameAndOtherInputs = (props: {
 				label={
 					<Group justify="space-between" mr="xs">
 						<Text size="sm">Name</Text>
-						<Anchor size="xs" onClick={() => setIsCaloriesBurntModalOpen(true)}>
+						<Anchor
+							size="xs"
+							onClick={() => setIsExtraInformationModalOpen(true)}
+						>
 							More Information
 						</Anchor>
 					</Group>
