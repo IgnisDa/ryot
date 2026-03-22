@@ -11,7 +11,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Check backend health */
+        /** Check database and Redis health */
         get: {
             parameters: {
                 query?: never;
@@ -63,7 +63,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Export metrics in Prometheus format */
+        /** Export application metrics in Prometheus format */
         get: {
             parameters: {
                 query?: never;
@@ -99,7 +99,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get the current user session */
+        /** Get the current authenticated user and session */
         get: {
             parameters: {
                 query?: never;
@@ -153,7 +153,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create a user account */
+        /** Create a user account and initialize default data */
         post: {
             parameters: {
                 query?: never;
@@ -283,7 +283,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List trackers available for the user */
+        /** List trackers for the authenticated user */
         get: {
             parameters: {
                 query?: never;
@@ -329,7 +329,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Create and enable a custom tracker */
+        /** Create an enabled custom tracker */
         post: {
             parameters: {
                 query?: never;
@@ -505,7 +505,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Reorder trackers for the user */
+        /** Reorder visible trackers for the authenticated user */
         post: {
             parameters: {
                 query?: never;
@@ -1344,7 +1344,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get a presigned URL for an uploaded file */
+        /** Get a presigned download URL for an uploaded file */
         get: {
             parameters: {
                 query: {
@@ -1544,7 +1544,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Create a saved view */
+        /** Create a user-defined saved view */
         post: {
             parameters: {
                 query?: never;
@@ -1627,7 +1627,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete a saved view */
+        /** Delete a user-defined saved view */
         delete: {
             parameters: {
                 query?: never;
