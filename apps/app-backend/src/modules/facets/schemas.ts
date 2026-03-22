@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { FacetMode } from "~/lib/db/schema";
 import { dataSchema } from "~/lib/openapi";
 import {
 	createNameWithOptionalSlugSchema,
@@ -7,15 +6,12 @@ import {
 	nullableStringSchema,
 } from "~/lib/zod/base";
 
-const facetModeSchema = z.enum([FacetMode.curated, FacetMode.generated]);
-
 export const listedFacetSchema = z.object({
 	id: z.string(),
 	slug: z.string(),
 	name: z.string(),
 	config: z.unknown(),
 	enabled: z.boolean(),
-	mode: facetModeSchema,
 	isBuiltin: z.boolean(),
 	icon: nonEmptyTrimmedStringSchema,
 	description: nullableStringSchema,
@@ -28,8 +24,8 @@ export const listFacetsResponseSchema = dataSchema(z.array(listedFacetSchema));
 
 export const createFacetBody = createNameWithOptionalSlugSchema({
 	icon: nonEmptyTrimmedStringSchema,
-	description: nonEmptyTrimmedStringSchema.optional(),
 	accentColor: nonEmptyTrimmedStringSchema,
+	description: nonEmptyTrimmedStringSchema.optional(),
 });
 
 const nullableTextInputSchema = z
