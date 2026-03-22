@@ -12,7 +12,7 @@ import {
 	Wait,
 } from "testcontainers";
 
-config({ path: "./e2e/.env" });
+config({ path: ".env" });
 
 let backendPort: number;
 let backendProcess: ChildProcess;
@@ -76,7 +76,7 @@ beforeAll(async () => {
 
 	backendProcess = spawn("bun", ["run", "src/index.ts"], {
 		env: backendEnv,
-		cwd: process.cwd(),
+		cwd: "../apps/app-backend",
 		stdio: ["ignore", "pipe", "pipe"],
 	});
 
