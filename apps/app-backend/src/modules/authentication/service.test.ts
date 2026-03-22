@@ -7,18 +7,7 @@ import {
 	buildAuthenticationSavedViewInputs,
 	buildAuthenticationTrackerEntitySchemaLinks,
 	buildLibraryEntityInput,
-	resolveAuthenticationName,
 } from "./service";
-
-describe("resolveAuthenticationName", () => {
-	it("trims the provided signup name", () => {
-		expect(resolveAuthenticationName("  New User  ")).toBe("New User");
-	});
-
-	it("throws when the signup name is blank", () => {
-		expect(() => resolveAuthenticationName("   ")).toThrow("Signup name is required");
-	});
-});
 
 describe("authentication bootstrap helpers", () => {
 	it("builds tracker entity schema links from built-in manifests", () => {
