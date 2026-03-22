@@ -107,3 +107,40 @@ Confirm:
 - entity list/get/create include nullable `image`
 - uploads route appears in OpenAPI
 - migration adds nullable `image` column
+
+---
+
+## Task 5: Implement the real generic image upload signer
+
+**Files:**
+- Modify: `apps/app-backend/src/modules/uploads/routes.ts`
+- Modify: `apps/app-backend/src/modules/uploads/schemas.ts`
+- Create: `apps/app-backend/src/modules/uploads/service.ts`
+- Create: `apps/app-backend/src/modules/uploads/service.test.ts`
+- Create: `apps/app-backend/src/lib/s3.ts`
+- Modify: `apps/app-backend/package.json`
+
+**Step 1: Write the failing tests**
+
+Add tests for:
+- rejecting non-image content types
+- generating stable `uploads/images/<id>.<ext>` keys
+- returning `{ key, uploadUrl }` from the upload service using an injected signer
+
+**Step 2: Run test to verify it fails**
+
+Run: `bun test 'src/modules/uploads/service.test.ts'`
+
+**Step 3: Install dependencies and implement minimal code**
+
+Install AWS SDK v3 packages, add a shared S3 client in `src/lib/s3.ts`, implement a small upload signing service, then update the route to accept `{ contentType, fileName? }` and return a signed `PUT` upload URL.
+
+**Step 4: Run test to verify it passes**
+
+Run: `bun test 'src/modules/uploads/service.test.ts'`
+
+**Step 5: Verify integration**
+
+Run:
+- `bun test 'src/modules/entities/service.test.ts' 'src/modules/uploads/service.test.ts'`
+- `bun run typecheck`
