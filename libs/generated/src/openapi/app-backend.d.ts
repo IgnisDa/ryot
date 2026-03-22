@@ -1313,11 +1313,11 @@ export interface paths {
                         occurredAt: string;
                         entityId: string;
                         eventSchemaId: string;
-                    };
+                    }[];
                 };
             };
             responses: {
-                /** @description Event was created */
+                /** @description Number of events created */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1325,20 +1325,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
-                                id: string;
-                                /** Format: date-time */
-                                createdAt: string;
-                                /** Format: date-time */
-                                updatedAt: string;
-                                /** Format: date-time */
-                                occurredAt: string;
-                                entityId: string;
-                                eventSchemaId: string;
-                                eventSchemaName: string;
-                                eventSchemaSlug: string;
-                                properties: {
-                                    [key: string]: unknown;
-                                };
+                                count: number;
                             };
                         };
                     };
