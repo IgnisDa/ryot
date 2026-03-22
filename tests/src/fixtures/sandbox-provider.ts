@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
-import type { ProviderInformation } from "@ryot/sandbox-sdk";
+import type { ProviderInformation } from "@ryot/sandbox-sdk/core";
 import type {
 	ProviderDetailsResult,
 	ProviderSearchResult,
@@ -191,7 +191,7 @@ const translate = defineProviderDriver(manifest, "translate", async ({ language 
 	}
 
 	return `
-import { defineManifest } from "@ryot/sandbox-sdk";
+import { defineManifest } from "@ryot/sandbox-sdk/core";
 import { ${providerImports.join(", ")} } from "@ryot/sandbox-sdk/provider";
 import * as z from "@ryot/sandbox-sdk/zod";
 

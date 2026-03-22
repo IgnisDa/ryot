@@ -1,4 +1,4 @@
-import { defineManifest, type SandboxHost } from "@ryot/sandbox-sdk";
+import { defineManifest, type SandboxHost } from "@ryot/sandbox-sdk/core";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 

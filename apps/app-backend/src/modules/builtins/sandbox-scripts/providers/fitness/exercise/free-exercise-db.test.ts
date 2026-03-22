@@ -1,4 +1,4 @@
-import type { JsonValue, SandboxHost } from "@ryot/sandbox-sdk";
+import type { JsonValue, SandboxHost } from "@ryot/sandbox-sdk/core";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { assert, describe, expect, it } from "vitest";
 
