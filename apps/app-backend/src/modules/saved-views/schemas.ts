@@ -7,6 +7,8 @@ import {
 	createUniqueNonEmptyTrimmedStringArraySchema,
 	iconAndAccentColorFields,
 	nonEmptyTrimmedStringSchema,
+	sortOrderSchema,
+	timestampFields,
 } from "~/lib/zod/base";
 
 const runtimeFieldPathSchema = nonEmptyTrimmedStringSchema;
@@ -99,12 +101,11 @@ export type SavedViewQueryDefinition = z.infer<
 export const listedSavedViewSchema = z.object({
 	id: z.string(),
 	name: z.string(),
-	createdAt: z.date(),
-	updatedAt: z.date(),
+	...timestampFields,
 	isBuiltin: z.boolean(),
 	isDisabled: z.boolean(),
+	sortOrder: sortOrderSchema,
 	trackerId: z.string().nullable(),
-	sortOrder: z.number().int().nonnegative(),
 	queryDefinition: savedViewQueryDefinitionSchema,
 	displayConfiguration: displayConfigurationSchema,
 	...iconAndAccentColorFields,
