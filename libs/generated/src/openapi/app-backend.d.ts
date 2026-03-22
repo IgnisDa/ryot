@@ -2427,6 +2427,23 @@ export interface paths {
                             page: number;
                             limit: number;
                         };
+                        filters: ({
+                            /** @enum {string} */
+                            op: "in";
+                            field: string;
+                            value: unknown[];
+                        } | {
+                            value?: unknown;
+                            /** @enum {string} */
+                            op: "isNull";
+                            field: string;
+                        } | {
+                            value?: unknown;
+                            field: string;
+                            /** @enum {string} */
+                            op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                        })[];
+                        entitySchemaSlugs: string[];
                         /** @enum {string} */
                         layout: "grid";
                         displayConfiguration: {
@@ -2435,6 +2452,16 @@ export interface paths {
                             badgeProperty: string[] | null;
                             subtitleProperty: string[] | null;
                         };
+                    } | {
+                        sort: {
+                            fields: string[];
+                            /** @enum {string} */
+                            direction: "asc" | "desc";
+                        };
+                        pagination: {
+                            page: number;
+                            limit: number;
+                        };
                         filters: ({
                             /** @enum {string} */
                             op: "in";
@@ -2452,16 +2479,6 @@ export interface paths {
                             op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
                         })[];
                         entitySchemaSlugs: string[];
-                    } | {
-                        sort: {
-                            fields: string[];
-                            /** @enum {string} */
-                            direction: "asc" | "desc";
-                        };
-                        pagination: {
-                            page: number;
-                            limit: number;
-                        };
                         /** @enum {string} */
                         layout: "list";
                         displayConfiguration: {
@@ -2470,23 +2487,6 @@ export interface paths {
                             badgeProperty: string[] | null;
                             subtitleProperty: string[] | null;
                         };
-                        filters: ({
-                            /** @enum {string} */
-                            op: "in";
-                            field: string;
-                            value: unknown[];
-                        } | {
-                            value?: unknown;
-                            /** @enum {string} */
-                            op: "isNull";
-                            field: string;
-                        } | {
-                            value?: unknown;
-                            field: string;
-                            /** @enum {string} */
-                            op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
-                        })[];
-                        entitySchemaSlugs: string[];
                     } | {
                         sort: {
                             fields: string[];
@@ -2497,14 +2497,6 @@ export interface paths {
                             page: number;
                             limit: number;
                         };
-                        /** @enum {string} */
-                        layout: "table";
-                        displayConfiguration: {
-                            columns: {
-                                label: string;
-                                property: string[];
-                            }[];
-                        };
                         filters: ({
                             /** @enum {string} */
                             op: "in";
@@ -2522,6 +2514,14 @@ export interface paths {
                             op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
                         })[];
                         entitySchemaSlugs: string[];
+                        /** @enum {string} */
+                        layout: "table";
+                        displayConfiguration: {
+                            columns: {
+                                label: string;
+                                property: string[];
+                            }[];
+                        };
                     };
                 };
             };

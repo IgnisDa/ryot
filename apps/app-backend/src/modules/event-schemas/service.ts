@@ -1,6 +1,12 @@
 import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
 import { resolveCustomEntitySchemaAccess } from "~/lib/app/entity-schema-access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
+import {
+	type ServiceResult,
+	serviceData,
+	serviceError,
+	wrapServiceValidator,
+} from "~/lib/result";
 import { parseLabeledPropertySchemaInput } from "../property-schemas/service";
 import {
 	createEventSchemaForUser,
@@ -22,9 +28,10 @@ export type EventSchemaServiceDeps = {
 	listEventSchemasByEntitySchemaForUser: typeof listEventSchemasByEntitySchemaForUser;
 };
 
-export type EventSchemaServiceResult<T> =
-	| { data: T }
-	| { error: EventSchemaMutationError; message: string };
+export type EventSchemaServiceResult<T> = ServiceResult<
+	T,
+	EventSchemaMutationError
+>;
 
 const customEntitySchemaError =
 	"Built-in entity schemas do not support event schemas";
@@ -40,29 +47,11 @@ const eventSchemaServiceDeps: EventSchemaServiceDeps = {
 	listEventSchemasByEntitySchemaForUser,
 };
 
-const createDataResult = <T>(data: T): EventSchemaServiceResult<T> => ({
-	data,
-});
-
-const createErrorResult = <T>(input: {
-	error: EventSchemaMutationError;
-	message: string;
-}): EventSchemaServiceResult<T> => ({
-	error: input.error,
-	message: input.message,
-});
-
-const resolveEventSchemaEntitySchemaIdResult = (
-	entitySchemaId: string,
-): EventSchemaServiceResult<string> => {
-	try {
-		return createDataResult(resolveEventSchemaEntitySchemaId(entitySchemaId));
-	} catch (error) {
-		const message =
-			error instanceof Error ? error.message : "Entity schema id is required";
-		return createErrorResult({ error: "validation", message });
-	}
-};
+const resolveEventSchemaEntitySchemaIdResult = (entitySchemaId: string) =>
+	wrapServiceValidator(
+		() => resolveEventSchemaEntitySchemaId(entitySchemaId),
+		"Entity schema id is required",
+	);
 
 export const resolveEventSchemaName = (name: string) =>
 	resolveRequiredString(name, "Event schema name");
@@ -100,19 +89,11 @@ export const resolveEventSchemaCreateInput = (
 
 const resolveEventSchemaCreateInputResult = (
 	input: Pick<CreateEventSchemaBody, "name" | "propertiesSchema" | "slug">,
-): EventSchemaServiceResult<
-	ReturnType<typeof resolveEventSchemaCreateInput>
-> => {
-	try {
-		return createDataResult(resolveEventSchemaCreateInput(input));
-	} catch (error) {
-		const message =
-			error instanceof Error
-				? error.message
-				: "Event schema payload is invalid";
-		return createErrorResult({ error: "validation", message });
-	}
-};
+) =>
+	wrapServiceValidator(
+		() => resolveEventSchemaCreateInput(input),
+		"Event schema payload is invalid",
+	);
 
 export const listEventSchemas = async (
 	input: { entitySchemaId: string; userId: string },
@@ -132,21 +113,19 @@ export const listEventSchemas = async (
 		}),
 	);
 	if (!("entitySchema" in foundEntitySchema)) {
-		return createErrorResult({
-			error:
-				foundEntitySchema.error === "not_found" ? "not_found" : "validation",
-			message:
-				foundEntitySchema.error === "not_found"
-					? entitySchemaNotFoundError
-					: customEntitySchemaError,
-		});
+		return serviceError(
+			foundEntitySchema.error === "not_found" ? "not_found" : "validation",
+			foundEntitySchema.error === "not_found"
+				? entitySchemaNotFoundError
+				: customEntitySchemaError,
+		);
 	}
 
 	const eventSchemas = await deps.listEventSchemasByEntitySchemaForUser({
 		entitySchemaId: entitySchemaIdResult.data,
 		userId: input.userId,
 	});
-	return createDataResult(eventSchemas);
+	return serviceData(eventSchemas);
 };
 
 export const createEventSchema = async (
@@ -167,14 +146,12 @@ export const createEventSchema = async (
 		}),
 	);
 	if (!("entitySchema" in foundEntitySchema)) {
-		return createErrorResult({
-			error:
-				foundEntitySchema.error === "not_found" ? "not_found" : "validation",
-			message:
-				foundEntitySchema.error === "not_found"
-					? entitySchemaNotFoundError
-					: customEntitySchemaError,
-		});
+		return serviceError(
+			foundEntitySchema.error === "not_found" ? "not_found" : "validation",
+			foundEntitySchema.error === "not_found"
+				? entitySchemaNotFoundError
+				: customEntitySchemaError,
+		);
 	}
 
 	const eventSchemaInput = resolveEventSchemaCreateInputResult({
@@ -192,10 +169,7 @@ export const createEventSchema = async (
 		slug: eventSchemaInput.data.slug,
 	});
 	if (existingEventSchema) {
-		return createErrorResult({
-			error: "validation",
-			message: duplicateSlugError,
-		});
+		return serviceError("validation", duplicateSlugError);
 	}
 
 	try {
@@ -207,13 +181,10 @@ export const createEventSchema = async (
 			propertiesSchema: eventSchemaInput.data.propertiesSchema,
 		});
 
-		return createDataResult(createdEventSchema);
+		return serviceData(createdEventSchema);
 	} catch (error) {
 		if (isUniqueConstraintError(error, eventSchemaUniqueConstraint)) {
-			return createErrorResult({
-				error: "validation",
-				message: duplicateSlugError,
-			});
+			return serviceError("validation", duplicateSlugError);
 		}
 
 		throw error;

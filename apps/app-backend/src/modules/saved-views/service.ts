@@ -1,6 +1,11 @@
 import { resolveRequiredString } from "@ryot/ts-utils";
 import { buildReorderedIds } from "~/lib/reorder";
-import type { ServiceResult } from "~/lib/result";
+import {
+	type ServiceResult,
+	serviceData,
+	serviceError,
+	wrapServiceValidator,
+} from "~/lib/result";
 import {
 	countSavedViewsByIdsForUser,
 	createSavedViewForUser,
@@ -51,45 +56,14 @@ const savedViewServiceDeps: SavedViewServiceDeps = {
 	updateSavedViewDisabledByIdForUser,
 };
 
-const createDataResult = <
-	T,
-	E extends string = "builtin" | "not_found" | "validation",
->(
-	data: T,
-): ServiceResult<T, E> => ({ data });
-
-const createErrorResult = <T>(input: {
-	error: "builtin" | "not_found" | "validation";
-	message: string;
-}): SavedViewServiceResult<T> => ({
-	error: input.error,
-	message: input.message,
-});
-
-const createValidationResult = <T>(
-	message: string,
-): SavedViewValidationResult<T> => ({
-	message,
-	error: "validation",
-});
-
 export const resolveSavedViewName = (name: string) =>
 	resolveRequiredString(name, "Saved view name");
 
 export const buildBuiltinSavedViewName = (entitySchemaName: string) =>
 	`All ${entitySchemaName}s`;
 
-const resolveSavedViewNameResult = (
-	name: string,
-	fallback: string,
-): SavedViewValidationResult<string> => {
-	try {
-		return createDataResult<string, "validation">(resolveSavedViewName(name));
-	} catch (error) {
-		const message = error instanceof Error ? error.message : fallback;
-		return createValidationResult(message);
-	}
-};
+const resolveSavedViewNameResult = (name: string, fallback: string) =>
+	wrapServiceValidator(() => resolveSavedViewName(name), fallback);
 
 const resolveExistingSavedView = async (
 	input: { userId: string; viewId: string },
@@ -101,13 +75,10 @@ const resolveExistingSavedView = async (
 	});
 
 	if (!existingView) {
-		return createErrorResult({
-			error: "not_found",
-			message: savedViewNotFoundError,
-		});
+		return serviceError("not_found", savedViewNotFoundError);
 	}
 
-	return createDataResult(existingView);
+	return serviceData(existingView);
 };
 
 const resolveMutableSavedView = async (
@@ -120,10 +91,7 @@ const resolveMutableSavedView = async (
 	}
 
 	if (existingViewResult.data.isBuiltin) {
-		return createErrorResult({
-			error: "builtin",
-			message: builtinSavedViewError,
-		});
+		return serviceError("builtin", builtinSavedViewError);
 	}
 
 	return existingViewResult;
@@ -135,16 +103,10 @@ const resolveMissingMutationResult = async (
 ): Promise<SavedViewServiceResult<ListedSavedView>> => {
 	const existingView = await deps.getSavedViewByIdForUser(input);
 	if (existingView?.isBuiltin) {
-		return createErrorResult({
-			error: "builtin",
-			message: builtinSavedViewError,
-		});
+		return serviceError("builtin", builtinSavedViewError);
 	}
 
-	return createErrorResult({
-		error: "not_found",
-		message: savedViewNotFoundError,
-	});
+	return serviceError("not_found", savedViewNotFoundError);
 };
 
 const buildClonedSavedViewName = (name: string) => `${name} (Copy)`;
@@ -172,7 +134,7 @@ export const createSavedView = async (
 		displayConfiguration: input.body.displayConfiguration,
 	});
 
-	return createDataResult<ListedSavedView, "validation">(createdView);
+	return serviceData(createdView);
 };
 
 export const updateSavedView = async (
@@ -195,13 +157,10 @@ export const updateSavedView = async (
 		});
 
 		if (!updatedView) {
-			return createErrorResult({
-				error: "not_found",
-				message: savedViewNotFoundError,
-			});
+			return serviceError("not_found", savedViewNotFoundError);
 		}
 
-		return createDataResult(updatedView);
+		return serviceData(updatedView);
 	}
 
 	const nameResult = resolveSavedViewNameResult(
@@ -226,7 +185,7 @@ export const updateSavedView = async (
 		);
 	}
 
-	return createDataResult(updatedView);
+	return serviceData(updatedView);
 };
 
 export const deleteSavedView = async (
@@ -243,7 +202,7 @@ export const deleteSavedView = async (
 		return resolveMissingMutationResult(input, deps);
 	}
 
-	return createDataResult(deletedView);
+	return serviceData(deletedView);
 };
 
 export const cloneSavedView = async (
@@ -252,10 +211,7 @@ export const cloneSavedView = async (
 ): Promise<SavedViewServiceResult<ListedSavedView>> => {
 	const sourceView = await deps.getSavedViewByIdForUser(input);
 	if (!sourceView) {
-		return createErrorResult({
-			error: "not_found",
-			message: savedViewNotFoundError,
-		});
+		return serviceError("not_found", savedViewNotFoundError);
 	}
 
 	const clonedNameResult = resolveSavedViewNameResult(
@@ -277,7 +233,7 @@ export const cloneSavedView = async (
 		displayConfiguration: sourceView.displayConfiguration,
 	});
 
-	return createDataResult(clonedView);
+	return serviceData(clonedView);
 };
 
 export const reorderSavedViews = async (
@@ -290,7 +246,7 @@ export const reorderSavedViews = async (
 		trackerId: input.body.trackerId,
 	});
 	if (savedViewCount !== input.body.viewIds.length) {
-		return createValidationResult(savedViewIdsUnknownError);
+		return serviceError("validation", savedViewIdsUnknownError);
 	}
 
 	const currentViewIds = await deps.listUserSavedViewIdsInOrder({
@@ -306,8 +262,8 @@ export const reorderSavedViews = async (
 		}),
 	});
 	if (!viewIds || viewIds.length !== currentViewIds.length) {
-		return createValidationResult(savedViewIdsUnknownError);
+		return serviceError("validation", savedViewIdsUnknownError);
 	}
 
-	return createDataResult<{ viewIds: string[] }, "validation">({ viewIds });
+	return serviceData({ viewIds });
 };
