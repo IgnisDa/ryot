@@ -97,13 +97,9 @@ const buildTopLevelSortExpression = (input: {
 
 const getSortExpressionType = <TSchema extends ViewRuntimeSchemaLike>(input: {
 	reference: string;
-	defaultSchemaSlug: string;
 	schemaMap: Map<string, TSchema>;
 }) => {
-	const parsedReference = resolveRuntimeReference(
-		input.reference,
-		input.defaultSchemaSlug,
-	);
+	const parsedReference = resolveRuntimeReference(input.reference);
 
 	if (parsedReference.type === "top-level") {
 		return {
@@ -123,21 +119,14 @@ const getSortExpressionType = <TSchema extends ViewRuntimeSchemaLike>(input: {
 	return { parsedReference, propertyType };
 };
 
-const requireSchemaQualifiedSortFields = (
-	field: string[],
-	isMultiSchema: boolean,
-) => {
-	if (!isMultiSchema) {
-		return;
-	}
-
+const requireSchemaQualifiedSortFields = (field: string[]) => {
 	for (const reference of field) {
 		if (reference.startsWith("@") || reference.includes(".")) {
 			continue;
 		}
 
 		throw new ViewRuntimeValidationError(
-			"Schema-qualified sort fields are required for multi-schema requests",
+			"Schema-qualified property references are required",
 		);
 	}
 };
@@ -147,19 +136,14 @@ export const buildSortExpression = <
 >(input: {
 	alias: string;
 	field: string[];
-	defaultSchemaSlug: string;
 	schemaMap: Map<string, TSchema>;
 }) => {
-	requireSchemaQualifiedSortFields(
-		input.field,
-		new Set(input.schemaMap.keys()).size > 1,
-	);
+	requireSchemaQualifiedSortFields(input.field);
 
 	const resolvedFields = input.field.map((reference) => {
 		return getSortExpressionType({
 			reference,
 			schemaMap: input.schemaMap,
-			defaultSchemaSlug: input.defaultSchemaSlug,
 		});
 	});
 	const targetType = getCommonSortType(

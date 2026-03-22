@@ -15,10 +15,7 @@ export type RuntimeRef =
 	| { type: "top-level"; column: string }
 	| { type: "schema-property"; slug: string; property: string };
 
-export const resolveRuntimeReference = (
-	reference: string,
-	defaultSchemaSlug: string,
-): RuntimeRef => {
+export const resolveRuntimeReference = (reference: string): RuntimeRef => {
 	try {
 		if (reference.startsWith("@")) {
 			return parseFieldPath(reference);
@@ -32,11 +29,9 @@ export const resolveRuntimeReference = (
 		);
 	}
 
-	return {
-		property: reference,
-		type: "schema-property",
-		slug: defaultSchemaSlug,
-	};
+	throw new ViewRuntimeValidationError(
+		"Schema-qualified property references are required",
+	);
 };
 
 export const getSchemaForReference = <TSchema extends ViewRuntimeSchemaLike>(
