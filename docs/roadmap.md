@@ -125,8 +125,8 @@ This phase establishes saved views as the universal browsing primitive for Ryot.
 
 - Saved view data model and API
 - Saved view renderer
-- Visual query builder
-- Sidebar integration for built-in and user-authored saved views
+- Visual query builder (editing saved view query definitions and display configuration)
+- Sidebar integration for built-in and user-authored saved views (user views created via clone+edit)
 - Display configuration editing
 
 ### Phase 6: Cross-tracker power features
@@ -275,10 +275,10 @@ A box is checked only when the capability is clearly implemented in the current 
 ### Saved views and query builder
 
 - [x] Saved view data model
-- [ ] Saved view renderer
-- [ ] Visual query builder
-- [ ] User-authored saved views
-- [ ] Display configuration editing
+- [x] Saved view renderer
+- [x] Visual query builder
+- [x] User-authored saved views (clone + edit; no create-from-scratch flow)
+- [x] Display configuration editing
 
 ### Cross-tracker power features
 
