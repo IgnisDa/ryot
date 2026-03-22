@@ -8,7 +8,7 @@ import {
 	type ConfigValueResult,
 	type HostFunction,
 } from "~/lib/sandbox/types";
-import { userPreferencesSchema } from "~/modules/authentication";
+import { userPreferencesSchema } from "~/modules/builtins";
 
 type GetUserPreferencesContext = {
 	userId: string;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { apiFailure, apiSuccess } from "~/lib/sandbox/types";
-import { defaultUserPreferences } from "~/modules/authentication";
+import { defaultUserPreferences } from "~/modules/builtins";
 
 import { createGetUserPreferencesHostFunction } from "./get-user-preferences";
 

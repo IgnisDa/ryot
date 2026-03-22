@@ -12,7 +12,7 @@ import {
 	createTitlePagesPropertiesSchema,
 } from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
-import { authenticationBuiltinEntitySchemas } from "~/modules/authentication";
+import { builtinEntitySchemas as getBuiltinEntitySchemas } from "~/modules/builtins";
 
 import {
 	createEntitySchema,
@@ -218,7 +218,7 @@ describe("resolveEntitySchemaTrackerId", () => {
 });
 
 describe("validateSlugNotReserved", () => {
-	const builtinEntitySchemas = authenticationBuiltinEntitySchemas();
+	const builtinEntitySchemas = getBuiltinEntitySchemas();
 	const reservedSlugs = builtinEntitySchemas.map((s) => s.slug);
 
 	it("throws error for each built-in schema slug", () => {
