@@ -100,7 +100,7 @@ async function createTracker(
 	description?: string,
 ): Promise<Tracker> {
 	console.log(`  Creating tracker: ${name}...`);
-	const tracker = await client.post<Tracker>("/trackers/create", {
+	const tracker = await client.post<Tracker>("/trackers", {
 		name,
 		slug,
 		icon,
