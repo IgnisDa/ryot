@@ -1,6 +1,7 @@
 import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { entity, entitySchema, type ImageSchemaType } from "~/lib/db/schema";
+import type { ListedEntity } from "./schemas";
 import type { EntityPropertiesShape } from "./service";
 
 const entitySchemaVisibleToUserClause = (userId: string) => {
@@ -18,6 +19,15 @@ const entitySelection = {
 	entitySchemaId: entity.entitySchemaId,
 	detailsSandboxScriptId: entity.detailsSandboxScriptId,
 };
+
+type EntityRow = Omit<ListedEntity, "properties"> & {
+	properties: unknown;
+};
+
+const toListedEntity = (row: EntityRow): ListedEntity => ({
+	...row,
+	properties: row.properties as EntityPropertiesShape,
+});
 
 export const getEntitySchemaScopeForUser = async (input: {
 	userId: string;
@@ -70,12 +80,7 @@ export const getEntityByIdForUser = async (input: {
 		.where(and(eq(entity.id, input.entityId), eq(entity.userId, input.userId)))
 		.limit(1);
 
-	return foundEntity
-		? {
-				...foundEntity,
-				properties: foundEntity.properties as EntityPropertiesShape,
-			}
-		: foundEntity;
+	return foundEntity ? toListedEntity(foundEntity) : foundEntity;
 };
 
 export const listEntitiesByEntitySchemaForUser = async (input: {
@@ -93,10 +98,7 @@ export const listEntitiesByEntitySchemaForUser = async (input: {
 		)
 		.orderBy(asc(entity.name), asc(entity.createdAt));
 
-	return rows.map((row) => ({
-		...row,
-		properties: row.properties as EntityPropertiesShape,
-	}));
+	return rows.map(toListedEntity);
 };
 
 export const createEntityForUser = async (input: {
@@ -121,8 +123,5 @@ export const createEntityForUser = async (input: {
 
 	if (!createdEntity) throw new Error("Could not persist entity");
 
-	return {
-		...createdEntity,
-		properties: createdEntity.properties as EntityPropertiesShape,
-	};
+	return toListedEntity(createdEntity);
 };
