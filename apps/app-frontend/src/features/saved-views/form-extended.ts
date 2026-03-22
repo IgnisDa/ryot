@@ -19,7 +19,7 @@ export function buildDefaultSortFieldRow(): SortFieldRow {
 const filterRowSchema = z.object({
 	id: z.string(),
 	field: z.string(),
-	value: z.string(),
+	value: z.union([z.string(), z.number(), z.boolean()]),
 	op: z.enum(["eq", "ne", "gt", "gte", "lt", "lte", "in", "isNull"]),
 });
 
@@ -28,7 +28,7 @@ export type FilterRow = z.infer<typeof filterRowSchema>;
 function buildFilterRow(
 	field: string,
 	op: FilterRow["op"],
-	value: string,
+	value: FilterRow["value"],
 	id?: string,
 ): FilterRow {
 	return { field, op, value, id: id ?? crypto.randomUUID() };
@@ -137,19 +137,28 @@ export function buildSavedViewExtendedFormValues(
 ): SavedViewExtendedFormValues {
 	return {
 		entitySchemaSlugs: view.queryDefinition.entitySchemaSlugs,
-		filters: view.queryDefinition.filters.map((filter) =>
-			buildFilterRow(
-				filter.field,
-				filter.op as FilterRow["op"],
-				String(filter.value ?? ""),
-			),
-		),
 		sort: {
 			direction: view.queryDefinition.sort.direction,
 			fields: view.queryDefinition.sort.fields.map((field) =>
 				buildSortFieldRow(field),
 			),
 		},
+		filters: view.queryDefinition.filters.map((filter) => {
+			const rawValue = "value" in filter ? filter.value : null;
+			let formValue: FilterRow["value"] = "";
+			if (
+				typeof rawValue === "string" ||
+				typeof rawValue === "number" ||
+				typeof rawValue === "boolean"
+			) {
+				formValue = rawValue;
+			}
+			return buildFilterRow(
+				filter.field,
+				filter.op as FilterRow["op"],
+				formValue,
+			);
+		}),
 		displayConfiguration: {
 			table: {
 				columns: view.displayConfiguration.table.columns.map((column) =>
@@ -203,24 +212,15 @@ function buildApiFilter(filter: FilterRow): ApiFilterExpression {
 	}
 
 	if (filter.op === "in") {
+		const raw = typeof filter.value === "string" ? filter.value : "";
 		return {
 			op: filter.op,
 			field: filter.field,
-			value: filter.value.split(",").map((v) => v.trim()),
+			value: raw.split(",").map((v) => v.trim()),
 		};
 	}
 
-	const numValue = Number(filter.value);
-	let parsedValue: unknown = filter.value;
-	if (!Number.isNaN(numValue)) {
-		parsedValue = numValue;
-	} else if (filter.value === "true") {
-		parsedValue = true;
-	} else if (filter.value === "false") {
-		parsedValue = false;
-	}
-
-	return { field: filter.field, op: filter.op, value: parsedValue };
+	return { field: filter.field, op: filter.op, value: filter.value };
 }
 
 function buildApiDisplayProperty(value: PropertyPathRow[] | null) {

@@ -20,6 +20,7 @@
 		"@dnd-kit/utilities": "3.2.2",
 		"@formkit/auto-animate": "0.9.0",
 		"@mantine/core": "9.0.0-alpha.3",
+		"@mantine/dates": "9.0.0-alpha.3",
 		"@mantine/hooks": "9.0.0-alpha.3",
 		"@mantine/modals": "9.0.0-alpha.3",
 		"@ryot/generated": "workspace:*",
