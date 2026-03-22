@@ -1,3 +1,4 @@
+import type { components } from "@ryot/generated/openapi/app-backend";
 import type { Client } from "./auth";
 import { findBuiltinTracker } from "./trackers";
 
@@ -9,7 +10,7 @@ export interface CreateEntitySchemaOptions {
 	accentColor?: string;
 	propertiesSchema?: Record<
 		string,
-		{ type: "boolean" | "date" | "integer" | "number" | "string" }
+		components["schemas"]["AppPropertyDefinition"]
 	>;
 }
 

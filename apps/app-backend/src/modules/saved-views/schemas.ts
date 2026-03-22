@@ -49,9 +49,16 @@ const filterExpressionComparisonSchema = z.object({
 	op: z.enum(["eq", "ne", "gt", "gte", "lt", "lte"]),
 });
 
+const filterExpressionContainsSchema = z.object({
+	value: z.unknown(),
+	field: runtimeFieldPathSchema,
+	op: z.literal("contains"),
+});
+
 export const filterExpressionSchema = z.discriminatedUnion("op", [
 	filterExpressionInSchema,
 	filterExpressionIsNullSchema,
+	filterExpressionContainsSchema,
 	filterExpressionComparisonSchema,
 ]);
 
