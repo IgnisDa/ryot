@@ -13,8 +13,9 @@ export const adminTokenAtom = Atom.make("");
 
 const usersReactivityKey = ["god-mode-users"];
 
-const httpClientLayer = (get: Atom.AtomContext) =>
-	Layer.effect(
+const httpClientLayer = (get: Atom.AtomContext) => {
+	const adminToken = get(adminTokenAtom);
+	return Layer.effect(
 		HttpClient.HttpClient,
 		Effect.gen(function* () {
 			const client = yield* HttpClient.HttpClient;
@@ -25,7 +26,7 @@ const httpClientLayer = (get: Atom.AtomContext) =>
 						Effect.map((serverUrl) =>
 							request.pipe(
 								HttpClientRequest.prependUrl(`${serverUrl}/api`),
-								HttpClientRequest.setHeader("Admin-Access-Token", get(adminTokenAtom)),
+								HttpClientRequest.setHeader("Admin-Access-Token", adminToken),
 							),
 						),
 					),
@@ -36,6 +37,7 @@ const httpClientLayer = (get: Atom.AtomContext) =>
 			);
 		}),
 	).pipe(Layer.provide(FetchHttpClient.layer), Layer.provide(serverStorageLayer));
+};
 
 const godModeApiOptions = { api: AppContract, httpClient: httpClientLayer };
 
