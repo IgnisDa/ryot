@@ -225,10 +225,10 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        code: string;
                         context?: {
                             [key: string]: unknown;
                         };
+                        code: string;
                     };
                 };
             };
@@ -312,11 +312,11 @@ export interface paths {
                             } | {
                                 logs: string | null;
                                 error: string | null;
-                                /** @enum {string} */
-                                status: "completed";
                                 value: string | number | boolean | unknown | unknown[] | {
                                     [key: string]: unknown;
                                 };
+                                /** @enum {string} */
+                                status: "completed";
                             };
                         };
                     };
