@@ -1,5 +1,6 @@
-// Journal-first design: a dense, chronological reading/watching log is the main
-// column. Stats, quick-add, and on-hold items live in a compact sticky sidebar.
+// Journal-first design: a dense, chronological activity log is the main column.
+// Stats, quick-add, and on-hold items live in a compact sticky sidebar.
+// Covers all 11 media types.
 
 import {
 	Box,
@@ -7,12 +8,13 @@ import {
 	Container,
 	Grid,
 	Group,
+	Menu,
 	Paper,
 	Stack,
 	Text,
 } from "@mantine/core";
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { useColorScheme } from "#/hooks/theme";
 
 export const Route = createFileRoute("/_protected/labs/media-overview/v3")({
@@ -21,85 +23,328 @@ export const Route = createFileRoute("/_protected/labs/media-overview/v3")({
 
 const GOLD = "#C9943A";
 
-const SAMPLE_BOOKS = [
+type MediaType =
+	| "Book"
+	| "Show"
+	| "Movie"
+	| "Anime"
+	| "Manga"
+	| "Music"
+	| "Podcast"
+	| "AudioBook"
+	| "VideoGame"
+	| "ComicBook"
+	| "VisualNovel";
+
+const MEDIA_TYPES: MediaType[] = [
+	"Book",
+	"Show",
+	"Movie",
+	"Anime",
+	"Manga",
+	"Music",
+	"Podcast",
+	"AudioBook",
+	"VideoGame",
+	"ComicBook",
+	"VisualNovel",
+];
+
+const TYPE_COLORS: Record<string, string> = {
+	Book: "#8B5E3C",
+	Show: "#5B7FFF",
+	Movie: "#E05252",
+	Anime: "#FF6B6B",
+	Manga: "#C9943A",
+	Music: "#9B59B6",
+	Podcast: "#1ABC9C",
+	AudioBook: "#E67E22",
+	VideoGame: "#27AE60",
+	ComicBook: "#E74C3C",
+	VisualNovel: "#F39C12",
+};
+
+interface LibraryItem {
+	id: string;
+	title: string;
+	sub: string;
+	type: MediaType;
+	status: string;
+	coverUrl: string;
+	rating: number | null;
+}
+
+const ALL_ITEMS: LibraryItem[] = [
 	{
 		id: "b1",
+		type: "Book",
 		title: "Where Have All the Leaders Gone?",
-		author: "Lee Iacocca",
+		sub: "Lee Iacocca",
 		status: "completed",
-		coverUrl: "https://covers.openlibrary.org/b/id/8739161-L.jpg",
 		rating: 4,
+		coverUrl: "https://covers.openlibrary.org/b/id/8739161-L.jpg",
 	},
 	{
 		id: "b2",
+		type: "Book",
 		title: "The Wind Is Never Gone",
-		author: "Sally Mandel",
+		sub: "Sally Mandel",
 		status: "reading",
-		coverUrl: "https://covers.openlibrary.org/b/id/240726-L.jpg",
 		rating: null,
+		coverUrl: "https://covers.openlibrary.org/b/id/240726-L.jpg",
 	},
 	{
 		id: "b3",
+		type: "Book",
 		title: "What to Do When I'm Gone",
-		author: "Suzy Hopkins",
+		sub: "Suzy Hopkins",
 		status: "reading",
-		coverUrl: "https://covers.openlibrary.org/b/id/10527831-L.jpg",
 		rating: null,
+		coverUrl: "https://covers.openlibrary.org/b/id/10527831-L.jpg",
 	},
 	{
 		id: "b4",
+		type: "Book",
 		title: "The Name of the Wind",
-		author: "Patrick Rothfuss",
+		sub: "Patrick Rothfuss",
 		status: "on_hold",
-		coverUrl: "https://covers.openlibrary.org/b/id/9256378-L.jpg",
 		rating: 5,
+		coverUrl: "https://covers.openlibrary.org/b/id/9256378-L.jpg",
 	},
-];
-const SAMPLE_ANIME = [
+	{
+		id: "s1",
+		type: "Show",
+		title: "Breaking Bad",
+		sub: "Vince Gilligan",
+		status: "watching",
+		rating: null,
+		coverUrl: "https://image.tmdb.org/t/p/w500/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
+	},
+	{
+		id: "s2",
+		type: "Show",
+		title: "The Wire",
+		sub: "David Simon",
+		status: "completed",
+		rating: 5,
+		coverUrl: "https://image.tmdb.org/t/p/w500/4lkAHCDkH7KEELKBEMdFf7EGXcb.jpg",
+	},
+	{
+		id: "s3",
+		type: "Show",
+		title: "Severance",
+		sub: "Dan Erickson",
+		status: "on_hold",
+		rating: null,
+		coverUrl: "https://image.tmdb.org/t/p/w500/oNF5oacaZFXMjGC8fWOTvmDCxLr.jpg",
+	},
+	{
+		id: "mv1",
+		type: "Movie",
+		title: "Dune: Part Two",
+		sub: "Denis Villeneuve",
+		status: "completed",
+		rating: 5,
+		coverUrl: "https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
+	},
+	{
+		id: "mv2",
+		type: "Movie",
+		title: "Oppenheimer",
+		sub: "Christopher Nolan",
+		status: "completed",
+		rating: 4,
+		coverUrl: "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
+	},
+	{
+		id: "mv3",
+		type: "Movie",
+		title: "Poor Things",
+		sub: "Yorgos Lanthimos",
+		status: "completed",
+		rating: 5,
+		coverUrl: "https://image.tmdb.org/t/p/w500/kCGlIMHnOm8JPXIwwzwrznhIiIT.jpg",
+	},
 	{
 		id: "a1",
+		type: "Anime",
 		title: "Frieren: Beyond Journey's End",
-		episodes: 28,
-		totalEpisodes: 28,
+		sub: "Madhouse",
 		status: "completed",
-		coverUrl: "https://cdn.myanimelist.net/images/anime/1015/138006.jpg",
 		rating: 5,
+		coverUrl: "https://cdn.myanimelist.net/images/anime/1015/138006.jpg",
 	},
 	{
 		id: "a2",
+		type: "Anime",
 		title: "Dungeon Meshi",
-		episodes: 12,
-		totalEpisodes: 24,
+		sub: "Studio Trigger",
 		status: "watching",
-		coverUrl: "https://cdn.myanimelist.net/images/anime/1628/140081.jpg",
 		rating: null,
+		coverUrl: "https://cdn.myanimelist.net/images/anime/1628/140081.jpg",
 	},
 	{
 		id: "a3",
+		type: "Anime",
 		title: "Solo Leveling",
-		episodes: 4,
-		totalEpisodes: 12,
+		sub: "A-1 Pictures",
 		status: "watching",
-		coverUrl: "https://cdn.myanimelist.net/images/anime/1258/135739.jpg",
 		rating: null,
+		coverUrl: "https://cdn.myanimelist.net/images/anime/1258/135739.jpg",
 	},
-];
-const SAMPLE_MANGA = [
 	{
 		id: "m1",
+		type: "Manga",
 		title: "Berserk",
-		chapters: 374,
+		sub: "Kentaro Miura",
 		status: "on_hold",
-		coverUrl: "https://cdn.myanimelist.net/images/manga/1/157897.jpg",
 		rating: 5,
+		coverUrl: "https://cdn.myanimelist.net/images/manga/1/157897.jpg",
 	},
 	{
 		id: "m2",
+		type: "Manga",
 		title: "Vagabond",
-		chapters: 90,
+		sub: "Takehiko Inoue",
 		status: "reading",
-		coverUrl: "https://cdn.myanimelist.net/images/manga/3/116498.jpg",
 		rating: null,
+		coverUrl: "https://cdn.myanimelist.net/images/manga/3/116498.jpg",
+	},
+	{
+		id: "mu1",
+		type: "Music",
+		title: "Kind of Blue",
+		sub: "Miles Davis",
+		status: "completed",
+		rating: 5,
+		coverUrl:
+			"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/KindofBlue.jpg/300px-KindofBlue.jpg",
+	},
+	{
+		id: "mu2",
+		type: "Music",
+		title: "Random Access Memories",
+		sub: "Daft Punk",
+		status: "completed",
+		rating: 5,
+		coverUrl:
+			"https://upload.wikimedia.org/wikipedia/en/a/a7/Random_Access_Memories.jpg",
+	},
+	{
+		id: "mu3",
+		type: "Music",
+		title: "In Rainbows",
+		sub: "Radiohead",
+		status: "listening",
+		rating: null,
+		coverUrl:
+			"https://upload.wikimedia.org/wikipedia/en/3/3e/In_Rainbows_Official_Cover.jpg",
+	},
+	{
+		id: "p1",
+		type: "Podcast",
+		title: "Lex Fridman Podcast",
+		sub: "Lex Fridman",
+		status: "listening",
+		rating: null,
+		coverUrl:
+			"https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=300&fit=crop",
+	},
+	{
+		id: "p2",
+		type: "Podcast",
+		title: "The Knowledge Project",
+		sub: "Shane Parrish",
+		status: "on_hold",
+		rating: null,
+		coverUrl:
+			"https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=300&fit=crop",
+	},
+	{
+		id: "ab1",
+		type: "AudioBook",
+		title: "Atomic Habits",
+		sub: "James Clear",
+		status: "completed",
+		rating: 4,
+		coverUrl: "https://m.media-amazon.com/images/I/513Y5o-DYtL.jpg",
+	},
+	{
+		id: "ab2",
+		type: "AudioBook",
+		title: "The Pragmatic Programmer",
+		sub: "David Thomas",
+		status: "listening",
+		rating: null,
+		coverUrl: "https://m.media-amazon.com/images/I/41BKx1AxQWL.jpg",
+	},
+	{
+		id: "vg1",
+		type: "VideoGame",
+		title: "Elden Ring",
+		sub: "FromSoftware",
+		status: "completed",
+		rating: 5,
+		coverUrl:
+			"https://images.igdb.com/igdb/image/upload/t_cover_big/co4jni.jpg",
+	},
+	{
+		id: "vg2",
+		type: "VideoGame",
+		title: "Hollow Knight",
+		sub: "Team Cherry",
+		status: "completed",
+		rating: 5,
+		coverUrl:
+			"https://images.igdb.com/igdb/image/upload/t_cover_big/co3p2d.jpg",
+	},
+	{
+		id: "vg3",
+		type: "VideoGame",
+		title: "Celeste",
+		sub: "Maddy Thorson",
+		status: "on_hold",
+		rating: 4,
+		coverUrl:
+			"https://images.igdb.com/igdb/image/upload/t_cover_big/co1tmu.jpg",
+	},
+	{
+		id: "cb1",
+		type: "ComicBook",
+		title: "Watchmen",
+		sub: "Alan Moore",
+		status: "completed",
+		rating: 5,
+		coverUrl:
+			"https://upload.wikimedia.org/wikipedia/en/a/a2/Watchmen%2C_issue_1.jpg",
+	},
+	{
+		id: "cb2",
+		type: "ComicBook",
+		title: "The Sandman",
+		sub: "Neil Gaiman",
+		status: "reading",
+		rating: null,
+		coverUrl:
+			"https://upload.wikimedia.org/wikipedia/en/f/f5/SandmanIssue1.jpg",
+	},
+	{
+		id: "vn1",
+		type: "VisualNovel",
+		title: "Steins;Gate",
+		sub: "5pb. / Nitroplus",
+		status: "completed",
+		rating: 5,
+		coverUrl: "https://cdn.myanimelist.net/images/anime/5/73199.jpg",
+	},
+	{
+		id: "vn2",
+		type: "VisualNovel",
+		title: "Clannad",
+		sub: "Key / Visual Arts",
+		status: "reading",
+		rating: null,
+		coverUrl: "https://cdn.myanimelist.net/images/anime/1811/97462.jpg",
 	},
 ];
 
@@ -107,7 +352,7 @@ interface JournalEntry {
 	id: string;
 	date: string;
 	time: string;
-	type: "Book" | "Anime" | "Manga";
+	type: MediaType;
 	title: string;
 	sub: string;
 	action: string;
@@ -145,12 +390,13 @@ const JOURNAL: JournalEntry[] = [
 		id: "j3",
 		date: "Today",
 		time: "11h ago",
-		type: "Book",
-		title: "What to Do When I'm Gone",
-		sub: "Suzy Hopkins",
-		action: "Started reading",
-		actionColor: GOLD,
-		coverUrl: "https://covers.openlibrary.org/b/id/10527831-L.jpg",
+		type: "Music",
+		title: "In Rainbows",
+		sub: "Radiohead",
+		action: "Started listening",
+		actionColor: "#9B59B6",
+		coverUrl:
+			"https://upload.wikimedia.org/wikipedia/en/3/3e/In_Rainbows_Official_Cover.jpg",
 		rating: null,
 	},
 	{
@@ -169,16 +415,28 @@ const JOURNAL: JournalEntry[] = [
 		id: "j5",
 		date: "Yesterday",
 		time: "Yesterday",
-		type: "Anime",
-		title: "Dungeon Meshi",
-		sub: "12 of 24 episodes",
-		action: "Watched episode 12",
-		actionColor: "var(--mantine-color-blue-5)",
-		coverUrl: "https://cdn.myanimelist.net/images/anime/1628/140081.jpg",
+		type: "AudioBook",
+		title: "The Pragmatic Programmer",
+		sub: "David Thomas",
+		action: "Started listening",
+		actionColor: "#E67E22",
+		coverUrl: "https://m.media-amazon.com/images/I/41BKx1AxQWL.jpg",
 		rating: null,
 	},
 	{
 		id: "j6",
+		date: "Yesterday",
+		time: "Yesterday",
+		type: "Anime",
+		title: "Dungeon Meshi",
+		sub: "12 of 24 episodes",
+		action: "Watched episode 12",
+		actionColor: "#5B7FFF",
+		coverUrl: "https://cdn.myanimelist.net/images/anime/1628/140081.jpg",
+		rating: null,
+	},
+	{
+		id: "j7",
 		date: "2 days ago",
 		time: "2d ago",
 		type: "Book",
@@ -190,19 +448,70 @@ const JOURNAL: JournalEntry[] = [
 		rating: null,
 	},
 	{
-		id: "j7",
+		id: "j8",
+		date: "2 days ago",
+		time: "2d ago",
+		type: "VideoGame",
+		title: "Elden Ring",
+		sub: "FromSoftware",
+		action: "Completed",
+		actionColor: "#5B8A5F",
+		coverUrl:
+			"https://images.igdb.com/igdb/image/upload/t_cover_big/co4jni.jpg",
+		rating: 5,
+	},
+	{
+		id: "j9",
+		date: "3 days ago",
+		time: "3d ago",
+		type: "Podcast",
+		title: "Lex Fridman Podcast",
+		sub: "Lex Fridman",
+		action: "Listened to episode",
+		actionColor: "#1ABC9C",
+		coverUrl:
+			"https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=300&fit=crop",
+		rating: null,
+	},
+	{
+		id: "j10",
 		date: "3 days ago",
 		time: "3d ago",
 		type: "Anime",
 		title: "Solo Leveling",
 		sub: "4 of 12 episodes",
 		action: "Watched episode 4",
-		actionColor: "var(--mantine-color-blue-5)",
+		actionColor: "#5B7FFF",
 		coverUrl: "https://cdn.myanimelist.net/images/anime/1258/135739.jpg",
 		rating: null,
 	},
 	{
-		id: "j8",
+		id: "j11",
+		date: "1 week ago",
+		time: "1w ago",
+		type: "Movie",
+		title: "Dune: Part Two",
+		sub: "Denis Villeneuve",
+		action: "Watched",
+		actionColor: "#5B8A5F",
+		coverUrl: "https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
+		rating: 5,
+	},
+	{
+		id: "j12",
+		date: "1 week ago",
+		time: "1w ago",
+		type: "ComicBook",
+		title: "The Sandman",
+		sub: "Neil Gaiman",
+		action: "Started reading",
+		actionColor: "#E74C3C",
+		coverUrl:
+			"https://upload.wikimedia.org/wikipedia/en/f/f5/SandmanIssue1.jpg",
+		rating: null,
+	},
+	{
+		id: "j13",
 		date: "1 week ago",
 		time: "1w ago",
 		type: "Manga",
@@ -214,18 +523,37 @@ const JOURNAL: JournalEntry[] = [
 		rating: null,
 	},
 	{
-		id: "j9",
-		date: "1 week ago",
-		time: "1w ago",
-		type: "Manga",
-		title: "Berserk",
-		sub: "374 chapters",
-		action: "Put on hold",
-		actionColor: "#E09840",
-		coverUrl: "https://cdn.myanimelist.net/images/manga/1/157897.jpg",
-		rating: null,
+		id: "j14",
+		date: "2 weeks ago",
+		time: "2w ago",
+		type: "VisualNovel",
+		title: "Steins;Gate",
+		sub: "5pb. / Nitroplus",
+		action: "Completed",
+		actionColor: "#5B8A5F",
+		coverUrl: "https://cdn.myanimelist.net/images/anime/5/73199.jpg",
+		rating: 5,
+	},
+	{
+		id: "j15",
+		date: "2 weeks ago",
+		time: "2w ago",
+		type: "AudioBook",
+		title: "Atomic Habits",
+		sub: "James Clear",
+		action: "Finished",
+		actionColor: "#5B8A5F",
+		coverUrl: "https://m.media-amazon.com/images/I/513Y5o-DYtL.jpg",
+		rating: 4,
 	},
 ];
+
+const ACTIVE_STATUSES = new Set([
+	"reading",
+	"watching",
+	"listening",
+	"playing",
+]);
 
 function EntryRow(props: {
 	entry: JournalEntry;
@@ -244,6 +572,7 @@ function EntryRow(props: {
 	const typePill = props.isDark
 		? "var(--mantine-color-dark-5)"
 		: "var(--mantine-color-stone-2)";
+	const typeColor = TYPE_COLORS[props.entry.type] ?? GOLD;
 
 	return (
 		<Group
@@ -274,7 +603,7 @@ function EntryRow(props: {
 						<Text
 							fz={10}
 							fw={600}
-							c={textMuted}
+							c={typeColor}
 							ff="var(--mantine-headings-font-family)"
 							style={{ textTransform: "uppercase", letterSpacing: "0.6px" }}
 						>
@@ -364,16 +693,9 @@ function RouteComponent() {
 		? "var(--mantine-color-dark-6)"
 		: "var(--mantine-color-stone-2)";
 
-	const allItems = [
-		...SAMPLE_BOOKS.map((b) => ({ ...b, type: "Book" as const })),
-		...SAMPLE_ANIME.map((a) => ({ ...a, type: "Anime" as const })),
-		...SAMPLE_MANGA.map((m) => ({ ...m, type: "Manga" as const })),
-	];
-	const onHold = allItems.filter((i) => i.status === "on_hold");
-	const inProgress = allItems.filter(
-		(i) => i.status === "reading" || i.status === "watching",
-	);
-	const completed = allItems.filter((i) => i.status === "completed");
+	const onHold = ALL_ITEMS.filter((i) => i.status === "on_hold");
+	const inProgress = ALL_ITEMS.filter((i) => ACTIVE_STATUSES.has(i.status));
+	const completed = ALL_ITEMS.filter((i) => i.status === "completed");
 
 	const grouped = JOURNAL.reduce<Record<string, JournalEntry[]>>(
 		(acc, entry) => {
@@ -394,20 +716,43 @@ function RouteComponent() {
 				<Grid>
 					<Grid.Col span={{ base: 12, md: 8 }}>
 						<Stack gap="xl">
-							<Box>
-								<Text
-									ff="var(--mantine-headings-font-family)"
-									fw={700}
-									fz={26}
-									c={textPrimary}
-									lh={1.1}
-								>
-									Media Journal
-								</Text>
-								<Text fz="sm" c={textMuted} mt={4}>
-									Your reading & watching log
-								</Text>
-							</Box>
+							<Group justify="space-between" align="flex-end">
+								<Box>
+									<Text
+										ff="var(--mantine-headings-font-family)"
+										fw={700}
+										fz={26}
+										c={textPrimary}
+										lh={1.1}
+									>
+										Media Journal
+									</Text>
+									<Text fz="sm" c={textMuted} mt={4}>
+										{ALL_ITEMS.length} entries across all types
+									</Text>
+								</Box>
+								<Menu position="bottom-end" width={180}>
+									<Menu.Target>
+										<Button
+											size="sm"
+											leftSection={<Plus size={14} />}
+											rightSection={<ChevronDown size={12} />}
+											style={{ backgroundColor: GOLD, color: "white" }}
+										>
+											Add
+										</Button>
+									</Menu.Target>
+									<Menu.Dropdown>
+										{MEDIA_TYPES.map((type) => (
+											<Menu.Item key={type}>
+												<Text fz="sm" c={TYPE_COLORS[type]}>
+													{type}
+												</Text>
+											</Menu.Item>
+										))}
+									</Menu.Dropdown>
+								</Menu>
+							</Group>
 
 							{dateGroups.map(([date, entries]) => (
 								<Box key={date}>
@@ -448,45 +793,10 @@ function RouteComponent() {
 
 					<Grid.Col span={{ base: 12, md: 4 }}>
 						<Stack gap="md" style={{ position: "sticky", top: 24 }}>
-							<SidebarCard title="Quick Add" isDark={isDark}>
-								<Stack gap="xs">
-									<Button
-										size="xs"
-										variant="light"
-										color="yellow"
-										leftSection={<Plus size={11} />}
-										fullWidth
-										justify="flex-start"
-									>
-										Book
-									</Button>
-									<Button
-										size="xs"
-										variant="light"
-										color="blue"
-										leftSection={<Plus size={11} />}
-										fullWidth
-										justify="flex-start"
-									>
-										Anime
-									</Button>
-									<Button
-										size="xs"
-										variant="light"
-										color="orange"
-										leftSection={<Plus size={11} />}
-										fullWidth
-										justify="flex-start"
-									>
-										Manga
-									</Button>
-								</Stack>
-							</SidebarCard>
-
 							<SidebarCard title="Library" isDark={isDark}>
 								<Stack gap={6}>
 									{[
-										{ label: "Total entries", value: allItems.length },
+										{ label: "Total entries", value: ALL_ITEMS.length },
 										{ label: "In progress", value: inProgress.length },
 										{ label: "Completed", value: completed.length },
 										{ label: "On hold", value: onHold.length },
@@ -507,6 +817,67 @@ function RouteComponent() {
 									))}
 								</Stack>
 							</SidebarCard>
+
+							{inProgress.length > 0 && (
+								<SidebarCard title="In Progress" isDark={isDark}>
+									<Stack gap="sm">
+										{inProgress.slice(0, 4).map((item, i) => (
+											<Group key={item.id} gap="sm" wrap="nowrap">
+												<Text
+													fz={11}
+													fw={700}
+													ff="var(--mantine-font-family-monospace)"
+													c={textMuted}
+													style={{ flexShrink: 0, width: 14 }}
+												>
+													{i + 1}
+												</Text>
+												<Box
+													w={28}
+													h={38}
+													style={{
+														flexShrink: 0,
+														borderRadius: 3,
+														backgroundImage: `url(${item.coverUrl})`,
+														backgroundSize: "cover",
+														backgroundPosition: "center",
+													}}
+												/>
+												<Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
+													<Text
+														fz="xs"
+														fw={600}
+														c={textPrimary}
+														lineClamp={1}
+														ff="var(--mantine-headings-font-family)"
+													>
+														{item.title}
+													</Text>
+													<Text
+														fz={10}
+														c={TYPE_COLORS[item.type] ?? GOLD}
+														fw={500}
+													>
+														{item.type}
+													</Text>
+												</Stack>
+											</Group>
+										))}
+										{inProgress.length > 4 && (
+											<Text
+												fz="xs"
+												c={textMuted}
+												style={{
+													paddingTop: 8,
+													borderTop: `1px solid ${divider}`,
+												}}
+											>
+												+{inProgress.length - 4} more
+											</Text>
+										)}
+									</Stack>
+								</SidebarCard>
+							)}
 
 							{onHold.length > 0 && (
 								<SidebarCard title="On Hold" isDark={isDark}>
@@ -535,7 +906,11 @@ function RouteComponent() {
 													>
 														{item.title}
 													</Text>
-													<Text fz={10} c={textMuted}>
+													<Text
+														fz={10}
+														c={TYPE_COLORS[item.type] ?? GOLD}
+														fw={500}
+													>
 														{item.type}
 													</Text>
 												</Stack>
@@ -544,61 +919,6 @@ function RouteComponent() {
 									</Stack>
 								</SidebarCard>
 							)}
-
-							<SidebarCard title="Currently Reading" isDark={isDark}>
-								<Stack gap="sm">
-									{inProgress.slice(0, 3).map((item, i) => (
-										<Group key={item.id} gap="sm" wrap="nowrap">
-											<Text
-												fz={11}
-												fw={700}
-												ff="var(--mantine-font-family-monospace)"
-												c={textMuted}
-												style={{ flexShrink: 0, width: 14 }}
-											>
-												{i + 1}
-											</Text>
-											<Box
-												w={28}
-												h={38}
-												style={{
-													flexShrink: 0,
-													borderRadius: 3,
-													backgroundImage: `url(${item.coverUrl})`,
-													backgroundSize: "cover",
-													backgroundPosition: "center",
-												}}
-											/>
-											<Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
-												<Text
-													fz="xs"
-													fw={600}
-													c={textPrimary}
-													lineClamp={1}
-													ff="var(--mantine-headings-font-family)"
-												>
-													{item.title}
-												</Text>
-												<Text fz={10} c={textMuted}>
-													{item.type}
-												</Text>
-											</Stack>
-										</Group>
-									))}
-									{inProgress.length > 3 && (
-										<Text
-											fz="xs"
-											c={textMuted}
-											style={{
-												paddingTop: 8,
-												borderTop: `1px solid ${divider}`,
-											}}
-										>
-											+{inProgress.length - 3} more
-										</Text>
-									)}
-								</Stack>
-							</SidebarCard>
 						</Stack>
 					</Grid.Col>
 				</Grid>
