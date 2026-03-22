@@ -271,6 +271,7 @@ const MOCK_SCENARIOS: SavedViewScenario[] = [
 			},
 		],
 		cardConfig: {
+			imageProperty: "image",
 			titleProperty: "name",
 			subtitleProperties: ["year", "genre"],
 			badgeProperty: "rating",
@@ -823,6 +824,57 @@ function EntityGridCard(props: {
 	);
 }
 
+function EntityThumbnail(props: {
+	image?: string;
+	height: number;
+	width: number;
+	isDark: boolean;
+	radius?: string;
+	iconSize?: number;
+}) {
+	const surfaceHover = props.isDark
+		? "var(--mantine-color-dark-7)"
+		: "var(--mantine-color-stone-1)";
+	const textMuted = props.isDark
+		? "var(--mantine-color-dark-4)"
+		: "var(--mantine-color-stone-5)";
+
+	if (props.image)
+		return (
+			<Box
+				h={props.height}
+				w={props.width}
+				style={{
+					flexShrink: 0,
+					borderRadius: props.radius ?? "var(--mantine-radius-sm)",
+					backgroundImage: `url(${props.image})`,
+					backgroundSize: "cover",
+					backgroundPosition: "center",
+				}}
+			/>
+		);
+
+	return (
+		<Box
+			h={props.height}
+			w={props.width}
+			bg={surfaceHover}
+			style={{
+				flexShrink: 0,
+				display: "grid",
+				placeItems: "center",
+				borderRadius: props.radius ?? "var(--mantine-radius-sm)",
+			}}
+		>
+			<ImageIcon
+				size={props.iconSize ?? 24}
+				color={textMuted}
+				strokeWidth={1.5}
+			/>
+		</Box>
+	);
+}
+
 function EntityListRow(props: {
 	entity: MockEntity;
 	scenario: SavedViewScenario;
@@ -844,6 +896,10 @@ function EntityListRow(props: {
 
 	const accentColor = props.scenario.accentColor;
 	const accentMuted = `color-mix(in srgb, ${accentColor} 15%, transparent)`;
+	const imageProperty = props.scenario.cardConfig.imageProperty;
+	const image = imageProperty
+		? props.entity[imageProperty as keyof MockEntity]
+		: undefined;
 
 	const subtitle = props.scenario.cardConfig.subtitleProperties
 		.map((prop) => props.entity[prop as keyof MockEntity])
@@ -877,48 +933,57 @@ function EntityListRow(props: {
 			}}
 		>
 			<Group justify="space-between" align="flex-start" wrap="nowrap">
-				<Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
-					<Text
-						fw={600}
-						size="md"
-						style={{
-							fontFamily: "var(--mantine-headings-font-family)",
-							color: textPrimary,
-						}}
-					>
-						{props.entity.name}
-					</Text>
-					{subtitle && (
-						<Text size="sm" c={textSecondary}>
-							{subtitle}
+				<Group gap="md" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+					<EntityThumbnail
+						image={typeof image === "string" ? image : undefined}
+						height={84}
+						width={60}
+						isDark={props.isDark}
+						iconSize={20}
+					/>
+					<Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
+						<Text
+							fw={600}
+							size="md"
+							style={{
+								fontFamily: "var(--mantine-headings-font-family)",
+								color: textPrimary,
+							}}
+						>
+							{props.entity.name}
 						</Text>
-					)}
-					<Group gap="xs">
-						{props.entity.type && (
-							<Badge
-								size="sm"
-								variant="light"
-								styles={{
-									root: {
-										backgroundColor: accentMuted,
-										color: accentColor,
-										border: `1px solid ${accentColor}33`,
-										fontWeight: 600,
-										fontFamily: "var(--mantine-headings-font-family)",
-										textTransform: "capitalize",
-									},
-								}}
-							>
-								{props.entity.type}
-							</Badge>
-						)}
-						{props.entity.lastEvent && (
-							<Text size="xs" c={textMuted}>
-								{props.entity.lastEvent}
+						{subtitle && (
+							<Text size="sm" c={textSecondary}>
+								{subtitle}
 							</Text>
 						)}
-					</Group>
-				</Stack>
+						<Group gap="xs">
+							{props.entity.type && (
+								<Badge
+									size="sm"
+									variant="light"
+									styles={{
+										root: {
+											backgroundColor: accentMuted,
+											color: accentColor,
+											border: `1px solid ${accentColor}33`,
+											fontWeight: 600,
+											fontFamily: "var(--mantine-headings-font-family)",
+											textTransform: "capitalize",
+										},
+									}}
+								>
+									{props.entity.type}
+								</Badge>
+							)}
+							{props.entity.lastEvent && (
+								<Text size="xs" c={textMuted}>
+									{props.entity.lastEvent}
+								</Text>
+							)}
+						</Group>
+					</Stack>
+				</Group>
 				{badgeValue && (
 					<Badge
 						size="lg"
@@ -988,72 +1053,91 @@ function EntityTableView(props: {
 					</Table.Tr>
 				</Table.Thead>
 				<Table.Tbody>
-					{props.entities.map((entity) => (
-						<Table.Tr
-							key={entity.id}
-							style={{
-								cursor: "pointer",
-								borderLeft: "3px solid transparent",
-								transition: "all 0.15s ease",
-							}}
-							styles={{
-								tr: {
-									"&:hover": {
-										borderLeftColor: accentColor,
-									},
-								},
-							}}
-						>
-							<Table.Td>
-								<Text
-									fw={600}
+					{props.entities.map((entity) =>
+						(() => {
+							const imageProperty = props.scenario.cardConfig.imageProperty;
+							const image = imageProperty
+								? entity[imageProperty as keyof MockEntity]
+								: undefined;
+
+							return (
+								<Table.Tr
+									key={entity.id}
 									style={{
-										fontFamily: "var(--mantine-headings-font-family)",
-										color: textPrimary,
+										cursor: "pointer",
+										borderLeft: "3px solid transparent",
+										transition: "all 0.15s ease",
+									}}
+									styles={{
+										tr: {
+											"&:hover": {
+												borderLeftColor: accentColor,
+											},
+										},
 									}}
 								>
-									{entity.name}
-								</Text>
-							</Table.Td>
-							{props.scenario.cardConfig.subtitleProperties.map((prop) => (
-								<Table.Td key={prop}>
-									<Text size="sm" c={textSecondary}>
-										{entity[prop as keyof MockEntity]?.toString() ?? "—"}
-									</Text>
-								</Table.Td>
-							))}
-							{props.scenario.cardConfig.badgeProperty && (
-								<Table.Td>
-									<Badge
-										variant="filled"
-										styles={{
-											root: {
-												backgroundColor: accentColor,
-												color: "white",
-												fontFamily: "var(--mantine-headings-font-family)",
-												fontWeight: 700,
-											},
-										}}
-									>
-										{typeof entity[
-											props.scenario.cardConfig
-												.badgeProperty as keyof MockEntity
-										] === "number"
-											? `${entity[props.scenario.cardConfig.badgeProperty as keyof MockEntity]}★`
-											: entity[
+									<Table.Td>
+										<Group gap="sm" wrap="nowrap">
+											<EntityThumbnail
+												image={typeof image === "string" ? image : undefined}
+												height={54}
+												width={40}
+												isDark={props.isDark}
+												radius="var(--mantine-radius-xs)"
+												iconSize={16}
+											/>
+											<Text
+												fw={600}
+												style={{
+													fontFamily: "var(--mantine-headings-font-family)",
+													color: textPrimary,
+												}}
+											>
+												{entity.name}
+											</Text>
+										</Group>
+									</Table.Td>
+									{props.scenario.cardConfig.subtitleProperties.map((prop) => (
+										<Table.Td key={prop}>
+											<Text size="sm" c={textSecondary}>
+												{entity[prop as keyof MockEntity]?.toString() ?? "—"}
+											</Text>
+										</Table.Td>
+									))}
+									{props.scenario.cardConfig.badgeProperty && (
+										<Table.Td>
+											<Badge
+												variant="filled"
+												styles={{
+													root: {
+														backgroundColor: accentColor,
+														color: "white",
+														fontFamily: "var(--mantine-headings-font-family)",
+														fontWeight: 700,
+													},
+												}}
+											>
+												{typeof entity[
 													props.scenario.cardConfig
 														.badgeProperty as keyof MockEntity
-												]}
-									</Badge>
-								</Table.Td>
-							)}
-							<Table.Td>
-								<Text size="xs" c={textSecondary}>
-									{entity.lastEvent ?? "—"}
-								</Text>
-							</Table.Td>
-						</Table.Tr>
-					))}
+												] === "number"
+													? `${entity[props.scenario.cardConfig.badgeProperty as keyof MockEntity]}★`
+													: entity[
+															props.scenario.cardConfig
+																.badgeProperty as keyof MockEntity
+														]}
+											</Badge>
+										</Table.Td>
+									)}
+									<Table.Td>
+										<Text size="xs" c={textSecondary}>
+											{entity.lastEvent ?? "—"}
+										</Text>
+									</Table.Td>
+								</Table.Tr>
+							);
+						})(),
+					)}
 				</Table.Tbody>
 			</Table>
 		</Paper>
