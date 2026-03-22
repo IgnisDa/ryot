@@ -1,4 +1,4 @@
-import { withOverrides } from "~/lib/test-fixtures/shared";
+import { withOverrides } from "~/lib/test-fixtures/fixture-helpers";
 import type {
 	CreateTrackerBody,
 	ListedTracker,
