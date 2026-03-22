@@ -153,11 +153,11 @@ const bootstrapEntitiesServiceLayer = Layer.mock(EntitiesService)({
 	create: () => Effect.succeed(Object.create(null)),
 });
 const bootstrapNotificationSubscriptionsServiceLayer = Layer.mock(NotificationSubscriptionsService)(
-	{
-		ensureDefaultRules: () => Effect.void,
-	},
+	{ ensureDefaultRules: () => Effect.void },
 );
-const bootstrapSavedViewsServiceLayer = Layer.mock(SavedViewsService)({});
+const bootstrapSavedViewsServiceLayer = Layer.mock(SavedViewsService)({
+	ensureBuiltinViews: () => Effect.void,
+});
 const pluginUserBootstrapDispatcherLayer = Layer.mock(PluginUserBootstrapDispatcher)({
 	dispatchAll: () => Effect.sync((): undefined => undefined),
 });

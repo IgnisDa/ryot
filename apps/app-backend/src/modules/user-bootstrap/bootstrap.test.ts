@@ -6,6 +6,7 @@ import { Effect, Layer } from "effect";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
+import { SavedViewsService } from "#modules/saved-views/service";
 
 import { performBootstrap } from "./bootstrap";
 import { PluginUserBootstrapDispatcher } from "./plugin-dispatch";
@@ -48,6 +49,7 @@ const makeBootstrapDb = (options?: {
 const makeLayer = (options: {
 	db?: object;
 	onDefaultRules?: (userId: UserId) => void;
+	onBuiltinViews?: (userId: UserId) => void;
 	dispatch: (userId: UserId) => Effect.Effect<undefined, SandboxRunError>;
 }) => {
 	const db = options.db ?? makeBootstrapDb();
@@ -61,6 +63,9 @@ const makeLayer = (options: {
 		Layer.mock(NotificationSubscriptionsService)({
 			ensureDefaultRules: (inputUserId) => Effect.sync(() => options.onDefaultRules?.(inputUserId)),
 		}),
+		Layer.mock(SavedViewsService)({
+			ensureBuiltinViews: (inputUserId) => Effect.sync(() => options.onBuiltinViews?.(inputUserId)),
+		}),
 	);
 };
 
@@ -70,11 +75,13 @@ it.effect(
 		let markerUpdated = false;
 		const dispatchedUserIds: UserId[] = [];
 		const defaultRuleUserIds: UserId[] = [];
+		const builtinViewUserIds: UserId[] = [];
 
 		return Effect.gen(function* () {
 			yield* performBootstrap(userId);
 
 			expect(dispatchedUserIds).toEqual([userId]);
+			expect(builtinViewUserIds).toEqual([userId]);
 			expect(defaultRuleUserIds).toEqual([userId]);
 			expect(markerUpdated).toBe(true);
 		}).pipe(
@@ -86,6 +93,7 @@ it.effect(
 						}).pipe(Effect.as(undefined)),
 					db: makeBootstrapDb({ onMarkComplete: () => (markerUpdated = true) }),
 					onDefaultRules: (inputUserId) => defaultRuleUserIds.push(inputUserId),
+					onBuiltinViews: (inputUserId) => builtinViewUserIds.push(inputUserId),
 				}),
 			),
 		);
