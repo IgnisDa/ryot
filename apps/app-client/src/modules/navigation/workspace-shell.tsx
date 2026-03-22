@@ -11,6 +11,15 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { router, Slot, useGlobalSearchParams, usePathname } from "expo-router";
 import { useRef, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import Animated, {
+	FadeIn,
+	FadeInDown,
+	FadeInUp,
+	FadeOut,
+	FadeOutDown,
+	FadeOutUp,
+	ReduceMotion,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { navigationAtom, themeAtom } from "@/api/atoms";
@@ -32,6 +41,12 @@ import {
 
 const MOBILE_TOP_BAR_GAP = 12;
 const MOBILE_TOP_BAR_HEIGHT = 57;
+const MOBILE_TOP_BAR_ENTERING = FadeInUp.duration(200).reduceMotion(ReduceMotion.System);
+const MOBILE_TOP_BAR_EXITING = FadeOutUp.duration(160).reduceMotion(ReduceMotion.System);
+const MOBILE_TAB_BAR_ENTERING = FadeInDown.duration(200).reduceMotion(ReduceMotion.System);
+const MOBILE_TAB_BAR_EXITING = FadeOutDown.duration(160).reduceMotion(ReduceMotion.System);
+const MOBILE_COMPACT_NAV_ENTERING = FadeIn.duration(180).reduceMotion(ReduceMotion.System);
+const MOBILE_COMPACT_NAV_EXITING = FadeOut.duration(140).reduceMotion(ReduceMotion.System);
 
 function NavigationRow(props: {
 	isActive: boolean;
@@ -688,8 +703,10 @@ export function WorkspaceShell() {
 						<Slot />
 					</ScrollView>
 					{!isScrolled && (
-						<View
+						<Animated.View
+							exiting={MOBILE_TOP_BAR_EXITING}
 							style={{ paddingTop: insets.top }}
+							entering={MOBILE_TOP_BAR_ENTERING}
 							className="absolute inset-x-0 top-0 z-20 border-b border-border bg-bg px-4 md:hidden"
 						>
 							<MobileTopBar
@@ -698,7 +715,7 @@ export function WorkspaceShell() {
 								onAccountOpen={() => setMobileSheet("account")}
 								onWorkspaceOpen={() => setMobileSheet("workspace")}
 							/>
-						</View>
+						</Animated.View>
 					)}
 					{!mobileSheet && (
 						<View
@@ -706,21 +723,33 @@ export function WorkspaceShell() {
 							className="absolute inset-x-0 bottom-0 z-50 items-start px-4 md:hidden"
 						>
 							{isScrolled ? (
-								<Pressable
-									accessibilityRole="button"
-									accessibilityLabel="Expand navigation"
-									onPress={() => setIsScrolled(false)}
-									className="h-14 w-14 items-center justify-center rounded-full border border-nav-border bg-nav-surface text-accent-text shadow-card"
+								<Animated.View
+									key="compact-navigation"
+									exiting={MOBILE_COMPACT_NAV_EXITING}
+									entering={MOBILE_COMPACT_NAV_ENTERING}
 								>
-									<NavigationIcon name={selectedMobileTab?.icon ?? "panel-left"} size={20} />
-								</Pressable>
+									<Pressable
+										accessibilityRole="button"
+										accessibilityLabel="Expand navigation"
+										onPress={() => setIsScrolled(false)}
+										className="h-14 w-14 items-center justify-center rounded-full border border-nav-border bg-nav-surface text-accent-text shadow-card"
+									>
+										<NavigationIcon name={selectedMobileTab?.icon ?? "panel-left"} size={20} />
+									</Pressable>
+								</Animated.View>
 							) : (
-								<MobileTabBar
-									items={items}
-									activeKey={activeKey}
-									onNavigate={navigate}
-									onMoreOpen={() => setMobileSheet("more")}
-								/>
+								<Animated.View
+									key="tab-bar"
+									exiting={MOBILE_TAB_BAR_EXITING}
+									entering={MOBILE_TAB_BAR_ENTERING}
+								>
+									<MobileTabBar
+										items={items}
+										activeKey={activeKey}
+										onNavigate={navigate}
+										onMoreOpen={() => setMobileSheet("more")}
+									/>
+								</Animated.View>
 							)}
 						</View>
 					)}
