@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
 	getActiveNavigationKey,
 	getCurrentWorkspace,
+	getEntityHref,
 	getEnabledItems,
 	getNavigationHref,
 	getNavigationItems,
@@ -137,6 +138,13 @@ describe("getNavigationHref", () => {
 			pathname: "/e/[entityId]",
 			params: { entityId: "collection-1" },
 		});
+	});
+});
+
+it("creates an entity route", () => {
+	expect(getEntityHref("entity-1")).toEqual({
+		pathname: "/e/[entityId]",
+		params: { entityId: "entity-1" },
 	});
 });
 

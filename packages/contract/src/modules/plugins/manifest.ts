@@ -85,13 +85,13 @@ export type PluginSignalSchema = Schema.Schema.Type<typeof PluginSignalSchema>;
 
 const PluginSavedViewCardLayout = strictStruct({
 	...SavedViewCardMapping.fields,
-	itemIdField: OutputFieldKey,
+	entityIdField: OutputFieldKey,
 	queryDocument: PluginQueryDocument,
 });
 
 const PluginSavedViewTableLayout = strictStruct({
 	...SavedViewTableMapping.fields,
-	itemIdField: OutputFieldKey,
+	entityIdField: OutputFieldKey,
 	queryDocument: PluginQueryDocument,
 });
 
