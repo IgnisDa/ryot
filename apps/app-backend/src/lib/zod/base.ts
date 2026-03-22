@@ -9,6 +9,9 @@ export const stringArraySchema = z.array(z.string());
 export const nonEmptyStringSchema = z.string().min(1);
 export const nonEmptyTrimmedStringSchema = z.string().trim().min(1);
 export const stringUnknownRecordSchema = z.record(z.string(), z.unknown());
+export const applicationIconNameSchema = nonEmptyTrimmedStringSchema.describe(
+	"A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/",
+);
 
 export const createNameWithOptionalSlugSchema = <TShape extends z.ZodRawShape>(
 	shape: TShape,

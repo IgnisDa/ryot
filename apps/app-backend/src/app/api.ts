@@ -14,12 +14,52 @@ import { systemApi } from "~/modules/system/routes";
 import { trackersApi } from "~/modules/trackers/routes";
 import { uploadsApi } from "~/modules/uploads/routes";
 
-const openApiInfo = {
-	version: "1.0.0",
-	title: "Ryot App Backend API",
-	description:
-		"OpenAPI specification for app-owned backend routes. Requests are limited to 60 per minute.",
-};
+const openApiTags = [
+	{
+		name: "system",
+		description: "Health checks and system monitoring endpoints",
+	},
+	{
+		name: "authentication",
+		description: "User registration and authentication",
+	},
+	{
+		name: "sandbox",
+		description: "Execute sandboxed JavaScript code for custom computations",
+	},
+	{
+		name: "trackers",
+		description:
+			"Custom tracking categories for organizing entities (e.g., Books, Games, Workouts)",
+	},
+	{
+		name: "entity-schemas",
+		description:
+			"Define the structure and properties of entities within a tracker",
+	},
+	{
+		name: "entities",
+		description:
+			"Items being tracked within a tracker (e.g., specific books, games, workouts)",
+	},
+	{
+		name: "event-schemas",
+		description: "Define the structure of events that can occur for an entity",
+	},
+	{
+		name: "events",
+		description:
+			"Occurrences or activities logged for an entity (e.g., read a chapter, completed a workout)",
+	},
+	{
+		name: "uploads",
+		description: "Presigned URLs for file uploads and downloads",
+	},
+	{
+		name: "saved-views",
+		description: "Saved query configurations for quick access to entity views",
+	},
+];
 
 export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.onError((error, c) => {
@@ -54,8 +94,16 @@ export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 export const apiApp = baseApp
 	.doc("/openapi.json", (c) => ({
 		openapi: "3.0.0",
-		info: openApiInfo,
+		tags: openApiTags,
+		externalDocs: { url: "https://ryot.io", description: "Main Website" },
 		servers: [{ url: `${new URL(c.req.url).origin}/api` }],
+		info: {
+			version: "1.0.0",
+			title: "Ryot App Backend API",
+			license: { name: "Terms", url: "https://ryot.io/terms" },
+			description:
+				"OpenAPI specification for app-owned backend routes. Requests are limited to 60 per minute.",
+		},
 	}))
 	.get("/docs", Scalar({ url: "/api/openapi.json" }))
 	.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw));
