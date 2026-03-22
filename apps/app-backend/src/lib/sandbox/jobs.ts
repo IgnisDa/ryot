@@ -14,6 +14,7 @@ export const sandboxRunJobData = z.object({
 	userId: nonEmptyStringSchema,
 	timeoutMs: positiveIntSchema.optional(),
 	maxHeapMB: positiveIntSchema.optional(),
+	scriptId: nonEmptyStringSchema.optional(),
 	context: stringUnknownRecordSchema.optional(),
 	apiFunctionDescriptors: z.array(apiFunctionDescriptorSchema).optional(),
 });
