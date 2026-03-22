@@ -844,7 +844,7 @@ The runtime module should query against the underlying tables and repositories i
 }
 ```
 
-When a user creates a saved view, only the grid layout configuration is required. List and table configurations are initialized when the user switches to those layouts for the first time. This reduces upfront configuration burden.
+When a user clones a saved view, all three layout configurations are copied from the source. List and table configurations may be sparse in built-in views (hardcoded defaults) but become fully editable after cloning.
 
 ### Empty Property Arrays
 
