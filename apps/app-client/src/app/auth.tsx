@@ -38,13 +38,13 @@ const schema = z.object({
 });
 
 export default function Auth() {
-	const setServerUrl = useSetServerUrl();
-	const authClient = useAuthClient();
 	const apiClient = useApiClient();
+	const authClient = useAuthClient();
+	const setServerUrl = useSetServerUrl();
+	const oidcAutoLaunched = useRef(false);
 	const [mode, setMode] = useState<AuthMode>("login");
 	const [oidcError, setOidcError] = useState<string | null>(null);
 	const passwordInputRef = useRef<(TextInputProps & { focus: () => void }) | null>(null);
-	const oidcAutoLaunched = useRef(false);
 
 	const configQuery = useSystemConfig();
 
