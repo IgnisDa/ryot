@@ -7,13 +7,10 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { router } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
-import {
-	createSavedViewAtom,
-	navigationAtom,
-	notificationChannelsAtom,
-	savedViewsAtom,
-} from "@/api/atoms";
 import { useAuthClient } from "@/modules/auth/client";
+import { navigationAtom } from "@/modules/navigation/atoms";
+import { notificationChannelsAtom } from "@/modules/notifications/atoms";
+import { createSavedViewAtom, savedViewsAtom } from "@/modules/saved-views/atoms";
 
 export default function AppHome() {
 	const client = useAuthClient();
