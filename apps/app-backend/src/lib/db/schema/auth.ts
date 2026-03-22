@@ -8,6 +8,7 @@ export const user = pgTable("user", {
 	image: text(),
 	name: text().notNull(),
 	id: text().primaryKey(),
+	twoFactorEnabled: boolean(),
 	email: text().notNull().unique(),
 	preferences: jsonb().$type<UserPreferences>().notNull(),
 	emailVerified: boolean().default(false).notNull(),
@@ -110,6 +111,16 @@ export const apikey = pgTable(
 	],
 );
 
+export const twoFactor = pgTable("two_factor", {
+	id: text().primaryKey(),
+	secret: text().notNull(),
+	backupCodes: text().notNull(),
+	verified: boolean().notNull(),
+	userId: text()
+		.notNull()
+		.references(() => user.id, { onDelete: "cascade" }),
+});
+
 export const userRelations = relations(user, ({ many }) => ({
 	sessions: many(session),
 	accounts: many(account),
@@ -126,5 +137,12 @@ export const accountRelations = relations(account, ({ one }) => ({
 	user: one(user, {
 		references: [user.id],
 		fields: [account.userId],
+	}),
+}));
+
+export const twoFactorRelations = relations(twoFactor, ({ one }) => ({
+	user: one(user, {
+		references: [user.id],
+		fields: [twoFactor.userId],
 	}),
 }));

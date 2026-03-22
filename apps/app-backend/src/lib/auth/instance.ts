@@ -61,7 +61,7 @@ export const auth = betterAuth({
 	},
 	plugins: [
 		expo(),
-		twoFactor(),
+		twoFactor({ allowPasswordless: true }),
 		apiKey({
 			fallbackToDatabase: true,
 			storage: "secondary-storage",

@@ -20,6 +20,7 @@ const authUserSelection = {
 	updatedAt: user.updatedAt,
 	preferences: user.preferences,
 	emailVerified: user.emailVerified,
+	twoFactorEnabled: user.twoFactorEnabled,
 };
 
 const getUserById = async (userId: string) => {
