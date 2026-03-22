@@ -1,6 +1,7 @@
 import {
 	apiFailure,
 	apiSuccess,
+	type HostFunction,
 	type HttpCallOptions,
 	type HttpCallResult,
 } from "~/lib/sandbox/types";
@@ -62,7 +63,8 @@ const mapHeadersToObject = (headers: Headers) => {
 	return headerObject;
 };
 
-export const httpCall = async (
+export const httpCall: HostFunction<Record<string, never>> = async (
+	_context: Record<string, never>,
 	method: unknown,
 	url: unknown,
 	options?: unknown,
