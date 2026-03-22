@@ -13,8 +13,8 @@
 		"build": "expo export --platform web --output-dir dist"
 	},
 	"dependencies": {
-		"@better-auth/api-key": "1.6.9",
-		"@better-auth/expo": "1.6.9",
+		"@better-auth/api-key": "1.6.11",
+		"@better-auth/expo": "1.6.11",
 		"@expo-google-fonts/lora": "0.4.2",
 		"@expo-google-fonts/outfit": "0.4.3",
 		"@expo/html-elements": "^0.12.5",
@@ -36,7 +36,7 @@
 		"@ryot/ts-utils": "workspace:*",
 		"@tanstack/react-form": "^1.29.1",
 		"@tanstack/react-query": "5.100.9",
-		"better-auth": "1.6.9",
+		"better-auth": "1.6.11",
 		"clsx": "^2.1.1",
 		"expo": "~55.0.23",
 		"expo-constants": "~55.0.16",
