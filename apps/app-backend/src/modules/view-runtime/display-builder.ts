@@ -58,17 +58,13 @@ const buildDisplayValueCandidate = <
 >(input: {
 	alias: string;
 	reference: string | null;
-	defaultSchemaSlug: string;
 	schemaMap: Map<string, TSchema>;
 }): DisplayValueCandidate => {
 	if (!input.reference) {
 		return { kind: "null", value: sql`null` };
 	}
 
-	const parsedReference = resolveRuntimeReference(
-		input.reference,
-		input.defaultSchemaSlug,
-	);
+	const parsedReference = resolveRuntimeReference(input.reference);
 	if (parsedReference.type === "top-level") {
 		return {
 			value: buildTopLevelDisplayExpression(
@@ -91,10 +87,7 @@ const buildDisplayValueCandidate = <
 		sql`${sql.raw(input.alias)}.properties -> ${parsedReference.property}`,
 	);
 	const kind = getPropertyDisplayKind(propertyType);
-	if (
-		input.schemaMap.size === 1 &&
-		parsedReference.slug === input.defaultSchemaSlug
-	) {
+	if (input.schemaMap.size === 1) {
 		return { kind, value: propertyValue };
 	}
 
@@ -120,7 +113,6 @@ const buildResolvedDisplayValueExpression = <
 	TSchema extends ViewRuntimeSchemaLike,
 >(input: {
 	alias: string;
-	defaultSchemaSlug: string;
 	references: string[] | null;
 	schemaMap: Map<string, TSchema>;
 }) => {
@@ -129,7 +121,6 @@ const buildResolvedDisplayValueExpression = <
 			reference,
 			alias: input.alias,
 			schemaMap: input.schemaMap,
-			defaultSchemaSlug: input.defaultSchemaSlug,
 		});
 	});
 
@@ -150,7 +141,6 @@ export const buildResolvedPropertiesExpression = <
 	TSchema extends ViewRuntimeSchemaLike,
 >(input: {
 	alias: string;
-	defaultSchemaSlug: string;
 	request: ViewRuntimeRequest;
 	schemaMap: Map<string, TSchema>;
 }) => {
@@ -165,25 +155,21 @@ export const buildResolvedPropertiesExpression = <
 		'imageProperty', ${buildResolvedDisplayValueExpression({
 			alias: input.alias,
 			schemaMap: input.schemaMap,
-			defaultSchemaSlug: input.defaultSchemaSlug,
 			references: displayConfiguration.imageProperty,
 		})},
 		'titleProperty', ${buildResolvedDisplayValueExpression({
 			alias: input.alias,
 			schemaMap: input.schemaMap,
-			defaultSchemaSlug: input.defaultSchemaSlug,
 			references: displayConfiguration.titleProperty,
 		})},
 		'subtitleProperty', ${buildResolvedDisplayValueExpression({
 			alias: input.alias,
 			schemaMap: input.schemaMap,
-			defaultSchemaSlug: input.defaultSchemaSlug,
 			references: displayConfiguration.subtitleProperty,
 		})},
 		'badgeProperty', ${buildResolvedDisplayValueExpression({
 			alias: input.alias,
 			schemaMap: input.schemaMap,
-			defaultSchemaSlug: input.defaultSchemaSlug,
 			references: displayConfiguration.badgeProperty,
 		})}
 	)`;
@@ -193,7 +179,6 @@ export const buildTableCellsExpression = <
 	TSchema extends ViewRuntimeSchemaLike,
 >(input: {
 	alias: string;
-	defaultSchemaSlug: string;
 	request: Extract<ViewRuntimeRequest, { layout: "table" }>;
 	schemaMap: Map<string, TSchema>;
 }) => {
@@ -204,7 +189,6 @@ export const buildTableCellsExpression = <
 				alias: input.alias,
 				schemaMap: input.schemaMap,
 				references: column.property,
-				defaultSchemaSlug: input.defaultSchemaSlug,
 			});
 
 			return sql`jsonb_build_object(

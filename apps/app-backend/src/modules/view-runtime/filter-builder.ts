@@ -90,27 +90,11 @@ const buildFilterClauseForSchema = <
 >(input: {
 	alias: string;
 	schemaSlug: string;
-	isMultiSchema: boolean;
 	filter: FilterExpression;
-	defaultSchemaSlug: string;
 	schemaMap: Map<string, TSchema>;
 }) => {
 	const reference = input.filter.field;
-
-	if (
-		!reference.startsWith("@") &&
-		!reference.includes(".") &&
-		input.isMultiSchema
-	) {
-		throw new ViewRuntimeValidationError(
-			"Schema-qualified filter fields are required for multi-schema requests",
-		);
-	}
-
-	const parsedReference = resolveRuntimeReference(
-		reference,
-		input.defaultSchemaSlug,
-	);
+	const parsedReference = resolveRuntimeReference(reference);
 
 	if (parsedReference.type === "top-level") {
 		const expression = buildTopLevelFilterExpression(
@@ -138,7 +122,6 @@ export const buildFilterWhereClause = <
 	TSchema extends ViewRuntimeSchemaLike,
 >(input: {
 	alias: string;
-	defaultSchemaSlug: string;
 	entitySchemaSlugs: string[];
 	filters: FilterExpression[];
 	schemaMap: Map<string, TSchema>;
@@ -148,18 +131,14 @@ export const buildFilterWhereClause = <
 		return undefined;
 	}
 
-	const isMultiSchema = new Set(input.entitySchemaSlugs).size > 1;
-
 	const schemaGroups = [...new Set(input.entitySchemaSlugs)].map(
 		(schemaSlug) => {
 			const clauses = input.filters.flatMap((filter) => {
 				const clause = buildFilterClauseForSchema({
 					filter,
 					schemaSlug,
-					isMultiSchema,
 					alias: input.alias,
 					schemaMap: input.schemaMap,
-					defaultSchemaSlug: input.defaultSchemaSlug,
 				});
 
 				return clause ? [clause] : [];
