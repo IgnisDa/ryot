@@ -1,5 +1,5 @@
-import type { AppFacet } from "#/features/facets/model";
 import type { AppSavedView } from "#/features/saved-views/model";
+import type { AppTracker } from "#/features/trackers/model";
 import type { AuthenticatedUser } from "#/hooks/auth";
 
 export type SidebarAccount = Pick<
@@ -9,13 +9,13 @@ export type SidebarAccount = Pick<
 
 export type SidebarView = Pick<
 	AppSavedView,
-	"id" | "icon" | "name" | "facetId" | "accentColor"
+	"id" | "icon" | "name" | "trackerId" | "accentColor"
 > & {
-	facetSlug: string | null;
+	trackerSlug: string | null;
 };
 
-export type SidebarFacet = Pick<
-	AppFacet,
+export type SidebarTracker = Pick<
+	AppTracker,
 	| "id"
 	| "icon"
 	| "slug"
