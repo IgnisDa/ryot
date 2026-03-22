@@ -1,5 +1,5 @@
 {
-	"id": "0e02cc02-ec61-4e78-9ae5-6744327c5063",
+	"id": "857a82e1-3566-4e89-81f6-12dde360ea98",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1348,6 +1348,13 @@
 					"notNull": true,
 					"default": "now()"
 				},
+				"sort_order": {
+					"name": "sort_order",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
 				"is_disabled": {
 					"name": "is_disabled",
 					"type": "boolean",
@@ -1679,13 +1686,6 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
-				},
-				"is_disabled": {
-					"name": "is_disabled",
-					"type": "boolean",
-					"primaryKey": false,
-					"notNull": true,
-					"default": false
 				},
 				"tracker_id": {
 					"name": "tracker_id",

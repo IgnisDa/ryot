@@ -1,1 +1,0 @@
-ALTER TABLE "saved_view" ADD COLUMN "sort_order" integer DEFAULT 0 NOT NULL;

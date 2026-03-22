@@ -5,22 +5,8 @@
 		{
 			"idx": 0,
 			"version": "7",
-			"when": 1774009231497,
-			"tag": "0000_eminent_unus",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1774010574409,
-			"tag": "0001_chunky_runaways",
-			"breakpoints": true
-		},
-		{
-			"idx": 2,
-			"version": "7",
-			"when": 1774015494129,
-			"tag": "0002_legal_mantis",
+			"when": 1774185662711,
+			"tag": "0000_worried_nightcrawler",
 			"breakpoints": true
 		}
 	]
