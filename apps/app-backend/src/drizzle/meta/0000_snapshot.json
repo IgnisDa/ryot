@@ -1,5 +1,5 @@
 {
-	"id": "91a1397e-9bb7-466b-b6cd-87b7114784b1",
+	"id": "195f2d5f-aad1-4b07-8d3e-475cf8c0ebd5",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1424,6 +1424,12 @@
 			"name": "notification_channel",
 			"schema": "",
 			"columns": {
+				"description": {
+					"name": "description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
 				"is_disabled": {
 					"name": "is_disabled",
 					"type": "boolean",
@@ -1443,12 +1449,6 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
-				},
-				"description": {
-					"name": "description",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
 				},
 				"platform_specifics": {
 					"name": "platform_specifics",
@@ -2360,24 +2360,18 @@
 					"notNull": true,
 					"default": false
 				},
+				"layouts": {
+					"name": "layouts",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
+				},
 				"is_disabled": {
 					"name": "is_disabled",
 					"type": "boolean",
 					"primaryKey": false,
 					"notNull": true,
 					"default": false
-				},
-				"query_document": {
-					"name": "query_document",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"display_configuration": {
-					"name": "display_configuration",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true
 				},
 				"created_at": {
 					"name": "created_at",

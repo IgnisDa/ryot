@@ -135,10 +135,10 @@ CREATE TABLE "integration_auto_disable_claim" (
 );
 --> statement-breakpoint
 CREATE TABLE "notification_channel" (
+	"description" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"platform" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"description" text NOT NULL,
 	"platform_specifics" jsonb NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
@@ -229,9 +229,8 @@ CREATE TABLE "saved_view" (
 	"icon" text NOT NULL,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
+	"layouts" jsonb NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
-	"query_document" jsonb NOT NULL,
-	"display_configuration" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
