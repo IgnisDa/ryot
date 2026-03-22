@@ -86,3 +86,27 @@ const tableDisplayConfigSchema = z.object({
 - User story 8: As a user, I want to customize which properties display in list view, so that I can optimize for different viewing patterns.
 - User story 9: As a user, I want to configure table columns (labels and properties), so that I can create custom tabular views of my data.
 - User story 10: As a user, I want all three layout configurations (grid, list, table) to be editable independently, so that I don't lose settings when switching layouts.
+
+## Verification
+
+After implementation, verify the work using:
+
+1. **Run tests:**
+   ```bash
+   cd apps/app-frontend/src/features/saved-views
+   bun test
+   ```
+
+2. **Run typecheck:**
+   ```bash
+   cd apps/app-frontend
+   bun run typecheck
+   ```
+
+3. **Build frontend:**
+   ```bash
+   cd apps/app-frontend
+   bun run build
+   ```
+
+All steps must pass with no errors.
