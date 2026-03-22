@@ -7,20 +7,13 @@ import {
 import { createTrackerFixture } from "./test-fixtures";
 
 const f = createTrackerFixture;
-const mkTracker = (
-	id: string,
-	name: string,
-	slug: string,
-	sortOrder = 1,
-	isDisabled = false,
-) => f({ id, name, slug, isDisabled, sortOrder });
 
 describe("sortTrackersByOrder", () => {
 	it("sorts trackers by ascending sortOrder", () => {
 		const trackers = [
-			mkTracker("1", "Media", "media", 3),
-			mkTracker("2", "People", "people"),
-			mkTracker("3", "Music", "music", 2),
+			f({ id: "1", name: "Media", slug: "media", sortOrder: 3 }),
+			f({ id: "2", name: "People", slug: "people" }),
+			f({ id: "3", name: "Music", slug: "music", sortOrder: 2 }),
 		];
 
 		const sorted = sortTrackersByOrder(trackers);
@@ -32,9 +25,9 @@ describe("sortTrackersByOrder", () => {
 
 	it("breaks ties by name ascending", () => {
 		const trackers = [
-			mkTracker("1", "Zebra", "zebra"),
-			mkTracker("2", "Apple", "apple"),
-			mkTracker("3", "Banana", "banana"),
+			f({ id: "1", name: "Zebra", slug: "zebra" }),
+			f({ id: "2", name: "Apple", slug: "apple" }),
+			f({ id: "3", name: "Banana", slug: "banana" }),
 		];
 
 		const sorted = sortTrackersByOrder(trackers);
@@ -46,9 +39,9 @@ describe("sortTrackersByOrder", () => {
 
 	it("breaks name ties by slug ascending", () => {
 		const trackers = [
-			mkTracker("1", "Same", "z-tracker"),
-			mkTracker("2", "Same", "a-tracker"),
-			mkTracker("3", "Same", "m-tracker"),
+			f({ id: "1", name: "Same", slug: "z-tracker" }),
+			f({ id: "2", name: "Same", slug: "a-tracker" }),
+			f({ id: "3", name: "Same", slug: "m-tracker" }),
 		];
 
 		const sorted = sortTrackersByOrder(trackers);
@@ -60,9 +53,9 @@ describe("sortTrackersByOrder", () => {
 
 	it("maintains stable ordering for deterministic nav", () => {
 		const trackers = [
-			mkTracker("1", "Alpha", "slug-a", 5),
-			mkTracker("2", "Beta", "slug-b", 5),
-			mkTracker("3", "Charlie", "slug-c", 5),
+			f({ id: "1", name: "Alpha", slug: "slug-a", sortOrder: 5 }),
+			f({ id: "2", name: "Beta", slug: "slug-b", sortOrder: 5 }),
+			f({ id: "3", name: "Charlie", slug: "slug-c", sortOrder: 5 }),
 		];
 
 		const sorted1 = sortTrackersByOrder(trackers);
@@ -75,9 +68,15 @@ describe("sortTrackersByOrder", () => {
 describe("selectEnabledTrackers", () => {
 	it("filters to only enabled trackers", () => {
 		const trackers = [
-			mkTracker("1", "Media", "media"),
-			mkTracker("2", "People", "people", 2, true),
-			mkTracker("3", "Music", "music", 3),
+			f({ id: "1", name: "Media", slug: "media" }),
+			f({
+				id: "2",
+				name: "People",
+				slug: "people",
+				sortOrder: 2,
+				isDisabled: true,
+			}),
+			f({ id: "3", name: "Music", slug: "music", sortOrder: 3 }),
 		];
 
 		const enabled = selectEnabledTrackers(trackers);
@@ -89,8 +88,14 @@ describe("selectEnabledTrackers", () => {
 
 	it("returns empty array when no trackers are enabled", () => {
 		const trackers = [
-			mkTracker("1", "Media", "media", 1, true),
-			mkTracker("2", "People", "people", 2, true),
+			f({ id: "1", name: "Media", slug: "media", isDisabled: true }),
+			f({
+				id: "2",
+				name: "People",
+				slug: "people",
+				sortOrder: 2,
+				isDisabled: true,
+			}),
 		];
 
 		const enabled = selectEnabledTrackers(trackers);
@@ -100,8 +105,8 @@ describe("selectEnabledTrackers", () => {
 
 	it("returns all trackers when all are enabled", () => {
 		const trackers = [
-			mkTracker("1", "Media", "media"),
-			mkTracker("2", "People", "people", 2),
+			f({ id: "1", name: "Media", slug: "media" }),
+			f({ id: "2", name: "People", slug: "people", sortOrder: 2 }),
 		];
 
 		const enabled = selectEnabledTrackers(trackers);
@@ -113,8 +118,14 @@ describe("selectEnabledTrackers", () => {
 describe("findEnabledTrackerBySlug", () => {
 	it("returns tracker only when enabled", () => {
 		const trackers = [
-			mkTracker("1", "Media", "media", 1, false),
-			mkTracker("2", "Books", "books", 2, true),
+			f({ id: "1", name: "Media", slug: "media" }),
+			f({
+				id: "2",
+				name: "Books",
+				slug: "books",
+				sortOrder: 2,
+				isDisabled: true,
+			}),
 		];
 
 		expect(findEnabledTrackerBySlug(trackers, "media")?.id).toBe("1");
@@ -122,7 +133,7 @@ describe("findEnabledTrackerBySlug", () => {
 	});
 
 	it("returns undefined when slug is not found", () => {
-		const trackers = [mkTracker("1", "Media", "media", 1, false)];
+		const trackers = [f({ id: "1", name: "Media", slug: "media" })];
 
 		expect(findEnabledTrackerBySlug(trackers, "nonexistent")).toBeUndefined();
 	});

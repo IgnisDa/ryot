@@ -1,23 +1,7 @@
 import { describe, expect, it } from "bun:test";
+import { createEntitySchemaFixture } from "#/features/test-fixtures";
 import { createTrackerFixture } from "#/features/trackers/test-fixtures";
-import type { AppEntitySchema } from "./model";
 import { getTrackerEntitySchemaViewState } from "./model";
-
-function createEntitySchemaFixture(
-	overrides: Partial<AppEntitySchema> = {},
-): AppEntitySchema {
-	return {
-		name: "Schema",
-		slug: "schema",
-		id: "schema-id",
-		isBuiltin: false,
-		icon: "book-open",
-		trackerId: "tracker-id",
-		accentColor: "#5B7FFF",
-		propertiesSchema: {},
-		...overrides,
-	};
-}
 
 describe("getTrackerEntitySchemaViewState", () => {
 	it("returns builtin for built-in trackers", () => {
