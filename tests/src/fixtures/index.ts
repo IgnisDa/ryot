@@ -1,4 +1,5 @@
 export * from "./auth";
+export * from "./entities";
 export * from "./entity-schemas";
 export * from "./sandbox";
 export * from "./saved-views";

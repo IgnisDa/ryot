@@ -7,8 +7,8 @@ import {
 	buildTableRequest,
 	createAuthenticatedClient,
 	createCrossSchemaRuntimeFixture,
-	createEntity,
 	createEntitySchema,
+	createRuntimeEntity,
 	createSingleSchemaRuntimeFixture,
 	createTracker,
 	executeViewRuntime,
@@ -59,7 +59,7 @@ async function createImageFallbackFixture() {
 		propertiesSchema: { category: { type: "string" } },
 	});
 
-	await createEntity({
+	await createRuntimeEntity({
 		client,
 		cookies,
 		image: null,
