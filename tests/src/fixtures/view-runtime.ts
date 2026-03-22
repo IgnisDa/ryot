@@ -1,10 +1,7 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
-import {
-	type Client,
-	createAuthenticatedClient,
-	createEntitySchema,
-	createTracker,
-} from "../helpers";
+import { type Client, createAuthenticatedClient } from "./auth";
+import { createEntitySchema } from "./entity-schemas";
+import { createTracker } from "./trackers";
 
 type ExecuteViewRuntimeBody = NonNullable<
 	paths["/view-runtime/execute"]["post"]["requestBody"]
