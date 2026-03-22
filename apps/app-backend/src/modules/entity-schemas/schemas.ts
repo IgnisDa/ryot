@@ -36,17 +36,12 @@ export const createEntitySchemaResponseSchema = itemDataSchema(
 
 export const entitySchemaParams = createIdParamsSchema("entitySchemaId");
 
-export const listEntitySchemasQuery = z.object({
+export const listEntitySchemasBody = z.object({
 	trackerId: nonEmptyTrimmedStringSchema.optional(),
-	slugs: z
-		.preprocess(
-			(val) => (typeof val === "string" ? [val] : val),
-			createUniqueNonEmptyTrimmedStringArraySchema({
-				minMessage: "At least one slug is required",
-				duplicateMessage: "Entity schema slugs must be unique",
-			}),
-		)
-		.optional(),
+	slugs: createUniqueNonEmptyTrimmedStringArraySchema({
+		minMessage: "At least one slug is required",
+		duplicateMessage: "Entity schema slugs must be unique",
+	}).optional(),
 });
 
 export const createEntitySchemaBody = createNameWithOptionalSlugSchema({
