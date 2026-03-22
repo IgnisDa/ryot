@@ -62,7 +62,6 @@ export const createApiFunctionDescriptors = (
 ): Array<ApiFunctionDescriptor> => [
 	{ context: {}, functionKey: "httpCall" },
 	{ context: {}, functionKey: "getAppConfigValue" },
-	{ context: {}, functionKey: "getUserConfigValue" },
 	{ context: { userId }, functionKey: "getEntitySchemas" },
 ];
 
