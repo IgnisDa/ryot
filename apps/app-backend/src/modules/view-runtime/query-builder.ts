@@ -1,15 +1,20 @@
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { entity, entitySchema, type ImageSchemaType } from "~/lib/db/schema";
+import {
+	ViewRuntimeNotFoundError,
+	ViewRuntimeValidationError,
+} from "~/lib/views/errors";
+import {
+	buildSchemaMap,
+	type ViewRuntimeSchemaLike,
+} from "~/lib/views/reference";
 import type { EntitySchemaPropertiesShape } from "../entity-schemas/service";
 import {
 	buildResolvedPropertiesExpression,
 	buildTableCellsExpression,
 } from "./display-builder";
-import { ViewRuntimeNotFoundError, ViewRuntimeValidationError } from "./errors";
 import { buildFilterWhereClause } from "./filter-builder";
-import type { ViewRuntimeSchemaLike } from "./runtime-reference";
-import { buildSchemaMap } from "./schema-introspection";
 import type {
 	ViewRuntimeRequest,
 	ViewRuntimeResponse,
