@@ -91,19 +91,25 @@ export const NameAndOtherInputs = (props: {
 				onClose={() => setIsCaloriesBurntModalOpen(false)}
 			>
 				<Stack gap="xs">
-					<NumberInput
-						size="sm"
-						value={currentWorkout.caloriesBurnt}
-						label={`Energy burnt in ${userPreferences.fitness.logging.caloriesBurntUnit}`}
-						onChange={(e) => setCaloriesBurnt(isNumber(e) ? e : undefined)}
-					/>
+					{!props.isCreatingTemplate ? (
+						<NumberInput
+							size="sm"
+							value={currentWorkout.caloriesBurnt}
+							label={`Energy burnt in ${userPreferences.fitness.logging.caloriesBurntUnit}`}
+							onChange={(e) => setCaloriesBurnt(isNumber(e) ? e : undefined)}
+						/>
+					) : null}
 					<Textarea
 						size="sm"
 						minRows={2}
 						label="Comments"
 						defaultValue={comment}
-						placeholder="Your thoughts about this workout"
 						onChange={(e) => setComment(e.currentTarget.value)}
+						placeholder={
+							props.isCreatingTemplate
+								? "Notes or description for this template"
+								: "Your thoughts about this workout"
+						}
 					/>
 				</Stack>
 			</Modal>
@@ -124,14 +130,9 @@ export const NameAndOtherInputs = (props: {
 				label={
 					<Group justify="space-between" mr="xs">
 						<Text size="sm">Name</Text>
-						{!props.isCreatingTemplate ? (
-							<Anchor
-								size="xs"
-								onClick={() => setIsCaloriesBurntModalOpen(true)}
-							>
-								More Information
-							</Anchor>
-						) : null}
+						<Anchor size="xs" onClick={() => setIsCaloriesBurntModalOpen(true)}>
+							More Information
+						</Anchor>
 					</Group>
 				}
 			/>
