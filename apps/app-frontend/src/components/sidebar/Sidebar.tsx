@@ -16,7 +16,6 @@ import {
 	Stack,
 	Text,
 	TextInput,
-	useComputedColorScheme,
 } from "@mantine/core";
 import { useHover } from "@mantine/hooks";
 import { Link } from "@tanstack/react-router";
@@ -33,6 +32,7 @@ import {
 import { useState } from "react";
 import { FacetIcon } from "#/features/facets/icons";
 import { useIsMobileScreen } from "#/hooks/screen";
+import { useColorScheme } from "#/hooks/theme";
 import type { SidebarFacet, SidebarProps, SidebarView } from "./Sidebar.types";
 import { SidebarAccountSection } from "./SidebarAccountSection";
 
@@ -203,9 +203,7 @@ function SortableFacet(props: {
 export function Sidebar(props: SidebarProps) {
 	const isMobile = useIsMobileScreen();
 	const { hovered, ref } = useHover<HTMLDivElement>();
-	const computedColorScheme = useComputedColorScheme("light", {
-		getInitialValueInEffect: false,
-	});
+	const computedColorScheme = useColorScheme();
 	const [searchQuery, setSearchQuery] = useState("");
 	const [expandedFacets, setExpandedFacets] = useState<Record<string, boolean>>(
 		{},
@@ -548,16 +546,14 @@ export function MobileSidebarBurger(props: {
 	onClick: () => void;
 }) {
 	const isMobile = useIsMobileScreen();
-	const computedColorScheme = useComputedColorScheme("light", {
-		getInitialValueInEffect: false,
-	});
+	const computedColorScheme = useColorScheme();
 	const isDark = computedColorScheme === "dark";
 
 	if (!isMobile) return null;
 
 	return (
 		<Burger
-		size="sm"
+			size="sm"
 			opened={props.opened}
 			onClick={props.onClick}
 			color={
