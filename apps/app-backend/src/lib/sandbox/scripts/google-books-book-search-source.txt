@@ -9,19 +9,26 @@ const currentPage = Number.isFinite(Number(context?.page))
 	: 1;
 const query = typeof context?.query === "string" ? context.query.trim() : "";
 
-if (!query) throw new Error("query is required");
+if (!query) {
+	throw new Error("query is required");
+}
 
-const configValueResponse = await getAppConfigValue("BOOKS_GOOGLE_BOOKS_API_KEY");
-if (!configValueResponse?.success)
+const configValueResponse = await getAppConfigValue(
+	"BOOKS_GOOGLE_BOOKS_API_KEY",
+);
+if (!configValueResponse?.success) {
 	throw new Error(
 		configValueResponse?.error ?? "Could not load Google Books API key",
 	);
+}
 
 const apiKey =
 	typeof configValueResponse.data === "string"
 		? configValueResponse.data.trim()
 		: "";
-if (!apiKey) throw new Error("BOOKS_GOOGLE_BOOKS_API_KEY is not configured");
+if (!apiKey) {
+	throw new Error("BOOKS_GOOGLE_BOOKS_API_KEY is not configured");
+}
 
 const params = new URLSearchParams({
 	printType: "books",
@@ -36,8 +43,9 @@ const response = await httpCall(
 	{ headers: { "x-goog-api-key": apiKey } },
 );
 
-if (!response?.success)
+if (!response?.success) {
 	throw new Error(response?.error ?? "Google Books search request failed");
+}
 
 let payload;
 try {
@@ -47,17 +55,23 @@ try {
 }
 
 const parsePublishYear = (publishedDate) => {
-	if (typeof publishedDate !== "string") return null;
+	if (typeof publishedDate !== "string") {
+		return null;
+	}
 
 	const yearToken = publishedDate.trim().slice(0, 4);
-	if (!/^\d{4}$/.test(yearToken)) return null;
+	if (!/^\d{4}$/.test(yearToken)) {
+		return null;
+	}
 
 	const year = Number(yearToken);
 	return Number.isFinite(year) ? year : null;
 };
 
 const pickImage = (imageLinks) => {
-	if (!imageLinks || typeof imageLinks !== "object") return null;
+	if (!imageLinks || typeof imageLinks !== "object") {
+		return null;
+	}
 
 	const candidates = [
 		imageLinks.thumbnail,
@@ -69,7 +83,9 @@ const pickImage = (imageLinks) => {
 	];
 
 	for (const candidate of candidates) {
-		if (typeof candidate === "string" && candidate.trim()) return candidate;
+		if (typeof candidate === "string" && candidate.trim()) {
+			return candidate;
+		}
 	}
 
 	return null;
@@ -84,7 +100,9 @@ const volumes = Array.isArray(payload?.items) ? payload.items : [];
 const items = volumes
 	.map((volume) => {
 		const identifier = typeof volume?.id === "string" ? volume.id : "";
-		if (!identifier) return null;
+		if (!identifier) {
+			return null;
+		}
 
 		const volumeInfo =
 			volume?.volumeInfo && typeof volume.volumeInfo === "object"
