@@ -236,7 +236,7 @@ describe("createEntity", () => {
 		expect(createdEntity.name).toBe("My Book");
 	});
 
-	it("returns validation when the schema is built in", async () => {
+	it("returns validation when the schema is built in and no provenance is provided", async () => {
 		const result = await createEntity(
 			{ body: createEntityBody(), userId: "user_1" },
 			createEntityDeps({
@@ -253,6 +253,38 @@ describe("createEntity", () => {
 			error: "validation",
 			message: "Built-in entity schemas do not support manual entity creation",
 		});
+	});
+
+	it("allows creation for a built-in schema when provenance fields are provided", async () => {
+		const createdEntity = createListedEntity({
+			name: "Built-in Book",
+			externalId: "ol:OL12345W",
+			detailsSandboxScriptId: "script_details_1",
+		});
+		const deps = createEntityDeps({
+			getEntitySchemaScopeForUser: async () => ({
+				userId: null,
+				id: "schema_1",
+				isBuiltin: true,
+				propertiesSchema: {},
+			}),
+			findEntityByExternalIdForUser: async () => undefined,
+			createEntityForUser: async () => createdEntity,
+		});
+
+		const result = await createEntity(
+			{
+				userId: "user_1",
+				body: {
+					...createEntityBody(),
+					externalId: "ol:OL12345W",
+					detailsSandboxScriptId: "script_details_1",
+				},
+			},
+			deps,
+		);
+
+		expect(result).toEqual({ data: createdEntity });
 	});
 
 	it("returns validation for a blank entity schema id", async () => {
