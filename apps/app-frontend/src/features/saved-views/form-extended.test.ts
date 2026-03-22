@@ -15,7 +15,16 @@ describe("savedViewExtendedFormSchema", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [],
 			entitySchemaSlugs: [],
-			displayConfiguration: {},
+			displayConfiguration: {
+				list: {},
+				table: {},
+				grid: {
+					badgeProperty: null,
+					imageProperty: null,
+					titleProperty: null,
+					subtitleProperty: null,
+				},
+			},
 			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
 		});
 
@@ -28,7 +37,19 @@ describe("savedViewExtendedFormSchema", () => {
 			entitySchemaSlugs: ["smartphones", "tablets"],
 			sort: { fields: [{ id: "1", value: "@name" }], direction: "desc" },
 			displayConfiguration: {
-				grid: { titleProperty: ["name"], imageProperty: ["image"] },
+				table: {},
+				grid: {
+					badgeProperty: null,
+					subtitleProperty: null,
+					titleProperty: ["name"],
+					imageProperty: ["image"],
+				},
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
 			},
 		});
 
@@ -43,9 +64,18 @@ describe("savedViewExtendedFormSchema", () => {
 	it("rejects empty sort fields array", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [],
-			displayConfiguration: {},
 			entitySchemaSlugs: ["smartphones"],
 			sort: { direction: "asc", fields: [] },
+			displayConfiguration: {
+				list: {},
+				table: {},
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+			},
 		});
 
 		expect(result.success).toBe(false);
@@ -55,7 +85,16 @@ describe("savedViewExtendedFormSchema", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [],
 			entitySchemaSlugs: ["smartphones", "tablets"],
-			displayConfiguration: {},
+			displayConfiguration: {
+				list: {},
+				table: {},
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+			},
 			sort: {
 				direction: "asc",
 				fields: [
@@ -75,6 +114,126 @@ describe("savedViewExtendedFormSchema", () => {
 			]);
 			expect(result.data.sort.direction).toBe("asc");
 		}
+	});
+
+	it("validates grid display configuration with all four properties", () => {
+		const result = savedViewExtendedFormSchema.safeParse({
+			filters: [],
+			entitySchemaSlugs: ["smartphones"],
+			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
+			displayConfiguration: {
+				list: {},
+				table: {},
+				grid: {
+					badgeProperty: ["status"],
+					subtitleProperty: ["year"],
+					imageProperty: ["image", "photo"],
+					titleProperty: ["@name", "brand"],
+				},
+			},
+		});
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.displayConfiguration.grid.imageProperty).toEqual([
+				"image",
+				"photo",
+			]);
+			expect(result.data.displayConfiguration.grid.titleProperty).toEqual([
+				"@name",
+				"brand",
+			]);
+			expect(result.data.displayConfiguration.grid.subtitleProperty).toEqual([
+				"year",
+			]);
+			expect(result.data.displayConfiguration.grid.badgeProperty).toEqual([
+				"status",
+			]);
+		}
+	});
+
+	it("allows badgeProperty to be null", () => {
+		const result = savedViewExtendedFormSchema.safeParse({
+			filters: [],
+			entitySchemaSlugs: ["smartphones"],
+			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
+			displayConfiguration: {
+				table: {},
+				grid: {
+					badgeProperty: null,
+					imageProperty: ["image"],
+					titleProperty: ["@name"],
+					subtitleProperty: ["year"],
+				},
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+			},
+		});
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.displayConfiguration.grid.badgeProperty).toBeNull();
+		}
+	});
+
+	it("allows grid properties to be null", () => {
+		const result = savedViewExtendedFormSchema.safeParse({
+			filters: [],
+			entitySchemaSlugs: ["smartphones"],
+			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
+			displayConfiguration: {
+				table: {},
+				grid: {
+					imageProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+					titleProperty: ["@name"],
+				},
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+			},
+		});
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.displayConfiguration.grid.titleProperty).toEqual([
+				"@name",
+			]);
+			expect(result.data.displayConfiguration.grid.imageProperty).toBeNull();
+		}
+	});
+
+	it("rejects non-array values for grid properties", () => {
+		const result = savedViewExtendedFormSchema.safeParse({
+			filters: [],
+			entitySchemaSlugs: ["smartphones"],
+			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
+			displayConfiguration: {
+				table: {},
+				grid: {
+					badgeProperty: null,
+					subtitleProperty: null,
+					titleProperty: ["@name"],
+					imageProperty: "not-an-array",
+				},
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+			},
+		});
+
+		expect(result.success).toBe(false);
 	});
 });
 
@@ -107,10 +266,19 @@ describe("buildSavedViewExtendedFormValues", () => {
 describe("savedViewExtendedFormSchema - filters", () => {
 	it("accepts valid filter row with eq operator", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
-			displayConfiguration: {},
 			entitySchemaSlugs: ["smartphones"],
 			filters: [{ id: "1", field: "@name", op: "eq", value: "iPhone" }],
 			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
+			displayConfiguration: {
+				list: {},
+				table: {},
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					subtitleProperty: null,
+					badgeProperty: null,
+				},
+			},
 		});
 
 		expect(result.success).toBe(true);
@@ -126,10 +294,19 @@ describe("savedViewExtendedFormSchema - filters", () => {
 
 	it("rejects invalid operator", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
-			displayConfiguration: {},
 			entitySchemaSlugs: ["smartphones"],
 			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
 			filters: [{ id: "1", field: "@name", op: "invalid", value: "test" }],
+			displayConfiguration: {
+				list: {},
+				table: {},
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+			},
 		});
 
 		expect(result.success).toBe(false);
@@ -137,10 +314,19 @@ describe("savedViewExtendedFormSchema - filters", () => {
 
 	it("accepts filter with isNull operator", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
-			displayConfiguration: {},
 			entitySchemaSlugs: ["smartphones"],
 			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
 			filters: [{ id: "1", field: "@description", op: "isNull", value: "" }],
+			displayConfiguration: {
+				list: {},
+				table: {},
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+			},
 		});
 
 		expect(result.success).toBe(true);
@@ -151,7 +337,16 @@ describe("savedViewExtendedFormSchema - filters", () => {
 			filters: [{ id: "1", field: "brand", op: "in", value: "Apple,Samsung" }],
 			entitySchemaSlugs: ["smartphones"],
 			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
-			displayConfiguration: {},
+			displayConfiguration: {
+				list: {},
+				table: {},
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+			},
 		});
 
 		expect(result.success).toBe(true);
@@ -160,9 +355,18 @@ describe("savedViewExtendedFormSchema - filters", () => {
 	it("accepts empty filters array", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [],
-			displayConfiguration: {},
 			entitySchemaSlugs: ["smartphones"],
 			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
+			displayConfiguration: {
+				list: {},
+				table: {},
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+			},
 		});
 
 		expect(result.success).toBe(true);
