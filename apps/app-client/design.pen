@@ -1,5 +1,5 @@
 {
-  "version": "2.15",
+  "version": "2.17",
   "children": [
     {
       "type": "frame",
@@ -1652,7 +1652,7 @@
       "y": 0,
       "name": "Mobile Navigation",
       "theme": {
-        "Mode": "Light"
+        "Mode": "Dark"
       },
       "width": 2960,
       "height": 1000,
