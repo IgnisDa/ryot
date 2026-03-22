@@ -59,7 +59,7 @@ Every host function has the signature `(context: TContext, ...args: unknown[]) =
 
 ### Static function registry
 
-A new `function-registry.ts` module exports `hostFunctionRegistry`, a plain object mapping each `functionKey` to a factory: `(context: Record<string, unknown>) => ApiFunction`. The factory applies the context and returns a bound, callable function. Stateless functions use `(_ctx) => (...args) => fn(...args)`. Stateful functions use `(ctx) => (...args) => fn(ctx as TContext, ...args)`.
+A new `function-registry.ts` module exports `hostFunctionRegistry`, a plain object mapping each `functionKey` to a factory: `(context: Record<string, unknown>) => (...args: unknown[]) => Promise<unknown>`. The factory applies the context and returns a bound, callable function. Stateless functions use `(_ctx) => (...args) => fn(...args)`. Stateful functions use `(ctx) => (...args) => fn(ctx as TContext, ...args)`.
 
 ### Job payload
 
@@ -67,7 +67,7 @@ The `sandboxRunJobData` Zod schema replaces `apiFunctionsId` (removed) with `api
 
 ### Function reconstruction on the worker
 
-`executeQueuedRun` iterates `apiFunctionDescriptors`. For each descriptor it looks up the factory by `functionKey`. If any key is absent from the registry, an error is thrown immediately before Deno is spawned and the job transitions to `failed`. Otherwise it calls `factory(descriptor.context)` to produce the bound `ApiFunction` and registers it under `descriptor.functionKey`.
+`executeQueuedRun` iterates `apiFunctionDescriptors`. For each descriptor it looks up the factory by `functionKey`. If any key is absent from the registry, an error is thrown immediately before Deno is spawned and the job transitions to `failed`. Otherwise it calls `factory(descriptor.context)` to produce the bound callable function and registers it under `descriptor.functionKey`.
 
 ### SandboxService interface
 
@@ -114,9 +114,9 @@ Script-level errors (thrown exceptions, `httpCall` failures, invalid arguments) 
 - Implementation: delegates to the existing `listEntitySchemas({ userId: context.userId, slugs })` service function.
 - Return value: `apiSuccess(data)` with the full `ListedEntitySchema[]` shape, or `apiFailure(message)` on error.
 
-### Unchanged components
+### Mostly unchanged components
 
-The bridge server (`bridge.ts`), runner file manager (`runner.ts`), runner source (`runner-source.txt`), constants, utilities, and singleton lifecycle (`index.ts`) are unchanged. The Deno runner needs no modifications: it already builds stubs generically from the list of function names in the payload.
+The Deno runner file (`scripts/runner-source.txt`), runner file manager (`runner.ts`), constants, and utilities remain structurally unchanged. The runner already builds stubs generically from the list of function names in the payload.
 
 ### E2E fixture and test files
 
@@ -199,9 +199,9 @@ All four current host functions end up with `context: Record<string, never>` aft
 
 ## Tasks
 
-**Overall Progress:** 5 of 6 tasks completed
+**Overall Progress:** 6 of 6 tasks completed
 
-**Current Task:** [Task 06](./06-cleanup-old-code.md) (todo)
+**Current Task:** None (complete)
 
 ### Task List
 
@@ -212,4 +212,4 @@ All four current host functions end up with `context: Record<string, never>` aft
 | 03  | [New API Endpoints](./03-new-api-endpoints.md)                                              | AFK  | done   | Task 02      |
 | 04  | [`getEntitySchemas` Host Function](./04-get-entity-schemas-host-function.md)                | AFK  | done   | Tasks 01, 03 |
 | 05  | [E2E Tests](./05-e2e-tests.md)                                                              | AFK  | done   | Task 04      |
-| 06  | [Cleanup Old Code](./06-cleanup-old-code.md)                                                | AFK  | todo   | Task 05      |
+| 06  | [Cleanup Old Code](./06-cleanup-old-code.md)                                                | AFK  | done   | Task 05      |

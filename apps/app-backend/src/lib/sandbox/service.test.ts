@@ -51,7 +51,6 @@ describe("SandboxService.executeQueuedRun", () => {
 
 		expect(capturedOptions).toMatchObject({
 			timeoutMs: 2500,
-			userId: "user_1",
 			code: "return 1;",
 			context: { page: 2 },
 		});
@@ -117,7 +116,6 @@ describe("SandboxService.executeQueuedRun", () => {
 		await service.executeQueuedRun(createJobData());
 
 		expect(capturedOptions).toMatchObject({
-			userId: "user_1",
 			code: "return 1;",
 		});
 		expect((capturedOptions as { apiFunctions?: unknown }).apiFunctions).toBe(
