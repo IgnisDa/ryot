@@ -71,6 +71,11 @@ export function FiltersBuilder(props: FiltersBuilderProps) {
 					</Text>{" "}
 					for schema-specific fields.
 				</Text>
+				<Text c="dimmed" size="xs">
+					Operators: eq equals, ne not equals, gt/gte greater than, lt/lte less
+					than, in matches a comma-separated list, isNull checks for missing
+					values.
+				</Text>
 			</Stack>
 
 			<props.form.AppField name="filters" mode="array">
