@@ -1,7 +1,12 @@
 import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { buildReorderedIds } from "~/lib/reorder";
-import type { ServiceResult } from "~/lib/result";
+import {
+	type ServiceResult,
+	serviceData,
+	serviceError,
+	wrapServiceValidator,
+} from "~/lib/result";
 import {
 	countVisibleTrackersByIdsForUser,
 	createTrackerForUser,
@@ -57,25 +62,6 @@ const trackerServiceDeps: TrackerServiceDeps = {
 	updateTrackerForUser,
 };
 
-const createDataResult = <T, E extends string = TrackerMutationError>(
-	data: T,
-): ServiceResult<T, E> => ({ data });
-
-const createErrorResult = <T>(input: {
-	error: TrackerMutationError;
-	message: string;
-}): TrackerServiceResult<T> => ({
-	error: input.error,
-	message: input.message,
-});
-
-const createValidationResult = <T>(
-	message: string,
-): TrackerValidationResult<T> => ({
-	message,
-	error: "validation",
-});
-
 export const resolveTrackerSlug = (
 	input: Pick<CreateTrackerBody, "name" | "slug">,
 ) => {
@@ -122,40 +108,26 @@ export const buildTrackerOrder = (input: {
 
 const resolveTrackerSlugResult = (
 	input: Pick<CreateTrackerBody, "name" | "slug">,
-): TrackerValidationResult<string> => {
-	try {
-		return createDataResult(resolveTrackerSlug(input));
-	} catch (error) {
-		const message =
-			error instanceof Error ? error.message : "Tracker slug is required";
-		return createValidationResult(message);
-	}
-};
+) =>
+	wrapServiceValidator(
+		() => resolveTrackerSlug(input),
+		"Tracker slug is required",
+	);
 
 const resolveTrackerPatchResult = (input: {
 	current: TrackerState;
 	input: UpdateTrackerBody;
-}): TrackerServiceResult<ReturnType<typeof resolveTrackerPatch>> => {
-	try {
-		return createDataResult(resolveTrackerPatch(input));
-	} catch (error) {
-		const message =
-			error instanceof Error ? error.message : "Tracker payload is invalid";
-		return createErrorResult({ error: "validation", message });
-	}
-};
+}) =>
+	wrapServiceValidator(
+		() => resolveTrackerPatch(input),
+		"Tracker payload is invalid",
+	);
 
-const resolveTrackerIdResult = (
-	trackerId: string,
-): TrackerServiceResult<string> => {
-	try {
-		return createDataResult(resolveTrackerId(trackerId));
-	} catch (error) {
-		const message =
-			error instanceof Error ? error.message : "Tracker id is required";
-		return createErrorResult({ error: "validation", message });
-	}
-};
+const resolveTrackerIdResult = (trackerId: string) =>
+	wrapServiceValidator(
+		() => resolveTrackerId(trackerId),
+		"Tracker id is required",
+	);
 
 export const createTracker = async (
 	input: { body: CreateTrackerBody; userId: string },
@@ -174,7 +146,7 @@ export const createTracker = async (
 		userId: input.userId,
 	});
 	if (existingTracker) {
-		return createValidationResult(trackerSlugExistsError);
+		return serviceError("validation", trackerSlugExistsError);
 	}
 
 	try {
@@ -187,10 +159,10 @@ export const createTracker = async (
 			accentColor: input.body.accentColor,
 		});
 
-		return createDataResult(createdTracker);
+		return serviceData(createdTracker);
 	} catch (error) {
 		if (isUniqueConstraintError(error, trackerUniqueConstraint)) {
-			return createValidationResult(trackerSlugExistsError);
+			return serviceError("validation", trackerSlugExistsError);
 		}
 
 		throw error;
@@ -211,10 +183,7 @@ export const updateTracker = async (
 		trackerId: trackerIdResult.data,
 	});
 	if (!ownedTracker) {
-		return createErrorResult({
-			error: "not_found",
-			message: trackerNotFoundError,
-		});
+		return serviceError("not_found", trackerNotFoundError);
 	}
 
 	const patchResult = resolveTrackerPatchResult({
@@ -236,13 +205,10 @@ export const updateTracker = async (
 		accentColor: patchResult.data.accentColor,
 	});
 	if (!updatedTracker) {
-		return createErrorResult({
-			error: "not_found",
-			message: trackerNotFoundError,
-		});
+		return serviceError("not_found", trackerNotFoundError);
 	}
 
-	return createDataResult(updatedTracker);
+	return serviceData(updatedTracker);
 };
 
 export const reorderTrackers = async (
@@ -254,7 +220,7 @@ export const reorderTrackers = async (
 		trackerIds: input.body.trackerIds,
 	});
 	if (visibleTrackerCount !== input.body.trackerIds.length) {
-		return createValidationResult(trackerIdsUnknownError);
+		return serviceError("validation", trackerIdsUnknownError);
 	}
 
 	const currentTrackerIds = await deps.listUserTrackerIdsInOrder(input.userId);
@@ -266,5 +232,5 @@ export const reorderTrackers = async (
 		}),
 	});
 
-	return createDataResult({ trackerIds });
+	return serviceData({ trackerIds });
 };

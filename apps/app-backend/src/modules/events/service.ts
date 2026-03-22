@@ -4,6 +4,12 @@ import { z } from "zod";
 import { resolveCustomEntitySchemaAccess } from "~/lib/app/entity-schema-access";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import {
+	type ServiceResult,
+	serviceData,
+	serviceError,
+	wrapServiceValidator,
+} from "~/lib/result";
+import {
 	createEventForUser,
 	getEntityScopeForUser,
 	getEventCreateScopeForUser,
@@ -65,9 +71,7 @@ export type EventServiceDeps = {
 	getEventCreateScopeForUser: typeof getEventCreateScopeForUser;
 };
 
-export type EventServiceResult<T> =
-	| { data: T }
-	| { error: EventMutationError; message: string };
+export type EventServiceResult<T> = ServiceResult<T, EventMutationError>;
 
 const customEntitySchemaError =
 	"Built-in entity schemas do not support generated event logging";
@@ -83,39 +87,17 @@ const eventServiceDeps: EventServiceDeps = {
 	listEventsByEntityForUser,
 };
 
-const createDataResult = <T>(data: T): EventServiceResult<T> => ({ data });
+const resolveEventEntityIdResult = (entityId: string) =>
+	wrapServiceValidator(
+		() => resolveEventEntityId(entityId),
+		"Entity id is required",
+	);
 
-const createErrorResult = <T>(input: {
-	error: EventMutationError;
-	message: string;
-}): EventServiceResult<T> => ({
-	error: input.error,
-	message: input.message,
-});
-
-const resolveEventEntityIdResult = (
-	entityId: string,
-): EventServiceResult<string> => {
-	try {
-		return createDataResult(resolveEventEntityId(entityId));
-	} catch (error) {
-		const message =
-			error instanceof Error ? error.message : "Entity id is required";
-		return createErrorResult({ error: "validation", message });
-	}
-};
-
-const resolveEventSchemaIdResult = (
-	eventSchemaId: string,
-): EventServiceResult<string> => {
-	try {
-		return createDataResult(resolveEventSchemaId(eventSchemaId));
-	} catch (error) {
-		const message =
-			error instanceof Error ? error.message : "Event schema id is required";
-		return createErrorResult({ error: "validation", message });
-	}
-};
+const resolveEventSchemaIdResult = (eventSchemaId: string) =>
+	wrapServiceValidator(
+		() => resolveEventSchemaId(eventSchemaId),
+		"Event schema id is required",
+	);
 
 export const resolveEventEntityId = (entityId: string) =>
 	resolveRequiredString(entityId, "Entity id");
@@ -204,15 +186,11 @@ export const resolveEventCreateInput = (
 
 const resolveEventCreateInputResult = (
 	input: CreateEventBody & { propertiesSchema: AppSchema },
-): EventServiceResult<ReturnType<typeof resolveEventCreateInput>> => {
-	try {
-		return createDataResult(resolveEventCreateInput(input));
-	} catch (error) {
-		const message =
-			error instanceof Error ? error.message : "Event payload is invalid";
-		return createErrorResult({ error: "validation", message });
-	}
-};
+) =>
+	wrapServiceValidator(
+		() => resolveEventCreateInput(input),
+		"Event payload is invalid",
+	);
 
 const resolveCreateAccessMessage = (
 	error:
@@ -222,16 +200,15 @@ const resolveCreateAccessMessage = (
 		| "event_schema_mismatch",
 ): { error: EventMutationError; message: string } => {
 	if (error === "not_found") {
-		return { error: "not_found", message: entityNotFoundError };
+		return serviceError("not_found", entityNotFoundError);
 	}
 	if (error === "builtin") {
-		return { error: "validation", message: customEntitySchemaError };
+		return serviceError("validation", customEntitySchemaError);
 	}
 	if (error === "event_schema_not_found") {
-		return { error: "not_found", message: eventSchemaNotFoundError };
+		return serviceError("not_found", eventSchemaNotFoundError);
 	}
-
-	return { error: "validation", message: eventSchemaMismatchError };
+	return serviceError("validation", eventSchemaMismatchError);
 };
 
 export const listEntityEvents = async (
@@ -250,7 +227,7 @@ export const listEntityEvents = async (
 		}),
 	);
 	if ("error" in foundEntity) {
-		return createErrorResult(resolveCreateAccessMessage(foundEntity.error));
+		return resolveCreateAccessMessage(foundEntity.error);
 	}
 
 	const events = await deps.listEventsByEntityForUser({
@@ -258,7 +235,7 @@ export const listEntityEvents = async (
 		entityId: entityIdResult.data,
 	});
 
-	return createDataResult(events);
+	return serviceData(events);
 };
 
 export const createEvent = async (
@@ -285,7 +262,7 @@ export const createEvent = async (
 		}),
 	);
 	if ("error" in foundScope) {
-		return createErrorResult(resolveCreateAccessMessage(foundScope.error));
+		return resolveCreateAccessMessage(foundScope.error);
 	}
 
 	const eventInput = resolveEventCreateInputResult({
@@ -309,7 +286,7 @@ export const createEvent = async (
 		eventSchemaSlug: foundScope.access.eventSchemaSlug,
 	});
 
-	return createDataResult(createdEvent);
+	return serviceData(createdEvent);
 };
 
 const BULK_CHUNK_SIZE = 1000;
@@ -334,5 +311,5 @@ export const createEvents = async (
 		}
 	}
 
-	return createDataResult({ count });
+	return serviceData({ count });
 };
