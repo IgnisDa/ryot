@@ -299,10 +299,10 @@ function MobileTopBar(props: {
 				accessibilityLabel="Open account"
 				className="h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-text-muted"
 			>
-				<NavigationIcon name="user" size={18} />
+				<NavigationIcon name="user" size={24} />
 			</Pressable>
 			<View className="h-10 flex-1 flex-row items-center gap-2 rounded-pill border border-border-strong bg-surface-2 px-3.5 text-text-muted">
-				<NavigationIcon name="search" size={17} />
+				<NavigationIcon name="search" size={24} />
 				<Text className="font-ui text-sm text-text-subtle">Search</Text>
 			</View>
 			<Pressable
@@ -311,7 +311,7 @@ function MobileTopBar(props: {
 				accessibilityLabel={`Switch workspace, current workspace ${props.workspaceName}`}
 				className="h-10 w-10 items-center justify-center rounded-pill border border-border-strong bg-surface-2 text-accent"
 			>
-				<NavigationIcon name={props.workspaceIcon} size={18} />
+				<NavigationIcon name={props.workspaceIcon} size={24} />
 			</Pressable>
 		</View>
 	);
@@ -352,7 +352,7 @@ function MobileTabBar(props: {
 								!isActive && !props.isCollapsed && "text-text-muted",
 							)}
 						>
-							<NavigationIcon name={item.icon} size={18} />
+							<NavigationIcon name={item.icon} size={props.isCollapsed ? 26 : 24} />
 							{isActive && !props.isCollapsed && (
 								<Text className="font-ui-medium text-xs text-accent-text">{item.name}</Text>
 							)}
@@ -367,7 +367,7 @@ function MobileTabBar(props: {
 					accessibilityLabel="Open more navigation"
 					className="h-10 w-10 items-center justify-center rounded-pill text-text-muted"
 				>
-					<NavigationIcon name="more-horizontal" size={19} />
+					<NavigationIcon name="more-horizontal" size={24} />
 				</Pressable>
 			)}
 		</Animated.View>
