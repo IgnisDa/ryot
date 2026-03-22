@@ -72,3 +72,27 @@ const displayConfigurationSchema = z.object({
 
 - User story 7: As a user, I want to customize which properties display in grid view (image, title, subtitle, badge), so that I see the most relevant information.
 - User story 10: As a user, I want all three layout configurations (grid, list, table) to be editable independently, so that I don't lose settings when switching layouts.
+
+## Verification
+
+After implementation, verify the work using:
+
+1. **Run tests:**
+   ```bash
+   cd apps/app-frontend/src/features/saved-views
+   bun test
+   ```
+
+2. **Run typecheck:**
+   ```bash
+   cd apps/app-frontend
+   bun run typecheck
+   ```
+
+3. **Build frontend:**
+   ```bash
+   cd apps/app-frontend
+   bun run build
+   ```
+
+All steps must pass with no errors.
