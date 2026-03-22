@@ -5,7 +5,6 @@ import { match } from "ts-pattern";
 
 import { Box } from "@/components/ui/box";
 import { Text } from "@/components/ui/text";
-import { hexToRgba } from "@/features/media/overview-utils";
 
 import type { RelatedCompany } from "./companies";
 import { formatMinutes, formatSeconds } from "./duration";
@@ -38,7 +37,7 @@ export function AboutSection(props: { creators: UnlinkedCreator[]; entity: Entit
 	return (
 		<Box>
 			<ExpandableText
-				toggleTextStyle={{ color: ACCENT }}
+				toggleTextClassName="text-[#C9943A]"
 				className="text-[15px] font-sans leading-[1.7] text-muted-foreground web:text-[17px]"
 			>
 				{description}
@@ -69,46 +68,40 @@ export function CreatorsSection(props: { creators: UnlinkedCreator[] }) {
 			<Text className="mb-3 font-heading-semibold text-[16px] text-foreground web:text-[18px]">
 				People
 			</Text>
-			<ScrollView
-				horizontal
-				contentContainerStyle={{ gap: 16 }}
-				showsHorizontalScrollIndicator={false}
-			>
-				{props.creators.map((creator) => {
-					const imageUrl = creator.image?.type === "remote" ? creator.image.url : null;
-					return (
-						<Box
-							key={creator.id ?? `${creator.name}-${creator.role}`}
-							className="items-center"
-							style={{ width: 110 }}
-						>
+			<ScrollView horizontal showsHorizontalScrollIndicator={false}>
+				<Box className="flex-row gap-4">
+					{props.creators.map((creator) => {
+						const imageUrl = creator.image?.type === "remote" ? creator.image.url : null;
+						return (
 							<Box
-								className="overflow-hidden rounded-lg"
-								style={{
-									width: 80,
-									height: 80,
-									backgroundColor: hexToRgba(ACCENT, 0.07),
-								}}
+								className="w-27.5 items-center"
+								key={creator.id ?? `${creator.name}-${creator.role}`}
 							>
-								{imageUrl ? (
-									<Image source={{ uri: imageUrl }} className="h-full w-full" resizeMode="cover" />
-								) : null}
+								<Box className="h-20 w-20 overflow-hidden rounded-lg bg-[rgba(201,148,58,0.07)]">
+									{imageUrl ? (
+										<Image
+											resizeMode="cover"
+											className="h-full w-full"
+											source={{ uri: imageUrl }}
+										/>
+									) : null}
+								</Box>
+								<Text
+									numberOfLines={1}
+									className="mt-2 text-center text-[13px] font-sans-semibold text-foreground web:text-[15px]"
+								>
+									{creator.name}
+								</Text>
+								<Text
+									numberOfLines={1}
+									className="mt-0.5 text-center text-[11px] italic text-muted-foreground web:text-[13px]"
+								>
+									{formatRoleLabel(creator.role)}
+								</Text>
 							</Box>
-							<Text
-								numberOfLines={1}
-								className="mt-2 text-center text-[13px] font-sans-semibold text-foreground web:text-[15px]"
-							>
-								{creator.name}
-							</Text>
-							<Text
-								numberOfLines={1}
-								className="mt-0.5 text-center text-[11px] italic text-muted-foreground web:text-[13px]"
-							>
-								{formatRoleLabel(creator.role)}
-							</Text>
-						</Box>
-					);
-				})}
+						);
+					})}
+				</Box>
 			</ScrollView>
 		</Box>
 	);
@@ -124,46 +117,40 @@ export function CompaniesSection(props: { companies: RelatedCompany[] }) {
 			<Text className="mb-3 font-heading-semibold text-[16px] text-foreground web:text-[18px]">
 				Companies
 			</Text>
-			<ScrollView
-				horizontal
-				contentContainerStyle={{ gap: 16 }}
-				showsHorizontalScrollIndicator={false}
-			>
-				{props.companies.map((company) => {
-					const imageUrl = company.image?.type === "remote" ? company.image.url : null;
-					return (
-						<Box
-							key={company.id ?? `${company.name}-${company.role}`}
-							className="items-center"
-							style={{ width: 110 }}
-						>
+			<ScrollView horizontal showsHorizontalScrollIndicator={false}>
+				<Box className="flex-row gap-4">
+					{props.companies.map((company) => {
+						const imageUrl = company.image?.type === "remote" ? company.image.url : null;
+						return (
 							<Box
-								className="overflow-hidden rounded-lg"
-								style={{
-									width: 80,
-									height: 80,
-									backgroundColor: hexToRgba(ACCENT, 0.07),
-								}}
+								className="w-27.5 items-center"
+								key={company.id ?? `${company.name}-${company.role}`}
 							>
-								{imageUrl ? (
-									<Image source={{ uri: imageUrl }} className="h-full w-full" resizeMode="cover" />
-								) : null}
+								<Box className="h-20 w-20 overflow-hidden rounded-lg bg-[rgba(201,148,58,0.07)]">
+									{imageUrl ? (
+										<Image
+											resizeMode="cover"
+											className="h-full w-full"
+											source={{ uri: imageUrl }}
+										/>
+									) : null}
+								</Box>
+								<Text
+									numberOfLines={1}
+									className="mt-2 text-center text-[13px] font-sans-semibold text-foreground web:text-[15px]"
+								>
+									{company.name}
+								</Text>
+								<Text
+									numberOfLines={1}
+									className="mt-0.5 text-center text-[11px] italic text-muted-foreground web:text-[13px]"
+								>
+									{formatRoleLabel(company.role)}
+								</Text>
 							</Box>
-							<Text
-								numberOfLines={1}
-								className="mt-2 text-center text-[13px] font-sans-semibold text-foreground web:text-[15px]"
-							>
-								{company.name}
-							</Text>
-							<Text
-								numberOfLines={1}
-								className="mt-0.5 text-center text-[11px] italic text-muted-foreground web:text-[13px]"
-							>
-								{formatRoleLabel(company.role)}
-							</Text>
-						</Box>
-					);
-				})}
+						);
+					})}
+				</Box>
 			</ScrollView>
 		</Box>
 	);

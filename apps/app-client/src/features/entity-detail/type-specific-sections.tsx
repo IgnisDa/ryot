@@ -8,7 +8,6 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-na
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { hexToRgba } from "@/features/media/overview-utils";
 
 import { formatMinutes } from "./duration";
 import type { AnimeDetail, PodcastDetail, ShowDetail, VideoGameDetail } from "./types";
@@ -18,29 +17,19 @@ const ACCENT = "#C9943A";
 function SectionLabel(props: { label: string }) {
 	return (
 		<Box className="mb-3 mt-7 flex-row items-center gap-3">
-			<Box className="h-px flex-1" style={{ backgroundColor: hexToRgba(ACCENT, 0.3) }} />
-			<Text
-				style={{ color: ACCENT }}
-				className="text-xs font-sans-semibold uppercase tracking-[2px] web:text-[13px]"
-			>
+			<Box className="h-px flex-1 bg-[rgba(201,148,58,0.3)]" />
+			<Text className="text-xs font-sans-semibold uppercase tracking-[2px] text-[#C9943A] web:text-[13px]">
 				{props.label}
 			</Text>
-			<Box className="h-px flex-1" style={{ backgroundColor: hexToRgba(ACCENT, 0.3) }} />
+			<Box className="h-px flex-1 bg-[rgba(201,148,58,0.3)]" />
 		</Box>
 	);
 }
 
 function StatBlock(props: { label: string; value: string }) {
 	return (
-		<Box
-			className="flex-1 items-center rounded-xl py-3"
-			style={{
-				borderWidth: 1,
-				borderColor: hexToRgba(ACCENT, 0.14),
-				backgroundColor: hexToRgba(ACCENT, 0.07),
-			}}
-		>
-			<Text className="text-[22px] font-heading-semibold web:text-[26px]" style={{ color: ACCENT }}>
+		<Box className="flex-1 items-center rounded-xl border border-[rgba(201,148,58,0.14)] bg-[rgba(201,148,58,0.07)] py-3">
+			<Text className="text-[22px] font-heading-semibold text-[#C9943A] web:text-[26px]">
 				{props.value}
 			</Text>
 			<Text className="mt-0.5 text-[11px] font-sans-medium uppercase tracking-[1px] text-muted-foreground web:text-[13px]">
@@ -63,7 +52,7 @@ function CollapsibleContent(props: { isOpen: boolean; children: React.ReactNode 
 	return (
 		<Animated.View style={animStyle}>
 			<View
-				style={{ position: "absolute", width: "100%" }}
+				className="absolute w-full"
 				onLayout={(e) => {
 					const h = e.nativeEvent.layout.height;
 					if (h > 0) {
@@ -90,12 +79,7 @@ export function ShowSeasonsList(props: { entity: ShowDetail }) {
 					<Box key={season.id} className="mb-2">
 						<Pressable
 							onPress={() => setOpenId(isOpen ? null : season.id)}
-							className="flex-row items-center justify-between rounded-xl px-4 py-3"
-							style={{
-								borderWidth: 1,
-								borderColor: hexToRgba(ACCENT, 0.14),
-								backgroundColor: hexToRgba(ACCENT, 0.07),
-							}}
+							className="flex-row items-center justify-between rounded-xl border border-[rgba(201,148,58,0.14)] bg-[rgba(201,148,58,0.07)] px-4 py-3"
 						>
 							<Box className="mr-3 min-w-0 flex-1">
 								<Text className="text-[14px] font-sans-semibold text-foreground web:text-[16px]">
@@ -110,11 +94,11 @@ export function ShowSeasonsList(props: { entity: ShowDetail }) {
 							</Box>
 							<Box className="flex-row items-center gap-3">
 								{seasonPoster ? (
-									<Box className="overflow-hidden rounded" style={{ width: 36, height: 54 }}>
+									<Box className="h-13.5 w-9 overflow-hidden rounded">
 										<Image
 											resizeMode="cover"
+											className="h-13.5 w-9"
 											source={{ uri: seasonPoster }}
-											style={{ width: 36, height: 54 }}
 										/>
 									</Box>
 								) : null}
@@ -126,10 +110,7 @@ export function ShowSeasonsList(props: { entity: ShowDetail }) {
 							</Box>
 						</Pressable>
 						<CollapsibleContent isOpen={isOpen}>
-							<Box
-								className="mx-1 rounded-b-xl px-4 pb-2"
-								style={{ backgroundColor: hexToRgba(ACCENT, 0.04) }}
-							>
+							<Box className="mx-1 rounded-b-xl bg-[rgba(201,148,58,0.04)] px-4 pb-2">
 								{season.overview ? (
 									<Text
 										numberOfLines={3}
@@ -141,21 +122,14 @@ export function ShowSeasonsList(props: { entity: ShowDetail }) {
 								{season.episodes.map((episode) => {
 									const episodePoster = episode.posterImages[0] ?? null;
 									return (
-										<Box
-											key={episode.id}
-											className="border-b py-2.5"
-											style={{ borderColor: hexToRgba(ACCENT, 0.1) }}
-										>
+										<Box key={episode.id} className="border-b border-[rgba(201,148,58,0.1)] py-2.5">
 											<Box className="flex-row items-start gap-3">
 												{episodePoster ? (
-													<Box
-														className="overflow-hidden rounded"
-														style={{ width: 72, height: 41, flexShrink: 0 }}
-													>
+													<Box className="h-10.25 w-18 shrink-0 overflow-hidden rounded">
 														<Image
 															resizeMode="cover"
+															className="h-10.25 w-18"
 															source={{ uri: episodePoster }}
-															style={{ width: 72, height: 41 }}
 														/>
 													</Box>
 												) : null}
@@ -208,20 +182,13 @@ export function PodcastEpisodesList(props: { entity: PodcastDetail }) {
 	return (
 		<Box>
 			{episodes.map((episode) => (
-				<Box
-					key={episode.id}
-					className="border-b py-3"
-					style={{ borderColor: hexToRgba(ACCENT, 0.12) }}
-				>
+				<Box key={episode.id} className="border-b border-[rgba(201,148,58,0.12)] py-3">
 					<Box className="flex-row items-start gap-3">
 						{episode.thumbnail ? (
-							<Box
-								className="overflow-hidden rounded"
-								style={{ width: 56, height: 56, flexShrink: 0 }}
-							>
+							<Box className="h-14 w-14 shrink-0 overflow-hidden rounded">
 								<Image
 									resizeMode="cover"
-									style={{ width: 56, height: 56 }}
+									className="h-14 w-14"
 									source={{ uri: episode.thumbnail }}
 								/>
 							</Box>
@@ -280,12 +247,7 @@ export function VideoGameStats(props: { entity: VideoGameDetail }) {
 					{platformReleases.map((platform) => (
 						<Box
 							key={platform.name}
-							className="mb-2 flex-row items-center justify-between rounded-xl px-4 py-3"
-							style={{
-								borderWidth: 1,
-								borderColor: hexToRgba(ACCENT, 0.14),
-								backgroundColor: hexToRgba(ACCENT, 0.07),
-							}}
+							className="mb-2 flex-row items-center justify-between rounded-xl border border-[rgba(201,148,58,0.14)] bg-[rgba(201,148,58,0.07)] px-4 py-3"
 						>
 							<Text className="text-[13px] font-sans-medium text-foreground web:text-[15px]">
 								{platform.name}
@@ -314,12 +276,7 @@ export function AnimeAiringSchedule(props: { entity: AnimeDetail }) {
 			{schedule.map((item) => (
 				<Box
 					key={item.episode}
-					className="mb-2 flex-row items-center justify-between rounded-xl px-4 py-3"
-					style={{
-						borderWidth: 1,
-						borderColor: hexToRgba(ACCENT, 0.14),
-						backgroundColor: hexToRgba(ACCENT, 0.07),
-					}}
+					className="mb-2 flex-row items-center justify-between rounded-xl border border-[rgba(201,148,58,0.14)] bg-[rgba(201,148,58,0.07)] px-4 py-3"
 				>
 					<Text className="text-[13px] font-sans-medium text-foreground web:text-[15px]">
 						{`Episode ${item.episode}`}

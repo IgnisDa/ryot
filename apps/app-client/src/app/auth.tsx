@@ -218,7 +218,7 @@ export default function Auth() {
 
 		return (
 			<KeyboardAvoidingView
-				style={{ flex: 1 }}
+				className="flex-1"
 				behavior={Platform.OS === "ios" ? "padding" : "height"}
 			>
 				<Box className="flex-1 bg-background justify-center items-center">
@@ -328,7 +328,7 @@ export default function Auth() {
 
 	return (
 		<KeyboardAvoidingView
-			style={{ flex: 1 }}
+			className="flex-1"
 			behavior={Platform.OS === "ios" ? "padding" : "height"}
 		>
 			<Box className="flex-1 bg-background justify-center items-center">

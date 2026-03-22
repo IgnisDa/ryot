@@ -1,4 +1,5 @@
 import { changeCase } from "@ryot/ts-utils/string";
+import clsx from "clsx";
 import { LinearGradient } from "expo-linear-gradient";
 import { Check, Library, Plus } from "lucide-react-native";
 import { Image } from "react-native";
@@ -12,8 +13,6 @@ import { formatMinutes } from "./duration";
 import { getPrimaryCreator } from "./people";
 import type { EntityDetail, UnlinkedCreator } from "./types";
 
-const ACCENT = "#C9943A";
-
 export function HeroSection(props: { creators: UnlinkedCreator[]; entity: EntityDetail }) {
 	const entity = props.entity;
 	const insets = useSafeAreaInsets();
@@ -24,17 +23,16 @@ export function HeroSection(props: { creators: UnlinkedCreator[]; entity: Entity
 	const runtime = "runtime" in entity.properties ? (entity.properties.runtime ?? null) : null;
 
 	return (
-		<Box className="relative w-full overflow-hidden min-h-100 md:min-h-120">
+		<Box className="relative min-h-100 w-full overflow-hidden md:min-h-120">
 			{imageUrl ? (
 				<Image
 					blurRadius={2}
 					resizeMode="cover"
-					style={{ opacity: 0.45 }}
 					source={{ uri: imageUrl }}
-					className="absolute inset-0 h-full w-full"
+					className="absolute inset-0 h-full w-full opacity-[0.45]"
 				/>
 			) : (
-				<Box className="absolute inset-0" style={{ backgroundColor: "rgba(201,148,58,0.12)" }} />
+				<Box className="absolute inset-0 bg-[rgba(201,148,58,0.12)]" />
 			)}
 
 			<LinearGradient
@@ -66,23 +64,16 @@ export function HeroSection(props: { creators: UnlinkedCreator[]; entity: Entity
 								}}
 							>
 								<Image
-									className="w-full"
 									resizeMode="cover"
 									source={{ uri: imageUrl }}
-									style={{ aspectRatio: 2 / 3 }}
+									className="aspect-2/3 w-full"
 								/>
 							</Box>
 						)}
 
 						<Box className="min-w-0 grow">
-							<Box
-								className="mb-2 self-start rounded px-2 py-0.5"
-								style={{ backgroundColor: "rgba(201,148,58,0.35)" }}
-							>
-								<Text
-									style={{ color: ACCENT }}
-									className="text-[11px] font-sans-semibold uppercase tracking-[1px] web:text-[13px]"
-								>
+							<Box className="mb-2 self-start rounded bg-[rgba(201,148,58,0.35)] px-2 py-0.5">
+								<Text className="text-[11px] font-sans-semibold uppercase tracking-[1px] text-[#C9943A] web:text-[13px]">
 									{changeCase(entity.entitySchemaSlug)}
 								</Text>
 							</Box>
@@ -101,31 +92,22 @@ export function HeroSection(props: { creators: UnlinkedCreator[]; entity: Entity
 
 							<Box className="mt-3 flex-row flex-wrap items-center gap-3">
 								{entity.properties.publishYear != null && (
-									<Text
-										className="text-[13px] web:text-[15px]"
-										style={{ color: "rgba(255,255,255,0.7)" }}
-									>
+									<Text className="text-[13px] text-white/70 web:text-[15px]">
 										{entity.properties.publishYear}
 									</Text>
 								)}
 								{entity.properties.publishYear != null && runtime !== null && (
-									<Text style={{ color: "rgba(255,255,255,0.4)" }}>·</Text>
+									<Text className="text-[13px] text-white/40 web:text-[15px]">·</Text>
 								)}
 								{runtime !== null && (
-									<Text
-										className="text-[13px] web:text-[15px]"
-										style={{ color: "rgba(255,255,255,0.7)" }}
-									>
+									<Text className="text-[13px] text-white/70 web:text-[15px]">
 										{formatMinutes(runtime)}
 									</Text>
 								)}
 								{primaryCreator && (
 									<>
-										<Text style={{ color: "rgba(255,255,255,0.4)" }}>·</Text>
-										<Text
-											className="text-[13px] web:text-[15px]"
-											style={{ color: "rgba(255,255,255,0.7)" }}
-										>
+										<Text className="text-[13px] text-white/40 web:text-[15px]">·</Text>
+										<Text className="text-[13px] text-white/70 web:text-[15px]">
 											{primaryCreator.name}
 										</Text>
 									</>
@@ -137,16 +119,9 @@ export function HeroSection(props: { creators: UnlinkedCreator[]; entity: Entity
 									{entity.properties.genres.map((genre) => (
 										<Box
 											key={genre}
-											className="rounded-full border px-2.5 py-1"
-											style={{
-												borderColor: "rgba(255,255,255,0.1)",
-												backgroundColor: "rgba(255,255,255,0.15)",
-											}}
+											className="rounded-full border border-white/10 bg-white/15 px-2.5 py-1"
 										>
-											<Text
-												className="text-[11px] font-sans-medium web:text-[13px]"
-												style={{ color: "rgba(255,255,255,0.85)" }}
-											>
+											<Text className="text-[11px] font-sans-medium text-white/85 web:text-[13px]">
 												{genre}
 											</Text>
 										</Box>
@@ -167,12 +142,10 @@ export function HeroSection(props: { creators: UnlinkedCreator[]; entity: Entity
 												return (
 													<Box
 														key={i}
-														className="rounded-[3px]"
-														style={{
-															width: 20,
-															height: 24,
-															backgroundColor: filled ? ACCENT : "rgba(255,255,255,0.15)",
-														}}
+														className={clsx(
+															"h-6 w-5 rounded-[3px]",
+															filled ? "bg-[#C9943A]" : "bg-white/15",
+														)}
 													/>
 												);
 											})}
@@ -196,12 +169,8 @@ export function HeroSection(props: { creators: UnlinkedCreator[]; entity: Entity
 								</Pressable>
 								<Pressable
 									disabled
-									className="flex-row items-center gap-2 rounded-full border px-4 py-2.5"
-									style={{
-										borderColor: "rgba(255,255,255,0.2)",
-										backgroundColor: "rgba(255,255,255,0.12)",
-									}}
 									accessibilityState={{ disabled: true }}
+									className="flex-row items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-2.5"
 								>
 									<Library size={16} color="#fff" strokeWidth={2} />
 									<Text className="text-[13px] font-sans-semibold text-white web:text-[15px]">

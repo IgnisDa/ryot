@@ -113,7 +113,7 @@ function StoryRing(props: {
 	const ringWidth = size + 8;
 
 	return (
-		<Pressable style={{ alignItems: "center", width: ringWidth }}>
+		<Pressable className="items-center" style={{ width: ringWidth }}>
 			<Box style={{ height: size, width: size }}>
 				<Svg width={size} height={size} style={{ position: "absolute", left: 0, top: 0 }}>
 					<Circle
@@ -138,29 +138,24 @@ function StoryRing(props: {
 					/>
 				</Svg>
 				<Box
+					className="overflow-hidden rounded-full"
 					style={{
 						width: thumbSize,
 						top: stroke + gap,
 						height: thumbSize,
 						left: stroke + gap,
-						overflow: "hidden",
 						position: "absolute",
-						borderRadius: thumbSize / 2,
 						backgroundColor: hexToRgba(color, 0.18),
 					}}
 				>
 					{imageUrl ? (
-						<Image
-							resizeMode="cover"
-							source={{ uri: imageUrl }}
-							style={{ height: thumbSize, width: thumbSize }}
-						/>
+						<Image resizeMode="cover" source={{ uri: imageUrl }} className="h-full w-full" />
 					) : (
 						<Box className="flex-1 items-center justify-center">
 							<Text
+								style={{ color }}
 								numberOfLines={3}
-								style={{ color, fontSize: 7 }}
-								className="text-center font-sans-medium uppercase"
+								className="text-center text-[7px] font-sans-medium uppercase"
 							>
 								{item.title}
 							</Text>
@@ -259,21 +254,17 @@ export function UpNextSection(props: {
 							onPress={() => router.push(entityHref(item.id))}
 						>
 							<Box
-								className="aspect-2/3 sm:max-h-60"
-								style={{
-									borderRadius: 10,
-									overflow: "hidden",
-									backgroundColor: hexToRgba(color, 0.13),
-								}}
+								style={{ backgroundColor: hexToRgba(color, 0.13) }}
+								className="aspect-2/3 overflow-hidden rounded-[10px] sm:max-h-60"
 							>
 								{imageUrl ? (
-									<Image source={{ uri: imageUrl }} style={{ flex: 1 }} resizeMode="cover" />
+									<Image source={{ uri: imageUrl }} className="flex-1" resizeMode="cover" />
 								) : (
 									<Box className="flex-1 items-center justify-center px-3">
 										<Text
-											className="text-center text-xs font-sans-medium uppercase tracking-[1px] web:text-[14px]"
 											style={{ color }}
 											numberOfLines={4}
+											className="text-center text-xs font-sans-medium uppercase tracking-[1px] web:text-[14px]"
 										>
 											{item.title}
 										</Text>
@@ -323,22 +314,17 @@ function RateCard(props: {
 
 	return (
 		<Box
-			style={{
-				borderWidth: 1,
-				borderRadius: 14,
-				overflow: "hidden",
-				backgroundColor: "#ffffff",
-				borderColor: hexToRgba(color, 0.18),
-			}}
+			style={{ borderColor: hexToRgba(color, 0.18) }}
+			className="overflow-hidden rounded-[14px] border border-white bg-white"
 		>
 			<Pressable
-				onPress={() => router.push(entityHref(item.id))}
 				className="h-[210] sm:h-[240] md:h-[270] lg:h-[300]"
 				style={{ backgroundColor: hexToRgba(color, 0.13) }}
+				onPress={() => router.push(entityHref(item.id))}
 			>
 				<ImageBackground
+					className="flex-1"
 					resizeMode="cover"
-					style={{ flex: 1 }}
 					source={imageUrl ? { uri: imageUrl } : undefined}
 				>
 					<LinearGradient
@@ -346,22 +332,21 @@ function RateCard(props: {
 						colors={gradientColors}
 						style={{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }}
 					/>
-					<Box style={{ bottom: 14, left: 14, position: "absolute", right: 14 }}>
+					<Box className="absolute bottom-3.5 left-3.5 right-3.5">
 						<Box
 							className="mb-1 self-start rounded px-1.5 py-0.5"
 							style={{ backgroundColor: hexToRgba(color, 0.38) }}
 						>
 							<Text
-								style={{ color }}
 								className="text-[11px] font-sans-medium uppercase tracking-[0.5px] web:text-[13px]"
+								style={{ color }}
 							>
 								{item.entitySchemaSlug}
 							</Text>
 						</Box>
 						<Text
 							numberOfLines={2}
-							style={{ fontSize: 18, lineHeight: 22 }}
-							className="font-heading-semibold text-white"
+							className="text-[18px] leading-5.5 font-heading-semibold text-white"
 						>
 							{item.title}
 						</Text>
@@ -413,18 +398,11 @@ export function RateTheseSection(props: {
 					</Text>
 				</Box>
 			) : (
-				<Box style={{ paddingBottom: 10 }}>
-					{/* Back card hint — next item peeking behind */}
+				<Box className="pb-2.5">
 					{idx + 1 < items.length ? (
 						<Box
+							className="absolute bottom-0 left-3 right-3 top-2.5 rounded-[14px] border"
 							style={{
-								top: 10,
-								left: 12,
-								right: 12,
-								bottom: 0,
-								borderWidth: 1,
-								borderRadius: 14,
-								position: "absolute",
 								backgroundColor: hexToRgba(
 									schemaColorMap.get(items[idx + 1].entitySchemaSlug) ?? FALLBACK_COLOR,
 									0.07,
@@ -470,12 +448,12 @@ export function ActivitySection(props: {
 						className="flex-row"
 						onPress={() => router.push(entityHref(item.entityId))}
 					>
-						<Box className="items-center" style={{ paddingTop: 4, width: 20 }}>
-							<Box style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
+						<Box className="items-center pt-1 w-5">
+							<Box className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
 							{!isLast ? (
 								<Box
-									className="flex-1"
-									style={{ width: 1, marginTop: 4, backgroundColor: hexToRgba(color, 0.2) }}
+									className="mt-1 w-px flex-1"
+									style={{ backgroundColor: hexToRgba(color, 0.2) }}
 								/>
 							) : null}
 						</Box>
