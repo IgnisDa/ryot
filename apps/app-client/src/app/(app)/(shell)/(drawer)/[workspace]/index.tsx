@@ -86,7 +86,7 @@ export default function AppHome() {
 						</Text>
 					)}
 					{AsyncResult.builder(savedViews)
-						.onInitial(() => <Text className="font-ui text-text-muted">Loading...</Text>)
+						.onInitial(() => <Text className="font-ui text-base text-text-muted">Loading...</Text>)
 						.onFailure((cause) => (
 							<Text selectable className="font-mono text-sm text-danger">
 								{JSON.stringify({ error: Cause.pretty(cause) }, null, 2)}
@@ -120,7 +120,7 @@ export default function AppHome() {
 						GET /api/notifications/channels
 					</Text>
 					{AsyncResult.builder(notificationChannels)
-						.onInitial(() => <Text className="font-ui text-text-muted">Loading...</Text>)
+						.onInitial(() => <Text className="font-ui text-base text-text-muted">Loading...</Text>)
 						.onFailure((cause) => (
 							<Text selectable className="font-mono text-sm text-danger">
 								{JSON.stringify({ error: Cause.pretty(cause) }, null, 2)}
@@ -135,7 +135,7 @@ export default function AppHome() {
 				</View>
 
 				<Pressable accessibilityRole="button" onPress={() => void handleSignOut()}>
-					<Text className="font-ui-medium text-accent-text">Sign out</Text>
+					<Text className="font-ui-medium text-base text-accent-text">Sign out</Text>
 				</Pressable>
 			</View>
 		</View>

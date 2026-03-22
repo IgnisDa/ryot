@@ -59,7 +59,7 @@ function WorkspaceShellContent() {
 					/>
 					<View className="absolute left-69.5 top-19.5 z-50 hidden w-[320px] rounded-xl border border-border bg-surface p-3 shadow-card md:flex">
 						<View className="flex-row items-center justify-between px-1 pb-2">
-							<Text className="font-ui-semibold text-[10px] uppercase tracking-[1.6px] text-text-subtle">
+							<Text className="font-ui-semibold text-xs uppercase tracking-[1.6px] text-text-subtle">
 								Workspaces
 							</Text>
 							<Pressable
@@ -93,7 +93,7 @@ function WorkspaceShellContent() {
 										</View>
 										<View className="flex-1">
 											<Text className="font-ui-medium text-xs text-text">{item.name}</Text>
-											<Text className="font-ui text-[10px] text-text-muted">
+											<Text className="font-ui text-xs text-text-muted">
 												{getWorkspacePickerSummary(workspaceItems)}
 											</Text>
 										</View>
