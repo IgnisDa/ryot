@@ -15,7 +15,9 @@ describe("GET /entity-schemas", () => {
 
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 
-		const schemas = await listEntitySchemas(client, cookies, builtinTracker.id);
+		const schemas = await listEntitySchemas(client, cookies, {
+			trackerId: builtinTracker.id,
+		});
 
 		expect(Array.isArray(schemas)).toBe(true);
 		expect(schemas.length).toBeGreaterThan(0);
@@ -44,7 +46,7 @@ describe("GET /entity-schemas", () => {
 			slug: "custom-schema",
 		});
 
-		const schemas = await listEntitySchemas(client, cookies, trackerId);
+		const schemas = await listEntitySchemas(client, cookies, { trackerId });
 
 		expect(Array.isArray(schemas)).toBe(true);
 		expect(schemas.length).toBe(1);
@@ -78,7 +80,7 @@ describe("GET /entity-schemas", () => {
 			name: "Empty Tracker",
 		});
 
-		const schemas = await listEntitySchemas(client, cookies, trackerId);
+		const schemas = await listEntitySchemas(client, cookies, { trackerId });
 
 		expect(Array.isArray(schemas)).toBe(true);
 		expect(schemas.length).toBe(0);
@@ -129,12 +131,81 @@ describe("GET /entity-schemas", () => {
 			name: "Beta Schema",
 		});
 
-		const schemas = await listEntitySchemas(client, cookies, trackerId);
+		const schemas = await listEntitySchemas(client, cookies, { trackerId });
 
 		expect(schemas.length).toBe(3);
 
 		const names = schemas.map((s) => s.name);
 		expect(names).toEqual(["Alpha Schema", "Beta Schema", "Zebra Schema"]);
+	});
+
+	it("lists schemas by slug across accessible trackers", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const { trackerId: booksTrackerId } = await createTracker(client, cookies, {
+			name: "Books",
+		});
+		const { trackerId: moviesTrackerId } = await createTracker(
+			client,
+			cookies,
+			{ name: "Movies" },
+		);
+
+		await createEntitySchema(client, cookies, {
+			name: "Book Entry",
+			slug: "book-entry",
+			trackerId: booksTrackerId,
+		});
+		await createEntitySchema(client, cookies, {
+			name: "Movie Entry",
+			slug: "movie-entry",
+			trackerId: moviesTrackerId,
+		});
+
+		const schemas = await listEntitySchemas(client, cookies, {
+			slugs: ["movie-entry", "book-entry"],
+		});
+
+		expect(schemas.length).toBe(2);
+		expect(schemas.map((schema) => schema.slug)).toEqual([
+			"book-entry",
+			"movie-entry",
+		]);
+		expect(schemas.map((schema) => schema.trackerId)).toEqual([
+			booksTrackerId,
+			moviesTrackerId,
+		]);
+	});
+
+	it("returns all accessible schemas when trackerId and slugs are both missing", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const builtinTracker = await findBuiltinTracker(client, cookies);
+		const builtinSchemas = await listEntitySchemas(client, cookies, {
+			trackerId: builtinTracker.id,
+		});
+
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Unfiltered Tracker",
+		});
+		await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Custom Entry",
+			slug: "custom-entry",
+		});
+
+		const { data, response } = await client.GET("/entity-schemas", {
+			params: { query: {} },
+			headers: { Cookie: cookies },
+		});
+
+		expect(response.status).toBe(200);
+		expect(data?.data).toBeDefined();
+		expect(data?.data?.some((schema) => schema.slug === "custom-entry")).toBe(
+			true,
+		);
+		expect(data?.data?.length).toBeGreaterThanOrEqual(
+			builtinSchemas.length + 1,
+		);
 	});
 });
 
