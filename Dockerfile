@@ -4,7 +4,7 @@ WORKDIR /app
 FROM base AS prepare
 RUN bun install --global turbo@2.9.16
 COPY . .
-RUN turbo prune @ryot/app-backend --docker
+RUN turbo prune @ryot/app-client @ryot/app-backend --docker
 
 FROM base AS builder-base
 COPY --from=prepare /app/out/json/ .
@@ -18,6 +18,9 @@ COPY --from=prepare /app/tsconfig.options.json ./tsconfig.options.json
 
 FROM builder-base AS backend-builder
 RUN bun turbo --filter=@ryot/app-backend build
+
+FROM builder-base AS client-builder
+RUN bun turbo --filter=@ryot/app-client build
 
 FROM base AS sandbox-compiler-runtime
 COPY --from=prepare /app/out/json/ .
@@ -37,6 +40,7 @@ RUN apt-get update && apt-get install -y curl unzip && \
 ENV SANDBOX_DENO_DIR=/home/ryot/tmp
 WORKDIR /home/ryot
 COPY --chown=ryot:ryot apps/app-backend/src/drizzle ./src/drizzle
+COPY --from=client-builder --chown=ryot:ryot /app/apps/app-client/dist ./client
 COPY --from=backend-builder --chown=ryot:ryot /app/apps/app-backend/dist ./dist
 COPY --from=backend-builder --chown=ryot:ryot /app/libs/sandbox-compiler/dist/compiler-worker.js* ./dist/
 COPY --from=sandbox-compiler-runtime --chown=ryot:ryot /app/node_modules ./node_modules
