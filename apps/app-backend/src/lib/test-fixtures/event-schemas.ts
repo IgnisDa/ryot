@@ -1,9 +1,9 @@
+import { withOverrides } from "~/lib/test-fixtures/fixture-helpers";
 import {
 	createFlatNoteProgressPropertySchema,
 	createOptionalRatingPropertiesSchema,
 	createOptionalTitlePropertiesSchema,
-	withOverrides,
-} from "~/lib/test-fixtures/shared";
+} from "~/lib/test-fixtures/property-schemas";
 import type {
 	CreateEventSchemaBody,
 	ListedEventSchema,

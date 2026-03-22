@@ -2,7 +2,7 @@ import {
 	createCreatedAt,
 	createUpdatedAt,
 	withOverrides,
-} from "~/lib/test-fixtures/shared";
+} from "~/lib/test-fixtures/fixture-helpers";
 import type {
 	CreateSavedViewBody,
 	ListedSavedView,
