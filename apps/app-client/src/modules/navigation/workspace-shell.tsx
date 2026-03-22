@@ -14,7 +14,6 @@ import { NavigationStatus } from "./navigation-status";
 import { Sidebar } from "./sidebar";
 import { useWorkspaceNavigation } from "./use-workspace-navigation";
 import { useWorkspaceDrawer, WorkspaceDrawer } from "./workspace-drawer";
-import { WorkspaceScreenFrame } from "./workspace-screen-frame";
 
 function WorkspaceShellContent() {
 	const { navigation } = useWorkspaceDrawer();
@@ -45,9 +44,9 @@ function WorkspaceShellContent() {
 					onWorkspaceOpen={() => setIsWorkspaceOpen(true)}
 					className="hidden w-66 flex-col border-r border-border bg-surface md:flex"
 				/>
-				<WorkspaceScreenFrame>
+				<View className="flex-1">
 					<Slot />
-				</WorkspaceScreenFrame>
+				</View>
 			</View>
 			{isWorkspaceOpen && (
 				<>

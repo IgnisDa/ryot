@@ -33,7 +33,7 @@ function WorkspaceTopBar(props: { onMenuOpen: () => void }) {
 	);
 }
 
-export function WorkspaceScreenFrame(props: { children: ReactNode }) {
+export function WorkspaceHomeFrame(props: { children: ReactNode }) {
 	const insets = useSafeAreaInsets();
 	const drawer = useWorkspaceDrawer();
 	const isDragging = useRef(false);
