@@ -6,12 +6,15 @@ import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
 import createClient from "openapi-fetch";
 
+import { cookieHeaderFromSetCookies, enableTwoFactorForSession } from "./fixtures/auth-2fa";
+
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8000/api";
 
 async function createAndSignIn(): Promise<{
-	cookies: string;
 	email: string;
+	cookies: string;
 	password: string;
+	backupCodes: string[];
 }> {
 	const email = `seed-${dayjs().valueOf()}@example.com`;
 	const password = email;
@@ -38,12 +41,19 @@ async function createAndSignIn(): Promise<{
 		throw new Error(`Sign in failed: ${error}`);
 	}
 
-	const cookies = signInResponse.headers.get("set-cookie");
-	if (!cookies) {
+	const setCookies = signInResponse.headers.getSetCookie();
+	if (!setCookies.length) {
 		throw new Error("Sign in succeeded but no cookies were returned");
 	}
+	const cookies = cookieHeaderFromSetCookies(setCookies);
 
-	return { cookies, email, password };
+	const twoFactor = await enableTwoFactorForSession({
+		baseUrl: API_BASE_URL,
+		cookies,
+		password,
+	});
+
+	return { cookies: twoFactor.cookies, email, password, backupCodes: twoFactor.backupCodes };
 }
 
 type Client = ReturnType<typeof createClient<paths>>;
@@ -3519,8 +3529,10 @@ async function main() {
 
 	console.log(`✓ API Base URL: ${API_BASE_URL}`);
 
-	const { cookies, email, password } = await createAndSignIn();
+	const { backupCodes, cookies, email, password } = await createAndSignIn();
 	console.log(`✓ Created and signed in as ${email}`);
+	console.log(`✓ Enabled two-factor authentication`);
+	console.log(`  Backup codes: ${backupCodes.join(", ")}`);
 
 	const client = new APIClient(cookies);
 	const startTime = dayjs();
