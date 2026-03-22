@@ -4,10 +4,6 @@ This file contains coding conventions, workflows, and best practices for AI agen
 
 ## Project Architecture & Tools
 
-### Code Navigation
-
-Use tools from the Serena MCP (if available) for faster code navigation and retrieval. It supports TypeScript.
-
 ### Monorepo Management
 
 The project uses `turbo` for monorepo management. All frontend-related commands (type checking, running tests, etc.) must use `turbo` commands.
