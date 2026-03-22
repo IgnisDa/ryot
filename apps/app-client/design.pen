@@ -10340,8 +10340,10 @@
                                     {
                                       "type": "frame",
                                       "id": "x4aqH1",
-                                      "name": "VIEWS List",
+                                      "name": "VIEWS List (Scroll Box)",
+                                      "clip": true,
                                       "width": "fill_container",
+                                      "height": 238,
                                       "layout": "vertical",
                                       "gap": 2,
                                       "children": [
@@ -10648,6 +10650,18 @@
                                               "fill": "$--text-subtle"
                                             }
                                           }
+                                        },
+                                        {
+                                          "type": "rectangle",
+                                          "cornerRadius": 999,
+                                          "id": "tODQI",
+                                          "layoutPosition": "absolute",
+                                          "x": 231,
+                                          "y": 4,
+                                          "name": "VIEWS Scroll Thumb",
+                                          "fill": "$--input",
+                                          "width": 3,
+                                          "height": 64
                                         }
                                       ]
                                     }
@@ -10739,8 +10753,10 @@
                                     {
                                       "type": "frame",
                                       "id": "vVc22",
-                                      "name": "COLLECTIONS List",
+                                      "name": "COLLECTIONS List (Scroll Box)",
+                                      "clip": true,
                                       "width": "fill_container",
+                                      "height": 148,
                                       "layout": "vertical",
                                       "gap": 2,
                                       "children": [
@@ -10903,6 +10919,18 @@
                                               "enabled": false
                                             }
                                           }
+                                        },
+                                        {
+                                          "type": "rectangle",
+                                          "cornerRadius": 999,
+                                          "id": "f0mBQ6",
+                                          "layoutPosition": "absolute",
+                                          "x": 231,
+                                          "y": 4,
+                                          "name": "COLLECTIONS Scroll Thumb",
+                                          "fill": "$--input",
+                                          "width": 3,
+                                          "height": 44
                                         }
                                       ]
                                     }
@@ -10973,8 +11001,10 @@
                                     {
                                       "type": "frame",
                                       "id": "A5vAp",
-                                      "name": "SAVED VIEWS List",
+                                      "name": "SAVED VIEWS List (Scroll Box)",
+                                      "clip": true,
                                       "width": "fill_container",
+                                      "height": 148,
                                       "layout": "vertical",
                                       "gap": 2,
                                       "children": [
@@ -11127,6 +11157,18 @@
                                               "enabled": false
                                             }
                                           }
+                                        },
+                                        {
+                                          "type": "rectangle",
+                                          "cornerRadius": 999,
+                                          "id": "VIsGD",
+                                          "layoutPosition": "absolute",
+                                          "x": 231,
+                                          "y": 4,
+                                          "name": "SAVED Scroll Thumb",
+                                          "fill": "$--input",
+                                          "width": 3,
+                                          "height": 44
                                         }
                                       ]
                                     }
@@ -11525,8 +11567,10 @@
                                     {
                                       "type": "frame",
                                       "id": "u5BIS",
-                                      "name": "VIEWS List",
+                                      "name": "VIEWS List (Scroll Box)",
+                                      "clip": true,
                                       "width": "fill_container",
+                                      "height": 238,
                                       "layout": "vertical",
                                       "gap": 2,
                                       "children": [
@@ -11833,6 +11877,18 @@
                                               "fill": "$--text-subtle"
                                             }
                                           }
+                                        },
+                                        {
+                                          "type": "rectangle",
+                                          "cornerRadius": 999,
+                                          "id": "PRaIO",
+                                          "layoutPosition": "absolute",
+                                          "x": 231,
+                                          "y": 4,
+                                          "name": "VIEWS Scroll Thumb",
+                                          "fill": "$--input",
+                                          "width": 3,
+                                          "height": 64
                                         }
                                       ]
                                     }
@@ -11924,8 +11980,10 @@
                                     {
                                       "type": "frame",
                                       "id": "kJzag",
-                                      "name": "COLLECTIONS List",
+                                      "name": "COLLECTIONS List (Scroll Box)",
+                                      "clip": true,
                                       "width": "fill_container",
+                                      "height": 148,
                                       "layout": "vertical",
                                       "gap": 2,
                                       "children": [
@@ -12088,6 +12146,18 @@
                                               "enabled": false
                                             }
                                           }
+                                        },
+                                        {
+                                          "type": "rectangle",
+                                          "cornerRadius": 999,
+                                          "id": "D9A9y",
+                                          "layoutPosition": "absolute",
+                                          "x": 231,
+                                          "y": 4,
+                                          "name": "COLLECTIONS Scroll Thumb",
+                                          "fill": "$--input",
+                                          "width": 3,
+                                          "height": 44
                                         }
                                       ]
                                     }
@@ -12158,8 +12228,10 @@
                                     {
                                       "type": "frame",
                                       "id": "xkQw9",
-                                      "name": "SAVED VIEWS List",
+                                      "name": "SAVED VIEWS List (Scroll Box)",
+                                      "clip": true,
                                       "width": "fill_container",
+                                      "height": 148,
                                       "layout": "vertical",
                                       "gap": 2,
                                       "children": [
@@ -12312,6 +12384,18 @@
                                               "enabled": false
                                             }
                                           }
+                                        },
+                                        {
+                                          "type": "rectangle",
+                                          "cornerRadius": 999,
+                                          "id": "rEX8T",
+                                          "layoutPosition": "absolute",
+                                          "x": 231,
+                                          "y": 4,
+                                          "name": "SAVED Scroll Thumb",
+                                          "fill": "$--input",
+                                          "width": 3,
+                                          "height": 44
                                         }
                                       ]
                                     }
@@ -12925,8 +13009,10 @@
                                     {
                                       "type": "frame",
                                       "id": "aw748",
-                                      "name": "VIEWS List",
+                                      "name": "VIEWS List (Scroll Box)",
+                                      "clip": true,
                                       "width": "fill_container",
+                                      "height": 218,
                                       "layout": "vertical",
                                       "gap": 2,
                                       "children": [
@@ -13274,6 +13360,18 @@
                                               "enabled": true
                                             }
                                           }
+                                        },
+                                        {
+                                          "type": "rectangle",
+                                          "cornerRadius": 999,
+                                          "id": "i1jNS",
+                                          "layoutPosition": "absolute",
+                                          "x": 231,
+                                          "y": 4,
+                                          "name": "VIEWS Scroll Thumb",
+                                          "fill": "$--input",
+                                          "width": 3,
+                                          "height": 64
                                         }
                                       ]
                                     }
@@ -13365,8 +13463,10 @@
                                     {
                                       "type": "frame",
                                       "id": "l957ML",
-                                      "name": "COLLECTIONS List",
+                                      "name": "COLLECTIONS List (Scroll Box)",
+                                      "clip": true,
                                       "width": "fill_container",
+                                      "height": 148,
                                       "layout": "vertical",
                                       "gap": 2,
                                       "children": [
@@ -13529,6 +13629,18 @@
                                               "enabled": false
                                             }
                                           }
+                                        },
+                                        {
+                                          "type": "rectangle",
+                                          "cornerRadius": 999,
+                                          "id": "Bjjxk",
+                                          "layoutPosition": "absolute",
+                                          "x": 231,
+                                          "y": 4,
+                                          "name": "COLLECTIONS Scroll Thumb",
+                                          "fill": "$--input",
+                                          "width": 3,
+                                          "height": 44
                                         }
                                       ]
                                     }
@@ -13599,8 +13711,10 @@
                                     {
                                       "type": "frame",
                                       "id": "k8QQUw",
-                                      "name": "SAVED VIEWS List",
+                                      "name": "SAVED VIEWS List (Scroll Box)",
+                                      "clip": true,
                                       "width": "fill_container",
+                                      "height": 148,
                                       "layout": "vertical",
                                       "gap": 2,
                                       "children": [
@@ -13753,6 +13867,18 @@
                                               "enabled": false
                                             }
                                           }
+                                        },
+                                        {
+                                          "type": "rectangle",
+                                          "cornerRadius": 999,
+                                          "id": "WDksB",
+                                          "layoutPosition": "absolute",
+                                          "x": 231,
+                                          "y": 4,
+                                          "name": "SAVED Scroll Thumb",
+                                          "fill": "$--input",
+                                          "width": 3,
+                                          "height": 44
                                         }
                                       ]
                                     }
@@ -14245,8 +14371,10 @@
                                     {
                                       "type": "frame",
                                       "id": "E6GN9",
-                                      "name": "VIEWS List",
+                                      "name": "VIEWS List (Scroll Box)",
+                                      "clip": true,
                                       "width": "fill_container",
+                                      "height": 238,
                                       "layout": "vertical",
                                       "gap": 2,
                                       "children": [
@@ -14553,6 +14681,18 @@
                                               "fill": "$--text-subtle"
                                             }
                                           }
+                                        },
+                                        {
+                                          "type": "rectangle",
+                                          "cornerRadius": 999,
+                                          "id": "MZ1X5",
+                                          "layoutPosition": "absolute",
+                                          "x": 231,
+                                          "y": 4,
+                                          "name": "VIEWS Scroll Thumb",
+                                          "fill": "$--input",
+                                          "width": 3,
+                                          "height": 64
                                         }
                                       ]
                                     }
