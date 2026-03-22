@@ -1,4 +1,5 @@
 import { makeContractClient } from "@ryot/contract/client";
+import { ManagedAssetLocator } from "@ryot/contract/modules/uploads/schemas";
 import { buildNavigationDocument } from "@ryot/ryotql-recipes/navigation";
 import { buildNotificationChannelsDocument } from "@ryot/ryotql-recipes/notification-channels";
 import {
@@ -39,6 +40,20 @@ export const savedViewRecordAtom = Atom.family((slug: string) =>
 
 export const savedViewResultAtom = Atom.family((record: SavedViewRecord) =>
 	appQueryClient.query("ryotql", "execute", { payload: record.queryDocument }),
+);
+
+const managedAssetRequestSchema = Schema.fromJsonString(
+	Schema.Struct({ assets: Schema.Array(ManagedAssetLocator), serverUrl: Schema.String }),
+);
+
+export const managedAssetResolutionAtom = Atom.family((serializedRequest: string) =>
+	appQueryClient
+		.query("uploads", "resolveDownloads", {
+			payload: {
+				assets: Schema.decodeUnknownSync(managedAssetRequestSchema)(serializedRequest).assets,
+			},
+		})
+		.pipe(Atom.withRefresh("14 minutes")),
 );
 
 export const savedViewsAtom = appQueryClient.query("ryotql", "execute", {

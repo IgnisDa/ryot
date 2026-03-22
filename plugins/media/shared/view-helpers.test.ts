@@ -14,10 +14,10 @@ describe("buildViewExpressions", () => {
 		expect(config.grid.overline).toEqual({ type: "literal", value: "Movie" });
 		expect(config.grid.image).toEqual({
 			type: "cast",
-			target: "text",
+			target: "json",
 			expr: {
 				type: "jsonPath",
-				path: ["images", 0, "url"],
+				path: ["images", 0],
 				expr: { type: "column", field: "properties", tableAlias: "entity" },
 			},
 		});
