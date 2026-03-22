@@ -12,7 +12,7 @@ const propertyDefinitionFlags = {
 };
 
 const primitivePropertySchema = z
-	.object({
+	.strictObject({
 		...propertyDefinitionFlags,
 		type: z.enum(appPropertyPrimitiveTypes),
 	})
@@ -21,7 +21,7 @@ const primitivePropertySchema = z
 let propertyDefinitionSchema: z.ZodType<AppPropertyDefinition>;
 
 const arrayPropertySchema = z
-	.object({
+	.strictObject({
 		...propertyDefinitionFlags,
 		type: z.literal("array"),
 		items: z.lazy(() => propertyDefinitionSchema),
@@ -29,7 +29,7 @@ const arrayPropertySchema = z
 	.openapi("AppArrayProperty");
 
 const objectPropertySchema = z
-	.object({
+	.strictObject({
 		...propertyDefinitionFlags,
 		type: z.literal("object"),
 		properties: z.record(
@@ -41,7 +41,7 @@ const objectPropertySchema = z
 
 propertyDefinitionSchema = z
 	.lazy(() =>
-		z.union([
+		z.discriminatedUnion("type", [
 			primitivePropertySchema,
 			arrayPropertySchema,
 			objectPropertySchema,
