@@ -1,17 +1,18 @@
 import { describe, expect, it } from "bun:test";
-import { createAuthenticatedClient, createTracker } from "../helpers";
 import {
 	buildSavedViewBody,
 	buildUpdatedSavedViewBody,
 	cloneSavedView,
+	createAuthenticatedClient,
 	createSavedView,
+	createTracker,
 	deleteSavedView,
 	findBuiltinSavedView,
 	getSavedView,
 	listSavedViews,
 	reorderSavedViews,
 	updateSavedView,
-} from "../test-support/saved-views";
+} from "../fixtures";
 
 const builtinViewError = "Cannot modify built-in saved views";
 const missingViewId = "00000000-0000-0000-0000-000000000000";

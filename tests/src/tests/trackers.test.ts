@@ -1,23 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { createAuthenticatedClient, createTracker } from "../helpers";
-
-async function disableTracker(input: {
-	trackerId: string;
-	cookies: string;
-	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"];
-}) {
-	const result = await input.client.PATCH("/trackers/{trackerId}", {
-		body: { isDisabled: true },
-		headers: { Cookie: input.cookies },
-		params: { path: { trackerId: input.trackerId } },
-	});
-
-	if (result.response.status !== 200 || !result.data?.data) {
-		throw new Error(`Failed to disable tracker '${input.trackerId}'`);
-	}
-
-	return result.data.data;
-}
+import {
+	createAuthenticatedClient,
+	createTracker,
+	disableTracker,
+} from "../fixtures";
 
 describe("Trackers E2E", () => {
 	it("lists only enabled trackers by default", async () => {

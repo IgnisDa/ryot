@@ -1,5 +1,5 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
-import type { Client } from "../helpers";
+import type { Client } from "./auth";
 
 type CreateSavedViewBody = NonNullable<
 	paths["/saved-views"]["post"]["requestBody"]
@@ -10,6 +10,7 @@ type UpdateSavedViewBody = NonNullable<
 type ReorderSavedViewsBody = NonNullable<
 	paths["/saved-views/reorder"]["post"]["requestBody"]
 >["content"]["application/json"];
+
 const defaultQueryDefinition = {
 	filters: [],
 	entitySchemaSlugs: ["book"],

@@ -1,20 +1,18 @@
 import { expect, it } from "bun:test";
 import {
-	createAuthenticatedClient,
-	createEntitySchema,
-	createTracker,
-} from "src/helpers";
-import {
 	buildGridDisplayConfiguration,
 	buildGridRequest,
 	buildListRequest,
 	buildTableDisplayConfiguration,
 	buildTableRequest,
+	createAuthenticatedClient,
 	createCrossSchemaRuntimeFixture,
 	createEntity,
+	createEntitySchema,
 	createSingleSchemaRuntimeFixture,
+	createTracker,
 	executeViewRuntime,
-} from "./view-runtime";
+} from "src/fixtures";
 
 type ViewRuntimeItem = NonNullable<
 	Awaited<ReturnType<typeof executeViewRuntime>>["data"]
