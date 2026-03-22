@@ -33,8 +33,6 @@ export type EventSchemaServiceResult<T> = ServiceResult<
 	EventSchemaMutationError
 >;
 
-const customEntitySchemaError =
-	"Built-in entity schemas do not support event schemas";
 const duplicateSlugError = "Event schema slug already exists";
 const entitySchemaNotFoundError = "Entity schema not found";
 const eventSchemaUniqueConstraint =
@@ -113,12 +111,7 @@ export const listEventSchemas = async (
 		}),
 	);
 	if (!("entitySchema" in foundEntitySchema)) {
-		return serviceError(
-			foundEntitySchema.error === "not_found" ? "not_found" : "validation",
-			foundEntitySchema.error === "not_found"
-				? entitySchemaNotFoundError
-				: customEntitySchemaError,
-		);
+		return serviceError("not_found", entitySchemaNotFoundError);
 	}
 
 	const eventSchemas = await deps.listEventSchemasByEntitySchemaForUser({
@@ -146,12 +139,7 @@ export const createEventSchema = async (
 		}),
 	);
 	if (!("entitySchema" in foundEntitySchema)) {
-		return serviceError(
-			foundEntitySchema.error === "not_found" ? "not_found" : "validation",
-			foundEntitySchema.error === "not_found"
-				? entitySchemaNotFoundError
-				: customEntitySchemaError,
-		);
+		return serviceError("not_found", entitySchemaNotFoundError);
 	}
 
 	const eventSchemaInput = resolveEventSchemaCreateInputResult({

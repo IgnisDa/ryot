@@ -158,24 +158,6 @@ describe("createEventSchema", () => {
 		expect(createdEventSchema.slug).toBe("reading-progress");
 	});
 
-	it("returns validation when the entity schema is built in", async () => {
-		const result = await createEventSchema(
-			{ body: createEventSchemaBody(), userId: "user_1" },
-			createEventSchemaDeps({
-				getEntitySchemaScopeForUser: async () => ({
-					userId: null,
-					id: "schema_1",
-					isBuiltin: true,
-				}),
-			}),
-		);
-
-		expect(result).toEqual({
-			error: "validation",
-			message: "Built-in entity schemas do not support event schemas",
-		});
-	});
-
 	it("returns validation for a blank entity schema id", async () => {
 		const result = await createEventSchema(
 			{
