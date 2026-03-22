@@ -1,12 +1,4 @@
-import {
-	Button,
-	Group,
-	Paper,
-	SegmentedControl,
-	Stack,
-	Text,
-	TextInput,
-} from "@mantine/core";
+import { Box, Button, Group, Paper, Stack, Text } from "@mantine/core";
 import type { ReactNode } from "react";
 import {
 	buildDefaultSortFieldRow,
@@ -30,18 +22,6 @@ type SortFieldsArrayField = {
 	};
 };
 
-type SortDirectionField = {
-	handleBlur: () => void;
-	handleChange: (value: "asc" | "desc") => void;
-	state: { meta: SortFieldMeta; value: "asc" | "desc" };
-};
-
-type SortFieldValueField = {
-	handleBlur: () => void;
-	handleChange: (value: string) => void;
-	state: { value: string; meta: SortFieldMeta };
-};
-
 type SortFieldName =
 	| "sort.fields"
 	| "sort.direction"
@@ -50,7 +30,8 @@ type SortFieldName =
 type SortBuilderFormLike = {
 	AppField: <TName extends SortFieldName>(props: {
 		name: TName;
-		children: (field: unknown) => ReactNode;
+		// biome-ignore lint/suspicious/noExplicitAny: TanStack Form field API has complex types
+		children: (field: any) => ReactNode;
 		mode?: TName extends "sort.fields" ? "array" : never;
 	}) => ReactNode | Promise<ReactNode>;
 };
@@ -89,30 +70,17 @@ export function SortBuilder(props: SortBuilderProps) {
 			</Stack>
 
 			<props.form.AppField name="sort.direction">
-				{(directionField) => {
-					const field = directionField as SortDirectionField;
-					const directionValue = field.state.value;
-
-					return (
-						<Stack gap={4}>
-							<Text size="sm" fw={500}>
-								Direction
-							</Text>
-							<SegmentedControl
-								fullWidth
-								value={directionValue}
-								disabled={props.isLoading}
-								onChange={(value) =>
-									field.handleChange(value as "asc" | "desc")
-								}
-								data={[
-									{ label: "Ascending", value: "asc" },
-									{ label: "Descending", value: "desc" },
-								]}
-							/>
-						</Stack>
-					);
-				}}
+				{(field) => (
+					<field.SegmentedControlField
+						fullWidth
+						label="Direction"
+						disabled={props.isLoading}
+						data={[
+							{ label: "Ascending", value: "asc" },
+							{ label: "Descending", value: "desc" },
+						]}
+					/>
+				)}
 			</props.form.AppField>
 
 			<props.form.AppField name="sort.fields" mode="array">
@@ -138,32 +106,18 @@ export function SortBuilder(props: SortBuilderProps) {
 							{fields.map((field, index) => (
 								<Paper key={field.id} p="sm" withBorder radius="md">
 									<Group gap="sm" align="flex-end">
-										<props.form.AppField name={`sort.fields[${index}].value`}>
-											{(fieldValueField) => {
-												const valueField =
-													fieldValueField as SortFieldValueField;
-												const fieldValue = valueField.state.value;
-												const fieldError = getErrorMessage(
-													valueField.state.meta.errors,
-												);
-
-												return (
-													<TextInput
+										<Box flex={1}>
+											<props.form.AppField name={`sort.fields[${index}].value`}>
+												{(valueField) => (
+													<valueField.TextField
 														required
-														flex={1}
-														value={fieldValue}
-														error={fieldError}
 														disabled={props.isLoading}
 														label={`Field ${index + 1}`}
-														onBlur={valueField.handleBlur}
 														placeholder="e.g., @name or smartphones.year"
-														onChange={(event) =>
-															valueField.handleChange(event.currentTarget.value)
-														}
 													/>
-												);
-											}}
-										</props.form.AppField>
+												)}
+											</props.form.AppField>
+										</Box>
 
 										<Button
 											size="sm"
