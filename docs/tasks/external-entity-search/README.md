@@ -247,9 +247,9 @@ appears directly in the provider selector UI.
 
 ## Tasks
 
-**Overall Progress:** 2 of 3 tasks completed
+**Overall Progress:** 3 of 3 tasks completed
 
-**Current Task:** [Task 03](./03-entity-creation-with-provenance.md) (todo)
+**Current Task:** All tasks complete
 
 ### Task List
 
@@ -257,4 +257,4 @@ appears directly in the provider selector UI.
 |---|------|------|--------|------------|
 | 01 | [Sandbox Enqueue by Script ID](./01-sandbox-enqueue-by-script-id.md) | AFK | done | None |
 | 02 | [Search Providers on Entity Schemas](./02-search-providers-on-entity-schemas.md) | AFK | done | None |
-| 03 | [Entity Creation with Provenance](./03-entity-creation-with-provenance.md) | AFK | todo | None |
+| 03 | [Entity Creation with Provenance](./03-entity-creation-with-provenance.md) | AFK | done | None |
