@@ -2,10 +2,9 @@ import ExpoBottomSheet, {
 	BottomSheetView,
 	type BottomSheetProps as ExpoBottomSheetProps,
 } from "@expo/ui/community/bottom-sheet";
-import { useRef, type ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
+import type { ReactNode } from "react";
+import { Text, View } from "react-native";
 
-import { AppIcon } from "@/modules/icons";
 import {
 	BottomSheetDialogDescription,
 	BottomSheetDialogTitle,
@@ -16,14 +15,12 @@ export function BottomSheet(props: {
 	children: ReactNode;
 	onClose: () => void;
 	description: string;
+	headerAction?: ReactNode;
 	snapPoints: NonNullable<ExpoBottomSheetProps["snapPoints"]>;
 }) {
-	const sheetRef = useRef<ExpoBottomSheet>(null);
-
 	return (
 		<ExpoBottomSheet
 			index={0}
-			ref={sheetRef}
 			enablePanDownToClose
 			onClose={props.onClose}
 			snapPoints={props.snapPoints}
@@ -40,14 +37,7 @@ export function BottomSheet(props: {
 								{props.title}
 							</Text>
 						</BottomSheetDialogTitle>
-						<Pressable
-							className="p-1"
-							accessibilityRole="button"
-							accessibilityLabel="Close sheet"
-							onPress={() => sheetRef.current?.close()}
-						>
-							<AppIcon className="text-text-muted" name="x" size={17} />
-						</Pressable>
+						{props.headerAction}
 					</View>
 					{props.children}
 				</View>
