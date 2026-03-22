@@ -3,7 +3,7 @@ import { expo } from "@better-auth/expo";
 import { redisStorage } from "@better-auth/redis-storage";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { genericOAuth } from "better-auth/plugins";
+import { genericOAuth, twoFactor } from "better-auth/plugins";
 
 import { config, IS_DEVELOPMENT } from "~/lib/config";
 import { db, schema } from "~/lib/db";
@@ -15,6 +15,7 @@ export const OIDC_PROVIDER_ID = "oidc";
 const { oidc } = config.server;
 
 export const auth = betterAuth({
+	appName: "Ryot",
 	baseURL: config.frontendUrl,
 	secret: config.server.adminAccessToken,
 	secondaryStorage: redisStorage({ client: redis }),
@@ -60,6 +61,7 @@ export const auth = betterAuth({
 	},
 	plugins: [
 		expo(),
+		twoFactor(),
 		apiKey({
 			fallbackToDatabase: true,
 			storage: "secondary-storage",
