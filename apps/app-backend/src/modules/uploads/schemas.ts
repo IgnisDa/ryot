@@ -1,10 +1,9 @@
 import { z } from "@hono/zod-openapi";
 import { dataSchema } from "~/lib/openapi";
 import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
-import { uploadContentTypes } from "./shared";
 
 export const getPresignedUploadUrlBody = z.object({
-	contentType: z.enum(uploadContentTypes),
+	contentType: z.string(),
 });
 
 export const presignedUploadUrlSchema = z.object({
