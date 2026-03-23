@@ -6,11 +6,9 @@ import { hostFunctionRegistry } from "./function-registry";
 import { type SandboxRunJobData, sandboxRunJobName } from "./jobs";
 import { RunnerFileManager } from "./runner";
 import type {
-	ApiFunction,
 	HostFunctionFactory,
 	SandboxEnqueueOptions,
 	SandboxResult,
-	SandboxRunOptions,
 } from "./types";
 import {
 	attachTimeoutGuard,
@@ -23,6 +21,11 @@ export class SandboxService {
 	private readonly bridgeServer = new BridgeServer();
 	private readonly runnerManager = new RunnerFileManager();
 
+	private readonly executionDefaults = {
+		maxHeapMB: defaultMaxHeapMB,
+		timeoutMs: defaultTimeoutMs,
+	};
+
 	async start() {
 		await this.bridgeServer.start();
 		await this.runnerManager.create();
@@ -32,10 +35,6 @@ export class SandboxService {
 		await this.bridgeServer.clearSessions();
 		await this.bridgeServer.stop();
 		await this.runnerManager.remove();
-	}
-
-	async run(options: SandboxRunOptions) {
-		return this.execute(options);
 	}
 
 	async enqueue(options: SandboxEnqueueOptions) {
@@ -65,14 +64,13 @@ export class SandboxService {
 		return this.execute({
 			apiFunctions,
 			code: jobData.code,
-			userId: jobData.userId,
 			context: jobData.context,
 			timeoutMs: jobData.timeoutMs,
 			maxHeapMB: jobData.maxHeapMB,
 		});
 	}
 
-	private async execute(options: SandboxRunOptions) {
+	private async execute(options: SandboxExecutionOptions) {
 		const bridgePort = this.bridgeServer.getPort();
 		const runnerPath = this.runnerManager.getPath();
 
@@ -81,8 +79,8 @@ export class SandboxService {
 		}
 
 		const context = options.context ?? {};
-		const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
-		const maxHeapMB = options.maxHeapMB ?? defaultMaxHeapMB;
+		const timeoutMs = options.timeoutMs ?? this.executionDefaults.timeoutMs;
+		const maxHeapMB = options.maxHeapMB ?? this.executionDefaults.maxHeapMB;
 		const apiFunctions = { ...(options.apiFunctions ?? {}) };
 
 		const token = generateId();
@@ -91,7 +89,6 @@ export class SandboxService {
 		await this.bridgeServer.addSession(executionId, {
 			token,
 			apiFunctions,
-			userId: options.userId,
 			expiresAt: Date.now() + timeoutMs + 2000,
 		});
 
@@ -201,7 +198,7 @@ export class SandboxService {
 	private resolveApiFunctions(
 		descriptors: SandboxRunJobData["apiFunctionDescriptors"],
 	) {
-		const apiFunctions: Record<string, ApiFunction> = {};
+		const apiFunctions: SandboxExecutionOptions["apiFunctions"] = {};
 		const registry = hostFunctionRegistry as Record<
 			string,
 			HostFunctionFactory
@@ -221,3 +218,10 @@ export class SandboxService {
 		return apiFunctions;
 	}
 }
+
+type SandboxExecutionOptions = Pick<
+	SandboxRunJobData,
+	"code" | "context" | "maxHeapMB" | "timeoutMs"
+> & {
+	apiFunctions?: Record<string, (...args: Array<unknown>) => Promise<unknown>>;
+};

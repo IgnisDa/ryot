@@ -1,23 +1,22 @@
 import { redis } from "~/lib/redis";
 import { requestBodyLimit } from "./constants";
-import type { ApiFunction } from "./types";
 import { sendJson } from "./utils";
+
+type BoundHostFunction = (...args: Array<unknown>) => Promise<unknown>;
 
 export interface ExecutionSession {
 	token: string;
-	userId: string;
 	expiresAt: number;
-	apiFunctions: Record<string, ApiFunction>;
+	apiFunctions: Record<string, BoundHostFunction>;
 }
 
 export class BridgeServer {
 	private port: number | null = null;
 	private server: Bun.Server<undefined> | null = null;
 	private readonly keyPrefix = "sandbox:session:";
-	private readonly userIds = new Map<string, string>();
 	private readonly apiFunctions = new Map<
 		string,
-		Record<string, ApiFunction>
+		Record<string, BoundHostFunction>
 	>();
 
 	async start() {
@@ -55,19 +54,16 @@ export class BridgeServer {
 		const ttlSeconds = Math.ceil((session.expiresAt - Date.now()) / 1000);
 		const data = {
 			token: session.token,
-			userId: session.userId,
 			expiresAt: session.expiresAt,
 		};
 		await redis.setex(key, ttlSeconds, JSON.stringify(data));
 		this.apiFunctions.set(executionId, session.apiFunctions);
-		this.userIds.set(executionId, session.userId);
 	}
 
 	async removeSession(executionId: string) {
 		const key = this.getKey(executionId);
 		await redis.del(key);
 		this.apiFunctions.delete(executionId);
-		this.userIds.delete(executionId);
 	}
 
 	async clearSessions() {
@@ -77,7 +73,6 @@ export class BridgeServer {
 			await redis.del(...keys);
 		}
 		this.apiFunctions.clear();
-		this.userIds.clear();
 	}
 
 	private getKey(executionId: string): string {
@@ -107,7 +102,6 @@ export class BridgeServer {
 
 			const sessionData = JSON.parse(value) as {
 				token: string;
-				userId: string;
 				expiresAt: number;
 			};
 
