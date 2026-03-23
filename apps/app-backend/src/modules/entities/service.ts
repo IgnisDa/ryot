@@ -1,5 +1,6 @@
 import { type AppSchema, resolveRequiredString } from "@ryot/ts-utils";
 import { resolveCustomEntitySchemaAccess } from "~/lib/app/entity-schema-access";
+import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import { ImageSchema, type ImageSchemaType } from "~/lib/db/schema/tables";
 import {
@@ -10,6 +11,7 @@ import {
 } from "~/lib/result";
 import {
 	createEntityForUser,
+	findEntityByExternalIdForUser,
 	getEntityByIdForUser,
 	getEntitySchemaScopeForUser,
 	getEntityScopeForUser,
@@ -35,10 +37,15 @@ export type EntityServiceDeps = {
 	getEntityByIdForUser: typeof getEntityByIdForUser;
 	getEntityScopeForUser: typeof getEntityScopeForUser;
 	getEntitySchemaScopeForUser: typeof getEntitySchemaScopeForUser;
+	findEntityByExternalIdForUser: typeof findEntityByExternalIdForUser;
 };
 
 export type EntityServiceResult<T> = ServiceResult<T, EntityMutationError>;
 
+const entityProvenanceUniqueConstraint =
+	"entity_user_schema_script_external_id_unique";
+const partialProvenanceError =
+	"externalId and detailsSandboxScriptId must both be provided or both be omitted";
 const customEntitySchemaError =
 	"Built-in entity schemas do not support manual entity creation";
 const entitySchemaNotFoundError = "Entity schema not found";
@@ -49,8 +56,9 @@ const entityNotFoundError = "Entity not found";
 const entityServiceDeps: EntityServiceDeps = {
 	createEntityForUser,
 	getEntityByIdForUser,
-	getEntitySchemaScopeForUser,
 	getEntityScopeForUser,
+	getEntitySchemaScopeForUser,
+	findEntityByExternalIdForUser,
 };
 
 const resolveEntityIdResult = (entityId: string) =>
@@ -183,6 +191,12 @@ export const createEntity = async (
 	input: { body: CreateEntityBody; userId: string },
 	deps: EntityServiceDeps = entityServiceDeps,
 ): Promise<EntityServiceResult<ListedEntity>> => {
+	const hasExternalId = input.body.externalId !== undefined;
+	const hasScriptId = input.body.detailsSandboxScriptId !== undefined;
+	if (hasExternalId !== hasScriptId) {
+		return serviceError("validation", partialProvenanceError);
+	}
+
 	const entitySchemaIdResult = resolveEntitySchemaIdResult(
 		input.body.entitySchemaId,
 	);
@@ -205,6 +219,27 @@ export const createEntity = async (
 		);
 	}
 
+	const provenance =
+		input.body.externalId !== undefined &&
+		input.body.detailsSandboxScriptId !== undefined
+			? {
+					externalId: input.body.externalId,
+					detailsSandboxScriptId: input.body.detailsSandboxScriptId,
+				}
+			: null;
+
+	if (provenance) {
+		const existingEntity = await deps.findEntityByExternalIdForUser({
+			userId: input.userId,
+			externalId: provenance.externalId,
+			entitySchemaId: entitySchemaIdResult.data,
+			detailsSandboxScriptId: provenance.detailsSandboxScriptId,
+		});
+		if (existingEntity) {
+			return serviceData(existingEntity);
+		}
+	}
+
 	const entityInput = resolveEntityCreateInputResult({
 		name: input.body.name,
 		image: input.body.image,
@@ -216,13 +251,34 @@ export const createEntity = async (
 		return entityInput;
 	}
 
-	const createdEntity = await deps.createEntityForUser({
-		userId: input.userId,
-		name: entityInput.data.name,
-		image: entityInput.data.image,
-		properties: entityInput.data.properties,
-		entitySchemaId: entitySchemaIdResult.data,
-	});
+	try {
+		const createdEntity = await deps.createEntityForUser({
+			userId: input.userId,
+			name: entityInput.data.name,
+			image: entityInput.data.image,
+			externalId: provenance?.externalId,
+			properties: entityInput.data.properties,
+			entitySchemaId: entitySchemaIdResult.data,
+			detailsSandboxScriptId: provenance?.detailsSandboxScriptId,
+		});
 
-	return serviceData(createdEntity);
+		return serviceData(createdEntity);
+	} catch (error) {
+		if (
+			isUniqueConstraintError(error, entityProvenanceUniqueConstraint) &&
+			provenance
+		) {
+			const existingEntity = await deps.findEntityByExternalIdForUser({
+				userId: input.userId,
+				externalId: provenance.externalId,
+				entitySchemaId: entitySchemaIdResult.data,
+				detailsSandboxScriptId: provenance.detailsSandboxScriptId,
+			});
+			if (existingEntity) {
+				return serviceData(existingEntity);
+			}
+		}
+
+		throw error;
+	}
 };

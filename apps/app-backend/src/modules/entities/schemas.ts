@@ -15,8 +15,8 @@ export const listedEntitySchema = z.object({
 	entitySchemaId: z.string(),
 	image: ImageSchema.nullable(),
 	externalId: z.string().nullable(),
-	detailsSandboxScriptId: z.string().nullable(),
 	properties: stringUnknownRecordSchema,
+	detailsSandboxScriptId: z.string().nullable(),
 });
 
 const entityResponseSchema = itemDataSchema(listedEntitySchema);
@@ -32,6 +32,8 @@ export const createEntityBody = z.object({
 	name: nonEmptyTrimmedStringSchema,
 	properties: stringUnknownRecordSchema,
 	entitySchemaId: nonEmptyTrimmedStringSchema,
+	externalId: nonEmptyTrimmedStringSchema.optional(),
+	detailsSandboxScriptId: nonEmptyTrimmedStringSchema.optional(),
 });
 
 export type CreateEntityBody = z.infer<typeof createEntityBody>;

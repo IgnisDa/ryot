@@ -103,23 +103,47 @@ export const listEntitiesByEntitySchemaForUser = async (input: {
 	return rows.map(toListedEntity);
 };
 
+export const findEntityByExternalIdForUser = async (input: {
+	userId: string;
+	externalId: string;
+	entitySchemaId: string;
+	detailsSandboxScriptId: string;
+}) => {
+	const [foundEntity] = await db
+		.select(entitySelection)
+		.from(entity)
+		.where(
+			and(
+				eq(entity.userId, input.userId),
+				eq(entity.externalId, input.externalId),
+				eq(entity.entitySchemaId, input.entitySchemaId),
+				eq(entity.detailsSandboxScriptId, input.detailsSandboxScriptId),
+			),
+		)
+		.limit(1);
+
+	return foundEntity ? toListedEntity(foundEntity) : undefined;
+};
+
 export const createEntityForUser = async (input: {
 	name: string;
 	userId: string;
 	entitySchemaId: string;
+	externalId?: string | null;
 	image: ImageSchemaType | null;
 	properties: EntityPropertiesShape;
+	detailsSandboxScriptId?: string | null;
 }) => {
 	const [createdEntity] = await db
 		.insert(entity)
 		.values({
 			name: input.name,
-			externalId: null,
 			image: input.image,
 			userId: input.userId,
 			properties: input.properties,
-			detailsSandboxScriptId: null,
+			externalId: input.externalId ?? null,
 			entitySchemaId: input.entitySchemaId,
+			detailsSandboxScriptId: input.detailsSandboxScriptId ?? null,
 		})
 		.returning(entitySelection);
 

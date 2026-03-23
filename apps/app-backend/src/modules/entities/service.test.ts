@@ -269,4 +269,105 @@ describe("createEntity", () => {
 			message: "Entity schema id is required",
 		});
 	});
+
+	it("returns validation when only externalId is provided without detailsSandboxScriptId", async () => {
+		const result = await createEntity(
+			{
+				userId: "user_1",
+				body: { ...createEntityBody(), externalId: "ol:OL12345M" },
+			},
+			createEntityDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message:
+				"externalId and detailsSandboxScriptId must both be provided or both be omitted",
+		});
+	});
+
+	it("returns validation when only detailsSandboxScriptId is provided without externalId", async () => {
+		const result = await createEntity(
+			{
+				userId: "user_1",
+				body: {
+					...createEntityBody(),
+					detailsSandboxScriptId: "script_details_1",
+				},
+			},
+			createEntityDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message:
+				"externalId and detailsSandboxScriptId must both be provided or both be omitted",
+		});
+	});
+
+	it("returns the existing entity without inserting when provenance fields match", async () => {
+		const existingEntity = createListedEntity({
+			id: "entity_existing",
+			externalId: "ol:OL12345M",
+			detailsSandboxScriptId: "script_details_1",
+		});
+		let createCalled = false;
+		const deps = createEntityDeps({
+			findEntityByExternalIdForUser: async () => existingEntity,
+			createEntityForUser: async (input) => {
+				createCalled = true;
+				return createListedEntity({ name: input.name });
+			},
+		});
+
+		const result = await createEntity(
+			{
+				userId: "user_1",
+				body: {
+					...createEntityBody(),
+					externalId: "ol:OL12345M",
+					detailsSandboxScriptId: "script_details_1",
+				},
+			},
+			deps,
+		);
+
+		expect(createCalled).toBe(false);
+		expect(result).toEqual({ data: existingEntity });
+	});
+
+	it("creates a new entity with provenance fields when no matching entity exists", async () => {
+		let capturedInput: Parameters<typeof createEntityBody>[0] | undefined;
+		const deps = createEntityDeps({
+			findEntityByExternalIdForUser: async () => undefined,
+			createEntityForUser: async (input) => {
+				capturedInput = input as unknown as Parameters<
+					typeof createEntityBody
+				>[0];
+				return createListedEntity({
+					name: input.name,
+					externalId: input.externalId ?? null,
+					detailsSandboxScriptId: input.detailsSandboxScriptId ?? null,
+				});
+			},
+		});
+
+		const result = expectDataResult(
+			await createEntity(
+				{
+					userId: "user_1",
+					body: {
+						...createEntityBody(),
+						externalId: "ol:OL99999M",
+						detailsSandboxScriptId: "script_details_1",
+					},
+				},
+				deps,
+			),
+		);
+
+		expect(capturedInput).toBeDefined();
+		expect(result.externalId).toBe("ol:OL99999M");
+		expect(result.detailsSandboxScriptId).toBe("script_details_1");
+	});
 });
