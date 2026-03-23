@@ -27,7 +27,7 @@ export const createWorkers = () => {
 	const sandboxScriptWorker = new Worker(
 		"sandboxScript",
 		processSandboxScriptJob,
-		{ connection },
+		{ connection, concurrency: 5 },
 	);
 
 	return { sandboxScriptWorker };

@@ -1,3 +1,9 @@
+import { z } from "zod";
+import {
+	nonEmptyStringSchema,
+	stringUnknownRecordSchema,
+} from "~/lib/zod/base";
+
 export type ApiFunction = (...args: Array<unknown>) => Promise<unknown>;
 
 export type HostFunction<TContext extends Record<string, unknown>> = (
@@ -9,10 +15,12 @@ export type HostFunctionFactory = (
 	context: Record<string, unknown>,
 ) => ApiFunction;
 
-export interface ApiFunctionDescriptor {
-	functionKey: string;
-	context: Record<string, unknown>;
-}
+export const apiFunctionDescriptorSchema = z.object({
+	functionKey: nonEmptyStringSchema,
+	context: stringUnknownRecordSchema,
+});
+
+export type ApiFunctionDescriptor = z.infer<typeof apiFunctionDescriptorSchema>;
 
 export interface SandboxRunOptions {
 	code: string;
@@ -22,6 +30,13 @@ export interface SandboxRunOptions {
 	context?: Record<string, unknown>;
 	apiFunctions?: Record<string, ApiFunction>;
 }
+
+export type SandboxEnqueueOptions = Pick<
+	SandboxRunOptions,
+	"code" | "userId" | "context"
+> & {
+	apiFunctionDescriptors?: Array<ApiFunctionDescriptor>;
+};
 
 export interface SandboxResult {
 	logs?: string;
