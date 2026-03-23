@@ -197,15 +197,15 @@ All four current host functions end up with `context: Record<string, never>` aft
 
 ## Tasks
 
-**Overall Progress:** 0 of 6 tasks completed
+**Overall Progress:** 1 of 6 tasks completed
 
-**Current Task:** [Task 01](./01-foundation-types-convention-registry.md) (todo)
+**Current Task:** [Task 02](./02-service-and-queue-refactor.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                        | Type | Status | Blocked By   |
 | --- | ------------------------------------------------------------------------------------------- | ---- | ------ | ------------ |
-| 01  | [Foundation: Types, Convention, and Registry](./01-foundation-types-convention-registry.md) | AFK  | todo   | None         |
+| 01  | [Foundation: Types, Convention, and Registry](./01-foundation-types-convention-registry.md) | AFK  | done   | None         |
 | 02  | [Service and Queue Refactor](./02-service-and-queue-refactor.md)                            | AFK  | todo   | Task 01      |
 | 03  | [New API Endpoints](./03-new-api-endpoints.md)                                              | AFK  | todo   | Task 02      |
 | 04  | [`getEntitySchemas` Host Function](./04-get-entity-schemas-host-function.md)                | AFK  | todo   | Tasks 01, 03 |
