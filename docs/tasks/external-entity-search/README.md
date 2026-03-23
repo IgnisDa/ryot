@@ -247,14 +247,14 @@ appears directly in the provider selector UI.
 
 ## Tasks
 
-**Overall Progress:** 0 of 3 tasks completed
+**Overall Progress:** 1 of 3 tasks completed
 
-**Current Task:** [Task 01](./01-sandbox-enqueue-by-script-id.md) (todo)
+**Current Task:** [Task 02](./02-search-providers-on-entity-schemas.md) (todo)
 
 ### Task List
 
 | # | Task | Type | Status | Blocked By |
 |---|------|------|--------|------------|
-| 01 | [Sandbox Enqueue by Script ID](./01-sandbox-enqueue-by-script-id.md) | AFK | todo | None |
+| 01 | [Sandbox Enqueue by Script ID](./01-sandbox-enqueue-by-script-id.md) | AFK | done | None |
 | 02 | [Search Providers on Entity Schemas](./02-search-providers-on-entity-schemas.md) | AFK | todo | None |
 | 03 | [Entity Creation with Provenance](./03-entity-creation-with-provenance.md) | AFK | todo | None |
