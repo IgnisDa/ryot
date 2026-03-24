@@ -6,112 +6,73 @@ import {
 	Button,
 	Container,
 	Group,
+	Menu,
 	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
 } from "@mantine/core";
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { useState } from "react";
 import { useColorScheme } from "#/hooks/theme";
 
-export const Route = createFileRoute(
-	"/_protected/labs/media-overview/v2",
-)({
+export const Route = createFileRoute("/_protected/labs/media-overview/v2")({
 	component: RouteComponent,
 });
 
 const GOLD = "#C9943A";
 
+type MediaType =
+	| "Book"
+	| "Show"
+	| "Movie"
+	| "Anime"
+	| "Manga"
+	| "Music"
+	| "Podcast"
+	| "AudioBook"
+	| "VideoGame"
+	| "ComicBook"
+	| "VisualNovel";
+
+const MEDIA_TYPES: MediaType[] = [
+	"Book",
+	"Show",
+	"Movie",
+	"Anime",
+	"Manga",
+	"Music",
+	"Podcast",
+	"AudioBook",
+	"VideoGame",
+	"ComicBook",
+	"VisualNovel",
+];
+
+const TYPE_COLORS: Record<string, string> = {
+	Book: "#8B5E3C",
+	Show: "#5B7FFF",
+	Movie: "#E05252",
+	Anime: "#FF6B6B",
+	Manga: "#C9943A",
+	Music: "#9B59B6",
+	Podcast: "#1ABC9C",
+	AudioBook: "#E67E22",
+	VideoGame: "#27AE60",
+	ComicBook: "#E74C3C",
+	VisualNovel: "#F39C12",
+};
+
 const STATUS_DOT: Record<string, string> = {
 	reading: "#5B8A5F",
 	watching: "#5B7FFF",
+	listening: "#9B59B6",
+	playing: "#27AE60",
 	completed: "#888",
 	on_hold: "#E09840",
+	dropped: "#E05252",
 };
-
-const SAMPLE_BOOKS = [
-	{
-		id: "b1",
-		title: "Where Have All the Leaders Gone?",
-		author: "Lee Iacocca",
-		status: "completed",
-		coverUrl: "https://covers.openlibrary.org/b/id/8739161-L.jpg",
-		rating: 4,
-	},
-	{
-		id: "b2",
-		title: "The Wind Is Never Gone",
-		author: "Sally Mandel",
-		status: "reading",
-		coverUrl: "https://covers.openlibrary.org/b/id/240726-L.jpg",
-		rating: null,
-	},
-	{
-		id: "b3",
-		title: "What to Do When I'm Gone",
-		author: "Suzy Hopkins",
-		status: "reading",
-		coverUrl: "https://covers.openlibrary.org/b/id/10527831-L.jpg",
-		rating: null,
-	},
-	{
-		id: "b4",
-		title: "The Name of the Wind",
-		author: "Patrick Rothfuss",
-		status: "on_hold",
-		coverUrl: "https://covers.openlibrary.org/b/id/9256378-L.jpg",
-		rating: 5,
-	},
-];
-const SAMPLE_ANIME = [
-	{
-		id: "a1",
-		title: "Frieren: Beyond Journey's End",
-		episodes: 28,
-		totalEpisodes: 28,
-		status: "completed",
-		coverUrl: "https://cdn.myanimelist.net/images/anime/1015/138006.jpg",
-		rating: 5,
-	},
-	{
-		id: "a2",
-		title: "Dungeon Meshi",
-		episodes: 12,
-		totalEpisodes: 24,
-		status: "watching",
-		coverUrl: "https://cdn.myanimelist.net/images/anime/1628/140081.jpg",
-		rating: null,
-	},
-	{
-		id: "a3",
-		title: "Solo Leveling",
-		episodes: 4,
-		totalEpisodes: 12,
-		status: "watching",
-		coverUrl: "https://cdn.myanimelist.net/images/anime/1258/135739.jpg",
-		rating: null,
-	},
-];
-const SAMPLE_MANGA = [
-	{
-		id: "m1",
-		title: "Berserk",
-		chapters: 374,
-		status: "on_hold",
-		coverUrl: "https://cdn.myanimelist.net/images/manga/1/157897.jpg",
-		rating: 5,
-	},
-	{
-		id: "m2",
-		title: "Vagabond",
-		chapters: 90,
-		status: "reading",
-		coverUrl: "https://cdn.myanimelist.net/images/manga/3/116498.jpg",
-		rating: null,
-	},
-];
 
 interface CoverItem {
 	id: string;
@@ -119,8 +80,307 @@ interface CoverItem {
 	coverUrl: string;
 	status: string;
 	rating: number | null;
-	type: "Book" | "Anime" | "Manga";
+	type: MediaType;
 	sub: string;
+}
+
+const ALL_COVERS: CoverItem[] = [
+	{
+		id: "b1",
+		type: "Book",
+		title: "Where Have All the Leaders Gone?",
+		sub: "Lee Iacocca",
+		status: "completed",
+		rating: 4,
+		coverUrl: "https://covers.openlibrary.org/b/id/8739161-L.jpg",
+	},
+	{
+		id: "b2",
+		type: "Book",
+		title: "The Wind Is Never Gone",
+		sub: "Sally Mandel",
+		status: "reading",
+		rating: null,
+		coverUrl: "https://covers.openlibrary.org/b/id/240726-L.jpg",
+	},
+	{
+		id: "b3",
+		type: "Book",
+		title: "What to Do When I'm Gone",
+		sub: "Suzy Hopkins",
+		status: "reading",
+		rating: null,
+		coverUrl: "https://covers.openlibrary.org/b/id/10527831-L.jpg",
+	},
+	{
+		id: "b4",
+		type: "Book",
+		title: "The Name of the Wind",
+		sub: "Patrick Rothfuss",
+		status: "on_hold",
+		rating: 5,
+		coverUrl: "https://covers.openlibrary.org/b/id/9256378-L.jpg",
+	},
+	{
+		id: "s1",
+		type: "Show",
+		title: "Breaking Bad",
+		sub: "Vince Gilligan",
+		status: "watching",
+		rating: null,
+		coverUrl: "https://image.tmdb.org/t/p/w500/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
+	},
+	{
+		id: "s2",
+		type: "Show",
+		title: "The Wire",
+		sub: "David Simon",
+		status: "completed",
+		rating: 5,
+		coverUrl: "https://image.tmdb.org/t/p/w500/4lkAHCDkH7KEELKBEMdFf7EGXcb.jpg",
+	},
+	{
+		id: "s3",
+		type: "Show",
+		title: "Severance",
+		sub: "Dan Erickson",
+		status: "on_hold",
+		rating: null,
+		coverUrl: "https://image.tmdb.org/t/p/w500/oNF5oacaZFXMjGC8fWOTvmDCxLr.jpg",
+	},
+	{
+		id: "mv1",
+		type: "Movie",
+		title: "Dune: Part Two",
+		sub: "Denis Villeneuve",
+		status: "completed",
+		rating: 5,
+		coverUrl: "https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
+	},
+	{
+		id: "mv2",
+		type: "Movie",
+		title: "Oppenheimer",
+		sub: "Christopher Nolan",
+		status: "completed",
+		rating: 4,
+		coverUrl: "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
+	},
+	{
+		id: "mv3",
+		type: "Movie",
+		title: "Poor Things",
+		sub: "Yorgos Lanthimos",
+		status: "completed",
+		rating: 5,
+		coverUrl: "https://image.tmdb.org/t/p/w500/kCGlIMHnOm8JPXIwwzwrznhIiIT.jpg",
+	},
+	{
+		id: "a1",
+		type: "Anime",
+		title: "Frieren: Beyond Journey's End",
+		sub: "Madhouse",
+		status: "completed",
+		rating: 5,
+		coverUrl: "https://cdn.myanimelist.net/images/anime/1015/138006.jpg",
+	},
+	{
+		id: "a2",
+		type: "Anime",
+		title: "Dungeon Meshi",
+		sub: "Studio Trigger",
+		status: "watching",
+		rating: null,
+		coverUrl: "https://cdn.myanimelist.net/images/anime/1628/140081.jpg",
+	},
+	{
+		id: "a3",
+		type: "Anime",
+		title: "Solo Leveling",
+		sub: "A-1 Pictures",
+		status: "watching",
+		rating: null,
+		coverUrl: "https://cdn.myanimelist.net/images/anime/1258/135739.jpg",
+	},
+	{
+		id: "m1",
+		type: "Manga",
+		title: "Berserk",
+		sub: "Kentaro Miura",
+		status: "on_hold",
+		rating: 5,
+		coverUrl: "https://cdn.myanimelist.net/images/manga/1/157897.jpg",
+	},
+	{
+		id: "m2",
+		type: "Manga",
+		title: "Vagabond",
+		sub: "Takehiko Inoue",
+		status: "reading",
+		rating: null,
+		coverUrl: "https://cdn.myanimelist.net/images/manga/3/116498.jpg",
+	},
+	{
+		id: "mu1",
+		type: "Music",
+		title: "Kind of Blue",
+		sub: "Miles Davis",
+		status: "completed",
+		rating: 5,
+		coverUrl:
+			"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/KindofBlue.jpg/300px-KindofBlue.jpg",
+	},
+	{
+		id: "mu2",
+		type: "Music",
+		title: "Random Access Memories",
+		sub: "Daft Punk",
+		status: "completed",
+		rating: 5,
+		coverUrl:
+			"https://upload.wikimedia.org/wikipedia/en/a/a7/Random_Access_Memories.jpg",
+	},
+	{
+		id: "mu3",
+		type: "Music",
+		title: "In Rainbows",
+		sub: "Radiohead",
+		status: "listening",
+		rating: null,
+		coverUrl:
+			"https://upload.wikimedia.org/wikipedia/en/3/3e/In_Rainbows_Official_Cover.jpg",
+	},
+	{
+		id: "p1",
+		type: "Podcast",
+		title: "Lex Fridman Podcast",
+		sub: "Lex Fridman",
+		status: "listening",
+		rating: null,
+		coverUrl:
+			"https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=300&fit=crop",
+	},
+	{
+		id: "p2",
+		type: "Podcast",
+		title: "The Knowledge Project",
+		sub: "Shane Parrish",
+		status: "on_hold",
+		rating: null,
+		coverUrl:
+			"https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=300&fit=crop",
+	},
+	{
+		id: "ab1",
+		type: "AudioBook",
+		title: "Atomic Habits",
+		sub: "James Clear",
+		status: "completed",
+		rating: 4,
+		coverUrl: "https://m.media-amazon.com/images/I/513Y5o-DYtL.jpg",
+	},
+	{
+		id: "ab2",
+		type: "AudioBook",
+		title: "The Pragmatic Programmer",
+		sub: "David Thomas",
+		status: "listening",
+		rating: null,
+		coverUrl: "https://m.media-amazon.com/images/I/41BKx1AxQWL.jpg",
+	},
+	{
+		id: "vg1",
+		type: "VideoGame",
+		title: "Elden Ring",
+		sub: "FromSoftware",
+		status: "completed",
+		rating: 5,
+		coverUrl:
+			"https://images.igdb.com/igdb/image/upload/t_cover_big/co4jni.jpg",
+	},
+	{
+		id: "vg2",
+		type: "VideoGame",
+		title: "Hollow Knight",
+		sub: "Team Cherry",
+		status: "completed",
+		rating: 5,
+		coverUrl:
+			"https://images.igdb.com/igdb/image/upload/t_cover_big/co3p2d.jpg",
+	},
+	{
+		id: "vg3",
+		type: "VideoGame",
+		title: "Celeste",
+		sub: "Maddy Thorson",
+		status: "on_hold",
+		rating: 4,
+		coverUrl:
+			"https://images.igdb.com/igdb/image/upload/t_cover_big/co1tmu.jpg",
+	},
+	{
+		id: "cb1",
+		type: "ComicBook",
+		title: "Watchmen",
+		sub: "Alan Moore",
+		status: "completed",
+		rating: 5,
+		coverUrl:
+			"https://upload.wikimedia.org/wikipedia/en/a/a2/Watchmen%2C_issue_1.jpg",
+	},
+	{
+		id: "cb2",
+		type: "ComicBook",
+		title: "The Sandman",
+		sub: "Neil Gaiman",
+		status: "reading",
+		rating: null,
+		coverUrl:
+			"https://upload.wikimedia.org/wikipedia/en/f/f5/SandmanIssue1.jpg",
+	},
+	{
+		id: "vn1",
+		type: "VisualNovel",
+		title: "Steins;Gate",
+		sub: "5pb. / Nitroplus",
+		status: "completed",
+		rating: 5,
+		coverUrl: "https://cdn.myanimelist.net/images/anime/5/73199.jpg",
+	},
+	{
+		id: "vn2",
+		type: "VisualNovel",
+		title: "Clannad",
+		sub: "Key / Visual Arts",
+		status: "reading",
+		rating: null,
+		coverUrl: "https://cdn.myanimelist.net/images/anime/1811/97462.jpg",
+	},
+];
+
+const ACTIVE_STATUSES = new Set([
+	"reading",
+	"watching",
+	"listening",
+	"playing",
+]);
+
+function activeVerb(type: MediaType): string {
+	if (
+		type === "Book" ||
+		type === "Manga" ||
+		type === "ComicBook" ||
+		type === "VisualNovel"
+	) {
+		return "Reading";
+	}
+	if (type === "Music" || type === "Podcast" || type === "AudioBook") {
+		return "Listening to";
+	}
+	if (type === "VideoGame") {
+		return "Playing";
+	}
+	return "Watching";
 }
 
 function CoverTile(props: { item: CoverItem; isDark: boolean }) {
@@ -204,7 +464,7 @@ function CoverTile(props: { item: CoverItem; isDark: boolean }) {
 				{props.item.sub}
 			</Text>
 		</Box>
-	)
+	);
 }
 
 function HeroSpotlight(props: { item: CoverItem; isDark: boolean }) {
@@ -216,7 +476,9 @@ function HeroSpotlight(props: { item: CoverItem; isDark: boolean }) {
 		? "linear-gradient(135deg, rgba(18,14,10,0.93) 0%, rgba(35,25,12,0.72) 55%, rgba(18,14,10,0.18) 100%)"
 		: "linear-gradient(135deg, rgba(255,250,240,0.96) 0%, rgba(255,238,200,0.80) 55%, rgba(255,238,200,0.08) 100%)";
 
-	const verb = props.item.type === "Book" ? "Reading" : "Watching";
+	const typeColor = TYPE_COLORS[props.item.type] ?? GOLD;
+	const verb = activeVerb(props.item.type);
+
 	return (
 		<Box
 			style={{
@@ -232,16 +494,26 @@ function HeroSpotlight(props: { item: CoverItem; isDark: boolean }) {
 		>
 			<Box style={{ position: "absolute", inset: 0, background: overlay }} />
 			<Box style={{ position: "relative", padding: "36px 44px 36px" }}>
-				<Text
-					fz={10}
-					fw={700}
-					c={GOLD}
-					ff="var(--mantine-headings-font-family)"
-					mb={10}
-					style={{ textTransform: "uppercase", letterSpacing: "1.8px" }}
-				>
-					Now {verb} · {props.item.type}
-				</Text>
+				<Group gap={8} mb={10}>
+					<Text
+						fz={10}
+						fw={700}
+						c={typeColor}
+						ff="var(--mantine-headings-font-family)"
+						style={{ textTransform: "uppercase", letterSpacing: "1.8px" }}
+					>
+						Now {verb}
+					</Text>
+					<Text
+						fz={10}
+						fw={700}
+						c={GOLD}
+						ff="var(--mantine-headings-font-family)"
+						style={{ textTransform: "uppercase", letterSpacing: "1.8px" }}
+					>
+						· {props.item.type}
+					</Text>
+				</Group>
 				<Text
 					ff="var(--mantine-headings-font-family)"
 					fw={700}
@@ -258,7 +530,7 @@ function HeroSpotlight(props: { item: CoverItem; isDark: boolean }) {
 				</Text>
 			</Box>
 		</Box>
-	)
+	);
 }
 
 function RouteComponent() {
@@ -274,54 +546,59 @@ function RouteComponent() {
 		? "var(--mantine-color-dark-3)"
 		: "var(--mantine-color-stone-5)";
 
-	const allCovers: CoverItem[] = [
-		...SAMPLE_BOOKS.map((b) => ({
-			...b,
-			type: "Book" as const,
-			sub: b.author,
-		})),
-		...SAMPLE_ANIME.map((a) => ({
-			...a,
-			type: "Anime" as const,
-			sub: `${a.episodes}/${a.totalEpisodes} eps`,
-		})),
-		...SAMPLE_MANGA.map((m) => ({
-			...m,
-			type: "Manga" as const,
-			sub: `${m.chapters} ch read`,
-		})),
-	]
-
-	const inProgress = allCovers.filter(
-		(i) => i.status === "reading" || i.status === "watching",
-	)
+	const inProgress = ALL_COVERS.filter((i) => ACTIVE_STATUSES.has(i.status));
 	const heroItem = inProgress[0];
+
+	// Count per type for tab labels
+	const typeCounts: Record<string, number> = {};
+	for (const item of ALL_COVERS) {
+		typeCounts[item.type] = (typeCounts[item.type] ?? 0) + 1;
+	}
 
 	const filtered =
 		tab === "all"
-			? allCovers
-			: allCovers.filter((i) => i.type.toLowerCase() === tab);
+			? ALL_COVERS
+			: ALL_COVERS.filter((i) => i.type.toLowerCase().replace(" ", "") === tab);
 
 	return (
 		<Box bg={bgPage} mih="100vh">
 			<Container size="lg" py="xl">
 				<Stack gap="xl">
 					<Group justify="space-between" align="center">
-						<Text
-							ff="var(--mantine-headings-font-family)"
-							fw={700}
-							fz={20}
-							c={textPrimary}
-						>
-							Media
-						</Text>
-						<Button
-							size="xs"
-							leftSection={<Plus size={12} />}
-							style={{ backgroundColor: GOLD, color: "white" }}
-						>
-							Add
-						</Button>
+						<Box>
+							<Text
+								ff="var(--mantine-headings-font-family)"
+								fw={700}
+								fz={20}
+								c={textPrimary}
+							>
+								Media
+							</Text>
+							<Text fz="xs" c={textMuted} mt={2}>
+								{ALL_COVERS.length} entries
+							</Text>
+						</Box>
+						<Menu position="bottom-end" width={180}>
+							<Menu.Target>
+								<Button
+									size="xs"
+									leftSection={<Plus size={12} />}
+									rightSection={<ChevronDown size={11} />}
+									style={{ backgroundColor: GOLD, color: "white" }}
+								>
+									Add
+								</Button>
+							</Menu.Target>
+							<Menu.Dropdown>
+								{MEDIA_TYPES.map((type) => (
+									<Menu.Item key={type}>
+										<Text fz="sm" c={TYPE_COLORS[type]}>
+											{type}
+										</Text>
+									</Menu.Item>
+								))}
+							</Menu.Dropdown>
+						</Menu>
 					</Group>
 
 					{heroItem && <HeroSpotlight item={heroItem} isDark={isDark} />}
@@ -365,11 +642,21 @@ function RouteComponent() {
 								},
 							}}
 						>
-							<Tabs.List>
-								<Tabs.Tab value="all">All ({allCovers.length})</Tabs.Tab>
-								<Tabs.Tab value="book">Books ({SAMPLE_BOOKS.length})</Tabs.Tab>
-								<Tabs.Tab value="anime">Anime ({SAMPLE_ANIME.length})</Tabs.Tab>
-								<Tabs.Tab value="manga">Manga ({SAMPLE_MANGA.length})</Tabs.Tab>
+							<Tabs.List style={{ overflowX: "auto", flexWrap: "nowrap" }}>
+								<Tabs.Tab value="all" style={{ whiteSpace: "nowrap" }}>
+									All ({ALL_COVERS.length})
+								</Tabs.Tab>
+								{MEDIA_TYPES.filter((t) => (typeCounts[t] ?? 0) > 0).map(
+									(type) => (
+										<Tabs.Tab
+											key={type}
+											value={type.toLowerCase().replace(" ", "")}
+											style={{ whiteSpace: "nowrap" }}
+										>
+											{type} ({typeCounts[type]})
+										</Tabs.Tab>
+									),
+								)}
 							</Tabs.List>
 						</Tabs>
 						<SimpleGrid cols={{ base: 3, sm: 5, md: 7 }} spacing="xs">
@@ -381,5 +668,5 @@ function RouteComponent() {
 				</Stack>
 			</Container>
 		</Box>
-	)
+	);
 }
