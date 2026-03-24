@@ -16,6 +16,7 @@ import { useCallback, useState } from "react";
 import type { CreateEntityPayload } from "#/features/entities/form";
 import { useEntityMutations } from "#/features/entities/hooks";
 import type { AppEntity } from "#/features/entities/model";
+import { SearchEntityModal } from "#/features/entities/search-modal";
 import { CreateEntityModal } from "#/features/entities/section";
 import { EntitySchemaCreateModal } from "#/features/entity-schemas/create-modal";
 import type { CreateEntitySchemaPayload } from "#/features/entity-schemas/form";
@@ -66,34 +67,49 @@ function TrackerHeader(props: { tracker: AppTracker }) {
 	);
 }
 
-function TrackerMetadata(props: { tracker: AppTracker }) {
-	return (
-		<>
-			{props.tracker.isBuiltin && (
-				<Box>
-					<Text size="sm" fw={500} c="dimmed" mb="xs">
-						TYPE
-					</Text>
-					<Text>Built-in</Text>
-				</Box>
-			)}
-		</>
+function BuiltinTrackerSection(props: { tracker: AppTracker }) {
+	const [activeSchemaId, setActiveSchemaId] = useState<string | null>(null);
+	const entitySchemasQuery = useEntitySchemasQuery(props.tracker.id, true);
+	const searchableSchemas = entitySchemasQuery.entitySchemas.filter(
+		(s) => s.searchProviders.length > 0,
 	);
-}
+	const activeSchema = entitySchemasQuery.entitySchemas.find(
+		(s) => s.id === activeSchemaId,
+	);
 
-function BuiltinTrackerSchemaSection() {
 	return (
-		<Paper p="lg" withBorder radius="md" bg="gray.0">
-			<Stack gap="xs">
-				<Text fw={600}>
-					Schema management is only available for custom trackers.
-				</Text>
-				<Text c="dimmed" size="sm">
-					Built-in trackers use product-defined fields, so this page stays
-					read-only.
-				</Text>
-			</Stack>
-		</Paper>
+		<Stack gap="xl">
+			<TrackerHeader tracker={props.tracker} />
+
+			{entitySchemasQuery.isLoading && (
+				<Center py="sm">
+					<Loader size="sm" />
+				</Center>
+			)}
+
+			{!entitySchemasQuery.isLoading && searchableSchemas.length > 0 && (
+				<Group>
+					{searchableSchemas.map((schema) => (
+						<Button
+							key={schema.id}
+							variant="light"
+							onClick={() => setActiveSchemaId(schema.id)}
+						>
+							Add {schema.name}
+						</Button>
+					))}
+				</Group>
+			)}
+
+			{activeSchema && (
+				<SearchEntityModal
+					opened={activeSchemaId !== null}
+					onClose={() => setActiveSchemaId(null)}
+					entitySchema={activeSchema}
+					onEntityAdded={() => {}}
+				/>
+			)}
+		</Stack>
 	);
 }
 
@@ -404,11 +420,7 @@ function RouteComponent() {
 	if (tracker.isBuiltin) {
 		return (
 			<Container size="md" py={56}>
-				<Stack gap="xl">
-					<TrackerHeader tracker={tracker} />
-					<TrackerMetadata tracker={tracker} />
-					<BuiltinTrackerSchemaSection />
-				</Stack>
+				<BuiltinTrackerSection tracker={tracker} />
 			</Container>
 		);
 	}

@@ -9,16 +9,20 @@ import {
 	Stack,
 	Text,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { SectionHeader } from "#/components/SectionHeader";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import { useEventSchemasQuery } from "#/features/event-schemas/hooks";
 import { EntityEventsSection } from "#/features/events/section";
 import { GeneratedPropertyField } from "#/features/generated-property-fields";
+import { useApiClient } from "#/hooks/api";
 import { useModalForm } from "#/hooks/modal-form";
 import type { CreateEntityPayload } from "./form";
 import { useEntitiesQuery, useEntityMutations } from "./hooks";
-import { getEntityListViewState } from "./model";
+import { createEntityRuntimeRequest, getEntityListViewState } from "./model";
+import { SearchEntityModal } from "./search-modal";
 import { useCreateEntityForm } from "./use-form";
 
 function EntityList(props: {
@@ -156,10 +160,20 @@ export function EntitiesSection(props: {
 	entitySchema: AppEntitySchema;
 	trackerSlug: string;
 }) {
+	const apiClient = useApiClient();
+	const queryClient = useQueryClient();
 	const entitiesQuery = useEntitiesQuery(props.entitySchema.slug);
 	const eventSchemasQuery = useEventSchemasQuery(props.entitySchema.id);
 	const entityMutations = useEntityMutations(props.entitySchema.slug);
 	const viewState = getEntityListViewState(entitiesQuery.entities);
+	const hasSearchProviders = props.entitySchema.searchProviders.length > 0;
+	const [
+		searchModalOpened,
+		{ open: openSearchModal, close: closeSearchModal },
+	] = useDisclosure(false);
+	const listQueryKey = apiClient.queryOptions("post", "/view-runtime/execute", {
+		body: createEntityRuntimeRequest(props.entitySchema.slug),
+	}).queryKey;
 	const createModal = useModalForm((payload: CreateEntityPayload) =>
 		entityMutations.create.mutateAsync({ body: payload }),
 	);
@@ -170,7 +184,7 @@ export function EntitiesSection(props: {
 				title="ENTITIES"
 				description="Tracked instances of this schema."
 				action={{
-					onClick: createModal.open,
+					onClick: hasSearchProviders ? openSearchModal : createModal.open,
 					label: `Add ${props.entitySchema.name.toLowerCase()}`,
 				}}
 			/>
@@ -229,15 +243,28 @@ export function EntitiesSection(props: {
 					/>
 				))}
 
-			{createModal.opened && (
-				<CreateEntityModal
-					opened={createModal.opened}
-					onClose={createModal.close}
-					onSubmit={createModal.submit}
+			{hasSearchProviders ? (
+				<SearchEntityModal
+					opened={searchModalOpened}
+					onClose={closeSearchModal}
 					entitySchema={props.entitySchema}
-					errorMessage={createModal.errorMessage}
-					isLoading={entityMutations.create.isPending}
+					onEntityAdded={() =>
+						queryClient.invalidateQueries({
+							queryKey: listQueryKey,
+						})
+					}
 				/>
+			) : (
+				createModal.opened && (
+					<CreateEntityModal
+						opened={createModal.opened}
+						onClose={createModal.close}
+						onSubmit={createModal.submit}
+						entitySchema={props.entitySchema}
+						errorMessage={createModal.errorMessage}
+						isLoading={entityMutations.create.isPending}
+					/>
+				)
 			)}
 		</Stack>
 	);
