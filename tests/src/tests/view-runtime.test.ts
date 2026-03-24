@@ -4,8 +4,8 @@ import {
 	buildGridRequest,
 	createAuthenticatedClient,
 	createCrossSchemaRuntimeFixture,
-	createEntity,
 	createEntitySchema,
+	createRuntimeEntity,
 	createSingleSchemaRuntimeFixture,
 	createTracker,
 	executeViewRuntime,
@@ -286,7 +286,7 @@ describe("View runtime E2E", () => {
 			}),
 		);
 
-		await createEntity({
+		await createRuntimeEntity({
 			client,
 			cookies,
 			name: "Null Tablet",
@@ -536,7 +536,7 @@ describe("View runtime E2E", () => {
 			propertiesSchema: { tags: { type: "array", items: { type: "string" } } },
 		});
 
-		await createEntity({
+		await createRuntimeEntity({
 			client,
 			cookies,
 			image: null,
@@ -544,7 +544,7 @@ describe("View runtime E2E", () => {
 			entitySchemaId: schema.schemaId,
 			properties: { tags: ["sci-fi", "action"] },
 		});
-		await createEntity({
+		await createRuntimeEntity({
 			client,
 			cookies,
 			image: null,
@@ -552,7 +552,7 @@ describe("View runtime E2E", () => {
 			entitySchemaId: schema.schemaId,
 			properties: { tags: ["drama"] },
 		});
-		await createEntity({
+		await createRuntimeEntity({
 			client,
 			cookies,
 			image: null,
@@ -594,7 +594,7 @@ describe("View runtime E2E", () => {
 			propertiesSchema: { sku: { type: "string" } },
 		});
 
-		await createEntity({
+		await createRuntimeEntity({
 			client,
 			cookies,
 			image: null,
@@ -602,7 +602,7 @@ describe("View runtime E2E", () => {
 			properties: { sku: "A%B" },
 			entitySchemaId: schema.schemaId,
 		});
-		await createEntity({
+		await createRuntimeEntity({
 			client,
 			cookies,
 			image: null,
@@ -610,7 +610,7 @@ describe("View runtime E2E", () => {
 			properties: { sku: "A_B" },
 			entitySchemaId: schema.schemaId,
 		});
-		await createEntity({
+		await createRuntimeEntity({
 			client,
 			cookies,
 			image: null,
