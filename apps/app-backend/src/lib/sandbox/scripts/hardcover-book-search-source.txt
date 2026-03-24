@@ -87,10 +87,7 @@ const items = hits
       return null;
     }
 
-    const identifier =
-      typeof doc.id === "number" && Number.isFinite(doc.id)
-        ? String(Math.trunc(doc.id))
-        : "";
+    const identifier = doc.id
     if (!identifier) {
       return null;
     }
