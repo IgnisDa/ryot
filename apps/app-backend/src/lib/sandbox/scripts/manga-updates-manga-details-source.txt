@@ -7,21 +7,31 @@ const parseJsonResponse = (responseBody) => {
 };
 
 const parsePublishYear = (value) => {
-	if (typeof value !== "string") return null;
+	if (typeof value !== "string") {
+		return null;
+	}
 	const trimmedValue = value.trim();
-	if (!/^\d{4}$/.test(trimmedValue)) return null;
+	if (!/^\d{4}$/.test(trimmedValue)) {
+		return null;
+	}
 
 	const year = Number(trimmedValue);
-	if (!Number.isFinite(year)) return null;
+	if (!Number.isFinite(year)) {
+		return null;
+	}
 
 	return year;
 };
 
 const extractStatus = (input) => {
-	if (typeof input !== "string") return { volumes: null, productionStatus: null };
+	if (typeof input !== "string") {
+		return { volumes: null, productionStatus: null };
+	}
 
 	const firstPart = input.split("<BR>")[0]?.trim() ?? "";
-	if (!firstPart) return { volumes: null, productionStatus: null };
+	if (!firstPart) {
+		return { volumes: null, productionStatus: null };
+	}
 
 	const parts = firstPart.split(/\s+/).filter(Boolean);
 	const firstToken = parts[0];
@@ -50,7 +60,9 @@ const collectGenres = (genres, categories) => {
 		for (const genreEntry of genres) {
 			const genre =
 				typeof genreEntry?.genre === "string" ? genreEntry.genre.trim() : "";
-			if (genre) genreSet.add(genre);
+			if (genre) {
+				genreSet.add(genre);
+			}
 		}
 	}
 
@@ -60,7 +72,9 @@ const collectGenres = (genres, categories) => {
 				typeof categoryEntry?.category === "string"
 					? categoryEntry.category.trim()
 					: "";
-			if (category) genreSet.add(category);
+			if (category) {
+				genreSet.add(category);
+			}
 		}
 	}
 
@@ -69,7 +83,9 @@ const collectGenres = (genres, categories) => {
 
 const collectImages = (image) => {
 	const candidate = image?.url?.original;
-	if (typeof candidate !== "string") return [];
+	if (typeof candidate !== "string") {
+		return [];
+	}
 
 	const trimmedCandidate = candidate.trim();
 	return trimmedCandidate ? [trimmedCandidate] : [];
@@ -77,15 +93,18 @@ const collectImages = (image) => {
 
 const contextIdentifier =
 	typeof context?.identifier === "string" ? context.identifier.trim() : "";
-if (!contextIdentifier) throw new Error("identifier is required");
+if (!contextIdentifier) {
+	throw new Error("identifier is required");
+}
 
 const response = await httpCall(
 	"GET",
 	`https://api.mangaupdates.com/v1/series/${encodeURIComponent(contextIdentifier)}`,
 );
 
-if (!response?.success)
+if (!response?.success) {
 	throw new Error(response?.error ?? "MangaUpdates details request failed");
+}
 
 const payload = parseJsonResponse(response.data.body);
 
@@ -95,7 +114,9 @@ const payloadIdentifier =
 		: contextIdentifier;
 
 const title = typeof payload?.title === "string" ? payload.title : "";
-if (!title) throw new Error("MangaUpdates payload is missing title");
+if (!title) {
+	throw new Error("MangaUpdates payload is missing title");
+}
 
 const chapters =
 	typeof payload?.latest_chapter === "number" &&

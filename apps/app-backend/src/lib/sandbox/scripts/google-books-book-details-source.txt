@@ -18,19 +18,27 @@ const toTitleCase = (value) => {
 };
 
 const parsePublishYear = (publishedDate) => {
-	if (typeof publishedDate !== "string") return null;
+	if (typeof publishedDate !== "string") {
+		return null;
+	}
 
 	const trimmedDate = publishedDate.trim();
-	if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) return null;
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) {
+		return null;
+	}
 
 	const year = Number(trimmedDate.slice(0, 4));
-	if (!Number.isFinite(year)) return null;
+	if (!Number.isFinite(year)) {
+		return null;
+	}
 
 	return year;
 };
 
 const collectImages = (imageLinks) => {
-	if (!imageLinks || typeof imageLinks !== "object") return [];
+	if (!imageLinks || typeof imageLinks !== "object") {
+		return [];
+	}
 
 	const imageSet = new Set();
 	const imageCandidates = [
@@ -43,9 +51,13 @@ const collectImages = (imageLinks) => {
 	];
 
 	for (const imageUrl of imageCandidates) {
-		if (typeof imageUrl !== "string") continue;
+		if (typeof imageUrl !== "string") {
+			continue;
+		}
 		const trimmedImageUrl = imageUrl.trim();
-		if (!trimmedImageUrl) continue;
+		if (!trimmedImageUrl) {
+			continue;
+		}
 		imageSet.add(trimmedImageUrl);
 	}
 
@@ -58,12 +70,18 @@ const collectPeople = (authors, publisher) => {
 
 	if (Array.isArray(authors)) {
 		for (const author of authors) {
-			if (typeof author !== "string") continue;
+			if (typeof author !== "string") {
+				continue;
+			}
 			const trimmedAuthor = author.trim();
-			if (!trimmedAuthor) continue;
+			if (!trimmedAuthor) {
+				continue;
+			}
 
 			const key = `Author:${trimmedAuthor}`;
-			if (seenPeople.has(key)) continue;
+			if (seenPeople.has(key)) {
+				continue;
+			}
 			seenPeople.add(key);
 
 			people.push({
@@ -97,11 +115,15 @@ const collectGenres = (categories, mainCategory) => {
 
 	if (Array.isArray(categories)) {
 		for (const category of categories) {
-			if (typeof category !== "string") continue;
+			if (typeof category !== "string") {
+				continue;
+			}
 
 			for (const genreToken of category.split(" / ")) {
 				const titleToken = toTitleCase(genreToken.trim());
-				if (!titleToken) continue;
+				if (!titleToken) {
+					continue;
+				}
 				genreSet.add(titleToken);
 			}
 		}
@@ -109,27 +131,36 @@ const collectGenres = (categories, mainCategory) => {
 
 	if (typeof mainCategory === "string") {
 		const trimmedMainCategory = mainCategory.trim();
-		if (trimmedMainCategory) genreSet.add(trimmedMainCategory);
+		if (trimmedMainCategory) {
+			genreSet.add(trimmedMainCategory);
+		}
 	}
 
 	return [...genreSet];
 };
 
-const configValueResponse = await getAppConfigValue("BOOKS_GOOGLE_BOOKS_API_KEY");
-if (!configValueResponse?.success)
+const configValueResponse = await getAppConfigValue(
+	"BOOKS_GOOGLE_BOOKS_API_KEY",
+);
+if (!configValueResponse?.success) {
 	throw new Error(
 		configValueResponse?.error ?? "Could not load Google Books API key",
 	);
+}
 
 const apiKey =
 	typeof configValueResponse.data === "string"
 		? configValueResponse.data.trim()
 		: "";
-if (!apiKey) throw new Error("BOOKS_GOOGLE_BOOKS_API_KEY is not configured");
+if (!apiKey) {
+	throw new Error("BOOKS_GOOGLE_BOOKS_API_KEY is not configured");
+}
 
 const contextIdentifier =
 	typeof context?.identifier === "string" ? context.identifier.trim() : "";
-if (!contextIdentifier) throw new Error("identifier is required");
+if (!contextIdentifier) {
+	throw new Error("identifier is required");
+}
 
 const response = await httpCall(
 	"GET",
@@ -137,8 +168,9 @@ const response = await httpCall(
 	{ headers: { "x-goog-api-key": apiKey } },
 );
 
-if (!response?.success)
+if (!response?.success) {
 	throw new Error(response?.error ?? "Google Books details request failed");
+}
 
 const payload = parseJsonResponse(response.data.body);
 
@@ -152,10 +184,13 @@ const volumeInfo =
 		? payload.volumeInfo
 		: null;
 const title = typeof volumeInfo?.title === "string" ? volumeInfo.title : "";
-if (!title) throw new Error("Google Books payload is missing title");
+if (!title) {
+	throw new Error("Google Books payload is missing title");
+}
 
 const pages =
-	typeof volumeInfo?.pageCount === "number" && Number.isFinite(volumeInfo.pageCount)
+	typeof volumeInfo?.pageCount === "number" &&
+	Number.isFinite(volumeInfo.pageCount)
 		? Math.trunc(volumeInfo.pageCount)
 		: null;
 

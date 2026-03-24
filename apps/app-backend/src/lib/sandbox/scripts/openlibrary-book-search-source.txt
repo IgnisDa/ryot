@@ -9,7 +9,9 @@ const currentPage = Number.isFinite(Number(context?.page))
 	: 1;
 const query = typeof context?.query === "string" ? context.query.trim() : "";
 
-if (!query) throw new Error("query is required");
+if (!query) {
+	throw new Error("query is required");
+}
 
 const params = new URLSearchParams({
 	q: query,
@@ -24,8 +26,9 @@ const response = await httpCall(
 	`https://openlibrary.org/search.json?${params.toString()}`,
 );
 
-if (!response?.success)
+if (!response?.success) {
 	throw new Error(response?.error ?? "OpenLibrary search request failed");
+}
 
 let payload;
 try {
@@ -44,7 +47,9 @@ const items = docs
 	.map((doc) => {
 		const key = typeof doc?.key === "string" ? doc.key : "";
 		const identifier = key.split("/").filter(Boolean).pop();
-		if (!identifier) return null;
+		if (!identifier) {
+			return null;
+		}
 
 		const title = typeof doc?.title === "string" ? doc.title : "";
 		const publishYear =
