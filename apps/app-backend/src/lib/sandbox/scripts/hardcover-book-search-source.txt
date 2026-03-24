@@ -76,7 +76,10 @@ const items = hits
 		const doc = hit?.document;
 		if (!doc || typeof doc !== "object") return null;
 
-		const identifier = typeof doc.id === "string" ? doc.id : "";
+		const identifier =
+			typeof doc.id === "number" && Number.isFinite(doc.id)
+				? String(Math.trunc(doc.id))
+				: "";
 		if (!identifier) return null;
 
 		const title = typeof doc.title === "string" ? doc.title : "";
@@ -90,10 +93,17 @@ const items = hits
 			image = doc.image.url;
 
 		return {
-			title,
-			image,
 			identifier,
-			publishYear: releaseYear,
+			badgeProperty: { kind: "null", value: null },
+			titleProperty: { kind: "text", value: title },
+			subtitleProperty:
+				releaseYear === null
+					? { kind: "null", value: null }
+					: { kind: "number", value: releaseYear },
+			imageProperty:
+				image === null
+					? { kind: "null", value: null }
+					: { kind: "image", value: { kind: "remote", url: image } },
 		};
 	})
 	.filter((item) => item !== null);
