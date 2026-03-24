@@ -137,8 +137,8 @@ describe("POST /entities", () => {
 				image: null,
 				detailsSandboxScriptId,
 				entitySchemaId: schemaId,
-				name: "Partial Provenance Entity",
 				properties: { title: "Partial" },
+				name: "Partial Provenance Entity",
 			},
 		});
 
