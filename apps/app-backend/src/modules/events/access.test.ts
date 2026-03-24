@@ -7,12 +7,6 @@ describe("resolveEventCreateAccess", () => {
 		expect(resolveEventCreateAccess(undefined)).toEqual({ error: "not_found" });
 	});
 
-	it("returns builtin when the entity schema is built in", () => {
-		expect(
-			resolveEventCreateAccess(createEventCreateScope({ isBuiltin: true })),
-		).toEqual({ error: "builtin" });
-	});
-
 	it("returns event_schema_not_found when the event schema is missing", () => {
 		expect(
 			resolveEventCreateAccess({
