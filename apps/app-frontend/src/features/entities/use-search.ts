@@ -1,5 +1,5 @@
 import { useQueries } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import { useApiClient } from "#/hooks/api";
 import { getErrorMessage } from "#/lib/errors";
@@ -16,7 +16,40 @@ export type SearchResultItem = {
 };
 
 type AddStatus = "idle" | "loading" | "done" | "error";
-type AddJob = { jobId: string; detailsScriptId: string };
+
+type SearchState = {
+	page: number;
+	totalItems: number;
+	error: string | null;
+	nextPage: number | null;
+	results: SearchResultItem[] | null;
+	request: { jobId: string; page: number } | null;
+};
+
+type AddItemState = {
+	status: AddStatus;
+	error: string | null;
+	jobId: string | null;
+	detailsScriptId: string | null;
+};
+
+type AddState = Record<string, AddItemState>;
+
+const initialSearchState: SearchState = {
+	page: 1,
+	error: null,
+	request: null,
+	results: null,
+	totalItems: 0,
+	nextPage: null,
+};
+
+const initialAddItemState = (): AddItemState => ({
+	error: null,
+	jobId: null,
+	status: "idle",
+	detailsScriptId: null,
+});
 
 const POLL_MS = 500;
 
@@ -32,54 +65,39 @@ export function useEntitySearch(props: {
 }) {
 	const apiClient = useApiClient();
 
-	const [page, setPage] = useState(1);
 	const [query, setQuery] = useState("");
-	const [totalItems, setTotalItems] = useState(0);
-	const [pendingPage, setPendingPage] = useState(1);
-	const processedJobsRef = useRef(new Set<string>());
-	const [nextPage, setNextPage] = useState<number | null>(null);
-	const [addJobs, setAddJobs] = useState<Record<string, AddJob>>({});
-	const [searchError, setSearchError] = useState<string | null>(null);
-	const [searchJobId, setSearchJobId] = useState<string | null>(null);
-	const [addError, setAddError] = useState<Record<string, string>>({});
+	const [addState, setAddState] = useState<AddState>({});
+	const [searchState, setSearchState] = useState(initialSearchState);
 	const [selectedProviderIndex, setSelectedProviderIndex] = useState(0);
-	const [results, setResults] = useState<SearchResultItem[] | null>(null);
-	const [addStatus, setAddStatus] = useState<Record<string, AddStatus>>({});
 
 	const createEntity = apiClient.useMutation("post", "/entities");
 	const enqueueSearch = apiClient.useMutation("post", "/sandbox/enqueue");
 	const enqueueDetails = apiClient.useMutation("post", "/sandbox/enqueue");
 
-	const enqueueSearchRef = useRef(enqueueSearch);
-	enqueueSearchRef.current = enqueueSearch;
-	const enqueueDetailsRef = useRef(enqueueDetails);
-	enqueueDetailsRef.current = enqueueDetails;
-	const createEntityRef = useRef(createEntity);
-	createEntityRef.current = createEntity;
-	const onEntityAddedRef = useRef(props.onEntityAdded);
-	onEntityAddedRef.current = props.onEntityAdded;
-	const entitySchemaRef = useRef(props.entitySchema);
-	entitySchemaRef.current = props.entitySchema;
-
 	const searchResultQuery = apiClient.useQuery(
 		"get",
 		"/sandbox/result/{jobId}",
-		{ params: { path: { jobId: searchJobId ?? "" } } },
-		{ enabled: !!searchJobId, refetchInterval: sandboxRefetchInterval },
+		{ params: { path: { jobId: searchState.request?.jobId ?? "" } } },
+		{
+			enabled: !!searchState.request?.jobId,
+			refetchInterval: sandboxRefetchInterval,
+		},
 	);
 
-	const isSearching = enqueueSearch.isPending || !!searchJobId;
+	const isSearching = enqueueSearch.isPending || !!searchState.request;
 
 	useEffect(() => {
 		const result = searchResultQuery.data?.data;
-		if (!searchJobId || !result || result.status === "pending") {
+		if (!searchState.request || !result || result.status === "pending") {
 			return;
 		}
 
-		setSearchJobId(null);
-
 		if (result.status === "failed") {
-			setSearchError(result.error ?? "Search script failed");
+			setSearchState((prev) => ({
+				...prev,
+				request: null,
+				error: result.error ?? "Search script failed",
+			}));
 			return;
 		}
 
@@ -87,50 +105,66 @@ export function useEntitySearch(props: {
 			items: SearchResultItem[];
 			details: { totalItems: number; nextPage: number | null };
 		};
-		setPage(pendingPage);
-		setResults(value.items ?? []);
-		setTotalItems(value.details?.totalItems ?? 0);
-		setNextPage(value.details?.nextPage ?? null);
-	}, [searchResultQuery.data?.data, searchJobId, pendingPage]);
+		setSearchState((prev) => ({
+			...prev,
+			request: null,
+			results: value.items ?? [],
+			page: prev.request?.page ?? prev.page,
+			nextPage: value.details?.nextPage ?? null,
+			totalItems: value.details?.totalItems ?? 0,
+		}));
+	}, [searchResultQuery.data?.data, searchState.request]);
 
-	const addJobEntries = useMemo(() => Object.entries(addJobs), [addJobs]);
+	const addJobEntries = useMemo(
+		() =>
+			Object.entries(addState).filter(
+				([, item]) => item.jobId && item.detailsScriptId,
+			),
+		[addState],
+	);
 
 	const detailsQueries = useQueries({
-		queries: addJobEntries.map(([, { jobId }]) => ({
-			...apiClient.queryOptions("get", "/sandbox/result/{jobId}", {
-				params: { path: { jobId } },
-			}),
+		queries: addJobEntries.map(([, item]) => ({
+			enabled: !!item.jobId,
 			refetchInterval: sandboxRefetchInterval,
+			...apiClient.queryOptions("get", "/sandbox/result/{jobId}", {
+				params: { path: { jobId: item.jobId ?? "" } },
+			}),
 		})),
 	});
 
 	useEffect(() => {
-		addJobEntries.forEach(([identifier, { jobId, detailsScriptId }], idx) => {
+		addJobEntries.forEach(([identifier, item], idx) => {
 			const result = detailsQueries[idx]?.data?.data;
-			if (!result || result.status === "pending") {
+			if (
+				!result ||
+				!item.jobId ||
+				!item.detailsScriptId ||
+				result.status === "pending"
+			) {
 				return;
 			}
-			if (processedJobsRef.current.has(jobId)) {
-				return;
-			}
-			processedJobsRef.current.add(jobId);
 
 			if (result.status === "failed") {
-				setAddStatus((p) => ({ ...p, [identifier]: "error" }));
-				setAddError((p) => ({
-					...p,
-					[identifier]: result.error ?? "Details script failed",
+				setAddState((prev) => ({
+					...prev,
+					[identifier]: {
+						...item,
+						jobId: null,
+						status: "error",
+						error: result.error ?? "Details script failed",
+					},
 				}));
 				return;
 			}
 
-			const schema = entitySchemaRef.current;
+			const schema = props.entitySchema;
 			const detailsValue = result.value as {
 				name: string;
 				externalId: string;
 				properties: {
-					assets?: { remoteImages?: string[] };
 					[key: string]: unknown;
+					assets?: { remoteImages?: string[] };
 				};
 			};
 
@@ -146,7 +180,12 @@ export function useEntitySearch(props: {
 				}
 			}
 
-			createEntityRef.current.mutate(
+			setAddState((prev) => ({
+				...prev,
+				[identifier]: { ...item, jobId: null, error: null },
+			}));
+
+			createEntity.mutate(
 				{
 					body: {
 						image,
@@ -154,25 +193,44 @@ export function useEntitySearch(props: {
 						name: detailsValue.name,
 						entitySchemaId: schema.id,
 						externalId: detailsValue.externalId,
-						detailsSandboxScriptId: detailsScriptId,
+						detailsSandboxScriptId: item.detailsScriptId,
 					},
 				},
 				{
 					onSuccess: () => {
-						setAddStatus((p) => ({ ...p, [identifier]: "done" }));
-						onEntityAddedRef.current();
+						setAddState((prev) => ({
+							...prev,
+							[identifier]: {
+								error: null,
+								jobId: null,
+								status: "done",
+								detailsScriptId: null,
+								...prev[identifier],
+							},
+						}));
+						props.onEntityAdded();
 					},
 					onError: (err) => {
-						setAddStatus((p) => ({ ...p, [identifier]: "error" }));
-						setAddError((p) => ({
-							...p,
-							[identifier]: getErrorMessage(err),
+						setAddState((prev) => ({
+							...prev,
+							[identifier]: {
+								...initialAddItemState(),
+								...prev[identifier],
+								status: "error",
+								error: getErrorMessage(err),
+							},
 						}));
 					},
 				},
 			);
 		});
-	}, [detailsQueries, addJobEntries]);
+	}, [
+		createEntity,
+		detailsQueries,
+		addJobEntries,
+		props.entitySchema,
+		props.onEntityAdded,
+	]);
 
 	const runSearch = useCallback(
 		async (searchPage: number) => {
@@ -182,11 +240,10 @@ export function useEntitySearch(props: {
 				return;
 			}
 
-			setSearchError(null);
-			setPendingPage(searchPage);
+			setSearchState((prev) => ({ ...prev, error: null, request: null }));
 
 			try {
-				const result = await enqueueSearchRef.current.mutateAsync({
+				const result = await enqueueSearch.mutateAsync({
 					body: {
 						kind: "script",
 						scriptId: provider.searchScriptId,
@@ -197,12 +254,24 @@ export function useEntitySearch(props: {
 				if (!jobId) {
 					throw new Error("Failed to enqueue search script");
 				}
-				setSearchJobId(jobId);
+				setSearchState((prev) => ({
+					...prev,
+					request: { jobId, page: searchPage },
+				}));
 			} catch (err) {
-				setSearchError(getErrorMessage(err));
+				setSearchState((prev) => ({
+					...prev,
+					request: null,
+					error: getErrorMessage(err),
+				}));
 			}
 		},
-		[props.entitySchema.searchProviders, selectedProviderIndex, query],
+		[
+			query,
+			enqueueSearch,
+			selectedProviderIndex,
+			props.entitySchema.searchProviders,
+		],
 	);
 
 	const search = useCallback(() => void runSearch(1), [runSearch]);
@@ -220,15 +289,18 @@ export function useEntitySearch(props: {
 				return;
 			}
 
-			setAddStatus((p) => ({ ...p, [item.identifier]: "loading" }));
-			setAddError((p) => {
-				const next = { ...p };
-				delete next[item.identifier];
-				return next;
-			});
+			setAddState((prev) => ({
+				...prev,
+				[item.identifier]: {
+					error: null,
+					jobId: null,
+					status: "loading",
+					detailsScriptId: provider.detailsScriptId,
+				},
+			}));
 
 			try {
-				const result = await enqueueDetailsRef.current.mutateAsync({
+				const result = await enqueueDetails.mutateAsync({
 					body: {
 						kind: "script",
 						scriptId: provider.detailsScriptId,
@@ -239,39 +311,67 @@ export function useEntitySearch(props: {
 				if (!jobId) {
 					throw new Error("Failed to enqueue details script");
 				}
-				setAddJobs((p) => ({
-					...p,
+				setAddState((prev) => ({
+					...prev,
 					[item.identifier]: {
+						...initialAddItemState(),
+						...prev[item.identifier],
 						jobId,
-						detailsScriptId: provider.detailsScriptId,
+						error: null,
+						status: "loading",
 					},
 				}));
 			} catch (err) {
-				setAddStatus((p) => ({ ...p, [item.identifier]: "error" }));
-				setAddError((p) => ({
-					...p,
-					[item.identifier]: getErrorMessage(err),
+				setAddState((prev) => ({
+					...prev,
+					[item.identifier]: {
+						...initialAddItemState(),
+						...prev[item.identifier],
+						status: "error",
+						error: getErrorMessage(err),
+					},
 				}));
 			}
 		},
-		[props.entitySchema.searchProviders, selectedProviderIndex],
+		[enqueueDetails, props.entitySchema.searchProviders, selectedProviderIndex],
+	);
+
+	const addError = useMemo(
+		() =>
+			Object.fromEntries(
+				Object.entries(addState)
+					.filter(([, item]) => item.error)
+					.map(([identifier, item]) => [identifier, item.error ?? undefined]),
+			),
+		[addState],
+	);
+
+	const addStatus = useMemo(
+		() =>
+			Object.fromEntries(
+				Object.entries(addState).map(([identifier, item]) => [
+					identifier,
+					item.status,
+				]),
+			),
+		[addState],
 	);
 
 	return {
-		page,
 		query,
 		search,
 		addItem,
-		results,
 		setQuery,
 		addError,
-		nextPage,
 		goToPage,
 		addStatus,
-		totalItems,
 		isSearching,
-		searchError,
 		selectedProviderIndex,
+		page: searchState.page,
 		setSelectedProviderIndex,
+		results: searchState.results,
+		nextPage: searchState.nextPage,
+		searchError: searchState.error,
+		totalItems: searchState.totalItems,
 	};
 }
