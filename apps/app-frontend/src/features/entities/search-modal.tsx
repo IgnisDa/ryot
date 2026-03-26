@@ -1,5 +1,6 @@
 import {
 	ActionIcon,
+	Badge,
 	Box,
 	Button,
 	Group,
@@ -73,6 +74,9 @@ function EntityThumbnail(props: {
 
 function SearchResultRow(props: {
 	onAdd: () => void;
+	entityName: string;
+	accentColor: string;
+	providerName: string;
 	item: SearchResultItem;
 	errorMessage: string | undefined;
 	status: "idle" | "loading" | "done" | "error";
@@ -94,25 +98,42 @@ function SearchResultRow(props: {
 						imageUrl={imageUrl}
 					/>
 					<Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
-						<Text fw={500} size="sm" lineClamp={1}>
-							{item.titleProperty.value}
-						</Text>
-						{item.subtitleProperty?.kind === "number" && (
-							<Text size="xs" c="dimmed">
-								{item.subtitleProperty.value}
+						<Group gap={6} wrap="wrap">
+							<Text fw={600} size="sm" lineClamp={1}>
+								{item.titleProperty.value}
 							</Text>
-						)}
+							{status === "done" && (
+								<CheckCircle
+									size={16}
+									strokeWidth={1.5}
+									color="var(--mantine-color-green-6)"
+								/>
+							)}
+						</Group>
+						<Group gap={6} wrap="wrap">
+							<Badge
+								size="xs"
+								variant="light"
+								style={{
+									color: props.accentColor,
+									backgroundColor: `${props.accentColor}12`,
+								}}
+							>
+								{props.entityName}
+							</Badge>
+							{item.subtitleProperty?.kind === "number" && (
+								<Text size="xs" c="dimmed">
+									{item.subtitleProperty.value}
+								</Text>
+							)}
+							<Text size="xs" c="dimmed">
+								via {props.providerName}
+							</Text>
+						</Group>
 					</Stack>
 				</Group>
 				<Box w={32} style={{ flexShrink: 0 }}>
 					{status === "loading" && <Loader size="xs" />}
-					{status === "done" && (
-						<CheckCircle
-							size={18}
-							strokeWidth={1.5}
-							color="var(--mantine-color-green-6)"
-						/>
-					)}
 					{status === "error" && (
 						<Text c="red" size="xs" title={props.errorMessage}>
 							!
@@ -137,6 +158,7 @@ function SearchResultRow(props: {
 export function SearchEntityModal(props: {
 	opened: boolean;
 	onClose: () => void;
+	onBack?: () => void;
 	onEntityAdded: () => void;
 	entitySchema: AppEntitySchema;
 }) {
@@ -160,13 +182,37 @@ export function SearchEntityModal(props: {
 		onEntityAdded: props.onEntityAdded,
 	});
 
+	const accentColor = props.entitySchema.accentColor ?? "#8C7560";
+	const activeProvider =
+		props.entitySchema.searchProviders[selectedProviderIndex];
+
 	return (
 		<Modal
 			centered
-			size="xl"
+			size="lg"
 			opened={props.opened}
 			onClose={props.onClose}
-			title={`Add ${props.entitySchema.name}`}
+			title={
+				props.onBack ? (
+					<Group gap="xs">
+						<ActionIcon
+							size="sm"
+							variant="subtle"
+							onClick={props.onBack}
+							aria-label="Back to type picker"
+						>
+							<ChevronLeft size={16} />
+						</ActionIcon>
+						<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
+							Add {props.entitySchema.name}
+						</Text>
+					</Group>
+				) : (
+					<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
+						Add {props.entitySchema.name}
+					</Text>
+				)
+			}
 			overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
 		>
 			<Stack gap="md">
@@ -176,8 +222,8 @@ export function SearchEntityModal(props: {
 						value={String(selectedProviderIndex)}
 						onChange={(v) => setSelectedProviderIndex(Number(v))}
 						data={props.entitySchema.searchProviders.map((p, i) => ({
-							value: String(i),
 							label: p.name,
+							value: String(i),
 						}))}
 					/>
 				)}
@@ -187,7 +233,7 @@ export function SearchEntityModal(props: {
 						flex={1}
 						value={query}
 						disabled={isSearching}
-						placeholder="Search..."
+						placeholder={`Search for a ${props.entitySchema.name.toLowerCase()}...`}
 						onChange={(e) => setQuery(e.currentTarget.value)}
 						leftSection={<Search size={16} strokeWidth={1.5} />}
 						onKeyDown={(e) => {
@@ -200,6 +246,7 @@ export function SearchEntityModal(props: {
 						onClick={search}
 						loading={isSearching}
 						disabled={!query.trim()}
+						style={{ color: "white", backgroundColor: accentColor }}
 					>
 						Search
 					</Button>
@@ -211,7 +258,16 @@ export function SearchEntityModal(props: {
 					</Text>
 				)}
 
-				{results !== null && (
+				{isSearching && (
+					<Stack align="center" py="xl">
+						<Loader size="sm" color={accentColor} />
+						<Text size="sm" c="dimmed">
+							Searching...
+						</Text>
+					</Stack>
+				)}
+
+				{results !== null && !isSearching && (
 					<Stack gap="xs">
 						{results.length === 0 ? (
 							<Text c="dimmed" size="sm" ta="center" py="md">
@@ -219,14 +275,28 @@ export function SearchEntityModal(props: {
 							</Text>
 						) : (
 							<>
-								<ScrollArea.Autosize mah={400}>
-									<Stack gap={4}>
+								<Group justify="flex-end" align="center" px={2}>
+									<Badge
+										variant="light"
+										style={{
+											color: accentColor,
+											backgroundColor: `${accentColor}12`,
+										}}
+									>
+										{results.length} result{results.length === 1 ? "" : "s"}
+									</Badge>
+								</Group>
+								<ScrollArea.Autosize mah={460}>
+									<Stack gap={6}>
 										{results.map((item) => (
 											<SearchResultRow
 												item={item}
 												key={item.identifier}
+												accentColor={accentColor}
 												onAdd={() => void addItem(item)}
+												entityName={props.entitySchema.name}
 												errorMessage={addError[item.identifier]}
+												providerName={activeProvider?.name ?? ""}
 												status={addStatus[item.identifier] ?? "idle"}
 											/>
 										))}
