@@ -1,75 +1,15 @@
-import {
-	Anchor,
-	Button,
-	Center,
-	Group,
-	Loader,
-	Modal,
-	Paper,
-	Stack,
-	Text,
-} from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
-import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { SectionHeader } from "#/components/SectionHeader";
+import { Button, Group, Modal, Stack, Text } from "@mantine/core";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
-import { useEventSchemasQuery } from "#/features/event-schemas/hooks";
-import { EntityEventsSection } from "#/features/events/section";
 import { GeneratedPropertyField } from "#/features/generated-property-fields";
-import { useApiClient } from "#/hooks/api";
-import { useModalForm } from "#/hooks/modal-form";
 import type { CreateEntityPayload } from "./form";
-import { useEntitiesQuery, useEntityMutations } from "./hooks";
-import { createEntityRuntimeRequest, getEntityListViewState } from "./model";
-import { SearchEntityModal } from "./search-modal";
 import { useCreateEntityForm } from "./use-form";
-
-function EntityList(props: {
-	entities: ReturnType<typeof useEntitiesQuery>["entities"];
-	trackerSlug: string;
-	eventSchemas: ReturnType<typeof useEventSchemasQuery>["eventSchemas"];
-	eventSchemasError: boolean;
-	eventSchemasLoading: boolean;
-}) {
-	return (
-		<Stack gap="xs">
-			{props.entities.map((entity) => (
-				<Paper p="sm" withBorder radius="md" key={entity.id}>
-					<Stack gap="md">
-						<Group justify="space-between" align="flex-start">
-							<Stack gap={2}>
-								<Text fw={500}>{entity.name}</Text>
-								<Text c="dimmed" size="xs">
-									{new Date(entity.createdAt).toLocaleDateString()}
-								</Text>
-							</Stack>
-							<Link to="/entities/$entityId" params={{ entityId: entity.id }}>
-								<Anchor component="span" size="sm">
-									View details
-								</Anchor>
-							</Link>
-						</Group>
-
-						<EntityEventsSection
-							entity={entity}
-							eventSchemas={props.eventSchemas}
-							eventSchemasError={props.eventSchemasError}
-							eventSchemasLoading={props.eventSchemasLoading}
-						/>
-					</Stack>
-				</Paper>
-			))}
-		</Stack>
-	);
-}
 
 export function CreateEntityModal(props: {
 	opened: boolean;
 	isLoading: boolean;
 	onClose: () => void;
-	entitySchema: AppEntitySchema;
 	errorMessage: string | null;
+	entitySchema: AppEntitySchema;
 	onSubmit: (payload: CreateEntityPayload) => Promise<void>;
 }) {
 	const entityForm = useCreateEntityForm({
@@ -153,119 +93,5 @@ export function CreateEntityModal(props: {
 				</entityForm.AppForm>
 			</form>
 		</Modal>
-	);
-}
-
-export function EntitiesSection(props: {
-	entitySchema: AppEntitySchema;
-	trackerSlug: string;
-}) {
-	const apiClient = useApiClient();
-	const queryClient = useQueryClient();
-	const entitiesQuery = useEntitiesQuery(props.entitySchema.slug);
-	const eventSchemasQuery = useEventSchemasQuery(props.entitySchema.id);
-	const entityMutations = useEntityMutations(props.entitySchema.slug);
-	const viewState = getEntityListViewState(entitiesQuery.entities);
-	const hasSearchProviders = props.entitySchema.searchProviders.length > 0;
-	const [
-		searchModalOpened,
-		{ open: openSearchModal, close: closeSearchModal },
-	] = useDisclosure(false);
-	const listQueryKey = apiClient.queryOptions("post", "/view-runtime/execute", {
-		body: createEntityRuntimeRequest(props.entitySchema.slug),
-	}).queryKey;
-	const createModal = useModalForm((payload: CreateEntityPayload) =>
-		entityMutations.create.mutateAsync({ body: payload }),
-	);
-
-	return (
-		<Stack gap="sm">
-			<SectionHeader
-				title="ENTITIES"
-				description="Tracked instances of this schema."
-				action={{
-					onClick: hasSearchProviders ? openSearchModal : createModal.open,
-					label: `Add ${props.entitySchema.name.toLowerCase()}`,
-				}}
-			/>
-
-			{createModal.errorMessage && !createModal.opened && (
-				<Text c="red" size="sm">
-					{createModal.errorMessage}
-				</Text>
-			)}
-
-			{entitiesQuery.isLoading && (
-				<Center py="sm">
-					<Loader size="sm" />
-				</Center>
-			)}
-
-			{entitiesQuery.isError && (
-				<Paper p="sm" withBorder radius="md">
-					<Stack gap="xs">
-						<Text c="red" size="sm">
-							Failed to load entities.
-						</Text>
-						<Group>
-							<Button
-								size="xs"
-								variant="light"
-								onClick={() => entitiesQuery.refetch()}
-							>
-								Retry
-							</Button>
-						</Group>
-					</Stack>
-				</Paper>
-			)}
-
-			{!entitiesQuery.isLoading &&
-				!entitiesQuery.isError &&
-				(viewState.type === "empty" ? (
-					<Paper p="sm" withBorder radius="md">
-						<Stack gap={2}>
-							<Text fw={500} size="sm">
-								No {props.entitySchema.name.toLowerCase()}s yet
-							</Text>
-							<Text c="dimmed" size="sm">
-								Add one to start tracking.
-							</Text>
-						</Stack>
-					</Paper>
-				) : (
-					<EntityList
-						entities={viewState.entities}
-						trackerSlug={props.trackerSlug}
-						eventSchemas={eventSchemasQuery.eventSchemas}
-						eventSchemasError={eventSchemasQuery.isError}
-						eventSchemasLoading={eventSchemasQuery.isLoading}
-					/>
-				))}
-
-			{hasSearchProviders ? (
-				<SearchEntityModal
-					opened={searchModalOpened}
-					onClose={closeSearchModal}
-					entitySchema={props.entitySchema}
-					onEntityAdded={() =>
-						queryClient.invalidateQueries({
-							queryKey: listQueryKey,
-						})
-					}
-				/>
-			) : (
-				createModal.opened && (
-					<CreateEntityModal
-						opened={createModal.opened}
-						onClose={createModal.close}
-						onSubmit={createModal.submit}
-						entitySchema={props.entitySchema}
-						errorMessage={createModal.errorMessage}
-						isLoading={entityMutations.create.isPending}
-					/>
-				)
-			)}
-		</Stack>
 	);
 }
