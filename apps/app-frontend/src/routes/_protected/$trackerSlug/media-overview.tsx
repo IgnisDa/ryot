@@ -1301,9 +1301,6 @@ function StatChip(props: {
 
 export function BuiltinTrackerOverview() {
 	const t = useThemeTokens();
-	const bgPage = t.isDark
-		? "var(--mantine-color-dark-8)"
-		: "var(--mantine-color-stone-0)";
 
 	const dateGroups = RECENT_EVENTS.reduce<Record<string, ActivityEvent[]>>(
 		(acc, event) => {
@@ -1321,85 +1318,167 @@ export function BuiltinTrackerOverview() {
 	);
 
 	return (
-		<Box bg={bgPage} mih="100vh">
-			<Stack gap="xl">
-				<Group justify="space-between" align="flex-end" gap="sm">
-					<Stack gap={6} maw={640}>
-						<Text
-							ff="var(--mantine-headings-font-family)"
-							fw={700}
-							fz={30}
-							c={t.textPrimary}
-							lh={1}
+		<Stack gap="xl">
+			<Group justify="space-between" align="flex-end" gap="sm">
+				<Stack gap={6} maw={640}>
+					<Text
+						ff="var(--mantine-headings-font-family)"
+						fw={700}
+						fz={30}
+						c={t.textPrimary}
+						lh={1}
+					>
+						Media
+					</Text>
+					<Group gap="xs" wrap="wrap">
+						<Badge
+							variant="light"
+							style={{
+								backgroundColor: withAlpha(SECTION_ACCENTS.continue, 0.12),
+								color: SECTION_ACCENTS.continue,
+							}}
 						>
-							Media
-						</Text>
-						<Group gap="xs" wrap="wrap">
-							<Badge
-								variant="light"
-								style={{
-									backgroundColor: withAlpha(SECTION_ACCENTS.continue, 0.12),
-									color: SECTION_ACCENTS.continue,
-								}}
-							>
+							{IN_PROGRESS.length} in progress
+						</Badge>
+						<Badge
+							variant="light"
+							style={{
+								backgroundColor: withAlpha(SECTION_ACCENTS.queue, 0.12),
+								color: SECTION_ACCENTS.queue,
+							}}
+						>
+							{BACKLOG.length} queued next
+						</Badge>
+						<Badge
+							variant="light"
+							style={{
+								backgroundColor: withAlpha(SECTION_ACCENTS.review, 0.12),
+								color: SECTION_ACCENTS.review,
+							}}
+						>
+							{UNRATED.length} still unrated
+						</Badge>
+					</Group>
+				</Stack>
+				<Button
+					size="sm"
+					leftSection={<Plus size={14} />}
+					style={{ backgroundColor: GOLD, color: "white" }}
+					onClick={() => console.log("[builtin-tracker] Open add media modal")}
+				>
+					Add media
+				</Button>
+			</Group>
+
+			<SectionFrame
+				accentColor={SECTION_ACCENTS.continue}
+				border={t.border}
+				isDark={t.isDark}
+				surface={t.surface}
+			>
+				<SectionHeader
+					accentColor={SECTION_ACCENTS.continue}
+					eyebrow="In motion"
+					title="Continue"
+					textPrimary={t.textPrimary}
+					textMuted={t.textMuted}
+					right={
+						<Group gap={4}>
+							<Clock size={12} color={t.textMuted} />
+							<Text fz="xs" c={t.textMuted}>
 								{IN_PROGRESS.length} in progress
-							</Badge>
-							<Badge
-								variant="light"
-								style={{
-									backgroundColor: withAlpha(SECTION_ACCENTS.queue, 0.12),
-									color: SECTION_ACCENTS.queue,
-								}}
-							>
-								{BACKLOG.length} queued next
-							</Badge>
-							<Badge
-								variant="light"
-								style={{
-									backgroundColor: withAlpha(SECTION_ACCENTS.review, 0.12),
-									color: SECTION_ACCENTS.review,
-								}}
-							>
-								{UNRATED.length} still unrated
-							</Badge>
+							</Text>
 						</Group>
-					</Stack>
-					<Button
-						size="sm"
-						leftSection={<Plus size={14} />}
-						style={{ backgroundColor: GOLD, color: "white" }}
+					}
+				/>
+				<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+					{IN_PROGRESS.slice(0, 6).map((item) => (
+						<ContinueCard
+							key={item.id}
+							item={item}
+							surface={t.surface}
+							surfaceHover={t.surfaceHover}
+							border={t.border}
+							textPrimary={t.textPrimary}
+							textMuted={t.textMuted}
+						/>
+					))}
+				</SimpleGrid>
+				{IN_PROGRESS.length > 6 ? (
+					<UnstyledButton
+						mt="sm"
 						onClick={() =>
-							console.log("[builtin-tracker] Open add media modal")
+							console.log("[builtin-tracker] View all in-progress")
 						}
 					>
-						Add media
-					</Button>
-				</Group>
+						<Group gap={4}>
+							<Text fz="xs" fw={500} c={GOLD}>
+								View all {IN_PROGRESS.length} in progress
+							</Text>
+							<ChevronRight size={12} color={GOLD} />
+						</Group>
+					</UnstyledButton>
+				) : null}
+			</SectionFrame>
 
+			<SectionFrame
+				accentColor={SECTION_ACCENTS.queue}
+				border={t.border}
+				isDark={t.isDark}
+				surface={t.surface}
+			>
+				<SectionHeader
+					accentColor={SECTION_ACCENTS.queue}
+					eyebrow="Queued with intent"
+					title="Up Next"
+					textPrimary={t.textPrimary}
+					textMuted={t.textMuted}
+					right={
+						<Text fz="xs" c={t.textMuted}>
+							{BACKLOG.length} queued
+						</Text>
+					}
+				/>
+				<ScrollArea scrollbarSize={4} type="hover">
+					<Group gap="sm" wrap="nowrap" pb={4}>
+						{BACKLOG.map((item, index) => (
+							<BacklogCard
+								key={item.id}
+								item={item}
+								surface={t.surface}
+								surfaceHover={t.surfaceHover}
+								border={t.border}
+								rank={index}
+								textPrimary={t.textPrimary}
+								textMuted={t.textMuted}
+							/>
+						))}
+					</Group>
+				</ScrollArea>
+			</SectionFrame>
+
+			{UNRATED.length > 0 && (
 				<SectionFrame
-					accentColor={SECTION_ACCENTS.continue}
+					accentColor={SECTION_ACCENTS.review}
 					border={t.border}
 					isDark={t.isDark}
 					surface={t.surface}
 				>
 					<SectionHeader
-						accentColor={SECTION_ACCENTS.continue}
-						eyebrow="In motion"
-						title="Continue"
+						accentColor={SECTION_ACCENTS.review}
+						eyebrow="Leave a trace"
+						title="Rate These"
 						textPrimary={t.textPrimary}
 						textMuted={t.textMuted}
 						right={
-							<Group gap={4}>
-								<Clock size={12} color={t.textMuted} />
-								<Text fz="xs" c={t.textMuted}>
-									{IN_PROGRESS.length} in progress
-								</Text>
-							</Group>
+							<Text fz="xs" c={t.textMuted}>
+								{UNRATED.length} unrated
+							</Text>
 						}
 					/>
 					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
-						{IN_PROGRESS.slice(0, 6).map((item) => (
-							<ContinueCard
+						{UNRATED.map((item) => (
+							<RateCard
 								key={item.id}
 								item={item}
 								surface={t.surface}
@@ -1410,271 +1489,185 @@ export function BuiltinTrackerOverview() {
 							/>
 						))}
 					</SimpleGrid>
-					{IN_PROGRESS.length > 6 ? (
+				</SectionFrame>
+			)}
+
+			<SectionFrame
+				accentColor={SECTION_ACCENTS.activity}
+				border={t.border}
+				isDark={t.isDark}
+				surface={t.surface}
+			>
+				<SectionHeader
+					accentColor={SECTION_ACCENTS.activity}
+					eyebrow="Recent rhythm"
+					title="Activity"
+					textPrimary={t.textPrimary}
+					textMuted={t.textMuted}
+					right={
 						<UnstyledButton
-							mt="sm"
 							onClick={() =>
-								console.log("[builtin-tracker] View all in-progress")
+								console.log("[builtin-tracker] View full activity log")
 							}
 						>
 							<Group gap={4}>
 								<Text fz="xs" fw={500} c={GOLD}>
-									View all {IN_PROGRESS.length} in progress
+									View all
 								</Text>
 								<ChevronRight size={12} color={GOLD} />
 							</Group>
 						</UnstyledButton>
-					) : null}
-				</SectionFrame>
-
-				<SectionFrame
-					accentColor={SECTION_ACCENTS.queue}
-					border={t.border}
-					isDark={t.isDark}
-					surface={t.surface}
+					}
+				/>
+				<Paper
+					p="md"
+					radius="sm"
+					style={{
+						background: `linear-gradient(180deg, ${withAlpha(SECTION_ACCENTS.activity, 0.08)} 0%, ${t.surface} 18%, ${t.surface} 100%)`,
+						border: `1px solid ${t.border}`,
+					}}
 				>
-					<SectionHeader
-						accentColor={SECTION_ACCENTS.queue}
-						eyebrow="Queued with intent"
-						title="Up Next"
-						textPrimary={t.textPrimary}
-						textMuted={t.textMuted}
-						right={
-							<Text fz="xs" c={t.textMuted}>
-								{BACKLOG.length} queued
-							</Text>
-						}
-					/>
-					<ScrollArea scrollbarSize={4} type="hover">
-						<Group gap="sm" wrap="nowrap" pb={4}>
-							{BACKLOG.map((item, index) => (
-								<BacklogCard
-									key={item.id}
-									item={item}
-									surface={t.surface}
-									surfaceHover={t.surfaceHover}
-									border={t.border}
-									rank={index}
-									textPrimary={t.textPrimary}
-									textMuted={t.textMuted}
-								/>
-							))}
-						</Group>
-					</ScrollArea>
-				</SectionFrame>
-
-				{UNRATED.length > 0 && (
-					<SectionFrame
-						accentColor={SECTION_ACCENTS.review}
-						border={t.border}
-						isDark={t.isDark}
-						surface={t.surface}
-					>
-						<SectionHeader
-							accentColor={SECTION_ACCENTS.review}
-							eyebrow="Leave a trace"
-							title="Rate These"
-							textPrimary={t.textPrimary}
-							textMuted={t.textMuted}
-							right={
-								<Text fz="xs" c={t.textMuted}>
-									{UNRATED.length} unrated
-								</Text>
-							}
-						/>
-						<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
-							{UNRATED.map((item) => (
-								<RateCard
-									key={item.id}
-									item={item}
-									surface={t.surface}
-									surfaceHover={t.surfaceHover}
-									border={t.border}
-									textPrimary={t.textPrimary}
-									textMuted={t.textMuted}
-								/>
-							))}
-						</SimpleGrid>
-					</SectionFrame>
-				)}
-
-				<SectionFrame
-					accentColor={SECTION_ACCENTS.activity}
-					border={t.border}
-					isDark={t.isDark}
-					surface={t.surface}
-				>
-					<SectionHeader
+					<WeekStrip
+						days={WEEK_ACTIVITY}
 						accentColor={SECTION_ACCENTS.activity}
-						eyebrow="Recent rhythm"
-						title="Activity"
+						border={t.border}
 						textPrimary={t.textPrimary}
 						textMuted={t.textMuted}
-						right={
-							<UnstyledButton
-								onClick={() =>
-									console.log("[builtin-tracker] View full activity log")
-								}
-							>
-								<Group gap={4}>
-									<Text fz="xs" fw={500} c={GOLD}>
-										View all
-									</Text>
-									<ChevronRight size={12} color={GOLD} />
-								</Group>
-							</UnstyledButton>
-						}
 					/>
-					<Paper
-						p="md"
-						radius="sm"
-						style={{
-							background: `linear-gradient(180deg, ${withAlpha(SECTION_ACCENTS.activity, 0.08)} 0%, ${t.surface} 18%, ${t.surface} 100%)`,
-							border: `1px solid ${t.border}`,
-						}}
-					>
-						<WeekStrip
-							days={WEEK_ACTIVITY}
-							accentColor={SECTION_ACCENTS.activity}
+					<Group gap="xs" mt="md" mb="sm">
+						<Badge
+							variant="light"
+							style={{
+								backgroundColor: withAlpha(SECTION_ACCENTS.activity, 0.12),
+								color: SECTION_ACCENTS.activity,
+							}}
+						>
+							{weekTotalEvents} events this week
+						</Badge>
+					</Group>
+					<Box pt="md" style={{ borderTop: `1px solid ${t.border}` }}>
+						{Object.entries(dateGroups).map(([date, events]) => (
+							<Box key={date}>
+								<Text
+									fz={10}
+									fw={700}
+									c={t.textMuted}
+									mb={6}
+									ff="var(--mantine-headings-font-family)"
+									tt="uppercase"
+									style={{ letterSpacing: "1px" }}
+								>
+									{date}
+								</Text>
+								<Box px="xs">
+									{events.map((event, i) => (
+										<EventRow
+											key={event.id}
+											event={event}
+											isLast={i === events.length - 1}
+											border={t.border}
+											textPrimary={t.textPrimary}
+											textMuted={t.textMuted}
+										/>
+									))}
+								</Box>
+							</Box>
+						))}
+					</Box>
+				</Paper>
+			</SectionFrame>
+
+			<SectionFrame
+				accentColor={SECTION_ACCENTS.library}
+				border={t.border}
+				isDark={t.isDark}
+				surface={t.surface}
+			>
+				<SectionHeader
+					accentColor={SECTION_ACCENTS.library}
+					eyebrow="At a glance"
+					title="Library"
+					textPrimary={t.textPrimary}
+					textMuted={t.textMuted}
+					right={
+						<Text fz="xs" c={t.textMuted}>
+							{LIBRARY_STATS.total} total entries
+						</Text>
+					}
+				/>
+				<Stack gap="sm">
+					<SimpleGrid cols={{ base: 2, xs: 3, sm: 5 }} spacing="sm">
+						<StatChip
+							label="Total"
+							value={LIBRARY_STATS.total}
+							surface={t.surface}
 							border={t.border}
 							textPrimary={t.textPrimary}
 							textMuted={t.textMuted}
 						/>
-						<Group gap="xs" mt="md" mb="sm">
-							<Badge
-								variant="light"
-								style={{
-									backgroundColor: withAlpha(SECTION_ACCENTS.activity, 0.12),
-									color: SECTION_ACCENTS.activity,
-								}}
-							>
-								{weekTotalEvents} events this week
-							</Badge>
-						</Group>
-						<Box pt="md" style={{ borderTop: `1px solid ${t.border}` }}>
-							{Object.entries(dateGroups).map(([date, events]) => (
-								<Box key={date}>
-									<Text
-										fz={10}
-										fw={700}
-										c={t.textMuted}
-										mb={6}
-										ff="var(--mantine-headings-font-family)"
-										tt="uppercase"
-										style={{ letterSpacing: "1px" }}
-									>
-										{date}
-									</Text>
-									<Box px="xs">
-										{events.map((event, i) => (
-											<EventRow
-												key={event.id}
-												event={event}
-												isLast={i === events.length - 1}
-												border={t.border}
-												textPrimary={t.textPrimary}
-												textMuted={t.textMuted}
-											/>
-										))}
-									</Box>
-								</Box>
-							))}
-						</Box>
-					</Paper>
-				</SectionFrame>
-
-				<SectionFrame
-					accentColor={SECTION_ACCENTS.library}
-					border={t.border}
-					isDark={t.isDark}
-					surface={t.surface}
-				>
-					<SectionHeader
-						accentColor={SECTION_ACCENTS.library}
-						eyebrow="At a glance"
-						title="Library"
-						textPrimary={t.textPrimary}
-						textMuted={t.textMuted}
-						right={
-							<Text fz="xs" c={t.textMuted}>
-								{LIBRARY_STATS.total} total entries
-							</Text>
-						}
-					/>
-					<Stack gap="sm">
-						<SimpleGrid cols={{ base: 2, xs: 3, sm: 5 }} spacing="sm">
-							<StatChip
-								label="Total"
-								value={LIBRARY_STATS.total}
-								surface={t.surface}
-								border={t.border}
-								textPrimary={t.textPrimary}
-								textMuted={t.textMuted}
-							/>
-							<StatChip
-								label="Active"
-								value={LIBRARY_STATS.active}
-								color="#5B7FFF"
-								surface={t.surface}
-								border={t.border}
-								textPrimary={t.textPrimary}
-								textMuted={t.textMuted}
-							/>
-							<StatChip
-								label="Completed"
-								value={LIBRARY_STATS.completed}
-								color="#5B8A5F"
-								surface={t.surface}
-								border={t.border}
-								textPrimary={t.textPrimary}
-								textMuted={t.textMuted}
-							/>
-							<StatChip
-								label="Avg Rating"
-								value={LIBRARY_STATS.avgRating.toFixed(1)}
-								color={GOLD}
-								surface={t.surface}
-								border={t.border}
-								textPrimary={t.textPrimary}
-								textMuted={t.textMuted}
-							/>
-							<StatChip
-								label="On Hold"
-								value={LIBRARY_STATS.onHold}
-								color="#E09840"
-								surface={t.surface}
-								border={t.border}
-								textPrimary={t.textPrimary}
-								textMuted={t.textMuted}
-							/>
-						</SimpleGrid>
-						<Paper
-							p="md"
-							radius="sm"
-							style={{
-								background: `linear-gradient(180deg, ${withAlpha(SECTION_ACCENTS.library, 0.06)} 0%, ${t.surface} 100%)`,
-								border: `1px solid ${t.border}`,
-							}}
+						<StatChip
+							label="Active"
+							value={LIBRARY_STATS.active}
+							color="#5B7FFF"
+							surface={t.surface}
+							border={t.border}
+							textPrimary={t.textPrimary}
+							textMuted={t.textMuted}
+						/>
+						<StatChip
+							label="Completed"
+							value={LIBRARY_STATS.completed}
+							color="#5B8A5F"
+							surface={t.surface}
+							border={t.border}
+							textPrimary={t.textPrimary}
+							textMuted={t.textMuted}
+						/>
+						<StatChip
+							label="Avg Rating"
+							value={LIBRARY_STATS.avgRating.toFixed(1)}
+							color={GOLD}
+							surface={t.surface}
+							border={t.border}
+							textPrimary={t.textPrimary}
+							textMuted={t.textMuted}
+						/>
+						<StatChip
+							label="On Hold"
+							value={LIBRARY_STATS.onHold}
+							color="#E09840"
+							surface={t.surface}
+							border={t.border}
+							textPrimary={t.textPrimary}
+							textMuted={t.textMuted}
+						/>
+					</SimpleGrid>
+					<Paper
+						p="md"
+						radius="sm"
+						style={{
+							background: `linear-gradient(180deg, ${withAlpha(SECTION_ACCENTS.library, 0.06)} 0%, ${t.surface} 100%)`,
+							border: `1px solid ${t.border}`,
+						}}
+					>
+						<Text
+							fz="xs"
+							fw={600}
+							c={t.textMuted}
+							mb="xs"
+							ff="var(--mantine-headings-font-family)"
 						>
-							<Text
-								fz="xs"
-								fw={600}
-								c={t.textMuted}
-								mb="xs"
-								ff="var(--mantine-headings-font-family)"
-							>
-								By Type
-							</Text>
-							<TypeBar
-								types={TYPE_COUNTS}
-								total={LIBRARY_STATS.total}
-								border={t.border}
-								textMuted={t.textMuted}
-							/>
-						</Paper>
-					</Stack>
-				</SectionFrame>
-			</Stack>
-		</Box>
+							By Type
+						</Text>
+						<TypeBar
+							types={TYPE_COUNTS}
+							total={LIBRARY_STATS.total}
+							border={t.border}
+							textMuted={t.textMuted}
+						/>
+					</Paper>
+				</Stack>
+			</SectionFrame>
+		</Stack>
 	);
 }
