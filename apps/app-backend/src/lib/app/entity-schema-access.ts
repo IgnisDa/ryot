@@ -17,21 +17,3 @@ export const resolveCustomEntitySchemaAccess = <T extends CustomEntityScope>(
 
 	return { entitySchema };
 };
-
-export const resolveCustomEntityAccessError = (input: {
-	builtinMessage: string;
-	notFoundMessage: string;
-	error: CustomEntityAccessError;
-}) => {
-	if (input.error === "not_found") {
-		return {
-			error: "not_found" as const,
-			message: input.notFoundMessage,
-		};
-	}
-
-	return {
-		error: "builtin" as const,
-		message: input.builtinMessage,
-	};
-};
