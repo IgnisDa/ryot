@@ -40,7 +40,7 @@ import type { AppTracker } from "#/features/trackers/model";
 import { SetupGuidedFlow } from "#/features/trackers/setup-guided-flow";
 import { TrackerOverview } from "#/features/trackers/tracker-overview";
 import { getErrorMessage } from "#/lib/errors";
-import { BuiltinTrackerOverview } from "./media-overview";
+import { BuiltinMediaTrackerOverview } from "./media-overview";
 
 export const Route = createFileRoute("/_protected/$trackerSlug/")({
 	component: RouteComponent,
@@ -406,7 +406,7 @@ function RouteComponent() {
 	return (
 		<Container size="xl" py={56}>
 			{tracker.isBuiltin ? (
-				<BuiltinTrackerOverview />
+				<BuiltinMediaTrackerOverview />
 			) : (
 				<TrackerSchemaSection tracker={tracker} />
 			)}
