@@ -175,10 +175,13 @@ async function createEvents(
 	}
 	apiClient.incrementRequestCount();
 	const client = apiClient.getClient();
-	const { response } = await client.POST("/events", { body: events });
+	const { data, response } = await client.POST("/events", { body: events });
 
 	if (!response.ok) {
-		throw new Error(`Failed to create events: ${response.statusText}`);
+		const details = data ? ` ${JSON.stringify(data)}` : "";
+		throw new Error(
+			`Failed to create events: ${response.statusText}${details}`,
+		);
 	}
 }
 
@@ -457,7 +460,7 @@ async function seedWhiskeys(client: APIClient) {
 			fields: {
 				rating: {
 					type: "integer",
-					validation: { required: true, maximum: 5, minimum: 1 },
+					validation: { required: true, maximum: 10, minimum: 1 },
 				},
 				notes: { type: "string" },
 				location: { type: "string" },
