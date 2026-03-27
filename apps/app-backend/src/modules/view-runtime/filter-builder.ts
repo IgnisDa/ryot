@@ -22,7 +22,7 @@ import {
 	resolveRuntimeReference,
 	type ViewRuntimeSchemaLike,
 } from "~/lib/views/reference";
-import { buildCastedValueExpression } from "./runtime-reference";
+import { buildCastedValueExpression } from "./sql-expression-policy";
 
 const buildPropertyFilterExpression = <
 	TSchema extends ViewRuntimeSchemaLike,
