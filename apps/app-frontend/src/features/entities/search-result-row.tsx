@@ -117,8 +117,6 @@ function EntityThumbnail(props: {
 }
 
 function SearchResultActions(props: {
-	onAdd: () => void;
-	isTracked: boolean;
 	isWorking: boolean;
 	accentColor: string;
 	onBacklog: () => void;
@@ -398,8 +396,6 @@ export function SearchResultRow(props: {
 						</Group>
 
 						<SearchResultActions
-							onAdd={props.onAdd}
-							isTracked={isTracked}
 							isWorking={isWorking}
 							onBacklog={props.onBacklog}
 							actionState={props.actionState}
