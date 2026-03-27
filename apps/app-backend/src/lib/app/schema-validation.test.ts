@@ -26,4 +26,14 @@ describe("parseAppSchemaProperties", () => {
 			}),
 		).toThrow("Entity properties validation failed");
 	});
+
+	it("rejects unknown properties not declared in the schema", () => {
+		expect(() =>
+			parseAppSchemaProperties({
+				kind: "Event",
+				propertiesSchema: {},
+				properties: { extra: true },
+			}),
+		).toThrow("Event properties validation failed");
+	});
 });
