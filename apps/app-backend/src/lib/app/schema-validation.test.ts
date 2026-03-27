@@ -125,7 +125,7 @@ describe("parseAppSchemaProperties", () => {
 		).toThrow("Entity properties validation failed");
 	});
 
-	it("validates complete event metadata with conditional custom dates", () => {
+	it("validates complete event metadata with conditional custom timestamps", () => {
 		const propertiesSchema = createCompletePropertiesSchema();
 
 		expect(
@@ -141,22 +141,22 @@ describe("parseAppSchemaProperties", () => {
 				kind: "Event",
 				propertiesSchema,
 				properties: {
-					startedOn: "2026-03-20",
-					completedOn: "2026-03-27",
-					completionMode: "custom_dates",
+					completionMode: "custom_timestamps",
+					startedOn: "2026-03-20T12:00:00Z",
+					completedOn: "2026-03-27T18:30:00Z",
 				},
 			}),
 		).toEqual({
-			startedOn: "2026-03-20",
-			completedOn: "2026-03-27",
-			completionMode: "custom_dates",
+			completionMode: "custom_timestamps",
+			startedOn: "2026-03-20T12:00:00Z",
+			completedOn: "2026-03-27T18:30:00Z",
 		});
 
 		expect(() =>
 			parseAppSchemaProperties({
 				kind: "Event",
 				propertiesSchema,
-				properties: { completionMode: "custom_dates" },
+				properties: { completionMode: "custom_timestamps" },
 			}),
 		).toThrow("Event properties validation failed");
 
@@ -165,6 +165,17 @@ describe("parseAppSchemaProperties", () => {
 				kind: "Event",
 				propertiesSchema,
 				properties: { completionMode: "later" },
+			}),
+		).toThrow("Event properties validation failed");
+
+		expect(() =>
+			parseAppSchemaProperties({
+				kind: "Event",
+				propertiesSchema,
+				properties: {
+					completedOn: "2026-03-27",
+					completionMode: "custom_timestamps",
+				},
 			}),
 		).toThrow("Event properties validation failed");
 	});

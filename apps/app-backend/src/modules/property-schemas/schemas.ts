@@ -199,6 +199,13 @@ const datePropertySchema = z
 	})
 	.openapi("AppDateProperty");
 
+const datetimePropertySchema = z
+	.strictObject({
+		type: z.literal("datetime"),
+		validation: requiredOnlyValidationSchema.optional(),
+	})
+	.openapi("AppDateTimeProperty");
+
 const arrayPropertySchema = z
 	.strictObject({
 		type: z.literal("array"),
@@ -222,6 +229,7 @@ propertyDefinitionSchema = z
 	.lazy(() =>
 		z.discriminatedUnion("type", [
 			datePropertySchema,
+			datetimePropertySchema,
 			arrayPropertySchema,
 			objectPropertySchema,
 			stringPropertySchema,
@@ -321,6 +329,7 @@ const createNonEmptyFieldsSchema = (message: string) =>
 const getComparablePropertyType = (property: AppPropertyDefinition) => {
 	switch (property.type) {
 		case "date":
+		case "datetime":
 		case "number":
 		case "string":
 		case "boolean":
@@ -339,6 +348,7 @@ const isCompatibleRuleValue = (
 		case "boolean":
 			return typeof value === "boolean";
 		case "date":
+		case "datetime":
 		case "string":
 			return typeof value === "string";
 		case "integer":
@@ -389,7 +399,7 @@ const validateRuleCondition = (
 			code: "custom",
 			path: [...path, "path"],
 			message:
-				"Rule conditions can only compare primitive string, number, integer, boolean, or date properties",
+				"Rule conditions can only compare primitive string, number, integer, boolean, date, or datetime properties",
 		});
 		return;
 	}

@@ -192,6 +192,7 @@ const getDefaultValue = (propertyDef: AppPropertyDefinition): unknown => {
 	switch (propertyDef.type) {
 		case "string":
 		case "date":
+		case "datetime":
 			return "";
 		case "number":
 		case "integer":
@@ -213,6 +214,7 @@ function isPrimitiveProperty(propertyDef: AppPropertyDefinition) {
 	switch (propertyDef.type) {
 		case "boolean":
 		case "date":
+		case "datetime":
 		case "integer":
 		case "number":
 		case "string":
@@ -229,6 +231,7 @@ function isValidPropertyValue(
 	switch (propertyDef.type) {
 		case "string":
 		case "date":
+		case "datetime":
 			return typeof value === "string";
 		case "number":
 			return typeof value === "number" && Number.isFinite(value);

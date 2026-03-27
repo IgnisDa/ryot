@@ -342,16 +342,16 @@ describe("createEvent", () => {
 		expect(createdEvent.properties).toEqual({ completionMode: "just_now" });
 	});
 
-	it("creates a built-in complete event with custom dates", async () => {
+	it("creates a built-in complete event with custom timestamps", async () => {
 		const createdEvent = expectDataResult(
 			await createEvent(
 				{
 					userId: "user_1",
 					body: createEventBody({
 						properties: {
-							startedOn: "2026-03-20",
-							completedOn: "2026-03-27",
-							completionMode: "custom_dates",
+							completionMode: "custom_timestamps",
+							startedOn: "2026-03-20T12:00:00Z",
+							completedOn: "2026-03-27T18:30:00Z",
 						},
 					}),
 				},
@@ -372,18 +372,49 @@ describe("createEvent", () => {
 
 		expect(createdEvent.eventSchemaSlug).toBe("complete");
 		expect(createdEvent.properties).toEqual({
-			startedOn: "2026-03-20",
-			completedOn: "2026-03-27",
-			completionMode: "custom_dates",
+			completionMode: "custom_timestamps",
+			startedOn: "2026-03-20T12:00:00Z",
+			completedOn: "2026-03-27T18:30:00Z",
 		});
 	});
 
-	it("rejects built-in complete events missing completedOn for custom_dates", async () => {
+	it("rejects built-in complete events missing completedOn for custom_timestamps", async () => {
 		const result = await createEvent(
 			{
 				userId: "user_1",
 				body: createEventBody({
-					properties: { completionMode: "custom_dates" },
+					properties: { completionMode: "custom_timestamps" },
+				}),
+			},
+			createEventDeps({
+				getEventCreateScopeForUser: async (input) =>
+					createEventCreateScope({
+						isBuiltin: true,
+						entityId: input.entityId,
+						entitySchemaSlug: "book",
+						eventSchemaName: "Complete",
+						eventSchemaSlug: "complete",
+						eventSchemaId: input.eventSchemaId,
+						propertiesSchema: createCompletePropertiesSchema(),
+					}),
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("Event properties validation failed"),
+		});
+	});
+
+	it("rejects built-in complete events with date-only custom timestamps", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({
+					properties: {
+						completedOn: "2026-03-27",
+						completionMode: "custom_timestamps",
+					},
 				}),
 			},
 			createEventDeps({
@@ -494,8 +525,8 @@ describe("createEvent", () => {
 					createEventBody({ properties: { completionMode: "just_now" } }),
 					createEventBody({
 						properties: {
-							completedOn: "2026-03-27",
-							completionMode: "custom_dates",
+							completedOn: "2026-03-27T18:30:00Z",
+							completionMode: "custom_timestamps",
 						},
 					}),
 				],
