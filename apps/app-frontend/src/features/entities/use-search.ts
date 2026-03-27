@@ -1,9 +1,15 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	keepPreviousData,
+	useQueries,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import { useApiClient } from "#/hooks/api";
 import type { ApiPostResponseData } from "#/lib/api/types";
 import { getErrorMessage } from "#/lib/errors";
+import { sleep } from "#/lib/sleep";
 import { createEntityRuntimeRequest } from "./model";
 
 export type SearchResultItem = {
@@ -19,21 +25,22 @@ export type SearchResultItem = {
 
 type AddStatus = "idle" | "loading" | "done" | "error";
 
-type SearchState = {
+type SubmittedSearch = {
 	page: number;
+	query: string;
+	providerIndex: number;
+};
+
+type SearchQueryResult = {
 	totalItems: number;
-	error: string | null;
 	nextPage: number | null;
-	results: SearchResultItem[] | null;
+	items: SearchResultItem[];
 };
 
 type SearchResultDetails = {
 	name: string;
 	externalId: string;
-	properties: {
-		[key: string]: unknown;
-		assets?: { remoteImages?: string[] };
-	};
+	properties: { [key: string]: unknown; assets?: { remoteImages?: string[] } };
 };
 
 type EnsuredEntity = ApiPostResponseData<"/entities">;
@@ -44,27 +51,26 @@ type AddItemState = {
 	entity: EnsuredEntity | null;
 };
 
-type AddState = Record<string, AddItemState>;
-
-const initialSearchState: SearchState = {
-	page: 1,
-	error: null,
-	results: null,
-	totalItems: 0,
-	nextPage: null,
-};
-
-const initialAddItemState = (): AddItemState => ({
-	error: null,
-	entity: null,
-	status: "idle",
-});
-
 const POLL_MS = 500;
 const SANDBOX_TIMEOUT_MS = 30000;
 const cancelledRequestMessage = "Request was cancelled";
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+function throwIfAborted(signal?: AbortSignal) {
+	if (signal?.aborted) {
+		throw new Error(cancelledRequestMessage);
+	}
+}
+
+function isSameSubmittedSearch(
+	current: SubmittedSearch | null,
+	next: SubmittedSearch,
+) {
+	return (
+		current?.page === next.page &&
+		current.query === next.query &&
+		current.providerIndex === next.providerIndex
+	);
+}
 
 export function isCancelledEntitySearchError(error: unknown) {
 	return getErrorMessage(error) === cancelledRequestMessage;
@@ -74,21 +80,22 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 	const apiClient = useApiClient();
 	const queryClient = useQueryClient();
 
-	const inFlightEntityLoadsRef = useRef(
-		new Map<string, Promise<EnsuredEntity>>(),
-	);
-	const isMountedRef = useRef(true);
-	const sessionVersionRef = useRef(0);
-
 	const [query, setQuery] = useState("");
-	const [addState, setAddState] = useState<AddState>({});
-	const [searchState, setSearchState] = useState(initialSearchState);
 	const [selectedProviderIndex, setSelectedProviderIndex] = useState(0);
-	const [isSearching, setIsSearching] = useState(false);
+	const [submittedSearch, setSubmittedSearch] =
+		useState<SubmittedSearch | null>(null);
 
 	const createEntity = apiClient.useMutation("post", "/entities");
 	const enqueueSearch = apiClient.useMutation("post", "/sandbox/enqueue");
 	const enqueueDetails = apiClient.useMutation("post", "/sandbox/enqueue");
+	const ensuredEntityQueryKey = useMemo(
+		() => ["entity-search-ensured-entity", props.entitySchema.id] as const,
+		[props.entitySchema.id],
+	);
+	const entitySearchQueryKey = useMemo(
+		() => ["entity-search", props.entitySchema.id] as const,
+		[props.entitySchema.id],
+	);
 	const entityListQueryKey = apiClient.queryOptions(
 		"post",
 		"/view-runtime/execute",
@@ -97,30 +104,17 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 
 	useEffect(() => {
 		return () => {
-			isMountedRef.current = false;
-			sessionVersionRef.current += 1;
+			void queryClient.cancelQueries({ queryKey: entitySearchQueryKey });
+			void queryClient.cancelQueries({ queryKey: ensuredEntityQueryKey });
 		};
-	}, []);
+	}, [ensuredEntityQueryKey, entitySearchQueryKey, queryClient]);
 
-	const isActiveSession = useCallback((sessionVersion: number) => {
-		return isMountedRef.current && sessionVersion === sessionVersionRef.current;
-	}, []);
-
-	const assertActiveSession = useCallback(
-		(sessionVersion: number) => {
-			if (!isActiveSession(sessionVersion)) {
-				throw new Error(cancelledRequestMessage);
-			}
-		},
-		[isActiveSession],
-	);
-
-	const pollSandboxResult = useCallback(
-		async (jobId: string, sessionVersion: number) => {
+	const pollSandboxResultQuery = useCallback(
+		async (jobId: string, signal: AbortSignal) => {
 			const startedAt = Date.now();
 
 			while (true) {
-				assertActiveSession(sessionVersion);
+				throwIfAborted(signal);
 				const result = await queryClient.fetchQuery({
 					...apiClient.queryOptions("get", "/sandbox/result/{jobId}", {
 						params: { path: { jobId } },
@@ -128,236 +122,230 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 					staleTime: 0,
 				});
 
-				assertActiveSession(sessionVersion);
+				throwIfAborted(signal);
 				const data = result.data;
 				if (data?.status === "pending") {
 					if (Date.now() - startedAt >= SANDBOX_TIMEOUT_MS) {
 						throw new Error("Timed out waiting for sandbox result");
 					}
-					await sleep(POLL_MS);
+					await sleep(POLL_MS, signal);
 					continue;
 				}
 
 				return data;
 			}
 		},
-		[apiClient, assertActiveSession, queryClient],
+		[apiClient, queryClient],
+	);
+
+	const getEnsuredEntityQueryOptions = useCallback(
+		(
+			item: SearchResultItem,
+			provider: AppEntitySchema["searchProviders"][number],
+		) => ({
+			retry: false,
+			staleTime: Number.POSITIVE_INFINITY,
+			queryKey: [
+				...ensuredEntityQueryKey,
+				provider.detailsScriptId,
+				item.identifier,
+			],
+			queryFn: async ({ signal }: { signal: AbortSignal }) => {
+				throwIfAborted(signal);
+				const enqueueResult = await enqueueDetails.mutateAsync({
+					body: {
+						kind: "script",
+						scriptId: provider.detailsScriptId,
+						context: { identifier: item.identifier },
+					},
+				});
+				throwIfAborted(signal);
+
+				const jobId = enqueueResult.data?.jobId;
+				if (!jobId) {
+					throw new Error("Failed to enqueue details script");
+				}
+
+				const detailsResult = await pollSandboxResultQuery(jobId, signal);
+				if (!detailsResult) {
+					throw new Error("Details script did not finish");
+				}
+				if (detailsResult.status === "failed") {
+					throw new Error(detailsResult.error ?? "Details script failed");
+				}
+
+				const detailsValue = detailsResult.value as SearchResultDetails;
+				const firstImage = detailsValue.properties?.assets?.remoteImages?.[0];
+				const image = firstImage
+					? { kind: "remote" as const, url: firstImage }
+					: null;
+
+				const properties: Record<string, unknown> = {};
+				for (const key of Object.keys(
+					props.entitySchema.propertiesSchema.fields,
+				)) {
+					if (detailsValue.properties[key] !== undefined) {
+						properties[key] = detailsValue.properties[key];
+					}
+				}
+
+				throwIfAborted(signal);
+				const createResult = await createEntity.mutateAsync({
+					body: {
+						image,
+						properties,
+						name: detailsValue.name,
+						externalId: detailsValue.externalId,
+						entitySchemaId: props.entitySchema.id,
+						detailsSandboxScriptId: provider.detailsScriptId,
+					},
+				});
+				throwIfAborted(signal);
+
+				const entity = createResult.data;
+				if (!entity) {
+					throw new Error("Failed to create entity");
+				}
+
+				return entity;
+			},
+		}),
+		[
+			createEntity,
+			enqueueDetails,
+			ensuredEntityQueryKey,
+			props.entitySchema.id,
+			pollSandboxResultQuery,
+			props.entitySchema.propertiesSchema.fields,
+		],
 	);
 
 	const ensureItemEntity = useCallback(
 		async (item: SearchResultItem) => {
-			const existingEntity = addState[item.identifier]?.entity;
-			if (existingEntity) {
-				return existingEntity;
-			}
-
-			const inFlight = inFlightEntityLoadsRef.current.get(item.identifier);
-			if (inFlight) {
-				return inFlight;
-			}
-
 			const provider =
 				props.entitySchema.searchProviders[selectedProviderIndex];
 			if (!provider) {
 				throw new Error("Search provider is unavailable");
 			}
-			const sessionVersion = sessionVersionRef.current;
 
-			const entityPromise = (async () => {
-				if (isActiveSession(sessionVersion)) {
-					setAddState((prev) => ({
-						...prev,
-						[item.identifier]: {
-							...initialAddItemState(),
-							...prev[item.identifier],
-							status: "loading",
-							error: null,
-						},
-					}));
-				}
+			const queryOptions = getEnsuredEntityQueryOptions(item, provider);
+			const entity = await queryClient.fetchQuery(queryOptions);
+			void queryClient.invalidateQueries({ queryKey: entityListQueryKey });
 
-				try {
-					assertActiveSession(sessionVersion);
-					const enqueueResult = await enqueueDetails.mutateAsync({
-						body: {
-							kind: "script",
-							scriptId: provider.detailsScriptId,
-							context: { identifier: item.identifier },
-						},
-					});
-					const jobId = enqueueResult.data?.jobId;
-					if (!jobId) {
-						throw new Error("Failed to enqueue details script");
-					}
-
-					const detailsResult = await pollSandboxResult(jobId, sessionVersion);
-					if (!detailsResult) {
-						throw new Error("Details script did not finish");
-					}
-					if (detailsResult.status === "failed") {
-						throw new Error(detailsResult.error ?? "Details script failed");
-					}
-
-					const detailsValue = detailsResult.value as SearchResultDetails;
-					const firstImage = detailsValue.properties?.assets?.remoteImages?.[0];
-					const image = firstImage
-						? { kind: "remote" as const, url: firstImage }
-						: null;
-
-					const properties: Record<string, unknown> = {};
-					for (const key of Object.keys(
-						props.entitySchema.propertiesSchema.fields,
-					)) {
-						if (detailsValue.properties[key] !== undefined) {
-							properties[key] = detailsValue.properties[key];
-						}
-					}
-
-					const createResult = await createEntity.mutateAsync({
-						body: {
-							image,
-							properties,
-							name: detailsValue.name,
-							externalId: detailsValue.externalId,
-							entitySchemaId: props.entitySchema.id,
-							detailsSandboxScriptId: provider.detailsScriptId,
-						},
-					});
-					const entity = createResult.data;
-					if (!entity) {
-						throw new Error("Failed to create entity");
-					}
-					assertActiveSession(sessionVersion);
-
-					setAddState((prev) => ({
-						...prev,
-						[item.identifier]: { entity, error: null, status: "done" },
-					}));
-					queryClient.invalidateQueries({ queryKey: entityListQueryKey });
-
-					return entity;
-				} catch (error) {
-					if (!isActiveSession(sessionVersion)) {
-						throw error;
-					}
-
-					const message = getErrorMessage(error);
-					setAddState((prev) => ({
-						...prev,
-						[item.identifier]: {
-							...initialAddItemState(),
-							...prev[item.identifier],
-							error: message,
-							status: "error",
-						},
-					}));
-					throw error;
-				} finally {
-					inFlightEntityLoadsRef.current.delete(item.identifier);
-				}
-			})();
-
-			inFlightEntityLoadsRef.current.set(item.identifier, entityPromise);
-			return entityPromise;
+			return entity;
 		},
 		[
-			addState,
 			queryClient,
-			createEntity,
-			enqueueDetails,
-			isActiveSession,
-			pollSandboxResult,
-			props.entitySchema,
 			entityListQueryKey,
-			assertActiveSession,
+			props.entitySchema,
 			selectedProviderIndex,
+			getEnsuredEntityQueryOptions,
 		],
 	);
 
-	const runSearch = useCallback(
-		async (searchPage: number) => {
+	const searchQuery = useQuery({
+		retry: false,
+		enabled: submittedSearch !== null,
+		placeholderData: keepPreviousData,
+		queryKey: [...entitySearchQueryKey, submittedSearch],
+		queryFn: async ({ signal }) => {
+			const currentSearch = submittedSearch;
+			if (!currentSearch) {
+				throw new Error("Search request is unavailable");
+			}
+
 			const provider =
-				props.entitySchema.searchProviders[selectedProviderIndex];
-			if (!provider || !query.trim()) {
-				return;
+				props.entitySchema.searchProviders[currentSearch.providerIndex];
+			if (!provider) {
+				throw new Error("Search provider is unavailable");
 			}
-			const sessionVersion = sessionVersionRef.current;
 
-			setIsSearching(true);
-			setSearchState((prev) => ({ ...prev, error: null }));
-
-			try {
-				assertActiveSession(sessionVersion);
-				const enqueueResult = await enqueueSearch.mutateAsync({
-					body: {
-						kind: "script",
-						scriptId: provider.searchScriptId,
-						context: { page: searchPage, query, pageSize: 10 },
+			throwIfAborted(signal);
+			const enqueueResult = await enqueueSearch.mutateAsync({
+				body: {
+					kind: "script",
+					scriptId: provider.searchScriptId,
+					context: {
+						pageSize: 10,
+						page: currentSearch.page,
+						query: currentSearch.query,
 					},
-				});
-				const jobId = enqueueResult.data?.jobId;
-				if (!jobId) {
-					throw new Error("Failed to enqueue search script");
-				}
+				},
+			});
+			throwIfAborted(signal);
 
-				const result = await pollSandboxResult(jobId, sessionVersion);
-				if (!result) {
-					throw new Error("Search script did not finish");
-				}
-				if (result.status === "failed") {
-					throw new Error(result.error ?? "Search script failed");
-				}
-
-				const value = result.value as {
-					items: SearchResultItem[];
-					details: { totalItems: number; nextPage: number | null };
-				};
-
-				assertActiveSession(sessionVersion);
-				setSearchState({
-					error: null,
-					page: searchPage,
-					results: value.items ?? [],
-					nextPage: value.details?.nextPage ?? null,
-					totalItems: value.details?.totalItems ?? 0,
-				});
-			} catch (error) {
-				if (isActiveSession(sessionVersion)) {
-					setSearchState((prev) => ({
-						...prev,
-						error: getErrorMessage(error),
-					}));
-				}
-			} finally {
-				if (isActiveSession(sessionVersion)) {
-					setIsSearching(false);
-				}
+			const jobId = enqueueResult.data?.jobId;
+			if (!jobId) {
+				throw new Error("Failed to enqueue search script");
 			}
-		},
-		[
-			query,
-			enqueueSearch,
-			isActiveSession,
-			pollSandboxResult,
-			assertActiveSession,
-			selectedProviderIndex,
-			props.entitySchema.searchProviders,
-		],
-	);
 
-	const search = useCallback(() => void runSearch(1), [runSearch]);
+			const result = await pollSandboxResultQuery(jobId, signal);
+			if (!result) {
+				throw new Error("Search script did not finish");
+			}
+			if (result.status === "failed") {
+				throw new Error(result.error ?? "Search script failed");
+			}
+
+			const value = result.value as {
+				items: SearchResultItem[];
+				details: { totalItems: number; nextPage: number | null };
+			};
+
+			return {
+				items: value.items ?? [],
+				nextPage: value.details?.nextPage ?? null,
+				totalItems: value.details?.totalItems ?? 0,
+			} satisfies SearchQueryResult;
+		},
+	});
+
+	const search = useCallback(() => {
+		const nextQuery = query.trim();
+		if (!nextQuery) {
+			return;
+		}
+
+		const nextSearch = {
+			page: 1,
+			query: nextQuery,
+			providerIndex: selectedProviderIndex,
+		} satisfies SubmittedSearch;
+
+		if (isSameSubmittedSearch(submittedSearch, nextSearch)) {
+			void searchQuery.refetch();
+			return;
+		}
+
+		setSubmittedSearch(nextSearch);
+	}, [query, searchQuery, selectedProviderIndex, submittedSearch]);
 
 	const clearSearch = useCallback(() => {
-		sessionVersionRef.current += 1;
-		setSearchState(initialSearchState);
-		setAddState({});
-		setIsSearching(false);
+		void queryClient.cancelQueries({ queryKey: entitySearchQueryKey });
+		void queryClient.cancelQueries({ queryKey: ensuredEntityQueryKey });
+		queryClient.removeQueries({ queryKey: ensuredEntityQueryKey });
+		setSubmittedSearch(null);
+	}, [ensuredEntityQueryKey, entitySearchQueryKey, queryClient]);
+
+	const goToPage = useCallback((newPage: number) => {
+		setSubmittedSearch((current) =>
+			current ? { ...current, page: newPage } : current,
+		);
 	}, []);
 
-	const goToPage = useCallback(
-		(newPage: number) => void runSearch(newPage),
-		[runSearch],
-	);
+	const currentResults = searchQuery.data?.items ?? [];
+	const currentResultProvider = submittedSearch
+		? props.entitySchema.searchProviders[submittedSearch.providerIndex]
+		: undefined;
+	const ensuredEntityQueries = useQueries({
+		queries:
+			currentResultProvider && currentResults.length > 0
+				? currentResults.map((item) => ({
+						...getEnsuredEntityQueryOptions(item, currentResultProvider),
+						enabled: false,
+					}))
+				: [],
+	});
 
 	const addItem = useCallback(
 		async (item: SearchResultItem) => {
@@ -366,44 +354,86 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 		[ensureItemEntity],
 	);
 
+	const addStateById = useMemo(() => {
+		return Object.fromEntries(
+			currentResults.map((item, index) => {
+				const queryState = ensuredEntityQueries[index];
+				const error =
+					queryState?.error && !isCancelledEntitySearchError(queryState.error)
+						? getErrorMessage(queryState.error)
+						: null;
+				const state: AddItemState = {
+					entity: queryState?.data ?? null,
+					error,
+					status:
+						queryState?.fetchStatus === "fetching"
+							? "loading"
+							: error
+								? "error"
+								: queryState?.data
+									? "done"
+									: "idle",
+				};
+
+				return [item.identifier, state];
+			}),
+		) as Record<string, AddItemState>;
+	}, [currentResults, ensuredEntityQueries]);
+
 	const addError = useMemo(
 		() =>
 			Object.fromEntries(
-				Object.entries(addState)
+				Object.entries(addStateById)
 					.filter(([, item]) => item.error)
 					.map(([identifier, item]) => [identifier, item.error ?? undefined]),
 			),
-		[addState],
+		[addStateById],
 	);
 
 	const addStatus = useMemo(
 		() =>
 			Object.fromEntries(
-				Object.entries(addState).map(([identifier, item]) => [
+				Object.entries(addStateById).map(([identifier, item]) => [
 					identifier,
 					item.status,
 				]),
 			),
-		[addState],
+		[addStateById],
 	);
+
+	const searchError = useMemo(() => {
+		if (!searchQuery.error || isCancelledEntitySearchError(searchQuery.error)) {
+			return null;
+		}
+
+		return getErrorMessage(searchQuery.error);
+	}, [searchQuery.error]);
+
+	const results = useMemo(() => {
+		if (!submittedSearch || searchQuery.isError) {
+			return null;
+		}
+
+		return searchQuery.data?.items ?? [];
+	}, [searchQuery.data?.items, searchQuery.isError, submittedSearch]);
 
 	return {
 		query,
 		search,
 		addItem,
+		results,
 		setQuery,
 		addError,
 		goToPage,
 		addStatus,
-		isSearching,
 		clearSearch,
+		searchError,
 		ensureItemEntity,
 		selectedProviderIndex,
-		page: searchState.page,
 		setSelectedProviderIndex,
-		results: searchState.results,
-		nextPage: searchState.nextPage,
-		searchError: searchState.error,
-		totalItems: searchState.totalItems,
+		page: submittedSearch?.page ?? 1,
+		isSearching: searchQuery.isFetching,
+		nextPage: searchQuery.data?.nextPage ?? null,
+		totalItems: searchQuery.data?.totalItems ?? 0,
 	};
 }
