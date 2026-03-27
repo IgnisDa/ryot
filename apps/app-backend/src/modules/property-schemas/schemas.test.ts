@@ -72,6 +72,36 @@ describe("propertySchemaObjectSchema", () => {
 		expect(result.success).toBeTrue();
 	});
 
+	it("accepts built-in complete-style date rules with constrained modes", () => {
+		const result = propertySchemaObjectSchema.safeParse({
+			fields: {
+				startedOn: { type: "date" },
+				completedOn: { type: "date" },
+				completionMode: {
+					type: "string",
+					validation: {
+						required: true,
+						pattern: "^(just_now|unknown|custom_dates)$",
+					},
+				},
+			},
+			rules: [
+				{
+					kind: "validation",
+					path: ["completedOn"],
+					validation: { required: true },
+					when: {
+						operator: "eq",
+						value: "custom_dates",
+						path: ["completionMode"],
+					},
+				},
+			],
+		});
+
+		expect(result.success).toBeTrue();
+	});
+
 	it("rejects rules that point at missing fields", () => {
 		const result = propertySchemaObjectSchema.safeParse({
 			fields: {

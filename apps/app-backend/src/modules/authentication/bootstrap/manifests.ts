@@ -26,7 +26,35 @@ export const authenticationBuiltinTrackers = () => [
 
 const mediaLifecycleEventSchemas = () => [
 	{ name: "Backlog", slug: "backlog", propertiesSchema: { fields: {} } },
-	{ name: "Complete", slug: "complete", propertiesSchema: { fields: {} } },
+	{
+		name: "Complete",
+		slug: "complete",
+		propertiesSchema: {
+			fields: {
+				startedOn: { type: "date" as const },
+				completedOn: { type: "date" as const },
+				completionMode: {
+					type: "string" as const,
+					validation: {
+						required: true as const,
+						pattern: "^(just_now|unknown|custom_dates)$",
+					},
+				},
+			},
+			rules: [
+				{
+					path: ["completedOn"],
+					kind: "validation" as const,
+					validation: { required: true as const },
+					when: {
+						value: "custom_dates",
+						operator: "eq" as const,
+						path: ["completionMode"],
+					},
+				},
+			],
+		},
+	},
 	{
 		name: "Progress",
 		slug: "progress",
@@ -36,9 +64,9 @@ const mediaLifecycleEventSchemas = () => [
 					type: "number" as const,
 					transform: { round: { mode: "half_up" as const, scale: 2 } },
 					validation: {
-						required: true as const,
-						exclusiveMaximum: 100,
 						exclusiveMinimum: 0,
+						exclusiveMaximum: 100,
+						required: true as const,
 					},
 				},
 			},
