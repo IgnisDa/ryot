@@ -1,5 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { createAuthenticatedClient } from "../fixtures";
+import {
+	createAuthenticatedClient,
+	createEntity,
+	findBuiltinTracker,
+	listEntitySchemas,
+	listEventSchemas,
+} from "../fixtures";
 
 async function setupEventFixture(
 	client: ReturnType<typeof createAuthenticatedClient> extends Promise<infer T>
@@ -71,6 +77,74 @@ async function setupEventFixture(
 	const entityId = entityResult.data.data.id;
 
 	return { apiClient, cookies, entityId, eventSchemaId };
+}
+
+async function setupBuiltinBacklogFixture(
+	client: ReturnType<typeof createAuthenticatedClient> extends Promise<infer T>
+		? T
+		: never,
+) {
+	const { client: apiClient, cookies } = client;
+	const builtinTracker = await findBuiltinTracker(apiClient, cookies);
+	const schemas = await listEntitySchemas(apiClient, cookies, {
+		trackerId: builtinTracker.id,
+	});
+	const bookSchema = schemas.find((schema) => schema.slug === "book");
+
+	if (!bookSchema) {
+		throw new Error("Missing built-in book schema");
+	}
+
+	const provider = bookSchema.searchProviders[0];
+	if (!provider) {
+		throw new Error("Missing built-in book search provider");
+	}
+
+	const eventSchemas = await listEventSchemas(
+		apiClient,
+		cookies,
+		bookSchema.id,
+	);
+	const backlogEventSchema = eventSchemas.find(
+		(schema) => schema.slug === "backlog",
+	);
+	if (!backlogEventSchema) {
+		throw new Error("Missing built-in backlog event schema");
+	}
+
+	const otherSchema = schemas.find((schema) => schema.slug === "anime");
+	if (!otherSchema) {
+		throw new Error("Missing built-in anime schema");
+	}
+
+	const otherEventSchemas = await listEventSchemas(
+		apiClient,
+		cookies,
+		otherSchema.id,
+	);
+	const mismatchedBacklogEventSchema = otherEventSchemas.find(
+		(schema) => schema.slug === "backlog",
+	);
+	if (!mismatchedBacklogEventSchema) {
+		throw new Error("Missing mismatched backlog event schema");
+	}
+
+	const entity = await createEntity(apiClient, cookies, {
+		image: null,
+		properties: {},
+		entitySchemaId: bookSchema.id,
+		externalId: `book-${crypto.randomUUID()}`,
+		name: `Built-in Book ${crypto.randomUUID()}`,
+		detailsSandboxScriptId: provider.detailsScriptId,
+	});
+
+	return {
+		cookies,
+		apiClient,
+		entityId: entity.id,
+		backlogEventSchemaId: backlogEventSchema.id,
+		mismatchedEventSchemaId: mismatchedBacklogEventSchema.id,
+	};
 }
 
 describe("Events bulk POST", () => {
@@ -167,5 +241,70 @@ describe("Events bulk POST", () => {
 
 		expect(listResult.response.status).toBe(200);
 		expect(listResult.data?.data.length).toBe(2);
+	});
+
+	it("creates repeated built-in backlog events and lists them", async () => {
+		const auth = await createAuthenticatedClient();
+		const { apiClient, cookies, entityId, backlogEventSchemaId } =
+			await setupBuiltinBacklogFixture(auth);
+
+		const createResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					properties: {},
+					eventSchemaId: backlogEventSchemaId,
+					occurredAt: "2026-01-01T10:00:00.000Z",
+				},
+				{
+					entityId,
+					properties: {},
+					eventSchemaId: backlogEventSchemaId,
+					occurredAt: "2026-01-02T10:00:00.000Z",
+				},
+			],
+		});
+
+		expect(createResult.response.status).toBe(200);
+		expect(createResult.data?.data.count).toBe(2);
+
+		const listResult = await apiClient.GET("/events", {
+			headers: { Cookie: cookies },
+			params: { query: { entityId } },
+		});
+
+		expect(listResult.response.status).toBe(200);
+		expect(listResult.data?.data).toHaveLength(2);
+		expect(listResult.data?.data.map((event) => event.eventSchemaSlug)).toEqual(
+			["backlog", "backlog"],
+		);
+		expect(listResult.data?.data.map((event) => event.properties)).toEqual([
+			{},
+			{},
+		]);
+	});
+
+	it("rejects a built-in backlog event schema from another entity schema", async () => {
+		const auth = await createAuthenticatedClient();
+		const { apiClient, cookies, entityId, mismatchedEventSchemaId } =
+			await setupBuiltinBacklogFixture(auth);
+
+		const result = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					properties: {},
+					eventSchemaId: mismatchedEventSchemaId,
+					occurredAt: "2026-01-01T10:00:00.000Z",
+				},
+			],
+		});
+
+		expect(result.response.status).toBe(400);
+		expect(result.error?.error?.message).toBe(
+			"Event schema does not belong to the entity schema",
+		);
 	});
 });

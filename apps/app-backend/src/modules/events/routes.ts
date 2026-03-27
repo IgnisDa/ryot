@@ -21,7 +21,7 @@ const listEventsRoute = createAuthRoute(
 		method: "get",
 		tags: ["events"],
 		request: { query: listEventsQuery },
-		summary: "List events for a custom entity",
+		summary: "List events for an entity",
 		responses: createStandardResponses({
 			successDescription: "Events for the requested entity",
 			successSchema: listEventsResponseSchema,
@@ -35,7 +35,7 @@ const createEventRoute = createAuthRoute(
 		path: "/",
 		method: "post",
 		tags: ["events"],
-		summary: "Create an event for a custom entity",
+		summary: "Create events for an entity",
 		request: { body: jsonBody(createEventBulkBody) },
 		responses: createStandardResponses({
 			successSchema: createEventBulkResponseSchema,
