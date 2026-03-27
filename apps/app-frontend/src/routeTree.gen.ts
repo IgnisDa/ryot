@@ -16,6 +16,7 @@ import { Route as ProtectedTrackerSlugIndexRouteImport } from './routes/_protect
 import { Route as ProtectedViewsViewIdRouteImport } from './routes/_protected/views/$viewId'
 import { Route as ProtectedLabsSavedViewRouteImport } from './routes/_protected/labs/saved-view'
 import { Route as ProtectedEntitiesEntityIdRouteImport } from './routes/_protected/entities/$entityId'
+import { Route as ProtectedLabsMediaOverviewV5RouteImport } from './routes/_protected/labs/media-overview/v5'
 import { Route as ProtectedLabsMediaOverviewV4RouteImport } from './routes/_protected/labs/media-overview/v4'
 import { Route as ProtectedLabsMediaOverviewV3RouteImport } from './routes/_protected/labs/media-overview/v3'
 import { Route as ProtectedLabsMediaOverviewV2RouteImport } from './routes/_protected/labs/media-overview/v2'
@@ -57,6 +58,12 @@ const ProtectedEntitiesEntityIdRoute =
     path: '/entities/$entityId',
     getParentRoute: () => ProtectedRouteRoute,
   } as any)
+const ProtectedLabsMediaOverviewV5Route =
+  ProtectedLabsMediaOverviewV5RouteImport.update({
+    id: '/labs/media-overview/v5',
+    path: '/labs/media-overview/v5',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
 const ProtectedLabsMediaOverviewV4Route =
   ProtectedLabsMediaOverviewV4RouteImport.update({
     id: '/labs/media-overview/v4',
@@ -93,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/labs/media-overview/v2': typeof ProtectedLabsMediaOverviewV2Route
   '/labs/media-overview/v3': typeof ProtectedLabsMediaOverviewV3Route
   '/labs/media-overview/v4': typeof ProtectedLabsMediaOverviewV4Route
+  '/labs/media-overview/v5': typeof ProtectedLabsMediaOverviewV5Route
 }
 export interface FileRoutesByTo {
   '/start': typeof StartRoute
@@ -105,6 +113,7 @@ export interface FileRoutesByTo {
   '/labs/media-overview/v2': typeof ProtectedLabsMediaOverviewV2Route
   '/labs/media-overview/v3': typeof ProtectedLabsMediaOverviewV3Route
   '/labs/media-overview/v4': typeof ProtectedLabsMediaOverviewV4Route
+  '/labs/media-overview/v5': typeof ProtectedLabsMediaOverviewV5Route
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -119,6 +128,7 @@ export interface FileRoutesById {
   '/_protected/labs/media-overview/v2': typeof ProtectedLabsMediaOverviewV2Route
   '/_protected/labs/media-overview/v3': typeof ProtectedLabsMediaOverviewV3Route
   '/_protected/labs/media-overview/v4': typeof ProtectedLabsMediaOverviewV4Route
+  '/_protected/labs/media-overview/v5': typeof ProtectedLabsMediaOverviewV5Route
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/labs/media-overview/v2'
     | '/labs/media-overview/v3'
     | '/labs/media-overview/v4'
+    | '/labs/media-overview/v5'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/start'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/labs/media-overview/v2'
     | '/labs/media-overview/v3'
     | '/labs/media-overview/v4'
+    | '/labs/media-overview/v5'
   id:
     | '__root__'
     | '/_protected'
@@ -158,6 +170,7 @@ export interface FileRouteTypes {
     | '/_protected/labs/media-overview/v2'
     | '/_protected/labs/media-overview/v3'
     | '/_protected/labs/media-overview/v4'
+    | '/_protected/labs/media-overview/v5'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -216,6 +229,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedEntitiesEntityIdRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
+    '/_protected/labs/media-overview/v5': {
+      id: '/_protected/labs/media-overview/v5'
+      path: '/labs/media-overview/v5'
+      fullPath: '/labs/media-overview/v5'
+      preLoaderRoute: typeof ProtectedLabsMediaOverviewV5RouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
     '/_protected/labs/media-overview/v4': {
       id: '/_protected/labs/media-overview/v4'
       path: '/labs/media-overview/v4'
@@ -257,6 +277,7 @@ interface ProtectedRouteRouteChildren {
   ProtectedLabsMediaOverviewV2Route: typeof ProtectedLabsMediaOverviewV2Route
   ProtectedLabsMediaOverviewV3Route: typeof ProtectedLabsMediaOverviewV3Route
   ProtectedLabsMediaOverviewV4Route: typeof ProtectedLabsMediaOverviewV4Route
+  ProtectedLabsMediaOverviewV5Route: typeof ProtectedLabsMediaOverviewV5Route
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
@@ -269,6 +290,7 @@ const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedLabsMediaOverviewV2Route: ProtectedLabsMediaOverviewV2Route,
   ProtectedLabsMediaOverviewV3Route: ProtectedLabsMediaOverviewV3Route,
   ProtectedLabsMediaOverviewV4Route: ProtectedLabsMediaOverviewV4Route,
+  ProtectedLabsMediaOverviewV5Route: ProtectedLabsMediaOverviewV5Route,
 }
 
 const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
