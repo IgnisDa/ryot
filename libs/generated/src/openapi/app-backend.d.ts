@@ -729,7 +729,10 @@ export interface paths {
                                 trackerId: string;
                                 isBuiltin: boolean;
                                 propertiesSchema: {
-                                    [key: string]: components["schemas"]["AppPropertyDefinition"];
+                                    fields: {
+                                        [key: string]: components["schemas"]["AppPropertyDefinition"];
+                                    };
+                                    rules?: components["schemas"]["AppSchemaRule"][];
                                 };
                                 searchProviders: {
                                     name: string;
@@ -808,7 +811,10 @@ export interface paths {
                         slug?: string;
                         trackerId: string;
                         propertiesSchema: {
-                            [key: string]: components["schemas"]["AppPropertyDefinition"];
+                            fields: {
+                                [key: string]: components["schemas"]["AppPropertyDefinition"];
+                            };
+                            rules?: components["schemas"]["AppSchemaRule"][];
                         };
                         /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                         icon: string;
@@ -831,7 +837,10 @@ export interface paths {
                                 trackerId: string;
                                 isBuiltin: boolean;
                                 propertiesSchema: {
-                                    [key: string]: components["schemas"]["AppPropertyDefinition"];
+                                    fields: {
+                                        [key: string]: components["schemas"]["AppPropertyDefinition"];
+                                    };
+                                    rules?: components["schemas"]["AppSchemaRule"][];
                                 };
                                 searchProviders: {
                                     name: string;
@@ -919,7 +928,10 @@ export interface paths {
                                 trackerId: string;
                                 isBuiltin: boolean;
                                 propertiesSchema: {
-                                    [key: string]: components["schemas"]["AppPropertyDefinition"];
+                                    fields: {
+                                        [key: string]: components["schemas"]["AppPropertyDefinition"];
+                                    };
+                                    rules?: components["schemas"]["AppSchemaRule"][];
                                 };
                                 searchProviders: {
                                     name: string;
@@ -1217,7 +1229,10 @@ export interface paths {
                                 slug: string;
                                 entitySchemaId: string;
                                 propertiesSchema: {
-                                    [key: string]: components["schemas"]["AppPropertyDefinition"];
+                                    fields: {
+                                        [key: string]: components["schemas"]["AppPropertyDefinition"];
+                                    };
+                                    rules?: components["schemas"]["AppSchemaRule"][];
                                 };
                             }[];
                         };
@@ -1274,7 +1289,10 @@ export interface paths {
                         slug?: string;
                         entitySchemaId: string;
                         propertiesSchema: {
-                            [key: string]: components["schemas"]["AppPropertyDefinition"];
+                            fields: {
+                                [key: string]: components["schemas"]["AppPropertyDefinition"];
+                            };
+                            rules?: components["schemas"]["AppSchemaRule"][];
                         };
                     };
                 };
@@ -1293,7 +1311,10 @@ export interface paths {
                                 slug: string;
                                 entitySchemaId: string;
                                 propertiesSchema: {
-                                    [key: string]: components["schemas"]["AppPropertyDefinition"];
+                                    fields: {
+                                        [key: string]: components["schemas"]["AppPropertyDefinition"];
+                                    };
+                                    rules?: components["schemas"]["AppSchemaRule"][];
                                 };
                             };
                         };
@@ -2876,37 +2897,158 @@ export interface components {
             /** @enum {string} */
             code: "not_found";
         };
-        AppPropertyDefinition: components["schemas"]["AppPrimitiveProperty"] | components["schemas"]["AppArrayProperty"] | components["schemas"]["AppObjectProperty"];
-        AppPrimitiveProperty: {
-            /** @enum {boolean} */
-            required?: true;
+        AppPropertyDefinition: components["schemas"]["AppDateProperty"] | components["schemas"]["AppArrayProperty"] | components["schemas"]["AppObjectProperty"] | components["schemas"]["AppStringProperty"] | components["schemas"]["AppNumberProperty"] | components["schemas"]["AppIntegerProperty"] | components["schemas"]["AppBooleanProperty"];
+        AppDateProperty: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "string" | "number" | "integer" | "boolean" | "date";
+            type: "date";
+            validation?: components["schemas"]["AppRequiredPropertyValidation"];
         };
-        AppArrayProperty: {
+        AppRequiredPropertyValidation: {
             /** @enum {boolean} */
             required?: true;
+        };
+        AppArrayProperty: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             type: "array";
+            validation?: components["schemas"]["AppArrayPropertyValidation"];
             items: components["schemas"]["AppPropertyDefinition"];
         };
-        AppObjectProperty: {
+        AppArrayPropertyValidation: {
             /** @enum {boolean} */
             required?: true;
+            maxItems?: number;
+            minItems?: number;
+        };
+        AppObjectProperty: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             type: "object";
+            validation?: components["schemas"]["AppRequiredPropertyValidation"];
             properties: {
                 [key: string]: components["schemas"]["AppPropertyDefinition"];
             };
+        };
+        AppStringProperty: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "string";
+            validation?: components["schemas"]["AppStringPropertyValidation"];
+        };
+        AppStringPropertyValidation: {
+            pattern?: string;
+            /** @enum {boolean} */
+            required?: true;
+            maxLength?: number;
+            minLength?: number;
+        };
+        AppNumberProperty: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "number";
+            transform?: components["schemas"]["AppNumberPropertyTransform"];
+            validation?: components["schemas"]["AppNumberPropertyValidation"];
+        };
+        AppNumberPropertyTransform: {
+            round?: components["schemas"]["AppRoundTransform"];
+        };
+        AppRoundTransform: {
+            /** @enum {string} */
+            mode: "half_up";
+            scale: number;
+        };
+        AppNumberPropertyValidation: {
+            maximum?: number;
+            minimum?: number;
+            /** @enum {boolean} */
+            required?: true;
+            multipleOf?: number;
+            exclusiveMaximum?: number;
+            exclusiveMinimum?: number;
+        };
+        AppIntegerProperty: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "integer";
+            transform?: components["schemas"]["AppNumberPropertyTransform"];
+            validation?: components["schemas"]["AppNumberPropertyValidation"];
+        };
+        AppBooleanProperty: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "boolean";
+            validation?: components["schemas"]["AppRequiredPropertyValidation"];
+        };
+        AppSchemaRule: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            when: components["schemas"]["AppSchemaRuleCondition"];
+            /** @enum {string} */
+            kind: "validation";
+            message?: string;
+            validation: {
+                /** @enum {boolean} */
+                required: true;
+            };
+        };
+        AppSchemaRulePath: string[];
+        AppSchemaRuleCondition: components["schemas"]["AppSchemaEqRuleCondition"] | components["schemas"]["AppSchemaNeqRuleCondition"] | components["schemas"]["AppSchemaExistsRuleCondition"] | components["schemas"]["AppSchemaNotExistsRuleCondition"] | components["schemas"]["AppSchemaInRuleCondition"] | components["schemas"]["AppSchemaNotInRuleCondition"] | {
+            /** @enum {string} */
+            operator: "all";
+            conditions: components["schemas"]["AppSchemaRuleCondition"][];
+        } | {
+            /** @enum {string} */
+            operator: "any";
+            conditions: components["schemas"]["AppSchemaRuleCondition"][];
+        };
+        AppSchemaEqRuleCondition: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            value: components["schemas"]["AppSchemaRuleValue"];
+            /** @enum {string} */
+            operator: "eq";
+        };
+        AppSchemaRuleValue: boolean | unknown | number | string;
+        AppSchemaNeqRuleCondition: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            value: components["schemas"]["AppSchemaRuleValue"];
+            /** @enum {string} */
+            operator: "neq";
+        };
+        AppSchemaExistsRuleCondition: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            /** @enum {string} */
+            operator: "exists";
+        };
+        AppSchemaNotExistsRuleCondition: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            /** @enum {string} */
+            operator: "not_exists";
+        };
+        AppSchemaInRuleCondition: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            value: components["schemas"]["AppSchemaRuleValue"][];
+            /** @enum {string} */
+            operator: "in";
+        };
+        AppSchemaNotInRuleCondition: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            value: components["schemas"]["AppSchemaRuleValue"][];
+            /** @enum {string} */
+            operator: "not_in";
         };
         InternalServerError: {
             message: string;

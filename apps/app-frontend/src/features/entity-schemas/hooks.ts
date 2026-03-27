@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "#/hooks/api";
-import { sortEntitySchemas } from "./model";
+import { type AppEntitySchema, sortEntitySchemas } from "./model";
 
 export function useEntitySchemaQuery(entitySchemaId: string, enabled = true) {
 	const apiClient = useApiClient();
@@ -11,7 +11,10 @@ export function useEntitySchemaQuery(entitySchemaId: string, enabled = true) {
 		{ enabled },
 	);
 
-	return { ...query, entitySchema: query.data?.data };
+	return {
+		...query,
+		entitySchema: query.data?.data as AppEntitySchema | undefined,
+	};
 }
 
 export function useEntitySchemasQuery(trackerId: string, enabled = true) {
@@ -25,7 +28,9 @@ export function useEntitySchemasQuery(trackerId: string, enabled = true) {
 
 	return {
 		...query,
-		entitySchemas: sortEntitySchemas(query.data?.data ?? []),
+		entitySchemas: sortEntitySchemas(
+			(query.data?.data as AppEntitySchema[] | undefined) ?? [],
+		),
 	};
 }
 
@@ -40,7 +45,9 @@ export function useEntitySchemasBySlugQuery(slugs: string[], enabled = true) {
 
 	return {
 		...query,
-		entitySchemas: sortEntitySchemas(query.data?.data ?? []),
+		entitySchemas: sortEntitySchemas(
+			(query.data?.data as AppEntitySchema[] | undefined) ?? [],
+		),
 	};
 }
 

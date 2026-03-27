@@ -25,21 +25,36 @@ export const authenticationBuiltinTrackers = () => [
 ];
 
 const mediaLifecycleEventSchemas = () => [
-	{ name: "Backlog", slug: "backlog", propertiesSchema: {} },
+	{ name: "Backlog", slug: "backlog", propertiesSchema: { fields: {} } },
+	{ name: "Complete", slug: "complete", propertiesSchema: { fields: {} } },
 	{
 		name: "Progress",
 		slug: "progress",
 		propertiesSchema: {
-			progressPercent: { type: "number" as const, required: true as const },
+			fields: {
+				progressPercent: {
+					type: "number" as const,
+					transform: { round: { mode: "half_up" as const, scale: 2 } },
+					validation: {
+						required: true as const,
+						exclusiveMaximum: 100,
+						exclusiveMinimum: 0,
+					},
+				},
+			},
 		},
 	},
-	{ name: "Complete", slug: "complete", propertiesSchema: {} },
 	{
 		name: "Review",
 		slug: "review",
 		propertiesSchema: {
-			review: { type: "string" as const },
-			rating: { type: "integer" as const, required: true as const },
+			fields: {
+				review: { type: "string" as const },
+				rating: {
+					type: "integer" as const,
+					validation: { maximum: 5, minimum: 1, required: true as const },
+				},
+			},
 		},
 	},
 ];

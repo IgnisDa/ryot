@@ -19,7 +19,7 @@ export function CreateEntityModal(props: {
 	});
 
 	const propertyFields = Object.entries(
-		props.entitySchema.propertiesSchema,
+		props.entitySchema.propertiesSchema.fields,
 	).map(([propertyKey, propertyDef]) => (
 		<GeneratedPropertyField
 			form={entityForm}

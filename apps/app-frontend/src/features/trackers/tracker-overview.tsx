@@ -249,7 +249,7 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 								<Text size="sm" c="dimmed">
 									{summary.count} tracked · {summary.eventSchemaCount} event
 									schemas ·{" "}
-									{Object.keys(summary.schema.propertiesSchema).length}{" "}
+									{Object.keys(summary.schema.propertiesSchema.fields).length}{" "}
 									properties
 								</Text>
 								{summary.latestEntity && (
