@@ -5,12 +5,10 @@ import {
 	unknownObjectSchema,
 } from "~/lib/openapi";
 import { nonEmptyTrimmedStringSchema, timestampFields } from "~/lib/zod/base";
-import { occurredAtStringSchema } from "./service";
 
 export const listedEventSchema = z.object({
 	id: z.string(),
 	...timestampFields,
-	occurredAt: z.date(),
 	entityId: z.string(),
 	eventSchemaId: z.string(),
 	eventSchemaName: z.string(),
@@ -30,7 +28,6 @@ export const listEventsQuery = z.object({
 
 export const createEventBody = z.object({
 	properties: unknownObjectSchema,
-	occurredAt: occurredAtStringSchema,
 	entityId: nonEmptyTrimmedStringSchema,
 	eventSchemaId: nonEmptyTrimmedStringSchema,
 });

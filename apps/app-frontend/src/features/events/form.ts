@@ -12,84 +12,10 @@ import { z } from "zod";
 import type { ApiPostRequestBody } from "#/lib/api/types";
 import type { AppEventSchema } from "../event-schemas/model";
 
-const datetimeLocalPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
-
-function formatDatetimeLocalValue(value: Date) {
-	const year = value.getFullYear();
-	const month = `${value.getMonth() + 1}`.padStart(2, "0");
-	const day = `${value.getDate()}`.padStart(2, "0");
-	const hours = `${value.getHours()}`.padStart(2, "0");
-	const minutes = `${value.getMinutes()}`.padStart(2, "0");
-
-	return `${year}-${month}-${day}T${hours}:${minutes}`;
-}
-
-function parseOccurredAtInputValue(value: string) {
-	const trimmedValue = value.trim();
-	if (!trimmedValue) {
-		return;
-	}
-
-	const occurredAt = new Date(trimmedValue);
-	if (Number.isNaN(occurredAt.getTime())) {
-		return;
-	}
-
-	if (datetimeLocalPattern.test(trimmedValue)) {
-		if (formatDatetimeLocalValue(occurredAt) !== trimmedValue) {
-			return;
-		}
-	}
-
-	return occurredAt;
-}
-
-export function formatOccurredAtInputValue(value: string) {
-	const trimmedValue = value.trim();
-	if (!trimmedValue) {
-		return "";
-	}
-	if (datetimeLocalPattern.test(trimmedValue)) {
-		return trimmedValue;
-	}
-
-	const occurredAt = parseOccurredAtInputValue(trimmedValue);
-	if (!occurredAt) {
-		return "";
-	}
-
-	return formatDatetimeLocalValue(occurredAt);
-}
-
-export function normalizeOccurredAtInputValue(value: string) {
-	const occurredAt = parseOccurredAtInputValue(value);
-	if (!occurredAt) {
-		return "";
-	}
-
-	return occurredAt.toISOString();
-}
-
-const zodRequiredEventSchemaId = z
-	.string()
-	.trim()
-	.min(1, "Event schema is required");
-
-const zodOccurredAt = z
-	.string()
-	.trim()
-	.min(1, "Occurred at is required")
-	.refine((value) => !!normalizeOccurredAtInputValue(value), {
-		message: "Occurred at is invalid",
-	});
-
-const createEventFormSchema = z.object({
-	occurredAt: zodOccurredAt,
-	eventSchemaId: zodRequiredEventSchemaId,
-	properties: z.record(z.string(), z.unknown()),
-});
-
-export type CreateEventFormValues = z.infer<typeof createEventFormSchema>;
+export type CreateEventFormValues = {
+	eventSchemaId: string;
+	properties: Record<string, unknown>;
+};
 
 export type CreateEventPayload = ApiPostRequestBody<"/events">;
 
@@ -151,53 +77,58 @@ export function reconcileEventProperties(
 export const buildCreateEventFormSchema = (
 	eventSchemas: AppEventSchema[] = [],
 ) =>
-	createEventFormSchema.superRefine((value, ctx) => {
-		const selectedEventSchema = findEventSchema(
-			eventSchemas,
-			value.eventSchemaId,
-		);
+	z
+		.object({
+			eventSchemaId: z.string().trim().min(1, "Event schema is required"),
+			properties: z.record(z.string(), z.unknown()),
+		})
+		.superRefine((value, ctx) => {
+			const selectedEventSchema = findEventSchema(
+				eventSchemas,
+				String(value.eventSchemaId ?? ""),
+			);
 
-		if (!selectedEventSchema) {
-			ctx.addIssue({
-				code: "custom",
-				path: ["eventSchemaId"],
-				message: "Event schema is invalid",
-			});
-			return;
-		}
+			if (!selectedEventSchema) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["eventSchemaId"],
+					message: "Event schema is invalid",
+				});
+				return;
+			}
 
-		const unsupportedRequiredProperties = getUnsupportedRequiredEventProperties(
-			selectedEventSchema.propertiesSchema,
-		);
-		if (unsupportedRequiredProperties.length > 0) {
-			ctx.addIssue({
-				code: "custom",
-				path: ["properties"],
-				message: getUnsupportedRequiredPropertiesMessage(
-					unsupportedRequiredProperties,
-				),
-			});
-		}
+			const unsupportedRequiredProperties =
+				getUnsupportedRequiredEventProperties(
+					selectedEventSchema.propertiesSchema,
+				);
+			if (unsupportedRequiredProperties.length > 0) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["properties"],
+					message: getUnsupportedRequiredPropertiesMessage(
+						unsupportedRequiredProperties,
+					),
+				});
+			}
 
-		const result = buildEventPropertiesSchema(
-			selectedEventSchema.propertiesSchema,
-		).safeParse(value.properties);
+			const result = buildEventPropertiesSchema(
+				selectedEventSchema.propertiesSchema,
+			).safeParse(value.properties);
 
-		if (result.success) {
-			return;
-		}
+			if (result.success) {
+				return;
+			}
 
-		for (const issue of result.error.issues) {
-			ctx.addIssue({
-				...issue,
-				path: ["properties", ...issue.path],
-			});
-		}
-	});
+			for (const issue of result.error.issues) {
+				ctx.addIssue({
+					...issue,
+					path: ["properties", ...issue.path],
+				});
+			}
+		});
 
 export const buildDefaultEventFormValues = (
 	eventSchemas: AppEventSchema[],
-	now = new Date(),
 	eventSchemaId?: string,
 ): CreateEventFormValues => {
 	const selectedEventSchema = getSelectedEventSchema(
@@ -207,7 +138,6 @@ export const buildDefaultEventFormValues = (
 
 	return {
 		eventSchemaId: selectedEventSchema?.id ?? "",
-		occurredAt: formatOccurredAtInputValue(now.toISOString()),
 		properties: buildEventPropertyDefaults(
 			selectedEventSchema?.propertiesSchema ?? { fields: {} },
 		),
@@ -387,7 +317,6 @@ export function toCreateEventPayload(
 		properties,
 		entityId: entityId.trim(),
 		eventSchemaId: input.eventSchemaId.trim(),
-		occurredAt: normalizeOccurredAtInputValue(input.occurredAt),
 	};
 
 	return [item];
