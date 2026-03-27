@@ -6,6 +6,7 @@ import {
 	createListedEvent,
 	createNoteAndRatingPropertiesSchema,
 	createProgressPercentPropertiesSchema,
+	createReviewPropertiesSchema,
 } from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
 import {
@@ -194,6 +195,21 @@ describe("resolveEventCreateInput", () => {
 		});
 
 		expect(input.properties).toEqual({ progressPercent: 100 });
+	});
+
+	it("validates built-in review ratings while keeping optional review text", () => {
+		const input = resolveEventCreateInput({
+			isBuiltin: true,
+			entityId: "entity_123",
+			entitySchemaSlug: "book",
+			eventSchemaSlug: "review",
+			eventSchemaId: "event_schema_123",
+			occurredAt: "2026-03-08T10:15:00.000Z",
+			properties: { review: "Loved it", rating: 5 },
+			propertiesSchema: createReviewPropertiesSchema(),
+		});
+
+		expect(input.properties).toEqual({ review: "Loved it", rating: 5 });
 	});
 });
 
@@ -449,6 +465,88 @@ describe("createEvent", () => {
 						eventSchemaName: "Complete",
 						eventSchemaSlug: "complete",
 						eventSchemaId: input.eventSchemaId,
+					}),
+			}),
+		);
+
+		expect(result).toEqual({ data: { count: 2 } });
+	});
+
+	it("creates a built-in review event before completion exists", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{
+					userId: "user_1",
+					body: createEventBody({
+						properties: { review: "Loved it", rating: 5 },
+					}),
+				},
+				createEventDeps({
+					getEventCreateScopeForUser: async (input) =>
+						createEventCreateScope({
+							isBuiltin: true,
+							entityId: input.entityId,
+							entitySchemaSlug: "book",
+							eventSchemaName: "Review",
+							eventSchemaSlug: "review",
+							eventSchemaId: input.eventSchemaId,
+							propertiesSchema: createReviewPropertiesSchema(),
+						}),
+				}),
+			),
+		);
+
+		expect(createdEvent.eventSchemaSlug).toBe("review");
+		expect(createdEvent.properties).toEqual({ review: "Loved it", rating: 5 });
+	});
+
+	it("rejects built-in review ratings outside the accepted range", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({ properties: { rating: 6 } }),
+			},
+			createEventDeps({
+				getEventCreateScopeForUser: async (input) =>
+					createEventCreateScope({
+						isBuiltin: true,
+						entityId: input.entityId,
+						entitySchemaSlug: "book",
+						eventSchemaName: "Review",
+						eventSchemaSlug: "review",
+						eventSchemaId: input.eventSchemaId,
+						propertiesSchema: createReviewPropertiesSchema(),
+					}),
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Rating must be an integer between 1 and 5",
+		});
+	});
+
+	it("creates repeated built-in review events in bulk", async () => {
+		const result = await createEvents(
+			{
+				userId: "user_1",
+				body: [
+					createEventBody({ properties: { rating: 4 } }),
+					createEventBody({
+						properties: { review: "Better on re-watch", rating: 5 },
+					}),
+				],
+			},
+			createEventDeps({
+				getEventCreateScopeForUser: async (input) =>
+					createEventCreateScope({
+						isBuiltin: true,
+						entityId: input.entityId,
+						entitySchemaSlug: "book",
+						eventSchemaName: "Review",
+						eventSchemaSlug: "review",
+						eventSchemaId: input.eventSchemaId,
+						propertiesSchema: createReviewPropertiesSchema(),
 					}),
 			}),
 		);

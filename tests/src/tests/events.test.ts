@@ -126,6 +126,13 @@ async function setupBuiltinMediaLifecycleFixture(
 		throw new Error("Missing built-in complete event schema");
 	}
 
+	const reviewEventSchema = eventSchemas.find(
+		(schema) => schema.slug === "review",
+	);
+	if (!reviewEventSchema) {
+		throw new Error("Missing built-in review event schema");
+	}
+
 	const otherSchema = schemas.find((schema) => schema.slug === "anime");
 	if (!otherSchema) {
 		throw new Error("Missing built-in anime schema");
@@ -156,6 +163,7 @@ async function setupBuiltinMediaLifecycleFixture(
 		cookies,
 		apiClient,
 		entityId: entity.id,
+		reviewEventSchemaId: reviewEventSchema.id,
 		backlogEventSchemaId: backlogEventSchema.id,
 		completeEventSchemaId: completeEventSchema.id,
 		progressEventSchemaId: progressEventSchema.id,
@@ -452,6 +460,71 @@ describe("Events bulk POST", () => {
 		expect(result.response.status).toBe(400);
 		expect(result.error?.error?.message).toBe(
 			"Progress percent must be greater than 0 and less than 100",
+		);
+	});
+
+	it("creates repeated built-in review events before completion exists", async () => {
+		const auth = await createAuthenticatedClient();
+		const { apiClient, cookies, entityId, reviewEventSchemaId } =
+			await setupBuiltinMediaLifecycleFixture(auth);
+
+		const createResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					properties: { rating: 4 },
+					eventSchemaId: reviewEventSchemaId,
+					occurredAt: "2026-01-06T10:00:00.000Z",
+				},
+				{
+					entityId,
+					eventSchemaId: reviewEventSchemaId,
+					occurredAt: "2026-01-07T10:00:00.000Z",
+					properties: { review: "Even better", rating: 5 },
+				},
+			],
+		});
+
+		expect(createResult.response.status).toBe(200);
+		expect(createResult.data?.data.count).toBe(2);
+
+		const listResult = await apiClient.GET("/events", {
+			headers: { Cookie: cookies },
+			params: { query: { entityId } },
+		});
+
+		expect(listResult.response.status).toBe(200);
+		expect(listResult.data?.data).toHaveLength(2);
+		expect(listResult.data?.data.map((event) => event.eventSchemaSlug)).toEqual(
+			["review", "review"],
+		);
+		expect(listResult.data?.data.map((event) => event.properties)).toEqual([
+			{ review: "Even better", rating: 5 },
+			{ rating: 4 },
+		]);
+	});
+
+	it("rejects built-in review ratings outside the accepted range", async () => {
+		const auth = await createAuthenticatedClient();
+		const { apiClient, cookies, entityId, reviewEventSchemaId } =
+			await setupBuiltinMediaLifecycleFixture(auth);
+
+		const result = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					properties: { rating: 6 },
+					eventSchemaId: reviewEventSchemaId,
+					occurredAt: "2026-01-08T10:00:00.000Z",
+				},
+			],
+		});
+
+		expect(result.response.status).toBe(400);
+		expect(result.error?.error?.message).toBe(
+			"Rating must be an integer between 1 and 5",
 		);
 	});
 });
