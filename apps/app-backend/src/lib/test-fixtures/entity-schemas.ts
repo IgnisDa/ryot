@@ -1,8 +1,5 @@
 import { withOverrides } from "~/lib/test-fixtures/fixture-helpers";
-import {
-	createFlatTitlePagesPropertySchema,
-	createOptionalTitlePropertiesSchema,
-} from "~/lib/test-fixtures/property-schemas";
+import { createOptionalTitlePropertiesSchema } from "~/lib/test-fixtures/property-schemas";
 import type {
 	CreateEntitySchemaBody,
 	ListedEntitySchema,
@@ -58,9 +55,4 @@ export const createEntitySchemaDeps = (
 			propertiesSchema: input.propertiesSchema,
 		}),
 	...overrides,
-});
-
-export const createEntitySchemaParseFixtures = () => ({
-	flatSchema: createFlatTitlePagesPropertySchema(),
-	titleSchema: createOptionalTitlePropertiesSchema(),
 });
