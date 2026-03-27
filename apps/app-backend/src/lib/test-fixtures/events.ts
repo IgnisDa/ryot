@@ -44,6 +44,7 @@ export const createEventCreateScope = (
 ): EventCreateScope => ({
 	isBuiltin: false,
 	entityId: "entity_1",
+	entitySchemaSlug: "custom",
 	entitySchemaId: "schema_1",
 	eventSchemaSlug: "finished",
 	eventSchemaName: "Finished",
@@ -60,6 +61,7 @@ export const createEventDeps = (
 	getEntityScopeForUser: async (input) => ({
 		isBuiltin: false,
 		entityId: input.entityId,
+		entitySchemaSlug: "custom",
 		entitySchemaId: "schema_1",
 	}),
 	getEventCreateScopeForUser: async (input) =>

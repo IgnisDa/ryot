@@ -79,7 +79,7 @@ async function setupEventFixture(
 	return { apiClient, cookies, entityId, eventSchemaId };
 }
 
-async function setupBuiltinBacklogFixture(
+async function setupBuiltinMediaLifecycleFixture(
 	client: ReturnType<typeof createAuthenticatedClient> extends Promise<infer T>
 		? T
 		: never,
@@ -110,6 +110,13 @@ async function setupBuiltinBacklogFixture(
 	);
 	if (!backlogEventSchema) {
 		throw new Error("Missing built-in backlog event schema");
+	}
+
+	const progressEventSchema = eventSchemas.find(
+		(schema) => schema.slug === "progress",
+	);
+	if (!progressEventSchema) {
+		throw new Error("Missing built-in progress event schema");
 	}
 
 	const otherSchema = schemas.find((schema) => schema.slug === "anime");
@@ -143,6 +150,7 @@ async function setupBuiltinBacklogFixture(
 		apiClient,
 		entityId: entity.id,
 		backlogEventSchemaId: backlogEventSchema.id,
+		progressEventSchemaId: progressEventSchema.id,
 		mismatchedEventSchemaId: mismatchedBacklogEventSchema.id,
 	};
 }
@@ -246,7 +254,7 @@ describe("Events bulk POST", () => {
 	it("creates repeated built-in backlog events and lists them", async () => {
 		const auth = await createAuthenticatedClient();
 		const { apiClient, cookies, entityId, backlogEventSchemaId } =
-			await setupBuiltinBacklogFixture(auth);
+			await setupBuiltinMediaLifecycleFixture(auth);
 
 		const createResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -288,7 +296,7 @@ describe("Events bulk POST", () => {
 	it("rejects a built-in backlog event schema from another entity schema", async () => {
 		const auth = await createAuthenticatedClient();
 		const { apiClient, cookies, entityId, mismatchedEventSchemaId } =
-			await setupBuiltinBacklogFixture(auth);
+			await setupBuiltinMediaLifecycleFixture(auth);
 
 		const result = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -305,6 +313,72 @@ describe("Events bulk POST", () => {
 		expect(result.response.status).toBe(400);
 		expect(result.error?.error?.message).toBe(
 			"Event schema does not belong to the entity schema",
+		);
+	});
+
+	it("creates built-in progress events with rounded values and no completion side effects", async () => {
+		const auth = await createAuthenticatedClient();
+		const { apiClient, cookies, entityId, progressEventSchemaId } =
+			await setupBuiltinMediaLifecycleFixture(auth);
+
+		const createResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					eventSchemaId: progressEventSchemaId,
+					occurredAt: "2026-01-01T10:00:00.000Z",
+					properties: { progressPercent: 25.555 },
+				},
+				{
+					entityId,
+					eventSchemaId: progressEventSchemaId,
+					occurredAt: "2026-01-02T10:00:00.000Z",
+					properties: { progressPercent: 50.444 },
+				},
+			],
+		});
+
+		expect(createResult.response.status).toBe(200);
+		expect(createResult.data?.data.count).toBe(2);
+
+		const listResult = await apiClient.GET("/events", {
+			headers: { Cookie: cookies },
+			params: { query: { entityId } },
+		});
+
+		expect(listResult.response.status).toBe(200);
+		expect(listResult.data?.data).toHaveLength(2);
+		expect(listResult.data?.data.map((event) => event.eventSchemaSlug)).toEqual(
+			["progress", "progress"],
+		);
+		expect(
+			listResult.data?.data
+				.map((event) => event.properties.progressPercent as number)
+				.sort((a, b) => a - b),
+		).toEqual([25.56, 50.44]);
+	});
+
+	it("rejects built-in progress events outside the accepted range", async () => {
+		const auth = await createAuthenticatedClient();
+		const { apiClient, cookies, entityId, progressEventSchemaId } =
+			await setupBuiltinMediaLifecycleFixture(auth);
+
+		const result = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					properties: { progressPercent: 100 },
+					eventSchemaId: progressEventSchemaId,
+					occurredAt: "2026-01-01T10:00:00.000Z",
+				},
+			],
+		});
+
+		expect(result.response.status).toBe(400);
+		expect(result.error?.error?.message).toBe(
+			"Progress percent must be greater than 0 and less than 100",
 		);
 	});
 });
