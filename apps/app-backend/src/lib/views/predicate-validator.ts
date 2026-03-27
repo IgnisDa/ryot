@@ -6,6 +6,7 @@ import {
 import { z } from "zod";
 import { ViewRuntimeValidationError } from "./errors";
 import type { FilterExpression } from "./filtering";
+import { getComparablePropertyType, supportsContainsFilter } from "./policy";
 import {
 	getSchemaForReference,
 	getTopLevelPropertyDefinition,
@@ -17,15 +18,6 @@ const topLevelTimestampFilterValueSchema = z.union([
 	z.date(),
 	z.iso.date(),
 	z.iso.datetime(),
-]);
-
-const comparablePropertyTypes = new Set([
-	"date",
-	"number",
-	"string",
-	"boolean",
-	"integer",
-	"datetime",
 ]);
 
 const getPropertyDefinitionForFilter = <TSchema extends ViewRuntimeSchemaLike>(
@@ -107,7 +99,7 @@ const validateComparableFilter = (
 	>,
 	property: AppPropertyDefinition,
 ) => {
-	if (!comparablePropertyTypes.has(property.type)) {
+	if (!getComparablePropertyType(property)) {
 		throw new ViewRuntimeValidationError(
 			`Filter operator '${filter.op}' is not supported for property type '${property.type}'`,
 		);
@@ -125,7 +117,7 @@ const validateInFilter = (
 	filter: Extract<FilterExpression, { op: "in" }>,
 	property: AppPropertyDefinition,
 ) => {
-	if (!comparablePropertyTypes.has(property.type)) {
+	if (!getComparablePropertyType(property)) {
 		throw new ViewRuntimeValidationError(
 			`Filter operator 'in' is not supported for property type '${property.type}'`,
 		);
@@ -145,6 +137,12 @@ const validateContainsFilter = (
 	filter: Extract<FilterExpression, { op: "contains" }>,
 	property: AppPropertyDefinition,
 ) => {
+	if (!supportsContainsFilter(property.type)) {
+		throw new ViewRuntimeValidationError(
+			`Filter operator 'contains' is not supported for property type '${property.type}'`,
+		);
+	}
+
 	switch (property.type) {
 		case "string":
 			validateWithSchema(
@@ -168,9 +166,7 @@ const validateContainsFilter = (
 			);
 			return;
 		default:
-			throw new ViewRuntimeValidationError(
-				`Filter operator 'contains' is not supported for property type '${property.type}'`,
-			);
+			return;
 	}
 };
 

@@ -1,10 +1,10 @@
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
 import { ViewRuntimeValidationError } from "~/lib/views/errors";
+import { getPropertyDisplayKind } from "~/lib/views/policy";
 import {
 	getPropertyType,
 	getSchemaForReference,
-	type PropertyType,
 	resolveRuntimeReference,
 	type ViewRuntimeSchemaLike,
 } from "~/lib/views/reference";
@@ -44,16 +44,6 @@ const getTopLevelDisplayKind = (column: string): ResolvedDisplayValue["kind"] =>
 			);
 		});
 
-const getPropertyDisplayKind = (
-	propertyType: PropertyType,
-): ResolvedDisplayValue["kind"] =>
-	match(propertyType)
-		.with("date", () => "date" as const)
-		.with("boolean", () => "boolean" as const)
-		.with("array", "object", () => "json" as const)
-		.with("integer", "number", () => "number" as const)
-		.otherwise(() => "text" as const);
-
 const buildDisplayValueCandidate = <
 	TSchema extends ViewRuntimeSchemaLike,
 >(input: {
@@ -87,7 +77,8 @@ const buildDisplayValueCandidate = <
 	const propertyValue = wrapJsonbNull(
 		sql`${sql.raw(input.alias)}.properties -> ${parsedReference.property}`,
 	);
-	const kind = getPropertyDisplayKind(propertyType);
+	const kind: ResolvedDisplayValue["kind"] =
+		getPropertyDisplayKind(propertyType);
 	if (input.schemaMap.size === 1) {
 		return { kind, value: propertyValue };
 	}
