@@ -1,5 +1,5 @@
 {
-	"id": "17b744e1-58da-4cf4-813b-0bdac87324e0",
+	"id": "491cef94-3302-42b1-879e-20768cc3bbc0",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -361,16 +361,6 @@
 					"primaryKey": false,
 					"notNull": false
 				},
-				"search_vector": {
-					"name": "search_vector",
-					"type": "tsvector",
-					"primaryKey": false,
-					"notNull": true,
-					"generated": {
-						"as": "to_tsvector('english', name)",
-						"type": "stored"
-					}
-				},
 				"entity_schema_id": {
 					"name": "entity_schema_id",
 					"type": "text",
@@ -448,21 +438,6 @@
 					"columns": [
 						{
 							"expression": "properties",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "gin",
-					"with": {}
-				},
-				"entity_search_vector_idx": {
-					"name": "entity_search_vector_idx",
-					"columns": [
-						{
-							"expression": "search_vector",
 							"isExpression": false,
 							"asc": true,
 							"nulls": "last"
@@ -1006,6 +981,13 @@
 					"notNull": true,
 					"default": "now()"
 				},
+				"is_builtin": {
+					"name": "is_builtin",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
 				"user_id": {
 					"name": "user_id",
 					"type": "text",
@@ -1044,6 +1026,28 @@
 						}
 					],
 					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"event_schema_builtin_entity_schema_slug_unique": {
+					"name": "event_schema_builtin_entity_schema_slug_unique",
+					"columns": [
+						{
+							"expression": "entity_schema_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "slug",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"where": "\"event_schema\".\"user_id\" is null",
 					"concurrently": false,
 					"method": "btree",
 					"with": {}

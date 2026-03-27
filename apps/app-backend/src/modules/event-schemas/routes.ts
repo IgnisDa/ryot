@@ -21,7 +21,7 @@ const listEventSchemasRoute = createAuthRoute(
 		method: "get",
 		tags: ["event-schemas"],
 		request: { query: listEventSchemasQuery },
-		summary: "List event schemas for a custom entity schema",
+		summary: "List event schemas for an entity schema",
 		responses: createStandardResponses({
 			successSchema: listEventSchemasResponseSchema,
 			notFoundDescription: "Entity schema does not exist for this user",

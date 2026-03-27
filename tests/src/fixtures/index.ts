@@ -1,6 +1,7 @@
 export * from "./auth";
 export * from "./entities";
 export * from "./entity-schemas";
+export * from "./event-schemas";
 export * from "./sandbox";
 export * from "./saved-views";
 export * from "./trackers";

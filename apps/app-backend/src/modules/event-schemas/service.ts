@@ -1,5 +1,8 @@
 import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
-import { resolveCustomEntitySchemaAccess } from "~/lib/app/entity-schema-access";
+import {
+	resolveCustomEntitySchemaAccess,
+	resolveEntitySchemaReadAccess,
+} from "~/lib/app/entity-schema-access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import {
 	type ServiceResult,
@@ -34,6 +37,8 @@ export type EventSchemaServiceResult<T> = ServiceResult<
 >;
 
 const duplicateSlugError = "Event schema slug already exists";
+const customEntitySchemaError =
+	"Built-in entity schemas do not support event schema creation";
 const entitySchemaNotFoundError = "Entity schema not found";
 const eventSchemaUniqueConstraint =
 	"event_schema_user_entity_schema_slug_unique";
@@ -104,7 +109,7 @@ export const listEventSchemas = async (
 		return entitySchemaIdResult;
 	}
 
-	const foundEntitySchema = resolveCustomEntitySchemaAccess(
+	const foundEntitySchema = resolveEntitySchemaReadAccess(
 		await deps.getEntitySchemaScopeForUser({
 			userId: input.userId,
 			entitySchemaId: entitySchemaIdResult.data,
@@ -139,7 +144,12 @@ export const createEventSchema = async (
 		}),
 	);
 	if (!("entitySchema" in foundEntitySchema)) {
-		return serviceError("not_found", entitySchemaNotFoundError);
+		return serviceError(
+			foundEntitySchema.error === "not_found" ? "not_found" : "validation",
+			foundEntitySchema.error === "not_found"
+				? entitySchemaNotFoundError
+				: customEntitySchemaError,
+		);
 	}
 
 	const eventSchemaInput = resolveEventSchemaCreateInputResult({
