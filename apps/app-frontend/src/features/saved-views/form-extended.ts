@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AppSavedView } from "./model";
+import type { AppSavedView, SavedViewQueryDefinition } from "./model";
 
 const schemaQualifiedPropertyPattern = /^[^.\s]+\.[^.\s]+$/;
 const builtinPropertyPattern = /^@[^.\s]+$/;
@@ -33,21 +33,23 @@ export function buildDefaultSortFieldRow(): SortFieldRow {
 	return buildSortFieldRow("");
 }
 
+const filterRowOperators = [
+	"eq",
+	"neq",
+	"gt",
+	"gte",
+	"lt",
+	"lte",
+	"in",
+	"isNull",
+	"contains",
+] as const;
+
 const filterRowSchema = z.object({
 	id: z.string(),
 	field: propertyReferenceSchema,
 	value: z.union([z.string(), z.number(), z.boolean()]),
-	op: z.enum([
-		"eq",
-		"ne",
-		"gt",
-		"gte",
-		"lt",
-		"lte",
-		"in",
-		"isNull",
-		"contains",
-	]),
+	op: z.enum(filterRowOperators),
 });
 
 export type FilterRow = z.infer<typeof filterRowSchema>;
@@ -224,14 +226,7 @@ export function buildSavedViewExtendedFormValues(
 	};
 }
 
-type ApiFilterExpression =
-	| { field: string; op: "isNull"; value?: null }
-	| { field: string; op: "in"; value: unknown[] }
-	| {
-			field: string;
-			op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte" | "contains";
-			value: unknown;
-	  };
+type ApiFilterExpression = SavedViewQueryDefinition["filters"][number];
 
 function buildApiFilter(filter: FilterRow): ApiFilterExpression {
 	if (filter.op === "isNull") {

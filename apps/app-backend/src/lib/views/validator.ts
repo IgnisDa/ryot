@@ -3,11 +3,15 @@ import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { entitySchema } from "~/lib/db/schema";
 import { ViewRuntimeNotFoundError, ViewRuntimeValidationError } from "./errors";
+import type { FilterExpression } from "./filtering";
+import { validateFilterExpressionAgainstSchemas } from "./predicate-validator";
 import {
 	buildSchemaMap,
+	displayBuiltins,
 	getPropertyType,
 	getSchemaForReference,
 	resolveRuntimeReference,
+	sortFilterBuiltins,
 	type ViewRuntimeSchemaLike,
 } from "./reference";
 
@@ -27,29 +31,25 @@ type SortConfig = {
 	direction: string;
 };
 
-type FilterConfig = {
-	field: string;
-};
-
 type LocalRuntimeRequest =
 	| {
 			layout: "grid";
 			sort: SortConfig;
-			filters: FilterConfig[];
+			filters: FilterExpression[];
 			entitySchemaSlugs: string[];
 			displayConfiguration: CardDisplayConfig;
 	  }
 	| {
 			layout: "list";
 			sort: SortConfig;
-			filters: FilterConfig[];
+			filters: FilterExpression[];
 			entitySchemaSlugs: string[];
 			displayConfiguration: CardDisplayConfig;
 	  }
 	| {
 			layout: "table";
 			sort: SortConfig;
-			filters: FilterConfig[];
+			filters: FilterExpression[];
 			entitySchemaSlugs: string[];
 			displayConfiguration: TableDisplayConfig;
 	  };
@@ -62,25 +62,12 @@ type SavedViewValidationInput = {
 	};
 	queryDefinition: {
 		sort: SortConfig;
-		filters: FilterConfig[];
+		filters: FilterExpression[];
 		entitySchemaSlugs: string[];
 	};
 };
 
 type ValidationSchemaRow = ViewRuntimeSchemaLike;
-
-const SORT_FILTER_VALID_BUILTINS: ReadonlySet<string> = new Set([
-	"name",
-	"createdAt",
-	"updatedAt",
-]);
-
-const DISPLAY_VALID_BUILTINS: ReadonlySet<string> = new Set([
-	"name",
-	"image",
-	"createdAt",
-	"updatedAt",
-]);
 
 const fetchSchemasForValidation = async (input: {
 	userId: string;
@@ -146,29 +133,22 @@ export const validateViewRuntimeReferences = (
 	schemaMap: Map<string, ValidationSchemaRow>,
 ): void => {
 	for (const field of request.sort.fields) {
-		validateReferenceAgainstSchemas(
-			field,
-			schemaMap,
-			SORT_FILTER_VALID_BUILTINS,
-		);
+		validateReferenceAgainstSchemas(field, schemaMap, sortFilterBuiltins);
 	}
 
 	for (const filter of request.filters) {
 		validateReferenceAgainstSchemas(
 			filter.field,
 			schemaMap,
-			SORT_FILTER_VALID_BUILTINS,
+			sortFilterBuiltins,
 		);
+		validateFilterExpressionAgainstSchemas(filter, schemaMap);
 	}
 
 	if (request.layout === "table") {
 		for (const column of request.displayConfiguration.columns) {
 			for (const reference of column.property) {
-				validateReferenceAgainstSchemas(
-					reference,
-					schemaMap,
-					DISPLAY_VALID_BUILTINS,
-				);
+				validateReferenceAgainstSchemas(reference, schemaMap, displayBuiltins);
 			}
 		}
 		return;
@@ -182,11 +162,7 @@ export const validateViewRuntimeReferences = (
 		dc.subtitleProperty,
 	]) {
 		for (const reference of refs ?? []) {
-			validateReferenceAgainstSchemas(
-				reference,
-				schemaMap,
-				DISPLAY_VALID_BUILTINS,
-			);
+			validateReferenceAgainstSchemas(reference, schemaMap, displayBuiltins);
 		}
 	}
 };
