@@ -1,6 +1,6 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { notFound } from "@ryot/contract/errors";
-import type { UpdateWorkspaceStateBody } from "@ryot/contract/modules/definitions/schemas";
+import type { UpdatePluginStateBody } from "@ryot/contract/modules/definitions/schemas";
 import { PluginSlug } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
@@ -17,9 +17,9 @@ const merge = (
 	defaultSortOrder = 0,
 ) => ({
 	...metadata,
-	slug: PluginSlug.make(metadata.slug),
 	config: state?.config ?? {},
 	isDisabled: state?.isDisabled ?? false,
+	slug: PluginSlug.make(metadata.slug),
 	sortOrder: state?.sortOrder ?? defaultSortOrder,
 });
 
@@ -30,7 +30,8 @@ export class DefinitionsService extends Context.Service<DefinitionsService>()(
 			const runWithDb = yield* DbRunner;
 			const loader = yield* PluginLoader;
 			const repository = yield* DefinitionsRepository;
-			const listWorkspaces = Effect.fn(function* (
+
+			const listPlugins = Effect.fn(function* (
 				user: Pick<CurrentUserValue, "id">,
 				includeDisabled: boolean,
 			) {
@@ -40,13 +41,14 @@ export class DefinitionsService extends Context.Service<DefinitionsService>()(
 					.map(({ manifest }, index) =>
 						merge(manifest.metadata, bySlug.get(manifest.metadata.slug), index),
 					)
-					.filter((workspace) => includeDisabled || !workspace.isDisabled)
+					.filter((plugin) => includeDisabled || !plugin.isDisabled)
 					.sort((left, right) => left.sortOrder - right.sortOrder);
 			});
-			const updateWorkspaceState = Effect.fn(function* (
+
+			const updatePluginState = Effect.fn(function* (
 				user: Pick<CurrentUserValue, "id">,
 				pluginSlug: PluginSlug,
-				payload: UpdateWorkspaceStateBody,
+				payload: UpdatePluginStateBody,
 			) {
 				const plugins = loader.getSnapshot().plugins;
 				const plugin = plugins[pluginSlug];
@@ -57,8 +59,8 @@ export class DefinitionsService extends Context.Service<DefinitionsService>()(
 				const defaultSortOrder = Object.keys(plugins).indexOf(pluginSlug);
 				const state = yield* runWithDb(
 					repository.upsertPluginState({
-						userId: user.id,
 						pluginSlug,
+						userId: user.id,
 						config: payload.config ?? current?.config ?? {},
 						isDisabled: payload.isDisabled ?? current?.isDisabled ?? false,
 						sortOrder: payload.sortOrder ?? current?.sortOrder ?? defaultSortOrder,
@@ -66,7 +68,8 @@ export class DefinitionsService extends Context.Service<DefinitionsService>()(
 				);
 				return merge(plugin.manifest.metadata, state, defaultSortOrder);
 			});
-			return { listWorkspaces, updateWorkspaceState };
+
+			return { listPlugins, updatePluginState };
 		}),
 	},
 ) {

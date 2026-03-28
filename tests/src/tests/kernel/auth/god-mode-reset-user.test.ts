@@ -10,10 +10,10 @@ import {
 	createApiKey,
 	createTestAuthClient,
 	createTestUser,
-	findBuiltinWorkspaceBySlug,
+	findBuiltinPluginBySlug,
 	getBackendClient,
 	signInWithPassword,
-	updatePluginWorkspaceState,
+	updatePluginState,
 } from "~/fixtures";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -24,7 +24,7 @@ const godModeListQuery = (search?: string) => ({
 	offset: 0,
 	...(search ? { search } : {}),
 });
-const workspaceListQuery = { includeDisabled: false };
+const pluginListQuery = { includeDisabled: false };
 const unique = () => randomUUID();
 
 const getUserIdByEmail = (email: string) =>
@@ -113,18 +113,18 @@ describe("Reset user for credential user", () => {
 			const apiKey = yield* createApiKey(cookies);
 
 			// Both auth methods work before the reset.
-			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				Cookie: cookies,
 			});
-			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				"X-Api-Key": apiKey,
 			});
 
-			const workspace = yield* findBuiltinWorkspaceBySlug(userClient, "media");
-			const configuredWorkspace = yield* updatePluginWorkspaceState(userClient, workspace.slug, {
+			const plugin = yield* findBuiltinPluginBySlug(userClient, "media");
+			const configuredPlugin = yield* updatePluginState(userClient, plugin.slug, {
 				config: { fixture: true },
 			});
-			expect(configuredWorkspace.config).toEqual({ fixture: true });
+			expect(configuredPlugin.config).toEqual({ fixture: true });
 
 			const resetData = yield* client.call(
 				(c) => c.godMode.resetUser({ params: { userId } }),
@@ -136,14 +136,14 @@ describe("Reset user for credential user", () => {
 			expect(resetData.resetUrl).toMatch(/\/reset-password\?token=.+/);
 
 			const oldSession = yield* Effect.flip(
-				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 					Cookie: cookies,
 				}),
 			);
 			assertTaggedError(oldSession, "Unauthorized");
 
 			const oldApiKey = yield* Effect.flip(
-				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 					"X-Api-Key": apiKey,
 				}),
 			);
@@ -164,14 +164,14 @@ describe("Reset user for credential user", () => {
 			expect(signInRes.error).toBeNull();
 			assertPresent(signInRes.cookies, "expected cookies after sign-in");
 
-			const workspaces = yield* client.call(
-				(c) => c.definitions.listWorkspaces({ query: { includeDisabled: true } }),
+			const plugins = yield* client.call(
+				(c) => c.definitions.listPlugins({ query: { includeDisabled: true } }),
 				{ Cookie: signInRes.cookies },
 			);
-			expect(workspaces.some((candidate) => candidate.slug === "media")).toBe(true);
-			const resetWorkspace = workspaces.find((candidate) => candidate.slug === workspace.slug);
-			assertPresent(resetWorkspace, "expected the installed plugin workspace after reset");
-			expect(resetWorkspace.config).toEqual({});
+			expect(plugins.some((candidate) => candidate.slug === "media")).toBe(true);
+			const resetPlugin = plugins.find((candidate) => candidate.slug === plugin.slug);
+			assertPresent(resetPlugin, "expected the installed plugin after reset");
+			expect(resetPlugin.config).toEqual({});
 		}),
 	);
 });
@@ -263,7 +263,7 @@ describe("Reset user for mixed-auth user", () => {
 			expect(error.message).toMatch(/mixed/i);
 
 			// The reset is rejected before any mutation, so the pre-existing session keeps working.
-			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				Cookie: cookies,
 			});
 		}),
