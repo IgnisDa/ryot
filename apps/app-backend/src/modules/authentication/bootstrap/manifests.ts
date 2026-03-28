@@ -1,7 +1,6 @@
 import { animePropertiesJsonSchema } from "~/lib/zod/media/anime";
 import {
 	bookPropertiesJsonSchema,
-	progressEventPropertiesJsonSchema,
 	readEventPropertiesJsonSchema,
 } from "~/lib/zod/media/book";
 import { mangaPropertiesJsonSchema } from "~/lib/zod/media/manga";
@@ -32,11 +31,6 @@ const bookEventSchemas = () => [
 		name: "Read",
 		slug: "read",
 		propertiesSchema: readEventPropertiesJsonSchema,
-	},
-	{
-		name: "Progress",
-		slug: "progress",
-		propertiesSchema: progressEventPropertiesJsonSchema,
 	},
 ];
 
