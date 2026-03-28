@@ -36,7 +36,12 @@ import {
 import { pollUntil } from "./polling";
 import { listRelationshipSchemas, requireRelationshipSchemaBySlug } from "./relationship-schemas";
 import { createRelationship } from "./relationships";
-import { executeRyotQL, requireRyotQLFieldValue, requireRyotQLTextField } from "./ryotql";
+import {
+	executeRyotQL,
+	requireRows,
+	requireRyotQLFieldValue,
+	requireRyotQLTextField,
+} from "./ryotql";
 
 export const insertRelationshipRow = (
 	client: Client,
@@ -146,10 +151,7 @@ export const getGlobalEntityByProvenance = (
 				}),
 			}),
 		);
-		const entities = result.data.entities;
-		if (entities?.type !== "rows") {
-			throw new Error("Expected global entity rows");
-		}
+		const entities = requireRows(result.data.entities, "entities");
 		const entityRow = requirePresent(
 			entities.items[0],
 			`Missing global entity for external id '${input.externalId}'`,
@@ -414,10 +416,7 @@ const getLibraryEntityId = (client: Client) =>
 				}),
 			}),
 		);
-		const libraries = result.data.libraries;
-		if (libraries?.type !== "rows") {
-			throw new Error("Expected library rows");
-		}
+		const libraries = requireRows(result.data.libraries, "libraries");
 		return requireRyotQLTextField(
 			requirePresent(libraries.items[0], "Missing library entity"),
 			"id",

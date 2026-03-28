@@ -10,6 +10,7 @@ import {
 	pollImportRunUntilTerminal,
 	queryInLibraryRelationship,
 	requireRyotQLTextField,
+	requireRows,
 	runHevyImportFixture,
 	runOpenScaleImportFixture,
 	startOpenScaleImport,
@@ -36,10 +37,7 @@ describe("OpenScale Import E2E", () => {
 
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "measurement");
 			const result = yield* executeRyotQL(client, buildMeasurementListQueryDocument({ limit: 20 }));
-			const measurements = result.data["measurements"];
-			if (measurements?.type !== "rows") {
-				throw new Error("Expected measurements rows result");
-			}
+			const measurements = requireRows(result.data["measurements"], "measurements");
 			expect(measurements.items).toHaveLength(3);
 			const memberships = yield* Effect.forEach(measurements.items, (measurement) =>
 				queryInLibraryRelationship(client, requireRyotQLTextField(measurement, "id"), schema.slug),

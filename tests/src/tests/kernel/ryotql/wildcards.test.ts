@@ -1,9 +1,4 @@
-import type {
-	IncludeResult,
-	RowItem,
-	RowsResult,
-	RyotQLResult,
-} from "@ryot/contract/modules/ryotql/language";
+import type { IncludeResult, RowItem } from "@ryot/contract/modules/ryotql/language";
 import {
 	column,
 	document,
@@ -25,19 +20,13 @@ import {
 	createEventSchema,
 	createPluginEntitySchema,
 	executeRyotQL,
+	requireRows,
 	requireRyotQLFieldValue,
 	waitForEventWithSchema,
 	type Client,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-
-const requireRows = (result: RyotQLResult | undefined, key: string): RowsResult => {
-	if (result?.type !== "rows") {
-		throw new Error(`Expected '${key}' rows`);
-	}
-	return result;
-};
 
 const requireInclude = (item: RowItem, key: string): IncludeResult => {
 	const value = item[key];

@@ -9,20 +9,12 @@ import {
 	getSavedView,
 	insertLibraryMembership,
 	requireRyotQLTextField,
+	requireRows,
 	seedMediaEntity,
 	timeSeriesDocument,
 } from "~/fixtures";
-import type { RyotQLResponse } from "~/fixtures/ryotql";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-
-const requireSavedViewRows = (response: RyotQLResponse) => {
-	const result = response.data.savedView;
-	if (result?.type !== "rows") {
-		throw new Error("Expected the savedView named query to return rows");
-	}
-	return result;
-};
 
 describe("saved views execution", () => {
 	it.live("executes a built-in all-shows view with per-user isolation", () =>
@@ -60,11 +52,13 @@ describe("saved views execution", () => {
 
 			const userAView = yield* getSavedView(userA.client, "all-shows");
 			const userBView = yield* getSavedView(userB.client, "all-shows");
-			const userAResult = requireSavedViewRows(
-				yield* executeRyotQL(userA.client, userAView.queryDocument),
+			const userAResult = requireRows(
+				(yield* executeRyotQL(userA.client, userAView.queryDocument)).data.savedView,
+				"savedView",
 			);
-			const userBResult = requireSavedViewRows(
-				yield* executeRyotQL(userB.client, userBView.queryDocument),
+			const userBResult = requireRows(
+				(yield* executeRyotQL(userB.client, userBView.queryDocument)).data.savedView,
+				"savedView",
 			);
 
 			expect(userAResult.items.map((item) => requireRyotQLTextField(item, "name"))).toContain(
@@ -106,8 +100,9 @@ describe("saved views execution", () => {
 
 			yield* getSavedView(client, "all-shows");
 			const refetchedView = yield* getSavedView(client, "all-shows");
-			const result = requireSavedViewRows(
-				yield* executeRyotQL(client, refetchedView.queryDocument),
+			const result = requireRows(
+				(yield* executeRyotQL(client, refetchedView.queryDocument)).data.savedView,
+				"savedView",
 			);
 
 			expect(result.items.map((item) => requireRyotQLTextField(item, "name"))).toContain(
