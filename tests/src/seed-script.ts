@@ -25,11 +25,8 @@ import { requirePresent } from "~/support/assertions";
 import { cookieHeaderFromSetCookies, enableTwoFactorForSession } from "./fixtures/auth-2fa";
 import type { ContractPayload, ContractSuccess } from "./fixtures/contract-client";
 
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:8000";
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8000/api";
-const FRONTEND_URL = requirePresent(
-	process.env.FRONTEND_URL,
-	"FRONTEND_URL is required to seed two-factor authentication",
-);
 
 async function createAndSignIn(): Promise<{
 	email: string;
