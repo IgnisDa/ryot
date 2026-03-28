@@ -233,8 +233,8 @@ export const updateTracker = async (
 		name: patchResult.data.name,
 		slug: patchResult.data.slug,
 		icon: patchResult.data.icon,
-		isDisabled: input.body.isDisabled,
 		trackerId: trackerIdResult.data,
+		isDisabled: input.body.isDisabled,
 		description: patchResult.data.description,
 		accentColor: patchResult.data.accentColor,
 	});
