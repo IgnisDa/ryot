@@ -611,6 +611,42 @@ describe("savedViewExtendedFormSchema - filters", () => {
 		expect(result.success).toBe(false);
 	});
 
+	it("accepts filter with isNotNull operator", () => {
+		const result = savedViewExtendedFormSchema.safeParse({
+			eventJoins: [],
+			entitySchemaSlugs: ["smartphones"],
+			sort: {
+				direction: "asc",
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
+			},
+			filters: [
+				{
+					id: "1",
+					value: "",
+					op: "isNotNull",
+					field: schemaField("smartphones", "description"),
+				},
+			],
+			displayConfiguration: {
+				table: { columns: [] },
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+			},
+		});
+
+		expect(result.success).toBe(true);
+	});
+
 	it("accepts filter with contains operator", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			eventJoins: [],
@@ -1038,6 +1074,37 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 
 		expect(payload.queryDefinition.filters).toEqual([
 			{ field: schemaField("smartphones", "name"), op: "isNull", value: null },
+		]);
+	});
+
+	it("sets isNotNull filter value to null regardless of form value", () => {
+		const view = createSavedViewFixture({ trackerId: null });
+		const formValues = {
+			eventJoins: [],
+			entitySchemaSlugs: ["smartphones"],
+			displayConfiguration:
+				buildSavedViewExtendedFormValues(view).displayConfiguration,
+			filters: [
+				{
+					id: "1",
+					field: schemaField("smartphones", "name"),
+					op: "isNotNull" as const,
+					value: "ignored",
+				},
+			],
+			sort: {
+				direction: "asc" as const,
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
+			},
+		};
+		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
+
+		expect(payload.queryDefinition.filters).toEqual([
+			{
+				field: schemaField("smartphones", "name"),
+				op: "isNotNull",
+				value: null,
+			},
 		]);
 	});
 

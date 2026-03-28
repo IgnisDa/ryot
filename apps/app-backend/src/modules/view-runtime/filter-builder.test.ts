@@ -148,6 +148,28 @@ describe("buildFilterWhereClause", () => {
 		expect(clause.sql.toLowerCase()).toContain(" is null");
 	});
 
+	it("builds isNotNull clauses without a value", () => {
+		const clause = serializeClause([
+			{ op: "isNotNull", field: "entity.smartphones.manufacturer" },
+		]);
+
+		expect(clause.sql.toLowerCase()).toContain(" is not null");
+	});
+
+	it("builds isNull and isNotNull clauses for entity built-in columns", () => {
+		const nullClause = serializeClause([
+			{ op: "isNull", field: entityField("smartphones", "@name") },
+		]);
+		const notNullClause = serializeClause([
+			{ op: "isNotNull", field: entityField("smartphones", "@createdAt") },
+		]);
+
+		expect(nullClause.sql).toContain("entities.name");
+		expect(nullClause.sql.toLowerCase()).toContain(" is null");
+		expect(notNullClause.sql).toContain("entities.created_at");
+		expect(notNullClause.sql.toLowerCase()).toContain(" is not null");
+	});
+
 	it("uses entity columns directly for built-in filters", () => {
 		const idClause = serializeClause([
 			{
