@@ -157,16 +157,16 @@ View-runtime execution will validate references and types against the participat
 
 ## Tasks
 
-**Overall Progress:** 1 of 6 tasks completed
+**Overall Progress:** 2 of 6 tasks completed
 
-**Current Task:** [Task 02](./02-computed-fields-and-raw-output.md) (todo)
+**Current Task:** [Task 03](./03-expression-filtering-and-sorting.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                 | Type | Status | Blocked By       |
 | --- | ------------------------------------------------------------------------------------ | ---- | ------ | ---------------- |
 | 01  | [Expression Contract Foundation](./01-expression-contract-foundation.md)             | AFK  | done   | None             |
-| 02  | [Computed Fields And Raw Output](./02-computed-fields-and-raw-output.md)             | AFK  | todo   | Task 01          |
+| 02  | [Computed Fields And Raw Output](./02-computed-fields-and-raw-output.md)             | AFK  | done   | Task 01          |
 | 03  | [Expression Filtering And Sorting](./03-expression-filtering-and-sorting.md)         | AFK  | todo   | Task 02          |
 | 04  | [Rich Derived Expression Support](./04-rich-derived-expression-support.md)           | AFK  | todo   | Task 03          |
 | 05  | [Frontend Read-Only View Management](./05-frontend-read-only-view-management.md)     | AFK  | todo   | Task 02          |

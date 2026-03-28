@@ -36,6 +36,11 @@ const eventExpression = (joinKey: string, field: string): ViewExpression => ({
 		: { type: "event-join-property", joinKey, property: field },
 });
 
+const computedExpression = (key: string): ViewExpression => ({
+	type: "reference",
+	reference: { key, type: "computed-field" },
+});
+
 const nullExpression = (): ViewExpression => ({ type: "literal", value: null });
 const literalExpression = (value: unknown): ViewExpression => ({
 	value,
@@ -232,6 +237,7 @@ describe("viewDefinitionModule", () => {
 				pagination: { page: 2, limit: 10 },
 			}),
 		).toEqual({
+			computedFields: [],
 			sort: body.queryDefinition.sort,
 			pagination: { page: 2, limit: 10 },
 			filters: body.queryDefinition.filters,
@@ -302,6 +308,7 @@ describe("viewDefinitionModule", () => {
 				pagination: { page: 1, limit: 10 },
 			}),
 		).toMatchObject({
+			computedFields: [],
 			fields: [
 				{ key: "image", expression: entityExpression("smartphones", "@image") },
 				{ key: "title", expression: entityExpression("smartphones", "@name") },
@@ -315,6 +322,110 @@ describe("viewDefinitionModule", () => {
 				{ key: "badge", expression: literalExpression("New") },
 			],
 		});
+	});
+
+	it("projects computed fields from saved views into runtime requests", async () => {
+		const views = createViewDefinitionModule(createDeps());
+		const body = createSavedViewBody({
+			queryDefinition: {
+				filters: [],
+				eventJoins: [],
+				entitySchemaSlugs: ["smartphones"],
+				computedFields: [
+					{
+						key: "displayName",
+						expression: entityExpression("smartphones", "@name"),
+					},
+				],
+				sort: {
+					direction: "asc",
+					fields: [entityField("smartphones", "@name")],
+				},
+			},
+			displayConfiguration: {
+				...createSmartphoneDisplayConfiguration(),
+				grid: {
+					badgeProperty: null,
+					subtitleProperty: null,
+					titleProperty: computedExpression("displayName"),
+					imageProperty: entityExpression("smartphones", "@image"),
+				},
+			},
+		});
+
+		const prepared = await views.prepare({
+			userId: "user-1",
+			source: {
+				kind: "saved-view",
+				definition: {
+					queryDefinition: body.queryDefinition,
+					displayConfiguration: body.displayConfiguration,
+				},
+			},
+		});
+
+		expect(
+			prepared.toRuntimeRequest({
+				layout: "grid",
+				pagination: { page: 1, limit: 10 },
+			}),
+		).toMatchObject({
+			computedFields: [
+				{
+					key: "displayName",
+					expression: entityExpression("smartphones", "@name"),
+				},
+			],
+			fields: [
+				{ key: "image", expression: entityExpression("smartphones", "@image") },
+				{ key: "title", expression: computedExpression("displayName") },
+				{ key: "subtitle", expression: nullExpression() },
+				{ key: "badge", expression: nullExpression() },
+			],
+		});
+	});
+
+	it("rejects computed-field dependency cycles during prepare", async () => {
+		const views = createViewDefinitionModule(createDeps());
+		const body = createSavedViewBody({
+			queryDefinition: {
+				filters: [],
+				eventJoins: [],
+				entitySchemaSlugs: ["smartphones"],
+				computedFields: [
+					{ key: "first", expression: computedExpression("second") },
+					{ key: "second", expression: computedExpression("first") },
+				],
+				sort: {
+					direction: "asc",
+					fields: [entityField("smartphones", "@name")],
+				},
+			},
+			displayConfiguration: {
+				...createSmartphoneDisplayConfiguration(),
+				grid: {
+					badgeProperty: null,
+					subtitleProperty: null,
+					titleProperty: computedExpression("first"),
+					imageProperty: entityExpression("smartphones", "@image"),
+				},
+			},
+		});
+
+		expect(
+			views.prepare({
+				userId: "user-1",
+				source: {
+					kind: "saved-view",
+					definition: {
+						queryDefinition: body.queryDefinition,
+						displayConfiguration: body.displayConfiguration,
+					},
+				},
+			}),
+		).rejects.toThrow(
+			"Computed field dependency cycle detected: first -> second -> first",
+		);
 	});
 
 	it("executes runtime requests through the prepared boundary", async () => {

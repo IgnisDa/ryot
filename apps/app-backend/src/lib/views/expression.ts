@@ -38,9 +38,33 @@ export const runtimeReferenceSchema = z.discriminatedUnion("type", [
 			type: z.literal("event-join-property"),
 		})
 		.strict(),
+	z
+		.object({
+			key: nonEmptyTrimmedStringSchema,
+			type: z.literal("computed-field"),
+		})
+		.strict(),
 ]);
 
 export type RuntimeRef = z.infer<typeof runtimeReferenceSchema>;
+
+export const viewComputedFieldSchema = z
+	.object({
+		expression: z.lazy(() => viewExpressionSchema),
+		key: nonEmptyTrimmedStringSchema,
+	})
+	.strict();
+
+export const computedFieldArraySchema = z
+	.array(viewComputedFieldSchema)
+	.refine(
+		(fields) =>
+			new Set(fields.map((field) => field.key)).size === fields.length,
+		"Computed field keys must be unique",
+	)
+	.optional();
+
+export type ViewComputedField = z.infer<typeof viewComputedFieldSchema>;
 
 const isJsonValue = (value: unknown): value is JsonValue => {
 	if (value === null) {
@@ -116,5 +140,7 @@ export const stringifyRuntimeReference = (reference: RuntimeRef) => {
 			? `entity.${reference.slug}.${reference.property}`
 			: reference.type === "event-join-column"
 				? `event.${reference.joinKey}.@${reference.column}`
-				: `event.${reference.joinKey}.${reference.property}`;
+				: reference.type === "event-join-property"
+					? `event.${reference.joinKey}.${reference.property}`
+					: `computed.${reference.key}`;
 };
