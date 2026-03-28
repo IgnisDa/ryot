@@ -115,8 +115,9 @@ The saved view schema should include:
 - `filters: FilterExpression[]` — attribute filters to apply
 - `displayFields: string[]` — which entity properties to show in the listing (required)
 - `sort: { key: string, direction: "asc" | "desc" }` — how to order results (required)
+- `layout: "grid" | "list" | "table"` — how to render the listing (required)
 
-All fields directly affect what data is fetched and how it's ordered. Layout (grid/list/table) is pure frontend rendering state and should be owned by the frontend, not persisted in the backend.
+No split between "definition" and "presentation" is needed. All fields define what the view is and how it executes.
 
 This keeps the saved-view record aligned with product behavior without making `view-runtime` own persistence concerns.
 
@@ -147,7 +148,8 @@ Consider a "Smartphones" entity schema with properties:
     { "field": "year", "op": "lt", "value": 2025 }
   ],
   "displayFields": ["manufacturer", "year", "price_usd"],
-  "sort": { "key": "year", "direction": "desc" }
+  "sort": { "key": "year", "direction": "desc" },
+  "layout": "grid"
 }
 ```
 
@@ -163,7 +165,8 @@ Consider a "Smartphones" entity schema with properties:
     { "field": "os", "op": "eq", "value": "Android" }
   ],
   "displayFields": ["os", "year", "screen_size"],
-  "sort": { "key": "year", "direction": "asc" }
+  "sort": { "key": "year", "direction": "asc" },
+  "layout": "list"
 }
 ```
 
@@ -188,11 +191,11 @@ When the frontend loads View 1:
   ```
 
 3. `POST /view-runtime/execute` → returns only requested properties in `propertyValues`
-4. Frontend renders using `displayFields` from the saved view (layout is frontend-only state)
+4. Frontend renders using `layout` and `displayFields` from the saved view
 
 This design gives users full control over which properties matter for each view's purpose, without requiring backend inference or returning wasteful full property sets.
 
-**Key constraint**: The saved view explicitly stores `displayFields` and `sort` (both required). The backend makes no assumptions - clients must be explicit about what data they need and how to order it. Layout (grid/list/table) is purely frontend rendering state and not persisted in the backend.
+**Key constraint**: The saved view explicitly stores `displayFields`, `sort`, and `layout` (all required). The backend makes no assumptions - clients must be explicit about what data they need and how to present it.
 
 ## Proposed Endpoints
 
@@ -289,8 +292,8 @@ They should start producing the richer saved-view structure so built-in views an
 - add `GET /saved-views/{viewId}`
 - add `PATCH /saved-views/{viewId}`
 - add `POST /saved-views/{viewId}/clone`
-- expand saved-view schema to include filters, displayFields, and sort
-- make displayFields and sort required fields
+- expand saved-view schema to include filters, displayFields, sort, and layout
+- make displayFields, sort, and layout required fields
 - update bootstrap paths that create built-in views with all required fields
 
 ### Phase 2: Build Real Runtime Execution
@@ -308,8 +311,7 @@ They should start producing the richer saved-view structure so built-in views an
 - fetch saved view by id
 - compile saved view into the runtime payload (filters, sort, displayFields → fields)
 - execute via `POST /view-runtime/execute`
-- render returned entities using displayFields from the saved view
-- manage layout (grid/list/table) as frontend-only state (localStorage, URL param, or user preferences)
+- render returned entities using layout and displayFields from the saved view
 - remove assumptions that saved views live under a tracker route
 
 ## Design Constraints
