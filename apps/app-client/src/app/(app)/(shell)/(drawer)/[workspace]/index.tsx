@@ -30,12 +30,8 @@ export default function AppHome() {
 		}
 
 		const randomSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-		const accentColor = `#${Math.floor(Math.random() * 0xffffff)
-			.toString(16)
-			.padStart(6, "0")}`;
 		const result = await createSavedView({
 			payload: {
-				accentColor,
 				icon: "star",
 				name: `Random view ${randomSuffix}`,
 				queryDocument: savedViewTemplate.queryDocument,

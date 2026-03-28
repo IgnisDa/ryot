@@ -226,7 +226,6 @@ CREATE TABLE "saved_view" (
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
 	"icon" text NOT NULL,
-	"accent_color" text NOT NULL,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,

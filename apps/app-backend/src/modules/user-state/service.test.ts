@@ -93,7 +93,6 @@ const makeDefinitionRegistryLayer = (
 					slug: "book",
 					eventSchemas: [],
 					pluginSlug: "test",
-					accentColor: "blue",
 					mergeIdentityProperties,
 					propertiesSchema: {
 						fields: { kind: { type: "string", label: "Kind", description: "Book kind" } },
@@ -110,7 +109,6 @@ const makeDefinitionRegistryLayer = (
 						name: slug,
 						eventSchemas: [],
 						pluginSlug: "test",
-						accentColor: "blue",
 						userState: { deniedOperations },
 						propertiesSchema: { fields: {} },
 					})),

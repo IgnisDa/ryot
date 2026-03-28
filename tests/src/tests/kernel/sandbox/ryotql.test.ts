@@ -196,7 +196,6 @@ describe("sandbox RyotQL reads", () => {
 							slug: entitySchemaSlug,
 							name: "RyotQL system entity",
 							icon: "box",
-							accentColor: "#64748b",
 							propertiesSchema: { unknownKeys: "strict", fields: {} },
 							eventSchemas: [],
 						},

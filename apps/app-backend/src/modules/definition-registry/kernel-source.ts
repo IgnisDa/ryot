@@ -33,7 +33,6 @@ const collectionSchema = {
 	pluginSlug: null,
 	slug: "collection",
 	name: "Collection",
-	accentColor: "#F59E0B",
 	eventSchemas: [
 		{ name: "Review", slug: "review", propertiesSchema: reviewPropertiesSchema },
 		...(["Add", "Remove"] as const).map((operation) => ({
@@ -171,7 +170,6 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			slug: "collections",
 			name: "All Collections",
 			icon: collectionSchema.icon,
-			accentColor: collectionSchema.accentColor,
 			queryDocument: buildAllCollectionsDocument(),
 			displayConfiguration: collectionDisplayConfiguration,
 		},

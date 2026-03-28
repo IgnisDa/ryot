@@ -61,7 +61,6 @@ describe("Exercises E2E", () => {
 			expect(exerciseSchema?.icon).toBe("zap");
 			expect(exerciseSchema?.isBuiltin).toBe(true);
 			expect(exerciseSchema?.pluginSlug).toBe(fitnessPlugin.slug);
-			expect(exerciseSchema?.accentColor).toBe("#14B8A6");
 			expect(exerciseSchema?.providers).toHaveLength(1);
 			expect(exerciseSchema?.providers[0]).toMatchObject({
 				name: "Free Exercise DB",
