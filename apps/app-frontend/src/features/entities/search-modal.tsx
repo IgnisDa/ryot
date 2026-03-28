@@ -162,6 +162,53 @@ export function SearchEntityModal(props: {
 	onEntityAdded: () => void;
 	entitySchema: AppEntitySchema;
 }) {
+	return (
+		<Modal
+			centered
+			size="lg"
+			opened={props.opened}
+			onClose={props.onClose}
+			overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
+			title={
+				<SearchEntityModalTitle
+					onBack={props.onBack}
+					entitySchemaName={props.entitySchema.name}
+				/>
+			}
+		>
+			<SearchEntityModalContent
+				entitySchema={props.entitySchema}
+				onEntityAdded={props.onEntityAdded}
+			/>
+		</Modal>
+	);
+}
+
+export function SearchEntityModalTitle(props: {
+	onBack: () => void;
+	entitySchemaName: string;
+}) {
+	return (
+		<Group gap="xs">
+			<ActionIcon
+				size="sm"
+				variant="subtle"
+				onClick={props.onBack}
+				aria-label="Back to type picker"
+			>
+				<ChevronLeft size={16} />
+			</ActionIcon>
+			<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
+				Add {props.entitySchemaName}
+			</Text>
+		</Group>
+	);
+}
+
+export function SearchEntityModalContent(props: {
+	onEntityAdded: () => void;
+	entitySchema: AppEntitySchema;
+}) {
 	const {
 		page,
 		query,
@@ -187,146 +234,123 @@ export function SearchEntityModal(props: {
 		props.entitySchema.searchProviders[selectedProviderIndex];
 
 	return (
-		<Modal
-			centered
-			size="lg"
-			opened={props.opened}
-			onClose={props.onClose}
-			title={
-				<Group gap="xs">
-					<ActionIcon
-						size="sm"
-						variant="subtle"
-						onClick={props.onBack}
-						aria-label="Back to type picker"
-					>
-						<ChevronLeft size={16} />
-					</ActionIcon>
-					<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
-						Add {props.entitySchema.name}
+		<Stack gap="md">
+			{props.entitySchema.searchProviders.length > 1 && (
+				<SegmentedControl
+					fullWidth
+					value={String(selectedProviderIndex)}
+					onChange={(v) => setSelectedProviderIndex(Number(v))}
+					data={props.entitySchema.searchProviders.map((p, i) => ({
+						label: p.name,
+						value: String(i),
+					}))}
+				/>
+			)}
+
+			<Group>
+				<TextInput
+					flex={1}
+					value={query}
+					disabled={isSearching}
+					placeholder={`Search for a ${props.entitySchema.name.toLowerCase()}...`}
+					onChange={(e) => setQuery(e.currentTarget.value)}
+					leftSection={<Search size={16} strokeWidth={1.5} />}
+					onKeyDown={(e) => {
+						if (e.key === "Enter") {
+							search();
+						}
+					}}
+				/>
+				<Button
+					onClick={search}
+					loading={isSearching}
+					disabled={!query.trim()}
+					style={{ color: "white", backgroundColor: accentColor }}
+				>
+					Search
+				</Button>
+			</Group>
+
+			{searchError && (
+				<Text c="red" size="sm">
+					{searchError}
+				</Text>
+			)}
+
+			{isSearching && (
+				<Stack align="center" py="xl">
+					<Loader size="sm" color={accentColor} />
+					<Text size="sm" c="dimmed">
+						Searching...
 					</Text>
-				</Group>
-			}
-			overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
-		>
-			<Stack gap="md">
-				{props.entitySchema.searchProviders.length > 1 && (
-					<SegmentedControl
-						fullWidth
-						value={String(selectedProviderIndex)}
-						onChange={(v) => setSelectedProviderIndex(Number(v))}
-						data={props.entitySchema.searchProviders.map((p, i) => ({
-							label: p.name,
-							value: String(i),
-						}))}
-					/>
-				)}
+				</Stack>
+			)}
 
-				<Group>
-					<TextInput
-						flex={1}
-						value={query}
-						disabled={isSearching}
-						placeholder={`Search for a ${props.entitySchema.name.toLowerCase()}...`}
-						onChange={(e) => setQuery(e.currentTarget.value)}
-						leftSection={<Search size={16} strokeWidth={1.5} />}
-						onKeyDown={(e) => {
-							if (e.key === "Enter") {
-								search();
-							}
-						}}
-					/>
-					<Button
-						onClick={search}
-						loading={isSearching}
-						disabled={!query.trim()}
-						style={{ color: "white", backgroundColor: accentColor }}
-					>
-						Search
-					</Button>
-				</Group>
-
-				{searchError && (
-					<Text c="red" size="sm">
-						{searchError}
-					</Text>
-				)}
-
-				{isSearching && (
-					<Stack align="center" py="xl">
-						<Loader size="sm" color={accentColor} />
-						<Text size="sm" c="dimmed">
-							Searching...
+			{results !== null && !isSearching && (
+				<Stack gap="xs">
+					{results.length === 0 ? (
+						<Text c="dimmed" size="sm" ta="center" py="md">
+							No results found
 						</Text>
-					</Stack>
-				)}
+					) : (
+						<>
+							<Group justify="flex-end" align="center" px={2}>
+								<Badge
+									variant="light"
+									style={{
+										color: accentColor,
+										backgroundColor: `${accentColor}12`,
+									}}
+								>
+									{results.length} result{results.length === 1 ? "" : "s"}
+								</Badge>
+							</Group>
+							<ScrollArea.Autosize mah={460}>
+								<Stack gap={6}>
+									{results.map((item) => (
+										<SearchResultRow
+											item={item}
+											key={item.identifier}
+											accentColor={accentColor}
+											onAdd={() => void addItem(item)}
+											entityName={props.entitySchema.name}
+											errorMessage={addError[item.identifier]}
+											providerName={activeProvider?.name ?? ""}
+											status={addStatus[item.identifier] ?? "idle"}
+										/>
+									))}
+								</Stack>
+							</ScrollArea.Autosize>
 
-				{results !== null && !isSearching && (
-					<Stack gap="xs">
-						{results.length === 0 ? (
-							<Text c="dimmed" size="sm" ta="center" py="md">
-								No results found
-							</Text>
-						) : (
-							<>
-								<Group justify="flex-end" align="center" px={2}>
-									<Badge
-										variant="light"
-										style={{
-											color: accentColor,
-											backgroundColor: `${accentColor}12`,
-										}}
+							{(page > 1 || nextPage !== null) && (
+								<Group justify="center" gap="xs">
+									<Button
+										size="xs"
+										variant="subtle"
+										disabled={page <= 1 || isSearching}
+										leftSection={<ChevronLeft size={14} />}
+										onClick={() => goToPage(page - 1)}
 									>
-										{results.length} result{results.length === 1 ? "" : "s"}
-									</Badge>
+										Prev
+									</Button>
+									<Text size="xs" c="dimmed">
+										Page {page}
+									</Text>
+									<Button
+										size="xs"
+										variant="subtle"
+										rightSection={<ChevronRight size={14} />}
+										onClick={() => goToPage(page + 1)}
+										disabled={nextPage === null || isSearching}
+									>
+										Next
+									</Button>
 								</Group>
-								<ScrollArea.Autosize mah={460}>
-									<Stack gap={6}>
-										{results.map((item) => (
-											<SearchResultRow
-												item={item}
-												key={item.identifier}
-												accentColor={accentColor}
-												onAdd={() => void addItem(item)}
-												entityName={props.entitySchema.name}
-												errorMessage={addError[item.identifier]}
-												providerName={activeProvider?.name ?? ""}
-												status={addStatus[item.identifier] ?? "idle"}
-											/>
-										))}
-									</Stack>
-								</ScrollArea.Autosize>
-
-								{(page > 1 || nextPage !== null) && (
-									<Group justify="center" gap="xs">
-										<Button
-											size="xs"
-											variant="subtle"
-											disabled={page <= 1 || isSearching}
-											leftSection={<ChevronLeft size={14} />}
-											onClick={() => goToPage(page - 1)}
-										>
-											Prev
-										</Button>
-										<Text size="xs" c="dimmed">
-											Page {page}
-										</Text>
-										<Button
-											size="xs"
-											variant="subtle"
-											rightSection={<ChevronRight size={14} />}
-											onClick={() => goToPage(page + 1)}
-											disabled={nextPage === null || isSearching}
-										>
-											Next
-										</Button>
-									</Group>
-								)}
-							</>
-						)}
-					</Stack>
-				)}
-			</Stack>
-		</Modal>
+							)}
+						</>
+					)}
+				</Stack>
+			)}
+		</Stack>
 	);
 }

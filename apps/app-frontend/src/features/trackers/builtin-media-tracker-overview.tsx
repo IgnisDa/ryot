@@ -6,7 +6,6 @@ import {
 	Center,
 	Group,
 	Loader,
-	Modal,
 	Paper,
 	Progress,
 	ScrollArea,
@@ -17,7 +16,7 @@ import {
 	Tooltip,
 	UnstyledButton,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { modals } from "@mantine/modals";
 import {
 	BookOpen,
 	ChevronRight,
@@ -31,7 +30,10 @@ import {
 	Tv,
 } from "lucide-react";
 import { useState } from "react";
-import { SearchEntityModal } from "#/features/entities/search-modal";
+import {
+	SearchEntityModalContent,
+	SearchEntityModalTitle,
+} from "#/features/entities/search-modal";
 import { useEntitySchemasQuery } from "#/features/entity-schemas/hooks";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import { TrackerIcon } from "#/features/trackers/icons";
@@ -1316,28 +1318,96 @@ export function BuiltinMediaTrackerOverview(
 	props: BuiltinMediaTrackerOverviewProps,
 ) {
 	const t = useThemeTokens();
-	const [typePickerOpened, typePickerHandlers] = useDisclosure(false);
 	const entitySchemasQuery = useEntitySchemasQuery(props.tracker.id, true);
-	const [selectedSchema, setSelectedSchema] = useState<AppEntitySchema | null>(
-		null,
-	);
 
 	const searchableSchemas = entitySchemasQuery.entitySchemas.filter(
 		(s) => s.searchProviders.length > 0,
 	);
+	const typePickerModalId = `builtin-media-type-picker-${props.tracker.id}`;
 
-	const handleTypeSelect = (schema: AppEntitySchema) => {
-		setSelectedSchema(schema);
-		typePickerHandlers.close();
+	const openSearchModal = (schema: AppEntitySchema) => {
+		const searchModalId = `builtin-media-search-${props.tracker.id}-${schema.id}`;
+
+		modals.open({
+			size: "lg",
+			centered: true,
+			modalId: searchModalId,
+			overlayProps: { backgroundOpacity: 0.55, blur: 3 },
+			title: (
+				<SearchEntityModalTitle
+					entitySchemaName={schema.name}
+					onBack={() => modals.close(searchModalId)}
+				/>
+			),
+			children: (
+				<SearchEntityModalContent
+					entitySchema={schema}
+					onEntityAdded={() => {
+						modals.close(searchModalId);
+						modals.close(typePickerModalId);
+					}}
+				/>
+			),
+		});
 	};
 
-	const handleSearchModalClose = () => {
-		setSelectedSchema(null);
-	};
-
-	const handleSearchModalBack = () => {
-		setSelectedSchema(null);
-		typePickerHandlers.open();
+	const openTypePickerModal = () => {
+		modals.open({
+			size: "lg",
+			centered: true,
+			modalId: typePickerModalId,
+			overlayProps: { backgroundOpacity: 0.55, blur: 3 },
+			title: (
+				<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
+					Add to Media
+				</Text>
+			),
+			children: (
+				<SimpleGrid cols={{ base: 3, sm: 4 }} spacing="sm">
+					{searchableSchemas.map((schema) => {
+						return (
+							<UnstyledButton
+								key={schema.id}
+								onClick={() => openSearchModal(schema)}
+							>
+								<Paper
+									p="md"
+									ta="center"
+									radius="sm"
+									style={{
+										cursor: "pointer",
+										background: t.surface,
+										border: `1px solid ${t.border}`,
+										transition: "border-color 0.15s ease",
+									}}
+								>
+									<Stack gap={6} align="center">
+										<TrackerIcon
+											size={24}
+											icon={schema.icon}
+											color={schema.accentColor}
+										/>
+										<Text
+											fz="xs"
+											fw={600}
+											c={t.textPrimary}
+											ff="var(--mantine-headings-font-family)"
+										>
+											{schema.name}
+										</Text>
+										<Text fz={10} c={t.textMuted}>
+											{schema.searchProviders.length === 1
+												? schema.searchProviders[0]?.name
+												: `${schema.searchProviders.length} sources`}
+										</Text>
+									</Stack>
+								</Paper>
+							</UnstyledButton>
+						);
+					})}
+				</SimpleGrid>
+			),
+		});
 	};
 
 	if (entitySchemasQuery.isLoading) {
@@ -1372,83 +1442,167 @@ export function BuiltinMediaTrackerOverview(
 	);
 
 	return (
-		<>
-			<Stack gap="xl">
-				<Group justify="space-between" align="flex-end" gap="sm">
-					<Stack gap={6} maw={640}>
-						<Text
-							lh={1}
-							fz={30}
-							fw={700}
-							c={t.textPrimary}
-							ff="var(--mantine-headings-font-family)"
-						>
-							Media
-						</Text>
-						<Group gap="xs" wrap="wrap">
-							<Badge
-								variant="light"
-								style={{
-									color: SECTION_ACCENTS.continue,
-									backgroundColor: withAlpha(SECTION_ACCENTS.continue, 0.12),
-								}}
-							>
-								{IN_PROGRESS.length} in progress
-							</Badge>
-							<Badge
-								variant="light"
-								style={{
-									color: SECTION_ACCENTS.queue,
-									backgroundColor: withAlpha(SECTION_ACCENTS.queue, 0.12),
-								}}
-							>
-								{BACKLOG.length} queued next
-							</Badge>
-							<Badge
-								variant="light"
-								style={{
-									color: SECTION_ACCENTS.review,
-									backgroundColor: withAlpha(SECTION_ACCENTS.review, 0.12),
-								}}
-							>
-								{UNRATED.length} still unrated
-							</Badge>
-						</Group>
-					</Stack>
-					<Button
-						size="sm"
-						leftSection={<Plus size={14} />}
-						onClick={typePickerHandlers.open}
-						style={{ backgroundColor: GOLD, color: "white" }}
+		<Stack gap="xl">
+			<Group justify="space-between" align="flex-end" gap="sm">
+				<Stack gap={6} maw={640}>
+					<Text
+						lh={1}
+						fz={30}
+						fw={700}
+						c={t.textPrimary}
+						ff="var(--mantine-headings-font-family)"
 					>
-						Add media
-					</Button>
-				</Group>
+						Media
+					</Text>
+					<Group gap="xs" wrap="wrap">
+						<Badge
+							variant="light"
+							style={{
+								color: SECTION_ACCENTS.continue,
+								backgroundColor: withAlpha(SECTION_ACCENTS.continue, 0.12),
+							}}
+						>
+							{IN_PROGRESS.length} in progress
+						</Badge>
+						<Badge
+							variant="light"
+							style={{
+								color: SECTION_ACCENTS.queue,
+								backgroundColor: withAlpha(SECTION_ACCENTS.queue, 0.12),
+							}}
+						>
+							{BACKLOG.length} queued next
+						</Badge>
+						<Badge
+							variant="light"
+							style={{
+								color: SECTION_ACCENTS.review,
+								backgroundColor: withAlpha(SECTION_ACCENTS.review, 0.12),
+							}}
+						>
+							{UNRATED.length} still unrated
+						</Badge>
+					</Group>
+				</Stack>
+				<Button
+					size="sm"
+					leftSection={<Plus size={14} />}
+					onClick={openTypePickerModal}
+					style={{ backgroundColor: GOLD, color: "white" }}
+				>
+					Add media
+				</Button>
+			</Group>
 
+			<SectionFrame
+				border={t.border}
+				isDark={t.isDark}
+				surface={t.surface}
+				accentColor={SECTION_ACCENTS.continue}
+			>
+				<SectionHeader
+					title="Continue"
+					eyebrow="In motion"
+					textMuted={t.textMuted}
+					textPrimary={t.textPrimary}
+					accentColor={SECTION_ACCENTS.continue}
+					right={
+						<Group gap={4}>
+							<Clock size={12} color={t.textMuted} />
+							<Text fz="xs" c={t.textMuted}>
+								{IN_PROGRESS.length} in progress
+							</Text>
+						</Group>
+					}
+				/>
+				<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+					{IN_PROGRESS.slice(0, 6).map((item) => (
+						<ContinueCard
+							item={item}
+							key={item.id}
+							border={t.border}
+							surface={t.surface}
+							textMuted={t.textMuted}
+							textPrimary={t.textPrimary}
+							surfaceHover={t.surfaceHover}
+						/>
+					))}
+				</SimpleGrid>
+				{IN_PROGRESS.length > 6 ? (
+					<UnstyledButton
+						mt="sm"
+						onClick={() =>
+							console.log("[builtin-tracker] View all in-progress")
+						}
+					>
+						<Group gap={4}>
+							<Text fz="xs" fw={500} c={GOLD}>
+								View all {IN_PROGRESS.length} in progress
+							</Text>
+							<ChevronRight size={12} color={GOLD} />
+						</Group>
+					</UnstyledButton>
+				) : null}
+			</SectionFrame>
+
+			<SectionFrame
+				border={t.border}
+				isDark={t.isDark}
+				surface={t.surface}
+				accentColor={SECTION_ACCENTS.queue}
+			>
+				<SectionHeader
+					title="Up Next"
+					textMuted={t.textMuted}
+					textPrimary={t.textPrimary}
+					eyebrow="Queued with intent"
+					accentColor={SECTION_ACCENTS.queue}
+					right={
+						<Text fz="xs" c={t.textMuted}>
+							{BACKLOG.length} queued
+						</Text>
+					}
+				/>
+				<ScrollArea scrollbarSize={4} type="hover">
+					<Group gap="sm" wrap="nowrap" pb={4}>
+						{BACKLOG.map((item, index) => (
+							<BacklogCard
+								item={item}
+								rank={index}
+								key={item.id}
+								border={t.border}
+								surface={t.surface}
+								textMuted={t.textMuted}
+								textPrimary={t.textPrimary}
+								surfaceHover={t.surfaceHover}
+							/>
+						))}
+					</Group>
+				</ScrollArea>
+			</SectionFrame>
+
+			{UNRATED.length > 0 && (
 				<SectionFrame
 					border={t.border}
 					isDark={t.isDark}
 					surface={t.surface}
-					accentColor={SECTION_ACCENTS.continue}
+					accentColor={SECTION_ACCENTS.review}
 				>
 					<SectionHeader
-						title="Continue"
-						eyebrow="In motion"
+						title="Rate These"
+						eyebrow="Leave a trace"
 						textMuted={t.textMuted}
 						textPrimary={t.textPrimary}
-						accentColor={SECTION_ACCENTS.continue}
+						accentColor={SECTION_ACCENTS.review}
 						right={
-							<Group gap={4}>
-								<Clock size={12} color={t.textMuted} />
-								<Text fz="xs" c={t.textMuted}>
-									{IN_PROGRESS.length} in progress
-								</Text>
-							</Group>
+							<Text fz="xs" c={t.textMuted}>
+								{UNRATED.length} unrated
+							</Text>
 						}
 					/>
 					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
-						{IN_PROGRESS.slice(0, 6).map((item) => (
-							<ContinueCard
+						{UNRATED.map((item) => (
+							<RateCard
 								item={item}
 								key={item.id}
 								border={t.border}
@@ -1459,338 +1613,185 @@ export function BuiltinMediaTrackerOverview(
 							/>
 						))}
 					</SimpleGrid>
-					{IN_PROGRESS.length > 6 ? (
+				</SectionFrame>
+			)}
+
+			<SectionFrame
+				border={t.border}
+				isDark={t.isDark}
+				surface={t.surface}
+				accentColor={SECTION_ACCENTS.activity}
+			>
+				<SectionHeader
+					title="Activity"
+					eyebrow="Recent rhythm"
+					textMuted={t.textMuted}
+					textPrimary={t.textPrimary}
+					accentColor={SECTION_ACCENTS.activity}
+					right={
 						<UnstyledButton
-							mt="sm"
 							onClick={() =>
-								console.log("[builtin-tracker] View all in-progress")
+								console.log("[builtin-tracker] View full activity log")
 							}
 						>
 							<Group gap={4}>
 								<Text fz="xs" fw={500} c={GOLD}>
-									View all {IN_PROGRESS.length} in progress
+									View all
 								</Text>
 								<ChevronRight size={12} color={GOLD} />
 							</Group>
 						</UnstyledButton>
-					) : null}
-				</SectionFrame>
-
-				<SectionFrame
-					border={t.border}
-					isDark={t.isDark}
-					surface={t.surface}
-					accentColor={SECTION_ACCENTS.queue}
+					}
+				/>
+				<Paper
+					p="md"
+					radius="sm"
+					style={{
+						border: `1px solid ${t.border}`,
+						background: `linear-gradient(180deg, ${withAlpha(SECTION_ACCENTS.activity, 0.08)} 0%, ${t.surface} 18%, ${t.surface} 100%)`,
+					}}
 				>
-					<SectionHeader
-						title="Up Next"
-						textMuted={t.textMuted}
-						textPrimary={t.textPrimary}
-						eyebrow="Queued with intent"
-						accentColor={SECTION_ACCENTS.queue}
-						right={
-							<Text fz="xs" c={t.textMuted}>
-								{BACKLOG.length} queued
-							</Text>
-						}
-					/>
-					<ScrollArea scrollbarSize={4} type="hover">
-						<Group gap="sm" wrap="nowrap" pb={4}>
-							{BACKLOG.map((item, index) => (
-								<BacklogCard
-									item={item}
-									rank={index}
-									key={item.id}
-									border={t.border}
-									surface={t.surface}
-									textMuted={t.textMuted}
-									textPrimary={t.textPrimary}
-									surfaceHover={t.surfaceHover}
-								/>
-							))}
-						</Group>
-					</ScrollArea>
-				</SectionFrame>
-
-				{UNRATED.length > 0 && (
-					<SectionFrame
+					<WeekStrip
 						border={t.border}
-						isDark={t.isDark}
-						surface={t.surface}
-						accentColor={SECTION_ACCENTS.review}
-					>
-						<SectionHeader
-							title="Rate These"
-							eyebrow="Leave a trace"
-							textMuted={t.textMuted}
-							textPrimary={t.textPrimary}
-							accentColor={SECTION_ACCENTS.review}
-							right={
-								<Text fz="xs" c={t.textMuted}>
-									{UNRATED.length} unrated
-								</Text>
-							}
-						/>
-						<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
-							{UNRATED.map((item) => (
-								<RateCard
-									item={item}
-									key={item.id}
-									border={t.border}
-									surface={t.surface}
-									textMuted={t.textMuted}
-									textPrimary={t.textPrimary}
-									surfaceHover={t.surfaceHover}
-								/>
-							))}
-						</SimpleGrid>
-					</SectionFrame>
-				)}
-
-				<SectionFrame
-					border={t.border}
-					isDark={t.isDark}
-					surface={t.surface}
-					accentColor={SECTION_ACCENTS.activity}
-				>
-					<SectionHeader
-						title="Activity"
-						eyebrow="Recent rhythm"
+						days={WEEK_ACTIVITY}
 						textMuted={t.textMuted}
 						textPrimary={t.textPrimary}
 						accentColor={SECTION_ACCENTS.activity}
-						right={
-							<UnstyledButton
-								onClick={() =>
-									console.log("[builtin-tracker] View full activity log")
-								}
-							>
-								<Group gap={4}>
-									<Text fz="xs" fw={500} c={GOLD}>
-										View all
-									</Text>
-									<ChevronRight size={12} color={GOLD} />
-								</Group>
-							</UnstyledButton>
-						}
 					/>
+					<Group gap="xs" mt="md" mb="sm">
+						<Badge
+							variant="light"
+							style={{
+								color: SECTION_ACCENTS.activity,
+								backgroundColor: withAlpha(SECTION_ACCENTS.activity, 0.12),
+							}}
+						>
+							{weekTotalEvents} events this week
+						</Badge>
+					</Group>
+					<Box pt="md" style={{ borderTop: `1px solid ${t.border}` }}>
+						{Object.entries(dateGroups).map(([date, events]) => (
+							<Box key={date}>
+								<Text
+									mb={6}
+									fz={10}
+									fw={700}
+									tt="uppercase"
+									c={t.textMuted}
+									style={{ letterSpacing: "1px" }}
+									ff="var(--mantine-headings-font-family)"
+								>
+									{date}
+								</Text>
+								<Box px="xs">
+									{events.map((event, i) => (
+										<EventRow
+											event={event}
+											key={event.id}
+											border={t.border}
+											textMuted={t.textMuted}
+											textPrimary={t.textPrimary}
+											isLast={i === events.length - 1}
+										/>
+									))}
+								</Box>
+							</Box>
+						))}
+					</Box>
+				</Paper>
+			</SectionFrame>
+
+			<SectionFrame
+				border={t.border}
+				isDark={t.isDark}
+				surface={t.surface}
+				accentColor={SECTION_ACCENTS.library}
+			>
+				<SectionHeader
+					title="Library"
+					eyebrow="At a glance"
+					textMuted={t.textMuted}
+					textPrimary={t.textPrimary}
+					accentColor={SECTION_ACCENTS.library}
+					right={
+						<Text fz="xs" c={t.textMuted}>
+							{LIBRARY_STATS.total} total entries
+						</Text>
+					}
+				/>
+				<Stack gap="sm">
+					<SimpleGrid cols={{ base: 2, xs: 3, sm: 5 }} spacing="sm">
+						<StatChip
+							label="Total"
+							border={t.border}
+							surface={t.surface}
+							textMuted={t.textMuted}
+							value={LIBRARY_STATS.total}
+							textPrimary={t.textPrimary}
+						/>
+						<StatChip
+							label="Active"
+							color="#5B7FFF"
+							border={t.border}
+							surface={t.surface}
+							textMuted={t.textMuted}
+							textPrimary={t.textPrimary}
+							value={LIBRARY_STATS.active}
+						/>
+						<StatChip
+							color="#5B8A5F"
+							border={t.border}
+							label="Completed"
+							surface={t.surface}
+							textMuted={t.textMuted}
+							textPrimary={t.textPrimary}
+							value={LIBRARY_STATS.completed}
+						/>
+						<StatChip
+							color={GOLD}
+							label="Avg Rating"
+							border={t.border}
+							surface={t.surface}
+							textMuted={t.textMuted}
+							textPrimary={t.textPrimary}
+							value={LIBRARY_STATS.avgRating.toFixed(1)}
+						/>
+						<StatChip
+							color="#E09840"
+							label="On Hold"
+							border={t.border}
+							surface={t.surface}
+							textMuted={t.textMuted}
+							textPrimary={t.textPrimary}
+							value={LIBRARY_STATS.onHold}
+						/>
+					</SimpleGrid>
 					<Paper
 						p="md"
 						radius="sm"
 						style={{
 							border: `1px solid ${t.border}`,
-							background: `linear-gradient(180deg, ${withAlpha(SECTION_ACCENTS.activity, 0.08)} 0%, ${t.surface} 18%, ${t.surface} 100%)`,
+							background: `linear-gradient(180deg, ${withAlpha(SECTION_ACCENTS.library, 0.06)} 0%, ${t.surface} 100%)`,
 						}}
 					>
-						<WeekStrip
-							border={t.border}
-							days={WEEK_ACTIVITY}
-							textMuted={t.textMuted}
-							textPrimary={t.textPrimary}
-							accentColor={SECTION_ACCENTS.activity}
-						/>
-						<Group gap="xs" mt="md" mb="sm">
-							<Badge
-								variant="light"
-								style={{
-									color: SECTION_ACCENTS.activity,
-									backgroundColor: withAlpha(SECTION_ACCENTS.activity, 0.12),
-								}}
-							>
-								{weekTotalEvents} events this week
-							</Badge>
-						</Group>
-						<Box pt="md" style={{ borderTop: `1px solid ${t.border}` }}>
-							{Object.entries(dateGroups).map(([date, events]) => (
-								<Box key={date}>
-									<Text
-										mb={6}
-										fz={10}
-										fw={700}
-										tt="uppercase"
-										c={t.textMuted}
-										style={{ letterSpacing: "1px" }}
-										ff="var(--mantine-headings-font-family)"
-									>
-										{date}
-									</Text>
-									<Box px="xs">
-										{events.map((event, i) => (
-											<EventRow
-												event={event}
-												key={event.id}
-												border={t.border}
-												textMuted={t.textMuted}
-												textPrimary={t.textPrimary}
-												isLast={i === events.length - 1}
-											/>
-										))}
-									</Box>
-								</Box>
-							))}
-						</Box>
-					</Paper>
-				</SectionFrame>
-
-				<SectionFrame
-					border={t.border}
-					isDark={t.isDark}
-					surface={t.surface}
-					accentColor={SECTION_ACCENTS.library}
-				>
-					<SectionHeader
-						title="Library"
-						eyebrow="At a glance"
-						textMuted={t.textMuted}
-						textPrimary={t.textPrimary}
-						accentColor={SECTION_ACCENTS.library}
-						right={
-							<Text fz="xs" c={t.textMuted}>
-								{LIBRARY_STATS.total} total entries
-							</Text>
-						}
-					/>
-					<Stack gap="sm">
-						<SimpleGrid cols={{ base: 2, xs: 3, sm: 5 }} spacing="sm">
-							<StatChip
-								label="Total"
-								border={t.border}
-								surface={t.surface}
-								textMuted={t.textMuted}
-								value={LIBRARY_STATS.total}
-								textPrimary={t.textPrimary}
-							/>
-							<StatChip
-								label="Active"
-								color="#5B7FFF"
-								border={t.border}
-								surface={t.surface}
-								textMuted={t.textMuted}
-								textPrimary={t.textPrimary}
-								value={LIBRARY_STATS.active}
-							/>
-							<StatChip
-								color="#5B8A5F"
-								border={t.border}
-								label="Completed"
-								surface={t.surface}
-								textMuted={t.textMuted}
-								textPrimary={t.textPrimary}
-								value={LIBRARY_STATS.completed}
-							/>
-							<StatChip
-								color={GOLD}
-								label="Avg Rating"
-								border={t.border}
-								surface={t.surface}
-								textMuted={t.textMuted}
-								textPrimary={t.textPrimary}
-								value={LIBRARY_STATS.avgRating.toFixed(1)}
-							/>
-							<StatChip
-								color="#E09840"
-								label="On Hold"
-								border={t.border}
-								surface={t.surface}
-								textMuted={t.textMuted}
-								textPrimary={t.textPrimary}
-								value={LIBRARY_STATS.onHold}
-							/>
-						</SimpleGrid>
-						<Paper
-							p="md"
-							radius="sm"
-							style={{
-								border: `1px solid ${t.border}`,
-								background: `linear-gradient(180deg, ${withAlpha(SECTION_ACCENTS.library, 0.06)} 0%, ${t.surface} 100%)`,
-							}}
+						<Text
+							mb="xs"
+							fz="xs"
+							fw={600}
+							c={t.textMuted}
+							ff="var(--mantine-headings-font-family)"
 						>
-							<Text
-								mb="xs"
-								fz="xs"
-								fw={600}
-								c={t.textMuted}
-								ff="var(--mantine-headings-font-family)"
-							>
-								By Type
-							</Text>
-							<TypeBar
-								border={t.border}
-								types={TYPE_COUNTS}
-								textMuted={t.textMuted}
-								total={LIBRARY_STATS.total}
-							/>
-						</Paper>
-					</Stack>
-				</SectionFrame>
-			</Stack>
-
-			<Modal
-				centered
-				size="lg"
-				opened={typePickerOpened}
-				onClose={typePickerHandlers.close}
-				title={
-					<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
-						Add to Media
-					</Text>
-				}
-				overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
-			>
-				<SimpleGrid cols={{ base: 3, sm: 4 }} spacing="sm">
-					{searchableSchemas.map((schema) => {
-						return (
-							<UnstyledButton
-								key={schema.id}
-								onClick={() => handleTypeSelect(schema)}
-							>
-								<Paper
-									p="md"
-									radius="sm"
-									ta="center"
-									style={{
-										cursor: "pointer",
-										background: t.surface,
-										border: `1px solid ${t.border}`,
-										transition: "border-color 0.15s ease",
-									}}
-								>
-									<Stack gap={6} align="center">
-										<TrackerIcon
-											size={24}
-											icon={schema.icon}
-											color={schema.accentColor}
-										/>
-										<Text
-											fz="xs"
-											fw={600}
-											c={t.textPrimary}
-											ff="var(--mantine-headings-font-family)"
-										>
-											{schema.name}
-										</Text>
-										<Text fz={10} c={t.textMuted}>
-											{schema.searchProviders.length === 1
-												? schema.searchProviders[0]?.name
-												: `${schema.searchProviders.length} sources`}
-										</Text>
-									</Stack>
-								</Paper>
-							</UnstyledButton>
-						);
-					})}
-				</SimpleGrid>
-			</Modal>
-
-			{selectedSchema && (
-				<SearchEntityModal
-					opened={true}
-					onEntityAdded={() => {}}
-					entitySchema={selectedSchema}
-					onBack={handleSearchModalBack}
-					onClose={handleSearchModalClose}
-				/>
-			)}
-		</>
+							By Type
+						</Text>
+						<TypeBar
+							border={t.border}
+							types={TYPE_COUNTS}
+							textMuted={t.textMuted}
+							total={LIBRARY_STATS.total}
+						/>
+					</Paper>
+				</Stack>
+			</SectionFrame>
+		</Stack>
 	);
 }
