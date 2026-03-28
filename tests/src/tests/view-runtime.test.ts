@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	buildGridDisplayConfiguration,
 	buildGridRequest,
+	buildRuntimeField,
 	buildTableDisplayConfiguration,
 	buildTableRequest,
 	createAuthenticatedClient,
@@ -100,6 +101,42 @@ describe("View runtime E2E", () => {
 			hasNextPage: false,
 			hasPreviousPage: false,
 		});
+	});
+
+	it("accepts literal and coalesce expressions in raw runtime fields", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaRuntimeFixture();
+		const { data, response } = await executeViewRuntime(client, cookies, {
+			entitySchemaSlugs: [schema.slug],
+			eventJoins: [],
+			filters: [],
+			pagination: { page: 1, limit: 1 },
+			sort: { fields: [entityField(schema.slug, "name")], direction: "asc" },
+			fields: [
+				buildRuntimeField("label", { type: "literal", value: "Pinned" }),
+				buildRuntimeField("yearOrFallback", {
+					type: "coalesce",
+					values: [
+						{ type: "literal", value: null },
+						{
+							type: "reference",
+							reference: {
+								type: "schema-property",
+								slug: schema.slug,
+								property: "year",
+							},
+						},
+						{ type: "literal", value: 0 },
+					],
+				}),
+			],
+		});
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items[0]?.fields).toEqual([
+			{ key: "label", kind: "text", value: "Pinned" },
+			{ key: "yearOrFallback", kind: "number", value: 2018 },
+		]);
 	});
 
 	it("supports eq, neq, gt, gte, lt, lte, in, isNull, and isNotNull filters", async () => {

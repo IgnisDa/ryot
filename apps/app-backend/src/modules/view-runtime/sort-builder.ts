@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
 import { ViewRuntimeValidationError } from "~/lib/views/errors";
+import type { RuntimeRef } from "~/lib/views/expression";
 import { getCommonSortPropertyType } from "~/lib/views/policy";
 import {
 	getEventJoinColumnPropertyType,
@@ -9,7 +10,6 @@ import {
 	getPropertyType,
 	getSchemaForReference,
 	type PropertyType,
-	type RuntimeRef,
 	resolveRuntimeReference,
 	type ViewRuntimeEventJoinLike,
 	type ViewRuntimeReferenceContext,

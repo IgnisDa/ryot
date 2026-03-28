@@ -1,6 +1,7 @@
 import { zodBoolAsString } from "@ryot/ts-utils";
 import { z } from "zod";
 import { itemDataSchema, listDataSchema } from "~/lib/openapi";
+import { viewExpressionSchema } from "~/lib/views/expression";
 import { filterExpressionSchema } from "~/lib/views/filtering";
 import {
 	createIdParamsSchema,
@@ -25,14 +26,14 @@ const eventJoinKeySchema = nonEmptyTrimmedStringSchema.regex(
 	"Event join keys must start with a letter or underscore and contain only letters, numbers, and underscores",
 );
 
-const displayPropertyReferenceSchema = z.array(z.string()).nullable();
+const displayExpressionSchema = viewExpressionSchema.nullable();
 
 const createEntityCardDisplayConfigSchema = () =>
 	z.object({
-		imageProperty: displayPropertyReferenceSchema,
-		titleProperty: displayPropertyReferenceSchema,
-		badgeProperty: displayPropertyReferenceSchema,
-		subtitleProperty: displayPropertyReferenceSchema,
+		imageProperty: displayExpressionSchema,
+		titleProperty: displayExpressionSchema,
+		badgeProperty: displayExpressionSchema,
+		subtitleProperty: displayExpressionSchema,
 	});
 
 export const sortDefinitionSchema = z.object({
@@ -73,7 +74,7 @@ export const listConfigSchema = createEntityCardDisplayConfigSchema();
 
 export const tableColumnSchema = z.object({
 	label: nonEmptyTrimmedStringSchema,
-	property: z.array(z.string()),
+	expression: viewExpressionSchema,
 });
 
 export const tableConfigSchema = z.object({
