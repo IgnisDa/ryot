@@ -1,16 +1,46 @@
 import { describe, expect, it } from "bun:test";
+import type { AppSavedView } from "./model";
+
+const displayConfiguration: AppSavedView["displayConfiguration"] = {
+	layout: "grid",
+	table: { columns: [{ property: ["@name"] }] },
+	grid: {
+		badgeProperty: null,
+		subtitleProperty: null,
+		titleProperty: ["@name"],
+		imageProperty: ["@image"],
+	},
+	list: {
+		badgeProperty: null,
+		subtitleProperty: null,
+		titleProperty: ["@name"],
+		imageProperty: ["@image"],
+	},
+};
+
+function createSavedView(overrides: Partial<AppSavedView>): AppSavedView {
+	return {
+		id: "view-1",
+		isBuiltin: true,
+		icon: "book-open",
+		name: "All Whiskeys",
+		displayConfiguration,
+		trackerId: "tracker-1",
+		accentColor: "#5B7FFF",
+		createdAt: "2026-03-20T10:00:00.000Z",
+		updatedAt: "2026-03-20T10:05:00.000Z",
+		queryDefinition: {
+			filters: [],
+			entitySchemaSlugs: ["schema-1"],
+			sort: { field: ["@name"], direction: "asc" },
+		},
+		...overrides,
+	};
+}
 
 describe("toAppSavedView", () => {
 	it("converts raw API response to AppSavedView", () => {
-		const result = {
-			id: "view-1",
-			icon: "book-open",
-			name: "All Whiskeys",
-			isBuiltin: true,
-			trackerId: "tracker-1",
-			accentColor: "#5B7FFF",
-			queryDefinition: { entitySchemaIds: ["schema-1"] },
-		};
+		const result = createSavedView({});
 
 		expect(result.id).toBe("view-1");
 		expect(result.icon).toBe("book-open");
@@ -18,25 +48,29 @@ describe("toAppSavedView", () => {
 		expect(result.isBuiltin).toBe(true);
 		expect(result.trackerId).toBe("tracker-1");
 		expect(result.accentColor).toBe("#5B7FFF");
-		expect(result.queryDefinition.entitySchemaIds).toEqual(["schema-1"]);
+		expect(result.queryDefinition.entitySchemaSlugs).toEqual(["schema-1"]);
 	});
 
 	it("handles user-created saved views", () => {
-		const result = {
+		const result = createSavedView({
 			id: "view-2",
-			icon: "sparkles",
-			name: "My Custom View",
-			isBuiltin: false,
 			trackerId: null,
+			icon: "sparkles",
+			isBuiltin: false,
+			name: "My Custom View",
 			accentColor: "#2DD4BF",
-			queryDefinition: { entitySchemaIds: ["schema-1", "schema-2"] },
-		};
+			queryDefinition: {
+				filters: [],
+				entitySchemaSlugs: ["schema-1", "schema-2"],
+				sort: { field: ["@name"], direction: "asc" },
+			},
+		});
 
 		expect(result.icon).toBe("sparkles");
 		expect(result.isBuiltin).toBe(false);
 		expect(result.trackerId).toBeNull();
 		expect(result.accentColor).toBe("#2DD4BF");
-		expect(result.queryDefinition.entitySchemaIds).toEqual([
+		expect(result.queryDefinition.entitySchemaSlugs).toEqual([
 			"schema-1",
 			"schema-2",
 		]);

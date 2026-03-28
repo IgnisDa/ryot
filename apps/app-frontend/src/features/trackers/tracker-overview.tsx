@@ -246,7 +246,6 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 							isDark={isDark}
 							textLink={textLink}
 							views={overview.savedViews}
-							trackerSlug={props.tracker.slug}
 						/>
 					</Stack>
 				</Grid.Col>
@@ -282,11 +281,8 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 							<Group gap="xs">
 								{summary.savedView && (
 									<Link
-										to="/$trackerSlug/views/$viewId"
-										params={{
-											trackerSlug: props.tracker.slug,
-											viewId: summary.savedView.id,
-										}}
+										to="/views/$viewId"
+										params={{ viewId: summary.savedView.id }}
 									>
 										<Button component="span" size="xs" variant="light">
 											Open all
