@@ -39,10 +39,9 @@ export const updateTrackerBody = z
 	.object({
 		enabled: z.boolean().optional(),
 		description: nullableTextInputSchema,
-		accentColor: nonEmptyTrimmedStringSchema.optional(),
 		icon: applicationIconNameSchema.optional(),
 		name: nonEmptyTrimmedStringSchema.optional(),
-		slug: nonEmptyTrimmedStringSchema.optional(),
+		accentColor: nonEmptyTrimmedStringSchema.optional(),
 	})
 	.superRefine((value, ctx) => {
 		if (Object.keys(value).length === 0) {
@@ -56,7 +55,6 @@ export const updateTrackerBody = z
 		const hasConfigUpdate =
 			value.icon !== undefined ||
 			value.name !== undefined ||
-			value.slug !== undefined ||
 			value.description !== undefined ||
 			value.accentColor !== undefined;
 
